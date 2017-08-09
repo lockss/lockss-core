@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE lockss-config [
+<!ELEMENT lockss-config (if|property)+>
+<!ELEMENT property (property|list|value|if)*>
+<!ELEMENT list (value)+>
+<!ELEMENT value (#PCDATA)>
+<!ELEMENT test EMPTY>
+<!ELEMENT and (and|or|not|test)*>
+<!ELEMENT or (and|or|not|test)*>
+<!ELEMENT not (and|or|not|test)*>
+<!ELEMENT if (and|or|not|then|else|test|property)*>
+<!ELEMENT then (if|property)*>
+<!ELEMENT else (if|property)*>
+<!ATTLIST property name CDATA #REQUIRED>
+<!ATTLIST property value CDATA #IMPLIED>
+<!ATTLIST test hostname CDATA #IMPLIED>
+<!ATTLIST test group CDATA #IMPLIED>
+<!ATTLIST test daemonVersionMin CDATA #IMPLIED>
+<!ATTLIST test daemonVersionMax CDATA #IMPLIED>
+<!ATTLIST test daemonVersion CDATA #IMPLIED>
+<!ATTLIST test platformVersionMin CDATA #IMPLIED>
+<!ATTLIST test platformVersionMax CDATA #IMPLIED>
+<!ATTLIST test platformVersion CDATA #IMPLIED>
+<!ATTLIST test platformName CDATA #IMPLIED>
+<!ATTLIST if hostname CDATA #IMPLIED>
+<!ATTLIST if group CDATA #IMPLIED>
+<!ATTLIST if daemonVersionMin CDATA #IMPLIED>
+<!ATTLIST if daemonVersionMax CDATA #IMPLIED>
+<!ATTLIST if daemonVersion CDATA #IMPLIED>
+<!ATTLIST if platformVersionMin CDATA #IMPLIED>
+<!ATTLIST if platformVersionMax CDATA #IMPLIED>
+<!ATTLIST if platformVersion CDATA #IMPLIED>
+<!ATTLIST if platformName CDATA #IMPLIED>
+<!ATTLIST list append CDATA #IMPLIED>
+]>
+
+<!-- LOCKSS & LCAP tuning parameters -->
+<!-- Common config for all test frameworks -->
+<!-- This is included in the list of prop files by all the run_xxx_daemon -->
+<!-- scripts -->
+
+<lockss-config>
+
+  <!-- enclosing "org.lockss" so we don't have to repeat it -->
+  <property name="org.lockss">
+
+    <!-- Try to get a thread dump if a thread hangs -->
+    <property name="thread.hungThreadDump" value="true"/>
+
+    <!-- Allow backup files up to 1MB to be uploaded -->
+    <property name="ui.maxUploadFileSize" value="1048576" />
+
+    <!-- Automatically load (list in the UI) plugins named .*Plugin in these
+	 jars -->
+    <property name="plugin.registryJars">
+      <list>
+	<value>lockss-plugins.jar</value>
+      </list>
+    </property>
+
+    <!-- Automatically load (list in the UI) plugins in this list.  Include
+	 only plugins in jars not listed above, or whose id doesn't match
+	 .*Plugin -->
+    <property name="plugin.registry">
+      <list>
+	<value>edu.cornell.library.epr.EPRPlugin2001</value>
+	<value>edu.cornell.library.epr.EPRPlugin2002On</value>
+	<value>edu.nyu.plugin.heplwebzine.HEPLwebzine</value>
+	<value>org.lockss.plugin.janushead.JanusHeadPluginLegacy</value>
+	<value>org.lockss.plugin.simulated.SimulatedPlugin</value>
+      </list>
+    </property>
+
+  </property>
+
+  <!-- End org.lockss -->
+</lockss-config>
+

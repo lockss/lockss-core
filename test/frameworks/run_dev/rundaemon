@@ -1,0 +1,87 @@
+#! /bin/sh
+
+group="dev"
+
+arg_mem="-Xmx250m"
+
+prop_url="http://props.lockss.org:8001/daemon/lockss.xml"
+CLASSPATH=lib/lockss.jar:`cat ${PROJECT_DIR}/test/run-classpath`
+
+while true ; do
+  case "$1" in
+    "-classpath" )
+      CLASSPATH="$2"
+      echo "CLASSPATH=$CLASSPATH"
+      shift; shift; continue;;
+    "-debug" )
+      args="$args -Dorg.lockss.defaultLogLevel=DEBUG"
+      shift; continue;;
+    "-debug2" )
+      args="$args -Dorg.lockss.defaultLogLevel=DEBUG2"
+      shift; continue;;
+    "-debug3" )
+      args="$args -Dorg.lockss.defaultLogLevel=DEBUG3"
+      shift; continue;;
+    "-g" )
+      group="$2"
+      echo "group=$group"
+      shift; shift; continue;;
+    "-1.4" )
+      if [ -z "$JAVA_14_HOME" ] ; then
+	echo "-1.4 option requires JAVA_14_HOME to point to 1.4 install dir"
+	exit 1;
+      fi
+      JAVA_HOME="${JAVA_14_HOME}"
+      export JAVA_HOME
+      PATH="$JAVA_HOME/bin:$PATH"
+      export PATH
+      echo JAVA_HOME="$JAVA_HOME"
+      shift; continue;;
+    "-1.5" )
+      if [ -z "$JAVA_15_HOME" ] ; then
+	echo "-1.5 option requires JAVA_15_HOME to point to 1.5 install dir"
+	exit 1;
+      fi
+      JAVA_HOME="${JAVA_15_HOME}"
+      export JAVA_HOME
+      PATH="$JAVA_HOME/bin:$PATH"
+      export PATH
+      echo JAVA_HOME="$JAVA_HOME"
+      shift; continue;;
+    -Xmx* )
+      arg_mem="$1"
+      shift; continue;;
+    -p )
+      prop_url="$2"
+      shift; shift; continue;;
+    -* )
+      args="$args $1"
+      shift; continue;;
+  esac
+  break;
+done
+
+if [ -z "$args" ]; then
+  args="-server -Dorg.lockss.defaultLogLevel=DEBUG"
+  PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+PROP_URL_LIST="-p $prop_url -p local.txt"
+
+# local copy of lockss jars allows recompile while we're running
+mkdir -p lib
+cp "${PROJECT_DIR}/lib/lockss.jar" lib
+cp "${PROJECT_DIR}/lib/lockss-test.jar" lib
+cp "${PROJECT_DIR}/lib/lockss-plugins.jar" lib
+# Transform paths when running under cygwin
+if [ "$TERM" = "cygwin" ]; then
+  CLASSPATH=`cygpath -w -p $CLASSPATH`
+fi
+export CLASSPATH
+#echo CLASSPATH=$CLASSPATH
+
+echo running at `date`
+java $args $arg_mem -Dsun.net.inetaddr.ttl=3600 org.lockss.app.LockssDaemon -g $group ${PROP_URL_LIST} >>test.out 2>&1 &
+echo $! >dpid
+wait `cat dpid`
+echo stopped with status $? at `date`

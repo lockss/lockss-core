@@ -1,0 +1,65 @@
+#! /bin/sh
+
+# PROJECT_DIR
+PROJECT_DIR=`( cd ../../..; pwd )`
+export PROJECT_DIR
+
+VERB="$1"
+shift
+
+if [ "$VERB" = "clean" ] ; then
+  rm -rf lib
+	for i in 1 2 3 4 ; do
+		cd test$i
+		rm -rf root_?
+		cd ..
+	done
+fi
+
+if [ "$VERB" = "start" ] ; then
+    mkdir -p lib
+    cp "${PROJECT_DIR}/lib/lockss.jar" lib
+    cp "${PROJECT_DIR}/lib/lockss-test.jar" lib
+    cp "${PROJECT_DIR}/lib/lockss-plugins.jar" lib
+fi
+
+for i in 1 2 3 4 ; do
+    cd test$i
+    if [ "$VERB" = "start" ] ; then
+        if [ -f jvm_args ] ; then
+	    ARGS=`cat jvm_args`
+	  else
+	    ARGS=""
+	fi
+        if [ -f dpid ] ; then
+	    echo daemon already running in `pwd`
+	else
+            ( ../rundaemon $ARGS "$@"; rm -f dpid ) &
+	    echo started in `pwd`
+	fi
+    elif [ "$VERB" = "clean" ] ; then
+        if [ -f dpid ] ; then
+	    echo cannot clean while daemon is running in `pwd`
+	else
+            rm -rf config
+            rm -rf cache
+            rm -rf history
+            rm -rf V1
+            rm -rf V3
+            rm -rf localA
+            rm -rf v3state
+            rm -rf plugins
+            rm -rf iddb
+            rm -rf lib
+            rm -f test.out
+	fi
+    else
+        if [ -f dpid ] ; then
+	    kill `cat dpid` && rm -f dpid
+            echo stopped in `pwd`
+	else
+	    echo daemon not running in `pwd`
+        fi
+    fi
+    cd ..
+done

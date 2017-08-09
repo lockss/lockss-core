@@ -1,0 +1,20 @@
+#!/bin/sh
+
+cdproj()
+{
+ while :
+  do
+    [ -f test/scripts/run-class ] && break;
+    [ `pwd` = '/' ] && echo "Must be run in or under project directory" && exit 1;
+    cd ..
+  done
+}
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 <outputfile>"
+  exit 1
+fi
+
+cdproj
+
+test/scripts/run-class -Dorg.lockss.defaultLogLevel=critical TitleParams -c test/frameworks/common.txt -o $1

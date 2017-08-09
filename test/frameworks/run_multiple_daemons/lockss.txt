@@ -1,0 +1,68 @@
+# LOCKSS & LCAP tuning parameters
+org.lockss.log.default.level=debug
+
+#lockss config stuff
+org.lockss.platform.diskSpacePaths=./
+org.lockss.config.reloadInterval = 1m
+org.lockss.ui.allowPluginConfig=true
+
+# comm settings - disable V1, V3 only.
+org.lockss.ui.start=yes
+org.lockss.proxy.start=no
+org.lockss.comm.enabled=false
+
+# V3
+org.lockss.poll.v3.enableV3Poller=false
+org.lockss.poll.defaultPollProtocol=3
+org.lockss.scomm.enabled=true
+org.lockss.scomm.maxMessageSize=33554430
+org.lockss.poll.v3.pollStarterInitialDelay=2m
+org.lockss.poll.v3.pollStarterInterval=2m
+org.lockss.poll.v3.quorum=2
+org.lockss.poll.v3.minNominationSize=1
+org.lockss.poll.v3.maxNominationSize=1
+org.lockss.id.initialV3PeerList=\
+    TCP:[127.0.0.1]:9721;\
+    TCP:[127.0.0.1]:9722;\
+    TCP:[127.0.0.1]:9723;\
+    TCP:[127.0.0.1]:9724
+
+org.lockss.id.pidUiStemMap=\
+    TCP:[127.0.0.1]:9721,http://127.0.0.1:8081;\
+    TCP:[127.0.0.1]:9722,http://127.0.0.1:8082;\
+    TCP:[127.0.0.1]:9723,http://127.0.0.1:8083;\
+    TCP:[127.0.0.1]:9724,http://127.0.0.1:8084
+
+org.lockss.metrics.slowest.hashrate = 250
+org.lockss.state.recall.delay=5m
+
+org.lockss.crawler.startCrawlsInterval=5m
+
+# prod group modes
+org.lockss.baseau.defaultFetchRateLimiterSource = plugin
+org.lockss.crawler.maxRepairRate = 1000/1d
+org.lockss.poll.v3.deleteExtraFiles = true
+org.lockss.poll.v3.voteBlockThreshold = 0
+org.lockss.repository.globalNodeCache.enabled = true
+org.lockss.repository.globalNodeCache.size = 500
+org.lockss.state.globalNodeCache.enabled = true
+org.lockss.state.globalNodeCache.size = 500
+org.lockss.scheduler.maxBackgroundLoad = 50
+org.lockss.state.pollHistory.trimRewrite = true
+org.lockss.treewalk.v1.mode = off
+
+# Standard debugging settings
+org.lockss.monitor.inputStreams=true
+org.lockss.thread.hungThreadDump = true
+
+org.lockss.crawlStatus.keepUrls=all
+
+# UI username-passwd = lockss-u/lockss-p
+org.lockss.platform.ui.username=lockss-u
+org.lockss.platform.ui.password=SHA1:ac4fc8fa9930a24c8d002d541c37ca993e1bc40f
+
+# So that we don't hash on no-longer-relevant URLs
+org.lockss.blockHasher.ignoreFilesOutsideCrawlSpec=true
+
+org.lockss.baseau.minFetchDelay=3000
+org.lockss.plugin.restartAusWithNewPlugin=true

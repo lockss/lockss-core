@@ -1,0 +1,158 @@
+#!/bin/bash
+#
+# Script to compare lockss and clockss.
+#
+date
+echo "-----------------------------"
+echo "-----------------------------"
+tpath="/home/$LOGNAME/tmp"
+mkdir -p $tpath
+numdiffAUs=20
+opt_tdb_file=""
+USAGE="Usage: `basename $0` [-hv] [-t tdb_file]"
+
+while getopts hvt: OPT; do
+    case "$OPT" in
+        h)
+            echo $USAGE
+            exit 0
+            ;;
+        v)
+            echo "`basename $0` version 0.1"
+            exit 0
+            ;;
+        t)
+            opt_tdb_file=$OPTARG
+            ;;
+        \?)
+            # getopts issues an error message
+            echo $USAGE >&2
+            exit 1
+            ;;
+    esac
+done
+# Remove the switches we parsed above.
+shift `expr $OPTIND - 1`
+
+if [[ $opt_tdb_file == "" ]]
+then
+  echo "springer_science_business_media.tdb" > $tpath/pairs
+  ls tdb/clockssingest | grep .tdb > $tpath/ci
+  ls tdb/prod | grep .tdb > $tpath/gln
+  diff $tpath/ci $tpath/gln | grep "> " | sed 's/..//' > $tpath/notgln
+  diff $tpath/gln $tpath/notgln | grep "< " | sed 's/..//' >> $tpath/pairs
+  diff $tpath/gln $tpath/notgln | grep "< " | wc -l
+else
+  echo $opt_tdb_file > $tpath/pairs
+fi
+
+for file in `cat $tpath/pairs`
+do
+echo "-----------------------------"
+echo $file
+# Do the files exist?
+[ -f tdb/prod/$file ] && exists_gln=1 || exists_gln=0
+[ -f tdb/clockssingest/$file ] && exists_cks=1 || exists_cks=0
+if [[ $exists_gln == 0 ]]
+then
+  echo "GLN file does not exist"
+fi
+if [[ $exists_cks == 0 ]]
+then
+  echo "CLOCKSS file does not exist"
+fi
+# Ignore this file?
+if [[ $file == "american_medical_association.tdb" || $file == "purdue_university_press.tdb" || $file == "centro_de_filosofia_da_universidade_de_lisboa.tdb" || $file == "iop_publishing.tdb" ]]
+then
+  echo "Ignore files"
+  exists_cks=0
+  exists_gln=0
+fi
+# If the files exist, compare the titles.
+if [[ $exists_cks == 1  &&  $exists_gln == 1 ]]
+then
+  scripts/tdb/tdbout -j tdb/prod/$file | sort | uniq | grep -vf scripts/tdb/gvc_gln.txt > $tpath/glnt.txt
+  scripts/tdb/tdbout -j tdb/clockssingest/$file | sort | uniq | grep -vf scripts/tdb/gvc_clockss.txt > $tpath/clocksst.txt
+  rm $tpath/diff.txt
+  if ! diff $tpath/glnt.txt $tpath/clocksst.txt > $tpath/diff.txt
+    #echo Diff Lines: $diff_lines
+  then 
+    echo "Title differences: GLN v CLOCKSSingest"
+    linenum=`cat $tpath/diff.txt | grep "<" | wc -l`
+    echo "*** GLN Titles -- $linenum ***"
+    cat $tpath/diff.txt | grep "<" | sed s/..// 
+    linenum=`cat $tpath/diff.txt | grep ">" | wc -l`
+    echo "*** CLOCKSS Titles -- $linenum ***"
+    cat $tpath/diff.txt | grep ">" | sed s/..//
+  else
+  # If the titles are identical, then compare the AUs.
+    maxnumAUs1=$numdiffAUs
+    maxnumAUs2=$numdiffAUs
+    echo "No title differences"
+    if [[ $file == "hindawi_publishing_corporation.tdb" ]]
+    then
+      #all statuses except superseded, down, and zapped -EXMWTNYRCLZIF and not -DSB
+      scripts/tdb/tdbout -EXMWTNYRCLZIF -c auid,name,year tdb/prod/$file | grep -vf scripts/tdb/gvc_gln.txt | sed -e 's/^[^&]*&//' | sed -e 's/ \[superseded\]//' | sort | uniq > $tpath/glnt.txt
+      scripts/tdb/tdbout -EXMWTNYRCLZIF -c auid,name,year tdb/clockssingest/$file | grep -vf scripts/tdb/gvc_clockss.txt | sed -e 's/^[^&]*&//' | sed -e 's/ \[superseded\]//' | sort | uniq > $tpath/clocksst.txt
+    else
+      scripts/tdb/tdbout -c auid,name,year tdb/prod/$file | grep -vf scripts/tdb/gvc_gln.txt | sed -e 's/^[^&]*&//' | sed -e 's/ \[superseded\]//' | sort | uniq > $tpath/glnt.txt
+      scripts/tdb/tdbout -c auid,name,year tdb/clockssingest/$file | grep -vf scripts/tdb/gvc_clockss.txt | sed -e 's/^[^&]*&//' | sed -e 's/ \[superseded\]//' | sort | uniq > $tpath/clocksst.txt
+    fi
+    if ! diff -i $tpath/glnt.txt $tpath/clocksst.txt > $tpath/diff.txt
+    then
+      echo "AU differences: GLN v CLOCKSSingest"
+      #cat $tpath/diff.txt
+      echo "***GLN AUs***"
+      cat $tpath/diff.txt | grep "<" | sed s/..// | head -n20
+      linenum1=`cat $tpath/diff.txt | grep "<" | wc -l`
+      if [ $linenum1 -lt $maxnumAUs1 ]
+      then
+        maxnumAUs1=$linenum1
+      fi
+      echo "First $maxnumAUs1 out of $linenum1" 
+      echo "***CLOCKSS AUs***"
+      cat $tpath/diff.txt | grep ">" | sed s/..// | head -n20
+      linenum2=`cat $tpath/diff.txt | grep ">" | wc -l`
+      if [ $linenum2 -lt $maxnumAUs2 ]
+      then
+        maxnumAUs2=$linenum2
+      fi
+      echo "First $maxnumAUs2 out of $linenum2"
+    else
+    # if the AUs are identical, then compare the statuses. Find AUs that are ready or released in clockss, and not marked ready or released in the gln.
+      maxnumAUsA=$numdiffAUs
+      echo "No AU differences"
+      # Find AUs in the gln marked expected, exists, ready, released, superseded (these will be eleminated from the list)
+      scripts/tdb/tdbout -EXYRS -c auid,name tdb/prod/$file | grep -vf scripts/tdb/gvc_gln.txt > $tpath/done_gln_exyrs.txt
+      # Find AUs in the gln marked down
+      scripts/tdb/tdbout -D -c auid,name tdb/prod/$file | grep -vf scripts/tdb/gvc_gln.txt | sed -e 's/HighWirePressPlugin/HighWirePressH20Plugin/' | sed -e 's/HighWireStrVolPlugin/HighWirePressH20Plugin/' > $tpath/done_gln_d.txt
+      # Find AUs in the gln marked doNotProcess
+      scripts/tdb/tdbout -c auid,name -Q 'status is "doNotProcess"' tdb/prod/$file | grep -vf scripts/tdb/gvc_gln.txt > $tpath/done_gln_dnp.txt
+      # Merge all AUs to eliminate from list and sort
+      cat $tpath/done_gln_exyrs.txt $tpath/done_gln_d.txt $tpath/done_gln_dnp.txt | sort > $tpath/done_gln.txt
+      # Find AUs in clockss marked finished, filter for odd cases, filter plugin name, and sort.
+      scripts/tdb/tdbout -F -c auid,name tdb/clockssingest/$file | grep -vf scripts/tdb/gvc_clockss.txt | sed -e 's/Clockss//' | sed -e 's/BerkeleyElectronicPressPlugin/BePressPlugin/' | sort > $tpath/done_cks.txt
+      if ! diff $tpath/done_cks.txt $tpath/done_gln.txt > $tpath/done_diff.txt
+      then
+        echo "***AU status diffs: mark ready in GLN***"
+        if [[ $opt_tdb_file == "" ]]
+        then
+          cat $tpath/done_diff.txt | grep "^< " | sed s/..// | head -n20
+        else
+          cat $tpath/done_diff.txt | grep "^< " | sed s/..//
+        fi
+        linenumA=`cat $tpath/done_diff.txt | grep "^< " | wc -l`
+        if [[ $linenumA -lt "$maxnumAUsA" || $opt_tdb_file != "" ]]
+        then
+           maxnumAUsA=$linenumA
+        fi
+        echo "First $maxnumAUsA out of $linenumA"
+      else
+        echo "No status differences"
+      fi
+    fi
+  fi
+fi
+done
+exit 0
+

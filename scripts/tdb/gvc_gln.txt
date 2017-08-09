@@ -1,0 +1,297 @@
+ProjectMusePlugin
+BioOnePlugin
+BioOneAtyponPlugin
+HighWirePlugin
+OJS2Plugin
+CoActionPublishingPlugin
+##############American Adademy of Pediatrics
+base_url~http%3A%2F%2Fredbookarchive%2Eaappublications%2Eorg%2F&volume_name~
+##############American Society of Agronomy
+base_url~http%3A%2F%2Fagron%2Escijournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fjeq%2Escijournals%2Eorg%2F&volume_name~
+##############ASPET
+base_url~http%3A%2F%2Ftriggered%2Eclockss%2Eorg%2F&issn~1534-0384&volume_name~
+##############American Society of Microbiology
+American Society for Microbiology,Antimicrobial Agents and Chemotherapy
+base_url~http%3A%2F%2Faac%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Applied and Environmental Microbiology
+base_url~http%3A%2F%2Faem%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Clinical and Vaccine Immunology
+base_url~http%3A%2F%2Fcvi%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Clinical Microbiology Reviews
+base_url~http%3A%2F%2Fcmr%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Eukaryotic Cell
+base_url~http%3A%2F%2Fec%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Infection and Immunity
+base_url~http%3A%2F%2Fiai%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Journal of Bacteriology
+base_url~http%3A%2F%2Fjb%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Journal of Clinical Microbiology
+base_url~http%3A%2F%2Fjcm%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Journal of Virology
+base_url~http%3A%2F%2Fjvi%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,mBio
+base_url~http%3A%2F%2Fmbio%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Microbiology and Molecular Biology Reviews
+base_url~http%3A%2F%2Fmmbr%2Easm%2Eorg%2F&volume_name~
+American Society for Microbiology,Molecular and Cellular Biology
+base_url~http%3A%2F%2Fmcb%2Easm%2Eorg%2F&volume_name~
+##############American Society of Plant Biologists
+American Society of Plant Biologists,The Arabidopsis Book,1543-8120,
+##############Biomed Central
+base_url~http%3A%2F%2Fwww%2Ecerebrospinalfluidresearch%2Ecom%2F&journal_issn~1743-8454&volume_name~
+base_url~http%3A%2F%2Fwww%2Echiroandosteo%2Ecom%2F&journal_issn~1746-1340&volume_name~
+base_url~http%3A%2F%2Fwww%2Esalinesystems%2Eorg%2F&journal_issn~1746-1448&volume_name~
+base_url~http%3A%2F%2Fwww%2Edynamic-med%2Ecom%2F&journal_issn~1476-5918&volume_name~10,Dynamic Medicine Volume 10
+base_url~http%3A%2F%2Fjcmr-online%2Ecom%2F&journal_issn~1532-429X&volume_name~
+base_url~http%3A%2F%2Fchiromt%2Ecom%2F&journal_issn~2045-709X&volume_name~19,Chiropractic & Manual Therapies Volume 19
+base_url~http%3A%2F%2Fwww%2Ejournal%2Echemistrycentral%2Ecom%2F&journal_issn~1752-153X&volume_name~
+base_url~http%3A%2F%2Fwww%2Eepi-perspectives%2Ecom%2F&journal_issn~1742-5573&volume_name~
+##############Duke University Press
+Duke University Press,Hopscotch: A Cultural Review,1098-6995,1527-800X
+Duke University Press,Nepantla: Views from South,1529-1650,1527-0858
+base_url~http%3A%2F%2Fcarlyleletters%2Edukejournals%2Eorg%2F&volume_name~
+##############Edinburgh University Press
+Edinburgh University Press,Journal of Victorian Culture,1355-5502,1750-0133
+base_url~http%3A%2F%2Fmuse%2Ejhu%2Eedu%2F&journal_dir~journal_of_victorian_culture
+Edinburgh University Press,Parliamentary History,0264-2824,1750-0206
+base_url~http%3A%2F%2Fmuse%2Ejhu%2Eedu%2F&journal_dir~parliamentary_history
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~1,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~2,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~3,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~4,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~5,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~6,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~7,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~8,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~9,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~10,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~11,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~12,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~13,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~14,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~15,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~16,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~17,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~18,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~19,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~20,Scottish Archaeological Journal
+base_url~http%3A%2F%2Fwww%2Eeuppublishing%2Ecom%2F&journal_id~saj&volume_name~21,Scottish Archaeological Journal
+##############Endocrine Society
+Endocrine Society,Recent Progress in Hormone Research
+base_url~http%3A%2F%2Frphr%2Eendojournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fendo%2Eendojournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fjcem%2Eendojournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fmend%2Eendojournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fedrv%2Eendojournals%2Eorg%2F&volume_name~
+##############Hindawi
+Hindawi Publishing Corporation,Advances in Difference Equations,1687-1839,1687-1847
+Hindawi Publishing Corporation,Advances in Nonlinear Optics,1687-7276,1687-7284
+Hindawi Publishing Corporation,Boundary Value Problems,1687-2762,1687-2770
+Hindawi Publishing Corporation,Case Reports in Allergy,2090-6366,2090-6374
+Hindawi Publishing Corporation,Case Reports in Toxicology,2090-6927,2090-6935
+Hindawi Publishing Corporation,Clinical and Developmental Immunology,1740-2522,1740-2530
+Hindawi Publishing Corporation,Comparative and Functional Genomics,1531-6912,1532-6268
+Hindawi Publishing Corporation,Differential Equations and Nonlinear Mechanics,1687-4099,1687-4102
+Hindawi Publishing Corporation,EURASIP Journal on Advances in Signal Processing,1110-8657,1687-0433
+Hindawi Publishing Corporation,"EURASIP Journal on Audio, Speech, and Music Processing",1687-4714,1687-4722
+Hindawi Publishing Corporation,EURASIP Journal on Bioinformatics and Systems Biology,1687-4145,1687-4153
+Hindawi Publishing Corporation,EURASIP Journal on Embedded Systems,1687-3955,1687-3963
+Hindawi Publishing Corporation,EURASIP Journal on Image and Video Processing,1687-5176,1687-5281
+Hindawi Publishing Corporation,EURASIP Journal on Information Security,1687-4161,1687-417X
+Hindawi Publishing Corporation,EURASIP Journal on Wireless Communications and Networking,1687-1472,1687-1499
+Hindawi Publishing Corporation,Experimental Diabetes Research,1687-5214,1687-5303
+Hindawi Publishing Corporation,Fixed Point Theory and Applications,1687-1820,1687-1812
+Hindawi Publishing Corporation,Headache Research and Treatment,2090-1909,2090-1917
+Hindawi Publishing Corporation,International Journal of Pediatric Endocrinology,1687-9848,1687-9856
+Hindawi Publishing Corporation,International Journal of Plasma Science and Engineering,1687-6245,1687-6253
+Hindawi Publishing Corporation,International Journal of Power Management Electronics,1687-6679,1687-6687
+Hindawi Publishing Corporation,"International Journal of Quality, Statistics, and Reliability",1687-7144,1687-7152
+Hindawi Publishing Corporation,International Journal of Reacting Systems,1687-6016,1687-6024
+Hindawi Publishing Corporation,Journal of Applied Mathematics and Decision Sciences,1173-9126,1532-7612
+Hindawi Publishing Corporation,Journal of Applied Mathematics and Stochastic Analysis,1048-9533,1687-2177
+Hindawi Publishing Corporation,Journal of Artificial Evolution and Applications,1687-6229,1687-6237
+Hindawi Publishing Corporation,Journal of Automated Methods and Management in Chemistry,1463-9246,1464-5068
+Hindawi Publishing Corporation,Journal of Biomedicine and Biotechnology,1110-7243,1110-7251
+Hindawi Publishing Corporation,"Journal of Computer Systems, Networks, and Communications",1687-7381,1687-739X
+Hindawi Publishing Corporation,Journal of Inequalities and Applications,1025-5834,1029-242X
+Hindawi Publishing Corporation,Journal of Magnetism,1687-9821,1687-983X
+Hindawi Publishing Corporation,Journal of Transfusion,2090-3073,2090-3081
+Hindawi Publishing Corporation,Laser Chemistry,0278-6273,1476-3516
+Hindawi Publishing Corporation,Metal-Based Drugs,0793-0291,1687-5486
+Hindawi Publishing Corporation,Physical Separation in Science and Engineering,1478-6478,1478-6486
+Hindawi Publishing Corporation,Research Letters in Biochemistry,1687-6709,1687-6717
+Hindawi Publishing Corporation,Research Letters in Communications,1687-6741,1687-675X
+Hindawi Publishing Corporation,Research Letters in Ecology,1687-6768,1687-6776
+Hindawi Publishing Corporation,Research Letters in Electronics,1687-6784,1687-6792
+Hindawi Publishing Corporation,Research Letters in Inorganic Chemistry,1687-6806,1687-6814
+Hindawi Publishing Corporation,Research Letters in Materials Science,1687-6822,1687-6830
+Hindawi Publishing Corporation,Research Letters in Nanotechnology,1687-6849,1687-6857
+Hindawi Publishing Corporation,Research Letters in Optics,1687-8175,1687-8183
+Hindawi Publishing Corporation,Research Letters in Organic Chemistry,1687-6865,1687-6938
+Hindawi Publishing Corporation,Research Letters in Physical Chemistry,1687-6873,1687-6881
+Hindawi Publishing Corporation,Research Letters in Physics,1687-689X,1687-6903
+Hindawi Publishing Corporation,Research Letters in Signal Processing,1687-6911,1687-692X
+Hindawi Publishing Corporation,Sequencing,2090-0325,2090-0333
+Hindawi Publishing Corporation,"Texture, Stress, and Microstructure",1687-5397,1687-5400
+Hindawi Publishing Corporation,X-Ray Optics and Instrumentation,1687-7632,1687-7640
+###base_url~http%3A%2F%2Fwww%2Ehindawi%2Ecom%2F&download_url~http%3A%2F%2Fdownloads%2Ehindawi%2Ecom%2F&journal_id~ade&volume_name~
+###base_url~http%3A%2F%2Fwww%2Ehindawi%2Ecom%2F&download_url~http%3A%2F%2Fdownloads%2Ehindawi%2Ecom%2F&journal_id~ane&volume_name~
+###base_url~http%3A%2F%2Fwww%2Ehindawi%2Ecom%2F&download_url~http%3A%2F%2Fdownloads%2Ehindawi%2Ecom%2F&journal_id~ano&volume_name~
+###base_url~http%3A%2F%2Fwww%2Ehindawi%2Ecom%2F&download_url~http%3A%2F%2Fdownloads%2Ehindawi%2Ecom%2F&journal_id~aop&volume_name~
+###base_url~http%3A%2F%2Fwww%2Ehindawi%2Ecom%2F&download_url~http%3A%2F%2Fdownloads%2Ehindawi%2Ecom%2F&journal_id~apec&volume_name~
+###base_url~http%3A%2F%2Fwww%2Ehindawi%2Ecom%2F&download_url~http%3A%2F%2Fdownloads%2Ehindawi%2Ecom%2F&journal_id~arth&volume_name~
+###base_url~http%3A%2F%2Fwww%2Ehindawi%2Ecom%2F&download_url~http%3A%2F%2Fdownloads%2Ehindawi%2Ecom%2F&journal_id~asmp&volume_name~
+#################Libertas Academica
+base_url~http%3A%2F%2Fwww%2Ela-press%2Ecom%2F&journal_id~173&year~2010
+base_url~http%3A%2F%2Fwww%2Ela-press%2Ecom%2F&journal_id~173&year~2011
+##############Manchester University Press
+api_url~http%3A%2F%2Fapi%2Eingentaconnect%2Ecom%2F&base_url~http%3A%2F%2Fwww%2Eingentaconnect%2Ecom%2F&graphics_url~http%3A%2F%2Fgraphics%2Eingentaconnect%2Ecom%2F&journal_id~tsc&journal_issn~0268-117X&publisher_id~manup&volume_name~20,The Seventeenth Century Volume 20
+api_url~http%3A%2F%2Fapi%2Eingentaconnect%2Ecom%2F&base_url~http%3A%2F%2Fwww%2Eingentaconnect%2Ecom%2F&graphics_url~http%3A%2F%2Fgraphics%2Eingentaconnect%2Ecom%2F&journal_id~tsc&journal_issn~0268-117X&publisher_id~manup&volume_name~21,The Seventeenth Century Volume 21
+api_url~http%3A%2F%2Fapi%2Eingentaconnect%2Ecom%2F&base_url~http%3A%2F%2Fwww%2Eingentaconnect%2Ecom%2F&graphics_url~http%3A%2F%2Fgraphics%2Eingentaconnect%2Ecom%2F&journal_id~tsc&journal_issn~0268-117X&publisher_id~manup&volume_name~22,The Seventeenth Century Volume 22
+api_url~http%3A%2F%2Fapi%2Eingentaconnect%2Ecom%2F&base_url~http%3A%2F%2Fwww%2Eingentaconnect%2Ecom%2F&graphics_url~http%3A%2F%2Fgraphics%2Eingentaconnect%2Ecom%2F&journal_id~tsc&journal_issn~0268-117X&publisher_id~manup&volume_name~23,The Seventeenth Century Volume 23
+api_url~http%3A%2F%2Fapi%2Eingentaconnect%2Ecom%2F&base_url~http%3A%2F%2Fwww%2Eingentaconnect%2Ecom%2F&graphics_url~http%3A%2F%2Fgraphics%2Eingentaconnect%2Ecom%2F&journal_id~tsc&journal_issn~0268-117X&publisher_id~manup&volume_name~24,The Seventeenth Century Volume 24
+api_url~http%3A%2F%2Fapi%2Eingentaconnect%2Ecom%2F&base_url~http%3A%2F%2Fwww%2Eingentaconnect%2Ecom%2F&graphics_url~http%3A%2F%2Fgraphics%2Eingentaconnect%2Ecom%2F&journal_id~tsc&journal_issn~0268-117X&publisher_id~manup&volume_name~25,The Seventeenth Century Volume 25
+api_url~http%3A%2F%2Fapi%2Eingentaconnect%2Ecom%2F&base_url~http%3A%2F%2Fwww%2Eingentaconnect%2Ecom%2F&graphics_url~http%3A%2F%2Fgraphics%2Eingentaconnect%2Ecom%2F&journal_id~tsc&journal_issn~0268-117X&publisher_id~manup&volume_name~26,The Seventeenth Century Volume 26
+##############Oxford University Press
+Oxford University Press,Communication Theory,1050-3293,1468-2885
+base_url~http%3A%2F%2Fct%2Eoxfordjournals%2Eorg%2F&volume_name~
+Oxford University Press,Contemporary Economic Policy,1074-3529,1465-7287
+base_url~http%3A%2F%2Fcep%2Eoxfordjournals%2Eorg%2F&volume_name~
+Oxford University Press,Economic Inquiry,0095-2583,1465-7295
+base_url~http%3A%2F%2Fei%2Eoxfordjournals%2Eorg%2F&volume_name~
+Oxford University Press,Human Communication Research,0360-3989,1468-2958
+base_url~http%3A%2F%2Fhcr%2Eoxfordjournals%2Eorg%2F&volume_name~
+Oxford University Press,International and Comparative Law Quarterly,0020-5893,1471-6895
+base_url~http%3A%2F%2Ficlq%2Eoxfordjournals%2Eorg%2F&volume_name~
+Oxford University Press,Journal of Communication,1460-2466,0021-9916
+base_url~http%3A%2F%2Fjoc%2Eoxfordjournals%2Eorg%2F&volume_name~
+Oxford University Press,Journal of the Royal Musical Association,0269-0403,1471-6933
+base_url~http%3A%2F%2Fjrma%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Ffsb%2Eoxfordjournals%2Eorg%2F&volume_name~LX,French Studies Bulletin
+base_url~http%3A%2F%2Fbrief-treatment%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fietcom%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fietele%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fietfec%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fietisy%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fecam%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fbfgp%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fndtplus%2Eoxfordjournals%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fbtci%2Estanford%2Eclockss%2Eorg%2F&volume_name~
+##############Pennsylvania State University Press
+Pennsylvania State University Press,Critical Philosophy of Race,2165-8684,2165-8692
+Pennsylvania State University Press,Journal of Africana Religions,2165-5405,2165-5413
+Pennsylvania State University Press,Journal of Eastern Mediterranean Archaeology and Heritage Studies,2166-3548,2166-3556
+Pennsylvania State University Press,"Reception: Texts, Readers, Audiences, History",2168-0604,2155-7888
+Penn State University Press,Bulletin (Shaw Society of America),2156-8928,
+Penn State University Press,Resources for American Literary Study,1529-1502,0048-7384
+Penn State University Press,Studies in American Humor,0095-280X,2333-9934
+Penn State University Press,The Newsletter of PEGS,2157-2968,
+Penn State University Press,The Shaw Review,0037-3354,
+Penn State University Press,The Cormac McCarthy Journal
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~1,The Edgar Allen Poe Review Volume 1 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~2,The Edgar Allen Poe Review Volume 2 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~3,The Edgar Allen Poe Review Volume 3 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~4,The Edgar Allen Poe Review Volume 4 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~5,The Edgar Allen Poe Review Volume 5 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~6,The Edgar Allen Poe Review Volume 6 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~7,The Edgar Allen Poe Review Volume 7 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~8,The Edgar Allen Poe Review Volume 8 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~9,The Edgar Allen Poe Review Volume 9 
+####base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~edgallpoerev&volume_name~10,The Edgar Allen Poe Review Volume 10
+base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~marktwaij&volume_name~1,The Mark Twain Annual Volume 1
+base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~marktwaij&volume_name~2,The Mark Twain Annual Volume 2
+base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~marktwaij&volume_name~3,The Mark Twain Annual Volume 3
+base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~marktwaij&volume_name~4,The Mark Twain Annual Volume 4
+base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~marktwaij&volume_name~5,The Mark Twain Annual Volume 5
+base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~marktwaij&volume_name~6,The Mark Twain Annual Volume 6
+base_url~http%3A%2F%2Fwww%2Ejstor%2Eorg%2F&base_url2~https%3A%2F%2Fwww%2Ejstor%2Eorg%2F&journal_id~marktwaij&volume_name~7,The Mark Twain Annual Volume 7
+##############Portland Press
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~01,Bioscience Reports Volume 1
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~02,Bioscience Reports Volume 2
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~03,Bioscience Reports Volume 3
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~04,Bioscience Reports Volume 4
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~05,Bioscience Reports Volume 5
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~06,Bioscience Reports Volume 6
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~07,Bioscience Reports Volume 7
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~08,Bioscience Reports Volume 8
+base_url~http%3A%2F%2Fwww%2Ebioscirep%2Eorg%2F&journal_id~bsr&volume_name~09,Bioscience Reports Volume 9
+##############Rochefeller University Press
+base_url~http%3A%2F%2Fwww%2Ejem%2Eorg%2F&volume_name~202
+base_url~http%3A%2F%2Fwww%2Ejgp%2Eorg%2F&volume_name~127
+base_url~http%3A%2F%2Fwww%2Ejcb%2Eorg
+##############SAGE Publications
+SAGE Publications,Ecclesiology,1744-1366,1745-5316
+base_url~http%3A%2F%2Fecc%2Esagepub%2Ecom%2F&volume_name~
+SAGE Publications,Emotional & Behavioural Difficulties,1363-2752,1741-2692
+base_url~http%3A%2F%2Febd%2Esagepub%2Ecom%2F&volume_name~
+SAGE Publications,Experimental Mechanics,0014-4851,
+base_url~http%3A%2F%2Fexm%2Esagepub%2Ecom%2F&volume_name~
+SAGE Publications,German History,0266-3554,1477-089X
+base_url~http%3A%2F%2Fghj%2Esagepub%2Ecom%2F&volume_name~
+SAGE Publications,Journal of Anglican Studies,1740-3553,1745-5278
+base_url~http%3A%2F%2Fast%2Esagepub%2Ecom%2F&volume_name~
+SAGE Publications,Journal of Moral Philosophy,1740-4681,1745-5243
+base_url~http%3A%2F%2Fmpj%2Esagepub%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Ffcs%2Esagepub%2Ecom%2F&volume_name~
+SAGE Publications,Graft: Organ and Cell Transplantation,1522-1628,
+base_url~http%3A%2F%2Fgraft%2Estanford%2Eclockss%2Eorg%2F&volume_name~
+base_url~http%3A%2F%2Fgraft%2Estanford%2Eclockss%2Eorg%2F&volume~
+base_url~http%3A%2F%2Fini%2Esagepub%2Ecom%2F&volume_name~13,Journal of Endotoxin Research
+base_url~http%3A%2F%2Fini%2Esagepub%2Ecom%2F&volume_name~14,Journal of Endotoxin Research
+base_url~http%3A%2F%2Facb%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Far%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fce%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fcr%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Febm%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fhsmr%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fht%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fijcp%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fijsa%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fjhsrp%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fjmb%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fjms%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fjrsm%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fjtt%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fla%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fmi%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fmlj%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fmsl%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fobmed%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fphleb%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fshortreports%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fsmj%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Ftd%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fult%2Ersmjournals%2Ecom%2F&volume_name~
+base_url~http%3A%2F%2Fvascular%2Ersmjournals%2Ecom%2F&volume_name~
+##############Universitatea Babeş-Bolyai, Cluj-Napoca
+base_url~http%3A%2F%2Fscholarcommons%2Eusf%2Eedu%2F&journal_abbr~geologia&volume~52
+base_url~http%3A%2F%2Fscholarcommons%2Eusf%2Eedu%2F&journal_abbr~geologia&volume~53
+base_url~http%3A%2F%2Fscholarcommons%2Eusf%2Eedu%2F&journal_abbr~geologia&volume~54
+base_url~http%3A%2F%2Fscholarcommons%2Eusf%2Eedu%2F&journal_abbr~geologia&volume~55
+base_url~http%3A%2F%2Fscholarcommons%2Eusf%2Eedu%2F&journal_abbr~geologia&volume~56
+##############University of Iowa
+University of Iowa,Electronic Journal of Africana Bibliography
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~ejab&volume~
+University of Iowa,Iowa Journal of Cultural Studies
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~ijcs&volume~
+University of Iowa,Iowa Journal of Literary Studies
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~ijls&volume~
+University of Iowa,Mathal/Mashal: Journal of Islamic and Judaic Multidisciplinary Studies
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~mathal&volume~
+University of Iowa,Medieval Feminist Forum
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~mff&volume~
+University of Iowa,Proceedings in Obstetrics and Gynecology
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~pog&volume~
+University of Iowa,Syllecta Classica
+University of Iowa,Annals at Iowa
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~annals-of-iowa&volume~
+University of Iowa,Books at Iowa
+base_url~http%3A%2F%2Fir%2Euiowa%2Eedu%2F&journal_abbr~bai&volume~
+University of Iowa,B Sides
+University of Iowa,Dada/Surrealism
+University of Iowa,Iowa Geological Survey Annual Report
+University of Iowa,Iowa Historical Review
+University of Iowa,Marilyn Zurmuehlen Working Papers in Art Education
+##############Western Michigan U
+Western Michigan University,Comparative Drama

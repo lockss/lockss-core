@@ -1,0 +1,3330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+
+========================================================================
+ $Id$
+ Ant build file for LOCKSS daemon
+========================================================================
+
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+all rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Stanford University shall not
+be used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization from Stanford University.
+========================================================================
+
+-->
+
+<project name="LOCKSS Gamma" default="test-all" basedir=".">
+
+<description>
+Args:
+  -Dargs="args ..."        Supply cmd line args to run-class
+  -Djvmargs="args ..."     Supply cmd line args to java (e.g., -Xmx1000m)
+  -Dclass=pack.age.Class   Specify class for test-one, test-class, run-class
+  -Dexclude=path           Exclude matching tests.
+  -Dfile=path/to/file      Specify file for print or index.
+                              File is relative to project base dir
+  -Dfiltertrace=no         Don't filter junit frames from backtrace.
+  -Dforce=true             Override prerequisite checks (e.g., java version)
+  -Dfork=true              Run each test in a separate jvm.  (Default is true,
+                              setting to false will cause some tests to fail.)
+  -Dforkc=true             Run compiler in a separate jvm.
+  -Dhalt=false             Run all tests in group, even if some fail.
+  -Dinclude=path           Include matching tests.
+  -Djavaversion=1.8        The version of Java accepted/targeted.
+  -Dkeeptempfiles=true     Don't delete temp files after tests run.
+  -Dlistfiles=true         List the source files that will be compiled.  Use if
+                              a compile step runs when nothing should need to
+                              be compiled, to find package/dir disagreements.
+  -Dloglevel=debug         Set default log level to debug for
+                             test-all, test-one, test-class, run-class.
+  -Dtdbloglevel=warning    Set log level to warning when loading tdb files
+                             (default is "error").
+  -Dlogtarget=Class        Set default log target.
+  -Dnonetwork=true         Skip tests that require a working network
+  -Dnowarn=true            Turn off compiler warnings.
+  -Dpapersize=letter       The medium to pass to a2ps for index and print.
+  -Dshowoutput=yes         With test-one, show System.err output as it happens.
+  -Dsuite=suite-name       Specify stf suite name.
+  -Dtimeout=msecs          Override the default test failure timeout.
+  -Dtitledb=file           Title DB config file to bundle with a plugin JAR.
+
+  post-commit-test args:
+  -Dbranch=tag             Branch to checkout (defaults to current branch)
+  -Dcopylib=true           If true, lib jars are copied to temp build dir,
+                           not checked out from svn.
+  -Dtarget=target          Target that post-commit-test will build.
+
+
+ Release targets (jar-lockss, rpm))
+  -Dreleasename=string     Name of daemon release, if building a release.
+  -Drpmrelease=string      Name of RPM release, if building an RPM.
+  -Dtarrelease=string      Name of tar release, if building an tar.
+
+ Javadoc targets (javadoc, javadoc-test)
+  -Dauthor=true            Include author info in javadoc.
+  -Duse=false              Exclude Class use info from javadoc.
+  -Dversion=true           Include version info in javadoc.
+  -Dscript=name            Script run by jdftp.  Default is lockss-jdftp.
+
+</description>
+
+   <!-- User defaults (old name) -->
+  <property file="${user.home}/lockss.properties"/>
+   <!-- User defaults -->
+  <property file="${user.home}/.lockssprops"/>
+
+  <!-- Defaults -->
+  <property name="javaversion" value="1.8" />
+  <property name="loglevel" value="" />
+  <property name="showoutput" value="no" />
+  <property name="filtertrace" value="yes" />
+  <property name="timeout" value="" />
+  <property name="jvmargs" value="" />
+  <property name="keeptempfiles" value="" />
+  <property name="idtempfiles" value="" />
+  <property name="nonetwork" value="" />
+<!-- Some tests will not work right if fork=no  -->
+  <property name="fork" value="yes" />
+  <property name="forkc" value="yes" />
+  <property name="exclude" value="" />
+  <property name="halt" value="true" />
+  <property name="author" value="false" />
+  <property name="use" value="true" />
+  <property name="version" value="false" />
+  <property name="noqualifier" value="java.*" />
+<!--   <property name="noqualifier" -->
+<!-- 	    value="java.lang:java.io:java.net:java.util:java.text" /> -->
+  <property name="papersize" value="letter" />
+
+  <!-- Default tmpdir is java.io.tmpdir -->
+  <property name="tmpdir" value="${java.io.tmpdir}" />
+
+  <!-- Default heap for junit if none specified in jvmargs -->
+  <property name="junit.default.args" value="-Xmx256m" />
+
+  <property environment="env"/>
+  <!--  Ignore system classpath, to ensure consistent builds -->
+  <property name="build.sysclasspath" value="ignore" />
+
+  <!--  svn-related -->
+  <property name="svn.module.default" value="lockss-daemon" />
+  <property name="svn.dir"       value="lockss-daemon" />
+  <property name="svn.anon.root"
+		  value="git@github.com:lockss/lockss-daemon.git" />
+  <!-- XXX should get this from -->
+
+  <!--  Directories -->
+  <property name="java.lib"       value="${env.JAVA_HOME}/lib" />
+  <property name="maven.home"     value="${env.MAVEN_HOME}" />
+  <property name="src"            value="${basedir}/src/main/java" />
+  <property name="classes"        value="${basedir}/target/classes" />
+  <property name="rewoven.classes" value="${basedir}/rewoven-classes" />
+  <property name="lib"            value="${basedir}/lib"/>
+  <property name="test"           value="${basedir}/test" />
+  <property name="test.src"       value="${basedir}/src/test/java" />
+  <property name="test.classes"   value="${basedir}/target/test-classes" />
+<!--    <property name="test.lib"       value="${test}/lib"/> -->
+  <property name="test.lib"       value="${lib}"/>
+  <property name="test.results"   value="${test}/results"/>
+  <property name="test.native"    value="${test}/native"/>
+  <property name="generated"           value="${basedir}/generated"/>
+  <property name="generated.src"       value="${generated}/src"/>
+  <property name="generated.classes"   value="${generated}/classes" />
+
+  <property name="framework.stf"    value="${test}/frameworks/run_stf"/>
+
+  <!--  Tdb source and .xml output dirs -->
+  <property name="tdb.src.dir" value="${basedir}/tdb" />
+  <property name="tdb.xml.dir"
+	    value="${basedir}/test/frameworks/tdbxml" />
+
+  <property name="scripts"           value="${basedir}/scripts"/>
+
+  <!--  All python test files.  (How to factor out dir list?) -->
+  <fileset id="python.tests" dir="${basedir}">
+    <include name="scripts/**/*_test.py"/>
+    <include name="test/frameworks/*/*_test.py"/>
+  </fileset>
+
+  <property name="ant"           value="${basedir}/ant"/>
+  <property name="ant.src"       value="${ant}/src"/>
+  <property name="ant.classes"   value="${ant}/classes" />
+
+  <property name="tools"           value="${basedir}/tools"/>
+  <property name="tools.src"       value="${tools}/src"/>
+  <property name="tools.classes"   value="${tools}/classes" />
+
+  <property name="tools.test"      value="${tools}/test"/>
+  <property name="tools.test.src"  value="${tools.test}/src"/>
+  <property name="tools.test.classes" value="${tools.test}/classes"/>
+
+  <property name="instrumented" value="${basedir}/instrumented"/>
+
+  <property name="javadoc"        value="${basedir}/javadoc"/>
+  <property name="test.javadoc"   value="${basedir}/test-javadoc"/>
+  <property name="depend.cache"   value="${basedir}/.depend"/>
+  <property name="temp.build"     value="${basedir}/tempbuild"/>
+
+  <property name="ajax"           value="${basedir}/ajax"/>
+  <property name="ajax.target"    value="${ajax}/target"/>
+
+  <!-- Prototype RPM tree -->
+  <property name="protorpm.top" value="${basedir}/rpms" />
+  <property name="protorpm.rpms" value="${protorpm.top}/RPMS" />
+
+  <!-- Library jars -->
+
+  <property name="rhino.jar"      value="${lib}/rhino.jar"/>
+  <property name="js-engine.jar"  value="${lib}/js-engine.jar"/>
+  <property name="script.jar"     value="${lib}/script.jar"/>
+  <property name="derby.jar"      value="${lib}/derby.jar"/>
+  <property name="derbyclient.jar" value="${lib}/derbyclient.jar"/>
+  <property name="derbynet.jar"   value="${lib}/derbynet.jar"/>
+  <property name="postgresql-jdbc.jar"
+                                  value="${lib}/postgresql-jdbc4-9.1.jar" />
+  <property name="mysql-connector-java.jar"
+				  value="${lib}/mysql-connector-java-5.1.29-bin.jar" />
+  <property name="mailapi.jar"    value="${lib}/javamail-mailapi-1.3.2.jar"/>
+  <property name="activation.jar" value="${lib}/activation-1.0.2.jar"/>
+  <property name="castor.jar"     value="${lib}/castor-0.9.4.1-xml.jar"/>
+  <!-- the jars needed for xml processeing using xerces2j and xalan -->
+  <property name="xerces.jar"     value="${lib}/xercesImpl-2.11.0.jar"/>
+  <property name="xml-apis.jar"   value="${lib}/xml-apis-1.4.01.jar"/>
+  <property name="xalan.jar"      value="${lib}/xalan-2.7.2.jar"/>
+  <property name="xml-resolver.jar" value="${lib}/xml-resolver-1.2.jar" />
+  <property name="xalan-serializer.jar" value="${lib}/xalan-serializer-2.7.2.jar" />
+
+  <property name="jimi.jar"       value="${lib}/JimiProClasses.jar"/>
+  <property name="jetty.jar"      value="${lib}/jetty-5.1.5L.jar"/>
+  <property name="servlet.jar"    value="${lib}/javax.servlet.jar"/>
+  <property name="pjl-comp-filter.jar"
+                                  value="${lib}/pjl-comp-filter-1.6.5.jar"/>
+  <property name="jaxp.jar"       value="${lib}/javax.xml.jaxp.jar"/>
+<!--    <property name="xml.jar"  value="${lib}/org.apache.crimson.jar"/> -->
+  <property name="log4j.jar" value="${lib}/log4j-1.2.13.jar"/>
+  <property name="commons.lang.jar"
+				  value="${lib}/commons-lang-2.6.jar"/>
+  <property name="commons.lang3.jar"
+				  value="${lib}/commons-lang3-3.4.jar"/>
+  <property name="commons.cli.jar"
+  				  value="${lib}/commons-cli-1.3.1.jar"/>
+  <property name="commons.collections.jar"
+  				  value="${lib}/commons-collections-3.2.2.jar"/>
+  <property name="commons.collections4.jar"
+	 			  value="${lib}/commons-collections4-4.1.jar"/>
+  <property name="commons.configuration.jar"
+                  value="${lib}/commons-configuration-1.10.jar"/>
+  <property name="commons.logging.jar"
+  				  value="${lib}/commons-logging-1.2.jar"/>
+  <property name="commons.codec.jar"
+  				  value="${lib}/commons-codec-1.10.jar"/>
+  <property name="commons.compress.jar"
+  				  value="${lib}/commons-compress-1.10.jar"/>
+  <!-- property name="commons.httpclient.jar"
+  			value="${lib}/commons-httpclient-3.0-rc4.jar"/ -->
+  <property name="httpcore.jar" value="${lib}/httpcore-4.4.6.jar"/>
+  <property name="httpclient.jar" value="${lib}/httpclient-4.5.3.jar"/>
+  <property name="commons.io.jar"
+	        value="${lib}/commons-io-2.4.jar" />
+  <property name="commons.jxpath.jar"
+				  value="${lib}/commons-jxpath-1.3.jar"/>
+  <property name="commons.beanutils.jar"
+				  value="${lib}/commons-beanutils-1.9.2.jar"/>
+    <property name="commons.validator.jar"
+              value="${lib}/commons-validator-1.5.0.jar"/>
+  <!-- gettext jars, for i18n -->
+  <property name="gettext.tasks.jar"
+            value="${lib}/gettext-ant-tasks-0.9.7.jar"/>
+  <property name="gettext.commons.jar"
+            value="${lib}/gettext-commons-0.9.6.jar"/>
+  <!-- TrueZIP -->
+  <property name="truezip.version" value="7.5.5" />
+
+  <property name="truezip-driver-file.jar"
+	    value="${lib}/truezip-driver-file-${truezip.version}.jar" />
+  <property name="truezip-driver-tar.jar"
+	    value="${lib}/truezip-driver-tar-${truezip.version}.jar" />
+  <property name="truezip-driver-zip.jar"
+	    value="${lib}/truezip-driver-zip-${truezip.version}.jar" />
+  <property name="truezip-file.jar"
+	    value="${lib}/truezip-file-${truezip.version}.jar" />
+  <property name="truezip-kernel.jar"
+	    value="${lib}/truezip-kernel-${truezip.version}.jar" />
+  <property name="truezip-swing.jar"
+	    value="${lib}/truezip-swing-${truezip.version}.jar" />
+
+  <property name="javatar.jar" value="${lib}/javagnutar.jar" />
+  <property name="concurrent.jar" value="${lib}/concurrent.jar"/>
+  <property name="htmlparser.jar" value="${lib}/htmlparser-1.6p.jar"/>
+  <property name="jsoup.jar" value="${lib}/jsoup-1.8.2.jar"/>
+  <property name="apiviz.jar"     value="${lib}/apiviz-1.3.1.jar"/>
+  <!-- W3C RDF Parser -->
+  <property name="rdf.jar"        value="${lib}/rdf-api-2001-01-19.jar" />
+  <property name="xstream.jar"    value="${lib}/xstream-1.1.3.jar" />
+  <property name="xmlunit.jar"    value="${lib}/xmlunit1.0.jar" />
+  <property name="oai-harvester.jar" value="${lib}/harvester2-0.1.12-p1.jar"/>
+  <!-- Needed by OAI harvester: Xalan, Xerces, XML-APIs, Log4j -->
+
+  <property name="js.jar"         value="${test.lib}/js.jar" />
+  <property name="junit.jar"      value="${test.lib}/junit.jar"/>
+  <property name="junit.addons.jar" value="${test.lib}/junit-addons-1.4.jar"/>
+  <property name="httpunit.jar"    value="${test.lib}/httpunit.jar"/>
+  <property name="mockito.jar"    value="${test.lib}/mockito-core-1.10.19.jar"/>
+  <property name="nekohtml.jar"  value="${test.lib}/nekohtml.jar"/>
+  <property name="objenesis.jar"    value="${test.lib}/objenesis-2.1.jar"/>
+  <property name="jdk.tools.jar"      value="${java.lib}/tools.jar"/>
+  <property name="cobertura.jar"  value="${test.lib}/cobertura.jar"/>
+  <property name="bcel.jar"  value="${test.lib}/bcel.jar"/>
+  <property name="oro.jar"  value="${test.lib}/jakarta-oro-2.0.8.jar"/>
+  <property name="getopt.jar"  value="${test.lib}/gnu-getopt-1.0.13.jar"/>
+  <property name="javacsv.jar"  value="${test.lib}/javacsv.jar"/>
+  <property name="ant-contrib.jar"      value="${lib}/ant-contrib-0.6.jar"/>
+
+  <!-- Needed by XOAI -->
+  <property name="xoai-common.jar" value="${lib}/xoai-common-4.1.0.jar"/>
+  <property name="xoai-service-provider.jar" value="${lib}/xoai-service-provider-4.1.0-p2.jar"/>
+  <property name="xml-io.jar" value="${lib}/xml-io-1.0.3-p2.jar"/>
+  <!-- property name="httpcore.jar" value="${lib}/httpcore-4.3.2.jar"/ -->
+  <property name="hamcrest-all.jar" value="${lib}/hamcrest-all-1.3.jar"/>
+  <property name="stax2-api.jar" value="${lib}/stax2-api-3.0.4.jar"/>
+  <property name="test-support.jar" value="${lib}/test-support-1.0.4.jar"/>
+  <!-- property name="httpclient.jar" value="${lib}/httpclient-4.3.1.jar"/ -->
+
+  <!-- PDFBox -->
+  <property name="pdfbox.version" value="1.8.11" />
+  <property name="pdfbox.jar" value="${lib}/pdfbox-${pdfbox.version}.jar" />
+  <!-- Next 8 JARs needed by PDFBox: -->
+  <property name="fontbox.jar" value="${lib}/fontbox-${pdfbox.version}.jar" />
+  <property name="jempbox.jar" value="${lib}/jempbox-${pdfbox.version}.jar" />
+  <property name="xmpbox.jar" value="${lib}/xmpbox-${pdfbox.version}.jar" />
+  <property name="bouncycastle.version" value="jdk15on-154" />
+  <property name="bouncycastle-provider.jar" value="${lib}/bcprov-${bouncycastle.version}.jar" />
+  <property name="bouncycastle-mail.jar" value="${lib}/bcmail-${bouncycastle.version}.jar" />
+  <property name="icu4j.version" value="56_1" />
+  <property name="icu4j.jar" value="${lib}/icu4j-${icu4j.version}.jar" />
+  <property name="icu4j-charset.jar" value="${lib}/icu4j-charset-${icu4j.version}.jar" />
+  <property name="icu4j-localespi.jar" value="${lib}/icu4j-localespi-${icu4j.version}.jar" />
+
+  <!-- PDFBox 0.7.3 -->
+  <property name="pdfbox-old.jar" value="${lib}/PDFBox-0.7.3.jar" />
+  <!-- Next 3 needed by PDFBox 0.7.3: -->
+  <property name="fontbox-old.jar" value="${lib}/FontBox-0.1.0-dev.jar" />
+<!--  <property name="bouncycastle.provider-old.jar" value="${lib}/bcprov-jdk14-132.jar" /> -->
+<!--  <property name="bouncycastle.mail-old.jar" value="${lib}/bcmail-jdk14-132.jar" /> -->
+
+  <!-- Needed by ArcExploder, exporters, jcr repo: -->
+  <!-- property name="heritrix.jar" value="${lib}/heritrix-commons-3.1.0-p1.jar" / -->
+  <property name="webarchive-commons.jar"
+  	value="${lib}/webarchive-commons-1.1.7-patch1.jar" />
+  <property name="heritrix-fastutil.jar" value="${lib}/fastutil-5.0.7.jar" />
+  <!-- property name="heritrix-guava.jar" value="${lib}/guava-r08.jar" / -->
+  <property name="guava.jar" value="${lib}/guava-18.0.jar" />
+
+  <!-- Database schema documentation. -->
+  <property name="schemaSpy.jar" value="${lib}/schemaSpy_5.0.0.jar" />
+
+  <property name="ext.javadoc"
+                      value="http://documents.lockss.org/gamma-libs/" />
+  <!-- Needed by ajax crawler -->
+  <property name="jackson-core.jar" value="${lib}/jackson-core-2.3.2.jar" />
+  <property name="jackson-databind.jar" value="${lib}/jackson-databind-2.3.2.jar" />
+  <property name="jackson-annotations.jar" value="${lib}/jackson-annotations-2.3.0.jar" />
+  <property name="crawljax-lockss-bridge.jar" value="${lib}/crawljax-lockss-bridge.jar" />
+
+  <property name="antlr.runtime.jar" value="${lib}/antlr-runtime-4.4.jar" />
+  <property name="antlr.tools.jar" value="${lib}/antlr-4.4-complete.jar" />
+  <!-- Jars we create -->
+  <property name="lockss.jar"     value="${lib}/lockss.jar"/>
+  <property name="lockss.rewoven.jar"    value="${lib}/lockss-rewoven.jar"/>
+  <property name="lockss.generated.jar"  value="${lib}/lockss-generated.jar"/>
+  <property name="lockss.test.jar" value="${test.lib}/lockss-test.jar"/>
+  <property name="lockss.ant.jar" value="${lib}/lockss-ant.jar"/>
+  <property name="lockss.tools.jar" value="${lib}/lockss-tools.jar"/>
+  <property name="lockss.tools.test.jar" value="${lib}/lockss-tools-test.jar"/>
+  <property name="lockss.platform.jar"   value="${lib}/lockss-platform.jar"/>
+
+  <!--  Files -->
+  <property name="default.releasename.file" value="${src}/defaultreleasename"/>
+  <property name="test.classpath.file" value="${test}/test-classpath"/>
+  <property name="test.param.classpath.file" value="${test}/test-p-classpath"/>
+  <property name="run.classpath.file" value="${test}/run-classpath"/>
+  <property name="openbsd.classpath.file" value="${lib}/run-classpath"/>
+  <property name="openbsd.packinglist.file" value="${lib}/packing-list"/>
+  <property name="run.props" value="${lib}/run-props"/>
+  <property name="maxheap.script" value="${lib}/maxheap"/>
+  <!--  This path is also known to org.lockss.util.BuildInfo class -->
+  <property name="build.info.file"
+                     value="${classes}/org/lockss/htdocs/build.properties"/>
+  <property name="build.filerev.file"
+                     value="${classes}/revision-info"/>
+  <property name="cobertura.ser" value="cobertura.ser" />
+  <property name="aspectj.jar" value="${lib}/aspectj-1.8.10.jar"/>
+  <property name="aspectj.tools.jar" value="${lib}/aspectjtools.jar"/>
+  <property name="jcabi.jar" value="${lib}/jcabi-aspects-1.0-SNAPSHOT-jar-with-dependencies.jar"/>
+
+  <property name="ant-contrib.resource"
+                          value="net/sf/antcontrib/antcontrib.properties"/>
+
+  <property name="requires-1.8" value="test/requires-1.8"/>
+
+  <!-- Database schema documentation. -->
+  <property name="schema.doc.dir" value="${javadoc}/schemadoc"/>
+
+  <!-- Needed by web services -->
+  <property name="aopalliance.jar" value="${lib}/aopalliance-1.0.jar" />
+  <property name="asm.jar" value="${lib}/asm-3.3.1.jar" />
+  <property name="asm-tree.jar" value="${lib}/asm-tree-3.0.jar" />
+  <property name="cxf.jar" value="${lib}/cxf-2.6.2.jar" />
+  <property name="FastInfoset.jar" value="${lib}/FastInfoset-1.2.9.jar" />
+  <!-- property name="jaxb-impl.jar" value="${lib}/jaxb-impl-2.2.5.jar" / -->
+  <property name="jaxb-runtime.jar" value="${lib}/jaxb-runtime-2.2.11.jar" />
+  <property name="jaxb-core.jar" value="${lib}/jaxb-core-2.2.11.jar" />
+  <!-- property name="jaxb-xjc.jar" value="${lib}/jaxb-xjc-2.2.5.jar" / -->
+  <property name="jaxb-xjc.jar" value="${lib}/jaxb-xjc-2.2.11.jar" />
+  <property name="mimepull.jar" value="${lib}/mimepull-1.7.jar" />
+  <property name="neethi.jar" value="${lib}/neethi-3.0.2.jar" />
+  <property name="spring-aop.jar" value="${lib}/spring-aop-3.0.7.RELEASE.jar" />
+  <property name="spring-asm.jar" value="${lib}/spring-asm-3.0.7.RELEASE.jar" />
+  <property name="spring-beans.jar" value="${lib}/spring-beans-3.0.7.RELEASE.jar" />
+  <property name="spring-context.jar" value="${lib}/spring-context-3.0.7.RELEASE.jar" />
+  <property name="spring-core.jar" value="${lib}/spring-core-3.0.7.RELEASE.jar" />
+  <property name="spring-expression.jar" value="${lib}/spring-expression-3.0.7.RELEASE.jar" />
+  <property name="spring-web.jar" value="${lib}/spring-web-3.0.7.RELEASE.jar" />
+  <property name="velocity.jar" value="${lib}/velocity-1.7.jar" />
+  <property name="wsdl4j.jar" value="${lib}/wsdl4j-1.6.2.jar" />
+  <property name="xmlschema-core.jar" value="${lib}/xmlschema-core-2.0.3.jar" />
+  <property name="JoSQL.jar" value="${lib}/JoSQL-2.2.jar" />
+  <property name="JoSQL-contrib.jar" value="${lib}/JoSQL-contrib-1.5_5.jar" />
+  <property name="gentlyWEB-utils.jar" value="${lib}/gentlyWEB-utils-1.1.jar" />
+
+  <!-- Needed by OIOSAML -->
+  <property name="commons-digester-commons-digester.jar"
+    value="${lib}/commons-digester-commons-digester.jar" />
+  <property name="commons-fileupload-commons-fileupload.jar"
+  	value="${lib}/commons-fileupload-commons-fileupload.jar" />
+  <property name="esapi-2.0GA.jar" value="${lib}/esapi-2.0GA.jar" />
+  <property name="joda-time-joda-time.jar"
+  	value="${lib}/joda-time-joda-time.jar" />
+  <property name="not-yet-commons-ssl-0.3.9.jar"
+  	value="${lib}/not-yet-commons-ssl-0.3.9.jar" />
+  <property name="oiosaml.java-21188-PATCHED.jar"
+  	value="${lib}/oiosaml.java-21188-PATCHED.jar" />
+  <property name="opensaml-2.5.1.jar" value="${lib}/opensaml-2.5.1.jar" />
+  <property name="openws-1.4.2.jar" value="${lib}/openws-1.4.2.jar" />
+  <property name="org.apache.santuario-xmlsec.jar"
+    value="${lib}/org.apache.santuario-xmlsec.jar" />
+  <property name="org.bouncycastle-pkix.jar"
+    value="${lib}/org.bouncycastle-bcpkix-jdk15on.jar" />
+  <property name="org.fishwife-jrugged-core.jar"
+    value="${lib}/org.fishwife-jrugged-core.jar" />
+  <property name="org.slf4j-slf4j-api.jar"
+    value="${lib}/slf4j-api-1.7.25.jar" />
+  <property name="xmltooling-1.3.2.jar" value="${lib}/xmltooling-1.3.2.jar" />
+
+  <property name="empty.db.parent.dir" value="${tmpdir}" />
+  <property name="empty.db.dir" value="${empty.db.parent.dir}/db" />
+  <property name="empty.db.archive"
+            value="${test.classes}/org/lockss/db/db.zip" />
+
+  <!--  Compiler options -->
+  <property name="javac.debug"             value="on" />
+  <property name="javac.optimize"          value="off" />
+  <property name="javac.deprecation"       value="false" />
+
+  <!--  Cobertura classpath -->
+  <path id="cobertura.classpath">
+    <pathelement path="${cobertura.jar}" />
+    <pathelement path="${asm.jar}" />
+    <pathelement path="${asm-tree.jar}" />
+    <pathelement path="${oro.jar}" />
+    <pathelement path="${log4j.jar}" />
+  </path>
+
+  <!--  Classpaths -->
+  <path id="compile.classpath">
+    <pathelement path="${lockss.generated.jar}" />
+    <pathelement path="${commons.lang.jar}" />
+    <pathelement path="${commons.lang3.jar}" /><!-- @since 1.67 -->
+    <pathelement path="${commons.collections.jar}" />
+    <pathelement path="${commons.collections4.jar}" />
+    <pathelement path="${commons.logging.jar}" />
+    <pathelement path="${commons.cli.jar}" />
+    <pathelement path="${commons.codec.jar}" />
+    <pathelement path="${commons.configuration.jar}" />
+    <pathelement path="${commons.compress.jar}" />
+    <!-- pathelement path="${commons.httpclient.jar}" / -->
+    <pathelement path="${httpcore.jar}" />
+    <pathelement path="${httpclient.jar}" />
+    <pathelement path="${commons.io.jar}" />
+    <pathelement path="${commons.jxpath.jar}" />
+    <pathelement path="${commons.compress.jar}" />
+    <pathelement path="${commons.validator.jar}" />
+    <pathelement path="${truezip-kernel.jar}" />
+    <pathelement path="${truezip-file.jar}" />
+    <pathelement path="${truezip-driver-file.jar}" />
+    <pathelement path="${truezip-driver-zip.jar}" />
+    <pathelement path="${truezip-driver-tar.jar}" />
+<!-- XXX Shouldn't need this - figure out how to avoid dependency -->
+    <pathelement path="${truezip-swing.jar}" />
+    <pathelement path="${javatar.jar}" />
+    <pathelement path="${log4j.jar}" />
+    <pathelement path="${concurrent.jar}" />
+    <pathelement path="${jetty.jar}" />
+    <pathelement path="${servlet.jar}" />
+    <pathelement path="${pjl-comp-filter.jar}" />
+    <pathelement path="${js-engine.jar}" />
+    <pathelement path="${script.jar}" />
+    <pathelement path="${rhino.jar}" />
+    <pathelement path="${derby.jar}" />
+    <pathelement path="${derbyclient.jar}" />
+    <pathelement path="${derbynet.jar}" />
+	<pathelement path="${postgresql-jdbc.jar}" />
+    <pathelement path="${mysql-connector-java.jar}" />
+    <pathelement path="${mailapi.jar}" />
+    <pathelement path="${activation.jar}" />
+    <pathelement path="${castor.jar}" />
+    <pathelement path="${xerces.jar}" />
+    <pathelement path="${xml-apis.jar}" />
+    <pathelement path="${jimi.jar}" />
+    <pathelement path="${oro.jar}" />
+    <pathelement path="${htmlparser.jar}" />
+    <pathelement path="${jsoup.jar}" />
+    <pathelement path="${rdf.jar}" />
+    <pathelement path="${xstream.jar}" />
+    <pathelement path="${pdfbox.jar}" />
+    <!-- Next 7 needed by PDFBox: -->
+    <pathelement path="${fontbox.jar}" />
+    <pathelement path="${jempbox.jar}" />
+    <pathelement path="${bouncycastle-provider.jar}" />
+    <pathelement path="${bouncycastle-mail.jar}" />
+    <pathelement path="${icu4j.jar}" />
+    <pathelement path="${icu4j-charset.jar}" />
+    <pathelement path="${icu4j-localespi.jar}" />
+    <pathelement path="${pdfbox-old.jar}" />
+    <!-- Next 3 needed by PDFBox 0.7.3: -->
+    <pathelement path="${fontbox-old.jar}" />
+<!--    <pathelement path="${bouncycastle.provider-old.jar}" /> -->
+<!--    <pathelement path="${bouncycastle.mail-old.jar}" /> -->
+    <!-- jars needed to run the OAI harvester -->
+    <pathelement path="${oai-harvester.jar}" />
+    <pathelement path="${xalan.jar}" />
+    <!-- jars needed by the ArcCrawler -->
+    <!-- pathelement path="${heritrix.jar}" / -->
+    <pathelement path="${webarchive-commons.jar}" />
+    <pathelement path="${heritrix-fastutil.jar}" />
+    <!-- pathelement path="${heritrix-guava.jar}" / -->
+    <pathelement path="${guava.jar}" />
+    <pathelement path="${commons.beanutils.jar}" />
+    <!-- Jars for I18N -->
+    <pathelement path="${gettext.commons.jar}" />
+	<!-- Needed by web services -->
+	<pathelement path="${aopalliance.jar}" />
+	<pathelement path="${asm.jar}" />
+	<pathelement path="${cxf.jar}" />
+	<pathelement path="${FastInfoset.jar}" />
+	<!-- pathelement path="${jaxb-impl.jar}" / -->
+	<pathelement path="${jaxb-runtime.jar}" />
+	<pathelement path="${jaxb-core.jar}" />
+	<pathelement path="${jaxb-xjc.jar}" />
+	<pathelement path="${mimepull.jar}" />
+	<pathelement path="${neethi.jar}" />
+	<pathelement path="${spring-aop.jar}" />
+	<pathelement path="${spring-asm.jar}" />
+	<pathelement path="${spring-beans.jar}" />
+	<pathelement path="${spring-context.jar}" />
+	<pathelement path="${spring-core.jar}" />
+	<pathelement path="${spring-expression.jar}" />
+	<pathelement path="${spring-web.jar}" />
+	<pathelement path="${velocity.jar}" />
+	<pathelement path="${wsdl4j.jar}" />
+	<pathelement path="${xmlschema-core.jar}" />
+    <pathelement path="${JoSQL.jar}" />
+    <pathelement path="${JoSQL-contrib.jar}" />
+    <pathelement path="${gentlyWEB-utils.jar}" />
+	<!-- Needed for DB migration-->
+	<pathelement path="${getopt.jar}" />
+    <!-- Needed by AJAX crawler-->
+      <pathelement path="${jackson-annotations.jar}" />
+    <pathelement path="${jackson-core.jar}" />
+    <pathelement path="${jackson-databind.jar}" />
+    <pathelement path="${crawljax-lockss-bridge.jar}" />
+    <!-- Needed for TDB tools: -->
+    <pathelement path="${antlr.runtime.jar}" />
+    <!-- Needed by XOAI -->
+    <pathelement path="${xoai-common.jar}" />
+    <pathelement path="${xoai-service-provider.jar}" />
+    <pathelement path="${xml-io.jar}" />
+    <pathelement path="${hamcrest-all.jar}" />
+    <pathelement path="${stax2-api.jar}" />
+    <pathelement path="${test-support.jar}" />
+    <!-- Needed by OIOSAML -->
+    <pathelement path="${commons-digester-commons-digester.jar}" />
+    <pathelement path="${commons-fileupload-commons-fileupload.jar}" />
+    <pathelement path="${esapi-2.0GA.jar}" />
+    <pathelement path="${joda-time-joda-time.jar}" />
+    <pathelement path="${not-yet-commons-ssl-0.3.9.jar}" />
+    <pathelement path="${oiosaml.java-21188-PATCHED.jar}" />
+    <pathelement path="${opensaml-2.5.1.jar}" />
+    <pathelement path="${openws-1.4.2.jar}" />
+    <pathelement path="${org.apache.santuario-xmlsec.jar}" />
+    <pathelement path="${org.bouncycastle-pkix.jar}" />
+    <pathelement path="${org.fishwife-jrugged-core.jar}" />
+    <pathelement path="${org.slf4j-slf4j-api.jar}" />
+    <pathelement path="${xalan-serializer.jar}" />
+    <pathelement path="${xml-resolver.jar}" />
+    <pathelement path="${xmltooling-1.3.2.jar}" />
+    <pathelement path="${jcabi.jar}" />
+  </path>
+
+  <path id="run.classpath">
+    <pathelement path="${lockss.jar}" />
+    <path refid="compile.classpath" />
+  </path>
+
+  <path id="generated.compile.classpath">
+    <path refid="compile.classpath" />
+  </path>
+
+  <path id="test.compile.classpath">
+    <path refid="run.classpath" />
+    <pathelement path="${junit.jar}" />
+    <pathelement path="${junit.addons.jar}" />
+    <pathelement path="${httpunit.jar}" />
+    <pathelement path="${mockito.jar}" />
+    <pathelement path="${nekohtml.jar}" />
+    <pathelement path="${objenesis.jar}" />
+    <pathelement path="${js.jar}" />
+    <pathelement path="${xmlunit.jar}" />
+  </path>
+
+  <path id="test.run.classpath">
+    <path refid="test.compile.classpath" />
+    <pathelement path="${lockss.test.jar}" />
+    <pathelement path="${lockss.ant.jar}" />
+  </path>
+
+  <!-- Classpath exported to production environment. -->
+  <path id="prod.run.classpath">
+<!--     <path refid="test.run.classpath" /> -->
+    <path refid="run.classpath" />
+  </path>
+
+  <!-- Packing list isn't really a path but handy way to do it. -->
+  <path id="prod.packing.list">
+    <path refid="run.classpath" />
+    <pathelement path="${openbsd.classpath.file}" />
+    <pathelement path="${run.props}" />
+    <pathelement path="${maxheap.script}" />
+  </path>
+
+  <path id="tools.compile.classpath">
+    <pathelement path="${lockss.jar}" />
+    <pathelement path="${lockss.test.jar}" />
+    <path refid="compile.classpath" />
+    <pathelement path="${jdk.tools.jar}" />
+    <pathelement path="${commons.cli.jar}" />
+    <pathelement path="${javacsv.jar}" />
+  </path>
+
+  <path id="tools.run.classpath">
+    <path refid="tools.compile.classpath" />
+    <pathelement path="${lockss.tools.jar}" />
+  </path>
+
+  <path id="tools.test.compile.classpath">
+    <path refid="tools.compile.classpath" />
+    <path refid="test.compile.classpath" />
+    <pathelement path="${lockss.test.jar}" />
+    <pathelement path="${lockss.tools.jar}" />
+  </path>
+
+  <path id="tools.test.run.classpath">
+    <path refid="tools.test.compile.classpath" />
+    <pathelement path="${lockss.tools.test.jar}" />
+  </path>
+
+  <path id="all.test.run.classpath" >
+    <path refid="tools.test.run.classpath" />
+    <pathelement path="${lockss.tools.jar}"/>
+  </path>
+
+  <path id="ant-contrib.classpath">
+    <pathelement location="${ant-contrib.jar}"/>
+  </path>
+
+  <path id="cobertura.run.classpath">
+    <path refid="test.run.classpath" />
+    <pathelement path="${cobertura.jar}" />
+  </path>
+
+  <!--  Need ant jar to compile ant extensions, so include ant's classpath -->
+  <path id="ant.compile.classpath">
+    <path refid="compile.classpath" />
+    <pathelement path="${java.class.path}" />
+  </path>
+
+  <!-- ==================================================================== -->
+  <!--  Macros -->
+  <!-- ==================================================================== -->
+  <!--  dojavac runs javac with standard params -->
+  <macrodef name="dojavac">
+   <attribute name="srcdir" />
+   <attribute name="destdir" />
+   <attribute name="cpid" />
+   <element name="javacelem" />
+   <sequential>
+    <javac srcdir="@{srcdir}"
+           destdir="@{destdir}"
+           source="${javaversion}"
+           target="${javaversion}"
+           debug="${javac.debug}"
+           optimize="${javac.optimize}"
+           deprecation="${javac.deprecation}"
+           encoding="utf-8"
+           fork="${forkc}"
+           listfiles="${listfiles}"
+           nowarn="${nowarn}"
+	   memoryMaximumSize="256m"
+           >
+       <classpath refid="@{cpid}" />
+      <javacelem/>
+    </javac>
+   </sequential>
+  </macrodef>
+
+  <!-- dotdbxmltree runs tdbxml on all the .tdb files in a tree but is slow -->
+  <macrodef name="dotdbxmltree">
+   <attribute name="destdir" />
+   <attribute name="srcdir" />
+   <sequential>
+    <apply executable="scripts/tdb/tdbxml" dir="${basedir}"
+           addsourcefile="true"
+           dest="@{destdir}"
+           verbose="true"
+           failonerror="true"
+           failifexecutionfails="true"
+           relative="false"
+           parallel="false">
+      <fileset dir="@{srcdir}" >
+        <include name="**/*.tdb"/>
+      </fileset>
+      <mapper type="glob" from="*.tdb" to="*.xml"/>
+      <arg value="-A"/>
+      <arg value="-i"/>
+      <srcfile/>
+      <arg value="-o"/>
+      <targetfile/>
+    </apply>
+   </sequential>
+  </macrodef>
+
+	<!-- dotdbxmldir runs tdbxml on all the .tdb files in a directory and is fast -->
+	<macrodef name="dotdbxmldir">
+		<attribute name="destdir" />
+		<attribute name="srcdir" />
+		<sequential>
+			<apply executable="scripts/tdb/tdbxml"
+			       dir="${basedir}"
+			       dest="@{destdir}"
+			       verbose="true"
+		 	       failonerror="true"
+			       failifexecutionfails="true"
+			       skipemptyfilesets="true"
+			       parallel="true">
+				<fileset dir="@{srcdir}" >
+					<include name="*.tdb"/>
+				</fileset>
+				<mapper type="glob" from="*.tdb" to="*.xml"/>
+				<arg value="--all" />
+				<arg value="--output-dir=@{destdir}" />
+			</apply>
+		</sequential>
+	</macrodef>
+
+  <!--  dojunit runs junit with standard params -->
+  <macrodef name="dojunit">
+   <attribute name="cpid" />
+   <attribute name="usefile" default="true"/>
+   <attribute name="haltonerror" default="false"/>
+   <element name="junitelem" />
+   <sequential>
+     <if>
+      <istrue value="@{usefile}" />
+      <then>
+       <echo>
+Test results in ${test.results}
+       </echo>
+      </then>
+     </if>
+     <if>
+       <not>
+	 <equals arg1="${tmpdir}" arg2="${java.io.tmpdir}"/>
+       </not>
+       <then>
+	 <echo message="Temp dir: ${tmpdir}" />
+       </then>
+     </if>
+    <junit1 fork="${fork}" printsummary="yes"
+         haltonfailure="${halt}" failureproperty="failed"
+         tempdir="${tmpdir}"
+         filtertrace="${filtertrace}" showoutput="${showoutput}">
+      <junitelem/>
+      <jvmarg value="-server"/>
+      <jvmarg line="${junit.default.args}"/>
+      <jvmarg line="${jvmargs}"/>
+      <formatter type="plain" usefile="@{usefile}" />
+      <classpath refid="@{cpid}" />
+      <sysproperty key="java.library.path" value="${test.native}"/>
+      <sysproperty key="java.io.tmpdir" value="${tmpdir}"/>
+      <sysproperty key="java.awt.headless" value="true"/>
+      <sysproperty key="org.lockss.unitTesting" value="true"/>
+      <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
+      <sysproperty key="org.lockss.defaultLogTarget" value="${logtarget}"/>
+      <sysproperty key="org.lockss.test.idTempDirs" value="${idtempfiles}"/>
+      <sysproperty key="org.lockss.keepTempFiles" value="${keeptempfiles}"/>
+      <sysproperty key="org.lockss.test.timeout.shouldnt" value="${timeout}"/>
+      <sysproperty key="org.lockss.test.skipNetworkTests" value="${nonetwork}"/>
+<!--       <sysproperty key="jaxp.debug" value="1"/> -->
+      <syspropertyset>
+	<propertyref prefix="sysprop."/>
+	<mapper type="glob" from="sysprop.*" to="*"/>
+      </syspropertyset>
+    </junit1>
+   </sequential>
+  </macrodef>
+
+  <!-- macro to invoke maven, this requires maven.home exist -->
+  <macrodef name="maven">
+    <attribute name="options" default="" />
+    <attribute name="goal" />
+    <attribute name="basedir" />
+    <attribute name="resultproperty" default="maven.result" />
+    <element name="args" implicit="true" optional="true" />
+    <sequential>
+      <java classname="org.codehaus.classworlds.Launcher" fork="true"
+            dir="@{basedir}" resultproperty="@{resultproperty}">
+        <jvmarg value="-Xmx512m"/>
+        <jvmarg value="-Dmaven.multiModuleProjectDirectory=${maven.home}"/>
+        <classpath>
+          <fileset dir="${maven.home}/boot">
+            <include name="*.jar" />
+          </fileset>
+          <fileset dir="${maven.home}/lib">
+            <include name="*.jar" />
+          </fileset>
+        </classpath>
+        <sysproperty key="classworlds.conf" value="${maven.home}/bin/m2.conf" />
+        <sysproperty key="maven.home" value="${maven.home}" />
+        <arg line="--batch-mode @{options} @{goal}" />
+      </java>
+    </sequential>
+  </macrodef>
+  <!-- ==================================================================== -->
+  <!--  Setup tasks -->
+  <!-- ==================================================================== -->
+  <target name="prepare" depends="check.contrib">
+    <mkdir dir="${classes}" />
+
+    <!-- Ant does not always set ant.java.version correctly.  (E.g., Ant
+	 1.7.1 w/ Java 1.7 sets it to 1.6).  Obtain it from java.version
+	 System property if possible. -->
+
+    <propertyregex property="my.ant.java.version"
+		   input="${java.version}"
+		   regexp="^([0-9]+\.[0-9]+).*"
+		   replace="\1"
+		   defaultValue="${ant.java.version}"
+		   />
+
+    <condition property="is-java-ge-1.6">
+     <or>
+      <equals arg1="1.6" arg2="${my.ant.java.version}"/>
+      <equals arg1="1.7" arg2="${my.ant.java.version}"/>
+      <equals arg1="1.8" arg2="${my.ant.java.version}"/>
+     </or>
+    </condition>
+
+    <condition property="is-java-le-1.6">
+     <or>
+      <equals arg1="1.6" arg2="${my.ant.java.version}"/>
+     </or>
+    </condition>
+
+    <condition property="is-java-eq-1.7">
+     <or>
+      <equals arg1="1.7" arg2="${my.ant.java.version}"/>
+     </or>
+    </condition>
+
+    <condition property="is-java-ge-1.7">
+     <or>
+      <equals arg1="1.7" arg2="${my.ant.java.version}"/>
+      <equals arg1="1.8" arg2="${my.ant.java.version}"/>
+     </or>
+    </condition>
+
+    <condition property="is-java-ge-1.8">
+     <or>
+      <equals arg1="1.8" arg2="${my.ant.java.version}"/>
+     </or>
+    </condition>
+
+    <!-- Require at least Java 1.8, but allow builds if force is set -->
+    <condition property="is-satisfy-java-min-version">
+     <or>
+      <istrue value="${is-java-ge-1.8}" />
+      <istrue value="${force}" />
+     </or>
+    </condition>
+
+    <fail unless="is-satisfy-java-min-version">
+Java ${my.ant.java.version} found, 1.8 required
+    </fail>
+
+    <!-- Determine whether java version is compatible with release
+	 requirements -->
+    <condition property="is-satisfy-java-max-version">
+     <or>
+      <istrue value="${is-java-eq-1.8}" />
+     </or>
+    </condition>
+
+    <condition property="detected.os" value="unix">
+      <os family="unix"/>
+    </condition>
+    <condition property="detected.os" value="windows">
+      <os family="dos"/>
+    </condition>
+  </target>
+
+  <target name="require.release.java.version" depends="prepare">
+    <fail unless="is-satisfy-java-max-version"
+          message="This target must be run with Java 1.8; you are using Java ${my.ant.java.version}"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="prepare.test"
+      depends="prepare,check.junit,jar-ant,check.contrib">
+    <mkdir dir="${test.classes}" />
+    <mkdir dir="${test.results}" />
+    <condition property="class.arg.specified">
+      <and>
+        <isset property="class" />
+        <not>
+          <equals arg1="${class}" arg2="" trim="true" />
+        </not>
+      </and>
+    </condition>
+
+    <!-- Default logtarget to AntTaskTarget only if not forking tests -->
+    <if>
+     <isfalse value="${fork}" />
+     <then>
+      <property name="logtarget" value="org.lockss.util.AntTaskTarget" />
+     </then>
+     <else>
+      <property name="logtarget" value="" />
+     </else>
+    </if>
+  </target>
+
+  <target name="-check-if-1.8" depends="prepare" >
+    <fail unless="is-java-ge-1.8">
+The target you have selected requires compiling under JDK 1.8.
+    </fail>
+  </target>
+
+  <target name="prepare.run.test"
+       depends="prepare.test,-load.junit.logger.task">
+  </target>
+
+  <target name="prepare.contrib">
+    <available property="ant-contrib.available"
+               resource="${ant-contrib.resource}">
+	 <classpath refid="ant-contrib.classpath" />
+    </available>
+  </target>
+
+  <target name="require.java.home" >
+    <fail unless="env.JAVA_HOME"
+          message="JAVA_HOME environment var must be set for this target"/>
+  </target>
+
+  <target name="require.maven.home" >
+    <fail unless="env.MAVEN_HOME"
+          message="MAVEN_HOME environment var must be set for this target"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!--  Public tasks -->
+  <!-- ==================================================================== -->
+  <target name="clean-all"
+	  depends="clean,clean-tdbxml"
+	  description="Delete all generated files and dirs" />
+
+  <!-- Old target.  Remove  -->
+  <target name="clean0" depends="clean"
+	  description="Deprecated synonym for clean." />
+
+  <target name="clean"
+     depends="clean-tempbuild,clean-tools,clean-results,clean-rpm"
+   description="Delete all generated files and dirs except tdbxml" >
+    <delete dir="${classes}" quiet="true"/>
+    <delete dir="${rewoven.classes}" quiet="true"/>
+    <delete dir="${generated.src}" quiet="true"/>
+    <delete dir="${generated.classes}" quiet="true"/>
+    <delete dir="${test.classes}" quiet="true"/>
+    <delete dir="${ant.classes}" quiet="true"/>
+    <delete dir="${depend.cache}" quiet="true"/>
+    <delete dir="${javadoc}" quiet="true"/>
+    <delete dir="${test.javadoc}" quiet="true"/>
+    <delete file="${lockss.jar}" quiet="true"/>
+    <delete file="${lockss.rewoven.jar}" quiet="true"/>
+    <delete file="${lockss.generated.jar}" quiet="true"/>
+    <delete file="${lockss.test.jar}" quiet="true"/>
+    <delete file="${lockss.ant.jar}" quiet="true"/>
+    <delete file="${lockss.platform.jar}" quiet="true"/>
+    <delete file="${test.classpath.file}" quiet="true"/>
+    <delete file="${test.param.classpath.file}" quiet="true"/>
+    <delete file="${run.classpath.file}" quiet="true"/>
+    <delete file="${openbsd.classpath.file}" quiet="true"/>
+    <delete file="${openbsd.packinglist.file}" quiet="true"/>
+    <delete file="${run.props}" quiet="true"/>
+    <delete file="${maxheap.script}" quiet="true"/>
+    <delete quiet="true" verbose="true">
+      <!-- ant-generated files that can get left around if build is aborted -->
+      <fileset dir="${basedir}" includes="files?* junit?*.properties"/>
+    </delete>
+    <delete dir="${empty.db.dir}" quiet="true" />
+  </target>
+
+  <target name="clean-tempbuild"
+   description="Delete temporary build dirs" >
+    <delete dir="${temp.build}" quiet="true"/>
+  </target>
+
+  <!-- The tools jar has a separate cleaning target because
+       it requires a separate JDK 1.4 compilation -->
+  <target name="clean-tools"
+          description="Cleans tools jars">
+    <delete dir="${tools.classes}" quiet="true"/>
+    <delete dir="${tools.test.classes}" quiet="true"/>
+    <delete dir="${instrumented}" quiet="true"/>
+    <delete file="${cobertura.ser}" quiet="true"/>
+    <delete file="${lockss.tools.jar}" quiet="true"/>
+    <delete file="${lockss.tools.test.jar}" quiet="true"/>
+    <delete file="plugintool.zip" quiet="true"/>
+    <delete file="plugintool.tgz" quiet="true"/>
+  </target>
+
+  <target name="clean-results"
+   description="Delete test results files" >
+    <delete dir="${test.results}" quiet="true"/>
+  </target>
+
+  <target name="clean-rpm"
+   description="Delete built RPMs" >
+    <delete quiet="true" includeEmptyDirs="true">
+      <fileset dir="${protorpm.rpms}">
+       <include name="*/**"/>
+      </fileset>
+    </delete>
+  </target>
+
+  <target name="clean-tdbxml"
+   description="Delete generated tdbxml files" >
+    <delete dir="${tdb.xml.dir}" quiet="true"/>
+  </target>
+
+  <target name="delete-empty-db"
+	  description="Delete prototype empty database." >
+    <delete file="${empty.db.archive}" quiet="true"/>
+  </target>
+
+
+  <target name="clean-tmp" depends="prepare,check.contrib"
+   description="Delete leftover temp files." >
+    <delete quiet="false" includeEmptyDirs="true">
+      <fileset dir="${java.io.tmpdir}">
+	<include name="java??????/"/>
+	<include name="locksstest*.tmp/"/>
+	<include name="MetadataManager*md"/>
+	<include name="schema_doc*/**"/>
+      </fileset>
+    </delete>
+    <if>
+      <not>
+	<equals arg1="${tmpdir}" arg2="${java.io.tmpdir}"/>
+      </not>
+      <then>
+	<echo message="deleting ${tmpdir}"/>
+	<delete quiet="false" includeEmptyDirs="true">
+	  <fileset dir="${tmpdir}">
+	    <include name="java??????/"/>
+	    <include name="**/locksstest*.tmp/"/>
+	    <include name="MetadataManager*md"/>
+	    <include name="schema_doc*/**"/>
+	  </fileset>
+	</delete>
+      </then>
+    </if>
+  </target>
+  <target name="clean-ajax"
+    description="Delete ajax files" >
+    <delete dir="${ajax.target}" quiet="true"/>
+  </target>
+  <!-- ==================================================================== -->
+  <target name="depend-lockss" depends="prepare"
+   description="Process Java dependencies in LOCKSS classes" >
+    <depend srcdir="${src}"
+           destdir="${classes}"
+	   cache="${depend.cache}"
+	   closure="false"
+           >
+       <include name="**/*.java"/>
+    </depend>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="compile-lockss" depends="prepare,jar-generated"
+   description="Compile the LOCKSS classes" >
+    <dojavac srcdir="${src}" destdir="${classes}" cpid="compile.classpath" >
+     <javacelem>
+       <include name="**/*.java"/>
+     </javacelem>
+    </dojavac>
+
+    <fileset id="lockss.jar.resources" dir="${src}" >
+      <include name="**/*.xml"/>   <!-- mapping files in various dirs -->
+      <include name="**/*.dtd"/>
+      <include name="**/*.props"/>
+      <include name="**/*.keystore"/>
+      <include name="*.properties"/>
+      <include name="org/lockss/htdocs/**/*"/>
+      <include name="oiosaml.tar" /> <!-- OIOSAML (Shibboleth) support -->
+      <include name="**/errorpagetemplate.html"/>
+      <include name="**/urlrewriter.js"/> <!-- IA/WERA javascript -->
+    </fileset>
+
+    <copy todir="${classes}" >
+     <fileset refid="lockss.jar.resources" />
+    </copy>
+
+    <!-- Generate compiled message bundles for main LOCKSS module -->
+    <antcall target="i18n-generate-bundles">
+      <param name="srcdir" value="${src}"/>
+      <param name="clsdir" value="${classes}"/>
+    </antcall>
+  </target>
+
+  <!-- ==================================================================== -->
+  <taskdef
+      resource="org/aspectj/tools/ant/taskdefs/aspectjTaskdefs.properties">
+    <classpath>
+      <pathelement path="${aspectj.tools.jar}"/>
+    </classpath>
+  </taskdef>
+
+  <!-- ==================================================================== -->
+  <target name="reweave-lockss" depends="compile-lockss,build-info"
+	  description="Use aspectj to reweave the LOCKSS classes" >
+
+    <path id="aspect.path">
+      <pathelement path="${aspectj.jar}"/>
+      <pathelement path="${jcabi.jar}"/>
+    </path>
+
+    <echo message="Reweaving from ${classes} to ${rewoven.classes}" />
+    <mkdir dir="${rewoven.classes}" />
+    <iajc showWeaveInfo="false"
+	  inpath="${classes}"
+	  destDir="${rewoven.classes}"
+	  fork="true">
+      <aspectpath refid="aspect.path"/>
+      <classpath>
+	<path refid="compile.classpath" />
+      </classpath>
+    </iajc>
+
+    <copy todir="${rewoven.classes}" >
+     <fileset refid="lockss.jar.resources" />
+     <file name="${build.info.file}" basedir="${classes}"/>
+    </copy>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="compile-generated" depends="prepare,generate-parsers"
+   description="Compile the generated classes" >
+    <mkdir dir="${generated.classes}" />
+    <!-- If there are no generated files, src dir won't have been created. -->
+    <mkdir dir="${generated.src}" />
+    <dojavac srcdir="${generated.src}" destdir="${generated.classes}"
+	     cpid="generated.compile.classpath" >
+     <javacelem>
+       <include name="**/*.java"/>
+     </javacelem>
+    </dojavac>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="compile-tests" depends="jar-lockss,prepare.test"
+   description="Compile the LOCKSS test classes" >
+    <dojavac srcdir="${test.src}" destdir="${test.classes}"
+             cpid="test.compile.classpath" >
+     <javacelem>
+       <include name="**/*.java"/>
+       <excludesfile name="${requires-1.8}" unless="is-java-ge-1.8" />
+     </javacelem>
+    </dojavac>
+
+    <!-- Compile the test .tdb file(s) in the test tree.  Do this before
+	 the copy below: in case foo.tdb and foo.xml are both checked in,
+	 the one in the source tree will be used. -->
+    <dotdbxmltree srcdir="${test.src}" destdir="${test.classes}" />
+
+    <!-- Copy all other files to classes hierarchy so they're available
+	 to tests -->
+    <copy todir="${test.classes}" >
+       <fileset dir="${test.src}" >
+	 <exclude name="**/*.java"/>
+	 <exclude name="**/*.tdb"/>
+       </fileset>
+     </copy>
+   </target>
+
+  <!-- ==================================================================== -->
+  <target name="compile-ant" depends=""
+   description="Compile the LOCKSS ant extensions" >
+    <mkdir dir="${ant.classes}" />
+    <dojavac srcdir="${ant.src}" destdir="${ant.classes}"
+             cpid="ant.compile.classpath" >
+     <javacelem>
+       <include name="**/*.java"/>
+     </javacelem>
+    </dojavac>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="compile-tools"
+          depends="require.java.home,jar-lockss,jar-tests"
+          description="Compile the LOCKSS tools">
+    <mkdir dir="${tools.classes}" />
+    <dojavac srcdir="${tools.src}" destdir="${tools.classes}"
+             cpid="tools.compile.classpath" >
+     <javacelem>
+       <include name="**/*.java"/>
+     </javacelem>
+    </dojavac>
+    <copy todir="${tools.classes}" >
+       <fileset dir="${tools.src}" >
+          <include name="**/*.xml"/>   <!-- mapping files in various dirs -->
+          <include name="**/images/*"/>
+       </fileset>
+    </copy>
+  </target>
+
+  <target name="compile-tools-tests" depends="jar-tools,jar-tests"
+   description="Compile the LOCKSS test classes for tools" >
+    <mkdir dir="${tools.test.classes}" />
+    <dojavac srcdir="${tools.test.src}" destdir="${tools.test.classes}"
+             cpid="tools.test.compile.classpath" >
+     <javacelem>
+       <include name="**/*.java"/>
+     </javacelem>
+    </dojavac>
+  </target>
+  <!-- ==================================================================== -->
+  <target name="install-ajax"
+          depends="require.java.home,require.maven.home"
+          description="Compile and copy the LOCKSS ajax bridge jar">
+    <maven basedir="${ajax}"
+           goal="package"
+           resultproperty="maven.build.result"/>
+    <copy file="${ajax.target}/crawljax-lockss-bridge-1.0.jar"
+          tofile="${lib}/crawljax-lockss-bridge.jar"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="generate-parsers" depends="prepare"
+          description="Generate parsers from ANTLR grammars" >
+    <apply executable="${scripts}/antlr-helper"
+           dir="${src}"
+           dest="${generated.src}"
+           failonerror="true"
+           verbose="true">
+      <arg value="-jar" />
+      <arg file="${antlr.tools.jar}" />
+      <srcfile/>
+      <arg value="-D" />
+      <targetfile/>
+      <fileset dir="${src}" includes="**/*Lexer.g4" />
+      <compositemapper>
+	<globmapper from="*Lexer.g4" to="*Lexer.java"/>
+	<globmapper from="*Lexer.g4" to="*Lexer.tokens"/>
+      </compositemapper>
+    </apply>
+
+    <apply executable="${scripts}/antlr-helper"
+           dir="${src}"
+           dest="${generated.src}"
+           failonerror="true"
+           verbose="true">
+      <arg value="-jar" />
+      <arg file="${antlr.tools.jar}" />
+      <srcfile/>
+      <arg value="-D" />
+      <targetfile/>
+      <fileset dir="${src}" includes="**/*Parser.g4" />
+      <compositemapper>
+	<globmapper from="*Parser.g4" to="*Parser.java"/>
+	<globmapper from="*Parser.g4" to="*Parser.tokens"/>
+	<globmapper from="*Parser.g4" to="*ParserListener.java"/>
+	<globmapper from="*Parser.g4" to="*ParserBaseListener.java"/>
+      </compositemapper>
+     </apply>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="-load-build-info" depends="build-info">
+    <!-- Load the build-info file, so can use timestamp prop
+         in javadoc targets -->
+    <property file="${build.info.file}" />
+
+    <condition property="is.release.zero"  value="true">
+     <equals arg1="${build.releasename}" arg2="0.0.0" />
+    </condition>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="build-info-if-needed">
+    <!-- Set jar.is.up.to.date if jar doesn't need to be rebuilt.  Otherwise,
+         build-info will write prop file, causing a new jar to be built, when
+         nothing has really changed.  Isn't there an easier way to do this? -->
+    <uptodate property="jar.is.up.to.date" targetfile="${lockss.jar}">
+      <srcfiles dir="${classes}" />
+    </uptodate>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!-- Find default release version  -->
+  <target name="-set.releasename">
+    <loadfile property="releasename" srcfile="${default.releasename.file}"
+        failonerror="no">
+      <filterchain>
+        <striplinecomments>
+          <comment value="#"/>
+        </striplinecomments>
+        <striplinebreaks/>
+      </filterchain>
+    </loadfile>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!-- Find currently checked out branch if no explicit arg supplied -->
+  <target name="set.branchname" depends="prepare,check.contrib">
+   <property name="branch" value="" />
+   <if> <equals arg1="${branch}" arg2="" />
+    <then>
+      <exec executable="git" dir="${basedir}" outputproperty="branch.name">
+	      <arg value="symbolic-ref" />
+	      <arg value="--short" />
+	      <arg value="HEAD" />
+      </exec>
+    </then>
+    <else>
+      <property name="branch.name" value="${branch}"/>
+    </else>
+   </if>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="build-info" depends="build-info-if-needed,-set.hostname,-set.releasename,set.branchname"
+       unless="jar.is.up.to.date">
+    <!--  The prop names used here are also known to
+          org.lockss.util.BuildInfo class -->
+    <propertyfile comment="Build Information"
+                  file="${build.info.file}">
+      <entry key="build.date"
+             type="date"
+             pattern="EEEE MMM dd, yyyy"
+             value="now"/>
+      <entry key="build.time"
+             type="date"
+             pattern="kk:mm:ss"
+             value="now"/>
+      <entry key="build.timestamp"
+	     type="date"
+	     pattern="dd-MMM-yy' 'HH:mm:ss' 'zzz"
+	     value="now"/>
+      <entry key="build.user.name" value="${user.name}"/>
+      <entry key="build.host" value="${hostname}"/>
+      <entry key="build.releasename" value="${releasename}"/>
+      <entry key="build.branch" value="${branch.name}"/>
+    </propertyfile>
+    <if>
+      <isset property="releasename" />
+      <then>
+        <echo message="Building daemon ${releasename}" />
+      </then>
+    </if>
+    <!-- Build revision-info file identifying git blob, branch, etc. -->
+    <exec executable="git" dir="${src}" output="${build.filerev.file}"
+	  failifexecutionfails="false">
+      <arg line="show -s --pretty=oneline" />
+    </exec>
+    <exec executable="git" dir="${basedir}" output="${build.filerev.file}"
+	  append="true"
+	  failifexecutionfails="false">
+      <arg line="status -b --short" />
+    </exec>
+  </target>
+
+  <!-- Set hostname from HOSTNAME env var if set, else 'hostname' program -->
+  <target name="-set.hostname" depends="compile-lockss,check.contrib">
+    <if>
+      <isset property="env.HOSTNAME" />
+      <then>
+        <property name="hostname" value="${env.HOSTNAME}"/>
+      </then>
+      <else>
+        <exec executable="hostname" outputproperty="hostname"
+              failifexecutionfails="false"/>
+      </else>
+    </if>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jar-all"
+     depends="jar-tests,jar-tools-tests"
+   description="Build all jars" >
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jar-lockss" depends="compile-lockss,build-info"
+   description="Jar the LOCKSS classes" >
+    <jar jarfile="${lockss.jar}" basedir="${classes}" >
+      <include name="**/" />
+      <metainf dir="${src}/META-INF" includes="**" />
+    </jar>
+    <!-- Write production classpath to a file, so scripts can get it -->
+    <pathconvert refid="prod.run.classpath" property="tmp.run.clspth"
+      targetos="${detected.os}" />
+    <echo message="${tmp.run.clspth}" file="${run.classpath.file}"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jar-rewoven" depends="reweave-lockss,build-info"
+   description="Jar the rewoven LOCKSS classes" >
+    <jar jarfile="${lockss.rewoven.jar}" basedir="${rewoven.classes}" >
+      <include name="**/" />
+      <metainf dir="${src}/META-INF" includes="**" />
+      <manifest>
+	<attribute name="Lockss-Comment"
+		   value="This is a rewoven jar"  />
+      </manifest>
+    </jar>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jar-generated" depends="compile-generated"
+	  description="Jar the generated classes" >
+    <jar jarfile="${lockss.generated.jar}" basedir="${generated.classes}" >
+      <include name="**/" />
+    </jar>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="tdb-pln-all" depends="check.contrib"
+	  description="Process .tdb files for all PLNs into .xml">
+    <pathconvert pathsep=":" property="plnnames">
+      <dirset dir="${tdb.src.dir}" includes="*/" />
+      <map from="${tdb.src.dir}/" to=""/>
+    </pathconvert>
+
+    <echo message="PLNs: ${plnnames}" />
+
+    <for list="${plnnames}" delimiter=":" param="plnname">
+      <sequential>
+	<antcall target="tdb.pln0">
+	  <param name="plnname" value="@{plnname}"/>
+	</antcall>
+
+      </sequential>
+    </for>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!-- tdb-pln0 is invoked by antcall in a loop, so its dependencies get
+       run repeatedly.  Avoid that by putting the dependency in a target
+       that's only invoked by users, with the actual work in a target with
+       no dependencies -->
+
+  <target name="tdb-pln" depends="jar-lockss,tdb.pln0"
+	  description="Process .tdb files for -Dplnname=PLN into .xml">
+  </target>
+
+  <target name="tdb.pln0">
+    <fail unless="plnname">
+Must specify PLN name with -Dplnname=name
+    </fail>
+    <echo message="Generating tdb xml for ${plnname}" />
+    <antcall target="tdb-xml-dir">
+      <param name="indir" value="${tdb.src.dir}/${plnname}"/>
+      <param name="outdir" value="${tdb.xml.dir}/${plnname}"/>
+    </antcall>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="tdb-xml-dir"
+	  description="Process .tdb files in indir into .xml files in outdir">
+    <fail unless="indir">
+Must specify input dir with -Dindir=dir
+    </fail>
+    <fail unless="outdir">
+Must specify output dir with -Doutdir=dir
+    </fail>
+
+    <mkdir dir="${outdir}" />
+    <dotdbxmldir srcdir="${indir}" destdir="${outdir}" />
+
+    <!-- Copy any .xml files (e.g., titleset definitions) -->
+    <copy todir="${outdir}" >
+      <fileset dir="${indir}" >
+        <include name="*.xml"/>
+      </fileset>
+    </copy>
+
+  </target>
+
+  <!-- ==================================================================== -->
+
+  <target name="jar-tests" depends="compile-tests,archive-empty-db"
+   description="Jar the LOCKSS test classes" >
+    <jar jarfile="${lockss.test.jar}" basedir="${test.classes}" >
+       <include name="**/" />
+    </jar>
+    <!-- Write test classpath to a file, so test scripts can get it -->
+    <pathconvert refid="tools.test.run.classpath" property="tmp.test.clspth"
+      targetos="${detected.os}" />
+    <echo message="${tmp.test.clspth}" file="${test.classpath.file}"/>
+    <!-- Make a parameterized version -->
+    <pathconvert refid="tools.test.run.classpath" property="tmp.param.test.clspth"
+      targetos="${detected.os}" >
+      <map from="${lib}" to="$${LIB_DIR}" />
+    </pathconvert>
+    <echo message="${tmp.param.test.clspth}" file="${test.param.classpath.file}"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="check-libs" depends="check.contrib"
+   description="Check that all the jars on the production classpath exist" >
+    <for param="file">
+     <path refid="run.classpath" />
+     <sequential>
+      <if>
+       <available file="@{file}" />
+       <else>
+	<fail message="@{file} not found" />
+       </else>
+      </if>
+     </sequential>
+    </for>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="package" depends="jar-lockss,check-libs"
+   description="Produce all files for a production package" >
+    <!-- Write run classpath file -->
+    <pathconvert refid="prod.run.classpath" property="tmp.prod.clspth"
+      targetos="${detected.os}">
+      <!-- entity codes below are open and close curly brace -->
+      <map from="${basedir}/lib" to="$&#x07b;JAVA.LIB.PATH&#x07d;" />
+    </pathconvert>
+    <echo message="${tmp.prod.clspth}" file="${openbsd.classpath.file}"/>
+    <!-- Write run-props -->
+    <echo file="${run.props}">ULIMIT_DATA=unlimited
+ULIMIT_MEMORY=unlimited
+ULIMIT_STACK=14000
+ULIMIT_FILES=512
+JAVA_COMMAND_ARGS="-server `/usr/local/lib/maxheap` -Dsun.net.inetaddr.ttl=3600 -Dorg.lockss.synchronizeDns=true -showversion -Dorg.lockss.defaultLogLevel=debug2"
+</echo>
+    <!-- Copy maxheap script to lib dir (XXX should be in platform) -->
+    <copy file="${scripts}/maxheap"
+          tofile="${maxheap.script}">
+    </copy>
+    <chmod file="${maxheap.script}" perm="ugo+rx"/>
+
+    <!-- Write packing list file-->
+    <pathconvert refid="prod.packing.list" property="tmp.packing.list"
+      targetos="${detected.os}">
+      <!-- entity codes below are open and close curly brace -->
+      <map from="${basedir}/lib" to="$&#x07b;JAVA.LIB.PATH&#x07d;" />
+    </pathconvert>
+    <echo message="${tmp.packing.list}" file="${openbsd.packinglist.file}"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="rpm" depends="jar-lockss,check.contrib"
+   description="Package up the daemon as an rpm" >
+
+    <mkdir dir="${temp.build}" />
+    <tempfile property="temp.rpm.dir" destdir="${temp.build}" prefix="rpm"/>
+    <mkdir dir="${temp.rpm.dir}" />
+
+    <property name="rpmrelease" value="1" />
+
+    <property name="protorpm.top" value="${basedir}/rpms" />
+    <property name="rpm.top" value="${temp.rpm.dir}" />
+    <property name="rpm.build" value="${rpm.top}/BUILD" />
+    <property name="rpm.root" value="${rpm.build}/lockss-daemon-root" />
+    <property name="rpm.jardir" value="${rpm.root}/usr/share/lockss" />
+    <property name="rpm.lockss.etc" value="${rpm.root}/etc/lockss" />
+    <property name="protorpm.rpms" value="${protorpm.top}/RPMS" />
+    <property name="rpm.rpms" value="${rpm.top}/RPMS" />
+    <mkdir dir="${rpm.rpms}" />
+
+    <propertyregex property="rpmreleasename"
+		   input="${releasename}"
+		   regexp="-[^.]*"
+		   global="true"
+		   replace=""
+		   defaultValue="${releasename}" />
+
+
+
+    <!-- make classpath to substitute into start script -->
+    <pathconvert refid="prod.run.classpath" property="rpm.clspth"
+       targetos="unix">
+      <map from="${basedir}/lib" to="/usr/share/lockss" />
+    </pathconvert>
+    <!-- copy prototype rpm tree to tmp dir -->
+    <copy todir="${rpm.top}" >
+      <fileset dir="${protorpm.top}">
+       <exclude name="RPMS/**/*"/>
+      </fileset>
+      <filterset>
+       <filter token="CLASSPATH" value="${rpm.clspth}"/>
+       <filter token="RELEASENAME" value="${rpmreleasename}"/>
+       <filter token="RPMRELEASE" value="${rpmrelease}"/>
+       <filter token="PLATFORM_VERSION" value="Linux RPM-${rpmrelease}"/>
+      </filterset>
+    </copy>
+
+    <!-- copy jars on run.classpath to jardir -->
+    <pathtofileset dir="" pathrefid="prod.run.classpath"
+      name="rpm.jars.set" ignorenonrelative="true" />
+    <copy todir="${rpm.jardir}" flatten="true" >
+     <fileset refid="rpm.jars.set" />
+    </copy>
+    <delete file="${rpm.root}/etc/init.d/lockss.solaris" quiet="true" />
+    <delete file="${rpm.root}/etc/lockss/upgrade-solaris" quiet="true" />
+    <!-- The two defines allow rpms built on CentOS 6 to be installed on
+	 CentOS 5 -->
+    <rpm specFile="lockss-daemon.spec" topDir="${rpm.top}"
+	 command="-bb --define &quot;_binary_filedigest_algorithm 1&quot; --define &quot;_binary_payload w9.gzdio&quot;" />
+    <!-- rpmbuild failure doesn't necessarily cause rpm task to fail, so
+         check whether any rpms were built  -->
+    <fileset id="rpm.filesetid" dir="${rpm.rpms}" />
+    <pathconvert refid="rpm.filesetid" property="rpm.files"
+      targetos="${detected.os}" />
+    <if>
+     <equals arg1="${rpm.files}" arg2="" />
+     <then>
+      <fail message="rpmbuild did not produce any rpms" />
+     </then>
+    </if>
+    <copy todir="${protorpm.rpms}" >
+     <fileset refid="rpm.filesetid" />
+    </copy>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="solaris-pkg" depends="jar-lockss,check.contrib"
+   description="Package up the daemon as a Solaris 10 package" >
+
+    <mkdir dir="${temp.build}" />
+    <tempfile property="temp.solaris.dir" destdir="${temp.build}" prefix="solaris"/>
+    <mkdir dir="${temp.solaris.dir}" />
+
+    <property name="solarisrelease" value="1" />
+
+    <property name="protosolaris.top" value="${basedir}/rpms" />
+    <property name="solaris.top" value="${temp.solaris.dir}" />
+    <property name="solaris.build" value="${solaris.top}/BUILD" />
+    <property name="solaris.prototype.file" value="${solaris.build}/Prototype" />
+    <property name="solaris.root" value="${solaris.build}/lockss-daemon-root" />
+    <property name="target.jardir" value="/opt/lockss/usr/share/lockss" />
+    <property name="solaris.jardir" value="${solaris.root}${target.jardir}" />
+    <property name="solaris.lockss.etc" value="${solaris.root}/opt/lockss/etc/lockss" />
+    <property name="protosolaris.source" value="${protosolaris.top}/Solaris" />
+
+    <!-- make classpath to substitute into start script -->
+    <pathconvert refid="prod.run.classpath" property="solaris.clspth"
+       targetos="unix">
+      <map from="${basedir}/lib" to="${target.jardir}" />
+    </pathconvert>
+    <!-- copy prototype rpm tree to tmp dir -->
+    <copy todir="${solaris.top}" >
+      <fileset dir="${protosolaris.top}">
+       <exclude name="RPMS/**/*"/>
+      </fileset>
+      <filterset>
+       <filter token="CLASSPATH" value="${solaris.clspth}"/>
+       <filter token="RELEASENAME" value="${releasename}"/>
+       <filter token="RPMRELEASE" value="${solarisrelease}"/>
+       <filter token="PLATFORM_VERSION" value="Solaris-10-${solarisrelease}"/>
+      </filterset>
+    </copy>
+    <!-- copy Solaris build stuff to top of build tree -->
+    <copy todir="${solaris.build}" >
+      <fileset dir="${solaris.top}/Solaris">
+	<exclude name="Solaris/Prototype.*"/>
+      </fileset>
+    </copy>
+
+    <!-- assemble the Solaris Prototype file from its preamble and list of
+         jars to be included -->
+    <pathconvert refid="prod.run.classpath" property="solaris.jar.names">
+      <map from="${basedir}/lib/" to=""/>
+    </pathconvert>
+    <copy file="${solaris.top}/Solaris/Prototype.preamble"
+	  tofile="${solaris.prototype.file}" />
+    <for list="${solaris.jar.names}" delimiter=":" param="solaris.jarfile">
+      <sequential>
+	<echo file="${solaris.prototype.file}" append="true">f none ${target.jardir}/@{solaris.jarfile} 0644 root sys
+</echo>
+      </sequential>
+    </for>
+
+    <!-- copy /etc/lockss to /opt/lockss/etc/lockss -->
+    <copy todir="${solaris.lockss.etc}" >
+      <fileset dir="${solaris.root}/etc/lockss"/>
+    </copy>
+
+    <!-- copy jars on run.classpath to jardir -->
+    <pathtofileset dir="" pathrefid="prod.run.classpath"
+      name="solaris.jars.set" ignorenonrelative="true" />
+    <copy todir="${solaris.jardir}" flatten="true" >
+     <fileset refid="solaris.jars.set" />
+    </copy>
+    <delete file="${solaris.root}/etc/init.d/lockss" quiet="true" />
+    <move file="${solaris.root}/etc/init.d/lockss.solaris" tofile="${solaris.root}/etc/init.d/lockss" />
+    <exec executable="sh" dir="${solaris.build}" output="${solaris.build}/build.out">
+      <arg line="mkpkg" />
+    </exec>
+    <!-- mkpkg failure doesn't necessarily cause task to fail, so
+         check whether any packages were built  -->
+    <fileset id="solaris.filesetid" dir="${solaris.build}">
+      <include name="*.tgz"/>
+    </fileset>
+    <pathconvert refid="solaris.filesetid" property="solaris.files"
+      targetos="${detected.os}" />
+    <if>
+     <equals arg1="${solaris.files}" arg2="" />
+     <then>
+      <fail message="solaris build did not produce any packages" />
+     </then>
+    </if>
+    <move file="${solaris.files}" todir="${protosolaris.top}/RPMS" />
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="debian-pkg" depends="jar-lockss,check.contrib"
+   description="Package up the daemon as a Debian package" >
+
+    <path id="ant-deb.classpath">
+        <fileset dir="${lib}" includes="ant-deb-0.0.1.jar"/>
+    </path>
+
+    <taskdef name="deb" classname="com.googlecode.ant_deb_task.Deb" classpathref="ant-deb.classpath"/>
+
+    <mkdir dir="${temp.build}" />
+    <tempfile property="temp.debian.dir" destdir="${temp.build}" prefix="debian"/>
+    <mkdir dir="${temp.debian.dir}" />
+
+    <property name="debianrelease" value="1" />
+
+    <property name="protodebian.top" value="${basedir}/rpms" />
+    <property name="debian.top" value="${temp.debian.dir}" />
+    <property name="debian.build" value="${debian.top}/BUILD" />
+    <property name="debian.root" value="${debian.build}/lockss-daemon-root" />
+    <property name="target.jardir" value="/usr/share/lockss" />
+    <property name="debian.jardir" value="${debian.root}${target.jardir}" />
+    <property name="debian.lockss.etc" value="${debian.root}/etc/lockss" />
+    <property name="debian.rpms" value="${protodebian.top}/RPMS" />
+    <property name="debian.preinstall" value="${protodebian.top}/Debian/preinstall" />
+    <property name="debian.postinstall" value="${protodebian.top}/Debian/postinstall" />
+    <property name="debian.preremove" value="${protodebian.top}/Debian/preremove" />
+
+    <!-- make classpath to substitute into start script -->
+    <pathconvert refid="prod.run.classpath" property="debian.clspth"
+       targetos="unix">
+      <map from="${basedir}/lib" to="${target.jardir}" />
+    </pathconvert>
+    <!-- copy prototype rpm tree to tmp dir -->
+    <copy todir="${debian.top}" >
+      <fileset dir="${protodebian.top}">
+       <exclude name="RPMS/**/*"/>
+      </fileset>
+      <filterset>
+       <filter token="CLASSPATH" value="${debian.clspth}"/>
+       <filter token="RELEASENAME" value="${releasename}"/>
+       <filter token="RPMRELEASE" value="${debianrelease}"/>
+       <filter token="PLATFORM_VERSION" value="Debian-${debianrelease}"/>
+      </filterset>
+    </copy>
+
+    <!-- copy jars on run.classpath to jardir -->
+    <pathtofileset dir="" pathrefid="prod.run.classpath"
+      name="debian.jars.set" ignorenonrelative="true" />
+    <copy todir="${debian.jardir}" flatten="true" >
+     <fileset refid="debian.jars.set" />
+    </copy>
+        <deb
+            todir="${debian.rpms}"
+            package="lockss"
+            section="web"
+            depends="sun-java5-jre | sun-java6-jre | openjdk-6-jre, mailutils"
+            preinst="${debian.preinstall}"
+            postinst="${debian.postinstall}"
+            prerm="${debian.preremove}"
+        >
+            <version upstream="${debianrelease}" />
+            <maintainer email="LOCKSS Team" name="lockss-support@lockss.org"/>
+            <description synopsis="LOCKSS Daemon">
+The LOCKSS system collects and preserves in a peer-to-peer network content
+published on the Web. http://www.lockss.org
+            </description>
+            <tarfileset dir="${debian.root}/usr/share/lockss" prefix="usr/share/lockss">
+                <include name="*"/>
+            </tarfileset>
+            <tarfileset dir="${debian.root}/etc/lockss" prefix="etc/lockss">
+                <exclude name="*solaris"/>
+            </tarfileset>
+            <tarfileset dir="${debian.root}/etc/init.d" prefix="etc/init.d">
+                <include name="lockss"/>
+            </tarfileset>
+            <tarfileset dir="${debian.root}/etc/logrotate.d" prefix="etc/logrotate.d">
+                <include name="lockss"/>
+            </tarfileset>
+        </deb>
+
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="tar" depends="jar-lockss,check.contrib"
+   description="Package up the daemon as a tar" >
+
+    <mkdir dir="${temp.build}" />
+    <tempfile property="temp.tar.dir" destdir="${temp.build}" prefix="tar"/>
+    <mkdir dir="${temp.tar.dir}" />
+
+    <property name="tarrelease" value="1" />
+
+    <property name="prototar.top"
+		value="${basedir}/rpms/BUILD/lockss-daemon-root" />
+    <property name="tar.top" value="${temp.tar.dir}" />
+    <property name="tar.root" value="${tar.top}" />
+    <property name="tar.jardir" value="${tar.root}/usr/share/lockss" />
+    <property name="tar.lockss.etc" value="${tar.root}/etc/lockss" />
+    <property name="tar.scripts"
+ 	value="etc/lockss/hostconfig etc/lockss/rundaemon etc/lockss/runforever etc/lockss/functions etc/init.d/lockss" />
+    <property name="tarfile" value="./lockss-daemon-${releasename}.tar" />
+
+    <!-- make classpath to substitute into start script -->
+    <pathconvert refid="prod.run.classpath" property="tar.clspth"
+       targetos="unix">
+      <map from="${basedir}/lib" to="./usr/share/lockss" />
+    </pathconvert>
+    <!-- copy prototype tar tree to tmp dir -->
+    <copy todir="${tar.top}" >
+      <fileset dir="${prototar.top}" />
+      <filterset>
+       <filter token="CLASSPATH" value="${tar.clspth}"/>
+       <filter token="RELEASENAME" value="${releasename}"/>
+       <filter token="PLATFORM_VERSION" value="TAR-${tarrelease}"/>
+      </filterset>
+    </copy>
+
+    <!-- copy jars on run.classpath to jardir -->
+    <pathtofileset dir="" pathrefid="prod.run.classpath"
+      name="tar.jars.set" ignorenonrelative="true" />
+    <copy todir="${tar.jardir}" flatten="true" >
+     <fileset refid="tar.jars.set" />
+    </copy>
+    <tar destfile="${tarfile}" >
+     <tarfileset dir="${tar.top}" includes="${tar.scripts}" mode="755" />
+     <tarfileset dir="${tar.top}" excludes="${tar.scripts}" />
+    </tar>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jar-tools" depends="compile-tools"
+   description="Jar the tools classes" >
+    <jar jarfile="${lockss.tools.jar}" basedir="${tools.classes}" >
+       <include name="**/" />
+    </jar>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jar-tools-tests" depends="compile-tools-tests"
+   description="Jar the tools test classes" >
+    <jar jarfile="${lockss.tools.test.jar}" basedir="${tools.test.classes}" >
+       <include name="**/" />
+    </jar>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jar-ant" depends="compile-ant"
+   description="Jar the LOCKSS ant extensions" >
+    <jar jarfile="${lockss.ant.jar}" basedir="${ant.classes}" >
+       <include name="**/" />
+    </jar>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="platform-java-tools" depends="compile-lockss,check.contrib"
+   description="Package up the tools needed by the platform into a small standalone jar" >
+    <jar jarfile="${lockss.platform.jar}" basedir="${classes}" >
+      <include name="org/lockss/util/Version.class" />
+      <include name="org/lockss/util/DaemonVersion.class" />
+      <include name="org/lockss/util/MaxDaemonVersion.class" />
+    </jar>
+    <!-- Test it to ensure that it doesn't rely on any other classes -->
+    <java classname="org.lockss.util.MaxDaemonVersion" fork="true"
+          failonerror="true" outputproperty="max.version" >
+      <classpath>
+        <pathelement path="${lockss.platform.jar}" />
+      </classpath>
+      <arg value="1.1.2" />
+      <arg value="1.10.2" />
+      <arg value="1.9-foo.17" />
+    </java>
+    <if>
+      <not> <equals arg1="${max.version}" arg2="1.10.2" /> </not>
+     <then>
+      <fail
+        message="MaxDaemonVersion returned ${max.version}, expected 1.10.2" />
+     </then>
+    </if>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="package-plugintool"
+   depends="require.java.home,jar-tools,check.contrib"
+   description="Package up all files needed to run the plugin tool" >
+    <mkdir dir="${temp.build}" />
+    <tempfile property="temp.pkg.dir" destdir="${temp.build}" prefix="tool"/>
+    <mkdir dir="${temp.pkg.dir}" />
+    <pathtofileset dir="" pathrefid="tools.run.classpath"
+      name="tmp.tools.class.set" ignorenonrelative="true" />
+    <copy todir="${temp.pkg.dir}" flatten="true" >
+     <fileset refid="tmp.tools.class.set" />
+    </copy>
+    <pathconvert refid="tools.run.classpath" property="tmp.ptool.clspth.unix"
+      targetos="unix" >
+     <map from="${java.lib}" to="$${JAVA_HOME}/lib" />
+     <map from="${lib}" to="." />
+    </pathconvert>
+    <pathconvert refid="tools.run.classpath" property="tmp.ptool.clspth.dos"
+      targetos="windows" >
+     <map from="${java.lib}" to="%JAVA_HOME%\lib" />
+     <map from="${lib}" to="." />
+    </pathconvert>
+    <copy file="${scripts}/plugintool"
+          tofile="${temp.pkg.dir}/plugintool">
+      <filterset>
+        <filter token="CLASSPATH" value="${tmp.ptool.clspth.unix}"/>
+      </filterset>
+    </copy>
+    <copy file="${scripts}/plugintool.bat"
+          tofile="${temp.pkg.dir}/plugintool.bat">
+      <filterset>
+        <filter token="CLASSPATH" value="${tmp.ptool.clspth.dos}"/>
+      </filterset>
+    </copy>
+
+    <tar destfile="plugintool.tgz" compression="gzip">
+     <tarfileset dir="${temp.pkg.dir}" mode="755" includes="plugintool" />
+     <tarfileset dir="${temp.pkg.dir}" excludes="plugintool" />
+    </tar>
+    <zip destfile="plugintool.zip" basedir="${temp.pkg.dir}" />
+    <delete dir="${temp.pkg.dir}" quiet="true"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="djar" depends="depend-lockss,jar-lockss"
+   description="depend, compile and jar LOCKSS" >
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="prepare-javadoc" depends="-load-build-info"
+	  description="Prepare the javadoc directory and
+		       set the javadoc.header property.">
+    <mkdir dir="${javadoc}"/>
+    <!-- Old files can result in misleading stuff in the docs.  Since
+         javadoc regenerates everything from scratch each time anyway,
+	 ensure the directory is cleared out first.  -->
+    <delete>
+      <fileset dir="${javadoc}" defaultexcludes="no" />
+    </delete>
+    <if>
+      <isset property="releasename" />
+     <then>
+      <property name="javadoc.header"
+                value="Release&amp;nbsp;${releasename} Built&amp;nbsp;${build.timestamp} on&amp;nbsp;${build.host}" />
+     </then>
+     <else>
+      <property name="javadoc.header"
+                value="Built ${build.timestamp} on ${build.host}" />
+     </else>
+    </if>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="javadoc" depends="-do-javadoc,dot"
+   description="Build the LOCKSS javadoc">
+  </target>
+
+  <target name="-do-javadoc" depends="jar-tests,prepare-javadoc,-load-build-info,param-docs,schema-doc">
+    <!-- Write the text param doc into the doc tree -->
+    <java classname="ParamDoc" fork="true">
+       <classpath refid="test.run.classpath" />
+       <arg line="-o ${javadoc}/paramdoc.txt lockss.jar" />
+    </java>
+    <javadoc
+	     failonerror="true"
+             maxmemory="512m"
+             packagenames="org.lockss.*"
+             sourcepath="${src}"
+             destdir="${javadoc}"
+             use="${use}"
+             author="${author}"
+             version="${version}"
+	     access="package"
+             noqualifier="${noqualifier}"
+             windowtitle="LOCKSS API"
+             doctitle="LOCKSS"
+             verbose="false"
+             overview="${src}/overview.html"
+             header="${javadoc.header}"
+             bottom="Copyright &amp;copy; 2000-2013 Board of Trustees of Leland Stanford Jr. University, all rights reserved.">
+       <classpath refid="compile.classpath" />
+
+<!-- disabled until javadoc back online -->
+<!--        <link href="${ext.javadoc}/commons-collections-3.2/docs/apidocs" /> -->
+<!--        <link href="${ext.javadoc}/commons-httpclient-2.0.2/docs/apidocs" /> -->
+<!--        <link href="${ext.javadoc}/commons-lang-2.1/docs/api" /> -->
+<!--        <link href="${ext.javadoc}/commons-logging-1.1/docs/apidocs" /> -->
+<!--        <link href="${ext.javadoc}/htmlparser-1.6/docs/javadoc" /> -->
+<!--        <link href="${ext.javadoc}/pdfbox-0.7.2/javadoc" /> -->
+<!--        <link href="${ext.javadoc}/xstream-1.1.3/javadoc" /> -->
+    </javadoc>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="param-docs" depends="jar-tools,prepare-javadoc,-load-build-info"
+   description="Generate an HTML summary of LOCKSS configuration parameters.">
+    <!-- Write the HTML param doc into the doc tree -->
+    <javadoc sourcepath="${src}"
+	     packagenames="org.lockss.*"
+	     failonerror="true"
+	     doclet="org.lockss.doclet.ParamDoclet"
+	     docletpathref="tools.run.classpath"
+	     classpathref="tools.run.classpath"
+	     access="private">
+      <arg value="-J-Xmx512m"/>
+      <arg value="-d"/> <arg value="${javadoc}"/>
+      <arg value="-o"/> <arg value="paramdoc.html"/>
+      <arg value="-h"/> <arg value="${javadoc.header}"/>
+    </javadoc>
+  </target>
+
+  <target name="states.dot" depends="jar-tools"
+   description="Generate Graphviz DOT files from state tables.">
+    <property name="dotfile" value="${classes}/states.dot" />
+    <java classname="org.lockss.doclet.PsmToDot" fork="true">
+       <classpath refid="tools.test.run.classpath" />
+       <arg line="-m org.lockss.poller.v3.PollerStateMachineFactory -l Poller -a org.lockss.poller.v3.PollerActions -m org.lockss.poller.v3.VoterStateMachineFactory -l Voter -a org.lockss.poller.v3.VoterActions -o ${dotfile}" />
+       <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
+    </java>
+  </target>
+
+  <target name="dot" depends="check.contrib,prepare-javadoc,states.dot"
+   description="Generate drawings from Graphviz DOT files.">
+    <!-- failifexecutionfails=false doesn't work due to bug in Ant
+         (ExecuteOn.runExec()).  Don't want the build to fail if dot or
+         ps2pdf missing, so do it in try-catch -->
+   <trycatch property="dotfail">
+    <try>
+     <apply executable="dot" dir="${basedir}" dest="${javadoc}"
+           failifexecutionfails="no" >
+      <arg value="-Tpng"/> <arg value="-o"/> <targetfile/> <srcfile/>
+      <fileset dir="${classes}" includes="**/*.dot"/>
+      <mapper type="glob" from="*.dot" to="*.png"/>
+     </apply>
+     <apply executable="dot" dir="${basedir}" dest="${javadoc}"
+           failifexecutionfails="no" >
+      <arg value="-Tps2"/> <arg value="-o"/> <targetfile/> <srcfile/>
+      <fileset dir="${classes}" includes="**/*.dot"/>
+      <mapper type="glob" from="*.dot" to="*.ps"/>
+     </apply>
+     <apply executable="ps2pdf" dir="${javadoc}" dest="${javadoc}"
+           failifexecutionfails="no" >
+      <srcfile/> <targetfile/>
+      <fileset dir="${javadoc}" includes="**/*.ps"/>
+      <mapper type="glob" from="*.ps" to="*.pdf"/>
+     </apply>
+    </try>
+    <catch>
+     <echo message="dot or ps2pdf failed, continuing" />
+    </catch>
+   </trycatch>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="param-docs-javadoc" depends="param-docs,javadoc"
+	  description="Run the param docs and JavaDoc in the right order">
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="javadoc-test" depends="compile-tests,-load-build-info"
+   description="Build the javadoc for the test hierarchy">
+    <mkdir dir="${test.javadoc}"/>
+    <!-- Old files can result in misleading stuff in the docs.  Since
+         javadoc regenerates everything from scratch each time anyway,
+	 ensure the directory is cleared out first.  -->
+    <delete>
+      <fileset dir="${test.javadoc}" defaultexcludes="no" />
+    </delete>
+<!--  packagenames="org.lockss.test.*" -->
+    <javadoc
+             packagenames="org.lockss.*"
+	     failonerror="true"
+             maxmemory="512m"
+             sourcepath="${test.src}"
+             destdir="${test.javadoc}"
+             use="${use}"
+             author="${author}"
+             version="${version}"
+	     access="protected"
+             windowtitle="LOCKSS test classes API"
+             doctitle="LOCKSS test"
+             header="${javadoc.header}"
+             bottom="Copyright &amp;copy; 2000-2013 Board of Trustees of Leland Stanford Jr. University, all rights reserved.">
+<!--         <fileset dir="${test.src}" includes="**/*.java"/> -->
+<!--        <fileset dir="${test.src}" includes="**/*.java" excludes="**/Test*.java"/> -->
+       <classpath refid="test.compile.classpath" />
+    </javadoc>
+  </target>
+
+  <target name="generate-null-mock"
+          description="Generates mock classes whose methods return null"
+          depends="jar-ant,jar-tools,-set.wrap.task.available">
+    <wrap srcdir="${src}/${mock}"
+        template="${tools.src}/nullmockwrapper.xml"
+	destdir="${test.src}/${mock}"
+	interface="false"
+        prefix="Mock" >
+    <fileset dir="${tools.src}/org/lockss/doclet"
+              includes="WrapperGenerator.java"/>
+     <fileset dir="${ant.src}/org/lockss/ant" includes="WrapTask.java" />
+     <classpath refid="tools.run.classpath" />
+    </wrap>
+  </target>
+
+  <target name="generate-unsupported-mock"
+          description="Generates mock classes which throw UnsupportedOperationExceptions"
+          depends="jar-ant,jar-tools,-set.wrap.task.available">
+    <wrap srcdir="${src}/${mock}"
+        template="${tools.src}/unsupportedmockwrapper.xml"
+	destdir="${test.src}/${mock}"
+	interface="false"
+        prefix="Mock" >
+    <fileset dir="${tools.src}/org/lockss/doclet"
+              includes="WrapperGenerator.java"/>
+     <fileset dir="${ant.src}/org/lockss/ant" includes="WrapTask.java" />
+     <classpath refid="tools.run.classpath" />
+    </wrap>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="jdftp" depends="javadoc,javadoc-test,jdftp1"
+   description="Build javadoc and invoke script to copy it somewhere.">
+  </target>
+
+  <target name="jdftp1" >
+
+    <property name="doctar" value="/tmp/lockss-javadoc.tgz" />
+    <property name="script" value="lockss-jdftp" />
+
+    <tar destfile="${doctar}" compression="gzip" longfile="gnu">
+      <tarfileset dir="${javadoc}" prefix="daemon" />
+      <tarfileset dir="${test.javadoc}" prefix="test" />
+    </tar>
+
+    <echo message="Invoking '${script} ${doctar}'"/>
+    <exec executable="${script}" dir="${basedir}"
+          failonerror="true" >
+      <arg line="${doctar}"/>
+    </exec>
+    <delete file="${doctar}" quiet="true"/>
+  </target>
+
+  <!-- ==================================================================== -->
+<!--   <target name="jcftp" depends="jcover,jcftp1" -->
+<!--    description="Run JCoverage and invoke script to copy results somewhere."> -->
+<!--   </target> -->
+
+<!--   <target name="jcftp1" > -->
+
+<!--     <property name="doctar" value="/tmp/lockss-jcoverage.tgz" /> -->
+<!--     <property name="script" value="lockss-jdftp" /> -->
+
+<!--     <tar destfile="${doctar}" compression="gzip" longfile="gnu"> -->
+<!--       <tarfileset dir="${test.results}" prefix="jcoverage" excludes="TEST-*" /> -->
+<!--     </tar> -->
+
+<!--     <echo message="Invoking '${script} ${doctar}'"/> -->
+<!--     <exec executable="${script}" dir="${basedir}" -->
+<!--           failonerror="true" > -->
+<!--       <arg line="${doctar}"/> -->
+<!--     </exec> -->
+<!--     <delete file="${doctar}" quiet="true"/> -->
+<!--   </target> -->
+
+  <!-- ==================================================================== -->
+  <target name="index" depends="jar-lockss,jar-tests,jar-tools"
+   description="Print an index for a .java file">
+    <tempfile property="index.file" destdir="${tmpdir}"
+       prefix="index"/>
+    <property name="copies" value="1" />
+    <basename property="indexname" file="${file}" suffix=".java" />
+    <javadoc
+       sourcefiles="${file}"
+       destdir="${javadoc}"
+       failonerror="true"
+       access="private">
+      <doclet name="org.lockss.doclet.Indexer"
+              path="${lockss.tools.jar}">
+	<param name="-o" value="${index.file}" />
+  	<param name="-dots" value="0" />
+      </doclet>
+      <classpath refid="test.run.classpath" />
+    </javadoc>
+    <apply executable="a2ps" dir="${basedir}"
+           parallel="true">
+      <arg value="-3"/>
+      <arg value="--header="/>
+      <arg value="--center-title=${indexname} Index"/>
+      <arg value="--footer=${file}"/>
+      <arg value="-l"/>
+      <arg value="50"/>
+      <arg value="--copies=${copies}"/>
+      <arg value="--prologue=matrix" />
+      <arg value="--medium=${papersize}"/>
+<!--        <arg value="-o"/> -->
+<!--        <arg value="foo.ps"/> -->
+      <filelist dir="/" files="${index.file}"/>
+    </apply>
+     <delete file="${index.file}" quiet="true"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="print"
+   description="Print a .java file">
+    <property name="copies" value="1" />
+    <apply executable="a2ps" dir="${basedir}"
+           relative="true"
+           parallel="true">
+      <arg value="-C"/>
+      <arg value="--header="/>
+      <arg value="--copies=${copies}"/>
+      <arg value="-S Collate:true"/>
+      <arg value="--medium=${papersize}"/>
+<!--        <arg value="-o"/> -->
+<!--        <arg value="foo.ps"/> -->
+      <filelist dir="${basedir}" files="${file}"/>
+    </apply>
+  </target>
+
+  <!-- ==================================================================== -->
+<!--  Once we have more files this will fail due to command line length.
+      It should pipe the names to etags as in:
+      find . -name \*.java -print | etags -t -S - -->
+  <target name="tags" depends="prepare"
+   description="Build an emacs TAGS file" >
+    <apply executable="etags" dir="${basedir}"
+           relative="true"
+           parallel="true">
+      <arg value="-S"/>
+<!--        <arg value="-o"/> -->
+<!--        <arg file="${etags.filename}"/> -->
+      <fileset dir="${basedir}" includes="src/**/*.java"/>
+      <fileset dir="${basedir}" includes="*/src/**/*.java"/>
+      <fileset dir="${basedir}" includes="*/*/src/**/*.java"/>
+    </apply>
+    <property name="tagsfile" location="TAGS" />
+    <echo>Tags written to ${tagsfile}</echo>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="javap" depends="jar-tests"
+   description="Disassemble the class named by class prop, with additional args in args prop" >
+    <property name="args" value="" />
+    <pathconvert refid="test.run.classpath" property="tmp.test.clspth"
+      targetos="${detected.os}" />
+    <exec executable="javap" dir="${basedir}"
+          failonerror="true" >
+      <arg value="-classpath"/>
+      <arg value="${tmp.test.clspth}"/>
+      <arg line="${args}" />
+      <arg value="${class}"/>
+    </exec>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="run-class" depends="jar-tests,check.class.arg"
+   description="Run a class named by class prop, with args in args prop" >
+    <!-- default args empty if not supplied on command line -->
+    <property name="args" value="" />
+    <java classname="${class}" fork="true" failonerror="true">
+       <classpath refid="test.run.classpath" />
+       <arg line="${args}" />
+       <jvmarg line="${jvmargs}"/>
+       <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
+       <sysproperty key="java.library.path" value="${test.native}"/>
+    </java>
+  </target>
+ <!-- ==================================================================== -->
+  <target name="run-tool"
+   depends="jar-tools-tests,check.class.arg"
+   description="Run a tools class named by class prop, with args in args prop" >
+    <!-- default args empty if not supplied on command line -->
+    <property name="args" value="" />
+    <java classname="${class}" fork="true" failonerror="yes">
+       <classpath refid="tools.test.run.classpath" />
+       <arg line="${args}" />
+       <jvmarg line="${jvmargs}"/>
+       <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
+    </java>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-all"
+   depends="package,test-unit,test-func,test-tools,test-xml"
+   description="Run all unit tests and functional tests" >
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-unit"
+   depends="prepare.run.test,jar-tests"
+   description="Run all unit tests (test/src/**/Test*.class)" >
+    <condition property="unit.include" value="${include}" else="**/Test*.java">
+      <isset property="include" />
+    </condition>
+    <dojunit cpid="test.run.classpath">
+     <junitelem>
+      <batchtest fork="${fork}" todir="${test.results}" >
+        <fileset dir="${test.src}">
+          <include name="${unit.include}" />
+          <exclude name="${exclude}" />
+          <excludesfile name="${excludesfile}" if="excludesfile" />
+          <excludesfile name="${requires-1.8}" unless="is-java-ge-1.8" />
+        </fileset>
+      </batchtest>
+     </junitelem>
+    </dojunit>
+    <fail if="failed" message="Test(s) failed" />
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-func"
+   depends="prepare.run.test,jar-tests"
+   description="Run all functional tests (test/src/**/Func*.class)" >
+    <condition property="func.include" value="${include}" else="**/Func*.java">
+      <isset property="include" />
+    </condition>
+    <dojunit cpid="test.run.classpath">
+     <junitelem>
+      <batchtest fork="${fork}" todir="${test.results}">
+        <fileset dir="${test.src}">
+          <include name="${func.include}" />
+          <exclude name="${exclude}" />
+          <excludesfile name="${excludesfile}" if="excludesfile" />
+          <excludesfile name="${requires-1.8}" unless="is-java-ge-1.8" />
+        </fileset>
+      </batchtest>
+     </junitelem>
+    </dojunit>
+    <fail if="failed" message="Test(s) failed" />
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-class"
+   depends="prepare.run.test,check.class.arg,jar-tests"
+   description="Run all tests for a single class, named by the 'class' property" >
+    <echo>Running tests for class ${class}</echo>
+    <dojunit cpid="test.run.classpath" usefile="false">
+     <junitelem>
+      <batchtest fork="${fork}" todir="${test.results}">
+        <fileset dir="${test.src}">
+          <include name="**/*.java" />
+          <exclude name="${exclude}" />
+	  <custom classname="org.lockss.ant.ClassTestSelector">
+	    <classpath>
+	      <path refid="test.run.classpath" />
+	    </classpath>
+	    <param name="class" value="${class}" />
+	  </custom>
+        </fileset>
+      </batchtest>
+     </junitelem>
+    </dojunit>
+  </target>
+  <!-- ==================================================================== -->
+  <target name="test-one"
+   depends="prepare.run.test,check.class.arg,jar-tests"
+   description="Run a single test class, named by the 'class' property" >
+    <if>
+      <contains string="${class}" substring="." />
+     <then>
+      <dojunit cpid="all.test.run.classpath" usefile="false">
+       <junitelem>
+        <test fork="${fork}" name="${class}" />
+       </junitelem>
+      </dojunit>
+      </then>
+     <else>
+      <fileset id="test.one.filesetid" dir="${test.src}">
+	 <include name="**/${class}.java" />
+         <excludesfile name="${excludesfile}" if="excludesfile" />
+         <excludesfile name="${requires-1.8}" unless="is-java-ge-1.8" />
+      </fileset>
+      <!-- test whether fileset is empty by converting it to a string -->
+      <pathconvert refid="test.one.filesetid" property="test.one.files"
+        targetos="${detected.os}" />
+      <if>
+       <equals arg1="${test.one.files}" arg2="" />
+       <then>
+	<fail message="Pattern '${class}' does not match any classes" />
+       </then>
+      </if>
+      <dojunit cpid="all.test.run.classpath" usefile="false">
+       <junitelem>
+       <batchtest fork="${fork}">
+	 <fileset refid="test.one.filesetid"/>
+       </batchtest>
+       </junitelem>
+      </dojunit>
+     </else>
+    </if>
+    <fail if="failed" message="Test(s) failed" />
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-tools"
+   depends="prepare.run.test,jar-tools-tests"
+   description="Run all tools tests" >
+    <dojunit cpid="tools.test.run.classpath">
+     <junitelem>
+      <batchtest fork="${fork}" todir="${test.results}">
+        <fileset dir="${tools.test.src}">
+          <include name="**/Test*.java" />
+	  <include name="**/Func*.java"/>
+          <excludesfile name="${excludesfile}" if="excludesfile" />
+          <excludesfile name="${requires-1.8}" unless="is-java-ge-1.8" />
+       </fileset>
+      </batchtest>
+     </junitelem>
+    </dojunit>
+    <fail if="failed" message="Test(s) failed" />
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-python"
+   depends="prepare.run.test"
+   description="Run all python unit tests." >
+    <apply executable="python" dir="${basedir}"
+           relative="true"
+           parallel="false"
+	   failonerror="true"
+	   failifexecutionfails="false">
+      <fileset refid="python.tests" />
+    </apply>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-stf"
+   depends="prepare.run.test,jar-tools-tests,jar-tests"
+   description="Run an stf test suite" >
+   <if>
+     <isset property="suite" />
+     <else>
+      <fail message="The test suite must be specified with -Dsuite=&lt;suite name&gt;" />
+     </else>
+   </if>
+    <exec executable="python" dir="${framework.stf}"
+           failonerror="true">
+      <arg value="testsuite.py"/>
+      <arg value="${suite}"/>
+    </exec>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="test-xml" depends="xmllint,load-xml"
+   description="Run xmllint and load-xml" />
+
+  <target name="load-xml" depends="jar-tests"
+   description="Load xml config files to ensure well-formed" >
+    <fileset id="xml.files.filesetid" dir="${basedir}">
+      <include name="test/frameworks/*.xml"/>
+      <include name="test/frameworks/tdbxml/**/*.xml"/>
+    </fileset>
+    <!-- convert the list of files to a string -->
+    <pathconvert refid="xml.files.filesetid"
+      property="xml.files"
+      pathsep=" "
+      targetos="${detected.os}" />
+    <if>
+     <not> <equals arg1="${xml.files}" arg2="" /> </not>
+     <then>
+      <echo message="Validating xml config files"/>
+      <property name="tdbloglevel" value="error" />
+      <java classname="ConfigDump" fork="true" failonerror="true" >
+	<classpath refid="test.run.classpath" />
+        <sysproperty key="org.lockss.defaultLogLevel" value="${tdbloglevel}"/>
+	<arg line="-v -g prod -h host.foo ${xml.files}" />
+	<jvmarg line="${junit.default.args}"/>
+	<jvmarg line="${jvmargs}"/>
+      </java>
+     </then>
+     <else>
+      <echo message="No xml config files found"/>
+     </else>
+    </if>
+  </target>
+
+  <target name="xmllint"
+   description="Run xmllint on xml files" >
+    <echo message="Checking .xml files"/>
+    <apply executable="xmllint" dir="${basedir}"
+           failonerror="true"
+           failifexecutionfails="false"
+           resultproperty="xmllint.result"
+           relative="true"
+           parallel="true">
+      <arg value="--noout"/>
+      <fileset dir="${basedir}" includes="test/frameworks/*.xml"/>
+      <fileset dir="${basedir}" includes="src/**/*.xml"/>
+      <fileset dir="${basedir}" includes="*/src/**/*.xml"/>
+      <fileset dir="${basedir}" includes="*/*/src/**/*.xml"/>
+    </apply>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="rebuild-all"
+   depends="clean,test-all,javadoc,javadoc-test"
+   description="Clean, build and test all, and javadoc." >
+  </target>
+
+  <target name="rebuild-tools"
+          depends="clean-tools,test-tools"
+	  description="Clean, build, and test tools">
+  </target>
+
+  <target name="rebuild-all-with-tools"
+          depends="rebuild-all,rebuild-tools"
+	  description="Clean, build, test daemon and tools">
+  </target>
+
+  <!-- ==================================================================== -->
+
+  <target name="btf" depends="jar-all,tdb-pln-all"
+	  description="Build everything necessary to run testing frameworks">
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="checkout-and-build"
+          depends="require.release.java.version,check.contrib,set.branchname"
+          description="Checkout current svn into temp dir, build and test all." >
+    <property name="target" value="test-all" />
+    <mkdir dir="${temp.build}" />
+    <tempfile property="temp.build.dir" destdir="${temp.build}" prefix="build"/>
+    <mkdir dir="${temp.build.dir}" />
+    <property name="temp.proj.dir" value="${temp.build.dir}/${svn.dir}" />
+
+    <if> <istrue value="${copylib}" />
+      <then>
+        <fail message="copylib=true is not supported yet." />
+      </then>
+    </if>
+    <trycatch property="recursive.error.msg">
+      <try>
+        <if>
+          <equals arg1="${branch.name}" arg2="master" />
+          <then>
+            <echo>Checking out MASTER BRANCH
+              to ${temp.build.dir}</echo>
+          </then>
+          <else>
+            <echo>Checking out BRANCH: ${branch.name}
+              to ${temp.build.dir}</echo>
+          </else>
+        </if>
+        <if>
+          <isfalse value="${nosvn}" />
+          <then>
+            <property name="copylib" value="false"/>
+            <if> <isfalse value="${copylib}" />
+              <then>
+                <exec executable="git" dir="${basedir}" failonerror="true"
+                      outputproperty="git.url" >
+                  <arg value="config" />
+                  <arg value="--get"/>
+                  <arg value="remote.origin.url"/>
+                </exec>
+                <echo message="git url|${git.url}|" />
+                <exec executable="git" dir="${temp.build.dir}" failonerror="true">
+                  <arg value="clone" />
+                  <arg value="-q" />
+                  <arg value="--depth" />
+                  <arg value="1"/>
+                  <arg value="--branch"/>
+                  <arg value="${branch.name}"/>
+                  <arg value="--single-branch"/>
+                  <arg value="${git.url}" />
+                  <arg value="${svn.dir}" />
+                </exec>
+              </then>
+              <else>
+                <!-- First check out just 1st-level files & dirs -->
+                <exec executable="svn" dir="${temp.build.dir}"
+                      failonerror="true">
+                  <arg value="checkout" />
+                  <arg value="-q" />
+                  <arg value="--non-interactive" />
+                  <arg value="--depth=immediates" />
+                  <arg value="${svn.anon.root}/${branch.name}" />
+                  <arg value="${svn.dir}" />
+                </exec>
+                <!-- Then update to infinite depth all but lib dir -->
+                <pathconvert pathsep=" " property="temp.proj.subdirs">
+                  <dirset dir="${temp.proj.dir}" >
+                    <include name="*" />
+                    <exclude name="lib" />
+                  </dirset>
+                  <map from="${temp.proj.dir}/" to=""/>
+                </pathconvert>
+                <exec executable="svn" dir="${temp.proj.dir}"
+                      failonerror="true">
+                  <arg value="update" />
+                  <arg value="-q" />
+                  <arg value="--non-interactive" />
+                  <arg value="--set-depth=infinity" />
+                  <arg line="${temp.proj.subdirs}" />
+                </exec>
+                <echo message="copying lib dir"/>
+                <copy todir="${temp.proj.dir}"
+                      preservelastmodified="true" >
+                  <fileset dir="${basedir}" >
+                    <include name="lib/"/>
+                    <exclude name="lib/lockss.jar"/>
+                    <exclude name="lib/lockss-*.jar"/>
+                  </fileset>
+                </copy>
+              </else>
+            </if>
+          </then>
+          <else>
+            <echo>No svn, copying from ${basedir}</echo>
+            <mkdir dir="${temp.proj.dir}" />
+            <copy todir="${temp.proj.dir}" >
+              <fileset dir="${basedir}" >
+                <include name="build.xml"/>
+                <include name="lib/"/>
+                <include name="src/"/>
+                <include name="test/src/"/>
+                <include name="ant/src/"/>
+                <include name="doclet/"/>
+                <include name="tools/"/>
+                <include name="scripts/"/>
+                <include name="tdb/"/>
+                <exclude name="**/classes/**"/>
+              </fileset>
+            </copy>
+          </else>
+        </if>
+        <echo>Building and testing (${target}) in ${temp.build.dir}</echo>
+        <!--
+       Would prefer to run build in separate jvm, but ant task doesn't
+       support the fork= attribute.  Don't want to pass most properties
+       from this invocation, as they point to the current build dir,
+       not the one under tempduild.  But we need to arrange for it to not
+       try to redefine tasks that were defined in the outer invocation.
+       Passing in ant-contrib.loaded accomplishes that, but isn't really
+       right.
+    -->
+        <ant dir="${temp.proj.dir}"
+             target="${target}"
+             inheritAll="false">
+          <property name="ant-contrib.loaded" value="${ant-contrib.loaded}" />
+          <property name="halt" value="${halt}" />
+          <property name="loglevel" value="${loglevel}" />
+          <!--        <property name="excludesfile" value="${excludesfile} if=excludesfile" /> -->
+          <property name="build.compiler" value="modern" />
+        </ant>
+        <echo>Build was successful, deleting "${temp.build.dir}"</echo>
+        <delete dir="${temp.build.dir}" quiet="true"/>
+        <property name="checkout.and.build.worked" value="true" />
+      </try>
+      <catch>
+        <echo>*** Failed temp checkout left in
+          *** ${temp.build.dir}
+          *** Use clean-tempbuild target to delete it.</echo>
+        <fail message="Recursive build failed."/>
+      </catch>
+    </trycatch>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="javah-test" depends="jar-tests"
+   description="Generate headers for native code in test/" >
+     <javah destdir="${test.native}">
+      <classpath>
+         <path refid="test.run.classpath" />
+      </classpath>
+      <class name="org.lockss.test.DebugUtils" />
+     </javah>
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="native-test" depends="javah-test"
+   description="Compile and link native code in test/" >
+     <exec dir="${test.native}" executable="make" />
+  </target>
+
+  <!-- ==================================================================== -->
+  <target name="pre-commit-test" depends="clean,test-all"
+   description="Clean, build and test all." />
+
+  <target name="post-commit-test" depends="checkout-and-build"
+   description="Checkout current svn into temp dir, build and test all." />
+
+  <!-- ==================================================================== -->
+  <target name="check.class.arg" unless="class.arg.specified" >
+    <fail message="The &quot;class&quot; arg must be specified with -Dclass=&lt;classname&gt;" />
+  </target>
+
+  <target name="check.junit"
+   depends="-set.junit.available,check.junit.jar,-set.junit.task.available,check.junit.task">
+  </target>
+
+  <target name="-set.junit.task.available" unless="junit.task.available">
+    <available property="junit.task.available"
+         classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask" />
+  </target>
+
+  <target name="-load.junit.logger.task" depends="check.junit,jar-ant"
+        unless="junit.logger.task.available">
+    <available property="junit.logger.task.available"
+         classname="org.lockss.ant.LoggingJUnitTask" />
+    <taskdef name="junit1" classname="org.lockss.ant.LoggingJUnitTask" >
+      <classpath>
+         <path refid="test.run.classpath" />
+      </classpath>
+    </taskdef>
+  </target>
+
+  <target name="-set.wrap.task.available" unless="wrap.task.available">
+     <available property="wrap.task.available" classname="org.lockss.ant.WrapTask"/>
+     <taskdef name="wrap" classname="org.lockss.ant.WrapTask">
+       <classpath>
+         <path refid="test.run.classpath" />
+      </classpath>
+    </taskdef>
+  </target>
+
+  <target name="-set.junit.available" unless="junit.available">
+    <available property="junit.available"
+               classname="junit.framework.Test" />
+  </target>
+
+  <target name="check.junit.task" unless="junit.task.available" >
+    <fail message="
+ The &lt;junit&gt; task cannot be found.
+ Your Ant installation may be incomplete.
+ Please see Ant's JUnit task doc for more information"   />
+  </target>
+
+  <target name="check.junit.jar" unless="junit.available" >
+    <fail message="
+  The junit jar is not in Ant's classpath.
+  Put a copy of junit.jar in Ant's lib/ directory, or
+  see Ant's JUnit task doc for more information"
+    />
+  </target>
+
+  <target name="check.contrib"
+   depends="prepare.contrib,load.ant-contrib" />
+
+  <!-- Load the Ant gettext tasks -->
+  <target name="check.gettext" depends="check.contrib" unless="gettext.checked">
+    <!-- Check for existence of gettext program msgfmt -->
+    <trycatch>
+      <try>
+        <exec executable="msgfmt"
+	      outputproperty="gettext.available.output"
+	      failifexecutionfails="true">
+          <arg value="-V"/> <!-- Just get version -->
+        </exec>
+	<!-- Load gettext-commons tasks -->
+	<taskdef name="gettext-extract" classpath="${gettext.tasks.jar}"
+		 classname="org.xnap.commons.ant.gettext.GettextExtractKeysTask" />
+	<taskdef name="gettext-merge" classpath="${gettext.tasks.jar}"
+		 classname="org.xnap.commons.ant.gettext.GettextMergeKeysTask"/>
+	<taskdef name="gettext-generate-default" classpath="${gettext.tasks.jar}"
+		 classname="org.xnap.commons.ant.gettext.GenerateDefaultBundleTask"/>
+	<taskdef name="gettext-dist" classpath="${gettext.tasks.jar}"
+		 classname="org.xnap.commons.ant.gettext.GettextDistTask"/>
+
+        <!-- Set a flag if gettext is available -->
+        <property name="gettext.available" value="true"/>
+      </try>
+      <catch>
+        <echo message="Warning: gettext is not available, continuing without i18n"/>
+      </catch>
+    </trycatch>
+    <!-- Don't check again even if isn't available -->
+    <property name="gettext.checked" value="true" />
+  </target>
+
+  <target name="load.ant-contrib" unless="ant-contrib.loaded" >
+   <!--  Non-standard tasks -->
+   <taskdef resource="${ant-contrib.resource}">
+    <classpath refid="ant-contrib.classpath"/>
+   </taskdef>
+   <property name="ant-contrib.loaded" value="true" />
+  </target>
+
+  <target name="-load.findbugs"
+          unless="findbugs.loaded"
+          depends="check.contrib" >
+   <taskdef name="findbugs"
+            classname="edu.umd.cs.findbugs.anttask.FindBugsTask"/>
+   <property name="findbugs.loaded" value="true" />
+   <if>
+     <isset property="env.FINDBUGS_HOME" />
+     <then>
+       <property name="findbugs.home" value="${env.FINDBUGS_HOME}" />
+     </then>
+     <else>
+       <property name="findbugs.home" value="/usr/local/findbugs" />
+     </else>
+   </if>
+  </target>
+
+  <target name="findbugs" depends="jar-lockss, -load.findbugs"
+   description="Run FindBugs on the main source tree." >
+    <findbugs home="${findbugs.home}"
+              output="emacs"
+              jvmargs="-Xmx512m"
+              excludeFilter="test/scripts/findbugsexclude.xml" >
+      <auxClasspath refid="test.compile.classpath" />
+      <sourcePath path="${src}" />
+      <class location="${lockss.jar}" />
+    </findbugs>
+  </target>
+
+<!--
+  <target name="check.ant-contrib.jar" unless="ant-contrib.available" >
+  <taskdef resource="${ant-contrib.resource}">
+   <classpath refid="ant-contrib.classpath"/>
+  </taskdef>
+
+    <fail message="You need to place a copy of ant-contrib-0.1.jar in ${lib}." />
+  </target>
+-->
+
+  <!-- ==================================================================== -->
+  <target name="prepare.cobertura"
+	  depends="prepare.run.test,jar-tests">
+    <taskdef classpathref="cobertura.classpath" resource="tasks.properties"/>
+    <path id="instrumented.classpath">
+     <path location="${instrumented}"/>
+     <path refid="cobertura.classpath" />
+     <path refid="all.test.run.classpath" />
+    </path>
+  </target>
+
+  <property name="instrincl" value="**" />
+  <property name="instrexcl" value="" />
+
+  <macrodef name="do-cob-instr">
+    <attribute name="base"/>
+    <attribute name="incl"/>
+    <attribute name="excl"/>
+    <sequential>
+      <echo message="Instrumenting classes: @{base}/@{incl}"/>
+      <cobertura-instrument todir="${instrumented}">
+	<classpath refid="cobertura.classpath" />
+	<fileset dir="@{base}">
+          <include name="@{incl}"/>
+          <exclude name="@{excl}"/>
+	</fileset>
+      </cobertura-instrument>
+    </sequential>
+  </macrodef>
+
+  <target name="cobertura-instrument-src"
+	  depends="prepare.cobertura">
+    <do-cob-instr base="${classes}" incl="${instrincl}" excl="${instrexcl}"/>
+  </target>
+
+  <target name="cobertura-instrument-tools"
+	  depends="prepare.cobertura,jar-tools-tests">
+    <do-cob-instr base="${tools.classes}" incl="${instrincl}" excl="${instrexcl}"/>
+  </target>
+
+  <target name="cobertura-instrument-all"
+	  depends="cobertura-instrument-src,cobertura-instrument-tools">
+  </target>
+
+  <macrodef name="do-cob-test">
+    <attribute name="base"/>
+    <attribute name="incl" default="**/Test*"/>
+    <attribute name="excl"/>
+    <attribute name="pref"/>
+    <sequential>
+      <fileset id="@{pref}.coverage.tests.filesetid" dir="@{base}">
+	<include name="@{incl}"/>
+	<exclude name="@{excl}"/>
+      </fileset>
+      <!-- test whether fileset is empty by converting it to a string -->
+      <pathconvert refid="@{pref}.coverage.tests.filesetid"
+		   property="@{pref}.coverage.tests.files"
+		   targetos="${detected.os}" />
+      <echo message="files: ${@{pref}.coverage.tests.files}" />
+      <if>
+	<equals arg1="@{pref}.${coverage.tests.files}" arg2="" />
+	<then>
+	  <fail message="Pattern '@{incl}' does not match any test classes" />
+	</then>
+      </if>
+      <echo message="Running tests: @{incl}"/>
+      <dojunit cpid="instrumented.classpath">
+	<junitelem>
+	  <batchtest fork="${fork}" todir="${test.results}">
+	    <fileset refid="@{pref}.coverage.tests.filesetid"/>
+	  </batchtest>
+	</junitelem>
+      </dojunit>
+    </sequential>
+  </macrodef>
+
+
+  <target name="cobertura-test-unit"
+   depends="prepare.run.test,jar-tests,prepare.cobertura"
+   description="Run a set of test against cobertura instrumented classes.  Specify test with include and exclude properties." >
+    <condition property="unit.include" value="${include}" else="**/Test*.java">
+      <isset property="include" />
+    </condition>
+    <do-cob-test base="${test.src}" pref="unit" incl="${unit.include}" excl="${exclude}"/>
+  </target>
+
+  <target name="cobertura-test-func"
+   depends="prepare.run.test,jar-tests,prepare.cobertura"
+   description="Run a set of test against cobertura instrumented classes.  Specify test with include and exclude condition." >
+    <condition property="func.include" value="${include}" else="**/Func*.java">
+      <isset property="include" />
+    </condition>
+    <do-cob-test base="${test.src}" pref="func" incl="${func.include}" excl="${exclude}"/>
+  </target>
+
+  <target name="cobertura-test-tools"
+   depends="prepare.run.test,jar-tools-tests,prepare.cobertura"
+   description="Run a set of test against cobertura instrumented classes.  Specify test with include and exclude properties." >
+    <condition property="tools.include" value="${include}" else="**/Test*.java">
+      <isset property="include" />
+    </condition>
+    <do-cob-test base="${tools.test.src}" pref="tools" incl="${tools.include}" excl="${exclude}"/>
+  </target>
+
+  <target name="cobertura-test-all"
+	  depends="cobertura-test-unit,cobertura-test-func,cobertura-test-tools">
+  </target>
+
+  <target name="cobertura-report"
+   depends="prepare.run.test,jar-tests,prepare.cobertura"
+   description="Generate a coverage report from the data collected by cobertura-test." >
+   <cobertura-report
+       format="html"
+       datafile="${cobertura.ser}"
+       destdir="${test.results}/coverage">
+      <classpath refid="cobertura.run.classpath" />
+      <fileset dir="${src}" />
+<!--       <fileset dir="${tools.src}" /> -->
+    </cobertura-report>
+    <echo message="Coverage report written to: ${test.results}/coverage"/>
+  </target>
+
+  <target name="cobertura-reset"
+	  description="Delete the accumulated cobertura data." >
+    <delete file="${cobertura.ser}" quiet="true"/>
+    <delete dir="${instrumented}" quiet="true"/>
+  </target>
+
+  <target name="cobertura-all"
+   depends="cobertura-reset,cobertura-instrument-all,cobertura-test-all,cobertura-report"
+   description="Instrument all the classes, run all tests and generate a cobertura report." >
+  </target>
+
+  <!-- Additional targets for search -->
+
+  <target name="javah" depends="jar-lockss">
+    <javah class="org.lockss.search."
+           outputFile="${tools.src}/JavaUUID.h">
+      <classpath refid="test.run.classpath"/>
+    </javah>
+  </target>
+
+  <target name="gcc" depends="javah">
+    <exec executable="g++" dir="${tools.src}">
+      <arg value="-shared"/>
+      <arg value="-o ${lib}/libJavaUUID.so"/>
+      <arg value="-fPIC"/>
+      <arg value="-ansi"/>
+      <arg value="JavaUUID.cc"/>
+    </exec>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!--  Supplementary documentation and processing tasks -->
+  <!-- ==================================================================== -->
+
+  <target name="javadoc-apiviz" depends="jar-tests,prepare-javadoc,-load-build-info,param-docs"
+          description="Make the javadocs along with apiviz UML graphs.">
+    <javadoc
+        doclet="org.jboss.apiviz.APIviz"
+        docletpath="${apiviz.jar}"
+
+        failonerror="true"
+             packagenames="org.lockss.*"
+             sourcepath="${src}"
+             destdir="${javadoc}"
+             use="${use}"
+             author="${author}"
+             version="${version}"
+             access="private"
+             windowtitle="LOCKSS API"
+             doctitle="LOCKSS"
+             verbose="false"
+             overview="${src}/overview.html"
+             header="${javadoc.header}"
+             bottom="Copyright &amp;copy; 2000-2013 Board of Trustees of Leland Stanford Jr. University, all rights reserved.">
+       <classpath refid="compile.classpath" />
+    </javadoc>
+  </target>
+
+
+  <!-- ==================================================================== -->
+  <!--  Internationalization processing tasks -->
+  <!-- ==================================================================== -->
+  <!-- Package in which to place i18n messages -->
+  <property name="i18n.bundle.pkg" value="org.lockss.i18n"/>
+  <!-- Rel dir corresponding to i18n.bundle.pkg -->
+  <property name="i18n.bundle.dir" value="org/lockss/i18n"/>
+  <!-- Basename for i18n bundles in the package -->
+  <property name="i18n.bundle.basename" value="Messages"/>
+  <!-- Package and base class name in which to place i18n messages.
+       This must match the basename declared in i18n.properties. -->
+  <property name="i18n.bundle" value="${i18n.bundle.pkg}.${i18n.bundle.basename}"/>
+  <!-- Directory with translated message files -->
+  <property name="i18n.dir" value="i18n"/>
+  <!-- Name of the default pot file in each module -->
+  <property name="i18n.default.pot.file" value="keys.pot"/>
+  <!-- Name of the manually-edited pot file -->
+  <property name="i18n.manual.pot.file" value="manual.pot"/>
+  <!-- A percentage threshold of translation above which a translated locale will be incorporated -->
+  <property name="i18n.translation.threshold" value="0"/>
+
+
+  <!-- ==================================================================== -->
+  <!-- Fail if i18n language bundles aren't available. -->
+  <!-- XXX This should probably be changed to check that specific language
+       bundles are actually present, once we have such a list. -->
+  <target name="require-i18n" depends="check.gettext"
+	  description="Fail if i18n language bundles can't be built." >
+    <fail unless="gettext.available">Required language bundles can't be built.</fail>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!-- Extract message keys from the source code of a single module.
+       Takes a single srcdir argument. -->
+  <target name="i18n-extract-messages"
+          depends="check.gettext,check.contrib" if="gettext.available"
+          description="Extract message keys from the source code of a single module">
+    <fail unless="srcdir">Must specify srcdir with -Dsrcdir=dir</fail>
+    <echo message="Extracting i18n messages from ${srcdir}"/>
+    <!-- Make the path relative -->
+    <pathconvert property="relsrcdir">
+      <map from="${basedir}" to="."/>
+      <path location="${srcdir}"/>
+    </pathconvert>
+    <!-- If the pot file dir exists, extract the src messages to there -->
+    <property name="local.po.dir" value="${relsrcdir}/${i18n.dir}"/>
+    <if>
+      <available file="${local.po.dir}"/>
+      <then>
+        <echo message="Extracting messages in ${local.po.dir}"/>
+        <!-- Run message extraction -->
+        <gettext-extract keysFile="${i18n.default.pot.file}" poDirectory="${local.po.dir}">
+          <fileset dir="${relsrcdir}" includes="**/*.java"/>
+        </gettext-extract>
+        <!-- Merge messages -->
+        <gettext-merge keysFile="${i18n.default.pot.file}" poDirectory="${local.po.dir}"/>
+      </then>
+    </if>
+  </target>
+
+
+  <!-- ==================================================================== -->
+  <!-- Merge newly extracted messages into existing po files -->
+  <target name="i18n-merge-messages"
+          depends="check.gettext,check.contrib" if="gettext.available"
+          description="Merge newly extracted messages into existing po files">
+    <fail unless="srcdir">Must specify srcdir with -Dsrcdir=dir</fail>
+    <!-- We have to convert the paths to relative paths as gettext tasks seem to assume they are relative. -->
+    <pathconvert property="relsrcdir">
+      <map from="${basedir}" to="."/>
+      <path location="${srcdir}"/>
+    </pathconvert>
+    <!-- Merge new messages -->
+    <!-- If the pot dir exists, merge the messages -->
+    <property name="local.po.dir" value="${relsrcdir}/${i18n.dir}"/>
+    <if>
+      <available file="${local.po.dir}"/>
+      <then>
+        <echo message="Merging new i18n messages into po files in ${srcdir}" />
+        <!-- Merge the default extracted messages  -->
+        <if>
+          <available file="${local.po.dir}/${i18n.default.pot.file}"/>
+          <then>
+            <gettext-merge keysFile="${i18n.default.pot.file}" poDirectory="${local.po.dir}"/>
+          </then>
+        </if>
+      </then>
+    </if>
+  </target>
+
+
+  <!-- NOTE: It looks like we can't merge multiple pot files into the same
+       set of .pos, so the manually-managed messages and pos should perhaps
+       be in their own distinct dir and bundles?
+       Alternatively we could write a task to use gettext's msgcat -->
+  <!-- ==================================================================== -->
+  <!-- Merge manual messages into existing po files -->
+  <target name="i18n-merge-messages-manual"
+          depends="check.gettext,check.contrib" if="gettext.available"
+          description="Merge manual messages into po files">
+    <fail unless="srcdir">Must specify srcdir with -Dsrcdir=dir</fail>
+    <!-- We have to convert the paths to relative paths as gettext tasks seem to assume they are relative. -->
+    <pathconvert property="relsrcdir">
+      <map from="${basedir}" to="."/>
+      <path location="${srcdir}"/>
+    </pathconvert>
+    <!-- If the pot dir exists, merge the messages -->
+    <property name="local.po.dir" value="${relsrcdir}/${i18n.dir}"/>
+    <if>
+      <available file="${local.po.dir}"/>
+      <then>
+        <echo message="Merging manual i18n messages into po files in ${srcdir}" />
+        <if>
+          <available file="${local.po.dir}/${i18n.manual.pot.file}"/>
+          <then>
+            <gettext-merge keysFile="${i18n.manual.pot.file}" poDirectory="${local.po.dir}"/>
+          </then>
+        </if>
+      </then>
+    </if>
+  </target>
+
+
+  <!-- ==================================================================== -->
+  <!-- Generate Java message resource bundles in the named classes dir.
+       This is an essential part of the compile process and is called by
+       the compile targets of each module. The target is hidden by having
+       no description, as it is not intended for manual use. -->
+  <target name="i18n-generate-bundles"
+          depends="check.gettext,check.contrib" if="gettext.available">
+    <fail unless="srcdir">Must specify srcdir with -Dsrcdir=dir</fail>
+    <fail unless="clsdir">Must specify clsdir with -Dclsdir=dir</fail>
+    <property name="bundles.timestamp.file"
+	      value="${clsdir}/${i18n.bundle.dir}/.timestamp"/>
+    <uptodate property="bundles.are.up.to.date"
+	      targetfile="${bundles.timestamp.file}">
+      <srcfiles dir="${srcdir}/${i18n.dir}" />
+    </uptodate>
+    <if>
+      <isset property="bundles.are.up.to.date" />
+      <else>
+	<!-- We have to convert the paths to relative paths as gettext
+	     tasks seem to assume they are relative. -->
+	<pathconvert property="relsrcdir">
+	  <map from="${basedir}" to="."/>
+	  <path location="${srcdir}"/>
+	</pathconvert>
+	<pathconvert property="relclsdir">
+	  <map from="${basedir}" to="."/>
+	  <path location="${clsdir}"/>
+	</pathconvert>
+	<echo message="Generating i18n message bundles in ${srcdir}" />
+	<property name="local.po.dir" value="${relsrcdir}/${i18n.dir}"/>
+	<property name="local.pot.file"
+		  value="${local.po.dir}/${i18n.default.pot.file}"/>
+	<!-- If the pot file exists, generate the default resource bundle
+	     first -->
+	<if>
+	  <available file="${local.pot.file}"/>
+	  <then>
+            <echo message="Generating bundle from ${local.pot.file}"/>
+            <gettext-generate-default targetBundle="${i18n.bundle}"
+				      outputDirectory="${relclsdir}"
+				      potfile="${local.pot.file}"/>
+            <!-- Generate the other language bundles -->
+            <gettext-dist targetBundle="${i18n.bundle}"
+			  percentage="${i18n.translation.threshold}"
+			  poDirectory="${local.po.dir}"
+			  outputDirectory="${relclsdir}"/>
+	    <touch file="${bundles.timestamp.file}" />
+	  </then>
+	</if>
+      </else>
+    </if>
+  </target>
+
+
+
+  <!-- ==================================================================== -->
+  <!-- Perform full i18n process - extraction, merge, bundle. -->
+  <target name="i18n-build-all"
+          depends="check.gettext" if="gettext.available"
+          description="Perform the whole i18n message bundle generation process (extract, merge, generate/compile bundles).">
+    <antcall target="i18n-extract-messages-all"/>
+    <antcall target="i18n-merge-messages-all"/>
+    <antcall target="i18n-generate-bundles-all"/>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!-- Extract message keys from the source code for all modules. -->
+  <target name="i18n-extract-messages-all"
+          depends="check.gettext" if="gettext.available"
+          description="Extract message keys from the source code">
+    <echo message="Extracting i18n messages for all modules"/>
+    <antcall target="i18n-extract-messages">
+      <param name="srcdir" value="${src}"/>
+    </antcall>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!-- Merge messages into existing po files for all modules. -->
+  <target name="i18n-merge-messages-all"
+          depends="check.gettext" if="gettext.available"
+          description="Merge messages into existing po files">
+    <antcall target="i18n-merge-messages">
+      <param name="srcdir" value="${src}"/>
+    </antcall>
+  </target>
+
+  <!-- ==================================================================== -->
+  <!-- Generate resource bundles for all modules. Hidden; requires classes
+       dir and should only be called as part of a compile/jar process. -->
+  <target name="i18n-generate-bundles-all"
+          depends="check.gettext" if="gettext.available">
+    <antcall target="i18n-generate-bundles">
+      <param name="srcdir" value="${src}"/>
+      <param name="clsdir" value="${classes}"/>
+    </antcall>
+  </target>
+
+  <path id="build.empty.db.run.classpath">
+    <path refid="test.compile.classpath" />
+    <pathelement path="${test.classes}" />
+  </path>
+
+  <target name="archive-empty-db" depends="compile-tests"
+          description="Creates an archive with the empty database.">
+    <uptodate property="archive.db.is.up.to.date"
+              srcfile="${classes}/org/lockss/metadata/MetadataDbManager.class"
+              targetfile="${empty.db.archive}" />
+    <if>
+      <isset property="archive.db.is.up.to.date" />
+      <else>
+        <delete dir="${empty.db.dir}" quiet="true" />
+        <java classname="org.lockss.metadata.EmptyDbCreator" fork="true">
+          <classpath refid="build.empty.db.run.classpath" />
+          <arg line="-d ${empty.db.parent.dir}" />
+          <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}" />
+        </java>
+        <zip destfile="${empty.db.archive}" basedir="${empty.db.dir}" />
+        <delete dir="${empty.db.dir}" quiet="true" />
+      </else>
+    </if>
+  </target>
+
+  <target name="clean-schema-doc"
+          description="Deletes the database schema documentation." >
+    <delete dir="${schema.doc.dir}" quiet="true"/>
+  </target>
+
+  <target name="check-for-dot">
+    <exec executable="dot" failonerror="false" failifexecutionfails="false"
+          resultproperty="dot.is.available">
+      <arg value="-V"/>
+    </exec>
+  </target>
+
+  <target name="schema-doc"
+          depends="check.contrib,clean-schema-doc,check-for-dot,compile-tests"
+          description="Creates database schema documentation diagrams.">
+    <if>
+      <isset property="dot.is.available" />
+   	  <then>
+   	    <delete dir="${empty.db.dir}" quiet="true" />
+   	    <java classname="org.lockss.db.EmptyDbCreator" fork="true">
+   	      <classpath refid="build.empty.db.run.classpath" />
+   	      <arg line="-d ${empty.db.parent.dir}" />
+   	      <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}" />
+   	    </java>
+        <java jar="${schemaSpy.jar}" fork="true" dir="${empty.db.dir}">
+          <arg line="-t derby -db DbManager -dp ${derbynet.jar} -hq -noads -norows -u LOCKSS -o ${schema.doc.dir}" />
+          <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
+        </java>
+   	    <delete dir="${empty.db.dir}" quiet="true" />
+      </then>
+      <else>
+        <echo message="Schema documentation not generated because the dot program is not available; continuing..."/>
+      </else>
+    </if>
+  </target>
+</project>

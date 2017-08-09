@@ -1,0 +1,103 @@
+#!/bin/sh
+
+TITLE_DBS=""
+PLN=clockssingest
+HEAP_ARG=-Xmx512m
+
+while true ; do
+  case "$1" in
+    "-classpath" )
+      if [ -z "$CLASSPATH" ] ; then
+	CLASSPATH="$2"
+      else
+	CLASSPATH="$CLASSPATH":"$2"
+      fi
+      echo "CLASSPATH=$CLASSPATH"
+      shift; shift; continue;;
+    "-debug" )
+      args="$args -Dorg.lockss.defaultLogLevel=DEBUG"
+      shift; continue;;
+    "-jdb" )
+      jdb=1
+      shift; continue;;
+    "-notitle" )
+      TITLE_DBS=" "
+      shift; continue;;
+    "-titlepat" )
+      TITLE_DBS="${TITLE_DBS} $2"
+      shift; shift; continue;;
+    "-pln" )
+      PLN="$2"
+      shift; shift; continue;;
+    "-p" )
+      EXTRA_PROP_URLS="${EXTRA_PROP_URLS} $2"
+      shift; shift; continue;;
+    "-heap" )
+      HEAP_ARG="$2"
+      shift; shift; continue;;
+    "-1.6" )
+      if [ -z "$JAVA_16_HOME" ] ; then
+	echo "-1.6 option requires JAVA_16_HOME to point to 1.6 install dir"
+	exit 1;
+      fi
+      JAVA_HOME="${JAVA_16_HOME}"
+      export JAVA_HOME
+      PATH="$JAVA_HOME/bin:$PATH"
+      export PATH
+      echo JAVA_HOME="$JAVA_HOME"
+      shift; continue;;
+    "-1.7" )
+      if [ -z "$JAVA_17_HOME" ] ; then
+	echo "-1.7 option requires JAVA_17_HOME to point to 1.7 install dir"
+	exit 1;
+      fi
+      JAVA_HOME="${JAVA_17_HOME}"
+      export JAVA_HOME
+      PATH="$JAVA_HOME/bin:$PATH"
+      export PATH
+      echo JAVA_HOME="$JAVA_HOME"
+      shift; continue;;
+    -* )
+      args="$args $1"
+      shift; continue;;
+  esac
+  break;
+done
+
+if [ -z "$args" ]; then
+  args=-Dorg.lockss.defaultLogLevel=DEBUG
+fi
+
+TDB_DIR=../tdbxml/${PLN}
+if [ -z "${TITLE_DBS}" -a -d ${TDB_DIR} ]; then
+  TITLE_DBS="`find ${TDB_DIR} -maxdepth 1 -name \*.xml | sort`"
+fi
+
+
+PROP_URL_LIST="../common.xml ${TITLE_DBS} lockss.txt lockss.opt ${EXTRA_PROP_URLS}"
+# NB leading space meaningful here
+PROP_ARGS=`echo " " $PROP_URL_LIST | sed 's/ [ ]*/ -p /g'`
+
+# local copy of lockss jars allows recompile while we're running
+mkdir -p lib
+cp "${PROJECT_DIR}/lib/lockss.jar" lib
+cp "${PROJECT_DIR}/lib/lockss-test.jar" lib
+cp "${PROJECT_DIR}/lib/lockss-plugins.jar" lib
+CLASSPATH=lib/lockss.jar:lib/lockss-test.jar:lib/lockss-plugins.jar:`cat "${PROJECT_DIR}/test/test-classpath"`
+# Transform paths when running under cygwin
+if [ "$TERM" = "cygwin" ]; then
+  CLASSPATH=`cygpath -w -p $CLASSPATH`
+fi
+export CLASSPATH
+
+echo running at `date`
+#echo CLASSPATH=$CLASSPATH
+
+if [ -z "$jdb" ]; then
+ java ${HEAP_ARG} $args org.lockss.app.LockssDaemon ${PROP_ARGS} >>test.out 2>&1 &
+ echo $! >dpid
+ wait `cat dpid`
+ echo stopped with status $? at `date`
+else
+ jdb ${HEAP_ARG} $args org.lockss.app.LockssDaemon ${PROP_ARGS}
+fi

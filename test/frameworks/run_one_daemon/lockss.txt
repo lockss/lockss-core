@@ -1,0 +1,47 @@
+# Don't make local changes in this file; put local settings in lockss.opt
+
+org.lockss.log.default.level=debug
+
+org.lockss.ui.access.ip.logForbidden=true
+org.lockss.proxy.access.ip.logForbidden=true
+
+org.lockss.platform.diskSpacePaths=./cache
+
+org.lockss.config.reloadInterval = 5m
+org.lockss.ui.allowPluginConfig=true
+
+org.lockss.ui.start=yes
+org.lockss.proxy.start=no
+
+# Turn off V1 -- This will be the default some day.
+org.lockss.comm.enabled=false
+
+# Identity
+org.lockss.platform.v3.identity=TCP:[127.0.0.1]:9720
+
+# Comm settings
+org.lockss.scomm.maxMessageSize=33554430
+
+# Poller settings
+org.lockss.poll.v3.quorum=2
+org.lockss.poll.v3.pollStarterInitialDelay=5m
+org.lockss.poll.v3.pollStarterInterval=5m
+
+# Turn on ICP on port 3131
+org.lockss.proxy.icp.enabled=true
+org.lockss.proxy.icp.port=3131
+
+# Crawl starter interval
+org.lockss.crawler.startCrawlsInterval=5m
+
+org.lockss.crawlStatus.keepUrls=all
+
+# UI username-passwd = lockss-u/lockss-p
+org.lockss.platform.ui.username=lockss-u
+org.lockss.platform.ui.password=SHA1:ac4fc8fa9930a24c8d002d541c37ca993e1bc40f
+
+# So that we don't hash on no-longer-relevant URLs
+org.lockss.blockHasher.ignoreFilesOutsideCrawlSpec=true
+
+org.lockss.baseau.minFetchDelay=3000
+org.lockss.plugin.restartAusWithNewPlugin=true

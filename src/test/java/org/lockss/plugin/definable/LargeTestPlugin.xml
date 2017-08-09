@@ -1,0 +1,373 @@
+<map>
+  <entry>
+    <string>plugin_identifier</string>
+    <string>org.lockss.plugin.definable.LargeTestPlugin</string>
+  </entry>
+  <entry>
+    <string>au_def_pause_time</string>
+    <long>30000</long>
+  </entry>
+  <entry>
+    <string>plugin_version</string>
+    <string>7</string>
+  </entry>
+  <entry>
+    <string>au_name</string>
+    <string>"Large Plugin AU, Base URL %s, Resolver URL %s, Journal Code %s, Year %d, Issues %s, Range %s", base_url, resolver_url, journal_code, year, issue_set, num_issue_range</string>
+  </entry>
+  <entry>
+    <string>au_redirect_to_login_url_pattern</string>
+    <string>"%sdenial/denial\.cfm", base_url</string>
+  </entry>
+  <entry>
+    <string>plugin_name</string>
+    <string>Large Test Plugin</string>
+  </entry>
+  <entry>
+    <string>au_def_new_content_crawl</string>
+    <long>1209600000</long>
+  </entry>
+  <entry>
+    <string>plugin_notes</string>
+    <string>Make it a C-note, miss, and I'll take the case.</string>
+  </entry>
+<!--   <entry> -->
+<!--     <string>text/html_filter_factory</string> -->
+<!--     <string>org.lockss.plugin.definable.MissingHtmlFilterFactory</string> -->
+<!--   </entry> -->
+  <entry>
+    <string>au_refetch_depth</string>
+    <int>3</int>
+  </entry>
+  <entry>
+    <string>au_crawlrules</string>
+    <list>
+      <string>4,"^(%s|%s)", base_url, resolver_url</string>
+      <string>1,"^%spublishing/journals/lockss/\?journalcode=%s&amp;year=%d", base_url, journal_code, year</string>
+      <string>1,"^%s\?DOI=", resolver_url</string>
+      <string>2,"^%serrorpage\.asp", base_url</string>
+      <string>2,"^%shost/%s", base_url,base_url_host</string>
+      <string>1,"^%spublishing/journals/%s/article\.asp\?Type=Issue&amp;VolumeYear=%d&amp;JournalCode=%s", base_url, journal_code, year, journal_code</string>
+      <string>1,"^%s.*\.(bmp|css|ico|gif|jpe?g|js|mol|png|tif?f)$", base_url</string>
+      <string>1,"%sissueset/issue-%s/.*", base_url, issue_set</string>
+      <string>1,"%sissuerange/issue-%s/.*", base_url, num_issue_range</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_start_url</string>
+    <list>
+     <string>"%spublishing/journals/lockss/?journalcode=%s&amp;year=%d", base_url, journal_code, year</string>
+     <string>"%sissuestart/issue-%s/", base_url, issue_set</string>
+    </list>
+  </entry>
+  <entry>
+    <string>plugin_config_props</string>
+    <list>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>resolver_url</key>
+        <displayName>Resolver Url</displayName>
+        <description>Resolver for xlink.rsc.org</description>
+        <type>3</type>
+        <size>40</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>journal_code</key>
+        <displayName>Journal Code</displayName>
+        <description>The journal&apos;s short journal code</description>
+        <type>1</type>
+        <size>40</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>base_url</key>
+        <displayName>Base URL</displayName>
+        <description>Usually of the form http://&lt;journal-name&gt;.com/</description>
+        <type>3</type>
+        <size>40</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>year</key>
+        <displayName>Year</displayName>
+        <description></description>
+        <type>2</type>
+        <size>4</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>issue_set</key>
+        <displayName>Issue Set</displayName>
+        <description>A comma delimited list of issues. (eg issue1, issue2)</description>
+        <type>9</type>
+        <size>20</size>
+        <definitional>false</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>num_issue_range</key>
+        <displayName>Numeric Issue Range</displayName>
+        <description>A Range of issues in the form: min-max</description>
+        <type>8</type>
+        <size>20</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+    </list>
+  </entry>
+  <entry>
+    <string>au_permission_url</string>
+    <list>
+      <string>"%spublishing/journals/lockss/?journalcode=%s&amp;year=%d", base_url, journal_code, year</string>
+      <string>"%slockss.htm", resolver_url</string>
+      <string>"%s/issue-%d/issue.htm", resolver_url, num_issue_range</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_additional_url_stems</string>
+    <list>
+      <string>"%s", to_https(base_url)</string>
+      <string>"%s", to_http(base_url)</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_http_cookie</string>
+    <list>
+      <string>uid=gingerbread</string>
+      <string>s_vi=[CS]v1|26-60[CE]</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_http_request_header</string>
+    <list>
+      <string>Accept-Language:Klingon</string>
+      <string>Expect 5 misformatted request header errors</string>
+      <string></string>
+      <string>foo:</string>
+      <string>:bar</string>
+      <string>no_colon</string>
+      <string>An:other</string>
+    </list>
+  </entry>
+  <entry>
+    <string>plugin_article_iterator_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$ArtIterFact</string>
+  </entry>
+  <entry>
+    <string>plugin_default_article_mime_type</string>
+    <string>application/pdf</string>
+  </entry>
+  <entry>
+    <string>plugin_article_metadata_extractor_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$MetaExtFact</string>
+  </entry>
+  <entry>
+    <string>text/xml_metadata_extractor_factory_map</string>
+    <map>
+      <entry>
+        <string>*; DublinCore</string>
+	<string>org.lockss.plugin.definable.MockFactories$XmlMetaExtFact</string>
+      </entry>
+      <entry>
+        <string>DublinRind</string>
+	<string>org.lockss.plugin.definable.MockFactories$XmlRindMetaExtFact</string>
+      </entry>
+    </map>
+  </entry>
+  <entry>
+    <string>text/javascript_link_rewriter_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$JsRewriterFact</string>
+  </entry>
+  <entry>
+    <string>text/*_content_validator_factory</string>
+    <string>org.lockss.test.MockContentValidatorFactory</string>
+  </entry>
+  <entry>
+    <string>*/*_content_validator_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$AllContentValidatorFactory</string>
+  </entry>
+  <entry>
+    <string>application/pdf_content_validator_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$PdfContentValidatorFactory</string>
+  </entry>
+  <entry>
+    <string>plugin_substance_predicate_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$SubstPredFact</string>
+  </entry>
+  <entry>
+    <string>plugin_url_fetcher_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$UrlFetFact</string>
+  </entry>
+  <entry>
+    <string>plugin_url_consumer_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$UrlConsFact</string>
+  </entry>
+  <entry>
+    <string>plugin_crawl_seed_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$CrawlSeedFact</string>
+  </entry>
+  <entry>
+    <string>plugin_access_url_factory</string>
+    <string>org.lockss.plugin.definable.MockFactories$FeatureUrlHelperFact</string>
+  </entry>
+  <entry>
+    <string>au_exclude_urls_from_polls_pattern</string>
+    <list>
+      <string>"%s.*/rotating_ad.*", base_url</string>
+      <string>"%s.*\.css", base_url</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_url_poll_result_weight</string>
+    <list>
+      <string>"%s.*/rotating_ad.*", base_url , 0</string>
+      <string>"%s.*\.css", base_url , .5</string>
+      <string>"%s%s.*\.html", base_url,journal_code , 1</string>
+    </list>
+  </entry>
+
+  <entry>
+    <string>au_substance_url_pattern</string>
+    <map>
+      <entry>
+        <string>ABSTRACT</string>
+	<string>"%sabstract/.*\.html", base_url</string>
+      </entry>
+      <entry>
+        <string>FULLTEXT; *</string>
+	<list>
+	  <string>"%sarticle/.*\.pdf", base_url</string>
+	  <string>"%sletters/.*\.html", base_url</string>
+	</list>
+      </entry>
+    </map>
+  </entry>
+  <entry>
+    <string>au_non_substance_url_pattern</string>
+    <string>"%sfluff/", base_url</string>
+  </entry>
+  <entry>
+    <string>au_permitted_host_pattern</string>
+    <list>
+      <string>".*\.cdn\.%s", url_host(base_url)</string>
+      <string>".*\.cdn\.net"</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_repair_from_peer_if_missing_url_pattern</string>
+    <list>
+      <string>".*\.css$"</string>
+      <string>"%simg/", base_url</string>
+    </list>
+  </entry>
+
+  <entry>
+    <!-- Crawl window open from midnight to 6:00AM EST -->
+    <string>au_crawlwindow_ser</string>
+    <org.lockss.daemon.CrawlWindows-Interval>
+      <start>
+        <time>1277362837493</time>
+        <timezone>America/Los_Angeles</timezone>
+      </start>
+      <end>
+        <time>1277298037493</time>
+        <timezone>America/Los_Angeles</timezone>
+      </end>
+      <fieldMask>3</fieldMask>
+      <timeZoneId>US/Eastern</timeZoneId>
+    </org.lockss.daemon.CrawlWindows-Interval>
+  </entry>
+  <entry>
+    <string>plugin_bulk_content</string>
+    <boolean>true</boolean>
+  </entry>
+  <entry>
+    <string>plugin_send_referrer</string>
+    <boolean>false</boolean>
+  </entry>
+  <entry>
+    <string>plugin_store_probe_permission</string>
+    <boolean>false</boolean>
+  </entry>
+  <entry>
+    <string>plugin_archive_file_types</string>
+    <org.lockss.plugin.ArchiveFileTypes>
+      <extMimeMap>
+	<entry>
+          <string>.zip</string>
+	  <string>.zip</string>
+	</entry>
+	<entry>
+          <string>application/x-tar</string>
+	  <string>.tar</string>
+	</entry>
+      </extMimeMap>
+    </org.lockss.plugin.ArchiveFileTypes>
+  </entry>
+  <entry>
+    <string>au_url_mime_type</string>
+    <list>
+      <string>.*\.ris$, application/x-research-info-systems</string>
+      <string>"%s.*/pdf_url.*", base_url,application/pdf</string>
+    </list>
+  </entry>
+  <entry>
+    <string>plugin_cache_result_list</string>
+    <list>
+      <string>300=org.lockss.util.urlconn.CacheException$PermissionException</string>
+      <string>500=org.lockss.util.urlconn.CacheException$RetryableNetworkException_5_60S</string>
+      <string>java.io.IOException=org.lockss.util.urlconn.CacheException$RetryableNetworkException_5_30S</string>
+      <string>522=org.lockss.plugin.definable.LargeTestHttpResponseHandler</string>
+      <string>EmptyFile=org.lockss.util.urlconn.CacheException$NoRetryHostException</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_feature_urls</string>
+    <map>
+      <entry>
+	<string>au_feat_single</string>
+	<string>"%s?issue=%d", base_url, num_issue_range</string>
+      </entry>
+      <entry>
+	<string>au_feat_list</string>
+	<list>
+	  <string>"%s?issue=%d", base_url, num_issue_range</string>
+	  <string>"%sfoo", base_url</string>
+	  <string>"%sset/%s", base_url, issue_set</string>
+	</list>
+      </entry>
+      <entry>
+	<string>au_feat_map</string>
+	<map>
+	  <entry>
+	    <string>key1</string>
+	    <string>"%sbar", base_url</string>
+	  </entry>
+	  <entry>
+	    <string>key2;*</string>
+	    <list>
+	      <string>"%s222", base_url</string>
+	      <string>"%s333/%s", base_url, issue_set</string>
+	    </list>
+	  </entry>
+	</map>
+      </entry>
+      <entry>
+	<string>au_feat_fn_single</string>
+	<string>"%s?issue=%d", add_www(base_url), num_issue_range</string>
+      </entry>
+      <entry>
+	<string>au_feat_fn_list</string>
+	<list>
+	  <string>"%s?issue=%d", add_www(base_url), num_issue_range</string>
+	  <string>"%sfoo", base_url</string>
+	  <string>"%sset/%s", base_url, issue_set</string>
+	</list>
+      </entry>
+    </map>
+  </entry>
+</map>

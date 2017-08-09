@@ -1,0 +1,714 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE lockss-config [
+<!ELEMENT lockss-config (if|property)+>
+<!ELEMENT property (property|list|value|if)*>
+<!ELEMENT list (value)+>
+<!ELEMENT value (#PCDATA)>
+<!ELEMENT test EMPTY>
+<!ELEMENT and (and|or|not|test)*>
+<!ELEMENT or (and|or|not|test)*>
+<!ELEMENT not (and|or|not|test)*>
+<!ELEMENT if (and|or|not|then|else|test|property)*>
+<!ELEMENT then (if|property)*>
+<!ELEMENT else (if|property)*>
+<!ATTLIST property name CDATA #REQUIRED>
+<!ATTLIST property value CDATA #IMPLIED>
+<!ATTLIST test hostname CDATA #IMPLIED>
+<!ATTLIST test group CDATA #IMPLIED>
+<!ATTLIST test daemonVersionMin CDATA #IMPLIED>
+<!ATTLIST test daemonVersionMax CDATA #IMPLIED>
+<!ATTLIST test daemonVersion CDATA #IMPLIED>
+<!ATTLIST test platformVersionMin CDATA #IMPLIED>
+<!ATTLIST test platformVersionMax CDATA #IMPLIED>
+<!ATTLIST test platformVersion CDATA #IMPLIED>
+<!ATTLIST test platformName CDATA #IMPLIED>
+<!ATTLIST if hostname CDATA #IMPLIED>
+<!ATTLIST if group CDATA #IMPLIED>
+<!ATTLIST if daemonVersionMin CDATA #IMPLIED>
+<!ATTLIST if daemonVersionMax CDATA #IMPLIED>
+<!ATTLIST if daemonVersion CDATA #IMPLIED>
+<!ATTLIST if platformVersionMin CDATA #IMPLIED>
+<!ATTLIST if platformVersionMax CDATA #IMPLIED>
+<!ATTLIST if platformVersion CDATA #IMPLIED>
+<!ATTLIST if platformName CDATA #IMPLIED>
+<!ATTLIST list append CDATA #IMPLIED>
+]>
+
+<!--
+  This file is used by TestXmlPropertyLoader - do not change one
+  without changing the other.
+-->
+<lockss-config>
+  <property name="a" value="foo"/>
+  <property name="b">
+    <property name="c" value="foo"/>
+  </property>
+  <property name="d">
+    <value>bar</value>
+  </property>
+
+  <!-- For testing conditionals, these are the expected values: -->
+  <!--     Daemon Version: 1.2.8                                -->
+  <!--     Platform Version: OpenBSD CD-135                     -->
+  <!--     Hostname: testhost                                   -->
+  <!--     Group: beta                                          -->
+
+  <property name="org.lockss">
+    <property name="d">
+      <list>
+        <value>1</value>
+        <value>2</value>
+        <value>3</value>
+        <value>4</value>
+        <value>5</value>
+      </list>
+    </property>
+
+    <!-- Test for character chunking problems with list values -->
+    <property name="listtest">
+      <list>
+        <value>this&amp;should&amp;be&amp;one&amp;value</value>
+      </list>
+    </property>
+
+    <!-- Test equivalence of Daemon Version... -->
+    <if daemonVersion="1.2.7">
+      <property name="test.a" value="foo"/>
+    </if>
+    <if daemonVersion="1.2.8">
+      <property name="test.b" value="foo"/>
+    </if>
+
+    <!-- Test max Daemon Version -->
+    <if daemonVersionMax="1.2.7">
+      <property name="test.c" value="foo"/>
+    </if>
+    <if daemonVersionMax="1.2.9">
+      <property name="test.d" value="foo"/>
+    </if>
+
+    <!-- Test min Daemon Version -->
+    <if daemonVersionMin="1.2.7">
+      <property name="test.e" value="foo"/>
+    </if>
+    <if daemonVersionMin="1.2.9">
+      <property name="test.f" value="foo"/>
+    </if>
+
+    <!-- Test max and min daemon Version -->
+    <if daemonVersionMin="1.2.7" daemonVersionMax="1.2.9">
+      <property name="test.g" value="foo"/>
+    </if>
+    <if daemonVersionMin="1.2.0" daemonVersionMax="1.2.7">
+      <property name="test.h" value="foo"/>
+    </if>
+
+    <!-- Test equivalence of Platform Version... -->
+    <if platformVersion="135">
+      <property name="test.i" value="foo"/>
+    </if>
+    <if platformVersion="136">
+      <property name="test.j" value="foo"/>
+    </if>
+
+    <!-- Test max Platform Version -->
+    <if platformVersionMax="134">
+      <property name="test.k" value="foo"/>
+    </if>
+    <if platformVersionMax="136">
+      <property name="test.l" value="foo"/>
+    </if>
+
+    <!-- Test min Platform Version -->
+    <if platformVersionMin="134">
+      <property name="test.m" value="foo"/>
+    </if>
+    <if platformVersionMin="136">
+      <property name="test.n" value="foo"/>
+    </if>
+
+    <!-- Test max and min Platform Version -->
+    <if platformVersionMin="134" platformVersionMax="136">
+      <property name="test.o" value="foo"/>
+    </if>
+    <if platformVersionMin="130" platformVersionMax="134">
+      <property name="test.p" value="foo"/>
+    </if>
+
+    <!-- Test group -->
+    <if group="beta">
+      <property name="test.q" value="foo"/>
+    </if>
+    <if group="dev">
+      <property name="test.r" value="foo"/>
+    </if>
+
+    <!-- Test hostname -->
+    <if hostname="testhost">
+      <property name="test.s" value="foo"/>
+    </if>
+    <if hostname="badhost">
+      <property name="test.t" value="foo"/>
+    </if>
+
+    <!-- Test platform name -->
+    <if platformName="Linux rpm">
+      <property name="test.platformName.linux" value="linux"/>
+    </if>
+    <if platformName="OpenBSD CD">
+      <property name="test.platformName.openbsd" value="openbsd"/>
+    </if>
+
+    <!-- Test that unexpected / unknown conditionals eval to false -->
+    <if unknownConditional="foo">
+      <property name="test.unknown.a" value="foo"/>
+    </if>
+    <if>
+      <test unknownConditional="foo"/>
+      <then>
+        <property name="test.unknown.b" value="foo"/>
+      </then>
+      <else>
+        <property name="test.unknown.b" value="bar"/>
+      </else>
+    </if>
+    <!-- Combo of conditionals, unknown and known -->
+    <if unknownConditional="foo" hostname="testhost">
+      <property name="test.unknown.c" value="foo"/>
+    </if>
+    <if hostname="testhost" unknownConditional="foo">
+      <property name="test.unknown.d" value="foo"/>
+    </if>
+
+    <!-- Test then/else -->
+    <if group="beta">
+      <then>
+        <property name="test.u" value="foo"/>
+      </then>
+      <else>
+        <property name="test.u" value="bar"/>
+      </else>
+    </if>
+    <if group="dev">
+      <then>
+        <property name="test.v" value="foo"/>
+      </then>
+      <else>
+        <property name="test.v" value="bar"/>
+      </else>
+    </if>
+    <if platformName="Linux rpm">
+      <then>
+        <property name="test.ifelse.platformName" value="linux" />
+      </then>
+      <else>
+        <property name="test.ifelse.platformName" value="openbsd" />
+      </else>
+    </if>
+
+    <!-- Test a combination of conditionals -->
+    <if platformVersion="134" group="beta">
+      <then>
+        <property name="test.w" value="foo"/>
+      </then>
+      <else>
+        <property name="test.w" value="bar"/>
+      </else>
+    </if>
+    <if platformVersion="135" group="beta">
+      <then>
+        <property name="test.x" value="foo"/>
+      </then>
+      <else>
+        <property name="test.x" value="bar"/>
+      </else>
+    </if>
+
+    <!-- ensure 'test' can stand on its own -->
+    <if>
+      <test platformVersion="134" />
+      <then>
+        <property name="test.y" value="foo"/>
+      </then>
+      <else>
+        <property name="test.y" value="bar"/>
+      </else>
+    </if>
+    <if>
+      <test platformVersion="135" />
+      <then>
+        <property name="test.z" value="foo"/>
+      </then>
+      <else>
+        <property name="test.z" value="bar"/>
+      </else>
+    </if>
+
+
+    <!-- Test the legal formats for "and" booleans -->
+    <if>
+      <and>
+        <test group="beta" />
+        <test hostname="testhost" />
+      </and>
+      <property name="and.a" value="foo" />
+    </if>
+    <if>
+      <and>
+        <test group="beta" />
+        <test hostname="bar" />
+      </and>
+      <property name="and.b" value="foo" />
+    </if>
+    <if>
+      <and>
+        <test group="beta" />
+        <test hostname="testhost" />
+      </and>
+      <then>
+        <property name="and.c" value="foo" />
+      </then>
+    </if>
+    <if>
+      <and>
+        <test group="beta" />
+        <test hostname="foo" />
+      </and>
+      <then>
+        <property name="and.d" value="foo" />
+      </then>
+    </if>
+    <if>
+      <and>
+        <test group="beta" />
+        <test hostname="foo" />
+      </and>
+      <then>
+        <property name="and.e" value="foo" />
+      </then>
+      <else>
+        <property name="and.e" value="bar" />
+      </else>
+    </if>
+
+
+    <!-- Test the legal formats for "or" booleans -->
+    <if>
+      <or>
+        <test group="beta" />
+        <test group="foo" />
+      </or>
+      <property name="or.a" value="foo"/>
+    </if>
+    <if>
+      <or>
+        <test group="foo" />
+        <test group="bar" />
+      </or>
+      <property name="or.b" value="foo"/>
+    </if>
+    <if>
+      <or>
+        <test group="beta" />
+        <test group="foo" />
+      </or>
+      <then>
+        <property name="or.c" value="foo"/>
+      </then>
+    </if>
+    <if>
+      <or>
+        <test group="foo" />
+        <test group="bar" />
+      </or>
+      <then>
+        <property name="or.d" value="foo"/>
+      </then>
+    </if>
+    <if>
+      <or>
+        <test group="foo" />
+        <test group="bar" />
+      </or>
+      <then>
+        <property name="or.e" value="foo"/>
+      </then>
+      <else>
+        <property name="or.e" value="bar"/>
+      </else>
+    </if>
+
+    <!-- Test the legal formats for "not" booleans -->
+    <if>
+      <not>
+        <test group="foo" />
+      </not>
+      <property name="not.a" value="foo"/>
+    </if>
+    <if>
+      <not>
+        <test group="beta" />
+      </not>
+      <property name="not.b" value="foo"/>
+    </if>
+    <if>
+      <not>
+        <test group="foo" />
+      </not>
+      <then>
+        <property name="not.c" value="foo"/>
+      </then>
+    </if>
+    <if>
+      <not>
+        <test group="beta" />
+      </not>
+      <then>
+        <property name="not.d" value="foo"/>
+      </then>
+    </if>
+    <if>
+      <not>
+        <test group="beta" />
+      </not>
+      <then>
+        <property name="not.e" value="foo"/>
+      </then>
+      <else>
+        <property name="not.e" value="bar"/>
+      </else>
+    </if>
+    <if>
+      <not>
+        <test group="foo" />
+        <test group="bar" />
+      </not>
+      <then>
+        <property name="not.f" value="foo"/>
+      </then>
+      <else>
+        <property name="not.f" value="bar"/>
+      </else>
+    </if>
+    <if>
+      <not>
+        <test group="foo" /> <!-- false -->
+        <test group="beta" /> <!-- true -->
+        <test group="bar" /> <!-- false -->
+      </not> <!-- true -->
+      <then>
+        <property name="not.g" value="foo"/> <!-- expected value -->
+      </then>
+      <else>
+        <property name="not.g" value="bar"/>
+      </else>
+    </if>
+
+    <!-- Test nested ifs -->
+    <if>
+      <test hostname="testhost" /> <!-- true -->
+      <then>
+        <if>
+          <test group="beta"/> <!-- true -->
+          <then>
+            <property name="nestedIf.a" value="foo" /> <!-- expected -->
+          </then>
+          <else>
+            <property name="nestedIf.a" value="bar" />
+          </else>
+        </if>
+      </then>
+      <else>
+        <property name="nestedIf.a" value="baz" />
+      </else>
+    </if>
+
+    <if>
+      <test hostname="testhost" /> <!-- true -->
+      <then>
+        <if>
+          <test group="prod"/> <!-- false -->
+          <then>
+            <property name="nestedIf.b" value="foo" />
+          </then>
+          <else>
+            <property name="nestedIf.b" value="bar" /> <!-- expected -->
+          </else>
+        </if>
+      </then>
+      <else>
+        <property name="nestedIf.b" value="baz" />
+      </else>
+    </if>
+
+    <if>
+      <test hostname="badhost" /> <!-- false -->
+      <then>
+        <if>
+          <test group="beta"/>
+          <then>
+            <property name="nestedIf.c" value="foo" />
+          </then>
+          <else>
+            <property name="nestedIf.c" value="bar" />
+          </else>
+        </if>
+      </then>
+      <else>
+        <property name="nestedIf.c" value="baz" /> <!-- expected -->
+      </else>
+    </if>
+
+    <if>
+      <test hostname="badhost" /> <!-- false -->
+      <then>
+        <if>
+          <test group="beta"/>
+          <then>
+            <property name="nestedIf.d" value="foo" />
+          </then>
+          <else>
+            <property name="nestedIf.d" value="bar" />
+          </else>
+        </if>
+      </then>
+      <else>
+        <if>
+          <test group="beta"/> <!-- true -->
+          <then>
+            <property name="nestedIf.d" value="baz" /> <!-- expected -->
+          </then>
+          <else>
+            <property name="nestedIf.d" value="quux" />
+          </else>
+        </if>
+      </else>
+    </if>
+
+    <if>
+      <test hostname="badhost" /> <!-- false -->
+      <then>
+        <if>
+          <test group="beta"/>
+          <then>
+            <property name="nestedIf.e" value="foo" />
+          </then>
+          <else>
+            <property name="nestedIf.e" value="bar" />
+          </else>
+        </if>
+      </then>
+      <else>
+        <if>
+          <test group="prod"/> <!-- false -->
+          <then>
+            <property name="nestedIf.e" value="baz" />
+          </then>
+          <else>
+            <property name="nestedIf.e" value="quux" /> <!-- expected -->
+          </else>
+        </if>
+      </else>
+    </if>
+    
+    <if>
+      <test hostname="foohost" /> <!-- false -->
+      <then>
+        <property name="nestedIf.f.control" value="shouldnt" />
+        <if>
+          <test group="beta"/> <!-- true -->
+          <then>
+            <property name="nestedIf.f" value="foo" />
+          </then>
+        </if>
+      </then>
+    </if>
+
+    <!-- Test nested booleans -->
+    <!-- Expected values at each level are in the comments. -->
+
+    <!-- 1. Outer-level and -->
+    <if>
+      <and>
+        <not>
+          <and>
+            <test hostname="testhost" /> <!-- true -->
+            <test daemonVersion="1.5.0" /> <!-- false -->
+          </and> <!-- false -->
+        </not> <!-- true -->
+        <or>
+          <test group="foo" /> <!-- false -->
+          <test group="bar" /> <!-- false -->
+          <test group="beta" /> <!-- true -->
+        </or> <!-- true -->
+      </and> <!-- true -->
+      <then>
+        <property name="nested.a" value="foo" />
+      </then>
+      <else>
+        <property name="nested.a" value="bar" />
+      </else>
+    </if>
+
+    <if>
+      <not>
+        <test daemonVersionMin="1.4.0" /> <!-- false -->
+        <test group="foogroup" /> <!-- false -->
+      </not> <!-- true -->
+      <then>
+        <property name="nested.aa" value="foo" /> <!-- expected value -->
+      </then>
+      <else>
+        <property name="nested.aa" value="bar" />
+      </else>
+    </if>
+
+    <if>
+      <and>
+        <test daemonVersionMin="1.4.0" /> <!-- false -->
+        <test group="foogroup" /> <!-- false -->
+      </and> <!-- false -->
+      <then>
+        <property name="nested.ab" value="foo" />
+      </then>
+      <else>
+        <property name="nested.ab" value="bar" /> <!-- expected value -->
+      </else>
+    </if>
+
+    <if>
+      <and>
+        <test daemonVersionMin="1.2.8" /> <!-- true -->
+        <test group="foogroup" /> <!-- false -->
+      </and> <!-- false -->
+      <then>
+        <property name="nested.ac" value="foo" />
+      </then>
+      <else>
+        <property name="nested.ac" value="bar" /> <!-- expected value -->
+      </else>
+    </if>
+
+    <if>
+      <and>
+        <test daemonVersionMin="1.2.8" /> <!-- true -->
+        <test group="beta" /> <!-- true -->
+      </and> <!-- true -->
+      <then>
+        <property name="nested.ad" value="foo" /> <!-- expected value -->
+      </then>
+      <else>
+        <property name="nested.ad" value="bar" />
+      </else>
+    </if>
+
+    <!-- 2. Outer-level or -->
+    <if>
+      <or>
+        <not>
+          <test hostname="testhost" /> <!-- true -->
+        </not> <!-- false -->
+        <or>
+          <test hostname="bar" /> <!-- false -->
+          <test hostname="foo" /> <!-- false -->
+        </or> <!-- false -->
+        <and>
+          <test daemonVersionMin="1.0.0" daemonVersionMax="2.0.0" /> <!-- true -->
+          <test platformVersionMin="100" platformVersionMax="130" /> <!-- false -->
+        </and> <!-- false -->
+      </or><!-- false -->
+      <then>
+        <property name="nested.b" value="foo" />
+      </then>
+      <else>
+        <property name="nested.b" value="bar" /> <!-- expected result -->
+      </else>
+    </if>
+
+    <!-- 3. Outer-level not -->
+    <if>
+      <not>
+        <or>
+          <test hostname="testhost1" /> <!-- false -->
+          <or>
+            <test group="foo" /> <!-- false -->
+            <test group="bar" /> <!-- true -->
+          </or> <!-- true -->
+          <and>
+            <test group="beta" /> <!-- true -->
+            <test daemonVersionMin="1.0.0" daemonVersionMax="2.0.0" /> <!-- true -->
+          </and> <!-- true -->
+        </or> <!-- true -->
+      </not> <!-- false -->
+      <then>
+        <property name="nested.c" value="foo" />
+      </then>
+      <else>
+        <property name="nested.c" value="bar" /> <!-- expected result -->
+      </else>
+    </if>
+
+    <!-- These are all testing the correct behavior of null version, host, and group values -->
+    <!-- hostname -->
+    <if hostname="testhost">
+      <then>
+        <property name="nulltest.a" value="foo" />
+      </then>
+    </if>
+    <if hostname="testhost">
+      <then>
+        <property name="nulltest.b" value="foo" />
+      </then>
+      <else>
+        <property name="nulltest.b" value="bar" />
+      </else>
+    </if>
+
+    <!-- group -->
+    <if group="beta">
+      <then>
+        <property name="nulltest.c" value="foo" />
+      </then>
+    </if>
+    <if group="beta">
+      <then>
+        <property name="nulltest.d" value="foo" />
+      </then>
+      <else>
+        <property name="nulltest.d" value="bar" />
+      </else>
+    </if>
+
+    <!-- daemon version -->
+    <if daemonVersion="1.2.8">
+      <then>
+        <property name="nulltest.e" value="foo" />
+      </then>
+    </if>
+    <if daemonVersion="1.2.8">
+      <then>
+        <property name="nulltest.f" value="foo" />
+      </then>
+      <else>
+        <property name="nulltest.f" value="bar" />
+      </else>
+    </if>
+
+    <!-- platform version -->
+    <if platformVersion="135">
+      <then>
+        <property name="nulltest.g" value="foo" />
+      </then>
+    </if>
+    <if platformVersion="135">
+      <then>
+        <property name="nulltest.h" value="foo" />
+      </then>
+      <else>
+        <property name="nulltest.h" value="bar" />
+      </else>
+    </if>
+
+  </property>
+
+</lockss-config>

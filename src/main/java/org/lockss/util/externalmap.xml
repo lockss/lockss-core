@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!DOCTYPE mapping PUBLIC "-//EXOLAB/Castor Object Mapping DTD Version 1.0//EN"
+                         "http://castor.exolab.org/mapping.dtd">
+
+<mapping>
+	<class name="org.lockss.util.ExtMapBean">
+  	<map-to xml="Elements" />
+  	<field name="elements"
+               type="org.lockss.util.ExtMapElement"
+               collection="collection"
+               get-method="getValues" set-method="addElement">
+              <bind-xml node="element" name="MapElement" />
+        </field>
+        </class>
+        <class name="org.lockss.util.ExtMapElement">
+          <map-to xml="ExtMapElement"/>
+                <field name="elementKey"
+                       type="java.lang.String">
+                        <bind-xml name="ElementKey" node="element"/>
+                </field>
+                <field name="elementValue"
+                       type="java.lang.Object">
+                        <bind-xml name="ElementValue" node="element"/>
+                </field>
+	</class>
+        <class name="org.lockss.daemon.ConfigParamDescr">
+          <map-to xml="ConfigParamDescr"/>
+                <field name="key"
+                       type="java.lang.String">
+                        <bind-xml name="Key" node="element"/>
+                </field>
+                <field name="displayName"
+                       type="java.lang.String">
+                        <bind-xml name="DisplayName" node="element"/>
+                </field>
+                <field name="description"
+                       type="java.lang.String">
+                        <bind-xml name="Description" node="element"/>
+                </field>
+                <field name="type"
+                       type="integer">
+                        <bind-xml name="Type" node="element"/>
+                </field>
+                <field name="size"
+                       type="integer">
+                        <bind-xml name="Size" node="element"/>
+                </field>
+                <field name="definitional"
+                	type="boolean"
+                        set-method="setDefinitional"
+                        get-method="isDefinitional">
+                        <bind-xml name="Definitional" node="element"/>
+                </field>
+        </class>
+</mapping>

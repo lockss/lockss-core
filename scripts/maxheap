@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# outputs -XmxNNN to set Java max heap size based on physical memory size
+# and data limit
+
+datalimit=`ulimit -a|grep '^data'|sed 's/.*[[:blank:]][[:blank:]]*//'`
+physmem=`sysctl -n hw.physmem`
+echo "$physmem $datalimit" | awk '{ \
+physmem = $1 ; \
+datalimit = $2 ; \
+absmax = 1536 ; \
+absmin = 100 ; \
+if (tolower(datalimit) ~ "unlimited") max = absmax ; \
+ else max = (datalimit / 1024) - 200 ; \
+if (max > absmax) max = absmax ; \
+physmb = physmem / (1024 * 1024) ; \
+if (physmb < 128) spare = 0; \
+ else if (physmb < 256) spare = 32; \
+ else if (physmb < 384) spare = 64; \
+ else if (physmb < 512) spare = 96; \
+ else spare = 128 ; \
+heap = physmb - spare ; \
+if ( heap > max ) heap = max; \
+if ( heap < absmin ) heap = absmin; \
+print "-Xmx" int(heap) "m" }'

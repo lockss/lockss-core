@@ -1,0 +1,98 @@
+/*
+ * $Id$
+ */
+
+/*
+
+Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+all rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Stanford University shall not
+be used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization from Stanford University.
+
+*/
+
+package org.lockss.uiapi.util;
+
+import org.apache.commons.codec.binary.Base64;
+
+import java.io.IOException;
+
+/**
+ * Base 64 encoding/decoding
+ */
+public class Base64Utils
+{
+  private Base64Utils() {
+  }
+   
+  /**
+   * Decode Base 64 text
+   *
+   * @param 
+   *     data for decoding
+   * @return
+   *     Decoded bytes
+   */
+  public static byte[] decodeToBytes(String data) throws IOException {
+      return Base64.decodeBase64(data);
+  }
+   
+  /**
+   * Decode Base 64 text
+   *
+   * @param   
+   *    data for decoding
+   * @return  
+   *    Decoded string
+   */
+  public static String decodeToString(String data) throws IOException {
+    return new String(decodeToBytes(data));
+  }
+   
+  /**
+   * Encode provided unchunked data  (ie without 76 char breaks)
+   *
+   * @param   
+   *    data for encoding
+   * @return  
+   *    Base 64 encoded string
+   */
+  public static String encode(byte data[]) {
+
+    //return filter(Base64.encodeBase64String(data));
+
+    return Base64.encodeBase64String(data);
+  }
+   
+  /**
+   * Encode provided data
+   *
+   * @param   
+   *    data for encoding
+   * @return  
+   *    Base 64 encoded string
+   */
+  public static String encode(String data) {
+
+    return encode(data.getBytes());
+  }
+}

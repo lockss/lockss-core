@@ -1,0 +1,2 @@
+#!/bin/sh
+test/scripts/run-class org.apache.pdfbox.PDFDebugger "$@"
