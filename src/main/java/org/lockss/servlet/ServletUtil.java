@@ -49,10 +49,10 @@ import org.lockss.daemon.*;
 import org.lockss.jetty.Button;
 import org.lockss.jetty.MyTextArea;
 import org.lockss.plugin.*;
-import org.lockss.remote.*;
-import org.lockss.remote.RemoteApi.BatchAuStatus;
+// import org.lockss.remote.*;
+// import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.repository.*;
-import org.lockss.servlet.BatchAuConfig.Verb;
+// import org.lockss.servlet.BatchAuConfig.Verb;
 import org.lockss.util.*;
 import org.mortbay.html.*;
 
@@ -413,26 +413,26 @@ public class ServletUtil {
     return hostNameInTitle;
   }
 
-  /** Return the URL of this machine's config backup file to download */
-  // This is a crock.  It's called from RemoteAPI, which has no servlet
-  // instance and thus can't use LockssServlet.srvURL().
-  public static String backupFileUrl(String hostname) {
-    ServletDescr backupServlet = AdminServletManager.SERVLET_BATCH_AU_CONFIG;
-    int port = CurrentConfig.getIntParam(AdminServletManager.PARAM_PORT,
-					 AdminServletManager.DEFAULT_PORT);
-    StringBuffer sb = new StringBuffer();
-    sb.append("http://");
-    sb.append(hostname);
-    sb.append(":");
-    sb.append(port);
-    sb.append("/");
-    sb.append(backupServlet.getPath());
-    sb.append("?");
-    sb.append(BatchAuConfig.ACTION_TAG);
-    sb.append("=");
-    sb.append(BatchAuConfig.ACTION_BACKUP);
-    return sb.toString();
-  }
+//   /** Return the URL of this machine's config backup file to download */
+//   // This is a crock.  It's called from RemoteAPI, which has no servlet
+//   // instance and thus can't use LockssServlet.srvURL().
+//   public static String backupFileUrl(String hostname) {
+//     ServletDescr backupServlet = AdminServletManager.SERVLET_BATCH_AU_CONFIG;
+//     int port = CurrentConfig.getIntParam(AdminServletManager.PARAM_PORT,
+// 					 AdminServletManager.DEFAULT_PORT);
+//     StringBuffer sb = new StringBuffer();
+//     sb.append("http://");
+//     sb.append(hostname);
+//     sb.append(":");
+//     sb.append(port);
+//     sb.append("/");
+//     sb.append(backupServlet.getPath());
+//     sb.append("?");
+//     sb.append(BatchAuConfig.ACTION_TAG);
+//     sb.append("=");
+//     sb.append(BatchAuConfig.ACTION_BACKUP);
+//     return sb.toString();
+//   }
 
   public static void addNotes(Composite comp, Iterator notesIterator) {
     if (notesIterator != null && notesIterator.hasNext()) {
@@ -507,13 +507,13 @@ public class ServletUtil {
     return img;
   }
 
-  public static void layoutAuId(Composite comp,
-                                AuProxy au,
-                                String auIdName) {
-    comp.add(new Input(Input.Hidden,
-                       auIdName,
-                       au != null ? au.getAuId() : ""));
-  }
+//   public static void layoutAuId(Composite comp,
+//                                 AuProxy au,
+//                                 String auIdName) {
+//     comp.add(new Input(Input.Hidden,
+//                        auIdName,
+//                        au != null ? au.getAuId() : ""));
+//   }
 
   public static void layoutAuPropsButtons(LockssServlet servlet,
                                           Composite comp,
@@ -589,48 +589,48 @@ public class ServletUtil {
     comp.add(tbl);
   }
 
-  public static void layoutAuStatus(LockssServlet servlet,
-				    Page page,
-				    List<BatchAuStatus.Entry> auStatusList) {
-    Set userMessages = new HashSet();
-    Table tbl = new Table(AUSTATUS_TABLE_BORDER, AUSTATUS_TABLE_ATTRIBUTES);
-    tbl.addHeading("Status");
-    tbl.addHeading("Archival Unit");
-    for (BatchAuStatus.Entry stat : auStatusList) {
-      tbl.newRow();
-      tbl.newCell();
-      tbl.add(SPACE);
-      tbl.add(stat.getStatus());
-      tbl.add(SPACE);
-      tbl.newCell();
-      String name = stat.getName();
-      tbl.add(name != null ? encodeText(name) : stat.getAuId());
-      String exp = stat.getExplanation();
-      String umsg = stat.getUserMessage();
-      if (exp != null || umsg != null) {
-	StringBuilder sb = new StringBuilder();
-	if (exp != null) {
-	  sb.append(exp);
-	}
-	if (umsg != null) {
-	  sb.append("See note");
-	  sb.append(servlet.addFootnote(umsg));
-	}
-        tbl.newCell();
-        tbl.add(sb.toString());
-      }
-      if (stat.getUserMessage() != null) {
-	userMessages.add(stat.getUserMessage());
-      }
-    }
-    if (!userMessages.isEmpty()) {
-      layoutExplanationBlock(page,
-			     "<font color=\"red\" size=\"+1\">" +
-			     "Some of the titles you just configured may require additional action.  Please see the notes at the bottom of this page." +
-			     "</font>");
-    }
-    page.add(tbl);
-  }
+//   public static void layoutAuStatus(LockssServlet servlet,
+// 				    Page page,
+// 				    List<BatchAuStatus.Entry> auStatusList) {
+//     Set userMessages = new HashSet();
+//     Table tbl = new Table(AUSTATUS_TABLE_BORDER, AUSTATUS_TABLE_ATTRIBUTES);
+//     tbl.addHeading("Status");
+//     tbl.addHeading("Archival Unit");
+//     for (BatchAuStatus.Entry stat : auStatusList) {
+//       tbl.newRow();
+//       tbl.newCell();
+//       tbl.add(SPACE);
+//       tbl.add(stat.getStatus());
+//       tbl.add(SPACE);
+//       tbl.newCell();
+//       String name = stat.getName();
+//       tbl.add(name != null ? encodeText(name) : stat.getAuId());
+//       String exp = stat.getExplanation();
+//       String umsg = stat.getUserMessage();
+//       if (exp != null || umsg != null) {
+// 	StringBuilder sb = new StringBuilder();
+// 	if (exp != null) {
+// 	  sb.append(exp);
+// 	}
+// 	if (umsg != null) {
+// 	  sb.append("See note");
+// 	  sb.append(servlet.addFootnote(umsg));
+// 	}
+//         tbl.newCell();
+//         tbl.add(sb.toString());
+//       }
+//       if (stat.getUserMessage() != null) {
+// 	userMessages.add(stat.getUserMessage());
+//       }
+//     }
+//     if (!userMessages.isEmpty()) {
+//       layoutExplanationBlock(page,
+// 			     "<font color=\"red\" size=\"+1\">" +
+// 			     "Some of the titles you just configured may require additional action.  Please see the notes at the bottom of this page." +
+// 			     "</font>");
+//     }
+//     page.add(tbl);
+//   }
 
   /**
    * <p>Lays out an HTML form onto the given page, with a button to
@@ -655,48 +655,48 @@ public class ServletUtil {
    * @param reactivateAction    The "reactivate" action name.
    * @param editAction          The "edit" action name.
    */
-  public static void layoutAuSummary(LockssServlet servlet,
-                                     MutableInt buttonNumber,
-                                     RemoteApi remoteApi,
-                                     Page page,
-                                     String formUrl,
-                                     String formId,
-                                     String tableId,
-                                     String hiddenActionName,
-                                     Iterator activeAuProxyIter,
-                                     Iterator inactiveAuProxyIter,
-                                     String auIdName,
-                                     String addAction,
-                                     String restoreAction,
-                                     String reactivateAction,
-                                     String editAction) {
-    // Start form
-    Form frm = newForm(formUrl);
-    frm.attribute("id", formId);
-    frm.add(new Input(Input.Hidden, hiddenActionName));
-    frm.add(new Input(Input.Hidden, auIdName, ""));
+//   public static void layoutAuSummary(LockssServlet servlet,
+//                                      MutableInt buttonNumber,
+//                                      RemoteApi remoteApi,
+//                                      Page page,
+//                                      String formUrl,
+//                                      String formId,
+//                                      String tableId,
+//                                      String hiddenActionName,
+//                                      Iterator activeAuProxyIter,
+//                                      Iterator inactiveAuProxyIter,
+//                                      String auIdName,
+//                                      String addAction,
+//                                      String restoreAction,
+//                                      String reactivateAction,
+//                                      String editAction) {
+//     // Start form
+//     Form frm = newForm(formUrl);
+//     frm.attribute("id", formId);
+//     frm.add(new Input(Input.Hidden, hiddenActionName));
+//     frm.add(new Input(Input.Hidden, auIdName, ""));
 
-    // Start table
-    Table tbl = new Table(AUSUMMARY_TABLE_BORDER, AUSUMMARY_TABLE_ATTRIBUTES);
-    tbl.attribute("id", tableId);
-    tbl.newRow();
-    tbl.newCell(AUSUMMARY_BUTTONCELL_ATTRIBUTES);
-    tbl.add(submitButton(servlet, buttonNumber, "Add", addAction));
-    tbl.newCell(AUSUMMARY_TEXTCELL_ATTRIBUTES);
-    tbl.add("Add new Archival Unit");
+//     // Start table
+//     Table tbl = new Table(AUSUMMARY_TABLE_BORDER, AUSUMMARY_TABLE_ATTRIBUTES);
+//     tbl.attribute("id", tableId);
+//     tbl.newRow();
+//     tbl.newCell(AUSUMMARY_BUTTONCELL_ATTRIBUTES);
+//     tbl.add(submitButton(servlet, buttonNumber, "Add", addAction));
+//     tbl.newCell(AUSUMMARY_TEXTCELL_ATTRIBUTES);
+//     tbl.add("Add new Archival Unit");
 
-    // Layout rows
-    layoutAuSummaryRows(servlet, buttonNumber, remoteApi, tbl,
-        activeAuProxyIter, auIdName, restoreAction,
-        reactivateAction, editAction);
-    layoutAuSummaryRows(servlet, buttonNumber, remoteApi, tbl,
-        inactiveAuProxyIter, auIdName, restoreAction,
-        reactivateAction, editAction);
+//     // Layout rows
+//     layoutAuSummaryRows(servlet, buttonNumber, remoteApi, tbl,
+//         activeAuProxyIter, auIdName, restoreAction,
+//         reactivateAction, editAction);
+//     layoutAuSummaryRows(servlet, buttonNumber, remoteApi, tbl,
+//         inactiveAuProxyIter, auIdName, restoreAction,
+//         reactivateAction, editAction);
 
-    // End
-    frm.add(tbl);
-    page.add(frm);
-  }
+//     // End
+//     frm.add(tbl);
+//     page.add(frm);
+//   }
 
   public static void layoutBackLink(Composite comp,
                                     String destinationLink) {
@@ -705,18 +705,18 @@ public class ServletUtil {
     comp.add(BACKLINK_AFTER);
   }
 
-  public static void layoutChooseSets(String url,
-                                      Page page,
-                                      Composite chooseSets,
-                                      String hiddenActionName,
-                                      String hiddenVerbName,
-                                      Verb verb) {
-    Form frm = newForm(url);
-    frm.add(new Input(Input.Hidden, hiddenActionName));
-    frm.add(new Input(Input.Hidden, hiddenVerbName, verb.valStr));
-    frm.add(chooseSets);
-    page.add(frm);
-  }
+//   public static void layoutChooseSets(String url,
+//                                       Page page,
+//                                       Composite chooseSets,
+//                                       String hiddenActionName,
+//                                       String hiddenVerbName,
+//                                       Verb verb) {
+//     Form frm = newForm(url);
+//     frm.add(new Input(Input.Hidden, hiddenActionName));
+//     frm.add(new Input(Input.Hidden, hiddenVerbName, verb.valStr));
+//     frm.add(chooseSets);
+//     page.add(frm);
+//   }
 
   public static void layoutEnablePortRow(LockssServlet servlet,
                                          Table table,
@@ -997,59 +997,59 @@ public class ServletUtil {
     page.add(table);
   }
 
-  public static void layoutPluginId(Composite comp,
-                                    PluginProxy plugin,
-                                    String pluginIdName) {
-    comp.add(new Input(Input.Hidden,
-                       pluginIdName,
-                       plugin.getPluginId()));
-  }
+//   public static void layoutPluginId(Composite comp,
+//                                     PluginProxy plugin,
+//                                     String pluginIdName) {
+//     comp.add(new Input(Input.Hidden,
+//                        pluginIdName,
+//                        plugin.getPluginId()));
+//   }
 
-  public static void layoutRepoChoice(LockssServlet servlet,
-                                      Composite comp,
-                                      RemoteApi remoteApi,
-                                      String repoFootnote,
-                                      String repoTag) {
-    RepositoryManager repoMgr =
-      servlet.getLockssDaemon().getRepositoryManager();
+//   public static void layoutRepoChoice(LockssServlet servlet,
+//                                       Composite comp,
+//                                       RemoteApi remoteApi,
+//                                       String repoFootnote,
+//                                       String repoTag) {
+//     RepositoryManager repoMgr =
+//       servlet.getLockssDaemon().getRepositoryManager();
 
-    Table tbl = new Table(REPOCHOICE_TABLE_BORDER, REPOCHOICE_TABLE_ATTRIBUTES);
-    List repos = remoteApi.getRepositoryList();
-    boolean isChoice = repos.size() > 1;
+//     Table tbl = new Table(REPOCHOICE_TABLE_BORDER, REPOCHOICE_TABLE_ATTRIBUTES);
+//     List repos = remoteApi.getRepositoryList();
+//     boolean isChoice = repos.size() > 1;
 
-    tbl.newRow();
-    tbl.newCell(REPOCHOICE_CELL_ATTRIBUTES);
-    if (isChoice) {
-      tbl.add("Select Repository");
-      tbl.add(servlet.addFootnote(repoFootnote));
-    } else {
-      tbl.add("Disk Space");
-    }
-    tbl.newRow();
-    tbl.addHeading("Repository");
-    tbl.addHeading("Size");
-    tbl.addHeading("Free");
-    tbl.addHeading("%Full");
+//     tbl.newRow();
+//     tbl.newCell(REPOCHOICE_CELL_ATTRIBUTES);
+//     if (isChoice) {
+//       tbl.add("Select Repository");
+//       tbl.add(servlet.addFootnote(repoFootnote));
+//     } else {
+//       tbl.add("Disk Space");
+//     }
+//     tbl.newRow();
+//     tbl.addHeading("Repository");
+//     tbl.addHeading("Size");
+//     tbl.addHeading("Free");
+//     tbl.addHeading("%Full");
 
-    Map repoMap = remoteApi.getRepositoryMap();
-    String mostFree = remoteApi.findLeastFullRepository(repoMap);
-    for (Iterator iter = repoMap.entrySet().iterator(); iter.hasNext(); ) {
-      Map.Entry entry = (Map.Entry)iter.next();
-      String repo = (String)entry.getKey();
-      PlatformUtil.DF df = (PlatformUtil.DF)entry.getValue();
+//     Map repoMap = remoteApi.getRepositoryMap();
+//     String mostFree = remoteApi.findLeastFullRepository(repoMap);
+//     for (Iterator iter = repoMap.entrySet().iterator(); iter.hasNext(); ) {
+//       Map.Entry entry = (Map.Entry)iter.next();
+//       String repo = (String)entry.getKey();
+//       PlatformUtil.DF df = (PlatformUtil.DF)entry.getValue();
 
-      tbl.newRow();
-      tbl.newCell(ALIGN_LEFT); // "Repository"
-      if (isChoice) {
-	tbl.add(radioButton(servlet, repoTag, repo, repo == mostFree));
-      } else {
-	tbl.add(repo);
-      }
-      addDfToRow(repoMgr, df, tbl);
-    }
+//       tbl.newRow();
+//       tbl.newCell(ALIGN_LEFT); // "Repository"
+//       if (isChoice) {
+// 	tbl.add(radioButton(servlet, repoTag, repo, repo == mostFree));
+//       } else {
+// 	tbl.add(repo);
+//       }
+//       addDfToRow(repoMgr, df, tbl);
+//     }
 
-    comp.add(tbl);
-  }
+//     comp.add(tbl);
+//   }
 
   static void addDfToRow(RepositoryManager repoMgr,
 			 PlatformUtil.DF df, Table tbl) {
@@ -1070,82 +1070,82 @@ public class ServletUtil {
   private static final Format backupFileDf =
     FastDateFormat.getInstance("HH:mm:ss MM/dd/yyyy");
 
-  public static void layoutBackup(LockssServlet servlet,
-				  Page page,
-				  RemoteApi remoteApi,
-				  String hiddenActionName,
-				  String hiddenVerbName,
-				  Verb verb,
-				  MutableInt buttonNumber,
-				  String backupFileButtonAction) {
-    Form frm = newForm(servlet.srvURL(servlet.myServletDescr()));
-    frm.add(new Input(Input.Hidden, hiddenActionName));
-    frm.add(new Input(Input.Hidden, hiddenVerbName, verb.valStr));
-    frm.add(new Input(Input.Hidden, "create"));
-    String expl;
-    Table tbl = new Table(RESTORE_TABLE_BORDER, RESTORE_TABLE_ATTRIBUTES);
-    tbl.newRow();
-    tbl.newCell(ALIGN_RIGHT);
-    Element retrieveButton = submitButton(servlet, buttonNumber,
-					  "Retrieve", backupFileButtonAction,
-					  "create", "");
-    tbl.add(retrieveButton);
-    try {
-      File permFile = remoteApi.getBackupFile();
-      if (permFile.exists()) {
-	tbl.newCell(ALIGN_LEFT);
-	tbl.add(StringUtil.sizeToString(permFile.length()));
-	tbl.add(" file created ");
-	tbl.add(backupFileDf.format(permFile.lastModified()));
-      } else {
-	tbl.newCell(ALIGN_LEFT);
-	tbl.add("(No backup file on disk)");
-	retrieveButton.attribute("disabled", "true");
-      }
-    } catch (IOException e) {
-      log.error("Error finding config backup file", e);
-      tbl.newCell(ALIGN_LEFT);
-      tbl.add("(Backup file not retrievable)");
-      retrieveButton.attribute("disabled", "true");
-    }
-    tbl.newRow();
-    tbl.newCell(ALIGN_RIGHT);
-    tbl.add(submitButton(servlet, buttonNumber,
-			 "Retrieve", backupFileButtonAction,
-			 "create", "true"));
-    tbl.newCell(ALIGN_LEFT);
-    tbl.add("newly created file");
-    frm.add(tbl);
+//   public static void layoutBackup(LockssServlet servlet,
+// 				  Page page,
+// 				  RemoteApi remoteApi,
+// 				  String hiddenActionName,
+// 				  String hiddenVerbName,
+// 				  Verb verb,
+// 				  MutableInt buttonNumber,
+// 				  String backupFileButtonAction) {
+//     Form frm = newForm(servlet.srvURL(servlet.myServletDescr()));
+//     frm.add(new Input(Input.Hidden, hiddenActionName));
+//     frm.add(new Input(Input.Hidden, hiddenVerbName, verb.valStr));
+//     frm.add(new Input(Input.Hidden, "create"));
+//     String expl;
+//     Table tbl = new Table(RESTORE_TABLE_BORDER, RESTORE_TABLE_ATTRIBUTES);
+//     tbl.newRow();
+//     tbl.newCell(ALIGN_RIGHT);
+//     Element retrieveButton = submitButton(servlet, buttonNumber,
+// 					  "Retrieve", backupFileButtonAction,
+// 					  "create", "");
+//     tbl.add(retrieveButton);
+//     try {
+//       File permFile = remoteApi.getBackupFile();
+//       if (permFile.exists()) {
+// 	tbl.newCell(ALIGN_LEFT);
+// 	tbl.add(StringUtil.sizeToString(permFile.length()));
+// 	tbl.add(" file created ");
+// 	tbl.add(backupFileDf.format(permFile.lastModified()));
+//       } else {
+// 	tbl.newCell(ALIGN_LEFT);
+// 	tbl.add("(No backup file on disk)");
+// 	retrieveButton.attribute("disabled", "true");
+//       }
+//     } catch (IOException e) {
+//       log.error("Error finding config backup file", e);
+//       tbl.newCell(ALIGN_LEFT);
+//       tbl.add("(Backup file not retrievable)");
+//       retrieveButton.attribute("disabled", "true");
+//     }
+//     tbl.newRow();
+//     tbl.newCell(ALIGN_RIGHT);
+//     tbl.add(submitButton(servlet, buttonNumber,
+// 			 "Retrieve", backupFileButtonAction,
+// 			 "create", "true"));
+//     tbl.newCell(ALIGN_LEFT);
+//     tbl.add("newly created file");
+//     frm.add(tbl);
 
-    layoutExplanationBlock(page, "Retrieve the most recent backup file or create and retrieve a new one");
-    page.add(frm);
-  }
+//     layoutExplanationBlock(page, "Retrieve the most recent backup file or create and retrieve a new one");
+//     page.add(frm);
+//   }
 
-  public static void layoutRestore(LockssServlet servlet,
-                                   Page page,
-                                   String hiddenActionName,
-                                   String hiddenVerbName,
-                                   Verb verb,
-                                   String backupFileFieldName,
-                                   MutableInt buttonNumber,
-                                   String backupFileButtonAction) {
-    Form frm = newForm(servlet.srvURL(servlet.myServletDescr()));
-    frm.attribute("enctype", "multipart/form-data");
-    frm.add(new Input(Input.Hidden, hiddenActionName));
-    frm.add(new Input(Input.Hidden, hiddenVerbName, verb.valStr));
-    Table tbl = new Table(RESTORE_TABLE_BORDER, RESTORE_TABLE_ATTRIBUTES);
-    tbl.newRow();
-    tbl.newCell(ALIGN_CENTER);
-    tbl.add("Enter name of AU configuration backup file");
-    tbl.newRow();
-    tbl.newCell(ALIGN_CENTER);
-    tbl.add(new Input(Input.File, backupFileFieldName));
-    tbl.newRow();
-    tbl.newCell(ALIGN_CENTER);
-    tbl.add(submitButton(servlet, buttonNumber, "Restore", backupFileButtonAction));
-    frm.add(tbl);
-    page.add(frm);
-  }
+//   public static void layoutRestore(LockssServlet servlet,
+//                                    Page page,
+//                                    String hiddenActionName,
+//                                    String hiddenVerbName,
+//                                    Verb verb,
+//                                    String backupFileFieldName,
+//                                    MutableInt buttonNumber,
+//                                    String backupFileButtonAction) {
+//     Form frm = newForm(servlet.srvURL(servlet.myServletDescr()));
+//     frm.attribute("enctype", "multipart/form-data");
+//     frm.add(new Input(Input.Hidden, hiddenActionName));
+//     frm.add(new Input(Input.Hidden, hiddenVerbName, verb.valStr));
+//     Table tbl = new Table(RESTORE_TABLE_BORDER, RESTORE_TABLE_ATTRIBUTES);
+//     tbl.newRow();
+//     tbl.newCell(ALIGN_CENTER);
+//     tbl.add("Enter name of AU configuration backup file");
+//     tbl.newRow();
+//     tbl.newCell(ALIGN_CENTER);
+//     tbl.add(new Input(Input.File, backupFileFieldName));
+//     tbl.newRow();
+//     tbl.newCell(ALIGN_CENTER);
+//     tbl.add(submitButton(servlet, buttonNumber, "Restore", backupFileButtonAction));
+//     frm.add(tbl);
+//     page.add(frm);
+//   }
 
   public static void layoutSubmitButton(LockssServlet servlet,
                                         Composite composite,
@@ -1220,190 +1220,190 @@ public class ServletUtil {
   }
 
 
-  public static Composite makeChooseAus(LockssServlet servlet,
-                                        Iterator basEntryIter,
-                                        Verb verb,
-                                        List repos,
-                                        Map auConfs,
-                                        String keyAuid,
-                                        String keyRepo,
-                                        String repoChoiceFootnote,
-                                        String buttonText,
-                                        MutableInt buttonNumber,
-                                        boolean isLong) {
-    boolean isAdd = verb.isAdd;
-    boolean repoFlg = isAdd && repos.size() > 1;
-    int reposSize = repoFlg ? repos.size() : 0;
-    int maxCols = reposSize + (isAdd ? 3 : 2);
-    Block repoFootElement = null;
+//   public static Composite makeChooseAus(LockssServlet servlet,
+//                                         Iterator basEntryIter,
+//                                         Verb verb,
+//                                         List repos,
+//                                         Map auConfs,
+//                                         String keyAuid,
+//                                         String keyRepo,
+//                                         String repoChoiceFootnote,
+//                                         String buttonText,
+//                                         MutableInt buttonNumber,
+//                                         boolean isLong) {
+//     boolean isAdd = verb.isAdd;
+//     boolean repoFlg = isAdd && repos.size() > 1;
+//     int reposSize = repoFlg ? repos.size() : 0;
+//     int maxCols = reposSize + (isAdd ? 3 : 2);
+//     Block repoFootElement = null;
 
-    Table tbl = new Table(CHOOSEAUS_BORDER, CHOOSEAUS_ATTRIBUTES);
+//     Table tbl = new Table(CHOOSEAUS_BORDER, CHOOSEAUS_ATTRIBUTES);
 
-    if (isLong) {
-      tbl.newRow();
-      tbl.newCell(ALIGN_CENTER + " colspan=\"" + maxCols + "\"");
-      tbl.add(submitButton(servlet, buttonNumber, buttonText, verb.action()));
-    }
+//     if (isLong) {
+//       tbl.newRow();
+//       tbl.newCell(ALIGN_CENTER + " colspan=\"" + maxCols + "\"");
+//       tbl.add(submitButton(servlet, buttonNumber, buttonText, verb.action()));
+//     }
 
-    tbl.newRow();
-    tbl.newCell(ALIGN_LEFT + " colspan=\"99\"");
-    Block selAllBlock1 = tbl.cell();
+//     tbl.newRow();
+//     tbl.newCell(ALIGN_LEFT + " colspan=\"99\"");
+//     Block selAllBlock1 = tbl.cell();
 
-    tbl.newRow();
-    tbl.addHeading(verb.cap + "?", ALIGN_RIGHT + " rowspan=\"2\"");
-    if (repoFlg) {
-      tbl.addHeading("Disk", ALIGN_CENTER + " colspan=\"" + reposSize + "\"");
-      repoFootElement = tbl.cell();
-    }
-    tbl.addHeading("Archival Unit", ALIGN_CENTER + " rowspan=\"2\"");
-    if (isAdd) {
-      tbl.addHeading("Est. size (MB)", ALIGN_CENTER + " rowspan=\"2\"");
-    }
+//     tbl.newRow();
+//     tbl.addHeading(verb.cap + "?", ALIGN_RIGHT + " rowspan=\"2\"");
+//     if (repoFlg) {
+//       tbl.addHeading("Disk", ALIGN_CENTER + " colspan=\"" + reposSize + "\"");
+//       repoFootElement = tbl.cell();
+//     }
+//     tbl.addHeading("Archival Unit", ALIGN_CENTER + " rowspan=\"2\"");
+//     if (isAdd) {
+//       tbl.addHeading("Est. size (MB)", ALIGN_CENTER + " rowspan=\"2\"");
+//     }
 
-    tbl.newRow(); // for rowspan=2 above
-    for (int ix = 1; ix <= reposSize; ++ix) {
-      tbl.addHeading(Integer.toString(ix), ALIGN_CENTER);
-    }
+//     tbl.newRow(); // for rowspan=2 above
+//     for (int ix = 1; ix <= reposSize; ++ix) {
+//       tbl.addHeading(Integer.toString(ix), ALIGN_CENTER);
+//     }
 
-    boolean isAnyAssignedRepo = false;
-    boolean isAnyNotAssignedRepo = false;
-    while (basEntryIter.hasNext()) {
-      // Get next entry
-      BatchAuStatus.Entry rs = (BatchAuStatus.Entry)basEntryIter.next();
-      if (rs.isOk()) {
-        String auid = rs.getAuId();
-        tbl.newRow();
+//     boolean isAnyAssignedRepo = false;
+//     boolean isAnyNotAssignedRepo = false;
+//     while (basEntryIter.hasNext()) {
+//       // Get next entry
+//       BatchAuStatus.Entry rs = (BatchAuStatus.Entry)basEntryIter.next();
+//       if (rs.isOk()) {
+//         String auid = rs.getAuId();
+//         tbl.newRow();
 
-        tbl.newCell(CHOOSEAUS_CELL_ATTRIBUTES);
-        auConfs.put(auid, rs.getConfig());
-        Element cb = checkbox(servlet, keyAuid, auid, false);
-        cb.attribute("onClick", "clickAu(event, this, this.form);");
-        cb.attribute("class", "doall");
-        tbl.add(cb);
+//         tbl.newCell(CHOOSEAUS_CELL_ATTRIBUTES);
+//         auConfs.put(auid, rs.getConfig());
+//         Element cb = checkbox(servlet, keyAuid, auid, false);
+//         cb.attribute("onClick", "clickAu(event, this, this.form);");
+//         cb.attribute("class", "doall");
+//         tbl.add(cb);
 
-	List existingRepoNames = rs.getRepoNames();
-	String firstRepo = null;
-	if (existingRepoNames != null && !existingRepoNames.isEmpty()) {
-	  firstRepo = (String)existingRepoNames.get(0);
-	  isAnyAssignedRepo = true;
-	} else {
-	  isAnyNotAssignedRepo = true;
-	}
-        if (repoFlg) {
-          int ix = 1;
-          for (Iterator riter = repos.iterator(); riter.hasNext(); ++ix) {
-            String repo = (String)riter.next();
-            tbl.newCell(ALIGN_CENTER);
-            if (firstRepo == null || repo.equals(firstRepo)) {
-	      Element rb = radioButton(servlet, keyRepo + "_" + auid,
-				       Integer.toString(ix), null,
-				       firstRepo != null,
-				       PropUtil.fromArgs("class", "doall"));
-	      tbl.add(rb);
-	    }
-          }
-        }
-        else if (firstRepo != null) {
-	  // The Select On Disk button looks for entries with a
-	  // defaultChecked radio button.  If no repo choice, add a hidden
-	  // button just for that.
-	  Block div = new Block(Block.Div, "style=\"display:none\"");
-	  div.add(radioButton(servlet, keyRepo + "_" + auid,
-			      "1", null, true));
-	  tbl.add(div);
-        }
+// 	List existingRepoNames = rs.getRepoNames();
+// 	String firstRepo = null;
+// 	if (existingRepoNames != null && !existingRepoNames.isEmpty()) {
+// 	  firstRepo = (String)existingRepoNames.get(0);
+// 	  isAnyAssignedRepo = true;
+// 	} else {
+// 	  isAnyNotAssignedRepo = true;
+// 	}
+//         if (repoFlg) {
+//           int ix = 1;
+//           for (Iterator riter = repos.iterator(); riter.hasNext(); ++ix) {
+//             String repo = (String)riter.next();
+//             tbl.newCell(ALIGN_CENTER);
+//             if (firstRepo == null || repo.equals(firstRepo)) {
+// 	      Element rb = radioButton(servlet, keyRepo + "_" + auid,
+// 				       Integer.toString(ix), null,
+// 				       firstRepo != null,
+// 				       PropUtil.fromArgs("class", "doall"));
+// 	      tbl.add(rb);
+// 	    }
+//           }
+//         }
+//         else if (firstRepo != null) {
+// 	  // The Select On Disk button looks for entries with a
+// 	  // defaultChecked radio button.  If no repo choice, add a hidden
+// 	  // button just for that.
+// 	  Block div = new Block(Block.Div, "style=\"display:none\"");
+// 	  div.add(radioButton(servlet, keyRepo + "_" + auid,
+// 			      "1", null, true));
+// 	  tbl.add(div);
+//         }
 
-        tbl.newCell();
-        tbl.add(encodeText(rs.getName()));
-        TitleConfig tc = rs.getTitleConfig();
-        long est;
-        if (isAdd && tc != null && (est = tc.getEstimatedSize()) != 0) {
-          tbl.newCell(ALIGN_RIGHT);
-          long mb = (est + (512 * 1024)) / (1024 * 1024);
-          tbl.add(Long.toString(Math.max(mb, 1L)));
-        }
-      }
-    }
+//         tbl.newCell();
+//         tbl.add(encodeText(rs.getName()));
+//         TitleConfig tc = rs.getTitleConfig();
+//         long est;
+//         if (isAdd && tc != null && (est = tc.getEstimatedSize()) != 0) {
+//           tbl.newCell(ALIGN_RIGHT);
+//           long mb = (est + (512 * 1024)) / (1024 * 1024);
+//           tbl.add(Long.toString(Math.max(mb, 1L)));
+//         }
+//       }
+//     }
 
-    boolean includeOnDiskButton = isAnyAssignedRepo && isAnyNotAssignedRepo;
-    selAllBlock1.add(layoutSelectAllButton(servlet, includeOnDiskButton));
+//     boolean includeOnDiskButton = isAnyAssignedRepo && isAnyNotAssignedRepo;
+//     selAllBlock1.add(layoutSelectAllButton(servlet, includeOnDiskButton));
 
-    if (isLong) {
-      tbl.newRow();
-      tbl.newCell(ALIGN_LEFT + " colspan=\"99\"");
-      tbl.add(layoutSelectAllButton(servlet, includeOnDiskButton));
-    }
+//     if (isLong) {
+//       tbl.newRow();
+//       tbl.newCell(ALIGN_LEFT + " colspan=\"99\"");
+//       tbl.add(layoutSelectAllButton(servlet, includeOnDiskButton));
+//     }
 
-    if (repoFootElement != null && isAnyAssignedRepo) {
-      repoFootElement.add(servlet.addFootnote(repoChoiceFootnote));
-    }
+//     if (repoFootElement != null && isAnyAssignedRepo) {
+//       repoFootElement.add(servlet.addFootnote(repoChoiceFootnote));
+//     }
 
-    tbl.newRow();
-    tbl.newCell(ALIGN_CENTER + " colspan=\"" + maxCols + "\"");
-    tbl.add(submitButton(servlet, buttonNumber, buttonText, verb.action()));
+//     tbl.newRow();
+//     tbl.newCell(ALIGN_CENTER + " colspan=\"" + maxCols + "\"");
+//     tbl.add(submitButton(servlet, buttonNumber, buttonText, verb.action()));
 
-    return tbl;
-  }
+//     return tbl;
+//   }
 
-  public static Composite makeChooseSets(LockssServlet servlet,
-                                         RemoteApi remoteApi,
-                                         Iterator titleSetIterator,
-                                         Verb verb,
-                                         String checkboxGroup,
-                                         boolean doGray,
-                                         MutableBoolean isAnySelectable,
-                                         String submitText,
-                                         String submitAction,
-                                         MutableInt buttonNumber,
-                                         int atLeast) {
-    int actualRows = 0;
-    isAnySelectable.setValue(false);
-    Composite topRow;
+//   public static Composite makeChooseSets(LockssServlet servlet,
+//                                          RemoteApi remoteApi,
+//                                          Iterator titleSetIterator,
+//                                          Verb verb,
+//                                          String checkboxGroup,
+//                                          boolean doGray,
+//                                          MutableBoolean isAnySelectable,
+//                                          String submitText,
+//                                          String submitAction,
+//                                          MutableInt buttonNumber,
+//                                          int atLeast) {
+//     int actualRows = 0;
+//     isAnySelectable.setValue(false);
+//     Composite topRow;
 
-    // Create table
-    Table tbl = new Table(CHOOSESETS_TABLE_BORDER, CHOOSESETS_TABLE_ATTRIBUTES);
+//     // Create table
+//     Table tbl = new Table(CHOOSESETS_TABLE_BORDER, CHOOSESETS_TABLE_ATTRIBUTES);
 
-    // Create top row
-    tbl.newRow();
-    topRow = tbl.row();
-    tbl.newCell(CHOOSESETS_BUTTONROW_ATTRIBUTES);
-    tbl.add(submitButton(servlet, buttonNumber, submitText, submitAction));
+//     // Create top row
+//     tbl.newRow();
+//     topRow = tbl.row();
+//     tbl.newCell(CHOOSESETS_BUTTONROW_ATTRIBUTES);
+//     tbl.add(submitButton(servlet, buttonNumber, submitText, submitAction));
 
-    // Iterate over title sets
-    while (titleSetIterator.hasNext()) {
-      TitleSet set = (TitleSet)titleSetIterator.next();
-      if (verb.isTsAppropriateFor(set)) {
-        int numOk = verb.countAusInSetForVerb(remoteApi, set);
-        if (numOk > 0 || doGray) {
-          ++actualRows;
-          tbl.newRow();
-          tbl.newCell(CHOOSESETS_CHECKBOX_ATTRIBUTES);
-          if (numOk > 0) {
-            isAnySelectable.setValue(true);
-            tbl.add(checkbox(servlet, checkboxGroup,
-			     set.getId(), false));
-          }
-          tbl.newCell(CHOOSESETS_CELL_ATTRIBUTES);
-          String txt = encodeText(set.getName()) + " (" + numOk + ")";
-          tbl.add(numOk > 0 ? txt : gray(txt));
-        }
-      }
-    }
+//     // Iterate over title sets
+//     while (titleSetIterator.hasNext()) {
+//       TitleSet set = (TitleSet)titleSetIterator.next();
+//       if (verb.isTsAppropriateFor(set)) {
+//         int numOk = verb.countAusInSetForVerb(remoteApi, set);
+//         if (numOk > 0 || doGray) {
+//           ++actualRows;
+//           tbl.newRow();
+//           tbl.newCell(CHOOSESETS_CHECKBOX_ATTRIBUTES);
+//           if (numOk > 0) {
+//             isAnySelectable.setValue(true);
+//             tbl.add(checkbox(servlet, checkboxGroup,
+// 			     set.getId(), false));
+//           }
+//           tbl.newCell(CHOOSESETS_CELL_ATTRIBUTES);
+//           String txt = encodeText(set.getName()) + " (" + numOk + ")";
+//           tbl.add(numOk > 0 ? txt : gray(txt));
+//         }
+//       }
+//     }
 
-    if (isAnySelectable.booleanValue()) {
-      // Remove top row if unneeded
-      if (actualRows < atLeast) {
-        topRow.reset();
-      }
+//     if (isAnySelectable.booleanValue()) {
+//       // Remove top row if unneeded
+//       if (actualRows < atLeast) {
+//         topRow.reset();
+//       }
 
-      // Add bottom row
-      tbl.newRow();
-      tbl.newCell(CHOOSESETS_BUTTONROW_ATTRIBUTES);
-      tbl.add(submitButton(servlet, buttonNumber, submitText, submitAction));
-    }
+//       // Add bottom row
+//       tbl.newRow();
+//       tbl.newCell(CHOOSESETS_BUTTONROW_ATTRIBUTES);
+//       tbl.add(submitButton(servlet, buttonNumber, submitText, submitAction));
+//     }
 
-    return tbl;
-  }
+//     return tbl;
+//   }
 
   public static Composite makeNonOperableAuTable(String heading,
                                                  Iterator basEntryIter) {
@@ -1430,61 +1430,61 @@ public class ServletUtil {
       return comp;
   }
 
-  public static Element makeRepoTable(LockssServlet servlet,
-				      RemoteApi remoteApi,
-                                      Map<String,PlatformUtil.DF> repoMap,
-                                      String keyDefaultRepo) {
-    RepositoryManager repoMgr =
-      servlet.getLockssDaemon().getRepositoryManager();
-    boolean isChoice = repoMap.size() > 1;
+//   public static Element makeRepoTable(LockssServlet servlet,
+// 				      RemoteApi remoteApi,
+//                                       Map<String,PlatformUtil.DF> repoMap,
+//                                       String keyDefaultRepo) {
+//     RepositoryManager repoMgr =
+//       servlet.getLockssDaemon().getRepositoryManager();
+//     boolean isChoice = repoMap.size() > 1;
 
-    Table tbl = new Table(REPOTABLE_BORDER, REPOTABLE_ATTRIBUTES);
-    tbl.newRow();
-    if (isChoice) {
-      tbl.addHeading("Available Disks", "colspan=\"6\"");
-    } else {
-      tbl.addHeading("Disk Space", "colspan=\"4\"");
-    }
-    tbl.newRow();
-    if (isChoice) {
-      tbl.addHeading("Use");
-      tbl.addHeading("Disk");
-    }
-    tbl.addHeading("Location");
-    tbl.addHeading("Size");
-    tbl.addHeading("Free");
-    tbl.addHeading("%Full");
+//     Table tbl = new Table(REPOTABLE_BORDER, REPOTABLE_ATTRIBUTES);
+//     tbl.newRow();
+//     if (isChoice) {
+//       tbl.addHeading("Available Disks", "colspan=\"6\"");
+//     } else {
+//       tbl.addHeading("Disk Space", "colspan=\"4\"");
+//     }
+//     tbl.newRow();
+//     if (isChoice) {
+//       tbl.addHeading("Use");
+//       tbl.addHeading("Disk");
+//     }
+//     tbl.addHeading("Location");
+//     tbl.addHeading("Size");
+//     tbl.addHeading("Free");
+//     tbl.addHeading("%Full");
 
-    String mostFree =
-      isChoice ? remoteApi.findLeastFullRepository(repoMap) : null;
-    int ix = 0;
-    // Populate repo key table
-    for (Map.Entry<String,PlatformUtil.DF> entry : repoMap.entrySet()) {
-      ix++;
-      String repo = entry.getKey();
-      PlatformUtil.DF df = entry.getValue();
+//     String mostFree =
+//       isChoice ? remoteApi.findLeastFullRepository(repoMap) : null;
+//     int ix = 0;
+//     // Populate repo key table
+//     for (Map.Entry<String,PlatformUtil.DF> entry : repoMap.entrySet()) {
+//       ix++;
+//       String repo = entry.getKey();
+//       PlatformUtil.DF df = entry.getValue();
 
-      // Populate row for entry
-      tbl.newRow(REPOTABLE_ROW_ATTRIBUTES);
-      if (isChoice) {
-	tbl.newCell(ALIGN_CENTER); // "Default"
-	Element cb = checkbox(servlet, keyDefaultRepo, Integer.toString(ix),
-			      repo == mostFree);
-        cb.attribute("onChange", "resetRepoSelections();");
-	tbl.add(cb);
-	tbl.newCell(ALIGN_RIGHT); // "Disk"
-	tbl.add(Integer.toString(ix) + "." + SPACE);
-      }
-      tbl.newCell(ALIGN_LEFT); // "Location"
-      tbl.add(repo);
-      addDfToRow(repoMgr, df, tbl);
-    }
+//       // Populate row for entry
+//       tbl.newRow(REPOTABLE_ROW_ATTRIBUTES);
+//       if (isChoice) {
+// 	tbl.newCell(ALIGN_CENTER); // "Default"
+// 	Element cb = checkbox(servlet, keyDefaultRepo, Integer.toString(ix),
+// 			      repo == mostFree);
+//         cb.attribute("onChange", "resetRepoSelections();");
+// 	tbl.add(cb);
+// 	tbl.newCell(ALIGN_RIGHT); // "Disk"
+// 	tbl.add(Integer.toString(ix) + "." + SPACE);
+//       }
+//       tbl.newCell(ALIGN_LEFT); // "Location"
+//       tbl.add(repo);
+//       addDfToRow(repoMgr, df, tbl);
+//     }
 
-    tbl.newRow();
-    tbl.newCell("colspan=\"6\"");
-    tbl.add(Break.rule);
-    return tbl;
-  }
+//     tbl.newRow();
+//     tbl.newCell("colspan=\"6\"");
+//     tbl.add(Break.rule);
+//     return tbl;
+//   }
 
   static String diskSpaceColor(RepositoryManager repoMgr,
 			       PlatformUtil.DF df, String s) {
@@ -1740,39 +1740,39 @@ public class ServletUtil {
 
    * @see #layoutAuSummary(LockssServlet, MutableInt, RemoteApi, Page, String, String, String, String, Iterator, Iterator, String, String, String, String, String)
    */
-  private static void layoutAuSummaryRows(LockssServlet servlet,
-                                          MutableInt buttonNumber,
-                                          RemoteApi remoteApi,
-                                          Table tbl,
-                                          Iterator auProxyIter,
-                                          String auIdName,
-                                          String restoreAction,
-                                          String reactivateAction,
-                                          String editAction) {
-    while (auProxyIter.hasNext()) {
-      AuProxy au = (AuProxy)auProxyIter.next();
-      Configuration cfg = remoteApi.getStoredAuConfiguration(au);
-      boolean isGray = true;
-      String act;
+//   private static void layoutAuSummaryRows(LockssServlet servlet,
+//                                           MutableInt buttonNumber,
+//                                           RemoteApi remoteApi,
+//                                           Table tbl,
+//                                           Iterator auProxyIter,
+//                                           String auIdName,
+//                                           String restoreAction,
+//                                           String reactivateAction,
+//                                           String editAction) {
+//     while (auProxyIter.hasNext()) {
+//       AuProxy au = (AuProxy)auProxyIter.next();
+//       Configuration cfg = remoteApi.getStoredAuConfiguration(au);
+//       boolean isGray = true;
+//       String act;
 
-      if (cfg.isEmpty()) {
-        act = restoreAction;
-      }
-      else if (cfg.getBoolean(PluginManager.AU_PARAM_DISABLED, false)) {
-        act = reactivateAction;
-      }
-      else {
-        act = editAction;
-        isGray = false;
-      }
+//       if (cfg.isEmpty()) {
+//         act = restoreAction;
+//       }
+//       else if (cfg.getBoolean(PluginManager.AU_PARAM_DISABLED, false)) {
+//         act = reactivateAction;
+//       }
+//       else {
+//         act = editAction;
+//         isGray = false;
+//       }
 
-      tbl.newRow();
-      tbl.newCell(AUSUMMARY_BUTTONCELL_ATTRIBUTES);
-      tbl.add(submitButton(servlet, buttonNumber, act, act, auIdName, au.getAuId()));
-      tbl.newCell(AUSUMMARY_TEXTCELL_ATTRIBUTES);
-      tbl.add(gray(encodeText(au.getName()), isGray));
-    }
-  }
+//       tbl.newRow();
+//       tbl.newCell(AUSUMMARY_BUTTONCELL_ATTRIBUTES);
+//       tbl.add(submitButton(servlet, buttonNumber, act, act, auIdName, au.getAuId()));
+//       tbl.newCell(AUSUMMARY_TEXTCELL_ATTRIBUTES);
+//       tbl.add(gray(encodeText(au.getName()), isGray));
+//     }
+//   }
 
   private static void layoutFootnote(Composite comp,
                                      String footnote,

@@ -33,7 +33,7 @@ import org.lockss.mail.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
-import org.lockss.scheduler.*;
+// import org.lockss.scheduler.*;
 import org.lockss.servlet.*;
 import org.apache.commons.collections.map.LinkedMap;
 
@@ -294,14 +294,14 @@ public abstract class LockssApp {
     return (MailService)getManager(MAIL_SERVICE);
   }
 
-  /**
-   * return the sched service instance
-   * @return the SchedService
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public SchedService getSchedService() {
-    return (SchedService) getManager(SCHED_SERVICE);
-  }
+//   /**
+//    * return the sched service instance
+//    * @return the SchedService
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public SchedService getSchedService() {
+//     return (SchedService) getManager(SCHED_SERVICE);
+//   }
 
   /**
    * return the resource manager instance

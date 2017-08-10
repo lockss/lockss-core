@@ -34,31 +34,31 @@ import org.lockss.alert.*;
 import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.daemon.*;
 import org.lockss.db.DbManager;
-import org.lockss.exporter.FetchTimeExportManager;
-import org.lockss.exporter.counter.CounterReportsManager;
+// import org.lockss.exporter.FetchTimeExportManager;
+// import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.account.*;
 import org.lockss.hasher.*;
-import org.lockss.scheduler.*;
-import org.lockss.metadata.MetadataDbManager;
-import org.lockss.metadata.MetadataManager;
+// import org.lockss.scheduler.*;
+// import org.lockss.metadata.MetadataDbManager;
+// import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.*;
 import org.lockss.truezip.*;
 import org.lockss.poller.*;
 import org.lockss.protocol.*;
-import org.lockss.protocol.psm.*;
+// import org.lockss.protocol.psm.*;
 import org.lockss.repository.*;
 import org.lockss.state.*;
-import org.lockss.subscription.SubscriptionManager;
-import org.lockss.proxy.*;
-import org.lockss.proxy.icp.IcpManager;
+// import org.lockss.subscription.SubscriptionManager;
+// import org.lockss.proxy.*;
+// import org.lockss.proxy.icp.IcpManager;
 import org.lockss.config.*;
 import org.lockss.crawler.*;
-import org.lockss.remote.*;
+// import org.lockss.remote.*;
 import org.lockss.clockss.*;
 import org.lockss.safenet.*;
 import org.apache.commons.collections.map.LinkedMap;
-import org.lockss.job.JobDbManager;
-import org.lockss.job.JobManager;
+// import org.lockss.job.JobDbManager;
+// import org.lockss.job.JobManager;
 
 /**
  * The LOCKSS daemon application
@@ -388,86 +388,86 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return (AlertManager)getManager(ALERT_MANAGER);
   }
 
-  /**
-   * return the hash service instance
-   * @return the HashService
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public HashService getHashService() {
-    return (HashService) getManager(HASH_SERVICE);
-  }
+//   /**
+//    * return the hash service instance
+//    * @return the HashService
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public HashService getHashService() {
+//     return (HashService) getManager(HASH_SERVICE);
+//   }
 
-  /**
-   * return the sched service instance
-   * @return the SchedService
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public SchedService getSchedService() {
-    return (SchedService) getManager(SCHED_SERVICE);
-  }
+//   /**
+//    * return the sched service instance
+//    * @return the SchedService
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public SchedService getSchedService() {
+//     return (SchedService) getManager(SCHED_SERVICE);
+//   }
 
-  /**
-   * return the poll manager instance
-   * @return the PollManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public PollManager getPollManager() {
-    return (PollManager) getManager(POLL_MANAGER);
-  }
+//   /**
+//    * return the poll manager instance
+//    * @return the PollManager
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public PollManager getPollManager() {
+//     return (PollManager) getManager(POLL_MANAGER);
+//   }
 
-  /**
-   * return the psm manager instance
-   * @return the PsmManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public PsmManager getPsmManager() {
-    return (PsmManager) getManager(PSM_MANAGER);
-  }
+//   /**
+//    * return the psm manager instance
+//    * @return the PsmManager
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public PsmManager getPsmManager() {
+//     return (PsmManager) getManager(PSM_MANAGER);
+//   }
 
-  /**
-   * return the datagram communication manager instance
-   * @return the LcapDatagramComm
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapDatagramComm getDatagramCommManager()  {
-    return (LcapDatagramComm) getManager(DATAGRAM_COMM_MANAGER);
-  }
+//  /**
+//    * return the datagram communication manager instance
+//    * @return the LcapDatagramComm
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public LcapDatagramComm getDatagramCommManager()  {
+//     return (LcapDatagramComm) getManager(DATAGRAM_COMM_MANAGER);
+//   }
 
-  /**
-   * return the stream communication manager instance
-   * @return the LcapStreamComm
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapStreamComm getStreamCommManager()  {
-    return (LcapStreamComm) getManager(STREAM_COMM_MANAGER);
-  }
+//   /**
+//    * return the stream communication manager instance
+//    * @return the LcapStreamComm
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public LcapStreamComm getStreamCommManager()  {
+//     return (LcapStreamComm) getManager(STREAM_COMM_MANAGER);
+//   }
 
-  /**
-   * return the datagram router manager instance
-   * @return the LcapDatagramRouter
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapDatagramRouter getDatagramRouterManager()  {
-    return (LcapDatagramRouter) getManager(DATAGRAM_ROUTER_MANAGER);
-  }
+//   /**
+//    * return the datagram router manager instance
+//    * @return the LcapDatagramRouter
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public LcapDatagramRouter getDatagramRouterManager()  {
+//     return (LcapDatagramRouter) getManager(DATAGRAM_ROUTER_MANAGER);
+//   }
 
-  /**
-   * return the communication router manager instance
-   * @return the LcapDatagramRouter
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapRouter getRouterManager()  {
-    return (LcapRouter) getManager(ROUTER_MANAGER);
-  }
+//   /**
+//    * return the communication router manager instance
+//    * @return the LcapDatagramRouter
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public LcapRouter getRouterManager()  {
+//     return (LcapRouter) getManager(ROUTER_MANAGER);
+//   }
 
-  /**
-   * return the proxy handler instance
-   * @return the ProxyManager
-   * @throws IllegalArgumentException if the manager is not available.
-  */
-  public ProxyManager getProxyManager() {
-    return (ProxyManager) getManager(PROXY_MANAGER);
-  }
+//   /**
+//    * return the proxy handler instance
+//    * @return the ProxyManager
+//    * @throws IllegalArgumentException if the manager is not available.
+//   */
+//   public ProxyManager getProxyManager() {
+//     return (ProxyManager) getManager(PROXY_MANAGER);
+//   }
 
   /**
    * return the crawl manager instance
@@ -487,14 +487,14 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return (RepositoryManager)getManager(REPOSITORY_MANAGER);
   }
 
-  /**
-   * return the SystemMetrics instance.
-   * @return SystemMetrics instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public SystemMetrics getSystemMetrics() {
-    return (SystemMetrics) getManager(SYSTEM_METRICS);
-  }
+//   /**
+//    * return the SystemMetrics instance.
+//    * @return SystemMetrics instance.
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public SystemMetrics getSystemMetrics() {
+//     return (SystemMetrics) getManager(SYSTEM_METRICS);
+//   }
 
   /**
    * return the plugin manager instance
@@ -505,14 +505,14 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return (PluginManager) getManager(PLUGIN_MANAGER);
   }
 
-  /**
-   * return the metadata manager instance
-   * @return the MetadataManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public MetadataManager getMetadataManager() {
-    return (MetadataManager) getManager(METADATA_MANAGER);
-  }
+//   /**
+//    * return the metadata manager instance
+//    * @return the MetadataManager
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public MetadataManager getMetadataManager() {
+//     return (MetadataManager) getManager(METADATA_MANAGER);
+//   }
 
   /**
    * return the Account Manager
@@ -544,51 +544,51 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return (LockssKeyStoreManager) getManager(KEYSTORE_MANAGER);
   }
 
-  /**
-   * return the Identity Manager
-   * @return IdentityManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
+//   /**
+//    * return the Identity Manager
+//    * @return IdentityManager
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
 
-  public IdentityManager getIdentityManager() {
-    return (IdentityManager) getManager(IDENTITY_MANAGER);
-  }
+//   public IdentityManager getIdentityManager() {
+//     return (IdentityManager) getManager(IDENTITY_MANAGER);
+//   }
 
-  /**
-   * <p>Retrieves the ICP manager.</p>
-   * @return The ICP manager instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public IcpManager getIcpManager() {
-    return (IcpManager)getManager(ICP_MANAGER);
-  }
+//   /**
+//    * <p>Retrieves the ICP manager.</p>
+//    * @return The ICP manager instance.
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public IcpManager getIcpManager() {
+//     return (IcpManager)getManager(ICP_MANAGER);
+//   }
 
-  /**
-   * return the RemoteApi instance.
-   * @return RemoteApi instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public RemoteApi getRemoteApi() {
-    return (RemoteApi) getManager(REMOTE_API);
-  }
+//   /**
+//    * return the RemoteApi instance.
+//    * @return RemoteApi instance.
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public RemoteApi getRemoteApi() {
+//     return (RemoteApi) getManager(REMOTE_API);
+//   }
 
-  /**
-   * return the NodeManagerManager instance.
-   * @return NodeManagerManager instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public NodeManagerManager getNodeManagerManager() {
-    return (NodeManagerManager) getManager(NODE_MANAGER_MANAGER);
-  }
+//   /**
+//    * return the NodeManagerManager instance.
+//    * @return NodeManagerManager instance.
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public NodeManagerManager getNodeManagerManager() {
+//     return (NodeManagerManager) getManager(NODE_MANAGER_MANAGER);
+//   }
 
-  /**
-   * return the ArchivalUnitStatus instance.
-   * @return ArchivalUnitStatus instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public ArchivalUnitStatus getArchivalUnitStatus() {
-    return (ArchivalUnitStatus) getManager(ARCHIVAL_UNIT_STATUS);
-  }
+//   /**
+//    * return the ArchivalUnitStatus instance.
+//    * @return ArchivalUnitStatus instance.
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public ArchivalUnitStatus getArchivalUnitStatus() {
+//     return (ArchivalUnitStatus) getManager(ARCHIVAL_UNIT_STATUS);
+//   }
 
   /**
    * return TrueZipManager instance
@@ -610,71 +610,71 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return (DbManager) getManager(DB_MANAGER);
   }
 
-  /**
-   * Provides the COUNTER reports manager.
-   * 
-   * @return a CounterReportsManager with the COUNTER reports manager.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public CounterReportsManager getCounterReportsManager() {
-    return (CounterReportsManager) getManager(COUNTER_REPORTS_MANAGER);
-  }
+//   /**
+//    * Provides the COUNTER reports manager.
+//    * 
+//    * @return a CounterReportsManager with the COUNTER reports manager.
+//    * @throws IllegalArgumentException
+//    *           if the manager is not available.
+//    */
+//   public CounterReportsManager getCounterReportsManager() {
+//     return (CounterReportsManager) getManager(COUNTER_REPORTS_MANAGER);
+//   }
 
-  /**
-   * Provides the subscription manager.
-   * 
-   * @return a SubscriptionManager with the subscription manager.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public SubscriptionManager getSubscriptionManager() {
-    return (SubscriptionManager) getManager(SUBSCRIPTION_MANAGER);
-  }
+//   /**
+//    * Provides the subscription manager.
+//    * 
+//    * @return a SubscriptionManager with the subscription manager.
+//    * @throws IllegalArgumentException
+//    *           if the manager is not available.
+//    */
+//   public SubscriptionManager getSubscriptionManager() {
+//     return (SubscriptionManager) getManager(SUBSCRIPTION_MANAGER);
+//   }
 
-  /**
-   * Provides the fetch time export manager.
-   * 
-   * @return a FetchTimeExportManager with the fetch time export manager.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public FetchTimeExportManager getFetchTimeExportManager() {
-    return (FetchTimeExportManager) getManager(FETCH_TIME_EXPORT_MANAGER);
-  }
+//   /**
+//    * Provides the fetch time export manager.
+//    * 
+//    * @return a FetchTimeExportManager with the fetch time export manager.
+//    * @throws IllegalArgumentException
+//    *           if the manager is not available.
+//    */
+//   public FetchTimeExportManager getFetchTimeExportManager() {
+//     return (FetchTimeExportManager) getManager(FETCH_TIME_EXPORT_MANAGER);
+//   }
 
-  /**
-   * Provides the job manager instance.
-   * 
-   * @return a JobManager with the job manager instance.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public JobManager getJobManager() {
-    return (JobManager) getManager(JOB_MANAGER);
-  }
+//   /**
+//    * Provides the job manager instance.
+//    * 
+//    * @return a JobManager with the job manager instance.
+//    * @throws IllegalArgumentException
+//    *           if the manager is not available.
+//    */
+//   public JobManager getJobManager() {
+//     return (JobManager) getManager(JOB_MANAGER);
+//   }
 
-  /**
-   * Provides the metadata database manager instance.
-   * 
-   * @return a MetadataDbManager with the metadata database manager instance.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public MetadataDbManager getMetadataDbManager() {
-    return (MetadataDbManager) getManager(METADATA_DB_MANAGER);
-  }
+//   /**
+//    * Provides the metadata database manager instance.
+//    * 
+//    * @return a MetadataDbManager with the metadata database manager instance.
+//    * @throws IllegalArgumentException
+//    *           if the manager is not available.
+//    */
+//   public MetadataDbManager getMetadataDbManager() {
+//     return (MetadataDbManager) getManager(METADATA_DB_MANAGER);
+//   }
 
-  /**
-   * Provides the job database manager instance.
-   * 
-   * @return a JobDbManager with the job database manager instance.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public JobDbManager getJobDbManager() {
-    return (JobDbManager) getManager(JOB_DB_MANAGER);
-  }
+//   /**
+//    * Provides the job database manager instance.
+//    * 
+//    * @return a JobDbManager with the job database manager instance.
+//    * @throws IllegalArgumentException
+//    *           if the manager is not available.
+//    */
+//   public JobDbManager getJobDbManager() {
+//     return (JobDbManager) getManager(JOB_DB_MANAGER);
+//   }
 
   /**
    * return the ClockssParams instance.
@@ -752,25 +752,25 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return (LockssRepository)getAuManager(LOCKSS_REPOSITORY, au);
   }
 
-  /**
-   * Return the NodeManager instance
-   * @param au the ArchivalUnit
-   * @return the NodeManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public NodeManager getNodeManager(ArchivalUnit au) {
-    return (NodeManager)getAuManager(NODE_MANAGER, au);
-  }
+//   /**
+//    * Return the NodeManager instance
+//    * @param au the ArchivalUnit
+//    * @return the NodeManager
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public NodeManager getNodeManager(ArchivalUnit au) {
+//     return (NodeManager)getAuManager(NODE_MANAGER, au);
+//   }
 
-  /**
-   * Return the HistoryRepository instance
-   * @param au the ArchivalUnit
-   * @return the HistoryRepository
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public HistoryRepository getHistoryRepository(ArchivalUnit au) {
-    return (HistoryRepository)getAuManager(HISTORY_REPOSITORY, au);
-  }
+//   /**
+//    * Return the HistoryRepository instance
+//    * @param au the ArchivalUnit
+//    * @return the HistoryRepository
+//    * @throws IllegalArgumentException if the manager is not available.
+//    */
+//   public HistoryRepository getHistoryRepository(ArchivalUnit au) {
+//     return (HistoryRepository)getAuManager(HISTORY_REPOSITORY, au);
+//   }
 
   /**
    * Return ActivityRegulator instance
@@ -798,13 +798,13 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return getAuManagersOfType(LOCKSS_REPOSITORY);
   }
 
-  /**
-   * Return all NodeManagers.
-   * @return a list of all NodeManagers for all AUs
-   */
-  public List<NodeManager> getAllNodeManagers() {
-    return getAuManagersOfType(NODE_MANAGER);
-  }
+//   /**
+//    * Return all NodeManagers.
+//    * @return a list of all NodeManagers for all AUs
+//    */
+//   public List<NodeManager> getAllNodeManagers() {
+//     return getAuManagersOfType(NODE_MANAGER);
+//   }
 
   // AU specific manager loading, starting, stopping
 

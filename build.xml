@@ -706,6 +706,7 @@ Args:
            nowarn="${nowarn}"
 	   memoryMaximumSize="256m"
            >
+<!--       <compilerarg line="-Xmaxerrs 1000"/> -->
        <classpath refid="@{cpid}" />
       <javacelem/>
     </javac>

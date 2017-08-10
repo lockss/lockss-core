@@ -38,12 +38,10 @@ import org.lockss.app.*;
 import org.lockss.account.*;
 import org.lockss.clockss.*;
 import org.lockss.daemon.*;
-import org.lockss.hasher.*;
 import org.lockss.mail.*;
 import org.lockss.plugin.*;
-import org.lockss.protocol.*;
-import org.lockss.proxy.*;
-import org.lockss.remote.*;
+// import org.lockss.proxy.*;
+//import org.lockss.remote.*;
 import org.lockss.repository.*;
 import org.lockss.servlet.*;
 import org.lockss.state.*;
@@ -110,11 +108,6 @@ public class ConfigManager implements LockssManager {
   /** Config param written to local config files to indicate file version */
   static final String PARAM_CONFIG_FILE_VERSION =
     MYPREFIX + "fileVersion.<filename>";
-
-  /** Temporary param to enable new scheduler */
-  public static final String PARAM_NEW_SCHEDULER =
-    HashService.PREFIX + "use.scheduler";
-  static final boolean DEFAULT_NEW_SCHEDULER = true;
 
   /** Maximum number of AU config changes to to save up during a batch add
    * or remove operation, before writing them to au.txt  */

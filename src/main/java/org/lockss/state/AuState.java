@@ -39,7 +39,8 @@ import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.daemon.*;
 import org.lockss.crawler.CrawlerStatus;
-import org.lockss.poller.v3.*;
+import org.lockss.poller.*;
+//import org.lockss.poller.v3.*;
 import org.lockss.repository.*;
 
 /**
@@ -655,7 +656,7 @@ public class AuState implements LockssSerializable {
    * Sets the last poll time to the current time.
    */
   public synchronized void pollFinished(int result,
-					V3Poller.PollVariant variant) {
+					PollSpec.PollVariant variant) {
     long now = TimeBase.nowMs();
     boolean complete = result == V3Poller.POLLER_STATUS_COMPLETE;
     switch (variant) {
@@ -686,7 +687,7 @@ public class AuState implements LockssSerializable {
    */
   public void pollFinished() {
     pollFinished(V3Poller.POLLER_STATUS_COMPLETE,
-		 V3Poller.PollVariant.PoR); // XXX Bogus!
+		 PollSpec.PollVariant.PoR); // XXX Bogus!
   }
 
   public synchronized void setV3Agreement(double d) {

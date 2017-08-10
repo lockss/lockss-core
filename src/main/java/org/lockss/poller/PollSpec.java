@@ -37,7 +37,6 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
-import org.lockss.poller.v3.V3Poller;
 import org.lockss.util.*;
 
 /**
@@ -47,6 +46,31 @@ import org.lockss.util.*;
  */
 
 public class PollSpec {
+
+  public enum PollVariant {
+    PoR("Proof of Retrievability", "PoR"),
+    PoP("Proof of Possession", "PoP"),
+    Local("Local", "Local"),
+    NoPoll("NoPoll", "None");
+
+    final String printString;
+    final String shortName;
+
+    PollVariant(String printString, String shortName) {
+      this.printString = printString;
+      this.shortName = shortName;
+    }
+
+    public String toString() {
+      return printString;
+    }
+
+    public String shortName() {
+      return shortName;
+    }
+  }
+    
+
   /**
    * A lower bound value which indicates the poll should use a
    * {@link SingleNodeCachedUrlSetSpec} instead of a
@@ -66,7 +90,7 @@ public class PollSpec {
   private PluginManager pluginMgr = null;
   private int protocolVersion; // poll protocol version
   private int pollType; // One of the types defined by Poll
-  private V3Poller.PollVariant variant = V3Poller.PollVariant.PoR;
+  private PollVariant variant = PollVariant.PoR;
 
   /**
    * Construct a PollSpec from a CachedUrlSet and an upper and lower bound
@@ -98,38 +122,16 @@ public class PollSpec {
     }
   }
 
-  /**
-   * Construct a PollSpec from a V1 LcapMessage
-   * @param msg the LcapMessage which defines the range of interest
-   */
-  public PollSpec(V1LcapMessage msg) {
-    auId = msg.getArchivalId();
-    pluginVersion = msg.getPluginVersion();
-    url = msg.getTargetUrl();
-    uprBound = msg.getUprBound();
-    lwrBound = msg.getLwrBound();
-    protocolVersion = msg.getProtocolVersion();
-    if (msg.isContentPoll()) {
-      pollType = Poll.V1_CONTENT_POLL;
-    } else if (msg.isNamePoll()) {
-      pollType = Poll.V1_NAME_POLL;
-    } else if (msg.isVerifyPoll()) {
-      pollType = Poll.V1_VERIFY_POLL;
-    } else {
-      pollType = -1;
-    }
-    cus = getPluginManager().findCachedUrlSet(this);
-  }
-
-  public PollSpec(V3LcapMessage msg) {
-    this(msg.getArchivalId(),
-	 (msg.getTargetUrl() == null) ? "lockssau:" : msg.getTargetUrl(),
-	 null,
-	 null,
-	 Poll.V3_POLL);
-    protocolVersion = msg.getProtocolVersion();
-    pluginVersion = msg.getPluginVersion();
-  }
+  // LAAWS: Move to V3LcapMessage
+//   public PollSpec(V3LcapMessage msg) {
+//     this(msg.getArchivalId(),
+// 	 (msg.getTargetUrl() == null) ? "lockssau:" : msg.getTargetUrl(),
+// 	 null,
+// 	 null,
+// 	 Poll.V3_POLL);
+//     protocolVersion = msg.getProtocolVersion();
+//     pluginVersion = msg.getPluginVersion();
+//   }
 
   /**
    * Construct a PollSpec from explicit args
@@ -229,11 +231,11 @@ public class PollSpec {
     return pollType;
   }
 
-  public V3Poller.PollVariant getPollVariant() {
+  public PollVariant getPollVariant() {
     return variant;
   }
 
-  public void setPollVariant(V3Poller.PollVariant v) {
+  public void setPollVariant(PollSpec.PollVariant v) {
     variant = v;
   }
 
