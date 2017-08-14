@@ -72,4 +72,8 @@ public class AuEvent {
   public boolean isInBatch() {
     return inBatch;
   }
+
+  public String toString() {
+    return inBatch ? type.toString() + "{B)" : type.toString();
+  }
 }
