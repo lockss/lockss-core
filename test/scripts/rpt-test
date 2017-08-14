@@ -24,23 +24,12 @@ while true ; do
     "-q" )
       showdots=0
       shift; continue;;
-    "-1.4" )
-      if [ -z "$JAVA_14_HOME" ] ; then
-	echo "-1.4 option requires JAVA_14_HOME to point to 1.4 install dir"
+    "-1.8" )
+      if [ -z "$JAVA_18_HOME" ] ; then
+	echo "-1.8 option requires JAVA_18_HOME to point to 1.8 install dir"
 	exit 1;
       fi
-      JAVA_HOME="${JAVA_14_HOME}"
-      export JAVA_HOME
-      PATH="$JAVA_HOME/bin:$PATH"
-      export PATH
-      echo JAVA_HOME="$JAVA_HOME"
-      shift; continue;;
-    "-1.5" )
-      if [ -z "$JAVA_15_HOME" ] ; then
-	echo "-1.5 option requires JAVA_15_HOME to point to 1.5 install dir"
-	exit 1;
-      fi
-      JAVA_HOME="${JAVA_15_HOME}"
+      JAVA_HOME="${JAVA_18_HOME}"
       export JAVA_HOME
       PATH="$JAVA_HOME/bin:$PATH"
       export PATH
@@ -71,9 +60,10 @@ tmplib=tmplib
 mkdir -p $tmplib
 cp ${PROJECT_DIR}/lib/lockss.jar $tmplib
 cp ${PROJECT_DIR}/lib/lockss-test.jar $tmplib
-cp ${PROJECT_DIR}/lib/lockss-plugins.jar $tmplib
-cp ${PROJECT_DIR}/lib/lockss-plugins-test.jar $tmplib
-CLASSPATH=$tmplib/lockss.jar:$tmplib/lockss-test.jar:$tmplib/lockss-plugins.jar:$tmplib/lockss-plugins-test.jar:`cat test/test-classpath`
+#cp ${PROJECT_DIR}/lib/lockss-plugins.jar $tmplib
+#cp ${PROJECT_DIR}/lib/lockss-plugins-test.jar $tmplib
+#CLASSPATH=$tmplib/lockss.jar:$tmplib/lockss-test.jar:$tmplib/lockss-plugins.jar:$tmplib/lockss-plugins-test.jar:`cat test/test-classpath`
+CLASSPATH=$tmplib/lockss.jar:$tmplib/lockss-test.jar:`cat test/test-classpath`
 export CLASSPATH
 
 failcnt=0
