@@ -1579,7 +1579,7 @@ public class LockssTestCase4 extends Assert {
    */
   public static void assertEquals(DatagramPacket expected,
                                   DatagramPacket actual) {
-    assertTrue(expected.getAddress().equals(actual.getAddress()));
+    assertEquals(expected.getAddress(), actual.getAddress());
     assertEquals(expected.getPort(), actual.getPort());
     assertEquals(expected.getLength(), actual.getLength());
     assertEquals(expected.getOffset(), actual.getOffset());
