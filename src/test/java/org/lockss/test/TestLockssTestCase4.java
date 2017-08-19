@@ -32,6 +32,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.test;
 
+import java.util.*;
+
+import static org.hamcrest.CoreMatchers.*;
 import org.junit.Test;
 
 public class TestLockssTestCase4 extends LockssTestCase4 {
@@ -44,6 +47,22 @@ public class TestLockssTestCase4 extends LockssTestCase4 {
   @Test
   public void testGetTestMethodName() {
     assertEquals("testGetTestMethodName", getTestMethodName());
+  }
+  
+  @Test
+  public void testCartesian() {
+    String[] strings = {"foo", "bar"};
+    Character[] chars = {'a', 'b', 'c'};
+    Integer[] ints = {1, 2, 3, 4};
+    Collection<Object[]> tuples = LockssTestCase4.cartesian(strings, chars, ints);
+    assertEquals(strings.length * chars.length * ints.length, tuples.size());
+    for (int s = 0 ; s < strings.length ; ++s) {
+      for (int c = 0 ; c < chars.length ; ++c) {
+        for (int i = 0 ; i < ints.length ; ++i) {
+          assertThat(tuples, hasItem(new Object[] {strings[s], chars[c], ints[i]}));
+        }
+      }
+    }
   }
   
 }

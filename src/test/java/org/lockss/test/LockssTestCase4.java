@@ -2367,4 +2367,106 @@ public class LockssTestCase4 extends Assert {
     getErrorCollector().addError(error);
   }
   
+  /**
+   * <p>
+   * Returns the Cartesian product of one or more arrays of values, to be used
+   * as the return value of the {@link Parametrized} method in a parametrized
+   * test.
+   * </p>
+   * <p>
+   * Example:
+   * </p>
+<pre>
+    String[] strings = {"foo", "bar"};
+    Character[] chars = {'a', 'b', 'c'};
+    Integer[] ints = {1, 2, 3, 4};
+    Collection<Object[]> tuples = LockssTestCase4.cartesian(strings, chars, ints);
+</pre>
+   * The {@code tuples} collection will contain 24 arrays of three objects each,
+   * representing the tuples:
+<pre>
+    ("foo", 'a', 1)
+    ("foo", 'a', 2)
+    ("foo", 'a', 3)
+    ("foo", 'a', 4)
+    ("foo", 'b', 1)
+    ("foo", 'b', 2)
+    ("foo", 'b', 3)
+    ("foo", 'b', 4)
+    ("foo", 'c', 1)
+    ("foo", 'c', 2)
+    ("foo", 'c', 3)
+    ("foo", 'c', 4)
+    ("bar", 'a', 1)
+    ("bar", 'a', 2)
+    ("bar", 'a', 3)
+    ("bar", 'a', 4)
+    ("bar", 'b', 1)
+    ("bar", 'b', 2)
+    ("bar", 'b', 3)
+    ("bar", 'b', 4)
+    ("bar", 'c', 1)
+    ("bar", 'c', 2)
+    ("bar", 'c', 3)
+    ("bar", 'c', 4)
+</pre>
+   * 
+   * @param values
+   *    One or more arrays of values 
+   * @return
+   *    The Cartesian product of the input arrays, in the form of a
+   *    {@link Collection} of arrays of {@link Object}. The length of each array
+   *    is equal to the number of input arrays. The <i>i</i><sup>th</sup>
+   *    element of each array is an element from the <i>i</i><sup>th</sup>
+   *    input array.
+   * @see <a href="https://github.com/junit-team/junit4/wiki/Parameterized-tests">
+   *     JUnit 4 page on parametrized tests</a>
+   */
+  public static Collection<Object[]> cartesian(Object[]... values) {
+    int tupleLength = values.length;
+    if (tupleLength == 0) {
+      throw new IllegalArgumentException("Must provide at least one set of values");
+    }
+    int total = 1;
+    int[] lengths = new int[tupleLength];
+    int[] indices = new int[tupleLength];
+    for (int v = 0 ; v < tupleLength ; ++v) {
+      total = total * values[v].length;
+      lengths[v] = values[v].length;
+      indices[v] = 0;
+    }
+    Collection<Object[]> ret = new ArrayList<Object[]>(total);
+    for (int i = 0 ; i < total ; ++i) {
+      Object[] tuple = new Object[tupleLength];
+      for (int j = tupleLength - 1 ; j >= 0 ; --j) {
+        tuple[j] = values[j][indices[j]];
+      }
+      for (int j = tupleLength - 1 ; j >= 0 ; --j) {
+        indices[j] = indices[j] + 1;
+        if (indices[j] < lengths[j]) {
+          break;
+        }
+        else {
+          indices[j] = 0;
+        }
+      }
+      ret.add(tuple);
+    }
+    return ret;
+  }
+  
+  /**
+   * 
+   * @param values
+   * @return
+   * @see #cartesian(Object[]...)
+   */
+  public static Collection<Object[]> cartesian(Collection<?>... values) {
+    Object[][] input = new Object[values.length][];
+    for (int v = 0 ; v < values.length ; ++v) {
+      input[v] = values[v].toArray();
+    }
+    return cartesian(input);
+  }
+  
 }
