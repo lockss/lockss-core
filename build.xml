@@ -286,8 +286,8 @@ Args:
   <!-- Needed by OAI harvester: Xalan, Xerces, XML-APIs, Log4j -->
 
   <property name="js.jar"         value="${test.lib}/js.jar" />
-  <property name="junit.jar"      value="${test.lib}/junit.jar"/>
-  <property name="junit.addons.jar" value="${test.lib}/junit-addons-1.4.jar"/>
+  <property name="junit.jar"      value="${test.lib}/junit-4.12.jar"/>
+  <property name="junit.hamcrest.jar" value="${test.lib}/hamcrest-core-1.3.jar"/>
   <property name="httpunit.jar"    value="${test.lib}/httpunit.jar"/>
   <property name="mockito.jar"    value="${test.lib}/mockito-core-1.10.19.jar"/>
   <property name="nekohtml.jar"  value="${test.lib}/nekohtml.jar"/>
@@ -615,7 +615,7 @@ Args:
   <path id="test.compile.classpath">
     <path refid="run.classpath" />
     <pathelement path="${junit.jar}" />
-    <pathelement path="${junit.addons.jar}" />
+    <pathelement path="${junit.hamcrest.jar}" />
     <pathelement path="${httpunit.jar}" />
     <pathelement path="${mockito.jar}" />
     <pathelement path="${nekohtml.jar}" />

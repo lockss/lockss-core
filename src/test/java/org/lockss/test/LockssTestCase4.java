@@ -37,24 +37,460 @@ import java.net.*;
 import java.security.SecureRandom;
 import java.util.*;
 
-import org.apache.commons.collections.iterators.ObjectArrayIterator;
 import org.apache.commons.io.IOUtils;
 import org.apache.oro.text.regex.Pattern;
+import org.junit.*;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.rules.*;
+import org.junit.runners.Parameterized.Parameter;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.*;
 
-import junit.framework.*;
+import junit.framework.TestCase;
 
 /**
- * @deprecated Use {@link LockssTestCase4} instead.
+ * <p>
+ * A JUnit 4-based base class for all our unit tests.
+ * </p>
+ * <p>
+ * In JUnit 4, a class is a test class if it contains at least one test method
+ * marked with the {@link Test} annotation (or if it bears various other
+ * annotations), without inheriting from {@link TestCase}. However, by
+ * convention, all our unit tests will inherit from this class.
+ * </p>
+ * <p>
+ * Below is some information on converting from JUnit 3 and
+ * {@link LockssTestCase} to JUnit 4 and {@link LockssTestCase4}.
+ * </p>
+ * <ul>
+ * <li>Change the inheritance from {@link LockssTestCase} to
+ * {@link LockssTestCase4}.
+<pre>
+// JUnit 3 / LockssTestCase
+public class TestFoo extends LockssTestCase {
+  // ...
+}
+
+// JUnit 4 / LockssTestCase4
+public class TestFoo extends LockssTestCase4 {
+  // ...
+}
+</pre>
+ * </li>
+ * <li>Remove imports from {@code junit.framework}.
+<pre>
+// JUnit 3 / LockssTestCase
+import junit.framework.*; // et al.
+
+// JUnit 4 / LockssTestCase4
+import org.junit.*; // et al.
+</pre>
+ * </li>
+ * <li>Annotate each test method with the {@link Test} annotation.
+<pre>
+// JUnit 3 / LockssTestCase
+  public void testFoo() {
+    // ...
+  }
+
+// JUnit 4 / LockssTestCase4
+  &#x40;Test
+  public void testFoo() {
+    // ...
+  }
+</pre>
+ * The magic prefix {@code test} is no longer required but is retained by
+ * convention.</li>
+ * <li>Annotate {@link TestCase#setUp()} and {@link TestCase#tearDown()} with
+ * {@link Before} and {@link After}, remove the {@link Override} annotation if
+ * needed, and remove {@code super.setUp()} and {@link super.tearDown()} calls.
+ * Note that {@link Before} and {@link After} methods must have {@code public}
+ * visibility but {@link LockssTestCase#setUp()} and
+ * {@link LockssTestCase#tearDown()} in {@link LockssTestCase} were
+ * {@code protected}.
+<pre>
+// JUnit 3 / LockssTestCase
+  &#x40;Override
+  protected void setUp() {
+    super.setUp();
+    // ...
+  }
+
+  &#x40;Override
+  protected void tearDown() {
+    super.setUp();
+    // ...
+  }
+
+// JUnit 4 / LockssTestCase4
+  &#x40;Before
+  public void setUp() {
+    // ...
+  }
+
+  &#x40;After
+  public void tearDown() {
+    // ...
+  }
+</pre>
+ * In JUnit 4, the names {@code setUp} and {@code tearDown} are not mandatory,
+ * and there may be multiple methods marked with {@link Before} or
+ * {@link After}. The {@link Before} methods of a parent class are run before
+ * those of a child class, and the {@link After} methods of a child class get
+ * run before those of a parent class. Multiple {@link Before} or {@link After}
+ * methods in a class all get run but in an unspecified order.</li>
+ * <li>If static initializers are used, they should be replaced with
+ * no-arg {@code public static void} methods annotated with {@link BeforeClass}.
+ * There can be multiple such methods. The {@link BeforeClass} methods of a
+ * parent class are run before those of a child class. A typical example that
+ * can require a static initializer is setting up an expensive resource like a
+ * database connection, but static initializers or {@link LockssTestCase} do
+ * not offer a reverse mechanism to undo such expensive setups. JUnit 4 does,
+ * with the {@link AfterClass} method annotation. {@link AfterClass} methods are
+ * guaranteed to run after all tests in a class have been run. The
+ * {@link AfterClass} methods of a child class are run before those of a
+ * parent class. Multiple {@link BeforeClass} or {@link AfterClass} methods
+ * in a class all get run but in an unspecified order.
+<pre>
+// JUnit 3 / LockssTestCase
+  private static DatabaseConnection dbConnection;
+
+  static {
+    dbConnection = makeExpensiveDatabaseConnection();
+  }
+  
+  // No idiom to trigger this at the end
+  public static void undoDatabaseConnection() {
+    dbConnection.close();
+    deConnection = null;
+  }
+  
+// JUnit 4 / LockssTestCase4
+  private static DatabaseConnection dbConnection;
+
+  &#x40;BeforeClass
+  public static void setUpClass() {
+    dbConnection = makeExpensiveDatabaseConnection();
+  }
+  
+  &#x40;AfterClass
+  public static void tearDownClass() {
+    dbConnection.close();
+    deConnection = null;
+  }
+</pre>
+ * </li>
+ * <li>Custom test suites formerly declared via the magic method
+ * {@code public static} {@link junit.framework.Test} {@code suite()} are now
+ * declared by passing the {@link Suite} class as the {@link Runner} to the
+ * {@link RunWith} annotation. In our case, the
+ * {@link LockssTestCase#variantSuites(Class[])} utility method was often used,
+ * A typical example of making a test suite out of arbitrary test classes is
+ * shown below:
+<pre>
+// JUnit 3 / LockssTestCase
+public class TestFoo extends LockssTestCase {
+
+  public static class Bar {
+
+    // ...
+
+    public static class Baz {
+      
+      // ...
+
+    }
+
+  }
+
+  public static Test void suite() {
+    return variantSuites(new Class[] {
+      TestFoo.Bar.class,
+      TestFoo.Bar.Baz.class,
+      TestQux.class
+    });
+  }
+
+}
+
+// JUnit 4 / LockssTestCase4
+&#x40;RunWith(Suite.class)
+&#x40;Suite.SuiteClasses({TestFoo.Bar.class,
+                     TestFoo.Bar.Baz.class,
+                     TestQux.class})
+public class TestFoo extends LockssTestCase4 {
+
+  public static class Bar {
+
+    // ...
+
+    public static class Baz {
+      
+      // ...
+
+    }
+
+  }
+
+}
+</pre>
+ * Both of the above will run the tests in {@code TestQux}, and those in
+ * {@code Bar} and {@code Baz} as if they were each in their own file.</li>
+ * <li>A common case is where all the test classes are directly nested inside
+ * the suite class. In this particular case, one can use the {@link Enclosed}
+ * test runner instead, which uses reflection to enumerate all non-abstract
+ * classes nested directly in the suite class:
+<pre>
+// JUnit 4 / LockssTestCase4
+&#x40;RunWith(Enclosed.class)  
+public class TestFoo extends LockssTestCase4 {
+
+  public static class Bar {
+
+    // ...
+
+  }
+
+  public static class Baz {
+
+    // ...
+
+  }
+
+}
+</pre>
+ * The above will run the tests in {@code Bar} and {@code Baz}, but not those
+ * found directly in {@code TestFoo}, in classes nested deeper inside than
+ * {@code Bar} or {@code Baz}, or in abstract classes nested directly in
+ * {@code TestFoo}.</li>
+ * <li>A quirk of annotations poses a slight problem when the pattern above is
+ * mixed with class inheritance, as in this other common use of
+ * {@link LockssTestCase#variantSuites(Class, Class)} and
+ * {@link LockssTestCase#variantSuites(Class)}:</li>
+<pre>
+// JUnit 3 / LockssTestCase
+public class TestFoo extends LockssTestCase {
+
+  public static class Bar extends TestFoo {
+    // ...
+  }
+
+  public static class Baz extends TestFoo {
+    // ...
+  }
+
+  // Stuff used by subclasses like Bar and Baz
+
+  public static Test suite() {
+    return variantSuites(new Class[] {
+      TestFoo.Bar.class,
+      TestFoo.Baz.class
+    });
+  }
+
+}
+</pre>
+ * The following will not work:
+<pre>
+// JUnit 4 / LockssTestCase4
+// FIXME: this won't work!
+&#x40;RunWith(Suite.class)
+&#x40;Suite.SuiteClasses({
+  TestFoo.Bar.class,
+  TestFoo.Baz.class
+})
+public class TestFoo extends LockssTestCase4 {
+
+  public static class Bar extends TestFoo {
+    // ...
+  }
+
+  public static class Baz extends TestFoo {
+    // ...
+  }
+
+  // Stuff used by subclasses like Bar and Baz
+
+}
+</pre>
+ * JUnit throws an error: {@code java.lang.Exception: class 'TestFoo$Bar'
+ * (possibly indirectly) contains itself as a SuiteClass}. The pattern that
+ * satisfies JUnit's attempt to detect self-referential test suites is:
+<pre>
+// JUnit 4 / LockssTestCase4
+&#x40;RunWith(Suite.class)
+&#x40;Suite.SuiteClasses({
+  TestFoo.Bar.class,
+  TestFoo.Baz.class
+})
+public class TestFoo extends LockssTestCase4 {
+
+  public static class Foo {
+    // Stuff used by subclasses like Bar and Baz
+  }
+
+  public static class Bar extends Foo {
+    // ...
+  }
+
+  public static class Baz extends Foo {
+    // ...
+  }
+
+}
+</pre>
+ * </li>
+ * <li>JUnit 4 provides the {@link Parameterized}, {@link Parameters} and
+ * {@link Parameter} annotations to define test suites that are parameterized
+ * over sets of values, resulting in running the tests over all combinations.
+ * In JUnit 3 / {@link LockssTestCase}, this might have been achieved like
+ * this:
+<pre>
+// JUnit 3 / LockssTestCase
+public class TestFoo extends LockssTestCase {
+
+  public void testSquare() {
+    doOneSquare(0, 0);
+    doOneSquare(1, 1);
+    doOneSquare(2, 4);
+    doOneSquare(3, 9);
+  }
+
+  private void doOneSquare(int input, int output) {
+    assertEquals(output, input * input);
+  }
+
+}
+</pre>
+ * or like this:
+<pre>
+// JUnit 3 / LockssTestCase
+public class TestFoo extends LockssTestCase {
+
+  private int input;
+  
+  private int output;
+  
+  public TestFoo(int input, int output) {
+    this.input = input;
+    this.output = output;
+  }
+
+  public void testSquare() {
+    assertEquals(output, input * input);
+  }
+
+  public static class Square0 extends TestFoo {
+    public Square0() {
+      super(0, 0);
+    }
+  }
+
+  public static class Square1 extends TestFoo {
+    public Square0() {
+      super(1, 1);
+    }
+  }
+
+  public static class Square2 extends TestFoo {
+    public Square0() {
+      super(2, 4);
+    }
+  }
+
+  public static class Square3 extends TestFoo {
+    public Square3() {
+      super(3, 9);
+    }
+  }
+
+  public static Test suite() {
+    return variantSuites(TestFoo.class);
+  }
+
+}
+</pre>
+ * JUnit 4 offers syntactic sugar to express this pattern. Use the
+ * {@link Parameterized} test runner; designate a {@code public static void
+ * Collection<Object[]>} method with the {@link Parameters} annotation; and have
+ * this method return a collection of tuples of length <i>k</i> (in the form of
+ * arrays of objects of length <i>k</i>). There are then two options. The first
+ * option is to define a constructor with <i>k</i> parameters. The test class
+ * will be instantiated for each tuple, with the items from the tuple passed to
+ * the constructor:
+<pre>
+// JUnit 4 / LockssTestCase 4
+&#x40;RunWith(Parameterized.class)
+public class TestFoo extends LockssTestCase4 {
+
+  &#x40;Parameters
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] { {0, 0}, {1, 1}, {2, 4}, {3, 9} })
+  }
+  
+  private int input;
+  
+  private int output;
+  
+  public TestFoo(int input, int output) {
+    this.input = input;
+    this.output = output;
+  }
+  
+  &#x40;Test
+  public void testSquare() {
+    assertEquals(output, input * input);
+  }
+
+}
+</pre>
+ * The other options is to tag a<i>k</i> instance variables with
+ * {@code @Parameter(0)}, ..., {@code @Parameter(k-1)}. The test class will be
+ * instantiated and run for each data tuple, with the item at index <i>i</i>
+ * in the tuple assigned to the instance variable marked {@code Parameter(i)}:
+<pre>
+// JUnit 4 / LockssTestCase 4
+&#x40;RunWith(Parameterized.class)
+public class TestFoo extends LockssTestCase4 {
+
+  &#x40;Parameters
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] { {0, 0}, {1, 1}, {2, 4}, {3, 9} })
+  }
+  
+  &#x40;Parameter(0)
+  public int input;
+  
+  &#x40;Parameter(1)
+  public int output;
+  
+  &#x40;Test
+  public void testSquare() {
+    assertEquals(output, input * input);
+  }
+
+}
+</pre>
+ * {@link LockssTestCase4#cartesian(Object[]...)} and
+ * {@link LockssTestCase4#cartesian(Collection...)} are provided to conveniently
+ * compute all tuples (x, y, z...) made from all combinations of items taken
+ * from collections X, Y, Z... respectively. If the parameterized class is over
+ * a single parameter, the {@link Parameters} method can alternatively simply
+ * return {@code Object[]} or {@code Iterable<? extends Object>}.
+ * </li>
+ * </ul>
+ * 
+ * @see <a href="https://junit.org/junit4">JUnit 4 site</a>
+ * @see TestJUnit4
  */
-@Deprecated
-public class LockssTestCase extends TestCase {
-  protected static Logger log =
-    Logger.getLoggerWithInitialLevel("LockssTest",
-				     Logger.getInitialDefaultLevel());
+public class LockssTestCase4 extends Assert {
+
+  private static final Logger log =
+    Logger.getLoggerWithInitialLevel("LockssTest4",
+                                     Logger.getInitialDefaultLevel());
+
   /** Timeout duration for timeouts that are expected to time out.  Setting
    * this higher makes normal tests take longer, setting it too low might
    * cause failing tests to erroneously succeed on slow or busy
@@ -74,15 +510,13 @@ public class LockssTestCase extends TestCase {
   List tmpDirs;
   List doLaters = null;
   String javaIoTmpdir;
-  TestResult result;
 
-  public LockssTestCase(String msg) {
+  public LockssTestCase4(String msg) {
     this();
-    setName(msg);
+    setTestName(msg);
   }
 
-  public LockssTestCase() {
-    super();
+  public LockssTestCase4() {
     Integer timeout = Integer.getInteger("org.lockss.test.timeout.shouldnt");
     if (timeout != null) {
       TIMEOUT_SHOULDNT = timeout.intValue();
@@ -111,9 +545,9 @@ public class LockssTestCase extends TestCase {
     // the test creating the dir in <dir>/.locksstestcase .  This may cause
     // tests to fail (expecting empty dir).
     if (!isKeepTempFiles()
-	&& Boolean.getBoolean("org.lockss.test.idTempDirs")) {
+        && Boolean.getBoolean("org.lockss.test.idTempDirs")) {
       FileTestUtil.writeFile(new File(res, TEST_ID_FILE_NAME),
-			     StringUtil.shortName(this.getClass()));
+                             StringUtil.shortName(this.getClass()));
     }
     return res;
   }
@@ -131,7 +565,7 @@ public class LockssTestCase extends TestCase {
     File tmpdir = FileUtil.createTempDir(prefix, null);
     if (tmpdir != null) {
       if (tmpDirs == null) {
-	tmpDirs = new LinkedList();
+        tmpDirs = new LinkedList();
       }
       tmpDirs.add(tmpdir);
     }
@@ -152,7 +586,7 @@ public class LockssTestCase extends TestCase {
     File tmpfile = FileUtil.createTempFile(prefix, suffis);
     if (tmpfile != null) {
       if (tmpDirs == null) {
-	tmpDirs = new LinkedList();
+        tmpDirs = new LinkedList();
       }
       tmpDirs.add(tmpfile);
     }
@@ -174,7 +608,7 @@ public class LockssTestCase extends TestCase {
     }
     String tmpdir = getTempDir().getAbsolutePath() + File.separator;
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
-				  tmpdir);
+                                  tmpdir);
     return tmpdir;
   }
 
@@ -187,13 +621,13 @@ public class LockssTestCase extends TestCase {
   }
 
   /** Create a fresh config manager, MockLockssDaemon */
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     TimerQueue.setSingleton(new ErrorRecordingTimerQueue());
     javaIoTmpdir = System.getProperty("java.io.tmpdir");
     ConfigManager.makeConfigManager();
     Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
-    super.setUp();
     disableThreadWatchdog();
   }
 
@@ -206,15 +640,16 @@ public class LockssTestCase extends TestCase {
    * org.lockss.test.LockssTestCase.DoLater}s
    * @throws Exception
    */
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     if (doLaters != null) {
       List copy;
       synchronized (this) {
-	copy = new ArrayList(doLaters);
+        copy = new ArrayList(doLaters);
       }
       for (Iterator iter = copy.iterator(); iter.hasNext(); ) {
-	DoLater doer = (DoLater)iter.next();
-	doer.cancel();
+        DoLater doer = (DoLater)iter.next();
+        doer.cancel();
       }
       // do NOT set doLaters to null here.  It may be referenced by
       // exiting DoLaters.  It won't hurt anything because the next test
@@ -232,27 +667,26 @@ public class LockssTestCase extends TestCase {
     // delete temp dirs
     if (tmpDirs != null && !isKeepTempFiles()) {
       for (ListIterator iter = tmpDirs.listIterator(); iter.hasNext(); ) {
-	File dir = (File)iter.next();
-	File idFile = new File(dir, TEST_ID_FILE_NAME);
-	String idContent = null;
-	if (idFile.exists()) {
-	  idContent = StringUtil.fromFile(idFile);
-	}
-	if (FileUtil.delTree(dir)) {
-	  log.debug2("deltree(" + dir + ") = true");
-	  iter.remove();
-	} else {
-	  log.debug2("deltree(" + dir + ") = false");
-	  if (idContent != null) {
-	    FileTestUtil.writeFile(idFile, idContent);
-	  }
-	}
+        File dir = (File)iter.next();
+        File idFile = new File(dir, TEST_ID_FILE_NAME);
+        String idContent = null;
+        if (idFile.exists()) {
+          idContent = StringUtil.fromFile(idFile);
+        }
+        if (FileUtil.delTree(dir)) {
+          log.debug2("deltree(" + dir + ") = true");
+          iter.remove();
+        } else {
+          log.debug2("deltree(" + dir + ") = false");
+          if (idContent != null) {
+            FileTestUtil.writeFile(idFile, idContent);
+          }
+        }
       }
     }
     if (!StringUtil.isNullString(javaIoTmpdir)) {
       System.setProperty("java.io.tmpdir", javaIoTmpdir);
     }
-    super.tearDown();
     if (Boolean.getBoolean("org.lockss.test.threadDump")) {
       PlatformUtil.getInstance().threadDump(true);
     }
@@ -319,81 +753,6 @@ public class LockssTestCase extends TestCase {
     return res;
   }
 
-  /** Overridden so we can can get ahold of the result object, in order to
-   * manually add errors */
-  public void run(TestResult result) {
-    this.result = result;
-    super.run(result);
-  }
-
-  // variant harness
-  /** Return a TestSuite with the combined tests in all the variant
-   * classes.  Useful to run common tests with variant configurations or
-   * implementation classes.
-   */
-  public static Test variantSuites(Class[] variants) {
-    TestSuite[] suites = new TestSuite[variants.length];
-    for (int ix = 0; ix < variants.length; ix++) {
-      final Class var = variants[ix];
-      TestSuite varSuite = new TestSuite(var) {
-	  public void run(TestResult result) {
-	    log.debug("Variant suite: " + StringUtil.shortName(var));
-	    super.run(result);
-	  }};
-      suites[ix] = varSuite;
-    }
-    TestSuite res = new TestSuite();
-    for (int ix = 0; ix < suites.length; ix++) {
-      res.addTest(suites[ix]);
-    }
-    return res;
-  }
-
-  /**
-   * <p>Returns a test suite with the combined tests in all the
-   * nested classes found in <code>thisClass</code> that extend
-   * the <code>extendedClass</code> class.</p>
-   * <p>Typically this will lead to the parameters being
-   * <code>(myTestCase, myTestCase)</code> or
-   * <code>(myTestCase, myTesterClass)</code>.</p>
-   * @param thisClass     The class whose variant nested classes are
-   *                      being extracted by reflection.
-   * @param extendedClass The class that variant classes have to extend
-   *                      in order to be extracted by reflection.
-   * @return A test suite incorporating the tests of all the extracted
-   *         nested classes.
-   * @see #variantSuites(Class[])
-   */
-  public static Test variantSuites(Class thisClass, Class extendedClass) {
-    ArrayList list = new ArrayList();
-    for (Iterator iter = new ObjectArrayIterator(thisClass.getDeclaredClasses()) ;
-         iter.hasNext() ; ) {
-      Class cla = (Class)iter.next();
-      if (extendedClass.isAssignableFrom(cla)) {
-        list.add(cla);
-      }
-    }
-
-    Class[] classes = new Class[list.size()];
-    list.toArray(classes);
-    return variantSuites(classes);
-  }
-
-  /**
-   * <p>Returns a test suite with the combined tests in all the
-   * nested classes found in <code>thisClass</code> that extend it.
-   * <p>This is a convenience call for
-   * <code>variantSuites(thisClass, thisClass)</code>.
-   * @param thisClass     The class whose variant nested subclasses are
-   *                      being extracted by reflection.
-   * @return A test suite incorporating the tests of all the extracted
-   *         nested subclasses.
-   * @see #variantSuites(Class, Class)
-   */
-  public static Test variantSuites(Class thisClass) {
-    return variantSuites(thisClass, thisClass);
-  }
-
   // assertSuccessRate harness
   double successRate;
   int successMaxRepetitions;
@@ -425,34 +784,35 @@ public class LockssTestCase extends TestCase {
    * @exception Throwable if any exception is thrown
    */
   public void runBare() throws Throwable {
+    // FIXME
     int rpt = 0;
     int failures = 0;
     successRateSetUp();
     try {
       while (true) {
-	try {
-	  // log the name of the test case (testFoo() method)
-	  log.debug("Testcase " + getName());
-	  super.runBare();
-	} catch (Throwable e) {
-	  if (++failures > successMaxFailures) {
-	    rpt++;
-	    throw e;
-	  }
-	}
-	if (++rpt >= successMaxRepetitions) {
-	  break;
-	}
-	if ((((double)(rpt - failures)) / ((double)rpt)) > successRate) {
-	  break;
-	}
+        try {
+          // log the name of the test case (testFoo() method)
+          log.debug("Testcase " + getTestName());
+//          super.runBare();
+        } catch (Throwable e) {
+          if (++failures > successMaxFailures) {
+            rpt++;
+            throw e;
+          }
+        }
+        if (++rpt >= successMaxRepetitions) {
+          break;
+        }
+        if ((((double)(rpt - failures)) / ((double)rpt)) > successRate) {
+          break;
+        }
       }
     } finally {
       if (successMaxFailures > 0 && failures > 0) {
-	System.err.println(getName() + " failed " + failures +
-			   " of " + rpt + " tries, " +
-			   ((failures > successMaxFailures) ? "not " : "") +
-			   "achieving a " + successRate + " success rate.");
+        System.err.println(getTestName() + " failed " + failures +
+                           " of " + rpt + " tries, " +
+                           ((failures > successMaxFailures) ? "not " : "") +
+                           "achieving a " + successRate + " success rate.");
       }
       successRateTearDown();
     }
@@ -487,7 +847,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   static public void assertEqualsNotSame(String message,
-					 Object expected, Object actual) {
+                                         Object expected, Object actual) {
     if (expected == actual) {
       failSame(message);
     }
@@ -571,7 +931,7 @@ public class LockssTestCase extends TestCase {
    * Asserts that c1.compareTo(c2) > 0 and c2.compareTo(c1) < 0
    */
   static public void assertCompareIsGreaterThan(String msg,
-						Comparable c1, Comparable c2) {
+                                                Comparable c1, Comparable c2) {
     int comp = c1.compareTo(c2);
     int revComp = c2.compareTo(c1);
 
@@ -581,23 +941,23 @@ public class LockssTestCase extends TestCase {
 
     if (comp == 0 && revComp == 0) {
       if (msg == null) {
-	msg = c1 + " is equal to " + c2;
+        msg = c1 + " is equal to " + c2;
       } else {
-	msg += " (equal)";
+        msg += " (equal)";
       }
     } else if (comp * revComp >= 0) {
       //one should be positive and the other neg
       if (msg != null) {
-	msg =
-	  "Inconsistent comparison\n"+
-	  "Forward comparison returns "+comp+"\n"+
-	  "While reverse comparison returns "+revComp+"\n";
+        msg =
+          "Inconsistent comparison\n"+
+          "Forward comparison returns "+comp+"\n"+
+          "While reverse comparison returns "+revComp+"\n";
       } else {
-	msg += " (inconsistent)";
+        msg += " (inconsistent)";
       }
     } else { //opposite of what we expected
       if (msg != null) {
-	msg = "First comparable ("+c1+") is less than second ("+c2+")";
+        msg = "First comparable ("+c1+") is less than second ("+c2+")";
       }
     }
     fail(msg);
@@ -611,7 +971,7 @@ public class LockssTestCase extends TestCase {
   }
 
   static public void assertCompareIsEqualTo(String msg,
-					    Comparable c1, Comparable c2) {
+                                            Comparable c1, Comparable c2) {
     int comp = c1.compareTo(c2);
     int revComp = c2.compareTo(c1);
     if (comp == 0 && revComp == 0) {
@@ -620,17 +980,17 @@ public class LockssTestCase extends TestCase {
 
     if (comp == 0 || revComp == 0) {
       if (msg == null) {
-	msg =
-	  "Inconsistent results.\n"+
-	  "Forward comparison is "+comp+"\n"+
-	  "Reverse comparison returns "+revComp+"\n";
+        msg =
+          "Inconsistent results.\n"+
+          "Forward comparison is "+comp+"\n"+
+          "Reverse comparison returns "+revComp+"\n";
       } else {
-	msg += " (inconsistent)";
+        msg += " (inconsistent)";
       }
     } else {
       if (msg == null) {
-	msg = "First compparable ("+c1+")"
-	  +" is not equal to than second ("+c2+")";
+        msg = "First compparable ("+c1+")"
+          +" is not equal to than second ("+c2+")";
       }
     }
     fail(msg);
@@ -644,7 +1004,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   static public void assertIsomorphic(String message,
-				      Collection expected, Collection actual) {
+                                      Collection expected, Collection actual) {
     if (CollectionUtil.isIsomorphic(expected, actual)) {
       return;
     }
@@ -669,7 +1029,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   static public void assertIsomorphic(String message,
-				      Object expected[], Collection actual) {
+                                      Object expected[], Collection actual) {
     if (CollectionUtil.isIsomorphic(expected, actual)) {
       return;
     }
@@ -694,7 +1054,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   static public void assertIsomorphic(String message,
-				       Collection expected, Object actual[]) {
+                                       Collection expected, Object actual[]) {
     if (CollectionUtil.isIsomorphic(expected, actual)) {
       return;
     }
@@ -719,7 +1079,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   static public void assertIsomorphic(String message,
-				      Iterator expected, Iterator actual) {
+                                      Iterator expected, Iterator actual) {
     if (CollectionUtil.isIsomorphic(expected, actual)) {
       return;
     }
@@ -744,7 +1104,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   static public void assertIsomorphic(String message,
-				      Object expected[], Iterator actual) {
+                                      Object expected[], Iterator actual) {
     if (CollectionUtil.isIsomorphic(new ArrayIterator(expected), actual)) {
       return;
     }
@@ -777,7 +1137,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  boolean[] expected, boolean[] actual) {
+                                  boolean[] expected, boolean[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -800,7 +1160,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  byte[] expected, byte[] actual) {
+                                  byte[] expected, byte[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -823,7 +1183,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  char[] expected, char[] actual) {
+                                  char[] expected, char[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -846,7 +1206,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  double[] expected, double[] actual) {
+                                  double[] expected, double[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -869,7 +1229,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  float[] expected, float[] actual) {
+                                  float[] expected, float[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -892,7 +1252,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  int[] expected, int[] actual) {
+                                  int[] expected, int[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -915,7 +1275,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  short[] expected, short[] actual) {
+                                  short[] expected, short[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -938,7 +1298,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  long[] expected, long[] actual) {
+                                  long[] expected, long[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -961,7 +1321,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  Object[] expected, Object[] actual) {
+                                  Object[] expected, Object[] actual) {
     if (Arrays.equals(expected, actual)) {
       return;
     }
@@ -984,7 +1344,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(String message,
-				  URL expected, URL actual) {
+                                  URL expected, URL actual) {
     if (UrlUtil.equalUrls(expected, actual)) {
       return;
     }
@@ -999,9 +1359,9 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertNotEquals(String message,
-				     Object expected, Object actual) {
+                                     Object expected, Object actual) {
     if ((expected == null && actual == null) ||
-	(expected != null && expected.equals(actual))) {
+        (expected != null && expected.equals(actual))) {
       failEquals(message, expected, actual);
     }
   }
@@ -1021,7 +1381,7 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertNotEquals(String message,
-				     long expected, long actual) {
+                                     long expected, long actual) {
     assertNotEquals(message, new Long(expected), new Long(actual));
   }
 
@@ -1030,7 +1390,7 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertNotEquals(String message,
-				     int expected, int actual) {
+                                     int expected, int actual) {
     assertNotEquals(message, new Integer(expected), new Integer(actual));
   }
 
@@ -1039,7 +1399,7 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertNotEquals(String message,
-				     short expected, short actual) {
+                                     short expected, short actual) {
     assertNotEquals(message, new Short(expected), new Short(actual));
   }
 
@@ -1048,7 +1408,7 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertNotEquals(String message,
-				     byte expected, byte actual) {
+                                     byte expected, byte actual) {
     assertNotEquals(message, new Byte(expected), new Byte(actual));
   }
 
@@ -1057,7 +1417,7 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertNotEquals(String message,
-				     char expected, char actual) {
+                                     char expected, char actual) {
     assertNotEquals(message, new Character(expected), new Character(actual));
   }
 
@@ -1066,22 +1426,22 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertNotEquals(String message,
-				     boolean expected, boolean actual) {
+                                     boolean expected, boolean actual) {
     assertNotEquals(message, new Boolean(expected), new Boolean(actual));
   }
 
   public static void assertNotEquals(double expected, double actual,
-				     double delta) {
+                                     double delta) {
     assertNotEquals(null, expected, actual, delta);
   }
 
   public static void assertNotEquals(String message, double expected,
-				     double actual, double delta) {
+                                     double actual, double delta) {
     // handle infinity specially since subtracting to infinite
     //values gives NaN and the the following test fails
     if (Double.isInfinite(expected)) {
       if (expected == actual){
-	failEquals(message, new Double(expected), new Double(actual));
+        failEquals(message, new Double(expected), new Double(actual));
       }
     } else if ((Math.abs(expected-actual) <= delta)) {
     // Because comparison with NaN always returns false
@@ -1090,17 +1450,17 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertNotEquals(float expected, float actual,
-				     float delta) {
+                                     float delta) {
     assertNotEquals(null, expected, actual, delta);
   }
 
   public static void assertNotEquals(String message, float expected,
-				     float actual, float delta) {
+                                     float actual, float delta) {
     // handle infinity specially since subtracting to infinite
     //values gives NaN and the the following test fails
     if (Double.isInfinite(expected)) {
       if (expected == actual){
-	failEquals(message, new Float(expected), new Float(actual));
+        failEquals(message, new Float(expected), new Float(actual));
       }
     } else if ((Math.abs(expected-actual) <= delta)) {
     // Because comparison with NaN always returns false
@@ -1116,8 +1476,8 @@ public class LockssTestCase extends TestCase {
     if (coll.size() > 0) {
       StringBuffer sb = new StringBuffer();
       if (message != null) {
-	sb.append(message);
-	sb.append(" ");
+        sb.append(message);
+        sb.append(" ");
       }
       sb.append("Expected empty Collection, but contained ");
       sb.append(coll);
@@ -1133,8 +1493,8 @@ public class LockssTestCase extends TestCase {
     if (map.size() > 0) {
       StringBuffer sb = new StringBuffer();
       if (message != null) {
-	sb.append(message);
-	sb.append(" ");
+        sb.append(message);
+        sb.append(" ");
       }
       sb.append("Expected empty Map, but contained ");
       sb.append(map);
@@ -1150,8 +1510,8 @@ public class LockssTestCase extends TestCase {
     if (coll.size() == 0) {
       StringBuffer sb = new StringBuffer();
       if (message != null) {
-	sb.append(message);
-	sb.append(" ");
+        sb.append(message);
+        sb.append(" ");
       }
       sb.append("Expected non-empty Collection, but was empty");
       fail(sb.toString());
@@ -1170,12 +1530,12 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertContains(String msg, Collection coll,
-				    Object element) {
+                                    Object element) {
     if (!coll.contains(element)) {
       StringBuffer sb = new StringBuffer();
       if (msg != null) {
-	sb.append(msg);
-	sb.append(" ");
+        sb.append(msg);
+        sb.append(" ");
       }
       sb.append("Collection doesn't contain expected element: ");
       sb.append(element);
@@ -1188,12 +1548,12 @@ public class LockssTestCase extends TestCase {
   }
 
   public static void assertDoesNotContain(String msg, Collection coll,
-					  Object element) {
+                                          Object element) {
     if (coll.contains(element)) {
       StringBuffer sb = new StringBuffer();
       if (msg != null) {
-	sb.append(msg);
-	sb.append(" ");
+        sb.append(msg);
+        sb.append(" ");
       }
       sb.append("Collection contains unexpected element: ");
       sb.append(element);
@@ -1209,14 +1569,14 @@ public class LockssTestCase extends TestCase {
     if (! expClass.isInstance(obj)) {
       StringBuffer sb = new StringBuffer();
       if (msg != null) {
-	sb.append(msg);
-	sb.append(" ");
+        sb.append(msg);
+        sb.append(" ");
       }
       sb.append(obj);
       if (obj != null) {
-	sb.append(" (a ");
-	sb.append(obj.getClass().getName());
-	sb.append(")");
+        sb.append(" (a ");
+        sb.append(obj.getClass().getName());
+        sb.append(")");
       }
       sb.append(" is not a ");
       sb.append(expClass.getName());
@@ -1232,8 +1592,8 @@ public class LockssTestCase extends TestCase {
     if (expClass.isInstance(obj)) {
       StringBuffer sb = new StringBuffer();
       if (msg != null) {
-	sb.append(msg);
-	sb.append(" ");
+        sb.append(msg);
+        sb.append(" ");
       }
       sb.append(obj);
       sb.append(" is of class ");
@@ -1248,7 +1608,7 @@ public class LockssTestCase extends TestCase {
   }
 
   private static void failEquals(String message,
-				 Object expected, Object actual) {
+                                 Object expected, Object actual) {
     StringBuffer sb = new StringBuffer();
     if (message != null) {
       sb.append(message);
@@ -1261,8 +1621,8 @@ public class LockssTestCase extends TestCase {
 
   // tk do a better job of printing collections
   public static void failNotEquals(String message,
-				                   Object expected,
-				                   Object actual) {
+                                                   Object expected,
+                                                   Object actual) {
     String formatted= "";
     if (message != null)
       formatted= message+" ";
@@ -1270,12 +1630,12 @@ public class LockssTestCase extends TestCase {
   }
 
   static protected void failNotEquals(String message,
-				    int[] expected, int[] actual) {
+                                    int[] expected, int[] actual) {
     String formatted= "";
     if (message != null)
       formatted= message+" ";
     fail(formatted+"expected:<"+arrayString(expected)+
-	 "> but was:<"+arrayString(actual)+">");
+         "> but was:<"+arrayString(actual)+">");
   }
 
   public static void failSame(String message) {
@@ -1298,12 +1658,12 @@ public class LockssTestCase extends TestCase {
   }
 
   static private void failNotEquals(String message,
-				    long[] expected, long[] actual) {
+                                    long[] expected, long[] actual) {
     String formatted= "";
     if (message != null)
       formatted= message+" ";
     fail(formatted+"expected:<"+arrayString(expected)+
-	 "> but was:<"+arrayString(actual)+">");
+         "> but was:<"+arrayString(actual)+">");
   }
 
   static protected Object[] objArray(long[] a) {
@@ -1319,14 +1679,14 @@ public class LockssTestCase extends TestCase {
   }
 
   static private void failNotEquals(String message,
-				    byte[] expected, byte[] actual) {
+                                    byte[] expected, byte[] actual) {
     String formatted= "";
     if (message != null)
       formatted= message+" ";
     fail(formatted+"expected:<"+ByteArray.toHexString(expected)+
-	 "> but was:<"+ByteArray.toHexString(actual)+">");
+         "> but was:<"+ByteArray.toHexString(actual)+">");
 //      fail(formatted+"expected:<"+arrayString(expected)+
-//  	 "> but was:<"+arrayString(actual)+">");
+//       "> but was:<"+arrayString(actual)+">");
   }
 
   static protected Object[] objArray(byte[] a) {
@@ -1342,10 +1702,10 @@ public class LockssTestCase extends TestCase {
   }
 
   static private void failNotEquals(String message,
-				    Object[] expected, Object actual) {
+                                    Object[] expected, Object actual) {
     failNotEquals(message,
-		  "[" + StringUtil.separatedString(expected, ", ") + "]",
-		  actual);
+                  "[" + StringUtil.separatedString(expected, ", ") + "]",
+                  actual);
   }
 
   static protected String arrayString(Object[] a) {
@@ -1358,7 +1718,7 @@ public class LockssTestCase extends TestCase {
    * @param actual the actual value
    */
   public static void assertEquals(DatagramPacket expected,
-				  DatagramPacket actual) {
+                                  DatagramPacket actual) {
     assertEquals(expected.getAddress(), actual.getAddress());
     assertEquals(expected.getPort(), actual.getPort());
     assertEquals(expected.getLength(), actual.getLength());
@@ -1372,7 +1732,7 @@ public class LockssTestCase extends TestCase {
    * cardinality; tries to give useful output if it fails
    */
   public static void assertSameElements(Collection expected,
-					Collection actual) {
+                                        Collection actual) {
     assertSameElements(null, expected, actual);
   }
 
@@ -1381,10 +1741,10 @@ public class LockssTestCase extends TestCase {
    * cardinality; tries to give useful output if it fails
    */
   public static void assertSameElements(String message,
-					Collection expected,
-					Collection actual) {
+                                        Collection expected,
+                                        Collection actual) {
     if (org.apache.commons.collections.
-	CollectionUtils.isEqualCollection(expected, actual)) {
+        CollectionUtils.isEqualCollection(expected, actual)) {
       return;
     }
     String formatted= "";
@@ -1392,7 +1752,7 @@ public class LockssTestCase extends TestCase {
       formatted= message+" ";
     }
     fail(formatted+"expected same elements:<"+expected+"> " +
-	 "but was:<"+actual+">");
+         "but was:<"+actual+">");
   }
 
   /**
@@ -1400,7 +1760,7 @@ public class LockssTestCase extends TestCase {
    * cardinality; tries to give useful output if it fails
    */
   public static void assertSameElements(Object[] expected,
-					Collection actual) {
+                                        Collection actual) {
     assertSameElements(null, expected, actual);
   }
 
@@ -1409,12 +1769,12 @@ public class LockssTestCase extends TestCase {
    * cardinality; tries to give useful output if it fails
    */
   public static void assertSameElements(String message,
-					Object[] expected,
-					Collection actual) {
+                                        Object[] expected,
+                                        Collection actual) {
 
     if (org.apache.commons.collections.
-	CollectionUtils.isEqualCollection(ListUtil.fromArray(expected),
-					  actual)) {
+        CollectionUtils.isEqualCollection(ListUtil.fromArray(expected),
+                                          actual)) {
       return;
     }
     String formatted= "";
@@ -1422,7 +1782,7 @@ public class LockssTestCase extends TestCase {
       formatted= message+" ";
     }
     fail(formatted+"expected same elements:<"+arrayString(expected)+"> " +
-	 "but was:<"+actual+">");
+         "but was:<"+actual+">");
   }
 
   /**
@@ -1462,7 +1822,7 @@ public class LockssTestCase extends TestCase {
    * specified buffer size.
    */
   public static void assertReaderMatchesString(String expected, Reader reader,
-					       int bufsize)
+                                               int bufsize)
       throws IOException {
     char[] ca = new char[bufsize];
     StringBuffer actual = new StringBuffer(expected.length());
@@ -1472,7 +1832,7 @@ public class LockssTestCase extends TestCase {
       actual.append(ca, 0, n);
     }
     assertEquals("With buffer size " + bufsize + ",",
-		 expected, actual.toString());
+                 expected, actual.toString());
   }
 
   /**
@@ -1480,20 +1840,20 @@ public class LockssTestCase extends TestCase {
    * successive offsets of length chunkLen into a larger buffer,
    */
   public static void assertOffsetReaderMatchesString(String expected,
-						     Reader reader,
-						     int chunkLen)
+                                                     Reader reader,
+                                                     int chunkLen)
       throws IOException {
     char[] ca = new char[Math.max(1, expected.length() * 4)];
     int off = 0;
     int n;
     while ((n = reader.read(ca, off, Math.min(chunkLen, ca.length - off)))
-	   != -1) {
+           != -1) {
       off += n;
     }
     StringBuffer actual = new StringBuffer(off);
     actual.append(ca, 0, off);
     assertEquals("With chunk size " + chunkLen + ",",
-		 expected, actual.toString());
+                 expected, actual.toString());
   }
 
   /**
@@ -1502,7 +1862,7 @@ public class LockssTestCase extends TestCase {
    * possibly causes different behavior in the reader under test.
    */
   public static void assertReaderMatchesStringSlow(String expected,
-						   Reader reader)
+                                                   Reader reader)
       throws IOException {
     StringBuffer actual = new StringBuffer(expected.length());
     int kar;
@@ -1516,7 +1876,7 @@ public class LockssTestCase extends TestCase {
    * Asserts that a string matches the content of an InputStream
    */
   public static void assertInputStreamMatchesString(String expected,
-						    InputStream in)
+                                                    InputStream in)
       throws IOException {
     assertInputStreamMatchesString(expected, in, Constants.DEFAULT_ENCODING);
   }
@@ -1525,8 +1885,8 @@ public class LockssTestCase extends TestCase {
    * Asserts that a string matches the content of an InputStream
    */
   public static void assertInputStreamMatchesString(String expected,
-						    InputStream in,
-						    String encoding)
+                                                    InputStream in,
+                                                    String encoding)
       throws IOException {
     Reader rdr = new InputStreamReader(in, encoding);
     assertReaderMatchesString(expected, rdr);
@@ -1537,8 +1897,8 @@ public class LockssTestCase extends TestCase {
    * specified buffer size.
    */
   public static void assertInputStreamMatchesString(String expected,
-						    InputStream in,
-						    int bufsize)
+                                                    InputStream in,
+                                                    int bufsize)
       throws IOException {
     Reader rdr = new InputStreamReader(in, Constants.DEFAULT_ENCODING);
     assertReaderMatchesString(expected, rdr, bufsize);
@@ -1605,7 +1965,7 @@ public class LockssTestCase extends TestCase {
   }
   
   static String reFailMsg(String msg, java.util.regex.Pattern pattern,
-			  String string) {
+                          String string) {
     return reFailMsg(msg, pattern.pattern(), string);
   }
 
@@ -1635,7 +1995,7 @@ public class LockssTestCase extends TestCase {
    * unanchored; use "^...$" to ensure that the entire string is matched.
    */
   public static void assertMatchesRE(String msg,
-				     String regexp, String string) {
+                                     String regexp, String string) {
     assertTrue(reFailMsg(msg, regexp, string), isMatchRe(string, regexp));
   }
 
@@ -1652,7 +2012,7 @@ public class LockssTestCase extends TestCase {
    * unanchored; use "^...$" to ensure that the entire string is matched.
    */
   public static void assertMatchesRE(String msg,
-				     Pattern regexp, String string) {
+                                     Pattern regexp, String string) {
     assertTrue(reFailMsg(msg, regexp, string), isMatchRe(string, regexp));
   }
 
@@ -1661,7 +2021,7 @@ public class LockssTestCase extends TestCase {
    * unanchored; use "^...$" to ensure that the entire string is matched.
    */
   public static void assertMatchesRE(java.util.regex.Pattern regexp,
-				     String string) {
+                                     String string) {
     assertMatchesRE(null, regexp, string);
   }
 
@@ -1670,8 +2030,8 @@ public class LockssTestCase extends TestCase {
    * unanchored; use "^...$" to ensure that the entire string is matched.
    */
   public static void assertMatchesRE(String msg,
-				     java.util.regex.Pattern regexp,
-				     String string) {
+                                     java.util.regex.Pattern regexp,
+                                     String string) {
     assertTrue(reFailMsg(msg, regexp, string), isMatchRe(string, regexp));
   }
 
@@ -1686,7 +2046,7 @@ public class LockssTestCase extends TestCase {
    * Asserts that a string does not match a regular expression
    */
   public static void assertNotMatchesRE(String msg,
-					String regexp, String string) {
+                                        String regexp, String string) {
     if (msg == null) {
       msg = "String \"" + string + "\" should not match RE: " + regexp;
     }
@@ -1704,10 +2064,10 @@ public class LockssTestCase extends TestCase {
    * Asserts that a string does not match a regular expression
    */
   public static void assertNotMatchesRE(String msg,
-					Pattern regexp, String string) {
+                                        Pattern regexp, String string) {
     if (msg == null) {
       msg = "String \"" + string + "\" should not match RE: " +
-	regexp.getPattern();
+        regexp.getPattern();
     }
     assertFalse(msg, isMatchRe(string, regexp));
   }
@@ -1716,7 +2076,7 @@ public class LockssTestCase extends TestCase {
    * Asserts that a string does not match a regular expression
    */
   public static void assertNotMatchesRE(java.util.regex.Pattern regexp,
-					String string) {
+                                        String string) {
     assertNotMatchesRE(null, regexp, string);
   }
 
@@ -1724,11 +2084,11 @@ public class LockssTestCase extends TestCase {
    * Asserts that a string does not match a regular expression
    */
   public static void assertNotMatchesRE(String msg,
-					java.util.regex.Pattern regexp,
-					String string) {
+                                        java.util.regex.Pattern regexp,
+                                        String string) {
     if (msg == null) {
       msg = "String \"" + string + "\" should not match RE: " +
-	regexp.pattern();
+        regexp.pattern();
     }
     assertFalse(msg, isMatchRe(string, regexp));
   }
@@ -1739,7 +2099,7 @@ public class LockssTestCase extends TestCase {
    * the entire string is matched.
    */
   public static void assertMatchesREs(String[] regexps,
-				      Collection<String> strings) {
+                                      Collection<String> strings) {
     assertMatchesREs(null, regexps, strings);
   }
 
@@ -1749,8 +2109,8 @@ public class LockssTestCase extends TestCase {
    * the entire string is matched.
    */
   public static void assertMatchesREs(String msg,
-				      String[] regexps,
-				      Collection<String> strings) {
+                                      String[] regexps,
+                                      Collection<String> strings) {
     int ix = 0;
     for (String str : strings) {
       assertMatchesRE(msg, regexps[ix++], str);
@@ -1884,41 +2244,41 @@ public class LockssTestCase extends TestCase {
      */
     public synchronized void cancel() {
       if (want) {
-	want = false;
-	this.interrupt();
+        want = false;
+        this.interrupt();
       }
     }
 
     public final void run() {
       try {
-	synchronized (LockssTestCase.this) {
-	  if (doLaters == null) {
-	    doLaters = new LinkedList();
-	  }
-	  doLaters.add(this);
-	}
-	if (wait != 0) {
-	  TimerUtil.sleep(wait);
-	}
-	synchronized (this) {
-	  if (want) {
-	    want = false;
-	    did = true;
-	    if (threadDump) {
-	      try {
-		PlatformUtil.getInstance().threadDump(true);
-	      } catch (Exception e) {
-	      }
-	    }
-	    doit();
-	  }
-	}
+        synchronized (LockssTestCase4.this) {
+          if (doLaters == null) {
+            doLaters = new LinkedList();
+          }
+          doLaters.add(this);
+        }
+        if (wait != 0) {
+          TimerUtil.sleep(wait);
+        }
+        synchronized (this) {
+          if (want) {
+            want = false;
+            did = true;
+            if (threadDump) {
+              try {
+                PlatformUtil.getInstance().threadDump(true);
+              } catch (Exception e) {
+              }
+            }
+            doit();
+          }
+        }
       } catch (InterruptedException e) {
-	// exit thread
+        // exit thread
       } finally {
-	synchronized (LockssTestCase.this) {
-	  doLaters.remove(this);
-	}
+        synchronized (LockssTestCase4.this) {
+          doLaters.remove(this);
+        }
       }
     }
 
@@ -2019,20 +2379,20 @@ public class LockssTestCase extends TestCase {
 
     protected void doit() {
       try {
-	if (sock != null) {
-	  log.debug("Closing sock");
-	  sock.close();
-	}
+        if (sock != null) {
+          log.debug("Closing sock");
+          sock.close();
+        }
       } catch (IOException e) {
-	log.warning("sock", e);
+        log.warning("sock", e);
       }
       try {
-	if (servsock != null) {
-	  log.debug("Closing servsock");
-	  servsock.close();
-	}
+        if (servsock != null) {
+          log.debug("Closing servsock");
+          servsock.close();
+        }
       } catch (IOException e) {
-	log.warning("servsock", e);
+        log.warning("servsock", e);
       }
     }
   }
@@ -2052,11 +2412,11 @@ public class LockssTestCase extends TestCase {
   class ErrorRecordingTimerQueue extends TimerQueue {
     protected void doNotify0(Request req) {
       try {
-	super.doNotify0(req);
-      } catch (Exception e) {
-	if (errorIfTimerThrows) {
-	  result.addError(LockssTestCase.this, e);
-	}
+        super.doNotify0(req);
+      } catch (Exception exc) {
+        if (errorIfTimerThrows) {
+          getErrorCollector().addError(exc);
+        }
       }
     }
   }
@@ -2095,15 +2455,15 @@ public class LockssTestCase extends TestCase {
   protected MetadataDbManager getTestDbManager(String tempDirPath) {
     // Set the database log.
     System.setProperty("derby.stream.error.file",
-	new File(tempDirPath, "derby.log").getAbsolutePath());
+        new File(tempDirPath, "derby.log").getAbsolutePath());
 
     try {
       // Extract the database from the zip file.
       ZipUtil.unzip(getResourceAsStream(TEST_DB_FILE_SPEC, false),
-	  new File(tempDirPath, "db"));
+          new File(tempDirPath, "db"));
     } catch (Exception e) {
       log.debug("Unable to unzip database files from file " + TEST_DB_FILE_SPEC,
-	  e);
+          e);
     }
 
     // Create the database manager skipping the asynchronous updates.
@@ -2114,4 +2474,139 @@ public class LockssTestCase extends TestCase {
 
     return dbManager;
   }
+
+  // ---------------------------------------------------------------------------
+  // new code below this line
+  // ---------------------------------------------------------------------------
+
+  private String testName;
+  
+  protected String getTestName() {
+    return testName;
+  }
+  
+  protected void setTestName(String testName) {
+    this.testName = testName;
+  }
+  
+  @Rule
+  public final TestName testMethodName = new TestName();
+  
+  protected String getTestMethodName() {
+    return testMethodName.getMethodName();
+  }
+
+  @Rule
+  public final ErrorCollector errorCollector = new ErrorCollector();
+  
+  protected ErrorCollector getErrorCollector() {
+    return errorCollector;
+  }
+
+  protected void addError(Throwable error) {
+    getErrorCollector().addError(error);
+  }
+  
+  /**
+   * <p>
+   * Returns the Cartesian product of one or more arrays of values, to be used
+   * as the return value of the {@link Parametrized} method in a parametrized
+   * test.
+   * </p>
+   * <p>
+   * Example:
+   * </p>
+<pre>
+    String[] strings = {"foo", "bar"};
+    Character[] chars = {'a', 'b', 'c'};
+    Integer[] ints = {1, 2, 3, 4};
+    Collection<Object[]> tuples = LockssTestCase4.cartesian(strings, chars, ints);
+</pre>
+   * The {@code tuples} collection will contain 24 arrays of three objects each,
+   * representing the tuples:
+<pre>
+    ("foo", 'a', 1)
+    ("foo", 'a', 2)
+    ("foo", 'a', 3)
+    ("foo", 'a', 4)
+    ("foo", 'b', 1)
+    ("foo", 'b', 2)
+    ("foo", 'b', 3)
+    ("foo", 'b', 4)
+    ("foo", 'c', 1)
+    ("foo", 'c', 2)
+    ("foo", 'c', 3)
+    ("foo", 'c', 4)
+    ("bar", 'a', 1)
+    ("bar", 'a', 2)
+    ("bar", 'a', 3)
+    ("bar", 'a', 4)
+    ("bar", 'b', 1)
+    ("bar", 'b', 2)
+    ("bar", 'b', 3)
+    ("bar", 'b', 4)
+    ("bar", 'c', 1)
+    ("bar", 'c', 2)
+    ("bar", 'c', 3)
+    ("bar", 'c', 4)
+</pre>
+   * 
+   * @param values
+   *    One or more arrays of values 
+   * @return
+   *    The Cartesian product of the input arrays, in the form of a
+   *    {@link Collection} of arrays of {@link Object}. The length of each array
+   *    is equal to the number of input arrays. The <i>i</i><sup>th</sup>
+   *    element of each array is an element from the <i>i</i><sup>th</sup>
+   *    input array.
+   * @see <a href="https://github.com/junit-team/junit4/wiki/Parameterized-tests">
+   *     JUnit 4 page on parametrized tests</a>
+   */
+  public static Collection<Object[]> cartesian(Object[]... values) {
+    int tupleLength = values.length;
+    if (tupleLength == 0) {
+      throw new IllegalArgumentException("Must provide at least one set of values");
+    }
+    int total = 1;
+    int[] lengths = new int[tupleLength];
+    int[] indices = new int[tupleLength];
+    for (int v = 0 ; v < tupleLength ; ++v) {
+      total = total * values[v].length;
+      lengths[v] = values[v].length;
+      indices[v] = 0;
+    }
+    Collection<Object[]> ret = new ArrayList<Object[]>(total);
+    for (int i = 0 ; i < total ; ++i) {
+      Object[] tuple = new Object[tupleLength];
+      for (int j = tupleLength - 1 ; j >= 0 ; --j) {
+        tuple[j] = values[j][indices[j]];
+      }
+      for (int j = tupleLength - 1 ; j >= 0 ; --j) {
+        indices[j] = indices[j] + 1;
+        if (indices[j] < lengths[j]) {
+          break;
+        }
+        else {
+          indices[j] = 0;
+        }
+      }
+      ret.add(tuple);
+    }
+    return ret;
+  }
+  
+  /**
+   * 
+   * @param values
+   * @return
+   * @see #cartesian(Object[]...)
+   */
+  public static Collection<Object[]> cartesian(Collection<?>... values) {
+    Object[][] input = new Object[values.length][];
+    for (int v = 0 ; v < values.length ; ++v) {
+      input[v] = values[v].toArray();
+    }
+    return cartesian(input);
+  }
+  
 }
