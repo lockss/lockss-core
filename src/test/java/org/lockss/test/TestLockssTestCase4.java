@@ -39,27 +39,47 @@ import org.junit.Test;
 
 public class TestLockssTestCase4 extends LockssTestCase4 {
 
-  @Test
-  public void testLoggerName() {
-    assertEquals("[Logger LockssTest4]", log.toString());
+  /**
+   * @see #testGetTestName()
+   */
+  public TestLockssTestCase4() {
+    super("MyTestName");
   }
-  
+
+  /**
+   * @see #getTestName()
+   */
+  @Test
+  public void testGetTestName() {
+    assertEquals("MyTestName", getTestName());
+  }
+
+  /**
+   * @see #getTestMethodName()
+   */
   @Test
   public void testGetTestMethodName() {
     assertEquals("testGetTestMethodName", getTestMethodName());
   }
-  
+
+  /**
+   * @see #cartesian(Collection...)
+   * @see #cartesian(Object[]...)
+   */
   @Test
   public void testCartesian() {
     String[] strings = {"foo", "bar"};
     Character[] chars = {'a', 'b', 'c'};
     Integer[] ints = {1, 2, 3, 4};
-    Collection<Object[]> tuples = LockssTestCase4.cartesian(strings, chars, ints);
-    assertEquals(strings.length * chars.length * ints.length, tuples.size());
+    Collection<Object[]> tuplesArrays = LockssTestCase4.cartesian(strings, chars, ints);
+    Collection<Object[]> tuplesCollections = LockssTestCase4.cartesian(Arrays.asList(strings), Arrays.asList(chars), Arrays.asList(ints));
+    assertEquals(strings.length * chars.length * ints.length, tuplesArrays.size());
     for (int s = 0 ; s < strings.length ; ++s) {
       for (int c = 0 ; c < chars.length ; ++c) {
         for (int i = 0 ; i < ints.length ; ++i) {
-          assertThat(tuples, hasItem(new Object[] {strings[s], chars[c], ints[i]}));
+          Object[] tuple = {strings[s], chars[c], ints[i]};
+          assertThat(tuplesArrays, hasItem(tuple));
+          assertThat(tuplesCollections, hasItem(tuple));
         }
       }
     }

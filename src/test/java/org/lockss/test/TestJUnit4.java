@@ -32,15 +32,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.test;
 
-import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.*;
+import static org.junit.Assert.*;
 
 import java.util.*;
 
 import org.junit.*;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.runners.*;
+import org.junit.runners.Parameterized.*;
+import org.lockss.test.TestJUnit4.EnclosedDemonstration;
 
 /**
  * <p>
@@ -70,7 +72,7 @@ public class TestJUnit4 {
                        OtherStuff.SuiteDemonstration2.class})
   public static class SuiteDemonstration {
     
-    public static List<String> testNames;
+    private static List<String> testNames;
     
     @BeforeClass
     public static void setUpClass() {
@@ -133,7 +135,7 @@ public class TestJUnit4 {
   @RunWith(Enclosed.class)
   public static class EnclosedDemonstration {
 
-    public static List<String> testNames;
+    private static List<String> testNames;
     
     @BeforeClass
     public static void setUpClass() {
@@ -178,7 +180,61 @@ public class TestJUnit4 {
   
   /**
    * <p>
-   * A container class for ancillary code used here.
+   * Designed to illustrate how the {@link Parameterized} test runner works.
+   * This demonstrates that the tuples (1, "one"), (2, "two") and (3, "three")
+   * are successively used to assign values to {@link #value0} and
+   * {@link #value1}, using the respective items from the tuple. The logic of
+   * this test is in {@link #tearDownClass()} using lists of integers and
+   * strings set up in {@link #setUpClass()}.
+   * </p>
+   */
+  @RunWith(Parameterized.class)
+  public static class ParametrizedDemonstration {
+    
+    private static List<Integer> values0;
+    
+    private static List<String> values1;
+    
+    @Parameters
+    public static Collection<Object[]> data() {
+      return Arrays.asList(new Object[][] { {1, "one"}, {2, "two"}, {3, "three"} });
+    }
+    
+    @Parameter(0)
+    public int value0;
+    
+    @Parameter(1)
+    public String value1;
+    
+    @BeforeClass
+    public static void setUpClass() {
+      values0 = new ArrayList<Integer>();
+      values1 = new ArrayList<String>();
+    }
+    
+    @AfterClass
+    public static void tearDownClass() {
+      assertEquals(3, values0.size());
+      assertEquals(3, values1.size());
+      assertThat(values0, hasItem(1));
+      assertEquals("one", values1.get(values0.indexOf(1)));
+      assertThat(values0, hasItem(2));
+      assertEquals("two", values1.get(values0.indexOf(2)));
+      assertThat(values0, hasItem(3));
+      assertEquals("three", values1.get(values0.indexOf(3)));
+    }
+    
+    @Test
+    public void testFoo() {
+      values0.add(value0);
+      values1.add(value1);
+    }
+    
+  }
+  
+  /**
+   * <p>
+   * A container class for ancillary code used in {@link TestJUnit4}.
    * </p>
    */
   public static abstract class OtherStuff {

@@ -42,6 +42,7 @@ import org.apache.oro.text.regex.Pattern;
 import org.junit.*;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.*;
+import org.junit.runners.Parameterized.Parameter;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
@@ -266,6 +267,7 @@ public class TestFoo extends LockssTestCase4 {
  * {@code TestFoo}.</li>
  * <li>A quirk of annotations poses a slight problem when the pattern above is
  * mixed with class inheritance, as in this other common use of
+ * {@link LockssTestCase#variantSuites(Class, Class)} and
  * {@link LockssTestCase#variantSuites(Class)}:</li>
 <pre>
 // JUnit 3 / LockssTestCase
@@ -281,7 +283,7 @@ public class TestFoo extends LockssTestCase {
 
   // Stuff used by subclasses like Bar and Baz
 
-  public static Test void suite() {
+  public static Test suite() {
     return variantSuites(new Class[] {
       TestFoo.Bar.class,
       TestFoo.Baz.class
@@ -295,7 +297,7 @@ public class TestFoo extends LockssTestCase {
 // JUnit 4 / LockssTestCase4
 // FIXME: this won't work!
 &#x40;RunWith(Suite.class)
-vSuite.SuiteClasses({
+&#x40;Suite.SuiteClasses({
   TestFoo.Bar.class,
   TestFoo.Baz.class
 })
@@ -340,6 +342,144 @@ public class TestFoo extends LockssTestCase4 {
 }
 </pre>
  * </li>
+ * <li>JUnit 4 provides the {@link Parameterized}, {@link Parameters} and
+ * {@link Parameter} annotations to define test suites that are parameterized
+ * over sets of values, resulting in running the tests over all combinations.
+ * In JUnit 3 / {@link LockssTestCase}, this might have been achieved like
+ * this:
+<pre>
+// JUnit 3 / LockssTestCase
+public class TestFoo extends LockssTestCase {
+
+  public void testSquare() {
+    doOneSquare(0, 0);
+    doOneSquare(1, 1);
+    doOneSquare(2, 4);
+    doOneSquare(3, 9);
+  }
+
+  private void doOneSquare(int input, int output) {
+    assertEquals(output, input * input);
+  }
+
+}
+</pre>
+ * or like this:
+<pre>
+// JUnit 3 / LockssTestCase
+public class TestFoo extends LockssTestCase {
+
+  private int input;
+  
+  private int output;
+  
+  public TestFoo(int input, int output) {
+    this.input = input;
+    this.output = output;
+  }
+
+  public void testSquare() {
+    assertEquals(output, input * input);
+  }
+
+  public static class Square0 extends TestFoo {
+    public Square0() {
+      super(0, 0);
+    }
+  }
+
+  public static class Square1 extends TestFoo {
+    public Square0() {
+      super(1, 1);
+    }
+  }
+
+  public static class Square2 extends TestFoo {
+    public Square0() {
+      super(2, 4);
+    }
+  }
+
+  public static class Square3 extends TestFoo {
+    public Square3() {
+      super(3, 9);
+    }
+  }
+
+  public static Test suite() {
+    return variantSuites(TestFoo.class);
+  }
+
+}
+</pre>
+ * JUnit 4 offers syntactic sugar to express this pattern. Use the
+ * {@link Parameterized} test runner; designate a {@code public static void
+ * Collection<Object[]>} method with the {@link Parameters} annotation; and have
+ * this method return a collection of tuples of length <i>k</i> (in the form of
+ * arrays of objects of length <i>k</i>). There are then two options. The first
+ * option is to define a constructor with <i>k</i> parameters. The test class
+ * will be instantiated for each tuple, with the items from the tuple passed to
+ * the constructor:
+<pre>
+// JUnit 4 / LockssTestCase 4
+&#x40;RunWith(Parameterized.class)
+public class TestFoo extends LockssTestCase4 {
+
+  &#x40;Parameters
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] { {0, 0}, {1, 1}, {2, 4}, {3, 9} })
+  }
+  
+  private int input;
+  
+  private int output;
+  
+  public TestFoo(int input, int output) {
+    this.input = input;
+    this.output = output;
+  }
+  
+  &#x40;Test
+  public void testSquare() {
+    assertEquals(output, input * input);
+  }
+
+}
+</pre>
+ * The other options is to tag a<i>k</i> instance variables with
+ * {@code @Parameter(0)}, ..., {@code @Parameter(k-1)}. The test class will be
+ * instantiated and run for each data tuple, with the item at index <i>i</i>
+ * in the tuple assigned to the instance variable marked {@code Parameter(i)}:
+<pre>
+// JUnit 4 / LockssTestCase 4
+&#x40;RunWith(Parameterized.class)
+public class TestFoo extends LockssTestCase4 {
+
+  &#x40;Parameters
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] { {0, 0}, {1, 1}, {2, 4}, {3, 9} })
+  }
+  
+  &#x40;Parameter(0)
+  public int input;
+  
+  &#x40;Parameter(1)
+  public int output;
+  
+  &#x40;Test
+  public void testSquare() {
+    assertEquals(output, input * input);
+  }
+
+}
+</pre>
+ * {@link LockssTestCase4#cartesian(Object[]...)} and
+ * {@link LockssTestCase4#cartesian(Collection...)} are provided to conveniently
+ * compute all tuples (x, y, z...) made from all combinations of items taken
+ * from collections X, Y, Z... respectively. If the parameterized class is over
+ * a single parameter, the {@link Parameters} method can alternatively simply
+ * return {@code Object[]} or {@code Iterable<? extends Object>}.
+ * </li>
  * </ul>
  * 
  * @see <a href="https://junit.org/junit4">JUnit 4 site</a>
@@ -347,7 +487,7 @@ public class TestFoo extends LockssTestCase4 {
  */
 public class LockssTestCase4 extends Assert {
 
-  protected static Logger log =
+  private static final Logger log =
     Logger.getLoggerWithInitialLevel("LockssTest4",
                                      Logger.getInitialDefaultLevel());
 
