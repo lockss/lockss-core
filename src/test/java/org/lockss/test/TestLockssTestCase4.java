@@ -30,34 +30,59 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
-package org.lockss.state;
+package org.lockss.test;
 
 import java.util.*;
 
-import org.lockss.test.LockssTestCase;
+import static org.hamcrest.CoreMatchers.*;
+import org.junit.Test;
 
-public class TestPollHistoryImpl extends LockssTestCase {
-  private PollHistory history;
+public class TestLockssTestCase4 extends LockssTestCase4 {
 
-  public void setUp() throws Exception {
-    super.setUp();
-    PollState state = new PollState(1, "none", null, 1, 0, null, false);
-    Collection votes = new ArrayList();
-    votes.add(new String("test"));
-    history = new PollHistory(state, 0, votes);
+  /**
+   * @see #testGetTestName()
+   */
+  public TestLockssTestCase4() {
+    super("MyTestName");
   }
 
-  public void testVotesImmutability() {
-    Iterator voteIter = history.getVotes();
-    try {
-      voteIter.remove();
-      fail("Iterator should be immutable.");
-    } catch (Exception e) { }
+  /**
+   * @see #getTestName()
+   */
+  @Test
+  public void testGetTestName() {
+    assertEquals("MyTestName", getTestName());
   }
 
-  public void testCompareTo() {
-    PollState state = new PollState(1, "none", null, 1, 0, null, false);
-    assertEquals(0, history.compareTo(state));
+  /**
+   * @see #getTestMethodName()
+   */
+  @Test
+  public void testGetTestMethodName() {
+    assertEquals("testGetTestMethodName", getTestMethodName());
   }
 
+  /**
+   * @see #cartesian(Collection...)
+   * @see #cartesian(Object[]...)
+   */
+  @Test
+  public void testCartesian() {
+    String[] strings = {"foo", "bar"};
+    Character[] chars = {'a', 'b', 'c'};
+    Integer[] ints = {1, 2, 3, 4};
+    Collection<Object[]> tuplesArrays = LockssTestCase4.cartesian(strings, chars, ints);
+    Collection<Object[]> tuplesCollections = LockssTestCase4.cartesian(Arrays.asList(strings), Arrays.asList(chars), Arrays.asList(ints));
+    assertEquals(strings.length * chars.length * ints.length, tuplesArrays.size());
+    for (int s = 0 ; s < strings.length ; ++s) {
+      for (int c = 0 ; c < chars.length ; ++c) {
+        for (int i = 0 ; i < ints.length ; ++i) {
+          Object[] tuple = {strings[s], chars[c], ints[i]};
+          assertThat(tuplesArrays, hasItem(tuple));
+          assertThat(tuplesCollections, hasItem(tuple));
+        }
+      }
+    }
+  }
+  
 }
