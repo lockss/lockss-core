@@ -29,10 +29,12 @@ package org.lockss.plugin;
 
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -51,6 +53,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * A client for the DaemonStatusService.getAuUrls() web service operation or for
@@ -86,12 +90,26 @@ public class GetAuUrlsClient {
 	&& restServiceLocation.trim().length() > 0) {
       // Yes: Get the Archival Unit URLs from the REST service.
       try {
+	// Initialize the request to the REST service.
+	RestTemplate restTemplate = new RestTemplate();
+
 	// Get the client connection timeout.
 	int timeoutValue = CurrentConfig.getIntParam(
 	    PluginManager.PARAM_URL_LIST_WS_TIMEOUT_VALUE,
 	    PluginManager.DEFAULT_URL_LIST_WS_TIMEOUT_VALUE);
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "timeoutValue = " + timeoutValue);
+
+	// Set the client connection timeout.
+	SimpleClientHttpRequestFactory requestFactory =
+	    (SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
+
+	requestFactory.setReadTimeout(1000*timeoutValue);
+	requestFactory.setConnectTimeout(1000*timeoutValue);
+
+	// Initialize the request headers.
+	HttpHeaders headers = new HttpHeaders();
+	headers.setContentType(MediaType.APPLICATION_JSON);
 
 	// Get the authentication credentials.
 	String userName =
@@ -103,31 +121,26 @@ public class GetAuUrlsClient {
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "password = '" + password + "'");
 
-	// Build the REST service URL.
-	String restServiceUrl = restServiceLocation.replace("{auid}", auId);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "Making request to '" + restServiceUrl + "'");
-
-	// Initialize the request to the REST service.
-	RestTemplate restTemplate = new RestTemplate();
-	SimpleClientHttpRequestFactory requestFactory =
-	    (SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
-
-	requestFactory.setReadTimeout(1000*timeoutValue);
-	requestFactory.setConnectTimeout(1000*timeoutValue);
-
-	HttpHeaders headers = new HttpHeaders();
-	headers.setContentType(MediaType.APPLICATION_JSON);
-
+	// Set the authentication credentials.
 	String credentials = userName + ":" + password;
 	String authHeaderValue = "Basic " + Base64.getEncoder()
 	.encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
 	headers.set("Authorization", authHeaderValue);
 
+	// Create the URI of the request to the REST service.
+	UriComponents uriComponents =
+	    UriComponentsBuilder.fromUriString(restServiceLocation).build()
+	    .expand(Collections.singletonMap("auid", auId));
+
+	URI uri = UriComponentsBuilder.newInstance()
+	    .uriComponents(uriComponents).build().encode().toUri();
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
+
 	// Make the request to the REST service and get its response.
-	ResponseEntity<ArtifactPage> response =
-	    restTemplate.exchange(restServiceUrl, HttpMethod.GET,
-		new HttpEntity<String>(null, headers), ArtifactPage.class);
+	ResponseEntity<ArtifactPage> response = restTemplate.exchange(uri,
+	    HttpMethod.GET, new HttpEntity<String>(null, headers),
+	    ArtifactPage.class);
 
 	HttpStatus statusCode = response.getStatusCode();
 	if (log.isDebug3())
