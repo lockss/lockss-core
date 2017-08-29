@@ -52,7 +52,11 @@ instead.
   private static void syntaxError(String src, int line, int col, String fmt, Object... args) {
     String msg = String.format("%s:%d:%d: %s", src, line, col, String.format(fmt, args));
     throw new RuntimeException(msg);
+<<<<<<< HEAD
   } 
+=======
+  }
+>>>>>>> add antlr directory
 
   enum SMode { NONE, AU, ANGLE, EQUALS }
   SMode sMode = SMode.NONE;
@@ -80,7 +84,11 @@ instead.
 
   boolean emitEpsilon = false;
 
+<<<<<<< HEAD
   java.util.LinkedList<Token> myTokens = new java.util.LinkedList<Token>();  
+=======
+  java.util.LinkedList<Token> myTokens = new java.util.LinkedList<Token>();
+>>>>>>> add antlr directory
 
   boolean expectString() {
     return isAngle() || isEquals();
@@ -94,8 +102,13 @@ instead.
       modeNone();
     }
   }
+<<<<<<< HEAD
   
   boolean isQString() { 
+=======
+
+  boolean isQString() {
+>>>>>>> add antlr directory
     CharStream cs = getInputStream();
     for (int i = 1 ; /*nothing*/ ; ++i) {
       switch (cs.LA(i)) {
@@ -105,7 +118,11 @@ instead.
       }
     }
   }
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> add antlr directory
   boolean isBString() {
     if (isQuoted()) {
       return false;
@@ -124,7 +141,11 @@ instead.
       }
     }
   }
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> add antlr directory
   boolean isEmptyBString() {
     if (isBare() || isQuoted()) {
       return false;
@@ -138,7 +159,11 @@ instead.
       }
     }
   }
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> add antlr directory
   void processString() {
     switch (getSType()) {
       case QUOTED: processQString(); adjustStringMode(); break;
@@ -148,7 +173,11 @@ instead.
     }
     setSType(SType.NONE);
   }
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> add antlr directory
   void processQString() {
     String ret = getText().trim();
     ret = ret.substring(1, ret.length() - 1);
@@ -166,7 +195,7 @@ instead.
                 break;
               default:
                 syntaxError(getSourceName(), getLine(), getCharPositionInLine(),
-                            "Bad quoted string escape: %s", getCharErrorDisplay(ch2)); 
+                            "Bad quoted string escape: %s", getCharErrorDisplay(ch2));
             }
             ++i;
             break;
@@ -230,10 +259,17 @@ instead.
       case '#': setType(COMMENT); pushMode(COMMENT_MODE); skip(); break;
       case '\r': case '\n': setType(WHITESPACE); skip(); break;
       default: syntaxError(getSourceName(), getLine(), getCharPositionInLine(),
+<<<<<<< HEAD
                            "Expected end of string but got %s", getCharErrorDisplay(ch)); 
     }
   }
   
+=======
+                           "Expected end of string but got %s", getCharErrorDisplay(ch));
+    }
+  }
+
+>>>>>>> add antlr directory
   @Override
   public void emit(Token token) {
     if (emitEpsilon) {
@@ -251,7 +287,11 @@ instead.
     myTokens.addLast(token);
     setToken(token);
   }
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> add antlr directory
   @Override
   public Token nextToken() {
     super.nextToken();
@@ -260,25 +300,25 @@ instead.
     }
     return myTokens.removeFirst();
   }
-  
+
   void actionSemicolon() {
     if (isAu()) {
       modeAngle();
     }
   }
-  
+
   void actionAngleOpen() {
     if (isAu()) {
       modeAngle();
     }
   }
-  
+
   void actionAngleClose() {
     if (isAu()) {
       modeNone();
     }
   }
-  
+
 }
 
 // Order matters; strings first to prevent other tokens from matching

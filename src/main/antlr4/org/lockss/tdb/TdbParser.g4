@@ -82,4 +82,3 @@ listOfSimpleAssignments : simpleAssignment ( SEMICOLON simpleAssignment )* ;
 listOfStrings           : STRING ( SEMICOLON STRING )* ;
 
 listOfIdentifiers       : IDENTIFIER ( SEMICOLON IDENTIFIER )* ;
-
