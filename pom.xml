@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+  http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.lockss.laaws</groupId>
   <artifactId>lockss-core</artifactId>
@@ -12,26 +14,10 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>1.8</java.version>
+    <jackson.version>2.9.0</jackson.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
   </properties>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>3.0.2</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>test-jar</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 
   <dependencies>
     <dependency>
@@ -57,12 +43,12 @@
     <dependency>
       <groupId>com.sun.mail</groupId>
       <artifactId>javax.mail</artifactId>
-      <version>1.5.0</version>
+      <version>1.6.0</version>
     </dependency>
     <dependency>
       <groupId>javax.activation</groupId>
       <artifactId>activation</artifactId>
-      <version>1.0.2</version>
+      <version>1.1.1</version>
     </dependency>
     <dependency>
       <groupId>castor</groupId>
@@ -107,7 +93,7 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
-      <version>3.4</version>
+      <version>3.6</version>
     </dependency>
     <dependency>
       <groupId>commons-cli</groupId>
@@ -143,11 +129,6 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
       <version>1.13</version>
-    </dependency>
-    <dependency>
-      <groupId>commons-httpclient</groupId>
-      <artifactId>commons-httpclient</artifactId>
-      <version>3.1</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -222,7 +203,7 @@
     <dependency>
       <groupId>org.htmlparser</groupId>
       <artifactId>htmlparser</artifactId>
-      <version>1.6</version>
+      <version>1.6p</version>
     </dependency>
     <dependency>
       <groupId>org.jsoup</groupId>
@@ -236,8 +217,8 @@
     </dependency>
     <dependency>
       <groupId>com.sun</groupId>
-      <artifactId>jimi</artifactId>
-      <version>1.0</version>
+      <artifactId>jimi-pro</artifactId>
+      <version>1.0.0</version>
     </dependency>
     <dependency>
       <groupId>edu.stanford.db.rdf</groupId>
@@ -251,8 +232,14 @@
     </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
-      <artifactId>servlet-api</artifactId>
-      <version>2.4</version>
+      <artifactId>javax.servlet-api</artifactId>
+      <version>4.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>javax.xml.ws</groupId>
+      <artifactId>jaxws-api</artifactId>
+      <version>2.2.11</version>
     </dependency>
     <dependency>
       <groupId>net.sourceforge.pjl-comp-filter</groupId>
@@ -265,9 +252,9 @@
       <version>1.9.22</version>
     </dependency>
     <dependency>
-      <groupId>org.postgresql</groupId>
+      <groupId>postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>9.4.1212.jre7</version>
+      <version>9.1-901.jdbc4</version>
     </dependency>
     <dependency>
       <groupId>ant-contrib</groupId>
@@ -292,7 +279,7 @@
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpcore</artifactId>
-      <version>4.3.3</version>
+      <version>4.4.6</version>
     </dependency>
     <dependency>
       <groupId>org.hamcrest</groupId>
@@ -312,7 +299,7 @@
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
-      <version>4.3.1</version>
+      <version>4.5.3</version>
     </dependency>
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
@@ -360,7 +347,7 @@
       <version>59_1</version>
     </dependency>
     <dependency>
-      <groupId>pdfbox</groupId>
+      <groupId>org.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
       <version>0.7.3</version>
     </dependency>
@@ -400,13 +387,13 @@
       <version>1.2.13</version>
     </dependency>
     <dependency>
-      <groupId>com.sun.xml.bind</groupId>
-      <artifactId>jaxb-impl</artifactId>
+      <groupId>org.glassfish.jaxb</groupId>
+      <artifactId>jaxb-core</artifactId>
       <version>2.2.11</version>
-    </dependency>
+    </dependency>    
     <dependency>
-      <groupId>com.sun.xml.bind</groupId>
-      <artifactId>jaxb-xjc</artifactId>
+      <groupId>org.glassfish.jaxb</groupId>
+      <artifactId>jaxb-runtime</artifactId>
       <version>2.2.11</version>
     </dependency>
     <dependency>
@@ -422,7 +409,7 @@
     <dependency>
       <groupId>mysql</groupId>
       <artifactId>mysql-connector-java</artifactId>
-      <version>6.0.6</version>
+      <version>5.1.29</version>
     </dependency>
     <dependency>
       <groupId>org.apache.neethi</groupId>
@@ -550,9 +537,9 @@
       <version>1.4.4</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-core</artifactId>
-      <version>0.20.2-cdh3u4</version>
+      <groupId>oro</groupId>
+      <artifactId>oro</artifactId>
+      <version>2.0.8</version>
     </dependency>
     <dependency>
       <groupId>org.mortbay</groupId>
@@ -565,5 +552,70 @@
       <version>4.12</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.jcabi</groupId>
+      <artifactId>jcabi-aspects</artifactId>
+      <version>0.22.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.aspectj</groupId>
+      <artifactId>aspectjrt</artifactId>
+      <version>1.8.10</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr4-runtime</artifactId>
+      <version>4.7</version>
+    </dependency>
+    <dependency>
+      <groupId>org.httpunit</groupId>
+      <artifactId>httpunit</artifactId>
+      <version>1.7.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>xmlunit</groupId>
+      <artifactId>xmlunit</artifactId>
+      <version>1.5</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.antlr</groupId>
+        <artifactId>antlr4-maven-plugin</artifactId>
+        <version>4.5</version>
+        <executions>
+          <execution>
+            <id>antlr</id>
+            <goals>
+              <goal>antlr4</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+
 </project>
