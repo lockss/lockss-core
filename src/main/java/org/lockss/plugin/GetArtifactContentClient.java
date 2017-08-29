@@ -30,16 +30,22 @@ package org.lockss.plugin;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
+import java.net.URI;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Properties;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
 import org.lockss.config.CurrentConfig;
+import org.lockss.util.LineEndingBufferedReader;
 import org.lockss.util.Logger;
+import org.lockss.util.ReaderInputStream;
 import org.lockss.ws.entities.ContentResult;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -47,8 +53,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.util.MultiValueMap;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * A client for the Repository REST Service
@@ -57,10 +66,24 @@ import org.springframework.web.client.RestTemplate;
 public class GetArtifactContentClient {
   private static Logger log = Logger.getLogger(GetArtifactContentClient.class);
 
+  /**
+   * Provides the content of an artifact in the repository.
+   *
+   * @param artifactId
+   *          A String with the artifact identifier.
+   * @param url
+   *          A String with the URL of the content.
+   * @return a ContentResult with the requested artifact content.
+   * @throws Exception
+   *           if there are problems getting the content.
+   */
   public ContentResult getArtifactContent(String artifactId, String url)
       throws Exception {
     final String DEBUG_HEADER = "getArtifactContent(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "artifactId = " + artifactId);
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "artifactId = " + artifactId);
+      log.debug2(DEBUG_HEADER + "url = " + url);
+    }
 
     // Get the configured REST service location.
     String restServiceLocation = CurrentConfig.getParam(
@@ -68,12 +91,40 @@ public class GetArtifactContentClient {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
 	+ restServiceLocation);
 
-    // Get the indication of whether the URL is cached from the REST service.
+    // Initialize the request to the REST service.
+    RestTemplate restTemplate = new RestTemplate();
+
+    // Add the multipart/form-data converter to the set of default converters.
+    List<HttpMessageConverter<?>> messageConverters =
+	restTemplate.getMessageConverters();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "messageConverters = " + messageConverters);
+
+    for (HttpMessageConverter<?> hmc : messageConverters) {
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "hmc = " + hmc);
+      if (hmc instanceof MappingJackson2HttpMessageConverter) {
+	((MappingJackson2HttpMessageConverter)hmc).setSupportedMediaTypes(
+	    Arrays.asList(MediaType.MULTIPART_FORM_DATA));
+      }
+    }
+
+    // Get the client connection timeout.
     int timeoutValue = CurrentConfig.getIntParam(
 	PluginManager.PARAM_URL_CONTENT_WS_TIMEOUT_VALUE,
 	PluginManager.DEFAULT_URL_CONTENT_WS_TIMEOUT_VALUE);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "timeoutValue = " + timeoutValue);
+
+    SimpleClientHttpRequestFactory requestFactory =
+	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
+
+    requestFactory.setReadTimeout(1000*timeoutValue);
+    requestFactory.setConnectTimeout(1000*timeoutValue);
+
+    // Initialize the request headers.
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+    headers.setAccept(Arrays.asList(MediaType.MULTIPART_FORM_DATA));
 
     // Get the authentication credentials.
     String userName =
@@ -85,50 +136,41 @@ public class GetArtifactContentClient {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "password = '" + password + "'");
 
-    // Build the REST service URL.
-    String restServiceUrl =
-	restServiceLocation.replace("{artifactid}", artifactId);
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "Making request to '" + restServiceUrl + "'");
-
-    // Initialize the request to the REST service.
-    RestTemplate restTemplate = new RestTemplate();
-    SimpleClientHttpRequestFactory requestFactory =
-	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
-
-    requestFactory.setReadTimeout(1000*timeoutValue);
-    requestFactory.setConnectTimeout(1000*timeoutValue);
-
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-
+    // Set the authentication credentials.
     String credentials = userName + ":" + password;
     String authHeaderValue = "Basic " + Base64.getEncoder()
     .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
     headers.set("Authorization", authHeaderValue);
 
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents =
+	UriComponentsBuilder.fromUriString(restServiceLocation).build()
+	.expand(Collections.singletonMap("artifactid", artifactId));
+
+    URI uri = UriComponentsBuilder.newInstance()
+	.uriComponents(uriComponents).build().encode().toUri();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
+
     // Make the request to the REST service and get its response.
-    ResponseEntity<MultiValueMap> response =
-	restTemplate.exchange(restServiceUrl, HttpMethod.GET,
-	    new HttpEntity<String>(null, headers), MultiValueMap.class);
+    ResponseEntity<String> response = restTemplate.exchange(uri,
+	HttpMethod.GET, new HttpEntity<String>(null, headers), String.class);
 
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
 
-    MultiValueMap<String, Object> result = response.getBody();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
+    String result = response.getBody();
 
-    HttpEntity<ByteArrayResource> contentPart =
-	(HttpEntity<ByteArrayResource>)result.getFirst("content");
+//    HttpEntity<ByteArrayResource> contentPart =
+//	(HttpEntity<ByteArrayResource>)result.getFirst("content");
+//
+//    HttpHeaders partHeaders = contentPart.getHeaders();
+//
+//    String contentType = partHeaders.getContentType().toString();
+//    long contentLength = partHeaders.getContentLength();
+//
+//    InputStream inputStream = contentPart.getBody().getInputStream();
 
-    HttpHeaders partHeaders = contentPart.getHeaders();
-
-    String contentType = partHeaders.getContentType().toString();
-    long contentLength = partHeaders.getContentLength();
-
-    InputStream inputStream = contentPart.getBody().getInputStream();
-
-    /*
     LineEndingBufferedReader lebr =
 	new LineEndingBufferedReader(new StringReader(result));
 
@@ -170,43 +212,11 @@ public class GetArtifactContentClient {
     }
 
     InputStream inputStream = new ReaderInputStream(lebr);
-//	new ByteArrayInputStream(result.getBytes(StandardCharsets.UTF_8));
-
-//    int newLineCount = 0;
-//    StringBuilder sb = new StringBuilder();
-//
-//    while (newLineCount < 5) {
-//      int code = inputStream.read();
-//
-//      if (code == 13) {
-//	newLineCount++;
-//	if (log.isDebug3())
-//	  log.debug3(DEBUG_HEADER + "Found " + newLineCount + " newline.");
-//	
-//	String line = sb.toString();
-//	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "line = " + line);
-//
-//	if (newLineCount == 3) {
-//	  contentType = line.substring("Content-Type: ".length());
-//	  if (log.isDebug3())
-//	    log.debug3(DEBUG_HEADER + "contentType = " + contentType);
-//	} else if (newLineCount == 4) {
-//	  contentLength = line.substring("Content-Length: ".length());
-//	  if (log.isDebug3())
-//	    log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
-//	}
-//
-//	sb = new StringBuilder();
-//      } else {
-//	sb.append((char)code);
-//      }
-//    }*/
 
     // Populate the response.
     ContentResult cr = new ContentResult();
 
-    // TODO: Fill the right properties, which are the equivalent of
-    // CachedUrl.getProperties().
+    // Fill the equivalent of CachedUrl.getProperties() as properties.
     Properties properties = new Properties();
     properties.setProperty("x-lockss-node-url", url);
 

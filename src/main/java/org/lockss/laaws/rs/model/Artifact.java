@@ -34,6 +34,7 @@ public class Artifact {
   @JsonProperty("id")
   private String id = null;
 
+  @JsonProperty("repository")
   private String repository = null;
 
   @JsonProperty("auid")
@@ -63,9 +64,16 @@ public class Artifact {
   @JsonProperty("content_datetime")
   private Integer contentDatetime = null;
 
-  private String path;
+  @JsonProperty("path")
+  private String path = null;
 
-  private long offset;
+  @JsonProperty("offset")
+  private Long offset = null;
+
+  public Artifact id(String id) {
+    this.id = id;
+    return this;
+  }
 
   /**
    * Get id
@@ -78,6 +86,24 @@ public class Artifact {
 
   public void setId(String id) {
     this.id = id;
+  }
+
+  public Artifact repository(String repository) {
+    this.repository = repository;
+    return this;
+  }
+
+  /**
+   * Get repository
+   *
+   * @return repository
+   */
+  public String getRepository() {
+    return repository;
+  }
+
+  public void setRepository(String repository) {
+    this.repository = repository;
   }
 
   public Artifact auid(String auid) {
@@ -242,6 +268,42 @@ public class Artifact {
     this.contentDatetime = contentDatetime;
   }
 
+  public Artifact path(String path) {
+    this.path = path;
+    return this;
+  }
+
+  /**
+   * Get path
+   *
+   * @return path
+   */
+  public String getPath() {
+    return path;
+  }
+
+  public void setPath(String path) {
+    this.path = path;
+  }
+
+  public Artifact offset(Long offset) {
+    this.offset = offset;
+    return this;
+  }
+
+  /**
+   * Get offset
+   *
+   * @return offset
+   */
+  public Long getOffset() {
+    return offset;
+  }
+
+  public void setOffset(Long offset) {
+    this.offset = offset;
+  }
+
   @Override
   public boolean equals(java.lang.Object o) {
     if (this == o) {
@@ -252,6 +314,7 @@ public class Artifact {
     }
     Artifact artifact = (Artifact) o;
     return Objects.equals(this.id, artifact.id)
+	&& Objects.equals(this.repository, artifact.repository)
 	&& Objects.equals(this.auid, artifact.auid)
 	&& Objects.equals(this.uri, artifact.uri)
 	&& Objects.equals(this.aspect, artifact.aspect)
@@ -260,13 +323,16 @@ public class Artifact {
 	&& Objects.equals(this.contentHash, artifact.contentHash)
 	&& Objects.equals(this.metadataHash, artifact.metadataHash)
 	&& Objects.equals(this.contentLength, artifact.contentLength)
-	&& Objects.equals(this.contentDatetime, artifact.contentDatetime);
+	&& Objects.equals(this.contentDatetime, artifact.contentDatetime)
+	&& Objects.equals(this.path, artifact.path)
+	&& Objects.equals(this.offset, artifact.offset);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, auid, uri, aspect, acquired, committed, contentHash,
-	metadataHash, contentLength, contentDatetime);
+    return Objects.hash(id, repository, auid, uri, aspect, acquired, committed,
+	contentHash, metadataHash, contentLength, contentDatetime, path,
+	offset);
   }
 
   @Override
@@ -275,6 +341,8 @@ public class Artifact {
     sb.append("class Artifact {\n");
 
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
+    sb.append("    repository: ").append(toIndentedString(repository))
+    .append("\n");
     sb.append("    auid: ").append(toIndentedString(auid)).append("\n");
     sb.append("    uri: ").append(toIndentedString(uri)).append("\n");
     sb.append("    aspect: ").append(toIndentedString(aspect)).append("\n");
@@ -289,6 +357,8 @@ public class Artifact {
 	.append("\n");
     sb.append("    contentDatetime: ").append(toIndentedString(contentDatetime))
 	.append("\n");
+    sb.append("    path: ").append(toIndentedString(path)).append("\n");
+    sb.append("    offset: ").append(toIndentedString(offset)).append("\n");
     sb.append("}");
     return sb.toString();
   }
@@ -302,29 +372,5 @@ public class Artifact {
       return "null";
     }
     return o.toString().replace("\n", "\n    ");
-  }
-
-  public long getOffset() {
-    return offset;
-  }
-
-  public void setOffset(long offset) {
-    this.offset = offset;
-  }
-
-  public String getPath() {
-    return path;
-  }
-
-  public void setPath(String path) {
-    this.path = path;
-  }
-
-  public String getRepository() {
-    return repository;
-  }
-
-  public void setRepository(String repository) {
-    this.repository = repository;
   }
 }

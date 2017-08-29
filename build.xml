@@ -441,6 +441,10 @@ Args:
     value="${lib}/slf4j-api-1.7.25.jar" />
   <property name="xmltooling-1.3.2.jar" value="${lib}/xmltooling-1.3.2.jar" />
 
+  <!-- Needed by REST services -->
+  <property name="spring-web-4.3.9.RELEASE.jar"
+	    value="${lib}/spring-web-4.3.9.RELEASE.jar" />
+
   <property name="empty.db.parent.dir" value="${tmpdir}" />
   <property name="empty.db.dir" value="${empty.db.parent.dir}/db" />
   <property name="empty.db.archive"
@@ -594,6 +598,9 @@ Args:
     <pathelement path="${xml-resolver.jar}" />
     <pathelement path="${xmltooling-1.3.2.jar}" />
     <pathelement path="${jcabi.jar}" />
+
+    <!-- Needed by REST services -->
+    <pathelement path="${spring-web-4.3.9.RELEASE.jar}" />
   </path>
 
   <path id="run.classpath">
