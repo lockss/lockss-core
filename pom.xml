@@ -666,11 +666,11 @@
         <directory>src/test/resources</directory>
       </testResource>
       <testResource>
-        <directory>src/test/java/</directory>
-        <excludes>
-          <exclude>**/*.java</exclude>
-          <exclude>**/*.tdb</exclude>
-        </excludes>
+      <directory>src/test/java/</directory>
+      <excludes>
+        <exclude>**/*.java</exclude>
+        <exclude>**/*.tdb</exclude>
+      </excludes>
       </testResource>
     </testResources>
   </build>
