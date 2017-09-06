@@ -602,6 +602,17 @@
         </executions>
       </plugin>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.20</version>
+        <configuration>
+          <systemPropertyVariables>
+            <org.lockss.unitTesting>true</org.lockss.unitTesting>
+            <org.lockss.defaultLogLevel>DEBUG</org.lockss.defaultLogLevel>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.antlr</groupId>
         <artifactId>antlr4-maven-plugin</artifactId>
         <version>4.5</version>
@@ -615,7 +626,45 @@
         </executions>
       </plugin>
     </plugins>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>src/main/java/</directory>
+        <includes>
+          <include> **/*.xml</include>   <!-- mapping files in various dirs -->
+          <include> **/*.dtd</include>
+          <include> **/*.props</include>
+          <include> **/*.keystore</include>
+          <include> **/errorpagetemplate.html</include>
+          <include> **/urlrewriter.js</include> <!-- IA/WERA javascript -->
+        </includes>
+      </resource>
+    </resources>
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
+      <testResource>
+      <directory>src/test/java/</directory>
+      <excludes>
+        <exclude>**/*.java</exclude>
+        <exclude>**/*.tdb</exclude>
+      </excludes>
+      </testResource>
+    </testResources>
   </build>
-
-
+  <distributionManagement>
+    <repository>
+      <id>central</id>
+      <name>de09f392265a-releases</name>
+      <url>http://artifacts.lockss.org:8081/artifactory/libs-release-local</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <name>de09f392265a-snapshots</name>
+      <url>http://artifacts.lockss.org:8081/artifactory/libs-snapshot-local</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>
