@@ -29,16 +29,157 @@ package org.lockss.laaws.rs.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
+import java.util.Objects;
 
-public class ArtifactPage extends Page {
-  @JsonProperty
-  private List<Artifact> items;
+public class ArtifactPage {
+  @JsonProperty("next")
+  private String next = null;
 
+  @JsonProperty("prev")
+  private String prev = null;
+
+  @JsonProperty("page")
+  private Integer page = null;
+
+  @JsonProperty("results")
+  private Integer results = null;
+
+  @JsonProperty("items")
+  private List<Artifact> items = null;
+
+  public ArtifactPage next(String next) {
+    this.next = next;
+    return this;
+  }
+
+  /**
+   * Get next
+   * 
+   * @return next
+   */
+  public String getNext() {
+    return next;
+  }
+
+  public void setNext(String next) {
+    this.next = next;
+  }
+
+  public ArtifactPage prev(String prev) {
+    this.prev = prev;
+    return this;
+  }
+
+  /**
+   * Get prev
+   * 
+   * @return prev
+   */
+  public String getPrev() {
+    return prev;
+  }
+
+  public void setPrev(String prev) {
+    this.prev = prev;
+  }
+
+  public ArtifactPage page(Integer page) {
+    this.page = page;
+    return this;
+  }
+
+  /**
+   * Get page
+   * 
+   * @return page
+   */
+  public Integer getPage() {
+    return page;
+  }
+
+  public void setPage(Integer page) {
+    this.page = page;
+  }
+
+  public ArtifactPage results(Integer results) {
+    this.results = results;
+    return this;
+  }
+
+  /**
+   * Get results
+   * 
+   * @return results
+   */
+  public Integer getResults() {
+    return results;
+  }
+
+  public void setResults(Integer results) {
+    this.results = results;
+  }
+
+  public ArtifactPage items(List<Artifact> items) {
+    this.items = items;
+    return this;
+  }
+
+  /**
+   * Get items
+   * 
+   * @return items
+   */
   public List<Artifact> getItems() {
     return items;
   }
 
   public void setItems(List<Artifact> items) {
     this.items = items;
+  }
+
+  @Override
+  public boolean equals(java.lang.Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    ArtifactPage artifactPage = (ArtifactPage) o;
+    return Objects.equals(next, artifactPage.next)
+	&& Objects.equals(prev, artifactPage.prev)
+	&& Objects.equals(page, artifactPage.page)
+	&& Objects.equals(results, artifactPage.results)
+	&& Objects.equals(items, artifactPage.items);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(next, prev, page, results, items);
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("class ArtifactPage {\n");
+
+    sb.append("    next: ").append(toIndentedString(next)).append("\n");
+    sb.append("    prev: ").append(toIndentedString(prev)).append("\n");
+    sb.append("    page: ").append(toIndentedString(page)).append("\n");
+    sb.append("    results: ").append(toIndentedString(results)).append("\n");
+    sb.append("    items: ").append(toIndentedString(items)).append("\n");
+    sb.append("}");
+    return sb.toString();
+  }
+
+  /**
+   * Convert the given object to string with each line indented by 4 spaces
+   * (except the first line).
+   */
+  private String toIndentedString(java.lang.Object o) {
+    if (o == null) {
+      return "null";
+    }
+    return o.toString().replace("\n", "\n    ");
   }
 }
