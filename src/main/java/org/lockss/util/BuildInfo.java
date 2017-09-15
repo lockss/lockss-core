@@ -42,7 +42,7 @@ public class BuildInfo {
   /** Name of the property file into which the build writes build properties.
       This should agree with the value of build.info.file in build.xml */
   public static final String PROPERTY_RESOURCE =
-    "org/lockss/htdocs/build.properties";
+      "src/resources/org/lockss/htdocs/htdocs/build.properties";
   /** Name of build timestamp property.  Should agree with the name used in
    * build.xml */
   public static final String BUILD_TIMESTAMP = "build.timestamp";

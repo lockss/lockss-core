@@ -109,7 +109,7 @@ public abstract class LockssServlet extends HttpServlet
   public static final String TAB_END_TAG = "end";
 
   public static final String JAVASCRIPT_RESOURCE =
-    "org/lockss/htdocs/admin.js";
+      "src/resources/org/lockss/htdocs/htdocs/admin.js";
 
   private static final String DOCTYPE =
     "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\" \"http://www.w3.org/TR/REC-html40/loose.dtd\">";

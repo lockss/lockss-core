@@ -32,7 +32,6 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.servlet;
 
-import java.io.*;
 import java.net.*;
 import java.util.*;
 
@@ -277,7 +276,7 @@ public class ContentServletManager
     // ResourceHandler should come after servlets
     // find the htdocs directory, set as resource base
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    URL resourceUrl=loader.getResource("org/lockss/htdocs/");
+    URL resourceUrl=loader.getResource("src/resources/org/lockss/htdocs/htdocs/");
     log.debug("Resource URL: " + resourceUrl);
 
     context.setResourceBase(resourceUrl.toString());
