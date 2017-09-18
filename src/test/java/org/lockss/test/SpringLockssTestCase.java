@@ -43,6 +43,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.FileCopyUtils;
+import org.springframework.util.FileSystemUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -57,6 +59,35 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   private static final Logger log =
       Logger.getLoggerWithInitialLevel("SpringLockssTestCase",
                                        Logger.getInitialDefaultLevel());
+
+  // The path of a temporary directory where the test data will reside.
+  private String tempDirPath = null;
+
+  // The path to the configuration file with the platform disk space location
+  // definition.
+  private String platformDiskSpaceConfigPath = null;
+
+  /**
+   * Provides the path to the temporary directory where the test data will
+   * reside.
+   * 
+   * @return a String with the path to the temporary directory where the test
+   *         data will reside.
+   */
+  protected String getTempDirPath() {
+    return tempDirPath;
+  }
+
+  /**
+   * Provides the path to the configuration file with the platform disk space
+   * location definition.
+   * 
+   * @return a String with the path to the configuration file with the platform
+   *         disk space location definition.
+   */
+  protected String getPlatformDiskSpaceConfigPath() {
+    return platformDiskSpaceConfigPath;
+  }
 
   /**
    * Provides the value in a file for a property with a given name.
@@ -161,6 +192,29 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   }
 
   /**
+   * Sets up the temporary directory used for the tests.
+   * 
+   * @param prefix
+   *          A String with the prefix of the name of the directory.
+   * @throws IOException
+   *           if there are problems.
+   */
+  protected void setUpTempDirectory(String prefix) throws IOException {
+    if (log.isDebug2()) log.debug2("prefix = " + prefix);
+
+    // Get the path of a temporary directory where the test data will reside.
+    tempDirPath = getTempDir(prefix).getAbsolutePath();
+    if (log.isDebug3()) log.debug3("tempDirPath = " + tempDirPath);
+
+    // Create a file that will communicate to the test REST service where its
+    // data is located.
+    platformDiskSpaceConfigPath =
+	createPlatformDiskSpaceConfigFile(tempDirPath);
+    if (log.isDebug3()) log.debug3("platformDiskSpaceConfigPath = "
+	+ platformDiskSpaceConfigPath);
+  }
+
+  /**
    * Creates a file that will communicate to the test REST service where its
    * data is located.
    *
@@ -171,21 +225,21 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    * @throws IOException
    *           if there are problems.
    */
-  protected String createPlatformDiskSpaceConfigFile(String dirPath)
+  private String createPlatformDiskSpaceConfigFile(String dirPath)
       throws IOException {
     if (log.isDebug2()) log.debug2("dirPath = " + dirPath);
 
     // The configuration option with the temporary directory where the test data
     // resides.
     String platformDiskSpaceConfigParam =
-	ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST + "=" + dirPath + "/cache"
-	    + System.lineSeparator();
+	ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST + "=" + dirPath
+	+ File.separator + "cache" + System.lineSeparator();
     if (log.isDebug3()) log.debug3("platformDiskSpaceConfigParam = '"
 	+ platformDiskSpaceConfigParam +"'.");
 
     // The path to the file.
-    String platformDiskSpaceConfigPath = dirPath + File.pathSeparator
-	+ PLATFORM_DISK_SPACE_CONFIG_FILENAME;
+    String platformDiskSpaceConfigPath =
+	dirPath + File.separator + PLATFORM_DISK_SPACE_CONFIG_FILENAME;
 
     // Create the file.
     Files.write(Paths.get(platformDiskSpaceConfigPath),
@@ -194,5 +248,34 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     if (log.isDebug2()) log.debug2("platformDiskSpaceConfigPath = "
 	+ platformDiskSpaceConfigPath);
     return platformDiskSpaceConfigPath;
+  }
+
+  /**
+   * Copies a file or directory to the temporary directory.
+   * 
+   * @param source
+   *          A File with the file or directory to be copied.
+   * @throws IOException
+   *           if there are problems.
+   */
+  protected void copyToTempDir(File source) throws IOException {
+    if (log.isDebug2()) log.debug2("source = " + source.getAbsolutePath());
+
+    if (!source.isDirectory() && !source.isFile()) {
+      throw new IOException(source.getAbsolutePath()
+	  + " is neither a file nor a directory");
+    }
+
+    File destination = new File(new File(tempDirPath), source.getName());
+    if (log.isDebug3())
+	log.debug3("destination = " + destination.getAbsolutePath());
+
+    if (source.isDirectory()) {
+      // Make the copy.
+      FileSystemUtils.copyRecursively(source, destination);
+    } else {
+      // Make the copy.
+      FileCopyUtils.copy(source, destination);
+    }
   }
 }
