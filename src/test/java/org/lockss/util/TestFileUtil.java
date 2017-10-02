@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,6 +33,8 @@ import java.util.*;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
 import org.apache.commons.lang3.*;
+import org.junit.Before;
+import org.junit.Test;
 import org.apache.commons.collections.*;
 import org.lockss.test.*;
 
@@ -44,20 +42,27 @@ import org.lockss.test.*;
  * test class for org.lockss.util.TestFileTestUtil
  */
 
-public class TestFileUtil extends LockssTestCase {
+public class TestFileUtil extends LockssTestCase4 {
+  private static final Logger log =
+      Logger.getLoggerWithInitialLevel(TestFileUtil.class.getName(),
+                                       Logger.getInitialDefaultLevel());
+
   String tempDirPath;
 
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     tempDirPath = getTempDir().getAbsolutePath() + File.separator;
   }
 
+  @Test
   public void testSysDepPath() {
     String testStr = "test/var\\foo";
     String expectedStr = "test"+File.separator+"var"+File.separator+"foo";
     assertEquals(expectedStr, FileUtil.sysDepPath(testStr));
   }
 
+  @Test
   public void testSysIndepPath() {
     String testStr = "test/var\\foo";
     String expectedStr = "test/var/foo";
@@ -68,6 +73,7 @@ public class TestFileUtil extends LockssTestCase {
     return FileUtil.isLegalPath(x);
   }
 
+  @Test
   public void testIsLegalPath() {
     assertTrue(isLegal("."));
     assertTrue(isLegal("/"));
@@ -107,6 +113,7 @@ public class TestFileUtil extends LockssTestCase {
     assertFalse(isLegal("var/.././..///"));
   }
 
+  @Test
   public void testFileContentIsIdentical() throws Exception {
     File file1 = createFile(tempDirPath + "file1", "content 1");
     File file2 = createFile(tempDirPath + "file2", "content 2");
@@ -134,6 +141,7 @@ public class TestFileUtil extends LockssTestCase {
     return file;
   }
 
+  @Test
   public void testIsTemporaryResourceException() throws IOException {
     String EMFILE = "foo.bar (Too many open files)";
     assertTrue(FileUtil.isTemporaryResourceException(new FileNotFoundException(EMFILE)));
@@ -141,6 +149,7 @@ public class TestFileUtil extends LockssTestCase {
     assertFalse(FileUtil.isTemporaryResourceException(new IOException(("No such file or directory"))));
   }
 
+  @Test
   public void testTempDir() throws IOException {
     try {
       File dir = FileUtil.createTempDir("pre", "suff", new File("/nosuchdir"));
@@ -222,6 +231,7 @@ public class TestFileUtil extends LockssTestCase {
 				}});
   }
 
+  @Test
   public void testListTree() throws IOException {
     File dir = getTempDir();
     buildTree(dir);
@@ -237,6 +247,7 @@ public class TestFileUtil extends LockssTestCase {
 		 FileUtil.listTree(dir, true));
   }
 
+  @Test
   public void testEqualTrees() throws IOException {
     File dir1 = getTempDir();
     File dir2 = getTempDir();
@@ -258,6 +269,7 @@ public class TestFileUtil extends LockssTestCase {
     assertFalse(FileUtil.equalTrees(dir1, dir2));
   }
 
+  @Test
   public void testDelTree() throws IOException {
     File dir = getTempDir("deltree");
     File d1 = new File(dir, "foo");
@@ -272,6 +284,7 @@ public class TestFileUtil extends LockssTestCase {
     assertFalse(dir.exists());
   }
 
+  @Test
   public void testDelTreeNoDir() throws IOException {
     File dir = getTempDir("deltree");
     File d1 = new File(dir, "foo");
@@ -279,6 +292,7 @@ public class TestFileUtil extends LockssTestCase {
     assertTrue(FileUtil.delTree(d1));
   }
 
+  @Test
   public void testEmptyDir() throws IOException {
     File dir = getTempDir("deltree");
     File d1 = new File(dir, "foo");
@@ -294,6 +308,7 @@ public class TestFileUtil extends LockssTestCase {
     assertEquals(0, files.length);
   }
 
+  @Test
   public void testEmptyDirNoDir() throws IOException {
     File dir = getTempDir("deltree");
     File d1 = new File(dir, "foo");
@@ -301,6 +316,7 @@ public class TestFileUtil extends LockssTestCase {
     assertFalse(FileUtil.emptyDir(d1));
   }
 
+  @Test
   public void testSafeDeleteFile() throws IOException {
     assertFalse(FileUtil.safeDeleteFile(null));
     File dir = getTempDir("safeDelete");
@@ -313,6 +329,7 @@ public class TestFileUtil extends LockssTestCase {
     assertFalse(FileUtil.safeDeleteFile(f2));
   }
 
+  @Test
   public void testNewFileOutputStream() throws IOException {
     File dir = getTempDir("longtest");
     File shortName = new File(dir, "shortpath");
@@ -337,6 +354,7 @@ public class TestFileUtil extends LockssTestCase {
 
   // These tests ensure correct behavior of long file and path names.  Skip
   // them on less capable filesystems.
+  @Test
   public void testNewFileOutputStreamLongPath() throws IOException {
     File dir = getTempDir("longtest");
     int pad = dir.getPath().length();
@@ -360,6 +378,7 @@ public class TestFileUtil extends LockssTestCase {
 				   FileUtil.newFileInputStream(longName));
   }
 
+  @Test
   public void testSetOwnerRWX() throws IOException {
     File dir = getTempDir("setperm");
     FileUtil.setOwnerRWX(dir);
@@ -370,7 +389,69 @@ public class TestFileUtil extends LockssTestCase {
 		 Files.getPosixFilePermissions(dir.toPath()));
   }
 
+  @Test
+  public void testListDirFilesWithExtension() throws IOException {
+    try {
+      FileUtil.listDirFilesWithExtension(null, "123");
+      fail("FileUtil.listDirFilesWithExtension(null, ext) should throw");
+    } catch (IOException e) {
+      assertEquals("Invalid directory 'null'", e.getMessage());
+    }
 
+    File dir = getTempDir();
 
+    try {
+      FileUtil.listDirFilesWithExtension(new File(dir, "ne"), "123");
+      fail("FileUtil.listDirFilesWithExtension(nonexistentdir, ext) should "
+	  + "throw");
+    } catch (IOException e) {
+      assertTrue(e.getMessage().startsWith("Invalid directory '"));
+      assertTrue(e.getMessage().endsWith("/ne'"));
+    }
+
+    try {
+      FileUtil.listDirFilesWithExtension(dir, null);
+      fail("FileUtil.listDirFilesWithExtension(dir, null) should throw");
+    } catch (IOException e) {
+      assertEquals("Invalid required extension 'null'", e.getMessage());
+    }
+
+    try {
+      FileUtil.listDirFilesWithExtension(dir, "");
+      fail("FileUtil.listDirFilesWithExtension(dir, \"\") should throw");
+    } catch (IOException e) {
+      assertEquals("Invalid required extension ''", e.getMessage());
+    }
+
+    assertEquals(0, FileUtil.listDirFilesWithExtension(dir, "123").size());
+
+    writeFile(dir, "123");
+
+    try {
+      FileUtil.listDirFilesWithExtension(new File(dir, "123"), "123");
+      fail("FileUtil.listDirFilesWithExtension(nondir, ext) should throw");
+    } catch (IOException e) {
+      assertTrue(e.getMessage().startsWith("Invalid directory '"));
+      assertTrue(e.getMessage().endsWith("/123'"));
+    }
+
+    writeFile(dir, "abc.xyz");
+    writeFile(dir, "xyz.abc");
+    writeFile(dir, new File("xyz2.abc/abc.xyz").toString());
+    writeFile(dir, new File("abc2.xyz/xyz.abc").toString());
+
+    assertEquals(1, FileUtil.listDirFilesWithExtension(dir, "abc").size());
+    assertEquals("xyz.abc",
+	FileUtil.listDirFilesWithExtension(dir, "abc").get(0));
+
+    assertEquals(1, FileUtil.listDirFilesWithExtension(
+	new File(dir, "xyz2.abc"), "xyz").size());
+    assertEquals("abc.xyz", FileUtil.listDirFilesWithExtension(
+	new File(dir, "xyz2.abc"), "xyz").get(0));
+
+    assertEquals(1, FileUtil.listDirFilesWithExtension(
+	new File(dir, "abc2.xyz"), "abc").size());
+    assertEquals("xyz.abc", FileUtil.listDirFilesWithExtension(
+	new File(dir, "abc2.xyz"), "abc").get(0));
+  }
 }
-

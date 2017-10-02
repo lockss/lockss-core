@@ -27,6 +27,8 @@ in this Software without prior written authorization from Stanford University.
 */
 package org.lockss.app;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import org.apache.commons.lang3.*;
 import org.lockss.util.*;
@@ -1080,8 +1082,29 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
         propUrls.add(v.get(idx));
         useNewSyntax = true;
       }
-      else if (args[i].equals("-s")) {
+      else if (args[i].equals(StartupOptions.OPTION_LOG_CRYPTO_PROVIDERS)) {
 	SslUtil.logCryptoProviders(true);
+      } else if (args[i].equals(StartupOptions.OPTION_XML_PROP_DIR)
+	  && i < args.length - 1) {
+	String optionXmlDir = args[++i];
+	File xmlDir = new File(optionXmlDir);
+	if (log.isDebug3())
+	  log.debug3("getStartupOptions(): xmlDir = " + xmlDir);
+
+	useNewSyntax = true;
+
+	try {
+	  for (String xmlFileName :
+	    FileUtil.listDirFilesWithExtension(xmlDir, "xml")) {
+	    if (log.isDebug3())
+	      log.debug3("getStartupOptions(): xmlFileName = " + xmlFileName);
+
+	    propUrls.add(new File(xmlDir, xmlFileName).getPath());
+	  }
+	} catch (IOException ioe) {
+	  log.error("Cannot process XML properties directory option '"
+	      + StartupOptions.OPTION_XML_PROP_DIR + " " + optionXmlDir, ioe);
+	}
       }
     }
 
@@ -1115,6 +1138,10 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    *     (url2 | url3 | url4)
    * -g group_name[;group_2;group_3]
    *     Set the daemon groups.  Multiple groups separated by semicolon.
+   * -s
+   *     Log the security providers.
+   * -x dir
+   *     Load properties from XML files in directory dir.
    */
   public static void main(String[] args) {
     LockssDaemon daemon;
@@ -1164,13 +1191,15 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 
   /**
    * Command line startup options container.
-   * Currently supports propUrl (-p) and daemon groups (-g)
-   * parameters.
+   * Currently supports propUrl (-p), daemon groups (-g), security provider
+   * logging (-s) and directory with XML prop files (-x) parameters.
    */
   public static class StartupOptions {
 
     public static final String OPTION_PROPURL = "-p";
     public static final String OPTION_GROUP = "-g";
+    public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
+    public static final String OPTION_XML_PROP_DIR = "-x";
 
     private String groupNames;
     private List<String> propUrls;

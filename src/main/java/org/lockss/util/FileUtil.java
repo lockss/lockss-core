@@ -1,8 +1,5 @@
 /*
- * $Id$
- *
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,9 +29,7 @@ package org.lockss.util;
 
 import java.io.*;
 import java.nio.file.*;
-import java.nio.file.*;
 import java.nio.file.attribute.*;
-import java.nio.channels.*;
 import java.util.*;
 import org.apache.oro.text.regex.*;
 
@@ -531,6 +526,68 @@ public class FileUtil {
     if (f != null) {
       result = f.delete();
     }
+    return result;
+  }
+
+  /**
+   * Provides a list of names of files in a directory that contain a given
+   * extension.
+   * 
+   * @param dir
+   *          A File with the directory where the files are to be found.
+   * @param extension
+   *          A String with the extension of the files to be returned.
+   * @return a List<String> with the names of the files requested.
+   */
+  public static List<String> listDirFilesWithExtension(File dir,
+      String requiredExtension) throws IOException {
+    if (log.isDebug2()) {
+      log.debug2("listDirFilesWithExtension(): dir = " + dir);
+      log.debug2("listDirFilesWithExtension(): requiredExtension = "
+	  + requiredExtension);
+    }
+
+    if (dir == null || !dir.isDirectory()) {
+      throw new IOException("Invalid directory '" + dir + "'");
+    }
+
+    if (requiredExtension == null || requiredExtension.trim().length() == 0) {
+      throw new IOException("Invalid required extension '"
+	  + requiredExtension + "'");
+    }
+
+    // Create the filename filter.
+    FilenameFilter fileNameFilter = new FilenameFilter() {
+      @Override
+      public boolean accept(File dir, String fileName) {
+	if (log.isDebug2()) {
+	  log.debug2("accept(): dir = " + dir);
+	  log.debug2("accept(): fileName = " + fileName);
+	}
+
+	if (!new File(dir, fileName).isFile()) {
+	  if (log.isDebug3()) log.debug3("accept(): false because not file");
+	  return false;
+	}
+
+	boolean result =
+	    requiredExtension.trim().equals(FileUtil.getExtension(fileName));
+	if (log.isDebug3()) log.debug3("accept(): result = " + result);
+	return result;
+      }
+    };
+
+    List<String> result = new ArrayList<String>();
+      
+    // Get the file names.
+    for (File file : dir.listFiles(fileNameFilter)) {
+      result.add(file.getName());
+      if (log.isDebug3())
+	log.debug3("listDirFilesWithExtension(): file = " + file + " added.");
+    }
+
+    if (log.isDebug2())
+      log.debug2("listDirFilesWithExtension(): result = " + result);
     return result;
   }
 }
