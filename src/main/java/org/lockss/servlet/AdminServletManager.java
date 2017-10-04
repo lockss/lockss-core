@@ -1008,7 +1008,7 @@ public class AdminServletManager extends BaseServletManager {
     // ResourceHandler should come after servlets
     // find the htdocs directory, set as resource base
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    URL resourceUrl=loader.getResource("src/resources/org/lockss/htdocs/htdocs/");
+    URL resourceUrl=loader.getResource("/org/lockss/htdocs/");
     log.debug("Resource URL: " + resourceUrl);
 
     context.setResourceBase(resourceUrl.toString());

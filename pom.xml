@@ -7,7 +7,7 @@
   <groupId>org.lockss.laaws</groupId>
   <artifactId>lockss-core</artifactId>
   <packaging>jar</packaging>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
   <name>lockss-core</name>
   <description>The Slimmed Down LOCKSS Daemon Core</description>
   <properties>
@@ -17,6 +17,7 @@
     <jackson.version>2.9.0</jackson.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
+    <build.releasename>${project.version}</build.releasename>
   </properties>
 
   <dependencies>
@@ -41,9 +42,9 @@
       <version>10.9.1.0</version>
     </dependency>
     <dependency>
-      <groupId>com.sun.mail</groupId>
-      <artifactId>javax.mail</artifactId>
-      <version>1.6.0</version>
+      <groupId>javax.mail</groupId>
+      <artifactId>mailapi</artifactId>
+      <version>1.4.3</version>
     </dependency>
     <dependency>
       <groupId>javax.activation</groupId>
@@ -574,9 +575,9 @@
       <version>4.7</version>
     </dependency>
     <dependency>
-      <groupId>org.httpunit</groupId>
+      <groupId>httpunit</groupId>
       <artifactId>httpunit</artifactId>
-      <version>1.7.2</version>
+      <version>1.7</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -592,15 +593,15 @@
       <plugin>
         <groupId>org.lockss.laaws</groupId>
         <artifactId>tdbxml-maven-plugin</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
         <configuration>
-          <srcDir>${project.build.testSourceDirectory}</srcDir>
-          <dstDir>${project.build.testOutputDirectory}</dstDir>
+          <srcDir>src/test/java</srcDir>
+          <dstDir>target/test-classes</dstDir>
           <recurse>true</recurse>
         </configuration>
         <executions>
           <execution>
-            <phase>generate-test-resources</phase>
+            <phase>process-test-resources</phase>
             <goals>
               <goal>tdbxml</goal>
             </goals>
@@ -621,12 +622,48 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>1.8</version>
+        <executions>
+          <execution>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <exportAntProperties>true</exportAntProperties>
+              <target>
+                <tstamp>
+                  <format property="build.timestamp" pattern="dd-MMM-yy HH:mm:ss zzz"/>
+                </tstamp>
+               <tstamp>
+                 <format property="build.date" pattern="yyyy-MM-dd hh:mm:ss"/>
+               </tstamp>
+                <tstamp>
+                  <format property="build.time" pattern="kk:mm:ss"/>
+                </tstamp>
+                <exec executable="hostname" outputproperty="build.host"
+                  failifexecutionfails="false"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.20</version>
         <configuration>
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <forkCount>2.0C</forkCount>
+          <reuseForks>false</reuseForks>
+          <excludes>
+            <exclude>org.lockss.ws.status.client.TestDaemonStatusServiceClient</exclude>
+          </excludes>
           <systemPropertyVariables>
             <org.lockss.unitTesting>true</org.lockss.unitTesting>
             <org.lockss.log.default.level>info</org.lockss.log.default.level>
+            <org.lockss.defaultLogTarget>org.lockss.util.StdErrTarget</org.lockss.defaultLogTarget>
           </systemPropertyVariables>
         </configuration>
       </plugin>
@@ -648,16 +685,17 @@
     <resources>
       <resource>
         <directory>src/main/resources</directory>
+        <filtering>true</filtering>
       </resource>
       <resource>
-        <directory>src/main/java/</directory>
+        <directory>src/main/java</directory>
         <includes>
-          <include> **/*.xml</include>   <!-- mapping files in various dirs -->
-          <include> **/*.dtd</include>
-          <include> **/*.props</include>
-          <include> **/*.keystore</include>
-          <include> **/errorpagetemplate.html</include>
-          <include> **/urlrewriter.js</include> <!-- IA/WERA javascript -->
+          <include>**/*.xml</include>   <!-- mapping files in various dirs -->
+          <include>**/*.dtd</include>
+          <include>**/*.props</include>
+          <include>**/*.keystore</include>
+          <include>**/errorpagetemplate.html</include>
+          <include>**/urlrewriter.js</include> <!-- IA/WERA javascript -->
         </includes>
       </resource>
     </resources>
@@ -666,7 +704,7 @@
         <directory>src/test/resources</directory>
       </testResource>
       <testResource>
-      <directory>src/test/java/</directory>
+      <directory>src/test/java</directory>
       <excludes>
         <exclude>**/*.java</exclude>
         <exclude>**/*.tdb</exclude>

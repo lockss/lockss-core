@@ -50,7 +50,7 @@ import com.meterware.httpunit.*;
 /**
  * TestCase extension for testing servlets
  */
-public class LockssServletTestCase extends LockssTestCase {
+public abstract class LockssServletTestCase extends LockssTestCase {
 
   static Logger log = Logger.getLogger("ServletTestCase");
 

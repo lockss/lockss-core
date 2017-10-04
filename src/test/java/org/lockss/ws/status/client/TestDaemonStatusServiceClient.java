@@ -38,6 +38,7 @@ import java.net.URL;
 import java.util.Properties;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.junit.Ignore;
 import org.lockss.config.ConfigManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.servlet.AdminServletManager;

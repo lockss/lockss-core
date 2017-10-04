@@ -196,7 +196,7 @@ public class TinyUi extends BaseServletManager {
     // ResourceHandler for /images dir
     // find the htdocs directory, set as resource base
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    URL resourceUrl=loader.getResource("src/resources/org/lockss/htdocs/htdocs/images/");
+    URL resourceUrl=loader.getResource("/org/lockss/htdocs/images/");
     log.debug("Images resource URL: " + resourceUrl);
 
     context.setResourceBase(resourceUrl.toString());

@@ -40,6 +40,7 @@ import java.util.*;
 import org.apache.commons.collections.iterators.ObjectArrayIterator;
 import org.apache.commons.io.IOUtils;
 import org.apache.oro.text.regex.Pattern;
+import org.junit.Ignore;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
@@ -51,6 +52,7 @@ import junit.framework.*;
  * @deprecated Use {@link LockssTestCase4} instead.
  */
 @Deprecated
+@Ignore
 public class LockssTestCase extends TestCase {
   protected static Logger log =
     Logger.getLoggerWithInitialLevel("LockssTest",
