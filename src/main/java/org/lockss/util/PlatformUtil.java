@@ -657,7 +657,7 @@ public class PlatformUtil {
     }
 
     public int maxPathname() {
-      return 1024;
+      return 1016;
     }
 
     public DF getDF(String path) throws UnsupportedException {

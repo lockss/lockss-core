@@ -45,8 +45,6 @@ instead.
 
 =================================================================== */
 
-package org.lockss.tdb;
-
 }
 
 @lexer::members {
@@ -54,7 +52,7 @@ package org.lockss.tdb;
   private static void syntaxError(String src, int line, int col, String fmt, Object... args) {
     String msg = String.format("%s:%d:%d: %s", src, line, col, String.format(fmt, args));
     throw new RuntimeException(msg);
-  } 
+  }
 
   enum SMode { NONE, AU, ANGLE, EQUALS }
   SMode sMode = SMode.NONE;
@@ -81,8 +79,7 @@ package org.lockss.tdb;
   boolean isEmpty() { return getSType() == SType.EMPTY; }
 
   boolean emitEpsilon = false;
-
-  java.util.LinkedList<Token> myTokens = new java.util.LinkedList<Token>();  
+  java.util.LinkedList<Token> myTokens = new java.util.LinkedList<Token>();
 
   boolean expectString() {
     return isAngle() || isEquals();
@@ -96,8 +93,8 @@ package org.lockss.tdb;
       modeNone();
     }
   }
-  
-  boolean isQString() { 
+
+  boolean isQString() {
     CharStream cs = getInputStream();
     for (int i = 1 ; /*nothing*/ ; ++i) {
       switch (cs.LA(i)) {
@@ -107,7 +104,7 @@ package org.lockss.tdb;
       }
     }
   }
-  
+
   boolean isBString() {
     if (isQuoted()) {
       return false;
@@ -126,7 +123,7 @@ package org.lockss.tdb;
       }
     }
   }
-  
+
   boolean isEmptyBString() {
     if (isBare() || isQuoted()) {
       return false;
@@ -140,7 +137,7 @@ package org.lockss.tdb;
       }
     }
   }
-  
+
   void processString() {
     switch (getSType()) {
       case QUOTED: processQString(); adjustStringMode(); break;
@@ -150,7 +147,6 @@ package org.lockss.tdb;
     }
     setSType(SType.NONE);
   }
-  
   void processQString() {
     String ret = getText().trim();
     ret = ret.substring(1, ret.length() - 1);
@@ -168,7 +164,7 @@ package org.lockss.tdb;
                 break;
               default:
                 syntaxError(getSourceName(), getLine(), getCharPositionInLine(),
-                            "Bad quoted string escape: %s", getCharErrorDisplay(ch2)); 
+                            "Bad quoted string escape: %s", getCharErrorDisplay(ch2));
             }
             ++i;
             break;
@@ -232,10 +228,10 @@ package org.lockss.tdb;
       case '#': setType(COMMENT); pushMode(COMMENT_MODE); skip(); break;
       case '\r': case '\n': setType(WHITESPACE); skip(); break;
       default: syntaxError(getSourceName(), getLine(), getCharPositionInLine(),
-                           "Expected end of string but got %s", getCharErrorDisplay(ch)); 
+                           "Expected end of string but got %s", getCharErrorDisplay(ch));
     }
   }
-  
+
   @Override
   public void emit(Token token) {
     if (emitEpsilon) {
@@ -253,7 +249,7 @@ package org.lockss.tdb;
     myTokens.addLast(token);
     setToken(token);
   }
-  
+
   @Override
   public Token nextToken() {
     super.nextToken();
@@ -262,25 +258,25 @@ package org.lockss.tdb;
     }
     return myTokens.removeFirst();
   }
-  
+
   void actionSemicolon() {
     if (isAu()) {
       modeAngle();
     }
   }
-  
+
   void actionAngleOpen() {
     if (isAu()) {
       modeAngle();
     }
   }
-  
+
   void actionAngleClose() {
     if (isAu()) {
       modeNone();
     }
   }
-  
+
 }
 
 // Order matters; strings first to prevent other tokens from matching

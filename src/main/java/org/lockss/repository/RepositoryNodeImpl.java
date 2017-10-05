@@ -777,7 +777,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     if (!FileUtil.ensureDirExists(contentDir)) {
       logger.error("Couldn't create cache directory: " +contentDir);
       throw new LockssRepository.RepositoryStateException("mkdirs(" +
-							  contentDir +
+							  contentDir + " of length " + contentDir.getAbsolutePath().length() +
 							  ") failed.");
     }
 

@@ -1,6 +1,6 @@
 /**
  * Taken from https://gist.github.com/DelvarWorld/3784055
- * 
+ *
  * Usage: $form.find('input[type="checkbox"]').shiftSelectable();
  * replace input[type="checkbox"] with the selector to match your list of checkboxes
  */

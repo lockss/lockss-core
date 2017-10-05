@@ -1027,9 +1027,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
   public void testLongPath(String url) throws Exception {
 //     findMaxDirPath(getTempDir());
 //     findMaxDirPathNio(getTempDir());
-    
     String longUrl = trimUrlForOs(url);
-
     RepositoryNode leaf =
       repo.createNewNode(longUrl);
     assertFalse(leaf.hasContent());
@@ -1049,7 +1047,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
 
     RepositoryNode top = repo.getNode(AuUrl.PROTOCOL_COLON);
     List<String> tree = getSubTreeUrls(top);
-    assertEquals(ListUtil.list(url), tree);
+    assertEquals(ListUtil.list(longUrl), tree);
   }
 
   public void testLongPath1() throws Exception {
@@ -1076,16 +1074,17 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     }
   }
 
-  String trimUrlForOs(String url) {
+  String trimUrlForOs(String url) throws Exception {
     int pad = 10 + tempDirPath.length() + "/cache/xxx".length() +
       RepositoryNodeImpl.CONTENT_DIR.length() +
       Math.max(RepositoryNodeImpl.CURRENT_FILENAME.length(),
 	       RepositoryNodeImpl.CURRENT_PROPS_FILENAME.length());
 
     PlatformUtil pi = PlatformUtil.getInstance();
-    log.info("pi: " + pi);
     int max = pi.maxPathname() - pad;
-    if (url.length() <= max) {
+    String  can_url = LockssRepositoryImpl.mapUrlToFileLocation(repo.getRootLocation(),url);
+    max -= can_url.length() - url.length();  // trim the extra characters as well.
+    if (can_url.length() <= max) {
       return url;
     }
     url = trimTo(url, max);

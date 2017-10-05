@@ -42,8 +42,8 @@
 			if (window.navigator.userAgent.indexOf('Trident') >= 0) {
 				this.element.click(function(e) {
 					if (!this.indeterminate && $(this).attr('indeterminate')) {
-						$(this).trigger('change');						
-					}						
+						$(this).trigger('change');
+					}
 				});
 			}
 
@@ -60,7 +60,7 @@
 					default:    that.options.state = true; break;
 				}
 
-				that._refresh(that.options.change);								
+				that._refresh(that.options.change);
 			});
 
 			this.options.checked		= this.element.attr('checkedvalue')		  || this.options.checked;

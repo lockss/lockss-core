@@ -45,8 +45,6 @@ instead.
 
 =================================================================== */
 
-package org.lockss.tdb;
-
 }
 
 options { tokenVocab = TdbLexer; }
@@ -84,4 +82,3 @@ listOfSimpleAssignments : simpleAssignment ( SEMICOLON simpleAssignment )* ;
 listOfStrings           : STRING ( SEMICOLON STRING )* ;
 
 listOfIdentifiers       : IDENTIFIER ( SEMICOLON IDENTIFIER )* ;
-

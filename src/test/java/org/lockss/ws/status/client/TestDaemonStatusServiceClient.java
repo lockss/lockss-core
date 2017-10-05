@@ -38,6 +38,7 @@ import java.net.URL;
 import java.util.Properties;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.junit.Ignore;
 import org.lockss.config.ConfigManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.servlet.AdminServletManager;
@@ -54,6 +55,7 @@ import org.lockss.ws.status.DaemonStatusService;
  * 
  * @author Fernando Garcia-Loygorri
  */
+@Ignore
 public class TestDaemonStatusServiceClient extends LockssTestCase {
   static Logger log = Logger.getLogger(TestDaemonStatusServiceClient.class);
 

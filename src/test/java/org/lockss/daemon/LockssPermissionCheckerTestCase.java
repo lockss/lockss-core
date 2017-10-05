@@ -33,12 +33,15 @@ package org.lockss.daemon;
 import java.io.*;
 import java.util.*;
 
+import org.junit.Ignore;
+import org.junit.Test;
 import org.lockss.state.*;
 import org.lockss.clockss.*;
 import org.lockss.extractor.*;
 import org.lockss.test.*;
 import org.lockss.test.MockCrawler.MockCrawlerFacade;
 
+@Ignore
 public class LockssPermissionCheckerTestCase extends LockssTestCase {
 
   protected MockArchivalUnit mau;

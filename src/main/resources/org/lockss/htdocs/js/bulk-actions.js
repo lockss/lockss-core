@@ -1,16 +1,16 @@
 /**
  * Manage Bulk Actions button on subscription page
- * 
- * Picks up the action in the select box and 
+ *
+ * Picks up the action in the select box and
  * applies it to every triboxes in the selected rows.
  */
 
 $(document).ready(function () {
     $("#bulk-actions-menu").shiftSelectable();
-    
+
     $("#bulk-actions-btn").click(function(){
         $("#bulk-actions-msg-box").text("");
-        
+
         var action = $("#bulk-actions-menu option:selected").val();
         if(action == ""){
             $("#bulk-actions-msg-box").removeClass("success")
@@ -18,17 +18,17 @@ $(document).ready(function () {
             $("#bulk-actions-msg-box").text("Please select an action first.");
         } else {
             var count = 0;
-            
+
             $(".bulk-actions-ckbox:checked").each( function(){
                 count++;
                 $(this).prop('checked', false);
-                
+
                 // Get id from check box
                 var publicationNumber = $(this).attr('id').replace("bulk-action-ckbox_","");
-                
+
                 // Get tribox
                 var triboxSelector = "#publicationSubscription"+publicationNumber;
-                
+
                 // Update tribox
                 switch (action) {
                     case "subscribeAll":
@@ -57,17 +57,17 @@ $(document).ready(function () {
             }
         }
     });
-    
 
-    /* 
+
+    /*
      * Rewrite the code for the tribox as it needs to works slightly differently.
-     * 
-     * This function set every elements in the same row than the tribox 
+     *
+     * This function set every elements in the same row than the tribox
      * which has change status after the bulk action as been applied.
      */
     function refreshPublicationSubscription(
             pubSubId,
-            subscribedRangesId, 
+            subscribedRangesId,
             unsubscribedRangesId) {
         // The publication subscription tribox.
         var pubSub = document.getElementById(pubSubId);

@@ -297,7 +297,7 @@ public class TestPlatformUtil extends LockssTestCase {
     PlatformUtil pi = new PlatformUtil.MacOS();
     assertFalse(pi.isCaseSensitiveFileSystem());
     assertEquals(255, pi.maxFilename());
-    assertEquals(1024, pi.maxPathname());
+    assertEquals(1016, pi.maxPathname());
     assertTrue(pi.hasScriptingSupport());
   }
 

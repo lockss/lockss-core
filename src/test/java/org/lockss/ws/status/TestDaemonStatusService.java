@@ -732,7 +732,6 @@ public class TestDaemonStatusService extends LockssTestCase {
     int version = 2;
     /**
      * Returns the article iterator factory for the mime type, if any
-     * @param contentType the content type
      * @return the ArticleIteratorFactory
      */
     @Override

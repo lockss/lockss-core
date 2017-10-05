@@ -45,8 +45,6 @@ instead.
 
 =================================================================== */
 
-package org.lockss.tdb;
-
 }
 
 options { tokenVocab = TdbQueryLexer; }
