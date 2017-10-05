@@ -55,6 +55,7 @@ import org.lockss.ws.status.DaemonStatusService;
  * 
  * @author Fernando Garcia-Loygorri
  */
+@Ignore
 public class TestDaemonStatusServiceClient extends LockssTestCase {
   static Logger log = Logger.getLogger(TestDaemonStatusServiceClient.class);
 
