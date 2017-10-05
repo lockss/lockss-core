@@ -36,7 +36,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import org.lockss.config.Configuration;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.lockss.config.ConfigManager.RemoteConfigFailoverInfo;
@@ -51,405 +50,390 @@ import static org.lockss.config.ConfigManager.KeyPredicate;
  * Abstract superclass for tests of ConfigFile variants, nested in this
  * class
  */
-// Begin of first approach that does not work.
-//@RunWith(Suite.class)
-//@Suite.SuiteClasses({TestConfigFile.TestFile.class,
-//  TestConfigFile.TestHttp.class,
-//  TestConfigFile.TestJar.class})
-// End of first approach that does not work.
-// Begin of second approach that does not work.
-//@RunWith(Enclosed.class)
-// End of first approach that does not work.
-//public abstract class TestConfigFile extends LockssTestCase4 {
-public abstract class TestConfigFile extends LockssTestCase {
-  public static Class testedClasses[] = {
-    org.lockss.config.ConfigFile.class,
-    org.lockss.config.FileConfigFile.class,
-    org.lockss.config.HTTPConfigFile.class,
-    org.lockss.config.JarConfigFile.class,
-  };
+@RunWith(Suite.class)
+@Suite.SuiteClasses({TestConfigFile.TestFile.class,
+                     TestConfigFile.TestHttp.class,
+                     TestConfigFile.TestJar.class})
+public class TestConfigFile {
 
-  static Logger log = Logger.getLogger("TestConfigFile");
+  public static abstract class TestConfigFileParent extends LockssTestCase4 {
 
-  private static final String text1 =
-    "prop.1=foo\n" +
-    "prop.2=bar\n" +
-    "prop.3=baz";
+    private static Logger log = Logger.getLogger(TestConfigFile.class);
 
-  // valid tdb entry
-  private static final String tdbText1 =
-    "org.lockss.prop=value\n" +
-    "org.lockss.title.title1.title=Air & Space volume 3\n" +
-    "org.lockss.title.title1.plugin=org.lockss.testplugin1\n" +
-    "org.lockss.title.title1.pluginVersion=4\n" +
-    "org.lockss.title.title1.issn=0003-0031\n" +
-    "org.lockss.title.title1.journal.link.1.type=\n" + TdbTitle.LinkType.continuedBy.toString() +
-    "org.lockss.title.title1.journal.link.1.journalId=0003-0031\n" +  // link to self
-    "org.lockss.title.title1.param.1.key=volume\n" +
-    "org.lockss.title.title1.param.1.value=3\n" +
-    "org.lockss.title.title1.param.2.key=year\n" +
-    "org.lockss.title.title1.param.2.value=1999\n" +
-    "org.lockss.title.title1.attributes.publisher=The Smithsonian Institution";
+    protected static final String text1 =
+        "prop.1=foo\n" +
+        "prop.2=bar\n" +
+        "prop.3=baz";
 
-  // invalid tdb entry: missing "plugin"
-  private static final String tdbText2 =
-    "org.lockss.prop=value\n" +
-    "org.lockss.title.title1.title=Air & Space volume 3\n" +
-//    "org.lockss.title.title1.plugin=org.lockss.testplugin1\n" +
-    "org.lockss.title.title1.pluginVersion=4\n" +
-    "org.lockss.title.title1.issn=0003-0031\n" +
-    "org.lockss.title.title1.journal.link.1.type=\n" + TdbTitle.LinkType.continuedBy.toString() +
-    "org.lockss.title.title1.journal.link.1.journalId=0003-0031\n" +  // link to self
-    "org.lockss.title.title1.param.1.key=volume\n" +
-    "org.lockss.title.title1.param.1.value=3\n" +
-    "org.lockss.title.title1.param.2.key=year\n" +
-    "org.lockss.title.title1.param.2.value=1999\n" +
-    "org.lockss.title.title1.attributes.publisher=The Smithsonian Institution";
+    // valid tdb entry
+    protected static final String tdbText1 =
+      "org.lockss.prop=value\n" +
+      "org.lockss.title.title1.title=Air & Space volume 3\n" +
+      "org.lockss.title.title1.plugin=org.lockss.testplugin1\n" +
+      "org.lockss.title.title1.pluginVersion=4\n" +
+      "org.lockss.title.title1.issn=0003-0031\n" +
+      "org.lockss.title.title1.journal.link.1.type=\n" + TdbTitle.LinkType.continuedBy.toString() +
+      "org.lockss.title.title1.journal.link.1.journalId=0003-0031\n" +  // link to self
+      "org.lockss.title.title1.param.1.key=volume\n" +
+      "org.lockss.title.title1.param.1.value=3\n" +
+      "org.lockss.title.title1.param.2.key=year\n" +
+      "org.lockss.title.title1.param.2.value=1999\n" +
+      "org.lockss.title.title1.attributes.publisher=The Smithsonian Institution";
+
+    // invalid tdb entry: missing "plugin"
+    protected static final String tdbText2 =
+      "org.lockss.prop=value\n" +
+      "org.lockss.title.title1.title=Air & Space volume 3\n" +
+//        "org.lockss.title.title1.plugin=org.lockss.testplugin1\n" +
+      "org.lockss.title.title1.pluginVersion=4\n" +
+      "org.lockss.title.title1.issn=0003-0031\n" +
+      "org.lockss.title.title1.journal.link.1.type=\n" + TdbTitle.LinkType.continuedBy.toString() +
+      "org.lockss.title.title1.journal.link.1.journalId=0003-0031\n" +  // link to self
+      "org.lockss.title.title1.param.1.key=volume\n" +
+      "org.lockss.title.title1.param.1.value=3\n" +
+      "org.lockss.title.title1.param.2.key=year\n" +
+      "org.lockss.title.title1.param.2.value=1999\n" +
+      "org.lockss.title.title1.attributes.publisher=The Smithsonian Institution";
 
 
-  // valid tdb entry
-  private static final String tdbXml1 =
-    "<lockss-config>\n" +
-    "  <property name=\"org.lockss\">\n" +
-    "    <property name=\"prop\" value=\"value\" />\n" +
-    "    <property name=\"title\">\n" +
-    "      <property name=\"title1\">\n" +
-    "        <property name=\"title\" value=\"Air &amp; Space volume 3\" />\n" +
-    "        <property name=\"plugin\" value=\"org.lockss.testplugin1\" />\n" +
-    "        <property name=\"pluginVersion\" value=\"4\" />\n" +
-    "        <property name=\"issn\" value=\"0003-0031\" />\n" +
-    "        <property name=\"journal\">\n" +
-    "          <property name=\"link.1.type\" value=\"" + TdbTitle.LinkType.continuedBy.toString() + "\" />\n" +
-    "          <property name=\"link.1.journalId\" value=\"0003-0031\" />\n" +  // link to self
-    "        </property>\n" +
-    "        <property name=\"param.1.key\" value=\"volume\" />\n" +
-    "        <property name=\"param.1.value\" value=\"3\" />\n" +
-    "        <property name=\"param.2.key\" value=\"year\" />\n" +
-    "        <property name=\"param.2.value\" value=\"1999\" />\n" +
-    "        <property name=\"attributes.publisher\" value=\"The Smithsonian Institution\" />\n" +
-    "      </property>\n" +
-    "    </property>\n" +
-    "  </property>\n" +
-  "</lockss-config>";
-  
-  // invalid tdb entry: missing "plugin"
-  private static final String tdbXml2 =
-    "<lockss-config>\n" +
-    "  <property name=\"org.lockss\">\n" +
-    "    <property name=\"prop\" value=\"value\" />\n" +
-    "    <property name=\"title\">\n" +
-    "      <property name=\"title1\">\n" +
-    "        <property name=\"title\" value=\"Air &amp; Space volume 3\" />\n" +
-//    "        <property name=\"plugin\" value=\"org.lockss.testplugin1\" />\n" +
-    "        <property name=\"pluginVersion\" value=\"4\" />\n" +
-    "        <property name=\"issn\" value=\"0003-0031\" />\n" +
-    "        <property name=\"journal\">\n" +
-    "          <property name=\"link.1.type\" value=\"" + TdbTitle.LinkType.continuedBy.toString() + "\" />\n" +
-    "          <property name=\"link.1.journalId\" value=\"0003-0031\" />\n" +  // link to self
-    "        </property>\n" +
-    "        <property name=\"param.1.key\" value=\"volume\" />\n" +
-    "        <property name=\"param.1.value\" value=\"3\" />\n" +
-    "        <property name=\"param.2.key\" value=\"year\" />\n" +
-    "        <property name=\"param.2.value\" value=\"1999\" />\n" +
-    "        <property name=\"attributes.publisher\" value=\"The Smithsonian Institution\" />\n" +
-    "      </property>\n" +
-    "    </property>\n" +
-    "  </property>\n" +
-  "</lockss-config>";
-  
-/*
- */
-  private static final String xml1 =
-    "<lockss-config>\n" +
-    "  <property name=\"prop.7\" value=\"foo\" />\n" +
-    "  <property name=\"prop.8\" value=\"bar\" />\n" +
-    "  <property name=\"prop.9\" value=\"baz\" />\n" +
+    // valid tdb entry
+    protected static final String tdbXml1 =
+      "<lockss-config>\n" +
+      "  <property name=\"org.lockss\">\n" +
+      "    <property name=\"prop\" value=\"value\" />\n" +
+      "    <property name=\"title\">\n" +
+      "      <property name=\"title1\">\n" +
+      "        <property name=\"title\" value=\"Air &amp; Space volume 3\" />\n" +
+      "        <property name=\"plugin\" value=\"org.lockss.testplugin1\" />\n" +
+      "        <property name=\"pluginVersion\" value=\"4\" />\n" +
+      "        <property name=\"issn\" value=\"0003-0031\" />\n" +
+      "        <property name=\"journal\">\n" +
+      "          <property name=\"link.1.type\" value=\"" + TdbTitle.LinkType.continuedBy.toString() + "\" />\n" +
+      "          <property name=\"link.1.journalId\" value=\"0003-0031\" />\n" +  // link to self
+      "        </property>\n" +
+      "        <property name=\"param.1.key\" value=\"volume\" />\n" +
+      "        <property name=\"param.1.value\" value=\"3\" />\n" +
+      "        <property name=\"param.2.key\" value=\"year\" />\n" +
+      "        <property name=\"param.2.value\" value=\"1999\" />\n" +
+      "        <property name=\"attributes.publisher\" value=\"The Smithsonian Institution\" />\n" +
+      "      </property>\n" +
+      "    </property>\n" +
+      "  </property>\n" +
     "</lockss-config>";
-
-  private static final String badConfig =
-    "<lockss-config>\n" +
-    "  <property name=\"prop.10\" value=\"foo\" />\n" +
-    "  <property name=\"prop.11\">\n" +
-    "    <value>bar</value>\n" +
-    "  <!-- missing closing property tag -->\n" +
+    
+    // invalid tdb entry: missing "plugin"
+    protected static final String tdbXml2 =
+      "<lockss-config>\n" +
+      "  <property name=\"org.lockss\">\n" +
+      "    <property name=\"prop\" value=\"value\" />\n" +
+      "    <property name=\"title\">\n" +
+      "      <property name=\"title1\">\n" +
+      "        <property name=\"title\" value=\"Air &amp; Space volume 3\" />\n" +
+//        "        <property name=\"plugin\" value=\"org.lockss.testplugin1\" />\n" +
+      "        <property name=\"pluginVersion\" value=\"4\" />\n" +
+      "        <property name=\"issn\" value=\"0003-0031\" />\n" +
+      "        <property name=\"journal\">\n" +
+      "          <property name=\"link.1.type\" value=\"" + TdbTitle.LinkType.continuedBy.toString() + "\" />\n" +
+      "          <property name=\"link.1.journalId\" value=\"0003-0031\" />\n" +  // link to self
+      "        </property>\n" +
+      "        <property name=\"param.1.key\" value=\"volume\" />\n" +
+      "        <property name=\"param.1.value\" value=\"3\" />\n" +
+      "        <property name=\"param.2.key\" value=\"year\" />\n" +
+      "        <property name=\"param.2.value\" value=\"1999\" />\n" +
+      "        <property name=\"attributes.publisher\" value=\"The Smithsonian Institution\" />\n" +
+      "      </property>\n" +
+      "    </property>\n" +
+      "  </property>\n" +
     "</lockss-config>";
-
-  TestConfigFile(String name) {
-    super(name);
-  }
-
-  /** subless should set this to the URL it generates */
-  protected String expectedUrl;
-
-  /** subclass must implement to create a ConfigFile instance of the
-   * appropriate type, with the specified content
+    
+  /*
    */
-  abstract protected ConfigFile makeConfigFile(String contents,
-					       boolean isXml)
-      throws IOException;
+    protected static final String xml1 =
+      "<lockss-config>\n" +
+      "  <property name=\"prop.7\" value=\"foo\" />\n" +
+      "  <property name=\"prop.8\" value=\"bar\" />\n" +
+      "  <property name=\"prop.9\" value=\"baz\" />\n" +
+      "</lockss-config>";
 
-  /** subclass must implement to update the last modification time of the
-   * underlying file/URL
-   */
-  abstract protected void updateLastModified(ConfigFile cf, long time)
-      throws IOException;
+    protected static final String badConfig =
+      "<lockss-config>\n" +
+      "  <property name=\"prop.10\" value=\"foo\" />\n" +
+      "  <property name=\"prop.11\">\n" +
+      "    <value>bar</value>\n" +
+      "  <!-- missing closing property tag -->\n" +
+      "</lockss-config>";
 
-  /** subclass must implement to say whether each call to
-   * getConfiguration() is expected to check whether the file has been
-   * modified.  If false, should only happen if setNeedsReload() has been
-   * called.
-   */
-  abstract protected boolean isAlwaysAttempt();
+    /** subless should set this to the URL it generates */
+    protected String expectedUrl;
 
-  static String dateString(long time) {
-    Date date = new Date(time);
-    return DateTimeUtil.GMT_DATE_FORMATTER.format(date);
-  }
+    /** subclass must implement to create a ConfigFile instance of the
+     * appropriate type, with the specified content
+     */
+    protected abstract ConfigFile makeConfigFile(String contents,
+                                                 boolean isXml)
+        throws IOException;
 
-  protected String suff(boolean isXml) {
-    return isXml ? ".xml" : ".txt";
-  }
+    /** subclass must implement to update the last modification time of the
+     * underlying file/URL
+     */
+    protected abstract void updateLastModified(ConfigFile cf, long time)
+        throws IOException;
 
-  // Parameterized tests - invoked either from tests in this class or
-  // subclasses
+    /** subclass must implement to say whether each call to
+     * getConfiguration() is expected to check whether the file has been
+     * modified.  If false, should only happen if setNeedsReload() has been
+     * called.
+     */
+    protected abstract boolean isAlwaysAttempt();
 
-  /** Load file, check status, load again, check no change, force change,
-   * load again, check reloaded
-   */
-  public Configuration testLoad(String content, boolean xml)
-      throws IOException {
-    ConfigFile cf = makeConfigFile(content, xml);
-    assertFalse(cf.isLoaded());
-    assertEquals(null, cf.getLastModified());
-    assertEquals("Not yet loaded", cf.getLoadErrorMessage());
-    long lastAttempt;
-    long prevAttempt = cf.getLastAttemptTime();
+    public static String dateString(long time) {
+      Date date = new Date(time);
+      return DateTimeUtil.GMT_DATE_FORMATTER.format(date);
+    }
 
-    Configuration config = cf.getConfiguration();
-    assertTrue(cf.isLoaded());
-    assertEquals(expectedUrl, cf.getFileUrl());
-    assertEquals(expectedUrl, cf.getLoadedUrl());
-    String last = cf.getLastModified();
-    assertNotNull("last modified shouldn't be null", last);
-    assertNotEquals(prevAttempt, lastAttempt = cf.getLastAttemptTime());
-    prevAttempt = lastAttempt;
+    protected String suff(boolean isXml) {
+      return isXml ? ".xml" : ".txt";
+    }
 
-    TimerUtil.guaranteedSleep(1);
-    assertSame(config, cf.getConfiguration());
-    assertEquals(last, cf.getLastModified());
-    if (isAlwaysAttempt()) {
+    // Parameterized tests - invoked either from tests in this class or
+    // subclasses
+
+    /** Load file, check status, load again, check no change, force change,
+     * load again, check reloaded
+     */
+    public Configuration doTestLoad(String content, boolean xml)
+        throws IOException {
+      ConfigFile cf = makeConfigFile(content, xml);
+      assertFalse(cf.isLoaded());
+      assertEquals(null, cf.getLastModified());
+      assertEquals("Not yet loaded", cf.getLoadErrorMessage());
+      long lastAttempt;
+      long prevAttempt = cf.getLastAttemptTime();
+
+      Configuration config = cf.getConfiguration();
+      assertTrue(cf.isLoaded());
+      assertEquals(expectedUrl, cf.getFileUrl());
+      assertEquals(expectedUrl, cf.getLoadedUrl());
+      String last = cf.getLastModified();
+      assertNotNull("last modified shouldn't be null", last);
       assertNotEquals(prevAttempt, lastAttempt = cf.getLastAttemptTime());
       prevAttempt = lastAttempt;
-    } else {
-      assertEquals(prevAttempt, lastAttempt = cf.getLastAttemptTime());
+
+      TimerUtil.guaranteedSleep(1);
+      assertSame(config, cf.getConfiguration());
+      assertEquals(last, cf.getLastModified());
+      if (isAlwaysAttempt()) {
+        assertNotEquals(prevAttempt, lastAttempt = cf.getLastAttemptTime());
+        prevAttempt = lastAttempt;
+      } else {
+        assertEquals(prevAttempt, lastAttempt = cf.getLastAttemptTime());
+      }
+      TimerUtil.guaranteedSleep(1);
+      cf.setNeedsReload();
+      assertSame(config, cf.getConfiguration());
+      assertEquals(last, cf.getLastModified());
+      assertNotEquals(prevAttempt, lastAttempt = cf.getLastAttemptTime());
+      prevAttempt = lastAttempt;
+
+      updateLastModified(cf, TimeBase.nowMs() + Constants.SECOND);
+      cf.setNeedsReload();
+      assertEqualsNotSame(config, cf.getConfiguration());
+      assertNotEquals(last, cf.getLastModified());
+      return cf.getConfiguration();
     }
-    TimerUtil.guaranteedSleep(1);
-    cf.setNeedsReload();
-    assertSame(config, cf.getConfiguration());
-    assertEquals(last, cf.getLastModified());
-    assertNotEquals(prevAttempt, lastAttempt = cf.getLastAttemptTime());
-    prevAttempt = lastAttempt;
 
-    updateLastModified(cf, TimeBase.nowMs() + Constants.SECOND);
-    cf.setNeedsReload();
-    assertEqualsNotSame(config, cf.getConfiguration());
-    assertNotEquals(last, cf.getLastModified());
-    return cf.getConfiguration();
-  }
+    /** Test that reading the ConfigFile causes the appropriate error
+     */
+    public void doTestCantRead(ConfigFile cf, String re) throws IOException {
+      assertFalse(cf.isLoaded());
+      try {
+        Configuration config = cf.getConfiguration();
+        fail("Shouldn't have created config: " + config);
+      } catch (IOException e) {
+      }
+      if (re != null) {
+        assertMatchesRE(re, cf.getLoadErrorMessage());
+      }
+    }
 
-  /** Test that reading the ConfigFile causes the appropriate error
-   */
-  public void testCantRead(ConfigFile cf, String re) throws IOException {
-    assertFalse(cf.isLoaded());
-    try {
+    /** Test that reading the specified content from a ConfigFile causes the
+     * appropriate error
+     */
+    public void doTestIllContent(String content, boolean xml, String re)
+        throws IOException {
+      doTestCantRead(makeConfigFile(content, xml), re);
+    }
+
+    @Test
+    public void testKeyPredicate() throws IOException {
+      KeyPredicate keyPred = new KeyPredicate() {
+          public boolean evaluate(Object obj) {
+            return ((String)obj).indexOf("bad") < 0;
+          }
+          public boolean failOnIllegalKey() {
+            return false;
+          }};
+
+      String str = "foo.bar=one\nfoo.bad=two\nfoo.foo=four\n";
+
+      ConfigFile cf = makeConfigFile(str, false);
+      cf.setKeyPredicate(keyPred);
+      assertFalse(cf.isLoaded());
+
       Configuration config = cf.getConfiguration();
-      fail("Shouldn't have created config: " + config);
-    } catch (IOException e) {
-    }
-    if (re != null) {
-      assertMatchesRE(re, cf.getLoadErrorMessage());
-    }
-  }
-
-  /** Test that reading the specified content from a ConfigFile causes the
-   * appropriate error
-   */
-  public void testIllContent(String content, boolean xml, String re)
-      throws IOException {
-    testCantRead(makeConfigFile(content, xml), re);
-  }
-
-  @Test
-  public void testKeyPredicate() throws IOException {
-    KeyPredicate keyPred = new KeyPredicate() {
-	public boolean evaluate(Object obj) {
- 	  return ((String)obj).indexOf("bad") < 0;
-	}
-	public boolean failOnIllegalKey() {
-	  return false;
-	}};
-
-    String str = "foo.bar=one\nfoo.bad=two\nfoo.foo=four\n";
-
-    ConfigFile cf = makeConfigFile(str, false);
-    cf.setKeyPredicate(keyPred);
-    assertFalse(cf.isLoaded());
-
-    Configuration config = cf.getConfiguration();
-    assertEquals("one", config.get("foo.bar"));
-    assertEquals("four", config.get("foo.foo"));
-    assertNull(config.get("foo.bad"));
-    assertFalse(config.containsKey("foo.bad"));
-  }
-
-  // Matching key should throw IOException
-  @Test
-  public void testKeyPredicateThrow() throws IOException {
-    KeyPredicate keyPred = new KeyPredicate() {
-	public boolean evaluate(Object obj) {
- 	  return ((String)obj).indexOf("bad") < 0;
-	}
-	public boolean failOnIllegalKey() {
-	  return true;
-	}};
-
-    String str = "foo.bar=one\nfoo.bad=two\nfoo.foo=four\n";
-
-    ConfigFile cf = makeConfigFile(str, false);
-    cf.setKeyPredicate(keyPred);
-    assertFalse(cf.isLoaded());
-    try {
-      Configuration config = cf.getConfiguration();
-      fail("Loading config file with illegal key should throw");
-    } catch (IOException e) {
+      assertEquals("one", config.get("foo.bar"));
+      assertEquals("four", config.get("foo.foo"));
+      assertNull(config.get("foo.bad"));
+      assertFalse(config.containsKey("foo.bad"));
     }
 
-    // this one doesn't match, shouldn't throw
-    String str2 = "foo.bar=one\nfoo.dab=two\nfoo.foo=four\n";
+    // Matching key should throw IOException
+    @Test
+    public void testKeyPredicateThrow() throws IOException {
+      KeyPredicate keyPred = new KeyPredicate() {
+          public boolean evaluate(Object obj) {
+            return ((String)obj).indexOf("bad") < 0;
+          }
+          public boolean failOnIllegalKey() {
+            return true;
+          }};
 
-    ConfigFile cf2 = makeConfigFile(str2, false);
-    cf2.setKeyPredicate(keyPred);
-    assertFalse(cf2.isLoaded());
+      String str = "foo.bar=one\nfoo.bad=two\nfoo.foo=four\n";
 
-    Configuration config2 = cf2.getConfiguration();
-    assertEquals("one", config2.get("foo.bar"));
-    assertEquals("four", config2.get("foo.foo"));
-    assertEquals("two", config2.get("foo.dab"));
+      ConfigFile cf = makeConfigFile(str, false);
+      cf.setKeyPredicate(keyPred);
+      assertFalse(cf.isLoaded());
+      try {
+        Configuration config = cf.getConfiguration();
+        fail("Loading config file with illegal key should throw");
+      } catch (IOException e) {
+      }
+
+      // this one doesn't match, shouldn't throw
+      String str2 = "foo.bar=one\nfoo.dab=two\nfoo.foo=four\n";
+
+      ConfigFile cf2 = makeConfigFile(str2, false);
+      cf2.setKeyPredicate(keyPred);
+      assertFalse(cf2.isLoaded());
+
+      Configuration config2 = cf2.getConfiguration();
+      assertEquals("one", config2.get("foo.bar"));
+      assertEquals("four", config2.get("foo.foo"));
+      assertEquals("two", config2.get("foo.dab"));
+    }
+
+    // Test cases.  These will be run once for each ConfigFile variant
+
+    /** Load a props file */
+    @Test
+    public void testLoadText() throws IOException {
+      Configuration config = doTestLoad(text1, false);
+      assertEquals("foo", config.get("prop.1"));
+      assertEquals("bar", config.get("prop.2"));
+      assertEquals("baz", config.get("prop.3"));
+    }
+
+    /** Load valid Tdb property file with a single entry */
+    @Test
+    public void testValidLoadTdbText() throws IOException {
+      Configuration config = doTestLoad(tdbText1, false);
+      assertEquals("value", config.get("org.lockss.prop"));
+      
+      Tdb tdb = config.getTdb();
+      assertNotNull(tdb);
+      assertEquals(1, tdb.getTdbAuCount());
+    }
+
+    /** Load invalid Tdb property file with a single entry */
+    @Test
+    public void testInvalidLoadTdbText() throws IOException {
+      Configuration config = doTestLoad(tdbText2, false);
+      assertEquals("value", config.get("org.lockss.prop"));
+      
+      Tdb tdb = config.getTdb();
+      assertNull(tdb);
+    }
+
+    /** Load an XML file */
+    @Test
+    public void testLoadXml() throws IOException {
+      Configuration config = doTestLoad(xml1, true);
+      assertEquals("foo", config.get("prop.7"));
+      assertEquals("bar", config.get("prop.8"));
+      assertEquals("baz", config.get("prop.9"));
+    }
+
+    /** Try to load a bogus XML file */
+    @Test
+    public void testIllXml() throws IOException {
+      doTestIllContent(badConfig, true, "SAXParseException");
+    }
+
+    /** Load valid Tdb XML file with a single entry */
+    @Test
+    public void testValidLoadTdbXml() throws IOException {
+      Configuration config = doTestLoad(tdbXml1, true);
+      assertEquals("value", config.get("org.lockss.prop"));
+      
+      Tdb tdb = config.getTdb();
+      assertNotNull(tdb);
+      assertEquals(1, tdb.getTdbAuCount());
+    }
+
+    /** Load invalid Tdb XML file with a single entry */
+    @Test
+    public void testInvalidLoadTdbXml() throws IOException {
+      Configuration config = doTestLoad(tdbXml2, true);
+      assertEquals("value", config.get("org.lockss.prop"));
+      
+      Tdb tdb = config.getTdb();
+      assertNull(tdb);
+    }
+
+    @Test
+    public void testGeneration() throws IOException {
+      ConfigFile cf = makeConfigFile("aa=54", false);
+
+      assertFalse(cf.isLoaded());
+      ConfigFile.Generation gen = cf.getGeneration();
+      assertTrue(cf.isLoaded());
+      assertEquals(cf.getConfiguration(), gen.getConfig());
+
+      TimerUtil.guaranteedSleep(1);
+      assertEquals(gen.getGeneration(), cf.getGeneration().getGeneration());
+      assertEquals(gen.getUrl(), cf.getGeneration().getUrl());
+      assertEquals(gen.getConfig(), cf.getGeneration().getConfig());
+
+      TimerUtil.guaranteedSleep(1);
+      cf.setNeedsReload();
+      assertEquals(cf.getConfiguration(), gen.getConfig());
+
+      updateLastModified(cf, TimeBase.nowMs() + Constants.SECOND);
+      cf.setNeedsReload();
+      ConfigFile.Generation gen2 = cf.getGeneration();
+      assertEquals(gen.getGeneration() + 1, gen2.getGeneration());
+      assertEqualsNotSame(gen.getConfig(), gen2.getConfig());
+    }
+
+    protected String gzippedTempFileUrl(String content, String ext) throws IOException {
+      return gzippedTempFile(content, ext).toURI().toURL().toString();
+    }
+
+    protected File gzippedTempFile(String content, String ext) throws IOException {
+      File tmpFile = getTempFile("config", ext + ".gz");
+      OutputStream out =
+        new BufferedOutputStream(new FileOutputStream(tmpFile));
+      out = new GZIPOutputStream(out, true);
+      Writer wrtr = new OutputStreamWriter(out, Constants.DEFAULT_ENCODING);
+      wrtr.write(content);
+      wrtr.close();
+      return tmpFile;
+    }
+
   }
-
-  // Test cases.  These will be run once for each ConfigFile variant
-
-  /** Load a props file */
-  @Test
-  public void testLoadText() throws IOException {
-    Configuration config = testLoad(text1, false);
-    assertEquals("foo", config.get("prop.1"));
-    assertEquals("bar", config.get("prop.2"));
-    assertEquals("baz", config.get("prop.3"));
-  }
-
-  /** Load valid Tdb property file with a single entry */
-  @Test
-  public void testValidLoadTdbText() throws IOException {
-    Configuration config = testLoad(tdbText1, false);
-    assertEquals("value", config.get("org.lockss.prop"));
-    
-    Tdb tdb = config.getTdb();
-    assertNotNull(tdb);
-    assertEquals(1, tdb.getTdbAuCount());
-  }
-
-  /** Load invalid Tdb property file with a single entry */
-  @Test
-  public void testInvalidLoadTdbText() throws IOException {
-    Configuration config = testLoad(tdbText2, false);
-    assertEquals("value", config.get("org.lockss.prop"));
-    
-    Tdb tdb = config.getTdb();
-    assertNull(tdb);
-  }
-
-  /** Load an XML file */
-  @Test
-  public void testLoadXml() throws IOException {
-    Configuration config = testLoad(xml1, true);
-    assertEquals("foo", config.get("prop.7"));
-    assertEquals("bar", config.get("prop.8"));
-    assertEquals("baz", config.get("prop.9"));
-  }
-
-  /** Try to load a bogus XML file */
-  @Test
-  public void testIllXml() throws IOException {
-    testIllContent(badConfig, true, "SAXParseException");
-  }
-
-  /** Load valid Tdb XML file with a single entry */
-  @Test
-  public void testValidLoadTdbXml() throws IOException {
-    Configuration config = testLoad(tdbXml1, true);
-    assertEquals("value", config.get("org.lockss.prop"));
-    
-    Tdb tdb = config.getTdb();
-    assertNotNull(tdb);
-    assertEquals(1, tdb.getTdbAuCount());
-  }
-
-  /** Load invalid Tdb XML file with a single entry */
-  @Test
-  public void testInvalidLoadTdbXml() throws IOException {
-    Configuration config = testLoad(tdbXml2, true);
-    assertEquals("value", config.get("org.lockss.prop"));
-    
-    Tdb tdb = config.getTdb();
-    assertNull(tdb);
-  }
-
-  @Test
-  public void testGeneration() throws IOException {
-    ConfigFile cf = makeConfigFile("aa=54", false);
-
-    assertFalse(cf.isLoaded());
-    ConfigFile.Generation gen = cf.getGeneration();
-    assertTrue(cf.isLoaded());
-    assertEquals(cf.getConfiguration(), gen.getConfig());
-
-    TimerUtil.guaranteedSleep(1);
-    assertEquals(gen.getGeneration(), cf.getGeneration().getGeneration());
-    assertEquals(gen.getUrl(), cf.getGeneration().getUrl());
-    assertEquals(gen.getConfig(), cf.getGeneration().getConfig());
-
-    TimerUtil.guaranteedSleep(1);
-    cf.setNeedsReload();
-    assertEquals(cf.getConfiguration(), gen.getConfig());
-
-    updateLastModified(cf, TimeBase.nowMs() + Constants.SECOND);
-    cf.setNeedsReload();
-    ConfigFile.Generation gen2 = cf.getGeneration();
-    assertEquals(gen.getGeneration() + 1, gen2.getGeneration());
-    assertEqualsNotSame(gen.getConfig(), gen2.getConfig());
-  }
-
-  String gzippedTempFileUrl(String content, String ext) throws IOException {
-    return gzippedTempFile(content, ext).toURI().toURL().toString();
-  }
-
-  File gzippedTempFile(String content, String ext) throws IOException {
-    File tmpFile = getTempFile("config", ext + ".gz");
-    OutputStream out =
-      new BufferedOutputStream(new FileOutputStream(tmpFile));
-    out = new GZIPOutputStream(out, true);
-    Writer wrtr = new OutputStreamWriter(out, Constants.DEFAULT_ENCODING);
-    wrtr.write(content);
-    wrtr.close();
-    return tmpFile;
-  }
-
+  
   /** Test FileConfigFile */
-  public static class TestFile extends TestConfigFile {
-    public TestFile(String name) {
-      super(name);
-    }
+  public static class TestFile extends TestConfigFileParent {
 
     protected ConfigFile makeConfigFile(String contents, boolean isXml)
 	throws IOException {
@@ -472,7 +456,7 @@ public abstract class TestConfigFile extends LockssTestCase {
 
     @Test
     public void testNotFound() throws IOException {
-      testCantRead(new FileConfigFile("/file/not/found"),
+      doTestCantRead(new FileConfigFile("/file/not/found"),
 		   "FileNotFoundException");
     }
 
@@ -535,13 +519,11 @@ public abstract class TestConfigFile extends LockssTestCase {
 	  null, null));
       assertTrue(cf.isPlatformFile());
     }
+
   }
 
   /** Test JarConfigFile */
-  public static class TestJar extends TestConfigFile {
-    public TestJar(String name) {
-      super(name);
-    }
+  public static class TestJar extends TestConfigFileParent {
 
     protected ConfigFile makeConfigFile(String contents, boolean isXml)
 	throws IOException {
@@ -574,7 +556,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       JarConfigFile jcf;
 
       jcf = new JarConfigFile("jar:file:///file/not/found!/who.cares");
-      testCantRead(jcf, "(ZipException|FileNotFoundException)");
+      doTestCantRead(jcf, "(ZipException|FileNotFoundException)");
 
       String jarName = getTempDir().getAbsolutePath() +
 	File.separator + "test.jar";
@@ -583,15 +565,12 @@ public abstract class TestConfigFile extends LockssTestCase {
       JarTestUtils.createStringJar(jarName, entries);
       String url = UrlUtil.makeJarFileUrl(jarName, "no.such.entry");
       jcf = new JarConfigFile(url);
-      testCantRead(jcf, "FileNotFoundException");
+      doTestCantRead(jcf, "FileNotFoundException");
     }
   }
 
   /** Test HTTPConfigFile */
-  public static class TestHttp extends TestConfigFile {
-    public TestHttp(String name) {
-      super(name);
-    }
+  public static class TestHttp extends TestConfigFileParent {
 
     protected ConfigFile makeConfigFile(String contents, boolean isXml)
 	throws IOException {
@@ -618,12 +597,12 @@ public abstract class TestConfigFile extends LockssTestCase {
 
       hcf = new MyHttpConfigFile("http://a.b/not/found");
       hcf.setResponseCode(404);
-      testCantRead(hcf, "FileNotFoundException");
+      doTestCantRead(hcf, "FileNotFoundException");
 
       url = "http://a.b:80:81/malformed.url";
       hcf = new MyHttpConfigFile(url);
       hcf.setExecuteException(new MalformedURLException(url));
-      testCantRead(hcf, "MalformedURLException");
+      doTestCantRead(hcf, "MalformedURLException");
     }
 
     @Test
@@ -637,14 +616,14 @@ public abstract class TestConfigFile extends LockssTestCase {
 				 "end up in config file error msg");
       hcf.setResponseCode(403);
       hcf.setResponseMessage("Forbidden");
-      testCantRead(hcf, "403: Forbidden$");
+      doTestCantRead(hcf, "403: Forbidden$");
 
       hcf = new MyHttpConfigFile(url,
 				 "foobar \n" +
 				 "locksshint: this is a hint endhint");
       hcf.setResponseCode(403);
       hcf.setResponseMessage("Forbidden");
-      testCantRead(hcf, "403: Forbidden\nthis is a hint$");
+      doTestCantRead(hcf, "403: Forbidden\nthis is a hint$");
     }
 
     @Test
@@ -884,7 +863,7 @@ public abstract class TestConfigFile extends LockssTestCase {
   }
 
   /** HTTPConfigFile that uses a programmable MockLockssUrlConnection */
-  static class MyHttpConfigFile extends HTTPConfigFile {
+  protected static class MyHttpConfigFile extends HTTPConfigFile {
     Map map = new HashMap();
     String lastModified;
     String contentEncoding = null;
@@ -902,13 +881,13 @@ public abstract class TestConfigFile extends LockssTestCase {
     public MyHttpConfigFile(String url, String content) {
       super(url);
       map.put(url, content);
-      lastModified = dateString(TimeBase.nowMs());
+      lastModified = TestConfigFileParent.dateString(TimeBase.nowMs());
     }
 
     public MyHttpConfigFile(String url, InputStream content) {
       super(url);
       map.put(url, content);
-      lastModified = dateString(TimeBase.nowMs());
+      lastModified = TestConfigFileParent.dateString(TimeBase.nowMs());
     }
 
     public void setContent(String content) {
@@ -925,7 +904,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     // Setters to control MyMockLockssUrlConnection
 
     void setLastModified(long time) {
-      lastModified = dateString(time);
+      lastModified = TestConfigFileParent.dateString(time);
     }
 
     void setResponseCode(int code) {
@@ -1018,7 +997,7 @@ public abstract class TestConfigFile extends LockssTestCase {
 
   // Just enough ConfigManager for HTTPConfigFile to save and load remote
   // config failover files
-  class MyConfigManager extends ConfigManager {
+  protected static class MyConfigManager extends ConfigManager {
     File tmpdir;
     Map<String,File> tempfiles = new HashMap<String,File>();
     Map<String,File> permfiles = new HashMap<String,File>();
@@ -1063,7 +1042,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     }
   }
 
-  class MyRemoteConfigFailoverInfo extends RemoteConfigFailoverInfo {
+  protected static class MyRemoteConfigFailoverInfo extends RemoteConfigFailoverInfo {
     MyRemoteConfigFailoverInfo(String url, File dir, int seq) {
       super(url, dir, seq);
     }
@@ -1073,9 +1052,9 @@ public abstract class TestConfigFile extends LockssTestCase {
     }
   }
 
-  public static junit.framework.Test suite() {
-    return variantSuites(new Class[] {TestFile.class,
-				      TestHttp.class,
-				      TestJar.class});
-  }
+//  public static junit.framework.Test suite() {
+//    return variantSuites(new Class[] {TestFile.class,
+//				      TestHttp.class,
+//				      TestJar.class});
+//  }
 }
