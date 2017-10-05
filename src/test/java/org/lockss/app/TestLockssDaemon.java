@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,21 +28,33 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.app;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.*;
-
 import org.apache.commons.lang3.JavaVersion;
+import org.junit.Before;
+import org.junit.Test;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
-import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 
 /**
  * This is the test class for org.lockss.util.LockssDaemon
  */
-public class TestLockssDaemon extends LockssTestCase {
+public class TestLockssDaemon extends LockssTestCase4 {
 
+  private String tempDirPath;
+
+  @Before
+  public void setUp() throws Exception {
+    super.setUp();
+    tempDirPath = setUpDiskSpace();
+  }
+
+  @Test
   public void testGetStartupOptions() throws Exception {
     // good options.
     String[] test1 = {"-p", "foo;bar;baz",
@@ -74,18 +82,35 @@ public class TestLockssDaemon extends LockssTestCase {
     // good options using the old method (no -p or -g)
     String[] test8 = {"foo", "bar", "baz"};
 
+    // Good options, including -x.
+    String[] test9 = {"-p", "foo;bar;baz",
+	      "-g", "test1-group", "-x", tempDirPath};
+
+    // bad options (-x without argument, should be ignored)
+    String[] test10 = {"-p", "foo",
+		      "-x"};
+
+    // Good options, including -b.
+    String[] test11 = {"-p", "foo;bar;baz",
+	      "-g", "test1-group", "-b", "boot"};
+
+    // bad options (-b without argument, should be ignored)
+    String[] test12 = {"-p", "foo",
+		      "-b"};
+
     // Ensure that only one URL is chosen from a semicolon-separated
     // list of URLs
     LockssDaemon.StartupOptions opt1 =
       LockssDaemon.getStartupOptions(test1);
     assertNotNull(opt1.getGroupNames());
     assertEquals("test1-group", opt1.getGroupNames());
-    List list1 = opt1.getPropUrls();
+    List<String> list1 = opt1.getPropUrls();
     assertNotNull(list1);
     assertEquals(1, list1.size());
     assertTrue("foo".equals(list1.get(0)) ||
 	       "bar".equals(list1.get(0)) ||
 	       "baz".equals(list1.get(0)));
+    assertNull(opt1.getBootstrapPropsUrl());
 
     // Ensure that multiple prop URLs can be set with multiple "-p"
     // options.
@@ -93,12 +118,13 @@ public class TestLockssDaemon extends LockssTestCase {
       LockssDaemon.getStartupOptions(test2);
     // Must be null!  No group specified.
     assertNull(opt2.getGroupNames());
-    List list2 = opt2.getPropUrls();
+    List<String> list2 = opt2.getPropUrls();
     assertNotNull(list2);
     assertEquals(3, list2.size());
     assertEquals("foo", list2.get(0));
     assertEquals("bar", list2.get(1));
     assertEquals("baz", list2.get(2));
+    assertNull(opt2.getBootstrapPropsUrl());
 
     // Ensure that only one URL is chosen from a semicolon-separated
     // list of URLs, and that additional -p parameters can be provided.
@@ -106,20 +132,21 @@ public class TestLockssDaemon extends LockssTestCase {
       LockssDaemon.getStartupOptions(test3);
     assertNotNull(opt3.getGroupNames());
     assertEquals("test3-group", opt3.getGroupNames());
-    List list3 = opt3.getPropUrls();
+    List<String> list3 = opt3.getPropUrls();
     assertNotNull(list3);
     assertEquals(2, list3.size());
     assertTrue("foo".equals(list3.get(0)) ||
 	       "bar".equals(list3.get(0)) ||
 	       "baz".equals(list3.get(0)));
     assertEquals("quux", list3.get(1));
+    assertNull(opt3.getBootstrapPropsUrl());
 
     // Ensure that only one URL is chosen from each semicolon-separated
     // list of URLs
     LockssDaemon.StartupOptions opt4 =
       LockssDaemon.getStartupOptions(test4);
     assertNull(opt4.getGroupNames());
-    List list4 = opt4.getPropUrls();
+    List<String> list4 = opt4.getPropUrls();
     assertNotNull(list4);
     assertEquals(2, list4.size());
     assertTrue("foo1".equals(list4.get(0)) ||
@@ -128,47 +155,104 @@ public class TestLockssDaemon extends LockssTestCase {
     assertTrue("foo2".equals(list4.get(1)) ||
 	       "bar2".equals(list4.get(1)) ||
 	       "baz2".equals(list4.get(1)));
+    assertNull(opt4.getBootstrapPropsUrl());
 
     // Test some bad options.  Second -p should be ignored.
     LockssDaemon.StartupOptions opt5 =
       LockssDaemon.getStartupOptions(test5);
     assertNull(opt5.getGroupNames());
-    List list5 = opt5.getPropUrls();
+    List<String> list5 = opt5.getPropUrls();
     assertEquals(1, list5.size());
     assertEquals("foo", list5.get(0));
+    assertNull(opt5.getBootstrapPropsUrl());
 
     // -p should be ignored, no prop URLS.
     LockssDaemon.StartupOptions opt6 =
       LockssDaemon.getStartupOptions(test6);
     assertNotNull(opt6.getGroupNames());
     assertEquals("test6-group", opt6.getGroupNames());
-    List list6 = opt6.getPropUrls();
+    List<String> list6 = opt6.getPropUrls();
     assertNotNull(list6);
     assertEquals(0, list6.size());
+    assertNull(opt6.getBootstrapPropsUrl());
 
     // -g should be ignored, no group name.
     LockssDaemon.StartupOptions opt7 =
       LockssDaemon.getStartupOptions(test7);
     assertNull(opt7.getGroupNames());
-    List list7 = opt7.getPropUrls();
+    List<String> list7 = opt7.getPropUrls();
     assertNotNull(list7);
     assertEquals(1, list7.size());
     assertEquals("foo", list7.get(0));
+    assertNull(opt7.getBootstrapPropsUrl());
 
     // Compatibility with old startup options, no flags.
     LockssDaemon.StartupOptions opt8 =
       LockssDaemon.getStartupOptions(test8);
     assertNull(opt8.getGroupNames());
-    List list8 = opt8.getPropUrls();
+    List<String> list8 = opt8.getPropUrls();
     assertNotNull(list8);
     assertEquals(3, list8.size());
     assertEquals("foo", list8.get(0));
     assertEquals("bar", list8.get(1));
     assertEquals("baz", list8.get(2));
+    assertNull(opt8.getBootstrapPropsUrl());
+
+    // Test -x.
+    String xmlFilename = "file.xml";
+    FileOutputStream fos =
+	new FileOutputStream(new File(tempDirPath, xmlFilename));
+    InputStream sis = new StringInputStream("some content");
+    StreamUtil.copy(sis, fos);
+    sis.close();
+    fos.close();
+
+    LockssDaemon.StartupOptions opt9 =
+      LockssDaemon.getStartupOptions(test9);
+    assertNotNull(opt9.getGroupNames());
+    assertEquals("test1-group", opt9.getGroupNames());
+    List<String> list9 = opt9.getPropUrls();
+    assertNotNull(list9);
+    assertEquals(2, list9.size());
+    assertTrue("foo".equals(list9.get(0)) ||
+	       "bar".equals(list9.get(0)) ||
+	       "baz".equals(list9.get(0)));
+    assertTrue(list9.get(1).endsWith(File.separator + xmlFilename));
+
+    // Test some bad options. -x should be ignored.
+    LockssDaemon.StartupOptions opt10 =
+      LockssDaemon.getStartupOptions(test10);
+    assertNull(opt10.getGroupNames());
+    List<String> list10 = opt10.getPropUrls();
+    assertEquals(1, list10.size());
+    assertNull(opt10.getBootstrapPropsUrl());
+
+    // Test -b.
+    LockssDaemon.StartupOptions opt11 =
+      LockssDaemon.getStartupOptions(test11);
+    assertNotNull(opt11.getGroupNames());
+    assertEquals("test1-group", opt11.getGroupNames());
+    List<String> list11 = opt11.getPropUrls();
+    assertNotNull(list11);
+    assertEquals(2, list11.size());
+    assertTrue("foo".equals(list11.get(0)) ||
+	       "bar".equals(list11.get(0)) ||
+	       "baz".equals(list11.get(0)));
+    assertTrue("boot".equals(list11.get(1)));
+    assertEquals("boot", opt11.getBootstrapPropsUrl());
+
+    // Test some bad options. -b should be ignored.
+    LockssDaemon.StartupOptions opt12 =
+      LockssDaemon.getStartupOptions(test12);
+    assertNull(opt12.getGroupNames());
+    List<String> list12 = opt12.getPropUrls();
+    assertEquals(1, list12.size());
+    assertNull(opt12.getBootstrapPropsUrl());
   }
 
   // AU specific manager tests
 
+  @Test
   public void testStartAuManager() throws Exception {
     LockssDaemon daemon = new TestAuLockssDaemon();
     Configuration config = ConfigManager.newConfiguration();
@@ -246,11 +330,12 @@ public class TestLockssDaemon extends LockssTestCase {
     }
   }
   
+  @Test
   public void testMinJavaVersion() throws Exception {
     assertEquals(JavaVersion.JAVA_1_7, LockssDaemon.MIN_JAVA_VERSION);
   }
   
-  List events;
+  List<Event> events;
 
   class TestAuLockssDaemon extends LockssDaemon {
     ManagerDesc[] testAuManagerDescs = {
@@ -268,11 +353,11 @@ public class TestLockssDaemon extends LockssTestCase {
   }
 
   static class TestAuMgr implements LockssAuManager {
-    static List events;
+    static List<Event> events;
     static void clearEvents() {
-      events = new ArrayList();
+      events = new ArrayList<Event>();
     }
-    static List getEvents() {
+    static List<Event> getEvents() {
       return events;
     }
     private ArchivalUnit au;

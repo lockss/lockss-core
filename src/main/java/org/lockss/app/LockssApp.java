@@ -113,6 +113,7 @@ public abstract class LockssApp {
     }
   }
 
+  protected String bootstrapPropsUrl = null;
   protected List<String> propUrls = null;
   protected String groupNames = null;
 
@@ -148,6 +149,14 @@ public abstract class LockssApp {
   }
 
   protected LockssApp(List<String> propUrls, String groupNames) {
+    this.propUrls = propUrls;
+    this.groupNames = groupNames;
+    theApp = this;
+  }
+
+  protected LockssApp(String bootstrapPropsUrl, List<String> propUrls,
+      String groupNames) {
+    this.bootstrapPropsUrl = bootstrapPropsUrl;
     this.propUrls = propUrls;
     this.groupNames = groupNames;
     theApp = this;
@@ -487,7 +496,8 @@ public abstract class LockssApp {
     // Configuration REST web service.
     if (!useRestWs) {
       // Yes: Create the configuration manager that uses file data.
-      configMgr = ConfigManager.makeConfigManager(propUrls, groupNames);
+      configMgr = ConfigManager.makeConfigManager(bootstrapPropsUrl, propUrls,
+	  groupNames);
     } else {
       // No: Create the configuration manager that uses a Configuration REST web
       // service.

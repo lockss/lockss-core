@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,6 +32,7 @@ import java.io.*;
 import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
+import org.lockss.app.LockssDaemon;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 
@@ -58,10 +55,9 @@ public abstract class BaseConfigFile implements ConfigFile {
   protected IOException m_IOException;
   protected long m_lastAttempt;
   protected boolean m_needsReload = true;
-  protected boolean m_isPlatformFile = false;
   protected ConfigurationPropTreeImpl m_config;
   protected int m_generation = 0;
-  protected Map m_props;
+  protected Map<String, Object> m_props;
   protected ConfigManager.KeyPredicate keyPred;
 
   /**
@@ -75,7 +71,6 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_fileType = ConfigFile.PROPERTIES_FILE;
     }
     m_fileUrl = url;
-    m_isPlatformFile = StringUtil.endsWithIgnoreCase(m_fileUrl, "local.txt");
   }
 
   void setConfigManager(ConfigManager configMgr) {
@@ -96,7 +91,11 @@ public abstract class BaseConfigFile implements ConfigFile {
    * needed in order to properly parse other config files.
    */
   public boolean isPlatformFile() {
-    return m_isPlatformFile;
+    if (m_cfgMgr != null) {
+      return m_fileUrl.equals(m_cfgMgr.getBootstrapPropsUrl());
+    }
+
+    return false;
   }
 
   public int getFileType() {
@@ -154,7 +153,7 @@ public abstract class BaseConfigFile implements ConfigFile {
 
   public void setProperty(String key, Object val) {
     if (m_props == null) {
-      m_props = new HashMap();
+      m_props = new HashMap<String, Object>();
     }
     m_props.put(key, val);
   }
@@ -325,6 +324,7 @@ public abstract class BaseConfigFile implements ConfigFile {
    */
   public String toString() {
     return "{url=" + m_fileUrl + "; isLoaded=" + (m_config != null) +
-      "; lastModified=" + m_lastModified + "}";
+      "; lastModified=" + m_lastModified + "; isPlatformFile()=" +
+      isPlatformFile() + "}";
   }
 }

@@ -33,7 +33,6 @@ import java.util.*;
 import org.apache.commons.lang3.*;
 import org.lockss.util.*;
 import org.lockss.alert.*;
-import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.daemon.*;
 import org.lockss.db.DbManager;
 import org.lockss.exporter.FetchTimeExportManager;
@@ -292,6 +291,12 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 
   protected LockssDaemon(List<String> propUrls, String groupNames) {
     super(propUrls, groupNames);
+    theDaemon = this;
+  }
+
+  protected LockssDaemon(String bootstrapPropsUrl, List<String> propUrls,
+      String groupNames) {
+    super(bootstrapPropsUrl, propUrls, groupNames);
     theDaemon = this;
   }
 
@@ -1057,6 +1062,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    * Parse and handle command line arguments.
    */
   protected static StartupOptions getStartupOptions(String[] args) {
+    String bootstrapPropsUrl = null;
     List<String> propUrls = new ArrayList<String>();
     String groupNames = null;
 
@@ -1086,6 +1092,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 	SslUtil.logCryptoProviders(true);
       } else if (args[i].equals(StartupOptions.OPTION_XML_PROP_DIR)
 	  && i < args.length - 1) {
+	// Handle a directory with XML files.
 	String optionXmlDir = args[++i];
 	File xmlDir = new File(optionXmlDir);
 	if (log.isDebug3())
@@ -1105,6 +1112,14 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 	  log.error("Cannot process XML properties directory option '"
 	      + StartupOptions.OPTION_XML_PROP_DIR + " " + optionXmlDir, ioe);
 	}
+      } else if (args[i].equals(StartupOptions.OPTION_BOOTSTRAP_PROPURL)
+	  && i < args.length - 1) {
+	// Handle bootstrap properties URL.
+	bootstrapPropsUrl = args[++i];
+	if (log.isDebug3()) log.debug3(
+	    "getStartupOptions(): bootstrapPropsUrl = " + bootstrapPropsUrl);
+        propUrls.add(bootstrapPropsUrl);
+        useNewSyntax = true;
       }
     }
 
@@ -1112,7 +1127,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
       propUrls = Arrays.asList(args);
     }
 
-    return new StartupOptions(propUrls, groupNames);
+    return new StartupOptions(bootstrapPropsUrl, propUrls, groupNames);
   }
 
 
@@ -1131,6 +1146,8 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   /**
    * Main entry to the daemon.  Startup arguments:
    *
+   * -b url1
+   *     Load bootstrap properties from url1
    * -p url1
    *     Load properties from url1
    * -p url1 -p url2;url3;url4
@@ -1157,7 +1174,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     setSystemProperties();
 
     try {
-      daemon = new LockssDaemon(opts.getPropUrls(),
+      daemon = new LockssDaemon(opts.getBootstrapPropsUrl(), opts.getPropUrls(),
                                 opts.getGroupNames());
       daemon.startDaemon();
       // raise priority after starting other threads, so we won't get
@@ -1191,22 +1208,31 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 
   /**
    * Command line startup options container.
-   * Currently supports propUrl (-p), daemon groups (-g), security provider
-   * logging (-s) and directory with XML prop files (-x) parameters.
+   * Currently supports bootstrap propUrl (-b), propUrl (-p),
+   * daemon groups (-g), security provider logging (-s)
+   * and directory with XML prop files (-x) parameters.
    */
   public static class StartupOptions {
 
+    public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
     public static final String OPTION_PROPURL = "-p";
     public static final String OPTION_GROUP = "-g";
     public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
     public static final String OPTION_XML_PROP_DIR = "-x";
 
+    private String bootstrapPropsUrl;
     private String groupNames;
     private List<String> propUrls;
 
-    public StartupOptions(List<String> propUrls, String groupNames) {
+    public StartupOptions(String bootstrapPropsUrl, List<String> propUrls,
+	String groupNames) {
+      this.bootstrapPropsUrl = bootstrapPropsUrl;
       this.propUrls = propUrls;
       this.groupNames = groupNames;
+    }
+
+    public String getBootstrapPropsUrl() {
+      return bootstrapPropsUrl;
     }
 
     public List<String> getPropUrls() {

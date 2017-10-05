@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,9 +34,11 @@ import java.util.zip.*;
 import java.net.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import junit.framework.*;
-
 import org.lockss.config.Configuration;
+import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
 import org.lockss.config.ConfigManager.RemoteConfigFailoverInfo;
 import org.lockss.config.TdbTitle;
 import org.lockss.hasher.*;
@@ -53,6 +51,16 @@ import static org.lockss.config.ConfigManager.KeyPredicate;
  * Abstract superclass for tests of ConfigFile variants, nested in this
  * class
  */
+// Begin of first approach that does not work.
+//@RunWith(Suite.class)
+//@Suite.SuiteClasses({TestConfigFile.TestFile.class,
+//  TestConfigFile.TestHttp.class,
+//  TestConfigFile.TestJar.class})
+// End of first approach that does not work.
+// Begin of second approach that does not work.
+//@RunWith(Enclosed.class)
+// End of first approach that does not work.
+//public abstract class TestConfigFile extends LockssTestCase4 {
 public abstract class TestConfigFile extends LockssTestCase {
   public static Class testedClasses[] = {
     org.lockss.config.ConfigFile.class,
@@ -271,6 +279,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     testCantRead(makeConfigFile(content, xml), re);
   }
 
+  @Test
   public void testKeyPredicate() throws IOException {
     KeyPredicate keyPred = new KeyPredicate() {
 	public boolean evaluate(Object obj) {
@@ -294,6 +303,7 @@ public abstract class TestConfigFile extends LockssTestCase {
   }
 
   // Matching key should throw IOException
+  @Test
   public void testKeyPredicateThrow() throws IOException {
     KeyPredicate keyPred = new KeyPredicate() {
 	public boolean evaluate(Object obj) {
@@ -330,6 +340,7 @@ public abstract class TestConfigFile extends LockssTestCase {
   // Test cases.  These will be run once for each ConfigFile variant
 
   /** Load a props file */
+  @Test
   public void testLoadText() throws IOException {
     Configuration config = testLoad(text1, false);
     assertEquals("foo", config.get("prop.1"));
@@ -338,6 +349,7 @@ public abstract class TestConfigFile extends LockssTestCase {
   }
 
   /** Load valid Tdb property file with a single entry */
+  @Test
   public void testValidLoadTdbText() throws IOException {
     Configuration config = testLoad(tdbText1, false);
     assertEquals("value", config.get("org.lockss.prop"));
@@ -348,6 +360,7 @@ public abstract class TestConfigFile extends LockssTestCase {
   }
 
   /** Load invalid Tdb property file with a single entry */
+  @Test
   public void testInvalidLoadTdbText() throws IOException {
     Configuration config = testLoad(tdbText2, false);
     assertEquals("value", config.get("org.lockss.prop"));
@@ -357,6 +370,7 @@ public abstract class TestConfigFile extends LockssTestCase {
   }
 
   /** Load an XML file */
+  @Test
   public void testLoadXml() throws IOException {
     Configuration config = testLoad(xml1, true);
     assertEquals("foo", config.get("prop.7"));
@@ -365,11 +379,13 @@ public abstract class TestConfigFile extends LockssTestCase {
   }
 
   /** Try to load a bogus XML file */
+  @Test
   public void testIllXml() throws IOException {
     testIllContent(badConfig, true, "SAXParseException");
   }
 
   /** Load valid Tdb XML file with a single entry */
+  @Test
   public void testValidLoadTdbXml() throws IOException {
     Configuration config = testLoad(tdbXml1, true);
     assertEquals("value", config.get("org.lockss.prop"));
@@ -380,6 +396,7 @@ public abstract class TestConfigFile extends LockssTestCase {
   }
 
   /** Load invalid Tdb XML file with a single entry */
+  @Test
   public void testInvalidLoadTdbXml() throws IOException {
     Configuration config = testLoad(tdbXml2, true);
     assertEquals("value", config.get("org.lockss.prop"));
@@ -388,6 +405,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     assertNull(tdb);
   }
 
+  @Test
   public void testGeneration() throws IOException {
     ConfigFile cf = makeConfigFile("aa=54", false);
 
@@ -452,11 +470,13 @@ public abstract class TestConfigFile extends LockssTestCase {
 
     // Test cases
 
+    @Test
     public void testNotFound() throws IOException {
       testCantRead(new FileConfigFile("/file/not/found"),
 		   "FileNotFoundException");
     }
 
+    @Test
     public void testGzip() throws IOException {
       FileConfigFile fcf =
 	new FileConfigFile(gzippedTempFileUrl(text1, ".txt"));
@@ -467,6 +487,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       assertEquals("baz", config.get("prop.3"));
     }
 
+    @Test
     public void testGzipXml() throws IOException {
       FileConfigFile fcf =
 	new FileConfigFile(gzippedTempFileUrl(xml1, ".xml"));
@@ -478,6 +499,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     }
 
     // Ensure storedConfig() of a sealed config doesn't make a copy
+    @Test
     public void testStoredConfigSealed() throws IOException {
       FileConfigFile fcf = (FileConfigFile)makeConfigFile("a=1\nb1=a", false);
       Configuration c = fcf.getConfiguration();
@@ -490,6 +512,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     }
 
     // Ensure storedConfig() of an unsealed config does make a copy
+    @Test
     public void testStoredConfigUnsealed() throws IOException {
       FileConfigFile fcf = (FileConfigFile)makeConfigFile("a=1\nb1=a", false);
       Configuration c = fcf.getConfiguration();
@@ -498,6 +521,19 @@ public abstract class TestConfigFile extends LockssTestCase {
       assertNotSame(c2, fcf.getConfiguration());
       fcf.storedConfig(c2);
       assertEqualsNotSame(c2, fcf.getConfiguration());
+    }
+
+    @Test
+    public void testPlatformFile() throws Exception {
+      FileConfigFile cf = (FileConfigFile)makeConfigFile(text1, false);
+      assertFalse(cf.isPlatformFile());
+
+      cf.setConfigManager(new MyConfigManager(getTempDir(), null, null, null));
+      assertFalse(cf.isPlatformFile());
+
+      cf.setConfigManager(new MyConfigManager(getTempDir(), cf.getFileUrl(),
+	  null, null));
+      assertTrue(cf.isPlatformFile());
     }
   }
 
@@ -533,6 +569,7 @@ public abstract class TestConfigFile extends LockssTestCase {
 
     // Test cases
 
+    @Test
     public void testNotFound() throws IOException {
       JarConfigFile jcf;
 
@@ -574,6 +611,7 @@ public abstract class TestConfigFile extends LockssTestCase {
 
     // Test cases
 
+    @Test
     public void testNotFound() throws IOException {
       String url;
       MyHttpConfigFile hcf;
@@ -588,6 +626,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       testCantRead(hcf, "MalformedURLException");
     }
 
+    @Test
     public void testForbidden() throws IOException {
       String url;
       MyHttpConfigFile hcf;
@@ -608,6 +647,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       testCantRead(hcf, "403: Forbidden\nthis is a hint$");
     }
 
+    @Test
     public void testXLockssInfo() throws IOException {
       InputStream in = new StringInputStream(xml1);
       MyHttpConfigFile hcf =
@@ -624,6 +664,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       assertEquals(null, hcf.proxyHost);
     }
 
+    @Test
     public void testGzip() throws IOException {
       InputStream zin = new GZIPpedInputStream(xml1);
       MyHttpConfigFile hcf =
@@ -636,6 +677,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     // Ensure null message in exception doesn't cause problems
     // Not specific to HTTPConfigFile, but handy to test here because we can
     // make the subclass throw
+    @Test
     public void testNullExceptionMessage() throws IOException {
       MyHttpConfigFile hcf =
 	new MyHttpConfigFile("http://foo.bar/lockss.xml", "");
@@ -649,6 +691,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       }
     }
 
+    @Test
     public void testSetConnectionPool1() throws IOException {
       MyHttpConfigFile hcf =
 	new MyHttpConfigFile("http://foo.bar/lockss.xml");
@@ -657,6 +700,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       assertSame(pool, hcf.getConnectionPool());
     }
 
+    @Test
     public void testSetConnectionPool2() throws IOException {
       MyHttpConfigFile hcf =
 	new MyHttpConfigFile("http://foo.bar/lockss.xml");
@@ -665,6 +709,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       assertSame(pool, hcf.getConnectionPool());
     }
 
+    @Test
     public void testProxy() throws IOException {
       String phost = "phost.foo";
       int pport = 1234;
@@ -682,6 +727,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       return new MyConfigManager(getTempDir());
     }
 
+    @Test
     public void testMakeRemoteCopy()
 	throws IOException, NoSuchAlgorithmException {
       String url1 = "http://foo.bar/lockss.xml";
@@ -721,6 +767,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       return HashResult.make(md.digest(), alg);
     }
 
+    @Test
     public void testLocalFailover() throws IOException {
       ConfigurationUtil.setFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED,
 				  "false");
@@ -754,6 +801,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       assertEquals(url1, hcf.getLoadedUrl());
     }
 
+    @Test
     public void testNoLocalFailover() throws IOException {
       String url1 = "http://foo.bar/lockss.xml";
       String url2 = "http://bar.foo/lockss.xml";
@@ -775,6 +823,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       }
     }
 
+    @Test
     public void testLocalFailoverNoChecksum() throws IOException {
       String url1 = "http://foo.bar/lockss.xml";
       File remoteCopy = gzippedTempFile(xml1, ".xml");
@@ -792,6 +841,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       }
     }
 
+    @Test
     public void testLocalFailoverBadChecksum() throws IOException {
       String url1 = "http://foo.bar/lockss.xml";
       File remoteCopy = gzippedTempFile(xml1, ".xml");
@@ -811,6 +861,7 @@ public abstract class TestConfigFile extends LockssTestCase {
       }
     }
 
+    @Test
     public void testLocalFailoverGoodChecksum()
 	throws IOException, NoSuchAlgorithmException {
       String url1 = "http://foo.bar/lockss.xml";
@@ -978,6 +1029,12 @@ public abstract class TestConfigFile extends LockssTestCase {
       this.tmpdir = tmpdir;
     }
 
+    public MyConfigManager(File tmpdir, String bootstrapPropsUrl,
+	List<String> urls, String groupNames) {
+      super(bootstrapPropsUrl, urls, groupNames);
+      this.tmpdir = tmpdir;
+    }
+
     public File getRemoteConfigFailoverTempFile(String url) {
       RemoteConfigFailoverInfo rcfi = getRcfi(url);
       return rcfi.tempfile;
@@ -1016,7 +1073,7 @@ public abstract class TestConfigFile extends LockssTestCase {
     }
   }
 
-  public static Test suite() {
+  public static junit.framework.Test suite() {
     return variantSuites(new Class[] {TestFile.class,
 				      TestHttp.class,
 				      TestJar.class});

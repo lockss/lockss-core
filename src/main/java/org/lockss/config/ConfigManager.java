@@ -522,6 +522,8 @@ public class ConfigManager implements LockssManager {
   private List<Pattern> expertConfigDenyPats;
   private boolean enableExpertConfig;
 
+  private String bootstrapPropsUrl; // The daemon bootstrap properties URL.
+
   // The indication of whether the Configuration REST web service is used.
   private boolean useRestWs = false;
 
@@ -540,6 +542,11 @@ public class ConfigManager implements LockssManager {
   }
 
   public ConfigManager(List urls, String groupNames) {
+    this(null, urls, groupNames);
+  }
+
+  public ConfigManager(String bootstrapPropsUrl, List urls, String groupNames) {
+    this.bootstrapPropsUrl = bootstrapPropsUrl;
     if (urls != null) {
       configUrlList = new ArrayList(urls);
     }
@@ -645,6 +652,12 @@ public class ConfigManager implements LockssManager {
 
   public static ConfigManager makeConfigManager(List urls, String groupNames) {
     theMgr = new ConfigManager(urls, groupNames);
+    return theMgr;
+  }
+
+  public static ConfigManager makeConfigManager(String bootstrapPropsUrl,
+      List urls, String groupNames) {
+    theMgr = new ConfigManager(bootstrapPropsUrl, urls, groupNames);
     return theMgr;
   }
 
@@ -2849,6 +2862,15 @@ public class ConfigManager implements LockssManager {
     } else {
 //       log.warning("Attempt to stop handler when it isn't running");
     }
+  }
+
+  /**
+   * Provides the daemon bootstrap properties URL.
+   *
+   * @return a String with the daemon bootstrap properties URL.
+   */
+  public String getBootstrapPropsUrl() {
+    return bootstrapPropsUrl;
   }
 
   /**
