@@ -414,3 +414,4 @@ lib/run-props
 # /tools/test/
 /tools/test/classes
 /tools/test/results
+/publish.properties

@@ -688,7 +688,7 @@ public class UrlUtil {
    */
   public static String encodeUri(String uri, String enc)  {
     try {
-      return UriUtils.encodeUri(uri, enc);
+      return UriUtils.encode(uri, enc);
     } catch (UnsupportedEncodingException e) {
       // The system should always have the platform default
       throw new RuntimeException("Encoding (" + enc + ") unsupported", e);

@@ -69,8 +69,8 @@ public class TestFormUrlInput extends LockssTestCase {
 		assert( a.compareTo(b) < 0 );
 		assert( b.compareTo(c) < 0 );
 		assert( a.compareTo(a) == 0);
-		assert( b.compareTo(a) < 0 );
-		assert( c.compareTo(b) < 0 );
+		assert( b.compareTo(a) > 0 );
+		assert( c.compareTo(b) > 0 );
 				
 	}
 	public void testCompareToValues() {
@@ -81,8 +81,8 @@ public class TestFormUrlInput extends LockssTestCase {
 		assert( a.compareTo(b) < 0 );
 		assert( b.compareTo(c) < 0 );
 		assert( a.compareTo(a) == 0);
-		assert( b.compareTo(a) < 0 );
-		assert( c.compareTo(b) < 0 );
+		assert( b.compareTo(a) > 0 );
+		assert( c.compareTo(b) > 0 );
 
 	}	
 }

@@ -127,9 +127,9 @@ function selectAll(form, op, first, last) {
     break;
    }
    if (op == 'clear' && (elem.type == 'checkbox' ||
-			 elem.type == 'radio' && !elem.defaultChecked)) { 
+			 elem.type == 'radio' && !elem.defaultChecked)) {
     elem.checked = false;
-   } else if (op == 'all' && elem.type == 'checkbox') { 
+   } else if (op == 'all' && elem.type == 'checkbox') {
     if (!elem.checked) {
      elem.click();	       // click() runs onclick fn, which we rely on
     }
@@ -201,7 +201,7 @@ function addToMapVal(key, val) {
   buttonMap[key] = arr;
  }
  arr[arr.length] = val;
-} 
+}
 
 function resetRepoSelections(){
  buttonMap = null;

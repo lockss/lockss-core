@@ -35,11 +35,13 @@ package org.lockss.test;
 import java.io.*;
 import java.util.*;
 
+import org.junit.Ignore;
 import org.lockss.config.*;
 import org.lockss.state.*;
 import org.lockss.plugin.*;
 
 /** Base class for plugin tests. */
+@Ignore
 public class LockssPluginTestCase extends LockssTestCase {
 
   public void setUp() throws Exception {

@@ -20,4 +20,3 @@ msgstr ""
 #. A manually-maintained message string
 msgid "i18n.foo.bar"
 msgstr "A non-trivial translation element"
-

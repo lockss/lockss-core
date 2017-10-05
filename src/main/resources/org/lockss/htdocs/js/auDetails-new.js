@@ -16,7 +16,7 @@ $(document).ready(function () {
             if (document.getElementById("filter-tab") != null) {
                 document.getElementById("filter-tab").setAttribute("value", tab);
             }
-            
+
             // initialise tabs triboxes
             var selectedPanel = $("#tabs div.ui-tabs-panel:not(.ui-tabs-hide)");
             initTribox(selectedPanel);

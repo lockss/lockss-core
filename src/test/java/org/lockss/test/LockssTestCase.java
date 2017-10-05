@@ -1,7 +1,7 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
-All rights reserved.
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
@@ -36,21 +36,22 @@ import java.io.*;
 import java.net.*;
 import java.security.SecureRandom;
 import java.util.*;
-
+import junit.framework.*;
 import org.apache.commons.collections.iterators.ObjectArrayIterator;
 import org.apache.commons.io.IOUtils;
 import org.apache.oro.text.regex.Pattern;
+import org.junit.Ignore;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.*;
 
-import junit.framework.*;
 
 /**
  * @deprecated Use {@link LockssTestCase4} instead.
  */
 @Deprecated
+@Ignore
 public class LockssTestCase extends TestCase {
   protected static Logger log =
     Logger.getLoggerWithInitialLevel("LockssTest",
