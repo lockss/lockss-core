@@ -591,22 +591,27 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.lockss.laaws</groupId>
-        <artifactId>tdbxml-maven-plugin</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.7.0</version>
         <configuration>
-          <srcDir>src/test/java</srcDir>
-          <dstDir>target/test-classes</dstDir>
-          <recurse>true</recurse>
+          <!-- put your configurations here -->
         </configuration>
-        <executions>
-          <execution>
-            <phase>process-test-resources</phase>
-            <goals>
-              <goal>tdbxml</goal>
-            </goals>
-          </execution>
-        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.20.1</version>
+        <configuration>
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <forkCount>2.0C</forkCount>
+          <reuseForks>false</reuseForks>
+          <systemPropertyVariables>
+            <org.lockss.unitTesting>true</org.lockss.unitTesting>
+            <org.lockss.log.default.level>info</org.lockss.log.default.level>
+            <org.lockss.defaultLogTarget>org.lockss.util.StdErrTarget</org.lockss.defaultLogTarget>
+          </systemPropertyVariables>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -636,9 +641,9 @@
                 <tstamp>
                   <format property="build.timestamp" pattern="dd-MMM-yy HH:mm:ss zzz"/>
                 </tstamp>
-               <tstamp>
-                 <format property="build.date" pattern="yyyy-MM-dd hh:mm:ss"/>
-               </tstamp>
+                <tstamp>
+                  <format property="build.date" pattern="yyyy-MM-dd hh:mm:ss"/>
+                </tstamp>
                 <tstamp>
                   <format property="build.time" pattern="kk:mm:ss"/>
                 </tstamp>
@@ -650,22 +655,22 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.20</version>
+        <groupId>org.lockss.laaws</groupId>
+        <artifactId>tdbxml-maven-plugin</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
         <configuration>
-          <redirectTestOutputToFile>true</redirectTestOutputToFile>
-          <forkCount>2.0C</forkCount>
-          <reuseForks>false</reuseForks>
-          <excludes>
-            <exclude>org.lockss.ws.status.client.TestDaemonStatusServiceClient</exclude>
-          </excludes>
-          <systemPropertyVariables>
-            <org.lockss.unitTesting>true</org.lockss.unitTesting>
-            <org.lockss.log.default.level>info</org.lockss.log.default.level>
-            <org.lockss.defaultLogTarget>org.lockss.util.StdErrTarget</org.lockss.defaultLogTarget>
-          </systemPropertyVariables>
+          <srcDir>src/test/java</srcDir>
+          <dstDir>target/test-classes</dstDir>
+          <recurse>true</recurse>
         </configuration>
+        <executions>
+          <execution>
+            <phase>process-test-resources</phase>
+            <goals>
+              <goal>tdbxml</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.antlr</groupId>
@@ -678,6 +683,51 @@
             <goals>
               <goal>antlr4</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jfrog.buildinfo</groupId>
+        <artifactId>artifactory-maven-plugin</artifactId>
+        <version>2.4.1</version>
+        <inherited>false</inherited>
+        <executions>
+          <execution>
+            <id>build-info</id>
+            <goals>
+              <goal>publish</goal>
+            </goals>
+            <configuration>
+              <deployProperties>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>${project.artifactId}</artifactId>
+                <version>${project.version}</version>
+              </deployProperties>
+              <artifactory>
+                <includeEnvVars>true</includeEnvVars>
+                <timeoutSec>60</timeoutSec>
+                <propertiesFile>target/publish.properties</propertiesFile>
+              </artifactory>
+              <publisher>
+                <contextUrl>http://artifacts.lockss.org:8081/artifactory</contextUrl>
+                <username>${username}</username>
+                <password>${password}</password>
+                <repoKey>libs-release-local</repoKey>
+                <snapshotRepoKey>libs-snapshot-local</snapshotRepoKey>
+              </publisher>
+              <buildInfo>
+                <buildName>lockss-core</buildName>
+                <buildNumber>1</buildNumber>
+                <buildUrl>http://lockss.org</buildUrl>
+              </buildInfo>
+              <licenses>
+                <autoDiscover>true</autoDiscover>
+                <includePublishedArtifacts>false</includePublishedArtifacts>
+                <runChecks>true</runChecks>
+                <scopes>compile,runtime</scopes>
+                <violationRecipients>build@lockss.org</violationRecipients>
+              </licenses>
+            </configuration>
           </execution>
         </executions>
       </plugin>
@@ -712,14 +762,4 @@
       </testResource>
     </testResources>
   </build>
-  <distributionManagement>
-    <repository>
-      <id>central</id>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-release-local</url>
-    </repository>
-    <snapshotRepository>
-      <id>snapshots</id>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-snapshot-local</url>
-    </snapshotRepository>
-  </distributionManagement>
 </project>
