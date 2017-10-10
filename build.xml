@@ -138,6 +138,7 @@ Args:
   <property name="maven.home"     value="${env.MAVEN_HOME}" />
   <property name="src"            value="${basedir}/src/main/java" />
   <property name="classes"        value="${basedir}/target/classes" />
+  <property name="resources"      value="${basedir}/src/main/resources"/>
   <property name="rewoven.classes" value="${basedir}/rewoven-classes" />
   <property name="lib"            value="${basedir}/lib"/>
   <property name="test"           value="${basedir}/test" />
@@ -1121,7 +1122,7 @@ The target you have selected requires compiling under JDK 1.8.
      </javacelem>
     </dojavac>
 
-    <fileset id="lockss.jar.resources" dir="${src}" >
+    <fileset id="lockss.jar.resources" dir="${resources}" >
       <include name="**/*.xml"/>   <!-- mapping files in various dirs -->
       <include name="**/*.dtd"/>
       <include name="**/*.props"/>
@@ -1431,7 +1432,7 @@ The target you have selected requires compiling under JDK 1.8.
    description="Jar the LOCKSS classes" >
     <jar jarfile="${lockss.jar}" basedir="${classes}" >
       <include name="**/" />
-      <metainf dir="${src}/META-INF" includes="**" />
+      <metainf dir="${resources}/META-INF" includes="**" />
     </jar>
     <!-- Write production classpath to a file, so scripts can get it -->
     <pathconvert refid="prod.run.classpath" property="tmp.run.clspth"
@@ -1444,7 +1445,7 @@ The target you have selected requires compiling under JDK 1.8.
    description="Jar the rewoven LOCKSS classes" >
     <jar jarfile="${lockss.rewoven.jar}" basedir="${rewoven.classes}" >
       <include name="**/" />
-      <metainf dir="${src}/META-INF" includes="**" />
+      <metainf dir="${resources}/META-INF" includes="**" />
       <manifest>
 	<attribute name="Lockss-Comment"
 		   value="This is a rewoven jar"  />
@@ -3199,7 +3200,7 @@ published on the Web. http://www.lockss.org
 	     tasks seem to assume they are relative. -->
 	<pathconvert property="relsrcdir">
 	  <map from="${basedir}" to="."/>
-	  <path location="${srcdir}"/>
+	  <path location="${resources}"/>
 	</pathconvert>
 	<pathconvert property="relclsdir">
 	  <map from="${basedir}" to="."/>

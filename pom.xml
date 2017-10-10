@@ -17,7 +17,7 @@
     <jackson.version>2.9.0</jackson.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
-    <build.releasename>${project.version}</build.releasename>
+    <build.releasename>1.74.0</build.releasename>
   </properties>
 
   <dependencies>
@@ -420,32 +420,32 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-aop</artifactId>
-      <version>4.3.8.RELEASE</version>
+      <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-beans</artifactId>
-      <version>4.3.8.RELEASE</version>
+      <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-context</artifactId>
-      <version>4.3.8.RELEASE</version>
+      <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-core</artifactId>
-      <version>4.3.8.RELEASE</version>
+      <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-expression</artifactId>
-      <version>4.3.8.RELEASE</version>
+      <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-web</artifactId>
-      <version>4.3.8.RELEASE</version>
+      <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
       <groupId>org.apache.velocity</groupId>
@@ -572,7 +572,7 @@
     <dependency>
       <groupId>org.antlr</groupId>
       <artifactId>antlr4-runtime</artifactId>
-      <version>4.7</version>
+      <version>4.3</version>
     </dependency>
     <dependency>
       <groupId>httpunit</groupId>
@@ -675,7 +675,7 @@
       <plugin>
         <groupId>org.antlr</groupId>
         <artifactId>antlr4-maven-plugin</artifactId>
-        <version>4.5</version>
+        <version>4.3</version>
         <executions>
           <execution>
             <configuration>
