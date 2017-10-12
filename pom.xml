@@ -604,7 +604,7 @@
         <version>2.20.1</version>
         <configuration>
           <redirectTestOutputToFile>true</redirectTestOutputToFile>
-          <forkCount>2.0C</forkCount>
+          <forkCount>1.0C</forkCount>
           <reuseForks>false</reuseForks>
           <systemPropertyVariables>
             <org.lockss.unitTesting>true</org.lockss.unitTesting>
