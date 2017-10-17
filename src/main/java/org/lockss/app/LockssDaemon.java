@@ -294,28 +294,9 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     theDaemon = this;
   }
 
-  protected LockssDaemon(String bootstrapPropsUrl, List<String> propUrls,
-      String groupNames) {
-    super(bootstrapPropsUrl, propUrls, groupNames);
-    theDaemon = this;
-  }
-
-  /**
-   * Constructor used to access the Configuration REST web service.
-   *
-   * @param serviceLocation
-   *          A String with the configuration REST service location.
-   * @param serviceUser
-   *          A String with the configuration REST service user name.
-   * @param servicePassword
-   *          A String with the configuration REST service user password.
-   * @param serviceTimeout
-   *          An Integer with the configuration REST service connection timeout
-   *          value.
-   */
-  protected LockssDaemon(String serviceLocation, String serviceUser,
-      String servicePassword, Integer serviceTimeout) {
-    super(serviceLocation, serviceUser, servicePassword, serviceTimeout);
+  protected LockssDaemon(String bootstrapPropsUrl, String restConfigServiceUrl,
+      List<String> propUrls, String groupNames) {
+    super(bootstrapPropsUrl, restConfigServiceUrl, propUrls, groupNames);
     theDaemon = this;
   }
 
@@ -1062,6 +1043,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    * Parse and handle command line arguments.
    */
   protected static StartupOptions getStartupOptions(String[] args) {
+    String restConfigServiceUrl = null;
     String bootstrapPropsUrl = null;
     List<String> propUrls = new ArrayList<String>();
     String groupNames = null;
@@ -1120,6 +1102,13 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 	    "getStartupOptions(): bootstrapPropsUrl = " + bootstrapPropsUrl);
         propUrls.add(bootstrapPropsUrl);
         useNewSyntax = true;
+      } else if (args[i].equals(StartupOptions.OPTION_REST_CONFIG_SERVICE_URL)
+	  && i < args.length - 1) {
+	// Handle the REST configuration service URL.
+	restConfigServiceUrl = args[++i];
+	if (log.isDebug3()) log.debug3("getStartupOptions(): " +
+	    "restConfigServiceUrl = " + restConfigServiceUrl);
+        useNewSyntax = true;
       }
     }
 
@@ -1127,7 +1116,8 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
       propUrls = Arrays.asList(args);
     }
 
-    return new StartupOptions(bootstrapPropsUrl, propUrls, groupNames);
+    return new StartupOptions(bootstrapPropsUrl, restConfigServiceUrl, propUrls,
+	groupNames);
   }
 
 
@@ -1174,8 +1164,9 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     setSystemProperties();
 
     try {
-      daemon = new LockssDaemon(opts.getBootstrapPropsUrl(), opts.getPropUrls(),
-                                opts.getGroupNames());
+      daemon = new LockssDaemon(opts.getBootstrapPropsUrl(),
+	  opts.getRestConfigServiceUrl(), opts.getPropUrls(),
+	  opts.getGroupNames());
       daemon.startDaemon();
       // raise priority after starting other threads, so we won't get
       // locked out and fail to exit when told.
@@ -1215,24 +1206,31 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   public static class StartupOptions {
 
     public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
+    public static final String OPTION_REST_CONFIG_SERVICE_URL = "-c";
     public static final String OPTION_PROPURL = "-p";
     public static final String OPTION_GROUP = "-g";
     public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
     public static final String OPTION_XML_PROP_DIR = "-x";
 
     private String bootstrapPropsUrl;
+    private String restConfigServiceUrl;
     private String groupNames;
     private List<String> propUrls;
 
-    public StartupOptions(String bootstrapPropsUrl, List<String> propUrls,
-	String groupNames) {
+    public StartupOptions(String bootstrapPropsUrl, String restConfigServiceUrl,
+	List<String> propUrls, String groupNames) {
       this.bootstrapPropsUrl = bootstrapPropsUrl;
+      this.restConfigServiceUrl = restConfigServiceUrl;
       this.propUrls = propUrls;
       this.groupNames = groupNames;
     }
 
     public String getBootstrapPropsUrl() {
       return bootstrapPropsUrl;
+    }
+
+    public String getRestConfigServiceUrl() {
+      return restConfigServiceUrl;
     }
 
     public List<String> getPropUrls() {

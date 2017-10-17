@@ -58,8 +58,6 @@ public class TestConfigFile {
 
   public static abstract class TestConfigFileParent extends LockssTestCase4 {
 
-    private static Logger log = Logger.getLogger(TestConfigFile.class);
-
     protected static final String text1 =
         "prop.1=foo\n" +
         "prop.2=bar\n" +
@@ -512,14 +510,23 @@ public class TestConfigFile {
       FileConfigFile cf = (FileConfigFile)makeConfigFile(text1, false);
       assertFalse(cf.isPlatformFile());
 
-      cf.setConfigManager(new MyConfigManager(getTempDir(), null, null, null));
+      cf.setConfigManager(new MyConfigManager(getTempDir(), null, null, null,
+	  null));
       assertFalse(cf.isPlatformFile());
 
       cf.setConfigManager(new MyConfigManager(getTempDir(), cf.getFileUrl(),
-	  null, null));
+	  null, null, null));
       assertTrue(cf.isPlatformFile());
     }
 
+    @Test
+    public void testRestConfigFile() throws Exception {
+      RestConfigFile rcf = new RestConfigFile("http://localhost:1234/rcf1");
+      ConfigManager configMgr = new MyConfigManager(getTempDir(), null,
+	  "http://localhost:1234", null, null);
+      assertTrue(configMgr.getConfigRestService()
+	  .isPartOfThisService(rcf.getFileUrl()));
+    }
   }
 
   /** Test JarConfigFile */
@@ -1009,8 +1016,8 @@ public class TestConfigFile {
     }
 
     public MyConfigManager(File tmpdir, String bootstrapPropsUrl,
-	List<String> urls, String groupNames) {
-      super(bootstrapPropsUrl, urls, groupNames);
+	String restConfigServiceUrl, List<String> urls, String groupNames) {
+      super(bootstrapPropsUrl, restConfigServiceUrl, urls, groupNames);
       this.tmpdir = tmpdir;
     }
 
@@ -1051,10 +1058,4 @@ public class TestConfigFile {
       return new File(filename);
     }
   }
-
-//  public static junit.framework.Test suite() {
-//    return variantSuites(new Class[] {TestFile.class,
-//				      TestHttp.class,
-//				      TestJar.class});
-//  }
 }

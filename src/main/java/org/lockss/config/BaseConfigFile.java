@@ -32,7 +32,6 @@ import java.io.*;
 import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
-import org.lockss.app.LockssDaemon;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 
@@ -64,6 +63,7 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Create a ConfigFile for the URL
    */
   public BaseConfigFile(String url) {
+    System.out.println("BaseConfigFile(): url = " + url);
     if (StringUtil.endsWithIgnoreCase(url, ".xml") ||
 	StringUtil.endsWithIgnoreCase(url, ".xml.gz")) {
       m_fileType = ConfigFile.XML_FILE;
@@ -71,6 +71,7 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_fileType = ConfigFile.PROPERTIES_FILE;
     }
     m_fileUrl = url;
+    System.out.println("BaseConfigFile(): this = " + this);
   }
 
   void setConfigManager(ConfigManager configMgr) {

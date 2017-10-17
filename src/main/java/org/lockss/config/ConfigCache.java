@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +29,6 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.util.*;
-
 import org.lockss.util.*;
 
 /**
@@ -47,7 +42,8 @@ public class ConfigCache {
 				     Logger.getInitialDefaultLevel());
 
   private ConfigManager configMgr;
-  private Map m_configMap = new HashMap();
+  private Map<String, ConfigFile> m_configMap =
+      new HashMap<String, ConfigFile>();
 
   public ConfigCache(ConfigManager configMgr) {
     this.configMgr = configMgr;
@@ -58,7 +54,7 @@ public class ConfigCache {
    * @return the ConfigFile or null if no such
    */
   public ConfigFile get(String url) {
-    return (ConfigFile)m_configMap.get(url);
+    return m_configMap.get(url);
   }
 
   /**
@@ -67,22 +63,34 @@ public class ConfigCache {
    * URL
    */
   public synchronized ConfigFile find(String url) {
+    final String DEBUG_HEADER = "find(): ";
+    System.out.println(DEBUG_HEADER + "url = " + url);
     ConfigFile cf = get(url);
+    System.out.println(DEBUG_HEADER + "cf = " + cf);
     if (cf == null) {
       // doesn't yet exist in the cache, add it.
       log.debug2("Adding " + url);
       BaseConfigFile bcf;
-      if (UrlUtil.isHttpOrHttpsUrl(url)) {
+      if (configMgr != null && configMgr.getConfigRestService() != null
+	  && configMgr.getConfigRestService().isPartOfThisService(url)) {
+	System.out.println(DEBUG_HEADER + "UrlUtil.isSameService(url) = true");
+	bcf = new RestConfigFile(url);
+      } else if (UrlUtil.isHttpOrHttpsUrl(url)) {
+	System.out.println(DEBUG_HEADER + "UrlUtil.isHttpOrHttpsUrl(url) = true");
 	bcf = new HTTPConfigFile(url);
       } else if (UrlUtil.isJarUrl(url)) {
+	System.out.println(DEBUG_HEADER + "UrlUtil.isJarUrl(url) = true");
 	bcf = new JarConfigFile(url);
       } else {
+	System.out.println(DEBUG_HEADER + "UrlUtil.isHttpOrHttpsUrl(url) = false");
+	System.out.println(DEBUG_HEADER + "UrlUtil.isJarUrl(url) = false");
 	bcf = new FileConfigFile(url);
       }
       bcf.setConfigManager(configMgr);
       m_configMap.put(url, bcf);
       cf = bcf;
     }
+    System.out.println(DEBUG_HEADER + "cf = " + cf);
     return cf;
   }
 

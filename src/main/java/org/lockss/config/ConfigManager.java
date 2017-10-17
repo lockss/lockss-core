@@ -524,14 +524,8 @@ public class ConfigManager implements LockssManager {
 
   private String bootstrapPropsUrl; // The daemon bootstrap properties URL.
 
-  // The indication of whether the Configuration REST web service is used.
-  private boolean useRestWs = false;
-
-  // The properties needed to access the Configuration REST web service.
-  private String serviceLocation = null;
-  private String serviceUser = null;
-  private String servicePassword = null;
-  private Integer serviceTimeout = null;
+  // The Configuration REST web service.
+  private RestConfigService configRestService = null;
 
   public ConfigManager() {
     this(null, null);
@@ -546,36 +540,17 @@ public class ConfigManager implements LockssManager {
   }
 
   public ConfigManager(String bootstrapPropsUrl, List urls, String groupNames) {
+    this(bootstrapPropsUrl, null, urls, groupNames);
+  }
+
+  public ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
+      List urls, String groupNames) {
     this.bootstrapPropsUrl = bootstrapPropsUrl;
+    this.configRestService = new RestConfigService(restConfigServiceUrl);
     if (urls != null) {
       configUrlList = new ArrayList(urls);
     }
     this.groupNames = groupNames;
-    configCache = new ConfigCache(this);
-    registerConfigurationCallback(Logger.getConfigCallback());
-    registerConfigurationCallback(MiscConfig.getConfigCallback());
-  }
-
-  /**
-   * Constructor used to access the Configuration REST web service.
-   *
-   * @param serviceLocation
-   *          A String with the configuration REST service location.
-   * @param serviceUser
-   *          A String with the configuration REST service user name.
-   * @param servicePassword
-   *          A String with the configuration REST service user password.
-   * @param serviceTimeout
-   *          An Integer with the configuration REST service connection timeout
-   *          value.
-   */
-  public ConfigManager(String serviceLocation, String serviceUser,
-      String servicePassword, Integer serviceTimeout) {
-    this.serviceLocation = serviceLocation;
-    this.serviceUser = serviceUser;
-    this.servicePassword = servicePassword;
-    this.serviceTimeout = serviceTimeout;
-    useRestWs = true;
     configCache = new ConfigCache(this);
     registerConfigurationCallback(Logger.getConfigCallback());
     registerConfigurationCallback(MiscConfig.getConfigCallback());
@@ -597,25 +572,9 @@ public class ConfigManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
-    // Check whether the configuration is obtained via files, not via a
-    // Configuration REST web service.
-    if (!useRestWs) {
-      // Yes: Start the configuration handler that will periodically check the
-      // configuration files.
+    // Start the configuration handler that will periodically check the
+    // configuration files.
       startHandler();
-    } else {
-      // No: Get the configuration from the Configuration REST web service.
-      Configuration newConfig = new GetConfigClient(serviceLocation,
-	  serviceUser, servicePassword, serviceTimeout).getConfig();
-
-      // Initialize its title database, if necessary.
-      if (newConfig.getTdb() == null) {
-	newConfig.setTdb(new Tdb());
-      }
-
-      // Install this new configuration.
-      installConfig(newConfig);
-    }
   }
 
   /** Reset to unconfigured state.  See LockssTestCase.tearDown(), where
@@ -656,29 +615,9 @@ public class ConfigManager implements LockssManager {
   }
 
   public static ConfigManager makeConfigManager(String bootstrapPropsUrl,
-      List urls, String groupNames) {
-    theMgr = new ConfigManager(bootstrapPropsUrl, urls, groupNames);
-    return theMgr;
-  }
-
-  /**
-   * Constructor factory used to access the Configuration REST web service.
-   *
-   * @param serviceLocation
-   *          A String with the configuration REST service location.
-   * @param serviceUser
-   *          A String with the configuration REST service user name.
-   * @param servicePassword
-   *          A String with the configuration REST service user password.
-   * @param serviceTimeout
-   *          An Integer with the configuration REST service connection timeout
-   *          value.
-   */
-  public static ConfigManager makeConfigManager(String serviceLocation,
-      String serviceUser, String servicePassword, Integer serviceTimeout) {
-    theMgr = new ConfigManager(serviceLocation, serviceUser, servicePassword,
-	serviceTimeout);
-
+      String restConfigServiceUrl, List urls, String groupNames) {
+    theMgr = new ConfigManager(bootstrapPropsUrl, restConfigServiceUrl, urls,
+	groupNames);
     return theMgr;
   }
 
@@ -1000,6 +939,8 @@ public class ConfigManager implements LockssManager {
 
   public Configuration loadConfigFromFile(String url)
       throws IOException {
+    final String DEBUG_HEADER = "loadConfigFromFile(): ";
+    System.out.println(DEBUG_HEADER + "url = " + url);
     ConfigFile cf = new FileConfigFile(url);
     ConfigFile.Generation gen = cf.getGeneration();
     return gen.getConfig();
@@ -1180,7 +1121,6 @@ public class ConfigManager implements LockssManager {
       log.debug3(DEBUG_HEADER + "reload = " + reload);
       log.debug3(DEBUG_HEADER + "sendVersionInfo = " + sendVersionInfo);
       log.debug3(DEBUG_HEADER + "gens.size() = " + gens.size());
-      log.debug3(DEBUG_HEADER + "useRestWs = " + useRestWs);
       log.debug3(DEBUG_HEADER + "did = " + did);
     }
     long tottime = TimeBase.msSince(startUpdateTime);
@@ -2874,6 +2814,15 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
+   * Provides the Configuration REST service.
+   *
+   * @return a ConfigRestService with the Configuration REST service.
+   */
+  public RestConfigService getConfigRestService() {
+    return configRestService;
+  }
+
+  /**
    * Provides the configuration of an archival unit given its identifier and
    * plugin.
    * 
@@ -2896,13 +2845,12 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && useRestWs) {
+    if (tdbAu == null && configRestService != null) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
 	// service.
-	TdbAu newTdbAu = new GetTdbAuClient(serviceLocation, serviceUser,
-	    servicePassword, serviceTimeout).getTdbAu(auId);
+	TdbAu newTdbAu = configRestService.getTdbAu(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
 	newTdbAu.prettyLog(2);
 
@@ -2964,13 +2912,12 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && useRestWs) {
+    if (tdbAu == null && configRestService != null) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
 	// service.
-	TdbAu newTdbAu = new GetTdbAuClient(serviceLocation, serviceUser,
-	    servicePassword, serviceTimeout).getTdbAu(auId);
+	TdbAu newTdbAu = configRestService.getTdbAu(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
 	newTdbAu.prettyLog(2);
 
@@ -3023,29 +2970,32 @@ public class ConfigManager implements LockssManager {
     }
 
     Configuration auConfig = null;
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "useRestWs = " + useRestWs);
 
-    if (useRestWs) {
-      try {
-	auConfig = new GetAuConfigClient(serviceLocation, serviceUser,
-	    servicePassword, serviceTimeout).getAuConfig(auId);
-        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-      } catch (Exception e) {
-	log.error("Exception caught getting the configuration of Archival Unit "
-	    + auId, e);
-      }
-    } else {
-      // Get the Archival Unit title database.
-      TdbAu tdbAu = getTdbAu(auId, plugin);
+    // Get the Archival Unit title database.
+    TdbAu tdbAu = getTdbAu(auId, plugin);
 
-      // Get the Archival Unit configuration, if possible.
-      if (tdbAu != null) {
-        tdbAu.prettyLog(2);
-        Properties properties = new Properties();
-        properties.putAll(tdbAu.getParams());
+    // Get the Archival Unit configuration, if possible.
+    if (tdbAu != null) {
+      tdbAu.prettyLog(2);
+      Properties properties = new Properties();
+      properties.putAll(tdbAu.getParams());
 
-        auConfig = ConfigManager.fromPropertiesUnsealed(properties);
-        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+      auConfig = ConfigManager.fromPropertiesUnsealed(properties);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+    }
+
+    // Check whether no Archival Unit configuration was found.
+    if (auConfig == null) {
+      // Yes: Try to get it from the REST Configuration service.
+      if (configRestService != null) {
+	try {
+	  auConfig = configRestService.getAuConfig(auId);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+	} catch (Exception e) {
+	  log.error("Exception caught getting the configuration of Archival "
+	      + "Unit " + auId, e);
+	}
       }
 
       // Check whether no Archival Unit configuration was found.
