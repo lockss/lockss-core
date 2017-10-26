@@ -14,7 +14,7 @@ File -> Import... -> Maven -> Existing Maven Projects
 `mvn install`
 
 ### To upload a new official SNAPSHOT
-`mvn deploy -Dusername=user -Dpassword=password`
+`mvn deploy`
 You must have write permissions in Artifactory to deploy a new SNAPSHOT.
 
 ### Modifying the pom.xml file
