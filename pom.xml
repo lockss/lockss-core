@@ -690,51 +690,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.jfrog.buildinfo</groupId>
-        <artifactId>artifactory-maven-plugin</artifactId>
-        <version>2.4.1</version>
-        <inherited>false</inherited>
-        <executions>
-          <execution>
-            <id>build-info</id>
-            <goals>
-              <goal>publish</goal>
-            </goals>
-            <configuration>
-              <deployProperties>
-                <groupId>${project.groupId}</groupId>
-                <artifactId>${project.artifactId}</artifactId>
-                <version>${project.version}</version>
-              </deployProperties>
-              <artifactory>
-                <includeEnvVars>true</includeEnvVars>
-                <timeoutSec>60</timeoutSec>
-                <propertiesFile>publish.properties</propertiesFile>
-              </artifactory>
-              <publisher>
-                <contextUrl>http://artifacts.lockss.org:8081/artifactory</contextUrl>
-                <username>${username}</username>
-                <password>${password}</password>
-                <repoKey>libs-release-local</repoKey>
-                <snapshotRepoKey>libs-snapshot-local</snapshotRepoKey>
-              </publisher>
-              <buildInfo>
-                <buildName>lockss-core</buildName>
-                <buildNumber>1</buildNumber>
-                <buildUrl>http://lockss.org</buildUrl>
-              </buildInfo>
-              <licenses>
-                <autoDiscover>true</autoDiscover>
-                <includePublishedArtifacts>false</includePublishedArtifacts>
-                <runChecks>true</runChecks>
-                <scopes>compile,runtime</scopes>
-                <violationRecipients>build@lockss.org</violationRecipients>
-              </licenses>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
     <resources>
       <resource>
@@ -766,4 +721,16 @@
       </testResource>
     </testResources>
   </build>
+  <distributionManagement>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <name>artifacts.lockss.org-snapshots</name>
+      <url>http://artifacts.lockss.org:8081/artifactory/libs-snapshot</url>
+    </snapshotRepository>
+    <repository>
+      <id>central</id>
+      <name>artifacts.lockss.org-releases</name>
+      <url>http://artifacts.lockss.org:8081/artifactory/libs-release</url>
+    </repository>
+  </distributionManagement>
 </project>
