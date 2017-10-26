@@ -213,13 +213,21 @@ public class TestCatalogueOrderComparator extends LockssTestCase {
     assertIsomorphic(titles, sort(tl));
   }
 
-  public void testIllType() {
-    try {
-      sort(ListUtil.list("foo", new Integer(1)));
-      fail("Should have thrown ClassCastException");
-    } catch (ClassCastException e) {
-    }
-  }
+  /*
+   * When ListUtil.list(...) returned a bare List, it was possible to call
+   * Collections.sort(...) with the bad input list and get a ClassCastException.
+   * But now that ListUtil.list(...) is parameterized, the compiler does not
+   * allow the call to Collections.sort(...) because it can tell that the
+   * input list is not List<String> yet the comparator is (ultimately)
+   * Comparator<String>.
+   */
+//  public void testIllType() {
+//    try {
+//      sort(ListUtil.list("foo", new Integer(1)));
+//      fail("Should have thrown ClassCastException");
+//    } catch (ClassCastException e) {
+//    }
+//  }
 
   public void testCache() {
     CountingCOC ccoc = new CountingCOC();
