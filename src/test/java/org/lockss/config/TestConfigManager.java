@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,16 +31,16 @@ package org.lockss.config;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 import org.lockss.protocol.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 import org.lockss.clockss.*;
 import org.lockss.config.Configuration;
 import org.lockss.config.Tdb;
-import org.lockss.config.TdbTitle;
-import org.lockss.plugin.*;
 import org.lockss.servlet.*;
 import static org.lockss.config.ConfigManager.*;
 
@@ -52,17 +48,19 @@ import static org.lockss.config.ConfigManager.*;
  * Test class for <code>org.lockss.config.ConfigManager</code>
  */
 
-public class TestConfigManager extends LockssTestCase {
+public class TestConfigManager extends LockssTestCase4 {
 
   ConfigManager mgr;
   MyConfigManager mymgr;
 
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     mgr = MyConfigManager.makeConfigManager();
     mymgr = (MyConfigManager)mgr;
   }
 
+  @After
   public void tearDown() throws Exception {
     super.tearDown();
   }
@@ -87,6 +85,7 @@ public class TestConfigManager extends LockssTestCase {
     return cf;
   }
 
+  @Test
   public void testParam() throws IOException, Configuration.InvalidParam {
     Configuration config = ConfigManager.newConfiguration();
     config.load(loadFCF(FileTestUtil.urlOfString(c2)));
@@ -102,7 +101,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals(554, CurrentConfig.getTimeIntervalParam("noparam", 554));
   }
 
-  boolean setCurrentConfigFromUrlList(List l) throws IOException {
+  boolean setCurrentConfigFromUrlList(List<String> l) throws IOException {
     Configuration config = mgr.readConfig(l);
     return mgr.installConfig(config);
   }
@@ -112,6 +111,7 @@ public class TestConfigManager extends LockssTestCase {
     return setCurrentConfigFromUrlList(ListUtil.list(FileTestUtil.urlOfString(s)));
   }
 
+  @Test
   public void testCurrentConfig() throws IOException {
     assertTrue(setCurrentConfigFromUrlList(ListUtil.
 					   list(FileTestUtil.urlOfString(c1),
@@ -127,6 +127,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("def", CurrentConfig.getParam("noprop", "def"));
   }
 
+  @Test
   public void testHaveConfig() throws IOException {
     assertFalse(mgr.haveConfig());
     String u1 = FileTestUtil.urlOfString(c1);
@@ -137,6 +138,7 @@ public class TestConfigManager extends LockssTestCase {
   volatile Configuration.Differences cbDiffs = null;
   List<Configuration> configs;
 
+  @Test
   public void testCallbackWhenRegister() throws IOException {
     configs = new ArrayList<Configuration>();
     setCurrentConfigFromUrlList(ListUtil.list(FileTestUtil.urlOfString(c1),
@@ -157,6 +159,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(cbDiffs.contains("everything"));
   }
 
+  @Test
   public void testCallback() throws IOException {
     Configuration.Callback cb = new Configuration.Callback() {
 	public void configurationChanged(Configuration newConfig,
@@ -202,6 +205,7 @@ public class TestConfigManager extends LockssTestCase {
 
   }
 
+  @Test
   public void testShouldParamBeLogged() {
     assertFalse(mgr.shouldParamBeLogged(PREFIX_TITLE_DB + "foo.xxx"));
     assertFalse(mgr.shouldParamBeLogged("org.lockss.titleSet.foo.xxx"));
@@ -217,6 +221,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(mgr.shouldParamBeLogged(PARAM_AUX_PROP_URLS));
   }
 
+  @Test
   public void testListDiffs() throws IOException {
     String xml1 = "<lockss-config>\n" +
       "<property name=\"org.lockss\">\n" +
@@ -305,6 +310,7 @@ public class TestConfigManager extends LockssTestCase {
     assertFalse(cbDiffs.contains("org.lockss.extra"));
   }
 
+  @Test
   public void testPlatformProps() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.platform.localIPAddress", "1.2.3.4");
@@ -320,6 +326,7 @@ public class TestConfigManager extends LockssTestCase {
 		 config.get(FileTarget.PARAM_FILE));
   }
 
+  @Test
   public void testPlatformConfig() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.platform.localIPAddress", "1.2.3.4");
@@ -331,6 +338,7 @@ public class TestConfigManager extends LockssTestCase {
 		 config.get("org.lockss.localV3Identity"));
   }
 
+  @Test
   public void testPlatformClockss() throws Exception {
     Properties props = new Properties();
     ConfigurationUtil.setCurrentConfigFromProps(props);
@@ -353,12 +361,14 @@ public class TestConfigManager extends LockssTestCase {
 		 config.get(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR));
   }
 
+  @Test
   public void testInitSocketFactoryNoKeystore() throws Exception {
     Configuration config = mgr.newConfiguration();
     mgr.initSocketFactory(config);
     assertNull(mgr.getSecureSocketFactory());
   }
 
+  @Test
   public void testInitSocketFactoryFilename() throws Exception {
     Configuration config = mgr.newConfiguration();
     config.put(PARAM_SERVER_AUTH_KEYSTORE_NAME, "/path/to/keystore");
@@ -371,6 +381,7 @@ public class TestConfigManager extends LockssTestCase {
     assertNull(fact.getClientAuthKeystoreName());
   }
 
+  @Test
   public void testInitSocketFactoryInternalKeystore() throws Exception {
     Configuration config = mgr.newConfiguration();
     config.put(PARAM_SERVER_AUTH_KEYSTORE_NAME, "lockss-ca");
@@ -384,6 +395,7 @@ public class TestConfigManager extends LockssTestCase {
     assertNull(fact.getClientAuthKeystoreName());
   }
 
+  @Test
   public void testInitNewConfiguration() throws Exception {
     mgr =  new ConfigManager(ListUtil.list("foo"), "group1;GROUP2");
     Configuration config = mgr.initNewConfiguration();
@@ -392,6 +404,7 @@ public class TestConfigManager extends LockssTestCase {
 		 config.getPlatformGroupList());
   }
 
+  @Test
   public void testGroup() throws Exception {
     Properties props = new Properties();
     ConfigurationUtil.setCurrentConfigFromProps(props);
@@ -408,6 +421,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // platform access not set, ui and proxy access not set
+  @Test
   public void testPlatformAccess0() throws Exception {
     Properties props = new Properties();
     ConfigurationUtil.setCurrentConfigFromProps(props);
@@ -417,6 +431,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // platform access not set, ui and proxy access set
+  @Test
   public void testPlatformAccess1() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.ui.access.ip.include", "1.2.3.0/22");
@@ -429,6 +444,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // platform access set, ui and proxy access not set
+  @Test
   public void testPlatformAccess2() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.platform.accesssubnet", "1.2.3.*");
@@ -439,6 +455,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // platform access set, ui and proxy access set globally, not locally
+  @Test
   public void testPlatformAccess3() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.platform.accesssubnet", "1.2.3.*");
@@ -453,6 +470,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // platform access set, ui and proxy access set locally
+  @Test
   public void testPlatformAccess4() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.platform.accesssubnet", "1.2.3.*");
@@ -469,6 +487,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // platform access set, ui and proxy access set locally
+  @Test
   public void testPlatformAccess5() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.platform.accesssubnet", "1.2.3.*;4.4.4.0/24");
@@ -482,6 +501,7 @@ public class TestConfigManager extends LockssTestCase {
 		 config.get("org.lockss.proxy.access.ip.include"));
   }
 
+  @Test
   public void testPlatformSpace1() throws Exception {
     String tmpdir = setUpDiskSpace();
     Configuration config = ConfigManager.getCurrentConfig();
@@ -489,6 +509,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals(tmpdir, config.get("org.lockss.history.location"));
   }
 
+  @Test
   public void testPlatformSpace2() throws Exception {
     String tmpdir1 = getTempDir().toString();
     String tmpdir2 = getTempDir().toString();
@@ -506,6 +527,7 @@ public class TestConfigManager extends LockssTestCase {
 		 config.get(org.lockss.truezip.TrueZipManager.PARAM_CACHE_DIR));
   }
 
+  @Test
   public void testPlatformSmtp() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.platform.smtphost", "smtp.example.com");
@@ -518,6 +540,7 @@ public class TestConfigManager extends LockssTestCase {
 		 config.get("org.lockss.mail.smtpport"));
   }
 
+  @Test
   public void testPlatformVersionConfig() throws Exception {
     Properties props = new Properties();
     props.put(ConfigManager.PARAM_PLATFORM_VERSION, "123");
@@ -528,6 +551,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("55", config.get("org.lockss.foo"));
   }
 
+  @Test
   public void testPlatformDifferentVersionConfig() throws Exception {
     Properties props = new Properties();
     props.put(ConfigManager.PARAM_PLATFORM_VERSION, "321");
@@ -538,6 +562,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("22", config.get("org.lockss.foo"));
   }
 
+  @Test
   public void testPlatformNoVersionConfig() throws Exception {
     Properties props = new Properties();
     props.put("org.lockss.foo", "11");
@@ -547,6 +572,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("11", config.get("org.lockss.foo"));
   }
 
+  @Test
   public void testFindRelDataDirNoDisks() throws Exception {
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  "");
@@ -558,6 +584,7 @@ public class TestConfigManager extends LockssTestCase {
     }
   }
 
+  @Test
   public void testFindRelDataDir1New() throws Exception {
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -569,6 +596,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(exp.exists());
   }
 
+  @Test
   public void testFindRelDataDir1Old() throws Exception {
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -581,6 +609,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(exp.exists());
   }
 
+  @Test
   public void testFindRelDataDirNNew() throws Exception {
     String tmpdir1 = getTempDir().toString();
     String tmpdir2 = getTempDir().toString();
@@ -599,6 +628,7 @@ public class TestConfigManager extends LockssTestCase {
     assertFalse(exp1.exists());
   }
 
+  @Test
   public void testFindRelDataDirNOld() throws Exception {
     String tmpdir1 = getTempDir().toString();
     String tmpdir2 = getTempDir().toString();
@@ -618,6 +648,7 @@ public class TestConfigManager extends LockssTestCase {
     assertFalse(exp1.exists());
   }
 
+  @Test
   public void testFindConfiguredDataDirAbsNew() throws Exception {
     String tmpdir = getTempDir().toString();
     File exp = new File(tmpdir, "rel1");
@@ -637,6 +668,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(exp2.exists());
   }
 
+  @Test
   public void testFindConfiguredDataDirAbsOld() throws Exception {
     String tmpdir = getTempDir().toString();
     File exp = new File(tmpdir, "rel1");
@@ -660,6 +692,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(exp2.exists());
   }
 
+  @Test
   public void testFindConfiguredDataDirRelNew() throws Exception {
     String tmpdir1 = getTempDir().toString();
     String tmpdir2 = getTempDir().toString();
@@ -684,6 +717,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(exp3.exists());
   }
 
+  @Test
   public void testFindConfiguredDataDirRelOld() throws Exception {
     String tmpdir1 = getTempDir().toString();
     String tmpdir2 = getTempDir().toString();
@@ -705,6 +739,7 @@ public class TestConfigManager extends LockssTestCase {
     assertFalse(exp1.exists());
   }
 
+  @Test
   public void testPlatformConfigDirSetup() throws Exception {
     String tmpdir = getTempDir().toString();
     Properties props = new Properties();
@@ -718,6 +753,7 @@ public class TestConfigManager extends LockssTestCase {
     Configuration config = CurrentConfig.getCurrentConfig();
   }
 
+  @Test
   public void testGetVersionString() throws Exception {
     Properties props = new Properties();
     props.put(ConfigManager.PARAM_PLATFORM_VERSION, "321");
@@ -755,16 +791,19 @@ public class TestConfigManager extends LockssTestCase {
     }
   }
 
+  @Test
   public void testMiscTmpdir() throws Exception {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, "/tmp/unlikely");
     assertEquals("/tmp/unlikely/dtmp", System.getProperty("java.io.tmpdir"));
   }
 
+  @Test
   public void testConfigVersionProp() {
     assertEquals("org.lockss.config.fileVersion.foo",
 		 ConfigManager.configVersionProp("foo"));
   }
 
+  @Test
   public void testCompatibilityParams() {
     Configuration config = ConfigManager.getCurrentConfig();
     assertEquals(null, config.get(AdminServletManager.PARAM_CONTACT_ADDR));
@@ -780,8 +819,7 @@ public class TestConfigManager extends LockssTestCase {
 		 config.get(AdminServletManager.PARAM_HELP_URL));
   }
 
-
-
+  @Test
   public void testWriteAndReadCacheConfigFile() throws Exception {
     String fname = "test-config";
     String tmpdir = getTempDir().toString();
@@ -807,6 +845,7 @@ public class TestConfigManager extends LockssTestCase {
 		 2, config2.keySet().size());
   }
 
+  @Test
   public void testCacheConfigFile() throws Exception {
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -828,6 +867,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("12345", config2.get("foo.bar"));
   }
 
+  @Test
   public void testExpertConfigFile() throws Exception {
     String tmpdir = getTempDir().toString();
     File pfile = new File(tmpdir, "props.txt");
@@ -864,6 +904,7 @@ public class TestConfigManager extends LockssTestCase {
     assertNull(config2.get(k3));
   }
 
+  @Test
   public void testExpertConfigFileDeny() throws Exception {
     String tmpdir = getTempDir().toString();
     File pfile = new File(tmpdir, "props.txt");
@@ -906,6 +947,7 @@ public class TestConfigManager extends LockssTestCase {
     assertNull(config2.get(k4));
   }
 
+  @Test
   public void testExpertConfigFileAllow() throws Exception {
     String tmpdir = getTempDir().toString();
     File pfile = new File(tmpdir, "props.txt");
@@ -944,6 +986,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("v3", config2.get(k3));
   }
 
+  @Test
   public void testExpertConfigFileBoth() throws Exception {
     String tmpdir = getTempDir().toString();
     File pfile = new File(tmpdir, "props.txt");
@@ -987,6 +1030,7 @@ public class TestConfigManager extends LockssTestCase {
     assertNull(config2.get(k4));
   }
 
+  @Test
   public void testExpertConfigDefaultDeny() throws Exception {
     mgr.updateConfig(Collections.EMPTY_LIST);
     assertTrue(mgr.isLegalExpertConfigKey("org.lockss.unrelated.param"));
@@ -1017,6 +1061,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
 
+  @Test
   public void testUpdateAuConfig() throws Exception {
     String tmpdir = getTempDir().toString();
     // establish cache config dir
@@ -1084,6 +1129,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("22", config.get("org.lockss.au.auid.bar"));
   }
 
+  @Test
   public void testBatchUpdateAuConfig() throws Exception {
     String tmpdir = getTempDir().toString();
     Configuration allConfig = ConfigManager.newConfiguration();
@@ -1155,6 +1201,7 @@ public class TestConfigManager extends LockssTestCase {
     assertWriteArgs(allConfig, "au.txt", null, true, mymgr.writeArgs.get(1));
   }
 
+  @Test
   public void testGetLocalFileDescrx() throws Exception {
     List<String> expNames =
       ListUtil.list(CONFIG_FILE_UI_IP_ACCESS,
@@ -1175,6 +1222,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals(expNames, names);
   }
 
+  @Test
   public void testGetLocalFileDescr() throws Exception {
     LocalFileDescr descr = mgr.getLocalFileDescr(CONFIG_FILE_EXPERT);
     assertEquals(CONFIG_FILE_EXPERT, descr.getName());
@@ -1194,6 +1242,7 @@ public class TestConfigManager extends LockssTestCase {
     }
   }
 
+  @Test
   public void testModifyCacheConfigFile() throws Exception {
     // Arbitrary config file
     final String FILE = ConfigManager.CONFIG_FILE_AU_CONFIG;
@@ -1244,6 +1293,7 @@ public class TestConfigManager extends LockssTestCase {
     }
   }
 
+  @Test
   public void testReadAuConfigFile() throws Exception {
     String tmpdir = getTempDir().toString();
     // establish cache config dir
@@ -1268,6 +1318,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("333", c2.get("org.lockss.au.fooauid.baz"));
   }
 
+  @Test
   public void testLoadTitleDb() throws IOException {
     String props =       
       "org.lockss.title.title1.title=Air & Space volume 3\n" +
@@ -1295,6 +1346,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals(1, tdb.getTdbAuCount());
   }
 
+  @Test
   public void testLoadAuxProps() throws IOException {
     String xml = "<lockss-config>\n" +
       "<property name=\"org.lockss\">\n" +
@@ -1312,6 +1364,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("1", config.get("a"));
   }
 
+  @Test
   public void testLoadAuxPropsRel() throws IOException {
     String xml = "<lockss-config>\n" +
       "<property name=\"org.lockss\">\n" +
@@ -1332,6 +1385,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("1", config.get("a"));
   }
 
+  @Test
   public void testFailedLoadDoesntSetHaveConfig() throws IOException {
     String u1 = "malformed://url/";
     assertFalse(mgr.waitConfig(Deadline.EXPIRED));
@@ -1340,6 +1394,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // Illegal title db key prevents loading the entire file.
+  @Test
   public void testLoadIllTitleDb() throws IOException {
     String u2 = FileTestUtil.urlOfString("org.lockss.notTitleDb.foo=bar\n" +
 					 "org.lockss.title.x.foo=bar");
@@ -1352,6 +1407,7 @@ public class TestConfigManager extends LockssTestCase {
   }
 
   // Illegal key in expert config file is ignored, rest of file loads.
+  @Test
   public void testLoadIllExpert() throws IOException {
     String u2 = FileTestUtil.urlOfString("org.lockss.notTitleDb.foo=bar\n" +
 					 "org.lockss.title.x.foo=bar");
@@ -1363,6 +1419,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("1", config.get("a"));
   }
 
+  @Test
   public void testIsChanged() throws IOException {
     List gens;
 
@@ -1378,6 +1435,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(mgr.isChanged(gens));
   }
 
+  @Test
   public void testLoadList() throws IOException {
     Configuration config = newConfiguration();
     List gens =
@@ -1391,6 +1449,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("yyy", config.get("prop4"));
   }
 
+  @Test
   public void testConnPool() throws IOException {
     LockssUrlConnectionPool pool = mgr.getConnectionPool();
     Configuration config = ConfigManager.newConfiguration();
@@ -1406,6 +1465,7 @@ public class TestConfigManager extends LockssTestCase {
     }
   }
 
+  @Test
   public void testXLockssInfo() throws IOException {
     TimeBase.setSimulated(1000);
     String u1 = FileTestUtil.urlOfString("org.lockss.foo=bar");
@@ -1428,6 +1488,7 @@ public class TestConfigManager extends LockssTestCase {
     assertMatchesRE("daemon=|built_on=", info);
   }
 
+  @Test
   public void testHasLocalCacheConfig() throws Exception {
     assertFalse(mgr.hasLocalCacheConfig());
     // set up local config dir
@@ -1459,6 +1520,7 @@ public class TestConfigManager extends LockssTestCase {
     assertTrue(mgr.hasLocalCacheConfig());
   }
 
+  @Test
   public void testFromProperties() throws Exception {
     Properties props = new Properties();
     props.put("foo", "23");
@@ -1469,6 +1531,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("false", config.get("bar"));
   }
 
+  @Test
   public void testRemoteConfigFailoverDisabled() throws Exception {
     String url1 = "http://one/xxx.xml";
 
@@ -1488,6 +1551,7 @@ public class TestConfigManager extends LockssTestCase {
     assertNull(mgr.getRemoteConfigFailoverFile(url1));
   }
 
+  @Test
   public void testRemoteConfigFailoverNotExist() throws Exception {
     String url1 = "http://one/xxx.xml";
 
@@ -1511,6 +1575,7 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals(null, mgr.getRemoteConfigFailoverFile(url1));
   }
 
+  @Test
   public void testRemoteConfigFailoverMap() throws Exception {
     String url1 = "http://one/xxx.xml";
     String url2 = "http://one/yyy.txt";
@@ -1552,6 +1617,49 @@ public class TestConfigManager extends LockssTestCase {
     assertMatchesRE("02-yyy.txt.gz$", pf2.getPath());
   }
 
+  @Test
+  public void testAddGenerationToListIfNotInIt() throws Exception {
+    Configuration config = ConfigManager.newConfiguration();
+    List<ConfigFile.Generation> targetList =
+	new ArrayList<ConfigFile.Generation>();
+    assertEquals(0, targetList.size());
+
+    ConfigFile cf1 = loadFCF(FileTestUtil.urlOfString(c1));
+    ConfigFile.Generation gen = new ConfigFile.Generation(cf1, config, 1);
+    mgr.addGenerationToListIfNotInIt(gen, targetList);
+    assertEquals(1, targetList.size());
+
+    mgr.addGenerationToListIfNotInIt(gen, targetList);
+    assertEquals(1, targetList.size());
+
+    ConfigFile cf2 = loadFCF(FileTestUtil.urlOfString(c2));
+    ConfigFile.Generation gen2 = new ConfigFile.Generation(cf2, config, 2);
+    mgr.addGenerationToListIfNotInIt(gen2, targetList);
+    assertEquals(2, targetList.size());
+    
+    mgr.addGenerationToListIfNotInIt(gen, targetList);
+    assertEquals(2, targetList.size());
+    mgr.addGenerationToListIfNotInIt(gen2, targetList);
+    assertEquals(2, targetList.size());
+
+    List<ConfigFile.Generation> sourceList =
+	new ArrayList<ConfigFile.Generation>();
+    mgr.addGenerationToListIfNotInIt(gen, sourceList);
+    mgr.addGenerationToListIfNotInIt(gen2, sourceList);
+    assertEquals(2, sourceList.size());
+
+    mgr.addGenerationsToListIfNotInIt(sourceList, targetList);
+    assertEquals(2, targetList.size());
+
+    ConfigFile cf3 = loadFCF(FileTestUtil.urlOfString(c1a));
+    ConfigFile.Generation gen3 = new ConfigFile.Generation(cf3, config, 3);
+    mgr.addGenerationToListIfNotInIt(gen3, sourceList);
+    assertEquals(3, sourceList.size());
+
+    mgr.addGenerationsToListIfNotInIt(sourceList, targetList);
+    assertEquals(3, targetList.size());
+  }
+
   private Configuration newConfiguration() {
     return new ConfigurationPropTreeImpl();
   }
@@ -1575,5 +1683,4 @@ public class TestConfigManager extends LockssTestCase {
       writeArgs.add(ListUtil.list(config, cacheConfigFileName, header, suppressReload));
     }
   }
-
 }

@@ -63,7 +63,6 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Create a ConfigFile for the URL
    */
   public BaseConfigFile(String url) {
-    System.out.println("BaseConfigFile(): url = " + url);
     if (StringUtil.endsWithIgnoreCase(url, ".xml") ||
 	StringUtil.endsWithIgnoreCase(url, ".xml.gz")) {
       m_fileType = ConfigFile.XML_FILE;
@@ -71,7 +70,6 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_fileType = ConfigFile.PROPERTIES_FILE;
     }
     m_fileUrl = url;
-    System.out.println("BaseConfigFile(): this = " + this);
   }
 
   void setConfigManager(ConfigManager configMgr) {
@@ -170,7 +168,10 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Reload the contents if changed.
    */
   protected void reload() throws IOException {
+    final String DEBUG_HEADER = "reload(): ";
     m_lastAttempt = TimeBase.nowMs();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "m_lastAttempt = " + m_lastAttempt);
     try {
       InputStream in = openInputStream();
       if (in != null) {
@@ -200,11 +201,14 @@ public abstract class BaseConfigFile implements ConfigFile {
   }
 
   protected void setConfigFrom(InputStream in) throws IOException {
+    final String DEBUG_HEADER = "setConfigFrom(): ";
     ConfigurationPropTreeImpl newConfig = new ConfigurationPropTreeImpl();
     try {
       Tdb tdb = new Tdb();
       PropertyTree propTree = newConfig.getPropertyTree();
-      
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "m_fileType = " + m_fileType);
+
       // Load the configuration
       if (m_fileType == XML_FILE) {
 	XmlPropertyLoader.load(propTree, tdb, in);
@@ -212,12 +216,18 @@ public abstract class BaseConfigFile implements ConfigFile {
 	propTree.load(in);
 	extractTdb(propTree, tdb);
       }
-      
+
+      if (log.isDebug3()) {
+	log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
+	log.debug3(DEBUG_HEADER + "tdb.isEmpty() = " + tdb.isEmpty());
+      }
+
       if (!tdb.isEmpty()) {
         newConfig.setTdb(tdb);
       }
 
       filterConfig(newConfig);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
       
       // update stored configuration atomically
       newConfig.seal();
@@ -225,6 +235,8 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_loadError = null;
       m_IOException = null;
       m_lastModified = calcNewLastModified();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "m_lastModified = " + m_lastModified);
       m_generation++;
       m_needsReload = false;
     } catch (IOException ex) {

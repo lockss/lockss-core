@@ -27,9 +27,16 @@
  */
 package org.lockss.config;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import org.apache.commons.io.input.ReaderInputStream;
+import org.lockss.rs.multipart.TextMultipartResponse;
+import org.lockss.rs.multipart.TextMultipartResponse.Part;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 
 /**
  * A ConfigFile loaded from a REST configuration service.
@@ -45,6 +52,7 @@ public class RestConfigFile extends BaseConfigFile {
   /** Return an InputStream open on the HTTP url.  If in accessible and a
       local copy of the remote file exists, failover to it. */
   protected InputStream openInputStream() throws IOException {
+    final String DEBUG_HEADER = "openInputStream(): ";
     if (m_cfgMgr == null) {
       throw new IOException("Null ConfigManager for RestConfigFile with URL '"
 	  + m_fileUrl + "'");
@@ -57,8 +65,45 @@ public class RestConfigFile extends BaseConfigFile {
 	  + "URL '" + m_fileUrl + "'");
     }
 
-    String responseBody = service.getResponseBody(m_fileUrl);
-    return service.getInputStreamFromResponseBody(responseBody);
+    TextMultipartResponse response =
+	service.callGetTextMultipartRequest(m_fileUrl);
+
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+    LinkedHashMap<String, Part> parts = response.getParts();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "parts = " + parts);
+
+    Part configDataPart = parts.get("config-data");
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
+
+    HttpHeaders partHeaders = configDataPart.getHeaders();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
+
+    String partPayload = configDataPart.getPayload();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "partPayload = " + partPayload);
+
+    StringReader payloadReader = new StringReader(partPayload);
+
+    lastModifiedString = partHeaders.getFirst("last-modified");
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
+
+    String isXmlHeader = partHeaders.getFirst("Is-Xml");
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "isXmlHeader = " + isXmlHeader);
+
+    boolean isXml = Boolean.parseBoolean(isXmlHeader);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "isXml = " + isXml);
+
+    if (isXml) {
+      m_fileType = XML_FILE;
+    }
+
+    return new ReaderInputStream(payloadReader, StandardCharsets.UTF_8);
   }
 
   protected String calcNewLastModified() {

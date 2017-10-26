@@ -64,33 +64,32 @@ public class ConfigCache {
    */
   public synchronized ConfigFile find(String url) {
     final String DEBUG_HEADER = "find(): ";
-    System.out.println(DEBUG_HEADER + "url = " + url);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
     ConfigFile cf = get(url);
-    System.out.println(DEBUG_HEADER + "cf = " + cf);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
     if (cf == null) {
       // doesn't yet exist in the cache, add it.
       log.debug2("Adding " + url);
       BaseConfigFile bcf;
       if (configMgr != null && configMgr.getConfigRestService() != null
 	  && configMgr.getConfigRestService().isPartOfThisService(url)) {
-	System.out.println(DEBUG_HEADER + "UrlUtil.isSameService(url) = true");
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is RestConfigFile.");
 	bcf = new RestConfigFile(url);
       } else if (UrlUtil.isHttpOrHttpsUrl(url)) {
-	System.out.println(DEBUG_HEADER + "UrlUtil.isHttpOrHttpsUrl(url) = true");
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is HTTPConfigFile.");
 	bcf = new HTTPConfigFile(url);
       } else if (UrlUtil.isJarUrl(url)) {
-	System.out.println(DEBUG_HEADER + "UrlUtil.isJarUrl(url) = true");
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is JarConfigFile.");
 	bcf = new JarConfigFile(url);
       } else {
-	System.out.println(DEBUG_HEADER + "UrlUtil.isHttpOrHttpsUrl(url) = false");
-	System.out.println(DEBUG_HEADER + "UrlUtil.isJarUrl(url) = false");
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is FileConfigFile.");
 	bcf = new FileConfigFile(url);
       }
       bcf.setConfigManager(configMgr);
       m_configMap.put(url, bcf);
       cf = bcf;
     }
-    System.out.println(DEBUG_HEADER + "cf = " + cf);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cf = " + cf);
     return cf;
   }
 

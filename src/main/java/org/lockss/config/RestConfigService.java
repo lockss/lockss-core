@@ -28,34 +28,26 @@
 package org.lockss.config;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
 import java.util.Vector;
-import org.lockss.util.LineEndingBufferedReader;
+import org.lockss.rs.multipart.TextMultipartConnector;
+import org.lockss.rs.multipart.TextMultipartResponse;
 import org.lockss.util.Logger;
-import org.lockss.util.ReaderInputStream;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/**
+ * A representation of the Configuration REST web service.
+ */
 public class RestConfigService {
   private static Logger log = Logger.getLogger(RestConfigService.class);
 
@@ -68,65 +60,74 @@ public class RestConfigService {
   private String servicePassword = null;
   private Integer serviceTimeout = new Integer(60);
 
+  /**
+   * Constructor.
+   * 
+   * @param restConfigServiceUrl
+   *          A String with the information necessary to access the
+   *          Configuration REST web service.
+   */
   public RestConfigService(String restConfigServiceUrl) {
     this.restConfigServiceUrl = restConfigServiceUrl;
+
+    // Save the individual components of the Configuration REST web service URL.
     parseRestConfigServiceUrl();
   }
 
+  /**
+   * Saves the individual components of the Configuration REST web service URL.
+   */
   private void parseRestConfigServiceUrl() {
     final String DEBUG_HEADER = "parseRestConfigServiceUrl(): ";
+
+    // Ignore missing information about the Configuration REST web service.
     if (StringUtil.isNullString(restConfigServiceUrl)) {
       return;
     }
 
     try {
       URL url = new URL(restConfigServiceUrl);
-      System.out.println("parseRestConfigServiceUrl(): url.getProtocol() = "
-	  + url.getProtocol());
-      System.out.println("parseRestConfigServiceUrl(): url.getAuthority() = "
-	  + url.getAuthority());
-      System.out.println("parseRestConfigServiceUrl(): url.getFile() = "
-	  + url.getFile());
-      System.out.println("parseRestConfigServiceUrl(): url.getHost() = "
-	  + url.getHost());
-      System.out.println("parseRestConfigServiceUrl(): url.getPath() = "
-	  + url.getPath());
-      System.out.println("parseRestConfigServiceUrl(): url.getPort() = "
-	  + url.getPort());
-      System.out.println("parseRestConfigServiceUrl(): url.getUserInfo() = "
-	  + url.getUserInfo());
 
+      // Get the passed credentials.
       String credentialsAsString = url.getUserInfo();
-//	  StringUtil.getTextBetween(restConfigServiceUrl, "://", "@");
-      System.out.println("parseRestConfigServiceUrl(): credentialsAsString = "
-	  + credentialsAsString);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "credentialsAsString = " + credentialsAsString);
 
+      // Check whether credentials were passed.
       if (StringUtil.isNullString(credentialsAsString)) {
+	// No.
 	serviceLocation = restConfigServiceUrl;
       } else {
+	// Yes: Parse them.
 	Vector<String> credentials =
 	    StringUtil.breakAt(credentialsAsString, ":");
 
 	if (credentials != null && credentials.size() > 0) {
 	  serviceUser = credentials.get(0);
-	  System.out.println("parseRestConfigServiceUrl(): serviceUser = "
-	      + serviceUser);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "serviceUser = " + serviceUser);
 
 	  if (credentials.size() > 1) {
 	    servicePassword = credentials.get(1);
-	    System.out.println("parseRestConfigServiceUrl(): servicePassword = "
-		+ servicePassword);
+	    if (log.isDebug3())
+	      log.debug3(DEBUG_HEADER + "servicePassword = " + servicePassword);
 	  }
 	}
 
+	// Get the service location.
 	serviceLocation = new URL(url.getProtocol(), url.getHost(),
 	    url.getPort(), url.getFile()).toString();
       }
     } catch (MalformedURLException mue) {
-      
+      log.error("Error parsing REST Configuration Service URL: "
+	  + mue.toString());
+
+      serviceLocation = null;
+      serviceUser = null;
+      servicePassword = null;
     }
 
-    log.info(DEBUG_HEADER + "serviceLocation = " + serviceLocation);
+    log.info("REST Configuration service location = " + serviceLocation);
   }
 
   /**
@@ -149,21 +150,28 @@ public class RestConfigService {
    */
   public boolean isPartOfThisService(String urlText) {
     try {
+      // Check whether the URL is neither HTTP nor HTTPS or points to a
+      // different host than this service.
       if (!UrlUtil.isHttpOrHttpsUrl(urlText)
 	  || !UrlUtil.isSameHost(urlText, restConfigServiceUrl)) {
+	// Yes.
 	return false;
       }
 
+      // No: Parse the location URLs to help comparing them.
       URL url = new URL(urlText);
       URL serviceLocation = new URL(restConfigServiceUrl);
 
       int urlPort = url.getPort();
       int servicePort = serviceLocation.getPort();
 
+      // Check whether the ports are identical.
       if (urlPort == servicePort) {
+	// Yes:
 	return true;
       }
 
+      // No: Handle default ports.
       return url.getProtocol() == serviceLocation.getProtocol()
 	  && url.getPort() == serviceLocation.getPort();
     } catch (MalformedURLException e) {
@@ -172,44 +180,20 @@ public class RestConfigService {
     }
   }
 
-  public String getResponseBody(String url) {
-    final String DEBUG_HEADER = "getResponseBody(): ";
+  /**
+   * Calls the service Text Multipart GET method with the given URL and provides
+   * the response.
+   * 
+   * @param url
+   *          String with the URL.
+   * @return a TextMultipartResponse with the response.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public TextMultipartResponse callGetTextMultipartRequest(String url)
+      throws IOException {
+    final String DEBUG_HEADER = "callGetTextMultipartRequest(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
-
-    // Initialize the request to the REST service.
-    RestTemplate restTemplate = new RestTemplate();
-
-    // Add the multipart/form-data converter to the set of default converters.
-    List<HttpMessageConverter<?>> messageConverters =
-	restTemplate.getMessageConverters();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "messageConverters = " + messageConverters);
-
-    for (HttpMessageConverter<?> hmc : messageConverters) {
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "hmc = " + hmc);
-      if (hmc instanceof MappingJackson2HttpMessageConverter) {
-	((MappingJackson2HttpMessageConverter)hmc).setSupportedMediaTypes(
-	    Arrays.asList(MediaType.MULTIPART_FORM_DATA));
-      }
-    }
-
-    // Specify the timeouts.
-    SimpleClientHttpRequestFactory requestFactory =
-	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
-
-    requestFactory.setReadTimeout(1000*serviceTimeout);
-    requestFactory.setConnectTimeout(1000*serviceTimeout);
-
-    // Initialize the request headers.
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-    headers.setAccept(Arrays.asList(MediaType.MULTIPART_FORM_DATA));
-
-    // Set the authentication credentials.
-    String credentials = serviceUser + ":" + servicePassword;
-    String authHeaderValue = "Basic " + Base64.getEncoder()
-    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
-    headers.set("Authorization", authHeaderValue);
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
@@ -217,68 +201,23 @@ public class RestConfigService {
 
     URI uri = UriComponentsBuilder.newInstance()
 	.uriComponents(uriComponents).build().encode().toUri();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
 
-    // Make the request to the REST service and get its response.
-    ResponseEntity<String> response = restTemplate.exchange(uri,
-	HttpMethod.GET, new HttpEntity<String>(null, headers), String.class);
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+    requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
+    requestHeaders.setAccept(Arrays.asList(MediaType.MULTIPART_FORM_DATA));
 
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+    // Set the authentication credentials.
+    String credentials = serviceUser + ":" + servicePassword;
+    String authHeaderValue = "Basic " + Base64.getEncoder()
+    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+    requestHeaders.set("Authorization", authHeaderValue);
 
-    String result = response.getBody();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
+    // Make the request and obtain the response.
+    TextMultipartResponse response = new TextMultipartConnector(uri,
+	requestHeaders).request(serviceTimeout, serviceTimeout);
 
-    return result;
-  }
-
-  public InputStream getInputStreamFromResponseBody(String responseBody)
-  throws IOException {
-    final String DEBUG_HEADER = "getInputStreamFromResponseBody(): ";
-
-    LineEndingBufferedReader lebr =
-	new LineEndingBufferedReader(new StringReader(responseBody));
-
-    String contentType = null;
-    String contentLength = null;
-
-    int ctCount = 0;
-    int emptyCount = 0;
-    String line = null;
-
-    while ((line = lebr.readLine()) != null) {
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "line = " + line);
-
-      if (line.startsWith("Content-Type: ")) {
-	if (ctCount > 0) {
-	  contentType = line.substring("Content-Type: ".length());
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "contentType = " + contentType);
-	} else {
-	  ctCount++;
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "ctCount = " + ctCount);
-	}
-      } else if ("\r\n".equals(line)) {
-	if (emptyCount > 0) {
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "Done with the header lines.");
-	  break;
-	} else {
-	  emptyCount++;
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "emptyCount = " + emptyCount);
-	}
-      } else if (line.startsWith("Content-Length: ")) {
-	contentLength = line.substring("Content-Length: ".length());
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
-      }
-    }
-
-    InputStream inputStream = new ReaderInputStream(lebr);
-    return inputStream;
+    return response;
   }
 
   public TdbAu getTdbAu(String auId) throws Exception {

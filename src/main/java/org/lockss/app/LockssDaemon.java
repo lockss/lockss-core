@@ -1136,8 +1136,10 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   /**
    * Main entry to the daemon.  Startup arguments:
    *
-   * -b url1
-   *     Load bootstrap properties from url1
+   * -b url
+   *     Load bootstrap properties from url
+   * -c url
+   *     The URL of a REST Configuration service
    * -p url1
    *     Load properties from url1
    * -p url1 -p url2;url3;url4
@@ -1199,8 +1201,8 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 
   /**
    * Command line startup options container.
-   * Currently supports bootstrap propUrl (-b), propUrl (-p),
-   * daemon groups (-g), security provider logging (-s)
+   * Currently supports bootstrap propUrl (-b), REST Configuration service url
+   * (-c), propUrl (-p), daemon groups (-g), security provider logging (-s)
    * and directory with XML prop files (-x) parameters.
    */
   public static class StartupOptions {

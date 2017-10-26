@@ -29,6 +29,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.io.*;
+import org.junit.Before;
+import org.junit.Test;
 import org.lockss.config.ConfigCache;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -37,11 +39,7 @@ import org.lockss.util.*;
  * Test class for <code>org.lockss.config.ConfigCache</code>
  */
 
-public class TestConfigCache extends LockssTestCase {
-  public static Class testedClasses[] = {
-    org.lockss.config.ConfigCache.class,
-  };
-
+public class TestConfigCache extends LockssTestCase4 {
   static Logger log = Logger.getLogger("TestConfigCache");
 
   private static final String config1 =
@@ -63,6 +61,7 @@ public class TestConfigCache extends LockssTestCase {
 
   ConfigCache cache;
 
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     cache = new ConfigCache(new ConfigManager(null, "http://localhost:1234",
@@ -72,6 +71,7 @@ public class TestConfigCache extends LockssTestCase {
   /*
    * Test methods.
    */
+  @Test
   public void testFind() throws IOException {
     String url = null;
 
@@ -89,6 +89,7 @@ public class TestConfigCache extends LockssTestCase {
     assertSame(cf, cache.get(url));
   }
 
+  @Test
   public void testSize() throws IOException {
     assertEquals(0, cache.size());
 

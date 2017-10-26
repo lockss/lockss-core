@@ -147,7 +147,7 @@ public class ConfigManager implements LockssManager {
   static final boolean DEFAULT_JSSE_ENABLESNIEXTENSION = true;
 
   /** Parameters whose values are more prop URLs */
-  static final Set URL_PARAMS =
+  static final Set<String> URL_PARAMS =
     SetUtil.set(PARAM_USER_TITLE_DB_URLS,
 		PARAM_TITLE_DB_URLS,
 		PARAM_AUX_PROP_URLS);
@@ -477,22 +477,14 @@ public class ConfigManager implements LockssManager {
 
   private List configUrlList;		// list of config file urls
   // XXX needs synchronization
-  private List titledbUrlList;		// global titledb urls
-  private List auxPropUrlList;		// auxilliary prop files
   private List pluginTitledbUrlList;	// list of titledb urls (usually
 					// jar:) specified by plugins
-  private List userTitledbUrlList;	// titledb urls added from UI
 
   private List<String> loadedUrls = Collections.EMPTY_LIST;
   private List<String> specUrls = Collections.EMPTY_LIST;
 
 
   private String groupNames;		// daemon group names
-
-  // Maps name of params holding included config URLs to the URL of the
-  // file in which it was set, to facilitate relative URL resolution
-  private Map<String,String> urlParamFile = new HashMap<String,String>();
-
   private String recentLoadError;
 
   // Platform config
@@ -900,6 +892,16 @@ public class ConfigManager implements LockssManager {
 					    boolean reload, String msg,
 					    KeyPredicate keyPred)
       throws IOException {
+    final String DEBUG_HEADER =
+	"getConfigGeneration(cf, required, reload, msg, keyPred): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "cf = " + cf);
+      log.debug2(DEBUG_HEADER + "required = " + required);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+      log.debug2(DEBUG_HEADER + "msg = " + msg);
+      log.debug2(DEBUG_HEADER + "keyPred = " + keyPred);
+    }
+
     try {
       cf.setConnectionPool(connPool);
       if (sendVersionInfo != null && "props".equals(msg)) {
@@ -914,6 +916,7 @@ public class ConfigManager implements LockssManager {
 	cf.setKeyPredicate(keyPred);
       }
       ConfigFile.Generation gen = cf.getGeneration();
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "gen = " + gen);
       return gen;
     } catch (IOException e) {
       String url = cf.getFileUrl();
@@ -940,7 +943,7 @@ public class ConfigManager implements LockssManager {
   public Configuration loadConfigFromFile(String url)
       throws IOException {
     final String DEBUG_HEADER = "loadConfigFromFile(): ";
-    System.out.println(DEBUG_HEADER + "url = " + url);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
     ConfigFile cf = new FileConfigFile(url);
     ConfigFile.Generation gen = cf.getGeneration();
     return gen.getConfig();
@@ -951,9 +954,10 @@ public class ConfigManager implements LockssManager {
     return (gen.getGeneration() != getGeneration(gen.getUrl()));
   }
 
-  boolean isChanged(Collection gens) {
-    for (Iterator iter = gens.iterator(); iter.hasNext(); ) {
-      ConfigFile.Generation gen = (ConfigFile.Generation)iter.next();
+  boolean isChanged(Collection<ConfigFile.Generation> gens) {
+    for (Iterator<ConfigFile.Generation> iter = gens.iterator();
+	iter.hasNext();) {
+      ConfigFile.Generation gen = iter.next();
       if (gen != null && isChanged(gen)) {
 	return true;
       }
@@ -961,10 +965,10 @@ public class ConfigManager implements LockssManager {
     return false;
   }
 
-  List getConfigGenerations(Collection urls, boolean required,
-			    boolean reload, String msg)
-      throws IOException {
-    final String DEBUG_HEADER = "getConfigGenerations(): ";
+  List<ConfigFile.Generation> getConfigGenerations(Collection urls,
+      boolean required, boolean reload, String msg) throws IOException {
+    final String DEBUG_HEADER =
+	"getConfigGenerations(urls, required, reload, msg): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "urls = " + urls);
       log.debug2(DEBUG_HEADER + "required = " + required);
@@ -975,19 +979,30 @@ public class ConfigManager implements LockssManager {
 				trueKeyPredicate);
   }
 
-  List getConfigGenerations(Collection urls, boolean required,
-			    boolean reload, String msg,
-			    KeyPredicate keyPred)
+  List<ConfigFile.Generation> getConfigGenerations(Collection urls,
+      boolean required, boolean reload, String msg, KeyPredicate keyPred)
       throws IOException {
+    final String DEBUG_HEADER =
+	"getConfigGenerations(urls, required, reload, msg, keyPred): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + "required = " + required);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+      log.debug2(DEBUG_HEADER + "msg = " + msg);
+      log.debug2(DEBUG_HEADER + "keyPred = " + keyPred);
+    }
 
     if (urls == null) return Collections.EMPTY_LIST;
-    List res = new ArrayList(urls.size());
+    List<ConfigFile.Generation> res =
+	new ArrayList<ConfigFile.Generation>(urls.size());
     for (Object o : urls) {
       ConfigFile.Generation gen;
       if (o instanceof ConfigFile) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is ConfigFile.");
 	gen = getConfigGeneration((ConfigFile)o, required, reload, msg,
 				  keyPred);
       } else if (o instanceof LocalFileDescr) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is LocalFileDescr.");
 	LocalFileDescr lfd = (LocalFileDescr)o;
 	String filename = lfd.getFile().toString();
 	Predicate includePred = lfd.getIncludePredicate();
@@ -1000,40 +1015,195 @@ public class ConfigManager implements LockssManager {
 	}
 	gen = getConfigGeneration(filename, required, reload, msg, pred);
       } else {
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "Neither ConfigFile nor LocalFileDescr.");
 	String url = o.toString();
 	gen = getConfigGeneration(url, required, reload, msg, keyPred);
       }
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
       if (gen != null) {
-	res.add(gen);
+	addGenerationToListIfNotInIt(gen, res);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
+	addReferencedUrls(gen, required, reload, msg, keyPred, res);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
       }
     }
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
     return res;
   }
 
-  List getStandardConfigGenerations(List urls, boolean reload)
-      throws IOException {
-    List res = new ArrayList(20);
+  /**
+   * Adds a generation to a list only if it's not in the list yet.
+   * 
+   * @param gen
+   *          A ConfigFile.Generation with the generation to be added.
+   * @param genList
+   *          A List<ConfigFile.Generation> with the list to which to add the
+   *          passed generation.
+   */
+  void addGenerationToListIfNotInIt(ConfigFile.Generation gen,
+      List<ConfigFile.Generation> genList) {
+    final String DEBUG_HEADER = "addGenerationToListIfNotInIt(): ";
+    // The URL of the generation to  be added.
+    String url = gen.getUrl();
 
-    List configGens = getConfigGenerations(urls, true, reload, "props");
-    res.addAll(configGens);
+    // Loop through all the generations already in the list.
+    for (ConfigFile.Generation existingGen : genList) {
+      // Check whether it is the same generation as the one to be added.
+      if (url.equals(existingGen.getUrl())) {
+	// Yes: Do not add it.
+	log.info(DEBUG_HEADER + "Not adding to the list generation = " + gen
+	    + " because is a duplicate of existing generation = "
+	    + existingGen);
+	return;
+      }
+    }
 
-    res.addAll(getConfigGenerations(auxPropUrlList, false, reload,
-				    "auxilliary props"));
-    res.addAll(getConfigGenerations(titledbUrlList, false, reload,
-				    "global titledb", titleDbOnlyPred));
-    res.addAll(getConfigGenerations(pluginTitledbUrlList, false, reload,
-				    "plugin-bundled titledb",
-				    titleDbOnlyPred));
-    res.addAll(getConfigGenerations(userTitledbUrlList, false, reload,
-				    "user title DBs", titleDbOnlyPred));
+    // Add the generation to the list because it's not there already.
+    genList.add(gen);
+  }
+
+  /**
+   * Adds to a target list any generation from a source list that it's not in
+   * the target list yet.
+   *
+   * @param sourceGenList
+   *          A List<ConfigFile.Generation> with the source list of generations.
+   * @param targetGenList
+   *          A List<ConfigFile.Generation> with the target list of generations.
+   */
+  void addGenerationsToListIfNotInIt(
+      List<ConfigFile.Generation> sourceGenList,
+      List<ConfigFile.Generation> targetGenList) {
+    // Loop through all the generations in the source list.
+    for (ConfigFile.Generation genToAdd : sourceGenList) {
+      // Add it to the target list if not there already.
+      addGenerationToListIfNotInIt(genToAdd, targetGenList);
+    }
+  }
+
+  /**
+   * Adds to a list of generations those other generations referenced by a
+   * source generation.
+   * 
+   * @param gen
+   *          A ConfigFile.Generation with the generation that may have
+   *          references to other generations.
+   * @param required
+   *          A boolean with an indication of whether the generation is
+   *          required.
+   * @param reload
+   *          A boolean with an indication of whether a reload is necessary.
+   * @param msg
+   *          A String with a message.
+   * @param keyPred
+   *          A KeyPredicate with the predicate.
+   * @param targetList
+   *          A List<ConfigFile.Generation> where to add the referenced
+   *          generations.
+   * @throws IOException
+   *           if there are problems.
+   */
+  void addReferencedUrls(ConfigFile.Generation gen, boolean required,
+      boolean reload, String msg, KeyPredicate keyPred,
+      List<ConfigFile.Generation> targetList) throws IOException {
+    final String DEBUG_HEADER = "addReferencedUrls(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "gen = " + gen);
+      log.debug2(DEBUG_HEADER + "required = " + required);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+      log.debug2(DEBUG_HEADER + "msg = " + msg);
+      log.debug2(DEBUG_HEADER + "keyPred = " + keyPred);
+      log.debug2(DEBUG_HEADER + "targetList = " + targetList);
+    }
+
+    // URL base for relative URLs.
+    String base = gen.getUrl();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "base = " + base);
+
+    // The configuration with potential references.
+    Configuration config = gen.getConfig();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "config = " + config);
+
+    // Loop through all the referencing option keys. 
+    for (String includingKey : URL_PARAMS) {
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "includingKey = " + includingKey);
+
+      // Check whether the configuration with potential references contains this
+      // option.
+      if (config.containsKey(includingKey)) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Found references.");
+
+	// Get the configuration values under this key. 
+	Vector<String> urls = StringUtil.breakAt(config.get(includingKey), ';');
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "urls = " + urls);
+
+	// Ignore an empty value.
+	if (urls.size() == 0) {
+	  log.warning(includingKey + " has empty value");
+	  continue;
+	}
+
+	// Resolve the URLs obtained, if necessary.
+	Collection<String> resolvedUrls = new ArrayList<String>(urls.size());
+	for (String url : urls) {
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
+	  String resolvedUrl = resolveConfigUrl(base, url);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
+	  resolvedUrls.add(resolvedUrl);
+	}
+
+	// Add the generations of the resolved URLs to the list, if not there
+	// already.
+	if (includingKey.equals(PARAM_AUX_PROP_URLS)) {
+	  addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
+	      false, reload, "auxilliary props", keyPred), targetList);
+	} else if (includingKey.equals(PARAM_USER_TITLE_DB_URLS)) {
+	  addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
+	      false, reload, "user title DBs", titleDbOnlyPred), targetList);
+	} else {
+	  addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
+	      false, reload, "global titledb", titleDbOnlyPred), targetList);
+	}
+
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "targetList = " + targetList);
+      } else {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "No references found.");
+      }
+    }
+  }
+
+  List<ConfigFile.Generation> getStandardConfigGenerations(List urls,
+      boolean reload) throws IOException {
+    final String DEBUG_HEADER = "getStandardConfigGenerations(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+    }
+
+    List<ConfigFile.Generation> res = new ArrayList<ConfigFile.Generation>(20);
+
+    List<ConfigFile.Generation> configGens =
+	getConfigGenerations(urls, true, reload, "props");
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "configGens = " + configGens);
+
+    addGenerationsToListIfNotInIt(configGens, res);
+
+    addGenerationsToListIfNotInIt(getConfigGenerations(pluginTitledbUrlList,
+	false, reload, "plugin-bundled titledb", titleDbOnlyPred), res);
     initCacheConfig(configGens);
-    res.addAll(getCacheConfigGenerations(reload));
+    addGenerationsToListIfNotInIt(getCacheConfigGenerations(reload), res);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
     return res;
   }
 
-  List getCacheConfigGenerations(boolean reload) throws IOException {
-    List localGens = getConfigGenerations(getLocalFileDescrs(), false, reload,
-					  "cache config");
+  List<ConfigFile.Generation> getCacheConfigGenerations(boolean reload)
+      throws IOException {
+    List<ConfigFile.Generation> localGens = getConfigGenerations(
+	getLocalFileDescrs(), false, reload, "cache config");
     if (!localGens.isEmpty()) {
       hasLocalCacheConfig = true;
     }
@@ -1049,10 +1219,10 @@ public class ConfigManager implements LockssManager {
 
   public boolean updateConfig(List urls) {
     final String DEBUG_HEADER = "updateConfig(List): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
     needImmediateReload = false;
     boolean res = updateConfigOnce(urls, true);
     if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "urls.size() = " + urls.size());
       log.debug3(DEBUG_HEADER + "needImmediateReload = " + needImmediateReload);
       log.debug3(DEBUG_HEADER + "res = " + res);
     }
@@ -1065,7 +1235,7 @@ public class ConfigManager implements LockssManager {
     connPool.closeIdleConnections(0);
     updateRemoteConfigFailover();
 
-    if (log.isDebug2()) log.debug3(DEBUG_HEADER + "res = " + res);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
     return res;
   }
 
@@ -1081,7 +1251,13 @@ public class ConfigManager implements LockssManager {
 
   public boolean updateConfigOnce(List urls, boolean reload) {
     final String DEBUG_HEADER = "updateConfigOnce(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+    }
     startUpdateTime = TimeBase.nowMs();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "currentConfig = " + currentConfig);
     if (currentConfig.isEmpty()) {
       // first load preceded by platform config setup
       setupPlatformConfig(urls);
@@ -1107,6 +1283,8 @@ public class ConfigManager implements LockssManager {
       return false;
     }
 
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "!isChanged(gens) = " + !isChanged(gens));
     if (!isChanged(gens)) {
       if (reloadInterval >= 10 * Constants.MINUTE) {
 	log.info("Config up to date, not updated");
@@ -1115,14 +1293,9 @@ public class ConfigManager implements LockssManager {
     }
     Configuration newConfig = initNewConfiguration();
     loadList(newConfig, gens);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
 
     boolean did = installConfig(newConfig, gens);
-    if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "reload = " + reload);
-      log.debug3(DEBUG_HEADER + "sendVersionInfo = " + sendVersionInfo);
-      log.debug3(DEBUG_HEADER + "gens.size() = " + gens.size());
-      log.debug3(DEBUG_HEADER + "did = " + did);
-    }
     long tottime = TimeBase.msSince(startUpdateTime);
     long cbtime = TimeBase.msSince(startCallbacksTime);
     if (did) {
@@ -1186,27 +1359,25 @@ public class ConfigManager implements LockssManager {
 
   void loadList(Configuration intoConfig,
 		Collection<ConfigFile.Generation> gens) {
+    final String DEBUG_HEADER = "loadList(): ";
+    if (log.isDebug3()) {
+      log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
+      log.debug3(DEBUG_HEADER + "gens = " + gens);
+    }
     for (ConfigFile.Generation gen : gens) {
       if (gen != null) {
-	// Remember the URL of the file in which any parameter whose value
-	// might be a (list of) relative URL(s) is found
-	final String url = gen.getUrl();
-	Configuration.ParamCopyEvent pse = null;
-	if (UrlUtil.isUrl(url)) {
-	  pse = new Configuration.ParamCopyEvent() {
-	      public void paramCopied(String name,
-				      String val){
-		if (URL_PARAMS.contains(name)) {
-		  urlParamFile.put(name, url);
-		}
-	      }};
-	    }
-	intoConfig.copyFrom(gen.getConfig(), pse);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
+	intoConfig.copyFrom(gen.getConfig(), null);
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
       }
     }
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   void setupPlatformConfig(List urls) {
+    final String DEBUG_HEADER = "setupPlatformConfig(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
     Configuration platConfig = initNewConfiguration();
     for (Iterator iter = urls.iterator(); iter.hasNext();) {
       Object o = iter.next();
@@ -1216,6 +1387,7 @@ public class ConfigManager implements LockssManager {
       } else {
 	cf = configCache.find(o.toString());
       }
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
       if (cf.isPlatformFile()) {
 	try {
 	  if (log.isDebug3()) {
@@ -1223,6 +1395,8 @@ public class ConfigManager implements LockssManager {
 	  }
 	  cf.setNeedsReload();
 	  platConfig.load(cf);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "platConfig = " + platConfig);
 	} catch (IOException e) {
 	  log.warning("Couldn't preload platform file " + cf.getFileUrl(), e);
 	}
@@ -1237,6 +1411,7 @@ public class ConfigManager implements LockssManager {
     platformConfig = platConfig;
     initCacheConfig(platConfig);
     setUpRemoteConfigFailover();
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   // If a keystore was specified for 
@@ -1300,7 +1475,13 @@ public class ConfigManager implements LockssManager {
   }
 
   boolean installConfig(Configuration newConfig, List gens) {
+    final String DEBUG_HEADER = "installConfig(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "newConfig = " + newConfig);
+      log.debug2(DEBUG_HEADER + "gens = " + gens);
+    }
     if (newConfig == null) {
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning false.");
       return false;
     }
     copyPlatformParams(newConfig);
@@ -1314,6 +1495,7 @@ public class ConfigManager implements LockssManager {
 	log.info("Config unchanged, not updated");
       }
       updateGenerations(gens);
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning false.");
       return false;
     }
 
@@ -1325,6 +1507,7 @@ public class ConfigManager implements LockssManager {
     recordConfigLoaded(newConfig, oldConfig, diffs, gens);
     startCallbacksTime = TimeBase.nowMs();
     runCallbacks(newConfig, oldConfig, diffs);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning true.");
     return true;
   }
 
@@ -1339,6 +1522,12 @@ public class ConfigManager implements LockssManager {
   public void configurationChanged(Configuration config,
 				   Configuration oldConfig,
 				   Configuration.Differences changedKeys) {
+    final String DEBUG_HEADER = "configurationChanged(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "config = " + config);
+      log.debug2(DEBUG_HEADER + "oldConfig = " + oldConfig);
+      log.debug2(DEBUG_HEADER + "changedKeys = " + changedKeys);
+    }
 
     if (changedKeys.contains(MYPREFIX)) {
       reloadInterval = config.getTimeInterval(PARAM_RELOAD_INTERVAL,
@@ -1353,48 +1542,14 @@ public class ConfigManager implements LockssManager {
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
       platVer = null;
     }
-
-    // check for presence of title db url keys on first load, as
-    // changedKeys.containsKey() is true of all keys then and would lead to
-    // always reloading the first time.
-    if (oldConfig.isEmpty()
-	? (config.containsKey(PARAM_USER_TITLE_DB_URLS)
-	   || config.containsKey(PARAM_TITLE_DB_URLS)
-	   || config.containsKey(PARAM_AUX_PROP_URLS))
-	: (changedKeys.contains(PARAM_USER_TITLE_DB_URLS)
-	   || changedKeys.contains(PARAM_TITLE_DB_URLS)
-	   || changedKeys.contains(PARAM_AUX_PROP_URLS))) {
-      userTitledbUrlList =
-	resolveConfigUrls(config, PARAM_USER_TITLE_DB_URLS);
-      titledbUrlList = resolveConfigUrls(config, PARAM_TITLE_DB_URLS);
-      auxPropUrlList = resolveConfigUrls(config, PARAM_AUX_PROP_URLS);
-      log.debug("titledbUrlList: " + titledbUrlList +
-		", userTitledbUrlList: " + userTitledbUrlList +
-		", auxPropUrlList: " + auxPropUrlList);
-      // Currently this requires a(nother immediate) reload.
-      needImmediateReload = true;
-    }
-  }
-
-  List<String> resolveConfigUrls(Configuration config, String param) {
-    List<String> urls = config.getList(param);
-    if (urls.isEmpty()) {
-      return urls;
-    }
-    String base = urlParamFile.get(param);
-    if (base != null) {
-      ArrayList res = new ArrayList(urls.size());
-      for (String url : urls) {
-	res.add(resolveConfigUrl(base, url));
-      }
-      return res;
-    } else {
-      log.error("URL param has no base URL: " + param);
-      return urls;
-    }
   }
 
   String resolveConfigUrl(String base, String configUrl) {
+    final String DEBUG_HEADER = "resolveConfigUrl(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "base = " + base);
+      log.debug2(DEBUG_HEADER + "configUrl = " + configUrl);
+    }
     try {
       return UrlUtil.resolveUri(base, configUrl);
     } catch (MalformedURLException e) {
@@ -1404,12 +1559,21 @@ public class ConfigManager implements LockssManager {
   }
 
   private void buildLoadedFileLists(List<ConfigFile.Generation> gens) {
+    final String DEBUG_HEADER = "buildLoadedFileLists(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "gens = " + gens);
     if (gens != null && !gens.isEmpty()) {
       List<String> specNames = new ArrayList<String>(gens.size());
       List<String> loadedNames = new ArrayList<String>(gens.size());
       for (ConfigFile.Generation gen : gens) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
 	if (gen != null) {
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	      + "gen.getConfigFile().getLoadedUrl() = "
+	      + gen.getConfigFile().getLoadedUrl());
 	  loadedNames.add(gen.getConfigFile().getLoadedUrl());
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	      + "gen.getConfigFile().getFileUrl() = "
+	      + gen.getConfigFile().getFileUrl());
 	  specNames.add(gen.getConfigFile().getFileUrl());
 	}
       }
@@ -2076,6 +2240,9 @@ public class ConfigManager implements LockssManager {
    */
   public Configuration readCacheConfigFile(String cacheConfigFileName)
       throws IOException {
+    final String DEBUG_HEADER = "readCacheConfigFile(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "cacheConfigFileName = " + cacheConfigFileName);
 
     if (cacheConfigDir == null) {
       log.warning("Attempting to read cache config file: " +
@@ -2084,8 +2251,11 @@ public class ConfigManager implements LockssManager {
     }
 
     String cfile = new File(cacheConfigDir, cacheConfigFileName).toString();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cfile = " + cfile);
     ConfigFile cf = configCache.find(cfile);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
     Configuration res = cf.getConfiguration();
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
     return res;
   }
 
