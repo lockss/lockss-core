@@ -147,11 +147,23 @@ public class ConfigManager implements LockssManager {
   static final boolean DEFAULT_JSSE_ENABLESNIEXTENSION = true;
 
   /** Parameters whose values are more prop URLs */
-  static final Set<String> URL_PARAMS =
-    SetUtil.set(PARAM_USER_TITLE_DB_URLS,
-		PARAM_TITLE_DB_URLS,
-		PARAM_AUX_PROP_URLS);
+  static final Map<String, Map<String, Object>> URL_PARAMS;
+  static
+  {
+    URL_PARAMS = new HashMap<String, Map<String, Object>>();
 
+    Map<String, Object> auxPropsMap = new HashMap<String, Object>();
+    auxPropsMap.put("message", "auxilliary props");
+    URL_PARAMS.put(PARAM_AUX_PROP_URLS, auxPropsMap);
+
+    Map<String, Object> userTitleDbMap = new HashMap<String, Object>();
+    auxPropsMap.put("message", "user title DBs");
+    URL_PARAMS.put(PARAM_USER_TITLE_DB_URLS, userTitleDbMap);
+
+    Map<String, Object> globalTitleDbMap = new HashMap<String, Object>();
+    auxPropsMap.put("message", "global titledb");
+    URL_PARAMS.put(PARAM_TITLE_DB_URLS, globalTitleDbMap);
+  }
   /** Tmp dir appropriate for platform.  If set, replaces java.io.tmpdir
    * System property */
   public static final String PARAM_TMPDIR = PLATFORM + "tmpDir";
@@ -502,7 +514,6 @@ public class ConfigManager implements LockssManager {
   private HandlerThread handlerThread; // reload handler thread
 
   private ConfigCache configCache;
-  private volatile boolean needImmediateReload = false;
   private LockssUrlConnectionPool connPool = new LockssUrlConnectionPool();
   private LockssSecureSocketFactory secureSockFact;
 
@@ -516,11 +527,15 @@ public class ConfigManager implements LockssManager {
 
   private String bootstrapPropsUrl; // The daemon bootstrap properties URL.
 
-  // The Configuration REST web service.
-  private RestConfigService configRestService = null;
+  // The Configuration REST web service client.
+  private RestConfigClient restConfigClient = null;
 
   public ConfigManager() {
     this(null, null);
+
+    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
+    URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
+    URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
   }
 
   public ConfigManager(List urls) {
@@ -538,7 +553,7 @@ public class ConfigManager implements LockssManager {
   public ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
       List urls, String groupNames) {
     this.bootstrapPropsUrl = bootstrapPropsUrl;
-    this.configRestService = new RestConfigService(restConfigServiceUrl);
+    this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
     if (urls != null) {
       configUrlList = new ArrayList(urls);
     }
@@ -944,7 +959,7 @@ public class ConfigManager implements LockssManager {
       throws IOException {
     final String DEBUG_HEADER = "loadConfigFromFile(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
-    ConfigFile cf = new FileConfigFile(url);
+    ConfigFile cf = new FileConfigFile(url, this);
     ConfigFile.Generation gen = cf.getGeneration();
     return gen.getConfig();
   }
@@ -1126,7 +1141,7 @@ public class ConfigManager implements LockssManager {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "config = " + config);
 
     // Loop through all the referencing option keys. 
-    for (String includingKey : URL_PARAMS) {
+    for (String includingKey : URL_PARAMS.keySet()) {
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "includingKey = " + includingKey);
 
@@ -1136,7 +1151,7 @@ public class ConfigManager implements LockssManager {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Found references.");
 
 	// Get the configuration values under this key. 
-	Vector<String> urls = StringUtil.breakAt(config.get(includingKey), ';');
+	List<String> urls = config.getList(includingKey);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "urls = " + urls);
 
 	// Ignore an empty value.
@@ -1157,16 +1172,15 @@ public class ConfigManager implements LockssManager {
 
 	// Add the generations of the resolved URLs to the list, if not there
 	// already.
-	if (includingKey.equals(PARAM_AUX_PROP_URLS)) {
-	  addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
-	      false, reload, "auxilliary props", keyPred), targetList);
-	} else if (includingKey.equals(PARAM_USER_TITLE_DB_URLS)) {
-	  addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
-	      false, reload, "user title DBs", titleDbOnlyPred), targetList);
-	} else {
-	  addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
-	      false, reload, "global titledb", titleDbOnlyPred), targetList);
-	}
+	String message = (String)(URL_PARAMS.get(includingKey).get("message"));
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "message = " + message);
+	ConfigManager.KeyPredicate keyPredicate = (ConfigManager.KeyPredicate)
+	    (URL_PARAMS.get(includingKey).get("predicate"));
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "keyPredicate = " + keyPredicate);
+
+	addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
+	    false, reload, message, keyPredicate), targetList);
 
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "targetList = " + targetList);
@@ -1220,15 +1234,8 @@ public class ConfigManager implements LockssManager {
   public boolean updateConfig(List urls) {
     final String DEBUG_HEADER = "updateConfig(List): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
-    needImmediateReload = false;
     boolean res = updateConfigOnce(urls, true);
-    if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "needImmediateReload = " + needImmediateReload);
-      log.debug3(DEBUG_HEADER + "res = " + res);
-    }
-    if (res && needImmediateReload) {
-      updateConfigOnce(urls, false);
-    }
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
     if (res) {
       haveConfig.fill();
     }
@@ -2984,12 +2991,12 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
-   * Provides the Configuration REST service.
+   * Provides the Configuration REST service client.
    *
-   * @return a ConfigRestService with the Configuration REST service.
+   * @return a RestConfigClient with the Configuration REST service client.
    */
-  public RestConfigService getConfigRestService() {
-    return configRestService;
+  public RestConfigClient getRestConfigClient() {
+    return restConfigClient;
   }
 
   /**
@@ -3015,12 +3022,12 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && configRestService != null) {
+    if (tdbAu == null && restConfigClient != null) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
 	// service.
-	TdbAu newTdbAu = configRestService.getTdbAu(auId);
+	TdbAu newTdbAu = restConfigClient.getTdbAu(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
 	newTdbAu.prettyLog(2);
 
@@ -3082,12 +3089,12 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && configRestService != null) {
+    if (tdbAu == null && restConfigClient != null) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
 	// service.
-	TdbAu newTdbAu = configRestService.getTdbAu(auId);
+	TdbAu newTdbAu = restConfigClient.getTdbAu(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
 	newTdbAu.prettyLog(2);
 
@@ -3157,9 +3164,9 @@ public class ConfigManager implements LockssManager {
     // Check whether no Archival Unit configuration was found.
     if (auConfig == null) {
       // Yes: Try to get it from the REST Configuration service.
-      if (configRestService != null) {
+      if (restConfigClient != null) {
 	try {
-	  auConfig = configRestService.getAuConfig(auId);
+	  auConfig = restConfigClient.getAuConfig(auId);
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
 	} catch (Exception e) {

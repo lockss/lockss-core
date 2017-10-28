@@ -80,7 +80,7 @@ public class TestConfigManager extends LockssTestCase4 {
     "otherprop.p3.b=foo\n";
 
   private ConfigFile loadFCF(String url) throws IOException {
-    FileConfigFile cf = new FileConfigFile(url);
+    FileConfigFile cf = new FileConfigFile(url,null);
     cf.reload();
     return cf;
   }

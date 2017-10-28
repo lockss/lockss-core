@@ -436,7 +436,7 @@ public class TestConfigFile {
     protected ConfigFile makeConfigFile(String contents, boolean isXml)
 	throws IOException {
       expectedUrl = FileTestUtil.urlOfString(contents, suff(isXml));
-      return new FileConfigFile(expectedUrl);
+      return new FileConfigFile(expectedUrl, null);
     }
 
     protected void updateLastModified(ConfigFile cf, long time)
@@ -454,14 +454,14 @@ public class TestConfigFile {
 
     @Test
     public void testNotFound() throws IOException {
-      doTestCantRead(new FileConfigFile("/file/not/found"),
+      doTestCantRead(new FileConfigFile("/file/not/found", null),
 		   "FileNotFoundException");
     }
 
     @Test
     public void testGzip() throws IOException {
       FileConfigFile fcf =
-	new FileConfigFile(gzippedTempFileUrl(text1, ".txt"));
+	new FileConfigFile(gzippedTempFileUrl(text1, ".txt"), null);
       Configuration config = fcf.getConfiguration();
       assertTrue(fcf.isLoaded());
       assertEquals("foo", config.get("prop.1"));
@@ -472,7 +472,7 @@ public class TestConfigFile {
     @Test
     public void testGzipXml() throws IOException {
       FileConfigFile fcf =
-	new FileConfigFile(gzippedTempFileUrl(xml1, ".xml"));
+	new FileConfigFile(gzippedTempFileUrl(xml1, ".xml"), null);
       Configuration config = fcf.getConfiguration();
       assertTrue(fcf.isLoaded());
       assertEquals("foo", config.get("prop.7"));
@@ -521,10 +521,11 @@ public class TestConfigFile {
 
     @Test
     public void testRestConfigFile() throws Exception {
-      RestConfigFile rcf = new RestConfigFile("http://localhost:1234/rcf1");
       ConfigManager configMgr = new MyConfigManager(getTempDir(), null,
 	  "http://localhost:1234", null, null);
-      assertTrue(configMgr.getConfigRestService()
+      RestConfigFile rcf =
+	  new RestConfigFile("http://localhost:1234/rcf1", configMgr);
+      assertTrue(configMgr.getRestConfigClient()
 	  .isPartOfThisService(rcf.getFileUrl()));
     }
   }
@@ -542,7 +543,7 @@ public class TestConfigFile {
       entries.put(entryName, contents);
       JarTestUtils.createStringJar(jarName, entries);
       expectedUrl = UrlUtil.makeJarFileUrl(jarName, entryName);
-      return new JarConfigFile(expectedUrl);
+      return new JarConfigFile(expectedUrl, null);
     }
 
     protected void updateLastModified(ConfigFile cf, long time)
@@ -562,7 +563,7 @@ public class TestConfigFile {
     public void testNotFound() throws IOException {
       JarConfigFile jcf;
 
-      jcf = new JarConfigFile("jar:file:///file/not/found!/who.cares");
+      jcf = new JarConfigFile("jar:file:///file/not/found!/who.cares",null);
       doTestCantRead(jcf, "(ZipException|FileNotFoundException)");
 
       String jarName = getTempDir().getAbsolutePath() +
@@ -571,7 +572,7 @@ public class TestConfigFile {
       entries.put("foo.bar", "bletch");
       JarTestUtils.createStringJar(jarName, entries);
       String url = UrlUtil.makeJarFileUrl(jarName, "no.such.entry");
-      jcf = new JarConfigFile(url);
+      jcf = new JarConfigFile(url, null);
       doTestCantRead(jcf, "FileNotFoundException");
     }
   }
@@ -886,13 +887,13 @@ public class TestConfigFile {
     }
 
     public MyHttpConfigFile(String url, String content) {
-      super(url);
+      super(url, null);
       map.put(url, content);
       lastModified = TestConfigFileParent.dateString(TimeBase.nowMs());
     }
 
     public MyHttpConfigFile(String url, InputStream content) {
-      super(url);
+      super(url, null);
       map.put(url, content);
       lastModified = TestConfigFileParent.dateString(TimeBase.nowMs());
     }

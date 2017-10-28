@@ -46,10 +46,10 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * A representation of the Configuration REST web service.
+ * A client representation of the Configuration REST web service.
  */
-public class RestConfigService {
-  private static Logger log = Logger.getLogger(RestConfigService.class);
+public class RestConfigClient {
+  private static Logger log = Logger.getLogger(RestConfigClient.class);
 
   // The REST configuration service URL.
   private String restConfigServiceUrl;
@@ -67,7 +67,7 @@ public class RestConfigService {
    *          A String with the information necessary to access the
    *          Configuration REST web service.
    */
-  public RestConfigService(String restConfigServiceUrl) {
+  public RestConfigClient(String restConfigServiceUrl) {
     this.restConfigServiceUrl = restConfigServiceUrl;
 
     // Save the individual components of the Configuration REST web service URL.

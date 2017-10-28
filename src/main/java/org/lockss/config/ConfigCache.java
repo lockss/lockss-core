@@ -71,21 +71,20 @@ public class ConfigCache {
       // doesn't yet exist in the cache, add it.
       log.debug2("Adding " + url);
       BaseConfigFile bcf;
-      if (configMgr != null && configMgr.getConfigRestService() != null
-	  && configMgr.getConfigRestService().isPartOfThisService(url)) {
+      if (configMgr != null && configMgr.getRestConfigClient() != null
+	  && configMgr.getRestConfigClient().isPartOfThisService(url)) {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is RestConfigFile.");
-	bcf = new RestConfigFile(url);
+	bcf = new RestConfigFile(url, configMgr);
       } else if (UrlUtil.isHttpOrHttpsUrl(url)) {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is HTTPConfigFile.");
-	bcf = new HTTPConfigFile(url);
+	bcf = new HTTPConfigFile(url, configMgr);
       } else if (UrlUtil.isJarUrl(url)) {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is JarConfigFile.");
-	bcf = new JarConfigFile(url);
+	bcf = new JarConfigFile(url, configMgr);
       } else {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is FileConfigFile.");
-	bcf = new FileConfigFile(url);
+	bcf = new FileConfigFile(url, configMgr);
       }
-      bcf.setConfigManager(configMgr);
       m_configMap.put(url, bcf);
       cf = bcf;
     }

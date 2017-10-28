@@ -36,6 +36,7 @@ import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 /**
  * A representation of an HTTP Multipart response where the payload is text.
@@ -46,6 +47,37 @@ public class TextMultipartResponse {
   private HttpStatus statusCode;
   private HttpHeaders responseHeaders;
   private LinkedHashMap<String, Part> parts = new LinkedHashMap<String, Part>();
+
+  /**
+   * Default constructor.
+   */
+  public TextMultipartResponse() {
+  }
+
+  /**
+   * Constructor using a multipart response.
+   * 
+   * @param response
+   *          A ResponseEntity<String> with the multipart response.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public TextMultipartResponse(ResponseEntity<String> response)
+      throws IOException {
+    final String DEBUG_HEADER = "TextMultipartResponse(response): ";
+
+    // Populate the status code.
+    statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+    // Populate the response headers.
+    responseHeaders = response.getHeaders();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "responseHeaders = " + responseHeaders);
+
+    // Parse the response body.
+    parseResponseBody(response.getBody());
+  }
 
   /**
    * Provides the status code of the response.

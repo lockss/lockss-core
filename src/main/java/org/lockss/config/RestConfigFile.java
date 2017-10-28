@@ -37,6 +37,7 @@ import org.lockss.rs.multipart.TextMultipartResponse;
 import org.lockss.rs.multipart.TextMultipartResponse.Part;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 
 /**
  * A ConfigFile loaded from a REST configuration service.
@@ -45,11 +46,19 @@ public class RestConfigFile extends BaseConfigFile {
 
   private String lastModifiedString = null;
 
-  public RestConfigFile(String url) {
-    super(url);
+  /**
+   * Constructor.
+   *
+   * @param url
+   *          A String withe the URL of the file.
+   * @param cfgMgr
+   *          A ConfigManager with the configuration manager.
+   */
+  public RestConfigFile(String url, ConfigManager cfgMgr) {
+    super(url, cfgMgr);
   }
 
-  /** Return an InputStream open on the HTTP url.  If in accessible and a
+  /** Return an InputStream open on the HTTP url.  If inaccessible and a
       local copy of the remote file exists, failover to it. */
   protected InputStream openInputStream() throws IOException {
     final String DEBUG_HEADER = "openInputStream(): ";
@@ -58,15 +67,15 @@ public class RestConfigFile extends BaseConfigFile {
 	  + m_fileUrl + "'");
     }
 
-    RestConfigService service = m_cfgMgr.getConfigRestService();
+    RestConfigClient serviceClient = m_cfgMgr.getRestConfigClient();
 
-    if (service == null) {
-      throw new IOException("Null ConfigRestService for RestConfigFile with "
-	  + "URL '" + m_fileUrl + "'");
+    if (serviceClient == null) {
+      throw new RuntimeException("Null RestConfigClient for RestConfigFile "
+	  + "with URL '" + m_fileUrl + "'");
     }
 
     TextMultipartResponse response =
-	service.callGetTextMultipartRequest(m_fileUrl);
+	serviceClient.callGetTextMultipartRequest(m_fileUrl);
 
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
@@ -92,15 +101,14 @@ public class RestConfigFile extends BaseConfigFile {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
 
-    String isXmlHeader = partHeaders.getFirst("Is-Xml");
+    String contentType = partHeaders.getFirst("Content-Type");
     if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "isXmlHeader = " + isXmlHeader);
+      log.debug3(DEBUG_HEADER + "contentType = " + contentType);
 
-    boolean isXml = Boolean.parseBoolean(isXmlHeader);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "isXml = " + isXml);
-
-    if (isXml) {
+    if (MediaType.TEXT_XML_VALUE.equals(contentType)) {
       m_fileType = XML_FILE;
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "m_fileType = " + m_fileType);
     }
 
     return new ReaderInputStream(payloadReader, StandardCharsets.UTF_8);

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,7 +30,6 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.zip.*;
-
 import org.lockss.util.*;
 
 /**
@@ -45,8 +40,8 @@ import org.lockss.util.*;
 public class FileConfigFile extends BaseConfigFile {
   private File m_fileFile;
 
-  public FileConfigFile(String url)  {
-    super(url);
+  public FileConfigFile(String url, ConfigManager cfgMgr)  {
+    super(url, cfgMgr);
     m_fileFile = makeFile();
   }
 

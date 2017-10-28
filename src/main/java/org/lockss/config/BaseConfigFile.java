@@ -30,7 +30,6 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
-
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
@@ -62,7 +61,7 @@ public abstract class BaseConfigFile implements ConfigFile {
   /**
    * Create a ConfigFile for the URL
    */
-  public BaseConfigFile(String url) {
+  public BaseConfigFile(String url, ConfigManager cfgMgr) {
     if (StringUtil.endsWithIgnoreCase(url, ".xml") ||
 	StringUtil.endsWithIgnoreCase(url, ".xml.gz")) {
       m_fileType = ConfigFile.XML_FILE;
@@ -70,6 +69,7 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_fileType = ConfigFile.PROPERTIES_FILE;
     }
     m_fileUrl = url;
+    m_cfgMgr = cfgMgr;
   }
 
   void setConfigManager(ConfigManager configMgr) {

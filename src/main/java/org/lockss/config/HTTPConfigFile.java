@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2001-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,7 +35,6 @@ import java.util.zip.GZIPOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import org.apache.commons.io.input.TeeInputStream;
-
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 import org.lockss.hasher.*;
@@ -71,12 +66,11 @@ public class HTTPConfigFile extends BaseConfigFile {
 
   private LockssUrlConnectionPool m_connPool;
   private boolean checkAuth = false;
-  private boolean charsetUtil = true;
   private MessageDigest chkDig;
   private String chkAlg;
 
-  public HTTPConfigFile(String url) {
-    super(url);
+  public HTTPConfigFile(String url, ConfigManager cfgMgr) {
+    super(url, cfgMgr);
   }
 
   public void setConnectionPool(LockssUrlConnectionPool connPool) {
@@ -313,7 +307,7 @@ public class HTTPConfigFile extends BaseConfigFile {
 	log.info("Couldn't load remote config URL: " + m_fileUrl +
 		 ": " + e.toString());
 	log.info("Substituting local copy created: " + new Date(date));
-	failoverFcf = new FileConfigFile(failoverFile.getPath());
+	failoverFcf = new FileConfigFile(failoverFile.getPath(), m_cfgMgr);
 	m_loadedUrl = failoverFile.getPath();
       }
       return failoverFcf.openInputStream();

@@ -35,7 +35,6 @@ import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -110,7 +109,7 @@ public class TextMultipartConnector {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Obtained response.");
 
     // Parse the response and return it.
-    return parseResponse(response);
+    return new TextMultipartResponse(response);
   }
 
   /**
@@ -150,40 +149,5 @@ public class TextMultipartConnector {
     requestFactory.setReadTimeout(1000*readTimeout);
 
     return restTemplate;
-  }
-
-  /**
-   * Parses the Multipart response.
-   * 
-   * @param response
-   *          A ResponseEntity<String> with the response from the REST service.
-   * @return a TextMultipartResponse with the parsed response.
-   * @throws IOException
-   *           if there are problems.
-   */
-  private TextMultipartResponse parseResponse(ResponseEntity<String> response)
-      throws IOException {
-    final String DEBUG_HEADER = "parseResponse(): ";
-
-    // Initialize the parsed response.
-    TextMultipartResponse multipartResponse = new TextMultipartResponse();
-
-    // Populate the status code.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
-
-    multipartResponse.setStatusCode(statusCode);
-
-    // Populate the response headers.
-    HttpHeaders responseHeaders = response.getHeaders();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "responseHeaders = " + responseHeaders);
-
-    multipartResponse.setResponseHeaders(responseHeaders);
-
-    // Parse the response body.
-    multipartResponse.parseResponseBody(response.getBody());
-
-    return multipartResponse;
   }
 }
