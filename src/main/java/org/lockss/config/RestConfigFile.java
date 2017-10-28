@@ -63,8 +63,8 @@ public class RestConfigFile extends BaseConfigFile {
   protected InputStream openInputStream() throws IOException {
     final String DEBUG_HEADER = "openInputStream(): ";
     if (m_cfgMgr == null) {
-      throw new IOException("Null ConfigManager for RestConfigFile with URL '"
-	  + m_fileUrl + "'");
+      throw new RuntimeException("Null ConfigManager for RestConfigFile with "
+	  + "URL '" + m_fileUrl + "'");
     }
 
     RestConfigClient serviceClient = m_cfgMgr.getRestConfigClient();
