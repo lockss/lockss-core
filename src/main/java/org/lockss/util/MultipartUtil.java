@@ -2,20 +2,25 @@ package org.lockss.util;
 
 import java.io.*;
 
-import org.apache.commons.collections4.map.*;
-import org.apache.http.*;
-import org.apache.http.impl.io.*;
+import javax.activation.DataSource;
+import javax.mail.MessagingException;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 
 public class MultipartUtil {
+
+  public static final String MULTIPART_FORM_DATA = "multipart/form-data";
   
-  public static MultipartResponse parseMultipartResponse(InputStream inputStream)
-      throws HttpException, IOException {
-    SessionInputBufferImpl sessionInputBuffer = new SessionInputBufferImpl(new HttpTransportMetricsImpl(), 8192);
-    sessionInputBuffer.bind(inputStream);
-    DefaultHttpResponseParser httpMessageParser = new DefaultHttpResponseParser(sessionInputBuffer);
-    HttpResponse httpResponse = httpMessageParser.parse();
-    Header[] responseHeaders = httpResponse.getAllHeaders();
-    return null;
+  public static MimeMultipart parse(InputStream inputStream)
+      throws IOException, MessagingException {
+    return parse(inputStream, MULTIPART_FORM_DATA);
+  }
+  
+  public static MimeMultipart parse(InputStream inputStream,
+                                    String mimeType)
+      throws IOException, MessagingException {
+    DataSource dataSource = new ByteArrayDataSource(inputStream, mimeType);
+    return new MimeMultipart(dataSource);
   }
   
 }
