@@ -32,27 +32,55 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.util;
 
-import java.io.*;
+import java.io.IOException;
+import java.util.*;
 
-import javax.activation.DataSource;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMultipart;
-import javax.mail.util.ByteArrayDataSource;
 
-public class MultipartUtil {
+import org.springframework.http.*;
+import org.springframework.http.converter.*;
 
-  public static final String MULTIPART_FORM_DATA = "multipart/form-data";
+public class MimeMultipartHttpMessageConverter implements HttpMessageConverter<MimeMultipart> {
+
+  public static final List<MediaType> SUPPORTED_MEDIA_TYPES =
+      Collections.unmodifiableList(Arrays.asList(MediaType.MULTIPART_FORM_DATA));
   
-  public static MimeMultipart parse(InputStream inputStream)
-      throws IOException, MessagingException {
-    return parse(inputStream, MULTIPART_FORM_DATA);
+  @Override
+  public boolean canRead(Class<?> clazz, MediaType mediaType) {
+    return clazz.isAssignableFrom(MimeMultipart.class);
   }
-  
-  public static MimeMultipart parse(InputStream inputStream,
-                                    String mimeType)
-      throws IOException, MessagingException {
-    DataSource dataSource = new ByteArrayDataSource(inputStream, mimeType);
-    return new MimeMultipart(dataSource);
+
+  @Override
+  public boolean canWrite(Class<?> clazz, MediaType mediaType) {
+    return clazz.isAssignableFrom(MimeMultipart.class);
   }
-  
+
+  @Override
+  public List<MediaType> getSupportedMediaTypes() {
+    return SUPPORTED_MEDIA_TYPES;
+  }
+
+  @Override
+  public MimeMultipart read(Class<? extends MimeMultipart> clazz, HttpInputMessage inputMessage)
+      throws IOException, HttpMessageNotReadableException {
+    try {
+      return MultipartUtil.parse(inputMessage.getBody());
+    }
+    catch (MessagingException me) {
+      throw new HttpMessageNotReadableException("Error reading HTTP message", me);
+    }
+  }
+
+  @Override
+  public void write(MimeMultipart mimeMultipart, MediaType contentType, HttpOutputMessage outputMessage)
+      throws IOException, HttpMessageNotWritableException {
+    try {
+      mimeMultipart.writeTo(outputMessage.getBody());
+    }
+    catch (MessagingException me) {
+      throw new HttpMessageNotWritableException("Error writing HTTP message", me);
+    }
+  }
+
 }
