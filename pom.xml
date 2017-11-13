@@ -41,10 +41,11 @@
       <artifactId>derbynet</artifactId>
       <version>10.9.1.0</version>
     </dependency>
+    <!--  Needed by org.lockss.util.MultipartUtil and org.lockss.util.MimeMultipartHttpMessageConverter -->
     <dependency>
-      <groupId>javax.mail</groupId>
-      <artifactId>mailapi</artifactId>
-      <version>1.4.3</version>
+        <groupId>com.sun.mail</groupId>
+        <artifactId>javax.mail</artifactId>
+        <version>1.6.0</version>
     </dependency>
     <dependency>
       <groupId>javax.activation</groupId>
@@ -485,7 +486,7 @@
     <dependency>
       <groupId>commons-fileupload</groupId>
       <artifactId>commons-fileupload</artifactId>
-      <version>1.3.2</version>
+      <version>1.3.3</version>
     </dependency>
     <dependency>
       <groupId>org.owasp.esapi</groupId>
