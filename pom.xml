@@ -735,6 +735,19 @@
       <snapshots><enabled>true</enabled></snapshots>
     </repository>
   </repositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>lockss-releases</id>
+      <name>Lockss Releases Maven Repo</name>
+      <url>http://artifacts.lockss.org:8081/artifactory/libs-release</url>
+    </pluginRepository>
+    <pluginRepository>
+      <id>lockss-snapshots</id>
+      <name>Lockss Snapshot Maven Repo</name>
+      <url>http://artifacts.lockss.org:8081/artifactory/libs-snapshot</url>
+      <snapshots><enabled>true</enabled></snapshots>
+    </pluginRepository>
+  </pluginRepositories>
   <distributionManagement>
     <snapshotRepository>
       <id>snapshots</id>
