@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/lockss/lockss-core.svg?branch=master)](https://travis-ci.org/lockss/lockss-core)
 ##  LOCKSS Core Library
 The library used by all LAAWS service containing the core Lockss-daemon functionality.
 
