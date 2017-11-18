@@ -54,7 +54,7 @@ public class TestTitleSetXpath extends LockssTestCase {
   MockPlugin mp1;
   MockPlugin mp2;
   TitleConfig tc1, tc2, tc3, tc4, tc5, tc6;
-  List titles;
+  List<TitleConfig> titles;
 
   public void setUp() throws Exception {
     super.setUp();
