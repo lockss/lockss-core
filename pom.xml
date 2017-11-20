@@ -22,6 +22,10 @@
     <skip.unit.tests>false</skip.unit.tests>
     <jacoco.skip.instrument>true</jacoco.skip.instrument>
     <jacoco.percentage.instruction>0.16</jacoco.percentage.instruction>
+
+    <loglevel>info</loglevel>
+    <outputtofile>true</outputtofile>
+    <trimstack>false</trimstack>
   </properties>
 
   <dependencies>
@@ -609,12 +613,13 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.20.1</version>
         <configuration>
-          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <redirectTestOutputToFile>${outputtofile}</redirectTestOutputToFile>
           <forkCount>1.0C</forkCount>
           <reuseForks>false</reuseForks>
+	  <trimStackTrace>${trimstack}</trimStackTrace>
           <systemPropertyVariables>
             <org.lockss.unitTesting>true</org.lockss.unitTesting>
-            <org.lockss.log.default.level>info</org.lockss.log.default.level>
+            <org.lockss.defaultLogLevel>${loglevel}</org.lockss.defaultLogLevel>
             <org.lockss.defaultLogTarget>org.lockss.util.StdErrTarget</org.lockss.defaultLogTarget>
           </systemPropertyVariables>
         </configuration>
