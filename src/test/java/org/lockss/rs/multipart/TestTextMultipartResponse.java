@@ -27,44 +27,30 @@
  */
 package org.lockss.rs.multipart;
 
-import java.io.IOException;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.lockss.rs.multipart.TextMultipartResponse.Part;
 import org.lockss.test.LockssTestCase4;
-import org.springframework.http.HttpHeaders;
 
 /**
  * Test class for org.lockss.rs.multipart.TestTextMultipartResponse.
  */
 public class TestTextMultipartResponse extends LockssTestCase4 {
-  @Test
-  public void testGetBoundaryFromContentTypeHeader() throws IOException {
-    assertNull(getBoundaryFromContentTypeHeader("multipart/form-data"));
-    assertNull(getBoundaryFromContentTypeHeader("multipart/form-data;"));
-    assertNull(getBoundaryFromContentTypeHeader(
-	"multipart/form-data boundary="));
-    assertEquals("",
-	getBoundaryFromContentTypeHeader("multipart/form-data; boundary="));
-
-    String boundary = "RNe0BIAreyG6O17qrdIpjVea1nbzrn460UR5A";
-    assertEquals(boundary, getBoundaryFromContentTypeHeader(
-	"multipart/form-data; boundary=" + boundary));
-    assertEquals(boundary, getBoundaryFromContentTypeHeader(
-	"boundary=" + boundary + ";multipart/form-data"));
-    assertEquals(boundary, getBoundaryFromContentTypeHeader(
-	"multipart/form-data; boundary=" + boundary + "; abcd"));
-  }
-
+  /**
+   * Tests the extraction of the part name from the Content-Disposition header.
+   */
   @Test
   public void testGetPartNameFromContentDispositionHeader() {
     assertNull(getPartNameFromContentDispositionHeader("form-data"));
     assertNull(getPartNameFromContentDispositionHeader("form-data;"));
     assertNull(getPartNameFromContentDispositionHeader("form-data name="));
-    assertEquals("",
-	getPartNameFromContentDispositionHeader("form-data; name=\"\""));
 
-    String name = "config-data";
+    String name = "";
+    assertEquals(name, getPartNameFromContentDispositionHeader(
+	"form-data; name=\"" + name + "\""));
+
+    name = "config-data";
     assertEquals(name, getPartNameFromContentDispositionHeader(
 	"form-data; name=\"" + name + "\""));
     assertEquals(name, getPartNameFromContentDispositionHeader(
@@ -73,19 +59,67 @@ public class TestTextMultipartResponse extends LockssTestCase4 {
 	"form-data; name=\"" + name + "\";abcd"));
   }
 
+  /**
+   * Provides the part name given a Content-Disposition header.
+   * 
+   * @param contentDisposition
+   *          A String with the Content-Disposition header.
+   * @return a String with the part name.
+   */
+  private String getPartNameFromContentDispositionHeader(
+      String contentDisposition) {
+    return createPart(contentDisposition)
+	.getPartNameFromContentDispositionHeader(contentDisposition);
+  }
+
+  /**
+   * Creates a part given a Content-Disposition header.
+   * 
+   * @param contentDisposition
+   *          A String with the Content-Disposition header.
+   * @return a Part with the created part.
+   */
+  private Part createPart(String contentDisposition) {
+    Map<String, String> headers = new HashMap<String, String>();
+    headers.put("Content-Disposition", contentDisposition);
+
+    Part part = new Part();
+    part.setHeaders(headers);
+
+    return part;
+  }
+
+  /**
+   * Tests the definition of a part name.
+   */
   @Test
   public void testGetName() {
     assertNull(getName("form-data"));
     assertNull(getName("form-data;"));
     assertNull(getName("form-data name="));
-    assertEquals("", getName("form-data; name=\"\""));
 
-    String name = "config-data";
+    String name = "";
+    assertEquals(name, getName("form-data; name=\"" + name + "\""));
+
+    name = "config-data";
     assertEquals(name, getName("form-data; name=\"" + name + "\""));
     assertEquals(name, getName("name=\"" + name + "\";form-data"));
     assertEquals(name, getName("form-data; name=\"" + name + "\";abcd"));
   }
 
+  /**
+   * Provides the name of a part given a Content-Disposition header.
+   * @param contentDisposition
+   *          A String with the Content-Disposition header.
+   * @return a String with the part name.
+   */
+  private String getName(String contentDisposition) {
+    return createPart(contentDisposition).getName();
+  }
+
+  /**
+   * Tests the addition of parts.
+   */
   @Test
   public void testAddPart() {
     TextMultipartResponse response = new TextMultipartResponse();
@@ -125,150 +159,15 @@ public class TestTextMultipartResponse extends LockssTestCase4 {
     assertEquals("config-data", part.getName());
   }
 
-  @Test
-  public void testParseResponseBody() throws IOException {
-    TextMultipartResponse response =
-	createTextMultipartResponse("multipart/form-data", "");
-    assertEquals(0, response.getParts().size());
-
-    response =
-	createTextMultipartResponse("multipart/form-data; boundary=", "");
-    assertEquals(0, response.getParts().size());
-
-    response =
-	createTextMultipartResponse("multipart/form-data; boundary=", "");
-    assertEquals(0, response.getParts().size());
-
-    String boundary = "RNe0BIAreyG6O17qrdIpjVea1nbzrn460UR5A";
-    String contentType = "multipart/form-data; boundary=" + boundary;
-
-    response = createTextMultipartResponse(contentType, "");
-    assertEquals(0, response.getParts().size());
-
-    String body = "--" + boundary;
-
-    try {
-      response = createTextMultipartResponse(contentType, body);
-      fail("Should have thrown IOException: Premature end of body");
-    } catch (IOException ioe) {
-      assertEquals("Premature end of body", ioe.getMessage());
-    }
-
-    assertEquals(0, response.getParts().size());
-
-    String payload1 = "testKey1=testValue3" + System.lineSeparator()
-    + "org.lockss.config.fileVersion.expert_config=1" + System.lineSeparator()
-    + "org.lockss.log.WarcExploder.level=info" + System.lineSeparator()
-    + System.lineSeparator();
-
-    String payload2 = "This is a test" + System.lineSeparator();
-
-    body = body + System.lineSeparator()
-    + "Content-Disposition: form-data; name=\"config-data\""
-    + System.lineSeparator()
-    + "Content-Type: text/html" + System.lineSeparator()
-    + "Is-Xml: false" + System.lineSeparator()
-    + "last-modified: 1508428538000" + System.lineSeparator()
-    + "Content-Length: 105" + System.lineSeparator()
-    + System.lineSeparator()
-    + payload1
-    + "--" + boundary + System.lineSeparator()
-    + "Content-Disposition: form-data; name=\"test-sig\""
-    + System.lineSeparator()
-    + "Content-Type: application/octet-stream" + System.lineSeparator()
-    + "Content-Length: 14" + System.lineSeparator()
-    + System.lineSeparator()
-    + payload2;
-
-    try {
-      response = createTextMultipartResponse(contentType, body);
-      fail("Should have thrown IOException: Premature end of body");
-    } catch (IOException ioe) {
-      assertEquals("Premature end of body", ioe.getMessage());
-    }
-
-    assertEquals(0, response.getParts().size());
-
-    body = body + "--" + boundary + "--" + System.lineSeparator();
-    response = createTextMultipartResponse(contentType, body);
-    LinkedHashMap<String, Part> parts = response.getParts();
-    assertEquals(2, parts.size());
-
-    int i = 0;
-
-    for (String key : parts.keySet()) {
-      if (i == 0) {
-	assertEquals("config-data", key);
-      } else {
-	assertEquals("test-sig", key);
-      }
-
-      Part part = parts.get(key);
-      assertEquals(key, part.getName());
-
-      HttpHeaders headers = part.getHeaders();
-      String payload = part.getPayload();
-
-      if (i == 0) {
-	assertEquals("text/html", headers.getFirst("Content-Type"));
-	assertEquals("false", headers.getFirst("Is-Xml"));
-	assertEquals("1508428538000", headers.getFirst("last-modified"));
-	assertEquals("105", headers.getFirst("Content-Length"));
-	assertEquals(payload1, payload);
-      } else {
-	assertEquals("application/octet-stream",
-	    headers.getFirst("Content-Type"));
-	assertFalse(headers.containsKey("Is-Xml"));
-	assertFalse(headers.containsKey("last-modified"));
-	assertEquals("14", headers.getFirst("Content-Length"));
-	assertEquals(payload2, payload);
-      }
-
-      i++;
-    }
-  }
-
-  private String getBoundaryFromContentTypeHeader(String contentType)
-      throws IOException {
-    return createTextMultipartResponse(contentType, null)
-	.getBoundaryFromContentTypeHeader(contentType);
-  }
-
-  private TextMultipartResponse createTextMultipartResponse(String contentType,
-      String body) throws IOException {
-    HttpHeaders headers = new HttpHeaders();
-    headers.add("Content-Type", contentType);
-
-    TextMultipartResponse response = new TextMultipartResponse();
-    response.setResponseHeaders(headers);
-
-    if (body != null) {
-      response.parseResponseBody(body);
-    }
-
-    return response;
-  }
-
-  private String getPartNameFromContentDispositionHeader(
-      String contentDisposition) {
-    return createPart(contentDisposition)
-	.getPartNameFromContentDispositionHeader(contentDisposition);
-  }
-
-  private Part createPart(String contentDisposition) {
-    HttpHeaders headers = new HttpHeaders();
-    headers.add("Content-Disposition", contentDisposition);
-
-    Part part = new Part();
-    part.setHeaders(headers);
-
-    return part;
-  }
-
-  private String getName(String contentDisposition) {
-    return createPart(contentDisposition).getName();
-  }
-
+  /**
+   * Adds a part to a TextMultipartResponse.
+   * 
+   * @param contentDisposition
+   *          A String with the Content-Disposition header.
+   * @param response
+   *          A TextMultipartResponse where to add the part.
+   * @return a Part with the part just added.
+   */
   private Part addPart(String contentDisposition,
       TextMultipartResponse response) {
     Part part = createPart(contentDisposition);

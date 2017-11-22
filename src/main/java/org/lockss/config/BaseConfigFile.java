@@ -53,6 +53,7 @@ public abstract class BaseConfigFile implements ConfigFile {
   protected IOException m_IOException;
   protected long m_lastAttempt;
   protected boolean m_needsReload = true;
+  protected boolean reloadUnconditionally = false;
   protected ConfigurationPropTreeImpl m_config;
   protected int m_generation = 0;
   protected Map<String, Object> m_props;
@@ -168,7 +169,7 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Reload the contents if changed.
    */
   protected void reload() throws IOException {
-    final String DEBUG_HEADER = "reload(): ";
+    final String DEBUG_HEADER = "reload(" + m_fileUrl + "): ";
     m_lastAttempt = TimeBase.nowMs();
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "m_lastAttempt = " + m_lastAttempt);
@@ -201,7 +202,7 @@ public abstract class BaseConfigFile implements ConfigFile {
   }
 
   protected void setConfigFrom(InputStream in) throws IOException {
-    final String DEBUG_HEADER = "setConfigFrom(): ";
+    final String DEBUG_HEADER = "setConfigFrom(" + m_fileUrl + "): ";
     ConfigurationPropTreeImpl newConfig = new ConfigurationPropTreeImpl();
     try {
       Tdb tdb = new Tdb();
@@ -331,6 +332,22 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Return the new last-modified time
    */
   protected abstract String calcNewLastModified();
+
+  /**
+   * Do the actual writing of the file to the disk by renaming a temporary file.
+   * 
+   * @param tempfile
+   *          A File with the source temporary file.
+   * @param config
+   *          A Configuration with the configuration to be written.
+   * @throws IOException
+   *           if there are problems.
+   */
+  @Override
+  public void writeFromTempFile(File tempfile, Configuration config)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
 
   /**
    * Used for logging and testing and debugging.

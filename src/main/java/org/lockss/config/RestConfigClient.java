@@ -191,7 +191,7 @@ public class RestConfigClient {
    *           if there are problems.
    */
   public TextMultipartResponse callGetTextMultipartRequest(String url)
-      throws IOException {
+      throws Exception {
     final String DEBUG_HEADER = "callGetTextMultipartRequest(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
 
@@ -199,13 +199,13 @@ public class RestConfigClient {
     UriComponents uriComponents =
 	UriComponentsBuilder.fromUriString(url).build();
 
-    URI uri = UriComponentsBuilder.newInstance()
-	.uriComponents(uriComponents).build().encode().toUri();
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
 
     // Initialize the request headers.
     HttpHeaders requestHeaders = new HttpHeaders();
-    requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
-    requestHeaders.setAccept(Arrays.asList(MediaType.MULTIPART_FORM_DATA));
+    requestHeaders.setAccept(Arrays.asList(MediaType.MULTIPART_FORM_DATA,
+	MediaType.APPLICATION_JSON));
 
     // Set the authentication credentials.
     String credentials = serviceUser + ":" + servicePassword;

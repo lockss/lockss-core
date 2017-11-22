@@ -76,6 +76,19 @@ public interface ConfigFile {
    */
   public Configuration getConfiguration() throws IOException;
 
+  /**
+   * Do the actual writing of the file to the disk by renaming a temporary file.
+   * 
+   * @param tempfile
+   *          A File with the source temporary file.
+   * @param config
+   *          A Configuration with the configuration to be written.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public void writeFromTempFile(File tempfile, Configuration config)
+      throws IOException;
+
   /** Represents a single generation (version) of the contents of a
    * ConfigFile, to make it easy to determine when the contents has
    * changed */

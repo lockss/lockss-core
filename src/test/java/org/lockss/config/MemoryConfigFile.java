@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,8 +29,6 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.io.*;
-
-import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -140,6 +134,22 @@ public class MemoryConfigFile implements ConfigFile {
 
   public Configuration getConfiguration() throws IOException {
     return gen.getConfig();
+  }
+
+  /**
+   * Do the actual writing of the file to the disk by renaming a temporary file.
+   * 
+   * @param tempfile
+   *          A File with the source temporary file.
+   * @param config
+   *          A Configuration with the configuration to be written.
+   * @throws IOException
+   *           if there are problems.
+   */
+  @Override
+  public void writeFromTempFile(File tempfile, Configuration config)
+      throws IOException {
+    throw new UnsupportedOperationException();
   }
 
   class MyGeneration extends ConfigFile.Generation {

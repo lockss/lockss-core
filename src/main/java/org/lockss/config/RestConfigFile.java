@@ -32,10 +32,10 @@ import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import org.apache.commons.io.input.ReaderInputStream;
 import org.lockss.rs.multipart.TextMultipartResponse;
 import org.lockss.rs.multipart.TextMultipartResponse.Part;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
@@ -74,8 +74,13 @@ public class RestConfigFile extends BaseConfigFile {
 	  + "with URL '" + m_fileUrl + "'");
     }
 
-    TextMultipartResponse response =
-	serviceClient.callGetTextMultipartRequest(m_fileUrl);
+    TextMultipartResponse response = null;
+
+    try {
+      response = serviceClient.callGetTextMultipartRequest(m_fileUrl);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
 
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
@@ -87,7 +92,7 @@ public class RestConfigFile extends BaseConfigFile {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
 
-    HttpHeaders partHeaders = configDataPart.getHeaders();
+    Map<String, String> partHeaders = configDataPart.getHeaders();
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
@@ -97,11 +102,11 @@ public class RestConfigFile extends BaseConfigFile {
 
     StringReader payloadReader = new StringReader(partPayload);
 
-    lastModifiedString = partHeaders.getFirst("last-modified");
+    lastModifiedString = partHeaders.get("Last-Modified");
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
 
-    String contentType = partHeaders.getFirst("Content-Type");
+    String contentType = partHeaders.get("Content-Type");
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "contentType = " + contentType);
 

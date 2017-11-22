@@ -2344,17 +2344,8 @@ public class ConfigManager implements LockssManager {
     config.store(os, header, addtl);
     os.close();
     File cfile = new File(cacheConfigDir, cacheConfigFileName);
-    if (!PlatformUtil.updateAtomically(tempfile, cfile)) {
-      throw new RuntimeException("Couldn't rename temp file: " +
-				 tempfile + " to: " + cfile);
-    }
+    configCache.find(cfile.toString()).writeFromTempFile(tempfile, config);
     log.debug2("Wrote cache config file: " + cfile);
-    ConfigFile cf = configCache.get(cfile.toString());
-    if (cf instanceof FileConfigFile) {
-      ((FileConfigFile)cf).storedConfig(config);
-    } else {
-      log.warning("Not a FileConfigFile: " + cf);
-    }
     LocalFileDescr descr = getLocalFileDescr(cacheConfigFileName);
     if (!suppressReload) {
       if (descr == null || descr.isNeedReloadAfterWrite()) {
@@ -2382,12 +2373,7 @@ public class ConfigManager implements LockssManager {
     File tempfile = File.createTempFile("tmp_config", ".tmp", cacheConfigDir);
     StringUtil.toFile(tempfile, text);
     File cfile = new File(cacheConfigDir, cacheConfigFileName);
-    if (!PlatformUtil.updateAtomically(tempfile, cfile)) {
-      throw new RuntimeException("Couldn't rename temp file: " +
-				 tempfile + " to: " + cfile);
-    }
-    log.debug2("Wrote cache config file: " + cfile);
-    ConfigFile cf = configCache.get(cfile.toString());
+    configCache.find(cfile.toString()).writeFromTempFile(tempfile, null);
     if (!suppressReload) {
       requestReload();
     }

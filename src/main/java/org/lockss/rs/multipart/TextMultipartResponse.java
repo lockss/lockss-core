@@ -27,11 +27,15 @@
  */
 package org.lockss.rs.multipart;
 
-import java.io.IOException;
-import java.io.StringReader;
+import java.text.ParseException;
+import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Vector;
-import org.lockss.util.LineEndingBufferedReader;
+import java.util.Map;
+import javax.mail.Header;
+import javax.mail.MessagingException;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMultipart;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.springframework.http.HttpHeaders;
@@ -58,12 +62,12 @@ public class TextMultipartResponse {
    * Constructor using a multipart response.
    * 
    * @param response
-   *          A ResponseEntity<String> with the multipart response.
-   * @throws IOException
+   *          A ResponseEntity<MimeMultipart> with the multipart response.
+   * @throws Exception
    *           if there are problems.
    */
-  public TextMultipartResponse(ResponseEntity<String> response)
-      throws IOException {
+  public TextMultipartResponse(ResponseEntity<MimeMultipart> response)
+      throws Exception {
     final String DEBUG_HEADER = "TextMultipartResponse(response): ";
 
     // Populate the status code.
@@ -75,8 +79,56 @@ public class TextMultipartResponse {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "responseHeaders = " + responseHeaders);
 
-    // Parse the response body.
-    parseResponseBody(response.getBody());
+    // The multipart response body.
+    MimeMultipart responseBody = response.getBody();
+
+    // Get the count of parts in the response body.
+    int partCount = 0;
+
+    try {
+      partCount = responseBody.getCount();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "partCount = " + partCount);
+    } catch (MessagingException me) {
+      log.warning("Cannot get multipart response part count", me);
+    }
+
+    if (log.isDebug3()) {
+      log.debug3(DEBUG_HEADER + "partCount = " + partCount);
+      log.debug3(DEBUG_HEADER + "responseBody.getContentType() = "
+	+ responseBody.getContentType());
+    }
+
+    // Loop through all the parts.
+    for (int i = 0; i < partCount; i++) {
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "part index = " + i);
+
+      // Get the part body.
+      MimeBodyPart partBody = (MimeBodyPart)responseBody.getBodyPart(i);
+
+      // Process the part headers.
+      Map<String, String> partHeaders = new HashMap<String, String>();
+      
+      for (Enumeration<?> enumeration = partBody.getAllHeaders();
+  	enumeration.hasMoreElements();) {
+  	Header header=(Header)enumeration.nextElement();
+  	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "header = " + header);
+
+  	String headerName = header.getName();
+  	String headerValue = header.getValue();
+  	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "headerName = "
+  	    + headerName + ", headerValue = " + headerValue);
+
+  	partHeaders.put(headerName, headerValue);
+      }
+
+      // Create and save the part.
+      Part part = new Part();
+      part.setHeaders(partHeaders);
+      part.setPayload((String)partBody.getContent());
+      addPart(part);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "payload = '" + part.getPayload() + "'");
+    }
   }
 
   /**
@@ -126,158 +178,6 @@ public class TextMultipartResponse {
   }
 
   /**
-   * Determines the response parts.
-   * 
-   * @param responseBody
-   *          A String with the body of the response.
-   * @throws IOException
-   *           if there are problems.
-   */
-  public void parseResponseBody(String responseBody) throws IOException {
-    final String DEBUG_HEADER = "parseResponseBody(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "responseBody = '" + responseBody + "'.");
-
-    // Determine the boundary between parts.
-    String boundary = getBoundaryFromContentTypeHeader(
-	responseHeaders.getFirst("Content-Type"));
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "boundary = '" + boundary + "'.");
-
-    Part part = null;
-    HttpHeaders bodyHeaders = null;
-
-    // Indication of whether the end-of-body boundary has been found.
-    boolean endOfBodyBoundaryFound = false;
-
-    // Indication of whether the headers of a part have all been read.
-    boolean noMoreHeaders = false;
-
-    String line = null;
-    StringBuilder sb = null;
-
-    // Create a reader for the response body.
-    LineEndingBufferedReader lebr =
-	new LineEndingBufferedReader(new StringReader(responseBody));
-
-    try {
-      // Loop through all the lines in the response body.
-      while ((line = lebr.readLine()) != null) {
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "line = '" + line + "'.");
-
-	// Check whether the line is a part boundary.
-	if (line.trim().equals("--" + boundary)) {
-	  // Yes: Check whether it is the boundary before the first part.
-	  if (part == null) {
-	    // Yes.
-	    if (log.isDebug3())
-	      log.debug3(DEBUG_HEADER + "Found initial boundary.");
-	  } else {
-	    // No: Save the part just parsed.
-	    if (log.isDebug3())
-	      log.debug3(DEBUG_HEADER + "Found separation boundary.");
-
-	    part.setPayload(sb.toString());
-	    addPart(part);
-	  }
-
-	  // Initialize the incoming part.
-	  part = new Part();
-	  bodyHeaders = new HttpHeaders();
-	  noMoreHeaders = false;
-	  sb = new StringBuilder();
-
-	  // Move to reading the next line.
-	  continue;
-	}
-
-	// Check whether the line is the parts last boundary.
-	if (line.trim().equals("--" + boundary + "--")) {
-	  // Yes: Save the part just parsed.
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "End of body found.");
-
-	  part.setPayload(sb.toString());
-	  addPart(part);
-
-	  // Done: Stop reading the response body.
-	  endOfBodyBoundaryFound = true;
-	  break;
-	}
-
-	// Check whether the boundary before the first part has not been read
-	// yet.
-	if (part == null) {
-	  // Yes: Skip the line.
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	      + "Skipped line before first part: '" + line + "'.");
-	  continue;
-	}
-
-	// Check whether there are still more part headers to come.
-	if (!noMoreHeaders) {
-	  // Yes: Check whether it is a blank line.
-	  if (line.trim().isEmpty()) {
-	    // Yes: All the headers for the current part have been read.
-	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "End of headers.");
-	    noMoreHeaders = true;
-	    part.setHeaders(bodyHeaders);
-	  } else {
-	    // No: Parse and save this part header.
-	    Vector<String> headerParts = StringUtil.breakAt(line.trim(), ": ");
-	    if (log.isDebug3()) log.debug3(DEBUG_HEADER
-		+ "headerParts.size() = " + headerParts.size());
-
-	    if (headerParts.size() == 2) {
-	      bodyHeaders.add(headerParts.get(0), headerParts.get(1));
-	    }
-	  }
-	} else {
-	  // No: Save the part payload line.
-	  sb.append(line);
-	}
-      }
-    } finally {
-      lebr.close();
-    }
-
-    if (!endOfBodyBoundaryFound && part != null) {
-      throw new IOException("Premature end of body");
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
-  }
-
-  /**
-   * Provides the part boundary from the Content-Type header.
-   *
-   * @param contentType
-   *          A String with the value of the Content-Type header.
-   * @return a String with the part boundary.
-   */
-  protected String getBoundaryFromContentTypeHeader(String contentType) {
-    final String DEBUG_HEADER = "getBoundaryFromContentTypeHeader(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "contentType = '" + contentType + "'.");
-
-    String boundaryPrefix = "boundary=";
-    String boundary = null;
-
-    // Loop through all the elements in the value of the Content-Type header.
-    for (String ctElement : StringUtil.breakAt(contentType, ";")) {
-      // Check whether it is the element defining the boundary.
-      if (ctElement.trim().startsWith(boundaryPrefix)) {
-	// Yes: Obtain the boundary.
-	boundary = ctElement.trim().substring(boundaryPrefix.length()).trim();
-	break;
-      }
-    }
-
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "boundary = '" + boundary + "'.");
-    return boundary;
-  }
-
-  /**
    * Saves a part.
    * 
    * @param part
@@ -320,26 +220,74 @@ public class TextMultipartResponse {
    * text.
    */
   public static class Part {
-    HttpHeaders headers;
+    private static Logger log = Logger.getLogger(Part.class);
+
+    Map<String, String> headers;
     String payload;
     String name;
 
     /**
      * Provides the headers of the part.
      *
-     * @return an HttpHeaders with the part headers.
+     * @return a Map<String, String> with the part headers.
      */
-    public HttpHeaders getHeaders() {
+    public Map<String, String> getHeaders() {
       return headers;
     }
 
     /**
      * Populates the headers of the part.
      * 
-     * @param headers An HttpHeaders with the part headers.
+     * @param headers A Map<String, String> with the part headers.
      */
-    public void setHeaders(HttpHeaders headers) {
+    public void setHeaders(Map<String, String> headers) {
       this.headers = headers;
+    }
+
+    /**
+     * Provides the value of the Content-Length header.
+     * 
+     * @return a long with the value of the Content-Length header, or -1 if
+     *         there is no Content-Length header.
+     * @throws NumberFormatException
+     *           if the Content-Length header value cannot be parsed as a
+     *           number.
+     */
+    public long getContentLength() throws NumberFormatException {
+      final String DEBUG_HEADER = "getContentLength(): ";
+      String contentLengthValue = headers.get(HttpHeaders.CONTENT_LENGTH);
+
+      if (contentLengthValue == null) {
+	return -1;
+      }
+
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "contentLengthValue = " + contentLengthValue);
+
+      long contentLength = Long.parseLong(contentLengthValue);
+      if (log.isDebug2())
+	log.debug2(DEBUG_HEADER + "contentLength = " + contentLength);
+      return contentLength;
+    }
+
+    /**
+     * Provides the value of the Last-Modified header.
+     * 
+     * @return a long with the value of the Last-Modified header timestamp, or
+     *         -1 if there is no Last-Modified header.
+     * @throws NumberFormatException
+     *           if the Last-Modified header value cannot be parsed as a date.
+     */
+    public String getLastModified() throws ParseException {
+      final String DEBUG_HEADER = "getLastModified(): ";
+      String lastModifiedValue = headers.get(HttpHeaders.ETAG);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "lastModifiedValue = " + lastModifiedValue);
+      lastModifiedValue = parseEtag(lastModifiedValue);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "lastModifiedValue = " + lastModifiedValue);
+
+      return lastModifiedValue;
     }
 
     /**
@@ -369,11 +317,13 @@ public class TextMultipartResponse {
       final String DEBUG_HEADER = "getName(): ";
 
       if (name == null) {
-	String cdHeaderValue = headers.getFirst("Content-Disposition");
+	// Get the value of the Content-Disposition header.
+	String cdHeaderValue = headers.get("Content-Disposition");
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "cdHeaderValue = '" + cdHeaderValue + "'");
 
 	if (!StringUtil.isNullString(cdHeaderValue)) {
+	  // Extract the part name from the Content-Disposition header.
 	  name = getPartNameFromContentDispositionHeader(cdHeaderValue);
 	}
       }
@@ -395,8 +345,7 @@ public class TextMultipartResponse {
      * Provides the part name from the Content-Disposition header.
      *
      * @param contentDisposition
-     *          A String with the value of the Content-contentDisposition
-     *          header.
+     *          A String with the value of the Content-Disposition header.
      * @return a String with the part name.
      */
     protected String getPartNameFromContentDispositionHeader(
@@ -423,6 +372,28 @@ public class TextMultipartResponse {
       if (log.isDebug2())
 	log.debug2(DEBUG_HEADER + "partName = '" + partName + "'.");
       return partName;
+    }
+
+    /**
+     * Parses an incoming ETag.
+     * 
+     * @param eTag
+     *          A String with the incoming ETag.
+     * @return a String with the parsed ETag.
+     */
+    private String parseEtag(String eTag) {
+      final String DEBUG_HEADER = "parseEtag(): ";
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "eTag = " + eTag);
+
+      // Check whether the raw eTag has content and it is surrounded by double
+      // quotes.
+      if (eTag != null && eTag.startsWith("\"") && eTag.endsWith("\"")) {
+        // Yes: Remove the surrounding double quotes left by Spring.
+        eTag = eTag.substring(1, eTag.length()-1);
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "eTag = " + eTag);
+      }
+
+      return eTag;
     }
 
     @Override

@@ -27,19 +27,17 @@
  */
 package org.lockss.rs.multipart;
 
-import java.io.IOException;
 import java.net.URI;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import javax.mail.internet.MimeMultipart;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -69,10 +67,10 @@ public class TextMultipartConnector {
    * Performs the request.
    *
    * @return a TextMultipartResponse with the response.
-   * @throws IOException
+   * @throws Exception
    *           if there are problems.
    */
-  public TextMultipartResponse request() throws IOException {
+  public TextMultipartResponse request() throws Exception {
     return request(60, 60);
   }
 
@@ -84,11 +82,11 @@ public class TextMultipartConnector {
    * @param readTimeout
    *          An int with the read timeout in seconds.
    * @return a TextMultipartResponse with the response.
-   * @throws IOException
+   * @throws Exception
    *           if there are problems.
    */
   public TextMultipartResponse request(int connectTimeout, int readTimeout)
-      throws IOException {
+      throws Exception {
     final String DEBUG_HEADER = "request(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
@@ -98,18 +96,27 @@ public class TextMultipartConnector {
     // Initialize the request to the REST service.
     RestTemplate restTemplate = createRestTemplate(connectTimeout, readTimeout);
 
-    if (log.isDebug3())
+    if (log.isDebug3()) {
+      log.debug3(DEBUG_HEADER
+	  + "requestHeaders = " + requestHeaders.toSingleValueMap());
       log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
+    }
 
-    // Make the request to the REST service and get its response.
-    ResponseEntity<String> response = restTemplate.exchange(uri,
-	HttpMethod.GET, new HttpEntity<String>(null, requestHeaders),
-	String.class);
+    try {
+      // Make the request to the REST service and get its response.
+      ResponseEntity<MimeMultipart> response = restTemplate.exchange(uri,
+	  HttpMethod.GET, new HttpEntity<String>(null, requestHeaders),
+	  MimeMultipart.class);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Obtained response.");
-
-    // Parse the response and return it.
-    return new TextMultipartResponse(response);
+      // Parse the response and return it.
+      return new TextMultipartResponse(response);
+    } catch (Exception e) {
+      log.error("Exception caught getting MimeMultipart object", e);
+      log.error("uri = " + uri);
+      log.error("requestHeaders = " + requestHeaders.toSingleValueMap());
+      throw e;
+    }
   }
 
   /**
@@ -127,19 +134,13 @@ public class TextMultipartConnector {
     // Initialize the request to the REST service.
     RestTemplate restTemplate = new RestTemplate();
 
-    // Add the multipart/form-data converter to the set of default converters.
+    // Set the multipart/form-data converter as the only one.
     List<HttpMessageConverter<?>> messageConverters =
-	restTemplate.getMessageConverters();
+	new ArrayList<HttpMessageConverter<?>>();
+    messageConverters.add(new MimeMultipartHttpMessageConverter());
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "messageConverters = " + messageConverters);
-
-    for (HttpMessageConverter<?> hmc : messageConverters) {
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "hmc = " + hmc);
-      if (hmc instanceof MappingJackson2HttpMessageConverter) {
-	((MappingJackson2HttpMessageConverter)hmc).setSupportedMediaTypes(
-	    Arrays.asList(MediaType.MULTIPART_FORM_DATA));
-      }
-    }
+    restTemplate.setMessageConverters(messageConverters);
 
     // Specify the timeouts.
     SimpleClientHttpRequestFactory requestFactory =

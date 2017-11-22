@@ -846,6 +846,33 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testWriteStringAndReadCacheConfigFile() throws Exception {
+    String fname = "test-config";
+    String tmpdir = getTempDir().toString();
+    Properties props = new Properties();
+    props.put(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tmpdir);
+    ConfigurationUtil.setCurrentConfigFromProps(props);
+    String relConfigPath =
+      CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
+                             ConfigManager.DEFAULT_CONFIG_PATH);
+    File cdir = new File(tmpdir, relConfigPath);
+    assertTrue(cdir.exists());
+    mgr.writeCacheConfigFile("foo.bar=12345", fname, false);
+
+    File acfile = new File(cdir, fname);
+    assertTrue(acfile.exists());
+
+    Configuration config2 = mgr.readCacheConfigFile(fname);
+    assertEquals("12345", config2.get("foo.bar"));
+    assertEquals("wrong number of keys in written config file",
+		 1, config2.keySet().size());
+    mgr.writeCacheConfigFile("foo1.bar1=23456\nx.y=34", fname, false);
+
+    config2 = mgr.readCacheConfigFile(fname);
+    assertEquals("23456", config2.get("foo1.bar1"));
+  }
+
+  @Test
   public void testCacheConfigFile() throws Exception {
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
