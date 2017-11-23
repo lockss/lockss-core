@@ -625,6 +625,16 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.20.1</version>
         <configuration>
+          <includes>
+            <include>**/Test*.java</include>
+            <include>**/Func*.java</include>
+          </includes>
+          <excludes>
+	    <!-- SOAP tests waiting for Jetty upgrade -->
+            <exclude>**/ws/*/Func*.java</exclude>
+	    <!-- Default excludes -->
+	    <exclude>**/*$*</exclude>
+          </excludes>
           <redirectTestOutputToFile>${outputtofile}</redirectTestOutputToFile>
           <forkCount>1.0C</forkCount>
           <reuseForks>false</reuseForks>
