@@ -53,7 +53,7 @@ public class TrueZipManager extends BaseLockssManager
   public static final String PREFIX = Configuration.PREFIX + "truezip.";
 
   public static final String PARAM_CACHE_DIR = PREFIX + "cacheDir";
-  public static final String DEFAULT_CACHE_DIR = ".";
+  public static final String DEFAULT_CACHE_DIR = null;
 
   /** Target maximum size of TFile cache in MB.  Cache may grow larger if
    * necessary. */
@@ -90,6 +90,15 @@ public class TrueZipManager extends BaseLockssManager
     if (changedKeys.contains(PREFIX)) {
       if (cacheDir == null) {
 	cacheDir = config.get(PARAM_CACHE_DIR, DEFAULT_CACHE_DIR);
+	if (cacheDir == null) {
+	  try {
+	    cacheDir = FileUtil.createTempDir("TZCache", "").toString();
+	  } catch (IOException e) {
+	    throw new RuntimeException("TrueZipManager: " + PARAM_CACHE_DIR +
+				       " not set, and couldn't create temp dir",
+				       e);
+	  }
+	}
 	tfc = new TFileCache(cacheDir);
       }
       long maxMb = config.getLong(PARAM_CACHE_MAX_MB, DEFAULT_CACHE_MAX_MB);

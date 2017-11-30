@@ -457,11 +457,22 @@ public class FileUtil {
     return true;
   }
 
+  private static String normalize(File f) {
+    return f.toPath().normalize().toString().trim();
+  }
+
+  private static boolean isDangerousDirToDelete(File dir) {
+    String ndir = normalize(dir);
+    return (ndir.equals("") || ndir.equals("..") || ndir.startsWith("../"));
+  }
 
   /** Delete the contents of a directory, leaving the empty directory.
    * @return true iff successful */
   public static boolean emptyDir(File dir) {
-    log.critical("emptyDir: " + dir, new Throwable());
+    if (isDangerousDirToDelete(dir)) {
+      throw new RuntimeException("Cowardly refusing to empty '.' (" +
+				 dir.getAbsolutePath() + ")");
+    }
     String files[] = dir.list();
     if (files == null) {
       return false;		  // true would imply there's an empty
@@ -483,6 +494,10 @@ public class FileUtil {
   /** Delete a directory and its contents.
    * @return true iff successful */
   public static boolean delTree(File dir) {
+    if (isDangerousDirToDelete(dir)) {
+      throw new RuntimeException("Cowardly refusing to delete '.' (" +
+				 dir.getAbsolutePath() + ")");
+    }
     emptyDir(dir);
     if (dir.delete()) {
       return true;
