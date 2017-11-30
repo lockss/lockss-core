@@ -47,7 +47,7 @@ import org.apache.derby.drda.NetworkServerControl;
 import org.apache.derby.jdbc.ClientDataSource;
 import org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource;
 import org.apache.derby.jdbc.EmbeddedDataSource;
-import org.lockss.app.BaseLockssDaemonManager;
+import org.lockss.app.BaseLockssManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
@@ -62,7 +62,7 @@ import org.lockss.util.StringUtil;
  * 
  * @author Fernando García-Loygorri
  */
-public class DbManager extends BaseLockssDaemonManager
+public class DbManager extends BaseLockssManager
   implements ConfigurableManager {
   protected static final Logger log = Logger.getLogger(DbManager.class);
 

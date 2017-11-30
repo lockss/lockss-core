@@ -34,6 +34,7 @@ import org.apache.commons.lang3.*;
 import org.lockss.util.*;
 import org.lockss.alert.*;
 import org.lockss.daemon.*;
+import org.lockss.daemon.status.*;
 import org.lockss.db.DbManager;
 import org.lockss.exporter.FetchTimeExportManager;
 import org.lockss.exporter.counter.CounterReportsManager;
@@ -62,46 +63,13 @@ import org.lockss.job.JobDbManager;
 import org.lockss.job.JobManager;
 
 /**
- * The LOCKSS daemon application
+ * The legacy LOCKSS daemon application
  */
 public class LockssDaemon extends LockssApp {
   
   private static final Logger log = Logger.getLogger(LockssDaemon.class);
 
   private static final String PREFIX = Configuration.PREFIX + "daemon.";
-
-  public static final JavaVersion MIN_JAVA_VERSION = JavaVersion.JAVA_1_7;
-
-/**
- * LOCKSS is a trademark of Stanford University.  Stanford hereby grants you
- * limited permission to use the LOCKSS trademark only in connection with
- * this software, including in the User-Agent HTTP request header generated
- * by the software and provided to web servers, provided the software or any
- * output of the software is used solely for the purpose of populating a
- * certified LOCKSS cache from a web server that has granted permission for
- * the LOCKSS system to collect material.  You may not remove or delete any
- * reference to LOCKSS in the software indicating that LOCKSS is a mark owned
- * by Stanford University.  No other permission is granted you to use the
- * LOCKSS trademark or any other trademark of Stanford University.  Without
- * limiting the foregoing, if you adapt or use the software for any other
- * purpose, you must delete all references to or uses of the LOCKSS mark from
- * the software.  All good will associated with your use of the LOCKSS mark
- * shall inure to the benefit of Stanford University.
- */
-private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
-
-  public final static String PARAM_TESTING_MODE = PREFIX + "testingMode";
-
-  static final String PARAM_DAEMON_DEADLINE_REASONABLE =
-    PREFIX + "deadline.reasonable.";
-  static final String PARAM_DAEMON_DEADLINE_REASONABLE_PAST =
-    PARAM_DAEMON_DEADLINE_REASONABLE + "past";
-  static final long DEFAULT_DAEMON_DEADLINE_REASONABLE_PAST = Constants.SECOND;
-
-  static final String PARAM_DAEMON_DEADLINE_REASONABLE_FUTURE =
-    PARAM_DAEMON_DEADLINE_REASONABLE + "future";
-  static final long DEFAULT_DAEMON_DEADLINE_REASONABLE_FUTURE =
-    20 * Constants.WEEK;
 
   /** List of local IP addresses to which to bind listen sockets for
    * servers (admin ui, content, proxy).  If not set, servers listen on all
@@ -110,72 +78,55 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   public static final String PARAM_BIND_ADDRS = PREFIX + "bindAddrs";
 
   // Parameter keys for daemon managers
-  public static final String RANDOM_MANAGER = "RandomManager";
-  public static final String ACCOUNT_MANAGER = "AccountManager";
-  public static final String KEYSTORE_MANAGER = "KeystoreManager";
-  public static final String ACTIVITY_REGULATOR = "ActivityRegulator";
-  public static final String ALERT_MANAGER = "AlertManager";
-  public static final String HASH_SERVICE = "HashService";
-  public static final String TIMER_SERVICE = "TimerService";
-  public static final String DATAGRAM_COMM_MANAGER = "DatagramCommManager";
-  public static final String STREAM_COMM_MANAGER = "StreamCommManager";
-  public static final String ROUTER_MANAGER = "RouterManager";
-  public static final String DATAGRAM_ROUTER_MANAGER = "DatagramRouterManager";
-  public static final String IDENTITY_MANAGER = "IdentityManager";
-  public static final String CRAWL_MANAGER = "CrawlManager";
-  public static final String PLUGIN_MANAGER = "PluginManager";
-  public static final String METADATA_MANAGER = "MetadataManager";
-  public static final String POLL_MANAGER = "PollManager";
-  public static final String PSM_MANAGER = "PsmManager";
-  public static final String REPOSITORY_MANAGER = "RepositoryManager";
-  public static final String LOCKSS_REPOSITORY = "LockssRepository";
-  public static final String HISTORY_REPOSITORY = "HistoryRepository";
-  public static final String NODE_MANAGER = "NodeManager";
-  public static final String CONTENT_SERVLET_MANAGER = "ContentManager";
-  public static final String PROXY_MANAGER = "ProxyManager";
-  public static final String AUDIT_PROXY_MANAGER = "AuditProxyManager";
-  public static final String FAIL_OVER_PROXY_MANAGER = "FailOverProxyManager";
-  public static final String SYSTEM_METRICS = "SystemMetrics";
-  public static final String REMOTE_API = "RemoteApi";
-  public static final String URL_MANAGER = "UrlManager";
-  public static final String NODE_MANAGER_MANAGER = "NodeManagerManager";
-  public static final String REPOSITORY_STATUS = "RepositoryStatus";
-  public static final String ARCHIVAL_UNIT_STATUS = "ArchivalUnitStatus";
-  public static final String PLATFORM_CONFIG_STATUS = "PlatformConfigStatus";
-  public static final String CONFIG_STATUS = "ConfigStatus";
-  public static final String OVERVIEW_STATUS = "OverviewStatus";
-  public static final String ICP_MANAGER = "IcpManager";
-  public static final String CRON = "Cron";
-  public static final String CLOCKSS_PARAMS = "ClockssParams";
-  public static final String SAFENET_MANAGER = "SafenetManager";
-  public static final String TRUEZIP_MANAGER = "TrueZipManager";
-  public static final String DB_MANAGER = "DbManager";
-  public static final String COUNTER_REPORTS_MANAGER = "CounterReportsManager";
-  public static final String SUBSCRIPTION_MANAGER = "SubscriptionManager";
+  public static final String ACTIVITY_REGULATOR = mkey(ActivityRegulator.class);
+  public static final String HASH_SERVICE = mkey(HashService.class);
+  public static final String DATAGRAM_COMM_MANAGER = mkey(LcapDatagramComm.class);
+  public static final String STREAM_COMM_MANAGER = mkey(LcapStreamComm.class);
+  public static final String ROUTER_MANAGER = mkey(LcapRouter.class);
+  public static final String DATAGRAM_ROUTER_MANAGER = mkey(LcapDatagramRouter.class);
+//   public static final String IDENTITY_MANAGER = "IdentityManager";
+  public static final String CRAWL_MANAGER = mkey(CrawlManager.class);
+  public static final String METADATA_MANAGER = mkey(MetadataManager.class);
+  public static final String POLL_MANAGER = mkey(PollManager.class);
+  public static final String PSM_MANAGER = mkey(PsmManager.class);
+  public static final String REPOSITORY_MANAGER = mkey(RepositoryManager.class);
+  public static final String LOCKSS_REPOSITORY = mkey(LockssRepository.class);
+  public static final String HISTORY_REPOSITORY = mkey(HistoryRepository.class);
+  public static final String NODE_MANAGER = mkey(NodeManager.class);
+  public static final String SERVLET_MANAGER = mkey(org.lockss.servlet.AdminServletManager.class);
+  public static final String CONTENT_SERVLET_MANAGER = mkey(org.lockss.servlet.ContentServletManager.class);
+  public static final String PROXY_MANAGER = mkey(ProxyManager.class);
+  public static final String AUDIT_PROXY_MANAGER = mkey(AuditProxyManager.class);
+  public static final String FAIL_OVER_PROXY_MANAGER = mkey(FailOverProxyManager.class);
+  public static final String REMOTE_API = mkey(RemoteApi.class);
+  public static final String NODE_MANAGER_MANAGER = mkey(NodeManagerManager.class);
+  public static final String REPOSITORY_STATUS = mkey(LockssRepositoryStatus.class);
+  public static final String ARCHIVAL_UNIT_STATUS = mkey(ArchivalUnitStatus.class);
+  public static final String PLATFORM_CONFIG_STATUS = mkey(PlatformConfigStatus.class);
+  public static final String CONFIG_STATUS = mkey(ConfigStatus.class);
+  public static final String OVERVIEW_STATUS = mkey(OverviewStatus.class);
+  public static final String ICP_MANAGER = mkey(IcpManager.class);
+  public static final String CLOCKSS_PARAMS = mkey(ClockssParams.class);
+  public static final String SAFENET_MANAGER = mkey(CachingEntitlementRegistryClient.class);
+  public static final String COUNTER_REPORTS_MANAGER = mkey(CounterReportsManager.class);
+  public static final String SUBSCRIPTION_MANAGER = mkey(SubscriptionManager.class);
   public static final String FETCH_TIME_EXPORT_MANAGER =
-      "FetchTimeExportManager";
-  public static final String JOB_MANAGER = "JobManager";
-  public static final String METADATA_DB_MANAGER = "MetadataDbManager";
-  public static final String JOB_DB_MANAGER = "JobDbManager";
+    mkey(org.lockss.exporter.FetchTimeExportManager.class);
+  public static final String JOB_MANAGER = mkey(JobManager.class);
+  public static final String METADATA_DB_MANAGER = mkey(MetadataDbManager.class);
+  public static final String JOB_DB_MANAGER = mkey(JobDbManager.class);
+  public static final String SCHED_SERVICE = mkey(SchedService.class);
 
-  // Manager descriptors.  The order of this table determines the order in
-  // which managers are initialized and started.
-  protected final ManagerDesc[] managerDescs = {
-    new ManagerDesc(RANDOM_MANAGER, "org.lockss.daemon.RandomManager"),
-    new ManagerDesc(RESOURCE_MANAGER, DEFAULT_RESOURCE_MANAGER),
-    new ManagerDesc(MAIL_SERVICE, DEFAULT_MAIL_SERVICE),
-    new ManagerDesc(ALERT_MANAGER, "org.lockss.alert.AlertManagerImpl"),
-    new ManagerDesc(STATUS_SERVICE, DEFAULT_STATUS_SERVICE),
-    new ManagerDesc(TRUEZIP_MANAGER, "org.lockss.truezip.TrueZipManager"),
-    new ManagerDesc(URL_MANAGER, "org.lockss.daemon.UrlManager"),
-    new ManagerDesc(TIMER_SERVICE, "org.lockss.util.TimerQueue$Manager"),
+
+  protected static final String DEFAULT_SCHED_SERVICE =
+    "org.lockss.scheduler.SchedService";
+
+  // Managers specific to this service.  They are started in this order,
+  // following the standard managers specified in BaseLockssDaemon
+  private final ManagerDesc[] myManagerDescs = {
     new ManagerDesc(SCHED_SERVICE, DEFAULT_SCHED_SERVICE),
     new ManagerDesc(HASH_SERVICE, "org.lockss.hasher.HashSvcQueueImpl"),
     new ManagerDesc(SYSTEM_METRICS, "org.lockss.daemon.SystemMetrics"),
-    // keystore manager must be started before any others that need to
-    // access managed keystores
-    new ManagerDesc(KEYSTORE_MANAGER,
-                    "org.lockss.daemon.LockssKeyStoreManager"),
     new ManagerDesc(ACCOUNT_MANAGER, "org.lockss.account.AccountManager"),
     new ManagerDesc(IDENTITY_MANAGER,
                     "org.lockss.protocol.IdentityManagerImpl"),
@@ -184,10 +135,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     new ManagerDesc(CRAWL_MANAGER, "org.lockss.crawler.CrawlManagerImpl"),
     new ManagerDesc(REPOSITORY_MANAGER,
                     "org.lockss.repository.RepositoryManager"),
-    // start plugin manager after generic services
-    new ManagerDesc(PLUGIN_MANAGER, "org.lockss.plugin.PluginManager"),
-    // start database manager before any manager that uses it.
-    new ManagerDesc(DB_MANAGER, "org.lockss.db.DbManager"),
     // start metadata manager after plugin manager and database manager.
     new ManagerDesc(METADATA_MANAGER, "org.lockss.metadata.MetadataManager"),
     // start metadata database manager after metadata manager
@@ -257,7 +204,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 
   // AU-specific manager descriptors.  As each AU is created its managers
   // are started in this order.
-  protected static final ManagerDesc[] auManagerDescs = {
+  protected final ManagerDesc[] auManagerDescs = {
     new ManagerDesc(ACTIVITY_REGULATOR,
                     "org.lockss.daemon.ActivityRegulator$Factory"),
     // LockssRepository uses ActivityRegulator
@@ -281,8 +228,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 
   private static LockssDaemon theDaemon;
   private boolean isClockss;
-  private boolean isSafenet;
-  protected String testingMode;
 
   protected LockssDaemon(List<String> propUrls) {
     super(propUrls);
@@ -300,11 +245,10 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     theDaemon = this;
   }
 
-  protected ManagerDesc[] getManagerDescs() {
-    return managerDescs;
+  @Override
+  protected ManagerDesc[] getAppManagerDescs() {
+    return myManagerDescs;
   }
-
-  // General information accessors
 
   /**
    * True iff all managers have been inited.
@@ -324,18 +268,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    * Return the LockssDaemon instance
    */
   public static LockssDaemon getLockssDaemon() {
-    return (LockssDaemon)theApp;
-  }
-
-  /** Return the LOCKSS user-agent string.
-   * @return the LOCKSS user-agent string. */
-  public static String getUserAgent() {
-    return LOCKSS_USER_AGENT;
-  }
-
-  /** Return the current testing mode. */
-  public String getTestingMode() {
-    return testingMode;
+    return theDaemon;
   }
 
   /**
@@ -354,10 +287,12 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   }
 
   /**
-   * True if running as a Safenet daemon
+   * return the ClockssParams instance.
+   * @return ClockssParams instance.
+   * @throws IllegalArgumentException if the manager is not available.
    */
-  public boolean isSafenet() {
-    return isSafenet;
+  public ClockssParams getClockssParams() {
+    return (ClockssParams) getManager(CLOCKSS_PARAMS);
   }
 
   /** Stop the daemon.  Currently only used in testing. */
@@ -366,15 +301,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   }
 
   // LockssManager accessors
-
-  /**
-   * return the alert manager instance
-   * @return the AlertManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public AlertManager getAlertManager() {
-    return (AlertManager)getManager(ALERT_MANAGER);
-  }
 
   /**
    * return the hash service instance
@@ -476,70 +402,12 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   }
 
   /**
-   * return the SystemMetrics instance.
-   * @return SystemMetrics instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public SystemMetrics getSystemMetrics() {
-    return (SystemMetrics) getManager(SYSTEM_METRICS);
-  }
-
-  /**
-   * return the plugin manager instance
-   * @return the PluginManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public PluginManager getPluginManager() {
-    return (PluginManager) getManager(PLUGIN_MANAGER);
-  }
-
-  /**
    * return the metadata manager instance
    * @return the MetadataManager
    * @throws IllegalArgumentException if the manager is not available.
    */
   public MetadataManager getMetadataManager() {
     return (MetadataManager) getManager(METADATA_MANAGER);
-  }
-
-  /**
-   * return the Account Manager
-   * @return AccountManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-
-  public AccountManager getAccountManager() {
-    return (AccountManager) getManager(ACCOUNT_MANAGER);
-  }
-
-  /**
-   * return the Random Manager
-   * @return RandomManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-
-  public RandomManager getRandomManager() {
-    return (RandomManager) getManager(RANDOM_MANAGER);
-  }
-
-  /**
-   * return the Keystore Manager
-   * @return KeystoreManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-
-  public LockssKeyStoreManager getKeystoreManager() {
-    return (LockssKeyStoreManager) getManager(KEYSTORE_MANAGER);
-  }
-
-  /**
-   * return the Identity Manager
-   * @return IdentityManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-
-  public IdentityManager getIdentityManager() {
-    return (IdentityManager) getManager(IDENTITY_MANAGER);
   }
 
   /**
@@ -579,26 +447,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   }
 
   /**
-   * return TrueZipManager instance
-   * @return the TrueZipManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public TrueZipManager getTrueZipManager() {
-    return (TrueZipManager)getManager(TRUEZIP_MANAGER);
-  }
-
-  /**
-   * Provides the database manager instance.
-   * 
-   * @return a DbManager with the database manager instance.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public DbManager getDbManager() {
-    return (DbManager) getManager(DB_MANAGER);
-  }
-
-  /**
    * Provides the COUNTER reports manager.
    * 
    * @return a CounterReportsManager with the COUNTER reports manager.
@@ -631,6 +479,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     return (FetchTimeExportManager) getManager(FETCH_TIME_EXPORT_MANAGER);
   }
 
+  // s.b. in BaseLockssDaemon but currently specific to MetadataManager
   /**
    * Provides the job manager instance.
    * 
@@ -640,17 +489,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    */
   public JobManager getJobManager() {
     return (JobManager) getManager(JOB_MANAGER);
-  }
-
-  /**
-   * Provides the metadata database manager instance.
-   * 
-   * @return a MetadataDbManager with the metadata database manager instance.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public MetadataDbManager getMetadataDbManager() {
-    return (MetadataDbManager) getManager(METADATA_DB_MANAGER);
   }
 
   /**
@@ -665,12 +503,23 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   }
 
   /**
-   * return the ClockssParams instance.
-   * @return ClockssParams instance.
+   * Provides the metadata database manager instance.
+   * 
+   * @return a MetadataDbManager with the metadata database manager instance.
+   * @throws IllegalArgumentException
+   *           if the manager is not available.
+   */
+  public MetadataDbManager getMetadataDbManager() {
+    return (MetadataDbManager) getManager(METADATA_DB_MANAGER);
+  }
+
+  /**
+   * return the {@link org.lockss.daemon.status.StatusService} instance
+   * @return {@link org.lockss.daemon.status.StatusService} instance
    * @throws IllegalArgumentException if the manager is not available.
    */
-  public ClockssParams getClockssParams() {
-    return (ClockssParams) getManager(CLOCKSS_PARAMS);
+  public StatusService getStatusService() {
+    return (StatusService) getManager(STATUS_SERVICE);
   }
 
   /**
@@ -681,17 +530,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   public EntitlementRegistryClient getEntitlementRegistryClient() {
     return (EntitlementRegistryClient) getManager(SAFENET_MANAGER);
   }
-
-  /**
-   * Provides the job manager.
-   * 
-   * @return a JobManager with the job manager.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-//  public JobManager getJobManager() {
-//    return (JobManager) getManager(JOB_MANAGER);
-//  }
 
   // LockssAuManager accessors
 
@@ -796,6 +634,10 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
 
   // AU specific manager loading, starting, stopping
 
+  protected ManagerDesc[] getAuManagerDescs() {
+    return auManagerDescs;
+  }
+
   /**
    * Start or reconfigure all managers necessary to handle the ArchivalUnit.
    * @param au the ArchivalUnit
@@ -866,10 +708,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
         }
       }
     }
-  }
-
-  protected ManagerDesc[] getAuManagerDescs() {
-    return auManagerDescs;
   }
 
   /** Create and init an AU manager. */
@@ -981,7 +819,13 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   protected OneShotSemaphore ausStarted = new OneShotSemaphore();
 
   protected void startDaemon() throws Exception {
-    startApp();
+    log.critical("startDaemon()E: " + this, new Throwable());
+
+    try {
+      startApp();
+    } catch (Throwable e) {
+      log.critical("xxxxxxxxxxxx", e);
+    }
 
     log.info("Started");
     ausStarted.fill();
@@ -1031,106 +875,11 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
                                DEFAULT_DAEMON_DEADLINE_REASONABLE_FUTURE);
       Deadline.setReasonableDeadlineRange(maxInPast, maxInFuture);
     }
-    testingMode = config.get(PARAM_TESTING_MODE);
     String proj = ConfigManager.getPlatformProject();
     isClockss = "clockss".equalsIgnoreCase(proj);
     isSafenet = "safenet".equalsIgnoreCase(proj);
 
     super.setConfig(config, prevConfig, changedKeys);
-  }
-
-  /**
-   * Parse and handle command line arguments.
-   */
-  protected static StartupOptions getStartupOptions(String[] args) {
-    String restConfigServiceUrl = null;
-    String bootstrapPropsUrl = null;
-    List<String> propUrls = new ArrayList<String>();
-    String groupNames = null;
-
-    // True if named command line arguments are being passed to
-    // the daemon at startup.  Otherwise, just treat the command
-    // line arguments as if they were a list of URLs, for backward
-    // compatibility and testing.
-    boolean useNewSyntax = false;
-
-    for (int i = 0; i < args.length; i++) {
-      if (args[i].equals(StartupOptions.OPTION_GROUP)
-	  && i < args.length - 1) {
-        groupNames = args[++i];
-        useNewSyntax = true;
-      }
-      else if (args[i].equals(StartupOptions.OPTION_PROPURL)
-	       && i < args.length - 1) {
-        // TODO: If not available, keep selecting prop files to load
-        // until one is loaded, or the list is exhausted.
-        // For now, just select one at random.
-        Vector<String> v = StringUtil.breakAt(args[++i], ';', -1, true, true);
-        int idx = (int)(Math.random() * v.size());
-        propUrls.add(v.get(idx));
-        useNewSyntax = true;
-      }
-      else if (args[i].equals(StartupOptions.OPTION_LOG_CRYPTO_PROVIDERS)) {
-	SslUtil.logCryptoProviders(true);
-      } else if (args[i].equals(StartupOptions.OPTION_XML_PROP_DIR)
-	  && i < args.length - 1) {
-	// Handle a directory with XML files.
-	String optionXmlDir = args[++i];
-	File xmlDir = new File(optionXmlDir);
-	if (log.isDebug3())
-	  log.debug3("getStartupOptions(): xmlDir = " + xmlDir);
-
-	useNewSyntax = true;
-
-	try {
-	  for (String xmlFileName :
-	    FileUtil.listDirFilesWithExtension(xmlDir, "xml")) {
-	    if (log.isDebug3())
-	      log.debug3("getStartupOptions(): xmlFileName = " + xmlFileName);
-
-	    propUrls.add(new File(xmlDir, xmlFileName).getPath());
-	  }
-	} catch (IOException ioe) {
-	  log.error("Cannot process XML properties directory option '"
-	      + StartupOptions.OPTION_XML_PROP_DIR + " " + optionXmlDir, ioe);
-	}
-      } else if (args[i].equals(StartupOptions.OPTION_BOOTSTRAP_PROPURL)
-	  && i < args.length - 1) {
-	// Handle bootstrap properties URL.
-	bootstrapPropsUrl = args[++i];
-	if (log.isDebug3()) log.debug3(
-	    "getStartupOptions(): bootstrapPropsUrl = " + bootstrapPropsUrl);
-        propUrls.add(bootstrapPropsUrl);
-        useNewSyntax = true;
-      } else if (args[i].equals(StartupOptions.OPTION_REST_CONFIG_SERVICE_URL)
-	  && i < args.length - 1) {
-	// Handle the REST configuration service URL.
-	restConfigServiceUrl = args[++i];
-	if (log.isDebug3()) log.debug3("getStartupOptions(): " +
-	    "restConfigServiceUrl = " + restConfigServiceUrl);
-        useNewSyntax = true;
-      }
-    }
-
-    if (!useNewSyntax) {
-      propUrls = Arrays.asList(args);
-    }
-
-    return new StartupOptions(bootstrapPropsUrl, restConfigServiceUrl, propUrls,
-	groupNames);
-  }
-
-
-  /** ImageIO gets invoked on user-supplied content (by (nyi) format
-   * conversion and PDFBox).  Disable native code libraries to avoid any
-   * possibility of exploiting vulnerabilities */
-  public static String IMAGEIO_DISABLE_NATIVE_CODE =
-    "com.sun.media.imageio.disableCodecLib";
-
-  // static so can run before instantiating this class, which causes more
-  // classes to be loaded
-  protected static void setSystemProperties() {
-    System.setProperty(IMAGEIO_DISABLE_NATIVE_CODE, "true");
   }
 
   /**
@@ -1152,95 +901,58 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    * -x dir
    *     Load properties from XML files in directory dir.
    */
+//   public static void main(String[] args) {
+//     LockssDaemon daemon;
+//     if (!SystemUtils.isJavaVersionAtLeast(MIN_JAVA_VERSION)) {
+//       System.err.println("LOCKSS requires at least Java " + MIN_JAVA_VERSION +
+//                          ", this is " + SystemUtils.JAVA_VERSION +
+//                          ", exiting.");
+//       System.exit(Constants.EXIT_CODE_JAVA_VERSION);
+//     }
+
+//     StartupOptions opts = getStartupOptions(args);
+
+//     setSystemProperties();
+
+//     try {
+//       daemon = new LockssDaemon(opts.getBootstrapPropsUrl(),
+// 	  opts.getRestConfigServiceUrl(), opts.getPropUrls(),
+// 	  opts.getGroupNames());
+//       daemon.startDaemon();
+//       // raise priority after starting other threads, so we won't get
+//       // locked out and fail to exit when told.
+//       Thread.currentThread().setPriority(Thread.NORM_PRIORITY + 2);
+
+//     } catch (ResourceUnavailableException e) {
+//       log.error("Exiting because required resource is unavailable", e);
+//       System.exit(Constants.EXIT_CODE_RESOURCE_UNAVAILABLE);
+//       return;                           // compiler doesn't know that
+//                                         // System.exit() doesn't return
+//     } catch (Throwable e) {
+//       log.error("Exception thrown in main loop", e);
+//       System.exit(Constants.EXIT_CODE_EXCEPTION_IN_MAIN);
+//       return;                           // compiler doesn't know that
+//                                         // System.exit() doesn't return
+//     }
+//     if (CurrentConfig.getBooleanParam(PARAM_APP_EXIT_IMM,
+//                                       DEFAULT_APP_EXIT_IMM)) {
+//       try {
+//         daemon.stop();
+//       } catch (RuntimeException e) {
+//         // ignore errors stopping daemon
+//       }
+//       System.exit(Constants.EXIT_CODE_NORMAL);
+//     }
+//     daemon.keepRunning();
+//     log.info("Exiting because time to die");
+//     System.exit(Constants.EXIT_CODE_NORMAL);
+//   }
+
   public static void main(String[] args) {
-    LockssDaemon daemon;
-    if (!SystemUtils.isJavaVersionAtLeast(MIN_JAVA_VERSION)) {
-      System.err.println("LOCKSS requires at least Java " + MIN_JAVA_VERSION +
-                         ", this is " + SystemUtils.JAVA_VERSION +
-                         ", exiting.");
-      System.exit(Constants.EXIT_CODE_JAVA_VERSION);
-    }
-
-    StartupOptions opts = getStartupOptions(args);
-
-    setSystemProperties();
-
-    try {
-      daemon = new LockssDaemon(opts.getBootstrapPropsUrl(),
-	  opts.getRestConfigServiceUrl(), opts.getPropUrls(),
-	  opts.getGroupNames());
-      daemon.startDaemon();
-      // raise priority after starting other threads, so we won't get
-      // locked out and fail to exit when told.
-      Thread.currentThread().setPriority(Thread.NORM_PRIORITY + 2);
-
-    } catch (ResourceUnavailableException e) {
-      log.error("Exiting because required resource is unavailable", e);
-      System.exit(Constants.EXIT_CODE_RESOURCE_UNAVAILABLE);
-      return;                           // compiler doesn't know that
-                                        // System.exit() doesn't return
-    } catch (Throwable e) {
-      log.error("Exception thrown in main loop", e);
-      System.exit(Constants.EXIT_CODE_EXCEPTION_IN_MAIN);
-      return;                           // compiler doesn't know that
-                                        // System.exit() doesn't return
-    }
-    if (CurrentConfig.getBooleanParam(PARAM_APP_EXIT_IMM,
-                                      DEFAULT_APP_EXIT_IMM)) {
-      try {
-        daemon.stop();
-      } catch (RuntimeException e) {
-        // ignore errors stopping daemon
-      }
-      System.exit(Constants.EXIT_CODE_NORMAL);
-    }
-    daemon.keepRunning();
-    log.info("Exiting because time to die");
-    System.exit(Constants.EXIT_CODE_NORMAL);
-  }
-
-  /**
-   * Command line startup options container.
-   * Currently supports bootstrap propUrl (-b), REST Configuration service url
-   * (-c), propUrl (-p), daemon groups (-g), security provider logging (-s)
-   * and directory with XML prop files (-x) parameters.
-   */
-  public static class StartupOptions {
-
-    public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
-    public static final String OPTION_REST_CONFIG_SERVICE_URL = "-c";
-    public static final String OPTION_PROPURL = "-p";
-    public static final String OPTION_GROUP = "-g";
-    public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
-    public static final String OPTION_XML_PROP_DIR = "-x";
-
-    private String bootstrapPropsUrl;
-    private String restConfigServiceUrl;
-    private String groupNames;
-    private List<String> propUrls;
-
-    public StartupOptions(String bootstrapPropsUrl, String restConfigServiceUrl,
-	List<String> propUrls, String groupNames) {
-      this.bootstrapPropsUrl = bootstrapPropsUrl;
-      this.restConfigServiceUrl = restConfigServiceUrl;
-      this.propUrls = propUrls;
-      this.groupNames = groupNames;
-    }
-
-    public String getBootstrapPropsUrl() {
-      return bootstrapPropsUrl;
-    }
-
-    public String getRestConfigServiceUrl() {
-      return restConfigServiceUrl;
-    }
-
-    public List<String> getPropUrls() {
-      return propUrls;
-    }
-
-    public String getGroupNames() {
-      return groupNames;
-    }
+    AppSpec spec = new AppSpec()
+      .setName("Lockss Daemon")
+      .setArgs(args)
+      .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true");
+    staticStart(LockssDaemon.class, spec);
   }
 }

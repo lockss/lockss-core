@@ -234,6 +234,13 @@ public class LockssTestCase extends TestCase {
     if (tmpDirs != null && !isKeepTempFiles()) {
       for (ListIterator iter = tmpDirs.listIterator(); iter.hasNext(); ) {
 	File dir = (File)iter.next();
+	log.critical("deltree: " + dir);
+	if (!dir.toString().startsWith("/tmp")) {
+	  continue;
+	}
+	if (true) {
+	  continue;
+	}
 	File idFile = new File(dir, TEST_ID_FILE_NAME);
 	String idContent = null;
 	if (idFile.exists()) {

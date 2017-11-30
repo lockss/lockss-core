@@ -54,6 +54,11 @@ public class TestStringUtil extends LockssTestCase {
   }
 
   public void testTruncateAtAnyNullStr() {
+    System.err.println("getSystemTempDir: " +
+		       new File(PlatformUtil.getSystemTempDir()));
+    System.err.println("getSystemTempDir: " +
+		       PlatformUtil.getSystemTempDir());
+
     assertNull(StringUtil.truncateAtAny(null, null));
   }
 

@@ -44,7 +44,7 @@ public class AlertActionLog extends AbstractAlertAction {
     this.alertLog = alertLog;
   }
 
-  public void record(LockssDaemon daemon, Alert alert) {
+  public void record(LockssApp app, Alert alert) {
     alertLog.add(alert);
   }
 

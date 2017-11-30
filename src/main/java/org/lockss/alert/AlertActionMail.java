@@ -98,12 +98,12 @@ public class AlertActionMail extends AbstractAlertAction {
   }
 
   /** Create and send a message */
-  public void record(LockssDaemon daemon, Alert alert) {
-    send(daemon, alert, "", alert.getMailBody());
+  public void record(LockssApp app, Alert alert) {
+    send(app, alert, "", alert.getMailBody());
   }
 
   /** Create and send a single message for a list of alerts */
-  public void record(LockssDaemon daemon, List alerts) {
+  public void record(LockssApp app, List alerts) {
     if (log.isDebug2()) {
       log.debug2("Recording " + alerts.size() + " actions");
       log.debug3(alerts.toString());
@@ -120,11 +120,11 @@ public class AlertActionMail extends AbstractAlertAction {
 	  sb.append("\n==========================================================================\n");
 	}
       }
-      send(daemon, firstAlert, " (multiple)", sb.toString());
+      send(app, firstAlert, " (multiple)", sb.toString());
     }
   }
 
-  private void send(LockssDaemon daemon, Alert oneAlert,
+  private void send(LockssApp app, Alert oneAlert,
 		    String subjSuff, String body) {
     Configuration config = CurrentConfig.getCurrentConfig();
     if (config.getBoolean(PARAM_ENABLED, DEFAULT_ENABLED)) {
@@ -132,7 +132,7 @@ public class AlertActionMail extends AbstractAlertAction {
       if (recipients == null) {
 	log.warning("Alert has no email recipient, not sending: " + oneAlert);
       }
-      MailService mailSvc = daemon.getMailService();
+      MailService mailSvc = app.getMailService();
       TextMessage msg = new TextMessage();
       msg.addHeader("From", getFrom(oneAlert, config));
       msg.addHeader("To", recip);
@@ -147,9 +147,9 @@ public class AlertActionMail extends AbstractAlertAction {
   String getXMailer() {
     String release = BuildInfo.getBuildProperty(BuildInfo.BUILD_RELEASENAME);
     if (release != null) {
-      return "LOCKSS daemon " + release;
+      return "LOCKSS app " + release;
     }
-    return "LOCKSS daemon";
+    return "LOCKSS app";
   }
 
   public boolean isGroupable() {

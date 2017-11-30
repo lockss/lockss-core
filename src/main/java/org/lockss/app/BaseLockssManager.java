@@ -119,6 +119,10 @@ public abstract class BaseLockssManager implements LockssManager {
     return isInited;
   }
 
+  public <T> T getManagerByType(Class<T> mgrType) {
+    return theApp.getManagerByType(mgrType);
+  }
+
   private void registerConfigCallback(Configuration.Callback callback) {
     if(callback == null || this.configCallback != null) {
       throw new LockssAppException("Invalid callback registration: "

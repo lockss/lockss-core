@@ -43,10 +43,10 @@ public interface AlertAction {
   static final String PREFIX = Configuration.PREFIX + "alert.action.";
 
   /** Record a single Alert */
-  public void record(LockssDaemon daemon, Alert alert);
+  public void record(LockssApp app, Alert alert);
 
   /** Record a list of similar Alerts */
-  public void record(LockssDaemon daemon, List alerts);
+  public void record(LockssApp app, List alerts);
 
   /** Return true if this action can advantageously group similar Alerts */
   public boolean isGroupable();

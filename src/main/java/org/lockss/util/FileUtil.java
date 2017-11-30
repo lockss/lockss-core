@@ -461,6 +461,7 @@ public class FileUtil {
   /** Delete the contents of a directory, leaving the empty directory.
    * @return true iff successful */
   public static boolean emptyDir(File dir) {
+    log.critical("emptyDir: " + dir, new Throwable());
     String files[] = dir.list();
     if (files == null) {
       return false;		  // true would imply there's an empty

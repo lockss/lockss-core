@@ -32,6 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.app;
 
+import java.io.*;
 import java.util.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -46,6 +47,13 @@ public class TestLockssApp extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    String tempDirPath = setUpDiskSpace();
+
+    File file=new File(".");
+    System.out.println("Current Working Directory: " + file.getAbsolutePath());
+    File td = FileUtil.createTempDir("ppp", "sss");
+    System.setProperty("user.dir", td.toString());
+    System.out.println("New Current Working Directory: " + file.getAbsolutePath());
     app = new MyMockLockssApp(null);
   }
 
@@ -135,6 +143,23 @@ public class TestLockssApp extends LockssTestCase {
     assertEquals(1, mgr3.stopped);
   }
 
+  public void testStartApp() throws Exception {
+    String propurl =
+      FileTestUtil.urlOfString("org.lockss.app.exitImmediatelyxx=true");
+    String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
+
+    LockssApp.AppSpec spec = new LockssApp.AppSpec()
+      .setName("Test App")
+      .setArgs(testArgs)
+      .addAppConfig("o.l.p22", "vvv3")
+      .addAppConfig("o.l.p333", "vvv4")
+//       .setAppManagers(managerDescs)
+      ;
+    LockssApp app = LockssApp.staticStart(LockssApp.class, spec);
+  }
+
+  
+
   static final String mockMgrName = MyMockMgr.class.getName();
   static class MyMockMgr implements LockssManager {
     boolean isInited = false;
@@ -195,6 +220,12 @@ public class TestLockssApp extends LockssTestCase {
       return descrs;
     }
 
+    protected ManagerDesc[] getServiceManagerDescs() {
+      // illegal return value but not used as getManagerDescs is overridden
+      // here
+      return null;
+    }
+ 
     void setDescrs(ManagerDesc[] descrs) {
       this.descrs = descrs;
     }

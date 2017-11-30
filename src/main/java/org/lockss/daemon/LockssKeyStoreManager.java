@@ -45,7 +45,7 @@ import static org.lockss.daemon.LockssKeyStore.LocationType;
 /** Central repository of loaded keystores
  */
 public class LockssKeyStoreManager
-  extends BaseLockssDaemonManager implements ConfigurableManager  {
+  extends BaseLockssManager implements ConfigurableManager  {
 
   protected static Logger log = Logger.getLogger("LockssKeyStoreManager");
 
