@@ -27,7 +27,6 @@
  */
 package org.lockss.rs.multipart;
 
-import java.text.ParseException;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -271,18 +270,16 @@ public class TextMultipartResponse {
     }
 
     /**
-     * Provides the value of the Last-Modified header.
+     * Provides the value of the ETag header.
      * 
-     * @return a long with the value of the Last-Modified header timestamp, or
-     *         -1 if there is no Last-Modified header.
-     * @throws NumberFormatException
-     *           if the Last-Modified header value cannot be parsed as a date.
+     * @return a String with the value of the ETag header.
      */
-    public String getLastModified() throws ParseException {
+    public String getLastModified() {
       final String DEBUG_HEADER = "getLastModified(): ";
       String lastModifiedValue = headers.get(HttpHeaders.ETAG);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "lastModifiedValue = " + lastModifiedValue);
+
       lastModifiedValue = parseEtag(lastModifiedValue);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "lastModifiedValue = " + lastModifiedValue);

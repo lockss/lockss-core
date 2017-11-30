@@ -530,6 +530,17 @@ public class ConfigManager implements LockssManager {
   // The Configuration REST web service client.
   private RestConfigClient restConfigClient = null;
 
+  // The path to the directory containing any resource configuration files. 
+  private static final String RESOURCE_CONFIG_DIR_PATH =
+      "org/lockss/config/resourcefile";
+
+  // A map of existing resource configuration files, indexed by file name.
+  private Map<String, File> resourceConfigFiles = null;
+
+  // The configuration parameter key to the props lockss.xml URL.
+  public static final String PARAM_PROPS_LOCKSS_XML_URL =
+      PLATFORM + "propsLockssXmlUrl";
+
   public ConfigManager() {
     this(null, null);
 
@@ -561,6 +572,9 @@ public class ConfigManager implements LockssManager {
     configCache = new ConfigCache(this);
     registerConfigurationCallback(Logger.getConfigCallback());
     registerConfigurationCallback(MiscConfig.getConfigCallback());
+
+    // Create the map of resource configuration files.
+    resourceConfigFiles = populateResourceFileMap();
   }
 
   public ConfigCache getConfigCache() {
@@ -2251,17 +2265,8 @@ public class ConfigManager implements LockssManager {
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "cacheConfigFileName = " + cacheConfigFileName);
 
-    if (cacheConfigDir == null) {
-      log.warning("Attempting to read cache config file: " +
-		  cacheConfigFileName + ", but no cache config dir exists");
-      throw new IOException("No cache config dir");
-    }
-
-    String cfile = new File(cacheConfigDir, cacheConfigFileName).toString();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cfile = " + cfile);
-    ConfigFile cf = configCache.find(cfile);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
-    Configuration res = cf.getConfiguration();
+    Configuration res =
+	getConfigFileInCache(cacheConfigFileName).getConfiguration();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
     return res;
   }
@@ -2983,6 +2988,156 @@ public class ConfigManager implements LockssManager {
    */
   public RestConfigClient getRestConfigClient() {
     return restConfigClient;
+  }
+
+  /**
+   * Populates the map of resource configuration files.
+   * 
+   * @return a Map<String, File> with the map of resource configuration files.
+   */
+  private Map<String, File> populateResourceFileMap() {
+    final String DEBUG_HEADER = "populateResourceFileMap(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
+
+    Map<String, File> result = new HashMap<String, File>();
+
+    // Get the URL of the directory with the resource configuration files.
+    URL resourceConfigUrl =
+	getClass().getClassLoader().getResource(RESOURCE_CONFIG_DIR_PATH);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "resourceConfigUrl = " + resourceConfigUrl);
+
+    // Check whether there is no directory with the resource configuration
+    // files.
+    if (resourceConfigUrl == null) {
+      // Yes: Nothing more to do.
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+      return result;
+    }
+
+    // No: Get the directory with the resource configuration files.
+    File resourceConfigDir = new File(resourceConfigUrl.getFile());
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "resourceConfigDir = " + resourceConfigDir);
+
+    // Check whether the directory is valid.
+    if (resourceConfigDir.exists() && resourceConfigDir.isDirectory()
+	&& resourceConfigDir.canRead()) {
+      // Yes: Get any files in the directory.
+      File[] resourceFiles = resourceConfigDir.listFiles();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "resourceFiles = " + resourceFiles);
+
+      // Check whether there are any files in the directory.
+      if (resourceFiles != null) {
+	// Yes: Loop through all the resource configuration files.
+	for (int i = 0; i < resourceFiles.length; i++) {
+	  // Add the resource configuration file to the map. 
+	  File resourceFile = resourceFiles[i];
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "resourceFile = " + resourceFile);
+
+	  result.put(resourceFile.getName(), resourceFile);
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    return result;
+  }
+
+  /**
+   * Provides an indication of whether a resource configuration file with a
+   * given name exists.
+   * 
+   * @param fileName
+   *          A String with the name.
+   * @return a boolean with <code>true</code> if a resource configuration file
+   *         with the given name exists, <code>false</code> otherwise.
+   */
+  public boolean existsResourceConfigFile(String fileName) {
+    return resourceConfigFiles.containsKey(fileName);
+  }
+
+  /**
+   * Provides a resource configuration file, given its name.
+   * 
+   * @param fileName
+   *          A String with the resource configuration file name.
+   * @return a File with the requested resource configuration file, or
+   *         <code>null</code> if no resource configuration file with that name
+   *         exists.
+   */
+  public File getResourceConfigFile(String fileName) {
+    return resourceConfigFiles.get(fileName);
+  }
+
+  /**
+   * Provides an input stream to the content of a cached configuration file,
+   * ignoring previous history.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @param cacheConfigFileName
+   *          A String with the cached configuration file name, without path.
+   * @return an InputStream with the input stream to the cached configuration
+   *         file.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public InputStream getCacheConfigFileInputStream(String cacheConfigUrl)
+      throws IOException {
+    final String DEBUG_HEADER = "getCacheConfigFileInputStream(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
+
+    InputStream is = configCache.find(cacheConfigUrl).getInputStream();
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "is == null = " + (is == null));
+    return is;
+  }
+
+  /**
+   * Provides a configuration file in the cache.
+   * 
+   * @param cacheConfigFileName
+   *          A String with the cached configuration file name, without path.
+   * @return a ConfigFile with the cached configuration file.
+   * @throws IOException
+   *           if there are problems.
+   */
+  private ConfigFile getConfigFileInCache(String cacheConfigFileName)
+      throws IOException {
+    final String DEBUG_HEADER = "getConfigFileInCache(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "cacheConfigFileName = " + cacheConfigFileName);
+
+    ConfigFile cf = null;
+
+    // Check whether it is a resource file.
+    if (resourceConfigFiles.containsKey(cacheConfigFileName)) {
+      // Yes: Get it from the cache.
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "It is a Resource file.");
+      cf = configCache.find(cacheConfigFileName);
+    } else {
+      // No: Check whether there is no cache directory.
+      if (cacheConfigDir == null) {
+	// Yes:
+	log.warning("Attempting to read cache config file: " +
+	    cacheConfigFileName + ", but no cache config dir exists");
+	throw new IOException("No cache config dir");
+      }
+
+      // No: Get the name of the cached file.
+      String cfile = new File(cacheConfigDir, cacheConfigFileName).toString();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cfile = " + cfile);
+
+      // Get it from the cache.
+      cf = configCache.find(cfile);
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cf = " + cf);
+    return cf;
   }
 
   /**

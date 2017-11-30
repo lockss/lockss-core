@@ -71,17 +71,29 @@ public class ConfigCache {
       // doesn't yet exist in the cache, add it.
       log.debug2("Adding " + url);
       BaseConfigFile bcf;
-      if (configMgr != null && configMgr.getRestConfigClient() != null
+      // Check whether it is a resource configuration file.
+      if (configMgr != null && configMgr.existsResourceConfigFile(url)) {
+	// Yes.
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is ResourceConfigFile.");
+	bcf = new ResourceConfigFile(url, configMgr);
+	// No: Check whether it is a REST service configuration file.
+      } else if (configMgr != null && configMgr.getRestConfigClient() != null
 	  && configMgr.getRestConfigClient().isPartOfThisService(url)) {
+	// Yes.
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is RestConfigFile.");
 	bcf = new RestConfigFile(url, configMgr);
+	// No: Check whether it is an HTTP configuration file.
       } else if (UrlUtil.isHttpOrHttpsUrl(url)) {
+	// Yes.
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is HTTPConfigFile.");
 	bcf = new HTTPConfigFile(url, configMgr);
+	// No: Check whether it is a JAR configuration file.
       } else if (UrlUtil.isJarUrl(url)) {
+	// Yes.
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is JarConfigFile.");
 	bcf = new JarConfigFile(url, configMgr);
       } else {
+	// No: It is a local filesystem configuration file.
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is FileConfigFile.");
 	bcf = new FileConfigFile(url, configMgr);
       }

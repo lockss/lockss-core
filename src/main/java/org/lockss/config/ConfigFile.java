@@ -77,6 +77,17 @@ public interface ConfigFile {
   public Configuration getConfiguration() throws IOException;
 
   /**
+   * Provides an input stream to the content of this file.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @return an InputStream with the input stream to the file contents.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public InputStream getInputStream() throws IOException;
+
+  /**
    * Do the actual writing of the file to the disk by renaming a temporary file.
    * 
    * @param tempfile
