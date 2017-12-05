@@ -45,7 +45,7 @@ public class JarConfigFile extends BaseConfigFile {
     super(url, cfgMgr);
   }
 
-  protected InputStream openInputStream() throws IOException {
+  protected InputStream getInputStreamIfModified() throws IOException {
     String lm = calcNewLastModified();
 
     // Only reload the file if the last modified timestamp is different.
@@ -53,6 +53,21 @@ public class JarConfigFile extends BaseConfigFile {
       log.debug2("Jar has not changed on disk, not reloading: " + m_fileUrl);
       return null;
     }
+
+    return getInputStream();
+  }
+
+  /**
+   * Provides an input stream to the content of this file, ignoring previous
+   * history.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @return an InputStream with the input stream to the file contents.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public InputStream getInputStream() throws IOException {
     log.debug2("Loading JAR config file: " + m_fileUrl);
     URL jarUrl = new URL(m_fileUrl);
     final JarURLConnection con = (JarURLConnection)jarUrl.openConnection();

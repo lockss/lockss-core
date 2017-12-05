@@ -82,8 +82,9 @@ public class FileConfigFile extends BaseConfigFile {
     m_generation++;
   }
 
-   protected InputStream openInputStream() throws IOException {
-     final String DEBUG_HEADER = "openInputStream(" + m_fileUrl + "): ";
+   protected InputStream getInputStreamIfModified() throws IOException {
+     final String DEBUG_HEADER =
+	 "getInputStreamIfModified(" + m_fileUrl + "): ";
      if (log.isDebug2()) log.debug2(DEBUG_HEADER
 	 + "reloadUnconditionally = " + reloadUnconditionally);
      // The semantics of this are a bit odd, because File.lastModified()
@@ -107,11 +108,24 @@ public class FileConfigFile extends BaseConfigFile {
       }
     }
     reloadUnconditionally = false;
-    InputStream in = new FileInputStream(m_fileFile);
-    if (StringUtil.endsWithIgnoreCase(m_fileFile.getName(), ".gz")) {
-      in = new GZIPInputStream(in);
-    }
-    return in;
+    return getInputStream();
+   }
+
+  /**
+   * Provides an input stream to the content of this file.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @return an InputStream with the input stream to the file contents.
+   * @throws IOException
+   *           if there are problems.
+   */
+   public InputStream getInputStream() throws IOException {
+     InputStream in = new FileInputStream(m_fileFile);
+     if (StringUtil.endsWithIgnoreCase(m_fileFile.getName(), ".gz")) {
+       in = new GZIPInputStream(in);
+     }
+     return in;
    }
 
   /**

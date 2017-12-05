@@ -174,7 +174,7 @@ public abstract class BaseConfigFile implements ConfigFile {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "m_lastAttempt = " + m_lastAttempt);
     try {
-      InputStream in = openInputStream();
+      InputStream in = getInputStreamIfModified();
       if (in != null) {
 	try {
 	  setConfigFrom(in);
@@ -320,7 +320,7 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Return an InputStream on the contents of the file, or null if the file
    * hasn't changed.
    */
-  protected abstract InputStream openInputStream() throws IOException;
+  protected abstract InputStream getInputStreamIfModified() throws IOException;
 
   /**
    * Called after file has been completely read.

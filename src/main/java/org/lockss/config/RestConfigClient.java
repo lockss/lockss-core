@@ -149,7 +149,17 @@ public class RestConfigClient {
    * 
    */
   public boolean isPartOfThisService(String urlText) {
+    final String DEBUG_HEADER = "isPartOfThisService(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urlText = " + urlText);
+
     try {
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "restConfigServiceUrl = " + restConfigServiceUrl);
+
+      if (restConfigServiceUrl == null) {
+	return false;
+      }
+
       // Check whether the URL is neither HTTP nor HTTPS or points to a
       // different host than this service.
       if (!UrlUtil.isHttpOrHttpsUrl(urlText)
@@ -185,15 +195,20 @@ public class RestConfigClient {
    * the response.
    * 
    * @param url
-   *          String with the URL.
+   *          A String with the URL.
+   * @param ifModifiedSince
+   *          A String with the timestamp to be specified in the request eTag.
    * @return a TextMultipartResponse with the response.
    * @throws IOException
    *           if there are problems.
    */
-  public TextMultipartResponse callGetTextMultipartRequest(String url)
-      throws Exception {
+  public TextMultipartResponse callGetTextMultipartRequest(String url,
+      String ifModifiedSince) throws Exception {
     final String DEBUG_HEADER = "callGetTextMultipartRequest(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "url = " + url);
+      log.debug2(DEBUG_HEADER + "ifModifiedSince = " + ifModifiedSince);
+    }
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
@@ -212,6 +227,12 @@ public class RestConfigClient {
     String authHeaderValue = "Basic " + Base64.getEncoder()
     .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
     requestHeaders.set("Authorization", authHeaderValue);
+
+    // Check whether there is a custom eTag.
+    if (ifModifiedSince != null) {
+	// Yes: Set it.
+      requestHeaders.setETag("\"" + ifModifiedSince + "\"");
+    }
 
     // Make the request and obtain the response.
     TextMultipartResponse response = new TextMultipartConnector(uri,

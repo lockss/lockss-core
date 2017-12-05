@@ -266,7 +266,7 @@ public class PluginManager
    */
   public static final String PARAM_AU_CONTENT_FROM_WS =
       PREFIX + "auContentFromWs";
-  public static final boolean DEFAULT_AU_CONTENT_FROM_WS = false;
+  public static final boolean DEFAULT_AU_CONTENT_FROM_WS = true;
 
   /**
    * The parameters of the web service used, instead of the repository, to

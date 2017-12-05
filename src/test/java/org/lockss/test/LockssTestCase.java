@@ -44,6 +44,7 @@ import org.junit.Ignore;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
+import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
 
 
@@ -2121,5 +2122,14 @@ public class LockssTestCase extends TestCase {
     dbManager.startService();
 
     return dbManager;
+  }
+
+  /**
+   * Sets the configuration option to get content from the repository,not a REST
+   * web service.
+   */
+  protected void useOldRepo() {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_CONTENT_FROM_WS,
+	Boolean.FALSE.toString());
   }
 }

@@ -136,6 +136,10 @@ public class MemoryConfigFile implements ConfigFile {
     return gen.getConfig();
   }
 
+  public InputStream getInputStream() throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
   /**
    * Do the actual writing of the file to the disk by renaming a temporary file.
    * 

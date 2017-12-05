@@ -81,6 +81,7 @@ public class TestBaseUrlFetcher extends LockssTestCase {
     CIProperties props = new CIProperties();
     props.setProperty(LockssRepositoryImpl.PARAM_CACHE_LOCATION, tempDirPath);
     ConfigurationUtil.setCurrentConfigFromProps(props);
+    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getHashService();

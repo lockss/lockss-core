@@ -182,7 +182,24 @@ public class HTTPConfigFile extends BaseConfigFile {
     switch (resp) {
     case HttpURLConnection.HTTP_OK:
       m_loadError = null;
-      m_httpLastModifiedString = conn.getResponseHeaderValue("last-modified");
+
+      String eTag = conn.getResponseHeaderValue("ETag");
+      log.debug3(url + " eTag = " + eTag);
+
+      // Check whether the raw eTag has content.
+      if (!StringUtil.isNullString(eTag)) {
+	// Yes: Check whether it is surrounded by double quotes.
+	if (eTag.startsWith("\"") && eTag.endsWith("\"")) {
+	  // Yes: Remove any surrounding double quotes.
+	  m_httpLastModifiedString = eTag.substring(1, eTag.length()-1);
+	} else {
+	  // No: Use it as is.
+	  m_httpLastModifiedString = eTag;
+	}
+      } else {
+	// No: use the Last-Modified header.
+	m_httpLastModifiedString = conn.getResponseHeaderValue("last-modified");
+      }
       log.debug2("New file, or file changed.  Loading file from " +
 		 "remote connection:" + url);
       in = conn.getUncompressedResponseInputStream();
@@ -248,9 +265,9 @@ public class HTTPConfigFile extends BaseConfigFile {
 
   FileConfigFile failoverFcf;
 
-  /** Return an InputStream open on the HTTP url.  If in accessible and a
+  /** Return an InputStream open on the HTTP url.  If inaccessible and a
       local copy of the remote file exists, failover to it. */
-  protected InputStream openInputStream() throws IOException {
+  protected InputStream getInputStreamIfModified() throws IOException {
     try {
       InputStream in = openHttpInputStream();
       if (in != null) {
@@ -262,56 +279,109 @@ public class HTTPConfigFile extends BaseConfigFile {
     } catch (IOException e) {
       // The HTTP fetch failed.  First see if we already found a failover
       // file.
-      if (failoverFcf == null) {
-	if (m_cfgMgr == null) {
-	  throw e;
-	}
-	ConfigManager.RemoteConfigFailoverInfo rcfi =
-	  m_cfgMgr.getRcfi(m_fileUrl);
-	if (rcfi == null || !rcfi.exists()) {
-	  throw e;
-	}
-	File failoverFile = rcfi.getPermFileAbs();
-	if (failoverFile == null) {
-	  throw e;
-	}
-	String chksum = rcfi.getChksum();
-	if (chksum != null) {
-	  HashResult hr = HashResult.make(chksum);
-	  try {
-	    HashResult fileHash = hashFile(failoverFile, hr.getAlgorithm());
-	    if (!hr.equals(fileHash)) {
-	      log.error("Failover file checksum mismatch");
-	      if (log.isDebug2()) {
-		log.debug2("state   : " + hr);
-		log.debug2("computed: " + fileHash);
-	      }
-	      throw new IOException("Failover file checksum mismatch");
-	    }
-	  } catch (NoSuchAlgorithmException nsae) {
-	    log.error("Failover file found has unsupported checksum: " +
-		      hr.getAlgorithm());
-	    throw e;
-	  } catch (IOException ioe) {
-	    log.error("Can't read failover file", ioe);
-	    throw e;
-	  }
-	} else if (CurrentConfig.getBooleanParam(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED,
-						 ConfigManager.DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED)) {
-	  log.error("Failover file found but required checksum is missing");
-	  throw e;
-	}
-
-	// Found one, 
-	long date = rcfi.getDate();
-	log.info("Couldn't load remote config URL: " + m_fileUrl +
-		 ": " + e.toString());
-	log.info("Substituting local copy created: " + new Date(date));
-	failoverFcf = new FileConfigFile(failoverFile.getPath(), m_cfgMgr);
-	m_loadedUrl = failoverFile.getPath();
+      log.info("Couldn't load remote config URL: " + m_fileUrl + ": "
+	  + e.toString());
+      FileConfigFile failoverFile = getFailoverFile();
+      if (failoverFile == null) {
+	throw e;
       }
-      return failoverFcf.openInputStream();
+      return failoverFile.getInputStreamIfModified();
     }
+  }
+
+  /**
+   * Provides the fail-over file.
+   * 
+   * @return a FileConfigFile with the fail-over file.
+   */
+  private FileConfigFile getFailoverFile() {
+    // The HTTP fetch failed.  First see if we already found a failover
+    // file.
+    if (failoverFcf == null) {
+      if (m_cfgMgr == null) {
+	return null;
+      }
+      ConfigManager.RemoteConfigFailoverInfo rcfi =
+	  m_cfgMgr.getRcfi(m_fileUrl);
+      if (rcfi == null || !rcfi.exists()) {
+	return null;
+      }
+      File failoverFile = rcfi.getPermFileAbs();
+      if (failoverFile == null) {
+	return null;
+      }
+      String chksum = rcfi.getChksum();
+      if (chksum != null) {
+	HashResult hr = HashResult.make(chksum);
+	try {
+	  HashResult fileHash = hashFile(failoverFile, hr.getAlgorithm());
+	  if (!hr.equals(fileHash)) {
+	    log.error("Failover file checksum mismatch");
+	    if (log.isDebug2()) {
+	      log.debug2("state   : " + hr);
+	      log.debug2("computed: " + fileHash);
+	    }
+	    throw new IOException("Failover file checksum mismatch");
+	  }
+	} catch (NoSuchAlgorithmException nsae) {
+	  log.error("Failover file found has unsupported checksum: " +
+	      hr.getAlgorithm());
+	  return null;
+	} catch (IOException ioe) {
+	  log.error("Can't read failover file", ioe);
+	  return null;
+	}
+      } else if (CurrentConfig.getBooleanParam(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED,
+	  ConfigManager.DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED)) {
+	log.error("Failover file found but required checksum is missing");
+	return null;
+      }
+
+      // Found one, 
+      long date = rcfi.getDate();
+      log.info("Substituting local copy created: " + new Date(date));
+      failoverFcf = new FileConfigFile(failoverFile.getPath(), m_cfgMgr);
+      m_loadedUrl = failoverFile.getPath();
+    }
+    return failoverFcf;
+  }
+
+  /**
+   * Provides an input stream to the content of this file.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @return an InputStream with the input stream to the file contents.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public InputStream getInputStream() throws IOException {
+    final String DEBUG_HEADER = "getInputStream(): ";
+    // Get the fail-over file, if any.
+    FileConfigFile failoverFile = getFailoverFile();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "failoverFile = " + failoverFile);
+
+    // Check whether a fail-over file was found.
+    if (failoverFile != null) {
+      // Yes: Return the input stream to the fail-over file.
+      return failoverFile.getInputStream();
+    }
+
+    // No: Get the input stream from the network request.
+    InputStream in = openHttpInputStream();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "in == null? " + (in == null));
+
+    // Check whether the network request provided no input stream.
+    if (in == null) {
+      // Yes: Report the problem.
+      String message = "Cannot get an input stream from '" + m_fileUrl + "'";
+      log.error(message);
+      throw new IOException(message);
+    }
+
+    return in;
   }
 
   // XXX Find a place for this
