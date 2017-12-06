@@ -3,26 +3,30 @@
 Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 package org.lockss.config;
@@ -999,7 +1003,7 @@ public class ConfigManager implements LockssManager {
     final String DEBUG_HEADER =
 	"getConfigGenerations(urls, required, reload, msg): ";
     if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
       log.debug2(DEBUG_HEADER + "required = " + required);
       log.debug2(DEBUG_HEADER + "reload = " + reload);
       log.debug2(DEBUG_HEADER + "msg = " + msg);
@@ -1014,7 +1018,7 @@ public class ConfigManager implements LockssManager {
     final String DEBUG_HEADER =
 	"getConfigGenerations(urls, required, reload, msg, keyPred): ";
     if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
       log.debug2(DEBUG_HEADER + "required = " + required);
       log.debug2(DEBUG_HEADER + "reload = " + reload);
       log.debug2(DEBUG_HEADER + "msg = " + msg);
@@ -1052,12 +1056,15 @@ public class ConfigManager implements LockssManager {
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
       if (gen != null) {
 	addGenerationToListIfNotInIt(gen, res);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + StringUtil.loggableCollection(res, "res"));
 	addReferencedUrls(gen, required, reload, msg, keyPred, res);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + StringUtil.loggableCollection(res, "res"));
       }
     }
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(res, "res"));
     return res;
   }
 
@@ -1143,7 +1150,8 @@ public class ConfigManager implements LockssManager {
       log.debug2(DEBUG_HEADER + "reload = " + reload);
       log.debug2(DEBUG_HEADER + "msg = " + msg);
       log.debug2(DEBUG_HEADER + "keyPred = " + keyPred);
-      log.debug2(DEBUG_HEADER + "targetList = " + targetList);
+      log.debug2(DEBUG_HEADER
+	  + StringUtil.loggableCollection(targetList, "targetList"));
     }
 
     // URL base for relative URLs.
@@ -1152,7 +1160,8 @@ public class ConfigManager implements LockssManager {
 
     // The configuration with potential references.
     Configuration config = gen.getConfig();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "config = " + config);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ Configuration.loggableConfiguration(config, "config"));
 
     // Loop through all the referencing option keys. 
     for (String includingKey : URL_PARAMS.keySet()) {
@@ -1196,8 +1205,8 @@ public class ConfigManager implements LockssManager {
 	addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
 	    false, reload, message, keyPredicate), targetList);
 
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "targetList = " + targetList);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + StringUtil.loggableCollection(targetList, "targetList"));
       } else {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "No references found.");
       }
@@ -1208,7 +1217,7 @@ public class ConfigManager implements LockssManager {
       boolean reload) throws IOException {
     final String DEBUG_HEADER = "getStandardConfigGenerations(): ";
     if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
       log.debug2(DEBUG_HEADER + "reload = " + reload);
     }
 
@@ -1216,7 +1225,8 @@ public class ConfigManager implements LockssManager {
 
     List<ConfigFile.Generation> configGens =
 	getConfigGenerations(urls, true, reload, "props");
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "configGens = " + configGens);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ StringUtil.loggableCollection(configGens, "configGens"));
 
     addGenerationsToListIfNotInIt(configGens, res);
 
@@ -1224,7 +1234,8 @@ public class ConfigManager implements LockssManager {
 	false, reload, "plugin-bundled titledb", titleDbOnlyPred), res);
     initCacheConfig(configGens);
     addGenerationsToListIfNotInIt(getCacheConfigGenerations(reload), res);
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(res, "res"));
     return res;
   }
 
@@ -1247,7 +1258,8 @@ public class ConfigManager implements LockssManager {
 
   public boolean updateConfig(List urls) {
     final String DEBUG_HEADER = "updateConfig(List): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
     boolean res = updateConfigOnce(urls, true);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
     if (res) {
@@ -1273,12 +1285,12 @@ public class ConfigManager implements LockssManager {
   public boolean updateConfigOnce(List urls, boolean reload) {
     final String DEBUG_HEADER = "updateConfigOnce(): ";
     if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
       log.debug2(DEBUG_HEADER + "reload = " + reload);
     }
     startUpdateTime = TimeBase.nowMs();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "currentConfig = " + currentConfig);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + 
+	Configuration.loggableConfiguration(currentConfig, "currentConfig"));
     if (currentConfig.isEmpty()) {
       // first load preceded by platform config setup
       setupPlatformConfig(urls);
@@ -2267,7 +2279,8 @@ public class ConfigManager implements LockssManager {
 
     Configuration res =
 	getConfigFileInCache(cacheConfigFileName).getConfiguration();
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	+ Configuration.loggableConfiguration(res, "res"));
     return res;
   }
 
