@@ -81,6 +81,16 @@ public class TextMultipartResponse {
     // The multipart response body.
     MimeMultipart responseBody = response.getBody();
 
+    // Check whether no body has been received.
+    if (responseBody == null) {
+      // Yes.
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "responseBody = null");
+      return;
+    } else {
+      // Yes.
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "responseBody != null");
+    }
+
     // Get the count of parts in the response body.
     int partCount = 0;
 
