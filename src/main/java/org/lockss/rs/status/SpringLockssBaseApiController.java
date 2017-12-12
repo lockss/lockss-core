@@ -31,7 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.status;
 
-import org.lockss.app.LockssDaemon;
 import org.lockss.rs.status.ApiStatus;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpStatus;
@@ -61,7 +60,7 @@ public abstract class SpringLockssBaseApiController
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
 
     try {
-      ApiStatus result = LockssDaemon.getLockssDaemon().getApiStatus();
+      ApiStatus result = getApiStatus();
       if (log.isDebug3()) log.debug3("result = " + result);
 
       return new ResponseEntity<ApiStatus>(result, HttpStatus.OK);
@@ -71,4 +70,12 @@ public abstract class SpringLockssBaseApiController
       throw new RuntimeException(message);
     }
   }
+
+  /**
+   * Provides the status object.
+   * 
+   * @return an ApiStatus with the status.
+   */
+  @Override
+  public abstract ApiStatus getApiStatus();
 }

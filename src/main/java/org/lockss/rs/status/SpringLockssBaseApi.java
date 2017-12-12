@@ -43,7 +43,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 public interface SpringLockssBaseApi {
 
   /**
-   * Provides the status.
+   * Provides the status as an HTTP response.
    * 
    * @return a ResponseEntity<ApiStatus> with the status.
    */
@@ -51,5 +51,14 @@ public interface SpringLockssBaseApi {
   method = RequestMethod.GET)
   default ResponseEntity<ApiStatus> getStatus() {
     return new ResponseEntity<ApiStatus>(HttpStatus.NOT_IMPLEMENTED);
+  }
+
+  /**
+   * Provides the status object.
+   * 
+   * @return an ApiStatus with the status.
+   */
+  default ApiStatus getApiStatus() {
+    return null;
   }
 }

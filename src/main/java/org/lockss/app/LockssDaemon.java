@@ -52,7 +52,6 @@ import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.protocol.psm.*;
 import org.lockss.repository.*;
-import org.lockss.rs.status.ApiStatus;
 import org.lockss.state.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.proxy.*;
@@ -288,9 +287,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   private boolean isClockss;
   private boolean isSafenet;
   protected String testingMode;
-
-  // Representation of the status of the REST web service.
-  private ApiStatus apiStatus;
 
   protected LockssDaemon(List<String> propUrls) {
     super(propUrls);
@@ -1139,25 +1135,6 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   // classes to be loaded
   protected static void setSystemProperties() {
     System.setProperty(IMAGEIO_DISABLE_NATIVE_CODE, "true");
-  }
-
-  /**
-   * Provides the status of the REST web service.
-   * 
-   * @return an ApiStatus with the status of the REST web service.
-   */
-  public ApiStatus getApiStatus() {
-    return apiStatus;
-  }
-
-  /**
-   * Saves the status of the REST web service.
-   * 
-   * @param apiStatus
-   *          An ApiStatus with the status of the REST web service.
-   */
-  protected void setApiStatus(ApiStatus apiStatus) {
-    this.apiStatus = apiStatus;
   }
 
   /**
