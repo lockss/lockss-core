@@ -98,6 +98,9 @@ public interface Constants {
   /** LOCKSS home page */
   public static String LOCKSS_HOME_URL = "http://www.lockss.org/";
 
+  /** Resource dir */
+  public static String RESOURCE_PATH = "org/lockss/htdocs/";
+
   /** LOCKSS HTTP header, can have multiple values */
   public static String X_LOCKSS = "X-Lockss";
 

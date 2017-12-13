@@ -1119,4 +1119,15 @@ public class TestUrlUtil extends LockssTestCase {
     assertMatchesRE("jar:file:.*/dir/2!/file.txt",    // ".*" skips over DOS drive spec
  		    UrlUtil.makeJarFileUrl("/dir/2", "file.txt"));
   }
+
+  public void testGetResource() {
+    assertNull(UrlUtil.getResource("/org/lockss/htdocs/"));
+    assertNotNull(UrlUtil.getResource("org/lockss/htdocs/"));
+    assertNotNull(UrlUtil.getResource(Constants.RESOURCE_PATH));
+  }
+
+  public void testGetHtdocsDir() {
+    assertMatchesRE(Constants.RESOURCE_PATH + "$",
+		    UrlUtil.getHtdocsDir().toString());
+  }
 }

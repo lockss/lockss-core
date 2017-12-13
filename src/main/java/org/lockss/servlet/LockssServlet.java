@@ -109,7 +109,7 @@ public abstract class LockssServlet extends HttpServlet
   public static final String TAB_END_TAG = "end";
 
   public static final String JAVASCRIPT_RESOURCE =
-    "org/lockss/htdocs/admin.js";
+    Constants.RESOURCE_PATH + "admin.js";
 
   private static final String DOCTYPE =
     "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\" \"http://www.w3.org/TR/REC-html40/loose.dtd\">";
@@ -1058,8 +1058,7 @@ public abstract class LockssServlet extends HttpServlet
     if (jstext == null) {
     InputStream istr = null;
       try {
-	ClassLoader loader = Thread.currentThread().getContextClassLoader();
-	istr = loader.getResourceAsStream(JAVASCRIPT_RESOURCE);
+	istr = UrlUtil.getResourceAsStream(JAVASCRIPT_RESOURCE);
 	jstext = StringUtil.fromInputStream(istr);
 	istr.close();
       } catch (Exception e) {
