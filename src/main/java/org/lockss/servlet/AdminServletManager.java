@@ -1007,8 +1007,7 @@ public class AdminServletManager extends BaseServletManager {
 
     // ResourceHandler should come after servlets
     // find the htdocs directory, set as resource base
-    ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    URL resourceUrl=loader.getResource("/org/lockss/htdocs/");
+    URL resourceUrl = UrlUtil.getHtdocsDir();
     log.debug("Resource URL: " + resourceUrl);
 
     context.setResourceBase(resourceUrl.toString());
@@ -1125,9 +1124,8 @@ public class AdminServletManager extends BaseServletManager {
 //     // add handlers in the order they should be tried.
 
 //     // ResourceHandler for /images dir
-//     // find the htdocs directory, set as resource base
-//     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-//     URL resourceUrl=loader.getResource("org/lockss/htdocs/images/");
+//     // find the images directory, set as resource base
+//     URL resourceUrl = UrlUtil.getResource(Constants.RESOURCE_PATH + "images/");
 //     log.debug("Images resource URL: " + resourceUrl);
 
 //     context.setResourceBase(resourceUrl.toString());

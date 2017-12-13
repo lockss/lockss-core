@@ -1174,7 +1174,7 @@ public class UrlUtil {
   }
 
   /**
-   * <p>Returns a URL for a resource in a .jar on the classpath</p>
+   * Conveience method to get URL for resource from classloader
    * @param resourceName name of the resource
    * @return A new URL for the resource
    */
@@ -1188,6 +1188,31 @@ public class UrlUtil {
       log.error("null resourceName");
     }
     return url;
+  }
+
+  /** Convenience method to get resource URL from context ClassLoader
+   * @param name path to resource.
+   */
+  public static URL getResource(String name) {
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    return loader.getResource(name);
+  }
+
+  /** Convenience method to get resource InputStream from context ClassLoader
+   * @param name path to resource.
+   */
+  public static InputStream getResourceAsStream(String name) {
+    URL url = getResource(name);
+    try {
+      return url != null ? url.openStream() : null;
+    } catch (IOException e) {
+      return null;
+    }
+  }
+
+  /** Return URL of LOCKSS htdocs dir */
+  public static URL getHtdocsDir() {
+    return getResource(Constants.RESOURCE_PATH);
   }
 
   /**
