@@ -128,10 +128,12 @@ public class MockLockssDaemon extends LockssDaemon {
 
 
   /** Does nothing */
-  public void startDaemon() throws Exception {
+  @Override
+  public void startApp() throws Exception {
   }
 
-  public void stopDaemon() {
+  @Override
+  public void stopApp() {
     auManagerMaps.clear();
 
     managerMap.clear();

@@ -108,6 +108,10 @@ public class LockssApp {
   static final String PARAM_PLATFORM_VERSION =
     Configuration.PREFIX + "platform.version";
 
+  public static final String PARAM_START_PLUGINS =
+    Configuration.PREFIX + "startPlugins";
+  public static final boolean DEFAULT_START_PLUGINS = false;
+
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
 

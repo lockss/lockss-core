@@ -862,16 +862,17 @@ public class LockssDaemon extends LockssApp {
   protected OneShotSemaphore ausStarted = new OneShotSemaphore();
 
   protected void startDaemon() throws Exception {
-    log.critical("startDaemon()E: " + this, new Throwable());
+    startApp();
+  }
 
-    try {
-      startApp();
-    } catch (Throwable e) {
-      log.critical("xxxxxxxxxxxx", e);
-    }
-
+  protected void startApp() throws Exception {
+    super.startApp();
     log.info("Started");
-    ausStarted.fill();
+    if (CurrentConfig.getBooleanParam(PARAM_START_PLUGINS,
+				      DEFAULT_START_PLUGINS)) {
+      getPluginManager().startLoadablePlugins();
+      ausStarted.fill();
+    }
 
     AlertManager alertMgr = getAlertManager();
     alertMgr.raiseAlert(Alert.cacheAlert(Alert.DAEMON_STARTED),

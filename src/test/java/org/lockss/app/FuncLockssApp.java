@@ -81,6 +81,7 @@ public class FuncLockssApp extends LockssTestCase {
     assertClass(org.lockss.alert.AlertManagerImpl.class,
 		app.getManagerByType(org.lockss.alert.AlertManager.class));
     assertEquals("foo", CurrentConfig.getParam("org.lockss.app.nonesuch"));
+    assertEquals("vvv3", CurrentConfig.getParam("o.l.p22"));
   }
   
   public void xtestFoo() throws Exception {

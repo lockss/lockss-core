@@ -1303,7 +1303,6 @@ public class ConfigManager implements LockssManager {
     }
     if (currentConfig.isEmpty() ||
 	TimeBase.msSince(lastSendVersion) >= sendVersionEvery) {
-      LockssApp app = getApp();
       sendVersionInfo = getVersionString();
       lastSendVersion = TimeBase.nowMs();
     } else {
@@ -1332,6 +1331,13 @@ public class ConfigManager implements LockssManager {
     }
     Configuration newConfig = initNewConfiguration();
     loadList(newConfig, gens);
+    if (getApp() != null) {
+      Configuration appConfig = getApp().getAppConfig();
+      if (appConfig != null && !appConfig.isEmpty()) {
+	log.debug("Adding app config: " + appConfig);
+	newConfig.copyFrom(appConfig);
+      }
+    }
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
 
     boolean did = installConfig(newConfig, gens);
