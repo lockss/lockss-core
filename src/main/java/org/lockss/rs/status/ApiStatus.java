@@ -49,16 +49,18 @@ public class ApiStatus {
     return version;
   }
 
-  public void setVersion(String version) {
+  public ApiStatus setVersion(String version) {
     this.version = version;
+    return this;
   }
 
   public Boolean isReady() {
     return ready;
   }
 
-  public void setReady(Boolean ready) {
+  public ApiStatus setReady(Boolean ready) {
     this.ready = ready;
+    return this;
   }
 
   @Override
