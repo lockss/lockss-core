@@ -606,6 +606,7 @@ public class ConfigManager implements LockssManager {
    * this is called.)
    */
   public void stopService() {
+    stopHandler();
     currentConfig = newConfiguration();
     // this currently runs afoul of Logger, which registers itself once
     // only, on first use.
@@ -615,7 +616,6 @@ public class ConfigManager implements LockssManager {
     cacheConfigDir = null;
     // Reset the config cache.
     configCache = null;
-    stopHandler();
     haveConfig = new OneShotSemaphore();
   }
 
@@ -821,6 +821,9 @@ public class ConfigManager implements LockssManager {
     // copy the list of callbacks as it could change during the loop.
     List cblist = new ArrayList(configChangedCallbacks);
     for (Iterator iter = cblist.iterator(); iter.hasNext();) {
+      if (Thread.currentThread().isInterrupted()) {
+	throw new AbortConfigLoadException("Interrupted");
+      }
       try {
 	Configuration.Callback cb = (Configuration.Callback)iter.next();
 	runCallback(cb, newConfig, oldConfig, diffs);
@@ -1029,6 +1032,9 @@ public class ConfigManager implements LockssManager {
     List<ConfigFile.Generation> res =
 	new ArrayList<ConfigFile.Generation>(urls.size());
     for (Object o : urls) {
+      if (Thread.currentThread().isInterrupted()) {
+	throw new AbortConfigLoadException("Interrupted");
+      }
       ConfigFile.Generation gen;
       if (o instanceof ConfigFile) {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is ConfigFile.");
@@ -3342,6 +3348,16 @@ public class ConfigManager implements LockssManager {
     return auConfig;
   }
 
+  class AbortConfigLoadException extends RuntimeException {
+    AbortConfigLoadException(String msg) {
+      super(msg);
+    }
+
+    AbortConfigLoadException(String msg, Throwable cause) {
+      super(msg, cause);
+    }
+  }
+
   // Handler thread, periodically reloads config
 
   private class HandlerThread extends LockssThread {
@@ -3365,37 +3381,42 @@ public class ConfigManager implements LockssManager {
       while (goOn) {
 	pokeWDog();
 	running = true;
-	if (updateConfig()) {
-	  if (tiny != null) {
-	    stopTinyUi();
-	  }
-	  // true iff loaded config has changed
-	  if (!goOn) {
-	    break;
-	  }
-	  lastReload = TimeBase.nowMs();
-	  //	stopAndOrStartThings(true);
-	} else {
-	  if (lastReload == 0) {
-	    if (tiny == null) {
-	      startTinyUi();
-	    } else {
-	      updateTinyData();
+	try {
+	  if (updateConfig()) {
+	    if (tiny != null) {
+	      stopTinyUi();
+	    }
+	    // true iff loaded config has changed
+	    if (!goOn) {
+	      break;
+	    }
+	    lastReload = TimeBase.nowMs();
+	    //	stopAndOrStartThings(true);
+	  } else {
+	    if (lastReload == 0) {
+	      if (tiny == null) {
+		startTinyUi();
+	      } else {
+		updateTinyData();
+	      }
 	    }
 	  }
-	}
-	pokeWDog();			// in case update took a long time
-	long reloadRange = reloadInterval/4;
-	nextReload = Deadline.inRandomRange(reloadInterval - reloadRange,
-					    reloadInterval + reloadRange);
-	log.debug2(nextReload.toString());
-	running = false;
-	if (goOn && !goAgain) {
-	  try {
-	    nextReload.sleep();
-	  } catch (InterruptedException e) {
-	    // just wakeup and check for exit
+	  pokeWDog();			// in case update took a long time
+	  long reloadRange = reloadInterval/4;
+	  nextReload = Deadline.inRandomRange(reloadInterval - reloadRange,
+					      reloadInterval + reloadRange);
+	  log.debug2(nextReload.toString());
+	  running = false;
+	  if (goOn && !goAgain) {
+	    try {
+	      nextReload.sleep();
+	    } catch (InterruptedException e) {
+	      // just wakeup and check for exit
+	    }
 	  }
+	} catch (AbortConfigLoadException e) {
+	  log.warning("Config reload thread aborted");
+	  // just exit
 	}
 	goAgain = false;
       }
