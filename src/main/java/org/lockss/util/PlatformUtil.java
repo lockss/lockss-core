@@ -152,13 +152,24 @@ public class PlatformUtil {
     throw new UnsupportedException("No OS-independent way to find main PID");
   }
 
-  /** Request a thread dump of this JVM.  Dump is output to JVM's stderr,
-   * which may not be the same as System.err.  If unsupported on this
-   * platform, logs an info message.
+  /** Request a thread dump of this JVM using the default method, which is
+   * currently {@link #threadDumpJcmd(boolean)}.  Dump is output to
+   * System.out.  If unsupported on this platform, logs an info message.
    * @param wait if true will attempt to wait until dump is complete before
    * returning
    */
   public void threadDump(boolean wait) {
+    threadDumpJcmd(wait, System.out);
+  }
+
+  /** Request a thread dump of this JVM by sending it SIGQUIT.  Dump is
+   * output to JVM's stderr, which may not be the same as System.err.  Logs
+   * a message if unsupported on this platform or fails.  The maven
+   * surefire plugin can't handle the low level JVM output this produces.
+   * @param wait if true will attempt to wait until dump is complete before
+   * returning
+   */
+  public void threadDumpSignal(boolean wait) {
     int pid;
     try {
       pid = getMainPid();
@@ -184,6 +195,49 @@ public class PlatformUtil {
       log.error("Couldn't exec '" + cmd + "'", e);
     } catch (InterruptedException e) {
       log.error("waitFor()", e);
+    }
+  }
+
+  /** Request a thread dump of this JVM by invoking jcmd and capturing the
+   * output.  Dump is output to System.out.  Logs a message if unsupported
+   * on this platform or fails.
+   * @param wait if true will attempt to wait until dump is complete before
+   * returning
+   */
+  public void threadDumpJcmd(boolean wait) {
+    threadDumpJcmd(wait, System.out);
+  }
+
+  /** Request a thread dump of this JVM by invoking jcmd and capturing the
+   * output.  Logs a message if unsupported on this platform or fails.
+   * @param outStream PrintStream to which the thread dump is printed 
+   * @param wait if true will attempt to wait until dump is complete before
+   * returning
+   */
+  public void threadDumpJcmd(boolean wait, PrintStream ostrm) {
+    int pid;
+    try {
+      pid = getMainPid();
+    } catch (UnsupportedException e) {
+      log.info("Thread dump requested, not supported in this environment", e);
+      return;
+    }
+    ostrm.println("Thread dump at " + new Date());
+    String cmd = "jcmd " + pid + " Thread.print";
+    try {
+      Process p = rt().exec(cmd);
+      InputStream is = p.getInputStream();
+      org.mortbay.util.IO.copy(is, ostrm);
+      p.waitFor();
+      if (wait) {
+	try {
+	  Thread.sleep(Constants.SECOND);
+	} catch (InterruptedException ignore) {}
+      }
+    } catch (IOException e) {
+      log.error("Error printing thread dump, couldn't exec '" + cmd + "'", e);
+    } catch (InterruptedException e) {
+      log.error("Error printing thread dump: waitFor()", e);
     }
   }
 
