@@ -44,7 +44,7 @@ import org.lockss.test.*;
 
 public class TestFileUtil extends LockssTestCase4 {
   private static final Logger log =
-      Logger.getLoggerWithInitialLevel(TestFileUtil.class.getName(),
+      Logger.getLoggerWithInitialLevel("TestFileUtil",
                                        Logger.getInitialDefaultLevel());
 
   String tempDirPath;

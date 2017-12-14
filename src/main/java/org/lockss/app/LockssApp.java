@@ -58,11 +58,9 @@ import org.apache.commons.collections.map.LinkedMap;
  */
 
 public class LockssApp {
-  private final Logger log = Logger.getLogger(LockssApp.class);
-  // XXX For some reason a static logger in this class doesn't work in some
-  // environments (no output).  A non-static logger does work but can't be
-  // used everywhere.  Need to investigate this.
-  private final static Logger staticLog = Logger.getLogger(LockssApp.class);
+  private static final Logger log =
+    Logger.getLoggerWithInitialLevel("LockssApp",
+				     Logger.getInitialDefaultLevel());
 
 /**
  * LOCKSS is a trademark of Stanford University.  Stanford hereby grants you
