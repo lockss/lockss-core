@@ -233,8 +233,13 @@ public class TestPlatformUtil extends LockssTestCase {
     assertTrue(info.isDiskFullError(new IOException("disk: No space left on device")));
   }
 
-  public void xtestThreadDump() throws Exception {
-    info.threadDump(true);
+  // maven surefire plugin is incompatible with lowlevel JVM output
+  public void xtestThreadDumpSignal() throws Exception {
+    info.threadDumpSignal(true);
+  }
+
+  public void testThreadDumpJcmd() throws Exception {
+    info.threadDumpJcmd(false);
   }
 
   boolean isBuggy(String str) {
