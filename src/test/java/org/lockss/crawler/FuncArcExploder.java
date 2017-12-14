@@ -151,6 +151,7 @@ public class FuncArcExploder extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -174,7 +175,7 @@ public class FuncArcExploder extends LockssTestCase {
     props.setProperty(LockssApp.MANAGER_PREFIX + LockssDaemon.PLUGIN_MANAGER,
 		      MyPluginManager.class.getName());
 
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
     pluginMgr = new MyPluginManager();

@@ -64,13 +64,14 @@ public abstract class BaseFuncExporter extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     daemon = getMockLockssDaemon();
 
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
 
     Properties props = new Properties();
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     daemon.getPluginManager();
     daemon.setDaemonInited(true);

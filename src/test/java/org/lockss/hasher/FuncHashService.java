@@ -70,8 +70,9 @@ public class FuncHashService extends LockssTestCase {
 
   public void setUp(String hashSvcName) throws Exception {
     super.setUp();
+    useOldRepo();
     theDaemon = getMockLockssDaemon();
-    ConfigurationUtil.setFromArgs("org.lockss.manager.HashService",
+    ConfigurationUtil.addFromArgs(org.lockss.app.LockssDaemon.mkey(HashService.class),
 				  hashSvcName);
     svc = theDaemon.getHashService();
     svc.startService();

@@ -72,6 +72,7 @@ public class FuncNewContentCrawler extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -93,7 +94,7 @@ public class FuncNewContentCrawler extends LockssTestCase {
     // Crawl rule check in BaseCachedUrl.hasContent() interferes with
     // shouldBeCached() counter below - disable it.
     props.setProperty(BaseCachedUrl.PARAM_INCLUDED_ONLY, "false");
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
