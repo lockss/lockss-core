@@ -28,7 +28,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.test;
 
-import java.util.List;
+import java.util.*;
 import org.apache.commons.collections.map.LinkedMap;
 import org.lockss.alert.AlertManager;
 import org.lockss.account.AccountManager;
@@ -145,6 +145,17 @@ public class MockLockssDaemon extends LockssDaemon {
     testingMode = mode;
   }
 
+  @Override
+  public AppSpec getAppSpec() {
+    if (appSpec == null) {
+      appSpec = new AppSpec()
+	.setName("Mock Lockss Daemon")
+// 	.setArgs("")
+	.setAppManagers(super.getAppManagerDescs());
+    }
+    return appSpec;
+  }
+
   ManagerDesc findManagerDesc(String key) {
     return findDesc(getManagerDescs(), key);
   }
@@ -182,9 +193,9 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   public <T> T getManagerByType(Class<T> mgrType) {
-    T mgr = (T)managerMap.get(mkey(mgrType));
+    T mgr = (T)managerMap.get(managerKey(mgrType));
     if (mgr == null) {
-      mgr = (T)newManager(mkey(mgrType));
+      mgr = (T)newManager(managerKey(mgrType));
     }
     return mgr;
   }
@@ -390,16 +401,16 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   public boolean hasIdentityManager() {
-    return managerMap.containsKey(mkey(IdentityManager.class));
+    return managerMap.containsKey(managerKey(IdentityManager.class));
   }
 
   /**
    * return the database manager instance
    * @return the DbManager
    */
-  public DbManager getDbManager() {
-    return getManagerByType(DbManager.class);
-  }
+//   public DbManager getDbManager() {
+//     return getManagerByType(DbManager.class);
+//   }
 
   /**
    * return the metadata database manager instance
@@ -640,13 +651,13 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.TRUEZIP_MANAGER, tzMgr);
   }
 
-  /**
-   * Set the DbManager
-   * @param dbMan the new manager
-   */
-  public void setDbManager(DbManager dbMan) {
-    managerMap.put(LockssDaemon.DB_MANAGER, dbMan);
-  }
+//   /**
+//    * Set the DbManager
+//    * @param dbMan the new manager
+//    */
+//   public void setDbManager(DbManager dbMan) {
+//     managerMap.put(LockssDaemon.DB_MANAGER, dbMan);
+//   }
 
   /**
    * Set the MetadataDbManager

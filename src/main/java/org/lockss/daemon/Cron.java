@@ -47,7 +47,7 @@ import org.lockss.account.*;
  * run times are stored persistently.
  */
 public class Cron
-  extends BaseLockssDaemonManager implements ConfigurableManager  {
+  extends BaseLockssManager implements ConfigurableManager  {
 
   protected static Logger log = Logger.getLogger("Cron");
 
@@ -97,7 +97,7 @@ public class Cron
 
   public void startService() {
     super.startService();
-    ConfigManager configMgr = getDaemon().getConfigManager();
+    ConfigManager configMgr = getApp().getConfigManager();
     installTasks();
     cronStateFile = configMgr.getCacheConfigFile(CONFIG_FILE_CRON_STATE);
     log.debug2("State file: " + cronStateFile);
@@ -114,7 +114,7 @@ public class Cron
 			Configuration prevConfig,
 			Configuration.Differences changedKeys) {
 
-    if (!getDaemon().isDaemonInited()) {
+    if (!getApp().isAppInited()) {
       return;
     }
 
@@ -167,8 +167,8 @@ public class Cron
 
   /** Install standard tasks */
   void installTasks() {
-    addTask(new RemoteApi.CreateBackupFile(getDaemon()));
-    addTask(new SendPasswordReminder(getDaemon()));
+//     addTask(new RemoteApi.CreateBackupFile(getDaemon()));
+    addTask(new SendPasswordReminder(getApp()));
   }
 
   /** Add a task */
@@ -402,10 +402,10 @@ public class Cron
 
   /** Task base */
   public abstract static class BaseTask implements Cron.Task {
-    protected final LockssDaemon daemon;
+    protected final LockssApp app;
 
-    public BaseTask(LockssDaemon daemon) {
-      this.daemon = daemon;
+    public BaseTask(LockssApp app) {
+      this.app = app;
     }
 
     public long nextTime(long lastTime, String freq) {
@@ -425,8 +425,8 @@ public class Cron
    * Doesn't belong here. */
   static class SendPasswordReminder extends BaseTask {
 
-    SendPasswordReminder(LockssDaemon daemon) {
-      super(daemon);
+    SendPasswordReminder(LockssApp app) {
+      super(app);
     }
 
     public String getId() {
@@ -441,7 +441,7 @@ public class Cron
     }
 
     public boolean execute() {
-      AccountManager mgr = daemon.getAccountManager();
+      AccountManager mgr = app.getAccountManager();
       return mgr.checkPasswordReminders();
     }
   }

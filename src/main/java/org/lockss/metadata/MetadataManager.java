@@ -354,9 +354,9 @@ public class MetadataManager extends BaseLockssManager implements
     final String DEBUG_HEADER = "startService(): ";
     log.debug(DEBUG_HEADER + "Starting MetadataManager");
 
+    configMgr = getConfigManager();
     pluginMgr = getManagerByType(PluginManager.class);
     dbManager = getManagerByType(MetadataDbManager.class);
-    configMgr = getApp().getConfigManager();
     jobMgr = getManagerByType(JobManager.class);
     try {
       mdManagerSql = new MetadataManagerSql(dbManager, this);

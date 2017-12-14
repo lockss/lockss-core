@@ -1924,9 +1924,11 @@ public class RemoteApi
   /** Cron.Task to periodically generate and optionally mail a backup
    * file. */
   public static class CreateBackupFile extends Cron.BaseTask {
+    LockssDaemon daemon;
 
     public CreateBackupFile(LockssDaemon daemon) {
       super(daemon);
+      this.daemon = daemon;
     }
 
     public String getId() {

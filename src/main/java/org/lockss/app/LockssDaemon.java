@@ -39,7 +39,6 @@ import org.lockss.util.*;
 import org.lockss.alert.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
-import org.lockss.db.DbManager;
 import org.lockss.exporter.FetchTimeExportManager;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.account.*;
@@ -82,44 +81,80 @@ public class LockssDaemon extends LockssApp {
   public static final String PARAM_BIND_ADDRS = PREFIX + "bindAddrs";
 
   // Parameter keys for daemon managers
-  public static final String ACTIVITY_REGULATOR = mkey(ActivityRegulator.class);
-  public static final String HASH_SERVICE = mkey(HashService.class);
-  public static final String DATAGRAM_COMM_MANAGER = mkey(LcapDatagramComm.class);
-  public static final String STREAM_COMM_MANAGER = mkey(LcapStreamComm.class);
-  public static final String ROUTER_MANAGER = mkey(LcapRouter.class);
-  public static final String DATAGRAM_ROUTER_MANAGER = mkey(LcapDatagramRouter.class);
-//   public static final String IDENTITY_MANAGER = "IdentityManager";
-  public static final String CRAWL_MANAGER = mkey(CrawlManager.class);
-  public static final String METADATA_MANAGER = mkey(MetadataManager.class);
-  public static final String POLL_MANAGER = mkey(PollManager.class);
-  public static final String PSM_MANAGER = mkey(PsmManager.class);
-  public static final String REPOSITORY_MANAGER = mkey(RepositoryManager.class);
-  public static final String LOCKSS_REPOSITORY = mkey(LockssRepository.class);
-  public static final String HISTORY_REPOSITORY = mkey(HistoryRepository.class);
-  public static final String NODE_MANAGER = mkey(NodeManager.class);
-  public static final String SERVLET_MANAGER = mkey(org.lockss.servlet.AdminServletManager.class);
-  public static final String CONTENT_SERVLET_MANAGER = mkey(org.lockss.servlet.ContentServletManager.class);
-  public static final String PROXY_MANAGER = mkey(ProxyManager.class);
-  public static final String AUDIT_PROXY_MANAGER = mkey(AuditProxyManager.class);
-  public static final String FAIL_OVER_PROXY_MANAGER = mkey(FailOverProxyManager.class);
-  public static final String REMOTE_API = mkey(RemoteApi.class);
-  public static final String NODE_MANAGER_MANAGER = mkey(NodeManagerManager.class);
-  public static final String REPOSITORY_STATUS = mkey(LockssRepositoryStatus.class);
-  public static final String ARCHIVAL_UNIT_STATUS = mkey(ArchivalUnitStatus.class);
-  public static final String PLATFORM_CONFIG_STATUS = mkey(PlatformConfigStatus.class);
-  public static final String CONFIG_STATUS = mkey(ConfigStatus.class);
-  public static final String OVERVIEW_STATUS = mkey(OverviewStatus.class);
-  public static final String ICP_MANAGER = mkey(IcpManager.class);
-  public static final String CLOCKSS_PARAMS = mkey(ClockssParams.class);
-  public static final String SAFENET_MANAGER = mkey(CachingEntitlementRegistryClient.class);
-  public static final String COUNTER_REPORTS_MANAGER = mkey(CounterReportsManager.class);
-  public static final String SUBSCRIPTION_MANAGER = mkey(SubscriptionManager.class);
+  public static final String ACTIVITY_REGULATOR =
+    managerKey(ActivityRegulator.class);
+  public static final String HASH_SERVICE =
+    managerKey(HashService.class);
+  public static final String DATAGRAM_COMM_MANAGER =
+    managerKey(LcapDatagramComm.class);
+  public static final String STREAM_COMM_MANAGER =
+    managerKey(LcapStreamComm.class);
+  public static final String ROUTER_MANAGER =
+    managerKey(LcapRouter.class);
+  public static final String DATAGRAM_ROUTER_MANAGER =
+    managerKey(LcapDatagramRouter.class);
+//   public static final String IDENTITY_MANAGER =
+//     mamagerKey(IdentityManager.class);
+  public static final String CRAWL_MANAGER =
+    managerKey(CrawlManager.class);
+  public static final String METADATA_MANAGER =
+    managerKey(MetadataManager.class);
+  public static final String POLL_MANAGER =
+    managerKey(PollManager.class);
+  public static final String PSM_MANAGER =
+    managerKey(PsmManager.class);
+  public static final String REPOSITORY_MANAGER =
+    managerKey(RepositoryManager.class);
+  public static final String LOCKSS_REPOSITORY =
+    managerKey(LockssRepository.class);
+  public static final String HISTORY_REPOSITORY =
+    managerKey(HistoryRepository.class);
+  public static final String NODE_MANAGER =
+    managerKey(NodeManager.class);
+  public static final String SERVLET_MANAGER =
+    managerKey(org.lockss.servlet.AdminServletManager.class);
+  public static final String CONTENT_SERVLET_MANAGER =
+    managerKey(org.lockss.servlet.ContentServletManager.class);
+  public static final String PROXY_MANAGER =
+    managerKey(ProxyManager.class);
+  public static final String AUDIT_PROXY_MANAGER =
+    managerKey(AuditProxyManager.class);
+  public static final String FAIL_OVER_PROXY_MANAGER =
+    managerKey(FailOverProxyManager.class);
+  public static final String REMOTE_API =
+    managerKey(RemoteApi.class);
+  public static final String NODE_MANAGER_MANAGER =
+    managerKey(NodeManagerManager.class);
+  public static final String REPOSITORY_STATUS =
+    managerKey(LockssRepositoryStatus.class);
+  public static final String ARCHIVAL_UNIT_STATUS =
+    managerKey(ArchivalUnitStatus.class);
+  public static final String PLATFORM_CONFIG_STATUS =
+    managerKey(PlatformConfigStatus.class);
+  public static final String CONFIG_STATUS =
+    managerKey(ConfigStatus.class);
+  public static final String OVERVIEW_STATUS =
+    managerKey(OverviewStatus.class);
+  public static final String ICP_MANAGER =
+    managerKey(IcpManager.class);
+  public static final String CLOCKSS_PARAMS =
+    managerKey(ClockssParams.class);
+  public static final String SAFENET_MANAGER =
+    managerKey(CachingEntitlementRegistryClient.class);
+  public static final String COUNTER_REPORTS_MANAGER =
+    managerKey(CounterReportsManager.class);
+  public static final String SUBSCRIPTION_MANAGER =
+    managerKey(SubscriptionManager.class);
   public static final String FETCH_TIME_EXPORT_MANAGER =
-    mkey(org.lockss.exporter.FetchTimeExportManager.class);
-  public static final String JOB_MANAGER = mkey(JobManager.class);
-  public static final String METADATA_DB_MANAGER = mkey(MetadataDbManager.class);
-  public static final String JOB_DB_MANAGER = mkey(JobDbManager.class);
-  public static final String SCHED_SERVICE = mkey(SchedService.class);
+    managerKey(org.lockss.exporter.FetchTimeExportManager.class);
+  public static final String JOB_MANAGER =
+    managerKey(JobManager.class);
+  public static final String METADATA_DB_MANAGER =
+    managerKey(MetadataDbManager.class);
+  public static final String JOB_DB_MANAGER =
+    managerKey(JobDbManager.class);
+  public static final String SCHED_SERVICE =
+    managerKey(SchedService.class);
 
 
   protected static final String DEFAULT_SCHED_SERVICE =
@@ -128,6 +163,8 @@ public class LockssDaemon extends LockssApp {
   // Managers specific to this service.  They are started in this order,
   // following the standard managers specified in BaseLockssDaemon
   private final ManagerDesc[] myManagerDescs = {
+    // start plugin manager after generic services
+    new ManagerDesc(PLUGIN_MANAGER, "org.lockss.plugin.PluginManager"),
     new ManagerDesc(SCHED_SERVICE, DEFAULT_SCHED_SERVICE),
     new ManagerDesc(HASH_SERVICE, "org.lockss.hasher.HashSvcQueueImpl"),
     new ManagerDesc(SYSTEM_METRICS, "org.lockss.daemon.SystemMetrics"),
@@ -193,7 +230,6 @@ public class LockssDaemon extends LockssApp {
                     "org.lockss.repository.LockssRepositoryStatus"),
     new ManagerDesc(OVERVIEW_STATUS,
                     "org.lockss.daemon.status.OverviewStatus"),
-    new ManagerDesc(CRON, "org.lockss.daemon.Cron"),
     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
       public boolean shouldStart() {
         return isClockss();
@@ -202,8 +238,6 @@ public class LockssDaemon extends LockssApp {
       public boolean shouldStart() {
         return isSafenet();
       }},
-    // watchdog last
-    new ManagerDesc(WATCHDOG_SERVICE, DEFAULT_WATCHDOG_SERVICE)
   };
 
   // AU-specific manager descriptors.  As each AU is created its managers
@@ -232,6 +266,11 @@ public class LockssDaemon extends LockssApp {
 
   private static LockssDaemon theDaemon;
   private boolean isClockss;
+
+  protected LockssDaemon() {
+    super();
+    theDaemon = this;
+  }
 
   protected LockssDaemon(List<String> propUrls) {
     super(propUrls);
@@ -887,76 +926,14 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * Main entry to the daemon.  Startup arguments:
-   *
-   * -b url
-   *     Load bootstrap properties from url
-   * -c url
-   *     The URL of a REST Configuration service
-   * -p url1
-   *     Load properties from url1
-   * -p url1 -p url2;url3;url4
-   *     Load properties from url1 AND from one of
-   *     (url2 | url3 | url4)
-   * -g group_name[;group_2;group_3]
-   *     Set the daemon groups.  Multiple groups separated by semicolon.
-   * -s
-   *     Log the security providers.
-   * -x dir
-   *     Load properties from XML files in directory dir.
+   * Legacy daemon app.  .  Startup arguments:
    */
-//   public static void main(String[] args) {
-//     LockssDaemon daemon;
-//     if (!SystemUtils.isJavaVersionAtLeast(MIN_JAVA_VERSION)) {
-//       System.err.println("LOCKSS requires at least Java " + MIN_JAVA_VERSION +
-//                          ", this is " + SystemUtils.JAVA_VERSION +
-//                          ", exiting.");
-//       System.exit(Constants.EXIT_CODE_JAVA_VERSION);
-//     }
-
-//     StartupOptions opts = getStartupOptions(args);
-
-//     setSystemProperties();
-
-//     try {
-//       daemon = new LockssDaemon(opts.getBootstrapPropsUrl(),
-// 	  opts.getRestConfigServiceUrl(), opts.getPropUrls(),
-// 	  opts.getGroupNames());
-//       daemon.startDaemon();
-//       // raise priority after starting other threads, so we won't get
-//       // locked out and fail to exit when told.
-//       Thread.currentThread().setPriority(Thread.NORM_PRIORITY + 2);
-
-//     } catch (ResourceUnavailableException e) {
-//       log.error("Exiting because required resource is unavailable", e);
-//       System.exit(Constants.EXIT_CODE_RESOURCE_UNAVAILABLE);
-//       return;                           // compiler doesn't know that
-//                                         // System.exit() doesn't return
-//     } catch (Throwable e) {
-//       log.error("Exception thrown in main loop", e);
-//       System.exit(Constants.EXIT_CODE_EXCEPTION_IN_MAIN);
-//       return;                           // compiler doesn't know that
-//                                         // System.exit() doesn't return
-//     }
-//     if (CurrentConfig.getBooleanParam(PARAM_APP_EXIT_IMM,
-//                                       DEFAULT_APP_EXIT_IMM)) {
-//       try {
-//         daemon.stop();
-//       } catch (RuntimeException e) {
-//         // ignore errors stopping daemon
-//       }
-//       System.exit(Constants.EXIT_CODE_NORMAL);
-//     }
-//     daemon.keepRunning();
-//     log.info("Exiting because time to die");
-//     System.exit(Constants.EXIT_CODE_NORMAL);
-//   }
-
   public static void main(String[] args) {
+    // ManagerDescs supplied by getAppManagerDescs() above
     AppSpec spec = new AppSpec()
       .setName("Lockss Daemon")
       .setArgs(args)
       .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true");
-    staticStart(LockssDaemon.class, spec);
+    startStatic(LockssDaemon.class, spec);
   }
 }

@@ -38,6 +38,7 @@ import java.security.MessageDigest;
 import junit.framework.*;
 
 import org.lockss.config.*;
+import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
 import org.lockss.test.*;
@@ -72,7 +73,8 @@ public class FuncHashService extends LockssTestCase {
     super.setUp();
     useOldRepo();
     theDaemon = getMockLockssDaemon();
-    ConfigurationUtil.addFromArgs(org.lockss.app.LockssDaemon.mkey(HashService.class),
+    ConfigurationUtil.addFromArgs(LockssApp.MANAGER_PREFIX +
+				  LockssApp.managerKey(HashService.class),
 				  hashSvcName);
     svc = theDaemon.getHashService();
     svc.startService();

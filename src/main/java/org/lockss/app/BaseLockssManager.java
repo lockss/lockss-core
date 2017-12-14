@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.app;
 
 import java.util.List;
+import org.lockss.alert.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
 
@@ -130,7 +131,7 @@ public abstract class BaseLockssManager implements LockssManager {
     }
     configCallback = callback;
 
-    theApp.getConfigManager().registerConfigurationCallback(configCallback);
+    getConfigManager().registerConfigurationCallback(configCallback);
   }
 
   private void registerDefaultConfigCallback() {
@@ -143,7 +144,7 @@ public abstract class BaseLockssManager implements LockssManager {
 
   private void unregisterConfig() {
     if(configCallback != null) {
-      theApp.getConfigManager().unregisterConfigurationCallback(configCallback);
+      getConfigManager().unregisterConfigurationCallback(configCallback);
       configCallback = null;
     }
   }
@@ -159,6 +160,16 @@ public abstract class BaseLockssManager implements LockssManager {
     } else {
       throw new RuntimeException("Not a ConfigurableManager");
     }
+  }
+
+  // Convenience manager accessors
+
+  public ConfigManager getConfigManager() {
+    return theApp.getConfigManager();
+  }
+
+  public AlertManager getAlertManager() {
+    return theApp.getAlertManager();
   }
 
   private static class DefaultConfigCallback

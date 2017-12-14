@@ -43,18 +43,196 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.util.LockssApp
  */
 public class TestLockssApp extends LockssTestCase {
+  private final static Logger log = Logger.getLogger(TestLockssApp.class);
+
   MyMockLockssApp app;
+  private String tempDirPath;
 
   public void setUp() throws Exception {
     super.setUp();
-    String tempDirPath = setUpDiskSpace();
+    tempDirPath = setUpDiskSpace();
 
-    File file=new File(".");
-    System.out.println("Current Working Directory: " + file.getAbsolutePath());
-    File td = FileUtil.createTempDir("ppp", "sss");
-    System.setProperty("user.dir", td.toString());
-    System.out.println("New Current Working Directory: " + file.getAbsolutePath());
     app = new MyMockLockssApp(null);
+  }
+
+  public void testGetStartupOptions() throws Exception {
+    // good options.
+    String[] test1 = {"-p", "foo;bar;baz",
+		      "-g", "test1-group"};
+    String[] test2 = {"-p", "foo",
+		      "-p", "bar",
+		      "-p", "baz"};
+    String[] test3 = {"-p", "foo;bar;baz",
+		      "-p", "quux",
+		      "-g", "test3-group"};
+    String[] test4 = {"-p", "foo1;bar1;baz1",
+		      "-p", "foo2;bar2;baz2"};
+
+
+    // bad options (-p without argument, should be ignored)
+    String[] test5 = {"-p", "foo",
+		      "-p"};
+    // bad options (-p without argument, should be ignored)
+    String[] test6 = {"-g", "test6-group",
+		      "-p"};
+    // bad options (-g without argument, should be ignored)
+    String[] test7 = {"-p", "foo",
+		      "-g"};
+
+    // Good options, including -x.
+    String[] test9 = {"-p", "foo;bar;baz",
+	      "-g", "test1-group", "-x", tempDirPath};
+
+    // bad options (-x without argument, should be ignored)
+    String[] test10 = {"-p", "foo",
+		      "-x"};
+
+    // Good options, including -b.
+    String[] test11 = {"-p", "foo;bar;baz",
+	      "-g", "test1-group", "-b", "boot"};
+
+    // bad options (-b without argument, should be ignored)
+    String[] test12 = {"-p", "foo",
+		      "-b"};
+
+    // Ensure that only one URL is chosen from a semicolon-separated
+    // list of URLs
+    LockssDaemon.StartupOptions opt1 =
+      LockssDaemon.getStartupOptions(test1);
+    assertNotNull(opt1.getGroupNames());
+    assertEquals("test1-group", opt1.getGroupNames());
+    List<String> list1 = opt1.getPropUrls();
+    assertNotNull(list1);
+    assertEquals(1, list1.size());
+    assertTrue("foo".equals(list1.get(0)) ||
+	       "bar".equals(list1.get(0)) ||
+	       "baz".equals(list1.get(0)));
+    assertNull(opt1.getBootstrapPropsUrl());
+
+    // Ensure that multiple prop URLs can be set with multiple "-p"
+    // options.
+    LockssDaemon.StartupOptions opt2 =
+      LockssDaemon.getStartupOptions(test2);
+    // Must be null!  No group specified.
+    assertNull(opt2.getGroupNames());
+    List<String> list2 = opt2.getPropUrls();
+    assertNotNull(list2);
+    assertEquals(3, list2.size());
+    assertEquals("foo", list2.get(0));
+    assertEquals("bar", list2.get(1));
+    assertEquals("baz", list2.get(2));
+    assertNull(opt2.getBootstrapPropsUrl());
+
+    // Ensure that only one URL is chosen from a semicolon-separated
+    // list of URLs, and that additional -p parameters can be provided.
+    LockssDaemon.StartupOptions opt3 =
+      LockssDaemon.getStartupOptions(test3);
+    assertNotNull(opt3.getGroupNames());
+    assertEquals("test3-group", opt3.getGroupNames());
+    List<String> list3 = opt3.getPropUrls();
+    assertNotNull(list3);
+    assertEquals(2, list3.size());
+    assertTrue("foo".equals(list3.get(0)) ||
+	       "bar".equals(list3.get(0)) ||
+	       "baz".equals(list3.get(0)));
+    assertEquals("quux", list3.get(1));
+    assertNull(opt3.getBootstrapPropsUrl());
+
+    // Ensure that only one URL is chosen from each semicolon-separated
+    // list of URLs
+    LockssDaemon.StartupOptions opt4 =
+      LockssDaemon.getStartupOptions(test4);
+    assertNull(opt4.getGroupNames());
+    List<String> list4 = opt4.getPropUrls();
+    assertNotNull(list4);
+    assertEquals(2, list4.size());
+    assertTrue("foo1".equals(list4.get(0)) ||
+	       "bar1".equals(list4.get(0)) ||
+	       "baz1".equals(list4.get(0)));
+    assertTrue("foo2".equals(list4.get(1)) ||
+	       "bar2".equals(list4.get(1)) ||
+	       "baz2".equals(list4.get(1)));
+    assertNull(opt4.getBootstrapPropsUrl());
+
+    // Test some bad options.  Second -p should be ignored.
+    LockssDaemon.StartupOptions opt5 =
+      LockssDaemon.getStartupOptions(test5);
+    assertNull(opt5.getGroupNames());
+    List<String> list5 = opt5.getPropUrls();
+    assertEquals(1, list5.size());
+    assertEquals("foo", list5.get(0));
+    assertNull(opt5.getBootstrapPropsUrl());
+
+    // -p should be ignored, no prop URLS.
+    LockssDaemon.StartupOptions opt6 =
+      LockssDaemon.getStartupOptions(test6);
+    assertNotNull(opt6.getGroupNames());
+    assertEquals("test6-group", opt6.getGroupNames());
+    List<String> list6 = opt6.getPropUrls();
+    assertNotNull(list6);
+    assertEquals(0, list6.size());
+    assertNull(opt6.getBootstrapPropsUrl());
+
+    // -g should be ignored, no group name.
+    LockssDaemon.StartupOptions opt7 =
+      LockssDaemon.getStartupOptions(test7);
+    assertNull(opt7.getGroupNames());
+    List<String> list7 = opt7.getPropUrls();
+    assertNotNull(list7);
+    assertEquals(1, list7.size());
+    assertEquals("foo", list7.get(0));
+    assertNull(opt7.getBootstrapPropsUrl());
+
+    // Test -x.
+    String xmlFilename = "file.xml";
+    FileOutputStream fos =
+	new FileOutputStream(new File(tempDirPath, xmlFilename));
+    InputStream sis = new StringInputStream("some content");
+    StreamUtil.copy(sis, fos);
+    sis.close();
+    fos.close();
+
+    LockssDaemon.StartupOptions opt9 =
+      LockssDaemon.getStartupOptions(test9);
+    assertNotNull(opt9.getGroupNames());
+    assertEquals("test1-group", opt9.getGroupNames());
+    List<String> list9 = opt9.getPropUrls();
+    assertNotNull(list9);
+    assertEquals(2, list9.size());
+    assertTrue("foo".equals(list9.get(0)) ||
+	       "bar".equals(list9.get(0)) ||
+	       "baz".equals(list9.get(0)));
+    assertTrue(list9.get(1).endsWith(File.separator + xmlFilename));
+
+    // Test some bad options. -x should be ignored.
+    LockssDaemon.StartupOptions opt10 =
+      LockssDaemon.getStartupOptions(test10);
+    assertNull(opt10.getGroupNames());
+    List<String> list10 = opt10.getPropUrls();
+    assertEquals(1, list10.size());
+    assertNull(opt10.getBootstrapPropsUrl());
+
+    // Test -b.
+    LockssDaemon.StartupOptions opt11 =
+      LockssDaemon.getStartupOptions(test11);
+    assertNotNull(opt11.getGroupNames());
+    assertEquals("test1-group", opt11.getGroupNames());
+    List<String> list11 = opt11.getPropUrls();
+    assertNotNull(list11);
+    assertEquals(2, list11.size());
+    assertTrue("foo".equals(list11.get(0)) ||
+	       "bar".equals(list11.get(0)) ||
+	       "baz".equals(list11.get(0)));
+    assertTrue("boot".equals(list11.get(1)));
+    assertEquals("boot", opt11.getBootstrapPropsUrl());
+
+    // Test some bad options. -b should be ignored.
+    LockssDaemon.StartupOptions opt12 =
+      LockssDaemon.getStartupOptions(test12);
+    assertNull(opt12.getGroupNames());
+    List<String> list12 = opt12.getPropUrls();
+    assertEquals(1, list12.size());
+    assertNull(opt12.getBootstrapPropsUrl());
   }
 
   // load & init default manager
@@ -143,23 +321,6 @@ public class TestLockssApp extends LockssTestCase {
     assertEquals(1, mgr3.stopped);
   }
 
-  public void testStartApp() throws Exception {
-    String propurl =
-      FileTestUtil.urlOfString("org.lockss.app.exitImmediatelyxx=true");
-    String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
-
-    LockssApp.AppSpec spec = new LockssApp.AppSpec()
-      .setName("Test App")
-      .setArgs(testArgs)
-      .addAppConfig("o.l.p22", "vvv3")
-      .addAppConfig("o.l.p333", "vvv4")
-//       .setAppManagers(managerDescs)
-      ;
-    LockssApp app = LockssApp.staticStart(LockssApp.class, spec);
-  }
-
-  
-
   static final String mockMgrName = MyMockMgr.class.getName();
   static class MyMockMgr implements LockssManager {
     boolean isInited = false;
@@ -209,25 +370,35 @@ public class TestLockssApp extends LockssTestCase {
   }
   List events;
 
-  static class MyMockLockssApp extends LockssApp {
+  public static class MyMockLockssApp extends LockssApp {
     ManagerDesc[] descrs = null;
+
+    MyMockLockssApp() {
+      super();
+    }
 
     MyMockLockssApp(List propUrls) {
       super(propUrls);
     }
 
     protected ManagerDesc[] getManagerDescs() {
+      if (descrs == null) {
+	return super.getManagerDescs();
+      }
       return descrs;
     }
 
-    protected ManagerDesc[] getServiceManagerDescs() {
-      // illegal return value but not used as getManagerDescs is overridden
-      // here
-      return null;
+    protected ManagerDesc[] getAppManagerDescs() {
+      return new ManagerDesc[0];
     }
  
     void setDescrs(ManagerDesc[] descrs) {
       this.descrs = descrs;
+    }
+
+    protected void systemExit(int val) {
+      log.critical("System.exit(" + val + ")");
+      throw new RuntimeException("System.exit(" + val + ")");
     }
   }
 

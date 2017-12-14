@@ -123,10 +123,6 @@ public class NodeManagerImpl
     return theDaemon.getPollManager();
   }
 
-  AlertManager getAlertManager() {
-    return theDaemon.getAlertManager();
-  }
-
   ActivityRegulator getActivityRegulator() {
     return theDaemon.getActivityRegulator(managedAu);
   }

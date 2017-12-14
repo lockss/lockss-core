@@ -137,7 +137,7 @@ public abstract class LockssThread extends Thread implements LockssWatchdog {
    * interrupted.
    */
   public boolean waitExited(Deadline timeout) {
-    if (isInterrupted()) return false;
+    if (Thread.currentThread().isInterrupted()) return false;
     try {
       if (log.isDebug3()) log.debug3("Waiting for " + getName() + " to exit");
       return exitedSem.waitFull(timeout);

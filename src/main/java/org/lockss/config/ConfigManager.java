@@ -1648,7 +1648,7 @@ public class ConfigManager implements LockssManager {
   }
 
   public static final String PARAM_HASH_SVC = LockssApp.MANAGER_PREFIX +
-    LockssApp.mkey(org.lockss.hasher.HashService.class);
+    LockssApp.managerKey(org.lockss.hasher.HashService.class);
   static final String DEFAULT_HASH_SVC = "org.lockss.hasher.HashSvcSchedImpl";
 
   private void inferMiscParams(Configuration config) {
