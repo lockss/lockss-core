@@ -314,13 +314,6 @@ public class MockLockssDaemon extends LockssDaemon {
     return getManagerByType(LcapStreamComm.class);
   }
 
-  /**
-   * return the datagram router manager instance
-   * @return the LcapDatagramRouter
-   */
-  public LcapDatagramRouter getDatagramRouterManager() {
-    return getManagerByType(LcapDatagramRouter.class);
-  }
 
   /**
    * return the router manager instance
@@ -508,15 +501,6 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setStreamCommManager(LcapStreamComm scommMan) {
     managerMap.put(LockssDaemon.STREAM_COMM_MANAGER, scommMan);
-  }
-
-  /**
-   * Set the DatagramRouterManager
-   * @param datagramRouterMan the new manager
-   */
-  public void setDatagramRouterManager(LcapDatagramRouter datagramRouterMan) {
-    managerMap.put(LockssDaemon.DATAGRAM_ROUTER_MANAGER,
-		   datagramRouterMan);
   }
 
   /**

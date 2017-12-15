@@ -33,14 +33,12 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.poller;
 
 import java.net.MalformedURLException;
-import java.util.*;
-
+import java.util.EnumSet;
+import java.util.Map;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
-import org.lockss.config.CurrentConfig;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
-import org.lockss.poller.ReputationTransfers;
 import org.lockss.protocol.AgreementType;
 import org.lockss.protocol.IdentityManager;
 import org.lockss.protocol.LcapStreamComm;

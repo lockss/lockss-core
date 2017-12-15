@@ -43,12 +43,12 @@ import org.lockss.poller.*;
 
 public class MockPoll implements Poll {
   int m_version;
-  PollTally m_tally;
   LcapMessage m_msg; // The message which triggered the poll
   PollSpec m_pollspec;
   String m_key; // the string we used to id this poll
   Deadline m_deadline; // when election is over
   boolean m_isMine;
+  long m_createTime;
 
   public MockPoll() {
 
@@ -65,9 +65,6 @@ public class MockPoll implements Poll {
   public void abortPoll() {
   }
 
-  public boolean isSubpollRunning() {
-    return false;
-  }
 
   /**
    * Returns true if the poll belongs to this Identity
@@ -140,6 +137,44 @@ public class MockPoll implements Poll {
   }
 
   /**
+   * Return the time that this poll was created.
+   */
+  @Override
+  public long getCreateTime() {
+    return 0;
+  }
+
+  /**
+   * Recieve and incoming message from the PollManager
+   *
+   * @param msg the incoming msg containing a vote for this poll
+   */
+  @Override
+  public void receiveMessage(LcapMessage msg) {
+
+  }
+
+  /**
+   * Is this poll currently active?
+   *
+   * @return True if the poll is active.
+   */
+  @Override
+  public boolean isPollActive() {
+    return false;
+  }
+
+  /**
+   * Is this poll currently active?
+   *
+   * @return True if the poll is complete.
+   */
+  @Override
+  public boolean isPollCompleted() {
+    return false;
+  }
+
+  /**
    * get the poll identifier key
    * @return the key as a String
    */
@@ -169,22 +204,6 @@ public class MockPoll implements Poll {
    */
   public void setDeadline(Deadline deadline) {
     m_deadline = deadline;
-  }
-
-  /**
-   * get the PollTally for this Poll
-   * @return VoteTally for this poll
-   */
-  public PollTally getVoteTally() {
-    return m_tally;
-  }
-
-  /**
-   * set the voteTally for this poll.
-   * @param tally the PollTally for this poll
-   */
-  public void setVoteTally(PollTally tally) {
-    m_tally = tally;
   }
 
   /**

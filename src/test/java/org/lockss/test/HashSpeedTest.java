@@ -136,7 +136,7 @@ public class HashSpeedTest extends LockssTestCase {
   }
 
   private void hashContent() throws Exception {
-    MessageDigest digest = V1LcapMessage.getDefaultMessageDigest();
+    MessageDigest digest = V3LcapMessage.getDefaultMessageDigest();
     System.out.println("Hashing-");
     System.out.println("  Algorithm: "+digest.getAlgorithm());
     System.out.println("  Duration: "+duration+"ms");

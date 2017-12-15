@@ -20,11 +20,10 @@
     <build.releasename>1.74.0</build.releasename>
     <skip.integration.tests>true</skip.integration.tests>
     <skip.unit.tests>false</skip.unit.tests>
+    <skip.stf.tests>true</skip.stf.tests>
     <loglevel>info</loglevel>
     <outputtofile>true</outputtofile>
-    <test.fork.count>1.0C</test.fork.count>
     <trimstack>false</trimstack>
-
     <run.classpath.file>${basedir}/target/run-classpath</run.classpath.file>
     <test.classpath.file>${basedir}/target/test-classpath</test.classpath.file>
   </properties>
@@ -458,21 +457,6 @@
       <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-webmvc</artifactId>
-      <version>4.3.9.RELEASE</version>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-config</artifactId>
-      <version>4.2.3.RELEASE</version>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-web</artifactId>
-      <version>4.2.3.RELEASE</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.velocity</groupId>
       <artifactId>velocity</artifactId>
       <version>1.7</version>
@@ -616,6 +600,11 @@
       <artifactId>fastutil</artifactId>
       <version>6.3</version>
     </dependency>
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-plugins</artifactId>
+      <version>20180112</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -634,6 +623,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.20.1</version>
         <configuration>
+          <skipTests>${skip.unit.tests}</skipTests>
           <includes>
             <include>**/Test*.java</include>
             <include>**/Func*.java</include>
@@ -645,7 +635,7 @@
 	    <exclude>**/*$*</exclude>
           </excludes>
           <redirectTestOutputToFile>${outputtofile}</redirectTestOutputToFile>
-          <forkCount>${test.fork.count}</forkCount>
+          <forkCount>1.0C</forkCount>
           <reuseForks>false</reuseForks>
 	  <trimStackTrace>${trimstack}</trimStackTrace>
           <systemPropertyVariables>
@@ -653,6 +643,37 @@
             <org.lockss.defaultLogLevel>${loglevel}</org.lockss.defaultLogLevel>
             <org.lockss.defaultLogTarget>org.lockss.util.StdErrTarget</org.lockss.defaultLogTarget>
           </systemPropertyVariables>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <id>copy-plugins</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <artifactItems>
+            <artifactItem>
+              <groupId>org.lockss</groupId>
+              <artifactId>lockss-plugins</artifactId>
+              <version>20180112</version>
+              <type>jar</type>
+              <overWrite>true</overWrite>
+              <outputDirectory>${project.build.directory}</outputDirectory>
+              <destFileName>lockss-plugins.jar</destFileName>
+            </artifactItem>
+          </artifactItems>
+          <outputDirectory>${project.build.directory}</outputDirectory>
+          <overWriteReleases>false</overWriteReleases>
+          <overWriteSnapshots>false</overWriteSnapshots>
+          <overWriteIfNewer>true</overWriteIfNewer>
         </configuration>
       </plugin>
       <plugin>
@@ -700,9 +721,9 @@
             <configuration>
               <target>
                 <property name="runtime_classpath"
-                          refid="maven.runtime.classpath" />
+                  refid="maven.runtime.classpath" />
                 <property name="test_classpath"
-                          refid="maven.test.classpath" />
+                  refid="maven.test.classpath" />
                 <echo message="${runtime_classpath}"
                       file="${run.classpath.file}"/>
                 <echo message="${test_classpath}"
@@ -756,7 +777,7 @@
         <version>1.6.0</version>
         <executions>
           <execution>
-            <id>jar symlink</id>
+            <id>jar-symlink</id>
             <phase>package</phase>
             <goals>
               <goal>exec</goal>
@@ -771,7 +792,7 @@
             </configuration>
           </execution>
           <execution>
-            <id>test jar symlink</id>
+            <id>test-jar-symlink</id>
             <phase>package</phase>
             <goals>
               <goal>exec</goal>
@@ -782,6 +803,22 @@
                 <argument>-fnsv</argument>
                 <argument>lockss-core-${project.version}-tests.jar</argument>
                 <argument>target/current-tests.jar</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>run-stf</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <skip>${skip.stf.tests}</skip>
+              <executable>python</executable>
+              <workingDirectory>test/frameworks/run_stf</workingDirectory>
+              <arguments>
+                <argument>testsuite.py</argument>
+                <argument>simpleV3Tests</argument>
               </arguments>
             </configuration>
           </execution>

@@ -42,13 +42,11 @@ import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.exporter.FetchTimeExportManager;
 import org.lockss.exporter.counter.CounterReportsManager;
-import org.lockss.account.*;
 import org.lockss.hasher.*;
 import org.lockss.scheduler.*;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.*;
-import org.lockss.truezip.*;
 import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.protocol.psm.*;
@@ -92,8 +90,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(LcapStreamComm.class);
   public static final String ROUTER_MANAGER =
     managerKey(LcapRouter.class);
-  public static final String DATAGRAM_ROUTER_MANAGER =
-    managerKey(LcapDatagramRouter.class);
 //   public static final String IDENTITY_MANAGER =
 //     mamagerKey(IdentityManager.class);
   public static final String CRAWL_MANAGER =
@@ -203,7 +199,6 @@ public class LockssDaemon extends LockssApp {
     // they're ready
     DATAGRAM_COMM_MANAGER_DESC,
     STREAM_COMM_MANAGER_DESC,
-    DATAGRAM_ROUTER_MANAGER_DESC,
     ROUTER_MANAGER_DESC,
     NODE_MANAGER_MANAGER_DESC,
     ICP_MANAGER_DESC,
@@ -380,15 +375,6 @@ public class LockssDaemon extends LockssApp {
    */
   public LcapStreamComm getStreamCommManager()  {
     return (LcapStreamComm) getManager(STREAM_COMM_MANAGER);
-  }
-
-  /**
-   * return the datagram router manager instance
-   * @return the LcapDatagramRouter
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapDatagramRouter getDatagramRouterManager()  {
-    return (LcapDatagramRouter) getManager(DATAGRAM_ROUTER_MANAGER);
   }
 
   /**

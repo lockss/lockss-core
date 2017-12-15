@@ -238,6 +238,7 @@ public class LcapIdentity implements LockssSerializable {
   public void rememberActive(boolean NoOp, LcapMessage msg) {
     // XXX: V3LcapMessages do not have a verifier, this method will
     // have to change.
+/*
     if (msg instanceof V1LcapMessage) {
       m_lastActiveTime = TimeBase.nowMs();
       if (!NoOp) {
@@ -260,6 +261,7 @@ public class LcapIdentity implements LockssSerializable {
 	m_pktsThisInterval.put(verifier, count);
       }
     }
+*/
   }
 
   /**

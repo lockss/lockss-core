@@ -1293,7 +1293,7 @@ public class TestPsmInterp extends LockssTestCase {
       throw new RuntimeException(e.toString());
     }
   }
-  static class MyLcapMessage extends V1LcapMessage {
+  static class MyLcapMessage extends LcapMessage{
     private String name;
     MyLcapMessage(String name) throws IOException {
       super();
@@ -1301,6 +1301,46 @@ public class TestPsmInterp extends LockssTestCase {
     }
     public String toString() {
       return name;
+    }
+
+    @Override
+    public void decodeMsg(byte[] encodedBytes) throws IOException {
+
+    }
+
+    @Override
+    public void decodeMsg(InputStream inputStream) throws IOException {
+
+    }
+
+    @Override
+    public byte[] encodeMsg() throws IOException {
+      return new byte[0];
+    }
+
+    @Override
+    public InputStream getInputStream() throws IOException {
+      return null;
+    }
+
+    @Override
+    public void storeProps() throws IOException {
+
+    }
+
+    @Override
+    public String getOpcodeString() {
+      return null;
+    }
+
+    @Override
+    public String getKey() {
+      return null;
+    }
+
+    @Override
+    public boolean isNoOp() {
+      return false;
     }
   }
 }

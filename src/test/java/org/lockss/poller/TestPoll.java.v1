@@ -64,8 +64,6 @@ public class TestPoll extends LockssTestCase {
 
   protected PeerIdentity testID;
   protected PeerIdentity testID1;
-  protected V1LcapMessage[] testV1msg;
-  protected V1Poll[] testV1polls;
   protected PollManager pollmanager;
 
   protected void setUp() throws Exception {
@@ -88,7 +86,6 @@ public class TestPoll extends LockssTestCase {
     pollmanager.stopService();
     theDaemon.getLockssRepository(testau).stopService();
     theDaemon.getHashService().stopService();
-    theDaemon.getDatagramRouterManager().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getSystemMetrics().stopService();
     TimeBase.setReal();
@@ -373,7 +370,7 @@ public class TestPoll extends LockssTestCase {
     np.m_tally.tallyVotes();
     return np;
   }
-                                               
+
   public static V1Poll createCompletedPoll(LockssDaemon daemon,
 					   ArchivalUnit au,
 					   V1LcapMessage testmsg,
@@ -481,7 +478,6 @@ public class TestPoll extends LockssTestCase {
     idmgr.startService();
     //theDaemon.getSchedService().startService();
     theDaemon.getHashService().startService();
-    theDaemon.getDatagramRouterManager().startService();
     theDaemon.getRouterManager().startService();
     theDaemon.getSystemMetrics().startService();
     theDaemon.getActivityRegulator(testau).startService();

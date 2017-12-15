@@ -44,30 +44,6 @@ import org.lockss.daemon.ActivityRegulator;
  * system.
  */
 public interface NodeManager extends LockssAuManager {
-  /**
-   * Starts a new poll on a particular CachedUrlSet.
-   * @param cus the CachedUrlSet being polled
-   * @param state the new PollState
-   * @param isReplayPoll true if we are replaying the previous poll.
-   */
-  public void startPoll(CachedUrlSet cus, Tallier state, boolean isReplayPoll);
-
-  /**
-   * Should we allow a poll on this cached url set
-   * @param cus the cached url set that represents the poll we want
-   * to run.
-   * @param pollState the polly tally representing the poll state
-   * @return false if the poll has no matching node state or
-   * the poll would include damaged content.
-   */
-  public boolean shouldStartPoll(CachedUrlSet cus, Tallier pollState);
-
-  /**
-   * Update a node state with current poll results
-   * @param cus the cached url set used to identify the node
-   * @param results the poll results
-   */
-  public void updatePollResults(CachedUrlSet cus, Tallier results);
 
   /**
    * Return the node represented by a given CachedUrlSet
@@ -101,51 +77,10 @@ public interface NodeManager extends LockssAuManager {
   public void hashFinished(CachedUrlSet cus, long hashDuration);
 
   /**
-   * Returns true if the node manager has scheduled repairs which were never
-   * completed.
-   * @return boolean iff repairs needed
-   */
-  public boolean repairsNeeded();
-
-  /**
-   * Schedules any necessary repairs.  Takes an AU-level lock and converts
-   * it into the necessary CUS-level repair locks.
-   * @param auLock the Activity lock for the whole AU
-   */
-  public void scheduleRepairs(ActivityRegulator.Lock auLock);
-
-
-  /**
-   * Returns the set of damaged nodes for the given AU
-   */
-  public DamagedNodeSet getDamagedNodes();
-
-  /**
    * Mark the given CachedUrlSet deleted.
    * 
    * @param cus The CUS to delete.
    */
   public void deleteNode(CachedUrlSet cus) throws IOException;
   
-  /**
-   * Looks at the state of the node, and indicates if a poll needs to be called.
-   * It does not schedule polls, which should be done via
-   * 'callNecessaryPolls()'.  Called from the treewalk
-   * @param lastOrCurrentPoll the most recent poll (could be active)
-   * @param nodeState the {@link NodeState}
-   * @return true if action should be taken
-   * @throws IOException
-   */
-  boolean checkCurrentState(PollState lastOrCurrentPoll, NodeState nodeState)
-      throws IOException;
-
-  /**
-   * Looks at the state of the node, and takes appropriate action.  Called
-   * from the treewalk.
-   * @param lastOrCurrentPoll the most recent poll (could be active)
-   * @param nodeState the {@link NodeState}
-   * @throws IOException
-   */
-  void callNecessaryPolls(PollState lastOrCurrentPoll, NodeState nodeState)
-      throws IOException;
 }

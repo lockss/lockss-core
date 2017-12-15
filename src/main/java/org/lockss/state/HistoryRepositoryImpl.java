@@ -593,7 +593,6 @@ public class HistoryRepositoryImpl
   /**
    * <p>Stores an identity agreement instance.</p>
    * @param auAgreements A {@link AuAgreements} instance.
-   * @see #storeIdentityAgreements(ObjectSerializer, List)
    */
   public void storeIdentityAgreements(AuAgreements auAgreements) {
     // CASTOR: change to makeObjectSerializer() when Castor is phased out

@@ -33,7 +33,6 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.poller.v3;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.security.*;
 import java.util.*;
 
@@ -43,7 +42,6 @@ import org.lockss.app.*;
 import org.lockss.alert.*;
 import org.lockss.config.*;
 import org.lockss.daemon.CachedUrlSetHasher;
-import org.lockss.daemon.ShouldNotHappenException;
 import org.lockss.hasher.*;
 import org.lockss.plugin.*;
 import org.lockss.poller.*;
@@ -51,7 +49,6 @@ import org.lockss.poller.v3.V3Serializer.PollSerializerException;
 import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.*;
-import org.lockss.repository.RepositoryNode;
 import org.lockss.state.*;
 import org.lockss.scheduler.*;
 import org.lockss.scheduler.Schedule.*;
@@ -64,7 +61,7 @@ import org.lockss.util.*;
  * serialized to disk so that polls may be resumed in case the daemon exits
  * before the poll is over.</p>
  */
-public class V3Voter extends BasePoll {
+public class V3Voter implements Poll {
   
   public static final int STATUS_INITIALIZED = 0;
   public static final int STATUS_ACCEPTED_POLL = 1;
@@ -1152,10 +1149,6 @@ public class V3Voter extends BasePoll {
 
   public byte[] getVoterNonce() {
     return voterUserData.getVoterNonce();
-  }
-
-  public PollTally getVoteTally() {
-    throw new UnsupportedOperationException("V3Voter does not have a tally.");
   }
 
   private class HashingCompleteCallback implements HashService.Callback {

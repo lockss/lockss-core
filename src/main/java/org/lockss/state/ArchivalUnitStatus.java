@@ -397,7 +397,7 @@ public class ArchivalUnitStatus
       } else {
         rowMap.put("AuPolls",
                    theDaemon.getStatusService().
-                   getReference(PollerStatus.MANAGER_STATUS_TABLE_NAME,
+                   getReference(PollManager.MANAGER_STATUS_TABLE_NAME,
                                 au));
 	CachedUrlSet auCus = au.getAuCachedUrlSet();
 	NodeState topNodeState = nodeMan.getNodeState(auCus);

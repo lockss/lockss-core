@@ -258,7 +258,6 @@ public class TestV3Poller extends LockssTestCase {
   public void tearDown() throws Exception {
     theDaemon.getLockssRepository(testau).stopService();
     theDaemon.getHashService().stopService();
-    theDaemon.getDatagramRouterManager().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getPollManager().stopService();
@@ -2174,7 +2173,6 @@ public class TestV3Poller extends LockssTestCase {
     idMgr.startService();
     theDaemon.getSchedService().startService();
     hashService.startService();
-    theDaemon.getDatagramRouterManager().startService();
     theDaemon.getRouterManager().startService();
     theDaemon.getSystemMetrics().startService();
     theDaemon.getActivityRegulator(testau).startService();

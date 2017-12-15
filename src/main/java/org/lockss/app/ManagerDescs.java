@@ -141,9 +141,6 @@ public class ManagerDescs {
   public static ManagerDesc STREAM_COMM_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.STREAM_COMM_MANAGER,
                     "org.lockss.protocol.BlockingStreamComm");
-  public static ManagerDesc DATAGRAM_ROUTER_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.DATAGRAM_ROUTER_MANAGER,
-                    "org.lockss.protocol.LcapDatagramRouter");
   public static ManagerDesc ROUTER_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.ROUTER_MANAGER,
                     "org.lockss.protocol.LcapRouter");

@@ -1101,7 +1101,6 @@ public class TestNodeManagerImpl extends LockssTestCase {
                           boolean isContentPoll, boolean isLocal, int numAgree,
                           int numDisagree) throws Exception {
     PeerIdentity testID = null;
-    V1LcapMessage testmsg = null;
     if (isLocal) {
       testID = idManager.getLocalPeerIdentity(Poll.V1_PROTOCOL);
     } else {
