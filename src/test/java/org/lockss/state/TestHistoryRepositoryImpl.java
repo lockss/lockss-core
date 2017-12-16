@@ -100,7 +100,6 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     theDaemon = getMockLockssDaemon();
-    theDaemon.startDaemon();
     mau = new MockArchivalUnit(new MockPlugin(theDaemon));
     tempDirPath = getTempDir().getAbsolutePath() + File.separator;
     configHistoryParams(tempDirPath);
