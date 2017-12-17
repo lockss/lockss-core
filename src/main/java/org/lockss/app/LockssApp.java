@@ -34,6 +34,7 @@ package org.lockss.app;
 import java.io.*;
 import java.util.*;
 import org.apache.commons.lang3.*;
+import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
 import org.lockss.alert.*;
 import org.lockss.mail.*;
@@ -162,27 +163,25 @@ public class LockssApp {
   // order, followed by the service-specific managers specified by
   // subclasses, followed by post managers below
   private final ManagerDesc[] stdPreManagers = {
-    new ManagerDesc(RANDOM_MANAGER, "org.lockss.daemon.RandomManager"),
-    new ManagerDesc(RESOURCE_MANAGER, "org.lockss.daemon.ResourceManager"),
-    new ManagerDesc(MAIL_SERVICE, "org.lockss.mail.SmtpMailService"),
-    new ManagerDesc(ALERT_MANAGER, "org.lockss.alert.AlertManagerImpl"),
-    new ManagerDesc(STATUS_SERVICE,
-		    "org.lockss.daemon.status.StatusServiceImpl"),
-    new ManagerDesc(TRUEZIP_MANAGER, "org.lockss.truezip.TrueZipManager"),
-    new ManagerDesc(URL_MANAGER, "org.lockss.daemon.UrlManager"),
-    new ManagerDesc(TIMER_SERVICE, "org.lockss.util.TimerQueue$Manager"),
+    RANDOM_MANAGER_DESC,
+    RESOURCE_MANAGER_DESC,
+    MAIL_SERVICE_DESC,
+    ALERT_MANAGER_DESC,
+    STATUS_SERVICE_DESC,
+    TRUEZIP_MANAGER_DESC,
+    URL_MANAGER_DESC,
+    TIMER_SERVICE_DESC,
     // keystore manager must be started before any others that need to
     // access managed keystores
-    new ManagerDesc(KEYSTORE_MANAGER,
-                    "org.lockss.daemon.LockssKeyStoreManager"),
+    KEYSTORE_MANAGER_DESC,
     // PluginManager should be here once not dependent on LockssDaemon
 //     // start plugin manager after generic services
-//     new ManagerDesc(PLUGIN_MANAGER, "org.lockss.plugin.PluginManager"),
+//     PLUGIN_MANAGER_DESC,
     // Job manager should be here once genericized
 //     // Start the job manager.
-//     new ManagerDesc(JOB_MANAGER, "org.lockss.job.JobManager"),
+    // JOB_MANAGER_DESC,
 //     // Start the job database manager.
-//     new ManagerDesc(JOB_DB_MANAGER, "org.lockss.job.JobDbManager"),
+    // JOB_DB_MANAGER_DESC,
   };
 
   private final ManagerDesc[] stdPostManagers = {

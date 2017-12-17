@@ -35,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import org.apache.commons.lang3.*;
+import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
 import org.lockss.alert.*;
 import org.lockss.daemon.*;
@@ -164,77 +165,59 @@ public class LockssDaemon extends LockssApp {
   // following the standard managers specified in BaseLockssDaemon
   private final ManagerDesc[] myManagerDescs = {
     // start plugin manager after generic services
-    new ManagerDesc(PLUGIN_MANAGER, "org.lockss.plugin.PluginManager"),
-    new ManagerDesc(SCHED_SERVICE, DEFAULT_SCHED_SERVICE),
-    new ManagerDesc(HASH_SERVICE, "org.lockss.hasher.HashSvcQueueImpl"),
-    new ManagerDesc(SYSTEM_METRICS, "org.lockss.daemon.SystemMetrics"),
-    new ManagerDesc(ACCOUNT_MANAGER, "org.lockss.account.AccountManager"),
-    new ManagerDesc(IDENTITY_MANAGER,
-                    "org.lockss.protocol.IdentityManagerImpl"),
-    new ManagerDesc(PSM_MANAGER, "org.lockss.protocol.psm.PsmManager"),
-    new ManagerDesc(POLL_MANAGER, "org.lockss.poller.PollManager"),
-    new ManagerDesc(CRAWL_MANAGER, "org.lockss.crawler.CrawlManagerImpl"),
-    new ManagerDesc(REPOSITORY_MANAGER,
-                    "org.lockss.repository.RepositoryManager"),
+    PLUGIN_MANAGER_DESC,
+    SCHED_SERVICE_DESC,
+    HASH_SERVICE_DESC,
+    SYSTEM_METRICS_DESC,
+    ACCOUNT_MANAGER_DESC,
+    IDENTITY_MANAGER_DESC,
+    PSM_MANAGER_DESC,
+    POLL_MANAGER_DESC,
+    CRAWL_MANAGER_DESC,
+    REPOSITORY_MANAGER_DESC,
     // start metadata manager after plugin manager and database manager.
-    new ManagerDesc(METADATA_MANAGER, "org.lockss.metadata.MetadataManager"),
+    METADATA_MANAGER_DESC,
     // start metadata database manager after metadata manager
-    new ManagerDesc(METADATA_DB_MANAGER,
-	"org.lockss.metadata.MetadataDbManager"),
+    METADATA_DB_MANAGER_DESC,
     // start proxy and servlets after plugin manager
-    new ManagerDesc(REMOTE_API, "org.lockss.remote.RemoteApi"),
+    REMOTE_API_DESC,
     // Start the COUNTER reports manager.
-    new ManagerDesc(COUNTER_REPORTS_MANAGER,
-	"org.lockss.exporter.counter.CounterReportsManager"),
+    COUNTER_REPORTS_MANAGER_DESC,
     // Start the subscription manager.
-    new ManagerDesc(SUBSCRIPTION_MANAGER,
-	"org.lockss.subscription.SubscriptionManager"),
+    SUBSCRIPTION_MANAGER_DESC,
     // Start the fetch time export manager.
-    new ManagerDesc(FETCH_TIME_EXPORT_MANAGER,
-	"org.lockss.exporter.FetchTimeExportManager"),
+    FETCH_TIME_EXPORT_MANAGER_DESC,
     // Start the job manager.
-    new ManagerDesc(JOB_MANAGER, "org.lockss.job.JobManager"),
+    JOB_MANAGER_DESC,
     // Start the job database manager.
-    new ManagerDesc(JOB_DB_MANAGER, "org.lockss.job.JobDbManager"),
+    JOB_DB_MANAGER_DESC,
     // NOTE: Any managers that are needed to decide whether a servlet is to be
     // enabled or not (through ServletDescr.isEnabled()) need to appear before
     // the AdminServletManager on the next line.
-    new ManagerDesc(SERVLET_MANAGER, "org.lockss.servlet.AdminServletManager"),
-    new ManagerDesc(CONTENT_SERVLET_MANAGER,
-                    "org.lockss.servlet.ContentServletManager"),
-    new ManagerDesc(PROXY_MANAGER, "org.lockss.proxy.ProxyManager"),
-    new ManagerDesc(AUDIT_PROXY_MANAGER, "org.lockss.proxy.AuditProxyManager"),
-    new ManagerDesc(FAIL_OVER_PROXY_MANAGER ,
-                    "org.lockss.proxy.FailOverProxyManager"),
+    SERVLET_MANAGER_DESC,
+    CONTENT_SERVLET_MANAGER_DESC,
+    PROXY_MANAGER_DESC,
+    AUDIT_PROXY_MANAGER_DESC,
+    FAIL_OVER_PROXY_MANAGER_DESC,
     // comm after other major services so don't process messages until
     // they're ready
-    new ManagerDesc(DATAGRAM_COMM_MANAGER,
-                    "org.lockss.protocol.LcapDatagramComm"),
-    new ManagerDesc(STREAM_COMM_MANAGER,
-                    "org.lockss.protocol.BlockingStreamComm"),
-    new ManagerDesc(DATAGRAM_ROUTER_MANAGER,
-                    "org.lockss.protocol.LcapDatagramRouter"),
-    new ManagerDesc(ROUTER_MANAGER,
-                    "org.lockss.protocol.LcapRouter"),
-    new ManagerDesc(NODE_MANAGER_MANAGER,
-                    "org.lockss.state.NodeManagerManager"),
-    new ManagerDesc(ICP_MANAGER,
-                    "org.lockss.proxy.icp.IcpManager"),
-    new ManagerDesc(PLATFORM_CONFIG_STATUS,
-                    "org.lockss.config.PlatformConfigStatus"),
-    new ManagerDesc(CONFIG_STATUS,
-                    "org.lockss.config.ConfigStatus"),
-    new ManagerDesc(ARCHIVAL_UNIT_STATUS,
-                    "org.lockss.state.ArchivalUnitStatus"),
-    new ManagerDesc(REPOSITORY_STATUS,
-                    "org.lockss.repository.LockssRepositoryStatus"),
-    new ManagerDesc(OVERVIEW_STATUS,
-                    "org.lockss.daemon.status.OverviewStatus"),
+    DATAGRAM_COMM_MANAGER_DESC,
+    STREAM_COMM_MANAGER_DESC,
+    DATAGRAM_ROUTER_MANAGER_DESC,
+    ROUTER_MANAGER_DESC,
+    NODE_MANAGER_MANAGER_DESC,
+    ICP_MANAGER_DESC,
+    PLATFORM_CONFIG_STATUS_DESC,
+    CONFIG_STATUS_DESC,
+    ARCHIVAL_UNIT_STATUS_DESC,
+    REPOSITORY_STATUS_DESC,
+    OVERVIEW_STATUS_DESC,
     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
       public boolean shouldStart() {
         return isClockss();
       }},
-    new ManagerDesc(SAFENET_MANAGER, "org.lockss.safenet.CachingEntitlementRegistryClient") {
+    new ManagerDesc(SAFENET_MANAGER,
+		    "org.lockss.safenet.CachingEntitlementRegistryClient") {
       public boolean shouldStart() {
         return isSafenet();
       }},
