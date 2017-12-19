@@ -49,13 +49,14 @@ public class FuncLockssApp extends LockssTestCase {
 
   private String tempDirPath;
   private OneShotSemaphore startedSem = new OneShotSemaphore();
+  Exception startThreadException = null;
 
   public void setUp() throws Exception {
     super.setUp();
     tempDirPath = setUpDiskSpace();
   }
 
-  // avoid MockLockssDaemon being created by LockssTestCase
+  // Prevent MockLockssDaemon being created by LockssTestCase
   protected MockLockssDaemon newMockLockssDaemon() {
     return null;
   }
@@ -76,29 +77,23 @@ public class FuncLockssApp extends LockssTestCase {
     LockssApp app = LockssApp.startStatic(MyMockLockssApp.class, spec);
 
     assertTrue(app.isAppRunning());
+    Configuration config = ConfigManager.getCurrentConfig();
+    assertEquals("w", config.get(ConfigManager.PARAM_DAEMON_GROUPS));
     assertClass(org.lockss.daemon.RandomManager.class,
 		app.getRandomManager());
     assertClass(org.lockss.alert.AlertManagerImpl.class,
 		app.getManagerByType(org.lockss.alert.AlertManager.class));
-    assertEquals("foo", CurrentConfig.getParam("org.lockss.app.nonesuch"));
-    assertEquals("vvv3", CurrentConfig.getParam("o.l.p22"));
+    assertEquals("foo", config.get("org.lockss.app.nonesuch"));
+    assertEquals("vvv3", config.get("o.l.p22"));
   }
   
-  public void xtestFoo() throws Exception {
-    interruptMeIn(1000, true);
-    Thread.sleep(10000);
-  }
-
-
-  Exception startThreadException = null;
-
   public void testStartAppKeepRunning() throws Exception {
     String propurl =
-      FileTestUtil.urlOfString("org.lockss.app.exitImmediately=true");
-    String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
+      FileTestUtil.urlOfString("foo=bar");
+    String[] testArgs = new String[] {"-p", propurl, "-g", "w bench"};
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
-      .setName("Test App")
+      .setName("Test App KeepRunning")
       .setArgs(testArgs)
       .addAppConfig("o.l.p22", "vvv3")
       .addAppConfig("o.l.p333", "vvv4")
@@ -124,6 +119,8 @@ public class FuncLockssApp extends LockssTestCase {
     LockssApp app = LockssApp.getLockssApp();
     app.waitUntilAppRunning();
     assertTrue(app.isAppRunning());
+    assertEquals("w bench",
+		 CurrentConfig.getParam(ConfigManager.PARAM_DAEMON_GROUPS));
     assertClass(org.lockss.daemon.RandomManager.class,
 		app.getRandomManager());
     assertClass(org.lockss.alert.AlertManagerImpl.class,
@@ -131,7 +128,7 @@ public class FuncLockssApp extends LockssTestCase {
     assertClass(MyLockssManager.class,
 		app.getManagerByType(MyLockssManager.class));
     assertFalse(sem.take(0));
-    ConfigurationUtil.addFromArgs("org.lockss.app.exitImmediately", "true");
+    ConfigurationUtil.addFromArgs("org.lockss.app.exitOnce", "true");
     assertTrue(sem.take(TIMEOUT_SHOULDNT));
     assertClass(RuntimeException.class, startThreadException);
     assertEquals("System.exit(0)", startThreadException.getMessage());

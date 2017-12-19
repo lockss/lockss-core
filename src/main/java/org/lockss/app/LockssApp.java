@@ -206,7 +206,7 @@ public class LockssApp {
   protected String groupNames = null;
 
   protected boolean appInited = false;	// true after all managers inited
-  protected boolean appRunning = false; // true after all managers started
+  protected volatile boolean appRunning = false; // true after all managers started
   protected OneShotSemaphore appRunningSem = new OneShotSemaphore();
   protected Date startDate;
   protected long appLifetime = DEFAULT_APP_EXIT_AFTER;
@@ -817,6 +817,16 @@ public class LockssApp {
 
     testingMode = config.get(PARAM_TESTING_MODE);
 
+    if (changedKeys.contains(PARAM_DAEMON_DEADLINE_REASONABLE)) {
+      long maxInPast =
+        config.getTimeInterval(PARAM_DAEMON_DEADLINE_REASONABLE_PAST,
+                               DEFAULT_DAEMON_DEADLINE_REASONABLE_PAST);
+      long maxInFuture =
+        config.getTimeInterval(PARAM_DAEMON_DEADLINE_REASONABLE_FUTURE,
+                               DEFAULT_DAEMON_DEADLINE_REASONABLE_FUTURE);
+      Deadline.setReasonableDeadlineRange(maxInPast, maxInFuture);
+    }
+
     long life = config.getTimeInterval(PARAM_APP_EXIT_AFTER,
 				       DEFAULT_APP_EXIT_AFTER);
     if (life != appLifetime) {
@@ -856,10 +866,24 @@ public class LockssApp {
     }
   }
 
+  /** Start a LockssApp to run the managers specified by the spec.
+   * @param spec an AppSpec specifying the application name, additional
+   * configuration, and managers to start.
+   * @returns the app class instance (possibly later, if keepRunning is
+   * used)
+   */
   public static <T> LockssApp startStatic(AppSpec spec) {
     return startStatic(LockssApp.class, spec);
   }
 
+  /** Start the specified app class to run the managers specified by the
+   * spec.
+   * @param appClass the subclass of LockssApp to instantiate and invoke
+   * @param spec an AppSpec specifying the application name, additional
+   * configuration, and managers to start.
+   * @returns the app class instance (possibly later, if keepRunning is
+   * used)
+   */
   public static <T> LockssApp startStatic(Class<? extends LockssApp> appClass,
 					  AppSpec spec) {
     LockssApp app;
@@ -1227,7 +1251,11 @@ public class LockssApp {
       return this;
     }
 
-    /** Set the started semaphone.  Filled when app is started. */
+    /** Set the started semaphone.  Filled when app is started.  Useful
+     * with setKeepRunning(true), in which case {@link
+     * #startStatic(AppSpec)} doesn't return and the only way to get one's
+     * hands on the app instance is with {@link LockssApp#getLockssApp()},
+     * which can't be called until the startup has begun. */
     public AppSpec setStartedSem(OneShotSemaphore sem) {
       this.startedSem = sem;
       return this;

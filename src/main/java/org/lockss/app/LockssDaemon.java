@@ -893,15 +893,6 @@ public class LockssDaemon extends LockssApp {
   protected void setConfig(Configuration config, Configuration prevConfig,
                            Configuration.Differences changedKeys) {
 
-    if (changedKeys.contains(PARAM_DAEMON_DEADLINE_REASONABLE)) {
-      long maxInPast =
-        config.getTimeInterval(PARAM_DAEMON_DEADLINE_REASONABLE_PAST,
-                               DEFAULT_DAEMON_DEADLINE_REASONABLE_PAST);
-      long maxInFuture =
-        config.getTimeInterval(PARAM_DAEMON_DEADLINE_REASONABLE_FUTURE,
-                               DEFAULT_DAEMON_DEADLINE_REASONABLE_FUTURE);
-      Deadline.setReasonableDeadlineRange(maxInPast, maxInFuture);
-    }
     String proj = ConfigManager.getPlatformProject();
     isClockss = "clockss".equalsIgnoreCase(proj);
     isSafenet = "safenet".equalsIgnoreCase(proj);
