@@ -24,6 +24,9 @@
     <outputtofile>true</outputtofile>
     <test.fork.count>1.0C</test.fork.count>
     <trimstack>false</trimstack>
+
+    <run.classpath.file>${basedir}/target/run-classpath</run.classpath.file>
+    <test.classpath.file>${basedir}/target/test-classpath</test.classpath.file>
   </properties>
 
   <dependencies>
@@ -691,6 +694,25 @@
               </target>
             </configuration>
           </execution>
+          <execution>
+            <id>compile</id>
+            <phase>compile</phase>
+            <configuration>
+              <target>
+                <property name="runtime_classpath"
+                          refid="maven.runtime.classpath" />
+                <property name="test_classpath"
+                          refid="maven.test.classpath" />
+                <echo message="${runtime_classpath}"
+                      file="${run.classpath.file}"/>
+                <echo message="${test_classpath}"
+                      file="${test.classpath.file}"/>
+              </target>
+            </configuration>
+            <goals>
+              <goal>run</goal>
+            </goals>
+          </execution>
         </executions>
       </plugin>
       <plugin>
@@ -725,6 +747,43 @@
             <goals>
               <goal>antlr4</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <id>jar symlink</id>
+            <phase>package</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>ln</executable>
+              <arguments>
+                <argument>-fnsv</argument>
+                <argument>lockss-core-${project.version}.jar</argument>
+                <argument>target/current.jar</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>test jar symlink</id>
+            <phase>package</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>ln</executable>
+              <arguments>
+                <argument>-fnsv</argument>
+                <argument>lockss-core-${project.version}-tests.jar</argument>
+                <argument>target/current-tests.jar</argument>
+              </arguments>
+            </configuration>
           </execution>
         </executions>
       </plugin>

@@ -58,12 +58,12 @@ shift
 # local copy of lockss jars allows recompile while we're running
 tmplib=tmplib
 mkdir -p $tmplib
-cp ${PROJECT_DIR}/lib/lockss.jar $tmplib
-cp ${PROJECT_DIR}/lib/lockss-test.jar $tmplib
+cp ${PROJECT_DIR}/target/current.jar $tmplib
+cp ${PROJECT_DIR}/target/current-tests.jar $tmplib
 #cp ${PROJECT_DIR}/lib/lockss-plugins.jar $tmplib
 #cp ${PROJECT_DIR}/lib/lockss-plugins-test.jar $tmplib
 #CLASSPATH=$tmplib/lockss.jar:$tmplib/lockss-test.jar:$tmplib/lockss-plugins.jar:$tmplib/lockss-plugins-test.jar:`cat test/test-classpath`
-CLASSPATH=$tmplib/lockss.jar:$tmplib/lockss-test.jar:`cat test/test-classpath`
+CLASSPATH=$tmplib/current.jar:$tmplib/current-tests.jar:`cat target/test-classpath`
 export CLASSPATH
 
 failcnt=0
