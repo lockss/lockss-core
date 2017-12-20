@@ -7,7 +7,7 @@
   <groupId>org.lockss.laaws</groupId>
   <artifactId>lockss-core</artifactId>
   <packaging>jar</packaging>
-  <version>1.0.0-TAL</version>
+  <version>1.0.0-SNAPSHOT</version>
   <name>lockss-core</name>
   <description>The Slimmed Down LOCKSS Daemon Core</description>
   <properties>
