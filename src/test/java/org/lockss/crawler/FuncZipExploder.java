@@ -118,6 +118,7 @@ public class FuncZipExploder extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -137,7 +138,7 @@ public class FuncZipExploder extends LockssTestCase {
     props.setProperty(Exploder.PARAM_EXPLODED_PLUGIN_NAME, explodedPluginName);
     props.setProperty(LockssApp.MANAGER_PREFIX + LockssDaemon.PLUGIN_MANAGER,
 		      MyPluginManager.class.getName());
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

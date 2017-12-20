@@ -276,8 +276,7 @@ public class ContentServletManager
 
     // ResourceHandler should come after servlets
     // find the htdocs directory, set as resource base
-    ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    URL resourceUrl=loader.getResource("org/lockss/htdocs/");
+    URL resourceUrl = UrlUtil.getHtdocsDir();
     log.debug("Resource URL: " + resourceUrl);
 
     context.setResourceBase(resourceUrl.toString());

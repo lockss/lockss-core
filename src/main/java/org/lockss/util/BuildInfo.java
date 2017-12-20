@@ -42,7 +42,7 @@ public class BuildInfo {
   /** Name of the property file into which the build writes build properties.
       This should agree with the value of build.info.file in build.xml */
   public static final String PROPERTY_RESOURCE =
-    "org/lockss/htdocs/build.properties";
+      Constants.RESOURCE_PATH + "build.properties";
   /** Name of build timestamp property.  Should agree with the name used in
    * build.xml */
   public static final String BUILD_TIMESTAMP = "build.timestamp";
@@ -104,8 +104,7 @@ public class BuildInfo {
     if (buildProps == null) {
       Properties props = new Properties();
       try {
-	ClassLoader loader = Thread.currentThread().getContextClassLoader();
-	InputStream istr = loader.getResourceAsStream(PROPERTY_RESOURCE);
+	InputStream istr = UrlUtil.getResourceAsStream(PROPERTY_RESOURCE);
 	props.load(istr);
 	log.debug2(props.toString());
 	istr.close();

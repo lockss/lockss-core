@@ -94,7 +94,7 @@ public class AlertActionSyslog extends AbstractAlertAction {
     return ret;
   }
 
-  public void record(LockssDaemon daemon, Alert alert) {
+  public void record(LockssApp app, Alert alert) {
     InetAddress host = null;
     DatagramSocket socket = null;
     int port;

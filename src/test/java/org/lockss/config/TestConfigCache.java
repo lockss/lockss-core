@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,23 +29,17 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.io.*;
-import java.util.*;
-import java.net.*;
-
+import org.junit.Before;
+import org.junit.Test;
 import org.lockss.config.ConfigCache;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.util.TestXmlPropertyLoader;
 
 /**
  * Test class for <code>org.lockss.config.ConfigCache</code>
  */
 
-public class TestConfigCache extends LockssTestCase {
-  public static Class testedClasses[] = {
-    org.lockss.config.ConfigCache.class,
-  };
-
+public class TestConfigCache extends LockssTestCase4 {
   static Logger log = Logger.getLogger("TestConfigCache");
 
   private static final String config1 =
@@ -71,14 +61,17 @@ public class TestConfigCache extends LockssTestCase {
 
   ConfigCache cache;
 
+  @Before
   public void setUp() throws Exception {
     super.setUp();
-    cache = new ConfigCache(null);
+    cache = new ConfigCache(new ConfigManager(null, "http://localhost:1234",
+	null, null));
   }
 
   /*
    * Test methods.
    */
+  @Test
   public void testFind() throws IOException {
     String url = null;
 
@@ -87,8 +80,16 @@ public class TestConfigCache extends LockssTestCase {
     assertNotNull("ConfigFile should not be null", cf);
     assertSame(cf, cache.find(url));
     assertSame(cf, cache.get(url));
+
+    url = "http://localhost:1234/rcf1";
+    cf = cache.find(url);
+    assertNotNull("ConfigFile should not be null", cf);
+    assertTrue(cf instanceof RestConfigFile);
+    assertSame(cf, cache.find(url));
+    assertSame(cf, cache.get(url));
   }
 
+  @Test
   public void testSize() throws IOException {
     assertEquals(0, cache.size());
 
@@ -99,14 +100,11 @@ public class TestConfigCache extends LockssTestCase {
       cache.find(url1);
       cache.find(url2);
       cache.find(url3);
+      cache.find("http://localhost:1234/rcf1");
     } catch (IOException ex) {
       fail("Unable to load config file: " + ex);
     }
 
-    assertEquals(3, cache.size());
-
+    assertEquals(4, cache.size());
   }
-
-
-
 }

@@ -69,7 +69,7 @@ public class TestAbstractAlertAction extends LockssTestCase {
   static class MyMockAlertAction extends AbstractAlertAction {
     List list = new ArrayList();
 
-    public void record(LockssDaemon daemon, Alert alert) {
+    public void record(LockssApp app, Alert alert) {
       list.add(alert);
     }
 

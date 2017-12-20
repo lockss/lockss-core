@@ -318,11 +318,11 @@ public class TestAlertManagerImpl extends LockssTestCase {
     List list = new ArrayList();
     long maxPend = Constants.WEEK;
 
-    public void record(LockssDaemon daemon, Alert alert) {
+    public void record(LockssApp app, Alert alert) {
       list.add(alert);
     }
 
-    public void record(LockssDaemon daemon, List alerts) {
+    public void record(LockssApp app, List alerts) {
       list.add(alerts);
     }
 

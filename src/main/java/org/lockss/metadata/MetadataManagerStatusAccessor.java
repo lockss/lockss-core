@@ -418,7 +418,7 @@ public class MetadataManagerStatusAccessor implements StatusAccessor {
   List<Map<String,Object>> getPrioritizedAus(
       Collection<PrioritizedAuId> pendingAuIds) {
     List<Map<String,Object>> rows = new ArrayList<Map<String,Object>>();
-    PluginManager pluginMgr = metadataMgr.getDaemon().getPluginManager();
+    PluginManager pluginMgr = metadataMgr.getApp().getPluginManager();
     for (PrioritizedAuId pendingAuId : pendingAuIds) {
       ArchivalUnit au = pluginMgr.getAuFromId(pendingAuId.auId);
       if (au == null) {

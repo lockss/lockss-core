@@ -141,6 +141,7 @@ public class FuncTarExploder2 extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -163,7 +164,7 @@ public class FuncTarExploder2 extends LockssTestCase {
       "org.lockss.crawler.FuncTarExploder2MockExplodedPlugin";
     props.setProperty(Exploder.PARAM_EXPLODED_PLUGIN_NAME, explodedPluginName);
     props.setProperty(Exploder.PARAM_EXPLODED_AU_YEAR, "1997");
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

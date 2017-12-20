@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,7 +30,6 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.zip.*;
-
 import org.lockss.util.*;
 
 /**
@@ -45,8 +40,8 @@ import org.lockss.util.*;
 public class FileConfigFile extends BaseConfigFile {
   private File m_fileFile;
 
-  public FileConfigFile(String url)  {
-    super(url);
+  public FileConfigFile(String url, ConfigManager cfgMgr)  {
+    super(url, cfgMgr);
     m_fileFile = makeFile();
   }
 
@@ -82,38 +77,139 @@ public class FileConfigFile extends BaseConfigFile {
     }
     nc.seal();
     m_config = nc;
-    m_lastModified = Long.toString(m_fileFile.lastModified());
+    m_lastModified = calcNewLastModified();
     log.debug2("storedConfig at: " + m_lastModified);
     m_generation++;
   }
 
-   protected InputStream openInputStream() throws IOException {
+   protected InputStream getInputStreamIfModified() throws IOException {
+     final String DEBUG_HEADER =
+	 "getInputStreamIfModified(" + m_fileUrl + "): ";
+     if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	 + "reloadUnconditionally = " + reloadUnconditionally);
      // The semantics of this are a bit odd, because File.lastModified()
      // returns a long, but we store it as a String.  We're not comparing,
      // just checking equality, so this should be OK
      String lm = calcNewLastModified();
 
     // Only reload the file if the last modified timestamp is different.
-    if (lm.equals(m_lastModified)) {
-      log.debug2("File has not changed on disk, not reloading: " + m_fileUrl);
+    if (!reloadUnconditionally && lm.equals(m_lastModified)) {
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	  + "File has not changed on disk, not reloading: " + m_fileUrl);
       return null;
     }
     if (log.isDebug2()) {
       if (m_lastModified == null) {
-	log.debug2("No previous file loaded, loading: " + m_fileUrl);
+	log.debug2(DEBUG_HEADER
+	    + "No previous file loaded, loading: " + m_fileUrl);
       } else {
-	log.debug2("File has new time (" + lm +
+	log.debug2(DEBUG_HEADER + "File has new time (" + lm +
 		   "), reloading: " + m_fileUrl);
       }
     }
-    InputStream in = new FileInputStream(m_fileFile);
-    if (StringUtil.endsWithIgnoreCase(m_fileFile.getName(), ".gz")) {
-      in = new GZIPInputStream(in);
-    }
-    return in;
+    reloadUnconditionally = false;
+    return getInputStream();
    }
 
-   protected String calcNewLastModified() {
-     return Long.toString(m_fileFile.lastModified());
+  /**
+   * Provides an input stream to the content of this file.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @return an InputStream with the input stream to the file contents.
+   * @throws IOException
+   *           if there are problems.
+   */
+   public InputStream getInputStream() throws IOException {
+     InputStream in = new FileInputStream(m_fileFile);
+     if (StringUtil.endsWithIgnoreCase(m_fileFile.getName(), ".gz")) {
+       in = new GZIPInputStream(in);
+     }
+     return in;
    }
+
+  /**
+   * Provides the last modification timestamp of this file.
+   */
+  protected String calcNewLastModified() {
+    final String DEBUG_HEADER = "calcNewLastModified(" + m_fileUrl + "): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "m_lastModified = " + m_lastModified);
+    if (m_lastModified == null) {
+      String result = Long.toString(m_fileFile.lastModified());
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+      return result;
+    }
+
+    try {
+      if (Long.parseLong(m_lastModified) < m_fileFile.lastModified()) {
+	String result = Long.toString(m_fileFile.lastModified());
+	if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+	return result;
+      }
+    } catch (NumberFormatException nfe) {
+      String result = Long.toString(m_fileFile.lastModified());
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+      return result;
+    }
+
+    String result = m_lastModified;
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    return result;
+  }
+
+  /**
+   * Do the actual writing of the file to the disk by renaming a temporary file.
+   * 
+   * @param tempfile
+   *          A File with the source temporary file.
+   * @param config
+   *          A Configuration with the configuration to be written.
+   * @throws IOException
+   *           if there are problems.
+   */
+  @Override
+  public void writeFromTempFile(File tempfile, Configuration config)
+      throws IOException {
+    final String DEBUG_HEADER = "writeFromTempFile(" + m_fileUrl + "): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "tempfile = " + tempfile);
+
+    File target = new File(getFileUrl());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "target = " + target);
+
+    if (!PlatformUtil.updateAtomically(tempfile, target)) {
+      throw new RuntimeException("Couldn't rename temp file: " + tempfile
+	  + " to: " + target);
+    }
+
+    log.info(DEBUG_HEADER + "m_lastModified = " + m_lastModified);
+
+    // Check whether there was a previous last modification timestamp.
+    if (m_lastModified != null) {
+      // Yes: Loop until the current timestamp is different than the previous
+      // timestamp.
+      while (Long.toString(TimeBase.nowMs()).equals(m_lastModified)) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Sleeping for 1 ms...");
+	try { Thread.sleep(1); } catch (InterruptedException ie) {}
+      }
+    }
+
+    // Update the last modification timestamp.
+    m_lastModified = Long.toString(TimeBase.nowMs());
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "m_lastModified = " + m_lastModified);
+    
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "Wrote cache config file: " + target);
+
+    reloadUnconditionally = true;
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "reloadUnconditionally = " + reloadUnconditionally);
+
+    if (config == null) {
+      config = getConfiguration();
+    }
+
+    storedConfig(config);
+  }
 }

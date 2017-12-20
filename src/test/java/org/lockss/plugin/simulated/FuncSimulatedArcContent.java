@@ -69,6 +69,7 @@ public class FuncSimulatedArcContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
     String tempDirPath2 = getTempDir().getAbsolutePath() + File.separator;
     String auIdStr = "org|lockss|plugin|simulated|SimulatedPlugin.root~" +
@@ -77,7 +78,7 @@ public class FuncSimulatedArcContent extends LockssTestCase {
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 		      tempDirPath);
     props.setProperty("org.lockss.plugin.simulated.SimulatedContentGenerator.doArcFile", "true");
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

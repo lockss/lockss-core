@@ -770,7 +770,8 @@ public class JobManagerSql {
       createJob.setLong(1, jobTypeSeq);
 
       if (description != null) {
-	createJob.setString(2, description);
+	createJob.setString(2,
+	    JobDbManager.truncateVarchar(description, MAX_DESCRIPTION_COLUMN));
       } else {
 	createJob.setNull(2, VARCHAR);
       }
@@ -798,7 +799,8 @@ public class JobManagerSql {
       createJob.setLong(8, jobStatusSeq);
 
       if (statusMessage != null) {
-	createJob.setString(9, statusMessage);
+	createJob.setString(9, JobDbManager.truncateVarchar(statusMessage,
+	    MAX_STATUS_MESSAGE_COLUMN));
       } else {
 	createJob.setNull(9, VARCHAR);
       }
@@ -1856,7 +1858,8 @@ public class JobManagerSql {
 	dbManager.prepareStatement(conn, CLAIM_UNCLAIMED_JOB_QUERY);
 
     try {
-      claimUnclaimedJob.setString(1, owner);
+      claimUnclaimedJob.setString(1,
+	  JobDbManager.truncateVarchar(owner, MAX_OWNER_COLUMN));
       claimUnclaimedJob.setLong(2, jobSeq);
       updatedCount = dbManager.executeUpdate(claimUnclaimedJob);
       if (log.isDebug3())
@@ -1994,7 +1997,8 @@ public class JobManagerSql {
     try {
       updateJobStatus.setLong(1, new Date().getTime());
       updateJobStatus.setLong(2, jobStatusSeqByName.get(JOB_STATUS_RUNNING));
-      updateJobStatus.setString(3, statusMessage);
+      updateJobStatus.setString(3, JobDbManager.truncateVarchar(statusMessage,
+	  MAX_STATUS_MESSAGE_COLUMN));
       updateJobStatus.setLong(4, jobSeq);
       updatedCount = dbManager.executeUpdate(updateJobStatus);
       if (log.isDebug3())
@@ -2054,7 +2058,8 @@ public class JobManagerSql {
     try {
       updateJobStatus.setLong(1, new Date().getTime());
       updateJobStatus.setLong(2, jobStatusSeqByName.get(statusName));
-      updateJobStatus.setString(3, statusMessage);
+      updateJobStatus.setString(3, JobDbManager.truncateVarchar(statusMessage,
+	  MAX_STATUS_MESSAGE_COLUMN));
       updateJobStatus.setLong(4, jobSeq);
       updatedCount = dbManager.executeUpdate(updateJobStatus);
       if (log.isDebug3())
@@ -2152,7 +2157,8 @@ public class JobManagerSql {
 
     try {
       updateJobStatus.setString(1, statusName);
-      updateJobStatus.setString(2, statusMessage);
+      updateJobStatus.setString(2, JobDbManager.truncateVarchar(statusMessage,
+	  MAX_STATUS_MESSAGE_COLUMN));
       updateJobStatus.setLong(3, jobSeq);
       updatedCount = dbManager.executeUpdate(updateJobStatus);
       if (log.isDebug3())

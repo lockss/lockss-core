@@ -61,6 +61,7 @@ public class TestSimulatedUrlFetcher extends LockssTestCase {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  tempDirPath);
 
+    useOldRepo();
     theDaemon = getMockLockssDaemon();
     theDaemon.getPluginManager();
     Plugin simPlugin = PluginTestUtil.findPlugin(SimulatedPlugin.class);

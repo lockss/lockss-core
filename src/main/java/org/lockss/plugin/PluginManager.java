@@ -169,6 +169,12 @@ public class PluginManager
     PREFIX + "disableURLConnectionCache";
   public static final boolean DEFAULT_DISABLE_URL_CONNECTION_CACHE = false;
 
+  /** If true, all configured AUs are started on startup.  If false, AUs
+   * are started on demand. */
+  public static final String PARAM_START_ALL_AUS =
+    PREFIX + "startAllAus";
+  public static final boolean DEFAULT_START_ALL_AUS = false;
+
   /** If true, AU configurations may appear in any config file.  This was
    * always the case prior to 1.55, setting this true restores that
    * behavior. */
@@ -260,7 +266,7 @@ public class PluginManager
    */
   public static final String PARAM_AU_CONTENT_FROM_WS =
       PREFIX + "auContentFromWs";
-  public static final boolean DEFAULT_AU_CONTENT_FROM_WS = false;
+  public static final boolean DEFAULT_AU_CONTENT_FROM_WS = true;
 
   /**
    * The parameters of the web service used, instead of the repository, to
@@ -497,7 +503,7 @@ public class PluginManager
 
   /**
    * Start loadable plugins, ensure that they are properly loaded, and
-   * then start all configured AUs.  This is called by LockssDaemon
+   * then start all configured AUs.  This is called by LockssApp
    * after starting all the managers, and ensures everything happens
    * in the right order.
    */

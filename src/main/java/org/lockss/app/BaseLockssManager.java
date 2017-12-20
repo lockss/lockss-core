@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.app;
 
 import java.util.List;
+import org.lockss.alert.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
 
@@ -119,6 +120,10 @@ public abstract class BaseLockssManager implements LockssManager {
     return isInited;
   }
 
+  public <T> T getManagerByType(Class<T> mgrType) {
+    return theApp.getManagerByType(mgrType);
+  }
+
   private void registerConfigCallback(Configuration.Callback callback) {
     if(callback == null || this.configCallback != null) {
       throw new LockssAppException("Invalid callback registration: "
@@ -126,7 +131,7 @@ public abstract class BaseLockssManager implements LockssManager {
     }
     configCallback = callback;
 
-    theApp.getConfigManager().registerConfigurationCallback(configCallback);
+    getConfigManager().registerConfigurationCallback(configCallback);
   }
 
   private void registerDefaultConfigCallback() {
@@ -139,7 +144,7 @@ public abstract class BaseLockssManager implements LockssManager {
 
   private void unregisterConfig() {
     if(configCallback != null) {
-      theApp.getConfigManager().unregisterConfigurationCallback(configCallback);
+      getConfigManager().unregisterConfigurationCallback(configCallback);
       configCallback = null;
     }
   }
@@ -155,6 +160,16 @@ public abstract class BaseLockssManager implements LockssManager {
     } else {
       throw new RuntimeException("Not a ConfigurableManager");
     }
+  }
+
+  // Convenience manager accessors
+
+  public ConfigManager getConfigManager() {
+    return theApp.getConfigManager();
+  }
+
+  public AlertManager getAlertManager() {
+    return theApp.getAlertManager();
   }
 
   private static class DefaultConfigCallback

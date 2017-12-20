@@ -67,6 +67,7 @@ public class FuncSimulatedContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     tempDirPath = getTempDir().getAbsolutePath() + File.separator;
 
     theDaemon = getMockLockssDaemon();
@@ -84,7 +85,7 @@ public class FuncSimulatedContent extends LockssTestCase {
     props.setProperty(SystemMetrics.PARAM_HASH_TEST_BYTE_STEP, "1024");
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 		      tempDirPath);
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     pluginMgr = theDaemon.getPluginManager();
     pluginMgr.startService();

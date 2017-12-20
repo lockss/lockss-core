@@ -1,32 +1,32 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -34,7 +34,6 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
-
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
@@ -58,16 +57,16 @@ public abstract class BaseConfigFile implements ConfigFile {
   protected IOException m_IOException;
   protected long m_lastAttempt;
   protected boolean m_needsReload = true;
-  protected boolean m_isPlatformFile = false;
+  protected boolean reloadUnconditionally = false;
   protected ConfigurationPropTreeImpl m_config;
   protected int m_generation = 0;
-  protected Map m_props;
+  protected Map<String, Object> m_props;
   protected ConfigManager.KeyPredicate keyPred;
 
   /**
    * Create a ConfigFile for the URL
    */
-  public BaseConfigFile(String url) {
+  public BaseConfigFile(String url, ConfigManager cfgMgr) {
     if (StringUtil.endsWithIgnoreCase(url, ".xml") ||
 	StringUtil.endsWithIgnoreCase(url, ".xml.gz")) {
       m_fileType = ConfigFile.XML_FILE;
@@ -75,7 +74,7 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_fileType = ConfigFile.PROPERTIES_FILE;
     }
     m_fileUrl = url;
-    m_isPlatformFile = StringUtil.endsWithIgnoreCase(m_fileUrl, "local.txt");
+    m_cfgMgr = cfgMgr;
   }
 
   void setConfigManager(ConfigManager configMgr) {
@@ -96,7 +95,11 @@ public abstract class BaseConfigFile implements ConfigFile {
    * needed in order to properly parse other config files.
    */
   public boolean isPlatformFile() {
-    return m_isPlatformFile;
+    if (m_cfgMgr != null) {
+      return m_fileUrl.equals(m_cfgMgr.getBootstrapPropsUrl());
+    }
+
+    return false;
   }
 
   public int getFileType() {
@@ -154,7 +157,7 @@ public abstract class BaseConfigFile implements ConfigFile {
 
   public void setProperty(String key, Object val) {
     if (m_props == null) {
-      m_props = new HashMap();
+      m_props = new HashMap<String, Object>();
     }
     m_props.put(key, val);
   }
@@ -170,9 +173,12 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Reload the contents if changed.
    */
   protected void reload() throws IOException {
+    final String DEBUG_HEADER = "reload(" + m_fileUrl + "): ";
     m_lastAttempt = TimeBase.nowMs();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "m_lastAttempt = " + m_lastAttempt);
     try {
-      InputStream in = openInputStream();
+      InputStream in = getInputStreamIfModified();
       if (in != null) {
 	try {
 	  setConfigFrom(in);
@@ -200,11 +206,14 @@ public abstract class BaseConfigFile implements ConfigFile {
   }
 
   protected void setConfigFrom(InputStream in) throws IOException {
+    final String DEBUG_HEADER = "setConfigFrom(" + m_fileUrl + "): ";
     ConfigurationPropTreeImpl newConfig = new ConfigurationPropTreeImpl();
     try {
       Tdb tdb = new Tdb();
       PropertyTree propTree = newConfig.getPropertyTree();
-      
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "m_fileType = " + m_fileType);
+
       // Load the configuration
       if (m_fileType == XML_FILE) {
 	XmlPropertyLoader.load(propTree, tdb, in);
@@ -212,12 +221,20 @@ public abstract class BaseConfigFile implements ConfigFile {
 	propTree.load(in);
 	extractTdb(propTree, tdb);
       }
-      
+
+      if (log.isDebug3()) {
+	log.debug3(DEBUG_HEADER
+	    + Configuration.loggableConfiguration(newConfig, "newConfig"));
+	log.debug3(DEBUG_HEADER + "tdb.isEmpty() = " + tdb.isEmpty());
+      }
+
       if (!tdb.isEmpty()) {
         newConfig.setTdb(tdb);
       }
 
       filterConfig(newConfig);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + Configuration.loggableConfiguration(newConfig, "newConfig"));
       
       // update stored configuration atomically
       newConfig.seal();
@@ -225,6 +242,8 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_loadError = null;
       m_IOException = null;
       m_lastModified = calcNewLastModified();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "m_lastModified = " + m_lastModified);
       m_generation++;
       m_needsReload = false;
     } catch (IOException ex) {
@@ -307,7 +326,7 @@ public abstract class BaseConfigFile implements ConfigFile {
    * Return an InputStream on the contents of the file, or null if the file
    * hasn't changed.
    */
-  protected abstract InputStream openInputStream() throws IOException;
+  protected abstract InputStream getInputStreamIfModified() throws IOException;
 
   /**
    * Called after file has been completely read.
@@ -321,10 +340,27 @@ public abstract class BaseConfigFile implements ConfigFile {
   protected abstract String calcNewLastModified();
 
   /**
+   * Do the actual writing of the file to the disk by renaming a temporary file.
+   * 
+   * @param tempfile
+   *          A File with the source temporary file.
+   * @param config
+   *          A Configuration with the configuration to be written.
+   * @throws IOException
+   *           if there are problems.
+   */
+  @Override
+  public void writeFromTempFile(File tempfile, Configuration config)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
    * Used for logging and testing and debugging.
    */
   public String toString() {
     return "{url=" + m_fileUrl + "; isLoaded=" + (m_config != null) +
-      "; lastModified=" + m_lastModified + "}";
+      "; lastModified=" + m_lastModified + "; isPlatformFile()=" +
+      isPlatformFile() + "}";
   }
 }

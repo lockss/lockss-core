@@ -42,9 +42,9 @@ public abstract class AbstractAlertAction
     implements AlertAction, LockssSerializable {
   /** Record a list of similar Alerts; override to provide smarter behavior
    * than just calling record() on each one;  */
-  public void record(LockssDaemon daemon, List alerts) {
+  public void record(LockssApp app, List alerts) {
     for (Iterator iter = alerts.iterator(); iter.hasNext(); ) {
-      record(daemon, (Alert)iter.next());
+      record(app, (Alert)iter.next());
     }
   }
 

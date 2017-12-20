@@ -33,7 +33,7 @@ package org.lockss.alert;
 import java.io.*;
 import java.util.*;
 
-import org.lockss.app.BaseLockssDaemonManager;
+import org.lockss.app.BaseLockssManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
@@ -45,7 +45,7 @@ import org.lockss.util.*;
  * alerts may be deferred and reported together.</p>
  */
 public class AlertManagerImpl
-    extends BaseLockssDaemonManager
+    extends BaseLockssManager
     implements AlertManager, ConfigurableManager {
 
   /**
@@ -91,7 +91,7 @@ public class AlertManagerImpl
 
   public void startService() {
     super.startService();
-    configMgr = getDaemon().getConfigManager();
+    configMgr = getApp().getConfigManager();
 //  loadConfig();
   }
 
@@ -362,7 +362,7 @@ public class AlertManagerImpl
 
   void recordOrDefer(Alert alert, AlertAction action) {
     if (!action.isGroupable()) {
-      action.record(getDaemon(), alert);
+      action.record(getApp(), alert);
       return;
     }
     PendingActions pend = getPending(action, alert.getGroupKey());
@@ -387,7 +387,7 @@ public class AlertManagerImpl
     synchronized void addAlert(Alert alert) {
       if (alert.getBool(Alert.ATTR_IS_TIME_CRITICAL) ||
           action.getMaxPendTime() == 0) {
-        action.record(getDaemon(), alert);
+        action.record(getApp(), alert);
         return;
       }
       if (alerts == null || isProcessed) {
@@ -435,9 +435,9 @@ public class AlertManagerImpl
     synchronized void execute() {
       if (!isProcessed && (alerts != null) && !alerts.isEmpty()) {
         if (alerts.size() == 1) {
-          action.record(getDaemon(), (Alert)alerts.get(0));
+          action.record(getApp(), (Alert)alerts.get(0));
         } else {
-          action.record(getDaemon(), alerts);
+          action.record(getApp(), alerts);
         }
         alerts = null;
       }

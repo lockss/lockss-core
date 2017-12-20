@@ -3,26 +3,30 @@
 Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 package org.lockss.config;
@@ -147,11 +151,23 @@ public class ConfigManager implements LockssManager {
   static final boolean DEFAULT_JSSE_ENABLESNIEXTENSION = true;
 
   /** Parameters whose values are more prop URLs */
-  static final Set URL_PARAMS =
-    SetUtil.set(PARAM_USER_TITLE_DB_URLS,
-		PARAM_TITLE_DB_URLS,
-		PARAM_AUX_PROP_URLS);
+  static final Map<String, Map<String, Object>> URL_PARAMS;
+  static
+  {
+    URL_PARAMS = new HashMap<String, Map<String, Object>>();
 
+    Map<String, Object> auxPropsMap = new HashMap<String, Object>();
+    auxPropsMap.put("message", "auxilliary props");
+    URL_PARAMS.put(PARAM_AUX_PROP_URLS, auxPropsMap);
+
+    Map<String, Object> userTitleDbMap = new HashMap<String, Object>();
+    auxPropsMap.put("message", "user title DBs");
+    URL_PARAMS.put(PARAM_USER_TITLE_DB_URLS, userTitleDbMap);
+
+    Map<String, Object> globalTitleDbMap = new HashMap<String, Object>();
+    auxPropsMap.put("message", "global titledb");
+    URL_PARAMS.put(PARAM_TITLE_DB_URLS, globalTitleDbMap);
+  }
   /** Tmp dir appropriate for platform.  If set, replaces java.io.tmpdir
    * System property */
   public static final String PARAM_TMPDIR = PLATFORM + "tmpDir";
@@ -477,22 +493,14 @@ public class ConfigManager implements LockssManager {
 
   private List configUrlList;		// list of config file urls
   // XXX needs synchronization
-  private List titledbUrlList;		// global titledb urls
-  private List auxPropUrlList;		// auxilliary prop files
   private List pluginTitledbUrlList;	// list of titledb urls (usually
 					// jar:) specified by plugins
-  private List userTitledbUrlList;	// titledb urls added from UI
 
   private List<String> loadedUrls = Collections.EMPTY_LIST;
   private List<String> specUrls = Collections.EMPTY_LIST;
 
 
   private String groupNames;		// daemon group names
-
-  // Maps name of params holding included config URLs to the URL of the
-  // file in which it was set, to facilitate relative URL resolution
-  private Map<String,String> urlParamFile = new HashMap<String,String>();
-
   private String recentLoadError;
 
   // Platform config
@@ -510,7 +518,6 @@ public class ConfigManager implements LockssManager {
   private HandlerThread handlerThread; // reload handler thread
 
   private ConfigCache configCache;
-  private volatile boolean needImmediateReload = false;
   private LockssUrlConnectionPool connPool = new LockssUrlConnectionPool();
   private LockssSecureSocketFactory secureSockFact;
 
@@ -522,17 +529,28 @@ public class ConfigManager implements LockssManager {
   private List<Pattern> expertConfigDenyPats;
   private boolean enableExpertConfig;
 
-  // The indication of whether the Configuration REST web service is used.
-  private boolean useRestWs = false;
+  private String bootstrapPropsUrl; // The daemon bootstrap properties URL.
 
-  // The properties needed to access the Configuration REST web service.
-  private String serviceLocation = null;
-  private String serviceUser = null;
-  private String servicePassword = null;
-  private Integer serviceTimeout = null;
+  // The Configuration REST web service client.
+  private RestConfigClient restConfigClient = null;
+
+  // The path to the directory containing any resource configuration files. 
+  private static final String RESOURCE_CONFIG_DIR_PATH =
+      "org/lockss/config/resourcefile";
+
+  // A map of existing resource configuration files, indexed by file name.
+  private Map<String, File> resourceConfigFiles = null;
+
+  // The configuration parameter key to the props lockss.xml URL.
+  public static final String PARAM_PROPS_LOCKSS_XML_URL =
+      PLATFORM + "propsLockssXmlUrl";
 
   public ConfigManager() {
     this(null, null);
+
+    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
+    URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
+    URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
   }
 
   public ConfigManager(List urls) {
@@ -540,6 +558,17 @@ public class ConfigManager implements LockssManager {
   }
 
   public ConfigManager(List urls, String groupNames) {
+    this(null, urls, groupNames);
+  }
+
+  public ConfigManager(String bootstrapPropsUrl, List urls, String groupNames) {
+    this(bootstrapPropsUrl, null, urls, groupNames);
+  }
+
+  public ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
+      List urls, String groupNames) {
+    this.bootstrapPropsUrl = bootstrapPropsUrl;
+    this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
     if (urls != null) {
       configUrlList = new ArrayList(urls);
     }
@@ -547,31 +576,9 @@ public class ConfigManager implements LockssManager {
     configCache = new ConfigCache(this);
     registerConfigurationCallback(Logger.getConfigCallback());
     registerConfigurationCallback(MiscConfig.getConfigCallback());
-  }
 
-  /**
-   * Constructor used to access the Configuration REST web service.
-   *
-   * @param serviceLocation
-   *          A String with the configuration REST service location.
-   * @param serviceUser
-   *          A String with the configuration REST service user name.
-   * @param servicePassword
-   *          A String with the configuration REST service user password.
-   * @param serviceTimeout
-   *          An Integer with the configuration REST service connection timeout
-   *          value.
-   */
-  public ConfigManager(String serviceLocation, String serviceUser,
-      String servicePassword, Integer serviceTimeout) {
-    this.serviceLocation = serviceLocation;
-    this.serviceUser = serviceUser;
-    this.servicePassword = servicePassword;
-    this.serviceTimeout = serviceTimeout;
-    useRestWs = true;
-    configCache = new ConfigCache(this);
-    registerConfigurationCallback(Logger.getConfigCallback());
-    registerConfigurationCallback(MiscConfig.getConfigCallback());
+    // Create the map of resource configuration files.
+    resourceConfigFiles = populateResourceFileMap();
   }
 
   public ConfigCache getConfigCache() {
@@ -590,31 +597,16 @@ public class ConfigManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
-    // Check whether the configuration is obtained via files, not via a
-    // Configuration REST web service.
-    if (!useRestWs) {
-      // Yes: Start the configuration handler that will periodically check the
-      // configuration files.
+    // Start the configuration handler that will periodically check the
+    // configuration files.
       startHandler();
-    } else {
-      // No: Get the configuration from the Configuration REST web service.
-      Configuration newConfig = new GetConfigClient(serviceLocation,
-	  serviceUser, servicePassword, serviceTimeout).getConfig();
-
-      // Initialize its title database, if necessary.
-      if (newConfig.getTdb() == null) {
-	newConfig.setTdb(new Tdb());
-      }
-
-      // Install this new configuration.
-      installConfig(newConfig);
-    }
   }
 
   /** Reset to unconfigured state.  See LockssTestCase.tearDown(), where
    * this is called.)
    */
   public void stopService() {
+    stopHandler();
     currentConfig = newConfiguration();
     // this currently runs afoul of Logger, which registers itself once
     // only, on first use.
@@ -624,7 +616,6 @@ public class ConfigManager implements LockssManager {
     cacheConfigDir = null;
     // Reset the config cache.
     configCache = null;
-    stopHandler();
     haveConfig = new OneShotSemaphore();
   }
 
@@ -648,24 +639,10 @@ public class ConfigManager implements LockssManager {
     return theMgr;
   }
 
-  /**
-   * Constructor factory used to access the Configuration REST web service.
-   *
-   * @param serviceLocation
-   *          A String with the configuration REST service location.
-   * @param serviceUser
-   *          A String with the configuration REST service user name.
-   * @param servicePassword
-   *          A String with the configuration REST service user password.
-   * @param serviceTimeout
-   *          An Integer with the configuration REST service connection timeout
-   *          value.
-   */
-  public static ConfigManager makeConfigManager(String serviceLocation,
-      String serviceUser, String servicePassword, Integer serviceTimeout) {
-    theMgr = new ConfigManager(serviceLocation, serviceUser, servicePassword,
-	serviceTimeout);
-
+  public static ConfigManager makeConfigManager(String bootstrapPropsUrl,
+      String restConfigServiceUrl, List urls, String groupNames) {
+    theMgr = new ConfigManager(bootstrapPropsUrl, restConfigServiceUrl, urls,
+	groupNames);
     return theMgr;
   }
 
@@ -844,6 +821,9 @@ public class ConfigManager implements LockssManager {
     // copy the list of callbacks as it could change during the loop.
     List cblist = new ArrayList(configChangedCallbacks);
     for (Iterator iter = cblist.iterator(); iter.hasNext();) {
+      if (Thread.currentThread().isInterrupted()) {
+	throw new AbortConfigLoadException("Interrupted");
+      }
       try {
 	Configuration.Callback cb = (Configuration.Callback)iter.next();
 	runCallback(cb, newConfig, oldConfig, diffs);
@@ -948,6 +928,16 @@ public class ConfigManager implements LockssManager {
 					    boolean reload, String msg,
 					    KeyPredicate keyPred)
       throws IOException {
+    final String DEBUG_HEADER =
+	"getConfigGeneration(cf, required, reload, msg, keyPred): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "cf = " + cf);
+      log.debug2(DEBUG_HEADER + "required = " + required);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+      log.debug2(DEBUG_HEADER + "msg = " + msg);
+      log.debug2(DEBUG_HEADER + "keyPred = " + keyPred);
+    }
+
     try {
       cf.setConnectionPool(connPool);
       if (sendVersionInfo != null && "props".equals(msg)) {
@@ -962,6 +952,7 @@ public class ConfigManager implements LockssManager {
 	cf.setKeyPredicate(keyPred);
       }
       ConfigFile.Generation gen = cf.getGeneration();
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "gen = " + gen);
       return gen;
     } catch (IOException e) {
       String url = cf.getFileUrl();
@@ -987,7 +978,9 @@ public class ConfigManager implements LockssManager {
 
   public Configuration loadConfigFromFile(String url)
       throws IOException {
-    ConfigFile cf = new FileConfigFile(url);
+    final String DEBUG_HEADER = "loadConfigFromFile(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
+    ConfigFile cf = new FileConfigFile(url, this);
     ConfigFile.Generation gen = cf.getGeneration();
     return gen.getConfig();
   }
@@ -997,9 +990,10 @@ public class ConfigManager implements LockssManager {
     return (gen.getGeneration() != getGeneration(gen.getUrl()));
   }
 
-  boolean isChanged(Collection gens) {
-    for (Iterator iter = gens.iterator(); iter.hasNext(); ) {
-      ConfigFile.Generation gen = (ConfigFile.Generation)iter.next();
+  boolean isChanged(Collection<ConfigFile.Generation> gens) {
+    for (Iterator<ConfigFile.Generation> iter = gens.iterator();
+	iter.hasNext();) {
+      ConfigFile.Generation gen = iter.next();
       if (gen != null && isChanged(gen)) {
 	return true;
       }
@@ -1007,12 +1001,12 @@ public class ConfigManager implements LockssManager {
     return false;
   }
 
-  List getConfigGenerations(Collection urls, boolean required,
-			    boolean reload, String msg)
-      throws IOException {
-    final String DEBUG_HEADER = "getConfigGenerations(): ";
+  List<ConfigFile.Generation> getConfigGenerations(Collection urls,
+      boolean required, boolean reload, String msg) throws IOException {
+    final String DEBUG_HEADER =
+	"getConfigGenerations(urls, required, reload, msg): ";
     if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
       log.debug2(DEBUG_HEADER + "required = " + required);
       log.debug2(DEBUG_HEADER + "reload = " + reload);
       log.debug2(DEBUG_HEADER + "msg = " + msg);
@@ -1021,19 +1015,33 @@ public class ConfigManager implements LockssManager {
 				trueKeyPredicate);
   }
 
-  List getConfigGenerations(Collection urls, boolean required,
-			    boolean reload, String msg,
-			    KeyPredicate keyPred)
+  List<ConfigFile.Generation> getConfigGenerations(Collection urls,
+      boolean required, boolean reload, String msg, KeyPredicate keyPred)
       throws IOException {
+    final String DEBUG_HEADER =
+	"getConfigGenerations(urls, required, reload, msg, keyPred): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
+      log.debug2(DEBUG_HEADER + "required = " + required);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+      log.debug2(DEBUG_HEADER + "msg = " + msg);
+      log.debug2(DEBUG_HEADER + "keyPred = " + keyPred);
+    }
 
     if (urls == null) return Collections.EMPTY_LIST;
-    List res = new ArrayList(urls.size());
+    List<ConfigFile.Generation> res =
+	new ArrayList<ConfigFile.Generation>(urls.size());
     for (Object o : urls) {
+      if (Thread.currentThread().isInterrupted()) {
+	throw new AbortConfigLoadException("Interrupted");
+      }
       ConfigFile.Generation gen;
       if (o instanceof ConfigFile) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is ConfigFile.");
 	gen = getConfigGeneration((ConfigFile)o, required, reload, msg,
 				  keyPred);
       } else if (o instanceof LocalFileDescr) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is LocalFileDescr.");
 	LocalFileDescr lfd = (LocalFileDescr)o;
 	String filename = lfd.getFile().toString();
 	Predicate includePred = lfd.getIncludePredicate();
@@ -1046,40 +1054,201 @@ public class ConfigManager implements LockssManager {
 	}
 	gen = getConfigGeneration(filename, required, reload, msg, pred);
       } else {
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "Neither ConfigFile nor LocalFileDescr.");
 	String url = o.toString();
 	gen = getConfigGeneration(url, required, reload, msg, keyPred);
       }
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
       if (gen != null) {
-	res.add(gen);
+	addGenerationToListIfNotInIt(gen, res);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + StringUtil.loggableCollection(res, "res"));
+	addReferencedUrls(gen, required, reload, msg, keyPred, res);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + StringUtil.loggableCollection(res, "res"));
       }
     }
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(res, "res"));
     return res;
   }
 
-  List getStandardConfigGenerations(List urls, boolean reload)
-      throws IOException {
-    List res = new ArrayList(20);
+  /**
+   * Adds a generation to a list only if it's not in the list yet.
+   * 
+   * @param gen
+   *          A ConfigFile.Generation with the generation to be added.
+   * @param genList
+   *          A List<ConfigFile.Generation> with the list to which to add the
+   *          passed generation.
+   */
+  void addGenerationToListIfNotInIt(ConfigFile.Generation gen,
+      List<ConfigFile.Generation> genList) {
+    final String DEBUG_HEADER = "addGenerationToListIfNotInIt(): ";
+    // The URL of the generation to  be added.
+    String url = gen.getUrl();
 
-    List configGens = getConfigGenerations(urls, true, reload, "props");
-    res.addAll(configGens);
+    // Loop through all the generations already in the list.
+    for (ConfigFile.Generation existingGen : genList) {
+      // Check whether it is the same generation as the one to be added.
+      if (url.equals(existingGen.getUrl())) {
+	// Yes: Do not add it.
+	log.info(DEBUG_HEADER + "Not adding to the list generation = " + gen
+	    + " because is a duplicate of existing generation = "
+	    + existingGen);
+	return;
+      }
+    }
 
-    res.addAll(getConfigGenerations(auxPropUrlList, false, reload,
-				    "auxilliary props"));
-    res.addAll(getConfigGenerations(titledbUrlList, false, reload,
-				    "global titledb", titleDbOnlyPred));
-    res.addAll(getConfigGenerations(pluginTitledbUrlList, false, reload,
-				    "plugin-bundled titledb",
-				    titleDbOnlyPred));
-    res.addAll(getConfigGenerations(userTitledbUrlList, false, reload,
-				    "user title DBs", titleDbOnlyPred));
+    // Add the generation to the list because it's not there already.
+    genList.add(gen);
+  }
+
+  /**
+   * Adds to a target list any generation from a source list that it's not in
+   * the target list yet.
+   *
+   * @param sourceGenList
+   *          A List<ConfigFile.Generation> with the source list of generations.
+   * @param targetGenList
+   *          A List<ConfigFile.Generation> with the target list of generations.
+   */
+  void addGenerationsToListIfNotInIt(
+      List<ConfigFile.Generation> sourceGenList,
+      List<ConfigFile.Generation> targetGenList) {
+    // Loop through all the generations in the source list.
+    for (ConfigFile.Generation genToAdd : sourceGenList) {
+      // Add it to the target list if not there already.
+      addGenerationToListIfNotInIt(genToAdd, targetGenList);
+    }
+  }
+
+  /**
+   * Adds to a list of generations those other generations referenced by a
+   * source generation.
+   * 
+   * @param gen
+   *          A ConfigFile.Generation with the generation that may have
+   *          references to other generations.
+   * @param required
+   *          A boolean with an indication of whether the generation is
+   *          required.
+   * @param reload
+   *          A boolean with an indication of whether a reload is necessary.
+   * @param msg
+   *          A String with a message.
+   * @param keyPred
+   *          A KeyPredicate with the predicate.
+   * @param targetList
+   *          A List<ConfigFile.Generation> where to add the referenced
+   *          generations.
+   * @throws IOException
+   *           if there are problems.
+   */
+  void addReferencedUrls(ConfigFile.Generation gen, boolean required,
+      boolean reload, String msg, KeyPredicate keyPred,
+      List<ConfigFile.Generation> targetList) throws IOException {
+    final String DEBUG_HEADER = "addReferencedUrls(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "gen = " + gen);
+      log.debug2(DEBUG_HEADER + "required = " + required);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+      log.debug2(DEBUG_HEADER + "msg = " + msg);
+      log.debug2(DEBUG_HEADER + "keyPred = " + keyPred);
+      log.debug2(DEBUG_HEADER
+	  + StringUtil.loggableCollection(targetList, "targetList"));
+    }
+
+    // URL base for relative URLs.
+    String base = gen.getUrl();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "base = " + base);
+
+    // The configuration with potential references.
+    Configuration config = gen.getConfig();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ Configuration.loggableConfiguration(config, "config"));
+
+    // Loop through all the referencing option keys. 
+    for (String includingKey : URL_PARAMS.keySet()) {
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "includingKey = " + includingKey);
+
+      // Check whether the configuration with potential references contains this
+      // option.
+      if (config.containsKey(includingKey)) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Found references.");
+
+	// Get the configuration values under this key. 
+	List<String> urls = config.getList(includingKey);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "urls = " + urls);
+
+	// Ignore an empty value.
+	if (urls.size() == 0) {
+	  log.warning(includingKey + " has empty value");
+	  continue;
+	}
+
+	// Resolve the URLs obtained, if necessary.
+	Collection<String> resolvedUrls = new ArrayList<String>(urls.size());
+	for (String url : urls) {
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
+	  String resolvedUrl = resolveConfigUrl(base, url);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
+	  resolvedUrls.add(resolvedUrl);
+	}
+
+	// Add the generations of the resolved URLs to the list, if not there
+	// already.
+	String message = (String)(URL_PARAMS.get(includingKey).get("message"));
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "message = " + message);
+	ConfigManager.KeyPredicate keyPredicate = (ConfigManager.KeyPredicate)
+	    (URL_PARAMS.get(includingKey).get("predicate"));
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "keyPredicate = " + keyPredicate);
+
+	addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
+	    false, reload, message, keyPredicate), targetList);
+
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + StringUtil.loggableCollection(targetList, "targetList"));
+      } else {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "No references found.");
+      }
+    }
+  }
+
+  List<ConfigFile.Generation> getStandardConfigGenerations(List urls,
+      boolean reload) throws IOException {
+    final String DEBUG_HEADER = "getStandardConfigGenerations(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+    }
+
+    List<ConfigFile.Generation> res = new ArrayList<ConfigFile.Generation>(20);
+
+    List<ConfigFile.Generation> configGens =
+	getConfigGenerations(urls, true, reload, "props");
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ StringUtil.loggableCollection(configGens, "configGens"));
+
+    addGenerationsToListIfNotInIt(configGens, res);
+
+    addGenerationsToListIfNotInIt(getConfigGenerations(pluginTitledbUrlList,
+	false, reload, "plugin-bundled titledb", titleDbOnlyPred), res);
     initCacheConfig(configGens);
-    res.addAll(getCacheConfigGenerations(reload));
+    addGenerationsToListIfNotInIt(getCacheConfigGenerations(reload), res);
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(res, "res"));
     return res;
   }
 
-  List getCacheConfigGenerations(boolean reload) throws IOException {
-    List localGens = getConfigGenerations(getLocalFileDescrs(), false, reload,
-					  "cache config");
+  List<ConfigFile.Generation> getCacheConfigGenerations(boolean reload)
+      throws IOException {
+    List<ConfigFile.Generation> localGens = getConfigGenerations(
+	getLocalFileDescrs(), false, reload, "cache config");
     if (!localGens.isEmpty()) {
       hasLocalCacheConfig = true;
     }
@@ -1095,23 +1264,17 @@ public class ConfigManager implements LockssManager {
 
   public boolean updateConfig(List urls) {
     final String DEBUG_HEADER = "updateConfig(List): ";
-    needImmediateReload = false;
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
     boolean res = updateConfigOnce(urls, true);
-    if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "urls.size() = " + urls.size());
-      log.debug3(DEBUG_HEADER + "needImmediateReload = " + needImmediateReload);
-      log.debug3(DEBUG_HEADER + "res = " + res);
-    }
-    if (res && needImmediateReload) {
-      updateConfigOnce(urls, false);
-    }
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
     if (res) {
       haveConfig.fill();
     }
     connPool.closeIdleConnections(0);
     updateRemoteConfigFailover();
 
-    if (log.isDebug2()) log.debug3(DEBUG_HEADER + "res = " + res);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "res = " + res);
     return res;
   }
 
@@ -1127,14 +1290,19 @@ public class ConfigManager implements LockssManager {
 
   public boolean updateConfigOnce(List urls, boolean reload) {
     final String DEBUG_HEADER = "updateConfigOnce(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + StringUtil.loggableCollection(urls, "urls"));
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+    }
     startUpdateTime = TimeBase.nowMs();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + 
+	Configuration.loggableConfiguration(currentConfig, "currentConfig"));
     if (currentConfig.isEmpty()) {
       // first load preceded by platform config setup
       setupPlatformConfig(urls);
     }
     if (currentConfig.isEmpty() ||
 	TimeBase.msSince(lastSendVersion) >= sendVersionEvery) {
-      LockssApp app = getApp();
       sendVersionInfo = getVersionString();
       lastSendVersion = TimeBase.nowMs();
     } else {
@@ -1153,6 +1321,8 @@ public class ConfigManager implements LockssManager {
       return false;
     }
 
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "!isChanged(gens) = " + !isChanged(gens));
     if (!isChanged(gens)) {
       if (reloadInterval >= 10 * Constants.MINUTE) {
 	log.info("Config up to date, not updated");
@@ -1161,15 +1331,16 @@ public class ConfigManager implements LockssManager {
     }
     Configuration newConfig = initNewConfiguration();
     loadList(newConfig, gens);
+    if (getApp() != null) {
+      Configuration appConfig = getApp().getAppConfig();
+      if (appConfig != null && !appConfig.isEmpty()) {
+	log.debug("Adding app config: " + appConfig);
+	newConfig.copyFrom(appConfig);
+      }
+    }
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
 
     boolean did = installConfig(newConfig, gens);
-    if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "reload = " + reload);
-      log.debug3(DEBUG_HEADER + "sendVersionInfo = " + sendVersionInfo);
-      log.debug3(DEBUG_HEADER + "gens.size() = " + gens.size());
-      log.debug3(DEBUG_HEADER + "useRestWs = " + useRestWs);
-      log.debug3(DEBUG_HEADER + "did = " + did);
-    }
     long tottime = TimeBase.msSince(startUpdateTime);
     long cbtime = TimeBase.msSince(startCallbacksTime);
     if (did) {
@@ -1233,27 +1404,25 @@ public class ConfigManager implements LockssManager {
 
   void loadList(Configuration intoConfig,
 		Collection<ConfigFile.Generation> gens) {
+    final String DEBUG_HEADER = "loadList(): ";
+    if (log.isDebug3()) {
+      log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
+      log.debug3(DEBUG_HEADER + "gens = " + gens);
+    }
     for (ConfigFile.Generation gen : gens) {
       if (gen != null) {
-	// Remember the URL of the file in which any parameter whose value
-	// might be a (list of) relative URL(s) is found
-	final String url = gen.getUrl();
-	Configuration.ParamCopyEvent pse = null;
-	if (UrlUtil.isUrl(url)) {
-	  pse = new Configuration.ParamCopyEvent() {
-	      public void paramCopied(String name,
-				      String val){
-		if (URL_PARAMS.contains(name)) {
-		  urlParamFile.put(name, url);
-		}
-	      }};
-	    }
-	intoConfig.copyFrom(gen.getConfig(), pse);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
+	intoConfig.copyFrom(gen.getConfig(), null);
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
       }
     }
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   void setupPlatformConfig(List urls) {
+    final String DEBUG_HEADER = "setupPlatformConfig(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
     Configuration platConfig = initNewConfiguration();
     for (Iterator iter = urls.iterator(); iter.hasNext();) {
       Object o = iter.next();
@@ -1263,6 +1432,7 @@ public class ConfigManager implements LockssManager {
       } else {
 	cf = configCache.find(o.toString());
       }
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
       if (cf.isPlatformFile()) {
 	try {
 	  if (log.isDebug3()) {
@@ -1270,6 +1440,8 @@ public class ConfigManager implements LockssManager {
 	  }
 	  cf.setNeedsReload();
 	  platConfig.load(cf);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "platConfig = " + platConfig);
 	} catch (IOException e) {
 	  log.warning("Couldn't preload platform file " + cf.getFileUrl(), e);
 	}
@@ -1284,6 +1456,7 @@ public class ConfigManager implements LockssManager {
     platformConfig = platConfig;
     initCacheConfig(platConfig);
     setUpRemoteConfigFailover();
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   // If a keystore was specified for 
@@ -1347,7 +1520,13 @@ public class ConfigManager implements LockssManager {
   }
 
   boolean installConfig(Configuration newConfig, List gens) {
+    final String DEBUG_HEADER = "installConfig(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "newConfig = " + newConfig);
+      log.debug2(DEBUG_HEADER + "gens = " + gens);
+    }
     if (newConfig == null) {
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning false.");
       return false;
     }
     copyPlatformParams(newConfig);
@@ -1361,6 +1540,7 @@ public class ConfigManager implements LockssManager {
 	log.info("Config unchanged, not updated");
       }
       updateGenerations(gens);
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning false.");
       return false;
     }
 
@@ -1372,6 +1552,7 @@ public class ConfigManager implements LockssManager {
     recordConfigLoaded(newConfig, oldConfig, diffs, gens);
     startCallbacksTime = TimeBase.nowMs();
     runCallbacks(newConfig, oldConfig, diffs);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning true.");
     return true;
   }
 
@@ -1386,6 +1567,12 @@ public class ConfigManager implements LockssManager {
   public void configurationChanged(Configuration config,
 				   Configuration oldConfig,
 				   Configuration.Differences changedKeys) {
+    final String DEBUG_HEADER = "configurationChanged(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "config = " + config);
+      log.debug2(DEBUG_HEADER + "oldConfig = " + oldConfig);
+      log.debug2(DEBUG_HEADER + "changedKeys = " + changedKeys);
+    }
 
     if (changedKeys.contains(MYPREFIX)) {
       reloadInterval = config.getTimeInterval(PARAM_RELOAD_INTERVAL,
@@ -1400,48 +1587,14 @@ public class ConfigManager implements LockssManager {
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
       platVer = null;
     }
-
-    // check for presence of title db url keys on first load, as
-    // changedKeys.containsKey() is true of all keys then and would lead to
-    // always reloading the first time.
-    if (oldConfig.isEmpty()
-	? (config.containsKey(PARAM_USER_TITLE_DB_URLS)
-	   || config.containsKey(PARAM_TITLE_DB_URLS)
-	   || config.containsKey(PARAM_AUX_PROP_URLS))
-	: (changedKeys.contains(PARAM_USER_TITLE_DB_URLS)
-	   || changedKeys.contains(PARAM_TITLE_DB_URLS)
-	   || changedKeys.contains(PARAM_AUX_PROP_URLS))) {
-      userTitledbUrlList =
-	resolveConfigUrls(config, PARAM_USER_TITLE_DB_URLS);
-      titledbUrlList = resolveConfigUrls(config, PARAM_TITLE_DB_URLS);
-      auxPropUrlList = resolveConfigUrls(config, PARAM_AUX_PROP_URLS);
-      log.debug("titledbUrlList: " + titledbUrlList +
-		", userTitledbUrlList: " + userTitledbUrlList +
-		", auxPropUrlList: " + auxPropUrlList);
-      // Currently this requires a(nother immediate) reload.
-      needImmediateReload = true;
-    }
-  }
-
-  List<String> resolveConfigUrls(Configuration config, String param) {
-    List<String> urls = config.getList(param);
-    if (urls.isEmpty()) {
-      return urls;
-    }
-    String base = urlParamFile.get(param);
-    if (base != null) {
-      ArrayList res = new ArrayList(urls.size());
-      for (String url : urls) {
-	res.add(resolveConfigUrl(base, url));
-      }
-      return res;
-    } else {
-      log.error("URL param has no base URL: " + param);
-      return urls;
-    }
   }
 
   String resolveConfigUrl(String base, String configUrl) {
+    final String DEBUG_HEADER = "resolveConfigUrl(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "base = " + base);
+      log.debug2(DEBUG_HEADER + "configUrl = " + configUrl);
+    }
     try {
       return UrlUtil.resolveUri(base, configUrl);
     } catch (MalformedURLException e) {
@@ -1451,12 +1604,21 @@ public class ConfigManager implements LockssManager {
   }
 
   private void buildLoadedFileLists(List<ConfigFile.Generation> gens) {
+    final String DEBUG_HEADER = "buildLoadedFileLists(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "gens = " + gens);
     if (gens != null && !gens.isEmpty()) {
       List<String> specNames = new ArrayList<String>(gens.size());
       List<String> loadedNames = new ArrayList<String>(gens.size());
       for (ConfigFile.Generation gen : gens) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
 	if (gen != null) {
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	      + "gen.getConfigFile().getLoadedUrl() = "
+	      + gen.getConfigFile().getLoadedUrl());
 	  loadedNames.add(gen.getConfigFile().getLoadedUrl());
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	      + "gen.getConfigFile().getFileUrl() = "
+	      + gen.getConfigFile().getFileUrl());
 	  specNames.add(gen.getConfigFile().getFileUrl());
 	}
       }
@@ -1497,7 +1659,8 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  static final String PARAM_HASH_SVC = "org.lockss.manager.HashService";
+  public static final String PARAM_HASH_SVC = LockssApp.MANAGER_PREFIX +
+    LockssApp.managerKey(org.lockss.hasher.HashService.class);
   static final String DEFAULT_HASH_SVC = "org.lockss.hasher.HashSvcSchedImpl";
 
   private void inferMiscParams(Configuration config) {
@@ -2123,16 +2286,14 @@ public class ConfigManager implements LockssManager {
    */
   public Configuration readCacheConfigFile(String cacheConfigFileName)
       throws IOException {
+    final String DEBUG_HEADER = "readCacheConfigFile(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "cacheConfigFileName = " + cacheConfigFileName);
 
-    if (cacheConfigDir == null) {
-      log.warning("Attempting to read cache config file: " +
-		  cacheConfigFileName + ", but no cache config dir exists");
-      throw new IOException("No cache config dir");
-    }
-
-    String cfile = new File(cacheConfigDir, cacheConfigFileName).toString();
-    ConfigFile cf = configCache.find(cfile);
-    Configuration res = cf.getConfiguration();
+    Configuration res =
+	getConfigFileInCache(cacheConfigFileName).getConfiguration();
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	+ Configuration.loggableConfiguration(res, "res"));
     return res;
   }
 
@@ -2214,17 +2375,8 @@ public class ConfigManager implements LockssManager {
     config.store(os, header, addtl);
     os.close();
     File cfile = new File(cacheConfigDir, cacheConfigFileName);
-    if (!PlatformUtil.updateAtomically(tempfile, cfile)) {
-      throw new RuntimeException("Couldn't rename temp file: " +
-				 tempfile + " to: " + cfile);
-    }
+    configCache.find(cfile.toString()).writeFromTempFile(tempfile, config);
     log.debug2("Wrote cache config file: " + cfile);
-    ConfigFile cf = configCache.get(cfile.toString());
-    if (cf instanceof FileConfigFile) {
-      ((FileConfigFile)cf).storedConfig(config);
-    } else {
-      log.warning("Not a FileConfigFile: " + cf);
-    }
     LocalFileDescr descr = getLocalFileDescr(cacheConfigFileName);
     if (!suppressReload) {
       if (descr == null || descr.isNeedReloadAfterWrite()) {
@@ -2252,12 +2404,7 @@ public class ConfigManager implements LockssManager {
     File tempfile = File.createTempFile("tmp_config", ".tmp", cacheConfigDir);
     StringUtil.toFile(tempfile, text);
     File cfile = new File(cacheConfigDir, cacheConfigFileName);
-    if (!PlatformUtil.updateAtomically(tempfile, cfile)) {
-      throw new RuntimeException("Couldn't rename temp file: " +
-				 tempfile + " to: " + cfile);
-    }
-    log.debug2("Wrote cache config file: " + cfile);
-    ConfigFile cf = configCache.get(cfile.toString());
+    configCache.find(cfile.toString()).writeFromTempFile(tempfile, null);
     if (!suppressReload) {
       requestReload();
     }
@@ -2852,6 +2999,174 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
+   * Provides the daemon bootstrap properties URL.
+   *
+   * @return a String with the daemon bootstrap properties URL.
+   */
+  public String getBootstrapPropsUrl() {
+    return bootstrapPropsUrl;
+  }
+
+  /**
+   * Provides the Configuration REST service client.
+   *
+   * @return a RestConfigClient with the Configuration REST service client.
+   */
+  public RestConfigClient getRestConfigClient() {
+    return restConfigClient;
+  }
+
+  /**
+   * Populates the map of resource configuration files.
+   * 
+   * @return a Map<String, File> with the map of resource configuration files.
+   */
+  private Map<String, File> populateResourceFileMap() {
+    final String DEBUG_HEADER = "populateResourceFileMap(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
+
+    Map<String, File> result = new HashMap<String, File>();
+
+    // Get the URL of the directory with the resource configuration files.
+    URL resourceConfigUrl =
+	getClass().getClassLoader().getResource(RESOURCE_CONFIG_DIR_PATH);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "resourceConfigUrl = " + resourceConfigUrl);
+
+    // Check whether there is no directory with the resource configuration
+    // files.
+    if (resourceConfigUrl == null) {
+      // Yes: Nothing more to do.
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+      return result;
+    }
+
+    // No: Get the directory with the resource configuration files.
+    File resourceConfigDir = new File(resourceConfigUrl.getFile());
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "resourceConfigDir = " + resourceConfigDir);
+
+    // Check whether the directory is valid.
+    if (resourceConfigDir.exists() && resourceConfigDir.isDirectory()
+	&& resourceConfigDir.canRead()) {
+      // Yes: Get any files in the directory.
+      File[] resourceFiles = resourceConfigDir.listFiles();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "resourceFiles = " + resourceFiles);
+
+      // Check whether there are any files in the directory.
+      if (resourceFiles != null) {
+	// Yes: Loop through all the resource configuration files.
+	for (int i = 0; i < resourceFiles.length; i++) {
+	  // Add the resource configuration file to the map. 
+	  File resourceFile = resourceFiles[i];
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "resourceFile = " + resourceFile);
+
+	  result.put(resourceFile.getName(), resourceFile);
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    return result;
+  }
+
+  /**
+   * Provides an indication of whether a resource configuration file with a
+   * given name exists.
+   * 
+   * @param fileName
+   *          A String with the name.
+   * @return a boolean with <code>true</code> if a resource configuration file
+   *         with the given name exists, <code>false</code> otherwise.
+   */
+  public boolean existsResourceConfigFile(String fileName) {
+    return resourceConfigFiles.containsKey(fileName);
+  }
+
+  /**
+   * Provides a resource configuration file, given its name.
+   * 
+   * @param fileName
+   *          A String with the resource configuration file name.
+   * @return a File with the requested resource configuration file, or
+   *         <code>null</code> if no resource configuration file with that name
+   *         exists.
+   */
+  public File getResourceConfigFile(String fileName) {
+    return resourceConfigFiles.get(fileName);
+  }
+
+  /**
+   * Provides an input stream to the content of a cached configuration file,
+   * ignoring previous history.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @param cacheConfigFileName
+   *          A String with the cached configuration file name, without path.
+   * @return an InputStream with the input stream to the cached configuration
+   *         file.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public InputStream getCacheConfigFileInputStream(String cacheConfigUrl)
+      throws IOException {
+    final String DEBUG_HEADER = "getCacheConfigFileInputStream(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
+
+    InputStream is = configCache.find(cacheConfigUrl).getInputStream();
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "is == null = " + (is == null));
+    return is;
+  }
+
+  /**
+   * Provides a configuration file in the cache.
+   * 
+   * @param cacheConfigFileName
+   *          A String with the cached configuration file name, without path.
+   * @return a ConfigFile with the cached configuration file.
+   * @throws IOException
+   *           if there are problems.
+   */
+  private ConfigFile getConfigFileInCache(String cacheConfigFileName)
+      throws IOException {
+    final String DEBUG_HEADER = "getConfigFileInCache(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "cacheConfigFileName = " + cacheConfigFileName);
+
+    ConfigFile cf = null;
+
+    // Check whether it is a resource file.
+    if (resourceConfigFiles.containsKey(cacheConfigFileName)) {
+      // Yes: Get it from the cache.
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "It is a Resource file.");
+      cf = configCache.find(cacheConfigFileName);
+    } else {
+      // No: Check whether there is no cache directory.
+      if (cacheConfigDir == null) {
+	// Yes:
+	log.warning("Attempting to read cache config file: " +
+	    cacheConfigFileName + ", but no cache config dir exists");
+	throw new IOException("No cache config dir");
+      }
+
+      // No: Get the name of the cached file.
+      String cfile = new File(cacheConfigDir, cacheConfigFileName).toString();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cfile = " + cfile);
+
+      // Get it from the cache.
+      cf = configCache.find(cfile);
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cf = " + cf);
+    return cf;
+  }
+
+  /**
    * Provides the configuration of an archival unit given its identifier and
    * plugin.
    * 
@@ -2874,13 +3189,12 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && useRestWs) {
+    if (tdbAu == null && restConfigClient != null) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
 	// service.
-	TdbAu newTdbAu = new GetTdbAuClient(serviceLocation, serviceUser,
-	    servicePassword, serviceTimeout).getTdbAu(auId);
+	TdbAu newTdbAu = restConfigClient.getTdbAu(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
 	newTdbAu.prettyLog(2);
 
@@ -2942,13 +3256,12 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && useRestWs) {
+    if (tdbAu == null && restConfigClient != null) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
 	// service.
-	TdbAu newTdbAu = new GetTdbAuClient(serviceLocation, serviceUser,
-	    servicePassword, serviceTimeout).getTdbAu(auId);
+	TdbAu newTdbAu = restConfigClient.getTdbAu(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
 	newTdbAu.prettyLog(2);
 
@@ -3001,29 +3314,32 @@ public class ConfigManager implements LockssManager {
     }
 
     Configuration auConfig = null;
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "useRestWs = " + useRestWs);
 
-    if (useRestWs) {
-      try {
-	auConfig = new GetAuConfigClient(serviceLocation, serviceUser,
-	    servicePassword, serviceTimeout).getAuConfig(auId);
-        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-      } catch (Exception e) {
-	log.error("Exception caught getting the configuration of Archival Unit "
-	    + auId, e);
-      }
-    } else {
-      // Get the Archival Unit title database.
-      TdbAu tdbAu = getTdbAu(auId, plugin);
+    // Get the Archival Unit title database.
+    TdbAu tdbAu = getTdbAu(auId, plugin);
 
-      // Get the Archival Unit configuration, if possible.
-      if (tdbAu != null) {
-        tdbAu.prettyLog(2);
-        Properties properties = new Properties();
-        properties.putAll(tdbAu.getParams());
+    // Get the Archival Unit configuration, if possible.
+    if (tdbAu != null) {
+      tdbAu.prettyLog(2);
+      Properties properties = new Properties();
+      properties.putAll(tdbAu.getParams());
 
-        auConfig = ConfigManager.fromPropertiesUnsealed(properties);
-        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+      auConfig = ConfigManager.fromPropertiesUnsealed(properties);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+    }
+
+    // Check whether no Archival Unit configuration was found.
+    if (auConfig == null) {
+      // Yes: Try to get it from the REST Configuration service.
+      if (restConfigClient != null) {
+	try {
+	  auConfig = restConfigClient.getAuConfig(auId);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+	} catch (Exception e) {
+	  log.error("Exception caught getting the configuration of Archival "
+	      + "Unit " + auId, e);
+	}
       }
 
       // Check whether no Archival Unit configuration was found.
@@ -3036,6 +3352,16 @@ public class ConfigManager implements LockssManager {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConfig = " + auConfig);
     return auConfig;
+  }
+
+  class AbortConfigLoadException extends RuntimeException {
+    AbortConfigLoadException(String msg) {
+      super(msg);
+    }
+
+    AbortConfigLoadException(String msg, Throwable cause) {
+      super(msg, cause);
+    }
   }
 
   // Handler thread, periodically reloads config
@@ -3061,37 +3387,42 @@ public class ConfigManager implements LockssManager {
       while (goOn) {
 	pokeWDog();
 	running = true;
-	if (updateConfig()) {
-	  if (tiny != null) {
-	    stopTinyUi();
-	  }
-	  // true iff loaded config has changed
-	  if (!goOn) {
-	    break;
-	  }
-	  lastReload = TimeBase.nowMs();
-	  //	stopAndOrStartThings(true);
-	} else {
-	  if (lastReload == 0) {
-	    if (tiny == null) {
-	      startTinyUi();
-	    } else {
-	      updateTinyData();
+	try {
+	  if (updateConfig()) {
+	    if (tiny != null) {
+	      stopTinyUi();
+	    }
+	    // true iff loaded config has changed
+	    if (!goOn) {
+	      break;
+	    }
+	    lastReload = TimeBase.nowMs();
+	    //	stopAndOrStartThings(true);
+	  } else {
+	    if (lastReload == 0) {
+	      if (tiny == null) {
+		startTinyUi();
+	      } else {
+		updateTinyData();
+	      }
 	    }
 	  }
-	}
-	pokeWDog();			// in case update took a long time
-	long reloadRange = reloadInterval/4;
-	nextReload = Deadline.inRandomRange(reloadInterval - reloadRange,
-					    reloadInterval + reloadRange);
-	log.debug2(nextReload.toString());
-	running = false;
-	if (goOn && !goAgain) {
-	  try {
-	    nextReload.sleep();
-	  } catch (InterruptedException e) {
-	    // just wakeup and check for exit
+	  pokeWDog();			// in case update took a long time
+	  long reloadRange = reloadInterval/4;
+	  nextReload = Deadline.inRandomRange(reloadInterval - reloadRange,
+					      reloadInterval + reloadRange);
+	  log.debug2(nextReload.toString());
+	  running = false;
+	  if (goOn && !goAgain) {
+	    try {
+	      nextReload.sleep();
+	    } catch (InterruptedException e) {
+	      // just wakeup and check for exit
+	    }
 	  }
+	} catch (AbortConfigLoadException e) {
+	  log.warning("Config reload thread aborted");
+	  // just exit
 	}
 	goAgain = false;
       }

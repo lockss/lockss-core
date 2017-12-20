@@ -45,7 +45,7 @@ import org.lockss.app.*;
  * during unit testing.)
  */
 
-public class UrlManager extends BaseLockssDaemonManager {
+public class UrlManager extends BaseLockssManager {
   public static final String PROTOCOL_CU = "locksscu";
   public static final String PROTOCOL_AU = "lockssau";
   public static final String PROTOCOL_RESOURCE = "resource";

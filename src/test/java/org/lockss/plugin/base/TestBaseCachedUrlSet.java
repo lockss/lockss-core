@@ -72,6 +72,7 @@ public class TestBaseCachedUrlSet extends LockssTestCase {
     props.setProperty(SystemMetrics.PARAM_DEFAULT_HASH_SPEED,
 		      Integer.toString(HASH_SPEED));
     ConfigurationUtil.setCurrentConfigFromProps(props);
+    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     hashService = theDaemon.getHashService();

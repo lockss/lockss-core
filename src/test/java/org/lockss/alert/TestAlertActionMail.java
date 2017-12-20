@@ -178,9 +178,9 @@ public class TestAlertActionMail extends LockssTestCase {
   String getXMailer() {
     String release = BuildInfo.getBuildProperty(BuildInfo.BUILD_RELEASENAME);
     if (release != null) {
-      return "LOCKSS daemon " + release;
+      return "LOCKSS app " + release;
     }
-    return "LOCKSS daemon";
+    return "LOCKSS app";
   }
 
   String toString(MailMessage msg) {

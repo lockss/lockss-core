@@ -400,15 +400,15 @@ public class TimerQueue {
   }
 
   /** A little manager class just to register a status accessor. */
-  public static class Manager extends BaseLockssDaemonManager {
+  public static class Manager extends BaseLockssManager {
     public void startService() {
       super.startService();
-      getDaemon().getStatusService().
+      getApp().getStatusService().
 	registerStatusAccessor("TimerQ", new Status(singleton));
     }
 
     public void stopService() {
-      getDaemon().getStatusService().unregisterStatusAccessor("TimerQ");
+      getApp().getStatusService().unregisterStatusAccessor("TimerQ");
       super.stopService();
     }
 

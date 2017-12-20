@@ -1,39 +1,38 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2001-2006 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
 package org.lockss.config;
 
 import java.io.*;
-import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -81,6 +80,30 @@ public interface ConfigFile {
    */
   public Configuration getConfiguration() throws IOException;
 
+  /**
+   * Provides an input stream to the content of this file.
+   * <br />
+   * Use this to stream the file contents.
+   * 
+   * @return an InputStream with the input stream to the file contents.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public InputStream getInputStream() throws IOException;
+
+  /**
+   * Do the actual writing of the file to the disk by renaming a temporary file.
+   * 
+   * @param tempfile
+   *          A File with the source temporary file.
+   * @param config
+   *          A Configuration with the configuration to be written.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public void writeFromTempFile(File tempfile, Configuration config)
+      throws IOException;
+
   /** Represents a single generation (version) of the contents of a
    * ConfigFile, to make it easy to determine when the contents has
    * changed */
@@ -105,6 +128,12 @@ public interface ConfigFile {
     public ConfigFile getConfigFile() {
       return cf;
     }
-  }
 
+    @Override
+    public String toString() {
+      return "[Generation cf=" + cf + ", "
+	  + Configuration.loggableConfiguration(config, "config")
+	  + ", generation=" + generation + "]";
+    }
+  }
 }

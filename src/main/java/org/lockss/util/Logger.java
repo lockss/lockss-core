@@ -225,7 +225,8 @@ public class Logger {
       // set this true FIRST, as this method will be called recursively by
       // deferredInit()
       deferredInitDone = true;
-      myLog = Logger.getLogger("Logger");
+      myLog = Logger.getLoggerWithInitialLevel("Logger",
+					       Logger.getInitialDefaultLevel());
     }
   }
 

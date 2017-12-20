@@ -141,6 +141,7 @@ public class FuncWarcExploder extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -161,7 +162,7 @@ public class FuncWarcExploder extends LockssTestCase {
       "org.lockss.crawler.FuncWarcExploderMockExplodedPlugin";
     props.setProperty(Exploder.PARAM_EXPLODED_PLUGIN_NAME, explodedPluginName);
     props.setProperty(Exploder.PARAM_EXPLODED_AU_YEAR, GOOD_YEAR);
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

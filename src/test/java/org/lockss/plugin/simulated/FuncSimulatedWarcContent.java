@@ -69,12 +69,13 @@ public class FuncSimulatedWarcContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    useOldRepo();
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
     Properties props = new Properties();
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 		      tempDirPath);
     props.setProperty("org.lockss.plugin.simulated.SimulatedContentGenerator.doWarcFile", "true");
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    ConfigurationUtil.addFromProps(props);
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

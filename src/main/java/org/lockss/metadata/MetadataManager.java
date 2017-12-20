@@ -43,11 +43,9 @@ import java.util.Map;
 //import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
-import org.lockss.app.BaseLockssDaemonManager;
+import org.lockss.app.BaseLockssManager;
 import org.lockss.app.ConfigurableManager;
-//import org.lockss.config.ConfigManager;
-import org.lockss.config.Configuration;
-//import org.lockss.config.TdbAu;
+import org.lockss.config.*;
 import org.lockss.config.Configuration.Differences;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.daemon.status.StatusService;
@@ -83,7 +81,7 @@ import org.lockss.util.PlatformUtil;
  * @author Philip Gust
  * @version 1.0
  */
-public class MetadataManager extends BaseLockssDaemonManager implements
+public class MetadataManager extends BaseLockssManager implements
     ConfigurableManager {
 
   private static Logger log = Logger.getLogger(MetadataManager.class);
@@ -322,6 +320,9 @@ public class MetadataManager extends BaseLockssDaemonManager implements
   // The database manager.
   private MetadataDbManager dbManager = null;
 
+  private ConfigManager configMgr;
+  private JobManager jobMgr;
+
   private PatternIntMap indexPriorityAuidMap;
 
   private int maxPendingAuBatchSize =
@@ -353,9 +354,10 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     final String DEBUG_HEADER = "startService(): ";
     log.debug(DEBUG_HEADER + "Starting MetadataManager");
 
-    pluginMgr = getDaemon().getPluginManager();
-    dbManager = getDaemon().getMetadataDbManager();
-
+    configMgr = getConfigManager();
+    pluginMgr = getManagerByType(PluginManager.class);
+    dbManager = getManagerByType(MetadataDbManager.class);
+    jobMgr = getManagerByType(JobManager.class);
     try {
       mdManagerSql = new MetadataManagerSql(dbManager, this);
     } catch (DbException dbe) {
@@ -374,7 +376,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
       log.error("Cannot get pending AUs and counts", dbe);
     }
 
-    StatusService statusServ = getDaemon().getStatusService();
+    StatusService statusServ = getApp().getManagerByType(StatusService.class);
     statusServ.registerStatusAccessor(METADATA_STATUS_TABLE_NAME,
         new MetadataManagerStatusAccessor(this));
     statusServ.registerOverviewAccessor(METADATA_STATUS_TABLE_NAME,
@@ -432,7 +434,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
 	      + onDemandMetadataExtractionOnly);
       }
 
-      if (isDaemonInited() && !onDemandMetadataExtractionOnly) {
+      if (isAppInited() && !onDemandMetadataExtractionOnly) {
 	boolean doEnable =
 	  config.getBoolean(PARAM_INDEXING_ENABLED, DEFAULT_INDEXING_ENABLED);
 	setIndexingEnabled(doEnable);
@@ -656,7 +658,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     final String DEBUG_HEADER = "startReindexing(): ";
     if (log.isDebug2()) log.debug2("Starting...");
 
-    if (!getDaemon().isDaemonInited()) {
+    if (!isAppInited()) {
       if (log.isDebug()) log.debug(DEBUG_HEADER
 	  + "Daemon not initialized: No reindexing tasks.");
       return 0;
@@ -2875,7 +2877,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "au = " + au);
 
     if (onDemandMetadataExtractionOnly) {
-      //LockssDaemon.getLockssDaemon().getJobManager()
       getJobManager().handlePutAuJobStartEvent(au.getAuId());
     }
   }
@@ -2898,7 +2899,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     }
 
     if (onDemandMetadataExtractionOnly) {
-      //LockssDaemon.getLockssDaemon().getJobManager()
       getJobManager().handlePutAuJobFinishEvent(au.getAuId(), status,
 	  exception);
     }
@@ -2915,7 +2915,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "au = " + au);
 
     if (onDemandMetadataExtractionOnly) {
-      //LockssDaemon.getLockssDaemon().getJobManager()
       getJobManager().handleDeleteAuJobStartEvent(au.getAuId());
     }
   }
@@ -2939,7 +2938,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     }
 
     if (onDemandMetadataExtractionOnly) {
-      //LockssDaemon.getLockssDaemon().getJobManager()
       getJobManager().handleDeleteAuJobFinishEvent(au.getAuId(), status,
 	  exception);
     }
@@ -4654,7 +4652,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     if (isAuContentFromWs) {
       // Yes: Add the Archival Unit title database to the configuration, if
       // necessary.
-      getDaemon().getConfigManager().addTdbAu(auId, au.getPlugin());
+      configMgr.addTdbAu(auId, au.getPlugin());
     }
 
     // No: Get the metadata extractor.
@@ -4713,7 +4711,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     if (isAuContentFromWs) {
       // Yes: Add the Archival Unit title database to the configuration, if
       // necessary.
-      getDaemon().getConfigManager().addTdbAu(auId, au.getPlugin());
+      configMgr.addTdbAu(auId, au.getPlugin());
     }
 
     // Schedule the removal of the AU.
@@ -5346,7 +5344,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    * @return a JobManager with the job manager.
    */
   private JobManager getJobManager() {
-    return getDaemon().getJobManager();
+    return jobMgr;
   }
 
   /**

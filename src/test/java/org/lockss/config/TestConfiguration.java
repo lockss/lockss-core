@@ -1,8 +1,4 @@
 /*
- * $Id$
- */
-
-/*
 
 Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -34,9 +30,10 @@ package org.lockss.config;
 
 import java.util.*;
 import java.io.*;
-import java.net.*;
 import org.apache.commons.io.*;
-
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 import org.lockss.util.*;
 import org.lockss.config.ConfigFile;
 import org.lockss.config.Configuration;
@@ -53,16 +50,18 @@ import static org.lockss.config.Configuration.Differences;
  * Test class for <code>org.lockss.util.Configuration</code>
  */
 
-public class TestConfiguration extends LockssTestCase {
+public class TestConfiguration extends LockssTestCase4 {
 
   public static Class testedClasses[] = {
     org.lockss.config.Configuration.class
   };
 
+  @Before
   public void setUp() throws Exception {
     super.setUp();
   }
 
+  @After
   public void tearDown() throws Exception {
     super.tearDown();
   }
@@ -114,6 +113,7 @@ public class TestConfiguration extends LockssTestCase {
     return tdb;
   }
   
+  @Test
   public void testSet() {
     Configuration config = newConfiguration();
     assertEquals(0, config.keySet().size());
@@ -122,6 +122,7 @@ public class TestConfiguration extends LockssTestCase {
     assertEquals("b", config.get("a"));
   }
 
+  @Test
   public void testSetTdb() throws TdbException {
     Configuration config = newConfiguration();
     assertNull(config.getTdb());
@@ -131,6 +132,7 @@ public class TestConfiguration extends LockssTestCase {
     assertNotNull(config.getTdb());
   }
 
+  @Test
   public void testRemove() {
     Configuration config = newConfiguration();
     config.put("a", "1");
@@ -144,6 +146,7 @@ public class TestConfiguration extends LockssTestCase {
     assertEquals("2", config.get("b"));
   }
 
+  @Test
   public void testRemoveTree() {
     Configuration config = newConfiguration();
     config.put("a", "1");
@@ -165,6 +168,7 @@ public class TestConfiguration extends LockssTestCase {
     assertEquals(3, config.keySet().size());
   }
 
+  @Test
   public void testCopyTree() {
     Configuration from = newConfiguration();
     from.put("a", "1");
@@ -206,6 +210,7 @@ public class TestConfiguration extends LockssTestCase {
     assertTrue((tdb == null) || tdb.isSealed());
   }
 
+  @Test
   public void testSeal() throws TdbException {
     Configuration config = newConfiguration();
     config.put("a", "1");
@@ -220,6 +225,7 @@ public class TestConfiguration extends LockssTestCase {
     assertSealed(config.getConfigTree("b"));
   }
 
+  @Test
   public void testCopy() throws TdbException {
     Configuration c1 = newConfiguration();
     c1.put("a", "1");
@@ -240,6 +246,7 @@ public class TestConfiguration extends LockssTestCase {
     assertNotSame(tdb1, tdb2);
   }
 
+  @Test
   public void testCopyFrom() throws TdbException {
     Configuration c1 = newConfiguration();
     c1.put("a", "1");
@@ -261,6 +268,7 @@ public class TestConfiguration extends LockssTestCase {
     assertNotSame(tdb1, tdb2);
   }
 
+  @Test
   public void testCopyFromEvent() throws TdbException {
     Configuration c1 = newConfiguration();
     c1.put("a", "1");
@@ -291,6 +299,7 @@ public class TestConfiguration extends LockssTestCase {
     assertNotSame(tdb1, tdb2);
   }
 
+  @Test
   public void testEquals() throws TdbException {
     // ensure configuration always equal to itself
     Configuration c1 = newConfiguration();
@@ -364,14 +373,17 @@ public class TestConfiguration extends LockssTestCase {
   }
 
 
+  @Test
   public void testDifferencesNull() throws TdbException {
     testDifferencesNullOrEmpty(null);
   }
 
+  @Test
   public void testDifferencesEmpty() throws TdbException {
     testDifferencesNullOrEmpty(newConfiguration());
   }
 
+  @Test
   public void testDifferencesSelfEmpty()
       throws TdbException {
     Configuration c1 = newConfiguration();
@@ -391,6 +403,7 @@ public class TestConfiguration extends LockssTestCase {
     assertEmpty(ListUtil.fromIterator(tdbDiffs.newTdbAuIterator()));
   }
 
+  @Test
   public void testDifferences() throws TdbException {
     Configuration c1 = newConfiguration();
     c1.put("a", "1");
@@ -433,6 +446,7 @@ public class TestConfiguration extends LockssTestCase {
 		       ListUtil.fromIterator(tdbDiffs.newTdbAuIterator()));
   }
 
+  @Test
   public void testLoad() throws IOException, Configuration.InvalidParam {
     String f = FileTestUtil.urlOfString(c1);
     Configuration config = newConfiguration();
@@ -474,6 +488,7 @@ public class TestConfiguration extends LockssTestCase {
     assertFalse( config.containsKey("propnot"));
   }
 
+  @Test
   public void testStore() throws Exception {
     File file = FileTestUtil.tempFile("cfgtest", ".txt");
     Configuration config = newConfiguration();
@@ -508,6 +523,7 @@ public class TestConfiguration extends LockssTestCase {
 
   enum TestEnum {x, Y, zZ};
 
+  @Test
   public void testGetNonEmpty() throws Exception {
     Configuration config = newConfiguration();
     config.put("foo", "x");
@@ -517,6 +533,7 @@ public class TestConfiguration extends LockssTestCase {
     assertNull("x", config.getNonEmpty("nokey"));
   }
 
+  @Test
   public void testGetEnum() throws Exception {
     Configuration config = newConfiguration();
     config.put("foo", "x");
@@ -536,6 +553,7 @@ public class TestConfiguration extends LockssTestCase {
     "prop.p1=a;b;c;d;e;f;g\n" +
     "prop.p2=xxx";
 
+  @Test
   public void testGetList() throws IOException {
     Configuration config = newConfiguration();
     config.load(loadFCF(FileTestUtil.urlOfString(c3)));
@@ -545,12 +563,14 @@ public class TestConfiguration extends LockssTestCase {
     assertEquals(ListUtil.list("xxx"), config.getList("prop.p2"));
   }
 
+  @Test
   public void testGetListEmptyStrings() throws IOException {
     Configuration config = newConfiguration();
     config.load(loadFCF(FileTestUtil.urlOfString("prop.p1=a;;b;")));
     assertEquals(ListUtil.list("a", "b"), config.getList("prop.p1"));
   }
 
+  @Test
   public void testGetListDefault() throws IOException {
     Configuration config = newConfiguration();
     assertEquals(Collections.EMPTY_LIST, config.getList("foo"));
@@ -596,6 +616,7 @@ public class TestConfiguration extends LockssTestCase {
     return mapFromIter(config.keyIterator(), config);
   }
 
+  @Test
   public void testSubTree() {
     Properties props = new Properties();
     props.put("p1", "1");
@@ -616,7 +637,7 @@ public class TestConfiguration extends LockssTestCase {
     assertTrue(emptysub.isEmpty());
   }
 
-
+  @Test
   public void testStruct() throws IOException {
     Configuration config = newConfiguration();
     config.load(loadFCF(FileTestUtil.urlOfString(c2)));
@@ -643,6 +664,7 @@ public class TestConfiguration extends LockssTestCase {
     }
   }
 
+  @Test
   public void testEmptyTree() {
     Configuration config = newConfiguration();
     Iterator it1 = config.nodeIterator();
@@ -653,6 +675,7 @@ public class TestConfiguration extends LockssTestCase {
     assertFalse(it2.hasNext());
   }
 
+  @Test
   public void testTimeInterval() throws Exception {
     Properties props = new Properties();
     props.put("p1", "1");
@@ -680,6 +703,7 @@ public class TestConfiguration extends LockssTestCase {
     }
   }
 
+  @Test
   public void testSize() throws Exception {
     long k = 1024;
     long m = k*k;
@@ -713,6 +737,7 @@ public class TestConfiguration extends LockssTestCase {
     }
   }
 
+  @Test
   public void testPercentage() throws Exception {
     Properties props = new Properties();
     props.put("p1", "-1");
@@ -744,6 +769,7 @@ public class TestConfiguration extends LockssTestCase {
     }
   }
 
+  @Test
   public void testDouble() throws Exception {
     Properties props = new Properties();
     props.put("p1", "-1");
@@ -758,13 +784,13 @@ public class TestConfiguration extends LockssTestCase {
     Configuration config = ConfigurationUtil.fromProps(props);
     assertEquals(-1.0, config.getDouble("p1"), 0.0000001);
     assertEquals(-1.0, config.getDouble("p1", 0.1), 0.0000001);
-    assertEquals(0.0, config.getDouble("p2"));
+    assertEquals(0.0, config.getDouble("p2"), 0.0000001);
     assertEquals(0.0, config.getDouble("p2"), 0.0);
-    assertEquals(0.0, config.getDouble("p3"));
+    assertEquals(0.0, config.getDouble("p3"), 0.0000001);
     assertEquals(0.0, config.getDouble("p3"), 0.0);
-    assertEquals(1.0, config.getDouble("p4"));
+    assertEquals(1.0, config.getDouble("p4"), 0.0000001);
     assertEquals(1.0, config.getDouble("p4"), 0.0);
-    assertEquals(-10.25, config.getDouble("p5"));
+    assertEquals(-10.25, config.getDouble("p5"), 0.0000001);
     assertEquals(-10.25, config.getDouble("p5"), 0.0);
     assertEquals(0.5, config.getDouble("p6", 0.5), 0.0);
     assertEquals(14000000000000000.0, config.getDouble("p7"), 10);
@@ -786,6 +812,7 @@ public class TestConfiguration extends LockssTestCase {
     }
   }
 
+  @Test
   public void testGetIndirect() throws Exception {
     Configuration config =
       ConfigurationUtil.fromArgs("org.lockss.foo1", "bar",
@@ -801,6 +828,7 @@ public class TestConfiguration extends LockssTestCase {
 		 config.getIndirect("@org.lockss.foo3", null));
   }
 
+  @Test
   public void testAddPrefix() throws Exception {
     Properties props = new Properties();
     props.put("p1", "a");
@@ -817,7 +845,7 @@ public class TestConfiguration extends LockssTestCase {
   }
 
   private ConfigFile loadFCF(String url) throws IOException {
-    FileConfigFile cf = new FileConfigFile(url);
+    FileConfigFile cf = new FileConfigFile(url, null);
     cf.reload();
     return cf;
   }
