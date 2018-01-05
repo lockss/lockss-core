@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1685,6 +1685,329 @@ public class TestConfigManager extends LockssTestCase4 {
 
     mgr.addGenerationsToListIfNotInIt(sourceList, targetList);
     assertEquals(3, targetList.size());
+  }
+
+  @Test
+  public void testResolveAndRedirectReferencedUrlNoRestConfigService()
+      throws Exception {
+    String baseHost = "http://abc.org/";
+    String basePath = baseHost + "base/";
+    String baseUrl = basePath + "base.xml";
+
+    // Absolute URL from base host.
+    String refUrl = baseHost + "a/b.xml";
+    assertEquals(refUrl, mgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+    assertEquals(refUrl, mgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    // Relative URL.
+    refUrl = "c/d.xml";
+    String absUrl = baseHost + refUrl;
+    assertEquals(absUrl, mgr.resolveAndRedirectUrl(
+	UrlUtil.URL_PATH_SEPARATOR + refUrl, baseUrl, false));
+
+    absUrl = basePath + refUrl;
+    assertEquals(absUrl, mgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+    assertEquals(absUrl, mgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    // Absolute URL NOT from base host.
+    refUrl = "http://xyz.org/x.xml";
+    assertEquals(refUrl, mgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+    assertEquals(refUrl, mgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+  }
+
+  @Test
+  public void testResolveAndRedirectReferencedUrlWithRestConfigService()
+      throws Exception {
+    String restConfigHost = "http://rcs.org";
+    ConfigManager rcsMgr = new ConfigManager(null, restConfigHost, null, null);
+
+    String restConfigPath =
+	restConfigHost + ConfigManager.absRedirectedUrlPathStart;
+
+    /* No REST Configuration service base. */
+
+    String baseHost = "http://abc.org/";
+    String basePath = baseHost + "base/";
+    String baseUrl = basePath + "base.xml";
+
+    /* Absolute URL from base host. */
+    String refUrl = baseHost + "a/b.xml";
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fabc%2Eorg%2Fa%2Fb%2Exml
+    assertEquals(restConfigPath + rcsMgr.encodeUrlForPathSegment(refUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Relative URL. */
+    refUrl = "c/d.xml";
+    String absUrl = baseHost + refUrl;
+    assertEquals(absUrl, rcsMgr.resolveAndRedirectUrl(
+	UrlUtil.URL_PATH_SEPARATOR + refUrl, baseUrl, false));
+
+    absUrl = basePath + refUrl;
+    assertEquals(absUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fabc%2Eorg%2Fc%2Fd%2Exml
+    assertEquals(restConfigPath + rcsMgr.encodeUrlForPathSegment(absUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Absolute URL NOT from base host. */
+    refUrl = "http://xyz.org/x.xml";
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fxyz%2Eorg%2Fx%2Exml
+    assertEquals(restConfigPath + rcsMgr.encodeUrlForPathSegment(refUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Non-redirected REST Configuration service base. */
+
+    baseHost = restConfigHost + UrlUtil.URL_PATH_SEPARATOR;
+    basePath = baseHost + "base/";
+    baseUrl = basePath + "base.xml";
+
+    /* Absolute URL from base host. */
+    refUrl = baseHost + "/a/b.xml";
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Relative URL. */
+    refUrl = "c/d.xml";
+    absUrl = baseHost + refUrl;
+    assertEquals(absUrl, rcsMgr.resolveAndRedirectUrl(
+	UrlUtil.URL_PATH_SEPARATOR + refUrl, baseUrl, false));
+
+    absUrl = basePath + refUrl;
+    assertEquals(absUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+    assertEquals(absUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Absolute URL NOT from base host. */
+    refUrl = "http://xyz.org/x.xml";
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fxyz%2Eorg%2Fx%2Exml
+    assertEquals(restConfigPath + rcsMgr.encodeUrlForPathSegment(refUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Redirected REST Configuration service base. */
+
+    String originalBaseHost = "http://remote.org/";
+    String originalBaseUrl = originalBaseHost + "remote.xml";
+    baseUrl = baseHost + ConfigManager.redirectedUrlPathStart
+	+ rcsMgr.encodeUrlForPathSegment(originalBaseUrl);
+
+    /* Absolute URL from base host. */
+    refUrl = baseHost + "a/b.xml";
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Relative URL. */
+    refUrl = "c/d.xml";
+    absUrl = baseHost + refUrl;
+    assertEquals(absUrl, rcsMgr.resolveAndRedirectUrl(
+	UrlUtil.URL_PATH_SEPARATOR + refUrl, baseUrl, false));
+
+    absUrl = baseHost + ConfigManager.redirectedUrlPathStart + refUrl;
+    assertEquals(absUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+
+    absUrl = originalBaseHost + refUrl;
+
+    // Results in
+    // http://rcs.org/config/url/http:%2F%2Fremote%2Eorg%2Fc%2Fd%2Exml
+    assertEquals(restConfigPath + rcsMgr.encodeUrlForPathSegment(absUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    /* Absolute URL NOT from base host. */
+    refUrl = "http://xyz.org/x.xml";
+    assertEquals(refUrl, rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, false));
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fxyz%2Eorg%2Fx%2Exml
+    assertEquals(restConfigPath + rcsMgr.encodeUrlForPathSegment(refUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    refUrl = "c/d.xml";
+    originalBaseHost = "http://xyz.org/";
+    originalBaseUrl = originalBaseHost + "x.xml";
+    baseUrl = restConfigPath + rcsMgr.encodeUrlForPathSegment(originalBaseUrl);
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fxyz%2Eorg%2Fc%2Fd%2Exml
+    assertEquals(restConfigPath
+	+ rcsMgr.encodeUrlForPathSegment(originalBaseHost + refUrl),
+	rcsMgr.resolveAndRedirectUrl(
+	    UrlUtil.URL_PATH_SEPARATOR + refUrl, baseUrl, true));
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fxyz%2Eorg%2Fc%2Fd%2Exml
+    assertEquals(restConfigPath
+	+ rcsMgr.encodeUrlForPathSegment(originalBaseHost + refUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+
+    String originalBasePath = originalBaseHost + "xpath/";
+    originalBaseUrl = originalBasePath + "x.xml";
+    baseUrl = restConfigPath + rcsMgr.encodeUrlForPathSegment(originalBaseUrl);
+
+    // Results in http://rcs.org/config/url/http:%2F%2Fxyz%2Eorg%2Fc%2Fd%2Exml
+    assertEquals(restConfigPath
+	+ rcsMgr.encodeUrlForPathSegment(originalBaseHost + refUrl),
+	rcsMgr.resolveAndRedirectUrl(
+	    UrlUtil.URL_PATH_SEPARATOR + refUrl, baseUrl, true));
+
+    // Results in
+    // http://rcs.org/config/url/http:%2F%2Fxyz%2Eorg%2Fxpath%2Fc%2Fd%2Exml
+    assertEquals(restConfigPath
+	+ rcsMgr.encodeUrlForPathSegment(originalBasePath + refUrl),
+	rcsMgr.resolveAndRedirectUrl(refUrl, baseUrl, true));
+  }
+
+  @Test
+  public void testContainsRedirectedUrl() throws Exception {
+    try {
+      mgr.containsRedirectedUrl(null);
+      fail("containsRedirectedUrl() should throw for malformed URL null");
+    } catch (MalformedURLException mue) {}
+
+    try {
+      mgr.containsRedirectedUrl("");
+      fail("containsRedirectedUrl() should throw for malformed URL ''");
+    } catch (MalformedURLException mue) {}
+
+    assertFalse(mgr.containsRedirectedUrl("http://abc.org"));
+    assertFalse(mgr.containsRedirectedUrl("http://abc.org/xyz"));
+    assertFalse(mgr.containsRedirectedUrl("http://abc.org/xyz/"
+	+ ConfigManager.redirectedUrlPathStart));
+    assertFalse(mgr.containsRedirectedUrl("http://abc.org/?/"
+	+ ConfigManager.redirectedUrlPathStart));
+    assertTrue(mgr.containsRedirectedUrl("http://abc.org/"
+	+ ConfigManager.redirectedUrlPathStart));
+  }
+
+  @Test
+  public void testUnpackUrlRedirectedUrls() throws Exception {
+    try {
+      mgr.unpackUrlRedirectedUrls(null);
+      fail("unpackUrlRedirectedUrls() should throw for malformed URL null");
+    } catch (MalformedURLException mue) {}
+
+    try {
+      mgr.unpackUrlRedirectedUrls("");
+      fail("containsRedirectedUrl() should throw for malformed URL ''");
+    } catch (MalformedURLException mue) {}
+
+    String url = "http://abc.org";
+    List<String> urls = mgr.unpackUrlRedirectedUrls(url);
+    assertEquals(1, urls.size());
+    assertEquals(url, urls.get(0));
+
+    url = "http://abc.org/xyz";
+    urls = mgr.unpackUrlRedirectedUrls(url);
+    assertEquals(1, urls.size());
+    assertEquals(url, urls.get(0));
+
+    url = "http://abc.org/xyz/" + ConfigManager.redirectedUrlPathStart;
+    urls = mgr.unpackUrlRedirectedUrls(url);
+    assertEquals(1, urls.size());
+    assertEquals(url, urls.get(0));
+
+    url = "http://abc.org/?/" + ConfigManager.redirectedUrlPathStart;
+    urls = mgr.unpackUrlRedirectedUrls(url);
+    assertEquals(1, urls.size());
+    assertEquals(url, urls.get(0));
+
+    String redirectedUrl = "http://xyz.org/xpath/x.xml";
+    url = "http://abc.org/" + ConfigManager.redirectedUrlPathStart
+	+ mgr.encodeUrlForPathSegment(redirectedUrl);
+    urls = mgr.unpackUrlRedirectedUrls(url);
+    assertEquals(2, urls.size());
+    assertEquals(url, urls.get(0));
+    assertEquals(redirectedUrl, urls.get(1));
+  }
+
+  @Test
+  public void testPackRedirectedUrlsInUrl() throws Exception {
+    try {
+      mgr.packRedirectedUrlsInUrl(null);
+      fail("packRedirectedUrlsInUrl() should throw for null URL list");
+    } catch (IllegalArgumentException iae) {}
+
+    try {
+      mgr.packRedirectedUrlsInUrl(new ArrayList<String>());
+      fail("packRedirectedUrlsInUrl() should throw for empty URL list");
+    } catch (IllegalArgumentException iae) {}
+
+    List<String> urls = new ArrayList<String>();
+    urls.add("http://abc.org/" + ConfigManager.redirectedUrlPathStart
+	+ mgr.encodeUrlForPathSegment("http://anything.org"));
+    String url0 = "http://xyz.org/xpath/x.xml";
+    urls.add(url0);
+    String packedUrl = mgr.packRedirectedUrlsInUrl(urls);
+    assertEquals("http://abc.org/" + ConfigManager.redirectedUrlPathStart
+	+ mgr.encodeUrlForPathSegment(url0), packedUrl);
+
+    urls = new ArrayList<String>();
+    urls.add("http://rcs2.org/" + ConfigManager.redirectedUrlPathStart
+	+ mgr.encodeUrlForPathSegment("http://anything2.org"));
+    urls.add("http://rcs1.org/" + ConfigManager.redirectedUrlPathStart
+	+ mgr.encodeUrlForPathSegment("http://anything1.org"));
+    url0 = "http://xyz.org/xpath/x.xml";
+    urls.add(url0);
+    packedUrl = mgr.packRedirectedUrlsInUrl(urls);
+    assertEquals("http://rcs2.org/" + ConfigManager.redirectedUrlPathStart
+	+ mgr.encodeUrlForPathSegment("http://rcs1.org/"
+	    + ConfigManager.redirectedUrlPathStart
+	    + mgr.encodeUrlForPathSegment(url0)), packedUrl);
+  }
+
+  @Test
+  public void testRedirectAbsoluteUrl() throws Exception {
+    try {
+      mgr.redirectAbsoluteUrl(null);
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    try {
+      mgr.redirectAbsoluteUrl("");
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    try {
+      mgr.redirectAbsoluteUrl("a");
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    try {
+      mgr.redirectAbsoluteUrl("/a");
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    String url = "http://xyz.org/xpath/x.xml";
+    assertEquals(url, mgr.redirectAbsoluteUrl(url));
+
+    String restConfigHost = "http://rcs.org";
+    ConfigManager rcsMgr = new ConfigManager(null, restConfigHost, null, null);
+
+    String restConfigPath =
+	restConfigHost + ConfigManager.absRedirectedUrlPathStart;
+
+    try {
+      rcsMgr.redirectAbsoluteUrl(null);
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    try {
+      rcsMgr.redirectAbsoluteUrl("");
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    try {
+      rcsMgr.redirectAbsoluteUrl("a");
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    try {
+      rcsMgr.redirectAbsoluteUrl("/a");
+      fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
+    } catch (IllegalArgumentException iae) {}
+
+    assertEquals(restConfigPath + rcsMgr.encodeUrlForPathSegment(url),
+	rcsMgr.redirectAbsoluteUrl(url));
   }
 
   private Configuration newConfiguration() {
