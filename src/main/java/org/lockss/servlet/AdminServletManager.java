@@ -269,8 +269,10 @@ public class AdminServletManager extends BaseServletManager {
    * <p />
    * <code>false</code> to disable, <code>true</code> to enable.
    */
+  // Default changed to false until compatibility problems between WS and
+  // old Jetty are resolved
   public static final String PARAM_CXF_WS_ENABLED = CXF_WS_PREFIX + "enabled";
-  public static final boolean DEFAULT_CXF_WS_ENABLED = true;
+  public static final boolean DEFAULT_CXF_WS_ENABLED = false;
 
   // Descriptors for all admin servlets.
 
@@ -988,8 +990,11 @@ public class AdminServletManager extends BaseServletManager {
       initializeOiosaml(handler);
     }
 
-    // Add the Spring context listener needed for CXF web services.
-    handler.addEventListener(new ContextLoaderListener());
+    if (CurrentConfig.getBooleanParam(PARAM_CXF_WS_ENABLED,
+	DEFAULT_CXF_WS_ENABLED)) {
+      // Add the Spring context listener needed for CXF web services.
+      handler.addEventListener(new ContextLoaderListener());
+    }
 
     // Request dump servlet
     handler.addServlet("Dump", "/Dump", "org.mortbay.servlet.Dump");
