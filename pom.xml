@@ -22,6 +22,7 @@
     <skip.unit.tests>false</skip.unit.tests>
     <loglevel>info</loglevel>
     <outputtofile>true</outputtofile>
+    <test.fork.count>1.0C</test.fork.count>
     <trimstack>false</trimstack>
   </properties>
 
@@ -454,6 +455,11 @@
       <version>4.3.9.RELEASE</version>
     </dependency>
     <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+      <version>4.3.9.RELEASE</version>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-config</artifactId>
       <version>4.2.3.RELEASE</version>
@@ -636,7 +642,7 @@
 	    <exclude>**/*$*</exclude>
           </excludes>
           <redirectTestOutputToFile>${outputtofile}</redirectTestOutputToFile>
-          <forkCount>1.0C</forkCount>
+          <forkCount>${test.fork.count}</forkCount>
           <reuseForks>false</reuseForks>
 	  <trimStackTrace>${trimstack}</trimStackTrace>
           <systemPropertyVariables>
