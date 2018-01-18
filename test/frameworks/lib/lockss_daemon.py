@@ -175,7 +175,7 @@ class LockssDaemon:
         if not self.daemon:
             # If old style bare config URL list, preface each URL with -p
             if self.configList[0][0] != '-':
-                pairs = [ ( '-p' , x ) for x in self.configList ]
+                pairs = [ ( '-b' if x.endswith('local.txt') else '-p' , x ) for x in self.configList ]
                 self.configList = [ y for z in pairs for y in z ]
 
             self.daemon = subprocess.Popen( ( self.javaBin, '-server', '-cp', self.classpath, '-Dorg.lockss.defaultLogLevel=debug',
