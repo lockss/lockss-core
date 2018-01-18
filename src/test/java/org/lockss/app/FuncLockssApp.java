@@ -153,10 +153,6 @@ public class FuncLockssApp extends LockssTestCase {
       return descrs;
     }
 
-    protected ManagerDesc[] getAppManagerDescs() {
-      return new ManagerDesc[0];
-    }
- 
     void setDescrs(ManagerDesc[] descrs) {
       this.descrs = descrs;
     }
