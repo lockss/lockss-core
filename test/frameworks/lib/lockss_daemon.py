@@ -173,8 +173,13 @@ class LockssDaemon:
 
     def start( self ):
         if not self.daemon:
+            # If old style bare config URL list, preface each URL with -p
+            if self.configList[0][0] != '-':
+                pairs = [ ( '-p' , x ) for x in self.configList ]
+                self.configList = [ y for z in pairs for y in z ]
+
             self.daemon = subprocess.Popen( ( self.javaBin, '-server', '-cp', self.classpath, '-Dorg.lockss.defaultLogLevel=debug',
-                                              'org.lockss.app.LockssDaemon' ) + self.configList,
+                                              'org.lockss.app.LockssDaemon' ) + tuple( self.configList ),
                                             stdout = self.logfile, stderr = self.logfile, cwd = self.daemonDir )
             lockss_util.write_to_file( '%i\n' % self.daemon.pid, os.path.join( self.daemonDir, 'dpid' ) )
 
