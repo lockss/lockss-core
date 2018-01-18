@@ -908,7 +908,10 @@ public class LockssDaemon extends LockssApp {
     AppSpec spec = new AppSpec()
       .setName("Lockss Daemon")
       .setArgs(args)
-      .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true");
+      .addAppConfig(PARAM_START_PLUGINS, "true")
+      .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")
+      .addAppConfig(PluginManager.PARAM_AU_CONTENT_FROM_WS, "false")
+      .setKeepRunning(true);
     startStatic(LockssDaemon.class, spec);
   }
 }
