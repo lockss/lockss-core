@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -532,7 +532,7 @@ public class ConfigManager implements LockssManager {
   private String bootstrapPropsUrl; // The daemon bootstrap properties URL.
 
   // The Configuration REST web service client.
-  private RestConfigClient restConfigClient = null;
+  RestConfigClient restConfigClient = null;
 
   // The path to the directory containing any resource configuration files. 
   private static final String RESOURCE_CONFIG_DIR_PATH =
@@ -544,6 +544,9 @@ public class ConfigManager implements LockssManager {
   // The configuration parameter key to the props lockss.xml URL.
   public static final String PARAM_PROPS_LOCKSS_XML_URL =
       PLATFORM + "propsLockssXmlUrl";
+
+  // The map of parent configuration files.
+  Map<String, ConfigFile> parentConfigFile = new HashMap<String, ConfigFile>();
 
   public ConfigManager() {
     this(null, null);
@@ -1197,6 +1200,9 @@ public class ConfigManager implements LockssManager {
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
 	  resolvedUrls.add(resolvedUrl);
+
+	  // Remember the parent configuration file of this resolved URL. 
+	  parentConfigFile.put(resolvedUrl, configCache.find(base));
 	}
 
 	// Add the generations of the resolved URLs to the list, if not there
@@ -3352,6 +3358,24 @@ public class ConfigManager implements LockssManager {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConfig = " + auConfig);
     return auConfig;
+  }
+
+  /**
+   * Provides the configuration file of the parent URL of another URL.
+   * 
+   * @param url
+   *          A String with The URL for which the parent URL is requested.
+   * @return a ConfigFile with ConfigFile of a URL that is the parent of the
+   *         passed URL, or <code>null</code> if the passed URL does not have a
+   *         parent URL.
+   */
+  ConfigFile getUrlParent(String url) {
+    final String DEBUG_HEADER = "getUrlParent(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
+
+    ConfigFile urlParent = parentConfigFile.get(url);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urlParent = " + urlParent);
+    return urlParent;
   }
 
   class AbortConfigLoadException extends RuntimeException {

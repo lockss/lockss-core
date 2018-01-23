@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -103,6 +103,16 @@ public interface ConfigFile {
    */
   public void writeFromTempFile(File tempfile, Configuration config)
       throws IOException;
+
+  /**
+   * Provides an indication of whether this is a RestConfigFile.
+   * 
+   * @return a boolean with <code>true</code> if this is a RestConfigFile,
+   *         <code>false</code> otherwise.
+   */
+  default boolean isRestConfigFile() {
+    return false;
+  }
 
   /** Represents a single generation (version) of the contents of a
    * ConfigFile, to make it easy to determine when the contents has

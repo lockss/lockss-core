@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1685,6 +1685,17 @@ public class TestConfigManager extends LockssTestCase4 {
 
     mgr.addGenerationsToListIfNotInIt(sourceList, targetList);
     assertEquals(3, targetList.size());
+  }
+
+  @Test
+  public void testGetUrlParent() throws Exception {
+    ConfigFile cf = new FileConfigFile("http://parent", mgr);
+    mgr.parentConfigFile.put("http://child", cf);
+    assertNull(mgr.getUrlParent(null));
+    assertNull(mgr.getUrlParent(""));
+    assertNull(mgr.getUrlParent("http://abc"));
+    assertNull(mgr.getUrlParent("http://parent"));
+    assertEquals(cf, mgr.getUrlParent("http://child"));
   }
 
   private Configuration newConfiguration() {
