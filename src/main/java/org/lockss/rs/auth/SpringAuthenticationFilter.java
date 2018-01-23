@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -81,17 +81,29 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
   @Override
   public void doFilter(ServletRequest request, ServletResponse response,
       FilterChain chain) throws IOException, ServletException {
-    if (log.isDebug2()) log.debug2("Invoked.");
-    log.error("FGL doFilter invoked");
+    final String DEBUG_HEADER = "doFilter(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
 
     HttpServletRequest httpRequest = (HttpServletRequest)request;
+
+    if (log.isDebug3()) {
+      StringBuffer originalUrl = httpRequest.getRequestURL();
+
+      if (httpRequest.getQueryString() != null) {
+        originalUrl.append("?").append(httpRequest.getQueryString());
+      }
+
+      log.debug3(DEBUG_HEADER + "originalUrl = " + originalUrl);
+    }
+
     HttpServletResponse httpResponse = (HttpServletResponse)response;
 
     try {
       // Check whether authentication is not required at all.
       if (!AuthUtil.isAuthenticationOn()) {
 	// Yes: Continue normally.
-	if (log.isDebug3()) log.debug3("Authorized (like everybody else).");
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "Authorized (like everybody else).");
 
 	SecurityContextHolder.getContext().setAuthentication(
 	    getUnauthenticatedUserToken());
@@ -113,7 +125,8 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
     // No: Check whether this request is available to everybody.
     if (isWorldReachable(httpRequest)) {
       // Yes: Continue normally.
-      if (log.isDebug3()) log.debug3("Authenticated (like everybody else).");
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "Authenticated (like everybody else).");
 
       SecurityContextHolder.getContext().setAuthentication(
 	  getUnauthenticatedUserToken());
@@ -126,7 +139,7 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
     // No: Get the authorization header.
     String authorizationHeader = httpRequest.getHeader("authorization");
     if (log.isDebug3())
-      log.debug3("authorizationHeader = " + authorizationHeader);
+      log.debug3(DEBUG_HEADER + "authorizationHeader = " + authorizationHeader);
 
     // Check whether no authorization header was found.
     if (authorizationHeader == null) {
@@ -166,7 +179,8 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
       return;
     }
 
-    if (log.isDebug3()) log.debug3("credentials[0] = " + credentials[0]);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "credentials[0] = " + credentials[0]);
 
     // No: Get the user account.
     UserAccount userAccount = null;
@@ -192,12 +206,13 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
       return;
     }
 
-    if (log.isDebug3())
-      log.debug3("userAccount.getName() = " + userAccount.getName());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "userAccount.getName() = " + userAccount.getName());
 
     // No: Verify the user credentials.
     boolean goodCredentials = userAccount.check(credentials[1]);
-    if (log.isDebug3()) log.debug3("goodCredentials = " + goodCredentials);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "goodCredentials = " + goodCredentials);
 
     // Check whether the user credentials are not good.
     if (!goodCredentials) {
@@ -216,26 +231,27 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
     Collection<GrantedAuthority> roles = new HashSet<GrantedAuthority>();
 
     for (Object role : userAccount.getRoleSet()) {
-      if (log.isDebug3()) log.debug3("role = " + role);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "role = " + role);
       roles.add(new SimpleGrantedAuthority((String)role));
     }
 
-    if (log.isDebug3()) log.debug3("roles = " + roles);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "roles = " + roles);
 
     // Create the completed authentication details.
     UsernamePasswordAuthenticationToken authentication =
 	new UsernamePasswordAuthenticationToken(credentials[0],
 	    credentials[1], roles);
-    if (log.isDebug3()) log.debug3("authentication = " + authentication);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "authentication = " + authentication);
 
     // Provide the completed authentication details.
     SecurityContextHolder.getContext().setAuthentication(authentication);
-    log.debug("User successfully authenticated");
+    log.debug(DEBUG_HEADER + "User successfully authenticated");
 
     // Continue the chain.
     chain.doFilter(request, response);
 
-    if (log.isDebug2()) log.debug2("Done.");
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   /**
@@ -261,20 +277,22 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
    *         <code>false</code> otherwise.
    */
   private boolean isWorldReachable(HttpServletRequest httpRequest) {
-    if (log.isDebug2()) log.debug2("Invoked.");
+    final String DEBUG_HEADER = "isWorldReachable(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
 
     // Get the HTTP request method name.
     String httpMethodName = httpRequest.getMethod().toUpperCase();
-    if (log.isDebug3()) log.debug3("httpMethodName = " + httpMethodName);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "httpMethodName = " + httpMethodName);
 
     // Get the HTTP request URI.
     String requestUri = httpRequest.getRequestURI().toLowerCase();
-    if (log.isDebug3()) log.debug3("requestUri = " + requestUri);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "requestUri = " + requestUri);
 
     // Determine whether it is world-reachable.
     boolean result = getRequestUriAuthenticationBypass()
 	.isWorldReachable(httpMethodName, requestUri);
-    if (log.isDebug2()) log.debug2("result = " + result);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
     return result;
   }
 
@@ -287,13 +305,14 @@ public class SpringAuthenticationFilter extends GenericFilterBean {
    *          execute an operation.
    */
   public static void checkAuthorization(String... permissibleRoles) {
-    if (log.isDebug2())
-      log.debug2("permissibleRoles = " + Arrays.toString(permissibleRoles));
+    final String DEBUG_HEADER = "checkAuthorization(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	+ "permissibleRoles = " + Arrays.toString(permissibleRoles));
 
     AuthUtil.checkAuthorization(SecurityContextHolder.getContext()
 	.getAuthentication().getName(), permissibleRoles);
 
-    if (log.isDebug2()) log.debug2("Done.");
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   /**

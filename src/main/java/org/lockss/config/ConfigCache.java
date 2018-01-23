@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -77,8 +77,7 @@ public class ConfigCache {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is ResourceConfigFile.");
 	bcf = new ResourceConfigFile(url, configMgr);
 	// No: Check whether it is a REST service configuration file.
-      } else if (configMgr != null && configMgr.getRestConfigClient() != null
-	  && configMgr.getRestConfigClient().isPartOfThisService(url)) {
+      } else if (RestConfigFile.isRestConfigUrl(url, configMgr)) {
 	// Yes.
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is RestConfigFile.");
 	bcf = new RestConfigFile(url, configMgr);

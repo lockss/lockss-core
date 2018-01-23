@@ -53,9 +53,6 @@ import org.lockss.servlet.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
-import org.springframework.web.util.UriComponents;
-import org.springframework.web.util.UriComponentsBuilder;
-import org.springframework.web.util.UriUtils;
 
 /** ConfigManager loads and periodically reloads the LOCKSS configuration
  * parameters, and provides services for updating locally changeable
@@ -535,7 +532,7 @@ public class ConfigManager implements LockssManager {
   private String bootstrapPropsUrl; // The daemon bootstrap properties URL.
 
   // The Configuration REST web service client.
-  private RestConfigClient restConfigClient = null;
+  RestConfigClient restConfigClient = null;
 
   // The path to the directory containing any resource configuration files. 
   private static final String RESOURCE_CONFIG_DIR_PATH =
@@ -548,10 +545,8 @@ public class ConfigManager implements LockssManager {
   public static final String PARAM_PROPS_LOCKSS_XML_URL =
       PLATFORM + "propsLockssXmlUrl";
 
-  // The beginning of the path of a redirected URL.
-  static final String redirectedUrlPathStart = "config/url/";
-  static final String absRedirectedUrlPathStart =
-      UrlUtil.URL_PATH_SEPARATOR + redirectedUrlPathStart;
+  // The map of parent configuration files.
+  Map<String, ConfigFile> parentConfigFile = new HashMap<String, ConfigFile>();
 
   public ConfigManager() {
     this(null, null);
@@ -1197,28 +1192,21 @@ public class ConfigManager implements LockssManager {
 	  continue;
 	}
 
-	// Determine whether absolute URLs need to be redirected via the REST
-	// Configuration service.
-	boolean redirectAbsoluteUrl = restConfigClient != null
-	      && restConfigClient.isPartOfThisService(base);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "redirectAbsoluteUrl = " + redirectAbsoluteUrl);
-
+	// Resolve the URLs obtained, if necessary.
 	Collection<String> resolvedUrls = new ArrayList<String>(urls.size());
-
-	// Loop through all the referenced URLs obtained, if necessary.
 	for (String url : urls) {
 	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
-	  // Resolve and redirect the URL, if necessary.
-	  String resolvedUrl =
-	      resolveAndRedirectUrl(url, base, redirectAbsoluteUrl);
+	  String resolvedUrl = resolveConfigUrl(base, url);
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
 	  resolvedUrls.add(resolvedUrl);
+
+	  // Remember the parent configuration file of this resolved URL. 
+	  parentConfigFile.put(resolvedUrl, configCache.find(base));
 	}
 
-	// Add the generations of the resolved and redirected URLs to the list,
-	// if not there already.
+	// Add the generations of the resolved URLs to the list, if not there
+	// already.
 	String message = (String)(URL_PARAMS.get(includingKey).get("message"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "message = " + message);
 	ConfigManager.KeyPredicate keyPredicate = (ConfigManager.KeyPredicate)
@@ -1235,230 +1223,6 @@ public class ConfigManager implements LockssManager {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "No references found.");
       }
     }
-  }
-
-  /**
-   * Resolves and redirects a URL referenced in a configuration file.
-   * 
-   * @param originalUrl
-   *          A String with the referenced URL.
-   * @param base
-   *          A String with the URL of the configuration file with the
-   *          referenced URL.
-   * @param redirectAbsoluteUrl
-   *          A boolean with the indication of whether redirection of absolute
-   *          URLs is required.
-   * @return a String with the resolved and redirected URL.
-   * @throws UnsupportedEncodingException,
-   *           MalformedURLException if the process fails.
-   */
-  String resolveAndRedirectUrl(String originalUrl, String base,
-      boolean redirectAbsoluteUrl) throws UnsupportedEncodingException,
-  MalformedURLException {
-    final String DEBUG_HEADER = "resolveAndRedirectUrl(): ";
-    if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "originalUrl = " + originalUrl);
-      log.debug2(DEBUG_HEADER + "base = " + base);
-      log.debug2(DEBUG_HEADER + "redirectAbsoluteUrl = " + redirectAbsoluteUrl);
-    }
-
-    String resolvedUrl = null;
-
-    // Check whether this is a relative URL in a redirected file.
-    if (redirectAbsoluteUrl && restConfigClient.isPartOfThisService(base)
-	&& !UrlUtil.isAbsoluteUrl(originalUrl) && containsRedirectedUrl(base)) {
-      // Get the list of redirected URLs.
-      List<String> redirectionUrls = unpackUrlRedirectedUrls(base);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	  + "redirectionUrls.size() = " + redirectionUrls.size());
-
-      // Resolve the relative URL against the original base URL, which is the
-      // last in the list of redirected URLs.
-      resolvedUrl = resolveConfigUrl(
-	  redirectionUrls.get(redirectionUrls.size() - 1), originalUrl);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
-
-      // Replace the last URL with the resolved version.
-      redirectionUrls.remove(redirectionUrls.get(redirectionUrls.size()-1));
-      redirectionUrls.add(resolvedUrl);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "redirectionUrls = " + redirectionUrls);
-
-      // Pack all the redirected URLs into a URL.
-      resolvedUrl = packRedirectedUrlsInUrl(redirectionUrls);
-    } else {
-      // No: Resolve the URL against the current base URL.
-      resolvedUrl = resolveConfigUrl(base, originalUrl);
-    }
-
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
-
-    // Check whether the resolved URL needs to be redirected.
-    if (redirectAbsoluteUrl
-	&& !restConfigClient.isPartOfThisService(resolvedUrl)) {
-      // Yes: Redirect it.
-      resolvedUrl = redirectAbsoluteUrl(resolvedUrl);
-    }
-
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
-    return resolvedUrl;
-  }
-
-  /**
-   * Provides an indication of whether a URL contains a redirected URL.
-   * 
-   * @param originalUrl
-   *          A String with the URL to be examined.
-   * @return a boolean with <code>true</code> if the URL contains a redirected
-   *         URL, <code>false</code> otherwise.
-   * @throws MalformedURLException
-   *           if the passed URL is malformed.
-   */
-  boolean containsRedirectedUrl(String originalUrl)
-      throws MalformedURLException {
-    return new URL(originalUrl).getPath().startsWith(absRedirectedUrlPathStart);
-  }
-
-  /**
-   * Provides a list of redirected URLs packed in a URL.
-   * 
-   * @param originalUrl
-   *          A String with the packed URL.
-   * @return a List<String> with the unpacked redirected URLs.
-   * @throws UnsupportedEncodingException,
-   *           MalformedURLException if the process fails.
-   */
-  List<String> unpackUrlRedirectedUrls(String originalUrl)
-      throws UnsupportedEncodingException, MalformedURLException {
-    final String DEBUG_HEADER = "unpackUrlRedirectedUrls(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "originalUrl = " + originalUrl);
-
-    // The result.
-    List<String> redirectionUrls = new ArrayList<String>();
-
-    // The original URL is at the top of the results.
-    String redirectionUrl = originalUrl;
-    redirectionUrls.add(redirectionUrl);
-
-    // Loop through the URLs, extracting redirected URLs as long as there are
-    // more.
-    while (containsRedirectedUrl(redirectionUrl)) {
-      // Get the original redirected URL.
-      redirectionUrl = UriUtils.decode(new URL(redirectionUrl).getPath()
-	  .substring(absRedirectedUrlPathStart.length()), "UTF-8");
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "redirectionUrl = " + redirectionUrl);
-
-      redirectionUrls.add(redirectionUrl);
-    }
-
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "redirectionUrls = " + redirectionUrls);
-    return redirectionUrls;
-  }
-
-  /**
-   * Provides a URL with the passed redirected URLs.
-   * 
-   * @param urls
-   *          A List<String> with the redirected URLs.
-   * @return a String with the packed redirected URL.
-   * @throws UnsupportedEncodingException,
-   *           MalformedURLException if the process fails.
-   */
-  String packRedirectedUrlsInUrl(List<String> urls)
-      throws UnsupportedEncodingException, MalformedURLException {
-    final String DEBUG_HEADER = "packRedirectedUrlsInUrl(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
-
-    if (urls == null || urls.size() == 0) {
-      throw new IllegalArgumentException("urls cannot be null or empty");
-    }
-
-    // The result.
-    String packedUrl = urls.get(urls.size()-1);
-
-    // Loop backwards through all the redirected URLs, rebuilding the full
-    // URL.
-    for (int i = urls.size() - 1; i > 0; i--) {
-      packedUrl = UrlUtil.getUrlPrefix(urls.get(i-1))
-	  + redirectedUrlPathStart + encodeUrlForPathSegment(packedUrl);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "packedUrl = " + packedUrl);
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "packedUrl = " + packedUrl);
-    return packedUrl;
-  }
-
-  /**
-   * Redirects an absolute URL to go through the REST Configuration service.
-   * 
-   * @param originalUrl
-   *          A String with the URL to be redirected.
-   * @return a String with the redirected URL.
-   * @throws UnsupportedEncodingException
-   *           if the URL cannot be redirected.
-   */
-  String redirectAbsoluteUrl(String originalUrl)
-      throws UnsupportedEncodingException {
-    final String DEBUG_HEADER = "redirectAbsoluteUrl(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "originalUrl = " + originalUrl);
-
-    if (!UrlUtil.isAbsoluteUrl(originalUrl)) {
-      throw new IllegalArgumentException("'" + originalUrl
-	  + "' is not an absolute URL");
-    }
-
-    String redirectedUrl = null;
-
-    // Get the REST Configuration service location.
-    String serviceLocation = restConfigClient.getServiceLocation();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "serviceLocation = " + serviceLocation);
-
-    // Check whether there is no REST Configuration service.
-    if (serviceLocation == null) {
-      // Yes: No redirection is needed.
-      redirectedUrl = originalUrl;
-    } else {
-      // No: Build the redirected URL.
-      redirectedUrl = serviceLocation + absRedirectedUrlPathStart
-	  + encodeUrlForPathSegment(originalUrl);
-    }
-
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "redirectedUrl = " + redirectedUrl);
-    return redirectedUrl;
-  }
-
-  /**
-   * Encodes a URL So that it can become a URL path segment of another URL
-   * 
-   * @param originalUrl
-   *          A String with the URL to be encoded.
-   * @return a String with the encoded URL.
-   * @throws UnsupportedEncodingException
-   *           if the URL cannot be encoded.
-   */
-  String encodeUrlForPathSegment(String originalUrl)
-      throws UnsupportedEncodingException {
-    final String DEBUG_HEADER = "encodeUrlForPathSegment(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "originalUrl = " + originalUrl);
-
-    // Encode the URL as needed and also encode any periods because otherwise
-    // the Spring machinery gets confused and it fails to route the request to
-    // the appropriate controller.
-    String encodedUrl = UriUtils.encodePathSegment(originalUrl, "UTF-8")
-	.replaceAll("\\.", "%2E");
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "encodedUrl = " + encodedUrl);
-    return encodedUrl;
   }
 
   List<ConfigFile.Generation> getStandardConfigGenerations(List urls,
@@ -3594,6 +3358,24 @@ public class ConfigManager implements LockssManager {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConfig = " + auConfig);
     return auConfig;
+  }
+
+  /**
+   * Provides the configuration file of the parent URL of another URL.
+   * 
+   * @param url
+   *          A String with The URL for which the parent URL is requested.
+   * @return a ConfigFile with ConfigFile of a URL that is the parent of the
+   *         passed URL, or <code>null</code> if the passed URL does not have a
+   *         parent URL.
+   */
+  ConfigFile getUrlParent(String url) {
+    final String DEBUG_HEADER = "getUrlParent(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
+
+    ConfigFile urlParent = parentConfigFile.get(url);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urlParent = " + urlParent);
+    return urlParent;
   }
 
   class AbortConfigLoadException extends RuntimeException {
