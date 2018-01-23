@@ -285,9 +285,7 @@ public class LockssApp {
   protected ManagerDesc[] getManagerDescs() {
     List<ManagerDesc> res = new ArrayList<ManagerDesc>(50);
     Collections.addAll(res, stdPreManagers);
-    Collections.addAll(res, (getAppSpec().getAppManagers() != null
-			     ? getAppSpec().getAppManagers()
-			     : getAppManagerDescs()));
+    Collections.addAll(res, getAppManagerDescs());
     Collections.addAll(res, stdPostManagers);
     return res.toArray(new ManagerDesc[0]);
   }

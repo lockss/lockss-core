@@ -173,8 +173,13 @@ class LockssDaemon:
 
     def start( self ):
         if not self.daemon:
+            # If old style bare config URL list, preface each URL with -p
+            if self.configList[0][0] != '-':
+                pairs = [ ( '-b' if x.endswith('local.txt') else '-p' , x ) for x in self.configList ]
+                self.configList = [ y for z in pairs for y in z ]
+
             self.daemon = subprocess.Popen( ( self.javaBin, '-server', '-cp', self.classpath, '-Dorg.lockss.defaultLogLevel=debug',
-                                              'org.lockss.app.LockssDaemon' ) + self.configList,
+                                              'org.lockss.app.LockssDaemon' ) + tuple( self.configList ),
                                             stdout = self.logfile, stderr = self.logfile, cwd = self.daemonDir )
             lockss_util.write_to_file( '%i\n' % self.daemon.pid, os.path.join( self.daemonDir, 'dpid' ) )
 
@@ -223,7 +228,7 @@ class Framework:
             # will raise LockssError if not found.
             self.projectDir = self.__findProjectDir()
         self.localLibDir = os.path.join( self.workDir, 'lib' )
-        self.projectLibDir = os.path.join( self.projectDir, 'lib' )
+        self.projectLibDir = os.path.join( self.projectDir, 'target' )
         self.daemonCount = daemonCount if daemonCount else int( lockss_util.config.get( 'daemonCount', 4 ) )
         self.startUiPort = startUiPort if startUiPort else int( lockss_util.config.get( 'startUiPort', 8041 ) )
         self.startV3Port = startV3Port if startV3Port else int( lockss_util.config.get( 'startV3Port', 8801 ) )
@@ -239,7 +244,7 @@ class Framework:
         self.isRunning = False
 
         # Assert that the project directory and the necessary libraries exist.
-        if not all( os.path.isfile( os.path.join( self.projectDir, 'lib', filename ) ) for filename in ( 'lockss.jar', 'lockss-test.jar', 'lockss-plugins.jar' ) ):
+        if not all( os.path.isfile( os.path.join( self.projectLibDir, filename ) ) for filename in ( 'current.jar', 'current-tests.jar' ) ):
             raise LockssError( 'Project directory %s is not ready' % self.projectDir )
 
         # Write the framework global config file.
@@ -256,7 +261,7 @@ class Framework:
             os.mkdir( self.localLibDir )
 
         # Copy the LOCKSS libraries from the project
-        for library in ( 'lockss.jar', 'lockss-test.jar', 'lockss-plugins.jar' ):
+        for library in ( 'current.jar', 'current-tests.jar' ):
             shutil.copy( os.path.join( self.projectLibDir, library ), self.localLibDir )
 
         # Set up a each daemon and create a work directory for it.
@@ -329,7 +334,7 @@ class Framework:
     def __makeClasspath(self):
         """Return a list of the jar and zip files in self.localLibDir and self.projectDir/lib."""
         return ':'.join( glob.glob( os.path.join( self.localLibDir, '*.jar' ) ) + 
-                         [ open( os.path.join( self.projectDir, 'test', 'test-classpath' ) ).readline().strip() ] )
+                         [ open( os.path.join( self.projectLibDir, 'test-classpath' ) ).readline().strip() ] )
 
     @staticmethod
     def __findProjectDir():

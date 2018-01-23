@@ -9,7 +9,7 @@ fi
 
 PROJECT_DIR=.
 
-CLASSPATH=`cat test/test-classpath`
+CLASSPATH=`cat target/test-classpath`
 export CLASSPATH
 
 args=""
