@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +31,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Objects;
 
-public class ArtifactPage {
+public class OldArtifactPage {
   @JsonProperty("next")
   private String next = null;
 
@@ -45,9 +45,9 @@ public class ArtifactPage {
   private Integer results = null;
 
   @JsonProperty("items")
-  private List<Artifact> items = null;
+  private List<OldArtifact> items = null;
 
-  public ArtifactPage next(String next) {
+  public OldArtifactPage next(String next) {
     this.next = next;
     return this;
   }
@@ -65,7 +65,7 @@ public class ArtifactPage {
     this.next = next;
   }
 
-  public ArtifactPage prev(String prev) {
+  public OldArtifactPage prev(String prev) {
     this.prev = prev;
     return this;
   }
@@ -83,7 +83,7 @@ public class ArtifactPage {
     this.prev = prev;
   }
 
-  public ArtifactPage page(Integer page) {
+  public OldArtifactPage page(Integer page) {
     this.page = page;
     return this;
   }
@@ -101,7 +101,7 @@ public class ArtifactPage {
     this.page = page;
   }
 
-  public ArtifactPage results(Integer results) {
+  public OldArtifactPage results(Integer results) {
     this.results = results;
     return this;
   }
@@ -119,7 +119,7 @@ public class ArtifactPage {
     this.results = results;
   }
 
-  public ArtifactPage items(List<Artifact> items) {
+  public OldArtifactPage items(List<OldArtifact> items) {
     this.items = items;
     return this;
   }
@@ -129,11 +129,11 @@ public class ArtifactPage {
    * 
    * @return items
    */
-  public List<Artifact> getItems() {
+  public List<OldArtifact> getItems() {
     return items;
   }
 
-  public void setItems(List<Artifact> items) {
+  public void setItems(List<OldArtifact> items) {
     this.items = items;
   }
 
@@ -145,7 +145,7 @@ public class ArtifactPage {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    ArtifactPage artifactPage = (ArtifactPage) o;
+    OldArtifactPage artifactPage = (OldArtifactPage) o;
     return Objects.equals(next, artifactPage.next)
 	&& Objects.equals(prev, artifactPage.prev)
 	&& Objects.equals(page, artifactPage.page)
@@ -161,7 +161,7 @@ public class ArtifactPage {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class ArtifactPage {\n");
+    sb.append("class OldArtifactPage {\n");
 
     sb.append("    next: ").append(toIndentedString(next)).append("\n");
     sb.append("    prev: ").append(toIndentedString(prev)).append("\n");

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -345,6 +345,20 @@ public class PluginManager
    */
   public static final String PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION =
       URL_ARTIFACT_WS_PREFIX + "restServiceLocation";
+
+  /**
+   * The URL of the REST Repository Service.
+   */
+  public static final String PARAM_REPOSERVICE_URL =
+      "org.lockss.laaws.reposervice.url";
+  public static final String DEFAULT_REPOSERVICE_URL = "http://localhost:8700";
+
+  /**
+   * The name of the REST Repository Service collection to use.
+   */
+  public static final String PARAM_REPOSERVICE_COLLECTION =
+      "org.lockss.laaws.reposervice.collection";
+  public static final String DEFAULT_REPOSERVICE_COLLECTION = "demorepo";
 
   public static final List NON_USER_SETTABLE_AU_PARAMS =
     Collections.unmodifiableList(new ArrayList());

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +32,7 @@ import com.jcabi.aspects.*;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
+import java.net.URL;
 import java.sql.*;
 import java.text.ParseException;
 import java.util.*;
@@ -41,6 +42,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.AuParamType.InvalidFormatException;
 import org.lockss.db.DbException;
 import org.lockss.exporter.biblio.*;
+import org.lockss.laaws.rs.client.RestLockssRepositoryClient;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.plugin.*;
 import org.lockss.plugin.AuUtil.AuProxyInfo;
@@ -384,7 +386,7 @@ public class OpenUrlResolver {
       return sb.toString();
     }
   }
-  
+
   /**
    * Create a resolver for the specified database manager.
    * 
@@ -549,21 +551,53 @@ public class OpenUrlResolver {
       String rft_id = params.get("rft_id");
       // handle rft_id that is an HTTP or HTTPS URL
       if (UrlUtil.isHttpOrHttpsUrl(rft_id)) {
+	// Determine whether to query a web service to determine whether a URL
+	// is cached.
         boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
             .getBoolean(PluginManager.PARAM_AU_CONTENT_FROM_WS,
         	PluginManager.DEFAULT_AU_CONTENT_FROM_WS);
         if (log.isDebug3())
           log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
 
+	// Check whether it is needed to query a web service to determine
+	// whether a URL is cached.
 	if (isUrlCachedFromWs) {
+	  // Yes.
 	  boolean isUrlCached = false;
 
 	  try {
-	    isUrlCached = new IsUrlCachedClient().isUrlCached(rft_id);
+	    // Get the URL of the configured REST Repository web service.
+	    String repoServiceUrl = ConfigManager.getCurrentConfig()
+		.get(PluginManager.PARAM_REPOSERVICE_URL,
+		    PluginManager.DEFAULT_REPOSERVICE_URL);
+	    if (log.isDebug3())
+	      log.debug3(DEBUG_HEADER + "repoServiceUrl = " + repoServiceUrl);
+
+	    // Check whether the URL of the configured REST Repository web
+	    // service does not exist.
+	    if (StringUtil.isNullString(repoServiceUrl)) {
+	      // Yes: Use the SOAP web service.
+	      isUrlCached = new IsUrlCachedClient().isUrlCached(rft_id);
+	    } else {
+	      // No: Get the configured REST Repository web service collection
+	      // name.
+	      String repoServiceCollection = ConfigManager.getCurrentConfig()
+		  .get(PluginManager.PARAM_REPOSERVICE_COLLECTION,
+		      PluginManager.DEFAULT_REPOSERVICE_COLLECTION);
+	      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+		  + "repoServiceCollection = " + repoServiceCollection);
+
+	      // Use the REST Repository web service.
+	      isUrlCached =
+		  new RestLockssRepositoryClient(new URL(repoServiceUrl))
+		  .getArtifactsWithUriPrefix(repoServiceCollection, rft_id)
+		  .hasNext();
+	    }
+
 	    if (log.isDebug3())
 	      log.debug3(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
 	  } catch (Exception e) {
-	    log.warning("IsUrlCachedClient().isCached() threw: ", e);
+	    log.warning("Exception caught: ", e);
           }
 
 	  if (isUrlCached) {
@@ -1362,8 +1396,35 @@ public class OpenUrlResolver {
         if (isUrlCachedFromWs) {
           boolean isUrlCached = false;
 
-          try {
-            isUrlCached = new IsUrlCachedClient().isUrlCached(url);
+	  try {
+	    // Get the URL of the configured REST Repository web service.
+	    String repoServiceUrl = ConfigManager.getCurrentConfig()
+		.get(PluginManager.PARAM_REPOSERVICE_URL,
+		    PluginManager.DEFAULT_REPOSERVICE_URL);
+	    if (log.isDebug3())
+	      log.debug3(DEBUG_HEADER + "repoServiceUrl = " + repoServiceUrl);
+
+	    // Check whether the URL of the configured REST Repository web
+	    // service does not exist.
+	    if (StringUtil.isNullString(repoServiceUrl)) {
+	      // Yes: Use the old REST web service.
+	      isUrlCached = new IsUrlCachedClient().isUrlCached(url);
+	    } else {
+	      // No: Get the configured REST Repository web service collection
+	      // name.
+	      String repoServiceCollection = ConfigManager.getCurrentConfig()
+		  .get(PluginManager.PARAM_REPOSERVICE_COLLECTION,
+		      PluginManager.DEFAULT_REPOSERVICE_COLLECTION);
+	      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+		  + "repoServiceCollection = " + repoServiceCollection);
+
+	      // Use the REST Repository web service.
+	      isUrlCached =
+		  new RestLockssRepositoryClient(new URL(repoServiceUrl))
+		  .getArtifactsWithUriPrefix(repoServiceCollection, url)
+		  .hasNext();
+	    }
+
             if (log.isDebug3())
               log.debug3(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
           } catch (Exception e) {

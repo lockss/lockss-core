@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,12 +31,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.Properties;
 import org.lockss.config.ConfigManager;
+import org.lockss.laaws.rs.client.RestLockssRepositoryClient;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -182,6 +184,44 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 
       // Determine whether the request has been successful.
       isServiceAvailable = statusCode == successStatusCode;
+    } catch (Exception e) {
+      if (log.isDebug3()) log.debug3("Done: No REST service.");
+    }
+
+    if (log.isDebug2())
+      log.debug2("isServiceAvailable = " + isServiceAvailable);
+    return isServiceAvailable;
+  }
+
+  /**
+   * Provides the indication of whether a REST Repository service is available.
+   * 
+   * @param repoServiceUrl
+   *          A String with the REST Repository service location.
+   * @param repoServiceCollection
+   *          A String with the REST Repository service collection name.
+   * @param uri
+   *          A String with the URI to be passed to the REST Repository service
+   *          call
+   * @return a boolean with <code>true</code> if the REST Repository service is
+   *         available, <code> false</code> otherwise.
+   */
+  protected static boolean checkRestRepositoryService(String repoServiceUrl,
+      String repoServiceCollection, String url) {
+    if (log.isDebug2()) {
+      log.debug2("repoServiceUrl = " + repoServiceUrl);
+      log.debug2("repoServiceCollection = " + repoServiceCollection);
+      log.debug2("url = " + url);
+    }
+
+    boolean isServiceAvailable = false;
+
+    try {
+      // Use the REST Repository web service.
+      new RestLockssRepositoryClient(new URL(repoServiceUrl))
+      .getArtifactsWithUriPrefix(repoServiceCollection, url);
+
+      isServiceAvailable = true;
     } catch (Exception e) {
       if (log.isDebug3()) log.debug3("Done: No REST service.");
     }

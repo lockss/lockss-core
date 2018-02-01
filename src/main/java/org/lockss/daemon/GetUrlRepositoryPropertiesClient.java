@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,7 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.Collections;
 import org.lockss.config.CurrentConfig;
-import org.lockss.laaws.rs.model.ArtifactPage;
+import org.lockss.laaws.rs.model.OldArtifactPage;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
@@ -63,7 +63,8 @@ public class GetUrlRepositoryPropertiesClient {
    * @throws Exception
    *           if there are problems getting the indication.
    */
-  public ArtifactPage getUrlRepositoryProperties(String url) throws Exception {
+  public OldArtifactPage getUrlRepositoryProperties(String url)
+      throws Exception {
     final String DEBUG_HEADER = "getUrlRepositoryProperties(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
 
@@ -121,14 +122,14 @@ public class GetUrlRepositoryPropertiesClient {
       log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
 
     // Make the request to the REST service and get its response.
-    ResponseEntity<ArtifactPage> response = restTemplate.exchange(uri,
+    ResponseEntity<OldArtifactPage> response = restTemplate.exchange(uri,
 	HttpMethod.GET, new HttpEntity<String>(null, headers),
-	ArtifactPage.class);
+	OldArtifactPage.class);
 
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
 
-    ArtifactPage result = response.getBody();
+    OldArtifactPage result = response.getBody();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
     return result;
   }

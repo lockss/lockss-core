@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,11 +30,16 @@ package org.lockss.daemon;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.util.Iterator;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.lockss.config.ConfigManager;
 import org.lockss.config.CurrentConfig;
+import org.lockss.laaws.rs.client.RestLockssRepositoryClient;
+import org.lockss.laaws.rs.model.ArtifactIndexData;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.Logger;
+import org.lockss.util.StringUtil;
 import org.lockss.ws.content.ContentService;
 
 /**
@@ -59,25 +64,77 @@ public class IsUrlCachedClient {
     final String DEBUG_HEADER = "isUrlCached(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
 
-    // Get the configured REST service location.
-    String restServiceLocation = CurrentConfig.getParam(
-	PluginManager.PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
-	+ restServiceLocation);
+    // Get the URL of the configured REST Repository web service.
+    String repoServiceUrl = ConfigManager.getCurrentConfig()
+	.get(PluginManager.PARAM_REPOSERVICE_URL,
+	    PluginManager.DEFAULT_REPOSERVICE_URL);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "repoServiceUrl = " + repoServiceUrl);
 
-    // Check whether a REST service location has been configured.
-    if (restServiceLocation != null
-	&& restServiceLocation.trim().length() > 0) {
-      // Yes: Get the indication of whether the URL is cached from the REST
-      // service.
-      boolean isUrlCached = new GetUrlRepositoryPropertiesClient()
-	  .getUrlRepositoryProperties(url).getItems().size() > 0;
-      if (log.isDebug2())
-	log.debug2(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
-      return isUrlCached;
+    // Check whether the URL of the configured REST Repository web service does
+    // not exist.
+    if (StringUtil.isNullString(repoServiceUrl)) {
+      // Yes: Try to use the configured old REST service location.
+      String restServiceLocation = CurrentConfig.getParam(
+	  PluginManager.PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
+	  + restServiceLocation);
+
+      // Check whether a REST service location has been configured.
+      if (restServiceLocation != null
+	  && restServiceLocation.trim().length() > 0) {
+	// Yes: Get the indication of whether the URL is cached from the REST
+	// service.
+	boolean isUrlCached = new GetUrlRepositoryPropertiesClient()
+	    .getUrlRepositoryProperties(url).getItems().size() > 0;
+	if (log.isDebug2())
+	  log.debug2(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
+	return isUrlCached;
+      } else {
+	// No: Get the indication from the non-REST service.
+	return getProxy().isUrlCached(url, null);
+      }
     } else {
-      // No: Get the indication from the non-REST service.
-      return getProxy().isUrlCached(url, null);
+      // No: Use the configured REST Repository web service.
+      try {
+	// Get the configured REST Repository web service collection name.
+	String repoServiceCollection = ConfigManager.getCurrentConfig()
+	    .get(PluginManager.PARAM_REPOSERVICE_COLLECTION,
+		PluginManager.DEFAULT_REPOSERVICE_COLLECTION);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "repoServiceCollection = " + repoServiceCollection);
+
+	RestLockssRepositoryClient rlrc =
+	    new RestLockssRepositoryClient(new URL(repoServiceUrl));
+
+	// Use the REST Repository web service to locate the artifacts.
+	Iterator<ArtifactIndexData> artifactIterator = rlrc
+	    .getArtifactsWithUriPrefix(repoServiceCollection, url);
+
+	if (artifactIterator == null) {
+	  throw new Exception("No artifacts found for URL '" + url + "'");
+	}
+
+	// Loop through all the results obtained from the REST Repository web
+	// service.
+	while (artifactIterator.hasNext()) {
+	  // Check whether the URL matches.
+	  if (url.equals(artifactIterator.next().getUri())) {
+	    // Yes: Found, nothing else to do.
+	    if (log.isDebug2())
+	      log.debug2(DEBUG_HEADER + "Found: Returning true");
+	    return true;
+	  }
+	}
+
+	if (log.isDebug2())
+	  log.debug2(DEBUG_HEADER + "Not found: Returning false");
+	return false;
+      } catch (Exception e) {
+	log.warning("Exception caught: ", e);
+      }
+
+      return false;
     }
   }
 

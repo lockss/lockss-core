@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +30,7 @@ package org.lockss.laaws.rs.model;
 import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class Artifact {
+public class OldArtifact {
   @JsonProperty("id")
   private String id = null;
 
@@ -70,7 +70,7 @@ public class Artifact {
   @JsonProperty("offset")
   private Long offset = null;
 
-  public Artifact id(String id) {
+  public OldArtifact id(String id) {
     this.id = id;
     return this;
   }
@@ -88,7 +88,7 @@ public class Artifact {
     this.id = id;
   }
 
-  public Artifact repository(String repository) {
+  public OldArtifact repository(String repository) {
     this.repository = repository;
     return this;
   }
@@ -106,7 +106,7 @@ public class Artifact {
     this.repository = repository;
   }
 
-  public Artifact auid(String auid) {
+  public OldArtifact auid(String auid) {
     this.auid = auid;
     return this;
   }
@@ -124,7 +124,7 @@ public class Artifact {
     this.auid = auid;
   }
 
-  public Artifact uri(String uri) {
+  public OldArtifact uri(String uri) {
     this.uri = uri;
     return this;
   }
@@ -142,7 +142,7 @@ public class Artifact {
     this.uri = uri;
   }
 
-  public Artifact aspect(String aspect) {
+  public OldArtifact aspect(String aspect) {
     this.aspect = aspect;
     return this;
   }
@@ -160,7 +160,7 @@ public class Artifact {
     this.aspect = aspect;
   }
 
-  public Artifact acquired(Integer acquired) {
+  public OldArtifact acquired(Integer acquired) {
     this.acquired = acquired;
     return this;
   }
@@ -178,7 +178,7 @@ public class Artifact {
     this.acquired = acquired;
   }
 
-  public Artifact committed(Boolean committed) {
+  public OldArtifact committed(Boolean committed) {
     this.committed = committed;
     return this;
   }
@@ -196,7 +196,7 @@ public class Artifact {
     this.committed = committed;
   }
 
-  public Artifact contentHash(String contentHash) {
+  public OldArtifact contentHash(String contentHash) {
     this.contentHash = contentHash;
     return this;
   }
@@ -214,7 +214,7 @@ public class Artifact {
     this.contentHash = contentHash;
   }
 
-  public Artifact metadataHash(String metadataHash) {
+  public OldArtifact metadataHash(String metadataHash) {
     this.metadataHash = metadataHash;
     return this;
   }
@@ -232,7 +232,7 @@ public class Artifact {
     this.metadataHash = metadataHash;
   }
 
-  public Artifact contentLength(Integer contentLength) {
+  public OldArtifact contentLength(Integer contentLength) {
     this.contentLength = contentLength;
     return this;
   }
@@ -250,7 +250,7 @@ public class Artifact {
     this.contentLength = contentLength;
   }
 
-  public Artifact contentDatetime(Integer contentDatetime) {
+  public OldArtifact contentDatetime(Integer contentDatetime) {
     this.contentDatetime = contentDatetime;
     return this;
   }
@@ -268,7 +268,7 @@ public class Artifact {
     this.contentDatetime = contentDatetime;
   }
 
-  public Artifact path(String path) {
+  public OldArtifact path(String path) {
     this.path = path;
     return this;
   }
@@ -286,7 +286,7 @@ public class Artifact {
     this.path = path;
   }
 
-  public Artifact offset(Long offset) {
+  public OldArtifact offset(Long offset) {
     this.offset = offset;
     return this;
   }
@@ -312,7 +312,7 @@ public class Artifact {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    Artifact artifact = (Artifact) o;
+    OldArtifact artifact = (OldArtifact) o;
     return Objects.equals(this.id, artifact.id)
 	&& Objects.equals(this.repository, artifact.repository)
 	&& Objects.equals(this.auid, artifact.auid)
@@ -338,7 +338,7 @@ public class Artifact {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class Artifact {\n");
+    sb.append("class OldArtifact {\n");
 
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
     sb.append("    repository: ").append(toIndentedString(repository))

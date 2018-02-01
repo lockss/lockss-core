@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,16 +27,29 @@
  */
 package org.lockss.plugin;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.lockss.config.ConfigManager;
 import org.lockss.config.CurrentConfig;
 import org.lockss.daemon.GetUrlRepositoryPropertiesClient;
+import org.lockss.laaws.rs.client.RestLockssRepositoryClient;
 import org.lockss.laaws.rs.model.Artifact;
+import org.lockss.laaws.rs.model.ArtifactIndexData;
+import org.lockss.laaws.rs.model.OldArtifact;
 import org.lockss.util.Logger;
+import org.lockss.util.StringUtil;
 import org.lockss.ws.content.ContentService;
 import org.lockss.ws.entities.ContentResult;
 
@@ -70,52 +83,139 @@ public class FetchFileClient {
 
     ContentResult result = null;
 
-    // Get the configured REST service location.
-    String restServiceLocation = CurrentConfig.getParam(
-	PluginManager.PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
-	+ restServiceLocation);
+    // Get the URL of the configured REST Repository web service.
+    String repoServiceUrl = ConfigManager.getCurrentConfig()
+	.get(PluginManager.PARAM_REPOSERVICE_URL,
+	    PluginManager.DEFAULT_REPOSERVICE_URL);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "repoServiceUrl = " + repoServiceUrl);
 
-    // Check whether a REST service location has been configured.
-    if (restServiceLocation != null
-	&& restServiceLocation.trim().length() > 0) {
-      // Yes: Get the URL artifacts from the REST service.
-      List<Artifact> artifacts = new GetUrlRepositoryPropertiesClient()
-	  .getUrlRepositoryProperties(url).getItems();
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "artifacts = " + artifacts);
+    // Check whether the URL of the configured REST Repository web service does
+    // not exist.
+    if (StringUtil.isNullString(repoServiceUrl)) {
+      // Yes: Try to use the configured old REST service location.
+      String restServiceLocation = CurrentConfig.getParam(
+	  PluginManager.PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
+	  + restServiceLocation);
 
-      if (artifacts == null || artifacts.size() < 1) {
-	throw new Exception("No artifacts found for URL '" + url + "'");
-      }
+      // Check whether a REST service location has been configured.
+      if (restServiceLocation != null
+	  && restServiceLocation.trim().length() > 0) {
+	// Yes: Get the URL artifacts from the REST service.
+	List<OldArtifact> artifacts = new GetUrlRepositoryPropertiesClient()
+	    .getUrlRepositoryProperties(url).getItems();
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "artifacts = " + artifacts);
 
-      // Get the artifact identifier.
-      String artifactId = null;
-
-      // Loop through all the received artifacts.
-      for (Artifact artifact : artifacts) {
-	// Check whether the Archival Unit identifier matches.
-	if (auId.equals(artifact.getAuid())) {
-	  // Yes: Get its artifact identifier.
-	  artifactId = artifact.getId();
-	  break;
+	if (artifacts == null || artifacts.size() < 1) {
+	  throw new Exception("No artifacts found for URL '" + url + "'");
 	}
+
+	// Get the artifact identifier.
+	String artifactId = null;
+
+	// Loop through all the received artifacts.
+	for (OldArtifact artifact : artifacts) {
+	  // Check whether the Archival Unit identifier matches.
+	  if (auId.equals(artifact.getAuid())) {
+	    // Yes: Get its artifact identifier.
+	    artifactId = artifact.getId();
+	    break;
+	  }
+	}
+
+	// Handle error conditions.
+	if (artifactId == null || artifactId.trim().length() < 1) {
+	  throw new Exception("No artifacts found for URL '" + url
+	      + "' and AU '" + auId + "'");
+	}
+
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "artifactId = " + artifactId);
+
+	// Get the content of the artifact from the repository.
+	result =
+	    new GetArtifactContentClient().getArtifactContent(artifactId, url);
+      } else {
+	// No: Get the content from the non-REST service.
+	result = getProxy().fetchFile(url, auId);
       }
-
-      // Handle error conditions.
-      if (artifactId == null || artifactId.trim().length() < 1) {
-	throw new Exception("No artifacts found for URL '" + url + "' and AU '"
-	    + auId + "'");
-      }
-
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "artifactId = " + artifactId);
-
-      // Get the content of the artifact from the repository.
-      result =
-	  new GetArtifactContentClient().getArtifactContent(artifactId, url);
     } else {
-      // No: Get the content from the non-REST service.
-      result = getProxy().fetchFile(url, auId);
+      try {
+	// No: Get the configured REST Repository web service collection
+	// name.
+	String repoServiceCollection = ConfigManager.getCurrentConfig()
+	    .get(PluginManager.PARAM_REPOSERVICE_COLLECTION,
+		PluginManager.DEFAULT_REPOSERVICE_COLLECTION);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "repoServiceCollection = " + repoServiceCollection);
+
+	RestLockssRepositoryClient rlrc =
+	    new RestLockssRepositoryClient(new URL(repoServiceUrl));
+
+	// Use the REST Repository web service to locate the artifacts.
+	Iterator<ArtifactIndexData> artifactIterator = rlrc
+	    .getArtifactsWithUriPrefix(repoServiceCollection, auId, url);
+
+	if (artifactIterator == null) {
+	  throw new Exception("No artifacts found for URL '" + url
+	      + "' in AUID '" + auId + "'");
+	}
+
+	// Get the artifact identifier.
+	String artifactId = null;
+
+	// Loop through all the results obtained from the REST Repository web
+	// service.
+	while (artifactIterator.hasNext()) {
+	  ArtifactIndexData artifactIndexData = artifactIterator.next();
+
+	  // Check whether the URL matches.
+	  if (url.equals(artifactIndexData.getUri())) {
+	    // Yes: Get its artifact identifier.
+	    artifactId = artifactIndexData.getId();
+	    break;
+	  }
+	}
+
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "artifactId = " + artifactId);
+
+	// Get the content of the artifact from the repository.
+	Artifact artifact = rlrc.getArtifact(repoServiceCollection, artifactId);
+
+	// Populate the response.
+	result = new ContentResult();
+
+	// Fill the equivalent of CachedUrl.getProperties() as properties.
+	Properties properties = new Properties();
+	properties.setProperty("x-lockss-node-url", url);
+
+	Date now = new Date();
+
+	properties.setProperty("x_lockss-server-date",
+	    String.valueOf(now.getTime()));
+	properties.setProperty("date", now.toString());
+	properties.setProperty("pragma", "no-cache");
+	properties.setProperty("cache-control", "no-cache");
+	properties.setProperty("org.lockss.version.number", "1");
+
+	String contentType = artifact.getMetadata().getContentType().toString();
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "contentType = " + contentType);
+
+	properties.setProperty("content-type", contentType);
+	properties.setProperty("x-lockss-content-type", contentType);
+	properties.setProperty("content-length",
+	    String.valueOf(artifact.getMetadata().getContentLength()));
+
+	result.setProperties(properties);
+	result.setDataHandler(new DataHandler(new InputStreamDataSource(
+	    artifact.getInputStream())));
+      } catch (Exception e) {
+	log.warning("Exception caught: ", e);
+      }
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
@@ -177,5 +277,34 @@ public class FetchFileClient {
 	return new PasswordAuthentication(userName, password.toCharArray());
       }
     });
+  }
+
+  public class InputStreamDataSource implements DataSource {
+
+    private InputStream is;
+
+    public InputStreamDataSource(InputStream is) {
+      this.is = is;
+    }
+
+    @Override
+    public String getContentType() {
+      return null;
+    }
+
+    @Override
+    public InputStream getInputStream() throws IOException {
+      return is;
+    }
+
+    @Override
+    public String getName() {
+      return null;
+    }
+
+    @Override
+    public OutputStream getOutputStream() throws IOException {
+      return null;
+    }
   }
 }

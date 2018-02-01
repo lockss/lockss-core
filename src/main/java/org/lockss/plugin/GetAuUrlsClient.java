@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,15 +35,20 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.lockss.config.ConfigManager;
 import org.lockss.config.CurrentConfig;
-import org.lockss.laaws.rs.model.Artifact;
-import org.lockss.laaws.rs.model.ArtifactPage;
+import org.lockss.laaws.rs.client.RestLockssRepositoryClient;
+import org.lockss.laaws.rs.model.ArtifactIndexData;
+import org.lockss.laaws.rs.model.OldArtifact;
+import org.lockss.laaws.rs.model.OldArtifactPage;
 import org.lockss.util.Logger;
+import org.lockss.util.StringUtil;
 import org.lockss.ws.status.DaemonStatusService;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -79,91 +84,141 @@ public class GetAuUrlsClient {
     final String DEBUG_HEADER = "getAuUrls(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
-    // Get the configured REST service location.
-    String restServiceLocation = CurrentConfig.getParam(PluginManager
-	.PARAM_URL_LIST_REST_SERVICE_LOCATION);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
-	+ restServiceLocation);
+    // Initialize the results.
+    List<String> urls = new ArrayList<String>();
 
-    // Check whether a REST service location has been configured.
-    if (restServiceLocation != null
-	&& restServiceLocation.trim().length() > 0) {
-      // Yes: Get the Archival Unit URLs from the REST service.
-      try {
-	// Initialize the request to the REST service.
-	RestTemplate restTemplate = new RestTemplate();
+    // Get the URL of the configured REST Repository web service.
+    String repoServiceUrl = ConfigManager.getCurrentConfig()
+	.get(PluginManager.PARAM_REPOSERVICE_URL,
+	    PluginManager.DEFAULT_REPOSERVICE_URL);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "repoServiceUrl = " + repoServiceUrl);
 
-	// Get the client connection timeout.
-	int timeoutValue = CurrentConfig.getIntParam(
-	    PluginManager.PARAM_URL_LIST_WS_TIMEOUT_VALUE,
-	    PluginManager.DEFAULT_URL_LIST_WS_TIMEOUT_VALUE);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "timeoutValue = " + timeoutValue);
+    // Check whether the URL of the configured REST Repository web service does
+    // not exist.
+    if (StringUtil.isNullString(repoServiceUrl)) {
+      // Yes: Use the old REST web service.
+      String restServiceLocation = CurrentConfig.getParam(PluginManager
+	  .PARAM_URL_LIST_REST_SERVICE_LOCATION);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
+	  + restServiceLocation);
 
-	// Set the client connection timeout.
-	SimpleClientHttpRequestFactory requestFactory =
-	    (SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
+      // Check whether a REST service location has been configured.
+      if (restServiceLocation != null
+	  && restServiceLocation.trim().length() > 0) {
+	// Yes: Get the Archival Unit URLs from the REST service.
+	try {
+	  // Initialize the request to the REST service.
+	  RestTemplate restTemplate = new RestTemplate();
 
-	requestFactory.setReadTimeout(1000*timeoutValue);
-	requestFactory.setConnectTimeout(1000*timeoutValue);
-
-	// Initialize the request headers.
-	HttpHeaders headers = new HttpHeaders();
-	headers.setContentType(MediaType.APPLICATION_JSON);
-
-	// Get the authentication credentials.
-	String userName =
-	    CurrentConfig.getParam(PluginManager.PARAM_URL_LIST_WS_USER_NAME);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "userName = '" + userName + "'");
-	String password =
-	    CurrentConfig.getParam(PluginManager.PARAM_URL_LIST_WS_PASSWORD);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "password = '" + password + "'");
-
-	// Set the authentication credentials.
-	String credentials = userName + ":" + password;
-	String authHeaderValue = "Basic " + Base64.getEncoder()
-	.encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
-	headers.set("Authorization", authHeaderValue);
-
-	// Create the URI of the request to the REST service.
-	UriComponents uriComponents =
-	    UriComponentsBuilder.fromUriString(restServiceLocation).build()
-	    .expand(Collections.singletonMap("auid", auId));
-
-	URI uri = UriComponentsBuilder.newInstance()
-	    .uriComponents(uriComponents).build().encode().toUri();
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
-
-	// Make the request to the REST service and get its response.
-	ResponseEntity<ArtifactPage> response = restTemplate.exchange(uri,
-	    HttpMethod.GET, new HttpEntity<String>(null, headers),
-	    ArtifactPage.class);
-
-	HttpStatus statusCode = response.getStatusCode();
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
-
-	ArtifactPage result = response.getBody();
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
-
-	// Initialize the results.
-	List<String> urls = new ArrayList<String>();
-
-	// Loop through all the artifacts provided by the REST service.
-	for (Artifact artifact : result.getItems()) {
+	  // Get the client connection timeout.
+	  int timeoutValue = CurrentConfig.getIntParam(
+	      PluginManager.PARAM_URL_LIST_WS_TIMEOUT_VALUE,
+	      PluginManager.DEFAULT_URL_LIST_WS_TIMEOUT_VALUE);
 	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "artifact = " + artifact);
-	  // Extract the URL from the artifact and add it to the results.
-	  urls.add(artifact.getUri());
-	}
+	    log.debug3(DEBUG_HEADER + "timeoutValue = " + timeoutValue);
 
-	if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
-	return urls;
+	  // Set the client connection timeout.
+	  SimpleClientHttpRequestFactory requestFactory =
+	      (SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
+
+	  requestFactory.setReadTimeout(1000*timeoutValue);
+	  requestFactory.setConnectTimeout(1000*timeoutValue);
+
+	  // Initialize the request headers.
+	  HttpHeaders headers = new HttpHeaders();
+	  headers.setContentType(MediaType.APPLICATION_JSON);
+
+	  // Get the authentication credentials.
+	  String userName =
+	      CurrentConfig.getParam(PluginManager.PARAM_URL_LIST_WS_USER_NAME);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "userName = '" + userName + "'");
+	  String password =
+	      CurrentConfig.getParam(PluginManager.PARAM_URL_LIST_WS_PASSWORD);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "password = '" + password + "'");
+
+	  // Set the authentication credentials.
+	  String credentials = userName + ":" + password;
+	  String authHeaderValue = "Basic " + Base64.getEncoder()
+	  .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+	  headers.set("Authorization", authHeaderValue);
+
+	  // Create the URI of the request to the REST service.
+	  UriComponents uriComponents =
+	      UriComponentsBuilder.fromUriString(restServiceLocation).build()
+	      .expand(Collections.singletonMap("auid", auId));
+
+	  URI uri = UriComponentsBuilder.newInstance()
+	      .uriComponents(uriComponents).build().encode().toUri();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
+
+	  // Make the request to the REST service and get its response.
+	  ResponseEntity<OldArtifactPage> response = restTemplate.exchange(uri,
+	      HttpMethod.GET, new HttpEntity<String>(null, headers),
+	      OldArtifactPage.class);
+
+	  HttpStatus statusCode = response.getStatusCode();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+	  OldArtifactPage result = response.getBody();
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
+
+	  // Loop through all the artifacts provided by the REST service.
+	  for (OldArtifact artifact : result.getItems()) {
+	    if (log.isDebug3())
+	      log.debug3(DEBUG_HEADER + "artifact = " + artifact);
+	    // Extract the URL from the artifact and add it to the results.
+	    urls.add(artifact.getUri());
+	  }
+	} catch (Exception e) {
+	  log.error("Caught exception accessing REST service", e);
+
+	  while (e.getCause() != null && e.getCause() instanceof Exception) {
+	    e = (Exception)e.getCause();
+	    log.error("Exception.getCause()", e);
+	  }
+
+	  exceptions.put(auId, e);
+	  urls = null;
+	}
+      } else {
+	// No: Get the Archival Unit URLs from the non-REST service.
+	try {
+	  return getProxy().getAuUrls(auId, null);
+	} catch (Exception e) {
+	  log.error("Caught exception accessing non-REST service", e);
+	  exceptions.put(auId, e);
+	  urls = null;
+	}
+      }
+    } else {
+      // No: Get the Archival Unit URLs from the REST Repository web service.
+      try {
+	// Get the configured REST Repository web service collection name.
+	String repoServiceCollection = ConfigManager.getCurrentConfig()
+	    .get(PluginManager.PARAM_REPOSERVICE_COLLECTION,
+		PluginManager.DEFAULT_REPOSERVICE_COLLECTION);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "repoServiceCollection = " + repoServiceCollection);
+
+	// Use the REST Repository web service.
+	Iterator<ArtifactIndexData> artifactIterator =
+	    new RestLockssRepositoryClient(new URL(repoServiceUrl))
+	    .getArtifactsInAU(repoServiceCollection, auId);
+
+	// Loop through all the results obtained from the REST Repository web
+	// service.
+	while (artifactIterator.hasNext()) {
+	  // Add the URL of this REST Repository web service result to the
+	  // overall results.
+	  urls.add(artifactIterator.next().getUri());
+	}
       } catch (Exception e) {
-	log.error("Caught exception accessing REST service", e);
+	log.error("Caught exception accessing REST Repository service", e);
 
 	while (e.getCause() != null && e.getCause() instanceof Exception) {
 	  e = (Exception)e.getCause();
@@ -171,18 +226,12 @@ public class GetAuUrlsClient {
 	}
 
 	exceptions.put(auId, e);
-      }
-    } else {
-      // No: Get the Archival Unit URLs from the non-REST service.
-      try {
-	return getProxy().getAuUrls(auId, null);
-      } catch (Exception e) {
-	log.error("Caught exception accessing non-REST service", e);
-	exceptions.put(auId, e);
+	urls = null;
       }
     }
 
-    return null;
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
+    return urls;
   }
 
   /**
