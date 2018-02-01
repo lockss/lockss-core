@@ -907,6 +907,7 @@ public class LockssDaemon extends LockssApp {
     // ManagerDescs supplied by getAppManagerDescs() above
     AppSpec spec = new AppSpec()
       .setName("Lockss Daemon")
+      .setComputeAppManagers(true)
       .setArgs(args)
       .addAppConfig(PARAM_START_PLUGINS, "true")
       .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")

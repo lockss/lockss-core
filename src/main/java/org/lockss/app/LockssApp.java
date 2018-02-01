@@ -285,15 +285,20 @@ public class LockssApp {
   protected ManagerDesc[] getManagerDescs() {
     List<ManagerDesc> res = new ArrayList<ManagerDesc>(50);
     Collections.addAll(res, stdPreManagers);
-    Collections.addAll(res, getAppManagerDescs());
+    if (getAppSpec().isComputeAppManagers()) {
+      Collections.addAll(res, getAppManagerDescs());
+    } else {
+      Collections.addAll(res, getAppSpec().getAppManagers());
+    }
     Collections.addAll(res, stdPostManagers);
+    log.debug2("getManagerDescs: " + res);
     return res.toArray(new ManagerDesc[0]);
   }
 
   /** Subclasses may override to return their service-specific managers if
    * they don't/can't supply them in.the AppSpec. */
   protected ManagerDesc[] getAppManagerDescs() {
-    return getAppSpec().getAppManagers();
+    throw new UnsupportedOperationException("App said it wanted to compute its app specs but didn't implement getAppManagerDescs()");
   }
 
   // General information accessors
@@ -1042,6 +1047,18 @@ public class LockssApp {
     public boolean shouldStart() {
       return true;
     }
+
+    public String toString() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("[md: ");
+      if (!StringUtil.equalStrings(key, defaultClass)) {
+	sb.append(key);
+	sb.append(": ");
+      }
+      sb.append(defaultClass);
+      sb.append("]");
+      return sb.toString();
+    }
   }
 
   /**
@@ -1193,6 +1210,7 @@ public class LockssApp {
     private String name;
     private String[] args;
     private ManagerDesc[] appManagers;
+    private boolean isComputeAppManagers = false;
     private Configuration appConfig;
     private boolean isKeepRunning = false;
     private JavaVersion minJavaVersion = JavaVersion.JAVA_1_8;
@@ -1219,6 +1237,14 @@ public class LockssApp {
      */
     public AppSpec setAppManagers(ManagerDesc[] mgrs) {
       appManagers = mgrs;
+      return this;
+    }
+
+    /** Declare that the app wishes getAppManagerDescs() to be called to
+     * compute its list of app managers, rather than finding them in the
+     * AppSpec */
+    public AppSpec setComputeAppManagers(boolean val) {
+      isComputeAppManagers = val;
       return this;
     }
 
@@ -1284,6 +1310,12 @@ public class LockssApp {
     /** Return the array of app-specific ManagerDescs */
     public ManagerDesc[] getAppManagers() {
       return appManagers == null ? new ManagerDesc[0] : appManagers;
+    }
+
+    /** True if getAppManagerDescs() should be called to compute the array
+     * of app manager, false if they should be obtained from the AppSpec */
+    public boolean isComputeAppManagers() {
+      return isComputeAppManagers;
     }
 
     /** Return the minimum Java version */
