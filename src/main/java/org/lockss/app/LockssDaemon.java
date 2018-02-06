@@ -176,9 +176,9 @@ public class LockssDaemon extends LockssApp {
     CRAWL_MANAGER_DESC,
     REPOSITORY_MANAGER_DESC,
     // start metadata manager after plugin manager and database manager.
-    METADATA_MANAGER_DESC,
-    // start metadata database manager after metadata manager
     METADATA_DB_MANAGER_DESC,
+    // start metadata manager after metadata database manager
+    METADATA_MANAGER_DESC,
     // start proxy and servlets after plugin manager
     REMOTE_API_DESC,
     // Start the COUNTER reports manager.
@@ -187,10 +187,10 @@ public class LockssDaemon extends LockssApp {
     SUBSCRIPTION_MANAGER_DESC,
     // Start the fetch time export manager.
     FETCH_TIME_EXPORT_MANAGER_DESC,
-    // Start the job manager.
-    JOB_MANAGER_DESC,
     // Start the job database manager.
     JOB_DB_MANAGER_DESC,
+    // Start the job manager.
+    JOB_MANAGER_DESC,
     // NOTE: Any managers that are needed to decide whether a servlet is to be
     // enabled or not (through ServletDescr.isEnabled()) need to appear before
     // the AdminServletManager on the next line.
