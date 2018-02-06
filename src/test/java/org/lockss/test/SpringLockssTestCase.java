@@ -103,9 +103,10 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    */
   protected static String getPropertyValueFromFile(String propertyName,
       File configFile) {
+    final String DEBUG_HEADER = "getPropertyValueFromFile(): ";
     if (log.isDebug2()) {
-      log.debug2("propertyName = " + propertyName);
-      log.debug2("configFile = " + configFile.getAbsolutePath());
+      log.debug2(DEBUG_HEADER + "propertyName = " + propertyName);
+      log.debug2(DEBUG_HEADER + "configFile = " + configFile.getAbsolutePath());
     }
 
     String propertyValue = null;
@@ -119,7 +120,8 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 
       // Get the requested property value.
       propertyValue = properties.getProperty(propertyName);
-      if (log.isDebug3()) log.debug3("propertyValue = " + propertyValue);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "propertyValue = " + propertyValue);
     } catch (IOException ioe) {
       log.warning("Caught exception getting properties from file: " + ioe);
     } finally {
@@ -130,7 +132,8 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
       }
     }
 
-    if (log.isDebug2()) log.debug2("propertyValue = " + propertyValue);
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "propertyValue = " + propertyValue);
     return propertyValue;
   }
 
@@ -150,10 +153,11 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    */
   protected static boolean checkExternalRestService(String restServiceLocation,
       Map<String, String> uriMap, int successStatusCode) {
+    final String DEBUG_HEADER = "checkExternalRestService(): ";
     if (log.isDebug2()) {
-      log.debug2("restServiceLocation = " + restServiceLocation);
-      log.debug2("uriMap = " + uriMap);
-      log.debug2("successStatusCode = " + successStatusCode);
+      log.debug2(DEBUG_HEADER + "restServiceLocation = " + restServiceLocation);
+      log.debug2(DEBUG_HEADER + "uriMap = " + uriMap);
+      log.debug2(DEBUG_HEADER + "successStatusCode = " + successStatusCode);
     }
 
     boolean isServiceAvailable = false;
@@ -171,7 +175,8 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 
     URI uri = UriComponentsBuilder.newInstance()
 	.uriComponents(uriComponents).build().encode().toUri();
-    if (log.isDebug3()) log.debug3("Making request to '" + uri + "'...");
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
 
     try {
       // Make the request to the REST service.
@@ -180,16 +185,17 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 
       // Get its response.
       int statusCode = result.getStatusCode().value();
-      if (log.isDebug3()) log.debug3("Done: statusCode = " + statusCode);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "Done: statusCode = " + statusCode);
 
       // Determine whether the request has been successful.
       isServiceAvailable = statusCode == successStatusCode;
     } catch (Exception e) {
-      if (log.isDebug3()) log.debug3("Done: No REST service.");
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Done: No REST service.");
     }
 
     if (log.isDebug2())
-      log.debug2("isServiceAvailable = " + isServiceAvailable);
+      log.debug2(DEBUG_HEADER + "isServiceAvailable = " + isServiceAvailable);
     return isServiceAvailable;
   }
 
@@ -208,10 +214,12 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    */
   protected static boolean checkRestRepositoryService(String repoServiceUrl,
       String repoServiceCollection, String url) {
+    final String DEBUG_HEADER = "checkRestRepositoryService(): ";
     if (log.isDebug2()) {
-      log.debug2("repoServiceUrl = " + repoServiceUrl);
-      log.debug2("repoServiceCollection = " + repoServiceCollection);
-      log.debug2("url = " + url);
+      log.debug2(DEBUG_HEADER + "repoServiceUrl = " + repoServiceUrl);
+      log.debug2(DEBUG_HEADER
+	  + "repoServiceCollection = " + repoServiceCollection);
+      log.debug2(DEBUG_HEADER + "url = " + url);
     }
 
     boolean isServiceAvailable = false;
@@ -223,11 +231,11 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 
       isServiceAvailable = true;
     } catch (Exception e) {
-      if (log.isDebug3()) log.debug3("Done: No REST service.");
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Done: No REST service.");
     }
 
     if (log.isDebug2())
-      log.debug2("isServiceAvailable = " + isServiceAvailable);
+      log.debug2(DEBUG_HEADER + "isServiceAvailable = " + isServiceAvailable);
     return isServiceAvailable;
   }
 
@@ -240,18 +248,20 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    *           if there are problems.
    */
   protected void setUpTempDirectory(String prefix) throws IOException {
-    if (log.isDebug2()) log.debug2("prefix = " + prefix);
+    final String DEBUG_HEADER = "setUpTempDirectory(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "prefix = " + prefix);
 
     // Get the path of a temporary directory where the test data will reside.
     tempDirPath = getTempDir(prefix).getAbsolutePath();
-    if (log.isDebug3()) log.debug3("tempDirPath = " + tempDirPath);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "tempDirPath = " + tempDirPath);
 
     // Create a file that will communicate to the test REST service where its
     // data is located.
     platformDiskSpaceConfigPath =
 	createPlatformDiskSpaceConfigFile(tempDirPath);
-    if (log.isDebug3()) log.debug3("platformDiskSpaceConfigPath = "
-	+ platformDiskSpaceConfigPath);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "platformDiskSpaceConfigPath = " + platformDiskSpaceConfigPath);
   }
 
   /**
@@ -267,15 +277,17 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    */
   private String createPlatformDiskSpaceConfigFile(String dirPath)
       throws IOException {
-    if (log.isDebug2()) log.debug2("dirPath = " + dirPath);
+    final String DEBUG_HEADER = "createPlatformDiskSpaceConfigFile(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "dirPath = " + dirPath);
 
     // The configuration option with the temporary directory where the test data
     // resides.
     String platformDiskSpaceConfigParam =
 	ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST + "=" + dirPath
 	+ File.separator + "cache" + System.lineSeparator();
-    if (log.isDebug3()) log.debug3("platformDiskSpaceConfigParam = '"
-	+ platformDiskSpaceConfigParam +"'.");
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "platformDiskSpaceConfigParam = '" + platformDiskSpaceConfigParam
+	+ "'.");
 
     // The path to the file.
     String platformDiskSpaceConfigPath =
@@ -285,8 +297,8 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     Files.write(Paths.get(platformDiskSpaceConfigPath),
 	platformDiskSpaceConfigParam.getBytes(), StandardOpenOption.CREATE);
 
-    if (log.isDebug2()) log.debug2("platformDiskSpaceConfigPath = "
-	+ platformDiskSpaceConfigPath);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	+ "platformDiskSpaceConfigPath = " + platformDiskSpaceConfigPath);
     return platformDiskSpaceConfigPath;
   }
 
@@ -299,7 +311,9 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    *           if there are problems.
    */
   protected void copyToTempDir(File source) throws IOException {
-    if (log.isDebug2()) log.debug2("source = " + source.getAbsolutePath());
+    final String DEBUG_HEADER = "copyToTempDir(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "source = " + source.getAbsolutePath());
 
     if (!source.isDirectory() && !source.isFile()) {
       throw new IOException(source.getAbsolutePath()
@@ -307,8 +321,8 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     }
 
     File destination = new File(new File(tempDirPath), source.getName());
-    if (log.isDebug3())
-	log.debug3("destination = " + destination.getAbsolutePath());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "destination = " + destination.getAbsolutePath());
 
     if (source.isDirectory()) {
       // Make the copy.
