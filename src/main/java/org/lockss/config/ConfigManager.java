@@ -266,10 +266,10 @@ public class ConfigManager implements LockssManager {
   public static final List DEFAULT_DAEMON_GROUP_LIST =
     ListUtil.list(DEFAULT_DAEMON_GROUP);
 
-+  /** Local IP address
-+   * @ParamCategory Platform
-+   * @ParamRelevance Required
-+   */
+  /** Local IP address
+   * @ParamCategory Platform
+   * @ParamRelevance Required
+   */
   public static final String PARAM_PLATFORM_IP_ADDRESS =
     PLATFORM + "localIPAddress";
 
