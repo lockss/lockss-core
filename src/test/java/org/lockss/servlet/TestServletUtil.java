@@ -67,8 +67,8 @@ public class TestServletUtil extends LockssTestCase {
     mau.setStartUrls(ListUtil.list(manifest));
     mau.setCrawlRule(new MockCrawlRule());
     PluginTestUtil.registerArchivalUnit(pl, mau);
-    MockNodeManager nm = new MockNodeManager();
-    daemon.setNodeManager(nm, mau);
+    MockHistoryRepository nm = new MockHistoryRepository();
+    daemon.setHistoryRepository(nm, mau);
     MockAuState aus = new MockAuState();
     nm.setAuState(aus);
     aus.setLastCrawlTime(lastCrawlTime);

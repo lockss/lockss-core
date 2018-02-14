@@ -144,9 +144,6 @@ public class ManagerDescs {
   public static ManagerDesc ROUTER_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.ROUTER_MANAGER,
                     "org.lockss.protocol.LcapRouter");
-  public static ManagerDesc NODE_MANAGER_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.NODE_MANAGER_MANAGER,
-                    "org.lockss.state.NodeManagerManager");
   public static ManagerDesc ICP_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.ICP_MANAGER,
                     "org.lockss.proxy.icp.IcpManager");

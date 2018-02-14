@@ -68,6 +68,7 @@ public class AuState implements LockssSerializable {
   protected long lastPollStart;		// last time a poll started
   protected int lastPollResult;         // ditto
   protected long pollDuration;		// average of last two PoRpoll durations
+  protected long hashDuration = -1;
   protected int clockssSubscriptionStatus;
   protected double v3Agreement = -1.0;
   protected double highestV3Agreement = -1.0;
@@ -131,6 +132,7 @@ public class AuState implements LockssSerializable {
 	 -1, // lastPollresult
 	 null, // lastPollresultMsg
 	 0, // pollDuration
+        -1, // hashDuration
 	 -1, // lastTreeWalk
 	 null, // crawlUrls
 	 null, // accessType
@@ -167,6 +169,7 @@ public class AuState implements LockssSerializable {
     this.lastPollResult = aus.lastPollResult;
     this.lastPollResultMsg = aus.lastPollResultMsg;
     this.pollDuration = aus.pollDuration;
+    this.hashDuration = aus.hashDuration;
     this.lastTreeWalk = aus.lastTreeWalk;
     this.crawlUrls = aus.crawlUrls;
     this.accessType = aus.accessType;
@@ -197,6 +200,7 @@ public class AuState implements LockssSerializable {
 		 long lastTopLevelPoll, long lastPollStart,
 		 int lastPollResult, String lastPollResultMsg,
 		 long pollDuration,
+		 long hashDuration,
 		 long lastTreeWalk, HashSet crawlUrls,
 		 AccessType accessType,
 		 int clockssSubscriptionStatus,
@@ -225,6 +229,7 @@ public class AuState implements LockssSerializable {
     this.lastPollResult = lastPollResult;
     this.lastPollResultMsg = lastPollResultMsg;
     this.pollDuration = pollDuration;
+    this.hashDuration = hashDuration;
     this.lastTreeWalk = lastTreeWalk;
     this.crawlUrls = crawlUrls;
     this.accessType = accessType;
@@ -440,6 +445,17 @@ public class AuState implements LockssSerializable {
       return "Poll result " + lastPoPPollResult;
     }
   }
+  public long getAverageHashDuration() {
+    return hashDuration;
+  }
+
+  public void setLastHashDuration(long newDuration) {
+    if (newDuration < 0) {
+      logger.warning("Tried to update hash with negative duration.");
+      return;
+    }
+    hashDuration = newDuration;
+  }
 
   public int getNumAgreePeersLastPoR() {
     return numAgreePeersLastPoR;
@@ -618,6 +634,7 @@ public class AuState implements LockssSerializable {
 		       lastCrawlResult, lastCrawlResultMsg,
 		       lastTopLevelPoll, lastPollStart,
 		       lastPollResult, lastPollResultMsg, pollDuration,
+		       hashDuration,
 		       lastTreeWalk, crawlUrls,
 		       accessType,
 		       clockssSubscriptionStatus,
@@ -906,6 +923,14 @@ public class AuState implements LockssSerializable {
       logger.error("Shouldn't happen: au.setConfiguration(au.getConfiguration())",
 		   e);
     }
+  }
+
+  /**
+   * Set the history repository which manages this AuState file.
+   * @param histRepo
+   */
+  protected void setHistoryRepo(HistoryRepository histRepo) {
+    this.historyRepo = histRepo;
   }
 
   public String toString() {

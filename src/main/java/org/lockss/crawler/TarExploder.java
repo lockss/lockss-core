@@ -193,7 +193,7 @@ public class TarExploder extends Exploder {
     	for (Iterator it = touchedAus.iterator(); it.hasNext(); ) {
     	  ArchivalUnit au = (ArchivalUnit)it.next();
     	  logger.debug3(archiveUrl + " touching " + au.toString());
-    	  AuUtil.getDaemon(au).getNodeManager(au).newContentCrawlFinished();
+				AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
     	}
     } 
   }

@@ -572,7 +572,7 @@ public class TestKbartConverter extends LockssTestCase {
     ArchivalUnit au3 = new MockArchivalUnit(plugin, auid3);
     List<ArchivalUnit> aus = Arrays.asList(au1, au2, au3);
     for (ArchivalUnit au : aus) {
-      daemon.setNodeManager(new MockNodeManager(), au);
+      daemon.setHistoryRepository(new MockHistoryRepository(), au);
     }
     return aus;
   }

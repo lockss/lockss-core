@@ -310,7 +310,7 @@ public class FuncArcExploder2 extends LockssTestCase {
     sau.setExploderPattern(".arc.gz$");
     sau.setExploderHelper(new MyExploderHelper(bad));
     
-    AuState maus = new MyMockAuState();
+    AuState maus = new MyMockAuState(sau);
     FollowLinkCrawler crawler = new FollowLinkCrawler(sau, maus);
     crawler.setCrawlManager(crawlMgr);
     boolean res = crawler.doCrawl();
@@ -373,8 +373,8 @@ public class FuncArcExploder2 extends LockssTestCase {
 
   public static class MyMockAuState extends MockAuState {
 
-    public MyMockAuState() {
-      super();
+    public MyMockAuState(ArchivalUnit au) {
+      super(au);
     }
 
     public void newCrawlFinished(int result, String msg) {

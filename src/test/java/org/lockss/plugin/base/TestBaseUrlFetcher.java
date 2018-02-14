@@ -69,7 +69,7 @@ public class TestBaseUrlFetcher extends LockssTestCase {
   private MockCrawler.MockCrawlerFacade mcf;
   private int pauseBeforeFetchCounter;
 
-  private MockNodeManager nodeMgr = new MockNodeManager();
+  private MockHistoryRepository histRepo = new MockHistoryRepository();
 
   private static final String TEST_URL = "http://www.example.com/testDir/leaf1";
   private boolean saveDefaultSuppressStackTrace;
@@ -94,7 +94,7 @@ public class TestBaseUrlFetcher extends LockssTestCase {
     plugin.initPlugin(theDaemon);
     mau.setPlugin(plugin);
 
-    theDaemon.setNodeManager(nodeMgr, mau);
+    theDaemon.setHistoryRepository(histRepo, mau);
 
     mcus = new MockCachedUrlSet(TEST_URL);
     mcus.setArchivalUnit(mau);

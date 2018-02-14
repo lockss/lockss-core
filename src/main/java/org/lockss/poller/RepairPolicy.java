@@ -196,6 +196,7 @@ public class RepairPolicy {
   }
 
   // Note: this code is not run in production.
+  // XXX - Comment out the code below to avoid loading.
   /**
    * @param reqPid The peer requesting a repair.
    * @param au The ArchivalUnit for which the repair is requested.

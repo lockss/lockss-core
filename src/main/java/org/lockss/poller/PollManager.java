@@ -638,43 +638,42 @@ public class PollManager
   }
 
   /**
-   * REST Service entry point for get an AU poll(s)
-   * @param au the au to get polls
-   * @return
+   * REST Service entry point for call a poll.
+   * @param pollSpec the spec used to define the poll
+   * @return the poll s which was added to the poll
    */
-  public List<Poll> getAuPolls(ArchivalUnit au) {
-  Set<PollManagerEntry> forAu = entryManager.forAu(au);
-  // then actually cancel the polls
-  List<Poll> retList = new ArrayList<>();
-  for (PollManagerEntry pme : forAu) {
-    retList.add(pme.poll);
+  public void requestPoll(PollSpec pollSpec) throws NotEligibleException {
+    ArchivalUnit au = pluginMgr.getAuFromId(pollSpec.getAuId());
+    enqueueHighPriorityPoll(au, pollSpec);
   }
-  return retList;
-}
 
   /**
-   * REST Service entry point for stopping an AU poll(s)
-   * @param au
-   * @return
+   * REST Service entry point for stopping a previously requested poll
+   * @param au the au
+   * @param key the key of the poll to stop.
+   * @return a the stopped poll
    */
-  public List<Poll> stopAuPolls(ArchivalUnit au)
+  public Poll stopPoll(ArchivalUnit au)
   {
-    List<Poll> retList = new ArrayList<>();
+    Poll retPoll = null;
     pollQueue.cancelAuPolls(au);
-
     // collect PollManagerEntries related to this au
     Set<PollManagerEntry> forAu = entryManager.forAu(au);
     // then actually cancel the polls
     for (PollManagerEntry pme : forAu) {
       Poll poll = pme.poll;
-      retList.add(poll);
       if (!poll.isPollCompleted()) {
         ArchivalUnit pau = poll.getCachedUrlSet().getArchivalUnit();
         theHashService.cancelAuHashes(pau);
         poll.abortPoll();
       }
+      else {
+        if(retPoll == null || retPoll.getCreateTime() < poll.getCreateTime()) {
+          retPoll = poll;
+        }
+      }
     }
-    return retList;
+    return retPoll;
   }
 
 
@@ -686,7 +685,6 @@ public class PollManager
   void cancelAuPolls(ArchivalUnit au) {
     // first remove from queues, so none will run.
     pollQueue.cancelAuPolls(au);
-
     // collect PollManagerEntries related to this au
     Set<PollManagerEntry> forAu = entryManager.forAu(au);
     // then actually cancel the polls
@@ -765,12 +763,6 @@ public class PollManager
   void handleIncomingMessage(LcapMessage msg) throws IOException {
     if (theLog.isDebug2()) {
       theLog.debug2("Got a message: " + msg);
-    }
-    // V1 only: discard duplicates; this is a no-op in V3.
-    PollFactory fact = getPollFactory(msg);
-    if (fact.isDuplicateMessage(msg, this)) {
-      theLog.debug3("Dropping duplicate message:" + msg);
-      return;
     }
     // todo(bhayes): Since PollManager is asynchronous with polls
     // closing, the check here can't always know; Poll objects
@@ -926,10 +918,6 @@ public class PollManager
       theLog.warning("Attempt to close unknown poll : " + key);
       return;
     }
-    // todo(bhayes): I believe that in V3 the poll.isPollComplete() is
-    // always true at this point; in V1 calling closeThePoll() calls
-    // setPollCompleted(), which makes poll.isPollComplete() true.
-
     // todo(bhayes): No idea what this comment is saying. V1? V3?
     // mark the poll completed because if we need to call a repair poll
     entryManager.allowToExpire(key);
@@ -940,19 +928,7 @@ public class PollManager
     }
 
     Poll p = pme.getPoll();
-    NodeManager nm = getDaemon().getNodeManager(p.getAu());
-
-    // XXX: This is hacked up, admittedly.  The entire NodeManager
-    //      and repository are getting overhauled anyway, so it makes
-    //      no sense to do the "right" thing here by integrating this
-    //      into the NodeManager somehow.
-    if (p.getType() == Poll.V3_POLL) {
-      // Retrieve the node state for the top-level AU
-      NodeStateImpl ns = (NodeStateImpl) nm.getNodeState(p.getCachedUrlSet());
-      if (ns != null) {
-        ns.closeV3Poll(p.getKey());
-      }
-    }
+    HistoryRepository hr = getDaemon().getHistoryRepository(p.getAu());
   }
 
   public void raiseAlert(Alert alert) {
@@ -1833,7 +1809,7 @@ public class PollManager
   public void checkEligibleForPoll(ArchivalUnit au)
       throws NotEligibleException {
     // todo(bhayes): This is creating a PollReq with no PollSpec,
-    // purely for the prupose of checking eligibility, which happens
+    // purely for the purpose of checking eligibility, which happens
     // to not use the spec.
     checkEligibleForPoll(new PollReq(au));
   }
@@ -2724,6 +2700,8 @@ public class PollManager
       highPriorityPollRequests.remove(au);
     }
 
+
+
     /**
      * Invalidate the current list of pending polls.
      */
@@ -2744,7 +2722,17 @@ public class PollManager
       }
       return aus;
     }
-
+    public PollReq getPendingPoll(ArchivalUnit au)
+    {
+      rebuildPollQueueIfNeeded();
+      synchronized (queueLock) {
+        for (PollReq req : pollQueue) {
+          if(req.getAu().getAuId().equals(au.getAuId()))
+            return req;
+        }
+      }
+      return null;
+    }
     /**
      * Pop the next PollReq from the queue, and return it.
      */

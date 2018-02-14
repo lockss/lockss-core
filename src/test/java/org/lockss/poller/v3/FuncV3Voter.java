@@ -126,14 +126,13 @@ public class FuncV3Voter extends LockssTestCase {
     theDaemon.setRouterManager(new MyMockLcapRouter());
     setupAu();
 
-    MockNodeManager nodeManager = new MockNodeManager();
-    theDaemon.setNodeManager(nodeManager, mau);
+    theDaemon.getHistoryRepository(mau).startService();
     theDaemon.getPluginManager();
     theDaemon.setDaemonInited(true);
     theDaemon.getSchedService().startService();
 
-    MockAuState aus = new MockAuState(mau);
-    nodeManager.setAuState(aus);
+    //MockAuState aus = new MockAuState(mau);
+    //nodeManager.setAuState(aus);
 
     theDaemon.getActivityRegulator(mau).startService();
     idmgr.startService();

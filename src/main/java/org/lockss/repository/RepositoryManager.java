@@ -47,7 +47,7 @@ import org.lockss.daemon.*;
  * the repository config parameters.
  */
 public class RepositoryManager
-  extends BaseLockssDaemonManager implements ConfigurableManager {
+    extends BaseLockssDaemonManager implements ConfigurableManager {
 
   private static Logger log = Logger.getLogger("RepositoryManager");
 
@@ -55,7 +55,7 @@ public class RepositoryManager
 
   /** Maximum size of per-AU repository node cache */
   public static final String PARAM_MAX_PER_AU_CACHE_SIZE =
-    PREFIX + "nodeCache.size";
+      PREFIX + "nodeCache.size";
   public static final int DEFAULT_MAX_PER_AU_CACHE_SIZE = 10;
 
   /*
@@ -64,37 +64,37 @@ public class RepositoryManager
    * Each poll will have one active AU at a time.
    */
   public static final String PARAM_MAX_SUSPECT_VERSIONS_CACHE_SIZE =
-    PREFIX + "suspectVersionsCache.size";
+      PREFIX + "suspectVersionsCache.size";
   public static final int DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE = 10;
 
   static final String GLOBAL_CACHE_PREFIX = PREFIX + "globalNodeCache.";
   public static final String PARAM_MAX_GLOBAL_CACHE_SIZE =
-    GLOBAL_CACHE_PREFIX + "size";
+      GLOBAL_CACHE_PREFIX + "size";
   public static final int DEFAULT_MAX_GLOBAL_CACHE_SIZE = 500;
 
   public static final String PARAM_GLOBAL_CACHE_ENABLED =
-    GLOBAL_CACHE_PREFIX + "enabled";
+      GLOBAL_CACHE_PREFIX + "enabled";
   public static final boolean DEFAULT_GLOBAL_CACHE_ENABLED = false;
 
   /** Max times to loop looking for unused AU directory. */
   public static final String PARAM_MAX_UNUSED_DIR_SEARCH =
-    PREFIX + "maxUnusedDirSearch";
+      PREFIX + "maxUnusedDirSearch";
   public static final int DEFAULT_MAX_UNUSED_DIR_SEARCH = 30000;
 
   /** If true, LocalRepository keeps track of next subdir name to probe. */
   public static final String PARAM_IS_STATEFUL_UNUSED_DIR_SEARCH =
-    PREFIX + "enableStatefulUnusedDirSearch";
+      PREFIX + "enableStatefulUnusedDirSearch";
   public static final boolean DEFAULT_IS_STATEFUL_UNUSED_DIR_SEARCH = true;
 
   /** Max percent of time size calculation thread may run. */
   public static final String PARAM_SIZE_CALC_MAX_LOAD =
-    PREFIX + "sizeCalcMaxLoad";
+      PREFIX + "sizeCalcMaxLoad";
   public static final float DEFAULT_SIZE_CALC_MAX_LOAD = 0.5F;
 
   /** If true, path components longer than the maximum filesystem path
    * component are encodes are multiple levels of directories */
   public static final String PARAM_ENABLE_LONG_COMPONENTS =
-    PREFIX + "enableLongComponents";
+      PREFIX + "enableLongComponents";
   public static final boolean DEFAULT_ENABLE_LONG_COMPONENTS = true;
 
   /** Prior to 1.61.6, when long component support is enabled, backslahes
@@ -103,13 +103,13 @@ public class RepositoryManager
    * this can be set true for compatibility with old repositories.  Setting
    * checkUnnormalized to Fix is preferred. */
   public static final String PARAM_ENABLE_LONG_COMPONENTS_COMPATIBILITY =
-    PREFIX + "enableLongComponentsCompatibility";
+      PREFIX + "enableLongComponentsCompatibility";
   public static final boolean DEFAULT_ENABLE_LONG_COMPONENTS_COMPATIBILITY =
-    false;
+      false;
 
   /** Maximum length of a filesystem path component. */
   public static final String PARAM_MAX_COMPONENT_LENGTH =
-    PREFIX + "maxComponentLength";
+      PREFIX + "maxComponentLength";
   public static final int DEFAULT_MAX_COMPONENT_LENGTH = 255;
 
 
@@ -119,9 +119,9 @@ public class RepositoryManager
   /** Check for existing nodes with unnormalized names (created by very old
    * daemon that didn't normalize): None, Log, Fix */
   public static final String PARAM_CHECK_UNNORMALIZED =
-    PREFIX + "checkUnnormalized";
+      PREFIX + "checkUnnormalized";
   public static final CheckUnnormalizedMode DEFAULT_CHECK_UNNORMALIZED =
-    CheckUnnormalizedMode.Log;
+      CheckUnnormalizedMode.Log;
 
 
   static final String WDOG_PARAM_SIZE_CALC = "SizeCalc";
@@ -131,17 +131,17 @@ public class RepositoryManager
   static final int PRIORITY_DEFAULT_SIZE_CALC = Thread.NORM_PRIORITY - 1;
 
   static final String DISK_PREFIX = PREFIX + "diskSpace.";
-  
+
 
   static final String PARAM_DISK_WARN_FRRE_MB = DISK_PREFIX + "warn.freeMB";
   static final int DEFAULT_DISK_WARN_FRRE_MB = 5000;
   static final String PARAM_DISK_FULL_FRRE_MB = DISK_PREFIX + "full.freeMB";
   static final int DEFAULT_DISK_FULL_FRRE_MB = 100;
   static final String PARAM_DISK_WARN_FRRE_PERCENT =
-    DISK_PREFIX + "warn.freePercent";
+      DISK_PREFIX + "warn.freePercent";
   static final double DEFAULT_DISK_WARN_FRRE_PERCENT = .02;
   static final String PARAM_DISK_FULL_FRRE_PERCENT =
-    DISK_PREFIX + "full.freePercent";
+      DISK_PREFIX + "full.freePercent";
   static final double DEFAULT_DISK_FULL_FRRE_PERCENT = .01;
 
   private PlatformUtil platInfo = PlatformUtil.getInstance();
@@ -153,25 +153,25 @@ public class RepositoryManager
   UniqueRefLruCache globalNodeCache =
       new UniqueRefLruCache(DEFAULT_MAX_GLOBAL_CACHE_SIZE);
   UniqueRefLruCache suspectVersionsCache =
-    new UniqueRefLruCache(DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE);
+      new UniqueRefLruCache(DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE);
   Map localRepos = new HashMap();
   private static int maxUnusedDirSearch = DEFAULT_MAX_UNUSED_DIR_SEARCH;
   private static boolean isStatefulUnusedDirSearch =
-    DEFAULT_IS_STATEFUL_UNUSED_DIR_SEARCH;
+      DEFAULT_IS_STATEFUL_UNUSED_DIR_SEARCH;
   private static boolean enableLongComponents = DEFAULT_ENABLE_LONG_COMPONENTS;
   private static boolean enableLongComponentsCompatibility =
-    DEFAULT_ENABLE_LONG_COMPONENTS_COMPATIBILITY;
+      DEFAULT_ENABLE_LONG_COMPONENTS_COMPATIBILITY;
   private static int maxComponentLength = DEFAULT_MAX_COMPONENT_LENGTH;
   private static CheckUnnormalizedMode checkUnnormalized =
-    DEFAULT_CHECK_UNNORMALIZED;
+      DEFAULT_CHECK_UNNORMALIZED;
 
 
   PlatformUtil.DF paramDFWarn =
-    PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
-				  DEFAULT_DISK_WARN_FRRE_PERCENT);
+      PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
+          DEFAULT_DISK_WARN_FRRE_PERCENT);
   PlatformUtil.DF paramDFFull =
-    PlatformUtil.DF.makeThreshold(DEFAULT_DISK_FULL_FRRE_MB,
-				  DEFAULT_DISK_FULL_FRRE_PERCENT);
+      PlatformUtil.DF.makeThreshold(DEFAULT_DISK_FULL_FRRE_MB,
+          DEFAULT_DISK_FULL_FRRE_PERCENT);
 
   private float sizeCalcMaxLoad = DEFAULT_SIZE_CALC_MAX_LOAD;
 
@@ -181,82 +181,82 @@ public class RepositoryManager
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
-			Configuration.Differences changedKeys) {
+      Configuration.Differences changedKeys) {
     //  Build list of repositories from list of disk (fs) paths).  Needs to
     //  be generalized if ever another repository implementation.
     if (changedKeys.contains(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST)) {
       List lst = new ArrayList();
       String dspace =
-	config.get(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, "");
+          config.get(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, "");
       List paths = StringUtil.breakAt(dspace, ';');
       if (paths != null) {
-	for (Iterator iter = paths.iterator(); iter.hasNext(); ) {
-	  lst.add("local:" + (String)iter.next());
-	}
+        for (Iterator iter = paths.iterator(); iter.hasNext(); ) {
+          lst.add("local:" + (String)iter.next());
+        }
       }
       repoList = lst;
     }
     if (changedKeys.contains(PARAM_MAX_PER_AU_CACHE_SIZE)) {
       paramNodeCacheSize = config.getInt(PARAM_MAX_PER_AU_CACHE_SIZE,
-					 DEFAULT_MAX_PER_AU_CACHE_SIZE);
+          DEFAULT_MAX_PER_AU_CACHE_SIZE);
       for (Iterator iter = getDaemon().getAllLockssRepositories().iterator();
-	   iter.hasNext(); ) {
-	LockssRepository repo = (LockssRepository)iter.next();
-	if (repo instanceof LockssRepositoryImpl) {
-	  LockssRepositoryImpl repoImpl = (LockssRepositoryImpl)repo;
-	  repoImpl.setNodeCacheSize(paramNodeCacheSize);
-	}
+          iter.hasNext(); ) {
+        LockssRepository repo = (LockssRepository)iter.next();
+        if (repo instanceof LockssRepositoryImpl) {
+          LockssRepositoryImpl repoImpl = (LockssRepositoryImpl)repo;
+          repoImpl.setNodeCacheSize(paramNodeCacheSize);
+        }
       }
     }
     if (changedKeys.contains(PARAM_MAX_SUSPECT_VERSIONS_CACHE_SIZE)) {
       paramSuspectVersionsCacheSize =
-	config.getInt(PARAM_MAX_SUSPECT_VERSIONS_CACHE_SIZE,
-		      DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE);
+          config.getInt(PARAM_MAX_SUSPECT_VERSIONS_CACHE_SIZE,
+              DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE);
       suspectVersionsCache.setMaxSize(paramSuspectVersionsCacheSize);
     }
     if (changedKeys.contains(GLOBAL_CACHE_PREFIX)) {
       paramIsGlobalNodeCache = config.getBoolean(PARAM_GLOBAL_CACHE_ENABLED,
-						 DEFAULT_GLOBAL_CACHE_ENABLED);
+          DEFAULT_GLOBAL_CACHE_ENABLED);
       if (paramIsGlobalNodeCache) {
-	paramGlobalNodeCacheSize = config.getInt(PARAM_MAX_GLOBAL_CACHE_SIZE,
-						 DEFAULT_MAX_GLOBAL_CACHE_SIZE);
-	log.debug("global node cache size: " + paramGlobalNodeCacheSize);
-	globalNodeCache.setMaxSize(paramGlobalNodeCacheSize);
+        paramGlobalNodeCacheSize = config.getInt(PARAM_MAX_GLOBAL_CACHE_SIZE,
+            DEFAULT_MAX_GLOBAL_CACHE_SIZE);
+        log.debug("global node cache size: " + paramGlobalNodeCacheSize);
+        globalNodeCache.setMaxSize(paramGlobalNodeCacheSize);
       }
     }
     if (changedKeys.contains(DISK_PREFIX)) {
       int minMB = config.getInt(PARAM_DISK_WARN_FRRE_MB,
-				DEFAULT_DISK_WARN_FRRE_MB);
+          DEFAULT_DISK_WARN_FRRE_MB);
       double minPer = config.getPercentage(PARAM_DISK_WARN_FRRE_PERCENT,
-					   DEFAULT_DISK_WARN_FRRE_PERCENT);
+          DEFAULT_DISK_WARN_FRRE_PERCENT);
       paramDFWarn = PlatformUtil.DF.makeThreshold(minMB, minPer);
       minMB = config.getInt(PARAM_DISK_FULL_FRRE_MB,
-				DEFAULT_DISK_FULL_FRRE_MB);
+          DEFAULT_DISK_FULL_FRRE_MB);
       minPer = config.getPercentage(PARAM_DISK_FULL_FRRE_PERCENT,
-					   DEFAULT_DISK_FULL_FRRE_PERCENT);
+          DEFAULT_DISK_FULL_FRRE_PERCENT);
       paramDFFull = PlatformUtil.DF.makeThreshold(minMB, minPer);
     }
     if (changedKeys.contains(PARAM_SIZE_CALC_MAX_LOAD)) {
       sizeCalcMaxLoad = config.getPercentage(PARAM_SIZE_CALC_MAX_LOAD,
-					     DEFAULT_SIZE_CALC_MAX_LOAD);
+          DEFAULT_SIZE_CALC_MAX_LOAD);
     }
     if (changedKeys.contains(PREFIX)) {
       maxUnusedDirSearch = config.getInt(PARAM_MAX_UNUSED_DIR_SEARCH,
-					 DEFAULT_MAX_UNUSED_DIR_SEARCH);
+          DEFAULT_MAX_UNUSED_DIR_SEARCH);
       isStatefulUnusedDirSearch =
-	config.getBoolean(PARAM_IS_STATEFUL_UNUSED_DIR_SEARCH,
-			  DEFAULT_IS_STATEFUL_UNUSED_DIR_SEARCH);
+          config.getBoolean(PARAM_IS_STATEFUL_UNUSED_DIR_SEARCH,
+              DEFAULT_IS_STATEFUL_UNUSED_DIR_SEARCH);
       enableLongComponents = config.getBoolean(PARAM_ENABLE_LONG_COMPONENTS,
-					       DEFAULT_ENABLE_LONG_COMPONENTS);
+          DEFAULT_ENABLE_LONG_COMPONENTS);
       enableLongComponentsCompatibility =
-	config.getBoolean(PARAM_ENABLE_LONG_COMPONENTS_COMPATIBILITY,
-			  DEFAULT_ENABLE_LONG_COMPONENTS_COMPATIBILITY);
+          config.getBoolean(PARAM_ENABLE_LONG_COMPONENTS_COMPATIBILITY,
+              DEFAULT_ENABLE_LONG_COMPONENTS_COMPATIBILITY);
       maxComponentLength = config.getInt(PARAM_MAX_COMPONENT_LENGTH,
-					 DEFAULT_MAX_COMPONENT_LENGTH);
+          DEFAULT_MAX_COMPONENT_LENGTH);
       checkUnnormalized =
-	(CheckUnnormalizedMode)
-	config.getEnum(CheckUnnormalizedMode.class,
-		       PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
+          (CheckUnnormalizedMode)
+              config.getEnum(CheckUnnormalizedMode.class,
+                  PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
     }
   }
 
@@ -286,7 +286,7 @@ public class RepositoryManager
     String path = LockssRepositoryImpl.getLocalRepositoryPath(repoName);
     log.debug("path: " + path);
 //    try {
-      return platInfo.getJavaDF(path);
+    return platInfo.getJavaDF(path);
 //    } catch (PlatformUtil.UnsupportedException e) {
 //      return null;
 //    }
@@ -309,10 +309,10 @@ public class RepositoryManager
     for (String repo : repoMap.keySet()) {
       PlatformUtil.DF df = repoMap.get(repo);
       if (df != null) {
-	if (mostFree == null ||
-	    (repoMap.get(mostFree)).getAvail() < df.getAvail()) {
-	  mostFree = repo;
-	}
+        if (mostFree == null ||
+            (repoMap.get(mostFree)).getAvail() < df.getAvail()) {
+          mostFree = repo;
+        }
       }
     }
     return mostFree;
@@ -340,10 +340,10 @@ public class RepositoryManager
       String repoName = (String)iter.next();
       String path = LockssRepositoryImpl.getLocalRepositoryPath(repoName);
       if (LockssRepositoryImpl.doesAuDirExist(auid, path)) {
-	if (res == null) {
-	  res = new ArrayList();
-	}
-	res.add(repoName);
+        if (res == null) {
+          res = new ArrayList();
+        }
+        res.add(repoName);
       }
     }
     return res == null ? Collections.EMPTY_LIST : res;
@@ -351,6 +351,9 @@ public class RepositoryManager
 
   // hack only local
   public synchronized LockssRepositoryImpl getRepositoryFromPath(String path) {
+    if (log.isDebug2()) {
+      log.debug2("get Repo from path: " + path);
+    }
     LockssRepositoryImpl repo = (LockssRepositoryImpl)localRepos.get(path);
     if (repo == null) {
       repo =  new LockssRepositoryImpl(path);
@@ -370,13 +373,16 @@ public class RepositoryManager
    * @return the AU's disk usage in bytes, or -1 if unknown
    */
   public long getRepoDiskUsage(String repoAuPath, boolean calcIfUnknown) {
+    if (log.isDebug2()) {
+      log.debug2("diskUssage for repo path: " + repoAuPath );
+    }
     LockssRepository repo = getRepositoryFromPath(repoAuPath);
     if (repo != null) {
       try {
-	RepositoryNode repoNode = repo.getNode(AuCachedUrlSetSpec.URL);
-	if (repoNode instanceof AuNodeImpl) {
-	  return ((AuNodeImpl)repoNode).getDiskUsage(calcIfUnknown);
-	}
+        RepositoryNode repoNode = repo.getNode(AuCachedUrlSetSpec.URL);
+        if (repoNode instanceof AuNodeImpl) {
+          return ((AuNodeImpl)repoNode).getDiskUsage(calcIfUnknown);
+        }
       } catch (MalformedURLException ignore) {
       }
     }
@@ -384,7 +390,7 @@ public class RepositoryManager
   }
 
   public synchronized void setRepositoryForPath(String path,
-						LockssRepositoryImpl repo) {
+      LockssRepositoryImpl repo) {
     localRepos.put(path, repo);
   }
 
@@ -415,8 +421,8 @@ public class RepositoryManager
   public void queueSizeCalc(RepositoryNode node) {
     synchronized (sizeCalcQueue) {
       if (sizeCalcQueue.add(node)) {
-	log.debug2("Queue size calc: " + node);
-	startOrKickThread();
+        log.debug2("Queue size calc: " + node);
+        startOrKickThread();
       }
     }
   }
@@ -470,41 +476,41 @@ public class RepositoryManager
       nowRunning();
 
       while (goOn) {
-	try {
-	  pokeWDog();
-	  if (sizeCalcQueue.isEmpty()) {
-	    Deadline timeout = Deadline.in(Constants.HOUR);
-	    sizeCalcSem.take(timeout);
-	  }
-	  RepositoryNode node;
-	  synchronized (sizeCalcQueue) {
-	    node = (RepositoryNode)CollectionUtil.getAnElement(sizeCalcQueue);
-	  }
-	  if (node != null) {
-	    long start = TimeBase.nowMs();
-	    log.debug2("CalcSize start: " + node);
-	    long dur = 0;
-	    try {
-	      doSizeCalc(node);
-	      dur = TimeBase.nowMs() - start;
-	      log.debug2("CalcSize finish (" +
-			 StringUtil.timeIntervalToString(dur) + "): " + node);
-	    } catch (RuntimeException e) {
-	      log.warning("doSizeCalc: " + node, e);
-	    }
-	    synchronized (sizeCalcQueue) {
-	      sizeCalcQueue.remove(node);
-	    }
-	    pokeWDog();
-	    long sleep = sleepTimeToAchieveLoad(dur, sizeCalcMaxLoad);
-	    Deadline.in(sleep).sleep();
-	  }
-	} catch (InterruptedException e) {
-	  // just wakeup and check for exit
-	}
+        try {
+          pokeWDog();
+          if (sizeCalcQueue.isEmpty()) {
+            Deadline timeout = Deadline.in(Constants.HOUR);
+            sizeCalcSem.take(timeout);
+          }
+          RepositoryNode node;
+          synchronized (sizeCalcQueue) {
+            node = (RepositoryNode)CollectionUtil.getAnElement(sizeCalcQueue);
+          }
+          if (node != null) {
+            long start = TimeBase.nowMs();
+            log.debug2("CalcSize start: " + node);
+            long dur = 0;
+            try {
+              doSizeCalc(node);
+              dur = TimeBase.nowMs() - start;
+              log.debug2("CalcSize finish (" +
+                  StringUtil.timeIntervalToString(dur) + "): " + node);
+            } catch (RuntimeException e) {
+              log.warning("doSizeCalc: " + node, e);
+            }
+            synchronized (sizeCalcQueue) {
+              sizeCalcQueue.remove(node);
+            }
+            pokeWDog();
+            long sleep = sleepTimeToAchieveLoad(dur, sizeCalcMaxLoad);
+            Deadline.in(sleep).sleep();
+          }
+        } catch (InterruptedException e) {
+          // just wakeup and check for exit
+        }
       }
       if (!goOn) {
-	triggerWDogOnExit(false);
+        triggerWDogOnExit(false);
       }
     }
 

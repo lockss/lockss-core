@@ -50,6 +50,7 @@ import org.lockss.protocol.BlockingStreamComm.*;
 import org.lockss.protocol.LcapStreamComm.*;
 import org.lockss.protocol.psm.*;
 import org.lockss.repository.*;
+import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
@@ -138,7 +139,8 @@ public class FuncV3Poller extends LockssTestCase {
     hashService = theDaemon.getHashService();
     theDaemon.setStreamCommManager(new MyMockStreamCommManager(theDaemon));
     theDaemon.setRouterManager(new MyMockLcapRouter());
-    theDaemon.setNodeManager(new MockNodeManager(), testau);
+    theDaemon.getHistoryRepository(testau);
+    //theDaemon.setHistoryRepository(new MockHistoryRepository(), testau);
     theDaemon.setPluginManager(new MyMockPluginManager(theDaemon, testau));
     theDaemon.setDaemonInited(true);
     theDaemon.getSchedService().startService();

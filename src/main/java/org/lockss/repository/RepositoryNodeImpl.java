@@ -33,7 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.repository;
 
 import java.io.*;
-import java.nio.charset.*; 
+import java.nio.charset.*;
 import java.net.MalformedURLException;
 import java.util.*;
 import java.util.Queue;
@@ -81,7 +81,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
   public static final String PARAM_VERSION_TIMEOUT = Configuration.PREFIX +
       "repository.version.timeout";
   static final long DEFAULT_VERSION_TIMEOUT = 5 * Constants.HOUR; // 5 hours
-  
+
   /** If true, enable the tracking of agreement. */
   public static final String PARAM_ENABLE_AGREEMENT = Configuration.PREFIX +
       "repository.enableAgreement";
@@ -89,24 +89,24 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
   /** If true, input streams are monitored for missed close()s */
   public static final String PARAM_MONITOR_INPUT_STREAMS =
-    Configuration.PREFIX + "monitor.inputStreams";
+      Configuration.PREFIX + "monitor.inputStreams";
   public static final boolean DEFAULT_MONITOR_INPUT_STREAMS = false;
 
   /** If true, the release method actually closes streams.  If false it
    * does nothing. */
   public static final String PARAM_ENABLE_RELEASE =
-    Configuration.PREFIX + "repository.enableRelease";
+      Configuration.PREFIX + "repository.enableRelease";
   public static final boolean DEFAULT_ENABLE_RELEASE = true;
 
   /** Determines whether errors that occur when opening a node cause the
    * node to be deactivated. */
   public static final String PARAM_DEACTIVATE_NODE_ON_ERROR =
-    Configuration.PREFIX + "repository.deactivateNodeOnError";
+      Configuration.PREFIX + "repository.deactivateNodeOnError";
   public static final boolean DEFAULT_DEACTIVATE_NODE_ON_ERROR = true;
 
   // properties set in the content properties, such as 'current.props'
   public static final String LOCKSS_VERSION_NUMBER =
-    "org.lockss.version.number";
+      "org.lockss.version.number";
   static final String NODE_WAS_INACTIVE_PROPERTY = "org.lockss.node.was.inactive";
   // properties set in the node properties
   static final String INACTIVE_CONTENT_PROPERTY = "node.content.isInactive";
@@ -119,13 +119,13 @@ public class RepositoryNodeImpl implements RepositoryNode {
   static final String INVALID = "U";
 
   public static final String PARAM_KEEP_ALL_PROPS_FOR_DUP_FILE =
-    Configuration.PREFIX + "repository.keepAllPropsForDupFile";
+      Configuration.PREFIX + "repository.keepAllPropsForDupFile";
   public static final boolean DEFAULT_KEEP_ALL_PROPS_FOR_DUP_FILE = false;
 
   public static final String PARAM_INVALIDATE_CACHED_SIZE_ON_DUP_STORE =
-    Configuration.PREFIX + "repository.invalidateCachedSizeOnDupStore";
+      Configuration.PREFIX + "repository.invalidateCachedSizeOnDupStore";
   public static final boolean DEFAULT_INVALIDATE_CACHED_SIZE_ON_DUP_STORE =
-    true;
+      true;
 
 
 
@@ -174,7 +174,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
   protected File nodePropsFile = null;
   protected File agreementFile = null;
   protected File tempAgreementFile = null;
-//  protected File ppisAgreementFile = null;
+  //  protected File ppisAgreementFile = null;
   protected File currentCacheFile;
   protected File currentPropsFile;
   File tempCacheFile;
@@ -183,10 +183,10 @@ public class RepositoryNodeImpl implements RepositoryNode {
   // identity url and location
   protected String url;
   protected String nodeLocation;
-  
+
   // Shared with AuNodeImpl
   protected static final Logger logger = Logger.getLogger("RepositoryNode");
-  
+
   protected LockssRepositoryImpl repository;
   // preset so testIllegalOperations() doesn't null pointer
   private Deadline versionTimeout = Deadline.MAX;
@@ -195,11 +195,11 @@ public class RepositoryNodeImpl implements RepositoryNode {
    * Keys that may be added to a the properties of a sealed node.
    */
   private static final String[] allowedKeys = {
-    org.lockss.plugin.CachedUrl.PROPERTY_CHECKSUM,
+      org.lockss.plugin.CachedUrl.PROPERTY_CHECKSUM,
   };
 
   RepositoryNodeImpl(String url, String nodeLocation,
-                     LockssRepositoryImpl repository) {
+      LockssRepositoryImpl repository) {
     this.url = url;
     this.nodeLocation = nodeLocation;
     this.repository = repository;
@@ -208,7 +208,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
   public String getNodeUrl() {
     return url;
   }
-  
+
   public boolean hasContent() {
     ensureCurrentInfoLoaded();
     return currentVersion>0;
@@ -235,16 +235,16 @@ public class RepositoryNodeImpl implements RepositoryNode {
   Object treeSizeLock = new Object();
 
   public long getTreeContentSize(CachedUrlSetSpec filter,
-				 boolean calcIfUnknown) {
+      boolean calcIfUnknown) {
     // this caches the size recursively (for unfiltered queries)
     ensureCurrentInfoLoaded();
     // only cache if not filtered
     if (filter==null) {
       String treeSize = nodeProps.getProperty(TREE_SIZE_PROPERTY);
       if (isPropValid(treeSize)) {
-	// return if found
-	logger.debug2("Found cached size at " + nodeLocation);
-	return Long.parseLong(treeSize);
+        // return if found
+        logger.debug2("Found cached size at " + nodeLocation);
+        return Long.parseLong(treeSize);
       }
     }
     logger.debug2("No cached size at " + nodeLocation);
@@ -259,32 +259,32 @@ public class RepositoryNodeImpl implements RepositoryNode {
       // Properties, but only harm would be to redundantly recalc a single
       // node.
       if (filter==null) {
-	String treeSize = nodeProps.getProperty(TREE_SIZE_PROPERTY);
-	if (isPropValid(treeSize)) {
-	  // return if found
-	  logger.debug2("Found cached size at " + nodeLocation);
-	  return Long.parseLong(treeSize);
-	}
+        String treeSize = nodeProps.getProperty(TREE_SIZE_PROPERTY);
+        if (isPropValid(treeSize)) {
+          // return if found
+          logger.debug2("Found cached size at " + nodeLocation);
+          return Long.parseLong(treeSize);
+        }
       }
       long totalSize = 0;
       if (hasContent()) {
-	totalSize = currentCacheFile.length();
+        totalSize = currentCacheFile.length();
       }
 
       // since RepositoryNodes update and cache tree size, efficient to use them
       int children = 0;
       for (Iterator subNodes = listChildren(filter, false); subNodes.hasNext(); ) {
-	// call recursively on all children
-	RepositoryNode subNode = (RepositoryNode)subNodes.next();
-	totalSize += subNode.getTreeContentSize(null, true);
-	children++;
+        // call recursively on all children
+        RepositoryNode subNode = (RepositoryNode)subNodes.next();
+        totalSize += subNode.getTreeContentSize(null, true);
+        children++;
       }
 
       if (filter==null) {
-	// cache values
-	nodeProps.setProperty(TREE_SIZE_PROPERTY, Long.toString(totalSize));
-	nodeProps.setProperty(CHILD_COUNT_PROPERTY, Integer.toString(children));
-	writeNodeProperties();
+        // cache values
+        nodeProps.setProperty(TREE_SIZE_PROPERTY, Long.toString(totalSize));
+        nodeProps.setProperty(CHILD_COUNT_PROPERTY, Integer.toString(children));
+        writeNodeProperties();
       }
       return totalSize;
     }
@@ -337,16 +337,16 @@ public class RepositoryNodeImpl implements RepositoryNode {
       logger.error(msg);
       throw new LockssRepository.RepositoryStateException(msg);
     }
-    
+
     if (RepositoryManager.isEnableLongComponents()) {
       // Trigger long-component code only if at least one encoded component
       // is present.  There are AUs in the field with >500,000 nodes at a
       // single level, and the new code requires several times as much
       // storage.  Also less risk of a bug affecting existing repositories.
       for (File file : children) {
-	if (file.getName().endsWith("\\")) {
-	  return enumerateEncodedChildren(children, filter, includeInactive);
-	}
+        if (file.getName().endsWith("\\")) {
+          return enumerateEncodedChildren(children, filter, includeInactive);
+        }
       }
     }
     int listSize;
@@ -360,7 +360,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     }
 
     CheckUnnormalizedMode unnormMode =
-      RepositoryManager.getCheckUnnormalizedMode();
+        RepositoryManager.getCheckUnnormalizedMode();
 
     ArrayList childL = new ArrayList(listSize);
     for (int ii=0; ii<children.length; ii++) {
@@ -371,33 +371,33 @@ public class RepositoryNodeImpl implements RepositoryNode {
         continue;
       }
       switch (unnormMode) {
-      case Log:
-      case Fix:
-	child = checkUnnormalized(unnormMode, child, children, ii);
-	break;
+        case Log:
+        case Fix:
+          child = checkUnnormalized(unnormMode, child, children, ii);
+          break;
       }
       if (child == null) {
-	continue;
+        continue;
       }
       String childUrl = constructChildUrl(url, child.getName());
       if ((filter==null) || (filter.matches(childUrl))) {
         try {
           RepositoryNode node = repository.getNode(childUrl);
-	  if (node != null) {
-	    
-	    // add all nodes which are internal or active leaves
-	    // deleted nodes never included
+          if (node != null) {
+
+            // add all nodes which are internal or active leaves
+            // deleted nodes never included
 //           boolean activeInternal = !node.isLeaf() && !node.isDeleted();
 //           boolean activeLeaf = node.isLeaf() && !node.isDeleted() &&
 //               (!node.isContentInactive() || includeInactive);
 //           if (activeInternal || activeLeaf) {
-	    if (!node.isDeleted() && (!node.isContentInactive() ||
-				      (includeInactive || !node.isLeaf()))) {
-	      childL.add(repository.getNode(childUrl));
-	    }
-	  } else {
-	    logger.warning("Child node not found; disappeared or is unnormalized: " + childUrl);
-	  }
+            if (!node.isDeleted() && (!node.isContentInactive() ||
+                (includeInactive || !node.isLeaf()))) {
+              childL.add(repository.getNode(childUrl));
+            }
+          } else {
+            logger.warning("Child node not found; disappeared or is unnormalized: " + childUrl);
+          }
         } catch (MalformedURLException ignore) {
           // this can safely skip bad files because they will
           // eventually be trimmed by the repository integrity checker
@@ -410,11 +410,11 @@ public class RepositoryNodeImpl implements RepositoryNode {
   }
 
   private List enumerateEncodedChildren(File[] children,
-					CachedUrlSetSpec filter,
-					boolean includeInactive) {
+      CachedUrlSetSpec filter,
+      boolean includeInactive) {
     // holds fully decoded immediate children
     List<File> expandedDirectories = new ArrayList<File>();
-    
+
     // holds immediate children that still need to be decoded, and may
     // yield more than one expanded child
     Queue<File> unexpandedDirectories = new LinkedList<File>();
@@ -427,7 +427,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
         expandedDirectories.add(file);
       }
     }
-    
+
     // keep expanding directories until no more unexpanded directories exist
     // core algorithm: BFS
     while(!unexpandedDirectories.isEmpty()) {
@@ -441,7 +441,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
         expandedDirectories.add(child);
       }
     }
-    
+
     // using iterator to traverse safely
     Iterator<File> iter = expandedDirectories.iterator();
     while(iter.hasNext()) {
@@ -451,10 +451,10 @@ public class RepositoryNodeImpl implements RepositoryNode {
         iter.remove();
       }
     }
-    
+
     // normalization needed?
     CheckUnnormalizedMode unnormMode =
-      RepositoryManager.getCheckUnnormalizedMode();
+        RepositoryManager.getCheckUnnormalizedMode();
 
     // We switch to using a sorted set, this time we hold strings
     // representing the url
@@ -465,44 +465,44 @@ public class RepositoryNodeImpl implements RepositoryNode {
         String location = child.getCanonicalPath().substring(nodeRootFile.getCanonicalFile().toString().length());
         location = decodeUrl(location);
         String oldLocation = location;
-	switch (unnormMode) {
-	case Log:
-	case Fix:
-          // Normalization done here against the url string, instead of
-          // against the file in the repository. This alleviates us from
-          // dealing with edge conditions where the file split occurs
-          // around an encoding. e.g. %/5C is special in file, but decoded
-          // URL string is %5C and we handle it correctly.
-          location = normalizeTrailingQuestion(location);
-          location = normalizeUrlEncodingCase(location);
-          if(!oldLocation.equals(location)) {
-	    switch (unnormMode) {
-	    case Fix:
-	      // most dangerous part done here, where we copy and
-	      // delete. Maybe we should move to a lost in found instead? :)
-	      String newRepoLocation = LockssRepositoryImpl.mapUrlToFileLocation(repository.getRootLocation(), url + location);
-	      logger.debug("Fixing unnormalized " + oldLocation + " => "
-			   + location);
-	      FileUtils.copyDirectory(child, new File(newRepoLocation));
-	      FileUtils.deleteDirectory(child);
-	      break;
-	    case Log:
-	      logger.debug("Detected unnormalized " + oldLocation +
-			   ", s.b. " + location);
-	      break;
-	    }
-          }
-	  break;
+        switch (unnormMode) {
+          case Log:
+          case Fix:
+            // Normalization done here against the url string, instead of
+            // against the file in the repository. This alleviates us from
+            // dealing with edge conditions where the file split occurs
+            // around an encoding. e.g. %/5C is special in file, but decoded
+            // URL string is %5C and we handle it correctly.
+            location = normalizeTrailingQuestion(location);
+            location = normalizeUrlEncodingCase(location);
+            if(!oldLocation.equals(location)) {
+              switch (unnormMode) {
+                case Fix:
+                  // most dangerous part done here, where we copy and
+                  // delete. Maybe we should move to a lost in found instead? :)
+                  String newRepoLocation = LockssRepositoryImpl.mapUrlToFileLocation(repository.getRootLocation(), url + location);
+                  logger.debug("Fixing unnormalized " + oldLocation + " => "
+                      + location);
+                  FileUtils.copyDirectory(child, new File(newRepoLocation));
+                  FileUtils.deleteDirectory(child);
+                  break;
+                case Log:
+                  logger.debug("Detected unnormalized " + oldLocation +
+                      ", s.b. " + location);
+                  break;
+              }
+            }
+            break;
         }
         location = url + location;
         subUrls.add(location);
       } catch (IOException e) {
-	logger.error("Normalizing (" + unnormMode + ") " + child, e);
+        logger.error("Normalizing (" + unnormMode + ") " + child, e);
       } catch(NullPointerException ex) {
-	logger.error("Normalizing (" + unnormMode + ") " + child, ex);
+        logger.error("Normalizing (" + unnormMode + ") " + child, ex);
       }
     }
-    
+
     int listSize;
     if (filter == null) {
       listSize = subUrls.size();
@@ -542,8 +542,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
   }
 
   private static Pattern UNNORMALIZED =
-    RegexpUtil.uncheckedCompile(".*%([a-z]|.[a-z]).*",
-				Perl5Compiler.READ_ONLY_MASK);
+      RegexpUtil.uncheckedCompile(".*%([a-z]|.[a-z]).*",
+          Perl5Compiler.READ_ONLY_MASK);
 
   File normalize(File file) {
     String name = file.getName();
@@ -568,7 +568,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
   String normalizeTrailingQuestion(String name) {
     if (CurrentConfig.getBooleanParam(UrlUtil.PARAM_NORMALIZE_EMPTY_QUERY,
-				      UrlUtil.DEFAULT_NORMALIZE_EMPTY_QUERY)) {
+        UrlUtil.DEFAULT_NORMALIZE_EMPTY_QUERY)) {
       return StringUtil.removeTrailing(name, "?");
     } else {
       return name;
@@ -576,40 +576,40 @@ public class RepositoryNodeImpl implements RepositoryNode {
   }
 
   File checkUnnormalized(RepositoryManager.CheckUnnormalizedMode unnormMode,
-			 File file, File[] all, int ix) {
+      File file, File[] all, int ix) {
     File norm = normalize(file);
     if (norm == file) {
       return file;
     }
     switch (unnormMode) {
-    case Fix:
-      synchronized (this) {
-	if (file.exists()) {
-	  if (norm.exists()) {
-	    if (FileUtil.delTree(file)) {
-	      logger.debug("Deleted redundant unnormalized: " + file);
-	    } else {
-	      logger.error("Couldn't delete unnormalized: " + file);
-	    }
-	    all[ix] = null;
-	  } else {
-	    if (file.renameTo(norm)) {
-	      logger.debug("Renamed unnormalized: " + file + " to " + norm);
-	      all[ix] = norm;
-	    } else {
-	      logger.error("Couldn't rename unnormalized: " + file +
-			   " to " + norm);
-	      all[ix] = null;
-	    }
-	  }
-	}
-      }
-      return all[ix];
-    case Log:
-      logger.debug("Detected unnormalized " + file + ", s.b. " + norm);
-      return file;
-    default:
-      return file;
+      case Fix:
+        synchronized (this) {
+          if (file.exists()) {
+            if (norm.exists()) {
+              if (FileUtil.delTree(file)) {
+                logger.debug("Deleted redundant unnormalized: " + file);
+              } else {
+                logger.error("Couldn't delete unnormalized: " + file);
+              }
+              all[ix] = null;
+            } else {
+              if (file.renameTo(norm)) {
+                logger.debug("Renamed unnormalized: " + file + " to " + norm);
+                all[ix] = norm;
+              } else {
+                logger.error("Couldn't rename unnormalized: " + file +
+                    " to " + norm);
+                all[ix] = null;
+              }
+            }
+          }
+        }
+        return all[ix];
+      case Log:
+        logger.debug("Detected unnormalized " + file + ", s.b. " + norm);
+        return file;
+      default:
+        return file;
     }
   }
 
@@ -751,10 +751,10 @@ public class RepositoryNodeImpl implements RepositoryNode {
     if (!nodeRootFile.exists()) {
       logger.debug3("Creating root directory for CUS '"+url+"'");
       if (!nodeRootFile.mkdirs()) {
-	throw new LockssRepository.RepositoryStateException("mkdirs(" +
-							    nodeRootFile +
-							    ") failed for "
-							    + nodeRootFile);
+        throw new LockssRepository.RepositoryStateException("mkdirs(" +
+            nodeRootFile +
+            ") failed for "
+            + nodeRootFile);
       }
     }
   }
@@ -777,8 +777,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
     if (!FileUtil.ensureDirExists(contentDir)) {
       logger.error("Couldn't create cache directory: " +contentDir);
       throw new LockssRepository.RepositoryStateException("mkdirs(" +
-							  contentDir + " of length " + contentDir.getAbsolutePath().length() +
-							  ") failed.");
+          contentDir + " of length " + contentDir.getAbsolutePath().length() +
+          ") failed.");
     }
 
     // if restoring from deletion or inactivation
@@ -789,8 +789,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
     newVersionOpen = true;
     versionTimeout = Deadline.in(
-      CurrentConfig.getLongParam(PARAM_VERSION_TIMEOUT,
-                                 DEFAULT_VERSION_TIMEOUT));
+        CurrentConfig.getLongParam(PARAM_VERSION_TIMEOUT,
+            DEFAULT_VERSION_TIMEOUT));
     isIdenticalVersion = false;
   }
 
@@ -803,7 +803,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
   public synchronized void sealNewVersion() {
     try {
       if (curOutputStream==null) {
-	throw new UnsupportedOperationException("getNewOutputStream() not called, or already sealed.");
+        throw new UnsupportedOperationException("getNewOutputStream() not called, or already sealed.");
       }
       // make sure outputstream was closed
       IOUtil.safeClose(curOutputStream);
@@ -824,12 +824,12 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
         // if the files exist but there's a problem renaming them, throw
         if ((inactiveCacheFile.exists() &&
-             !PlatformUtil.updateAtomically(inactiveCacheFile,
-                                            currentCacheFile))
+            !PlatformUtil.updateAtomically(inactiveCacheFile,
+                currentCacheFile))
             ||
             (inactivePropsFile.exists() &&
-             !PlatformUtil.updateAtomically(inactivePropsFile,
-                                            currentPropsFile))) {
+                !PlatformUtil.updateAtomically(inactivePropsFile,
+                    currentPropsFile))) {
           logger.error("Couldn't rename inactive versions: " + url);
           throw new LockssRepository.RepositoryStateException(
               "Couldn't rename inactive versions.");
@@ -839,13 +839,11 @@ public class RepositoryNodeImpl implements RepositoryNode {
         try {
           Properties myProps = loadProps(currentPropsFile);
           myProps.setProperty(NODE_WAS_INACTIVE_PROPERTY, "true");
-	  writeProps(currentPropsFile, myProps, url);
+          writeProps(currentPropsFile, myProps, url);
         } catch (IOException e) {
-          logger.error("Couldn't set 'was inactive' property for last version of: "+url,
-		       e);
+          logger.error("Couldn't set 'was inactive' property for last version of: "+url, e);
         } catch (LockssRepository.RepositoryStateException e) {
-          logger.error("Couldn't set 'was inactive' property for last version of: "+url,
-		       e);
+          logger.error("Couldn't set 'was inactive' property for last version of: "+url, e);
         }
 
 
@@ -862,13 +860,13 @@ public class RepositoryNodeImpl implements RepositoryNode {
           // if identical, don't rename
           if (FileUtil.isContentEqual(currentCacheFile, tempCacheFile)) {
             // don't rename
-	    if (logger.isDebug2()) {
-	      logger.debug2("New version identical to old: " +
-			    currentCacheFile);
-	    }
+            if (logger.isDebug2()) {
+              logger.debug2("New version identical to old: " +
+                  currentCacheFile);
+            }
             isIdenticalVersion = true;
           } else if (!PlatformUtil.updateAtomically(currentCacheFile,
-                                                    getVersionedCacheFile(currentVersion))) {
+              getVersionedCacheFile(currentVersion))) {
             String err = "Couldn't rename current content file: " + url;
             logger.error(err);
             throw new LockssRepository.RepositoryStateException(err);
@@ -897,23 +895,23 @@ public class RepositoryNodeImpl implements RepositoryNode {
       }
 
       if (CurrentConfig.getBooleanParam(PARAM_KEEP_ALL_PROPS_FOR_DUP_FILE,
-                                        DEFAULT_KEEP_ALL_PROPS_FOR_DUP_FILE)
-                                        || !isIdenticalVersion) {
-	// rename current properties to chosen file name
-	if (currentPropsFile.exists() &&
-	    !PlatformUtil.updateAtomically(currentPropsFile,
-	                                   verPropsFile)) {
-	  String err = "Couldn't rename current property file: " + url;
-	  logger.error(err);
-	  throw new LockssRepository.RepositoryStateException(err);
-	}
+          DEFAULT_KEEP_ALL_PROPS_FOR_DUP_FILE)
+          || !isIdenticalVersion) {
+        // rename current properties to chosen file name
+        if (currentPropsFile.exists() &&
+            !PlatformUtil.updateAtomically(currentPropsFile,
+                verPropsFile)) {
+          String err = "Couldn't rename current property file: " + url;
+          logger.error(err);
+          throw new LockssRepository.RepositoryStateException(err);
+        }
       }
 
       // if not identical, rename content from 'temp' to 'current'
       if (!isIdenticalVersion) {
         // rename new content file (if non-identical)
         if (!PlatformUtil.updateAtomically(tempCacheFile,
-                                           currentCacheFile)) {
+            currentCacheFile)) {
           String err = "Couldn't rename temp content version: " + url;
           logger.error(err);
           throw new LockssRepository.RepositoryStateException(err);
@@ -938,8 +936,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
         try {
           Properties myProps = loadProps(tempPropsFile);
           myProps.setProperty(LOCKSS_VERSION_NUMBER,
-                              Integer.toString(currentVersion));
-	  writeProps(tempPropsFile, myProps, url);
+              Integer.toString(currentVersion));
+          writeProps(tempPropsFile, myProps, url);
         } catch (IOException ioe) {
           String err = "Couldn't reset property version number: " + url;
           logger.error(err);
@@ -949,7 +947,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
       // rename new properties
       if (!PlatformUtil.updateAtomically(tempPropsFile,
-                                         currentPropsFile)) {
+          currentPropsFile)) {
         String err = "Couldn't rename temp property version: " + url;
         logger.error(err);
         throw new LockssRepository.RepositoryStateException(err);
@@ -964,8 +962,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
       versionTimeout.expire();
       // blank the stored sizes for this and its parents
       if (!isIdenticalVersion ||
-	  CurrentConfig.getBooleanParam(PARAM_INVALIDATE_CACHED_SIZE_ON_DUP_STORE,
-                                        DEFAULT_INVALIDATE_CACHED_SIZE_ON_DUP_STORE)) {
+          CurrentConfig.getBooleanParam(PARAM_INVALIDATE_CACHED_SIZE_ON_DUP_STORE,
+              DEFAULT_INVALIDATE_CACHED_SIZE_ON_DUP_STORE)) {
         invalidateCachedValues(true);
       }
     }
@@ -1027,19 +1025,19 @@ public class RepositoryNodeImpl implements RepositoryNode {
     if (hasContent()) {
       if ((currentCacheFile.exists() &&
           !PlatformUtil.updateAtomically(currentCacheFile,
-                                         getInactiveCacheFile()))
+              getInactiveCacheFile()))
           ||
           (currentPropsFile.exists() &&
-          !PlatformUtil.updateAtomically(currentPropsFile,
-                                         getInactivePropsFile()))) {
+              !PlatformUtil.updateAtomically(currentPropsFile,
+                  getInactivePropsFile()))) {
         logger.error("Couldn't deactivate: " + url);
         throw new LockssRepository.RepositoryStateException(
             "Couldn't deactivate.");
       }
     } else {
       if (!contentDir.exists()) {
-	logger.warning("Creating content dir in order to deactivate node: " +
-		       url);
+        logger.warning("Creating content dir in order to deactivate node: " +
+            url);
         contentDir.mkdirs();
       }
     }
@@ -1095,9 +1093,9 @@ public class RepositoryNodeImpl implements RepositoryNode {
         File inactivePropsFile = getInactivePropsFile();
 
         if (!PlatformUtil.updateAtomically(inactiveCacheFile,
-                                           currentCacheFile) ||
+            currentCacheFile) ||
             !PlatformUtil.updateAtomically(inactivePropsFile,
-                                           currentPropsFile)) {
+                currentPropsFile)) {
           logger.error("Couldn't rename inactive versions: "+url);
           throw new LockssRepository.RepositoryStateException("Couldn't rename inactive versions.");
         }
@@ -1126,9 +1124,9 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
     // rename old version to current
     if (!PlatformUtil.updateAtomically(lastContentFile,
-                                       currentCacheFile) ||
+        currentCacheFile) ||
         !PlatformUtil.updateAtomically(lastPropsFile,
-                                       currentPropsFile)) {
+            currentPropsFile)) {
       logger.error("Couldn't rename old versions: "+url);
       throw new LockssRepository.RepositoryStateException("Couldn't rename old versions.");
     }
@@ -1159,7 +1157,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     } catch (IOException e) {
 //       logFailedCreate(tempCacheFile);
       try {
-	logger.error("No new version file for "+tempCacheFile.getPath()+".", e);
+        logger.error("No new version file for "+tempCacheFile.getPath()+".", e);
         throw new LockssRepository.RepositoryStateException("Couldn't create/write to repository file.", e);
       } finally {
         abandonNewVersion();
@@ -1186,18 +1184,18 @@ public class RepositoryNodeImpl implements RepositoryNode {
   void loadPropsInto(File propsFile, Properties props)
       throws FileNotFoundException, IOException {
     InputStream is =
-      new BufferedInputStream(FileUtil.newFileInputStream(propsFile));
+        new BufferedInputStream(FileUtil.newFileInputStream(propsFile));
     try {
       props.load(is);
     } catch (IllegalArgumentException e) {
       // Usually means a malformed encoding in the props file
       throw new LockssRepository.RepositoryStateException("Can't read properties file.",
-							  e);
+          e);
     } finally {
       is.close();
     }
   }
-  
+  //todo: comment out all calls to this.
   public synchronized boolean hasAgreement(PeerIdentity id) {
     PersistentPeerIdSet agreeingPeers = loadAgreementHistory();
     try {
@@ -1206,7 +1204,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
       return false;
     }
   }
-  
+
+  //todo: comment out all calls to this.
   public synchronized void signalAgreement(Collection peers) {
     PersistentPeerIdSet agreeingPeers = loadAgreementHistory();
     for (Iterator it = peers.iterator(); it.hasNext(); ) {
@@ -1245,11 +1244,11 @@ public class RepositoryNodeImpl implements RepositoryNode {
           versionToWrite = 1;
         }
         myProps.setProperty(LOCKSS_VERSION_NUMBER, Integer.toString(versionToWrite));
-	writeProps(tempPropsFile, myProps, url);
+        writeProps(tempPropsFile, myProps, url);
       } catch (IOException ioe) {
         try {
           logger.error("Couldn't write properties for " +
-                       tempPropsFile.getPath()+".", ioe);
+              tempPropsFile.getPath()+".", ioe);
           throw new LockssRepository.RepositoryStateException("Couldn't write properties file.", ioe);
         } finally {
           abandonNewVersion();
@@ -1274,17 +1273,17 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
       // load the node properties
       if (!nodePropsLoaded) {
-	try {
-	  loadNodeProps(true);
-	} catch (LockssRepositoryImpl.RepositoryStateException rse) {
-	  currentVersion = DELETED_VERSION;
-	  logger.warning("Renaming faulty 'nodeProps' to 'nodeProps.ERROR'");
-	  if (!PlatformUtil.updateAtomically(nodePropsFile,
-					     new File(nodePropsFile.getAbsolutePath()
-						      + FAULTY_FILE_EXTENSION))) {
-	    logger.error("Error renaming nodeProps file");
-	  }
-	}
+        try {
+          loadNodeProps(true);
+        } catch (LockssRepositoryImpl.RepositoryStateException rse) {
+          currentVersion = DELETED_VERSION;
+          logger.warning("Renaming faulty 'nodeProps' to 'nodeProps.ERROR'");
+          if (!PlatformUtil.updateAtomically(nodePropsFile,
+              new File(nodePropsFile.getAbsolutePath()
+                  + FAULTY_FILE_EXTENSION))) {
+            logger.error("Error renaming nodeProps file");
+          }
+        }
       }
 
       // no content, so version 0
@@ -1320,7 +1319,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     initNodePropsFile();
   }
 
-  
+
   /**
    * Load the node properties.
    */
@@ -1331,47 +1330,47 @@ public class RepositoryNodeImpl implements RepositoryNode {
       nodePropsLoaded = true;
     } catch (FileNotFoundException e) {
       if (!okIfNotThere) {
-	String msg = "No node props file: " + nodePropsFile.getPath();
-	logger.error(msg);
-	throw new LockssRepository.RepositoryStateException(msg);
+        String msg = "No node props file: " + nodePropsFile.getPath();
+        logger.error(msg);
+        throw new LockssRepository.RepositoryStateException(msg);
       }
     } catch (Exception e) {
       logger.error("Error loading node props from " + nodePropsFile.getPath(),
-		   e);
+          e);
       throw new LockssRepository.RepositoryStateException("Couldn't load properties file.");
     }
   }
-  
+
   /**
    * Return a set of PeerIdentity keys that have agreed with this node.
-   * 
+   *
    * The previous version of this routine used 'Set<String>' (without declaring
    * that it was a set of String)'.  This version returns a PersistentPeerIdSet.
    */
   PersistentPeerIdSet loadAgreementHistory() {
     PersistentPeerIdSet ppisReturn;
- 
-     if (agreementFile == null) {
+
+    if (agreementFile == null) {
       initAgreementFile();
     }
-    
+
     DataInputStream is = null;
     try {
 //      ppisReturn = new PersistentPeerIdSetImpl(ppisAgreementFile, repository.getDaemon().getIdentityManager());
       ppisReturn = new PersistentPeerIdSetImpl(agreementFile, repository.getDaemon().getIdentityManager());
       ppisReturn.load();
-      
+
     } catch (Exception e) {
       logger.error("Error loading agreement history" + e.getMessage());
       throw new LockssRepository.RepositoryStateException("Couldn't load agreement file.");
     } finally {
       IOUtil.safeClose(is);
     }
-    
+
     return ppisReturn;
   }
-  
-  
+
+
   /** Consume the input stream, decoding peer identity keys  */
   Set decodeAgreementHistory(DataInputStream is) {
     Set history = new HashSet();
@@ -1386,7 +1385,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
       // do here is log the fact that there was an error, and try
       // again.
       logger.error("Parse error while trying to decode agreement " +
-                   "history file " + agreementFile + ": " + ex);
+          "history file " + agreementFile + ": " + ex);
     }
     return history;
   }
@@ -1395,14 +1394,14 @@ public class RepositoryNodeImpl implements RepositoryNode {
   void backupAgreementHistoryFile() {
     try {
       PlatformUtil.updateAtomically(agreementFile,
-                                    new File(agreementFile.getCanonicalFile() + ".old"));
+          new File(agreementFile.getCanonicalFile() + ".old"));
     } catch (IOException ex) {
       // This would only be caused by getCanonicalFile() throwing IOException.
       // Worthy of a stack trace.
       logger.error("Unable to back-up suspect agreement history file:", ex);
     }
   }
-  
+
 
   /**
    * Load the current input file and properties, if needed.  Extract current
@@ -1414,25 +1413,25 @@ public class RepositoryNodeImpl implements RepositoryNode {
         curInputFile = currentCacheFile;
       }
       if (curProps==null) {
-	try {
-	  curProps = loadProps(currentPropsFile);
-	} catch (FileNotFoundException e) {
-	  // No error if file not found, just treat as deleted
-	  currentVersion = DELETED_VERSION;
-	  return;
-	} catch (IOException e) {
-	  logger.error("Error loading props from " + currentPropsFile, e);
-	  throw new LockssRepository.RepositoryStateException("Couldn't load version from properties file.", e);
-	} catch (RuntimeException e) {
-	  // Error loading props, treat as deleted
-	  currentVersion = DELETED_VERSION;
-	  return;
-	}
+        try {
+          curProps = loadProps(currentPropsFile);
+        } catch (FileNotFoundException e) {
+          // No error if file not found, just treat as deleted
+          currentVersion = DELETED_VERSION;
+          return;
+        } catch (IOException e) {
+          logger.error("Error loading props from " + currentPropsFile, e);
+          throw new LockssRepository.RepositoryStateException("Couldn't load version from properties file.", e);
+        } catch (RuntimeException e) {
+          // Error loading props, treat as deleted
+          currentVersion = DELETED_VERSION;
+          return;
+        }
       }
     }
     if (curProps!=null) {
       currentVersion =
-	Integer.parseInt(curProps.getProperty(LOCKSS_VERSION_NUMBER, "-1"));
+          Integer.parseInt(curProps.getProperty(LOCKSS_VERSION_NUMBER, "-1"));
       if (currentVersion <= 0) {
         logger.error("Bad content version found: "+currentVersion);
         repository.deactivateInconsistentNode(this);
@@ -1442,7 +1441,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
   void maybeDeactivateInconsistentNode() {
     if (CurrentConfig.getBooleanParam(PARAM_DEACTIVATE_NODE_ON_ERROR,
-                                      DEFAULT_DEACTIVATE_NODE_ON_ERROR)) {
+        DEFAULT_DEACTIVATE_NODE_ON_ERROR)) {
       repository.deactivateInconsistentNode(this);
     } else {
       logger.debug("Not deactivating inconsistent node.");
@@ -1473,10 +1472,10 @@ public class RepositoryNodeImpl implements RepositoryNode {
     // props aren't loaded, not if neither value is true?
     if (!nodePropsLoaded) {
       if ((getInactiveCacheFile().exists()) && (!currentCacheFile.exists())) {
-	currentVersion = INACTIVE_VERSION;
-	curInputFile = null;
-	curProps = null;
-	return true;
+        currentVersion = INACTIVE_VERSION;
+        curInputFile = null;
+        curProps = null;
+        return true;
       }
     }
     return false;
@@ -1491,16 +1490,16 @@ public class RepositoryNodeImpl implements RepositoryNode {
     if (inactivePropFile.exists()) {
       Properties oldProps = new Properties();
       try {
-	loadPropsInto(inactivePropFile, oldProps);
+        loadPropsInto(inactivePropFile, oldProps);
       } catch (Exception e) {
         logger.error("Error loading last active version from "+
-                      inactivePropFile.getPath()+".");
+            inactivePropFile.getPath()+".");
         throw new LockssRepository.RepositoryStateException("Couldn't load version from properties file.");
       }
       if (oldProps!=null) {
-         return Integer.parseInt(oldProps.getProperty(LOCKSS_VERSION_NUMBER,
-             "-1"));
-       }
+        return Integer.parseInt(oldProps.getProperty(LOCKSS_VERSION_NUMBER,
+            "-1"));
+      }
     }
     return -1;
   }
@@ -1571,8 +1570,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
         logger.warning("Renaming faulty 'nodeProps' to 'nodeProps.ERROR'");
         // as long as the rename goes correctly, we can proceed
         if (!PlatformUtil.updateAtomically(nodePropsFile,
-                                           new File(nodePropsFile.getAbsolutePath()
-                                                    + FAULTY_FILE_EXTENSION))) {
+            new File(nodePropsFile.getAbsolutePath()
+                + FAULTY_FILE_EXTENSION))) {
           logger.error("Error renaming nodeProps file");
           return false;
         }
@@ -1640,8 +1639,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
       logger.error("Exists but as a file: " + dirFile.getAbsolutePath());
       logger.error("Renaming file to 'xxx.ERROR'...");
       if (!PlatformUtil.updateAtomically(dirFile,
-                                         new File(dirFile.getAbsolutePath()
-                                                  + FAULTY_FILE_EXTENSION))) {
+          new File(dirFile.getAbsolutePath()
+              + FAULTY_FILE_EXTENSION))) {
         logger.error("Error renaming file");
         return false;
       }
@@ -1672,8 +1671,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
     } else if (testFile.isDirectory()) {
       logger.error(desc+" a directory.");
       PlatformUtil.updateAtomically(testFile,
-                                    new File(testFile.getAbsolutePath()
-                                             + FAULTY_FILE_EXTENSION));
+          new File(testFile.getAbsolutePath()
+              + FAULTY_FILE_EXTENSION));
       return false;
     }
     return true;
@@ -1714,13 +1713,15 @@ public class RepositoryNodeImpl implements RepositoryNode {
    */
   protected void writeNodeProperties() {
     try {
+      logger.debug("writing node props... " + nodePropsFile);
+
       OutputStream os =
-	new BufferedOutputStream(FileUtil.newFileOutputStream(nodePropsFile));
+          new BufferedOutputStream(FileUtil.newFileOutputStream(nodePropsFile));
       nodeProps.store(os, "Node properties");
       os.close();
     } catch (IOException ioe) {
       logger.error("Couldn't write node properties for " +
-                   nodePropsFile.getPath()+".", ioe);
+          nodePropsFile.getPath()+".", ioe);
       throw new LockssRepository.RepositoryStateException("Couldn't write node properties file.", ioe);
     }
   }
@@ -1742,12 +1743,12 @@ public class RepositoryNodeImpl implements RepositoryNode {
   private void initTempPropsFile() {
     tempPropsFile = new File(getContentDir(), TEMP_PROPS_FILENAME);
   }
-  
+
   private void initAgreementFile() {
     agreementFile = new File(nodeLocation, AGREEMENT_FILENAME);
 //    ppisAgreementFile = new File(nodeLocation, AGREEMENT_FILENAME + ".ppis");
   }
-  
+
   private void initTempAgreementFile() {
     tempAgreementFile = new File(nodeLocation, TEMP_AGREEMENT_FILENAME);
   }
@@ -1784,10 +1785,10 @@ public class RepositoryNodeImpl implements RepositoryNode {
     int[] res = new int[names.length];
     for (int ix = names.length - 1; ix >= 0; ix--) {
       try {
-	res[ix] = Integer.parseInt(names[ix]);
+        res[ix] = Integer.parseInt(names[ix]);
       } catch (NumberFormatException e) {
-	logger.warning("Non-numeric numeric filename: " +
-		       names[ix] + ": " + e.getMessage());
+        logger.warning("Non-numeric numeric filename: " +
+            names[ix] + ": " + e.getMessage());
       }
     }
     return res;
@@ -1839,7 +1840,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     buffer.append(date);
     return new File(getContentDir(), buffer.toString());
   }
-  
+
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("[reponode: (");
@@ -1871,21 +1872,21 @@ public class RepositoryNodeImpl implements RepositoryNode {
     @Override
     public InputStream getInputStream() {
       if (!newVersionOpen) {
-	throw new IllegalStateException("UnsealedNodeContents not usable after seal()");
+        throw new IllegalStateException("UnsealedNodeContents not usable after seal()");
       }
       try {
-	InputStream is =
-	  new BufferedInputStream(FileUtil.newFileInputStream(tempCacheFile));
-	if (CurrentConfig.getBooleanParam(PARAM_MONITOR_INPUT_STREAMS,
-					  DEFAULT_MONITOR_INPUT_STREAMS)) {
-	  is = new MonitoringInputStream(is, tempCacheFile.toString());
-	}
-	streams.add(is);
-	return is;
+        InputStream is =
+            new BufferedInputStream(FileUtil.newFileInputStream(tempCacheFile));
+        if (CurrentConfig.getBooleanParam(PARAM_MONITOR_INPUT_STREAMS,
+            DEFAULT_MONITOR_INPUT_STREAMS)) {
+          is = new MonitoringInputStream(is, tempCacheFile.toString());
+        }
+        streams.add(is);
+        return is;
       } catch (IOException e) {
-	logger.error("Couldn't get inputstream for tempCacheFile: " +
-		     tempCacheFile, e);
-	throw new LockssRepository.RepositoryStateException ("Couldn't open TempInputStream: " + e.toString());
+        logger.error("Couldn't get inputstream for tempCacheFile: " +
+            tempCacheFile, e);
+        throw new LockssRepository.RepositoryStateException ("Couldn't open TempInputStream: " + e.toString());
       }
     }
 
@@ -1923,14 +1924,14 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
     private File getContentFile() {
       if (contentFile == null) {
-	contentFile = getVersionedCacheFile(version);
+        contentFile = getVersionedCacheFile(version);
       }
       return contentFile;
     }
 
     public long getContentSize() {
       if (!hasContent()) {
-	throw new UnsupportedOperationException("Version has no content");
+        throw new UnsupportedOperationException("Version has no content");
       }
       return getContentFile().length();
     }
@@ -1941,8 +1942,8 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
     public RepositoryNode.RepositoryNodeContents getNodeContents() {
       if (!hasContent()) {
-	throw new UnsupportedOperationException("No content for version " +
-						getVersion() + "of " + url);
+        throw new UnsupportedOperationException("No content for version " +
+            getVersion() + "of " + url);
       }
       return new VRepositoryNodeContentsImpl(version);
     }
@@ -1952,31 +1953,31 @@ public class RepositoryNodeImpl implements RepositoryNode {
       private Properties props = null;
 
       private VRepositoryNodeContentsImpl(int version) {
-	this.version = version;
+        this.version = version;
       }
 
       protected File getContentFile() {
-	return RepositoryNodeVersionImpl.this.getContentFile();
+        return RepositoryNodeVersionImpl.this.getContentFile();
       }
 
       protected File getPropsFile() {
-	return getVersionedPropsFile(version);
+        return getVersionedPropsFile(version);
       }
 
       protected Properties getProps() {
-	if (props == null) {
-	  File propsFile = getVersionedPropsFile(version);
-	  try {
-	    props = loadProps(propsFile);
-	  } catch (IOException e) {
-	    throw new LockssRepository.RepositoryStateException("Couldn't load versioned properties file: " + propsFile, e);
-	  }
-	}
-	return props;
+        if (props == null) {
+          File propsFile = getVersionedPropsFile(version);
+          try {
+            props = loadProps(propsFile);
+          } catch (IOException e) {
+            throw new LockssRepository.RepositoryStateException("Couldn't load versioned properties file: " + propsFile, e);
+          }
+        }
+        return props;
       }
 
       protected void updateProps(Properties newProps) {
-	props = newProps;
+        props = newProps;
       }
 
 
@@ -2010,7 +2011,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
     public synchronized Properties getProperties() {
       if (props == null) {
-	ensureInputStream();
+        ensureInputStream();
       }
       return props;
     }
@@ -2027,10 +2028,10 @@ public class RepositoryNodeImpl implements RepositoryNode {
      */
     public synchronized void addProperty(String key, String value) {
       for (String allowed : allowedKeys) {
-	if (allowed.equalsIgnoreCase(key)) {
-	  addProperty0(key, value);
-	  return;
-	}
+        if (allowed.equalsIgnoreCase(key)) {
+          addProperty0(key, value);
+          return;
+        }
       }
       throw new IllegalArgumentException("Not allowed: " + key);
     }
@@ -2038,7 +2039,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     private void addProperty0(String key, String value) {
       CIProperties newProps = CIProperties.fromProperties(getProps());
       if (newProps.containsKey(key)) {
-	throw new IllegalStateException("Props already contain: " + key);
+        throw new IllegalStateException("Props already contain: " + key);
       }
       newProps.setProperty(key, value);
 
@@ -2047,43 +2048,43 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
     private void updateCurrentVerProperties(Properties props) {
       File tempVerPropsFile =
-	new File(getContentDir(), TEMP_PROPS_FILENAME + "." + currentVersion);
+          new File(getContentDir(), TEMP_PROPS_FILENAME + "." + currentVersion);
       try {
-	writeProps(tempVerPropsFile, props, url);
+        writeProps(tempVerPropsFile, props, url);
       } catch (IOException e) {
-	String err = "Couldn't add property: " + url;
-	logger.error(err, e);
-	throw new LockssRepository.RepositoryStateException(err, e);
+        String err = "Couldn't add property: " + url;
+        logger.error(err, e);
+        throw new LockssRepository.RepositoryStateException(err, e);
       }
       // rename new properties
       File propsFile = getPropsFile();
 
       if (!PlatformUtil.updateAtomically(tempVerPropsFile, propsFile)) {
-	String err = "Couldn't rename temp property version: " + url;
-	logger.error(err);
-	throw new LockssRepository.RepositoryStateException(err);
+        String err = "Couldn't rename temp property version: " + url;
+        logger.error(err);
+        throw new LockssRepository.RepositoryStateException(err);
       }
       updateProps(props);
     }
 
     public synchronized void release() {
       if (is != null) {
-	if (CurrentConfig.getBooleanParam(PARAM_ENABLE_RELEASE,
-	                                  DEFAULT_ENABLE_RELEASE)) {
-	  try {
-	    is.close();
-	  } catch (IOException e) {
-	    logger.warning("Error closing RNC stream", e);
-	  }
-	}
-	is = null;
+        if (CurrentConfig.getBooleanParam(PARAM_ENABLE_RELEASE,
+            DEFAULT_ENABLE_RELEASE)) {
+          try {
+            is.close();
+          } catch (IOException e) {
+            logger.warning("Error closing RNC stream", e);
+          }
+        }
+        is = null;
       }
     }
 
     private void assertContent() {
       if (!hasContent()) {
-	throw new UnsupportedOperationException("No content for url '" +
-						url + "'");
+        throw new UnsupportedOperationException("No content for url '" +
+            url + "'");
       }
     }
 
@@ -2101,26 +2102,26 @@ public class RepositoryNodeImpl implements RepositoryNode {
 
     protected void handleOpenError(IOException e) {
       if (!FileUtil.isTemporaryResourceException(e)) {
-	maybeDeactivateInconsistentNode();
+        maybeDeactivateInconsistentNode();
       }
     }
 
     private void ensureInputStream() {
       if (is == null) {
-	assertContent();
-	try {
-	  is = new BufferedInputStream(FileUtil.newFileInputStream(getContentFile()));
-	  if (CurrentConfig.getBooleanParam(PARAM_MONITOR_INPUT_STREAMS,
-	                                    DEFAULT_MONITOR_INPUT_STREAMS)) {
-	    is = new MonitoringInputStream(is, getContentFile().toString());
-	  }
-	  props = getProps();
-	} catch (IOException e) {
-	  logger.error("Couldn't get inputstream for '" +
-		       getContentFile().getPath() + "'");
-	  handleOpenError(e);
-	  throw new LockssRepository.RepositoryStateException ("Couldn't open InputStream: " + e.toString());
-	}
+        assertContent();
+        try {
+          is = new BufferedInputStream(FileUtil.newFileInputStream(getContentFile()));
+          if (CurrentConfig.getBooleanParam(PARAM_MONITOR_INPUT_STREAMS,
+              DEFAULT_MONITOR_INPUT_STREAMS)) {
+            is = new MonitoringInputStream(is, getContentFile().toString());
+          }
+          props = getProps();
+        } catch (IOException e) {
+          logger.error("Couldn't get inputstream for '" +
+              getContentFile().getPath() + "'");
+          handleOpenError(e);
+          throw new LockssRepository.RepositoryStateException ("Couldn't open InputStream: " + e.toString());
+        }
       }
     }
   }
@@ -2151,7 +2152,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     }
     // 1. convert all backslashes to %5C
     String backNorm =
-      RepositoryManager.isEnableLongComponentsCompatibility() ? "%5c" : "%5C";
+        RepositoryManager.isEnableLongComponentsCompatibility() ? "%5c" : "%5C";
     url = url.replaceAll("\\\\", backNorm);
     // 2. tokenize string by '/'
     StringBuffer result = new StringBuffer();
@@ -2161,7 +2162,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
     }
     return result.toString();
   }
-  
+
   private static String encodeLongComponents(String string) {
     int maxComponentLen = RepositoryManager.getMaxComponentLength();
     if(maxComponentLen < 3) {
@@ -2175,33 +2176,33 @@ public class RepositoryNodeImpl implements RepositoryNode {
     encodeLongComponents(sb, string, maxComponentLen);
     return sb.toString();
   }
-  
+
   // Break into pieces whose encoded byte length fits within maxComponentLen
   private static void encodeLongComponents(StringBuilder sb,
-					   String current,
-					   int maxComponentLen) {
+      String current,
+      int maxComponentLen) {
     if (current.equals("..")) {
       sb.append("\\..");
     } else if (byteLength(current) <= maxComponentLen) {
       sb.append(current);
     } else {
       for (int charlen = maxComponentLen-1; charlen > 1; charlen--) {
-	String candidate = current.substring(0, charlen);
-	if (byteLength(candidate) <= maxComponentLen - 1) {
-	  sb.append(candidate);
-	  sb.append("\\/");
-	  encodeLongComponents(sb,
-			       current.substring(charlen),
-			       maxComponentLen);
-	  return;
-	}
+        String candidate = current.substring(0, charlen);
+        if (byteLength(candidate) <= maxComponentLen - 1) {
+          sb.append(candidate);
+          sb.append("\\/");
+          encodeLongComponents(sb,
+              current.substring(charlen),
+              maxComponentLen);
+          return;
+        }
       }
       throw new IllegalStateException("Single char unicode string too long for filesystem");
     }
   }
 
   private static final Charset FS_PATH_CHARSET =
-    Charset.forName(Constants.ENCODING_UTF_8);
+      Charset.forName(Constants.ENCODING_UTF_8);
 
   static int byteLength(String s) {
     return s.getBytes(FS_PATH_CHARSET).length;
@@ -2214,7 +2215,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
    *
    * 1. Remove all \/
    * 2. Remove all \
-   * 
+   *
    * Design Decision: Don't convert %5c to URL
    * This allows valid URLs that should have 
    */

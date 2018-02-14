@@ -647,37 +647,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.0.2</version>
-        <executions>
-          <execution>
-            <id>copy-plugins</id>
-            <phase>package</phase>
-            <goals>
-              <goal>copy</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <artifactItems>
-            <artifactItem>
-              <groupId>org.lockss</groupId>
-              <artifactId>lockss-plugins</artifactId>
-              <version>20180112</version>
-              <type>jar</type>
-              <overWrite>true</overWrite>
-              <outputDirectory>${project.build.directory}</outputDirectory>
-              <destFileName>lockss-plugins.jar</destFileName>
-            </artifactItem>
-          </artifactItems>
-          <outputDirectory>${project.build.directory}</outputDirectory>
-          <overWriteReleases>false</overWriteReleases>
-          <overWriteSnapshots>false</overWriteSnapshots>
-          <overWriteIfNewer>true</overWriteIfNewer>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.0.2</version>
         <executions>

@@ -175,6 +175,7 @@ public class TestRegistryArchivalUnit extends LockssTestCase {
 			      -1, // lastPollresult
 			      null, // lastPollresultMsg
 			      0, // pollDuration
+        -1,//hashDuration
 			      -1, // lastTreeWalk
 			      null, // crawlUrls
 			      null, // accessType

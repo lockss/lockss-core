@@ -67,7 +67,7 @@ public class MockExplodedPlugin extends ExplodedPlugin {
   void createMockAuManagers(ArchivalUnit au) {
     MockLockssDaemon daemon = (MockLockssDaemon)getDaemon();
     daemon.getLockssRepository(au).startService();
-    daemon.setNodeManager(new MockNodeManager(), au);
+    daemon.setHistoryRepository(new MockHistoryRepository(), au);
   }
 
   public ArticleMetadataExtractor

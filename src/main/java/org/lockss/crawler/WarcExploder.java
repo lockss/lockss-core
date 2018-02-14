@@ -196,7 +196,7 @@ public class WarcExploder extends Exploder {
         for (Iterator it = touchedAus.iterator(); it.hasNext(); ) {
           ArchivalUnit au = (ArchivalUnit)it.next();
           logger.debug3(getArchiveUrl() + " touching " + au.toString());
-          AuUtil.getDaemon(au).getNodeManager(au).newContentCrawlFinished();
+          AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
         }
     } else {
       ArchivalUnit au = crawlFacade.getAu();

@@ -355,13 +355,6 @@ public class MockLockssDaemon extends LockssDaemon {
     return getManagerByType(CrawlManager.class);
   }
 
-  /**
-   * return the node manager status instance
-   * @return the TreewalkManager
-   */
-  public NodeManagerManager getNodeManagerManager() {
-    return getManagerByType(NodeManagerManager.class);
-  }
 
   /**
    * return the repository manager instance
@@ -527,13 +520,6 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.REPOSITORY_MANAGER, repositoryMan);
   }
 
-  /**
-   * Set the NodeManagerManager
-   * @param nodeManMan the new manager
-   */
-  public void setNodeManagerManager(NodeManagerManager nodeManMan) {
-    managerMap.put(LockssDaemon.NODE_MANAGER_MANAGER, nodeManMan);
-  }
 
   /**
    * Set the WatchdogService
@@ -795,15 +781,6 @@ public class MockLockssDaemon extends LockssDaemon {
     }
   }
 
-  /** Return NodeManager for AU */
-  public NodeManager getNodeManager(ArchivalUnit au) {
-    try {
-      return super.getNodeManager(au);
-    } catch (IllegalArgumentException e) {
-      return (NodeManager)newAuManager(LockssDaemon.NODE_MANAGER, au);
-    }
-  }
-
   /** Return HistoryRepository for AU */
   public HistoryRepository getHistoryRepository(ArchivalUnit au) {
     try {
@@ -832,14 +809,6 @@ public class MockLockssDaemon extends LockssDaemon {
     setAuManager(LOCKSS_REPOSITORY, au, repo);
   }
 
-  /**
-   * Set the NodeManager for a given AU.
-   * @param nodeMan the new manager
-   * @param au the ArchivalUnit
-   */
-  public void setNodeManager(NodeManager nodeMan, ArchivalUnit au) {
-    setAuManager(NODE_MANAGER, au, nodeMan);
-  }
 
   /**
    * Set the HistoryRepository for a given AU.

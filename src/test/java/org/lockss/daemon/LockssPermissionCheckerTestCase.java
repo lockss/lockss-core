@@ -59,9 +59,9 @@ public class LockssPermissionCheckerTestCase extends LockssTestCase {
     LinkExtractor ue = new RegexpCssLinkExtractor();
     mau.setLinkExtractor("text/css", ue);
     aus = new MockAuState(mau);
-    MockNodeManager nm = new MockNodeManager();
-    nm.setAuState(aus);
-    daemon.setNodeManager(nm, mau);
+    MockHistoryRepository mhr = new MockHistoryRepository();
+    mhr.setAuState(aus);
+    daemon.setHistoryRepository(mhr, mau);
     mcf = new MockCrawler().new MockCrawlerFacade();
     mcf.setAu(mau);
   }

@@ -129,10 +129,10 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
 
   MockArchivalUnit newMockArchivalUnit() {
     MockArchivalUnit res = new MockArchivalUnit();
-    MockNodeManager nodeMgr = new MockNodeManager();
-    theDaemon.setNodeManager(nodeMgr, res);
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    theDaemon.setHistoryRepository(histRepo, res);
     MockAuState aus = new MockAuState(res);
-    nodeMgr.setAuState(aus);
+    histRepo.setAuState(aus);
     return res;
   }
 

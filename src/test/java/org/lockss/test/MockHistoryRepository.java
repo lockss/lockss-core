@@ -36,6 +36,9 @@ package org.lockss.test;
 import java.io.*;
 import java.util.*;
 import org.lockss.app.*;
+import org.lockss.daemon.Crawler;
+import org.lockss.protocol.DatedPeerIdSetImpl;
+import org.lockss.protocol.IdentityManager;
 import org.lockss.state.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.DatedPeerIdSet;
@@ -46,21 +49,25 @@ import org.lockss.config.Configuration;
  * MockHistoryRepository is a mock implementation of the HistoryRepository.
  */
 public class MockHistoryRepository implements HistoryRepository {
-  public HashMap storedHistories = new HashMap();
+  private HashMap storedHistories = new HashMap();
   public AuState theAuState;
-  public DamagedNodeSet theDamagedNodeSet;
-  public HashMap storedNodes = new HashMap();
+  private DamagedNodeSet theDamagedNodeSet;
+  private HashMap storedNodes = new HashMap();
   private File auStateFile = null;
-
+  private String baseDir;
   private Object storedIdentityAgreement = null;
   private Object loadedIdentityAgreement = null;
-
+  private ArchivalUnit au;
   private int timesStoreDamagedNodeSetCalled = 0;
+  private IdentityManager idMgr;
+  private File peerIdFile;
 
-  public MockHistoryRepository() { }
+  public MockHistoryRepository(){}
 
   public void initService(LockssApp app) throws LockssAppException { }
-  public void startService() { }
+  public void startService() {
+    theAuState = new MockAuState();
+  }
   public void stopService() {
     storedHistories = new HashMap();
     theAuState = null;
@@ -74,21 +81,11 @@ public class MockHistoryRepository implements HistoryRepository {
   public void setAuConfig(Configuration auConfig) {
   }
 
-  public void storePollHistories(NodeState nodeState) {
-    storedHistories.put(nodeState.getCachedUrlSet(),
-                        nodeState.getPollHistories());
-  }
-
-  /**
-   * Doesn't function.
-   * @param nodeState the NodeState
-   */
-  public void loadPollHistories(NodeState nodeState) {
-  }
-
   public void storeAuState(AuState auState) {
     theAuState = auState;
   }
+
+  public void setAuState(AuState auState){theAuState = auState;}
 
   public AuState loadAuState() {
     return theAuState;
@@ -107,12 +104,27 @@ public class MockHistoryRepository implements HistoryRepository {
     return theDamagedNodeSet;
   }
 
-  public void storeNodeState(NodeState nodeState) {
-    storedNodes.put(nodeState.getCachedUrlSet(), nodeState);
+  public AuState getAuState() {
+    return theAuState == null ? new MockAuState() : theAuState;
   }
 
-  public NodeState loadNodeState(CachedUrlSet cus) {
-    return (NodeState)storedNodes.get(cus);
+  public void setAuState(MockAuState aus) {
+    theAuState = aus;
+  }
+
+  /**
+   * Return the
+   */
+  @Override
+  public boolean hasDamage(CachedUrlSet cus) {
+    return false;
+  }
+  public DamagedNodeSet getDamagedNodes() {
+    return theDamagedNodeSet;
+  }
+
+  public void setDamagedNodes(DamagedNodeSet dnSet) {
+    theDamagedNodeSet = dnSet;
   }
 
   public File getIdentityAgreementFile() {
@@ -157,21 +169,16 @@ public class MockHistoryRepository implements HistoryRepository {
     return storedIdentityAgreement;
   }
 
-  /*
-   * (non-Javadoc)
-   * 
-   * Note from BEE:
-   * Creating a DatedPeerIdSet requires an IdentityManager.
-   * I'm not sure how to get the IdentityManager from here:
-   *    - MockHistoryRepository is NOT an extension of BaseLockssDaemonManager, so I cannot call "getDaemon".
-   *    - MockHistoryRepository does NOT have an associated app (see getApp).
-   *    - MockHistoryRepository does not have an IdentityManager associated with it, that I see.
-   *    
-   *    Therefore, it's an unsupported operation for now.
-   * @see org.lockss.state.HistoryRepository#getDatedPeerIdSet()
-   */
+  public void setIdMgr(IdentityManager idMgr) {
+    this.idMgr = idMgr;
+  }
+
+  public void setPeerIdFile(File peerIdFile)
+  {
+    this.peerIdFile = peerIdFile;
+  }
   public DatedPeerIdSet getNoAuPeerSet() {
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatedPeerIdSetImpl(peerIdFile, idMgr);
   }
 
 }

@@ -765,7 +765,7 @@ public class ConfigManager implements LockssManager {
   }
   protected static ConfigManager theMgr;
 
-  public static ConfigManager makeConfigManager() {
+  public static ConfigManager  makeConfigManager() {
     theMgr = new ConfigManager();
     return theMgr;
   }

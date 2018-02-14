@@ -99,7 +99,7 @@ public class TestFollowLinkCrawlerErrorPaths extends LockssTestCase {
     mau = newMyMockArchivalUnit();
     mau.setPlugin(plug);
     mau.setAuId("MyMockTestAu");
-    aus = new MockAuState(mau);
+
     startUrls = ListUtil.list(startUrl);
     mcus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
 
@@ -184,12 +184,15 @@ public class TestFollowLinkCrawlerErrorPaths extends LockssTestCase {
 
 
   MyMockArchivalUnit newMyMockArchivalUnit() {
-    NodeManager nodeManager = new MockNodeManager();
+    HistoryRepository mhr = new MockHistoryRepository();
     MyMockArchivalUnit mau = new MyMockArchivalUnit();
-    getMockLockssDaemon().setNodeManager(nodeManager, mau);
+    getMockLockssDaemon().setHistoryRepository(mhr, mau);
+    aus = new MockAuState(mau);
+    mhr.storeAuState(aus);
+    aus.setHistoryRepository(mhr);
     return mau;
   }
-  
+
   private class AlwaysPermissionMap extends PermissionMap {
     public AlwaysPermissionMap(CrawlerFacade cf) {
       super(cf,null,null,null);

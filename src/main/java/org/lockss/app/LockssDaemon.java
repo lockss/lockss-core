@@ -42,11 +42,13 @@ import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.exporter.FetchTimeExportManager;
 import org.lockss.exporter.counter.CounterReportsManager;
+import org.lockss.account.*;
 import org.lockss.hasher.*;
 import org.lockss.scheduler.*;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.*;
+import org.lockss.truezip.*;
 import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.protocol.psm.*;
@@ -106,8 +108,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(LockssRepository.class);
   public static final String HISTORY_REPOSITORY =
     managerKey(HistoryRepository.class);
-  public static final String NODE_MANAGER =
-    managerKey(NodeManager.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
@@ -120,8 +120,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(FailOverProxyManager.class);
   public static final String REMOTE_API =
     managerKey(RemoteApi.class);
-  public static final String NODE_MANAGER_MANAGER =
-    managerKey(NodeManagerManager.class);
   public static final String REPOSITORY_STATUS =
     managerKey(LockssRepositoryStatus.class);
   public static final String ARCHIVAL_UNIT_STATUS =
@@ -200,7 +198,6 @@ public class LockssDaemon extends LockssApp {
     DATAGRAM_COMM_MANAGER_DESC,
     STREAM_COMM_MANAGER_DESC,
     ROUTER_MANAGER_DESC,
-    NODE_MANAGER_MANAGER_DESC,
     ICP_MANAGER_DESC,
     PLATFORM_CONFIG_STATUS_DESC,
     CONFIG_STATUS_DESC,
@@ -228,10 +225,7 @@ public class LockssDaemon extends LockssApp {
                     "org.lockss.repository.LockssRepositoryImpl$Factory"),
     // HistoryRepository needs no extra managers
     new ManagerDesc(HISTORY_REPOSITORY,
-                    "org.lockss.state.HistoryRepositoryImpl$Factory"),
-    // NodeManager uses LockssRepository, HistoryRepository, and
-    // ActivityRegulator
-    new ManagerDesc(NODE_MANAGER, "org.lockss.state.NodeManagerImpl$Factory"),
+                    "org.lockss.state.HistoryRepositoryImpl$Factory")
   };
 
   // Maps au to sequenced map of managerKey -> manager instance
@@ -441,15 +435,6 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * return the NodeManagerManager instance.
-   * @return NodeManagerManager instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public NodeManagerManager getNodeManagerManager() {
-    return (NodeManagerManager) getManager(NODE_MANAGER_MANAGER);
-  }
-
-  /**
    * return the ArchivalUnitStatus instance.
    * @return ArchivalUnitStatus instance.
    * @throws IllegalArgumentException if the manager is not available.
@@ -591,16 +576,6 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * Return the NodeManager instance
-   * @param au the ArchivalUnit
-   * @return the NodeManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public NodeManager getNodeManager(ArchivalUnit au) {
-    return (NodeManager)getAuManager(NODE_MANAGER, au);
-  }
-
-  /**
    * Return the HistoryRepository instance
    * @param au the ArchivalUnit
    * @return the HistoryRepository
@@ -636,13 +611,6 @@ public class LockssDaemon extends LockssApp {
     return getAuManagersOfType(LOCKSS_REPOSITORY);
   }
 
-  /**
-   * Return all NodeManagers.
-   * @return a list of all NodeManagers for all AUs
-   */
-  public List<NodeManager> getAllNodeManagers() {
-    return getAuManagersOfType(NODE_MANAGER);
-  }
 
   // AU specific manager loading, starting, stopping
 

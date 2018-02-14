@@ -124,172 +124,6 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     super.tearDown();
   }
 
-  public void testGetNodeLocation() throws Exception {
-    MockCachedUrlSetSpec mspec =
-        new MockCachedUrlSetSpec("http://www.example.com", null);
-    MockCachedUrlSet mcus = new MockCachedUrlSet(mau, mspec);
-    String location = repository.getNodeLocation(mcus);
-    String expected = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
-							       mau);
-    expected = LockssRepositoryImpl.mapUrlToFileLocation(expected,
-        "http://www.example.com");
-
-    assertEquals(expected, location);
-  }
-
-  public void testDotUrlHandling() throws Exception {
-    //testing correction of nodes with bad '..'-including urls,
-    //filtering the first '..' but resolving the second
-    // should filter out the first '..' line but resolve the second
-    MockCachedUrlSetSpec mspec = new MockCachedUrlSetSpec(
-        "http://www.example.com/branch/test/../test2", null);
-    MockCachedUrlSet mcus = new MockCachedUrlSet(mau, mspec);
-    String location = repository.getNodeLocation(mcus);
-    String expectedStart =
-      LockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau);
-    String expected = LockssRepositoryImpl.mapUrlToFileLocation(
-        expectedStart, "http://www.example.com/branch/test2");
-
-    assertEquals(expected, location);
-
-    mspec = new MockCachedUrlSetSpec("http://www.example.com/branch/./test",
-                                     null);
-    mcus = new MockCachedUrlSet(mau, mspec);
-    location = repository.getNodeLocation(mcus);
-    expected = LockssRepositoryImpl.mapUrlToFileLocation(expectedStart,
-        "http://www.example.com/branch/test");
-
-    assertEquals(expected, location);
-
-    try {
-      mspec = new MockCachedUrlSetSpec("http://www.example.com/..", null);
-      mcus = new MockCachedUrlSet(mau, mspec);
-      location = repository.getNodeLocation(mcus);
-      fail("Should have thrown MalformedURLException.");
-    } catch (MalformedURLException mue) { }
-
-    try {
-      mspec = new MockCachedUrlSetSpec(
-          "http://www.example.com/test/../../test2", null);
-      mcus = new MockCachedUrlSet(mau, mspec);
-      location = repository.getNodeLocation(mcus);
-      fail("Should have thrown MalformedURLException.");
-    } catch (MalformedURLException mue) { }
-  }
-
-  public void testStorePollHistories() throws Exception {
-    TimeBase.setSimulated(123321);
-    MockCachedUrlSetSpec mspec =
-        new MockCachedUrlSetSpec("http://www.example.com", null);
-    CachedUrlSet mcus = new MockCachedUrlSet(mau, mspec);
-    NodeStateImpl nodeState = new NodeStateImpl(mcus, -1, null, null,
-                                                repository);
-    List histories = ListUtil.list(createPollHistoryBean(3), createPollHistoryBean(3),
-                                   createPollHistoryBean(3), createPollHistoryBean(3),
-                                   createPollHistoryBean(3));
-
-    /*
-     * CASTOR: [summary] Rewrite test in non-Castor way
-     * This is obviously not an appropriate way of writing this test,
-     * Right now it creates sample data in Castor format, from legacy
-     * code back when Castor was the built-in serialization engine.
-     * TODO: Rewrite test in non-Castor way
-     */
-    //nodeState.setPollHistoryBeanList(histories);
-    nodeState.setPollHistoryList(NodeHistoryBean.fromBeanListToList(histories));
-
-    repository.storePollHistories(nodeState);
-    String filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
-							       mau);
-    filePath = LockssRepositoryImpl.mapUrlToFileLocation(filePath,
-        "http://www.example.com/"+HistoryRepositoryImpl.HISTORY_FILE_NAME);
-    File xmlFile = new File(filePath);
-    assertTrue(xmlFile.exists());
-
-    nodeState.setPollHistoryList(new ArrayList());
-    repository.loadPollHistories(nodeState);
-    List loadedHistory = nodeState.getPollHistoryList();
-    assertEquals(histories.size(), loadedHistory.size());
-    // CASTOR: some Castor-tailored stuff here
-    // PollHistoryBean expect1 = (PollHistoryBean)histories.get(0);
-    // PollHistoryBean elem1 = (PollHistoryBean)loadedHistory.get(0);
-    PollHistory expect1 = (PollHistory)histories.get(0);
-    PollHistory elem1 = (PollHistory)loadedHistory.get(0);
-    assertEquals(expect1.type, elem1.type);
-    assertEquals(expect1.lwrBound, elem1.lwrBound);
-    assertEquals(expect1.uprBound, elem1.uprBound);
-    assertEquals(expect1.status, elem1.status);
-    assertEquals(expect1.startTime, elem1.startTime);
-    assertEquals(expect1.duration, elem1.duration);
-    // CASTOR: some Castor-tailored stuff here
-    // List expectBeans = (List)expect1.getVoteBeans();
-    // List elemBeans = (List)elem1.getVoteBeans();
-    Iterator expectIter = (Iterator)expect1.getVotes();
-    Iterator elemIter = (Iterator)elem1.getVotes();
-    while (expectIter.hasNext() && elemIter.hasNext()) {
-      Vote expectVote = (Vote)expectIter.next();
-      Vote elemVote = (Vote)elemIter.next();
-      assertEquals(expectVote.getVoterIdentity().getIdString(),
-                   elemVote.getVoterIdentity().getIdString());
-      assertEquals(expectVote.isAgreeVote(),
-                   elemVote.isAgreeVote());
-      assertEquals(expectVote.getChallengeString(),
-                   elemVote.getChallengeString());
-      assertEquals(expectVote.getVerifierString(),
-                   elemVote.getVerifierString());
-      assertEquals(expectVote.getHashString(),
-                   elemVote.getHashString());
-    }
-    assertFalse(expectIter.hasNext());
-    assertFalse(expectIter.hasNext());
-    TimeBase.setReal();
-  }
-
-  public void testHandleEmptyFile() throws Exception {
-    MockCachedUrlSetSpec mspec =
-        new MockCachedUrlSetSpec("http://www.example.com", null);
-    CachedUrlSet mcus = new MockCachedUrlSet(mau, mspec);
-    NodeStateImpl nodeState = new NodeStateImpl(mcus, -1, null, null,
-                                                repository);
-    nodeState.setPollHistoryList(new ArrayList());
-    //storing empty vector
-    repository.storePollHistories(nodeState);
-    String filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
-							       mau);
-    filePath = LockssRepositoryImpl.mapUrlToFileLocation(filePath,
-        "http://www.example.com/"+HistoryRepositoryImpl.HISTORY_FILE_NAME);
-    File xmlFile = new File(filePath);
-    assertTrue(xmlFile.exists());
-
-    nodeState.setPollHistoryList(new ArrayList());
-    repository.loadPollHistories(nodeState);
-    assertEquals(0, nodeState.pollHistories.size());
-
-    mspec = new MockCachedUrlSetSpec("http://www.example2.com", null);
-    mcus = new MockCachedUrlSet(mau, mspec);
-    nodeState = new NodeStateImpl(mcus, -1, null, null, repository);
-    filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau);
-    filePath = LockssRepositoryImpl.mapUrlToFileLocation(filePath,
-        "http://www.example2.com/");
-    xmlFile = new File(filePath);
-    assertFalse(xmlFile.exists());
-    xmlFile.mkdirs();
-    filePath += HistoryRepositoryImpl.HISTORY_FILE_NAME;
-    xmlFile = new File(filePath);
-    OutputStream os = new BufferedOutputStream(new FileOutputStream(xmlFile));
-    os.write(new byte[0]);
-    os.close();
-    assertTrue(xmlFile.exists());
-
-    nodeState.setPollHistoryList(new ArrayList());
-    repository.loadPollHistories(nodeState);
-    assertEquals(0, nodeState.pollHistories.size());
-    assertFalse(xmlFile.exists());
-    xmlFile = new File(filePath + CurrentConfig.getParam(ObjectSerializer.PARAM_FAILED_DESERIALIZATION_EXTENSION,
-                                                         ObjectSerializer.DEFAULT_FAILED_DESERIALIZATION_EXTENSION));
-    assertTrue(xmlFile.exists());
-  }
-
   public void testStoreAuEmptyState() throws Exception {
     HashSet strCol = new HashSet();
     strCol.add("test");
@@ -318,6 +152,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     assertEquals(ListUtil.list("http://this.is.new/"), loadedState.getCdnStems());
 
     assertEquals(0, loadedState.getPollDuration());
+    assertEquals(-1, loadedState.getAverageHashDuration());
     assertEquals(0, loadedState.getClockssSubscriptionStatus());
     assertEquals(null, loadedState.getAccessType());
     assertEquals(SubstanceChecker.State.Unknown, loadedState.getSubstanceState());
@@ -334,7 +169,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     AuState origState = new AuState(mau,
 				    123000, 123123, 41, "woop woop",
 				    321000, 222000, 3, "pollres", 12345,
-				    456000, strCol,
+				    965832931,456000, strCol,
 				    AuState.AccessType.OpenAccess,
 				    2, 1.0, 1.0,
 				    SubstanceChecker.State.Yes,
@@ -388,6 +223,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 		 loadedState.getCdnStems());
 
     assertEquals(12345, loadedState.getPollDuration());
+    assertEquals(965832931, loadedState.getAverageHashDuration());
     assertEquals(2, loadedState.getClockssSubscriptionStatus());
     assertEquals(AuState.AccessType.OpenAccess, loadedState.getAccessType());
     assertEquals(SubstanceChecker.State.Yes, loadedState.getSubstanceState());
@@ -470,6 +306,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 				  -1, // lastPollresult
 				  null, // lastPollresultMsg
 				  0, // pollDuration
+        -1, //hashDuration
 				  -1, // lastTreeWalk
 				  null, // crawlUrls
 				  null, // accessType
@@ -511,6 +348,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 			  -1, // lastPollresult
 			  null, // lastPollresultMsg
 			  0, // pollDuration
+        -1,
 			  -1, // lastTreeWalk
 			  null, // crawlUrls
 			  null, // accessType
@@ -568,6 +406,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 			  -1, // lastPollresult
 			  null, // lastPollresultMsg
 			  0, // pollDuration
+        -1,
 			  -1, // lastTreeWalk
 			  null, // crawlUrls
 			  null, // accessType
@@ -595,155 +434,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     assertEquals(expectedStr, baos.toString());
   }
 
-  public void testStoreNodeState() throws Exception {
-    TimeBase.setSimulated(100);
-    CachedUrlSet mcus = new MockCachedUrlSet(mau, new RangeCachedUrlSetSpec(
-        "http://www.example.com"));
-    CrawlState crawl = new CrawlState(1, 2, 123);
-    List polls = new ArrayList(2);
-    PollState poll1 = new PollState(1, "sdf", "jkl", 2, 123, Deadline.at(456), false);
-    PollState poll2 = new PollState(2, "abc", "def", 3, 321, Deadline.at(654), false);
-    polls.add(poll1);
-    polls.add(poll2);
-    NodeState nodeState = new NodeStateImpl(mcus, 123321, crawl, polls,
-                                            repository);
-    ((NodeStateImpl)nodeState).setState(NodeState.DAMAGE_AT_OR_BELOW);
-    repository.storeNodeState(nodeState);
-    String filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
-							       mau);
-    filePath = LockssRepositoryImpl.mapUrlToFileLocation(filePath,
-        "http://www.example.com/"+HistoryRepositoryImpl.NODE_FILE_NAME);
-    File xmlFile = new File(filePath);
-    assertTrue(xmlFile.exists());
 
-    nodeState = null;
-    nodeState = repository.loadNodeState(mcus);
-    assertSame(mcus, nodeState.getCachedUrlSet());
-
-    assertEquals(123321, nodeState.getAverageHashDuration());
-    assertEquals(1, nodeState.getCrawlState().getType());
-    assertEquals(2, nodeState.getCrawlState().getStatus());
-    assertEquals(123, nodeState.getCrawlState().getStartTime());
-    assertEquals(NodeState.DAMAGE_AT_OR_BELOW, nodeState.getState());
-
-    Iterator pollIt = nodeState.getActivePolls();
-    assertTrue(pollIt.hasNext());
-    PollState loadedPoll = (PollState)pollIt.next();
-    assertEquals(1, loadedPoll.getType());
-    assertEquals("sdf", loadedPoll.getLwrBound());
-    assertEquals("jkl", loadedPoll.getUprBound());
-    assertEquals(2, loadedPoll.getStatus());
-    assertEquals(123, loadedPoll.getStartTime());
-    assertEquals(456, loadedPoll.getDeadline().getExpirationTime());
-
-    assertTrue(pollIt.hasNext());
-    loadedPoll = (PollState)pollIt.next();
-    assertEquals(2, loadedPoll.getType());
-    assertEquals("abc", loadedPoll.getLwrBound());
-    assertEquals("def", loadedPoll.getUprBound());
-    assertEquals(3, loadedPoll.getStatus());
-    assertEquals(321, loadedPoll.getStartTime());
-    assertEquals(654, loadedPoll.getDeadline().getExpirationTime());
-    assertFalse(pollIt.hasNext());
-
-    TimeBase.setReal();
-  }
-
-  // TODO: Decide how to split this test between here and TestPeerAgreements
-//  public void testStoreIdentityAgreements() throws Exception {
-//    IdentityManager.IdentityAgreement id1 =
-//      new IdentityManager.IdentityAgreement(testID1);
-//    id1.setLastAgree(123);
-//    id1.setLastDisagree(321);
-//    id1.setPercentAgreement(0.5f);
-//    IdentityManager.IdentityAgreement id2 =
-//      new IdentityManager.IdentityAgreement(testID2);
-//    id2.setLastAgree(456);
-//    id2.setLastDisagree(654);
-//    id2.setPercentAgreementHint(0.8f);
-//
-//    repository.storeIdentityAgreements(ListUtil.list(id1, id2));
-//    String filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
-//							       mau);
-//    filePath += HistoryRepositoryImpl.IDENTITY_AGREEMENT_FILE_NAME;
-//    File xmlFile = new File(filePath);
-//    assertTrue(xmlFile.exists());
-//
-//    List idList = repository.loadIdentityAgreements();
-//    assertEquals(2, idList.size());
-//    id1 = (IdentityManager.IdentityAgreement)idList.get(0);
-//    assertNotNull(id1);
-//    assertSame(testID1, idmgr.stringToPeerIdentity(id1.getId()));
-//    assertEquals(123, id1.getLastAgree());
-//    assertEquals(321, id1.getLastDisagree());
-//    assertEquals(.5f, id1.getPercentAgreement());
-//    assertEquals(.5f, id1.getHighestPercentAgreement());
-//    assertEquals(-1.0f, id1.getPercentAgreementHint());
-//    assertEquals(-1.0f, id1.getHighestPercentAgreementHint());
-//
-//    id2 = (IdentityManager.IdentityAgreement)idList.get(1);
-//    assertSame(testID2, idmgr.stringToPeerIdentity(id2.getId()));
-//    assertEquals(456, id2.getLastAgree());
-//    assertEquals(654, id2.getLastDisagree());
-//    assertEquals(0.0f, id2.getPercentAgreement());
-//    assertEquals(0.0f, id2.getHighestPercentAgreement());
-//    assertEquals(0.8f, id2.getPercentAgreementHint());
-//    assertEquals(0.8f, id2.getHighestPercentAgreementHint());
-//  }
-
-  /**
-   * <p>Verifies that the serializers in use by the history repository
-   * are in the correct modes.</p>
-   * @throws Exception if an unexpected error occurs
-   */
-  public void testSerializerModes() throws Exception {
-    abstract class SerializerFactory {
-      public abstract ObjectSerializer makeSerializer();
-    }
-
-    SerializerFactory[] actions = new SerializerFactory[] {
-        new SerializerFactory() {
-          public ObjectSerializer makeSerializer() {
-            return repository.makeAuStateSerializer();
-          }
-        },
-        new SerializerFactory() {
-          public ObjectSerializer makeSerializer() {
-            return repository.makeDamagedNodeSetSerializer();
-          }
-        },
-        new SerializerFactory() {
-          public ObjectSerializer makeSerializer() {
-            return repository.makeIdentityAgreementListSerializer();
-          }
-        },
-        new SerializerFactory() {
-          public ObjectSerializer makeSerializer() {
-            return repository.makeNodeStateSerializer();
-          }
-        },
-        new SerializerFactory() {
-          public ObjectSerializer makeSerializer() {
-            return repository.makePollHistoriesSerializer();
-          }
-        },
-    };
-
-    // For each variant action...
-    for (int action = 0 ; action < actions.length ; ++action) {
-      log.debug("Starting with action " + action);
-      ObjectSerializer serializer = actions[action].makeSerializer();
-      assertEquals(ObjectSerializer.FAILED_DESERIALIZATION_RENAME,
-                   serializer.getFailedDeserializationMode());
-
-      // CASTOR: Which concrete class is returned may change over time
-      assertTrue(serializer instanceof CXSerializer);
-      CXSerializer cxSerializer = (CXSerializer)serializer;
-      assertEquals(CXSerializer.getCompatibilityModeFromConfiguration(),
-                   cxSerializer.getCompatibilityMode());
-    }
-  }
-  
   /**
    *  Make sure that we have one (and only one) dated peer id set 
    */
@@ -759,23 +450,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     
     assertSame(dpis1, dpis2);
   }
-  
-  
 
-  private PollHistoryBean createPollHistoryBean(int voteCount) throws Exception {
-    PollState state = new PollState(1, "lwr", "upr", 2, 5, null, false);
-    List votes = new ArrayList(voteCount);
-    for (int ii=0; ii<voteCount; ii++) {
-      VoteBean bean = new VoteBean();
-      bean.setId(idKey);
-      bean.setAgreeState(true);
-      bean.setChallengeString("1234");
-      bean.setHashString("2345");
-      bean.setVerifierString("3456");
-      votes.add(bean.getVote());
-    }
-    return new PollHistoryBean(new PollHistory(state, 0, votes));
-  }
 
   public static void configHistoryParams(String rootLocation)
     throws IOException {

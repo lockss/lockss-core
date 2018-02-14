@@ -106,8 +106,8 @@ public class AuUtil {
    * @return the AuState
    */
   public static AuState getAuState(ArchivalUnit au) {
-    NodeManager nodeManager = getDaemon(au).getNodeManager(au);
-    return nodeManager.getAuState();
+    HistoryRepository histRepo = getDaemon(au).getHistoryRepository(au);
+    return histRepo.getAuState();
   }
 
   /**

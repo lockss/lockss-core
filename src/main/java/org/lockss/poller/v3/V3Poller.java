@@ -108,7 +108,6 @@ import org.lockss.scheduler.TaskCallback;
 import org.lockss.servlet.DisplayConverter;
 import org.lockss.state.AuState;
 import org.lockss.state.HistoryRepository;
-import org.lockss.state.NodeManager;
 import org.lockss.state.SubstanceChecker;
 import org.lockss.util.ByteArray;
 import org.lockss.util.CollectionUtil;
@@ -2329,9 +2328,8 @@ public class V3Poller implements Poll {
         CachedUrlSetSpec cuss =
             new SingleNodeCachedUrlSetSpec(url);
         CachedUrlSet cus = getAu().makeCachedUrlSet(cuss);
-        NodeManager nm = theDaemon.getNodeManager(getAu());
         log.debug("Marking block deleted: " + url);
-        nm.deleteNode(cus);
+        theDaemon.getLockssRepository(getAu()).deleteNode(cus.getUrl());
       } else {
         log.info("Asked to mark file " + url + " deleted in poll " +
             pollerState.getPollKey() + ".  Not actually deleting.");

@@ -93,9 +93,9 @@ public class TestRepairPolicy extends LockssTestCase {
 
   private void setUpAu(MockArchivalUnit au) {
     au.setPlugin(new MockPlugin(daemon));
-    MockNodeManager nodeManager = new MockNodeManager();
-    daemon.setNodeManager(nodeManager, au);
-    nodeManager.setAuState(new MockAuState());
+    MockHistoryRepository mhr = new MockHistoryRepository();
+    daemon.setHistoryRepository(mhr, au);
+    mhr.setAuState(new MockAuState());
   }
 
   private void initRequiredServices() throws Exception {

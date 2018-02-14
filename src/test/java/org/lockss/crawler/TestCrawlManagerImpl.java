@@ -34,6 +34,8 @@ package org.lockss.crawler;
 
 import java.util.*;
 import junit.framework.Test;
+
+import org.lockss.state.HistoryRepository;
 import org.lockss.util.*;
 import org.lockss.test.*;
 import org.lockss.plugin.*;
@@ -50,14 +52,14 @@ public class TestCrawlManagerImpl extends LockssTestCase {
   protected TestableCrawlManagerImpl crawlManager = null;
   protected MockArchivalUnit mau = null;
   protected MockLockssDaemon theDaemon;
-  protected MockNodeManager nodeManager;
+  protected MockHistoryRepository histRepo;
   protected MockActivityRegulator activityRegulator;
   protected MockCrawler crawler;
   protected CachedUrlSet cus;
   protected CrawlRule rule;
   protected CrawlManager.StatusSource statusSource;
   protected MyPluginManager pluginMgr;
-  protected MockAuState maus;
+  //protected MockAuState maus;
   protected Plugin plugin;
   protected Properties cprops = new Properties();
   protected List semsToGive;
@@ -74,7 +76,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     rule = new MockCrawlRule();
 
     theDaemon = getMockLockssDaemon();
-    nodeManager = new MockNodeManager();
+    histRepo = new MockHistoryRepository();
 
     pluginMgr = new MyPluginManager();
     pluginMgr.initService(theDaemon);
@@ -93,7 +95,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     mau.setCrawlRule(rule);
     mau.setStartUrls(ListUtil.list("blah"));
     mau.setCrawlWindow(new MockCrawlWindow(true));
-    theDaemon.setNodeManager(nodeManager, mau);
 
     PluginTestUtil.registerArchivalUnit(plugin, mau);
     activityRegulator = new MyMockActivityRegulator(mau);
@@ -108,8 +109,11 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     crawler = new MockCrawler();
     crawlManager.setTestCrawler(crawler);
 
-    maus = new MockAuState();
-    nodeManager.setAuState(maus);
+    MockAuState m_aus = new MockAuState();
+    m_aus.setHistoryRepository(histRepo);
+    histRepo.storeAuState(m_aus);
+    theDaemon.setHistoryRepository(histRepo, mau);
+    histRepo.startService();
   }
 
   public void tearDown() throws Exception {
@@ -118,7 +122,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = (SimpleBinarySemaphore)iter.next();
       sem.give();
     }
-    nodeManager.stopService();
     crawlManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
@@ -126,9 +129,12 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockNodeManager nodeMgr = new MockNodeManager();
-    theDaemon.setNodeManager(nodeMgr, mau);
-    nodeManager.setAuState(new MockAuState());
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    MockAuState m_aus = new MockAuState();
+    m_aus.setHistoryRepository(histRepo);
+    histRepo.storeAuState(m_aus);
+    theDaemon.setHistoryRepository(histRepo, mau);
+    histRepo.startService();
     return mau;
   }
 
@@ -139,7 +145,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
   String didntMsg(String what, long time) {
     return "Crawl didn't " + what + " in " +
-      StringUtil.timeIntervalToString(time);
+        StringUtil.timeIntervalToString(time);
   }
 
   protected void waitForCrawlToFinish(SimpleBinarySemaphore sem) {
@@ -170,9 +176,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     public void testNullAuForIsCrawlingAu() {
       try {
-	TestCrawlCB cb = new TestCrawlCB(new SimpleBinarySemaphore());
-	crawlManager.startNewContentCrawl(null, cb, "blah", null);
-	fail("Didn't throw an IllegalArgumentException on a null AU");
+        TestCrawlCB cb = new TestCrawlCB(new SimpleBinarySemaphore());
+        crawlManager.startNewContentCrawl(null, cb, "blah", null);
+        fail("Didn't throw an IllegalArgumentException on a null AU");
       } catch (IllegalArgumentException iae) {
       }
     }
@@ -195,15 +201,15 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem2 = new SimpleBinarySemaphore();
       //gives sem1 when doCrawl is entered, then takes sem2
       MockCrawler crawler =
-	new HangingCrawler("testStoppingCrawlAbortsNewContentCrawl",
-			   sem1, sem2);
+          new HangingCrawler("testStoppingCrawlAbortsNewContentCrawl",
+              sem1, sem2);
       semToGive(sem2);
       crawlManager.setTestCrawler(crawler);
 
       assertFalse(sem1.take(0));
       crawlManager.startNewContentCrawl(mau, cb, null, null);
       assertTrue(didntMsg("start", TIMEOUT_SHOULDNT),
-		 sem1.take(TIMEOUT_SHOULDNT));
+          sem1.take(TIMEOUT_SHOULDNT));
       //we know that doCrawl started
 
       // stopping AU should run AuEventHandler, which should cancel crawl
@@ -238,14 +244,14 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem2 = new SimpleBinarySemaphore();
       //gives sem1 when doCrawl is entered, then takes sem2
       MockCrawler crawler =
-	new HangingCrawler("testStoppingCrawlAbortsRepairCrawl",
-			   sem1, sem2);
+          new HangingCrawler("testStoppingCrawlAbortsRepairCrawl",
+              sem1, sem2);
       semToGive(sem2);
       crawlManager.setTestCrawler(crawler);
 
       crawlManager.startRepair(mau, urls, cb, null, null);
       assertTrue(didntMsg("start", TIMEOUT_SHOULDNT),
-		 sem1.take(TIMEOUT_SHOULDNT));
+          sem1.take(TIMEOUT_SHOULDNT));
       //we know that doCrawl started
 
       crawlManager.auEventDeleted(new AuEvent(AuEvent.Type.Delete, false), mau);
@@ -258,24 +264,24 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       List<ArchivalUnit> abortedCrawls = new ArrayList<ArchivalUnit>();
 
       public AbortRecordingCrawler(List<ArchivalUnit> abortedCrawlsList) {
-	super();
-	this.abortedCrawls = abortedCrawlsList;
+        super();
+        this.abortedCrawls = abortedCrawlsList;
       }
 
       public AbortRecordingCrawler(List<ArchivalUnit> abortedCrawlsList,
-				   ArchivalUnit au) {
-	super(au);
-	this.abortedCrawls = abortedCrawlsList;
+          ArchivalUnit au) {
+        super(au);
+        this.abortedCrawls = abortedCrawlsList;
       }
 
       public void abortCrawl() {
-	abortedCrawls.add(getAu());
-	super.abortCrawl();
-	crawlManager.removeFromRunningCrawls(this);
+        abortedCrawls.add(getAu());
+        super.abortCrawl();
+        crawlManager.removeFromRunningCrawls(this);
       }
 
       List<ArchivalUnit> getAbortedCrawls() {
-	return abortedCrawls;
+        return abortedCrawls;
       }
 
     }
@@ -286,34 +292,34 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       MockArchivalUnit[] aus = makeMockAus(5);
 
       for (ArchivalUnit au : aus) {
-	MockCrawler mc = new AbortRecordingCrawler(abortLst, au);
-	crawlManager.addToRunningCrawls(au, mc);
+        MockCrawler mc = new AbortRecordingCrawler(abortLst, au);
+        crawlManager.addToRunningCrawls(au, mc);
       }
       assertEmpty(abortLst);
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AUID_MAP,
-				    "(4|5),3");
+          "(4|5),3");
       assertEmpty(abortLst);
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AUID_MAP,
-				    "(4|5),-25000");
+          "(4|5),-25000");
       assertSameElements(ListUtil.list(aus[4]), abortLst);
       crawlManager.addToRunningCrawls(aus[4],
-				      new AbortRecordingCrawler(abortLst,
-								aus[4]));
+          new AbortRecordingCrawler(abortLst,
+              aus[4]));
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AUID_MAP,
-				    "(3|4|5),-25000");
+          "(3|4|5),-25000");
       // CrawlManagerImpl processes running crawls in indeterminate order
       assertSameElements(ListUtil.list(aus[4], aus[3], aus[4]), abortLst);
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AUID_MAP,
-				    "(3|4|5),-25000;(xx|yy),-26000");
+          "(3|4|5),-25000;(xx|yy),-26000");
       assertSameElements(ListUtil.list(aus[4], aus[3], aus[4]), abortLst);
     }
 
     private void setNewContentRateLimit(String rate, String startRate,
-					String pluginRate) {
+        String pluginRate) {
       cprops.put(CrawlManagerImpl.PARAM_MAX_NEW_CONTENT_RATE, rate);
       cprops.put(CrawlManagerImpl.PARAM_NEW_CONTENT_START_RATE, startRate);
       cprops.put(CrawlManagerImpl.PARAM_MAX_PLUGIN_REGISTRY_NEW_CONTENT_RATE,
-		 pluginRate);
+          pluginRate);
       ConfigurationUtil.addFromProps(cprops);
     }
 
@@ -341,86 +347,86 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
       waitForCrawlToFinish(sem);
       assertFalse("doCrawl() called at time " + TimeBase.nowMs(),
-		  crawler.doCrawlCalled());
+          crawler.doCrawlCalled());
     }
 
     private void assertDoesCrawlRepair() {
       crawler.setDoCrawlCalled(false);
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-			       new TestCrawlCB(sem), null, null);
+          new TestCrawlCB(sem), null, null);
       waitForCrawlToFinish(sem);
       assertTrue("doCrawl() not called at time " + TimeBase.nowMs(),
-		 crawler.doCrawlCalled());
+          crawler.doCrawlCalled());
     }
 
     private void assertDoesNotCrawlRepair() {
       crawler.setDoCrawlCalled(false);
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-			       new TestCrawlCB(sem), null, null);
+          new TestCrawlCB(sem), null, null);
       waitForCrawlToFinish(sem);
       assertFalse("doCrawl() called at time " + TimeBase.nowMs(),
-		  crawler.doCrawlCalled());
+          crawler.doCrawlCalled());
     }
 
     void assertEligible(ArchivalUnit au)
-	throws CrawlManagerImpl.NotEligibleException {
+        throws CrawlManagerImpl.NotEligibleException {
       assertTrue(crawlManager.isEligibleForNewContentCrawl(au));
       crawlManager.checkEligibleForNewContentCrawl(au);
-    } 
+    }
 
     void assertNotEligible(String expectedExceptionMessageRE,
-			   ArchivalUnit au) {
+        ArchivalUnit au) {
       assertNotEligible(CrawlManagerImpl.NotEligibleException.class,
-			expectedExceptionMessageRE,
-			au);
+          expectedExceptionMessageRE,
+          au);
     }
 
     void assertNotEligible(Class expectedExceptionClass,
-			   String expectedExceptionMessageRE,
-			   ArchivalUnit au) {
+        String expectedExceptionMessageRE,
+        ArchivalUnit au) {
       assertFalse(crawlManager.isEligibleForNewContentCrawl(au));
       try {
-	crawlManager.checkEligibleForNewContentCrawl(au);
+        crawlManager.checkEligibleForNewContentCrawl(au);
       } catch (Exception e) {
-	assertClass(expectedExceptionClass, e);
-	assertMatchesRE(expectedExceptionMessageRE, e.getMessage());
+        assertClass(expectedExceptionClass, e);
+        assertMatchesRE(expectedExceptionMessageRE, e.getMessage());
       }
-    } 
+    }
 
     void assertQueueable(ArchivalUnit au)
-	throws CrawlManagerImpl.NotEligibleException {
+        throws CrawlManagerImpl.NotEligibleException {
       crawlManager.checkEligibleToQueueNewContentCrawl(au);
-    } 
+    }
 
     void assertNotQueueable(String expectedExceptionMessageRE,
-			    ArchivalUnit au) {
+        ArchivalUnit au) {
       assertNotQueueable(CrawlManagerImpl.NotEligibleException.class,
-			 expectedExceptionMessageRE,
-			 au);
+          expectedExceptionMessageRE,
+          au);
     }
 
     void assertNotQueueable(Class expectedExceptionClass,
-			    String expectedExceptionMessageRE,
-			    ArchivalUnit au) {
+        String expectedExceptionMessageRE,
+        ArchivalUnit au) {
       try {
-	crawlManager.checkEligibleToQueueNewContentCrawl(au);
+        crawlManager.checkEligibleToQueueNewContentCrawl(au);
       } catch (Exception e) {
-	assertClass(expectedExceptionClass, e);
-	assertMatchesRE(expectedExceptionMessageRE, e.getMessage());
+        assertClass(expectedExceptionClass, e);
+        assertMatchesRE(expectedExceptionMessageRE, e.getMessage());
       }
-    } 
+    }
 
     void makeRateLimiterReturn(RateLimiter limiter, boolean val) {
       if (val) {
-	while (!limiter.isEventOk()) {
-	  limiter.unevent();
-	}
+        while (!limiter.isEventOk()) {
+          limiter.unevent();
+        }
       } else {
-	while (limiter.isEventOk()) {
-	  limiter.event();
-	}
+        while (limiter.isEventOk()) {
+          limiter.event();
+        }
       }
     }
 
@@ -443,9 +449,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       RateLimiter limit = crawlManager.getNewContentRateLimiter(mau);
       makeRateLimiterReturn(limit, false);
       assertNotQueueable(CrawlManagerImpl.NotEligibleException.RateLimiter.class,
-			 "Exceeds crawl-start rate", mau);
+          "Exceeds crawl-start rate", mau);
       assertNotEligible(CrawlManagerImpl.NotEligibleException.RateLimiter.class,
-			"Exceeds crawl-start rate", mau);
+          "Exceeds crawl-start rate", mau);
       makeRateLimiterReturn(limit, true);
       assertQueueable(mau);
       assertEligible(mau);
@@ -470,8 +476,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       setNewContentRateLimit("4/100", "unlimited", "1/100000");
       activityRegulator.setStartAuActivity(true);
       for (int ix = 1; ix <= 4; ix++) {
-	assertDoesCrawlNew();
-	TimeBase.step(10);
+        assertDoesCrawlNew();
+        TimeBase.step(10);
       }
       assertDoesNotCrawlNew();
       TimeBase.step(10);
@@ -495,8 +501,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       setNewContentRateLimit("1/1000000", "unlimited", "3/100");
       activityRegulator.setStartAuActivity(true);
       for (int ix = 1; ix <= 3; ix++) {
-	assertDoesCrawlNew();
-	TimeBase.step(10);
+        assertDoesCrawlNew();
+        TimeBase.step(10);
       }
       assertDoesNotCrawlNew();
       TimeBase.step(10);
@@ -536,8 +542,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       setRepairRateLimit(6, 200);
       activityRegulator.setStartAuActivity(true);
       for (int ix = 1; ix <= 6; ix++) {
-	assertDoesCrawlRepair();
-	TimeBase.step(10);
+        assertDoesCrawlRepair();
+        TimeBase.step(10);
       }
       assertDoesNotCrawlRepair();
       TimeBase.step(10);
@@ -621,9 +627,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
       CachedUrlSet cus1 =
-	mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
+          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
       CachedUrlSet cus2 =
-	mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
+          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
 
       activityRegulator.setStartCusActivity(cus1, true);
       activityRegulator.setStartCusActivity(cus2, true);
@@ -640,9 +646,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     class MyAuEventHandler extends AuEventHandler.Base {
       @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
-					     AuEventHandler.ChangeInfo info) {
-	changeEvents.add(info);
-	eventSem.give();
+          AuEventHandler.ChangeInfo info) {
+        changeEvents.add(info);
+        eventSem.give();
       }
     }
 
@@ -651,9 +657,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawler = auc;
       auc.setCrawlSuccessful(true);
       auc.setMimes(ListUtil.list(ListUtil.list("text1", "text/plain"),
-				 ListUtil.list("html1", "text/html"),
-				 ListUtil.list("html2", "text/html;charset=foo"),
-				 ListUtil.list("pdf1", "application/pdf")));
+          ListUtil.list("html1", "text/html"),
+          ListUtil.list("html2", "text/html;charset=foo"),
+          ListUtil.list("pdf1", "application/pdf")));
       crawlManager.setTestCrawler(auc);
 
       pluginMgr.registerAuEventHandler(new MyAuEventHandler());
@@ -664,8 +670,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertEquals(AuEventHandler.ChangeInfo.Type.Crawl, ci.getType());
       assertTrue(ci.isComplete());
       Map expMime = MapUtil.map("text/plain", 1,
-				"text/html", 2,
-				"application/pdf", 1);
+          "text/html", 2,
+          "application/pdf", 1);
       assertEquals(4, ci.getNumUrls());
       assertEquals(expMime, ci.getMimeCounts());
       assertFalse(ci.hasUrls());
@@ -677,9 +683,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawler = auc;
       auc.setCrawlSuccessful(false);
       auc.setMimes(ListUtil.list(ListUtil.list("text1", "text/plain"),
-				 ListUtil.list("html1", "text/html"),
-				 ListUtil.list("html2", "text/html;charset=foo"),
-				 ListUtil.list("pdf1", "application/pdf")));
+          ListUtil.list("html1", "text/html"),
+          ListUtil.list("html2", "text/html;charset=foo"),
+          ListUtil.list("pdf1", "application/pdf")));
       crawlManager.setTestCrawler(auc);
 
       pluginMgr.registerAuEventHandler(new MyAuEventHandler());
@@ -690,8 +696,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertEquals(AuEventHandler.ChangeInfo.Type.Crawl, ci.getType());
       assertFalse(ci.isComplete());
       Map expMime = MapUtil.map("text/plain", 1,
-				"text/html", 2,
-				"application/pdf", 1);
+          "text/html", 2,
+          "application/pdf", 1);
       assertEquals(4, ci.getNumUrls());
       assertEquals(expMime, ci.getMimeCounts());
       assertFalse(ci.hasUrls());
@@ -704,9 +710,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       auc.setCrawlSuccessful(true);
       auc.setIsWholeAU(false);
       auc.setMimes(ListUtil.list(ListUtil.list("text1", "text/plain"),
-				 ListUtil.list("html1", "text/html"),
-				 ListUtil.list("html2", "text/html;charset=foo"),
-				 ListUtil.list("pdf1", "application/pdf")));
+          ListUtil.list("html1", "text/html"),
+          ListUtil.list("html2", "text/html;charset=foo"),
+          ListUtil.list("pdf1", "application/pdf")));
       crawlManager.setTestCrawler(auc);
 
       pluginMgr.registerAuEventHandler(new MyAuEventHandler());
@@ -717,13 +723,13 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertEquals(AuEventHandler.ChangeInfo.Type.Repair, ci.getType());
       assertTrue(ci.isComplete());
       Map expMime = MapUtil.map("text/plain", 1,
-				"text/html", 2,
-				"application/pdf", 1);
+          "text/html", 2,
+          "application/pdf", 1);
       assertEquals(4, ci.getNumUrls());
       assertEquals(expMime, ci.getMimeCounts());
       assertTrue(ci.hasUrls());
       assertSameElements(ListUtil.list("text1", "html1", "html2", "pdf1"),
-			 ci.getUrls());
+          ci.getUrls());
     }
 
     public void testNewContentCallbackTriggered() {
@@ -770,13 +776,13 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem2 = new SimpleBinarySemaphore();
       //gives sem1 when doCrawl is entered, then takes sem2
       MockCrawler crawler = new HangingCrawler("testKicksOffNewThread",
-					       sem1, sem2);
+          sem1, sem2);
       semToGive(sem2);
       crawlManager.setTestCrawler(crawler);
 
       crawlManager.startNewContentCrawl(mau, cb, null, null);
       assertTrue(didntMsg("start", TIMEOUT_SHOULDNT),
-		 sem1.take(TIMEOUT_SHOULDNT));
+          sem1.take(TIMEOUT_SHOULDNT));
       //we know that doCrawl started
 
       //if the callback was triggered, the crawl completed
@@ -787,18 +793,18 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     public void testScheduleRepairNullAu() {
       try{
-	crawlManager.startRepair(null, ListUtil.list("http://www.example.com"),
-				 new TestCrawlCB(), "blah", null);
-	fail("Didn't throw IllegalArgumentException on null AU");
+        crawlManager.startRepair(null, ListUtil.list("http://www.example.com"),
+            new TestCrawlCB(), "blah", null);
+        fail("Didn't throw IllegalArgumentException on null AU");
       } catch (IllegalArgumentException iae) {
       }
     }
 
     public void testScheduleRepairNullUrls() {
       try{
-	crawlManager.startRepair(mau, (Collection)null,
-				 new TestCrawlCB(), "blah", null);
-	fail("Didn't throw IllegalArgumentException on null URL list");
+        crawlManager.startRepair(mau, (Collection)null,
+            new TestCrawlCB(), "blah", null);
+        fail("Didn't throw IllegalArgumentException on null URL list");
       } catch (IllegalArgumentException iae) {
       }
     }
@@ -811,9 +817,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
       CachedUrlSet cus1 =
-	mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
+          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
       CachedUrlSet cus2 =
-	mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
+          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
 
       activityRegulator.setStartCusActivity(cus1, true);
       activityRegulator.setStartCusActivity(cus2, false);
@@ -853,9 +859,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
       CachedUrlSet cus1 =
-	mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
+          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
       CachedUrlSet cus2 =
-	mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
+          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
 
       activityRegulator.setStartCusActivity(cus1, true);
       activityRegulator.setStartCusActivity(cus2, false);
@@ -865,7 +871,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       waitForCrawlToFinish(sem);
       assertTrue("Callback wasn't triggered", cb.wasTriggered());
       assertFalse("Crawl was successful even though we couldn't lock everything",
-		  cb.wasSuccessful());
+          cb.wasSuccessful());
     }
 
     public void testRepairCallbackGetsCookie() {
@@ -890,7 +896,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testGetCrawlsOneRepairCrawl() {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-			       new TestCrawlCB(sem), null, null);
+          new TestCrawlCB(sem), null, null);
       List actual = statusSource.getStatus().getCrawlerStatusList();
       List expected = ListUtil.list(crawler.getCrawlerStatus());
 
@@ -911,7 +917,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem1 = new SimpleBinarySemaphore();
       SimpleBinarySemaphore sem2 = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-			       new TestCrawlCB(sem1), null, null);
+          new TestCrawlCB(sem1), null, null);
 
       MockCrawler crawler2 = new MockCrawler();
       crawlManager.setTestCrawler(crawler2);
@@ -931,67 +937,67 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testIsGloballyExcludedUrl() {
       assertFalse(crawlManager.isGloballyExcludedUrl(null, null));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "http://random.string/"));
+          "http://random.string/"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "http://http://http://"));
+          "http://http://http://"));
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-				    "(http:.*){3,}");
+          "(http:.*){3,}");
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "http://http://http://"));
+          "http://http://http://"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "http://http://https://"));
+          "http://http://https://"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "www.x.www.y.www.z"));
+          "www.x.www.y.www.z"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "www.x.www.y.www.z.www."));
+          "www.x.www.y.www.z.www."));
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-				    "((http:.*){3,})|((\\bwww\\..*){4,})");
+          "((http:.*){3,})|((\\bwww\\..*){4,})");
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "http://http://http://"));
+          "http://http://http://"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "http://http://https://"));
+          "http://http://https://"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "www.x.www.y.www.z"));
+          "www.x.www.y.www.z"));
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "www.x.www.y.www.z.www."));
+          "www.x.www.y.www.z.www."));
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-				    "http:/[^/]");
+          "http:/[^/]");
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "http://example.com/foo/(http:/www.foo/bar.html"));
+          "http://example.com/foo/(http:/www.foo/bar.html"));
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "http://example.com/foo/http:/www.foo/bar.html"));
+          "http://example.com/foo/http:/www.foo/bar.html"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "http://http://https://"));
+          "http://http://https://"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "www.x.www.y.www.z"));
+          "www.x.www.y.www.z"));
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-				    "(http:/[^/])|((reports/most-read/){2,})");
+          "(http:/[^/])|((reports/most-read/){2,})");
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "http://example.com/foo/(http:/www.foo/bar.html"));
+          "http://example.com/foo/(http:/www.foo/bar.html"));
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "http://example.com/foo/http:/www.foo/bar.html"));
+          "http://example.com/foo/http:/www.foo/bar.html"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "http://http://https://"));
+          "http://http://https://"));
       assertFalse(crawlManager.isGloballyExcludedUrl(null,
-						     "www.x.www.y.www.z"));
+          "www.x.www.y.www.z"));
 
       assertTrue(crawlManager.isGloballyExcludedUrl(null,
-						    "http://bjo.bmj.com/content/93/2/176.abstract/reports/most-read/reports/most-read/reports/most-read/reports/most-read/reply"));
+          "http://bjo.bmj.com/content/93/2/176.abstract/reports/most-read/reports/most-read/reports/most-read/reports/most-read/reply"));
     }
 
     public void testGloballyPermittedHosts() {
       assertFalse(crawlManager.isGloballyPermittedHost("foo27.com"));
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_PERMITTED_HOSTS,
-				    "foo[0-9]+\\.com");
+          "foo[0-9]+\\.com");
       assertTrue(crawlManager.isGloballyPermittedHost("foo27.com"));
       assertFalse(crawlManager.isGloballyPermittedHost("bar42.edu"));
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_PERMITTED_HOSTS,
-				    "^foo[0-9]+\\.com$;^bar..\\.edu$");
+          "^foo[0-9]+\\.com$;^bar..\\.edu$");
       assertTrue(crawlManager.isGloballyPermittedHost("foo27.com"));
       assertTrue(crawlManager.isGloballyPermittedHost("bar42.edu"));
       assertFalse(crawlManager.isGloballyPermittedHost("foo27.com;bar42.edu"));
@@ -1000,16 +1006,16 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testAllowedPluginPermittedHosts() {
       assertFalse(crawlManager.isAllowedPluginPermittedHost("foo27.com"));
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_PERMITTED_HOSTS,
-				    "foo[0-9]+\\.com");
+          "foo[0-9]+\\.com");
       assertFalse(crawlManager.isAllowedPluginPermittedHost("foo27.com"));
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_ALLOWED_PLUGIN_PERMITTED_HOSTS,
-				    "foo[0-9]+\\.com");
+          "foo[0-9]+\\.com");
       assertTrue(crawlManager.isAllowedPluginPermittedHost("foo27.com"));
       ConfigurationUtil.removeKey(CrawlManagerImpl.PARAM_PERMITTED_HOSTS);
       assertTrue(crawlManager.isAllowedPluginPermittedHost("foo27.com"));
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_ALLOWED_PLUGIN_PERMITTED_HOSTS,
-				    "^foo[0-9]+\\.com$;^baz..\\.edu$");
+          "^foo[0-9]+\\.com$;^baz..\\.edu$");
       assertTrue(crawlManager.isAllowedPluginPermittedHost("foo27.com"));
       assertTrue(crawlManager.isAllowedPluginPermittedHost("baz42.edu"));
       assertFalse(crawlManager.isAllowedPluginPermittedHost("foo27.com;baz42.edu"));
@@ -1028,18 +1034,18 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       List<ArchivalUnit> quas = crawlManager.getHighPriorityAus();
       assertEquals(ListUtil.list(mau1), quas);
       crawlManager.auEventDeleted(new AuEvent(AuEvent.Type.Delete, false),
-				  mau1);
+          mau1);
       assertEmpty(crawlManager.getHighPriorityAus());
       crawlManager.auEventCreated(new AuEvent(AuEvent.Type.Create, false),
-				  mau1);
+          mau1);
       assertEmpty(crawlManager.getHighPriorityAus());
       crawlManager.enqueueHighPriorityCrawl(req);
       assertEquals(ListUtil.list(mau1), crawlManager.getHighPriorityAus());
       crawlManager.auEventDeleted(new AuEvent(AuEvent.Type.RestartDelete, false),
-				  mau1);
+          mau1);
       assertEmpty(crawlManager.getHighPriorityAus());
       crawlManager.auEventCreated(new AuEvent(AuEvent.Type.Create, false),
-				  mau1);
+          mau1);
       assertEquals(ListUtil.list(mau1), crawlManager.getHighPriorityAus());
     }
 
@@ -1056,7 +1062,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       cprops.put(CrawlManagerImpl.PARAM_CRAWLER_QUEUE_ENABLED, "false");
       cprops.put(CrawlManagerImpl.PARAM_USE_ODC, "false");
       cprops.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_MAX,
-		 Integer.toString(max));
+          Integer.toString(max));
       cprops.put(CrawlManagerImpl.PARAM_MAX_NEW_CONTENT_RATE, (max*2)+"/1h");
       cprops.put(CrawlManagerImpl.PARAM_NEW_CONTENT_START_RATE, "unlimited");
       ConfigurationUtil.addFromProps(cprops);
@@ -1073,38 +1079,38 @@ public class TestCrawlManagerImpl extends LockssTestCase {
         startSem[ix] = new SimpleBinarySemaphore();
         endSem[ix] = new SimpleBinarySemaphore();
         //gives sem1 when doCrawl is entered, then takes sem2
-	crawler[ix] = new HangingCrawler("testNoQueuePoolSize " + ix,
-						 startSem[ix], endSem[ix]);
-	MockArchivalUnit au = newMockArchivalUnit("mau" + ix);
-	au.setCrawlRule(rule);
-	au.setStartUrls(ListUtil.list("blah"));
-	PluginTestUtil.registerArchivalUnit(plugin, au);
-	setupAuToCrawl(au, crawler[ix]);
-	semToGive(endSem[ix]);
+        crawler[ix] = new HangingCrawler("testNoQueuePoolSize " + ix,
+            startSem[ix], endSem[ix]);
+        MockArchivalUnit au = newMockArchivalUnit("mau" + ix);
+        au.setCrawlRule(rule);
+        au.setStartUrls(ListUtil.list("blah"));
+        PluginTestUtil.registerArchivalUnit(plugin, au);
+        setupAuToCrawl(au, crawler[ix]);
+        semToGive(endSem[ix]);
 
-	crawlManager.startNewContentCrawl(au, cb[ix], null, null);
+        crawlManager.startNewContentCrawl(au, cb[ix], null, null);
       }
       for (int ix = 0; ix < max; ix++) {
         assertTrue(didntMsg("start("+ix+")", TIMEOUT_SHOULDNT),
-		   startSem[ix].take(TIMEOUT_SHOULDNT));
+            startSem[ix].take(TIMEOUT_SHOULDNT));
         //we know that doCrawl started
       }
       MockCrawler crawlerN =
-	new HangingCrawler("testNoQueuePoolSize ix+1",
-			   new SimpleBinarySemaphore(),
-			   semToGive(new SimpleBinarySemaphore()));
+          new HangingCrawler("testNoQueuePoolSize ix+1",
+              new SimpleBinarySemaphore(),
+              semToGive(new SimpleBinarySemaphore()));
       crawlManager.setTestCrawler(crawlerN);
       TestCrawlCB onecb = new TestCrawlCB();
       log.info("Pool is blocked exception expected");
       crawlManager.startNewContentCrawl(mau, onecb, null, null);
       assertTrue("Callback for non schedulable crawl wasn't triggered",
-		 onecb.wasTriggered());
+          onecb.wasTriggered());
       assertFalse("Non schedulable crawl succeeded",
-		 onecb.wasSuccessful());
+          onecb.wasSuccessful());
 
       for (int ix = 0; ix < max; ix++) {
         //if the callback was triggered, the crawl completed
-	assertFalse("Callback was triggered", cb[ix].wasTriggered());
+        assertFalse("Callback was triggered", cb[ix].wasTriggered());
         endSem[ix].give();
         waitForCrawlToFinish(finishedSem[ix]);
       }
@@ -1120,13 +1126,13 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       cprops.put(CrawlManagerImpl.PARAM_CRAWLER_QUEUE_ENABLED, "true");
       cprops.put(CrawlManagerImpl.PARAM_USE_ODC, "false");
       cprops.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_MAX,
-		 Integer.toString(poolMax));
+          Integer.toString(poolMax));
       cprops.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_QUEUE_SIZE,
-		 Integer.toString(qMax));
+          Integer.toString(qMax));
       cprops.put(CrawlManagerImpl.PARAM_MAX_NEW_CONTENT_RATE, (tot*2)+"/1h");
       int startInterval = 10;
       cprops.put(CrawlManagerImpl.PARAM_NEW_CONTENT_START_RATE,
-		 "1/" + startInterval);
+          "1/" + startInterval);
       ConfigurationUtil.addFromProps(cprops);
       crawlManager.startService();
       HangingCrawler[] crawler = new HangingCrawler[tot];
@@ -1138,38 +1144,38 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
       // queue enough crawlers to fill the queue and pool
       for (int ix = 0; ix < tot; ix++) {
-	finishedSem[ix] = new SimpleBinarySemaphore();
-	//start a crawler that hangs until we post its semaphore
-	cb[ix] = new TestCrawlCB(finishedSem[ix]);
-	startSem[ix] = new SimpleBinarySemaphore();
-	endSem[ix] = new SimpleBinarySemaphore();
-	//gives sem1 when doCrawl is entered, then takes sem2
-	crawler[ix] = new HangingCrawler("testQueuedPool " + ix,
-					 startSem[ix], endSem[ix]);
-	MockArchivalUnit au = newMockArchivalUnit("mau" + ix);
-	au.setCrawlRule(rule);
-	au.setStartUrls(ListUtil.list("blah"));
-	PluginTestUtil.registerArchivalUnit(plugin, au);
-	setupAuToCrawl(au, crawler[ix]);
-	semToGive(endSem[ix]);
+        finishedSem[ix] = new SimpleBinarySemaphore();
+        //start a crawler that hangs until we post its semaphore
+        cb[ix] = new TestCrawlCB(finishedSem[ix]);
+        startSem[ix] = new SimpleBinarySemaphore();
+        endSem[ix] = new SimpleBinarySemaphore();
+        //gives sem1 when doCrawl is entered, then takes sem2
+        crawler[ix] = new HangingCrawler("testQueuedPool " + ix,
+            startSem[ix], endSem[ix]);
+        MockArchivalUnit au = newMockArchivalUnit("mau" + ix);
+        au.setCrawlRule(rule);
+        au.setStartUrls(ListUtil.list("blah"));
+        PluginTestUtil.registerArchivalUnit(plugin, au);
+        setupAuToCrawl(au, crawler[ix]);
+        semToGive(endSem[ix]);
 
-	// queue the crawl directly
-	crawlManager.startNewContentCrawl(au, cb[ix], null, null);
+        // queue the crawl directly
+        crawlManager.startNewContentCrawl(au, cb[ix], null, null);
       }
       // wait for the first poolMax crawlers to start.  Keep track of their
       // start times
       for (int ix = 0; ix < tot; ix++) {
-	if (ix < poolMax) {
-	  assertTrue(didntMsg("start("+ix+")", TIMEOUT_SHOULDNT),
-		     startSem[ix].take(TIMEOUT_SHOULDNT));
-	  startSem[ix] = null;
+        if (ix < poolMax) {
+          assertTrue(didntMsg("start("+ix+")", TIMEOUT_SHOULDNT),
+              startSem[ix].take(TIMEOUT_SHOULDNT));
+          startSem[ix] = null;
 
-	  startTime[ix] = crawler[ix].getStartTime();
-	} else {
-	  assertFalse("Wasn't queued "+ix, cb[ix].wasTriggered());
-	  assertFalse("Shouldn't have started " + ix, 
-		     startSem[ix].take(0));
-	}
+          startTime[ix] = crawler[ix].getStartTime();
+        } else {
+          assertFalse("Wasn't queued "+ix, cb[ix].wasTriggered());
+          assertFalse("Shouldn't have started " + ix,
+              startSem[ix].take(0));
+        }
       }
       // now check that no two start times are closer together than allowed
       // by the start rate limiter.  We don't know what order the crawl
@@ -1178,34 +1184,34 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       Arrays.sort(startTime);
       long lastTime = 0;
       for (int ix = qMax; ix < tot; ix++) {
-	long thisTime =  startTime[ix];
-	assertTrue(  "Crawler " + ix + " started early in " +
-		     (thisTime - lastTime),
-		     thisTime >= lastTime + startInterval);
-	lastTime = thisTime;
+        long thisTime =  startTime[ix];
+        assertTrue(  "Crawler " + ix + " started early in " +
+                (thisTime - lastTime),
+            thisTime >= lastTime + startInterval);
+        lastTime = thisTime;
       }
       MockCrawler failcrawler =
-	new HangingCrawler("testNoQueuePoolSize ix+1",
-			   new SimpleBinarySemaphore(),
-			   semToGive(new SimpleBinarySemaphore()));
+          new HangingCrawler("testNoQueuePoolSize ix+1",
+              new SimpleBinarySemaphore(),
+              semToGive(new SimpleBinarySemaphore()));
       crawlManager.setTestCrawler(failcrawler);
       TestCrawlCB onecb = new TestCrawlCB();
       log.info("Pool is blocked exception expected");
       crawlManager.startNewContentCrawl(mau, onecb, null, null);
       assertTrue("Callback for non schedulable crawl wasn't triggered",
-		 onecb.wasTriggered());
+          onecb.wasTriggered());
       assertFalse("Non schedulable crawl succeeded",
-		 onecb.wasSuccessful());
+          onecb.wasSuccessful());
 
       for (int ix = poolMax; ix < tot; ix++) {
-	int poke = randomActive(startSem, endSem);
-	assertFalse("Shouldnt have finished "+poke, cb[poke].wasTriggered());
-	endSem[poke].give();
-	waitForCrawlToFinish(finishedSem[poke]);
-	endSem[poke] = null;
-	assertTrue(didntMsg("start("+ix+")", TIMEOUT_SHOULDNT),
-		   startSem[ix].take(TIMEOUT_SHOULDNT));
-	startSem[ix] = null;
+        int poke = randomActive(startSem, endSem);
+        assertFalse("Shouldnt have finished "+poke, cb[poke].wasTriggered());
+        endSem[poke].give();
+        waitForCrawlToFinish(finishedSem[poke]);
+        endSem[poke] = null;
+        assertTrue(didntMsg("start("+ix+")", TIMEOUT_SHOULDNT),
+            startSem[ix].take(TIMEOUT_SHOULDNT));
+        startSem[ix] = null;
       }
     }
 
@@ -1214,12 +1220,12 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       int tot = qMax + poolMax;
       Properties p = new Properties();
       p.put(CrawlManagerImpl.PARAM_CRAWLER_QUEUE_ENABLED,
-	    "true");
+          "true");
       p.put(CrawlManagerImpl.PARAM_USE_ODC, "false");
       p.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_MAX,
-	    Integer.toString(poolMax));
+          Integer.toString(poolMax));
       p.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_QUEUE_SIZE,
-	    Integer.toString(qMax));
+          Integer.toString(qMax));
       p.put(CrawlManagerImpl.PARAM_MAX_NEW_CONTENT_RATE, (tot*2)+"/1h");
       p.put(CrawlManagerImpl.PARAM_START_CRAWLS_INITIAL_DELAY, "100");
       p.put(CrawlManagerImpl.PARAM_START_CRAWLS_INTERVAL, "1s");
@@ -1238,39 +1244,39 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       // start poolMax of them.  We only check that it called
       // startNewContentCrawl() on each.
       for (int ix = 0; ix < tot-1; ix++) {
-	crawler[ix] = new HangingCrawler("testQueuedPool " + ix,
-					 null, endSem);
-	MockArchivalUnit au = newMockArchivalUnit("mau" + ix);
-	au.setCrawlRule(rule);
-	au.setStartUrls(ListUtil.list("blah"));
-	setupAuToCrawl(au, crawler[ix]);
-	PluginTestUtil.registerArchivalUnit(plugin, au);
+        crawler[ix] = new HangingCrawler("testQueuedPool " + ix,
+            null, endSem);
+        MockArchivalUnit au = newMockArchivalUnit("mau" + ix);
+        au.setCrawlRule(rule);
+        au.setStartUrls(ListUtil.list("blah"));
+        setupAuToCrawl(au, crawler[ix]);
+        PluginTestUtil.registerArchivalUnit(plugin, au);
       }
       // Last one is a RegistryArchivalUnit crawl
       RegistryArchivalUnit rau = makeRegistryAu();
       crawler[tot-1] = new HangingCrawler("testQueuedPool(reg au) " + (tot-1),
-					 null, endSem);
+          null, endSem);
       setupAuToCrawl(rau, crawler[tot-1]);
       pluginMgr.addRegistryAu(rau);
-      
+
       // now let the crawl starter proceed
       crawlManager.ausStartedSem.fill();
       // Ensure they all got queued
       List exe = Collections.EMPTY_LIST;
       Interrupter intr = interruptMeIn(TIMEOUT_SHOULDNT, true);
       while (true) {
-	exe = crawlManager.getExecuted();
-	if (exe.size() == tot) {
-	  break;
-	}
-	crawlManager.waitExecuted();
-	assertFalse("Only " + exe.size() + " of " + tot +
-		    " expected crawls were started by the crawl starter",
-		    intr.did());
+        exe = crawlManager.getExecuted();
+        if (exe.size() == tot) {
+          break;
+        }
+        crawlManager.waitExecuted();
+        assertFalse("Only " + exe.size() + " of " + tot +
+                " expected crawls were started by the crawl starter",
+            intr.did());
       }
       intr.cancel();
       assertEquals(SetUtil.fromArray(crawler),
-		   SetUtil.theSet(crawlersOf(exe)));
+          SetUtil.theSet(crawlersOf(exe)));
       // The registry au crawl should always be first
       assertEquals(crawler[tot-1], crawlersOf(exe).get(0));
     }
@@ -1285,9 +1291,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     List crawlersOf(List runners) {
       List res = new ArrayList();
       for (Iterator iter = runners.iterator(); iter.hasNext(); ) {
-	CrawlManagerImpl.CrawlRunner runner =
-	  (CrawlManagerImpl.CrawlRunner)iter.next();
-	res.add(runner.getCrawler());
+        CrawlManagerImpl.CrawlRunner runner =
+            (CrawlManagerImpl.CrawlRunner)iter.next();
+        res.add(runner.getCrawler());
       }
       return res;
     }
@@ -1295,10 +1301,10 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     static LockssRandom random = new LockssRandom();
 
     int randomActive(SimpleBinarySemaphore[] startSem,
-		     SimpleBinarySemaphore[] endSem) {
+        SimpleBinarySemaphore[] endSem) {
       while (true) {
-	int x = random.nextInt(startSem.length);
-	if (startSem[x] == null && endSem[x] != null) return x;
+        int x = random.nextInt(startSem.length);
+        if (startSem[x] == null && endSem[x] != null) return x;
       }
     }
 
@@ -1316,45 +1322,48 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     CrawlReq[] makeReqs(int n) {
       CrawlReq[] res = new CrawlReq[n];
       for (int ix = 0; ix < n; ix++) {
-	MockArchivalUnit mau = newMockArchivalUnit(String.format("mau%2d", ix));
-	MockNodeManager nm = new MockNodeManager();
-	theDaemon.setNodeManager(nm, mau);
-	maus = new MockAuState();
-	nodeManager.setAuState(maus);
-	res[ix] = new CrawlReq(mau);
+        MockArchivalUnit mau = newMockArchivalUnit(String.format("mau%2d", ix));
+        MockHistoryRepository mhr = new MockHistoryRepository();
+        theDaemon.setHistoryRepository(mhr, mau);
+        MockAuState m_aus = new MockAuState();
+        m_aus.setHistoryRepository(mhr);
+        mhr.storeAuState(m_aus);
+        mhr.startService();
+        res[ix] = new CrawlReq(mau);
       }
       return res;
     }
 
     void setReq(CrawlReq req,
-		int pri, int crawlResult,
-		long crawlAttempt, long crawlFinish) {
+        int pri, int crawlResult,
+        long crawlAttempt, long crawlFinish) {
       setReq(req, pri, crawlResult, crawlAttempt, crawlFinish, null);
     }
 
     void setReq(CrawlReq req,
-		int pri, int crawlResult,
-		long crawlAttempt, long crawlFinish,
-		String limiterKey) {
+        int pri, int crawlResult,
+        long crawlAttempt, long crawlFinish,
+        String limiterKey) {
       req.priority = pri;
       setAu((MockArchivalUnit)req.getAu(),
-	    crawlResult, crawlAttempt, crawlFinish, limiterKey);
+          crawlResult, crawlAttempt, crawlFinish, limiterKey);
     }
 
     void setAu(MockArchivalUnit mau,
-	       int crawlResult, long crawlAttempt, long crawlFinish) {
-       setAu(mau, crawlResult, crawlAttempt, crawlFinish, null);
+        int crawlResult, long crawlAttempt, long crawlFinish) {
+      setAu(mau, crawlResult, crawlAttempt, crawlFinish, null);
     }
 
     void setAu(MockArchivalUnit mau,
-	       int crawlResult, long crawlAttempt, long crawlFinish,
-	       String limiterKey) {
-      MockAuState aus = (MockAuState)AuUtil.getAuState(mau);
+        int crawlResult, long crawlAttempt, long crawlFinish,
+        String limiterKey) {
+      HistoryRepository hRepo = theDaemon.getHistoryRepository(mau);
+      MockAuState aus = (MockAuState)hRepo.getAuState();
       aus.setLastCrawlTime(crawlFinish);
       aus.setLastCrawlAttempt(crawlAttempt);
       aus.setLastCrawlResult(crawlResult, "foo");
       mau.setFetchRateLimiterKey(limiterKey);
-    }	   
+    }
 
     CrawlManagerImpl.CrawlPriorityComparator cmprtr() {
       return crawlManager.cmprtr();
@@ -1362,25 +1371,25 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     void assertCompareLess(CrawlReq r1, CrawlReq r2) {
       assertTrue("Expected " + r1 + " less than " + r2 + " but wasn't",
-		 cmprtr().compare(r1, r2) < 0);
+          cmprtr().compare(r1, r2) < 0);
     }
 
     public void testCrawlPriorityComparator(CrawlReq[] reqs) {
       for (int ix = 0; ix <= reqs.length - 2; ix++) {
-	assertCompareLess(reqs[ix], reqs[ix+1]);
+        assertCompareLess(reqs[ix], reqs[ix+1]);
       }
       List lst = ListUtil.fromArray(reqs);
       for (int ix = 0; ix <= 5; ix++) {
-	TreeSet sorted = new TreeSet(cmprtr());
-	sorted.addAll(CollectionUtil.randomPermutation(lst)); 
-	sorted.add(reqs[0]);
-	assertIsomorphic(reqs, sorted);
+        TreeSet sorted = new TreeSet(cmprtr());
+        sorted.addAll(CollectionUtil.randomPermutation(lst));
+        sorted.add(reqs[0]);
+        assertIsomorphic(reqs, sorted);
       }
     }
 
     public void testCrawlPriorityComparator1() {
       ConfigurationUtil.setFromArgs(CrawlManagerImpl.PARAM_RESTART_AFTER_CRASH,
-				    "true"); 
+          "true");
       CrawlReq[] reqs = makeReqs(11);
       setReq(reqs[0], 1, Crawler.STATUS_WINDOW_CLOSED, 9999, 9999);
       setReq(reqs[1], 1, 0, 5000, 5000);
@@ -1394,7 +1403,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       setReq(reqs[9], 0, 0, -1, 500);
       setReq(reqs[10], 1, 0, 5000, 5000);
       for (int ix=8; ix<=10; ix++) {
-	reqs[ix].auDeleted();
+        reqs[ix].auDeleted();
       }
       assertFalse(reqs[8].isActive());
       assertTrue(reqs[7].isActive());
@@ -1403,7 +1412,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     public void testCrawlPriorityComparator2() {
       ConfigurationUtil.setFromArgs(CrawlManagerImpl.PARAM_RESTART_AFTER_CRASH,
-				    "false"); 
+          "false");
       CrawlReq[] reqs = makeReqs(8);
       setReq(reqs[0], 1, Crawler.STATUS_WINDOW_CLOSED, 9999, 9999);
       setReq(reqs[1], 1, 0, 5000, 5000);
@@ -1423,9 +1432,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     public void testCrawlPriorityComparatorCreationOrder() {
       ConfigurationUtil.setFromArgs(CrawlManagerImpl.PARAM_RESTART_AFTER_CRASH,
-				    "false",
-				    CrawlManagerImpl.PARAM_CRAWL_ORDER,
-				    "CreationDate"); 
+          "false",
+          CrawlManagerImpl.PARAM_CRAWL_ORDER,
+          "CreationDate");
       CrawlReq[] reqs = makeReqs(8);
       setReq(reqs[0], 0, Crawler.STATUS_WINDOW_CLOSED, 1001, 1001);
       setReq(reqs[1], 0, Crawler.STATUS_RUNNING_AT_CRASH, 1000, 1000);
@@ -1436,7 +1445,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       setReq(reqs[6], 0, 0, 5000, 5000);
       setReq(reqs[7], 0, 0, 9999, 9999);
       for (int ix = 0; ix < reqs.length; ix++) {
-	setAuCreationTime(reqs[ix], 9990 + ix);
+        setAuCreationTime(reqs[ix], 9990 + ix);
       }
       testCrawlPriorityComparator(reqs);
     }
@@ -1445,9 +1454,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       List lst = ListUtil.fromArray(aus);
       List<MockArchivalUnit> rand = CollectionUtil.randomPermutation(lst);
       for (MockArchivalUnit mau : rand) {
-	PluginTestUtil.registerArchivalUnit(plugin, mau);
+        PluginTestUtil.registerArchivalUnit(plugin, mau);
       }
-    }    
+    }
 
     CrawlRateLimiter getCrl(Crawler c) {
       return crawlManager.getCrawlRateLimiter(c);
@@ -1458,8 +1467,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       p.put(CrawlManagerImpl.PARAM_START_CRAWLS_INTERVAL, "-1");
       p.put(CrawlManagerImpl.PARAM_SHARED_QUEUE_MAX, "4");
       p.put(CrawlManagerImpl.PARAM_UNSHARED_QUEUE_MAX, "3");
-      p.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_MAX, "3"); 
-      p.put(CrawlManagerImpl.PARAM_FAVOR_UNSHARED_RATE_THREADS, "1"); 
+      p.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_MAX, "3");
+      p.put(CrawlManagerImpl.PARAM_FAVOR_UNSHARED_RATE_THREADS, "1");
       p.put(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AUID_MAP, "auNever,-10000");
       theDaemon.setAusStarted(true);
       ConfigurationUtil.addFromProps(p);
@@ -1497,8 +1506,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
       // Should fail to assign a crl to another nc crawl in pool foo
       try {
-	crawlManager.addToRunningRateKeys(aus[8]);
-	fail("Attempt to add new content crawler in full pool should throw");
+        crawlManager.addToRunningRateKeys(aus[8]);
+        fail("Attempt to add new content crawler in full pool should throw");
       } catch (IllegalStateException e) {
       }
       // Repair crawl in pool foo should get same crl as nc crawl
@@ -1507,7 +1516,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertNotNull(crl);
       assertSame(crl, getCrl(cr5));
       crawlManager.delFromRunningRateKeys(aus[8]);
-      
+
       // Add a repair in pool bar
       MockCrawler cr14 = crawlManager.addToRunningRateKeys(aus[14], false);
 
@@ -1565,8 +1574,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       p.put(CrawlManagerImpl.PARAM_START_CRAWLS_INTERVAL, "-1");
       p.put(CrawlManagerImpl.PARAM_SHARED_QUEUE_MAX, "4");
       p.put(CrawlManagerImpl.PARAM_UNSHARED_QUEUE_MAX, "3");
-      p.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_MAX, "3"); 
-      p.put(CrawlManagerImpl.PARAM_FAVOR_UNSHARED_RATE_THREADS, "1"); 
+      p.put(CrawlManagerImpl.PARAM_CRAWLER_THREAD_POOL_MAX, "3");
+      p.put(CrawlManagerImpl.PARAM_FAVOR_UNSHARED_RATE_THREADS, "1");
       p.put(CrawlManagerImpl.PARAM_CONCURRENT_CRAWL_LIMIT_MAP, "foo,2;bar,3");
       theDaemon.setAusStarted(true);
       ConfigurationUtil.addFromProps(p);
@@ -1641,7 +1650,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     public void testCrawlPriorityAuidPatterns() {
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AUID_MAP,
-				    "foo(4|5),3;bar,5;baz,-1");
+          "foo(4|5),3;bar,5;baz,-1");
       MockArchivalUnit mau1 = new MockArchivalUnit(new MockPlugin(theDaemon));
       mau1.setAuId("other");
       CrawlReq req = new CrawlReq(mau1);
@@ -1700,8 +1709,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       mau3.setTdbAu(tdb.addTdbAuFromProperties(tprops));
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AU_MAP,
-				    "[RE:isMatchRe(tdbAu/params/volume,'vol_1')],6;" +
-				    "[RE:isMatchRe(tdbAu/params/volume,'vol_(1|2)')],3;");
+          "[RE:isMatchRe(tdbAu/params/volume,'vol_1')],6;" +
+              "[RE:isMatchRe(tdbAu/params/volume,'vol_(1|2)')],3;");
 
       CrawlReq req1 = new CrawlReq(mau1);
       CrawlReq req2 = new CrawlReq(mau2);
@@ -1714,8 +1723,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertEquals(0, req3.getPriority());
 
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWL_PRIORITY_AU_MAP,
-				    "[tdbAu/year <= '2002'],10;" +
-				    "[tdbAu/year >= '2002'],12;");
+          "[tdbAu/year <= '2002'],10;" +
+              "[tdbAu/year >= '2002'],12;");
 
       crawlManager.setReqPriority(req1);
       crawlManager.setReqPriority(req2);
@@ -1736,7 +1745,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertEquals(1, crawlManager.getCrawlPoolSize("nopool"));
       assertEquals(1, crawlManager.getCrawlPoolSize("foopool"));
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CONCURRENT_CRAWL_LIMIT_MAP,
-				    "foopool,2;barpool,4");
+          "foopool,2;barpool,4");
       assertEquals(1, crawlManager.getCrawlPoolSize("nopool"));
       assertEquals(2, crawlManager.getCrawlPoolSize("foopool"));
       assertEquals(4, crawlManager.getCrawlPoolSize("barpool"));
@@ -1760,7 +1769,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       p.put(CrawlManagerImpl.PARAM_START_CRAWLS_INITIAL_DELAY, "10");
       p.put(CrawlManagerImpl.PARAM_START_CRAWLS_INTERVAL, "10");
       p.put(CrawlManagerImpl.PARAM_QUEUE_RECALC_AFTER_NEW_AU, "200");
-      p.put(CrawlManagerImpl.PARAM_QUEUE_EMPTY_SLEEP, "500"); 
+      p.put(CrawlManagerImpl.PARAM_QUEUE_EMPTY_SLEEP, "500");
 
       p.put(CrawlManagerImpl.PARAM_SHARED_QUEUE_MAX, "10");
       p.put(CrawlManagerImpl.PARAM_UNSHARED_QUEUE_MAX, "10");
@@ -1815,21 +1824,21 @@ public class TestCrawlManagerImpl extends LockssTestCase {
         startSem[ix] = new SimpleBinarySemaphore();
         endSem[ix] = new SimpleBinarySemaphore();
         finishedSem[ix] = new SimpleBinarySemaphore();
-	if (ix == rauix) {
-	  // Last one is a RegistryArchivalUnit crawl
-	  crawler[ix] = new HangingCrawler("testOdcCrawlStarter(reg au) " + ix,
-					   startSem[ix], endSem[ix]);
-	  setupAuToCrawl(rau, crawler[ix]);
-	} else {
-	  crawler[ix] = new HangingCrawler("testOdcCrawlStarter " + ix,
-					   startSem[ix], endSem[ix]);
-	  aus[ix].setCrawlRule(rule);
-	  aus[ix].setStartUrls(ListUtil.list("blah"));
-	  setupAuToCrawl(aus[ix], crawler[ix]);
-	}
-	semToGive(endSem[ix]);
+        if (ix == rauix) {
+          // Last one is a RegistryArchivalUnit crawl
+          crawler[ix] = new HangingCrawler("testOdcCrawlStarter(reg au) " + ix,
+              startSem[ix], endSem[ix]);
+          setupAuToCrawl(rau, crawler[ix]);
+        } else {
+          crawler[ix] = new HangingCrawler("testOdcCrawlStarter " + ix,
+              startSem[ix], endSem[ix]);
+          aus[ix].setCrawlRule(rule);
+          aus[ix].setStartUrls(ListUtil.list("blah"));
+          setupAuToCrawl(aus[ix], crawler[ix]);
+        }
+        semToGive(endSem[ix]);
       }
-      
+
       theDaemon.setAusStarted(true);
       // now let the crawl starter proceed
       crawlManager.ausStartedSem.fill();
@@ -1842,9 +1851,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       Interrupter intr = interruptMeIn(TIMEOUT_SHOULDNT * 2, true);
 
       int pokeOrder[] =
-	{ -1, -1, -1, 0, 10, 1, 5, 6, 7, 8, 9, 3,  4, 11, 12, 13, 14};
+          { -1, -1, -1, 0, 10, 1, 5, 6, 7, 8, 9, 3,  4, 11, 12, 13, 14};
       int expStartOrder[] =
-	{  5, 10,  0, 1, 11, 2, 6, 7, 8, 9, 3, 4, -1, 12, 13, 14, -1};
+          {  5, 10,  0, 1, 11, 2, 6, 7, 8, 9, 3, 4, -1, 12, 13, 14, -1};
 
       // wait for first nthreads to start
       // check correct three (unordered)
@@ -1857,26 +1866,26 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       List expEnd = new ArrayList();
 
       for (int ix = 0; ix < tot; ix++) {
-	int poke = pokeOrder[ix];
-	if (poke >= 0) {
-	  endSem[poke].give();
-	}
-	int wait = expStartOrder[ix];
-	if (wait >= 0) {
-	  assertTrue(didntMsg("start("+ix+") = " + wait, TIMEOUT_SHOULDNT),
-		     startSem[wait].take(TIMEOUT_SHOULDNT));
-	  expExec.add(crawler[wait]);
-	}
-	if (ix >= nthreads - 1) {
-	  while (exe.size() < expExec.size()) {
-	    crawlManager.waitExecuted();
-	    assertFalse("Expected " + expExec +
-			", but timed out and was " + exe,
-			intr.did());
-	    exe = crawlManager.getExecuted();
-	  }
-	  assertEquals(expExec, crawlersOf(exe));
-	}
+        int poke = pokeOrder[ix];
+        if (poke >= 0) {
+          endSem[poke].give();
+        }
+        int wait = expStartOrder[ix];
+        if (wait >= 0) {
+          assertTrue(didntMsg("start("+ix+") = " + wait, TIMEOUT_SHOULDNT),
+              startSem[wait].take(TIMEOUT_SHOULDNT));
+          expExec.add(crawler[wait]);
+        }
+        if (ix >= nthreads - 1) {
+          while (exe.size() < expExec.size()) {
+            crawlManager.waitExecuted();
+            assertFalse("Expected " + expExec +
+                    ", but timed out and was " + exe,
+                intr.did());
+            exe = crawlManager.getExecuted();
+          }
+          assertEquals(expExec, crawlersOf(exe));
+        }
       }
     }
 
@@ -1891,7 +1900,12 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       regplugin.initPlugin(theDaemon);
     }
     RegistryArchivalUnit res = new MyRegistryArchivalUnit(regplugin);
-    theDaemon.setNodeManager(new MockNodeManager(), res);
+    HistoryRepository hrep = new MockHistoryRepository();
+    MockAuState m_aus = new MockAuState();
+    hrep.storeAuState(m_aus);
+    m_aus.setHistoryRepository(hrep);
+    theDaemon.setHistoryRepository(hrep, res);
+    hrep.startService();
     return res;
   }
 
@@ -1899,9 +1913,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     MyRegistryArchivalUnit(RegistryPlugin plugin) {
       super(plugin);
       try {
-	setConfiguration(ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(), "http://foo.bar/"));
+        setConfiguration(ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(), "http://foo.bar/"));
       } catch (ArchivalUnit.ConfigurationException e) {
-	throw new RuntimeException("setConfiguration()", e);
+        throw new RuntimeException("setConfiguration()", e);
       }
     }
   }
@@ -1910,14 +1924,14 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     private List registryAus;
     public Collection getAllRegistryAus() {
       if (registryAus == null) {
-	return super.getAllRegistryAus();
+        return super.getAllRegistryAus();
       } else {
-	return registryAus;
+        return registryAus;
       }
     }
     public void addRegistryAu(ArchivalUnit au) {
       if (registryAus == null) {
-	registryAus = new ArrayList();
+        registryAus = new ArrayList();
       }
       registryAus.add(au);
     }
@@ -1950,13 +1964,13 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     }
 
     public void signalCrawlAttemptCompleted(boolean success,
-					    Object cookie,
-					    CrawlerStatus status) {
+        Object cookie,
+        CrawlerStatus status) {
       this.success = success;
       called = true;
       this.cookie = cookie;
       if (sem != null) {
-	sem.give();
+        sem.give();
       }
     }
 
@@ -1986,7 +2000,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     private OneShotSemaphore ausStartedSem;
     private boolean isInternalAu = false;
     private Map<ArchivalUnit,Crawler> auCrawlerMap =
-      new HashMap<ArchivalUnit,Crawler>();
+        new HashMap<ArchivalUnit,Crawler>();
 
     TestableCrawlManagerImpl(PluginManager pmgr) {
       pluginMgr = pmgr;
@@ -2003,7 +2017,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     }
 
     protected Crawler makeRepairCrawler(ArchivalUnit au,
-					Collection repairUrls) {
+        Collection repairUrls) {
       MockCrawler crawler = getCrawler(au);
       crawler.setAu(au);
       crawler.setUrls(repairUrls);
@@ -2015,27 +2029,27 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     protected void execute(Runnable run) throws InterruptedException {
       if (recordExecute) {
-	executed.add(run);
-	executedSem.give();
+        executed.add(run);
+        executedSem.give();
       }
       super.execute(run);
-    }    
+    }
 
     @Override
     void waitUntilAusStarted() throws InterruptedException {
       if (ausStartedSem != null) {
-	ausStartedSem.waitFull(Deadline.MAX);
+        ausStartedSem.waitFull(Deadline.MAX);
       } else {
-	super.waitUntilAusStarted();
+        super.waitUntilAusStarted();
       }
     }
 
     @Override
     boolean areAusStarted() {
       if (ausStartedSem != null) {
-	return ausStartedSem.isFull();
+        return ausStartedSem.isFull();
       } else {
-	return super.areAusStarted();
+        return super.areAusStarted();
       }
     }
 
@@ -2061,8 +2075,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     void delFromRunningRateKeys(ArchivalUnit au) {
       Crawler crawler = auCrawlerMap.get(au);
       if (crawler != null) {
-	removeFromRunningCrawls(crawler);
-	auCrawlerMap.remove(au);
+        removeFromRunningCrawls(crawler);
+        auCrawlerMap.remove(au);
       }
     }
 
@@ -2091,7 +2105,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     private MockCrawler getCrawler(ArchivalUnit au) {
       MockCrawler crawler = (MockCrawler)auCrawlers.get(au);
       if (crawler != null) {
-	return crawler;
+        return crawler;
       }
       return mockCrawler;
     }
@@ -2102,7 +2116,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     protected void instrumentBeforeStartRateLimiterEvent(Crawler crawler) {
       if (crawler instanceof MockCrawler) {
-	((MockCrawler)crawler).setStartTime(TimeBase.nowMs());
+        ((MockCrawler)crawler).setStartTime(TimeBase.nowMs());
       }
     }
 
@@ -2139,8 +2153,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     SimpleBinarySemaphore sem2;
 
     public HangingCrawler(String name,
-			  SimpleBinarySemaphore sem1,
-			  SimpleBinarySemaphore sem2) {
+        SimpleBinarySemaphore sem1,
+        SimpleBinarySemaphore sem2) {
       this.name = name;
       this.sem1 = sem1;
       this.sem2 = sem2;
@@ -2207,7 +2221,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       for (List<String> pair : urls) {
         getCrawlerStatus().signalUrlFetched(pair.get(0));
         String mime = HeaderUtil.getMimeTypeFromContentType(pair.get(1));
-	      getCrawlerStatus().signalMimeTypeOfUrl(mime, pair.get(0)); 
+        getCrawlerStatus().signalMimeTypeOfUrl(mime, pair.get(0));
       }
       if (super.doCrawl()) {
         getCrawlerStatus().setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
@@ -2252,7 +2266,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
   public static Test suite() {
     return variantSuites(new Class[] {TestsWithAutoStart.class,
-				      TestsWithoutAutoStart.class});
+        TestsWithoutAutoStart.class});
   }
 
   public static void main(String[] argv) {

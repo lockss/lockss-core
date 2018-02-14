@@ -55,6 +55,7 @@ import javax.xml.bind.DatatypeConverter;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.daemon.Crawler;
 import org.lockss.hasher.HashResult;
 import org.lockss.hasher.HashResult.IllegalByteArray;
 import org.lockss.plugin.ArchivalUnit;
@@ -658,7 +659,7 @@ public class ImportServiceImpl implements ImportService {
     }
 
     // Alert the NodeManager that the content crawl has finished.
-    daemon.getNodeManager(au).newContentCrawlFinished();
+    AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
 
     AuUtil.getAuContentSize(au, false);
     AuUtil.getAuDiskUsage(au, false);

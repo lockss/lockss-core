@@ -85,7 +85,7 @@ public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
   private String permissionPage = "http://example.com/permission.html";
   private String permissionPage2 = "http://example.com/permission2.html";
   private MockCrawlerFacade mcf;
-  private MockNodeManager nodeMgr;
+  private MockHistoryRepository histRepo;
   
   public static Class testedClasses[] = {
     org.lockss.crawler.BaseCrawler.class
@@ -182,9 +182,11 @@ public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
   }
 
   void setupAuState() {
-    MockNodeManager nodeManager = new MockNodeManager();
-    getMockLockssDaemon().setNodeManager(nodeManager, mau);
-    nodeManager.setAuState(aus);
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    aus.setHistoryRepository(histRepo);
+    histRepo.storeAuState(aus);
+    getMockLockssDaemon().setHistoryRepository(histRepo, mau);
+    histRepo.startService();
   }
 
   public void testWholeCrawlUpdatesLastCrawlTime() {
@@ -420,10 +422,7 @@ public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
   }
 
   public void testGetDaemonPermissionCheckers() throws IOException {
-    nodeMgr = new MockNodeManager();
-    nodeMgr.setAuState(aus);
-    theDaemon.setNodeManager(new MockNodeManager(), mau);
-    
+    setupAuState();
     crawler.setDaemonPermissionCheckers(null);
     assertTrue(hasPermission(LockssPermission.LOCKSS_PERMISSION_STRING));
     assertFalse(hasPermission(ClockssPermission.CLOCKSS_PERMISSION_STRING));
