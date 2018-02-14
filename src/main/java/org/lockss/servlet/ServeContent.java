@@ -329,6 +329,7 @@ public class ServeContent extends LockssServlet {
     requestType = AccessLogType.None;
     cu = null;
     cuUrl = null;
+    baseUrl = null;
     url = null;
     versionStr = null;
     au = null;
