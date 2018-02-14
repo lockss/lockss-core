@@ -1074,15 +1074,23 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     }
   }
 
-  String trimUrlForOs(String url) throws Exception {
+  String trimUrlForOs(String url) throws MalformedURLException {
     int pad = 10 + tempDirPath.length() + "/cache/xxx".length() +
       RepositoryNodeImpl.CONTENT_DIR.length() +
       Math.max(RepositoryNodeImpl.CURRENT_FILENAME.length(),
 	       RepositoryNodeImpl.CURRENT_PROPS_FILENAME.length());
 
+    // Account for slash escaping in query
+    URL u = new URL(url);
+    String query = u.getQuery();
+    if (query!=null) {
+      pad +=
+	(LockssRepositoryImpl.escapeQuery(query).length() - query.length());
+    }
+
     PlatformUtil pi = PlatformUtil.getInstance();
     int max = pi.maxPathname() - pad;
-    String  can_url = LockssRepositoryImpl.mapUrlToFileLocation(repo.getRootLocation(),url);
+    String can_url = LockssRepositoryImpl.mapUrlToFileLocation(repo.getRootLocation(),url);
     max -= can_url.length() - url.length();  // trim the extra characters as well.
     if (can_url.length() <= max) {
       return url;
