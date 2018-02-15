@@ -1320,9 +1320,9 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "subscriptionSeq = " + subscriptionSeq);
 
-    // Delete all the subscribed ranges.
+    // Delete all the subscription ranges.
     int deletedRangesCount =
-	subManagerSql.deleteSubscriptionTypeRanges(conn, subscriptionSeq, true);
+	subManagerSql.deleteAllSubscriptionRanges(conn, subscriptionSeq);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "deletedRangesCount = " + deletedRangesCount);
 
