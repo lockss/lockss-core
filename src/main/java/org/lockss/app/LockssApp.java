@@ -914,6 +914,11 @@ public class LockssApp {
       systemExit(Constants.EXIT_CODE_JAVA_VERSION);
     }
 
+    if (!TimeZoneUtil.isBasicTimeZoneDataAvailable()) {
+      System.err.println("Basic time zone data unavailable, exiting.");
+      System.exit(Constants.EXIT_INVALID_TIME_ZONE_DATA);
+    }
+
     // No easy way to enforce maxVer.  There is no
     // SystemUtils.isJavaVersionAtMost(), and while JavaVersion.atLeast()
     // is public, there appears to be no way to get ahold of the current
