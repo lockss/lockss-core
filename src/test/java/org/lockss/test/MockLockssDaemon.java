@@ -477,6 +477,24 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   /**
+   * Store a LockssManager instance in the mock daemon
+   * @param mgrKey the manager key
+   * @param mgr the new manager
+   */
+  public void setManagerByKey(String mgrKey, LockssManager mgr) {
+    managerMap.put(mgrKey, mgr);
+  }
+
+  /**
+   * Store a LockssManager instance in the mock daemon
+   * @param mgrType the manager type
+   * @param mgr the new manager
+   */
+  public void setManagerByType(Class mgrType, LockssManager mgr) {
+    managerMap.put(managerKey(mgrType), mgr);
+  }
+
+  /**
    * Set the datagram CommManager
    * @param commMan the new manager
    */

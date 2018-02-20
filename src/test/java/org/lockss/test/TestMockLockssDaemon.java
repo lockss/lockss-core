@@ -34,7 +34,7 @@ package org.lockss.test;
 
 import java.util.*;
 import java.net.*;
-import org.lockss.test.*;
+import org.lockss.app.*;
 import org.lockss.util.*;
 
 public class TestMockLockssDaemon extends LockssTestCase {
@@ -69,5 +69,28 @@ public class TestMockLockssDaemon extends LockssTestCase {
     mockDaemon.setTestingMode("foo");
     assertEquals("foo", mockDaemon.getTestingMode());
   }
+
+  public void testSetManager() {
+    MockMetadataManager mymgr = new MockMetadataManager();
+    mockDaemon.setManagerByType(org.lockss.metadata.MetadataManager.class,
+				mymgr);
+    assertSame(mymgr, mockDaemon.getMetadataManager());
+    assertSame(mymgr, mockDaemon.getManagerByType(org.lockss.metadata.MetadataManager.class));
+
+    FooMgr foo = new FooMgrImpl();
+    mockDaemon.setManagerByType(FooMgr.class, foo);
+    assertSame(foo, mockDaemon.getManagerByType(FooMgr.class));
+  }
+
+  static class MockMetadataManager extends org.lockss.metadata.MetadataManager {
+  }
+
+  interface FooMgr extends LockssManager {}
+
+  static class FooMgrImpl
+    extends org.lockss.app.BaseLockssManager
+    implements FooMgr {
+  }
+
 }
 
