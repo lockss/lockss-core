@@ -97,6 +97,8 @@ public class TestMetadataManager extends LockssTestCase {
 
     dbManager = getTestDbManager(tempDirPath);
 
+    metadataManager = new MetadataManager();
+
     theDaemon.setMetadataManager(metadataManager);
     metadataManager.initService(theDaemon);
     metadataManager.startService();
