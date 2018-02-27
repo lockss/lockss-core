@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,10 +36,6 @@ import java.util.*;
 import junit.framework.Test;
 import org.lockss.config.*;
 import org.lockss.daemon.OpenUrlResolver.OpenUrlInfo;
-import org.lockss.daemon.TestOpenUrlResolver.MyFeatureHelper;
-import org.lockss.daemon.TestOpenUrlResolver.MyFeatureHelperFactory;
-import org.lockss.daemon.TestOpenUrlResolver.MySimulatedPlugin;
-import org.lockss.daemon.TestOpenUrlResolver.MySimulatedPlugin4;
 import org.lockss.extractor.ArticleMetadata;
 import org.lockss.extractor.ArticleMetadataExtractor;
 import org.lockss.extractor.MetadataField;
@@ -77,9 +73,6 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
   private PluginManager pluginManager;
   OpenUrlResolver openUrlResolver;
   private MetadataDbManager dbManager;
-
-  /** set of AUs reindexed by the MetadataManager */
-  private Set<String> ausReindexed = new HashSet<String>();
   
   abstract boolean useMetadataDatabase();
   
@@ -90,11 +83,7 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
 
-    String paramIndexingEnabled = Boolean.toString(useMetadataDatabase());
     final String tempDirPath = setUpDiskSpace();
-
-    ConfigurationUtil.addFromArgs(MetadataManager.PARAM_INDEXING_ENABLED, 
-                                  paramIndexingEnabled);
     
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
@@ -221,36 +210,8 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
     PluginTestUtil.crawlSimAu(sau3_1);
     PluginTestUtil.crawlSimAu(sau3_2);
 
-    ausReindexed.clear();
-
     dbManager = getTestDbManager(tempDirPath);
-
-    metadataManager = new MetadataManager() {
-      /**
-       * Notify listeners that an AU is being reindexed.
-       * 
-       * @param au
-       */
-      protected void notifyStartReindexingAu(ArchivalUnit au) {
-        log.debug("Start reindexing au " + au);
-      }
-      
-      /**
-       * Notify listeners that an AU is finished being reindexed.
-       * 
-       * @param au
-       */
-      protected void notifyFinishReindexingAu(ArchivalUnit au,
-	  ReindexingStatus status, Exception exception) {
-        log.debug("Finished reindexing au (" + status + ") " + au);
-        if (status != ReindexingStatus.Rescheduled) {
-          synchronized (ausReindexed) {
-            ausReindexed.add(au.getAuId());
-            ausReindexed.notifyAll();
-          }
-        }
-      }
-    };
+    metadataManager = new MetadataManager();
     theDaemon.setMetadataManager(metadataManager);
     metadataManager.initService(theDaemon);
     try {
@@ -259,14 +220,6 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
       // ignored
     }
     theDaemon.setAusStarted(true);
-    
-    if ("true".equals(paramIndexingEnabled)) {
-      int expectedAuCount = 6;
-      assertEquals(expectedAuCount, pluginManager.getAllAus().size());
-      long maxWaitTime = expectedAuCount * 20000; // 20 sec. per au
-      int ausCount = waitForReindexing(expectedAuCount, maxWaitTime);
-      assertEquals(expectedAuCount, ausCount);
-    }
     
     // override to eliminate URL resolution for testing
     openUrlResolver = new OpenUrlResolver(theDaemon) {
@@ -301,25 +254,13 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
   public void createMetadata() throws Exception {
     dbManager.startService();
 
-    // reset set of reindexed aus
-    ausReindexed.clear();
-
-    metadataManager.restartService();
+    metadataManager.startService();
     theDaemon.setAusStarted(true);
     
     int expectedAuCount = 4;
     assertEquals(expectedAuCount, pluginManager.getAllAus().size());
     
     Connection con = dbManager.getConnection();
-    
-    long maxWaitTime = expectedAuCount * 20000; // 20 sec. per au
-    int ausCount = waitForReindexing(expectedAuCount, maxWaitTime);
-    assertEquals(expectedAuCount, ausCount);
-    
-    assertEquals(0, metadataManager.getActiveReindexingCount());
-    assertEquals(0, metadataManager.getPrioritizedAuIdsToReindex(con,
-	Integer.MAX_VALUE, metadataManager.isPrioritizeIndexingNewAus())
-	.size());
 
     String query = "select " + URL_COLUMN + " from " + URL_TABLE; 
     PreparedStatement stmt = dbManager.prepareStatement(con, query);
@@ -332,28 +273,6 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
 
     con.rollback();
     con.commit();
-  }
-  
-  /**
-   * Waits a specified period for a specified number of AUs to finish 
-   * being reindexed.  Returns the actual number of AUs reindexed.
-   * 
-   * @param auCount the expected AU count
-   * @param maxWaitTime the maximum time to wait
-   * @return the number of AUs reindexed
-   */
-  private int waitForReindexing(int auCount, long maxWaitTime) {
-    long startTime = System.currentTimeMillis();
-    synchronized (ausReindexed) {
-      while (   (System.currentTimeMillis()-startTime < maxWaitTime) 
-             && (ausReindexed.size() < auCount)) {
-        try {
-          ausReindexed.wait(maxWaitTime);
-        } catch (InterruptedException ex) {
-        }
-      }
-    }
-    return ausReindexed.size();
   }
 
   public static class MySubTreeArticleIteratorFactory

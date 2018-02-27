@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2015 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -179,91 +175,6 @@ public interface AuControlService {
    */
   @WebMethod
   List<RequestAuControlResult> requestPollByIdList(
-      @WebParam(name = "auIds") List<String> auIds)
-      throws LockssWebServicesFault;
-
-  /**
-   * Requests the metadata indexing of an archival unit.
-   * 
-   * @param auId
-   *          A String with the identifier (auid) of the archival unit.
-   * @param force
-   *          A boolean with <code>true</code> if the request is to be made even
-   *          in the presence of some anomalies, <code>false</code> otherwise.
-   * @return a RequestAuControlResult with the result of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  RequestAuControlResult requestMdIndexingById(
-      @WebParam(name = "auId") String auId,
-      @WebParam(name = "force") boolean force) throws LockssWebServicesFault;
-
-  /**
-   * Requests the metadata indexing of the archival units defined by a list with
-   * their identifiers.
-   * 
-   * @param auIds
-   *          A List<String> with the identifiers (auids) of the archival units.
-   * @param force
-   *          A boolean with <code>true</code> if the request is to be made even
-   *          in the presence of some anomalies, <code>false</code> otherwise.
-   * @return a List<RequestAuControlResult> with the results of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<RequestAuControlResult> requestMdIndexingByIdList(
-      @WebParam(name = "auIds") List<String> auIds,
-      @WebParam(name = "force") boolean force) throws LockssWebServicesFault;
-
-  /**
-   * Disables the metadata indexing of an archival unit.
-   * 
-   * @param auId
-   *          A String with the identifier (auid) of the archival unit.
-   * @return a RequestAuControlResult with the result of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  RequestAuControlResult disableMdIndexingById(
-      @WebParam(name = "auId") String auId) throws LockssWebServicesFault;
-
-  /**
-   * Disables the metadata indexing of the archival units defined by a list with
-   * their identifiers.
-   * 
-   * @param auIds
-   *          A List<String> with the identifiers (auids) of the archival units.
-   * @return a List<RequestAuControlResult> with the results of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<RequestAuControlResult> disableMdIndexingByIdList(
-      @WebParam(name = "auIds") List<String> auIds)
-      throws LockssWebServicesFault;
-
-  /**
-   * Enables the metadata indexing of an archival unit.
-   * 
-   * @param auId
-   *          A String with the identifier (auid) of the archival unit.
-   * @return a RequestAuControlResult with the result of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  RequestAuControlResult enableMdIndexingById(
-      @WebParam(name = "auId") String auId) throws LockssWebServicesFault;
-
-  /**
-   * Enables the metadata indexing of the archival units defined by a list with
-   * their identifiers.
-   * 
-   * @param auIds
-   *          A List<String> with the identifiers (auids) of the archival units.
-   * @return a List<RequestAuControlResult> with the results of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<RequestAuControlResult> enableMdIndexingByIdList(
       @WebParam(name = "auIds") List<String> auIds)
       throws LockssWebServicesFault;
 }

@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2015-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,19 +27,12 @@
  */
 package org.lockss.ws.control;
 
-import static org.lockss.metadata.SqlConstants.*;
 import static org.lockss.ws.control.AuControlServiceImpl.*;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import org.lockss.account.AccountManager;
@@ -51,9 +44,6 @@ import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.daemon.ConfigParamAssignment;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.TitleConfig;
-import org.lockss.db.DbException;
-import org.lockss.metadata.MetadataDbManager;
-import org.lockss.metadata.MetadataManager;
 import org.lockss.metadata.TestMetadataManager.MySimulatedPlugin0;
 import org.lockss.metadata.TestMetadataManager.MySimulatedPlugin1;
 import org.lockss.plugin.ArchivalUnit;
@@ -100,11 +90,6 @@ public class FuncAuControlService extends LockssTestCase {
   private MockPlugin plugin;
   private AccountManager accountManager;
   private RemoteApi remoteApi;
-  private MetadataDbManager dbManager;
-  private MetadataManager metadataManager;
-
-  /** set of AuIds of AUs reindexed by the MetadataManager */
-  Set<String> ausReindexed = new HashSet<String>();
 
   private AuControlService proxy;
 
@@ -160,42 +145,6 @@ public class FuncAuControlService extends LockssTestCase {
                                               simAuConfig(tempDirPath + "/1"));
     PluginTestUtil.crawlSimAu(sau0);
     PluginTestUtil.crawlSimAu(sau1);
-
-    // Reset the set of reindexed AUs.
-    ausReindexed.clear();
-
-    // Initialize the database manager.
-    dbManager = getTestDbManager(tempDirPath);
-
-    metadataManager = new MetadataManager() {
-      /**
-       * Notify listeners that an AU is being reindexed.
-       * 
-       * @param au
-       */
-      protected void notifyStartReindexingAu(ArchivalUnit au) {
-        log.info("Start reindexing au " + au);
-      }
-      
-      /**
-       * Notify listeners that an AU is finshed being reindexed.
-       * 
-       * @param au
-       */
-      protected void notifyFinishReindexingAu(ArchivalUnit au,
-	  ReindexingStatus status, Exception exception) {
-        log.info("Finished reindexing au (" + status + ") " + au);
-        if (status != ReindexingStatus.Rescheduled) {
-          synchronized (ausReindexed) {
-            ausReindexed.add(au.getAuId());
-            ausReindexed.notifyAll();
-          }
-        }
-      }
-    };
-
-    theDaemon.setMetadataManager(metadataManager);
-    metadataManager.initService(theDaemon);
     theDaemon.setAusStarted(true);
 
     // The client authentication.
@@ -709,264 +658,6 @@ public class FuncAuControlService extends LockssTestCase {
     assertNull(result.getErrorMessage());
   }
 
-  /**
-   * Tests the metadata indexing operations on an Archival Unit.
-   */
-  public void testMdIndexingById() throws Exception {
-    UserAccount userAccount = accountManager.getUser(USER_NAME);
-
-    // User "userAdminRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_USER_ADMIN);
-
-    RequestAuControlResult result = proxy.requestMdIndexingById("", false);
-    assertEquals("", result.getId());
-    assertFalse(result.isSuccess());
-    assertEquals(DISABLED_METADATA_PROCESSING_ERROR_MESSAGE,
-	result.getErrorMessage());
-
-    pluginMgr.deleteAu(mau);
-    pluginMgr.deleteAu(mau0);
-    pluginMgr.deleteAu(mau1);
-
-    ConfigurationUtil.addFromArgs(MetadataManager.PARAM_INDEXING_ENABLED,
-	"true");
-
-    metadataManager.startService();
-    
-    int expectedAuCount = 2;
-    assertEquals(expectedAuCount, pluginMgr.getAllAus().size());
-
-    long maxWaitTime = expectedAuCount * 10000; // 10 sec. per au
-    int ausCount = waitForReindexing(expectedAuCount, maxWaitTime);
-    assertEquals(expectedAuCount, ausCount);
-
-    result = proxy.requestMdIndexingById("", false);
-    assertEquals("", result.getId());
-    assertFalse(result.isSuccess());
-    assertEquals(MISSING_AU_ID_ERROR_MESSAGE, result.getErrorMessage());
-
-    result = proxy.requestMdIndexingById(mau.getAuId(), true);
-    assertEquals(mau.getAuId(), result.getId());
-    assertFalse(result.isSuccess());
-    assertEquals(NO_SUCH_AU_ERROR_MESSAGE, result.getErrorMessage());
-
-    // User "contentAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ADMIN);
-    try {
-      result = proxy.requestMdIndexingById(mau.getAuId(), false);
-      fail("Test should have failed for role "
-	   + LockssServlet.ROLE_CONTENT_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "auAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_AU_ADMIN);
-    try {
-      result = proxy.requestMdIndexingById(mau.getAuId(), true);
-      fail("Test should have failed for role " + LockssServlet.ROLE_AU_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "accessContentRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ACCESS);
-    try {
-      result = proxy.requestMdIndexingById(mau.getAuId(), false);
-      fail("Test should have failed for role "
-	  + LockssServlet.ROLE_CONTENT_ACCESS);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "debugRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_DEBUG);
-
-    Connection conn = null;
-
-    try {
-      conn = dbManager.getConnection();
-
-      assertEquals(0, countDisabledAus(conn));
-
-      result = proxy.disableMdIndexingById(sau0.getAuId());
-      assertEquals(sau0.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      assertEquals(1, countDisabledAus(conn));
-
-      result = proxy.disableMdIndexingById(sau1.getAuId());
-      assertEquals(sau1.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      assertEquals(2, countDisabledAus(conn));
-
-      result = proxy.enableMdIndexingById(sau0.getAuId());
-      assertEquals(sau0.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      assertEquals(1, countDisabledAus(conn));
-
-      result = proxy.enableMdIndexingById(sau1.getAuId());
-      assertEquals(sau1.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      assertEquals(0, countDisabledAus(conn));
-    } finally {
-      MetadataDbManager.safeRollbackAndClose(conn);
-    }
-
-    result = proxy.requestMdIndexingById(sau0.getAuId(), false);
-    assertEquals(sau0.getAuId(), result.getId());
-    assertFalse(result.isSuccess());
-    assertTrue(result.getErrorMessage().startsWith("Unknown substance"));
-    assertTrue(result.getErrorMessage().endsWith(USE_FORCE_MESSAGE));
-
-    result = proxy.requestMdIndexingById(sau0.getAuId(), true);
-    assertEquals(sau0.getAuId(), result.getId());
-    assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
-  }
-
-  /**
-   * Tests the metadata indexing operations on Archival Units by a list of their
-   * identifiers.
-   */
-  public void testMdIndexingByIdList() throws Exception {
-    UserAccount userAccount = accountManager.getUser(USER_NAME);
-
-    // User "userAdminRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_USER_ADMIN);
-
-    pluginMgr.deleteAu(mau);
-    pluginMgr.deleteAu(mau0);
-    pluginMgr.deleteAu(mau1);
-
-    ConfigurationUtil.addFromArgs(MetadataManager.PARAM_INDEXING_ENABLED,
-	"true");
-
-    metadataManager.startService();
-    
-    int expectedAuCount = 2;
-    assertEquals(expectedAuCount, pluginMgr.getAllAus().size());
-
-    long maxWaitTime = expectedAuCount * 10000; // 10 sec. per au
-    int ausCount = waitForReindexing(expectedAuCount, maxWaitTime);
-    assertEquals(expectedAuCount, ausCount);
-
-    List<String> auIds = new ArrayList<String>();
-    auIds.add(sau0.getAuId());
-    auIds.add(sau1.getAuId());
-
-    List<RequestAuControlResult> results =
-	proxy.requestMdIndexingByIdList(auIds, false);
-    RequestAuControlResult result = results.get(0);
-    assertFalse(result.isSuccess());
-    assertTrue(result.getErrorMessage().startsWith("Unknown substance"));
-    assertTrue(result.getErrorMessage().endsWith(USE_FORCE_MESSAGE));
-
-    result = results.get(1);
-    assertEquals(sau1.getAuId(), result.getId());
-    assertFalse(result.isSuccess());
-    assertTrue(result.getErrorMessage().startsWith("Unknown substance"));
-    assertTrue(result.getErrorMessage().endsWith(USE_FORCE_MESSAGE));
-
-    // User "contentAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ADMIN);
-    try {
-      results = proxy.requestMdIndexingByIdList(auIds, true);
-      fail("Test should have failed for role "
-	   + LockssServlet.ROLE_CONTENT_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "auAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_AU_ADMIN);
-    try {
-      results = proxy.requestMdIndexingByIdList(auIds, false);
-      fail("Test should have failed for role " + LockssServlet.ROLE_AU_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "accessContentRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ACCESS);
-    try {
-      results = proxy.requestMdIndexingByIdList(auIds, true);
-      fail("Test should have failed for role "
-	  + LockssServlet.ROLE_CONTENT_ACCESS);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "debugRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_DEBUG);
-
-    Connection conn = null;
-
-    try {
-      conn = dbManager.getConnection();
-
-      assertEquals(0, countDisabledAus(conn));
-
-      results = proxy.disableMdIndexingByIdList(auIds);
-      result = results.get(0);
-      assertEquals(sau0.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      result = results.get(1);
-      assertEquals(sau1.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      assertEquals(2, countDisabledAus(conn));
-
-      results = proxy.enableMdIndexingByIdList(auIds);
-      result = results.get(0);
-      assertEquals(sau0.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      result = results.get(1);
-      assertEquals(sau1.getAuId(), result.getId());
-      assertTrue(result.isSuccess());
-      assertNull(result.getErrorMessage());
-
-      assertEquals(0, countDisabledAus(conn));
-    } finally {
-      MetadataDbManager.safeRollbackAndClose(conn);
-    }
-
-    results = proxy.requestMdIndexingByIdList(auIds, true);
-    result = results.get(0);
-    assertEquals(sau0.getAuId(), result.getId());
-    assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
-
-    result = results.get(1);
-    assertEquals(sau1.getAuId(), result.getId());
-    assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
-  }
-
   private Configuration simAuConfig(String rootPath) {
     Configuration conf = ConfigManager.newConfiguration();
     conf.put("root", rootPath);
@@ -990,49 +681,6 @@ public class FuncAuControlService extends LockssTestCase {
     tc1.setParams((List<ConfigParamAssignment>)ListUtil.list(a1, a2));
     tc1.setJournalTitle("jt");
     return tc1;
-  }
-
-  /**
-   * Waits a specified period for a specified number of AUs to finish 
-   * being reindexed.  Returns the actual number of AUs reindexed.
-   * 
-   * @param auCount the expected AU count
-   * @param maxWaitTime the maximum time to wait
-   * @return the number of AUs reindexed
-   */
-  private int waitForReindexing(int auCount, long maxWaitTime) {
-    long startTime = System.currentTimeMillis();
-    synchronized (ausReindexed) {
-      while ((System.currentTimeMillis()-startTime < maxWaitTime) 
-             && (ausReindexed.size() < auCount)) {
-        try {
-          ausReindexed.wait(maxWaitTime);
-        } catch (InterruptedException ex) {
-        }
-      }
-    }
-    return ausReindexed.size();
-  }
-
-  private int countDisabledAus(Connection conn)
-      throws SQLException, DbException {
-    int count = -1;
-    PreparedStatement stmt = null;
-
-    try {
-      String query = "select count(*) from " + PENDING_AU_TABLE
-	  + " where " + PRIORITY_COLUMN + " < 0";
-      stmt = dbManager.prepareStatement(conn, query);
-      ResultSet resultSet = dbManager.executeQuery(stmt);
-
-      if (resultSet.next()) {
-	count = resultSet.getInt(1);
-      }
-    } finally {
-      stmt.close();
-    }
-
-    return count;
   }
 
   public static class MyMockPlugin extends MockPlugin {

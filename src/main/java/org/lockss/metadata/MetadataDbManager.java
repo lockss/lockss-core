@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -426,21 +426,6 @@ public class MetadataDbManager extends DbManager
       throw new DbException("Cannot update active flag of AU = " + auId + " to "
 	  + isActive, re);
     }
-  }
-
-  /**
-   * Provides the SQL code executor.
-   * 
-   * @return a DbManagerSql with the SQL code executor.
-   * @throws DbException
-   *           if this object is not ready.
-   */
-  MetadataDbManagerSql getMetadataDbManagerSql() throws DbException {
-    if (!ready) {
-      throw new DbException("MetadataDbManager has not been initialized.");
-    }
-
-    return getMetadataDbManagerSqlBeforeReady();
   }
 
   /**
@@ -888,5 +873,71 @@ public class MetadataDbManager extends DbManager
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "publisherSeq = " + publisherSeq);
     return publisherSeq;
+  }
+
+  /**
+   * Adds to the database a bibliographic item.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param mdItemSeq
+   *          A Long with the metadata item identifier.
+   * @param volume
+   *          A String with the bibliographic volume.
+   * @param issue
+   *          A String with the bibliographic issue.
+   * @param startPage
+   *          A String with the bibliographic starting page.
+   * @param endPage
+   *          A String with the bibliographic ending page.
+   * @param itemNo
+   *          A String with the bibliographic item number.
+   * @return an int with the number of database rows inserted.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public int addBibItem(Connection conn, Long mdItemSeq, String volume,
+      String issue, String startPage, String endPage, String itemNo)
+      throws DbException {
+    final String DEBUG_HEADER = "addBibItem(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "mdItemSeq = " + mdItemSeq);
+      log.debug2(DEBUG_HEADER + "volume = '" + volume + "'");
+      log.debug2(DEBUG_HEADER + "issue = '" + issue + "'");
+      log.debug2(DEBUG_HEADER + "startPage = '" + startPage + "'");
+      log.debug2(DEBUG_HEADER + "endPage = '" + endPage + "'");
+      log.debug2(DEBUG_HEADER + "itemNo = '" + itemNo + "'");
+    }
+
+    int count = -1;
+
+    try {
+      count = mdDbManagerSql.addBibItem(conn, mdItemSeq, volume, issue,
+	  startPage, endPage, itemNo);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+    } catch (SQLException sqle) {
+      String message = "Cannot add bibliographic item";
+      log.error(message);
+      log.error("mdItemSeq = " + mdItemSeq);
+      log.error("volume = '" + volume + "'");
+      log.error("issue = '" + issue + "'");
+      log.error("startPage = '" + startPage + "'");
+      log.error("endPage = '" + endPage + "'");
+      log.error("itemNo = '" + itemNo + "'");
+      throw new DbException(message, sqle);
+    } catch (RuntimeException re) {
+      String message = "Cannot add bibliographic item";
+      log.error(message);
+      log.error("mdItemSeq = " + mdItemSeq);
+      log.error("volume = '" + volume + "'");
+      log.error("issue = '" + issue + "'");
+      log.error("startPage = '" + startPage + "'");
+      log.error("endPage = '" + endPage + "'");
+      log.error("itemNo = '" + itemNo + "'");
+      throw new DbException(message, re);
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "count = " + count);
+    return count;
   }
 }
