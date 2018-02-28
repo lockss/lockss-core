@@ -746,7 +746,7 @@
         <version>1.6.0</version>
         <executions>
           <execution>
-            <id>jar-symlink</id>
+            <id>jar symlink</id>
             <phase>package</phase>
             <goals>
               <goal>exec</goal>
@@ -761,7 +761,7 @@
             </configuration>
           </execution>
           <execution>
-            <id>test-jar-symlink</id>
+            <id>test jar symlink</id>
             <phase>package</phase>
             <goals>
               <goal>exec</goal>

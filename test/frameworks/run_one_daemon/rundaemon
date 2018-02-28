@@ -94,7 +94,7 @@ PROP_ARGS=`echo " " $PROP_URL_LIST | sed 's/ [ ]*/ -p /g'`
 # local copy of lockss jars allows recompile while we're running
 mkdir -p lib
 cp "${PROJECT_DIR}/target/current.jar" lib
-cp "${PROJECT_DIR}/lib/current-test.jar" lib
+cp "${PROJECT_DIR}/target/current-test.jar" lib
 #cp "${PROJECT_DIR}/lib/lockss-plugins.jar" lib
 
 if [ -n "$LIB_DIR" ] ; then
@@ -102,12 +102,12 @@ if [ -n "$LIB_DIR" ] ; then
     CPSTR=`cat "../../../test/test-p-classpath"`
     LIB_CP=`eval echo "${CPSTR}"`
 else
-    LIB_CP=`cat "${PROJECT_DIR}/test/test-classpath"`
+    LIB_CP=`cat "${PROJECT_DIR}/target/test-classpath"`
 fi
 if [ -n "$AUX_CLASSPATH" ] ; then
     AUX_CLASSPATH="$AUX_CLASSPATH":
 fi
-CLASSPATH=${AUX_CLASSPATH}lib/lockss.jar:lib/lockss-test.jar:lib/lockss-plugins.jar:${LIB_CP}
+CLASSPATH=${AUX_CLASSPATH}target/current.jar:target/current-test.jar:${LIB_CP}
 # Transform paths when running under cygwin
 if [ "$TERM" = "cygwin" ]; then
   CLASSPATH=`cygpath -w -p $CLASSPATH`
