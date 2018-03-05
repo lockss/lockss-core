@@ -94,7 +94,7 @@ public class ResourceConfigFile extends BaseConfigFile {
   /**
    * Provides an input stream to the content of this file, ignoring previous
    * history.
-   * <br />
+   * <br>
    * Use this to stream the file contents.
    * 
    * @return an InputStream with the input stream to the file contents.

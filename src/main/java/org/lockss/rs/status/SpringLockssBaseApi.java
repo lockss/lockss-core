@@ -45,7 +45,7 @@ public interface SpringLockssBaseApi {
   /**
    * Provides the status as an HTTP response.
    * 
-   * @return a ResponseEntity<ApiStatus> with the status.
+   * @return a {@code ResponseEntity<ApiStatus>} with the status.
    */
   @RequestMapping(value = "/status", produces = { "application/json" },
   method = RequestMethod.GET)

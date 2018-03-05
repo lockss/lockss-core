@@ -374,7 +374,7 @@ public class AuHelper {
    * results.
    * 
    * @param results
-   *          A Collection<AuWsResult> with the query results.
+   *          A {@code Collection<AuWsResult>} with the query results.
    * @return a String with the requested printable copy.
    */
   String nonDefaultToString(Collection<AuWsResult> results) {

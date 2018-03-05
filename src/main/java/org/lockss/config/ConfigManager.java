@@ -3245,7 +3245,7 @@ public class ConfigManager implements LockssManager {
   /**
    * Provides an input stream to the content of a cached configuration file,
    * ignoring previous history.
-   * <br />
+   * <br>
    * Use this to stream the file contents.
    * 
    * @param cacheConfigFileName

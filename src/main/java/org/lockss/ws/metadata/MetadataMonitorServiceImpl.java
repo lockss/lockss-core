@@ -65,7 +65,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
   /**
    * Provides the names of the publishers in the database.
    * 
-   * @return a List<String> with the publisher names.
+   * @return a {@code List<String>} with the publisher names.
    * @throws LockssWebServicesFault
    */
   @Override
@@ -89,7 +89,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the DOI prefixes for the publishers in the database with multiple
    * DOI prefixes.
    * 
-   * @return a List<KeyValueListPair> with the DOI prefixes keyed by the
+   * @return a {@code List<KeyValueListPair>} with the DOI prefixes keyed by the
    *         publisher name.
    * @throws LockssWebServicesFault
    */
@@ -139,7 +139,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the publisher names linked to DOI prefixes in the database that
    * are linked to multiple publishers.
    * 
-   * @return a List<KeyValueListPair> with the publisher names keyed by the DOI
+   * @return a {@code List<KeyValueListPair>} with the publisher names keyed by the DOI
    *         prefixes to which they are linked.
    * @throws LockssWebServicesFault
    */
@@ -188,7 +188,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the DOI prefixes for the Archival Units in the database with
    * multiple DOI prefixes.
    * 
-   * @return a List<KeyValueListPair> with the DOI prefixes keyed by the
+   * @return a {@code List<KeyValueListPair>} with the DOI prefixes keyed by the
    *         Archival Unit identifier.
    * @throws LockssWebServicesFault
    */
@@ -235,7 +235,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the DOI prefixes for the Archival Units in the database with
    * multiple DOI prefixes.
    * 
-   * @return a List<KeyValueListPair> with the DOI prefixes keyed by the
+   * @return a {@code List<KeyValueListPair>} with the DOI prefixes keyed by the
    *         Archival Unit name.
    * @throws LockssWebServicesFault
    */
@@ -282,7 +282,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the ISBNs for the publications in the database with more than two
    * ISBNS.
    * 
-   * @return a List<KeyIdNamePairListPair> with the ISBNs keyed by the
+   * @return a {@code List<KeyIdNamePairListPair>} with the ISBNs keyed by the
    *         publication name. The IdNamePair objects contain the ISBN as the
    *         identifier and the ISBN type as the name.
    * @throws LockssWebServicesFault
@@ -324,7 +324,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the ISSNs for the publications in the database with more than two
    * ISSNS.
    * 
-   * @return a List<KeyIdNamePairListPair> with the ISSNs keyed by the
+   * @return a {@code List<KeyIdNamePairListPair>} with the ISSNs keyed by the
    *         publication name. The IdNamePair objects contain the ISSN as the
    *         identifier and the ISSN type as the name.
    * @throws LockssWebServicesFault
@@ -368,7 +368,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the ISSNs for the publications in the database with more than two
    * ISSNS.
    * 
-   * @return a List<PkNamePairIdNamePairListPair> with the ISSNs keyed by the
+   * @return a {@code List<PkNamePairIdNamePairListPair>} with the ISSNs keyed by the
    *         publication PK/name pair. The IdNamePair objects contain the ISSN
    *         as the identifier and the ISSN type as the name.
    * @throws LockssWebServicesFault
@@ -413,7 +413,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the publication names linked to ISBNs in the database that are
    * linked to multiple publications.
    * 
-   * @return a List<KeyValueListPair> with the publication names keyed by the
+   * @return a {@code List<KeyValueListPair>} with the publication names keyed by the
    *         ISBNs to which they are linked.
    * @throws LockssWebServicesFault
    */
@@ -459,7 +459,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the publication names linked to ISSNs in the database that are
    * linked to multiple publications.
    * 
-   * @return a List<KeyValueListPair> with the publication names keyed by the
+   * @return a {@code List<KeyValueListPair>} with the publication names keyed by the
    *         ISSNs to which they are linked.
    * @throws LockssWebServicesFault
    */
@@ -504,7 +504,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
   /**
    * Provides the ISSNs for books in the database.
    * 
-   * @return a List<KeyValueListPair> with the ISSNs keyed by the publication
+   * @return a {@code List<KeyValueListPair>} with the ISSNs keyed by the publication
    *         name.
    * @throws LockssWebServicesFault
    */
@@ -550,7 +550,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
   /**
    * Provides the ISBNs for periodicals in the database.
    * 
-   * @return a List<KeyValueListPair> with the ISBNs keyed by the publication
+   * @return a {@code List<KeyValueListPair>} with the ISBNs keyed by the publication
    *         name.
    * @throws LockssWebServicesFault
    */
@@ -596,7 +596,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
   /**
    * Provides the Archival Units in the database with an unknown provider.
    * 
-   * @return a List<String> with the sorted Archival Unit names.
+   * @return a {@code List<String>} with the sorted Archival Unit names.
    * @throws LockssWebServicesFault
    */
   @Override
@@ -615,7 +615,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the journal articles in the database whose parent is not a
    * journal.
    * 
-   * @return a List<MismatchedChildWsResult> with the mismatched journal
+   * @return a {@code List<MismatchedChildWsResult>} with the mismatched journal
    *  articles sorted by Archival Unit, parent name and child name.
    * @throws LockssWebServicesFault
    */
@@ -663,7 +663,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the book chapters in the database whose parent is not a book or a
    * book series.
    * 
-   * @return a List<MismatchedChildWsResult> with the mismatched book chapters
+   * @return a {@code List<MismatchedChildWsResult>} with the mismatched book chapters
    *         sorted by Archival Unit, parent name and child name.
    * @throws LockssWebServicesFault
    */
@@ -711,7 +711,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the book volumes in the database whose parent is not a book or a
    * book series.
    * 
-   * @return a List<MismatchedChildWsResult> with the mismatched book volumes
+   * @return a {@code List<MismatchedChildWsResult>} with the mismatched book volumes
    *         sorted by Archival Unit, parent name and child name.
    * @throws LockssWebServicesFault
    */
@@ -759,7 +759,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the publishers for the Archival Units in the database with
    * multiple publishers.
    * 
-   * @return a List<KeyValueListPair> with the publishers keyed by the Archival
+   * @return a {@code List<KeyValueListPair>} with the publishers keyed by the Archival
    *         Unit identifier.
    * @throws LockssWebServicesFault
    */
@@ -807,7 +807,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the publishers for the Archival Units in the database with
    * multiple publishers.
    * 
-   * @return a List<KeyValueListPair> with the publishers keyed by the Archival
+   * @return a {@code List<KeyValueListPair>} with the publishers keyed by the Archival
    *         Unit name.
    * @throws LockssWebServicesFault
    */
@@ -854,7 +854,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
   /**
    * Provides the metadata items in the database that do not have a name.
    * 
-   * @return a List<UnnamedItemWsResult> with the unnamed metadata items sorted
+   * @return a {@code List<UnnamedItemWsResult>} with the unnamed metadata items sorted
    *         sorted by publisher, Archival Unit, parent type, parent name and
    *         item type.
    * @throws LockssWebServicesFault
@@ -905,7 +905,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the proprietary identifiers for the publications in the database
    * with multiple proprietary identifiers.
    * 
-   * @return a List<KeyValueListPair> with the proprietary identifiers keyed by
+   * @return a {@code List<KeyValueListPair>} with the proprietary identifiers keyed by
    *         the publication name.
    * @throws LockssWebServicesFault
    */
@@ -954,7 +954,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
   /**
    * Provides the non-parent metadata items in the database that have no DOI.
    *
-   * @return a List<MetadataItemWsResult> with the non-parent metadata items
+   * @return a {@code List<MetadataItemWsResult>} with the non-parent metadata items
    *         that have no DOI sorted sorted by publisher, Archival Unit, parent
    *         type, parent name, item type and item name.
    * @throws LockssWebServicesFault
@@ -1005,7 +1005,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the non-parent metadata items in the database that have no Access
    * URL.
    *
-   * @return a List<MetadataItemWsResult> with the non-parent metadata items
+   * @return a {@code List<MetadataItemWsResult>} with the non-parent metadata items
    *         that have no Access URL sorted sorted by publisher, Archival Unit,
    *         parent type, parent name, item type and item name.
    * @throws LockssWebServicesFault
@@ -1055,7 +1055,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
   /**
    * Provides the Archival Units in the database with no metadata items.
    * 
-   * @return a List<String> with the sorted Archival Unit names.
+   * @return a {@code List<String>} with the sorted Archival Unit names.
    * @throws LockssWebServicesFault
    */
   @Override
@@ -1120,7 +1120,7 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * Provides the Archival Units that exist in the database but that have been
    * deleted from the daemon.
    * 
-   * @return a List<AuMetadataWsResult> with the Archival unit data.
+   * @return a {@code List<AuMetadataWsResult>} with the Archival unit data.
    * @throws LockssWebServicesFault
    */
   @Override

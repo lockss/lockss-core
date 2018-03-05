@@ -488,7 +488,7 @@ public class DbManager extends BaseLockssManager
   /**
    * Provides a database connection using the default datasource, retrying the
    * operation in the default manner in case of transient failures.
-   * <p />
+   * <p>
    * Autocommit is disabled to allow the client code to manage transactions.
    * 
    * @return a Connection with the database connection to be used.

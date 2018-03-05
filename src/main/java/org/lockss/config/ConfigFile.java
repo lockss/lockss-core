@@ -82,7 +82,7 @@ public interface ConfigFile {
 
   /**
    * Provides an input stream to the content of this file.
-   * <br />
+   * <br>
    * Use this to stream the file contents.
    * 
    * @return an InputStream with the input stream to the file contents.

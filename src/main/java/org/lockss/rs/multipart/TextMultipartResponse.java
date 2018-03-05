@@ -61,7 +61,7 @@ public class TextMultipartResponse {
    * Constructor using a multipart response.
    * 
    * @param response
-   *          A ResponseEntity<MimeMultipart> with the multipart response.
+   *          A {@code ResponseEntity<MimeMultipart>} with the multipart response.
    * @throws Exception
    *           if there are problems.
    */
@@ -179,7 +179,7 @@ public class TextMultipartResponse {
   /**
    * Provides the parts of the response, indexed by the part name.
    * 
-   * @return a LinkedHashMap<String, Part> with the response parts, indexed by
+   * @return a {@code LinkedHashMap<String, Part>} with the response parts, indexed by
    *         the part name.
    */
   public LinkedHashMap<String, Part> getParts() {
@@ -238,7 +238,7 @@ public class TextMultipartResponse {
     /**
      * Provides the headers of the part.
      *
-     * @return a Map<String, String> with the part headers.
+     * @return a {@code Map<String, String>} with the part headers.
      */
     public Map<String, String> getHeaders() {
       return headers;
@@ -247,7 +247,7 @@ public class TextMultipartResponse {
     /**
      * Populates the headers of the part.
      * 
-     * @param headers A Map<String, String> with the part headers.
+     * @param headers A {@code Map<String, String>} with the part headers.
      */
     public void setHeaders(Map<String, String> headers) {
       this.headers = headers;
