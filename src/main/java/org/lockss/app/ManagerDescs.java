@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -69,12 +69,6 @@ public class ManagerDescs {
   public static ManagerDesc PLUGIN_MANAGER_DESC =
     new ManagerDesc(LockssApp.PLUGIN_MANAGER,
 		    "org.lockss.plugin.PluginManager");
-  public static ManagerDesc JOB_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.JOB_MANAGER,
-		    "org.lockss.job.JobManager");
-  public static ManagerDesc JOB_DB_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.JOB_DB_MANAGER,
-		    "org.lockss.job.JobDbManager");
   public static ManagerDesc SCHED_SERVICE_DESC =
     new ManagerDesc(LockssDaemon.SCHED_SERVICE,
 		    "org.lockss.scheduler.SchedService");

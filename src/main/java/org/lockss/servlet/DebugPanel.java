@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,18 +31,13 @@ package org.lockss.servlet;
 import javax.servlet.*;
 import java.io.*;
 import java.util.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import org.mortbay.html.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
-import org.lockss.metadata.MetadataDbManager;
-import org.lockss.metadata.MetadataManager;
 import org.lockss.poller.*;
 import org.lockss.crawler.*;
 import org.lockss.state.*;
 import org.lockss.config.*;
-import org.lockss.db.DbException;
 import org.lockss.remote.*;
 import org.lockss.plugin.*;
 import org.lockss.account.*;
@@ -81,9 +76,6 @@ public class DebugPanel extends LockssServlet {
   static final String ACTION_THROW_IOEXCEPTION = "Throw IOException";
   static final String ACTION_FIND_URL = "Find Preserved URL";
 
-  public static final String ACTION_REINDEX_METADATA = "Reindex Metadata";
-  public static final String ACTION_FORCE_REINDEX_METADATA =
-      "Force Reindex Metadata";
   public static final String ACTION_START_V3_POLL = "Start V3 Poll";
   static final String ACTION_FORCE_START_V3_POLL = "Force V3 Poll";
   public static final String ACTION_START_CRAWL = "Start Crawl";
@@ -94,8 +86,6 @@ public class DebugPanel extends LockssServlet {
   static final String ACTION_CRAWL_PLUGINS = "Crawl Plugins";
   static final String ACTION_RELOAD_CONFIG = "Reload Config";
   static final String ACTION_SLEEP = "Sleep";
-  public static final String ACTION_DISABLE_METADATA_INDEXING =
-      "Disable Indexing";
 
   /** Set of actions for which audit alerts shouldn't be generated */
   public static final Set noAuditActions = SetUtil.set(ACTION_FIND_URL);
@@ -111,14 +101,11 @@ public class DebugPanel extends LockssServlet {
   private PollManager pollManager;
   private CrawlManager crawlMgr;
   private ConfigManager cfgMgr;
-  private MetadataDbManager dbMgr;
-  private MetadataManager metadataMgr;
   private RemoteApi rmtApi;
 
   boolean showResult;
   boolean showForcePoll;
   boolean showForceCrawl;
-  boolean showForceReindexMetadata;
 
   String formAuid;
   String formDepth = "100";
@@ -134,7 +121,6 @@ public class DebugPanel extends LockssServlet {
     statusMsg = null;
     showForcePoll = false;
     showForceCrawl = false;
-    showForceReindexMetadata = false;
   }
 
   public void init(ServletConfig config) throws ServletException {
@@ -145,10 +131,6 @@ public class DebugPanel extends LockssServlet {
     crawlMgr = daemon.getCrawlManager();
     cfgMgr = daemon.getConfigManager();
     rmtApi = daemon.getRemoteApi();
-    try {
-      dbMgr = daemon.getMetadataDbManager();
-      metadataMgr = daemon.getMetadataManager();
-    } catch (IllegalArgumentException ex) {}
   }
 
   public void lockssHandleRequest() throws IOException {
@@ -207,15 +189,6 @@ public class DebugPanel extends LockssServlet {
     if (ACTION_FIND_URL.equals(action)) {
       showForm = doFindUrl();
     }
-    if (ACTION_REINDEX_METADATA.equals(action)) {
-      doReindexMetadata();
-    }
-    if (ACTION_FORCE_REINDEX_METADATA.equals(action)) {
-      forceReindexMetadata();
-    }
-    if (ACTION_DISABLE_METADATA_INDEXING.equals(action)) {
-      doDisableMetadataIndexing();
-    }
     if (showForm) {
       displayPage();
     }
@@ -248,39 +221,6 @@ public class DebugPanel extends LockssServlet {
       errMsg = "Illegal duration: " + e;
     } catch (InterruptedException e) {
       errMsg = "Interrupted: " + e;
-    }
-  }
-
-  private void doReindexMetadata() {
-    ArchivalUnit au = getAu();
-    if (au == null) return;
-    try {
-      startReindexingMetadata(au, false);
-    } catch (RuntimeException e) {
-      log.error("Can't reindex metadata", e);
-      errMsg = "Error: " + e.toString();
-    }
-  }
-
-  private void forceReindexMetadata() {
-    ArchivalUnit au = getAu();
-    if (au == null) return;
-    try {
-      startReindexingMetadata(au, true);
-    } catch (RuntimeException e) {
-      log.error("Can't reindex metadata", e);
-      errMsg = "Error: " + e.toString();
-    }
-  }
-
-  private void doDisableMetadataIndexing() {
-    ArchivalUnit au = getAu();
-    if (au == null) return;
-    try {
-      disableMetadataIndexing(au, false);
-    } catch (RuntimeException e) {
-      log.error("Can't disable metadata indexing", e);
-      errMsg = "Error: " + e.toString();
     }
   }
 
@@ -399,80 +339,6 @@ public class DebugPanel extends LockssServlet {
       statusMsg = "AU has no substance " + chtxt + ": " + au.getName();
       auState.setSubstanceState(SubstanceChecker.State.No);
       break;
-    }
-  }
-
-  private boolean startReindexingMetadata(ArchivalUnit au, boolean force) {
-    if (metadataMgr == null) {
-      errMsg = "Metadata processing is not enabled.";
-      return false;
-    }
-
-    if (!force) {
-      if (!AuUtil.hasCrawled(au)) {
-        errMsg = "Au has never crawled. Click again to reindex metadata";
-        showForceReindexMetadata = true;
-        return false;
-      }
-      
-      AuState auState = AuUtil.getAuState(au);
-      switch (auState.getSubstanceState()) {
-      case No:
-        errMsg = "Au has no substance. Click again to reindex metadata";
-        showForceReindexMetadata = true;
-        return false;
-      case Unknown:
-        errMsg = "Unknown substance for Au. Click again to reindex metadata.";
-        showForceReindexMetadata = true;
-        return false;
-      case Yes:
-	// fall through
-      }
-    }
-
-    // Fully reindex metadata with the highest priority.
-    Connection conn = null;
-    PreparedStatement insertPendingAuBatchStatement = null;
-
-    try {
-      conn = dbMgr.getConnection();
-      insertPendingAuBatchStatement =
-	  metadataMgr.getPrioritizedInsertPendingAuBatchStatement(conn);
-
-      if (metadataMgr.enableAndAddAuToReindex(au, conn,
-	  insertPendingAuBatchStatement, false, true)) {
-	statusMsg = "Reindexing metadata for " + au.getName();
-	return true;
-      }
-    } catch (DbException dbe) {
-      log.error("Cannot reindex metadata for " + au.getName(), dbe);
-    } finally {
-      MetadataDbManager.safeCloseStatement(insertPendingAuBatchStatement);
-      MetadataDbManager.safeRollbackAndClose(conn);
-    }
-
-    if (force) {
-      errMsg = "Still cannot reindex metadata for " + au.getName();
-    } else {
-      errMsg = "Cannot reindex metadata for " + au.getName();
-    }
-    return false;
-  }
-
-  private boolean disableMetadataIndexing(ArchivalUnit au, boolean force) {
-    if (metadataMgr == null) {
-      errMsg = "Metadata processing is not enabled.";
-      return false;
-    }
-
-    try {
-      metadataMgr.disableAuIndexing(au);
-      statusMsg = "Disabled metadata indexing for " + au.getName();
-      return true;
-    } catch (Exception e) {
-      errMsg =
-	  "Cannot reindex metadata for " + au.getName() + ": " + e.getMessage();
-      return false;
     }
   }
 
@@ -621,18 +487,6 @@ public class DebugPanel extends LockssServlet {
 				       ACTION_CHECK_SUBSTANCE);
       frm.add("<br>");
       frm.add(checkSubstance);
-    if (metadataMgr != null) {
-      Input reindex = new Input(Input.Submit, KEY_ACTION,
-                                ( showForceReindexMetadata
-                                  ? ACTION_FORCE_REINDEX_METADATA
-                                  : ACTION_REINDEX_METADATA));
-      frm.add(" ");
-      frm.add(reindex);
-      Input disableIndexing = new Input(Input.Submit, KEY_ACTION,
-                                        ACTION_DISABLE_METADATA_INDEXING);
-      frm.add(" ");
-      frm.add(disableIndexing);
-    }
     frm.add("</center>");
 
     comp.add(frm);

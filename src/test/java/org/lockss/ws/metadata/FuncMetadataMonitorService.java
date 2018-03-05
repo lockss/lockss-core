@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2015-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,16 +30,13 @@ package org.lockss.ws.metadata;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.metadata.TestMetadataManager.MySimulatedPlugin0;
-import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.PluginManager;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedArchivalUnit;
@@ -67,9 +64,6 @@ public class FuncMetadataMonitorService extends LockssTestCase {
       "MetadataMonitorServiceImplService";
 
   private MetadataMonitorService proxy;
-
-  /** set of AuIds of AUs reindexed by the MetadataManager */
-  Set<String> ausReindexed = new HashSet<String>();
   
   /** number of articles deleted by the MetadataManager */
   Integer[] articlesDeleted = new Integer[] {0};
@@ -84,9 +78,6 @@ public class FuncMetadataMonitorService extends LockssTestCase {
 	ServletManager.PARAM_PLATFORM_USERNAME, USER_NAME,
 	ServletManager.PARAM_PLATFORM_PASSWORD, PASSWORD_SHA1);
 
-    ConfigurationUtil.addFromArgs(MetadataManager.PARAM_INDEXING_ENABLED,
-	"true");
-
     MockLockssDaemon theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
     PluginManager pluginManager = theDaemon.getPluginManager();
@@ -99,50 +90,9 @@ public class FuncMetadataMonitorService extends LockssTestCase {
 	    simAuConfig(tempDirPath + "/0"));
     PluginTestUtil.crawlSimAu(sau);
 
-    // reset set of reindexed aus
-    ausReindexed.clear();
-
     getTestDbManager(tempDirPath);
+    MetadataManager metadataManager = new MetadataManager();
 
-    MetadataManager metadataManager = new MetadataManager() {
-      /**
-       * Notify listeners that an AU has been deleted
-       * @param auId the AuId of the AU that was deleted
-       * @param articleCount the number of articles deleted for the AU
-       */
-      protected void notifyDeletedAu(String auId, int articleCount) {
-	synchronized (articlesDeleted) {
-	  articlesDeleted[0] += articleCount;
-	  articlesDeleted.notifyAll();
-	}
-      }
-
-      /**
-       * Notify listeners that an AU is being reindexed.
-       * 
-       * @param au
-       */
-      protected void notifyStartReindexingAu(ArchivalUnit au) {
-        log.info("Start reindexing au " + au);
-      }
-      
-      /**
-       * Notify listeners that an AU is finshed being reindexed.
-       * 
-       * @param au
-       */
-      protected void notifyFinishReindexingAu(ArchivalUnit au,
-	  ReindexingStatus status, Exception exception) {
-        log.info("Finished reindexing au (" + status + ") " + au);
-        if (status != ReindexingStatus.Rescheduled) {
-          synchronized (ausReindexed) {
-            ausReindexed.add(au.getAuId());
-            ausReindexed.notifyAll();
-          }
-        }
-      }
-    };
-    
     theDaemon.setMetadataManager(metadataManager);
     metadataManager.initService(theDaemon);
     metadataManager.startService();
@@ -152,10 +102,6 @@ public class FuncMetadataMonitorService extends LockssTestCase {
     
     int expectedAuCount = 1;
     assertEquals(expectedAuCount, pluginManager.getAllAus().size());
-    
-    long maxWaitTime = expectedAuCount * 10000; // 10 sec. per au
-    int ausCount = waitForReindexing(expectedAuCount, maxWaitTime);
-    assertEquals(expectedAuCount, ausCount);
 
     // The client authentication.
     Authenticator.setDefault(new Authenticator() {
@@ -184,28 +130,6 @@ public class FuncMetadataMonitorService extends LockssTestCase {
                                 SimulatedContentGenerator.FILE_TYPE_HTML));
     conf.put("binFileSize", "7");
     return conf;
-  }
-
-  /**
-   * Waits a specified period for a specified number of AUs to finish 
-   * being reindexed.  Returns the actual number of AUs reindexed.
-   * 
-   * @param auCount the expected AU count
-   * @param maxWaitTime the maximum time to wait
-   * @return the number of AUs reindexed
-   */
-  private int waitForReindexing(int auCount, long maxWaitTime) {
-    long startTime = System.currentTimeMillis();
-    synchronized (ausReindexed) {
-      while (   (System.currentTimeMillis()-startTime < maxWaitTime) 
-             && (ausReindexed.size() < auCount)) {
-        try {
-          ausReindexed.wait(maxWaitTime);
-        } catch (InterruptedException ex) {
-        }
-      }
-    }
-    return ausReindexed.size();
   }
 
   /**
