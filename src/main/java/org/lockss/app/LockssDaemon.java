@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -63,8 +63,6 @@ import org.lockss.remote.*;
 import org.lockss.clockss.*;
 import org.lockss.safenet.*;
 import org.apache.commons.collections.map.LinkedMap;
-import org.lockss.job.JobDbManager;
-import org.lockss.job.JobManager;
 
 /**
  * The legacy LOCKSS daemon application
@@ -92,8 +90,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(LcapStreamComm.class);
   public static final String ROUTER_MANAGER =
     managerKey(LcapRouter.class);
-  public static final String DATAGRAM_ROUTER_MANAGER =
-    managerKey(LcapDatagramRouter.class);
 //   public static final String IDENTITY_MANAGER =
 //     mamagerKey(IdentityManager.class);
   public static final String CRAWL_MANAGER =
@@ -110,8 +106,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(LockssRepository.class);
   public static final String HISTORY_REPOSITORY =
     managerKey(HistoryRepository.class);
-  public static final String NODE_MANAGER =
-    managerKey(NodeManager.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
@@ -124,8 +118,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(FailOverProxyManager.class);
   public static final String REMOTE_API =
     managerKey(RemoteApi.class);
-  public static final String NODE_MANAGER_MANAGER =
-    managerKey(NodeManagerManager.class);
   public static final String REPOSITORY_STATUS =
     managerKey(LockssRepositoryStatus.class);
   public static final String ARCHIVAL_UNIT_STATUS =
@@ -148,12 +140,8 @@ public class LockssDaemon extends LockssApp {
     managerKey(SubscriptionManager.class);
   public static final String FETCH_TIME_EXPORT_MANAGER =
     managerKey(org.lockss.exporter.FetchTimeExportManager.class);
-  public static final String JOB_MANAGER =
-    managerKey(JobManager.class);
   public static final String METADATA_DB_MANAGER =
     managerKey(MetadataDbManager.class);
-  public static final String JOB_DB_MANAGER =
-    managerKey(JobDbManager.class);
   public static final String SCHED_SERVICE =
     managerKey(SchedService.class);
 
@@ -187,10 +175,6 @@ public class LockssDaemon extends LockssApp {
     SUBSCRIPTION_MANAGER_DESC,
     // Start the fetch time export manager.
     FETCH_TIME_EXPORT_MANAGER_DESC,
-    // Start the job database manager.
-    JOB_DB_MANAGER_DESC,
-    // Start the job manager.
-    JOB_MANAGER_DESC,
     // NOTE: Any managers that are needed to decide whether a servlet is to be
     // enabled or not (through ServletDescr.isEnabled()) need to appear before
     // the AdminServletManager on the next line.
@@ -203,9 +187,7 @@ public class LockssDaemon extends LockssApp {
     // they're ready
     DATAGRAM_COMM_MANAGER_DESC,
     STREAM_COMM_MANAGER_DESC,
-    DATAGRAM_ROUTER_MANAGER_DESC,
     ROUTER_MANAGER_DESC,
-    NODE_MANAGER_MANAGER_DESC,
     ICP_MANAGER_DESC,
     PLATFORM_CONFIG_STATUS_DESC,
     CONFIG_STATUS_DESC,
@@ -233,10 +215,7 @@ public class LockssDaemon extends LockssApp {
                     "org.lockss.repository.LockssRepositoryImpl$Factory"),
     // HistoryRepository needs no extra managers
     new ManagerDesc(HISTORY_REPOSITORY,
-                    "org.lockss.state.HistoryRepositoryImpl$Factory"),
-    // NodeManager uses LockssRepository, HistoryRepository, and
-    // ActivityRegulator
-    new ManagerDesc(NODE_MANAGER, "org.lockss.state.NodeManagerImpl$Factory"),
+                    "org.lockss.state.HistoryRepositoryImpl$Factory")
   };
 
   // Maps au to sequenced map of managerKey -> manager instance
@@ -383,15 +362,6 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * return the datagram router manager instance
-   * @return the LcapDatagramRouter
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapDatagramRouter getDatagramRouterManager()  {
-    return (LcapDatagramRouter) getManager(DATAGRAM_ROUTER_MANAGER);
-  }
-
-  /**
    * return the communication router manager instance
    * @return the LcapDatagramRouter
    * @throws IllegalArgumentException if the manager is not available.
@@ -455,15 +425,6 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * return the NodeManagerManager instance.
-   * @return NodeManagerManager instance.
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public NodeManagerManager getNodeManagerManager() {
-    return (NodeManagerManager) getManager(NODE_MANAGER_MANAGER);
-  }
-
-  /**
    * return the ArchivalUnitStatus instance.
    * @return ArchivalUnitStatus instance.
    * @throws IllegalArgumentException if the manager is not available.
@@ -503,29 +464,6 @@ public class LockssDaemon extends LockssApp {
    */
   public FetchTimeExportManager getFetchTimeExportManager() {
     return (FetchTimeExportManager) getManager(FETCH_TIME_EXPORT_MANAGER);
-  }
-
-  // s.b. in BaseLockssDaemon but currently specific to MetadataManager
-  /**
-   * Provides the job manager instance.
-   * 
-   * @return a JobManager with the job manager instance.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public JobManager getJobManager() {
-    return (JobManager) getManager(JOB_MANAGER);
-  }
-
-  /**
-   * Provides the job database manager instance.
-   * 
-   * @return a JobDbManager with the job database manager instance.
-   * @throws IllegalArgumentException
-   *           if the manager is not available.
-   */
-  public JobDbManager getJobDbManager() {
-    return (JobDbManager) getManager(JOB_DB_MANAGER);
   }
 
   /**
@@ -605,16 +543,6 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * Return the NodeManager instance
-   * @param au the ArchivalUnit
-   * @return the NodeManager
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public NodeManager getNodeManager(ArchivalUnit au) {
-    return (NodeManager)getAuManager(NODE_MANAGER, au);
-  }
-
-  /**
    * Return the HistoryRepository instance
    * @param au the ArchivalUnit
    * @return the HistoryRepository
@@ -650,13 +578,6 @@ public class LockssDaemon extends LockssApp {
     return getAuManagersOfType(LOCKSS_REPOSITORY);
   }
 
-  /**
-   * Return all NodeManagers.
-   * @return a list of all NodeManagers for all AUs
-   */
-  public List<NodeManager> getAllNodeManagers() {
-    return getAuManagersOfType(NODE_MANAGER);
-  }
 
   // AU specific manager loading, starting, stopping
 

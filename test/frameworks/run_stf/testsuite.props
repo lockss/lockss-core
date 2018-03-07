@@ -10,7 +10,7 @@
 # daemonCount = 4
 
 ## Log level for the daemon
-# daemonLogLevel = debug2
+daemonLogLevel = debug2
 
 ## Log level for the script
 # scriptLogLevel = info

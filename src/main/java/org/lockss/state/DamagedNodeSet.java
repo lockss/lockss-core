@@ -44,11 +44,11 @@ import org.lockss.util.LockssSerializable;
  * repair.
  */
 public class DamagedNodeSet implements LockssSerializable {
-  HashSet nodesWithDamage = new HashSet();
+  HashSet<String> nodesWithDamage = new HashSet<>();
   // the form of this map is key: url String, value: ArrayList url Strings
   // while it is logical to use a Set instead of an ArrayList, it is not
   // possible due to Castor's inability to marshall groups of Sets correctly.
-  HashMap cusToRepair = new HashMap();
+  HashMap<String,List<String>> cusToRepair = new HashMap<>();
   transient HistoryRepository repository;
   transient ArchivalUnit theAu;
 
@@ -98,11 +98,8 @@ public class DamagedNodeSet implements LockssSerializable {
    */
   public boolean containsToRepair(CachedUrlSet cus, String nodeUrl) {
     // get the url list associated with that CUS url, if any
-    ArrayList urlArray = (ArrayList)cusToRepair.get(cus.getUrl());
-    if (urlArray!=null) {
-      return urlArray.contains(nodeUrl);
-    }
-    return false;
+    ArrayList urlArray = (ArrayList) cusToRepair.get(cus.getUrl());
+    return urlArray != null && urlArray.contains(nodeUrl);
   }
 
   /**
@@ -112,10 +109,8 @@ public class DamagedNodeSet implements LockssSerializable {
    */
   synchronized public boolean hasDamage(CachedUrlSet cus) {
     // check if the CUS contains any of the other damaged nodes
-    Iterator damagedIt = nodesWithDamage.iterator();
-    while (damagedIt.hasNext()) {
-      String url = (String) damagedIt.next();
-      if (cus.containsUrl(url)) {
+    for (String node_url : nodesWithDamage) {
+      if (cus.containsUrl(node_url)) {
         return true;
       }
     }
@@ -126,24 +121,12 @@ public class DamagedNodeSet implements LockssSerializable {
     return nodesWithDamage.contains(nodeUrl);
   }
 
-  synchronized public boolean hasLocalizedDamage(CachedUrlSet cus) {
-    if(cus.getSpec().isSingleNode()) {
-      Iterator damagedIt = nodesWithDamage.iterator();
-      while (damagedIt.hasNext()) {
-        String url = (String) damagedIt.next();
-        if(cus.containsUrl(url)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
 
   synchronized public void clearDamage(CachedUrlSet cus) {
-      Iterator damagedIt = nodesWithDamage.iterator();
-      ArrayList clearList = new ArrayList();
+      Iterator<String> damagedIt = nodesWithDamage.iterator();
+      ArrayList<String> clearList = new ArrayList<>();
       while (damagedIt.hasNext()) {
-        String url = (String) damagedIt.next();
+        String url = damagedIt.next();
         if (cus.containsUrl(url)) {
           clearList.add(url);
         }
@@ -170,16 +153,14 @@ public class DamagedNodeSet implements LockssSerializable {
    * @param cus the repairing CUS
    * @param nodeUrls the urls to repair
    */
-  synchronized public void addToRepair(CachedUrlSet cus, Collection nodeUrls) {
+  synchronized public void addToRepair(CachedUrlSet cus, Collection<String> nodeUrls) {
     // all repairs are associated with a specific CUS
-    ArrayList urlArray = (ArrayList)cusToRepair.get(cus.getUrl());
+    List<String> urlArray = cusToRepair.get(cus.getUrl());
     // merge the urls with any already stored
     if (urlArray==null) {
-      urlArray = new ArrayList(nodeUrls.size());
+      urlArray = new ArrayList<>(nodeUrls.size());
     }
-    Iterator iter = nodeUrls.iterator();
-    while (iter.hasNext()) {
-      Object url = iter.next();
+    for (String url : nodeUrls) {
       if (!urlArray.contains(url)) {
         urlArray.add(url);
       }
@@ -207,7 +188,7 @@ public class DamagedNodeSet implements LockssSerializable {
    * @param nodeUrl the repaired url
    */
   synchronized public void removeFromRepair(CachedUrlSet cus, String nodeUrl) {
-    Collection urls = (Collection)cusToRepair.get(cus.getUrl());
+    List<String> urls = cusToRepair.get(cus.getUrl());
     if (urls!=null) {
       urls.remove(nodeUrl);
       if (urls.isEmpty()) {
@@ -274,9 +255,9 @@ public class DamagedNodeSet implements LockssSerializable {
   }
 
   public String toString() {
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     sb.append("[DamagedNodeSet: ");
-    sb.append("nodesWithDamage="+cusToRepair);
+    sb.append("nodesWithDamage=").append(cusToRepair);
     sb.append("]");
     return sb.toString();
   }

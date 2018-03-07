@@ -82,8 +82,8 @@ public abstract class TestPermissionUrlConsumer extends LockssTestCase {
     mplug = new MockPlugin(daemon);
     mplug.initPlugin(daemon);
     mau = new MockArchivalUnit(mplug, "testau");
-    MockNodeManager nodeManager = new MockNodeManager();
-    daemon.setNodeManager(nodeManager, mau);
+    MockHistoryRepository nodeManager = new MockHistoryRepository();
+    daemon.setHistoryRepository(nodeManager, mau);
     MockAuState aus = new MockAuState(mau);
     nodeManager.setAuState(aus);
 

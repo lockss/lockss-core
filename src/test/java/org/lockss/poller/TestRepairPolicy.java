@@ -87,16 +87,15 @@ public class TestRepairPolicy extends LockssTestCase {
     daemon.getLockssRepository(highAgreeAu).stopService();
     daemon.getLockssRepository(lowAgreeAu).stopService();
     daemon.getHashService().stopService();
-    daemon.getDatagramRouterManager().stopService();
     daemon.getRouterManager().stopService();
     super.tearDown();
   }
 
   private void setUpAu(MockArchivalUnit au) {
     au.setPlugin(new MockPlugin(daemon));
-    MockNodeManager nodeManager = new MockNodeManager();
-    daemon.setNodeManager(nodeManager, au);
-    nodeManager.setAuState(new MockAuState());
+    MockHistoryRepository mhr = new MockHistoryRepository();
+    daemon.setHistoryRepository(mhr, au);
+    mhr.setAuState(new MockAuState());
   }
 
   private void initRequiredServices() throws Exception {
@@ -126,7 +125,6 @@ public class TestRepairPolicy extends LockssTestCase {
 
     daemon.getSchedService().startService();
     daemon.getHashService().startService();
-    daemon.getDatagramRouterManager().startService();
     daemon.getRouterManager().startService();
     pollManager.startService();
     idManager.startService();

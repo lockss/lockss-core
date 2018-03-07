@@ -81,9 +81,9 @@ public class TestSampledBlockHasher extends LockssTestCase {
     initByteArrays = new byte[][]{ testContent };
     mau = new MockArchivalUnit(new MockPlugin(daemon), TEST_URL_BASE);
     cus = makeFakeCachedUrlSet(1);
-    MockNodeManager nodeMgr = new MockNodeManager();
-    daemon.setNodeManager(nodeMgr, mau);
-    nodeMgr.setAuState(new MockAuState(mau));
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    daemon.setHistoryRepository(histRepo, mau);
+    histRepo.setAuState(new MockAuState(mau));
 
     ConfigurationUtil.addFromArgs(LcapMessage.PARAM_HASH_ALGORITHM,
                                   LcapMessage.DEFAULT_HASH_ALGORITHM);
@@ -247,9 +247,9 @@ public class TestSampledBlockHasher extends LockssTestCase {
     daemon.setLockssRepository(repo, mau);
     repo.initService(daemon);
     repo.startService();
-    MockNodeManager nodeMgr = new MockNodeManager();
-    daemon.setNodeManager(nodeMgr, mau);
-    nodeMgr.setAuState(new MockAuState(mau));
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    daemon.setHistoryRepository(histRepo, mau);
+    histRepo.setAuState(new MockAuState(mau));
     return mau;
   }
 

@@ -114,44 +114,6 @@ public class TestPollSpec extends LockssTestCase {
     assertEquals(pollVer, ps.getPluginVersion());
   }
 
-  public void testFromV1LcapMessage() throws Exception {
-    byte[] testbytes = {0,1,2,3,4,5,6,8,10};
-    String auid = "aaai1";
-    String url = "http://foo.bar/";
-    String lower = "abc";
-    String upper = "xyx";
-    MockArchivalUnit au = new MockArchivalUnit();
-    au.setAuId(auid);
-    MockPlugin plug = new MockPlugin();
-    plug.setVersion("oddVer");
-    au.setPlugin(plug);
-    CachedUrlSet cus =
-      new MockCachedUrlSet(au, new RangeCachedUrlSetSpec(url, lower, upper));
-    PollSpec ps = new PollSpec(cus, Poll.V1_CONTENT_POLL);
-    PeerIdentity id = null;
-    try {
-      id = theDaemon.getIdentityManager().stringToPeerIdentity("127.0.0.1");
-    }
-    catch (IdentityManager.MalformedIdentityKeyException ex) {
-      fail("can't open test host");
-    }
-    V1LcapMessage msg = null;
-    msg =
-      V1LcapMessage.makeRequestMsg(ps,
-				   null,
-				   testbytes,
-				   testbytes,
-				   V1LcapMessage.NAME_POLL_REQ,
-				   10000000,
-				   id);
-    ps = new PollSpec(msg);
-    assertEquals(auid, ps.getAuId());
-    assertEquals(url, ps.getUrl());
-    assertEquals(lower, ps.getLwrBound());
-    assertEquals(upper, ps.getUprBound());
-    assertEquals(plug.getVersion(), ps.getPluginVersion());
-  }
-
   public void testFromV3LcapMessage() throws Exception {
     byte[] testbytes = {0,1,2,3,4,5,6,8,10};
     String auid = "aaai1";

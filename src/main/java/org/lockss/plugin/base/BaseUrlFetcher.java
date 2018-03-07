@@ -49,51 +49,51 @@ import org.lockss.util.urlconn.*;
  * urls and some http specific logic
  */
 public class BaseUrlFetcher implements UrlFetcher {
-  
+
   private static final Logger log = Logger.getLogger("BaseUrlFetcher");
-  
+
   /** If true, use so_keepalive on server connections. */
   public static final String PARAM_SO_KEEPALIVE =
-    Configuration.PREFIX + "baseuc.socketKeepAlive";
+      Configuration.PREFIX + "baseuc.socketKeepAlive";
   public static final boolean DEFAULT_SO_KEEPALIVE = false;
-  
+
   /** Limit on rewinding the network input stream after checking for a
    * login page.  If LoginPageChecker returns false after reading father
    * than this the page will be refetched. */
   public static final String PARAM_LOGIN_CHECKER_MARK_LIMIT =
-    Configuration.PREFIX + "baseuc.loginPageCheckerMarkLimit";
+      Configuration.PREFIX + "baseuc.loginPageCheckerMarkLimit";
   public static final int DEFAULT_LOGIN_CHECKER_MARK_LIMIT = 24 * 1024;
-  
+
   /** Maximum number of redirects that will be followed */
   static final int MAX_REDIRECTS = 10;
-  
+
   /** If true, normalize redirect targets (location header). */
   public static final String PARAM_NORMALIZE_REDIRECT_URL =
-    Configuration.PREFIX + "baseuc.normalizeRedirectUrl";
+      Configuration.PREFIX + "baseuc.normalizeRedirectUrl";
   public static final boolean DEFAULT_NORMALIZE_REDIRECT_URL = true;
-  
+
   public static final String SET_COOKIE_HEADER = "Set-Cookie";
   private static final String SHOULD_REFETCH_ON_SET_COOKIE =
-    "refetch_on_set_cookie";
+      "refetch_on_set_cookie";
   private static final boolean DEFAULT_SHOULD_REFETCH_ON_SET_COOKIE = true;
-  
+
   /** If true, any Referer sent with the request will be recorded in the
    * {@value CachedUrl.PROPERTY_REQ_REFERRER property.  Used by repair
    * crawler */
   public static final String PARAM_RECORD_REFERRER =
-    Configuration.PREFIX + "baseuc.recordReferrer";
+      Configuration.PREFIX + "baseuc.recordReferrer";
   public static final boolean DEFAULT_RECORD_REFERRER = true;
-  
+
   /** If true, X-Lockss-Auid: header will be included in proxy requests.
    * Use in order to get an accurate copy of an AU from the audit proxy. */
   public static final String PARAM_PROXY_BY_AUID =
-    Configuration.PREFIX + "baseuc.proxyByAuid";
+      Configuration.PREFIX + "baseuc.proxyByAuid";
   public static final boolean DEFAULT_PROXY_BY_AUID = false;
-  
+
   /** If true, any thread watchdog will be stopped while waiting on a rate
    * limiter. */
   public static final String PARAM_STOP_WATCHDOG_DURING_PAUSE =
-    Configuration.PREFIX + "baseuc.stopWatchdogDuringPause";
+      Configuration.PREFIX + "baseuc.stopWatchdogDuringPause";
   public static final boolean DEFAULT_STOP_WATCHDOG_DURING_PAUSE = false;
 
 
@@ -129,39 +129,39 @@ public class BaseUrlFetcher implements UrlFetcher {
     crawlStatus = crawlFacade.getCrawlerStatus();
     fetchFlags = new BitSet();
   }
-  
+
   public void setUrlConsumerFactory(UrlConsumerFactory consumer) {
     urlConsumerFactory = consumer;
   }
-  
+
   protected UrlConsumerFactory getUrlConsumerFactory() {
     if (urlConsumerFactory == null) {
       urlConsumerFactory = au.getUrlConsumerFactory();
     }
     return urlConsumerFactory;
   }
-  
+
   //This should only rethrow the CacheException if it is fatal
   public FetchResult fetch() throws CacheException {
     /*
      * If a RepositoryException is thrown, adds the URL to the fail set and
      * signals a STATUS_REPO_ERR for the URL, and returns NOT_FETCHED.
-     * 
+     *
      * If a RedirectOutsideCrawlSpecException is thrown, adds the URL to the
      * Excluded URLs, and returns NOT_FETCHED.
-     * 
+     *
      * If some other CacheException is thrown, adds the URL to the Failed URLs
      * and signals an error (sometimes STATUS_FETCH_ERROR) for the URL, and
      * returns NOT_FETCHED (if the CacheException is non-fatal) or rethrows (if
      * the CacheException is fatal).
-     * 
+     *
      * If some other Exception is thrown, simply logs (if the crawl is being
      * aborted) or adds the URL to the fail set and signals a STATUS_FETCH_ERROR
      * (if not), and returns NOT_FETCHED.
-     * 
+     *
      * Otherwise, returns the fetch result, which can span all values (FETCHED,
      * FETCHED_NOT_MODIFIED, NOT_FETCHED).
-     * 
+     *
      * Note that currently, if the fetch throws an IOException, it falls under
      * the category of "some other Exception".
      */
@@ -175,10 +175,10 @@ public class BaseUrlFetcher implements UrlFetcher {
       // Failed.  Don't try this one again during this crawl.
       crawlFacade.addToFailedUrls(origUrl);
       if (origUrl.equals(fetchUrl)) {
-	log.error("Repository error with " + fetchUrl, ex);
+        log.error("Repository error with " + fetchUrl, ex);
       } else {
-	log.error("Repository error with " + origUrl +
-		  " redirected to " + fetchUrl, ex);
+        log.error("Repository error with " + origUrl +
+            " redirected to " + fetchUrl, ex);
       }
       crawlStatus.signalErrorForUrl(origUrl, ex);
       if(!crawlStatus.isCrawlError()) {
@@ -188,29 +188,29 @@ public class BaseUrlFetcher implements UrlFetcher {
       // Count this as an excluded URL
       crawlStatus.signalUrlExcluded(origUrl, ex.getMessage());
       if (fetchFlags.get(UrlCacher.IS_PERMISSION_FETCH)) {
-	// and throw if fetching a permission page
-	// XXX Awkward - suggests decision made at wrong level
-	throw ex;
+        // and throw if fetching a permission page
+        // XXX Awkward - suggests decision made at wrong level
+        throw ex;
       } else {
-	// else no error
+        // else no error
       }
     } catch (CacheException ex) {
       // Failed.  Don't try this one again during this crawl.
       crawlFacade.addToFailedUrls(origUrl);
       crawlStatus.signalErrorForUrl(origUrl, ex);
       if (ex.isAttributeSet(CacheException.ATTRIBUTE_FAIL)) {
-	if (origUrl.equals(fetchUrl)) {
-	  log.siteError("Problem caching " + origUrl + ". Continuing", ex);
-	} else {
-	  log.siteError("Problem caching " + origUrl +
-			" redirected to " + fetchUrl + ". Continuing", ex);
-	}
+        if (origUrl.equals(fetchUrl)) {
+          log.siteError("Problem caching " + origUrl + ". Continuing", ex);
+        } else {
+          log.siteError("Problem caching " + origUrl +
+              " redirected to " + fetchUrl + ". Continuing", ex);
+        }
         if(!crawlStatus.isCrawlError()) {
           crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getMessage());
         }
       }
       if (ex.isAttributeSet(CacheException.ATTRIBUTE_FATAL) ||
-	  fetchFlags.get(UrlCacher.IS_PERMISSION_FETCH)) {
+          fetchFlags.get(UrlCacher.IS_PERMISSION_FETCH)) {
         throw ex;
       }
     } catch (Exception ex) {
@@ -219,17 +219,17 @@ public class BaseUrlFetcher implements UrlFetcher {
       } else {
         crawlFacade.addToFailedUrls(origUrl);
         crawlStatus.signalErrorForUrl(origUrl, ex.getMessage(),
-                                      CrawlerStatus.Severity.Error);
+            CrawlerStatus.Severity.Error);
         if(!crawlStatus.isCrawlError()) {
           crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR);
         }
         //XXX not expected
         log.error("Unexpected Exception during crawl, continuing", ex);
       }
-    } 
+    }
     return FetchResult.NOT_FETCHED;
   }
-  
+
   protected FetchResult fetchWithRetries(String lastModified)
       throws IOException {
     int retriesLeft = -1;
@@ -246,14 +246,14 @@ public class BaseUrlFetcher implements UrlFetcher {
         headers = getUncachedProperties();
         if (input == null){
           //If input is null then ifModifiedSince returned not modified
-	  log.debug3("Not modified: " + fetchUrl);
+          log.debug3("Not modified: " + fetchUrl);
           return FetchResult.FETCHED_NOT_MODIFIED;
         } else if (headers == null) {
           return FetchResult.NOT_FETCHED;
         } else {
           FetchedUrlData fud = new FetchedUrlData(origUrl, fetchUrl,
-						  input, headers,
-						  redirectUrls, this);
+              input, headers,
+              redirectUrls, this);
           fud.setStoreRedirects(redirectScheme.isRedirectOption(RedirectScheme.REDIRECT_OPTION_STORE_ALL));
           fud.setFetchFlags(fetchFlags);
           getUrlConsumerFactory().createUrlConsumer(crawlFacade, fud).consume();
@@ -261,7 +261,7 @@ public class BaseUrlFetcher implements UrlFetcher {
         }
       } catch (CacheException e) {
         if (!e.isAttributeSet(CacheException.ATTRIBUTE_RETRY)) {
-	  log.debug3("No retry", e);
+          log.debug3("No retry", e);
           throw e;
         }
         if (retriesLeft < 0) {
@@ -270,17 +270,17 @@ public class BaseUrlFetcher implements UrlFetcher {
         }
         if (log.isDebug2()) {
           log.debug("Retryable (" + retriesLeft + ") exception caching "
-		       + origUrl, e);
+              + origUrl, e);
         } else {
           log.debug("Retryable (" + retriesLeft + ") exception caching "
-		       + origUrl + ": " + e.toString());
+              + origUrl + ": " + e.toString());
         }
         if (--retriesLeft > 0) {
           long delayTime = crawlFacade.getRetryDelay(e);
           Deadline wait = Deadline.in(delayTime);
           log.debug3("Waiting " +
-			StringUtil.timeIntervalToString(delayTime) +
-			" before retry");
+              StringUtil.timeIntervalToString(delayTime) +
+              " before retry");
           while (!wait.expired()) {
             try {
               wait.sleep();
@@ -291,7 +291,7 @@ public class BaseUrlFetcher implements UrlFetcher {
           reset();
         } else {
           log.warning("Failed to cache (" + totalRetries + "), skipping: "
-			 + origUrl);
+              + origUrl);
           throw e;
         }
       } finally {
@@ -299,38 +299,38 @@ public class BaseUrlFetcher implements UrlFetcher {
       }
     }
   }
-  
+
   protected String getLastModified(){
     String lastModified = null;
     CachedUrl cachedVersion = au.makeCachedUrl(origUrl);
     if ((cachedVersion!=null) && cachedVersion.hasContent()) {
       CIProperties cachedProps = cachedVersion.getProperties();
       lastModified =
-	cachedProps.getProperty(CachedUrl.PROPERTY_LAST_MODIFIED);
+          cachedProps.getProperty(CachedUrl.PROPERTY_LAST_MODIFIED);
       cachedVersion.release();
     }
     return lastModified;
   }
-  
+
   protected boolean forceRefetch(){
     return fetchFlags.get(UrlCacher.REFETCH_FLAG);
   }
-  
+
   public void setConnectionPool(LockssUrlConnectionPool connectionPool) {
     this.connectionPool = connectionPool;
   }
-  
+
   public void setRedirectScheme(RedirectScheme scheme) {
     if (log.isDebug3()) log.debug3("setRedirectScheme: " + scheme);
     this.redirectScheme = scheme;
   }
-  
+
   public void setCrawlUrl(CrawlUrl curl) {
     if(curl.getUrl().equals(origUrl)) {
       this.curl = curl;
     }
   }
-  
+
   public void setProxy(String proxyHost, int proxyPort) {
     this.proxyHost = proxyHost;
     this.proxyPort = proxyPort;
@@ -351,26 +351,26 @@ public class BaseUrlFetcher implements UrlFetcher {
   public String getUrl() {
     return origUrl;
   }
-  
+
   public ArchivalUnit getArchivalUnit() {
     return au;
   }
-  
+
   public void setCrawlRateLimiter(CrawlRateLimiter crl) {
     this.crl = crl;
   }
-  
+
   public void setRequestProperty(String key, String value) {
     if (reqProps == null) {
       reqProps = new Properties();
     }
     reqProps.put(key, value);
   }
-  
+
   public void setPreviousContentType(String previousContentType) {
     this.previousContentType = previousContentType;
   }
-  
+
   public final InputStream getUncachedInputStream()
       throws IOException {
     String lastModified = null;
@@ -399,7 +399,7 @@ public class BaseUrlFetcher implements UrlFetcher {
         input = getUncachedInputStreamOnly(lastModified);
         if (input == null) {
           log.warning("Got null input stream on second call to "
-			 + "getUncachedInputStream");
+              + "getUncachedInputStream");
         }
         headers = getUncachedProperties();
       }
@@ -410,7 +410,7 @@ public class BaseUrlFetcher implements UrlFetcher {
     }
     return input;
   }
-  
+
   protected InputStream getUncachedInputStreamOnly(String lastModified)
       throws IOException {
     InputStream input = null;
@@ -421,7 +421,7 @@ public class BaseUrlFetcher implements UrlFetcher {
         int code = conn.getResponseCode();
         if (code == HttpURLConnection.HTTP_NOT_MODIFIED) {
           log.debug2("Unmodified content not cached for url '" +
-			origUrl + "'");
+              origUrl + "'");
           return null;
         }
       }
@@ -440,7 +440,7 @@ public class BaseUrlFetcher implements UrlFetcher {
     }
     return input;
   }
-  
+
   /**
    * If we haven't already connected, creates a connection from url, setting
    * the user-agent and ifmodifiedsince values.  Then actually connects to the
@@ -449,14 +449,14 @@ public class BaseUrlFetcher implements UrlFetcher {
   protected void openConnection(String lastModified) throws IOException {
     if (conn==null) {
       if (redirectScheme.isRedirectOption(RedirectScheme.REDIRECT_OPTION_IF_CRAWL_SPEC +
-					  RedirectScheme.REDIRECT_OPTION_ON_HOST_ONLY)) {
+          RedirectScheme.REDIRECT_OPTION_ON_HOST_ONLY)) {
         openWithRedirects(lastModified);
       } else {
         openOneConnection(lastModified);
       }
     }
   }
-  
+
   protected void openWithRedirects(String lastModified) throws IOException {
     int retry = 0;
     while (true) {
@@ -466,7 +466,7 @@ public class BaseUrlFetcher implements UrlFetcher {
       } catch (CacheException.NoRetryNewUrlException e) {
         if (++retry >= MAX_REDIRECTS) {
           log.warning("Max redirects hit, not redirecting " + origUrl +
-			 " past " + fetchUrl);
+              " past " + fetchUrl);
           throw e;
         } else if (!processRedirectResponse()) {
           throw e;
@@ -474,7 +474,7 @@ public class BaseUrlFetcher implements UrlFetcher {
       }
     }
   }
-  
+
   /**
    * Create a connection object from url, set the user-agent and
    * ifmodifiedsince values.  Then actually connect to the site and throw
@@ -488,19 +488,19 @@ public class BaseUrlFetcher implements UrlFetcher {
       conn = makeConnection(fetchUrl, connectionPool);
       if (proxyHost != null) {
         if (log.isDebug3()) log.debug3("Proxying through " + proxyHost
-					     + ":" + proxyPort);
+            + ":" + proxyPort);
         conn.setProxy(proxyHost, proxyPort);
-	if (CurrentConfig.getBooleanParam(PARAM_PROXY_BY_AUID,
-					  DEFAULT_PROXY_BY_AUID)) {
+        if (CurrentConfig.getBooleanParam(PARAM_PROXY_BY_AUID,
+            DEFAULT_PROXY_BY_AUID)) {
           conn.setRequestProperty(Constants.X_LOCKSS_AUID, au.getAuId());
-	}
+        }
       }
       if (localAddr != null) {
         conn.setLocalAddress(localAddr);
       }
       if (CurrentConfig.getBooleanParam(PARAM_SO_KEEPALIVE,
-					DEFAULT_SO_KEEPALIVE)) {
-	conn.setKeepAlive(true);
+          DEFAULT_SO_KEEPALIVE)) {
+        conn.setKeepAlive(true);
       }
       for (String cookie : au.getHttpCookies()) {
         int pos = cookie.indexOf("=");
@@ -512,15 +512,15 @@ public class BaseUrlFetcher implements UrlFetcher {
       }
       String userPass = getUserPass();
       if (!StringUtil.isNullString(userPass)) {
-	try {
-	  List<String> lst =
-	    (List<String>)(AuParamType.UserPasswd.parse(userPass));
-	  if (lst.size() == 2) {
-	    conn.setCredentials(lst.get(0), lst.get(1));
-	  }
-	} catch (AuParamType.InvalidFormatException e) {
-	  log.warning("Invalid user:pass for AU, not used: " +  au);
-	}
+        try {
+          List<String> lst =
+              (List<String>)(AuParamType.UserPasswd.parse(userPass));
+          if (lst.size() == 2) {
+            conn.setCredentials(lst.get(0), lst.get(1));
+          }
+        } catch (AuParamType.InvalidFormatException e) {
+          log.warning("Invalid user:pass for AU, not used: " +  au);
+        }
       }
       // Add global request headers first so plugin can override
       addRequestHeaders();
@@ -552,7 +552,7 @@ public class BaseUrlFetcher implements UrlFetcher {
     }
     checkConnectException(conn);
   }
-  
+
   /** Override to change connection settings */
   protected void customizeConnection(LockssUrlConnection conn) {
   }
@@ -564,7 +564,7 @@ public class BaseUrlFetcher implements UrlFetcher {
   }
 
   protected InputStream checkLoginPage(InputStream input, CIProperties headers,
-				       String lastModified)
+      String lastModified)
       throws IOException {
     LoginPageChecker checker = au.getLoginPageChecker();
     if (checker != null) {
@@ -573,20 +573,20 @@ public class BaseUrlFetcher implements UrlFetcher {
         input = new BufferedInputStream(input);
       }
       input.mark(CurrentConfig.getIntParam(PARAM_LOGIN_CHECKER_MARK_LIMIT,
-					   DEFAULT_LOGIN_CHECKER_MARK_LIMIT));
+          DEFAULT_LOGIN_CHECKER_MARK_LIMIT));
       String contentEncoding =
-	headers.getProperty(CachedUrl.PROPERTY_CONTENT_ENCODING);
+          headers.getProperty(CachedUrl.PROPERTY_CONTENT_ENCODING);
       InputStream uncIn =
-	StreamUtil.getUncompressedInputStreamOrFallback(input,
-							contentEncoding,
-							fetchUrl);
+          StreamUtil.getUncompressedInputStreamOrFallback(input,
+              contentEncoding,
+              fetchUrl);
       if (uncIn != input) {
-	// Stream no longer has an encoding, and we don't know its length
-	// (not that the login page checker is likely to care).
-	// Don't modify the Properties that were passed in
-	headers = CIProperties.fromProperties(headers);
-	headers.remove(CachedUrl.PROPERTY_CONTENT_ENCODING);
-	headers.remove("Content-Length");
+        // Stream no longer has an encoding, and we don't know its length
+        // (not that the login page checker is likely to care).
+        // Don't modify the Properties that were passed in
+        headers = CIProperties.fromProperties(headers);
+        headers.remove(CachedUrl.PROPERTY_CONTENT_ENCODING);
+        headers.remove("Content-Length");
       }
 
       String charset = AuUtil.getCharsetOrDefault(uncachedProperties);
@@ -600,19 +600,19 @@ public class BaseUrlFetcher implements UrlFetcher {
       } catch (PluginException e) {
         //XXX: this should be changed so that plugin exception perpetuates
         throw new RuntimeException(e);
-      }	
+      }
     } else {
       log.debug3("Didn't find a login page checker");
     }
     return input;
   }
-  
+
   /**
    * Try to reset the provided input stream, if we can't then return
    * new input stream for the given url
    */
-  public InputStream resetInputStream(InputStream is, 
-				      String lastModified) throws IOException {
+  public InputStream resetInputStream(InputStream is,
+      String lastModified) throws IOException {
     try {
       if (wdog != null) {
         wdog.pokeWDog();
@@ -628,7 +628,7 @@ public class BaseUrlFetcher implements UrlFetcher {
   }
 
   protected LockssUrlConnection makeConnection(String url,
-					       LockssUrlConnectionPool pool)
+      LockssUrlConnectionPool pool)
       throws IOException {
     LockssUrlConnection res = makeConnection0(url, pool);
     String cookiePolicy = au.getCookiePolicy();
@@ -640,7 +640,7 @@ public class BaseUrlFetcher implements UrlFetcher {
 
   /** Overridable so testing code can return a MockLockssUrlConnection */
   protected LockssUrlConnection makeConnection0(String url,
-						LockssUrlConnectionPool pool)
+      LockssUrlConnectionPool pool)
       throws IOException {
     return UrlUtil.openConnection(url, pool);
   }
@@ -659,28 +659,28 @@ public class BaseUrlFetcher implements UrlFetcher {
     if (crl != null) {
       long wDogInterval = 0;
       if (wdog != null &&
-	  CurrentConfig.getBooleanParam(PARAM_STOP_WATCHDOG_DURING_PAUSE,
-					DEFAULT_STOP_WATCHDOG_DURING_PAUSE)) {
-	wDogInterval = wdog.getWDogInterval();
+          CurrentConfig.getBooleanParam(PARAM_STOP_WATCHDOG_DURING_PAUSE,
+              DEFAULT_STOP_WATCHDOG_DURING_PAUSE)) {
+        wDogInterval = wdog.getWDogInterval();
       }
       try {
-	if (wDogInterval > 0) {
-	  wdog.stopWDog();
-	}
-	crl.pauseBeforeFetch(fetchUrl, previousContentType);
+        if (wDogInterval > 0) {
+          wdog.stopWDog();
+        }
+        crl.pauseBeforeFetch(fetchUrl, previousContentType);
       } finally {
-	if (wDogInterval > 0) {
-	  wdog.startWDog(wDogInterval);
-	}
+        if (wDogInterval > 0) {
+          wdog.startWDog(wDogInterval);
+        }
       }
     }
   }
-  
+
   protected void checkConnectException(LockssUrlConnection conn) throws IOException {
     if (conn.isHttp()) {
       if (log.isDebug3()) {
         log.debug3("Response: " + conn.getResponseCode() + ": " +
-		      conn.getResponseMessage());
+            conn.getResponseMessage());
       }
       CacheException c_ex = resultMap.checkResult(au, conn);
       if (c_ex != null) {
@@ -691,24 +691,24 @@ public class BaseUrlFetcher implements UrlFetcher {
       }
     }
   }
-  
+
   protected void addRequestHeaders() {
     List<String> hdrs =
-      CurrentConfig.getList(CrawlManagerImpl.PARAM_REQUEST_HEADERS,
-			    CrawlManagerImpl.DEFAULT_REQUEST_HEADERS);
+        CurrentConfig.getList(CrawlManagerImpl.PARAM_REQUEST_HEADERS,
+            CrawlManagerImpl.DEFAULT_REQUEST_HEADERS);
     if (hdrs != null) {
       for (String hdr : hdrs) {
-	addHdr(hdr);
+        addHdr(hdr);
       }
     }
   }
-  
+
   protected void addPluginRequestHeaders() {
     for (String hdr : au.getHttpRequestHeaders()) {
       addHdr(hdr);
     }
   }
-  
+
   /** Add request header if string is <tt>key:val</tt>, remove if juat
    * <tt>key:</tt> */
   private void addHdr(String hdr) {
@@ -716,9 +716,9 @@ public class BaseUrlFetcher implements UrlFetcher {
     if (pos > 0) {
       String key = hdr.substring(0, pos);
       if (pos < hdr.length() - 1) {
-	setRequestProperty(key, hdr.substring(pos + 1));
+        setRequestProperty(key, hdr.substring(pos + 1));
       } else if (reqProps != null) {
-	reqProps.remove(key);
+        reqProps.remove(key);
       }
     }
   }
@@ -733,25 +733,25 @@ public class BaseUrlFetcher implements UrlFetcher {
     if (location == null) {
       // got a redirect response, but no location header
       log.siteError("Received redirect response " + conn.getResponseCode()
-		       + " but no location header");
+          + " but no location header");
       return false;
     }
     if (log.isDebug3()) {
       log.debug3("Redirect requested from '" + fetchUrl +
-		    "' to '" + location + "'");
+          "' to '" + location + "'");
     }
     // update the current location with the redirect location.
     try {
       String resolvedLocation = UrlUtil.resolveUri(fetchUrl, location);
       String newUrlString = resolvedLocation;
       if (CurrentConfig.getBooleanParam(PARAM_NORMALIZE_REDIRECT_URL,
-                                        DEFAULT_NORMALIZE_REDIRECT_URL)) {
+          DEFAULT_NORMALIZE_REDIRECT_URL)) {
         try {
           newUrlString = UrlUtil.normalizeUrl(resolvedLocation, au);
           log.debug3("Normalized to '" + newUrlString + "'");
           if (isHttpToHttpsRedirect(fetchUrl, resolvedLocation, newUrlString)) {
             log.debug3("HTTP to HTTPS redirect normalized back to HTTP; keeping '"
-                       + resolvedLocation + "'");
+                + resolvedLocation + "'");
             newUrlString = resolvedLocation;
           }
         } catch (PluginBehaviorException e) {
@@ -775,11 +775,11 @@ public class BaseUrlFetcher implements UrlFetcher {
       if (!UrlUtil.isSameHost(fetchUrl, newUrlString)) {
         if (redirectScheme.isRedirectOption(RedirectScheme.REDIRECT_OPTION_ON_HOST_ONLY)) {
           log.warning("Redirect to different host: " + newUrlString +
-			 " from: " + origUrl);
+              " from: " + origUrl);
           return false;
         } else if (!crawlFacade.hasPermission(newUrlString)) {
           log.warning("No permission for redirect to different host: "
-                         + newUrlString + " from: " + origUrl);
+              + newUrlString + " from: " + origUrl);
           return false;
         }
       }
@@ -802,58 +802,58 @@ public class BaseUrlFetcher implements UrlFetcher {
       return true;
     } catch (MalformedURLException e) {
       log.siteWarning("Redirected location '" + location +
-			 "' is malformed", e);
+          "' is malformed", e);
       return false;
     }
   }
-  
+
   public CIProperties getUncachedProperties()
       throws UnsupportedOperationException {
     if (conn == null) {
       throw new UnsupportedOperationException("Called getUncachedProperties "
-					      + "before calling getUncachedInputStream.");
+          + "before calling getUncachedInputStream.");
     }
     if (uncachedProperties == null) {
       CIProperties props = new CIProperties();
       // set header properties in which we have interest
       String ctype = conn.getResponseContentType();
       if (ctype != null) {
-	props.setProperty(CachedUrl.PROPERTY_CONTENT_TYPE, ctype);
+        props.setProperty(CachedUrl.PROPERTY_CONTENT_TYPE, ctype);
       }
       props.setProperty(CachedUrl.PROPERTY_FETCH_TIME,
-			Long.toString(TimeBase.nowMs()));
+          Long.toString(TimeBase.nowMs()));
       if (origUrl != fetchUrl &&
-	  !UrlUtil.isDirectoryRedirection(origUrl, fetchUrl)) {
-	// XXX this property does not have consistent semantics.  It will be
-	// set to the first url in a chain of redirects that led to content,
-	// which could be different depending on fetch order.
-	props.setProperty(CachedUrl.PROPERTY_ORIG_URL, origUrl);
+          !UrlUtil.isDirectoryRedirection(origUrl, fetchUrl)) {
+        // XXX this property does not have consistent semantics.  It will be
+        // set to the first url in a chain of redirects that led to content,
+        // which could be different depending on fetch order.
+        props.setProperty(CachedUrl.PROPERTY_ORIG_URL, origUrl);
       }
       if (reqProps != null) {
-	String referrer = reqProps.getProperty(Constants.HTTP_REFERER);
-	if (CurrentConfig.getBooleanParam(PARAM_RECORD_REFERRER,
-					  DEFAULT_RECORD_REFERRER) &&
-	    !StringUtil.isNullString(referrer)) {
-	  props.setProperty(CachedUrl.PROPERTY_REQ_REFERRER,
-			    referrer);
-	}
+        String referrer = reqProps.getProperty(Constants.HTTP_REFERER);
+        if (CurrentConfig.getBooleanParam(PARAM_RECORD_REFERRER,
+            DEFAULT_RECORD_REFERRER) &&
+            !StringUtil.isNullString(referrer)) {
+          props.setProperty(CachedUrl.PROPERTY_REQ_REFERRER,
+              referrer);
+        }
       }
       conn.storeResponseHeaderInto(props, CachedUrl.HEADER_PREFIX);
       String actualURL = conn.getActualUrl();
       if (!origUrl.equals(actualURL)) {
-	props.setProperty(CachedUrl.PROPERTY_CONTENT_URL, actualURL);
+        props.setProperty(CachedUrl.PROPERTY_CONTENT_URL, actualURL);
       }
       if (redirectUrls != null && !redirectUrls.isEmpty()) {
-	props.setProperty(CachedUrl.PROPERTY_REDIRECTED_TO,
-			  redirectUrls.get(0));
+        props.setProperty(CachedUrl.PROPERTY_REDIRECTED_TO,
+            redirectUrls.get(0));
       } else if (!origUrl.equals(actualURL)) {
-	props.setProperty(CachedUrl.PROPERTY_REDIRECTED_TO, actualURL);
+        props.setProperty(CachedUrl.PROPERTY_REDIRECTED_TO, actualURL);
       }
       uncachedProperties = props;
     }
     return uncachedProperties;
   }
-  
+
   protected void releaseConnection() {
     if (conn != null) {
       log.debug3("conn isn't null, releasing");
@@ -861,7 +861,7 @@ public class BaseUrlFetcher implements UrlFetcher {
       conn = null;
     }
   }
-  
+
   /**
    * Reset the UrlFetcher to its pre-opened state, so that it can be
    * reopened.
@@ -877,11 +877,11 @@ public class BaseUrlFetcher implements UrlFetcher {
   public void setWatchdog(LockssWatchdog wdog) {
     this.wdog = wdog;
   }
-  
+
   public LockssWatchdog getWatchdog() {
     return wdog;
   }
-  
+
   /**
    * <p>
    * Determines if the triple of a fetch URL, its redirect URL, and the
@@ -889,7 +889,7 @@ public class BaseUrlFetcher implements UrlFetcher {
    * normalized back to the HTTP URL. In {@link BaseUrlFetcher}, this is always
    * false; in {@link HttpToHttpsUrlFetcher}, it is a customizable action.
    * </p>
-   * 
+   *
    * @param fetched
    *          The fetch URL
    * @param redirect
@@ -902,9 +902,9 @@ public class BaseUrlFetcher implements UrlFetcher {
    * @see HttpToHttpsUrlFetcher#isHttpToHttpsRedirect(String, String, String)
    */
   protected boolean isHttpToHttpsRedirect(String fetched,
-                                          String redirect,
-                                          String normalized) {
+      String redirect,
+      String normalized) {
     return false;
   }
- 
+
 }

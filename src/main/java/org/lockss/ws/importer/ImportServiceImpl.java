@@ -55,6 +55,7 @@ import javax.xml.bind.DatatypeConverter;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.daemon.Crawler;
 import org.lockss.hasher.HashResult;
 import org.lockss.hasher.HashResult.IllegalByteArray;
 import org.lockss.plugin.ArchivalUnit;
@@ -341,7 +342,6 @@ public class ImportServiceImpl implements ImportService {
    * Provides the names of the supported checksum algorithms.
    * 
    * @return a String[] with the names of the supported checksum algorithms.
-   * @throws LockssWebServicesFault
    */
   @Override
   public String[] getSupportedChecksumAlgorithms() {
@@ -356,7 +356,7 @@ public class ImportServiceImpl implements ImportService {
    *          An ImportWsParams with the parameters of the importing operation.
    * @param wsResult
    *          An ImportWsResult with any validation errors.
-   * @return a Map<String, String> with the validated properties map.
+   * @return a {@code Map<String, String>} with the validated properties map.
    */
   private Map<String, String> getAndValidateUserProperties(
       ImportWsParams importParams, ImportWsResult wsResult) {
@@ -541,7 +541,7 @@ public class ImportServiceImpl implements ImportService {
    * @param importParams
    *          An ImportWsParams with the parameters of the importing operation.
    * @param properties
-   *          A Map<String, String> with the user-specified properties.
+   *          A {@code Map<String, String>} with the user-specified properties.
    * @param wsResult
    *          An ImportWsResult with any errors.
    */
@@ -658,7 +658,7 @@ public class ImportServiceImpl implements ImportService {
     }
 
     // Alert the NodeManager that the content crawl has finished.
-    daemon.getNodeManager(au).newContentCrawlFinished();
+    AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
 
     AuUtil.getAuContentSize(au, false);
     AuUtil.getAuDiskUsage(au, false);

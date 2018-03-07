@@ -65,12 +65,6 @@ public class TarExploder extends Exploder {
 
   /**
    * Constructor
-   * @param uc UrlCacher for the archive
-   * @param maxRetries
-   * @param crawlSpec the CrawlSpec for the crawl that found the archive
-   * @param crawler the crawler that found the archive
-   * @param explode true to explode the archives
-   * @param store true to store the archive as well
    */
   public TarExploder(FetchedUrlData toExplode, CrawlerFacade crawlFacade,
       ExploderHelper helper) {
@@ -193,7 +187,7 @@ public class TarExploder extends Exploder {
     	for (Iterator it = touchedAus.iterator(); it.hasNext(); ) {
     	  ArchivalUnit au = (ArchivalUnit)it.next();
     	  logger.debug3(archiveUrl + " touching " + au.toString());
-    	  AuUtil.getDaemon(au).getNodeManager(au).newContentCrawlFinished();
+				AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
     	}
     } 
   }

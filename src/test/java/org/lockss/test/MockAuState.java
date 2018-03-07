@@ -85,6 +85,7 @@ public class MockAuState extends AuState {
 	  -1, // lastPollResult
 	  null, // lastPollResultMsg
 	  0L, // pollDuration
+        0L,
 	  lastTreeWalk,
 	  crawlUrls,
 	  null, // accessType
@@ -165,6 +166,11 @@ public class MockAuState extends AuState {
   public void setLastCrawlResult(int result, String resultMsg) {
     lastCrawlResult = result;
     lastCrawlResultMsg = resultMsg;
+  }
+
+  public void setHistoryRepository(HistoryRepository histRepository)
+  {
+    super.setHistoryRepo(histRepository);
   }
 
   public HashSet getCrawlUrls() {

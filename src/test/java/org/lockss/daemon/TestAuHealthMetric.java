@@ -68,10 +68,10 @@ public class TestAuHealthMetric extends LockssTestCase {
     au4 = MockArchivalUnit.newInited(daemon);
     List<ArchivalUnit> aulist = ListUtil.list(au1, au2, au3, au4);
     for (ArchivalUnit au : aulist) {
-      MockNodeManager nodeMgr = new MockNodeManager();
-      daemon.setNodeManager(nodeMgr, au); 
+      MockHistoryRepository histRepo = new MockHistoryRepository();
+      daemon.setHistoryRepository(histRepo, au);
       MockAuState maus = new MockAuState(au);
-      nodeMgr.setAuState(new MockAuState(au));
+      histRepo.setAuState(new MockAuState(au));
     }
   }
 

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -69,12 +69,6 @@ public class ManagerDescs {
   public static ManagerDesc PLUGIN_MANAGER_DESC =
     new ManagerDesc(LockssApp.PLUGIN_MANAGER,
 		    "org.lockss.plugin.PluginManager");
-  public static ManagerDesc JOB_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.JOB_MANAGER,
-		    "org.lockss.job.JobManager");
-  public static ManagerDesc JOB_DB_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.JOB_DB_MANAGER,
-		    "org.lockss.job.JobDbManager");
   public static ManagerDesc SCHED_SERVICE_DESC =
     new ManagerDesc(LockssDaemon.SCHED_SERVICE,
 		    "org.lockss.scheduler.SchedService");
@@ -141,15 +135,9 @@ public class ManagerDescs {
   public static ManagerDesc STREAM_COMM_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.STREAM_COMM_MANAGER,
                     "org.lockss.protocol.BlockingStreamComm");
-  public static ManagerDesc DATAGRAM_ROUTER_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.DATAGRAM_ROUTER_MANAGER,
-                    "org.lockss.protocol.LcapDatagramRouter");
   public static ManagerDesc ROUTER_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.ROUTER_MANAGER,
                     "org.lockss.protocol.LcapRouter");
-  public static ManagerDesc NODE_MANAGER_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.NODE_MANAGER_MANAGER,
-                    "org.lockss.state.NodeManagerManager");
   public static ManagerDesc ICP_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.ICP_MANAGER,
                     "org.lockss.proxy.icp.IcpManager");

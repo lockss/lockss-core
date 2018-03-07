@@ -56,7 +56,6 @@ public class Vote implements LockssSerializable {
        PeerIdentity id, boolean agree) {
     this.voterID = id;
     this.agree = agree;
-    activeInfo = new V1ActiveVote(challenge, verifier, hash);
   }
 
   Vote(Vote vote) {
@@ -66,15 +65,6 @@ public class Vote implements LockssSerializable {
 
   Vote(LcapMessage msg, boolean agree) {
     // XXX: Split into V1Vote and V3Vote.  Stubbed for V3.
-    if (msg instanceof V1LcapMessage) {
-      this.voterID = ((V1LcapMessage)msg).getOriginatorId();
-      this.agree = agree;
-      this.activeInfo =
-	new V1ActiveVote(((V1LcapMessage)msg).getChallenge(),
-			 ((V1LcapMessage)msg).getVerifier(),
-			 ((V1LcapMessage)msg).getHashed());
-
-    }
   }
 
   public static void setIdentityManager(IdentityManager im) {
@@ -103,12 +93,7 @@ public class Vote implements LockssSerializable {
       vote.voterID = pid;
       vote.agree = agree;
       // XXX the ActiveVote info should not be needed
-      if (challengeStr != null && verifierStr != null && hashStr != null) {
-	activeInfo =
-	  new V1ActiveVote(B64Code.decode(challengeStr.toCharArray()),
-			   B64Code.decode(verifierStr.toCharArray()),
-			   B64Code.decode(hashStr.toCharArray()));
-      }
+	    activeInfo = null;
     } catch (IdentityManager.MalformedIdentityKeyException e) {
       theLog.error("Malformed peer identity: " + idStr, e);
     }
@@ -122,34 +107,11 @@ public class Vote implements LockssSerializable {
     activeInfo = null;
   }
 
-  /**
-   * Set the agreement state of the Vote according to whether the argument
-   * hash matches the stored hash.
-   * @param new_hash a byte array containing the hash to be compared
-   * @return true if the argument and stored hashes match
-   */
-  boolean setAgreeWithHash(byte[] new_hash) {
-    if (activeInfo != null) {
-      byte[] hash = ((V1ActiveVote) activeInfo).getHash();
-      agree = Arrays.equals(hash, new_hash);
-    }
-    else {
-     theLog.debug("No active info returning value: " + agree);
-    }
-   return agree;
-  }
 
   public String toString() {
     StringBuffer sbuf = new StringBuffer();
     sbuf.append(agree ? "[YesVote: " : "[NoVote: ");
     sbuf.append("from " + voterID);
-    if (activeInfo != null) {
-      V1ActiveVote ai = (V1ActiveVote) activeInfo;
-      sbuf.append(" C(" + getChallengeString());
-      sbuf.append(") V(" + getVerifierString());
-      sbuf.append(") H(" + getHashString());
-      sbuf.append(")");
-    }
     sbuf.append("]");
     return sbuf.toString();
   }
@@ -266,20 +228,6 @@ class ActiveVote implements LockssSerializable {
 
   byte[] getHash() {
     return null;
-  }
-}
-
-class V1ActiveVote extends ActiveVote {
-  byte[] hash;
-
-  V1ActiveVote(byte[] c, byte[] v, byte[] h) {
-    challenge = c;
-    verifier = v;
-    hash = h;
-  }
-
-  byte[] getHash() {
-    return hash;
   }
 }
 

@@ -93,16 +93,16 @@ public class TestV3PollFactory extends LockssTestCase {
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
     idmgr.initService(theDaemon);
-    idmgr.startService();
     theDaemon.getSchedService().startService();
     hashService.startService();
 
     testAu = setupAu();
     aus = new MockAuState(testAu);
     aus.setLastCrawlTime(100);
-    MockNodeManager nm = new MockNodeManager();
-    nm.setAuState(aus);
-    theDaemon.setNodeManager(nm, testAu);
+    HistoryRepository histRepo = theDaemon.getHistoryRepository(testAu);
+    histRepo.startService();
+    histRepo.storeAuState(aus);
+    idmgr.startService();
     theDaemon.getActivityRegulator(testAu).startService();
     pollManager.startService();
 
@@ -140,8 +140,8 @@ public class TestV3PollFactory extends LockssTestCase {
   private MockArchivalUnit setupAu() {
     MockArchivalUnit mau = new MyMockArchivalUnit();
     mau.setAuId("mock");
-    MockNodeManager nodeMgr = new MockNodeManager();
-    theDaemon.setNodeManager(nodeMgr, mau);
+//    MockNodeManager nodeMgr = new MockNodeManager();
+  //  theDaemon.setNodeManager(nodeMgr, mau);
     MockPlugin plug = new MockPlugin(theDaemon);
     mau.setPlugin(plug);
     PluginTestUtil.registerArchivalUnit(mau);

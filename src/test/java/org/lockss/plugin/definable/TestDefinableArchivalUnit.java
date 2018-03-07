@@ -106,9 +106,9 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
 	configMap.setMapElement((String)ent.getKey(), ent.getValue());
       }
     }
-    MockNodeManager nm = new MockNodeManager();
-    nm.setAuState(new MockAuState(cau));
-    getMockLockssDaemon().setNodeManager(nm, cau);
+    MockHistoryRepository mhr = new MockHistoryRepository();
+    mhr.setAuState(new MockAuState(cau));
+    getMockLockssDaemon().setHistoryRepository(mhr, cau);
 
     return cau;
   }

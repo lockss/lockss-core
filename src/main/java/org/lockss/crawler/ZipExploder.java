@@ -32,21 +32,22 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.crawler;
 
-import java.util.*;
-import java.util.zip.*;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.BitSet;
+import java.util.Iterator;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
-import org.lockss.daemon.*;
+import org.lockss.config.CurrentConfig;
+import org.lockss.daemon.ArchiveEntry;
+import org.lockss.daemon.Crawler;
 import org.lockss.daemon.Crawler.CrawlerFacade;
-import org.lockss.util.*;
-import org.lockss.util.urlconn.*;
+import org.lockss.daemon.PluginException;
 import org.lockss.plugin.*;
-import org.lockss.plugin.base.*;
-import org.lockss.plugin.exploded.*;
-import org.lockss.crawler.BaseCrawler;
-import org.lockss.config.*;
-import org.lockss.app.LockssDaemon;
-import org.lockss.state.*;
+import org.lockss.util.*;
+import org.lockss.util.urlconn.CacheException;
 
 /**
  * The Exploder for ZIP archives.
@@ -63,12 +64,6 @@ public class ZipExploder extends Exploder {
 
   /**
    * Constructor
-   * @param uc UrlCacher for the archive
-   * @param maxRetries
-   * @param crawlSpec the CrawlSpec for the crawl that found the archive
-   * @param crawler the crawler that found the archive
-   * @param explode true to explode the archives
-   * @param store true to store the archive as well
    */
   public ZipExploder(FetchedUrlData toExplode, CrawlerFacade crawlFacade,
       ExploderHelper helper) {
@@ -184,7 +179,7 @@ public class ZipExploder extends Exploder {
     	for (Iterator it = touchedAus.iterator(); it.hasNext(); ) {
     	  ArchivalUnit au = (ArchivalUnit)it.next();
     	  logger.debug3(archiveUrl + " touching " + au.toString());
-    	  AuUtil.getDaemon(au).getNodeManager(au).newContentCrawlFinished();
+        AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
     	}
     } else {
       ArchivalUnit au = crawlFacade.getAu();

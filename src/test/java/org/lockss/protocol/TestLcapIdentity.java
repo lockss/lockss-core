@@ -50,11 +50,6 @@ public class TestLcapIdentity extends LockssTestCase {
   static final String uprbnd = "test3.doc";
   static final String archivalid = "testarchive 1.0";
   static final byte[] testbytes = {1,2,3,4,5,6,7,8,9,10};
-  static final ArrayList testentries =
-    (ArrayList)ListUtil.list(new PollTally.NameListEntry(true,"test1.doc"),
-			     new PollTally.NameListEntry(true,"test2.doc"),
-			     new PollTally.NameListEntry(true,"test3.doc"));
-
   LcapIdentity fakeId = null;
   IPAddr testAddress;
   int testReputation;
@@ -62,11 +57,13 @@ public class TestLcapIdentity extends LockssTestCase {
   LcapMessage testMsg= null;
   private MockLockssDaemon daemon;
   private IdentityManager idmgr;
+  private File tempDir;
 
   /** setUp method for test case */
   protected void setUp() throws Exception {
     super.setUp();
     daemon = getMockLockssDaemon();
+    tempDir = getTempDir();
     String host = "1.2.3.4";
     String prop = "org.lockss.localIPAddress="+host;
     ConfigurationUtil.
@@ -83,13 +80,13 @@ public class TestLcapIdentity extends LockssTestCase {
     testReputation = IdentityManager.INITIAL_REPUTATION;
     PollSpec spec = new MockPollSpec(archivalid, urlstr, lwrbnd, uprbnd,
 				     Poll.V1_CONTENT_POLL);
-    testMsg = V1LcapMessage.makeRequestMsg(spec,
-					   testentries,
-					   testbytes,
-					   testbytes,
-					   V1LcapMessage.CONTENT_POLL_REQ,
-					   100000,
-					   testID);
+      testMsg =
+        new V3LcapMessage("ArchivalID_2", "key", "Plug42",
+            testbytes,
+            testbytes,
+            V3LcapMessage.MSG_REPAIR_REQ,
+            987654321, testID, tempDir, daemon);
+
   }
 
   /** test for method toString(..) */
@@ -101,18 +98,6 @@ public class TestLcapIdentity extends LockssTestCase {
   /** test for method rememberActive(..) */
   public void testRememberActive() {
     // XXX: Stubbed for V3
-    if (testMsg instanceof V1LcapMessage) {
-      long inc_pkts = fakeId.m_incrPackets;
-      long tot_pkts = fakeId.m_totalPackets;
-
-      fakeId.rememberActive(false,testMsg);
-      assertEquals(inc_pkts + 1, fakeId.m_incrPackets);
-      assertEquals(tot_pkts + 1, fakeId.m_totalPackets);
-      String verifier = String.valueOf(B64Code.encode(((V1LcapMessage)testMsg).getVerifier()));
-      Integer cnt = (Integer)fakeId.m_pktsThisInterval.get(verifier);
-      assertNotNull(cnt);
-      assertEquals(1, cnt.intValue());
-    }
   }
 
   /** test for method rememberValidOriginator(..) */

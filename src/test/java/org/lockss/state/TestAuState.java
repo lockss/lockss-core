@@ -88,6 +88,7 @@ public class TestAuState extends LockssTestCase {
 		       -1,
 		       null,
 		       0,
+        -1,
 		       lastTreeWalk,
 		       crawlUrls,
 		       null,

@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,6 +40,7 @@ import java.util.Map;
 import javax.sql.DataSource;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.TdbAu;
+import org.lockss.db.DbException;
 import org.lockss.db.DbManagerSql;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
@@ -2236,6 +2237,17 @@ public class MetadataDbManagerSql extends DbManagerSql {
       + " set " + DOI_COLUMN + " = ?"
       + " where " + MD_ITEM_SEQ_COLUMN + " = ?"
       + " and " + DOI_COLUMN + " = ?";
+
+  // Query to add a bibliographic item.
+  private static final String INSERT_BIB_ITEM_QUERY = "insert into "
+      + BIB_ITEM_TABLE
+      + "(" + MD_ITEM_SEQ_COLUMN
+      + "," + VOLUME_COLUMN
+      + "," + ISSUE_COLUMN
+      + "," + START_PAGE_COLUMN
+      + "," + END_PAGE_COLUMN
+      + "," + ITEM_NO_COLUMN
+      + ") values (?,?,?,?,?,?)";
 
   // SQL statements that create the necessary version 26 indices.
   private static final String[] VERSION_26_INDEX_CREATE_QUERIES = new String[] {
@@ -6467,6 +6479,57 @@ public class MetadataDbManagerSql extends DbManagerSql {
     addMetadataItemType(conn, MD_ITEM_TYPE_UNKNOWN_ARTICLE);
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Adds to the database a bibliographic item.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param mdItemSeq
+   *          A Long with the metadata item identifier.
+   * @param volume
+   *          A String with the bibliographic volume.
+   * @param issue
+   *          A String with the bibliographic issue.
+   * @param startPage
+   *          A String with the bibliographic starting page.
+   * @param endPage
+   *          A String with the bibliographic ending page.
+   * @param itemNo
+   *          A String with the bibliographic item number.
+   * @return an int with the number of database rows inserted.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  int addBibItem(Connection conn, Long mdItemSeq, String volume,
+      String issue, String startPage, String endPage, String itemNo)
+      throws SQLException {
+    final String DEBUG_HEADER = "addBibItem(): ";
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    int addedCount = 0;
+
+    PreparedStatement insertBibItem =
+	prepareStatement(conn, INSERT_BIB_ITEM_QUERY);
+
+    try {
+      insertBibItem.setLong(1, mdItemSeq);
+      insertBibItem.setString(2, volume);
+      insertBibItem.setString(3, issue);
+      insertBibItem.setString(4, startPage);
+      insertBibItem.setString(5, endPage);
+      insertBibItem.setString(6, itemNo);
+      addedCount = executeUpdate(insertBibItem);
+    } finally {
+      MetadataDbManager.safeCloseStatement(insertBibItem);
+    }
+
+    log.debug3(DEBUG_HEADER + "addedCount = " + addedCount);
+    return addedCount;
   }
 
   /**

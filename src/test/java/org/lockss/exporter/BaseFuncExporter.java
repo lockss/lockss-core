@@ -38,6 +38,8 @@ import java.util.regex.*;
 
 import org.archive.io.*;
 import org.archive.io.arc.*;
+
+import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;

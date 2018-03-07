@@ -64,8 +64,6 @@ public class LcapRouter
 
   private IdentityManager idMgr;
   private LcapStreamComm scomm = null;
-  private LcapDatagramRouter drouter = null;
-  private LcapDatagramRouter.MessageHandler drouterHandler;
 
   private List messageHandlers = new ArrayList();
   private File dataDir = null;
@@ -73,17 +71,6 @@ public class LcapRouter
   public void startService() {
     super.startService();
     LockssDaemon daemon = getDaemon();
-    try {
-      drouter = daemon.getDatagramRouterManager();
-      drouterHandler = new LcapDatagramRouter.MessageHandler() {
-	  public void handleMessage(LcapMessage msg) {
-	    runHandlers(msg);
-	  }};
-      drouter.registerMessageHandler(drouterHandler);
-    } catch (IllegalArgumentException e) {
-      log.warning("No datagram router");
-      drouter = null;
-    }
     try {
       scomm = daemon.getStreamCommManager();
       scomm.registerMessageHandler(PeerMessage.PROTOCOL_LCAP_V3,
@@ -103,9 +90,6 @@ public class LcapRouter
     if (scomm != null) {
       scomm.unregisterMessageHandler(PeerMessage.PROTOCOL_LCAP_V3);
     }
-    if (drouter != null && drouterHandler != null) {
-      drouter.unregisterMessageHandler(drouterHandler);
-    }
     super.stopService();
   }
 
@@ -123,27 +107,6 @@ public class LcapRouter
 	dataDir = null;
       }
     }
-  }
-
-  /** Multicast a message to all peers.  Only supported for V1 messages
-   * @param msg the message to send
-   * @param au archival unit for which this message is relevant.  Used to
-   * determine which multicast socket/port to send to.
-   * @throws IOException if message couldn't be sent
-   */
-  public void send(V1LcapMessage msg, ArchivalUnit au) throws IOException {
-    drouter.send(msg, au);
-  }
-
-  /** Send a message to a peer.
-   * @param msg the message to send
-   * @param au archival unit for which this message is relevant (not used).
-   * @param id the identity of the peer to which to send the message
-   * @throws IOException if message couldn't be sent
-   */
-  public void sendTo(V1LcapMessage msg, ArchivalUnit au, PeerIdentity id)
-      throws IOException {
-    drouter.sendTo(msg, au, id);
   }
 
   /** Send a message to a peer.

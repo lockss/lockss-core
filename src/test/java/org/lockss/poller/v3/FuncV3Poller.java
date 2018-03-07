@@ -47,10 +47,10 @@ import org.lockss.poller.*;
 import org.lockss.poller.v3.V3Serializer.*;
 import org.lockss.protocol.*;
 import org.lockss.protocol.BlockingStreamComm.*;
-import org.lockss.protocol.LcapDatagramRouter.MessageHandler;
 import org.lockss.protocol.LcapStreamComm.*;
 import org.lockss.protocol.psm.*;
 import org.lockss.repository.*;
+import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
@@ -138,9 +138,9 @@ public class FuncV3Poller extends LockssTestCase {
     pollmanager = theDaemon.getPollManager();
     hashService = theDaemon.getHashService();
     theDaemon.setStreamCommManager(new MyMockStreamCommManager(theDaemon));
-    theDaemon.setDatagramRouterManager(new MyMockLcapDatagramRouter());
     theDaemon.setRouterManager(new MyMockLcapRouter());
-    theDaemon.setNodeManager(new MockNodeManager(), testau);
+    theDaemon.getHistoryRepository(testau);
+    //theDaemon.setHistoryRepository(new MockHistoryRepository(), testau);
     theDaemon.setPluginManager(new MyMockPluginManager(theDaemon, testau));
     theDaemon.setDaemonInited(true);
     theDaemon.getSchedService().startService();
@@ -164,7 +164,6 @@ public class FuncV3Poller extends LockssTestCase {
     theDaemon.getActivityRegulator(testau).stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getRouterManager().stopService();
-    theDaemon.getDatagramRouterManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSchedService().stopService();
     theDaemon.getIdentityManager().stopService();
@@ -337,14 +336,6 @@ public class FuncV3Poller extends LockssTestCase {
   class MyMockLcapRouter extends LcapRouter {
     public void registerMessageHandler(org.lockss.protocol.LcapRouter.MessageHandler handler) {
     }
-
-    public void send(V1LcapMessage msg, ArchivalUnit au) throws IOException {
-    }
-
-    public void sendTo(V1LcapMessage msg, ArchivalUnit au, PeerIdentity id)
-        throws IOException {
-    }
-
     public void sendTo(V3LcapMessage msg, PeerIdentity id) throws IOException {
     }
 
@@ -359,26 +350,6 @@ public class FuncV3Poller extends LockssTestCase {
     }
 
     public void unregisterMessageHandler(org.lockss.protocol.LcapRouter.MessageHandler handler) {
-    }
-  }
-
-  class MyMockLcapDatagramRouter extends LcapDatagramRouter {
-    public void registerMessageHandler(MessageHandler handler) {
-    }
-    public void send(V1LcapMessage msg, ArchivalUnit au)
-        throws IOException {
-    }
-    public void sendTo(V1LcapMessage msg, ArchivalUnit au, PeerIdentity id)
-        throws IOException {
-    }
-    public void setConfig(Configuration config, Configuration oldConfig,
-                          Differences changedKeys) {
-    }
-    public void startService() {
-    }
-    public void stopService() {
-    }
-    public void unregisterMessageHandler(MessageHandler handler) {
     }
   }
 

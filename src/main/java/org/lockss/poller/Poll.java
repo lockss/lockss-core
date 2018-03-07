@@ -31,10 +31,11 @@ in this Software without prior written authorization from Stanford University.
 */
 package org.lockss.poller;
 
-import org.lockss.config.*;
-import org.lockss.plugin.*;
-import org.lockss.protocol.*;
-import org.lockss.util.*;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.CachedUrlSet;
+import org.lockss.protocol.LcapMessage;
+import org.lockss.protocol.PeerIdentity;
+import org.lockss.util.Deadline;
 
 public interface Poll {
   // Poll type names
@@ -86,11 +87,6 @@ public interface Poll {
    * Poll aborted (e.g., due to AU inactivated)
    */
   public static final int ERR_ABORTED = -4;
-  /**
-   * Returns true if the poll belongs to this Identity
-   * @return true if  we called the poll
-   */
-  public boolean isMyPoll();
 
   /**
    * Return the poll spec used by this poll
@@ -129,12 +125,6 @@ public interface Poll {
   public Deadline getDeadline();
 
   /**
-   * get the PollTally for this Poll
-   * @return VoteTally for this poll
-   */
-  public PollTally getVoteTally();
-
-  /**
    * Start a poll.
    */
   public void startPoll();
@@ -170,6 +160,37 @@ public interface Poll {
    */
   public String getStatusString();
 
-  /** Kludge for V1Name subpolls */
-  public boolean isSubpollRunning();
+  /**
+   * Set the message that triggered this poll.
+   *
+   * @param msg
+   */
+  void setMessage(LcapMessage msg);
+
+  /**
+   * Return the time that this poll was created.
+   */
+  long getCreateTime();
+
+
+  /**
+   * Recieve and incoming message from the PollManager
+   * @param msg the incoming msg containing a vote for this poll
+   */
+  void receiveMessage(LcapMessage msg);
+
+
+  /**
+   * Is this poll currently active?
+   *
+   * @return True if the poll is active.
+   */
+  boolean isPollActive();
+
+  /**
+   * Is this poll currently active?
+   *
+   * @return True if the poll is complete.
+   */
+  boolean isPollCompleted();
 }

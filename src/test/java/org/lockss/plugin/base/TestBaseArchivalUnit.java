@@ -92,9 +92,9 @@ public class TestBaseArchivalUnit extends LockssTestCase {
 
     TestableBaseArchivalUnit au =
       new TestableBaseArchivalUnit(mplug, name, rule, startUrl);
-    MockNodeManager nm = new MockNodeManager();
-    nm.setAuState(new MockAuState(au));
-    getMockLockssDaemon().setNodeManager(nm, au);
+    MockHistoryRepository mhr = new MockHistoryRepository();
+    mhr.setAuState(new MockAuState(au));
+    getMockLockssDaemon().setHistoryRepository(mhr, au);
     return au;
   }
 

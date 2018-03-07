@@ -55,7 +55,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
 
   private LockssDaemon theDaemon;
   private LockssRepository repository;
-  private NodeManager nodeManager;
+  private HistoryRepository histRepo;
   private TrueZipManager trueZipManager;
   protected static Logger logger = Logger.getLogger("CachedUrlSet");
 
@@ -90,7 +90,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
 
     if (!isAuContentFromWs) {
       repository = theDaemon.getLockssRepository(owner);
-      nodeManager = theDaemon.getNodeManager(owner);
+      histRepo = theDaemon.getHistoryRepository(owner);
     }
   }
 
@@ -261,7 +261,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     }
     // don't adjust for exceptions, except time-out exceptions
     long currentEstimate =
-      nodeManager.getNodeState(this).getAverageHashDuration();
+      histRepo.getAuState().getAverageHashDuration();
     long newEst;
 
     logger.debug("storeActualHashDuration(" +
@@ -303,7 +303,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     if (newEst > 10 * Constants.HOUR) {
       logger.error("Unreasonably long hash estimate", new Throwable());
     }
-    nodeManager.hashFinished(this, newEst);
+    histRepo.getAuState().setLastHashDuration(newEst);
   }
 
   public long estimatedHashDuration() {
@@ -329,7 +329,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       contentSize = node.getContentSize();
       return estimateFromSize(contentSize);
     }
-    NodeState state = nodeManager.getNodeState(this);
+    AuState state = histRepo.getAuState();
     long lastDuration;
     if (state!=null) {
       lastDuration = state.getAverageHashDuration();
@@ -341,7 +341,9 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     calculateNodeSize();
     lastDuration = estimateFromSize(totalNodeSize);
     // store hash estimate
-    nodeManager.hashFinished(this, lastDuration);
+    if(state != null) {
+      state.setLastHashDuration(lastDuration);
+    }
     return lastDuration;
   }
 

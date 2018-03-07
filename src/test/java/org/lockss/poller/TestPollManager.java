@@ -33,7 +33,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.poller;
 
 import java.io.*;
-import java.security.MessageDigest;
 import java.util.*;
 
 import org.lockss.config.*;
@@ -46,7 +45,10 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 
 /** JUnitTest case for class: org.lockss.poller.PollManager */
-public class TestPollManager extends LockssTestCase {
+public class TestPollManager extends LockssTestCase4 {
+  private static final Logger log =
+      Logger.getLoggerWithInitialLevel("TestPollManager",
+          Logger.getInitialDefaultLevel());
 
   private static String[] rooturls = {"http://www.test.org",
 				      "http://www.test1.org",
@@ -57,11 +59,6 @@ public class TestPollManager extends LockssTestCase {
   private static String uprbnd = "test3.doc";
   private static long testduration = Constants.HOUR;
 
-  private static ArrayList testentries =
-    (ArrayList)ListUtil.list(new PollTally.NameListEntry(true,"test1.doc"),
-			     new PollTally.NameListEntry(true,"test2.doc"),
-			     new PollTally.NameListEntry(true,"test3.doc"));
-
   protected static MockArchivalUnit testau;
   private MockLockssDaemon theDaemon;
   private RepositoryManager repoMgr;
@@ -69,14 +66,13 @@ public class TestPollManager extends LockssTestCase {
 
 
   protected PeerIdentity testID;
-  protected V1LcapMessage[] v1Testmsg;
   protected V3LcapMessage[] v3Testmsg;
   protected MyPollManager pollmanager;
   protected IdentityManager idmanager;
   private File tempDir;
   private Tdb tdb;
 
-  protected void setUp() throws Exception {
+  public void setUp() throws Exception {
     super.setUp();
 
     String tempDirPath = setUpDiskSpace();
@@ -102,7 +98,6 @@ public class TestPollManager extends LockssTestCase {
     idmanager.stopService();
     theDaemon.getLockssRepository(testau).stopService();
     theDaemon.getHashService().stopService();
-    theDaemon.getDatagramRouterManager().stopService();
     theDaemon.getRouterManager().stopService();
     super.tearDown();
   }
@@ -124,8 +119,7 @@ public class TestPollManager extends LockssTestCase {
     PollFactory pf4 = pollmanager.getPollFactory(4);
     assertNull(pfm1);
     assertNull(pf0);
-    assertNotNull(pf1);
-    assertTrue(pf1 instanceof V1PollFactory);
+    assertNull(pf1);
     assertNull(pf2);
     assertNotNull(pf3);
     assertTrue(pf3 instanceof V3PollFactory);
@@ -146,8 +140,7 @@ public class TestPollManager extends LockssTestCase {
     assertNull(pfBad2);
     PollFactory pfV1 = pollmanager.getPollFactory(v1);
     PollFactory pfV3 = pollmanager.getPollFactory(v3);
-    assertNotNull(pfV1);
-    assertTrue(pfV1 instanceof V1PollFactory);
+    assertNull(pfV1);
     assertNotNull(pfV3);
     assertTrue(pfV3 instanceof V3PollFactory);
   }
@@ -155,147 +148,6 @@ public class TestPollManager extends LockssTestCase {
   // Tests for the V1 PollFactory implementation
 
   // Start by testing the local mock poll factory
-
-  public void testMyV1PollFactory() {
-    // This ensures that MyV1PollFactory.canHashBeScheduledBefore() does
-    // what I intended
-    MyV1PollFactory mpf = new MyV1PollFactory();
-
-    mpf.setMinPollDeadline(Deadline.in(1000));
-    assertFalse(mpf.canHashBeScheduledBefore(100, Deadline.in(0),
-					     pollmanager));
-    assertTrue(mpf.canHashBeScheduledBefore(100, Deadline.in(1000),
-					    pollmanager));
-    assertTrue(mpf.canHashBeScheduledBefore(100, Deadline.in(1001),
-					    pollmanager));
-
-  }
-
-  /** test for method makePoll(..) */
-  public void testMakePoll() throws Exception {
-    // make a name poll
-    BasePoll p1 = pollmanager.makePoll(v1Testmsg[0]);
-    // make sure we got the right type of poll here
-    assertTrue(p1 instanceof V1NamePoll);
-
-    // make a content poll
-    BasePoll p2 = pollmanager.makePoll(v1Testmsg[1]);
-    // make sure we got the right type of poll here
-    assertTrue(p2 instanceof V1ContentPoll);
-
-    // make a verify poll
-    BasePoll p3 = pollmanager.makePoll(v1Testmsg[2]);
-    // make sure we got the right type of poll here
-    assertTrue(p3 instanceof V1VerifyPoll);
-
-    // XXX: Uncomment when ready.
-    // BasePoll p4 = pollmanager.makePoll(v3Testmsg[0]);
-    // assertTrue(p4 instanceof V3Voter);
-  }
-
-  public void testMakePollDoesntIfPluginMismatch() throws Exception {
-    // Make a string that's different from the plugin's version
-    String bogus = testau.getPlugin().getVersion() + "cruft";
-
-    // make a name poll witha bogus plugin version
-    MockPollSpec spec =
-      new MockPollSpec(testau, urlstr, lwrbnd, uprbnd, Poll.V1_NAME_POLL);
-    spec.setPluginVersion(bogus);
-    V1LcapMessage msg1 =
-      V1LcapMessage.makeRequestMsg(spec,
-				   testentries,
-				   ByteArray.makeRandomBytes(20),
-				   ByteArray.makeRandomBytes(20),
-				   V1LcapMessage.NAME_POLL_REQ,
-				   testduration,
-				   testID);
-
-    BasePoll p1 = pollmanager.makePoll(msg1);
-    assertNull("Shouldn't create poll with plugin version mismatch", p1);
-
-    // make a content poll witha bogus plugin version
-    V1LcapMessage msg2 =
-      V1LcapMessage.makeRequestMsg(spec,
-				   testentries,
-				   ByteArray.makeRandomBytes(20),
-				   ByteArray.makeRandomBytes(20),
-				   V1LcapMessage.CONTENT_POLL_REQ,
-				   testduration,
-				   testID);
-
-    BasePoll p2 = pollmanager.makePoll(msg2);
-    assertNull("Shouldn't create poll with plugin version mismatch", p2);
-  }
-
-  /** test for method makePollRequest(..) */
-  public void testMakePollRequest() throws Exception {
-    try {
-      CachedUrlSet cus = null;
-      cus = testau.makeCachedUrlSet( new RangeCachedUrlSetSpec(rooturls[1]));
-      PollSpec spec = new PollSpec(cus, lwrbnd, uprbnd, Poll.V1_CONTENT_POLL);
-      assertNotNull(pollmanager.callPoll(spec));
-    }
-    catch (IllegalStateException e) {
-      // ignore this for now
-    }
-  }
-
-  /** test for method findPoll(..) */
-  public void testFindPoll() {
-    // lets see if we can find our name poll
-    try {
-      BasePoll p1 = pollmanager.makePoll(v1Testmsg[0]);
-      BasePoll p2 = pollmanager.findPoll(v1Testmsg[0]);
-      assertEquals(p1, p2);
-    }
-    catch (IOException ex) {
-      fail("name poll couldn't be found");
-    }
-  }
-
-  /** test for method closeThePoll(..) */
-  public void testCloseThePoll() throws Exception {
-    BasePoll p1 = pollmanager.makePoll(v1Testmsg[0]);
-    String key = p1.getKey();
-
-    // we should now be active
-    assertTrue(pollmanager.isPollActive(key));
-    // we should not be closed
-    assertFalse(pollmanager.isPollClosed(key));
-
-
-    pollmanager.closeThePoll(key);
-    // we should not be active
-    assertFalse(pollmanager.isPollActive(key));
-    // we should now be closed
-    assertTrue(pollmanager.isPollClosed(key));
-    // we should reject an attempt to handle a packet with this key
-    pollmanager.handleIncomingMessage(v1Testmsg[0]);
-    assertTrue(pollmanager.isPollClosed(key));
-    assertFalse(pollmanager.isPollActive(key));
-    pollmanager.closeThePoll(key);
-  }
-
-  /** test for method suspendPoll(...) */
-  public void testSuspendPoll() throws Exception {
-    BasePoll p1 = null;
-    p1 = TestPoll.createCompletedPoll(theDaemon, testau, v1Testmsg[0], 7, 2,
-				      pollmanager);
-    String key = p1.getKey();
-    pollmanager.addPoll(p1);
-    // give it a pointless lock to avoid a null pointer
-    ActivityRegulator.Lock lock = theDaemon.getActivityRegulator(testau).
-      getAuActivityLock(-1, 123);
-
-    // check our suspend
-    pollmanager.suspendPoll(key);
-    assertTrue(pollmanager.isPollSuspended(key));
-    assertFalse(pollmanager.isPollClosed(key));
-
-    // now we resume...
-    pollmanager.resumePoll(false, key, lock);
-    assertFalse(pollmanager.isPollSuspended(key));
-  }
 
   /** Test for getPollsForAu(String auId) */
   public void testGetV3PollStatus() throws Exception {
@@ -338,7 +190,7 @@ public class TestPollManager extends LockssTestCase {
     v3status.setLastPollTime(testau.getAuId(), timestamp);
   }
   
-  private BasePoll makeTestV3Voter() throws Exception {
+  private Poll makeTestV3Voter() throws Exception {
     PollSpec spec = new MockPollSpec(testau, rooturls[0], lwrbnd, uprbnd,
                                      Poll.V3_POLL);
 
@@ -366,8 +218,8 @@ public class TestPollManager extends LockssTestCase {
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockNodeManager nodeMgr = new MockNodeManager();
-    theDaemon.setNodeManager(nodeMgr, mau);
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    theDaemon.setHistoryRepository(histRepo, mau);
     MockLockssRepository repo = new MockLockssRepository();
     theDaemon.setLockssRepository(repo, mau);
     
@@ -380,7 +232,7 @@ public class TestPollManager extends LockssTestCase {
 	     long pollDuration, double agreement) 
       throws Exception {
     MockAuState aus = new MockAuState(mau);
-    ((MockNodeManager)theDaemon.getNodeManager(mau)).setAuState(aus);
+    ((MockHistoryRepository)theDaemon.getHistoryRepository(mau)).setAuState(aus);
     aus.setLastCrawlTime(100);
     aus.setLastPollStart(lastPollStart);
     aus.setLastToplevalPoll(lastTopLevelPoll);
@@ -542,7 +394,7 @@ public class TestPollManager extends LockssTestCase {
       pollmanager.getWeightMap();
     assertNotNull(weightMap);
     ArrayList<ArchivalUnit> queued = new ArrayList(weightMap.keySet());
-    log.debug("weightMap: " + weightMap.toString());
+    //log.debug("weightMap: " + weightMap.toString());
     Collections.sort(queued, new Comparator<ArchivalUnit>() {
 	public int compare(ArchivalUnit au1,
 			   ArchivalUnit au2) {
@@ -631,10 +483,10 @@ public class TestPollManager extends LockssTestCase {
     String auid = "auid111";
     MockPlugin plugin = new MockPlugin(theDaemon);
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockNodeManager nodeMgr = new MockNodeManager();
-    theDaemon.setNodeManager(nodeMgr, mau);
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    theDaemon.setHistoryRepository(histRepo, mau);
     MockAuState maus = new MockAuState(mau);
-    nodeMgr.setAuState(maus);
+    histRepo.setAuState(maus);
     File file = FileTestUtil.tempFile("noau");
     DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(file, idmanager);
     assertTrue(noAuSet.isEmpty());
@@ -675,49 +527,6 @@ public class TestPollManager extends LockssTestCase {
     assertTrue(noAuSet.isEmpty());
   }
 
-  // XXX:  Move these tests to TestV1PollFactory
-  /** test for method getMessageDigest(..) */
-  public void testGetMessageDigest() {
-    V1PollFactory pf = (V1PollFactory)pollmanager.getPollFactory(Poll.V1_PROTOCOL);
-    MessageDigest md = pf.getMessageDigest(null);
-    assertNotNull(md);
-  }
-
-  /** test for method makeVerifier(..) */
-  public void testMakeVerifier() {
-    V1PollFactory pf = (V1PollFactory)pollmanager.getPollFactory(Poll.V1_PROTOCOL);
-
-    // test for make verifier - this will also store the verify/secret pair
-    byte[] verifier = pf.makeVerifier(10000);
-    assertNotNull("unable to make and store a verifier", verifier);
-
-    // retrieve our secret
-    byte[] secret = pf.getSecret(verifier);
-    assertNotNull("unable to retrieve secret for verifier", secret);
-
-    // confirm that the verifier is the hash of the secret
-    MessageDigest md = pf.getMessageDigest(null);
-    md.update(secret, 0, secret.length);
-    byte[] verifier_check = md.digest();
-    assertTrue("secret does not match verifier",
-               Arrays.equals(verifier, verifier_check));
-
-  }
-
-
-  void configPollTimes() {
-    Properties p = new Properties();
-    addRequiredConfig(p);
-    p.setProperty(V1PollFactory.PARAM_NAMEPOLL_DEADLINE, "10000");
-    p.setProperty(V1PollFactory.PARAM_CONTENTPOLL_MIN, "1000");
-    p.setProperty(V1PollFactory.PARAM_CONTENTPOLL_MAX, "4100");
-    p.setProperty(V1PollFactory.PARAM_QUORUM, "5");
-    p.setProperty(V1PollFactory.PARAM_DURATION_MULTIPLIER_MIN, "3");
-    p.setProperty(V1PollFactory.PARAM_DURATION_MULTIPLIER_MAX, "7");
-    p.setProperty(V1PollFactory.PARAM_NAME_HASH_ESTIMATE, "1s");
-    ConfigurationUtil.setCurrentConfigFromProps(p);
-  }
-
   //  Local mock classes
 
   // MyPollManager allows us to override the PollFactory
@@ -730,51 +539,16 @@ public class TestPollManager extends LockssTestCase {
     public void setPollFactory(int i, PollFactory fact) {
       pf[i] = fact;
     }
-    public void sendMessage(V1LcapMessage msg, ArchivalUnit au)
-        throws IOException {
-      msgSent = msg;
-    }
 
     @Override
       protected List<ArchivalUnit> weightedRandomSelection(Map<ArchivalUnit, PollManager.PollWeight> weightMap, int n) {
-      log.debug("weightMap: " + weightMap);
+      //log.debug("weightMap: " + weightMap);
       this.weightMap = weightMap;
       return super.weightedRandomSelection(weightMap, n);
     }
 
     Map getWeightMap() {
       return weightMap;
-    }
-  }
-
-
-  // MyV1PollFactory allows us to override the
-  // canHashBeScheduledBefore() method and avoid the
-  // complexity of mocking the hasher and scheduler.
-  static class MyV1PollFactory extends V1PollFactory {
-    long bytesPerMsHashEstimate = 0;
-    long slowestHashSpeed = 0;
-    Deadline minPollDeadline = Deadline.EXPIRED;
-
-    boolean canHashBeScheduledBefore(long duration,
-				     Deadline when,
-				     PollManager pm) {
-      return !when.before(minPollDeadline);
-    }
-    void setMinPollDeadline(Deadline when) {
-      minPollDeadline = when;
-    }
-    long getSlowestHashSpeed() {
-      return slowestHashSpeed;
-    }
-    void setSlowestHashSpeed(long speed) {
-      slowestHashSpeed = speed;
-    }
-    long getBytesPerMsHashEstimate() {
-      return bytesPerMsHashEstimate;
-    }
-    void setBytesPerMsHashEstimate(long est) {
-      bytesPerMsHashEstimate = est;
     }
   }
 
@@ -800,11 +574,10 @@ public class TestPollManager extends LockssTestCase {
 
     theDaemon.getSchedService().startService();
     theDaemon.getHashService().startService();
-    theDaemon.getDatagramRouterManager().startService();
     theDaemon.getRouterManager().startService();
     theDaemon.getActivityRegulator(testau).startService();
 
-    theDaemon.setNodeManager(new MockNodeManager(), testau);
+    theDaemon.setHistoryRepository(new MockHistoryRepository(), testau);
     pollmanager.startService();
     idmanager.startService();
   }
@@ -833,30 +606,7 @@ public class TestPollManager extends LockssTestCase {
   }
 
   private void initTestMsg() throws Exception {
-    // V1 Messages
-    V1PollFactory pf = (V1PollFactory)pollmanager.getPollFactory(Poll.V1_PROTOCOL);
-
-    v1Testmsg = new V1LcapMessage[3];
-    int[] pollType = {
-      Poll.V1_NAME_POLL,
-      Poll.V1_CONTENT_POLL,
-      Poll.V1_VERIFY_POLL,
-    };
-
-    for(int i= 0; i<3; i++) {
-      PollSpec spec = new MockPollSpec(testau, rooturls[i], lwrbnd, uprbnd,
-				       pollType[i]);
-      v1Testmsg[i] =
-	V1LcapMessage.makeRequestMsg(spec,
-				     testentries,
-				     pf.makeVerifier(testduration),
-				     pf.makeVerifier(testduration),
-				     V1LcapMessage.NAME_POLL_REQ + (i * 2),
-				     testduration,
-				     testID);
-    }
-
-    // V3 Messages.
+ // V3 Messages.
     v3Testmsg = new V3LcapMessage[1];
 //    PollSpec v3Spec = new MockPollSpec(testau, rooturls[0], null, null,
 //                                       Poll.V3_POLL);

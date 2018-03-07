@@ -430,11 +430,10 @@ public abstract class BaseCrawler implements Crawler {
       	appendAlertInfo(sb);
       	raiseAlert(Alert.auAlert(alert, au), sb.toString());
       
-      	NodeManager nodeManager = getDaemon().getNodeManager(au);
       	if (res) {
-      	  nodeManager.newContentCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
-      	} else {
-      	  nodeManager.newContentCrawlFinished(crawlStatus.getCrawlStatus(),
+          AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
+        } else {
+          AuUtil.getAuState(au).newCrawlFinished(crawlStatus.getCrawlStatus(),
       					      crawlStatus.getCrawlErrorMsg());
       	}
       }
@@ -477,8 +476,7 @@ public abstract class BaseCrawler implements Crawler {
 				 "Aborted: " + t.getMessage()); 
     }
     if (isWholeAU()) {
-      NodeManager nodeManager = getDaemon().getNodeManager(au);
-      nodeManager.newContentCrawlFinished(Crawler.STATUS_ABORTED,
+      AuUtil.getAuState(getAu()).newCrawlFinished(Crawler.STATUS_ABORTED,
 					  t.getMessage());
     }
   }

@@ -123,18 +123,16 @@ public class FuncV3Voter extends LockssTestCase {
     pollmanager = theDaemon.getPollManager();
     hashService = theDaemon.getHashService();
     theDaemon.setStreamCommManager(new MyMockStreamCommManager(theDaemon));
-    theDaemon.setDatagramRouterManager(new MyMockLcapDatagramRouter());
     theDaemon.setRouterManager(new MyMockLcapRouter());
     setupAu();
 
-    MockNodeManager nodeManager = new MockNodeManager();
-    theDaemon.setNodeManager(nodeManager, mau);
+    theDaemon.getHistoryRepository(mau).startService();
     theDaemon.getPluginManager();
     theDaemon.setDaemonInited(true);
     theDaemon.getSchedService().startService();
 
-    MockAuState aus = new MockAuState(mau);
-    nodeManager.setAuState(aus);
+    //MockAuState aus = new MockAuState(mau);
+    //nodeManager.setAuState(aus);
 
     theDaemon.getActivityRegulator(mau).startService();
     idmgr.startService();
@@ -154,7 +152,6 @@ public class FuncV3Voter extends LockssTestCase {
     theDaemon.getActivityRegulator(mau).stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getRouterManager().stopService();
-    theDaemon.getDatagramRouterManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSchedService().stopService();
     theDaemon.getIdentityManager().stopService();
@@ -401,13 +398,6 @@ public class FuncV3Voter extends LockssTestCase {
     public void registerMessageHandler(org.lockss.protocol.LcapRouter.MessageHandler handler) {
     }
 
-    public void send(V1LcapMessage msg, ArchivalUnit au) throws IOException {
-    }
-
-    public void sendTo(V1LcapMessage msg, ArchivalUnit au, PeerIdentity id)
-        throws IOException {
-    }
-
     public void sendTo(V3LcapMessage msg, PeerIdentity id) throws IOException {
     }
 
@@ -422,26 +412,6 @@ public class FuncV3Voter extends LockssTestCase {
     }
 
     public void unregisterMessageHandler(org.lockss.protocol.LcapRouter.MessageHandler handler) {
-    }
-  }
-
-  class MyMockLcapDatagramRouter extends LcapDatagramRouter {
-    public void registerMessageHandler(MessageHandler handler) {
-    }
-    public void send(V1LcapMessage msg, ArchivalUnit au)
-        throws IOException {
-    }
-    public void sendTo(V1LcapMessage msg, ArchivalUnit au, PeerIdentity id)
-        throws IOException {
-    }
-    public void setConfig(Configuration config, Configuration oldConfig,
-                          Differences changedKeys) {
-    }
-    public void startService() {
-    }
-    public void stopService() {
-    }
-    public void unregisterMessageHandler(MessageHandler handler) {
     }
   }
 

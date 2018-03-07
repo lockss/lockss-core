@@ -37,9 +37,6 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 
 /**
- * PollFactory instances create Poll objects of the appropriate version.
- */
-/**
  * <p>PollFactory instances create Poll objects of the appropriate version.</p>
  * @author David Rosenthal
  * @version 1.0
@@ -58,7 +55,7 @@ public interface PollFactory {
    * @param msg {@link LcapMessage} that began this poll
    * @return a Poll object describing the new poll.
    */
-  BasePoll createPoll(PollSpec pollspec,
+  Poll createPoll(PollSpec pollspec,
                       LockssDaemon daemon,
                       PeerIdentity orig,
                       long duration,
@@ -81,13 +78,13 @@ public interface PollFactory {
    * @param oldConfig the previous configuration of the daemon
    * @param changedKeys the items that have changed
    */
-  public void setConfig(Configuration newConfig,
+  void setConfig(Configuration newConfig,
 			Configuration oldConfig,
 			Configuration.Differences changedKeys);
 
-  public long getMaxPollDuration(int pollType);
+  long getMaxPollDuration(int pollType);
 
-  public long calcDuration(PollSpec ps, PollManager pm);
+  long calcDuration(PollSpec ps, PollManager pm);
 
-  public boolean isDuplicateMessage(LcapMessage msg, PollManager pm);
+  boolean isDuplicateMessage(LcapMessage msg, PollManager pm);
 }

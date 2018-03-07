@@ -86,10 +86,10 @@ public class TestFollowLinkCrawler extends LockssTestCase {
     mau = new MyMockArchivalUnit();
     mau.setPlugin(plug);
     mau.setAuId("MyMockTestAu");
-    MockNodeManager nodeManager = new MockNodeManager();
-    getMockLockssDaemon().setNodeManager(nodeManager, mau);
+    MockHistoryRepository mhr = new MockHistoryRepository();
+    getMockLockssDaemon().setHistoryRepository(mhr, mau);
     aus = new MockAuState(mau);
-    nodeManager.setAuState(aus);
+    mhr.setAuState(aus);
     startUrls = ListUtil.list(startUrl);
     mcus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
 

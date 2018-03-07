@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -89,8 +89,6 @@ public class TestSubscriptionManager extends LockssTestCase {
     super.setUp();
     tempDirPath = setUpDiskSpace();
 
-    ConfigurationUtil.addFromArgs(MetadataManager.PARAM_INDEXING_ENABLED,
-	"true");
     ConfigurationUtil.addFromArgs(SubscriptionManager
 	.PARAM_SUBSCRIPTION_ENABLED, "true");
 
@@ -1320,8 +1318,7 @@ public class TestSubscriptionManager extends LockssTestCase {
 
     // Create the publisher.
     String publisherName = "Publisher of [Title of [vol123]]";
-    Long publisherSeq =
-	metadataManager.getDbManager().addPublisher(conn, publisherName);
+    Long publisherSeq = metadataManager.addPublisher(conn, publisherName);
 
     // Create the publication.
     Long publicationSeq = metadataManager.addPublication(conn, publisherSeq,

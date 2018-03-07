@@ -63,7 +63,7 @@ if [ -z "${TITLE_DBS}" -a -d ${TDB_DIR} ]; then
 fi
 
 
-CLASSPATH=../lib/lockss.jar:../lib/lockss-test.jar:../lib/lockss-plugins.jar:`cat "${PROJECT_DIR}/test/test-classpath"`
+CLASSPATH=../target/current.jar:../target/current-test.jar:`cat "${PROJECT_DIR}/target/test-classpath"`
 export CLASSPATH
 
 PROP_URL_LIST="../../common.xml ${TITLE_DBS} ../lockss.txt ../lockss.opt local.txt local.opt"

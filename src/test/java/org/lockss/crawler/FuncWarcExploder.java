@@ -182,6 +182,7 @@ public class FuncWarcExploder extends LockssTestCase {
 
     sau = PluginTestUtil.createAndStartSimAu(MySimulatedPlugin.class,
 					     simAuConfig(tempDirPath));
+    theDaemon.getHistoryRepository(sau).startService();
     sau.setUrlConsumerFactory(new ExplodingUrlConsumerFactory());
   }
 
@@ -460,7 +461,10 @@ public class FuncWarcExploder extends LockssTestCase {
     sau.setExploderPattern(".warc.gz$");
     sau.setExploderHelper(new MyExploderHelper(bad));
     
-    AuState maus = new MyMockAuState();
+    AuState maus = new MyMockAuState(sau);
+    HistoryRepository histRepo = theDaemon.getHistoryRepository(sau);
+    ((MockAuState)maus).setHistoryRepository(histRepo);
+    histRepo.storeAuState(maus);
     FollowLinkCrawler crawler = new FollowLinkCrawler(sau, maus);
     crawler.setCrawlManager(crawlMgr);
     boolean res = crawler.doCrawl();
@@ -522,8 +526,8 @@ public class FuncWarcExploder extends LockssTestCase {
 
   public static class MyMockAuState extends MockAuState {
 
-    public MyMockAuState() {
-      super();
+    public MyMockAuState(ArchivalUnit au) {
+      super(au);
     }
 
     public void newCrawlFinished(int result, String msg) {

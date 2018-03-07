@@ -44,8 +44,7 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.poller.Poll;
 import org.lockss.repository.LockssRepositoryImpl;
 import org.lockss.state.AuState;
-import org.lockss.state.NodeManager;
-import org.lockss.state.NodeState;
+import org.lockss.state.HistoryRepository;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.ws.entities.AuStatus;
@@ -196,8 +195,8 @@ public class AuHelper {
 
     result.setYear(AuUtil.getTitleAttribute(au, "year"));
 
-    NodeManager nodeMgr = theDaemon.getNodeManager(au);
-    AuState state = nodeMgr.getAuState();
+    HistoryRepository histRepo = theDaemon.getHistoryRepository(au);
+    AuState state = histRepo.getAuState();
     AuState.AccessType atype = state.getAccessType();
 
     if (atype != null) {
@@ -222,8 +221,6 @@ public class AuHelper {
     result.setRepository(repo);
 
     CachedUrlSet auCus = au.getAuCachedUrlSet();
-    NodeState topNode = nodeMgr.getNodeState(auCus);
-
     if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
       if (state.getV3Agreement() < 0) {
 	if (state.getLastCrawlTime() < 0) {
@@ -239,7 +236,7 @@ public class AuHelper {
 	}
       }
     } else {
-      result.setStatus(topNode.hasDamage() ? "Repairing" : "Ok");
+      result.setStatus(histRepo.hasDamage(auCus) ? "Repairing" : "Ok");
     }
 
     String publishingPlatform = plugin.getPublishingPlatform();
@@ -377,7 +374,7 @@ public class AuHelper {
    * results.
    * 
    * @param results
-   *          A Collection<AuWsResult> with the query results.
+   *          A {@code Collection<AuWsResult>} with the query results.
    * @return a String with the requested printable copy.
    */
   String nonDefaultToString(Collection<AuWsResult> results) {

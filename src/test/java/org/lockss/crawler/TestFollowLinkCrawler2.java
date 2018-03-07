@@ -90,7 +90,6 @@ public class TestFollowLinkCrawler2 extends LockssTestCase {
     mau = newMyMockArchivalUnit();
     mau.setPlugin(plug);
     mau.setAuId("MyMockTestAu");
-    aus = new MockAuState(mau);
     startUrls = ListUtil.list(startUrl);
     mcus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
 
@@ -116,9 +115,12 @@ public class TestFollowLinkCrawler2 extends LockssTestCase {
   }
 
   MyMockArchivalUnit newMyMockArchivalUnit() {
-    NodeManager nodeManager = new MockNodeManager();
+    MockHistoryRepository mhr = new MockHistoryRepository();
     MyMockArchivalUnit mau = new MyMockArchivalUnit();
-    getMockLockssDaemon().setNodeManager(nodeManager, mau);
+    getMockLockssDaemon().setHistoryRepository(mhr, mau);
+    aus = new MockAuState(mau);
+    mhr.setAuState(aus);
+    aus.setHistoryRepository(mhr);
     return mau;
   }
 

@@ -95,7 +95,7 @@ public class FuncSimulatedArcContent extends LockssTestCase {
 
   public void tearDown() throws Exception {
     theDaemon.getLockssRepository(sau).stopService();
-    theDaemon.getNodeManager(sau).stopService();
+    theDaemon.getHistoryRepository(sau).stopService();
     theDaemon.getPluginManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSystemMetrics().stopService();

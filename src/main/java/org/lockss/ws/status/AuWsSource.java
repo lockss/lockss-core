@@ -57,10 +57,7 @@ import org.lockss.protocol.PeerAgreement;
 import org.lockss.protocol.PeerIdentity;
 import org.lockss.repository.LockssRepositoryImpl;
 import org.lockss.repository.RepositoryNode;
-import org.lockss.state.ArchivalUnitStatus;
-import org.lockss.state.AuState;
-import org.lockss.state.NodeManager;
-import org.lockss.state.SubstanceChecker;
+import org.lockss.state.*;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.TypedEntryMap;
@@ -123,7 +120,7 @@ public class AuWsSource extends AuWsResult {
 
   private LockssDaemon theDaemon = null;
   private Plugin plugin = null;
-  private NodeManager nodeMgr = null;
+  private HistoryRepository histRepo = null;
   private AuState state = null;
   private CachedUrlSet auCachedUrlSet = null;
 
@@ -933,16 +930,16 @@ public class AuWsSource extends AuWsResult {
   }
 
   /**
-   * Provides the node manager, initializing it if necessary.
+   * Provides the history Repository, initializing it if necessary.
    * 
-   * @return a NodeManager with the node manager.
+   * @return a HistoryRepository with the node manager.
    */
-  private NodeManager getNodeManager() {
-    if (nodeMgr == null) {
-      nodeMgr = getTheDaemon().getNodeManager(au);
+  private HistoryRepository getHistoryRepository() {
+    if (histRepo == null) {
+      histRepo = getTheDaemon().getHistoryRepository(au);
     }
 
-    return nodeMgr;
+    return histRepo;
   }
 
   /**
@@ -952,7 +949,7 @@ public class AuWsSource extends AuWsResult {
    */
   private AuState getState() {
     if (state == null) {
-      state = getNodeManager().getAuState();
+      state = getHistoryRepository().getAuState();
     }
 
     return state;

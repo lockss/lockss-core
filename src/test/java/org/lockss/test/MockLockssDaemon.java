@@ -314,13 +314,6 @@ public class MockLockssDaemon extends LockssDaemon {
     return getManagerByType(LcapStreamComm.class);
   }
 
-  /**
-   * return the datagram router manager instance
-   * @return the LcapDatagramRouter
-   */
-  public LcapDatagramRouter getDatagramRouterManager() {
-    return getManagerByType(LcapDatagramRouter.class);
-  }
 
   /**
    * return the router manager instance
@@ -362,13 +355,6 @@ public class MockLockssDaemon extends LockssDaemon {
     return getManagerByType(CrawlManager.class);
   }
 
-  /**
-   * return the node manager status instance
-   * @return the TreewalkManager
-   */
-  public NodeManagerManager getNodeManagerManager() {
-    return getManagerByType(NodeManagerManager.class);
-  }
 
   /**
    * return the repository manager instance
@@ -477,6 +463,24 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   /**
+   * Store a LockssManager instance in the mock daemon
+   * @param mgrKey the manager key
+   * @param mgr the new manager
+   */
+  public void setManagerByKey(String mgrKey, LockssManager mgr) {
+    managerMap.put(mgrKey, mgr);
+  }
+
+  /**
+   * Store a LockssManager instance in the mock daemon
+   * @param mgrType the manager type
+   * @param mgr the new manager
+   */
+  public void setManagerByType(Class mgrType, LockssManager mgr) {
+    managerMap.put(managerKey(mgrType), mgr);
+  }
+
+  /**
    * Set the datagram CommManager
    * @param commMan the new manager
    */
@@ -490,15 +494,6 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setStreamCommManager(LcapStreamComm scommMan) {
     managerMap.put(LockssDaemon.STREAM_COMM_MANAGER, scommMan);
-  }
-
-  /**
-   * Set the DatagramRouterManager
-   * @param datagramRouterMan the new manager
-   */
-  public void setDatagramRouterManager(LcapDatagramRouter datagramRouterMan) {
-    managerMap.put(LockssDaemon.DATAGRAM_ROUTER_MANAGER,
-		   datagramRouterMan);
   }
 
   /**
@@ -525,13 +520,6 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.REPOSITORY_MANAGER, repositoryMan);
   }
 
-  /**
-   * Set the NodeManagerManager
-   * @param nodeManMan the new manager
-   */
-  public void setNodeManagerManager(NodeManagerManager nodeManMan) {
-    managerMap.put(LockssDaemon.NODE_MANAGER_MANAGER, nodeManMan);
-  }
 
   /**
    * Set the WatchdogService
@@ -793,15 +781,6 @@ public class MockLockssDaemon extends LockssDaemon {
     }
   }
 
-  /** Return NodeManager for AU */
-  public NodeManager getNodeManager(ArchivalUnit au) {
-    try {
-      return super.getNodeManager(au);
-    } catch (IllegalArgumentException e) {
-      return (NodeManager)newAuManager(LockssDaemon.NODE_MANAGER, au);
-    }
-  }
-
   /** Return HistoryRepository for AU */
   public HistoryRepository getHistoryRepository(ArchivalUnit au) {
     try {
@@ -830,14 +809,6 @@ public class MockLockssDaemon extends LockssDaemon {
     setAuManager(LOCKSS_REPOSITORY, au, repo);
   }
 
-  /**
-   * Set the NodeManager for a given AU.
-   * @param nodeMan the new manager
-   * @param au the ArchivalUnit
-   */
-  public void setNodeManager(NodeManager nodeMan, ArchivalUnit au) {
-    setAuManager(NODE_MANAGER, au, nodeMan);
-  }
 
   /**
    * Set the HistoryRepository for a given AU.

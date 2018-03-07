@@ -171,9 +171,8 @@ public class PluginTestUtil {
 
   static ArchivalUnit startAu(ArchivalUnit au) {
     LockssDaemon daemon = au.getPlugin().getDaemon();
-    daemon.getHistoryRepository(au).startService();
     daemon.getLockssRepository(au).startService();
-    daemon.getNodeManager(au).startService();
+    daemon.getHistoryRepository(au).startService();
     return au;
   }
 

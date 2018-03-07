@@ -1,5 +1,5 @@
 /*
-* $Id$
+ * $Id$
  */
 
 /*
@@ -32,35 +32,64 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.poller.v3;
 
-import java.util.*;
-import java.text.*;
-import java.io.*;
+import static org.lockss.poller.v3.V3Poller.POLLER_STATUS_COMPLETE;
+import static org.lockss.poller.v3.V3Voter.STATUS_ABORTED;
+import static org.lockss.poller.v3.V3Voter.STATUS_ACCEPTED_POLL;
+import static org.lockss.poller.v3.V3Voter.STATUS_COMPLETE;
+import static org.lockss.poller.v3.V3Voter.STATUS_DECLINED_POLL;
+import static org.lockss.poller.v3.V3Voter.STATUS_ERROR;
+import static org.lockss.poller.v3.V3Voter.STATUS_EXPIRED;
+import static org.lockss.poller.v3.V3Voter.STATUS_HASHING;
+import static org.lockss.poller.v3.V3Voter.STATUS_INITIALIZED;
+import static org.lockss.poller.v3.V3Voter.STATUS_NO_TIME;
+import static org.lockss.poller.v3.V3Voter.STATUS_VOTED;
+import static org.lockss.poller.v3.V3Voter.STATUS_VOTE_ACCEPTED;
+
+import java.io.File;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
 import org.apache.commons.collections.ListUtils;
-
-import org.lockss.daemon.status.*;
-import org.lockss.daemon.status.StatusService.*;
+import org.lockss.config.CurrentConfig;
+import org.lockss.daemon.status.ColumnDescriptor;
+import org.lockss.daemon.status.OverviewAccessor;
+import org.lockss.daemon.status.StatusAccessor;
+import org.lockss.daemon.status.StatusService;
+import org.lockss.daemon.status.StatusService.NoSuchTableException;
+import org.lockss.daemon.status.StatusTable;
 import org.lockss.daemon.status.StatusTable.SummaryInfo;
-import org.lockss.config.*;
-import org.lockss.util.*;
-import org.lockss.app.*;
-import org.lockss.plugin.*;
-import org.lockss.poller.*;
-import org.lockss.poller.PollManager.*;
-import org.lockss.poller.v3.*;
 import org.lockss.hasher.LocalHashResult;
-import org.lockss.state.*;
-import org.lockss.protocol.*;
-import org.lockss.protocol.psm.*;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.poller.PollManager;
+import org.lockss.poller.PollManager.EventCtr;
+import org.lockss.poller.PollManager.V3PollStatusAccessor;
+import org.lockss.poller.PollUtil;
+import org.lockss.protocol.IdentityManager;
+import org.lockss.protocol.PeerIdentity;
 import org.lockss.protocol.V3LcapMessage.PollNak;
-
-import static org.lockss.poller.v3.V3Poller.*;
-import static org.lockss.poller.v3.V3Voter.*;
+import org.lockss.protocol.psm.PsmInterp;
+import org.lockss.protocol.psm.PsmState;
+import org.lockss.state.ArchivalUnitStatus;
+import org.lockss.util.ByteArray;
+import org.lockss.util.CatalogueOrderComparator;
+import org.lockss.util.ListUtil;
+import org.lockss.util.Logger;
+import org.lockss.util.StringUtil;
+import org.lockss.util.TimeBase;
 
 /**
  * Provides support for the PollManager and Polls to present
  * the current status information of V3 Polls.
  */
 public class V3PollStatus {
+
   public static final String POLLER_STATUS_TABLE_NAME = "V3PollerTable";
   public static final String VOTER_STATUS_TABLE_NAME = "V3VoterTable";
   public static final String POLLER_DETAIL_TABLE_NAME = "V3PollerDetailTable";
@@ -74,13 +103,13 @@ public class V3PollStatus {
   public static final String ERROR_TABLE_NAME = "V3ErrorURLsTable";
 
   public static final String PEER_AGREE_URLS_TABLE_NAME =
-    "V3PeerAgreeUrlsTable";
+      "V3PeerAgreeUrlsTable";
   public static final String PEER_DISAGREE_URLS_TABLE_NAME =
-    "V3PeerDisagreeUrlsTable";
+      "V3PeerDisagreeUrlsTable";
   public static final String PEER_POLLER_ONLY_URLS_TABLE_NAME =
-    "V3PeerPollerOnlyUrlsTable";
+      "V3PeerPollerOnlyUrlsTable";
   public static final String PEER_VOTER_ONLY_URLS_TABLE_NAME =
-    "V3PeerVoterOnlyUrlsTable";
+      "V3PeerVoterOnlyUrlsTable";
 
   protected PollManager pollManager;
   private static Logger theLog = Logger.getLogger("V3PollerStatus");
@@ -90,31 +119,31 @@ public class V3PollStatus {
   }
 
   private static final DecimalFormat agreementFormat =
-    new DecimalFormat("0.00");
-    
+      new DecimalFormat("0.00");
+
   private static StatusTable.Reference makeAuRef(ArchivalUnit au,
-						 String table) {
+      String table) {
     return new StatusTable.Reference(au.getName(),
-				     ArchivalUnitStatus.AU_STATUS_TABLE_NAME,
-				     au.getAuId());
+        ArchivalUnitStatus.AU_STATUS_TABLE_NAME,
+        au.getAuId());
   }
 
   private static StatusTable.Reference makePollRef(Object value,
-						   PeerIdentity pid,
-						   String pollKey) {
+      PeerIdentity pid,
+      String pollKey) {
     return new StatusTable.Reference(value,
-				     pid,
-				     POLLER_DETAIL_TABLE_NAME,
-				     pollKey);
+        pid,
+        POLLER_DETAIL_TABLE_NAME,
+        pollKey);
   }
 
   private static StatusTable.Reference makeVoteRef(Object value,
-						   PeerIdentity pid,
-						   String pollKey) {
+      PeerIdentity pid,
+      String pollKey) {
     return new StatusTable.Reference(value,
-				     pid,
-				     VOTER_DETAIL_TABLE_NAME,
-				     pollKey);
+        pid,
+        VOTER_DETAIL_TABLE_NAME,
+        pollKey);
   }
 
   // Sort keys, not visible
@@ -141,56 +170,56 @@ public class V3PollStatus {
     // (done, descending end time)
 
     private final List sortRules =
-      ListUtil.list(new StatusTable.SortRule(SORT_KEY1, true),
-		    new StatusTable.SortRule(SORT_KEY2, false));
+        ListUtil.list(new StatusTable.SortRule(SORT_KEY1, true),
+            new StatusTable.SortRule(SORT_KEY2, false));
 
     private final List colDescs =
-      ListUtil.list(new ColumnDescriptor("auId", "Volume",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("variant", "Type",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("participants", "Participants",
-                                         ColumnDescriptor.TYPE_INT),
-                    new ColumnDescriptor("status", "Status",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("talliedUrls", "URLs Tallied",
-                                         ColumnDescriptor.TYPE_INT,
-                                         "Total number of URLs examined so " +
-                                         "far in this poll."),
-                    new ColumnDescriptor("Errors", "Hash Errors",
-                                         ColumnDescriptor.TYPE_INT,
-                                         "Errors encountered while hashing content."),
-                    new ColumnDescriptor("completedRepairs", "Repairs",
-                                         ColumnDescriptor.TYPE_INT,
-                                         "Completed repairs."),
-                    new ColumnDescriptor("agreement", "Agreement",
-                                         ColumnDescriptor.TYPE_AGREEMENT),
-                    new ColumnDescriptor("start", "Start",
-                                         ColumnDescriptor.TYPE_DATE),
-                    new ColumnDescriptor("deadline", "Deadline",
-                                         ColumnDescriptor.TYPE_DATE),
-                    new ColumnDescriptor("end", "End",
-                                         ColumnDescriptor.TYPE_DATE),
-                    new ColumnDescriptor("pollId", "Poll ID",
-                                         ColumnDescriptor.TYPE_STRING));
+        ListUtil.list(new ColumnDescriptor("auId", "Volume",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("variant", "Type",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("participants", "Participants",
+                ColumnDescriptor.TYPE_INT),
+            new ColumnDescriptor("status", "Status",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("talliedUrls", "URLs Tallied",
+                ColumnDescriptor.TYPE_INT,
+                "Total number of URLs examined so " +
+                    "far in this poll."),
+            new ColumnDescriptor("Errors", "Hash Errors",
+                ColumnDescriptor.TYPE_INT,
+                "Errors encountered while hashing content."),
+            new ColumnDescriptor("completedRepairs", "Repairs",
+                ColumnDescriptor.TYPE_INT,
+                "Completed repairs."),
+            new ColumnDescriptor("agreement", "Agreement",
+                ColumnDescriptor.TYPE_AGREEMENT),
+            new ColumnDescriptor("start", "Start",
+                ColumnDescriptor.TYPE_DATE),
+            new ColumnDescriptor("deadline", "Deadline",
+                ColumnDescriptor.TYPE_DATE),
+            new ColumnDescriptor("end", "End",
+                ColumnDescriptor.TYPE_DATE),
+            new ColumnDescriptor("pollId", "Poll ID",
+                ColumnDescriptor.TYPE_STRING));
 
     private static final List<String> defaultCols =
-      ListUtil.list(
-		    "auId",
-		    "variant",
-		    "participants",
-		    "status",
-		    "talliedUrls",
-		    "Errors",
-		    "completedRepairs",
-		    "agreement",
-		    "start",
-		    "deadline",
-		    "pollId"
-		    );
+        ListUtil.list(
+            "auId",
+            "variant",
+            "participants",
+            "status",
+            "talliedUrls",
+            "Errors",
+            "completedRepairs",
+            "agreement",
+            "start",
+            "deadline",
+            "pollId"
+        );
 
     private static final List<String> pollPolicyOnlyCols =
-      ListUtil.list("variant");
+        ListUtil.list("variant");
 
     public V3PollerStatus(PollManager pollManager) {
       super(pollManager);
@@ -208,12 +237,12 @@ public class V3PollStatus {
       table.setDefaultSortRules(sortRules);
       table.setRows(getRows(key));
     }
-    
+
     private List<String> getDefaultCols(StatusTable table) {
       if (pollManager.isV3PollPolicyEnabled()) {
-	return defaultCols;
+        return defaultCols;
       } else {
-	return ListUtils.subtract(defaultCols, pollPolicyOnlyCols);
+        return ListUtils.subtract(defaultCols, pollPolicyOnlyCols);
       }
     }
 
@@ -222,31 +251,31 @@ public class V3PollStatus {
       List summary = new ArrayList();
 
       if (isDebug) {
-	StringBuilder sb = new StringBuilder();
-	sb.append(pollManager.getEventCount(EventCtr.Polls));
-	sb.append(" started");
-	addEndStatus(sb, V3Poller.POLLER_STATUS_COMPLETE);
-	addEndStatus(sb, V3Poller.POLLER_STATUS_NO_QUORUM);
-	addEndStatus(sb, V3Poller.POLLER_STATUS_ERROR);
-	summary.add(new StatusTable.SummaryInfo("Polls",
-						ColumnDescriptor.TYPE_STRING,
-						sb.toString()));
+        StringBuilder sb = new StringBuilder();
+        sb.append(pollManager.getEventCount(EventCtr.Polls));
+        sb.append(" started");
+        addEndStatus(sb, V3Poller.POLLER_STATUS_COMPLETE);
+        addEndStatus(sb, V3Poller.POLLER_STATUS_NO_QUORUM);
+        addEndStatus(sb, V3Poller.POLLER_STATUS_ERROR);
+        summary.add(new StatusTable.SummaryInfo("Polls",
+            ColumnDescriptor.TYPE_STRING,
+            sb.toString()));
       }
       V3PollStatusAccessor status = pollManager.getV3Status();
       if (!CurrentConfig.getBooleanParam(V3PollFactory.PARAM_ENABLE_V3_POLLER,
-					 V3PollFactory.DEFAULT_ENABLE_V3_POLLER)) { 
-	summary.add(new StatusTable.SummaryInfo("Polling is disabled",
-						ColumnDescriptor.TYPE_STRING,
-						null));
+          V3PollFactory.DEFAULT_ENABLE_V3_POLLER)) {
+        summary.add(new StatusTable.SummaryInfo("Polling is disabled",
+            ColumnDescriptor.TYPE_STRING,
+            null));
       }
       if (status.getNextPollStartTime() != null) {
         long remainingTime = status.getNextPollStartTime().getRemainingTime();
         String timeStr = remainingTime > 0 ?
             StringUtil.timeIntervalToString(remainingTime) : "running";
-	Object val = new StatusTable.DisplayedValue(remainingTime, timeStr);
+        Object val = new StatusTable.DisplayedValue(remainingTime, timeStr);
         summary.add(new SummaryInfo("Poll Starter",
-                                    ColumnDescriptor.TYPE_TIME_INTERVAL,
-				    val));
+            ColumnDescriptor.TYPE_TIME_INTERVAL,
+            val));
       }
 //       List<ArchivalUnit> queue = pollManager.getPendingQueueAus();
 //       if (!queue.isEmpty()) {
@@ -268,10 +297,10 @@ public class V3PollStatus {
     void addEndStatus(StringBuilder sb, int status, String msg) {
       int cnt = pollManager.getPollEndEventCount(status);
       if (cnt != 0) {
-	sb.append(", ");
-	sb.append(cnt);
-	sb.append(" ");
-	sb.append(msg != null ? msg : V3Poller.POLLER_STATUS_STRINGS[status]);
+        sb.append(", ");
+        sb.append(cnt);
+        sb.append(" ");
+        sb.append(msg != null ? msg : V3Poller.POLLER_STATUS_STRINGS[status]);
       }
     }
 
@@ -283,7 +312,7 @@ public class V3PollStatus {
       List rows = new ArrayList();
       Collection v3Pollers = pollManager.getV3Pollers();
       for (Iterator it = v3Pollers.iterator(); it.hasNext(); ) {
-        V3Poller poller = (V3Poller)it.next();
+        V3Poller poller = (V3Poller) it.next();
         if (key == null || key.equals(poller.getAu().getAuId())) {
           rows.add(makeRow(poller));
         }
@@ -291,8 +320,8 @@ public class V3PollStatus {
       int rowNum = 0;
       for (ArchivalUnit au : pollManager.getPendingQueueAus()) {
         if (key == null || key.equals(au.getAuId())) {
-	  rows.add(makePendingRow(au, rowNum++));
-	}
+          rows.add(makePendingRow(au, rowNum++));
+        }
       }
 
       return rows;
@@ -305,38 +334,38 @@ public class V3PollStatus {
       row.put("variant", poller.getPollVariant().shortName());
       row.put("status", poller.getStatusString());
       if (poller.isLocalPoll()) {
-	LocalHashResult lhr = poller.getLocalHashResult();
-	if (lhr != null) {
-	  row.put("talliedUrls", new Integer(lhr.getTotalUrls()));
-	}
+        LocalHashResult lhr = poller.getLocalHashResult();
+        if (lhr != null) {
+          row.put("talliedUrls", new Integer(lhr.getTotalUrls()));
+        }
       } else {
-	row.put("participants", new Integer(poller.getPollSize()));
-	row.put("talliedUrls", new Integer(poller.getTalliedUrls().size()));
-	if (poller.getErrorUrls() != null) {
-	  row.put("hashErrors", new Integer(poller.getErrorUrls().size()));
-	} else {
-	  row.put("hashErrors", "--");
-	}
-	row.put("completedRepairs", new Integer(poller.getCompletedRepairs().size()));
-	Object agmt = (poller.getStatus() == V3Poller.POLLER_STATUS_COMPLETE)
-	  ? poller.getPercentAgreement()
-	  : new StatusTable.DisplayedValue(StatusTable.NO_VALUE, "--");
-	row.put("agreement", agmt);
+        row.put("participants", new Integer(poller.getPollSize()));
+        row.put("talliedUrls", new Integer(poller.getTalliedUrls().size()));
+        if (poller.getErrorUrls() != null) {
+          row.put("hashErrors", new Integer(poller.getErrorUrls().size()));
+        } else {
+          row.put("hashErrors", "--");
+        }
+        row.put("completedRepairs", new Integer(poller.getCompletedRepairs().size()));
+        Object agmt = (poller.getStatus() == V3Poller.POLLER_STATUS_COMPLETE)
+            ? poller.getPercentAgreement()
+            : new StatusTable.DisplayedValue(StatusTable.NO_VALUE, "--");
+        row.put("agreement", agmt);
       }
       row.put("start", new Long(poller.getCreateTime()));
       row.put("deadline", poller.getDeadline());
       if (poller.isPollActive()) {
-	row.put(SORT_KEY1, SORT_BASE_ACTIVE);
-	row.put(SORT_KEY2, row.get("start"));
+        row.put(SORT_KEY1, SORT_BASE_ACTIVE);
+        row.put(SORT_KEY2, row.get("start"));
       } else {
-	row.put("end", poller.getEndTime());
-	row.put(SORT_KEY1, SORT_BASE_DONE);
-	row.put(SORT_KEY2, row.get("end"));
+        row.put("end", poller.getEndTime());
+        row.put(SORT_KEY1, SORT_BASE_DONE);
+        row.put(SORT_KEY2, row.get("end"));
       }
       String skey = PollUtil.makeShortPollKey(poller.getKey());
       row.put("pollId", new StatusTable.Reference(skey,
-						  POLLER_DETAIL_TABLE_NAME,
-						  poller.getKey()));
+          POLLER_DETAIL_TABLE_NAME,
+          poller.getKey()));
       return row;
     }
 
@@ -355,31 +384,31 @@ public class V3PollStatus {
    * a participant.</p>
    */
   public static class V3VoterStatus
-        extends V3PollStatus implements StatusAccessor {
+      extends V3PollStatus implements StatusAccessor {
 
     static final String TABLE_TITLE = "Votes";
 
-  // Sort by (status, suborder):
-  // (active, descending start time)
-  // (done, descending end time)
+    // Sort by (status, suborder):
+    // (active, descending start time)
+    // (done, descending end time)
 
     private final List sortRules =
-      ListUtil.list(new StatusTable.SortRule(SORT_KEY1, true),
-		    new StatusTable.SortRule(SORT_KEY2, false));
+        ListUtil.list(new StatusTable.SortRule(SORT_KEY1, true),
+            new StatusTable.SortRule(SORT_KEY2, false));
 
     private final List colDescs =
-      ListUtil.list(new ColumnDescriptor("auId", "Volume",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("caller", "Caller",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("status", "Status",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("start", "Start",
-                                         ColumnDescriptor.TYPE_DATE),
-                    new ColumnDescriptor("deadline", "Deadline",
-                                         ColumnDescriptor.TYPE_DATE),
-                    new ColumnDescriptor("pollId", "Poll ID",
-                                         ColumnDescriptor.TYPE_STRING));
+        ListUtil.list(new ColumnDescriptor("auId", "Volume",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("caller", "Caller",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("status", "Status",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("start", "Start",
+                ColumnDescriptor.TYPE_DATE),
+            new ColumnDescriptor("deadline", "Deadline",
+                ColumnDescriptor.TYPE_DATE),
+            new ColumnDescriptor("pollId", "Poll ID",
+                ColumnDescriptor.TYPE_STRING));
 
     public V3VoterStatus(PollManager pollManager) {
       super(pollManager);
@@ -394,7 +423,7 @@ public class V3PollStatus {
       boolean isDebug = table.getOptions().get(StatusTable.OPTION_DEBUG_USER);
       table.setColumnDescriptors(colDescs);
       if (isDebug) {
-	table.setSummaryInfo(getSummary(pollManager));
+        table.setSummaryInfo(getSummary(pollManager));
       }
       table.setDefaultSortRules(sortRules);
       table.setRows(getRows());
@@ -408,7 +437,7 @@ public class V3PollStatus {
       List rows = new ArrayList();
       Collection v3Voters = pollManager.getV3Voters();
       for (Iterator it = v3Voters.iterator(); it.hasNext(); ) {
-        rows.add(makeRow((V3Voter)it.next()));
+        rows.add(makeRow((V3Voter) it.next()));
       }
       return rows;
     }
@@ -423,14 +452,14 @@ public class V3PollStatus {
       row.put("deadline", voter.getDeadline());
       String skey = PollUtil.makeShortPollKey(voter.getKey());
       row.put("pollId", new StatusTable.Reference(skey,
-						  VOTER_DETAIL_TABLE_NAME,
-						  voter.getKey()));
+          VOTER_DETAIL_TABLE_NAME,
+          voter.getKey()));
       if (voter.isPollActive()) {
-	row.put(SORT_KEY1, SORT_BASE_ACTIVE);
-	row.put(SORT_KEY2, voter.getCreateTime());
+        row.put(SORT_KEY1, SORT_BASE_ACTIVE);
+        row.put(SORT_KEY2, voter.getCreateTime());
       } else {
-	row.put(SORT_KEY1, SORT_BASE_DONE);
-	row.put(SORT_KEY2, voter.getDeadline());
+        row.put(SORT_KEY1, SORT_BASE_DONE);
+        row.put(SORT_KEY2, voter.getDeadline());
       }
       return row;
     }
@@ -438,10 +467,10 @@ public class V3PollStatus {
     private List getSummary(PollManager pollManager) {
       List summary = new ArrayList();
       if (!CurrentConfig.getBooleanParam(V3PollFactory.PARAM_ENABLE_V3_VOTER,
-					 V3PollFactory.DEFAULT_ENABLE_V3_VOTER)) { 
-	summary.add(new StatusTable.SummaryInfo("Voting is disabled",
-						ColumnDescriptor.TYPE_STRING,
-						null));
+          V3PollFactory.DEFAULT_ENABLE_V3_VOTER)) {
+        summary.add(new StatusTable.SummaryInfo("Voting is disabled",
+            ColumnDescriptor.TYPE_STRING,
+            null));
       }
       StringBuilder sb = new StringBuilder();
       sb.append(pollManager.getEventCount(EventCtr.Accepted));
@@ -450,32 +479,32 @@ public class V3PollStatus {
       sb.append(declined);
       sb.append(" declined");
       if (declined != 0) {
-	sb.append(" (");
-	addNak(sb, PollNak.NAK_NO_AU, true);
-	addNak(sb, PollNak.NAK_NOT_CRAWLED);
-	addNak(sb, PollNak.NAK_PLUGIN_VERSION_MISMATCH);
-	addNak(sb, PollNak.NAK_NO_TIME);
-	addNak(sb, PollNak.NAK_TOO_MANY_VOTERS);
-	addNak(sb, PollNak.NAK_HAVE_SUFFICIENT_REPAIRERS);
-	sb.append(")");
+        sb.append(" (");
+        addNak(sb, PollNak.NAK_NO_AU, true);
+        addNak(sb, PollNak.NAK_NOT_CRAWLED);
+        addNak(sb, PollNak.NAK_PLUGIN_VERSION_MISMATCH);
+        addNak(sb, PollNak.NAK_NO_TIME);
+        addNak(sb, PollNak.NAK_TOO_MANY_VOTERS);
+        addNak(sb, PollNak.NAK_HAVE_SUFFICIENT_REPAIRERS);
+        sb.append(")");
       }
       summary.add(new StatusTable.SummaryInfo("Invitations",
-					      ColumnDescriptor.TYPE_STRING,
-					      sb.toString()));
+          ColumnDescriptor.TYPE_STRING,
+          sb.toString()));
 
       sb = new StringBuilder();
       int votes = pollManager.getEventCount(EventCtr.Voted);
       sb.append(votes);
       int noReceipt =
-	votes - pollManager.getEventCount(EventCtr.ReceivedVoteReceipt);
+          votes - pollManager.getEventCount(EventCtr.ReceivedVoteReceipt);
       if (noReceipt != 0) {
-	sb.append(" (");
-	sb.append(noReceipt);
-	sb.append(" no receipt)");
+        sb.append(" (");
+        sb.append(noReceipt);
+        sb.append(" no receipt)");
       }
       summary.add(new StatusTable.SummaryInfo("Votes",
-					      ColumnDescriptor.TYPE_STRING,
-					      sb.toString()));
+          ColumnDescriptor.TYPE_STRING,
+          sb.toString()));
 
       return summary;
     }
@@ -487,18 +516,19 @@ public class V3PollStatus {
     void addNak(StringBuilder sb, PollNak nak, boolean first) {
       int cnt = pollManager.getVoterNakEventCount(nak);
       if (cnt != 0) {
-	if (!first) sb.append(", ");
-	sb.append(cnt);
-	sb.append(" ");
-	sb.append(nak);
+        if (!first) {
+          sb.append(", ");
+        }
+        sb.append(cnt);
+        sb.append(" ");
+        sb.append(nak);
       }
     }
   }
 
 
-
   public static class PollOverview
-    extends V3PollerStatus implements OverviewAccessor {
+      extends V3PollerStatus implements OverviewAccessor {
 
     public PollOverview(PollManager pollManager) {
       super(pollManager);
@@ -506,12 +536,12 @@ public class V3PollStatus {
 
     public Object getOverview(String tableName, BitSet options) {
       if (!CurrentConfig.getBooleanParam(V3PollFactory.PARAM_ENABLE_V3_POLLER,
-					 V3PollFactory.DEFAULT_ENABLE_V3_POLLER)) { 
-	return "Polling Disabled";
+          V3PollFactory.DEFAULT_ENABLE_V3_POLLER)) {
+        return "Polling Disabled";
       }
       StringBuilder sb = new StringBuilder();
       sb.append(StringUtil.numberOfUnits(pollManager.getNumActiveV3Polls(),
-					 "active poll", "active polls"));
+          "active poll", "active polls"));
       addEndStatus(sb, V3Poller.POLLER_STATUS_COMPLETE);
       addEndStatus(sb, V3Poller.POLLER_STATUS_NO_QUORUM);
       addEndStatus(sb, V3Poller.POLLER_STATUS_NO_TIME, "too busy");
@@ -520,7 +550,7 @@ public class V3PollStatus {
   }
 
   public static class VoterOverview
-    extends V3PollerStatus implements OverviewAccessor {
+      extends V3PollerStatus implements OverviewAccessor {
 
     public VoterOverview(PollManager pollManager) {
       super(pollManager);
@@ -528,45 +558,51 @@ public class V3PollStatus {
 
     public Object getOverview(String tableName, BitSet options) {
       if (!CurrentConfig.getBooleanParam(V3PollFactory.PARAM_ENABLE_V3_VOTER,
-					 V3PollFactory.DEFAULT_ENABLE_V3_VOTER)) { 
-	return "Voting disabled";
+          V3PollFactory.DEFAULT_ENABLE_V3_VOTER)) {
+        return "Voting disabled";
       }
       int nActive = 0;
       int nError = 0;
       int nComplete = 0;
       int nTooBusy = 0;
       for (V3Voter voter :
-	     (Collection<V3Voter>)pollManager.getV3Voters()) {
-	switch (voter.getStatus()) {
-	case STATUS_INITIALIZED:
-	case STATUS_ACCEPTED_POLL:
-	case STATUS_HASHING:
-	case STATUS_VOTED:
-	  nActive++;
-	  break;
-	case STATUS_NO_TIME:
-	  nTooBusy++;
-	  break;
-	case STATUS_COMPLETE:
-	  nComplete++;
-	  break;
-	case STATUS_EXPIRED:
-	case STATUS_ERROR:
-	  nError++;
-	  break;
-	case STATUS_DECLINED_POLL:
-	case STATUS_VOTE_ACCEPTED:
-	case STATUS_ABORTED:
-	  break;
-	}
+          (Collection<V3Voter>) pollManager.getV3Voters()) {
+        switch (voter.getStatus()) {
+          case STATUS_INITIALIZED:
+          case STATUS_ACCEPTED_POLL:
+          case STATUS_HASHING:
+          case STATUS_VOTED:
+            nActive++;
+            break;
+          case STATUS_NO_TIME:
+            nTooBusy++;
+            break;
+          case STATUS_COMPLETE:
+            nComplete++;
+            break;
+          case STATUS_EXPIRED:
+          case STATUS_ERROR:
+            nError++;
+            break;
+          case STATUS_DECLINED_POLL:
+          case STATUS_VOTE_ACCEPTED:
+          case STATUS_ABORTED:
+            break;
+        }
       }
       List lst = new ArrayList();
 
       lst.add(StringUtil.numberOfUnits(nActive,
-				       "active vote", "active votes"));
-      if (nComplete > 0) lst.add(nComplete + " complete");
-      if (nTooBusy > 0) lst.add(nTooBusy + " too busy");
-      if (nError > 0) lst.add(nError + " error");
+          "active vote", "active votes"));
+      if (nComplete > 0) {
+        lst.add(nComplete + " complete");
+      }
+      if (nTooBusy > 0) {
+        lst.add(nTooBusy + " too busy");
+      }
+      if (nError > 0) {
+        lst.add(nError + " error");
+      }
       String summ = StringUtil.separatedString(lst, ", ");
       return new StatusTable.Reference(summ, VOTER_STATUS_TABLE_NAME);
     }
@@ -575,7 +611,6 @@ public class V3PollStatus {
   /**
    * <p>The full status of an individual V3 Poll in which we are acting as a
    * poller.  Requires the PollID as a key.</p>
-   *
    */
   public static class V3PollerStatusDetail
       extends V3PollStatus implements StatusAccessor {
@@ -583,73 +618,73 @@ public class V3PollStatus {
     static final String TABLE_TITLE = "V3 Poll Status";
 
     private final List sortRules =
-      ListUtil.list(new StatusTable.SortRule("sort", true),
-		    new StatusTable.SortRule("identity",
-                                             CatalogueOrderComparator.SINGLETON));
+        ListUtil.list(new StatusTable.SortRule("sort", true),
+            new StatusTable.SortRule("identity",
+                CatalogueOrderComparator.SINGLETON));
     private String FOOT_AGREE_PRE_REPAIR =
-      "Agreement values and URL counts are not updated to reflect repairs. " +
-      "See org.lockss.poll.v3.recordPeerUrlLists.";
+        "Agreement values and URL counts are not updated to reflect repairs. " +
+            "See org.lockss.poll.v3.recordPeerUrlLists.";
 
     private String FOOT_AGREE_POST_REPAIR =
-      "Agreement values and URL counts/lists are updated to reflect any repairs.";
+        "Agreement values and URL counts/lists are updated to reflect any repairs.";
 
     private ColumnDescriptor AGREE_COLDESC_PRE_REPAIR =
-      new ColumnDescriptor("agreement", "Agreement",
-			   ColumnDescriptor.TYPE_AGREEMENT,
-			   FOOT_AGREE_PRE_REPAIR);
+        new ColumnDescriptor("agreement", "Agreement",
+            ColumnDescriptor.TYPE_AGREEMENT,
+            FOOT_AGREE_PRE_REPAIR);
 
     private ColumnDescriptor AGREE_COLDESC_POST_REPAIR =
-      new ColumnDescriptor("agreement", "Agreement",
-			   ColumnDescriptor.TYPE_AGREEMENT,
-			   FOOT_AGREE_POST_REPAIR);
+        new ColumnDescriptor("agreement", "Agreement",
+            ColumnDescriptor.TYPE_AGREEMENT,
+            FOOT_AGREE_POST_REPAIR);
 
     private final List<ColumnDescriptor> colDescs =
-      ListUtil.list(new ColumnDescriptor("identity", "Peer",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("peerStatus", "Status",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("agreement", "Agreement",
-                                         ColumnDescriptor.TYPE_AGREEMENT),
-                    new ColumnDescriptor("w.agreement", "WAgreement",
-                                         ColumnDescriptor.TYPE_AGREEMENT),
-                    new ColumnDescriptor("numagree", "Agreeing URLs",
-                                         ColumnDescriptor.TYPE_INT),
-                    new ColumnDescriptor("w.numagree", "WAgreeing URLs",
-                                         ColumnDescriptor.TYPE_FLOAT),
-                    new ColumnDescriptor("numdisagree", "Disagreeing URLs",
-                                         ColumnDescriptor.TYPE_INT),
-                    new ColumnDescriptor("w.numdisagree", "WDisagreeing URLs",
-                                         ColumnDescriptor.TYPE_FLOAT),
-                    new ColumnDescriptor("numpolleronly", "Poller-only URLs",
-                                         ColumnDescriptor.TYPE_INT),
-                    new ColumnDescriptor("w.numpolleronly", "WPoller-only URLs",
-                                         ColumnDescriptor.TYPE_FLOAT),
-                    new ColumnDescriptor("numvoteronly", "Voter-only URLs",
-                                         ColumnDescriptor.TYPE_INT),
-                    new ColumnDescriptor("w.numvoteronly", "WVoter-only URLs",
-                                         ColumnDescriptor.TYPE_FLOAT),
-                    new ColumnDescriptor("byteshashed", "Bytes Hashed",
-                                         ColumnDescriptor.TYPE_INT),
-                    new ColumnDescriptor("bytesread", "Bytes Read",
-                                         ColumnDescriptor.TYPE_INT),
-                    new ColumnDescriptor("state", "PSM State",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("when", "When",
-                                         ColumnDescriptor.TYPE_DATE));
+        ListUtil.list(new ColumnDescriptor("identity", "Peer",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("peerStatus", "Status",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("agreement", "Agreement",
+                ColumnDescriptor.TYPE_AGREEMENT),
+            new ColumnDescriptor("w.agreement", "WAgreement",
+                ColumnDescriptor.TYPE_AGREEMENT),
+            new ColumnDescriptor("numagree", "Agreeing URLs",
+                ColumnDescriptor.TYPE_INT),
+            new ColumnDescriptor("w.numagree", "WAgreeing URLs",
+                ColumnDescriptor.TYPE_FLOAT),
+            new ColumnDescriptor("numdisagree", "Disagreeing URLs",
+                ColumnDescriptor.TYPE_INT),
+            new ColumnDescriptor("w.numdisagree", "WDisagreeing URLs",
+                ColumnDescriptor.TYPE_FLOAT),
+            new ColumnDescriptor("numpolleronly", "Poller-only URLs",
+                ColumnDescriptor.TYPE_INT),
+            new ColumnDescriptor("w.numpolleronly", "WPoller-only URLs",
+                ColumnDescriptor.TYPE_FLOAT),
+            new ColumnDescriptor("numvoteronly", "Voter-only URLs",
+                ColumnDescriptor.TYPE_INT),
+            new ColumnDescriptor("w.numvoteronly", "WVoter-only URLs",
+                ColumnDescriptor.TYPE_FLOAT),
+            new ColumnDescriptor("byteshashed", "Bytes Hashed",
+                ColumnDescriptor.TYPE_INT),
+            new ColumnDescriptor("bytesread", "Bytes Read",
+                ColumnDescriptor.TYPE_INT),
+            new ColumnDescriptor("state", "PSM State",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("when", "When",
+                ColumnDescriptor.TYPE_DATE));
 
     private static final List<String> defaultCols =
-      ListUtil.list("identity",
-		    "peerStatus",
-		    "agreement",
-		    "w.agreement",
-		    "numagree",
-		    "w.numagree",
-		    "numdisagree",
-		    "w.numdisagree",
-		    "numpolleronly",
-		    "w.numpolleronly",
-		    "numvoteronly",
-		    "w.numvoteronly");
+        ListUtil.list("identity",
+            "peerStatus",
+            "agreement",
+            "w.agreement",
+            "numagree",
+            "w.numagree",
+            "numdisagree",
+            "w.numdisagree",
+            "numpolleronly",
+            "w.numpolleronly",
+            "numvoteronly",
+            "w.numvoteronly");
 
 
     public V3PollerStatusDetail(PollManager pollManager) {
@@ -660,37 +695,39 @@ public class V3PollStatus {
       String key = table.getKey();
       V3Poller poll = null;
       try {
-        poll = (V3Poller)pollManager.getPoll(key);
+        poll = (V3Poller) pollManager.getPoll(key);
       } catch (ClassCastException ex) {
         theLog.error("Expected V3Poller, but got " +
-		     pollManager.getPoll(key).getClass().getName());
+            pollManager.getPoll(key).getClass().getName());
         return;
       }
-      if (poll == null) return;
+      if (poll == null) {
+        return;
+      }
       table.setSummaryInfo(getSummary(poll, table));
       table.setTitle("Status of Poll " + key);
       if (!poll.isLocalPoll()) {
-	table.setColumnDescriptors(getColDescs(poll),
-				   getDefaultCols(table, poll));
-	table.setDefaultSortRules(sortRules);
-	table.setRows(getRows(table, poll));
+        table.setColumnDescriptors(getColDescs(poll),
+            getDefaultCols(table, poll));
+        table.setDefaultSortRules(sortRules);
+        table.setRows(getRows(table, poll));
       }
     }
 
     private List<ColumnDescriptor> getColDescs(V3Poller poller) {
       List<ColumnDescriptor> res = new ArrayList<ColumnDescriptor>();
       for (ColumnDescriptor desc : colDescs) {
-	switch (desc.getColumnName()) {
-	case "agreement":
-	  if (poller.isRecordPeerUrlLists()) {
-	    res.add(AGREE_COLDESC_POST_REPAIR);
-	  } else {
-	    res.add(AGREE_COLDESC_PRE_REPAIR);
-	  }
-	  break;
-	default:
-	  res.add(desc);
-	}
+        switch (desc.getColumnName()) {
+          case "agreement":
+            if (poller.isRecordPeerUrlLists()) {
+              res.add(AGREE_COLDESC_POST_REPAIR);
+            } else {
+              res.add(AGREE_COLDESC_PRE_REPAIR);
+            }
+            break;
+          default:
+            res.add(desc);
+        }
       }
       return res;
     }
@@ -700,19 +737,19 @@ public class V3PollStatus {
       List<String> res = new LinkedList<String>();
       res.addAll(defaultCols);
       if (!poll.hasResultWeightMap()) {
-	for (ListIterator<String> iter = res.listIterator(); iter.hasNext();) {
-	  if (iter.next().startsWith("w.")) {
-	    iter.remove();
-	  }	    
-	}
+        for (ListIterator<String> iter = res.listIterator(); iter.hasNext(); ) {
+          if (iter.next().startsWith("w.")) {
+            iter.remove();
+          }
+        }
       }
       if (poll.isEnableHashStats()) {
-	res.add("byteshashed");
-	res.add("bytesread");
+        res.add("byteshashed");
+        res.add("bytesread");
       }
       if (table.getOptions().get(StatusTable.OPTION_DEBUG_USER)) {
-	res.add("state");
-	res.add("when");
+        res.add("state");
+        res.add("when");
       }
       return res;
     }
@@ -730,67 +767,67 @@ public class V3PollStatus {
     }
 
     private Map makeRow(V3Poller poll, ParticipantUserData voter,
-			Object sort, boolean isDebug) {
+        Object sort, boolean isDebug) {
       Map row = new HashMap();
       PeerIdentity peer = voter.getVoterId();
       row.put("identity",
-	      isDebug ? makeVoteRef(peer.getIdString(), peer, poll.getKey())
-	      : peer.getIdString());
+          isDebug ? makeVoteRef(peer.getIdString(), peer, poll.getKey())
+              : peer.getIdString());
       row.put("peerStatus", voter.getStatusString());
       row.put("sort", sort);
       if (voter.hasVoted()) {
-	ParticipantUserData.VoteCounts voteCounts = voter.getVoteCounts();
-	row.put("agreement", voteCounts.getPercentAgreement());
-	row.put("numagree",
-		participantDataRef(voteCounts.getAgreedVotes(),
-				   poll, voter,
-				   PEER_AGREE_URLS_TABLE_NAME));
-	row.put("numdisagree",
-		participantDataRef(voteCounts.getDisagreedVotes(),
-				   poll, voter,
-				   PEER_DISAGREE_URLS_TABLE_NAME));
-	row.put("numpolleronly",
-		participantDataRef(voteCounts.getPollerOnlyVotes(),
-				   poll, voter,
-				   PEER_POLLER_ONLY_URLS_TABLE_NAME));
-	row.put("numvoteronly",
-		participantDataRef(voteCounts.getVoterOnlyVotes(),
-				   poll, voter,
-				   PEER_VOTER_ONLY_URLS_TABLE_NAME));
-	row.put("byteshashed", voter.getBytesHashed());
-	row.put("bytesread", voter.getBytesRead());
-	if (poll.hasResultWeightMap()) {
-	  row.put("w.agreement", voteCounts.getWeightedPercentAgreement());
-	  row.put("w.numagree", voteCounts.getWeightedAgreedVotes());
-	  row.put("w.numdisagree", voteCounts.getWeightedDisagreedVotes());
-	  row.put("w.numpolleronly", voteCounts.getWeightedPollerOnlyVotes());
-	  row.put("w.numvoteronly", voteCounts.getWeightedVoterOnlyVotes());
-	}
+        ParticipantUserData.VoteCounts voteCounts = voter.getVoteCounts();
+        row.put("agreement", voteCounts.getPercentAgreement());
+        row.put("numagree",
+            participantDataRef(voteCounts.getAgreedVotes(),
+                poll, voter,
+                PEER_AGREE_URLS_TABLE_NAME));
+        row.put("numdisagree",
+            participantDataRef(voteCounts.getDisagreedVotes(),
+                poll, voter,
+                PEER_DISAGREE_URLS_TABLE_NAME));
+        row.put("numpolleronly",
+            participantDataRef(voteCounts.getPollerOnlyVotes(),
+                poll, voter,
+                PEER_POLLER_ONLY_URLS_TABLE_NAME));
+        row.put("numvoteronly",
+            participantDataRef(voteCounts.getVoterOnlyVotes(),
+                poll, voter,
+                PEER_VOTER_ONLY_URLS_TABLE_NAME));
+        row.put("byteshashed", voter.getBytesHashed());
+        row.put("bytesread", voter.getBytesRead());
+        if (poll.hasResultWeightMap()) {
+          row.put("w.agreement", voteCounts.getWeightedPercentAgreement());
+          row.put("w.numagree", voteCounts.getWeightedAgreedVotes());
+          row.put("w.numdisagree", voteCounts.getWeightedDisagreedVotes());
+          row.put("w.numpolleronly", voteCounts.getWeightedPollerOnlyVotes());
+          row.put("w.numvoteronly", voteCounts.getWeightedVoterOnlyVotes());
+        }
       }
       PsmInterp interp = voter.getPsmInterp();
       if (interp != null) {
-	PsmState state = interp.getCurrentState();
-	if (state != null) {
-	  row.put("state", state.getName());
-	  long when = interp.getLastStateChange();
-	  if (when > 0) {
-	    row.put("when", when);
-	  }
-	}
-      }	
+        PsmState state = interp.getCurrentState();
+        if (state != null) {
+          row.put("state", state.getName());
+          long when = interp.getLastStateChange();
+          if (when > 0) {
+            row.put("when", when);
+          }
+        }
+      }
       return row;
     }
 
 
     private static Object participantDataRef(Object value,
-					     V3Poller poll,
-					     ParticipantUserData voter,
-					     String table) {
+        V3Poller poll,
+        ParticipantUserData voter,
+        String table) {
       if (voter.getVoteCounts().hasPeerUrlLists()) {
-	return new StatusTable.Reference(value, table,
-					 poll.getKey() + "|" + voter.getVoterId());
+        return new StatusTable.Reference(value, table,
+            poll.getKey() + "|" + voter.getVoterId());
       } else {
-	return value;
+        return value;
       }
     }
 
@@ -799,175 +836,175 @@ public class V3PollStatus {
       PollerStateBean pollerState = poll.getPollerStateBean();
       List summary = new ArrayList();
       summary.add(new SummaryInfo("Volume",
-                                  ColumnDescriptor.TYPE_STRING,
-				  makeAuRef(poll.getAu(),
-					    ArchivalUnitStatus.AU_STATUS_TABLE_NAME)));
+          ColumnDescriptor.TYPE_STRING,
+          makeAuRef(poll.getAu(),
+              ArchivalUnitStatus.AU_STATUS_TABLE_NAME)));
       summary.add(new SummaryInfo("Type",
-                                  ColumnDescriptor.TYPE_STRING,
-                                  poll.getPollVariant()));
+          ColumnDescriptor.TYPE_STRING,
+          poll.getPollVariant()));
       summary.add(new SummaryInfo("Status",
-                                  ColumnDescriptor.TYPE_STRING,
-                                  poll.getStatusString()));
+          ColumnDescriptor.TYPE_STRING,
+          poll.getStatusString()));
       if (pollerState.getErrorDetail() != null) {
         summary.add(new SummaryInfo("Error",
-                                    ColumnDescriptor.TYPE_STRING,
-                                    pollerState.getErrorDetail()));
+            ColumnDescriptor.TYPE_STRING,
+            pollerState.getErrorDetail()));
       }
       if (poll.getStatus() == POLLER_STATUS_COMPLETE) {
-	if (!poll.isLocalPoll()) {
-	  summary.add(new SummaryInfo("Agreement",
-				      ColumnDescriptor.TYPE_AGREEMENT,
-				      poll.getPercentAgreement()));
-	  if (poll.hasResultWeightMap()) {
-	    summary.add(new SummaryInfo("Weighted Agreement",
-					ColumnDescriptor.TYPE_AGREEMENT,
-					poll.getWeightedPercentAgreement()));
-	  }
-	}
+        if (!poll.isLocalPoll()) {
+          summary.add(new SummaryInfo("Agreement",
+              ColumnDescriptor.TYPE_AGREEMENT,
+              poll.getPercentAgreement()));
+          if (poll.hasResultWeightMap()) {
+            summary.add(new SummaryInfo("Weighted Agreement",
+                ColumnDescriptor.TYPE_AGREEMENT,
+                poll.getWeightedPercentAgreement()));
+          }
+        }
       }
       if (isDebug && pollerState.getAdditionalInfo() != null) {
         summary.add(new SummaryInfo("Info",
-                                    ColumnDescriptor.TYPE_STRING,
-                                    pollerState.getAdditionalInfo()));
+            ColumnDescriptor.TYPE_STRING,
+            pollerState.getAdditionalInfo()));
       }
       summary.add(new SummaryInfo("Start Time",
-                                  ColumnDescriptor.TYPE_DATE,
-                                  new Long(poll.getCreateTime())));
+          ColumnDescriptor.TYPE_DATE,
+          new Long(poll.getCreateTime())));
       if (!poll.isLocalPoll()) {
-	summary.add(new SummaryInfo("Vote Deadline",
-				    ColumnDescriptor.TYPE_DATE,
-				    new Long(poll.getVoteDeadline())));
+        summary.add(new SummaryInfo("Vote Deadline",
+            ColumnDescriptor.TYPE_DATE,
+            new Long(poll.getVoteDeadline())));
       }
       summary.add(new SummaryInfo("Duration",
-                                  ColumnDescriptor.TYPE_TIME_INTERVAL,
-                                  new Long(poll.getDuration())));
+          ColumnDescriptor.TYPE_TIME_INTERVAL,
+          new Long(poll.getDuration())));
       if (poll.isPollActive()) {
-	long remain = TimeBase.msUntil(poll.getDeadline().getExpirationTime());
-	if (remain >= 0) {
-	  summary.add(new SummaryInfo("Remaining",
-				      ColumnDescriptor.TYPE_TIME_INTERVAL,
-				      new Long(remain)));
-	}
+        long remain = TimeBase.msUntil(poll.getDeadline().getExpirationTime());
+        if (remain >= 0) {
+          summary.add(new SummaryInfo("Remaining",
+              ColumnDescriptor.TYPE_TIME_INTERVAL,
+              new Long(remain)));
+        }
       } else if (!poll.getDeadline().equals(poll.getEndTime())) {
-	summary.add(new SummaryInfo("Actual End",
-				    ColumnDescriptor.TYPE_DATE,
-				    poll.getEndTime()));
+        summary.add(new SummaryInfo("Actual End",
+            ColumnDescriptor.TYPE_DATE,
+            poll.getEndTime()));
       }
       if (poll.getErrorUrls() != null && poll.getErrorUrls().size() > 0) {
         summary.add(new SummaryInfo("URLs with Hash errors",
-                                    ColumnDescriptor.TYPE_STRING,
-                                    new StatusTable.Reference(new Integer(poll.getErrorUrls().size()),
-                                                              ERROR_TABLE_NAME,
-                                                              poll.getKey())));
+            ColumnDescriptor.TYPE_STRING,
+            new StatusTable.Reference(new Integer(poll.getErrorUrls().size()),
+                ERROR_TABLE_NAME,
+                poll.getKey())));
       }
       if (isDebug) {
-	File stateDir = poll.getStateDir();
+        File stateDir = poll.getStateDir();
         if (stateDir != null) {
-	  summary.add(new SummaryInfo("State Dir",
-				      ColumnDescriptor.TYPE_STRING,
-				      stateDir));
-	}
+          summary.add(new SummaryInfo("State Dir",
+              ColumnDescriptor.TYPE_STRING,
+              stateDir));
+        }
       }
       if (!poll.isLocalPoll()) {
-	int activeRepairs = poll.getActiveRepairs().size();
-	int talliedUrls = poll.getTalliedUrls().size();
-	int agreeUrls = poll.getAgreedUrls().size();
-	int disagreeUrls = poll.getDisagreedUrls().size();
-	int noQuorumUrls = poll.getNoQuorumUrls().size();
-	int tooCloseUrls = poll.getTooCloseUrls().size();
-	int completedRepairs = poll.getCompletedRepairs().size();
-        
-	summary.add(new SummaryInfo("Total URLs In Vote",
-				    ColumnDescriptor.TYPE_INT,
-				    new Integer(talliedUrls)));
-	if (agreeUrls > 0) {
-	  summary.add(new SummaryInfo("Agreeing URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new StatusTable.Reference(new Integer(agreeUrls),
-								AGREE_TABLE_NAME,
-								poll.getKey())));
-	}
-	if (disagreeUrls > 0) {
-	  summary.add(new SummaryInfo("Disagreeing URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new StatusTable.Reference(new Integer(disagreeUrls),
-								DISAGREE_TABLE_NAME,
-								poll.getKey())));
-	}
-	if (noQuorumUrls > 0) {
-	  summary.add(new SummaryInfo("No Quorum URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new StatusTable.Reference(new Integer(noQuorumUrls),
-								NO_QUORUM_TABLE_NAME,
-								poll.getKey())));
-	}
-	if (tooCloseUrls > 0) {
-	  summary.add(new SummaryInfo("Too Close URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new StatusTable.Reference(new Integer(tooCloseUrls),
-								TOO_CLOSE_TABLE_NAME,
-								poll.getKey())));
-	}
-	if (completedRepairs > 0) {
-	  summary.add(new SummaryInfo("Completed Repairs",
-				      ColumnDescriptor.TYPE_INT,
-				      new StatusTable.Reference(new Integer(completedRepairs),
-								COMPLETED_REPAIRS_TABLE_NAME,
-								poll.getKey())));
-	}
-	if (activeRepairs > 0) {
-	  String message = poll.isPollActive() ? "Queued Repairs" : "Incomplete Repairs";
-	  summary.add(new SummaryInfo("Queued Repairs",
-				      ColumnDescriptor.TYPE_INT,
-				      new StatusTable.Reference(new Integer(activeRepairs),
-								ACTIVE_REPAIRS_TABLE_NAME,
-								poll.getKey())));
-        
-	}
+        int activeRepairs = poll.getActiveRepairs().size();
+        int talliedUrls = poll.getTalliedUrls().size();
+        int agreeUrls = poll.getAgreedUrls().size();
+        int disagreeUrls = poll.getDisagreedUrls().size();
+        int noQuorumUrls = poll.getNoQuorumUrls().size();
+        int tooCloseUrls = poll.getTooCloseUrls().size();
+        int completedRepairs = poll.getCompletedRepairs().size();
+
+        summary.add(new SummaryInfo("Total URLs In Vote",
+            ColumnDescriptor.TYPE_INT,
+            new Integer(talliedUrls)));
+        if (agreeUrls > 0) {
+          summary.add(new SummaryInfo("Agreeing URLs",
+              ColumnDescriptor.TYPE_INT,
+              new StatusTable.Reference(new Integer(agreeUrls),
+                  AGREE_TABLE_NAME,
+                  poll.getKey())));
+        }
+        if (disagreeUrls > 0) {
+          summary.add(new SummaryInfo("Disagreeing URLs",
+              ColumnDescriptor.TYPE_INT,
+              new StatusTable.Reference(new Integer(disagreeUrls),
+                  DISAGREE_TABLE_NAME,
+                  poll.getKey())));
+        }
+        if (noQuorumUrls > 0) {
+          summary.add(new SummaryInfo("No Quorum URLs",
+              ColumnDescriptor.TYPE_INT,
+              new StatusTable.Reference(new Integer(noQuorumUrls),
+                  NO_QUORUM_TABLE_NAME,
+                  poll.getKey())));
+        }
+        if (tooCloseUrls > 0) {
+          summary.add(new SummaryInfo("Too Close URLs",
+              ColumnDescriptor.TYPE_INT,
+              new StatusTable.Reference(new Integer(tooCloseUrls),
+                  TOO_CLOSE_TABLE_NAME,
+                  poll.getKey())));
+        }
+        if (completedRepairs > 0) {
+          summary.add(new SummaryInfo("Completed Repairs",
+              ColumnDescriptor.TYPE_INT,
+              new StatusTable.Reference(new Integer(completedRepairs),
+                  COMPLETED_REPAIRS_TABLE_NAME,
+                  poll.getKey())));
+        }
+        if (activeRepairs > 0) {
+          String message = poll.isPollActive() ? "Queued Repairs" : "Incomplete Repairs";
+          summary.add(new SummaryInfo("Queued Repairs",
+              ColumnDescriptor.TYPE_INT,
+              new StatusTable.Reference(new Integer(activeRepairs),
+                  ACTIVE_REPAIRS_TABLE_NAME,
+                  poll.getKey())));
+
+        }
       }
       LocalHashResult lhr = poll.getLocalHashResult();
       if (lhr != null) {
-	int matchingUrls = lhr.getMatchingUrls();
-	int newlySuspectUrls = lhr.getNewlySuspectUrls();
-	int newlyHashedUrls = lhr.getNewlyHashedUrls();
-	int skippedUrls = lhr.getSkippedUrls();
-	summary.add(new SummaryInfo("LocalHash Checked URLs",
-				    ColumnDescriptor.TYPE_INT,
-				    new Integer(lhr.getTotalUrls())));
-	if (matchingUrls > 0) {
-	  summary.add(new SummaryInfo("LocalHash Matching URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new Integer(matchingUrls)));
-	}
-	if (newlySuspectUrls > 0) {
-	  summary.add(new SummaryInfo("LocalHash Newly Suspect URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new Integer(newlySuspectUrls)));
-	}
-	if (newlyHashedUrls > 0) {
-	  summary.add(new SummaryInfo("LocalHash Newly Hashed URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new Integer(newlyHashedUrls)));
-	}
-	if (skippedUrls > 0) {
-	  summary.add(new SummaryInfo("LocalHash Already Suspect URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      new Integer(skippedUrls)));
-	}
+        int matchingUrls = lhr.getMatchingUrls();
+        int newlySuspectUrls = lhr.getNewlySuspectUrls();
+        int newlyHashedUrls = lhr.getNewlyHashedUrls();
+        int skippedUrls = lhr.getSkippedUrls();
+        summary.add(new SummaryInfo("LocalHash Checked URLs",
+            ColumnDescriptor.TYPE_INT,
+            new Integer(lhr.getTotalUrls())));
+        if (matchingUrls > 0) {
+          summary.add(new SummaryInfo("LocalHash Matching URLs",
+              ColumnDescriptor.TYPE_INT,
+              new Integer(matchingUrls)));
+        }
+        if (newlySuspectUrls > 0) {
+          summary.add(new SummaryInfo("LocalHash Newly Suspect URLs",
+              ColumnDescriptor.TYPE_INT,
+              new Integer(newlySuspectUrls)));
+        }
+        if (newlyHashedUrls > 0) {
+          summary.add(new SummaryInfo("LocalHash Newly Hashed URLs",
+              ColumnDescriptor.TYPE_INT,
+              new Integer(newlyHashedUrls)));
+        }
+        if (skippedUrls > 0) {
+          summary.add(new SummaryInfo("LocalHash Already Suspect URLs",
+              ColumnDescriptor.TYPE_INT,
+              new Integer(skippedUrls)));
+        }
       }
       if (poll.isEnableHashStats()) {
         summary.add(new SummaryInfo("Bytes Hashed",
-                                    ColumnDescriptor.TYPE_INT,
-                                    poll.getBytesHashed()));
-        
+            ColumnDescriptor.TYPE_INT,
+            poll.getBytesHashed()));
+
         summary.add(new SummaryInfo("Bytes Read",
-                                    ColumnDescriptor.TYPE_INT,
-                                    poll.getBytesRead()));
-        
+            ColumnDescriptor.TYPE_INT,
+            poll.getBytesRead()));
+
       }
       summary.add(new SummaryInfo("Quorum",
-                                  ColumnDescriptor.TYPE_INT,
-                                  poll.getQuorum()));
+          ColumnDescriptor.TYPE_INT,
+          poll.getQuorum()));
       return summary;
     }
 
@@ -982,26 +1019,31 @@ public class V3PollStatus {
 
   public static abstract class V3UrlList extends V3PollStatus
       implements StatusAccessor {
+
     protected final List sortRules =
-      ListUtil.list(new StatusTable.SortRule("url",
-                                             CatalogueOrderComparator.SINGLETON));
+        ListUtil.list(new StatusTable.SortRule("url",
+            CatalogueOrderComparator.SINGLETON));
     protected static final List colDescs =
-      ListUtil.list(new ColumnDescriptor("url", "URL",
-                                         ColumnDescriptor.TYPE_STRING));
+        ListUtil.list(new ColumnDescriptor("url", "URL",
+            ColumnDescriptor.TYPE_STRING));
+
     public V3UrlList(PollManager manager) {
       super(manager);
     }
+
     public void populateTable(StatusTable table) throws NoSuchTableException {
       String key = table.getKey();
       V3Poller poller = null;
       try {
-        poller = (V3Poller)pollManager.getPoll(key);
+        poller = (V3Poller) pollManager.getPoll(key);
       } catch (ClassCastException ex) {
         theLog.error("Expected V3Poller, but got " +
-		     pollManager.getPoll(key).getClass().getName());
+            pollManager.getPoll(key).getClass().getName());
         return;
       }
-      if (poller == null) return;
+      if (poller == null) {
+        return;
+      }
       table.setTitle(getTitle(poller));
       table.setColumnDescriptors(getColDescs());
       table.setDefaultSortRules(sortRules);
@@ -1036,10 +1078,10 @@ public class V3PollStatus {
   public static abstract class V3RepairUrlList extends V3UrlList {
 
     protected final List colDescs =
-      ListUtil.list(new ColumnDescriptor("url", "URL",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("repairFrom", "Repaired From",
-                                         ColumnDescriptor.TYPE_STRING));
+        ListUtil.list(new ColumnDescriptor("url", "URL",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("repairFrom", "Repaired From",
+                ColumnDescriptor.TYPE_STRING));
 
     public V3RepairUrlList(PollManager manager) {
       super(manager);
@@ -1047,7 +1089,7 @@ public class V3PollStatus {
 
     protected List getRows(V3Poller poller) {
       List rows = new ArrayList();
-      for (PollerStateBean.Repair rp: getRepairBeans(poller)) {
+      for (PollerStateBean.Repair rp : getRepairBeans(poller)) {
         Map row = new HashMap();
         row.put("url", rp.getUrl());
         if (rp.isPublisherRepair()) {
@@ -1085,21 +1127,25 @@ public class V3PollStatus {
 
       V3Poller poller = null;
       try {
-        poller = (V3Poller)pollManager.getPoll(pollid);
+        poller = (V3Poller) pollManager.getPoll(pollid);
       } catch (ClassCastException ex) {
         theLog.error("Expected V3Poller, but got " +
-		     pollManager.getPoll(key).getClass().getName());
+            pollManager.getPoll(key).getClass().getName());
         return;
       }
-      if (poller == null) return;
+      if (poller == null) {
+        return;
+      }
 
       PeerIdentity pid = null;
       try {
-	pid = pollManager.getIdentityManager().findPeerIdentity(peer);
+        pid = pollManager.getIdentityManager().findPeerIdentity(peer);
       } catch (IdentityManager.MalformedIdentityKeyException e) {
-	theLog.warning("Malformed PID in peer URL table request: " + peer);
+        theLog.warning("Malformed PID in peer URL table request: " + peer);
       }
-      if (pid == null) return;
+      if (pid == null) {
+        return;
+      }
 
       table.setTitle(getTitle(poller, pid));
       table.setColumnDescriptors(colDescs);
@@ -1119,19 +1165,21 @@ public class V3PollStatus {
 
     protected String getTitle(V3Poller poller, PeerIdentity pid) {
       return getDisplayName() + " for peer " + pid +
-	" in poll " + poller.getKey();
+          " in poll " + poller.getKey();
     }
 
     protected Collection<String> getUrlList(V3Poller poller) {
-      throw new UnsupportedOperationException("getUrlList(V3Poller) shouldn't be called on peer list");
+      throw new UnsupportedOperationException(
+          "getUrlList(V3Poller) shouldn't be called on peer list");
     }
 
     protected abstract Collection<String> getUrlList(V3Poller poller,
-						     PeerIdentity pid);
+        PeerIdentity pid);
 
   }
 
   public static class V3PeerAgreeURLs extends V3PeerUrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - Agreeing URLs";
 
     public V3PeerAgreeURLs(PollManager manager) {
@@ -1149,6 +1197,7 @@ public class V3PollStatus {
   }
 
   public static class V3PeerDisagreeURLs extends V3PeerUrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - Disagreeing URLs";
 
     public V3PeerDisagreeURLs(PollManager manager) {
@@ -1166,6 +1215,7 @@ public class V3PollStatus {
   }
 
   public static class V3PeerPollerOnlyURLs extends V3PeerUrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - Poller Only URLs";
 
     public V3PeerPollerOnlyURLs(PollManager manager) {
@@ -1181,8 +1231,9 @@ public class V3PollStatus {
       return voter.getVoteCounts().getPollerOnlyUrls();
     }
   }
-  
+
   public static class V3PeerVoterOnlyURLs extends V3PeerUrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - Voter Only URLs";
 
     public V3PeerVoterOnlyURLs(PollManager manager) {
@@ -1198,8 +1249,9 @@ public class V3PollStatus {
       return voter.getVoteCounts().getVoterOnlyUrls();
     }
   }
-  
+
   public static class V3ActiveRepairs extends V3RepairUrlList {
+
     static final String TABLE_TITLE = "V3 Repairs (Active)";
 
     public V3ActiveRepairs(PollManager manager) {
@@ -1216,6 +1268,7 @@ public class V3PollStatus {
   }
 
   public static class V3CompletedRepairs extends V3RepairUrlList {
+
     static final String TABLE_TITLE = "V3 Repairs (Completed)";
 
     public V3CompletedRepairs(PollManager manager) {
@@ -1232,6 +1285,7 @@ public class V3PollStatus {
   }
 
   public static class V3AgreeURLs extends V3UrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - Agreeing URLs";
 
     public V3AgreeURLs(PollManager manager) {
@@ -1248,6 +1302,7 @@ public class V3PollStatus {
   }
 
   public static class V3DisagreeURLs extends V3UrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - Disagreeing URLs";
 
     public V3DisagreeURLs(PollManager manager) {
@@ -1264,6 +1319,7 @@ public class V3PollStatus {
   }
 
   public static class V3NoQuorumURLs extends V3UrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - No Quorum URLs";
 
     public V3NoQuorumURLs(PollManager manager) {
@@ -1280,6 +1336,7 @@ public class V3PollStatus {
   }
 
   public static class V3TooCloseURLs extends V3UrlList {
+
     static final String TABLE_TITLE = "V3 Poll Details - Too Close URLs";
 
     public V3TooCloseURLs(PollManager manager) {
@@ -1295,43 +1352,49 @@ public class V3PollStatus {
     }
   }
 
-  public static class V3ErrorURLs extends V3PollStatus 
+  public static class V3ErrorURLs extends V3PollStatus
       implements StatusAccessor {
+
     static final String TABLE_TITLE = "V3 Poll Details - URLs with Hash Errors";
     private final List sortRules =
-      ListUtil.list(new StatusTable.SortRule("url",
-                                             CatalogueOrderComparator.SINGLETON));
+        ListUtil.list(new StatusTable.SortRule("url",
+            CatalogueOrderComparator.SINGLETON));
     private final List colDescs =
-      ListUtil.list(new ColumnDescriptor("url", "URL",
-                                         ColumnDescriptor.TYPE_STRING),
-                    new ColumnDescriptor("erorr", "Error",
-                                         ColumnDescriptor.TYPE_STRING));
+        ListUtil.list(new ColumnDescriptor("url", "URL",
+                ColumnDescriptor.TYPE_STRING),
+            new ColumnDescriptor("erorr", "Error",
+                ColumnDescriptor.TYPE_STRING));
+
     public V3ErrorURLs(PollManager manager) {
       super(manager);
     }
+
     public void populateTable(StatusTable table) throws NoSuchTableException {
       String key = table.getKey();
       V3Poller poller = null;
       try {
-        poller = (V3Poller)pollManager.getPoll(key);
+        poller = (V3Poller) pollManager.getPoll(key);
       } catch (ClassCastException ex) {
         theLog.error("Expected V3Poller, but got " +
-                     pollManager.getPoll(key).getClass().getName());
+            pollManager.getPoll(key).getClass().getName());
         return;
       }
-      if (poller == null) return;
+      if (poller == null) {
+        return;
+      }
       table.setTitle("V3 Poll Details - URLs with Hash Errors in Poll " + poller.getKey());
       table.setColumnDescriptors(colDescs);
       table.setDefaultSortRules(sortRules);
       table.setRows(getRows(poller));
     }
+
     private List getRows(V3Poller poller) {
       List rows = new ArrayList();
       Map errorUrls = poller.getErrorUrls();
-      synchronized(errorUrls) {
+      synchronized (errorUrls) {
         for (Iterator it = errorUrls.keySet().iterator(); it.hasNext(); ) {
-          String url = (String)it.next();
-          String exceptionMessage = (String)errorUrls.get(url);
+          String url = (String) it.next();
+          String exceptionMessage = (String) errorUrls.get(url);
           Map row = new HashMap();
           row.put("url", url);
           row.put("error", exceptionMessage);
@@ -1340,9 +1403,11 @@ public class V3PollStatus {
       }
       return rows;
     }
+
     public String getDisplayName() {
       return TABLE_TITLE;
     }
+
     public boolean requiresKey() {
       return true;
     }
@@ -1351,10 +1416,10 @@ public class V3PollStatus {
   /**
    * <p>The full status of an individual V3 Poll in which we are acting as a
    * participant.  Requires the PollID as a key.</p>
-   *
    */
   public static class V3VoterStatusDetail
       extends V3PollStatus implements StatusAccessor {
+
     static final String TABLE_TITLE = "V3 Vote Status";
 
     public V3VoterStatusDetail(PollManager manager) {
@@ -1365,13 +1430,15 @@ public class V3PollStatus {
       String key = table.getKey();
       V3Voter voter = null;
       try {
-        voter = (V3Voter)pollManager.getPoll(key);
+        voter = (V3Voter) pollManager.getPoll(key);
       } catch (ClassCastException ex) {
         theLog.error("Expected V3Voter, but got " +
-		     pollManager.getPoll(key).getClass().getName());
+            pollManager.getPoll(key).getClass().getName());
         return;
       }
-      if (voter == null) return;
+      if (voter == null) {
+        return;
+      }
       table.setSummaryInfo(getSummary(voter, table));
       table.setTitle("Status of Vote in Poll " + key);
     }
@@ -1381,78 +1448,78 @@ public class V3PollStatus {
       VoterUserData userData = voter.getVoterUserData();
       List summary = new ArrayList();
       summary.add(new SummaryInfo("Volume",
-                                  ColumnDescriptor.TYPE_STRING,
-				  makeAuRef(voter.getAu(),
-					    ArchivalUnitStatus.AU_STATUS_TABLE_NAME)));
+          ColumnDescriptor.TYPE_STRING,
+          makeAuRef(voter.getAu(),
+              ArchivalUnitStatus.AU_STATUS_TABLE_NAME)));
       summary.add(new SummaryInfo("Status",
-                                  ColumnDescriptor.TYPE_STRING,
-                                  voter.getStatusString()));
+          ColumnDescriptor.TYPE_STRING,
+          voter.getStatusString()));
 
       if (isDebug) {
-	File stateDir = voter.getStateDir();
+        File stateDir = voter.getStateDir();
         if (stateDir != null) {
-	  summary.add(new SummaryInfo("State Dir",
-				      ColumnDescriptor.TYPE_STRING,
-				      stateDir));
+          summary.add(new SummaryInfo("State Dir",
+              ColumnDescriptor.TYPE_STRING,
+              stateDir));
         }
-	PsmInterp interp = voter.getPsmInterp();
-	if (interp != null) {
-	  PsmState state = interp.getCurrentState();
-	  if (state != null) {
-	    summary.add(new SummaryInfo("PSM State",
-					ColumnDescriptor.TYPE_STRING,
-					state.getName()));
-	  }
-	}
+        PsmInterp interp = voter.getPsmInterp();
+        if (interp != null) {
+          PsmState state = interp.getCurrentState();
+          if (state != null) {
+            summary.add(new SummaryInfo("PSM State",
+                ColumnDescriptor.TYPE_STRING,
+                state.getName()));
+          }
+        }
       }
       if (userData.getErrorDetail() != null) {
         summary.add(new SummaryInfo("Error",
-                                    ColumnDescriptor.TYPE_STRING,
-                                    userData.getErrorDetail()));
+            ColumnDescriptor.TYPE_STRING,
+            userData.getErrorDetail()));
       }
       PeerIdentity peer = voter.getPollerId();
       Object caller = isDebug
-	? makePollRef(peer.getIdString(), peer, table.getKey())
-	: peer.getIdString();
+          ? makePollRef(peer.getIdString(), peer, table.getKey())
+          : peer.getIdString();
       summary.add(new SummaryInfo("Caller",
-                                  ColumnDescriptor.TYPE_STRING,
-				  caller));
+          ColumnDescriptor.TYPE_STRING,
+          caller));
       summary.add(new SummaryInfo("Start Time",
-                                  ColumnDescriptor.TYPE_DATE,
-                                  new Long(voter.getCreateTime())));
+          ColumnDescriptor.TYPE_DATE,
+          new Long(voter.getCreateTime())));
       summary.add(new SummaryInfo("Vote Deadline",
-                                  ColumnDescriptor.TYPE_DATE,
-                                  voter.getVoteDeadline()));
+          ColumnDescriptor.TYPE_DATE,
+          voter.getVoteDeadline()));
       summary.add(new SummaryInfo("Duration",
-                                  ColumnDescriptor.TYPE_TIME_INTERVAL,
-                                  new Long(voter.getDuration())));
+          ColumnDescriptor.TYPE_TIME_INTERVAL,
+          new Long(voter.getDuration())));
       long remain = TimeBase.msUntil(voter.getDeadline().getExpirationTime());
       if (remain >= 0) {
         summary.add(new SummaryInfo("Remaining",
-                                    ColumnDescriptor.TYPE_TIME_INTERVAL,
-                                    new Long(remain)));
+            ColumnDescriptor.TYPE_TIME_INTERVAL,
+            new Long(remain)));
       }
       if (voter.getStatus() == STATUS_COMPLETE) {
-	if (userData.hasReceivedHint()) {
-	  summary.add(new SummaryInfo("Agreement",
-				      ColumnDescriptor.TYPE_AGREEMENT,
-				      userData.getAgreementHint()));
-	}
-	if (userData.hasReceivedWeightedHint()) {
-	  summary.add(new SummaryInfo("Weighted Agreement",
-				      ColumnDescriptor.TYPE_AGREEMENT,
-				      userData.getWeightedAgreementHint()));
-	}
-	if (userData.hasReceivedSymmetricAgreement()) {
-	  summary.add(new SummaryInfo("Symmetric Agreement",
-				      ColumnDescriptor.TYPE_AGREEMENT,
-				      userData.getSymmetricAgreement()));
-	}
-	if (userData.hasReceivedSymmetricWeightedAgreement()) {
-	  summary.add(new SummaryInfo("Symmetric Weighted Agreement",
-				      ColumnDescriptor.TYPE_AGREEMENT,
-				      userData.getSymmetricWeightedAgreement()));
-	}
+        if (userData.hasReceivedHint()) {
+          summary.add(new SummaryInfo("Agreement",
+              ColumnDescriptor.TYPE_AGREEMENT,
+              userData.getAgreementHint()));
+        }
+        if (userData.hasReceivedWeightedHint()) {
+          summary.add(new SummaryInfo("Weighted Agreement",
+              ColumnDescriptor.TYPE_AGREEMENT,
+              userData.getWeightedAgreementHint()));
+        }
+        if (userData.hasReceivedSymmetricAgreement()) {
+          summary.add(new SummaryInfo("Symmetric Agreement",
+              ColumnDescriptor.TYPE_AGREEMENT,
+              userData.getSymmetricAgreement()));
+        }
+        if (userData.hasReceivedSymmetricWeightedAgreement()) {
+          summary.add(new SummaryInfo("Symmetric Weighted Agreement",
+              ColumnDescriptor.TYPE_AGREEMENT,
+              userData.getSymmetricWeightedAgreement()));
+        }
       }
 //       if (voter.hasResultWeightMap()) {
 // 	summary.add(new SummaryInfo("Weighted Agreement",
@@ -1460,34 +1527,33 @@ public class V3PollStatus {
 // 				    userData.getWeightedAgreementHint()));
 //       }
       summary.add(new SummaryInfo("Poller Nonce",
-                                  ColumnDescriptor.TYPE_STRING,
-                                  ByteArray.toBase64(voter.getPollerNonce())));
+          ColumnDescriptor.TYPE_STRING,
+          ByteArray.toBase64(voter.getPollerNonce())));
       summary.add(new SummaryInfo("Voter Nonce",
-                                  ColumnDescriptor.TYPE_STRING,
-                                  ByteArray.toBase64(voter.getVoterNonce())));
+          ColumnDescriptor.TYPE_STRING,
+          ByteArray.toBase64(voter.getVoterNonce())));
       if (userData.isSymmetricPoll()) {
-	// Its a symmetric poll
-	byte[] nonce2 = userData.getVoterNonce2();
-	summary.add(new SummaryInfo("Voter Nonce2",
-				    ColumnDescriptor.TYPE_STRING,
-				    ByteArray.toBase64(nonce2)));
-	if (voter.getStatus() == STATUS_COMPLETE) {
-	  summary.add(new SummaryInfo("Agreeing URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      userData.getNumAgreeUrl()));
-	  summary.add(new SummaryInfo("Disagreeing URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      userData.getNumDisagreeUrl()));
-	  summary.add(new SummaryInfo("Voter only URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      userData.getNumVoterOnlyUrl()));
-	  summary.add(new SummaryInfo("Poller only URLs",
-				      ColumnDescriptor.TYPE_INT,
-				      userData.getNumPollerOnlyUrl()));
-	}
+        // Its a symmetric poll
+        byte[] nonce2 = userData.getVoterNonce2();
+        summary.add(new SummaryInfo("Voter Nonce2",
+            ColumnDescriptor.TYPE_STRING,
+            ByteArray.toBase64(nonce2)));
+        if (voter.getStatus() == STATUS_COMPLETE) {
+          summary.add(new SummaryInfo("Agreeing URLs",
+              ColumnDescriptor.TYPE_INT,
+              userData.getNumAgreeUrl()));
+          summary.add(new SummaryInfo("Disagreeing URLs",
+              ColumnDescriptor.TYPE_INT,
+              userData.getNumDisagreeUrl()));
+          summary.add(new SummaryInfo("Voter only URLs",
+              ColumnDescriptor.TYPE_INT,
+              userData.getNumVoterOnlyUrl()));
+          summary.add(new SummaryInfo("Poller only URLs",
+              ColumnDescriptor.TYPE_INT,
+              userData.getNumPollerOnlyUrl()));
+        }
       }
-	
-	
+
       return summary;
     }
 

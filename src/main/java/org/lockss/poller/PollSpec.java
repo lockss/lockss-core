@@ -98,29 +98,6 @@ public class PollSpec {
     }
   }
 
-  /**
-   * Construct a PollSpec from a V1 LcapMessage
-   * @param msg the LcapMessage which defines the range of interest
-   */
-  public PollSpec(V1LcapMessage msg) {
-    auId = msg.getArchivalId();
-    pluginVersion = msg.getPluginVersion();
-    url = msg.getTargetUrl();
-    uprBound = msg.getUprBound();
-    lwrBound = msg.getLwrBound();
-    protocolVersion = msg.getProtocolVersion();
-    if (msg.isContentPoll()) {
-      pollType = Poll.V1_CONTENT_POLL;
-    } else if (msg.isNamePoll()) {
-      pollType = Poll.V1_NAME_POLL;
-    } else if (msg.isVerifyPoll()) {
-      pollType = Poll.V1_VERIFY_POLL;
-    } else {
-      pollType = -1;
-    }
-    cus = getPluginManager().findCachedUrlSet(this);
-  }
-
   public PollSpec(V3LcapMessage msg) {
     this(msg.getArchivalId(),
 	 (msg.getTargetUrl() == null) ? "lockssau:" : msg.getTargetUrl(),
@@ -148,6 +125,7 @@ public class PollSpec {
   /**
    * Construct a PollSpec from another PollSpec and a poll type
    * XXX it seems that other constructors are not setting all fields
+   * only used by the MockPollSpec classes.
    */
   public PollSpec(PollSpec ps, int pollType) {
     this.auId = ps.auId;

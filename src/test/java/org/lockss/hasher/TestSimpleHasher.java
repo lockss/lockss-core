@@ -84,10 +84,10 @@ public class TestSimpleHasher extends LockssTestCase {
     daemon = getMockLockssDaemon();
     tempDirPath = setUpDiskSpace();
     mau = new MockArchivalUnit(new MockPlugin(daemon), "maud");
-    MockNodeManager nodeMgr = new MockNodeManager();
-    daemon.setNodeManager(nodeMgr, mau);
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    daemon.setHistoryRepository(histRepo, mau);
     maus = new MockAuState(mau);
-    nodeMgr.setAuState(maus);
+    histRepo.setAuState(maus);
     PluginTestUtil.registerArchivalUnit(mau);
   }
 

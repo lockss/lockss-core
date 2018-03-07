@@ -49,7 +49,7 @@ public abstract class SpringLockssBaseApiController
   /**
    * Provides the status.
    * 
-   * @return a ResponseEntity<ApiStatus> with the status.
+   * @return a {@code ResponseEntity<ApiStatus>} with the status.
    */
   @Override
   @RequestMapping(value = "/status",

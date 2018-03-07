@@ -72,7 +72,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
   private MockAlertManager alertMgr;
   private int pauseBeforeFetchCounter;
   private UrlData ud;
-  private MockNodeManager nodeMgr = new MockNodeManager();
+  private MockHistoryRepository histRepo = new MockHistoryRepository();
   private MockAuState maus;
 
 
@@ -105,7 +105,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     theDaemon.setLockssRepository(repo, mau);
     repo.startService();
 
-    theDaemon.setNodeManager(nodeMgr, mau);
+    theDaemon.setHistoryRepository(histRepo, mau);
 
     mcus = new MockCachedUrlSet(TEST_URL);
     mcus.setArchivalUnit(mau);
@@ -115,9 +115,9 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     alertMgr = new MockAlertManager();
     getMockLockssDaemon().setAlertManager(alertMgr);
     
-    theDaemon.setNodeManager(nodeMgr, mau);
+    theDaemon.setHistoryRepository(histRepo, mau);
     maus = new MockAuState(mau);
-    nodeMgr.setAuState(maus);
+    histRepo.setAuState(maus);
   }
 
   public void tearDown() throws Exception {

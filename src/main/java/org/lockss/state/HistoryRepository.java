@@ -47,32 +47,6 @@ import org.lockss.app.LockssAuManager;
 public interface HistoryRepository extends LockssAuManager {
 
   /**
-   * Stores the current node state info, except the histories.
-   * @param nodeState the NodeState
-   */
-  public void storeNodeState(NodeState nodeState);
-
-  /**
-   * Loads the current node state info, except the histories.  Returns a new
-   * NodeState if none found.
-   * @param cus the CachedUrlSet
-   * @return a {@link NodeState}
-   */
-  public NodeState loadNodeState(CachedUrlSet cus);
-
-  /**
-   * Stores PollHistories for a given NodeState.
-   * @param nodeState to store
-   */
-  public void storePollHistories(NodeState nodeState);
-
-  /**
-   * Loads the poll histories into the given NodeState.
-   * @param nodeState the NodeState
-   */
-  public void loadPollHistories(NodeState nodeState);
-
-  /**
    * Stores {@link AuAgreements}.
    * @param auAgreements The {@link AuAgreements} for this AU.
    */
@@ -124,6 +98,17 @@ public interface HistoryRepository extends LockssAuManager {
   public AuState loadAuState();
 
   /**
+   * return the AuState
+   * @return the loaded AuState.
+   */
+  public AuState getAuState();
+
+  /**
+   * set the AuState
+   */
+  public void setAuState(AuState auState);
+
+  /**
    * Stores the DamagedNodeSet for this ArchivalUnit
    * @param nodeSet the set to store
    */
@@ -134,5 +119,5 @@ public interface HistoryRepository extends LockssAuManager {
    * @return the {@link DamagedNodeSet}
    */
   public DamagedNodeSet loadDamagedNodeSet();
-
+  public boolean hasDamage(CachedUrlSet cus);
 }

@@ -40,6 +40,7 @@ import junit.framework.*;
 import org.lockss.plugin.*;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
+import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.repository.*;
@@ -56,6 +57,7 @@ public class TestBaseCachedUrl extends LockssTestCase {
   protected MockArchivalUnit mau;
   protected MockLockssDaemon theDaemon;
   protected MockPlugin plugin;
+  protected HistoryRepository histRepo;
 
   String url1 = "http://www.example.com/testDir/leaf1";
   String url2 = "http://www.example.com/testDir/leaf2";
@@ -82,11 +84,13 @@ public class TestBaseCachedUrl extends LockssTestCase {
     mau.setPlugin(plugin);
 
     repo = theDaemon.getLockssRepository(mau);
-    theDaemon.getNodeManager(mau);
+    histRepo = theDaemon.getHistoryRepository(mau);
+    histRepo.startService();
   }
 
   public void tearDown() throws Exception {
     repo.stopService();
+    histRepo.stopService();
     super.tearDown();
   }
 

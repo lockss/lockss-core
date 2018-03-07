@@ -49,9 +49,8 @@ import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.state.*;
 import org.lockss.util.*;
-import org.lockss.util.StringUtil;
 
-public class V3PollFactory extends BasePollFactory {
+public class V3PollFactory implements PollFactory {
   public static Logger log = Logger.getLogger("V3PollFactory");
 
   private static final String PREFIX = Configuration.PREFIX + "poll.v3.";
@@ -132,7 +131,7 @@ public class V3PollFactory extends BasePollFactory {
   /**
    * Create a V3Poller, or V3Voter, as appropriate.
    */
-  public BasePoll createPoll(PollSpec pollspec, LockssDaemon daemon,
+  public Poll createPoll(PollSpec pollspec, LockssDaemon daemon,
                              PeerIdentity orig, long duration,
                              String hashAlg, LcapMessage msg)
       throws ProtocolException {

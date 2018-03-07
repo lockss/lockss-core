@@ -599,10 +599,10 @@ public class TestDaemonStatusService extends LockssTestCase {
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
     MockArchivalUnit mau = new MockArchivalUnit(m_plug, auid);
-    MockNodeManager nodeMgr = new MockNodeManager();
-    theDaemon.setNodeManager(nodeMgr, mau);
+    MockHistoryRepository histRepo = new MockHistoryRepository();
+    theDaemon.setHistoryRepository(histRepo, mau);
     PluginTestUtil.registerArchivalUnit(m_plug, mau);
-    nodeMgr.setAuState(new MockAuState());
+    histRepo.setAuState(new MockAuState());
     return mau;
   }
 
