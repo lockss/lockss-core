@@ -875,16 +875,4 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <snapshots><enabled>true</enabled></snapshots>
     </pluginRepository>
   </pluginRepositories>
-  <distributionManagement>
-    <snapshotRepository>
-      <id>snapshots</id>
-      <name>artifacts.lockss.org-snapshots</name>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-snapshot</url>
-    </snapshotRepository>
-    <repository>
-      <id>central</id>
-      <name>artifacts.lockss.org-releases</name>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-release</url>
-    </repository>
-  </distributionManagement>
 </project>
