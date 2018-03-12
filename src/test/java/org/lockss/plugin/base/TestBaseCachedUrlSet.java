@@ -53,7 +53,7 @@ import org.lockss.util.*;
  * @version 0.0
  */
 public class TestBaseCachedUrlSet extends LockssTestCase {
-  private LockssRepository repo;
+  private OldLockssRepository repo;
   private HistoryRepository histRepo;
   private HashService hashService;
   private MockArchivalUnit mau;

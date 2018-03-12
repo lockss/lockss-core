@@ -772,11 +772,11 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   /** Return LockssRepository for AU */
-  public LockssRepository getLockssRepository(ArchivalUnit au) {
+  public OldLockssRepository getLockssRepository(ArchivalUnit au) {
     try {
       return super.getLockssRepository(au);
     } catch (IllegalArgumentException e) {
-      return (LockssRepository)newAuManager(LockssDaemon.LOCKSS_REPOSITORY,
+      return (OldLockssRepository)newAuManager(LockssDaemon.LOCKSS_REPOSITORY,
 					    au);
     }
   }
@@ -805,7 +805,7 @@ public class MockLockssDaemon extends LockssDaemon {
    * @param repo the new repository
    * @param au the ArchivalUnit
    */
-  public void setLockssRepository(LockssRepository repo, ArchivalUnit au) {
+  public void setLockssRepository(OldLockssRepository repo, ArchivalUnit au) {
     setAuManager(LOCKSS_REPOSITORY, au, repo);
   }
 

@@ -45,9 +45,9 @@ import org.lockss.protocol.AuAgreements;
 import org.lockss.protocol.DatedPeerIdSet;
 import org.lockss.protocol.DatedPeerIdSetImpl;
 import org.lockss.protocol.IdentityManager;
-import org.lockss.repository.LockssRepository;
-import org.lockss.repository.LockssRepository.RepositoryStateException;
-import org.lockss.repository.LockssRepositoryImpl;
+import org.lockss.repository.OldLockssRepository;
+import org.lockss.repository.OldLockssRepository.RepositoryStateException;
+import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.util.*;
 
 /**
@@ -135,7 +135,7 @@ public class HistoryRepositoryImpl
   LockssDaemon theDaemon;
   DamagedNodeSet damagedNodes;
   AuState auState;
-  LockssRepository lockssRepo;
+  OldLockssRepository lockssRepo;
 
   protected HistoryRepositoryImpl(ArchivalUnit au, String rootPath) {
     storedAu = au;
@@ -158,7 +158,7 @@ public class HistoryRepositoryImpl
   }
 
   public long getAuCreationTime() {
-    File auidfile = new File(rootLocation, LockssRepositoryImpl.AU_ID_FILE);
+    File auidfile = new File(rootLocation, OldLockssRepositoryImpl.AU_ID_FILE);
     return auidfile.lastModified();
   }
   
@@ -386,10 +386,10 @@ public class HistoryRepositoryImpl
    * @return A new HistoryRepository instance.
    */
   public static HistoryRepository createNewHistoryRepository(ArchivalUnit au) {
-    String root = LockssRepositoryImpl.getRepositoryRoot(au);
+    String root = OldLockssRepositoryImpl.getRepositoryRoot(au);
     return
       new HistoryRepositoryImpl(au,
-                                LockssRepositoryImpl.mapAuToFileLocation(root,
+                                OldLockssRepositoryImpl.mapAuToFileLocation(root,
                                                                          au));
   }
 

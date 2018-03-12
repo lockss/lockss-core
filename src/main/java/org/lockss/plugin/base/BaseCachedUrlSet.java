@@ -54,7 +54,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   static final double TIMEOUT_INCREASE = 1.5;
 
   private LockssDaemon theDaemon;
-  private LockssRepository repository;
+  private OldLockssRepository repository;
   private HistoryRepository histRepo;
   private TrueZipManager trueZipManager;
   protected static Logger logger = Logger.getLogger("CachedUrlSet");
@@ -172,7 +172,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       return (node == null) ? false : node.isLeaf();
     } catch (MalformedURLException mue) {
       logger.error("Bad url in spec: " + getUrl());
-      throw new LockssRepository.RepositoryStateException("Bad url in spec: "
+      throw new OldLockssRepository.RepositoryStateException("Bad url in spec: "
                                                           +getUrl());
     }
   }

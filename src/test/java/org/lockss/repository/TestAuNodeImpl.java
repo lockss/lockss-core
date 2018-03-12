@@ -44,7 +44,7 @@ import org.lockss.test.*;
  */
 public class TestAuNodeImpl extends LockssTestCase {
   private MockLockssDaemon theDaemon;
-  private LockssRepository repo;
+  private OldLockssRepository repo;
   private String tempDirPath;
 
   public void setUp() throws Exception {
