@@ -313,9 +313,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <version>4.1.0</version>
     </dependency>
     <dependency>
-      <groupId>com.lyncode</groupId>
-      <artifactId>xoai-service-provider</artifactId>
-      <version>4.1.0-p2</version>
+      <groupId>org.lockss</groupId>
+      <artifactId>com-lyncode-xoai-service-provider</artifactId>
+      <version>4.1.0-p4</version>
     </dependency>
     <dependency>
       <groupId>com.lyncode</groupId>
