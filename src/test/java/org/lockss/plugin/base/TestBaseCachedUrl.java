@@ -53,7 +53,7 @@ public class TestBaseCachedUrl extends LockssTestCase {
 
   private static final Logger logger = Logger.getLogger(TestBaseCachedUrl.class);
 
-  protected LockssRepository repo;
+  protected OldLockssRepository repo;
   protected MockArchivalUnit mau;
   protected MockLockssDaemon theDaemon;
   protected MockPlugin plugin;

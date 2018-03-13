@@ -103,7 +103,7 @@ public class LockssDaemon extends LockssApp {
   public static final String REPOSITORY_MANAGER =
     managerKey(RepositoryManager.class);
   public static final String LOCKSS_REPOSITORY =
-    managerKey(LockssRepository.class);
+    managerKey(OldLockssRepository.class);
   public static final String HISTORY_REPOSITORY =
     managerKey(HistoryRepository.class);
   public static final String SERVLET_MANAGER =
@@ -538,8 +538,8 @@ public class LockssDaemon extends LockssApp {
    * @return the LockssRepository
    * @throws IllegalArgumentException if the manager is not available.
    */
-  public LockssRepository getLockssRepository(ArchivalUnit au) {
-    return (LockssRepository)getAuManager(LOCKSS_REPOSITORY, au);
+  public OldLockssRepository getLockssRepository(ArchivalUnit au) {
+    return (OldLockssRepository)getAuManager(LOCKSS_REPOSITORY, au);
   }
 
   /**
@@ -574,7 +574,7 @@ public class LockssDaemon extends LockssApp {
    * Return all LockssRepositories.
    * @return a list of all LockssRepositories for all AUs
    */
-  public List<LockssRepository> getAllLockssRepositories() {
+  public List<OldLockssRepository> getAllLockssRepositories() {
     return getAuManagersOfType(LOCKSS_REPOSITORY);
   }
 

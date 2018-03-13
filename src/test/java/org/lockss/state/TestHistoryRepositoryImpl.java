@@ -41,7 +41,7 @@ import org.lockss.daemon.RangeCachedUrlSetSpec;
 import org.lockss.plugin.*;
 import org.lockss.poller.Vote;
 import org.lockss.protocol.*;
-import org.lockss.repository.LockssRepositoryImpl;
+import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.test.*;
 import org.lockss.util.*;
 
@@ -192,7 +192,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 
     repository.storeAuState(origState);
 
-    String filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
+    String filePath = OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
 							       mau);
     filePath += HistoryRepositoryImpl.AU_FILE_NAME;
     File xmlFile = new File(filePath);
@@ -254,7 +254,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     assertFalse(damNodes.containsWithDamage("test3"));
 
     repository.storeDamagedNodeSet(damNodes);
-    String filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
+    String filePath = OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
 							       mau);
     filePath += HistoryRepositoryImpl.DAMAGED_NODES_FILE_NAME;
     File xmlFile = new File(filePath);
@@ -328,7 +328,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 				  repository);
 
     repository.storeAuState(auState);
-    String filePath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
+    String filePath = OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
 							       mau);
     filePath += HistoryRepositoryImpl.AU_FILE_NAME;
     File xmlFile = new File(filePath);
@@ -456,7 +456,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     throws IOException {
     ConfigurationUtil.addFromArgs(HistoryRepositoryImpl.PARAM_HISTORY_LOCATION,
                                   rootLocation,
-                                  LockssRepositoryImpl.PARAM_CACHE_LOCATION,
+                                  OldLockssRepositoryImpl.PARAM_CACHE_LOCATION,
                                   rootLocation,
                                   IdentityManager.PARAM_LOCAL_IP,
                                   "127.0.0.7");
