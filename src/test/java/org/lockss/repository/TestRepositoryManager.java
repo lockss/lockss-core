@@ -34,6 +34,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
+import org.lockss.laaws.rs.core.*;
 
 public class TestRepositoryManager extends LockssTestCase {
   private MockArchivalUnit mau;
@@ -155,6 +156,50 @@ public class TestRepositoryManager extends LockssTestCase {
     assertEquals(40, mgr.sleepTimeToAchieveLoad(10L, .2F));
     assertEquals(10, mgr.sleepTimeToAchieveLoad(10L, .5F));
     assertEquals(50, mgr.sleepTimeToAchieveLoad(150L, .75F));
+  }
+
+  public void testGetRestRepositoryIll () throws Exception {
+    assertNull(mgr.getRestRepository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_REST_REPOSITORY,
+				  "volatile");
+    assertNull(mgr.getRestRepository());
+
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_REST_REPOSITORY,
+				  "local:coll");
+    assertNull(mgr.getRestRepository());
+
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_REST_REPOSITORY,
+				  "rest:coll:illscheme:url");
+    assertNull(mgr.getRestRepository());
+  }
+
+  public void testGetRestRepositoryVolatile () throws Exception {
+    assertNull(mgr.getRestRepository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_REST_REPOSITORY,
+				  "volatile:coll_1");
+    assertNotNull(mgr.getRestRepository());
+    assertEquals("coll_1", mgr.getRestRepository().getCollection());
+  }
+
+  public void testGetRestRepositoryLocal () throws Exception {
+    String tmpdir = getTempDir().toString();
+    assertNull(mgr.getRestRepository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_REST_REPOSITORY,
+				  "local:coll_1:" + tmpdir);
+    assertNotNull(mgr.getRestRepository());
+    assertEquals("coll_1", mgr.getRestRepository().getCollection());
+    LockssRepository repo = mgr.getRestRepository().getRepository();
+    assertClass(LocalLockssRepository.class, repo);
+  }
+
+  public void testGetRestRepositoryRest () throws Exception {
+    assertNull(mgr.getRestRepository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_REST_REPOSITORY,
+				  "rest:coll_1:http://foo.bar/endpoint");
+    assertNotNull(mgr.getRestRepository());
+    assertEquals("coll_1", mgr.getRestRepository().getCollection());
+    LockssRepository repo = mgr.getRestRepository().getRepository();
+    assertClass(RestLockssRepository.class, repo);
   }
 
   class MyRepositoryManager extends RepositoryManager {

@@ -32,8 +32,10 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.repository;
 
+import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.regex.*;
 import org.apache.commons.collections.map.LinkedMap;
 
 import org.lockss.app.*;
@@ -41,6 +43,7 @@ import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.laaws.rs.core.*;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -123,6 +126,18 @@ public class RepositoryManager
   public static final CheckUnnormalizedMode DEFAULT_CHECK_UNNORMALIZED =
       CheckUnnormalizedMode.Log;
 
+  /** Temporary specification of (new) LockssRepository for all AU storage.
+   * <ul><li>volatile:<i>collection</i> - use a volatile LockssRepository</li>
+   * <li>local:<i>collection</i>:<i>path</i> - use a local LockssRepository
+   * at <i>path</i></li>
+   * <li>rest:<i>collection</i>:<i>url</i> - use a remote LockssRepository
+   * at <i>url</i></li></ul>
+   */
+  public static final String PARAM_REST_REPOSITORY =
+      PREFIX + "restRepository";
+  public static final String DEFAULT_REST_REPOSITORY = null;
+
+  public static String REST_COLL = "foo";
 
   static final String WDOG_PARAM_SIZE_CALC = "SizeCalc";
   static final long WDOG_DEFAULT_SIZE_CALC = Constants.DAY;
@@ -165,6 +180,7 @@ public class RepositoryManager
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
 
+  private RepositoryAndCollection restRepo = null;
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
@@ -258,6 +274,88 @@ public class RepositoryManager
               config.getEnum(CheckUnnormalizedMode.class,
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
     }
+    processRestRepoSpec(config.get(PARAM_REST_REPOSITORY,
+				   DEFAULT_REST_REPOSITORY));
+  }
+
+  static Pattern REPO_SPEC_PATTERN =
+    Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
+
+  private void processRestRepoSpec(String spec) {
+    if (spec != null) {
+      // currently set this only once
+      if (restRepo == null) {
+	LockssRepository repo = null;
+	Matcher m1 = REPO_SPEC_PATTERN.matcher(spec);
+	if (m1.matches()) {
+	  String coll = m1.group(2);
+	  if (StringUtil.isNullString(coll)) {
+	    log.critical("Illegal REST repository spec: " + spec);
+	  } else {
+	    switch (m1.group(1)) {
+	    case "volatile":
+	      repo = LockssRepositoryFactory.createVolatileRepository();
+	      break;
+	    case "local":
+	      String s = m1.group(3);
+	      if (StringUtil.isNullString(s)) {
+		log.critical("Illegal REST repository spec: " + spec);
+	      } else {
+		File path = new File(s);
+		repo = LockssRepositoryFactory.createLocalRepository(path);
+	      }
+	      break;
+	    case "rest":
+	      String u = m1.group(3);
+	      if (StringUtil.isNullString(u)) {
+		log.critical("Illegal REST repository spec: " + spec);
+	      } else {
+		try {
+		  URL url = new URL(m1.group(3));
+		  repo =
+		    LockssRepositoryFactory.createRestLockssRepository(url);
+		} catch (MalformedURLException e) {
+		  log.critical("Illegal REST repository spec URL: " + spec +
+			       ": " + e.getMessage());
+		}
+	      }
+	      break;
+	    default:
+	      log.critical("Illegal REST repository spec: " + spec);
+	    }
+	    if (repo != null) {
+	      restRepo = new RepositoryAndCollection(repo, coll);
+	    }
+	  }
+	} else {
+	  log.critical("Illegal REST repository spec: " + spec);
+	}
+      }
+    } else {
+      restRepo = null;
+    }
+  }
+
+  public class RepositoryAndCollection {
+    private LockssRepository repo;
+    private String collection;
+
+    private RepositoryAndCollection(LockssRepository repo, String collection) {
+      this.repo = repo;
+      this.collection = collection;
+    }
+
+    public LockssRepository getRepository() {
+      return repo;
+    }
+
+    public String getCollection() {
+      return collection;
+    }
+  }
+
+  public RepositoryAndCollection getRestRepository() {
+    return restRepo;
   }
 
   public static boolean isEnableLongComponents() {
