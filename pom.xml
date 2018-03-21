@@ -732,7 +732,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <plugin>
         <groupId>org.lockss.laaws</groupId>
         <artifactId>lockss-tdbxml-maven-plugin</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>1.1.0</version>
         <configuration>
           <srcDir>src/test/java</srcDir>
           <dstDir>target/test-classes</dstDir>
