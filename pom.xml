@@ -731,8 +731,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       </plugin>
       <plugin>
         <groupId>org.lockss.laaws</groupId>
-        <artifactId>tdbxml-maven-plugin</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <artifactId>lockss-tdbxml-maven-plugin</artifactId>
+        <version>1.1.0-SNAPSHOT</version>
         <configuration>
           <srcDir>src/test/java</srcDir>
           <dstDir>target/test-classes</dstDir>
@@ -743,23 +743,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             <phase>process-test-resources</phase>
             <goals>
               <goal>tdbxml</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.antlr</groupId>
-        <artifactId>antlr4-maven-plugin</artifactId>
-        <version>4.7</version>
-        <executions>
-          <execution>
-            <configuration>
-              <sourceDirectory>${basedir}/src/main/java</sourceDirectory>
-            </configuration>
-            <id>antlr</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>antlr4</goal>
             </goals>
           </execution>
         </executions>
@@ -864,14 +847,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   </repositories>
   <pluginRepositories>
     <pluginRepository>
-      <id>lockss-releases</id>
-      <name>Lockss Releases Maven Repo</name>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-release</url>
+      <id>ossrh-releases</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
     </pluginRepository>
     <pluginRepository>
-      <id>lockss-snapshots</id>
-      <name>Lockss Snapshot Maven Repo</name>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-snapshot</url>
+      <id>ossrh-snapshots</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
       <snapshots><enabled>true</enabled></snapshots>
     </pluginRepository>
   </pluginRepositories>
