@@ -318,9 +318,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <version>4.1.0-p4</version>
     </dependency>
     <dependency>
-      <groupId>com.lyncode</groupId>
-      <artifactId>xml-io</artifactId>
-      <version>1.0.3-p2</version>
+      <groupId>org.lockss</groupId>
+      <artifactId>com-lyncode-xml-io</artifactId>
+      <version>1.0.3-p3</version>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
