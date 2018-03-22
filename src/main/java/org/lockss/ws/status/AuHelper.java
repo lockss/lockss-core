@@ -174,7 +174,7 @@ public class AuHelper {
 
     LockssDaemon theDaemon = LockssDaemon.getLockssDaemon();
     PluginManager pluginMgr = theDaemon.getPluginManager();
-    ArchivalUnit au = pluginMgr.getAuFromId(auId);
+    ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auId);
 
     if (au == null) {
       throw new LockssWebServicesFault(

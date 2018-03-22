@@ -826,7 +826,7 @@ public class MetadataMonitor extends LockssServlet {
 	results.newRow();
 	results.newCell("align=\"right\"");
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1294,7 +1294,7 @@ public class MetadataMonitor extends LockssServlet {
 	results.newRow();
 	results.newCell("align=\"center\"");
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1369,7 +1369,7 @@ public class MetadataMonitor extends LockssServlet {
 	    articleData.get("col4"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1426,7 +1426,7 @@ public class MetadataMonitor extends LockssServlet {
 	    chapterData.get("col4"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1483,7 +1483,7 @@ public class MetadataMonitor extends LockssServlet {
 	    volumeData.get("col4"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1548,7 +1548,7 @@ public class MetadataMonitor extends LockssServlet {
 	results.newRow();
 	results.newCell("align=\"right\"");
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1642,7 +1642,7 @@ public class MetadataMonitor extends LockssServlet {
 	    itemData.get("col5"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1782,7 +1782,7 @@ public class MetadataMonitor extends LockssServlet {
 	    itemData.get("col5"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1867,7 +1867,7 @@ public class MetadataMonitor extends LockssServlet {
 	    itemData.get("col5"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1934,7 +1934,7 @@ public class MetadataMonitor extends LockssServlet {
 	results.newRow();
 	results.newCell("align=\"center\"");
 
-	ArchivalUnit au = pluginManager.getAuFromId(auId);
+	ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {

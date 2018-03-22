@@ -425,7 +425,7 @@ public class AddContentTab extends LockssServlet {
             for (TitleConfig tc : configList) {
                 String rowClass = rowCss(rowCount);
                 TdbAu tdbAu = tc.getTdbAu();
-                ArchivalUnit au = pluginMgr.getAuFromId(tc.getAuId(pluginMgr));
+                ArchivalUnit au = pluginMgr.getAuFromIdIfExists(tc.getAuId(pluginMgr));
                 String auName = HtmlUtil.encode(tc.getDisplayName(), HtmlUtil.ENCODE_TEXT);
                 String cleanedAuName = cleanAuName(auName);
                 divTable.newRow();

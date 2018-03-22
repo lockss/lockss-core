@@ -237,7 +237,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
 	    if (auid != null) {
 	      PluginManager pluginMgr = (PluginManager)LockssDaemon
 		  .getManager(LockssDaemon.PLUGIN_MANAGER);
-	      ArchivalUnit au = pluginMgr.getAuFromId(auid);
+	      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
 
 	      if (au != null) {
 		String repoSpec = au.getConfiguration()

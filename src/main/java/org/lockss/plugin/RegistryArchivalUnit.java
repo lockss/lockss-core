@@ -189,7 +189,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
   }
 
   boolean isStarted() {
-    return getPlugin().getDaemon().getPluginManager().getAuFromId(getAuId())
+    return getPlugin().getDaemon().getPluginManager().getAuFromIdIfExists(getAuId())
       != null;
   }
 
