@@ -74,6 +74,10 @@ public class RestConfigClient {
     parseRestConfigServiceUrl();
   }
 
+  public boolean isActive() {
+    return serviceLocation != null;
+  }
+
   /**
    * Saves the individual components of the Configuration REST web service URL.
    */

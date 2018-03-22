@@ -525,6 +525,7 @@ public class TestConfigFile {
 	  "http://localhost:1234", null, null);
       RestConfigFile rcf =
 	  new RestConfigFile("http://localhost:1234/rcf1", configMgr);
+      assertTrue(configMgr.getRestConfigClient().isActive());
       assertTrue(configMgr.getRestConfigClient()
 	  .isPartOfThisService(rcf.getFileUrl()));
     }
