@@ -25,7 +25,7 @@
  in this Software without prior written authorization from Stanford University.
 
  */
-package org.lockss.laaws.rs.model;
+package org.lockss.laaws.rs09.model;
 
 import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;

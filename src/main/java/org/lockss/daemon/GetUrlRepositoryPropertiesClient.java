@@ -32,7 +32,7 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.Collections;
 import org.lockss.config.CurrentConfig;
-import org.lockss.laaws.rs.model.ArtifactPage;
+import org.lockss.laaws.rs09.model.ArtifactPage;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
