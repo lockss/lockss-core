@@ -63,6 +63,12 @@ public class DebugPanel extends LockssServlet {
     PREFIX + "deepCrawlEnabled";
   private static final boolean DEFAULT_ENABLE_DEEP_CRAWL = false;
 
+  /**
+   * Allow Delete URL
+   */
+  public static final String PARAM_DELETE_ENABLED = PREFIX + "deleteEnabled";
+  private static final boolean DEFAULT_DELETE_ENABLED = false;
+
   static final String KEY_ACTION = "action";
   static final String KEY_MSG = "msg";
   static final String KEY_NAME_SEL = "name_sel";
@@ -83,6 +89,7 @@ public class DebugPanel extends LockssServlet {
   public static final String ACTION_START_DEEP_CRAWL = "Deep Crawl";
   public static final String ACTION_FORCE_START_DEEP_CRAWL = "Force Deep Crawl";
   public static final String ACTION_CHECK_SUBSTANCE = "Check Substance";
+  public static final String ACTION_DELETE_URL = "Delete File";
   static final String ACTION_CRAWL_PLUGINS = "Crawl Plugins";
   static final String ACTION_RELOAD_CONFIG = "Reload Config";
   static final String ACTION_SLEEP = "Sleep";
@@ -182,6 +189,9 @@ public class DebugPanel extends LockssServlet {
     }
     if (ACTION_CHECK_SUBSTANCE.equals(action)) {
       doCheckSubstance();
+    }
+    if (ACTION_DELETE_URL.equals(action)) {
+      doDeleteUrl();
     }
     if (ACTION_CRAWL_PLUGINS.equals(action)) {
       crawlPluginRegistries();
@@ -342,6 +352,54 @@ public class DebugPanel extends LockssServlet {
     }
   }
 
+  private void doDeleteUrl() {
+    ArchivalUnit au = getAu();
+    if (au == null) return;
+    String url = getParameter(KEY_URL);
+    if (url == null) return;
+    try {
+      deleteUrl(au, url);
+    } catch (RuntimeException e) {
+      log.error("Error deleting URL", e);
+      errMsg = "Error deleting URL; see log.";
+    }
+  }
+
+  private void deleteUrl(ArchivalUnit au, String url) {
+    org.lockss.laaws.rs.core.LockssRepository restRepo =
+      LockssDaemon.getLockssDaemon().getRepositoryManager().getRestRepository().getRepository();
+    String coll =
+      LockssDaemon.getLockssDaemon().getRepositoryManager().getRestRepository().getCollection();
+    if (restRepo == null) {
+      errMsg = "Not using new repository";
+      return;
+    }
+    try {
+      if (restRepo.getArtifact(coll, au.getAuId(), url) == null) {
+	errMsg = "No such file: " + url + " in " + au.getName();
+	return;
+      }
+      for (org.lockss.laaws.rs.model.Artifact art :
+	     restRepo.getArtifactAllVersions(coll, au.getAuId(), url)) {
+	log.debug2("deleting: " + art);
+	restRepo.deleteArtifact(art);
+	log.debug2("deleted: " + art);
+      }
+      org.lockss.laaws.rs.model.Artifact delArt =
+	restRepo.getArtifact(coll, au.getAuId(), url);
+      if (delArt == null) {
+	statusMsg ="Deleted: " + url;
+      } else {
+	log.debug2("Delete failed: " + delArt);
+	errMsg = "File was not deleted: " + url;
+	return;
+      }
+    } catch (IOException e) {
+      errMsg = "Error obtaining artifact: " + url + ": " + e.toString();
+      return;
+    }
+  }
+
   private void doV3Poll() {
     ArchivalUnit au = getAu();
     if (au == null) return;
@@ -483,10 +541,15 @@ public class DebugPanel extends LockssServlet {
       frm.add(deepCrawl);
       frm.add(depthText);
     }
-      Input checkSubstance = new Input(Input.Submit, KEY_ACTION,
-				       ACTION_CHECK_SUBSTANCE);
-      frm.add("<br>");
-      frm.add(checkSubstance);
+    Input checkSubstance = new Input(Input.Submit, KEY_ACTION,
+				     ACTION_CHECK_SUBSTANCE);
+    frm.add("<br>");
+    frm.add(checkSubstance);
+    if (CurrentConfig.getBooleanParam(PARAM_DELETE_ENABLED, DEFAULT_DELETE_ENABLED)) {
+      Input delUrl = new Input(Input.Submit, KEY_ACTION, ACTION_DELETE_URL);
+      frm.add(" ");
+      frm.add(delUrl);
+    }
     frm.add("</center>");
 
     comp.add(frm);
