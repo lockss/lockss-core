@@ -212,7 +212,7 @@ public class LockssDaemon extends LockssApp {
                     "org.lockss.daemon.ActivityRegulator$Factory"),
     // LockssRepository uses ActivityRegulator
     new ManagerDesc(LOCKSS_REPOSITORY,
-                    "org.lockss.repository.LockssRepositoryImpl$Factory"),
+                    "org.lockss.repository.OldLockssRepositoryImpl$Factory"),
     // HistoryRepository needs no extra managers
     new ManagerDesc(HISTORY_REPOSITORY,
                     "org.lockss.state.HistoryRepositoryImpl$Factory")
