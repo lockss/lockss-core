@@ -34,9 +34,12 @@ package org.lockss.test;
 
 import java.io.*;
 import java.util.*;
+import org.lockss.util.*;
 
 /** An input stream that can throw an exception on demand. */
 public class ThrowingInputStream extends FilterInputStream {
+  static Logger log = Logger.getLogger("ThrowingInputStream");
+
   private IOException throwOnRead;
   private IOException throwOnClose;
   private Error errorOnRead;
@@ -59,8 +62,16 @@ public class ThrowingInputStream extends FilterInputStream {
 
   private void checkReadError() throws IOException {
     if (throwOnRead != null) {
+      if (log.isDebug2()) {
+	log.debug2("Injected read error: " + throwOnRead.getMessage(),
+		   new Throwable());
+      }
       throw throwOnRead;
     } else if (errorOnRead != null) {
+      if (log.isDebug2()) {
+	log.debug2("Injected read error: " + errorOnRead.getMessage(),
+		   new Throwable());
+      }
       throw errorOnRead;
     }
   }
@@ -82,6 +93,10 @@ public class ThrowingInputStream extends FilterInputStream {
 
   public void close() throws IOException {
     if (throwOnClose != null) {
+      if (log.isDebug2()) {
+	log.debug2("Injected close error: " + throwOnClose.getMessage(),
+		   new Throwable());
+      }
       throw throwOnClose;
     } else {
       in.close();
