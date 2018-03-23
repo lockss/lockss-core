@@ -380,22 +380,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j</artifactId>
-      <version>59.1</version>
+      <version>60.2</version>
     </dependency>
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-charset</artifactId>
-      <version>59_1</version>
+      <version>60.2</version>
     </dependency>
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-localespi</artifactId>
-      <version>59_1</version>
+      <version>60.2</version>
     </dependency>
     <dependency>
-      <groupId>org.pdfbox</groupId>
+      <groupId>org.lockss</groupId>
       <artifactId>pdfbox</artifactId>
-      <version>0.7.3</version>
+      <version>0.7.3-p1</version>
     </dependency>
     <dependency>
       <groupId>org.fontbox</groupId>
