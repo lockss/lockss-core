@@ -32,6 +32,8 @@ import java.io.*;
 import java.util.*;
 import java.net.MalformedURLException;
 import java.security.MessageDigest;
+import org.apache.commons.collections4.*;
+import org.apache.commons.collections4.iterators.*;
 import de.schlichtherle.truezip.file.*;
 import org.lockss.plugin.*;
 import org.lockss.app.*;
@@ -42,8 +44,12 @@ import org.lockss.hasher.HashService;
 import org.lockss.repository.*;
 import org.lockss.scheduler.SchedService;
 import org.lockss.util.*;
+import org.lockss.util.ArrayIterator;
 import org.lockss.state.*;
 import org.lockss.truezip.*;
+
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
 
 /**
  * Base class for CachedUrlSets.  Utilizes the LockssRepository.
@@ -66,11 +72,8 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   protected CachedUrlSetSpec spec;
   protected long excludeFilesUnchangedAfter = 0;
 
-  /*
-   * The indication of whether the content of an archival unit should be
-   * obtained from a web service instead of the repository.
-   */
-  protected boolean isAuContentFromWs = false;
+  protected LockssRepository restRepo;
+  protected String restColl;
 
   /**
    * Must invoke this constructor in plugin subclass.
@@ -84,14 +87,37 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     plugin = owner.getPlugin();
     theDaemon = plugin.getDaemon();
 
-    isAuContentFromWs = theDaemon.getPluginManager().isAuContentFromWs();
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-
-    if (!isAuContentFromWs) {
-      repository = theDaemon.getLockssRepository(owner);
-      histRepo = theDaemon.getHistoryRepository(owner);
+    RepositoryManager repomgr =
+      theDaemon.getRepositoryManager();
+    if (repomgr != null && repomgr.getRestRepository() != null) {
+      restRepo = repomgr.getRestRepository().getRepository();
+      restColl = repomgr.getRestRepository().getCollection();
     }
+    if (logger.isDebug3())
+      logger.debug3(DEBUG_HEADER + "restRepo = " + restRepo);
+
+//     if (!isRestRepo()) {
+      repository = theDaemon.getLockssRepository(owner);
+//     }
+    histRepo = theDaemon.getHistoryRepository(owner);
+  }
+
+  /**
+   * Temporary.  True if this AU should be accessed via the new (REST)
+   * repository.
+   */
+  protected boolean isRestRepo() {
+    return restRepo != null;
+  }
+
+  protected void checkNotRestRepo(String msg) {
+    if (isRestRepo())
+      throw new UnsupportedOperationException(msg + " called when using REST repository");
+  }
+
+  protected void checkRestRepo(String msg) {
+    if (!isRestRepo())
+      throw new UnsupportedOperationException(msg + " called when using old repository");
   }
 
   /**
@@ -111,26 +137,16 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   public boolean hasContent() {
-    final String DEBUG_HEADER = "hasContent(): ";
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-    // Check whether the content is obtained via web services instead of the
-    // repository.
-    if (isAuContentFromWs) {
-      // Yes: It has content.
-      if (logger.isDebug2()) logger.debug2(DEBUG_HEADER
-	  + "return true because isAuUrlContentFromWs() = true");
-      return true;
-    }
-
-    try {
-      RepositoryNode node = repository.getNode(getUrl());
-      if (node == null) {
-	// avoid creating node just to answer no.
+    if (!isRestRepo()) {
+      try {
+	RepositoryNode node = repository.getNode(getUrl());
+	if (node == null) {
+	  // avoid creating node just to answer no.
+	  return false;
+	}
+      } catch (MalformedURLException e) {
 	return false;
       }
-    } catch (MalformedURLException e) {
-      return false;
     }
     CachedUrl cu = au.makeCachedUrl(getUrl());
     try {
@@ -167,6 +183,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   public boolean isLeaf() {
+    checkNotRestRepo("isLeaf()");
     try {
       RepositoryNode node = repository.getNode(getUrl());
       return (node == null) ? false : node.isLeaf();
@@ -178,17 +195,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   public Iterator flatSetIterator() {
-    final String DEBUG_HEADER = "flatSetIterator(): ";
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-    // Check whether the content is obtained via web services instead of the
-    // repository.
-    if (isAuContentFromWs) {
-      // Yes: It does not have children.
-      return CollectionUtil.EMPTY_ITERATOR;
-    }
-
-    // No.
+    checkNotRestRepo("flatSetIterator()");
     if (spec.isSingleNode()) {
       return CollectionUtil.EMPTY_ITERATOR;
     }
@@ -226,7 +233,11 @@ public class BaseCachedUrlSet implements CachedUrlSet {
    * @return an {@link Iterator}
    */
   public Iterator<CachedUrlSetNode> contentHashIterator() {
-    return new CusIterator();
+    if (isRestRepo()) {
+      return artifactCuIterator();
+    } else {
+      return new CusIterator();
+    }
   }
 
   public CuIterator getCuIterator() {
@@ -373,6 +384,22 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   void calculateNodeSize() {
+    if (isRestRepo()) {
+      calculateNodeSizeRest();
+    } else {
+      calculateNodeSizeOld();
+    }
+  }
+
+  void calculateNodeSizeRest() {
+    long tot = 0;
+    for (CachedUrl cu : getCuIterable()) {
+      tot += cu.getContentSize();
+    }
+    totalNodeSize = tot;
+  }
+
+  void calculateNodeSizeOld() {
     if (totalNodeSize==0) {
       try {
 	RepositoryNode node = repository.getNode(getUrl());
@@ -511,6 +538,54 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       }
       return StringUtil.preOrderCompareTo(prefix, prefix2);
     }
+  }
+
+  /**
+   * Iterator over the Artifacts in a rest repository
+   */
+  public Iterator<CachedUrlSetNode> artifactCuIterator() {
+    Iterator<Artifact> artIter;
+    try {
+      if (spec.isAu()) {
+	artIter = restRepo.getAllArtifacts(restColl, au.getAuId()).iterator();
+      } else if (spec.isSingleNode()) {
+	artIter =
+	  new SingletonIterator<Artifact>(restRepo.getArtifact(restColl,
+							       au.getAuId(),
+							       spec.getUrl()));
+      } else {
+	artIter = restRepo.getAllArtifactsWithPrefix(restColl, au.getAuId(),
+						     getUrl()).iterator();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Error getting Artifact Iterator", e);
+    }
+    artIter = filteredArtifactIterator(artIter);
+    return artToCuIter(artIter);
+  }
+
+  // This could be improved by not continuing to step & filter underlying
+  // Iterator once end of range has been reached.
+  protected Iterator<Artifact>
+    filteredArtifactIterator(Iterator<Artifact> artIter) {
+    Predicate pred =
+      new Predicate() {
+        public boolean evaluate(final Object element) {
+	  Artifact art = (Artifact)element;
+	  return spec.matches(art.getUri());
+	};
+      };
+    return new FilterIterator(artIter, pred);
+  }
+
+  protected Iterator<CachedUrlSetNode> artToCuIter(Iterator<Artifact> artIter) {
+    Transformer xform =
+      new Transformer<Artifact,CachedUrl>() {
+	public CachedUrl transform(Artifact art) {
+	  return new BaseCachedUrl(au, art);
+	}
+      };
+    return IteratorUtils.transformedIterator(artIter, xform);
   }
 
   /**

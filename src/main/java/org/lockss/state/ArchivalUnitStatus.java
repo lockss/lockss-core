@@ -51,6 +51,8 @@ import org.lockss.protocol.*;
 import org.lockss.repository.*;
 import org.lockss.servlet.*;
 
+import org.lockss.laaws.rs.core.*;
+
 /**
  * Collect and report the status of the ArchivalUnits
  */
@@ -807,10 +809,151 @@ public class ArchivalUnitStatus
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
         table.setColumnDescriptors(columnDescriptors);
         table.setDefaultSortRules(sortRules);
-        table.setRows(getRows(table, au, repo));
+	if (RepositoryManager.isRestRepo()) {
+	  table.setRows(getRestRows(table, au));
+	} else {
+	  table.setRows(getRows(table, au, repo));
+	}
       }
     }
 
+
+    private List getRestRows(StatusTable table, ArchivalUnit au) {
+      int startRow = Math.max(0, getIntProp(table, "skiprows"));
+      int numRows = getIntProp(table, "numrows");
+      if (numRows <= 0) {
+        numRows = defaultNumRows;
+      }
+
+      Collection<String> startUrls = au.getStartUrls();
+
+      List rowL = new ArrayList();
+      Iterator cusIter = au.getAuCachedUrlSet().contentHashIterator();
+      int endRow1 = startRow + numRows; // end row + 1
+
+      if (startRow > 0) {
+        // add 'previous'
+        int start = startRow - defaultNumRows;
+        if (start < 0) {
+          start = 0;
+        }
+        rowL.add(makeOtherRowsLink(false, start, au.getAuId()));
+      }
+
+      for (int curRow = 0; (curRow < endRow1) && cusIter.hasNext(); curRow++) {
+        CachedUrlSetNode cusn = (CachedUrlSetNode)cusIter.next();
+        if (curRow < startRow) {
+          continue;
+        }
+        CachedUrlSet cus;
+        if (cusn.getType() == CachedUrlSetNode.TYPE_CACHED_URL_SET) {
+          cus = (CachedUrlSet)cusn;
+        } else {
+          CachedUrlSetSpec cuss = new RangeCachedUrlSetSpec(cusn.getUrl());
+          cus = au.makeCachedUrlSet(cuss);
+        }
+        String url = cus.getUrl();
+
+        CachedUrl cu = au.makeCachedUrl(url);
+        try {
+          // XXX Remove this when we move to a repository that
+          // distinguishes "foo/" from "foo".
+          String normUrl = url;
+//           if (normUrl.endsWith(UrlUtil.URL_PATH_SEPARATOR)) {
+//             normUrl = normUrl.substring(0, normUrl.length() - 1);
+//           }
+          Map row = makeRow(au, cu, startUrls);
+          row.put("sort", new Integer(curRow));
+          rowL.add(row);
+        } finally {
+          AuUtil.safeRelease(cu);
+        }
+      }
+
+      if (cusIter.hasNext()) {
+        // add 'next'
+        rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId()));
+      }
+      return rowL;
+    }
+
+    private Map makeRow(ArchivalUnit au, CachedUrl cu,
+			Collection<String> startUrls) {
+      boolean hasContent = cu.hasContent();
+      String url = cu.getUrl();
+      boolean isStartUrl = false;
+      if (false && hasContent) {
+        // Repository v1 may return a name that omits the trailing slash
+        // (even without removing it above).  Use the name explicitly
+        // stored with the CU if any.
+        Properties cuProps = cu.getProperties();
+        url = cuProps.getProperty(CachedUrl.PROPERTY_NODE_URL);
+        isStartUrl = startUrls.contains(url);
+      }
+      isStartUrl |= startUrls.contains(url);
+
+      Object val = url;
+      if (isStartUrl) {
+        val = new StatusTable.DisplayedValue(val).setBold(true);
+      }
+      HashMap rowMap = new HashMap();
+      if (hasContent && isContentIsLink) {
+        Properties args = new Properties();
+        args.setProperty("auid", au.getAuId());
+        args.setProperty("url", url);
+        val =
+            new StatusTable.SrvLink(val,
+                AdminServletManager.SERVLET_DISPLAY_CONTENT,
+                args);
+      } else {
+        val = url;
+      }
+      rowMap.put("NodeName", val);
+
+//       String status = null;
+//       if (node.isDeleted()) {
+//         status = "Deleted";
+//       } else if (node.isContentInactive()) {
+//         status = "Inactive";
+//       } else {
+// //         status = "Active";
+//       }
+//       if (status != null) {
+//         rowMap.put("NodeStatus", status);
+//       }
+      Object versionObj = StatusTable.NO_VALUE;
+      Object sizeObj = StatusTable.NO_VALUE;
+      if (hasContent) {
+        int version = cu.getVersion();
+        versionObj = new OrderedObject(new Long(version));
+        if (version > 1) {
+          CachedUrl[] cuVersions = cu.getCuVersions(2);
+          if (cuVersions.length > 1) {
+            StatusTable.Reference verLink =
+                new StatusTable.Reference(versionObj,
+                    FILE_VERSIONS_TABLE_NAME, au.getAuId());
+            verLink.setProperty("url", url);
+            versionObj = verLink;
+          }
+        }
+        sizeObj = new OrderedObject(new Long(cu.getContentSize()));
+      }
+      rowMap.put("NodeHasContent", (hasContent ? "yes" : "no"));
+      rowMap.put("NodeVersion", versionObj);
+      rowMap.put("NodeContentSize", sizeObj);
+//       if (!node.isLeaf()) {
+//         rowMap.put("NodeChildCount",
+//             new OrderedObject(new Long(node.getChildCount())));
+//         long treeSize = node.getTreeContentSize(null, false);
+//         if (treeSize != -1) {
+//           rowMap.put("NodeTreeSize", new OrderedObject(new Long(treeSize)));
+//         }
+//       } else {
+        rowMap.put("NodeChildCount", StatusTable.NO_VALUE);
+        rowMap.put("NodeTreeSize", StatusTable.NO_VALUE);
+//       }
+      return rowMap;
+    }
 
     private List getRows(StatusTable table, ArchivalUnit au,
         OldLockssRepository repo) {

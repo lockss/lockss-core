@@ -45,10 +45,15 @@ import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;
 
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
+import org.lockss.laaws.rs.util.*;
+
 /** Base class for CachedUrls.  Expects the LockssRepository for storage.
  * Plugins may extend this to get some common CachedUrl functionality.
  */
 public class BaseCachedUrl implements CachedUrl {
+
   protected ArchivalUnit au;
   protected String url;
   protected static Logger logger = Logger.getLogger(CachedUrl.class);
@@ -57,6 +62,15 @@ public class BaseCachedUrl implements CachedUrl {
   private RepositoryNode leaf = null;
   protected RepositoryNode.RepositoryNodeContents rnc = null;
   protected Properties options;
+
+  protected LockssRepository restRepo;
+  protected String restColl;
+  protected Artifact art;
+  protected ArtifactData artData;
+  protected boolean artifactObtained = false;
+  protected boolean inputStreamUsed = false;
+  protected InputStream restInputStream;
+  protected CIProperties restProps;
 
   // Cached here as might be used several times in quick succession
   // (esp. by archive members).  Don't want to store in AU.
@@ -86,12 +100,6 @@ public class BaseCachedUrl implements CachedUrl {
   public static final String DEFAULT_METADATA_CONTENT_TYPE = "text/html";
 
   /**
-   * The indication of whether the content of an archival unit should be
-   * obtained from a web service instead of the repository.
-   */
-  protected boolean isAuContentFromWs = false;
-
-  /**
    * The input stream of the URL content when obtained from a web service
    * instead of the repository.
    */
@@ -108,12 +116,39 @@ public class BaseCachedUrl implements CachedUrl {
     this.au = owner;
     this.url = url;
 
-    if (au != null && au.getPlugin() != null) {
-      isAuContentFromWs = getDaemon().getPluginManager().isAuContentFromWs();
+    RepositoryManager repomgr = getDaemon().getRepositoryManager();
+    if (repomgr != null && repomgr.getRestRepository() != null) {
+      restRepo = repomgr.getRestRepository().getRepository();
+      restColl = repomgr.getRestRepository().getCollection();
     }
-
     if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
+      logger.debug3(DEBUG_HEADER + "restRepo = " + restRepo);
+  }
+
+  protected BaseCachedUrl(ArchivalUnit owner, Artifact art) {
+    final String DEBUG_HEADER = "BaseCachedUrl(): ";
+    this.au = owner;
+    this.art = art;
+    if (art != null) {
+      artifactObtained = true;
+    }
+    this.url = art.getUri();
+
+    RepositoryManager repomgr = getDaemon().getRepositoryManager();
+    if (repomgr != null) {
+      restRepo = repomgr.getRestRepository().getRepository();
+      restColl = repomgr.getRestRepository().getCollection();
+    }
+    if (logger.isDebug3())
+      logger.debug3(DEBUG_HEADER + "restRepo = " + restRepo);
+  }
+
+  /**
+   * Temporary.  True if this AU should be accessed via the new (REST)
+   * repository.
+   */
+  protected boolean isRestRepo() {
+    return restRepo != null;
   }
 
   public String getUrl() {
@@ -150,26 +185,62 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CachedUrl getCuVersion(int version) {
-    ensureLeafLoaded();
-    return new Version(au, url, leaf.getNodeVersion(version));
+    if (isRestRepo()) {
+      Artifact verArt = null;
+      try {
+	verArt =
+	  restRepo.getArtifactVersion(restColl, url, au.getAuId(), version);
+      } catch (IOException e) {
+	logger.error("Error getting Artifact version: " + url, e);
+      }
+      return new Version(au, url, verArt);
+    } else {
+      ensureLeafLoaded();
+      return new Version(au, url, leaf.getNodeVersion(version));
+    }
   }
 
   public CachedUrl[] getCuVersions() {
-    return getCuVersions(Integer.MAX_VALUE);
+    return getCuVersions(1000/*Integer.MAX_VALUE*/);
   }
 
   public CachedUrl[] getCuVersions(int maxVersions) {
-    ensureLeafLoaded();
-    RepositoryNodeVersion[] nodeVers = leaf.getNodeVersions(maxVersions);
-    CachedUrl[] res = new CachedUrl[nodeVers.length];
-    for (int ix = res.length - 1; ix >= 0; ix--) {
-      res[ix] = new Version(au, url, nodeVers[ix]);
+    if (isRestRepo()) {
+      List<CachedUrl> cuVers = new ArrayList<CachedUrl>();
+      try {
+	for (Artifact art : restRepo.getArtifactAllVersions(restColl,
+							    au.getAuId(),
+							    url)) {
+	  if (art.getCommitted()) {
+	    cuVers.add(new Version(au, url, art));
+	    if (cuVers.size() >= maxVersions) {
+	      break;
+	    }
+	  }
+	}
+      } catch (IOException e) {
+	logger.error("Couldn't get Artifact version iterator: " + url, e);
+	return new CachedUrl[0];
+      }
+      return cuVers.toArray(new CachedUrl[0]);
+    } else {
+      ensureLeafLoaded();
+      RepositoryNodeVersion[] nodeVers = leaf.getNodeVersions(maxVersions);
+      CachedUrl[] res = new CachedUrl[nodeVers.length];
+      for (int ix = res.length - 1; ix >= 0; ix--) {
+	res[ix] = new Version(au, url, nodeVers[ix]);
+      }
+      return res;
     }
-    return res;
   }
 
   public int getVersion() {
-    return getNodeVersion().getVersion();
+    if (isRestRepo()) {
+      ensureArtifact();
+      return art.getVersion();
+    } else {
+      return getNodeVersion().getVersion();
+    }
   }
 
   /**
@@ -226,128 +297,48 @@ public class BaseCachedUrl implements CachedUrl {
 
   public boolean hasContent() {
     final String DEBUG_HEADER = "hasContent(): ";
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-    // Check whether the content is obtained via web services instead of the
-    // repository.
-    if (isAuContentFromWs) {
-      // Yes: It has content.
-      if (logger.isDebug2()) logger.debug2(DEBUG_HEADER
-	  + "return true because isAuUrlContentFromWs() = true");
-      return true;
-    }
+    if (isRestRepo()) {
+      ensureArtifact();
+      if (logger.isDebug2()) {
+	logger.debug2("hasContent = " + (art != null) + ": " + art);
+      }
 
-    // No.
-    if (repository==null) {
-      getRepository();
-    }
-    if (leaf==null) {
-      try {
-        leaf = repository.getNode(url);
-      } catch (MalformedURLException mue) {
+      return art != null;
+    } else {
+      if (repository==null) {
+	getRepository();
+      }
+      if (leaf==null) {
+	try {
+	  leaf = repository.getNode(url);
+	} catch (MalformedURLException mue) {
+	  return false;
+	}
+      }
+      if (leaf == null || !leaf.hasContent()) {
+	if (logger.isDebug2())
+	  logger.debug2(DEBUG_HEADER + "hasContent(" + getUrl()
+			+ "): leaf == null || !leaf.hasContent() = true");
 	return false;
       }
+      if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
+	logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
+	return false;
+      }
+      if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "return true");
+      return true;
     }
-    if (leaf == null || !leaf.hasContent()) {
-      if (logger.isDebug2())
-	logger.debug2(DEBUG_HEADER + "hasContent(" + getUrl()
-	    + "): leaf == null || !leaf.hasContent() = true");
-      return false;
-    }
-    if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
-      logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
-      return false;
-    }
-    if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "return true");
-    return true;
   }
 
   public InputStream getUnfilteredInputStream() {
-    final String DEBUG_HEADER = "getUnfilteredInputStream(): ";
-    // Check whether the input stream should be coming from the repository.
-    if (!isAuContentFromWs) {
-      // Yes.
+    if (isRestRepo()) {
+      ensureArtifactData();
+      inputStreamUsed = true;
+      restInputStream = artData.getInputStream();
+      return restInputStream;
+    } else {
       ensureRnc();
       return rnc.getInputStream();
-    }
-
-    // No: Get the input stream via web services.
-    inputStreamFromWs = getInputStreamFromWs();
-    if (logger.isDebug2())
-      logger.debug2(DEBUG_HEADER + "inputStreamFromWs = " + inputStreamFromWs);
-    return inputStreamFromWs;
-  }
-
-  /**
-   * Provides the input stream to the content of the URL when obtained via web
-   * services.
-   * 
-   * @return an InputStream with the input stream to the content of the URL when
-   *         obtained via web services.
-   */
-  private InputStream getInputStreamFromWs() {
-    final String DEBUG_HEADER = "getInputStreamFromWs(): ";
-
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "inputStreamFromWs = " + inputStreamFromWs);
-
-    // Check whether the input stream has not already been obtained via web
-    // services.
-    if (inputStreamFromWs == null) {
-      // Yes: Cache the URL content the via web services.
-      cacheUrlContentFromWs();
-    }
-
-    if (logger.isDebug2())
-      logger.debug2(DEBUG_HEADER + "inputStreamFromWs = " + inputStreamFromWs);
-    return inputStreamFromWs;
-  }
-
-  /**
-   * Caches the URL content after obtaining it via web services.
-   */
-  private void cacheUrlContentFromWs() {
-    final String DEBUG_HEADER = "cacheUrlContentFromWs(): ";
-
-    // Get the archival unit identifier.
-    String auId = au.getAuId();
-    if (logger.isDebug3()) logger.debug3(DEBUG_HEADER + "auId = " + auId);
-
-    ContentResult wsResult = null;
-
-    try {
-      // Get the URL content via web services.
-      wsResult = new FetchFileClient().getUrlContent(url, auId);
-      if (logger.isDebug3())
-	logger.debug3(DEBUG_HEADER + "wsResult = " + wsResult);
-    } catch (LockssWebServicesFault lwsf) {
-      if (lwsf.getMessage().indexOf("No content for url") != -1) {
-	logger.warning(lwsf.getMessage());
-	return;
-      } else {
-	logger.error("LockssWebServicesFault caught getting content for url = "
-	    + url + ", auId = " + auId, lwsf);
-	return;
-      }
-    } catch (Exception e) {
-      logger.error("Exception caught getting content for url = " + url
-	  + ", auId = " + auId, e);
-      return;
-    }
-
-    try {
-      // Get the URL content input stream.
-      inputStreamFromWs = wsResult.getDataHandler().getInputStream();
-      if (logger.isDebug3()) logger.debug3(DEBUG_HEADER
-	  + "inputStreamFromWs = " + inputStreamFromWs);
-
-      // Get the URL content properties.
-      propertiesFromWs = wsResult.getProperties();
-      if (logger.isDebug3())
-	logger.debug3(DEBUG_HEADER + "propertiesFromWs = " + propertiesFromWs);
-    } catch (Exception e) {
-      logger.error("Exception caught getting content for url = " + url
-	  + ", auId = " + auId, e);
     }
   }
 
@@ -372,7 +363,7 @@ public class BaseCachedUrl implements CachedUrl {
    * the results of getContentSize(), will continue to reflect the
    * compressed content, not what is returned in this stream. */
   public InputStream getUncompressedInputStream(HashedInputStream.Hasher hasher) {
-    InputStream in = getUnfilteredInputStream(hasher);;
+    InputStream in = getUnfilteredInputStream(hasher);
     String contentEncoding = getProperty(PROPERTY_CONTENT_ENCODING);
     // Daemon versions 1.67 and 1.68 decompressed on receipt but didn't
     // remove the Content-Encoding header.  If decompression fails return
@@ -389,94 +380,28 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   private String getProperty(String prop) {
-    final String DEBUG_HEADER = "getProperty(): ";
-    if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "prop = " + prop);
-    // Check whether the content type should be coming from the repository.
-    if (!isAuContentFromWs) {
-      // Yes.
-      CIProperties props = getProperties();
-      if (props != null) {
-	return props.getProperty(prop);
-      }
-      return null;
+    CIProperties props = getProperties();
+    if (props != null) {
+      return props.getProperty(prop);
     }
-
-    // No: Get the properties via web services.
-    Properties properties = getPropertiesFromWs();
-    if (logger.isDebug3())
-	logger.debug3(DEBUG_HEADER + "properties = " + properties);
-
-    // Get the requested property.
-    String property = (String)properties.get(prop.toLowerCase());
-    if (logger.isDebug2())
-      logger.debug2(DEBUG_HEADER + "property = " + property);
-    return property;
-  }
-
-  /**
-   * Provides the properties of the content of the URL when obtained via web
-   * services.
-   * 
-   * @return a Properties with the properties of the content of the URL when
-   *         obtained via web services.
-   */
-  private Properties getPropertiesFromWs() {
-    final String DEBUG_HEADER = "getPropertiesFromWs(): ";
-
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "propertiesFromWs = " + propertiesFromWs);
-
-    // Check whether the properties have not already been obtained via web
-    // services.
-    if (propertiesFromWs == null) {
-      // Yes: Cache the URL content the via web services.
-      cacheUrlContentFromWs();
-    }
-
-    if (logger.isDebug2())
-      logger.debug2(DEBUG_HEADER + "propertiesFromWs = " + propertiesFromWs);
-    return propertiesFromWs;
+    return null;
   }
 
   public String getContentType() {
-    final String DEBUG_HEADER = "getContentType(): ";
-    // Check whether the content type should be coming from the repository.
-    if (!isAuContentFromWs) {
-      // Yes.
-      String res = null;
-      CIProperties props = getProperties();
-      if (props != null) {
-        res = props.getProperty(PROPERTY_CONTENT_TYPE);
-      }
-      if (res == null &&
-	  CurrentConfig.getBooleanParam(PARAM_USE_RAW_CONTENT_TYPE,
-	      DEFAULT_USE_RAW_CONTENT_TYPE)) {
-	res = props.getProperty("Content-Type");
-      }
-      if (res != null) {
-        return res;
-      }
-      return matchUrlMimeMap(getUrl());
+    String res = null;
+    CIProperties props = getProperties();
+    if (props != null) {
+      res = props.getProperty(PROPERTY_CONTENT_TYPE);
     }
-
-    // No: Get the properties via web services.
-    Properties properties = getPropertiesFromWs();
-    if (logger.isDebug3())
-	logger.debug3(DEBUG_HEADER + "properties = " + properties);
-
-    // Check whether no properties were obtained.
-    if (properties == null) {
-      // Yes: Do nothing more.
-      if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "contentType = null");
-      return null;
+    if (res == null &&
+	CurrentConfig.getBooleanParam(PARAM_USE_RAW_CONTENT_TYPE,
+				      DEFAULT_USE_RAW_CONTENT_TYPE)) {
+      res = props.getProperty("Content-Type");
     }
-
-    // Get the content type property.
-    String contentType =
-	(String)properties.get(PROPERTY_CONTENT_TYPE.toLowerCase());
-    if (logger.isDebug2())
-      logger.debug2(DEBUG_HEADER + "contentType = " + contentType);
-    return contentType;
+    if (res != null) {
+      return res;
+    }
+    return matchUrlMimeMap(getUrl());
   }
 
   PatternStringMap getUrlMimeTypeMap() {
@@ -530,8 +455,29 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CIProperties getProperties() {
-    ensureRnc();
-    return CIProperties.fromProperties(rnc.getProperties());
+    if (isRestRepo()) {
+      if (restProps == null) {
+	ensureArtifactData();
+	restProps = propsFromHttpHeaders(artData.getMetadata());
+	if (logger.isDebug3()) {
+	  logger.debug2("getProperties: " + url + ": " + restProps);
+	}
+      }
+      return restProps;
+    } else {
+      ensureRnc();
+      return CIProperties.fromProperties(rnc.getProperties());
+    }
+  }
+
+  // TK should concatenate multi-value keys
+  protected CIProperties
+    propsFromHttpHeaders(org.springframework.http.HttpHeaders hdrs) {
+    CIProperties res = new CIProperties();
+    for (String key : hdrs.keySet()) {
+      res.setProperty(key, hdrs.getFirst(key));;
+    }
+    return res;
   }
 
   /**
@@ -544,12 +490,18 @@ public class BaseCachedUrl implements CachedUrl {
    * already contains the key.
    */
   public void addProperty(String key, String value) {
+    checkNotRestRepo("addProperty()");
     ensureRnc();
     rnc.addProperty(key, value);
   }
 
   public long getContentSize() {
-    return getNodeVersion().getContentSize();
+    if (isRestRepo()) {
+      ensureArtifact();
+      return art.getContentLength();
+    } else {
+      return getNodeVersion().getContentSize();
+    }
   }
 
   /**
@@ -564,48 +516,47 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public void release() {
-    final String DEBUG_HEADER = "release(): ";
-    if (rnc != null) {
-      rnc.release();
-      rnc = null;
-    }
-
-    // Check whether the content is obtained via web services instead of the
-    // repository.
-    if (isAuContentFromWs) {
-      // Yes: Close any open input stream to the content.
-      if (inputStreamFromWs != null) {
-	if (logger.isDebug3()) logger.debug3(DEBUG_HEADER
-	    + "Closing input stream obtained from web services...");
-
-	try {
-	  inputStreamFromWs.close();
-	  if (logger.isDebug3()) logger.debug3(DEBUG_HEADER + "Done.");
-	} catch (IOException e) {
-	  logger.warning(
-	      "Error closing input stream obtained from web services", e);
-	}
-
-	inputStreamFromWs = null;
+    if (isRestRepo()) {
+      IOUtil.safeClose(restInputStream);
+      restInputStream = null;
+    } else {
+      if (rnc != null) {
+	rnc.release();
+	rnc = null;
       }
     }
   }
 
   protected void ensureRnc() {
+    checkNotRestRepo("ensureRnc()");
     if (rnc == null) {
       rnc = getNodeVersion().getNodeContents();
     }
   }
 
   private LockssDaemon getDaemon() {
-    return au.getPlugin().getDaemon();
+//     if (au.getPlugin() != null) {
+//       return au.getPlugin().getDaemon();
+//     }
+    return LockssDaemon.getLockssDaemon();
   }
 
   private void getRepository() {
     repository = getDaemon().getLockssRepository(au);
   }
 
+  protected void checkNotRestRepo(String msg) {
+    if (isRestRepo())
+      throw new UnsupportedOperationException(msg + " called when using REST repository");
+  }
+
+  protected void checkRestRepo(String msg) {
+    if (!isRestRepo())
+      throw new UnsupportedOperationException(msg + " called when using old repository");
+  }
+
   private void ensureLeafLoaded() {
+    checkNotRestRepo("ensureLeafLoaded()");
     if (repository==null) {
       getRepository();
     }
@@ -615,6 +566,32 @@ public class BaseCachedUrl implements CachedUrl {
       } catch (MalformedURLException mue) {
         logger.error("Couldn't load node due to bad url: "+url);
         throw new IllegalArgumentException("Couldn't parse url properly.", mue);
+      }
+    }
+  }
+
+  private void ensureArtifact() {
+    checkRestRepo("ensureArtifact()");
+    if (!artifactObtained) {
+      try {
+	art = restRepo.getArtifact(restColl, au.getAuId(), getUrl());
+      } catch (IOException e) {
+	throw new RuntimeException(e);
+      }
+    }
+    artifactObtained = true;
+  }
+
+  private void ensureArtifactData() {
+    checkRestRepo("ensureArtifactData()");
+    if (hasContent()) {
+      if (inputStreamUsed || artData == null) {
+	try {
+	  artData = restRepo.getArtifactData(art);
+	} catch (IOException e) {
+	  throw new RuntimeException(e);
+	}
+	inputStreamUsed = false;
       }
     }
   }
@@ -692,19 +669,27 @@ public class BaseCachedUrl implements CachedUrl {
       this.nodeVer = nodeVer;
     }
 
+    public Version(ArchivalUnit owner, String url, Artifact art) {
+      super(owner, art);
+    }
+
     protected RepositoryNodeVersion getNodeVersion() {
       return nodeVer;
     }
 
     public boolean hasContent() {
-      if (!getNodeVersion().hasContent()) {
-	return false;
+      if (isRestRepo()) {
+	return super.hasContent();
+      } else {
+	if (!getNodeVersion().hasContent()) {
+	  return false;
+	}
+	if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
+	  logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
+	  return false;
+	}
+	return true;
       }
-      if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
-	logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
-	return false;
-      }
-      return true;
     }
 
     /**

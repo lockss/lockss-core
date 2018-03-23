@@ -354,6 +354,10 @@ public class RepositoryManager
     }
   }
 
+  public static boolean isRestRepo() {
+    return LockssDaemon.getLockssDaemon().getRepositoryManager().getRestRepository().getRepository() != null;
+  }
+
   public RepositoryAndCollection getRestRepository() {
     return restRepo;
   }

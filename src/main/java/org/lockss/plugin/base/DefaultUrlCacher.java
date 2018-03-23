@@ -37,7 +37,11 @@ import java.util.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import org.apache.commons.lang3.tuple.*;
+import org.apache.http.*;
+import org.apache.http.message.*;
+import org.springframework.http.HttpHeaders;
 
+import org.lockss.app.*;
 import org.lockss.state.*;
 import org.lockss.alert.*;
 import org.lockss.config.*;
@@ -49,6 +53,10 @@ import org.lockss.daemon.*;
 
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;
+
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
+import org.lockss.laaws.rs.util.*;
 
 /**
  * Basic, fully functional UrlCacher.  Utilizes the LockssRepository for
@@ -79,6 +87,8 @@ public class DefaultUrlCacher implements UrlCacher {
   private CIProperties headers;
   private boolean markLastContentChanged = true;
   private boolean alreadyHasContent;
+  private LockssRepository restRepo;
+  private String restColl;
   
   /**
    * Uncached url object and Archival Unit owner 
@@ -98,6 +108,17 @@ public class DefaultUrlCacher implements UrlCacher {
     Plugin plugin = au.getPlugin();
     repository = plugin.getDaemon().getLockssRepository(au);
     resultMap = plugin.getCacheResultMap();
+
+    RepositoryManager repomgr =
+      LockssDaemon.getLockssDaemon().getRepositoryManager();
+    if (repomgr != null && repomgr.getRestRepository() != null) {
+      restRepo = repomgr.getRestRepository().getRepository();
+      restColl = repomgr.getRestRepository().getCollection();
+    }
+  }
+
+  protected boolean isRestRepo() {
+    return restRepo != null;
   }
 
   /**
@@ -263,7 +284,156 @@ public class DefaultUrlCacher implements UrlCacher {
     return false;
   }
 
+  protected HttpHeaders
+    httpHeadersFromProps(CIProperties props) {
+    HttpHeaders res = new HttpHeaders();
+    for (String key : (Set<String>) (((Map)props).keySet())) {
+      res.set(key, props.getProperty(key));
+    }
+    return res;
+  }
+
+
   protected void storeContentIn(String url, InputStream input,
+				CIProperties headers,
+				boolean doValidate, List<String> redirUrls)
+      throws IOException {
+    if (isRestRepo()) {
+      storeContentInRest(url, input, headers, doValidate, redirUrls);
+    } else {
+      storeContentInOld(url, input, headers, doValidate, redirUrls);
+    }
+  }
+
+  protected void storeContentInRest(String url, InputStream input,
+				CIProperties headers,
+				boolean doValidate, List<String> redirUrls)
+      throws IOException {
+    InputStream in = input;
+    boolean currentWasSuspect = isCurrentVersionSuspect();
+    Artifact uncommittedArt = null;
+    try {
+      // TK      alreadyHasContent = leaf.hasContent();
+      MessageDigest checksumProducer = null;
+      String checksumAlgorithm =
+          CurrentConfig.getParam(PARAM_CHECKSUM_ALGORITHM,
+              DEFAULT_CHECKSUM_ALGORITHM);
+      if (!StringUtil.isNullString(checksumAlgorithm)) {
+        try {
+          checksumProducer = MessageDigest.getInstance(checksumAlgorithm);
+	  HashedInputStream.Hasher hasher =
+	    new HashedInputStream.Hasher(checksumProducer);
+	  in = new BufferedInputStream(new HashedInputStream(in, hasher));
+        } catch (NoSuchAlgorithmException ex) {
+          logger.warning(String.format("Checksum algorithm %s not found, "
+              + "checksumming disabled", checksumAlgorithm));
+        }
+      }
+      // TK shouldn't supply version number
+      ArtifactIdentifier id = new ArtifactIdentifier(restColl, au.getAuId(),
+						     url, null);
+
+      headers.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
+      HttpHeaders metadata = httpHeadersFromProps(headers);
+
+      // tk
+      BasicStatusLine statusLine =
+	new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
+
+      ArtifactData ad = new ArtifactData(id, metadata,
+ 					 new IgnoreCloseInputStream(in),
+					 statusLine);
+      if (logger.isDebug2()) {
+        logger.debug2("Creating artifact: " + ad);
+      }
+      uncommittedArt = restRepo.addArtifact(ad);
+      long bytes = uncommittedArt.getContentLength();
+      if (logger.isDebug2()) {
+        logger.debug2("Stored " + bytes + " bytes: " + uncommittedArt);
+      }
+      if (!fetchFlags.get(DONT_CLOSE_INPUT_STREAM_FLAG)) {
+        try {
+          input.close();
+	  IOUtil.safeClose(in);
+        } catch (IOException ex) {
+          CacheException closeEx =
+            resultMap.mapException(au, fetchUrl, ex, null);
+          if (!(closeEx instanceof CacheException.IgnoreCloseException)) {
+            throw new StreamUtil.InputException(ex);
+          }
+        }
+      }
+      boolean doStore = true;
+      if (doValidate && !fetchFlags.get(SUPPRESS_CONTENT_VALIDATION)) {
+	// Don't modify passed-in headers
+	headers = CIProperties.fromProperties(headers);
+	if (redirUrls != null && !redirUrls.isEmpty()) {
+	  headers.put(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS, redirUrls);
+	}
+	CacheException vExp = validate(headers, uncommittedArt, bytes);
+	headers.remove(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS);
+	if (vExp != null) {
+	  if (vExp.isAttributeSet(CacheException.ATTRIBUTE_FAIL) ||
+	      vExp.isAttributeSet(CacheException.ATTRIBUTE_FATAL)) {
+	    abandonNewVersion(uncommittedArt);
+	    uncommittedArt = null;
+	    throw vExp;
+	  } else if (vExp.isAttributeSet(CacheException.ATTRIBUTE_NO_STORE)) {
+	    abandonNewVersion(uncommittedArt);
+	    uncommittedArt = null;
+	    infoException = vExp;
+	    doStore = false;
+	  } else {
+	    infoException = vExp;
+	  }
+	}
+      }
+      if (doStore) {
+	if (checksumProducer != null) {
+	  byte bdigest[] = checksumProducer.digest();
+	  String sdigest = ByteArray.toHexString(bdigest);
+	  headers.setProperty(CachedUrl.PROPERTY_CHECKSUM,
+			      String.format("%s:%s",
+					    checksumAlgorithm, sdigest));
+	}
+	// tk - how to set header after data consumed.  or do checksum in repo
+	//	leaf.setNewProperties(headers);
+	if (logger.isDebug2()) {
+	  logger.debug2("Committing " + uncommittedArt);
+	}
+	Artifact committedArt = restRepo.commitArtifact(uncommittedArt);
+	if (logger.isDebug2()) {
+	  logger.debug2("Committed " + committedArt);
+	}
+
+	AuState aus = AuUtil.getAuState(au);
+	if (aus != null && currentWasSuspect) {
+	  aus.incrementNumCurrentSuspectVersions(-1);
+	}
+	if (aus != null && markLastContentChanged) {
+	  aus.contentChanged();
+	}
+	// TK
+// 	if (alreadyHasContent && !leaf.isIdenticalVersion()) {
+// 	  Alert alert = Alert.auAlert(Alert.NEW_FILE_VERSION, au);
+// 	  alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
+// 	  String msg = "Collected an additional version: " + getFetchUrl();
+// 	  alert.setAttribute(Alert.ATTR_TEXT, msg);
+// 	  raiseAlert(alert);
+// 	}
+      }
+    } catch (StreamUtil.OutputException ex) {
+      abandonNewVersion(uncommittedArt);
+      throw resultMap.getRepositoryException(ex.getIOCause());
+    } catch (IOException ex) {
+      abandonNewVersion(uncommittedArt);
+      // XXX some code below here maps the exception
+      throw ex instanceof CacheException
+	? ex : resultMap.mapException(au, url, ex, null);
+    }
+  }
+
+  protected void storeContentInOld(String url, InputStream input,
 				CIProperties headers,
 				boolean doValidate, List<String> redirUrls)
       throws IOException {
@@ -368,7 +538,7 @@ public class DefaultUrlCacher implements UrlCacher {
       IOUtil.safeClose(os);
     }
   }
-  
+
   void abandonNewVersion(RepositoryNode node) {
     if (node != null) {
       try {
@@ -378,6 +548,17 @@ public class DefaultUrlCacher implements UrlCacher {
       }
     }
   }
+
+  void abandonNewVersion(Artifact art) {
+    if (art != null) {
+      try {
+	restRepo.deleteArtifact(art);
+      } catch (Exception e) {
+	logger.error("Error deleting uncommited artifact: " + art, e);
+      }
+    }
+  }
+
 
   /**
    * Overrides normal <code>toString()</code> to return a string like
@@ -393,6 +574,64 @@ public class DefaultUrlCacher implements UrlCacher {
 
   public CacheException getInfoException() {
     return infoException;
+  }
+
+  protected CacheException validate(CIProperties headers,
+				    Artifact art,
+				    long size)
+      throws CacheException {
+    if (false) return null;
+    LinkedList<Pair<String,Exception>> validationFailures =
+      new LinkedList<Pair<String,Exception>>();
+
+    // First check actual length = Content-Length header if any
+    long contLen = getContentLength();
+    if (contLen >= 0 && contLen != size) {
+      Alert alert = Alert.auAlert(Alert.FILE_VERIFICATION, au);
+      alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
+      String msg = "File size (" + size +
+	") differs from Content-Length header (" + contLen + "): "
+	+ getFetchUrl();
+      alert.setAttribute(Alert.ATTR_TEXT, msg);
+      raiseAlert(alert);
+      validationFailures.add(new ImmutablePair(getUrl(),
+				      new ContentValidationException.WrongLength(msg)));
+    }
+
+    // 2nd, empty file
+    if (size == 0) {
+      Exception ex =
+	new ContentValidationException.EmptyFile("Empty file stored");
+      validationFailures.add(new ImmutablePair(getUrl(), ex));
+    }
+
+    // 3rd plugin-supplied ContentValidator.  Any
+    // ContentValidationException it throws will take precedence over the
+    // previous (wrong length, empty), but an unexpected exception will not
+    // take precedence.
+    String contentType = getContentType();
+    ContentValidatorFactory cvfact = au.getContentValidatorFactory(contentType);
+    if (cvfact != null) {
+      ContentValidator cv = cvfact.createContentValidator(au, contentType);
+      if (cv != null) {
+	CachedUrl cu = getTempCachedUrl(headers, size, art);
+	try {
+	  cv.validate(cu);
+	} catch (ContentValidationException e) {
+	  logger.debug2("Validation error1", e);
+	  // Plugin-triggered ContentValidationException goes first
+	  validationFailures.addFirst(new ImmutablePair(getUrl(), e));
+	} catch (Exception e) {
+	  logger.debug2("Validation error2", e);
+	  // Unexpected error in validator goes first
+	  validationFailures.addFirst(new ImmutablePair(getUrl(),
+							new ContentValidationException.ValidatorExeception(e)));
+	} finally {
+	  cu.release();
+	}
+      }
+    }
+    return firstMappedException(validationFailures);
   }
 
   protected CacheException validate(CIProperties headers,
@@ -450,6 +689,16 @@ public class DefaultUrlCacher implements UrlCacher {
       }
     }
     return firstMappedException(validationFailures);
+  }
+
+  CachedUrl getTempCachedUrl(final CIProperties headers, long size,
+			     Artifact art) {
+    return new BaseCachedUrl(au, art) {
+      @Override
+      public CIProperties getProperties() {
+	return headers;
+      }
+    };
   }
 
   CachedUrl getTempCachedUrl(CIProperties headers, long size,
