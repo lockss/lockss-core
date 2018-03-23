@@ -54,7 +54,7 @@
 	 jars -->
     <property name="plugin.registryJars">
       <list>
-	<value>lockss-plugins.jar</value>
+	<value>lockss-plugins-*.jar</value>
       </list>
     </property>
 
