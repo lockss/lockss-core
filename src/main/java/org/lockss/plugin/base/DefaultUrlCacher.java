@@ -48,6 +48,7 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.util.urlconn.*;
 import org.lockss.daemon.*;
 
