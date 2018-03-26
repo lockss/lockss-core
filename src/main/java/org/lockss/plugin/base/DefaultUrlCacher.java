@@ -333,7 +333,7 @@ public class DefaultUrlCacher implements UrlCacher {
 	new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
 
       ArtifactData ad = new ArtifactData(id, metadata,
- 					 new StreamUtil.IgnoreCloseInputStream(in),
+ 					 new IgnoreCloseInputStream(in),
 					 statusLine);
       if (logger.isDebug2()) {
         logger.debug2("Creating artifact: " + ad);
