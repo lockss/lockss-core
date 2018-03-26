@@ -63,8 +63,8 @@ public class BaseCachedUrl implements CachedUrl {
   protected RepositoryNode.RepositoryNodeContents rnc = null;
   protected Properties options;
 
-  protected LockssRepository restRepo;
-  protected String restColl;
+  protected LockssRepository v2Repo;
+  protected String v2Coll;
   protected Artifact art;
   protected ArtifactData artData;
   protected boolean artifactObtained = false;
@@ -117,38 +117,37 @@ public class BaseCachedUrl implements CachedUrl {
     this.url = url;
 
     RepositoryManager repomgr = getDaemon().getRepositoryManager();
-    if (repomgr != null && repomgr.getRestRepository() != null) {
-      restRepo = repomgr.getRestRepository().getRepository();
-      restColl = repomgr.getRestRepository().getCollection();
+    if (repomgr != null && repomgr.getV2Repository() != null) {
+      v2Repo = repomgr.getV2Repository().getRepository();
+      v2Coll = repomgr.getV2Repository().getCollection();
     }
     if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "restRepo = " + restRepo);
+      logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
   }
 
-  protected BaseCachedUrl(ArchivalUnit owner, Artifact art) {
+  protected BaseCachedUrl(ArchivalUnit owner, String url, Artifact art) {
     final String DEBUG_HEADER = "BaseCachedUrl(): ";
     this.au = owner;
+    this.url = url;
     this.art = art;
     if (art != null) {
       artifactObtained = true;
     }
-    this.url = art.getUri();
 
     RepositoryManager repomgr = getDaemon().getRepositoryManager();
     if (repomgr != null) {
-      restRepo = repomgr.getRestRepository().getRepository();
-      restColl = repomgr.getRestRepository().getCollection();
+      v2Repo = repomgr.getV2Repository().getRepository();
+      v2Coll = repomgr.getV2Repository().getCollection();
     }
     if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "restRepo = " + restRepo);
+      logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
   }
 
   /**
-   * Temporary.  True if this AU should be accessed via the new (REST)
-   * repository.
+   * Temporary.  True if this AU should be accessed via the V2 repository.
    */
-  protected boolean isRestRepo() {
-    return restRepo != null;
+  protected boolean isV2Repo() {
+    return v2Repo != null;
   }
 
   public String getUrl() {
@@ -185,15 +184,16 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CachedUrl getCuVersion(int version) {
-    if (isRestRepo()) {
+    if (isV2Repo()) {
       Artifact verArt = null;
       try {
+	// TKVER
 	verArt =
-	  restRepo.getArtifactVersion(restColl, url, au.getAuId(), version);
+	  v2Repo.getArtifactVersion(v2Coll, au.getAuId(), url, version - 1);
       } catch (IOException e) {
 	logger.error("Error getting Artifact version: " + url, e);
       }
-      return new Version(au, url, verArt);
+      return new Version(au, url, version, verArt);
     } else {
       ensureLeafLoaded();
       return new Version(au, url, leaf.getNodeVersion(version));
@@ -205,14 +205,15 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CachedUrl[] getCuVersions(int maxVersions) {
-    if (isRestRepo()) {
+    if (isV2Repo()) {
       List<CachedUrl> cuVers = new ArrayList<CachedUrl>();
       try {
-	for (Artifact art : restRepo.getArtifactAllVersions(restColl,
+	for (Artifact art : v2Repo.getArtifactAllVersions(v2Coll,
 							    au.getAuId(),
 							    url)) {
 	  if (art.getCommitted()) {
-	    cuVers.add(new Version(au, url, art));
+	    // TKVER
+	    cuVers.add(new Version(au, url, art.getVersion() + 1, art));
 	    if (cuVers.size() >= maxVersions) {
 	      break;
 	    }
@@ -235,9 +236,10 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public int getVersion() {
-    if (isRestRepo()) {
+    if (isV2Repo()) {
       ensureArtifact();
-      return art.getVersion();
+      // TKVER
+      return art.getVersion() + 1;
     } else {
       return getNodeVersion().getVersion();
     }
@@ -297,13 +299,12 @@ public class BaseCachedUrl implements CachedUrl {
 
   public boolean hasContent() {
     final String DEBUG_HEADER = "hasContent(): ";
-    if (isRestRepo()) {
+    if (isV2Repo()) {
       ensureArtifact();
       if (logger.isDebug2()) {
 	logger.debug2("hasContent = " + (art != null) + ": " + art);
       }
-
-      return art != null;
+      if (art == null) return false;
     } else {
       if (repository==null) {
 	getRepository();
@@ -321,17 +322,17 @@ public class BaseCachedUrl implements CachedUrl {
 			+ "): leaf == null || !leaf.hasContent() = true");
 	return false;
       }
-      if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
-	logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
-	return false;
-      }
-      if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "return true");
-      return true;
     }
+    if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
+      logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
+      return false;
+    }
+    if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "return true");
+    return true;
   }
 
   public InputStream getUnfilteredInputStream() {
-    if (isRestRepo()) {
+    if (isV2Repo()) {
       ensureArtifactData();
       inputStreamUsed = true;
       restInputStream = artData.getInputStream();
@@ -455,10 +456,15 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CIProperties getProperties() {
-    if (isRestRepo()) {
+    if (isV2Repo()) {
       if (restProps == null) {
 	ensureArtifactData();
-	restProps = propsFromHttpHeaders(artData.getMetadata());
+	restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
+	String chk = artData.getContentDigest();
+	// tk - hash alg shouldn't be hardwired
+	if (!StringUtil.isNullString(chk)) {
+	  restProps.put(PROPERTY_CHECKSUM, "SHA-256:" + chk);
+	}
 	if (logger.isDebug3()) {
 	  logger.debug2("getProperties: " + url + ": " + restProps);
 	}
@@ -468,16 +474,6 @@ public class BaseCachedUrl implements CachedUrl {
       ensureRnc();
       return CIProperties.fromProperties(rnc.getProperties());
     }
-  }
-
-  // TK should concatenate multi-value keys
-  protected CIProperties
-    propsFromHttpHeaders(org.springframework.http.HttpHeaders hdrs) {
-    CIProperties res = new CIProperties();
-    for (String key : hdrs.keySet()) {
-      res.setProperty(key, hdrs.getFirst(key));;
-    }
-    return res;
   }
 
   /**
@@ -490,15 +486,18 @@ public class BaseCachedUrl implements CachedUrl {
    * already contains the key.
    */
   public void addProperty(String key, String value) {
-    checkNotRestRepo("addProperty()");
+    checkNotV2Repo("addProperty()");
     ensureRnc();
     rnc.addProperty(key, value);
   }
 
   public long getContentSize() {
-    if (isRestRepo()) {
-      ensureArtifact();
-      return art.getContentLength();
+    if (isV2Repo()) {
+      if (hasContent()) {
+	return art.getContentLength();
+      } else {
+	throw new UnsupportedOperationException("No content: " + url);
+      }
     } else {
       return getNodeVersion().getContentSize();
     }
@@ -516,7 +515,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public void release() {
-    if (isRestRepo()) {
+    if (isV2Repo()) {
       IOUtil.safeClose(restInputStream);
       restInputStream = null;
     } else {
@@ -528,7 +527,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   protected void ensureRnc() {
-    checkNotRestRepo("ensureRnc()");
+    checkNotV2Repo("ensureRnc()");
     if (rnc == null) {
       rnc = getNodeVersion().getNodeContents();
     }
@@ -545,18 +544,18 @@ public class BaseCachedUrl implements CachedUrl {
     repository = getDaemon().getLockssRepository(au);
   }
 
-  protected void checkNotRestRepo(String msg) {
-    if (isRestRepo())
-      throw new UnsupportedOperationException(msg + " called when using REST repository");
+  protected void checkNotV2Repo(String msg) {
+    if (isV2Repo())
+      throw new UnsupportedOperationException(msg + " called when using V2 repository");
   }
 
-  protected void checkRestRepo(String msg) {
-    if (!isRestRepo())
-      throw new UnsupportedOperationException(msg + " called when using old repository");
+  protected void checkV2Repo(String msg) {
+    if (!isV2Repo())
+      throw new UnsupportedOperationException(msg + " called when using V1 repository");
   }
 
   private void ensureLeafLoaded() {
-    checkNotRestRepo("ensureLeafLoaded()");
+    checkNotV2Repo("ensureLeafLoaded()");
     if (repository==null) {
       getRepository();
     }
@@ -570,11 +569,18 @@ public class BaseCachedUrl implements CachedUrl {
     }
   }
 
+  protected Artifact getArtifact() throws IOException {
+    return v2Repo.getArtifact(v2Coll, au.getAuId(), getUrl());
+  }
+
   private void ensureArtifact() {
-    checkRestRepo("ensureArtifact()");
+    checkV2Repo("ensureArtifact()");
     if (!artifactObtained) {
       try {
-	art = restRepo.getArtifact(restColl, au.getAuId(), getUrl());
+	art = getArtifact();
+	if (logger.isDebug3()) {
+	  logger.debug3("Got art: " + art);
+	}
       } catch (IOException e) {
 	throw new RuntimeException(e);
       }
@@ -583,16 +589,18 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   private void ensureArtifactData() {
-    checkRestRepo("ensureArtifactData()");
+    checkV2Repo("ensureArtifactData()");
     if (hasContent()) {
       if (inputStreamUsed || artData == null) {
 	try {
-	  artData = restRepo.getArtifactData(art);
+	  artData = v2Repo.getArtifactData(art);
 	} catch (IOException e) {
 	  throw new RuntimeException(e);
 	}
 	inputStreamUsed = false;
       }
+    } else {
+      throw new UnsupportedOperationException("No content: " + url);
     }
   }
 
@@ -662,6 +670,8 @@ public class BaseCachedUrl implements CachedUrl {
   /** A CachedUrl that's bound to a specific version. */
   static class Version extends BaseCachedUrl {
     private RepositoryNodeVersion nodeVer;
+    protected int specVersion = -1;     // explicitly specified verson
+					// (used if no Artifact)
 
     public Version(ArchivalUnit owner, String url,
 		   RepositoryNodeVersion nodeVer) {
@@ -669,8 +679,24 @@ public class BaseCachedUrl implements CachedUrl {
       this.nodeVer = nodeVer;
     }
 
-    public Version(ArchivalUnit owner, String url, Artifact art) {
-      super(owner, art);
+    public Version(ArchivalUnit owner, String url, int vernum, Artifact art) {
+      super(owner, url, art);
+      specVersion = vernum;
+    }
+
+    // TKVER
+    protected Artifact getArtifact() throws IOException {
+      return
+	v2Repo.getArtifactVersion(v2Coll, au.getAuId(), getUrl(),
+				    specVersion - 1);
+    }
+
+    public int getVersion() {
+      if (specVersion < 0) {
+	return super.getVersion();
+      } else {
+	return specVersion;
+      }
     }
 
     protected RepositoryNodeVersion getNodeVersion() {
@@ -678,18 +704,20 @@ public class BaseCachedUrl implements CachedUrl {
     }
 
     public boolean hasContent() {
-      if (isRestRepo()) {
-	return super.hasContent();
+      if (isV2Repo()) {
+	if (!super.hasContent()) {
+	  return false;
+	}
       } else {
 	if (!getNodeVersion().hasContent()) {
 	  return false;
 	}
-	if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
-	  logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
-	  return false;
-	}
-	return true;
       }
+      if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
+	logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
+	return false;
+      }
+      return true;
     }
 
     /**

@@ -137,32 +137,6 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     assertEquals(origChange, finalChange);
   }
 
-  public void testNewRepo() throws IOException {
-    useNewRepo();
-    ConfigurationUtil.addFromArgs("org.lockss.log.DefaultUrlCacher.level",
-				  "debug2");
-
-    CIProperties props =
-      CIProperties.fromProperties(PropUtil.fromArgs("k1", "v1", "k2", "v2"));
-
-    ud = new UrlData(new StringInputStream("test stream"),
-		     props, TEST_URL);
-    mau.setStartUrls(ListUtil.list(TEST_URL));
-    long origChange = maus.getLastContentChange();
-    cacher = new MyDefaultUrlCacher(mau, ud);
-    cacher.storeContent();
-    long finalChange = maus.getLastContentChange();
-    assertEquals(origChange, finalChange);
-    BaseCachedUrl bcu = new BaseCachedUrl(mau, TEST_URL);
-    assertTrue(bcu.hasContent());
-    assertInputStreamMatchesString("test stream",
-				   bcu.getUnfilteredInputStream());
-//     assertTrue("Missing props: " + props + " was: " + bcu.getProperties(),
-// 	       bcu.getProperties().entrySet().containsAll(props.entrySet()));
-    assertEquals(11, bcu.getContentSize());
-    assertEquals(0, bcu.getVersion());
-  }
-
   public void testCache() throws IOException {
     ud = new UrlData(new StringInputStream("test stream"), 
         new CIProperties(), TEST_URL);

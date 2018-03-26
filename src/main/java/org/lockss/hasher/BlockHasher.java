@@ -653,6 +653,10 @@ public class BlockHasher extends GenericHasher {
    * @param hash byte array of computed hash
    */
   protected void missing(CachedUrl cu, String alg, byte[] hash) {
+    // new repo can't modify props of existing file
+    if (org.lockss.repository.RepositoryManager.isV2Repo()) {
+      return;
+    }
     String hashStr = alg + ":" + ByteArray.toHexString(hash);
     log.debug3("Storing checksum: " + hashStr);
     lhr.newlyHashed(cu.getUrl(), isHighestVersion(cu));

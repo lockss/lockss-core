@@ -50,6 +50,9 @@ import org.lockss.repository.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.plugin.exploded.*;
 
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
+
 /**
  * Static AU- and plugin-related utility methods.  These might logically
  * belong in either Plugin or ArchivalUnit, but they are defined entirely
@@ -193,10 +196,23 @@ public class AuUtil {
    */
   public static long getAuContentSize(ArchivalUnit au,
 				      boolean calcIfUnknown) {
-    LockssDaemon daemon = getDaemon(au);
-    RepositoryNode repoNode = getAuRepoNode(au);
-    return repoNode.getTreeContentSize(null, calcIfUnknown);
+    if (isV2Repo()) {
+      return calculateCusContentSize(getCuIterable(au));
+    } else {
+      RepositoryNode repoNode = getAuRepoNode(au);
+      return repoNode.getTreeContentSize(null, calcIfUnknown);
+    }
   }
+
+  public static long calculateCusContentSize(Iterable<CachedUrl> coll) {
+    long tot = 0;
+    for (CachedUrl cu : coll) {
+      tot += cu.getContentSize();
+    }
+    return tot;
+  }
+
+
 
   /**
    * Return the disk space used by the AU, including all overhead,
@@ -965,6 +981,10 @@ public class AuUtil {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "fetchTime = " + fetchTime);
     return fetchTime;
+  }
+
+  static boolean isV2Repo() {
+    return RepositoryManager.isV2Repo();
   }
 
   /**

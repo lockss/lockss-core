@@ -2128,19 +2128,19 @@ public class LockssTestCase extends TestCase {
   /**
    * Configure daemon to use a volatile LockssRepository
    */
-  protected void useNewRepo() {
-    useNewRepo("volatile:foo");
+  protected void useV2Repo() {
+    useV2Repo("volatile:foo");
   }
 
   /**
    * Configure daemon to use LockssRepository as specified
    */
-  protected void useNewRepo(String spec) {
-    ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_REST_REPOSITORY,
+  protected void useV2Repo(String spec) {
+    ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY,
 				  spec);
   }
 
-  protected boolean isRestRepo() {
-    return !StringUtil.isNullString(CurrentConfig.getParam(org.lockss.repository.RepositoryManager.PARAM_REST_REPOSITORY));
+  protected boolean isV2Repo() {
+    return !StringUtil.isNullString(CurrentConfig.getParam(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY));
   }
 }

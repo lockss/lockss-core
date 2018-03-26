@@ -60,7 +60,7 @@ public class TestSubTreeArticleIterator extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     tempDirPath = setUpDiskSpace();
-    useNewRepo();
+    useV2Repo();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

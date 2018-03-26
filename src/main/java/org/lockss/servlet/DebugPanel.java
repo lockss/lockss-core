@@ -366,29 +366,31 @@ public class DebugPanel extends LockssServlet {
   }
 
   private void deleteUrl(ArchivalUnit au, String url) {
-    org.lockss.laaws.rs.core.LockssRepository restRepo =
-      LockssDaemon.getLockssDaemon().getRepositoryManager().getRestRepository().getRepository();
+    org.lockss.laaws.rs.core.LockssRepository v2Repo =
+      LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository().getRepository();
     String coll =
-      LockssDaemon.getLockssDaemon().getRepositoryManager().getRestRepository().getCollection();
-    if (restRepo == null) {
-      errMsg = "Not using new repository";
+      LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository().getCollection();
+    if (v2Repo == null) {
+      errMsg = "Can't delete, not using V2 repository";
       return;
     }
     try {
-      if (restRepo.getArtifact(coll, au.getAuId(), url) == null) {
+      if (v2Repo.getArtifact(coll, au.getAuId(), url) == null) {
 	errMsg = "No such file: " + url + " in " + au.getName();
 	return;
       }
+      int cnt = 0;
       for (org.lockss.laaws.rs.model.Artifact art :
-	     restRepo.getArtifactAllVersions(coll, au.getAuId(), url)) {
+	     v2Repo.getArtifactAllVersions(coll, au.getAuId(), url)) {
 	log.debug2("deleting: " + art);
-	restRepo.deleteArtifact(art);
-	log.debug2("deleted: " + art);
+	v2Repo.deleteArtifact(art);
+	cnt++;
       }
       org.lockss.laaws.rs.model.Artifact delArt =
-	restRepo.getArtifact(coll, au.getAuId(), url);
+	v2Repo.getArtifact(coll, au.getAuId(), url);
       if (delArt == null) {
-	statusMsg ="Deleted: " + url;
+	statusMsg ="Deleted " + StringUtil.numberOfUnits(cnt, "version") +
+	  " of " + url;
       } else {
 	log.debug2("Delete failed: " + delArt);
 	errMsg = "File was not deleted: " + url;

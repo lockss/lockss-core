@@ -134,6 +134,9 @@ public class AuSuspectUrlVersions implements LockssSerializable {
     if (isSuspect(url, version)) {
       throw new UnsupportedOperationException("Re-marking as suspect");
     }
+    if (log.isDebug3()) {
+      log.debug3("Mark suspect: ver " + version + " of: " + url);
+    }
     suspectVersions.add(new SuspectUrlVersion(url, version));
   }
 
@@ -147,6 +150,9 @@ public class AuSuspectUrlVersions implements LockssSerializable {
     if (isSuspect(url, version)) {
       throw new UnsupportedOperationException("Re-marking as suspect");
     }
+    if (log.isDebug3()) {
+      log.debug3("Mark suspect: ver " + version + " of: " + url);
+    }
     suspectVersions.add(new SuspectUrlVersion(url, version, algorithm,
 					      computedHash, storedHash));
   }
@@ -159,6 +165,9 @@ public class AuSuspectUrlVersions implements LockssSerializable {
 					 HashResult storedHash) {
     if (isSuspect(url, version)) {
       throw new UnsupportedOperationException("Re-marking as suspect");
+    }
+    if (log.isDebug3()) {
+      log.debug3("Mark suspect: ver " + version + " of: " + url);
     }
     suspectVersions.add(new SuspectUrlVersion(url, version,
 					      computedHash, storedHash));

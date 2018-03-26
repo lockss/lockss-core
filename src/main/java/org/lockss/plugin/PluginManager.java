@@ -276,7 +276,6 @@ public class PluginManager
   // tk eliminate
   public static final String PARAM_AU_CONTENT_FROM_WS =
       PREFIX + "auContentFromWs";
-//   public static final boolean DEFAULT_AU_CONTENT_FROM_WS = true;
   public static final boolean DEFAULT_AU_CONTENT_FROM_WS = false;
 
   /**

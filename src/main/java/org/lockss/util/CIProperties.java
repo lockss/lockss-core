@@ -62,6 +62,36 @@ public class CIProperties extends Properties {
     return res;
   }
 
+  public static CIProperties fromArgs(String prop, String val) {
+    CIProperties props = new CIProperties();
+    props.put(prop, val);
+    return props;
+  }
+
+  public static CIProperties fromArgs(String prop1, String val1,
+                                    String prop2, String val2) {
+    CIProperties props = fromArgs(prop1, val1);
+    props.put(prop2, val2);
+    return props;
+  }
+
+  public static CIProperties fromArgs(String prop1, String val1,
+                                    String prop2, String val2,
+                                    String prop3, String val3) {
+    CIProperties props = fromArgs(prop1, val1, prop2, val2);
+    props.put(prop3, val3);
+    return props;
+  }
+
+  public static CIProperties fromArgs(String prop1, String val1,
+                                    String prop2, String val2,
+                                    String prop3, String val3,
+                                    String prop4, String val4) {
+    CIProperties props = fromArgs(prop1, val1, prop2, val2, prop3, val3);
+    props.put(prop4, val4);
+    return props;
+  }
+
   private String keyObj(Object obj) {
     return obj.toString().toLowerCase();
   }

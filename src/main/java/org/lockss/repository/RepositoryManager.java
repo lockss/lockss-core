@@ -133,11 +133,9 @@ public class RepositoryManager
    * <li>rest:<i>collection</i>:<i>url</i> - use a remote LockssRepository
    * at <i>url</i></li></ul>
    */
-  public static final String PARAM_REST_REPOSITORY =
-      PREFIX + "restRepository";
-  public static final String DEFAULT_REST_REPOSITORY = null;
-
-  public static String REST_COLL = "foo";
+  public static final String PARAM_V2_REPOSITORY =
+      PREFIX + "v2Repository";
+  public static final String DEFAULT_V2_REPOSITORY = null;
 
   static final String WDOG_PARAM_SIZE_CALC = "SizeCalc";
   static final long WDOG_DEFAULT_SIZE_CALC = Constants.DAY;
@@ -180,7 +178,7 @@ public class RepositoryManager
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
 
-  private RepositoryAndCollection restRepo = null;
+  private RepositoryAndCollection v2Repo = null;
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
@@ -274,23 +272,23 @@ public class RepositoryManager
               config.getEnum(CheckUnnormalizedMode.class,
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
     }
-    processRestRepoSpec(config.get(PARAM_REST_REPOSITORY,
-				   DEFAULT_REST_REPOSITORY));
+    processV2RepoSpec(config.get(PARAM_V2_REPOSITORY,
+				   DEFAULT_V2_REPOSITORY));
   }
 
   static Pattern REPO_SPEC_PATTERN =
     Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
 
-  private void processRestRepoSpec(String spec) {
+  private void processV2RepoSpec(String spec) {
     if (spec != null) {
       // currently set this only once
-      if (restRepo == null) {
+      if (v2Repo == null) {
 	LockssRepository repo = null;
 	Matcher m1 = REPO_SPEC_PATTERN.matcher(spec);
 	if (m1.matches()) {
 	  String coll = m1.group(2);
 	  if (StringUtil.isNullString(coll)) {
-	    log.critical("Illegal REST repository spec: " + spec);
+	    log.critical("Illegal V2 repository spec: " + spec);
 	  } else {
 	    switch (m1.group(1)) {
 	    case "volatile":
@@ -299,7 +297,7 @@ public class RepositoryManager
 	    case "local":
 	      String s = m1.group(3);
 	      if (StringUtil.isNullString(s)) {
-		log.critical("Illegal REST repository spec: " + spec);
+		log.critical("Illegal V2 repository spec: " + spec);
 	      } else {
 		File path = new File(s);
 		repo = LockssRepositoryFactory.createLocalRepository(path);
@@ -308,31 +306,31 @@ public class RepositoryManager
 	    case "rest":
 	      String u = m1.group(3);
 	      if (StringUtil.isNullString(u)) {
-		log.critical("Illegal REST repository spec: " + spec);
+		log.critical("Illegal V2 repository spec: " + spec);
 	      } else {
 		try {
 		  URL url = new URL(m1.group(3));
 		  repo =
 		    LockssRepositoryFactory.createRestLockssRepository(url);
 		} catch (MalformedURLException e) {
-		  log.critical("Illegal REST repository spec URL: " + spec +
+		  log.critical("Illegal V2 repository spec URL: " + spec +
 			       ": " + e.getMessage());
 		}
 	      }
 	      break;
 	    default:
-	      log.critical("Illegal REST repository spec: " + spec);
+	      log.critical("Illegal V2 repository spec: " + spec);
 	    }
 	    if (repo != null) {
-	      restRepo = new RepositoryAndCollection(repo, coll);
+	      v2Repo = new RepositoryAndCollection(repo, coll);
 	    }
 	  }
 	} else {
-	  log.critical("Illegal REST repository spec: " + spec);
+	  log.critical("Illegal V2 repository spec: " + spec);
 	}
       }
     } else {
-      restRepo = null;
+      v2Repo = null;
     }
   }
 
@@ -354,12 +352,14 @@ public class RepositoryManager
     }
   }
 
-  public static boolean isRestRepo() {
-    return LockssDaemon.getLockssDaemon().getRepositoryManager().getRestRepository().getRepository() != null;
+  public static boolean isV2Repo() {
+    RepositoryAndCollection rac =
+      LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository();
+    return rac != null && rac.getRepository() != null;
   }
 
-  public RepositoryAndCollection getRestRepository() {
-    return restRepo;
+  public RepositoryAndCollection getV2Repository() {
+    return v2Repo;
   }
 
   public static boolean isEnableLongComponents() {

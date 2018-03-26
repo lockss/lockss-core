@@ -809,16 +809,16 @@ public class ArchivalUnitStatus
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
         table.setColumnDescriptors(columnDescriptors);
         table.setDefaultSortRules(sortRules);
-	if (RepositoryManager.isRestRepo()) {
-	  table.setRows(getRestRows(table, au));
+	if (RepositoryManager.isV2Repo()) {
+	  table.setRows(getV2Rows(table, au));
 	} else {
-	  table.setRows(getRows(table, au, repo));
+	  table.setRows(getV1Rows(table, au, repo));
 	}
       }
     }
 
 
-    private List getRestRows(StatusTable table, ArchivalUnit au) {
+    private List getV2Rows(StatusTable table, ArchivalUnit au) {
       int startRow = Math.max(0, getIntProp(table, "skiprows"));
       int numRows = getIntProp(table, "numrows");
       if (numRows <= 0) {
@@ -955,7 +955,7 @@ public class ArchivalUnitStatus
       return rowMap;
     }
 
-    private List getRows(StatusTable table, ArchivalUnit au,
+    private List getV1Rows(StatusTable table, ArchivalUnit au,
         OldLockssRepository repo) {
       int startRow = Math.max(0, getIntProp(table, "skiprows"));
       int numRows = getIntProp(table, "numrows");
