@@ -262,9 +262,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <version>1.3.2.GA</version>
     </dependency>
     <dependency>
-      <groupId>com.sun</groupId>
-      <artifactId>jimi-pro</artifactId>
-      <version>1.0.0</version>
+      <groupId>org.lockss.legacy</groupId>
+      <artifactId>com-sun-jimi-pro</artifactId>
+      <version>1.0.0-p1</version>
     </dependency>
     <dependency>
       <groupId>edu.stanford.db.rdf</groupId>
@@ -845,15 +845,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   <repositories>
     <repository>
-      <id>lockss-releases</id>
-      <name>Lockss Releases Maven Repo</name>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-release</url>
-    </repository>
-    <repository>
-      <id>lockss-snapshots</id>
-      <name>Lockss Snapshot Maven Repo</name>
-      <url>http://artifacts.lockss.org:8081/artifactory/libs-snapshot</url>
-      <snapshots><enabled>true</enabled></snapshots>
+      <id>lockss-legacy</id>
+      <name>LOCKSS Legacy JARs</name>
+      <url>https://github.com/lockss/lockss-legacy-jars/raw/master/maven2</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
     </repository>
   </repositories>
+  
 </project>
