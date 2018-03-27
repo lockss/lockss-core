@@ -1701,7 +1701,7 @@ public class MetadataManager extends BaseLockssManager {
     for (String auId : ausDoiPrefixes.keySet()) {
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-      ArchivalUnit au = pluginMgr.getAuFromId(auId);
+      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auId);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
       if (au != null) {
@@ -1890,7 +1890,7 @@ public class MetadataManager extends BaseLockssManager {
     for (String auId : ausPublishers.keySet()) {
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-      ArchivalUnit au = pluginMgr.getAuFromId(auId);
+      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auId);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
       if (au != null) {

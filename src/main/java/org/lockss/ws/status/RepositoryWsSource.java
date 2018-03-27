@@ -147,7 +147,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   public Boolean getInternal() {
     if (!internalPopulated) {
       setInternal(Boolean.valueOf(getPluginManager()
-	  .isInternalAu(getPluginManager().getAuFromId(auId))));
+	  .isInternalAu(getPluginManager().getAuFromIdIfExists(auId))));
 
       internalPopulated = true;
     }
@@ -330,7 +330,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
    */
   private ArchivalUnit getArchivalUnit() {
     if (!auPopulated) {
-      au = getPluginManager().getAuFromId(auId);
+      au = getPluginManager().getAuFromIdIfExists(auId);
 
       if (au != null) {
 	String repoSpec =

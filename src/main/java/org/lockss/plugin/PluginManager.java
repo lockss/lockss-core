@@ -28,6 +28,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.plugin;
 
 import java.io.*;
+import java.nio.file.*;
 import java.net.*;
 import java.security.KeyStore;
 import java.util.*;
@@ -175,6 +176,14 @@ public class PluginManager
     PREFIX + "startAllAus";
   public static final boolean DEFAULT_START_ALL_AUS = false;
 
+  /** If true, all plugins loaded as they become available.  If false,
+   * plugins are loaded as needed for AUs started on demand.  Not fully
+   * implemented. */
+  // TK
+  public static final String PARAM_LOAD_ALL_PLUGINS =
+    PREFIX + "loadAllPlugins";
+  public static final boolean DEFAULT_LOAD_ALL_PLUGINS = true;
+
   /** If true, AU configurations may appear in any config file.  This was
    * always the case prior to 1.55, setting this true restores that
    * behavior. */
@@ -264,9 +273,10 @@ public class PluginManager
    * If true, use a web service, instead of the repository, to get the Archival
    * Unit URLs and the content of each URL.
    */
+  // tk eliminate
   public static final String PARAM_AU_CONTENT_FROM_WS =
       PREFIX + "auContentFromWs";
-  public static final boolean DEFAULT_AU_CONTENT_FROM_WS = true;
+  public static final boolean DEFAULT_AU_CONTENT_FROM_WS = false;
 
   /**
    * The parameters of the web service used, instead of the repository, to
@@ -425,9 +435,8 @@ public class PluginManager
   private boolean paramPreventConcurrentSearches =
     DEFAULT_PREVENT_CONCURRENT_SEARCHES;
 
-  // The indication of whether the URLs of an archival unit should be obtained
-  // from a web service instead of the repository.
-  private boolean paramAuContentFromWs = DEFAULT_AU_CONTENT_FROM_WS;
+  private boolean paramStartAllAus = DEFAULT_START_ALL_AUS;
+  private boolean paramLoadAllPlugins = DEFAULT_LOAD_ALL_PLUGINS;
 
   private Map titleMap = null;
   private List allTitles = null;
@@ -621,11 +630,12 @@ public class PluginManager
 	config.getBoolean(PARAM_USE_DEFAULT_PLUGIN_REGISTRIES,
 			  DEFAULT_USE_DEFAULT_PLUGIN_REGISTRIES);
 
-      // Configure the indication of whether the URLs (and their content) of an
-      // archival unit should be obtained from a web service instead of the
-      // repository.
-      paramAuContentFromWs = config.getBoolean(PARAM_AU_CONTENT_FROM_WS,
-	  DEFAULT_AU_CONTENT_FROM_WS);
+      paramStartAllAus =
+	config.getBoolean(PARAM_START_ALL_AUS, DEFAULT_START_ALL_AUS);
+
+      paramLoadAllPlugins =
+	config.getBoolean(PARAM_LOAD_ALL_PLUGINS, DEFAULT_LOAD_ALL_PLUGINS);
+
     }
 
     // Process any changed TitleSets
@@ -1076,7 +1086,7 @@ public class PluginManager
       auid = generateAuId(plugin, auConf);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auid = " + auid);
       if (!isAuContentFromWs()) {
-	oldAu = getAuFromId(auid);
+	oldAu = getAuFromIdIfExists(auid);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "oldAu = " + oldAu);
       }
     } catch (Exception e) {
@@ -1304,11 +1314,29 @@ public class PluginManager
   }
 
   /**
-   * Provides an Archival Unit given its identifier.
+   * Returns an existing Archival Unit given its identifier.  Does not
+   * cause the AU to be started.
+   *
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return an ArchivalUnit with the requested Archival Unit, iff it
+   *          already exists.
+   */
+  public ArchivalUnit getAuFromIdIfExists(String auId) {
+    final String DEBUG_HEADER = "getAuFromIdIfExists(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    return (ArchivalUnit)auMap.get(auId);
+  }
+
+  /**
+   * Provides an Archival Unit given its identifier, starting it if
+   * necessary.
    * 
    * @param auId
    *          A String with the Archival Unit identifier.
-   * @return an ArchivalUnit with the requested Archival Unit.
+   * @return an ArchivalUnit with the requested Archival Unit, if either
+   *          the AU was already present, or if its config is available and
+   *          it can be started on the fly.
    */
   public ArchivalUnit getAuFromId(String auId) {
     final String DEBUG_HEADER = "getAuFromId(): ";
@@ -1319,14 +1347,39 @@ public class PluginManager
 
     // Check whether no Archival Unit was found and the content comes from web
     // services.
-    if (au == null && isAuContentFromWs()) {
+    if (au == null && isStartAusOnDemand()) {
+      String auKey = null;
+      try {
+	auKey = PluginManager.auKeyFromAuId(auId);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auKey = " + auKey);
+      } catch (IllegalArgumentException iae) {
+	return null;
+      }
+
+      // Get the properties encoded in the archival unit key.
+      Properties props = null;
+
+      try {
+	props = PropUtil.canonicalEncodedStringToProps(auKey);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "props = " + props);
+      } catch (IllegalArgumentException iae) {
+	return null;
+      }
+
+      Configuration auConfig = null;
+      try {
+	auConfig = ConfigManager.fromPropertiesUnsealed(props);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+      } catch (RuntimeException re) {
+	return null;
+      }
+
       Plugin plugin = getPluginFromAuId(auId);
-      Configuration auConfig = configMgr.getAuConfig(auId, plugin);
 
       // Get the AU.
       try {
 	au = createAu(plugin, auConfig,
-	    new AuEvent(AuEvent.Type.Create, false));
+		      new AuEvent(AuEvent.Type.Create, false));
 	au.setConfiguration(auConfig);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
       } catch (Exception e) {
@@ -2029,7 +2082,7 @@ public class PluginManager
     Plugin plugin = getPlugin(pluginKeyFromId(pluginKey));
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "plugin = " + plugin);
 
-    if (plugin == null && isAuContentFromWs()) {
+    if (plugin == null && !isLoadAllPlugins()) {
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "Trying to retrieve plugin " + pluginKey);
 
@@ -2977,6 +3030,16 @@ public class PluginManager
     }
   }
 
+  /** Return true if any of the glob patterns in a list match the string */
+  boolean globMatch(List<PathMatcher> patList, String name) {
+    for (PathMatcher pat : patList) {
+      if (pat.matches(Paths.get(name))) {
+	return true;
+      }
+    }
+    return false;
+  }
+
   // Ensure plugins listed in o.l.plugin.registry or in jars listed in
   // o.l.plugin.registryJars are loaded.
   void synchStaticPluginList(Configuration config) {
@@ -2993,33 +3056,19 @@ public class PluginManager
     List<String> jarList = config.getList(PARAM_PLUGIN_REGISTRY_JARS);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jarList = " + jarList);
     if (!jarList.isEmpty()) {
+      // Construct list of jar glob patterns from param
+      List<PathMatcher> jarPatList = new ArrayList<PathMatcher>();
+      for (String jar : jarList) {
+	jarPatList.add(FileSystems.getDefault().getPathMatcher("glob:" + jar));
+      }
       Pattern pat =
 	Pattern.compile(config.get(PARAM_PLUGIN_MEMBER_PATTERN,
 				   DEFAULT_PLUGIN_MEMBER_PATTERN));
-      // Check whether content is obtained via the local repository, not from
-      // web services.
-      if (!isAuContentFromWs()) {
-	// Yes.
-	for (String name : getClasspath()) {
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "name = " + name);
-	  if (jarList.contains(name) ||
-	      jarList.contains(new File(name).getName())) {
-	    ensureJarPluginsLoaded(name, pat);
-	  }
-	}
-      } else {
-	// No.
-	for (String jarName : jarList) {
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jarName = " + jarName);
-
-	  File jarFile = new File(jarName);
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jarFile = " + jarFile);
-
-	  if (jarFile != null && jarFile.exists()) {
-	    if (log.isDebug3()) log.debug3(DEBUG_HEADER
-		+ "jarFile.getAbsolutePath() = " + jarFile.getAbsolutePath());
-	    ensureJarPluginsLoaded(jarName, pat);
-	  }
+      for (String name : getClasspath()) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "name = " + name);
+	if (globMatch(jarPatList, name) ||
+	    globMatch(jarPatList, new File(name).getName())) {
+	  ensureJarPluginsLoaded(name, pat);
 	}
       }
     }
@@ -3527,8 +3576,8 @@ public class PluginManager
     // The third element of the intersection below is there to handle the
     // potential race condition triggered by the Archival Unit being reactivated
     // between the first two calls.
-    return getAuFromId(auId) == null && !isInactiveAuId(auId)
-	&& getAuFromId(auId) == null;
+    return getAuFromIdIfExists(auId) == null && !isInactiveAuId(auId)
+	&& getAuFromIdIfExists(auId) == null;
   }
 
   /**
@@ -3595,8 +3644,18 @@ public class PluginManager
    * an archival unit should be obtained from a web service, <code>false</code>
    * otherwise.
    */
+  // TK calls to this remain in order to document previous behavior
   public boolean isAuContentFromWs() {
-    return paramAuContentFromWs;
+    return false;
+//     return paramAuContentFromWs;
+  }
+
+  public boolean isStartAusOnDemand() {
+    return !paramStartAllAus;
+  }
+
+  public boolean isLoadAllPlugins() {
+    return !paramLoadAllPlugins;
   }
 
   /**

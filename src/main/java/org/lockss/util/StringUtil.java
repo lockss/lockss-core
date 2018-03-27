@@ -1346,7 +1346,7 @@ public class StringUtil {
 
   public static Comparator PRE_ORDER_COMPARATOR = new PreOrderComparator();
 
-  /** Comparator that aorts in pre-order traversal order.  null is not
+  /** Comparator that sorts in pre-order traversal order.  null is not
    * permitted. */
   public static class PreOrderComparator implements Comparator<String> {
     public int compare(String s1, String s2) {

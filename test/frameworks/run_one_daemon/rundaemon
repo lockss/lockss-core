@@ -94,7 +94,7 @@ PROP_ARGS=`echo " " $PROP_URL_LIST | sed 's/ [ ]*/ -p /g'`
 # local copy of lockss jars allows recompile while we're running
 mkdir -p lib
 cp "${PROJECT_DIR}/target/current.jar" lib
-cp "${PROJECT_DIR}/target/current-test.jar" lib
+cp "${PROJECT_DIR}/target/current-tests.jar" lib
 #cp "${PROJECT_DIR}/lib/lockss-plugins.jar" lib
 
 if [ -n "$LIB_DIR" ] ; then

@@ -25,15 +25,13 @@
  in this Software without prior written authorization from Stanford University.
 
  */
-package org.lockss.laaws.rs.model;
+package org.lockss.laaws.rs09.model;
 
-import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
+import java.util.Objects;
 
-/**
- * Page
- */
-public class Page {
+public class ArtifactPage {
   @JsonProperty("next")
   private String next = null;
 
@@ -46,7 +44,10 @@ public class Page {
   @JsonProperty("results")
   private Integer results = null;
 
-  public Page next(String next) {
+  @JsonProperty("items")
+  private List<Artifact> items = null;
+
+  public ArtifactPage next(String next) {
     this.next = next;
     return this;
   }
@@ -64,7 +65,7 @@ public class Page {
     this.next = next;
   }
 
-  public Page prev(String prev) {
+  public ArtifactPage prev(String prev) {
     this.prev = prev;
     return this;
   }
@@ -82,7 +83,7 @@ public class Page {
     this.prev = prev;
   }
 
-  public Page page(Integer page) {
+  public ArtifactPage page(Integer page) {
     this.page = page;
     return this;
   }
@@ -100,7 +101,7 @@ public class Page {
     this.page = page;
   }
 
-  public Page results(Integer results) {
+  public ArtifactPage results(Integer results) {
     this.results = results;
     return this;
   }
@@ -118,6 +119,24 @@ public class Page {
     this.results = results;
   }
 
+  public ArtifactPage items(List<Artifact> items) {
+    this.items = items;
+    return this;
+  }
+
+  /**
+   * Get items
+   * 
+   * @return items
+   */
+  public List<Artifact> getItems() {
+    return items;
+  }
+
+  public void setItems(List<Artifact> items) {
+    this.items = items;
+  }
+
   @Override
   public boolean equals(java.lang.Object o) {
     if (this == o) {
@@ -126,27 +145,29 @@ public class Page {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    Page page = (Page) o;
-    return Objects.equals(this.next, page.next)
-	&& Objects.equals(this.prev, page.prev)
-	&& Objects.equals(this.page, page.page)
-	&& Objects.equals(this.results, page.results);
+    ArtifactPage artifactPage = (ArtifactPage) o;
+    return Objects.equals(next, artifactPage.next)
+	&& Objects.equals(prev, artifactPage.prev)
+	&& Objects.equals(page, artifactPage.page)
+	&& Objects.equals(results, artifactPage.results)
+	&& Objects.equals(items, artifactPage.items);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(next, prev, page, results);
+    return Objects.hash(next, prev, page, results, items);
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class Page {\n");
+    sb.append("class ArtifactPage {\n");
 
     sb.append("    next: ").append(toIndentedString(next)).append("\n");
     sb.append("    prev: ").append(toIndentedString(prev)).append("\n");
     sb.append("    page: ").append(toIndentedString(page)).append("\n");
     sb.append("    results: ").append(toIndentedString(results)).append("\n");
+    sb.append("    items: ").append(toIndentedString(items)).append("\n");
     sb.append("}");
     return sb.toString();
   }

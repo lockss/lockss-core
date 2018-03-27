@@ -533,7 +533,7 @@ public class SubscriptionStarter extends LockssRunnable {
     }
 
     // Get the archival unit.
-    ArchivalUnit au = pluginManager.getAuFromId(auId);
+    ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
     // Check whether the archival unit is already configured.

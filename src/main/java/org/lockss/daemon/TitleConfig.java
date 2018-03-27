@@ -365,13 +365,13 @@ public class TitleConfig {
       switch (action) {
       case TitleSet.SET_ADDABLE:
 	// addable if doesn't exist and pub not down and not deactivated
-	return (pluginMgr.getAuFromId(getAuId(pluginMgr)) == null
+	return (pluginMgr.getAuFromIdIfExists(getAuId(pluginMgr)) == null
 		&& !pluginMgr.isInactiveAuId(getAuId(pluginMgr))
 		&& !AuUtil.isPubDown(this));
       case TitleSet.SET_REACTABLE:
 	return pluginMgr.isInactiveAuId(getAuId(pluginMgr));
       case TitleSet.SET_DELABLE:
-	return pluginMgr.getAuFromId(getAuId(pluginMgr)) != null;
+	return pluginMgr.getAuFromIdIfExists(getAuId(pluginMgr)) != null;
       }
     } catch (RuntimeException e) {
       log.error("TC: " + displayName, e);

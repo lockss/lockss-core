@@ -98,7 +98,7 @@ public class TdbUtil {
     if (auid == null) {
       return null;
     }
-    return pluginMgr.getAuFromId(auid);
+    return pluginMgr.getAuFromIdIfExists(auid);
   }
   
   /**

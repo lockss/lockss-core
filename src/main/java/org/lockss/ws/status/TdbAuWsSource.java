@@ -144,7 +144,7 @@ public class TdbAuWsSource extends TdbAuWsResult {
       if (auId == null) {
 	setActive(false);
       } else {
-	setActive(null != getPluginManager().getAuFromId(auId));
+	setActive(null != getPluginManager().getAuFromIdIfExists(auId));
       }
 
       activePopulated = true;

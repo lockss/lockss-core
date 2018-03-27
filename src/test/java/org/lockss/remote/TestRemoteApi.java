@@ -92,7 +92,7 @@ public class TestRemoteApi extends LockssTestCase {
     assertNotNull(aup);
     assertSame(mau1, aup.getAu());
     assertSame(aup, rapi.findAuProxy(mau1));
-    ArchivalUnit mau2 = mpm.getAuFromId(AUID1);
+    ArchivalUnit mau2 = mpm.getAuFromIdIfExists(AUID1);
     assertNotNull(mau2);
     AuProxy aup2b = rapi.findAuProxy(mau2);
     AuProxy aup2a = rapi.findAuProxy(AUID1);
@@ -127,7 +127,7 @@ public class TestRemoteApi extends LockssTestCase {
 
   public void testMapAus() {
     MockArchivalUnit mau1 = new MockArchivalUnit();
-    ArchivalUnit mau2 = mpm.getAuFromId(AUID1);
+    ArchivalUnit mau2 = mpm.getAuFromIdIfExists(AUID1);
     List mapped = rapi.mapAusToProxies(ListUtil.list(mau1, mau2));
     assertEquals(2, mapped.size());
     assertNotNull(mapped.get(0));
@@ -550,10 +550,10 @@ public class TestRemoteApi extends LockssTestCase {
       idMgr.resetAgreeMap();
       RemoteApi.BatchAuStatus addedbas =
 	rapi.batchAddAus(RemoteApi.BATCH_ADD_ADD, addConfig, bi);
-      ArchivalUnit au1 = mpm.getAuFromId(auid1);
+      ArchivalUnit au1 = mpm.getAuFromIdIfExists(auid1);
       assertNotNull(au1);
       assertEquals("zippity agree map 1", idMgr.getAgreeMap(au1));
-      ArchivalUnit au2 = mpm.getAuFromId(auid2);
+      ArchivalUnit au2 = mpm.getAuFromIdIfExists(auid2);
       assertNotNull(au2);
       assertEquals("doodah agree map 2", idMgr.getAgreeMap(au2));
     } finally {
@@ -708,10 +708,6 @@ public class TestRemoteApi extends LockssTestCase {
 
     public Collection getInactiveAuIds() {
       return inactiveAuIds;
-    }
-
-    public boolean isAuContentFromWs() {
-      return false;
     }
   }
   static class MyIdentityManager extends MockIdentityManager {

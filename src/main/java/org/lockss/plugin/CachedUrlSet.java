@@ -147,6 +147,13 @@ public interface CachedUrlSet extends CachedUrlSetNode {
   public void setExcludeFilesUnchangedAfter(long date);
 
   /**
+   * Return the total size of content in the latest version of all files in
+   * this CachedUrlSet.
+   * @return number of bytes of content
+   */
+  public long getContentSize();
+
+  /**
    * Return an estimate of the time required to hash the content.
    * @return an estimate of the time required to hash the content.
    */

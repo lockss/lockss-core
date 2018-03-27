@@ -177,7 +177,7 @@ public class LockssRepositoryStatus extends BaseLockssDaemonManager {
 	      if (props != null) {
 		auid = props.getProperty(OldLockssRepositoryImpl.AU_ID_PROP);
 		if (!includeInternalAus &&
-		    pluginMgr.isInternalAu(pluginMgr.getAuFromId(auid))) {
+		    pluginMgr.isInternalAu(pluginMgr.getAuFromIdIfExists(auid))) {
 		  continue;
 		}
 	      }
@@ -198,7 +198,7 @@ public class LockssRepositoryStatus extends BaseLockssDaemonManager {
 	String auKey = PluginManager.auKeyFromAuId(auid);
 	row.put("auid", auKey);
 	row.put("plugin", PluginManager.pluginNameFromAuId(auid));
-	ArchivalUnit au = pluginMgr.getAuFromId(auid);
+	ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
 	String name = null;
 	if (au != null) {
 	  name = au.getName();

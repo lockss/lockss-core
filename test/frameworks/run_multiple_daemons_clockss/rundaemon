@@ -62,7 +62,7 @@ if [ -z "${TITLE_DBS}" -a -d ${TDB_DIR} ]; then
   TITLE_DBS="`find ${TDB_DIR} -name \*.xml | sort`"
 fi
 
-CLASSPATH=../target/current.jar:../target/current-test.jar:`cat "${PROJECT_DIR}/target/test-classpath"`
+CLASSPATH=../target/current.jar:../target/current-tests.jar:`cat "${PROJECT_DIR}/target/test-classpath"`
 export CLASSPATH
 
 PROP_URL_LIST="../../common.xml ${TITLE_DBS} ../lockss.txt ../lockss.opt local.txt local.opt"

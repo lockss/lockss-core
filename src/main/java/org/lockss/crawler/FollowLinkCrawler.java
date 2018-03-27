@@ -690,7 +690,9 @@ public class FollowLinkCrawler extends BaseCrawler {
                   IOUtil.safeClose(in);
                 }
               }
-            }
+            } else {
+	      if (log.isDebug3()) log.debug3("No content: " + cu);
+	    }
           } finally {
             cu.release();
           }

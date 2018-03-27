@@ -403,11 +403,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <version>0.1.0</version>
     </dependency>
     <dependency>
-      <groupId>org.netpreserve.commons</groupId>
-      <artifactId>webarchive-commons</artifactId>
-      <version>1.1.7-p1</version>
-    </dependency>
-    <dependency>
       <groupId>aopalliance</groupId>
       <artifactId>aopalliance</artifactId>
       <version>1.0</version>
@@ -650,6 +645,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.lockss</groupId>
       <artifactId>lockss-plugins</artifactId>
       <version>20180112</version>
+    </dependency>
+    <dependency>
+      <groupId>org.lockss.laaws</groupId>
+      <artifactId>laaws-repository-core</artifactId>
+      <version>1.10.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.netpreserve.commons</groupId>
+      <artifactId>webarchive-commons</artifactId>
+      <version>1.1.7-p1</version>
+    </dependency>
+    <!-- Because webarchive-commons 1.1.7-p1 doesn't bring in json; 1.1.8 (brought by the repo core) does but is preempted -->
+    <dependency>
+      <groupId>org.json</groupId>
+      <artifactId>json</artifactId>
+      <version>20140107</version>
     </dependency>
   </dependencies>
 

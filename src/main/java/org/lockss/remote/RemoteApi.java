@@ -387,7 +387,7 @@ public class RemoteApi
     List res = new ArrayList();
     for (Iterator iter = inactiveAuIds.iterator(); iter.hasNext(); ) {
       String auid = (String)iter.next();
-      if (!pluginMgr.isInternalAu(pluginMgr.getAuFromId(auid))) {
+      if (!pluginMgr.isInternalAu(pluginMgr.getAuFromIdIfExists(auid))) {
 	res.add(findInactiveAuProxy(auid));
       }
     }
@@ -439,6 +439,10 @@ public class RemoteApi
 
   ArchivalUnit getAuFromId(String auid) {
     return pluginMgr.getAuFromId(auid);
+  }
+
+  ArchivalUnit getAuFromIdIfExists(String auid) {
+    return pluginMgr.getAuFromIdIfExists(auid);
   }
 
   Plugin getPluginFromId(String pluginid) {
@@ -928,7 +932,7 @@ public class RemoteApi
       for (Iterator iter = auids.iterator(); iter.hasNext(); ) {
 	String auid = (String)iter.next();
 	BatchAuStatus.Entry stat = bas.newEntry(auid);
-	ArchivalUnit au = pluginMgr.getAuFromId(auid);
+	ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
 	if (au != null) {
 	  stat.setName(au.getName(), au.getPlugin());
 	  try {
@@ -968,7 +972,7 @@ public class RemoteApi
       for (Iterator iter = auids.iterator(); iter.hasNext(); ) {
 	String auid = (String)iter.next();
 	BatchAuStatus.Entry stat = bas.newEntry(auid);
-	ArchivalUnit au = pluginMgr.getAuFromId(auid);
+	ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
 	if (au != null) {
 	  stat.setName(au.getName(), au.getPlugin());
 	  try {
@@ -1072,7 +1076,7 @@ public class RemoteApi
       // Check whether the archival unit is already active.
       if (!isDisabled) {
 	// Yes: Nothing more to do besides reporting the problem.
-	ArchivalUnit au = getAuFromId(auid);
+	ArchivalUnit au = getAuFromIdIfExists(auid);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
 	if (au != null) {
@@ -1102,7 +1106,7 @@ public class RemoteApi
       stat.setConfig(oldConfig);
       Configuration normOld = normalizedAuConfig(oldConfig);
       Configuration normNew = normalizedAuConfig(auConfig);
-      ArchivalUnit au = pluginMgr.getAuFromId(auid);
+      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
       if (au != null) {
 	stat.setName(au.getName(), au.getPlugin());
       }
@@ -1140,9 +1144,9 @@ public class RemoteApi
         }
 	stat.setExplanation(sb.toString());
       }
-    } else if (getAuFromId(auid) != null) {
+    } else if (getAuFromIdIfExists(auid) != null) {
       // no current config, but AU exists
-      stat.setConfig(getAuFromId(auid).getConfiguration());
+      stat.setConfig(getAuFromIdIfExists(auid).getConfiguration());
       stat.setStatus("Error", STATUS_ORDER_ERROR);
       stat.setExplanation("Internal inconsistency: " +
 			  "AU exists but is not in config file");
@@ -1311,7 +1315,7 @@ public class RemoteApi
 	  String auid = PluginManager.generateAuId(pluginp.getPlugin(),
 						   tc.getConfig());
 	  stat.setAuid(auid);
-	  if (pluginMgr.getAuFromId(auid) == null) {
+	  if (pluginMgr.getAuFromIdIfExists(auid) == null) {
 	    stat.setStatus("DNE", STATUS_ORDER_LOW);
 	    stat.setExplanation("Does not exist");
 	  }
@@ -1995,7 +1999,7 @@ public class RemoteApi
     }
 
     // Get the identified archival unit.
-    ArchivalUnit au = pluginMgr.getAuFromId(auId);
+    ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auId);
 
     // Check whether the archival unit already exists.
     if (au != null) {
