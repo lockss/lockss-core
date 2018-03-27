@@ -648,13 +648,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     <dependency>
       <groupId>org.lockss</groupId>
+      <artifactId>lockss-util</artifactId>
+      <version>1.6.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.lockss</groupId>
       <artifactId>lockss-plugins</artifactId>
       <version>20180112</version>
     </dependency>
     <dependency>
       <groupId>org.lockss.laaws</groupId>
       <artifactId>laaws-repository-core</artifactId>
-      <version>1.10.0</version>
+      <version>1.11.0</version>
     </dependency>
     <dependency>
       <groupId>org.netpreserve.commons</groupId>

@@ -1306,26 +1306,11 @@ public class StringUtil {
    * Comparison that matches the traversal order of CachedUrlSet iterators.
    * Differs from natural sort order in that '/' sorts before any other
    * char, because the tree traversal is pre-order.
+   * @deprecated Moved to {PreOrderComparator#preOrderCompareTo(String, String)}
    */
+  @Deprecated
   public static int preOrderCompareTo(String str1, String str2) {
-    int len1 = str1.length();
-    int len2 = str2.length();
-    int n = Math.min(len1, len2);
-
-    for (int ix = 0; ix < n; ix++) {
-      char c1 = str1.charAt(ix);
-      char c2 = str2.charAt(ix);
-      if (c1 != c2) {
-	if (c1 == '/') {
-	  return -1;
-	}
-	if (c2 == '/') {
-	  return 1;
-	}
-	return c1 - c2;
-      }
-    }
-    return len1 - len2;
+    return PreOrderComparator.preOrderCompareTo(str1, str2);
   }
 
   /** 
@@ -1333,26 +1318,18 @@ public class StringUtil {
    * Differs from natural sort order in that '/' sorts before any other
    * char, because the tree traversal is pre-order.  Null sorts after all
    * nun-null strings.
+   * @deprecated Moved to {PreOrderComparator#preOrderCompareToNullHigh(String, String)}
    */
+  @Deprecated
   public static int preOrderCompareToNullHigh(String str1, String str2) {
-    if (str1 == null) {
-      return (str2 == null) ? 0 : 1;
-    }
-    if (str2 == null) {
-      return -1;
-    }
-    return StringUtil.preOrderCompareTo(str1, str2);
+    return PreOrderComparator.preOrderCompareToNullHigh(str1, str2);
   }
 
-  public static Comparator PRE_ORDER_COMPARATOR = new PreOrderComparator();
-
-  /** Comparator that sorts in pre-order traversal order.  null is not
-   * permitted. */
-  public static class PreOrderComparator implements Comparator<String> {
-    public int compare(String s1, String s2) {
-      return StringUtil.preOrderCompareTo(s1, s2);
-    }
-  }
+  /**
+   * @deprecated Moved to {@link PreOrderComparator#INSTANCE}
+   */
+  @Deprecated
+  public static final Comparator<String> PRE_ORDER_COMPARATOR = PreOrderComparator.INSTANCE;
 
   /**
    * Compare two strings for equality or both null.
