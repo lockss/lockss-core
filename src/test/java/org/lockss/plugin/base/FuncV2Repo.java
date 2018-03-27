@@ -104,20 +104,20 @@ public class FuncV2Repo extends LockssTestCase {
     repo.commitArtifact(art1);
     Artifact r1 = repo.getArtifact(COLL, AUID, url1);
     assertEquals(art1, r1);
-    assertEquals(0, (int)r1.getVersion());
-    Artifact aa = repo.getArtifactVersion(COLL, AUID, url1, 0);
+    assertEquals(1, (int)r1.getVersion());
+    Artifact aa = repo.getArtifactVersion(COLL, AUID, url1, 1);
     assertEquals(art1, aa);
 
-    ArtifactData ad2 = createArtifact(COLL, AUID, url1, "content 11111");
+    ArtifactData ad2 = createArtifact(COLL, AUID, url1, "content 22222");
     Artifact art2 = repo.addArtifact(ad2);
     repo.commitArtifact(art2);
 
     aa = repo.getArtifact(COLL, AUID, url1);
     assertEquals(art2, aa);
-    assertEquals(1, (int)aa.getVersion());
-    aa = repo.getArtifactVersion(COLL, AUID, url1, 1);
+    assertEquals(2, (int)aa.getVersion());
+    aa = repo.getArtifactVersion(COLL, AUID, url1, 2);
     assertEquals(art2, aa);
-    assertEquals(1, (int)aa.getVersion());
+    assertEquals(2, (int)aa.getVersion());
   }
 
 
@@ -154,7 +154,7 @@ public class FuncV2Repo extends LockssTestCase {
 
     Artifact a1 = storeArt(url1, "content 11111", null);
     assertEquals(url1, a1.getUri());
-    assertEquals(0, (int)a1.getVersion());
+    assertEquals(1, (int)a1.getVersion());
 
     tst = repo.getArtifact(COLL, AUID, uslash);
     assertNull(tst);

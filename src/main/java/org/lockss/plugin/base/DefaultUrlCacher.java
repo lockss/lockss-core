@@ -321,7 +321,7 @@ public class DefaultUrlCacher implements UrlCacher {
               + "checksumming disabled", checksumAlgorithm));
         }
       }
-      // TKVER shouldn't supply version number
+      // TK shouldn't supply version number
       ArtifactIdentifier id = new ArtifactIdentifier(v2Coll, au.getAuId(),
 						     url, null);
 

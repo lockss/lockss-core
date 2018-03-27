@@ -158,8 +158,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     assertIsomorphic(expectedA, childL);
   }
 
-  // TKSORT
-  public void tk_testHashIterator() throws Exception {
+  public void testHashIterator() throws Exception {
     String lurl1 = "http://www.example.com/testDir/branch1/leaf1";
     String lurl2 = "http://www.example.com/testDir/branch1/leaf2";
     String lurl3 = "http://www.example.com/testDir/branch2/leaf3";
@@ -180,11 +179,11 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     }
     // should be sorted
     String[] expectedA = new String[] {
-      "http://www.example.com/testDir",
-      "http://www.example.com/testDir/branch1",
+//       "http://www.example.com/testDir",
+//       "http://www.example.com/testDir/branch1",
       lurl1,
       lurl2,
-      "http://www.example.com/testDir/branch2",
+//       "http://www.example.com/testDir/branch2",
       lurl3,
       lurl4,
       };
@@ -315,8 +314,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     "https://bb:8000/leaf",
   };
 
-  // TK
-  public void tktestHashIteratorMultipleSchemeHostPort() throws Exception {
+  public void testHashIteratorMultipleSchemeHostPort() throws Exception {
     Set preOrderHasContent = new TreeSet(StringUtil.PRE_ORDER_COMPARATOR);
     for (String s : expMultSchemeHostPort) {
       if (s.endsWith("leaf")) {
@@ -424,52 +422,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     assertEmpty(childL);
   }
 
-  // TKSORT
-  public void tktestHashIteratorClassCreation() throws Exception {
-    createLeaf("http://www.example.com/testDir/branch1", "test stream", null);
-    createLeaf("http://www.example.com/testDir/leaf3", "test stream", null);
-    createLeaf("http://www.example.com/testDir/branch2/branch3",
-               "test stream", null);
-    createLeaf("http://www.example.com/testDir/branch2/branch3/leaf2",
-               "test stream", null);
-    createLeaf("http://www.example.com/testDir/branch1/leaf1",
-               "test stream", null);
-
-    CachedUrlSetSpec rSpec =
-      new RangeCachedUrlSetSpec("http://www.example.com/testDir");
-    CachedUrlSet fileSet = mau.makeCachedUrlSet(rSpec);
-    Iterator setIt = fileSet.contentHashIterator();
-    assertRightClass((CachedUrlSetNode)setIt.next(),
-		     "http://www.example.com/testDir", true);
-    assertRightClass((CachedUrlSetNode)setIt.next(),
-		     "http://www.example.com/testDir/branch1", true);
-    assertRightClass((CachedUrlSetNode)setIt.next(),
-		     "http://www.example.com/testDir/branch1/leaf1", false);
-    assertRightClass((CachedUrlSetNode)setIt.next(),
-		     "http://www.example.com/testDir/branch2", true);
-    assertRightClass((CachedUrlSetNode)setIt.next(),
-		     "http://www.example.com/testDir/branch2/branch3", true);
-    assertRightClass((CachedUrlSetNode)setIt.next(),
-		     "http://www.example.com/testDir/branch2/branch3/leaf2",
-		     false);
-    assertRightClass((CachedUrlSetNode)setIt.next(),
-		     "http://www.example.com/testDir/leaf3", false);
-  }
-
-  private void assertRightClass(CachedUrlSetNode element,
-				String url, boolean isCus) {
-    assertEquals(url, element.getUrl());
-    if (isCus) {
-      assertEquals(CachedUrlSetNode.TYPE_CACHED_URL_SET, element.getType());
-      assertTrue(element instanceof CachedUrlSet);
-      assertFalse(element.isLeaf());
-    } else {
-      assertEquals(CachedUrlSetNode.TYPE_CACHED_URL, element.getType());
-      assertTrue(element instanceof CachedUrl);
-      assertTrue(element.isLeaf());
-    }
-  }
-
   public void testNodeCounting() throws Exception {
     createLeaf("http://www.example.com/testDir/branch1/leaf1",
                "test streamAA", null);
@@ -483,9 +435,14 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
         new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     BaseCachedUrlSet fileSet =
         (BaseCachedUrlSet)mau.makeCachedUrlSet(rSpec);
-    fileSet.calculateNodeSize();
- //   assertEquals(4, ((BaseCachedUrlSet)fileSet).contentNodeCount);
-    assertEquals(48, ((BaseCachedUrlSet)fileSet).totalNodeSize);
+    assertEquals(48, fileSet.getContentSize());
+    assertEquals(48, AuUtil.getAuContentSize(mau, true));
+    assertEquals(48, mau.getAuCachedUrlSet().getContentSize());
+
+    CachedUrlSetSpec spec2 =
+        new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1");
+    CachedUrlSet cus2 = mau.makeCachedUrlSet(spec2);
+    assertEquals(24, cus2.getContentSize());
   }
 
   public void testHashEstimation() throws Exception {

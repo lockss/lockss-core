@@ -197,7 +197,7 @@ public class AuUtil {
   public static long getAuContentSize(ArchivalUnit au,
 				      boolean calcIfUnknown) {
     if (isV2Repo()) {
-      return calculateCusContentSize(getCuIterable(au));
+      return au.getAuCachedUrlSet().getContentSize();
     } else {
       RepositoryNode repoNode = getAuRepoNode(au);
       return repoNode.getTreeContentSize(null, calcIfUnknown);

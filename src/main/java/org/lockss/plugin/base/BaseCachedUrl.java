@@ -187,9 +187,8 @@ public class BaseCachedUrl implements CachedUrl {
     if (isV2Repo()) {
       Artifact verArt = null;
       try {
-	// TKVER
 	verArt =
-	  v2Repo.getArtifactVersion(v2Coll, au.getAuId(), url, version - 1);
+	  v2Repo.getArtifactVersion(v2Coll, au.getAuId(), url, version);
       } catch (IOException e) {
 	logger.error("Error getting Artifact version: " + url, e);
       }
@@ -212,8 +211,7 @@ public class BaseCachedUrl implements CachedUrl {
 							    au.getAuId(),
 							    url)) {
 	  if (art.getCommitted()) {
-	    // TKVER
-	    cuVers.add(new Version(au, url, art.getVersion() + 1, art));
+	    cuVers.add(new Version(au, url, art.getVersion(), art));
 	    if (cuVers.size() >= maxVersions) {
 	      break;
 	    }
@@ -238,8 +236,7 @@ public class BaseCachedUrl implements CachedUrl {
   public int getVersion() {
     if (isV2Repo()) {
       ensureArtifact();
-      // TKVER
-      return art.getVersion() + 1;
+      return art.getVersion();
     } else {
       return getNodeVersion().getVersion();
     }
@@ -463,7 +460,7 @@ public class BaseCachedUrl implements CachedUrl {
 	String chk = artData.getContentDigest();
 	// tk - hash alg shouldn't be hardwired
 	if (!StringUtil.isNullString(chk)) {
-	  restProps.put(PROPERTY_CHECKSUM, "SHA-256:" + chk);
+	  restProps.put(PROPERTY_CHECKSUM, chk);
 	}
 	if (logger.isDebug3()) {
 	  logger.debug2("getProperties: " + url + ": " + restProps);
@@ -684,11 +681,10 @@ public class BaseCachedUrl implements CachedUrl {
       specVersion = vernum;
     }
 
-    // TKVER
     protected Artifact getArtifact() throws IOException {
       return
 	v2Repo.getArtifactVersion(v2Coll, au.getAuId(), getUrl(),
-				    specVersion - 1);
+				    specVersion);
     }
 
     public int getVersion() {

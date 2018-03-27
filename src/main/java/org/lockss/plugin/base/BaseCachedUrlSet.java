@@ -314,6 +314,19 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     histRepo.getAuState().setLastHashDuration(newEst);
   }
 
+  public long getContentSize() {
+    if (spec.isAu()) {
+      try {
+	return v2Repo.auSize(v2Coll, au.getAuId());
+      } catch (IOException e) {
+	// TK what to do here
+	throw new RuntimeException(e);
+      }
+    } else {
+      return AuUtil.calculateCusContentSize(getCuIterable());
+    }
+  }
+
   public long estimatedHashDuration() {
     return theDaemon.getHashService().padHashEstimate(makeHashEstimate());
   }
