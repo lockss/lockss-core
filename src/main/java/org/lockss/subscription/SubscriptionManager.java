@@ -2659,7 +2659,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
       // Get the archival unit.
-      ArchivalUnit au = pluginManager.getAuFromId(auId);
+      ArchivalUnit au = pluginManager.getAuFromIdIfExists(auId);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
       // Check whether the archival unit is not active.

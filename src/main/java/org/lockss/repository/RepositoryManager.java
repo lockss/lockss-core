@@ -32,8 +32,10 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.repository;
 
+import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.regex.*;
 import org.apache.commons.collections.map.LinkedMap;
 
 import org.lockss.app.*;
@@ -41,6 +43,7 @@ import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.laaws.rs.core.*;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -123,6 +126,16 @@ public class RepositoryManager
   public static final CheckUnnormalizedMode DEFAULT_CHECK_UNNORMALIZED =
       CheckUnnormalizedMode.Log;
 
+  /** Temporary specification of (new) LockssRepository for all AU storage.
+   * <ul><li>volatile:<i>collection</i> - use a volatile LockssRepository</li>
+   * <li>local:<i>collection</i>:<i>path</i> - use a local LockssRepository
+   * at <i>path</i></li>
+   * <li>rest:<i>collection</i>:<i>url</i> - use a remote LockssRepository
+   * at <i>url</i></li></ul>
+   */
+  public static final String PARAM_V2_REPOSITORY =
+      PREFIX + "v2Repository";
+  public static final String DEFAULT_V2_REPOSITORY = null;
 
   static final String WDOG_PARAM_SIZE_CALC = "SizeCalc";
   static final long WDOG_DEFAULT_SIZE_CALC = Constants.DAY;
@@ -165,6 +178,7 @@ public class RepositoryManager
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
 
+  private RepositoryAndCollection v2Repo = null;
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
@@ -201,9 +215,9 @@ public class RepositoryManager
           DEFAULT_MAX_PER_AU_CACHE_SIZE);
       for (Iterator iter = getDaemon().getAllLockssRepositories().iterator();
           iter.hasNext(); ) {
-        LockssRepository repo = (LockssRepository)iter.next();
-        if (repo instanceof LockssRepositoryImpl) {
-          LockssRepositoryImpl repoImpl = (LockssRepositoryImpl)repo;
+        OldLockssRepository repo = (OldLockssRepository)iter.next();
+        if (repo instanceof OldLockssRepositoryImpl) {
+          OldLockssRepositoryImpl repoImpl = (OldLockssRepositoryImpl)repo;
           repoImpl.setNodeCacheSize(paramNodeCacheSize);
         }
       }
@@ -258,6 +272,94 @@ public class RepositoryManager
               config.getEnum(CheckUnnormalizedMode.class,
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
     }
+    processV2RepoSpec(config.get(PARAM_V2_REPOSITORY,
+				   DEFAULT_V2_REPOSITORY));
+  }
+
+  static Pattern REPO_SPEC_PATTERN =
+    Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
+
+  private void processV2RepoSpec(String spec) {
+    if (spec != null) {
+      // currently set this only once
+      if (v2Repo == null) {
+	LockssRepository repo = null;
+	Matcher m1 = REPO_SPEC_PATTERN.matcher(spec);
+	if (m1.matches()) {
+	  String coll = m1.group(2);
+	  if (StringUtil.isNullString(coll)) {
+	    log.critical("Illegal V2 repository spec: " + spec);
+	  } else {
+	    switch (m1.group(1)) {
+	    case "volatile":
+	      repo = LockssRepositoryFactory.createVolatileRepository();
+	      break;
+	    case "local":
+	      String s = m1.group(3);
+	      if (StringUtil.isNullString(s)) {
+		log.critical("Illegal V2 repository spec: " + spec);
+	      } else {
+		File path = new File(s);
+		repo = LockssRepositoryFactory.createLocalRepository(path);
+	      }
+	      break;
+	    case "rest":
+	      String u = m1.group(3);
+	      if (StringUtil.isNullString(u)) {
+		log.critical("Illegal V2 repository spec: " + spec);
+	      } else {
+		try {
+		  URL url = new URL(m1.group(3));
+		  repo =
+		    LockssRepositoryFactory.createRestLockssRepository(url);
+		} catch (MalformedURLException e) {
+		  log.critical("Illegal V2 repository spec URL: " + spec +
+			       ": " + e.getMessage());
+		}
+	      }
+	      break;
+	    default:
+	      log.critical("Illegal V2 repository spec: " + spec);
+	    }
+	    if (repo != null) {
+	      v2Repo = new RepositoryAndCollection(repo, coll);
+	    }
+	  }
+	} else {
+	  log.critical("Illegal V2 repository spec: " + spec);
+	}
+      }
+    } else {
+      v2Repo = null;
+    }
+  }
+
+  public class RepositoryAndCollection {
+    private LockssRepository repo;
+    private String collection;
+
+    private RepositoryAndCollection(LockssRepository repo, String collection) {
+      this.repo = repo;
+      this.collection = collection;
+    }
+
+    public LockssRepository getRepository() {
+      return repo;
+    }
+
+    public String getCollection() {
+      return collection;
+    }
+  }
+
+  public static boolean isV2Repo() {
+    RepositoryAndCollection rac =
+      LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository();
+    return rac != null && rac.getRepository() != null;
+  }
+
+  public RepositoryAndCollection getV2Repository() {
+    return v2Repo;
   }
 
   public static boolean isEnableLongComponents() {
@@ -283,7 +385,7 @@ public class RepositoryManager
   }
 
   public PlatformUtil.DF getRepositoryDF(String repoName) {
-    String path = LockssRepositoryImpl.getLocalRepositoryPath(repoName);
+    String path = OldLockssRepositoryImpl.getLocalRepositoryPath(repoName);
     log.debug("path: " + path);
 //    try {
     return platInfo.getJavaDF(path);
@@ -338,8 +440,8 @@ public class RepositoryManager
     List res = null;
     for (Iterator iter = getRepositoryList().iterator(); iter.hasNext(); ) {
       String repoName = (String)iter.next();
-      String path = LockssRepositoryImpl.getLocalRepositoryPath(repoName);
-      if (LockssRepositoryImpl.doesAuDirExist(auid, path)) {
+      String path = OldLockssRepositoryImpl.getLocalRepositoryPath(repoName);
+      if (OldLockssRepositoryImpl.doesAuDirExist(auid, path)) {
         if (res == null) {
           res = new ArrayList();
         }
@@ -350,13 +452,13 @@ public class RepositoryManager
   }
 
   // hack only local
-  public synchronized LockssRepositoryImpl getRepositoryFromPath(String path) {
+  public synchronized OldLockssRepositoryImpl getRepositoryFromPath(String path) {
     if (log.isDebug2()) {
       log.debug2("get Repo from path: " + path);
     }
-    LockssRepositoryImpl repo = (LockssRepositoryImpl)localRepos.get(path);
+    OldLockssRepositoryImpl repo = (OldLockssRepositoryImpl)localRepos.get(path);
     if (repo == null) {
-      repo =  new LockssRepositoryImpl(path);
+      repo =  new OldLockssRepositoryImpl(path);
       repo.initService(getDaemon());
       repo.startService();
       localRepos.put(path, repo);
@@ -376,7 +478,7 @@ public class RepositoryManager
     if (log.isDebug2()) {
       log.debug2("diskUssage for repo path: " + repoAuPath );
     }
-    LockssRepository repo = getRepositoryFromPath(repoAuPath);
+    OldLockssRepository repo = getRepositoryFromPath(repoAuPath);
     if (repo != null) {
       try {
         RepositoryNode repoNode = repo.getNode(AuCachedUrlSetSpec.URL);
@@ -390,7 +492,7 @@ public class RepositoryManager
   }
 
   public synchronized void setRepositoryForPath(String path,
-      LockssRepositoryImpl repo) {
+      OldLockssRepositoryImpl repo) {
     localRepos.put(path, repo);
   }
 

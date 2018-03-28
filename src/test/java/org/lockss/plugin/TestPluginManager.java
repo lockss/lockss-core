@@ -113,7 +113,7 @@ public class TestPluginManager extends LockssTestCase {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(PluginManager.PARAM_PLUGIN_LOCATION, "plugins");
     ConfigurationUtil.setCurrentConfigFromProps(p);
-    useOldRepo();
+//     useOldRepo();
 
     RepositoryManager repoMgr = theDaemon.getRepositoryManager();
     repoMgr.startService();
@@ -365,8 +365,8 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(1, mpi.getInitCtr());
 
     // get the two archival units
-    ArchivalUnit au1 = mgr.getAuFromId(mauauid1);
-    ArchivalUnit au2 = mgr.getAuFromId(mauauid2);
+    ArchivalUnit au1 = mgr.getAuFromIdIfExists(mauauid1);
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(mauauid2);
 
     // verify the plugin's set of all AUs is {au1, au2}
     assertEquals(SetUtil.set(au1, au2), new HashSet(mgr.getAllAus()));
@@ -385,7 +385,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals("val1", c2.get(MockPlugin.CONFIG_PROP_1));
     assertEquals("va.l3", c2.get(MockPlugin.CONFIG_PROP_2));
 
-    assertEquals(au1, mgr.getAuFromId(mauauid1));
+    assertEquals(au1, mgr.getAuFromIdIfExists(mauauid1));
   }
 
   public void testAuConfigWithGlobalEntryForNonExistentAU() throws Exception {
@@ -400,8 +400,8 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(1, mpi.getInitCtr());
 
     // get the two archival units
-    ArchivalUnit au1 = mgr.getAuFromId(mauauid1);
-    ArchivalUnit au2 = mgr.getAuFromId(mauauid2);
+    ArchivalUnit au1 = mgr.getAuFromIdIfExists(mauauid1);
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(mauauid2);
 
     assertNotNull("AU1 didn't get created", au1);
     assertNotNull("AU2 didn't get created", au2);
@@ -423,7 +423,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals("val1", c2.get(MockPlugin.CONFIG_PROP_1));
     assertEquals("va.l3", c2.get(MockPlugin.CONFIG_PROP_2));
 
-    assertEquals(au1, mgr.getAuFromId(mauauid1));
+    assertEquals(au1, mgr.getAuFromIdIfExists(mauauid1));
   }
 
   List createEvents = new ArrayList();
@@ -458,7 +458,7 @@ public class TestPluginManager extends LockssTestCase {
 
     // verify put in PluginManager map
     String auid = au.getAuId();
-    ArchivalUnit aux = mgr.getAuFromId(auid);
+    ArchivalUnit aux = mgr.getAuFromIdIfExists(auid);
     assertSame(au, aux);
 
     // verify got right config
@@ -508,7 +508,7 @@ public class TestPluginManager extends LockssTestCase {
                                    new AuEvent(AuEvent.Type.Create, false));
 
     String auid = au.getAuId();
-    ArchivalUnit aux = mgr.getAuFromId(auid);
+    ArchivalUnit aux = mgr.getAuFromIdIfExists(auid);
     assertSame(au, aux);
 
     // verify event handler run
@@ -1110,8 +1110,8 @@ public class TestPluginManager extends LockssTestCase {
 				  PluginManager.PARAM_AU_SEARCH_MIN_DISK_SEARCHES_FOR_404_CACHE,
 				  "0");
     // get the two archival units
-    MockArchivalUnit au1 = (MockArchivalUnit)mgr.getAuFromId(mauauid1);
-    MockArchivalUnit au2 = (MockArchivalUnit)mgr.getAuFromId(mauauid2);
+    MockArchivalUnit au1 = (MockArchivalUnit)mgr.getAuFromIdIfExists(mauauid1);
+    MockArchivalUnit au2 = (MockArchivalUnit)mgr.getAuFromIdIfExists(mauauid2);
     assertEquals(0, mgr.getRecentCuMisses());
     assertEquals(0, mgr.getRecentCuHits());
     assertNull(mgr.findCachedUrl(url1));
@@ -1290,8 +1290,8 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(theDaemon.isClockss());
 
     // get the two archival units
-    MockArchivalUnit au1 = (MockArchivalUnit)mgr.getAuFromId(mauauid1);
-    MockArchivalUnit au2 = (MockArchivalUnit)mgr.getAuFromId(mauauid2);
+    MockArchivalUnit au1 = (MockArchivalUnit)mgr.getAuFromIdIfExists(mauauid1);
+    MockArchivalUnit au2 = (MockArchivalUnit)mgr.getAuFromIdIfExists(mauauid2);
     AuState aus1 = setUpAuState(au1);
     AuState aus2 = setUpAuState(au2);
     aus1.setClockssSubscriptionStatus(AuState.CLOCKSS_SUB_NO);
@@ -1732,7 +1732,7 @@ public class TestPluginManager extends LockssTestCase {
     MyMockRegistryArchivalUnit mmau2 =
       new MyMockRegistryArchivalUnit(ListUtil.list(pluginJar,
 						   "org/lockss/test/good-plugin2.jar"));
-    assertSame(au1, mgr.getAuFromId(auid));
+    assertSame(au1, mgr.getAuFromIdIfExists(auid));
     mgr.processRegistryAus(ListUtil.list(mmau2));
 
     // Ensure the new plugin was installed, the AU is now running as part
@@ -1740,7 +1740,7 @@ public class TestPluginManager extends LockssTestCase {
     Plugin plugin2 = mgr.getPlugin(pluginKey);
     assertNotSame(plugin1, plugin2);
     assertEquals("2", plugin2.getVersion());
-    ArchivalUnit au2 = mgr.getAuFromId(auid);
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(auid);
     assertNotSame(au1, au2);
     assertSame(plugin2, au2.getPlugin());
     assertEquals("V2: http://example.com/a/, 1942", au2.getName());
@@ -1838,10 +1838,10 @@ public class TestPluginManager extends LockssTestCase {
       + PluginManager.configKeyFromAuId(auid) + ".";
     p.setProperty(prefix + k1, v1);
     p.setProperty(prefix + k2, v2);
-    assertEquals(null, mgr.getAuFromId(auid));
+    assertEquals(null, mgr.getAuFromIdIfExists(auid));
     mgr.suppressEnxurePluginLoaded(ListUtil.list(pluginKey));
     prepareLoadablePluginTests(p);
-    assertEquals(null, mgr.getAuFromId(auid));
+    assertEquals(null, mgr.getAuFromIdIfExists(auid));
 
     mgr.suppressEnxurePluginLoaded(null);
 
@@ -1856,7 +1856,7 @@ public class TestPluginManager extends LockssTestCase {
     assertFalse(mgr.isInternalPlugin(plugin1));
     assertEquals("1", plugin1.getVersion());
 
-    ArchivalUnit au = mgr.getAuFromId(auid);
+    ArchivalUnit au = mgr.getAuFromIdIfExists(auid);
     assertNotNull(au);
   }
 

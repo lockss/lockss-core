@@ -1942,7 +1942,7 @@ public class ConfigManager implements LockssManager {
       String firstSpace =
 	((String)StringUtil.breakAt(space, ';', 1).elementAt(0));
       platformOverride(config,
-		       LockssRepositoryImpl.PARAM_CACHE_LOCATION,
+		       OldLockssRepositoryImpl.PARAM_CACHE_LOCATION,
 		       firstSpace);
       platformOverride(config, HistoryRepositoryImpl.PARAM_HISTORY_LOCATION,
 		       firstSpace);
@@ -3333,7 +3333,7 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && restConfigClient != null) {
+    if (tdbAu == null && restConfigClient.isActive()) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
@@ -3400,7 +3400,7 @@ public class ConfigManager implements LockssManager {
 
     // Check whether the Archival Unit title database has not been found and the
     // configuration is obtained via a Configuration REST web service.
-    if (tdbAu == null && restConfigClient != null) {
+    if (tdbAu == null && restConfigClient.isActive()) {
       // Yes.
       try {
 	// Get the Archival Unit title database from the Configuration REST web
@@ -3475,7 +3475,7 @@ public class ConfigManager implements LockssManager {
     // Check whether no Archival Unit configuration was found.
     if (auConfig == null) {
       // Yes: Try to get it from the REST Configuration service.
-      if (restConfigClient != null) {
+      if (restConfigClient.isActive()) {
 	try {
 	  auConfig = restConfigClient.getAuConfig(auId);
 	  if (log.isDebug3())

@@ -35,7 +35,7 @@ import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import org.lockss.config.CurrentConfig;
 import org.lockss.daemon.GetUrlRepositoryPropertiesClient;
-import org.lockss.laaws.rs.model.Artifact;
+import org.lockss.laaws.rs09.model.Artifact;
 import org.lockss.util.Logger;
 import org.lockss.ws.content.ContentService;
 import org.lockss.ws.entities.ContentResult;

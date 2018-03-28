@@ -34,6 +34,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
+import org.lockss.laaws.rs.core.*;
 
 public class TestRepositoryManager extends LockssTestCase {
   private MockArchivalUnit mau;
@@ -157,6 +158,50 @@ public class TestRepositoryManager extends LockssTestCase {
     assertEquals(50, mgr.sleepTimeToAchieveLoad(150L, .75F));
   }
 
+  public void testGetV2RepositoryIll () throws Exception {
+    assertNull(mgr.getV2Repository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile");
+    assertNull(mgr.getV2Repository());
+
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "local:coll");
+    assertNull(mgr.getV2Repository());
+
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "rest:coll:illscheme:url");
+    assertNull(mgr.getV2Repository());
+  }
+
+  public void testGetV2RepositoryVolatile () throws Exception {
+    assertNull(mgr.getV2Repository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:coll_1");
+    assertNotNull(mgr.getV2Repository());
+    assertEquals("coll_1", mgr.getV2Repository().getCollection());
+  }
+
+  public void testGetV2RepositoryLocal () throws Exception {
+    String tmpdir = getTempDir().toString();
+    assertNull(mgr.getV2Repository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "local:coll_1:" + tmpdir);
+    assertNotNull(mgr.getV2Repository());
+    assertEquals("coll_1", mgr.getV2Repository().getCollection());
+    LockssRepository repo = mgr.getV2Repository().getRepository();
+    assertClass(LocalLockssRepository.class, repo);
+  }
+
+  public void testGetV2RepositoryRest () throws Exception {
+    assertNull(mgr.getV2Repository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "rest:coll_1:http://foo.bar/endpoint");
+    assertNotNull(mgr.getV2Repository());
+    assertEquals("coll_1", mgr.getV2Repository().getCollection());
+    LockssRepository repo = mgr.getV2Repository().getRepository();
+    assertClass(RestLockssRepository.class, repo);
+  }
+
   class MyRepositoryManager extends RepositoryManager {
     List nodes = new ArrayList();
     SimpleBinarySemaphore sem;
@@ -195,7 +240,7 @@ public class TestRepositoryManager extends LockssTestCase {
     }
   }
 
-  class MyMockLockssRepositoryImpl extends LockssRepositoryImpl {
+  class MyMockLockssRepositoryImpl extends OldLockssRepositoryImpl {
     int nodeCacheSize = 0;
     int cnt = 0;
 

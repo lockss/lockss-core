@@ -448,12 +448,6 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   // ArticleFiles per CU
   private LinkedList<ArticleFiles> nextElements;
 
-  /*
-   * The indication of whether the content of an archival unit should be
-   * obtained from a web service instead of the repository.
-   */
-  protected boolean isAuContentFromWs = false;
-
   public SubTreeArticleIterator(ArchivalUnit au, Spec spec) {
     final String DEBUG_HEADER = "SubTreeArticleIterator(): ";
     if (log.isDebug2()) {
@@ -462,11 +456,6 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     }
     this.au = au;
     this.spec = spec;
-
-    isAuContentFromWs =
-	LockssDaemon.getLockssDaemon().getPluginManager().isAuContentFromWs();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
 
     mimeType = getMimeType();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "mimeType = " + mimeType);
@@ -517,16 +506,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   protected Collection<CachedUrlSet> makeRoots() {
     Collection<String> roots = null;
 
-    // Check whether the list of URLs of the archival unit must be obtained from
-    // the repository.
-    if (!isAuContentFromWs) {
-      // Yes.
-      roots = makeRootUrls();
-    } else {
-      // No: Get them from a web service.
-      roots = getUrlsFromWebService();
-    }
-
+    roots = makeRootUrls();
     log.debug2("rootUrls: " + roots);
     if (roots == null || roots.isEmpty()) {
       return ListUtil.list(makeCachedUrlSet(makeCuss(AuCachedUrlSetSpec.URL)));
@@ -756,19 +736,5 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   /** Not implemented */
   public void remove() {
     throw new UnsupportedOperationException("Not implemented");
-  }
-
-  /**
-   * Provides the collection of URLs of the archival unit obtained from a web
-   * service.
-   * 
-   * @return a Collection<String> with the collection of archival unit URLs.
-   */
-  protected Collection<String> getUrlsFromWebService() {
-    final String DEBUG_HEADER = "getUrlsFromWebService(): ";
-
-    Collection<String> auUrls = new GetAuUrlsClient().getAuUrls(au.getAuId());
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auUrls = " + auUrls);
-    return auUrls;
   }
 }

@@ -40,7 +40,7 @@ import org.lockss.crawler.*;
 import org.lockss.crawler.PermissionRecord.PermissionStatus;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
-import org.lockss.repository.LockssRepositoryImpl;
+import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.state.AuState;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -63,7 +63,7 @@ public class TestSimpleUrlConsumer extends LockssTestCase {
     super.setUp();
 
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
-    ConfigurationUtil.setFromArgs(LockssRepositoryImpl.PARAM_CACHE_LOCATION,
+    ConfigurationUtil.setFromArgs(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION,
 				  tempDirPath);
     theDaemon = getMockLockssDaemon();
 

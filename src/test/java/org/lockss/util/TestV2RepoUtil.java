@@ -30,33 +30,32 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.tdb;
+package org.lockss.util;
 
-/**
- * <p>
- * A simple functor interface.
- * </p>
- * 
- * @author Thib Guicherd-Callin
- * @param <A>
- *          Argument type of the functor.
- * @param <R>
- *          Return type of the functor.
- * @since 1.67
- */
-public interface Functor<A, R> {
+import java.util.*;
+import org.springframework.http.HttpHeaders;
 
-  /**
-   * <p>
-   * Applies this functor to a given argument.
-   * </p>
-   * 
-   * @param a
-   *          The argument (of type <code>A</code>).
-   * @return The result (of type <code>R</code>) of applying the functor to the
-   *         given argument.
-   * @since 1.67
-   */
-  R apply(A a);
-  
+import org.lockss.test.*;
+
+public class TestV2RepoUtil extends LockssTestCase {
+
+  public void testHeadersFromProps() {
+    CIProperties props = CIProperties.fromArgs("hhh1", "vvv1",
+					       "mmm2", "mv1,mv2");
+    HttpHeaders hdrs = V2RepoUtil.httpHeadersFromProps(props);
+    assertEquals(MapUtil.map("hhh1", ListUtil.list("vvv1"),
+			     "mmm2", ListUtil.list("mv1,mv2")),
+		 hdrs);
+  }
+
+  public void testPropsFromHeaders() {
+    HttpHeaders hdrs = new HttpHeaders();
+    hdrs.add("hh", "vv");
+    hdrs.add("mm", "mm1");
+    hdrs.add("mm", "mm2");
+    CIProperties props = V2RepoUtil.propsFromHttpHeaders(hdrs);
+    assertEquals(CIProperties.fromArgs("hh", "vv", "mm", "mm1,mm2"),
+ 		 props);
+  }
+
 }

@@ -80,7 +80,7 @@ public class TestV3Poller extends LockssTestCase {
 
   private static final String BASE_URL = "http://www.test.org/";
 
-  private List initialPeers =
+  private List<String> initialPeers =
       ListUtil.list("TCP:[10.1.0.1]:9729", "TCP:[10.1.0.2]:9729",
           "TCP:[10.1.0.3]:9729", "TCP:[10.1.0.4]:9729",
           "TCP:[10.1.0.5]:9729", "TCP:[10.1.0.6]:9729");

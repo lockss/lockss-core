@@ -162,7 +162,7 @@ public class FuncContentConfigurationService extends LockssTestCase {
     ContentConfigurationResult result = proxy.addAuById(auId0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId0));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId0));
 
     // User "contentAdminRole" should fail.
     userAccount.setRoles(LockssServlet.ROLE_CONTENT_ADMIN);
@@ -182,7 +182,7 @@ public class FuncContentConfigurationService extends LockssTestCase {
     result = proxy.addAuById(auId2);
     assertTrue(result.getIsSuccess());
     assertEquals(auId2, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId0));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId0));
 
     // User "accessContentRole" should fail.
     userAccount.setRoles(LockssServlet.ROLE_CONTENT_ACCESS);
@@ -203,7 +203,7 @@ public class FuncContentConfigurationService extends LockssTestCase {
     result = proxy.addAuById(auId4);
     assertFalse(result.getIsSuccess());
     assertEquals("bad config value", result.getMessage());
-    assertNull(pluginMgr.getAuFromId(auId4));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId4));
   }
 
   /**
@@ -224,15 +224,15 @@ public class FuncContentConfigurationService extends LockssTestCase {
     ContentConfigurationResult result = results.get(0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId0));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId0));
     result = results.get(1);
     assertTrue(result.getIsSuccess());
     assertEquals(auId1, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId1));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId1));
     result = results.get(2);
     assertTrue(result.getIsSuccess());
     assertEquals(auId2, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId2));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId2));
 
     // User "contentAdminRole" should fail.
     userAccount.setRoles(LockssServlet.ROLE_CONTENT_ADMIN);
@@ -258,11 +258,11 @@ public class FuncContentConfigurationService extends LockssTestCase {
     result = results.get(0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId3, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId3));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId3));
     result = results.get(1);
     assertFalse(result.getIsSuccess());
     assertEquals("bad config value", result.getMessage());
-    assertNull(pluginMgr.getAuFromId(auId4));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId4));
   }
 
   /**
@@ -278,7 +278,7 @@ public class FuncContentConfigurationService extends LockssTestCase {
     result = proxy.deleteAuById(auId0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId0));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId0));
 
     result = proxy.addAuById(auId1);
 
@@ -301,7 +301,7 @@ public class FuncContentConfigurationService extends LockssTestCase {
     result = proxy.deleteAuById(auId2);
     assertTrue(result.getIsSuccess());
     assertEquals(auId2, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId0));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId0));
 
     // User "accessContentRole" should fail.
     userAccount.setRoles(LockssServlet.ROLE_CONTENT_ACCESS);
@@ -322,7 +322,7 @@ public class FuncContentConfigurationService extends LockssTestCase {
     result = proxy.deleteAuById(auId3);
     assertFalse(result.getIsSuccess());
     assertEquals(auId3, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId3));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId3));
   }
 
   /**
@@ -344,15 +344,15 @@ public class FuncContentConfigurationService extends LockssTestCase {
     ContentConfigurationResult result = results.get(0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId0));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId0));
     result = results.get(1);
     assertTrue(result.getIsSuccess());
     assertEquals(auId1, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId1));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId1));
     result = results.get(2);
     assertTrue(result.getIsSuccess());
     assertEquals(auId2, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId2));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId2));
 
     auIds = new ArrayList<String>();
     auIds.add(auId3);
@@ -380,11 +380,11 @@ public class FuncContentConfigurationService extends LockssTestCase {
     result = results.get(0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId3, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId3));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId3));
     result = results.get(1);
     assertFalse(result.getIsSuccess());
     assertEquals(auId4, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId4));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId4));
   }
 
   /**
@@ -398,22 +398,22 @@ public class FuncContentConfigurationService extends LockssTestCase {
     userAccount.setRoles(LockssServlet.ROLE_USER_ADMIN);
 
     ContentConfigurationResult result = proxy.addAuById(auId0);
-    assertNotNull(pluginMgr.getAuFromId(auId0));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId0));
     assertFalse(pluginMgr.isInactiveAuId(auId0));
     result = proxy.deactivateAuById(auId0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId0));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId0));
     assertTrue(pluginMgr.isInactiveAuId(auId0));
     result = proxy.reactivateAuById(auId0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId0));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId0));
     assertFalse(pluginMgr.isInactiveAuId(auId0));
     result = proxy.reactivateAuById(auId0);
     assertFalse(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNotNull(pluginMgr.getAuFromId(auId0));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId0));
     assertFalse(pluginMgr.isInactiveAuId(auId0));
 
     result = proxy.addAuById(auId1);
@@ -434,17 +434,17 @@ public class FuncContentConfigurationService extends LockssTestCase {
     userAccount.setRoles(LockssServlet.ROLE_AU_ADMIN);
 
     result = proxy.addAuById(auId2);
-    assertNotNull(pluginMgr.getAuFromId(auId2));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId2));
     assertFalse(pluginMgr.isInactiveAuId(auId2));
     result = proxy.deactivateAuById(auId2);
     assertTrue(result.getIsSuccess());
     assertEquals(auId2, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId2));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId2));
     assertTrue(pluginMgr.isInactiveAuId(auId2));
     result = proxy.deactivateAuById(auId2);
     assertFalse(result.getIsSuccess());
     assertEquals(auId2, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId2));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId2));
     assertTrue(pluginMgr.isInactiveAuId(auId2));
 
     // User "accessContentRole" should fail.
@@ -477,27 +477,27 @@ public class FuncContentConfigurationService extends LockssTestCase {
     auIds.add(auId2);
 
     List<ContentConfigurationResult> results = proxy.addAusByIdList(auIds);
-    assertNotNull(pluginMgr.getAuFromId(auId0));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId0));
     assertFalse(pluginMgr.isInactiveAuId(auId0));
-    assertNotNull(pluginMgr.getAuFromId(auId1));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId1));
     assertFalse(pluginMgr.isInactiveAuId(auId1));
-    assertNotNull(pluginMgr.getAuFromId(auId2));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId2));
     assertFalse(pluginMgr.isInactiveAuId(auId2));
     results = proxy.deactivateAusByIdList(auIds);
     ContentConfigurationResult result = results.get(0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId0, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId0));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId0));
     assertTrue(pluginMgr.isInactiveAuId(auId0));
     result = results.get(1);
     assertTrue(result.getIsSuccess());
     assertEquals(auId1, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId1));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId1));
     assertTrue(pluginMgr.isInactiveAuId(auId1));
     result = results.get(2);
     assertTrue(result.getIsSuccess());
     assertEquals(auId2, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId2));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId2));
     assertTrue(pluginMgr.isInactiveAuId(auId2));
 
     auIds = new ArrayList<String>();
@@ -522,21 +522,21 @@ public class FuncContentConfigurationService extends LockssTestCase {
     // User "auAdminRole" should succeed.
     userAccount.setRoles(LockssServlet.ROLE_AU_ADMIN);
 
-    assertNotNull(pluginMgr.getAuFromId(auId3));
+    assertNotNull(pluginMgr.getAuFromIdIfExists(auId3));
     assertFalse(pluginMgr.isInactiveAuId(auId3));
-    assertNull(pluginMgr.getAuFromId(auId4));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId4));
     assertFalse(pluginMgr.isInactiveAuId(auId4));
 
     results = proxy.deactivateAusByIdList(auIds);
     result = results.get(0);
     assertTrue(result.getIsSuccess());
     assertEquals(auId3, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId3));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId3));
     assertTrue(pluginMgr.isInactiveAuId(auId3));
     result = results.get(1);
     assertFalse(result.getIsSuccess());
     assertEquals(auId4, result.getId());
-    assertNull(pluginMgr.getAuFromId(auId4));
+    assertNull(pluginMgr.getAuFromIdIfExists(auId4));
     assertFalse(pluginMgr.isInactiveAuId(auId4));
   }
 

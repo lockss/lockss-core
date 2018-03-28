@@ -32,6 +32,8 @@ import java.io.*;
 import java.util.*;
 import java.net.MalformedURLException;
 import java.security.MessageDigest;
+import org.apache.commons.collections4.*;
+import org.apache.commons.collections4.iterators.*;
 import de.schlichtherle.truezip.file.*;
 import org.lockss.plugin.*;
 import org.lockss.app.*;
@@ -42,8 +44,12 @@ import org.lockss.hasher.HashService;
 import org.lockss.repository.*;
 import org.lockss.scheduler.SchedService;
 import org.lockss.util.*;
+import org.lockss.util.ArrayIterator;
 import org.lockss.state.*;
 import org.lockss.truezip.*;
+
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
 
 /**
  * Base class for CachedUrlSets.  Utilizes the LockssRepository.
@@ -54,7 +60,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   static final double TIMEOUT_INCREASE = 1.5;
 
   private LockssDaemon theDaemon;
-  private LockssRepository repository;
+  private OldLockssRepository repository;
   private HistoryRepository histRepo;
   private TrueZipManager trueZipManager;
   protected static Logger logger = Logger.getLogger("CachedUrlSet");
@@ -66,11 +72,8 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   protected CachedUrlSetSpec spec;
   protected long excludeFilesUnchangedAfter = 0;
 
-  /*
-   * The indication of whether the content of an archival unit should be
-   * obtained from a web service instead of the repository.
-   */
-  protected boolean isAuContentFromWs = false;
+  protected LockssRepository v2Repo;
+  protected String v2Coll;
 
   /**
    * Must invoke this constructor in plugin subclass.
@@ -84,14 +87,34 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     plugin = owner.getPlugin();
     theDaemon = plugin.getDaemon();
 
-    isAuContentFromWs = theDaemon.getPluginManager().isAuContentFromWs();
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-
-    if (!isAuContentFromWs) {
-      repository = theDaemon.getLockssRepository(owner);
-      histRepo = theDaemon.getHistoryRepository(owner);
+    RepositoryManager repomgr =
+      theDaemon.getRepositoryManager();
+    if (repomgr != null && repomgr.getV2Repository() != null) {
+      v2Repo = repomgr.getV2Repository().getRepository();
+      v2Coll = repomgr.getV2Repository().getCollection();
     }
+    if (logger.isDebug3())
+      logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
+
+    repository = theDaemon.getLockssRepository(owner);
+    histRepo = theDaemon.getHistoryRepository(owner);
+  }
+
+  /**
+   * Temporary.  True if this AU should be accessed via the V2 repository.
+   */
+  protected boolean isV2Repo() {
+    return v2Repo != null;
+  }
+
+  protected void checkNotV2Repo(String msg) {
+    if (isV2Repo())
+      throw new UnsupportedOperationException(msg + " called when using V2 repository");
+  }
+
+  protected void checkV2Repo(String msg) {
+    if (!isV2Repo())
+      throw new UnsupportedOperationException(msg + " called when using old repository");
   }
 
   /**
@@ -111,26 +134,16 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   public boolean hasContent() {
-    final String DEBUG_HEADER = "hasContent(): ";
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-    // Check whether the content is obtained via web services instead of the
-    // repository.
-    if (isAuContentFromWs) {
-      // Yes: It has content.
-      if (logger.isDebug2()) logger.debug2(DEBUG_HEADER
-	  + "return true because isAuUrlContentFromWs() = true");
-      return true;
-    }
-
-    try {
-      RepositoryNode node = repository.getNode(getUrl());
-      if (node == null) {
-	// avoid creating node just to answer no.
+    if (!isV2Repo()) {
+      try {
+	RepositoryNode node = repository.getNode(getUrl());
+	if (node == null) {
+	  // avoid creating node just to answer no.
+	  return false;
+	}
+      } catch (MalformedURLException e) {
 	return false;
       }
-    } catch (MalformedURLException e) {
-      return false;
     }
     CachedUrl cu = au.makeCachedUrl(getUrl());
     try {
@@ -167,28 +180,19 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   public boolean isLeaf() {
+    checkNotV2Repo("isLeaf()");
     try {
       RepositoryNode node = repository.getNode(getUrl());
       return (node == null) ? false : node.isLeaf();
     } catch (MalformedURLException mue) {
       logger.error("Bad url in spec: " + getUrl());
-      throw new LockssRepository.RepositoryStateException("Bad url in spec: "
+      throw new OldLockssRepository.RepositoryStateException("Bad url in spec: "
                                                           +getUrl());
     }
   }
 
   public Iterator flatSetIterator() {
-    final String DEBUG_HEADER = "flatSetIterator(): ";
-    if (logger.isDebug3())
-      logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-    // Check whether the content is obtained via web services instead of the
-    // repository.
-    if (isAuContentFromWs) {
-      // Yes: It does not have children.
-      return CollectionUtil.EMPTY_ITERATOR;
-    }
-
-    // No.
+    checkNotV2Repo("flatSetIterator()");
     if (spec.isSingleNode()) {
       return CollectionUtil.EMPTY_ITERATOR;
     }
@@ -226,7 +230,11 @@ public class BaseCachedUrlSet implements CachedUrlSet {
    * @return an {@link Iterator}
    */
   public Iterator<CachedUrlSetNode> contentHashIterator() {
-    return new CusIterator();
+    if (isV2Repo()) {
+      return artifactCuIterator();
+    } else {
+      return new CusIterator();
+    }
   }
 
   public CuIterator getCuIterator() {
@@ -306,45 +314,65 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     histRepo.getAuState().setLastHashDuration(newEst);
   }
 
+  public long getContentSize() {
+    if (spec.isAu()) {
+      try {
+	return v2Repo.auSize(v2Coll, au.getAuId());
+      } catch (IOException e) {
+	// TK what to do here
+	throw new RuntimeException(e);
+      }
+    } else {
+      return AuUtil.calculateCusContentSize(getCuIterable());
+    }
+  }
+
   public long estimatedHashDuration() {
     return theDaemon.getHashService().padHashEstimate(makeHashEstimate());
   }
 
+  private long singleNodeSize() {
+    if (isV2Repo()) {
+      CachedUrl cu = au.makeCachedUrl(getUrl());
+      if (!hasContent()) {
+	return 0;
+      }
+      return cu.getContentSize();
+    } else {
+      RepositoryNode node;
+      try {
+	node = repository.getNode(spec.getUrl());
+	if (node == null || !node.hasContent()) {
+	  return 0;
+	}
+	return node.getContentSize();
+      } catch (MalformedURLException e) {
+	return 0;
+      }
+    }
+  }
+
   private long makeHashEstimate() {
-    RepositoryNode node;
-    try {
-      node = repository.getNode(spec.getUrl());
-      if (node == null) {
-	return 0;
-      }
-    } catch (MalformedURLException e) {
-      return 0;
-    }
-    // if this is a single node spec, don't use standard estimation
     if (spec.isSingleNode()) {
-      long contentSize = 0;
-      if (!node.hasContent()) {
-	return 0;
+      return estimateFromSize(singleNodeSize());
+    } else {
+      AuState state = histRepo.getAuState();
+      long lastDuration;
+      if (state!=null) {
+	lastDuration = state.getAverageHashDuration();
+	if (lastDuration>0) {
+	  return lastDuration;
+	}
       }
-      contentSize = node.getContentSize();
-      return estimateFromSize(contentSize);
-    }
-    AuState state = histRepo.getAuState();
-    long lastDuration;
-    if (state!=null) {
-      lastDuration = state.getAverageHashDuration();
-      if (lastDuration>0) {
-	return lastDuration;
+      // determine total size
+      calculateNodeSize();
+      lastDuration = estimateFromSize(totalNodeSize);
+      // store hash estimate
+      if(state != null) {
+	state.setLastHashDuration(lastDuration);
       }
+      return lastDuration;
     }
-    // determine total size
-    calculateNodeSize();
-    lastDuration = estimateFromSize(totalNodeSize);
-    // store hash estimate
-    if(state != null) {
-      state.setLastHashDuration(lastDuration);
-    }
-    return lastDuration;
   }
 
   long estimateFromSize(long size) {
@@ -373,10 +401,22 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   void calculateNodeSize() {
+    if (isV2Repo()) {
+      calculateNodeSizeV2();
+    } else {
+      calculateNodeSizeV1();
+    }
+  }
+
+  void calculateNodeSizeV2() {
+    totalNodeSize = AuUtil.calculateCusContentSize(getCuIterable());
+  }
+
+  void calculateNodeSizeV1() {
     if (totalNodeSize==0) {
       try {
 	RepositoryNode node = repository.getNode(getUrl());
-        totalNodeSize = node.getTreeContentSize(spec, true);
+	totalNodeSize = node == null ? 0 : node.getTreeContentSize(spec, true);
       } catch (MalformedURLException mue) {
         // this shouldn't happen
         logger.error("Malformed URL exception on "+spec.getUrl());
@@ -511,6 +551,60 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       }
       return StringUtil.preOrderCompareTo(prefix, prefix2);
     }
+  }
+
+  /**
+   * Iterator over the Artifacts in a rest repository
+   */
+  public Iterator<CachedUrlSetNode> artifactCuIterator() {
+    Iterator<Artifact> artIter;
+    try {
+      if (spec.isAu()) {
+	artIter = v2Repo.getAllArtifacts(v2Coll, au.getAuId()).iterator();
+      } else if (spec.isSingleNode()) {
+	artIter =
+	  new SingletonIterator<Artifact>(v2Repo.getArtifact(v2Coll,
+							       au.getAuId(),
+							       spec.getUrl()));
+      } else {
+	artIter = v2Repo.getAllArtifactsWithPrefix(v2Coll, au.getAuId(),
+						     getUrl()).iterator();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Error getting Artifact Iterator", e);
+    }
+    artIter = filteredArtifactIterator(artIter);
+    return artToCuIter(artIter);
+  }
+
+  // This could be improved by not continuing to step & filter underlying
+  // Iterator once end of range has been reached.
+  protected Iterator<Artifact>
+    filteredArtifactIterator(Iterator<Artifact> artIter) {
+    Predicate pred =
+      new Predicate() {
+        public boolean evaluate(final Object element) {
+	  Artifact art = (Artifact)element;
+	  if (art == null) return false;
+	  return spec.matches(art.getUri());
+	};
+      };
+    return new FilterIterator(artIter, pred);
+  }
+
+  protected String getUri(Artifact art) {
+    String s = art.getUri();
+    return s;
+  }
+
+  protected Iterator<CachedUrlSetNode> artToCuIter(Iterator<Artifact> artIter) {
+    Transformer xform =
+      new Transformer<Artifact,CachedUrl>() {
+	public CachedUrl transform(Artifact art) {
+	  return new BaseCachedUrl(au, art.getUri(), art);
+	}
+      };
+    return IteratorUtils.transformedIterator(artIter, xform);
   }
 
   /**

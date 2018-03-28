@@ -42,7 +42,7 @@ import org.lockss.plugin.CachedUrlSet;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.poller.Poll;
-import org.lockss.repository.LockssRepositoryImpl;
+import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.state.AuState;
 import org.lockss.state.HistoryRepository;
 import org.lockss.util.Logger;
@@ -174,7 +174,7 @@ public class AuHelper {
 
     LockssDaemon theDaemon = LockssDaemon.getLockssDaemon();
     PluginManager pluginMgr = theDaemon.getPluginManager();
-    ArchivalUnit au = pluginMgr.getAuFromId(auId);
+    ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auId);
 
     if (au == null) {
       throw new LockssWebServicesFault(
@@ -215,9 +215,9 @@ public class AuHelper {
       result.setDiskUsage(du);
     }
 
-    String spec = LockssRepositoryImpl.getRepositorySpec(au);
-    String repo = LockssRepositoryImpl.mapAuToFileLocation(
-	LockssRepositoryImpl.getLocalRepositoryPath(spec), au);
+    String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
+    String repo = OldLockssRepositoryImpl.mapAuToFileLocation(
+	OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
     result.setRepository(repo);
 
     CachedUrlSet auCus = au.getAuCachedUrlSet();

@@ -2118,11 +2118,29 @@ public class LockssTestCase extends TestCase {
   }
 
   /**
-   * Sets the configuration option to get content from the repository,not a REST
-   * web service.
+   * No longer does anything
    */
+  // TK eliminate calls
   protected void useOldRepo() {
-    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_CONTENT_FROM_WS,
-	Boolean.FALSE.toString());
+//     ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
+  }
+
+  /**
+   * Configure daemon to use a volatile LockssRepository
+   */
+  protected void useV2Repo() {
+    useV2Repo("volatile:foo");
+  }
+
+  /**
+   * Configure daemon to use LockssRepository as specified
+   */
+  protected void useV2Repo(String spec) {
+    ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY,
+				  spec);
+  }
+
+  protected boolean isV2Repo() {
+    return !StringUtil.isNullString(CurrentConfig.getParam(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY));
   }
 }

@@ -473,6 +473,10 @@ public class NullPlugin {
       return new CachedUrlSetHasher();
     }
 
+    public long getContentSize() {
+      return 0;
+    }
+
     public long estimatedHashDuration() {
       return 1000;
     }

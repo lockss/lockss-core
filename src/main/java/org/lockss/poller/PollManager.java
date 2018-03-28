@@ -676,7 +676,32 @@ public class PollManager
     return retPoll;
   }
 
+  /**
+   * REST Service entry point to return a poll.
+   * @param au the au of the poll
+   * @return the last poll or running poll for this au.
+   */
+  public Poll getPoll(ArchivalUnit au)
+  {
+    Poll retPoll = null;
+    Set<PollManagerEntry> forAu = entryManager.forAu(au);
+    long lastPollAttempt = AuUtil.getAuState(au).getLastPollAttempt();
+    for (PollManagerEntry pme : forAu) {
+      Poll poll = pme.poll;
 
+      if (!poll.isPollCompleted()) {
+        // there can only be one running poll so if a poll is running return it.
+        return poll;
+      }
+      else if( poll.getCreateTime() >= lastPollAttempt) {
+        return poll;
+      }
+
+    }
+    return retPoll;
+  }
+
+  public
   /**
    * Cancel all polls on the specified AU.
    *

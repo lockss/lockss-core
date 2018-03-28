@@ -107,7 +107,7 @@ public class RaiseAlert extends LockssServlet {
 
   private boolean doRaise() {
     auid = getParameter(KEY_AUID);
-    ArchivalUnit au = pluginMgr.getAuFromId(auid);
+    ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
     name = getParameter(KEY_NAME_SEL);
     if (StringUtil.isNullString(name)) {
       name = getParameter(KEY_NAME_TYPE);

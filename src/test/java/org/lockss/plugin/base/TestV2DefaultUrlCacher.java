@@ -50,17 +50,9 @@ import org.lockss.repository.*;
 import org.lockss.crawler.*;
 import org.lockss.config.*;
 
-import static org.lockss.util.DateTimeUtil.GMT_DATE_FORMATTER;
+public class TestV2DefaultUrlCacher extends LockssTestCase {
 
-/**
- * This is the test class for org.lockss.plugin.simulated.GenericFileUrlCacher
- *
- * @author Emil Aalto
- * @version 0.0
- */
-public class TestDefaultUrlCacher extends LockssTestCase {
-
-  protected static Logger logger = Logger.getLogger("TestDefaultUrlCacher");
+  protected static Logger logger = Logger.getLogger("TestV2DefaultUrlCacher");
 
   MyDefaultUrlCacher cacher;
   MockCachedUrlSet mcus;
@@ -85,7 +77,6 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     super.setUp();
 
     setUpDiskSpace();
-    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getHashService();
@@ -118,6 +109,12 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     theDaemon.setHistoryRepository(histRepo, mau);
     maus = new MockAuState(mau);
     histRepo.setAuState(maus);
+
+    useV2Repo();
+//     useV2Repo("local:foo:" + getTempDir().toString());
+
+    // don't require all tests to set up mau crawl rules
+    ConfigurationUtil.addFromArgs(BaseCachedUrl.PARAM_INCLUDED_ONLY, "false");
   }
 
   public void tearDown() throws Exception {
@@ -126,17 +123,35 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     super.tearDown();
   }
   
-  public void testCacheStartUrl() throws IOException {
+  public void testWriteRead() throws IOException {
+    ConfigurationUtil.addFromArgs("org.lockss.log.DefaultUrlCacher.level",
+				  "debug2");
+
+    CIProperties props =
+      CIProperties.fromProperties(PropUtil.fromArgs("k1", "v1", "k2", "v2"));
+
     ud = new UrlData(new StringInputStream("test stream"), 
-                     new CIProperties(), TEST_URL);
+		     props, TEST_URL);
     mau.setStartUrls(ListUtil.list(TEST_URL));
     long origChange = maus.getLastContentChange();
+    BaseCachedUrl bcu0 = new BaseCachedUrl(mau, TEST_URL);
+    assertFalse(bcu0.hasContent());
     cacher = new MyDefaultUrlCacher(mau, ud);
     cacher.storeContent();
+    
     long finalChange = maus.getLastContentChange();
     assertEquals(origChange, finalChange);
+    BaseCachedUrl bcu = new BaseCachedUrl(mau, TEST_URL);
+    assertTrue(bcu.hasContent());
+    assertInputStreamMatchesString("test stream",
+				   bcu.getUnfilteredInputStream());
+    assertTrue("Missing props: " + props + " was: " + bcu.getProperties(),
+ 	       bcu.getProperties().entrySet().containsAll(props.entrySet()));
+    assertEquals(11, bcu.getContentSize());
+    assertEquals(1, bcu.getVersion());
   }
 
+  
   public void testCache() throws IOException {
     ud = new UrlData(new StringInputStream("test stream"), 
         new CIProperties(), TEST_URL);
@@ -363,16 +378,15 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 		    cacher.getInfoException().toString());
     expVers.add("");
 
-    doStore("", "invalid_2");
-    assertMatchesRE("WarningOnly: v ex 2",
-		    cacher.getInfoException().toString());
+    // TK - new repo doesn't check for identical version
+//     doStore("", "invalid_2");
+//     assertMatchesRE("WarningOnly: v ex 2",
+// 		    cacher.getInfoException().toString());
 
     // Store a non-empty version so repository doesn't suppress next empty
     // store.
     doStore("not empty", null);
     expVers.add("not empty");
-
-    expVers.add("");
 
     try {
       doStore("", "invalid_3");
@@ -390,7 +404,11 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 
     CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
     CachedUrl[] vers = cu.getCuVersions();
-    int expN = 5;
+
+    for (CachedUrl ver : vers) {
+      log.debug("ver: " + StringUtil.fromInputStream(ver.getUnfilteredInputStream()));
+    }
+    int expN = expVers.size();
     assertEquals(expN, vers.length);
     int ix = expN-1;
     for (CachedUrl ver : vers) {
@@ -782,7 +800,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 		 alert.getAttribute(Alert.ATTR_TEXT));
   }
 
-  public void testNoNewVersionAlertIfIdentcal() throws IOException {
+  public void tktestNoNewVersionAlertIfIdentcal() throws IOException {
     String content = "123456789";
     CIProperties props = new CIProperties();
     assertEquals(0, alertMgr.getAlerts().size());
@@ -854,16 +872,17 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 
     props = url.getProperties();
     assertEquals("value1", props.getProperty("test1"));
-    assertEquals("SHA-1:1EEBDF4FDC9FC7BF283031B93F9AEF3338DE9052", props.getProperty(CachedUrl.PROPERTY_CHECKSUM));
+    assertEquals("SHA-256:6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72",
+		 props.getProperty(CachedUrl.PROPERTY_CHECKSUM));
   }
 
-  public void testSubstanceCount() throws IOException {
+  public void testSuspectVersionsCount() throws IOException {
     ud = new UrlData(new StringInputStream("test stream"), 
 		     new CIProperties(), TEST_URL);
     cacher = new MyDefaultUrlCacher(mau, ud);
     cacher.storeContent();
     CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
-    mau.addCu(cu);
+    assertEquals(1, cu.getVersion());
     AuSuspectUrlVersions asuv = repo.getSuspectUrlVersions(mau);
     assertTrue(asuv.isEmpty());
     AuState aus = AuUtil.getAuState(mau);
@@ -874,6 +893,8 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 		     new CIProperties(), TEST_URL);
     cacher = new MyDefaultUrlCacher(mau, ud);
     cacher.storeContent();
+    assertEquals(2, cacher.getCachedUrl().getVersion());
+
     assertFalse(asuv.isEmpty());
     assertTrue(asuv.isSuspect(TEST_URL, 1));
     // suspect version no longer current
@@ -885,6 +906,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 		     new CIProperties(), TEST_URL);
     cacher = new MyDefaultUrlCacher(mau, ud);
     cacher.storeContent();
+    assertEquals(3, cacher.getCachedUrl().getVersion());
     // previously current version wasn't suspect, count should not decrease
     assertEquals(4, aus.getNumCurrentSuspectVersions());
   }
@@ -904,7 +926,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     } catch (IOException e) {
       Throwable t = e.getCause();
       assertClass(IOException.class, t);
-      assertEquals("java.io.IOException: Malformed chunk", t.getMessage());
+      assertEquals("java.io.IOException: Malformed chunk", t.toString());
     }
   }
 
@@ -922,7 +944,8 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     } catch (IOException e) {
       Throwable t = e.getCause();
       assertClass(IOException.class, t);
-      assertEquals("java.io.IOException: CRLF expected at end of chunk: -1/-1", t.getMessage());
+      assertEquals("java.io.IOException: CRLF expected at end of chunk: -1/-1",
+		   t.getMessage());
     }
   }
 
@@ -993,7 +1016,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
   }
 
   private class MyMockArchivalUnit extends MockArchivalUnit {
-    boolean returnRealCachedUrl = false;
+    boolean returnRealCachedUrl = true;
 
     public CachedUrlSet makeCachedUrlSet(CachedUrlSetSpec cuss) {
       return new BaseCachedUrlSet(this, cuss);
@@ -1004,6 +1027,14 @@ public class TestDefaultUrlCacher extends LockssTestCase {
         return new BaseCachedUrl(this, url);
       } else {
         return super.makeCachedUrl(url);
+      }
+    }
+
+    public UrlCacher makeUrlCacher(UrlData ud) {
+      if (returnRealCachedUrl) {
+	return new DefaultUrlCacher(this, ud);
+      } else {
+        return super.makeUrlCacher(ud);
       }
     }
   }

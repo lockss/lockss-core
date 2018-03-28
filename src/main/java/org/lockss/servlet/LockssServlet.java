@@ -544,6 +544,9 @@ public abstract class LockssServlet extends HttpServlet
   }
 
   protected boolean isServletAllowed(ServletDescr d) {
+    if (d == null) {
+      return false;
+    }
     if (d.needsUserAdminRole() && !doesUserHaveRole(ROLE_USER_ADMIN))
       return false;
     if (d.needsContentAdminRole() && !doesUserHaveRole(ROLE_CONTENT_ADMIN))

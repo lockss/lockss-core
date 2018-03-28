@@ -50,6 +50,9 @@ import org.lockss.repository.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.plugin.exploded.*;
 
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
+
 /**
  * Static AU- and plugin-related utility methods.  These might logically
  * belong in either Plugin or ArchivalUnit, but they are defined entirely
@@ -136,7 +139,7 @@ public class AuUtil {
    * @return the AuSuspectUrlVersions
    */
   public static AuSuspectUrlVersions getSuspectUrlVersions(ArchivalUnit au) {
-    LockssRepository repo = getDaemon(au).getLockssRepository(au);
+    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
     return repo.getSuspectUrlVersions(au);
   }
 
@@ -148,7 +151,7 @@ public class AuUtil {
   public static void saveSuspectUrlVersions(ArchivalUnit au,
 					    AuSuspectUrlVersions asuv)
       throws SerializationException {
-    LockssRepository repo = getDaemon(au).getLockssRepository(au);
+    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
     repo.storeSuspectUrlVersions(au, asuv);
   }
 
@@ -158,13 +161,13 @@ public class AuUtil {
    * @return the AuSuspectUrlVersions
    */
   public static boolean hasSuspectUrlVersions(ArchivalUnit au) {
-    LockssRepository repo = getDaemon(au).getLockssRepository(au);
+    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
     return repo.hasSuspectUrlVersions(au);
   }
 
   public static AuNodeImpl getAuRepoNode(ArchivalUnit au) {
     LockssDaemon daemon = getDaemon(au);
-    LockssRepository repo = daemon.getLockssRepository(au);
+    OldLockssRepository repo = daemon.getLockssRepository(au);
     try {
       return(AuNodeImpl)repo.getNode(au.getAuCachedUrlSet().getUrl());
     } catch (MalformedURLException e) {
@@ -182,7 +185,7 @@ public class AuUtil {
   public static RepositoryNode getRepositoryNode(ArchivalUnit au, String url) 
       throws MalformedURLException {
     LockssDaemon daemon = getDaemon(au);
-    LockssRepository repo = daemon.getLockssRepository(au);
+    OldLockssRepository repo = daemon.getLockssRepository(au);
     return repo.getNode(url);
   }
 
@@ -193,10 +196,23 @@ public class AuUtil {
    */
   public static long getAuContentSize(ArchivalUnit au,
 				      boolean calcIfUnknown) {
-    LockssDaemon daemon = getDaemon(au);
-    RepositoryNode repoNode = getAuRepoNode(au);
-    return repoNode.getTreeContentSize(null, calcIfUnknown);
+    if (isV2Repo()) {
+      return au.getAuCachedUrlSet().getContentSize();
+    } else {
+      RepositoryNode repoNode = getAuRepoNode(au);
+      return repoNode.getTreeContentSize(null, calcIfUnknown);
+    }
   }
+
+  public static long calculateCusContentSize(Iterable<CachedUrl> coll) {
+    long tot = 0;
+    for (CachedUrl cu : coll) {
+      tot += cu.getContentSize();
+    }
+    return tot;
+  }
+
+
 
   /**
    * Return the disk space used by the AU, including all overhead,
@@ -965,6 +981,10 @@ public class AuUtil {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "fetchTime = " + fetchTime);
     return fetchTime;
+  }
+
+  static boolean isV2Repo() {
+    return RepositoryManager.isV2Repo();
   }
 
   /**

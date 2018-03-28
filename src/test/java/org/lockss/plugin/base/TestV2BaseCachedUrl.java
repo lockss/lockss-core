@@ -37,27 +37,37 @@ import java.nio.charset.Charset;
 import java.util.*;
 import java.security.MessageDigest;
 import junit.framework.*;
+import org.lockss.app.*;
 import org.lockss.plugin.*;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.repository.*;
+
+import org.apache.http.*;
+import org.apache.http.message.*;
+import org.springframework.http.HttpHeaders;
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
+import org.lockss.laaws.rs.util.*;
 
 /** Variants test "current" BaseCachedUrl and version-specific
  * BaseCachedUrl instances */
-public class TestBaseCachedUrl extends LockssTestCase {
+public class TestV2BaseCachedUrl extends LockssTestCase {
   private static final String PARAM_SHOULD_FILTER_HASH_STREAM =
     Configuration.PREFIX+"baseCachedUrl.filterHashStream";
 
-  private static final Logger logger = Logger.getLogger(TestBaseCachedUrl.class);
+  private static final Logger logger = Logger.getLogger(TestV2BaseCachedUrl.class);
 
-  protected OldLockssRepository repo;
   protected MockArchivalUnit mau;
   protected MockLockssDaemon theDaemon;
   protected MockPlugin plugin;
-  protected HistoryRepository histRepo;
+
+  protected LockssRepository v2Repo;
+  protected String v2Coll;
 
   String url1 = "http://www.example.com/testDir/leaf1";
   String url2 = "http://www.example.com/testDir/leaf2";
@@ -68,13 +78,9 @@ public class TestBaseCachedUrl extends LockssTestCase {
   String content2 = "test content 2 longer";
   String badcontent = "this is the wrong content string";
 
-  TestBaseCachedUrl() {
-  }
-
   public void setUp() throws Exception {
     super.setUp();
     setUpDiskSpace();
-    useOldRepo();
     theDaemon = getMockLockssDaemon();
     theDaemon.getHashService();
 
@@ -83,14 +89,17 @@ public class TestBaseCachedUrl extends LockssTestCase {
     plugin.initPlugin(theDaemon);
     mau.setPlugin(plugin);
 
-    repo = theDaemon.getLockssRepository(mau);
-    histRepo = theDaemon.getHistoryRepository(mau);
-    histRepo.startService();
+    useV2Repo();
+    RepositoryManager repomgr =
+      LockssDaemon.getLockssDaemon().getRepositoryManager();
+    v2Repo = repomgr.getV2Repository().getRepository();
+    v2Coll = repomgr.getV2Repository().getCollection();
+
+    // don't require all tests to set up mau crawl rules
+    ConfigurationUtil.addFromArgs(BaseCachedUrl.PARAM_INCLUDED_ONLY, "false");
   }
 
   public void tearDown() throws Exception {
-    repo.stopService();
-    histRepo.stopService();
     super.tearDown();
   }
 
@@ -100,7 +109,7 @@ public class TestBaseCachedUrl extends LockssTestCase {
   }
 
   /** Tests that are independent of versioning */
-  public static class NotVersionedTests extends TestBaseCachedUrl {
+  public static class NotVersionedTests extends TestV2BaseCachedUrl {
     public NotVersionedTests() {
     }
 
@@ -128,9 +137,9 @@ public class TestBaseCachedUrl extends LockssTestCase {
       CachedUrl cu = mau.makeCachedUrl(url1);
       assertFalse(cu.hasContent());
       CachedUrl[] all = cu.getCuVersions();
-      assertEquals(1, all.length);
-      assertFalse(all[0].hasContent());
-      assertEquals(cu.getUrl(), all[0].getUrl());
+      assertEquals(0, all.length);
+//       assertFalse(all[0].hasContent());
+//       assertEquals(cu.getUrl(), all[0].getUrl());
       try {
 	cu.getUnfilteredInputStream();
 	fail("getUnfilteredInputStream() should fail when no content");
@@ -200,14 +209,17 @@ public class TestBaseCachedUrl extends LockssTestCase {
   }
 
   /** Tests that run with the current version and with an older version */
-  public abstract static class VersionedTests extends TestBaseCachedUrl {
+  public abstract static class VersionedTests extends TestV2BaseCachedUrl {
     public VersionedTests() {
     }
 
     /** Concrete class must create either a single version or multiple
      * versions here */
-    abstract void createLeaf(String url, String content, CIProperties props)
-	throws Exception;
+    void createLeaf(String url, String content, CIProperties props)
+	throws Exception {
+      if (content == null) content = "";
+      createLeaf(url, new StringInputStream(content), props);
+    }
 
     abstract void createLeaf(String url, InputStream contentStream,
 			     CIProperties props)
@@ -683,7 +695,7 @@ public class TestBaseCachedUrl extends LockssTestCase {
       assertEquals("value2", urlProps.getProperty("test2"));
     }
 
-    public void testAddProperty() throws Exception {
+    public void notestAddProperty() throws Exception {
       CIProperties newProps = new CIProperties();
       newProps.setProperty("test", "value");
       newProps.setProperty("test2", "value2");
@@ -840,19 +852,42 @@ public class TestBaseCachedUrl extends LockssTestCase {
     }
   }
 
+  protected Artifact storeArt(String url, String content,
+			      CIProperties props) throws Exception {
+    return storeArt(url, new StringInputStream(content), props);
+  }
+
+  protected Artifact storeArt(String url, InputStream in,
+			      CIProperties props) throws Exception {
+    ArtifactIdentifier id = new ArtifactIdentifier(v2Coll, mau.getAuId(),
+						   url, null);
+    CIProperties propsCopy  = CIProperties.fromProperties(props);
+    propsCopy.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
+    HttpHeaders metadata = V2RepoUtil.httpHeadersFromProps(propsCopy);
+
+    // tk
+    BasicStatusLine statusLine =
+      new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
+
+    ArtifactData ad = new ArtifactData(id, metadata,
+				       new IgnoreCloseInputStream(in),
+				       statusLine);
+    if (logger.isDebug2()) {
+      logger.debug2("Creating artifact: " + ad);
+    }
+    Artifact uncommittedArt = v2Repo.addArtifact(ad);
+    return v2Repo.commitArtifact(uncommittedArt);
+  }
+
   /** Varient that performs the tests when there's only a single version */
   public static class OnlyVersion extends VersionedTests {
     public OnlyVersion() {
     }
 
-    protected void createLeaf(String url, String content,
+    protected void createLeaf(String url, InputStream in,
 			      CIProperties props) throws Exception {
-      TestRepositoryNodeImpl.createLeaf(repo, url, content, props);
-    }
-
-    protected void createLeaf(String url, InputStream contentStream,
-			      CIProperties props) throws Exception {
-      TestRepositoryNodeImpl.createLeaf(repo, url, contentStream, props);
+      if (props == null) props = new CIProperties();
+      storeArt(url, in, props);
     }
 
     CachedUrl getTestCu(String url) {
@@ -872,22 +907,13 @@ public class TestBaseCachedUrl extends LockssTestCase {
     public CurrentVersion() {
     }
 
-    protected void createLeaf(String url, String content,
-			      CIProperties props) throws Exception {
-      Properties p = new Properties();
-      p.put("wrongkey", "wrongval");
-      RepositoryNode node =
-	TestRepositoryNodeImpl.createLeaf(repo, url, badcontent+"1", p);
-      TestRepositoryNodeImpl.createContentVersion(node, content, props);
-    }
-
     protected void createLeaf(String url, InputStream contentStream,
 			      CIProperties props) throws Exception {
-      Properties p = new Properties();
+      if (props == null) props = new CIProperties();
+      CIProperties p = new CIProperties();
       p.put("wrongkey", "wrongval");
-      RepositoryNode node =
-	TestRepositoryNodeImpl.createLeaf(repo, url, badcontent+"1", p);
-      TestRepositoryNodeImpl.createContentVersion(node, contentStream, props);
+      storeArt(url, badcontent+"1", p);
+      storeArt(url, contentStream, props);
     }
 
     CachedUrl getTestCu(String url) {
@@ -913,24 +939,14 @@ public class TestBaseCachedUrl extends LockssTestCase {
     public PreviousVersion() {
     }
 
-    protected void createLeaf(String url, String content,
-			      CIProperties props) throws Exception {
-      Properties p = new Properties();
-      p.put("wrongkey", "wrongval");
-      RepositoryNode node =
-	TestRepositoryNodeImpl.createLeaf(repo, url, badcontent+"1", p);
-      TestRepositoryNodeImpl.createContentVersion(node, content, props);
-      TestRepositoryNodeImpl.createContentVersion(node, badcontent+"3", p);
-    }
-
     protected void createLeaf(String url, InputStream contentStream,
 			      CIProperties props) throws Exception {
-      Properties p = new Properties();
+      if (props == null) props = new CIProperties();
+      CIProperties p = new CIProperties();
       p.put("wrongkey", "wrongval");
-      RepositoryNode node =
-	TestRepositoryNodeImpl.createLeaf(repo, url, badcontent+"1", p);
-      TestRepositoryNodeImpl.createContentVersion(node, contentStream, props);
-      TestRepositoryNodeImpl.createContentVersion(node, badcontent+"3", p);
+      storeArt(url, badcontent+"1", p);
+      storeArt(url, contentStream, props);
+      storeArt(url, badcontent+"3", p);
     }
 
     CachedUrl getTestCu(String url) {
