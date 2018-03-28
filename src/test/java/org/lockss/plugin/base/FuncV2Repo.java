@@ -90,7 +90,6 @@ public class FuncV2Repo extends LockssTestCase {
     HttpHeaders metadata = new HttpHeaders();
     metadata.set("key1", "val1");
     metadata.set("key2", "val2");
-    metadata.set("key3", "val3");
 
     BasicStatusLine statusLine =
       new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
