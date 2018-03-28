@@ -44,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   <groupId>org.lockss.laaws</groupId>
   <artifactId>lockss-core</artifactId>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>1.1.0</version>
   <packaging>jar</packaging>
   <name>lockss-core</name>
   <description>The Slimmed Down LOCKSS Daemon Core</description>
