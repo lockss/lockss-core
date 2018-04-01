@@ -54,7 +54,7 @@ public class TestTitleSetXpath extends LockssTestCase {
   MockPlugin mp1;
   MockPlugin mp2;
   TitleConfig tc1, tc2, tc3, tc4, tc5, tc6;
-  List titles;
+  List<TitleConfig> titles;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -65,7 +65,7 @@ public class TestTitleSetXpath extends LockssTestCase {
   }
 
   public void makeTitles() {
-    titles = new ArrayList();
+    titles = new ArrayList<TitleConfig>();
     String pid1 = "o.l.plug1";
     String pid2 = "o.l.plug2";
     tc1 = new TitleConfig("Journal of Title, 2001", pid1);

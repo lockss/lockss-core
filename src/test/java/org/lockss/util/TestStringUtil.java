@@ -579,16 +579,19 @@ public class TestStringUtil extends LockssTestCase {
     assertEquals(0, StringUtil.compareToNullHigh("a", "a"));
   }
 
+  @Deprecated
   static public void assertPreOrder(String s1, String s2) {
     assertTrue(StringUtil.preOrderCompareTo(s1, s2) < 0);
     assertTrue(StringUtil.preOrderCompareTo(s2, s1) > 0);
   }
 
+  @Deprecated
   static public void assertPreOrderNullHigh(String s1, String s2) {
     assertTrue(StringUtil.preOrderCompareToNullHigh(s1, s2) < 0);
     assertTrue(StringUtil.preOrderCompareToNullHigh(s2, s1) > 0);
   }
 
+  @Deprecated
   public void testPreOrderCompareTo() {
     assertEquals(0, StringUtil.preOrderCompareTo("", ""));
     assertEquals(0, StringUtil.preOrderCompareTo("a", "a"));
@@ -608,6 +611,7 @@ public class TestStringUtil extends LockssTestCase {
     assertPreOrder("a/b", "a.b");
   }
 
+  @Deprecated
   public void testPreOrderCompareToNullHigh() {
     assertEquals(0, StringUtil.preOrderCompareToNullHigh("", ""));
     assertEquals(0, StringUtil.preOrderCompareToNullHigh("a", "a"));
@@ -622,6 +626,7 @@ public class TestStringUtil extends LockssTestCase {
     assertPreOrderNullHigh("a/b", "a.b");
   }
 
+  @Deprecated
   public void testPreOrderComparator() {
     Collection coll = new TreeSet(StringUtil.PRE_ORDER_COMPARATOR);
     coll.addAll(ListUtil.list("http://foo:80/",
