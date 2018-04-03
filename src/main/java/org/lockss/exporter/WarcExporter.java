@@ -118,8 +118,7 @@ public class WarcExporter extends Exporter {
 
     long fetchTime =
       Long.parseLong(props.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
-//HC3     String timestamp = ArchiveUtils.getLog14Date(fetchTime);
-    String timestamp = ArchiveUtils.get14DigitDate(fetchTime);
+    String timestamp = ArchiveUtils.getLog14Date(fetchTime);
     InputStream contentIn = cu.getUnfilteredInputStream();
     try {
       // Web Archive Commons now uses a properties file.
