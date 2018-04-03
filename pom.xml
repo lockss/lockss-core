@@ -659,7 +659,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss.laaws</groupId>
       <artifactId>laaws-repository-core</artifactId>
-      <version>1.11.0</version>
+      <version>1.11.4</version>
+      <exclusions>
+        <!-- brings sealed Jetty 6 but we have Jetty 5 -->
+        <exclusion>
+          <groupId>org.mortbay.jetty</groupId>
+          <artifactId>jetty</artifactId>  
+        </exclusion>
+        <exclusion>
+          <groupId>org.mortbay.jetty</groupId>
+          <artifactId>jetty-util</artifactId>  
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.lockss.legacy</groupId>
