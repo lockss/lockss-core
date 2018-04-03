@@ -388,14 +388,14 @@ class FormatExpectedAgreementTestCase( V3TestCases ):
         self.assertEqual( '100.00', self._expected_agreement( 100, 100 ) )
         
         
-class SimpleNewRepoV3TestCase( V3TestCases ):
+class SimpleV2RepoV3TestCase( V3TestCases ):
     """Test a V3 poll with no disagreement, using the new repository"""
 
     def __init__( self, methodName = 'runTest' ):
         V3TestCases.__init__( self, methodName )
-        self.simulated_AU_parameters = { 'numFiles': 3 }
+        self.simulated_AU_parameters = { 'depth': 1, 'branch': 2, 'numFiles': 3 }
 	self.local_configuration = {
-            'org.lockss.repository.restRepository': 'volatile:foo',
+            'org.lockss.repository.v2Repository': 'volatile:foo',
             'org.lockss.blockHasher.enableLocalHash': 'false',
         }
     def _damage_AU( self ):
