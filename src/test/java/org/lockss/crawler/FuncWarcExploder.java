@@ -283,8 +283,7 @@ public class FuncWarcExploder extends LockssTestCase {
     // SimulatedContentGenerator is changed, this number may have to
     // change.  NB - because the WARC files are compressed,  their
     // size varies randomly by a small amount.
-//HC3    long expected = 9394;
-    long expected = 9230;
+    long expected = 9394;
     long actual = AuUtil.getAuContentSize(sau, true);
     long error = expected - actual;
     log.debug("Expected " + expected + " actual " + actual);

@@ -89,6 +89,9 @@ public class FuncWarcExporter extends BaseFuncExporter {
 	  // 	rec.dump();
 	  ArchiveRecordHeader hdr = rec.getHeader();
 
+	  assertMatchesRE("\\d\\d\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ",
+			  hdr.getDate());
+
 	  String url = hdr.getUrl();
 	  warcUrls.add(url);
 
