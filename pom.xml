@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.4.0</version>
+    <version>1.7.0</version>
     <relativePath />
   </parent>
 
@@ -46,6 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <artifactId>lockss-core</artifactId>
   <version>1.2.0-SNAPSHOT</version>
   <packaging>jar</packaging>
+  
   <name>lockss-core</name>
   <description>The Slimmed Down LOCKSS Daemon Core</description>
 
@@ -67,6 +68,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   </scm>
 
   <dependencies>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-junit4-bundle</artifactId>
+      <version>${lockss.junit4.bundleVersion}</version>
+      <type>pom</type>
+      <scope>test</scope>
+    </dependency>
+    
     <dependency>
       <groupId>org.mozilla</groupId>
       <artifactId>rhino</artifactId>
@@ -603,12 +613,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.lockss.legacy</groupId>
       <artifactId>org-mortbay-jetty</artifactId>
       <version>5.1.5-p2</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.jcabi</groupId>
