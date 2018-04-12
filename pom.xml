@@ -55,6 +55,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <skip.stf.tests>true</skip.stf.tests>
     <run.classpath.file>${basedir}/target/run-classpath</run.classpath.file>
     <test.classpath.file>${basedir}/target/test-classpath</test.classpath.file>
+    <build.info.dir>target/classes/org/lockss/htdocs</build.info.dir>
+    <build.info.file>${build.info.dir}/build.properties</build.info.file>
   </properties>
 
   <!-- This stanza needs to be repeated in every child -->
@@ -721,17 +723,39 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             <configuration>
               <exportAntProperties>true</exportAntProperties>
               <target>
-                <tstamp>
-                  <format property="build.timestamp" pattern="dd-MMM-yy HH:mm:ss zzz"/>
-                </tstamp>
-                <tstamp>
-                  <format property="build.date" pattern="yyyy-MM-dd hh:mm:ss"/>
-                </tstamp>
-                <tstamp>
-                  <format property="build.time" pattern="kk:mm:ss"/>
-                </tstamp>
-                <exec executable="hostname" outputproperty="build.host"
-                  failifexecutionfails="false"/>
+		<condition property="hostname"
+			   value="${env.HOSTNAME}">
+		  <isset property="env.HOSTNAME" />
+		</condition>
+		<exec executable="hostname" outputproperty="hostname0"
+		      failifexecutionfails="false"/>
+		<condition property="hostname"
+			   value="${hostname0}">
+		  <not>
+		    <isset property="env.HOSTNAME" />
+		  </not>
+		</condition>
+
+		<mkdir dir="${build.info.dir}" />
+		<propertyfile comment="Build Information"
+			      file="${build.info.file}">
+		  <entry key="build.date"
+			 type="date"
+			 pattern="EEEE MMM dd, yyyy"
+			 value="now"/>
+		  <entry key="build.time"
+			 type="date"
+			 pattern="kk:mm:ss"
+			 value="now"/>
+		  <entry key="build.timestamp"
+			 type="date"
+			 pattern="dd-MMM-yy' 'HH:mm:ss' 'zzz"
+			 value="now"/>
+		  <entry key="build.user.name" value="${user.name}"/>
+		  <entry key="build.host" value="${hostname}"/>
+		  <entry key="build.releasename" value="${version}"/>
+<!-- 		  <entry key="build.branchxx" value="${branch.name}"/> -->
+		</propertyfile>
               </target>
             </configuration>
           </execution>
