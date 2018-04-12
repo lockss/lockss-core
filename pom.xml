@@ -757,7 +757,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 			 value="now"/>
 		  <entry key="build.user.name" value="${user.name}"/>
 		  <entry key="build.host" value="${hostname}"/>
-		  <entry key="build.releasename" value="${version}"/>
+		  <entry key="build.releasename" value="${build.releasename}"/>
 <!-- 		  <entry key="build.branchxx" value="${branch.name}"/> -->
 		</propertyfile>
               </target>
