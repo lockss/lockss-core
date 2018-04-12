@@ -2087,12 +2087,8 @@ public class PluginManager
 	log.debug3(DEBUG_HEADER + "Trying to retrieve plugin " + pluginKey);
 
       try {
-        PluginInfo info =
-            loadPlugin(pluginKey, this.getClass().getClassLoader());
-
-        if (info != null) {
-          plugin = info.getPlugin();
-        }
+	ensurePluginLoaded(pluginKey);
+	plugin = getPlugin(pluginKeyFromId(pluginKey));
       } catch (Exception e) {
         String message = "Error instantiating plugin "
             + pluginNameFromKey(pluginIdFromAuId(auid));

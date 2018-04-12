@@ -321,8 +321,6 @@ public class ArchivalUnitStatus
     private Map makeRow(ArchivalUnit au, HistoryRepository histRepo, Set inclCols) {
       AuState auState = histRepo.getAuState();
       HashMap rowMap = new HashMap();
-      PollManager.V3PollStatusAccessor v3status =
-          theDaemon.getPollManager().getV3Status();
       // If this is a v3 AU, we cannot access some of the poll
       // status through the nodestate.  Eventually, this will be totally
       // refactored.
@@ -373,8 +371,15 @@ public class ArchivalUnitStatus
 
       Object stat;
       if (isV3) {
-        int numPolls = v3status.getNumPolls(au.getAuId());
-        rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
+	try {
+	  PollManager.V3PollStatusAccessor v3status =
+	    theDaemon.getPollManager().getV3Status();
+	  int numPolls = v3status.getNumPolls(au.getAuId());
+	  rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
+	} catch (RuntimeException e) {
+	  logger.warning("Can't get poll status for " + au.getName() + ": " +
+			 e.getMessage());
+	}
         // Percent damaged.  It's scary to see '0% Agreement' if there's no
         // history, so we just show a friendlier message.
         //
@@ -1330,9 +1335,15 @@ public class ArchivalUnitStatus
             ColumnDescriptor.TYPE_DATE,
             new Long(lastIndex)));
       }
-      PollManager pm = theDaemon.getPollManager();
       boolean isCrawling = cmStatus.isRunningNCCrawl(au);
-      boolean isPolling = pm.isPollRunning(au);
+      boolean isPolling = false;
+      try {
+	PollManager pm = theDaemon.getPollManager();
+	isPolling = pm.isPollRunning(au);
+      } catch (RuntimeException e) {
+	logger.warning("Can't get poll status for " + au.getName() + ": " +
+		       e.getMessage());
+      }
       List lst = new ArrayList();
       if (isCrawling) {
         lst.add(makeCrawlRef("Crawling", au));

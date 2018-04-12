@@ -309,7 +309,7 @@ public class RepositoryManager
 		log.critical("Illegal V2 repository spec: " + spec);
 	      } else {
 		try {
-		  URL url = new URL(m1.group(3));
+		  URL url = new URL(u);
 		  repo =
 		    LockssRepositoryFactory.createRestLockssRepository(url);
 		} catch (MalformedURLException e) {

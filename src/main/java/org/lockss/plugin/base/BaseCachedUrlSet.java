@@ -93,9 +93,10 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       v2Repo = repomgr.getV2Repository().getRepository();
       v2Coll = repomgr.getV2Repository().getCollection();
     }
-    if (logger.isDebug3())
+    if (logger.isDebug3()) {
       logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
-
+      logger.debug3(DEBUG_HEADER + "au = " + au);
+    }
     repository = theDaemon.getLockssRepository(owner);
     histRepo = theDaemon.getHistoryRepository(owner);
   }
@@ -319,6 +320,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       try {
 	return v2Repo.auSize(v2Coll, au.getAuId());
       } catch (IOException e) {
+	logger.error("getContentSize", e);
 	// TK what to do here
 	throw new RuntimeException(e);
       }
