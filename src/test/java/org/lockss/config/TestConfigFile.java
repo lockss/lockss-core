@@ -52,6 +52,7 @@ import static org.lockss.config.ConfigManager.KeyPredicate;
  */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({TestConfigFile.TestFile.class,
+                     TestConfigFile.TestDynamic.class,
                      TestConfigFile.TestHttp.class,
                      TestConfigFile.TestJar.class})
 public class TestConfigFile {
@@ -443,6 +444,114 @@ public class TestConfigFile {
 	throws IOException {
       FileConfigFile fcf = (FileConfigFile)cf;
       File file = fcf.makeFile();
+      file.setLastModified(time);
+    }
+
+    protected boolean isAlwaysAttempt() {
+      return true;
+    }
+
+    // Test cases
+
+    @Test
+    public void testNotFound() throws IOException {
+      doTestCantRead(new FileConfigFile("/file/not/found", null),
+		   "FileNotFoundException");
+    }
+
+    @Test
+    public void testGzip() throws IOException {
+      FileConfigFile fcf =
+	new FileConfigFile(gzippedTempFileUrl(text1, ".txt"), null);
+      Configuration config = fcf.getConfiguration();
+      assertTrue(fcf.isLoaded());
+      assertEquals("foo", config.get("prop.1"));
+      assertEquals("bar", config.get("prop.2"));
+      assertEquals("baz", config.get("prop.3"));
+    }
+
+    @Test
+    public void testGzipXml() throws IOException {
+      FileConfigFile fcf =
+	new FileConfigFile(gzippedTempFileUrl(xml1, ".xml"), null);
+      Configuration config = fcf.getConfiguration();
+      assertTrue(fcf.isLoaded());
+      assertEquals("foo", config.get("prop.7"));
+      assertEquals("bar", config.get("prop.8"));
+      assertEquals("baz", config.get("prop.9"));
+    }
+
+    // Ensure storedConfig() of a sealed config doesn't make a copy
+    @Test
+    public void testStoredConfigSealed() throws IOException {
+      FileConfigFile fcf = (FileConfigFile)makeConfigFile("a=1\nb1=a", false);
+      Configuration c = fcf.getConfiguration();
+      Configuration c2 = ConfigurationUtil.fromArgs("x", "y");
+      assertSame(c, fcf.getConfiguration());
+      assertNotSame(c2, fcf.getConfiguration());
+      c2.seal();
+      fcf.storedConfig(c2);
+      assertSame(c2, fcf.getConfiguration());
+    }
+
+    // Ensure storedConfig() of an unsealed config does make a copy
+    @Test
+    public void testStoredConfigUnsealed() throws IOException {
+      FileConfigFile fcf = (FileConfigFile)makeConfigFile("a=1\nb1=a", false);
+      Configuration c = fcf.getConfiguration();
+      Configuration c2 = ConfigurationUtil.fromArgs("x", "y");
+      assertSame(c, fcf.getConfiguration());
+      assertNotSame(c2, fcf.getConfiguration());
+      fcf.storedConfig(c2);
+      assertEqualsNotSame(c2, fcf.getConfiguration());
+    }
+
+    @Test
+    public void testPlatformFile() throws Exception {
+      FileConfigFile cf = (FileConfigFile)makeConfigFile(text1, false);
+      assertFalse(cf.isPlatformFile());
+
+      cf.setConfigManager(new MyConfigManager(getTempDir(), null, null, null,
+	  null));
+      assertFalse(cf.isPlatformFile());
+
+      cf.setConfigManager(new MyConfigManager(getTempDir(), cf.getFileUrl(),
+	  null, null, null));
+      assertTrue(cf.isPlatformFile());
+    }
+
+    @Test
+    public void testRestConfigFile() throws Exception {
+      ConfigManager configMgr = new MyConfigManager(getTempDir(), null,
+	  "http://localhost:1234", null, null);
+      RestConfigFile rcf =
+	  new RestConfigFile("http://localhost:1234/rcf1", configMgr);
+      assertTrue(configMgr.getRestConfigClient().isActive());
+      assertTrue(configMgr.getRestConfigClient()
+	  .isPartOfThisService(rcf.getFileUrl()));
+    }
+  }
+
+  /** Test DynamicConfigFile */
+  public static class TestDynamic extends TestConfigFileParent {
+
+    protected ConfigFile makeConfigFile(String contents, boolean isXml)
+	throws IOException {
+      expectedUrl = "Dynamic Url" + suff(isXml);
+      return new DynamicConfigFile(expectedUrl, null) {
+	@Override
+	protected void generateFileContent(File file,
+					   ConfigManager cfgMgr)
+	    throws IOException {
+	  FileTestUtil.writeFile(file, contents);
+	}
+      };
+    }
+
+    protected void updateLastModified(ConfigFile cf, long time)
+	throws IOException {
+      DynamicConfigFile dcf = (DynamicConfigFile)cf;
+      File file = dcf.getFile();
       file.setLastModified(time);
     }
 

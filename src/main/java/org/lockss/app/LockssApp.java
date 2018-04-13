@@ -34,6 +34,7 @@ package org.lockss.app;
 import java.io.*;
 import java.util.*;
 import org.apache.commons.lang3.*;
+import gnu.getopt.Getopt;
 import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
 import org.lockss.alert.*;
@@ -203,6 +204,7 @@ public class LockssApp {
   protected String bootstrapPropsUrl = null;
   protected String restConfigServiceUrl = null;
   protected List<String> propUrls = null;
+  protected List<String> clusterUrls = null;
   protected String groupNames = null;
 
   protected boolean appInited = false;	// true after all managers inited
@@ -773,6 +775,7 @@ public class LockssApp {
   protected void initProperties() {
     ConfigManager configMgr = ConfigManager.makeConfigManager(bootstrapPropsUrl,
 	restConfigServiceUrl, propUrls, groupNames);
+    configMgr.setClusterUrls(clusterUrls);
 
     configMgr.initService(this);
     configMgr.startService();
@@ -942,6 +945,7 @@ public class LockssApp {
     bootstrapPropsUrl = opts.getBootstrapPropsUrl();
     restConfigServiceUrl = opts.getRestConfigServiceUrl();
     propUrls = opts.getPropUrls();
+    clusterUrls = opts.getClusterUrls();
     groupNames = opts.getGroupNames();
 
     try {
@@ -1091,6 +1095,7 @@ public class LockssApp {
     public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
     public static final String OPTION_REST_CONFIG_SERVICE_URL = "-c";
     public static final String OPTION_PROPURL = "-p";
+    public static final String OPTION_CLUSTERURL = "-l";
     public static final String OPTION_GROUP = "-g";
     public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
     public static final String OPTION_XML_PROP_DIR = "-x";
@@ -1099,10 +1104,13 @@ public class LockssApp {
     private String restConfigServiceUrl;
     private String groupNames;
     private List<String> propUrls = new ArrayList<String>();
+    // clusterUrls is a subset of propUrls
+    private List<String> clusterUrls = new ArrayList<String>();
 
     public StartupOptions() {
     }
 
+    @Deprecated
     public StartupOptions(String bootstrapPropsUrl, String restConfigServiceUrl,
 	List<String> propUrls, String groupNames) {
       this.bootstrapPropsUrl = bootstrapPropsUrl;
@@ -1123,6 +1131,10 @@ public class LockssApp {
       return propUrls;
     }
 
+    public List<String> getClusterUrls() {
+      return clusterUrls;
+    }
+
     public String getGroupNames() {
       return groupNames;
     }
@@ -1141,6 +1153,10 @@ public class LockssApp {
 	  if (log.isDebug3())
 	    log.debug3("getStartupOptions(): propUrl: " + v.get(idx));
 	  propUrls.add(v.get(idx));
+	} else if (args[i].equals(OPTION_CLUSTERURL) && i < args.length - 1) {
+	  String clustUrl = args[++i];
+	  propUrls.add(clustUrl);
+	  clusterUrls.add(clustUrl);
 	} else if (args[i].equals(OPTION_LOG_CRYPTO_PROVIDERS)) {
 	  SslUtil.logCryptoProviders(true);
 	} else if (args[i].equals(OPTION_XML_PROP_DIR) && i < args.length - 1) {

@@ -67,6 +67,9 @@ public class TestLockssApp extends LockssTestCase {
 		      "-g", "test3-group"};
     String[] test4 = {"-p", "foo1;bar1;baz1",
 		      "-p", "foo2;bar2;baz2"};
+    String[] test2a = {"-l", "foo",
+		       "-p", "bar",
+		       "-l", "baz"};
 
 
     // bad options (-p without argument, should be ignored)
@@ -153,6 +156,12 @@ public class TestLockssApp extends LockssTestCase {
 	       "bar2".equals(list4.get(1)) ||
 	       "baz2".equals(list4.get(1)));
     assertNull(opt4.getBootstrapPropsUrl());
+
+    // Test cluster urls
+    LockssDaemon.StartupOptions opt2a =
+      LockssDaemon.getStartupOptions(test2a);
+    assertEquals(ListUtil.list("foo", "bar", "baz"), opt2a.getPropUrls());
+    assertEquals(ListUtil.list("foo", "baz"), opt2a.getClusterUrls());
 
     // Test some bad options.  Second -p should be ignored.
     LockssDaemon.StartupOptions opt5 =

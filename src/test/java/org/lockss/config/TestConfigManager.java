@@ -361,6 +361,60 @@ public class TestConfigManager extends LockssTestCase4 {
 		 config.get(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR));
   }
 
+  static final String CLUST_URL = "dyn:cluster.xml";
+
+  String expClust =
+    "  <property name=\"org.lockss.auxPropUrls\">\\n" +
+    "    <list append=\"false\">\\n" +
+    "      <value>http://host/lockss.xml</value>\\n" +
+    "      <value>./cluster.txt</value>\\n" +
+    "      <value>encode&lt;me&gt;</value>\\n" +
+    "\\n" +
+    "    <!-- Put static URLs here -->\\n" +
+    "\\n" +
+    "    </list>\\n" +
+    "  </property>\\n";
+
+  @Test
+  public void testGenerateCluster() throws Exception {
+    List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+			     "encode<me>");
+    mgr.setClusterUrls(exp);
+    File tmpFile = getTempFile("configtmp", "");
+    mgr.generateClusterFile(tmpFile);
+    String clust = StringUtil.fromFile(tmpFile);
+    assertMatchesRE(expClust, clust);
+  }
+
+  @Test
+  public void testDynCluster() throws Exception {
+    List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+			     "encode<me>");
+    mgr.setClusterUrls(exp);
+    ConfigFile cf = mgr.getConfigCache().find(CLUST_URL);
+    Configuration config = cf.getConfiguration();
+    assertEquals(exp, config.getList("org.lockss.auxPropUrls"));
+    // ensure file isn't regenerated each time
+    assertSame(config, cf.getConfiguration());
+  }
+
+  @Test
+  public void testDynClusterNone() throws Exception {
+    ConfigFile cf = mgr.getConfigCache().find(CLUST_URL);
+    Configuration config = cf.getConfiguration();
+    assertEmpty(config.getList("org.lockss.auxPropUrls"));
+  }
+
+  @Test
+  public void testDynClusterInputStream() throws Exception {
+    List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+			     "encode<me>");
+    mgr.setClusterUrls(exp);
+    String clust =
+      StringUtil.fromInputStream(mgr.getCacheConfigFileInputStream(CLUST_URL));
+    assertMatchesRE(expClust, clust);
+  }
+
   @Test
   public void testInitSocketFactoryNoKeystore() throws Exception {
     Configuration config = mgr.newConfiguration();

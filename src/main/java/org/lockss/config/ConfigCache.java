@@ -71,8 +71,15 @@ public class ConfigCache {
       // doesn't yet exist in the cache, add it.
       log.debug2("Adding " + url);
       BaseConfigFile bcf;
-      // Check whether it is a resource configuration file.
-      if (configMgr != null && configMgr.existsResourceConfigFile(url)) {
+      // Check whether it is a dynamically created configuration file.
+      if (DynamicConfigFile.isDynamicConfigUrl(url)) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is DynamicConfigFile.");
+	if (configMgr == null) {
+	  throw new IllegalStateException("Can't create DynamicConfigFile without a ConfigManager: " + url);
+	}
+	bcf = configMgr.newDynamicConfigFile(url);
+	// Check whether it is a resource configuration file.
+      } else if (configMgr != null && configMgr.existsResourceConfigFile(url)) {
 	// Yes.
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is ResourceConfigFile.");
 	bcf = new ResourceConfigFile(url, configMgr);

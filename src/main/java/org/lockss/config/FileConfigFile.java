@@ -38,11 +38,11 @@ import org.lockss.util.*;
  */
 
 public class FileConfigFile extends BaseConfigFile {
-  private File m_fileFile;
+  protected File m_fileFile;
 
   public FileConfigFile(String url, ConfigManager cfgMgr)  {
     super(url, cfgMgr);
-    m_fileFile = makeFile();
+    initFile();
   }
 
   /**
@@ -52,7 +52,7 @@ public class FileConfigFile extends BaseConfigFile {
    * NB: Java 1.4 supports constructing File objects from a file: URI,
    * which will eliminate the need for this method.
    */
-  File makeFile() {
+  protected File makeFile() {
     String file = getFileUrl();
     if (UrlUtil.isFileUrl(file)) {
       String fileLoc = file.substring("file:".length());
@@ -60,6 +60,14 @@ public class FileConfigFile extends BaseConfigFile {
     } else {
       return new File(file);
     }
+  }
+
+  protected void initFile() {
+    m_fileFile = makeFile();
+  }
+
+  File getFile() {
+    return m_fileFile;
   }
 
   /** Notify us that the file was just written, with these contents, so we

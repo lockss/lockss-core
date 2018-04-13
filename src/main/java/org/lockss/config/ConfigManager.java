@@ -37,6 +37,7 @@ import java.net.*;
 import org.apache.commons.collections.Predicate;
 import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.oro.text.regex.*;
 import org.lockss.app.*;
 import org.lockss.account.*;
@@ -630,6 +631,8 @@ public class ConfigManager implements LockssManager {
   private LinkedHashMap<String,LocalFileDescr> cacheConfigFileMap = null;
 
   private List configUrlList;		// list of config file urls
+  private List<String> clusterUrls;	// list of config urls that should
+					// be included in cluster.xml
   // XXX needs synchronization
   private List pluginTitledbUrlList;	// list of titledb urls (usually
 					// jar:) specified by plugins
@@ -720,6 +723,10 @@ public class ConfigManager implements LockssManager {
 
     // Create the map of resource configuration files.
     resourceConfigFiles = populateResourceFileMap();
+  }
+
+  public void setClusterUrls(List<String> urls) {
+    clusterUrls = urls;
   }
 
   public ConfigCache getConfigCache() {
@@ -3308,6 +3315,71 @@ public class ConfigManager implements LockssManager {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cf = " + cf);
     return cf;
+  }
+
+  /** Create and return an instance of DynamicConfigFile that will generate
+   * content determined by the url.  Logic for new types of dynamic config
+   * files should be added here. */
+  public DynamicConfigFile newDynamicConfigFile(String url) {
+    switch (url) {
+    case "dyn:cluster.xml":
+      return new DynamicConfigFile(url, this) {
+	@Override
+	protected void generateFileContent(File file,
+					   ConfigManager cfgMgr)
+	    throws IOException {
+	  generateClusterFile(file);
+	}
+      };
+    default:
+      throw new IllegalArgumentException("Unknown dynamic config file: " + url);
+    }
+  }
+
+
+  // TK should go into a template util
+  void expandTemplate(String name, Writer wrtr, Map<String,String> valMap)
+      throws IOException {
+    InputStream is = getClass().getResourceAsStream(name);
+    if (is == null) {
+      throw new IllegalArgumentException("No such config template file: " +
+					 name);
+    }
+    try {
+      String template = StringUtil.fromInputStream(is);
+      SimpleWriterTemplateExpander t =
+	new SimpleWriterTemplateExpander(template, wrtr);
+      String token;
+      while ((token = t.nextToken()) != null) {
+	String val = valMap.get(token);
+	if (val != null) {
+	  wrtr.write(val);
+	} else {
+	  log.warning("Unknown token '" + token + "' in config template");
+	}
+      }
+      wrtr.flush();
+    } finally {
+      IOUtil.safeClose(is);
+    }
+  }
+
+  void generateClusterFile(File file) throws IOException {
+    StringBuilder sb = new StringBuilder();
+    if (clusterUrls == null) {
+      clusterUrls = Collections.EMPTY_LIST;
+    }
+    for (String url : clusterUrls) {
+      sb.append("      <value>");
+      sb.append(StringEscapeUtils.escapeXml(url));
+      sb.append("</value>\n");
+    }
+    Map<String,String> valMap =
+      MapUtil.map("PreUrls", sb.toString(),
+		  "PostUrls", "");
+    try (Writer wrtr = new BufferedWriter(new FileWriter(file))) {
+      expandTemplate("ClusterTemplate.xml", wrtr, valMap);
+    }
   }
 
   /**
