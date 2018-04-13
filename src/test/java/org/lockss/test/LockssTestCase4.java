@@ -42,6 +42,7 @@ import org.apache.oro.text.regex.Pattern;
 import org.junit.*;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.*;
+import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.Parameterized.Parameter;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -2507,6 +2508,12 @@ public class LockssTestCase4 extends Assert {
     getErrorCollector().addError(error);
   }
   
+  @Rule public MethodRule watchman = new TestWatchman() {
+    public void starting(FrameworkMethod method) {
+      log.debug("Testcase " + method.getName());
+    }
+  };
+
   /**
    * <p>
    * Returns the Cartesian product of one or more arrays of values, to be used
