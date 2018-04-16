@@ -2258,6 +2258,19 @@ public class MetadataDbManagerSql extends DbManagerSql {
   // The database subsystem.
   private static final String DB_VERSION_SUBSYSTEM = "MetadataDbManager";
 
+  // Query to find the Archival Unit identifier and the URL linked to a DOI.
+  private static final String FIND_AU_URL_FOR_DOI_QUERY = "select p."
+      + PLUGIN_ID_COLUMN + ", au." + AU_KEY_COLUMN + ", u." + URL_COLUMN
+      + " from " + PLUGIN_TABLE + " p, " + AU_TABLE
+      + ", " + AU_MD_TABLE + " am, " + MD_ITEM_TABLE + " mi, "
+      + URL_TABLE + " u, " + DOI_TABLE + " d"
+      + " where p." + PLUGIN_SEQ_COLUMN + " = au." + PLUGIN_SEQ_COLUMN
+      + " and au." + AU_SEQ_COLUMN + " = am." + AU_SEQ_COLUMN
+      + " and am." + AU_MD_SEQ_COLUMN + " = mi." + AU_MD_SEQ_COLUMN
+      + " and mi." + MD_ITEM_SEQ_COLUMN + " = u." + MD_ITEM_SEQ_COLUMN
+      + " and u." + MD_ITEM_SEQ_COLUMN + " = d." + MD_ITEM_SEQ_COLUMN
+      + " and upper(d." + DOI_COLUMN + ") = ?";
+
   /**
    * Constructor.
    * 
@@ -6530,6 +6543,72 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
     log.debug3(DEBUG_HEADER + "addedCount = " + addedCount);
     return addedCount;
+  }
+
+  /**
+   * Provides the Archival Unit identifier and the URL linked to a DOI.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param doi
+   *          A String with the DOI.
+   * @return a Map<String, String> with the AUID/URL pair.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  Map<String, String> getAuUrlForDoi(Connection conn, String doi)
+      throws SQLException {
+    final String DEBUG_HEADER = "getAuUrlForDoi(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "doi = " + doi);
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    Map<String, String> result = new HashMap<String, String>();
+
+    PreparedStatement findAuUrl =
+	prepareStatement(conn, FIND_AU_URL_FOR_DOI_QUERY);
+
+    ResultSet resultSet = null;
+
+    try {
+      // Get the existing URLs.
+      findAuUrl.setString(1, doi.toUpperCase());
+      resultSet = executeQuery(findAuUrl);
+
+      // Get the Archival Unit ID and URL linked to the DOI.
+      if (resultSet.next()) {
+	String pluginId = resultSet.getString(PLUGIN_ID_COLUMN);
+	String auKey = resultSet.getString(AU_KEY_COLUMN);
+	String url = resultSet.getString(URL_COLUMN);
+	log.debug3(DEBUG_HEADER + "Found pluginId = '" + pluginId
+	    + "', auKey = '" + auKey + "', URL = '" + url + "'.");
+
+	result.put("url", url);
+
+	String auId = PluginManager.generateAuId(pluginId, auKey);
+	log.debug3(DEBUG_HEADER + "auId = '" + auId + "'.");
+
+	result.put("auid", auId);
+      }
+    } catch (SQLException sqle) {
+      log.error("Cannot get the AU ID and URL linked to a DOI", sqle);
+      log.error("doi = " + doi);
+      log.error("SQL = '" + FIND_AU_URL_FOR_DOI_QUERY + "'.");
+      throw sqle;
+    } catch (RuntimeException re) {
+      log.error("Cannot get the AU ID and URL linked to a DOI", re);
+      log.error("doi = " + doi);
+      log.error("SQL = '" + FIND_AU_URL_FOR_DOI_QUERY + "'.");
+      throw re;
+    } finally {
+      safeCloseResultSet(resultSet);
+      safeCloseStatement(findAuUrl);
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    return result;
   }
 
   /**
