@@ -660,7 +660,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-plugins</artifactId>
-      <version>20180327</version>
+      <version>${lockss.plugins.version}</version>
     </dependency>
     <dependency>
       <groupId>org.lockss.laaws</groupId>
