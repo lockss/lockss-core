@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.7.0</version>
+    <version>1.9.0-SNAPSHOT</version>
     <relativePath />
   </parent>
 
@@ -60,13 +60,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <build.info.file>${build.info.dir}/build.properties</build.info.file>
   </properties>
 
-  <!-- This stanza needs to be repeated in every child -->
+  <!-- Must be in every lockss-parent-pom descendant -->
   <scm>
     <connection>${scmConnection}</connection>
     <developerConnection>${scmDeveloperConnection}</developerConnection>
     <url>${scmUrl}</url>
   </scm>
-
+  
   <dependencies>
 
     <dependency>
@@ -655,7 +655,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-util</artifactId>
-      <version>1.6.0</version>
+      <version>${lockss.util.version}</version>
     </dependency>
     <dependency>
       <groupId>org.lockss</groupId>
@@ -665,7 +665,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss.laaws</groupId>
       <artifactId>laaws-repository-core</artifactId>
-      <version>1.11.4</version>
+      <version>${lockss.repository-core.version}</version>
       <exclusions>
         <!-- brings sealed Jetty 6 but we have Jetty 5 -->
         <exclusion>
@@ -787,7 +787,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <plugin>
         <groupId>org.lockss.laaws</groupId>
         <artifactId>lockss-tdbxml-maven-plugin</artifactId>
-        <version>1.1.0</version>
+        <version>${lockss.tdbxml-maven-plugin.version}</version>
         <configuration>
           <srcDir>src/test/java</srcDir>
           <dstDir>target/test-classes</dstDir>
