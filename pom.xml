@@ -727,19 +727,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             <configuration>
               <exportAntProperties>true</exportAntProperties>
               <target>
-		<condition property="hostname"
-			   value="${env.HOSTNAME}">
-		  <isset property="env.HOSTNAME" />
-		</condition>
 		<exec executable="hostname" outputproperty="hostname0"
 		      failifexecutionfails="false"/>
-		<condition property="hostname"
-			   value="${hostname0}">
-		  <not>
-		    <isset property="env.HOSTNAME" />
-		  </not>
-		</condition>
-
+                <condition property="hostname" value="${env.HOSTNAME}" else="${hostname0}">
+                  <isset property="env.HOSTNAME" />
+                </condition>
+                
 		<mkdir dir="${build.info.dir}" />
 		<propertyfile comment="Build Information"
 			      file="${build.info.file}">
