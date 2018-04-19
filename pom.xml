@@ -763,25 +763,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
               </target>
             </configuration>
           </execution>
-          <execution>
-            <id>compile</id>
-            <phase>compile</phase>
-            <configuration>
-              <target>
-                <property name="runtime_classpath"
-                  refid="maven.runtime.classpath" />
-                <property name="test_classpath"
-                  refid="maven.test.classpath" />
-                <echo message="${runtime_classpath}"
-                      file="${run.classpath.file}"/>
-                <echo message="${test_classpath}"
-                      file="${test.classpath.file}"/>
-              </target>
-            </configuration>
-            <goals>
-              <goal>run</goal>
-            </goals>
-          </execution>
         </executions>
       </plugin>
       <plugin>
