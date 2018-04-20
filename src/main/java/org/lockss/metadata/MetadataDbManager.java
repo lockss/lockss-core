@@ -940,4 +940,30 @@ public class MetadataDbManager extends DbManager
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "count = " + count);
     return count;
   }
+
+  /**
+   * Provides the Archival Unit identifier and the URL linked to a DOI.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param doi
+   *          A String with the DOI.
+   * @return a Map<String, String> with the AUID/URL pair.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String, String> getAuUrlForDoi(Connection conn, String doi)
+      throws DbException {
+    if (!ready) {
+      throw new DbException("DbManager has not been initialized.");
+    }
+
+    try {
+      return mdDbManagerSql.getAuUrlForDoi(conn, doi);
+    } catch (SQLException sqle) {
+      throw new DbException("Cannot get AUID and URL for DOI = " + doi, sqle);
+    } catch (RuntimeException re) {
+      throw new DbException("Cannot get AUID and URL for DOI = " + doi, re);
+    }
+  }
 }
