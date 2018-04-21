@@ -39,7 +39,6 @@ import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
 import org.lockss.extractor.JsoupHtmlLinkExtractor.BaseLinkExtractor;
 import org.lockss.plugin.ArchivalUnit;
-import org.lockss.uiapi.util.Constants;
 import org.lockss.util.*;
 
 import java.nio.charset.Charset;
