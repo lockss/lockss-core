@@ -549,32 +549,10 @@ public class OpenUrlResolver {
       String rft_id = params.get("rft_id");
       // handle rft_id that is an HTTP or HTTPS URL
       if (UrlUtil.isHttpOrHttpsUrl(rft_id)) {
-        boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
-            .getBoolean(PluginManager.PARAM_AU_CONTENT_FROM_WS,
-        	PluginManager.DEFAULT_AU_CONTENT_FROM_WS);
-        if (log.isDebug3())
-          log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
-
-	if (isUrlCachedFromWs) {
-	  boolean isUrlCached = false;
-
-	  try {
-	    isUrlCached = new IsUrlCachedClient().isUrlCached(rft_id);
-	    if (log.isDebug3())
-	      log.debug3(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
-	  } catch (Exception e) {
-	    log.warning("IsUrlCachedClient().isCached() threw: ", e);
-          }
-
-	  if (isUrlCached) {
-	    return OpenUrlInfo.newInstance(rft_id, null);
-	  }
-        } else {
-          resolvedDirectly = resolveFromUrl(rft_id);
-          if (resolvedDirectly.isResolved()) {
-            return resolvedDirectly;
-          }
-        }
+	resolvedDirectly = resolveFromUrl(rft_id);
+	if (resolvedDirectly.isResolved()) {
+	  return resolvedDirectly;
+	}
 
         if (log.isDebug3())
           log.debug3(DEBUG_HEADER + "Failed to resolve from URL: " + rft_id);
