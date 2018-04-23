@@ -185,7 +185,6 @@ public class LockssDaemon extends LockssApp {
     FAIL_OVER_PROXY_MANAGER_DESC,
     // comm after other major services so don't process messages until
     // they're ready
-    DATAGRAM_COMM_MANAGER_DESC,
     STREAM_COMM_MANAGER_DESC,
     ROUTER_MANAGER_DESC,
     ICP_MANAGER_DESC,

@@ -1006,8 +1006,6 @@ public class AdminServletManager extends BaseServletManager {
 
     handler.addServlet("ProxyInfo", "/info/ProxyInfo",
             "org.lockss.servlet.ProxyConfig");
-    addServletIfAvailable(handler, "Api", "/Api",
-            "org.lockss.uiapi.servlet.Api");
     context.addHandler(handler);
 
     // ResourceHandler should come after servlets
