@@ -37,8 +37,8 @@ import java.util.*;
 
 import org.lockss.extractor.LinkExtractor.Callback;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.util.*;
 import org.lockss.test.*;
-import org.lockss.uiapi.util.Constants;
 import org.xml.sax.*;
 import org.xml.sax.helpers.DefaultHandler;
 
