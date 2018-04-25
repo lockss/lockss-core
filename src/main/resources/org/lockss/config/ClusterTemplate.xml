@@ -63,7 +63,7 @@ in this Software without prior written authorization from Stanford University.
   <property name="org.lockss.auxPropUrls">
     <list append="false">
 @PreUrls@
-    <!-- Put static URLs here -->
+      <!-- Put static URLs here -->
 @PostUrls@
     </list>
   </property>
