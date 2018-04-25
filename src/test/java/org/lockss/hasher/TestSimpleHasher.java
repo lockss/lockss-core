@@ -581,14 +581,6 @@ public class TestSimpleHasher extends LockssTestCase {
     }
 
     try {
-      digest = new SimpleHasher(null).makeDigestAndRecordStream("SHA256", false,
-	  result);
-      fail("Invalid algorithm should throw NoSuchAlgorithmException");
-    } catch (NoSuchAlgorithmException nsae) {
-      // Expected.
-    }
-
-    try {
       digest = new SimpleHasher(null).makeDigestAndRecordStream("FGL", false,
 	  result);
       fail("Invalid algorithm should throw NoSuchAlgorithmException");
