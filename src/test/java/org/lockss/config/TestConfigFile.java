@@ -709,6 +709,22 @@ public class TestConfigFile {
     // Test cases
 
     @Test
+    public void testResolveConfigUrl() {
+      String fbase = "./config/common.xml";
+      String stem = "http://props.lockss.org/";
+      String hbase = stem +"path/lockss.xml";
+      MyHttpConfigFile hcf = new MyHttpConfigFile(hbase);
+      assertEquals(stem + "path/tdb.xml",
+		   hcf.resolveConfigUrl("tdb.xml"));
+      hcf = new MyHttpConfigFile(hbase + "?foo=bar");
+      assertEquals(stem + "path/tdb.xml",
+		   hcf.resolveConfigUrl("tdb.xml"));
+      hcf = new MyHttpConfigFile("http://localhost:54420/config/url/http://props/lockss.xml");
+      assertEquals("http://localhost:54420/config/url/http://props/tdb.xml",
+		   hcf.resolveConfigUrl("tdb.xml"));
+    }
+
+    @Test
     public void testNotFound() throws IOException {
       String url;
       MyHttpConfigFile hcf;

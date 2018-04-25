@@ -1310,6 +1310,8 @@ public class ConfigManager implements LockssManager {
 
     // URL base for relative URLs.
     String base = gen.getUrl();
+    ConfigFile cf = gen.getConfigFile();
+
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "base = " + base);
 
     // The configuration with potential references.
@@ -1341,7 +1343,7 @@ public class ConfigManager implements LockssManager {
 	Collection<String> resolvedUrls = new ArrayList<String>(urls.size());
 	for (String url : urls) {
 	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
-	  String resolvedUrl = resolveConfigUrl(base, url);
+	  String resolvedUrl = cf.resolveConfigUrl(url);
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "resolvedUrl = " + resolvedUrl);
 	  resolvedUrls.add(resolvedUrl);
@@ -1737,20 +1739,6 @@ public class ConfigManager implements LockssManager {
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
       platVer = null;
-    }
-  }
-
-  String resolveConfigUrl(String base, String configUrl) {
-    final String DEBUG_HEADER = "resolveConfigUrl(): ";
-    if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "base = " + base);
-      log.debug2(DEBUG_HEADER + "configUrl = " + configUrl);
-    }
-    try {
-      return UrlUtil.resolveUri(base, configUrl);
-    } catch (MalformedURLException e) {
-      log.error("Malformed props base URL: " + base + ", rel: " + configUrl, e);
-      return configUrl;
     }
   }
 

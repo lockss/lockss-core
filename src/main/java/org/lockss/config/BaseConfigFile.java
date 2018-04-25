@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config;
 
 import java.io.*;
+import java.net.*;
 import java.util.*;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.util.*;
@@ -89,6 +90,22 @@ public abstract class BaseConfigFile implements ConfigFile {
   @Override
   public String getLoadedUrl() {
     return m_loadedUrl != null ? m_loadedUrl : m_fileUrl;
+  }
+
+  @Override
+  public String resolveConfigUrl(String relUrl) {
+    final String DEBUG_HEADER = "resolveConfigUrl(): ";
+    String base = getFileUrl();
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "base = " + base);
+      log.debug2(DEBUG_HEADER + "relUrl = " + relUrl);
+    }
+    try {
+      return UrlUtil.resolveUri(base, relUrl);
+    } catch (MalformedURLException e) {
+      log.error("Can't resolve, base: " + base + ", rel: " + relUrl, e);
+      return relUrl;
+    }
   }
 
   /** Return true if this file might contain platform values that are

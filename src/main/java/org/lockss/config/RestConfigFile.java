@@ -32,8 +32,8 @@ import java.io.InputStream;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.net.*;
+import java.util.*;
 import org.apache.commons.io.input.ReaderInputStream;
 import org.lockss.rs.multipart.TextMultipartResponse;
 import org.lockss.rs.multipart.TextMultipartResponse.Part;
@@ -42,7 +42,8 @@ import org.lockss.util.UrlUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.util.UriUtils;
+import org.springframework.web.util.*;
+import org.springframework.util.MultiValueMap;
 
 /**
  * A ConfigFile loaded from a REST configuration service.
@@ -126,9 +127,18 @@ public class RestConfigFile extends BaseConfigFile {
     try {
       response = serviceClient.callGetTextMultipartRequest(requestUrl,
 	  ifModifiedSince);
-    } catch (Exception e) {
+    } catch (IOException e) {
+      // The HTTP fetch failed.  First see if we already found a failover
+      // file.
+      log.info("Couldn't load remote config URL: " + m_fileUrl + ": "
+	  + e.toString());
       m_loadError = e.getMessage();
-      throw new RuntimeException(m_loadError);
+      throw e;
+    } catch (Exception e) {
+      log.info("Couldn't load remote config URL: " + m_fileUrl + ": "
+	  + e.toString());
+      m_loadError = e.getMessage();
+      throw new IOException(e.toString());
     }
 
     InputStream in = null;
@@ -328,6 +338,39 @@ public class RestConfigFile extends BaseConfigFile {
     return urlToUse;
   }
 
+  @Override
+  public String resolveConfigUrl(String relUrl) {
+    final String DEBUG_HEADER = "resolveConfigUrl(): ";
+    String restUrl = getFileUrl();
+    UriComponentsBuilder ucb =
+      UriComponentsBuilder.fromUriString(restUrl);
+    UriComponents comp = ucb.build();
+    String path = comp.getPath();
+
+    if (path.startsWith("/config/url")) {
+	MultiValueMap<String, String> params = comp.getQueryParams();
+	List<String> urls = params.get("url");
+	String base = UrlUtil.decodeUrl(urls.get(0));
+
+	try {
+	  String absUrl = UrlUtil.resolveUri(base, relUrl);
+	  //       ucb.replaceQueryParam("url", UrlUtil.encodeUrl(absUrl));
+	  ucb.replaceQueryParam("url", absUrl);
+	  return ucb.toUriString();
+	} catch (MalformedURLException e) {
+	  log.error("Malformed props base URL: " + base + ", rel: " + relUrl,
+		    e);
+	  return relUrl;
+	}
+      } else if (path.startsWith("/config/file")) {
+	ucb.replacePath("/config/url");
+// 	String base = ucb.build().toUriString();
+	ucb.replaceQueryParam("url", relUrl);
+	return ucb.toUriString();
+      }
+    return relUrl;
+  }
+
   /**
    * Provides the redirection URL for an absolute URL to go through the REST
    * Configuration service.
@@ -365,7 +408,8 @@ public class RestConfigFile extends BaseConfigFile {
     } else {
       // No: Build the redirected URL.
       redirectionUrl = serviceLocation + UrlUtil.URL_PATH_SEPARATOR
-	  + "config/url/" + UriUtils.encodePathSegment(originalUrl, "UTF-8");
+	  + "config/url?url=" +
+	UriUtils.encodePathSegment(originalUrl, "UTF-8");
     }
 
     if (log.isDebug2())

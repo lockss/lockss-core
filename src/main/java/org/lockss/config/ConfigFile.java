@@ -47,6 +47,8 @@ public interface ConfigFile {
 
   public String getLoadedUrl();
 
+  public String resolveConfigUrl(String relativeUrl);
+
   /** Return true if this file might contain platform values that are
    * needed in order to properly parse other config files.
    */
