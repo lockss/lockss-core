@@ -151,7 +151,7 @@ public class JMSManager extends BaseLockssManager
     try {
     BrokerService res = new BrokerService(); 
 //     res.setBrokerName("foo");
-      StringBuffer sb = new StringBuffer();
+      StringBuilder sb = new StringBuilder();
       sb.append("Started broker ");
       sb.append(uri);
 
