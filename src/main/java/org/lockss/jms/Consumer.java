@@ -33,34 +33,55 @@ import java.util.Map;
 import javax.jms.*;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class Subscriber {
+import org.lockss.app.*;
+import org.lockss.util.*;
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(Subscriber.class);
+public class Consumer {
+
+  private static final Logger log = Logger.getLogger(Consumer.class);
 
   protected String clientId;
   protected Connection connection;
   protected MessageConsumer messageConsumer;
   protected Session session;
 
-  public void create(String clientId, String topicName) throws JMSException {
-    this.create(clientId, topicName, null);
+  public static Consumer createTopicConsumer(String clientId,
+						 String topicName)
+      throws JMSException {
+    return Consumer.createTopicConsumer(clientId, topicName, null);
   }
 
-  public void create(String clientId, String topicName, MessageListener listener)
+  public static Consumer createTopicConsumer(String clientId,
+						 String topicName,
+						 MessageListener listener)
       throws JMSException {
+    Consumer res = new Consumer();
+    res.createTopic(clientId, topicName, listener);
+    return res;
+  }
+
+  private Consumer createTopic(String clientId,
+				 String topicName,
+				 MessageListener listener)
+      throws JMSException {
+
     this.clientId = clientId;
 
+    JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
     // create a Connection Factory
-    ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
-        ActiveMQConnection.DEFAULT_BROKER_URL);
+    log.debug("Creating consumer for topic: " + topicName +
+	      ", client: " + clientId + " at " +
+	      mgr.getConnectUri());
+    ConnectionFactory connectionFactory =
+      new ActiveMQConnectionFactory(mgr.getConnectUri());
 
     // create a Connection
     connection = connectionFactory.createConnection();
     connection.setClientID(clientId);
+    log.debug3("Created session for topic: " + topicName +
+	       ", client: " + clientId + " at " +
+	       mgr.getConnectUri());
 
     // create a Session
     session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
@@ -76,6 +97,7 @@ public class Subscriber {
 
     // start the connection in order to receive messages
     connection.start();
+    return this;
   }
 
   public void closeConnection() throws JMSException {
@@ -145,11 +167,13 @@ public class Subscriber {
     if (received != null && received instanceof String) {
       // cast the message to the correct type
       String text = (String) received;
-      LOGGER.debug(clientId + ": received text ='{}'", text);
+      if (log.isDebug()) {
+	log.debug(clientId + ": received text ='" + text + "'");
+      }
       return text;
     }
     else {
-      LOGGER.debug(clientId + ": String message not received");
+      log.debug(clientId + ": String message not received");
     }
     return null;
   }
@@ -167,11 +191,11 @@ public class Subscriber {
     Object received = receive(timeout);
     // check if a message was received
     if (received != null && received instanceof Map) {
-      LOGGER.debug(clientId + ": received map.");
+      log.debug(clientId + ": received map.");
       return (Map<String, Object>) received;
     }
     else {
-      LOGGER.debug(clientId + ": Map not received");
+      log.debug(clientId + ": Map not received");
     }
     return null;
   }
@@ -187,11 +211,13 @@ public class Subscriber {
     Object received = receive(timeout);
     if (received != null && received instanceof byte[]) {
       byte[] bytes = (byte[]) received;
-      LOGGER.debug(clientId + ": received bytes ='{}'", bytes);
+      if (log.isDebug()) {
+	log.debug(clientId + ": received bytes ='" + bytes + "'");
+      }
       return bytes;
     }
     else {
-      LOGGER.debug(clientId + ": no bytes received");
+      log.debug(clientId + ": no bytes received");
     }
     return null;
   }
@@ -208,11 +234,14 @@ public class Subscriber {
     Object received = receive(timeout);
     if (received != null && received instanceof Serializable) {
       Serializable obj = (Serializable) received;
-      LOGGER.debug(clientId + ": received serializable object ='{}'", obj.toString());
+      if (log.isDebug()) {
+	log.debug(clientId + ": received serializable object ='" +
+		  obj.toString() + "'");
+      }
       return obj;
     }
     else {
-      LOGGER.debug(clientId + ": no message received");
+      log.debug(clientId + ": no message received");
     }
     return null;
   }
@@ -220,30 +249,16 @@ public class Subscriber {
   /**
    * A Basic MessageListener.  Override the onMessage to appropriate functionality.
    */
-  public static class SubscriptionListener implements MessageListener {
+  public abstract static class SubscriptionListener implements MessageListener {
 
     protected String listenerName;
-    protected Object msgObject;
 
-    SubscriptionListener(String listenerName) {
+    public SubscriptionListener(String listenerName) {
       this.listenerName = listenerName;
     }
 
-    @Override
-    public void onMessage(Message message) {
-      try {
-        msgObject =  Subscriber.convertMessage(message);
-      }
-      catch (JMSException e) {
-        LOGGER.error("onMessage received invalid obj");
-      }
-    }
     String getListenerName() {
       return listenerName;
-    }
-
-    Object getMsgObject() {
-      return msgObject;
     }
 
   }

@@ -202,6 +202,14 @@ public class MockLockssDaemon extends LockssDaemon {
     return mgr;
   }
 
+  public LockssManager getManagerByKey(String managerKey) {
+    LockssManager mgr = (LockssManager)managerMap.get(managerKey);
+    if (mgr == null) {
+      mgr = (LockssManager)newManager(managerKey);
+    }
+    return mgr;
+  }
+
   /**
    * return the watchdog service instance
    * @return the WatchdogService
@@ -866,6 +874,15 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setDaemonRunning(boolean val) {
     daemonRunning = val;
+  }
+
+  /** set daemonRunning
+   * @param val true if running
+   */
+  public void setAppRunning(boolean val) {
+    if (val) {
+      appRunningSem.fill();
+    }
   }
 
   public void setAusStarted(boolean val) {

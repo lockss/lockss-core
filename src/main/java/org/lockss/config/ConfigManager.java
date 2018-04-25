@@ -54,6 +54,9 @@ import org.lockss.servlet.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
+import javax.jms.Message;
+import javax.jms.JMSException;
+import org.lockss.jms.*;
 
 /** ConfigManager loads and periodically reloads the LOCKSS configuration
  * parameters, and provides services for updating locally changeable
@@ -682,10 +685,6 @@ public class ConfigManager implements LockssManager {
   // A map of existing resource configuration files, indexed by file name.
   private Map<String, File> resourceConfigFiles = null;
 
-  // The configuration parameter key to the props lockss.xml URL.
-  public static final String PARAM_PROPS_LOCKSS_XML_URL =
-      PLATFORM + "propsLockssXmlUrl";
-
   // The map of parent configuration files.
   Map<String, ConfigFile> parentConfigFile = new HashMap<String, ConfigFile>();
 
@@ -747,7 +746,7 @@ public class ConfigManager implements LockssManager {
   public void startService() {
     // Start the configuration handler that will periodically check the
     // configuration files.
-      startHandler();
+    startHandler();
   }
 
   /** Reset to unconfigured state.  See LockssTestCase.tearDown(), where
@@ -1422,6 +1421,9 @@ public class ConfigManager implements LockssManager {
     boolean res = updateConfigOnce(urls, true);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "res = " + res);
     if (res) {
+      if (!haveConfig.isFull()) {
+	schedSetUpJmsNotifications();
+      }
       haveConfig.fill();
     }
     connPool.closeIdleConnections(0);
@@ -1705,6 +1707,9 @@ public class ConfigManager implements LockssManager {
     recordConfigLoaded(newConfig, oldConfig, diffs, gens);
     startCallbacksTime = TimeBase.nowMs();
     runCallbacks(newConfig, oldConfig, diffs);
+    // notify other cluster members that the config changed
+    // TK should this precede runCallbacks()?
+    notifyConfigChanged();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning true.");
     return true;
   }
@@ -1735,6 +1740,11 @@ public class ConfigManager implements LockssManager {
       maxDeferredAuBatchSize =
 	config.getInt(PARAM_MAX_DEFERRED_AU_BATCH_SIZE,
 		      DEFAULT_MAX_DEFERRED_AU_BATCH_SIZE);
+      notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
+				     DEFAULT_JMS_NOTIFICATION_TOPIC);
+      enableJmsNotifications = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
+						 DEFAULT_ENABLE_JMS_NOTIFICATIONS);
+      clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
     }
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
@@ -3574,6 +3584,115 @@ public class ConfigManager implements LockssManager {
     ConfigFile urlParent = parentConfigFile.get(url);
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urlParent = " + urlParent);
     return urlParent;
+  }
+
+  // JMS notification support
+
+  /** The jms topic at which config changed notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
+    MYPREFIX + "enableJmsNotifications";
+  public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = false;
+
+  /** The jms topic at which config changed notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_NOTIFICATION_TOPIC =
+    MYPREFIX + "jmsNotificationTopic";
+  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC =
+    "ConfigChangedTopic";
+
+  /** The jms clientid of the config manager.
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_CLIENT_ID = MYPREFIX + "jmsClientId";
+//   public static final String DEFAULT_JMS_CLIENT_ID = "ConfigManger";
+  public static final String DEFAULT_JMS_CLIENT_ID = null;
+
+  private Consumer jmsConsumer;
+  private Producer jmsProducer;
+  private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
+  private boolean enableJmsNotifications = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
+  private String clientId = DEFAULT_JMS_CLIENT_ID;
+
+  // JMS manager starts after ConfigManger, must wait before creating
+  // connections
+
+  // TK This is too late.  Could update between client xfer and appRunning,
+  // would miss notification (both server and client problem)
+  void schedSetUpJmsNotifications() {
+    Thread th = new Thread() {
+	public void run() {
+	  try {
+	    getApp().waitUntilAppRunning();
+	    setUpJmsNotifications();
+	  } catch (InterruptedException e) {}
+	}};
+    th.start();
+  }
+
+  // Overridable for testing
+  protected boolean shouldSendNotifications() {
+    return enableJmsNotifications && !restConfigClient.isActive();
+  }
+
+  protected boolean shouldReceiveNotifications() {
+    return enableJmsNotifications && restConfigClient.isActive();
+  }
+
+  void setUpJmsNotifications() {
+    if (shouldReceiveNotifications()) {
+      // If we're a client of a config service, set up a listener
+      log.debug("Creating consumer");
+      try {
+	jmsConsumer =
+	  Consumer.createTopicConsumer(clientId,
+					   notificationTopic,
+					   new MyMessageListener("Config Listener"));
+      } catch (JMSException e) {
+	log.error("Couldn't create jms consumer", e);
+      }
+    }
+    if (shouldSendNotifications()) {
+      log.debug("Creating producer");
+      // else set up a notifier
+      try {
+	jmsProducer = Producer.createTopicProducer(clientId, notificationTopic);
+      } catch (JMSException e) {
+	log.error("Couldn't create jms producer", e);
+      }
+    }
+  }
+
+  void notifyConfigChanged() {
+    if (jmsProducer != null) {
+      try {
+	jmsProducer.sendText("foo");
+      } catch (JMSException e) {
+	log.error("foo", e);
+      }
+    }
+  }
+
+  private class MyMessageListener
+    extends Consumer.SubscriptionListener {
+
+    MyMessageListener(String listenerName) {
+      super(listenerName);
+    }
+
+    @Override
+    public void onMessage(Message message) {
+      requestReload();
+//       try {
+//         msgObject =  Consumer.convertMessage(message);
+//       }
+//       catch (JMSException e) {
+// 	log.warning("foo", e);
+//       }
+    }
+
   }
 
   class AbortConfigLoadException extends RuntimeException {

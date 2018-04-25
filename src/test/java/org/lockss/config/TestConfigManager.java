@@ -31,17 +31,20 @@ package org.lockss.config;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import javax.jms.*;
+import org.apache.activemq.broker.BrokerService;
+
 import org.lockss.test.*;
+import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 import org.lockss.protocol.*;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 import org.lockss.clockss.*;
 import org.lockss.config.Configuration;
 import org.lockss.config.Tdb;
 import org.lockss.servlet.*;
+import org.lockss.jms.*;
 import static org.lockss.config.ConfigManager.*;
 
 /**
@@ -52,17 +55,30 @@ public class TestConfigManager extends LockssTestCase4 {
 
   ConfigManager mgr;
   MyConfigManager mymgr;
+  static BrokerService broker;
 
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    mgr = MyConfigManager.makeConfigManager();
+    mgr = MyConfigManager.makeConfigManager(getMockLockssDaemon());
     mymgr = (MyConfigManager)mgr;
   }
 
   @After
   public void tearDown() throws Exception {
     super.tearDown();
+  }
+
+  @BeforeClass
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      broker.stop();
+    }
   }
 
   static Logger log = Logger.getLogger("TestConfig");
@@ -133,6 +149,22 @@ public class TestConfigManager extends LockssTestCase4 {
     String u1 = FileTestUtil.urlOfString(c1);
     assertTrue(mgr.updateConfig(ListUtil.list(u1)));
     assertTrue(mgr.haveConfig());
+  }
+
+  @Test
+  public void testNotifyChanged() throws IOException, JMSException {
+    Consumer cons =
+      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    mymgr.setShouldSendNotifications("yes");
+    getMockLockssDaemon().setAppRunning(true);
+
+    assertFalse(mgr.haveConfig());
+    String u1 = FileTestUtil.urlOfString(c1);
+    assertTrue(mgr.updateConfig(ListUtil.list(u1)));
+    assertTrue(mgr.haveConfig());
+    assertNull(cons.receiveText(TIMEOUT_SHOULD));
+    ConfigurationUtil.addFromArgs("sdflj", "sldfkj");
+    assertEquals("foo", cons.receiveText(TIMEOUT_SHOULDNT));
   }
 
   volatile Configuration.Differences cbDiffs = null;
@@ -370,7 +402,7 @@ public class TestConfigManager extends LockssTestCase4 {
     "      <value>./cluster.txt</value>\\n" +
     "      <value>encode&lt;me&gt;</value>\\n" +
     "\\n" +
-    "    <!-- Put static URLs here -->\\n" +
+    "      <!-- Put static URLs here -->\\n" +
     "\\n" +
     "    </list>\\n" +
     "  </property>\\n";
@@ -1758,9 +1790,12 @@ public class TestConfigManager extends LockssTestCase4 {
 
   static class MyConfigManager extends ConfigManager {
     List<List> writeArgs = new ArrayList<List>();
+    String sendNotifications = "super";
+    String receiveNotifications = "super";
 
-    public static ConfigManager makeConfigManager() {
+    public static ConfigManager makeConfigManager(LockssDaemon daemon) {
       theMgr = new MyConfigManager();
+      theMgr.initService(daemon);
       return theMgr;
     }
 
@@ -1774,5 +1809,28 @@ public class TestConfigManager extends LockssTestCase4 {
 				 header, suppressReload);
       writeArgs.add(ListUtil.list(config, cacheConfigFileName, header, suppressReload));
     }
+
+    void setShouldSendNotifications(String val) {
+      sendNotifications = val;
+    }
+
+    @Override
+    protected boolean shouldSendNotifications() {
+      switch(sendNotifications) {
+      case "yes": return true;
+      case "no": return false;
+      default: return super.shouldSendNotifications();
+      }
+    }
+
+    @Override
+    protected boolean shouldReceiveNotifications() {
+      switch(receiveNotifications) {
+      case "yes": return true;
+      case "no": return false;
+      default: return super.shouldReceiveNotifications();
+      }
+    }
+
   }
 }

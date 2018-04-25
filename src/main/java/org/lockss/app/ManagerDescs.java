@@ -156,4 +156,6 @@ public class ManagerDescs {
   public static ManagerDesc OVERVIEW_STATUS_DESC =
     new ManagerDesc(LockssDaemon.OVERVIEW_STATUS,
                     "org.lockss.daemon.status.OverviewStatus");
+  public static ManagerDesc JMS_MANAGER_DESC =
+    new ManagerDesc("org.lockss.jms.JMSManager");
 }

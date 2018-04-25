@@ -175,6 +175,7 @@ public class LockssApp {
     // keystore manager must be started before any others that need to
     // access managed keystores
     KEYSTORE_MANAGER_DESC,
+    JMS_MANAGER_DESC,
     // PluginManager should be here once not dependent on LockssDaemon
 //     // start plugin manager after generic services
 //     PLUGIN_MANAGER_DESC,
@@ -351,6 +352,12 @@ public class LockssApp {
     return startDate;
   }
 
+  /** Return the app name */
+  public String getAppName() {
+    String res = appSpec.getName();
+    return res != null ? res : "(Unknown App)";
+  }
+
   /** Return a string describing the version of the app and platform */
   public String getVersionInfo() {
     String vApp = BuildInfo.getBuildInfoString();
@@ -438,7 +445,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public static <T> T getManagerByTypeStatic(Class<T> mgrType) {
-    return (T)theApp.getManagerByKey(managerKey(mgrType));
+    return theApp.getManagerByType(mgrType);
   }
 
   // Standard manager accessors

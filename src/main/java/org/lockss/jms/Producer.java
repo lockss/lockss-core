@@ -34,31 +34,45 @@ import javax.jms.*;
 
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class Publisher {
+import org.lockss.app.*;
+import org.lockss.util.*;
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(Publisher.class);
+public class Producer {
+
+  private static final Logger log = Logger.getLogger(Producer.class);
 
   private String clientId;
   private Connection connection;
   private Session session;
   private MessageProducer messageProducer;
 
-  public void create(String clientId, String topicName)
+  public static Producer createTopicProducer(String clientId,
+					       String topicName)
+      throws JMSException {
+    Producer res = new Producer();
+    res.createTopic(clientId, topicName);
+    return res;
+  }
+
+  private Producer createTopic(String clientId, String topicName)
       throws JMSException {
     this.clientId = clientId;
 
+    JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
     // create a Connection Factory
+    log.debug("Creating producer for topic: " + topicName +
+	      ", client: " + clientId + " at " +
+	      mgr.getConnectUri());
     ConnectionFactory connectionFactory =
-        new ActiveMQConnectionFactory(
-            ActiveMQConnection.DEFAULT_BROKER_URL);
+      new ActiveMQConnectionFactory(mgr.getConnectUri());
 
     // create a Connection
     connection = connectionFactory.createConnection();
     connection.setClientID(clientId);
+    log.debug3("Created session for topic: " + topicName +
+	       ", client: " + clientId + " at " +
+	       mgr.getConnectUri());
 
     // create a Session
     session =
@@ -69,6 +83,10 @@ public class Publisher {
 
     // create a MessageProducer for sending messages
     messageProducer = session.createProducer(topic);
+    log.debug("Created producer for topic: " + topicName +
+	      ", client: " + clientId + " at " +
+	      mgr.getConnectUri());
+    return this;
   }
 
   public void closeConnection() throws JMSException {
@@ -89,7 +107,11 @@ public class Publisher {
     // send the message to the topic destination
     messageProducer.send(textMessage);
 
-    LOGGER.debug(clientId + ": sent to topic %s message with text='{}'", text);
+    if (log.isDebug()) {
+      log.debug(clientId + ": sent to topic " +
+		messageProducer.getDestination() +
+		" message with text='" + text + "'");
+    }
   }
 
   /**
@@ -109,7 +131,9 @@ public class Publisher {
       msg.setObject((String) entry.getKey(), entry.getValue());
     }
     messageProducer.send(msg);
-    LOGGER.debug(clientId + ": sent message with map='{}'", map);
+    if (log.isDebug()) {
+      log.debug(clientId + ": sent message with map='" + map + "'");
+    }
   }
 
   /**
@@ -122,7 +146,9 @@ public class Publisher {
     BytesMessage msg = session.createBytesMessage();
     msg.writeBytes(bytes);
     messageProducer.send(msg);
-    LOGGER.debug(clientId + ": sent message of bytes ='{}'", bytes);
+    if (log.isDebug()) {
+      log.debug(clientId + ": sent message of bytes ='" + bytes + "'");
+    }
   }
 
   /**
@@ -134,7 +160,9 @@ public class Publisher {
     ObjectMessage msg = session.createObjectMessage();
     msg.setObject(obj);
     messageProducer.send(msg);
-    LOGGER.debug(clientId + ": sent serialiable object ='{}'", msg);
+    if (log.isDebug()) {
+      log.debug(clientId + ": sent serialiable object ='" + msg + "'");
+    }
   }
 
 }
