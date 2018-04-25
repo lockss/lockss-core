@@ -134,10 +134,25 @@ public class DebugPanel extends LockssServlet {
     super.init(config);
     daemon = getLockssDaemon();
     pluginMgr = daemon.getPluginManager();
-    pollManager = daemon.getPollManager();
-    crawlMgr = daemon.getCrawlManager();
+    try {
+      pollManager = daemon.getPollManager();
+    } catch (IllegalArgumentException e) {
+      log.debug("No poll manager, some functions nonfunctional");
+      pollManager = null;
+    }
+    try {
+      crawlMgr = daemon.getCrawlManager();
+    } catch (IllegalArgumentException e) {
+      log.debug("No crawl manager, some functions nonfunctional");
+      crawlMgr = null;
+    }
     cfgMgr = daemon.getConfigManager();
-    rmtApi = daemon.getRemoteApi();
+    try {
+      rmtApi = daemon.getRemoteApi();
+    } catch (IllegalArgumentException e) {
+      log.debug("No RemoteApi, some functions nonfunctional");
+      rmtApi = null;
+    }
   }
 
   public void lockssHandleRequest() throws IOException {

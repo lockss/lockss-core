@@ -185,9 +185,14 @@ public class ArchivalUnitStatus
   }
 
   static CrawlManagerStatus getCMStatus(LockssDaemon daemon) {
-    CrawlManager crawlMgr = daemon.getCrawlManager();
-    CrawlManager.StatusSource source = crawlMgr.getStatusSource();
-    return source.getStatus();
+    try {
+      CrawlManager crawlMgr = daemon.getCrawlManager();
+      CrawlManager.StatusSource source = crawlMgr.getStatusSource();
+      return source.getStatus();
+    } catch (IllegalArgumentException e) {
+      logger.debug("Couldn't get CrawlManager: " + e.toString());
+    }
+    return null;
   }
 
 
@@ -385,7 +390,7 @@ public class ArchivalUnitStatus
         //
         if (auState.getHighestV3Agreement() < 0 ||
             auState.getLastTimePollCompleted() <= 0) {
-          if (cmStatus.isRunningNCCrawl(au)) {
+          if (cmStatus != null && cmStatus.isRunningNCCrawl(au)) {
             stat = new OrderedObject("Crawling", STATUS_ORDER_CRAWLING);
           } else {
             if (auState.lastCrawlTime > 0 || AuUtil.isPubDown(au)) {
@@ -1272,20 +1277,24 @@ public class ArchivalUnitStatus
             ColumnDescriptor.TYPE_STRING,
             crawlPool));
       }
-      CrawlManager crawlMgr = theDaemon.getCrawlManager();
-      int crawlPrio = crawlMgr.getAuPriority(au);
-      if (crawlPrio != 0) {
-        String val;
-        if (crawlPrio <= CrawlManagerImpl.ABORT_CRAWL_PRIORITY) {
-          val = crawlPrio + ": DISABLED, ABORT";
-        } else if (crawlPrio <= CrawlManagerImpl.MIN_CRAWL_PRIORITY) {
-          val = crawlPrio + ": DISABLED";
-        } else {
-          val = Integer.toString(crawlPrio);
-        }
-        res.add(new StatusTable.SummaryInfo("Crawl Priority",
-            ColumnDescriptor.TYPE_STRING,
-            val));
+      try {
+	CrawlManager crawlMgr = theDaemon.getCrawlManager();
+	int crawlPrio = crawlMgr.getAuPriority(au);
+	if (crawlPrio != 0) {
+	  String val;
+	  if (crawlPrio <= CrawlManagerImpl.ABORT_CRAWL_PRIORITY) {
+	    val = crawlPrio + ": DISABLED, ABORT";
+	  } else if (crawlPrio <= CrawlManagerImpl.MIN_CRAWL_PRIORITY) {
+	    val = crawlPrio + ": DISABLED";
+	  } else {
+	    val = Integer.toString(crawlPrio);
+	  }
+	  res.add(new StatusTable.SummaryInfo("Crawl Priority",
+					      ColumnDescriptor.TYPE_STRING,
+					      val));
+	}
+      } catch (IllegalArgumentException e) {
+	logger.debug("Couldn't get CrawlManager: " + e.toString());
       }
       long lastCrawlAttempt = state.getLastCrawlAttempt();
       res.add(new StatusTable.SummaryInfo("Last Completed Crawl",
@@ -1335,7 +1344,7 @@ public class ArchivalUnitStatus
             ColumnDescriptor.TYPE_DATE,
             new Long(lastIndex)));
       }
-      boolean isCrawling = cmStatus.isRunningNCCrawl(au);
+      boolean isCrawling = cmStatus != null && cmStatus.isRunningNCCrawl(au);
       boolean isPolling = false;
       try {
 	PollManager pm = theDaemon.getPollManager();
