@@ -58,6 +58,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <test.classpath.file>${basedir}/target/test-classpath</test.classpath.file>
     <build.info.dir>target/classes/org/lockss/htdocs</build.info.dir>
     <build.info.file>${build.info.dir}/build.properties</build.info.file>
+    <skipTestJar>false</skipTestJar>
   </properties>
 
   <!-- Must be in every lockss-parent-pom descendant -->
@@ -691,18 +692,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>3.0.2</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>test-jar</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
         <version>1.8</version>
         <executions>
@@ -768,36 +757,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <artifactId>exec-maven-plugin</artifactId>
         <version>1.6.0</version>
         <executions>
-          <execution>
-            <id>jar symlink</id>
-            <phase>package</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>ln</executable>
-              <arguments>
-                <argument>-fnsv</argument>
-                <argument>lockss-core-${project.version}.jar</argument>
-                <argument>target/current.jar</argument>
-              </arguments>
-            </configuration>
-          </execution>
-          <execution>
-            <id>test jar symlink</id>
-            <phase>package</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>ln</executable>
-              <arguments>
-                <argument>-fnsv</argument>
-                <argument>lockss-core-${project.version}-tests.jar</argument>
-                <argument>target/current-tests.jar</argument>
-              </arguments>
-            </configuration>
-          </execution>
           <execution>
             <id>run-stf</id>
             <phase>verify</phase>
