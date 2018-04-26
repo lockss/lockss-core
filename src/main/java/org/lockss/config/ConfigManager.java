@@ -3588,7 +3588,10 @@ public class ConfigManager implements LockssManager {
 
   // JMS notification support
 
-  /** The jms topic at which config changed notifications are sent
+  /** If true, ConfigManager will send notifications of config-changed
+   * events (if it is running as part of a REST config service), or
+   * register to receive such events (if it's runnning in a client of a
+   * config service).
    * @ParamRelevance Rare
    */
   public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
@@ -3668,7 +3671,7 @@ public class ConfigManager implements LockssManager {
   void notifyConfigChanged() {
     if (jmsProducer != null) {
       try {
-	jmsProducer.sendText("foo");
+	jmsProducer.sendText("now");
       } catch (JMSException e) {
 	log.error("foo", e);
       }

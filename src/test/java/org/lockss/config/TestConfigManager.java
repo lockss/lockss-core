@@ -164,7 +164,7 @@ public class TestConfigManager extends LockssTestCase4 {
     assertTrue(mgr.haveConfig());
     assertNull(cons.receiveText(TIMEOUT_SHOULD));
     ConfigurationUtil.addFromArgs("sdflj", "sldfkj");
-    assertEquals("foo", cons.receiveText(TIMEOUT_SHOULDNT));
+    assertEquals("now", cons.receiveText(TIMEOUT_SHOULDNT));
   }
 
   volatile Configuration.Differences cbDiffs = null;
