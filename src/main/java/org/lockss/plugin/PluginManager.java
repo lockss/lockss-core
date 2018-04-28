@@ -556,6 +556,10 @@ public class PluginManager
     return getDaemon().areAusStarted();
   }
 
+  public boolean areAusStartedOrStartOnDemand() {
+    return areAusStarted() || isStartAusOnDemand();
+  }
+
   Configuration currentAllPlugs = ConfigManager.EMPTY_CONFIGURATION;
 
   public void setConfig(Configuration config, Configuration oldConfig,

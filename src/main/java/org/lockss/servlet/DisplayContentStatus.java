@@ -104,7 +104,7 @@ public class DisplayContentStatus extends LockssServlet {
    */
   public void lockssHandleRequest() throws IOException {
     if (!StringUtil.isNullString(req.getParameter("isDaemonReady"))) {
-      if (pluginMgr.areAusStarted()) {
+      if (pluginMgr.areAusStartedOrStartOnDemand()) {
         resp.setStatus(200);
         PrintWriter wrtr = resp.getWriter();
         resp.setContentType("text/plain");
@@ -256,7 +256,7 @@ public class DisplayContentStatus extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
 
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       page.add(ServletUtil.notStartedWarning());
     }
 

@@ -2062,7 +2062,7 @@ public class ServletUtil {
       tbl.newCell("align=\"center\" colspan=\"3\"");
       tbl.add(header);
     }
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       tbl.newRow();
       tbl.newCell("align=\"center\" colspan=\"3\"");
       tbl.add(ServletUtil.notStartedWarning());

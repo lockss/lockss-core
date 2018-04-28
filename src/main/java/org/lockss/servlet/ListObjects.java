@@ -82,7 +82,7 @@ public class ListObjects extends LockssServlet {
    * @throws IOException
    */
   public void lockssHandleRequest() throws IOException {
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       displayNotStarted();
       return;
     }

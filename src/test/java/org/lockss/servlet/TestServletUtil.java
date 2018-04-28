@@ -76,6 +76,7 @@ public class TestServletUtil extends LockssTestCase {
   }
 
   public void testManifestIndexNotStarted() throws Exception {
+    ConfigurationUtil.setFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
     testManifestIndex(false, false);
   }
 
