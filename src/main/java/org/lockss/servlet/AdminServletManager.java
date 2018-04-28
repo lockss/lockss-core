@@ -576,8 +576,13 @@ public class AdminServletManager extends BaseServletManager {
 		       (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME),
 		       "COUNTER Report generator") {
 	public boolean isEnabled(LockssDaemon daemon) {
-	  CounterReportsManager mgr = daemon.getCounterReportsManager();
-	  return mgr != null && mgr.isReady();
+	  try {
+	    CounterReportsManager mgr = daemon.getCounterReportsManager();
+	    return mgr != null && mgr.isReady();
+	  } catch (IllegalArgumentException e) {
+	    // manager not started
+	    return false;
+	  }
 	}};
 
   protected static final ServletDescr SERVLET_CXF_WEB_SERVICES =
