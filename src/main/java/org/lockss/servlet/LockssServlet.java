@@ -833,8 +833,9 @@ public abstract class LockssServlet extends HttpServlet
                              page,
                              heading,
                              isLargeLogo(),
+			     getLockssDaemon().getAppName(),
                              getMachineName(),
-                             getMachineIpAddr(),
+			     getMachineIpAddr(),
                              getLockssApp().getStartDate(),
                              inNavIterator);
     String warnMsg = servletMgr.getWarningMsg();

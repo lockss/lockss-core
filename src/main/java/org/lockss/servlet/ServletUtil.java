@@ -869,6 +869,7 @@ public class ServletUtil {
                                   Page page,
                                   String heading,
                                   boolean isLargeLogo,
+				  String appName,
                                   String machineName,
                                   String machineIpAddr,
                                   Date startDate,
@@ -895,6 +896,10 @@ public class ServletUtil {
     table.add(HEADER_HEADING_AFTER);
     table.add("<br>");
 
+    if (!StringUtil.isNullString(appName)) {
+      addBold(table, appName);
+      table.add(" on ");
+    }
     addBold(table, machineName);
     if (displayIpAddr && machineIpAddr != null) {
       table.add(" (");

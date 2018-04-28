@@ -354,13 +354,15 @@ public class LockssApp {
 
   /** Return the app name */
   public String getAppName() {
-    String res = appSpec.getName();
-    return res != null ? res : "(Unknown App)";
+    return appSpec.getName();
   }
 
   /** Return a string describing the version of the app and platform */
   public String getVersionInfo() {
     String vApp = BuildInfo.getBuildInfoString();
+    if (!StringUtil.isNullString(getAppName())) {
+      vApp = getAppName() + " " + vApp;
+    }
     PlatformVersion plat = Configuration.getPlatformVersion();
     if (plat != null) {
       vApp = vApp + ", " + plat.displayString();

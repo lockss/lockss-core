@@ -86,7 +86,7 @@ public class BuildInfo {
     String releaseName = getBuildProperty(BUILD_RELEASENAME);
 
     StringBuffer sb = new StringBuffer();
-    sb.append("Daemon ");
+    sb.append("Lockss-core ");
     if (releaseName != null) {
       sb.append(releaseName);
       sb.append(" ");
