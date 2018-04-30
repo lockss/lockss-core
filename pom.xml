@@ -681,6 +681,105 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   <build>
     <plugins>
+<!--
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <id>param-doclet</id>
+            <phase>package</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>javadoc</executable>
+              <arguments>
+                <argument>-doclet</argument>
+                <argument>org.lockss.doclet.ParamDoclet</argument>
+                <argument>-docletpath</argument>
+                <argument>${compile_classpath}</argument>
+                <argument>-classpath	</argument>
+                <argument>${project.build.testOutputDirectory}:${project.build.outputDirectory}:${compile_classpath}</argument>
+                <argument>-sourcepath</argument>
+                <argument>${project.build.sourceDirectory}</argument>
+                <argument>-d</argument>
+                <argument>${basedir}/target/apidocs</argument>
+                <argument>-o</argument>
+                <argument>paramdoc.html</argument>
+                <argument>-subpackages</argument>
+                <argument>org.lockss</argument>
+                <argument>-private</argument>
+              </arguments>
+              <skip>${skipParamDoclet}</skip>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+ -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>1.8</version>
+        <executions>
+          <execution>
+            <id>param-doclet</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${project.reporting.outputDirectory}/apidocs" />
+                <javadoc sourcepath="${project.build.sourceDirectory}"
+                         doclet="org.lockss.doclet.ParamDoclet"
+                         docletpathref="maven.test.classpath"
+                         classpathref="maven.test.classpath"
+                         packagenames="org.lockss.*"
+                         access="private"
+                         failonerror="true">
+                  <arg value="-f"/> <arg value="Alpha"/>
+                  <arg value="-d"/> <arg value="${project.reporting.outputDirectory}/apidocs"/>
+                  <arg value="-o"/> <arg value="paramdoc.html"/>
+                  <arg value="-h"/> <arg value="Release&amp;nbsp;${build.releasename} Built&amp;nbsp;${build_timestamp} on&amp;nbsp;${hostname}"/>
+                </javadoc>
+              </target>
+              <skip>${skipJavadoc}</skip>
+            </configuration>
+          </execution>
+        </executions>      
+      </plugin>
+<!--
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <id>param-doclet</id>
+            <phase>package</phase>
+            <goals>
+              <goal>javadoc</goal>
+            </goals>
+            <configuration>
+              <doclet>org.lockss.doclet.ParamDoclet</doclet>
+              <docletPath>${test_classpath}</docletPath>
+              <sourcePath>${plugin.build.sourceDirectory}</sourcePath>
+              <outputDirectory>${basedir}/target/apidocs</outputDirectory>
+              <reportOutputDirectory />
+              <useStandardDocletOptions>false</useStandardDocletOptions>
+              <additionalOptions>
+                <additionalOption>-f Alpha</additionalOption>
+                <additionalOption>-o paramdoc.html</additionalOption>
+                <additionalOption>-h FOOHEADER</additionalOption>
+              </additionalOptions>
+              <skip>${skipJavadoc}</skip>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -696,6 +795,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <version>1.8</version>
         <executions>
           <execution>
+            <id>build-info-file</id>
             <phase>generate-resources</phase>
             <goals>
               <goal>run</goal>
@@ -708,22 +808,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                 <condition property="hostname" value="${env.HOSTNAME}" else="${hostname0}">
                   <isset property="env.HOSTNAME" />
                 </condition>
-                
+                <tstamp>
+                  <format property="build.date" pattern="EEEE MMM dd, yyyy" />
+                </tstamp>
+                <tstamp>
+                  <format property="build.time" pattern="HH:mm:ss" />
+                </tstamp>
+                <tstamp><!-- build.timestamp is a Maven property -->
+                  <format property="build_timestamp" pattern="dd-MMM-yy' 'HH:mm:ss' 'zzz" />
+                </tstamp>                
 		<mkdir dir="${build.info.dir}" />
 		<propertyfile comment="Build Information"
 			      file="${build.info.file}">
 		  <entry key="build.date"
-			 type="date"
-			 pattern="EEEE MMM dd, yyyy"
-			 value="now"/>
+			 value="${build.date}"/>
 		  <entry key="build.time"
-			 type="date"
-			 pattern="kk:mm:ss"
-			 value="now"/>
+			 value="${build.time}"/>
 		  <entry key="build.timestamp"
-			 type="date"
-			 pattern="dd-MMM-yy' 'HH:mm:ss' 'zzz"
-			 value="now"/>
+			 value="${build_timestamp}"/>
 		  <entry key="build.user.name" value="${user.name}"/>
 		  <entry key="build.host" value="${hostname}"/>
 		  <entry key="build.releasename" value="${build.releasename}"/>
