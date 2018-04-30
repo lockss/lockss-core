@@ -681,43 +681,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   <build>
     <plugins>
-<!--
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
-        <executions>
-          <execution>
-            <id>param-doclet</id>
-            <phase>package</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>javadoc</executable>
-              <arguments>
-                <argument>-doclet</argument>
-                <argument>org.lockss.doclet.ParamDoclet</argument>
-                <argument>-docletpath</argument>
-                <argument>${compile_classpath}</argument>
-                <argument>-classpath	</argument>
-                <argument>${project.build.testOutputDirectory}:${project.build.outputDirectory}:${compile_classpath}</argument>
-                <argument>-sourcepath</argument>
-                <argument>${project.build.sourceDirectory}</argument>
-                <argument>-d</argument>
-                <argument>${basedir}/target/apidocs</argument>
-                <argument>-o</argument>
-                <argument>paramdoc.html</argument>
-                <argument>-subpackages</argument>
-                <argument>org.lockss</argument>
-                <argument>-private</argument>
-              </arguments>
-              <skip>${skipParamDoclet}</skip>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
- -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
@@ -750,36 +713,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
           </execution>
         </executions>      
       </plugin>
-<!--
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.0.0</version>
-        <executions>
-          <execution>
-            <id>param-doclet</id>
-            <phase>package</phase>
-            <goals>
-              <goal>javadoc</goal>
-            </goals>
-            <configuration>
-              <doclet>org.lockss.doclet.ParamDoclet</doclet>
-              <docletPath>${test_classpath}</docletPath>
-              <sourcePath>${plugin.build.sourceDirectory}</sourcePath>
-              <outputDirectory>${basedir}/target/apidocs</outputDirectory>
-              <reportOutputDirectory />
-              <useStandardDocletOptions>false</useStandardDocletOptions>
-              <additionalOptions>
-                <additionalOption>-f Alpha</additionalOption>
-                <additionalOption>-o paramdoc.html</additionalOption>
-                <additionalOption>-h FOOHEADER</additionalOption>
-              </additionalOptions>
-              <skip>${skipJavadoc}</skip>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
--->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
