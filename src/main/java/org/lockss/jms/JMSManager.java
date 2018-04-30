@@ -56,13 +56,13 @@ public class JMSManager extends BaseLockssManager
 
   /** URL specifying protocol & address at which the broker will be started
    * (if {@value #PARAM_START_BROKER} is true), and (unless {@value
-   * #PARAM_CONNECT_URI} is set, the URI to which producers and consumers
+   * #PARAM_CONNECT_URI} is set), the URI to which producers and consumers
    * will connect.  Only checked at startup.  Usually one of:<ul>
    * <li><code>tcp://<i>hostname</i>:<i>port</i></code></li>
    * <li><code>vm://localhost?create=false</code></li></ul>
    *
-   * See {@link http://activemq.apache.org/configuring-transports.html} for
-   * a full list of transport protocols. */
+   * <a href="http://activemq.apache.org/configuring-transports.html">See
+   * here</a> for a full list of transport protocols. */
   public static final String PARAM_BROKER_URI = BROKER_PREFIX + "uri";
   public static String DEFAULT_BROKER_URI =
     "vm://localhost?create=false";

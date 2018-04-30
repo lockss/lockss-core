@@ -30,6 +30,7 @@ import static junit.framework.TestCase.assertNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.util.*;
 import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
 import org.junit.*;
@@ -40,6 +41,9 @@ import org.lockss.jms.*;
 
 public class FuncJms extends LockssTestCase4 {
   protected static Logger log = Logger.getLogger("FuncJMS");
+
+  static String BROKER_URI =
+    "vm://localhost?create=false&marshal=true";
 
   private static BrokerService broker;
 
@@ -60,7 +64,7 @@ public class FuncJms extends LockssTestCase4 {
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
     log.debug("create broker");
-    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+    broker = JMSManager.createBroker(BROKER_URI);
   }
 
   @AfterClass
@@ -136,8 +140,40 @@ public class FuncJms extends LockssTestCase4 {
     String ret1 = consumerPublishSubscribe.receiveText(TIMEOUT_SHOULDNT);
     assertEquals(textString, ret1);
 
-    String ret2 = consumerPublishSubscribe.receiveText(TIMEOUT_SHOULDNT);
+    String ret2 = consumerPublishSubscribe.receiveText(TIMEOUT_SHOULD);
     assertNull(ret2);
+  }
+
+  @Test
+  public void testReceiveMap() throws JMSException {
+    Map map = MapUtil.map("k1", "v1", "k2", ListUtil.list("l1", 1.7D));
+    producerPublishSubscribe.sendMap(map);
+
+    Map ret1 = consumerPublishSubscribe.receiveMap(TIMEOUT_SHOULDNT);
+    assertEquals(map, ret1);
+    assertNotSame(map, ret1);
+
+    assertNull(consumerPublishSubscribe.receiveText(TIMEOUT_SHOULD));
+  }
+
+  static class FooObj {
+  }
+
+  @Test
+  public void testIllMap() throws JMSException {
+    try {
+      producerPublishSubscribe.sendMap(MapUtil.map(47.6, "v1"));
+      fail("Send map w/ non-string key should throw");
+    } catch (IllegalArgumentException e) {
+      assertMatchesRE("non-String key", e.getMessage());
+    }
+    try {
+      producerPublishSubscribe.sendMap(MapUtil.map("k1", new FooObj()));
+      fail("Send map w/ non-primitive value should throw");
+    } catch (MessageFormatException e) {
+      assertMatchesRE("but was.*FooObj", e.getMessage());
+    }
+
   }
 
   @Test
