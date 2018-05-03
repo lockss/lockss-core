@@ -44,6 +44,8 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.poller.PollSpec;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import javax.jms.*;
+import org.lockss.jms.*;
 
 /**
  * Plugin global functionality
@@ -474,7 +476,10 @@ public class PluginManager
     PluginStatus.register(getDaemon(), this);
     // watch for changes to plugin registry AUs and AUs with stems in hostAus
     registerAuEventHandler(myAuEventHandler);
-    
+    if (enableJmsNotifications) {
+      startJms();
+    }
+
     if (paramDisableURLConnectionCache) {
       // Up through Java 1.6, even after a ClassLoader is freed, and even
       // if its JarFile is explicitly closed first, the JarFile remains
@@ -504,6 +509,7 @@ public class PluginManager
     for (Plugin plugin : pluginMap.values()) {
       plugin.stopPlugin();
     }
+    stopJms();
     auEventHandlers = new ArrayList<AuEventHandler>();
     PluginStatus.unregister(getDaemon());
     unregisterAuEventHandler(myAuEventHandler);
@@ -640,6 +646,11 @@ public class PluginManager
       paramLoadAllPlugins =
 	config.getBoolean(PARAM_LOAD_ALL_PLUGINS, DEFAULT_LOAD_ALL_PLUGINS);
 
+      enableJmsNotifications = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
+						 DEFAULT_ENABLE_JMS_NOTIFICATIONS);
+      notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
+				     DEFAULT_JMS_NOTIFICATION_TOPIC);
+      clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
     }
 
     // Process any changed TitleSets
@@ -1061,11 +1072,12 @@ public class PluginManager
       }
       if (oldAu != null) {
 	log.debug("Reconfigured AU " + au);
-	signalAuEvent(au, new AuEvent(AuEvent.Type.Reconfig, false), oldConfig);
+	signalAuEvent(au,
+		      AuEvent.forAu(au, AuEvent.Type.Reconfig).setOldConfiguration(oldConfig));
       } else {
 	log.debug("Configured AU " + au);
 	putAuInMap(au);
-	signalAuEvent(au, new AuEvent(AuEvent.Type.StartupCreate, false), null);
+	signalAuEvent(au, AuEvent.forAu(au, AuEvent.Type.StartupCreate));
       }
     } catch (ArchivalUnit.ConfigurationException e) {
       throw e;
@@ -1116,7 +1128,8 @@ public class PluginManager
 	}
       }
       putAuInMap(au);
-      signalAuEvent(au, event, null);
+      event = AuEvent.forAu(au, event);
+      signalAuEvent(au, event);
       return au;
     } catch (ArchivalUnit.ConfigurationException e) {
       throw e;
@@ -1151,7 +1164,7 @@ public class PluginManager
     }
     delHostAus(au);
 
-    signalAuEvent(au, event, null);
+    signalAuEvent(au, event);
 
     try {
       Plugin plugin = au.getPlugin();
@@ -1195,9 +1208,135 @@ public class PluginManager
     auEventHandlers.remove(aueh);
   }
 
+  // JMS notification support
+
+  public static final String JMS_PREFIX = PREFIX + "jms.";
+
+  /** The jms topic at which AuEvent notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
+    JMS_PREFIX + "enable";
+  public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = false;
+
+  /** The jms topic at which AuEvent notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_NOTIFICATION_TOPIC =
+    JMS_PREFIX + "topic";
+  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC = "AuEventTopic";
+
+  /** The jms clientid of the config manager.
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
+  public static final String DEFAULT_JMS_CLIENT_ID = null;
+
+
+  private Consumer jmsConsumer;
+  private Producer jmsProducer;
+  private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
+  private boolean enableJmsNotifications = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
+  private String clientId = DEFAULT_JMS_CLIENT_ID;
+
+  void startJms() {
+    if (jmsConsumer == null && jmsProducer == null) {
+      setUpJmsNotifications();
+    }
+  }
+
+  void stopJms() {
+    Producer p = jmsProducer;
+    if (p != null) {
+      try {
+	p.closeConnection();
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms producer", e);
+      }
+    }
+    Consumer c = jmsConsumer;
+    if (c != null) {
+      try {
+	c.closeConnection();
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms consumer", e);
+      }
+    }
+  }
+
+  void setUpJmsNotifications() {
+    try {
+      log.debug("Creating consumer");
+      jmsConsumer =
+	Consumer.createTopicConsumer(clientId, notificationTopic,
+				     new MyMessageListener("AuEvent Listener"));
+    } catch (JMSException e) {
+      log.error("Couldn't create jms consumer", e);
+    }
+    try {
+      log.debug("Creating producer");
+      jmsProducer = Producer.createTopicProducer(clientId,
+						 notificationTopic);
+    } catch (JMSException e) {
+      log.error("Couldn't create jms producer", e);
+    }
+  }
+
+  /** Send AuEvent to JMS notification topic, if appropriate.  Currently
+   * sends only ContentChanged events.  It's not clear whether AU creation
+   * and deletion events should be propagated to other cluster members. */
+  void sendAuEventNotification(ArchivalUnit au, AuEvent event) {
+    if (jmsProducer != null) {
+      switch (event.getType()) {
+      case ContentChanged:
+	try {
+	  jmsProducer.sendMap(event.toMap());
+	} catch (JMSException e) {
+	  log.error("foo", e);
+	}
+      }
+    }
+  }
+
+  private class MyMessageListener extends Consumer.SubscriptionListener {
+
+    MyMessageListener(String listenerName) {
+      super(listenerName);
+    }
+
+    @Override
+    public void onMessage(Message message) {
+      if (log.isDebug2()) {
+	log.debug2("onMessage: " + message);
+      }
+      try {
+        Object msgObject =  Consumer.convertMessage(message);
+	if (msgObject instanceof Map) {
+	  receiveAuEventNotification(AuEvent.fromMap((Map)msgObject));
+	} else {
+	  log.warning("Unknown notification type: " + msgObject);
+	}
+      } catch (JMSException e) {
+	log.warning("foo", e);
+      }
+    }
+  }
+
+  /** Incoming AuEvent message */
+  void receiveAuEventNotification(AuEvent event) {
+    log.debug("Received notification: " + event);
+    String auid = event.getAuId();
+    ArchivalUnit au = getAuFromIdIfExists(auid);
+    if (au == null) {
+      log.debug("Ignoring received AuEvent for non-configured AU: " + auid);
+      return;
+    }
+    signalAuEventInternal(au, event);
+  }
+
   class PlugMgrAuEventHandler extends AuEventHandler.Base {
     @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
-					   AuEventHandler.ChangeInfo info) {
+					   AuEvent.ContentChangeInfo info) {
       if (loadablePluginsReady && isRegistryAu(au)) {
 	processRegistryAus(ListUtil.list(au), true);
       }
@@ -1213,7 +1352,7 @@ public class PluginManager
   private AuEventHandler myAuEventHandler = new PlugMgrAuEventHandler();
 
   boolean shouldFlush404Cache(ArchivalUnit au,
-			      AuEventHandler.ChangeInfo chInfo) {
+			      AuEvent.ContentChangeInfo chInfo) {
     switch (chInfo.getType()) {
     case Crawl:
       // Hack - routine recrawls fetch start page twice, would flush cache
@@ -1230,12 +1369,18 @@ public class PluginManager
     }
   }
 
-  void signalAuEvent(final ArchivalUnit au,
-		     final AuEvent how,
-		     final Configuration oldAuConfig) {
-    if (log.isDebug2()) log.debug2("AuEvent " + how + ": " + au);
+  /** Signal an AuEvent to all listeners and the JMS notification channel */
+  public void signalAuEvent(final ArchivalUnit au,
+			    final AuEvent event) {
+    if (log.isDebug2()) log.debug2("AuEvent " + event);
+    sendAuEventNotification(au, event);
+    signalAuEventInternal(au, event);
+  }
 
-    switch (how.getType()) {
+  /** Signal an AuEvent to all local listeners */
+  void signalAuEventInternal(final ArchivalUnit au,
+			     final AuEvent event) {
+    switch (event.getType()) {
     case Create:
       raiseAlert(Alert.auAlert(Alert.AU_CREATED, au), "AU created");
       // falls through
@@ -1245,7 +1390,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auCreated(how, au);
+	      hand.auCreated(event, au);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1259,17 +1404,29 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auDeleted(how, au);
+	      hand.auDeleted(event, au);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
 	  }});
       break;
     case Reconfig:
+      final Configuration oldAuConfig = event.getOldConfiguration();
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auReconfigured(how, au, oldAuConfig);
+	      hand.auReconfigured(event, au, oldAuConfig);
+	    } catch (Exception e) {
+	      log.error("AuEventHandler threw", e);
+	    }
+	  }});
+      break;
+    case ContentChanged:
+      AuEvent.ContentChangeInfo chInfo = event.getChangeInfo();
+      applyAuEvent(new AuEventClosure() {
+	  public void execute(AuEventHandler hand) {
+	    try {
+	      hand.auContentChanged(event, au, chInfo);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1280,13 +1437,13 @@ public class PluginManager
       
   /** Closure applied to each AuEventHandler by {@link
    * #applyAuEvent(AuEventClosure) */
-  public interface AuEventClosure {
+  private interface AuEventClosure {
     public void execute(AuEventHandler hand);
   }
 
   /** Apply an {@link #AuEventClosure} to each registered {@link
    * #AuEventHandler} */
-  public void applyAuEvent(AuEventClosure closure) {
+  private void applyAuEvent(AuEventClosure closure) {
     // copy the list of handlers as it could change during the loop.
     for (AuEventHandler hand : new ArrayList<AuEventHandler>(auEventHandlers)) {
       try {
@@ -1383,7 +1540,7 @@ public class PluginManager
       // Get the AU.
       try {
 	au = createAu(plugin, auConfig,
-		      new AuEvent(AuEvent.Type.Create, false));
+		      AuEvent.forAuId(auId, AuEvent.Type.Create));
 	au.setConfiguration(auConfig);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
       } catch (Exception e) {
@@ -1582,7 +1739,7 @@ public class PluginManager
     synchronized (auAddDelLock) {
       auConf.put(AU_PARAM_DISABLED, "false");
       ArchivalUnit au = createAu(plugin, auConf,
-                                 new AuEvent(AuEvent.Type.Create, false));
+                                 AuEvent.model(AuEvent.Type.Create));
       updateAuConfigFile(au, auConf);
       return au;
     }
@@ -1642,7 +1799,7 @@ public class PluginManager
     synchronized (auAddDelLock) {
       deleteAuConfiguration(au);
       if (isRemoveStoppedAus()) {
-	stopAu(au, new AuEvent(AuEvent.Type.Delete, false));
+	stopAu(au, AuEvent.forAu(au, AuEvent.Type.Delete));
       }
     }
   }
@@ -1657,7 +1814,7 @@ public class PluginManager
       deactivateAuConfiguration(au);
       if (isRemoveStoppedAus()) {
 	String auid = au.getAuId();
-	stopAu(au, new AuEvent(AuEvent.Type.Deactivate, false));
+	stopAu(au, AuEvent.forAu(au, AuEvent.Type.Deactivate));
 	inactiveAuIds.add(auid);
       }
     }
@@ -1683,7 +1840,7 @@ public class PluginManager
 	  Configuration auConf = au.getConfiguration();
 	  configMap.put(auid, auConf);
 	  numAusRestarting++;
-	  stopAu(au, new AuEvent(AuEvent.Type.RestartDelete, false));
+	  stopAu(au, AuEvent.forAu(au, AuEvent.Type.RestartDelete));
 	}
 	try {
 	  Deadline.in(auRestartSleep(aus.size())).sleep();
@@ -1695,12 +1852,13 @@ public class PluginManager
 
 	// The event used to signal that an AU needs to be added to the batch of
 	// AUs to be marked for re-indexing.
-	AuEvent batchEvent = new AuEvent(AuEvent.Type.RestartCreate, true);
+	AuEvent batchEvent =
+	  AuEvent.model(AuEvent.Type.RestartCreate).setInBatch();
 
 	// The event used to signal that an AU needs to be added to the batch of
 	// AUs to be marked for re-indexing and the current batch needs to be
 	// executed afterwards.
-	AuEvent executeEvent = new AuEvent(AuEvent.Type.RestartCreate, false);
+	AuEvent executeEvent = AuEvent.model(AuEvent.Type.RestartCreate);
 
 	AuEvent auEvent = null;
 	ArchivalUnit newAu = null;
@@ -1734,7 +1892,7 @@ public class PluginManager
 	    // batch.
 	    if (!auEvent.isInBatch()) {
 	      // Yes: Execute the batch with the last successfully-created AU.
-	      signalAuEvent(newAu, auEvent, null);
+	      signalAuEvent(newAu, auEvent);
 	    }
 	  }
 	}
@@ -3453,8 +3611,8 @@ public class PluginManager
       URL[] urls = new URL[] { blessedUrl };
       pluginLoader =
 	preferLoadablePlugin
-	? new LoadablePluginClassLoader(urls)
-	: new URLClassLoader(urls);
+	? new LoadablePluginClassLoader(urls, getClass().getClassLoader())
+	: new URLClassLoader(urls, getClass().getClassLoader());
     } catch (MalformedURLException ex) {
       log.error("Malformed URL exception attempting to create " +
 		"classloader for plugin JAR " + jarFile);

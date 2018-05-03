@@ -2559,21 +2559,15 @@ public class V3Poller implements Poll {
         urls.add(rp.getUrl());
       }
       final ArchivalUnit au = getAu();
-      final AuEventHandler.ChangeInfo chInfo = new AuEventHandler.ChangeInfo();
-      chInfo.setType(AuEventHandler.ChangeInfo.Type.Repair);
+      final AuEvent.ContentChangeInfo chInfo = new AuEvent.ContentChangeInfo();
+      chInfo.setType(AuEvent.ContentChangeInfo.Type.Repair);
       chInfo.setNumUrls(nrepairs);
       chInfo.setUrls(urls);
-      chInfo.setAu(au);
       chInfo.setComplete(true);
       PluginManager plugMgr = theDaemon.getPluginManager();
-      plugMgr.applyAuEvent(new PluginManager.AuEventClosure() {
-        public void execute(AuEventHandler hand) {
-          hand.auContentChanged(new AuEvent(AuEvent.Type.
-                  ContentChanged,
-                  false),
-              au, chInfo);
-        }
-      });
+      AuEvent event =
+	AuEvent.forAu(au, AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
+      plugMgr.signalAuEvent(au, event);
     }
   }
 

@@ -213,7 +213,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       //we know that doCrawl started
 
       // stopping AU should run AuEventHandler, which should cancel crawl
-      pluginMgr.stopAu(mau, new AuEvent(AuEvent.Type.Delete, false));
+      pluginMgr.stopAu(mau, AuEvent.forAu(mau, AuEvent.Type.Delete));
 
       assertTrue(crawler.wasAborted());
     }
@@ -226,7 +226,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       waitForCrawlToFinish(sem);
       assertTrue("doCrawl() not called", crawler.doCrawlCalled());
 
-      crawlManager.auEventDeleted(new AuEvent(AuEvent.Type.Delete, false), mau);
+      crawlManager.auEventDeleted(AuEvent.forAu(mau, AuEvent.Type.Delete), mau);
 
       assertFalse(crawler.wasAborted());
     }
@@ -254,7 +254,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
           sem1.take(TIMEOUT_SHOULDNT));
       //we know that doCrawl started
 
-      crawlManager.auEventDeleted(new AuEvent(AuEvent.Type.Delete, false), mau);
+      crawlManager.auEventDeleted(AuEvent.forAu(mau, AuEvent.Type.Delete), mau);
 
       assertTrue(crawler.wasAborted());
     }
@@ -641,12 +641,12 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       activityRegulator.assertRepairCrawlFinished(cus2);
     }
 
-    List<AuEventHandler.ChangeInfo> changeEvents = new ArrayList();
+    List<AuEvent.ContentChangeInfo> changeEvents = new ArrayList();
     SimpleBinarySemaphore eventSem = new SimpleBinarySemaphore();
 
     class MyAuEventHandler extends AuEventHandler.Base {
       @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
-          AuEventHandler.ChangeInfo info) {
+          AuEvent.ContentChangeInfo info) {
         changeEvents.add(info);
         eventSem.give();
       }
@@ -666,8 +666,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.startNewContentCrawl(mau, null, null, null);
       waitForCrawlToFinish(eventSem);
       assertEquals(1, changeEvents.size());
-      AuEventHandler.ChangeInfo ci = changeEvents.get(0);
-      assertEquals(AuEventHandler.ChangeInfo.Type.Crawl, ci.getType());
+      AuEvent.ContentChangeInfo ci = changeEvents.get(0);
+      assertEquals(AuEvent.ContentChangeInfo.Type.Crawl, ci.getType());
       assertTrue(ci.isComplete());
       Map expMime = MapUtil.map("text/plain", 1,
           "text/html", 2,
@@ -692,8 +692,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.startNewContentCrawl(mau, null, null, null);
       waitForCrawlToFinish(eventSem);
       assertEquals(1, changeEvents.size());
-      AuEventHandler.ChangeInfo ci = changeEvents.get(0);
-      assertEquals(AuEventHandler.ChangeInfo.Type.Crawl, ci.getType());
+      AuEvent.ContentChangeInfo ci = changeEvents.get(0);
+      assertEquals(AuEvent.ContentChangeInfo.Type.Crawl, ci.getType());
       assertFalse(ci.isComplete());
       Map expMime = MapUtil.map("text/plain", 1,
           "text/html", 2,
@@ -719,8 +719,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.startRepair(mau, ListUtil.list("foo"), null, null, null);
       waitForCrawlToFinish(eventSem);
       assertEquals(1, changeEvents.size());
-      AuEventHandler.ChangeInfo ci = changeEvents.get(0);
-      assertEquals(AuEventHandler.ChangeInfo.Type.Repair, ci.getType());
+      AuEvent.ContentChangeInfo ci = changeEvents.get(0);
+      assertEquals(AuEvent.ContentChangeInfo.Type.Repair, ci.getType());
       assertTrue(ci.isComplete());
       Map expMime = MapUtil.map("text/plain", 1,
           "text/html", 2,
@@ -1033,18 +1033,18 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       //startNewContentCrawl
       List<ArchivalUnit> quas = crawlManager.getHighPriorityAus();
       assertEquals(ListUtil.list(mau1), quas);
-      crawlManager.auEventDeleted(new AuEvent(AuEvent.Type.Delete, false),
+      crawlManager.auEventDeleted(AuEvent.forAu(mau1, AuEvent.Type.Delete),
           mau1);
       assertEmpty(crawlManager.getHighPriorityAus());
-      crawlManager.auEventCreated(new AuEvent(AuEvent.Type.Create, false),
+      crawlManager.auEventCreated(AuEvent.forAu(mau1, AuEvent.Type.Create),
           mau1);
       assertEmpty(crawlManager.getHighPriorityAus());
       crawlManager.enqueueHighPriorityCrawl(req);
       assertEquals(ListUtil.list(mau1), crawlManager.getHighPriorityAus());
-      crawlManager.auEventDeleted(new AuEvent(AuEvent.Type.RestartDelete, false),
+      crawlManager.auEventDeleted(AuEvent.forAu(mau1, AuEvent.Type.RestartDelete),
           mau1);
       assertEmpty(crawlManager.getHighPriorityAus());
-      crawlManager.auEventCreated(new AuEvent(AuEvent.Type.Create, false),
+      crawlManager.auEventCreated(AuEvent.forAu(mau1, AuEvent.Type.Create),
           mau1);
       assertEquals(ListUtil.list(mau1), crawlManager.getHighPriorityAus());
     }

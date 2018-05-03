@@ -1509,7 +1509,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
   private void signalAuEvent(Crawler crawler, CrawlerStatus cs) {
     final ArchivalUnit au = crawler.getAu();
-    final AuEventHandler.ChangeInfo chInfo = new AuEventHandler.ChangeInfo();
+    final AuEvent.ContentChangeInfo chInfo = new AuEvent.ContentChangeInfo();
     Collection<String> mimeTypes = cs.getMimeTypes();
     if (mimeTypes != null) {
       Map<String,Integer> mimeCounts = new HashMap<String,Integer>();
@@ -1521,21 +1521,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     int num = cs.getNumFetched();
     chInfo.setNumUrls(num);
     if (crawler.isWholeAU()) {
-      chInfo.setType(AuEventHandler.ChangeInfo.Type.Crawl);
+      chInfo.setType(AuEvent.ContentChangeInfo.Type.Crawl);
     } else {
-      chInfo.setType(AuEventHandler.ChangeInfo.Type.Repair);
+      chInfo.setType(AuEvent.ContentChangeInfo.Type.Repair);
       chInfo.setUrls(cs.getUrlsFetched());
     }
-    chInfo.setAu(au);
     chInfo.setComplete(!cs.isCrawlError());
-    pluginMgr.applyAuEvent(new PluginManager.AuEventClosure() {
-			     public void execute(AuEventHandler hand) {
-			       hand.auContentChanged(new AuEvent(AuEvent.Type.
-			                                         ContentChanged,
-			                                         false),
-						     au, chInfo);
-			     }
-			   });
+    AuEvent event =
+      AuEvent.forAu(au, AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
+    pluginMgr.signalAuEvent(au, event);
   }
 
   // For testing only.  See TestCrawlManagerImpl

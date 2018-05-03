@@ -134,7 +134,7 @@ public class PluginTestUtil {
       tp.unregisterArchivalUnit(au);
       aulist.remove(au);
     }
-    mgr.stopAu(au, new AuEvent(AuEvent.Type.Delete, false));
+    mgr.stopAu(au, AuEvent.forAu(au, AuEvent.Type.Delete));
   }
 
   public static void unregisterAllArchivalUnits() {
@@ -160,7 +160,7 @@ public class PluginTestUtil {
 				      Configuration auConfig)
       throws ArchivalUnit.ConfigurationException {
     return getPluginManager().createAu(plugin, auConfig,
-                                       new AuEvent(AuEvent.Type.Create, false));
+                                       AuEvent.model(AuEvent.Type.Create));
   }
 
   public static ArchivalUnit createAndStartAu(Plugin plugin,

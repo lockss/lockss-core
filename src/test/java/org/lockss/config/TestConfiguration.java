@@ -300,6 +300,12 @@ public class TestConfiguration extends LockssTestCase4 {
   }
 
   @Test
+  public void testToStringMap() throws TdbException {
+    Configuration c1 = ConfigurationUtil.fromArgs("k1", "v1", "k2", "v2");
+    assertEquals(MapUtil.map("k1", "v1", "k2", "v2"), c1.toStringMap());
+  }
+
+  @Test
   public void testEquals() throws TdbException {
     // ensure configuration always equal to itself
     Configuration c1 = newConfiguration();

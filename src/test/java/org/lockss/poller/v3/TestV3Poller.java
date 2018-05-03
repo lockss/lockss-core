@@ -1622,19 +1622,19 @@ public class TestV3Poller extends LockssTestCase {
     assertEquals(0, changeEvents.size());
     poller.signalAuEvent();
     assertEquals(1, changeEvents.size());
-    AuEventHandler.ChangeInfo ci = changeEvents.get(0);
-    assertEquals(AuEventHandler.ChangeInfo.Type.Repair, ci.getType());
+    AuEvent.ContentChangeInfo ci = changeEvents.get(0);
+    assertEquals(AuEvent.ContentChangeInfo.Type.Repair, ci.getType());
     assertTrue(ci.isComplete());
     assertEquals(2, ci.getNumUrls());
     assertNull(ci.getMimeCounts());
     assertEquals(urls, ci.getUrls());
   }
 
-  List<AuEventHandler.ChangeInfo> changeEvents = new ArrayList();
+  List<AuEvent.ContentChangeInfo> changeEvents = new ArrayList();
 
   class MyAuEventHandler extends AuEventHandler.Base {
     @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
-        AuEventHandler.ChangeInfo info) {
+        AuEvent.ContentChangeInfo info) {
       changeEvents.add(info);
     }
   }

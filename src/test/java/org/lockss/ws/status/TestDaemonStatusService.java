@@ -646,8 +646,8 @@ public class TestDaemonStatusService extends LockssTestCase {
     assertEquals(9, (int)r2.getPriority());
     assertEquals("Pending", r2.getCrawlStatus());
 
-    pluginManager.stopAu(sau1, new AuEvent(AuEvent.Type.RestartDelete, false));
-    pluginManager.stopAu(sau2, new AuEvent(AuEvent.Type.Deactivate, false));
+    pluginManager.stopAu(sau1, AuEvent.forAu(sau1, AuEvent.Type.RestartDelete));
+    pluginManager.stopAu(sau2, AuEvent.forAu(sau2, AuEvent.Type.Deactivate));
 
     List<CrawlWsResult> crawls2 = service.queryCrawls(query);
     assertEquals(1, crawls2.size());

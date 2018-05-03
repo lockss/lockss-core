@@ -840,6 +840,16 @@ public abstract class Configuration {
    */
   public abstract Iterator nodeIterator(String key);
 
+  public Map<String,String> toStringMap() {
+    Map<String,String> res = new HashMap<String,String>();
+    for (Iterator iter = keyIterator(); iter.hasNext();) {
+      String key = (String)iter.next();
+      String val = get(key);
+      res.put(key, val);
+    }
+    return res;
+  }
+
   /**
    * Provides a loggable version of the contents of a Configuration.
    * 

@@ -36,7 +36,10 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.security.KeyStore;
-import junit.framework.*;
+import javax.jms.*;
+import org.apache.activemq.broker.BrokerService;
+
+import org.junit.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -47,12 +50,16 @@ import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.test.*;
 import org.lockss.state.*;
+import org.lockss.jms.*;
 import static org.lockss.plugin.PluginManager.CuContentReq;
 
 /**
  * Test class for org.lockss.plugin.PluginManager
  */
-public class TestPluginManager extends LockssTestCase {
+public class TestPluginManager extends LockssTestCase4 {
+  static Logger log = Logger.getLogger("TestPluginManager");
+
+  static BrokerService broker;
   private MyMockLockssDaemon theDaemon;
 
   static String mockPlugKey =
@@ -93,10 +100,7 @@ public class TestPluginManager extends LockssTestCase {
 
   MyPluginManager mgr;
 
-  public TestPluginManager(String msg) {
-    super(msg);
-  }
-
+  @Before
   public void setUp() throws Exception {
     super.setUp();
 
@@ -106,6 +110,10 @@ public class TestPluginManager extends LockssTestCase {
 
     theDaemon.setPluginManager(mgr);
     theDaemon.setDaemonInited(true);
+
+    UrlManager uMgr = new UrlManager();
+    uMgr.initService(theDaemon);
+    uMgr.startService();
 
     // Prepare the loadable plugin directory property, which is
     // created by mgr.startService()
@@ -122,10 +130,24 @@ public class TestPluginManager extends LockssTestCase {
     mgr.initService(theDaemon);
   }
 
+  @After
   public void tearDown() throws Exception {
     mgr.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
+  }
+
+  @BeforeClass
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      TimerUtil.sleep(1000);
+      broker.stop();
+    }
   }
 
   protected MockLockssDaemon newMockLockssDaemon() {
@@ -165,6 +187,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(bar.getDefaultUseCaches());
   }
 
+  @Test
   public void testDisableURLConnCache() throws IOException {
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_DISABLE_URL_CONNECTION_CACHE,
 				  "true");
@@ -173,18 +196,22 @@ public class TestPluginManager extends LockssTestCase {
     assertFalse(bar.getDefaultUseCaches());
   }
 
+  @Test
   public void testNameFromKey() {
     assertEquals("org.lockss.Foo", PluginManager.pluginNameFromKey("org|lockss|Foo"));
   }
 
+  @Test
   public void testKeyFromName() {
     assertEquals("org|lockss|Foo", PluginManager.pluginKeyFromName("org.lockss.Foo"));
   }
 
+  @Test
   public void testKeyFromId() {
     assertEquals("org|lockss|Foo", PluginManager.pluginKeyFromId("org.lockss.Foo"));
   }
 
+  @Test
   public void testGetPreferredPluginType() throws Exception {
     mgr.startService();
     // Prefer XML plugins.
@@ -211,6 +238,7 @@ public class TestPluginManager extends LockssTestCase {
 		 mgr.getPreferredPluginType());
   }
 
+  @Test
   public void testEnsurePluginLoaded() throws Exception {
     mgr.startService();
     // non-existent class shouldn't load
@@ -237,6 +265,7 @@ public class TestPluginManager extends LockssTestCase {
     mgr.setDaemonVersion(ver == null ? null : new DaemonVersion(ver));
   }
 
+  @Test
   public void testEnsurePluginLoadedCheckDaemonVersion()
       throws Exception {
     mgr.startService();
@@ -265,6 +294,7 @@ public class TestPluginManager extends LockssTestCase {
   }
 
 
+  @Test
   public void testLoadBuiltinPlugin() throws Exception {
     mgr.startService();
     // Non-plugin class shouldn't load
@@ -276,6 +306,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(1, ((APlugin)plug).getInitArgs().size());
   }
 
+  @Test
   public void testInitPluginRegistry() {
     mgr.startService();
     String n1 = "org.lockss.test.MockPlugin";
@@ -315,6 +346,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(p2.toString(), p2 instanceof ThrowingMockPlugin);
   }
 
+  @Test
   public void testEnsurePluginLoadedXml() throws Exception {
     mgr.startService();
     String pname = "org.lockss.test.TestXmlPlugin";
@@ -331,6 +363,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(pname, args.get(1));
   }
 
+  @Test
   public void testEnsurePluginLoadedXmlCheckDaemonVersion()
       throws Exception {
     mgr.startService();
@@ -346,6 +379,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(mgr.ensurePluginLoaded(key));
   }
 
+  @Test
   public void testStop() throws Exception {
     mgr.startService();
     doConfig();
@@ -355,6 +389,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(1, mpi.getStopCtr());
   }
 
+  @Test
   public void testAuConfig() throws Exception {
     mgr.startService();
     doConfig();
@@ -388,6 +423,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(au1, mgr.getAuFromIdIfExists(mauauid1));
   }
 
+  @Test
   public void testAuConfigWithGlobalEntryForNonExistentAU() throws Exception {
     mgr.startService();
     Properties p = new Properties();
@@ -443,6 +479,7 @@ public class TestPluginManager extends LockssTestCase {
     }
   }
 
+  @Test
   public void testCreateAu() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -454,7 +491,7 @@ public class TestPluginManager extends LockssTestCase {
     mgr.registerAuEventHandler(new MyAuEventHandler());
     Configuration config = ConfigurationUtil.fromArgs("a", "b");
     ArchivalUnit au = mgr.createAu(mpi, config,
-                                   new AuEvent(AuEvent.Type.Create, false));
+                                   AuEvent.model(AuEvent.Type.Create));
 
     // verify put in PluginManager map
     String auid = au.getAuId();
@@ -476,7 +513,7 @@ public class TestPluginManager extends LockssTestCase {
     mpi.setCfgEx(new ArchivalUnit.ConfigurationException("should be thrown"));
     try {
       ArchivalUnit au2 = mgr.createAu(mpi, config,
-                                      new AuEvent(AuEvent.Type.Create, false));
+                                      AuEvent.model(AuEvent.Type.Create));
       fail("createAU should have thrown ArchivalUnit.ConfigurationException");
     } catch (ArchivalUnit.ConfigurationException e) {
     }
@@ -484,7 +521,7 @@ public class TestPluginManager extends LockssTestCase {
     mpi.setRtEx(new ExpectedRuntimeException("Ok if in log"));
     try {
       ArchivalUnit au2 = mgr.createAu(mpi, config,
-                                      new AuEvent(AuEvent.Type.Create, false));
+                                      AuEvent.model(AuEvent.Type.Create));
       fail("createAU should have thrown ArchivalUnit.ConfigurationException");
     } catch (ArchivalUnit.ConfigurationException e) {
       // this is what's expected
@@ -494,6 +531,7 @@ public class TestPluginManager extends LockssTestCase {
 
   }
 
+  @Test
   public void testConfigureAu() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -505,7 +543,7 @@ public class TestPluginManager extends LockssTestCase {
     mgr.registerAuEventHandler(new MyAuEventHandler());
     Configuration config = ConfigurationUtil.fromArgs("a", "b");
     ArchivalUnit au = mgr.createAu(mpi, config,
-                                   new AuEvent(AuEvent.Type.Create, false));
+                                   AuEvent.model(AuEvent.Type.Create));
 
     String auid = au.getAuId();
     ArchivalUnit aux = mgr.getAuFromIdIfExists(auid);
@@ -547,6 +585,7 @@ public class TestPluginManager extends LockssTestCase {
 
   }
 
+  @Test
   public void testConfigureAuWithBogusAuid() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -565,6 +604,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEmpty(theDaemon.getAuMgrsStarted());
   }
 
+  @Test
   public void testDeactivateAu() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -576,7 +616,7 @@ public class TestPluginManager extends LockssTestCase {
     assertNotNull(mpi);
     Configuration config = ConfigurationUtil.fromArgs("a", "b");
     ArchivalUnit au = mgr.createAu(mpi, config,
-                                   new AuEvent(AuEvent.Type.Create, false));
+                                   AuEvent.model(AuEvent.Type.Create));
     assertNotNull(au);
     assertTrue(mgr.isActiveAu(au));
     String auId = au.getAuId();
@@ -599,13 +639,14 @@ public class TestPluginManager extends LockssTestCase {
     }
     // Recreate the AU, will get a new instance
     ArchivalUnit au2 = mgr.createAu(mpi, config,
-                                    new AuEvent(AuEvent.Type.Create, false));
+                                    AuEvent.model(AuEvent.Type.Create));
     assertNotNull(au2);
     assertFalse(mgr.isActiveAu(au));
     assertTrue(mgr.isActiveAu(au2));
     assertFalse(mgr.isInactiveAuId(auId));
   }
 
+  @Test
   public void testCreateAndSaveAndDeleteAuConfiguration() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -642,7 +683,7 @@ public class TestPluginManager extends LockssTestCase {
     props.put("a", "d");
     ArchivalUnit au3 = mgr.createAu(mpi,
 				    ConfigurationUtil.fromArgs("foo", "bar"),
-				    new AuEvent(AuEvent.Type.Create, false));
+				    AuEvent.model(AuEvent.Type.Create));
     try {
       mgr.setAndSaveAuConfiguration(au3, props);
 
@@ -653,6 +694,7 @@ public class TestPluginManager extends LockssTestCase {
   }
 
   // ensure getAllAus() returns AUs in title sorted order
+  @Test
   public void testGetAllAus() throws Exception {
     mgr.startService();
     MockArchivalUnit mau1 = new MockArchivalUnit();
@@ -684,6 +726,7 @@ public class TestPluginManager extends LockssTestCase {
 		 mgr.getAllAus());
   }
 
+  @Test
   public void testgetRandomizedAus() throws Exception {
     mgr.startService();
     MockArchivalUnit mau1 = new MockArchivalUnit();
@@ -700,6 +743,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(SetUtil.set(mau1, mau2, mau3, mau4, mau5), aus);
   }
 
+  @Test
   public void testTitleSets() throws Exception {
     mgr.startService();
     String ts1p = PluginManager.PARAM_TITLE_SETS + ".s1.";
@@ -724,6 +768,7 @@ public class TestPluginManager extends LockssTestCase {
 		 map.get(title2));
   }
 
+  @Test
   public void testTitleSetOrder() throws Exception {
     mgr.startService();
     String ts1p = PluginManager.PARAM_TITLE_SETS + ".s1.";
@@ -751,6 +796,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(title1, tsets.get(2).getName());
   }
 
+  @Test
   public void testIllTitleSets() throws Exception {
     mgr.startService();
     String ts1p = PluginManager.PARAM_TITLE_SETS + ".s1.";
@@ -966,6 +1012,7 @@ public class TestPluginManager extends LockssTestCase {
   }
 
 
+  @Test
   public void testFindCus() throws Exception {
     mgr.startService();
     String url = "http://foo.bar/";
@@ -1004,6 +1051,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(aucuss instanceof AuCachedUrlSetSpec);
   }
 
+  @Test
   public void testFindSingleNodeCus() throws Exception {
     mgr.startService();
     String url = "http://foo.bar/";
@@ -1026,6 +1074,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(url, cuss.getUrl());
   }
 
+  @Test
   public void testGetCandidateAus() throws Exception {
     mgr.startService();
     String h1 = "http://www.foo.org/";
@@ -1073,6 +1122,7 @@ public class TestPluginManager extends LockssTestCase {
   }
 
 
+  @Test
   public void testCuContentReq() throws Exception {
 //     assertTrue(CuContentReq.MostRecentContent.satisfies(CuContentReq.MostRecentContent));
 //     assertTrue(CuContentReq.MostRecentContent.satisfies(CuContentReq.HasContent));
@@ -1095,6 +1145,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(CuContentReq.DontCare.satisfies(CuContentReq.DontCare));
   }
 
+  @Test
   public void testFindCachedUrl() throws Exception {
     mgr.startService();
     String url1 = "http://foo.bar/baz";
@@ -1139,9 +1190,9 @@ public class TestPluginManager extends LockssTestCase {
     assertNull(mgr.findCachedUrl(url1, CuContentReq.HasContent));
     assertEquals(2, mgr.getRecent404Hits());
     ((MockCachedUrl)cu).setContent("abc");
-    signalAuEvent(au1, AuEventHandler.ChangeInfo.Type.Crawl, 1);
+    signalAuEvent(au1, AuEvent.ContentChangeInfo.Type.Crawl, 1);
     assertNull(mgr.findCachedUrl(url1));
-    signalAuEvent(au1, AuEventHandler.ChangeInfo.Type.Crawl, 4);
+    signalAuEvent(au1, AuEvent.ContentChangeInfo.Type.Crawl, 4);
     CachedUrl rcu1 = mgr.findCachedUrl(url1);
     assertEquals(url1, rcu1.getUrl());
     assertSame(au1, rcu1.getArchivalUnit());
@@ -1207,15 +1258,14 @@ public class TestPluginManager extends LockssTestCase {
     au1.addUrl(url5, true, true, null);
 
     // stop and start AU1
-    mgr.stopAu(au1, new AuEvent(AuEvent.Type.Deactivate, false));
+    mgr.stopAu(au1, AuEvent.forAu(au1, AuEvent.Type.Deactivate));
 
     // Ensure this one is in 404 cache
     assertEquals(null, mgr.findCachedUrl(url5, CuContentReq.HasContent));
 
     MockArchivalUnit xmau1 =
       (MockArchivalUnit)mgr.createAu(plug1, au1conf,
-                                     new AuEvent(AuEvent.Type.RestartCreate,
-                                                 false));
+                                     AuEvent.model(AuEvent.Type.RestartCreate));
     // Ensure the 404 cache was flushed when AU created
     xmau1.addUrl(url5, true, true, null);
     CachedUrl cu555 = mgr.findCachedUrl(url5, CuContentReq.HasContent);
@@ -1277,6 +1327,7 @@ public class TestPluginManager extends LockssTestCase {
     return AuUtil.getAuState(mau);
   }
 
+  @Test
   public void testFindCachedUrlClockss() throws Exception {
     mgr.startService();
     String url1 = "http://foo.bar/baz";
@@ -1335,6 +1386,7 @@ public class TestPluginManager extends LockssTestCase {
 		 AuUtil.getAuState(cu.getArchivalUnit()).getClockssSubscriptionStatus());
   }
 
+  @Test
   public void testFindCachedUrlWithSiteNormalization()
       throws Exception {
     mgr.startService();
@@ -1380,6 +1432,7 @@ public class TestPluginManager extends LockssTestCase {
     assertNull(mgr.findCachedUrl(url2));
   }
 
+  @Test
   public void testGenerateAuId() {
     mgr.startService();
     Properties props = new Properties();
@@ -1399,6 +1452,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(expected, actual);
   }
 
+  @Test
   public void testGenerateAuIdUniqueInstance() throws Exception {
     mgr.startService();
 
@@ -1414,6 +1468,7 @@ public class TestPluginManager extends LockssTestCase {
     assertNotSame(id, PluginManager.generateAuId(pluginId, props));
   }
 
+  @Test
   public void testConfigKeyFromAuId() {
     mgr.startService();
     String pluginId = "org|lockss|plugin|Blah";
@@ -1463,6 +1518,7 @@ public class TestPluginManager extends LockssTestCase {
     return keystoreFile;
   }
   
+  @Test
   public void testInitKeystoreAsFile() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -1474,6 +1530,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(ks.containsAlias("goodguy"));
   }
   
+  @Test
   public void testInitKeystoreAsFileBadPasswordFails() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -1484,6 +1541,7 @@ public class TestPluginManager extends LockssTestCase {
     assertNull(ks);
   }
   
+  @Test
   public void testInitKeystoreAsResource() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -1493,6 +1551,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(ks.containsAlias("goodguy"));
   }
   
+  @Test
   public void testInitKeystoreAsResourceBadPasswordFails() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -1501,6 +1560,7 @@ public class TestPluginManager extends LockssTestCase {
     assertNull(ks);
   }
   
+  @Test
   public void testInitKeystoreAsURL() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -1512,6 +1572,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(ks.containsAlias("goodguy"));
   }
 
+  @Test
   public void testInitKeystoreAsURLBadPasswordFails() throws Exception {
     mgr.startService();
     minimalConfig();
@@ -1522,6 +1583,7 @@ public class TestPluginManager extends LockssTestCase {
     assertNull(ks);
   }
   
+  @Test
   public void testEmptyInitialRegistryCallback() throws Exception {
     mgr.startService();
     BinarySemaphore bs = new BinarySemaphore();
@@ -1530,6 +1592,7 @@ public class TestPluginManager extends LockssTestCase {
     assertTrue(bs.take(Deadline.in(0)));
   }
 
+  @Test
   public void testInitialRegistryCallback() throws Exception {
     mgr.startService();
     BinarySemaphore bs = new BinarySemaphore();
@@ -1559,6 +1622,7 @@ public class TestPluginManager extends LockssTestCase {
   }
 
 
+  @Test
   public void testInitLoadablePluginRegistries() throws Exception {
     mgr.startService();
     Properties p = new Properties();
@@ -1580,6 +1644,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(3, mgr.getAllRegistryAus().size());
   }
 
+  @Test
   public void testCrawlRegistriesOnce() throws Exception {
     mgr.startService();
     MockCrawlManager mcm = new MockCrawlManager();
@@ -1651,16 +1716,19 @@ public class TestPluginManager extends LockssTestCase {
   }
 
   /** Load a loadable plugin, preferring the loadable version. */
+  @Test
   public void testLoadLoadablePluginPreferLoadable() throws Exception {
     testLoadLoadablePlugin(true);
   }
 
   /** Load a loadable plugin, preferring the library jar version. */
+  @Test
   public void testLoadLoadablePluginPreferLibJar() throws Exception {
     testLoadLoadablePlugin(false);
   }
 
   /** Runtime errors loading plugins should be caught. */
+  @Test
   public void testErrorProcessingRegistryAu() throws Exception {
     mgr.startService();
     String badplug = "org/lockss/test/bad-plugin.jar";
@@ -1694,6 +1762,7 @@ public class TestPluginManager extends LockssTestCase {
   // load the second version from a different jar (good-plugin2.jar).  See
   // test/scripts/gentestplugins to regenerate these jars.
 
+  @Test
   public void testUpdatePlugin() throws Exception {
     mgr.startService();
     Properties p = new Properties();
@@ -1721,7 +1790,7 @@ public class TestPluginManager extends LockssTestCase {
 						      ,"year", "1942");
 //     theDaemon.setStartAuManagers(true);
     ArchivalUnit au1 = mgr.createAu(plugin1, config,
-                                    new AuEvent(AuEvent.Type.Create, false));
+                                    AuEvent.model(AuEvent.Type.Create));
     String auid = au1.getAuId();
     assertNotNull(au1);
     assertSame(plugin1, au1.getPlugin());
@@ -1747,6 +1816,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEquals(0, mgr.getNumFailedAuRestarts());
   }
 
+  @Test
   public void testStartAuLoadsCdnStems() throws Exception {
     String cdnStem = "http://cdn.host/";
     String baseStem = "http://example.com/";
@@ -1762,7 +1832,7 @@ public class TestPluginManager extends LockssTestCase {
     Configuration config = ConfigurationUtil.fromArgs("base_url",
 						      baseStem + "a/");
     ArchivalUnit au = mgr.createAu(plug, config,
-                                   new AuEvent(AuEvent.Type.Create, false));
+                                   AuEvent.model(AuEvent.Type.Create));
     AuState aus = AuUtil.getAuState(au);
     assertEmpty(aus.getCdnStems());
     aus.addCdnStem(cdnStem);
@@ -1780,7 +1850,7 @@ public class TestPluginManager extends LockssTestCase {
     assertEmpty(mgr.getCandidateAusFromStem(cdnStem));
     // Ensure AUs CDN stems are set before addHostAus() is called
     ArchivalUnit au2 = mgr.createAu(plug, config,
-				    new AuEvent(AuEvent.Type.Create, false));
+				    AuEvent.model(AuEvent.Type.Create));
     assertNotSame(au2, au);
     assertSameElements(ListUtil.list(au2),
 		       mgr.getCandidateAusFromStem(cdnStem));
@@ -1789,40 +1859,50 @@ public class TestPluginManager extends LockssTestCase {
   }
 
 
+  @Test
   public void testRegistryAuEventHandler() throws Exception {
+    Consumer cons =
+      Consumer.createTopicConsumer(null, PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
+				  "true");
+    assertNull(cons.receiveMap(TIMEOUT_SHOULD));
     mgr.setLoadablePluginsReady(false);
     mgr.startService();
     Properties p = new Properties();
     mgr.startLoadablePlugins();
     MyMockRegistryArchivalUnit mrau =
       new MyMockRegistryArchivalUnit(Collections.EMPTY_LIST);
+    mrau.setAuId("reg_auid_42");
     assertEmpty(mgr.getProcessedRegAus());
     signalAuEvent(mrau);
     assertEquals(ListUtil.list(mrau), mgr.getProcessedRegAus());
+    assertEquals(MapUtil.map("type", "ContentChanged",
+			     "auid", "reg_auid_42",
+			     "change_info", MapUtil.map("type", "Crawl",
+							"complete", true,
+							"num_urls", 4)),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
   }
 
   private void signalAuEvent(final ArchivalUnit au) {
-    signalAuEvent(au, AuEventHandler.ChangeInfo.Type.Crawl, 4);
+    signalAuEvent(au, AuEvent.ContentChangeInfo.Type.Crawl, 4);
   }
 
   private void signalAuEvent(final ArchivalUnit au,
-			     AuEventHandler.ChangeInfo.Type type,
+			     AuEvent.ContentChangeInfo.Type type,
 			     int numUrls) {
-    final AuEventHandler.ChangeInfo chInfo = new AuEventHandler.ChangeInfo();
-    chInfo.setAu(au);
+    final AuEvent.ContentChangeInfo chInfo = new AuEvent.ContentChangeInfo();
     chInfo.setType(type);
     chInfo.setNumUrls(numUrls);
     chInfo.setComplete(true);
-    mgr.applyAuEvent(new PluginManager.AuEventClosure() {
-	public void execute(AuEventHandler hand) {
-	  hand.auContentChanged(new AuEvent(AuEvent.Type.ContentChanged, false),
-	                        au, chInfo);
-	}
-      });
+    AuEvent event =
+      AuEvent.forAu(au, AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
+    mgr.signalAuEvent(au, event);
   }
 
   // Test that a configured AU that isn't running (because its plugin
   // wasn't loaded) gets started when the plugin is loaded
+  @Test
   public void testStartUnstartedAu() throws Exception {
     mgr.startService();
     Properties p = new Properties();
@@ -1864,6 +1944,7 @@ public class TestPluginManager extends LockssTestCase {
    * Tests PluginManager.isInternalPlugin(Plugin).
    * @throws Exception
    */
+  @Test
   public void testIsInternalPlugin() throws Exception {
     Plugin internalPlugin = mgr.getImportPlugin();
     assertNotNull(internalPlugin);
@@ -1875,12 +1956,6 @@ public class TestPluginManager extends LockssTestCase {
     internalPlugin = mgr.getPlugin(mockPlugKey);
     assertNotNull(internalPlugin);
     assertFalse(mgr.isInternalPlugin(internalPlugin));
-  }
-
-  public static Test suite() {
-    TestSuite suite = new TestSuite();
-    suite.addTestSuite(TestPluginManager.class);
-    return suite;
   }
 
   /**
