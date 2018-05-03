@@ -40,6 +40,7 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
+import static org.lockss.app.ManagerDescs.*;
 
 /**
  * Functional tests for org.lockss.util.LockssApp
@@ -87,6 +88,46 @@ public class FuncLockssApp extends LockssTestCase {
     assertEquals("vvv3", config.get("o.l.p22"));
   }
   
+
+  private final ManagerDesc aMgr =
+    new ManagerDesc(MyLockssManager.class.getName());
+
+  private final ManagerDesc[] expMgrs = {
+    RANDOM_MANAGER_DESC,
+    RESOURCE_MANAGER_DESC,
+    MAIL_SERVICE_DESC,
+    ALERT_MANAGER_DESC,
+    STATUS_SERVICE_DESC,
+    TRUEZIP_MANAGER_DESC,
+    URL_MANAGER_DESC,
+    TIMER_SERVICE_DESC,
+    // keystore manager must be started before any others that need to
+    // access managed keystores
+    KEYSTORE_MANAGER_DESC,
+    JMS_MANAGER_DESC,
+    aMgr,
+    new ManagerDesc(CRON, "org.lockss.daemon.Cron"),
+    new ManagerDesc(WATCHDOG_SERVICE, "org.lockss.daemon.WatchdogService"),
+  };
+
+  private final ManagerDesc[] mine = {
+    new ManagerDesc(MyLockssManager.class.getName()),
+    STATUS_SERVICE_DESC,
+    ALERT_MANAGER_DESC,
+  };
+
+  public void testGetManagerDescs() throws Exception {
+    LockssApp.AppSpec spec = new LockssApp.AppSpec()
+      .setName("Test descs")
+      .setAppManagers(new ManagerDesc[] {
+	  new ManagerDesc(MyLockssManager.class.getName()),
+	}) ;
+
+    LockssApp app = new LockssApp(spec);
+    assertEquals(ListUtil.list(expMgrs), ListUtil.list(app.getManagerDescs()));
+  }
+
+
   public void testStartAppKeepRunning() throws Exception {
     String propurl =
       FileTestUtil.urlOfString("foo=bar");

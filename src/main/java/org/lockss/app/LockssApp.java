@@ -47,6 +47,7 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.truezip.*;
 import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 /**
  * Configuration and startup of LOCKSS applications.  Application
@@ -286,7 +287,7 @@ public class LockssApp {
    * override that if non-static ManagerDescs are needed.  Or may implement
    * this method to completely override the standard manager startup. */
   protected ManagerDesc[] getManagerDescs() {
-    List<ManagerDesc> res = new ArrayList<ManagerDesc>(50);
+    LinkedHashSet<ManagerDesc> res = new LinkedHashSet<ManagerDesc>(50);
     Collections.addAll(res, stdPreManagers);
     if (getAppSpec().isComputeAppManagers()) {
       Collections.addAll(res, getAppManagerDescs());
@@ -1066,6 +1067,29 @@ public class LockssApp {
       return true;
     }
 
+    @Override
+    public int hashCode() {
+      HashCodeBuilder hcb = new HashCodeBuilder();
+      hcb.append(key);
+      hcb.append(defaultClass);
+      return hcb.toHashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+	return true;
+      }
+      if (obj instanceof ManagerDesc) {
+	ManagerDesc md = (ManagerDesc)obj;
+	if (StringUtil.equalStrings(this.key, md.getKey())
+	    && StringUtil.equalStrings(defaultClass, md.getDefaultClass())) {
+	  return true;
+	}
+      }
+      return false;
+    }
+
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append("[md: ");
@@ -1184,7 +1208,7 @@ public class LockssApp {
 	  } catch (IOException ioe) {
 	    log.error("Cannot process XML directory option '"
 		      + OPTION_XML_PROP_DIR + " " +
-		      optionXmlDir + "', ignoring.", ioe);
+		      optionXmlDir + "', ignoring: " + ioe.toString());
 	  }
 	} else if (args[i].equals(OPTION_BOOTSTRAP_PROPURL)
 		   && i < args.length - 1) {
