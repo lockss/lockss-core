@@ -3588,6 +3588,8 @@ public class ConfigManager implements LockssManager {
 
   // JMS notification support
 
+  public static final String JMS_PREFIX = PREFIX + "jms.";
+
   /** If true, ConfigManager will send notifications of config-changed
    * events (if it is running as part of a REST config service), or
    * register to receive such events (if it's runnning in a client of a
@@ -3595,21 +3597,21 @@ public class ConfigManager implements LockssManager {
    * @ParamRelevance Rare
    */
   public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
-    MYPREFIX + "enableJmsNotifications";
+    JMS_PREFIX + "enable";
   public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = false;
 
   /** The jms topic at which config changed notifications are sent
    * @ParamRelevance Rare
    */
   public static final String PARAM_JMS_NOTIFICATION_TOPIC =
-    MYPREFIX + "jmsNotificationTopic";
+    JMS_PREFIX + "topic";
   public static final String DEFAULT_JMS_NOTIFICATION_TOPIC =
     "ConfigChangedTopic";
 
   /** The jms clientid of the config manager.
    * @ParamRelevance Rare
    */
-  public static final String PARAM_JMS_CLIENT_ID = MYPREFIX + "jmsClientId";
+  public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
 //   public static final String DEFAULT_JMS_CLIENT_ID = "ConfigManger";
   public static final String DEFAULT_JMS_CLIENT_ID = null;
 
@@ -3628,7 +3630,11 @@ public class ConfigManager implements LockssManager {
     Thread th = new Thread() {
 	public void run() {
 	  try {
-	    getApp().waitUntilAppRunning();
+	    if (getApp() != null) {
+	      getApp().waitUntilAppRunning();
+	    } else {
+	      LockssApp.getLockssApp().waitUntilAppRunning();
+	    }
 	    setUpJmsNotifications();
 	  } catch (InterruptedException e) {}
 	}};
