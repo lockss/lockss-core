@@ -163,7 +163,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
     }
     try {
       CachedUrl cu = makeCachedUrl(m_registryUrl);
-      if (cu == null) return null;
+      if (!cu.hasContent()) return null;
       URL cuUrl = CuUrl.fromCu(cu);
       Parser parser = new Parser(cuUrl.toString());
       NodeList nodelst =

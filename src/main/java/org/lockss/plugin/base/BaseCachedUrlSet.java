@@ -565,9 +565,9 @@ public class BaseCachedUrlSet implements CachedUrlSet {
 	artIter = v2Repo.getAllArtifacts(v2Coll, au.getAuId()).iterator();
       } else if (spec.isSingleNode()) {
 	artIter =
-	  new SingletonIterator<Artifact>(v2Repo.getArtifact(v2Coll,
-							       au.getAuId(),
-							       spec.getUrl()));
+	  new SingletonIterator<Artifact>(AuUtil.getArtifact(v2Repo, v2Coll,
+							     au.getAuId(),
+							     spec.getUrl()));
       } else {
 	artIter = v2Repo.getAllArtifactsWithPrefix(v2Coll, au.getAuId(),
 						     getUrl()).iterator();
