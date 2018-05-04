@@ -567,7 +567,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   protected Artifact getArtifact() throws IOException {
-    return AuUtil.getArtifact(v2Repo, v2Coll, au.getAuId(), getUrl());
+    return v2Repo.getArtifact(v2Coll, au.getAuId(), getUrl());
   }
 
   private void ensureArtifact() {
@@ -682,9 +682,8 @@ public class BaseCachedUrl implements CachedUrl {
     }
 
     protected Artifact getArtifact() throws IOException {
-      return
-	v2Repo.getArtifactVersion(v2Coll, au.getAuId(), getUrl(),
-				    specVersion);
+      return v2Repo.getArtifactVersion(v2Coll, au.getAuId(),
+				       getUrl(), specVersion);
     }
 
     public int getVersion() {

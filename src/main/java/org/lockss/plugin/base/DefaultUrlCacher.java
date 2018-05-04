@@ -305,7 +305,7 @@ public class DefaultUrlCacher implements UrlCacher {
     Artifact uncommittedArt = null;
     try {
       alreadyHasContent =
-	AuUtil.getArtifact(v2Repo, v2Coll, au.getAuId(), url) != null;
+	v2Repo.getArtifact(v2Coll, au.getAuId(), url) != null;
       MessageDigest checksumProducer = null;
       String checksumAlgorithm =
           CurrentConfig.getParam(PARAM_CHECKSUM_ALGORITHM,

@@ -32,7 +32,6 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin;
 
-import java.io.*;
 import java.net.*;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -112,21 +111,6 @@ public class AuUtil {
   public static AuState getAuState(ArchivalUnit au) {
     HistoryRepository histRepo = getDaemon(au).getHistoryRepository(au);
     return histRepo.getAuState();
-  }
-
-  public static Artifact getArtifact(LockssRepository v2Repo,String collection,
-				     String auid, String url)
-      throws IOException {
-    try {
-      return v2Repo.getArtifact(collection, auid, url);
-    } catch (org.springframework.web.client.HttpClientErrorException e) {
-      if (e.getMessage().startsWith("404")) {
-	return null;
-      } else {
-	log.critical("msg: " + e.getMessage());
-	throw e;
-      }
-    }
   }
 
   /**
