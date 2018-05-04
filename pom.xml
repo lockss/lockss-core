@@ -630,11 +630,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <version>${lockss.util.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>lockss-plugins</artifactId>
-      <version>${lockss.plugins.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.lockss.laaws</groupId>
       <artifactId>laaws-repository-core</artifactId>
       <version>${lockss.repository-core.version}</version>
