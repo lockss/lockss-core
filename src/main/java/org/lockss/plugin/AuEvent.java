@@ -83,7 +83,7 @@ public class AuEvent {
       sb.append(type);
       sb.append(", ");
       sb.append(numUrls);
-      if (numUrls != urls.size()) {
+      if (urls != null && numUrls != urls.size()) {
 	sb.append("/");
 	sb.append(urls.size());
       }
