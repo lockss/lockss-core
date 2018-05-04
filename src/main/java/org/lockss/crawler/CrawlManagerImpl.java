@@ -31,9 +31,9 @@ package org.lockss.crawler;
 import java.util.*;
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.commons.lang3.mutable.MutableInt;
-import org.apache.commons.collections.*;
+import org.apache.commons.collections4.*;
 import org.apache.commons.collections4.map.*;
-import org.apache.commons.collections.bag.HashBag; // needed to disambiguate
+import org.apache.commons.collections4.bag.HashBag; // needed to disambiguate
 import org.apache.oro.text.regex.*;
 
 import EDU.oswego.cs.dl.util.concurrent.*;
