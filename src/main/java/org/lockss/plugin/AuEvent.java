@@ -71,7 +71,7 @@ public class AuEvent {
       Crawl, Repair;
     }
 
-    private Type type;
+    private ContentChangeInfo.Type type;
     private boolean complete;
     private List<String> urls;
     private Map<String,Integer> mimeCounts;
@@ -117,7 +117,7 @@ public class AuEvent {
     public static ContentChangeInfo fromMap(Map<String,Object> map) {
       ContentChangeInfo res = new ContentChangeInfo();
       if (map.get(KEY_TYPE) != null) {
-	res.type = Type.valueOf((String)map.get(KEY_TYPE));
+	res.type = ContentChangeInfo.Type.valueOf((String)map.get(KEY_TYPE));
       }
       if (map.get(KEY_COMPLETE) != null) {
 	res.complete = (boolean)map.get(KEY_COMPLETE);
@@ -130,13 +130,13 @@ public class AuEvent {
       return res;
     }
 
-    public void setType(Type type) {
+    public void setType(ContentChangeInfo.Type type) {
       this.type = type;
     }
 
     /** Type of content changes: Crawl means new content crawl, Repair
      * means either peer repair or repair crawl */
-    public Type getType() {
+    public ContentChangeInfo.Type getType() {
       return type;
     }
 
@@ -219,7 +219,7 @@ public class AuEvent {
 
   private String auid;
 //   private ArchivalUnit au;
-  private Type type;
+  private AuEvent.Type type;
   private boolean inBatch;
   private ContentChangeInfo changeInfo;
   private Configuration oldConfig;
@@ -227,21 +227,21 @@ public class AuEvent {
   private AuEvent() {
   }
 
-  AuEvent(ArchivalUnit au, Type type) {
+  AuEvent(ArchivalUnit au, AuEvent.Type type) {
     this(au.getAuId(), type);
 //     this.au = au;
   }
 
-  AuEvent(String auid, Type type) {
+  AuEvent(String auid, AuEvent.Type type) {
     this.auid = auid;
     this.type = type;
   }
 
-  public static AuEvent forAu(ArchivalUnit au, Type type) {
+  public static AuEvent forAu(ArchivalUnit au, AuEvent.Type type) {
     return new AuEvent(au, type);
   }
 
-  public static AuEvent forAuId(String auid, Type type) {
+  public static AuEvent forAuId(String auid, AuEvent.Type type) {
     return new AuEvent(auid, type);
   }
 
@@ -253,7 +253,7 @@ public class AuEvent {
     return res;
   }
 
-  public static AuEvent model(Type type) {
+  public static AuEvent model(AuEvent.Type type) {
     return new AuEvent((String)null, type);
   }
 
@@ -280,7 +280,7 @@ public class AuEvent {
     return auid;
   }
 
-  public Type getType() {
+  public AuEvent.Type getType() {
     return type;
   }
 
@@ -318,7 +318,7 @@ public class AuEvent {
    * by {@link #toMap()} */
   public static AuEvent fromMap(Map<String,Object> map) {
     AuEvent res = AuEvent.forAuId((String)map.get(KEY_AUID),
-				  Type.valueOf((String)map.get(KEY_TYPE)));
+                                  AuEvent.Type.valueOf((String)map.get(KEY_TYPE)));
     if (map.get(KEY_CHANGE_INFO) != null) {
       res.changeInfo = ContentChangeInfo.fromMap((Map)map.get(KEY_CHANGE_INFO));
     }
@@ -351,11 +351,11 @@ public class AuEvent {
     }
     if (obj instanceof AuEvent) {
       AuEvent event = (AuEvent)obj;
-      if (ObjectUtils.equals(getAuId(), event.getAuId()) &&
-	  ObjectUtils.equals(getType(), event.getType()) &&
+      if (Objects.equals(getAuId(), event.getAuId()) &&
+	  Objects.equals(getType(), event.getType()) &&
 	  isInBatch() == event.isInBatch() &&
-	  ObjectUtils.equals(getChangeInfo(), event.getChangeInfo()) &&
-	  ObjectUtils.equals(getOldConfiguration(), event.getOldConfiguration())) {
+	  Objects.equals(getChangeInfo(), event.getChangeInfo()) &&
+	  Objects.equals(getOldConfiguration(), event.getOldConfiguration())) {
 	return true;
       }
     }
