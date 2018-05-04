@@ -49,13 +49,17 @@ public class TestAuEvent extends LockssTestCase {
   MockArchivalUnit mau2 = new MockArchivalUnit("auid2");
 
 
-  Map empty = MapUtil.map("num_urls", 0,
-			  "complete", false);
+  Map minimalChangeMap = MapUtil.map("num_urls", 0,
+				     "complete", false);
   Map mimeMap = MapUtil.map("text/html", 4, "img/png", 2);
 
+  // test ContentChangeInfo.equals().  Incrementally build two objects in
+  // parallel, which should alternate between equal and not equal as fields
+  // are added.
   public void testChInfoEquals() {
     ContentChangeInfo ci1 = new ContentChangeInfo();
     ContentChangeInfo ci2 = new ContentChangeInfo();
+    // empty s.b. equal
     assertEquals(ci1, ci2);
     ci1.setType(ContentChangeInfo.Type.Crawl);
     assertNotEquals(ci1, ci2);
@@ -86,18 +90,20 @@ public class TestAuEvent extends LockssTestCase {
     assertNotEquals(ci1, ci2);
     ci2.setMimeCounts(MapUtil.map("text/html", 4, "img/png", 2));
     assertEquals(ci1, ci2);
-}
+  }
 
+  // test converting ContentChangeInfo to/from a map
   public void testChInfoToFromMap() {
-    ContentChangeInfo ci1, ci2;
+    ContentChangeInfo ci1;
     Map map;
 
+    // minimal object has two fields
     ci1 = new ContentChangeInfo();
     map = ci1.toMap();
-    assertEquals(empty, map);
-
-    ci2 = ContentChangeInfo.fromMap(map);
-    assertEquals(ci1, ci2);
+    assertEquals(MapUtil.map("num_urls", 0,
+			     "complete", false),
+		 map);
+    assertEquals(ci1, ContentChangeInfo.fromMap(map));
 
     ci1.setType(ContentChangeInfo.Type.Crawl);
     map = ci1.toMap();
@@ -105,6 +111,7 @@ public class TestAuEvent extends LockssTestCase {
 			     "num_urls", 0,
 			     "complete", false),
 		 map);
+    assertEquals(ci1, ContentChangeInfo.fromMap(map));
 
     ci1.setComplete(true);
     ci1.setNumUrls(57);
@@ -116,9 +123,11 @@ public class TestAuEvent extends LockssTestCase {
 			     "mime_counts", mimeMap,
 			     "complete", true),
 		 map);
+    assertEquals(ci1, ContentChangeInfo.fromMap(map));
 
   }
 
+  // test AuEvent.equals()
   public void testEquals() {
     AuEvent e1 = AuEvent.forAu(mau1, AuEvent.Type.Create);
     AuEvent e2 = AuEvent.forAu(mau1, AuEvent.Type.Create);
@@ -155,6 +164,7 @@ public class TestAuEvent extends LockssTestCase {
     assertEquals(e1, e2);
   }
 
+  // test converting AuEvent to/from a map
   public void testToFromMap() {
     AuEvent e1 = AuEvent.forAu(mau1, AuEvent.Type.Create);
     AuEvent e2 = AuEvent.forAu(mau1, AuEvent.Type.Create);
@@ -187,7 +197,5 @@ public class TestAuEvent extends LockssTestCase {
 		 map);
     e2 = AuEvent.fromMap(map);
     assertEquals(e1, e2);
-
-
   }
 }

@@ -1249,6 +1249,7 @@ public class PluginManager
     Producer p = jmsProducer;
     if (p != null) {
       try {
+	jmsProducer = null;
 	p.closeConnection();
       } catch (JMSException e) {
 	log.error("Couldn't stop jms producer", e);
@@ -1257,6 +1258,7 @@ public class PluginManager
     Consumer c = jmsConsumer;
     if (c != null) {
       try {
+	jmsConsumer = null;
 	c.closeConnection();
       } catch (JMSException e) {
 	log.error("Couldn't stop jms consumer", e);
@@ -1292,8 +1294,10 @@ public class PluginManager
 	try {
 	  jmsProducer.sendMap(event.toMap());
 	} catch (JMSException e) {
-	  log.error("foo", e);
+	  log.error("Couldn't send ContentChanged notification", e);
 	}
+      default:
+	// don't send other events
       }
     }
   }
@@ -1432,6 +1436,8 @@ public class PluginManager
 	    }
 	  }});
       break;
+    default:
+      log.error("Unhandled AuEvent: " + event);
     }
   }
       
