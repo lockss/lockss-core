@@ -390,7 +390,7 @@ public class DebugPanel extends LockssServlet {
       return;
     }
     try {
-      if (AuUtil.getArtifact(v2Repo, coll, au.getAuId(), url) == null) {
+      if (v2Repo.getArtifact(coll, au.getAuId(), url) == null) {
 	errMsg = "No such file: " + url + " in " + au.getName();
 	return;
       }
@@ -402,7 +402,7 @@ public class DebugPanel extends LockssServlet {
 	cnt++;
       }
       org.lockss.laaws.rs.model.Artifact delArt =
-	AuUtil.getArtifact(v2Repo, coll, au.getAuId(), url);
+	v2Repo.getArtifact(coll, au.getAuId(), url);
       if (delArt == null) {
 	statusMsg ="Deleted " + StringUtil.numberOfUnits(cnt, "version") +
 	  " of " + url;
