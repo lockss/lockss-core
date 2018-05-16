@@ -138,7 +138,7 @@ public class RepositoryManager
   public static final String DEFAULT_V2_REPOSITORY = null;
   public static final String PARAM_PERSIST_INDEX_NAME =
       PREFIX + "persistIndexName";
-  public static final String DEFAULT_PERSIST_INDEX_NAME = null;
+  public static final String DEFAULT_PERSIST_INDEX_NAME = "artifact-index.ser";
 
   static final String WDOG_PARAM_SIZE_CALC = "SizeCalc";
   static final long WDOG_DEFAULT_SIZE_CALC = Constants.DAY;
