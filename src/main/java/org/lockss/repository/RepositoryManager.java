@@ -136,6 +136,9 @@ public class RepositoryManager
   public static final String PARAM_V2_REPOSITORY =
       PREFIX + "v2Repository";
   public static final String DEFAULT_V2_REPOSITORY = null;
+  public static final String PARAM_PERSIST_INDEX_NAME =
+      PREFIX + "persistIndexName";
+  public static final String DEFAULT_PERSIST_INDEX_NAME = null;
 
   static final String WDOG_PARAM_SIZE_CALC = "SizeCalc";
   static final long WDOG_DEFAULT_SIZE_CALC = Constants.DAY;
@@ -273,13 +276,14 @@ public class RepositoryManager
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
     }
     processV2RepoSpec(config.get(PARAM_V2_REPOSITORY,
-				   DEFAULT_V2_REPOSITORY));
+				   DEFAULT_V2_REPOSITORY),
+	config.get(PARAM_PERSIST_INDEX_NAME, DEFAULT_PERSIST_INDEX_NAME));
   }
 
   static Pattern REPO_SPEC_PATTERN =
     Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
 
-  private void processV2RepoSpec(String spec) {
+  private void processV2RepoSpec(String spec, String persistedIndexName) {
     if (spec != null) {
       // currently set this only once
       if (v2Repo == null) {
@@ -300,7 +304,14 @@ public class RepositoryManager
 		log.critical("Illegal V2 repository spec: " + spec);
 	      } else {
 		File path = new File(s);
-		repo = LockssRepositoryFactory.createLocalRepository(path);
+		try {
+		  repo = LockssRepositoryFactory.createLocalRepository(path,
+		      persistedIndexName);
+		} catch (IOException e) {
+		  log.critical("Illegal V2 repository path: " + path +
+			       ", persistedIndexName: " + persistedIndexName +
+			       ": " + e.getMessage());
+		}
 	      }
 	      break;
 	    case "rest":
