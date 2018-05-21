@@ -1861,6 +1861,8 @@ public class TestPluginManager extends LockssTestCase4 {
 
   @Test
   public void testRegistryAuEventHandler() throws Exception {
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:baz");
     Consumer cons =
       Consumer.createTopicConsumer(null, PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
@@ -1878,6 +1880,7 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(ListUtil.list(mrau), mgr.getProcessedRegAus());
     assertEquals(MapUtil.map("type", "ContentChanged",
 			     "auid", "reg_auid_42",
+			     "repository_spec", "volatile:baz",
 			     "change_info", MapUtil.map("type", "Crawl",
 							"complete", true,
 							"num_urls", 4)),

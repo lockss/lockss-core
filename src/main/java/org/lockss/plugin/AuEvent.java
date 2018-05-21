@@ -34,7 +34,9 @@ package org.lockss.plugin;
 import java.util.*;
 import org.apache.commons.lang3.*;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.lockss.util.*;
 import org.lockss.config.*;
+import org.lockss.repository.RepositoryManager;
 
 public class AuEvent {
 
@@ -298,6 +300,7 @@ public class AuEvent {
 
   public static final String KEY_TYPE = "type";
   public static final String KEY_AUID = "auid";
+  public static final String KEY_REPO_SPEC = "repository_spec";
   public static final String KEY_CHANGE_INFO = "change_info";
   public static final String KEY_OLD_CONFIG = "old_config";
   public static final String KEY_IN_BATCH = "in_batch";
@@ -307,6 +310,12 @@ public class AuEvent {
   public Map<String,Object> toMap() {
     Map<String,Object> map = new HashMap<String,Object>();
     map.put(KEY_AUID, auid);
+    String repo =
+      CurrentConfig.getParam(RepositoryManager.PARAM_V2_REPOSITORY,
+			     RepositoryManager.DEFAULT_V2_REPOSITORY);
+    if (!StringUtil.isNullString(repo)) {
+      map.put(KEY_REPO_SPEC, repo);
+    }
     if (type != null) map.put(KEY_TYPE, type.toString());
     if (changeInfo != null) map.put(KEY_CHANGE_INFO, changeInfo.toMap());
     if (oldConfig != null) map.put(KEY_OLD_CONFIG, oldConfig.toStringMap());

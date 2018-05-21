@@ -39,6 +39,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.AuEvent.ContentChangeInfo;
 import org.lockss.util.*;
 import org.lockss.test.*;
+import org.lockss.repository.RepositoryManager;
 
 /**
  * Test class for org.lockss.plugin.PluginManager
@@ -189,6 +190,22 @@ public class TestAuEvent extends LockssTestCase {
     assertEquals(MapUtil.map("auid", "auid1",
 			     "type", "Create",
 			     "in_batch", true,
+			     "change_info", MapUtil.map("type", "Crawl",
+						       "complete", false,
+						       "urls", ListUtil.list("u3", "u4"),
+						       "num_urls", 0),
+			     "old_config", MapUtil.map("p1", "v8")),
+		 map);
+    e2 = AuEvent.fromMap(map);
+    assertEquals(e1, e2);
+
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:coll_ection");
+    map = e1.toMap();
+    assertEquals(MapUtil.map("auid", "auid1",
+			     "type", "Create",
+			     "in_batch", true,
+			     "repository_spec", "volatile:coll_ection",
 			     "change_info", MapUtil.map("type", "Crawl",
 						       "complete", false,
 						       "urls", ListUtil.list("u3", "u4"),
