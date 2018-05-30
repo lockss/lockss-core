@@ -42,6 +42,8 @@ import java.util.*;
 
 import org.apache.commons.collections.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.mortbay.util.B64Code;
+
 import org.lockss.alert.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -650,7 +652,6 @@ public class PollManager
   /**
    * REST Service entry point for stopping a previously requested poll
    * @param au the au
-   * @param key the key of the poll to stop.
    * @return a the stopped poll
    */
   public Poll stopPoll(ArchivalUnit au)
@@ -701,12 +702,12 @@ public class PollManager
     return retPoll;
   }
 
-  public
   /**
    * Cancel all polls on the specified AU.
    *
    * @param au the AU
    */
+  public
   void cancelAuPolls(ArchivalUnit au) {
     // first remove from queues, so none will run.
     pollQueue.cancelAuPolls(au);
@@ -2531,14 +2532,16 @@ public class PollManager
     }
   }
 
-  static class PollReq {
+  public static class PollReq {
 
     ArchivalUnit au;
     int priority = 0;
     PollSpec spec;
+    String reqId;
 
     public PollReq(ArchivalUnit au) {
       this.au = au;
+      this.reqId = String.valueOf(B64Code.encode(ByteArray.makeRandomBytes(20)));
     }
 
     public PollSpec getPollSpec() {
@@ -2553,6 +2556,7 @@ public class PollManager
     public ArchivalUnit getAu() {
       return au;
     }
+    public String getReqId() {return reqId;}
 
     public int getPriority() {
       return priority;
@@ -2747,6 +2751,18 @@ public class PollManager
       }
       return aus;
     }
+
+    public PollReq getPendingPoll(String reqId) {
+      rebuildPollQueueIfNeeded();
+      synchronized (queueLock) {
+        for (PollReq req : pollQueue) {
+          if(req.getReqId().equals(reqId))
+            return req;
+        }
+      }
+      return null;
+    }
+
     public PollReq getPendingPoll(ArchivalUnit au)
     {
       rebuildPollQueueIfNeeded();
