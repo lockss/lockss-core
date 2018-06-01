@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -649,7 +649,7 @@ public class DbManager extends BaseLockssManager
    * @throws DbException
    *           if this object is not ready.
    */
-  DbManagerSql getDbManagerSql() throws DbException {
+  protected DbManagerSql getDbManagerSql() throws DbException {
     if (!ready) {
       throw new DbException("DbManager has not been initialized.");
     }

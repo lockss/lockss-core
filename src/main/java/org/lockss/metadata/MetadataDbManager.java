@@ -33,6 +33,7 @@ import java.util.Map;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.Configuration;
 import org.lockss.db.DbManager;
+import org.lockss.db.DbManagerSql;
 import org.lockss.db.DbException;
 import org.lockss.util.Logger;
 
@@ -215,7 +216,7 @@ public class MetadataDbManager extends DbManager
       dbManagerSql.setFetchSize(fetchSize);
     }
 
-    targetDatabaseVersion = 27;
+    targetDatabaseVersion = 28;
     asynchronousUpdates = new int[] {10, 15, 17, 20, 22};
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -574,6 +575,8 @@ public class MetadataDbManager extends DbManager
       mdDbManagerSql.updateDatabaseFrom25To26(conn);
     } else if (databaseVersion == 27) {
       mdDbManagerSql.updateDatabaseFrom26To27(conn);
+    } else if (databaseVersion == 28) {
+      mdDbManagerSql.updateDatabaseFrom27To28(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
 	  + "to version " + databaseVersion + ".");
@@ -965,5 +968,17 @@ public class MetadataDbManager extends DbManager
     } catch (RuntimeException re) {
       throw new DbException("Cannot get AUID and URL for DOI = " + doi, re);
     }
+  }
+
+  /**
+   * Provides the base SQL code executor.
+   * 
+   * @return a DbManagerSql with the SQL code executor.
+   * @throws DbException
+   *           if this object is not ready.
+   */
+  @Override
+  protected DbManagerSql getDbManagerSql() throws DbException {
+    return super.getDbManagerSql();
   }
 }
