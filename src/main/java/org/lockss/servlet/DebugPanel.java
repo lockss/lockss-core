@@ -33,6 +33,7 @@ import java.io.*;
 import java.util.*;
 import org.mortbay.html.*;
 import org.lockss.app.*;
+import org.lockss.daemon.*;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
@@ -91,6 +92,7 @@ public class DebugPanel extends LockssServlet {
   public static final String ACTION_START_DEEP_CRAWL = "Deep Crawl";
   public static final String ACTION_FORCE_START_DEEP_CRAWL = "Force Deep Crawl";
   public static final String ACTION_CHECK_SUBSTANCE = "Check Substance";
+  public static final String ACTION_VALIDATE_FILES = "Validate Files";
   public static final String ACTION_DELETE_URL = "Delete File";
   static final String ACTION_CRAWL_PLUGINS = "Crawl Plugins";
   static final String ACTION_RELOAD_CONFIG = "Reload Config";
@@ -209,6 +211,9 @@ public class DebugPanel extends LockssServlet {
     }
     if (ACTION_DELETE_URL.equals(action)) {
       doDeleteUrl();
+    }
+    if (ACTION_VALIDATE_FILES.equals(action)) {
+      doValidateFiles();
     }
     if (ACTION_CRAWL_PLUGINS.equals(action)) {
       crawlPluginRegistries();
@@ -337,7 +342,7 @@ public class DebugPanel extends LockssServlet {
       checkSubstance(au);
     } catch (RuntimeException e) {
       log.error("Error in SubstanceChecker", e);
-      errMsg = "Error in SubstanceChecker; see log.";
+      errMsg = "Error in SubstanceChecker; " + e.toString();
     }
   }
 
@@ -367,6 +372,23 @@ public class DebugPanel extends LockssServlet {
       auState.setSubstanceState(SubstanceChecker.State.No);
       break;
     }
+  }
+
+  private void doValidateFiles() throws IOException {
+    ArchivalUnit au = getAu();
+    if (au == null) return;
+    if (!AuUtil.hasContentValidator(au)) {
+      errMsg = au.getPlugin().getPluginName() +
+	" does not supply a content validator";
+      return;
+    }
+    String redir =
+      srvURL(AdminServletManager.SERVLET_LIST_OBJECTS,
+	     PropUtil.fromArgs("type", "auvalidate",
+			       "auid", au.getAuId()));
+
+    resp.setContentLength(0);
+    resp.sendRedirect(redir);
   }
 
   private void doDeleteUrl() {
@@ -564,6 +586,10 @@ public class DebugPanel extends LockssServlet {
 				     ACTION_CHECK_SUBSTANCE);
     frm.add("<br>");
     frm.add(checkSubstance);
+    Input validateFiles = new Input(Input.Submit, KEY_ACTION,
+				    ACTION_VALIDATE_FILES);
+    frm.add(" ");
+    frm.add(validateFiles);
     if (CurrentConfig.getBooleanParam(PARAM_DELETE_ENABLED, DEFAULT_DELETE_ENABLED)) {
       Input delUrl = new Input(Input.Submit, KEY_ACTION, ACTION_DELETE_URL);
       frm.add(" ");
