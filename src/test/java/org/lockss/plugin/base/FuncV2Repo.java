@@ -195,8 +195,13 @@ public class FuncV2Repo extends LockssTestCase {
     aids = ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
     log.critical("foo: " + aids);
     ArtifactData a1 = repo.getArtifactData(committedArt);
-    assertSame(a1.getInputStream(), a1.getInputStream());
     assertInputStreamMatchesString("content 11111", a1.getInputStream());
+    try {
+      a1.getInputStream();
+      fail("Attempt to call getInputStream() twice should throw");
+    } catch (IllegalStateException e) {
+    }
+
 //     assertInputStreamMatchesString("content 2222", a1.getInputStream());
 
     ArtifactData ad2 = createArtifact(COLL, AUID, url2, "content xxxxx");
