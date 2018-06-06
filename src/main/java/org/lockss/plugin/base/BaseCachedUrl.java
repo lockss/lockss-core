@@ -67,6 +67,7 @@ public class BaseCachedUrl implements CachedUrl {
   protected String v2Coll;
   protected Artifact art;
   protected ArtifactData artData;
+  protected List<ArtifactData> allArtData = new ArrayList<ArtifactData>(2);
   protected boolean artifactObtained = false;
   protected boolean inputStreamUsed = false;
   protected InputStream restInputStream;
@@ -511,9 +512,16 @@ public class BaseCachedUrl implements CachedUrl {
     return ret;
   }
 
+  // overridable for testing
+  void releaseArtifactData(ArtifactData ad) {
+    ad.release();
+  }
+
   public void release() {
     if (isV2Repo()) {
-      IOUtil.safeClose(restInputStream);
+      for (ArtifactData ad : allArtData) {
+	releaseArtifactData(ad);
+      }
       restInputStream = null;
     } else {
       if (rnc != null) {
@@ -566,6 +574,7 @@ public class BaseCachedUrl implements CachedUrl {
     }
   }
 
+  // overridable for testing
   protected Artifact getArtifact() throws IOException {
     return v2Repo.getArtifact(v2Coll, au.getAuId(), getUrl());
   }
@@ -585,12 +594,18 @@ public class BaseCachedUrl implements CachedUrl {
     artifactObtained = true;
   }
 
+  ArtifactData getArtifactData(LockssRepository repo, Artifact art)
+      throws IOException {
+    return repo.getArtifactData(art);
+  }
+
   private void ensureArtifactData() {
     checkV2Repo("ensureArtifactData()");
     if (hasContent()) {
       if (inputStreamUsed || artData == null) {
 	try {
-	  artData = v2Repo.getArtifactData(art);
+	  artData = getArtifactData(v2Repo, art);
+	  allArtData.add(artData);
 	} catch (IOException e) {
 	  throw new RuntimeException(e);
 	}

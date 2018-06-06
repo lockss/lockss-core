@@ -125,4 +125,7 @@ public class CloseCallbackInputStream extends InputStream {
     
   }
   
+  public String toString() {
+    return "[CCIS: " + cb + "]";
+  }
 }
