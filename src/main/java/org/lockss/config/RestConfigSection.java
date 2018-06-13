@@ -28,25 +28,13 @@
 package org.lockss.config;
 
 import java.io.InputStream;
-import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import org.apache.commons.io.input.ReaderInputStream;
 import org.lockss.rs.multipart.TextMultipartResponse;
-import org.lockss.rs.multipart.TextMultipartResponse.Part;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
 /**
  * A representation of a Configuration REST web service configuration section.
  */
 public class RestConfigSection {
-  private static Logger log = Logger.getLogger(RestConfigSection.class);
-
-  private RestConfigClient serviceClient = null;
   private String sectionName = null;
   private InputStream inputStream = null;
   private String ifModifiedSince = null;
@@ -60,14 +48,6 @@ public class RestConfigSection {
    * Constructor.
    */
   public RestConfigSection() {
-    serviceClient = ConfigManager.getConfigManager().getRestConfigClient();
-  }
-
-  /**
-   * Constructor.
-   */
-  public RestConfigSection(RestConfigClient serviceClient) {
-    this.serviceClient = serviceClient;
   }
 
   public String getSectionName() {
@@ -101,128 +81,53 @@ public class RestConfigSection {
     return response;
   }
 
+  public RestConfigSection setResponse(TextMultipartResponse response) {
+    this.response = response;
+    return this;
+  }
+
   public HttpStatus getStatusCode() {
     return statusCode;
+  }
+
+  public RestConfigSection setStatusCode(HttpStatus statusCode) {
+    this.statusCode = statusCode;
+    return this;
   }
 
   public String getErrorMessage() {
     return errorMessage;
   }
 
+  public RestConfigSection setErrorMessage(String errorMessage) {
+    this.errorMessage = errorMessage;
+    return this;
+  }
+
   public String getLastModified() {
     return lastModified;
+  }
+
+  public RestConfigSection setLastModified(String lastModified) {
+    this.lastModified = lastModified;
+    return this;
   }
 
   public String getContentType() {
     return contentType;
   }
 
-  /**
-   * Loads from the REST Configuration Service the configuration of a section.
-   */
-  public void loadSection() {
-    final String DEBUG_HEADER = "loadSection(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "serviceClient = " + serviceClient);
-
-    if (serviceClient == null) {
-      errorMessage = "Couldn't load config section '" + sectionName
-	  + "': Service definition is null.";
-      log.error(errorMessage);
-      statusCode = HttpStatus.SERVICE_UNAVAILABLE;
-      return;
-    } else if (!serviceClient.isActive()) {
-      errorMessage = "Couldn't load config section '" + sectionName
-	  + "': Service is not active.";
-      log.error(errorMessage);
-      statusCode = HttpStatus.SERVICE_UNAVAILABLE;
-      return;
-    }
-
-    String requestUrl = null;
-
-    try {
-      requestUrl = getRequestUrl(sectionName);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
-
-      response = serviceClient.callGetTextMultipartRequest(requestUrl,
-	  ifModifiedSince);
-    } catch (Exception e) {
-      errorMessage = "Couldn't load config section '" + sectionName
-	  + "' from URL '" + requestUrl + "': " + e.toString();
-      log.error(errorMessage, e);
-      statusCode = HttpStatus.SERVICE_UNAVAILABLE;
-      return;
-    }
-
-    statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
-
-    switch (statusCode) {
-    case OK:
-      LinkedHashMap<String, Part> parts = response.getParts();
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "parts = " + parts);
-
-      Part configDataPart = parts.get("config-data");
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
-
-      String partLastModified = null;
-
-      partLastModified = configDataPart.getLastModified();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partLastModified = " + partLastModified);
-
-      Map<String, String> partHeaders = configDataPart.getHeaders();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
-
-      if (StringUtil.isNullString(partLastModified)) {
-	partLastModified = partHeaders.get(HttpHeaders.LAST_MODIFIED);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "partLastModified = " + partLastModified);
-      }
-
-      lastModified = partLastModified;
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
-
-      contentType = partHeaders.get("Content-Type");
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
-
-      String partPayload = configDataPart.getPayload();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partPayload = " + partPayload);
-
-      StringReader payloadReader = new StringReader(partPayload);
-
-      inputStream =
-	  new ReaderInputStream(payloadReader, StandardCharsets.UTF_8);
-      break;
-    case NOT_MODIFIED:
-      if (log.isDebug2())
-	log.debug2("REST Service content not changed, not reloading.");
-      errorMessage = statusCode.toString();
-      break;
-    default:
-      errorMessage = statusCode.toString();
-    }
+  public RestConfigSection setContentType(String contentType) {
+    this.contentType = contentType;
+    return this;
   }
 
-  public void putSection() {
-  }
-
-  /**
-   * Provides the URL needed to read from, or write to, the REST Configuration
-   * Service the configuration of a section.
-   * 
-   * @param serviceName
-   *          A String with the name of the section.
-   * @return a String with the URL.
-   */
-  private String getRequestUrl(String serviceName) {
-    return serviceClient.getServiceLocation() + "/config/file/" + serviceName;
+  @Override
+  public String toString() {
+    return "RestConfigSection [sectionName=" + sectionName
+	+ ", ifModifiedSince=" + ifModifiedSince + ", response=" + response
+	+ ", statusCode=" + statusCode + ", errorMessage=" + errorMessage
+	+ ", lastModified=" + lastModified + ", contentType=" + contentType
+	+ "]";
   }
 }

@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,30 +28,33 @@
 package org.lockss.rs.multipart;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import javax.mail.internet.MimeMultipart;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Utility to simplify calling a REST service that returns an HTTP Multipart
- * response where the payload is text.
+ * Utility to simplify calling a REST service that operates on HTTP Multipart
+ * objects where the payload is text.
  */
 public class TextMultipartConnector {
   private static Logger log = Logger.getLogger(TextMultipartConnector.class);
 
   private URI uri;
   private HttpHeaders requestHeaders;
+  private MultiValueMap<String, Object> parts;
 
   /**
-   * Constructor.
+   * Constructor for GET operations.
    * 
    * @param uri
    *          A URI defining the REST service operation to be called.
@@ -61,21 +64,39 @@ public class TextMultipartConnector {
   public TextMultipartConnector(URI uri, HttpHeaders requestHeaders) {
     this.uri = uri;
     this.requestHeaders = requestHeaders;
+    this.parts = null;
   }
 
   /**
-   * Performs the request.
+   * Constructor for PUT operations.
+   * 
+   * @param uri
+   *          A URI defining the REST service operation to be called.
+   * @param requestHeaders
+   *          An HttpHeaders with the headers of the request to be made.
+   * @param parts
+   *          A MultiValueMap<String, Object> with the multipart object parts.
+   */
+  public TextMultipartConnector(URI uri, HttpHeaders requestHeaders,
+      MultiValueMap<String, Object> parts) {
+    this.uri = uri;
+    this.requestHeaders = requestHeaders;
+    this.parts = parts;
+  }
+
+  /**
+   * Performs the GET request.
    *
    * @return a TextMultipartResponse with the response.
    * @throws Exception
    *           if there are problems.
    */
-  public TextMultipartResponse request() throws Exception {
-    return request(60, 60);
+  public TextMultipartResponse requestGet() throws Exception {
+    return requestGet(60, 60);
   }
 
   /**
-   * Performs the request.
+   * Performs the GET request.
    * 
    * @param connectTimeout
    *          An int with the connection timeout in seconds.
@@ -85,9 +106,9 @@ public class TextMultipartConnector {
    * @throws Exception
    *           if there are problems.
    */
-  public TextMultipartResponse request(int connectTimeout, int readTimeout)
+  public TextMultipartResponse requestGet(int connectTimeout, int readTimeout)
       throws Exception {
-    final String DEBUG_HEADER = "request(): ";
+    final String DEBUG_HEADER = "requestGet(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
       log.debug2(DEBUG_HEADER + "readTimeout = " + readTimeout);
@@ -99,7 +120,7 @@ public class TextMultipartConnector {
     if (log.isDebug3()) {
       log.debug3(DEBUG_HEADER
 	  + "requestHeaders = " + requestHeaders.toSingleValueMap());
-      log.debug3(DEBUG_HEADER + "Making request to '" + uri + "'...");
+      log.debug3(DEBUG_HEADER + "Making GET request to '" + uri + "'...");
     }
 
     try {
@@ -134,13 +155,23 @@ public class TextMultipartConnector {
     // Initialize the request to the REST service.
     RestTemplate restTemplate = new RestTemplate();
 
-    // Set the multipart/form-data converter as the only one.
+    // Get the current message converters.
     List<HttpMessageConverter<?>> messageConverters =
-	new ArrayList<HttpMessageConverter<?>>();
+	restTemplate.getMessageConverters();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "messageConverters = " + messageConverters);
+
+    // Add the multipart/form-data converter.
     messageConverters.add(new MimeMultipartHttpMessageConverter());
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "messageConverters = " + messageConverters);
-    restTemplate.setMessageConverters(messageConverters);
+
+    // Do not throw exceptions on non-success response status codes.
+    restTemplate.setErrorHandler(new DefaultResponseErrorHandler(){
+      protected boolean hasError(HttpStatus statusCode) {
+	return false;
+      }
+    });
 
     // Specify the timeouts.
     SimpleClientHttpRequestFactory requestFactory =
@@ -150,5 +181,62 @@ public class TextMultipartConnector {
     requestFactory.setReadTimeout(1000*readTimeout);
 
     return restTemplate;
+  }
+
+  /**
+   * Performs the PUT request.
+   *
+   * @return an HttpStatus with the response status.
+   * @throws Exception
+   *           if there are problems.
+   */
+  public HttpStatus requestPut() throws Exception {
+    return requestPut(60, 60);
+  }
+
+  /**
+   * Performs the PUT request.
+   * 
+   * @param connectTimeout
+   *          An int with the connection timeout in seconds.
+   * @param readTimeout
+   *          An int with the read timeout in seconds.
+   * @return an HttpStatus with the response status.
+   * @throws Exception
+   *           if there are problems.
+   */
+  public HttpStatus requestPut(int connectTimeout, int readTimeout)
+      throws Exception {
+    final String DEBUG_HEADER = "requestPut(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
+      log.debug2(DEBUG_HEADER + "readTimeout = " + readTimeout);
+    }
+
+    // Initialize the request to the REST service.
+    RestTemplate restTemplate = createRestTemplate(connectTimeout, readTimeout);
+
+    if (log.isDebug3()) {
+      log.debug3(DEBUG_HEADER
+	  + "requestHeaders = " + requestHeaders.toSingleValueMap());
+      log.debug3(DEBUG_HEADER + "Making PUT request to '" + uri + "'...");
+    }
+
+    try {
+      // Make the request to the REST service and get its response.
+      ResponseEntity<?> response = restTemplate.exchange(uri, HttpMethod.PUT,
+	  new HttpEntity<MultiValueMap<String, Object>>(parts, requestHeaders),
+	  Void.class);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
+
+      // Parse the response and return it.
+      return response.getStatusCode();
+    } catch (Exception e) {
+      log.error("Exception caught putting MimeMultipart object", e);
+      log.error("uri = " + uri);
+      log.error("requestHeaders = " + requestHeaders.toSingleValueMap());
+      log.error("parts = " + parts);
+      throw e;
+    }
   }
 }
