@@ -432,10 +432,10 @@ public abstract class BaseCrawler implements Crawler {
       	raiseAlert(Alert.auAlert(alert, au), sb.toString());
       
       	if (res) {
-          AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
+          newContentCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
         } else {
-          AuUtil.getAuState(au).newCrawlFinished(crawlStatus.getCrawlStatus(),
-      					      crawlStatus.getCrawlErrorMsg());
+	  newContentCrawlFinished(crawlStatus.getCrawlStatus(),
+				  crawlStatus.getCrawlErrorMsg());
       	}
       }
       return res;
@@ -463,6 +463,15 @@ public abstract class BaseCrawler implements Crawler {
     }
   }
 
+  void newContentCrawlFinished(int status, String msg) {
+    AuState aus = AuUtil.getAuState(au);
+    if (req != null && req.getRefetchDepth() > 0) {
+      aus.newCrawlFinished(status, null, req.getRefetchDepth());
+    } else {
+      aus.newCrawlFinished(status, null);
+    }
+  }
+
   protected void raiseAlert(Alert alert, String text) {
     alertMgr.raiseAlert(alert, text);
   }
@@ -477,8 +486,7 @@ public abstract class BaseCrawler implements Crawler {
 				 "Aborted: " + t.getMessage()); 
     }
     if (isWholeAU()) {
-      AuUtil.getAuState(getAu()).newCrawlFinished(Crawler.STATUS_ABORTED,
-					  t.getMessage());
+      newContentCrawlFinished(Crawler.STATUS_ABORTED, t.getMessage());
     }
   }
 
