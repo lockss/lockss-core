@@ -1296,10 +1296,10 @@ public class ArchivalUnitStatus
       } catch (IllegalArgumentException e) {
 	logger.debug("Couldn't get CrawlManager: " + e.toString());
       }
-      long lastCrawlAttempt = state.getLastCrawlAttempt();
       res.add(new StatusTable.SummaryInfo("Last Completed Crawl",
           ColumnDescriptor.TYPE_DATE,
           new Long(state.getLastCrawlTime())));
+      long lastCrawlAttempt = state.getLastCrawlAttempt();
       if (lastCrawlAttempt > 0) {
         res.add(new StatusTable.SummaryInfo("Last Crawl",
             ColumnDescriptor.TYPE_DATE,
@@ -1307,11 +1307,17 @@ public class ArchivalUnitStatus
         res.add(new StatusTable.SummaryInfo("Last Crawl Result",
             ColumnDescriptor.TYPE_STRING,
             state.getLastCrawlResultMsg()));
-	long lastDeepCrawlTime = state.getLastDeepCrawlTime();
-	if (lastDeepCrawlTime > 0) {
+	long lastDeepCrawlAttempt = state.getLastDeepCrawlAttempt();
+	if (lastDeepCrawlAttempt > 0) {
+	  res.add(new StatusTable.SummaryInfo("Last Completed Deep Crawl",
+					      ColumnDescriptor.TYPE_DATE,
+					      new Long(state.getLastDeepCrawlTime())));
 	  res.add(new StatusTable.SummaryInfo("Last Deep Crawl",
 					      ColumnDescriptor.TYPE_DATE,
-					      new Long(lastDeepCrawlTime)));
+					      new Long(lastDeepCrawlAttempt)));
+	  res.add(new StatusTable.SummaryInfo("Last Deep Crawl Result",
+					      ColumnDescriptor.TYPE_STRING,
+					      state.getLastDeepCrawlResultMsg()));
 	  res.add(new StatusTable.SummaryInfo("Last Deep Crawl Depth",
 					      ColumnDescriptor.TYPE_INT,
 					      state.getLastDeepCrawlDepth()));
@@ -1462,6 +1468,13 @@ public class ArchivalUnitStatus
                 PropUtil.fromArgs("type", "filesm",
                     "auid", au.getAuId())));
       }
+      addLink(urlLinks,
+	      new StatusTable
+	      .SrvLink("URL Weights",
+		       AdminServletManager.SERVLET_LIST_OBJECTS,
+		       PropUtil.fromArgs("type", "urls",
+					 "auid", au.getAuId(),
+					 "fields", "pollWeight")));
       if (AuUtil.hasSubstancePatterns(au)) {
         addLink(urlLinks,
             new StatusTable

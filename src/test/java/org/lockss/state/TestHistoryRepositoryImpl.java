@@ -168,7 +168,7 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     strCol.add("test");
     AuState origState = new AuState(mau,
 				    123000, 123123, 41, "woop woop",
-				    -1, -1,
+				    -1, -1, -1, "deep woop", -1,
 				    321000, 222000, 3, "pollres", 12345,
 				    965832931,456000, strCol,
 				    AuState.AccessType.OpenAccess,
@@ -303,6 +303,9 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 				  -1, // lastCrawlResult
 				  null, // lastCrawlResultMsg,
 				  -1, // lastDeepCrawlTime
+				  -1, // lastDeepCrawlAttempt
+				  -1, // lastDeepCrawlResult
+				  null, // lastDeepCrawlResultMsg,
 				  -1, // lastDeepCrawlDepth
 				  321, // lastTopLevelPoll
 				  333, // lastPollStart
@@ -347,6 +350,9 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 			  -1, // lastCrawlResult
 			  null, // lastCrawlResultMsg,
 			  -1, // lastDeepCrawlTime
+			  -1, // lastDeepCrawlAttempt
+			  -1, // lastDeepCrawlResult
+			  null, // lastDeepCrawlResultMsg,
 			  -1, // lastDeepCrawlDepth
 			  4321, // lastTopLevelPoll
 			  5555, // lastPollStart
@@ -407,6 +413,9 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
 			  -1, // lastCrawlResult
 			  null, // lastCrawlResultMsg,
 			  -1, // lastDeepCrawlTime
+			  -1, // lastDeepCrawlAttempt
+			  -1, // lastDeepCrawlResult
+			  null, // lastDeepCrawlResultMsg,
 			  -1, // lastDeepCrawlDepth
 			  321, // lastTopLevelPoll
 			  333, // lastPollStart
