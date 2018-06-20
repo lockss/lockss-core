@@ -27,6 +27,7 @@
  */
 package org.lockss.config;
 
+import static org.lockss.config.RestConfigClient.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -153,31 +154,25 @@ public class RestConfigFile extends BaseConfigFile {
       LinkedHashMap<String, Part> parts = response.getParts();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "parts = " + parts);
 
-      Part configDataPart = parts.get("config-data");
+      Part configDataPart = parts.get(CONFIG_PART_NAME);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
 
-      String partLastModified = null;
-
-      partLastModified = configDataPart.getLastModified();
+      lastModifiedString = configDataPart.getEtag();
       if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partLastModified = " + partLastModified);
+	log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
 
       Map<String, String> partHeaders = configDataPart.getHeaders();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
-      if (StringUtil.isNullString(partLastModified)) {
-	partLastModified = partHeaders.get(HttpHeaders.LAST_MODIFIED);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "partLastModified = " + partLastModified);
+      if (StringUtil.isNullString(lastModifiedString)) {
+	lastModifiedString = partHeaders.get(HttpHeaders.LAST_MODIFIED);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "lastModifiedString = " + lastModifiedString);
       }
 
-      lastModifiedString = partLastModified;
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
-
-      String contentType = partHeaders.get("Content-Type");
+      String contentType = partHeaders.get(HttpHeaders.CONTENT_TYPE);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
 
@@ -341,6 +336,7 @@ public class RestConfigFile extends BaseConfigFile {
   @Override
   public String resolveConfigUrl(String relUrl) {
     final String DEBUG_HEADER = "resolveConfigUrl(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "relUrl = " + relUrl);
     String restUrl = getFileUrl();
     UriComponentsBuilder ucb =
       UriComponentsBuilder.fromUriString(restUrl);

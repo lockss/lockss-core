@@ -27,8 +27,10 @@
  */
 package org.lockss.rs.multipart;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
+import javax.mail.MessagingException;
 import javax.mail.internet.MimeMultipart;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
@@ -88,10 +90,13 @@ public class TextMultipartConnector {
    * Performs the GET request.
    *
    * @return a TextMultipartResponse with the response.
-   * @throws Exception
-   *           if there are problems.
+   * @throws IOException
+   *           if there are problems getting the part payload.
+   * @throws MessagingException
+   *           if there are other problems.
    */
-  public TextMultipartResponse requestGet() throws Exception {
+  public TextMultipartResponse requestGet()
+      throws IOException, MessagingException {
     return requestGet(60, 60);
   }
 
@@ -103,11 +108,13 @@ public class TextMultipartConnector {
    * @param readTimeout
    *          An int with the read timeout in seconds.
    * @return a TextMultipartResponse with the response.
-   * @throws Exception
-   *           if there are problems.
+   * @throws IOException
+   *           if there are problems getting the part payload.
+   * @throws MessagingException
+   *           if there are other problems.
    */
   public TextMultipartResponse requestGet(int connectTimeout, int readTimeout)
-      throws Exception {
+      throws IOException, MessagingException {
     final String DEBUG_HEADER = "requestGet(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
@@ -132,7 +139,7 @@ public class TextMultipartConnector {
 
       // Parse the response and return it.
       return new TextMultipartResponse(response);
-    } catch (Exception e) {
+    } catch (IOException | MessagingException e) {
       log.error("Exception caught getting MimeMultipart object", e);
       log.error("uri = " + uri);
       log.error("requestHeaders = " + requestHeaders.toSingleValueMap());
@@ -190,7 +197,7 @@ public class TextMultipartConnector {
    * @throws Exception
    *           if there are problems.
    */
-  public HttpStatus requestPut() throws Exception {
+  public ResponseEntity<?> requestPut() {
     return requestPut(60, 60);
   }
 
@@ -205,8 +212,7 @@ public class TextMultipartConnector {
    * @throws Exception
    *           if there are problems.
    */
-  public HttpStatus requestPut(int connectTimeout, int readTimeout)
-      throws Exception {
+  public ResponseEntity<?> requestPut(int connectTimeout, int readTimeout) {
     final String DEBUG_HEADER = "requestPut(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
@@ -230,13 +236,13 @@ public class TextMultipartConnector {
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       // Parse the response and return it.
-      return response.getStatusCode();
-    } catch (Exception e) {
-      log.error("Exception caught putting MimeMultipart object", e);
+      return response;
+    } catch (RuntimeException re) {
+      log.error("Exception caught putting MimeMultipart object", re);
       log.error("uri = " + uri);
       log.error("requestHeaders = " + requestHeaders.toSingleValueMap());
       log.error("parts = " + parts);
-      throw e;
+      throw re;
     }
   }
 }

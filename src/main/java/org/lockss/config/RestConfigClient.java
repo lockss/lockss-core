@@ -34,18 +34,19 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Vector;
+import javax.mail.MessagingException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.ReaderInputStream;
 import org.lockss.rs.multipart.NamedByteArrayResource;
 import org.lockss.rs.multipart.TextMultipartConnector;
 import org.lockss.rs.multipart.TextMultipartResponse;
 import org.lockss.rs.multipart.TextMultipartResponse.Part;
+import org.lockss.util.HeaderUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
@@ -53,6 +54,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
@@ -63,6 +65,8 @@ import org.springframework.web.util.UriComponentsBuilder;
  * A client representation of the Configuration REST web service.
  */
 public class RestConfigClient {
+  public static String CONFIG_PART_NAME = "config-data";
+
   private static Logger log = Logger.getLogger(RestConfigClient.class);
 
   // The REST configuration service URL.
@@ -220,31 +224,29 @@ public class RestConfigClient {
    * Provides the configuration of a section obtained via the REST web service.
    * 
    * @param restConfigSection
-   *          A RestConfigSection with both the request parameters and the
-   *          result.
+   *          A RestConfigSection with the request parameters.
+   * @return a RestConfigSection with the result.
    */
-  public void getConfigSection(RestConfigSection restConfigSection) {
+  public RestConfigSection getConfigSection(RestConfigSection input) {
     final String DEBUG_HEADER = "getConfigSection(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "restConfigSection = " + restConfigSection);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "input = " + input);
 
-    // Validation of the transfer object.
-    if (restConfigSection == null) {
+    // Validation of the input object.
+    if (input == null) {
       String errorMessage = "RestConfigSection is null";
       log.error(errorMessage);
-      return;
+      throw new IllegalArgumentException(errorMessage);
     }
 
     // Validation of the section name.
-    String sectionName = restConfigSection.getSectionName();
+    String sectionName = input.getSectionName();
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "sectionName = " + sectionName);
 
     if (StringUtil.isNullString(sectionName)) {
       String errorMessage = "Invalid section name '" + sectionName + "'";
       log.error(errorMessage);
-      restConfigSection.setErrorMessage(errorMessage);
-      return;
+      throw new IllegalArgumentException(errorMessage);
     }
 
     // Handle an unavailable service.
@@ -252,11 +254,10 @@ public class RestConfigClient {
       String errorMessage = "Couldn't load config section '" + sectionName
 	  + "': Service is not active.";
       log.error(errorMessage);
-      restConfigSection.setErrorMessage(errorMessage);
-      restConfigSection.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-      return;
+      throw new IllegalStateException(errorMessage);
     }
 
+    RestConfigSection output = new RestConfigSection(input);
     String requestUrl = null;
     TextMultipartResponse response = null;
 
@@ -267,30 +268,29 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the response.
-      response = callGetTextMultipartRequest(requestUrl,
-	  restConfigSection.getIfModifiedSince());
-      restConfigSection.setResponse(response);
+      response = callGetTextMultipartRequest(requestUrl, input.getEtag());
+      output.setResponse(response);
     } catch (HttpClientErrorException hcee) {
       String errorMessage = "Couldn't load config section '" + sectionName
 	  + "' from URL '" + requestUrl + "': " + hcee.toString();
       log.error(errorMessage, hcee);
       log.error("hcee.getStatusCode() = " + hcee.getStatusCode());
-      restConfigSection.setErrorMessage(errorMessage);
-      restConfigSection.setStatusCode(hcee.getStatusCode());
-      return;
-    } catch (Exception e) {
+      output.setErrorMessage(errorMessage);
+      output.setStatusCode(hcee.getStatusCode());
+      return output;
+    } catch (IOException | MessagingException e) {
       String errorMessage = "Couldn't load config section '" + sectionName
 	  + "' from URL '" + requestUrl + "': " + e.toString();
       log.error(errorMessage, e);
-      restConfigSection.setErrorMessage(errorMessage);
-      restConfigSection.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-      return;
+      output.setErrorMessage(errorMessage);
+      output.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+      return output;
     }
 
     // Get the response status.
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
-    restConfigSection.setStatusCode(statusCode);
+    output.setStatusCode(statusCode);
 
     switch (statusCode) {
     case OK:
@@ -299,49 +299,44 @@ public class RestConfigClient {
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "parts = " + parts);
 
       // Get the configuration data.
-      Part configDataPart = parts.get("config-data");
+      Part configDataPart = parts.get(CONFIG_PART_NAME);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
 
-      // Get and populate the configuration data last modification timestamp.
-      String lastModified = configDataPart.getLastModified();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
+      // Get and populate the configuration data etag.
+      String etag = configDataPart.getEtag();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
       Map<String, String> partHeaders = configDataPart.getHeaders();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
-      if (StringUtil.isNullString(lastModified)) {
-	lastModified = partHeaders.get(HttpHeaders.LAST_MODIFIED);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
-      }
-
-      restConfigSection.setLastModified(lastModified);
+      output.setEtag(etag);
 
       // Get and populate the content type.
-      String contentType = partHeaders.get("Content-Type");
+      String contentType = partHeaders.get(HttpHeaders.CONTENT_TYPE);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
-      restConfigSection.setContentType(contentType);
+      output.setContentType(contentType);
 
       // Get and populate an input stream to the configuration data.
       String partPayload = configDataPart.getPayload();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "partPayload = " + partPayload);
 
-      restConfigSection.setInputStream(new ReaderInputStream(
-	  new StringReader(partPayload), StandardCharsets.UTF_8));
+      output.setInputStream(new ReaderInputStream(new StringReader(partPayload),
+	  HeaderUtil.getCharsetOrDefaultFromContentType(contentType)));
       break;
     case NOT_MODIFIED:
       if (log.isDebug2())
 	log.debug2("REST Service content not changed, not reloading.");
-      restConfigSection.setErrorMessage(statusCode.toString());
+      output.setErrorMessage(statusCode.toString());
       break;
     default:
-      restConfigSection.setErrorMessage(statusCode.toString());
+      output.setErrorMessage(statusCode.toString());
     }
+
+    return output;
   }
 
   /**
@@ -350,18 +345,21 @@ public class RestConfigClient {
    * 
    * @param url
    *          A String with the URL.
-   * @param ifModifiedSince
-   *          A String with the timestamp to be specified in the request eTag.
+   * @param etag
+   *          A String with the timestamp to be specified in the request
+   *          If-None-Match header.
    * @return a TextMultipartResponse with the response.
    * @throws IOException
-   *           if there are problems.
+   *           if there are problems getting the part payload.
+   * @throws MessagingException
+   *           if there are other problems.
    */
   public TextMultipartResponse callGetTextMultipartRequest(String url,
-      String ifModifiedSince) throws Exception {
+      String etag) throws IOException, MessagingException {
     final String DEBUG_HEADER = "callGetTextMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
-      log.debug2(DEBUG_HEADER + "ifModifiedSince = " + ifModifiedSince);
+      log.debug2(DEBUG_HEADER + "etag = " + etag);
     }
 
     // Create the URI of the request to the REST service.
@@ -383,9 +381,9 @@ public class RestConfigClient {
     requestHeaders.set("Authorization", authHeaderValue);
 
     // Check whether there is a custom eTag.
-    if (ifModifiedSince != null) {
+    if (etag != null) {
 	// Yes: Set it.
-      requestHeaders.setETag("\"" + ifModifiedSince + "\"");
+      requestHeaders.setIfNoneMatch("\"" + etag + "\"");
     }
 
     // Make the request and obtain the response.
@@ -409,55 +407,49 @@ public class RestConfigClient {
    * Sends the configuration of a section to the REST web service for saving.
    * 
    * @param restConfigSection
-   *          A RestConfigSection with both the request parameters and the
-   *          result.
+   *          A RestConfigSection with the request parameters.
+   * @return a RestConfigSection with the result.
    */
-  public void putConfigSection(RestConfigSection restConfigSection) {
+  public RestConfigSection putConfigSection(RestConfigSection input) {
     final String DEBUG_HEADER = "putConfigSection(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "restConfigSection = " + restConfigSection);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "input = " + input);
 
-    // Validation of the transfer object.
-    if (restConfigSection == null) {
+    // Validation of the input object.
+    if (input == null) {
       String errorMessage = "RestConfigSection is null";
       log.error(errorMessage);
-      return;
+      throw new IllegalArgumentException(errorMessage);
     }
 
     // Validation of the section name.
-    String sectionName = restConfigSection.getSectionName();
+    String sectionName = input.getSectionName();
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "sectionName = " + sectionName);
 
     if (StringUtil.isNullString(sectionName)) {
       String errorMessage = "Invalid section name '" + sectionName + "'";
       log.error(errorMessage);
-      restConfigSection.setErrorMessage(errorMessage);
-      return;
+      throw new IllegalArgumentException(errorMessage);
     }
 
     // Validation of the payload data.
-    InputStream config = restConfigSection.getInputStream();
+    InputStream config = input.getInputStream();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "config = " + config);
 
     if (config == null) {
       String errorMessage = "Configuration input stream is null";
       log.error(errorMessage);
-      restConfigSection.setErrorMessage(errorMessage);
-      return;
+      throw new IllegalArgumentException(errorMessage);
     }
 
-    // Validation of the last modification timestamp.
-    String lastModified = restConfigSection.getLastModified();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
+    // Validation of the last modification timestamp in the etag.
+    String etag = input.getEtag();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
-    if (StringUtil.isNullString(lastModified)) {
-      String errorMessage =
-	  "Invalid last modification value '" + lastModified + "'";
+    if (StringUtil.isNullString(etag)) {
+      String errorMessage = "Invalid etag value '" + etag + "'";
       log.error(errorMessage);
-      restConfigSection.setErrorMessage(errorMessage);
-      return;
+      throw new IllegalArgumentException(errorMessage);
     }
 
     // Handle an unavailable service.
@@ -465,11 +457,10 @@ public class RestConfigClient {
       String errorMessage = "Couldn't save config section '" + sectionName
 	  + "': Service is not active.";
       log.error(errorMessage);
-      restConfigSection.setErrorMessage(errorMessage);
-      restConfigSection.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-      return;
+      throw new IllegalStateException(errorMessage);
     }
 
+    RestConfigSection output = new RestConfigSection(input);
     String requestUrl = null;
 
     try {
@@ -479,29 +470,30 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the result.
-      HttpStatus statusCode =
-	  callPutTextMultipartRequest(requestUrl, lastModified, config);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+      ResponseEntity<?> response = callPutTextMultipartRequest(requestUrl, etag,
+	  config, input.getContentType());
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
-      restConfigSection.setStatusCode(statusCode);
-      restConfigSection.setErrorMessage(statusCode.toString());
+      HttpStatus statusCode = response.getStatusCode();
+      output.setStatusCode(statusCode);
+      output.setErrorMessage(statusCode.toString());
+      output.setEtag(response.getHeaders().getETag());
     } catch (HttpClientErrorException hcee) {
       String errorMessage = "Couldn't save config section '" + sectionName
 	  + "' from URL '" + requestUrl + "': " + hcee.toString();
       log.error(errorMessage, hcee);
       log.error("hcee.getStatusCode() = " + hcee.getStatusCode());
-      restConfigSection.setStatusCode(hcee.getStatusCode());
-      restConfigSection.setErrorMessage(errorMessage);
-      return;
-    } catch (Exception e) {
+      output.setStatusCode(hcee.getStatusCode());
+      output.setErrorMessage(errorMessage);
+    } catch (IOException ioe) {
       String errorMessage = "Couldn't save config section '" + sectionName
-	  + "' from URL '" + requestUrl + "': " + e.toString();
-      log.error(errorMessage, e);
-      restConfigSection.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-      restConfigSection.setErrorMessage(errorMessage);
-      return;
+	  + "' from URL '" + requestUrl + "': " + ioe.toString();
+      log.error(errorMessage, ioe);
+      output.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+      output.setErrorMessage(errorMessage);
     }
+
+    return output;
   }
 
   /**
@@ -510,18 +502,25 @@ public class RestConfigClient {
    * 
    * @param url
    *          A String with the URL.
-   * @param ifModifiedSince
-   *          A String with the timestamp to be specified in the request eTag.
-   * @return a TextMultipartResponse with the response.
+   * @param etag
+   *          A String with the timestamp to be specified in the request
+   *          If-Match header.
+   * @param inputStream
+   *          An InputStream with the text to be sent to the server.
+   * @param contentType
+   *          A String with the content type of the text to be sent to the
+   *          server.
+   * @return an HttpStatus with the status of the response.
    * @throws IOException
-   *           if there are problems.
+   *           if there are problems reading the input stream.
    */
-  public HttpStatus callPutTextMultipartRequest(String url,
-      String ifModifiedSince, InputStream inputStream) throws Exception {
+  public ResponseEntity<?> callPutTextMultipartRequest(String url, String etag,
+      InputStream inputStream, String contentType) throws IOException {
     final String DEBUG_HEADER = "callPutTextMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
-      log.debug2(DEBUG_HEADER + "ifModifiedSince = " + ifModifiedSince);
+      log.debug2(DEBUG_HEADER + "etag = " + etag);
+      log.debug2(DEBUG_HEADER + "contentType = " + contentType);
     }
 
     // Create the URI of the request to the REST service.
@@ -534,7 +533,7 @@ public class RestConfigClient {
 
     // Initialize the part headers.
     HttpHeaders partHeaders = new HttpHeaders();
-    partHeaders.setContentType(MediaType.TEXT_PLAIN);
+    partHeaders.setContentType(MediaType.valueOf(contentType));
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
@@ -542,10 +541,10 @@ public class RestConfigClient {
     MultiValueMap<String, Object> parts =
 	new LinkedMultiValueMap<String, Object>();
 
-    NamedByteArrayResource resource = new NamedByteArrayResource("config-data",
-	IOUtils.toByteArray(inputStream));
+    NamedByteArrayResource resource = new NamedByteArrayResource(
+	CONFIG_PART_NAME, IOUtils.toByteArray(inputStream));
 
-    parts.add("config-data",
+    parts.add(CONFIG_PART_NAME,
 	new HttpEntity<NamedByteArrayResource>(resource, partHeaders));
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "parts = " + parts);
 
@@ -553,7 +552,13 @@ public class RestConfigClient {
     HttpHeaders requestHeaders = new HttpHeaders();
     requestHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
     requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
-    requestHeaders.setETag("\"" + ifModifiedSince + "\"");
+
+    // Add the etag.
+    if ("*".equals(etag)) {
+      requestHeaders.setIfMatch(etag);
+    } else {
+      requestHeaders.setIfMatch("\"" + etag + "\"");
+    }
 
     // Set the authentication credentials.
     String credentials = serviceUser + ":" + servicePassword;
@@ -564,11 +569,11 @@ public class RestConfigClient {
       log.debug3(DEBUG_HEADER + "requestHeaders = " + requestHeaders);
 
     // Make the request and obtain the response.
-    HttpStatus statusCode = new TextMultipartConnector(uri, requestHeaders,
+    ResponseEntity<?> response = new TextMultipartConnector(uri, requestHeaders,
 	parts).requestPut(serviceTimeout, serviceTimeout);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
-    return statusCode;
+    return response;
   }
 
   /**

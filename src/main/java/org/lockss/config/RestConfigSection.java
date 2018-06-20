@@ -29,25 +29,47 @@ package org.lockss.config;
 
 import java.io.InputStream;
 import org.lockss.rs.multipart.TextMultipartResponse;
+import org.lockss.util.Logger;
 import org.springframework.http.HttpStatus;
 
 /**
  * A representation of a Configuration REST web service configuration section.
  */
 public class RestConfigSection {
+  private static Logger log = Logger.getLogger(RestConfigSection.class);
+
   private String sectionName = null;
   private InputStream inputStream = null;
-  private String ifModifiedSince = null;
+  private String etag = null;
   private TextMultipartResponse response = null;
   private HttpStatus statusCode = null;
   private String errorMessage = null;
-  private String lastModified = null;
   private String contentType = null;
 
   /**
    * Constructor.
    */
   public RestConfigSection() {
+  }
+
+  /**
+   * Copy constructor.
+   */
+  public RestConfigSection(RestConfigSection source) {
+    // Validation of the source object.
+    if (source == null) {
+      String errorMessage = "Source RestConfigSection object is null";
+      log.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    sectionName = source.sectionName;
+    inputStream = source.inputStream;
+    etag = source.etag;
+    response = source.response;
+    statusCode = source.statusCode;
+    errorMessage = source.errorMessage;
+    contentType = source.contentType;
   }
 
   public String getSectionName() {
@@ -68,12 +90,12 @@ public class RestConfigSection {
     return this;
   }
 
-  public String getIfModifiedSince() {
-    return ifModifiedSince;
+  public String getEtag() {
+    return etag;
   }
 
-  public RestConfigSection setIfModifiedSince(String ifModifiedSince) {
-    this.ifModifiedSince = ifModifiedSince;
+  public RestConfigSection setEtag(String etag) {
+    this.etag = etag;
     return this;
   }
 
@@ -104,15 +126,6 @@ public class RestConfigSection {
     return this;
   }
 
-  public String getLastModified() {
-    return lastModified;
-  }
-
-  public RestConfigSection setLastModified(String lastModified) {
-    this.lastModified = lastModified;
-    return this;
-  }
-
   public String getContentType() {
     return contentType;
   }
@@ -124,10 +137,9 @@ public class RestConfigSection {
 
   @Override
   public String toString() {
-    return "RestConfigSection [sectionName=" + sectionName
-	+ ", ifModifiedSince=" + ifModifiedSince + ", response=" + response
-	+ ", statusCode=" + statusCode + ", errorMessage=" + errorMessage
-	+ ", lastModified=" + lastModified + ", contentType=" + contentType
+    return "RestConfigSection [sectionName=" + sectionName + ", etag=" + etag
+	+ ", response=" + response + ", statusCode=" + statusCode
+	+ ", errorMessage=" + errorMessage + ", contentType=" + contentType
 	+ "]";
   }
 }

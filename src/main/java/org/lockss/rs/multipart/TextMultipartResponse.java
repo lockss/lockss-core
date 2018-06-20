@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,6 +27,7 @@
  */
 package org.lockss.rs.multipart;
 
+import java.io.IOException;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -61,12 +62,15 @@ public class TextMultipartResponse {
    * Constructor using a multipart response.
    * 
    * @param response
-   *          A {@code ResponseEntity<MimeMultipart>} with the multipart response.
-   * @throws Exception
-   *           if there are problems.
+   *          A {@code ResponseEntity<MimeMultipart>} with the multipart
+   *          response.
+   * @throws IOException
+   *           if there are problems getting the part payload.
+   * @throws MessagingException
+   *           if there are other problems.
    */
   public TextMultipartResponse(ResponseEntity<MimeMultipart> response)
-      throws Exception {
+      throws IOException, MessagingException {
     final String DEBUG_HEADER = "TextMultipartResponse(response): ";
 
     // Populate the status code.
@@ -284,17 +288,15 @@ public class TextMultipartResponse {
      * 
      * @return a String with the value of the ETag header.
      */
-    public String getLastModified() {
-      final String DEBUG_HEADER = "getLastModified(): ";
-      String lastModifiedValue = headers.get(HttpHeaders.ETAG);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "lastModifiedValue = " + lastModifiedValue);
+    public String getEtag() {
+      final String DEBUG_HEADER = "getEtag(): ";
+      String etag = headers.get(HttpHeaders.ETAG);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
-      lastModifiedValue = parseEtag(lastModifiedValue);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "lastModifiedValue = " + lastModifiedValue);
+      etag = parseEtag(etag);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
-      return lastModifiedValue;
+      return etag;
     }
 
     /**
