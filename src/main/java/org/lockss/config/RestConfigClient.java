@@ -382,8 +382,12 @@ public class RestConfigClient {
 
     // Check whether there is a custom eTag.
     if (etag != null) {
-	// Yes: Set it.
-      requestHeaders.setIfNoneMatch("\"" + etag + "\"");
+      // Yes: Set it.
+      if ("*".equals(etag)) {
+	requestHeaders.setIfNoneMatch(etag);
+      } else {
+	requestHeaders.setIfNoneMatch("\"" + etag + "\"");
+      }
     }
 
     // Make the request and obtain the response.
@@ -477,7 +481,20 @@ public class RestConfigClient {
       HttpStatus statusCode = response.getStatusCode();
       output.setStatusCode(statusCode);
       output.setErrorMessage(statusCode.toString());
-      output.setEtag(response.getHeaders().getETag());
+
+      // Remove quotes from the incoming etag.
+      etag = response.getHeaders().getETag();
+
+      // Check whether the raw eTag has content and it is surrounded by double
+      // quotes.
+      if (etag != null && etag.length() > 1 && etag.startsWith("\"")
+	  && etag.endsWith("\"")) {
+        // Yes: Remove the surrounding double quotes left by Spring.
+	etag = etag.substring(1, etag.length()-1);
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
+      }
+
+      output.setEtag(etag);
     } catch (HttpClientErrorException hcee) {
       String errorMessage = "Couldn't save config section '" + sectionName
 	  + "' from URL '" + requestUrl + "': " + hcee.toString();
