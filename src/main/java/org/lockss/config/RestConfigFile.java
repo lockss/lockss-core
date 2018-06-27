@@ -166,12 +166,6 @@ public class RestConfigFile extends BaseConfigFile {
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
-      if (StringUtil.isNullString(lastModifiedString)) {
-	lastModifiedString = partHeaders.get(HttpHeaders.LAST_MODIFIED);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "lastModifiedString = " + lastModifiedString);
-      }
-
       String contentType = partHeaders.get(HttpHeaders.CONTENT_TYPE);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "contentType = " + contentType);

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.io.*;
+import java.util.List;
 import java.util.zip.*;
 import org.lockss.util.*;
 
@@ -219,5 +220,192 @@ public class FileConfigFile extends BaseConfigFile {
     }
 
     storedConfig(config);
+  }
+
+  /**
+   * Provides the input stream to the content of this configuration file if the
+   * passed preconditions are met.
+   * 
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @throws IOException
+   *           if there are problems.
+   */
+  @Override
+  public ConfigFilePreconditionStatus getInputStreamIfPreconditionsMet(
+      List<String> ifMatch, List<String> ifNoneMatch) throws IOException {
+    final String DEBUG_HEADER =
+	"getInputStreamIfPreconditionMet(" + m_fileUrl + "): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+    }
+
+    synchronized(this) {
+      InputStream inputStream = getInputStream();
+      String lastModified = calcNewLastModified();
+      String lastModifiedAsEtag = "\"" + lastModified + "\"";
+      ConfigFilePreconditionStatus cfps = null;
+
+      // Check whether the precondition is met.
+      if (isPreconditionMet(ifMatch, ifNoneMatch, lastModifiedAsEtag)) {
+	// Yes: The precondition is met.
+	cfps =
+	    new ConfigFilePreconditionStatus(inputStream, lastModified, true);
+      } else {
+	// No: The precondition is not met.
+	cfps = new ConfigFilePreconditionStatus(null, lastModified, false);
+      }
+
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cfps = " + cfps);
+      return cfps;
+    }
+  }
+
+  /**
+   * Writes the passed content to this configuration file if the passed
+   * preconditions are met.
+   * 
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param inputStream
+   *          An InputStream to the content to be written to this configuration
+   *          file.
+   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @throws IOException
+   *           if there are problems.
+   */
+  @Override
+  public ConfigFilePreconditionStatus writeIfPreconditionsMet(
+      List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream)
+	  throws IOException {
+    final String DEBUG_HEADER = "writeIfPreconditionsMet(" + m_fileUrl + "): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "inputStream = " + inputStream);
+    }
+
+    synchronized(this) {
+      String lastModified = calcNewLastModified();
+      String lastModifiedAsEtag = "\"" + lastModified + "\"";
+      ConfigFilePreconditionStatus cfps = null;
+
+      // Check whether the precondition is met.
+      if (isPreconditionMet(ifMatch, ifNoneMatch, lastModifiedAsEtag)) {
+	// Yes: Write the contents to a temporary file and rename it.
+	File tempfile = File.createTempFile("tmp_config", ".tmp",
+	    m_cfgMgr.getCacheConfigDir());
+	StringUtil.toFile(tempfile, StringUtil.fromInputStream(inputStream));
+	writeFromTempFile(tempfile, null);
+
+	cfps =
+	    new ConfigFilePreconditionStatus(null, calcNewLastModified(), true);
+      } else {
+	// No: The precondition is not met.
+	cfps = new ConfigFilePreconditionStatus(null, lastModified, false);
+      }
+
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cfps = " + cfps);
+      return cfps;
+    }
+  }
+
+  /**
+   * Provides an indication of whether this configuration file meets the passed
+   * precondition.
+   * 
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param candidateTag
+   *          A String with the entity tag of this configuration file to be used
+   *          to check the precondition.
+   * @return a boolean with <code>true</code> if the precondition is met,
+   *         <code>false</code> otherwise.
+   */
+  public boolean isPreconditionMet(List<String> ifMatch,
+      List<String> ifNoneMatch, String candidateTag) {
+    final String DEBUG_HEADER = "isPreconditionMet(" + m_fileUrl + "): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "candidateTag = " + candidateTag);
+    }
+
+    // Check whether there are If-Match entity tags.
+    if (ifMatch != null && !ifMatch.isEmpty()) {
+      // Yes: Loop through all the If-Match entity tags.
+      for (String etag : ifMatch) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
+
+	// Check whether it is an asterisk.
+	if ("*".equals(etag)) {
+	  // Yes: Check whether the file actually exists in the filesystem.
+	  if (m_fileFile.exists()) {
+	    // Yes: The precondition is met, nothing else to check.
+	    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = true");
+	    return true;
+	  }
+	} else {
+	  // No: Check whether this etag matches the current file.
+	  if (candidateTag.equals(etag)) {
+	    // Yes: The precondition is met, nothing else to check.
+	    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = true");
+	    return true;
+	  }
+	}
+      }
+
+      // No match: The precondition is not met.
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = false");
+      return false;
+    // No: Check whether there are If-None-Match entity tags.
+    } else if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
+      // Yes: Loop through all the If-None-Match entity tags.
+      for (String etag : ifNoneMatch) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
+
+	// Check whether it is an asterisk.
+	if ("*".equals(etag)) {
+	  // Yes: Check whether the file actually exists in the filesystem.
+	  if (m_fileFile.exists()) {
+	    // Yes: The precondition is not met, nothing else to check.
+	    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = false");
+	    return false;
+	  }
+	} else {
+	  // No: Check whether this etag matches the current file.
+	  if (candidateTag.equals(etag)) {
+	    // Yes: The precondition is not met, nothing else to check.
+	    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = false");
+	    return false;
+	  }
+	}
+      }
+
+      // No match: The precondition is met.
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = true");
+      return true;
+    }
+
+    // There are no preconditions.
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = true");
+    return true;
   }
 }

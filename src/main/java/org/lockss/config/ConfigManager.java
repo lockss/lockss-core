@@ -3684,6 +3684,88 @@ public class ConfigManager implements LockssManager {
     }
   }
 
+  /**
+   * Provides the input stream to the content of this configuration file if the
+   * passed preconditions are met.
+   * 
+   * @param cacheConfigUrl
+   *          A String with the cached configuration file URL.
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @return a ConfigFilePreconditionStatus with the input stream to the cached
+   *         configuration file.
+   * @throws IOException
+   *           if there are problems accessing the configuration file.
+   */
+  public ConfigFilePreconditionStatus
+  getCacheConfigFileInputStreamIfPreconditionsMet(String cacheConfigUrl,
+      List<String> ifMatch, List<String> ifNoneMatch) throws IOException {
+    final String DEBUG_HEADER =
+	"getCacheConfigFileInputStreamIfPreconditionsMet(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+    }
+
+    ConfigFile cf = configCache.find(cacheConfigUrl);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
+    return cf.getInputStreamIfPreconditionsMet(ifMatch, ifNoneMatch);
+  }
+
+  /**
+   * Writes the passed content to a cached configuration file if the passed
+   * preconditions are met.
+   * 
+   * @param cacheConfigUrl
+   *          A String with the cached configuration file URL.
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param inputStream
+   *          An InputStream to the content to be written to the cached
+   *          configuration file.
+   * @return a ConfigFilePreconditionStatus with the input stream to the cached
+   *         configuration file.
+   * @throws IOException
+   *           if there are problems.
+   */
+  public ConfigFilePreconditionStatus writeCacheConfigFileIfPreconditionsMet(
+      String cacheConfigUrl, List<String> ifMatch, List<String> ifNoneMatch,
+      InputStream inputStream) throws IOException {
+    final String DEBUG_HEADER = "writeCacheConfigFileIfPreconditionMet(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "inputStream = " + inputStream);
+    }
+
+    if (cacheConfigDir == null) {
+      log.warning("Attempting to write cache config file: " + cacheConfigUrl
+	  + ", but no cache config dir exists");
+      throw new RuntimeException("No cache config dir");
+    }
+
+    ConfigFile cf = configCache.find(cacheConfigUrl);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
+
+    ConfigFilePreconditionStatus cfps =
+	cf.writeIfPreconditionsMet(ifMatch, ifNoneMatch, inputStream);
+
+    requestReload();
+    return cfps;
+  }
+
   private class MyMessageListener
     extends Consumer.SubscriptionListener {
 

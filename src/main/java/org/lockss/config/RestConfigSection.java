@@ -52,26 +52,6 @@ public class RestConfigSection {
   public RestConfigSection() {
   }
 
-  /**
-   * Copy constructor.
-   */
-  public RestConfigSection(RestConfigSection source) {
-    // Validation of the source object.
-    if (source == null) {
-      String errorMessage = "Source RestConfigSection object is null";
-      log.error(errorMessage);
-      throw new IllegalArgumentException(errorMessage);
-    }
-
-    sectionName = source.sectionName;
-    inputStream = source.inputStream;
-    etag = source.etag;
-    response = source.response;
-    statusCode = source.statusCode;
-    errorMessage = source.errorMessage;
-    contentType = source.contentType;
-  }
-
   public String getSectionName() {
     return sectionName;
   }

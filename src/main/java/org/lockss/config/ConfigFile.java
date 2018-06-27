@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config;
 
 import java.io.*;
+import java.util.List;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -114,6 +115,55 @@ public interface ConfigFile {
    */
   default boolean isRestConfigFile() {
     return false;
+  }
+
+  /**
+   * Provides the input stream to the content of this configuration file if the
+   * passed preconditions are met.
+   * 
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @throws IOException
+   *           if there are problems.
+   * @throws UnsupportedOperationException
+   *           if the operation is not overriden in a subclass.
+   */
+  default ConfigFilePreconditionStatus getInputStreamIfPreconditionsMet(
+      List<String> ifMatch, List<String> ifNoneMatch)
+	  throws IOException, UnsupportedOperationException {
+    throw new UnsupportedOperationException("Not implemented");
+  }
+
+  /**
+   * Writes the passed content to this configuration file if the passed
+   * preconditions are met.
+   * 
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param inputStream
+   *          An InputStream to the content to be written to this configuration
+   *          file.
+   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @throws IOException
+   *           if there are problems.
+   * @throws UnsupportedOperationException
+   *           if the operation is not overriden in a subclass.
+   */
+  default ConfigFilePreconditionStatus writeIfPreconditionsMet(
+      List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream)
+	  throws IOException, UnsupportedOperationException {
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   /** Represents a single generation (version) of the contents of a

@@ -66,6 +66,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 public class RestConfigClient {
   public static String CONFIG_PART_NAME = "config-data";
+  public static String HTTP_WEAK_VALIDATOR_PREFIX = "/W";
 
   private static Logger log = Logger.getLogger(RestConfigClient.class);
 
@@ -257,7 +258,8 @@ public class RestConfigClient {
       throw new IllegalStateException(errorMessage);
     }
 
-    RestConfigSection output = new RestConfigSection(input);
+    RestConfigSection output = new RestConfigSection();
+    output.setSectionName(sectionName);
     String requestUrl = null;
     TextMultipartResponse response = null;
 
@@ -464,7 +466,8 @@ public class RestConfigClient {
       throw new IllegalStateException(errorMessage);
     }
 
-    RestConfigSection output = new RestConfigSection(input);
+    RestConfigSection output = new RestConfigSection();
+    output.setSectionName(sectionName);
     String requestUrl = null;
 
     try {
