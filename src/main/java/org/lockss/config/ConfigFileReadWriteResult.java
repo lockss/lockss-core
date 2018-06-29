@@ -32,28 +32,32 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config;
 
 import java.io.InputStream;
+import org.springframework.http.MediaType;
 
 /**
- * Status of a ConfigFile operation subject to preconditions.  
+ * Result of a read or write operation with optional preconditions on a
+ * ConfigFile.
  */
-public class ConfigFilePreconditionStatus {
+public class ConfigFileReadWriteResult {
   private InputStream inputStream;
-  private String timestamp;
+  private String versionUniqueId;
   private boolean preconditionMet = false;
+  private MediaType contentType;
 
-  public ConfigFilePreconditionStatus(InputStream inputStream, String timestamp,
-      boolean preconditionMet) {
+  public ConfigFileReadWriteResult(InputStream inputStream,
+      String versionUniqueId, boolean preconditionMet, MediaType contentType) {
     this.inputStream = inputStream;
-    this.timestamp = timestamp;
+    this.versionUniqueId = versionUniqueId;
     this.preconditionMet = preconditionMet;
+    this.contentType = contentType;
   }
 
   public InputStream getInputStream() {
     return inputStream;
   }
 
-  public String getTimestamp() {
-    return timestamp;
+  public String getVersionUniqueId() {
+    return versionUniqueId;
   }
 
   public boolean getPreconditionMet() {
@@ -64,10 +68,15 @@ public class ConfigFilePreconditionStatus {
     return preconditionMet;
   }
 
+  public MediaType getContentType() {
+    return contentType;
+  }
+
   @Override
   public String toString() {
-    return "[ConfigFilePreconditionStatus: inputStream = " + inputStream
-	+ ", timestamp = " + timestamp
-	+ ", preconditionMet = " + preconditionMet + "]";
+    return "[ConfigFileReadWriteResult: inputStream = " + inputStream
+	+ ", versionUniqueId = " + versionUniqueId
+	+ ", preconditionMet = " + preconditionMet
+	+ ", contentType = " + contentType + "]";
   }
 }

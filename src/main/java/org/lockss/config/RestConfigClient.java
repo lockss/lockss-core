@@ -66,7 +66,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 public class RestConfigClient {
   public static String CONFIG_PART_NAME = "config-data";
-  public static String HTTP_WEAK_VALIDATOR_PREFIX = "/W";
+  public static String HTTP_WEAK_VALIDATOR_PREFIX = "W/";
 
   private static Logger log = Logger.getLogger(RestConfigClient.class);
 

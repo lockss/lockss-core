@@ -3697,16 +3697,14 @@ public class ConfigManager implements LockssManager {
    * @param ifNoneMatch
    *          A List<String> with an asterisk or values equivalent to the
    *          "If-Modified-Since" request header but with a granularity of 1 ms.
-   * @return a ConfigFilePreconditionStatus with the input stream to the cached
-   *         configuration file.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems accessing the configuration file.
    */
-  public ConfigFilePreconditionStatus
-  getCacheConfigFileInputStreamIfPreconditionsMet(String cacheConfigUrl,
-      List<String> ifMatch, List<String> ifNoneMatch) throws IOException {
-    final String DEBUG_HEADER =
-	"getCacheConfigFileInputStreamIfPreconditionsMet(): ";
+  public ConfigFileReadWriteResult conditionallyReadCacheConfigFile(
+      String cacheConfigUrl, List<String> ifMatch, List<String> ifNoneMatch)
+	  throws IOException {
+    final String DEBUG_HEADER = "conditionallyReadCacheConfigFile(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
       log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
@@ -3715,7 +3713,7 @@ public class ConfigManager implements LockssManager {
 
     ConfigFile cf = configCache.find(cacheConfigUrl);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
-    return cf.getInputStreamIfPreconditionsMet(ifMatch, ifNoneMatch);
+    return cf.conditionallyRead(ifMatch, ifNoneMatch);
   }
 
   /**
@@ -3734,15 +3732,14 @@ public class ConfigManager implements LockssManager {
    * @param inputStream
    *          An InputStream to the content to be written to the cached
    *          configuration file.
-   * @return a ConfigFilePreconditionStatus with the input stream to the cached
-   *         configuration file.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems.
    */
-  public ConfigFilePreconditionStatus writeCacheConfigFileIfPreconditionsMet(
+  public ConfigFileReadWriteResult conditionallyWriteCacheConfigFile(
       String cacheConfigUrl, List<String> ifMatch, List<String> ifNoneMatch,
       InputStream inputStream) throws IOException {
-    final String DEBUG_HEADER = "writeCacheConfigFileIfPreconditionMet(): ";
+    final String DEBUG_HEADER = "conditionallyWriteCacheConfigFile(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
       log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
@@ -3759,11 +3756,17 @@ public class ConfigManager implements LockssManager {
     ConfigFile cf = configCache.find(cacheConfigUrl);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
 
-    ConfigFilePreconditionStatus cfps =
-	cf.writeIfPreconditionsMet(ifMatch, ifNoneMatch, inputStream);
+    // Write the file.
+    ConfigFileReadWriteResult writeResult =
+	cf.conditionallyWrite(ifMatch, ifNoneMatch, inputStream);
 
-    requestReload();
-    return cfps;
+    // Check whether the file was successfully written.
+    if (writeResult.isPreconditionMet()) {
+      // Yes: Reload the configuration.
+      requestReload();
+    }
+
+    return writeResult;
   }
 
   private class MyMessageListener

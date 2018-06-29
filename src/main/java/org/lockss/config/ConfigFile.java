@@ -128,14 +128,14 @@ public interface ConfigFile {
    * @param ifNoneMatch
    *          A List<String> with an asterisk or values equivalent to the
    *          "If-Modified-Since" request header but with a granularity of 1 ms.
-   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems.
    * @throws UnsupportedOperationException
    *           if the operation is not overriden in a subclass.
    */
-  default ConfigFilePreconditionStatus getInputStreamIfPreconditionsMet(
-      List<String> ifMatch, List<String> ifNoneMatch)
+  default ConfigFileReadWriteResult conditionallyRead(List<String> ifMatch,
+      List<String> ifNoneMatch)
 	  throws IOException, UnsupportedOperationException {
     throw new UnsupportedOperationException("Not implemented");
   }
@@ -154,14 +154,14 @@ public interface ConfigFile {
    * @param inputStream
    *          An InputStream to the content to be written to this configuration
    *          file.
-   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems.
    * @throws UnsupportedOperationException
    *           if the operation is not overriden in a subclass.
    */
-  default ConfigFilePreconditionStatus writeIfPreconditionsMet(
-      List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream)
+  default ConfigFileReadWriteResult conditionallyWrite(List<String> ifMatch,
+      List<String> ifNoneMatch, InputStream inputStream)
 	  throws IOException, UnsupportedOperationException {
     throw new UnsupportedOperationException("Not implemented");
   }

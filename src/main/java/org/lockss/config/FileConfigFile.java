@@ -29,9 +29,12 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.zip.*;
 import org.lockss.util.*;
+import org.springframework.http.MediaType;
 
 /**
  * A simple wrapper class around the representation of a
@@ -233,38 +236,50 @@ public class FileConfigFile extends BaseConfigFile {
    * @param ifNoneMatch
    *          A List<String> with an asterisk or values equivalent to the
    *          "If-Modified-Since" request header but with a granularity of 1 ms.
-   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems.
    */
   @Override
-  public ConfigFilePreconditionStatus getInputStreamIfPreconditionsMet(
-      List<String> ifMatch, List<String> ifNoneMatch) throws IOException {
-    final String DEBUG_HEADER =
-	"getInputStreamIfPreconditionMet(" + m_fileUrl + "): ";
+  public ConfigFileReadWriteResult conditionallyRead(List<String> ifMatch,
+      List<String> ifNoneMatch) throws IOException {
+    final String DEBUG_HEADER = "conditionallyRead(" + m_fileUrl + "): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
       log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
     }
 
     synchronized(this) {
-      InputStream inputStream = getInputStream();
-      String lastModified = calcNewLastModified();
-      String lastModifiedAsEtag = "\"" + lastModified + "\"";
-      ConfigFilePreconditionStatus cfps = null;
+      // Use the last modification timestamp as this file version unique
+      // identifier.
+      String versionUniqueId = calcNewLastModified();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "versionUniqueId = " + versionUniqueId);
 
-      // Check whether the precondition is met.
-      if (isPreconditionMet(ifMatch, ifNoneMatch, lastModifiedAsEtag)) {
-	// Yes: The precondition is met.
-	cfps =
-	    new ConfigFilePreconditionStatus(inputStream, lastModified, true);
-      } else {
-	// No: The precondition is not met.
-	cfps = new ConfigFilePreconditionStatus(null, lastModified, false);
+      // Get the file content type.
+      MediaType contentType = MediaType.TEXT_PLAIN;
+
+      if (m_fileType == ConfigFile.XML_FILE) {
+	contentType = MediaType.TEXT_XML;
       }
 
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cfps = " + cfps);
-      return cfps;
+      ConfigFileReadWriteResult readResult = null;
+
+      // Check whether the precondition is met.
+      if (isPreconditionMet(ifMatch, ifNoneMatch,
+	  "\"" + versionUniqueId + "\"")) {
+	// Yes: The precondition is met.
+	readResult = new ConfigFileReadWriteResult(getInputStream(),
+	    versionUniqueId, true, contentType);
+      } else {
+	// No: The precondition is not met.
+	readResult = new ConfigFileReadWriteResult(null, versionUniqueId, false,
+	    contentType);
+      }
+
+      if (log.isDebug2())
+	log.debug2(DEBUG_HEADER + "readResult = " + readResult);
+      return readResult;
     }
   }
 
@@ -282,15 +297,14 @@ public class FileConfigFile extends BaseConfigFile {
    * @param inputStream
    *          An InputStream to the content to be written to this configuration
    *          file.
-   * @return a ConfigFilePreconditionStatus with the status of the operation.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems.
    */
   @Override
-  public ConfigFilePreconditionStatus writeIfPreconditionsMet(
-      List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream)
-	  throws IOException {
-    final String DEBUG_HEADER = "writeIfPreconditionsMet(" + m_fileUrl + "): ";
+  public ConfigFileReadWriteResult conditionallyWrite(List<String> ifMatch,
+      List<String> ifNoneMatch, InputStream inputStream) throws IOException {
+    final String DEBUG_HEADER = "conditionallyWrite(" + m_fileUrl + "): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
       log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
@@ -300,25 +314,30 @@ public class FileConfigFile extends BaseConfigFile {
     synchronized(this) {
       String lastModified = calcNewLastModified();
       String lastModifiedAsEtag = "\"" + lastModified + "\"";
-      ConfigFilePreconditionStatus cfps = null;
+      ConfigFileReadWriteResult writeResult = null;
 
       // Check whether the precondition is met.
       if (isPreconditionMet(ifMatch, ifNoneMatch, lastModifiedAsEtag)) {
 	// Yes: Write the contents to a temporary file and rename it.
 	File tempfile = File.createTempFile("tmp_config", ".tmp",
 	    m_cfgMgr.getCacheConfigDir());
-	StringUtil.toFile(tempfile, StringUtil.fromInputStream(inputStream));
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tempfile = " + tempfile);
+
+	Files.copy(inputStream, tempfile.toPath(),
+	    StandardCopyOption.REPLACE_EXISTING);
 	writeFromTempFile(tempfile, null);
 
-	cfps =
-	    new ConfigFilePreconditionStatus(null, calcNewLastModified(), true);
+	writeResult = new ConfigFileReadWriteResult(null, calcNewLastModified(),
+	    true, null);
       } else {
 	// No: The precondition is not met.
-	cfps = new ConfigFilePreconditionStatus(null, lastModified, false);
+	writeResult =
+	    new ConfigFileReadWriteResult(null, lastModified, false, null);
       }
 
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cfps = " + cfps);
-      return cfps;
+      if (log.isDebug2())
+	log.debug2(DEBUG_HEADER + "writeResult = " + writeResult);
+      return writeResult;
     }
   }
 
