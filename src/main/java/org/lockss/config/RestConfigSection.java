@@ -28,17 +28,17 @@
 package org.lockss.config;
 
 import java.io.InputStream;
+import java.util.List;
 import org.lockss.rs.multipart.TextMultipartResponse;
-import org.lockss.util.Logger;
 import org.springframework.http.HttpStatus;
 
 /**
  * A representation of a Configuration REST web service configuration section.
  */
 public class RestConfigSection {
-  private static Logger log = Logger.getLogger(RestConfigSection.class);
-
   private String sectionName = null;
+  private List<String> ifMatch = null;
+  private List<String> ifNoneMatch = null;
   private InputStream inputStream = null;
   private String etag = null;
   private TextMultipartResponse response = null;
@@ -58,6 +58,24 @@ public class RestConfigSection {
 
   public RestConfigSection setSectionName(String sectionName) {
     this.sectionName = sectionName;
+    return this;
+  }
+
+  public List<String> getIfMatch() {
+    return ifMatch;
+  }
+
+  public RestConfigSection setIfMatch(List<String> ifMatch) {
+    this.ifMatch = ifMatch;
+    return this;
+  }
+
+  public List<String> getIfNoneMatch() {
+    return ifNoneMatch;
+  }
+
+  public RestConfigSection setIfNoneMatch(List<String> ifNoneMatch) {
+    this.ifNoneMatch = ifNoneMatch;
     return this;
   }
 
@@ -117,9 +135,11 @@ public class RestConfigSection {
 
   @Override
   public String toString() {
-    return "RestConfigSection [sectionName=" + sectionName + ", etag=" + etag
-	+ ", response=" + response + ", statusCode=" + statusCode
-	+ ", errorMessage=" + errorMessage + ", contentType=" + contentType
+    return "[RestConfigSection sectionName=" + sectionName
+	+ ", ifMatch=" + ifMatch + ", ifNoneMatch=" + ifNoneMatch
+	+ ", etag=" + etag + ", response=" + response
+	+ ", statusCode=" + statusCode + ", errorMessage=" + errorMessage
+	+ ", contentType=" + contentType
 	+ "]";
   }
 }

@@ -38,7 +38,6 @@ import java.util.*;
 import org.apache.commons.io.input.ReaderInputStream;
 import org.lockss.rs.multipart.TextMultipartResponse;
 import org.lockss.rs.multipart.TextMultipartResponse.Part;
-import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -126,8 +125,16 @@ public class RestConfigFile extends BaseConfigFile {
     TextMultipartResponse response = null;
 
     try {
-      response = serviceClient.callGetTextMultipartRequest(requestUrl,
-	  ifModifiedSince);
+      List<String> ifNoneMatch = new ArrayList<>();
+
+      if (ifModifiedSince != null && !ifModifiedSince.isEmpty()) {
+	ifNoneMatch.add(ifModifiedSince);
+      } else {
+	ifNoneMatch = null;
+      }
+
+      response = serviceClient.callGetTextMultipartRequest(requestUrl, null,
+	  ifNoneMatch);
     } catch (IOException e) {
       // The HTTP fetch failed.  First see if we already found a failover
       // file.

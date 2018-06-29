@@ -34,9 +34,11 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
@@ -270,7 +272,8 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the response.
-      response = callGetTextMultipartRequest(requestUrl, input.getEtag());
+      response = callGetTextMultipartRequest(requestUrl, input.getIfMatch(),
+	  input.getIfNoneMatch());
       output.setResponse(response);
     } catch (HttpClientErrorException hcee) {
       String errorMessage = "Couldn't load config section '" + sectionName
@@ -347,9 +350,12 @@ public class RestConfigClient {
    * 
    * @param url
    *          A String with the URL.
-   * @param etag
-   *          A String with the timestamp to be specified in the request
-   *          If-None-Match header.
+   * @param ifMatch
+   *          A List<String> with the preconditions to be specified in the
+   *          request If-Match header.
+   * @param ifNoneMatch
+   *          A List<String> with the preconditions to be specified in the
+   *          request If-None-Match header.
    * @return a TextMultipartResponse with the response.
    * @throws IOException
    *           if there are problems getting the part payload.
@@ -357,11 +363,13 @@ public class RestConfigClient {
    *           if there are other problems.
    */
   public TextMultipartResponse callGetTextMultipartRequest(String url,
-      String etag) throws IOException, MessagingException {
+      List<String> ifMatch, List<String> ifNoneMatch)
+	  throws IOException, MessagingException {
     final String DEBUG_HEADER = "callGetTextMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
-      log.debug2(DEBUG_HEADER + "etag = " + etag);
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
     }
 
     // Create the URI of the request to the REST service.
@@ -382,14 +390,24 @@ public class RestConfigClient {
     .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
     requestHeaders.set("Authorization", authHeaderValue);
 
-    // Check whether there is a custom eTag.
-    if (etag != null) {
-      // Yes: Set it.
-      if ("*".equals(etag)) {
-	requestHeaders.setIfNoneMatch(etag);
-      } else {
-	requestHeaders.setIfNoneMatch("\"" + etag + "\"");
-      }
+    // Check whether there are If-Match preconditions.
+    if (ifMatch != null && !ifMatch.isEmpty()) {
+      // Yes.
+      List<String> ifMatchEtags = makeEtagsFromPreconditions(ifMatch);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "ifMatchEtags = " + ifMatchEtags);
+
+      requestHeaders.setIfMatch(ifMatchEtags);
+    }
+
+    // Check whether there are If-None-Match preconditions.
+    if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
+      // Yes.
+      List<String> ifNoneMatchEtags = makeEtagsFromPreconditions(ifNoneMatch);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "ifNoneMatchEtags = " + ifNoneMatchEtags);
+
+      requestHeaders.setIfNoneMatch(ifNoneMatchEtags);
     }
 
     // Make the request and obtain the response.
@@ -448,16 +466,6 @@ public class RestConfigClient {
       throw new IllegalArgumentException(errorMessage);
     }
 
-    // Validation of the last modification timestamp in the etag.
-    String etag = input.getEtag();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
-
-    if (StringUtil.isNullString(etag)) {
-      String errorMessage = "Invalid etag value '" + etag + "'";
-      log.error(errorMessage);
-      throw new IllegalArgumentException(errorMessage);
-    }
-
     // Handle an unavailable service.
     if (!isActive()) {
       String errorMessage = "Couldn't save config section '" + sectionName
@@ -477,16 +485,16 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the result.
-      ResponseEntity<?> response = callPutTextMultipartRequest(requestUrl, etag,
-	  config, input.getContentType());
+      ResponseEntity<?> response = callPutTextMultipartRequest(requestUrl,
+	  input.getIfMatch(), input.getIfNoneMatch(), config,
+	  input.getContentType());
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       HttpStatus statusCode = response.getStatusCode();
       output.setStatusCode(statusCode);
       output.setErrorMessage(statusCode.toString());
 
-      // Remove quotes from the incoming etag.
-      etag = response.getHeaders().getETag();
+      String etag = response.getHeaders().getETag();
 
       // Check whether the raw eTag has content and it is surrounded by double
       // quotes.
@@ -522,9 +530,12 @@ public class RestConfigClient {
    * 
    * @param url
    *          A String with the URL.
-   * @param etag
-   *          A String with the timestamp to be specified in the request
-   *          If-Match header.
+   * @param ifMatch
+   *          A List<String> with the preconditions to be specified in the
+   *          request If-Match header.
+   * @param ifNoneMatch
+   *          A List<String> with the preconditions to be specified in the
+   *          request If-None-Match header.
    * @param inputStream
    *          An InputStream with the text to be sent to the server.
    * @param contentType
@@ -534,12 +545,14 @@ public class RestConfigClient {
    * @throws IOException
    *           if there are problems reading the input stream.
    */
-  public ResponseEntity<?> callPutTextMultipartRequest(String url, String etag,
-      InputStream inputStream, String contentType) throws IOException {
+  public ResponseEntity<?> callPutTextMultipartRequest(String url,
+      List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream,
+      String contentType) throws IOException {
     final String DEBUG_HEADER = "callPutTextMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
-      log.debug2(DEBUG_HEADER + "etag = " + etag);
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
       log.debug2(DEBUG_HEADER + "contentType = " + contentType);
     }
 
@@ -573,11 +586,24 @@ public class RestConfigClient {
     requestHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
     requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-    // Add the etag.
-    if ("*".equals(etag)) {
-      requestHeaders.setIfMatch(etag);
-    } else {
-      requestHeaders.setIfMatch("\"" + etag + "\"");
+    // Check whether there are If-Match preconditions.
+    if (ifMatch != null && !ifMatch.isEmpty()) {
+      // Yes.
+      List<String> ifMatchEtags = makeEtagsFromPreconditions(ifMatch);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "ifMatchEtags = " + ifMatchEtags);
+
+      requestHeaders.setIfMatch(ifMatchEtags);
+    }
+
+    // Check whether there are If-None-Match preconditions.
+    if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
+      // Yes.
+      List<String> ifNoneMatchEtags = makeEtagsFromPreconditions(ifNoneMatch);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "ifNoneMatchEtags = " + ifNoneMatchEtags);
+
+      requestHeaders.setIfNoneMatch(ifNoneMatchEtags);
     }
 
     // Set the authentication credentials.
@@ -606,5 +632,26 @@ public class RestConfigClient {
    */
   private String getRequestUrl(String sectionName) {
     return serviceLocation + "/config/file/" + sectionName;
+  }
+
+  /**
+   * Converts preconditions to entity tags.
+   * 
+   * @param preconditions
+   *          A List<String> with the preconditions.
+   * @return a List<String> with the entity tags.
+   */
+  private List<String> makeEtagsFromPreconditions(List<String> preconditions) {
+    List<String> result = new ArrayList<>();
+
+    for (String precondition : preconditions) {
+      if ("*".equals(precondition)) {
+	result.add(precondition);
+      } else {
+	result.add("\"" + precondition + "\"");
+      }
+    }
+
+    return result;
   }
 }
