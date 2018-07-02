@@ -42,9 +42,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.ReaderInputStream;
-import org.lockss.rs.multipart.NamedByteArrayResource;
+import org.lockss.laaws.rs.util.NamedInputStreamResource;
 import org.lockss.rs.multipart.TextMultipartConnector;
 import org.lockss.rs.multipart.TextMultipartResponse;
 import org.lockss.rs.multipart.TextMultipartResponse.Part;
@@ -52,6 +51,7 @@ import org.lockss.util.HeaderUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -567,6 +567,12 @@ public class RestConfigClient {
     // Initialize the part headers.
     HttpHeaders partHeaders = new HttpHeaders();
     partHeaders.setContentType(MediaType.valueOf(contentType));
+
+    // This must be set or else AbstractResource#contentLength will read the
+    // entire InputStream to determine the content length, which will exhaust
+    // the InputStream.
+    // TODO: Should be set to the length of the multipart body.
+    partHeaders.setContentLength(0);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
@@ -574,11 +580,10 @@ public class RestConfigClient {
     MultiValueMap<String, Object> parts =
 	new LinkedMultiValueMap<String, Object>();
 
-    NamedByteArrayResource resource = new NamedByteArrayResource(
-	CONFIG_PART_NAME, IOUtils.toByteArray(inputStream));
+    Resource resource =
+	new NamedInputStreamResource(CONFIG_PART_NAME, inputStream);
 
-    parts.add(CONFIG_PART_NAME,
-	new HttpEntity<NamedByteArrayResource>(resource, partHeaders));
+    parts.add(CONFIG_PART_NAME, new HttpEntity<>(resource, partHeaders));
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "parts = " + parts);
 
     // Initialize the request headers.
