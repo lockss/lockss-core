@@ -487,7 +487,7 @@ public class RestConfigClient {
       // Make the request and get the result.
       ResponseEntity<?> response = callPutTextMultipartRequest(requestUrl,
 	  input.getIfMatch(), input.getIfNoneMatch(), config,
-	  input.getContentType());
+	  input.getContentType(), input.getContentLength());
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       HttpStatus statusCode = response.getStatusCode();
@@ -541,19 +541,22 @@ public class RestConfigClient {
    * @param contentType
    *          A String with the content type of the text to be sent to the
    *          server.
+   * @param contentLength
+   *          A long with the length of the text to be sent to the server.
    * @return an HttpStatus with the status of the response.
    * @throws IOException
    *           if there are problems reading the input stream.
    */
   public ResponseEntity<?> callPutTextMultipartRequest(String url,
       List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream,
-      String contentType) throws IOException {
+      String contentType, long contentLength) throws IOException {
     final String DEBUG_HEADER = "callPutTextMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
       log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
       log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
       log.debug2(DEBUG_HEADER + "contentType = " + contentType);
+      log.debug2(DEBUG_HEADER + "contentLength = " + contentLength);
     }
 
     // Create the URI of the request to the REST service.
@@ -571,8 +574,7 @@ public class RestConfigClient {
     // This must be set or else AbstractResource#contentLength will read the
     // entire InputStream to determine the content length, which will exhaust
     // the InputStream.
-    // TODO: Should be set to the length of the multipart body.
-    partHeaders.setContentLength(0);
+    partHeaders.setContentLength(contentLength);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 

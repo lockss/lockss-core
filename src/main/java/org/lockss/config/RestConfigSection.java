@@ -45,6 +45,7 @@ public class RestConfigSection {
   private HttpStatus statusCode = null;
   private String errorMessage = null;
   private String contentType = null;
+  private long contentLength = 0;
 
   /**
    * Constructor.
@@ -133,13 +134,22 @@ public class RestConfigSection {
     return this;
   }
 
+  public long getContentLength() {
+    return contentLength;
+  }
+
+  public RestConfigSection setContentLength(long contentLength) {
+    this.contentLength = contentLength;
+    return this;
+  }
+
   @Override
   public String toString() {
     return "[RestConfigSection sectionName=" + sectionName
 	+ ", ifMatch=" + ifMatch + ", ifNoneMatch=" + ifNoneMatch
 	+ ", etag=" + etag + ", response=" + response
 	+ ", statusCode=" + statusCode + ", errorMessage=" + errorMessage
-	+ ", contentType=" + contentType
+	+ ", contentType=" + contentType + ", contentLength=" + contentLength
 	+ "]";
   }
 }
