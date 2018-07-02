@@ -263,6 +263,13 @@ public class FileConfigFile extends BaseConfigFile {
 	contentType = MediaType.TEXT_XML;
       }
 
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
+
+      long contentLength = m_fileFile.length();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
+
       ConfigFileReadWriteResult readResult = null;
 
       // Check whether the precondition is met.
@@ -270,11 +277,11 @@ public class FileConfigFile extends BaseConfigFile {
 	  "\"" + versionUniqueId + "\"")) {
 	// Yes: The precondition is met.
 	readResult = new ConfigFileReadWriteResult(getInputStream(),
-	    versionUniqueId, true, contentType);
+	    versionUniqueId, true, contentType, contentLength);
       } else {
 	// No: The precondition is not met.
 	readResult = new ConfigFileReadWriteResult(null, versionUniqueId, false,
-	    contentType);
+	    contentType, contentLength);
       }
 
       if (log.isDebug2())
@@ -325,14 +332,19 @@ public class FileConfigFile extends BaseConfigFile {
 
 	Files.copy(inputStream, tempfile.toPath(),
 	    StandardCopyOption.REPLACE_EXISTING);
+
+	long contentLength = tempfile.length();
+	if (log.isDebug3())
+	  log.error(DEBUG_HEADER + "contentLength = " + contentLength);
+
 	writeFromTempFile(tempfile, null);
 
 	writeResult = new ConfigFileReadWriteResult(null, calcNewLastModified(),
-	    true, null);
+	    true, null, contentLength);
       } else {
 	// No: The precondition is not met.
 	writeResult =
-	    new ConfigFileReadWriteResult(null, lastModified, false, null);
+	    new ConfigFileReadWriteResult(null, lastModified, false, null, 0);
       }
 
       if (log.isDebug2())

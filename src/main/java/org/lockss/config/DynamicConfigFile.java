@@ -29,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.io.*;
+import java.util.List;
 import org.lockss.util.*;
 
 /**
@@ -88,4 +89,34 @@ public abstract class DynamicConfigFile extends FileConfigFile {
     return url.startsWith("dyn:");
   }
 
+  /**
+   * Provides the input stream to the content of this configuration file if the
+   * passed preconditions are met.
+   * 
+   * @param ifMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Unmodified-Since" request header but with a granularity of 1
+   *          ms.
+   * @param ifNoneMatch
+   *          A List<String> with an asterisk or values equivalent to the
+   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
+   * @throws IOException
+   *           if there are problems.
+   */
+  @Override
+  public ConfigFileReadWriteResult conditionallyRead(List<String> ifMatch,
+      List<String> ifNoneMatch) throws IOException {
+    final String DEBUG_HEADER = "conditionallyRead(" + m_fileUrl + "): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+    }
+
+    if (m_fileFile == null) {
+      generateFile();
+    }
+
+    return super.conditionallyRead(ifMatch, ifNoneMatch);
+  }
 }

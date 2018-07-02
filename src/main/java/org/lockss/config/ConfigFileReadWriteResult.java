@@ -43,13 +43,16 @@ public class ConfigFileReadWriteResult {
   private String versionUniqueId;
   private boolean preconditionMet = false;
   private MediaType contentType;
+  private long contentLength = 0;
 
   public ConfigFileReadWriteResult(InputStream inputStream,
-      String versionUniqueId, boolean preconditionMet, MediaType contentType) {
+      String versionUniqueId, boolean preconditionMet, MediaType contentType,
+      long contentLength) {
     this.inputStream = inputStream;
     this.versionUniqueId = versionUniqueId;
     this.preconditionMet = preconditionMet;
     this.contentType = contentType;
+    this.contentLength = contentLength;
   }
 
   public InputStream getInputStream() {
@@ -72,11 +75,16 @@ public class ConfigFileReadWriteResult {
     return contentType;
   }
 
+  public long getContentLength() {
+    return contentLength;
+  }
+
   @Override
   public String toString() {
     return "[ConfigFileReadWriteResult: inputStream = " + inputStream
 	+ ", versionUniqueId = " + versionUniqueId
 	+ ", preconditionMet = " + preconditionMet
-	+ ", contentType = " + contentType + "]";
+	+ ", contentType = " + contentType
+	+ ", contentLength = " + contentLength + "]";
   }
 }
