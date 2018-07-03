@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,13 +30,13 @@ package org.lockss.rs.multipart;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
-import org.lockss.rs.multipart.TextMultipartResponse.Part;
+import org.lockss.rs.multipart.MultipartResponse.Part;
 import org.lockss.test.LockssTestCase4;
 
 /**
- * Test class for org.lockss.rs.multipart.TestTextMultipartResponse.
+ * Test class for org.lockss.rs.multipart.MultipartResponse.
  */
-public class TestTextMultipartResponse extends LockssTestCase4 {
+public class TestMultipartResponse extends LockssTestCase4 {
   /**
    * Tests the extraction of the part name from the Content-Disposition header.
    */
@@ -122,7 +122,7 @@ public class TestTextMultipartResponse extends LockssTestCase4 {
    */
   @Test
   public void testAddPart() {
-    TextMultipartResponse response = new TextMultipartResponse();
+    MultipartResponse response = new MultipartResponse();
 
     Part part = addPart("form-data", response);
     assertEquals(1, response.getParts().size());
@@ -160,16 +160,15 @@ public class TestTextMultipartResponse extends LockssTestCase4 {
   }
 
   /**
-   * Adds a part to a TextMultipartResponse.
+   * Adds a part to a MultipartResponse.
    * 
    * @param contentDisposition
    *          A String with the Content-Disposition header.
    * @param response
-   *          A TextMultipartResponse where to add the part.
+   *          A MultipartResponse where to add the part.
    * @return a Part with the part just added.
    */
-  private Part addPart(String contentDisposition,
-      TextMultipartResponse response) {
+  private Part addPart(String contentDisposition, MultipartResponse response) {
     Part part = createPart(contentDisposition);
     response.addPart(part);
 

@@ -30,14 +30,11 @@ package org.lockss.config;
 import static org.lockss.config.RestConfigClient.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
 import java.net.*;
 import java.util.*;
-import org.apache.commons.io.input.ReaderInputStream;
-import org.lockss.rs.multipart.TextMultipartResponse;
-import org.lockss.rs.multipart.TextMultipartResponse.Part;
+import org.lockss.rs.multipart.MultipartResponse;
+import org.lockss.rs.multipart.MultipartResponse.Part;
 import org.lockss.util.UrlUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -122,7 +119,7 @@ public class RestConfigFile extends BaseConfigFile {
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "ifModifiedSince = " + ifModifiedSince);
 
-    TextMultipartResponse response = null;
+    MultipartResponse response = null;
 
     try {
       List<String> ifNoneMatch = new ArrayList<>();
@@ -133,7 +130,7 @@ public class RestConfigFile extends BaseConfigFile {
 	ifNoneMatch = null;
       }
 
-      response = serviceClient.callGetTextMultipartRequest(requestUrl, null,
+      response = serviceClient.callGetMultipartRequest(requestUrl, null,
 	  ifNoneMatch);
     } catch (IOException e) {
       // The HTTP fetch failed.  First see if we already found a failover
@@ -183,13 +180,7 @@ public class RestConfigFile extends BaseConfigFile {
 	  log.debug3(DEBUG_HEADER + "m_fileType = " + m_fileType);
       }
 
-      String partPayload = configDataPart.getPayload();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partPayload = " + partPayload);
-
-      StringReader payloadReader = new StringReader(partPayload);
-
-      in = new ReaderInputStream(payloadReader, StandardCharsets.UTF_8);
+      in = configDataPart.getInputStream();
       break;
     case NOT_MODIFIED:
       m_loadError = null;

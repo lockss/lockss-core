@@ -46,10 +46,10 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * Utility to simplify calling a REST service that operates on HTTP Multipart
- * objects where the payload is text.
+ * objects.
  */
-public class TextMultipartConnector {
-  private static Logger log = Logger.getLogger(TextMultipartConnector.class);
+public class MultipartConnector {
+  private static Logger log = Logger.getLogger(MultipartConnector.class);
 
   private URI uri;
   private HttpHeaders requestHeaders;
@@ -63,7 +63,7 @@ public class TextMultipartConnector {
    * @param requestHeaders
    *          An HttpHeaders with the headers of the request to be made.
    */
-  public TextMultipartConnector(URI uri, HttpHeaders requestHeaders) {
+  public MultipartConnector(URI uri, HttpHeaders requestHeaders) {
     this.uri = uri;
     this.requestHeaders = requestHeaders;
     this.parts = null;
@@ -79,7 +79,7 @@ public class TextMultipartConnector {
    * @param parts
    *          A MultiValueMap<String, Object> with the multipart object parts.
    */
-  public TextMultipartConnector(URI uri, HttpHeaders requestHeaders,
+  public MultipartConnector(URI uri, HttpHeaders requestHeaders,
       MultiValueMap<String, Object> parts) {
     this.uri = uri;
     this.requestHeaders = requestHeaders;
@@ -89,14 +89,13 @@ public class TextMultipartConnector {
   /**
    * Performs the GET request.
    *
-   * @return a TextMultipartResponse with the response.
+   * @return a MultipartResponse with the response.
    * @throws IOException
-   *           if there are problems getting the part payload.
+   *           if there are problems getting a part payload.
    * @throws MessagingException
    *           if there are other problems.
    */
-  public TextMultipartResponse requestGet()
-      throws IOException, MessagingException {
+  public MultipartResponse requestGet() throws IOException, MessagingException {
     return requestGet(60, 60);
   }
 
@@ -107,13 +106,13 @@ public class TextMultipartConnector {
    *          An int with the connection timeout in seconds.
    * @param readTimeout
    *          An int with the read timeout in seconds.
-   * @return a TextMultipartResponse with the response.
+   * @return a MultipartResponse with the response.
    * @throws IOException
-   *           if there are problems getting the part payload.
+   *           if there are problems getting a part payload.
    * @throws MessagingException
    *           if there are other problems.
    */
-  public TextMultipartResponse requestGet(int connectTimeout, int readTimeout)
+  public MultipartResponse requestGet(int connectTimeout, int readTimeout)
       throws IOException, MessagingException {
     final String DEBUG_HEADER = "requestGet(): ";
     if (log.isDebug2()) {
@@ -133,12 +132,12 @@ public class TextMultipartConnector {
     try {
       // Make the request to the REST service and get its response.
       ResponseEntity<MimeMultipart> response = restTemplate.exchange(uri,
-	  HttpMethod.GET, new HttpEntity<String>(null, requestHeaders),
+	  HttpMethod.GET, new HttpEntity<>(null, requestHeaders),
 	  MimeMultipart.class);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       // Parse the response and return it.
-      return new TextMultipartResponse(response);
+      return new MultipartResponse(response);
     } catch (IOException | MessagingException e) {
       log.error("Exception caught getting MimeMultipart object", e);
       log.error("uri = " + uri);

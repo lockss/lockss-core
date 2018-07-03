@@ -28,6 +28,7 @@
 package org.lockss.rs.multipart;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -43,10 +44,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 /**
- * A representation of an HTTP Multipart response where the payload is text.
+ * A representation of an HTTP Multipart response.
  */
-public class TextMultipartResponse {
-  private static Logger log = Logger.getLogger(TextMultipartResponse.class);
+public class MultipartResponse {
+  private static Logger log = Logger.getLogger(MultipartResponse.class);
 
   private HttpStatus statusCode;
   private HttpHeaders responseHeaders;
@@ -55,23 +56,23 @@ public class TextMultipartResponse {
   /**
    * Default constructor.
    */
-  public TextMultipartResponse() {
+  public MultipartResponse() {
   }
 
   /**
-   * Constructor using a multipart response.
+   * Constructor using a MIME Multipart response entity.
    * 
    * @param response
-   *          A {@code ResponseEntity<MimeMultipart>} with the multipart
+   *          A {@code ResponseEntity<MimeMultipart>} with the MIME multipart
    *          response.
    * @throws IOException
-   *           if there are problems getting the part payload.
+   *           if there are problems getting a part payload.
    * @throws MessagingException
    *           if there are other problems.
    */
-  public TextMultipartResponse(ResponseEntity<MimeMultipart> response)
+  public MultipartResponse(ResponseEntity<MimeMultipart> response)
       throws IOException, MessagingException {
-    final String DEBUG_HEADER = "TextMultipartResponse(response): ";
+    final String DEBUG_HEADER = "MultipartResponse(response): ";
 
     // Populate the status code.
     statusCode = response.getStatusCode();
@@ -82,7 +83,7 @@ public class TextMultipartResponse {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "responseHeaders = " + responseHeaders);
 
-    // The multipart response body.
+    // The MIME Multipart response body.
     MimeMultipart responseBody = response.getBody();
 
     // Check whether no body has been received.
@@ -137,10 +138,10 @@ public class TextMultipartResponse {
       // Create and save the part.
       Part part = new Part();
       part.setHeaders(partHeaders);
-      part.setPayload((String)partBody.getContent());
+      part.setInputStream(partBody.getDataHandler().getInputStream());
       addPart(part);
       if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "payload = '" + part.getPayload() + "'");
+	log.debug3(DEBUG_HEADER + "inputStream = " + part.getInputStream());
     }
   }
 
@@ -183,8 +184,8 @@ public class TextMultipartResponse {
   /**
    * Provides the parts of the response, indexed by the part name.
    * 
-   * @return a {@code LinkedHashMap<String, Part>} with the response parts, indexed by
-   *         the part name.
+   * @return a {@code LinkedHashMap<String, Part>} with the response parts,
+   *         indexed by the part name.
    */
   public LinkedHashMap<String, Part> getParts() {
     return parts;
@@ -229,14 +230,13 @@ public class TextMultipartResponse {
   }
 
   /**
-   * A representation of an HTTP Multipart response part where the payload is
-   * text.
+   * A representation of an HTTP Multipart response part.
    */
   public static class Part {
     private static Logger log = Logger.getLogger(Part.class);
 
     Map<String, String> headers;
-    String payload;
+    InputStream inputStream;
     String name;
 
     /**
@@ -300,21 +300,22 @@ public class TextMultipartResponse {
     }
 
     /**
-     * Provides the payload of the part.
+     * Provides an input stream to the content of the part.
      *
-     * @return a String with the part payload.
+     * @return an InputStream with the part content input stream.
      */
-    public String getPayload() {
-      return payload;
+    public InputStream getInputStream() {
+      return inputStream;
     }
 
     /**
-     * Populates the payload of the part.
+     * Populates the input stream of the part content.
      * 
-     * @param payload A String with the part payload.
+     * @param payload
+     *          An InputStream with the input stream to the content of the part.
      */
-    public void setPayload(String payload) {
-      this.payload = payload;
+    public void setInputStream(InputStream inputStream) {
+      this.inputStream = inputStream;
     }
 
     /**
@@ -407,8 +408,8 @@ public class TextMultipartResponse {
 
     @Override
     public String toString() {
-      return "[Part headers=" + headers + ", name=" + name + ", payload="
-	  + payload + "]";
+      return "[Part headers=" + headers + ", name=" + name + ", inputStream="
+	  + inputStream + "]";
     }
   }
 }

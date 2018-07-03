@@ -29,7 +29,7 @@ package org.lockss.config;
 
 import java.io.InputStream;
 import java.util.List;
-import org.lockss.rs.multipart.TextMultipartResponse;
+import org.lockss.rs.multipart.MultipartResponse;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -41,7 +41,7 @@ public class RestConfigSection {
   private List<String> ifNoneMatch = null;
   private InputStream inputStream = null;
   private String etag = null;
-  private TextMultipartResponse response = null;
+  private MultipartResponse response = null;
   private HttpStatus statusCode = null;
   private String errorMessage = null;
   private String contentType = null;
@@ -98,11 +98,11 @@ public class RestConfigSection {
     return this;
   }
 
-  public TextMultipartResponse getResponse() {
+  public MultipartResponse getResponse() {
     return response;
   }
 
-  public RestConfigSection setResponse(TextMultipartResponse response) {
+  public RestConfigSection setResponse(MultipartResponse response) {
     this.response = response;
     return this;
   }

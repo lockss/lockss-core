@@ -29,7 +29,6 @@ package org.lockss.config;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -42,12 +41,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
-import org.apache.commons.io.input.ReaderInputStream;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
-import org.lockss.rs.multipart.TextMultipartConnector;
-import org.lockss.rs.multipart.TextMultipartResponse;
-import org.lockss.rs.multipart.TextMultipartResponse.Part;
-import org.lockss.util.HeaderUtil;
+import org.lockss.rs.multipart.MultipartConnector;
+import org.lockss.rs.multipart.MultipartResponse;
+import org.lockss.rs.multipart.MultipartResponse.Part;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
@@ -263,7 +260,7 @@ public class RestConfigClient {
     RestConfigSection output = new RestConfigSection();
     output.setSectionName(sectionName);
     String requestUrl = null;
-    TextMultipartResponse response = null;
+    MultipartResponse response = null;
 
     try {
       // Get the request URL.
@@ -272,7 +269,7 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the response.
-      response = callGetTextMultipartRequest(requestUrl, input.getIfMatch(),
+      response = callGetMultipartRequest(requestUrl, input.getIfMatch(),
 	  input.getIfNoneMatch());
       output.setResponse(response);
     } catch (HttpClientErrorException hcee) {
@@ -325,12 +322,7 @@ public class RestConfigClient {
       output.setContentType(contentType);
 
       // Get and populate an input stream to the configuration data.
-      String partPayload = configDataPart.getPayload();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partPayload = " + partPayload);
-
-      output.setInputStream(new ReaderInputStream(new StringReader(partPayload),
-	  HeaderUtil.getCharsetOrDefaultFromContentType(contentType)));
+      output.setInputStream(configDataPart.getInputStream());
       break;
     case NOT_MODIFIED:
       if (log.isDebug2())
@@ -345,8 +337,8 @@ public class RestConfigClient {
   }
 
   /**
-   * Calls the service Text Multipart GET method with the given URL and provides
-   * the response.
+   * Calls the service Multipart GET method with the given URL and provides the
+   * response.
    * 
    * @param url
    *          A String with the URL.
@@ -356,16 +348,16 @@ public class RestConfigClient {
    * @param ifNoneMatch
    *          A List<String> with the preconditions to be specified in the
    *          request If-None-Match header.
-   * @return a TextMultipartResponse with the response.
+   * @return a MultipartResponse with the response.
    * @throws IOException
    *           if there are problems getting the part payload.
    * @throws MessagingException
    *           if there are other problems.
    */
-  public TextMultipartResponse callGetTextMultipartRequest(String url,
+  public MultipartResponse callGetMultipartRequest(String url,
       List<String> ifMatch, List<String> ifNoneMatch)
 	  throws IOException, MessagingException {
-    final String DEBUG_HEADER = "callGetTextMultipartRequest(): ";
+    final String DEBUG_HEADER = "callGetMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
       log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
@@ -411,8 +403,8 @@ public class RestConfigClient {
     }
 
     // Make the request and obtain the response.
-    TextMultipartResponse response = new TextMultipartConnector(uri,
-	requestHeaders).requestGet(serviceTimeout, serviceTimeout);
+    MultipartResponse response = new MultipartConnector(uri, requestHeaders)
+	.requestGet(serviceTimeout, serviceTimeout);
 
     return response;
   }
@@ -485,7 +477,7 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the result.
-      ResponseEntity<?> response = callPutTextMultipartRequest(requestUrl,
+      ResponseEntity<?> response = callPutMultipartRequest(requestUrl,
 	  input.getIfMatch(), input.getIfNoneMatch(), config,
 	  input.getContentType(), input.getContentLength());
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
@@ -525,8 +517,8 @@ public class RestConfigClient {
   }
 
   /**
-   * Calls the service Text Multipart PUT method with the given URL and provides
-   * the response.
+   * Calls the service Multipart PUT method with the given URL and provides the
+   * response.
    * 
    * @param url
    *          A String with the URL.
@@ -537,20 +529,20 @@ public class RestConfigClient {
    *          A List<String> with the preconditions to be specified in the
    *          request If-None-Match header.
    * @param inputStream
-   *          An InputStream with the text to be sent to the server.
+   *          An InputStream to the content to be sent to the server.
    * @param contentType
-   *          A String with the content type of the text to be sent to the
+   *          A String with the content type of the content to be sent to the
    *          server.
    * @param contentLength
-   *          A long with the length of the text to be sent to the server.
+   *          A long with the length of the content to be sent to the server.
    * @return an HttpStatus with the status of the response.
    * @throws IOException
    *           if there are problems reading the input stream.
    */
-  public ResponseEntity<?> callPutTextMultipartRequest(String url,
+  public ResponseEntity<?> callPutMultipartRequest(String url,
       List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream,
       String contentType, long contentLength) throws IOException {
-    final String DEBUG_HEADER = "callPutTextMultipartRequest(): ";
+    final String DEBUG_HEADER = "callPutMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
       log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
@@ -622,7 +614,7 @@ public class RestConfigClient {
       log.debug3(DEBUG_HEADER + "requestHeaders = " + requestHeaders);
 
     // Make the request and obtain the response.
-    ResponseEntity<?> response = new TextMultipartConnector(uri, requestHeaders,
+    ResponseEntity<?> response = new MultipartConnector(uri, requestHeaders,
 	parts).requestPut(serviceTimeout, serviceTimeout);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
