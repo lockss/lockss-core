@@ -773,15 +773,10 @@ public class DbManager extends BaseLockssManager
     dataSource = createDataSource(dataSourceConfig.get("className"));
     dbManagerSql.setDataSource(dataSource);
 
-    // Check whether the PostgreSQL database is being used.
-    if (dbManagerSql.isTypePostgresql()) {
+    // Check whether the database is external.
+    if (dbManagerSql.isTypePostgresql() || dbManagerSql.isTypeMysql()) {
       // Yes: Initialize the database, if necessary.
-      initializePostgresqlDbIfNeeded(dataSourceConfig);
-
-      // No: Check whether the MySQL database is being used.
-    } else if (dbManagerSql.isTypeMysql()) {
-      // Yes: Initialize the database, if necessary.
-      initializeMysqlDbIfNeeded(dataSourceConfig);
+      initializeExternalDbIfNeeded(dataSourceConfig);
     }
 
     // Initialize the datasource properties.
@@ -1047,6 +1042,72 @@ public class DbManager extends BaseLockssManager
 
   protected String getDerbyStreamErrorLogSeverityLevel(Configuration config) {
     return DEFAULT_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL;
+  }
+
+  /**
+   * Initializes an external database, if it does not exist already.
+   * 
+   * @param dsConfig
+   *          A Configuration with the datasource configuration.
+   * @throws DbException
+   *           if the database discovery or initialization processes failed.
+   */
+  private void initializeExternalDbIfNeeded(Configuration dsConfig)
+      throws DbException {
+    final String DEBUG_HEADER = "initializeExternalDbIfNeeded(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    boolean success = false;
+    int retryCount = 0;
+    long retryDelayHere = 10 * retryDelay;
+
+    // Keep trying until success.
+    while (!success) {
+      try {
+	// Check whether the PostgreSQL database is being used.
+	if (dbManagerSql.isTypePostgresql()) {
+	  // Yes: Initialize the database, if necessary.
+	  initializePostgresqlDbIfNeeded(dataSourceConfig);
+	  success = true;
+
+	  // No: Check whether the MySQL database is being used.
+	} else if (dbManagerSql.isTypeMysql()) {
+	  // Yes: Initialize the database, if necessary.
+	  initializeMysqlDbIfNeeded(dataSourceConfig);
+	  success = true;
+	}
+      } catch (DbException dbe) {
+	// The remote database server is not available: Count the next retry.
+	retryCount++;
+
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "Next retry is " + retryCount + " of " + maxRetryCount);
+
+	// Check whether the next retry would go beyond the specified maximum
+	// number of retries.
+	if (retryCount > maxRetryCount) {
+	  // Yes: Report the failure.
+	  log.error("Exception caught", dbe);
+	  log.error("Maximum retry count of " + maxRetryCount + " reached.");
+	  throw dbe;
+	} else {
+	  // No: Wait for the specified amount of time before attempting the
+	  // next retry.
+	  log.debug(DEBUG_HEADER + "Exception caught", dbe);
+	  log.debug(DEBUG_HEADER + "Waiting "
+	      + StringUtil.timeIntervalToString(retryDelayHere)
+	      + " before retry number " + retryCount + "...");
+
+	  try {
+	    Deadline.in(retryDelayHere).sleep();
+	  } catch (InterruptedException ie) {
+	    // Continue with the next retry.
+	  }
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   /**
