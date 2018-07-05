@@ -708,10 +708,48 @@ public class ConfigManager implements LockssManager {
     this(bootstrapPropsUrl, null, urls, groupNames);
   }
 
+  /**
+   * Constructor.
+   * 
+   * @param bootstrapPropsUrl
+   *          A String with the URL from where to load bootstrap properties.
+   * @param restConfigServiceUrl
+   *          A String with the URL of the REST Configuration service.
+   * @param urls
+   *          A List<String> with the URL from where to load properties.
+   * @param groupNames
+   *          A String with the daemon groups.
+   */
   public ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
       List urls, String groupNames) {
+    this(bootstrapPropsUrl, restConfigServiceUrl, urls, groupNames, true);
+  }
+
+  /**
+   * Constructor.
+   * 
+   * Used to avoid delays in testing when the REST service is known to be
+   * unavailable permanently, not just temporarily, by passing
+   * <code>false</code> as the second argument.
+   * 
+   * @param bootstrapPropsUrl
+   *          A String with the URL from where to load bootstrap properties.
+   * @param restConfigServiceUrl
+   *          A String with the URL of the REST Configuration service.
+   * @param urls
+   *          A List<String> with the URL from where to load properties.
+   * @param groupNames
+   *          A String with the daemon groups.
+   * @param verifyApiStatus
+   *          A boolean with <code>true</code> if the API status should be
+   *          verified by the REST Configuration service client,
+   *          <code>false</code>, otherwise.
+   */
+  ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
+      List urls, String groupNames, boolean verifyApiStatus) {
     this.bootstrapPropsUrl = bootstrapPropsUrl;
-    this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
+    this.restConfigClient =
+	new RestConfigClient(restConfigServiceUrl, verifyApiStatus);
     if (urls != null) {
       configUrlList = new ArrayList(urls);
     }

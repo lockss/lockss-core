@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -65,7 +65,7 @@ public class TestConfigCache extends LockssTestCase4 {
   public void setUp() throws Exception {
     super.setUp();
     cache = new ConfigCache(new ConfigManager(null, "http://localhost:1234",
-	null, null));
+	null, null, false));
   }
 
   /*

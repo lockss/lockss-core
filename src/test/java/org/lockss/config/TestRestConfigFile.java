@@ -79,7 +79,7 @@ public class TestRestConfigFile extends LockssTestCase4 {
     assertFalse(RestConfigFile.isRestConfigUrl("http://isRestChild/123", mgr));
     assertFalse(RestConfigFile.isRestConfigUrl(restLocationUrl + "/a1", mgr));
 
-    mgr.restConfigClient = new RestConfigClient(restLocationUrl);
+    mgr.restConfigClient = new RestConfigClient(restLocationUrl, false);
 
     try {
       assertFalse(RestConfigFile.isRestConfigUrl(null, mgr));
@@ -134,7 +134,7 @@ public class TestRestConfigFile extends LockssTestCase4 {
     rcf = new RestConfigFile(url, mgr);
     assertEquals(url, rcf.getRequestUrl());
 
-    mgr.restConfigClient = new RestConfigClient(restLocationUrl);
+    mgr.restConfigClient = new RestConfigClient(restLocationUrl, false);
 
     try {
       rcf = new RestConfigFile(null, mgr);
@@ -209,7 +209,7 @@ public class TestRestConfigFile extends LockssTestCase4 {
     String url = "http://xyz.org/xpath/x.xml";
     assertEquals(url, rcf.redirectAbsoluteUrl(url));
 
-    mgr.restConfigClient = new RestConfigClient(restLocationUrl);
+    mgr.restConfigClient = new RestConfigClient(restLocationUrl, false);
     rcf = new RestConfigFile(restLocationUrl, mgr);
 
     try {
