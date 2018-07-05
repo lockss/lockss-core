@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1144,7 +1144,7 @@ public class TestConfigFile {
 
     public MyConfigManager(File tmpdir, String bootstrapPropsUrl,
 	String restConfigServiceUrl, List<String> urls, String groupNames) {
-      super(bootstrapPropsUrl, restConfigServiceUrl, urls, groupNames, false);
+      super(bootstrapPropsUrl, restConfigServiceUrl, urls, groupNames);
       this.tmpdir = tmpdir;
     }
 

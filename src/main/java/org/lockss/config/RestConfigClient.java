@@ -42,28 +42,21 @@ import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
-import org.lockss.laaws.status.model.ApiStatus;
 import org.lockss.rs.multipart.MultipartConnector;
 import org.lockss.rs.multipart.MultipartResponse;
 import org.lockss.rs.multipart.MultipartResponse.Part;
-import org.lockss.util.Constants;
-import org.lockss.util.Deadline;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -75,24 +68,6 @@ public class RestConfigClient {
   public static String HTTP_WEAK_VALIDATOR_PREFIX = "W/";
 
   private static Logger log = Logger.getLogger(RestConfigClient.class);
-
-  /**
-   * Maximum number of retries for transient SQL exceptions.
-   */
-  protected static final int DEFAULT_MAX_RETRY_COUNT = 10;
-
-  /**
-   * Delay  between retries for transient SQL exceptions.
-   */
-  protected static final long DEFAULT_RETRY_DELAY = 30 * Constants.SECOND;
-
-  // The maximum number of retries to be attempted when encountering transient
-  // SQL exceptions.
-  protected int maxRetryCount = DEFAULT_MAX_RETRY_COUNT;
-
-  // The interval to wait between consecutive retries when encountering
-  // transient SQL exceptions.
-  protected long retryDelay = DEFAULT_RETRY_DELAY;
 
   // The REST configuration service URL.
   private String restConfigServiceUrl;
@@ -111,39 +86,10 @@ public class RestConfigClient {
    *          Configuration REST web service.
    */
   public RestConfigClient(String restConfigServiceUrl) {
-    this(restConfigServiceUrl, true);
-  }
-
-  /**
-   * Constructor.
-   * 
-   * Used to avoid delays in testing when the REST service is known to be
-   * unavailable permanently, not just temporarily, by passing
-   * <code>false</code> as the second argument.
-   * 
-   * @param restConfigServiceUrl
-   *          A String with the information necessary to access the
-   *          Configuration REST web service.
-   *
-   * @param verifyApiStatus
-   *          A boolean with <code>true</code> if the API status should be
-   *          verified, <code>false</code>, otherwise.
-   */
-  RestConfigClient(String restConfigServiceUrl, boolean verifyApiStatus) {
     this.restConfigServiceUrl = restConfigServiceUrl;
 
     // Save the individual components of the Configuration REST web service URL.
     parseRestConfigServiceUrl();
-
-    // Check whether the API status should be verified.
-    if (verifyApiStatus && isActive()) {
-      // Yes.
-      try {
-	getApiStatusWithRetries();
-      } catch (Exception e) {
-	log.error("Error getting the REST service API status", e);
-      }
-    }
   }
 
   /**
@@ -675,72 +621,6 @@ public class RestConfigClient {
     return response;
   }
 
-
-  /**
-   * Provides the status of the REST web service.
-   * 
-   * @return an ApiStatus with the status of the REST web service.
-   */
-  public ApiStatus getApiStatus() {
-    final String DEBUG_HEADER = "getApiStatus(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
-
-    // Get the request URL.
-    String requestUrl = serviceLocation + "/status";
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
-
-    try {
-      // Create the URI of the request to the REST service.
-      UriComponents uriComponents =
-  	UriComponentsBuilder.fromUriString(requestUrl).build();
-
-      URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-  	.build().encode().toUri();
-
-      // Initialize the request headers.
-      HttpHeaders requestHeaders = new HttpHeaders();
-      requestHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-      // Set the authentication credentials.
-      String credentials = serviceUser + ":" + servicePassword;
-      String authHeaderValue = "Basic " + Base64.getEncoder()
-      .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
-      requestHeaders.set("Authorization", authHeaderValue);
-
-      if (log.isDebug3()) {
-        log.debug3(DEBUG_HEADER
-  	  + "requestHeaders = " + requestHeaders.toSingleValueMap());
-        log.debug3(DEBUG_HEADER + "Making GET request to '" + uri + "'...");
-      }
-
-      // Make the request to the REST service and get its response.
-      ResponseEntity<ApiStatus> response = createRestTemplate(60, 60)
-	  .exchange(uri, HttpMethod.GET, new HttpEntity<>(null, requestHeaders),
-  	  ApiStatus.class);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
-
-      // Get the response status.
-      HttpStatus statusCode = response.getStatusCode();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
-
-      ApiStatus apiStatus = response.getBody();
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "apiStatus = " + apiStatus);
-      return apiStatus;
-    } catch (HttpClientErrorException hcee) {
-      String errorMessage = "Couldn't get status from URL '" + requestUrl
-	  + "': " + hcee.toString();
-      log.error(errorMessage, hcee);
-      log.error("hcee.getStatusCode() = " + hcee.getStatusCode());
-      throw hcee;
-    } catch (Exception e) {
-      String errorMessage = "Couldn't get status from URL '" + requestUrl
-	  + "': " + e.toString();
-      log.error(errorMessage, e);
-      throw e;
-    }
-  }
-
   /**
    * Provides the URL needed to read from, or write to, the REST Configuration
    * Service the configuration of a section.
@@ -772,93 +652,5 @@ public class RestConfigClient {
     }
 
     return result;
-  }
-
-  /**
-   * Provides the API status of the REST service, retrying, if necessary.
-   * 
-   * @throws Exception
-   *           if the API status of the REST service could not be obtained.
-   */
-  private ApiStatus getApiStatusWithRetries() throws Exception {
-    final String DEBUG_HEADER = "getApiStatusWithRetries(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
-
-    ApiStatus result = null;
-    boolean success = false;
-    int retryCount = 0;
-
-    // Keep trying until success.
-    while (!success) {
-      try {
-	result = getApiStatus();
-	success = result.isReady().booleanValue();
-      } catch (Exception e) {
-	// The REST service is not available: Count the next retry.
-	retryCount++;
-
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "Next retry is " + retryCount + " of " + maxRetryCount);
-
-	// Check whether the next retry would go beyond the specified maximum
-	// number of retries.
-	if (retryCount > maxRetryCount) {
-	  // Yes: Report the failure.
-	  log.error("Exception caught", e);
-	  log.error("Maximum retry count of " + maxRetryCount + " reached.");
-	  throw e;
-	} else {
-	  // No: Wait for the specified amount of time before attempting the
-	  // next retry.
-	  log.debug(DEBUG_HEADER + "Exception caught", e);
-	  log.debug(DEBUG_HEADER + "Waiting "
-	      + StringUtil.timeIntervalToString(retryDelay)
-	      + " before retry number " + retryCount + "...");
-
-	  try {
-	    Deadline.in(retryDelay).sleep();
-	  } catch (InterruptedException ie) {
-	    // Continue with the next retry.
-	  }
-	}
-      }
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-    return result;
-  }
-
-  /**
-   * Creates the REST template for making requests.
-   * 
-   * @param connectTimeout
-   *          An int with the connection timeout in seconds.
-   * @param readTimeout
-   *          An int with the read timeout in seconds.
-   * @return a RestTemplate with the REST template for the request.
-   */
-  private RestTemplate createRestTemplate(int connectTimeout, int readTimeout) {
-    final String DEBUG_HEADER = "createRestTemplate(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
-
-    // Initialize the request to the REST service.
-    RestTemplate restTemplate = new RestTemplate();
-
-    // Do not throw exceptions on non-success response status codes.
-    restTemplate.setErrorHandler(new DefaultResponseErrorHandler(){
-      protected boolean hasError(HttpStatus statusCode) {
-	return false;
-      }
-    });
-
-    // Specify the timeouts.
-    SimpleClientHttpRequestFactory requestFactory =
-	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
-
-    requestFactory.setConnectTimeout(1000*connectTimeout);
-    requestFactory.setReadTimeout(1000*readTimeout);
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
-    return restTemplate;
   }
 }
