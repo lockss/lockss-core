@@ -33,7 +33,6 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -385,21 +384,13 @@ public class RestConfigClient {
     // Check whether there are If-Match preconditions.
     if (ifMatch != null && !ifMatch.isEmpty()) {
       // Yes.
-      List<String> ifMatchEtags = makeEtagsFromPreconditions(ifMatch);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "ifMatchEtags = " + ifMatchEtags);
-
-      requestHeaders.setIfMatch(ifMatchEtags);
+      requestHeaders.setIfMatch(ifMatch);
     }
 
     // Check whether there are If-None-Match preconditions.
     if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
       // Yes.
-      List<String> ifNoneMatchEtags = makeEtagsFromPreconditions(ifNoneMatch);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "ifNoneMatchEtags = " + ifNoneMatchEtags);
-
-      requestHeaders.setIfNoneMatch(ifNoneMatchEtags);
+      requestHeaders.setIfNoneMatch(ifNoneMatch);
     }
 
     // Make the request and obtain the response.
@@ -588,21 +579,13 @@ public class RestConfigClient {
     // Check whether there are If-Match preconditions.
     if (ifMatch != null && !ifMatch.isEmpty()) {
       // Yes.
-      List<String> ifMatchEtags = makeEtagsFromPreconditions(ifMatch);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "ifMatchEtags = " + ifMatchEtags);
-
-      requestHeaders.setIfMatch(ifMatchEtags);
+      requestHeaders.setIfMatch(ifMatch);
     }
 
     // Check whether there are If-None-Match preconditions.
     if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
       // Yes.
-      List<String> ifNoneMatchEtags = makeEtagsFromPreconditions(ifNoneMatch);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "ifNoneMatchEtags = " + ifNoneMatchEtags);
-
-      requestHeaders.setIfNoneMatch(ifNoneMatchEtags);
+      requestHeaders.setIfNoneMatch(ifNoneMatch);
     }
 
     // Set the authentication credentials.
@@ -631,26 +614,5 @@ public class RestConfigClient {
    */
   private String getRequestUrl(String sectionName) {
     return serviceLocation + "/config/file/" + sectionName;
-  }
-
-  /**
-   * Converts preconditions to entity tags.
-   * 
-   * @param preconditions
-   *          A List<String> with the preconditions.
-   * @return a List<String> with the entity tags.
-   */
-  private List<String> makeEtagsFromPreconditions(List<String> preconditions) {
-    List<String> result = new ArrayList<>();
-
-    for (String precondition : preconditions) {
-      if ("*".equals(precondition)) {
-	result.add(precondition);
-      } else {
-	result.add("\"" + precondition + "\"");
-      }
-    }
-
-    return result;
   }
 }
