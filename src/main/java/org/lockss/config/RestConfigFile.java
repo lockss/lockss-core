@@ -125,7 +125,7 @@ public class RestConfigFile extends BaseConfigFile {
       List<String> ifNoneMatch = new ArrayList<>();
 
       if (ifModifiedSince != null && !ifModifiedSince.isEmpty()) {
-	ifNoneMatch.add(ifModifiedSince);
+	ifNoneMatch.add("\"" + ifModifiedSince + "\"");
       } else {
 	ifNoneMatch = null;
       }

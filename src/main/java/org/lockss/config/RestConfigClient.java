@@ -363,6 +363,9 @@ public class RestConfigClient {
       log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
     }
 
+    // Validate the preconditions.
+    validatePreConditions(ifMatch, ifNoneMatch);
+
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
 	UriComponentsBuilder.fromUriString(url).build();
@@ -542,6 +545,9 @@ public class RestConfigClient {
       log.debug2(DEBUG_HEADER + "contentLength = " + contentLength);
     }
 
+    // Validate the preconditions.
+    validatePreConditions(ifMatch, ifNoneMatch);
+
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
 	UriComponentsBuilder.fromUriString(url).build();
@@ -602,6 +608,100 @@ public class RestConfigClient {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     return response;
+  }
+
+  /**
+   * Validates the preconditions.
+   * 
+   * @param ifMatch
+   *          A List<String> with the preconditions to be specified in the
+   *          request If-Match header.
+   * @param ifNoneMatch
+   *          A List<String> with the preconditions to be specified in the
+   *          request If-None-Match header.
+   */
+  private void validatePreConditions(List<String> ifMatch,
+      List<String> ifNoneMatch) {
+    final String DEBUG_HEADER = "validatePreConditions(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
+      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+    }
+
+    boolean ifMatchExists = ifMatch != null && !ifMatch.isEmpty();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "ifMatchExists = " + ifMatchExists);
+
+    boolean ifNoneMatchExists = ifNoneMatch != null && !ifNoneMatch.isEmpty();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "ifNoneMatchExists = " + ifNoneMatchExists);
+
+    // Check whether there are both If-Match and If-None-Match preconditions.
+    if (ifMatchExists && ifNoneMatchExists) {
+      // Yes: Report the problem.
+      String message =
+	  "Invalid presence of both If-Match and If-None-Match preconditions";
+      log.error(message);
+      throw new IllegalArgumentException(message);
+    }
+
+    if (ifMatchExists) {
+      // Loop through the If-Match precondition tags.
+      for (String tag : ifMatch) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tag = " + tag);
+
+	// Check whether it is a weak validator tag.
+	if (tag.toUpperCase().startsWith(HTTP_WEAK_VALIDATOR_PREFIX)) {
+	  // Yes: Report the problem.
+	  String message = "Invalid If-Match entity tag '" + tag + "'";
+	  log.error(message);
+	  throw new IllegalArgumentException(message);
+	  // No: Check whether it is an asterisk.
+	} else if ("*".equals(tag)) {
+	  // Yes: Check whether the asterisk does not appear just by itself.
+	  if (ifMatch.size() > 1) {
+	    // Yes: Report the problem.
+	    String message = "Invalid If-Match entity tag mix";
+	    log.error(message);
+	    throw new IllegalArgumentException(message);
+	  }
+	  // No: Check whether a normal tag is not delimited by double quotes.
+	} else if (!tag.startsWith("\"") || !tag.endsWith("\"")) {
+	  // Yes: Report the problem.
+	  String message = "Invalid If-Match entity tag '" + tag + "'";
+	  log.error(message);
+	  throw new IllegalArgumentException(message);
+	}
+      }
+    } else if (ifNoneMatchExists) {
+      // Loop through the If-None-Match precondition tags.
+      for (String tag : ifNoneMatch) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tag = " + tag);
+
+	// Check whether it is a weak validator tag.
+	if (tag.toUpperCase().startsWith(HTTP_WEAK_VALIDATOR_PREFIX)) {
+	  // Yes: Report the problem.
+	  String message = "Invalid If-None-Match entity tag '" + tag + "'";
+	  log.error(message);
+	  throw new IllegalArgumentException(message);
+	  // No: Check whether the asterisk does not appear just by itself.
+	} else if ("*".equals(tag)) {
+	  // Yes: Check whether the asterisk does not appear just by itself.
+	  if (ifNoneMatch.size() > 1) {
+	    // Yes: Report the problem.
+	    String message = "Invalid If-None-Match entity tag mix";
+	    log.error(message);
+	    throw new IllegalArgumentException(message);
+	  }
+	  // No: Check whether a normal tag is not delimited by double quotes.
+	} else if (!tag.startsWith("\"") || !tag.endsWith("\"")) {
+	  // Yes: Report the problem.
+	  String message = "Invalid If-None-Match entity tag '" + tag + "'";
+	  log.error(message);
+	  throw new IllegalArgumentException(message);
+	}
+      }
+    }
   }
 
   /**
