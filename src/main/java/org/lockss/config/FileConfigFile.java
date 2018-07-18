@@ -142,12 +142,29 @@ public class FileConfigFile extends BaseConfigFile {
 
   /**
    * Provides the last modification timestamp of this file.
+   * 
+   * @return a String with the new last-modified time.
+   * @throws IOException
+   *           if there are problems.
    */
-  protected String calcNewLastModified() {
+  protected String calcNewLastModified() throws IOException {
     final String DEBUG_HEADER = "calcNewLastModified(" + m_fileUrl + "): ";
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "m_lastModified = " + m_lastModified);
     if (m_lastModified == null) {
+      // Handle a missing file first.
+      InputStream in = null;
+
+      try {
+	// This will throw if the file does not exist.
+	in = new FileInputStream(m_fileFile);
+      } finally {
+	if (in != null) {
+	  in.close();
+	}
+      }
+
+      // The file exists.
       String result = Long.toString(m_fileFile.lastModified());
       if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
       return result;
@@ -319,7 +336,14 @@ public class FileConfigFile extends BaseConfigFile {
     }
 
     synchronized(this) {
-      String lastModified = calcNewLastModified();
+      String lastModified = "0";
+
+      try {
+	lastModified = calcNewLastModified();
+      } catch (FileNotFoundException fnfe) {
+	// Ignore, as we are writing.
+      }
+
       String lastModifiedAsEtag = "\"" + lastModified + "\"";
       ConfigFileReadWriteResult writeResult = null;
 

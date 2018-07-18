@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -71,13 +71,17 @@ public abstract class DynamicConfigFile extends FileConfigFile {
 
   /**
    * Provides the last modification timestamp of this file.
+   * 
+   * @return a String with the new last-modified time.
+   * @throws IOException
+   *           if there are problems.
    */
-  protected String calcNewLastModified() {
+  protected String calcNewLastModified() throws IOException {
     if (m_fileFile == null || !m_fileFile.exists() ) {
-      return "-2";
-    } else {
-      return super.calcNewLastModified();
+      generateFile();
     }
+
+    return super.calcNewLastModified();
   }
 
   /** Return true of the URL matches the pattern for dynamic config files:

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -353,8 +353,12 @@ public abstract class BaseConfigFile implements ConfigFile {
 
   /**
    * Return the new last-modified time
+   * 
+   * @return a String with the new last-modified time.
+   * @throws IOException
+   *           if there are problems.
    */
-  protected abstract String calcNewLastModified();
+  protected abstract String calcNewLastModified() throws IOException;
 
   /**
    * Do the actual writing of the file to the disk by renaming a temporary file.
