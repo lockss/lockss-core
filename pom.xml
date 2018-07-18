@@ -579,7 +579,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>org-mortbay-jetty</artifactId>
-      <version>5.1.5-p3</version>
+      <version>5.1.5-p4</version>
     </dependency>
     <dependency>
       <groupId>com.jcabi</groupId>
