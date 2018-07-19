@@ -3382,7 +3382,8 @@ public class ConfigManager implements LockssManager {
       MapUtil.map("PreUrls", sb.toString(),
 		  "PostUrls", "");
     try (Writer wrtr = new BufferedWriter(new FileWriter(file))) {
-      expandTemplate("ClusterTemplate.xml", wrtr, valMap);
+      TemplateUtil.expandTemplate("org/lockss/config/ClusterTemplate.xml",
+	  wrtr, valMap);
     }
   }
 

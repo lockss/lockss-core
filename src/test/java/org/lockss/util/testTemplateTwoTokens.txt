@@ -1,0 +1,2 @@
+There is a @token here: '@token1@'.
+And@ another here: '@token2@'.
