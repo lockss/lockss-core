@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,9 +27,12 @@
  */
 package org.lockss.test;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -38,6 +41,8 @@ import java.util.Map;
 import java.util.Properties;
 import org.lockss.config.ConfigManager;
 import org.lockss.util.Logger;
+import org.lockss.util.MapUtil;
+import org.lockss.util.TemplateUtil;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -66,6 +71,9 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   // The path to the configuration file with the platform disk space location
   // definition.
   private String platformDiskSpaceConfigPath = null;
+
+  // The configuration file that specifies the UI port.
+  private File uiPortConfigFile = null;
 
   /**
    * Provides the path to the temporary directory where the test data will
@@ -277,5 +285,46 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
       // Make the copy.
       FileCopyUtils.copy(source, destination);
     }
+  }
+
+  /**
+   * Creates the configuration file that specifies the UI port, determined by
+   * picking a currently unused port.
+   * 
+   * @param uiPortConfigTemplateName
+   *          A String with the name of the template used as a source.
+   * @param uiPortConfigFileName
+   *          A String with the name of the UI port configuration file to be
+   *          created.
+   * @throws IOException
+   *           if there are problems reading the template or writing the output.
+   */
+  protected void setUpUiPort(String uiPortConfigTemplateName,
+      String uiPortConfigFileName) throws IOException {
+    if (log.isDebug2())
+      log.debug2("uiPortConfigFileName = " + uiPortConfigFileName);
+
+    // Create the UI port configuration file output file.
+    uiPortConfigFile = new File(getTempDirPath(), uiPortConfigFileName);
+    if (log.isDebug3()) log.debug("uiPortConfigFile = " + uiPortConfigFile);
+
+    // Find an unused port.
+    int uiPort = TcpTestUtil.findUnboundTcpPort();
+    if (log.isDebug3()) log.debug("uiPort = " + uiPort);
+
+    // Write the UI port configuration file using the template file.
+    try (Writer writer = new BufferedWriter(new FileWriter(uiPortConfigFile))) {
+      TemplateUtil.expandTemplate(uiPortConfigTemplateName, writer,
+	  MapUtil.map("UIPort", Integer.toString(uiPort)));
+    }
+  }
+
+  /**
+   * Provides the UI port configuration file.
+   * 
+   * @return a File with the UI port configuration file.
+   */
+  protected File getUiPortConfigFile() {
+    return uiPortConfigFile;
   }
 }
