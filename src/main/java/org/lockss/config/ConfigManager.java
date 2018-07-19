@@ -688,8 +688,9 @@ public class ConfigManager implements LockssManager {
   // The map of parent configuration files.
   Map<String, ConfigFile> parentConfigFile = new HashMap<String, ConfigFile>();
 
-  // The counter of configuration reload requests.
-  private int configReloadRequestCounter = 0;
+  // The counter of configuration reload requests. Accessed from separate
+  // threads.
+  private volatile int configReloadRequestCounter = 0;
 
   public ConfigManager() {
     this(null, null);
