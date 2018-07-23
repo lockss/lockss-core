@@ -3340,34 +3340,6 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-
-  // TK should go into a template util
-  void expandTemplate(String name, Writer wrtr, Map<String,String> valMap)
-      throws IOException {
-    InputStream is = getClass().getResourceAsStream(name);
-    if (is == null) {
-      throw new IllegalArgumentException("No such config template file: " +
-					 name);
-    }
-    try {
-      String template = StringUtil.fromInputStream(is);
-      SimpleWriterTemplateExpander t =
-	new SimpleWriterTemplateExpander(template, wrtr);
-      String token;
-      while ((token = t.nextToken()) != null) {
-	String val = valMap.get(token);
-	if (val != null) {
-	  wrtr.write(val);
-	} else {
-	  log.warning("Unknown token '" + token + "' in config template");
-	}
-      }
-      wrtr.flush();
-    } finally {
-      IOUtil.safeClose(is);
-    }
-  }
-
   void generateClusterFile(File file) throws IOException {
     StringBuilder sb = new StringBuilder();
     if (clusterUrls == null) {

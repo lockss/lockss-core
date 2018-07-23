@@ -43,10 +43,11 @@ public class TemplateUtil {
   private static final Logger log = Logger.getLogger(TemplateUtil.class);
 
   /**
-   * Writes the contents of a template file interpolated with the passed values.
+   * Writes the contents of a template resource interpolated with the passed
+   * values.
    * 
-   * @param name
-   *          A String with the name of the template file.
+   * @param resourceName
+   *          A String with the name of the template resource.
    * @param wrtr
    *          A Writer used to write the output.
    * @param valMap
@@ -54,16 +55,37 @@ public class TemplateUtil {
    * @throws IOException
    *           if there are problems reading the template or writing the output.
    */
-  public static void expandTemplate(String name, Writer wrtr,
+  public static void expandTemplate(String resourceName, Writer wrtr,
       Map<String,String> valMap) throws IOException {
     InputStream is =
-	ClassLoader.getSystemClassLoader().getResourceAsStream(name);
+	ClassLoader.getSystemClassLoader().getResourceAsStream(resourceName);
     if (is == null) {
-      throw new IllegalArgumentException("No such config template file: " +
-					 name);
+      throw new IllegalArgumentException("No such template file: " +
+					 resourceName);
+    }
+    expandTemplate(is, wrtr, valMap);
+  }
+
+  /**
+   * Writes the contents of an input stream-provided template interpolated with
+   * the passed values.
+   * 
+   * @param templateStream
+   *          An InputStream providing the template contents.
+   * @param wrtr
+   *          A Writer used to write the output.
+   * @param valMap
+   *          A Map<String,String> with the values to be interpolated.
+   * @throws IOException
+   *           if there are problems reading the template or writing the output.
+   */
+  public static void expandTemplate(InputStream templateStream, Writer wrtr,
+      Map<String,String> valMap) throws IOException {
+    if (templateStream == null) {
+      throw new IllegalArgumentException("Template input stream is null");
     }
     try {
-      String template = StringUtil.fromInputStream(is);
+      String template = StringUtil.fromInputStream(templateStream);
       SimpleWriterTemplateExpander t =
 	new SimpleWriterTemplateExpander(template, wrtr);
       String token;
@@ -72,12 +94,12 @@ public class TemplateUtil {
 	if (val != null) {
 	  wrtr.write(val);
 	} else {
-	  log.warning("Unknown token '" + token + "' in config template");
+	  log.warning("Unknown token '" + token + "' in template");
 	}
       }
       wrtr.flush();
     } finally {
-      IOUtil.safeClose(is);
+      IOUtil.safeClose(templateStream);
     }
   }
 }
