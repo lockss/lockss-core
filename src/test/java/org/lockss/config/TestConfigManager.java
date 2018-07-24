@@ -1784,6 +1784,73 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(cf, mgr.getUrlParent("http://child"));
   }
 
+  @Test
+  public void testRestServiceEffect() {
+    // No REST Configuration service configured: This is the REST Configuration
+    // service itself.
+    ConfigManager noRestServiceConfigManager =
+	MyConfigManager.makeConfigManager(getMockLockssDaemon());
+
+    // Long reload interval default.
+    assertEquals(10 * Constants.MINUTE,
+	noRestServiceConfigManager.reloadInterval);
+
+    // Reconfigure the reload interval.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_RELOAD_INTERVAL, "12345");
+    assertEquals(12345, noRestServiceConfigManager.reloadInterval);
+
+    // There is a remote configuration failover setup by default.
+    noRestServiceConfigManager.setUpRemoteConfigFailover();
+    assertNotNull(noRestServiceConfigManager.remoteConfigFailoverDir);
+    assertNotNull(noRestServiceConfigManager.rcfm);
+
+    // Disable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"false");
+    noRestServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(noRestServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(noRestServiceConfigManager.rcfm);
+
+    // Enable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"true");
+    noRestServiceConfigManager.setUpRemoteConfigFailover();
+    assertNotNull(noRestServiceConfigManager.remoteConfigFailoverDir);
+    assertNotNull(noRestServiceConfigManager.rcfm);
+
+    // There is a REST Configuration service configured: This is a client.
+    ConfigManager restServiceConfigManager =
+	MyConfigManager.makeConfigManager(getMockLockssDaemon(),
+	    "http://localhost:12345");
+
+    // Short reload interval default.
+    assertEquals(15 * Constants.SECOND,
+	restServiceConfigManager.reloadInterval);
+
+    // Reconfigure the reload interval.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_RELOAD_INTERVAL, "12345");
+    assertEquals(12345, restServiceConfigManager.reloadInterval);
+
+    // There is no remote configuration failover setup by default.
+    restServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(restServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(restServiceConfigManager.rcfm);
+
+    // Disable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"false");
+    restServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(restServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(restServiceConfigManager.rcfm);
+
+    // Enable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"true");
+    restServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(restServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(restServiceConfigManager.rcfm);
+  }
+
   private Configuration newConfiguration() {
     return new ConfigurationPropTreeImpl();
   }
@@ -1797,6 +1864,22 @@ public class TestConfigManager extends LockssTestCase4 {
       theMgr = new MyConfigManager();
       theMgr.initService(daemon);
       return theMgr;
+    }
+
+    public static ConfigManager makeConfigManager(LockssDaemon daemon,
+	String restConfigServiceUrl) {
+      theMgr = new MyConfigManager(null, restConfigServiceUrl, null, null);
+      theMgr.initService(daemon);
+      return theMgr;
+    }
+
+    public MyConfigManager() {
+      super();
+    }
+
+    public MyConfigManager(String bootstrapPropsUrl,
+	String restConfigServiceUrl, List<String> urls, String groupNames) {
+      super(bootstrapPropsUrl, restConfigServiceUrl, urls, groupNames);
     }
 
     @Override

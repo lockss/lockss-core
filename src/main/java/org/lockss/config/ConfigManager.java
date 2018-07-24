@@ -665,7 +665,7 @@ public class ConfigManager implements LockssManager {
   private LockssUrlConnectionPool connPool = new LockssUrlConnectionPool();
   private LockssSecureSocketFactory secureSockFact;
 
-  private long reloadInterval = 10 * Constants.MINUTE;
+  long reloadInterval = 10 * Constants.MINUTE;
   private long sendVersionEvery = DEFAULT_SEND_VERSION_EVERY;
   private int maxDeferredAuBatchSize = DEFAULT_MAX_DEFERRED_AU_BATCH_SIZE;
 
@@ -716,6 +716,12 @@ public class ConfigManager implements LockssManager {
       List urls, String groupNames) {
     this.bootstrapPropsUrl = bootstrapPropsUrl;
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
+    // Check whether this is not happening in a REST Configuration service
+    // environment.
+    if (restConfigClient.isActive()) {
+      // Yes: Try to reload the configuration much more often.
+      reloadInterval = 15 * Constants.SECOND;
+    }
     if (urls != null) {
       configUrlList = new ArrayList(urls);
     }
@@ -2958,7 +2964,10 @@ public class ConfigManager implements LockssManager {
 
   void setUpRemoteConfigFailover() {
     Configuration plat = getPlatformConfig();
-    if (plat.getBoolean(PARAM_REMOTE_CONFIG_FAILOVER,
+    // Check whether this is not happening in a REST Configuration service
+    // environment and remote configuration failover is not disabled.
+    if (!restConfigClient.isActive() &&
+	plat.getBoolean(PARAM_REMOTE_CONFIG_FAILOVER,
 			DEFAULT_REMOTE_CONFIG_FAILOVER)) {
       remoteConfigFailoverDir =
 	new File(cacheConfigDir, plat.get(PARAM_REMOTE_CONFIG_FAILOVER_DIR,
