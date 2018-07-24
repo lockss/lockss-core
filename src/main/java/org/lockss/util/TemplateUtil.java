@@ -57,8 +57,8 @@ public class TemplateUtil {
    */
   public static void expandTemplate(String resourceName, Writer wrtr,
       Map<String,String> valMap) throws IOException {
-    InputStream is =
-	ClassLoader.getSystemClassLoader().getResourceAsStream(resourceName);
+    ClassLoader cl = Thread.currentThread().getContextClassLoader();
+    InputStream is = cl.getResourceAsStream(resourceName);
     if (is == null) {
       throw new IllegalArgumentException("No such template file: " +
 					 resourceName);
