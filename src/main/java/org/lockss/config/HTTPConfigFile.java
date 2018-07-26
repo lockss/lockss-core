@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2001-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -63,6 +63,7 @@ public class HTTPConfigFile extends BaseConfigFile {
   public static final boolean DEFAULT_CHARSET_UTIL = true;
 
   private String m_httpLastModifiedString = null;
+  private String httpEtag = null;
 
   private LockssUrlConnectionPool m_connPool;
   private boolean checkAuth = false;
@@ -182,24 +183,9 @@ public class HTTPConfigFile extends BaseConfigFile {
     switch (resp) {
     case HttpURLConnection.HTTP_OK:
       m_loadError = null;
-
-      String eTag = conn.getResponseHeaderValue("ETag");
-      log.debug3(url + " eTag = " + eTag);
-
-      // Check whether the raw eTag has content.
-      if (!StringUtil.isNullString(eTag)) {
-	// Yes: Check whether it is surrounded by double quotes.
-	if (eTag.startsWith("\"") && eTag.endsWith("\"")) {
-	  // Yes: Remove any surrounding double quotes.
-	  m_httpLastModifiedString = eTag.substring(1, eTag.length()-1);
-	} else {
-	  // No: Use it as is.
-	  m_httpLastModifiedString = eTag;
-	}
-      } else {
-	// No: use the Last-Modified header.
-	m_httpLastModifiedString = conn.getResponseHeaderValue("last-modified");
-      }
+      m_httpLastModifiedString = conn.getResponseHeaderValue("last-modified");
+      httpEtag = conn.getResponseHeaderValue("ETag");
+      if (log.isDebug3()) log.debug3(url + " returned httpEtag = " + httpEtag);
       log.debug2("New file, or file changed.  Loading file from " +
 		 "remote connection:" + url);
       in = conn.getUncompressedResponseInputStream();
