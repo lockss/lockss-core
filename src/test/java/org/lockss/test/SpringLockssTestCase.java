@@ -59,7 +59,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 public abstract class SpringLockssTestCase extends LockssTestCase4 {
   public static final String PLATFORM_DISK_SPACE_CONFIG_FILENAME =
-      "platform.opt";
+      "platform.txt";
 
   private static final Logger log =
       Logger.getLoggerWithInitialLevel("SpringLockssTestCase",
@@ -74,6 +74,9 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 
   // The configuration file that specifies the UI port.
   private File uiPortConfigFile = null;
+
+  // The configuration file that specifies the database properties.
+  private File dbConfigFile = null;
 
   /**
    * Provides the path to the temporary directory where the test data will
@@ -326,5 +329,40 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    */
   protected File getUiPortConfigFile() {
     return uiPortConfigFile;
+  }
+
+  /**
+   * Creates the configuration file that specifies the database properties.
+   * 
+   * @param dbConfigTemplateName
+   *          A String with the name of the template used as a source.
+   * @param dbConfigFileName
+   *          A String with the name of the database configuration file to be
+   *          created.
+   * @throws IOException
+   *           if there are problems reading the template or writing the output.
+   */
+  protected void setUpDbConfig(String dbConfigTemplateName,
+      String dbConfigFileName) throws IOException {
+    if (log.isDebug2()) log.debug2("dbConfigFileName = " + dbConfigFileName);
+
+    // Create the database configuration file output file.
+    dbConfigFile = new File(getTempDirPath(), dbConfigFileName);
+    if (log.isDebug3()) log.debug("dbConfigFile = " + dbConfigFile);
+
+    // Write the database configuration file using the template file.
+    try (Writer writer = new BufferedWriter(new FileWriter(dbConfigFile))) {
+      TemplateUtil.expandTemplate(dbConfigTemplateName, writer,
+	  MapUtil.map("DbPath", getTempDirPath()));
+    }
+  }
+
+  /**
+   * Provides the database configuration file.
+   * 
+   * @return a File with the database configuration file.
+   */
+  protected File getDbConfigFile() {
+    return dbConfigFile;
   }
 }
