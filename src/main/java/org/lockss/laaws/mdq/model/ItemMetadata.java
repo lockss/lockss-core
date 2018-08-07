@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,12 +31,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The metadata generated for a single item.
  **/
-public class ItemMetadata   {
+public class ItemMetadata {
   private Map<String, String> scalarMap = new HashMap<String, String>();
+  private Map<String, Set<String>> setMap = new HashMap<String, Set<String>>();
   private Map<String, List<String>> listMap =
       new HashMap<String, List<String>>();
 
@@ -61,6 +63,19 @@ public class ItemMetadata   {
 
   public void setScalarMap(Map<String, String> scalarMap) {
     this.scalarMap = scalarMap;
+  }
+
+  /**
+   * The map of set-bound metadata elements for this item.
+   * 
+   * @return setMap
+   **/
+  public Map<String, Set<String>> getSetMap() {
+    return setMap;
+  }
+
+  public void setSetMap(Map<String, Set<String>> setMap) {
+    this.setMap = setMap;
   }
 
   /**
@@ -99,13 +114,14 @@ public class ItemMetadata   {
     }
     ItemMetadata itemMetadata = (ItemMetadata) o;
     return Objects.equals(this.scalarMap, itemMetadata.scalarMap) &&
+        Objects.equals(this.setMap, itemMetadata.setMap) &&
         Objects.equals(this.listMap, itemMetadata.listMap) &&
         Objects.equals(this.mapMap, itemMetadata.mapMap);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(scalarMap, listMap, mapMap);
+    return Objects.hash(scalarMap, setMap, listMap, mapMap);
   }
 
   @Override
@@ -114,6 +130,7 @@ public class ItemMetadata   {
     sb.append("class ItemMetadata {\n");
     sb.append("    scalarMap: ").append(toIndentedString(scalarMap))
     .append("\n");
+    sb.append("    setMap: ").append(toIndentedString(setMap)).append("\n");
     sb.append("    listMap: ").append(toIndentedString(listMap)).append("\n");
     sb.append("    mapMap: ").append(toIndentedString(mapMap)).append("\n");
     sb.append("}");

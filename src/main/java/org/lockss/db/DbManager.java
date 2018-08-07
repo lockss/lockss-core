@@ -893,19 +893,6 @@ public class DbManager extends BaseLockssManager
     if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	+ "dataSourceDbName = '" + dataSourceDbName + "'.");
 
-    // Check whether the Derby database is being used.
-    if (dbManagerSql.isTypeDerby()) {
-      // Yes: Get the data source root directory.
-      File datasourceDir = ConfigManager.getConfigManager()
-	  .findConfiguredDataDir(dataSourceDbName, dataSourceDbName, false);
-	      //"db/" + this.getClass().getSimpleName(), false);
-
-      // Save the data source root directory.
-      dataSourceDbName = FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	  + "dataSourceDbName = '" + dataSourceDbName + "'.");
-    }
-
     dsConfig.put("databaseName", dataSourceDbName);
 
     // Save the Derby credentials for later authentication.
@@ -932,7 +919,7 @@ public class DbManager extends BaseLockssManager
       }
     }
 
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "dsConfig = " + dsConfig);
     return dsConfig;
   }
 
@@ -972,7 +959,13 @@ public class DbManager extends BaseLockssManager
 
   protected String getDataSourceDatabaseName(Configuration config) {
     if (dbManagerSql.isTypeDerby()) {
-      return "db/" + this.getClass().getSimpleName();
+      // Yes: Get the data source root directory.
+      String pathFromCache = "db/" + this.getClass().getSimpleName();
+      File datasourceDir = ConfigManager.getConfigManager()
+	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
+
+      // Return the data source root directory.
+      return FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
     }
 
     return this.getClass().getSimpleName();
@@ -1554,7 +1547,7 @@ public class DbManager extends BaseLockssManager
 	    + " column in " + VERSION_TABLE + " table exists.");
       }
 
-      String subsystem = this.getClass().getSimpleName();
+      String subsystem = getVersionSubsystemName();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "subsystem = " + subsystem);
 
       // Find the current database version.
@@ -1744,6 +1737,9 @@ public class DbManager extends BaseLockssManager
 	  + finalDatabaseVersion);
     }
 
+    String subsystem = getVersionSubsystemName();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "subsystem = " + subsystem);
+
     int lastRecordedVersion = existingDatabaseVersion;
 
     // Loop through all the versions to be updated to reach the targeted
@@ -1778,16 +1774,14 @@ public class DbManager extends BaseLockssManager
 		|| Arrays.binarySearch(asynchronousUpdates, from + 1) < 0) {
 	      // Yes: Record the current database version in the database.
 	      lastRecordedVersion = from + 1;
-	      recordDbVersion(conn, this.getClass().getSimpleName(),
-		  lastRecordedVersion);
+	      recordDbVersion(conn, subsystem, lastRecordedVersion);
 	      if (log.isDebug())
 		log.debug("Database updated to version " + lastRecordedVersion);
 	    }
 	  } else {
 	    // No: Record the current database version in the database.
 	    lastRecordedVersion = from + 1;
-	    recordDbVersion(conn, this.getClass().getSimpleName(),
-		lastRecordedVersion);
+	    recordDbVersion(conn, subsystem, lastRecordedVersion);
 	    if (log.isDebug())
 	      log.debug("Database updated to version " + lastRecordedVersion);
 
@@ -1994,7 +1988,22 @@ public class DbManager extends BaseLockssManager
     return result;
   }
 
+  /**
+   * Provides the credentials map used to verify authentication when accessing a
+   * Derby database that requires it.
+   * 
+   * @return a Map<String, DbCredentials> with the credentials map.
+   */
   static Map<String, DbCredentials> getDbCredentialsMap() {
     return dbCredentialsMap;
+  }
+
+  /**
+   * Provides the subsystem name to be used in the version table.
+   * 
+   * @return A String with the subsystem name to be used in the version table.
+   */
+  protected String getVersionSubsystemName() {
+    return this.getClass().getSimpleName();
   }
 }

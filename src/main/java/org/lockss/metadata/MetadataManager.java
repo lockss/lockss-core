@@ -75,6 +75,23 @@ public class MetadataManager extends BaseLockssManager {
   private MetadataManagerSql mdManagerSql;
 
   /**
+   * No-argument constructor.
+   */
+  public MetadataManager() {
+  }
+
+  /**
+   * Constructor used for generating a testing database.
+   *
+   * @param dbManager
+   *          A MetadataDbManager with the database manager to be used.
+   */
+  public MetadataManager(MetadataDbManager dbManager) {
+    this.dbManager = dbManager;
+    mdManagerSql = new MetadataManagerSql(dbManager);
+  }
+
+  /**
    * Starts the MetadataManager service.
    */
   @Override
