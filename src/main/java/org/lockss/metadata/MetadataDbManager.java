@@ -161,6 +161,7 @@ public class MetadataDbManager extends DbManager
    */
   public MetadataDbManager() {
     super();
+    setUpVersions();
   }
 
   /**
@@ -171,6 +172,15 @@ public class MetadataDbManager extends DbManager
    */
   public MetadataDbManager(boolean skipAsynchronousUpdates) {
     super(skipAsynchronousUpdates);
+    setUpVersions();
+  }
+
+  /**
+   * Sets up update versions.
+   */
+  private void setUpVersions() {
+    targetDatabaseVersion = 28;
+    asynchronousUpdates = new int[] {10, 15, 17, 20, 22};
   }
 
   /**
@@ -218,9 +228,6 @@ public class MetadataDbManager extends DbManager
       fetchSize = config.getInt(PARAM_FETCH_SIZE, DEFAULT_FETCH_SIZE);
       dbManagerSql.setFetchSize(fetchSize);
     }
-
-    targetDatabaseVersion = 28;
-    asynchronousUpdates = new int[] {10, 15, 17, 20, 22};
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
