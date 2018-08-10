@@ -37,6 +37,7 @@ import java.util.zip.GZIPOutputStream;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 
 /** LockssDatagram describes the datagram packets exchanged between LOCKSS

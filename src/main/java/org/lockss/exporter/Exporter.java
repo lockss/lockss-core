@@ -40,6 +40,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.config.*;
 import org.lockss.plugin.*;

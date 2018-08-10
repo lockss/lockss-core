@@ -42,6 +42,7 @@ import org.lockss.crawler.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;

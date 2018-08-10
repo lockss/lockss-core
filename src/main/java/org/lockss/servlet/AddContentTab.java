@@ -43,6 +43,7 @@ import org.lockss.plugin.*;
 import org.lockss.remote.RemoteApi;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
 import org.mortbay.html.*;

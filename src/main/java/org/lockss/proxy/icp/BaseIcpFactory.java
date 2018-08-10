@@ -35,6 +35,7 @@ package org.lockss.proxy.icp;
 import java.net.UnknownHostException;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /**
  * <p>A skeleton implementation of {@link IcpFactory}.</p>

@@ -38,6 +38,7 @@ import java.util.*;
 import org.apache.commons.lang3.time.FastDateFormat;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
 import org.lockss.util.time.TimeZoneUtil;

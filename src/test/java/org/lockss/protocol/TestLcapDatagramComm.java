@@ -42,6 +42,7 @@ import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.TimerUtil;
 
 

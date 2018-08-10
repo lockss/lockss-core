@@ -40,6 +40,7 @@ import org.lockss.util.test.FileTestUtil;
 import org.lockss.poller.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.mortbay.util.B64Code;
 
 /** JUnitTest case for class: org.lockss.protocol.Identity */

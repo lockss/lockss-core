@@ -38,6 +38,7 @@ import org.lockss.app.*;
 import org.lockss.protocol.IdentityManager.MalformedIdentityKeyException;
 import org.lockss.util.*;
 import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.TimeBase;
 
 /**

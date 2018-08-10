@@ -37,6 +37,7 @@ import java.util.*;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.TimeUtil;
 import org.lockss.daemon.status.*;
 //import com.meterware.servletunit.*;

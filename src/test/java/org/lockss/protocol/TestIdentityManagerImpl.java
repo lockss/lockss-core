@@ -43,6 +43,7 @@ import org.lockss.poller.Poll;
 import org.lockss.state.AuState;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.TimeBase;
 
 import junit.framework.Test;

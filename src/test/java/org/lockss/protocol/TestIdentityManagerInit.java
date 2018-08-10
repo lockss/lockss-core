@@ -37,6 +37,7 @@ import java.util.*;
 import java.net.UnknownHostException;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.test.*;
 
 /** Test cases for org.lockss.protocol.IdentityManager that test

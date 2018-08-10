@@ -37,6 +37,7 @@ import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /**
  * <p>An implementation of {@link IcpFactory} that produces immutable

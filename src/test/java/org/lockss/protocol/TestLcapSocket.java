@@ -39,6 +39,7 @@ import junit.framework.TestCase;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.util.time.Deadline;
 import org.lockss.test.*;
