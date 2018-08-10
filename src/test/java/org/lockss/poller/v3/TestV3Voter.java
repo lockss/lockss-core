@@ -46,6 +46,7 @@ import org.lockss.state.*;
 import org.lockss.hasher.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 import static org.lockss.util.Constants.*;
 

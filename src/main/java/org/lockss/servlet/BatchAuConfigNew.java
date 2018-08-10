@@ -50,6 +50,7 @@ import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.mortbay.html.*;
 
 /** Create and update AU configuration.

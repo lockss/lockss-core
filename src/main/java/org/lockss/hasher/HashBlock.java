@@ -35,7 +35,7 @@ import java.security.*;
 import java.util.*;
 
 import org.lockss.plugin.*;
-import org.lockss.util.LockssSerializable;
+import org.lockss.util.io.LockssSerializable;
 
 /** Result of a single-block V3 hash, passed to the ContentHasher's
  * HashBlockCallback.  A block contains multiple versions, which can be

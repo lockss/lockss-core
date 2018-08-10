@@ -36,7 +36,10 @@ import java.util.*;
 import java.io.*;
 
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 import org.lockss.app.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 
 /**

@@ -38,7 +38,6 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.jetty;
 
-import org.lockss.util.PlatformUtil;
 import org.mortbay.util.*;
 import java.io.*;
 import java.net.*;
@@ -46,6 +45,7 @@ import java.net.URI;
 import java.security.Permission;
 
 import org.apache.commons.logging.Log;
+import org.lockss.util.os.PlatformUtil;
 import org.mortbay.log.LogFactory;
 
 

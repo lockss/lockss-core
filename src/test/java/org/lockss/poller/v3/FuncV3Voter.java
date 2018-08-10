@@ -45,6 +45,7 @@ import org.lockss.state.*;
 import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 public class FuncV3Voter extends LockssTestCase {
 

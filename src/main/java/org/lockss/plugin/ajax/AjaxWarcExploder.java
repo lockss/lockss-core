@@ -47,6 +47,8 @@ import org.lockss.daemon.PluginException;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.BaseExploderHelper;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.CacheException;
 
 import java.io.IOException;
@@ -212,7 +214,7 @@ public class AjaxWarcExploder extends WarcExploder {
                                            DEFAULT_RETRY_PAUSE);
       Deadline pause = Deadline.in(pauseTime);
       logger.debug3("Sleeping for " +
-                    StringUtil.timeIntervalToString(pauseTime));
+                    TimeUtil.timeIntervalToString(pauseTime));
       while (!pause.expired()) {
         try {
           pause.sleep();

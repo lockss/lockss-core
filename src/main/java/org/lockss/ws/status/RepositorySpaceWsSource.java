@@ -53,10 +53,8 @@ import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.repository.OldLockssRepositoryImpl;
-import org.lockss.util.Logger;
-import org.lockss.util.PlatformUtil;
-import org.lockss.util.PropUtil;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 
 public class RepositorySpaceWsSource extends RepositorySpaceWsResult {

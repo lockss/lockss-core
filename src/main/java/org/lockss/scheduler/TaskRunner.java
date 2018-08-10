@@ -46,6 +46,9 @@ import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 class TaskRunner {
   // Sort options for displaying queue
@@ -1214,7 +1217,7 @@ class TaskRunner {
       if (delta > 1000) {
 	delta = ((delta + 500) / 1000) * 1000; // round to nearest second
       }
-      return StringUtil.timeIntervalToString(delta);
+      return TimeUtil.timeIntervalToString(delta);
     }
 
     private class CombinedBackgroundEvent extends Schedule.BackgroundEvent {

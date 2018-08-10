@@ -41,6 +41,7 @@ import org.custommonkey.xmlunit.XMLUnit;
 import org.lockss.config.CurrentConfig;
 import org.lockss.test.*;
 import org.lockss.util.SerializationException;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * <p>Tests the {@link org.lockss.util.ObjectSerializer} abstract

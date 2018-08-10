@@ -35,6 +35,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.lockss.app.LockssDaemon;
 import org.lockss.db.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * The COUNTER Journal Report 5.

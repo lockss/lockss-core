@@ -37,6 +37,7 @@ import org.lockss.exporter.biblio.BibliographicUtil;
 import org.lockss.test.LockssTestCase;
 import org.lockss.exporter.kbart.KbartTitle.Field;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 
 /**

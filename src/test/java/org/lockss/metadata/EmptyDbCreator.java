@@ -34,7 +34,7 @@ import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.util.Logger;
-import org.lockss.util.PlatformUtil;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Creates an empty database.

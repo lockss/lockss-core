@@ -40,6 +40,10 @@ import org.apache.commons.collections.map.LinkedMap;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.plugin.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -607,7 +611,7 @@ public class RepositoryManager
               doSizeCalc(node);
               dur = TimeBase.nowMs() - start;
               log.debug2("CalcSize finish (" +
-                  StringUtil.timeIntervalToString(dur) + "): " + node);
+                  TimeUtil.timeIntervalToString(dur) + "): " + node);
             } catch (RuntimeException e) {
               log.warning("doSizeCalc: " + node, e);
             }

@@ -37,6 +37,7 @@ import java.util.*;
 import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.poller.*;

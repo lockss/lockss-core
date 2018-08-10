@@ -39,9 +39,10 @@ import java.sql.SQLException;
 import java.sql.SQLTransientException;
 import java.sql.Statement;
 import javax.sql.DataSource;
-import org.lockss.util.Deadline;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
+
+import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * Bridge between the database manager and the JDBC code.
@@ -119,7 +120,7 @@ public class JdbcBridge {
 	  // next retry.
 	  log.debug(DEBUG_HEADER + "Transient exception caught", sqlte);
 	  log.debug(DEBUG_HEADER + "Waiting "
-	      	    + StringUtil.timeIntervalToString(retryDelay)
+	      	    + TimeUtil.timeIntervalToString(retryDelay)
 	      	    + " before retry number " + retryCount + "...");
 
 	  try {
@@ -384,7 +385,7 @@ public class JdbcBridge {
 	  // next retry.
 	  log.debug(DEBUG_HEADER + "Transient exception caught", sqlte);
 	  log.debug(DEBUG_HEADER + "Waiting "
-	      	    + StringUtil.timeIntervalToString(retryDelay)
+	      	    + TimeUtil.timeIntervalToString(retryDelay)
 	      	    + " before retry number " + retryCount + "...");
 
 	  try {
@@ -487,7 +488,7 @@ public class JdbcBridge {
 	  // next retry.
 	  log.debug(DEBUG_HEADER + "Transient exception caught", sqlte);
 	  log.debug(DEBUG_HEADER + "Waiting "
-		    + StringUtil.timeIntervalToString(retryDelay)
+		    + TimeUtil.timeIntervalToString(retryDelay)
 		    + " before retry number " + retryCount + "...");
 
 	  try {
@@ -558,7 +559,7 @@ public class JdbcBridge {
 	  // next retry.
 	  log.debug(DEBUG_HEADER + "Transient exception caught", sqlte);
 	  log.debug(DEBUG_HEADER + "Waiting "
-		    + StringUtil.timeIntervalToString(retryDelay)
+		    + TimeUtil.timeIntervalToString(retryDelay)
 		    + " before retry number " + retryCount + "...");
 
 	  try {

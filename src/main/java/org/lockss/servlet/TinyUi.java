@@ -37,6 +37,7 @@ import java.net.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.jetty.*;
 import org.mortbay.http.*;
 import org.mortbay.http.handler.*;

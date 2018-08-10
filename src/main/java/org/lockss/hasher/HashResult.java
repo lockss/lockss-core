@@ -36,6 +36,7 @@ import java.security.MessageDigest;
 import java.util.*;
 
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * Wrap the byte array returned by {@link MessageDigest#digest()}

@@ -36,6 +36,7 @@ import java.io.File;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.poller.*;
 import org.lockss.test.*;
 import org.lockss.util.*;

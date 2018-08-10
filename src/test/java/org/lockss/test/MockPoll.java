@@ -34,6 +34,7 @@ package org.lockss.test;
 import org.lockss.protocol.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.poller.*;
 
 /**

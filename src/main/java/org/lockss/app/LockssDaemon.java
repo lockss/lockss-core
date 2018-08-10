@@ -37,6 +37,7 @@ import java.util.*;
 import org.apache.commons.lang3.*;
 import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.alert.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;

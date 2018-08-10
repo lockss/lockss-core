@@ -36,6 +36,7 @@ import java.util.*;
 
 import org.lockss.app.LockssApp;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * Descriptor for a configuration parameter, and instances of descriptors

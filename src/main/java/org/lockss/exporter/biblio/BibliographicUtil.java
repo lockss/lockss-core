@@ -38,6 +38,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.oro.text.regex.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Utility methods for {@link BibliographicItem}s and their data.

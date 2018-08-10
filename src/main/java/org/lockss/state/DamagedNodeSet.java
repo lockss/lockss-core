@@ -36,7 +36,7 @@ package org.lockss.state;
 import java.util.*;
 import org.lockss.plugin.*;
 import org.lockss.util.ExtMapBean;
-import org.lockss.util.LockssSerializable;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * DamagedNodeMap is a write-through persistent wrapper for a hashmap and a set.

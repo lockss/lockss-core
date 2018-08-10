@@ -42,6 +42,8 @@ import org.lockss.poller.v3.V3Poller.PollVariant;
 import org.lockss.repository.AuSuspectUrlVersions;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 
 public class TestAuState extends LockssTestCase {
   MockLockssDaemon daemon;

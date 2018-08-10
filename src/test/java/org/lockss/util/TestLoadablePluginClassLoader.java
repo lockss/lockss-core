@@ -40,6 +40,7 @@ import org.lockss.test.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
 import org.lockss.daemon.*;
+import org.lockss.util.test.FileTestUtil;
 
 /**
  * Test class for <code>org.lockss.util.LoadablePluginClassLoader</code>.

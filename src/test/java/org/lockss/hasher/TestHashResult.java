@@ -36,6 +36,7 @@ import java.io.*;
 import java.util.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 public class TestHashResult extends LockssTestCase {
   public static byte[] bytes = {0, 1, 2};

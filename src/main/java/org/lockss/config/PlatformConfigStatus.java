@@ -37,6 +37,9 @@ import java.util.*;
 import org.lockss.app.*;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
+
 import static org.lockss.config.ConfigManager.*;
 
 /** Display Platform Configuration */

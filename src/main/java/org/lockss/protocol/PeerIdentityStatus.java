@@ -35,6 +35,8 @@ package org.lockss.protocol;
 import java.util.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 
 public class PeerIdentityStatus implements LockssSerializable {
   // The LCAP Identity of the peer

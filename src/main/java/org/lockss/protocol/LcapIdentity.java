@@ -37,6 +37,8 @@ import org.mortbay.util.B64Code;
 import org.lockss.app.*;
 import org.lockss.protocol.IdentityManager.MalformedIdentityKeyException;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 
 /**
  * quick and dirty wrapper class for a network identity.

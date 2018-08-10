@@ -109,19 +109,10 @@ import org.lockss.servlet.DisplayConverter;
 import org.lockss.state.AuState;
 import org.lockss.state.HistoryRepository;
 import org.lockss.state.SubstanceChecker;
-import org.lockss.util.ByteArray;
-import org.lockss.util.CollectionUtil;
-import org.lockss.util.CompoundLinearSlope;
-import org.lockss.util.Constants;
-import org.lockss.util.Deadline;
-import org.lockss.util.Logger;
-import org.lockss.util.PatternFloatMap;
-import org.lockss.util.ProbabilisticChoice;
-import org.lockss.util.RegexpUtil;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
-import org.lockss.util.TimeInterval;
-import org.lockss.util.TimerQueue;
+import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * <p>The caller of a V3 Poll.  This class is responsible for inviting
@@ -941,7 +932,7 @@ public class V3Poller implements Poll {
     boolean suc = theDaemon.getSchedService().scheduleTask(task);
     if (!suc) {
       String msg = "No room in schedule for " +
-          StringUtil.timeIntervalToString(hashEst) + " hash between " +
+          TimeUtil.timeIntervalToString(hashEst) + " hash between " +
           earliestStart + " and " + latestFinish + ", at " + TimeBase.nowDate();
       pollerState.setErrorDetail(msg);
       log.warning(msg);
@@ -1108,7 +1099,7 @@ public class V3Poller implements Poll {
       // Set up an event on the timer queue to check for accepted peers.
       // If we haven't got enough peers, invite more.
       log.debug("Scheduling check for more peers to invite in " +
-          StringUtil.timeIntervalToString(timeBetweenInvitations));
+          TimeUtil.timeIntervalToString(timeBetweenInvitations));
       nextInvitationTime = Deadline.in(timeBetweenInvitations);
       invitationRequest =
           TimerQueue.schedule(nextInvitationTime,
@@ -3798,7 +3789,7 @@ public class V3Poller implements Poll {
           new BlockEventHandler())) {
         long hashEst = cus.estimatedHashDuration();
         String msg = "No time for " +
-            StringUtil.timeIntervalToString(hashEst) + " hash between " +
+            TimeUtil.timeIntervalToString(hashEst) + " hash between " +
             TimeBase.nowDate() + " and " + Deadline.at(tallyEnd);
         log.error(msg + ": " + pollerState.getPollKey());
         pollerState.setErrorDetail(msg);

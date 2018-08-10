@@ -42,6 +42,9 @@ import org.lockss.crawler.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -279,7 +282,7 @@ public class BaseUrlFetcher implements UrlFetcher {
           long delayTime = crawlFacade.getRetryDelay(e);
           Deadline wait = Deadline.in(delayTime);
           log.debug3("Waiting " +
-              StringUtil.timeIntervalToString(delayTime) +
+              TimeUtil.timeIntervalToString(delayTime) +
               " before retry");
           while (!wait.expired()) {
             try {

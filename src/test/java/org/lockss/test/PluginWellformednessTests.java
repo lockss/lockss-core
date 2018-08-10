@@ -44,6 +44,7 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.state.*;
 import org.lockss.extractor.*;
+import org.lockss.util.test.FileTestUtil;
 
 /** Performs basic well-formedness tests on one or more plugins.  The list
  * of plugins may be supplied as a semicolon-separated list in the System

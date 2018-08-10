@@ -38,6 +38,7 @@ import java.net.*;
 import java.text.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 

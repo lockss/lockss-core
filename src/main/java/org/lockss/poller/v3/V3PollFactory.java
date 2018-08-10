@@ -49,6 +49,7 @@ import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 public class V3PollFactory implements PollFactory {
   public static Logger log = Logger.getLogger("V3PollFactory");

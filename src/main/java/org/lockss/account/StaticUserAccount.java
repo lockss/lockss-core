@@ -34,6 +34,7 @@ package org.lockss.account;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /** Static user account for non-editable accounts
  */

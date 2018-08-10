@@ -34,6 +34,8 @@ package org.lockss.protocol;
 
 import java.io.File;
 
+import org.lockss.util.test.FileTestUtil;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.test.*;
 import org.lockss.util.*;
 

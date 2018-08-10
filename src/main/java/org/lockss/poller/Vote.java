@@ -36,6 +36,7 @@ import org.mortbay.util.B64Code;
 import org.lockss.protocol.*;
 import java.util.Arrays;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * Vote stores the information need to replay a single vote. These are needed

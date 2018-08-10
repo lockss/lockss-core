@@ -66,7 +66,7 @@ import org.lockss.test.MockArchivalUnit;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.MockPlugin;
 import org.lockss.util.ListUtil;
-import org.lockss.util.PlatformUtil;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Test class for org.lockss.subscription.SubscriptionManager.

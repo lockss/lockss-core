@@ -37,6 +37,7 @@ import junit.framework.TestCase;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.protocol.*;
 import java.net.*;

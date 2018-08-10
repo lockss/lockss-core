@@ -39,6 +39,7 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.mail.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /** An AlertAction that records the Alert by emailing it */
 public class AlertActionMail extends AbstractAlertAction {

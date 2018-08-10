@@ -35,7 +35,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.CachedUrlSet;
 import org.lockss.protocol.LcapMessage;
 import org.lockss.protocol.PeerIdentity;
-import org.lockss.util.Deadline;
+import org.lockss.util.time.Deadline;
 
 public interface Poll {
   // Poll type names

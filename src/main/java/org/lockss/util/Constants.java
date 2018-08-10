@@ -34,23 +34,27 @@ package org.lockss.util;
 
 import java.util.*;
 
+import org.lockss.util.lang.EncodingUtil;
+import org.lockss.util.time.TimeUtil;
+import org.lockss.util.time.TimeZoneUtil;
+
 /**
  * Constants of general use
  */
 public interface Constants {
 
   /** The number of milliseconds in a second */
-  public static final long SECOND = 1000;
+  public static final long SECOND = TimeUtil.SECOND;
   /** The number of milliseconds in a minute */
-  public static final long MINUTE = 60 * SECOND;
+  public static final long MINUTE = TimeUtil.MINUTE;
   /** The number of milliseconds in an hour */
-  public static final long HOUR = 60 * MINUTE;
+  public static final long HOUR = TimeUtil.HOUR;
   /** The number of milliseconds in a day */
-  public static final long DAY = 24 * HOUR;
+  public static final long DAY = TimeUtil.DAY;
   /** The number of milliseconds in a week */
-  public static final long WEEK = 7 * DAY;
+  public static final long WEEK = TimeUtil.WEEK;
   /** The number of milliseconds in a (non-leap) year */
-  public static final long YEAR = 365 * DAY;
+  public static final long YEAR = TimeUtil.YEAR;
 
   /** List delimiter in strings */
   public static String LIST_DELIM = ";";
@@ -58,7 +62,7 @@ public interface Constants {
   public static char LIST_DELIM_CHAR = ';';
 
   /** The default timezone, GMT */
-  public static final TimeZone DEFAULT_TIMEZONE = TimeZoneUtil.getExactTimeZone("GMT");
+  public static final TimeZone DEFAULT_TIMEZONE = TimeZoneUtil.TIMEZONE_GMT;
 
   /** The line separator string on this system */
   public static String EOL = System.getProperty("line.separator");
@@ -80,15 +84,15 @@ public interface Constants {
   /**
    * <p>The UTF-8 encoding.</p>
    */
-  public static final String ENCODING_UTF_8 = "UTF-8";
+  public static final String ENCODING_UTF_8 = EncodingUtil.ENCODING_UTF_8;
   
   /**
    * <p>The ISO-8859-1 encoding.</p>
    */
-  public static final String ENCODING_ISO_8859_1 = "ISO-8859-1";
+  public static final String ENCODING_ISO_8859_1 = EncodingUtil.ENCODING_ISO_8859_1;
   
   /** The default encoding used when none is detected */
-  public static String DEFAULT_ENCODING = ENCODING_ISO_8859_1;
+  public static String DEFAULT_ENCODING = EncodingUtil.ENCODING_ISO_8859_1;
 
   /**
    * <p>The encoding of URLs.</p>

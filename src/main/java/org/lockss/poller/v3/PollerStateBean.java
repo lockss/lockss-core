@@ -38,6 +38,8 @@ import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.protocol.psm.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 import org.lockss.poller.v3.V3Poller.PollVariant;
 
 /**

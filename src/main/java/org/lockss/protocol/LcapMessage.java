@@ -32,6 +32,7 @@ import java.util.Arrays;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * <p>Abstract base class for concrete implementations of LCAP message versions.</p>

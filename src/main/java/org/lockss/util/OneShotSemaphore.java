@@ -31,6 +31,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util;
 import java.util.*;
 
+import org.lockss.util.time.Deadline;
+
 /** <code>OneShotSemaphore</code> allows one or more threads to wait for an
  * event, with a timeout.
  * The semaphore is initially empty;

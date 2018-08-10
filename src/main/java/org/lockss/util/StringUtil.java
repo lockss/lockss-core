@@ -40,6 +40,7 @@ import java.text.Normalizer.Form;
 import java.lang.reflect.*;
 import java.math.BigInteger;
 import org.apache.oro.text.regex.*;
+import org.lockss.util.time.TimeUtil;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -1600,94 +1601,24 @@ public class StringUtil {
   /** Generate a string representing the time interval.
    * @param millis the time interval in milliseconds
    * @return a string in the form dDhHmMsS
+   * @deprecated Deprecated (but used by plugins); use
+   *             {@link org.lockss.util.time.TimeUtil} in lockss-util instead.
    */
+  @Deprecated
   public static String timeIntervalToString(long millis) {
-    StringBuilder sb = new StringBuilder();
-
-    if (millis < 0) {
-      sb.append("-");
-      millis = -millis;
-    }
-    return posTimeIntervalToString(millis, sb);
-  }
-
-  private static String posTimeIntervalToString(long millis, StringBuilder sb) {
-    if (millis < 10 * Constants.SECOND) {
-      sb.append(millis);
-      sb.append("ms");
-    } else {
-      boolean force = false;
-      String stop = null;
-      for (int ix = 0; ix < units.length; ix++) {
-	UD iu = units[ix];
-	long n = millis / iu.millis;
-	if (force || n >= iu.threshold) {
-	  millis %= iu.millis;
-	  sb.append(n);
-	  sb.append(iu.str);
-	  force = true;
-	  if (stop == null) {
-	    if (iu.stop != null) {
-	      stop = iu.stop;
-	    }
-	  } else {
-	    if (stop.equals(iu.str)) {
-	      break;
-	    }
-	  }
-	}
-      }
-    }
-    return sb.toString();
+    return TimeUtil.timeIntervalToString(millis);
   }
 
   /** Generate a more verbose string representing the time interval.
    * @param millis the time interval in milliseconds
    * @return a string in the form "<d> days, <h> hours, <m> minutes, <s>
    * seconds"
+   * @deprecated Deprecated (but used by plugins); use
+   *             {@link org.lockss.util.time.TimeUtil} in lockss-util instead.
    */
+  @Deprecated
   public static String timeIntervalToLongString(long millis) {
-    StringBuilder sb = new StringBuilder();
-    long temp = 0;
-    if (millis < 0) {
-      sb.append("-");
-      millis = -millis;
-    }
-    if (millis >= Constants.SECOND) {
-      temp = millis / Constants.DAY;
-      if (temp > 0) {
-	sb.append(numberOfUnits(temp, "day"));
-	millis -= temp * Constants.DAY;
-	if (millis >= Constants.MINUTE) {
-	  sb.append(DEFAULT_COLLECTION_SEPARATOR);
-	}
-      }
-      temp = millis / Constants.HOUR;
-      if (temp > 0) {
-	sb.append(numberOfUnits(temp, "hour"));
-	millis -= temp * Constants.HOUR;
-	if (millis >= Constants.MINUTE) {
-	  sb.append(DEFAULT_COLLECTION_SEPARATOR);
-	}
-      }
-      temp = millis / Constants.MINUTE;
-      if (temp > 0) {
-	sb.append(numberOfUnits(temp, "minute"));
-	millis -= temp * Constants.MINUTE;
-
-	if(millis >= Constants.SECOND) {
-	  sb.append(DEFAULT_COLLECTION_SEPARATOR);
-	}
-      }
-      temp = millis / Constants.SECOND;
-      if (temp > 0) {
-	sb.append(numberOfUnits(temp, "second"));
-      }
-      return sb.toString();
-    }
-    else {
-      return "0 seconds";
-    }
+    return TimeUtil.timeIntervalToLongString(millis);
   }
 
 

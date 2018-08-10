@@ -43,6 +43,7 @@ import org.lockss.test.*;
 import org.lockss.mail.*;
 import org.lockss.util.*;
 import org.lockss.daemon.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.plugin.*;
 
 public class TestMimeMessage extends LockssTestCase {

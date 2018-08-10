@@ -38,6 +38,8 @@ import java.io.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler.CrawlerFacade;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
@@ -108,7 +110,7 @@ public class TarExploder extends Exploder {
                                                      DEFAULT_RETRY_PAUSE);
       	  Deadline pause = Deadline.in(pauseTime);
       	  logger.debug3("Sleeping for " +
-      			StringUtil.timeIntervalToString(pauseTime));
+      			TimeUtil.timeIntervalToString(pauseTime));
       	  while (!pause.expired()) {
       	    try {
       	      pause.sleep();

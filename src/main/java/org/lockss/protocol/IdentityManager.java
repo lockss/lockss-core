@@ -41,6 +41,7 @@ import org.lockss.app.*;
 import org.lockss.config.Configuration;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 import org.lockss.hasher.*;
 
 /**

@@ -33,6 +33,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util;
 import java.util.*;
 
+import org.lockss.util.lang.LockssRandom;
+
 /** Utilities for Collections.
  */
 public class CollectionUtil {

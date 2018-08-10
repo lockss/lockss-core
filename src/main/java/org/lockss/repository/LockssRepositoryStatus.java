@@ -36,6 +36,7 @@ import org.lockss.plugin.*;
 import org.lockss.remote.RemoteApi;
 import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Collect and report the status of the LockssRepository
