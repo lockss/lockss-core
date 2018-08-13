@@ -326,7 +326,7 @@ public class ProxyManager extends BaseProxyManager {
 	String accessLogLevel = config.get(PARAM_ACCESS_LOG_LEVEL,
 					   DEFAULT_ACCESS_LOG_LEVEL);
 	paramAccessLogLevel = Logger.levelOf(accessLogLevel);
-      } catch (RuntimeException e) {
+      } catch (Exception e) {
 	log.error("Couldn't set access log level", e);
 	paramAccessLogLevel = -1;
       }	  

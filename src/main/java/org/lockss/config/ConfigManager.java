@@ -727,7 +727,6 @@ public class ConfigManager implements LockssManager {
     }
     this.groupNames = groupNames;
     configCache = new ConfigCache(this);
-    registerConfigurationCallback(Logger.getConfigCallback());
     registerConfigurationCallback(MiscConfig.getConfigCallback());
 
     // Create the map of resource configuration files.
@@ -1920,8 +1919,9 @@ public class ConfigManager implements LockssManager {
     String logdir = config.get(PARAM_PLATFORM_LOG_DIR);
     String logfile = config.get(PARAM_PLATFORM_LOG_FILE);
     if (logdir != null && logfile != null) {
-      platformOverride(config, FileTarget.PARAM_FILE,
-		       new File(logdir, logfile).toString());
+      // TK
+//       platformOverride(config, FileTarget.PARAM_FILE,
+// 		       new File(logdir, logfile).toString());
     }
 
     conditionalPlatformOverride(config, PARAM_PLATFORM_IP_ADDRESS,

@@ -46,6 +46,7 @@ public class MiscConfig {
 	public void configurationChanged(Configuration config,
 					 Configuration oldConfig,
 					 Configuration.Differences diffs) {
+	  Logger.setConfig(config, oldConfig, diffs);
 	  HttpClientUrlConnection.setConfig(config, oldConfig, diffs);
 	  UrlUtil.setConfig(config, oldConfig, diffs);
 	  StringPool.setConfig(config, oldConfig, diffs);

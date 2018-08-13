@@ -34,6 +34,8 @@ package org.lockss.util;
 
 import java.io.*;
 import java.util.*;
+import java.text.Format;
+import org.apache.commons.lang3.time.FastDateFormat;
 
 /**
  * Wrapper InputStream that records open() and close() events, to aid in
@@ -42,6 +44,9 @@ import java.util.*;
 
 public class MonitoringInputStream extends InputStream {
   private static final Logger log = Logger.getLogger("MonitoringInputStream");
+
+  private static final Format TIMESTAMP_DATEFORMAT =
+    FastDateFormat.getInstance("HH:mm:ss.SSS");
 
   private InputStream in;
   private String name;
@@ -102,7 +107,7 @@ public class MonitoringInputStream extends InputStream {
   protected void finalize() {
     if (isOpen) {
       log.warning("Never closed (" + name + ").  Opened at " +
-		  Logger.getTimeStampFormat().format(openTime) +
+		  TIMESTAMP_DATEFORMAT.format(openTime) +
 		  " at " + openTrace);
       if (closeAbortTrace != null) {
 	log.warning("Close threw: " + closeAbortTrace);

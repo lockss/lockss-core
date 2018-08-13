@@ -1160,7 +1160,6 @@ class BlockingPeerChannel implements PeerChannel {
 	String oldName = thread.getName();
 	if (!oldName.equals(name)) {
 	  thread.setName(name);
-	  log.threadNameChanged();
 	}
       }
     }

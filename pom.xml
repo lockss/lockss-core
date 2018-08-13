@@ -70,6 +70,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
   <dependencies>
 
+    <!-- lockss-util should be first to ensure that its choice of logging
+	 providers and its log4j2.xml config file take precedence. -->
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-util</artifactId>
+      <version>${lockss.util.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-util</artifactId>
+      <version>${lockss.util.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-junit4-bundle</artifactId>
@@ -562,11 +578,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <version>${lockss.slf4j.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>${lockss.slf4j.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.opensaml</groupId>
       <artifactId>xmltooling</artifactId>
       <version>1.4.4</version>
@@ -623,11 +634,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <groupId>gnu.getopt</groupId>
       <artifactId>java-getopt</artifactId>
       <version>1.0.13</version>
-    </dependency>
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>lockss-util</artifactId>
-      <version>${lockss.util.version}</version>
     </dependency>
     <dependency>
       <groupId>org.lockss</groupId>

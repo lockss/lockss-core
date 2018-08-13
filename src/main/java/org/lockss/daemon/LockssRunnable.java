@@ -430,7 +430,6 @@ public abstract class LockssRunnable  implements LockssWatchdog, Runnable {
 	String oldName = thread.getName();
 	if (!oldName.equals(name)) {
 	  thread.setName(name);
-	  log.threadNameChanged();
 	}
       }
 
