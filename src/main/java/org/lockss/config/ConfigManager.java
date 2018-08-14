@@ -1883,7 +1883,7 @@ public class ConfigManager implements LockssManager {
     
     // Copy hostname for retrieval in PlatformUtil
     setSysProp(PlatformUtil.SYSPROP_PLATFORM_HOSTNAME,
-               Configuration.getPlatformHostname());
+               config.get(PARAM_PLATFORM_FQDN));
   }
 
     
