@@ -37,6 +37,8 @@ import java.io.PrintStream;
 import java.util.Date;
 
 import org.lockss.config.ConfigManager;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 
 /** A <code>LogTarget</code> implementation that outputs to a PrintStream
  */

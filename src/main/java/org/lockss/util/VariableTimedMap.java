@@ -30,6 +30,8 @@ package org.lockss.util;
 
 import java.util.*;
 
+import org.lockss.util.time.Deadline;
+
 /**
  * Variant of TimedMap where each entry has its own interval
  * and will expire accordingly.

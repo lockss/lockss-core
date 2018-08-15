@@ -42,6 +42,7 @@ import org.lockss.daemon.Crawler.CrawlerFacade;
 import org.lockss.crawler.TestFollowLinkCrawler.MyMockUrlFetcher;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 import org.lockss.plugin.UrlFetcher.FetchResult;
 import org.lockss.test.*;

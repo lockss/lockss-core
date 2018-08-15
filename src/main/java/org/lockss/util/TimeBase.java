@@ -31,125 +31,203 @@ in this Software without prior written authorization from Stanford University.
 */
 
 package org.lockss.util;
+
 import java.util.*;
+
+import org.lockss.util.*;
+
 import java.text.*;
 
 /**
  * TimeBase allows use of a simulated time base for testing.
-
+ * 
  * Instead of calling <code>System.currentTimeMillis()</code> or <code>new
  * Date()</code>, other parts of the system should call {@link #nowMs()} or
- * {@link #nowDate()}.  When in real mode (the default), these methods
- * return the same value as the normal methods.  In simulated mode, they
- * return the contents of an internal counter, which can be incremented
- * programmatically.  This allows time-dependent functions to be tested
- * quickly and predictably.
+ * {@link #nowDate()}. When in real mode (the default), these methods return the
+ * same value as the normal methods. In simulated mode, they return the contents
+ * of an internal counter, which can be incremented programmatically. This
+ * allows time-dependent functions to be tested quickly and predictably.
+ * 
+ * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+ *             plugins); use {@code org.lockss.util.time.TimeBase} in
+ *             lockss-util instead.
  */
+@Deprecated
 public class TimeBase {
-  /** A long time from now. */
-  public static final long MAX = Long.MAX_VALUE;
 
+  /** A long time from now.
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
+  public static final long MAX = org.lockss.util.time.TimeBase.MAX;
+
+  /**
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   private static volatile boolean isSimulated = false;
+
+  /**
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   private static volatile long simulatedTime;
 
-  /** No instances */
+  /** No instances
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   private TimeBase() {
   }
 
   /** Set TimeBase into real mode.
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static void setReal() {
-    isSimulated = false;
+    org.lockss.util.time.TimeBase.setReal();
   }
 
   /** Set TimeBase into simulated mode.
    * @param time  Simulated time to set as current
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static void setSimulated(long time) {
-    isSimulated = true;
-    simulatedTime = time;
+    org.lockss.util.time.TimeBase.setSimulated(time);
   }
 
   /** Set TimeBase into simulated mode.
    * @param time Date/time string to set as current time, in format
    * <code>yyyy/MM/dd HH:mm:ss</code>
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static void setSimulated(String dateTime) throws ParseException {
-    DateFormat fmt = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-    fmt.setTimeZone(Constants.DEFAULT_TIMEZONE);
-    fmt.setLenient(true);
-    simulatedTime = fmt.parse(dateTime).getTime();
-    isSimulated = true;
+    org.lockss.util.time.TimeBase.setSimulated(dateTime);
   }
 
-  /** Set TimeBase into simulated mode, at time 0 */
+  /** Set TimeBase into simulated mode, at time 0
+   *
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public static void setSimulated() {
-    setSimulated(0);
+    org.lockss.util.time.TimeBase.setSimulated();
   }
 
-  /** Return true iff simulated time base is in effect */
+  /** Return true iff simulated time base is in effect
+   *
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public static boolean isSimulated() {
-    return isSimulated;
+    return org.lockss.util.time.TimeBase.isSimulated();
   }
 
-  /** Step simulated time base by n ticks */
+  /** Step simulated time base by n ticks
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public static void step(long n) {
-    if (!isSimulated) {
-      throw new IllegalStateException("Can't step TimeBase when in real mode");
-    }
-    simulatedTime += n;
-    // ensure that all timer queue events whose time has come get executed
-    // before this returns
-    TimerQueue.runAllExpired();
+    org.lockss.util.time.TimeBase.step(n);
   }
 
-  /** Step simulated time base by 1 tick */
+  /** Step simulated time base by 1 tick
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public static void step() {
-    step(1);
+    org.lockss.util.time.TimeBase.step();
   }
 
   /** Return the current time, in milliseconds.  In real mode, this returns
    * System.currentTimeMillis(); in simulated mode it returns the simulated
    * time.
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static long nowMs() {
-    if (isSimulated) {
-      return simulatedTime;
-    } else {
-      return System.currentTimeMillis();
-    }
+    return org.lockss.util.time.TimeBase.nowMs();
   }
 
   /** Return the current time, as a Date.  In real mode, this returns
    * new Date(); in simulated mode it returns the simulated time as a Date.
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static Date nowDate() {
-    if (isSimulated) {
-      return new Date(simulatedTime);
-    } else {
-      return new Date();
-    }
+    return org.lockss.util.time.TimeBase.nowDate();
   }
 
   /** Return the number of milliseconds since the argument
    * @param when a time
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static long msSince(long when) {
-    return nowMs() - when;
+    return org.lockss.util.time.TimeBase.msSince(when);
   }
 
   /** Return the number of milliseconds until the argument
    * @param when a time
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static long msUntil(long when) {
-    return when - nowMs();
+    return org.lockss.util.time.TimeBase.msUntil(when);
   }
 
-  /** Return a Calenday set to the current real or simulated time */
+  /** Return a Calendar set to the current real or simulated time
+   * 
+   * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+   *             plugins); use {@code org.lockss.util.time.TimeBase} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public static Calendar nowCalendar() {
-    Calendar res = Calendar.getInstance();
-    res.setTimeInMillis(nowMs());
-    return res;
+    return org.lockss.util.time.TimeBase.nowCalendar();
   }
 
 }

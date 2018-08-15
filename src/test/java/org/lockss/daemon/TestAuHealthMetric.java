@@ -39,6 +39,8 @@ import org.lockss.daemon.AuHealthMetric;
 import org.lockss.plugin.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.protocol.*;
 
 import static org.lockss.util.Constants.DAY;

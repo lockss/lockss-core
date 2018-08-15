@@ -37,6 +37,11 @@ import junit.framework.Test;
 
 import org.lockss.state.HistoryRepository;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.exploded.*;
@@ -145,7 +150,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
   String didntMsg(String what, long time) {
     return "Crawl didn't " + what + " in " +
-        StringUtil.timeIntervalToString(time);
+        TimeUtil.timeIntervalToString(time);
   }
 
   protected void waitForCrawlToFinish(SimpleBinarySemaphore sem) {

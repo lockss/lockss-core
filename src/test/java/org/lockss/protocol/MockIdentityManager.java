@@ -37,6 +37,7 @@ import java.util.*;
 import java.io.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.hasher.*;

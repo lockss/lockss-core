@@ -47,6 +47,7 @@ import org.lockss.rewriter.LinkRewriterFactory;
 import org.lockss.state.AuState;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 public class TestBaseArchivalUnit extends LockssTestCase {
   private static final String BASE_URL = "http://www.example.com/foo/";

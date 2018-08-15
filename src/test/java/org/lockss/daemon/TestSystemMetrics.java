@@ -36,7 +36,7 @@ import java.io.IOException;
 import java.util.Properties;
 
 import org.lockss.test.*;
-import org.lockss.util.TimeBase;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Test class for SystemMetrics.

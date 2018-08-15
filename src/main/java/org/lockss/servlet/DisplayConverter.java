@@ -38,6 +38,10 @@ import java.util.*;
 import org.apache.commons.lang3.time.FastDateFormat;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
+import org.lockss.util.time.TimeZoneUtil;
 import org.lockss.daemon.status.*;
 
 /** Convert values to display strings for the UI.  Currently behavior is
@@ -152,7 +156,7 @@ public class DisplayConverter {
 	return ((IPAddr)val).getHostAddress();
       case ColumnDescriptor.TYPE_TIME_INTERVAL:
 	long millis = ((Number)val).longValue();
-	return StringUtil.timeIntervalToString(millis);
+	return TimeUtil.timeIntervalToString(millis);
       }
     } catch (NumberFormatException e) {
       log.warning("Bad number: " + val.toString(), e);

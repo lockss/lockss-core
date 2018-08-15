@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.rewriter;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.servlet.*;

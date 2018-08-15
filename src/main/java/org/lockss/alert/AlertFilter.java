@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.alert;
 
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /** AlertFilter specifies a pattern and an action to be taken for all
  * alerts that match the pattern */

@@ -34,6 +34,8 @@ import java.util.*;
 import org.mortbay.html.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.poller.*;
 import org.lockss.crawler.*;
 import org.lockss.state.*;
@@ -241,7 +243,7 @@ public class DebugPanel extends LockssServlet {
     try {
       long time = StringUtil.parseTimeInterval(timestr);
       Deadline.in(time).sleep();
-      statusMsg = "Slept for " + StringUtil.timeIntervalToString(time);
+      statusMsg = "Slept for " + TimeUtil.timeIntervalToString(time);
     } catch (NumberFormatException e) {
       errMsg = "Illegal duration: " + e;
     } catch (InterruptedException e) {

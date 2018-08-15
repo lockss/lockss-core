@@ -48,6 +48,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.base.BaseArchivalUnit;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * <p>PluginArchivalUnit: The Archival Unit Class for PluginPlugin.
@@ -128,7 +129,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
 					    DEFAULT_REGISTRY_CRAWL_INTERVAL));
     if (log.isDebug2()) {
       log.debug2("Setting Registry AU recrawl interval to " +
-		 StringUtil.timeIntervalToString(paramMap.getLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL)));
+		 TimeUtil.timeIntervalToString(paramMap.getLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL)));
     }
   }
 

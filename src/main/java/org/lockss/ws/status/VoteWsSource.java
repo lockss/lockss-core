@@ -37,7 +37,7 @@ import org.lockss.poller.v3.VoterUserData;
 import org.lockss.protocol.psm.PsmInterp;
 import org.lockss.protocol.psm.PsmState;
 import org.lockss.util.ByteArray;
-import org.lockss.util.TimeBase;
+import org.lockss.util.time.TimeBase;
 import org.lockss.ws.entities.VoteWsResult;
 
 /**

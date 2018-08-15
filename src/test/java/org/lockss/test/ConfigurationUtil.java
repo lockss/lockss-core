@@ -37,6 +37,8 @@ import java.util.*;
 import java.net.*;
 
 import org.lockss.config.*;
+import org.lockss.util.test.FileTestUtil;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.util.*;
 
 /** Utilities for Configuration and ConfigManager

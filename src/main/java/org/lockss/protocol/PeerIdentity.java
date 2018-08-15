@@ -34,6 +34,8 @@ package org.lockss.protocol;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.net.IPAddr;
 
 /**
  * PeerIdentity is an opaque "cookie" that the IdentityManager

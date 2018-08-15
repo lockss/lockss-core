@@ -34,6 +34,8 @@ package org.lockss.util;
 
 import java.util.*;
 
+import org.lockss.util.time.Deadline;
+
 /**
  * Abstract base class for queue implementations that keep their queue in
  * order of removal

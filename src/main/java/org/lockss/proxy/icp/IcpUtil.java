@@ -36,6 +36,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /**
  * <p>Provides utility methods to deal with ICP.</p>

@@ -43,6 +43,7 @@ import de.schlichtherle.truezip.fs.*;
 
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 
 /**

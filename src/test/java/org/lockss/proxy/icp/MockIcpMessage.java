@@ -37,6 +37,7 @@ import java.net.*;
 import java.util.ArrayList;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /**
  * <p>A lightweight implementation of {@link IcpMessage} used in

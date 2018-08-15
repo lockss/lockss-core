@@ -32,6 +32,7 @@ import java.util.*;
 import java.io.*;
 import java.net.SocketException;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.config.Configuration;
 
 /** Encapsulates and abstracts a URL connection, using either Sun's

@@ -40,9 +40,8 @@ import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlRateLimiter;
 import org.lockss.crawler.CrawlUrl;
 import org.lockss.daemon.LockssWatchdog;
-import org.lockss.util.CIProperties;
-import org.lockss.util.Constants;
-import org.lockss.util.IPAddr;
+import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.CacheException;
 import org.lockss.util.urlconn.LockssUrlConnectionPool;
 

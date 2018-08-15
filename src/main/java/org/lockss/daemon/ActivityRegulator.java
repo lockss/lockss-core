@@ -35,6 +35,8 @@ package org.lockss.daemon;
 import java.util.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.app.*;
 import org.lockss.config.Configuration;
 
@@ -493,7 +495,7 @@ public class ActivityRegulator
                      activityCodeToString(oldAuActivity) + " to CUS activity " +
                      activityCodeToString(newActivity) +
                      " on CUS '" + cus.getUrl() + "' with expiration in " +
-                     StringUtil.timeIntervalToString(expireIn));
+                     TimeUtil.timeIntervalToString(expireIn));
       }
     }
     return cusLock;
@@ -717,7 +719,7 @@ public class ActivityRegulator
         logger.debug("Extending " + activityCodeToString(activity) + " on " +
                      (cus == null ? "AU '" + au.getName() + "'"
                       : "CUS '" + cus.getUrl() + "' by " +
-                      StringUtil.timeIntervalToString(extension)));
+                      TimeUtil.timeIntervalToString(extension)));
       }
     }
 
@@ -739,7 +741,7 @@ public class ActivityRegulator
                      activityCodeToString(activity) + " to " +
                      activityCodeToString(newActivity) +
                      " with expiration in " +
-                     StringUtil.timeIntervalToString(expireIn));
+                     TimeUtil.timeIntervalToString(expireIn));
       }
       activity = newActivity;
       expiration = Deadline.in(expireIn);

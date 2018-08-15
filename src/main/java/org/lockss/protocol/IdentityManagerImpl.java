@@ -49,6 +49,9 @@ import org.lockss.state.AuState;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
 import org.lockss.util.SerializationException.FileNotFound;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.TimeBase;
 import org.lockss.hasher.*;
 
 /**

@@ -48,6 +48,8 @@ import org.lockss.plugin.definable.*;
 import org.lockss.poller.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 import org.lockss.state.*;
 import org.lockss.jms.*;

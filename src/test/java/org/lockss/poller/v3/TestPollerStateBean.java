@@ -38,6 +38,7 @@ import java.util.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.poller.*;
 import org.lockss.test.*;
 

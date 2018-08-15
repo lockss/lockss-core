@@ -46,6 +46,10 @@ import org.lockss.config.*;
 import org.lockss.daemon.status.*;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 
 /**
@@ -942,7 +946,7 @@ public class DaemonStatusNew extends LockssServlet {
 	return ((IPAddr)val).getHostAddress();
       case ColumnDescriptor.TYPE_TIME_INTERVAL:
 	long millis = ((Number)val).longValue();
-	return StringUtil.timeIntervalToString(millis);
+	return TimeUtil.timeIntervalToString(millis);
       }
     } catch (NumberFormatException e) {
       log.warning("Bad number: " + val.toString(), e);

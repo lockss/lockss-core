@@ -37,6 +37,7 @@ import java.util.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 
 /** Description of a computation to be scheduled and executed.  Abstract -
  * the methods {@link #step(int)} and {@link #step(int)} must be defined by

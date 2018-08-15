@@ -38,6 +38,7 @@ import org.mortbay.http.*;
 import org.mortbay.http.handler.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.jetty.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;

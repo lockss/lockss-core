@@ -43,6 +43,7 @@ import java.util.*;
 import java.lang.reflect.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.servlet.*;
 import org.lockss.test.*;
 import static org.lockss.servlet.LockssServlet.ROLE_USER_ADMIN;

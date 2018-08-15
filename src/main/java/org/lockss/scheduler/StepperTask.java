@@ -37,6 +37,7 @@ import java.util.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 
 /** StepperTask is a StepTask whose step operation is defined by the
  * supplied Stepper. */

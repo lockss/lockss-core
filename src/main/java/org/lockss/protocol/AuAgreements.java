@@ -39,10 +39,8 @@ import org.lockss.protocol.IdentityManager;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.repository.LockssRepositoryException;
 import org.lockss.state.HistoryRepository;
-import org.lockss.util.Logger;
-import org.lockss.util.StreamUtil;
-import org.lockss.util.IOUtil;
-import org.lockss.util.LockssSerializable;
+import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 
 /**

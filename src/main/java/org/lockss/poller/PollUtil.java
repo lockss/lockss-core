@@ -43,7 +43,9 @@ import org.lockss.poller.v3.V3Poller;
 import org.lockss.protocol.*;
 import org.lockss.scheduler.*;
 import org.lockss.util.*;
-import static org.lockss.util.StringUtil.timeIntervalToString;
+import org.lockss.util.time.TimeBase;
+
+import static org.lockss.util.time.TimeUtil.timeIntervalToString;
 
 public class PollUtil {
 

@@ -37,7 +37,7 @@ import java.util.Collection;
 import org.lockss.daemon.*;
 import org.lockss.crawler.*;
 import org.lockss.plugin.ArchivalUnit;
-import org.lockss.util.Deadline;
+import org.lockss.util.time.Deadline;
 
 public class NullCrawler implements Crawler {
 

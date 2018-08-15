@@ -44,6 +44,7 @@ import org.lockss.crawler.*;
 import org.lockss.test.*;
 import org.lockss.test.MockCrawler.MockCrawlerFacade;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 
 /**

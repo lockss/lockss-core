@@ -38,6 +38,9 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.daemon.*;
 
 /** Manages a stream connection to a peer.  Channels are ephemeral, coming
@@ -853,11 +856,11 @@ class BlockingPeerChannel implements PeerChannel {
     if (bpms >= 1000) {
       log.debug(String.format("%s%s rate: %.1fMB/s (%d bytes in %s)",
 			      p(), direction, (bpms / 1000.0), len,
-			      StringUtil.timeIntervalToString(dur)));
+			      TimeUtil.timeIntervalToString(dur)));
     } else {
       log.debug(String.format("%s%s rate: %dKB/s (%d bytes in %s)",
 			      p(), direction, bpms, len,
-			      StringUtil.timeIntervalToString(dur)));
+			      TimeUtil.timeIntervalToString(dur)));
     }
   }
 

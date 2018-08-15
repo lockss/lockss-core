@@ -34,7 +34,7 @@ package org.lockss.alert;
 
 import java.util.*;
 
-import org.lockss.util.LockssSerializable;
+import org.lockss.util.io.LockssSerializable;
 
 /** AlertConfig stores the state of the alert notification config */
 public class AlertConfig implements LockssSerializable {

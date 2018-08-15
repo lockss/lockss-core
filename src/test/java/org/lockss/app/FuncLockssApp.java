@@ -37,8 +37,10 @@ import java.util.*;
 import static org.lockss.app.LockssApp.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.plugin.*;
 import static org.lockss.app.ManagerDescs.*;
 

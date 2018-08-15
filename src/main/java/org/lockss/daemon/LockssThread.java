@@ -37,6 +37,9 @@ import java.util.*;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 
 /** LockssThread abstracts out common features of LOCKSS daemon threads,
  * notably watchdog timers.  The methods in this class should be called
@@ -260,7 +263,7 @@ public abstract class LockssThread extends Thread implements LockssWatchdog {
     if (CurrentConfig.getBooleanParam(PARAM_THREAD_WDOG_HUNG_DUMP,
                                       DEFAULT_THREAD_WDOG_HUNG_DUMP)) {
       log.error("Thread hung for " +
-		StringUtil.timeIntervalToString(interval) + ": " + getName());
+		TimeUtil.timeIntervalToString(interval) + ": " + getName());
       PlatformUtil.getInstance().threadDump(false);
       try {
 	Thread.sleep(30 * Constants.SECOND);
@@ -270,7 +273,7 @@ public abstract class LockssThread extends Thread implements LockssWatchdog {
     if (isWDogExpired()) {
       exitDaemon(Constants.EXIT_CODE_THREAD_HUNG,
 		 "Thread hung for " +
-		 StringUtil.timeIntervalToString(interval));
+		 TimeUtil.timeIntervalToString(interval));
     } else {
       log.info("Thread woke up, continuing: " + getName());
     }
@@ -349,7 +352,7 @@ public abstract class LockssThread extends Thread implements LockssWatchdog {
       sb.append(")");
       if (includeInterval) {
 	sb.append(": ");
-	sb.append(StringUtil.timeIntervalToString(interval));
+	sb.append(TimeUtil.timeIntervalToString(interval));
       }
       log.debug3(sb.toString());
     }

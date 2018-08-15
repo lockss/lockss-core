@@ -45,7 +45,7 @@ import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.util.IOUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Test class for org.lockss.exporter.counter.CounterReportsBookReport1L.

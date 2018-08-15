@@ -34,6 +34,7 @@ package org.lockss.util;
 
 import java.util.*;
 import org.apache.oro.text.regex.*;
+import org.lockss.util.time.TimeUtil;
 
 /** A simple slope composed of linear segments. Should be genericized */
 
@@ -59,7 +60,7 @@ public class CompoundLinearSlope {
 	sb.append(Long.toString(x));
 	if (x >= Constants.HOUR) {
 	  sb.append("(");
-	  sb.append(StringUtil.timeIntervalToString(x));
+	  sb.append(TimeUtil.timeIntervalToString(x));
 	  sb.append(")");
 	}
       }

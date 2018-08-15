@@ -35,6 +35,7 @@ package org.lockss.util;
 import java.io.*;
 
 import org.lockss.config.*;
+import org.lockss.util.time.Deadline;
 
 /** A <code>LogTarget</code> implementation that outputs to a file, which
  * is closed and reopened periodically to allow for log file rotation.

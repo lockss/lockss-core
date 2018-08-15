@@ -36,6 +36,7 @@ import org.lockss.app.BaseLockssManager;
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssAppException;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * <p>Arbitrates ownership of resources such as TCP listen ports and

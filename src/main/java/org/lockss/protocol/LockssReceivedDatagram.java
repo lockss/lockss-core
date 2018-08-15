@@ -36,6 +36,7 @@ import java.net.*;
 import java.util.*;
 import java.util.zip.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /**
  * LockssReceivedDatagram is a LockssDatagram for an incoming packet.  It

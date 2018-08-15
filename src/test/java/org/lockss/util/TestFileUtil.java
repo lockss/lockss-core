@@ -36,6 +36,8 @@ import org.apache.commons.lang3.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.apache.commons.collections.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 
 /**

@@ -48,6 +48,8 @@ import org.lockss.plugin.ArchivalUnit.ConfigurationException;
 import org.lockss.rewriter.*;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * Abstract base class for ArchivalUnits.
@@ -288,7 +290,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
                                 defaultContentCrawlIntv)
        : paramMap.getLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL, defaultContentCrawlIntv));
     log.debug2("Setting new content crawl interval to " +
-                  StringUtil.timeIntervalToString(newContentCrawlIntv));
+                  TimeUtil.timeIntervalToString(newContentCrawlIntv));
     paramMap.putLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL, newContentCrawlIntv);
     
     rule = makeRule();

@@ -36,6 +36,7 @@ import java.net.*;
 import java.util.*;
 
 import org.lockss.test.*;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.daemon.*;
 
 public class TestUrlUtil extends LockssTestCase {

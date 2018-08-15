@@ -41,6 +41,7 @@ import java.lang.management.*;
 import org.mortbay.html.*;
 
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /** ThreadDump servlet
  */

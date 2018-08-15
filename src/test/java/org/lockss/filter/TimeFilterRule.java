@@ -38,6 +38,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.filter.*;
+import org.lockss.util.test.FileTestUtil;
 
 public class TimeFilterRule extends LockssTiming {
   private static Logger log = Logger.getLogger("TimeFilterRule");

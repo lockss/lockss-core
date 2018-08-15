@@ -38,12 +38,14 @@ import java.util.zip.*;
 
 import org.lockss.config.*;
 import org.lockss.daemon.ConfigParamDescr;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.mail.MimeMessage;
 import org.lockss.plugin.*;
 import org.lockss.protocol.MockIdentityManager;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Test class for org.lockss.remote.RemoteApi
@@ -828,7 +830,9 @@ public class TestRemoteApi extends LockssTestCase {
     }
     p.put(ConfigManager.PARAM_PLATFORM_ADMIN_EMAIL, "foo@bar");
     p.put(ConfigManager.PARAM_PLATFORM_FQDN, "lockss42.example.com");
+    assertEquals(null, Configuration.getPlatformHostname());
     ConfigurationUtil.addFromProps(p);
+    assertEquals("lockss42.example.com", Configuration.getPlatformHostname());
     MockMailService mgr = new MockMailService();
     getMockLockssDaemon().setMailService(mgr);
     rapi.createConfigBackupFile(RemoteApi.BackupFileDisposition.Mail);

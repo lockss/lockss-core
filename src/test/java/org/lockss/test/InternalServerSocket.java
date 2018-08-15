@@ -43,6 +43,7 @@ import java.util.*;
 
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.Deadline;
 import org.lockss.util.FifoQueue;
 
 /**

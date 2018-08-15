@@ -77,12 +77,9 @@ import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.PsmInterp;
 import org.lockss.protocol.psm.PsmState;
 import org.lockss.state.ArchivalUnitStatus;
-import org.lockss.util.ByteArray;
-import org.lockss.util.CatalogueOrderComparator;
-import org.lockss.util.ListUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * Provides support for the PollManager and Polls to present
@@ -271,7 +268,7 @@ public class V3PollStatus {
       if (status.getNextPollStartTime() != null) {
         long remainingTime = status.getNextPollStartTime().getRemainingTime();
         String timeStr = remainingTime > 0 ?
-            StringUtil.timeIntervalToString(remainingTime) : "running";
+            TimeUtil.timeIntervalToString(remainingTime) : "running";
         Object val = new StatusTable.DisplayedValue(remainingTime, timeStr);
         summary.add(new SummaryInfo("Poll Starter",
             ColumnDescriptor.TYPE_TIME_INTERVAL,

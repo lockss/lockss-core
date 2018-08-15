@@ -43,7 +43,7 @@ import org.lockss.poller.v3.PollerStateBean.Repair;
 import org.lockss.poller.v3.V3Poller;
 import org.lockss.protocol.psm.PsmInterp;
 import org.lockss.protocol.psm.PsmState;
-import org.lockss.util.TimeBase;
+import org.lockss.util.time.TimeBase;
 import org.lockss.ws.entities.ParticipantWsResult;
 import org.lockss.ws.entities.PollWsResult;
 import org.lockss.ws.entities.RepairWsResult;

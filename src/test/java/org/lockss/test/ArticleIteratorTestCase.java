@@ -50,6 +50,7 @@ import org.lockss.plugin.SubTreeArticleIterator;
 import org.lockss.plugin.UrlCacher;
 import org.lockss.plugin.UrlData;
 import org.lockss.util.CIProperties;
+import org.lockss.util.test.PrivilegedAccessor;
 
 /** Framework for ArticleIterator tests. */
 public abstract class ArticleIteratorTestCase extends LockssTestCase {

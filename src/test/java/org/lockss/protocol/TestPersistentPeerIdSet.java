@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 import org.lockss.util.*;
 

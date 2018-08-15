@@ -42,6 +42,7 @@ import org.lockss.state.*;
 import org.lockss.test.*;
 import org.lockss.plugin.base.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.*;
 import org.lockss.plugin.ArchivalUnit.ConfigurationException;
 import org.lockss.plugin.exploded.*;

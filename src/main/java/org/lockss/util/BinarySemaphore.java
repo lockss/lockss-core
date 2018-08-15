@@ -31,6 +31,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util;
 import java.util.*;
 
+import org.lockss.util.time.Deadline;
+
 /** <code>BinarySemaphore</code> allows one thread to wait for another
  * thread to complete some operation, with a required timeout.
  * The semaphore is initially empty;

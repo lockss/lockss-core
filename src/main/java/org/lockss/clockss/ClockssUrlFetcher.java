@@ -36,6 +36,7 @@ import java.io.*;
 import java.util.*;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 import org.lockss.daemon.*;
 import org.lockss.state.*;

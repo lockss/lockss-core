@@ -32,6 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 import java.util.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 
 class TimeStringReplace {

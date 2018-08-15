@@ -34,6 +34,8 @@ import java.util.*;
 import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 
 /** TimerQueue implements a queue of actions to be performed at a specific
  * time.
@@ -45,6 +47,11 @@ public class TimerQueue {
   protected static Logger log = Logger.getLogger("TimerQueue");
   private static TimerQueue singleton = new TimerQueue();
 
+  static {
+    // Register a callback with the TimeBase
+    TimeBase.registerObserver((newSimulatedTime) -> {runAllExpired();});
+  }
+  
   private PriorityQueue queue = new PriorityQueue();
   private TimerThread timerThread;
   private boolean needResort = false;

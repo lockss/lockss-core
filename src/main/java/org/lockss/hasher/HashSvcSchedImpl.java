@@ -42,6 +42,8 @@ import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.scheduler.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.app.*;
 import org.lockss.plugin.*;
 
@@ -523,7 +525,7 @@ public class HashSvcSchedImpl
       String bytes = bigIntFmt.format(totalBytesHashed) + " bytes hashed";
       res.add(bytes);
       if (totalTime != 0) {
-	res.add(" in " + StringUtil.timeIntervalToString(totalTime));
+	res.add(" in " + TimeUtil.timeIntervalToString(totalTime));
 	res.add(" at " + hashRate(totalBytesHashed, totalTime) + " bytes/ms");
       }
       int wait = queue.size();

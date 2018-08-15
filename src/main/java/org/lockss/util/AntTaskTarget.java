@@ -37,6 +37,8 @@ import java.lang.reflect.*;
 import java.io.PrintStream;
 import java.util.*;
 
+import org.lockss.util.time.TimeBase;
+
 /** A <code>LogTarget</code> implementation that outputs to an Ant task's
  * logger.
  */

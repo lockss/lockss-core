@@ -61,6 +61,7 @@ import org.lockss.rewriter.LinkRewriterFactory;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 import org.mortbay.html.*;
 import org.mortbay.http.*;
@@ -451,7 +452,7 @@ public class ServeContent extends LockssServlet {
 
   void logAccess(String msg) {
     if (paramAccessLogLevel >= 0) {
-      msg += " in " + StringUtil.timeIntervalToString(reqElapsedTime());
+      msg += " in " + TimeUtil.timeIntervalToString(reqElapsedTime());
 
       switch (requestType) {
         case None:

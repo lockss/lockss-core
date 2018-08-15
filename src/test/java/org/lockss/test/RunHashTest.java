@@ -28,6 +28,7 @@ package org.lockss.test;
 
 import java.io.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.filter.HtmlTagFilter;
 import org.lockss.plugin.CachedUrl;
 

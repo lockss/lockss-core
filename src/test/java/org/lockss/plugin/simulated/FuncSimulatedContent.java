@@ -42,6 +42,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
 
 import junit.framework.*;
 

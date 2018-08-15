@@ -35,6 +35,7 @@ package org.lockss.daemon.status;
 import java.util.*;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.protocol.*;
 import org.lockss.servlet.ServletDescr;
 

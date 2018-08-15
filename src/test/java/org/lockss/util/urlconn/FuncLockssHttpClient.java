@@ -34,6 +34,7 @@ import java.util.*;
 import org.apache.oro.text.regex.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.HttpClientUrlConnection.PrematureCloseException;
 
 /**

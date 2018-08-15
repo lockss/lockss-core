@@ -38,7 +38,7 @@ import java.util.*;
 
 import org.lockss.config.*;
 import org.lockss.daemon.CachedUrlSetSpec;
-import org.lockss.util.PlatformUtil;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * AuNode is used to represent the top-level contents of an ArchivalUnit.

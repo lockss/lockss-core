@@ -34,6 +34,7 @@ package org.lockss.scheduler;
 
 import java.util.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 
 /** Description of a background task that reduces the CPU time available to
  * a foreground (stepped) task. */

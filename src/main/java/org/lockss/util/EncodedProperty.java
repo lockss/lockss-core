@@ -32,6 +32,8 @@ package org.lockss.util;
 
 import java.util.*;
 import java.io.*;
+
+import org.lockss.util.os.PlatformUtil;
 import org.mortbay.util.B64Code;
 
 /**

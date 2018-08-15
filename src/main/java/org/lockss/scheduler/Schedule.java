@@ -34,6 +34,7 @@ package org.lockss.scheduler;
 
 import java.util.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 
 /** A Schedule describes a sequence of task executions.  It is created by a
  * {@link Scheduler}, and interpreted by the TaskRunner. */

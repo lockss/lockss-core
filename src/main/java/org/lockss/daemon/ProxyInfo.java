@@ -45,6 +45,7 @@ import org.lockss.protocol.IdentityManager;
 import org.lockss.proxy.*;
 import org.lockss.proxy.icp.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Generate config files for external proxies, specifying patterns of URLs

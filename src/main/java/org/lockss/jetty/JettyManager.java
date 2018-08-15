@@ -38,6 +38,8 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.daemon.ResourceManager;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * Abstract base class for LOCKSS managers that use/start Jetty services.
@@ -175,7 +177,7 @@ public abstract class JettyManager
 	  log.debug2("first", e.getException(0));
 	  if (delayTime[ix] > 0) {
 	    log.warning("Addr in use, sleeping " +
-			StringUtil.timeIntervalToString(delayTime[ix]));
+			TimeUtil.timeIntervalToString(delayTime[ix]));
 	    Deadline.in(delayTime[ix]).sleep();
 	  }
 	}

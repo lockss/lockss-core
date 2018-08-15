@@ -52,6 +52,7 @@ import org.mortbay.http.*;
 import org.mortbay.util.*;
 import org.mortbay.jetty.servlet.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.account.*;
 
 /** Realm wrapper around UserAccount */

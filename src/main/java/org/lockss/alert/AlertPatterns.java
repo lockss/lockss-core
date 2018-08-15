@@ -36,6 +36,7 @@ import java.util.*;
 import java.util.regex.*;
 
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /** AlertPatterns is a collection of useful {@link AlertPattern}
  * implementations, and factories for creating them */

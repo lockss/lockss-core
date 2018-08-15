@@ -37,6 +37,9 @@ import java.util.*;
 import java.text.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /** Description of a computation to be scheduled and executed */
 public class SchedulableTask {
@@ -289,10 +292,10 @@ public class SchedulableTask {
     }
     sb.append(" ");
     if (timeUsed != 0) {
-      sb.append(StringUtil.timeIntervalToString(timeUsed));
+      sb.append(TimeUtil.timeIntervalToString(timeUsed));
       sb.append("/");
     }
-    sb.append(StringUtil.timeIntervalToString(origEst));
+    sb.append(TimeUtil.timeIntervalToString(origEst));
     sb.append(" between ");
     sb.append(earliestStart.shortString());
     sb.append(" and ");

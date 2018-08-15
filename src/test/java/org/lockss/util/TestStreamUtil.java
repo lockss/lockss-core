@@ -41,6 +41,8 @@ import org.apache.commons.io.input.*;
 import org.apache.commons.io.output.NullOutputStream;
 
 import org.lockss.test.*;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.daemon.LockssWatchdog;
 
 /**

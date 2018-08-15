@@ -34,6 +34,7 @@ package org.lockss.test;
 
 import java.io.*;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
 
 public class TestRandomInputStream extends LockssTestCase {
 

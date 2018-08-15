@@ -35,6 +35,7 @@ package org.lockss.test;
 import java.util.*;
 import java.io.*;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
 
 /** An InputStream that returns a sequence of pseudo-random bytes.
  * Guaranteed to produce the same sequence of bytes if the same seed is
