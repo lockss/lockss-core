@@ -141,7 +141,7 @@ public class HTTPConfigFile extends BaseConfigFile {
       m_loadError = "Could not verify server identity: " + e.getMessage();
       throw new IOException(m_loadError, e);
     } catch (javax.net.ssl.SSLException e) {
-      m_loadError = "Error negotiating SSL seccion: " + e.getMessage();
+      m_loadError = "Error negotiating SSL session: " + e.getMessage();
       throw new IOException(m_loadError, e);
     }
   }
