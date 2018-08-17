@@ -264,10 +264,11 @@ public class HTTPConfigFile extends BaseConfigFile {
       local copy of the remote file exists, failover to it. */
   protected InputStream getInputStreamIfModified() throws IOException {
     LockssUrlConnection conn = null;
+    InputStream in = null;
 
     try {
       conn = openUrlConnection(m_fileUrl);
-      InputStream in = openHttpInputStream(conn);
+      in = openHttpInputStream(conn);
       if (in != null) {
 	// If we got remote content, clear any local failover copy as it
 	// may now be obsolete
@@ -285,7 +286,9 @@ public class HTTPConfigFile extends BaseConfigFile {
       }
       return failoverFile.getInputStreamIfModified();
     } finally {
-      IOUtil.safeRelease(conn);
+      if (in == null) {
+        IOUtil.safeRelease(conn);
+      }
     }
   }
 
@@ -370,10 +373,11 @@ public class HTTPConfigFile extends BaseConfigFile {
 
     // No: Get the input stream from the network request.
     LockssUrlConnection conn = null;
+    InputStream in = null;
 
     try {
       conn = openUrlConnection(m_fileUrl);
-      InputStream in = openHttpInputStream(conn);
+      in = openHttpInputStream(conn);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "in == null? " + (in == null));
 
@@ -387,7 +391,9 @@ public class HTTPConfigFile extends BaseConfigFile {
 
       return in;
     } finally {
-      IOUtil.safeRelease(conn);
+      if (in == null) {
+        IOUtil.safeRelease(conn);
+      }
     }
   }
 
@@ -501,6 +507,7 @@ public class HTTPConfigFile extends BaseConfigFile {
 
     synchronized(this) {
       LockssUrlConnection conn = null;
+      InputStream inputStream = null;
 
       try {
 	// Create the connection.
@@ -527,7 +534,7 @@ public class HTTPConfigFile extends BaseConfigFile {
 	}
 
 	// Make the connection and get the response.
-	InputStream inputStream = openHttpInputStream(conn);
+	inputStream = openHttpInputStream(conn);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	    + "inputStream == null = " + (inputStream == null));
 
@@ -604,7 +611,9 @@ public class HTTPConfigFile extends BaseConfigFile {
 	  log.debug2(DEBUG_HEADER + "readResult = " + readResult);
 	return readResult;
       } finally {
-	IOUtil.safeRelease(conn);
+        if (inputStream == null) {
+          IOUtil.safeRelease(conn);
+        }
       }
     }
   }
