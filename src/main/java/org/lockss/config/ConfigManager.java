@@ -3621,7 +3621,10 @@ public class ConfigManager implements LockssManager {
 	    if (getApp() != null) {
 	      getApp().waitUntilAppRunning();
 	    } else {
-	      LockssApp.getLockssApp().waitUntilAppRunning();
+	      LockssApp app = LockssApp.getLockssApp();
+	      if (app != null) {
+		app.waitUntilAppRunning();
+	      }
 	    }
 	    setUpJmsNotifications();
 	  } catch (InterruptedException e) {}

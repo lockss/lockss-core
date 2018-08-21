@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Configuration status="WARN" packages="org.lockss.log">
+
+  <Appenders>
+    <ListAppender name="ListAppender">
+    </ListAppender>
+  </Appenders>
+
+  <Loggers>
+    <!-- Record events for org.lockss.log.TestLogger -->
+    <Logger name="test" level="DEBUG">
+      <AppenderRef ref="ListAppender"/>
+    </Logger>
+
+    <!-- Default log levels -->
+    <Logger name="test.critical" level="FATAL"/>
+    <Logger name="test.error" level="ERROR"/>
+    <Logger name="test.warning" level="WARN"/>
+    <Logger name="test.info" level="INFO"/>
+    <Logger name="test.debug" level="DEBUG"/>
+    <Logger name="test.debug2" level="DEBUG2"/>
+    <Logger name="test.debug3" level="DEBUG3"/>
+    <Logger name="test.trace" level="TRACE"/>
+
+    <Logger name="test.sw" level="SITE_WARNING"/>
+    <Logger name="test.se" level="SITE_ERROR"/>
+
+  </Loggers>
+</Configuration>

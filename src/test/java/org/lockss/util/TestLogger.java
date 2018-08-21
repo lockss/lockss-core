@@ -68,4 +68,20 @@ public class TestLogger extends org.lockss.log.TestLogger {
   protected void setConfig(Map<String,String> map) {
     ConfigurationUtil.setCurrentConfigFromProps(MapUtils.toProperties(map));
   }
+
+  @Test
+  @Override
+  public void testFactories() throws Exception {
+    Logger l1 = Logger.getLogger("name1");
+    assertEquals("name1", l1.getName());
+    assertSame(l1, Logger.getLogger("name1"));
+    assertSame(l1, getLogger("name1"));
+
+    Logger l2 = Logger.getLogger();
+    assertEquals("org.lockss.util.TestLogger", l2.getName());
+    assertSame(l2, getLogger(l2.getName()));
+    assertSame(l2, Logger.getLogger(TestLogger.class));
+
+  }
+
 }

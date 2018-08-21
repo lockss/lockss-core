@@ -573,11 +573,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <version>3.2.2</version>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${lockss.slf4j.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.opensaml</groupId>
       <artifactId>xmltooling</artifactId>
       <version>1.4.4</version>

@@ -30,18 +30,19 @@ package org.lockss.util;
 import java.util.*;
 import java.text.Format;
 
-import org.apache.logging.log4j.*;
 import org.apache.commons.collections.map.ReferenceMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
+import org.apache.logging.log4j.*;
+import org.apache.logging.log4j.util.StackLocatorUtil;
 
+import org.lockss.log.L4JLogger;
 import org.lockss.config.*;
 
 /**
- * Compatability layer for lockss-core and plugins, forwards to new
- * org.lockss.log.Logger in lockss-util.  Supports obtaining and using
- * loggers, setting log levels with config.  Does not include support for
- * setting targets or LogTarget class hierarchy.
+ * Makes org.lockss.log.Logger (in lockss-util) available the
+ * org.lockss.util package, for compatability with existing LOCKSS code and
+ * plugins, and hooks it into the LOCKSS configuration mechanism
  */
 public class Logger extends org.lockss.log.Logger {
 
@@ -50,7 +51,7 @@ public class Logger extends org.lockss.log.Logger {
 //     logs = new HashMap<String, Logger>();
   }
 
-  protected Logger(org.apache.logging.log4j.Logger log) {
+  protected Logger(L4JLogger log) {
     super(log);
   }
 
@@ -66,26 +67,31 @@ public class Logger extends org.lockss.log.Logger {
   /**
    * <p>Convenience method to name a logger after a class.
    * Simply calls {@link #getLogger(String)} with the result of
-   * {@link Class#getSimpleName()}.</p>
+   * {@link Class#getName()}.</p>
    * @param clazz The class after which to name the returned logger.
    * @return A logger named after the given class.
    * @since 1.56
    */
   public static Logger getLogger(Class<?> clazz) {
-    return getLogger(clazz.getSimpleName());
+    return getLogger(clazz.getName());
   }
 
   /**
-   * Special purpose Logger factory.  Return the unique instance
+   * Logger factory.  Return the unique instance
    * of <code>Logger</code> with the given name, creating it if necessary.
-   * This is here primarily so <code>Configuration</code> can create a
-   * log without being invoked recursively, which causes its class
-   * initialization to not complete correctly.
    * @param name identifies the log instance, appears in output
-   * @param initialLevel the initial log level (<code>Logger.LEVEL_XXX</code>).
+   */
+  public static Logger getLogger() {
+    return getLogger(StackLocatorUtil.getCallerClass(2));
+  }
+
+  /**
+   * Delegate to org.lockss.log.Logger to return or create a Logger that's
+   * an instance of org.lockss.util.Logger
    */
   protected static Logger getWrappedLogger(String name) {
-    return (Logger)getWrappedLogger(name, (s) -> new Logger(LogManager.getLogger(s)));
+    return (Logger)getWrappedLogger(name,
+				    s -> new Logger(L4JLogger.getLogger(s)));
   }
 
   /**
@@ -210,6 +216,10 @@ public class Logger extends org.lockss.log.Logger {
     for (String key : config.keySet()) {
       map.put(key, config.get(key));
     }
+    map.put(PARAM_STACKTRACE_LEVEL, config.get(PARAM_STACKTRACE_LEVEL,
+					       DEFAULT_STACKTRACE_LEVEL));
+    map.put(PARAM_STACKTRACE_SEVERITY, config.get(PARAM_STACKTRACE_SEVERITY,
+						  DEFAULT_STACKTRACE_SEVERITY));
     Logger.setLockssConfig(map);
   }
 
