@@ -28,7 +28,6 @@
 package org.lockss.config;
 
 import java.io.InputStream;
-import java.util.List;
 import org.lockss.rs.multipart.MultipartResponse;
 import org.springframework.http.HttpStatus;
 
@@ -37,9 +36,9 @@ import org.springframework.http.HttpStatus;
  */
 public class RestConfigSection {
   private String sectionName = null;
-  private List<String> ifMatch = null;
-  private List<String> ifNoneMatch = null;
+  private HttpRequestPreconditions preconditions = null;
   private InputStream inputStream = null;
+  private String lastModified = null;
   private String etag = null;
   private MultipartResponse response = null;
   private HttpStatus statusCode = null;
@@ -62,21 +61,13 @@ public class RestConfigSection {
     return this;
   }
 
-  public List<String> getIfMatch() {
-    return ifMatch;
+  public HttpRequestPreconditions getHttpRequestPreconditions() {
+    return preconditions;
   }
 
-  public RestConfigSection setIfMatch(List<String> ifMatch) {
-    this.ifMatch = ifMatch;
-    return this;
-  }
-
-  public List<String> getIfNoneMatch() {
-    return ifNoneMatch;
-  }
-
-  public RestConfigSection setIfNoneMatch(List<String> ifNoneMatch) {
-    this.ifNoneMatch = ifNoneMatch;
+  public RestConfigSection setHttpRequestPreconditions(HttpRequestPreconditions
+      preconditions) {
+    this.preconditions = preconditions;
     return this;
   }
 
@@ -86,6 +77,15 @@ public class RestConfigSection {
 
   public RestConfigSection setInputStream(InputStream inputStream) {
     this.inputStream = inputStream;
+    return this;
+  }
+
+  public String getLastModified() {
+    return lastModified;
+  }
+
+  public RestConfigSection setLastModified(String lastModified) {
+    this.lastModified = lastModified;
     return this;
   }
 
@@ -146,7 +146,7 @@ public class RestConfigSection {
   @Override
   public String toString() {
     return "[RestConfigSection sectionName=" + sectionName
-	+ ", ifMatch=" + ifMatch + ", ifNoneMatch=" + ifNoneMatch
+	+ ", preconditions=" + preconditions + ", lastModified=" + lastModified
 	+ ", etag=" + etag + ", response=" + response
 	+ ", statusCode=" + statusCode + ", errorMessage=" + errorMessage
 	+ ", contentType=" + contentType + ", contentLength=" + contentLength

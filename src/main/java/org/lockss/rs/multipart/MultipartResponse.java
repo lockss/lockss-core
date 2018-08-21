@@ -284,6 +284,20 @@ public class MultipartResponse {
     }
 
     /**
+     * Provides the value of the Last-Modified header.
+     * 
+     * @return a String with the value of the Last-Modified header.
+     */
+    public String getLastModified() {
+      final String DEBUG_HEADER = "getLastModified(): ";
+      String lastModified = headers.get(HttpHeaders.LAST_MODIFIED);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
+
+      return lastModified;
+    }
+
+    /**
      * Provides the value of the ETag header.
      * 
      * @return a String with the value of the ETag header.
@@ -291,9 +305,6 @@ public class MultipartResponse {
     public String getEtag() {
       final String DEBUG_HEADER = "getEtag(): ";
       String etag = headers.get(HttpHeaders.ETAG);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
-
-      etag = parseEtag(etag);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
       return etag;
@@ -382,28 +393,6 @@ public class MultipartResponse {
       if (log.isDebug2())
 	log.debug2(DEBUG_HEADER + "partName = '" + partName + "'.");
       return partName;
-    }
-
-    /**
-     * Parses an incoming ETag.
-     * 
-     * @param eTag
-     *          A String with the incoming ETag.
-     * @return a String with the parsed ETag.
-     */
-    private String parseEtag(String eTag) {
-      final String DEBUG_HEADER = "parseEtag(): ";
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "eTag = " + eTag);
-
-      // Check whether the raw eTag has content and it is surrounded by double
-      // quotes.
-      if (eTag != null && eTag.startsWith("\"") && eTag.endsWith("\"")) {
-        // Yes: Remove the surrounding double quotes left by Spring.
-        eTag = eTag.substring(1, eTag.length()-1);
-        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "eTag = " + eTag);
-      }
-
-      return eTag;
     }
 
     @Override

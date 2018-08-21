@@ -40,17 +40,36 @@ import org.springframework.http.MediaType;
  */
 public class ConfigFileReadWriteResult {
   private InputStream inputStream;
-  private String versionUniqueId;
-  private boolean preconditionMet = false;
+  private String lastModified;
+  private String etag;
+  private boolean preconditionsMet = false;
   private MediaType contentType;
   private long contentLength = 0;
 
-  public ConfigFileReadWriteResult(InputStream inputStream,
-      String versionUniqueId, boolean preconditionMet, MediaType contentType,
+  /**
+   * Constructor.
+   *
+   * @param inputStream
+   *          An InputStream to the configuration file to be read.
+   * @param lastModified
+   *          A String with the last modification timestamp.
+   * @param etag
+   *          A String with the ETag.
+   * @param preconditionsMet
+   *          A boolean with <code>true</code> if the preconditions were met,
+   *          <code>false</code> otherwise.
+   * @param contentType
+   *          A MediaType with the configuration file content type.
+   * @param contentLength
+   *          A long with the configuration file length.
+   */
+  public ConfigFileReadWriteResult(InputStream inputStream, String lastModified,
+      String etag, boolean preconditionsMet, MediaType contentType,
       long contentLength) {
     this.inputStream = inputStream;
-    this.versionUniqueId = versionUniqueId;
-    this.preconditionMet = preconditionMet;
+    this.lastModified = lastModified;
+    this.etag = etag;
+    this.preconditionsMet = preconditionsMet;
     this.contentType = contentType;
     this.contentLength = contentLength;
   }
@@ -59,16 +78,20 @@ public class ConfigFileReadWriteResult {
     return inputStream;
   }
 
-  public String getVersionUniqueId() {
-    return versionUniqueId;
+  public String getLastModified() {
+    return lastModified;
   }
 
-  public boolean getPreconditionMet() {
-    return preconditionMet;
+  public String getEtag() {
+    return etag;
   }
 
-  public boolean isPreconditionMet() {
-    return preconditionMet;
+  public boolean getPreconditionsMet() {
+    return preconditionsMet;
+  }
+
+  public boolean isPreconditionsMet() {
+    return preconditionsMet;
   }
 
   public MediaType getContentType() {
@@ -82,8 +105,8 @@ public class ConfigFileReadWriteResult {
   @Override
   public String toString() {
     return "[ConfigFileReadWriteResult: inputStream = " + inputStream
-	+ ", versionUniqueId = " + versionUniqueId
-	+ ", preconditionMet = " + preconditionMet
+	+ ", lastModified = " + lastModified + ", etag = " + etag
+	+ ", preconditionsMet = " + preconditionsMet
 	+ ", contentType = " + contentType
 	+ ", contentLength = " + contentLength + "]";
   }

@@ -3715,30 +3715,25 @@ public class ConfigManager implements LockssManager {
    * 
    * @param cacheConfigUrl
    *          A String with the cached configuration file URL.
-   * @param ifMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Unmodified-Since" request header but with a granularity of 1
-   *          ms.
-   * @param ifNoneMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems accessing the configuration file.
    */
   public ConfigFileReadWriteResult conditionallyReadCacheConfigFile(
-      String cacheConfigUrl, List<String> ifMatch, List<String> ifNoneMatch)
+      String cacheConfigUrl, HttpRequestPreconditions preconditions)
 	  throws IOException {
     final String DEBUG_HEADER = "conditionallyReadCacheConfigFile(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
-      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
-      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);
     }
 
     ConfigFile cf = configCache.find(cacheConfigUrl);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
-    return cf.conditionallyRead(ifMatch, ifNoneMatch);
+    return cf.conditionallyRead(preconditions);
   }
 
   /**
@@ -3747,13 +3742,9 @@ public class ConfigManager implements LockssManager {
    * 
    * @param cacheConfigUrl
    *          A String with the cached configuration file URL.
-   * @param ifMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Unmodified-Since" request header but with a granularity of 1
-   *          ms.
-   * @param ifNoneMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @param inputStream
    *          An InputStream to the content to be written to the cached
    *          configuration file.
@@ -3762,13 +3753,12 @@ public class ConfigManager implements LockssManager {
    *           if there are problems.
    */
   public ConfigFileReadWriteResult conditionallyWriteCacheConfigFile(
-      String cacheConfigUrl, List<String> ifMatch, List<String> ifNoneMatch,
+      String cacheConfigUrl, HttpRequestPreconditions preconditions,
       InputStream inputStream) throws IOException {
     final String DEBUG_HEADER = "conditionallyWriteCacheConfigFile(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
-      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
-      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);
       log.debug2(DEBUG_HEADER + "inputStream = " + inputStream);
     }
 
@@ -3783,10 +3773,10 @@ public class ConfigManager implements LockssManager {
 
     // Write the file.
     ConfigFileReadWriteResult writeResult =
-	cf.conditionallyWrite(ifMatch, ifNoneMatch, inputStream);
+	cf.conditionallyWrite(preconditions, inputStream);
 
     // Check whether the file was successfully written.
-    if (writeResult.isPreconditionMet()) {
+    if (writeResult.isPreconditionsMet()) {
       // Yes: Reload the configuration.
       requestReload();
     }
