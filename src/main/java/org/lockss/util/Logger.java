@@ -44,9 +44,10 @@ import org.lockss.config.*;
  * org.lockss.util package, for compatability with existing LOCKSS code and
  * plugins, and hooks it into the LOCKSS configuration mechanism
  */
-public class Logger extends org.lockss.log.Logger {
+public class Logger extends org.lockss.log.LockssLogger {
 
   /** Experimental for use in unit tests */
+  @Deprecated
   public static void resetLogs() {
 //     logs = new HashMap<String, Logger>();
   }
@@ -65,9 +66,9 @@ public class Logger extends org.lockss.log.Logger {
   }
   
   /**
-   * <p>Convenience method to name a logger after a class.
+   * Convenience method to name a logger after a class.
    * Simply calls {@link #getLogger(String)} with the result of
-   * {@link Class#getName()}.</p>
+   * {@link Class#getName()}.
    * @param clazz The class after which to name the returned logger.
    * @return A logger named after the given class.
    * @since 1.56
@@ -102,21 +103,12 @@ public class Logger extends org.lockss.log.Logger {
    * initialization to not complete correctly.
    * @param name identifies the log instance, appears in output
    * @param initialLevel the initial log level (<code>Logger.LEVEL_XXX</code>).
+   * @deprecated Use {@link #getLogger(String)}
    */
+  @Deprecated
   public static Logger getLoggerWithInitialLevel(String name,
 						 int initialLevel) {
     return getLogger(name);
-//     // This method MUST NOT make any reference to Configuration !!
-//     if (name == null) {
-//       name = genName();
-//     }
-//     Logger l = (Logger)logs.get(name);
-//     if (l == null) {
-//       l = new Logger(initialLevel, name);
-//       if (myLog != null) myLog.debug2("Creating logger: " + name);
-//       logs.put(name, l);
-//     }
-//     return l;
   }
 
   /**
@@ -133,77 +125,39 @@ public class Logger extends org.lockss.log.Logger {
    * present specifying the level or the default level
    * @param defaultLevelParam the name of the config param specifying the
    * default level.
+   * @deprecated No longer relevant; use {@link #getLogger(String)}
    */
+  @Deprecated
   public static Logger getLoggerWithDefaultLevel(String name,
 						 String defaultLevelName,
 						 String defaultLevelParam) {
     return getLogger(name);
-//     deferredInit();
-//     if (name == null) {
-//       name = genName();
-//     }
-//     Logger l = (Logger)logs.get(name);
-//     if (l == null) {
-//       int defaultLevel = globalDefaultLevel;
-//       try {
-// 	defaultLevel = levelOf(defaultLevelName);
-//       } catch (Exception e) {
-//       }
-//       l = new Logger(defaultLevel, name, defaultLevelParam);
-//       if (myLog != null) myLog.debug2("Creating logger: " + name);
-//       l.setLevel(l.getConfiguredLevel());
-//       logs.put(name, l);
-//     }
-//     return l;
   }
-
-//   public static Format getTimeStampFormat() {
-//     return timestampDf;
-//   }
-
 
   /** Get the initial default log level, specified by the
-   * org.lockss.defaultLogLevel system property if present, or DEFAULT_LEVEL
+   * org.lockss.defaultLogLevel system property if present, or LEVEL_INFO
+   * @deprecated Unnecessary; use {@link #getLogger(String)}
    */
+  @Deprecated
   public static int getInitialDefaultLevel() {
-    return LEVEL_INFO;
-//     String s = System.getProperty(SYSPROP_DEFAULT_LOG_LEVEL);
-//     int l = DEFAULT_LEVEL;
-//     if (s != null && !"".equals(s)) {
-//       try {
-// 	l = levelOf(s);
-//       } catch (IllegalArgumentException e) {
-// 	// no action
-//       }
-//     }
-//     return l;
+    String s = System.getProperty(SYSPROP_DEFAULT_LOG_LEVEL);
+    int l = LEVEL_INFO;
+    if (s != null && !"".equals(s)) {
+      try {
+	l = levelOf(s);
+      } catch (IllegalLevelException e) {
+	// no action
+      }
+    }
+    return l;
   }
 
-
+  /** Called by MiscConfig */
   public static void setConfig(Configuration newConfig,
 			       Configuration oldConfig,
 			       Configuration.Differences diffs) {
     if (diffs.contains(PREFIX)) {
       setAllLogLevels(newConfig);
-//       if (diffs.contains(PARAM_LOG_TARGETS)) {
-// 	setLogTargets();
-//       }
-//       paramStackTraceLevel = newConfig.getInt(PARAM_STACKTRACE_LEVEL,
-// 					      DEFAULT_STACKTRACE_LEVEL);
-//       paramStackTraceSeverity =
-// 	newConfig.getInt(PARAM_STACKTRACE_SEVERITY,
-// 			 DEFAULT_STACKTRACE_SEVERITY);
-
-//       String df = newConfig.get(PARAM_TIMESTAMP_DATEFORMAT,
-// 				DEFAULT_TIMESTAMP_DATEFORMAT);
-
-//       try {
-// 	timestampDf = FastDateFormat.getInstance(df);
-//       } catch (IllegalArgumentException e) {
-// 	timestampDf =
-// 	  FastDateFormat.getInstance(DEFAULT_TIMESTAMP_DATEFORMAT);
-// 	myLog.warning("Invalid DataFormat: " + df + ", using default");
-//       }
     }
   }
 
@@ -212,27 +166,18 @@ public class Logger extends org.lockss.log.Logger {
   private static void setAllLogLevels(Configuration config) {
     Map<String,String> map = new HashMap<>();
     Configuration logConfig = config.getConfigTree(PREFIX);
-    myLog.critical("logConfig: " + logConfig);
     for (String key : config.keySet()) {
-      map.put(key, config.get(key));
+      if (key.startsWith(PREFIX)) {
+	map.put(key, config.get(key));
+      }
     }
+    // Ensure default values for these get stored in map if not present in
+    // config
     map.put(PARAM_STACKTRACE_LEVEL, config.get(PARAM_STACKTRACE_LEVEL,
 					       DEFAULT_STACKTRACE_LEVEL));
     map.put(PARAM_STACKTRACE_SEVERITY, config.get(PARAM_STACKTRACE_SEVERITY,
 						  DEFAULT_STACKTRACE_SEVERITY));
     Logger.setLockssConfig(map);
   }
-
-//   /**
-//    * Set minimum severity level logged by this log
-//    * @param level <code>Logger.LEVEL_XXX</code>
-//    */
-//   public void setLevel(int level) {
-//     if (this.level != level) {
-// //        info("Changing log level to " + nameOf(level));
-//       this.level = level;
-//     }
-//   }
-
 
 }

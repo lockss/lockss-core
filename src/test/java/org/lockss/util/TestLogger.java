@@ -39,11 +39,11 @@ import org.lockss.util.test.LockssTestCase5;
 import org.lockss.config.*;
 import org.lockss.test.*;
 
-/** Runs all the tests in org.lockss.log.TestLogger (in lockss-util)
+/** Runs all the tests in org.lockss.log.TestLockssLogger (in lockss-util)
     against org.lockss.util.Logger, using LOCKSS config params to change
-    the log levels.  The static references to the Logger class must be
-    repeated here to get the corrent class */
-public class TestLogger extends org.lockss.log.TestLogger {
+    the log levels.  The static references to the LockssLogger class must
+    be repeated here to get the corrent class */
+public class TestLogger extends org.lockss.log.TestLockssLogger {
 
   @BeforeEach
   public void setUp() {
@@ -53,7 +53,7 @@ public class TestLogger extends org.lockss.log.TestLogger {
   }
 
   /** Get the named Logger */
-  protected Logger getLogger(String name) {
+  protected org.lockss.log.LockssLogger getLogger(String name) {
     Logger res = Logger.getLogger(name);
     return res;
   }
