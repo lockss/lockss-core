@@ -130,8 +130,9 @@ public class RestConfigFile extends BaseConfigFile {
 	ifNoneMatch = null;
       }
 
-      response = serviceClient.callGetMultipartRequest(requestUrl, null,
-	  ifNoneMatch);
+      response = serviceClient.callGetMultipartRequest(requestUrl,
+	  new HttpRequestPreconditions(null, ifModifiedSince, ifNoneMatch,
+	      null));
     } catch (IOException e) {
       // The HTTP fetch failed.  First see if we already found a failover
       // file.

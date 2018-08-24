@@ -53,6 +53,10 @@ import org.lockss.state.*;
 import org.lockss.scheduler.*;
 import org.lockss.scheduler.Schedule.*;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * <p>Represents a voter in a V3 poll.</p>
@@ -272,7 +276,7 @@ public class V3Voter implements Poll {
     long duration = msg.getDuration() + padding;
 
     log.debug3("Creating V3 Voter for poll: " + msg.getKey() +
-               "; duration=" + StringUtil.timeIntervalToString(duration));
+               "; duration=" + TimeUtil.timeIntervalToString(duration));
 
     String hashAlgorithm = msg.getHashAlgorithm();
     if (hashAlgorithm == null) {
@@ -520,9 +524,9 @@ public class V3Voter implements Poll {
 
     if (estimatedHashDuration > voteDuration) {
       String msg = "Estimated hash duration (" 
-        + StringUtil.timeIntervalToString(estimatedHashDuration) 
+        + TimeUtil.timeIntervalToString(estimatedHashDuration) 
         + ") is too long to complete within the voting period ("
-        + StringUtil.timeIntervalToString(voteDuration) + ")";
+        + TimeUtil.timeIntervalToString(voteDuration) + ")";
       voterUserData.setErrorDetail(msg);
       log.warning(msg);
       recalcHashEstimate(voterUserData.getVoteDeadline() - now);

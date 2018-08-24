@@ -36,6 +36,7 @@ import java.net.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /**
  * Centralized place for CLOCKSS parameters

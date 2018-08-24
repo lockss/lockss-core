@@ -37,6 +37,8 @@ import org.mortbay.http.*;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -688,7 +690,7 @@ public class ProxyManager extends BaseProxyManager {
   public void logAccess(String method, String url, String msg,
 			String remoteAddr, long reqElapsedTime) {
     if (reqElapsedTime >= 0) {
-      msg += " in " + StringUtil.timeIntervalToString(reqElapsedTime);
+      msg += " in " + TimeUtil.timeIntervalToString(reqElapsedTime);
     }
     logAccess(method, url, msg, remoteAddr);
   }

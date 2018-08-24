@@ -4,8 +4,8 @@ import org.lockss.plugin.CachedUrl;
 import org.lockss.test.MockArchivalUnit;
 import org.lockss.test.MockCachedUrl;
 import org.lockss.util.Logger;
-import org.lockss.util.TimeZoneUtil;
 import org.lockss.util.UrlUtil;
+import org.lockss.util.time.TimeZoneUtil;
 
 import javax.servlet.ServletException;
 import java.io.IOException;

@@ -45,6 +45,7 @@ import org.lockss.repository.*;
 import org.lockss.scheduler.SchedService;
 import org.lockss.util.*;
 import org.lockss.util.ArrayIterator;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.state.*;
 import org.lockss.truezip.*;
 
@@ -274,9 +275,9 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     long newEst;
 
     logger.debug("storeActualHashDuration(" +
-		 StringUtil.timeIntervalToString(elapsed) +
+		 TimeUtil.timeIntervalToString(elapsed) +
 		 ", " + err + "), cur = " +
-		 StringUtil.timeIntervalToString(currentEstimate));
+		 TimeUtil.timeIntervalToString(currentEstimate));
     if (err!=null) {
       if (err instanceof HashService.Timeout
 	  || err instanceof SchedService.Timeout) {
@@ -308,7 +309,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
         newEst = elapsed;
       }
     }
-    logger.debug("newEst = " + StringUtil.timeIntervalToString(newEst));
+    logger.debug("newEst = " + TimeUtil.timeIntervalToString(newEst));
     if (newEst > 10 * Constants.HOUR) {
       logger.error("Unreasonably long hash estimate", new Throwable());
     }
@@ -383,11 +384,11 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     bytesPerMs = metrics.getBytesPerMsHashEstimate();
     if (bytesPerMs > 0) {
       logger.debug("Estimate from size: " + size + "/" + bytesPerMs + " = " +
-		   StringUtil.timeIntervalToString(size / bytesPerMs));
+		   TimeUtil.timeIntervalToString(size / bytesPerMs));
       return (size / bytesPerMs);
     } else {
       logger.warning("Hash speed estimate was 0, using default: " +
-		     StringUtil.timeIntervalToString(size /
+		     TimeUtil.timeIntervalToString(size /
 						     BYTES_PER_MS_DEFAULT));
       return size / BYTES_PER_MS_DEFAULT;
     }

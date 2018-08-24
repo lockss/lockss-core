@@ -35,6 +35,7 @@ import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 import org.lockss.config.*;
 
 import java.io.*;

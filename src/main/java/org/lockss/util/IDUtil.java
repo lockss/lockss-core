@@ -33,6 +33,7 @@ package org.lockss.util;
 import java.util.*;
 import java.io.*;
 import org.lockss.protocol.*;
+import org.lockss.util.net.IPAddr;
 
 public class IDUtil {
   // Length of the Protocol field of stored keys, in bytes. 

@@ -32,6 +32,8 @@ import java.util.*;
 import org.lockss.app.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.laaws.rs.core.*;

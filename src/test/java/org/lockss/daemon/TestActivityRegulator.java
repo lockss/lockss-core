@@ -36,6 +36,7 @@ import java.util.*;
 import java.io.File;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.config.*;
 import org.lockss.plugin.CachedUrlSet;
 import org.lockss.repository.OldLockssRepositoryImpl;

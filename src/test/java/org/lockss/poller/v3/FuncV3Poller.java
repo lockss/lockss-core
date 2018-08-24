@@ -54,6 +54,7 @@ import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Functional tests for the V3Poller.

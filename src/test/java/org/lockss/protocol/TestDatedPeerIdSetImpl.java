@@ -3,6 +3,7 @@ package org.lockss.protocol;
 import java.io.File;
 import java.io.IOException;
 
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 
 public class TestDatedPeerIdSetImpl extends LockssTestCase {

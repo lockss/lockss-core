@@ -33,7 +33,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config;
 
 import java.io.*;
-import java.util.List;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -121,22 +120,17 @@ public interface ConfigFile {
    * Provides the input stream to the content of this configuration file if the
    * passed preconditions are met.
    * 
-   * @param ifMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Unmodified-Since" request header but with a granularity of 1
-   *          ms.
-   * @param ifNoneMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems.
    * @throws UnsupportedOperationException
    *           if the operation is not overriden in a subclass.
    */
-  default ConfigFileReadWriteResult conditionallyRead(List<String> ifMatch,
-      List<String> ifNoneMatch)
-	  throws IOException, UnsupportedOperationException {
+  default ConfigFileReadWriteResult conditionallyRead(HttpRequestPreconditions
+      preconditions) throws IOException, UnsupportedOperationException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -144,13 +138,9 @@ public interface ConfigFile {
    * Writes the passed content to this configuration file if the passed
    * preconditions are met.
    * 
-   * @param ifMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Unmodified-Since" request header but with a granularity of 1
-   *          ms.
-   * @param ifNoneMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @param inputStream
    *          An InputStream to the content to be written to this configuration
    *          file.
@@ -160,8 +150,8 @@ public interface ConfigFile {
    * @throws UnsupportedOperationException
    *           if the operation is not overriden in a subclass.
    */
-  default ConfigFileReadWriteResult conditionallyWrite(List<String> ifMatch,
-      List<String> ifNoneMatch, InputStream inputStream)
+  default ConfigFileReadWriteResult conditionallyWrite(HttpRequestPreconditions
+      preconditions, InputStream inputStream)
 	  throws IOException, UnsupportedOperationException {
     throw new UnsupportedOperationException("Not implemented");
   }

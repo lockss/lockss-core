@@ -34,6 +34,8 @@ package org.lockss.repository;
 
 import java.util.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.hasher.HashResult;
 

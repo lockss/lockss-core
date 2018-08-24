@@ -60,10 +60,8 @@ import org.lockss.daemon.Cron;
 import org.lockss.db.DbException;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
-import org.lockss.util.FileUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Service used to manage COUNTER reports.

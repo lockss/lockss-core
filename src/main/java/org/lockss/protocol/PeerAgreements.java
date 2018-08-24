@@ -33,7 +33,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.protocol;
 
 import java.util.*;
-import org.lockss.util.LockssSerializable;
+
+import org.lockss.util.io.LockssSerializable;
 
 /* NOTE: Instances of this class are not public. {@link
  * IdentityManagerImpl} uses this class internally.

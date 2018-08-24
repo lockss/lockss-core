@@ -36,6 +36,7 @@ import java.lang.reflect.*;
 import java.util.*;
 import junit.framework.*;
 import org.lockss.test.LockssTestCase;
+import org.lockss.util.time.TimeBase;
 
 /**
  * <p>Title: TestVariableTimedMap </p>

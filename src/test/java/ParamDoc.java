@@ -36,6 +36,7 @@ import java.net.*;
 import java.lang.reflect.*;
 import java.util.jar.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeUtil;
 
 public class ParamDoc {
   static final String blanks = "                                                                                ";
@@ -160,7 +161,7 @@ public class ParamDoc {
       if (defaultVal instanceof Long) {
 	long val = ((Long)defaultVal).longValue();
 	if (val > 0) {
-	  timeStr = " (" + StringUtil.timeIntervalToString(val) + ")";
+	  timeStr = " (" + TimeUtil.timeIntervalToString(val) + ")";
 	}	  
       }
       pout.println(timeStr);

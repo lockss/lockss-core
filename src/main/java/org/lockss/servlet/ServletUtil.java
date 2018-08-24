@@ -54,6 +54,8 @@ import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.repository.*;
 import org.lockss.servlet.BatchAuConfig.Verb;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.mortbay.html.*;
 
 public class ServletUtil {

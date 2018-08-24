@@ -40,6 +40,7 @@ import org.archive.util.anvl.*;
 import static org.archive.io.warc.WARCConstants.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 
 /**

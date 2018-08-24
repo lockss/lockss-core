@@ -64,7 +64,6 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 public class RestConfigClient {
   public static String CONFIG_PART_NAME = "config-data";
-  public static String HTTP_WEAK_VALIDATOR_PREFIX = "W/";
 
   private static Logger log = Logger.getLogger(RestConfigClient.class);
 
@@ -268,8 +267,8 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the response.
-      response = callGetMultipartRequest(requestUrl, input.getIfMatch(),
-	  input.getIfNoneMatch());
+      response = callGetMultipartRequest(requestUrl,
+	  input.getHttpRequestPreconditions());
       output.setResponse(response);
     } catch (HttpClientErrorException hcee) {
       String errorMessage = "Couldn't load config section '" + sectionName
@@ -304,15 +303,22 @@ public class RestConfigClient {
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
 
-      // Get and populate the configuration data etag.
+      // Get and populate the configuration data last modified header.
+      String lastModified = configDataPart.getLastModified();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
+
+      output.setLastModified(lastModified);
+
+      // Get and populate the configuration data ETag header.
       String etag = configDataPart.getEtag();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
+
+      output.setEtag(etag);
 
       Map<String, String> partHeaders = configDataPart.getHeaders();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
-
-      output.setEtag(etag);
 
       // Get and populate the content type.
       String contentType = partHeaders.get(HttpHeaders.CONTENT_TYPE);
@@ -341,12 +347,9 @@ public class RestConfigClient {
    * 
    * @param url
    *          A String with the URL.
-   * @param ifMatch
-   *          A List<String> with the preconditions to be specified in the
-   *          request If-Match header.
-   * @param ifNoneMatch
-   *          A List<String> with the preconditions to be specified in the
-   *          request If-None-Match header.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @return a MultipartResponse with the response.
    * @throws IOException
    *           if there are problems getting the part payload.
@@ -354,17 +357,13 @@ public class RestConfigClient {
    *           if there are other problems.
    */
   public MultipartResponse callGetMultipartRequest(String url,
-      List<String> ifMatch, List<String> ifNoneMatch)
+      HttpRequestPreconditions preconditions)
 	  throws IOException, MessagingException {
     final String DEBUG_HEADER = "callGetMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
-      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
-      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);
     }
-
-    // Validate the preconditions.
-    validatePreConditions(ifMatch, ifNoneMatch);
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
@@ -384,16 +383,41 @@ public class RestConfigClient {
     .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
     requestHeaders.set("Authorization", authHeaderValue);
 
+    // Get the individual preconditions.
+    List<String> ifMatch = null;
+    String ifModifiedSince = null;
+    List<String> ifNoneMatch = null;
+    String ifUnmodifiedSince = null;
+
+    if (preconditions != null) {
+	ifMatch = preconditions.getIfMatch();
+	ifModifiedSince = preconditions.getIfModifiedSince();
+	ifNoneMatch = preconditions.getIfNoneMatch();
+	ifUnmodifiedSince = preconditions.getIfUnmodifiedSince();
+    }
+
     // Check whether there are If-Match preconditions.
     if (ifMatch != null && !ifMatch.isEmpty()) {
       // Yes.
       requestHeaders.setIfMatch(ifMatch);
     }
 
+    // Check whether there is an If-Modified-Since precondition.
+    if (ifModifiedSince != null && !ifModifiedSince.isEmpty()) {
+      // Yes.
+      requestHeaders.set(HttpHeaders.IF_MODIFIED_SINCE, ifModifiedSince);
+    }
+
     // Check whether there are If-None-Match preconditions.
     if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
       // Yes.
       requestHeaders.setIfNoneMatch(ifNoneMatch);
+    }
+
+    // Check whether there is an If-Unmodified-Since precondition.
+    if (ifUnmodifiedSince != null && !ifUnmodifiedSince.isEmpty()) {
+      // Yes.
+      requestHeaders.set(HttpHeaders.IF_UNMODIFIED_SINCE, ifUnmodifiedSince);
     }
 
     // Make the request and obtain the response.
@@ -472,24 +496,25 @@ public class RestConfigClient {
 
       // Make the request and get the result.
       ResponseEntity<?> response = callPutMultipartRequest(requestUrl,
-	  input.getIfMatch(), input.getIfNoneMatch(), config,
-	  input.getContentType(), input.getContentLength());
+	  input.getHttpRequestPreconditions(), config, input.getContentType(),
+	  input.getContentLength());
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       HttpStatus statusCode = response.getStatusCode();
       output.setStatusCode(statusCode);
       output.setErrorMessage(statusCode.toString());
 
-      String etag = response.getHeaders().getETag();
+      // Get and populate the configuration data last modified header.
+      String lastModified =
+	  String.valueOf(response.getHeaders().getLastModified());
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
 
-      // Check whether the raw eTag has content and it is surrounded by double
-      // quotes.
-      if (etag != null && etag.length() > 1 && etag.startsWith("\"")
-	  && etag.endsWith("\"")) {
-        // Yes: Remove the surrounding double quotes left by Spring.
-	etag = etag.substring(1, etag.length()-1);
-        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
-      }
+      output.setLastModified(lastModified);
+
+      // Get and populate the configuration data ETag header.
+      String etag = response.getHeaders().getETag();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
       output.setEtag(etag);
     } catch (HttpClientErrorException hcee) {
@@ -516,12 +541,9 @@ public class RestConfigClient {
    * 
    * @param url
    *          A String with the URL.
-   * @param ifMatch
-   *          A List<String> with the preconditions to be specified in the
-   *          request If-Match header.
-   * @param ifNoneMatch
-   *          A List<String> with the preconditions to be specified in the
-   *          request If-None-Match header.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @param inputStream
    *          An InputStream to the content to be sent to the server.
    * @param contentType
@@ -534,19 +556,15 @@ public class RestConfigClient {
    *           if there are problems reading the input stream.
    */
   public ResponseEntity<?> callPutMultipartRequest(String url,
-      List<String> ifMatch, List<String> ifNoneMatch, InputStream inputStream,
+      HttpRequestPreconditions preconditions, InputStream inputStream,
       String contentType, long contentLength) throws IOException {
     final String DEBUG_HEADER = "callPutMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
-      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
-      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);
       log.debug2(DEBUG_HEADER + "contentType = " + contentType);
       log.debug2(DEBUG_HEADER + "contentLength = " + contentLength);
     }
-
-    // Validate the preconditions.
-    validatePreConditions(ifMatch, ifNoneMatch);
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
@@ -582,18 +600,6 @@ public class RestConfigClient {
     requestHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
     requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-    // Check whether there are If-Match preconditions.
-    if (ifMatch != null && !ifMatch.isEmpty()) {
-      // Yes.
-      requestHeaders.setIfMatch(ifMatch);
-    }
-
-    // Check whether there are If-None-Match preconditions.
-    if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
-      // Yes.
-      requestHeaders.setIfNoneMatch(ifNoneMatch);
-    }
-
     // Set the authentication credentials.
     String credentials = serviceUser + ":" + servicePassword;
     String authHeaderValue = "Basic " + Base64.getEncoder()
@@ -602,106 +608,49 @@ public class RestConfigClient {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "requestHeaders = " + requestHeaders);
 
+    // Get the individual preconditions.
+    List<String> ifMatch = null;
+    String ifModifiedSince = null;
+    List<String> ifNoneMatch = null;
+    String ifUnmodifiedSince = null;
+
+    if (preconditions != null) {
+	ifMatch = preconditions.getIfMatch();
+	ifModifiedSince = preconditions.getIfModifiedSince();
+	ifNoneMatch = preconditions.getIfNoneMatch();
+	ifUnmodifiedSince = preconditions.getIfUnmodifiedSince();
+    }
+
+    // Check whether there are If-Match preconditions.
+    if (ifMatch != null && !ifMatch.isEmpty()) {
+      // Yes.
+      requestHeaders.setIfMatch(ifMatch);
+    }
+
+    // Check whether there is an If-Modified-Since precondition.
+    if (ifModifiedSince != null && !ifModifiedSince.isEmpty()) {
+      // Yes.
+      requestHeaders.set(HttpHeaders.IF_MODIFIED_SINCE, ifModifiedSince);
+    }
+
+    // Check whether there are If-None-Match preconditions.
+    if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
+      // Yes.
+      requestHeaders.setIfNoneMatch(ifNoneMatch);
+    }
+
+    // Check whether there is an If-Unmodified-Since precondition.
+    if (ifUnmodifiedSince != null && !ifUnmodifiedSince.isEmpty()) {
+      // Yes.
+      requestHeaders.set(HttpHeaders.IF_UNMODIFIED_SINCE, ifUnmodifiedSince);
+    }
+
     // Make the request and obtain the response.
     ResponseEntity<?> response = new MultipartConnector(uri, requestHeaders,
 	parts).requestPut(serviceTimeout, serviceTimeout);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     return response;
-  }
-
-  /**
-   * Validates the preconditions.
-   * 
-   * @param ifMatch
-   *          A List<String> with the preconditions to be specified in the
-   *          request If-Match header.
-   * @param ifNoneMatch
-   *          A List<String> with the preconditions to be specified in the
-   *          request If-None-Match header.
-   */
-  private void validatePreConditions(List<String> ifMatch,
-      List<String> ifNoneMatch) {
-    final String DEBUG_HEADER = "validatePreConditions(): ";
-    if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
-      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
-    }
-
-    boolean ifMatchExists = ifMatch != null && !ifMatch.isEmpty();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "ifMatchExists = " + ifMatchExists);
-
-    boolean ifNoneMatchExists = ifNoneMatch != null && !ifNoneMatch.isEmpty();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "ifNoneMatchExists = " + ifNoneMatchExists);
-
-    // Check whether there are both If-Match and If-None-Match preconditions.
-    if (ifMatchExists && ifNoneMatchExists) {
-      // Yes: Report the problem.
-      String message =
-	  "Invalid presence of both If-Match and If-None-Match preconditions";
-      log.error(message);
-      throw new IllegalArgumentException(message);
-    }
-
-    if (ifMatchExists) {
-      // Loop through the If-Match precondition tags.
-      for (String tag : ifMatch) {
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tag = " + tag);
-
-	// Check whether it is a weak validator tag.
-	if (tag.toUpperCase().startsWith(HTTP_WEAK_VALIDATOR_PREFIX)) {
-	  // Yes: Report the problem.
-	  String message = "Invalid If-Match entity tag '" + tag + "'";
-	  log.error(message);
-	  throw new IllegalArgumentException(message);
-	  // No: Check whether it is an asterisk.
-	} else if ("*".equals(tag)) {
-	  // Yes: Check whether the asterisk does not appear just by itself.
-	  if (ifMatch.size() > 1) {
-	    // Yes: Report the problem.
-	    String message = "Invalid If-Match entity tag mix";
-	    log.error(message);
-	    throw new IllegalArgumentException(message);
-	  }
-	  // No: Check whether a normal tag is not delimited by double quotes.
-	} else if (!tag.startsWith("\"") || !tag.endsWith("\"")) {
-	  // Yes: Report the problem.
-	  String message = "Invalid If-Match entity tag '" + tag + "'";
-	  log.error(message);
-	  throw new IllegalArgumentException(message);
-	}
-      }
-    } else if (ifNoneMatchExists) {
-      // Loop through the If-None-Match precondition tags.
-      for (String tag : ifNoneMatch) {
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tag = " + tag);
-
-	// Check whether it is a weak validator tag.
-	if (tag.toUpperCase().startsWith(HTTP_WEAK_VALIDATOR_PREFIX)) {
-	  // Yes: Report the problem.
-	  String message = "Invalid If-None-Match entity tag '" + tag + "'";
-	  log.error(message);
-	  throw new IllegalArgumentException(message);
-	  // No: Check whether the asterisk does not appear just by itself.
-	} else if ("*".equals(tag)) {
-	  // Yes: Check whether the asterisk does not appear just by itself.
-	  if (ifNoneMatch.size() > 1) {
-	    // Yes: Report the problem.
-	    String message = "Invalid If-None-Match entity tag mix";
-	    log.error(message);
-	    throw new IllegalArgumentException(message);
-	  }
-	  // No: Check whether a normal tag is not delimited by double quotes.
-	} else if (!tag.startsWith("\"") || !tag.endsWith("\"")) {
-	  // Yes: Report the problem.
-	  String message = "Invalid If-None-Match entity tag '" + tag + "'";
-	  log.error(message);
-	  throw new IllegalArgumentException(message);
-	}
-      }
-    }
   }
 
   /**

@@ -37,6 +37,7 @@ import java.util.zip.*;
 import java.security.MessageDigest;
 
 import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.time.TimeBase;
 
 /**
  * This is a class to contain generic stream utilities

@@ -42,6 +42,8 @@ import org.lockss.hasher.HashService;
 import org.lockss.plugin.PluginManager;
 import org.lockss.protocol.LcapMessage;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 
 /**
  * A singleton class which provides access to various system calculations, such

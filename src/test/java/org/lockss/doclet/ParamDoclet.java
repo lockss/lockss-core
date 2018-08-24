@@ -36,6 +36,7 @@ import org.apache.commons.collections4.SetValuedMap;
 import org.apache.commons.collections4.multimap.HashSetValuedHashMap;
 
 import org.lockss.util.*;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * A JavaDoc doclet that prints configuration parameter information.
@@ -495,7 +496,7 @@ public class ParamDoclet {
 	long timeVal = fld.getLong(null);
 	if (timeVal > 0) {
 	  defaultVal = timeVal + " (" +
-	    StringUtil.timeIntervalToString(timeVal) + ")";
+	    TimeUtil.timeIntervalToString(timeVal) + ")";
 	} else {
 	  defaultVal = Long.toString(timeVal);
 	}

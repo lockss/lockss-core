@@ -36,6 +36,8 @@ import java.net.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.PriorityQueue;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 

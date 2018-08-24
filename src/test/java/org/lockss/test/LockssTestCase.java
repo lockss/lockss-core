@@ -46,6 +46,10 @@ import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.test.FileTestUtil;
+import org.lockss.util.time.TimerUtil;
 
 
 /**
@@ -73,8 +77,8 @@ public class LockssTestCase extends TestCase {
 
   private MockLockssDaemon mockDaemon = null;
 
-  List tmpDirs;
-  List doLaters = null;
+  List<File> tmpDirs;
+  List<DoLater> doLaters = null;
   String javaIoTmpdir;
   TestResult result;
 
@@ -133,7 +137,7 @@ public class LockssTestCase extends TestCase {
     File tmpdir = FileUtil.createTempDir(prefix, null);
     if (tmpdir != null) {
       if (tmpDirs == null) {
-	tmpDirs = new LinkedList();
+	tmpDirs = new LinkedList<File>();
       }
       tmpDirs.add(tmpdir);
     }
@@ -146,15 +150,15 @@ public class LockssTestCase extends TestCase {
    * It will be deleted following the test, by tearDown().  (So if you
    * override tearDown(), be sure to call <code>super.tearDown()</code>.)
    * @param prefix the prefix of the name of the file
-   * @param suffis the suffix of the name of the file
+   * @param suffix the suffix of the name of the file
    * @return The newly created file
    * @throws IOException
    */
-  public File getTempFile(String prefix, String suffis) throws IOException {
-    File tmpfile = FileUtil.createTempFile(prefix, suffis);
+  public File getTempFile(String prefix, String suffix) throws IOException {
+    File tmpfile = FileUtil.createTempFile(prefix, suffix);
     if (tmpfile != null) {
       if (tmpDirs == null) {
-	tmpDirs = new LinkedList();
+	tmpDirs = new LinkedList<File>();
       }
       tmpDirs.add(tmpfile);
     }

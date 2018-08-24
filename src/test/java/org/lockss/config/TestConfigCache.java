@@ -32,6 +32,7 @@ import java.io.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.lockss.config.ConfigCache;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 import org.lockss.util.*;
 

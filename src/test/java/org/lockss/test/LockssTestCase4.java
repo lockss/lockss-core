@@ -46,8 +46,12 @@ import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.Parameterized.Parameter;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimerUtil;
 
 import junit.framework.TestCase;
 

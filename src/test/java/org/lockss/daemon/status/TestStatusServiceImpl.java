@@ -35,6 +35,7 @@ import java.util.*;
 import java.net.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 
 public class TestStatusServiceImpl extends LockssTestCase {

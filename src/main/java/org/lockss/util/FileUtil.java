@@ -32,6 +32,9 @@ import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.util.*;
 import org.apache.oro.text.regex.*;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
 
 /** Utilities for Files
  */

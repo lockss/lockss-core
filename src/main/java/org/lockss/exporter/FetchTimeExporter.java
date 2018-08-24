@@ -50,12 +50,8 @@ import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
-import org.lockss.util.FileUtil;
-import org.lockss.util.IOUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.NumberUtil;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Periodically exports fetch times of recently added metadata items.

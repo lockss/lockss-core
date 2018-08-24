@@ -36,6 +36,7 @@ import java.io.*;
 import java.math.BigInteger;
 import java.util.Comparator;
 
+import org.lockss.util.lang.LockssRandom;
 import org.mortbay.util.*;
 
 /**

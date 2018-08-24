@@ -48,6 +48,9 @@ import org.lockss.plugin.UrlFetcher.FetchResult;
 import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeZoneUtil;
 import org.lockss.util.urlconn.*;
 
 public class TestBaseUrlFetcher extends LockssTestCase {

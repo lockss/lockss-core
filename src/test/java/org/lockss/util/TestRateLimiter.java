@@ -34,6 +34,7 @@ package org.lockss.util;
 
 import org.lockss.config.*;
 import org.lockss.test.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Test class for org.lockss.util.RateLimiter

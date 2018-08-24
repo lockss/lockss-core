@@ -37,6 +37,8 @@ import java.util.*;
 import java.text.Format;
 import org.apache.commons.lang3.time.FastDateFormat;
 
+import org.lockss.util.time.TimeBase;
+
 /**
  * Wrapper InputStream that records open() and close() events, to aid in
  * finding unclosed streams.

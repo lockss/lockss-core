@@ -38,6 +38,7 @@ import org.apache.commons.collections.OrderedMapIterator;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 

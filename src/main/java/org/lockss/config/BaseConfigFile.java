@@ -37,6 +37,7 @@ import java.net.*;
 import java.util.*;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -210,7 +211,7 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_loadError = ex.toString();
       throw ex;
     } catch (IOException ex) {
-      log.warning("Exception loading " + m_fileUrl + ": " + ex);
+      log.warning("Exception loading " + m_fileUrl, ex);
       m_IOException = ex;
       if (m_loadError == null ||
 	  !StringUtil.equalStrings(ex.getMessage(), m_loadError)) {

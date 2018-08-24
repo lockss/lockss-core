@@ -44,6 +44,10 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.poller.PollSpec;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
+
 import javax.jms.*;
 import org.lockss.jms.*;
 
@@ -2903,7 +2907,7 @@ public class PluginManager
 	auList = Collections.unmodifiableList(tmp);
 	if (log.isDebug2()) {
 	  long diff = TimeBase.msSince(startSort);
-	  log.debug2("Sort AUs list: " + StringUtil.timeIntervalToString(diff));
+	  log.debug2("Sort AUs list: " + TimeUtil.timeIntervalToString(diff));
 	}
       }
       return auList;

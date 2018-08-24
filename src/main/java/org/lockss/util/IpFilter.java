@@ -38,6 +38,7 @@ import java.util.regex.*;
 
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.app.*;
 
 /**

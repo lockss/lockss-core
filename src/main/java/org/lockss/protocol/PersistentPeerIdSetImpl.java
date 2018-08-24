@@ -53,6 +53,7 @@ import java.io.*;
 import java.util.*;
 
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   // Static constants 

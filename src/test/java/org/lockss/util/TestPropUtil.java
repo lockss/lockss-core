@@ -36,6 +36,8 @@ import java.util.*;
 import java.io.*;
 import java.net.*;
 import junit.framework.TestCase;
+
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 
 /**

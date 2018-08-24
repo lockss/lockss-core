@@ -33,12 +33,30 @@ import java.util.TimeZone;
 
 import org.lockss.test.LockssTestCase;
 
+/**
+ * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+ *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+ *             lockss-util instead.
+ */
+@Deprecated
 public class TestTimeZoneUtil extends LockssTestCase {
 
+  /**
+   * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+   *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public void testIsBasicTimeZoneDataAvailable() {
     assertTrue(TimeZoneUtil.isBasicTimeZoneDataAvailable());
   }
   
+  /**
+   * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+   *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public void testGoodTimeZones() throws Exception {
     for (String id : TimeZoneUtil.BASIC_TIME_ZONES) {
       TimeZone tz = TimeZoneUtil.getExactTimeZone(id);
@@ -47,6 +65,12 @@ public class TestTimeZoneUtil extends LockssTestCase {
     }
   }
   
+  /**
+   * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+   *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public void testBadTimeZones() throws Exception {
     for (String id : Arrays.asList(null,
                                    "Foo",

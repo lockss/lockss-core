@@ -36,32 +36,45 @@ import java.util.*;
 import java.io.*;
 import junit.framework.TestCase;
 import org.lockss.test.*;
+import org.lockss.util.test.PrivilegedAccessor;
+import org.lockss.util.time.TimerUtil;
 
 
 /**
  * Test class for <code>org.lockss.util.Deadline</code>
+ *
+ * @deprecated {@code org.lockss.util.Deadline} is deprecated (but is used by
+ *             plugins); use {@code org.lockss.util.time.Deadline} instead.
  */
-
+@Deprecated
 public class TestDeadline extends LockssTestCase {
+
+  @Deprecated
   public static Class testedClasses[] = {
     org.lockss.util.Deadline.class
   };
+
+  @Deprecated
   static final int MAX_DURATION = 9999999;
 
+  @Deprecated
   public TestDeadline(String msg) {
     super(msg);
   }
 
+  @Deprecated
   protected void tearDown() throws Exception {
     TimeBase.setReal();
     super.tearDown();
   }
 
+  @Deprecated
   private long getDuration(Deadline d) throws Exception {
     Long i = (Long)PrivilegedAccessor.invokeMethod(d, "getDuration");
     return i.longValue();
   }
 
+  @Deprecated
   public void testDuration() throws Exception {
     TimeBase.setSimulated();
     Random random = new Random();
@@ -94,6 +107,7 @@ public class TestDeadline extends LockssTestCase {
     }
   }
 
+  @Deprecated
   public void testBefore() {
     TimeBase.setSimulated();
     Deadline p1 = Deadline.in(100);
@@ -103,6 +117,7 @@ public class TestDeadline extends LockssTestCase {
     assertFalse(p2.before(p1));
   }
 
+  @Deprecated
   public void testCompareTo() {
     TimeBase.setSimulated();
     Deadline p1 = Deadline.in(100);
@@ -114,6 +129,7 @@ public class TestDeadline extends LockssTestCase {
     assertTrue(p2.compareTo(p1) > 0);
   }
 
+  @Deprecated
   public void testEquals() {
     TimeBase.setSimulated();
     Deadline p1 = Deadline.in(100);
@@ -127,6 +143,7 @@ public class TestDeadline extends LockssTestCase {
     assertFalse(p1.equals("foo"));
   }
 
+  @Deprecated
   public void testHashCode() {
     TimeBase.setSimulated();
     Deadline p1 = Deadline.in(200);
@@ -134,6 +151,7 @@ public class TestDeadline extends LockssTestCase {
     assertTrue(p1.hashCode() == p2.hashCode());
   }
 
+  @Deprecated
   public void testMinus() {
     TimeBase.setSimulated();
     Deadline p1 = Deadline.in(100);
@@ -143,6 +161,7 @@ public class TestDeadline extends LockssTestCase {
     assertEquals(-100, p1.minus(p2));
   }
 
+  @Deprecated
   public void testMAX() {
     TimeBase.setSimulated();
     Deadline never = Deadline.MAX;
@@ -174,6 +193,7 @@ public class TestDeadline extends LockssTestCase {
     assertFalse(never.expired());
   }
 
+  @Deprecated
   public void testEXPIRED() {
     TimeBase.setSimulated();
     Deadline never = Deadline.EXPIRED;
@@ -205,6 +225,7 @@ public class TestDeadline extends LockssTestCase {
     assertTrue(never.expired());
   }
 
+  @Deprecated
   public void testEarliest() {
     TimeBase.setSimulated();
     Deadline p1 = Deadline.in(100);
@@ -215,6 +236,7 @@ public class TestDeadline extends LockssTestCase {
     assertEquals(Deadline.in(100), Deadline.earliest(Deadline.MAX, p1));
   }
 
+  @Deprecated
   public void testLatest() {
     TimeBase.setSimulated();
     Deadline p1 = Deadline.in(100);
@@ -225,12 +247,14 @@ public class TestDeadline extends LockssTestCase {
     assertEquals(Deadline.MAX, Deadline.latest(Deadline.MAX, p1));
   }
 
+  @Deprecated
   public void testGetSleepTime() {
     Deadline t = Deadline.in(0);
     assertTrue(t.expired());
     assertTrue(t.getSleepTime() > 0);
   }
 
+  @Deprecated
   public void testSleep() {
     Interrupter intr = null;
     try {
@@ -258,6 +282,7 @@ public class TestDeadline extends LockssTestCase {
     }
   }
 
+  @Deprecated
   public void testFaster() {
     Interrupter intr = null;
     DoLater doer = null;
@@ -294,6 +319,7 @@ public class TestDeadline extends LockssTestCase {
     }
   }
 
+  @Deprecated
   public void testSlower() {
     TimeBase.setSimulated();
     Deadline t = Deadline.in(200);
@@ -301,6 +327,7 @@ public class TestDeadline extends LockssTestCase {
     assertEquals(500, t.getRemainingTime());
   }
 
+  @Deprecated
   public void testForceExpire() {
     Interrupter intr = null;
     Expirer expr = null;
@@ -330,8 +357,10 @@ public class TestDeadline extends LockssTestCase {
     }
   }
 
+  @Deprecated
   Deadline called = null;
 
+  @Deprecated
   public void testCallback() {
     Deadline.Callback cb = new Deadline.Callback() {
 	public void changed(Deadline deadline) {
@@ -347,6 +376,7 @@ public class TestDeadline extends LockssTestCase {
     assertSame(d1, called);
   }
 
+  @Deprecated
   public void testInterruptedCallback() {
     Deadline.InterruptCallback cb = new Deadline.InterruptCallback();
     Expirer expr = null;
@@ -369,23 +399,70 @@ public class TestDeadline extends LockssTestCase {
 
 
   /** Expirer expires a timer in a while */
+  @Deprecated
   class Expirer extends DoLater {
+    @Deprecated
     Deadline timer;
+
+    @Deprecated
     Expirer(long waitMs, Deadline timer) {
       super(waitMs);
       this.timer = timer;
     }
 
+    @Deprecated
     protected void doit() {
       timer.expire();
     }
   }
 
   /** Expire the timer in a while */
+  @Deprecated
   private Expirer expireIn(long ms, Deadline timer) {
     Expirer e = new Expirer(ms, timer);
     e.start();
     return e;
   }
 
+  static class MyClass {
+    public String foo() {
+      return "MyClass";
+    }
+    public interface MyInterface {
+      void bar(MyClass myClass);
+    }
+    public static class MyImpl implements MyInterface {
+      @Override
+      public void bar(MyClass myClass) {
+        System.out.println(myClass.foo());
+      }
+    }
+  }
+  
+  static class MySubclass extends MyClass {
+    // nothing
+    public interface MySubInterface extends TestDeadline.MyClass.MyInterface {
+      void bar(MySubclass mySubclass);
+      default void bar(MyClass myClass) {
+        throw new UnsupportedOperationException();
+      }
+    }
+    public static class MySubimpl extends TestDeadline.MyClass.MyImpl implements MySubclass.MySubInterface {
+      @Override
+      public void bar(MySubclass mySubclass) {
+        super.bar(mySubclass);
+      }
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    TestDeadline.MySubclass.MySubInterface inter = new TestDeadline.MySubclass.MySubInterface() {
+      @Override
+      public void bar(MySubclass mySubclass) {
+        System.out.println("local class");
+      }      
+    };
+    inter.bar(new MySubclass());
+  }
+  
 }

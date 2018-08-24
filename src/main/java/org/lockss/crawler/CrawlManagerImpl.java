@@ -43,6 +43,8 @@ import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.app.*;
 import org.lockss.alert.*;
 import org.lockss.state.*;

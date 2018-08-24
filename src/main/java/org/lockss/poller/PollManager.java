@@ -60,6 +60,9 @@ import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.PsmManager;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.repository.*;
 
 /**
@@ -1874,8 +1877,8 @@ public class PollManager
     long sinceLast = TimeBase.msSince(auState.getLastPollAttempt());
     if (sinceLast < paramMinPollAttemptInterval) {
       String msg = "Poll attempted too recently (" +
-          StringUtil.timeIntervalToString(sinceLast) + " < " +
-          StringUtil.timeIntervalToString(paramMinPollAttemptInterval) + ").";
+          TimeUtil.timeIntervalToString(sinceLast) + " < " +
+          TimeUtil.timeIntervalToString(paramMinPollAttemptInterval) + ").";
       theLog.debug3(msg + " " + au);
       throw new NotEligibleException(msg);
     }

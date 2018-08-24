@@ -35,6 +35,8 @@ package org.lockss.test;
 import java.io.*;
 import java.util.*;
 import junit.framework.TestCase;
+
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.*;
 
 /** Functional tests to ensure that the filesystem behaves as we expect

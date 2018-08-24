@@ -46,6 +46,8 @@ import org.lockss.protocol.*;
 import org.lockss.daemon.CachedUrlSetSpec;
 import org.lockss.plugin.AuUrl;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
 import org.lockss.repository.RepositoryManager.CheckUnnormalizedMode;
 
 /**

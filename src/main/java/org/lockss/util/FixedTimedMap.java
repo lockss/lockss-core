@@ -34,6 +34,7 @@ package org.lockss.util;
 
 import java.util.*;
 import org.apache.commons.collections.map.LinkedMap;
+import org.lockss.util.time.Deadline;
 
 /**
  * FixedTimedMap implements the Map interface.  It has the

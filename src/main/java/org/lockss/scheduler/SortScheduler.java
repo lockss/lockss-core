@@ -36,6 +36,7 @@ import java.util.*;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 
 /** This scheduler assigns tasks to intervals preferentially based on their
  * finish time */

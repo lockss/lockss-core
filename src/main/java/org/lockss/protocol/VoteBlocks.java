@@ -36,6 +36,7 @@ import java.util.*;
 import java.io.*;
 
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * Maintain an ordered list of VoteBlocks.  Concrete implementations offer

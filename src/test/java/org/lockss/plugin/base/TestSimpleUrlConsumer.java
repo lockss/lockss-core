@@ -44,6 +44,7 @@ import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.state.AuState;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 public class TestSimpleUrlConsumer extends LockssTestCase {
 

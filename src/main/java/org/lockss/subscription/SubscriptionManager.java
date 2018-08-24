@@ -77,11 +77,8 @@ import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
-import org.lockss.util.Logger;
-import org.lockss.util.MetadataUtil;
-import org.lockss.util.PlatformUtil;
-import org.lockss.util.RateLimiter;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Manager of serial publication subscriptions.

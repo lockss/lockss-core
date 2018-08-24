@@ -40,6 +40,8 @@ import org.apache.commons.collections.map.LRUMap;
 import org.lockss.config.*;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
 
 /**
  * MockLcapDatagramComm fakes the LcapDatagramComm layer, storing "sent" packets on queues,

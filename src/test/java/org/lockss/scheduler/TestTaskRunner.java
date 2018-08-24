@@ -36,6 +36,8 @@ import java.util.*;
 
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 

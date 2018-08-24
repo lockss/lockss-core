@@ -40,6 +40,7 @@ import org.lockss.config.Configuration;
 import org.lockss.config.ConfigurationPropTreeImpl;
 import org.lockss.config.Tdb;
 import org.lockss.config.Tdb.TdbException;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.config.TdbAu;
 import org.lockss.config.TdbPublisher;
 import org.lockss.config.TdbTitle;

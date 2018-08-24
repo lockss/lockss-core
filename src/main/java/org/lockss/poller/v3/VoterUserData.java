@@ -42,6 +42,9 @@ import org.lockss.protocol.*;
 import org.lockss.protocol.psm.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Persistent user data state object used by V3Voter state machine.

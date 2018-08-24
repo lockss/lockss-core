@@ -36,6 +36,7 @@ import java.util.*;
 import java.text.*;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /** Common functionality for implementations of LockssUrlConnection */
 public abstract class BaseLockssUrlConnection implements LockssUrlConnection {

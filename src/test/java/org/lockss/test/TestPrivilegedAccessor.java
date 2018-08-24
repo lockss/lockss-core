@@ -33,11 +33,30 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.test;
 import junit.framework.*;
 
+/**
+ * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+ *             used by plugins); use
+ *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+ */
+@Deprecated
 public class TestPrivilegedAccessor extends LockssTestCase {
+
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public TestPrivilegedAccessor(String name) {
     super(name);
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testParent() throws Exception {
     MyMockParent parent = new MyMockParent("Charlie");
     assertEquals("Charlie", PrivilegedAccessor.getValue(parent, "m_name"));
@@ -45,6 +64,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertEquals("Timmah!", PrivilegedAccessor.getValue(parent,"m_name"));
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testChild() throws Exception {
     MyMockChild child = new MyMockChild("Charlie", 8);
     assertEquals("Charlie", PrivilegedAccessor.getValue(child, "m_name"));
@@ -59,6 +84,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
 		 PrivilegedAccessor.getValue(child, "m_number"));
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testChildWithParentReference() throws Exception {
     MyMockParent parent = new MyMockChild("Charlie", 8);
     assertEquals("Charlie", PrivilegedAccessor.getValue(parent, "m_name"));
@@ -76,6 +107,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertEquals("prashant", PrivilegedAccessor.getValue(parent,"m_name"));
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testInvalidField() throws Exception {
     MyMockParent parent = new MyMockParent("Charlie");
     try {
@@ -85,6 +122,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     }
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testInvalidMethodName() throws Exception {
     MyMockChild child = new MyMockChild("Charlie", 8);
     try {
@@ -94,6 +137,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     }
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testInvalidArguments() throws Exception {
     MyMockChild child = new MyMockChild("Charlie", 8);
     try {
@@ -103,6 +152,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     }
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testInstanceParam() throws Exception {
     try {
       new PrivilegedAccessor.Instance(String.class, new Float(5));
@@ -117,6 +172,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertTrue(bool.booleanValue());
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testUnambiguousNullArg() throws Exception {
     MyMockParent parent = new MyMockParent();
     Object[] args = {null};
@@ -125,6 +186,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertTrue(bool.booleanValue());
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testAmbiguousNullArg() throws Exception {
     MyMockChild child = new MyMockChild("Charlie", 8);
     Object[] args1 = {"foo"};
@@ -137,6 +204,13 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     } catch (PrivilegedAccessor.AmbiguousMethodException e) {
     }
   }
+
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testUnambiguousArg() throws Exception {
     MyMockParent parent = new MyMockParent();
     MyMockChild child = new MyMockChild("Charlie", 8);
@@ -167,7 +241,13 @@ public class TestPrivilegedAccessor extends LockssTestCase {
 		 PrivilegedAccessor.invokeMethod(child, "over", args3));
   }
 
-  public void testAambiguousArg() throws Exception {
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
+  public void testAmbiguousArg() throws Exception {
     MyMockChild child = new MyMockChild("Charlie", 8);
     Object[] args1 = {new Float(1), new Float(2)};
     try {
@@ -177,6 +257,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     }
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testStatic() throws Exception {
     MyMockParent parent = new MyMockParent();
     MyMockChild child = new MyMockChild("Charlie", 8);
@@ -190,6 +276,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
 						 "stat", null));
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testNoArgConstructor() throws Exception {
     ClassWithPrivateConstructor c =
       (ClassWithPrivateConstructor)
@@ -197,6 +289,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertEquals(0, c.getN());
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testOneArgConstructor() throws Exception {
     ClassWithPrivateConstructor c =
       (ClassWithPrivateConstructor)
@@ -205,6 +303,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertEquals(1, c.getN());
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testUnambiguousConstructor() throws Exception {
     Object[] args1 = {new Integer(7),
 		      new ClassWithPrivateConstructor.Sub()};
@@ -223,6 +327,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertEquals(2, c2.getN());
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testNoArgConstructorByName() throws Exception {
     ClassWithPrivateConstructor c =
       (ClassWithPrivateConstructor)
@@ -230,6 +340,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertEquals(0, c.getN());
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testOneArgConstructorByName() throws Exception {
     ClassWithPrivateConstructor c =
       (ClassWithPrivateConstructor)
@@ -238,6 +354,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     assertEquals(1, c.getN());
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public void testUnambiguousConstructorByName() throws Exception {
     Object[] args1 = {new Integer(7),
 		      new ClassWithPrivateConstructor.Sub()};
@@ -258,6 +380,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
 
   // Test utility classes
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public static class MyMockParent {
     private String m_name;
 
@@ -286,6 +414,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     }
   }
 
+  /**
+   * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+   *             used by plugins); use
+   *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+   */
+  @Deprecated
   public static class MyMockChild extends MyMockParent {
     private int m_number;
 
@@ -328,6 +462,12 @@ public class TestPrivilegedAccessor extends LockssTestCase {
 
 }
 
+/**
+ * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is
+ *             used by plugins); use
+ *             {@code org.lockss.util.test.PrivilegedAccessor} instead.
+ */
+@Deprecated
 class ClassWithPrivateConstructor {
   private int n;
 

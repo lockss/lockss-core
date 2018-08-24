@@ -38,6 +38,8 @@ import java.security.MessageDigest;
 import junit.framework.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.plugin.*;
 import org.lockss.scheduler.*;

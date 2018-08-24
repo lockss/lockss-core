@@ -38,6 +38,7 @@ import java.security.*;
 
 import org.lockss.test.MockCrawler.MockCrawlerFacade;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
 import org.lockss.crawler.*;
 import org.lockss.daemon.*;
 

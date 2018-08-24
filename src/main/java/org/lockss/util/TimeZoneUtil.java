@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,10 +28,14 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.TimeZone;
+import java.util.*;
 
+/**
+ * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+ *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+ *             lockss-util instead.
+ */
+@Deprecated
 public class TimeZoneUtil {
 
   /**
@@ -56,19 +60,15 @@ public class TimeZoneUtil {
    *         returns the same as the given time zone identifier.
    * @throws IllegalArgumentException
    * @since 1.74
+   * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+   *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+   *             lockss-util instead.
    * @see TimeZone#getAvailableIDs()
    * @see TimeZone#getTimeZone(String)
    */
+  @Deprecated
   public static TimeZone getExactTimeZone(String tzid) throws IllegalArgumentException {
-    if (tzid == null) {
-      throw new IllegalArgumentException("Time zone identifier cannot be null");
-    }
-    TimeZone tz = TimeZone.getTimeZone(tzid);
-    String actualTzid = tz.getID();
-    if (!actualTzid.equals(tzid)) {
-      throw new IllegalArgumentException("Unknown time zone identifier: " + tzid);
-    }
-    return tz;
+    return org.lockss.util.time.TimeZoneUtil.getExactTimeZone(tzid);
   }
   
   /**
@@ -82,23 +82,21 @@ public class TimeZoneUtil {
    * @return True if and only the test time zones in {@link #BASIC_TIME_ZONES}
    *         seem to exist properly.
    * @since 1.74
-   * @see #BASIC_TIME_ZONES
+   * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+   *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+   *             lockss-util instead.
    */
+  @Deprecated
   public static boolean isBasicTimeZoneDataAvailable() {
-    if (TimeZone.getAvailableIDs() == null) {
-      return false;
-    }
-    for (String id : BASIC_TIME_ZONES) {
-      if (!BASIC_TIME_ZONES.contains(id)) {
-        return false;
-      }
-      if (!id.equals(TimeZone.getTimeZone(id).getID())) {
-        return false;
-      }
-    }
-    return true;
+    return org.lockss.util.time.TimeZoneUtil.isBasicTimeZoneDataAvailable();
   }
   
+  /**
+   * @deprecated {@link org.lockss.util.TimeZoneUtil} is deprecated (but is used
+   *             in plugins); use {@link org.lockss.util.time.TimeZoneUtil} in
+   *             lockss-util instead.
+   */
+  @Deprecated
   public static final List<String> BASIC_TIME_ZONES = Arrays.asList(
       "GMT",
       "UTC",
@@ -107,5 +105,5 @@ public class TimeZoneUtil {
       "US/Pacific",
       "US/Eastern"
   );
-  
+                                                                
 }

@@ -46,6 +46,8 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 
 /**
  * This is the test class for org.lockss.repository.RepositoryNodeImpl

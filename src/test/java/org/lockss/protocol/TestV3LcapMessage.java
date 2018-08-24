@@ -35,6 +35,7 @@ package org.lockss.protocol;
 import java.security.*;
 import java.io.DataInputStream;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.MockCachedUrlSetSpec;
 import java.net.*;
 import java.io.*;

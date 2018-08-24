@@ -38,6 +38,7 @@ import java.net.UnknownHostException;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 import sun.net.TransferProtocolClient;
 

@@ -36,6 +36,7 @@ import java.io.*;
 import java.util.List;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.config.*;
 import org.lockss.filter.*;
 import org.lockss.plugin.*;

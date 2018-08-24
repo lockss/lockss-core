@@ -53,6 +53,11 @@ import org.lockss.repository.*;
 import org.lockss.servlet.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 import javax.jms.Message;
 import javax.jms.JMSException;
@@ -205,6 +210,14 @@ public class ConfigManager implements LockssManager {
   public static final String PARAM_JSSE_ENABLESNIEXTENSION =
     PREFIX + "jsse.enableSNIExtension";
   static final boolean DEFAULT_JSSE_ENABLESNIEXTENSION = true;
+
+  /** Should be set to allowed TCP ports, based on platform- (and group-)
+   * dependent packet filters */
+  public static final String PARAM_UNFILTERED_TCP_PORTS =
+    Configuration.PLATFORM + "unfilteredTcpPorts";
+
+  public static final String PARAM_UNFILTERED_UDP_PORTS =
+    Configuration.PLATFORM + "unfilteredUdpPorts";
 
   /** Parameters whose values are more prop URLs */
   static final Map<String, Map<String, Object>> URL_PARAMS;
@@ -1513,10 +1526,10 @@ public class ConfigManager implements LockssManager {
     if (log.isDebug2() || tottime > Constants.SECOND) {
       if (did) {
 	log.debug("Reload time: "
-		  + StringUtil.timeIntervalToString(tottime - cbtime)
-		  + ", cb time: " + StringUtil.timeIntervalToString(cbtime));
+		  + TimeUtil.timeIntervalToString(tottime - cbtime)
+		  + ", cb time: " + TimeUtil.timeIntervalToString(cbtime));
       } else {
-	log.debug("Reload time: " + StringUtil.timeIntervalToString(tottime));
+	log.debug("Reload time: " + TimeUtil.timeIntervalToString(tottime));
       }
     }
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "did = " + did);
@@ -1712,6 +1725,7 @@ public class ConfigManager implements LockssManager {
     // XXX for test utils.  ick
     initCacheConfig(newConfig);
     setCurrentConfig(newConfig);
+    copyToSysProps(newConfig);
     updateGenerations(gens);
     recordConfigLoaded(newConfig, oldConfig, diffs, gens);
     startCallbacksTime = TimeBase.nowMs();
@@ -1848,6 +1862,7 @@ public class ConfigManager implements LockssManager {
     System.setProperty("jsse.enableSNIExtension",
 		       Boolean.toString(config.getBoolean(PARAM_JSSE_ENABLESNIEXTENSION,
 							  DEFAULT_JSSE_ENABLESNIEXTENSION)));
+
     String fromParam = LockssDaemon.PARAM_BIND_ADDRS;
     setIfNotSet(config, fromParam, AdminServletManager.PARAM_BIND_ADDRS);
     setIfNotSet(config, fromParam, ContentServletManager.PARAM_BIND_ADDRS);
@@ -1857,7 +1872,29 @@ public class ConfigManager implements LockssManager {
 
     org.lockss.poller.PollManager.processConfigMacros(config);
   }
+  
+  private void copyToSysProps(Configuration config) {
+    // Copy unfiltered port lists for retrieval in PlatformUtil
+    setSysProp(PlatformUtil.SYSPROP_UNFILTERED_TCP_PORTS,
+               config.get(PARAM_UNFILTERED_TCP_PORTS));
+    setSysProp(PlatformUtil.SYSPROP_UNFILTERED_UDP_PORTS,
+               config.get(PARAM_UNFILTERED_UDP_PORTS, ""));
+    
+    // Copy hostname for retrieval in PlatformUtil
+    setSysProp(PlatformUtil.SYSPROP_PLATFORM_HOSTNAME,
+               config.get(PARAM_PLATFORM_FQDN));
+  }
 
+    
+  /**
+   * Sets the given system property only if the given value is non null.
+   */
+  protected static void setSysProp(String key, String value) {
+    if (value != null) {
+      System.setProperty(key, value);
+    }
+  }
+  
   // Backward compatibility for param settings
 
   /** Obsolete, use org.lockss.ui.contactEmail (daemon 1.32) */
@@ -3024,7 +3061,7 @@ public class ConfigManager implements LockssManager {
 	TimeBase.msSince(rcfi.getDate()) > remoteConfigFailoverMaxAge) {
       log.error("Remote config failover file is too old (" +
 		StringUtil.timeIntervalToString(TimeBase.msSince(rcfi.getDate())) +
-		" > " + StringUtil.timeIntervalToString(remoteConfigFailoverMaxAge) +
+		" > " + TimeUtil.timeIntervalToString(remoteConfigFailoverMaxAge) +
 		"): " + url);
       return null;
     }
@@ -3681,30 +3718,25 @@ public class ConfigManager implements LockssManager {
    * 
    * @param cacheConfigUrl
    *          A String with the cached configuration file URL.
-   * @param ifMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Unmodified-Since" request header but with a granularity of 1
-   *          ms.
-   * @param ifNoneMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @return a ConfigFileReadWriteResult with the result of the operation.
    * @throws IOException
    *           if there are problems accessing the configuration file.
    */
   public ConfigFileReadWriteResult conditionallyReadCacheConfigFile(
-      String cacheConfigUrl, List<String> ifMatch, List<String> ifNoneMatch)
+      String cacheConfigUrl, HttpRequestPreconditions preconditions)
 	  throws IOException {
     final String DEBUG_HEADER = "conditionallyReadCacheConfigFile(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
-      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
-      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);
     }
 
     ConfigFile cf = configCache.find(cacheConfigUrl);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cf = " + cf);
-    return cf.conditionallyRead(ifMatch, ifNoneMatch);
+    return cf.conditionallyRead(preconditions);
   }
 
   /**
@@ -3713,13 +3745,9 @@ public class ConfigManager implements LockssManager {
    * 
    * @param cacheConfigUrl
    *          A String with the cached configuration file URL.
-   * @param ifMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Unmodified-Since" request header but with a granularity of 1
-   *          ms.
-   * @param ifNoneMatch
-   *          A List<String> with an asterisk or values equivalent to the
-   *          "If-Modified-Since" request header but with a granularity of 1 ms.
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
    * @param inputStream
    *          An InputStream to the content to be written to the cached
    *          configuration file.
@@ -3728,13 +3756,12 @@ public class ConfigManager implements LockssManager {
    *           if there are problems.
    */
   public ConfigFileReadWriteResult conditionallyWriteCacheConfigFile(
-      String cacheConfigUrl, List<String> ifMatch, List<String> ifNoneMatch,
+      String cacheConfigUrl, HttpRequestPreconditions preconditions,
       InputStream inputStream) throws IOException {
     final String DEBUG_HEADER = "conditionallyWriteCacheConfigFile(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "cacheConfigUrl = " + cacheConfigUrl);
-      log.debug2(DEBUG_HEADER + "ifMatch = " + ifMatch);
-      log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+      log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);
       log.debug2(DEBUG_HEADER + "inputStream = " + inputStream);
     }
 
@@ -3749,10 +3776,10 @@ public class ConfigManager implements LockssManager {
 
     // Write the file.
     ConfigFileReadWriteResult writeResult =
-	cf.conditionallyWrite(ifMatch, ifNoneMatch, inputStream);
+	cf.conditionallyWrite(preconditions, inputStream);
 
     // Check whether the file was successfully written.
-    if (writeResult.isPreconditionMet()) {
+    if (writeResult.isPreconditionsMet()) {
       // Yes: Reload the configuration.
       requestReload();
     }

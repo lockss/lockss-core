@@ -43,6 +43,8 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.base.DefaultUrlCacher;
 import org.lockss.protocol.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
+import org.lockss.util.time.TimeBase;
 import org.lockss.poller.*;
 import org.lockss.poller.v3.V3Serializer.*;
 import org.lockss.test.*;

@@ -35,6 +35,7 @@ package org.lockss.util;
 import java.util.*;
 import junit.framework.*;
 import org.lockss.test.LockssTestCase;
+import org.lockss.util.time.TimeBase;
 
 /**
  * <p>Title: TestFixedTimedMap </p>

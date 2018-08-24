@@ -32,7 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.protocol;
 
-import org.lockss.util.LockssSerializable;
+import org.lockss.util.io.LockssSerializable;
 
 
 /**

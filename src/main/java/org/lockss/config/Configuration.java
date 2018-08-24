@@ -37,6 +37,7 @@ import java.util.*;
 
 import org.lockss.config.Tdb.TdbException;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /** <code>Configuration</code> provides access to the LOCKSS configuration
  * parameters.  Instances of (concrete subclasses of)

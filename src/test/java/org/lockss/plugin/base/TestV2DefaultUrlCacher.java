@@ -45,6 +45,7 @@ import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.alert.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.*;
 import org.lockss.repository.*;
 import org.lockss.crawler.*;

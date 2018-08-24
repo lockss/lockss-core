@@ -37,6 +37,8 @@ import java.io.*;
 import junit.framework.TestCase;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 
 

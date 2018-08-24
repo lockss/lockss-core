@@ -51,11 +51,9 @@ import org.lockss.app.BaseLockssManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
-import org.lockss.util.Constants;
-import org.lockss.util.Deadline;
-import org.lockss.util.FileUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * Generic database manager.
@@ -1088,7 +1086,7 @@ public class DbManager extends BaseLockssManager
 	  // next retry.
 	  log.debug(DEBUG_HEADER + "Exception caught", dbe);
 	  log.debug(DEBUG_HEADER + "Waiting "
-	      + StringUtil.timeIntervalToString(retryDelayHere)
+	      + TimeUtil.timeIntervalToString(retryDelayHere)
 	      + " before retry number " + retryCount + "...");
 
 	  try {
