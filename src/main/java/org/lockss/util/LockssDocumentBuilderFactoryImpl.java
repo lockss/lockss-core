@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2008 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -70,23 +66,8 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   }
 
   @Override
-  public void setAttribute(String name, Object value) {
-    fact.setAttribute(name, value);
-  }
-
-  @Override
-  public Object getAttribute(String name) {
-    return fact.getAttribute(name);
-  }
-
-  @Override
   public void setNamespaceAware(boolean awareness) {
     fact.setNamespaceAware(awareness);
-  }
-
-  @Override
-  public void setSchema(Schema schema) {
-    fact.setSchema(schema);
   }
 
   @Override
@@ -145,6 +126,16 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   }
 
   @Override
+  public void setAttribute(String name, Object value) {
+    fact.setAttribute(name, value);
+  }
+
+  @Override
+  public Object getAttribute(String name) {
+    return fact.getAttribute(name);
+  }
+
+  @Override
   public boolean getFeature(String name) throws ParserConfigurationException {
     return fact.getFeature(name);
   }
@@ -154,6 +145,27 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
       throws ParserConfigurationException {
     fact.setFeature(name, value);
   }
+
+  @Override
+  public Schema getSchema() {
+    return fact.getSchema();
+  }
+
+  @Override
+  public void setSchema(Schema schema) {
+    fact.setSchema(schema);
+  }
+
+  @Override
+  public boolean isXIncludeAware() {
+    return fact.isXIncludeAware();
+  }
+
+  @Override
+  public void setXIncludeAware(boolean state) {
+    fact.setXIncludeAware(state);
+  }
+
 
   // This error handler uses a Logger to log error messages
   static class MyErrorHandler implements ErrorHandler {
