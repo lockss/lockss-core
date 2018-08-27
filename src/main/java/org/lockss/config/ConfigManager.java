@@ -1761,8 +1761,10 @@ public class ConfigManager implements LockssManager {
 		      DEFAULT_MAX_DEFERRED_AU_BATCH_SIZE);
       notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
 				     DEFAULT_JMS_NOTIFICATION_TOPIC);
-      enableJmsNotifications = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
-						 DEFAULT_ENABLE_JMS_NOTIFICATIONS);
+      enableJmsSend = config.getBoolean(PARAM_ENABLE_JMS_SEND,
+					DEFAULT_ENABLE_JMS_SEND);
+      enableJmsReceive = config.getBoolean(PARAM_ENABLE_JMS_RECEIVE,
+					   DEFAULT_ENABLE_JMS_RECEIVE);
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
     }
 
@@ -3612,14 +3614,18 @@ public class ConfigManager implements LockssManager {
   public static final String JMS_PREFIX = PREFIX + "jms.";
 
   /** If true, ConfigManager will send notifications of config-changed
-   * events (if it is running as part of a REST config service), or
-   * register to receive such events (if it's runnning in a client of a
-   * config service).
+   * events
+   */
+  public static final String PARAM_ENABLE_JMS_SEND = JMS_PREFIX + "enableSend";
+  public static final boolean DEFAULT_ENABLE_JMS_SEND = false;
+
+  /** If true, ConfigManager will register to receive config-changed events
+   * (if it's runnning in a client of a config service).
    * @ParamRelevance Rare
    */
-  public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
-    JMS_PREFIX + "enable";
-  public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = true;
+  public static final String PARAM_ENABLE_JMS_RECEIVE =
+    JMS_PREFIX + "enableReceive";
+  public static final boolean DEFAULT_ENABLE_JMS_RECEIVE = true;
 
   /** The jms topic at which config changed notifications are sent
    * @ParamRelevance Rare
@@ -3639,7 +3645,8 @@ public class ConfigManager implements LockssManager {
   private Consumer jmsConsumer;
   private Producer jmsProducer;
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
-  private boolean enableJmsNotifications = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
+  private boolean enableJmsSend = DEFAULT_ENABLE_JMS_SEND;
+  private boolean enableJmsReceive = DEFAULT_ENABLE_JMS_RECEIVE;
   private String clientId = DEFAULT_JMS_CLIENT_ID;
 
   // JMS manager starts after ConfigManger, must wait before creating
@@ -3665,13 +3672,23 @@ public class ConfigManager implements LockssManager {
     th.start();
   }
 
+  private boolean isJMSManager() {
+    try {
+      return null != LockssApp.getManagerByTypeStatic(JMSManager.class);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      return false;
+    }
+  }
+
   // Overridable for testing
   protected boolean shouldSendNotifications() {
-    return enableJmsNotifications && !restConfigClient.isActive();
+    return enableJmsSend && !restConfigClient.isActive()
+      && isJMSManager();
   }
 
   protected boolean shouldReceiveNotifications() {
-    return enableJmsNotifications && restConfigClient.isActive();
+    return enableJmsReceive && restConfigClient.isActive()
+      && isJMSManager();
   }
 
   void setUpJmsNotifications() {
