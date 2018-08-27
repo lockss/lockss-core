@@ -85,6 +85,7 @@ public class TestSimpleHasher extends LockssTestCase {
     useOldRepo();
     daemon = getMockLockssDaemon();
     tempDirPath = setUpDiskSpace();
+    SimpleHasher.setTempDir(getTempDir());
     mau = new MockArchivalUnit(new MockPlugin(daemon), "maud");
     MockHistoryRepository histRepo = new MockHistoryRepository();
     daemon.setHistoryRepository(histRepo, mau);

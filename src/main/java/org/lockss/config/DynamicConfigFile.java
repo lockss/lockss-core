@@ -56,6 +56,11 @@ public abstract class DynamicConfigFile extends FileConfigFile {
      if (m_fileFile == null) {
        String suff = "." + FileUtil.getExtension(m_fileUrl);
        m_fileFile = FileUtil.createTempFile("dyn", suff);
+
+       // deleteOnExit() is appropriate here because the file is created
+       // only once.  Its lifetime corresponds to that of the jvm, and
+       // there are at most a few of them
+       m_fileFile.deleteOnExit();
      }
      generateFileContent(m_fileFile, m_cfgMgr);
   }

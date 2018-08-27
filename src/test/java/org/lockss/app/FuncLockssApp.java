@@ -57,6 +57,8 @@ public class FuncLockssApp extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     tempDirPath = setUpDiskSpace();
+    org.lockss.truezip.TrueZipManager.setTempDir(getTempDir());
+
   }
 
   // Prevent MockLockssDaemon being created by LockssTestCase

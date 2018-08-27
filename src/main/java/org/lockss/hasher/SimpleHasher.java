@@ -90,6 +90,13 @@ public class SimpleHasher {
 
   private static final int MAX_RANDOM_SEARCH = 100000;
 
+  // Hack for testing
+  private static File tempDir = null;
+
+  public static void setTempDir(File dir) {
+    tempDir = dir;
+  }
+
   /**
    * The types of possible hashes to be performed.
    */
@@ -612,7 +619,8 @@ public class SimpleHasher {
 
     if (isV3(result.getHashType()) && result.getBlockFile() == null) {
       try {
-	result.setBlockFile(FileUtil.createTempFile("HashCUS", ".tmp"));
+	result.setBlockFile(FileUtil.createTempFile("HashCUS", ".tmp",
+						    tempDir));
       } catch (IOException ioe) {
 	log.warning(DEBUG_HEADER, ioe);
 	result.setRunnerStatus(HasherStatus.Error);
@@ -812,7 +820,7 @@ public class SimpleHasher {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "digest = " + digest);
 
     if (isRecordFilteredStream) {
-      result.setRecordFile(FileUtil.createTempFile("HashCUS", ".tmp"));
+      result.setRecordFile(FileUtil.createTempFile("HashCUS", ".tmp", tempDir));
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result.getRecordFile() = "
 	  + result.getRecordFile());
       OutputStream recordStream = new BufferedOutputStream(
