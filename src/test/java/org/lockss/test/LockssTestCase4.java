@@ -492,9 +492,7 @@ public class TestFoo extends LockssTestCase4 {
  */
 public class LockssTestCase4 extends Assert {
 
-  private static final Logger log =
-    Logger.getLoggerWithInitialLevel("LockssTest4",
-                                     Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
   /** Timeout duration for timeouts that are expected to time out.  Setting
    * this higher makes normal tests take longer, setting it too low might

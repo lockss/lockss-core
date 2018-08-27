@@ -61,9 +61,7 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   public static final String PLATFORM_DISK_SPACE_CONFIG_FILENAME =
       "platform.txt";
 
-  private static final Logger log =
-      Logger.getLoggerWithInitialLevel("SpringLockssTestCase",
-                                       Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
   // The path of a temporary directory where the test data will reside.
   private String tempDirPath = null;

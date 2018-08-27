@@ -56,11 +56,8 @@ public abstract class Configuration {
   public static final String PLATFORM = PREFIX + "platform.";
   public static final String DAEMON = PREFIX + "daemon.";
 
-  // MUST pass in explicit log level to avoid recursive call back to
-  // Configuration to get Config log level.  (Others should NOT do this.)
-  protected static Logger log =
-    Logger.getLoggerWithInitialLevel("Config",
-                                     Logger.getInitialDefaultLevel());
+  protected static Logger log = Logger.getLogger();
+
   private static final String noProp = new String(); // guaranteed unique obj
 
   /**

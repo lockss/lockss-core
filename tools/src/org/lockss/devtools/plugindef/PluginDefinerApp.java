@@ -89,7 +89,7 @@ public class PluginDefinerApp {
 
   protected static void initConfig() {
     // Kludge
-    Logger lll = Logger.getLoggerWithInitialLevel("PluginTool", Logger.LEVEL_INFO);
+    Logger lll = Logger.getLogger();
     lll.info("Plugin Tool starting up");
 
     // Get resources from JAR "plugin-tool-props.xml"

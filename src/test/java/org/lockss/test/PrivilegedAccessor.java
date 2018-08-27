@@ -60,8 +60,6 @@ import org.lockss.util.*;
  */
 @Deprecated
 public class PrivilegedAccessor {
-//   static Logger log =
-//     Logger.getLoggerWithInitialLevel("PrivAcc", Logger.LEVEL_DEBUG);
 
   /**
    * @deprecated {@code org.lockss.test.PrivilegedAccessor} is deprecated (but is

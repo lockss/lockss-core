@@ -61,9 +61,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  * used directly.
  */
 public class LockssApp {
-  private static final Logger log =
-    Logger.getLoggerWithInitialLevel("LockssApp",
-				     Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
 /**
  * LOCKSS is a trademark of Stanford University.  Stanford hereby grants you

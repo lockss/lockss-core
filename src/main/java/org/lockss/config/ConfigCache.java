@@ -35,11 +35,7 @@ import org.lockss.util.*;
  * A memory cache of files used to populate our Configuration.
  */
 public class ConfigCache {
-  // MUST pass in explicit log level to avoid recursive call back to
-  // Configuration to get Config log level.  (Others should NOT do this.)
-  private static Logger log =
-    Logger.getLoggerWithInitialLevel("ConfigCache",
-				     Logger.getInitialDefaultLevel());
+  private static Logger log = Logger.getLogger();
 
   private ConfigManager configMgr;
   private Map<String, ConfigFile> m_configMap =

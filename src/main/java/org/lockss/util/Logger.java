@@ -46,12 +46,6 @@ import org.lockss.config.*;
  */
 public class Logger extends org.lockss.log.LockssLogger {
 
-  /** Experimental for use in unit tests */
-  @Deprecated
-  public static void resetLogs() {
-//     logs = new HashMap<String, Logger>();
-  }
-
   protected Logger(L4JLogger log) {
     super(log);
   }

@@ -48,9 +48,7 @@ import org.lockss.util.time.TimeBase;
 
 /** JUnitTest case for class: org.lockss.poller.PollManager */
 public class TestPollManager extends LockssTestCase4 {
-  private static final Logger log =
-      Logger.getLoggerWithInitialLevel("TestPollManager",
-          Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
   private static String[] rooturls = {"http://www.test.org",
 				      "http://www.test1.org",

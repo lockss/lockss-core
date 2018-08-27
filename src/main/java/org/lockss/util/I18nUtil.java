@@ -48,9 +48,7 @@ import org.xnap.commons.i18n.I18nFactory;
 public class I18nUtil {
 
   // Avoid circular loading dependencies.
-  protected static Logger log =
-    Logger.getLoggerWithInitialLevel("I18nUtil",
-				     Logger.getInitialDefaultLevel());
+  protected static Logger log = Logger.getLogger();
 
   /** The name of the default backup bundle. This should always be in the build. */
   private static final String defaultBundle = "DefaultBundle";
