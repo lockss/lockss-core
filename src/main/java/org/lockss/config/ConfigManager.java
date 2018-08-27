@@ -628,11 +628,7 @@ public class ConfigManager implements LockssManager {
     .setIncludePredicate(expertConfigIncludePredicate),
   };
 
-  // MUST pass in explicit log level to avoid recursive call back to
-  // Configuration to get Config log level.  (Others should NOT do this.)
-  private static final Logger log =
-    Logger.getLoggerWithInitialLevel("Config",
-				     Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger("org.lockss.log.Config");
 
   /** A constant empty Configuration object */
   public static final Configuration EMPTY_CONFIGURATION = newConfiguration();
@@ -3623,7 +3619,7 @@ public class ConfigManager implements LockssManager {
    */
   public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
     JMS_PREFIX + "enable";
-  public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = false;
+  public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = true;
 
   /** The jms topic at which config changed notifications are sent
    * @ParamRelevance Rare
