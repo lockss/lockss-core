@@ -47,7 +47,7 @@ import org.lockss.daemon.*;
  * and going as needed.
  */
 class BlockingPeerChannel implements PeerChannel {
-  static Logger log = Logger.getLogger("Channel");
+  static Logger log = Logger.getLogger();
 
   static final int COPY_BUFFER_SIZE = 4096;
 

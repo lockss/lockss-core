@@ -39,7 +39,7 @@ import org.lockss.util.*;
 /** Implementation of PeerMessage that stores its data in a file
  */
 class FilePeerMessage extends PeerMessage {
-  static Logger log = Logger.getLogger("FilePM");
+  static Logger log = Logger.getLogger();
 
   private File dataFile = null;
   private File dir;

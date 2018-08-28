@@ -63,7 +63,7 @@ import org.mortbay.jetty.servlet.*;
  */
 public abstract class BaseServletManager
   extends JettyManager implements ServletManager {
-  private static Logger log = Logger.getLogger("ServletMgr");
+  private static Logger log = Logger.getLogger();
 
   // Suffixes of config keys below org.lockss.<servlet>.  Config is
   // accessed through a generic mechanism in setConfig().  The PARAM_XXX

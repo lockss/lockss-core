@@ -54,7 +54,7 @@ public class TestHashQueue extends LockssTestCase {
     org.lockss.hasher.HashQueue.class
   };
 
-  static Logger log = Logger.getLogger("HashQueue");
+  static Logger log = Logger.getLogger();
 //    static HashServiceTestPlugin.CUS cus = HashServiceTestPlugin.getCUS();
   MockArchivalUnit mau = null;
   MockCachedUrlSet cus;

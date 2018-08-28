@@ -50,7 +50,7 @@ import org.lockss.servlet.*;
  */
 public class ProxyManager extends BaseProxyManager {
   public static final String SERVER_NAME = "Proxy";
-  private static Logger log = Logger.getLogger("Proxy");
+  private static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "proxy.";
   public static final String PARAM_START = PREFIX + "start";

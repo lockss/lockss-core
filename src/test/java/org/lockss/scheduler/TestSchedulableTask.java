@@ -48,7 +48,7 @@ public class TestSchedulableTask extends LockssTestCase {
     org.lockss.scheduler.SchedulableTask.class,
   };
 
-  static Logger log = Logger.getLogger("TestBTScheduler");
+  static Logger log = Logger.getLogger();
 
   public void setUp() throws Exception {
     super.setUp();

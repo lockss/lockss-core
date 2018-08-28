@@ -61,7 +61,7 @@ public class LcapRouter
   private static final String DEFAULT_V3_LCAP_MESSAGE_DATA_DIR =
     "System tmpdir";
   
-  static Logger log = Logger.getLogger("Router");
+  static Logger log = Logger.getLogger();
 
   private IdentityManager idMgr;
   private LcapStreamComm scomm = null;

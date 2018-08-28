@@ -49,7 +49,7 @@ import org.lockss.util.Logger;
  * VoteBlockComparer comparer = factory.forIndex(participantIndex);
  */
 public final class HashBlockVoteBlockComparerFactory {
-  private static final Logger log = Logger.getLogger(V3Poller.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * Build a Map from the HashResult for each version in the HashBlock

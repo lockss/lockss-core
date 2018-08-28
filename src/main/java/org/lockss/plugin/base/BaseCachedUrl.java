@@ -56,7 +56,7 @@ public class BaseCachedUrl implements CachedUrl {
 
   protected ArchivalUnit au;
   protected String url;
-  protected static Logger logger = Logger.getLogger(CachedUrl.class);
+  protected static Logger logger = Logger.getLogger();
 
   private OldLockssRepository repository;
   private RepositoryNode leaf = null;

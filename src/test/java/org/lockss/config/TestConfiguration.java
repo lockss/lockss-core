@@ -67,7 +67,7 @@ public class TestConfiguration extends LockssTestCase4 {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestConfig");
+  static Logger log = Logger.getLogger();
 
   private static final String c1 = "prop1=12\nprop2=foobar\nprop3=true\n" +
     "prop5=False\n";

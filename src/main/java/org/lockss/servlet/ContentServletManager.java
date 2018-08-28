@@ -51,7 +51,7 @@ import com.planetj.servlet.filter.compression.*;
  */
 public class ContentServletManager
   extends BaseServletManager {
-  private static Logger log = Logger.getLogger("ServletMgr");
+  private static Logger log = Logger.getLogger();
 
   /** Prefix for this server's config tree */
   public static final String PREFIX = Configuration.PREFIX + "contentui.";

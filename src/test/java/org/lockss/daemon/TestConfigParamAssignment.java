@@ -41,7 +41,7 @@ import org.lockss.util.*;
  */
 
 public class TestConfigParamAssignment extends LockssTestCase {
-  protected static Logger log = Logger.getLogger("TestCPA");
+  protected static Logger log = Logger.getLogger();
   ConfigParamDescr d1;
   ConfigParamDescr d2;
 

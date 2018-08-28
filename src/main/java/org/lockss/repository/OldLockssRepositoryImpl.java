@@ -54,7 +54,7 @@ import org.lockss.util.*;
 public class OldLockssRepositoryImpl
   extends BaseLockssDaemonManager implements OldLockssRepository {
   
-  private static final Logger logger = Logger.getLogger("OldLockssRepository");
+  private static final Logger logger = Logger.getLogger();
 
   /**
    * Configuration parameter name for Lockss cache location.

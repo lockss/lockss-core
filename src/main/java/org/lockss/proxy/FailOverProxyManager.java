@@ -49,7 +49,7 @@ import org.mortbay.http.handler.*;
  */
 public class FailOverProxyManager extends BaseProxyManager {
   public static final String SERVER_NAME = "FailOverProxy";
-  private static Logger log = Logger.getLogger("FailOverProxy");
+  private static Logger log = Logger.getLogger();
   public static final String PREFIX = Configuration.PREFIX + "proxy.failover.";
   public static final String PARAM_START = PREFIX + "start";
   public static final boolean DEFAULT_START = false;

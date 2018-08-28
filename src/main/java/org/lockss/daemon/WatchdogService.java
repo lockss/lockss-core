@@ -64,7 +64,7 @@ public class WatchdogService
   static final String PARAM_PLATFORM_WDOG_DNS_DOMAIN = PREFIX + "dns.domain";
   static final String DEFAULT_PLATFORM_WDOG_DNS_DOMAIN = "lockss.org";
 
-  protected static Logger log = Logger.getLogger("PlatformWatchdog");
+  protected static Logger log = Logger.getLogger();
   private File watchedFile = null;
   private boolean enabled = false;
   private boolean stopped = false;

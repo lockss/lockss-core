@@ -49,7 +49,7 @@ import org.lockss.util.time.Deadline;
  */
 public class MockLcapDatagramComm extends LcapDatagramComm {
 
-  static Logger log = Logger.getLogger("MockComm");
+  static Logger log = Logger.getLogger();
 
   // These may change if/when we use multiple groups/ports
   private IPAddr group;

@@ -96,7 +96,7 @@ public class LcapDatagramComm
   static final String PRIORITY_PARAM_COMM = "Comm";
   static final int PRIORITY_DEFAULT_COMM = -1;
 
-  static Logger log = Logger.getLogger("Comm");
+  static Logger log = Logger.getLogger();
 
   private boolean enabled = DEFAULT_ENABLED;
   private boolean isMuzzleMulticast = false;

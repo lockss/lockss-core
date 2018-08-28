@@ -47,7 +47,7 @@ import org.lockss.util.urlconn.*;
 public abstract class BaseConfigFile implements ConfigFile {
   
   // Shared with subclasses
-  protected static final Logger log = Logger.getLogger("ConfigFile");
+  protected static final Logger log = Logger.getLogger();
 
   protected ConfigManager m_cfgMgr;
   protected int m_fileType;

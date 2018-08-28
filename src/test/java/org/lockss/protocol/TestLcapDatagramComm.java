@@ -59,7 +59,7 @@ public class TestLcapDatagramComm extends LockssTestCase {
     super(msg);
   }
 
-  static Logger log = Logger.getLogger("SockTest");
+  static Logger log = Logger.getLogger();
   static final int TIMEOUT = 1000;
 
   static final String PARAM_MULTI_GROUP = LcapDatagramComm.PARAM_MULTI_GROUP;

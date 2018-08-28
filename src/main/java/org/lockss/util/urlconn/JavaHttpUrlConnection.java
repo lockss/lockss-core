@@ -40,7 +40,7 @@ import org.lockss.util.*;
  * LockssUrlConnection.  Provides native java-compatible http behavior.
  */
 public class JavaHttpUrlConnection extends JavaUrlConnection {
-  private static Logger log = Logger.getLogger("JavaHttpUrlConn");
+  private static Logger log = Logger.getLogger();
 
   private HttpURLConnection hurlConn;
   private int responseCode;

@@ -43,7 +43,7 @@ import org.lockss.test.*;
  */
 
 public class TestSortScheduler extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestScheduler");
+  static Logger log = Logger.getLogger();
   static final List EMPTY_LIST = Collections.EMPTY_LIST;
 
   public void setUp() throws Exception {

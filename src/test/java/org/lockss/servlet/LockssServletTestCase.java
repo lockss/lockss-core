@@ -52,7 +52,7 @@ import com.meterware.httpunit.*;
  */
 public abstract class LockssServletTestCase extends LockssTestCase {
 
-  static Logger log = Logger.getLogger("ServletTestCase");
+  static Logger log = Logger.getLogger();
 
   /** Holds the ServletRunner after a call to initServletRunner() */
   protected LockssServletRunner sRunner;

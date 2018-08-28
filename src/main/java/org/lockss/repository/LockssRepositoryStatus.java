@@ -57,7 +57,7 @@ public class LockssRepositoryStatus extends BaseLockssDaemonManager {
     "An AU that was created with an incompatible plugin, " +
     "and cannot be restored with any currently available plugins.";
 
-  private static Logger log = Logger.getLogger("RepositoryStatus");
+  private static Logger log = Logger.getLogger();
 
 
   public void startService() {

@@ -57,7 +57,7 @@ import org.lockss.util.time.TimeUtil;
  */
 public class DaemonStatusNew extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger("DaemonStatus");
+  private static final Logger log = Logger.getLogger();
 
   /** Supported output formats */
   static final int OUTPUT_HTML = 1;

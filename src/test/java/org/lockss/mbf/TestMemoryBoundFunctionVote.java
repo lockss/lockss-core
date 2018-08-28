@@ -89,7 +89,7 @@ public class TestMemoryBoundFunctionVote extends LockssTestCase {
    */
   protected void setUp() throws Exception {
     super.setUp();
-    log = Logger.getLogger("TestMemoryBoundFunction");
+    log = Logger.getLogger();
     MockLockssDaemon theDaemon = getMockLockssDaemon();
     String tempDirPath = null;
     try {

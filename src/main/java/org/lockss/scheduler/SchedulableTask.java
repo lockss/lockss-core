@@ -43,7 +43,6 @@ import org.lockss.util.time.TimeUtil;
 
 /** Description of a computation to be scheduled and executed */
 public class SchedulableTask {
-  //  protected static Logger log = Logger.getLogger("Task");
 
   Deadline earliestStart;
   Deadline latestFinish;

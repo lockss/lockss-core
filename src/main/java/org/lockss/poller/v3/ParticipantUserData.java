@@ -46,7 +46,7 @@ import java.util.*;
  */
 public class ParticipantUserData implements LockssSerializable {
 
-  private static transient final Logger log = Logger.getLogger("V3Poller");
+  private static transient final Logger log = Logger.getLogger();
 
   /** Keeps track of per-peer agreement data.  Concrete subclasses either
    * do or don't keep full URL lists */

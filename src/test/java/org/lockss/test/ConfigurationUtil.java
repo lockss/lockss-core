@@ -44,7 +44,7 @@ import org.lockss.util.*;
 /** Utilities for Configuration and ConfigManager
  */
 public class ConfigurationUtil {
-  public static Logger log = Logger.getLogger("ConfigUtil");
+  public static Logger log = Logger.getLogger();
 
   private static ConfigManager mgr() {
     return ConfigManager.getConfigManager();

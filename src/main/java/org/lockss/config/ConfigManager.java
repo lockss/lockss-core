@@ -628,7 +628,7 @@ public class ConfigManager implements LockssManager {
     .setIncludePredicate(expertConfigIncludePredicate),
   };
 
-  private static final Logger log = Logger.getLogger("org.lockss.log.Config");
+  private static final Logger log = Logger.getLogger();
 
   /** A constant empty Configuration object */
   public static final Configuration EMPTY_CONFIGURATION = newConfiguration();

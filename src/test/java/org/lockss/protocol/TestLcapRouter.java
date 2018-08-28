@@ -53,7 +53,7 @@ public class TestLcapRouter extends LockssTestCase {
     LcapRouter.class,
   };
 
-  static Logger log = Logger.getLogger("TestRouter");
+  static Logger log = Logger.getLogger();
 
   private MockLockssDaemon daemon;
   MyLcapRouter rtr;

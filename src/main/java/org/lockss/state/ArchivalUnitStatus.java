@@ -104,7 +104,7 @@ public class ArchivalUnitStatus
   public static final String AUS_WITH_URL_TABLE_NAME = "AusWithUrl";
 
 
-  private static final Logger logger = Logger.getLogger("AuStatus");
+  private static final Logger logger = Logger.getLogger();
 
   private static int defaultNumRows = DEFAULT_MAX_NODES_TO_DISPLAY;
   private static boolean isContentIsLink = DEFAULT_CONTENT_IS_LINK;

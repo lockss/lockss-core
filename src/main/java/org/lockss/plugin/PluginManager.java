@@ -370,7 +370,7 @@ public class PluginManager
 
   static StringPool AUID_POOL = new StringPool("AU IDs");
 
-  private static Logger log = Logger.getLogger("PluginMgr");
+  private static Logger log = Logger.getLogger();
 
   private boolean useDefaultPluginRegistries =
     DEFAULT_USE_DEFAULT_PLUGIN_REGISTRIES;

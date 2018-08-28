@@ -44,8 +44,8 @@ import org.lockss.util.*;
  * also dependent on xercesImpl - XXX Xerces
  */
 public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
-  static Logger log = Logger.getLogger("DocumentBuilderFactory");
-  public static String ERROR_LOGGER_NAME = "SAX";
+  static Logger log = Logger.getLogger();
+  public static String ERROR_LOGGER_NAME = "org.lockss.SAX";
 
   DocumentBuilderFactory fact;
 

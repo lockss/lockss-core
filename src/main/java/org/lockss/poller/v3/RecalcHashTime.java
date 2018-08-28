@@ -64,7 +64,7 @@ import static org.lockss.poller.v3.V3Voter.*;
  * poll has ended and the voter object reset.
  */
 public class RecalcHashTime {
-  private static final Logger log = Logger.getLogger("RecalcHash");
+  private static final Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
   protected ArchivalUnit au;

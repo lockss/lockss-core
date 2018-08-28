@@ -54,7 +54,7 @@ import org.lockss.scheduler.*;
  */
 
 public class FuncHashService extends LockssTestCase {
-  private static Logger log = Logger.getLogger("FuncHashSvc");
+  private static Logger log = Logger.getLogger();
 
   public static Class testedClasses[] = {
     org.lockss.scheduler.SchedService.class,

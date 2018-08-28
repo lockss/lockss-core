@@ -117,7 +117,7 @@ public class HistoryRepositoryImpl
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("HistoryRepository");
+  private static Logger logger = Logger.getLogger();
 
 
   /**

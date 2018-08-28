@@ -40,7 +40,7 @@ import org.lockss.util.*;
  */
 
 public class FuncClock extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestClock");
+  private static Logger log = Logger.getLogger();
 
   
   public long getClockResolution() throws Exception {

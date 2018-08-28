@@ -41,7 +41,7 @@ import org.lockss.util.*;
  * @version 1.0
  */
 public class MemoryBoundFunctionFactory {
-  protected static Logger logger = Logger.getLogger("MemoryBoundFunction");
+  protected static Logger logger = Logger.getLogger();
 
   /*
    * The following arrays must be edited whenever a new implementation

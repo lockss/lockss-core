@@ -42,7 +42,7 @@ import org.lockss.config.Configuration;
  */
 public class AuditProxyManager extends BaseProxyManager {
   public static final String SERVER_NAME = "AuditProxy";
-  private static Logger log = Logger.getLogger("AuditProxy");
+  private static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "proxy.audit.";
   /** Start audit proxy if true. */

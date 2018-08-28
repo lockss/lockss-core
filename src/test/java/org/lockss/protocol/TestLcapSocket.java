@@ -106,7 +106,7 @@ public class TestLcapSocket extends LockssTestCase {
     assertEquals(testPacket, sent);
   }
 
-  static Logger log = Logger.getLogger("SockTest");
+  static Logger log = Logger.getLogger();
 
   public void testUnicastReceive() throws Exception {
     Queue rcvQ = new FifoQueue();

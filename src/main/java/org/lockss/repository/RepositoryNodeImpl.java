@@ -187,7 +187,7 @@ public class RepositoryNodeImpl implements RepositoryNode {
   protected String nodeLocation;
 
   // Shared with AuNodeImpl
-  protected static final Logger logger = Logger.getLogger("RepositoryNode");
+  protected static final Logger logger = Logger.getLogger();
 
   protected OldLockssRepositoryImpl repository;
   // preset so testIllegalOperations() doesn't null pointer

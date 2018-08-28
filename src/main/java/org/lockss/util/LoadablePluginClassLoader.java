@@ -41,7 +41,7 @@ import java.net.*;
  * the class loading to its parent.
  */
 public class LoadablePluginClassLoader extends URLClassLoader {
-  static Logger log = Logger.getLogger("LPClassLoader");
+  static Logger log = Logger.getLogger();
 
   public LoadablePluginClassLoader(URL[] urls) {
     super(urls);

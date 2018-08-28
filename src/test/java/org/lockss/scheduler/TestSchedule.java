@@ -44,7 +44,7 @@ import org.lockss.test.*;
  */
 
 public class TestSchedule extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestBTScheduler");
+  static Logger log = Logger.getLogger();
 
   public void setUp() throws Exception {
     super.setUp();

@@ -55,7 +55,7 @@ import org.springframework.web.context.ContextLoaderListener;
  * Local UI servlet starter
  */
 public class AdminServletManager extends BaseServletManager {
-  private static Logger log = Logger.getLogger("ServletMgr");
+  private static Logger log = Logger.getLogger();
 
   /** Prefix for this server's config tree */
   public static final String PREFIX = Configuration.PREFIX + "ui.";

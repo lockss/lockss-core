@@ -62,7 +62,7 @@ public class BlockingStreamComm
   extends BaseLockssDaemonManager
   implements ConfigurableManager, LcapStreamComm, PeerMessage.Factory {
 
-  static Logger log = Logger.getLogger("SComm");
+  static Logger log = Logger.getLogger();
 
   public static final String SERVER_NAME = "StreamComm";
 

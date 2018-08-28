@@ -49,7 +49,7 @@ public class ProxyAccessHandler extends IpAccessHandler {
 // A single handler instance may run concurrently in multiple threads, so
 // there must not be any per-request local state.
 
-  private static Logger log = Logger.getLogger("ProxyAccess");
+  private static Logger log = Logger.getLogger();
   private final LockssDaemon daemon;
   private final PluginManager pluginMgr;
   private final IdentityManager idMgr;

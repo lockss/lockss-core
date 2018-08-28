@@ -64,7 +64,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   private OldLockssRepository repository;
   private HistoryRepository histRepo;
   private TrueZipManager trueZipManager;
-  protected static Logger logger = Logger.getLogger("CachedUrlSet");
+  protected static Logger logger = Logger.getLogger();
 
  // int contentNodeCount = 0;
   long totalNodeSize = 0;

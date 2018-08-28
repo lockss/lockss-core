@@ -73,7 +73,7 @@ public class BatchAuConfigNew extends LockssServlet {
     "If only one choice is shown for an AU, the contents of that AU " +
     "already exist in the selected disk.";
 
-  private static final Logger log = Logger.getLogger("BatchAuConfig");
+  private static final Logger log = Logger.getLogger();
 
   static final int VV_ADD = 1;
   static final int VV_DEL = 2;

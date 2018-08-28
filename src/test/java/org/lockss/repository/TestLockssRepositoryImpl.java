@@ -51,7 +51,7 @@ import junit.framework.Test;
  */
 
 public class TestLockssRepositoryImpl extends LockssTestCase {
-  private static Logger logger = Logger.getLogger("LockssRepository");
+  private static Logger logger = Logger.getLogger();
   private MockLockssDaemon daemon;
   private RepositoryManager repoMgr;
   private OldLockssRepositoryImpl repo;

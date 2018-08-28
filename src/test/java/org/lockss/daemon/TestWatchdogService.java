@@ -47,7 +47,7 @@ import org.lockss.test.*;
  */
 
 public class TestWatchdogService extends LockssTestCase {
-//   protected static Logger log = Logger.getLogger("TestWdogSvc");
+//   protected static Logger log = Logger.getLogger();
 
   LockssDaemon daemon;
   WatchdogService wdog;

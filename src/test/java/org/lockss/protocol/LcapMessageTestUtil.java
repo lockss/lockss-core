@@ -40,7 +40,7 @@ import org.lockss.util.*;
  * XXX needs to be rationalized with TestV3LcapMessage
  */
 public class LcapMessageTestUtil {
-  public static Logger log = Logger.getLogger("MsgUtil");
+  public static Logger log = Logger.getLogger();
 
   private static String m_archivalID = "TestAU_1.0";
   private static String m_url = "http://www.example.com";

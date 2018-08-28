@@ -42,7 +42,7 @@ import org.lockss.util.time.TimeBase;
 import org.lockss.daemon.status.*;
 
 public class SimulatedStatusAccessor {
-  private static Logger log = Logger.getLogger("SimStatus");
+  private static Logger log = Logger.getLogger();
 
   public static void register(LockssDaemon daemon) {
     log.debug("registering");

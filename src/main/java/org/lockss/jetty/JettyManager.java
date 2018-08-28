@@ -64,7 +64,7 @@ public abstract class JettyManager
 
   private String prioParam;
 
-  private static Logger log = Logger.getLogger("JettyMgr");
+  private static Logger log = Logger.getLogger();
   private static boolean isJettyInited = false;
 
   protected ResourceManager resourceMgr;

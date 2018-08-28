@@ -40,7 +40,7 @@ import org.lockss.plugin.PluginManager;
 
 /** Base class for TitleSet implementations */
 public abstract class BaseTitleSet implements TitleSet {
-  protected static Logger log = Logger.getLogger("TitleSet");
+  protected static Logger log = Logger.getLogger();
 
   protected LockssDaemon daemon;
   protected String name;
