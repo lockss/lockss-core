@@ -44,7 +44,7 @@ public class TimerQueue {
   static final String PRIORITY_PARAM_TIMERQUEUE = "TimerQueue";
   static final int PRIORITY_DEFAULT_TIMERQUEUE = Thread.NORM_PRIORITY + 1;
 
-  protected static Logger log = Logger.getLogger("TimerQueue");
+  protected static Logger log = Logger.getLogger();
   private static TimerQueue singleton = new TimerQueue();
 
   static {

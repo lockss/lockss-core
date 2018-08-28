@@ -65,7 +65,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class RestConfigClient {
   public static String CONFIG_PART_NAME = "config-data";
 
-  private static Logger log = Logger.getLogger(RestConfigClient.class);
+  private static Logger log = Logger.getLogger();
 
   // The REST configuration service URL.
   private String restConfigServiceUrl;

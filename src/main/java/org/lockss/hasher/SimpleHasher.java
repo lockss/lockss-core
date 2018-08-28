@@ -60,7 +60,7 @@ import org.lockss.daemon.*;
  * to change.
  */
 public class SimpleHasher {
-  static Logger log = Logger.getLogger("SimpleHasher");
+  static Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "hashcus.";
 

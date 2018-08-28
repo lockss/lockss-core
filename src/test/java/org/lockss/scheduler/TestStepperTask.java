@@ -49,7 +49,7 @@ public class TestStepperTask extends LockssTestCase {
     org.lockss.scheduler.StepperTask.class,
   };
 
-  static Logger log = Logger.getLogger("TestStepperTask");
+  static Logger log = Logger.getLogger();
 
   public void setUp() throws Exception {
     super.setUp();

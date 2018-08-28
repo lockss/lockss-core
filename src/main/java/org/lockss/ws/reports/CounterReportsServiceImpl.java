@@ -60,7 +60,7 @@ import org.lockss.ws.entities.LockssWebServicesFault;
 @MTOM
 @WebService
 public class CounterReportsServiceImpl implements CounterReportsService {
-  private static Logger log = Logger.getLogger(CounterReportsServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   private static final String DEFAULT_BOOK_REPORT_ID = "1";
   private static final String DEFAULT_JOURNAL_REPORT_ID = "1";

@@ -65,7 +65,7 @@ public class XmlLinkExtractor implements LinkExtractor {
    * 
    * @since 1.68
    */
-  private static final Logger log = Logger.getLogger(XmlLinkExtractor.class);
+  private static final Logger log = Logger.getLogger();
   
   /**
    * <p>

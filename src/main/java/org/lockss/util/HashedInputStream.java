@@ -39,7 +39,7 @@ import java.security.MessageDigest;
  * An InputStream wrapper that feeds all the bytes read to a MessageDigest
  */
 public class HashedInputStream extends InputStream {
-  protected static Logger logger = Logger.getLogger("HashedInputStream");
+  protected static Logger logger = Logger.getLogger();
 
   private InputStream is;
   private Hasher hasher;

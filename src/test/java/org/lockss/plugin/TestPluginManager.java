@@ -59,7 +59,7 @@ import static org.lockss.plugin.PluginManager.CuContentReq;
  * Test class for org.lockss.plugin.PluginManager
  */
 public class TestPluginManager extends LockssTestCase4 {
-  static Logger log = Logger.getLogger("TestPluginManager");
+  static Logger log = Logger.getLogger();
 
   static BrokerService broker;
   private MyMockLockssDaemon theDaemon;

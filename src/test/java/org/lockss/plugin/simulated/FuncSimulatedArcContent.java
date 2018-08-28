@@ -55,7 +55,7 @@ import junit.framework.*;
  */
 
 public class FuncSimulatedArcContent extends LockssTestCase {
-  static final Logger log = Logger.getLogger("FuncSimulatedArcContent");
+  static final Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;

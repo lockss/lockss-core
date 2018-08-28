@@ -74,6 +74,6 @@ public class BasicPdfFilterFactory implements FilterFactory {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("BasicPdfFilterFactory");
+  private static Logger logger = Logger.getLogger();
 
 }

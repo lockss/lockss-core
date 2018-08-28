@@ -39,7 +39,7 @@ import java.io.*;
  * Zip file utilities
  */
 public class ZipUtil {
-  static Logger log = Logger.getLogger("ZipUtil");
+  static Logger log = Logger.getLogger();
 
   /** Magic number of ZIP file.  (Why isn't this public in ZipConstants?) */
   public static final long ZIP_MAGIC = 0x504b0304L;	// "PK\003\004"

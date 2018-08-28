@@ -39,7 +39,7 @@ import org.lockss.plugin.*;
  * ordered; the value associated with the first one that matches is
  * returned.  */
 public class AuXpathFloatMap {
-  static Logger log = Logger.getLogger("AuXpathFloatMap");
+  static Logger log = Logger.getLogger();
 
   /** An empty AuXpathFloatMap, which always returns the default value. */
   public final static AuXpathFloatMap EMPTY =

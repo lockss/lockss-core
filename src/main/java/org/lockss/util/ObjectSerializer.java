@@ -1141,6 +1141,6 @@ public abstract class ObjectSerializer {
   /**
    * <p>A logger for use by this serializer.</p>
    */
-  private static Logger logger = Logger.getLogger("ObjectSerializer");
+  private static Logger logger = Logger.getLogger();
 
 }

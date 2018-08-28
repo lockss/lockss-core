@@ -564,7 +564,7 @@ public class SubTreeArticleIteratorBuilder {
    * 
    * @since 1.60
    */
-  private static final Logger logger = Logger.getLogger(SubTreeArticleIteratorBuilder.class);
+  private static final Logger logger = Logger.getLogger();
   
   /**
    * <p>

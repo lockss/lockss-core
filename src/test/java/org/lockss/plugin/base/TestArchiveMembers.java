@@ -54,7 +54,7 @@ import org.lockss.repository.*;
 
 /** Tests for CachedUrls that refer to archive members */
 public class TestArchiveMembers extends LockssTestCase {
-  protected static Logger log = Logger.getLogger("TestArchiveMembers");
+  protected static Logger log = Logger.getLogger();
 
   private MockLockssDaemon daemon;
   PluginManager pluginMgr;

@@ -65,7 +65,7 @@ public class TFileCache {
   //
 
 
-  static final Logger log = Logger.getLogger("TFileCache");
+  static final Logger log = Logger.getLogger();
 
   private File tmpDir;
   private long maxSize;

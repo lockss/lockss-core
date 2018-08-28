@@ -53,7 +53,7 @@ import org.lockss.util.StringUtil;
  */
 public class MetadataManager extends BaseLockssManager {
 
-  private static Logger log = Logger.getLogger(MetadataManager.class);
+  private static Logger log = Logger.getLogger();
 
   /** Name of metadata status table */
   public static final String METADATA_STATUS_TABLE_NAME =

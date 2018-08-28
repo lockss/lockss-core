@@ -45,7 +45,7 @@ import java.io.Writer;
  */
 public class Button extends Tag {
 
-  static Logger log = Logger.getLogger("Button");
+  static Logger log = Logger.getLogger();
 
   /** The text displayed on the button. This can be internationalised. */
   protected String label;

@@ -48,7 +48,7 @@ import org.lockss.util.urlconn.*;
  */
 
 public class RegistryPlugin extends BasePlugin {
-  protected static final Logger log = Logger.getLogger("RegistryPlugin");
+  protected static final Logger log = Logger.getLogger();
 
   private static String PLUGIN_NAME = "Registry";
   private static String CURRENT_VERSION = "1";

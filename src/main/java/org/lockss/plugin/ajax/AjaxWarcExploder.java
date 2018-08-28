@@ -60,7 +60,7 @@ import java.util.Iterator;
  * warc contains a complete au and will therefore not terminate the  crawl.
  */
 public class AjaxWarcExploder extends WarcExploder {
-  private static Logger logger = Logger.getLogger("AjaxWarcExploder");
+  private static Logger logger = Logger.getLogger();
 
   /**
    * Constructor

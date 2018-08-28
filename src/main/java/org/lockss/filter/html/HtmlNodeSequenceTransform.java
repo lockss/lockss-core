@@ -46,7 +46,7 @@ import org.lockss.util.*;
 /**
  * An HtmlTransform that operates on sequences of nodes. */
 public class HtmlNodeSequenceTransform implements HtmlTransform {
-  private static Logger log = Logger.getLogger("HtmlNodeSequenceTransform");
+  private static Logger log = Logger.getLogger();
 
   private NodeFilter startFilter;
   private NodeFilter endFilter;

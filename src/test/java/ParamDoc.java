@@ -46,7 +46,7 @@ public class ParamDoc {
   static final String PRIORITY_PATTERN =
     org.lockss.daemon.LockssThread.PARAM_NAMED_THREAD_PRIORITY;
 
-  private static Logger log = Logger.getLogger("ParamDoc");
+  private static Logger log = Logger.getLogger();
 
   static Map paramMap = new TreeMap();
   static Map classMap = new TreeMap();

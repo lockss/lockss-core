@@ -59,8 +59,7 @@ import org.lockss.ws.entities.UnnamedItemWsResult;
  */
 @WebService
 public class MetadataMonitorServiceImpl implements MetadataMonitorService {
-  private static Logger log =
-      Logger.getLogger(MetadataMonitorServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the names of the publishers in the database.

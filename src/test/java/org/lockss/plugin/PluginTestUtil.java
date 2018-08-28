@@ -46,7 +46,7 @@ import org.lockss.config.*;
  */
 
 public class PluginTestUtil {
-  static Logger log = Logger.getLogger("PluginTestUtil");
+  static Logger log = Logger.getLogger();
   static List aulist = new LinkedList();
 
   public static void registerArchivalUnit(Plugin plug, ArchivalUnit au) {

@@ -47,7 +47,7 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.alert.AlertActionMail
  */
 public class TestAlertActionMail extends LockssTestCase {
-  private static final Logger log = Logger.getLogger(TestAlertActionMail.class);
+  private static final Logger log = Logger.getLogger();
 
   MockMailService mgr;
 

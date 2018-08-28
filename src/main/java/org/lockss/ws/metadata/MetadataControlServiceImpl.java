@@ -39,8 +39,7 @@ import org.lockss.ws.entities.MetadataControlResult;
  */
 @WebService
 public class MetadataControlServiceImpl implements MetadataControlService {
-  private static Logger log =
-      Logger.getLogger(MetadataControlServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Deletes an ISSN linked to a publication.

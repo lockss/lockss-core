@@ -61,7 +61,7 @@ import org.lockss.clockss.*;
 import org.lockss.safenet.*;
 
 public class MockLockssDaemon extends LockssDaemon {
-  private static Logger log = Logger.getLogger("MockLockssDaemon");
+  private static Logger log = Logger.getLogger();
 
 //   ResourceManager resourceManager = null;
 //   WatchdogService wdogService = null;

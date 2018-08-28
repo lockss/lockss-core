@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  */
 public class MetadataField {
   
-  private static final Logger log = Logger.getLogger(MetadataField.class);
+  private static final Logger log = Logger.getLogger();
   
   /**
    * A language of the resource. Recommended best practice is to use a

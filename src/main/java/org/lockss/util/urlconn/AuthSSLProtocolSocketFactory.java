@@ -132,8 +132,7 @@ public class AuthSSLProtocolSocketFactory
 //HC3   implements SecureProtocolSocketFactory {
   implements LayeredConnectionSocketFactory {
 
-  private static final Logger log =
-    Logger.getLogger("AuthSSLProtocolSocketFactory");
+  private static final Logger log = Logger.getLogger();
 
   public static final String DEFAULT_SSL_PROTOCOL = "SSL";
 

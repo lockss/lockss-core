@@ -81,7 +81,7 @@ public class ConfigParamDescrPicker
   BorderLayout borderLayout1 = new BorderLayout();
   BorderLayout borderLayout2 = new BorderLayout();
 
-  protected static Logger logger = Logger.getLogger("ConfigParamDescrPicker");
+  protected static Logger logger = Logger.getLogger();
 
   public ConfigParamDescrPicker(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

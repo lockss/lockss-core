@@ -56,7 +56,7 @@ import org.lockss.laaws.rs.core.*;
 public class RepositoryManager
     extends BaseLockssDaemonManager implements ConfigurableManager {
 
-  private static Logger log = Logger.getLogger("RepositoryManager");
+  private static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "repository.";
 

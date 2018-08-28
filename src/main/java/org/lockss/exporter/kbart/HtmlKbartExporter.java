@@ -50,7 +50,7 @@ import org.mortbay.html.Composite;
  */
 public class HtmlKbartExporter extends KbartExporter {
 
-  private static Logger log = Logger.getLogger("HtmlKbartExporter");
+  private static Logger log = Logger.getLogger();
 
   /** Whether to show health as tortoises by default. */
   static final String PREFIX = Configuration.PREFIX + "htmlExport.";

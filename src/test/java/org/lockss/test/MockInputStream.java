@@ -40,7 +40,7 @@ public class MockInputStream extends InputStream {
   private String content;
   private InputStream is = null;
   private boolean isClosed = false;
-  protected static Logger log = Logger.getLogger("MockInputStream");
+  protected static Logger log = Logger.getLogger();
 
   //interval at which to return 0 when read() is called
   private int zeroInterval = 0;

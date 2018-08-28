@@ -106,7 +106,7 @@ public class VoterUserData
   private transient V3Voter voter;
   private transient File messageDir;
 
-  private static Logger log = Logger.getLogger("VoterUserData");
+  private static Logger log = Logger.getLogger();
 
   VoterUserData() {}
 

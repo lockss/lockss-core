@@ -316,6 +316,6 @@ public class PageTransformUtil {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("PageTransformUtil");
+  private static Logger logger = Logger.getLogger();
 
 }

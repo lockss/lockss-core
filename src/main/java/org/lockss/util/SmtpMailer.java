@@ -41,7 +41,7 @@ import java.net.*;
  */
 public class SmtpMailer {
   private static String smtpHost = null;
-  protected static Logger logger = Logger.getLogger("SmtpMailer");
+  protected static Logger logger = Logger.getLogger();
 
   private Socket socket;
   private PrintWriter wrtr;

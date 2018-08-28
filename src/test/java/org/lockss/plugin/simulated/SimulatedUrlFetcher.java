@@ -53,7 +53,7 @@ import static org.lockss.util.DateTimeUtil.GMT_DATE_FORMATTER;
 
 public class SimulatedUrlFetcher extends BaseUrlFetcher {
 
-  private static final Logger log = Logger.getLogger(SimulatedUrlFetcher.class);
+  private static final Logger log = Logger.getLogger();
   
   private String fileRoot;
   private File contentFile = null;

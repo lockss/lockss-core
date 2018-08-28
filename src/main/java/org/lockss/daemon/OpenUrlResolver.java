@@ -106,7 +106,7 @@ import org.lockss.util.urlconn.*;
 @Loggable(value = Loggable.TRACE, prepend = true)
 public class OpenUrlResolver {
   
-  private static final Logger log = Logger.getLogger(OpenUrlResolver.class);
+  private static final Logger log = Logger.getLogger();
 
   /** the LOCKSS daemon */
   private final LockssDaemon daemon;

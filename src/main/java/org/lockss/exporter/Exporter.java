@@ -50,7 +50,7 @@ import org.lockss.plugin.*;
  */
 public abstract class Exporter {
 
-  private static final Logger log = Logger.getLogger(Exporter.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "exporter.";
 

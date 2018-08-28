@@ -83,7 +83,7 @@ public class PdfBoxDocument implements PdfDocument {
    * </p>
    * @since 1.56
    */
-  private static final Logger log = Logger.getLogger(PdfBoxDocument.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * <p>

@@ -44,7 +44,7 @@ import org.lockss.ws.entities.LockssWebServicesFaultInfo;
  * An interceptor for the CXF outbound fault chain.
  */
 public class LockssFaultOutInterceptor extends AbstractSoapInterceptor {
-  private static Logger log = Logger.getLogger(LockssFaultOutInterceptor.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Constructor.

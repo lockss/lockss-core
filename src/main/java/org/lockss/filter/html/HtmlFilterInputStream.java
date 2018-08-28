@@ -89,7 +89,7 @@ import java.io.*;
 public class HtmlFilterInputStream
   extends InputStream implements EncodedThing {
 
-  private static Logger log = Logger.getLogger("HtmlFilterInputStream");
+  private static Logger log = Logger.getLogger();
 
   /** Maximum offset into file of charset change (<code>&lt;META
    * HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=..."&gt;</code>)

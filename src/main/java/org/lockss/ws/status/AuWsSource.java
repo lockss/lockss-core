@@ -74,7 +74,7 @@ import org.lockss.ws.entities.UrlWsResult;
  * to Archival Units.
  */
 public class AuWsSource extends AuWsResult {
-  private static Logger log = Logger.getLogger(AuWsSource.class);
+  private static Logger log = Logger.getLogger();
 
   private ArchivalUnit au;
 

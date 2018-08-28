@@ -50,7 +50,7 @@ import org.lockss.servlet.*;
  * Mock factories and implementations for testing definable plugins
  */
 public class MockFactories {
-  static Logger log = Logger.getLogger("MockFactories");
+  static Logger log = Logger.getLogger();
 
   public static class ArtIterFact implements ArticleIteratorFactory {
 

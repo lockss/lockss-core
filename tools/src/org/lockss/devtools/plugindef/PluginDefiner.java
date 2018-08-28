@@ -89,7 +89,7 @@ public class PluginDefiner extends JFrame {
   JScrollPane jScrollPane1 = new JScrollPane();
   BorderLayout borderLayout1 = new BorderLayout();
 
-  Logger log = Logger.getLogger("PluginDefiner");
+  Logger log = Logger.getLogger();
   //Construct the frame
   public PluginDefiner() {
     enableEvents(AWTEvent.WINDOW_EVENT_MASK);

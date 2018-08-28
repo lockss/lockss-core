@@ -66,7 +66,7 @@ public class CrawlRuleTestDialog extends JDialog {
   TitledBorder infoBorder;
   GridBagLayout gridBagLayout2 = new GridBagLayout();
 
-  protected static Logger logger = Logger.getLogger("CrawlRuleTestDialog");
+  protected static Logger logger = Logger.getLogger();
 
   public CrawlRuleTestDialog(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

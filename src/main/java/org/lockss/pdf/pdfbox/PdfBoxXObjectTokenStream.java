@@ -65,7 +65,7 @@ public class PdfBoxXObjectTokenStream extends PdfBoxTokenStream {
    * 
    * @since 1.67.6
    */
-  private static final Logger log = Logger.getLogger(PdfBoxXObjectTokenStream.class);
+  private static final Logger log = Logger.getLogger();
   
   /**
    * <p>

@@ -52,7 +52,7 @@ public class JarValidator {
   private File m_pluginDir;
   private boolean m_allowExpired;
 
-  private static Logger log = Logger.getLogger("JarValidator");
+  private static Logger log = Logger.getLogger();
 
   public JarValidator(KeyStore keystore, File pluginDir) {
     this.m_keystore = keystore;

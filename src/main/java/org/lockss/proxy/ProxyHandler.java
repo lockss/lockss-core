@@ -75,7 +75,7 @@ import org.mortbay.html.*;
  */
 @SuppressWarnings("serial")
 public class ProxyHandler extends AbstractHttpHandler {
-  private static Logger log = Logger.getLogger("ProxyHandler");
+  private static Logger log = Logger.getLogger();
   private static Log jlog = LogFactory.getLog(ProxyHandler.class);
 
 

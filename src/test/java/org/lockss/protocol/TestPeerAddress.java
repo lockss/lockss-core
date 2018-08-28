@@ -45,7 +45,7 @@ import java.util.*;
 
 /** Test case for class: org.lockss.protocol.PeerAddress */
 public class TestPeerAddress extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestPeerAddress");
+  static Logger log = Logger.getLogger();
 
   private IdentityManager idmgr;
 

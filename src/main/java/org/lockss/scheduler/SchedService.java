@@ -45,7 +45,7 @@ import org.lockss.util.*;
  * advantage of multiprocessors.
  */
 public class SchedService extends BaseLockssDaemonManager {
-  protected static Logger log = Logger.getLogger("SchedService");
+  protected static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "sched.";
 

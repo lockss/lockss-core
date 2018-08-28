@@ -52,7 +52,7 @@ public class BibliographicPeriod extends BibliographicItemAdapter {
   public static final BibliographicPeriod ALL_TIME_PERIOD =
       new BibliographicPeriod(EDGES_SEPARATOR);
 
-  private static final Logger log = Logger.getLogger(BibliographicPeriod.class);
+  private static final Logger log = Logger.getLogger();
   private static final String RANGES_SEPARATOR = ",";
   private static final String NULL_EDGE_ERROR_MESSAGE =
       "Cannot create a BibliographicPeriod with one null edge";

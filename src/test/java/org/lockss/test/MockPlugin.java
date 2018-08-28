@@ -46,7 +46,7 @@ import org.lockss.extractor.*;
  */
 
 public class MockPlugin extends BasePlugin implements PluginTestable {
-  static Logger log = Logger.getLogger("MockPlugin");
+  static Logger log = Logger.getLogger();
 
   public static final String KEY = "org|lockss|test|MockPlugin";
   public static final String CONFIG_PROP_1 = "base_url";

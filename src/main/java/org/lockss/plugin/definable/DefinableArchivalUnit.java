@@ -59,7 +59,7 @@ import static org.lockss.plugin.PrintfConverter.PrintfContext;
  */
 public class DefinableArchivalUnit extends BaseArchivalUnit 
     implements ExplodableArchivalUnit {
-  static Logger log = Logger.getLogger("DefinableArchivalUnit");
+  static Logger log = Logger.getLogger();
 
   /** If true, crawl rules in definable plugins are case-independent by
    * default.  Can override per-plugin with

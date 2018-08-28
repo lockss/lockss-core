@@ -42,7 +42,7 @@ import org.lockss.util.urlconn.HttpClientUrlConnection.PrematureCloseException;
  * LockssUrlConnectionPool, etc.
  */
 public class FuncLockssHttpClient extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncLockssHttpClient");
+  static Logger log = Logger.getLogger();
 
   static String URL_BAD_PROTOCOL = "noproto://foo.bar/";
   static String URL_NO_DOMAIN = "http://no.such.domain.lockss.org/";

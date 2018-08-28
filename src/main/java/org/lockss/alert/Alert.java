@@ -45,7 +45,7 @@ import org.lockss.plugin.*;
  * may be interested in.
  */
 public class Alert {
-  private static final Logger log = Logger.getLogger(Alert.class);
+  private static final Logger log = Logger.getLogger();
 
   /** List of comma-separated pairs: <i>AlertName</i>,<i>GroupName</i> ;
    * alerts with same group are considered similar for purposes of grouping

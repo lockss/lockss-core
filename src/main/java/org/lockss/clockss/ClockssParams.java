@@ -46,7 +46,7 @@ public class ClockssParams
   extends BaseLockssDaemonManager
   implements ConfigurableManager {
 
-  static Logger log = Logger.getLogger("ClockssParams");
+  static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "clockss.";
 

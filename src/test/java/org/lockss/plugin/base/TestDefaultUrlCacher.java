@@ -61,7 +61,7 @@ import static org.lockss.util.DateTimeUtil.GMT_DATE_FORMATTER;
  */
 public class TestDefaultUrlCacher extends LockssTestCase {
 
-  protected static Logger logger = Logger.getLogger("TestDefaultUrlCacher");
+  protected static Logger logger = Logger.getLogger();
 
   MyDefaultUrlCacher cacher;
   MockCachedUrlSet mcus;

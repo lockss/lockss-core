@@ -57,7 +57,7 @@ public class EditableDefinablePlugin extends DefinablePlugin {
 
   public static Map DEFAULT_CONFIG_PARAM_DESCRS = getDefaultConfigParamDescrs();
   
-  private static final Logger logger = Logger.getLogger(EditableDefinablePlugin.class);
+  private static final Logger logger = Logger.getLogger();
   
   protected PersistentPluginState pluginState;
 

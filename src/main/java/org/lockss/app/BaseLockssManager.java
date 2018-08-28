@@ -43,7 +43,7 @@ import org.lockss.util.*;
 
 public abstract class BaseLockssManager implements LockssManager {
 
-  private static final Logger log = Logger.getLogger(BaseLockssManager.class);
+  private static final Logger log = Logger.getLogger();
 
   protected LockssApp theApp = null;
   private Configuration.Callback configCallback;

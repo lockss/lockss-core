@@ -57,7 +57,7 @@ public class RepairPolicy {
   // V3Poller.isWillingRepairer and
   // V3PollUtilV3PollFactory.countWillingRepairers.
 
-  private static final Logger log = Logger.getLogger("RepairPolicy");
+  private static final Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "poll.v3.";
 

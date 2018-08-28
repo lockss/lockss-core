@@ -47,7 +47,7 @@ public abstract class V3Serializer {
   protected LockssDaemon daemon;
   protected boolean enabled = true;
 
-  static final Logger log = Logger.getLogger("V3Serializer");
+  static final Logger log = Logger.getLogger();
   
   public V3Serializer(LockssDaemon daemon) throws PollSerializerException {
     this.daemon = daemon;

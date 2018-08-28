@@ -67,7 +67,7 @@ import org.lockss.ws.entities.PlatformWsResult;
  * @author Fernando Garcia-Loygorri
  */
 public class TestDaemonStatusService extends LockssTestCase {
-  static Logger log = Logger.getLogger(TestDaemonStatusService.class);
+  static Logger log = Logger.getLogger();
   static String TEST_LOCAL_IP = "127.1.2.3";
 
   private MockLockssDaemon theDaemon;

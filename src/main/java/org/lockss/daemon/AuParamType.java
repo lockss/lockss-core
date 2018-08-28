@@ -193,7 +193,7 @@ public enum AuParamType {
       }
     }};
 
-  private static Logger log = Logger.getLogger("AuParamType");
+  private static Logger log = Logger.getLogger();
 
   static AuParamType[] vals = new AuParamType[MAX_TYPE + 1];
   static {

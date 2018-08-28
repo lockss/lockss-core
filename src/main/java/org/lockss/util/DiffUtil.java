@@ -43,7 +43,7 @@ import java.text.*;
  */
 public class DiffUtil {
 
-  static Logger log = Logger.getLogger("DiffUtil");
+  static Logger log = Logger.getLogger();
 
   private static DiffMatchPatch newDmp() {
     DiffMatchPatch dmp = new DiffMatchPatch();

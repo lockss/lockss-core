@@ -51,7 +51,7 @@ import org.lockss.util.Logger;
 final class VersionCounts implements VoteBlockTallier.VoteCallback {
 
   /** Our logger. */
-  private static final Logger log = Logger.getLogger("VersionCounts");
+  private static final Logger log = Logger.getLogger();
 
   /** 
    * A mapping from byte arrays to collections of ParticipantUserData.

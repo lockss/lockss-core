@@ -61,7 +61,7 @@ import org.lockss.state.*;
 
 public class WarcExploder extends Exploder {
 
-  private static Logger logger = Logger.getLogger("WarcExploder");
+  private static Logger logger = Logger.getLogger();
   protected InputStream arcStream;
   protected CIProperties arcProps;
 

@@ -47,7 +47,7 @@ import static org.lockss.extractor.MetadataField.*;
 
 public class MetadataUtil {
 
-  private static final Logger log = Logger.getLogger(MetadataUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   public static String getTargetMimeType(MetadataTarget target,
 					 ArchivalUnit au) {

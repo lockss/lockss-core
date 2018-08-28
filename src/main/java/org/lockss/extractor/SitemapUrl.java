@@ -69,7 +69,7 @@ import org.lockss.util.StringUtil;
  */
 public class SitemapUrl {
 	
-  private static final Logger log = Logger.getLogger(SitemapUrl.class);
+  private static final Logger log = Logger.getLogger();
 
   /** Allowed change frequencies */
   public enum ChangeFrequency {ALWAYS, HOURLY, DAILY,

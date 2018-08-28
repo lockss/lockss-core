@@ -39,7 +39,7 @@ import org.lockss.servlet.ServeContent.MissingFileAction;
 
 public class TestServeContent extends LockssServletTestCase {
 
-  private static final Logger log = Logger.getLogger(TestServeContent.class);
+  private static final Logger log = Logger.getLogger();
 
   private MyServeContent sc;
 

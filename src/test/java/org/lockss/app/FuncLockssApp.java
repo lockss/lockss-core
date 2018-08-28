@@ -48,7 +48,7 @@ import static org.lockss.app.ManagerDescs.*;
  * Functional tests for org.lockss.util.LockssApp
  */
 public class FuncLockssApp extends LockssTestCase {
-  private final static Logger log = Logger.getLogger(FuncLockssApp.class);
+  private final static Logger log = Logger.getLogger();
 
   private String tempDirPath;
   private OneShotSemaphore startedSem = new OneShotSemaphore();

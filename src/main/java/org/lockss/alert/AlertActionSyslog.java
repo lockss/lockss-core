@@ -40,7 +40,7 @@ import java.net.*;
 
 /** An AlertAction that records the Alert by sending it to syslog */
 public class AlertActionSyslog extends AbstractAlertAction {
-  private static final Logger log = Logger.getLogger(AlertActionSyslog.class);
+  private static final Logger log = Logger.getLogger();
   /** Hostname or IP addess of syslog server */
   static final String PARAM_HOST = PREFIX + "syslog.host";
   /** Syslog server port */

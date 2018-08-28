@@ -74,7 +74,7 @@ public class ConfigParamDescrEditor extends JDialog
   private boolean m_isEditable;
   private ConfigParamDescrPicker m_picker;
 
-  protected static Logger logger = Logger.getLogger("ConfigParamDescrEditor");
+  protected static Logger logger = Logger.getLogger();
 
   public ConfigParamDescrEditor(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

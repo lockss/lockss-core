@@ -41,7 +41,7 @@ import org.lockss.filter.*;
 import org.lockss.util.test.FileTestUtil;
 
 public class TimeFilterRule extends LockssTiming {
-  private static Logger log = Logger.getLogger("TimeFilterRule");
+  private static Logger log = Logger.getLogger();
 
   static final int FILE_LINES = 10000;
   static final String enc = "ISO8859_1";

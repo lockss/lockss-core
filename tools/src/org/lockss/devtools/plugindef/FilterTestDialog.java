@@ -76,7 +76,7 @@ public class FilterTestDialog extends JDialog {
   JButton destButton = new JButton();
   GridBagLayout gridBagLayout1 = new GridBagLayout();
 
-  protected static Logger logger = Logger.getLogger("FilterTestDialog");
+  protected static Logger logger = Logger.getLogger();
 
   public FilterTestDialog(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

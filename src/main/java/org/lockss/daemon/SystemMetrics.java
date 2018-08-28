@@ -89,7 +89,7 @@ public class SystemMetrics
   public static final String PARAM_SLOWEST_RATE = PREFIX + "slowest.hashrate";
   static final int DEFAULT_SLOWEST_RATE = 250;
 
-  private static Logger logger = Logger.getLogger("SystemMetrics");
+  private static Logger logger = Logger.getLogger();
 
   Hashtable estimateTable = new Hashtable();
   MessageDigest defaultDigest = LcapMessage.getDefaultMessageDigest();

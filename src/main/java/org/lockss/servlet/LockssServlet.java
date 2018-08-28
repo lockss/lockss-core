@@ -69,7 +69,7 @@ import org.xnap.commons.i18n.I18n;
 public abstract class LockssServlet extends HttpServlet
   implements SingleThreadModel {
   
-  private static final Logger log = Logger.getLogger(LockssServlet.class);
+  private static final Logger log = Logger.getLogger();
 
   /** A gettext-commons I18n object usable by all servlets. The object is
    * cached per-package (internally to the gettext-commons library). */

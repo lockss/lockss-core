@@ -95,7 +95,7 @@ public abstract class ObjectSerializerTester extends XMLTestCase {
   /**
    * <p>A logger for use by this class.</p>
    */
-  protected static final Logger logger = Logger.getLogger(ObjectSerializerTester.class);
+  protected static final Logger logger = Logger.getLogger();
 
   /**
    * <p>Tests whether the same input data deserialized into two new

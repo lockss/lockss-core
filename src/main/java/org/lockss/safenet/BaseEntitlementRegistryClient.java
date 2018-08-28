@@ -27,7 +27,7 @@ import org.lockss.util.urlconn.LockssUrlConnection;
 
 public class BaseEntitlementRegistryClient extends BaseLockssManager implements EntitlementRegistryClient, ConfigurableManager {
 
-  private static final Logger log = Logger.getLogger(BaseEntitlementRegistryClient.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "safenet.";
   public static final String PARAM_ER_URI = PREFIX + "registryUri";

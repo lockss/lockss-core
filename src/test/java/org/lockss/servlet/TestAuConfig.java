@@ -48,7 +48,7 @@ import com.meterware.httpunit.*;
  * This is the test class for org.lockss.servlet.AuConfig
  */
 public class TestAuConfig extends LockssServletTestCase {
-  static Logger log = Logger.getLogger("TestAuConfig");
+  static Logger log = Logger.getLogger();
 
   private MockArchivalUnit mau = null;
   private PluginManager pluginMgr = null;

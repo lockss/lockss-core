@@ -197,7 +197,7 @@ public class MimeTypeEditor extends JDialog implements EDPEditor {
   JButton dnButton = new JButton();
   JScrollPane jScrollPane1 = new JScrollPane();
 
-  private static final Logger logger = Logger.getLogger(MimeTypeEditor.class);
+  private static final Logger logger = Logger.getLogger();
 
   public MimeTypeEditor(MimeTypeEditorBuilder mimeTypeEditorBuilder,
                         Frame frame,

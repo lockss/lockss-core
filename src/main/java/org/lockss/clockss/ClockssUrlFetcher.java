@@ -48,7 +48,7 @@ import org.lockss.crawler.*;
  * detection.
  */
 public class ClockssUrlFetcher implements UrlFetcher {
-  private static Logger log = Logger.getLogger("ClockssUrlCacher");
+  private static Logger log = Logger.getLogger();
 
   private UrlFetcher uf;
   ArchivalUnit au;

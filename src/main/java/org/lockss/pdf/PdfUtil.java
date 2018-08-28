@@ -91,7 +91,7 @@ public class PdfUtil {
    * 
    * @since 1.56
    */
-  private static final Logger log = Logger.getLogger(PdfUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * <p>

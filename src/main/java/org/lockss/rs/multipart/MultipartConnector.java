@@ -49,7 +49,7 @@ import org.springframework.web.client.RestTemplate;
  * objects.
  */
 public class MultipartConnector {
-  private static Logger log = Logger.getLogger(MultipartConnector.class);
+  private static Logger log = Logger.getLogger();
 
   private URI uri;
   private HttpHeaders requestHeaders;

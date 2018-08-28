@@ -45,7 +45,7 @@ import org.lockss.util.time.TimeBase;
  */
 
 public class MonitoringInputStream extends InputStream {
-  private static final Logger log = Logger.getLogger("MonitoringInputStream");
+  private static final Logger log = Logger.getLogger();
 
   private static final Format TIMESTAMP_DATEFORMAT =
     FastDateFormat.getInstance("HH:mm:ss.SSS");

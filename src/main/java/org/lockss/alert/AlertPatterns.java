@@ -41,7 +41,7 @@ import org.lockss.util.io.LockssSerializable;
 /** AlertPatterns is a collection of useful {@link AlertPattern}
  * implementations, and factories for creating them */
 public class AlertPatterns {
-  private static final Logger log = Logger.getLogger(AlertPatterns.class);
+  private static final Logger log = Logger.getLogger();
 
   private static final AlertPattern TRUE = new True();
   private static final AlertPattern FALSE = new False();

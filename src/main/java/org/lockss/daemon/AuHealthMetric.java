@@ -54,7 +54,7 @@ import org.lockss.protocol.*;
  */
 public class AuHealthMetric {
 
-  private static final Logger log = Logger.getLogger("AuHealthMetric");
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "auHealth.";
 

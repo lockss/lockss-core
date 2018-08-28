@@ -39,7 +39,7 @@ import org.lockss.util.urlconn.*;
 
 public class LargeTestHttpResponseHandler implements CacheResultHandler {
 
-  protected static Logger log = Logger.getLogger("LargeTestHttpResponseHandler");
+  protected static Logger log = Logger.getLogger();
 
   public void init(CacheResultMap crmap) {
     log.warning("Unexpected call to init()");

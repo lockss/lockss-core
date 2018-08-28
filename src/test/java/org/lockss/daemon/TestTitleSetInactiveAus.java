@@ -45,7 +45,7 @@ import org.lockss.repository.*;
  */
 
 public class TestTitleSetInactiveAus extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestTitleSetInactiveAus");
+  private static Logger log = Logger.getLogger();
 
   PluginManager pluginMgr;
   MockPlugin mp;

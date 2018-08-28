@@ -46,7 +46,7 @@ import org.lockss.repository.OldLockssRepositoryImpl;
  */
 
 public class TestCuUrl extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestCuUrl");
+  static Logger log = Logger.getLogger();
   private MockLockssDaemon theDaemon;
   private UrlManager uMgr;
   private StaticContentPlugin.SAU au;

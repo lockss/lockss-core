@@ -54,7 +54,7 @@ import org.lockss.laaws.rs.model.*;
 import org.lockss.laaws.rs.util.*;
 
 public class TestV2BaseCachedUrlSet extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestV2BaseCachedUrlSet");
+  static Logger log = Logger.getLogger();
 
   private OldLockssRepository repo;
   private HistoryRepository histRepo;

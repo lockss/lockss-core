@@ -50,7 +50,7 @@ import junit.framework.*;
  * Functional tests on the simulated content generator.
  */
 public class FuncSimulatedContent extends LockssTestCase {
-  static final Logger log = Logger.getLogger("FuncSimulatedContent");
+  static final Logger log = Logger.getLogger();
 
   private PluginManager pluginMgr;
   private Plugin simPlugin;

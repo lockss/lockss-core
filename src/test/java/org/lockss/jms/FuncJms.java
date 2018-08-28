@@ -40,7 +40,7 @@ import org.lockss.util.*;
 import org.lockss.jms.*;
 
 public class FuncJms extends LockssTestCase4 {
-  protected static Logger log = Logger.getLogger("FuncJMS");
+  protected static Logger log = Logger.getLogger();
 
   static String BROKER_URI =
     "vm://localhost?create=false&marshal=true";

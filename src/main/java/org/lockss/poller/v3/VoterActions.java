@@ -48,7 +48,7 @@ import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 
 public class VoterActions {
-  private static final Logger log = Logger.getLogger("VoterActions");
+  private static final Logger log = Logger.getLogger();
 
   // Start participating in a V3 poll when a POLL message is received
   @ReturnEvents("evtOk")

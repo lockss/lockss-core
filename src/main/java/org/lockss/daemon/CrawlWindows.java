@@ -70,7 +70,7 @@ public class CrawlWindows {
 
   static final int MAX_INTERVAL_LIST_SIZE = 100000;
   
-  private static final Logger logger = Logger.getLogger(CrawlWindows.class);
+  private static final Logger logger = Logger.getLogger();
 
   static TimeZone GMT = TimeZoneUtil.getExactTimeZone("GMT");
 

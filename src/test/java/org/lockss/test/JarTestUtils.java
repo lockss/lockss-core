@@ -40,7 +40,7 @@ import java.security.*;
 import java.security.cert.*;
 
 public class JarTestUtils {
-  private static Logger log = Logger.getLogger("JarTestUtils");
+  private static Logger log = Logger.getLogger();
 
   /**
    * Creat a JAR file using the specified map as a set of

@@ -62,7 +62,7 @@ public class StatusTable {
   private Map columnDescriptorMap;
   private List rows;
   private List defaultSortRules;
-  private static Logger logger = Logger.getLogger("StatusTable");
+  private static Logger logger = Logger.getLogger();
   private List summaryInfo;
   private BitSet options = new BitSet();
   private boolean isResortable = true;

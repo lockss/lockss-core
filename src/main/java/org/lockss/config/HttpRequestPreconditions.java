@@ -39,7 +39,7 @@ import org.lockss.util.Logger;
  */
 public class HttpRequestPreconditions {
   public static String HTTP_WEAK_VALIDATOR_PREFIX = "W/";
-  private static Logger log = Logger.getLogger(HttpRequestPreconditions.class);
+  private static Logger log = Logger.getLogger();
 
   private boolean allowWeakValidatorTags = false;
   private List<String> ifMatch;

@@ -776,7 +776,7 @@ public class ProxyInfo {
 //    return getPluginMgr().getAllAus();
 //  }
 
-  protected static Logger log = Logger.getLogger("ProxyInfo");
+  protected static Logger log = Logger.getLogger();
 
   static final int MAX_ENCAPSULATED_PAC_SIZE = 100 * 1024;
 

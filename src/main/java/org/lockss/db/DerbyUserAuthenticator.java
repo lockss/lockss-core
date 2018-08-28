@@ -42,8 +42,7 @@ import org.lockss.util.StringUtil;
 
 public class DerbyUserAuthenticator implements UserAuthenticator {
 
-  private static final Logger log =
-      Logger.getLogger(DerbyUserAuthenticator.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * No-argument constructor.

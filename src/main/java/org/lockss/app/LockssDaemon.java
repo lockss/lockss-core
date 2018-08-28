@@ -70,7 +70,7 @@ import org.apache.commons.collections.map.LinkedMap;
  */
 public class LockssDaemon extends LockssApp {
   
-  private static final Logger log = Logger.getLogger(LockssDaemon.class);
+  private static final Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "daemon.";
 

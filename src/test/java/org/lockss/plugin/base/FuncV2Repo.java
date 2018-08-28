@@ -55,7 +55,7 @@ import org.springframework.http.HttpHeaders;
  * behavior
  */
 public class FuncV2Repo extends LockssTestCase {
-  private static final Logger log = Logger.getLogger("FuncV2Repo");
+  private static final Logger log = Logger.getLogger();
 
   protected LockssRepository repo;
   protected MockArchivalUnit mau;

@@ -47,7 +47,7 @@ public class TdbAu implements BibliographicItem, Comparable<TdbAu> {
   /**
    * Set up logger
    */
-  protected final static Logger logger = Logger.getLogger("TdbAu");
+  protected final static Logger logger = Logger.getLogger();
 
   /**
    * The name of this instance

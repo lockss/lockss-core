@@ -41,7 +41,7 @@ import org.lockss.util.*;
  * @version 1.0
  */
 public abstract class MemoryBoundFunction {
-  protected static Logger logger = Logger.getLogger("MemoryBoundFunction");
+  protected static Logger logger = Logger.getLogger();
   protected static File basisFile = null;
 
   protected byte[] nonce;

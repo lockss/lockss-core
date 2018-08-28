@@ -42,7 +42,7 @@ import org.lockss.protocol.*;
  * @version 1.0
  */
 public abstract class MemoryBoundFunctionVote {
-  protected static Logger logger = Logger.getLogger("MemoryBoundFunctionVote");
+  protected static Logger logger = Logger.getLogger();
   protected static byte[] basis = null;
   protected static File basisFile = null;
 

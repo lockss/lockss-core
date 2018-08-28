@@ -48,7 +48,7 @@ import org.lockss.protocol.IdentityManager.MalformedIdentityKeyException;
  */
 
 public class MockIdentityManager implements IdentityManager {
-  protected static Logger log = Logger.getLogger("MockIdentityManager");
+  protected static Logger log = Logger.getLogger();
 
   public HashMap idMap = new HashMap();
 

@@ -54,7 +54,7 @@ import org.lockss.daemon.*;
  */
 
 public class ActualWarcContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("ActualWarcContentGenerator");
+  private static Logger logger = Logger.getLogger();
   AtomicInteger serialNo = new AtomicInteger(0);
   int maxSize = 100000000;
   String[] suffix = {

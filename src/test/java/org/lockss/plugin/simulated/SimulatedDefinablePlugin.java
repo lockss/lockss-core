@@ -47,7 +47,7 @@ import org.lockss.util.Logger;
 
 public class SimulatedDefinablePlugin extends DefinablePlugin
 	implements PluginTestable{
-  static Logger log = Logger.getLogger(SimulatedDefinablePlugin.class);
+  static Logger log = Logger.getLogger();
 
   /**
    * The root location for the simulated content to be generated.

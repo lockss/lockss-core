@@ -54,7 +54,7 @@ import org.lockss.util.*;
  * supplied, initialized, KeyManagerFactory.
  */
 public class LockssSslListener extends SslListener {
-  private static Logger log = Logger.getLogger("LockssSslListener");
+  private static Logger log = Logger.getLogger();
 
   private KeyManagerFactory _keyManagerFactory;
 

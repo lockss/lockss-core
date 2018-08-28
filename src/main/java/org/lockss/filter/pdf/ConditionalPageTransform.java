@@ -319,6 +319,6 @@ public class ConditionalPageTransform extends PageTransformDecorator {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("ConditionalPageTransform");
+  private static Logger logger = Logger.getLogger();
 
 }

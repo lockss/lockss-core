@@ -67,7 +67,7 @@ import java.util.List;
  */
 public class AddContentTab extends LockssServlet {
     
-  private static final Logger log = Logger.getLogger(AddContentTab.class);
+  private static final Logger log = Logger.getLogger();
 
     /**
      * Supported output formats

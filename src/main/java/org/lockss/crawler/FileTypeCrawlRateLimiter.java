@@ -46,7 +46,7 @@ import org.lockss.plugin.base.*;
  * @ThreadSafe
  */
 public class FileTypeCrawlRateLimiter extends BaseCrawlRateLimiter {
-  static Logger log = Logger.getLogger("FileTypeCrawlRateLimiter");
+  static Logger log = Logger.getLogger();
 
   class PatElem {
     Pattern pat;

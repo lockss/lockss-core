@@ -259,7 +259,7 @@ public class V3Voter implements Poll {
   // This task is cancelled before the real hash is scheduled.
   private SchedulableTask task;
 
-  private static final Logger log = Logger.getLogger("V3Voter");
+  private static final Logger log = Logger.getLogger();
 
   // CR: refactor common parts of constructors
   /**

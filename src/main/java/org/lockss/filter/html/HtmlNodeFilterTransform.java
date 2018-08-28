@@ -49,7 +49,7 @@ import org.lockss.util.*;
  * (into a NodeList) */
 
 public class HtmlNodeFilterTransform implements HtmlTransform {
-  private static Logger log = Logger.getLogger("HtmlNodeFilterTransform");
+  private static Logger log = Logger.getLogger();
 
   private NodeFilter filter;
   private boolean exclude = false;

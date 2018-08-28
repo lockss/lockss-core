@@ -40,7 +40,7 @@ import org.lockss.util.*;
  *  TCP Utilities used for testing.
  */
 public class TcpTestUtil {
-  static Logger log = Logger.getLogger("TcpTestUtil");
+  static Logger log = Logger.getLogger();
 
   static int nextPort = 2000;
 

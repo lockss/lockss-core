@@ -75,7 +75,7 @@ public class ValidatePluginDialog extends JDialog {
   TitledBorder infoBorder;
   GridBagLayout gridBagLayout2 = new GridBagLayout();
 
-  protected static Logger logger = Logger.getLogger("ValidatePluginDialog");
+  protected static Logger logger = Logger.getLogger();
 
   public ValidatePluginDialog(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

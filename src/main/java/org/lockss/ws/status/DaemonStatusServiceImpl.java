@@ -95,7 +95,7 @@ import org.lockss.ws.status.DaemonStatusService;
 @WebService
 public class DaemonStatusServiceImpl implements DaemonStatusService {
   public static String BUILD_TIMESTAMP_FORMAT = "dd-MMM-yy HH:mm:ss zzz";
-  private static Logger log = Logger.getLogger(DaemonStatusServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides an indication of whether the daemon is ready.

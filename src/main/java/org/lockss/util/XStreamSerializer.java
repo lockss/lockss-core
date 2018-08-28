@@ -810,6 +810,6 @@ public class XStreamSerializer extends ObjectSerializer {
   /**
    * <p>A logger for use by this serializer.</p>
    */
-  private static Logger logger = Logger.getLogger(XStreamSerializer.class);
+  private static Logger logger = Logger.getLogger();
 
 }

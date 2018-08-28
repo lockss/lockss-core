@@ -45,7 +45,7 @@ import org.lockss.util.net.IPAddr;
  * @version 1.0
  */
 public class PeerIdentity implements LockssSerializable {
-  static Logger theLog=Logger.getLogger("PeerIdentity");
+  static Logger theLog=Logger.getLogger();
   private String key;
   private transient PeerAddress pAddr;
 

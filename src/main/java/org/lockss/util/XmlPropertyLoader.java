@@ -62,7 +62,7 @@ public class XmlPropertyLoader {
 
   private static XmlPropertyLoader m_instance = null;
 
-  private static Logger log = Logger.getLogger("XmlPropertyLoader");
+  private static Logger log = Logger.getLogger();
 
   public static void load(PropertyTree props, InputStream istr)
       throws ParserConfigurationException, SAXException, IOException {

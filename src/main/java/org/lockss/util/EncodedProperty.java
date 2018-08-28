@@ -49,7 +49,7 @@ public class EncodedProperty extends Properties {
 
   public static final String DEFAULT_ENCODING = "UTF-8";
 
-  private static final Logger log = Logger.getLogger("EncodedProperty");
+  private static final Logger log = Logger.getLogger();
 
 
   /**

@@ -74,7 +74,7 @@ public class PdfTokenStreamStateMachine extends PdfTokenStreamWorker {
    * 
    * @since 1.67
    */
-  private static final Logger DEFAULT_LOGGER = Logger.getLogger(PdfTokenStreamStateMachine.class);
+  private static final Logger DEFAULT_LOGGER = Logger.getLogger();
 
   /**
    * <p>

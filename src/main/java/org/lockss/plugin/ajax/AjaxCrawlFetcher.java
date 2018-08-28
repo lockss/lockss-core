@@ -66,7 +66,7 @@ public class AjaxCrawlFetcher  extends BaseUrlFetcher {
   public static final String PARAM_CONFIG_FILE = PREFIX + "configFile";
   public static final String LINK_FILE_NAME = "links.txt";
 
-  static final Logger theLogger = Logger.getLogger(AjaxCrawlFetcher.class);
+  static final Logger theLogger = Logger.getLogger();
 
 
   /**

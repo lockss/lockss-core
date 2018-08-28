@@ -73,7 +73,7 @@ public abstract class LcapMessage {
 
   protected static IdentityManager m_idManager = null;
 
-  private static Logger log = Logger.getLogger("LcapMessage");
+  private static Logger log = Logger.getLogger();
 
   //
   // Methods that must be implemented by subclasses.

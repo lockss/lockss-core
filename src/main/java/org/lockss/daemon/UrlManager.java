@@ -51,7 +51,7 @@ public class UrlManager extends BaseLockssManager {
   public static final String PROTOCOL_AU = "lockssau";
   public static final String PROTOCOL_RESOURCE = "resource";
 
-  private static Logger log = Logger.getLogger("UrlManager");
+  private static Logger log = Logger.getLogger();
 
   /** Install the URLStreamHandlerFactory */
   public void startService() {

@@ -42,7 +42,7 @@ import org.lockss.util.*;
 /** Functional tests to ensure that the filesystem behaves as we expect
  */
 public class FuncFilesystem extends LockssTestCase {
-  static final Logger log = Logger.getLogger("FuncFilesystem");
+  static final Logger log = Logger.getLogger();
 
   // Running out of file descriptors should cause FileNotFoundException
   // with "Too many open files" in the message.

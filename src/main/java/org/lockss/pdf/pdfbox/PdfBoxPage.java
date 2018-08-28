@@ -62,7 +62,7 @@ public class PdfBoxPage implements PdfPage {
    * 
    * @since 1.56
    */
-  private static final Logger log = Logger.getLogger(PdfBoxPage.class);
+  private static final Logger log = Logger.getLogger();
   
   /**
    * <p>

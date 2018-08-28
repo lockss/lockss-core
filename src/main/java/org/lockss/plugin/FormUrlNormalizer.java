@@ -42,7 +42,7 @@ import java.util.Set;
 /** @author mlanken */
 public class FormUrlNormalizer implements UrlNormalizer {
 
-  private static final Logger logger = Logger.getLogger(FormUrlNormalizer.class);
+  private static final Logger logger = Logger.getLogger();
 
   private boolean m_sortAllUrls;
   private HashMap<String, Integer> m_limits;

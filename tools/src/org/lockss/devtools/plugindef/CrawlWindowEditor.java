@@ -85,7 +85,7 @@ public class CrawlWindowEditor extends JDialog implements EDPEditor{
   JComboBox m_timezoneBox   = new JComboBox(CrawlWindowTemplate.WINDOW_TIMEZONE_STRINGS);
 
 
-  protected static Logger logger = Logger.getLogger("CrawlWindowEditor");
+  protected static Logger logger = Logger.getLogger();
 
     //  JButton upButton = new JButton();
     //JButton dnButton = new JButton();

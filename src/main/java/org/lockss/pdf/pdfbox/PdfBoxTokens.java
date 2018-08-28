@@ -456,7 +456,7 @@ public class PdfBoxTokens {
    * </p>
    * @since 1.56
    */
-  private static final Logger logger = Logger.getLogger(PdfBoxTokens.class);
+  private static final Logger logger = Logger.getLogger();
   
   /**
    * <p>

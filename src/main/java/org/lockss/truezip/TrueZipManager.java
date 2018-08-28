@@ -48,7 +48,7 @@ import org.lockss.config.*;
 public class TrueZipManager extends BaseLockssManager
   implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger("TrueZipManager");
+  protected static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "truezip.";
 

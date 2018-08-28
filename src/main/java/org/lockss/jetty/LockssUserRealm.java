@@ -57,7 +57,7 @@ import org.lockss.account.*;
 
 /** Realm wrapper around UserAccount */
 public class LockssUserRealm implements UserRealm {
-  private static Logger log = Logger.getLogger("LockssUserRealm");
+  private static Logger log = Logger.getLogger();
 
   private AccountManager _acctMgr;
   private String _realmName;

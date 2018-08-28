@@ -51,7 +51,7 @@ import org.lockss.extractor.*;
  */
 public abstract class BasePlugin
     implements Plugin {
-  static Logger log = Logger.getLogger("BasePlugin");
+  static Logger log = Logger.getLogger();
 
   // Below org.lockss.title.xxx.
   static final String TITLE_PARAM_TITLE = "title";

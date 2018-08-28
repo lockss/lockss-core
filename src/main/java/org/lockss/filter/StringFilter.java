@@ -46,7 +46,7 @@ public class StringFilter extends Reader {
   public static final String PARAM_BUFFER_CAPACITY =
     Configuration.PREFIX + "filter.buffer_capacity";
 
-  private static Logger logger = Logger.getLogger("StringFilter");
+  private static Logger logger = Logger.getLogger();
   private int replaceLen;
   private int toReplace = 0;
 

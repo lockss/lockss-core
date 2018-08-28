@@ -72,7 +72,7 @@ public class TimeEditor extends JDialog implements EDPEditor {
   TitledBorder titledBorder1;
   GridBagLayout gridBagLayout1 = new GridBagLayout();
 
-  protected static Logger logger = Logger.getLogger("TimeEditor");
+  protected static Logger logger = Logger.getLogger();
 
   public TimeEditor(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

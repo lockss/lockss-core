@@ -51,7 +51,7 @@ import org.lockss.util.*;
  */
 public class ProxyConfig extends LockssServlet {
 
-  private static final Logger log = Logger.getLogger(TimeMapService.class);
+  private static final Logger log = Logger.getLogger();
   
   // Used for serialization
   private static final long serialVersionUID = 1L;  // To stop an Eclipse complaint.  See "http://www.eaze.org/patrick/java/objectserialization.jsp"

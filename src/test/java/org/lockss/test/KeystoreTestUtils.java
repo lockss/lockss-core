@@ -44,7 +44,7 @@ import org.lockss.util.KeyStoreUtil.X500Name;
 
 public class KeystoreTestUtils {
 
-  private static Logger log = Logger.getLogger("KeystoreTestUtils");
+  private static Logger log = Logger.getLogger();
 
   /**
    * Generate a public/private keypair and two keystores to hold them.

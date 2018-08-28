@@ -41,7 +41,7 @@ import org.htmlparser.*;
 import org.htmlparser.filters.*;
 
 public class TestHtmlNodeFilterTransform extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestHtmlNodeFilterTransform");
+  static Logger log = Logger.getLogger();
 
   /** Check that nodes that match the filter are removed. */
   private void assertFiltersOut(String expected, String input,

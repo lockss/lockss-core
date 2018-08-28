@@ -54,7 +54,7 @@ import org.lockss.plugin.*;
 */
 public class CrawlerStatus {
   
-  private static final Logger log = Logger.getLogger(CrawlerStatus.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final String ALL_URLS = "all";
 

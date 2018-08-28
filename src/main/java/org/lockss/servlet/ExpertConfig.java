@@ -51,7 +51,7 @@ import org.lockss.account.*;
  * org.lockss.config.expert.allow and org.lockss.config.expert.deny)
  */
 public class ExpertConfig extends LockssServlet {
-  static Logger log = Logger.getLogger("ExpertConfig");
+  static Logger log = Logger.getLogger();
 
   /** URL of parameter documentation page */
   public static final String PARAM_PARAM_DOC_URL =

@@ -40,7 +40,7 @@ import org.lockss.util.*;
 import org.lockss.filter.*;
 
 public class StringPermissionChecker extends BasePermissionChecker {
-  static Logger m_logger = Logger.getLogger(StringPermissionChecker.class);
+  static Logger m_logger = Logger.getLogger();
   public static final int IGNORE_CASE = 0;
 
   String m_matchString;

@@ -620,7 +620,7 @@ public class IcpManager
   /**
    * <p>A logger for use by instances of this class.</p>
    */
-  protected static Logger logger = Logger.getLogger("IcpManager");
+  protected static Logger logger = Logger.getLogger();
 
   /**
    * <p>An invalid port number.</p>

@@ -46,7 +46,7 @@ import org.lockss.poller.v3.V3Poller.PollVariant;
  * Persistant state object for the V3Poller.
  */
 public class PollerStateBean implements LockssSerializable {
-  private static final Logger log = Logger.getLogger("PollerStateBean");
+  private static final Logger log = Logger.getLogger();
 
   /* Unique poll identifier. */
   private String pollKey;

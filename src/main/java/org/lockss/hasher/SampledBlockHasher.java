@@ -47,8 +47,7 @@ import org.lockss.util.*;
  * proof-of-possession polls.
  */
 public class SampledBlockHasher extends BlockHasher {
-  protected static final Logger log =
-    Logger.getLogger(SampledBlockHasher.class);
+  protected static final Logger log = Logger.getLogger();
 
   private final FractionalInclusionPolicy inclusionPolicy;
 

@@ -57,7 +57,7 @@ import org.lockss.clockss.*;
  * @ParamCategory Crawler
  */
 public abstract class BaseCrawler implements Crawler {
-  static Logger logger = Logger.getLogger(BaseCrawler.class);
+  static Logger logger = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "crawler.";
 

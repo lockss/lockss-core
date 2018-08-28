@@ -45,7 +45,7 @@ import org.lockss.repository.*;
 
 /** Display Platform Configuration */
 public class OverviewStatus extends BaseLockssDaemonManager {
-  static Logger log = Logger.getLogger("OverviewStatus");
+  static Logger log = Logger.getLogger();
   final static String OVERVIEW_STATUS_TABLE = "OverviewStatus";
 
   public OverviewStatus() {

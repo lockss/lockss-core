@@ -72,7 +72,7 @@ public class V3LcapMessage extends LcapMessage implements LockssSerializable {
   public static final String[] POLL_MESSAGES = { "Poll", "PollAck", "PollProof",
     "Nominate", "VoteRequest", "Vote", "RepairReq", "RepairRep",
     "EvaluationReceipt", "NoOp" };
-  private static Logger log = Logger.getLogger("V3LcapMessage");
+  private static Logger log = Logger.getLogger();
   
   
   // Poll rejection codes.

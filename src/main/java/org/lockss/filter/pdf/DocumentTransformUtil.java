@@ -212,6 +212,6 @@ public class DocumentTransformUtil {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("DocumentTransformUtil");
+  private static Logger logger = Logger.getLogger();
 
 }

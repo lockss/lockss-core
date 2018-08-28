@@ -85,7 +85,7 @@ public class PollManager
     extends BaseLockssDaemonManager implements ConfigurableManager {
   public static final String MANAGER_STATUS_TABLE_NAME = "PollManagerTable";
   // Shared with MockPollManager
-  protected static final Logger theLog = Logger.getLogger(PollManager.class);
+  protected static final Logger theLog = Logger.getLogger();
   static final String PREFIX = Configuration.PREFIX + "poll.";
   static final String PARAM_RECENT_EXPIRATION = PREFIX + "expireRecent";
 

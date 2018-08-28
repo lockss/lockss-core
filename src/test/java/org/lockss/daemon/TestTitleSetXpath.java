@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
  */
 
 public class TestTitleSetXpath extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestTitleSetXpath");
+  private static Logger log = Logger.getLogger();
 
   PluginManager pluginMgr;
   MockPlugin mp1;

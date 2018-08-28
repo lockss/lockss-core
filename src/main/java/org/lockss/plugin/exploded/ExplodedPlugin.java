@@ -48,7 +48,7 @@ import org.lockss.util.*;
  */
 
 public class ExplodedPlugin extends DefinablePlugin {
-  protected static final Logger log = Logger.getLogger("ExplodedPlugin");
+  protected static final Logger log = Logger.getLogger();
 
   public static final String PREFIX =
     Configuration.PREFIX + "plugin.exploded.";

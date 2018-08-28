@@ -66,7 +66,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   /**
    * <p>A logger for this class.</p>
    */
-  protected static Logger log = Logger.getLogger("IdentityManagerImpl");
+  protected static Logger log = Logger.getLogger();
 
   /**
    * <p>The MAX_DELTA parameter.</p>

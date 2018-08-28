@@ -64,7 +64,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 public class UrlUtil {
   
-  private static final Logger log = Logger.getLogger(UrlUtil.class);
+  private static final Logger log = Logger.getLogger();
   
   /**
    * The separator string for URLs.

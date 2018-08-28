@@ -269,7 +269,7 @@ public class ExternalizableMap extends TypedEntryMap {
   /**
    * <p>A logger for events associated with this class.</p>
    */
-  private static Logger logger = Logger.getLogger("ExternalizableMap");
+  private static Logger logger = Logger.getLogger();
 
   /**
    * <p>The exception message to use when a user attempts to store a

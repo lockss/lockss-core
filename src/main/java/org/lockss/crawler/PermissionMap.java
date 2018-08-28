@@ -52,7 +52,7 @@ import java.net.MalformedURLException;
  * PermissionRecord, which record the permissions we found at that url
  */
 public class PermissionMap {
-  static Logger logger = Logger.getLogger(PermissionMap.class);
+  static Logger logger = Logger.getLogger();
 
   private ArchivalUnit au;
   private HashMap<String,PermissionRecord> permissionAtUrl;

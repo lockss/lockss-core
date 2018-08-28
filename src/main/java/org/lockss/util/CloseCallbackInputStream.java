@@ -42,8 +42,7 @@ import org.apache.commons.io.FileUtils;
  * Useful for deleting temporary files
  */
 public class CloseCallbackInputStream extends InputStream {
-  private static final Logger log =
-    Logger.getLogger("CloseCallbackInputStream");
+  private static final Logger log = Logger.getLogger();
 
   private InputStream in;
   private Callback cb;

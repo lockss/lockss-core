@@ -47,7 +47,7 @@ import org.springframework.web.client.RestTemplate;
  * configuration of an Archival Unit.
  */
 public class GetAuConfigClient {
-  private static Logger log = Logger.getLogger(GetAuConfigClient.class);
+  private static Logger log = Logger.getLogger();
 
   private String serviceLocation = null;
   private String serviceUser = null;

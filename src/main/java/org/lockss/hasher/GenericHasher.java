@@ -45,7 +45,7 @@ import org.lockss.plugin.*;
  * General class to handle content hashing
  */
 public abstract class GenericHasher implements CachedUrlSetHasher {
-  protected static Logger log = Logger.getLogger("GenericHasher");
+  protected static Logger log = Logger.getLogger();
 
   protected CachedUrlSet cus = null;
   protected ArchivalUnit au = null;

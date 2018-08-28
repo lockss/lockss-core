@@ -93,7 +93,7 @@ public class PrintfEditor extends JDialog implements EDPEditor, ConfigParamListe
   private boolean m_isCrawlRuleEditor = false;
   private static final String STRING_LITERAL = "String Literal";
 
-  protected static Logger logger = Logger.getLogger("PrintfEditor");
+  protected static Logger logger = Logger.getLogger();
 
   public PrintfEditor(Frame frame, String title) {
     super(frame, title, false);

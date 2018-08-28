@@ -40,7 +40,7 @@ import org.lockss.util.net.IPAddr;
 
 /** Common functionality for implementations of LockssUrlConnection */
 public abstract class BaseLockssUrlConnection implements LockssUrlConnection {
-  private static Logger log = Logger.getLogger("BaseLockssUrlConnection");
+  private static Logger log = Logger.getLogger();
 
   protected String urlString;
   protected URL url;

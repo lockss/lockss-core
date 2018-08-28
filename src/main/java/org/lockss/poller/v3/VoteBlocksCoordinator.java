@@ -51,7 +51,7 @@ final class VoteBlocksCoordinator {
   // change. But I don't see anything in V3Poller that makes
   // sure that is so.
 
-  private static Logger log = Logger.getLogger(VoteBlocksCoordinator.class);
+  private static Logger log = Logger.getLogger();
     
   /* A class to link participants and iterators, so internally we control
    * the exceptions that are raised when trying to get the url. */

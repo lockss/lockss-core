@@ -46,7 +46,7 @@ import sun.net.TransferProtocolClient;
  * Simple SMTP client.
  */
 public class SmtpClient extends TransferProtocolClient  {
-  protected static Logger log = Logger.getLogger("SmtpClient");
+  protected static Logger log = Logger.getLogger();
 
   static final String TIMEOUT_PREFIX =
     Configuration.PREFIX + "mail.smtp.timeout.";

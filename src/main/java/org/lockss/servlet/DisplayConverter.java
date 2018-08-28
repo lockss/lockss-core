@@ -49,7 +49,7 @@ import org.lockss.daemon.status.*;
 
 public class DisplayConverter {
   
-  private static final Logger log = Logger.getLogger(DisplayConverter.class);
+  private static final Logger log = Logger.getLogger();
 
   // Thread-safe formatters.
   // FastDateFormat is thread-safe, NumberFormat & subclasses aren't.

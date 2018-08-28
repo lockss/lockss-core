@@ -54,8 +54,7 @@ import org.lockss.util.StringUtil;
  * @author Fernando García-Loygorri
  */
 public class MetadataDbManagerSql extends DbManagerSql {
-  private static final Logger log =
-      Logger.getLogger(MetadataDbManagerSql.class);
+  private static final Logger log = Logger.getLogger();
 
   // Query to create the table for recording bibliobraphic metadata for an
   // article.

@@ -40,7 +40,7 @@ import org.lockss.util.*;
 
 public class TestCssLinkFilter extends LockssTestCase {
 
-  private static Logger logger = Logger.getLogger("TestCssLinkFilter");
+  private static Logger logger = Logger.getLogger();
   
   private static final String[][] array0 = {
   };

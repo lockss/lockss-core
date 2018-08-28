@@ -48,7 +48,7 @@ import org.lockss.util.time.TimeBase;
 
 public class PollerActions {
 
-  private static final Logger log = Logger.getLogger("PollerActions");
+  private static final Logger log = Logger.getLogger();
 
   @ReturnEvents("evtOk")
   public static PsmEvent handleProveIntroEffort(PsmEvent evt,

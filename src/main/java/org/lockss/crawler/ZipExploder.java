@@ -60,7 +60,7 @@ import org.lockss.util.urlconn.CacheException;
 
 public class ZipExploder extends Exploder {
 
-  private static Logger logger = Logger.getLogger("ZipExploder");
+  private static Logger logger = Logger.getLogger();
   protected CIProperties zipProps;
   protected InputStream zipStream;
 

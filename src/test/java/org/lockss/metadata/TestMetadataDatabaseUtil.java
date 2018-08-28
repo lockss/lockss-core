@@ -43,7 +43,7 @@ import org.lockss.util.Logger;
  * @author Philip Gust
  */
 public class TestMetadataDatabaseUtil extends LockssTestCase {
-  static Logger log = Logger.getLogger(TestMetadataDatabaseUtil.class);
+  static Logger log = Logger.getLogger();
 
   private MetadataManager metadataManager;
   private MetadataDbManager dbManager;

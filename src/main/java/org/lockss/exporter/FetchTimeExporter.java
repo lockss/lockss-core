@@ -129,7 +129,7 @@ public class FetchTimeExporter {
   public static final int DEFAULT_MAX_NUMBER_OF_EXPORTED_ITEMS_PER_FILE =
       100000;
 
-  private static final Logger log = Logger.getLogger(FetchTimeExporter.class);
+  private static final Logger log = Logger.getLogger();
 
   // Query to get the identifier of the last metadata item for which the data
   // has been exported.

@@ -84,7 +84,7 @@ import javax.servlet.http.HttpServletResponse;
  * </pre>
  */
 public class TimeGateService extends TimeServlet {
-  protected static final Logger log = Logger.getLogger("TimeGateService");
+  protected static final Logger log = Logger.getLogger();
 
   /**
    * Given a CachedUrl, return the ServeContent URL for accessing it. The result

@@ -49,7 +49,7 @@ import org.lockss.util.urlconn.*;
 import org.lockss.config.*;
 
 public class CrawlRuleTester extends Thread {
-  protected static Logger log = Logger.getLogger(CrawlRuleTester.class);
+  protected static Logger log = Logger.getLogger();
 
   /** Proxy host */
   public static final String PARAM_PROXY_HOST =

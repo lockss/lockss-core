@@ -42,7 +42,7 @@ import org.lockss.filter.*;
 import org.lockss.plugin.*;
 
 public class SimulatedHtmlFilterFactory implements FilterFactory {
-  static final Logger log = Logger.getLogger("SimulatedHtmlFilterFactory");
+  static final Logger log = Logger.getLogger();
 
   static final String CITATION_STRING = "Citation String";
 

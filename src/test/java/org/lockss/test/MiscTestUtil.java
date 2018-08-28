@@ -44,7 +44,7 @@ import org.lockss.daemon.*;
 
 /** Miscellaneous testing utilities */
 public class MiscTestUtil {
-  protected static Logger log = Logger.getLogger("MiscTestUtil");
+  protected static Logger log = Logger.getLogger();
 
   public static boolean hasPermission(List<PermissionChecker> checkers,
 				      String page,

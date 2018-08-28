@@ -51,7 +51,7 @@ import org.lockss.util.MetadataUtil;
  * 
  */
 final public class MetadataDatabaseUtil {
-  protected static Logger log = Logger.getLogger(MetadataDatabaseUtil.class);
+  protected static Logger log = Logger.getLogger();
 
   private MetadataDatabaseUtil() {
   }

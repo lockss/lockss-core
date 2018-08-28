@@ -41,7 +41,7 @@ import org.lockss.plugin.*;
 
 /** Config status table */
 public class ConfigStatus extends BaseLockssDaemonManager {
-  static Logger log = Logger.getLogger("ConfigStatus");
+  static Logger log = Logger.getLogger();
 
   final static String CONFIG_STATUS_TABLE = "ConfigStatus";
 

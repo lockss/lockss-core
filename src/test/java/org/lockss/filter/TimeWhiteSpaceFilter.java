@@ -38,7 +38,7 @@ import java.util.*;
 import java.io.*;
 
 public class TimeWhiteSpaceFilter extends LockssTiming {
-  private static Logger log = Logger.getLogger("TimeWhiteSpaceFilter");
+  private static Logger log = Logger.getLogger();
 
   static final int FILE_LINES = 100000;
 

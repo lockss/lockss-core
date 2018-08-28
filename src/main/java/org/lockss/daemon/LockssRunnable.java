@@ -74,7 +74,7 @@ public abstract class LockssRunnable  implements LockssWatchdog, Runnable {
   public static final String PARAM_NAMED_THREAD_PRIORITY =
     PREFIX + "<name>.priority";
 
-  private static Logger log = Logger.getLogger("LockssRunnable");
+  private static Logger log = Logger.getLogger();
 
   private Thread thread;
   private String name;

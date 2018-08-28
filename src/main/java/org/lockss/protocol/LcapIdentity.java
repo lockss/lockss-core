@@ -79,7 +79,7 @@ public class LcapIdentity implements LockssSerializable {
   int m_reputation;
   String m_idKey;
 
-  static Logger theLog=Logger.getLogger("LcapIdentity");
+  static Logger theLog=Logger.getLogger();
 
 //   protected LcapIdentity(PeerIdentity pid, int reputation)
 //     throws UnknownHostException {

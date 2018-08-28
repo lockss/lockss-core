@@ -43,7 +43,7 @@ import org.lockss.protocol.psm.*;
 
 public class PsmToDot {
   
-  private static final Logger log = Logger.getLogger(PsmToDot.class);
+  private static final Logger log = Logger.getLogger();
 
   static String HEADER =
     "digraph StateMachine {\n" +

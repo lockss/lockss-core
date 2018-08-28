@@ -47,7 +47,7 @@ import org.lockss.test.*;
  */
 
 public class TestInternalSocket extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestServerSocket");
+  static Logger log = Logger.getLogger();
 
   String testStr = "This is test data";
   byte[] testData = testStr.getBytes();

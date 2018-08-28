@@ -109,7 +109,7 @@ public class V3PollStatus {
       "V3PeerVoterOnlyUrlsTable";
 
   protected PollManager pollManager;
-  private static Logger theLog = Logger.getLogger("V3PollerStatus");
+  private static Logger theLog = Logger.getLogger();
 
   V3PollStatus(PollManager pollManager) {
     this.pollManager = pollManager;

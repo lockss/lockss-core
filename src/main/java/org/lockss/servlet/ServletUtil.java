@@ -111,7 +111,7 @@ public class ServletUtil {
 
   }
 
-  private static final Logger log = Logger.getLogger(ServletUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "ui.";
 

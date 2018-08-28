@@ -48,8 +48,7 @@ import org.lockss.servlet.*;
  * into the HTML page.
  */
 public class JavascriptHtmlLinkRewriterFactory implements LinkRewriterFactory {
-  static final Logger logger =
-    Logger.getLogger("JavascriptHtmlLinkRewriterFactory");
+  static final Logger logger = Logger.getLogger();
 
   public JavascriptHtmlLinkRewriterFactory() {
   }

@@ -47,7 +47,7 @@ import org.lockss.config.*;
  */
 public class KeyStoreUtil {
 
-  private static final Logger log = Logger.getLogger(KeyStoreUtil.class);
+  private static final Logger log = Logger.getLogger();
 
 
   // Large set of args passed in Properties or Configuration

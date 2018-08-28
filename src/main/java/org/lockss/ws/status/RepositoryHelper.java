@@ -88,7 +88,7 @@ public class RepositoryHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(RepositoryHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of repository-related objects used as the source for

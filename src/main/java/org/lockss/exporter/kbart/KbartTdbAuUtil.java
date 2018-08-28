@@ -52,7 +52,7 @@ import org.lockss.util.*;
  */
 public class KbartTdbAuUtil {
 
-  private static final Logger log = Logger.getLogger(KbartTdbAuUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   // Default attribute keys
   static final String DEFAULT_YEAR_ATTR = "year";

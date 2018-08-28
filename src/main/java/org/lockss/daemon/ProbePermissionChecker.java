@@ -48,8 +48,7 @@ import org.lockss.extractor.*;
  */
 
 public class ProbePermissionChecker implements PermissionChecker {
-  private static final Logger logger = 
-      Logger.getLogger(ProbePermissionChecker.class);
+  private static final Logger logger = Logger.getLogger();
 
   protected ArchivalUnit au;		// Available to subclasses
   protected CrawlerStatus crawlStatus;

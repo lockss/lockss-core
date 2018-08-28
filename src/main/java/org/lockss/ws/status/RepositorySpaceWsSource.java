@@ -58,7 +58,7 @@ import org.lockss.util.os.PlatformUtil;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 
 public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
-  private static Logger log = Logger.getLogger(RepositorySpaceWsSource.class);
+  private static Logger log = Logger.getLogger();
 
   private PlatformUtil.DF puDf;
 

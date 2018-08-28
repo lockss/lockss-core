@@ -47,7 +47,7 @@ import org.springframework.http.ResponseEntity;
  * A representation of an HTTP Multipart response.
  */
 public class MultipartResponse {
-  private static Logger log = Logger.getLogger(MultipartResponse.class);
+  private static Logger log = Logger.getLogger();
 
   private HttpStatus statusCode;
   private HttpHeaders responseHeaders;
@@ -233,7 +233,7 @@ public class MultipartResponse {
    * A representation of an HTTP Multipart response part.
    */
   public static class Part {
-    private static Logger log = Logger.getLogger(Part.class);
+    private static Logger log = Logger.getLogger();
 
     Map<String, String> headers;
     InputStream inputStream;

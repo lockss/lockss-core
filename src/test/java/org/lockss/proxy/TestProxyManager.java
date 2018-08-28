@@ -41,7 +41,7 @@ import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 public class TestProxyManager extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestProxyManager");
+  static Logger log = Logger.getLogger();
 
   private ProxyManager mgr;
   private MockLockssDaemon daemon;

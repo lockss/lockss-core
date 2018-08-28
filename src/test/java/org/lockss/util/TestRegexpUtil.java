@@ -42,7 +42,7 @@ import org.lockss.util.*;
  * This is the test class for org.lockss.alert.RegexpUtil
  */
 public class TestRegexpUtil extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestRegexpUtil");
+  private static Logger log = Logger.getLogger();
 
   public void setUp() throws Exception {
     super.setUp();

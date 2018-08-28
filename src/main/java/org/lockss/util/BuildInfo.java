@@ -62,7 +62,7 @@ public class BuildInfo {
    * build.xml */
   public static final String BUILD_RELEASENAME = "build.releasename";
 
-  private static Logger log = Logger.getLogger("BuildInfo");
+  private static Logger log = Logger.getLogger();
 
   private static Properties buildProps = null;
 

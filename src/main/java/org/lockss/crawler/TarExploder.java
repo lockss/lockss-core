@@ -61,7 +61,7 @@ import com.ice.tar.*;
 
 public class TarExploder extends Exploder {
 
-  private static Logger logger = Logger.getLogger("TarExploder");
+  private static Logger logger = Logger.getLogger();
   protected CIProperties tarProps;
   protected InputStream tarStream;
 

@@ -57,7 +57,7 @@ import org.lockss.util.PropUtil;
 import org.lockss.ws.entities.RepositoryWsResult;
 
 public class RepositoryWsSource extends RepositoryWsResult {
-  private static Logger log = Logger.getLogger(RepositoryWsSource.class);
+  private static Logger log = Logger.getLogger();
 
   private boolean directoryNamePopulated;
   private boolean auNamePopulated;

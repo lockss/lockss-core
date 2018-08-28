@@ -53,7 +53,7 @@ import org.lockss.util.*;
  * @version 1.0
  */
 public class InternalSocket extends Socket {
-  static Logger log = Logger.getLogger("InternalSocket");
+  static Logger log = Logger.getLogger();
 
   final static InternalSocket CONNECT_CANCELLED = new InternalSocket(false);
 

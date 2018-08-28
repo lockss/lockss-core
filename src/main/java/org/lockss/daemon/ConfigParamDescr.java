@@ -45,7 +45,7 @@ import org.lockss.util.io.LockssSerializable;
  */
 public class ConfigParamDescr implements Comparable, LockssSerializable {
 
-  private static final Logger log = Logger.getLogger(ConfigParamDescr.class);
+  private static final Logger log = Logger.getLogger();
 
   /** Value is any string */
   public static final int TYPE_STRING = 1;

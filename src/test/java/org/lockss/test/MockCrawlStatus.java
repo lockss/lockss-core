@@ -39,7 +39,7 @@ import org.lockss.crawler.*;
 import org.lockss.plugin.ArchivalUnit;
 
 public class MockCrawlStatus extends CrawlerStatus {
-  static Logger log = Logger.getLogger("MockCrawlStatus");
+  static Logger log = Logger.getLogger();
 
   int crawlStatus = -1;
   String crawlStatusString = null;

@@ -81,7 +81,7 @@ import org.lockss.util.*;
  */
 public class KbartExportFilter {
   
-  private static final Logger log = Logger.getLogger(KbartExportFilter.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final boolean OMIT_EMPTY_FIELDS_DEFAULT =
       KbartExporter.omitEmptyFieldsByDefault;

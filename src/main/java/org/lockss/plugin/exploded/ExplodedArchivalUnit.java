@@ -50,7 +50,7 @@ import org.lockss.state.AuState;
 
 public class ExplodedArchivalUnit extends DefinableArchivalUnit {
   private String m_explodedBaseUrl = null;
-  protected Logger logger = Logger.getLogger("ExplodedArchivalUnit");
+  protected Logger logger = Logger.getLogger();
   private List<String> permissionPageUrls = new ArrayList<String>();
   private List<String> explodedUrlStems = new ArrayList<String>();
 

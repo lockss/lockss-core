@@ -50,7 +50,7 @@ import org.lockss.util.StringUtil;
  */
 public class SeparatedValuesKbartExporter extends KbartExporter {
 
-  private static Logger log = Logger.getLogger("SeparatedValuesKbartExporter");
+  private static Logger log = Logger.getLogger();
 
   protected static final String SEPARATOR_TAB = "\t";
   protected static final String SEPARATOR_COMMA = ",";

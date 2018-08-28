@@ -44,7 +44,7 @@ public class XmlDomBuilder {
 
   final static String ENCODING = "UTF-8";
 
-  private static Logger logger = Logger.getLogger("XmlDomBuilder");
+  private static Logger logger = Logger.getLogger();
 
   private String nsPrefix = "lockss"; // defaults
   private String nsUri = "http://lockss.stanford.edu/statusui";

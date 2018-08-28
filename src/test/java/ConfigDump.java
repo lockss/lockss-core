@@ -43,7 +43,7 @@ import org.lockss.test.*;
  * diffing.
  */
 public class ConfigDump {
-  static Logger log = Logger.getLogger("ConfigDump");
+  static Logger log = Logger.getLogger();
   static String PREFIX_TITLE_DB = ConfigManager.PARAM_TITLE_DB + ".";
   static List excludeBelow = ListUtil.list(PREFIX_TITLE_DB);
 

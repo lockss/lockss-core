@@ -49,7 +49,7 @@ import static org.lockss.util.time.TimeUtil.timeIntervalToString;
 
 public class PollUtil {
 
-  public static Logger log = Logger.getLogger("PollUtil");
+  public static Logger log = Logger.getLogger();
 
   public static String makeShortPollKey(String pollKey) {
     if (pollKey == null || pollKey.length() <= 10) {

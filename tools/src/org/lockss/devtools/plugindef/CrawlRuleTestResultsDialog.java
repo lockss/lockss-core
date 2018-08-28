@@ -100,7 +100,7 @@ public class CrawlRuleTestResultsDialog extends JDialog {
   JButton closeButton = new JButton();
   JButton stopButton = new JButton();
 
-  protected static Logger logger = Logger.getLogger("CrawlRuleTestResultsDialog");
+  protected static Logger logger = Logger.getLogger();
 
   public CrawlRuleTestResultsDialog(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

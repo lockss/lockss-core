@@ -131,7 +131,7 @@ public class DataUri {
    */
   public static final String MIME_PARAM_RE = ";([-\\w.+]+)(=)?([^;,]+)?";
 
-  protected static Logger log = Logger.getLogger(DataUri.class.getName());
+  protected static Logger log = Logger.getLogger();
 
   private static final Pattern DATA_URI_PATTERN = Pattern.compile(DATA_URI_RE, Pattern.CASE_INSENSITIVE);
   private static final Pattern MIME_TYPE_PATTERN = Pattern.compile(MIME_TYPE_RE);

@@ -62,7 +62,7 @@ import org.lockss.util.time.TimeUtil;
  */
 public class DbManager extends BaseLockssManager
   implements ConfigurableManager {
-  protected static final Logger log = Logger.getLogger(DbManager.class);
+  protected static final Logger log = Logger.getLogger();
 
   /**
    * Derby log append option. Changes require daemon restart.

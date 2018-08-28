@@ -48,8 +48,7 @@ import org.lockss.ws.entities.LockssWebServicesFault;
 @WebService
 public class ContentConfigurationServiceImpl implements
     ContentConfigurationService {
-  private static Logger log =
-      Logger.getLogger(ContentConfigurationServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Configures the archival unit defined by its identifier.

@@ -59,7 +59,7 @@ import org.lockss.filter.StringFilter;
  */
 
 public abstract class Exploder {
-  private static Logger logger = Logger.getLogger("Exploder");
+  private static Logger logger = Logger.getLogger();
 
   public static final String PARAM_EXPLODED_PLUGIN_NAME =
     Configuration.PREFIX + "crawler.exploder.explodedPluginName";

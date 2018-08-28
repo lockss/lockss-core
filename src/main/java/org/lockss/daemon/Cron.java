@@ -52,7 +52,7 @@ import org.lockss.account.*;
 public class Cron
   extends BaseLockssManager implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger("Cron");
+  protected static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "cron.";
 

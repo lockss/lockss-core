@@ -513,7 +513,7 @@ public class V3Poller implements Poll {
   public static final String PARAM_MAX_ALERT_URLS = PREFIX + "maxAlertUrls";
   public static long DEFAULT_MAX_POLL_DURATION = 3 * Constants.WEEK;
   public static long DEFAULT_MIN_POLL_DURATION = 10 * Constants.MINUTE;
-  private static Logger log = Logger.getLogger(V3Poller.class);
+  private static Logger log = Logger.getLogger();
   // The order of theParticipants is used in indexing into the Arrays
   // passed to BlockHasher, and so it is a LinkedHashMap.
   protected LinkedHashMap<PeerIdentity, ParticipantUserData> theParticipants =

@@ -53,7 +53,7 @@ public class Tdb {
   /**
    * Set up logger
    */
-  protected final static Logger logger = Logger.getLogger("Tdb");
+  protected final static Logger logger = Logger.getLogger();
   
   /**
    * A map of AUs per plugin, for this configuration

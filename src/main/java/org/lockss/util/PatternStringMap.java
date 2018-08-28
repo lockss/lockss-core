@@ -41,7 +41,7 @@ import org.apache.oro.text.regex.*;
  * the strings are matched.  The patterns are ordered; the value associated
  * with the first one that matches is returned.  */
 public class PatternStringMap {
-  static Logger log = Logger.getLogger("PatternStringMap");
+  static Logger log = Logger.getLogger();
 
   /** An empty PatternStringMap, which always returns the default
    * value. */

@@ -103,7 +103,7 @@ public class ActivityRegulator
    */
   public static final int NO_ACTIVITY = -1;
 
-  private static Logger logger = Logger.getLogger("ActivityRegulator");
+  private static Logger logger = Logger.getLogger();
 
 //XXX are these still needed?
   static final long STANDARD_LOCK_LENGTH = Constants.HOUR;

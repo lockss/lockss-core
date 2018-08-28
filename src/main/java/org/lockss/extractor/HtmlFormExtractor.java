@@ -100,7 +100,7 @@ public class HtmlFormExtractor {
   public static final String DEFAULT_FORM_ELEMENT_TAG_CLASS =
       FormElementLinkExtractor.class.getName();
 
-  static final Logger theLogger = Logger.getLogger("HtmlFormExtractor");
+  static final Logger theLogger = Logger.getLogger();
 
   /**
    * The Form Elements which we processs.

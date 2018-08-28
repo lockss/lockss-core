@@ -45,7 +45,7 @@ import org.lockss.config.*;
 public class RandomManager extends BaseLockssManager
   implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger("RandomManager");
+  protected static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "random.";
 

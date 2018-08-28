@@ -42,7 +42,7 @@ import org.lockss.config.*;
 public class JMSManager extends BaseLockssManager
   implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger("JMSManager");
+  protected static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "jms.";
   public static final String BROKER_PREFIX = PREFIX + "broker.";

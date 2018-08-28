@@ -38,7 +38,7 @@ import java.util.*;
 import java.io.*;
 
 public class TimeReaderStream extends LockssTiming {
-  private static Logger log = Logger.getLogger("TimeReaderStream");
+  private static Logger log = Logger.getLogger();
 
   static final int FILE_LINES = 10000;
 

@@ -87,7 +87,7 @@ import org.mortbay.http.*;
 @SuppressWarnings("serial")
 public class ServeContent extends LockssServlet {
 
-  private static final Logger log = Logger.getLogger(ServeContent.class);
+  private static final Logger log = Logger.getLogger();
 
   /** Prefix for this server's config tree */
   public static final String PREFIX = Configuration.PREFIX + "serveContent.";

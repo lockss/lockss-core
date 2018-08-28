@@ -129,7 +129,7 @@ public class CrawlHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(CrawlHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of peer-related objects used as the source for a

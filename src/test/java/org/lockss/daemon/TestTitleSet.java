@@ -44,7 +44,7 @@ import org.lockss.util.*;
  */
 
 public class TestTitleSet extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestTitleSet");
+  private static Logger log = Logger.getLogger();
   private MockLockssDaemon daemon;
 
   public void setUp() throws Exception {

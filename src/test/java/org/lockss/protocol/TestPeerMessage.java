@@ -46,7 +46,7 @@ import org.lockss.test.*;
  * Test class for org.lockss.protocol.PeerMessage
  */
 public class TestPeerMessage extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestPeerMessage");
+  static Logger log = Logger.getLogger();
 
   String testStr;
   byte[] testData;

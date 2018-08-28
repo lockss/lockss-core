@@ -65,7 +65,7 @@ public class PluginConfig extends LockssServlet {
     "Enter one URL per line.  " +
     "Deletions may not take effect until the next restart";
 
-  static Logger log = Logger.getLogger("PluginConfig");
+  static Logger log = Logger.getLogger();
 
   protected ConfigManager configMgr;
 

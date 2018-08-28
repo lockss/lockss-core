@@ -40,7 +40,7 @@ import org.lockss.util.*;
   */
 public class CrawlRules {
 
-  private static Logger logger = Logger.getLogger("CrawlRules");
+  private static Logger logger = Logger.getLogger();
 
   /**
    * CrawlRule.RE is a w3mir-type rule, which consists of a regular

@@ -45,7 +45,7 @@ import org.lockss.plugin.*;
  * of {@link ConfigParamAssignment}s.
  */
 public class TitleConfig {
-  static Logger log = Logger.getLogger("TitleConfig");
+  static Logger log = Logger.getLogger();
 
   private String displayName;
   private String journalTitle;

@@ -47,7 +47,7 @@ import org.lockss.util.os.PlatformUtil;
  */
 public class ThreadDump extends LockssServlet {
 
-  private static final Logger log = Logger.getLogger(TimeMapService.class);
+  private static final Logger log = Logger.getLogger();
   
   private static String
     KEY_IS_THREAD_CONTENTION_MONITORING_ENABLED = "Contention";

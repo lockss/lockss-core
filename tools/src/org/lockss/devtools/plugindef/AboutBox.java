@@ -62,7 +62,7 @@ public class AboutBox extends JDialog implements ActionListener {
       " all rights reserved.";
   String comments = "LOCKSS - Lots Of Copies Keep Stuff Safe";
 
-  protected static Logger logger = Logger.getLogger("AboutBox");
+  protected static Logger logger = Logger.getLogger();
 
   public AboutBox(Frame parent) {
     super(parent);

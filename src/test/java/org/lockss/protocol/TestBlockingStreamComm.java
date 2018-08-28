@@ -61,7 +61,7 @@ public class TestBlockingStreamComm extends LockssTestCase {
     BlockingPeerChannel.class,
   };
 
-  static Logger log = Logger.getLogger("TestBlockingStreamComm");
+  static Logger log = Logger.getLogger();
 
   // limit on number of BlockingStreamComm instances, and number created by
   // testMultipleChannels

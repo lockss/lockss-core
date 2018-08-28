@@ -53,7 +53,7 @@ import static org.lockss.servlet.BaseServletManager.SUFFIX_USE_SSL;
 public class AccountManager
   extends BaseLockssDaemonManager implements ConfigurableManager  {
 
-  private static final Logger log = Logger.getLogger(AccountManager.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final UserAccount NOBODY_ACCOUNT = new NobodyAccount();
 

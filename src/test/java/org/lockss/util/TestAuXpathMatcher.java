@@ -36,7 +36,7 @@ import org.lockss.test.*;
 import org.lockss.plugin.*;
 
 public class TestAuXpathMatcher extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestAuXpathMatcher");
+  private static Logger log = Logger.getLogger();
 
   MockPlugin mp1;
   MockPlugin mp2;

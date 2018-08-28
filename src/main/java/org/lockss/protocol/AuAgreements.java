@@ -57,7 +57,7 @@ public class AuAgreements implements LockssSerializable {
   /**
    * <p>A logger for this class.</p>
    */
-  protected static Logger log = Logger.getLogger(IdentityManagerImpl.class);
+  protected static Logger log = Logger.getLogger();
 
   // A collection of polling agreements as stored in the
   // HistoryRepository. The content is cached in map, and the two

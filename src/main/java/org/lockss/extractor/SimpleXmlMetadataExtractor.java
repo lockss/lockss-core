@@ -45,7 +45,7 @@ import org.lockss.plugin.*;
  */
 public class SimpleXmlMetadataExtractor extends SimpleFileMetadataExtractor {
   
-  private static final Logger log = Logger.getLogger(SimpleXmlMetadataExtractor.class);
+  private static final Logger log = Logger.getLogger();
   
   protected Collection<String> tags;
 

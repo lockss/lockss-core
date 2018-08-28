@@ -89,7 +89,7 @@ public class PluginHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(PluginHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of plugin-related objects used as the source for a

@@ -49,7 +49,7 @@ import org.lockss.plugin.PluginManager;
  */
 public class AuSearchSet implements Iterable<ArchivalUnit> {
 
-  private static Logger log = Logger.getLogger("AuSearchSet");
+  private static Logger log = Logger.getLogger();
 
   PluginManager pluginMgr;
 

@@ -53,7 +53,7 @@ import org.mortbay.html.*;
  * debugging/testing; also able to handle unlimited length lists. */
 public class ListObjects extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger(ListObjects.class);
+  private static final Logger log = Logger.getLogger();
 
   private String auid;
   private String url;

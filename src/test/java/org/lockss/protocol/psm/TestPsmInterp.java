@@ -46,7 +46,7 @@ import org.lockss.protocol.*;
 
 
 public class TestPsmInterp extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestPsmInterp");
+  static Logger log = Logger.getLogger();
 
   // Event classes.  RcvMsg events form hierarchy
   private static class Sched extends PsmEvent {}

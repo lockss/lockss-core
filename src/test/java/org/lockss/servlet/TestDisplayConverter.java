@@ -43,7 +43,7 @@ import static org.lockss.daemon.status.ColumnDescriptor.*;
 
 public class TestDisplayConverter extends LockssTestCase {
 
-  static Logger log = Logger.getLogger("TestDisplayConverter");
+  static Logger log = Logger.getLogger();
 
   private DisplayConverter dc;
 

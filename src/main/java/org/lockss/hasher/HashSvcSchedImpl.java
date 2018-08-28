@@ -54,7 +54,7 @@ import org.lockss.plugin.*;
 public class HashSvcSchedImpl
   extends BaseLockssDaemonManager implements HashService, ConfigurableManager {
 
-  protected static Logger log = Logger.getLogger("HashSvcSchedImpl");
+  protected static Logger log = Logger.getLogger();
 
   public static final String HASH_STATUS_TABLE = "HashQ";
 

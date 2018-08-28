@@ -65,7 +65,7 @@ import org.lockss.util.Logger;
  */
 public class Sitemap {
   
-  private static Logger log = Logger.getLogger(Sitemap.class);
+  private static Logger log = Logger.getLogger();
 
   /** Sitemap types supported */
   public enum SitemapType {INDEX, XML, ATOM, RSS, TEXT};

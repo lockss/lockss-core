@@ -64,7 +64,7 @@ public class RaiseAlert extends LockssServlet {
   static final String COL2 = "colspan=2";
   static final String COL2CENTER = COL2 + " align=center";
 
-  static Logger log = Logger.getLogger("RaiseAlert");
+  static Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
   private PluginManager pluginMgr;

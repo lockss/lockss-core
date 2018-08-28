@@ -45,7 +45,7 @@ import org.apache.oro.text.regex.*;
 // do type-depending string parsing.
 
 public class PatternFloatMap {
-  static Logger log = Logger.getLogger("PatternFloatMap");
+  static Logger log = Logger.getLogger();
 
   /** An empty PatternFloatMap, which always returns the default value. */
   public final static PatternFloatMap EMPTY =

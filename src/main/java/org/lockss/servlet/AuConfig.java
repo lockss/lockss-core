@@ -71,7 +71,7 @@ public class AuConfig extends LockssServlet {
     "It will only work with sites of the same type " +
     "for which the plugin was written.";
 
-  private static final Logger log = Logger.getLogger(AuConfig.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String REPO_TAG = "lockssRepository";
 

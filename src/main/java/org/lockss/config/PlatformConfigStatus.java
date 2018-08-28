@@ -44,7 +44,7 @@ import static org.lockss.config.ConfigManager.*;
 
 /** Display Platform Configuration */
 public class PlatformConfigStatus extends BaseLockssDaemonManager {
-  static Logger log = Logger.getLogger("PlatformConfigStatus");
+  static Logger log = Logger.getLogger();
   final static String PLATFORM_STATUS_TABLE = "PlatformStatus";
 
   public PlatformConfigStatus() {

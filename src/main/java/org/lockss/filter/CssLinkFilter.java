@@ -52,7 +52,7 @@ import org.lockss.util.*;
  */
 public class CssLinkFilter extends StringFilter {
 
-    private static Logger logger = Logger.getLogger("CssLinkFilter");
+    private static Logger logger = Logger.getLogger();
     protected String regexStr;
     protected int leftOver = 0;
 

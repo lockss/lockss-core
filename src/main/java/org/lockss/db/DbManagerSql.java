@@ -53,7 +53,7 @@ import org.postgresql.ds.PGSimpleDataSource;
  * @author Fernando García-Loygorri
  */
 public class DbManagerSql {
-  private static final Logger log = Logger.getLogger(DbManagerSql.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * The indicator to be inserted in the database at the end of truncated text

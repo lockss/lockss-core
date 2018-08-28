@@ -57,7 +57,7 @@ import org.lockss.util.time.TimeUtil;
  */
 public abstract class BaseArchivalUnit implements ArchivalUnit {
   
-  private static final Logger log = Logger.getLogger(BaseArchivalUnit.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final long
     DEFAULT_FETCH_DELAY = 6 * Constants.SECOND;

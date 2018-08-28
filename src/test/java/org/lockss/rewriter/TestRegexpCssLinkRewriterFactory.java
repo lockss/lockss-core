@@ -44,8 +44,7 @@ import org.lockss.plugin.*;
 import org.lockss.servlet.*;
 
 public class TestRegexpCssLinkRewriterFactory extends LockssTestCase {
-  static Logger log =
-      Logger.getLogger("TestRegexpCssLinkRewriterFactory");
+  static Logger log = Logger.getLogger();
 
   private MockArchivalUnit au;
   private RegexpCssLinkRewriterFactory rclrf;

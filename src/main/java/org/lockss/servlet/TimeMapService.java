@@ -53,7 +53,7 @@ import java.util.Date;
  */
 public class TimeMapService extends TimeServlet {
 
-  private static final Logger log = Logger.getLogger(TimeMapService.class);
+  private static final Logger log = Logger.getLogger();
   
   @Override
   protected void lockssHandleRequest() throws ServletException, IOException {

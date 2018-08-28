@@ -36,7 +36,7 @@ import org.lockss.util.Logger;
  * Migrates in a separate thread the database from version 21 to version 22.
  */
 public class DbVersion21To22Migrator extends LockssRunnable {
-  private static Logger log = Logger.getLogger(DbVersion21To22Migrator.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Constructor.

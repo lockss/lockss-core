@@ -51,7 +51,7 @@ public abstract class AuthorizationInterceptor extends SoapHeaderInterceptor {
   public static String NO_REQUIRED_ROLE =
       "User does not have the required role.";
 
-  private static Logger log = Logger.getLogger(AuthorizationInterceptor.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the names of the roles permissible for the user to be able to

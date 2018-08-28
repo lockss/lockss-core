@@ -45,7 +45,7 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.alert.AlertActionLog
  */
 public class TestAlertActionLog extends LockssTestCase {
-  private static final Logger log = Logger.getLogger(TestAlertActionLog.class);
+  private static final Logger log = Logger.getLogger();
 
   public void testEquals() {
     AlertLog log1 = new AlertLog("log1");

@@ -41,7 +41,7 @@ import org.lockss.util.*;
  */
 
 public class TestConfigCache extends LockssTestCase4 {
-  static Logger log = Logger.getLogger("TestConfigCache");
+  static Logger log = Logger.getLogger();
 
   private static final String config1 =
     "prop.1=foo\n" +

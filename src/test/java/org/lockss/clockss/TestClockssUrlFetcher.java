@@ -51,7 +51,7 @@ import org.lockss.util.urlconn.*;
  * test class for org.lockss.clockss.ClockssUrlCacher
  */
 public class TestClockssUrlFetcher extends LockssTestCase {
-  protected static Logger logger = Logger.getLogger("TestClockssUrlCacher");
+  protected static Logger logger = Logger.getLogger();
 
   static final String URL = "http://example.com/foo.html";
   static final String INST_ADDR = "44.55.77.88";

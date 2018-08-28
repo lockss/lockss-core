@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
  */
 
 public class FuncSchedService extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncSchedService");
+  static Logger log = Logger.getLogger();
 
   public static Class testedClasses[] = {
     org.lockss.scheduler.SchedService.class,

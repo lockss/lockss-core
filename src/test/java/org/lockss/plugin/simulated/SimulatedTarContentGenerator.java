@@ -52,7 +52,7 @@ import com.ice.tar.*;
  */
 
 public class SimulatedTarContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("SimulatedTarContentGenerator");
+  private static Logger logger = Logger.getLogger();
   int maxSize = 100000000;
   String[] suffix = {
     ".txt",

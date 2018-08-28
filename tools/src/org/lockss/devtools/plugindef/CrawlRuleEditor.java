@@ -68,7 +68,7 @@ public class CrawlRuleEditor extends JDialog implements EDPEditor{
   private Frame m_frame;
   JScrollPane rulesScrollPane = new JScrollPane();
 
-  protected static Logger logger = Logger.getLogger("CrawlRuleEditor");
+  protected static Logger logger = Logger.getLogger();
 
   public CrawlRuleEditor(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

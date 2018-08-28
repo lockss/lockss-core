@@ -57,7 +57,7 @@ import org.lockss.servlet.*;
  */
 public abstract class UserAccount implements LockssSerializable, Comparable {
   
-  private static final Logger log = Logger.getLogger(UserAccount.class);
+  private static final Logger log = Logger.getLogger();
 
   // XXX enhance test/src/org/lockss/account/TestLCUserAccount.java
 

@@ -40,7 +40,7 @@ import org.lockss.util.*;
 
 public class Producer {
 
-  private static final Logger log = Logger.getLogger(Producer.class);
+  private static final Logger log = Logger.getLogger();
 
   private String clientId;
   private Connection connection;

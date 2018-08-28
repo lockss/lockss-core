@@ -41,8 +41,7 @@ import java.util.*;
 import java.io.*;
 
 public class TestStringFilterCssLinkRewriterFactory extends LockssTestCase {
-  static Logger log =
-      Logger.getLogger("TestStringFilterCssLinkRewriterFactory");
+  static Logger log = Logger.getLogger();
 
   private MockArchivalUnit au;
   private StringFilterCssLinkRewriterFactory sfclrf;

@@ -47,7 +47,7 @@ public class Vote implements LockssSerializable {
   protected boolean agree = false;
   private ActiveVote activeInfo = null;
   private static IdentityManager idMgr = null;
-  static Logger theLog = Logger.getLogger("Vote");
+  static Logger theLog = Logger.getLogger();
 
   protected Vote() {
   }

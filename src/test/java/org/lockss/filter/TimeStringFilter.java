@@ -38,7 +38,7 @@ import java.util.*;
 import java.io.*;
 
 public class TimeStringFilter extends LockssTiming {
-  private static Logger log = Logger.getLogger("TimeStringFilter");
+  private static Logger log = Logger.getLogger();
 
   static final int FILE_LINES = 10000;
 

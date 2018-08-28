@@ -50,7 +50,7 @@ import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 
 public class MetadataManagerSql {
-  private static final Logger log = Logger.getLogger(MetadataManagerSql.class);
+  private static final Logger log = Logger.getLogger();
 
   // Query to count publication items that have associated AU_ITEMs
   // of type 'journal' or 'book' or 'proceedings'.

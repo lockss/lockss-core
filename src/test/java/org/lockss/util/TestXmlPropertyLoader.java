@@ -67,7 +67,7 @@ public class TestXmlPropertyLoader extends LockssTestCase {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestXmlPropertyLoader");
+  static Logger log = Logger.getLogger();
 
   /**
    * Parse the XML test configuration and set m_props.

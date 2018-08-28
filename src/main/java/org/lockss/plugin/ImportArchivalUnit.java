@@ -48,7 +48,7 @@ import org.lockss.util.Logger;
  */
 public class ImportArchivalUnit extends BaseArchivalUnit {
 	
-  private static final Logger log = Logger.getLogger(ImportArchivalUnit.class);
+  private static final Logger log = Logger.getLogger();
 
   private String baseUrl = null;
 

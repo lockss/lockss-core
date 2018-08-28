@@ -222,7 +222,7 @@ public abstract class TestIcpManagerStartup extends LockssTestCase {
 
   protected abstract void setConfig();
 
-  private static Logger logger = Logger.getLogger("TestIcpManagerStartup");
+  private static Logger logger = Logger.getLogger();
 
   private static int port = 65000;
 

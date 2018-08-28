@@ -51,7 +51,7 @@ import org.lockss.util.time.TimeUtil;
     }</pre>
  */
 public class RateLimiter {
-  static Logger log = Logger.getLogger("RateLimiter");
+  static Logger log = Logger.getLogger();
 
   /** A RateLimiter that allows events at an unlimited rate. */
   public final static RateLimiter UNLIMITED = new Constant("unlimited");

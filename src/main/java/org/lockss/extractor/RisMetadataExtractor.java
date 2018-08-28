@@ -57,7 +57,7 @@ import org.lockss.util.*;
  */
 public class RisMetadataExtractor implements FileMetadataExtractor {
   
-  private static Logger log = Logger.getLogger(RisMetadataExtractor.class);
+  private static Logger log = Logger.getLogger();
   
   /**
    * <p>

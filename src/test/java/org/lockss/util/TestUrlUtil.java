@@ -41,7 +41,7 @@ import org.lockss.daemon.*;
 
 public class TestUrlUtil extends LockssTestCase {
 
-  private static final Logger log = Logger.getLogger(TestUrlUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   // For testing against the behavior of code extracted from Java 1.4 URI class
   static String normalizePath(String path) {

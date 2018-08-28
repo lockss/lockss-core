@@ -39,7 +39,7 @@ import org.lockss.util.time.Deadline;
 /** A Schedule describes a sequence of task executions.  It is created by a
  * {@link Scheduler}, and interpreted by the TaskRunner. */
 public class Schedule {
-  protected static Logger log = Logger.getLogger("Schedule");
+  protected static Logger log = Logger.getLogger();
 
   private List events;
   private Collection overrunTasks;

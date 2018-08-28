@@ -44,7 +44,7 @@ import org.lockss.plugin.definable.DefinablePlugin;
 /** Base class for plugin status accessors, and static register/unregister
  */
 public class PluginStatus {
-  static Logger log = Logger.getLogger("PluginStatus");
+  static Logger log = Logger.getLogger();
   final static String PLUGIN_TABLE = "Plugins";
   final static String PLUGIN_DETAIL = "PluginDetail";
   final static String ALL_AUIDS = "AllAuids";

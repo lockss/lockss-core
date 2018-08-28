@@ -40,7 +40,7 @@ import org.lockss.util.Logger;
 public class NotesEditor extends JDialog
   implements EDPEditor {
 
-  protected static Logger logger = Logger.getLogger("NotesEditor");
+  protected static Logger logger = Logger.getLogger();
 
   public NotesEditor(Frame owner, String title) {
     super(owner, title, false);

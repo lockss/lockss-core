@@ -76,7 +76,7 @@ import org.xml.sax.SAXException;
  * @author Philip Gust
  */
 public class XmlDomMetadataExtractor extends SimpleFileMetadataExtractor {
-  static Logger log = Logger.getLogger("XmlDomMetadataExtractor");
+  static Logger log = Logger.getLogger();
   
   /** The xpath map to use for extracting */
   final protected XPathExpression[] xpathExprs;

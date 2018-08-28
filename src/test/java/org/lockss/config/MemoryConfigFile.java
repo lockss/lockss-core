@@ -37,7 +37,7 @@ import org.lockss.util.urlconn.*;
  * A ConfigFile wrapper for an in-memory Configuration
  */
 public class MemoryConfigFile implements ConfigFile {
-  private static final Logger log = Logger.getLogger("MemoryConfigFile");
+  private static final Logger log = Logger.getLogger();
 
   private String url;
   private int fileType;

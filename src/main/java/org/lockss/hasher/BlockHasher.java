@@ -69,7 +69,7 @@ public class BlockHasher extends GenericHasher {
   // This MUST NOT be null - see PollManager.processConfigMacros()
   public static final String DEFAULT_LOCAL_HASH_ALGORITHM = "SHA-1";
 
-  private static final Logger log = Logger.getLogger(BlockHasher.class);
+  private static final Logger log = Logger.getLogger();
 
   private int maxVersions = DEFAULT_HASH_MAX_VERSIONS;
   private boolean includeUrl = false;

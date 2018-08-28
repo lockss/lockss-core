@@ -46,8 +46,7 @@ import org.lockss.hasher.HashResult;
  * stored hash is corrupt.  This class is thread safe.
  */
 public class AuSuspectUrlVersions implements LockssSerializable {
-  private static final Logger log =
-    Logger.getLogger(AuSuspectUrlVersions.class);
+  private static final Logger log = Logger.getLogger();
 
   public class SuspectUrlVersion implements LockssSerializable {
     private final String url;

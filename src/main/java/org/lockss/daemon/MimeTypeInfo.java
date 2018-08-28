@@ -80,7 +80,7 @@ public interface MimeTypeInfo {
   }
 
   class Impl implements Mutable {
-    static Logger log = Logger.getLogger("MimeTypeInfo");
+    static Logger log = Logger.getLogger();
 
     private FilterFactory hashFilterFactory;
     private FilterFactory crawlFilterFactory;

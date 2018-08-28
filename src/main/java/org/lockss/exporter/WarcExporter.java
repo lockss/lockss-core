@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
  */
 public class WarcExporter extends Exporter {
 
-  private static Logger log = Logger.getLogger("WarcExporter");
+  private static Logger log = Logger.getLogger();
 
   protected CIProperties arcProps = null;
   AtomicInteger serialNo = new AtomicInteger(0);

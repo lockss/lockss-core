@@ -39,7 +39,7 @@ import org.lockss.daemon.*;
 import org.lockss.util.*;
 
 public class MockPermissionChecker implements PermissionChecker {
-  private static Logger logger = Logger.getLogger("MockPermissionChecker");
+  private static Logger logger = Logger.getLogger();
 
   int numPermissionGranted=0;
   Collection<String> permOkUrls;

@@ -51,7 +51,7 @@ import org.lockss.daemon.Crawler.CrawlerFacade;
  */
 
 public class MockUrlFetcher implements UrlFetcher {
-  private static Logger logger = Logger.getLogger(MockUrlFetcher.class);
+  private static Logger logger = Logger.getLogger();
 
   private MockArchivalUnit au = null;
   private MockCachedUrlSet cus = null;

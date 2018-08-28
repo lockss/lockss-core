@@ -53,7 +53,7 @@ import org.lockss.config.*;
 
 public class TestV2DefaultUrlCacher extends LockssTestCase {
 
-  protected static Logger logger = Logger.getLogger("TestV2DefaultUrlCacher");
+  protected static Logger logger = Logger.getLogger();
 
   MyDefaultUrlCacher cacher;
   MockCachedUrlSet mcus;

@@ -159,7 +159,7 @@ public class AuHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(AuHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the status information of an archival unit in the system.

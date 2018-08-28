@@ -45,7 +45,7 @@ import org.lockss.util.*;
  */
 public class MimeTypeMap {
   
-  private static final Logger log = Logger.getLogger(MimeTypeMap.class);
+  private static final Logger log = Logger.getLogger();
 
   public static MimeTypeMap DEFAULT = new MimeTypeMap();
 

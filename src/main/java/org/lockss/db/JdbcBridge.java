@@ -50,7 +50,7 @@ import org.lockss.util.time.TimeUtil;
  * @author Fernando Garcia-Loygorri
  */
 public class JdbcBridge {
-  private static final Logger log = Logger.getLogger(JdbcBridge.class);
+  private static final Logger log = Logger.getLogger();
 
   private static final String[] STANDARD_TABLE_TYPES = new String[] {"TABLE"};
 

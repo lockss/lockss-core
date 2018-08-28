@@ -57,7 +57,7 @@ import org.lockss.plugin.*;
 
 public class ArcExploder extends Exploder {
 
-  private static Logger logger = Logger.getLogger("ArcExploder");
+  private static Logger logger = Logger.getLogger();
   protected CIProperties arcProps;
   protected InputStream arcStream;
 

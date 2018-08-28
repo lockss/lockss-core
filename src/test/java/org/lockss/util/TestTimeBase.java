@@ -53,7 +53,7 @@ public class TestTimeBase extends LockssTestCase {
   };
 
   @Deprecated
-  static Logger log = Logger.getLogger("TestTimeBase");
+  static Logger log = Logger.getLogger();
 
   @Deprecated
   public void setUp() throws Exception {

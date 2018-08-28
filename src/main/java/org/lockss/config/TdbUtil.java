@@ -62,7 +62,7 @@ import org.lockss.util.StringUtil;
  */
 public class TdbUtil {
   
-  private static final Logger logger = Logger.getLogger("TdbUtil");
+  private static final Logger logger = Logger.getLogger();
 
   /**
    * Get the Tdb record from the current configuration.

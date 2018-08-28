@@ -54,7 +54,7 @@ import org.lockss.daemon.*;
  */
 
 public class SimulatedArcContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("SimulatedArcContentGenerator");
+  private static Logger logger = Logger.getLogger();
   String arcFilePrefix = "SimulatedCrawl";
   AtomicInteger serialNo = new AtomicInteger(0);
   int maxSize = 100000000;

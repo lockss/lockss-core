@@ -38,7 +38,7 @@ import org.lockss.util.Logger;
  * @author Fernando Garcia-Loygorri
  */
 public class DbVersion9To10Migrator extends LockssRunnable {
-  private static Logger log = Logger.getLogger(DbVersion9To10Migrator.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Constructor.

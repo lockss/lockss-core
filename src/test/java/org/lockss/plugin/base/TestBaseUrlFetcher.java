@@ -55,7 +55,7 @@ import org.lockss.util.urlconn.*;
 
 public class TestBaseUrlFetcher extends LockssTestCase {
 
-  protected static Logger logger = Logger.getLogger("TestBaseUrlFetcher");
+  protected static Logger logger = Logger.getLogger();
 
   private static final SimpleDateFormat GMT_DATE_PARSER =
     new SimpleDateFormat ("EEE, dd MMM yyyy HH:mm:ss 'GMT'");

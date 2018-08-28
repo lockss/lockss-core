@@ -134,8 +134,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
   public static final String CSV_EXTENSION = "csv";
   public static final String TSV_EXTENSION = "txt";
 
-  private static final Logger log =
-      Logger.getLogger(CounterReportsManager.class);
+  private static final Logger log = Logger.getLogger();
 
   // Query to insert URL requests used for COUNTER reports.
   private static final String SQL_QUERY_URL_REQUEST_INSERT = "insert into "

@@ -45,7 +45,7 @@ import org.lockss.config.*;
 /** Wrapper around a keystore to manager passwords and loading and manager
  * KeyManagerFactory */
 public class LockssKeyStore {
-  protected static Logger log = Logger.getLogger("LockssKeyStore");
+  protected static Logger log = Logger.getLogger();
 
   public static  enum LocationType {File, Resource, Url};
 

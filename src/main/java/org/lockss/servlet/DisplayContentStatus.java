@@ -59,7 +59,7 @@ import org.w3c.dom.Document;
  */
 public class DisplayContentStatus extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger(DisplayContentStatus.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final String AU_TO_REMOVE = "removeAu";
   /**

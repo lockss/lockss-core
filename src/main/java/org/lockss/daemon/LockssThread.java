@@ -66,7 +66,7 @@ public abstract class LockssThread extends Thread implements LockssWatchdog {
   public static final String PARAM_NAMED_THREAD_PRIORITY =
     PREFIX + "<name>.priority";
 
-  private static Logger log = Logger.getLogger("LockssThread");
+  private static Logger log = Logger.getLogger();
 
   private OneShotSemaphore runningSem = new OneShotSemaphore();
   private OneShotSemaphore exitedSem = new OneShotSemaphore();

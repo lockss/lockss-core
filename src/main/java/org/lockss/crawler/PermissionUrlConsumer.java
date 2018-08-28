@@ -52,7 +52,7 @@ import org.lockss.util.Logger;
 import org.lockss.util.StreamUtil;
 
 public class PermissionUrlConsumer extends SimpleUrlConsumer {
-  static Logger logger = Logger.getLogger(PermissionUrlConsumer.class);
+  static Logger logger = Logger.getLogger();
   protected PermissionMap permMap;
   protected String charset;
   protected InputStream fudis;

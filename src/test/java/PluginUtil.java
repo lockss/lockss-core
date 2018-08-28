@@ -45,7 +45,7 @@ import org.lockss.test.*;
  * Utility to validate and dump plugin definitions.
  */
 public class PluginUtil {
-  static Logger log = Logger.getLogger("PluginUtil");
+  static Logger log = Logger.getLogger();
 
   static PluginManager pmgr;
   static MockLockssDaemon daemon;

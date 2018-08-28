@@ -52,7 +52,7 @@ import org.mortbay.html.*;
  * the application is running, so must not rely on any services.
  */
 public class TinyUi extends BaseServletManager {
-  private static Logger log = Logger.getLogger("TinyUi");
+  private static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "tinyUi.";
   public static final String SERVER_NAME = "TinyUI";

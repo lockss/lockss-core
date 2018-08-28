@@ -47,7 +47,7 @@ import org.lockss.test.*;
  */
 public class TestAlertManagerImpl extends LockssTestCase {
 
-  private static final Logger log = Logger.getLogger(TestAlertManagerImpl.class);
+  private static final Logger log = Logger.getLogger();
 
   MockLockssDaemon daemon;
   MyMockAlertManagerImpl mgr;

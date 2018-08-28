@@ -54,7 +54,7 @@ import org.lockss.util.*;
  */
 public class ProxyAndContent extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger(ProxyAndContent.class);
+  private static final Logger log = Logger.getLogger();
 
   private static final String SUFFIX_KEY_ENABLE = "_ena";
   private static final String SUFFIX_KEY_PORT = "_port";

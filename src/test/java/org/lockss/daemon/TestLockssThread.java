@@ -46,7 +46,7 @@ import org.lockss.test.*;
  */
 
 public class TestLockssThread extends LockssTestCase {
-//   protected static Logger log = Logger.getLogger("TestLockssThread");
+//   protected static Logger log = Logger.getLogger();
 
   LockssDaemon daemon;
   WatchdogService wdog;

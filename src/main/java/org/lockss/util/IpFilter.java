@@ -52,7 +52,7 @@ import org.lockss.app.*;
  * IPv4-mapped addresses are not allowed.
  */
 public class IpFilter {
-  private static Logger log = Logger.getLogger("IpFilter");
+  private static Logger log = Logger.getLogger();
 
   private Mask[] inclFilters;
   private Mask[] exclFilters;

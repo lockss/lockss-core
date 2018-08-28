@@ -59,7 +59,7 @@ import org.lockss.util.time.TimeUtil;
 
 public class RegistryArchivalUnit extends BaseArchivalUnit {
 	
-  private static final Logger log = Logger.getLogger(RegistryArchivalUnit.class);
+  private static final Logger log = Logger.getLogger();
 
   /** The interval between recrawls of the loadable plugin
       registry AUs.  Changes take effect only when AU is started. */

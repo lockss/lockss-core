@@ -53,7 +53,7 @@ public class StringUtil {
   private static final String DEFAULT_COLLECTION_SEPARATOR = ", ";
   private static final String NULL_OBJECT_PRINTABLE_TEXT = "(null)";
   
-  private static final Logger log = Logger.getLogger(StringUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * Find the longest common prefix of a pair of strings. Case sensitive.

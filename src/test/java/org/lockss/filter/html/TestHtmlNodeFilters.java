@@ -45,7 +45,7 @@ import org.lockss.servlet.ServletUtil;
 
 public class TestHtmlNodeFilters extends LockssTestCase {
   
-  static Logger log = Logger.getLogger(TestHtmlNodeFilters.class);
+  static Logger log = Logger.getLogger();
 
   public void testAssumptions() throws Exception {
     NodeList nl = parse("<option value=\"val1\">blue 13</option>");

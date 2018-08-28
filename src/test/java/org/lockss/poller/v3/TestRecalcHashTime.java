@@ -53,7 +53,7 @@ import org.lockss.scheduler.*;
  */
 
 public class TestRecalcHashTime extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestRecalcHashTime");
+  private static Logger log = Logger.getLogger();
 
   public static Class testedClasses[] = {
     org.lockss.poller.v3.RecalcHashTime.class,

@@ -57,7 +57,7 @@ import org.lockss.servlet.*;
  * If the realm implements SSORealm, SSO is supported.
  */
 public class LockssFormAuthenticator implements Authenticator {
-  static Logger log = Logger.getLogger("LockssFormAuthenticator");
+  static Logger log = Logger.getLogger();
 
   /** Login form submission URL */
   public final static String __J_SECURITY_CHECK="j_security_check";

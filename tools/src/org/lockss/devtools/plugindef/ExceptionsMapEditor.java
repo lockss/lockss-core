@@ -63,7 +63,7 @@ public class ExceptionsMapEditor extends JDialog implements EDPEditor {
   ExceptionsTableModel m_model = new ExceptionsTableModel();
   JScrollPane jScrollPane1 = new JScrollPane();
 
-  protected static Logger logger = Logger.getLogger("ExceptionsMapEditor");
+  protected static Logger logger = Logger.getLogger();
 
   public ExceptionsMapEditor(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

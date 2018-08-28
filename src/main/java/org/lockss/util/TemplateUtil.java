@@ -40,7 +40,7 @@ import java.util.Map;
  * Utility for interpolating templates.
  */
 public class TemplateUtil {
-  private static final Logger log = Logger.getLogger(TemplateUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * Writes the contents of a template resource interpolated with the passed

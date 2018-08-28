@@ -88,7 +88,7 @@ import org.lockss.util.os.PlatformUtil;
 public class SubscriptionManager extends BaseLockssDaemonManager implements
     ConfigurableManager {
 
-  private static final Logger log = Logger.getLogger(SubscriptionManager.class);
+  private static final Logger log = Logger.getLogger();
 
   // Prefix for the subscription manager configuration entries.
   private static final String PREFIX = Configuration.PREFIX + "subscription.";

@@ -47,7 +47,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 
 public class FuncNewContentCrawler extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncNewContentCrawler");
+  static Logger log = Logger.getLogger();
 
   private MySimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;

@@ -53,7 +53,7 @@ import org.lockss.repository.*;
  */
 public class AuState implements LockssSerializable {
 
-  private static final Logger logger = Logger.getLogger("AuState");
+  private static final Logger logger = Logger.getLogger();
 
   /** The number of updates between writing to file  (currently unused) */
   static final int URL_UPDATE_LIMIT = 1;

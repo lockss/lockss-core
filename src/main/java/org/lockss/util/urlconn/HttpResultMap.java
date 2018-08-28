@@ -45,7 +45,7 @@ import org.lockss.plugin.ContentValidationException;
  */
 
 public class HttpResultMap implements CacheResultMap {
-  static Logger log = Logger.getLogger("HttpResultMap");
+  static Logger log = Logger.getLogger();
 
   int[] SuccessCodes = {200, 203, 304};
   int[] SameUrlCodes = { 408, 409, 413, 500, 502, 503, 504};

@@ -42,7 +42,7 @@ import org.lockss.util.*;
  */
 public class HttpToHttpsUrlFetcher extends BaseUrlFetcher {
 
-  private static final Logger log = Logger.getLogger(HttpToHttpsUrlFetcher.class);
+  private static final Logger log = Logger.getLogger();
   
   public HttpToHttpsUrlFetcher(CrawlerFacade crawlFacade, String url) {
     super(crawlFacade, url);

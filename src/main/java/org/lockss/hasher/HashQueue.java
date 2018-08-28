@@ -62,7 +62,7 @@ class HashQueue {
   static final String PARAM_COMPLETED_MAX = HashService.PARAM_COMPLETED_MAX;
   static final int DEFAULT_COMPLETED_MAX = HashService.DEFAULT_COMPLETED_MAX;
 
-  protected static Logger log = Logger.getLogger("HashQueue");
+  protected static Logger log = Logger.getLogger();
 
   private LinkedList qlist = new LinkedList(); // the queue
   // last n completed requests

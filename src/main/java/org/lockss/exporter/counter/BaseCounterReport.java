@@ -51,7 +51,7 @@ import org.lockss.util.time.TimeBase;
  * 
  */
 public abstract class BaseCounterReport implements CounterReport {
-  private static final Logger log = Logger.getLogger(BaseCounterReport.class);
+  private static final Logger log = Logger.getLogger();
 
   // The reports separators.
   protected static final String COMMA = ",";

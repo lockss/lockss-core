@@ -103,7 +103,7 @@ public class DebugPanel extends LockssServlet {
   static final String COL2 = "colspan=2";
   static final String COL2CENTER = COL2 + " align=center";
 
-  static Logger log = Logger.getLogger("DebugPanel");
+  static Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
   private PluginManager pluginMgr;

@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
  * A class meant to encapsulate static character encoding/decoding using icu4j
  */
 public class CharsetUtil {
-  private static final Logger log = Logger.getLogger(CharsetUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final String PREFIX = org.lockss.config.Configuration.PREFIX + "crawler.";
   /** If true, CharsetUtil will try to infer the proper charset to use,

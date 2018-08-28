@@ -39,7 +39,7 @@ import org.lockss.util.time.Deadline;
 /** Utilities for Files
  */
 public class FileUtil {
-  static final Logger log = Logger.getLogger("FileUtil");
+  static final Logger log = Logger.getLogger();
 
   static final int FILE_CHUNK_SIZE = 1024;
 

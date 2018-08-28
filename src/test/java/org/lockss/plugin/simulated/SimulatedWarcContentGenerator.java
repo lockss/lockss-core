@@ -52,7 +52,7 @@ import org.lockss.daemon.*;
  */
 
 public class SimulatedWarcContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("SimulatedWarcContentGenerator");
+  private static Logger logger = Logger.getLogger();
   String warcFilePrefix = "SimulatedCrawl";
   AtomicInteger serialNo = new AtomicInteger(0);
   int maxSize = 100000000;

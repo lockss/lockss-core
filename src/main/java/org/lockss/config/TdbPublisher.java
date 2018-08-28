@@ -51,7 +51,7 @@ public class TdbPublisher {
   /**
    * Set up logger
    */
-  protected final static Logger logger = Logger.getLogger("TdbPublisher");
+  protected final static Logger logger = Logger.getLogger();
 
   /**
    * The name of the publisher

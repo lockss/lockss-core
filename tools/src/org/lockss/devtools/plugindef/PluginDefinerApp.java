@@ -43,7 +43,7 @@ import java.net.URL;
 
 public class PluginDefinerApp {
 
-  protected static Logger logger = Logger.getLogger("PluginDefinerApp");
+  protected static Logger logger = Logger.getLogger();
 
   boolean packFrame = true;
 

@@ -50,7 +50,7 @@ public class TestTaskRunner extends LockssTestCase {
     org.lockss.scheduler.TaskRunner.class
   };
 
-  private static final Logger log = Logger.getLogger(TestTaskRunner.class);
+  private static final Logger log = Logger.getLogger();
 
   private MyMockTaskRunner tr;
   private SchedFact fact;

@@ -72,7 +72,7 @@ public class TdbPublisherHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(TdbPublisherHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of title database publisher-related query objects

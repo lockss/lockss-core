@@ -66,7 +66,7 @@ import org.lockss.app.*;
  */
 
 public class FuncTarExploder extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncTarExploder");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;

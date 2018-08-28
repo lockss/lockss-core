@@ -39,7 +39,7 @@ import org.lockss.util.*;
 
 public class Consumer {
 
-  private static final Logger log = Logger.getLogger(Consumer.class);
+  private static final Logger log = Logger.getLogger();
 
   protected String clientId;
   protected Connection connection;

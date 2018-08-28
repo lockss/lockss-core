@@ -76,7 +76,7 @@ import org.lockss.ws.entities.LockssWebServicesFault;
  * The Import web service implementation.
  */
 public class ImportServiceImpl implements ImportService {
-  private static Logger log = Logger.getLogger(ImportServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   private static final String BASIC_AUTH_KEY = "BasicAuthorization";
   static final String CHECKSUM_KEY = "Checksum";

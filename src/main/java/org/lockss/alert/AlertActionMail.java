@@ -43,7 +43,7 @@ import org.lockss.util.time.TimeBase;
 
 /** An AlertAction that records the Alert by emailing it */
 public class AlertActionMail extends AbstractAlertAction {
-  private static final Logger log = Logger.getLogger(AlertActionMail.class);
+  private static final Logger log = Logger.getLogger();
 
   /** If specified, the sender address on alert emails.  If not specified,
    * uses the admin email adress */

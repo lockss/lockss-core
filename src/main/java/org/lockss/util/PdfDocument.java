@@ -499,7 +499,7 @@ public class PdfDocument {
     getDocumentCatalog().setMetadata(metadata);
   }
 
-  private static Logger logger = Logger.getLogger("PdfDocument");
+  private static Logger logger = Logger.getLogger();
 
   /**
    * <p>Closes the underlying {@link COSDocument} instance

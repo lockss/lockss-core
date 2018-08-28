@@ -67,7 +67,7 @@ import org.lockss.app.*;
  */
 
 public class FuncZipExploder extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncZipExploder");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;

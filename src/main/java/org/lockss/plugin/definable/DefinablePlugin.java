@@ -172,7 +172,7 @@ public class DefinablePlugin extends BasePlugin {
   
   protected String mapName = null;
 
-  static Logger log = Logger.getLogger("DefinablePlugin");
+  static Logger log = Logger.getLogger();
 
   protected ExternalizableMap definitionMap = new ExternalizableMap();
   protected CacheResultHandler resultHandler = null;

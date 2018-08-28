@@ -53,7 +53,7 @@ import org.lockss.exporter.Exporter.FilenameTranslation;
 /** 
  */
 public class ExportContent extends LockssServlet {
-  static Logger log = Logger.getLogger("ExportContent");
+  static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "export.";
 

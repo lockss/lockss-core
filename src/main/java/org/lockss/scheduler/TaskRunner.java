@@ -95,7 +95,7 @@ class TaskRunner {
   static final String WDOG_PARAM_NOTIFIER = "Notifier";
   static final long WDOG_DEFAULT_NOTIFIER = Constants.HOUR;
 
-  private static final Logger log = Logger.getLogger(TaskRunner.class);
+  private static final Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
   private final SchedulerFactory schedulerFactory;

@@ -121,7 +121,7 @@ public class HashCUS extends LockssServlet {
   static final String FOOT_REQ_ID_SESSION =
     "Req Id from previous background request in this session.";
 
-  private static final Logger log = Logger.getLogger(HashCUS.class);
+  private static final Logger log = Logger.getLogger();
 
   private static boolean isGlobalBackgroundRequests =
     DEFAULT_GLOBAL_BACKGROUND_REQUESTS;

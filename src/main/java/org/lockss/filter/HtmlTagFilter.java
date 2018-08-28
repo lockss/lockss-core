@@ -49,7 +49,7 @@ public class HtmlTagFilter extends Reader {
    * 2)Use better string searching algorithm
    */
 
-  private static Logger logger = Logger.getLogger("HtmlTagFilter");
+  private static Logger logger = Logger.getLogger();
 
   public static final int DEFAULT_BUFFER_CAPACITY = 4096;
   public static final String PARAM_BUFFER_CAPACITY =

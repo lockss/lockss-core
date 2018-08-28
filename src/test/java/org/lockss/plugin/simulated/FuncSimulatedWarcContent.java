@@ -56,7 +56,7 @@ import junit.framework.*;
  */
 
 public class FuncSimulatedWarcContent extends LockssTestCase {
-  static final Logger log = Logger.getLogger("FuncSimulatedWarcContent");
+  static final Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;

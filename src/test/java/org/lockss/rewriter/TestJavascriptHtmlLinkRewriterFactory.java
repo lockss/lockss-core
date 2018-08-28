@@ -41,7 +41,7 @@ import java.util.*;
 import java.io.*;
 
 public class TestJavascriptHtmlLinkRewriterFactory extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncArcExploder");
+  static Logger log = Logger.getLogger();
 
   private MockArchivalUnit au;
   private JavascriptHtmlLinkRewriterFactory jhlrf;

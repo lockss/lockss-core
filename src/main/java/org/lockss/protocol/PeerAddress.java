@@ -48,7 +48,7 @@ import org.apache.oro.text.regex.*;
 // included in javadoc
 
 public abstract class PeerAddress {
-  static Logger log = Logger.getLogger("PeerAddress");
+  static Logger log = Logger.getLogger();
 
   private String key;
 

@@ -80,7 +80,7 @@ public class TestLogger extends org.lockss.log.TestLockssLogger {
     Logger l2 = Logger.getLogger();
     assertEquals("org.lockss.util.TestLogger", l2.getName());
     assertSame(l2, getLogger(l2.getName()));
-    assertSame(l2, Logger.getLogger(TestLogger.class));
+    assertSame(l2, Logger.getLogger());
 
   }
 

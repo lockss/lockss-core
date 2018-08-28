@@ -61,7 +61,7 @@ import org.apache.commons.collections.map.ReferenceMap;
  */
 public class RemoteApi
   extends BaseLockssDaemonManager implements ConfigurableManager {
-  private static Logger log = Logger.getLogger("RemoteApi");
+  private static Logger log = Logger.getLogger();
 
   static CatalogueOrderComparator coc = CatalogueOrderComparator.SINGLETON;
   static Comparator auProxyComparator = new AuProxyOrderComparator();

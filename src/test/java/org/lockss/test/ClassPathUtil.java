@@ -45,7 +45,7 @@ import org.lockss.util.*;
  * usage() for instructions
  */
 public class ClassPathUtil {
-  static Logger log = Logger.getLogger("ClassPathUtil");
+  static Logger log = Logger.getLogger();
 
   private static List m_classpath;
 

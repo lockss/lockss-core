@@ -43,7 +43,7 @@ import org.lockss.util.time.TimeBase;
  * The state machine interpreter.
  */
 public class PsmInterp {
-  static Logger log = Logger.getLogger("PsmInterp");
+  static Logger log = Logger.getLogger();
 
   private PsmMachine machine;
   private Object userData;

@@ -52,7 +52,7 @@ import org.lockss.hasher.*;
  * Utility class to generate and mail a report 
  */
 public class CrawlEndReport {
-  static final Logger log = Logger.getLogger("CrawlEndReport");
+  static final Logger log = Logger.getLogger();
 
   IdentityManager idMgr;
   LockssDaemon daemon;

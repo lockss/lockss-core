@@ -38,7 +38,7 @@ import java.io.*;
  */
 
 public class FilterCharRing extends CharRing {
-  private static Logger logger = Logger.getLogger("FilterCharRing");
+  private static Logger logger = Logger.getLogger();
 
   char[] preBuffer;
 

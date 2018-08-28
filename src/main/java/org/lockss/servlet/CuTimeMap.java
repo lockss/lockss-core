@@ -55,7 +55,7 @@ import java.util.*;
  */
 
 public class CuTimeMap {
-  protected static final Logger log = Logger.getLogger("CuTimeMap");
+  protected static final Logger log = Logger.getLogger();
   static final SimpleDateFormat formatter =
       new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 

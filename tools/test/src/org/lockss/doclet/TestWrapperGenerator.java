@@ -59,7 +59,7 @@ public class TestWrapperGenerator extends LockssTestCase {
   private final boolean debug = false;
   private final boolean INTERFACE_ONLY = false;
 
-  static Logger log = Logger.getLogger("TestWrapperGenerator");
+  static Logger log = Logger.getLogger();
 
   public void setUp() throws Exception {
     super.setUp();

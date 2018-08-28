@@ -99,7 +99,7 @@ public class ValidatePluginResultsDialog extends JDialog {
   JButton checkButton  = new JButton();
   JButton cancelButton = new JButton();
 
-  protected static Logger logger = Logger.getLogger("ValidatePluginResultsDialog");
+  protected static Logger logger = Logger.getLogger();
 
   public ValidatePluginResultsDialog(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

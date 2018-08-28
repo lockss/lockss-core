@@ -54,7 +54,7 @@ import org.lockss.util.urlconn.*;
  */
 public class BaseUrlFetcher implements UrlFetcher {
 
-  private static final Logger log = Logger.getLogger("BaseUrlFetcher");
+  private static final Logger log = Logger.getLogger();
 
   /** If true, use so_keepalive on server connections. */
   public static final String PARAM_SO_KEEPALIVE =

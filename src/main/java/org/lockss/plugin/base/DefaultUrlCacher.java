@@ -67,7 +67,7 @@ import org.lockss.laaws.rs.util.*;
  * preserved.
  */
 public class DefaultUrlCacher implements UrlCacher {
-  protected static Logger logger = Logger.getLogger(DefaultUrlCacher.class);
+  protected static Logger logger = Logger.getLogger();
 
   /** The algorithm to use for content checksum calculation. 
    * An empty value disables checksums 

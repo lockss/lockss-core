@@ -58,7 +58,7 @@ import org.lockss.state.*;
  */
 
 public class FuncWarcExploder extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncWarcExploder");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;

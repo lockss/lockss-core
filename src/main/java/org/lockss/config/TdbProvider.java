@@ -49,7 +49,7 @@ public class TdbProvider {
   /**
    * Set up logger
    */
-  protected final static Logger logger = Logger.getLogger("TdbProvider");
+  protected final static Logger logger = Logger.getLogger();
 
   /**
    * The name of the publisher

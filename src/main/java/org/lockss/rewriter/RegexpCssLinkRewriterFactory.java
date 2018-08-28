@@ -55,8 +55,7 @@ import org.lockss.servlet.*;
  */
 public class RegexpCssLinkRewriterFactory implements LinkRewriterFactory {
   
-  private static final Logger log =
-    Logger.getLogger(RegexpCssLinkRewriterFactory.class);
+  private static final Logger log = Logger.getLogger();
   
   enum CssLinkRewriterUrlEncodeMode {Full, Minimal};
 

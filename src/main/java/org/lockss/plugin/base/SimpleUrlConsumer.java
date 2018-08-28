@@ -46,7 +46,7 @@ import org.lockss.util.Logger;
  */
 public class SimpleUrlConsumer implements UrlConsumer {
   
-  private static final Logger log = Logger.getLogger(SimpleUrlConsumer.class);
+  private static final Logger log = Logger.getLogger();
   
   protected UrlCacher cacher;
   protected ArchivalUnit au;

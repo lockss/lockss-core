@@ -51,7 +51,7 @@ public class TestBaseCachedUrl extends LockssTestCase {
   private static final String PARAM_SHOULD_FILTER_HASH_STREAM =
     Configuration.PREFIX+"baseCachedUrl.filterHashStream";
 
-  private static final Logger logger = Logger.getLogger(TestBaseCachedUrl.class);
+  private static final Logger logger = Logger.getLogger();
 
   protected OldLockssRepository repo;
   protected MockArchivalUnit mau;

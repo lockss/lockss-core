@@ -87,7 +87,7 @@ import org.mortbay.html.Page;
 @SuppressWarnings("serial")
 public class ListHoldings extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger(ListHoldings.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "listHoldings.";
 

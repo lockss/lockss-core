@@ -61,7 +61,7 @@ import org.lockss.laaws.rs.model.*;
  */
 public class AuUtil {
 	
-  private static final Logger log = Logger.getLogger(AuUtil.class);
+  private static final Logger log = Logger.getLogger();
   
   /** The default poll protocol to use, unless otherwise overridden by the
    * Archival Unit's poll_protocol config param.=

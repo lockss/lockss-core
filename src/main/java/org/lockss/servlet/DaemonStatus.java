@@ -52,7 +52,7 @@ import org.lockss.util.time.TimeBase;
  */
 public class DaemonStatus extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger(DaemonStatus.class);
+  private static final Logger log = Logger.getLogger();
 
   /** Supported output formats */
   static final int OUTPUT_HTML = 1;

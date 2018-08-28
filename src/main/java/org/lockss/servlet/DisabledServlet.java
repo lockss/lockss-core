@@ -41,7 +41,7 @@ import org.lockss.util.*;
 /** Raise an alert on demand.  For testing alerts
  */
 public class DisabledServlet extends LockssServlet {
-  static Logger log = Logger.getLogger("DisabledServlet");
+  static Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
 

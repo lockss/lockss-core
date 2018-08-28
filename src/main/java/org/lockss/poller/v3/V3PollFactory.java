@@ -52,7 +52,7 @@ import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 
 public class V3PollFactory implements PollFactory {
-  public static Logger log = Logger.getLogger("V3PollFactory");
+  public static Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "poll.v3.";
   

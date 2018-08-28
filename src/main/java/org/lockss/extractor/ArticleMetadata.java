@@ -41,7 +41,7 @@ import org.lockss.util.*;
  * associated with well-known keys.
  */
 public class ArticleMetadata {
-  private static Logger log = Logger.getLogger("ArticleMetadata");
+  private static Logger log = Logger.getLogger();
 
   private MultiValueMap rawMap = new MultiValueMap();
   private MultiValueMap cookedmap = new MultiValueMap();

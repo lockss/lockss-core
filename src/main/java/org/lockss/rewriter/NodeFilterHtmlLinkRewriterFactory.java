@@ -56,8 +56,7 @@ import org.htmlparser.filters.*;
  *
  */
 public class NodeFilterHtmlLinkRewriterFactory implements LinkRewriterFactory {
-  static final Logger logger =
-    Logger.getLogger("NodeFilterHtmlLinkRewriterFactory");
+  static final Logger logger = Logger.getLogger();
 
   public static final String PARAM_META_TAG_REWRITE_PREFIX =
     Configuration.PREFIX + "htmlRewriter.metaTagRewritePrefix";

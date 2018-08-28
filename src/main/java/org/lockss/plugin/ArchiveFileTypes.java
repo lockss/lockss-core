@@ -43,7 +43,7 @@ import org.lockss.util.*;
  * as pseudo-CachedUrls.
  */
 public class ArchiveFileTypes {
-  protected static Logger log = Logger.getLogger("ArchiveFileTypes");
+  protected static Logger log = Logger.getLogger();
 
 
   /** Default mime types and extensions for zip, tar, tgz. */

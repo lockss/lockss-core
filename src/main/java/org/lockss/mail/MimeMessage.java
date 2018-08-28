@@ -45,7 +45,7 @@ import org.lockss.util.*;
  * Currently allows attaching text or file parts with no nesting.
  */
 public class MimeMessage implements MailMessage {
-  protected static Logger log = Logger.getLogger("MimeMessage");
+  protected static Logger log = Logger.getLogger();
 
   javax.mail.internet.MimeMessage msg;
   MimeMultipart parts = new MimeMultipart();

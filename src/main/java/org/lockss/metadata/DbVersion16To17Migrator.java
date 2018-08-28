@@ -37,7 +37,7 @@ import org.lockss.util.Logger;
  * Migrates in a separate thread the database from version 16 to version 17.
  */
 public class DbVersion16To17Migrator extends LockssRunnable {
-  private static Logger log = Logger.getLogger(DbVersion16To17Migrator.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Constructor.

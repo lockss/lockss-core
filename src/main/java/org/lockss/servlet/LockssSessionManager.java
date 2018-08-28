@@ -48,7 +48,7 @@ import org.lockss.jetty.*;
 /** Derived from Jetty SessionManager with some extra LOCKSS fetaures
  */
 public class LockssSessionManager extends AbstractSessionManager {
-  private static Logger log = Logger.getLogger("LockssSessionManager");
+  private static Logger log = Logger.getLogger();
 
   public LockssSessionManager() {
     super();

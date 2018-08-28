@@ -48,7 +48,7 @@ import org.lockss.util.net.IPAddr;
 
 public class TestSimpleUrlConsumer extends LockssTestCase {
 
-  protected static Logger logger = Logger.getLogger("TestBaseUrlFetcher");
+  protected static Logger logger = Logger.getLogger();
 
 
   private MockLockssDaemon theDaemon;

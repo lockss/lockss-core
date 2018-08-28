@@ -42,7 +42,7 @@ import org.lockss.plugin.*;
  */
 public class ArcExporter extends Exporter {
 
-  private static Logger log = Logger.getLogger("ArcExporter");
+  private static Logger log = Logger.getLogger();
 
   protected CIProperties arcProps = null;
   String arcFilePrefix = "SimulatedCrawl";

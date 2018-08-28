@@ -126,7 +126,7 @@ import org.lockss.util.*;
  * because HttpClient doesn't.
  */
 public class HttpClientUrlConnection extends BaseLockssUrlConnection {
-  public static Logger log = Logger.getLogger("HttpClientUrlConnection");
+  public static Logger log = Logger.getLogger();
 
   /* Accept header value.  Can be overridden by plugin. */
   static final String PARAM_ACCEPT_HEADER = PREFIX + "acceptHeader";

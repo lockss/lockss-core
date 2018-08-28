@@ -42,7 +42,7 @@ import org.lockss.plugin.*;
  * CiIterator that returns all the CachedUrls from an Iterator or Collection
  */
 public class MockCuIterator extends CuIterator {
-  static Logger log = Logger.getLogger("MockCuIterator");
+  static Logger log = Logger.getLogger();
 
   private Iterator cusIter;
   private CachedUrl nextElement = null;

@@ -67,7 +67,7 @@ import org.lockss.app.*;
  */
 
 public class FuncArcExploder extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncArcExploder");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private static MockLockssDaemon theDaemon;

@@ -72,7 +72,7 @@ import org.lockss.state.*;
  */
 public class RepairCrawler extends BaseCrawler {
 
-  private static Logger logger = Logger.getLogger("RepairCrawler");
+  private static Logger logger = Logger.getLogger();
 
   private IdentityManager idMgr = null;
 

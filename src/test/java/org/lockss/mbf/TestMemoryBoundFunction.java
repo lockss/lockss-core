@@ -63,7 +63,7 @@ public class TestMemoryBoundFunction extends LockssTestCase {
    */
   protected void setUp() throws Exception {
     super.setUp();
-    log = Logger.getLogger("TestMemoryBoundFunction");
+    log = Logger.getLogger();
     if (false)
       rand = new Random(100);
     else

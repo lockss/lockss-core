@@ -47,7 +47,7 @@ import org.lockss.util.Logger;
  */
 public class MetadataDbManager extends DbManager
   implements ConfigurableManager {
-  protected static final Logger log = Logger.getLogger(MetadataDbManager.class);
+  protected static final Logger log = Logger.getLogger();
 
   // Prefix for the database manager configuration entries.
   private static final String PREFIX =

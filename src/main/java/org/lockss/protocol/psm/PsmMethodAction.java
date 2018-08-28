@@ -40,7 +40,7 @@ import org.lockss.util.*;
  * Action that uses reflection to invoke a method on the specified class.
  */
 public class PsmMethodAction extends PsmAction {
-  static Logger log = Logger.getLogger("PsmMethodAction");
+  static Logger log = Logger.getLogger();
 
   protected Method method;
 

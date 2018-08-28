@@ -48,7 +48,7 @@ import com.meterware.httpunit.*;
  */
 public class TestDaemonStatus extends LockssServletTestCase {
 
-  private static final Logger log = Logger.getLogger(TestDaemonStatus.class);
+  private static final Logger log = Logger.getLogger();
 
 //  private DaemonStatus ds;
 

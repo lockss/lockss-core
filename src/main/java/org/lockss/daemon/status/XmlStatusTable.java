@@ -46,7 +46,7 @@ import org.w3c.dom.*;
 
 public class XmlStatusTable {
   
-  private static final Logger logger = Logger.getLogger(XmlStatusTable.class);
+  private static final Logger logger = Logger.getLogger();
 
   /** Date/time format in XML output with outputVersion=1.  "Local" is
    * localtime, "GMT" or "UTC" are GMT, else should be a legal

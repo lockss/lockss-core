@@ -40,7 +40,7 @@ import static org.lockss.crawler.CrawlerStatus.UrlErrorInfo;
 import static org.lockss.crawler.CrawlerStatus.ReferrerType;
 
 public class CrawlUrlsStatusAccessor implements StatusAccessor {
-  static Logger log = Logger.getLogger("CrawlUrlsStatusAccessor");
+  static Logger log = Logger.getLogger();
 
   private static final String URL = "url";
   private static final String IX = "ix";

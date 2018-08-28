@@ -56,7 +56,7 @@ import org.lockss.ws.entities.LockssWebServicesFault;
  * The Hasher web service implementation.
  */
 public class HasherServiceImpl implements HasherService {
-  private static Logger log = Logger.getLogger(HasherServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   private static final Map<String, SimpleHasher.ParamsAndResult> HASH_REQUESTS =
       new LinkedHashMap<String, SimpleHasher.ParamsAndResult>();

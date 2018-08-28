@@ -45,7 +45,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 
 public class TestSampledBlockHasher extends LockssTestCase {
-  private static final Logger log = Logger.getLogger("TestSampledBlockHasher");
+  private static final Logger log = Logger.getLogger();
 
   private static final String TEST_URL_BASE = "http://www.test.com/blah/";
   private static final String TEST_URL = TEST_URL_BASE+"blah.html";

@@ -45,7 +45,7 @@ import org.lockss.state.*;
  */
 public class TestRegistryArchivalUnit extends LockssTestCase {
 	
-  private static final Logger log = Logger.getLogger(TestRegistryArchivalUnit.class);
+  private static final Logger log = Logger.getLogger();
   
   private RegistryPlugin regPlugin;
   private MockLockssDaemon daemon;

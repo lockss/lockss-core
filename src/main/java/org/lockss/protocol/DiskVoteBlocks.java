@@ -47,7 +47,7 @@ import org.lockss.config.*;
  * @author sethm
  */
 public class DiskVoteBlocks implements VoteBlocks {
-  private static final Logger log = Logger.getLogger("DiskVoteBlocks");
+  private static final Logger log = Logger.getLogger();
 
   /** If true, input streams are monitored for missed close()s */
   public static final String PARAM_MONITOR_INPUT_STREAMS =

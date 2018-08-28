@@ -43,7 +43,7 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.util.LockssApp
  */
 public class TestLockssApp extends LockssTestCase {
-  private final static Logger log = Logger.getLogger(TestLockssApp.class);
+  private final static Logger log = Logger.getLogger();
 
   MyMockLockssApp app;
   private String tempDirPath;

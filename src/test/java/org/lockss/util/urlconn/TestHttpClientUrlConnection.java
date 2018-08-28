@@ -65,7 +65,7 @@ import org.lockss.util.net.IPAddr;
  * Test class for org.lockss.util.urlconn.HttpClientUrlConnection
  */
 public class TestHttpClientUrlConnection extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestHttpClientUrlConnection");
+  static Logger log = Logger.getLogger();
 
   MyMockHttpClient client;
 //HC3   MyMockGetMethod method;

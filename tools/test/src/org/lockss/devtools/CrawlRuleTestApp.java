@@ -48,7 +48,7 @@ import org.lockss.util.*;
  */
 
 public class CrawlRuleTestApp {
-  private static Logger log = Logger.getLogger("CrawlRuleTestApp");
+  private static Logger log = Logger.getLogger();
 
   private static String OUT_FILE_PROP = "OutputFile";
   private static String CRAWL_DEPTH_PROP = "CrawlDepth";

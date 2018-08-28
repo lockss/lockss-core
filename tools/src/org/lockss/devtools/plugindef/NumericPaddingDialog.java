@@ -65,7 +65,7 @@ public class NumericPaddingDialog extends JDialog {
   TitledBorder titledBorder1;
   TitledBorder titledBorder2;
 
-  protected static Logger logger = Logger.getLogger("NumericPaddingDialog");
+  protected static Logger logger = Logger.getLogger();
 
   public NumericPaddingDialog(Frame frame, String title, boolean modal) {
     super(frame, title, modal);

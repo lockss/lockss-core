@@ -56,7 +56,7 @@ public class TestTdb extends LockssTestCase {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestTdb");
+  static Logger log = Logger.getLogger();
 
   TdbProvider pv1;
   TdbProvider pv2;

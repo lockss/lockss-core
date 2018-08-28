@@ -50,8 +50,7 @@ import org.lockss.extractor.*;
  */
 public class CreativeCommonsPermissionChecker extends BasePermissionChecker {
 
-  private static Logger logger =
-    Logger.getLogger(CreativeCommonsPermissionChecker.class);
+  private static Logger logger = Logger.getLogger();
 
   public static final String PREFIX =
     Configuration.PREFIX + "creativeCommonsPermission.";

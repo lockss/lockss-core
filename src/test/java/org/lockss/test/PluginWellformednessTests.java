@@ -57,7 +57,7 @@ import org.lockss.util.test.FileTestUtil;
  */
 
 public final class PluginWellformednessTests extends LockssTestCase {
-  static Logger log = Logger.getLogger("PluginWellformednessTests");
+  static Logger log = Logger.getLogger();
 
   /** The System property under which this class expects to find a
    * semicolon-separated list of plugin names. */

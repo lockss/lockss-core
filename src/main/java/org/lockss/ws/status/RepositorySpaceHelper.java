@@ -89,7 +89,7 @@ public class RepositorySpaceHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(RepositorySpaceHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of repository space-related objects used as the

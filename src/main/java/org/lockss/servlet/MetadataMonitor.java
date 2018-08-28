@@ -64,7 +64,7 @@ import org.mortbay.html.Table;
  */
 @SuppressWarnings("serial")
 public class MetadataMonitor extends LockssServlet {
-  private static final Logger log = Logger.getLogger(MetadataMonitor.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String REDIRECT_URL_TAG = "redirectUrl";
 

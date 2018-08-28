@@ -70,8 +70,7 @@ public class JsoupHtmlLinkExtractor implements LinkExtractor {
   /**
    * the theLog for this class
    */
-  private static final Logger theLog =
-      Logger.getLogger(JsoupHtmlLinkExtractor.class);
+  private static final Logger theLog = Logger.getLogger();
   /**
    * the class map of tags -> link extractors
    */

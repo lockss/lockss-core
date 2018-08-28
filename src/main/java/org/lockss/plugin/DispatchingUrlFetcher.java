@@ -40,7 +40,7 @@ import org.lockss.util.urlconn.CacheException;
 
 public class DispatchingUrlFetcher extends BaseUrlFetcher
 {
-  private static final Logger log = Logger.getLogger("DispatchingUrlFetcher");
+  private static final Logger log = Logger.getLogger();
   protected AjaxCrawlFetcher ajaxCrawlFetcher = null;
 
   public DispatchingUrlFetcher(final CrawlerFacade crawlFacade,

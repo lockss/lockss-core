@@ -50,7 +50,7 @@ import org.lockss.scheduler.*;
  */
 
 public class TestHashSvcSchedImpl extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestHashSvcSchedImpl");
+  private static Logger log = Logger.getLogger();
 
   protected MockLockssDaemon theDaemon;
 

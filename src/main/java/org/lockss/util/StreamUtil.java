@@ -48,7 +48,7 @@ import org.lockss.util.time.TimeBase;
 
 public class StreamUtil {
 
-  static Logger log = Logger.getLogger("StreamUtil");
+  static Logger log = Logger.getLogger();
 
   private static final int BUFFER_SIZE = 256;
   static final int COPY_WDOG_CHECK_EVERY_BYTES = 1024 * 1024;

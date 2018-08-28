@@ -42,8 +42,7 @@ import org.lockss.util.time.TimeBase;
  */
 public class CounterReportsJournalReport5 extends CounterReportsJournalReport {
   
-  private static final Logger log =
-      Logger.getLogger(CounterReportsJournalReport5.class);
+  private static final Logger log = Logger.getLogger();
 
   // Query to get the journals to be included in the report.
   private static final String SQL_QUERY_REPORT_JOURNALS_SELECT = "select "

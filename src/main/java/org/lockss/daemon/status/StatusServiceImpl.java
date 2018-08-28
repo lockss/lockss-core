@@ -53,7 +53,7 @@ public class StatusServiceImpl
   public static final String DEFAULT_DEFAULT_TABLE =
     OverviewStatus.OVERVIEW_STATUS_TABLE;
 
-  private static Logger logger = Logger.getLogger("StatusServiceImpl");
+  private static Logger logger = Logger.getLogger();
 
   private String paramDefaultTable = DEFAULT_DEFAULT_TABLE;
 
