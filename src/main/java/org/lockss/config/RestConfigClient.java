@@ -506,7 +506,7 @@ public class RestConfigClient {
 
       // Get and populate the configuration data last modified header.
       String lastModified =
-	  String.valueOf(response.getHeaders().getLastModified());
+	  response.getHeaders().getFirst(HttpHeaders.LAST_MODIFIED);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
 
