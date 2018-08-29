@@ -3611,7 +3611,7 @@ public class ConfigManager implements LockssManager {
 
   // JMS notification support
 
-  public static final String JMS_PREFIX = PREFIX + "jms.";
+  public static final String JMS_PREFIX = MYPREFIX + "jms.";
 
   /** If true, ConfigManager will send notifications of config-changed
    * events
