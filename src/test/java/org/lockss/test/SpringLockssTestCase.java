@@ -34,9 +34,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Properties;
 import org.lockss.config.ConfigManager;
@@ -362,5 +364,58 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    */
   protected File getDbConfigFile() {
     return dbConfigFile;
+  }
+
+  /**
+   * Encapsulation of web authentication credentials.
+   */
+  protected class Credentials {
+    private final String user;
+    private final String password;
+
+    /**
+     * Constructor.
+     * 
+     * @param user
+     *          A String with the user identifier.
+     * @param password
+     *          A String with the password used to authenticate the user.
+     */
+    public Credentials (String user, String password) {
+      this.user = user;
+      this.password = password;
+    }
+
+    public String getUser() {
+      return user;
+    }
+
+    public String getPassword() {
+      return password;
+    }
+
+    /**
+     * Sets up these credentials for Basic authentication.
+     * 
+     * @param headers
+     *          An HttpHeaders with the HTTP headers where to set up Basic
+     *          authentication.
+     */
+    public void setUpBasicAuthentication(HttpHeaders headers) {
+      // Check whether there are credentials to be added.
+      if (user != null && password != null) {
+        // Yes: Set the authentication credentials.
+        String credentialsInHeader = user + ":" + password;
+        String authHeaderValue = "Basic " + Base64.getEncoder().encodeToString(
+            credentialsInHeader.getBytes(Charset.forName("US-ASCII")));
+
+        headers.set("Authorization", authHeaderValue);
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "[Credentials user=" + user + ", password=" + password + "]";
+    }
   }
 }
