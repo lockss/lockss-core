@@ -892,4 +892,11 @@ public class MockLockssDaemon extends LockssDaemon {
       ausStarted = new OneShotSemaphore();
     }
   }
+
+  /** Here only to allow legacy plugin tests to compile
+   * @deprecated
+   */
+  @Deprecated
+  public void getNodeManager(ArchivalUnit au) {
+  }
 }
