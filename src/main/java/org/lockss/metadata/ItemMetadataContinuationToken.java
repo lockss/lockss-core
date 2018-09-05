@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.metadata;
 
-import java.util.Vector;
+import java.util.List;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 
@@ -41,6 +41,7 @@ import org.lockss.util.StringUtil;
  */
 public class ItemMetadataContinuationToken {
   protected static final Logger log = Logger.getLogger();
+  private static final String separator = "-";
 
   private Long auExtractionTimestamp = null;
   private Long lastItemMdItemSeq = null;
@@ -65,11 +66,11 @@ public class ItemMetadataContinuationToken {
     if (webRequestContinuationToken != null
 	&& !webRequestContinuationToken.trim().isEmpty()) {
       // Yes: Parse it.
-      Vector<String> tokenItems = null;
+      List<String> tokenItems = null;
 
       try {
 	tokenItems =
-	    StringUtil.breakAt(webRequestContinuationToken.trim(), "-");
+	    StringUtil.breakAt(webRequestContinuationToken.trim(), separator);
 	if (log.isDebug3()) log.debug3("tokenItems = " + tokenItems);
 
 	auExtractionTimestamp = Long.valueOf(tokenItems.get(0).trim());
@@ -120,7 +121,7 @@ public class ItemMetadataContinuationToken {
 
   public String toWebResponseContinuationToken() {
     if (auExtractionTimestamp != null && lastItemMdItemSeq != null) {
-      return auExtractionTimestamp + "-" + lastItemMdItemSeq;
+      return auExtractionTimestamp + separator + lastItemMdItemSeq;
     }
 
     return null;
