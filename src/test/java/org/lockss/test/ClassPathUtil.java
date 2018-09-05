@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2009 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,60 +28,100 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.test;
 import java.io.*;
-import java.net.URL;
+import java.nio.file.*;
+import java.net.*;
 import java.util.*;
 import java.util.jar.*;
+import java.util.stream.*;
 import java.util.zip.*;
-import org.apache.commons.collections.*;
-import org.apache.commons.collections.map.*;
+import org.apache.commons.collections4.*;
+import org.apache.commons.collections4.multimap.*;
 import org.lockss.util.*;
 
 /**
- * Utilities for display, searching, finding duplicates on classpath; see
- * usage() for instructions
+ * Utilities that operate on classpath: display, search for qualified or
+ * unqualified resource/class, find duplicates. etc.
+ *
+ * Can be invoked via command line (see usage()) or a java api.  Subject
+ * classpath can be:<ul>
+ * <li>Explicitly supplied</li>
+ * <li>Current thread ContextClassLoader</li>
+ * <li>This class's ClassLoader</li>
+ * <li>Supplied ClassLoader (api only)</li>
+ * </ul>
  */
 public class ClassPathUtil {
-  static Logger log = Logger.getLogger();
+  private static Logger log = Logger.getLogger();
 
-  private static List m_classpath;
+  /** Determines which classpath is used */
+  public enum Which {
+    /** Use the classpath of ClassPathUtil.class.getClassLoader() */
+    Class,
+    /** Use the classpath of Thread.currentThread().getContextClassLoader() */
+    Thread,
+    /** Use the classpath supplied on the command line or to setClasspath() */
+    Arg,
+    /** Use the java.class.path System property */
+    System,
+    /** Use the classpath of the ClassLoader passed to setClassLoader() */
+    StoredCL }
 
-  /** Find a resourse with the given name */
-  public static void whichResource(String resourceName, String msg) {
+  private List m_classpath = new ArrayList();
+  private Which whichPath = Which.Arg;
+  private ClassLoader cl;
+  private StringBuilder out = new StringBuilder();
+
+  private void println(String s) {
+    out.append(s);
+    out.append("\n");
+  }
+
+  private void endPrint() {
+    log.info(out.toString());
+    out = new StringBuilder();
+  }
+
+  /** Find a resource with the given name */
+  public ClassPathUtil whichResource(String resourceName, String msg) {
     URL resUrl = findResource(resourceName);
 
     if (resUrl == null) {
-      System.out.println(msg + " not found.");
+      println(msg + " not found.");
     } else {
-      System.out.println(msg + " found in \n" + resUrl);
+      println(msg + " found in \n" + resUrl);
     }
+    endPrint();
+    return this;
   }
 
-  /** Find a resourse with the given name */
-  public static void whichResource(String resourceName) {
+  /** Find a resource with the given name */
+  public ClassPathUtil whichResource(String resourceName) {
     resourceName = fixResourceName(resourceName);
     whichResource(resourceName, "Resource " + resourceName);
+    return this;
   }
 
   /** Find a class with the given name */
-  public static void whichClass(String className) {
+  public ClassPathUtil whichClass(String className) {
     String resourceName = asResourceName(className);
     whichResource(resourceName, "Class " + className);
+    return this;
   }
 
-  private static URL findResource(String resourceName) {
-    return ClassPathUtil.class.getResource(resourceName);
+  private URL findResource(String resourceName) {
+    return getClassLoader().getResource(resourceName);
   }
 
-  // ensure leading /
-  private static String fixResourceName(String resourceName) {
-    if (!resourceName.startsWith("/")) {
-      resourceName = "/" + resourceName;
+  // ensure no leading /
+  private String fixResourceName(String resourceName) {
+    if (resourceName.startsWith("/")) {
+      return resourceName.substring(1);
     }
     return resourceName;
   }
 
   // convert class name to resource name
-  private static String asResourceName(String className) {
+  private String asResourceName(String className) {
     String resource = className;
     resource = resource.replace('.', '/');
     resource = resource + ".class";
@@ -93,18 +129,37 @@ public class ClassPathUtil {
   }
 
   // build map of resource name -> list of jars that contain it
-  private static Map m_map;
-  private static void buildMap() {
-    m_map = new MultiValueMap();
-    for (Iterator iter = getClasspath().iterator(); iter.hasNext(); ) {
-      String element = (String)iter.next();
-      File file = new File(element);
-      processJar(file);
+  private static MultiValuedMap<String,File> m_map =
+    new ArrayListValuedHashMap<>();
+
+  private void buildMap() {
+    if (m_map.isEmpty()) {
+      for (String element : getClasspath()) {
+	File file = new File(element);
+	if (file.isDirectory()) {
+	  processDir(file);
+	} else {
+	  processJar(file);
+	}
+      }
     }
   }
 
+  // add all non-directories in dir tree
+  private void processDir(File dir) {
+    Path root = dir.toPath();
+    try {
+      Files.walk(root, FileVisitOption.FOLLOW_LINKS)
+	.filter(p -> !p.toFile().isDirectory())
+	.forEach(p -> m_map.put(root.relativize(p).toString(), dir));
+    } catch (IOException e) {
+      log.error("processDir(" + dir + ")", e);
+    }
+  }
+
+
   // add the entries for one jar
-  private static void processJar(File file) {
+  private void processJar(File file) {
     try {
       JarFile jf = new JarFile(file);
       for (Enumeration en = jf.entries(); en.hasMoreElements(); ) {
@@ -115,45 +170,60 @@ public class ClassPathUtil {
 	m_map.put(ent.getName(), file);
       }
     } catch (IOException e) {
-      log.warning("reading jar " + file, e);
+      log.error("reading jar " + file, e);
     }
   }
 
-  /** Display all the resurces that are found in more than one place on
-   * the classpath.  Only works on jars currently */
-  public static void showConflicts() {
+  private Collection<String> sortedKeys(MultiValuedMap<String,?> map) {
+    return new TreeSet(map.keySet());
+  }
+
+  /** Display all the resources that are found in more than one place on
+   * the classpath. */
+  public ClassPathUtil showConflicts() {
     buildMap();
-    for (Map.Entry ent : (Collection<Map.Entry>)m_map.entrySet()) {
-      List jars = (List)ent.getValue();
+    List<String> res = new ArrayList<>();
+    for (String key : sortedKeys(m_map)) {
+      Collection jars = m_map.get(key);
       if (jars.size() > 1) {
-	String key = (String)ent.getKey();
-	System.out.println(key + ": " + jars);
+	res.add(key + ": " + jars);
       }
     }
+    println(StringUtil.numberOfUnits(res.size(), "repeated object"));
+    for (String s : res) {
+      println(s);
+    }
+    endPrint();
+    return this;
   }
 
-  /** Search for all occurrances of a class given name in any
-   * package.  Only works on jars currently */
-  public static void searchClass(String className) {
+  /** Search for all occurrences of a class given name in any
+   * package. */
+  public ClassPathUtil searchClass(String className) {
     String resource = className + ".class";
     searchResource(resource);
+    return this;
   }
 
-  /** Search for all occurrances of a resurce with the given name in any
-   * package.  Only works on jars currently */
-
-
-  public static void searchResource(String resourceName) {
+  /** Search for all occurrences of a resource with the given name in any
+   * package. */
+  public ClassPathUtil searchResource(String resourceName) {
     buildMap();
-    for (Map.Entry ent : (Collection<Map.Entry>)m_map.entrySet()) {
-      String key = (String)ent.getKey();
+    List<String> res = new ArrayList<>();
+    for (String key : sortedKeys(m_map)) {
       File resFile = new File(key);
       String name = resFile.getName();
       if (resourceName.equals(name)) {
-	List jars = (List)ent.getValue();
-	System.out.println(key + ": " + jars);
+	res.add(key + ": " + m_map.get(key));
       }
     }
+    println(StringUtil.numberOfUnits(res.size(), "occurrence")
+	    + " of " + resourceName);
+    for (String s : res) {
+      println(s);
+    }
+    endPrint();
+    return this;
   }
 
   /**
@@ -163,52 +233,146 @@ public class ClassPathUtil {
    * Valid class path entries include directories, <code>.zip</code>
    * files, and <code>.jar</code> files.
    */
-  public static void validate() {
+  public ClassPathUtil validate() {
     for (Iterator iter = getClasspath().iterator(); iter.hasNext(); ) {
       String element = (String)iter.next();
       File f = new File(element);
 
       if (!f.exists()) {
-	System.out.println("Classpath element " + element +
+	println("Classpath element " + element +
 			   " does not exist.");
+	endPrint();
       } else if ( (!f.isDirectory()) &&
 		  (!StringUtil.endsWithIgnoreCase(element, ".jar")) &&
 		  (!StringUtil.endsWithIgnoreCase(element, ".zip")) ) {
-	System.out.println("Classpath element " + element +
+	println("Classpath element " + element +
 			   "is not a directory, .jar file, or .zip file.");
+	endPrint();
       }
     }
+    return this;
   }
 
-  public static void printClasspath() {
-    System.out.println("Classpath:");
+  /** Print the classpath */
+  public ClassPathUtil printClasspath() {
+    println("Classpath:");
     for (Iterator iter = getClasspath().iterator(); iter.hasNext(); ) {
-      System.out.println((String)iter.next());
+      println((String)iter.next());
     }
+    endPrint();
+    return this;
   }
 
-  public static void setClasspath(String classpath) {
+  /** Determine which classpath will be used. */
+  public ClassPathUtil setWhichPath(Which wh) {
+    switch (wh) {
+    case System:
+      m_classpath =
+	StringUtil.breakAt(System.getProperty("java.class.path"),
+			   File.pathSeparator);
+      whichPath = Which.Arg;
+      break;
+    default:
+      whichPath = wh;
+    }
+    return this;
+  }
+
+  public Which getWhichPath() {
+    return whichPath;
+  }
+
+  /** Set the classpath from a string */
+  public ClassPathUtil setClasspath(String classpath) {
     m_classpath = StringUtil.breakAt(classpath, File.pathSeparator);
+    m_map.clear();
+    return this;
   }
 
-  public static void addClasspath(String path) {
-    getClasspath().addAll(StringUtil.breakAt(path, File.pathSeparator));
+  /** Set the classpath */
+  public ClassPathUtil setClasspath(List<String> classpath) {
+    m_classpath = classpath;
+    m_map.clear();
+    return this;
   }
 
-  private static List getClasspath() {
-    if (m_classpath == null) {
-      setClasspath(System.getProperty("java.class.path"));
+  /** Add a jar/dir to the classpath */
+  public ClassPathUtil addClasspath(String path) {
+    m_classpath.addAll(StringUtil.breakAt(path, File.pathSeparator));
+    m_map.clear();
+    return this;
+  }
+
+  /** Set the classpath to be that of the supplied ClassLoader */
+  public ClassPathUtil setClassLoader(ClassLoader cl) {
+    this.cl = cl;
+    setWhichPath(Which.StoredCL);
+    return this;
+  }
+
+  private List<String> getClasspath() {
+    switch (whichPath) {
+    case Arg:
+      return m_classpath;
+    case Class:
+    case Thread:
+    case StoredCL:
+      return classPathOf(getClassLoader());
     }
-    return m_classpath;
+    throw new IllegalArgumentException();
+  }
+
+  private ClassLoader getClassLoader() {
+    switch (whichPath) {
+    case Arg:
+      return new URLClassLoader(toUrlArray(m_classpath));
+    case Class:
+      return ClassPathUtil.class.getClassLoader();
+    case Thread:
+      return Thread.currentThread().getContextClassLoader();
+    case StoredCL:
+      return cl;
+    }
+    throw new IllegalArgumentException();
+  }
+
+  private static URL newURL(String s) {
+    try {
+      return new URL(s);
+    } catch (MalformedURLException e) {
+      throw new IllegalArgumentException(e.toString());
+    }
+  }
+
+  private static URL[] toUrlArray(List<String> strs) {
+    return strs.stream()
+      .map(u -> newURL(u))
+      .toArray(URL[]::new);
+  }
+
+  private static List<String> classPathOf(ClassLoader cl) {
+    return Arrays.stream(((URLClassLoader)cl).getURLs())
+      .map(URL::getFile)
+      .collect(Collectors.toList());
+  }
+
+  private static void error(String msg) {
+    System.err.println(msg);
+    usage();
   }
 
   private static void usage() {
-    System.out.println("java ClassPathUtil [ actions ... ]");
+    String progName = ClassPathUtil.class.getName();
+    System.out.println("java " + progName + " [ actions ... ]");
     System.out.println("  Actions are executed sequentially:");
+    System.out.println("   -cpc                 Use class.getClassLoader() classpath (default)");
+    System.out.println("   -cpt                 Use thread.getContextClassLoader() classpath");
+    System.out.println("   -cps                 Use java.class.path System property");
     System.out.println("   -cp <classpath>      Set classpath");
     System.out.println("   -ap <classpath       Append to classpath");
-    System.out.println("   -c  <className>      Locate class on classpath");
-    System.out.println("   -r  <resourceName>   Locate resource on classpath");
+    System.out.println("");
+    System.out.println("   -c  <className>      Locate fq class on classpath");
+    System.out.println("   -r  <resourceName>   Locate fq resource on classpath");
     System.out.println("   -sc <unqualifiedClassName> Search for all occurrences of class on classpath");
     System.out.println("   -sr <unqualifiedResourceName> Ditto for resource");
     System.out.println("   -p                   Print classpath");
@@ -221,49 +385,71 @@ public class ClassPathUtil {
     if (args.length == 0) {
       usage();
     }
+    ClassPathUtil cpu = new ClassPathUtil();
 
     try {
       for (int ix = 0; ix < args.length; ix++) {
 	String a = args[ix];
+
+	if ("-cpc".equals(a)) {
+	  cpu.setWhichPath(Which.Class);
+	  continue;
+	}
+	if ("-cpt".equals(a)) {
+	  cpu.setWhichPath(Which.Thread);
+	  continue;
+	}
+	if ("-cps".equals(a)) {
+	  cpu.setWhichPath(Which.System);
+	  continue;
+	}
 	if ("-cp".equals(a) || "-classpath".equals(a)) {
-	  setClasspath(args[++ix]);
+	  cpu.setClasspath(args[++ix]);
+	  cpu.setWhichPath(Which.Arg);
 	  continue;
 	}
 	if ("-ap".equals(a) || "-addpath".equals(a)) {
-	  addClasspath(args[++ix]);
+	  switch (cpu.getWhichPath()) {
+	  case Arg:
+	    cpu.addClasspath(args[++ix]);
+	    break;
+	  default:
+	    error("-ap legal only after -cp");
+	  }
 	  continue;
 	}
 	if ("-r".equals(a)) {
-	  whichResource(args[++ix]);
+	  cpu.whichResource(args[++ix]);
 	  continue;
 	}
 	if ("-c".equals(a)) {
-	  whichClass(args[++ix]);
+	  cpu.whichClass(args[++ix]);
 	  continue;
 	}
 	if ("-sc".equals(a)) {
-	  searchClass(args[++ix]);
+	  cpu.searchClass(args[++ix]);
 	  continue;
 	}
 	if ("-sr".equals(a)) {
-	  searchResource(args[++ix]);
+	  cpu.searchResource(args[++ix]);
 	  continue;
 	}
 	if ("-p".equals(a)) {
-	  printClasspath();
+	  cpu.printClasspath();
 	  continue;
 	}
 	if ("-x".equals(a)) {
-	  showConflicts();
+	  cpu.showConflicts();
 	  continue;
 	}
 	if ("-v".equals(a)) {
-	  validate();
+	  cpu.validate();
 	  continue;
 	}
 	usage();
       }
     } catch (Exception e) {
+      log.error("", e);
       usage();
     }
   }
