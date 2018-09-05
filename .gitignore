@@ -75,6 +75,7 @@ test/test-classpath
 test/test-p-classpath
 generated/*
 target/
+logs/
 
 lib/lockss-*.jar
 lib/lockss.jar
