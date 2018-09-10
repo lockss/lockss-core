@@ -70,6 +70,7 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @After
   public void tearDown() throws Exception {
+    TimeBase.setReal();
     super.tearDown();
   }
 
@@ -885,6 +886,13 @@ public class TestConfigManager extends LockssTestCase4 {
   public void testMiscTmpdir() throws Exception {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, "/tmp/unlikely");
     assertEquals("/tmp/unlikely/dtmp", System.getProperty("java.io.tmpdir"));
+  }
+
+  @Test
+  public void testGetHttpCacheManager() throws Exception {
+    HttpCacheManager hcm = mgr.getHttpCacheManager();
+    ClientCacheSpec ccs = hcm.getCacheSpec(ConfigManager.HTTP_CACHE_NAME);
+    assertMatchesRE(".+/hcfcache$", ccs.getCacheDir().toString());
   }
 
   @Test

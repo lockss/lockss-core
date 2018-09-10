@@ -91,6 +91,10 @@ public interface LockssUrlConnection {
    */
   public void setProxy(String host, int port) throws CantProxyException ;
 
+  /** Configure caching
+   */
+  public void setClientCache(ClientCacheSpec ccs);
+
   /** Set the ProtocolSocketFactory to be used with this connection */
   public void setSecureSocketFactory(LockssSecureSocketFactory sockFact);
 

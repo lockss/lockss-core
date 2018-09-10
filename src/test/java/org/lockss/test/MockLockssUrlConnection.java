@@ -35,6 +35,7 @@ package org.lockss.test;
 import java.util.*;
 import java.net.*;
 import java.io.*;
+import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 
 
@@ -99,6 +100,16 @@ public class MockLockssUrlConnection extends BaseLockssUrlConnection {
 
   public void setRequestProperty(String key, String value) {
     reqHeaders.setProperty(key.toLowerCase(), value);
+  }
+
+  public void addRequestProperty(String key, String value) {
+    String newVal = value;
+    String cur = getRequestProperty(key);
+    if (!StringUtil.isNullString(cur)) {
+      newVal += ",";
+      newVal += value;
+    }
+    setRequestProperty(key, newVal);
   }
 
   public String getRequestProperty(String key) {

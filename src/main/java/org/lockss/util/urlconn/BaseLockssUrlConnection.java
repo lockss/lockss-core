@@ -90,6 +90,10 @@ public abstract class BaseLockssUrlConnection implements LockssUrlConnection {
     proxyPort = port;
   }
 
+  public void setClientCache(ClientCacheSpec ccs) {
+    throw new UnsupportedOperationException();
+  }
+
   public void setSecureSocketFactory(LockssSecureSocketFactory sockFact) {
     assertNotExecuted();
     this.sockFact = sockFact;

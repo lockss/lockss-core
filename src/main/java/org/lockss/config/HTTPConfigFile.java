@@ -107,6 +107,14 @@ public class HTTPConfigFile extends BaseConfigFile {
 						 DEFAULT_DATA_TIMEOUT));
     LockssUrlConnection conn = UrlUtil.openConnection(url, connPool);
     if (m_cfgMgr != null) {
+
+      // Set up local HTTP cache.  Some code paths will add a no-cache
+      // header to prevent the request from being served from the cache.
+      // All responses, including those in response to a no-cache request,
+      // are eligible to be stored in the cache.
+      conn.setClientCache(m_cfgMgr.getHttpCacheManager()
+			  .getCacheSpec(ConfigManager.HTTP_CACHE_NAME));
+
       LockssSecureSocketFactory fact = m_cfgMgr.getSecureSocketFactory();
       if (fact != null) {
 	checkAuth = true;
@@ -249,7 +257,10 @@ public class HTTPConfigFile extends BaseConfigFile {
   FileConfigFile failoverFcf;
 
   /** Return an InputStream open on the HTTP url.  If inaccessible and a
-      local copy of the remote file exists, failover to it. */
+   * local copy of the remote file exists, failover to it.
+   *
+   * Called by periodic or on-demand config reload.
+   */
   protected synchronized InputStream getInputStreamIfModified()
       throws IOException {
     LockssUrlConnection conn = null;
@@ -258,6 +269,9 @@ public class HTTPConfigFile extends BaseConfigFile {
 
     try {
       conn = openUrlConnection(m_fileUrl);
+      // When reloading config always go to server, don't serve from local
+      // cache.
+      conn.addRequestProperty("Cache-Control", "no-cache");
 
       // Check whether this configuration file has already been retrieved
       // before.
@@ -382,6 +396,8 @@ public class HTTPConfigFile extends BaseConfigFile {
    * Provides an input stream to the content of this file.
    * <br>
    * Use this to stream the file contents.
+   *
+   * Called to read the file for local editing.
    * 
    * @return an InputStream with the input stream to the file contents.
    * @throws IOException
@@ -406,6 +422,9 @@ public class HTTPConfigFile extends BaseConfigFile {
 
     try {
       conn = openUrlConnection(m_fileUrl);
+      // When reading file for local editing always go to server, don't
+      // serve from local cache.
+      conn.addRequestProperty("Cache-Control", "no-cache");
 
       // Check whether this configuration file has already been retrieved
       // before.
@@ -550,6 +569,8 @@ public class HTTPConfigFile extends BaseConfigFile {
   /**
    * Provides the input stream to the content of this configuration file if the
    * passed preconditions are met.
+   *
+   * Will return a cached copy of the file if one is present and not stale.
    * 
    * @param preconditions
    *          An HttpRequestPreconditions with the request preconditions to be

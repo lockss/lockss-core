@@ -419,6 +419,9 @@ public class ConfigManager implements LockssManager {
   public static final String REMOTE_CONFIG_FAILOVER_FILENAME =
     "remote_config_failover_info.xml";
 
+  // Name of ClientCacheSpec used by HTTPConfigFile
+  public static final String HTTP_CACHE_NAME = "HTTPConfigFile";
+
   /** If set to a list of regexps, matching parameter names will be allowed
    * to be set in expert config, and loaded from expert_config.txt
    * @ParamRelevance Rare
@@ -670,6 +673,8 @@ public class ConfigManager implements LockssManager {
 
   private HandlerThread handlerThread; // reload handler thread
 
+  private File daemonTmpDir;
+
   private ConfigCache configCache;
   private LockssUrlConnectionPool connPool = new LockssUrlConnectionPool();
   private LockssSecureSocketFactory secureSockFact;
@@ -696,6 +701,8 @@ public class ConfigManager implements LockssManager {
 
   // The map of parent configuration files.
   Map<String, ConfigFile> parentConfigFile = new HashMap<String, ConfigFile>();
+
+  HttpCacheManager hCacheMgr;
 
   // The counter of configuration reload requests. Accessed from separate
   // threads.
@@ -752,6 +759,17 @@ public class ConfigManager implements LockssManager {
 
   LockssUrlConnectionPool getConnectionPool() {
     return connPool;
+  }
+
+  public synchronized HttpCacheManager getHttpCacheManager() {
+    if (hCacheMgr == null) {
+      hCacheMgr = new HttpCacheManager(getTmpDir());
+      // Set up http cache dir for HTTPConfigFile
+      File cacheDir = ensureDir(getTmpDir(), "hcfcache");
+      log.info("http cache dir: " + cacheDir);
+      getHttpCacheManager().getCacheSpec(HTTP_CACHE_NAME).setCacheDir(cacheDir);
+    }
+    return hCacheMgr;
   }
 
   public void initService(LockssApp app) throws LockssAppException {
@@ -1627,6 +1645,7 @@ public class ConfigManager implements LockssManager {
     // group) in initial config get into platformConfig even during testing.
     platConfig.seal();
     platformConfig = platConfig;
+    setUpTmp(platConfig);
     initCacheConfig(platConfig);
     setUpRemoteConfigFailover();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -1829,6 +1848,41 @@ public class ConfigManager implements LockssManager {
     }
   }
 
+  private File ensureDir(File parent, String dirname) {
+    File dir = new File(parent, dirname);
+    if (FileUtil.ensureDirExists(dir)) {
+	FileUtil.setOwnerRWX(dir);
+	return dir;
+    } else {
+      log.warning("Couldn't create dir: " + dir);
+      return null;
+    }
+  }
+
+  private void setUpTmp(Configuration config) {
+    // If we were given a temp dir, create a subdir and use that.  This
+    // makes it possible to quickly "delete" on restart by renaming, and
+    // avoids potentially huge "*" expansion in rundaemon that might't
+    // exceed the maximum command length.
+
+    String tmpdir = config.get(PARAM_TMPDIR);
+    if (!StringUtil.isNullString(tmpdir)) {
+      File javaTmpDir = ensureDir(new File(tmpdir), "dtmp");
+      if (javaTmpDir != null) {
+	System.setProperty("java.io.tmpdir", javaTmpDir.toString());
+	daemonTmpDir = javaTmpDir;
+      } else {
+	daemonTmpDir = new File(System.getProperty("java.io.tmpdir"));
+	log.warning("Using default tmpdir: " + daemonTmpDir);
+      }
+    }
+  }
+
+  File getTmpDir() {
+    return daemonTmpDir != null
+      ? daemonTmpDir : new File(System.getProperty("java.io.tmpdir"));
+  }
+
   public static final String PARAM_HASH_SVC = LockssApp.MANAGER_PREFIX +
     LockssApp.managerKey(org.lockss.hasher.HashService.class);
   static final String DEFAULT_HASH_SVC = "org.lockss.hasher.HashSvcSchedImpl";
@@ -1842,21 +1896,8 @@ public class ConfigManager implements LockssManager {
       config.put(PARAM_HASH_SVC, DEFAULT_HASH_SVC);
     }
 
-    // If we were given a temp dir, create a subdir and use that.  This
-    // ensures that * expansion in rundaemon won't exceed the maximum
-    // command length.
+    setUpTmp(config);
 
-    String tmpdir = config.get(PARAM_TMPDIR);
-    if (!StringUtil.isNullString(tmpdir)) {
-      File javaTmpDir = new File(tmpdir, "dtmp");
-      if (FileUtil.ensureDirExists(javaTmpDir)) {
-	FileUtil.setOwnerRWX(javaTmpDir);
-	System.setProperty("java.io.tmpdir", javaTmpDir.toString());
-      } else {
-	log.warning("Can't create/access temp dir: " + javaTmpDir +
-		    ", using default: " + System.getProperty("java.io.tmpdir"));
-      }
-    }
     System.setProperty("jsse.enableSNIExtension",
 		       Boolean.toString(config.getBoolean(PARAM_JSSE_ENABLESNIEXTENSION,
 							  DEFAULT_JSSE_ENABLESNIEXTENSION)));
