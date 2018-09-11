@@ -506,7 +506,7 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
    * ClientCacheSpec */
   public void setClientCache(ClientCacheSpec ccs) {
     if (clientBuilder != null) {
-      throw new IllegalStateException("Must call setClientCache() before any operation that cuases the client builder to be created");
+      throw new IllegalStateException("Must call setClientCache() before any operation that causes the client builder to be created");
     }
     this.ccs = ccs;
   }

@@ -29,6 +29,7 @@ package org.lockss.util.urlconn;
 
 import java.io.*;
 import java.util.*;
+import org.apache.http.client.cache.*;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.client.cache.*;
 
@@ -45,7 +46,7 @@ public class ClientCacheSpec {
   public static L4JLogger log = L4JLogger.getLogger();
 
   File cacheDir = null;
-  ManagedHttpCacheStorage cacheStorage;
+  HttpCacheStorage cacheStorage;
   CacheConfig cacheConfig;
 
 
@@ -69,7 +70,7 @@ public class ClientCacheSpec {
     return cacheDir;
   }
   
-  public ManagedHttpCacheStorage getCacheStorage() {
+  public HttpCacheStorage getCacheStorage() {
     if (cacheStorage == null) {
       cacheStorage = new ManagedHttpCacheStorage(getCacheConfig());
     }
