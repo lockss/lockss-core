@@ -35,7 +35,7 @@ import java.net.*;
 import java.util.*;
 import org.lockss.rs.multipart.MultipartResponse;
 import org.lockss.rs.multipart.MultipartResponse.Part;
-import org.lockss.util.UrlUtil;
+import org.lockss.util.*;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -48,6 +48,7 @@ import org.springframework.util.MultiValueMap;
 public class RestConfigFile extends BaseConfigFile {
 
   private String lastModifiedString = null;
+  private String eTag = null;
   private RestConfigClient serviceClient = null;
   private String requestUrl = null;
 
@@ -77,14 +78,28 @@ public class RestConfigFile extends BaseConfigFile {
     final String DEBUG_HEADER = "getInputStreamIfModified(" + m_fileUrl + "): ";
 
     String ifModifiedSince = null;
+    String ifNoneMatch = null;
 
-    if (m_config != null && m_lastModified != null) {
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER
-	  + "Setting request if-modified-since to: " + m_lastModified);
-      ifModifiedSince = m_lastModified;
+    if (m_config != null) {
+      if (m_lastModified != null) {
+	if (log.isDebug2()) {
+	  log.debug2(DEBUG_HEADER
+		     + "Setting request if-modified-since to: " +
+		     m_lastModified);
+	ifModifiedSince = m_lastModified;
+	}
+      }
+      if (eTag != null) {
+	if (log.isDebug2()) {
+	  log.debug2(DEBUG_HEADER
+		     + "Setting request if-none-match to: " +
+		     eTag);
+	ifNoneMatch = eTag;
+	}
+      }
     }
 
-    return getInputStreamIfModifiedSince(ifModifiedSince);
+    return getInputStreamIfModifiedSince(ifModifiedSince, ifNoneMatch);
   }
 
   /**
@@ -99,7 +114,7 @@ public class RestConfigFile extends BaseConfigFile {
    */
   @Override
   public InputStream getInputStream() throws IOException {
-    return getInputStreamIfModifiedSince(null);
+    return getInputStreamIfModifiedSince(null, null);
   }
 
   /**
@@ -112,7 +127,8 @@ public class RestConfigFile extends BaseConfigFile {
    * @throws IOException
    *           if there are problems.
    */
-  public InputStream getInputStreamIfModifiedSince(String ifModifiedSince)
+  private InputStream getInputStreamIfModifiedSince(String ifModifiedSince,
+						    String ifNoneMatch)
       throws IOException {
     final String DEBUG_HEADER =
 	"getInputStreamIfModifiedSince(" + m_fileUrl + "): ";
@@ -122,16 +138,18 @@ public class RestConfigFile extends BaseConfigFile {
     MultipartResponse response = null;
 
     try {
-      List<String> ifNoneMatch = new ArrayList<>();
+      List<String> ifNoneMatchList = new ArrayList<>();
 
-      if (ifModifiedSince != null && !ifModifiedSince.isEmpty()) {
-	ifNoneMatch.add("\"" + ifModifiedSince + "\"");
+      if (!StringUtil.isNullString(ifNoneMatch)) {
+	if (log.isDebug2())
+	  log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+	ifNoneMatchList.add(ifNoneMatch);
       } else {
-	ifNoneMatch = null;
+	ifNoneMatchList = null;
       }
 
       response = serviceClient.callGetMultipartRequest(requestUrl,
-	  new HttpRequestPreconditions(null, ifModifiedSince, ifNoneMatch,
+	  new HttpRequestPreconditions(null, ifModifiedSince, ifNoneMatchList,
 	      null));
     } catch (IOException e) {
       // The HTTP fetch failed.  First see if we already found a failover
@@ -163,9 +181,11 @@ public class RestConfigFile extends BaseConfigFile {
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
 
-      lastModifiedString = configDataPart.getEtag();
+      lastModifiedString = configDataPart.getLastModified();
+      eTag = configDataPart.getEtag();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
+	log.debug3(DEBUG_HEADER + "eTag = " + eTag);
 
       Map<String, String> partHeaders = configDataPart.getHeaders();
       if (log.isDebug3())
