@@ -1742,11 +1742,15 @@ public class ConfigManager implements LockssManager {
     setCurrentConfig(newConfig);
     copyToSysProps(newConfig);
     updateGenerations(gens);
-    recordConfigLoaded(newConfig, oldConfig, diffs, gens);
+    boolean didLogConfig =
+      recordConfigLoaded(newConfig, oldConfig, diffs, gens);
     startCallbacksTime = TimeBase.nowMs();
     runCallbacks(newConfig, oldConfig, diffs);
     // notify other cluster members that the config changed
     // TK should this precede runCallbacks()?
+    if (!didLogConfig) {
+      logConfig(newConfig, oldConfig, diffs);
+    }
     notifyConfigChanged();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning true.");
     return true;
@@ -1819,20 +1823,20 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  private void recordConfigLoaded(Configuration newConfig,
-				  Configuration oldConfig,
-				  Configuration.Differences diffs,
-				  List gens) {
-    buildLoadedFileLists(gens);    
-    logConfigLoaded(newConfig, oldConfig, diffs, loadedUrls);
+  private boolean recordConfigLoaded(Configuration newConfig,
+				     Configuration oldConfig,
+				     Configuration.Differences diffs,
+				     List gens) {
+    buildLoadedFileLists(gens);
+    return logConfigLoaded(newConfig, oldConfig, diffs, loadedUrls);
   }
 
-  
 
-  private void logConfigLoaded(Configuration newConfig,
-			       Configuration oldConfig,
-			       Configuration.Differences diffs,
-			       List<String> names) {
+
+  private boolean logConfigLoaded(Configuration newConfig,
+				  Configuration oldConfig,
+				  Configuration.Differences diffs,
+				  List<String> names) {
     StringBuffer sb = new StringBuffer("Config updated, ");
     sb.append(newConfig.keySet().size());
     sb.append(" keys");
@@ -1843,8 +1847,10 @@ public class ConfigManager implements LockssManager {
     log.info(sb.toString());
     if (log.isDebug()) {
       logConfig(newConfig, oldConfig, diffs);
+      return true;
     } else {
       log.info("New TdbAus: " + diffs.getTdbAuDifferenceCount());
+      return false;
     }
   }
 
