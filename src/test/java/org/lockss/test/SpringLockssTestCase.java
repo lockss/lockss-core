@@ -78,6 +78,9 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   // The configuration file that specifies the database properties.
   private File dbConfigFile = null;
 
+  // The configuration file that specifies the repository.
+  private File repoConfigFile = null;
+
   /**
    * Provides the path to the temporary directory where the test data will
    * reside.
@@ -358,12 +361,48 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   }
 
   /**
+   * Creates the configuration file that specifies the repository.
+   * 
+   * @param repoConfigTemplateName
+   *          A String with the name of the template used as a source.
+   * @param repoConfigFileName
+   *          A String with the name of the repository configuration file to be
+   *          created.
+   * @throws IOException
+   *           if there are problems reading the template or writing the output.
+   */
+  protected void setUpRepositoryConfig(String repoConfigTemplateName,
+      String repoConfigFileName) throws IOException {
+    if (log.isDebug2())
+      log.debug2("repoConfigFileName = " + repoConfigFileName);
+
+    // Create the repository configuration file output file.
+    repoConfigFile = new File(getTempDirPath(), repoConfigFileName);
+    if (log.isDebug3()) log.debug("repoConfigFile = " + repoConfigFile);
+
+    // Write the repository configuration file using the template file.
+    try (Writer writer = new BufferedWriter(new FileWriter(repoConfigFile))) {
+      TemplateUtil.expandTemplate(repoConfigTemplateName, writer,
+	  MapUtil.map("RepoPath", getTempDirPath()));
+    }
+  }
+
+  /**
    * Provides the database configuration file.
    * 
    * @return a File with the database configuration file.
    */
   protected File getDbConfigFile() {
     return dbConfigFile;
+  }
+
+  /**
+   * Provides the repository configuration file.
+   * 
+   * @return a File with the repository configuration file.
+   */
+  protected File getRepositoryConfigFile() {
+    return repoConfigFile;
   }
 
   /**
