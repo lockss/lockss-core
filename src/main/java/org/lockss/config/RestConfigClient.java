@@ -63,7 +63,12 @@ import org.springframework.web.util.UriComponentsBuilder;
  * A client representation of the Configuration REST web service.
  */
 public class RestConfigClient {
-  public static String CONFIG_PART_NAME = "config-data";
+  // The part with the configuration file must be named this way because the
+  // use of Swagger 2 requires it.
+  // In the Swagger YAML configuration file, a multipart/form-data body payload
+  // is represented by the 'in: formData' parameter, which needs to have a type
+  // of 'file' and Swagger 2 uses the type as the part name.
+  public static String CONFIG_PART_NAME = "file";
 
   private static Logger log = Logger.getLogger();
 
