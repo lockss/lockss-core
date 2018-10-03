@@ -33,6 +33,7 @@ package org.lockss.app;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.*;
 import org.apache.commons.lang3.*;
 import gnu.getopt.Getopt;
 import static org.lockss.app.ManagerDescs.*;
@@ -1134,6 +1135,7 @@ public class LockssApp {
     public static final String OPTION_GROUP = "-g";
     public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
     public static final String OPTION_XML_PROP_DIR = "-x";
+    public static final String OPTION_SYSPROP = "-D";
 
     private String bootstrapPropsUrl;
     private String restConfigServiceUrl;
@@ -1229,11 +1231,22 @@ public class LockssApp {
 	    log.debug3("getStartupOptions(): " +
 		       "restConfigServiceUrl: " + restConfigServiceUrl);
 	  }
+	} else if (args[i].startsWith(OPTION_SYSPROP)) {
+	  // Set sysprop
+	  Matcher mat = SYSPROP_PAT.matcher(args[i]);
+	  if (mat.matches()) {
+	    System.setProperty(mat.group(1), mat.group(2));
+	  } else {
+	    log.error("Malformed -D arg, should be -Dsysprop=val");
+	  }
 	}
       }
       return this;
     }
   }
+
+  protected static final Pattern SYSPROP_PAT = Pattern.compile("-D(.+)=(.*)");
+
 
   /**
    * Specification of components and configuration of a lockss application.
