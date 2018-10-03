@@ -134,7 +134,7 @@ public class Logger extends org.lockss.log.LockssLogger {
    */
   @Deprecated
   public static int getInitialDefaultLevel() {
-    String s = System.getProperty(SYSPROP_DEFAULT_LOG_LEVEL);
+    String s = System.getProperty(SYSPROP_DEFAULT_LOCKSS_LOG_LEVEL);
     int l = LEVEL_INFO;
     if (s != null && !"".equals(s)) {
       try {
