@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -42,6 +42,7 @@ import org.apache.derby.jdbc.ClientConnectionPoolDataSource;
 import org.apache.derby.jdbc.ClientDataSource;
 import org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource;
 import org.apache.derby.jdbc.EmbeddedDataSource;
+import org.lockss.log.L4JLogger;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.postgresql.ds.PGPoolingDataSource;
@@ -297,6 +298,21 @@ public class DbManagerSql {
    *           if any problem occurred accessing the database.
    */
   public static void commitOrRollback(Connection conn, Logger logger)
+      throws SQLException {
+    JdbcBridge.commitOrRollback(conn, logger);
+  }
+
+  /**
+   * Commits a connection or rolls it back if it's not possible.
+   * 
+   * @param conn
+   *          A connection with the database connection to be committed.
+   * @param logger
+   *          A L4JLogger used to report errors.
+   * @throws SQLException
+   *           if any problem occurred accessing the database.
+   */
+  public static void commitOrRollback(Connection conn, L4JLogger logger)
       throws SQLException {
     JdbcBridge.commitOrRollback(conn, logger);
   }

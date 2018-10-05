@@ -51,6 +51,7 @@ import org.lockss.app.BaseLockssManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.log.L4JLogger;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
@@ -374,6 +375,33 @@ public class DbManager extends BaseLockssManager
    *           if any problem occurred accessing the database.
    */
   public static void commitOrRollback(Connection conn, Logger logger)
+      throws DbException {
+    try {
+      DbManagerSql.commitOrRollback(conn, logger);
+    } catch (SQLException sqle) {
+      String message = "Cannot commit the connection";
+      logger.error(message, sqle);
+      DbManagerSql.safeRollbackAndClose(conn);
+      throw new DbException(message, sqle);
+    } catch (RuntimeException re) {
+      String message = "Cannot commit the connection";
+      logger.error(message, re);
+      DbManagerSql.safeRollbackAndClose(conn);
+      throw new DbException(message, re);
+    }
+  }
+
+  /**
+   * Commits a connection or rolls it back if it's not possible.
+   * 
+   * @param conn
+   *          A connection with the database connection to be committed.
+   * @param logger
+   *          A L4JLogger used to report errors.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public static void commitOrRollback(Connection conn, L4JLogger logger)
       throws DbException {
     try {
       DbManagerSql.commitOrRollback(conn, logger);
