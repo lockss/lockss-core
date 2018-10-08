@@ -1373,6 +1373,19 @@ public class UrlUtil {
     return luc;
   }
 
+  /** Pattern to match URLs that have a password */
+  static Pattern PASSWORD_PAT = Pattern.compile("^(.+?//.+?:)(.+?)(@.+)$");
+
+  /** Return the URL with the password, if any, replaced by XXXXXX */
+  public static String obfuscatePassword(String url) {
+    Matcher m = PASSWORD_PAT.matcher(url);
+    if (m.matches()) {
+      return m.group(1) + "XXXXXX" + m.group(3);
+    } else {
+      return url;
+    }
+  }
+
 //   /** Return input stream for url iff 200 response code, else throw.
 //    * In Java 1.1.7, URL.openStream() returns an InputStream in some cases
 //    * where it should throw, e.g., a 403 response on a filename that
