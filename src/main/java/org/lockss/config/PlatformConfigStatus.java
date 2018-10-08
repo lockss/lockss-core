@@ -146,6 +146,10 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       addSum(res, "Cwd",
 	     PlatformUtil.getInstance().getCwd());
       ConfigManager mgr = ConfigManager.getConfigManager();
+      String restUrl = mgr.getRestConfigServiceUrl();
+      if (restUrl != null) {
+	addSum(res, "Config Service", UrlUtil.obfuscatePassword(restUrl));
+      }
       List propsUrls = mgr.getSpecUrlList();
       List loadedUrls = mgr.getLoadedUrlList();
       if (propsUrls != null) {

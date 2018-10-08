@@ -692,6 +692,9 @@ public class ConfigManager implements LockssManager {
   // The Configuration REST web service client.
   RestConfigClient restConfigClient = null;
 
+  // The URL of the REST Configuration service.
+  String restConfigServiceUrl = null;
+
   // The path to the directory containing any resource configuration files. 
   private static final String RESOURCE_CONFIG_DIR_PATH =
       "org/lockss/config/resourcefile";
@@ -731,6 +734,7 @@ public class ConfigManager implements LockssManager {
   public ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
       List urls, String groupNames) {
     this.bootstrapPropsUrl = bootstrapPropsUrl;
+    this.restConfigServiceUrl = restConfigServiceUrl;
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
     // Check whether this is not happening in a REST Configuration service
     // environment.
@@ -3260,6 +3264,15 @@ public class ConfigManager implements LockssManager {
    */
   public RestConfigClient getRestConfigClient() {
     return restConfigClient;
+  }
+
+  /**
+   * Provides the URL of the REST Configuration service.
+   *
+   * @return URL of the REST Configuration service.
+   */
+  public String getRestConfigServiceUrl() {
+    return restConfigServiceUrl;
   }
 
   /**
