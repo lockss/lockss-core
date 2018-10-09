@@ -45,6 +45,7 @@ import org.junit.*;
 import org.lockss.clockss.*;
 import org.lockss.config.Configuration;
 import org.lockss.config.Tdb;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.servlet.*;
 import org.lockss.jms.*;
 import org.lockss.util.test.FileTestUtil;
@@ -60,11 +61,13 @@ public class TestConfigManager extends LockssTestCase4 {
   ConfigManager mgr;
   MyConfigManager mymgr;
   static BrokerService broker;
+  MockLockssDaemon theDaemon = null;
 
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    mgr = MyConfigManager.makeConfigManager(getMockLockssDaemon());
+    theDaemon = getMockLockssDaemon();
+    mgr = MyConfigManager.makeConfigManager(theDaemon);
     mymgr = (MyConfigManager)mgr;
   }
 
@@ -1861,6 +1864,211 @@ public class TestConfigManager extends LockssTestCase4 {
     restServiceConfigManager.setUpRemoteConfigFailover();
     assertNull(restServiceConfigManager.remoteConfigFailoverDir);
     assertNull(restServiceConfigManager.rcfm);
+  }
+
+  /**
+   * Tests the Archival Unit configuration database.
+   */
+  @Test
+  public void testDb() throws Exception {
+    log.debug2("Invoked");
+
+    String tempDirPath = setUpDiskSpace();
+    if (log.isDebug3()) log.debug3("tempDirPath = " + tempDirPath);
+
+    System.setProperty("derby.stream.error.file",
+	new File(tempDirPath, "derby.log").getAbsolutePath());
+
+    // Create and start the database manager.
+    ConfigDbManager dbManager = new ConfigDbManager();
+    theDaemon.setManagerByType(ConfigDbManager.class, dbManager);
+    dbManager.initService(theDaemon);
+    dbManager.startService();
+
+    // Validation.
+    try {
+      mgr.storeArchivalUnitConfiguration(null);
+      fail("Failed to throw storing a null AuConfig");
+    } catch (IllegalArgumentException iae) {
+      // Expected.
+    }
+
+    String auid1 = "org|lockss|plugin|SomePlugin1&some_key_1";
+
+    try {
+      mgr.storeArchivalUnitConfiguration(new AuConfig(auid1, null));
+      fail("Failed to throw storing a null configuration");
+    } catch (IllegalArgumentException iae) {
+      // Expected.
+    }
+
+    try {
+      mgr.storeArchivalUnitConfiguration(new AuConfig(auid1,
+	  new HashMap<String, String>()));
+      fail("Failed to throw storing an empty configuration");
+    } catch (IllegalArgumentException iae) {
+      // Expected.
+    }
+
+    // Define the configuration of the first AU.
+    Map<String, String> configuration = new HashMap<>();
+    configuration.put("au_oai_date", "2014");
+    configuration.put("au_oai_set", "biorisk");
+    configuration.put("reserved.displayName", "BioRisk Volume 2014");
+
+    AuConfig auConfig1 = new AuConfig(auid1, configuration);
+
+    // Store the configuration of the first AU.
+    long beforeAdding1 = TimeBase.nowMs();
+    Long auSeq = mgr.storeArchivalUnitConfiguration(auConfig1);
+    long afterAdding1 = TimeBase.nowMs();
+    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+    assertEquals(1, auSeq.longValue());
+
+    // Define the configuration of the second AU.
+    String auid2 = "org|lockss|plugin|SomePlugin1&some_key_2";
+
+    configuration = new HashMap<>();
+    configuration.put("reserved.disabled", "false");
+
+    AuConfig auConfig2 = new AuConfig(auid2, configuration);
+
+    // Store the configuration of the second AU.
+    long beforeAdding2 = TimeBase.nowMs();
+    auSeq = mgr.storeArchivalUnitConfiguration(auConfig2);
+    long afterAdding2 = TimeBase.nowMs();
+    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+    assertEquals(2, auSeq.longValue());
+
+    // Retrieve all the AU configurations.
+    Collection<AuConfig> auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(2, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfig1));
+    assertTrue(auConfigs.contains(auConfig2));
+
+    // Retrieve the configuration of the first AU.
+    AuConfig config1 = mgr.retrieveArchivalUnitConfiguration(auid1);
+
+    assertEquals(auConfig1, config1);
+
+    // Retrieve the configuration of the second AU.
+    AuConfig config2 = mgr.retrieveArchivalUnitConfiguration(auid2);
+
+    assertEquals(auConfig2, config2);
+
+    // Retrieve the configuration creation time of the first AU.
+    long creationTime1 =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid1).longValue();
+    assertTrue(creationTime1 >= beforeAdding1);
+    assertTrue(creationTime1 <= afterAdding1);
+
+    // Retrieve the configuration last update time of the first AU.
+    long lastUpdateTime1 =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid1).longValue();
+    assertEquals(creationTime1, lastUpdateTime1);
+
+    // Retrieve the configuration creation time of the second AU.
+    long creationTime2 =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid2).longValue();
+    assertTrue(creationTime2 >= beforeAdding2);
+    assertTrue(creationTime2 <= afterAdding2);
+
+    // Retrieve the configuration last update time of the second AU.
+    long lastUpdateTime2 =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2).longValue();
+    assertEquals(creationTime2, lastUpdateTime2);
+
+    // Define the updated configuration of the second AU.
+    configuration = new HashMap<>();
+    configuration.put("newKey1", "newValue1");
+    configuration.put("newKey2", "newValue2");
+
+    AuConfig auConfig2new = new AuConfig(auid2, configuration);
+
+    // Store the updated configuration of the second AU.
+    long beforeAdding2new = TimeBase.nowMs();
+    auSeq = mgr.storeArchivalUnitConfiguration(auConfig2new);
+    long afterAdding2new = TimeBase.nowMs();
+    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+    assertEquals(2, auSeq.longValue());
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(2, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfig1));
+    assertTrue(auConfigs.contains(auConfig2new));
+
+    // Retrieve the configuration of the second AU.
+    AuConfig config2new = mgr.retrieveArchivalUnitConfiguration(auid2);
+
+    assertEquals(auConfig2new, config2new);
+
+    assertEquals(creationTime2,
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid2).longValue());
+
+    // Retrieve the configuration last update time of the second AU.
+    long lastUpdateTime2new =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2).longValue();
+    assertTrue(lastUpdateTime2new > creationTime2);
+    assertTrue(lastUpdateTime2new >= beforeAdding2new);
+    assertTrue(lastUpdateTime2new <= afterAdding2new);
+
+    // Remove the configuration of the first AU.
+    mgr.removeArchivalUnitConfiguration(auid1);
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(1, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfig2new));
+
+    // Retrieve the configuration of the first (deleted) AU.
+    AuConfig config1new = mgr.retrieveArchivalUnitConfiguration(auid1);
+    if (log.isDebug3()) log.debug3("config1new = " + config1new);
+    assertNull(config1new);
+
+    // Retrieve the configuration creation time of the first (deleted) AU.
+    Long creationTime1new =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid1);
+    if (log.isDebug3()) log.debug3("creationTime1new = " + creationTime1new);
+    assertNull(creationTime1new);
+
+    // Retrieve the configuration last update time of the first (deleted) AU.
+    Long lastUpdateTime1new =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid1);
+    assertNull(lastUpdateTime1new);
+
+    // Remove the configuration of the second AU.
+    mgr.removeArchivalUnitConfiguration(auid2);
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(0, auConfigs.size());
+
+    // Retrieve the configuration of the second (deleted) AU.
+    config2new = mgr.retrieveArchivalUnitConfiguration(auid2);
+    if (log.isDebug3()) log.debug3("config2new = " + config2new);
+    assertNull(config2new);
+
+    // Retrieve the configuration creation time of the second (deleted) AU.
+    Long creationTime2new =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid2);
+    if (log.isDebug3()) log.debug3("creationTime2new = " + creationTime2new);
+    assertNull(creationTime2new);
+
+    // Retrieve the configuration last update time of the second (deleted) AU.
+    Long lastUpdateTime2newest =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2);
+    assertNull(lastUpdateTime2newest);
+
+    log.debug2("Done");
   }
 
   private Configuration newConfiguration() {

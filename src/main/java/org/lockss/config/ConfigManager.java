@@ -42,7 +42,10 @@ import org.apache.oro.text.regex.*;
 import org.lockss.app.*;
 import org.lockss.account.*;
 import org.lockss.clockss.*;
+import org.lockss.config.db.ConfigDbManager;
+import org.lockss.config.db.ConfigManagerSql;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.hasher.*;
 import org.lockss.mail.*;
 import org.lockss.plugin.*;
@@ -710,6 +713,9 @@ public class ConfigManager implements LockssManager {
   // The counter of configuration reload requests. Accessed from separate
   // threads.
   private volatile int configReloadRequestCounter = 0;
+
+  // The configuration manager SQL executor.
+  private ConfigManagerSql configManagerSql = null;
 
   public ConfigManager() {
     this(null, null);
@@ -3867,6 +3873,206 @@ public class ConfigManager implements LockssManager {
    */
   public int getConfigReloadRequestCounter() {
     return configReloadRequestCounter;
+  }
+
+  /**
+   * Provides the configuration manager SQL executor.
+   * 
+   * @return a ConfigManagerSql with the configuration manager SQL executor.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private ConfigManagerSql getConfigManagerSql() throws DbException {
+    if (configManagerSql == null) {
+      configManagerSql = new ConfigManagerSql(
+	  theApp.getManagerByType(ConfigDbManager.class));
+    }
+
+    return configManagerSql;
+  }
+
+  /**
+   * Stores in the database the configuration of an Archival Unit.
+   * 
+   * @param auConfig
+   *          An AuConfig with the Archival Unit configuration to be stored.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long storeArchivalUnitConfiguration(AuConfig auConfig)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auConfig = " + auConfig);
+
+    // Validate the passed argument.
+    if (auConfig == null) {
+      throw new IllegalArgumentException("AuConfig is null");
+    }
+
+    // Get and parse the Archival Unit identifier.
+    String auid = auConfig.getAuid();
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Get the configuration to be stored.
+    Map<String, String> configuration = auConfig.getConfiguration();
+
+    // Validate the configuration.
+    if (configuration == null || configuration.isEmpty()) {
+      throw new IllegalArgumentException("Empty ArchivalUnit configuration");
+    }
+
+    // Store the configuration in the database.
+    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(pluginId,
+	auKey, configuration);
+
+    if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Provides all the Archival Unit configurations stored in the database.
+   * 
+   * @return a Collection<AuConfig> with all the Archival Unit configurations.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Collection<AuConfig> retrieveAllArchivalUnitConfiguration()
+      throws DbException {
+    if (log.isDebug2()) log.debug2("Invoked");
+
+    Collection<AuConfig> result = new ArrayList<>();
+
+    // Retrieve from the database all the Archival Unit configurations.
+    Map<String, Map<String, String>> auConfigs = getConfigManagerSql().
+	findAllArchivalUnitConfiguration();
+
+    // Loop through all the retrieved Archival Units identifiers.
+    for (String auid : auConfigs.keySet()) {
+      if (log.isDebug3()) log.debug3("auida = " + auid);
+
+      // Get the configuration of this Archival Unit.
+      Map<String, String> auConfiguration = auConfigs.get(auid);
+      if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
+
+      // Add it to the result.
+      result.add(new AuConfig(auid, auConfiguration));
+    }
+
+    if (log.isDebug2()) log.debug2("result.size() = " + result.size());
+    return result;
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in the database.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return an AuConfig with the Archival Unit configuration.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public AuConfig retrieveArchivalUnitConfiguration(String auid)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    AuConfig result = null;
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Retrieve the Archival Unit configuration stored in the database.
+    Map<String,String> configuration =
+	getConfigManagerSql().findArchivalUnitConfiguration(pluginId, auKey);
+
+    // Check whether a configuration was found.
+    if (!configuration.isEmpty()) {
+      // Yes.
+      result = new AuConfig(auid, configuration);
+    }
+
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  /**
+   * Provides the creation time of an Archival Unit configuration stored in the
+   * database.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return a Long with the Archival Unit configuration creation time, as epoch
+   *         milliseconds.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long retrieveArchivalUnitConfigurationCreationTime(String auid)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Retrieve the Archival Unit configuration creation time stored in the
+    // database.
+    Long creationTime =
+	getConfigManagerSql().findArchivalUnitCreationTime(pluginId, auKey);
+
+    if (log.isDebug2()) log.debug2("creationTime = " + creationTime);
+    return creationTime;
+  }
+
+  /**
+   * Provides the last update time of an Archival Unit configuration stored in
+   * the database.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return a Long with the Archival Unit configuration last update time, as
+   *         epoch milliseconds.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long retrieveArchivalUnitConfigurationLastUpdateTime(String auid)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Retrieve the Archival Unit configuration last update time stored in the
+    // database.
+    Long lastUpdateTime =
+	getConfigManagerSql().findArchivalUnitLastUpdateTime(pluginId, auKey);
+
+    if (log.isDebug2()) log.debug2("creationTime = " + lastUpdateTime);
+    return lastUpdateTime;
+  }
+
+
+  /**
+   * Removes from the database the configuration of an Archival Unit.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public void removeArchivalUnitConfiguration(String auid) throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Remove the Archival Unit configuration from the database.
+    getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
+
+    if (log.isDebug2()) log.debug2("Done");
+    return;
   }
 
   private class MyMessageListener
