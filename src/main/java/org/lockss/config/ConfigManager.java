@@ -3872,7 +3872,7 @@ public class ConfigManager implements LockssManager {
   private ConfigManagerSql getConfigManagerSql() throws DbException {
     if (configManagerSql == null) {
       configManagerSql = new ConfigManagerSql(
-	  LockssApp.getManagerByTypeStatic(ConfigDbManager.class));
+	  theApp.getManagerByType(ConfigDbManager.class));
     }
 
     return configManagerSql;
@@ -3928,7 +3928,7 @@ public class ConfigManager implements LockssManager {
       throws DbException {
     if (log.isDebug2()) log.debug2("Invoked");
 
-    Collection<AuConfig> result = new HashSet<AuConfig>();
+    Collection<AuConfig> result = new ArrayList<>();
 
     // Retrieve from the database all the Archival Unit configurations.
     Map<String, Map<String, String>> auConfigs = getConfigManagerSql().
@@ -3955,21 +3955,29 @@ public class ConfigManager implements LockssManager {
    * 
    * @param auid
    *          A String with the Archival Unit identifier.
-   * @return a Map<String, String> with the Archival Unit configuration.
+   * @return an AuConfig with the Archival Unit configuration.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public Map<String, String> retrieveArchivalUnitConfiguration(String auid)
+  public AuConfig retrieveArchivalUnitConfiguration(String auid)
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    AuConfig result = null;
 
     // Parse the Archival Unit identifier.
     String pluginId = PluginManager.pluginIdFromAuId(auid);
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Retrieve the Archival Unit configuration stored in the database.
-    Map<String, String> result =
+    Map<String,String> configuration =
 	getConfigManagerSql().findArchivalUnitConfiguration(pluginId, auKey);
+
+    // Check whether a configuration was found.
+    if (!configuration.isEmpty()) {
+      // Yes.
+      result = new AuConfig(auid, configuration);
+    }
 
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;

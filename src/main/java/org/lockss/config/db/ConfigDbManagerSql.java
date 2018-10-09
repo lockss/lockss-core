@@ -38,7 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.sql.DataSource;
 import org.lockss.db.DbManagerSql;
-import org.lockss.util.Logger;
+import org.lockss.log.L4JLogger;
 
 /**
  * The ConfigDbManager SQL code executor.
@@ -46,7 +46,7 @@ import org.lockss.util.Logger;
  * @author Fernando García-Loygorri
  */
 public class ConfigDbManagerSql extends DbManagerSql {
-  private static final Logger log = Logger.getLogger(ConfigDbManagerSql.class);
+  private static L4JLogger log = L4JLogger.getLogger();
 
   // Query to create the table for recording plugins.
   private static final String CREATE_PLUGIN_TABLE_QUERY = "create table "

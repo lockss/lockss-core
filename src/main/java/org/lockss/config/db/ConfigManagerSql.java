@@ -37,13 +37,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginManager;
+import org.lockss.util.time.TimeBase;
 
 /**
  * The ConfigManager SQL code executor.
@@ -194,7 +194,7 @@ public class ConfigManagerSql {
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
       // The current time.
-      long now = new Date().getTime();
+      long now = TimeBase.nowMs();
 
       // Find the Archival Unit, adding it if necessary.
       auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
