@@ -1607,15 +1607,19 @@ public class ConfigManager implements LockssManager {
 		Collection<ConfigFile.Generation> gens) {
     final String DEBUG_HEADER = "loadList(): ";
     if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
-      log.debug3(DEBUG_HEADER + "gens = " + gens);
+      log.debug3(DEBUG_HEADER
+	  + "intoConfig.keySet().size() = " + intoConfig.keySet().size());
+      log.debug3(DEBUG_HEADER + "gens.size() = " + gens.size());
     }
     for (ConfigFile.Generation gen : gens) {
       if (gen != null) {
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "gen.getConfig().keySet().size() = "
+	    + gen.getConfig().keySet().size());
 	intoConfig.copyFrom(gen.getConfig(), null);
 	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
+	  log.debug3(DEBUG_HEADER
+	      + "intoConfig.keySet().size() = " + intoConfig.keySet().size());
       }
     }
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -3889,6 +3893,42 @@ public class ConfigManager implements LockssManager {
     }
 
     return configManagerSql;
+  }
+
+  /**
+   * Provides all the plugin identifiers stored in the database.
+   * 
+   * @return a Collection<String> with all the plugin identifiers.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Collection<String> retrievePluginIds() throws DbException {
+    if (log.isDebug2()) log.debug2("Invoked");
+
+    Collection<String> result = getConfigManagerSql().findAllPluginIds();
+    if (log.isDebug2()) log.debug2("result.size() = " + result.size());
+    return result;
+  }
+
+  /**
+   * Provides the Archival Unit configurations for a plugin that are stored in
+   * the database.
+   * 
+   * @param pluginId
+   *          A String with the plugin identifier.
+   * @return a Map<String, Map<String, String>> with the Archival Unit
+   *         configurations for the plugin.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String, Map<String, String>> retrievePluginAusConfigurations(
+      String pluginId) throws DbException {
+    if (log.isDebug2()) log.debug2("Invoked");
+
+    Map<String, Map<String, String>> result =
+	getConfigManagerSql().findPluginAuConfigurations(pluginId);
+    if (log.isDebug2()) log.debug2("result.size() = " + result.size());
+    return result;
   }
 
   /**

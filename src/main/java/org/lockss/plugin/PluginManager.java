@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,6 +40,7 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.crawler.*;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.poller.PollSpec;
 import org.lockss.state.AuState;
@@ -526,7 +527,7 @@ public class PluginManager
    * after starting all the managers, and ensures everything happens
    * in the right order.
    */
-  public void startLoadablePlugins() {
+  public void startLoadablePlugins() throws DbException {
     final String DEBUG_HEADER = "startLoadablePlugins(): ";
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "loadablePluginsReady = "
 	+ loadablePluginsReady);
@@ -707,8 +708,15 @@ public class PluginManager
   private void configureAllPlugins(Configuration config) {
     Configuration allPlugs = config.getConfigTree(PARAM_AU_TREE);
     if (!allPlugs.equals(currentAllPlugs)) {
-      List<String> plugKeys = ListUtil.fromIterator(allPlugs.nodeIterator());
-      List<String> randKeys = CollectionUtil.randomPermutation(plugKeys);
+      // Get the different plugin identifiers in the database.
+      Collection<String> pluginIds = null;
+      try {
+	pluginIds = configMgr.retrievePluginIds();
+      } catch (DbException dbe) {
+	log.error("Error getting plugin identifiers from database", dbe);
+	return;
+      }
+      List<String> randKeys = CollectionUtil.randomPermutation(pluginIds);
       configurePlugins(randKeys, allPlugs,
 		       SkipConfigCondition.ConfigUnchanged);
       currentAllPlugs = allPlugs;
@@ -729,7 +737,31 @@ public class PluginManager
 				SkipConfigCondition scc) {
     for (String pluginKey : pluginKeys) {
       log.debug2("Configuring plugin key: " + pluginKey);
-      Configuration pluginConf = allPlugs.getConfigTree(pluginKey);
+      // Get from the database the configuration entries for this plugin.
+      Configuration pluginConf = ConfigManager.newConfiguration();
+
+      try {
+	// Get all the Archival Unit configurations for this plugin from the
+	// database.
+	Map<String, Map<String, String>> pluginAusMap =
+	    configMgr.retrievePluginAusConfigurations(pluginKey);
+
+	// Loop through each Archival Unit found.
+	for (String auId : pluginAusMap.keySet()) {
+	  String auKey = PluginManager.auKeyFromAuId(auId);
+	  Map<String, String> auConf = pluginAusMap.get(auId);
+
+	  // Loop through each configuration property.
+	  for (String key : auConf.keySet()) {
+	    String value = auConf.get(key);
+
+	    // Add this property to the Configuration object.
+	    pluginConf.put(auKey + "." + key, value);
+	  }
+	}
+      } catch (DbException dbe) {
+	return;
+      }
       Configuration prevPluginConf = null;
       switch (scc) {
       case ConfigUnchanged:

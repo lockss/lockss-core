@@ -59,6 +59,7 @@ import org.lockss.subscription.SubscriptionManager;
 import org.lockss.proxy.*;
 import org.lockss.proxy.icp.IcpManager;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.crawler.*;
 import org.lockss.remote.*;
 import org.lockss.clockss.*;
@@ -145,6 +146,8 @@ public class LockssDaemon extends LockssApp {
     managerKey(MetadataDbManager.class);
   public static final String SCHED_SERVICE =
     managerKey(SchedService.class);
+  public static final String CONFIG_DB_MANAGER =
+    managerKey(ConfigDbManager.class);
 
 
   protected static final String DEFAULT_SCHED_SERVICE =
@@ -154,6 +157,7 @@ public class LockssDaemon extends LockssApp {
   // following the standard managers specified in BaseLockssDaemon
   private final ManagerDesc[] myManagerDescs = {
     // start plugin manager after generic services
+    CONFIG_DB_MANAGER_DESC,
     PLUGIN_MANAGER_DESC,
     SCHED_SERVICE_DESC,
     HASH_SERVICE_DESC,
@@ -203,6 +207,7 @@ public class LockssDaemon extends LockssApp {
       public boolean shouldStart() {
         return isSafenet();
       }},
+    METADATA_DB_MANAGER_DESC
   };
 
   // AU-specific manager descriptors.  As each AU is created its managers
