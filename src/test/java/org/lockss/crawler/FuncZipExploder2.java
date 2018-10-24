@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2007-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,19 +31,16 @@ package org.lockss.crawler;
 import java.io.*;
 import java.util.*;
 import java.util.regex.*;
-
 import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
 import org.lockss.plugin.exploded.*;
-import org.lockss.plugin.base.*;
-import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.state.*;
 import org.lockss.extractor.*;
 
 /**
@@ -154,6 +147,13 @@ public class FuncZipExploder2 extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
+
+    // Create the configuration database manager.
+    ConfigDbManager configDbManager = new ConfigDbManager();
+    theDaemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(theDaemon);
+    configDbManager.startService();
+
     pluginMgr = new NonVersionCheckingPluginManager();
     pluginMgr.initService(theDaemon);
     theDaemon.setPluginManager(pluginMgr);

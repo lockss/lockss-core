@@ -47,6 +47,7 @@ import org.lockss.config.TdbProvider;
 import org.lockss.config.TdbTestUtil;
 import org.lockss.config.TdbTitle;
 import org.lockss.config.Tdb.TdbException;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.ConfigParamAssignment;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.TitleConfig;
@@ -94,6 +95,12 @@ public class TestSubscriptionManager extends LockssTestCase {
 
     MockLockssDaemon theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
+
+    // Create the configuration database manager.
+    ConfigDbManager configDbManager = new ConfigDbManager();
+    theDaemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(theDaemon);
+    configDbManager.startService();
 
     pluginManager = theDaemon.getPluginManager();
     pluginManager.setLoadablePluginsReady(true);

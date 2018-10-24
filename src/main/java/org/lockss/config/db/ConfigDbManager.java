@@ -169,7 +169,7 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
    * Sets up update versions.
    */
   private void setUpVersions() {
-    targetDatabaseVersion = 2;
+    targetDatabaseVersion = 1;
     asynchronousUpdates = new int[] {};
   }
 
@@ -316,21 +316,6 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
   }
 
   /**
-   * Provides the SQL code executor.
-   * 
-   * @return a ConfigDbManagerSql with the SQL code executor.
-   * @throws DbException
-   *           if this object is not ready.
-   */
-  public ConfigDbManagerSql getConfigDbManagerSql() throws DbException {
-    if (!ready) {
-      throw new DbException("ConfigDbManager has not been initialized.");
-    }
-
-    return getConfigDbManagerSqlBeforeReady();
-  }
-
-  /**
    * Provides the SQL code executor. To be used during initialization.
    * 
    * @return a DbManagerSql with the SQL code executor.
@@ -405,8 +390,6 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
     // Perform the appropriate update for this version.
     if (databaseVersion == 1) {
       configDbManagerSql.setUpDatabaseVersion1(conn);
-    } else if (databaseVersion == 2) {
-      configDbManagerSql.updateDatabaseFrom1To2(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
 	  + "to version " + databaseVersion + ".");

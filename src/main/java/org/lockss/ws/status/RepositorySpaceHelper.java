@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +26,6 @@
 
  */
 
-/**
- * Helper of the DaemonStatus web service implementation of repository space
- * queries.
- */
 package org.lockss.ws.status;
 
 import java.util.ArrayList;
@@ -42,10 +34,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.lockss.app.LockssDaemon;
+import org.lockss.db.DbException;
 import org.lockss.remote.RemoteApi;
 import org.lockss.util.Logger;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 
+/**
+ * Helper of the DaemonStatus web service implementation of repository space
+ * queries.
+ */
 public class RepositorySpaceHelper {
   /**
    * The fully-qualified name of the class of the objects used as source in a
@@ -135,7 +132,8 @@ public class RepositorySpaceHelper {
    *          A {@code Collection<RepositorySpaceWsResult>} with the query results.
    * @return a String with the requested printable copy.
    */
-  String nonDefaultToString(Collection<RepositorySpaceWsResult> results) {
+  String nonDefaultToString(Collection<RepositorySpaceWsResult> results)
+      throws DbException {
     StringBuilder builder = new StringBuilder("[");
     boolean isFirst = true;
 
@@ -162,7 +160,8 @@ public class RepositorySpaceHelper {
    *          A RepositorySpaceWsResult with the query result.
    * @return a String with the requested printable copy.
    */
-  private String nonDefaultToString(RepositorySpaceWsResult result) {
+  private String nonDefaultToString(RepositorySpaceWsResult result)
+      throws DbException {
     StringBuilder builder = new StringBuilder("RepositorySpaceWsResult [");
     boolean isFirst = true;
 

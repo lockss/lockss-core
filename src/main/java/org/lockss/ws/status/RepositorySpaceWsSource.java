@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +26,6 @@
 
  */
 
-/**
- * Container for the information that is used as the source for a query related
- * to repository spaces.
- */
 package org.lockss.ws.status;
 
 import java.io.File;
@@ -48,6 +40,7 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
+import org.lockss.db.DbException;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
@@ -57,6 +50,10 @@ import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 
+/**
+ * Container for the information that is used as the source for a query related
+ * to repository spaces.
+ */
 public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   private static Logger log = Logger.getLogger();
 
@@ -128,7 +125,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getActiveCount() {
+  public Integer getActiveCount() throws DbException {
     if (!activeCountPopulated) {
       if (allActiveCount < 0) {
 	populateCounts();
@@ -142,7 +139,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getInactiveCount() {
+  public Integer getInactiveCount() throws DbException {
     if (!inactiveCountPopulated) {
       if (allInactiveCount < 0) {
 	populateCounts();
@@ -156,7 +153,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getDeletedCount() {
+  public Integer getDeletedCount() throws DbException {
     if (!deletedCountPopulated) {
       if (allDeletedCount < 0) {
 	populateCounts();
@@ -170,7 +167,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getOrphanedCount() {
+  public Integer getOrphanedCount() throws DbException {
     if (!orphanedCountPopulated) {
       if (allOrphanedCount < 0) {
 	populateCounts();
@@ -183,7 +180,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
     return super.getOrphanedCount();
   }
 
-  private void populateCounts() {
+  private void populateCounts() throws DbException {
     TreeSet<String> roots = new TreeSet<String>();
     Collection<String> specs = StringUtil.breakAt(getRepositorySpaceId(), ";");
 

@@ -2030,7 +2030,8 @@ public class TestConfigManager extends LockssTestCase4 {
     // Retrieve the configuration of the first (deleted) AU.
     AuConfig config1new = mgr.retrieveArchivalUnitConfiguration(auid1);
     if (log.isDebug3()) log.debug3("config1new = " + config1new);
-    assertNull(config1new);
+    assertEquals(auid1, config1new.getAuid());
+    assertTrue(config1new.getConfiguration().isEmpty());
 
     // Retrieve the configuration creation time of the first (deleted) AU.
     Long creationTime1new =
@@ -2055,7 +2056,8 @@ public class TestConfigManager extends LockssTestCase4 {
     // Retrieve the configuration of the second (deleted) AU.
     config2new = mgr.retrieveArchivalUnitConfiguration(auid2);
     if (log.isDebug3()) log.debug3("config2new = " + config2new);
-    assertNull(config2new);
+    assertEquals(auid2, config2new.getAuid());
+    assertTrue(config2new.getConfiguration().isEmpty());
 
     // Retrieve the configuration creation time of the second (deleted) AU.
     Long creationTime2new =

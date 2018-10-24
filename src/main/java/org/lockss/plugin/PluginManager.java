@@ -31,6 +31,7 @@ import java.io.*;
 import java.nio.file.*;
 import java.net.*;
 import java.security.KeyStore;
+import java.sql.Connection;
 import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
@@ -41,6 +42,7 @@ import org.lockss.config.*;
 import org.lockss.crawler.*;
 import org.lockss.daemon.*;
 import org.lockss.db.DbException;
+import org.lockss.db.DbManager;
 import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.poller.PollSpec;
 import org.lockss.state.AuState;
@@ -48,7 +50,6 @@ import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
-
 import javax.jms.*;
 import org.lockss.jms.*;
 
@@ -474,6 +475,10 @@ public class PluginManager
   public void startService() {
     super.startService();
     configMgr = getDaemon().getConfigManager();
+
+    // Load the au.txt file into the database, if found.
+    configMgr.loadAuTxtFileIntoDb();
+
     alertMgr = getDaemon().getAlertManager();
     // Initialize the plugin directory.
     initPluginDir();
@@ -570,8 +575,6 @@ public class PluginManager
   public boolean areAusStartedOrStartOnDemand() {
     return areAusStarted() || isStartAusOnDemand();
   }
-
-  Configuration currentAllPlugs = ConfigManager.EMPTY_CONFIGURATION;
 
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
@@ -687,11 +690,6 @@ public class PluginManager
 	  changedKeys.contains(PARAM_PLUGIN_RETRACT)) {
 	synchStaticPluginList(config);
       }
-
-      // Process any changed AU config
-      if (changedKeys.contains(PARAM_AU_TREE)) {
-	configureAllPlugins(config);
-      }
     }
   }
 
@@ -706,34 +704,27 @@ public class PluginManager
   private enum SkipConfigCondition {ConfigUnchanged, AuRunning};
 
   private void configureAllPlugins(Configuration config) {
-    Configuration allPlugs = config.getConfigTree(PARAM_AU_TREE);
-    if (!allPlugs.equals(currentAllPlugs)) {
-      // Get the different plugin identifiers in the database.
-      Collection<String> pluginIds = null;
-      try {
-	pluginIds = configMgr.retrievePluginIds();
-      } catch (DbException dbe) {
-	log.error("Error getting plugin identifiers from database", dbe);
-	return;
-      }
-      List<String> randKeys = CollectionUtil.randomPermutation(pluginIds);
-      configurePlugins(randKeys, allPlugs,
-		       SkipConfigCondition.ConfigUnchanged);
-      currentAllPlugs = allPlugs;
+    // Get the different plugin identifiers in the database.
+    Collection<String> pluginIds = null;
+    try {
+      pluginIds = configMgr.retrievePluginIds();
+    } catch (DbException dbe) {
+      log.critical(
+	  "Error getting plugin identifiers from database: Not starting AUs",
+	  dbe);
+      return;
     }
+    configurePlugins(pluginIds, SkipConfigCondition.ConfigUnchanged);
   }
 
   // Called to (try to) start AUs configured for changed plugins, that
   // didn't previously start (either because the plugin didn't exist, or
   // the AU didn't successfully start with the old definition)
   private void configurePlugins(Collection<String> pluginKeys) {
-    Configuration config = ConfigManager.getCurrentConfig();
-    Configuration allPlugs = config.getConfigTree(PARAM_AU_TREE);
-    configurePlugins(pluginKeys, allPlugs, SkipConfigCondition.AuRunning);
+    configurePlugins(pluginKeys, SkipConfigCondition.AuRunning);
   }
 
   private void configurePlugins(Collection<String> pluginKeys,
-				Configuration allPlugs,
 				SkipConfigCondition scc) {
     for (String pluginKey : pluginKeys) {
       log.debug2("Configuring plugin key: " + pluginKey);
@@ -760,16 +751,12 @@ public class PluginManager
 	  }
 	}
       } catch (DbException dbe) {
+	log.critical("Error getting AU configurations fror plugin '" + pluginKey
+	    + "'from database: Not starting AUs", dbe);
 	return;
       }
-      Configuration prevPluginConf = null;
-      switch (scc) {
-      case ConfigUnchanged:
-	prevPluginConf = currentAllPlugs.getConfigTree(pluginKey);
-	break;
-      }
       synchronized (auAddDelLock) {
-	configurePlugin(pluginKey, pluginConf, prevPluginConf, scc);
+	configurePlugin(pluginKey, pluginConf, scc);
       }
     }
   }
@@ -988,7 +975,6 @@ public class PluginManager
   }
 
   private void configurePlugin(String pluginKey, Configuration pluginConf,
-			       Configuration oldPluginConf,
 			       SkipConfigCondition scc) {
     if (!ensurePluginLoaded(pluginKey)) {
       log.warning("Plugin " + pluginKey
@@ -1015,12 +1001,6 @@ public class PluginManager
 	}
 	switch (scc) {
 	case ConfigUnchanged:
-	  if (auConf.equals(oldPluginConf.getConfigTree(auKey))) {
-	    if (log.isDebug3())
-	      log.debug3("AU already configured, not reconfiguring: "
-			 + auKey);
-	    continue nextAU;
-	  }
 	  break;
 	case AuRunning:
 	  if (auMap.containsKey(auId)) {
@@ -1032,14 +1012,14 @@ public class PluginManager
 	  log.debug2("Retrying previously unstarted AU id: " + auId);
 	  break;
 	}
-	// If this AU has no config tree in au.txt, ignore it.  Prevents
+	// If this AU has no config tree in the database, ignore it.  Prevents
 	// race caused by config reload asynchronous to quick AU
 	// create/delete.  Because config reload never deletes AUs, this
 	// would lead to a just-deleted AU being recreated and not
 	// deleted until daemon restart.  Set
 	// org.lockss.plugin.allowGlobalAuConfig true to suppress this
 	// check, allowing AUs to be configured in any config file.
-	if (! (paramAllowGlobalAuConfig || isAuConfInAuTxt(auId))) {
+	if (! (paramAllowGlobalAuConfig || isAuConfInDb(auId))) {
 	  log.debug("Not configuring now-disappeared AU id: " + auKey);
 	  continue nextAU;
 	}
@@ -1070,8 +1050,8 @@ public class PluginManager
   /** Return true if the AU is configured in au.txt.
    * @see PARAM_ALLOW_GLOBAL_AU_CONFIG
    */
-  boolean isAuConfInAuTxt(String auId) {
-    return ! getStoredAuConfiguration(auId).isEmpty();
+  boolean isAuConfInDb(String auId) throws DbException {
+    return configMgr.retrieveArchivalUnitConfiguration(auId) == null;
   }
 
   void configureAu(Plugin plugin, Configuration auConf, String auId)
@@ -1820,15 +1800,25 @@ public class PluginManager
    * @param au the ArchivalUnit to be deactivated
    * @throws IOException
    */
-  public void deactivateAuConfiguration(ArchivalUnit au) throws IOException {
+  public void deactivateAuConfiguration(ArchivalUnit au) throws DbException {
     synchronized (auAddDelLock) {
       log.debug("Deactivating AU: " + au);
-      Configuration config = getStoredAuConfiguration(au);
-      if (config.isSealed()) {
-	config = config.copy();
+      Connection conn = null;
+
+      try {
+	// Get a connection to the database.
+	conn = configMgr.getConnection();
+
+	AuConfig auConfig =
+	    configMgr.retrieveArchivalUnitConfiguration(conn, au.getAuId());
+	if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+
+	auConfig.getConfiguration().put(AU_PARAM_DISABLED, "true");
+
+	configMgr.storeArchivalUnitConfiguration(conn, auConfig);
+      } finally {
+	DbManager.safeRollbackAndClose(conn);
       }
-      config.put(AU_PARAM_DISABLED, "true");
-      updateAuConfigFile(au, config);
     }
   }
 
@@ -1851,7 +1841,7 @@ public class PluginManager
    * @param au the ArchivalUnit to be deactivated
    * @throws IOException
    */
-  public void deactivateAu(ArchivalUnit au) throws IOException {
+  public void deactivateAu(ArchivalUnit au) throws DbException {
     synchronized (auAddDelLock) {
       deactivateAuConfiguration(au);
       if (isRemoveStoppedAus()) {
@@ -2005,25 +1995,24 @@ public class PluginManager
   }
 
   /**
-   * Return the stored config info for an AU (from config file, not from
-   * AU instance).
-   * @param au the ArchivalUnit
-   * @return the AU's Configuration, with unprefixed keys.
-   */
-  public Configuration getStoredAuConfiguration(ArchivalUnit au) {
-    return getStoredAuConfiguration(au.getAuId());
-  }
-
-  /**
-   * Return the config tree for an AU id (from the local au config file,
-   * not the au itself).
+   * Return the config tree for an AU id (from the database, not the au itself).
    * @param auid the AU's id.
    * @return the AU's Configuration, with unprefixed keys.
    */
-  public Configuration getStoredAuConfiguration(String auid) {
-    String aukey = configKeyFromAuId(auid);
-    Configuration config = configMgr.readAuConfigFile();
-    return config.getConfigTree(auConfigPrefix(auid));
+  public Configuration getStoredAuConfiguration(String auid)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+    Configuration config = ConfigManager.newConfiguration();
+
+    Map<String, String> auConfig =
+	configMgr.retrieveArchivalUnitConfiguration(auid).getConfiguration();
+
+    for (String key : auConfig.keySet()) {
+      config.put(key, auConfig.get(key));
+    }
+
+    if (log.isDebug2()) log.debug2("config = " + config);
+    return config;
   }
 
   /**
@@ -3283,8 +3272,8 @@ public class PluginManager
 	  String key = pluginKeyFromName(name);
 	  Plugin plug = getPlugin(key);
 	  if (plug != null && !isInternalPlugin(plug)) {
-	    Configuration tree = currentAllPlugs.getConfigTree(key);
-	    if (tree == null || tree.isEmpty()) {
+	    Collection<ArchivalUnit> aus = plug.getAllAus();
+	    if (aus == null || aus.isEmpty()) {
 	      removePlugin(key);
 	    }
 	  }

@@ -36,6 +36,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -55,6 +56,36 @@ public class ConfigManagerSql {
   private static L4JLogger log = L4JLogger.getLogger();
 
   private final ConfigDbManager configDbManager;
+
+  // Query to find a plugin by its identifier.
+  private static final String FIND_PLUGIN_QUERY = "select "
+      + PLUGIN_SEQ_COLUMN
+      + " from " + PLUGIN_TABLE
+      + " where " + PLUGIN_ID_COLUMN + " = ?";
+
+  // Query to add a plugin.
+  private static final String INSERT_PLUGIN_QUERY = "insert into "
+      + PLUGIN_TABLE
+      + "(" + PLUGIN_SEQ_COLUMN
+      + "," + PLUGIN_ID_COLUMN
+      + ") values (default,?)";
+
+  // Query to find an Archival Unit by its plugin and key.
+  private static final String FIND_ARCHIVAL_UNIT_QUERY = "select "
+      + ARCHIVAL_UNIT_SEQ_COLUMN
+      + " from " + ARCHIVAL_UNIT_TABLE
+      + " where " + PLUGIN_SEQ_COLUMN + " = ?"
+      + " and " + ARCHIVAL_UNIT_KEY_COLUMN + " = ?";
+
+  // Query to add an Archival Unit.
+  private static final String INSERT_ARCHIVAL_UNIT_QUERY = "insert into "
+      + ARCHIVAL_UNIT_TABLE
+      + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + "," + PLUGIN_SEQ_COLUMN
+      + "," + ARCHIVAL_UNIT_KEY_COLUMN
+      + "," + CREATION_TIME_COLUMN
+      + "," + LAST_UPDATE_TIME_COLUMN
+      + ") values (default,?,?,?,?)";
 
   // Query to find the configurations of all the Archival Units.
   private static final String GET_ALL_AU_CONFIGURATION_QUERY = "select "
@@ -101,6 +132,21 @@ public class ConfigManagerSql {
       + " and p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
       + " and a." + ARCHIVAL_UNIT_KEY_COLUMN + " = ?";
 
+  // Query to update the last update time of an Archival Unit.
+  private static final String UPDATE_ARCHIVAL_UNIT_LAST_UPDATE_TIME_QUERY =
+      "update "
+      + ARCHIVAL_UNIT_TABLE
+      + " set " + LAST_UPDATE_TIME_COLUMN + " = ?"
+      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
+
+  // Query to add a configuration property of an Archival Unit.
+  private static final String ADD_AU_CONFIGURATION_QUERY = "insert into "
+      + ARCHIVAL_UNIT_CONFIG_TABLE
+      + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + "," + CONFIG_KEY_COLUMN
+      + "," + CONFIG_VALUE_COLUMN
+      + ") values (?,?,?)";
+
   // Query to delete an Archival Unit.
   private static final String DELETE_ARCHIVAL_UNIT_QUERY = "delete from "
       + ARCHIVAL_UNIT_TABLE
@@ -141,6 +187,17 @@ public class ConfigManagerSql {
   }
 
   /**
+   * Provides a connection to the database.
+   *
+   * @return a Connection with the connection to the database.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Connection getConnection() throws DbException {
+    return configDbManager.getConnection();
+  }
+
+  /**
    * Adds to the database the configuration of an Archival Unit.
    * 
    * @param pluginId
@@ -159,46 +216,13 @@ public class ConfigManagerSql {
     log.debug2("auKey = {}", auKey);
     log.debug2("auConfig = {}", () -> auConfig);
 
-    Long auSeq = null;
     Connection conn = null;
 
     try {
-      // Get the SQL helper.
-      ConfigDbManagerSql configDbManagerSql =
-	  configDbManager.getConfigDbManagerSql();
-
       // Get a connection to the database.
       conn = configDbManager.getConnection();
 
-      // Find the Archival Unit plugin, adding it if necessary.
-      Long pluginSeq = configDbManagerSql.findOrCreatePlugin(conn, pluginId);
-
-      // The current time.
-      long now = TimeBase.nowMs();
-
-      // Find the Archival Unit, adding it if necessary.
-      auSeq = configDbManagerSql.findOrCreateArchivalUnit(conn, pluginSeq,
-	  auKey, now);
-
-      // Delete the configuration of the Archival Unit, if it exists.
-      removeArchivalUnitConfiguration(conn, auSeq);
-
-      // Add the new configuration of the Archival Unit.
-      configDbManagerSql.addArchivalUnitConfiguration(conn, auSeq, auConfig);
-
-      // Update the Archival Unit last update timestamp.
-      configDbManagerSql.updateArchivalUnitLastUpdateTimestamp(conn, auSeq,
-	  now);
-
-      // Commit the transaction.
-      ConfigDbManager.commitOrRollback(conn, log);
-    } catch (SQLException sqle) {
-      String message = "Cannot add AU configuration";
-      log.error(message, sqle);
-      log.error("pluginId = {}", pluginId);
-      log.error("auKey = {}", auKey);
-      log.error("auConfig = {}", auConfig);
-      throw new DbException(message, sqle);
+      return addArchivalUnitConfiguration(conn, pluginId, auKey, auConfig);
     } catch (DbException dbe) {
       String message = "Cannot add AU configuration";
       log.error(message, dbe);
@@ -208,6 +232,60 @@ public class ConfigManagerSql {
       throw dbe;
     } finally {
       DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Adds to the database the configuration of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param auConfig
+   *          A Map<String,String> with the Archival Unit configuration.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long addArchivalUnitConfiguration(Connection conn, String pluginId,
+      String auKey, Map<String,String> auConfig) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("auConfig = {}", () -> auConfig);
+
+    Long auSeq = null;
+
+    try {
+      // Find the Archival Unit plugin, adding it if necessary.
+      Long pluginSeq = findOrCreatePlugin(conn, pluginId);
+
+      // The current time.
+      long now = TimeBase.nowMs();
+
+      // Find the Archival Unit, adding it if necessary.
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+
+      // Delete the configuration of the Archival Unit, if it exists.
+      removeArchivalUnitConfiguration(conn, auSeq);
+
+      // Add the new configuration of the Archival Unit.
+      addArchivalUnitConfiguration(conn, auSeq, auConfig);
+
+      // Update the Archival Unit last update timestamp.
+      updateArchivalUnitLastUpdateTimestamp(conn, auSeq, now);
+
+      // Commit the transaction.
+      ConfigDbManager.commitOrRollback(conn, log);
+    } catch (DbException dbe) {
+      String message = "Cannot add AU configuration";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("auConfig = {}", auConfig);
+      throw dbe;
     }
 
     log.debug2("auSeq = {}", auSeq);
@@ -371,6 +449,75 @@ public class ConfigManagerSql {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(getConfiguration);
       DbManager.safeRollbackAndClose(conn);
+    }
+
+    log.debug2("auConfig = {}", () -> auConfig);
+    return auConfig;
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a Map<String,String> with the Archival Unit configurations.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String,String> findArchivalUnitConfiguration(Connection conn,
+      String pluginId, String auKey) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    Map<String,String> auConfig = new HashMap<>();
+    PreparedStatement getConfiguration = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get AU configuration";
+
+    try {
+      // Prepare the query.
+      getConfiguration =
+	  configDbManager.prepareStatement(conn, GET_AU_CONFIGURATION_QUERY);
+
+      // Populate the query.
+      getConfiguration.setString(1, pluginId);
+      getConfiguration.setString(2, auKey);
+
+      // Get the configuration of the Archival Unit.
+      resultSet = configDbManager.executeQuery(getConfiguration);
+
+      // Loop while there are more results.
+      while (resultSet.next()) {
+	// Get the key of the Archival Unit configuration property.
+  	String key = resultSet.getString(CONFIG_KEY_COLUMN);
+  	log.trace("key = {}", key);
+
+	// Get the value of the Archival Unit configuration property.
+  	String value = resultSet.getString(CONFIG_VALUE_COLUMN);
+  	log.trace("value = {}", value);
+
+  	// Save the property.
+  	auConfig.put(key, value);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_AU_CONFIGURATION_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", GET_AU_CONFIGURATION_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(getConfiguration);
     }
 
     log.debug2("auConfig = {}", () -> auConfig);
@@ -568,6 +715,453 @@ public class ConfigManagerSql {
 
     log.debug2("deletedCount = {}", deletedCount);
     return deletedCount;
+  }
+
+  /**
+   * Provides the database identifier of a plugin if existing or after creating
+   * it otherwise.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the plugin identifier.
+   * @return a Long with the database identifier of the plugin.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long findOrCreatePlugin(Connection conn, String pluginId)
+      throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+
+    // Find the plugin in the database.
+    Long pluginSeq = findPlugin(conn, pluginId);
+    log.trace("pluginSeq = {}", pluginSeq);
+
+    // Check whether it is a new plugin.
+    if (pluginSeq == null) {
+      // Yes: Add to the database the new plugin.
+      pluginSeq = addPlugin(conn, pluginId);
+      log.trace("new pluginSeq = {}", pluginSeq);
+    }
+
+    log.debug2("pluginSeq = {}", pluginSeq);
+    return pluginSeq;
+  }
+
+  /**
+   * Provides the database identifier of a plugin.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the plugin identifier.
+   * @return a Long with the database identifier of the plugin.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long findPlugin(Connection conn, String pluginId) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    Long pluginSeq = null;
+    PreparedStatement findPlugin = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot find plugin";
+
+    try {
+      // Prepare the query.
+      findPlugin = configDbManager.prepareStatement(conn, FIND_PLUGIN_QUERY);
+
+      // Populate the query.
+      findPlugin.setString(1, pluginId);
+
+      // Get the plugin.
+      resultSet = configDbManager.executeQuery(findPlugin);
+
+      // Check whether a result was obtained.
+      if (resultSet.next()) {
+	// Yes: Get the plugin database identifier.
+	pluginSeq = resultSet.getLong(PLUGIN_SEQ_COLUMN);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", FIND_PLUGIN_QUERY);
+      log.error("pluginId = {}", pluginId);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", FIND_PLUGIN_QUERY);
+      log.error("pluginId = {}", pluginId);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(findPlugin);
+    }
+
+    log.debug2("pluginSeq = {}", pluginSeq);
+    return pluginSeq;
+  }
+
+  /**
+   * Adds a plugin to the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the plugin identifier.
+   * @return a Long with the database identifier of the plugin just added.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long addPlugin(Connection conn, String pluginId) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+
+    Long pluginSeq = null;
+    PreparedStatement insertPlugin = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot add plugin";
+
+    try {
+      // Prepare the query.
+      insertPlugin = configDbManager.prepareStatement(conn,
+	  INSERT_PLUGIN_QUERY, Statement.RETURN_GENERATED_KEYS);
+
+      // Populate the query. Skip auto-increment column #0.
+      insertPlugin.setString(1, pluginId);
+
+      // Add the plugin.
+      configDbManager.executeUpdate(insertPlugin);
+      resultSet = insertPlugin.getGeneratedKeys();
+
+      // Check whether a result was not obtained.
+      if (!resultSet.next()) {
+	// Yes: Report the problem.
+	String message =
+	    "Unable to create plugin table row for pluginId = " + pluginId;
+	log.error(message);
+	throw new DbException(message);
+      }
+
+      // No: Get the plugin database identifier.
+      pluginSeq = resultSet.getLong(1);
+      log.trace("Added pluginSeq = {}", pluginSeq);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", INSERT_PLUGIN_QUERY);
+      log.error("pluginId = {}", pluginId);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", INSERT_PLUGIN_QUERY);
+      log.error("pluginId = {}", pluginId);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(insertPlugin);
+    }
+
+    log.debug2("pluginSeq = {}", pluginSeq);
+    return pluginSeq;
+  }
+  
+  /**
+   * Provides the identifier of an Archival Unit if existing or after creating
+   * it otherwise.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginSeq
+   *          A Long with the identifier of the plugin.
+   * @param auKey
+   *          A String with the Archival Unit key.
+   * @param creationTime
+   *          A long with the Archival Unit creation time as epoch milliseconds.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long findOrCreateArchivalUnit(Connection conn, Long pluginSeq,
+      String auKey, long creationTime) throws DbException {
+    log.debug2("pluginSeq = {}", pluginSeq);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("creationTime = {}", creationTime);
+
+    // Find the Archival Unit in the database.
+    Long auSeq = findArchivalUnit(conn, pluginSeq, auKey);
+    log.trace("auSeq = {}", auSeq);
+
+    // Check whether it is a new Archival Unit.
+    if (auSeq == null) {
+      // Yes: Add to the database the new Archival Unit.
+      auSeq =
+	  addArchivalUnit(conn, pluginSeq, auKey, creationTime, creationTime);
+      log.trace("new auSeq = {}", auSeq);
+    }
+
+    log.debug2("auSeq = {}", auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Provides the identifier of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginSeq
+   *          A Long with the identifier of the plugin.
+   * @param auKey
+   *          A String with the Archival Unit key.
+   * @return a Long with the identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long findArchivalUnit(Connection conn, Long pluginSeq, String auKey)
+      throws DbException {
+    log.debug2("pluginSeq = {}", pluginSeq);
+    log.debug2("auKey = {}", auKey);
+
+    Long auSeq = null;
+    PreparedStatement findAu = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot find AU";
+
+    try {
+      // Prepare the query.
+      findAu = configDbManager.prepareStatement(conn, FIND_ARCHIVAL_UNIT_QUERY);
+
+      // Populate the query.
+      findAu.setLong(1, pluginSeq);
+      findAu.setString(2, auKey);
+
+      // Get the Archival Unit.
+      resultSet = configDbManager.executeQuery(findAu);
+
+      // Check whether a result was obtained.
+      if (resultSet.next()) {
+	// Yes: Get the Archival Unit database identifier.
+	auSeq = resultSet.getLong(ARCHIVAL_UNIT_SEQ_COLUMN);
+	log.trace("Found auSeq = {}", auSeq);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", FIND_ARCHIVAL_UNIT_QUERY);
+      log.error("pluginSeq = {}", pluginSeq);
+      log.error("auKey = {}", auKey);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", FIND_ARCHIVAL_UNIT_QUERY);
+      log.error("pluginSeq = {}", pluginSeq);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(findAu);
+    }
+
+    log.debug2("auSeq = {}", auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Adds an Archival Unit to the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginSeq
+   *          A Long with the identifier of the plugin.
+   * @param auKey
+   *          A String with the Archival Unit key.
+   * @param creationTime
+   *          A long with the Archival Unit creation time as epoch milliseconds.
+   * @param lastUpdateTime
+   *          A long with the Archival Unit last update time as epoch
+   *          milliseconds.
+   * @return a Long with the identifier of the Archival Unit just added.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long addArchivalUnit(Connection conn, Long pluginSeq, String auKey,
+      long creationTime, long lastUpdateTime) throws DbException {
+    log.debug2("pluginSeq = {}", pluginSeq);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("creationTime = {}", creationTime);
+    log.debug2("lastUpdateTime = {}", lastUpdateTime);
+
+    Long auSeq = null;
+    PreparedStatement insertAu = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot add AU";
+
+    try {
+      // Prepare the query.
+      insertAu = configDbManager.prepareStatement(conn,
+	  INSERT_ARCHIVAL_UNIT_QUERY, Statement.RETURN_GENERATED_KEYS);
+
+      // Populate the query. Skip auto-increment column #0.
+      insertAu.setLong(1, pluginSeq);
+      insertAu.setString(2, auKey);
+      insertAu.setLong(3, creationTime);
+      insertAu.setLong(4, lastUpdateTime);
+
+      // Add the Archival Unit.
+      configDbManager.executeUpdate(insertAu);
+      resultSet = insertAu.getGeneratedKeys();
+
+      // Check whether a result was not obtained.
+      if (!resultSet.next()) {
+	// Yes: Report the problem.
+	String message =
+	    "Unable to create archival unit table row for aukey = " + auKey;
+	log.error(message);
+	throw new DbException(message);
+      }
+
+      // No: Get the Archival Unit database identifier.
+      auSeq = resultSet.getLong(1);
+      log.trace("Added auSeq = {}", auSeq);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", INSERT_ARCHIVAL_UNIT_QUERY);
+      log.error("pluginSeq = {}", pluginSeq);
+      log.error("auKey = {}", auKey);
+      log.error("creationTime = {}", creationTime);
+      log.error("lastUpdateTime = {}", lastUpdateTime);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", INSERT_ARCHIVAL_UNIT_QUERY);
+      log.error("pluginSeq = {}", pluginSeq);
+      log.error("auKey = {}", auKey);
+      log.error("creationTime = {}", creationTime);
+      log.error("lastUpdateTime = {}", lastUpdateTime);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(insertAu);
+    }
+
+    log.debug2("auSeq = {}", auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Updates the timestamp of the last update of an Archival Unit configuration.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the identifier of the Archival Unit metadata.
+   * @param lastUpdateTime
+   *          A long with the Archival Unit last update time as epoch
+   *          milliseconds.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private void updateArchivalUnitLastUpdateTimestamp(Connection conn,
+      Long auSeq, long lastUpdateTime) throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+    log.debug2("lastUpdateTime = {}", lastUpdateTime);
+
+    PreparedStatement updateAuLastUpdateTime = null;
+    String errorMessage = "Cannot update the Archival Unit last update time";
+
+    try {
+      // Prepare the query.
+      updateAuLastUpdateTime = configDbManager.prepareStatement(conn,
+	  UPDATE_ARCHIVAL_UNIT_LAST_UPDATE_TIME_QUERY);
+
+      // Populate the query.
+      updateAuLastUpdateTime.setLong(1, lastUpdateTime);
+      updateAuLastUpdateTime.setLong(2, auSeq);
+
+      // Update the last update timestamp.
+      configDbManager.executeUpdate(updateAuLastUpdateTime);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", UPDATE_ARCHIVAL_UNIT_LAST_UPDATE_TIME_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("lastUpdateTime = {}", lastUpdateTime);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", UPDATE_ARCHIVAL_UNIT_LAST_UPDATE_TIME_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("lastUpdateTime = {}", lastUpdateTime);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseStatement(updateAuLastUpdateTime);
+    }
+
+    log.debug2("Done");
+  }
+
+  /**
+   * Adds to the database the configuration of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the identifier of the Archival Unit metadata.
+   * @param auConfig
+   *          A Map<String,String> with the Archival Unit configuration.
+   * @return an int with the count of database rows added.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private int addArchivalUnitConfiguration(Connection conn, Long auSeq,
+      Map<String,String> auConfig) throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+    log.debug2("auConfig = {}", () -> auConfig);
+
+    int addedCount = 0;
+    String keyInProgress = null;
+    String valueInProgress = null;
+
+    PreparedStatement addConfiguration = null;
+    String errorMessage = "Cannot add Archival Unit configuration";
+
+    try {
+      // Prepare the query.
+      addConfiguration =
+	  configDbManager.prepareStatement(conn, ADD_AU_CONFIGURATION_QUERY);
+
+      // Loop through all the configuration properties.
+      for (String key : auConfig.keySet()) {
+	// Populate the query with this property.
+	addConfiguration.setLong(1, auSeq);
+	keyInProgress = key;
+	valueInProgress = auConfig.get(key);
+	addConfiguration.setString(2, keyInProgress);
+	addConfiguration.setString(3, valueInProgress);
+
+	// Add this property to the database.
+	int count = configDbManager.executeUpdate(addConfiguration);
+	log.trace("count = {}", count);
+
+	// Update the count of added rows.
+	addedCount += count;
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", ADD_AU_CONFIGURATION_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("auConfig = {}", auConfig);
+      log.error("Failed Key = {}", keyInProgress);
+      log.error("Failed Value = {}",valueInProgress);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", ADD_AU_CONFIGURATION_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("auConfig = {}", auConfig);
+      log.error("Failed Key = {}", keyInProgress);
+      log.error("Failed Value = {}",valueInProgress);
+      throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(addConfiguration);
+    }
+
+    log.debug2("addedCount = {}", addedCount);
+    return addedCount;
   }
 
   /**

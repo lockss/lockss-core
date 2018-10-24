@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,19 +31,13 @@ package org.lockss.exporter;
 import java.io.*;
 import java.util.*;
 import java.util.regex.*;
-
-import org.archive.io.*;
-import org.archive.io.arc.*;
-
-import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
-import org.lockss.repository.OldLockssRepositoryImpl;
-import org.lockss.protocol.*;
 
 public abstract class BaseFuncExporter extends LockssTestCase {
   protected static final int DEFAULT_FILESIZE = 3000;
@@ -74,6 +64,12 @@ public abstract class BaseFuncExporter extends LockssTestCase {
     Properties props = new Properties();
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.addFromProps(props);
+
+    // Create the configuration database manager.
+    ConfigDbManager configDbManager = new ConfigDbManager();
+    daemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(daemon);
+    configDbManager.startService();
 
     daemon.getPluginManager();
     daemon.setDaemonInited(true);

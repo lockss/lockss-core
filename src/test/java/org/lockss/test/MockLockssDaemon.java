@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,10 +34,10 @@ import org.lockss.alert.AlertManager;
 import org.lockss.account.AccountManager;
 import org.lockss.app.*;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.StatusService;
-import org.lockss.db.DbManager;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.hasher.HashService;
 import org.lockss.mail.MailService;
@@ -92,7 +92,6 @@ public class MockLockssDaemon extends LockssDaemon {
 //   RemoteApi remoteApi = null;
 //   IcpManager icpManager = null;
 //   ClockssParams clockssParams = null;
-//   DbManager dbManager = null;
 //   MetadataDbManager metadataDbManager = null;
 //   CounterReportsManager counterReportsManager = null;
 //   SubscriptionManager subscriptionManager = null;
@@ -401,14 +400,6 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   /**
-   * return the database manager instance
-   * @return the DbManager
-   */
-//   public DbManager getDbManager() {
-//     return getManagerByType(DbManager.class);
-//   }
-
-  /**
    * return the metadata database manager instance
    * @return the MetadataDbManager
    */
@@ -430,6 +421,14 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public SubscriptionManager getSusbcriptionManager() {
     return getManagerByType(SubscriptionManager.class);
+  }
+
+  /**
+   * return the configuration database manager instance
+   * @return the ConfigDbManager
+   */
+  public ConfigDbManager getConfigDbManager() {
+    return getManagerByType(ConfigDbManager.class);
   }
 
   /**
@@ -649,14 +648,6 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.TRUEZIP_MANAGER, tzMgr);
   }
 
-//   /**
-//    * Set the DbManager
-//    * @param dbMan the new manager
-//    */
-//   public void setDbManager(DbManager dbMan) {
-//     managerMap.put(LockssDaemon.DB_MANAGER, dbMan);
-//   }
-
   /**
    * Set the MetadataDbManager
    * @param mdDbMan the new manager
@@ -711,6 +702,14 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setEntitlementRegistryClient(EntitlementRegistryClient entitlementRegistryClient) {
     managerMap.put(LockssDaemon.SAFENET_MANAGER, entitlementRegistryClient);
+  }
+
+  /**
+   * Set the ConfigDbManager
+   * @param configDbMan the new manager
+   */
+  public void setConfigDbManager(ConfigDbManager configDbMan) {
+    managerMap.put(LockssDaemon.CONFIG_DB_MANAGER, configDbMan);
   }
 
   // AU managers

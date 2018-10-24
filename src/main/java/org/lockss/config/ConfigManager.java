@@ -34,6 +34,7 @@ package org.lockss.config;
 import java.io.*;
 import java.util.*;
 import java.net.*;
+import java.sql.Connection;
 import org.apache.commons.collections.Predicate;
 import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
@@ -46,6 +47,7 @@ import org.lockss.config.db.ConfigDbManager;
 import org.lockss.config.db.ConfigManagerSql;
 import org.lockss.daemon.*;
 import org.lockss.db.DbException;
+import org.lockss.db.DbManager;
 import org.lockss.hasher.*;
 import org.lockss.mail.*;
 import org.lockss.plugin.*;
@@ -3880,6 +3882,17 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
+   * Provides a connection to the database.
+   *
+   * @return a Connection with the connection to the database.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Connection getConnection() throws DbException {
+    return getConfigManagerSql().getConnection();
+  }
+
+  /**
    * Provides the configuration manager SQL executor.
    * 
    * @return a ConfigManagerSql with the configuration manager SQL executor.
@@ -3888,8 +3901,13 @@ public class ConfigManager implements LockssManager {
    */
   private ConfigManagerSql getConfigManagerSql() throws DbException {
     if (configManagerSql == null) {
-      configManagerSql = new ConfigManagerSql(
-	  theApp.getManagerByType(ConfigDbManager.class));
+      if (theApp == null) {
+	configManagerSql = new ConfigManagerSql(
+	    LockssApp.getManagerByTypeStatic(ConfigDbManager.class));
+      } else {
+	configManagerSql = new ConfigManagerSql(
+	    theApp.getManagerByType(ConfigDbManager.class));
+      }
     }
 
     return configManagerSql;
@@ -3944,6 +3962,33 @@ public class ConfigManager implements LockssManager {
       throws DbException {
     if (log.isDebug2()) log.debug2("auConfig = " + auConfig);
 
+    Connection conn = null;
+
+    try {
+	// Get a connection to the database.
+	conn = getConnection();
+
+	return storeArchivalUnitConfiguration(conn, auConfig);
+    } finally {
+	DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Stores in the database the configuration of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auConfig
+   *          An AuConfig with the Archival Unit configuration to be stored.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long storeArchivalUnitConfiguration(Connection conn, AuConfig auConfig)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auConfig = " + auConfig);
+
     // Validate the passed argument.
     if (auConfig == null) {
       throw new IllegalArgumentException("AuConfig is null");
@@ -3963,8 +4008,8 @@ public class ConfigManager implements LockssManager {
     }
 
     // Store the configuration in the database.
-    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(pluginId,
-	auKey, configuration);
+    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(conn,
+	pluginId, auKey, configuration);
 
     if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
     return auSeq;
@@ -4016,15 +4061,42 @@ public class ConfigManager implements LockssManager {
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
-    AuConfig result = null;
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      return retrieveArchivalUnitConfiguration(conn, auid);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return an AuConfig with the Archival Unit configuration.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public AuConfig retrieveArchivalUnitConfiguration(Connection conn,
+      String auid) throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    AuConfig result = new AuConfig(auid, new HashMap<String, String>());
 
     // Parse the Archival Unit identifier.
     String pluginId = PluginManager.pluginIdFromAuId(auid);
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Retrieve the Archival Unit configuration stored in the database.
-    Map<String,String> configuration =
-	getConfigManagerSql().findArchivalUnitConfiguration(pluginId, auKey);
+    Map<String, String> configuration = getConfigManagerSql()
+	.findArchivalUnitConfiguration(conn, pluginId, auKey);
 
     // Check whether a configuration was found.
     if (!configuration.isEmpty()) {
@@ -4113,6 +4185,84 @@ public class ConfigManager implements LockssManager {
 
     if (log.isDebug2()) log.debug2("Done");
     return;
+  }
+
+  /**
+   * Loads the au.txt file into the database, if found.
+   */
+  public void loadAuTxtFileIntoDb() {
+    if (log.isDebug3()) log.debug3("cacheConfigDir = " + cacheConfigDir);
+
+    // Locate the au.txt file.
+    File auTxtFile = new File(cacheConfigDir, CONFIG_FILE_AU_CONFIG);
+    if (log.isDebug3()) log.debug3("auTxtFile = " + auTxtFile);
+
+    // Check whether the file exists.
+    if (auTxtFile.exists()) {
+      // Yes.
+      Connection conn = null;
+
+      try {
+        // Get a connection to the database.
+        conn = getConfigManagerSql().getConnection();
+
+	// Load the Archival Unit configurations from the file.
+	Configuration orgLockssAu = getConfigGeneration(auTxtFile.getPath(),
+	    false, true, "cache config", trueKeyPredicate).getConfig()
+	    .getConfigTree("org.lockss.au");
+
+	// Loop through all the plugins found in the file.
+	for (Iterator pluginIter = orgLockssAu.nodeIterator();
+	    pluginIter.hasNext();) {
+	  String pluginKey = (String)pluginIter.next();
+	  if (log.isDebug3()) log.debug3("pluginKey = " + pluginKey);
+
+	  // Loop through all the Archival Units found for this plugin.
+	  for (Iterator auIter = orgLockssAu.nodeIterator(pluginKey);
+	      auIter.hasNext(); ) {
+	    String auKey = (String)auIter.next();
+	    if (log.isDebug3()) log.debug3("auKey = " + auKey);
+	    String auIdKey = pluginKey + "." + auKey;
+	    if (log.isDebug3()) log.debug3("auIdKey = " + auIdKey);
+
+	    // Get the configuration properties for this Archival Unit.
+	    Configuration auConf = orgLockssAu.getConfigTree(auIdKey);
+	    if (log.isDebug3()) log.debug3("auConf = " + auConf);
+
+	    Map<String, String> auConfig = new HashMap<>();
+
+	    // Loop through all the property keys of this Archival Unit.
+	    for (String key : auConf.keySet()) {
+	      String value = auConf.get(key);
+	      if (log.isDebug3())
+		log.debug3("key = " + key + ", value = " + value);
+
+	      // Populate the Archival Unit configuration map with this
+	      // property.
+	      auConfig.put(key, value);
+	    }
+
+	    // Write to the database the configuration properties of this
+	    // Archival Unit.
+	    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(
+		conn, pluginKey, auKey, auConfig);
+	    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+	  }
+	}
+      } catch (DbException dbe) {
+	log.critical("Error storing contents of file '" + auTxtFile
+	    + "' in the database", dbe);
+      } catch (IOException ioe) {
+	log.critical("Error reading contents of file '" + auTxtFile + "'", ioe);
+      } finally {
+	DbManager.safeRollbackAndClose(conn);
+      }
+
+      // Mark the au.txt file as migrated, to avoid processing it again.
+      boolean renamed = auTxtFile.renameTo(new File(cacheConfigDir,
+	  CONFIG_FILE_AU_CONFIG + ".migrated"));
+      if (log.isDebug3()) log.debug3("renamed = " + renamed);
+    }
   }
 
   private class MyMessageListener

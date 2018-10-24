@@ -36,6 +36,7 @@ import java.util.zip.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.account.*;
 import org.lockss.plugin.*;
@@ -340,7 +341,7 @@ public class RemoteApi
    * @throws IOException
    */
   public void deactivateAu(AuProxy aup)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException {
     ArchivalUnit au = aup.getAu();
     pluginMgr.deactivateAu(au);
   }
@@ -356,7 +357,8 @@ public class RemoteApi
    * @param aup the AuProxy
    * @return the AU's Configuration, with unprefixed keys.
    */
-  public Configuration getStoredAuConfiguration(AuProxy aup) {
+  public Configuration getStoredAuConfiguration(AuProxy aup)
+      throws DbException {
     return pluginMgr.getStoredAuConfiguration(aup.getAuId());
   }
 
@@ -981,9 +983,9 @@ public class RemoteApi
 	    pluginMgr.deactivateAu(au);
 	    stat.setStatus("Deactivated", STATUS_ORDER_NORM);
 	    lastStat = stat;
-	  } catch (IOException e) {
+	  } catch (DbException dbe) {
 	    stat.setStatus("Not Deactivated", STATUS_ORDER_WARN);
-	    stat.setExplanation("Error deleting: " + e.getMessage());
+	    stat.setExplanation("Error deleting: " + dbe.getMessage());
 	  }
 	} else {
 	  stat.setStatus("Not Found", STATUS_ORDER_WARN);
@@ -1050,7 +1052,19 @@ public class RemoteApi
 
     BatchAuStatus.Entry stat = new BatchAuStatus.Entry(auid);
     stat.setRepoNames(repoMgr.findExistingRepositoriesFor(auid));
-    Configuration oldConfig = pluginMgr.getStoredAuConfiguration(auid);
+
+    Configuration oldConfig = null;
+
+    try {
+      oldConfig = pluginMgr.getStoredAuConfiguration(auid);
+    } catch (DbException dbe) {
+      stat.setStatus("Database Error", STATUS_ORDER_ERROR);
+      stat.setExplanation(dbe.getMessage());
+
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "stat = " + stat);
+      return stat;
+    }
+
     String name = null;
     if (oldConfig != null) {
       name = oldConfig.get(AU_PARAM_DISPLAY_NAME);
@@ -1194,6 +1208,9 @@ public class RemoteApi
       } catch (IOException e) {
 	stat.setStatus("I/O Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(e.getMessage());
+      } catch (DbException dbe) {
+	stat.setStatus("Database Error", STATUS_ORDER_ERROR);
+	stat.setExplanation(dbe.getMessage());
       }
     }
     // If a restored AU config has no name, it's probably an old one.  Try
@@ -1246,7 +1263,7 @@ public class RemoteApi
     return findAusInSetsToAdd(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToAdd(TitleSet ts) {
+  public BatchAuStatus findAusInSetToAdd(TitleSet ts) throws DbException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToAdd(bas, ts.getTitles().iterator());
   }
@@ -1295,7 +1312,7 @@ public class RemoteApi
     return findAusInSetsToDelete(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToDelete(TitleSet ts) {
+  public BatchAuStatus findAusInSetToDelete(TitleSet ts) throws DbException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToDelete(bas, ts.getTitles().iterator());
   }
@@ -1342,7 +1359,7 @@ public class RemoteApi
     return findAusInSetsToActivate(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToActivate(TitleSet ts) {
+  public BatchAuStatus findAusInSetToActivate(TitleSet ts) throws DbException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToActivate(bas, ts.getTitles().iterator());
   }
@@ -1679,13 +1696,17 @@ public class RemoteApi
    * TreeSet unless changed to never return 0. */
   static class AuProxyOrderComparator implements Comparator {
     public int compare(Object o1, Object o2) {
-      AuProxy a1 = (AuProxy)o1;
-      AuProxy a2 = (AuProxy)o2;
-      int res = coc.compare(a1.getName(), a2.getName());
-      if (res == 0) {
-	res = a1.getAuId().compareTo(a2.getAuId());
+      try {
+	AuProxy a1 = (AuProxy)o1;
+	AuProxy a2 = (AuProxy)o2;
+	int res = coc.compare(a1.getName(), a2.getName());
+	if (res == 0) {
+	  res = a1.getAuId().compareTo(a2.getAuId());
+	}
+	return res;
+      } catch (DbException dbe) {
+	throw new RuntimeException("Database error", dbe);
       }
-      return res;
     }
   }
 
@@ -2218,7 +2239,7 @@ public class RemoteApi
    *          A List<String> with the identifiers of the archival units.
    * @return a BatchAuStatus object describing the results.
    */
-  public BatchAuStatus reactivateAus(List<String> auIds) {
+  public BatchAuStatus reactivateAus(List<String> auIds) throws DbException {
     final String DEBUG_HEADER = "reactivateAus(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auIds = " + auIds);
 
