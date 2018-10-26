@@ -1089,7 +1089,6 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(url, cuss.getUrl());
   }
 
-  @Ignore
   @Test
   public void testGetCandidateAus() throws Exception {
     mgr.startService();
@@ -1098,22 +1097,22 @@ public class TestPluginManager extends LockssTestCase4 {
 
     assertEmpty(mgr.getCandidateAus(h1 + " foo.html"));
 
-    MockArchivalUnit au0 = new MockArchivalUnit("au0");
+    MockArchivalUnit au0 = new MockArchivalUnit("plugin1&au0");
     au0.setName("The Little Prince");
     au0.setUrlStems(ListUtil.list(h2));
     PluginTestUtil.registerArchivalUnit(au0);
 
-    MockArchivalUnit au1 = new MockArchivalUnit("au1");
+    MockArchivalUnit au1 = new MockArchivalUnit("plugin1&au1");
     au1.setName("The Little Dipper");
     au1.setUrlStems(ListUtil.list(h1, h2));
     PluginTestUtil.registerArchivalUnit(au1);
 
-    MockArchivalUnit au2 = new MockArchivalUnit("au2");
+    MockArchivalUnit au2 = new MockArchivalUnit("plugin1&au2");
     au2.setName("Little Richard Journal 10");
     au2.setUrlStems(ListUtil.list(h1, h2));
     PluginTestUtil.registerArchivalUnit(au2);
 
-    MockArchivalUnit au3 = new MockArchivalUnit("au3");
+    MockArchivalUnit au3 = new MockArchivalUnit("plugin1&au3");
     au3.setName("Little Richard Journal 9");
     au3.setUrlStems(ListUtil.list(h1));
     PluginTestUtil.registerArchivalUnit(au3);
@@ -1161,8 +1160,8 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(CuContentReq.DontCare.satisfies(CuContentReq.DontCare));
   }
 
-  @Test
   @Ignore("Test fails when au.txt is migrated to a database")
+  @Test
   public void testFindCachedUrl() throws Exception {
     mgr.startService();
     String url1 = "http://foo.bar/baz";

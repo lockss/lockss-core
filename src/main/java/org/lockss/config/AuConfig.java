@@ -31,8 +31,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.config;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.lockss.plugin.PluginManager;
 
 /**
  * Representation of an Archival Unit configuration.
@@ -49,7 +51,7 @@ public class AuConfig {
   private Map<String, String> configuration = null;
 
   /**
-   * Constructor.
+   * Constructor from members.
    * 
    * @param auid
    *          A String with the Archival Unit identifier.
@@ -60,6 +62,33 @@ public class AuConfig {
     super();
     this.auid = auid;
     this.configuration = configuration;
+  }
+
+  /**
+   * Constructor from a generic configuration.
+   * 
+   * @param auPropKey
+   *          A String with the key under which the Archival Unit configuration
+   *          properties are listed.
+   * @param auConfiguration
+   *          A Configuration with the Archival Unit configuration properties.
+   */
+  public AuConfig(String auPropKey, Configuration auConfiguration) {
+    super();
+
+    // Save the Archival Unit identifier from the property key.
+    auid = auPropKey.substring(
+	(PluginManager.PARAM_AU_TREE + ".").length()).replaceFirst("\\.", "&");
+
+    // Get the subtree of Archival Unit configuration properties.
+    Configuration newConf = auConfiguration.getConfigTree(auPropKey);
+
+    // Save the Archival Unit configuration properties.
+    configuration = new HashMap<String, String>();
+
+    for (String key : newConf.keySet()) {
+      configuration.put(key, newConf.get(key));
+    }
   }
 
   /**

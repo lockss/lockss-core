@@ -751,8 +751,8 @@ public class PluginManager
 	  }
 	}
       } catch (DbException dbe) {
-	log.critical("Error getting AU configurations fror plugin '" + pluginKey
-	    + "'from database: Not starting AUs", dbe);
+	log.critical("Error getting AU configurations for plugin '" + pluginKey
+	    + "' from database: Not starting AUs", dbe);
 	return;
       }
       synchronized (auAddDelLock) {
@@ -1012,6 +1012,7 @@ public class PluginManager
 	  log.debug2("Retrying previously unstarted AU id: " + auId);
 	  break;
 	}
+	// TODO: Check whether this is still needed.
 	// If this AU has no config tree in the database, ignore it.  Prevents
 	// race caused by config reload asynchronous to quick AU
 	// create/delete.  Because config reload never deletes AUs, this
@@ -1051,7 +1052,8 @@ public class PluginManager
    * @see PARAM_ALLOW_GLOBAL_AU_CONFIG
    */
   boolean isAuConfInDb(String auId) throws DbException {
-    return configMgr.retrieveArchivalUnitConfiguration(auId) == null;
+    return !configMgr.retrieveArchivalUnitConfiguration(auId)
+	.getConfiguration().isEmpty();
   }
 
   void configureAu(Plugin plugin, Configuration auConf, String auId)
@@ -1671,8 +1673,8 @@ public class PluginManager
 
   // These don't belong here
   /**
-   * Reconfigure an AU and save the new configuration in the local config
-   * file.  Need to find a better place for this.
+   * Reconfigure an AU and save the new configuration in the database.  Need to
+   * find a better place for this.
    * @param au the AU
    * @param auProps the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
@@ -1681,14 +1683,14 @@ public class PluginManager
    */
   public void setAndSaveAuConfiguration(ArchivalUnit au,
 					Properties auProps)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException {
     setAndSaveAuConfiguration(au,
 			      ConfigManager.fromPropertiesUnsealed(auProps));
   }
 
   /**
-   * Reconfigure an AU and save the new configuration in the local config
-   * file.  Need to find a better place for this.
+   * Reconfigure an AU and save the new configuration in the database.  Need to
+   * find a better place for this.
    * @param au the AU
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
@@ -1697,16 +1699,16 @@ public class PluginManager
    */
   public void setAndSaveAuConfiguration(ArchivalUnit au,
 					Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException {
     synchronized (auAddDelLock) {
       log.debug("Reconfiguring AU " + au);
       au.setConfiguration(auConf);
-      updateAuConfigFile(au, auConf);
+      updateAuIndatabase(au, auConf);
     }
   }
 
-  private void updateAuConfigFile(ArchivalUnit au, Configuration auConf)
-      throws IOException {
+  private void updateAuIndatabase(ArchivalUnit au, Configuration auConf)
+      throws DbException {
     if (!auConf.isEmpty()) {
       if (!auConf.isSealed()) {
 	auConf.put(AU_PARAM_DISPLAY_NAME, au.getName());
@@ -1715,22 +1717,24 @@ public class PluginManager
 		  new Throwable());
       }
     }
-    updateAuConfigFile(au.getAuId(), auConf);
+    updateAuInDatabase(au.getAuId(), auConf);
   }
 
-  public void updateAuConfigFile(String auid, Configuration auConf)
-      throws IOException {
+  public void updateAuInDatabase(String auid, Configuration auConf)
+      throws DbException {
     String prefix = auConfigPrefix(auid);
     Configuration fqConfig = auConf.addPrefix(prefix);
     synchronized (auAddDelLock) {
-      configMgr.updateAuConfigFile(fqConfig, prefix);
+      Long auSeq = configMgr.storeArchivalUnitConfiguration(
+	  new AuConfig(prefix, fqConfig));
+      if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
     }
   }
 
 
   /**
-   * Create an AU and save its configuration in the local config
-   * file.  Need to find a better place for this.
+   * Create an AU and save its configuration in the database.  Need to find a
+   * better place for this.
    * @param plugin the Plugin in which to create the AU
    * @param auProps the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
@@ -1740,14 +1744,14 @@ public class PluginManager
    */
   public ArchivalUnit createAndSaveAuConfiguration(Plugin plugin,
 						   Properties auProps)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException {
     return createAndSaveAuConfiguration(plugin,
 					ConfigManager.fromPropertiesUnsealed(auProps));
   }
 
   /**
-   * Create an AU and save its configuration in the local config
-   * file.  Need to find a better place for this.
+   * Create an AU and save its configuration in the database.  Need to find a
+   * better place for this.
    * @param plugin the Plugin in which to create the AU
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
@@ -1757,46 +1761,46 @@ public class PluginManager
    */
   public ArchivalUnit createAndSaveAuConfiguration(Plugin plugin,
 						   Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException {
     synchronized (auAddDelLock) {
       auConf.put(AU_PARAM_DISABLED, "false");
       ArchivalUnit au = createAu(plugin, auConf,
                                  AuEvent.model(AuEvent.Type.Create));
-      updateAuConfigFile(au, auConf);
+      updateAuIndatabase(au, auConf);
       return au;
     }
   }
 
   /**
-   * Delete AU configuration from the local config file.  Need to find a
-   * better place for this.
+   * Delete AU configuration from the database.  Need to find a better place for
+   * this.
    * @param au the ArchivalUnit to be unconfigured
    * @throws IOException
    */
-  public void deleteAuConfiguration(ArchivalUnit au) throws IOException {
+  public void deleteAuConfiguration(ArchivalUnit au) throws DbException {
     synchronized (auAddDelLock) {
       log.debug("Deleting AU config: " + au);
-      updateAuConfigFile(au, ConfigManager.EMPTY_CONFIGURATION);
+      configMgr.removeArchivalUnitConfiguration(au.getAuId());
     }
   }
 
   /**
-   * Delete AU configuration from the local config file.  Need to find a
-   * better place for this.
+   * Delete AU configuration from the database.  Need to find a better place for
+   * this.
    * @param auid the AuId
    * @throws IOException
    */
-  public void deleteAuConfiguration(String auid) throws IOException {
+  public void deleteAuConfiguration(String auid) throws DbException {
     synchronized (auAddDelLock) {
       log.debug("Deleting AU config: " + auid);
-      updateAuConfigFile(auid, ConfigManager.EMPTY_CONFIGURATION);
+      configMgr.removeArchivalUnitConfiguration(auid);
       // might be deleting an inactive au
       inactiveAuIds.remove(auid);
     }
   }
 
   /**
-   * Deactivate an AU in the config file.  Does not actually stop the AU.
+   * Deactivate an AU in the database.  Does not actually stop the AU.
    * @param au the ArchivalUnit to be deactivated
    * @throws IOException
    */
@@ -1827,7 +1831,7 @@ public class PluginManager
    * @param au the ArchivalUnit to be deleted
    * @throws IOException
    */
-  public void deleteAu(ArchivalUnit au) throws IOException {
+  public void deleteAu(ArchivalUnit au) throws DbException {
     synchronized (auAddDelLock) {
       deleteAuConfiguration(au);
       if (isRemoveStoppedAus()) {
@@ -2013,16 +2017,6 @@ public class PluginManager
 
     if (log.isDebug2()) log.debug2("config = " + config);
     return config;
-  }
-
-  /**
-   * Return the current config info for an AU (from current configuration)
-   * @param auid the AU's id.
-   * @return the AU's Configuration, with unprefixed keys.
-   */
-  public Configuration getCurrentAuConfiguration(String auid) {
-    String aukey = configKeyFromAuId(auid);
-    return ConfigManager.getCurrentConfig().getConfigTree(auConfigPrefix(auid));
   }
 
   // Loadable Plugin Support

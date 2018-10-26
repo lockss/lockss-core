@@ -99,6 +99,7 @@ public class ConfigManagerSql {
       + " left outer join " + ARCHIVAL_UNIT_CONFIG_TABLE + " ac"
       + " on a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = ac."
       + ARCHIVAL_UNIT_SEQ_COLUMN
+      + " where p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
       + " order by a." + ARCHIVAL_UNIT_SEQ_COLUMN;
 
   // Query to find the configurations of an Archival Unit.
@@ -335,11 +336,11 @@ public class ConfigManagerSql {
   	  // Yes: Get the identifier of the plugin of this result.
   	  String pluginId = resultSet.getString(PLUGIN_ID_COLUMN);
   	  log.trace("pluginId = {}", pluginId);
- 
+
   	  // Get the key identifier of the Archival Unit of this result.
   	  String auKey = resultSet.getString(ARCHIVAL_UNIT_KEY_COLUMN);
   	  log.trace("auKey = {}", auKey);
-  
+
   	  // Build the Archival Unit identifier.
   	  String auId = PluginManager.generateAuId(pluginId, auKey);
   	  log.trace("auId = {}", auId);

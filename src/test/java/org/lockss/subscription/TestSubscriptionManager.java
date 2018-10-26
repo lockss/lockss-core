@@ -831,7 +831,7 @@ public class TestSubscriptionManager extends LockssTestCase {
 
   private BatchAuStatus configureAu(TdbAu tdbAu, Subscription subscription,
       String subscribedRanges, String unsubscribedRanges) throws IOException,
-      SubscriptionException {
+      DbException, SubscriptionException {
     subscription.setSubscribedRanges(Collections
 	.singletonList(new BibliographicPeriod(subscribedRanges)));
     subscription.setUnsubscribedRanges(Collections

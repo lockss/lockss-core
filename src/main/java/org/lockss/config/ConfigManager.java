@@ -621,10 +621,6 @@ public class ConfigManager implements LockssManager {
     new LocalFileDescr(CONFIG_FILE_UI_IP_ACCESS),
     new LocalFileDescr(CONFIG_FILE_PROXY_IP_ACCESS),
     new LocalFileDescr(CONFIG_FILE_PLUGIN_CONFIG),
-    // au.txt updates correspond to changes already made to running
-    // structures, so needn't cause a config reload.
-    new LocalFileDescr(CONFIG_FILE_AU_CONFIG)
-    .setNeedReloadAfterWrite(false),
     new LocalFileDescr(CONFIG_FILE_ICP_SERVER), // obsolescent
     new LocalFileDescr(CONFIG_FILE_AUDIT_PROXY),	// obsolescent
     // must follow obsolescent icp server and audit proxy files
@@ -2556,28 +2552,6 @@ public class ConfigManager implements LockssManager {
     return res;
   }
 
-  private boolean didWarnNoAuConfig = false;
-
-  /**
-   * Return the contents of the local AU config file.
-   * @return the Configuration from the AU config file, or an empty config
-   * if no config file found
-   */
-  public Configuration readAuConfigFile() {
-    Configuration auConfig;
-    try {
-      auConfig = readCacheConfigFile(CONFIG_FILE_AU_CONFIG);
-      didWarnNoAuConfig = false;
-    } catch (IOException e) {
-      if (!didWarnNoAuConfig) {
-	log.warning("Couldn't read AU config file: " + e.getMessage());
-	didWarnNoAuConfig = true;
-      }
-      auConfig = newConfiguration();
-    }
-    return auConfig;
-  }
-
   /** Write the named local cache config file into the previously determined
    * cache config directory.
    * @param props properties to write
@@ -2687,123 +2661,6 @@ public class ConfigManager implements LockssManager {
     String noExt = StringUtil.upToFinal(cacheConfigFileName, ".");
     return StringUtil.replaceString(PARAM_CONFIG_FILE_VERSION,
 				    "<filename>", noExt);
-  }
-
-  /* Support for batching changes to au.txt, and to prevent a config
-   * reload from being triggered each time the AU config file is rewritten.
-   * Clients who call startAuBatch() <b>must</b> call finishAuBatch() when
-   * done (in a <code>finally</code>), then call requestReload() if
-   * appropriate */
-
-  private int auBatchDepth = 0;
-  private Configuration deferredAuConfig;
-  private List<String> deferredAuDeleteKeys;
-  private int deferredAuBatchSize;
-
-  /** Called before a batch of calls to {@link
-   * #updateAuConfigFile(Properties, String)} or {@link
-   * #updateAuConfigFile(Configuration, String)}, causes updates to be
-   * accumulated in memory, up to a maximum of {@link
-   * #PARAM_MAX_DEFERRED_AU_BATCH_SIZE}, before they are all written to
-   * disk.  {@link #finishAuBatch()} <b>MUST</b> be called at the end of
-   * the batch, to ensure the final batch is written.  All removals
-   * (<code>auPropKey</code> arg to updateAuConfigFile) in a batch are
-   * performed before any additions, so the result of the same sequence of
-   * updates in batched and non-batched mode is not necessarily equivalent.
-   * It is guaranteed to be so if no AU is updated more than once in the
-   * batch.  <br>This speeds up batch AU addition/deletion by a couple
-   * orders of magnitude, which will suffice until the AU config is moved
-   * to a database.
-   */
-  public synchronized void startAuBatch() {
-    auBatchDepth++;
-  }
-
-  public synchronized void finishAuBatch() throws IOException {
-    executeDeferredAuBatch();
-    if (--auBatchDepth < 0) {
-      log.warning("auBatchDepth want negative, resetting to zero",
-		  new Throwable("Marker"));
-      auBatchDepth = 0;
-    }
-  }
-
-  private void executeDeferredAuBatch() throws IOException {
-    if (deferredAuConfig != null &&
-	(!deferredAuConfig.isEmpty() || !deferredAuDeleteKeys.isEmpty())) {
-      updateAuConfigFile(deferredAuConfig, deferredAuDeleteKeys);
-      deferredAuConfig = null;
-      deferredAuDeleteKeys = null;
-      deferredAuBatchSize = 0;
-    }
-  }
-
-  /** Replace one AU's config keys in the local AU config file.
-   * @param auProps new properties for AU
-   * @param auPropKey the common initial part of all keys in the AU's config
-   */
-  public void updateAuConfigFile(Properties auProps, String auPropKey)
-      throws IOException {
-    updateAuConfigFile(fromProperties(auProps), auPropKey);
-  }
-
-  /** Replace one AU's config keys in the local AU config file.
-   * @param auConfig new config for AU
-   * @param auPropKey the common initial part of all keys in the AU's config
-   */
-  public synchronized void updateAuConfigFile(Configuration auConfig,
-					      String auPropKey)
-      throws IOException {
-    if (auBatchDepth > 0) {
-      if (deferredAuConfig == null) {
-	deferredAuConfig = newConfiguration();
-	deferredAuDeleteKeys = new ArrayList<String>();
-	deferredAuBatchSize = 0;
-      }
-      deferredAuConfig.copyFrom(auConfig);
-      if (auPropKey != null) {
-	deferredAuDeleteKeys.add(auPropKey);
-      }
-      if (++deferredAuBatchSize >= maxDeferredAuBatchSize) {
-	executeDeferredAuBatch();
-      }
-    } else {
-      updateAuConfigFile(auConfig,
-			 auPropKey == null ? null : ListUtil.list(auPropKey));
-    }
-  }
-
-  /** Replace one or more AUs' config keys in the local AU config file.
-   * @param auConfig new config for the AUs
-   * @param auPropKeys list of au subtree roots to remove
-   */
-  private void updateAuConfigFile(Configuration auConfig,
-				  List<String> auPropKeys)
-      throws IOException {
-    Configuration fileConfig;
-    try {
-      fileConfig = readCacheConfigFile(CONFIG_FILE_AU_CONFIG);
-    } catch (FileNotFoundException e) {
-      fileConfig = newConfiguration();
-    }
-    if (fileConfig.isSealed()) {
-      fileConfig = fileConfig.copy();
-    }
-    // first remove all existing values for the AUs
-    if (auPropKeys != null) {
-      for (String key : auPropKeys) {
-	fileConfig.removeConfigTree(key);
-      }
-    }
-    // then add the new config
-    for (Iterator iter = auConfig.keySet().iterator(); iter.hasNext();) {
-      String key = (String)iter.next();
-      fileConfig.put(key, auConfig.get(key));
-    }
-    // seal it so FileConfigFile.storedConfig() won't have to make a copy
-    fileConfig.seal();
-    writeCacheConfigFile(fileConfig, CONFIG_FILE_AU_CONFIG,
-			 "AU Configuration", auBatchDepth > 0);
   }
 
   /**
@@ -3965,12 +3822,12 @@ public class ConfigManager implements LockssManager {
     Connection conn = null;
 
     try {
-	// Get a connection to the database.
-	conn = getConnection();
+      // Get a connection to the database.
+      conn = getConnection();
 
-	return storeArchivalUnitConfiguration(conn, auConfig);
+      return storeArchivalUnitConfiguration(conn, auConfig);
     } finally {
-	DbManager.safeRollbackAndClose(conn);
+      DbManager.safeRollbackAndClose(conn);
     }
   }
 
@@ -4034,7 +3891,7 @@ public class ConfigManager implements LockssManager {
 
     // Loop through all the retrieved Archival Units identifiers.
     for (String auid : auConfigs.keySet()) {
-      if (log.isDebug3()) log.debug3("auida = " + auid);
+      if (log.isDebug3()) log.debug3("auid = " + auid);
 
       // Get the configuration of this Archival Unit.
       Map<String, String> auConfiguration = auConfigs.get(auid);
@@ -4200,7 +4057,11 @@ public class ConfigManager implements LockssManager {
     // Check whether the file exists.
     if (auTxtFile.exists()) {
       // Yes.
+      log.info("Loading file " + auTxtFile
+	  + " into the AU configuration database");
+
       Connection conn = null;
+      boolean successful = false;
 
       try {
         // Get a connection to the database.
@@ -4209,7 +4070,7 @@ public class ConfigManager implements LockssManager {
 	// Load the Archival Unit configurations from the file.
 	Configuration orgLockssAu = getConfigGeneration(auTxtFile.getPath(),
 	    false, true, "cache config", trueKeyPredicate).getConfig()
-	    .getConfigTree("org.lockss.au");
+	    .getConfigTree(PluginManager.PARAM_AU_TREE);
 
 	// Loop through all the plugins found in the file.
 	for (Iterator pluginIter = orgLockssAu.nodeIterator();
@@ -4249,6 +4110,8 @@ public class ConfigManager implements LockssManager {
 	    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
 	  }
 	}
+
+	successful = true;
       } catch (DbException dbe) {
 	log.critical("Error storing contents of file '" + auTxtFile
 	    + "' in the database", dbe);
@@ -4258,10 +4121,14 @@ public class ConfigManager implements LockssManager {
 	DbManager.safeRollbackAndClose(conn);
       }
 
-      // Mark the au.txt file as migrated, to avoid processing it again.
-      boolean renamed = auTxtFile.renameTo(new File(cacheConfigDir,
-	  CONFIG_FILE_AU_CONFIG + ".migrated"));
-      if (log.isDebug3()) log.debug3("renamed = " + renamed);
+      //TODO: Record failed AUs?
+      // Mark the au.txt file as migrated, to avoid processing it again, if the
+      // process loaded all the Archival Units without errors.
+      if (successful) {
+	boolean renamed = auTxtFile.renameTo(new File(cacheConfigDir,
+	    CONFIG_FILE_AU_CONFIG + ".migrated"));
+	if (log.isDebug3()) log.debug3("renamed = " + renamed);
+      }
     }
   }
 

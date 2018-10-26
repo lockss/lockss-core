@@ -113,19 +113,17 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
     PluginTestUtil.registerArchivalUnit(mp, mau2);
     mau1.setTitleConfig(tc1);
     mau2.setTitleConfig(tc2);
-    pluginMgr.updateAuConfigFile(mau1.getAuId(), mau1.getConfiguration());
+    pluginMgr.updateAuInDatabase(mau1.getAuId(), mau1.getConfiguration());
     pluginMgr.deactivateAu(mau1);
     TitleSet ts = new TitleSetInactiveAus(getMockLockssDaemon());
     Collection set = ts.getTitles();
-    // TODO: @Ignore: Fix after the au.txt file migration to the DB has been completed.
-//    assertSameElements(SetUtil.set(tc1), set);
+    assertSameElements(SetUtil.set(tc1), set);
     assertEquals(1, ts.countTitles(TitleSet.SET_REACTABLE));
     assertEquals(0, ts.countTitles(TitleSet.SET_ADDABLE));
     assertEquals(0, ts.countTitles(TitleSet.SET_DELABLE));
 
     TitleConfig fromSet = new ArrayList<TitleConfig>(set).get(0);
-    // TODO: @Ignore: Fix after the au.txt file migration to the DB has been completed.
-//    assertSame(tc1, fromSet);
+    assertSame(tc1, fromSet);
   }
 
   class MyMockArchivalUnit extends MockArchivalUnit {
