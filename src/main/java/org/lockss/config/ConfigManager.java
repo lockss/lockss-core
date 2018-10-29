@@ -715,6 +715,10 @@ public class ConfigManager implements LockssManager {
   // The configuration manager SQL executor.
   private ConfigManagerSql configManagerSql = null;
 
+  // The name of the file used to back-up publisher subscriptions.
+  public static final String AU_CONFIGURATION_DB_BACKUP_FILENAME =
+      "auConfigurationDb.bak";
+
   public ConfigManager() {
     this(null, null);
 
@@ -3876,11 +3880,13 @@ public class ConfigManager implements LockssManager {
    * Provides all the Archival Unit configurations stored in the database.
    * 
    * @return a Collection<AuConfig> with all the Archival Unit configurations.
+   * @throws IOException
+   *           if there are problems writing to the output stream
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
   public Collection<AuConfig> retrieveAllArchivalUnitConfiguration()
-      throws DbException {
+      throws IOException, DbException {
     if (log.isDebug2()) log.debug2("Invoked");
 
     Collection<AuConfig> result = new ArrayList<>();
@@ -4130,6 +4136,22 @@ public class ConfigManager implements LockssManager {
 	if (log.isDebug3()) log.debug3("renamed = " + renamed);
       }
     }
+  }
+
+  /**
+   * Writes to an output stream the Archival Unit configuration database.
+   * 
+   * @param outputStream
+   *          An OutputStream where to write the configurations of all the
+   *          Archival Units stored in the database.
+   * @throws IOException
+   *           if there are problems writing to the output stream
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public void writeAuConfigurationDatabaseBackupToZip(OutputStream outputStream)
+      throws IOException, DbException {
+    getConfigManagerSql().processAllArchivalUnitConfigurations(outputStream);
   }
 
   private class MyMessageListener

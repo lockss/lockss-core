@@ -32,6 +32,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config.db;
 
 import static org.lockss.config.db.SqlConstants.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -45,6 +48,7 @@ import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginManager;
+import org.lockss.util.StringUtil;
 import org.lockss.util.time.TimeBase;
 
 /**
@@ -180,6 +184,9 @@ public class ConfigManagerSql {
       + " and p." + PLUGIN_ID_COLUMN + " = ?"
       + " order by a." + ARCHIVAL_UNIT_SEQ_COLUMN;
 
+  // The field separator in the subscription backup file.
+  private static final String BACKUP_FIELD_SEPARATOR = "\t";
+
   /**
    * Constructor.
    */
@@ -298,14 +305,43 @@ public class ConfigManagerSql {
    * 
    * @return a Map<String, Map<String,String>> with all the Archival Unit
    *         configurations, keyed by each Archival Unit identifier.
+   * @throws IOException
+   *           if there are problems writing to the output stream
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
   public Map<String, Map<String,String>> findAllArchivalUnitConfiguration()
-      throws DbException {
+      throws IOException, DbException {
+    return processAllArchivalUnitConfigurations(null);
+  }
+
+  /**
+   * Processes all the Archival Unit configurations stored in the database,
+   * either returning them or writing them to an aoutput stream.
+   * 
+   * @param outputStream
+   *          An OutputStream where to write the configurations of all the
+   *          Archival Units stored in the database, or <code>null</code> if the
+   *          configurations are to be returned, instead.
+   * @return a Map<String, Map<String,String>> with all the Archival Unit
+   *         configurations, keyed by each Archival Unit identifier, if no
+   *         output stream is passed.
+   * @throws IOException
+   *           if there are problems writing to the output stream
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String, Map<String,String>> processAllArchivalUnitConfigurations(
+      OutputStream outputStream) throws IOException, DbException {
     log.debug2("Invoked");
 
-    Map<String, Map<String,String>> result = new HashMap<>();
+    Map<String, Map<String,String>> result = null;
+
+    if (outputStream == null) {
+      result = new HashMap<>();
+    }
+
+    String auId = null;
     Map<String,String> auConfig = null;
     Connection conn = null;
     PreparedStatement getConfigurations = null;
@@ -333,6 +369,18 @@ public class ConfigManagerSql {
   	// Check whether this Archival Unit database identifier does not match
   	// the previous one.
   	if (!auSeq.equals(previousAuSeq)) {
+  	  // Check whether this is not the first Archival Unit seen.
+  	  if (previousAuSeq != null) {
+  	    // Yes: Check whether the previous Archival Unit configuration needs
+  	    // to be written to the stream.
+  	    if (outputStream != null) {
+  	      // Write the previous Archival Unit configuration to the stream.
+  	      writeAuConfigurationBackupToStream(auId, auConfig, outputStream);
+  	    } else {
+  	      result.put(auId, auConfig);
+  	    }
+  	  }
+
   	  // Yes: Get the identifier of the plugin of this result.
   	  String pluginId = resultSet.getString(PLUGIN_ID_COLUMN);
   	  log.trace("pluginId = {}", pluginId);
@@ -342,12 +390,11 @@ public class ConfigManagerSql {
   	  log.trace("auKey = {}", auKey);
 
   	  // Build the Archival Unit identifier.
-  	  String auId = PluginManager.generateAuId(pluginId, auKey);
+  	  auId = PluginManager.generateAuId(pluginId, auKey);
   	  log.trace("auId = {}", auId);
 
   	  // Initialize the configuration of this newly seen Archival Unit.
   	  auConfig = new HashMap<>();
-  	  result.put(auId, auConfig);
 
   	  // Remember this result Archival Unit database identifier.
   	  previousAuSeq = auSeq;
@@ -366,6 +413,17 @@ public class ConfigManagerSql {
   	// Save the property.
   	auConfig.put(key, value);
       }
+
+      // Check whether there is a last Archival Unit to be saved.
+      if (auConfig != null && !auConfig.isEmpty()) {
+	// Yes: Check whether it needs to be written to the stream.
+	if (outputStream != null) {
+	  // Write the previous Archival Unit configuration to the stream.
+	  writeAuConfigurationBackupToStream(auId, auConfig, outputStream);
+	} else {
+	  result.put(auId, auConfig);
+	}
+      }
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", GET_ALL_AU_CONFIGURATION_QUERY);
@@ -382,6 +440,60 @@ public class ConfigManagerSql {
 
     log.debug2("Done");
     return result;
+  }
+
+  /**
+   * Writes to an output stream the configuration of an Archival Unit for backup
+   * purposes.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param auConfig
+   *          A Map<String,String> with the Archival Unit configuration
+   *          properties.
+   * @param outputStream
+   *          An OutputStream where to write the Archival Unit configuration
+   *          data.
+   * @throws IOException
+   *           if there are problems writing to the output stream
+   */
+  private void writeAuConfigurationBackupToStream(String auId,
+      Map<String,String> auConfig, OutputStream outputStream)
+	  throws IOException {
+    log.debug2("auId = {}", auId);
+    log.debug2("auConfig = {}", auConfig);
+
+    // Validation.
+    if (auId == null || auId.trim().isEmpty()) {
+      log.warn("Configuration for null/empty AUId not added to backup file.");
+      return;
+    }
+
+    if (auConfig == null || auConfig.isEmpty()) {
+      log.warn("Null/empty AU configuration not added to backup file.");
+      return;
+    }
+
+    // Write the Archival Unit identifier.
+    StringBuilder entry =
+	new StringBuilder(StringUtil.blankOutNlsAndTabs(auId));
+
+    // Loop through all the configuration properties.
+    for (String key : auConfig.keySet()) {
+      // Write the property.
+      entry.append(BACKUP_FIELD_SEPARATOR)
+      .append(StringUtil.blankOutNlsAndTabs(key))
+      .append(BACKUP_FIELD_SEPARATOR)
+      .append(StringUtil.blankOutNlsAndTabs(auConfig.get(key)));
+    }
+
+    log.trace("entry = {}", entry);
+
+    // Write the entry to the output stream.
+    outputStream.write((entry.toString() + "\n")
+	.getBytes(Charset.forName("UTF-8")));
+
+    log.debug2("Done");
   }
 
   /**

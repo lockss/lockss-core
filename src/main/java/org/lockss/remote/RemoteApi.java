@@ -570,6 +570,13 @@ public class RemoteApi
 	  addCfgFileToZip(zip, cfgfile, null);
 	}
       }
+
+      // Add the Archival Unit configuration database.
+      zip.putNextEntry(new ZipEntry(
+	  ConfigManager.AU_CONFIGURATION_DB_BACKUP_FILENAME));
+      configMgr.writeAuConfigurationDatabaseBackupToZip(zip);
+      zip.closeEntry();
+
       // add identity db
       zip.putNextEntry(new ZipEntry(IdentityManager.IDDB_FILENAME));
       try {
