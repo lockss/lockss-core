@@ -200,7 +200,8 @@ public class FileConfigFile extends BaseConfigFile {
    *           if there are problems.
    */
   @Override
-  public void writeFromTempFile(File tempfile, Configuration config)
+  public synchronized void writeFromTempFile(File tempfile,
+					     Configuration config)
       throws IOException {
     final String DEBUG_HEADER = "writeFromTempFile(" + m_fileUrl + "): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "tempfile = " + tempfile);

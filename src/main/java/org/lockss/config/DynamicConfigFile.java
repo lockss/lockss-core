@@ -109,8 +109,8 @@ public abstract class DynamicConfigFile extends FileConfigFile {
    *           if there are problems.
    */
   @Override
-  public ConfigFileReadWriteResult conditionallyRead(HttpRequestPreconditions
-      preconditions) throws IOException {
+  public synchronized ConfigFileReadWriteResult conditionallyRead(HttpRequestPreconditions preconditions)
+      throws IOException {
     final String DEBUG_HEADER = "conditionallyRead(" + m_fileUrl + "): ";
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);

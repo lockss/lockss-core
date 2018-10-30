@@ -1484,7 +1484,7 @@ public class ConfigManager implements LockssManager {
   private String sendVersionInfo;
   private long lastSendVersion;
   private long startUpdateTime;
-  private long lastUpdateTime;
+  private volatile long lastUpdateTime;
   private long startCallbacksTime;
 
   public long getLastUpdateTime() {
