@@ -29,8 +29,11 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.remote;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.*;
 import java.util.*;
+import java.util.stream.Stream;
 import java.util.zip.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -135,6 +138,10 @@ public class RemoteApi
 						    ReferenceMap.WEAK);
   private ReferenceMap pluginProxies = new ReferenceMap(ReferenceMap.WEAK,
 							ReferenceMap.WEAK);
+
+  // The name of the file used to back-up the AU configuration database.
+  static final String BACK_FILE_AU_CONFIGURATION_DB = "auConfigurationDb.bak";
+
   public RemoteApi() {
   }
 
@@ -572,8 +579,7 @@ public class RemoteApi
       }
 
       // Add the Archival Unit configuration database.
-      zip.putNextEntry(new ZipEntry(
-	  ConfigManager.AU_CONFIGURATION_DB_BACKUP_FILENAME));
+      zip.putNextEntry(new ZipEntry(BACK_FILE_AU_CONFIGURATION_DB));
       configMgr.writeAuConfigurationDatabaseBackupToZip(zip);
       zip.closeEntry();
 
@@ -761,16 +767,22 @@ public class RemoteApi
 
       File autxt = new File(dir, ConfigManager.CONFIG_FILE_AU_CONFIG);
       if (!autxt.exists()) {
-	throw new InvalidAuConfigBackupFile("Uploaded file does not appear to be a saved AU configuration: no au.txt");
+	File auDbFile = new File(dir, BACK_FILE_AU_CONFIGURATION_DB);
+	if (log.isDebug3()) log.debug3("auDbFile = " + auDbFile);
+	if (!auDbFile.exists()) {
+	  throw new InvalidAuConfigBackupFile("Uploaded file does not appear to be a saved AU configuration: no AUs found");
+	}
+	BatchAuStatus bas = processSavedDbConfig(auDbFile);
+	bas.setBackupInfo(buildBackupInfo(dir));
+	if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
+	return bas;
       }
       BufferedInputStream auin =
-	new BufferedInputStream(new FileInputStream(autxt));
+	  new BufferedInputStream(new FileInputStream(autxt));
       try {
 	BatchAuStatus bas = processSavedConfigProps(auin);
 	bas.setBackupInfo(buildBackupInfo(dir));
-	if (log.isDebug3()) {
-	  log.debug3("processSavedConfigZip: " + bas);
-	}
+	if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
 	return bas;
       } finally {
 	IOUtil.safeClose(auin);
@@ -826,6 +838,58 @@ public class RemoteApi
       ConfigManager.fromPropertiesUnsealed(allAuProps);
     int ver = checkLegalAuConfigTree(allAuConfig);
     return batchProcessAus(false, BATCH_ADD_RESTORE, allAuConfig, null);
+  }
+
+  /**
+   * Processes the Archival Units saved in the Archival Unit configuration
+   * database backup file.
+   * 
+   * @param auDbFile
+   *          A File with the Archival Unit configuration database backup file.
+   * @return a BatchAuStatus with the processing status.
+   * @throws IOException
+   *           if there are problems accessing the database backup file.
+   */
+  public BatchAuStatus processSavedDbConfig(File auDbFile) throws IOException {
+    if (log.isDebug2()) log.debug2("auDbFile = " + auDbFile);
+    Configuration allAuConfig = getConfigurationFromSavedDbConfig(auDbFile);
+    if (log.isDebug3()) log.debug3("allAuConfig = " + allAuConfig);
+    return batchProcessAus(false, BATCH_ADD_RESTORE, allAuConfig, null);
+  }
+
+  /**
+   * Provides a Configuration object with the contents of the Archival Unit
+   * configuration database backup file.
+   * 
+   * @param auDbFile
+   *          A File with the Archival Unit configuration database backup file.
+   * @return a Configuration with the Archival Unit configurations.
+   * @throws IOException
+   *           if there are problems accessing the database backup file.
+   */
+  public Configuration getConfigurationFromSavedDbConfig(File auDbFile)
+      throws IOException {
+    if (log.isDebug2()) log.debug2("auDbFile = " + auDbFile);
+
+    Configuration result = ConfigManager.newConfiguration();
+    String prefix = PluginManager.PARAM_AU_TREE + ".";
+
+    try (Stream<String> stream =
+	Files.lines(Paths.get(auDbFile.getAbsolutePath()))) {
+      for (String line : (Iterable<String>) stream::iterator) {
+	AuConfig auConfig = AuConfig.fromBackupLine(line);
+	if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+
+	if (log.isDebug3()) log.debug3("prefix = " + prefix);
+
+	Configuration configuration = auConfig.toConfiguration();
+	if (log.isDebug3()) log.debug3("configuration = " + configuration);
+
+	result.addAsSubTree(configuration, prefix);
+      }
+    }
+
+    return result;
   }
 
   /** Throw InvalidAuConfigBackupFile if the config is of an unknown

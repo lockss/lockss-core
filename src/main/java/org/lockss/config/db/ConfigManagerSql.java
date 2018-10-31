@@ -35,6 +35,7 @@ import static org.lockss.config.db.SqlConstants.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -57,7 +58,7 @@ import org.lockss.util.time.TimeBase;
  * @author Fernando García-Loygorri
  */
 public class ConfigManagerSql {
-  private static L4JLogger log = L4JLogger.getLogger();
+  public static L4JLogger log = L4JLogger.getLogger();
 
   private final ConfigDbManager configDbManager;
 
@@ -499,7 +500,9 @@ public class ConfigManagerSql {
     log.trace("entry = {}", entry);
 
     // Write the entry to the output stream.
-    new OutputStreamWriter(outputStream).write(entry.toString());
+    Writer writer = new OutputStreamWriter(outputStream);
+    writer.write(entry.toString());
+    writer.flush();
 
     log.debug2("Done");
   }

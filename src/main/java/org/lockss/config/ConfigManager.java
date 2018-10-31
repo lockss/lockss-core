@@ -715,10 +715,6 @@ public class ConfigManager implements LockssManager {
   // The configuration manager SQL executor.
   private ConfigManagerSql configManagerSql = null;
 
-  // The name of the file used to back-up publisher subscriptions.
-  public static final String AU_CONFIGURATION_DB_BACKUP_FILENAME =
-      "auConfigurationDb.bak";
-
   /** How often to commit when adding Archival Unit configurations to the
    * database.
    * @ParamRelevance Rare

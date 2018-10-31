@@ -32,9 +32,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.lockss.plugin.PluginManager;
+import org.lockss.util.StringUtil;
 
 /**
  * Representation of an Archival Unit configuration.
@@ -88,6 +90,49 @@ public class AuConfig {
     for (String key : newConf.keySet()) {
       configuration.put(key, newConf.get(key));
     }
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in a backup file
+   * line.
+   * 
+   * @param line
+   *          A String with the contents of the backup file line.
+   * @return an AuConfig with the Archival Unit configuration.
+   */
+  public static AuConfig fromBackupLine(String line) {
+    List<String> tokens = StringUtil.breakAt(line, "\t");
+
+    if (tokens == null || tokens.isEmpty() || (tokens.size() - 1) % 2 != 0) {
+      throw new IllegalArgumentException("Invalid Archival Unit backup line: '"
+	  + line + "'");
+    }
+
+    String auId = tokens.get(0);
+    Map<String, String> props = new HashMap<>();
+
+    for (int index = 1; index < tokens.size() - 1; index = index + 2) {
+      props.put(tokens.get(index), tokens.get(index + 1));
+    }
+
+    return new AuConfig(auId, props);
+  }
+
+  /**
+   * Provides a Configuration object equivalent to this one.
+   * 
+   * @return a Configuration object that is equivalent to this one.
+   */
+  public Configuration toConfiguration() {
+    Configuration result = ConfigManager.newConfiguration();
+
+    String configKey = PluginManager.configKeyFromAuId(auid);
+
+    for (String key : configuration.keySet()) {
+      result.put(configKey + "." + key, configuration.get(key));
+    }
+
+    return result;
   }
 
   /**
