@@ -77,8 +77,7 @@ public class AuConfig {
     super();
 
     // Save the Archival Unit identifier from the property key.
-    auid = auPropKey.substring(
-	(PluginManager.PARAM_AU_TREE + ".").length()).replaceFirst("\\.", "&");
+    auid = PluginManager.auIdFromConfigPrefixAndKey(auPropKey);
 
     // Get the subtree of Archival Unit configuration properties.
     Configuration newConf = auConfiguration.getConfigTree(auPropKey);

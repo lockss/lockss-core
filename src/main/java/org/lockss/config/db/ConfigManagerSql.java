@@ -34,7 +34,7 @@ package org.lockss.config.db;
 import static org.lockss.config.db.SqlConstants.*;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.Charset;
+import java.io.OutputStreamWriter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -230,7 +230,8 @@ public class ConfigManagerSql {
       // Get a connection to the database.
       conn = configDbManager.getConnection();
 
-      return addArchivalUnitConfiguration(conn, pluginId, auKey, auConfig);
+      return addArchivalUnitConfiguration(conn, pluginId, auKey, auConfig,
+	  true);
     } catch (DbException dbe) {
       String message = "Cannot add AU configuration";
       log.error(message, dbe);
@@ -254,15 +255,20 @@ public class ConfigManagerSql {
    *          A String with the Archival Unit key identifier.
    * @param auConfig
    *          A Map<String,String> with the Archival Unit configuration.
+   * @param commitAfterAdd
+   *          A boolean with the indication of whether the addition should be
+   *          committed in this method, or not.
    * @return a Long with the database identifier of the Archival Unit.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
   public Long addArchivalUnitConfiguration(Connection conn, String pluginId,
-      String auKey, Map<String,String> auConfig) throws DbException {
+      String auKey, Map<String,String> auConfig, boolean commitAfterAdd)
+	  throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
     log.debug2("auConfig = {}", () -> auConfig);
+    log.debug2("commitAfterAdd = {}", commitAfterAdd);
 
     Long auSeq = null;
 
@@ -285,8 +291,10 @@ public class ConfigManagerSql {
       // Update the Archival Unit last update timestamp.
       updateArchivalUnitLastUpdateTimestamp(conn, auSeq, now);
 
-      // Commit the transaction.
-      ConfigDbManager.commitOrRollback(conn, log);
+      if (commitAfterAdd) {
+	// Commit the transaction.
+	ConfigDbManager.commitOrRollback(conn, log);
+      }
     } catch (DbException dbe) {
       String message = "Cannot add AU configuration";
       log.error(message, dbe);
@@ -487,11 +495,11 @@ public class ConfigManagerSql {
       .append(StringUtil.blankOutNlsAndTabs(auConfig.get(key)));
     }
 
+    entry.append("\n");
     log.trace("entry = {}", entry);
 
     // Write the entry to the output stream.
-    outputStream.write((entry.toString() + "\n")
-	.getBytes(Charset.forName("UTF-8")));
+    new OutputStreamWriter(outputStream).write(entry.toString());
 
     log.debug2("Done");
   }

@@ -974,6 +974,11 @@ public class PluginManager
     return PARAM_AU_TREE + "." + PluginManager.configKeyFromAuId(auid);
   }
 
+  public static String auIdFromConfigPrefixAndKey(String configPrefixAndKey) {
+    return configPrefixAndKey.substring(
+	(PluginManager.PARAM_AU_TREE + ".").length()).replaceFirst("\\.", "&");
+  }
+
   private void configurePlugin(String pluginKey, Configuration pluginConf,
 			       SkipConfigCondition scc) {
     if (!ensurePluginLoaded(pluginKey)) {

@@ -719,6 +719,16 @@ public class ConfigManager implements LockssManager {
   public static final String AU_CONFIGURATION_DB_BACKUP_FILENAME =
       "auConfigurationDb.bak";
 
+  /** How often to commit when adding Archival Unit configurations to the
+   * database.
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_AU_INSERT_COMMIT_COUNT =
+      MYPREFIX + "auInsertCommitCount";
+  public static final int DEFAULT_AU_INSERT_COMMIT_COUNT = 50;
+
+  private int auInsertCommitCount = DEFAULT_AU_INSERT_COMMIT_COUNT;
+
   public ConfigManager() {
     this(null, null);
 
@@ -1805,6 +1815,8 @@ public class ConfigManager implements LockssManager {
       enableJmsReceive = config.getBoolean(PARAM_ENABLE_JMS_RECEIVE,
 					   DEFAULT_ENABLE_JMS_RECEIVE);
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
+      auInsertCommitCount = config.getInt(PARAM_AU_INSERT_COMMIT_COUNT,
+	  				  DEFAULT_AU_INSERT_COMMIT_COUNT);
     }
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
@@ -3870,7 +3882,7 @@ public class ConfigManager implements LockssManager {
 
     // Store the configuration in the database.
     Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(conn,
-	pluginId, auKey, configuration);
+	pluginId, auKey, configuration, true);
 
     if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
     return auSeq;
@@ -4068,6 +4080,7 @@ public class ConfigManager implements LockssManager {
 
       Connection conn = null;
       boolean successful = false;
+      int addedCount = 0;
 
       try {
         // Get a connection to the database.
@@ -4112,9 +4125,23 @@ public class ConfigManager implements LockssManager {
 	    // Write to the database the configuration properties of this
 	    // Archival Unit.
 	    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(
-		conn, pluginKey, auKey, auConfig);
+		conn, pluginKey, auKey, auConfig, false);
 	    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+
+	    // Commit the configurations written since the last commit if the
+	    // maximum pending count has been reached.
+	    addedCount++;
+
+	    if (addedCount % auInsertCommitCount == 0) {
+	      ConfigDbManager.commitOrRollback(conn, log);
+	      addedCount = 0;
+	    }
 	  }
+	}
+
+	// Commit the configurations written since the last commit.
+	if (addedCount > 0) {
+	  ConfigDbManager.commitOrRollback(conn, log);
 	}
 
 	successful = true;
@@ -4135,6 +4162,7 @@ public class ConfigManager implements LockssManager {
 	    CONFIG_FILE_AU_CONFIG + ".migrated"));
 	if (log.isDebug3()) log.debug3("renamed = " + renamed);
       }
+      log.debug2("Done");
     }
   }
 
