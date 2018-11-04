@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <description>The Slimmed Down LOCKSS Daemon Core</description>
 
   <properties>
-    <jackson.version>2.9.0</jackson.version>
+    <jackson.version>2.9.5</jackson.version>
     <build.releasename>1.74.0</build.releasename>
     <skip.stf.tests>true</skip.stf.tests>
     <run.classpath.file>${basedir}/target/run-classpath</run.classpath.file>
@@ -374,6 +374,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
+      <version>4.5.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient-cache</artifactId>
       <version>4.5.3</version>
     </dependency>
     <dependency>

@@ -57,7 +57,7 @@ public abstract class BaseConfigFile implements ConfigFile {
   protected String m_loadedUrl;
   protected String m_loadError = "Not yet loaded";
   protected IOException m_IOException;
-  protected long m_lastAttempt;
+  protected volatile long m_lastAttempt;
   protected boolean m_needsReload = true;
   protected boolean reloadUnconditionally = false;
   protected ConfigurationPropTreeImpl m_config;

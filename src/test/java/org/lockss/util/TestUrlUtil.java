@@ -1131,4 +1131,14 @@ public class TestUrlUtil extends LockssTestCase {
     assertMatchesRE(Constants.RESOURCE_PATH + "$",
 		    UrlUtil.getHtdocsDir().toString());
   }
+
+  public void testObfuscatePassword() {
+    assertEquals("http://foo.bar/path",
+		 UrlUtil.obfuscatePassword("http://foo.bar/path"));
+    assertEquals("http://user@foo.bar/path",
+		 UrlUtil.obfuscatePassword("http://user@foo.bar/path"));
+    assertEquals("http://user:XXXXXX@foo.bar/path",
+		 UrlUtil.obfuscatePassword("http://user:pass@foo.bar/path"));
+  }
+
 }

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,7 +35,7 @@ import java.sql.SQLException;
 import java.sql.SQLTransientException;
 import java.sql.Statement;
 import javax.sql.DataSource;
-
+import org.lockss.log.L4JLogger;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
@@ -735,6 +731,41 @@ public class JdbcBridge {
       conn.commit();
       if (logger != null && logger.isDebug3())
 	logger.debug3(DEBUG_HEADER + "Committed.");
+    } catch (SQLException sqle) {
+      if (logger != null)
+	logger.error("Exception caught committing the connection", sqle);
+      safeRollbackAndClose(conn);
+      throw sqle;
+    } catch (RuntimeException re) {
+      if (logger != null)
+	logger.error("Exception caught committing the connection", re);
+      safeRollbackAndClose(conn);
+      throw re;
+    }
+  }
+
+  /**
+   * Commits a connection or rolls it back if it's not possible.
+   * 
+   * @param conn
+   *          A connection with the database connection to be committed.
+   * @param logger
+   *          A L4JLogger used to report errors.
+   * @throws SQLException
+   *           if any problem occurred accessing the database.
+   */
+  static void commitOrRollback(Connection conn, L4JLogger logger)
+      throws SQLException {
+    final String DEBUG_HEADER = "commitOrRollback(): ";
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    try {
+      conn.commit();
+      if (logger != null && logger.isTraceEnabled())
+	logger.trace(DEBUG_HEADER + "Committed.");
     } catch (SQLException sqle) {
       if (logger != null)
 	logger.error("Exception caught committing the connection", sqle);

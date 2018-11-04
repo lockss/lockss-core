@@ -42,7 +42,10 @@ import org.apache.oro.text.regex.*;
 import org.lockss.app.*;
 import org.lockss.account.*;
 import org.lockss.clockss.*;
+import org.lockss.config.db.ConfigDbManager;
+import org.lockss.config.db.ConfigManagerSql;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.hasher.*;
 import org.lockss.mail.*;
 import org.lockss.plugin.*;
@@ -419,6 +422,9 @@ public class ConfigManager implements LockssManager {
   public static final String REMOTE_CONFIG_FAILOVER_FILENAME =
     "remote_config_failover_info.xml";
 
+  // Name of ClientCacheSpec used by HTTPConfigFile
+  public static final String HTTP_CACHE_NAME = "HTTPConfigFile";
+
   /** If set to a list of regexps, matching parameter names will be allowed
    * to be set in expert config, and loaded from expert_config.txt
    * @ParamRelevance Rare
@@ -670,6 +676,8 @@ public class ConfigManager implements LockssManager {
 
   private HandlerThread handlerThread; // reload handler thread
 
+  private File daemonTmpDir;
+
   private ConfigCache configCache;
   private LockssUrlConnectionPool connPool = new LockssUrlConnectionPool();
   private LockssSecureSocketFactory secureSockFact;
@@ -687,6 +695,9 @@ public class ConfigManager implements LockssManager {
   // The Configuration REST web service client.
   RestConfigClient restConfigClient = null;
 
+  // The URL of the REST Configuration service.
+  String restConfigServiceUrl = null;
+
   // The path to the directory containing any resource configuration files. 
   private static final String RESOURCE_CONFIG_DIR_PATH =
       "org/lockss/config/resourcefile";
@@ -697,9 +708,14 @@ public class ConfigManager implements LockssManager {
   // The map of parent configuration files.
   Map<String, ConfigFile> parentConfigFile = new HashMap<String, ConfigFile>();
 
+  HttpCacheManager hCacheMgr;
+
   // The counter of configuration reload requests. Accessed from separate
   // threads.
   private volatile int configReloadRequestCounter = 0;
+
+  // The configuration manager SQL executor.
+  private ConfigManagerSql configManagerSql = null;
 
   public ConfigManager() {
     this(null, null);
@@ -724,6 +740,7 @@ public class ConfigManager implements LockssManager {
   public ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
       List urls, String groupNames) {
     this.bootstrapPropsUrl = bootstrapPropsUrl;
+    this.restConfigServiceUrl = restConfigServiceUrl;
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
     // Check whether this is not happening in a REST Configuration service
     // environment.
@@ -752,6 +769,17 @@ public class ConfigManager implements LockssManager {
 
   LockssUrlConnectionPool getConnectionPool() {
     return connPool;
+  }
+
+  public synchronized HttpCacheManager getHttpCacheManager() {
+    if (hCacheMgr == null) {
+      hCacheMgr = new HttpCacheManager(getTmpDir());
+      // Set up http cache dir for HTTPConfigFile
+      File cacheDir = ensureDir(getTmpDir(), "hcfcache");
+      log.info("http cache dir: " + cacheDir);
+      getHttpCacheManager().getCacheSpec(HTTP_CACHE_NAME).setCacheDir(cacheDir);
+    }
+    return hCacheMgr;
   }
 
   public void initService(LockssApp app) throws LockssAppException {
@@ -1454,7 +1482,7 @@ public class ConfigManager implements LockssManager {
   private String sendVersionInfo;
   private long lastSendVersion;
   private long startUpdateTime;
-  private long lastUpdateTime;
+  private volatile long lastUpdateTime;
   private long startCallbacksTime;
 
   public long getLastUpdateTime() {
@@ -1627,6 +1655,7 @@ public class ConfigManager implements LockssManager {
     // group) in initial config get into platformConfig even during testing.
     platConfig.seal();
     platformConfig = platConfig;
+    setUpTmp(platConfig);
     initCacheConfig(platConfig);
     setUpRemoteConfigFailover();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -1723,11 +1752,15 @@ public class ConfigManager implements LockssManager {
     setCurrentConfig(newConfig);
     copyToSysProps(newConfig);
     updateGenerations(gens);
-    recordConfigLoaded(newConfig, oldConfig, diffs, gens);
+    boolean didLogConfig =
+      recordConfigLoaded(newConfig, oldConfig, diffs, gens);
     startCallbacksTime = TimeBase.nowMs();
     runCallbacks(newConfig, oldConfig, diffs);
     // notify other cluster members that the config changed
     // TK should this precede runCallbacks()?
+    if (!didLogConfig) {
+      logConfig(newConfig, oldConfig, diffs);
+    }
     notifyConfigChanged();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning true.");
     return true;
@@ -1800,20 +1833,20 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  private void recordConfigLoaded(Configuration newConfig,
-				  Configuration oldConfig,
-				  Configuration.Differences diffs,
-				  List gens) {
-    buildLoadedFileLists(gens);    
-    logConfigLoaded(newConfig, oldConfig, diffs, loadedUrls);
+  private boolean recordConfigLoaded(Configuration newConfig,
+				     Configuration oldConfig,
+				     Configuration.Differences diffs,
+				     List gens) {
+    buildLoadedFileLists(gens);
+    return logConfigLoaded(newConfig, oldConfig, diffs, loadedUrls);
   }
 
-  
 
-  private void logConfigLoaded(Configuration newConfig,
-			       Configuration oldConfig,
-			       Configuration.Differences diffs,
-			       List<String> names) {
+
+  private boolean logConfigLoaded(Configuration newConfig,
+				  Configuration oldConfig,
+				  Configuration.Differences diffs,
+				  List<String> names) {
     StringBuffer sb = new StringBuffer("Config updated, ");
     sb.append(newConfig.keySet().size());
     sb.append(" keys");
@@ -1824,9 +1857,46 @@ public class ConfigManager implements LockssManager {
     log.info(sb.toString());
     if (log.isDebug()) {
       logConfig(newConfig, oldConfig, diffs);
+      return true;
     } else {
       log.info("New TdbAus: " + diffs.getTdbAuDifferenceCount());
+      return false;
     }
+  }
+
+  private File ensureDir(File parent, String dirname) {
+    File dir = new File(parent, dirname);
+    if (FileUtil.ensureDirExists(dir)) {
+	FileUtil.setOwnerRWX(dir);
+	return dir;
+    } else {
+      log.warning("Couldn't create dir: " + dir);
+      return null;
+    }
+  }
+
+  private void setUpTmp(Configuration config) {
+    // If we were given a temp dir, create a subdir and use that.  This
+    // makes it possible to quickly "delete" on restart by renaming, and
+    // avoids potentially huge "*" expansion in rundaemon that might't
+    // exceed the maximum command length.
+
+    String tmpdir = config.get(PARAM_TMPDIR);
+    if (!StringUtil.isNullString(tmpdir)) {
+      File javaTmpDir = ensureDir(new File(tmpdir), "dtmp");
+      if (javaTmpDir != null) {
+	System.setProperty("java.io.tmpdir", javaTmpDir.toString());
+	daemonTmpDir = javaTmpDir;
+      } else {
+	daemonTmpDir = new File(System.getProperty("java.io.tmpdir"));
+	log.warning("Using default tmpdir: " + daemonTmpDir);
+      }
+    }
+  }
+
+  File getTmpDir() {
+    return daemonTmpDir != null
+      ? daemonTmpDir : new File(System.getProperty("java.io.tmpdir"));
   }
 
   public static final String PARAM_HASH_SVC = LockssApp.MANAGER_PREFIX +
@@ -1842,21 +1912,8 @@ public class ConfigManager implements LockssManager {
       config.put(PARAM_HASH_SVC, DEFAULT_HASH_SVC);
     }
 
-    // If we were given a temp dir, create a subdir and use that.  This
-    // ensures that * expansion in rundaemon won't exceed the maximum
-    // command length.
+    setUpTmp(config);
 
-    String tmpdir = config.get(PARAM_TMPDIR);
-    if (!StringUtil.isNullString(tmpdir)) {
-      File javaTmpDir = new File(tmpdir, "dtmp");
-      if (FileUtil.ensureDirExists(javaTmpDir)) {
-	FileUtil.setOwnerRWX(javaTmpDir);
-	System.setProperty("java.io.tmpdir", javaTmpDir.toString());
-      } else {
-	log.warning("Can't create/access temp dir: " + javaTmpDir +
-		    ", using default: " + System.getProperty("java.io.tmpdir"));
-      }
-    }
     System.setProperty("jsse.enableSNIExtension",
 		       Boolean.toString(config.getBoolean(PARAM_JSSE_ENABLESNIEXTENSION,
 							  DEFAULT_JSSE_ENABLESNIEXTENSION)));
@@ -3216,6 +3273,15 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
+   * Provides the URL of the REST Configuration service.
+   *
+   * @return URL of the REST Configuration service.
+   */
+  public String getRestConfigServiceUrl() {
+    return restConfigServiceUrl;
+  }
+
+  /**
    * Populates the map of resource configuration files.
    * 
    * @return a Map<String, File> with the map of resource configuration files.
@@ -3807,6 +3873,206 @@ public class ConfigManager implements LockssManager {
    */
   public int getConfigReloadRequestCounter() {
     return configReloadRequestCounter;
+  }
+
+  /**
+   * Provides the configuration manager SQL executor.
+   * 
+   * @return a ConfigManagerSql with the configuration manager SQL executor.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private ConfigManagerSql getConfigManagerSql() throws DbException {
+    if (configManagerSql == null) {
+      configManagerSql = new ConfigManagerSql(
+	  theApp.getManagerByType(ConfigDbManager.class));
+    }
+
+    return configManagerSql;
+  }
+
+  /**
+   * Stores in the database the configuration of an Archival Unit.
+   * 
+   * @param auConfig
+   *          An AuConfig with the Archival Unit configuration to be stored.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long storeArchivalUnitConfiguration(AuConfig auConfig)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auConfig = " + auConfig);
+
+    // Validate the passed argument.
+    if (auConfig == null) {
+      throw new IllegalArgumentException("AuConfig is null");
+    }
+
+    // Get and parse the Archival Unit identifier.
+    String auid = auConfig.getAuid();
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Get the configuration to be stored.
+    Map<String, String> configuration = auConfig.getConfiguration();
+
+    // Validate the configuration.
+    if (configuration == null || configuration.isEmpty()) {
+      throw new IllegalArgumentException("Empty ArchivalUnit configuration");
+    }
+
+    // Store the configuration in the database.
+    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(pluginId,
+	auKey, configuration);
+
+    if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Provides all the Archival Unit configurations stored in the database.
+   * 
+   * @return a Collection<AuConfig> with all the Archival Unit configurations.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Collection<AuConfig> retrieveAllArchivalUnitConfiguration()
+      throws DbException {
+    if (log.isDebug2()) log.debug2("Invoked");
+
+    Collection<AuConfig> result = new ArrayList<>();
+
+    // Retrieve from the database all the Archival Unit configurations.
+    Map<String, Map<String, String>> auConfigs = getConfigManagerSql().
+	findAllArchivalUnitConfiguration();
+
+    // Loop through all the retrieved Archival Units identifiers.
+    for (String auid : auConfigs.keySet()) {
+      if (log.isDebug3()) log.debug3("auida = " + auid);
+
+      // Get the configuration of this Archival Unit.
+      Map<String, String> auConfiguration = auConfigs.get(auid);
+      if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
+
+      // Add it to the result.
+      result.add(new AuConfig(auid, auConfiguration));
+    }
+
+    if (log.isDebug2()) log.debug2("result.size() = " + result.size());
+    return result;
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in the database.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return an AuConfig with the Archival Unit configuration.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public AuConfig retrieveArchivalUnitConfiguration(String auid)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    AuConfig result = null;
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Retrieve the Archival Unit configuration stored in the database.
+    Map<String,String> configuration =
+	getConfigManagerSql().findArchivalUnitConfiguration(pluginId, auKey);
+
+    // Check whether a configuration was found.
+    if (!configuration.isEmpty()) {
+      // Yes.
+      result = new AuConfig(auid, configuration);
+    }
+
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  /**
+   * Provides the creation time of an Archival Unit configuration stored in the
+   * database.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return a Long with the Archival Unit configuration creation time, as epoch
+   *         milliseconds.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long retrieveArchivalUnitConfigurationCreationTime(String auid)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Retrieve the Archival Unit configuration creation time stored in the
+    // database.
+    Long creationTime =
+	getConfigManagerSql().findArchivalUnitCreationTime(pluginId, auKey);
+
+    if (log.isDebug2()) log.debug2("creationTime = " + creationTime);
+    return creationTime;
+  }
+
+  /**
+   * Provides the last update time of an Archival Unit configuration stored in
+   * the database.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return a Long with the Archival Unit configuration last update time, as
+   *         epoch milliseconds.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long retrieveArchivalUnitConfigurationLastUpdateTime(String auid)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Retrieve the Archival Unit configuration last update time stored in the
+    // database.
+    Long lastUpdateTime =
+	getConfigManagerSql().findArchivalUnitLastUpdateTime(pluginId, auKey);
+
+    if (log.isDebug2()) log.debug2("creationTime = " + lastUpdateTime);
+    return lastUpdateTime;
+  }
+
+
+  /**
+   * Removes from the database the configuration of an Archival Unit.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public void removeArchivalUnitConfiguration(String auid) throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
+    // Parse the Archival Unit identifier.
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String auKey = PluginManager.auKeyFromAuId(auid);
+
+    // Remove the Archival Unit configuration from the database.
+    getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
+
+    if (log.isDebug2()) log.debug2("Done");
+    return;
   }
 
   private class MyMessageListener
