@@ -33,9 +33,11 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.plugin.definable;
 
 import java.util.*;
+import java.util.stream.*;
 import java.io.*;
 import java.net.*;
 
+import org.apache.commons.lang3.tuple.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
 import org.lockss.rewriter.*;
@@ -176,7 +178,8 @@ public class DefinablePlugin extends BasePlugin {
 
   protected ExternalizableMap definitionMap = new ExternalizableMap();
   protected CacheResultHandler resultHandler = null;
-  protected List<String> loadedFromUrls;
+  protected List<URL> loadedFromUrls;
+  protected List<Pair<String,URL>> idsUrls;
   protected CrawlWindow crawlWindow;
   protected Map<Plugin.Feature,String> featureVersion;
   protected ArchiveFileTypes archiveFileSpec;
@@ -216,6 +219,7 @@ public class DefinablePlugin extends BasePlugin {
 
   private ExternalizableMap loadMap(String extMapName, ClassLoader loader)
       throws FileNotFoundException {
+    log.critical("loadMap: " + extMapName);
     Configuration config = ConfigManager.getCurrentConfig();
     ParentVersionMismatchAction parentVerAct =
       (ParentVersionMismatchAction)
@@ -225,13 +229,15 @@ public class DefinablePlugin extends BasePlugin {
     String first = null;
     String next = extMapName;
     String nextParentVer = null;
-    List<String> urls = new ArrayList<String>();
+    List<URL> urls = new ArrayList<>();
+    List<Pair<String,URL>> ids = new ArrayList<>();
     ExternalizableMap res = null;
     while (next != null) {
       // convert the plugin class name to an xml file name
       String mapFile = next.replace('.', '/') + MAP_SUFFIX;
+      log.critical("mapFile: " + mapFile);
       URL url = loader.getResource(mapFile);
-      if (url != null && urls.contains(url.toString())) {
+      if (url != null && urls.contains(url)) {
 	throw new PluginException.InvalidDefinition("Plugin inheritance loop: "
 						    + next);
       }
@@ -269,7 +275,8 @@ public class DefinablePlugin extends BasePlugin {
 	  }
 	}
       }
-      urls.add(url.toString());
+      urls.add(url);
+      ids.add(new ImmutablePair(next, url));
       // apply overrides one plugin at a time in inheritance chain
       processOverrides(oneMap);
       if (res == null) {
@@ -292,6 +299,7 @@ public class DefinablePlugin extends BasePlugin {
     }
     processDefault(res);
     loadedFromUrls = urls;
+    idsUrls = ids;
     return res;
   }
 
@@ -480,8 +488,17 @@ public class DefinablePlugin extends BasePlugin {
     }
   }
 
-  public List<String> getLoadedFromUrls() {
-    return loadedFromUrls;
+  public List<Pair<String,URL>> getIdsUrls() {
+    return idsUrls;
+  }
+
+    LinkedList<Pair<String,Exception>> validationFailures =
+      new LinkedList<Pair<String,Exception>>();
+
+  public List<String> getLoadedFromUrlStrings() {
+    return loadedFromUrls.stream()
+      .map(URL::toString)
+      .collect(Collectors.toList());
   }
 
   public String getPluginName() {

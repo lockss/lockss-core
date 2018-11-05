@@ -35,6 +35,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
+import org.apache.commons.lang3.tuple.*;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -298,9 +299,14 @@ public class TestDefinablePlugin extends LockssTestCase {
     definablePlugin.initPlugin(daemon, extMapName);
     assertEquals("org.lockss.test.MockConfigurablePlugin",
                  definablePlugin.getPluginId());
-    List<String> urls = definablePlugin.getLoadedFromUrls();
+    List<String> strs = definablePlugin.getLoadedFromUrlStrings();
     assertMatchesRE("/org/lockss/test/MockConfigurablePlugin.xml$",
-		    urls.get(0));
+		    strs.get(0));
+    List<Pair<String,URL>> idus = definablePlugin.getIdsUrls();
+    assertEquals("org.lockss.test.MockConfigurablePlugin",
+		 idus.get(0).getLeft());
+    assertMatchesRE("/org/lockss/test/MockConfigurablePlugin.xml$",
+		    idus.get(0).getRight().toString());
   }
 
   public void testGetPublishingPlatform() throws Exception {
@@ -352,7 +358,7 @@ public class TestDefinablePlugin extends LockssTestCase {
     String extMapName = prefix + "GoodPlugin";
     definablePlugin.initPlugin(daemon, extMapName);
     assertEquals(prefix + "GoodPlugin", definablePlugin.getPluginId());
-    List<String> urls = definablePlugin.getLoadedFromUrls();
+    List<String> urls = definablePlugin.getLoadedFromUrlStrings();
     assertMatchesRE("/org/lockss/plugin/definable/GoodPlugin.xml$",
 		    urls.get(0));
     assertEquals(1, urls.size());
@@ -379,7 +385,7 @@ public class TestDefinablePlugin extends LockssTestCase {
     String extMapName = prefix + "GoodPlugin";
     definablePlugin.initPlugin(daemon, extMapName);
     assertEquals(prefix + "GoodPlugin", definablePlugin.getPluginId());
-    List<String> urls = definablePlugin.getLoadedFromUrls();
+    List<String> urls = definablePlugin.getLoadedFromUrlStrings();
     assertMatchesRE("/org/lockss/plugin/definable/GoodPlugin.xml$",
 		    urls.get(0));
     assertEquals(1, urls.size());
@@ -400,7 +406,7 @@ public class TestDefinablePlugin extends LockssTestCase {
     String extMapName = prefix + "ChildPlugin";
     definablePlugin.initPlugin(daemon, extMapName);
     assertEquals(prefix + "ChildPlugin", definablePlugin.getPluginId());
-    List<String> urls = definablePlugin.getLoadedFromUrls();
+    List<String> urls = definablePlugin.getLoadedFromUrlStrings();
     assertMatchesRE("/org/lockss/plugin/definable/ChildPlugin.xml$",
 		    urls.get(0));
     assertMatchesRE("/org/lockss/plugin/definable/GoodPlugin.xml$",
@@ -449,7 +455,7 @@ public class TestDefinablePlugin extends LockssTestCase {
     String extMapName = prefix + "ChildPlugin";
     definablePlugin.initPlugin(daemon, extMapName);
     assertEquals(prefix + "ChildPlugin", definablePlugin.getPluginId());
-    List<String> urls = definablePlugin.getLoadedFromUrls();
+    List<String> urls = definablePlugin.getLoadedFromUrlStrings();
     assertMatchesRE("/org/lockss/plugin/definable/ChildPlugin.xml$",
 		    urls.get(0));
     assertMatchesRE("/org/lockss/plugin/definable/GoodPlugin.xml$",

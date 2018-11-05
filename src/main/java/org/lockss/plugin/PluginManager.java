@@ -2093,7 +2093,7 @@ public class PluginManager
       xmlPlugin.initPlugin(getDaemon(), pluginName, loader);
       if (isCompatible(xmlPlugin)) {
 	// found a compatible plugin, return it
-	List<String> urls = xmlPlugin.getLoadedFromUrls();
+	List<String> urls = xmlPlugin.getLoadedFromUrlStrings();
 	PluginInfo info = new PluginInfo(xmlPlugin, loader, urls);
 	return info;
       } else {
