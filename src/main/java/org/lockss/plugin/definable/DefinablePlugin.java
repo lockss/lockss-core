@@ -219,7 +219,6 @@ public class DefinablePlugin extends BasePlugin {
 
   private ExternalizableMap loadMap(String extMapName, ClassLoader loader)
       throws FileNotFoundException {
-    log.critical("loadMap: " + extMapName);
     Configuration config = ConfigManager.getCurrentConfig();
     ParentVersionMismatchAction parentVerAct =
       (ParentVersionMismatchAction)
@@ -235,7 +234,6 @@ public class DefinablePlugin extends BasePlugin {
     while (next != null) {
       // convert the plugin class name to an xml file name
       String mapFile = next.replace('.', '/') + MAP_SUFFIX;
-      log.critical("mapFile: " + mapFile);
       URL url = loader.getResource(mapFile);
       if (url != null && urls.contains(url)) {
 	throw new PluginException.InvalidDefinition("Plugin inheritance loop: "
