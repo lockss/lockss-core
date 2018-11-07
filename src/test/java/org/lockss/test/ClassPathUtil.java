@@ -344,8 +344,9 @@ public class ClassPathUtil {
     }
   }
 
-  private static URL[] toUrlArray(List<String> strs) {
+  public static URL[] toUrlArray(List<String> strs) {
     return strs.stream()
+      .map(u -> UrlUtil.isUrl(u) ? u : "file:" + u)
       .map(u -> newURL(u))
       .toArray(URL[]::new);
   }

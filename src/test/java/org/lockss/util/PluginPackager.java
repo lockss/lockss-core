@@ -72,6 +72,7 @@ public class PluginPackager {
 
   List<String> pluginIds;
   List<PData> pds = new ArrayList<>();
+  ClassLoader loader = null;
 
   String jarPath;
   JarOutputStream jarOut;
@@ -79,6 +80,11 @@ public class PluginPackager {
   public PluginPackager(String outputJar, List<String> plugins) {
     this.jarPath = outputJar;
     this.pluginIds = plugins;
+  }
+
+  public PluginPackager setClassPath(List<String> cp) {
+    loader = new URLClassLoader(ClassPathUtil.toUrlArray(cp));
+    return this;
   }
 
   // Necessary setup in order to invoke PluginManager to load plugins
@@ -118,7 +124,7 @@ public class PluginPackager {
   // parents
   void findPlugins() {
     for (String pluginId : pluginIds) {
-      Plugin plug = PluginTestUtil.findPlugin(pluginId);
+      Plugin plug = PluginTestUtil.findPlugin(pluginId, loader);
       log.debug("Loaded plugin: " + plug);
       if (plug == null) {
 	log.error("Plugin {} not found", pluginId);

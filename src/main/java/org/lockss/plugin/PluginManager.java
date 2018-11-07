@@ -2179,14 +2179,25 @@ public class PluginManager
    * @return true if loaded
    */
   public boolean ensurePluginLoaded(String pluginKey) {
+    return ensurePluginLoaded(pluginKey, null);
+  }
+
+  /**
+   * Load a plugin with the given class name from somewhere on the path of
+   * the supplied ClassLoader
+   * @param pluginKey the key for this plugin
+   * @param loader the ClassLoader to search for the plugin
+   * @return true if loaded
+   */
+  public boolean ensurePluginLoaded(String pluginKey, ClassLoader loader) {
     log.debug3("ensurePluginLoaded(" + pluginKey + ")");
     if (pluginMap.containsKey(pluginKey)) {
       return true;
     }
 
-    ClassLoader loader = null;
     PluginInfo info = (PluginInfo)pluginfoMap.get(pluginKey);
-    if (info != null) {
+    // if no ClassLoader supplied, see if we have info for a loadable plugin
+    if (loader == null && info != null) {
       loader = info.getClassLoader();
     }
     if (loader == null) {

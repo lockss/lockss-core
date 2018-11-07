@@ -147,9 +147,13 @@ public class PluginTestUtil {
   }
 
   public static Plugin findPlugin(String pluginName) {
+    return findPlugin(pluginName, null);
+  }
+
+  public static Plugin findPlugin(String pluginName, ClassLoader loader) {
     PluginManager pluginMgr = getPluginManager();
     String key = pluginMgr.pluginKeyFromName(pluginName);
-    pluginMgr.ensurePluginLoaded(key);
+    pluginMgr.ensurePluginLoaded(key, loader);
     return pluginMgr.getPlugin(key);
   }
 
