@@ -103,6 +103,7 @@ public class TestRemoteApi extends LockssTestCase {
 
   public void tearDown() throws Exception {
     rapi.stopService();
+    configDbManager.stopService();
     daemon.stopDaemon();
     super.tearDown();
   }
@@ -284,16 +285,6 @@ public class TestRemoteApi extends LockssTestCase {
     configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
   }
 
-  /** assert that the file is an au.txt (au config) file with the expected
-   * property values
-   */
-  public void assertIsAuTxt(Properties expectedProps,
-			    File file) throws Exception {
-    InputStream in = new FileInputStream(file);
-    assertIsAuTxt(expectedProps, in);
-    in.close();
-  }
-
   /** assert that the stream contains the contents of an au.txt (au config)
    * file with the expected property values
    */
@@ -352,12 +343,19 @@ public class TestRemoteApi extends LockssTestCase {
     List audirs = new ArrayList();
     Map auagreemap = new HashMap();
     Map austatemap = new HashMap();
+    boolean auDbBackupFileFound = false;
+
     for (int ix = 0; ix < dirfiles.length; ix++) {
+      // Check whether it is the backup of the Archival Unit configuration
+      // database.
       if (RemoteApi.BACK_FILE_AU_CONFIGURATION_DB.equals(dirfiles[ix])) {
-	List<AuConfig> aus =
-	    getAusFromAuDbBackupFile(new File(tmpdir, dirfiles[ix]));
-	assertEquals(1, aus.size());
-	assertEquals(auConfig, aus.get(0));
+	// Yes: Get the contents of the backup file in a form suitable for
+	// comparison.
+	Configuration allAuConfig = rapi
+	    .getConfigurationFromSavedDbConfig(new File(tmpdir, dirfiles[ix]));
+	assertEquals(auConfig.toAuidPrefixedConfiguration(),
+	    allAuConfig.getConfigTree(PluginManager.PARAM_AU_TREE));
+	auDbBackupFileFound = true;
 	continue;
       }
       File audir = new File(tmpdir, dirfiles[ix]);
@@ -378,6 +376,9 @@ public class TestRemoteApi extends LockssTestCase {
 	austatemap.put(auid, austatefile);
       }
     }
+
+    assertTrue(auDbBackupFileFound);
+
     assertEquals(3, audirs.size());
     File agreefile;
     assertNotNull(agreefile = (File)auagreemap.get("mau1id"));
@@ -392,29 +393,6 @@ public class TestRemoteApi extends LockssTestCase {
 
     assertEquals(2, auagreemap.size());
     assertEquals(1, austatemap.size());
-  }
-
-  /**
-   * Provides the Archival Unit configurations stored in a database backup file.
-   * 
-   * @param auDbFile
-   *          A File with the database backup file.
-   * @return a List<AuConfig> with the Archival Unit configurations.
-   * @throws IOException
-   *           if any problem occurred accessing the database backup file.
-   */
-  private List<AuConfig> getAusFromAuDbBackupFile(File auDbFile)
-      throws IOException {
-    List<AuConfig> result = new ArrayList<>();
-
-    try (Stream<String> stream =
-	Files.lines(Paths.get(auDbFile.getAbsolutePath()))) {
-      for (String line : (Iterable<String>) stream::iterator) {
-	result.add(AuConfig.fromBackupLine(line));
-      }
-    }
-
-    return result;
   }
 
   public void testCheckLegalAuConfigTree() throws Exception {

@@ -2011,14 +2011,9 @@ public class PluginManager
   public Configuration getStoredAuConfiguration(String auid)
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
-    Configuration config = ConfigManager.newConfiguration();
 
-    Map<String, String> auConfig =
-	configMgr.retrieveArchivalUnitConfiguration(auid).getConfiguration();
-
-    for (String key : auConfig.keySet()) {
-      config.put(key, auConfig.get(key));
-    }
+    Configuration config = configMgr.retrieveArchivalUnitConfiguration(auid)
+	.toUnprefixedConfiguration();
 
     if (log.isDebug2()) log.debug2("config = " + config);
     return config;

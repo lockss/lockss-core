@@ -36,9 +36,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.security.KeyStore;
-import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
-
 import org.junit.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -102,6 +100,7 @@ public class TestPluginManager extends LockssTestCase4 {
   private String tempDirPath;
 
   MyPluginManager mgr;
+  ConfigDbManager configDbManager = null;
 
   @Before
   public void setUp() throws Exception {
@@ -119,7 +118,7 @@ public class TestPluginManager extends LockssTestCase4 {
     theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     theDaemon.setConfigDbManager(configDbManager);
     configDbManager.initService(theDaemon);
     configDbManager.startService();
@@ -143,6 +142,7 @@ public class TestPluginManager extends LockssTestCase4 {
   @After
   public void tearDown() throws Exception {
     mgr.stopService();
+    configDbManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
   }
@@ -165,16 +165,29 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
 
-  private void doConfig() throws Exception {
+  private void doConfigAus() throws Exception {
+    Map<String, String> configuration = new HashMap<>();
+    configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
+    configuration.put(MockPlugin.CONFIG_PROP_2, "val2");
+    AuConfig auConfig = new AuConfig(mauauid1, configuration);
+    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    mgr.ensurePluginLoaded(mockPlugKey);
+    MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
+    Configuration auConf = auConfig.toUnprefixedConfiguration();
+    mgr.createAu(mpi, auConf, AuEvent.model(AuEvent.Type.Create));
+
+    configuration = new HashMap<>();
+    configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
+    configuration.put(MockPlugin.CONFIG_PROP_2, "va.l3");
+    auConfig = new AuConfig(mauauid2, configuration);
+    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    auConf = auConfig.toUnprefixedConfiguration();
+    mgr.createAu(mpi, auConf, AuEvent.model(AuEvent.Type.Create));
     doConfig(new Properties());
   }
 
   private void doConfig(Properties p) throws Exception {
     // String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
-    p.setProperty(p1a1param+MockPlugin.CONFIG_PROP_1, "val1");
-    p.setProperty(p1a1param+MockPlugin.CONFIG_PROP_2, "val2");
-    p.setProperty(p1a2param+MockPlugin.CONFIG_PROP_1, "val1");
-    p.setProperty(p1a2param+MockPlugin.CONFIG_PROP_2, "va.l3");
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.addFromProps(p);
   }
@@ -389,22 +402,20 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(mgr.ensurePluginLoaded(key));
   }
 
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testStop() throws Exception {
     mgr.startService();
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
     assertEquals(0, mpi.getStopCtr());
     mgr.stopService();
     assertEquals(1, mpi.getStopCtr());
   }
 
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testAuConfig() throws Exception {
     mgr.startService();
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
     // plugin should be registered
     assertNotNull(mpi);
@@ -435,10 +446,10 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(au1, mgr.getAuFromIdIfExists(mauauid1));
   }
 
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testAuConfigWithGlobalEntryForNonExistentAU() throws Exception {
     mgr.startService();
+    doConfigAus();
     Properties p = new Properties();
     p.setProperty(p1a3param+BaseArchivalUnit.KEY_NEW_CONTENT_CRAWL_INTERVAL, "2d");
     doConfig(p);
@@ -1025,7 +1036,6 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
 
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testFindCus() throws Exception {
     mgr.startService();
@@ -1033,7 +1043,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String lower = "abc";
     String upper = "xyz";
 
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
 
     // make a PollSpec with info from a manually created CUS, which should
@@ -1065,14 +1075,13 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(aucuss instanceof AuCachedUrlSetSpec);
   }
 
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testFindSingleNodeCus() throws Exception {
     mgr.startService();
     String url = "http://foo.bar/";
     String lower = PollSpec.SINGLE_NODE_LWRBOUND;
 
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
 
     // make a PollSpec with info from a manually created CUS, which should
@@ -1160,7 +1169,6 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(CuContentReq.DontCare.satisfies(CuContentReq.DontCare));
   }
 
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testFindCachedUrl() throws Exception {
     mgr.startService();
@@ -1171,7 +1179,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String url3 = "http://foo.bar/333";
     String url4 = "http://foo.bar/444";
     String url5 = "http://foo.bar/555";
-    doConfig();
+    doConfigAus();
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_404_CACHE_SIZE,
 				  "[1,2]",
 				  PluginManager.PARAM_AU_SEARCH_MIN_DISK_SEARCHES_FOR_404_CACHE,
@@ -1343,7 +1351,6 @@ public class TestPluginManager extends LockssTestCase4 {
     return AuUtil.getAuState(mau);
   }
 
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testFindCachedUrlClockss() throws Exception {
     mgr.startService();
@@ -1352,7 +1359,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String url1b = "http://FOO.BAR:80/baz";
     String url2 = "http://foo.bar/222";
     String url3 = "http://foo.bar/333";
-    doConfig();
+    doConfigAus();
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_PROJECT,
 				  "clockss");
     assertTrue(theDaemon.isClockss());
@@ -1922,7 +1929,6 @@ public class TestPluginManager extends LockssTestCase4 {
 
   // Test that a configured AU that isn't running (because its plugin
   // wasn't loaded) gets started when the plugin is loaded
-  @Ignore("Test fails when au.txt is migrated to a database")
   @Test
   public void testStartUnstartedAu() throws Exception {
     mgr.startService();
@@ -1935,10 +1941,14 @@ public class TestPluginManager extends LockssTestCase4 {
     String pluginKey = "org|lockss|test|MockConfigurablePlugin";
     Properties auProps = PropUtil.fromArgs(k1, v1, k2, v2);
     String auid = PluginManager.generateAuId(pluginKey, auProps);
-    String prefix = PluginManager.PARAM_AU_TREE + "."
-      + PluginManager.configKeyFromAuId(auid) + ".";
-    p.setProperty(prefix + k1, v1);
-    p.setProperty(prefix + k2, v2);
+
+    // Store this Archival Unit configuration in the database.
+    Map<String, String> configuration = new HashMap<>();
+    configuration.put(k1, v1);
+    configuration.put(k2, v2);
+    AuConfig auConfig = new AuConfig(auid, configuration);
+    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+
     assertEquals(null, mgr.getAuFromIdIfExists(auid));
     mgr.suppressEnxurePluginLoaded(ListUtil.list(pluginKey));
     prepareLoadablePluginTests(p);

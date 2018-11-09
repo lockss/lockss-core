@@ -114,6 +114,8 @@ public class FuncTarExploder2 extends LockssTestCase {
     "http://www.example.com/branch1/index.html",
   };
 
+  private ConfigDbManager configDbManager = null;
+
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
     FuncTarExploder2 test = new FuncTarExploder2();
@@ -161,7 +163,7 @@ public class FuncTarExploder2 extends LockssTestCase {
     theDaemon.getAlertManager();
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     theDaemon.setConfigDbManager(configDbManager);
     configDbManager.initService(theDaemon);
     configDbManager.startService();
@@ -189,6 +191,7 @@ public class FuncTarExploder2 extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
+    configDbManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
   }

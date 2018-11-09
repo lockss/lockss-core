@@ -93,7 +93,7 @@ public class FuncTarExploder extends LockssTestCase {
   };
 
   static final String GOOD_YEAR = "1968";
-
+  private ConfigDbManager configDbManager = null;
 
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
@@ -142,7 +142,7 @@ public class FuncTarExploder extends LockssTestCase {
     theDaemon.getAlertManager();
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     theDaemon.setConfigDbManager(configDbManager);
     configDbManager.initService(theDaemon);
     configDbManager.startService();
@@ -166,6 +166,8 @@ public class FuncTarExploder extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
+    configDbManager.stopService();
+
     if (theDaemon != null) {
       theDaemon.stopDaemon();
     }

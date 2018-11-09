@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.lockss.config.AuConfig;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
@@ -58,7 +59,7 @@ import org.lockss.util.time.TimeBase;
  * @author Fernando García-Loygorri
  */
 public class ConfigManagerSql {
-  public static L4JLogger log = L4JLogger.getLogger();
+  private static L4JLogger log = L4JLogger.getLogger();
 
   private final ConfigDbManager configDbManager;
 
@@ -184,9 +185,6 @@ public class ConfigManagerSql {
       + " where p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
       + " and p." + PLUGIN_ID_COLUMN + " = ?"
       + " order by a." + ARCHIVAL_UNIT_SEQ_COLUMN;
-
-  // The field separator in the subscription backup file.
-  private static final String BACKUP_FIELD_SEPARATOR = "\t";
 
   /**
    * Constructor.
@@ -457,7 +455,7 @@ public class ConfigManagerSql {
    * 
    * @param auId
    *          A String with the Archival Unit identifier.
-   * @param auConfig
+   * @param auConfiguration
    *          A Map<String,String> with the Archival Unit configuration
    *          properties.
    * @param outputStream
@@ -467,10 +465,10 @@ public class ConfigManagerSql {
    *           if there are problems writing to the output stream
    */
   private void writeAuConfigurationBackupToStream(String auId,
-      Map<String,String> auConfig, OutputStream outputStream)
+      Map<String,String> auConfiguration, OutputStream outputStream)
 	  throws IOException {
     log.debug2("auId = {}", auId);
-    log.debug2("auConfig = {}", auConfig);
+    log.debug2("auConfiguration = {}", auConfiguration);
 
     // Validation.
     if (auId == null || auId.trim().isEmpty()) {
@@ -478,30 +476,18 @@ public class ConfigManagerSql {
       return;
     }
 
-    if (auConfig == null || auConfig.isEmpty()) {
+    if (auConfiguration == null || auConfiguration.isEmpty()) {
       log.warn("Null/empty AU configuration not added to backup file.");
       return;
     }
 
-    // Write the Archival Unit identifier.
-    StringBuilder entry =
-	new StringBuilder(StringUtil.blankOutNlsAndTabs(auId));
-
-    // Loop through all the configuration properties.
-    for (String key : auConfig.keySet()) {
-      // Write the property.
-      entry.append(BACKUP_FIELD_SEPARATOR)
-      .append(StringUtil.blankOutNlsAndTabs(key))
-      .append(BACKUP_FIELD_SEPARATOR)
-      .append(StringUtil.blankOutNlsAndTabs(auConfig.get(key)));
-    }
-
-    entry.append("\n");
-    log.trace("entry = {}", entry);
+    // Create the entry.
+    String line = new AuConfig(auId, auConfiguration).toBackupLine();
+    log.trace("line = {}", line);
 
     // Write the entry to the output stream.
     Writer writer = new OutputStreamWriter(outputStream);
-    writer.write(entry.toString());
+    writer.write(line + System.lineSeparator());
     writer.flush();
 
     log.debug2("Done");

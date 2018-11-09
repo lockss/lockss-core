@@ -1276,6 +1276,8 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(2, configuration.size());
     assertEquals("11", configuration.get("foo"));
     assertEquals("22", configuration.get("bar"));
+
+    dbManager.stopService();
   }
 
   @Test
@@ -1393,6 +1395,8 @@ public class TestConfigManager extends LockssTestCase4 {
     assertFalse(c2.isEmpty());
     assertEquals(1, c2.size());
     assertTrue(c2.contains(auConfig));
+
+    dbManager.stopService();
 
     log.debug2("Done");
   }
@@ -2022,6 +2026,8 @@ public class TestConfigManager extends LockssTestCase4 {
     Long lastUpdateTime2newest =
 	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2);
     assertNull(lastUpdateTime2newest);
+
+    dbManager.stopService();
 
     log.debug2("Done");
   }

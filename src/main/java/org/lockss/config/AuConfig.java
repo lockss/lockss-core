@@ -42,6 +42,8 @@ import org.lockss.util.StringUtil;
  * Representation of an Archival Unit configuration.
  */
 public class AuConfig {
+  private static String BACKUP_LINE_FIELD_SEPARATOR = "\t";
+
   /**
    * The Archival Unit identifier.
    */
@@ -101,7 +103,7 @@ public class AuConfig {
    * @return an AuConfig with the Archival Unit configuration.
    */
   public static AuConfig fromBackupLine(String line) {
-    List<String> tokens = StringUtil.breakAt(line, "\t");
+    List<String> tokens = StringUtil.breakAt(line, BACKUP_LINE_FIELD_SEPARATOR);
 
     if (tokens == null || tokens.isEmpty() || (tokens.size() - 1) % 2 != 0) {
       throw new IllegalArgumentException("Invalid Archival Unit backup line: '"
@@ -119,11 +121,51 @@ public class AuConfig {
   }
 
   /**
-   * Provides a Configuration object equivalent to this one.
+   * Provides the backup file line that corresponds to this object.
    * 
-   * @return a Configuration object that is equivalent to this one.
+   * @return a String with the contents of the backup file line.
    */
-  public Configuration toConfiguration() {
+  public String toBackupLine() {
+    // Write the Archival Unit identifier.
+    StringBuilder sb = new StringBuilder(StringUtil.blankOutNlsAndTabs(auid));
+
+    // Loop through all the configuration properties.
+    for (String key : configuration.keySet()) {
+      // Write the property.
+      sb.append(BACKUP_LINE_FIELD_SEPARATOR)
+      .append(StringUtil.blankOutNlsAndTabs(key))
+      .append(BACKUP_LINE_FIELD_SEPARATOR)
+      .append(StringUtil.blankOutNlsAndTabs(configuration.get(key)));
+    }
+
+    return sb.toString();
+  }
+
+  /**
+   * Provides a Configuration object, with unprefixed keys, equivalent to this
+   * one.
+   * 
+   * @return a Configuration object, with unprefixed keys, that is equivalent to
+   *         this one.
+   */
+  public Configuration toUnprefixedConfiguration() {
+    Configuration result = ConfigManager.newConfiguration();
+
+    for (String key : configuration.keySet()) {
+      result.put(key, configuration.get(key));
+    }
+
+    return result;
+  }
+
+  /**
+   * Provides a Configuration object, with keys prefixed by the Archival Unit
+   * identifier, equivalent to this one.
+   * 
+   * @return a Configuration object, with keys prefixed by the Archival Unit
+   * identifier, that is equivalent to this one.
+   */
+  public Configuration toAuidPrefixedConfiguration() {
     Configuration result = ConfigManager.newConfiguration();
 
     String configKey = PluginManager.configKeyFromAuId(auid);

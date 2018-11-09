@@ -92,6 +92,8 @@ public class FuncZipExploder extends LockssTestCase {
     "http://www.example.com/content.zip",
   };
 
+  private ConfigDbManager configDbManager = null;
+
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
     FuncZipExploder test = new FuncZipExploder();
@@ -136,7 +138,7 @@ public class FuncZipExploder extends LockssTestCase {
     theDaemon.getAlertManager();
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     theDaemon.setConfigDbManager(configDbManager);
     configDbManager.initService(theDaemon);
     configDbManager.startService();
@@ -160,6 +162,8 @@ String explodedPluginKey = pluginMgr.pluginKeyFromName(explodedPluginName);
   }
 
   public void tearDown() throws Exception {
+    configDbManager.stopService();
+
     if (theDaemon != null) {
       theDaemon.stopDaemon();
     }

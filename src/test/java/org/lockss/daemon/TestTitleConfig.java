@@ -49,6 +49,7 @@ import org.lockss.plugin.*;
 public class TestTitleConfig extends LockssTestCase {
 
   private PluginManager pmgr;
+  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -59,7 +60,7 @@ public class TestTitleConfig extends LockssTestCase {
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     getMockLockssDaemon().setConfigDbManager(configDbManager);
     configDbManager.initService(getMockLockssDaemon());
     configDbManager.startService();
@@ -67,6 +68,11 @@ public class TestTitleConfig extends LockssTestCase {
     useOldRepo();
     pmgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();
+  }
+
+  public void tearDown() throws Exception {
+    configDbManager.stopService();
+    super.tearDown();
   }
 
   public void testConstructors() {

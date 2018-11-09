@@ -51,8 +51,8 @@ public abstract class BaseFuncExporter extends LockssTestCase {
   protected File[] exportFiles = null;
   protected int exportFileIx;
 
-
   protected int fileSize = DEFAULT_FILESIZE;
+  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -66,7 +66,7 @@ public abstract class BaseFuncExporter extends LockssTestCase {
     ConfigurationUtil.addFromProps(props);
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     daemon.setConfigDbManager(configDbManager);
     configDbManager.initService(daemon);
     configDbManager.startService();
@@ -84,6 +84,7 @@ public abstract class BaseFuncExporter extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
+    configDbManager.stopService();
     daemon.stopDaemon();
     super.tearDown();
   }

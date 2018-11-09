@@ -84,6 +84,8 @@ public class TestSubscriptionManager extends LockssTestCase {
   private DbManager dbManager;
   private MetadataManager metadataManager;
   private MockPlugin plugin;
+  private MockLockssDaemon theDaemon = null;
+  private ConfigDbManager configDbManager = null;
 
   @Override
   public void setUp() throws Exception {
@@ -93,11 +95,11 @@ public class TestSubscriptionManager extends LockssTestCase {
     ConfigurationUtil.addFromArgs(SubscriptionManager
 	.PARAM_SUBSCRIPTION_ENABLED, "true");
 
-    MockLockssDaemon theDaemon = getMockLockssDaemon();
+    theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     theDaemon.setConfigDbManager(configDbManager);
     configDbManager.initService(theDaemon);
     configDbManager.startService();
@@ -135,6 +137,12 @@ public class TestSubscriptionManager extends LockssTestCase {
 
     PluginTestUtil.createAndStartSimAu(SimulatedPlugin.class,
 	simAuConfig(tempDirPath + "/0"));
+  }
+
+  public void tearDown() throws Exception {
+    configDbManager.stopService();
+    theDaemon.stopDaemon();
+    super.tearDown();
   }
 
   private Configuration simAuConfig(String rootPath) {

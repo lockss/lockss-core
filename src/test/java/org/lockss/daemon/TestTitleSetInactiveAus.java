@@ -48,6 +48,7 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
   TitleConfig tc1, tc2;
   ConfigParamDescr d1, d2;
   ConfigParamAssignment cpa1, cpa2, cpa3;
+  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -55,7 +56,7 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
     getMockLockssDaemon().setIdentityManager(new org.lockss.protocol.MockIdentityManager());
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     getMockLockssDaemon().setConfigDbManager(configDbManager);
     configDbManager.initService(getMockLockssDaemon());
     configDbManager.startService();
@@ -105,6 +106,7 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
 
   public void tearDown() throws Exception {
     pluginMgr.stopService();
+    configDbManager.stopService();
     super.tearDown();
   }
 

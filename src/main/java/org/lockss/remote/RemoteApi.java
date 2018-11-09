@@ -69,7 +69,6 @@ public class RemoteApi
   static CatalogueOrderComparator coc = CatalogueOrderComparator.SINGLETON;
   static Comparator auProxyComparator = new AuProxyOrderComparator();
 
-  static final String PARAM_AU_TREE = PluginManager.PARAM_AU_TREE;
   static final String AU_PARAM_DISPLAY_NAME =
     PluginManager.AU_PARAM_DISPLAY_NAME;
 
@@ -882,7 +881,7 @@ public class RemoteApi
 
 	if (log.isDebug3()) log.debug3("prefix = " + prefix);
 
-	Configuration configuration = auConfig.toConfiguration();
+	Configuration configuration = auConfig.toAuidPrefixedConfiguration();
 	if (log.isDebug3()) log.debug3("configuration = " + configuration);
 
 	result.addAsSubTree(configuration, prefix);
@@ -940,7 +939,8 @@ public class RemoteApi
 				       int addOp,
 				       Configuration allAuConfig,
 				       BackupInfo bi) {
-    Configuration allPlugs = allAuConfig.getConfigTree(PARAM_AU_TREE);
+    Configuration allPlugs =
+	allAuConfig.getConfigTree(PluginManager.PARAM_AU_TREE);
     BatchAuStatus bas = new BatchAuStatus();
     BatchAuStatus.Entry lastStat = null;
     for (Iterator iter = allPlugs.nodeIterator(); iter.hasNext(); ) {

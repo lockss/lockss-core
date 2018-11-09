@@ -53,6 +53,7 @@ public class TestTitleSetXpath extends LockssTestCase {
   MockPlugin mp2;
   TitleConfig tc1, tc2, tc3, tc4, tc5, tc6;
   List<TitleConfig> titles;
+  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -63,7 +64,7 @@ public class TestTitleSetXpath extends LockssTestCase {
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
     // Create the configuration database manager.
-    ConfigDbManager configDbManager = new ConfigDbManager();
+    configDbManager = new ConfigDbManager();
     getMockLockssDaemon().setConfigDbManager(configDbManager);
     configDbManager.initService(getMockLockssDaemon());
     configDbManager.startService();
@@ -72,6 +73,11 @@ public class TestTitleSetXpath extends LockssTestCase {
     pluginMgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();
     makeTitles();
+  }
+
+  public void tearDown() throws Exception {
+    configDbManager.stopService();
+    super.tearDown();
   }
 
   public void makeTitles() {
