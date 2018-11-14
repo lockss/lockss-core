@@ -129,13 +129,15 @@ public class AuConfig {
     // Write the Archival Unit identifier.
     StringBuilder sb = new StringBuilder(StringUtil.blankOutNlsAndTabs(auid));
 
-    // Loop through all the configuration properties.
-    for (String key : configuration.keySet()) {
-      // Write the property.
-      sb.append(BACKUP_LINE_FIELD_SEPARATOR)
-      .append(StringUtil.blankOutNlsAndTabs(key))
-      .append(BACKUP_LINE_FIELD_SEPARATOR)
-      .append(StringUtil.blankOutNlsAndTabs(configuration.get(key)));
+    if (configuration != null) {
+      // Loop through all the configuration properties.
+      for (String key : configuration.keySet()) {
+	// Write the property.
+	sb.append(BACKUP_LINE_FIELD_SEPARATOR)
+	.append(StringUtil.blankOutNlsAndTabs(key))
+	.append(BACKUP_LINE_FIELD_SEPARATOR)
+	.append(StringUtil.blankOutNlsAndTabs(configuration.get(key)));
+      }
     }
 
     return sb.toString();
@@ -151,8 +153,10 @@ public class AuConfig {
   public Configuration toUnprefixedConfiguration() {
     Configuration result = ConfigManager.newConfiguration();
 
-    for (String key : configuration.keySet()) {
-      result.put(key, configuration.get(key));
+    if (configuration != null) {
+      for (String key : configuration.keySet()) {
+	result.put(key, configuration.get(key));
+      }
     }
 
     return result;
@@ -170,8 +174,10 @@ public class AuConfig {
 
     String configKey = PluginManager.configKeyFromAuId(auid);
 
-    for (String key : configuration.keySet()) {
-      result.put(configKey + "." + key, configuration.get(key));
+    if (configuration != null) {
+      for (String key : configuration.keySet()) {
+	result.put(configKey + "." + key, configuration.get(key));
+      }
     }
 
     return result;
