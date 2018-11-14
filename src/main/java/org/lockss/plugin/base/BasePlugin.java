@@ -710,8 +710,9 @@ public abstract class BasePlugin
   }
 
   PluginException.InvalidDefinition auxErr(String msg, Throwable t) {
-    log.error(msg, t);
-    return new PluginException.InvalidDefinition(msg, t);
+    String m = "In " + getPluginId() + ": " + msg;
+    log.error(m, t);
+    return new PluginException.InvalidDefinition(m, t);
   }
 
   /** Create and return a new instance of a plugin auxilliary class.

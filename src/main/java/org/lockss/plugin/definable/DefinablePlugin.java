@@ -255,16 +255,16 @@ public class DefinablePlugin extends BasePlugin {
 
 	String parentVer = oneMap.getString(KEY_PLUGIN_VERSION, null);
 	if (!nextParentVer.equals(parentVer)) {
+	  String errmsg = extMapName + ": wrong version for parent " +
+	    next + ", expected " + nextParentVer + ", was " + parentVer;
 	  switch (parentVerAct) {
 	  case Ignore:
 	    break;
 	  case Warning:
-	    log.warning("Wrong parent version, expected " + nextParentVer +
-			", was " + parentVer);
+	    log.warning(errmsg);
 	    break;
 	  case Error:
-	    log.error("Wrong parent version, expected " + nextParentVer +
-		      ", was " + parentVer);
+	    log.error(errmsg);
 	    throw new
 	      PluginException.
 	      ParentVersionMismatch("Plugin " + next +

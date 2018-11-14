@@ -717,6 +717,8 @@ public class ConfigManager implements LockssManager {
   // The configuration manager SQL executor.
   private ConfigManagerSql configManagerSql = null;
 
+  private boolean noNag = false;
+
   public ConfigManager() {
     this(null, null);
 
@@ -857,6 +859,11 @@ public class ConfigManager implements LockssManager {
       newConfig.put(PARAM_DAEMON_GROUPS, groupNames.toLowerCase());
     }
     return newConfig;
+  }
+
+  public ConfigManager setNoNag() {
+    noNag = true;
+    return this;
   }
 
   /** Return current configuration, or an empty configuration if there is
@@ -2305,8 +2312,13 @@ public class ConfigManager implements LockssManager {
     if (cacheConfigInited) return;
     Vector v = StringUtil.breakAt(dspace, ';');
     if (v.size() == 0) {
-      log.error(PARAM_PLATFORM_DISK_SPACE_LIST +
-		" not specified, not configuring local cache config dir");
+      if (noNag) {
+	log.debug2(PARAM_PLATFORM_DISK_SPACE_LIST +
+		   " not specified, not configuring local cache config dir");
+      } else {
+	log.error(PARAM_PLATFORM_DISK_SPACE_LIST +
+		  " not specified, not configuring local cache config dir");
+      }
       return;
     }
     cacheConfigDir = findRelDataDir(v, relConfigPath, true);
