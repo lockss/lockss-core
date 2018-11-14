@@ -80,6 +80,7 @@ public class PluginPackager {
   ClassLoader gLoader = null;
   boolean forceRebuild = false;
   List<Result> results = new ArrayList<>();
+  boolean nofail = false;
 
   List<PlugSpec> argSpecs = new ArrayList<>();
   File argPlugDir;			// root of plugins class tree
@@ -146,6 +147,15 @@ public class PluginPackager {
     return this;
   }
 
+  public PluginPackager setNoFail(boolean val) {
+    this.nofail = val;
+    return this;
+  }
+
+  public boolean isNoFail() {
+    return nofail;
+  }
+
   /** Set the pat of the plugin signing keystore.  Plugins will be signed
    * if this is provided */
   public PluginPackager setKeystore(String ks) {
@@ -178,7 +188,7 @@ public class PluginPackager {
   }
 
   /** Check the args and build all the plugins specified */
-  public void build() {
+  public void build() throws Exception {
     List<PlugSpec> specs = argSpecs;
 
     if (specs.isEmpty()) {
@@ -207,6 +217,8 @@ public class PluginPackager {
       log.debug("Prepending classpath: {}", argClasspath);
     }
 
+
+    init();
     for (PlugSpec ps : specs) {
       JarBuilder it = new JarBuilder(ps);
       try {
@@ -311,7 +323,6 @@ public class PluginPackager {
 
     public void makeJar() throws Exception {
       try {
-	init();
 	findPlugins();
 	// check file dates against jar date, exit if jar is up-to-date
 	if (isJarUpToDate()) {
@@ -706,6 +717,10 @@ public class PluginPackager {
 					 url);
     }
     URI uri = new URI(url.toString());
+    // XXX if path is relative (e.g., file:target/classes), URI.getPath()
+    // returns null.
+//     log.debug3("url.getPath: {}", url.getPath());
+//     log.debug3("getPath: {}", uri.getPath());
     URI parent = uri.getPath().endsWith("/")
       ? uri.resolve("..") : uri.resolve(".");
     URL res = new URL(parent.toString());
@@ -818,6 +833,7 @@ public class PluginPackager {
     "     -od <output-dir>  dir to which to write plugin jars\n" +
     " Common args:\n" +
     "     -f                force rebuild even if jar appears to be up-to-date\n" +
+    "     -nofail           Exit with 0 status even if some plugins can't be built\n" +
     "     -cp <classpath>   load plugins from specified colon-separated classpath\n" +
     "     -keystore <file>  signing keystore\n" +
     "     -alias <alias>    key alias (required if -keystore is used)\n" +
@@ -880,6 +896,8 @@ public class PluginPackager {
 	  pkgr.setClassPath(argv[++ix]);
 	} else if (arg.equals("-f")) {
 	  pkgr.setForceRebuild(true);
+	} else if (arg.equals("-nofail")) {
+	  pkgr.setNoFail(true);
 	} else if (arg.equals("-keystore")) {
 	  pkgr.setKeystore(argv[++ix]);
 	} else if (arg.equals("-alias")) {
@@ -913,8 +931,11 @@ public class PluginPackager {
       System.exit(reportResults(pkgr));
     } catch (IllegalArgumentException e) {
       usage(e.getMessage());
+    } catch (Exception e) {
+      log.error("init() failed", e);
+      System.exit(2);
     }
-//     System.exit(0);
+
   }
 
   static int reportResults(PluginPackager pkgr) {
@@ -944,13 +965,15 @@ public class PluginPackager {
       msg = StringUtil.numberOfUnits(success, "jar") + " built, " +
 	notModified + " not modified, " + fail + " failed.";
     }
-    System.err.println(msg);
-    if (!failures.isEmpty()) {
+    if (failures.isEmpty()) {
+      log.info(msg);
+    } else {
+      log.error(msg);
       for (Result res : failures) {
 	PlugSpec spec = res.getPlugSpec();
 	log.error(res.getException());
       }
-      return 1;
+      return pkgr.isNoFail() ? 0 : 1;
     }
     return 0;
   }
