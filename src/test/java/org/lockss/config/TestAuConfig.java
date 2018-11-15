@@ -43,6 +43,70 @@ import org.lockss.util.test.LockssTestCase5;
 public class TestAuConfig extends LockssTestCase5 {
 
   @Test
+  public void testAuConfig() {
+    String auid = null;
+    Map<String, String> configuration = null;
+    AuConfig auc = null;
+
+    try {
+      auc = new AuConfig(auid, configuration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auid = "";
+
+    try {
+      auc = new AuConfig(auid, configuration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auid = " ";
+
+    try {
+      auc = new AuConfig(auid, configuration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auid = "abc";
+
+    try {
+      auc = new AuConfig(auid, configuration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    configuration = new HashMap<>();
+
+    try {
+      auc = new AuConfig(auid, configuration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auid = " ";
+    configuration.put("abc", "def");
+
+    try {
+      auc = new AuConfig(auid, configuration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auid = "abc";
+    auc = new AuConfig(auid, configuration);
+    assertEquals(auid, auc.getAuid());
+    assertEquals(configuration, auc.getConfiguration());
+
+    configuration.put("ghi", "jkl");
+    auc = new AuConfig(auid, configuration);
+    assertEquals(auid, auc.getAuid());
+    assertEquals(configuration, auc.getConfiguration());
+  }
+
+  @Test
   public void testAuConfigFromConfiguration() {
     String auPropKey = null;
     Configuration auConfiguration = null;
@@ -50,22 +114,41 @@ public class TestAuConfig extends LockssTestCase5 {
 
     try {
       auc = new AuConfig(auPropKey, auConfiguration);
-      fail("Should have thrown NullPointerException");
-    } catch (NullPointerException npe) {
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auPropKey = "";
+
+    try {
+      auc = new AuConfig(auPropKey, auConfiguration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auPropKey = " ";
+
+    try {
+      auc = new AuConfig(auPropKey, auConfiguration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
     }
 
     auPropKey = "org.lockss.au.foo.auid";
 
     try {
       auc = new AuConfig(auPropKey, auConfiguration);
-      fail("Should have thrown NullPointerException");
-    } catch (NullPointerException npe) {
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
     }
 
     auConfiguration = ConfigManager.fromProperties(new Properties());
-    auc = new AuConfig(auPropKey, auConfiguration);
-    assertEquals("foo&auid", auc.getAuid());
-    assertEquals(0, auc.getConfiguration().size());
+
+    try {
+      auc = new AuConfig(auPropKey, auConfiguration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
 
     Properties p = new Properties();
     p.put(auPropKey + ".foo", "111");
@@ -73,6 +156,15 @@ public class TestAuConfig extends LockssTestCase5 {
     p.put(auPropKey + ".baz", "333");
     auConfiguration = ConfigManager.fromProperties(p);
 
+    auPropKey = " ";
+
+    try {
+      auc = new AuConfig(auPropKey, auConfiguration);
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    auPropKey = "org.lockss.au.foo.auid";
     auc = new AuConfig(auPropKey, auConfiguration);
     assertEquals("foo&auid", auc.getAuid());
     assertEquals(3, auc.getConfiguration().size());
@@ -97,31 +189,40 @@ public class TestAuConfig extends LockssTestCase5 {
     } catch (IllegalArgumentException iae) {
     }
 
-    String bul = "abc";
-    auc = AuConfig.fromBackupLine(bul);
-    assertEquals(bul, auc.getAuid());
-    assertEquals(0, auc.getConfiguration().size());
-    assertEquals(bul, auc.toBackupLine());
-
-    bul = "abc def";
-    auc = AuConfig.fromBackupLine(bul);
-    assertEquals(bul, auc.getAuid());
-    assertEquals(0, auc.getConfiguration().size());
-    assertEquals(bul, auc.toBackupLine());
-
     try {
-      auc = AuConfig.fromBackupLine("abc\tdef");
+      auc = AuConfig.fromBackupLine(" ");
       fail("Should have thrown IllegalArgumentException");
     } catch (IllegalArgumentException iae) {
     }
 
     try {
-      auc = AuConfig.fromBackupLine("abc\tdef ghi");
+      auc = AuConfig.fromBackupLine("abc");
       fail("Should have thrown IllegalArgumentException");
     } catch (IllegalArgumentException iae) {
     }
 
-    bul = "abc\tdef\tghi";
+    try {
+      auc = AuConfig.fromBackupLine("abc def");
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    try {
+      auc = AuConfig.fromBackupLine("abc" + AuConfig.BACKUP_LINE_FIELD_SEPARATOR
+	  + "def");
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    try {
+      auc = AuConfig.fromBackupLine("abc" + AuConfig.BACKUP_LINE_FIELD_SEPARATOR
+	  + "def ghi");
+      fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException iae) {
+    }
+
+    String bul = "abc" + AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "def"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "ghi";
     auc = AuConfig.fromBackupLine(bul);
     assertEquals("abc", auc.getAuid());
     assertEquals(1, auc.getConfiguration().size());
@@ -129,12 +230,17 @@ public class TestAuConfig extends LockssTestCase5 {
     assertEquals(bul, auc.toBackupLine());
 
     try {
-      auc = AuConfig.fromBackupLine("abc\tdef\tghi\tjkl");
+      auc = AuConfig.fromBackupLine("abc" + AuConfig.BACKUP_LINE_FIELD_SEPARATOR
+	  + "def" + AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "ghi"
+	  + AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "jkl");
       fail("Should have thrown IllegalArgumentException");
     } catch (IllegalArgumentException iae) {
     }
 
-    bul = "abc\tdef\tghi\tjkl\tmno";
+    bul = "abc" + AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "def"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "ghi"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "jkl"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "mno";
     auc = AuConfig.fromBackupLine(bul);
     assertEquals("abc", auc.getAuid());
     assertEquals(2, auc.getConfiguration().size());
@@ -145,57 +251,32 @@ public class TestAuConfig extends LockssTestCase5 {
 
   @Test
   public void testToBackupLine() {
-    String auid = null;
-    Map<String, String> configuration = null;
+    String auid = "auid";
+    Map<String, String> configuration = new HashMap<>();
+    configuration.put("abc", "def");
+
     AuConfig auc = new AuConfig(auid, configuration);
-    assertEquals("", auc.toBackupLine());
-
-    auid = "";
-    auc = new AuConfig(auid, configuration);
-    assertEquals(auid, auc.toBackupLine());
-
-    auid = " ";
-    auc = new AuConfig(auid, configuration);
-    assertEquals(auid, auc.toBackupLine());
-
-    auid = "auid";
-    auc = new AuConfig(auid, configuration);
-    assertEquals(auid, auc.toBackupLine());
-
-    configuration = new HashMap<>();
-    auc = new AuConfig(auid, configuration);
-    assertEquals(auid, auc.toBackupLine());
+    assertEquals(auid + AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "abc"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "def", auc.toBackupLine());
     assertEquals(auc, AuConfig.fromBackupLine(auc.toBackupLine()));
 
-    configuration.put("abc", "def");
+    configuration.put("ghi", "jkl");
+
     auc = new AuConfig(auid, configuration);
-    assertEquals(auid + "\tabc\tdef", auc.toBackupLine());
+    assertEquals(auid + AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "abc"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "def"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "ghi"
+	+ AuConfig.BACKUP_LINE_FIELD_SEPARATOR + "jkl", auc.toBackupLine());
     assertEquals(auc, AuConfig.fromBackupLine(auc.toBackupLine()));
   }
 
   @Test
   public void testToUnprefixedConfiguration() {
-    String auid = null;
-    Map<String, String> configuration = null;
-    AuConfig auc = new AuConfig(auid, configuration);
-    Configuration emptyConfiguration = ConfigManager.newConfiguration();
-    assertEquals(emptyConfiguration, auc.toUnprefixedConfiguration());
-
-    auid = "";
-    auc = new AuConfig(auid, configuration);
-    assertEquals(emptyConfiguration, auc.toUnprefixedConfiguration());
-
-    auid = " ";
-    auc = new AuConfig(auid, configuration);
-    assertEquals(emptyConfiguration, auc.toUnprefixedConfiguration());
-
-    auid = "auid";
-    configuration = new HashMap<>();
-    auc = new AuConfig(auid, configuration);
-    assertEquals(emptyConfiguration, auc.toUnprefixedConfiguration());
-
+    String auid = "auid";
+    Map<String, String> configuration = new HashMap<>();
     configuration.put("abc", "def");
-    auc = new AuConfig(auid, configuration);
+
+    AuConfig auc = new AuConfig(auid, configuration);
     assertEquals(1, auc.toUnprefixedConfiguration().keySet().size());
     assertEquals("def", auc.toUnprefixedConfiguration().get("abc"));
 
@@ -208,27 +289,11 @@ public class TestAuConfig extends LockssTestCase5 {
 
   @Test
   public void toAuidPrefixedConfiguration() {
-    String auid = null;
-    Map<String, String> configuration = null;
-    AuConfig auc = new AuConfig(auid, configuration);
-    Configuration emptyConfiguration = ConfigManager.newConfiguration();
-
-    try {
-      assertEquals(emptyConfiguration, auc.toAuidPrefixedConfiguration());
-      fail("Should have thrown NullPointerException");
-    } catch (NullPointerException npe) {
-    }
-
-    auid = "auid";
-    auc = new AuConfig(auid, configuration);
-    assertEquals(emptyConfiguration, auc.toAuidPrefixedConfiguration());
-
-    configuration = new HashMap<>();
-    auc = new AuConfig(auid, configuration);
-    assertEquals(emptyConfiguration, auc.toAuidPrefixedConfiguration());
-
+    String auid = "auid";
+    Map<String, String> configuration = new HashMap<>();
     configuration.put("abc", "def");
-    auc = new AuConfig(auid, configuration);
+
+    AuConfig auc = new AuConfig(auid, configuration);
     assertEquals(1, auc.toAuidPrefixedConfiguration().keySet().size());
     assertEquals("def", auc.toAuidPrefixedConfiguration().get("auid.abc"));
 

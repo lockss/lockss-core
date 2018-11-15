@@ -1053,12 +1053,11 @@ public class PluginManager
     }
   }
 
-  /** Return true if the AU is configured in au.txt.
+  /** Return true if the AU is configured in the database.
    * @see PARAM_ALLOW_GLOBAL_AU_CONFIG
    */
   boolean isAuConfInDb(String auId) throws DbException {
-    return !configMgr.retrieveArchivalUnitConfiguration(auId)
-	.getConfiguration().isEmpty();
+    return configMgr.retrieveArchivalUnitConfiguration(auId) != null;
   }
 
   void configureAu(Plugin plugin, Configuration auConf, String auId)
@@ -1822,9 +1821,11 @@ public class PluginManager
 	    configMgr.retrieveArchivalUnitConfiguration(conn, au.getAuId());
 	if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
 
-	auConfig.getConfiguration().put(AU_PARAM_DISABLED, "true");
+	if (auConfig != null) {
+	  auConfig.getConfiguration().put(AU_PARAM_DISABLED, "true");
 
-	configMgr.storeArchivalUnitConfiguration(conn, auConfig);
+	  configMgr.storeArchivalUnitConfiguration(conn, auConfig);
+	}
       } finally {
 	DbManager.safeRollbackAndClose(conn);
       }
@@ -2012,8 +2013,12 @@ public class PluginManager
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
-    Configuration config = configMgr.retrieveArchivalUnitConfiguration(auid)
-	.toUnprefixedConfiguration();
+    Configuration config = ConfigManager.newConfiguration();
+    AuConfig auConfig = configMgr.retrieveArchivalUnitConfiguration(auid);
+
+    if (auConfig != null) {
+      config = auConfig.toUnprefixedConfiguration();
+    }
 
     if (log.isDebug2()) log.debug2("config = " + config);
     return config;

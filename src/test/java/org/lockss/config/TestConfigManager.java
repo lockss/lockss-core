@@ -1868,12 +1868,12 @@ public class TestConfigManager extends LockssTestCase4 {
     }
 
     // Define the configuration of the first AU.
-    Map<String, String> configuration = new HashMap<>();
-    configuration.put("au_oai_date", "2014");
-    configuration.put("au_oai_set", "biorisk");
-    configuration.put("reserved.displayName", "BioRisk Volume 2014");
+    Map<String, String> configuration1 = new HashMap<>();
+    configuration1.put("au_oai_date", "2014");
+    configuration1.put("au_oai_set", "biorisk");
+    configuration1.put("reserved.displayName", "BioRisk Volume 2014");
 
-    AuConfig auConfig1 = new AuConfig(auid1, configuration);
+    AuConfig auConfig1 = new AuConfig(auid1, configuration1);
 
     // Store the configuration of the first AU.
     long beforeAdding1 = TimeBase.nowMs();
@@ -1885,10 +1885,10 @@ public class TestConfigManager extends LockssTestCase4 {
     // Define the configuration of the second AU.
     String auid2 = "org|lockss|plugin|SomePlugin1&some_key_2";
 
-    configuration = new HashMap<>();
-    configuration.put("reserved.disabled", "false");
+    Map<String, String> configuration2 = new HashMap<>();
+    configuration2.put("reserved.disabled", "false");
 
-    AuConfig auConfig2 = new AuConfig(auid2, configuration);
+    AuConfig auConfig2 = new AuConfig(auid2, configuration2);
 
     // Store the configuration of the second AU.
     long beforeAdding2 = TimeBase.nowMs();
@@ -1938,11 +1938,11 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(creationTime2, lastUpdateTime2);
 
     // Define the updated configuration of the second AU.
-    configuration = new HashMap<>();
-    configuration.put("newKey1", "newValue1");
-    configuration.put("newKey2", "newValue2");
+    Map<String, String> configuration3 = new HashMap<>();
+    configuration3.put("newKey1", "newValue1");
+    configuration3.put("newKey2", "newValue2");
 
-    AuConfig auConfig2new = new AuConfig(auid2, configuration);
+    AuConfig auConfig2new = new AuConfig(auid2, configuration3);
 
     // Store the updated configuration of the second AU.
     long beforeAdding2new = TimeBase.nowMs();
@@ -1987,8 +1987,7 @@ public class TestConfigManager extends LockssTestCase4 {
     // Retrieve the configuration of the first (deleted) AU.
     AuConfig config1new = mgr.retrieveArchivalUnitConfiguration(auid1);
     if (log.isDebug3()) log.debug3("config1new = " + config1new);
-    assertEquals(auid1, config1new.getAuid());
-    assertTrue(config1new.getConfiguration().isEmpty());
+    assertNull(config1new);
 
     // Retrieve the configuration creation time of the first (deleted) AU.
     Long creationTime1new =
@@ -2013,8 +2012,7 @@ public class TestConfigManager extends LockssTestCase4 {
     // Retrieve the configuration of the second (deleted) AU.
     config2new = mgr.retrieveArchivalUnitConfiguration(auid2);
     if (log.isDebug3()) log.debug3("config2new = " + config2new);
-    assertEquals(auid2, config2new.getAuid());
-    assertTrue(config2new.getConfiguration().isEmpty());
+    assertNull(config2new);
 
     // Retrieve the configuration creation time of the second (deleted) AU.
     Long creationTime2new =

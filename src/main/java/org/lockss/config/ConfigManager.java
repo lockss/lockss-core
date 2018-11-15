@@ -3959,7 +3959,7 @@ public class ConfigManager implements LockssManager {
       String auid) throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
-    AuConfig result = new AuConfig(auid, new HashMap<String, String>());
+    AuConfig result = null;
 
     // Parse the Archival Unit identifier.
     String pluginId = PluginManager.pluginIdFromAuId(auid);

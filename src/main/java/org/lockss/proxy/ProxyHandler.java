@@ -44,6 +44,7 @@ import org.apache.commons.logging.Log;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.daemon.CuUrl;
+import org.lockss.daemon.PluginBehaviorException;
 import org.lockss.exporter.counter.CounterReportsRequestRecorder;
 import org.lockss.exporter.counter.CounterReportsRequestRecorder.PublisherContacted;
 import org.lockss.plugin.*;
@@ -458,7 +459,15 @@ public class ProxyHandler extends AbstractHttpHandler {
 	}
 	return;
       }
-      cu = au.makeCachedUrl(urlString);
+      String normUrl = urlString;
+      if (proxyMgr.isNormalizeAuidRequest()) {
+	try {
+	  normUrl = UrlUtil.normalizeUrl(urlString, au);
+	} catch (PluginBehaviorException e) {
+	  log.siteWarning("Normalizer error: " + urlString, e);
+	}
+      }
+      cu = au.makeCachedUrl(normUrl);
     } else {
       cu = pluginMgr.findCachedUrl(urlString);
     }
