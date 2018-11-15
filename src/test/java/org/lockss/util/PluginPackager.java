@@ -74,6 +74,11 @@ public class PluginPackager {
   static final String MANIFEST_DIR = "META-INF/";
   static final String VERSION = "1.0";
 
+  // Match the signature file in a signed jar
+  static Pattern SIG_FILE_PAT =
+    Pattern.compile("META-INF/[^/.]+\\.SF$", Pattern.CASE_INSENSITIVE);
+
+
   MockLockssDaemon daemon;
   PluginManager pluginMgr;
   File tmpdir;
@@ -81,10 +86,12 @@ public class PluginPackager {
   boolean forceRebuild = false;
   List<Result> results = new ArrayList<>();
   boolean nofail = false;
+  List<String> excluded = new ArrayList<>();
 
   List<PlugSpec> argSpecs = new ArrayList<>();
   File argPlugDir;			// root of plugins class tree
   File argOutputDir;			// dir (flat) to write plugin jars
+  List<Pattern> argExcludePats = new ArrayList<>();
 
   List<String> argClasspath = null;
   boolean argForceRebuild = false;
@@ -142,6 +149,13 @@ public class PluginPackager {
   }
 
   /** Force jars to be rebuilt even if they exist and are up-to-date */
+  public PluginPackager addExclusion(String patstr) {
+    Pattern pat = Pattern.compile(patstr);
+    argExcludePats.add(pat);
+    return this;
+  }
+
+  /** Force jars to be rebuilt even if they exist and are up-to-date */
   public PluginPackager setForceRebuild(boolean force) {
     argForceRebuild = force;
     return this;
@@ -185,6 +199,10 @@ public class PluginPackager {
 
   public List<Result> getResults() {
     return results;
+  }
+
+  public List<String> getExcluded() {
+    return excluded;
   }
 
   /** Check the args and build all the plugins specified */
@@ -284,12 +302,10 @@ public class PluginPackager {
   /** Builds one plugin jar */
   class JarBuilder {
 
-    PlugSpec spec;
-					// including parents)
-    File jarFile;
+    PlugSpec spec;			// spec for what should go in jar
 
-    List<PData> pds = new ArrayList<>();
-    Collection<PkgUrl> allFiles;
+    List<PData> pds = new ArrayList<>(); // PData for each plugin in spec
+    Collection<PkgUrl> allFiles;	 // all files to be written to jar
 
     JarOutputStream jarOut;
 
@@ -325,7 +341,7 @@ public class PluginPackager {
       try {
 	findPlugins();
 	// check file dates against jar date, exit if jar is up-to-date
-	if (isJarUpToDate()) {
+	if (isJarUpToDate() && (argKeystore == null || isJarSigned())) {
 	  notModified = true;
 	  return;
 	}
@@ -348,13 +364,12 @@ public class PluginPackager {
     }
 
     String SIGN_CMD = "jarsigner -keystore %s -keypass %s -storepass %s %s %s";
-    //   String SIGN_CMD = "jarsigner -version # -keystore %s -keypass %s -storepass %s %s %s";
 
     public void signJar() throws IOException {
       String cmd =
 	String.format(SIGN_CMD, argKeystore, argKeyPass, argStorePass,
 		      spec.getJar(), argAlias);
-      log.debug("cmd: " + cmd);
+      log.debug2("cmd: " + cmd);
       String s;
       Reader rdr = null;
       try {
@@ -425,7 +440,8 @@ public class PluginPackager {
     }
 
     void initJar() throws IOException {
-      OutputStream out = new BufferedOutputStream(new FileOutputStream(spec.getJarFile()));
+      OutputStream out =
+	new BufferedOutputStream(new FileOutputStream(spec.getJarFile()));
       jarOut = new JarOutputStream(out);
     }
 
@@ -490,6 +506,28 @@ public class PluginPackager {
       return latest <= spec.getJarFile().lastModified();
     }
 
+
+    /** Return true if the jar exists and is signed.  Currently just looks
+     * for a file named META-INF/*.SF */
+    boolean isJarSigned() throws Exception {
+      if (!spec.getJarFile().exists()) {
+	return false;
+      }
+      try (JarFile jf = new JarFile(spec.getJarFile())) {
+	for (Enumeration<JarEntry> en = jf.entries(); en.hasMoreElements(); ) {
+	  JarEntry ent = en.nextElement();
+	  if (ent.isDirectory()) {
+	    continue;
+	  }
+	  Matcher mat = SIG_FILE_PAT.matcher(ent.getName());
+	  if (mat.matches()) {
+	    return true;
+	  }
+	}
+      }
+      return false;
+    }
+
     // write all files in plugin dir and parent plugin dirs
     void writeFiles() throws Exception {
       Set<URL> urlsAdded = new HashSet<>();
@@ -498,6 +536,7 @@ public class PluginPackager {
       for (PkgUrl pu : findAllFiles()) {
 	URL url = pu.getUrl();
 	if (urlsAdded.add(url)) {
+	  // xxx check for not jar:file:
 	  if (url.getProtocol().equalsIgnoreCase("file")) {
 	    String path = url.getPath();
 	    File f = new File(path);
@@ -505,7 +544,7 @@ public class PluginPackager {
 	    String relPath = pathOfPkg(pu.getPkg());
 	    String dir = f.getParent();
 	    if (dirsAdded.add(dir)) {
-	      log.debug("Adding dir {}", relPath);
+	      log.debug2("Adding dir {}", relPath);
 	      String entPath = relPath + "/";
 	      JarEntry entry = new JarEntry(entPath);
 	      entry.setTime(f.lastModified());
@@ -645,7 +684,8 @@ public class PluginPackager {
       return getPackagePath() + "/" + plugName;
     }
 
-    /** Return */
+    /** Return list of PkgUrl for all files in dir of plugin and its
+     * parents */
     List<PkgUrl> listFiles() {
       return pluginUrls.stream()
 	.flatMap(pu -> listFilesInDirOf(pu).stream())
@@ -660,6 +700,8 @@ public class PluginPackager {
     Path root;
     Path outDir;
     PathMatcher matcher;
+    List<Pattern> excludePats;
+    List<String> excluded = new ArrayList<>();
 
     FileVisitor(List<PlugSpec> res, Path root, Path outDir) {
       this.res = res;
@@ -669,8 +711,24 @@ public class PluginPackager {
     }
 
     static Pattern PLUG_PAT =
-      java.util.regex.Pattern.compile("(\\w+)\\.xml$",
-				      Pattern.CASE_INSENSITIVE);
+      Pattern.compile("(\\w+)\\.xml$", Pattern.CASE_INSENSITIVE);
+
+    FileVisitor setExclusions(List<Pattern> excludePats) {
+      this.excludePats = excludePats;
+      return this;
+    }
+
+    boolean isExcluded(String id) {
+      if (excludePats == null) return false;
+      for (Pattern pat : excludePats) {
+	if (pat.matcher(id).matches()) return true;
+      }
+      return false;
+    }
+
+    List<String> getExcluded() {
+      return excluded;
+    }
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
@@ -683,10 +741,14 @@ public class PluginPackager {
 	String pkg = rel.toString().replace("/", ".");
  	log.debug2("file: {}, fname: {}, rel: {}, pkg: {}", file, fname, rel, pkg);
 	String fqPlug = pkg + "." + fname;
-	PlugSpec spec = new PlugSpec()
-	  .addPlug(fqPlug)
-	  .setJar(outDir.resolve(fqPlug + ".jar").toString());
-	res.add(spec);
+	if (isExcluded(fqPlug)) {
+	  excluded.add(fqPlug);
+	} else {
+	  PlugSpec spec = new PlugSpec()
+	    .addPlug(fqPlug)
+	    .setJar(outDir.resolve(fqPlug + ".jar").toString());
+	  res.add(spec);
+	}
       }
       return CONTINUE;
     }
@@ -802,15 +864,17 @@ public class PluginPackager {
 
   /** Walk directory looking for plugins (*.xml), building a PlugSpec for
    * each */
-  static List<PlugSpec> findSpecsInDir(File indir, File outdir) {
+  List<PlugSpec> findSpecsInDir(File indir, File outdir) {
     Path dirPath = indir.toPath();
 
     List<PlugSpec> res = new ArrayList<>();
-    Map<File, File> convMap = new HashMap<>();
-    FileVisitor visitor = new FileVisitor(res, dirPath, outdir.toPath());
+    FileVisitor visitor =
+      new FileVisitor(res, dirPath, outdir.toPath())
+      .setExclusions(argExcludePats);
     try {
       log.debug("starting tree walk ...");
       Files.walkFileTree(dirPath, EnumSet.of(FOLLOW_LINKS), 100, visitor);
+      excluded = visitor.getExcluded();
     } catch (IOException e) {
       throw new RuntimeException("unable to walk source tree.", e);
     }
@@ -827,18 +891,20 @@ public class PluginPackager {
     "  or\n" +
     "PluginPackager [common-args] -pd <plugins-class-dir> -od <output-dir>\n" +
     "\n" +
-    "     -p <plugin-id>    fully-qualified plugin id\n" +
-    "     -o <output-jar>   output jar path/name\n" +
-    "     -pd <plugins-class-dir>  root of compiled plugins tree\n" +
-    "     -od <output-dir>  dir to which to write plugin jars\n" +
+    "     -p <plugin-id>    Fully-qualified plugin id.\n" +
+    "     -o <output-jar>   Output jar path/name.\n" +
+    "     -pd <plugins-class-dir>  Root of compiled plugins tree.\n" +
+    "     -od <output-dir>  Dir to which to write plugin jars.\n" +
+    "     -x <exclude-pat>  Used with -pd.  Plugins whose id matches this\n" +
+    "                       regexp will be excluded.  May be repeated.\n" +
     " Common args:\n" +
-    "     -f                force rebuild even if jar appears to be up-to-date\n" +
-    "     -nofail           Exit with 0 status even if some plugins can't be built\n" +
-    "     -cp <classpath>   load plugins from specified colon-separated classpath\n" +
-    "     -keystore <file>  signing keystore\n" +
-    "     -alias <alias>    key alias (required if -keystore is used)\n" +
-    "     -storepass <pass> keystore password (def \"password\")\n" +
-    "     -keypass <pass>   key password (def \"password\")\n" +
+    "     -f                Force rebuild even if jar appears to be up-to-date.\n" +
+    "     -nofail           Exit with 0 status even if some plugins can't be built.\n" +
+    "     -cp <classpath>   Load plugins from specified colon-separated classpath.\n" +
+    "     -keystore <file>  Signing keystore.\n" +
+    "     -alias <alias>    Key alias (required if -keystore is used).\n" +
+    "     -storepass <pass> Keystore password (def \"password\").\n" +
+    "     -keypass <pass>   Key password (def \"password\").\n" +
     "\n" +
     "Builds and optionally signs LOCKSS loadable plugin jars.  Each jar contains\n" +
     "one or more plugins and their dependent files, including parent plugins.\n" +
@@ -916,6 +982,8 @@ public class PluginPackager {
 	  pkgr.setPluginDir(new File(argv[++ix]));
 	} else if (arg.equals("-od")) {
 	  pkgr.setOutputDir(new File(argv[++ix]));
+	} else if (arg.equals("-x")) {
+	  pkgr.addExclusion(argv[++ix]);
 	} else {
 	  usage();
 	}
@@ -956,14 +1024,20 @@ public class PluginPackager {
       }
     }
     String msg;
+    int excl = pkgr.getExcluded().size();
+    int tot = reslst.size() + excl;
     File pdir = pkgr.getPlugDir();
     if (pdir != null) {
-      msg = "Found " + StringUtil.numberOfUnits(reslst.size(), "plugin") +
-	", (re)built " + StringUtil.numberOfUnits(success, "jar") +
-	", " + notModified + " not modified, " + fail + " failed.";
+      msg = "Found " + StringUtil.numberOfUnits(tot, "plugin") +
+	", (re)built " + StringUtil.numberOfUnits(success, "jar") + ", " +
+	notModified + " not modified, " +
+	excl + " excluded. " +
+	fail + " failed.";
     } else {
       msg = StringUtil.numberOfUnits(success, "jar") + " built, " +
-	notModified + " not modified, " + fail + " failed.";
+	notModified + " not modified, " +
+	excl + " excluded. " +
+	fail + " failed.";
     }
     if (failures.isEmpty()) {
       log.info(msg);
