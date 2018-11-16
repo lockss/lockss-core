@@ -31,13 +31,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.config;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.lockss.plugin.PluginManager;
+import org.lockss.util.StringUtil;
 
 /**
  * Representation of an Archival Unit configuration.
  */
 public class AuConfig {
+  static String BACKUP_LINE_FIELD_SEPARATOR = "\t";
+
   /**
    * The Archival Unit identifier.
    */
@@ -49,7 +55,7 @@ public class AuConfig {
   private Map<String, String> configuration = null;
 
   /**
-   * Constructor.
+   * Constructor from members.
    * 
    * @param auid
    *          A String with the Archival Unit identifier.
@@ -58,8 +64,150 @@ public class AuConfig {
    */
   public AuConfig(String auid, Map<String, String> configuration) {
     super();
+
+    // Validation.
+    if (auid == null || auid.trim().isEmpty()) {
+      throw new IllegalArgumentException("Invalid Archival Unit identifier: '"
+	  + auid + "'");
+    }
+
+    if (configuration == null || configuration.isEmpty()) {
+      throw new IllegalArgumentException("Invalid configuration: '"
+	  + configuration + "'");
+    }
+
     this.auid = auid;
     this.configuration = configuration;
+  }
+
+  /**
+   * Constructor from a generic configuration.
+   * 
+   * @param auPropKey
+   *          A String with the key under which the Archival Unit configuration
+   *          properties are listed.
+   * @param auConfiguration
+   *          A Configuration with the Archival Unit configuration properties.
+   */
+  public AuConfig(String auPropKey, Configuration auConfiguration) {
+    super();
+
+    // Validation.
+    if (auPropKey == null || auPropKey.trim().isEmpty()) {
+      throw new IllegalArgumentException("Invalid Archival Unit key: '"
+	  + auPropKey + "'");
+    }
+
+    if (auConfiguration == null || auConfiguration.isEmpty()) {
+      throw new IllegalArgumentException("Invalid configuration: '"
+	  + auConfiguration + "'");
+    }
+
+    // Save the Archival Unit identifier from the property key.
+    auid = PluginManager.auIdFromConfigPrefixAndKey(auPropKey);
+
+    if (auid == null || auid.trim().isEmpty()) {
+      throw new IllegalArgumentException("Invalid Archival Unit identifier: '"
+	  + auid + "'");
+    }
+
+    // Get the subtree of Archival Unit configuration properties.
+    Configuration newConf = auConfiguration.getConfigTree(auPropKey);
+
+    // Save the Archival Unit configuration properties.
+    configuration = new HashMap<String, String>();
+
+    for (String key : newConf.keySet()) {
+      configuration.put(key, newConf.get(key));
+    }
+
+    if (configuration == null || configuration.isEmpty()) {
+      throw new IllegalArgumentException("Invalid configuration: '"
+	  + configuration + "'");
+    }
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in a backup file
+   * line.
+   * 
+   * @param line
+   *          A String with the contents of the backup file line.
+   * @return an AuConfig with the Archival Unit configuration.
+   */
+  public static AuConfig fromBackupLine(String line) {
+    List<String> tokens = StringUtil.breakAt(line, BACKUP_LINE_FIELD_SEPARATOR);
+
+    if (tokens == null || tokens.isEmpty() || (tokens.size() - 1) % 2 != 0) {
+      throw new IllegalArgumentException("Invalid Archival Unit backup line: '"
+	  + line + "'");
+    }
+
+    String auId = tokens.get(0);
+    Map<String, String> props = new HashMap<>();
+
+    for (int index = 1; index < tokens.size() - 1; index = index + 2) {
+      props.put(tokens.get(index), tokens.get(index + 1));
+    }
+
+    return new AuConfig(auId, props);
+  }
+
+  /**
+   * Provides the backup file line that corresponds to this object.
+   * 
+   * @return a String with the contents of the backup file line.
+   */
+  public String toBackupLine() {
+    // Write the Archival Unit identifier.
+    StringBuilder sb = new StringBuilder(StringUtil.blankOutNlsAndTabs(auid));
+
+    // Loop through all the configuration properties.
+    for (String key : configuration.keySet()) {
+      // Write the property.
+      sb.append(BACKUP_LINE_FIELD_SEPARATOR)
+      .append(StringUtil.blankOutNlsAndTabs(key))
+      .append(BACKUP_LINE_FIELD_SEPARATOR)
+      .append(StringUtil.blankOutNlsAndTabs(configuration.get(key)));
+    }
+
+    return sb.toString();
+  }
+
+  /**
+   * Provides a Configuration object, with unprefixed keys, equivalent to this
+   * one.
+   * 
+   * @return a Configuration object, with unprefixed keys, that is equivalent to
+   *         this one.
+   */
+  public Configuration toUnprefixedConfiguration() {
+    Configuration result = ConfigManager.newConfiguration();
+
+    for (String key : configuration.keySet()) {
+      result.put(key, configuration.get(key));
+    }
+
+    return result;
+  }
+
+  /**
+   * Provides a Configuration object, with keys prefixed by the Archival Unit
+   * identifier, equivalent to this one.
+   * 
+   * @return a Configuration object, with keys prefixed by the Archival Unit
+   * identifier, that is equivalent to this one.
+   */
+  public Configuration toAuidPrefixedConfiguration() {
+    Configuration result = ConfigManager.newConfiguration();
+
+    String configKey = PluginManager.configKeyFromAuId(auid);
+
+    for (String key : configuration.keySet()) {
+      result.put(configKey + "." + key, configuration.get(key));
+    }
+
+    return result;
   }
 
   /**
@@ -78,6 +226,11 @@ public class AuConfig {
    *          A String with the Archival Unit identifier.
    */
   public void setAuid(String auid) {
+    if (auid == null || auid.trim().isEmpty()) {
+      throw new IllegalArgumentException("Invalid Archival Unit identifier: '"
+	  + auid + "'");
+    }
+
     this.auid = auid;
   }
 
@@ -97,6 +250,11 @@ public class AuConfig {
    *          A Map<String, String> with the Archival Unit configuration.
    */
   public void setConfiguration(Map<String, String> configuration) {
+    if (configuration == null || configuration.isEmpty()) {
+      throw new IllegalArgumentException("Invalid configuration: '"
+	  + configuration + "'");
+    }
+
     this.configuration = configuration;
   }
 

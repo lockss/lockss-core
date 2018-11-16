@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,13 +35,13 @@ import java.text.*;
 import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
-
 import org.apache.commons.collections.*;
 import org.apache.commons.lang3.mutable.*;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.lockss.config.*;
 import org.lockss.app.*;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.jetty.Button;
 import org.lockss.jetty.MyTextArea;
 import org.lockss.plugin.*;
@@ -671,7 +667,7 @@ public class ServletUtil {
                                      String addAction,
                                      String restoreAction,
                                      String reactivateAction,
-                                     String editAction) {
+                                     String editAction) throws DbException {
     // Start form
     Form frm = newForm(formUrl);
     frm.attribute("id", formId);
@@ -1362,7 +1358,7 @@ public class ServletUtil {
                                          String submitText,
                                          String submitAction,
                                          MutableInt buttonNumber,
-                                         int atLeast) {
+                                         int atLeast) throws DbException {
     int actualRows = 0;
     isAnySelectable.setValue(false);
     Composite topRow;
@@ -1755,7 +1751,8 @@ public class ServletUtil {
                                           String auIdName,
                                           String restoreAction,
                                           String reactivateAction,
-                                          String editAction) {
+                                          String editAction)
+                                              throws DbException {
     while (auProxyIter.hasNext()) {
       AuProxy au = (AuProxy)auProxyIter.next();
       Configuration cfg = remoteApi.getStoredAuConfiguration(au);

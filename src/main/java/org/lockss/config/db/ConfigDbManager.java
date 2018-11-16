@@ -316,21 +316,6 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
   }
 
   /**
-   * Provides the SQL code executor.
-   * 
-   * @return a ConfigDbManagerSql with the SQL code executor.
-   * @throws DbException
-   *           if this object is not ready.
-   */
-  public ConfigDbManagerSql getConfigDbManagerSql() throws DbException {
-    if (!ready) {
-      throw new DbException("ConfigDbManager has not been initialized.");
-    }
-
-    return getConfigDbManagerSqlBeforeReady();
-  }
-
-  /**
    * Provides the SQL code executor. To be used during initialization.
    * 
    * @return a DbManagerSql with the SQL code executor.

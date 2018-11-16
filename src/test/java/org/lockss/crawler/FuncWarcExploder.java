@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2007-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +34,7 @@ import java.net.*;
 import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
@@ -117,6 +118,8 @@ public class FuncWarcExploder extends LockssTestCase {
     "http://www.example.com/content.warc.gz",
   };
 
+  private ConfigDbManager configDbManager = null;
+
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
     FuncWarcExploder test = new FuncWarcExploder();
@@ -166,6 +169,13 @@ public class FuncWarcExploder extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
+
+    // Create the configuration database manager.
+    configDbManager = new ConfigDbManager();
+    theDaemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(theDaemon);
+    configDbManager.startService();
+
     pluginMgr = new MyPluginManager();
     pluginMgr.initService(theDaemon);
     theDaemon.setPluginManager(pluginMgr);
@@ -187,6 +197,8 @@ public class FuncWarcExploder extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
+    configDbManager.stopService();
+
     if (theDaemon != null) {
       theDaemon.stopDaemon();
     }

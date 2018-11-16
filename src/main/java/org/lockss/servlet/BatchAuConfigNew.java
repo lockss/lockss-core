@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,10 +31,8 @@ package org.lockss.servlet;
 import java.io.*;
 import java.util.*;
 import java.util.List;
-
 import javax.servlet.*;
 import javax.servlet.http.HttpSession;
-
 import org.apache.commons.collections.map.LinkedMap;
 import org.apache.commons.lang3.mutable.*;
 import org.lockss.config.*;
@@ -142,7 +136,7 @@ public class BatchAuConfigNew extends LockssServlet {
     subManager = getLockssDaemon().getSubscriptionManager();
   }
 
-  protected void lockssHandleRequest() throws IOException {
+  protected void lockssHandleRequest() throws IOException, DbException {
     errMsg = null;
     statusMsg = null;
 
@@ -300,7 +294,7 @@ public class BatchAuConfigNew extends LockssServlet {
     endPage(page);
   }
 
-  private void chooseSets(Verb verb) throws IOException {
+  private void chooseSets(Verb verb) throws IOException, DbException {
     this.verb = verb;
 
     // Begin page
@@ -346,7 +340,7 @@ public class BatchAuConfigNew extends LockssServlet {
     endPage(page);
   }
 
-  private void chooseAus() throws IOException {
+  private void chooseAus() throws IOException, DbException {
     // Gather title sets
     String[] setNames = req.getParameterValues(KEY_TITLE_SET);
 
@@ -696,7 +690,8 @@ public class BatchAuConfigNew extends LockssServlet {
       return null;
     }
 
-    int countAusInSetForVerb(RemoteApi remoteApi, TitleSet ts) {
+    int countAusInSetForVerb(RemoteApi remoteApi, TitleSet ts)
+	throws DbException {
       switch (val) {
       case VV_ADD:
 	return ts.countTitles(TitleSet.SET_ADDABLE);

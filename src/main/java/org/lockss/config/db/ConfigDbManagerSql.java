@@ -56,7 +56,7 @@ public class ConfigDbManagerSql extends DbManagerSql {
       + ")";
 
   // Query to create the table for recording archival units.
-  static final String CREATE_ARCHIVAL_UNIT_TABLE_QUERY = "create table "
+  private static final String CREATE_ARCHIVAL_UNIT_TABLE_QUERY = "create table "
       + ARCHIVAL_UNIT_TABLE + " ("
       + ARCHIVAL_UNIT_SEQ_COLUMN + " --BigintSerialPk--,"
       + PLUGIN_SEQ_COLUMN + " bigint not null references " + PLUGIN_TABLE
@@ -68,7 +68,8 @@ public class ConfigDbManagerSql extends DbManagerSql {
       + ")";
 
   // Query to create the table for recording archival units configurations.
-  static final String CREATE_ARCHIVAL_UNIT_CONFIG_TABLE_QUERY = "create table "
+  private static final String CREATE_ARCHIVAL_UNIT_CONFIG_TABLE_QUERY =
+      "create table "
       + ARCHIVAL_UNIT_CONFIG_TABLE + " ("
       + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
       + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN

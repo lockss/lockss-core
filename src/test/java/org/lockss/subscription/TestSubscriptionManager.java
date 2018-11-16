@@ -47,6 +47,7 @@ import org.lockss.config.TdbProvider;
 import org.lockss.config.TdbTestUtil;
 import org.lockss.config.TdbTitle;
 import org.lockss.config.Tdb.TdbException;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.ConfigParamAssignment;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.TitleConfig;
@@ -83,6 +84,8 @@ public class TestSubscriptionManager extends LockssTestCase {
   private DbManager dbManager;
   private MetadataManager metadataManager;
   private MockPlugin plugin;
+  private MockLockssDaemon theDaemon = null;
+  private ConfigDbManager configDbManager = null;
 
   @Override
   public void setUp() throws Exception {
@@ -92,8 +95,14 @@ public class TestSubscriptionManager extends LockssTestCase {
     ConfigurationUtil.addFromArgs(SubscriptionManager
 	.PARAM_SUBSCRIPTION_ENABLED, "true");
 
-    MockLockssDaemon theDaemon = getMockLockssDaemon();
+    theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
+
+    // Create the configuration database manager.
+    configDbManager = new ConfigDbManager();
+    theDaemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(theDaemon);
+    configDbManager.startService();
 
     pluginManager = theDaemon.getPluginManager();
     pluginManager.setLoadablePluginsReady(true);
@@ -128,6 +137,12 @@ public class TestSubscriptionManager extends LockssTestCase {
 
     PluginTestUtil.createAndStartSimAu(SimulatedPlugin.class,
 	simAuConfig(tempDirPath + "/0"));
+  }
+
+  public void tearDown() throws Exception {
+    configDbManager.stopService();
+    theDaemon.stopDaemon();
+    super.tearDown();
   }
 
   private Configuration simAuConfig(String rootPath) {
@@ -824,7 +839,7 @@ public class TestSubscriptionManager extends LockssTestCase {
 
   private BatchAuStatus configureAu(TdbAu tdbAu, Subscription subscription,
       String subscribedRanges, String unsubscribedRanges) throws IOException,
-      SubscriptionException {
+      DbException, SubscriptionException {
     subscription.setSubscribedRanges(Collections
 	.singletonList(new BibliographicPeriod(subscribedRanges)));
     subscription.setUnsubscribedRanges(Collections

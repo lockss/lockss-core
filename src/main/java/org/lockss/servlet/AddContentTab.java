@@ -1,10 +1,6 @@
 /*
- * $Id DisplayContentStatus.java 2013/7/02 14:52:00 rwincewicz $
- */
 
-/*
-
- Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,12 +29,12 @@ package org.lockss.servlet;
 
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.lockss.config.TdbAu;
-import org.lockss.config.TdbUtil;
 import org.lockss.daemon.TitleConfig;
 import org.lockss.daemon.TitleSet;
 import org.lockss.daemon.status.ColumnDescriptor;
 import org.lockss.daemon.status.StatusService;
 import org.lockss.daemon.status.StatusTable;
+import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.RemoteApi;
 import org.lockss.state.AuState;
@@ -47,7 +43,6 @@ import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
 import org.mortbay.html.*;
-
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpSession;
@@ -136,7 +131,7 @@ public class AddContentTab extends LockssServlet {
      *
      * @throws java.io.IOException
      */
-    public void lockssHandleRequest() throws IOException {
+    public void lockssHandleRequest() throws IOException, DbException {
         if (!StringUtil.isNullString(req.getParameter("isDaemonReady"))) {
             if (pluginMgr.areAusStarted()) {
                 resp.setStatus(200);
@@ -237,12 +232,12 @@ public class AddContentTab extends LockssServlet {
         }
     }
 
-    private void doHtmlStatusTable() throws IOException {
+    private void doHtmlStatusTable() throws IOException, DbException {
         writePage(doHtmlStatusTable0());
     }
 
     // Build the table, adding elements to page
-    private Page doHtmlStatusTable0() throws IOException {
+    private Page doHtmlStatusTable0() throws IOException, DbException {
         page = new Page();
         addJS("js/DisplayContentTab.js");
         HttpSession session = getSession();
