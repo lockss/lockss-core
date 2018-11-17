@@ -32,17 +32,25 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config.db;
 
 import static org.lockss.config.db.SqlConstants.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.lockss.config.AuConfig;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginManager;
+import org.lockss.util.StringUtil;
 import org.lockss.util.time.TimeBase;
 
 /**
@@ -97,6 +105,7 @@ public class ConfigManagerSql {
       + " left outer join " + ARCHIVAL_UNIT_CONFIG_TABLE + " ac"
       + " on a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = ac."
       + ARCHIVAL_UNIT_SEQ_COLUMN
+      + " where p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
       + " order by a." + ARCHIVAL_UNIT_SEQ_COLUMN;
 
   // Query to find the configurations of an Archival Unit.
@@ -157,11 +166,42 @@ public class ConfigManagerSql {
       + ARCHIVAL_UNIT_CONFIG_TABLE
       + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
 
+  // Query to find the identifiers of all the plugins.
+  private static final String GET_ALL_PLUGIN_ID_QUERY = "select "
+      + PLUGIN_ID_COLUMN
+      + " from " + PLUGIN_TABLE;
+
+  // Query to find the configurations of all the Archival Units.
+  private static final String GET_PLUGIN_AU_CONFIGURATION_QUERY = "select "
+      + "a." + ARCHIVAL_UNIT_KEY_COLUMN
+      + ", a." + ARCHIVAL_UNIT_SEQ_COLUMN
+      + ", ac." + CONFIG_KEY_COLUMN
+      + ", ac." + CONFIG_VALUE_COLUMN
+      + " from " + PLUGIN_TABLE + " p"
+      + ", " + ARCHIVAL_UNIT_TABLE + " a"
+      + " left outer join " + ARCHIVAL_UNIT_CONFIG_TABLE + " ac"
+      + " on a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = ac."
+      + ARCHIVAL_UNIT_SEQ_COLUMN
+      + " where p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
+      + " and p." + PLUGIN_ID_COLUMN + " = ?"
+      + " order by a." + ARCHIVAL_UNIT_SEQ_COLUMN;
+
   /**
    * Constructor.
    */
   public ConfigManagerSql(ConfigDbManager configDbManager) throws DbException {
     this.configDbManager = configDbManager;
+  }
+
+  /**
+   * Provides a connection to the database.
+   *
+   * @return a Connection with the connection to the database.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Connection getConnection() throws DbException {
+    return configDbManager.getConnection();
   }
 
   /**
@@ -183,13 +223,55 @@ public class ConfigManagerSql {
     log.debug2("auKey = {}", auKey);
     log.debug2("auConfig = {}", () -> auConfig);
 
-    Long auSeq = null;
     Connection conn = null;
 
     try {
       // Get a connection to the database.
       conn = configDbManager.getConnection();
 
+      return addArchivalUnitConfiguration(conn, pluginId, auKey, auConfig,
+	  true);
+    } catch (DbException dbe) {
+      String message = "Cannot add AU configuration";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("auConfig = {}", auConfig);
+      throw dbe;
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Adds to the database the configuration of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param auConfig
+   *          A Map<String,String> with the Archival Unit configuration.
+   * @param commitAfterAdd
+   *          A boolean with the indication of whether the addition should be
+   *          committed in this method, or not.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long addArchivalUnitConfiguration(Connection conn, String pluginId,
+      String auKey, Map<String,String> auConfig, boolean commitAfterAdd)
+	  throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("auConfig = {}", () -> auConfig);
+    log.debug2("commitAfterAdd = {}", commitAfterAdd);
+
+    Long auSeq = null;
+
+    try {
       // Find the Archival Unit plugin, adding it if necessary.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
@@ -208,8 +290,10 @@ public class ConfigManagerSql {
       // Update the Archival Unit last update timestamp.
       updateArchivalUnitLastUpdateTimestamp(conn, auSeq, now);
 
-      // Commit the transaction.
-      ConfigDbManager.commitOrRollback(conn, log);
+      if (commitAfterAdd) {
+	// Commit the transaction.
+	ConfigDbManager.commitOrRollback(conn, log);
+      }
     } catch (DbException dbe) {
       String message = "Cannot add AU configuration";
       log.error(message, dbe);
@@ -217,8 +301,6 @@ public class ConfigManagerSql {
       log.error("auKey = {}", auKey);
       log.error("auConfig = {}", auConfig);
       throw dbe;
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2("auSeq = {}", auSeq);
@@ -230,14 +312,43 @@ public class ConfigManagerSql {
    * 
    * @return a Map<String, Map<String,String>> with all the Archival Unit
    *         configurations, keyed by each Archival Unit identifier.
+   * @throws IOException
+   *           if there are problems writing to the output stream
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
   public Map<String, Map<String,String>> findAllArchivalUnitConfiguration()
-      throws DbException {
+      throws IOException, DbException {
+    return processAllArchivalUnitConfigurations(null);
+  }
+
+  /**
+   * Processes all the Archival Unit configurations stored in the database,
+   * either returning them or writing them to an aoutput stream.
+   * 
+   * @param outputStream
+   *          An OutputStream where to write the configurations of all the
+   *          Archival Units stored in the database, or <code>null</code> if the
+   *          configurations are to be returned, instead.
+   * @return a Map<String, Map<String,String>> with all the Archival Unit
+   *         configurations, keyed by each Archival Unit identifier, if no
+   *         output stream is passed.
+   * @throws IOException
+   *           if there are problems writing to the output stream
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String, Map<String,String>> processAllArchivalUnitConfigurations(
+      OutputStream outputStream) throws IOException, DbException {
     log.debug2("Invoked");
 
-    Map<String, Map<String,String>> result = new HashMap<>();
+    Map<String, Map<String,String>> result = null;
+
+    if (outputStream == null) {
+      result = new HashMap<>();
+    }
+
+    String auId = null;
     Map<String,String> auConfig = null;
     Connection conn = null;
     PreparedStatement getConfigurations = null;
@@ -265,21 +376,32 @@ public class ConfigManagerSql {
   	// Check whether this Archival Unit database identifier does not match
   	// the previous one.
   	if (!auSeq.equals(previousAuSeq)) {
+  	  // Check whether this is not the first Archival Unit seen.
+  	  if (previousAuSeq != null) {
+  	    // Yes: Check whether the previous Archival Unit configuration needs
+  	    // to be written to the stream.
+  	    if (outputStream != null) {
+  	      // Write the previous Archival Unit configuration to the stream.
+  	      writeAuConfigurationBackupToStream(auId, auConfig, outputStream);
+  	    } else {
+  	      result.put(auId, auConfig);
+  	    }
+  	  }
+
   	  // Yes: Get the identifier of the plugin of this result.
   	  String pluginId = resultSet.getString(PLUGIN_ID_COLUMN);
   	  log.trace("pluginId = {}", pluginId);
- 
+
   	  // Get the key identifier of the Archival Unit of this result.
   	  String auKey = resultSet.getString(ARCHIVAL_UNIT_KEY_COLUMN);
   	  log.trace("auKey = {}", auKey);
-  
+
   	  // Build the Archival Unit identifier.
-  	  String auId = PluginManager.generateAuId(pluginId, auKey);
+  	  auId = PluginManager.generateAuId(pluginId, auKey);
   	  log.trace("auId = {}", auId);
 
   	  // Initialize the configuration of this newly seen Archival Unit.
   	  auConfig = new HashMap<>();
-  	  result.put(auId, auConfig);
 
   	  // Remember this result Archival Unit database identifier.
   	  previousAuSeq = auSeq;
@@ -298,6 +420,17 @@ public class ConfigManagerSql {
   	// Save the property.
   	auConfig.put(key, value);
       }
+
+      // Check whether there is a last Archival Unit to be saved.
+      if (auConfig != null && !auConfig.isEmpty()) {
+	// Yes: Check whether it needs to be written to the stream.
+	if (outputStream != null) {
+	  // Write the previous Archival Unit configuration to the stream.
+	  writeAuConfigurationBackupToStream(auId, auConfig, outputStream);
+	} else {
+	  result.put(auId, auConfig);
+	}
+      }
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", GET_ALL_AU_CONFIGURATION_QUERY);
@@ -314,6 +447,50 @@ public class ConfigManagerSql {
 
     log.debug2("Done");
     return result;
+  }
+
+  /**
+   * Writes to an output stream the configuration of an Archival Unit for backup
+   * purposes.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param auConfiguration
+   *          A Map<String,String> with the Archival Unit configuration
+   *          properties.
+   * @param outputStream
+   *          An OutputStream where to write the Archival Unit configuration
+   *          data.
+   * @throws IOException
+   *           if there are problems writing to the output stream
+   */
+  private void writeAuConfigurationBackupToStream(String auId,
+      Map<String,String> auConfiguration, OutputStream outputStream)
+	  throws IOException {
+    log.debug2("auId = {}", auId);
+    log.debug2("auConfiguration = {}", auConfiguration);
+
+    // Validation.
+    if (auId == null || auId.trim().isEmpty()) {
+      log.warn("Configuration for null/empty AUId not added to backup file.");
+      return;
+    }
+
+    if (auConfiguration == null || auConfiguration.isEmpty()) {
+      log.warn("Null/empty AU configuration not added to backup file.");
+      return;
+    }
+
+    // Create the entry.
+    String line = new AuConfig(auId, auConfiguration).toBackupLine();
+    log.trace("line = {}", line);
+
+    // Write the entry to the output stream.
+    Writer writer = new OutputStreamWriter(outputStream);
+    writer.write(line + System.lineSeparator());
+    writer.flush();
+
+    log.debug2("Done");
   }
 
   /**
@@ -382,6 +559,75 @@ public class ConfigManagerSql {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(getConfiguration);
       DbManager.safeRollbackAndClose(conn);
+    }
+
+    log.debug2("auConfig = {}", () -> auConfig);
+    return auConfig;
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a Map<String,String> with the Archival Unit configurations.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String,String> findArchivalUnitConfiguration(Connection conn,
+      String pluginId, String auKey) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    Map<String,String> auConfig = new HashMap<>();
+    PreparedStatement getConfiguration = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get AU configuration";
+
+    try {
+      // Prepare the query.
+      getConfiguration =
+	  configDbManager.prepareStatement(conn, GET_AU_CONFIGURATION_QUERY);
+
+      // Populate the query.
+      getConfiguration.setString(1, pluginId);
+      getConfiguration.setString(2, auKey);
+
+      // Get the configuration of the Archival Unit.
+      resultSet = configDbManager.executeQuery(getConfiguration);
+
+      // Loop while there are more results.
+      while (resultSet.next()) {
+	// Get the key of the Archival Unit configuration property.
+  	String key = resultSet.getString(CONFIG_KEY_COLUMN);
+  	log.trace("key = {}", key);
+
+	// Get the value of the Archival Unit configuration property.
+  	String value = resultSet.getString(CONFIG_VALUE_COLUMN);
+  	log.trace("value = {}", value);
+
+  	// Save the property.
+  	auConfig.put(key, value);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_AU_CONFIGURATION_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", GET_AU_CONFIGURATION_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(getConfiguration);
     }
 
     log.debug2("auConfig = {}", () -> auConfig);
@@ -1073,5 +1319,155 @@ public class ConfigManagerSql {
 
     log.debug2("deletedCount = {}", deletedCount);
     return deletedCount;
+  }
+
+  /**
+   * Provides all the plugin identifiers stored in the database.
+   * 
+   * @return a Collection<String> with all the plugin identifiers.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Collection<String> findAllPluginIds() throws DbException {
+    log.debug2("Invoked");
+
+    Collection<String> result = new ArrayList<>();
+    Connection conn = null;
+    PreparedStatement getPluginIds = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get plugin identifiers";
+
+    try {
+      // Get a connection to the database.
+      conn = configDbManager.getConnection();
+
+      // Prepare the query.
+      getPluginIds =
+	  configDbManager.prepareStatement(conn, GET_ALL_PLUGIN_ID_QUERY);
+
+      // Get the plugin identifiers.
+      resultSet = configDbManager.executeQuery(getPluginIds);
+
+      // Loop while there are more results.
+      while (resultSet.next()) {
+	// Get the plugin identifier of this result.
+	String pluginId = resultSet.getString(PLUGIN_ID_COLUMN);
+	log.trace("pluginId = {}", pluginId);
+ 
+  	// Save it.
+	result.add(pluginId);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_ALL_PLUGIN_ID_QUERY);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", GET_ALL_PLUGIN_ID_QUERY);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(getPluginIds);
+      DbManager.safeRollbackAndClose(conn);
+    }
+
+    log.debug2("Done");
+    return result;
+  }
+
+  /**
+   * Provides the Archival Unit configurations for a plugin that are stored in
+   * the database.
+   * 
+   * @param pluginId
+   *          A String with the plugin identifier.
+   * @return a Map<String, Map<String, String>> with the Archival Unit
+   *         configurations for the plugin.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String, Map<String,String>> findPluginAuConfigurations(
+      String pluginId) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+
+    Map<String, Map<String,String>> result = new HashMap<>();
+    Map<String,String> auConfig = null;
+    Connection conn = null;
+    PreparedStatement getPluginAuConfigurations = null;
+    ResultSet resultSet = null;
+    Long previousAuSeq = null;
+    String errorMessage =
+	"Cannot get AU configurations for plugin '" + pluginId + "'";
+
+    try {
+      // Get a connection to the database.
+      conn = configDbManager.getConnection();
+
+      // Prepare the query.
+      getPluginAuConfigurations = configDbManager.prepareStatement(conn,
+	  GET_PLUGIN_AU_CONFIGURATION_QUERY);
+
+      // Populate the query.
+      getPluginAuConfigurations.setString(1, pluginId);
+
+      // Get the configurations grouped by Archival Unit.
+      resultSet = configDbManager.executeQuery(getPluginAuConfigurations);
+
+      // Loop while there are more results.
+      while (resultSet.next()) {
+	// Get the Archival Unit database identifier of this result.
+	Long auSeq = resultSet.getLong(ARCHIVAL_UNIT_SEQ_COLUMN);
+  	log.trace("auSeq = {}", auSeq);
+
+  	// Check whether this Archival Unit database identifier does not match
+  	// the previous one.
+  	if (!auSeq.equals(previousAuSeq)) {
+  	  // Yes: Get the key identifier of the Archival Unit of this result.
+  	  String auKey = resultSet.getString(ARCHIVAL_UNIT_KEY_COLUMN);
+  	  log.trace("auKey = {}", auKey);
+  
+  	  // Build the Archival Unit identifier.
+  	  String auId = PluginManager.generateAuId(pluginId, auKey);
+  	  log.trace("auId = {}", auId);
+
+  	  // Initialize the configuration of this newly seen Archival Unit.
+  	  auConfig = new HashMap<>();
+  	  result.put(auId, auConfig);
+
+  	  // Remember this result Archival Unit database identifier.
+  	  previousAuSeq = auSeq;
+  	}
+
+	// Get the key of the Archival Unit configuration property of this
+	// result.
+  	String key = resultSet.getString(CONFIG_KEY_COLUMN);
+  	log.trace("key = {}", key);
+
+	// Get the value of the Archival Unit configuration property of this
+	// result.
+  	String value = resultSet.getString(CONFIG_VALUE_COLUMN);
+  	log.trace("value = {}", value);
+
+  	// Save the property.
+  	auConfig.put(key, value);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_PLUGIN_AU_CONFIGURATION_QUERY);
+      log.error("pluginId = {}", pluginId);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", GET_PLUGIN_AU_CONFIGURATION_QUERY);
+      log.error("pluginId = {}", pluginId);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(getPluginAuConfigurations);
+      DbManager.safeRollbackAndClose(conn);
+    }
+
+    log.debug2("Done");
+    return result;
   }
 }

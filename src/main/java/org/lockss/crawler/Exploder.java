@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2007-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,9 +30,9 @@ package org.lockss.crawler;
 
 import java.io.*;
 import java.util.*;
-
 import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler.CrawlerFacade;
+import org.lockss.db.DbException;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 import org.lockss.plugin.*;
@@ -256,6 +252,10 @@ public abstract class Exploder {
     } catch (ArchivalUnit.ConfigurationException ex) {
       logger.error("createAndSaveAuConfiguration() threw " + ex.toString());
       throw new IOException(pluginName + " not initialized for " + ae.getBaseUrl());
+    } catch (DbException dbe) {
+      logger.error("createAndSaveAuConfiguration() threw " + dbe.toString());
+      throw new IOException(pluginName + " not initialized for "
+	  + ae.getBaseUrl());
     }
   }
 

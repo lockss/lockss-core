@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -36,12 +36,11 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.security.KeyStore;
-import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
-
 import org.junit.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.base.*;
 import org.lockss.plugin.definable.*;
@@ -101,21 +100,13 @@ public class TestPluginManager extends LockssTestCase4 {
   private String tempDirPath;
 
   MyPluginManager mgr;
+  ConfigDbManager configDbManager = null;
 
   @Before
   public void setUp() throws Exception {
     super.setUp();
 
     tempDirPath = getTempDir().getAbsolutePath() + File.separator;
-    mgr = new MyPluginManager();
-    theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
-
-    theDaemon.setPluginManager(mgr);
-    theDaemon.setDaemonInited(true);
-
-    UrlManager uMgr = new UrlManager();
-    uMgr.initService(theDaemon);
-    uMgr.startService();
 
     // Prepare the loadable plugin directory property, which is
     // created by mgr.startService()
@@ -123,6 +114,22 @@ public class TestPluginManager extends LockssTestCase4 {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(PluginManager.PARAM_PLUGIN_LOCATION, "plugins");
     ConfigurationUtil.setCurrentConfigFromProps(p);
+
+    theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
+
+    // Create the configuration database manager.
+    configDbManager = new ConfigDbManager();
+    theDaemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(theDaemon);
+    configDbManager.startService();
+
+    mgr = new MyPluginManager();
+    theDaemon.setPluginManager(mgr);
+    theDaemon.setDaemonInited(true);
+
+    UrlManager uMgr = new UrlManager();
+    uMgr.initService(theDaemon);
+    uMgr.startService();
 //     useOldRepo();
 
     RepositoryManager repoMgr = theDaemon.getRepositoryManager();
@@ -135,6 +142,7 @@ public class TestPluginManager extends LockssTestCase4 {
   @After
   public void tearDown() throws Exception {
     mgr.stopService();
+    configDbManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
   }
@@ -157,16 +165,29 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
 
-  private void doConfig() throws Exception {
+  private void doConfigAus() throws Exception {
+    Map<String, String> configuration = new HashMap<>();
+    configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
+    configuration.put(MockPlugin.CONFIG_PROP_2, "val2");
+    AuConfig auConfig = new AuConfig(mauauid1, configuration);
+    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    mgr.ensurePluginLoaded(mockPlugKey);
+    MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
+    Configuration auConf = auConfig.toUnprefixedConfiguration();
+    mgr.createAu(mpi, auConf, AuEvent.model(AuEvent.Type.Create));
+
+    configuration = new HashMap<>();
+    configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
+    configuration.put(MockPlugin.CONFIG_PROP_2, "va.l3");
+    auConfig = new AuConfig(mauauid2, configuration);
+    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    auConf = auConfig.toUnprefixedConfiguration();
+    mgr.createAu(mpi, auConf, AuEvent.model(AuEvent.Type.Create));
     doConfig(new Properties());
   }
 
   private void doConfig(Properties p) throws Exception {
     // String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
-    p.setProperty(p1a1param+MockPlugin.CONFIG_PROP_1, "val1");
-    p.setProperty(p1a1param+MockPlugin.CONFIG_PROP_2, "val2");
-    p.setProperty(p1a2param+MockPlugin.CONFIG_PROP_1, "val1");
-    p.setProperty(p1a2param+MockPlugin.CONFIG_PROP_2, "va.l3");
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.addFromProps(p);
   }
@@ -384,7 +405,7 @@ public class TestPluginManager extends LockssTestCase4 {
   @Test
   public void testStop() throws Exception {
     mgr.startService();
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
     assertEquals(0, mpi.getStopCtr());
     mgr.stopService();
@@ -394,7 +415,7 @@ public class TestPluginManager extends LockssTestCase4 {
   @Test
   public void testAuConfig() throws Exception {
     mgr.startService();
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
     // plugin should be registered
     assertNotNull(mpi);
@@ -428,6 +449,7 @@ public class TestPluginManager extends LockssTestCase4 {
   @Test
   public void testAuConfigWithGlobalEntryForNonExistentAU() throws Exception {
     mgr.startService();
+    doConfigAus();
     Properties p = new Properties();
     p.setProperty(p1a3param+BaseArchivalUnit.KEY_NEW_CONTENT_CRAWL_INTERVAL, "2d");
     doConfig(p);
@@ -885,7 +907,7 @@ public class TestPluginManager extends LockssTestCase4 {
     // Make it look like any AU's config came from au.txt, to simplify
     // config in these tests.
     @Override
-    boolean isAuConfInAuTxt(String auId) {
+    boolean isAuConfInDb(String auId) {
       return true;
     }
 
@@ -1021,7 +1043,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String lower = "abc";
     String upper = "xyz";
 
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
 
     // make a PollSpec with info from a manually created CUS, which should
@@ -1059,7 +1081,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String url = "http://foo.bar/";
     String lower = PollSpec.SINGLE_NODE_LWRBOUND;
 
-    doConfig();
+    doConfigAus();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
 
     // make a PollSpec with info from a manually created CUS, which should
@@ -1084,22 +1106,22 @@ public class TestPluginManager extends LockssTestCase4 {
 
     assertEmpty(mgr.getCandidateAus(h1 + " foo.html"));
 
-    MockArchivalUnit au0 = new MockArchivalUnit("au0");
+    MockArchivalUnit au0 = new MockArchivalUnit("plugin1&au0");
     au0.setName("The Little Prince");
     au0.setUrlStems(ListUtil.list(h2));
     PluginTestUtil.registerArchivalUnit(au0);
 
-    MockArchivalUnit au1 = new MockArchivalUnit("au1");
+    MockArchivalUnit au1 = new MockArchivalUnit("plugin1&au1");
     au1.setName("The Little Dipper");
     au1.setUrlStems(ListUtil.list(h1, h2));
     PluginTestUtil.registerArchivalUnit(au1);
 
-    MockArchivalUnit au2 = new MockArchivalUnit("au2");
+    MockArchivalUnit au2 = new MockArchivalUnit("plugin1&au2");
     au2.setName("Little Richard Journal 10");
     au2.setUrlStems(ListUtil.list(h1, h2));
     PluginTestUtil.registerArchivalUnit(au2);
 
-    MockArchivalUnit au3 = new MockArchivalUnit("au3");
+    MockArchivalUnit au3 = new MockArchivalUnit("plugin1&au3");
     au3.setName("Little Richard Journal 9");
     au3.setUrlStems(ListUtil.list(h1));
     PluginTestUtil.registerArchivalUnit(au3);
@@ -1157,7 +1179,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String url3 = "http://foo.bar/333";
     String url4 = "http://foo.bar/444";
     String url5 = "http://foo.bar/555";
-    doConfig();
+    doConfigAus();
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_404_CACHE_SIZE,
 				  "[1,2]",
 				  PluginManager.PARAM_AU_SEARCH_MIN_DISK_SEARCHES_FOR_404_CACHE,
@@ -1337,7 +1359,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String url1b = "http://FOO.BAR:80/baz";
     String url2 = "http://foo.bar/222";
     String url3 = "http://foo.bar/333";
-    doConfig();
+    doConfigAus();
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_PROJECT,
 				  "clockss");
     assertTrue(theDaemon.isClockss());
@@ -1919,10 +1941,14 @@ public class TestPluginManager extends LockssTestCase4 {
     String pluginKey = "org|lockss|test|MockConfigurablePlugin";
     Properties auProps = PropUtil.fromArgs(k1, v1, k2, v2);
     String auid = PluginManager.generateAuId(pluginKey, auProps);
-    String prefix = PluginManager.PARAM_AU_TREE + "."
-      + PluginManager.configKeyFromAuId(auid) + ".";
-    p.setProperty(prefix + k1, v1);
-    p.setProperty(prefix + k2, v2);
+
+    // Store this Archival Unit configuration in the database.
+    Map<String, String> configuration = new HashMap<>();
+    configuration.put(k1, v1);
+    configuration.put(k2, v2);
+    AuConfig auConfig = new AuConfig(auid, configuration);
+    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+
     assertEquals(null, mgr.getAuFromIdIfExists(auid));
     mgr.suppressEnxurePluginLoaded(ListUtil.list(pluginKey));
     prepareLoadablePluginTests(p);

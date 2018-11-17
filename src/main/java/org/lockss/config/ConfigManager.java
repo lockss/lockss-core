@@ -34,6 +34,7 @@ package org.lockss.config;
 import java.io.*;
 import java.util.*;
 import java.net.*;
+import java.sql.Connection;
 import org.apache.commons.collections.Predicate;
 import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
@@ -46,6 +47,7 @@ import org.lockss.config.db.ConfigDbManager;
 import org.lockss.config.db.ConfigManagerSql;
 import org.lockss.daemon.*;
 import org.lockss.db.DbException;
+import org.lockss.db.DbManager;
 import org.lockss.hasher.*;
 import org.lockss.mail.*;
 import org.lockss.plugin.*;
@@ -619,10 +621,6 @@ public class ConfigManager implements LockssManager {
     new LocalFileDescr(CONFIG_FILE_UI_IP_ACCESS),
     new LocalFileDescr(CONFIG_FILE_PROXY_IP_ACCESS),
     new LocalFileDescr(CONFIG_FILE_PLUGIN_CONFIG),
-    // au.txt updates correspond to changes already made to running
-    // structures, so needn't cause a config reload.
-    new LocalFileDescr(CONFIG_FILE_AU_CONFIG)
-    .setNeedReloadAfterWrite(false),
     new LocalFileDescr(CONFIG_FILE_ICP_SERVER), // obsolescent
     new LocalFileDescr(CONFIG_FILE_AUDIT_PROXY),	// obsolescent
     // must follow obsolescent icp server and audit proxy files
@@ -718,6 +716,16 @@ public class ConfigManager implements LockssManager {
   private ConfigManagerSql configManagerSql = null;
 
   private boolean noNag = false;
+
+  /** How often to commit when adding Archival Unit configurations to the
+   * database.
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_AU_INSERT_COMMIT_COUNT =
+      MYPREFIX + "auInsertCommitCount";
+  public static final int DEFAULT_AU_INSERT_COMMIT_COUNT = 50;
+
+  private int auInsertCommitCount = DEFAULT_AU_INSERT_COMMIT_COUNT;
 
   public ConfigManager() {
     this(null, null);
@@ -1614,15 +1622,19 @@ public class ConfigManager implements LockssManager {
 		Collection<ConfigFile.Generation> gens) {
     final String DEBUG_HEADER = "loadList(): ";
     if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
-      log.debug3(DEBUG_HEADER + "gens = " + gens);
+      log.debug3(DEBUG_HEADER
+	  + "intoConfig.keySet().size() = " + intoConfig.keySet().size());
+      log.debug3(DEBUG_HEADER + "gens.size() = " + gens.size());
     }
     for (ConfigFile.Generation gen : gens) {
       if (gen != null) {
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "gen = " + gen);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "gen.getConfig().keySet().size() = "
+	    + gen.getConfig().keySet().size());
 	intoConfig.copyFrom(gen.getConfig(), null);
 	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "intoConfig = " + intoConfig);
+	  log.debug3(DEBUG_HEADER
+	      + "intoConfig.keySet().size() = " + intoConfig.keySet().size());
       }
     }
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -1806,6 +1818,8 @@ public class ConfigManager implements LockssManager {
       enableJmsReceive = config.getBoolean(PARAM_ENABLE_JMS_RECEIVE,
 					   DEFAULT_ENABLE_JMS_RECEIVE);
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
+      auInsertCommitCount = config.getInt(PARAM_AU_INSERT_COMMIT_COUNT,
+	  				  DEFAULT_AU_INSERT_COMMIT_COUNT);
     }
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
@@ -2562,28 +2576,6 @@ public class ConfigManager implements LockssManager {
     return res;
   }
 
-  private boolean didWarnNoAuConfig = false;
-
-  /**
-   * Return the contents of the local AU config file.
-   * @return the Configuration from the AU config file, or an empty config
-   * if no config file found
-   */
-  public Configuration readAuConfigFile() {
-    Configuration auConfig;
-    try {
-      auConfig = readCacheConfigFile(CONFIG_FILE_AU_CONFIG);
-      didWarnNoAuConfig = false;
-    } catch (IOException e) {
-      if (!didWarnNoAuConfig) {
-	log.warning("Couldn't read AU config file: " + e.getMessage());
-	didWarnNoAuConfig = true;
-      }
-      auConfig = newConfiguration();
-    }
-    return auConfig;
-  }
-
   /** Write the named local cache config file into the previously determined
    * cache config directory.
    * @param props properties to write
@@ -2693,123 +2685,6 @@ public class ConfigManager implements LockssManager {
     String noExt = StringUtil.upToFinal(cacheConfigFileName, ".");
     return StringUtil.replaceString(PARAM_CONFIG_FILE_VERSION,
 				    "<filename>", noExt);
-  }
-
-  /* Support for batching changes to au.txt, and to prevent a config
-   * reload from being triggered each time the AU config file is rewritten.
-   * Clients who call startAuBatch() <b>must</b> call finishAuBatch() when
-   * done (in a <code>finally</code>), then call requestReload() if
-   * appropriate */
-
-  private int auBatchDepth = 0;
-  private Configuration deferredAuConfig;
-  private List<String> deferredAuDeleteKeys;
-  private int deferredAuBatchSize;
-
-  /** Called before a batch of calls to {@link
-   * #updateAuConfigFile(Properties, String)} or {@link
-   * #updateAuConfigFile(Configuration, String)}, causes updates to be
-   * accumulated in memory, up to a maximum of {@link
-   * #PARAM_MAX_DEFERRED_AU_BATCH_SIZE}, before they are all written to
-   * disk.  {@link #finishAuBatch()} <b>MUST</b> be called at the end of
-   * the batch, to ensure the final batch is written.  All removals
-   * (<code>auPropKey</code> arg to updateAuConfigFile) in a batch are
-   * performed before any additions, so the result of the same sequence of
-   * updates in batched and non-batched mode is not necessarily equivalent.
-   * It is guaranteed to be so if no AU is updated more than once in the
-   * batch.  <br>This speeds up batch AU addition/deletion by a couple
-   * orders of magnitude, which will suffice until the AU config is moved
-   * to a database.
-   */
-  public synchronized void startAuBatch() {
-    auBatchDepth++;
-  }
-
-  public synchronized void finishAuBatch() throws IOException {
-    executeDeferredAuBatch();
-    if (--auBatchDepth < 0) {
-      log.warning("auBatchDepth want negative, resetting to zero",
-		  new Throwable("Marker"));
-      auBatchDepth = 0;
-    }
-  }
-
-  private void executeDeferredAuBatch() throws IOException {
-    if (deferredAuConfig != null &&
-	(!deferredAuConfig.isEmpty() || !deferredAuDeleteKeys.isEmpty())) {
-      updateAuConfigFile(deferredAuConfig, deferredAuDeleteKeys);
-      deferredAuConfig = null;
-      deferredAuDeleteKeys = null;
-      deferredAuBatchSize = 0;
-    }
-  }
-
-  /** Replace one AU's config keys in the local AU config file.
-   * @param auProps new properties for AU
-   * @param auPropKey the common initial part of all keys in the AU's config
-   */
-  public void updateAuConfigFile(Properties auProps, String auPropKey)
-      throws IOException {
-    updateAuConfigFile(fromProperties(auProps), auPropKey);
-  }
-
-  /** Replace one AU's config keys in the local AU config file.
-   * @param auConfig new config for AU
-   * @param auPropKey the common initial part of all keys in the AU's config
-   */
-  public synchronized void updateAuConfigFile(Configuration auConfig,
-					      String auPropKey)
-      throws IOException {
-    if (auBatchDepth > 0) {
-      if (deferredAuConfig == null) {
-	deferredAuConfig = newConfiguration();
-	deferredAuDeleteKeys = new ArrayList<String>();
-	deferredAuBatchSize = 0;
-      }
-      deferredAuConfig.copyFrom(auConfig);
-      if (auPropKey != null) {
-	deferredAuDeleteKeys.add(auPropKey);
-      }
-      if (++deferredAuBatchSize >= maxDeferredAuBatchSize) {
-	executeDeferredAuBatch();
-      }
-    } else {
-      updateAuConfigFile(auConfig,
-			 auPropKey == null ? null : ListUtil.list(auPropKey));
-    }
-  }
-
-  /** Replace one or more AUs' config keys in the local AU config file.
-   * @param auConfig new config for the AUs
-   * @param auPropKeys list of au subtree roots to remove
-   */
-  private void updateAuConfigFile(Configuration auConfig,
-				  List<String> auPropKeys)
-      throws IOException {
-    Configuration fileConfig;
-    try {
-      fileConfig = readCacheConfigFile(CONFIG_FILE_AU_CONFIG);
-    } catch (FileNotFoundException e) {
-      fileConfig = newConfiguration();
-    }
-    if (fileConfig.isSealed()) {
-      fileConfig = fileConfig.copy();
-    }
-    // first remove all existing values for the AUs
-    if (auPropKeys != null) {
-      for (String key : auPropKeys) {
-	fileConfig.removeConfigTree(key);
-      }
-    }
-    // then add the new config
-    for (Iterator iter = auConfig.keySet().iterator(); iter.hasNext();) {
-      String key = (String)iter.next();
-      fileConfig.put(key, auConfig.get(key));
-    }
-    // seal it so FileConfigFile.storedConfig() won't have to make a copy
-    fileConfig.seal();
-    writeCacheConfigFile(fileConfig, CONFIG_FILE_AU_CONFIG,
-			 "AU Configuration", auBatchDepth > 0);
   }
 
   /**
@@ -3888,6 +3763,17 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
+   * Provides a connection to the database.
+   *
+   * @return a Connection with the connection to the database.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Connection getConnection() throws DbException {
+    return getConfigManagerSql().getConnection();
+  }
+
+  /**
    * Provides the configuration manager SQL executor.
    * 
    * @return a ConfigManagerSql with the configuration manager SQL executor.
@@ -3896,11 +3782,52 @@ public class ConfigManager implements LockssManager {
    */
   private ConfigManagerSql getConfigManagerSql() throws DbException {
     if (configManagerSql == null) {
-      configManagerSql = new ConfigManagerSql(
-	  theApp.getManagerByType(ConfigDbManager.class));
+      if (theApp == null) {
+	configManagerSql = new ConfigManagerSql(
+	    LockssApp.getManagerByTypeStatic(ConfigDbManager.class));
+      } else {
+	configManagerSql = new ConfigManagerSql(
+	    theApp.getManagerByType(ConfigDbManager.class));
+      }
     }
 
     return configManagerSql;
+  }
+
+  /**
+   * Provides all the plugin identifiers stored in the database.
+   * 
+   * @return a Collection<String> with all the plugin identifiers.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Collection<String> retrievePluginIds() throws DbException {
+    if (log.isDebug2()) log.debug2("Invoked");
+
+    Collection<String> result = getConfigManagerSql().findAllPluginIds();
+    if (log.isDebug2()) log.debug2("result.size() = " + result.size());
+    return result;
+  }
+
+  /**
+   * Provides the Archival Unit configurations for a plugin that are stored in
+   * the database.
+   * 
+   * @param pluginId
+   *          A String with the plugin identifier.
+   * @return a Map<String, Map<String, String>> with the Archival Unit
+   *         configurations for the plugin.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String, Map<String, String>> retrievePluginAusConfigurations(
+      String pluginId) throws DbException {
+    if (log.isDebug2()) log.debug2("Invoked");
+
+    Map<String, Map<String, String>> result =
+	getConfigManagerSql().findPluginAuConfigurations(pluginId);
+    if (log.isDebug2()) log.debug2("result.size() = " + result.size());
+    return result;
   }
 
   /**
@@ -3913,6 +3840,33 @@ public class ConfigManager implements LockssManager {
    *           if any problem occurred accessing the database.
    */
   public Long storeArchivalUnitConfiguration(AuConfig auConfig)
+      throws DbException {
+    if (log.isDebug2()) log.debug2("auConfig = " + auConfig);
+
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      return storeArchivalUnitConfiguration(conn, auConfig);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Stores in the database the configuration of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auConfig
+   *          An AuConfig with the Archival Unit configuration to be stored.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Long storeArchivalUnitConfiguration(Connection conn, AuConfig auConfig)
       throws DbException {
     if (log.isDebug2()) log.debug2("auConfig = " + auConfig);
 
@@ -3935,8 +3889,8 @@ public class ConfigManager implements LockssManager {
     }
 
     // Store the configuration in the database.
-    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(pluginId,
-	auKey, configuration);
+    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(conn,
+	pluginId, auKey, configuration, true);
 
     if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
     return auSeq;
@@ -3946,11 +3900,13 @@ public class ConfigManager implements LockssManager {
    * Provides all the Archival Unit configurations stored in the database.
    * 
    * @return a Collection<AuConfig> with all the Archival Unit configurations.
+   * @throws IOException
+   *           if there are problems writing to the output stream
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
   public Collection<AuConfig> retrieveAllArchivalUnitConfiguration()
-      throws DbException {
+      throws IOException, DbException {
     if (log.isDebug2()) log.debug2("Invoked");
 
     Collection<AuConfig> result = new ArrayList<>();
@@ -3961,7 +3917,7 @@ public class ConfigManager implements LockssManager {
 
     // Loop through all the retrieved Archival Units identifiers.
     for (String auid : auConfigs.keySet()) {
-      if (log.isDebug3()) log.debug3("auida = " + auid);
+      if (log.isDebug3()) log.debug3("auid = " + auid);
 
       // Get the configuration of this Archival Unit.
       Map<String, String> auConfiguration = auConfigs.get(auid);
@@ -3988,6 +3944,33 @@ public class ConfigManager implements LockssManager {
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      return retrieveArchivalUnitConfiguration(conn, auid);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Provides the configuration of an Archival Unit stored in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return an AuConfig with the Archival Unit configuration.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public AuConfig retrieveArchivalUnitConfiguration(Connection conn,
+      String auid) throws DbException {
+    if (log.isDebug2()) log.debug2("auid = " + auid);
+
     AuConfig result = null;
 
     // Parse the Archival Unit identifier.
@@ -3995,8 +3978,8 @@ public class ConfigManager implements LockssManager {
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Retrieve the Archival Unit configuration stored in the database.
-    Map<String,String> configuration =
-	getConfigManagerSql().findArchivalUnitConfiguration(pluginId, auKey);
+    Map<String, String> configuration = getConfigManagerSql()
+	.findArchivalUnitConfiguration(conn, pluginId, auKey);
 
     // Check whether a configuration was found.
     if (!configuration.isEmpty()) {
@@ -4085,6 +4068,126 @@ public class ConfigManager implements LockssManager {
 
     if (log.isDebug2()) log.debug2("Done");
     return;
+  }
+
+  /**
+   * Loads the au.txt file into the database, if found.
+   */
+  public void loadAuTxtFileIntoDb() {
+    if (log.isDebug3()) log.debug3("cacheConfigDir = " + cacheConfigDir);
+
+    // Locate the au.txt file.
+    File auTxtFile = new File(cacheConfigDir, CONFIG_FILE_AU_CONFIG);
+    if (log.isDebug3()) log.debug3("auTxtFile = " + auTxtFile);
+
+    // Check whether the file exists.
+    if (auTxtFile.exists()) {
+      // Yes.
+      log.info("Loading file " + auTxtFile
+	  + " into the AU configuration database");
+
+      Connection conn = null;
+      boolean successful = false;
+      int addedCount = 0;
+
+      try {
+        // Get a connection to the database.
+        conn = getConfigManagerSql().getConnection();
+
+	// Load the Archival Unit configurations from the file.
+	Configuration orgLockssAu = getConfigGeneration(auTxtFile.getPath(),
+	    false, true, "cache config", trueKeyPredicate).getConfig()
+	    .getConfigTree(PluginManager.PARAM_AU_TREE);
+
+	// Loop through all the plugins found in the file.
+	for (Iterator pluginIter = orgLockssAu.nodeIterator();
+	    pluginIter.hasNext();) {
+	  String pluginKey = (String)pluginIter.next();
+	  if (log.isDebug3()) log.debug3("pluginKey = " + pluginKey);
+
+	  // Loop through all the Archival Units found for this plugin.
+	  for (Iterator auIter = orgLockssAu.nodeIterator(pluginKey);
+	      auIter.hasNext(); ) {
+	    String auKey = (String)auIter.next();
+	    if (log.isDebug3()) log.debug3("auKey = " + auKey);
+	    String auIdKey = pluginKey + "." + auKey;
+	    if (log.isDebug3()) log.debug3("auIdKey = " + auIdKey);
+
+	    // Get the configuration properties for this Archival Unit.
+	    Configuration auConf = orgLockssAu.getConfigTree(auIdKey);
+	    if (log.isDebug3()) log.debug3("auConf = " + auConf);
+
+	    Map<String, String> auConfig = new HashMap<>();
+
+	    // Loop through all the property keys of this Archival Unit.
+	    for (String key : auConf.keySet()) {
+	      String value = auConf.get(key);
+	      if (log.isDebug3())
+		log.debug3("key = " + key + ", value = " + value);
+
+	      // Populate the Archival Unit configuration map with this
+	      // property.
+	      auConfig.put(key, value);
+	    }
+
+	    // Write to the database the configuration properties of this
+	    // Archival Unit.
+	    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(
+		conn, pluginKey, auKey, auConfig, false);
+	    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+
+	    // Commit the configurations written since the last commit if the
+	    // maximum pending count has been reached.
+	    addedCount++;
+
+	    if (addedCount % auInsertCommitCount == 0) {
+	      ConfigDbManager.commitOrRollback(conn, log);
+	      addedCount = 0;
+	    }
+	  }
+	}
+
+	// Commit the configurations written since the last commit.
+	if (addedCount > 0) {
+	  ConfigDbManager.commitOrRollback(conn, log);
+	}
+
+	successful = true;
+      } catch (DbException dbe) {
+	log.critical("Error storing contents of file '" + auTxtFile
+	    + "' in the database", dbe);
+      } catch (IOException ioe) {
+	log.critical("Error reading contents of file '" + auTxtFile + "'", ioe);
+      } finally {
+	DbManager.safeRollbackAndClose(conn);
+      }
+
+      //TODO: Record failed AUs?
+      // Mark the au.txt file as migrated, to avoid processing it again, if the
+      // process loaded all the Archival Units without errors.
+      if (successful) {
+	boolean renamed = auTxtFile.renameTo(new File(cacheConfigDir,
+	    CONFIG_FILE_AU_CONFIG + ".migrated"));
+	if (log.isDebug3()) log.debug3("renamed = " + renamed);
+      }
+      log.debug2("Done");
+    }
+  }
+
+  /**
+   * Writes to an output stream the Archival Unit configuration database.
+   * 
+   * @param outputStream
+   *          An OutputStream where to write the configurations of all the
+   *          Archival Units stored in the database.
+   * @throws IOException
+   *           if there are problems writing to the output stream
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public void writeAuConfigurationDatabaseBackupToZip(OutputStream outputStream)
+      throws IOException, DbException {
+    getConfigManagerSql().processAllArchivalUnitConfigurations(outputStream);
   }
 
   private class MyMessageListener

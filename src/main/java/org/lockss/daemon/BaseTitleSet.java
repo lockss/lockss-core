@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,8 +29,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.daemon;
 
 import java.util.*;
-
 import org.lockss.app.*;
+import org.lockss.db.DbException;
 import org.lockss.util.*;
 import org.lockss.plugin.PluginManager;
 
@@ -75,7 +71,7 @@ public abstract class BaseTitleSet implements TitleSet {
   // Tdb where possible.  Move actionable logic from RemoteApi to
   // TitleConfig/TdbAu
 
-  public Collection<TitleConfig> getTitles() {
+  public Collection<TitleConfig> getTitles() throws DbException {
     return filterTitles(daemon.getPluginManager().findAllTitleConfigs());
   }
 
@@ -83,7 +79,7 @@ public abstract class BaseTitleSet implements TitleSet {
    * added/deleted/reactivated.  Default implementation executes the filter
    * and counts the result
    * @return number of titles for which the action can be performed */
-  public int countTitles(int action) {
+  public int countTitles(int action) throws DbException {
     PluginManager pluginMgr = daemon.getPluginManager();
     int res = 0;
     for (TitleConfig tc : getTitles()) {

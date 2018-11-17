@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,11 +33,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.remote;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Stream;
 import java.util.zip.*;
-
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.ConfigParamDescr;
+import org.lockss.db.DbException;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.mail.MimeMessage;
 import org.lockss.plugin.*;
@@ -60,11 +64,26 @@ public class TestRemoteApi extends LockssTestCase {
   MyIdentityManager idMgr;
   RemoteApi rapi;
   SubscriptionManager subscriptionManager;
+  ConfigDbManager configDbManager;
+  File tempDir = null;
 
   public void setUp() throws Exception {
     super.setUp();
 
+    tempDir = getTempDir();
+    String tempDirPath = tempDir.getAbsolutePath() + File.separator;
+    Properties p = new Properties();
+    p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
+    ConfigurationUtil.setCurrentConfigFromProps(p);
+
     daemon = getMockLockssDaemon();
+
+    // Create the configuration database manager.
+    configDbManager = new ConfigDbManager();
+    daemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(daemon);
+    configDbManager.startService();
+
     mpm = new MyMockPluginManager();
     mpm.mockInit();
     daemon.setPluginManager(mpm);
@@ -84,6 +103,7 @@ public class TestRemoteApi extends LockssTestCase {
 
   public void tearDown() throws Exception {
     rapi.stopService();
+    configDbManager.stopService();
     daemon.stopDaemon();
     super.tearDown();
   }
@@ -228,7 +248,7 @@ public class TestRemoteApi extends LockssTestCase {
     mau1.setAuId(id);
     mpm.setCurrentConfig(id, config);
     AuProxy aup = rapi.findAuProxy(mau1);
-    assertEquals(config, rapi.getCurrentAuConfiguration(aup));
+    assertNull(rapi.getStoredAuConfiguration(aup));
   }
 
   public void testGetRepositoryDF () throws Exception {
@@ -241,7 +261,7 @@ public class TestRemoteApi extends LockssTestCase {
   }
 
   void writeCacheConfigFile(String cfileName, String s) throws IOException {
-    String tmpdir = getTempDir().toString();
+    String tmpdir = tempDir.toString();
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  tmpdir);
     String relConfigPath =
@@ -253,14 +273,16 @@ public class TestRemoteApi extends LockssTestCase {
     log.debug("Wrote: " + configFile);
   }
 
-  /** assert that the file is an au.txt (au config) file with the expected
-   * property values
+  /**
+   * Writes the configuration of an Archival Unit to the database.
+   * 
+   * @param auConfig
+   *          An AuConfig with the Archival Unit configuration.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
    */
-  public void assertIsAuTxt(Properties expectedProps,
-			    File file) throws Exception {
-    InputStream in = new FileInputStream(file);
-    assertIsAuTxt(expectedProps, in);
-    in.close();
+  void writeAuDb(AuConfig auConfig) throws DbException {
+    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
   }
 
   /** assert that the stream contains the contents of an au.txt (au config)
@@ -288,7 +310,10 @@ public class TestRemoteApi extends LockssTestCase {
   }
 
   public void testGetAuConfigBackupStreamV2() throws Exception {
-    writeAuConfigFile("org.lockss.au.FooPlugin.k~v.k=v\n");
+    Map<String, String> props = new HashMap<>();
+    props.put("k", "v");
+    AuConfig auConfig = new AuConfig("FooPlugin&k~v", props);
+    writeAuDb(auConfig);
     ConfigurationUtil.addFromArgs(RemoteApi.PARAM_BACKUP_FILE_VERSION, "v2");
     MockArchivalUnit mau1 = new MockArchivalUnit();
     MockArchivalUnit mau2 = new MockArchivalUnit();
@@ -314,15 +339,25 @@ public class TestRemoteApi extends LockssTestCase {
     File tmpdir = getTempDir();
     ZipUtil.unzip(zip, tmpdir);
 
-    Properties exp = new Properties();
-    exp.put("org.lockss.au.FooPlugin.k~v.k", "v");
-    assertIsAuTxt(exp, new File(tmpdir, ConfigManager.CONFIG_FILE_AU_CONFIG));
-
     String[] dirfiles = tmpdir.list();
     List audirs = new ArrayList();
     Map auagreemap = new HashMap();
     Map austatemap = new HashMap();
+    boolean auDbBackupFileFound = false;
+
     for (int ix = 0; ix < dirfiles.length; ix++) {
+      // Check whether it is the backup of the Archival Unit configuration
+      // database.
+      if (RemoteApi.BACK_FILE_AU_CONFIGURATION_DB.equals(dirfiles[ix])) {
+	// Yes: Get the contents of the backup file in a form suitable for
+	// comparison.
+	Configuration allAuConfig = rapi
+	    .getConfigurationFromSavedDbConfig(new File(tmpdir, dirfiles[ix]));
+	assertEquals(auConfig.toAuidPrefixedConfiguration(),
+	    allAuConfig.getConfigTree(PluginManager.PARAM_AU_TREE));
+	auDbBackupFileFound = true;
+	continue;
+      }
       File audir = new File(tmpdir, dirfiles[ix]);
       if (!audir.isDirectory()) {
 	continue;
@@ -341,6 +376,9 @@ public class TestRemoteApi extends LockssTestCase {
 	austatemap.put(auid, austatefile);
       }
     }
+
+    assertTrue(auDbBackupFileFound);
+
     assertEquals(3, audirs.size());
     File agreefile;
     assertNotNull(agreefile = (File)auagreemap.get("mau1id"));

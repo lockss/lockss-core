@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +28,7 @@
 package org.lockss.ws.entities;
 
 import java.util.Map;
+import org.lockss.db.DbException;
 
 /**
  * Container for the information related to a repository that is the result of a
@@ -76,7 +73,7 @@ public class RepositoryWsResult {
    * 
    * @return a String with the name.
    */
-  public String getAuName() {
+  public String getAuName() throws DbException {
     return auName;
   }
   public void setAuName(String auName) {
@@ -100,7 +97,7 @@ public class RepositoryWsResult {
    * 
    * @return a String with the status.
    */
-  public String getStatus() {
+  public String getStatus() throws DbException {
     return status;
   }
   public void setStatus(String status) {
@@ -136,7 +133,7 @@ public class RepositoryWsResult {
    * 
    * @return a {@code Map<String, String>} with the parameters.
    */
-  public Map<String, String> getParams() {
+  public Map<String, String> getParams() throws DbException {
     return params;
   }
   public void setParams(Map<String, String> params) {

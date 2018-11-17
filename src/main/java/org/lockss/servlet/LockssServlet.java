@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,6 +47,7 @@ import org.mortbay.servlet.MultiPartRequest;
 
 import org.lockss.app.*;
 import org.lockss.config.*;
+import org.lockss.db.DbException;
 import org.lockss.account.*;
 import org.lockss.protocol.*;
 import org.lockss.jetty.*;
@@ -187,7 +184,7 @@ public abstract class LockssServlet extends HttpServlet
 
   /** Servlets must implement this method. */
   protected abstract void lockssHandleRequest()
-      throws ServletException, IOException;
+      throws ServletException, IOException, DbException;
 
   /** Common request handling. */
   public void service(HttpServletRequest req, HttpServletResponse resp)
@@ -242,6 +239,9 @@ public abstract class LockssServlet extends HttpServlet
     } catch (IOException e) {
       log.error("Servlet threw", e);
       throw e;
+    } catch (DbException dbe) {
+      log.error("Servlet threw", dbe);
+      throw new RuntimeException("Database Error", dbe);
     } catch (RuntimeException e) {
       log.error("Servlet threw", e);
       throw e;

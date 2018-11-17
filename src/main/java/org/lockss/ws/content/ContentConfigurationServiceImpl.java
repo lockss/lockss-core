@@ -35,6 +35,7 @@ import javax.jws.WebService;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.TitleConfig;
+import org.lockss.db.DbException;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.util.Logger;
@@ -276,9 +277,15 @@ public class ContentConfigurationServiceImpl implements
     List<ContentConfigurationResult> results =
 	new ArrayList<ContentConfigurationResult>(auIds.size());
 
-    // Reactivate the archival units.
-    BatchAuStatus status =
-	LockssDaemon.getLockssDaemon().getRemoteApi().reactivateAus(auIds);
+    BatchAuStatus status = null;
+
+    try {
+      // Reactivate the archival units.
+      status =
+	  LockssDaemon.getLockssDaemon().getRemoteApi().reactivateAus(auIds);
+    } catch (DbException dbe) {
+      throw new LockssWebServicesFault("Database Error", dbe);
+    }
 
     // Loop through all the results.
     for (int i = 0; i < status.getUnsortedStatusList().size(); i++) {

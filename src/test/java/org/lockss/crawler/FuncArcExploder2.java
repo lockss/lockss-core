@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2007-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,17 +31,14 @@ package org.lockss.crawler;
 import java.io.*;
 import java.util.*;
 import java.net.*;
-
 import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.lockss.config.*;
-import org.lockss.crawler.FuncArcExploder.MyCrawlRule;
-import org.lockss.crawler.FuncArcExploder.MyExploderHelper;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
 import org.lockss.plugin.exploded.*;
-import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.state.*;
@@ -93,6 +86,8 @@ public class FuncArcExploder2 extends LockssTestCase {
     "http://www.example.com/content.arc.gz",
   };
 
+  private ConfigDbManager configDbManager = null;
+
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
     FuncArcExploder2 test = new FuncArcExploder2();
@@ -138,6 +133,13 @@ public class FuncArcExploder2 extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
+
+    // Create the configuration database manager.
+    configDbManager = new ConfigDbManager();
+    theDaemon.setConfigDbManager(configDbManager);
+    configDbManager.initService(theDaemon);
+    configDbManager.startService();
+
     pluginMgr = theDaemon.getPluginManager();
     crawlMgr = new NoPauseCrawlManagerImpl();
     theDaemon.setCrawlManager(crawlMgr);
@@ -159,6 +161,7 @@ public class FuncArcExploder2 extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
+    configDbManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
   }

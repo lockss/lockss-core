@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +26,6 @@
 
  */
 
-/**
- * Container for the information that is used as the source for a query related
- * to repositories.
- */
 package org.lockss.ws.status;
 
 import java.io.File;
@@ -47,6 +39,7 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
+import org.lockss.db.DbException;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
@@ -56,6 +49,10 @@ import org.lockss.util.Logger;
 import org.lockss.util.PropUtil;
 import org.lockss.ws.entities.RepositoryWsResult;
 
+/**
+ * Container for the information that is used as the source for a query related
+ * to repositories.
+ */
 public class RepositoryWsSource extends RepositoryWsResult {
   private static Logger log = Logger.getLogger();
 
@@ -112,7 +109,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getAuName() {
+  public String getAuName() throws DbException {
     if (!auNamePopulated) {
       if (auId != null) {
 	String name = null;
@@ -156,7 +153,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getStatus() {
+  public String getStatus() throws DbException {
     if (!statusPopulated) {
       if (auId == null) {
 	setStatus("No AUID");
@@ -227,7 +224,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public Map<String, String> getParams() {
+  public Map<String, String> getParams() throws DbException {
     if (!paramsPopulated) {
       if (auId != null) {
 	if (getArchivalUnit() != null) {

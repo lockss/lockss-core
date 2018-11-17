@@ -89,5 +89,5 @@ public class SqlConstants {
   public static final int MAX_CONFIG_KEY_COLUMN = 128;
 
   /** Length of the archival unit configuration value column. */
-  public static final int MAX_CONFIG_VALUE_COLUMN = 128;
+  public static final int MAX_CONFIG_VALUE_COLUMN = 4096;
 }

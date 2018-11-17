@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,12 +31,11 @@ package org.lockss.servlet;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
-
 import javax.servlet.*;
-
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.*;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
@@ -122,7 +117,7 @@ public class AuConfig extends LockssServlet {
     remoteApi = getLockssDaemon().getRemoteApi();
   }
 
-  protected void lockssHandleRequest() throws IOException {
+  protected void lockssHandleRequest() throws IOException, DbException {
     errMsg = null;
     statusMsg = null;
     formConfig = null;
@@ -187,7 +182,7 @@ public class AuConfig extends LockssServlet {
 
   /** Display "Add Archival Unit" button and list of configured AUs with Edit
    * buttons */
-  private void displayAuSummary() throws IOException {
+  private void displayAuSummary() throws IOException, DbException {
     // If the AUs are not started, don't display any AU summary or any form
     // inputs.
     if (!pluginMgr.areAusStarted()) {
@@ -228,7 +223,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Display form to edit existing AU */
-  private void displayEditAu(AuProxy au) throws IOException {
+  private void displayEditAu(AuProxy au) throws IOException, DbException {
     Page page = newPage();
     fetchAuConfig(au);
 
@@ -246,7 +241,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Display form to restore unconfigured AU */
-  private void displayRestoreAu(AuProxy au) throws IOException {
+  private void displayRestoreAu(AuProxy au) throws IOException, DbException {
     Page page = newPage();
     fetchAuConfig(au);
 
@@ -263,7 +258,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Display form to reactivate deactivated AU */
-  private void displayReactivateAu(AuProxy au) throws IOException {
+  private void displayReactivateAu(AuProxy au) throws IOException, DbException {
     Page page = newPage();
     addJavaScript(page);
     fetchAuConfig(au);
@@ -585,7 +580,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Process the DoReactivate button */
-  private void doReactivateAu(AuProxy aup) throws IOException {
+  private void doReactivateAu(AuProxy aup) throws IOException, DbException {
     plugin = aup.getPlugin();
     if (plugin == null) {
       errMsg = "Can't find plugin: " + aup.getPluginId();
@@ -631,45 +626,51 @@ public class AuConfig extends LockssServlet {
       log.error("Error saving AU configuration", e);
       errMsg = "Error saving AU configuration:<br>" +
 	encodeText(e.getMessage());
+    } catch (DbException e) {
+      log.error("Error configuring AU", e);
+      errMsg = "Error configuring AU:<br>" + encodeText(e.getMessage());
     }
     displayEditNew();
   }
 
-  private void doRestoreAu(AuProxy au) throws IOException {
+  private void doRestoreAu(AuProxy au) throws IOException, DbException {
     updateAu0(au, "Restored", true);
   }
 
   private void updateAu(AuProxy au, String msg)
-      throws IOException {
+      throws IOException, DbException {
     updateAu0(au, msg, false);
   }
 
   /** Process the Update button */
   private void updateAu0(AuProxy au, String msg, boolean forceUpdate)
-      throws IOException {
+      throws IOException, DbException {
     fetchAuConfig(au);
     Configuration formAuConfig = getAuConfigFromForm(false);
     // AU config params set in global props file (for forcing crawl, etc.)
     // cause latter to see changes even when we don't need to update.
     // compare new config against current only, not stored config.  AU
     boolean checkStored = false;
-    if (forceUpdate || isChanged(auConfig, formAuConfig) ||
-	(checkStored &&
-	 isChanged(remoteApi.getStoredAuConfiguration(au), formAuConfig))) {
-      try {
+    try {
+      if (forceUpdate || isChanged(auConfig, formAuConfig) ||
+	  (checkStored &&
+	   isChanged(remoteApi.getStoredAuConfiguration(au), formAuConfig))) {
 	remoteApi.setAndSaveAuConfiguration(au, formAuConfig);
 	statusMsg = msg + " Archival Unit:<br>" + encodeText(au.getName());
 	displayAuSummary();
 	return;
-      } catch (ArchivalUnit.ConfigurationException e) {
-	log.error("Couldn't reconfigure AU", e);
-	errMsg = encodeText(e.getMessage());
-      } catch (IOException e) {
-	log.error("Couldn't save AU configuraton", e);
-	errMsg = "Error saving AU:<br>" + encodeText(e.getMessage());
+      } else {
+	statusMsg = "No changes made.";
       }
-    } else {
-      statusMsg = "No changes made.";
+    } catch (ArchivalUnit.ConfigurationException e) {
+      log.error("Couldn't reconfigure AU", e);
+      errMsg = encodeText(e.getMessage());
+    } catch (IOException e) {
+      log.error("Couldn't save AU configuraton", e);
+      errMsg = "Error saving AU:<br>" + encodeText(e.getMessage());
+    } catch (DbException dbe) {
+      log.error("Couldn't reconfigure AU", dbe);
+      errMsg = encodeText(dbe.getMessage());
     }
     displayEditAu(au);
   }
@@ -713,7 +714,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Display the Confirm Delete  page */
-  private void confirmDeleteAu(AuProxy au) throws IOException {
+  private void confirmDeleteAu(AuProxy au) throws IOException, DbException {
     String deleteFoot =
       (remoteApi.isRemoveStoppedAus() ? null :
        "Delete does not take effect until the next daemon restart.");
@@ -733,7 +734,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Process the Confirm Delete button */
-  private void doDeleteAu(AuProxy au) throws IOException {
+  private void doDeleteAu(AuProxy au) throws IOException, DbException {
     String name = au.getName();
     try {
       remoteApi.deleteAu(au);
@@ -752,7 +753,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Display the Confirm Deactivate  page */
-  private void confirmDeactivateAu(AuProxy au) throws IOException {
+  private void confirmDeactivateAu(AuProxy au) throws IOException, DbException {
     String deactivateFoot =
       (remoteApi.isRemoveStoppedAus()
        ? ("A deactivated Archival Unit's contents" +
@@ -775,7 +776,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Process the Confirm Deactivate button */
-  private void doDeactivateAu(AuProxy au) throws IOException {
+  private void doDeactivateAu(AuProxy au) throws IOException, DbException {
     String name = au.getName();
     try {
       remoteApi.deactivateAu(au);
@@ -788,6 +789,9 @@ public class AuConfig extends LockssServlet {
     } catch (IOException e) {
       log.error("Couldn't save AU configuraton", e);
       errMsg = "Error deactivating AU:<br>" + encodeText(e.getMessage());
+    } catch (DbException dbe) {
+      log.error("Couldn't save AU configuraton", dbe);
+      errMsg = "Error deactivating AU:<br>" + encodeText(dbe.getMessage());
     }
     confirmDeactivateAu(au);
   }
@@ -874,7 +878,7 @@ public class AuConfig extends LockssServlet {
   }
 
   /** Return AU name, encoded for html text */
-  String encodedAuName(AuProxy au) {
+  String encodedAuName(AuProxy au) throws DbException {
     return encodeText(au.getName());
   }
 
@@ -883,7 +887,7 @@ public class AuConfig extends LockssServlet {
     return action != null;
   }
 
-  private void fetchAuConfig(AuProxy au) {
+  private void fetchAuConfig(AuProxy au) throws DbException {
     auConfig = au.getConfiguration();
     plugin = au.getPlugin();
   }
