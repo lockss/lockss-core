@@ -30,7 +30,6 @@ package org.lockss.daemon;
 
 import java.util.*;
 import org.lockss.config.*;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.plugin.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -48,18 +47,13 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
   TitleConfig tc1, tc2;
   ConfigParamDescr d1, d2;
   ConfigParamAssignment cpa1, cpa2, cpa3;
-  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
     setUpDiskSpace();
     getMockLockssDaemon().setIdentityManager(new org.lockss.protocol.MockIdentityManager());
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    getMockLockssDaemon().setConfigDbManager(configDbManager);
-    configDbManager.initService(getMockLockssDaemon());
-    configDbManager.startService();
+    getMockLockssDaemon().setUpAuConfig();
 
     pluginMgr = getMockLockssDaemon().getPluginManager();
     pluginMgr.startService();
@@ -106,7 +100,7 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
 
   public void tearDown() throws Exception {
     pluginMgr.stopService();
-    configDbManager.stopService();
+    getMockLockssDaemon().stopDaemon();
     super.tearDown();
   }
 

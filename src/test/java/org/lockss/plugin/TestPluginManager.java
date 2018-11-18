@@ -40,7 +40,6 @@ import org.apache.activemq.broker.BrokerService;
 import org.junit.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.base.*;
 import org.lockss.plugin.definable.*;
@@ -100,7 +99,6 @@ public class TestPluginManager extends LockssTestCase4 {
   private String tempDirPath;
 
   MyPluginManager mgr;
-  ConfigDbManager configDbManager = null;
 
   @Before
   public void setUp() throws Exception {
@@ -117,11 +115,7 @@ public class TestPluginManager extends LockssTestCase4 {
 
     theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    theDaemon.setConfigDbManager(configDbManager);
-    configDbManager.initService(theDaemon);
-    configDbManager.startService();
+    theDaemon.setUpAuConfig();
 
     mgr = new MyPluginManager();
     theDaemon.setPluginManager(mgr);
@@ -142,7 +136,6 @@ public class TestPluginManager extends LockssTestCase4 {
   @After
   public void tearDown() throws Exception {
     mgr.stopService();
-    configDbManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
   }
@@ -170,7 +163,7 @@ public class TestPluginManager extends LockssTestCase4 {
     configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
     configuration.put(MockPlugin.CONFIG_PROP_2, "val2");
     AuConfig auConfig = new AuConfig(mauauid1, configuration);
-    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    theDaemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
     mgr.ensurePluginLoaded(mockPlugKey);
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
     Configuration auConf = auConfig.toUnprefixedConfiguration();
@@ -180,7 +173,7 @@ public class TestPluginManager extends LockssTestCase4 {
     configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
     configuration.put(MockPlugin.CONFIG_PROP_2, "va.l3");
     auConfig = new AuConfig(mauauid2, configuration);
-    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    theDaemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
     auConf = auConfig.toUnprefixedConfiguration();
     mgr.createAu(mpi, auConf, AuEvent.model(AuEvent.Type.Create));
     doConfig(new Properties());
@@ -1947,7 +1940,7 @@ public class TestPluginManager extends LockssTestCase4 {
     configuration.put(k1, v1);
     configuration.put(k2, v2);
     AuConfig auConfig = new AuConfig(auid, configuration);
-    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    theDaemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
 
     assertEquals(null, mgr.getAuFromIdIfExists(auid));
     mgr.suppressEnxurePluginLoaded(ListUtil.list(pluginKey));

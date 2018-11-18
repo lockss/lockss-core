@@ -34,7 +34,6 @@ import java.util.regex.*;
 import org.lockss.test.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
@@ -52,7 +51,6 @@ public abstract class BaseFuncExporter extends LockssTestCase {
   protected int exportFileIx;
 
   protected int fileSize = DEFAULT_FILESIZE;
-  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -65,11 +63,7 @@ public abstract class BaseFuncExporter extends LockssTestCase {
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.addFromProps(props);
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    daemon.setConfigDbManager(configDbManager);
-    configDbManager.initService(daemon);
-    configDbManager.startService();
+    daemon.setUpAuConfig();
 
     daemon.getPluginManager();
     daemon.setDaemonInited(true);
@@ -84,7 +78,6 @@ public abstract class BaseFuncExporter extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    configDbManager.stopService();
     daemon.stopDaemon();
     super.tearDown();
   }

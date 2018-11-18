@@ -34,7 +34,6 @@ import java.net.*;
 import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.lockss.config.*;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
@@ -86,8 +85,6 @@ public class FuncArcExploder2 extends LockssTestCase {
     "http://www.example.com/content.arc.gz",
   };
 
-  private ConfigDbManager configDbManager = null;
-
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
     FuncArcExploder2 test = new FuncArcExploder2();
@@ -134,11 +131,7 @@ public class FuncArcExploder2 extends LockssTestCase {
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    theDaemon.setConfigDbManager(configDbManager);
-    configDbManager.initService(theDaemon);
-    configDbManager.startService();
+    theDaemon.setUpAuConfig();
 
     pluginMgr = theDaemon.getPluginManager();
     crawlMgr = new NoPauseCrawlManagerImpl();
@@ -161,7 +154,6 @@ public class FuncArcExploder2 extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    configDbManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
   }

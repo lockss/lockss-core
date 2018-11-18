@@ -35,7 +35,6 @@ import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.apache.commons.collections.map.*;
 import org.lockss.config.*;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
@@ -114,8 +113,6 @@ public class FuncTarExploder2 extends LockssTestCase {
     "http://www.example.com/branch1/index.html",
   };
 
-  private ConfigDbManager configDbManager = null;
-
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
     FuncTarExploder2 test = new FuncTarExploder2();
@@ -162,11 +159,7 @@ public class FuncTarExploder2 extends LockssTestCase {
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    theDaemon.setConfigDbManager(configDbManager);
-    configDbManager.initService(theDaemon);
-    configDbManager.startService();
+    theDaemon.setUpAuConfig();
 
     pluginMgr = new NonVersionCheckingPluginManager();
     pluginMgr.initService(theDaemon);
@@ -191,7 +184,6 @@ public class FuncTarExploder2 extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    configDbManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
   }

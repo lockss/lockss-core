@@ -36,7 +36,6 @@ import java.io.*;
 import java.util.*;
 import org.apache.commons.jxpath.*;
 import org.lockss.config.*;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
@@ -53,7 +52,6 @@ public class TestTitleSetXpath extends LockssTestCase {
   MockPlugin mp2;
   TitleConfig tc1, tc2, tc3, tc4, tc5, tc6;
   List<TitleConfig> titles;
-  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -63,11 +61,7 @@ public class TestTitleSetXpath extends LockssTestCase {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    getMockLockssDaemon().setConfigDbManager(configDbManager);
-    configDbManager.initService(getMockLockssDaemon());
-    configDbManager.startService();
+    getMockLockssDaemon().setUpAuConfig();
 
     useOldRepo();
     pluginMgr = getMockLockssDaemon().getPluginManager();
@@ -76,7 +70,7 @@ public class TestTitleSetXpath extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    configDbManager.stopService();
+    getMockLockssDaemon().stopDaemon();
     super.tearDown();
   }
 

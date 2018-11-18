@@ -36,7 +36,6 @@ import java.io.File;
 import java.util.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.TitleConfig;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -49,7 +48,6 @@ import org.lockss.plugin.*;
 public class TestTitleConfig extends LockssTestCase {
 
   private PluginManager pmgr;
-  private ConfigDbManager configDbManager = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -59,11 +57,7 @@ public class TestTitleConfig extends LockssTestCase {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    getMockLockssDaemon().setConfigDbManager(configDbManager);
-    configDbManager.initService(getMockLockssDaemon());
-    configDbManager.startService();
+    getMockLockssDaemon().setUpAuConfig();
 
     useOldRepo();
     pmgr = getMockLockssDaemon().getPluginManager();
@@ -71,7 +65,7 @@ public class TestTitleConfig extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    configDbManager.stopService();
+    getMockLockssDaemon().stopDaemon();
     super.tearDown();
   }
 

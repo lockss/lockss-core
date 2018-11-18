@@ -140,6 +140,18 @@ public class MockLockssDaemon extends LockssDaemon {
     //super.stopDaemon();
   }
 
+  @Override
+  public void stopDaemon() {
+    if (configDbMgr != null) {
+      configDbMgr.stopService();
+    }
+    auManagerMaps.clear();
+
+    managerMap.clear();
+
+    //super.stopDaemon();
+  }
+
   /** Set the testing mode.  (Normally done through config and daemon
    * startup.) */
   public void setTestingMode(String mode) {
@@ -890,6 +902,19 @@ public class MockLockssDaemon extends LockssDaemon {
     } else {
       ausStarted = new OneShotSemaphore();
     }
+  }
+
+  ConfigDbManager configDbMgr;
+
+  /** Create and start service(s) necessary to create AUs in a testing
+   * environment */
+  public MockLockssDaemon setUpAuConfig() {
+    // Create the configuration database manager.
+    configDbMgr = new ConfigDbManager();
+    setConfigDbManager(configDbMgr);
+    configDbMgr.initService(this);
+    configDbMgr.startService();
+    return this;
   }
 
   /** Here only to allow legacy plugin tests to compile

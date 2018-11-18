@@ -39,7 +39,6 @@ import java.util.*;
 import java.util.stream.Stream;
 import java.util.zip.*;
 import org.lockss.config.*;
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.db.DbException;
 import org.lockss.util.test.FileTestUtil;
@@ -64,7 +63,6 @@ public class TestRemoteApi extends LockssTestCase {
   MyIdentityManager idMgr;
   RemoteApi rapi;
   SubscriptionManager subscriptionManager;
-  ConfigDbManager configDbManager;
   File tempDir = null;
 
   public void setUp() throws Exception {
@@ -78,11 +76,7 @@ public class TestRemoteApi extends LockssTestCase {
 
     daemon = getMockLockssDaemon();
 
-    // Create the configuration database manager.
-    configDbManager = new ConfigDbManager();
-    daemon.setConfigDbManager(configDbManager);
-    configDbManager.initService(daemon);
-    configDbManager.startService();
+    daemon.setUpAuConfig();
 
     mpm = new MyMockPluginManager();
     mpm.mockInit();
@@ -103,7 +97,6 @@ public class TestRemoteApi extends LockssTestCase {
 
   public void tearDown() throws Exception {
     rapi.stopService();
-    configDbManager.stopService();
     daemon.stopDaemon();
     super.tearDown();
   }
@@ -282,7 +275,7 @@ public class TestRemoteApi extends LockssTestCase {
    *           if any problem occurred accessing the database.
    */
   void writeAuDb(AuConfig auConfig) throws DbException {
-    configDbManager.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    daemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
   }
 
   /** assert that the stream contains the contents of an au.txt (au config)
