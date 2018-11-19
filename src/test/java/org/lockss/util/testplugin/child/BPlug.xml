@@ -1,0 +1,18 @@
+<map>
+  <entry>
+    <string>plugin_identifier</string>
+    <string>org.lockss.util.testplugin.child.DPlug</string>
+  </entry>
+  <entry>
+    <string>plugin_name</string>
+    <string>B Plugin</string>
+  </entry>
+  <entry>
+    <string>plugin_parent</string>
+    <string>org.lockss.util.testplugin.PPlug</string>
+  </entry>
+<!--   <entry> -->
+<!--     <string>plugin_parent_version</string> -->
+<!--     <string>17</string> -->
+<!--   </entry> -->
+</map>
