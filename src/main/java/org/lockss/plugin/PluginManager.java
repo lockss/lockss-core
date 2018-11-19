@@ -476,8 +476,8 @@ public class PluginManager
     super.startService();
     configMgr = getDaemon().getConfigManager();
 
-    // Load the au.txt file into the database, if found.
-    configMgr.loadAuTxtFileIntoDb();
+    // Initialize the configuration database, if necessary.
+    configMgr.deferredConfigDbInit();
 
     alertMgr = getDaemon().getAlertManager();
     // Initialize the plugin directory.

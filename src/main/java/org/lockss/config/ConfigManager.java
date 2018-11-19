@@ -4071,6 +4071,19 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
+   * Initializes the configuration database
+   */
+  public void deferredConfigDbInit() {
+    // Load the au.txt file into the database, if appropriate.
+    if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
+	+ restConfigClient.isActive());
+
+    if (!restConfigClient.isActive()) {
+      loadAuTxtFileIntoDb();
+    }
+  }
+
+  /**
    * Loads the au.txt file into the database, if found.
    */
   public void loadAuTxtFileIntoDb() {
