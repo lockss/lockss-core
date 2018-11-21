@@ -158,7 +158,12 @@ public class ManagerDescs {
                     "org.lockss.daemon.status.OverviewStatus");
   public static ManagerDesc JMS_MANAGER_DESC =
     new ManagerDesc("org.lockss.jms.JMSManager");
+
   public static ManagerDesc CONFIG_DB_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.CONFIG_DB_MANAGER,
-	"org.lockss.config.db.ConfigDbManager");
+	"org.lockss.config.db.ConfigDbManager") {
+      // Start ConfigDbManager iff we're not using a remote config service
+      public boolean shouldStart(LockssApp app) {
+        return !app.isConfigClient();
+      }};
 }

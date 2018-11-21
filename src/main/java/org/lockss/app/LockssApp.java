@@ -198,7 +198,7 @@ public class LockssApp {
 
     // unused
 //     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
-//       public boolean shouldStart() {
+//       public boolean shouldStart(LockssApp app) {
 //         return isClockss();
 //       }},
     
@@ -270,6 +270,12 @@ public class LockssApp {
    * @return the LOCKSS user-agent string. */
   public static String getUserAgent() {
     return LOCKSS_USER_AGENT;
+  }
+
+  /** Return true if this app obtains config info from a REST config
+   * service.  (I.e., it was started with a -c arg) */
+  public boolean isConfigClient() {
+    return restConfigServiceUrl != null;
   }
 
   /** Return the current testing mode. */
@@ -686,7 +692,7 @@ public class LockssApp {
     }
     for(int i=0; i< managerDescs.length; i++) {
       ManagerDesc desc = managerDescs[i];
-      if (desc.shouldStart()) {
+      if (desc.shouldStart(this)) {
 	if (managerMap.get(desc.key) != null) {
 	  throw new RuntimeException("Duplicate manager key: " + desc.key);
 	}
@@ -1066,7 +1072,7 @@ public class LockssApp {
     /** Return true iff the manager should be started.  Allows runtime
      * determination of manager inclusion by implementing in an anonymous
      * inner class in a ManagerDesc declaration. */
-    public boolean shouldStart() {
+    public boolean shouldStart(LockssApp app) {
       return true;
     }
 

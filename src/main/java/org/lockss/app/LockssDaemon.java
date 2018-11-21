@@ -199,12 +199,12 @@ public class LockssDaemon extends LockssApp {
     REPOSITORY_STATUS_DESC,
     OVERVIEW_STATUS_DESC,
     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
-      public boolean shouldStart() {
+      public boolean shouldStart(LockssApp app) {
         return isClockss();
       }},
     new ManagerDesc(SAFENET_MANAGER,
 		    "org.lockss.safenet.CachingEntitlementRegistryClient") {
-      public boolean shouldStart() {
+      public boolean shouldStart(LockssApp app) {
         return isSafenet();
       }},
     METADATA_DB_MANAGER_DESC
@@ -648,7 +648,7 @@ public class LockssDaemon extends LockssApp {
     ManagerDesc descs[] = getAuManagerDescs();
     for (int ix = 0; ix < descs.length; ix++) {
       ManagerDesc desc = descs[ix];
-      if (desc.shouldStart()) {
+      if (desc.shouldStart(this)) {
         try {
           LockssAuManager mgr = initAuManager(desc, au);
           auMgrMap.put(desc.key, mgr);

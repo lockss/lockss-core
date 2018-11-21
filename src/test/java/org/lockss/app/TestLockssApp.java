@@ -300,7 +300,7 @@ public class TestLockssApp extends LockssTestCase {
     LockssApp.ManagerDesc[] descrs = {
       new LockssApp.ManagerDesc("mgr_1", MockMgr1.class.getName()),
       new LockssApp.ManagerDesc("mgr_2", MockMgr2.class.getName()) {
-      public boolean shouldStart() {
+      public boolean shouldStart(LockssApp app) {
 	return false;
       }},
       new LockssApp.ManagerDesc("mgr_3", MockMgr3.class.getName()),
