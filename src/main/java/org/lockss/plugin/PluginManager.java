@@ -533,23 +533,24 @@ public class PluginManager
    * in the right order.
    */
   public void startLoadablePlugins() throws DbException {
-    final String DEBUG_HEADER = "startLoadablePlugins(): ";
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "loadablePluginsReady = "
-	+ loadablePluginsReady);
+    if (log.isDebug3())
+      log.debug3("loadablePluginsReady = " + loadablePluginsReady);
     if (loadablePluginsReady) {
       return;
     }
 
     Configuration config = CurrentConfig.getCurrentConfig();
+    if (log.isDebug3())
+      log.debug3("config.keySet().size() = " + config.keySet().size());
     log.debug("Initializing loadable plugin registries before starting AUs");
     initLoadablePluginRegistries(getPluginRegistryUrls(config));
     synchStaticPluginList(config);
     if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "Calling configureAllPlugins(config)");
-    configureAllPlugins(config);
+      log.debug3("Calling configureAllArchivalUnitsAndLoadTheirPlugins()");
+    configureAllArchivalUnitsAndLoadTheirPlugins();
     loadablePluginsReady = true;
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "loadablePluginsReady = "
-	+ loadablePluginsReady);
+    if (log.isDebug3())
+      log.debug3("loadablePluginsReady = " + loadablePluginsReady);
   }
 
   public void setLoadablePluginsReady(boolean val) {
@@ -703,18 +704,115 @@ public class PluginManager
 
   private enum SkipConfigCondition {ConfigUnchanged, AuRunning};
 
-  private void configureAllPlugins(Configuration config) {
-    // Get the different plugin identifiers in the database.
-    Collection<String> pluginIds = null;
+  /**
+   * Configures all the plugins and Archival Units.
+   */
+  private void configureAllArchivalUnitsAndLoadTheirPlugins() {
+    Collection<AuConfig> auConfigs = null;
+
+    // Get the configurations of all the Archival Units.
     try {
-      pluginIds = configMgr.retrievePluginIds();
+      auConfigs = configMgr.retrieveAllArchivalUnitConfiguration();
     } catch (DbException dbe) {
       log.critical(
-	  "Error getting plugin identifiers from database: Not starting AUs",
+	  "Error getting Archival Unit configurations: Not starting AUs",
 	  dbe);
       return;
+    } catch (IOException ioe) {
+      log.critical(
+	  "Error getting Archival Unit configurations: Not starting AUs",
+	  ioe);
+      return;
     }
-    configurePlugins(pluginIds, SkipConfigCondition.ConfigUnchanged);
+
+    if (log.isDebug3()) log.debug3("auConfigs.size() = " + auConfigs.size());
+
+    // Loop over each Archival Unit configuration.
+    for (AuConfig auConfig : auConfigs) {
+      if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+
+      String auId = auConfig.getAuid();
+      String pluginKey = pluginIdFromAuId(auId);
+
+      synchronized (auAddDelLock) {
+	// Check whether the load of the plugin of this Archival Unit has not
+	// been successful.
+	if (!ensurePluginLoaded(pluginKey)) {
+	  // Yes: Do not configure this Archival Unit.
+	  log.warning("Plugin " + pluginKey
+	      + " not loaded, not configuring its AUs");
+	  continue;
+	}
+
+	String auKey = PluginManager.auKeyFromAuId(auId);
+
+	try {
+	  // Get the disabled configuration parameter, if any.
+	  Map<String, String> auConfiguration = auConfig.getConfiguration();
+	  String disabled = auConfiguration.get(AU_PARAM_DISABLED);
+	  if (log.isDebug3()) log.debug3("disabled = " + disabled);
+
+	  // Check whether this Archival Unit is marked as disabled.
+	  if (disabled != null & Boolean.parseBoolean(disabled)) {
+	    // Yes: Do not configure this Archival Unit.
+	    // tk should actually remove AU?
+	    if (log.isDebug2())
+	      log.debug2("Not configuring disabled AU id: " + auKey);
+	    if (auMap.get(auId) == null) {
+	      // don't add to inactive if it's still running
+	      inactiveAuIds.add(auId);
+	    }
+	    continue;
+	  }
+
+	  // TODO: Check whether this is still needed.
+	  // If this AU has no config tree in the database, ignore it.  Prevents
+	  // race caused by config reload asynchronous to quick AU
+	  // create/delete.  Because config reload never deletes AUs, this
+	  // would lead to a just-deleted AU being recreated and not
+	  // deleted until daemon restart.  Set
+	  // org.lockss.plugin.allowGlobalAuConfig true to suppress this
+	  // check, allowing AUs to be configured in any config file.
+	  if (! (paramAllowGlobalAuConfig || isAuConfInSource(auId))) {
+	    log.debug("Not configuring now-disappeared AU id: " + auKey);
+	    continue;
+	  }
+	  if (log.isDebug2()) log.debug2("Configuring AU id: " + auKey);
+
+	  // Convert the Archival Unit configuration to a Configuration object.
+	  Configuration auConf = ConfigManager.newConfiguration();
+
+	  for (String key : auConfiguration.keySet()) {
+	    auConf.put(key, auConfiguration.get(key));
+	  }
+
+	  // Get the plugin of this Archival Unit.
+	  Plugin plugin = getPlugin(pluginKey);
+
+	  // Check the consistency of the Archival Unit configuration.
+	  try {
+	    String genAuid = generateAuId(plugin, auConf);
+	    if (!auId.equals(genAuid)) {
+	      log.warning("Generated AUID " + genAuid +
+		  " does not match stored AUID " + auId +
+		  ". Proceeding anyway.");
+	    }
+	  } catch (RuntimeException e) {
+	    log.warning("Not configuring probable non-AU.  " +
+		"Can't generate AUID from config: " + auConf);
+	    continue;
+	  }
+
+	  // Configure this Archival Unit.
+	  configureAu(plugin, auConf, auId);
+	  inactiveAuIds.remove(generateAuId(pluginKey, auKey));
+	} catch (ArchivalUnit.ConfigurationException e) {
+	  log.error("Failed to configure AU " + auId, e);
+	} catch (Exception e) {
+	  log.error("Unexpected exception configuring AU " + auKey, e);
+	}
+      }
+    }
   }
 
   // Called to (try to) start AUs configured for changed plugins, that
@@ -726,35 +824,43 @@ public class PluginManager
 
   private void configurePlugins(Collection<String> pluginKeys,
 				SkipConfigCondition scc) {
+    if (log.isDebug2()) log.debug2("pluginKeys = " + pluginKeys);
+    Map<String, List<AuConfig>> pluginsAuConfs = null;
+
+    try {
+      pluginsAuConfs = configMgr.retrieveAllPluginsAusConfigurations();
+    } catch (Exception e) {
+      log.critical("Error getting AU configurations for plugins: "
+	  + "Not starting AUs", e);
+      return;
+    }
+
     for (String pluginKey : pluginKeys) {
       log.debug2("Configuring plugin key: " + pluginKey);
       // Get from the database the configuration entries for this plugin.
       Configuration pluginConf = ConfigManager.newConfiguration();
 
-      try {
-	// Get all the Archival Unit configurations for this plugin from the
-	// database.
-	Map<String, Map<String, String>> pluginAusMap =
-	    configMgr.retrievePluginAusConfigurations(pluginKey);
+      // Get all the Archival Unit configurations for this plugin.
+      List<AuConfig> pluginAus = pluginsAuConfs.get(pluginKey);
 
-	// Loop through each Archival Unit found.
-	for (String auId : pluginAusMap.keySet()) {
-	  String auKey = PluginManager.auKeyFromAuId(auId);
-	  Map<String, String> auConf = pluginAusMap.get(auId);
+      // Loop through each Archival Unit configuration found.
+      for (AuConfig auConfig : pluginAus) {
+	String auId = auConfig.getAuid();
+	if (log.isDebug3()) log.debug3("auId = " + auId);
 
-	  // Loop through each configuration property.
-	  for (String key : auConf.keySet()) {
-	    String value = auConf.get(key);
+	String auKey = PluginManager.auKeyFromAuId(auId);
+	Map<String, String> auConf = auConfig.getConfiguration();
+	if (log.isDebug3()) log.debug3("auConf = " + auConf);
 
-	    // Add this property to the Configuration object.
-	    pluginConf.put(auKey + "." + key, value);
-	  }
+	// Loop through each configuration property.
+	for (String key : auConf.keySet()) {
+	  String value = auConf.get(key);
+
+	  // Add this property to the Configuration object.
+	  pluginConf.put(auKey + "." + key, value);
 	}
-      } catch (DbException dbe) {
-	log.critical("Error getting AU configurations for plugin '" + pluginKey
-	    + "' from database: Not starting AUs", dbe);
-	return;
       }
+
       synchronized (auAddDelLock) {
 	configurePlugin(pluginKey, pluginConf, scc);
       }
@@ -1025,7 +1131,7 @@ public class PluginManager
 	// deleted until daemon restart.  Set
 	// org.lockss.plugin.allowGlobalAuConfig true to suppress this
 	// check, allowing AUs to be configured in any config file.
-	if (! (paramAllowGlobalAuConfig || isAuConfInDb(auId))) {
+	if (! (paramAllowGlobalAuConfig || isAuConfInSource(auId))) {
 	  log.debug("Not configuring now-disappeared AU id: " + auKey);
 	  continue nextAU;
 	}
@@ -1053,15 +1159,22 @@ public class PluginManager
     }
   }
 
-  /** Return true if the AU is configured in the database.
+  /** Return true if the AU is configured in the database or in a REST
+   * Configuration service.
    * @see PARAM_ALLOW_GLOBAL_AU_CONFIG
    */
-  boolean isAuConfInDb(String auId) throws DbException {
+  boolean isAuConfInSource(String auId) throws DbException {
     return configMgr.retrieveArchivalUnitConfiguration(auId) != null;
   }
 
   void configureAu(Plugin plugin, Configuration auConf, String auId)
       throws ArchivalUnit.ConfigurationException {
+    if (log.isDebug2()) {
+      log.debug2("plugin = " + plugin);
+      log.debug2("auConf = " + auConf);
+      log.debug2("auId = " + auId);
+    }
+
     Configuration oldConfig = null;
     try {
       ArchivalUnit oldAu = (ArchivalUnit)auMap.get(auId);

@@ -897,10 +897,10 @@ public class TestPluginManager extends LockssTestCase4 {
       suppressEnxurePluginLoaded = pluginKeys;
     }
 
-    // Make it look like any AU's config came from au.txt, to simplify
+    // Make it look like any AU's config are in the source, to simplify
     // config in these tests.
     @Override
-    boolean isAuConfInDb(String auId) {
+    boolean isAuConfInSource(String auId) {
       return true;
     }
 

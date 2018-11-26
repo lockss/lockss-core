@@ -3795,16 +3795,43 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
-   * Provides all the plugin identifiers stored in the database.
+   * Provides all the Archival Unit configurations, keyed by plugin.
    * 
-   * @return a Collection<String> with all the plugin identifiers.
+   * @return a Map<String, List<AuConfig>> with all the Archival Unit
+   *         configurations, keyed by plugin.
    * @throws DbException
    *           if any problem occurred accessing the database.
+   * @throws IOException
+   *           if any IO problem occurred.
    */
-  public Collection<String> retrievePluginIds() throws DbException {
+  public Map<String, List<AuConfig>> retrieveAllPluginsAusConfigurations()
+      throws DbException, IOException {
     if (log.isDebug2()) log.debug2("Invoked");
 
-    Collection<String> result = getConfigManagerSql().findAllPluginIds();
+    Collection<AuConfig> auConfigs = retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    Map<String, List<AuConfig>> result = new HashMap<>();
+
+    for (AuConfig auConfig : auConfigs) {
+      if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+      String auId = auConfig.getAuid();
+      if (log.isDebug3()) log.debug3("auId = " + auId);
+      int endPluginLocation = auId.indexOf("&");
+      String pluginId = auId.substring(0, endPluginLocation);
+      if (log.isDebug3()) log.debug3("pluginId = " + pluginId);
+
+      List<AuConfig> pluginAuConfigs = result.get(pluginId);
+      if (log.isDebug3()) log.debug3("pluginAuConfigs = " + pluginAuConfigs);
+
+      if (pluginAuConfigs == null) {
+	pluginAuConfigs = new ArrayList<>();
+	result.put(pluginId, pluginAuConfigs);
+      }
+
+      pluginAuConfigs.add(auConfig);
+    }
+
     if (log.isDebug2()) log.debug2("result.size() = " + result.size());
     return result;
   }
@@ -3822,10 +3849,32 @@ public class ConfigManager implements LockssManager {
    */
   public Map<String, Map<String, String>> retrievePluginAusConfigurations(
       String pluginId) throws DbException {
-    if (log.isDebug2()) log.debug2("Invoked");
+    if (log.isDebug2()) log.debug2("pluginId = " + pluginId);
 
-    Map<String, Map<String, String>> result =
-	getConfigManagerSql().findPluginAuConfigurations(pluginId);
+    Map<String, Map<String, String>> result = null;
+
+    if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
+	+ restConfigClient.isActive());
+
+    if (restConfigClient.isActive()) {
+      Collection<AuConfig> auConfigs =
+	  restConfigClient.getAllArchivalUnitConfiguration();
+      if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+      result = new HashMap<>();
+
+      for (AuConfig auConfig : auConfigs) {
+	if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+	String auId = auConfig.getAuid();
+	if (log.isDebug3()) log.debug3("auId = " + auId);
+	int endPluginLocation = auId.indexOf("&");
+	if (pluginId.equals(auId.substring(0, endPluginLocation))) {
+	  result.put(auId, auConfig.getConfiguration());
+	}
+      }
+    } else {
+      result = getConfigManagerSql().findPluginAuConfigurations(pluginId);
+    }
     if (log.isDebug2()) log.debug2("result.size() = " + result.size());
     return result;
   }
@@ -3900,31 +3949,38 @@ public class ConfigManager implements LockssManager {
    * Provides all the Archival Unit configurations stored in the database.
    * 
    * @return a Collection<AuConfig> with all the Archival Unit configurations.
-   * @throws IOException
-   *           if there are problems writing to the output stream
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
   public Collection<AuConfig> retrieveAllArchivalUnitConfiguration()
-      throws IOException, DbException {
+      throws DbException, IOException {
     if (log.isDebug2()) log.debug2("Invoked");
 
-    Collection<AuConfig> result = new ArrayList<>();
+    Collection<AuConfig> result = null;
 
-    // Retrieve from the database all the Archival Unit configurations.
-    Map<String, Map<String, String>> auConfigs = getConfigManagerSql().
-	findAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
+	+ restConfigClient.isActive());
 
-    // Loop through all the retrieved Archival Units identifiers.
-    for (String auid : auConfigs.keySet()) {
-      if (log.isDebug3()) log.debug3("auid = " + auid);
+    if (restConfigClient.isActive()) {
+      result = restConfigClient.getAllArchivalUnitConfiguration();
+    } else {
+      result = new ArrayList<>();
 
-      // Get the configuration of this Archival Unit.
-      Map<String, String> auConfiguration = auConfigs.get(auid);
-      if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
+      // Retrieve from the database all the Archival Unit configurations.
+      Map<String, Map<String, String>> auConfigs = getConfigManagerSql().
+	  findAllArchivalUnitConfiguration();
 
-      // Add it to the result.
-      result.add(new AuConfig(auid, auConfiguration));
+      // Loop through all the retrieved Archival Units identifiers.
+      for (String auid : auConfigs.keySet()) {
+	if (log.isDebug3()) log.debug3("auid = " + auid);
+
+	// Get the configuration of this Archival Unit.
+	Map<String, String> auConfiguration = auConfigs.get(auid);
+	if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
+
+	// Add it to the result.
+	result.add(new AuConfig(auid, auConfiguration));
+      }
     }
 
     if (log.isDebug2()) log.debug2("result.size() = " + result.size());
@@ -3944,16 +4000,28 @@ public class ConfigManager implements LockssManager {
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
-    Connection conn = null;
+    AuConfig result = null;
 
-    try {
-      // Get a connection to the database.
-      conn = getConnection();
+    if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
+	+ restConfigClient.isActive());
 
-      return retrieveArchivalUnitConfiguration(conn, auid);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
+    if (restConfigClient.isActive()) {
+      result = restConfigClient.getArchivalUnitConfiguration(auid);
+    } else {
+      Connection conn = null;
+
+      try {
+	// Get a connection to the database.
+	conn = getConnection();
+
+	result = retrieveArchivalUnitConfiguration(conn, auid);
+      } finally {
+	DbManager.safeRollbackAndClose(conn);
+      }
     }
+
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
   }
 
   /**

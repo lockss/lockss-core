@@ -32,14 +32,18 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
+import org.lockss.laaws.config.model.ConfigExchange;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
 import org.lockss.rs.multipart.MultipartConnector;
 import org.lockss.rs.multipart.MultipartResponse;
@@ -50,12 +54,15 @@ import org.lockss.util.UrlUtil;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -267,7 +274,7 @@ public class RestConfigClient {
 
     try {
       // Get the request URL.
-      requestUrl = getRequestUrl(sectionName);
+      requestUrl = getSectionNameRequestUrl(sectionName);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
@@ -383,10 +390,7 @@ public class RestConfigClient {
 	MediaType.APPLICATION_JSON));
 
     // Set the authentication credentials.
-    String credentials = serviceUser + ":" + servicePassword;
-    String authHeaderValue = "Basic " + Base64.getEncoder()
-    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
-    requestHeaders.set("Authorization", authHeaderValue);
+    setAuthenticationCredentials(requestHeaders);
 
     // Get the individual preconditions.
     List<String> ifMatch = null;
@@ -495,7 +499,7 @@ public class RestConfigClient {
 
     try {
       // Get the request URL.
-      requestUrl = getRequestUrl(sectionName);
+      requestUrl = getSectionNameRequestUrl(sectionName);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
@@ -606,12 +610,7 @@ public class RestConfigClient {
     requestHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
 
     // Set the authentication credentials.
-    String credentials = serviceUser + ":" + servicePassword;
-    String authHeaderValue = "Basic " + Base64.getEncoder()
-    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
-    requestHeaders.set("Authorization", authHeaderValue);
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "requestHeaders = " + requestHeaders);
+    setAuthenticationCredentials(requestHeaders);
 
     // Get the individual preconditions.
     List<String> ifMatch = null;
@@ -659,6 +658,143 @@ public class RestConfigClient {
   }
 
   /**
+   * Provides the configurations of all the Archival Units obtained via the REST
+   * web service.
+   * 
+   * @return a Collection<AuConfig> with the result.
+   */
+  public Collection<AuConfig> getAllArchivalUnitConfiguration() {
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents =
+	UriComponentsBuilder.fromUriString(serviceLocation + "/aus").build();
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<ConfigExchange> requestEntity =
+	new HttpEntity<ConfigExchange>(null, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<ConfigExchange> response = getRestTemplate().exchange(uri,
+	HttpMethod.GET, requestEntity, ConfigExchange.class);
+
+    // Get the response status.
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+
+    Map<String, AuConfig> auConfigs = new HashMap<>();
+
+    if (!isSuccess(statusCode)) {
+      if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs.values());
+      return auConfigs.values();
+    }
+
+    ConfigExchange result = response.getBody();
+    Map<String, String> props = result.getProps();
+
+    for (String key : props.keySet()) {
+      if (log.isDebug3()) log.debug3("key = " + key);
+      String auIdAndPropKey = key.replaceFirst("\\.", "&");
+      if (log.isDebug3()) log.debug3("auIdAndPropKey = " + auIdAndPropKey);
+      int auIdEndLociation = auIdAndPropKey.indexOf(".");
+      String auId = auIdAndPropKey.substring(0, auIdEndLociation);
+      if (log.isDebug3()) log.debug3("auId = " + auId);
+      String propKey = auIdAndPropKey.substring(auIdEndLociation + 1);
+      if (log.isDebug3()) log.debug3("propKey = " + propKey);
+      String propValue = props.get(key);
+      if (log.isDebug3()) log.debug3("propValue = " + propValue);
+
+      if (auConfigs.containsKey(auId)) {
+	auConfigs.get(auId).getConfiguration().put(propKey, propValue);
+      } else {
+	Map<String, String> auConfigProps = new HashMap<String, String>();
+	auConfigProps.put(propKey, propValue);
+	auConfigs.put(auId, new AuConfig(auId, auConfigProps));
+      }
+    }
+
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs.values());
+    return auConfigs.values();
+  }
+
+  /**
+   * Provides the configurations of an Archival Units obtained via the REST web
+   * service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return an AuConfig with the result.
+   */
+  public AuConfig getArchivalUnitConfiguration(String auId) {
+    if (log.isDebug2()) log.debug2("auId = " + auId);
+
+    // Get the URL template.
+    String template = getAuConfigRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<ConfigExchange> requestEntity =
+	new HttpEntity<ConfigExchange>(null, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<ConfigExchange> response = getRestTemplate().exchange(uri,
+	HttpMethod.GET, requestEntity, ConfigExchange.class);
+
+    // Get the response status.
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+
+    AuConfig auConfig = null;
+    Map<String, String> auConfigProps = new HashMap<String, String>();
+
+    if (!isSuccess(statusCode)) {
+      if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+      return auConfig;
+    }
+
+    ConfigExchange result = response.getBody();
+    Map<String, String> props = result.getProps();
+
+    for (String key : props.keySet()) {
+      if (log.isDebug3()) log.debug3("key = " + key);
+      String auIdAndPropKey = key.replaceFirst("\\.", "&");
+      if (log.isDebug3()) log.debug3("auIdAndPropKey = " + auIdAndPropKey);
+      int auIdEndLociation = auIdAndPropKey.indexOf(".");
+      String propKey = auIdAndPropKey.substring(auIdEndLociation + 1);
+      if (log.isDebug3()) log.debug3("propKey = " + propKey);
+      String propValue = props.get(key);
+      if (log.isDebug3()) log.debug3("propValue = " + propValue);
+
+      auConfigProps.put(propKey, propValue);
+    }
+
+    auConfig = new AuConfig(auId, auConfigProps);
+    if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+    return auConfig;
+  }
+
+  /**
    * Provides the URL needed to read from, or write to, the REST Configuration
    * Service the configuration of a section.
    * 
@@ -666,7 +802,61 @@ public class RestConfigClient {
    *          A String with the name of the section.
    * @return a String with the URL.
    */
-  private String getRequestUrl(String sectionName) {
+  private String getSectionNameRequestUrl(String sectionName) {
     return serviceLocation + "/config/file/" + sectionName;
+  }
+
+  /**
+   * Provides the URL needed to read from, or write to, the REST Configuration
+   * Service the configuration of an Archival Unit.
+   * 
+   * @return a String with the URL.
+   */
+  private String getAuConfigRequestUrl() {
+    return serviceLocation + "/aus/{auid}";
+  }
+
+  /**
+   * Sets the authentication credentials in a request.
+   * 
+   * @param requestHeaders
+   *          An HttpHeaders with the request headers.
+   */
+  private void setAuthenticationCredentials(HttpHeaders requestHeaders) {
+    String credentials = serviceUser + ":" + servicePassword;
+    String authHeaderValue = "Basic " + Base64.getEncoder()
+    .encodeToString(credentials.getBytes(StandardCharsets.US_ASCII));
+    requestHeaders.set("Authorization", authHeaderValue);
+    if (log.isDebug3()) log.debug3("requestHeaders = " + requestHeaders);
+  }
+
+  /**
+   * Provides a standard REST template.
+   * 
+   * @return a RestTemplate with the standard REST template.
+   */
+  private RestTemplate getRestTemplate() {
+    RestTemplate restTemplate = new RestTemplate();
+
+    // Do not throw exceptions on non-success response status codes.
+    restTemplate.setErrorHandler(new DefaultResponseErrorHandler(){
+      protected boolean hasError(HttpStatus statusCode) {
+	return false;
+      }
+    });
+
+    return restTemplate;
+  }
+
+  /**
+   * Provides an indication of whether a successful response has been obtained.
+   * 
+   * @param statusCode
+   *          An HttpStatus with the response status code.
+   * @return a boolean with <code>true</code> if a successful response has been
+   *         obtained, <code>false</code> otherwise.
+   */
+  private boolean isSuccess(HttpStatus statusCode) {
+    return statusCode.is2xxSuccessful();
   }
 }

@@ -50,7 +50,6 @@ import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginManager;
-import org.lockss.util.StringUtil;
 import org.lockss.util.time.TimeBase;
 
 /**
