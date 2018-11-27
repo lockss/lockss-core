@@ -690,13 +690,12 @@ public class RestConfigClient {
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
 
-    Map<String, AuConfig> auConfigs = new HashMap<>();
-
     if (!isSuccess(statusCode)) {
-      if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs.values());
-      return auConfigs.values();
+      if (log.isDebug3()) log.debug3("auConfigs = " + Collections.emptyList());
+      return Collections.emptyList();
     }
 
+    Map<String, AuConfig> auConfigs = new HashMap<>();
     ConfigExchange result = response.getBody();
     Map<String, String> props = result.getProps();
 

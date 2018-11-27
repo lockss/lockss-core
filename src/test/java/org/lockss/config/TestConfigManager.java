@@ -1849,7 +1849,8 @@ public class TestConfigManager extends LockssTestCase4 {
       // Expected.
     }
 
-    String auid1 = "org|lockss|plugin|SomePlugin1&some_key_1";
+    String pluginId1 = "org|lockss|plugin|SomePlugin1";
+    String auid1 = pluginId1 + "&some_key_1";
 
     try {
       Map<String, String> configuration = null;
@@ -1883,7 +1884,7 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(1, auSeq.longValue());
 
     // Define the configuration of the second AU.
-    String auid2 = "org|lockss|plugin|SomePlugin1&some_key_2";
+    String auid2 = pluginId1 + "&some_key_2";
 
     Map<String, String> configuration2 = new HashMap<>();
     configuration2.put("reserved.disabled", "false");
@@ -1974,6 +1975,43 @@ public class TestConfigManager extends LockssTestCase4 {
     assertTrue(lastUpdateTime2new >= beforeAdding2new);
     assertTrue(lastUpdateTime2new <= afterAdding2new);
 
+    String pluginId2 = "org|lockss|plugin|SomePlugin2";
+    String auid3 = pluginId2 + "&some_key_2";
+    Map<String, String> configuration4 = new HashMap<>();
+    configuration4.put("au_oai_date", "2019");
+    configuration4.put("au_oai_set", "biorisk");
+    configuration4.put("reserved.displayName", "BioRisk Volume 2019");
+
+    AuConfig auConfig3 = new AuConfig(auid3, configuration4);
+
+    // Store the configuration of the third AU.
+    long beforeAdding3 = TimeBase.nowMs();
+    auSeq = mgr.storeArchivalUnitConfiguration(auConfig3);
+    long afterAdding3 = TimeBase.nowMs();
+    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+    assertEquals(3, auSeq.longValue());
+
+    Collection<String> pluginKeys = ListUtil.list(pluginId1, pluginId2);
+	
+    // Retrieve the configurations keyed by plugin.
+    Map<String, List<AuConfig>> pluginsAusConfigs =
+	mgr.retrieveAllPluginsAusConfigurations(pluginKeys);
+
+    // Check the first plugin.
+    assertEquals(2, pluginsAusConfigs.size());
+
+    List<AuConfig> plugin1Config = pluginsAusConfigs.get(pluginId1);
+
+    assertEquals(2, plugin1Config.size());
+    assertTrue(plugin1Config.contains(auConfig1));
+    assertTrue(plugin1Config.contains(config2new));
+
+    // Check the second plugin.
+    List<AuConfig> plugin2Config = pluginsAusConfigs.get(pluginId2);
+
+    assertEquals(1, plugin2Config.size());
+    assertEquals(auConfig3, plugin2Config.get(0));
+
     // Remove the configuration of the first AU.
     mgr.removeArchivalUnitConfiguration(auid1);
 
@@ -1981,8 +2019,9 @@ public class TestConfigManager extends LockssTestCase4 {
     auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
     if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
 
-    assertEquals(1, auConfigs.size());
+    assertEquals(2, auConfigs.size());
     assertTrue(auConfigs.contains(auConfig2new));
+    assertTrue(auConfigs.contains(auConfig3));
 
     // Retrieve the configuration of the first (deleted) AU.
     AuConfig config1new = mgr.retrieveArchivalUnitConfiguration(auid1);
@@ -2007,7 +2046,8 @@ public class TestConfigManager extends LockssTestCase4 {
     auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
     if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
 
-    assertEquals(0, auConfigs.size());
+    assertEquals(1, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfig3));
 
     // Retrieve the configuration of the second (deleted) AU.
     config2new = mgr.retrieveArchivalUnitConfiguration(auid2);
@@ -2024,6 +2064,15 @@ public class TestConfigManager extends LockssTestCase4 {
     Long lastUpdateTime2newest =
 	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2);
     assertNull(lastUpdateTime2newest);
+
+    // Remove the configuration of the third AU.
+    mgr.removeArchivalUnitConfiguration(auid3);
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(0, auConfigs.size());
 
     log.debug2("Done");
   }

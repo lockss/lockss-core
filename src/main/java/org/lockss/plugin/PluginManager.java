@@ -547,7 +547,7 @@ public class PluginManager
     synchStaticPluginList(config);
     if (log.isDebug3())
       log.debug3("Calling configureAllArchivalUnitsAndLoadTheirPlugins()");
-    configureAllArchivalUnitsAndLoadTheirPlugins();
+    configureAllArchivalUnits();
     loadablePluginsReady = true;
     if (log.isDebug3())
       log.debug3("loadablePluginsReady = " + loadablePluginsReady);
@@ -705,9 +705,9 @@ public class PluginManager
   private enum SkipConfigCondition {ConfigUnchanged, AuRunning};
 
   /**
-   * Configures all the plugins and Archival Units.
+   * Configures all the Archival Units.
    */
-  private void configureAllArchivalUnitsAndLoadTheirPlugins() {
+  private void configureAllArchivalUnits() {
     Collection<AuConfig> auConfigs = null;
 
     // Get the configurations of all the Archival Units.
@@ -828,7 +828,8 @@ public class PluginManager
     Map<String, List<AuConfig>> pluginsAuConfs = null;
 
     try {
-      pluginsAuConfs = configMgr.retrieveAllPluginsAusConfigurations();
+      pluginsAuConfs =
+	  configMgr.retrieveAllPluginsAusConfigurations(pluginKeys);
     } catch (Exception e) {
       log.critical("Error getting AU configurations for plugins: "
 	  + "Not starting AUs", e);

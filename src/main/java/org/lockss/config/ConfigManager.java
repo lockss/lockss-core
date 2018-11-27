@@ -3795,8 +3795,11 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
-   * Provides all the Archival Unit configurations, keyed by plugin.
+   * Provides the Archival Unit configurations that involve some plugins.
    * 
+   * @param pluginKeys
+   *          A Collection<String> with the identifiers of the plugins for which
+   *          the Archival Unit configurations are requested.
    * @return a Map<String, List<AuConfig>> with all the Archival Unit
    *         configurations, keyed by plugin.
    * @throws DbException
@@ -3804,9 +3807,9 @@ public class ConfigManager implements LockssManager {
    * @throws IOException
    *           if any IO problem occurred.
    */
-  public Map<String, List<AuConfig>> retrieveAllPluginsAusConfigurations()
-      throws DbException, IOException {
-    if (log.isDebug2()) log.debug2("Invoked");
+  public Map<String, List<AuConfig>> retrieveAllPluginsAusConfigurations(
+      Collection<String> pluginKeys) throws DbException, IOException {
+    if (log.isDebug2()) log.debug2("pluginKeys = " + pluginKeys);
 
     Collection<AuConfig> auConfigs = retrieveAllArchivalUnitConfiguration();
     if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
@@ -3821,15 +3824,24 @@ public class ConfigManager implements LockssManager {
       String pluginId = auId.substring(0, endPluginLocation);
       if (log.isDebug3()) log.debug3("pluginId = " + pluginId);
 
-      List<AuConfig> pluginAuConfigs = result.get(pluginId);
-      if (log.isDebug3()) log.debug3("pluginAuConfigs = " + pluginAuConfigs);
+      // Check whether this plugin is of interest.
+      if (pluginKeys.contains(pluginId)) {
+	// Yes: Get the configurations of the Archival Units already linked to
+	// this plugin in the result.
+	List<AuConfig> pluginAuConfigs = result.get(pluginId);
+	if (log.isDebug3()) log.debug3("pluginAuConfigs = " + pluginAuConfigs);
 
-      if (pluginAuConfigs == null) {
-	pluginAuConfigs = new ArrayList<>();
-	result.put(pluginId, pluginAuConfigs);
+	// Check whether this is this plugin first Archival Unit processed.
+	if (pluginAuConfigs == null) {
+	  // Yes: Initialize the Archival Unit configuration collection linked
+	  // this plugin.
+	  pluginAuConfigs = new ArrayList<>();
+	  result.put(pluginId, pluginAuConfigs);
+	}
+
+	// Add this Archival Unit configuration to the collection.
+	pluginAuConfigs.add(auConfig);
       }
-
-      pluginAuConfigs.add(auConfig);
     }
 
     if (log.isDebug2()) log.debug2("result.size() = " + result.size());
