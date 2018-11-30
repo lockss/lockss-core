@@ -708,11 +708,11 @@ public class PluginManager
    * Configures all the Archival Units.
    */
   private void configureAllArchivalUnits() {
-    Collection<AuConfig> auConfigs = null;
+    Collection<AuConfiguration> auConfigurations = null;
 
     // Get the configurations of all the Archival Units.
     try {
-      auConfigs = configMgr.retrieveAllArchivalUnitConfiguration();
+      auConfigurations = configMgr.retrieveAllArchivalUnitConfiguration();
     } catch (DbException dbe) {
       log.critical(
 	  "Error getting Archival Unit configurations: Not starting AUs",
@@ -725,13 +725,14 @@ public class PluginManager
       return;
     }
 
-    if (log.isDebug3()) log.debug3("auConfigs.size() = " + auConfigs.size());
+    if (log.isDebug3())
+      log.debug3("auConfigurations.size() = " + auConfigurations.size());
 
     // Loop over each Archival Unit configuration.
-    for (AuConfig auConfig : auConfigs) {
-      if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+    for (AuConfiguration auConfiguration : auConfigurations) {
+      if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
 
-      String auId = auConfig.getAuid();
+      String auId = auConfiguration.getAuId();
       String pluginKey = pluginIdFromAuId(auId);
 
       synchronized (auAddDelLock) {
@@ -748,8 +749,8 @@ public class PluginManager
 
 	try {
 	  // Get the disabled configuration parameter, if any.
-	  Map<String, String> auConfiguration = auConfig.getConfiguration();
-	  String disabled = auConfiguration.get(AU_PARAM_DISABLED);
+	  Map<String, String> auConfig = auConfiguration.getAuConfig();
+	  String disabled = auConfig.get(AU_PARAM_DISABLED);
 	  if (log.isDebug3()) log.debug3("disabled = " + disabled);
 
 	  // Check whether this Archival Unit is marked as disabled.
@@ -782,8 +783,8 @@ public class PluginManager
 	  // Convert the Archival Unit configuration to a Configuration object.
 	  Configuration auConf = ConfigManager.newConfiguration();
 
-	  for (String key : auConfiguration.keySet()) {
-	    auConf.put(key, auConfiguration.get(key));
+	  for (String key : auConfig.keySet()) {
+	    auConf.put(key, auConfig.get(key));
 	  }
 
 	  // Get the plugin of this Archival Unit.
@@ -825,7 +826,7 @@ public class PluginManager
   private void configurePlugins(Collection<String> pluginKeys,
 				SkipConfigCondition scc) {
     if (log.isDebug2()) log.debug2("pluginKeys = " + pluginKeys);
-    Map<String, List<AuConfig>> pluginsAuConfs = null;
+    Map<String, List<AuConfiguration>> pluginsAuConfs = null;
 
     try {
       pluginsAuConfs =
@@ -842,15 +843,15 @@ public class PluginManager
       Configuration pluginConf = ConfigManager.newConfiguration();
 
       // Get all the Archival Unit configurations for this plugin.
-      List<AuConfig> pluginAus = pluginsAuConfs.get(pluginKey);
+      List<AuConfiguration> pluginAus = pluginsAuConfs.get(pluginKey);
 
       // Loop through each Archival Unit configuration found.
-      for (AuConfig auConfig : pluginAus) {
-	String auId = auConfig.getAuid();
+      for (AuConfiguration auConfiguration : pluginAus) {
+	String auId = auConfiguration.getAuId();
 	if (log.isDebug3()) log.debug3("auId = " + auId);
 
 	String auKey = PluginManager.auKeyFromAuId(auId);
-	Map<String, String> auConf = auConfig.getConfiguration();
+	Map<String, String> auConf = auConfiguration.getAuConfig();
 	if (log.isDebug3()) log.debug3("auConf = " + auConf);
 
 	// Loop through each configuration property.
@@ -1838,13 +1839,21 @@ public class PluginManager
     updateAuInDatabase(au.getAuId(), auConf);
   }
 
+  public void updateAuInDatabase(AuConfiguration auConfiguration)
+      throws DbException {
+    synchronized (auAddDelLock) {
+      Long auSeq = configMgr.storeArchivalUnitConfiguration(auConfiguration);
+      if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+    }
+  }
+
   public void updateAuInDatabase(String auid, Configuration auConf)
       throws DbException {
     String prefix = auConfigPrefix(auid);
     Configuration fqConfig = auConf.addPrefix(prefix);
     synchronized (auAddDelLock) {
       Long auSeq = configMgr.storeArchivalUnitConfiguration(
-	  new AuConfig(prefix, fqConfig));
+	  AuConfigurationUtils.fromConfiguration(prefix, fqConfig));
       if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
     }
   }
@@ -1931,14 +1940,14 @@ public class PluginManager
 	// Get a connection to the database.
 	conn = configMgr.getConnection();
 
-	AuConfig auConfig =
+	AuConfiguration auConfiguration =
 	    configMgr.retrieveArchivalUnitConfiguration(conn, au.getAuId());
-	if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+	if (log.isDebug3()) log.debug3("auConfig = " + auConfiguration);
 
-	if (auConfig != null) {
-	  auConfig.getConfiguration().put(AU_PARAM_DISABLED, "true");
+	if (auConfiguration != null) {
+	  auConfiguration.getAuConfig().put(AU_PARAM_DISABLED, "true");
 
-	  configMgr.storeArchivalUnitConfiguration(conn, auConfig);
+	  configMgr.storeArchivalUnitConfiguration(conn, auConfiguration);
 	}
       } finally {
 	DbManager.safeRollbackAndClose(conn);
@@ -2123,15 +2132,26 @@ public class PluginManager
    * @param auid the AU's id.
    * @return the AU's Configuration, with unprefixed keys.
    */
-  public Configuration getStoredAuConfiguration(String auid)
+  public AuConfiguration getStoredAuConfiguration(String auid)
+      throws DbException {
+    return configMgr.retrieveArchivalUnitConfiguration(auid);
+  }
+
+  /**
+   * Return the config tree for an AU id (from the database, not the au itself).
+   * @param auid the AU's id.
+   * @return the AU's Configuration, with unprefixed keys.
+   */
+  public Configuration getStoredAuConfigurationAsConfiguration(String auid)
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
     Configuration config = ConfigManager.newConfiguration();
-    AuConfig auConfig = configMgr.retrieveArchivalUnitConfiguration(auid);
+    AuConfiguration auConfiguration =
+	configMgr.retrieveArchivalUnitConfiguration(auid);
 
-    if (auConfig != null) {
-      config = auConfig.toUnprefixedConfiguration();
+    if (auConfiguration != null) {
+      config = AuConfigurationUtils.toUnprefixedConfiguration(auConfiguration);
     }
 
     if (log.isDebug2()) log.debug2("config = " + config);

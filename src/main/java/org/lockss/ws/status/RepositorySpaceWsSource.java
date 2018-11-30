@@ -277,7 +277,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
 		  allOrphanedCount++;
 		} else {
 		  Configuration config =
-		      pluginMgr.getStoredAuConfiguration(auid);
+		      pluginMgr.getStoredAuConfigurationAsConfiguration(auid);
 		      
 		  if (config == null || config.isEmpty()) {
 		    allDeletedCount++;

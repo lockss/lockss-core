@@ -159,23 +159,27 @@ public class TestPluginManager extends LockssTestCase4 {
 
 
   private void doConfigAus() throws Exception {
-    Map<String, String> configuration = new HashMap<>();
-    configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
-    configuration.put(MockPlugin.CONFIG_PROP_2, "val2");
-    AuConfig auConfig = new AuConfig(mauauid1, configuration);
-    theDaemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    Map<String, String> auConfig = new HashMap<>();
+    auConfig.put(MockPlugin.CONFIG_PROP_1, "val1");
+    auConfig.put(MockPlugin.CONFIG_PROP_2, "val2");
+    AuConfiguration auConfiguration = new AuConfiguration(mauauid1, auConfig);
+    theDaemon.getConfigManager()
+    .storeArchivalUnitConfiguration(auConfiguration);
     mgr.ensurePluginLoaded(mockPlugKey);
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
-    Configuration auConf = auConfig.toUnprefixedConfiguration();
-    mgr.createAu(mpi, auConf, AuEvent.model(AuEvent.Type.Create));
+    Configuration configuration =
+	AuConfigurationUtils.toUnprefixedConfiguration(auConfiguration);
+    mgr.createAu(mpi, configuration, AuEvent.model(AuEvent.Type.Create));
 
-    configuration = new HashMap<>();
-    configuration.put(MockPlugin.CONFIG_PROP_1, "val1");
-    configuration.put(MockPlugin.CONFIG_PROP_2, "va.l3");
-    auConfig = new AuConfig(mauauid2, configuration);
-    theDaemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
-    auConf = auConfig.toUnprefixedConfiguration();
-    mgr.createAu(mpi, auConf, AuEvent.model(AuEvent.Type.Create));
+    auConfig = new HashMap<>();
+    auConfig.put(MockPlugin.CONFIG_PROP_1, "val1");
+    auConfig.put(MockPlugin.CONFIG_PROP_2, "va.l3");
+    auConfiguration = new AuConfiguration(mauauid2, auConfig);
+    theDaemon.getConfigManager()
+    .storeArchivalUnitConfiguration(auConfiguration);
+    configuration =
+	AuConfigurationUtils.toUnprefixedConfiguration(auConfiguration);
+    mgr.createAu(mpi, configuration, AuEvent.model(AuEvent.Type.Create));
     doConfig(new Properties());
   }
 
@@ -1936,11 +1940,12 @@ public class TestPluginManager extends LockssTestCase4 {
     String auid = PluginManager.generateAuId(pluginKey, auProps);
 
     // Store this Archival Unit configuration in the database.
-    Map<String, String> configuration = new HashMap<>();
-    configuration.put(k1, v1);
-    configuration.put(k2, v2);
-    AuConfig auConfig = new AuConfig(auid, configuration);
-    theDaemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+    Map<String, String> auConfig = new HashMap<>();
+    auConfig.put(k1, v1);
+    auConfig.put(k2, v2);
+    AuConfiguration auConfiguration = new AuConfiguration(auid, auConfig);
+    theDaemon.getConfigManager()
+    .storeArchivalUnitConfiguration(auConfiguration);
 
     assertEquals(null, mgr.getAuFromIdIfExists(auid));
     mgr.suppressEnxurePluginLoaded(ListUtil.list(pluginKey));

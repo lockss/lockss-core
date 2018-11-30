@@ -33,10 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.remote;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Stream;
 import java.util.zip.*;
 import org.lockss.config.*;
 import org.lockss.daemon.ConfigParamDescr;
@@ -269,13 +266,13 @@ public class TestRemoteApi extends LockssTestCase {
   /**
    * Writes the configuration of an Archival Unit to the database.
    * 
-   * @param auConfig
-   *          An AuConfig with the Archival Unit configuration.
+   * @param auConfiguration
+   *          An AuConfiguration with the Archival Unit configuration.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  void writeAuDb(AuConfig auConfig) throws DbException {
-    daemon.getConfigManager().storeArchivalUnitConfiguration(auConfig);
+  void writeAuDb(AuConfiguration auConfiguration) throws DbException {
+    daemon.getConfigManager().storeArchivalUnitConfiguration(auConfiguration);
   }
 
   /** assert that the stream contains the contents of an au.txt (au config)
@@ -305,8 +302,9 @@ public class TestRemoteApi extends LockssTestCase {
   public void testGetAuConfigBackupStreamV2() throws Exception {
     Map<String, String> props = new HashMap<>();
     props.put("k", "v");
-    AuConfig auConfig = new AuConfig("FooPlugin&k~v", props);
-    writeAuDb(auConfig);
+    AuConfiguration auConfiguration =
+	new AuConfiguration("FooPlugin&k~v", props);
+    writeAuDb(auConfiguration);
     ConfigurationUtil.addFromArgs(RemoteApi.PARAM_BACKUP_FILE_VERSION, "v2");
     MockArchivalUnit mau1 = new MockArchivalUnit();
     MockArchivalUnit mau2 = new MockArchivalUnit();
@@ -346,7 +344,8 @@ public class TestRemoteApi extends LockssTestCase {
 	// comparison.
 	Configuration allAuConfig = rapi
 	    .getConfigurationFromSavedDbConfig(new File(tmpdir, dirfiles[ix]));
-	assertEquals(auConfig.toAuidPrefixedConfiguration(),
+	assertEquals(AuConfigurationUtils.
+	    toAuidPrefixedConfiguration(auConfiguration),
 	    allAuConfig.getConfigTree(PluginManager.PARAM_AU_TREE));
 	auDbBackupFileFound = true;
 	continue;
@@ -727,7 +726,7 @@ public class TestRemoteApi extends LockssTestCase {
       actions.add(new Pair("Deactivate", au));
     }
 
-    public Configuration getStoredAuConfiguration(String auid) {
+    public Configuration getStoredAuConfigurationAsConfiguration(String auid) {
       return (Configuration)storedConfigs.get(auid);
     }
 

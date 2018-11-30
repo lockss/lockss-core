@@ -120,8 +120,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  name = "";
 
 	  if (!isOrphaned()) {
-	    Configuration config =
-		getPluginManager().getStoredAuConfiguration(auId);
+	    Configuration config = getPluginManager()
+		.getStoredAuConfigurationAsConfiguration(auId);
 
 	    if (config != null && !config.isEmpty()) {
 	      name = config.get(PluginManager.AU_PARAM_DISPLAY_NAME);
@@ -164,8 +164,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  if (isOrphaned()) {
 	    setStatus("Orphaned");
 	  } else {
-	    Configuration config =
-		getPluginManager().getStoredAuConfiguration(auId);
+	    Configuration config = getPluginManager()
+		.getStoredAuConfigurationAsConfiguration(auId);
 
 	    if (config == null || config.isEmpty()) {
 	      setStatus("Deleted");
@@ -239,8 +239,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  }
 
 	  if (!isOrphaned()) {
-	    Configuration config =
-		getPluginManager().getStoredAuConfiguration(auId);
+	    Configuration config = getPluginManager()
+		.getStoredAuConfigurationAsConfiguration(auId);
 
 	    if (config != null && !config.isEmpty()) {
 	      setParams(makeParams(config));

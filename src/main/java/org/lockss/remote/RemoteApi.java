@@ -364,7 +364,7 @@ public class RemoteApi
    */
   public Configuration getStoredAuConfiguration(AuProxy aup)
       throws DbException {
-    return pluginMgr.getStoredAuConfiguration(aup.getAuId());
+    return pluginMgr.getStoredAuConfigurationAsConfiguration(aup.getAuId());
   }
 
   /**
@@ -872,16 +872,17 @@ public class RemoteApi
 
     Configuration result = ConfigManager.newConfiguration();
     String prefix = PluginManager.PARAM_AU_TREE + ".";
+    if (log.isDebug3()) log.debug3("prefix = " + prefix);
 
     try (Stream<String> stream =
 	Files.lines(Paths.get(auDbFile.getAbsolutePath()))) {
       for (String line : (Iterable<String>) stream::iterator) {
-	AuConfig auConfig = AuConfig.fromBackupLine(line);
-	if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
+	AuConfiguration auConfiguration =
+	    AuConfigurationUtils.fromBackupLine(line);
+	if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
 
-	if (log.isDebug3()) log.debug3("prefix = " + prefix);
-
-	Configuration configuration = auConfig.toAuidPrefixedConfiguration();
+	Configuration configuration =
+	    AuConfigurationUtils.toAuidPrefixedConfiguration(auConfiguration);
 	if (log.isDebug3()) log.debug3("configuration = " + configuration);
 
 	result.addAsSubTree(configuration, prefix);
@@ -1077,7 +1078,7 @@ public class RemoteApi
     Configuration oldConfig = null;
 
     try {
-      oldConfig = pluginMgr.getStoredAuConfiguration(auid);
+      oldConfig = pluginMgr.getStoredAuConfigurationAsConfiguration(auid);
     } catch (DbException dbe) {
       stat.setStatus("Database Error", STATUS_ORDER_ERROR);
       stat.setExplanation(dbe.getMessage());
@@ -2269,7 +2270,8 @@ public class RemoteApi
     // Loop through all the identifiers of the archival units to be reactivated.
     for (String auId : auIds) {
       // Store the archival unit configuration in the map.
-      Configuration auConfig = pluginMgr.getStoredAuConfiguration(auId);
+      Configuration auConfig =
+	  pluginMgr.getStoredAuConfigurationAsConfiguration(auId);
 
       if (auConfig.isSealed()) {
 	auConfig = auConfig.copy();

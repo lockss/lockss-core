@@ -37,13 +37,11 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
-import org.lockss.laaws.config.model.ConfigExchange;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
 import org.lockss.rs.multipart.MultipartConnector;
 import org.lockss.rs.multipart.MultipartResponse;
@@ -51,6 +49,7 @@ import org.lockss.rs.multipart.MultipartResponse.Part;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -441,11 +440,6 @@ public class RestConfigClient {
 	    servicePassword, serviceTimeout).getTdbAu(auId);
   }
 
-  public Configuration getAuConfig(String auId) throws Exception {
-    return new GetAuConfigClient(serviceLocation, serviceUser,
-	    servicePassword, serviceTimeout).getAuConfig(auId);
-  }
-
   /**
    * Sends the configuration of a section to the REST web service for saving.
    * 
@@ -661,9 +655,9 @@ public class RestConfigClient {
    * Provides the configurations of all the Archival Units obtained via the REST
    * web service.
    * 
-   * @return a Collection<AuConfig> with the result.
+   * @return a Collection<AuConfiguration> with the result.
    */
-  public Collection<AuConfig> getAllArchivalUnitConfiguration() {
+  public Collection<AuConfiguration> getAllArchivalUnitConfiguration() {
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
 	UriComponentsBuilder.fromUriString(serviceLocation + "/aus").build();
@@ -679,49 +673,27 @@ public class RestConfigClient {
     setAuthenticationCredentials(requestHeaders);
 
     // Create the request entity.
-    HttpEntity<ConfigExchange> requestEntity =
-	new HttpEntity<ConfigExchange>(null, requestHeaders);
+    HttpEntity<Collection<AuConfiguration>> requestEntity =
+	new HttpEntity<Collection<AuConfiguration>>(null, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<ConfigExchange> response = getRestTemplate().exchange(uri,
-	HttpMethod.GET, requestEntity, ConfigExchange.class);
+    ResponseEntity<Collection<AuConfiguration>> response = getRestTemplate()
+	.exchange(uri, HttpMethod.GET, requestEntity,
+	    new ParameterizedTypeReference<Collection<AuConfiguration>>(){});
 
     // Get the response status.
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
 
     if (!isSuccess(statusCode)) {
-      if (log.isDebug3()) log.debug3("auConfigs = " + Collections.emptyList());
+      if (log.isDebug2())
+	log.debug2("auConfigurations = " + Collections.emptyList());
       return Collections.emptyList();
     }
 
-    Map<String, AuConfig> auConfigs = new HashMap<>();
-    ConfigExchange result = response.getBody();
-    Map<String, String> props = result.getProps();
-
-    for (String key : props.keySet()) {
-      if (log.isDebug3()) log.debug3("key = " + key);
-      String auIdAndPropKey = key.replaceFirst("\\.", "&");
-      if (log.isDebug3()) log.debug3("auIdAndPropKey = " + auIdAndPropKey);
-      int auIdEndLociation = auIdAndPropKey.indexOf(".");
-      String auId = auIdAndPropKey.substring(0, auIdEndLociation);
-      if (log.isDebug3()) log.debug3("auId = " + auId);
-      String propKey = auIdAndPropKey.substring(auIdEndLociation + 1);
-      if (log.isDebug3()) log.debug3("propKey = " + propKey);
-      String propValue = props.get(key);
-      if (log.isDebug3()) log.debug3("propValue = " + propValue);
-
-      if (auConfigs.containsKey(auId)) {
-	auConfigs.get(auId).getConfiguration().put(propKey, propValue);
-      } else {
-	Map<String, String> auConfigProps = new HashMap<String, String>();
-	auConfigProps.put(propKey, propValue);
-	auConfigs.put(auId, new AuConfig(auId, auConfigProps));
-      }
-    }
-
-    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs.values());
-    return auConfigs.values();
+    Collection<AuConfiguration> result = response.getBody();
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
   }
 
   /**
@@ -730,9 +702,9 @@ public class RestConfigClient {
    * 
    * @param auId
    *          A String with the Archival Unit identifier.
-   * @return an AuConfig with the result.
+   * @return an AuConfiguration with the result.
    */
-  public AuConfig getArchivalUnitConfiguration(String auId) {
+  public AuConfiguration getArchivalUnitConfiguration(String auId) {
     if (log.isDebug2()) log.debug2("auId = " + auId);
 
     // Get the URL template.
@@ -753,44 +725,27 @@ public class RestConfigClient {
     setAuthenticationCredentials(requestHeaders);
 
     // Create the request entity.
-    HttpEntity<ConfigExchange> requestEntity =
-	new HttpEntity<ConfigExchange>(null, requestHeaders);
+    HttpEntity<AuConfiguration> requestEntity =
+	new HttpEntity<AuConfiguration>(null, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<ConfigExchange> response = getRestTemplate().exchange(uri,
-	HttpMethod.GET, requestEntity, ConfigExchange.class);
+    ResponseEntity<AuConfiguration> response = getRestTemplate().exchange(uri,
+	HttpMethod.GET, requestEntity, AuConfiguration.class);
 
     // Get the response status.
     HttpStatus statusCode = response.getStatusCode();
     if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
 
-    AuConfig auConfig = null;
-    Map<String, String> auConfigProps = new HashMap<String, String>();
+    AuConfiguration result = null;
 
     if (!isSuccess(statusCode)) {
-      if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
-      return auConfig;
+      if (log.isDebug2()) log.debug2("result = " + result);
+      return result;
     }
 
-    ConfigExchange result = response.getBody();
-    Map<String, String> props = result.getProps();
-
-    for (String key : props.keySet()) {
-      if (log.isDebug3()) log.debug3("key = " + key);
-      String auIdAndPropKey = key.replaceFirst("\\.", "&");
-      if (log.isDebug3()) log.debug3("auIdAndPropKey = " + auIdAndPropKey);
-      int auIdEndLociation = auIdAndPropKey.indexOf(".");
-      String propKey = auIdAndPropKey.substring(auIdEndLociation + 1);
-      if (log.isDebug3()) log.debug3("propKey = " + propKey);
-      String propValue = props.get(key);
-      if (log.isDebug3()) log.debug3("propValue = " + propValue);
-
-      auConfigProps.put(propKey, propValue);
-    }
-
-    auConfig = new AuConfig(auId, auConfigProps);
-    if (log.isDebug3()) log.debug3("auConfig = " + auConfig);
-    return auConfig;
+    result = response.getBody();
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
   }
 
   /**

@@ -45,7 +45,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import org.lockss.config.AuConfig;
+import org.lockss.config.AuConfiguration;
+import org.lockss.config.AuConfigurationUtils;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
@@ -481,7 +482,8 @@ public class ConfigManagerSql {
     }
 
     // Create the entry.
-    String line = new AuConfig(auId, auConfiguration).toBackupLine();
+    String line = AuConfigurationUtils.toBackupLine(
+	new AuConfiguration(auId, auConfiguration));
     log.trace("line = {}", line);
 
     // Write the entry to the output stream.

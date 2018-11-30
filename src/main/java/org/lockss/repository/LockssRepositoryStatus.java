@@ -229,7 +229,7 @@ public class LockssRepositoryStatus extends BaseLockssDaemonManager {
 	  }
 	  Configuration config = null;
 	  try {
-	    config = pluginMgr.getStoredAuConfiguration(auid);
+	    config = pluginMgr.getStoredAuConfigurationAsConfiguration(auid);
 	  } catch (DbException dbe) {
 	    log.warning("Couldn't get config of auid = " + auid, dbe);
 	  }
