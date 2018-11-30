@@ -59,7 +59,7 @@ public class AuConfiguration   {
    * Needed by JSON serialization machinery. Otherwise, IT SHOULD NOT BE USED,
    * as there is no upfront validation.
    */
-  public AuConfiguration() {
+  private AuConfiguration() {
   }
 
   /**
