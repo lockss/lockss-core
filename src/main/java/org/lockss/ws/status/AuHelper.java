@@ -44,6 +44,7 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.poller.Poll;
 import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.state.AuState;
+import org.lockss.state.StateManager;
 import org.lockss.state.HistoryRepository;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
@@ -196,7 +197,8 @@ public class AuHelper {
     result.setYear(AuUtil.getTitleAttribute(au, "year"));
 
     HistoryRepository histRepo = theDaemon.getHistoryRepository(au);
-    AuState state = histRepo.getAuState();
+    AuState state =
+      theDaemon.getManagerByType(StateManager.class).getAuState(au);
     AuState.AccessType atype = state.getAccessType();
 
     if (atype != null) {

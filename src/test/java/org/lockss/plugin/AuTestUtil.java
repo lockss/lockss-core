@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,38 +25,32 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
-package org.lockss.daemon;
-import java.io.*;
+
+package org.lockss.plugin;
+
 import java.util.*;
-
-import org.junit.Ignore;
-import org.junit.Test;
-import org.lockss.state.*;
-import org.lockss.plugin.*;
-import org.lockss.clockss.*;
-import org.lockss.extractor.*;
 import org.lockss.test.*;
-import org.lockss.test.MockCrawler.MockCrawlerFacade;
+import org.lockss.daemon.*;
+import org.lockss.state.*;
+import org.lockss.util.*;
+import org.lockss.app.*;
+import org.lockss.config.*;
 
-@Ignore
-public class LockssPermissionCheckerTestCase extends LockssTestCase {
+/**
+ * Utilities for manipulating AUs and their components in tests
+ */
+public class AuTestUtil {
+  static Logger log = Logger.getLogger();
 
-  protected MockArchivalUnit mau;
-  protected MockCrawlerFacade mcf;
-  protected MockAuState aus;
+  /** Create and install a MockAuState for the au */
+  public static MockAuState setUpMockAus(ArchivalUnit au) {
+    return setMockAus(new MockAuState(au));
+  }
 
-  public void setUp() throws Exception {
-    super.setUp();
-
-    MockLockssDaemon daemon = getMockLockssDaemon();
-    MockPlugin mplugin = new MockPlugin(daemon);
-    mau = new MockArchivalUnit(mplugin);
-    // Some tests want to make sure an unrelated link extractor gets
-    // invoked.
-    LinkExtractor ue = new RegexpCssLinkExtractor();
-    mau.setLinkExtractor("text/css", ue);
-    aus = AuTestUtil.setUpMockAus(mau);
-    mcf = new MockCrawler().new MockCrawlerFacade();
-    mcf.setAu(mau);
+  /** Install the given MockAuState for the au */
+  public static MockAuState setMockAus(MockAuState maus) {
+    StateManager smgr = LockssDaemon.getManagerByTypeStatic(StateManager.class);
+    smgr.storeAuState(maus);
+    return maus;
   }
 }

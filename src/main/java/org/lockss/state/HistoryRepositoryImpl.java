@@ -134,7 +134,6 @@ public class HistoryRepositoryImpl
   private ArchivalUnit storedAu;
   LockssDaemon theDaemon;
   DamagedNodeSet damagedNodes;
-  AuState auState;
   OldLockssRepository lockssRepo;
 
   protected HistoryRepositoryImpl(ArchivalUnit au, String rootPath) {
@@ -153,10 +152,7 @@ public class HistoryRepositoryImpl
     return new File(rootLocation, IDENTITY_AGREEMENT_FILE_NAME);
   }
 
-  public File getAuStateFile() {
-    return new File(rootLocation, AU_FILE_NAME);
-  }
-
+  // XXXAUS need new way to implement this
   public long getAuCreationTime() {
     File auidfile = new File(rootLocation, OldLockssRepositoryImpl.AU_ID_FILE);
     return auidfile.lastModified();
@@ -185,34 +181,6 @@ public class HistoryRepositoryImpl
     }
     
     return m_noAuDpis;
-  }
-
-  /**
-   * <p>Loads the state of an AU.</p>
-   * @return An AuState instance loaded from file.
-   * @throws RepositoryStateException if an error condition arises
-   *                                  that is neither a file not found
-   *                                  exception nor a serialization
-   *                                  exception.
-   */
-  public AuState loadAuState() {
-    logger.debug3("Loading state for AU '" + storedAu.getName() + "'");
-    File auFile = getAuStateFile();
-    String errorString = "Could not load AU state for AU '" + storedAu.getName() + "'";
-    ObjectSerializer deserializer = makeObjectSerializer();
-    try {
-      AuState auState = (AuState)deserializer.deserialize(auFile);
-      return  new AuState(auState, storedAu, this);
-    } catch (SerializationException.FileNotFound fnf) {
-      logger.debug2(errorString + ": " + fnf);
-    } catch (SerializationException se) {
-      logger.error(errorString, se);
-    } catch (InterruptedIOException iioe) {
-      logger.error(errorString, iioe);
-      throw new RepositoryStateException(errorString, iioe);
-    }
-    // Default: return default
-    return new AuState(storedAu, this);
   }
 
   /**
@@ -295,7 +263,6 @@ public class HistoryRepositoryImpl
     // gets all the managers
     if (logger.isDebug2()) logger.debug2("Starting: " + storedAu);
     theDaemon = getDaemon();
-    auState = loadAuState();
     damagedNodes = new DamagedNodeSet(storedAu, this);
 
     lockssRepo = theDaemon.getLockssRepository(storedAu);
@@ -312,33 +279,12 @@ public class HistoryRepositoryImpl
   }
 
   public AuState getAuState() {
-    return auState;
+    return theDaemon.getManagerByType(StateManager.class).getAuState(storedAu);
   }
-  public void setAuState(AuState auState) {this.auState = auState;}
 
   @Override
   public boolean hasDamage(CachedUrlSet cus) {
     return damagedNodes.hasDamage(cus);
-  }
-
-  /**
-   * <p>Stores the state of an AU.</p>
-   * @param auState    A AU state instance.
-   * @see #storeAuState(ObjectSerializer, AuState)
-   */
-  public void storeAuState(AuState auState) {
-    logger.debug3("Storing state for AU '" + auState.getArchivalUnit().getName() + "'");
-    this.auState = auState;
-    File file = prepareFile(rootLocation, AU_FILE_NAME);
-    ObjectSerializer serializer = makeObjectSerializer();
-    try {
-      serializer.serialize(file, auState);
-    }
-    catch (Exception exc) {
-      String errorString = "Could not store AU state for AU '" + auState.getArchivalUnit().getName() + "'";
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
   }
 
   /**

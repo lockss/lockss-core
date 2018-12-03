@@ -99,10 +99,7 @@ public class TestV3Voter extends LockssTestCase {
 
     lockssDaemon.setLockssRepository(repo, au);
 
-    aus = new MockAuState(au);
-    HistoryRepository histRepo = lockssDaemon.getHistoryRepository(au);
-    histRepo.storeAuState(aus);
-    histRepo.startService();
+    aus = AuTestUtil.setUpMockAus(au);
     MockCachedUrlSet cus = (MockCachedUrlSet)au.getAuCachedUrlSet();
     cus.setEstimatedHashDuration(1000);
     List files = new ArrayList();

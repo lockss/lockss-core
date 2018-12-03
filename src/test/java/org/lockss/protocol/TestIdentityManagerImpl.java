@@ -38,7 +38,7 @@ import java.util.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.daemon.status.StatusTable;
 import org.lockss.hasher.LocalHashResult;
-import org.lockss.plugin.AuUtil;
+import org.lockss.plugin.*;
 import org.lockss.poller.Poll;
 import org.lockss.state.AuState;
 import org.lockss.test.*;
@@ -131,10 +131,7 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
 
   MockArchivalUnit newMockArchivalUnit() {
     MockArchivalUnit res = new MockArchivalUnit();
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    theDaemon.setHistoryRepository(histRepo, res);
-    MockAuState aus = new MockAuState(res);
-    histRepo.setAuState(aus);
+    AuTestUtil.setUpMockAus(res);
     return res;
   }
 

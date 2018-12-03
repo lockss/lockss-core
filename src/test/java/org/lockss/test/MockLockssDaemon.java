@@ -118,6 +118,7 @@ public class MockLockssDaemon extends LockssDaemon {
 	  setConfig(newConfig, prevConfig, changedKeys);
 	}
       });
+    setUpStateManager();
   }
 
   protected void setConfig(Configuration config, Configuration prevConfig,
@@ -724,6 +725,14 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.CONFIG_DB_MANAGER, configDbMan);
   }
 
+  /**
+   * Set the StateManager
+   * @param stateMan the new manager
+   */
+  public void setStateManager(StateManager stateMan) {
+    managerMap.put(LockssDaemon.STATE_MANAGER, stateMan);
+  }
+
   // AU managers
 
   /** Create an AU manager instance, mimicking what LockssDaemon does */
@@ -905,6 +914,7 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   ConfigDbManager configDbMgr;
+  StateManager stateMgr;
 
   /** Create and start service(s) necessary to create AUs in a testing
    * environment */
@@ -915,6 +925,19 @@ public class MockLockssDaemon extends LockssDaemon {
     configDbMgr.initService(this);
     configDbMgr.startService();
     return this;
+  }
+
+  /** Create and start StateService */
+  public StateManager setUpStateManager() {
+    return setUpStateManager(new StateManager());
+  }
+
+  public <T extends StateManager> T setUpStateManager(T mgr) {
+    stateMgr = mgr;
+    setStateManager(stateMgr);
+    stateMgr.initService(this);
+    stateMgr.startService();
+    return mgr;
   }
 
   /** Here only to allow legacy plugin tests to compile

@@ -315,9 +315,6 @@ public class TestRemoteApi extends LockssTestCase {
     mpm.setAllAus(ListUtil.list(mau1, mau2, mau3));
     idMgr.setAgreeMap(mau1, "agree map 1");
     idMgr.setAgreeMap(mau3, "agree map 3");
-    MockHistoryRepository hr = new MockHistoryRepository();
-    daemon.setHistoryRepository(hr, mau1);
-    hr.setAuStateFile(FileTestUtil.writeTempFile("austate", "dummy austate"));
 
     InputStream in = rapi.getAuConfigBackupStream("machine_foo");
     File zip = FileTestUtil.tempFile("foo", ".zip");
@@ -379,12 +376,14 @@ public class TestRemoteApi extends LockssTestCase {
     assertNotNull(agreefile = (File)auagreemap.get("mau3id"));
     assertEquals("agree map 3", StringUtil.fromFile(agreefile));
 
-    File statefile;
-    assertNotNull(statefile = (File)austatemap.get("mau1id"));
-    assertEquals("dummy austate", StringUtil.fromFile(statefile));
+    // XXXAUS
+//     File statefile;
+//     assertNotNull(statefile = (File)austatemap.get("mau1id"));
+//     assertEquals("dummy austate", StringUtil.fromFile(statefile));
 
     assertEquals(2, auagreemap.size());
-    assertEquals(1, austatemap.size());
+    // XXXAUS
+//     assertEquals(1, austatemap.size());
   }
 
   public void testCheckLegalAuConfigTree() throws Exception {

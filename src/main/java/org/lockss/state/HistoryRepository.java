@@ -71,10 +71,6 @@ public interface HistoryRepository extends LockssAuManager {
    */
   public File getIdentityAgreementFile();
 
-  /** Return AuState File for this AU
-   */
-  public File getAuStateFile();
-
   /**
    * Return the date/time the au was created.
    */
@@ -86,27 +82,13 @@ public interface HistoryRepository extends LockssAuManager {
   public DatedPeerIdSet getNoAuPeerSet();
   
   /**
-   * Stores the AuState for this ArchivalUnit
-   * @param auState the state to store
-   */
-  public void storeAuState(AuState auState);
-
-  /**
-   * Loads the AuState for this ArchivalUnit
-   * @return the {@link AuState}
-   */
-  public AuState loadAuState();
-
-  /**
-   * return the AuState
+   * return the AuState.  Temporarily left here for a couple callers that
+   * use other HistoryRepository methods
    * @return the loaded AuState.
+   * @deprecated
    */
+  @Deprecated
   public AuState getAuState();
-
-  /**
-   * set the AuState
-   */
-  public void setAuState(AuState auState);
 
   /**
    * Stores the DamagedNodeSet for this ArchivalUnit

@@ -97,7 +97,7 @@ public abstract class BaseFuncExporter extends LockssTestCase {
 
   protected void crawlContent() {
     Crawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.doCrawl();
     auUrls = new ArrayList<String>();
     auDirs = new ArrayList<String>();

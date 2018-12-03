@@ -259,7 +259,7 @@ public class PluginTestUtil {
     }
     log.debug("Crawling simulated content");
     NoCrawlEndActionsFollowLinkCrawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     //crawler.setCrawlManager(crawlMgr);
     crawler.doCrawl();
   }

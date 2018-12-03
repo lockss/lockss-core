@@ -662,21 +662,23 @@ public class RemoteApi
 	} catch (FileNotFoundException e) {}
 	zip.closeEntry();
       }
-      File auStateFile = getAuStateFile(au);
+      // XXXAUS need new mechanism
+//       File auStateFile = getAuStateFile(au);
 
-      if (auStateFile.exists()) {
-	try {
-	  addCfgFileToZip(zip, auStateFile, dir + BACK_FILE_AUSTATE);
-	} catch (FileNotFoundException e) {}
-      }
+//       if (auStateFile.exists()) {
+// 	try {
+// 	  addCfgFileToZip(zip, auStateFile, dir + BACK_FILE_AUSTATE);
+// 	} catch (FileNotFoundException e) {}
+//       }
       dirn++;
     }
   }
 
-  File getAuStateFile(ArchivalUnit au) {
-    HistoryRepository hRep = getDaemon().getHistoryRepository(au);
-    return hRep.getAuStateFile();
-  }
+  // XXXAUS need to replace for new AuState mechanism
+//   File getAuStateFile(ArchivalUnit au) {
+//     HistoryRepository hRep = getDaemon().getHistoryRepository(au);
+//     return hRep.getAuStateFile();
+//   }
 
   void addPropsToZip(ZipOutputStream zip, Properties props,
 		     String entName, String header)

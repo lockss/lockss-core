@@ -87,10 +87,7 @@ public class TestSimpleHasher extends LockssTestCase {
     tempDirPath = setUpDiskSpace();
     SimpleHasher.setTempDir(getTempDir());
     mau = new MockArchivalUnit(new MockPlugin(daemon), "maud");
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    daemon.setHistoryRepository(histRepo, mau);
-    maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    maus = AuTestUtil.setUpMockAus(mau);
     PluginTestUtil.registerArchivalUnit(mau);
   }
 

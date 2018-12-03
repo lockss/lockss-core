@@ -53,7 +53,6 @@ public class TestSimpleUrlConsumer extends LockssTestCase {
 
   private MockLockssDaemon theDaemon;
   private MockPlugin plugin;
-  private MockHistoryRepository histRepo = new MockHistoryRepository();
   private MockArchivalUnit mau;
   private MockAuState aus;
   private MySimpleUrlConsumerFactory ucfact = new MySimpleUrlConsumerFactory();
@@ -74,10 +73,8 @@ public class TestSimpleUrlConsumer extends LockssTestCase {
     plugin.initPlugin(theDaemon);
     mau.setPlugin(plugin);
 
-    histRepo = new MockHistoryRepository();
-    theDaemon.setHistoryRepository(histRepo, mau);
-    aus = new MockAuState(mau);
-    histRepo.setAuState(aus);
+    aus = AuTestUtil.setUpMockAus(mau);
+
   }
 
   // Ensure SimpleUrlConsumer uses the CrawlFacade's makeUrlCacher()

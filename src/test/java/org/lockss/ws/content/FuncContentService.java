@@ -42,8 +42,7 @@ import org.lockss.account.UserAccount;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.Crawler;
-import org.lockss.plugin.PluginManager;
-import org.lockss.plugin.PluginTestUtil;
+import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.SimulatedArchivalUnit;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
 import org.lockss.plugin.simulated.SimulatedPlugin;
@@ -110,7 +109,7 @@ public class FuncContentService extends LockssTestCase {
     sau.generateContentTree();
 
     Crawler crawler =
-	new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+	new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.doCrawl();
 
     theDaemon.setAusStarted(true);

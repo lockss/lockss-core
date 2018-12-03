@@ -41,13 +41,15 @@ import org.lockss.poller.v3.V3Poller;
 import org.lockss.poller.v3.V3Poller.PollVariant;
 import org.lockss.repository.AuSuspectUrlVersions;
 import org.lockss.test.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimeBase;
 
 public class TestAuState extends LockssTestCase {
+  L4JLogger log = L4JLogger.getLogger();
   MockLockssDaemon daemon;
-  MyMockHistoryRepository historyRepo;
+  MyStateManager stateMgr;
   MockPlugin mplug;
   MockArchivalUnit mau;
 
@@ -55,7 +57,7 @@ public class TestAuState extends LockssTestCase {
     super.setUp();
     daemon = getMockLockssDaemon();
 
-    historyRepo = new MyMockHistoryRepository();
+    stateMgr = daemon.setUpStateManager(new MyStateManager());
     mplug = new MockPlugin(daemon);
     mau = new MockArchivalUnit(mplug);
   }
@@ -79,7 +81,7 @@ public class TestAuState extends LockssTestCase {
 			      int clockssSubscriptionStatus,
 			      double v3Agreement,
 			      double highestV3Agreement,
-			      HistoryRepository historyRepo) {
+			      StateManager stateMgr) {
     return new AuState(au,
 		       lastCrawlTime,
 		       lastCrawlAttempt,
@@ -109,7 +111,7 @@ public class TestAuState extends LockssTestCase {
 		       -1, // numCurrentSuspectVersions
 		       0,
 		       null,
-		       historyRepo);
+		       stateMgr);
   }
 
   int t1 = 456;
@@ -121,14 +123,13 @@ public class TestAuState extends LockssTestCase {
   int t7 = 25001;
 
   public void testCrawlStarted() throws Exception {
-    MyAuState aus = new MyAuState(mau, historyRepo);
+    MyAuState aus = new MyAuState(mau, stateMgr);
     assertEquals(-1, aus.getLastCrawlTime());
     assertEquals(-1, aus.getLastCrawlAttempt());
     assertEquals(-1, aus.getLastCrawlResult());
     assertFalse(aus.isCrawlActive());
     assertFalse(aus.hasCrawled());
-    assertNull(historyRepo.theAuState);
-    assertEquals(0, historyRepo.getAuStateStoreCount());
+    assertEquals(0, stateMgr.getAuStateStoreCount());
 
     TimeBase.setSimulated(t1);
     aus.newCrawlStarted();
@@ -138,8 +139,7 @@ public class TestAuState extends LockssTestCase {
     assertEquals(-1, aus.getLastCrawlResult());
     assertTrue(aus.isCrawlActive());
     assertFalse(aus.hasCrawled());
-    assertNotNull(historyRepo.theAuState);
-    assertEquals(1, historyRepo.getAuStateStoreCount());
+    assertEquals(1, stateMgr.getAuStateStoreCount());
 
     TimeBase.setSimulated(t2);
     aus.newCrawlFinished(Crawler.STATUS_ERROR, "Plorg");
@@ -149,7 +149,7 @@ public class TestAuState extends LockssTestCase {
     assertEquals("Plorg", aus.getLastCrawlResultMsg());
     assertFalse(aus.isCrawlActive());
     assertFalse(aus.hasCrawled());
-    assertEquals(2, historyRepo.getAuStateStoreCount());
+    assertEquals(2, stateMgr.getAuStateStoreCount());
 
     TimeBase.setSimulated(t3);
     aus.newCrawlFinished(Crawler.STATUS_SUCCESSFUL, "Syrah");
@@ -159,7 +159,7 @@ public class TestAuState extends LockssTestCase {
     assertEquals("Syrah", aus.getLastCrawlResultMsg());
     assertFalse(aus.isCrawlActive());
     assertTrue(aus.hasCrawled());
-    assertEquals(3, historyRepo.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateStoreCount());
 
     aus = aus.simulateStoreLoad();
     assertEquals(t3, aus.getLastCrawlTime());
@@ -179,12 +179,11 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testDaemonCrashedDuringCrawl() throws Exception {
-    MyAuState aus = new MyAuState(mau, historyRepo);
+    MyAuState aus = new MyAuState(mau, stateMgr);
     assertEquals(-1, aus.getLastCrawlTime());
     assertEquals(-1, aus.getLastCrawlAttempt());
     assertEquals(-1, aus.getLastCrawlResult());
     assertFalse(aus.isCrawlActive());
-    assertNull(historyRepo.theAuState);
 
     TimeBase.setSimulated(t1);
     aus.newCrawlStarted();
@@ -193,7 +192,6 @@ public class TestAuState extends LockssTestCase {
     assertEquals(-1, aus.getLastCrawlAttempt());
     assertEquals(-1, aus.getLastCrawlResult());
     assertTrue(aus.isCrawlActive());
-    assertNotNull(historyRepo.theAuState);
 
     TimeBase.setSimulated(t2);
     aus = aus.simulateStoreLoad();
@@ -216,7 +214,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testPollDuration() throws Exception {
-    MyAuState aus = new MyAuState(mau, historyRepo);
+    MyAuState aus = new MyAuState(mau, stateMgr);
     assertEquals(0, aus.getPollDuration());
     aus.setPollDuration(1000);
     assertEquals(1000, aus.getPollDuration());
@@ -225,7 +223,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testPollTimeAndResult() throws Exception {
-    MyAuState aus = new MyAuState(mau, historyRepo);
+    MyAuState aus = new MyAuState(mau, stateMgr);
     assertEquals(-1, aus.getLastTopLevelPollTime());
     assertEquals(-1, aus.getLastPollStart());
     assertEquals(-1, aus.getLastPollResult());
@@ -236,7 +234,6 @@ public class TestAuState extends LockssTestCase {
     assertEquals(-1, aus.getLastLocalHashScan());
     assertEquals(-1, aus.getLastTimePollCompleted());
     assertEquals(0, aus.getPollDuration());
-    assertNull(historyRepo.theAuState);
 
     TimeBase.setSimulated(t1);
     aus.pollStarted();
@@ -247,7 +244,6 @@ public class TestAuState extends LockssTestCase {
     assertEquals(-1, aus.getLastPollResult());
     assertEquals(0, aus.getPollDuration());
     assertEquals(-1, aus.getLastTimePollCompleted());
-    assertNotNull(historyRepo.theAuState);
 
     TimeBase.setSimulated(t2);
     aus.pollFinished(V3Poller.POLLER_STATUS_ERROR, PollVariant.PoR);
@@ -328,15 +324,13 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testV3Agreement() throws Exception {
-    MyAuState aus = new MyAuState(mau, historyRepo);
+    MyAuState aus = new MyAuState(mau, stateMgr);
     assertEquals(-1.0, aus.getV3Agreement());
     assertEquals(-1.0, aus.getHighestV3Agreement());
-    assertNull(historyRepo.theAuState);
 
     aus.setV3Agreement(0.0);
     assertEquals(0.0, aus.getV3Agreement());
     assertEquals(0.0, aus.getHighestV3Agreement());
-    assertNotNull(historyRepo.theAuState);
 
     aus.setV3Agreement(0.5);
     assertEquals(0.5, aus.getV3Agreement());
@@ -349,7 +343,7 @@ public class TestAuState extends LockssTestCase {
 
   public void testTreeWalkFinished() {
     AuState auState = makeAuState(mau, -1, -1, -1, -1, 123, null,
-				  1, -1.0, 1.0, historyRepo);
+				  1, -1.0, 1.0, stateMgr);
     assertEquals(123, auState.getLastTreeWalkTime());
 
     TimeBase.setSimulated(456);
@@ -362,7 +356,7 @@ public class TestAuState extends LockssTestCase {
     stringCollection.add("test");
 
     AuState auState = makeAuState(mau, -1, -1, -1, -1, 123,
-				  stringCollection, 1, -1.0, 1.0, historyRepo);
+				  stringCollection, 1, -1.0, 1.0, stateMgr);
     Collection col = auState.getCrawlUrls();
     Iterator colIter = col.iterator();
     assertTrue(colIter.hasNext());
@@ -370,46 +364,8 @@ public class TestAuState extends LockssTestCase {
     assertFalse(colIter.hasNext());
   }
 
-  public void testUpdateUrls() {
-    AuState auState = new AuState(mau, historyRepo);
-    assertNull(historyRepo.theAuState);
-
-    Collection col = auState.getCrawlUrls();
-    for (int ii=1; ii<AuState.URL_UPDATE_LIMIT; ii++) {
-      col.add("test" + ii);
-      auState.updatedCrawlUrls(false);
-      assertEquals(ii, auState.urlUpdateCntr);
-      assertNull(historyRepo.theAuState);
-    }
-    col.add("test-limit");
-    auState.updatedCrawlUrls(false);
-    assertEquals(0, auState.urlUpdateCntr);
-    assertNotNull(historyRepo.theAuState);
-
-    // clear, and check that counter is reset
-    historyRepo.theAuState = null;
-    if (AuState.URL_UPDATE_LIMIT > 1) {
-      col.add("test");
-      auState.updatedCrawlUrls(false);
-      assertNull(historyRepo.theAuState);
-    }
-  }
-
-  public void testForceUpdateUrls() {
-    AuState auState = new AuState(mau, historyRepo);
-    assertNull(historyRepo.theAuState);
-
-    Collection col = auState.getCrawlUrls();
-    if (AuState.URL_UPDATE_LIMIT > 1) {
-      col.add("test");
-      auState.updatedCrawlUrls(true);
-      assertEquals(0, auState.urlUpdateCntr);
-      assertNotNull(historyRepo.theAuState);
-    }
-  }
-
   public void testClockssSubscriptionStatus() {
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     assertEquals(AuState.CLOCKSS_SUB_UNKNOWN,
 		 aus.getClockssSubscriptionStatus());
     assertEquals("Unknown", aus.getClockssSubscriptionStatusString());
@@ -431,7 +387,7 @@ public class TestAuState extends LockssTestCase {
   }    
 
   public void testAccessType() {
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     assertFalse(aus.isOpenAccess());
     aus.setAccessType(AuState.AccessType.Subscription);
     assertEquals(AuState.AccessType.Subscription, aus.getAccessType());
@@ -442,15 +398,15 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testSubstanceState() {
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     assertEquals(SubstanceChecker.State.Unknown, aus.getSubstanceState());
     assertFalse(aus.hasNoSubstance());
     aus.setSubstanceState(SubstanceChecker.State.Yes);
-    assertEquals(1, historyRepo.getAuStateStoreCount());
+    assertEquals(1, stateMgr.getAuStateStoreCount());
     assertEquals(SubstanceChecker.State.Yes, aus.getSubstanceState());
     assertFalse(aus.hasNoSubstance());
     aus.setSubstanceState(SubstanceChecker.State.No);
-    assertEquals(2, historyRepo.getAuStateStoreCount());
+    assertEquals(2, stateMgr.getAuStateStoreCount());
     assertEquals(SubstanceChecker.State.No, aus.getSubstanceState());
     assertTrue(aus.hasNoSubstance());
     assertNotEquals("2", aus.getFeatureVersion(Plugin.Feature.Substance));
@@ -458,13 +414,13 @@ public class TestAuState extends LockssTestCase {
     aus.setSubstanceState(SubstanceChecker.State.Yes);
     // changing both the substance state and feature version should store
     // only once
-    assertEquals(3, historyRepo.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateStoreCount());
     assertEquals(SubstanceChecker.State.Yes, aus.getSubstanceState());
     assertEquals("2", aus.getFeatureVersion(Plugin.Feature.Substance));
   }
 
   public void testFeatureVersion() {
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     assertNull(aus.getFeatureVersion(Plugin.Feature.Substance));
     assertNull(aus.getFeatureVersion(Plugin.Feature.Metadata));
     assertNull(aus.getFeatureVersion(Plugin.Feature.Poll));
@@ -478,7 +434,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testLastMetadataIndex() {
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     assertEquals(-1, aus.getLastMetadataIndex());
     aus.setLastMetadataIndex(123);
     assertEquals(123, aus.getLastMetadataIndex());
@@ -486,7 +442,7 @@ public class TestAuState extends LockssTestCase {
     
   public void testLastContentChange() {
     TimeBase.setSimulated(10);
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     aus.newCrawlStarted();
     TimeBase.step(10);
     aus.contentChanged();
@@ -507,10 +463,10 @@ public class TestAuState extends LockssTestCase {
     repo.setAsuv(asuv);
 
     daemon.setLockssRepository(repo, mau);
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     assertEquals(0, aus.getNumCurrentSuspectVersions());
     // ensure this isn't automatically recomputed, as that would happen
-    // when historyRepo loads the object during startAuManagers, before the
+    // when stateMgr loads the object during startAuManagers, before the
     // AU is fully created.
     aus.setNumCurrentSuspectVersions(-1);
     assertEquals(-1, aus.getNumCurrentSuspectVersions());
@@ -527,7 +483,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testCdnStems() {
-    AuState aus = new AuState(mau, historyRepo);
+    AuState aus = new AuState(mau, stateMgr);
     assertEquals(Collections.EMPTY_LIST, aus.getCdnStems());
     aus.addCdnStem("http://fff.uselesstld");
     assertClass(ArrayList.class, aus.getCdnStems());
@@ -547,32 +503,133 @@ public class TestAuState extends LockssTestCase {
 		 aus.getCdnStems());
   }
 
+  String ausFields[] = {
+    "lastCrawlTime",
+    "lastCrawlAttempt",
+    "lastCrawlResultMsg",
+    "lastCrawlResult",
+    "lastPollStart",
+    "lastPollResult",
+    "pollDuration",
+    "clockssSubscriptionStatus",
+    "v3Agreement",
+    "highestV3Agreement",
+    "accessType",
+    "lastMetadataIndex",
+    "lastContentChange",
+    "lastPoPPoll",
+    "lastPoPPollResult",
+    "lastLocalHashScan",
+    "numAgreePeersLastPoR",
+    "numWillingRepairers",
+    "numCurrentSuspectVersions",
+    "cdnStems",
+    "crawlActive",
+    "lastTopLevelPollTime",
+    "openAccess",
+//     "auCreationTime",
+    "averageHashDuration"};;
+
+  String ignFields[] = {
+    "lastPollAttempt",
+    "previousCrawlState",
+    "au",
+    "stateMgr",
+    "needSave",
+    "batchSaveDepth",
+    "lastTreeWalk",
+    "crawlUrls",
+    "hasV3Poll",
+    "lastPollResultMsg",
+    "urlUpdateCntr",
+    "crawlUrls",
+  };
+
+  String ausFields2[] = {
+    "lastCrawlTime",
+    "lastCrawlAttempt",
+    "lastCrawlResultMsg",
+    "lastCrawlResult"};
+
+  private String wordpat(String word) {
+    return "\\b" + word + "\\b";
+  }
+
+  public void testToJson() throws IOException {
+    Set<String> f2set = new HashSet<>(Arrays.asList(ausFields2));
+    AuState aus = makeAuState(mau, -1, -1, -1, -1, 123, null,
+			      1, -1.0, 1.0, stateMgr);
+    // serialize whole object
+    String json1 = aus.toJson();
+    // serialize only selected fields
+    String json2 = aus.toJson(SetUtil.set(ausFields2));
+    log.debug("json: " + json1);
+    log.debug("json2: " + json2);
+    for (String s : ausFields) {
+      // all the fields in ausFields should be present in json1
+      assertMatchesRE(wordpat(s), json1);
+      // but in json2 only if in ausFields2
+      if (!f2set.contains(s)) {
+	assertNotMatchesRE(wordpat(s), json2);
+      }
+    }
+    // these fields should never appear
+    for (String s : ignFields) {
+      assertNotMatchesRE(wordpat(s), json1);
+      assertNotMatchesRE(wordpat(s), json2);
+    }
+    // json2 should contain all of ausFields2
+    for (String s : ausFields2) {
+      assertMatchesRE(wordpat(s), json2);
+    }
+  }
+
+  public void testFromJson() throws IOException {
+    Set<String> f2set = new HashSet<>(Arrays.asList(ausFields2));
+    AuState aus1 = makeAuState(mau, 1, 2, 3, 4, 5, null,
+			       1, 0.5, 1.5, stateMgr);
+    AuState aus2 = makeAuState(mau, -1, -1, -1, -1, 123, null,
+			       1, -1.0, 1.0, stateMgr);
+    assertEquals(-1, aus2.getLastCrawlTime());
+    assertEquals(-1, aus2.getLastTopLevelPollTime());
+    assertEquals(-1.0, aus2.getV3Agreement());
+    assertEquals(1.0, aus2.getHighestV3Agreement());
+    String json1 = aus1.toJson("v3Agreement");
+    log.debug2("json1: " + json1);
+    AuState upd = aus2.updateFromJson(json1, getMockLockssDaemon());
+    assertSame(upd, aus2);
+    assertEquals(-1, aus2.getLastCrawlTime());
+    assertEquals(-1, aus2.getLastTopLevelPollTime());
+    assertEquals(.5, aus2.getV3Agreement());
+    assertEquals(1.0, aus2.getHighestV3Agreement());
+  }
+
   public void testBatch() {
-    AuState aus = new AuState(mau, historyRepo);
-    assertEquals(0, historyRepo.getAuStateStoreCount());
+    AuState aus = new AuState(mau, stateMgr);
+    assertEquals(0, stateMgr.getAuStateStoreCount());
     aus.setNumAgreePeersLastPoR(1);
     aus.setNumWillingRepairers(3);
     aus.setNumCurrentSuspectVersions(5);
-    assertEquals(3, historyRepo.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateStoreCount());
 
     aus.batchSaves();
     aus.setNumAgreePeersLastPoR(2);
     aus.setNumWillingRepairers(4);
     aus.setNumCurrentSuspectVersions(6);
-    assertEquals(3, historyRepo.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateStoreCount());
     aus.unBatchSaves();
-    assertEquals(4, historyRepo.getAuStateStoreCount());
+    assertEquals(4, stateMgr.getAuStateStoreCount());
 
     aus.batchSaves();
     aus.setNumAgreePeersLastPoR(4);
     aus.batchSaves();
     aus.setNumWillingRepairers(8);
     aus.setNumCurrentSuspectVersions(12);
-    assertEquals(4, historyRepo.getAuStateStoreCount());
+    assertEquals(4, stateMgr.getAuStateStoreCount());
     aus.unBatchSaves();
-    assertEquals(4, historyRepo.getAuStateStoreCount());
+    assertEquals(4, stateMgr.getAuStateStoreCount());
     aus.unBatchSaves();
-    assertEquals(5, historyRepo.getAuStateStoreCount());
+    assertEquals(5, stateMgr.getAuStateStoreCount());
   }
 
   // Return the serialized representation of the object
@@ -591,7 +648,7 @@ public class TestAuState extends LockssTestCase {
   // deserialized from old files not containing the field
   public void testNewField() throws Exception {
     AuState aus = makeAuState(mau, -1, -1, -1, -1, 123, null,
-			      1, -1.0, 1.0, historyRepo);
+			      1, -1.0, 1.0, stateMgr);
 
     String ser = ser(aus);
     String edser = ser.replaceAll(".*numAgreePeersLastPoR.*", "");
@@ -603,23 +660,30 @@ public class TestAuState extends LockssTestCase {
   }
 
   static class MyAuState extends AuState implements Cloneable {
-    public MyAuState(ArchivalUnit au, HistoryRepository historyRepo) {
-      super(au, historyRepo);
+    public MyAuState(ArchivalUnit au, StateManager stateMgr) {
+      super(au, stateMgr);
     }
     MyAuState simulateStoreLoad() throws CloneNotSupportedException {
-      MyAuState ret = (MyAuState)this.clone();
+//       MyAuState ret = (MyAuState)this.clone();
+      MyAuState ret = this;
       ret.previousCrawlState = null;
       return ret;
     }
   }
 
-  static class MyMockHistoryRepository extends MockHistoryRepository {
+  static class MyStateManager extends StateManager {
     int auStateStoreCount = 0;
 
     @Override
     public void storeAuState(AuState auState) {
-      super.storeAuState(auState);
       auStateStoreCount++;
+      super.storeAuState(auState);
+    }
+
+    @Override
+    public void updateAuState(AuState aus, Set<String> fields) {
+      auStateStoreCount++;
+      super.updateAuState(aus, fields);
     }
 
     public int getAuStateStoreCount() {

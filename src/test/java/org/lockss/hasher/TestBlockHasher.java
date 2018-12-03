@@ -86,10 +86,7 @@ public class TestBlockHasher extends LockssTestCase {
     daemon.setLockssRepository(repo, mau);
     repo.initService(daemon);
     repo.startService();
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    daemon.setHistoryRepository(histRepo, mau);
-    maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    maus = AuTestUtil.setUpMockAus( mau);
   }
 
   MockArchivalUnit setupContentTree() {

@@ -131,7 +131,7 @@ public class HashSpeedTest extends LockssTestCase {
 
   private void crawlContent() {
     System.out.println("Crawling tree...");
-    Crawler crawler = new FollowLinkCrawler(sau, new MockAuState());
+    Crawler crawler = new FollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.doCrawl();
   }
 

@@ -374,7 +374,7 @@ public class FuncZipExploder2 extends LockssTestCase {
     sau.setExploderPattern(".zip$");
     sau.setExploderHelper(new MyExploderHelper());
     FollowLinkCrawler crawler =
-      new FollowLinkCrawler(sau, new MockAuState());
+      new FollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.setCrawlManager(crawlMgr);
     crawler.doCrawl();
   }

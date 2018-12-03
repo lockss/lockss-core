@@ -54,7 +54,6 @@ import org.lockss.util.*;
  */
 public class TestBaseCachedUrlSet extends LockssTestCase {
   private OldLockssRepository repo;
-  private HistoryRepository histRepo;
   private HashService hashService;
   private MockArchivalUnit mau;
   private MockLockssDaemon theDaemon;
@@ -86,13 +85,10 @@ public class TestBaseCachedUrlSet extends LockssTestCase {
     mau.setPlugin(plugin);
 
     repo = theDaemon.getLockssRepository(mau);
-    histRepo = theDaemon.getHistoryRepository(mau);
-    histRepo.startService();
   }
 
   public void tearDown() throws Exception {
     repo.stopService();
-    histRepo.stopService();
     hashService.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
@@ -527,7 +523,7 @@ public class TestBaseCachedUrlSet extends LockssTestCase {
     CachedUrlSetSpec rSpec =
         new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     CachedUrlSet cus = mau.makeCachedUrlSet(rSpec);
-    AuState node = histRepo.getAuState();
+    AuState node = AuUtil.getAuState(mau);
     long estimate = cus.estimatedHashDuration();
     assertTrue(estimate > 0);
 
@@ -567,7 +563,7 @@ public class TestBaseCachedUrlSet extends LockssTestCase {
     long expectedEstimate = 1000 / HASH_SPEED;
     assertEquals(estimate, hashService.padHashEstimate(expectedEstimate));
     // check that estimation isn't stored for single node sets
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
   }
 
   public void testIrregularHashStorage() throws Exception {
@@ -577,32 +573,32 @@ public class TestBaseCachedUrlSet extends LockssTestCase {
         new SingleNodeCachedUrlSetSpec("http://www.example.com/testDir");
     CachedUrlSet fileSet = mau.makeCachedUrlSet(sSpec);
     fileSet.storeActualHashDuration(123, null);
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
 
     // check that estimation isn't changed for ranged sets
     CachedUrlSetSpec rSpec =
         new RangeCachedUrlSetSpec("http://www.example.com/testDir", "ab", "yz");
     fileSet = mau.makeCachedUrlSet(rSpec);
     fileSet.storeActualHashDuration(123, null);
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
 
     // check that estimation isn't changed for exceptions
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     fileSet = mau.makeCachedUrlSet(rSpec);
     fileSet.storeActualHashDuration(123, new Exception("bad"));
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
 
     // check that estimation is grown for timeout exceptions
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     fileSet = mau.makeCachedUrlSet(rSpec);
     fileSet.storeActualHashDuration(100, null);
-    assertEquals(100, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(100, AuUtil.getAuState(mau).getAverageHashDuration());
     // simulate a timeout
     fileSet.storeActualHashDuration(200, new SchedService.Timeout("test"));
-    assertEquals(300, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(300, AuUtil.getAuState(mau).getAverageHashDuration());
     // and another,less than current estimate, shouldn't change it
     fileSet.storeActualHashDuration(100, new HashService.Timeout("test"));
-    assertEquals(300, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(300, AuUtil.getAuState(mau).getAverageHashDuration());
   }
 
   public void testCusCompare() throws Exception {
