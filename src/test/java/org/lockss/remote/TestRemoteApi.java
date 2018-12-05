@@ -706,11 +706,12 @@ public class TestRemoteApi extends LockssTestCase {
       return mau;
     }
 
-    public void setAndSaveAuConfiguration(ArchivalUnit au,
+    public Long setAndSaveAuConfiguration(ArchivalUnit au,
 					  Configuration auConf)
 	throws ArchivalUnit.ConfigurationException {
       actions.add(new Pair(au, auConf));
       au.setConfiguration(auConf);
+      return null;
     }
 
     public void deleteAuConfiguration(String auid) {

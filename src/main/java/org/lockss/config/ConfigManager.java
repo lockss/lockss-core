@@ -3911,34 +3911,6 @@ public class ConfigManager implements LockssManager {
       throws DbException {
     if (log.isDebug2()) log.debug2("auConfiguration = " + auConfiguration);
 
-    Connection conn = null;
-
-    try {
-      // Get a connection to the database.
-      conn = getConnection();
-
-      return storeArchivalUnitConfiguration(conn, auConfiguration);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
-  }
-
-  /**
-   * Stores in the database the configuration of an Archival Unit.
-   * 
-   * @param conn
-   *          A Connection with the database connection to be used.
-   * @param auConfiguration
-   *          An AuConfiguration with the Archival Unit configuration to be
-   *          stored.
-   * @return a Long with the database identifier of the Archival Unit.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
-   */
-  public Long storeArchivalUnitConfiguration(Connection conn,
-      AuConfiguration auConfiguration) throws DbException {
-    if (log.isDebug2()) log.debug2("auConfiguration = " + auConfiguration);
-
     // Validate the passed argument.
     if (auConfiguration == null) {
       throw new IllegalArgumentException("AuConfig is null");
@@ -3957,12 +3929,20 @@ public class ConfigManager implements LockssManager {
       throw new IllegalArgumentException("Empty ArchivalUnit configuration");
     }
 
-    // Store the configuration in the database.
-    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(conn,
-	pluginId, auKey, auConfig, true);
+    Long result = null;
 
-    if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
-    return auSeq;
+    if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
+	+ restConfigClient.isActive());
+
+    if (restConfigClient.isActive()) {
+      result = restConfigClient.putArchivalUnitConfiguration(auConfiguration);
+    } else {
+      result = getConfigManagerSql().addArchivalUnitConfiguration(pluginId,
+	  auKey, auConfig);
+    }
+
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
   }
 
   /**
@@ -4148,12 +4128,19 @@ public class ConfigManager implements LockssManager {
   public void removeArchivalUnitConfiguration(String auid) throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
-    // Parse the Archival Unit identifier.
-    String pluginId = PluginManager.pluginIdFromAuId(auid);
-    String auKey = PluginManager.auKeyFromAuId(auid);
+    if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
+	+ restConfigClient.isActive());
 
-    // Remove the Archival Unit configuration from the database.
-    getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
+    if (restConfigClient.isActive()) {
+      restConfigClient.deleteArchivalUnitConfiguration(auid);
+    } else {
+      // Parse the Archival Unit identifier.
+      String pluginId = PluginManager.pluginIdFromAuId(auid);
+      String auKey = PluginManager.auKeyFromAuId(auid);
+
+      // Remove the Archival Unit configuration from the database.
+      getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
+    }
 
     if (log.isDebug2()) log.debug2("Done");
     return;
@@ -4176,6 +4163,7 @@ public class ConfigManager implements LockssManager {
    * Loads the au.txt file into the database, if found.
    */
   public void loadAuTxtFileIntoDb() {
+    log.debug2("Invoked");
     if (log.isDebug3()) log.debug3("cacheConfigDir = " + cacheConfigDir);
 
     // Locate the au.txt file.
@@ -4191,6 +4179,7 @@ public class ConfigManager implements LockssManager {
       Connection conn = null;
       boolean successful = false;
       int addedCount = 0;
+      int totalAddedCount = 0;
 
       try {
         // Get a connection to the database.
@@ -4244,6 +4233,7 @@ public class ConfigManager implements LockssManager {
 
 	    if (addedCount % auInsertCommitCount == 0) {
 	      ConfigDbManager.commitOrRollback(conn, log);
+	      totalAddedCount += addedCount;
 	      addedCount = 0;
 	    }
 	  }
@@ -4252,9 +4242,12 @@ public class ConfigManager implements LockssManager {
 	// Commit the configurations written since the last commit.
 	if (addedCount > 0) {
 	  ConfigDbManager.commitOrRollback(conn, log);
+	  totalAddedCount += addedCount;
 	}
 
 	successful = true;
+	log.info("Loaded " + totalAddedCount
+	    + " Archival Unit configurations to the database");
       } catch (DbException dbe) {
 	log.critical("Error storing contents of file '" + auTxtFile
 	    + "' in the database", dbe);

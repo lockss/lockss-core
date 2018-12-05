@@ -1797,13 +1797,15 @@ public class PluginManager
    * @param au the AU
    * @param auProps the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
+   * @return a Long with the key under which the AU configuration has been
+   *         saved.
    * @throws ArchivalUnit.ConfigurationException
    * @throws IOException
    */
-  public void setAndSaveAuConfiguration(ArchivalUnit au,
+  public Long setAndSaveAuConfiguration(ArchivalUnit au,
 					Properties auProps)
       throws ArchivalUnit.ConfigurationException, DbException {
-    setAndSaveAuConfiguration(au,
+    return setAndSaveAuConfiguration(au,
 			      ConfigManager.fromPropertiesUnsealed(auProps));
   }
 
@@ -1813,20 +1815,23 @@ public class PluginManager
    * @param au the AU
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
+   * @return a Long with the key under which the AU configuration has been
+   *         saved.
    * @throws ArchivalUnit.ConfigurationException
    * @throws IOException
    */
-  public void setAndSaveAuConfiguration(ArchivalUnit au,
+  public Long setAndSaveAuConfiguration(ArchivalUnit au,
 					Configuration auConf)
       throws ArchivalUnit.ConfigurationException, DbException {
     synchronized (auAddDelLock) {
       log.debug("Reconfiguring AU " + au);
       au.setConfiguration(auConf);
-      updateAuIndatabase(au, auConf);
+      Long auSeq = updateAuIndatabase(au, auConf);
+      return auSeq;
     }
   }
 
-  private void updateAuIndatabase(ArchivalUnit au, Configuration auConf)
+  private Long updateAuIndatabase(ArchivalUnit au, Configuration auConf)
       throws DbException {
     if (!auConf.isEmpty()) {
       if (!auConf.isSealed()) {
@@ -1836,25 +1841,28 @@ public class PluginManager
 		  new Throwable());
       }
     }
-    updateAuInDatabase(au.getAuId(), auConf);
+    Long auSeq = updateAuInDatabase(au.getAuId(), auConf);
+    return auSeq;
   }
 
-  public void updateAuInDatabase(AuConfiguration auConfiguration)
+  public Long updateAuInDatabase(AuConfiguration auConfiguration)
       throws DbException {
     synchronized (auAddDelLock) {
       Long auSeq = configMgr.storeArchivalUnitConfiguration(auConfiguration);
-      if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+      if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
+      return auSeq;
     }
   }
 
-  public void updateAuInDatabase(String auid, Configuration auConf)
+  public Long updateAuInDatabase(String auid, Configuration auConf)
       throws DbException {
     String prefix = auConfigPrefix(auid);
     Configuration fqConfig = auConf.addPrefix(prefix);
     synchronized (auAddDelLock) {
       Long auSeq = configMgr.storeArchivalUnitConfiguration(
 	  AuConfigurationUtils.fromConfiguration(prefix, fqConfig));
-      if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
+      if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
+      return auSeq;
     }
   }
 
@@ -1934,23 +1942,15 @@ public class PluginManager
   public void deactivateAuConfiguration(ArchivalUnit au) throws DbException {
     synchronized (auAddDelLock) {
       log.debug("Deactivating AU: " + au);
-      Connection conn = null;
 
-      try {
-	// Get a connection to the database.
-	conn = configMgr.getConnection();
+      AuConfiguration auConfiguration =
+	  configMgr.retrieveArchivalUnitConfiguration(au.getAuId());
+      if (log.isDebug3()) log.debug3("auConfig = " + auConfiguration);
 
-	AuConfiguration auConfiguration =
-	    configMgr.retrieveArchivalUnitConfiguration(conn, au.getAuId());
-	if (log.isDebug3()) log.debug3("auConfig = " + auConfiguration);
+      if (auConfiguration != null) {
+	auConfiguration.getAuConfig().put(AU_PARAM_DISABLED, "true");
 
-	if (auConfiguration != null) {
-	  auConfiguration.getAuConfig().put(AU_PARAM_DISABLED, "true");
-
-	  configMgr.storeArchivalUnitConfiguration(conn, auConfiguration);
-	}
-      } finally {
-	DbManager.safeRollbackAndClose(conn);
+	configMgr.storeArchivalUnitConfiguration(auConfiguration);
       }
     }
   }

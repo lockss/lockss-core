@@ -295,14 +295,16 @@ public class RemoteApi
    * @param aup the AuProxy
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
+   * @return a Long with the key under which the AU configuration has been
+   *         saved.
    * @throws ArchivalUnit.ConfigurationException
    * @throws IOException
    */
-  public void setAndSaveAuConfiguration(AuProxy aup,
+  public Long setAndSaveAuConfiguration(AuProxy aup,
 					Configuration auConf)
       throws ArchivalUnit.ConfigurationException, DbException {
     ArchivalUnit au = aup.getAu();
-    pluginMgr.setAndSaveAuConfiguration(au, auConf);
+    return pluginMgr.setAndSaveAuConfiguration(au, auConf);
   }
 
   /**
