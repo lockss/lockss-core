@@ -35,6 +35,7 @@ package org.lockss.state;
 import java.io.*;
 import java.util.*;
 
+import org.lockss.app.*;
 import org.lockss.daemon.Crawler;
 import org.lockss.plugin.*;
 import org.lockss.poller.v3.V3Poller;
@@ -123,7 +124,7 @@ public class TestAuState extends LockssTestCase {
   int t7 = 25001;
 
   public void testCrawlStarted() throws Exception {
-    MyAuState aus = new MyAuState(mau, stateMgr);
+    MyAuState aus = getMyAuState(mau);
     assertEquals(-1, aus.getLastCrawlTime());
     assertEquals(-1, aus.getLastCrawlAttempt());
     assertEquals(-1, aus.getLastCrawlResult());
@@ -179,7 +180,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testDaemonCrashedDuringCrawl() throws Exception {
-    MyAuState aus = new MyAuState(mau, stateMgr);
+    MyAuState aus = getMyAuState(mau);
     assertEquals(-1, aus.getLastCrawlTime());
     assertEquals(-1, aus.getLastCrawlAttempt());
     assertEquals(-1, aus.getLastCrawlResult());
@@ -214,7 +215,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testPollDuration() throws Exception {
-    MyAuState aus = new MyAuState(mau, stateMgr);
+    MyAuState aus = getMyAuState(mau);
     assertEquals(0, aus.getPollDuration());
     aus.setPollDuration(1000);
     assertEquals(1000, aus.getPollDuration());
@@ -223,7 +224,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testPollTimeAndResult() throws Exception {
-    MyAuState aus = new MyAuState(mau, stateMgr);
+    MyAuState aus = getMyAuState(mau);
     assertEquals(-1, aus.getLastTopLevelPollTime());
     assertEquals(-1, aus.getLastPollStart());
     assertEquals(-1, aus.getLastPollResult());
@@ -324,7 +325,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testV3Agreement() throws Exception {
-    MyAuState aus = new MyAuState(mau, stateMgr);
+    MyAuState aus = getMyAuState(mau);
     assertEquals(-1.0, aus.getV3Agreement());
     assertEquals(-1.0, aus.getHighestV3Agreement());
 
@@ -365,7 +366,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testClockssSubscriptionStatus() {
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertEquals(AuState.CLOCKSS_SUB_UNKNOWN,
 		 aus.getClockssSubscriptionStatus());
     assertEquals("Unknown", aus.getClockssSubscriptionStatusString());
@@ -387,7 +388,7 @@ public class TestAuState extends LockssTestCase {
   }    
 
   public void testAccessType() {
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertFalse(aus.isOpenAccess());
     aus.setAccessType(AuState.AccessType.Subscription);
     assertEquals(AuState.AccessType.Subscription, aus.getAccessType());
@@ -398,7 +399,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testSubstanceState() {
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertEquals(SubstanceChecker.State.Unknown, aus.getSubstanceState());
     assertFalse(aus.hasNoSubstance());
     aus.setSubstanceState(SubstanceChecker.State.Yes);
@@ -420,7 +421,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testFeatureVersion() {
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertNull(aus.getFeatureVersion(Plugin.Feature.Substance));
     assertNull(aus.getFeatureVersion(Plugin.Feature.Metadata));
     assertNull(aus.getFeatureVersion(Plugin.Feature.Poll));
@@ -434,7 +435,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testLastMetadataIndex() {
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertEquals(-1, aus.getLastMetadataIndex());
     aus.setLastMetadataIndex(123);
     assertEquals(123, aus.getLastMetadataIndex());
@@ -442,7 +443,7 @@ public class TestAuState extends LockssTestCase {
     
   public void testLastContentChange() {
     TimeBase.setSimulated(10);
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     aus.newCrawlStarted();
     TimeBase.step(10);
     aus.contentChanged();
@@ -463,7 +464,7 @@ public class TestAuState extends LockssTestCase {
     repo.setAsuv(asuv);
 
     daemon.setLockssRepository(repo, mau);
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertEquals(0, aus.getNumCurrentSuspectVersions());
     // ensure this isn't automatically recomputed, as that would happen
     // when stateMgr loads the object during startAuManagers, before the
@@ -483,7 +484,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testCdnStems() {
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertEquals(Collections.EMPTY_LIST, aus.getCdnStems());
     aus.addCdnStem("http://fff.uselesstld");
     assertClass(ArrayList.class, aus.getCdnStems());
@@ -605,7 +606,7 @@ public class TestAuState extends LockssTestCase {
   }
 
   public void testBatch() {
-    AuState aus = new AuState(mau, stateMgr);
+    AuState aus = stateMgr.getAuState(mau);
     assertEquals(0, stateMgr.getAuStateStoreCount());
     aus.setNumAgreePeersLastPoR(1);
     aus.setNumWillingRepairers(3);
@@ -659,6 +660,10 @@ public class TestAuState extends LockssTestCase {
     assertEquals(Collections.EMPTY_LIST, newaus.getCdnStems());
   }
 
+  MyAuState getMyAuState(MockArchivalUnit mau) {
+    return (MyAuState)stateMgr.getAuState(mau);
+  }
+
   static class MyAuState extends AuState implements Cloneable {
     public MyAuState(ArchivalUnit au, StateManager stateMgr) {
       super(au, stateMgr);
@@ -671,8 +676,18 @@ public class TestAuState extends LockssTestCase {
     }
   }
 
-  static class MyStateManager extends StateManager {
+  static class MyStateManager extends CachingStateManager {
     int auStateStoreCount = 0;
+
+    @Override
+    public void initService(LockssDaemon daemon) throws LockssAppException {
+      super.initService(daemon);
+    }
+
+    @Override
+    protected AuState newDefaultAuState(ArchivalUnit au) {
+      return new MyAuState(au, this);
+    }
 
     @Override
     public void storeAuState(AuState auState) {

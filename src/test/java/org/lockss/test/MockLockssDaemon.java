@@ -118,7 +118,6 @@ public class MockLockssDaemon extends LockssDaemon {
 	  setConfig(newConfig, prevConfig, changedKeys);
 	}
       });
-    setUpStateManager();
   }
 
   protected void setConfig(Configuration config, Configuration prevConfig,
@@ -191,6 +190,10 @@ public class MockLockssDaemon extends LockssDaemon {
   /** Create a manager instance, mimicking what LockssDaemon does */
   LockssManager newManager(String key) {
     log.debug2("Loading manager: " + key);
+    switch (key) {
+    case "org.lockss.state.StateManager":
+      return setUpStateManager();
+    }
     ManagerDesc desc = findManagerDesc(key);
     if (desc == null) {
       throw new LockssAppException("No ManagerDesc for: " + key);
@@ -929,7 +932,7 @@ public class MockLockssDaemon extends LockssDaemon {
 
   /** Create and start StateService */
   public StateManager setUpStateManager() {
-    return setUpStateManager(new StateManager());
+    return setUpStateManager(new TestingStateManager());
   }
 
   public <T extends StateManager> T setUpStateManager(T mgr) {
@@ -946,4 +949,13 @@ public class MockLockssDaemon extends LockssDaemon {
   @Deprecated
   public void getNodeManager(ArchivalUnit au) {
   }
+
+  public static class TestingStateManager extends CachingStateManager {
+    protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
+      return true;
+    }
+
+
+  }
+
 }

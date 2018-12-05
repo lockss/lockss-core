@@ -1341,7 +1341,7 @@ public class TestPluginManager extends LockssTestCase4 {
 
   AuState setUpAuState(MockArchivalUnit mau) {
     AuState aus = AuTestUtil.setUpMockAus(mau);
-    aus.storeAuState();
+//     aus.storeAuState();
     return aus;
   }
 

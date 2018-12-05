@@ -111,8 +111,6 @@ public class AuState implements LockssSerializable {
   @JsonIgnore
   private transient StateManager stateMgr;
   @JsonIgnore
-  private transient boolean needSave = false;
-  @JsonIgnore
   private transient int batchSaveDepth = 0;
 
   // deprecated, kept for compatibility with old state files
@@ -811,9 +809,9 @@ public class AuState implements LockssSerializable {
     if (logger.isDebug3()) {
       logger.debug3("End batch: " + batchSaveDepth);
     }
-    if (--batchSaveDepth == 0 && needSave) {
+    if (--batchSaveDepth == 0 &&
+	changedFields != null && !changedFields.isEmpty()) {
       storeAuState(SetUtil.theSet(changedFields));
-      changedFields = null;
     }
   }
 
@@ -831,7 +829,6 @@ public class AuState implements LockssSerializable {
       for (String f : fields) {
 	changedFields.add(f);
       }
-      needSave = true;
     }
   }
 
@@ -861,7 +858,7 @@ public class AuState implements LockssSerializable {
    */
   public synchronized void storeAuState(Set<String> fields) {
     getStateMgr().updateAuState(this, fields);
-    needSave = false;
+    changedFields = null;
   }
 
   /** Serialize entire object to json string */
@@ -945,9 +942,12 @@ public class AuState implements LockssSerializable {
     sb.append(", ");
     sb.append("lastTopLevelPollTime=");
     sb.append(new Date(lastTopLevelPollTime));
+//     sb.append(", ");
+//     sb.append("clockssSub=");
+//     sb.append(clockssSubscriptionStatus);
     sb.append(", ");
-    sb.append("clockssSub=");
-    sb.append(clockssSubscriptionStatus);
+    sb.append("cdn=");
+    sb.append(cdnStems);
     sb.append("]");
     return sb.toString();
   }

@@ -161,7 +161,9 @@ public class LockssDaemon extends LockssApp {
     // start plugin manager after generic services
     CONFIG_DB_MANAGER_DESC,
     PLUGIN_MANAGER_DESC,
-    STATE_MANAGER_DESC,
+    // StateManager must follow PluginManager
+    SERVER_STATE_MANAGER_DESC,
+    CLIENT_STATE_MANAGER_DESC,
     SCHED_SERVICE_DESC,
     HASH_SERVICE_DESC,
     SYSTEM_METRICS_DESC,

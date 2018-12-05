@@ -32,6 +32,7 @@ import java.io.*;
 import java.util.*;
 import org.apache.activemq.broker.*;
 import org.apache.activemq.store.*;
+import org.apache.commons.collections4.map.*;
 
 import org.lockss.app.*;
 import org.lockss.daemon.*;
@@ -40,18 +41,63 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
-/** Manages loading and storing state objects.  */
-public interface StateManager extends LockssManager {
+/** StateManager that saves and loads state from persistent storage,
+ * intended for use in REST service */
+public class ServerStateManager extends CachingStateManager {
 
-  public static final String PREFIX = Configuration.PREFIX + "state.";
+  protected static L4JLogger log = L4JLogger.getLogger();
 
-  /** Return the AuState for the AU.  Each AU has a singleton AuState
-   * instance */
-  public abstract AuState getAuState(ArchivalUnit au);
 
-  /** Update the stored AuState with the values of the listed fields */
-  public abstract void updateAuState(AuState aus, Set<String> fields);
+//   @Override
+//   public void initService(LockssDaemon daemon) throws LockssAppException {
+//     super.initService(daemon);
+//   }
 
-  /** Store the AuState for the AU.  Can only be used once per AU. */
-  public abstract void storeAuState(AuState aus);
+  public void startService() {
+    super.startService();
+    setUpJmsSend();
+  }
+
+  public void stopService() {
+    stopJms();
+    super.stopService();
+  }
+
+//   public void setConfig(Configuration config, Configuration oldConfig,
+// 			Configuration.Differences changedKeys) {
+//     if (changedKeys.contains(PREFIX)) {
+//     }
+//   }
+
+  /** Save the changes in the DB, send notification to clients */
+  @Override
+  protected void updateStoredObject(AuState cur, String json,
+				    LockssDaemon daemon) throws IOException {
+    super.updateStoredObject(cur, json, daemon);
+
+    // XXX store json diffs in DB
+
+    sendAuStateChangedEvent(auKey(cur.getArchivalUnit()), json, false);
+
+  }
+
+  /** Handle a cache miss.  Retrieve AuState from DB. */
+  @Override
+  protected AuState handleCacheMiss(ArchivalUnit au) {
+
+    AuState aus = null;
+
+    // XXX fetch AuState from database
+
+    if (aus != null) {
+      auStates.put(auKey(au), aus);
+    }
+    return aus;
+  }
+
+  @Override
+  protected Map<String,AuState> newAuStateMap() {
+    return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
+			      AbstractReferenceMap.ReferenceStrength.WEAK);
+  }
 }
