@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -130,6 +126,9 @@ public class AuState implements LockssSerializable {
   @JsonIgnore
   transient int urlUpdateCntr = 0;
 
+  @JsonIgnore
+  protected String auId = null;
+
   /** No-arg constructor required for pure-Java deserialization. */
   private AuState() {
   }
@@ -141,6 +140,10 @@ public class AuState implements LockssSerializable {
   public AuState(ArchivalUnit au, StateManager stateMgr) {
     this.au = au;
     this.stateMgr = stateMgr;
+
+    if (au != null) {
+      this.auId = au.getAuId();
+    }
   }
 
    public AuState(ArchivalUnit au,
@@ -201,6 +204,10 @@ public class AuState implements LockssSerializable {
 
     if (cdnStems != null) {
       flushAuCaches();
+    }
+
+    if (au != null) {
+      this.auId = au.getAuId();
     }
   }
 
@@ -788,6 +795,25 @@ public class AuState implements LockssSerializable {
       clockssSubscriptionStatus = val;
       needSave("clockssSubscriptionStatus");
     }
+  }
+
+  /**
+   * Returns the au
+   * @return the au
+   */
+  @JsonIgnore
+  public String getAuId() {
+    return auId;
+  }
+
+  @JsonIgnore
+  public void setAuId(String auId) {
+    if (auId != null) {
+      throw new IllegalStateException("Cannot change AUId from '" + this.auId
+	  + "' to '" + auId);
+    }
+
+    this.auId = auId;
   }
 
   /** Start a batch of updates, deferring saving until unBatchSaves() is
