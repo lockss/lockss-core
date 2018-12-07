@@ -803,12 +803,10 @@ public class AuState implements LockssSerializable {
    * Returns the au
    * @return the au
    */
-  @JsonIgnore
   public String getAuId() {
     return auId;
   }
 
-  @JsonIgnore
   public void setAuId(String auId) {
     if (auId != null) {
       throw new IllegalStateException("Cannot change AUId from '" + this.auId

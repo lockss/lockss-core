@@ -74,28 +74,6 @@ public class InMemoryStateManager extends CachingStateManager {
     super.handleAuDeleted(au);
   }
 
-//   /** Handle a cache miss.  Retrieve data from previous AuState from
-//    * deletedAuStates, else create a new one. */
-//   @Override
-//   protected AuState handleCacheMiss(ArchivalUnit au) {
-//     String key = auKey(au);
-//     String json = deletedAuStates.get(key);
-//     AuState aus = newDefaultAuState(au);
-//     log.debug("handleCacheMiss({}) <- {}", au, json);
-//     if (json != null) {
-//       try {
-// 	aus.updateFromJson(json, daemon);
-//       } catch (IOException e) {
-// 	log.error("Couldn't deserialize AuState from \"backing\" store: {}",
-// 		  json, e);
-// 	throw new RuntimeException("???");
-//       }
-//     }
-//     auStates.put(auKey(au), aus);
-//     return aus;
-//   }
-
-
   protected AuState fetchPersistentAuState(ArchivalUnit au) {
     String key = auKey(au);
     String json = deletedAuStates.get(key);
