@@ -62,6 +62,7 @@ public class AuState implements LockssSerializable {
 
 
   // Persistent state vars
+  protected long auCreationTime = -1;
   protected long lastCrawlTime = -1;	// last successful crawl
   protected long lastCrawlAttempt = -1;
   protected String lastCrawlResultMsg = null;
@@ -141,12 +142,13 @@ public class AuState implements LockssSerializable {
     this.au = au;
     this.stateMgr = stateMgr;
 
-    if (au != null) {
-      this.auId = au.getAuId();
-    }
+//     if (au != null) {
+//       this.auId = au.getAuId();
+//     }
   }
 
-   public AuState(ArchivalUnit au,
+
+  public AuState(ArchivalUnit au,
 		 long lastCrawlTime, long lastCrawlAttempt,
 		 int lastCrawlResult, String lastCrawlResultMsg,
 		 long lastTopLevelPollTime, long lastPollStart,
@@ -206,16 +208,15 @@ public class AuState implements LockssSerializable {
       flushAuCaches();
     }
 
-    if (au != null) {
-      this.auId = au.getAuId();
-    }
+//     if (au != null) {
+//       this.auId = au.getAuId();
+//     }
   }
 
   /**
    * Returns the au
    * @return the au
    */
-  @JsonIgnore
   public ArchivalUnit getArchivalUnit() {
     return au;
   }
@@ -230,8 +231,17 @@ public class AuState implements LockssSerializable {
    * If there is a Lockss repository exception, this method returns -1.
    */
   public long getAuCreationTime() {
-    // XXXAUS
-    return 0;
+    return auCreationTime;
+  }
+
+  /**
+   * Returns the date/time the au was created.
+   * @return au creation time
+   * If there is a Lockss repository exception, this method returns -1.
+   */
+  public void setAuCreationTime(long time) {
+    auCreationTime = time;
+    needSave("auCreationTime");
   }
 
   /**
@@ -343,7 +353,6 @@ public class AuState implements LockssSerializable {
    * Returns the last time a PoP or PoR poll completed.
    * @return the last poll time in ms
    */
-  @JsonIgnore
   public long getLastTimePollCompleted() {
     return Math.max(lastTopLevelPollTime, lastPoPPoll);
   }
@@ -361,7 +370,6 @@ public class AuState implements LockssSerializable {
    * restart
    * @return the last poll time in ms
    */
-  @JsonIgnore
   public long getLastPollAttempt() {
     return lastPollAttempt;
   }
@@ -376,7 +384,6 @@ public class AuState implements LockssSerializable {
   /**
    * Returns the result of the last PoR poll
    */
-  @JsonIgnore
   public String getLastPollResultMsg() {
     if (lastPollResult < 0) {
       return null;
@@ -391,7 +398,6 @@ public class AuState implements LockssSerializable {
   /**
    * Returns the result of the last PoP poll
    */
-  @JsonIgnore
   public String getLastPoPPollResultMsg() {
     if (lastPoPPollResult < 0) {
       return null;
@@ -526,7 +532,6 @@ public class AuState implements LockssSerializable {
    * Returns the last treewalk time for the au.
    * @return the last treewalk time in ms
    */
-  @JsonIgnore
   public long getLastTreeWalkTime() {
     return lastTreeWalk;
   }
@@ -685,7 +690,6 @@ public class AuState implements LockssSerializable {
     unBatchSaves();
   }
 
-  @JsonIgnore
   public SubstanceChecker.State getSubstanceState() {
     if (hasSubstance == null) {
       return SubstanceChecker.State.Unknown;
@@ -740,7 +744,6 @@ public class AuState implements LockssSerializable {
    * @return a {@link Collection}
    * @deprecated
    */
-  @JsonIgnore
   public HashSet getCrawlUrls() {
     if (crawlUrls==null) {
       crawlUrls = new HashSet();
@@ -777,7 +780,6 @@ public class AuState implements LockssSerializable {
     return clockssSubscriptionStatus;
   }
 
-  @JsonIgnore
   public String getClockssSubscriptionStatusString() {
     int status = getClockssSubscriptionStatus();
     switch (status) {

@@ -38,6 +38,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import com.fasterxml.jackson.core.type.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.ser.*;
 import com.fasterxml.jackson.databind.ser.impl.*;
@@ -134,6 +135,7 @@ public class AuUtil {
     // Serialize directly from the fields.
     mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
 				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
@@ -163,11 +165,19 @@ public class AuUtil {
     mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
 				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
 				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
     ObjectReader ordr = mapper.readerForUpdating(aus);
     ordr.readValue(json);
     return aus;
+  }
+
+  public static Map<String,Object> jsonToMap(String json) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String,Object> res =
+      mapper.readValue(json, new TypeReference<Map<String,Object>>() {});
+    return res;
   }
 
   /**

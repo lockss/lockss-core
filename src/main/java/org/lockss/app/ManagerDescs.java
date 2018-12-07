@@ -160,20 +160,28 @@ public class ManagerDescs {
     new ManagerDesc("org.lockss.jms.JMSManager");
   public static ManagerDesc SERVER_STATE_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.STATE_MANAGER,
-		    "org.lockss.state.ServerStateManager") {
+		    "org.lockss.state.ServerDbStateManager") {
       public boolean shouldStart(LockssApp app) {
-         return !app.isConfigClient();
+	return !app.isConfigClient();
+      }};
+  public static ManagerDesc STANDALONE_STATE_MANAGER_DESC =
+    new ManagerDesc(LockssDaemon.STATE_MANAGER,
+		    "org.lockss.state.DbStateManager") {
+      public boolean shouldStart(LockssApp app) {
+	return false;
+	// Need way to distinguish random standalone service from CfgSvc
+// 	return !app.isConfigClient();
       }};
   public static ManagerDesc CLIENT_STATE_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.STATE_MANAGER,
 		    "org.lockss.state.ClientStateManager") {
       public boolean shouldStart(LockssApp app) {
-         return app.isConfigClient();
+	return app.isConfigClient();
       }};
-
+  
   public static ManagerDesc CONFIG_DB_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.CONFIG_DB_MANAGER,
-	"org.lockss.config.db.ConfigDbManager") {
+		    "org.lockss.config.db.ConfigDbManager") {
       // Start ConfigDbManager iff we're not using a remote config service
       public boolean shouldStart(LockssApp app) {
 	// Temporarily unconditional until ConfigManager fixed

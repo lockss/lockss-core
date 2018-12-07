@@ -45,8 +45,14 @@ public interface StateManager extends LockssManager {
 
   public static final String PREFIX = Configuration.PREFIX + "state.";
 
-  /** Return the AuState for the AU.  Each AU has a singleton AuState
-   * instance */
+  /** Return the current singleton AuState for the AU, creating one if
+   * necessary.  There is only one AuState instance in existence for any AU
+   * at any time, though that instance may change over time.  As long as
+   * anyone has a pointer to an instance, this method must return the same
+   * instance on each call.  If all references to the instance are deleted,
+   * this method may return a new instance on the next call.  If the AU is
+   * deleted or deactivated, the next call (after the AU is reactivated)
+   * may return a new instance.  */
   public abstract AuState getAuState(ArchivalUnit au);
 
   /** Update the stored AuState with the values of the listed fields */

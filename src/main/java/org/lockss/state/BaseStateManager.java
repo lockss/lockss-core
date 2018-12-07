@@ -42,7 +42,8 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
-/** Base class for {@link StateManager}s. */
+/** Building blocks for {@link StateManager}s.
+*/
 public abstract class BaseStateManager extends BaseLockssDaemonManager
   implements StateManager, ConfigurableManager {
 
@@ -60,14 +61,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     this.daemon = daemon;
     configMgr = daemon.getConfigManager();
     pluginMgr = daemon.getPluginManager();
-  }
-
-  public void startService() {
-    super.startService();
-  }
-
-  public void stopService() {
-    super.stopService();
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,

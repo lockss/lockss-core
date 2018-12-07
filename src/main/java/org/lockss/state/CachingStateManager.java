@@ -40,16 +40,18 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
-/** StateManager that caches instances in memory.  Persistence may be
- * implemented by subclasses.
+/** Contains the basic logic for all StateManagers.  Exact behavior
+ * implemented and modified subclasses.
  *
  * For AuState, guarantees and enforces a single AuState per AU.
  */
-public class CachingStateManager extends BaseStateManager {
+public abstract class CachingStateManager extends BaseStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
 
+  /** Cache of extant AuState instances */
   protected Map<String,AuState> auStates;
+
   protected AuEventHandler auEventHandler;
 
   @Override
@@ -75,24 +77,17 @@ public class CachingStateManager extends BaseStateManager {
 
   public void stopService() {
     if (auEventHandler != null) {
+      if (pluginMgr != null) {
+	pluginMgr.unregisterAuEventHandler(auEventHandler);
+      }
       auEventHandler = null;
-    }
-    if (pluginMgr != null) {
-      pluginMgr.unregisterAuEventHandler(auEventHandler);
     }
     super.stopService();
   }
 
-//   public void setConfig(Configuration config, Configuration oldConfig,
-// 			Configuration.Differences changedKeys) {
-//     super.setConfig(config, oldConfig, changedKeys);
-//     if (changedKeys.contains(PREFIX)) {
-//     }
-//   }
-
-  /** Return the AuState for the AU.  Each AU has a singleton AuState
-   * instance */
-  public AuState getAuState(ArchivalUnit au) {
+  /** Return the current singleton AuState for the AU, creating one if
+   * necessary. */
+  public synchronized AuState getAuState(ArchivalUnit au) {
     AuState aus = auStates.get(auKey(au));
     log.debug("getAuState({}) [{}] = {}", au, auKey(au), aus);
     if (aus == null) {
@@ -101,66 +96,96 @@ public class CachingStateManager extends BaseStateManager {
     return aus;
   }
 
-  /** Update the stored AuState with the values of the listed fields */
+  /** Update the stored AuState with the values of the listed fields.
+   * @param aus The  source of the new values.  (Normally this will be
+ */
   public void updateAuState(AuState aus, Set<String> fields) {
-    log.error("Updating: {}: {}", auKey(aus.getArchivalUnit()), fields);
-    AuState cur = auStates.get(auKey(aus.getArchivalUnit()));
-    if (cur != null) {
-      if (cur != aus) {
-	throw new IllegalStateException("Attempt to store from wrong AuState instance");
-      }
-      try {
+    String key = auKey(aus.getArchivalUnit());
+    log.error("Updating: {}: {}", key, fields);
+    AuState cur = auStates.get(key);
+    try {
+      if (cur != null) {
+	if (cur != aus) {
+	  throw new IllegalStateException("Attempt to store from wrong AuState instance");
+	}
 	String json = aus.toJson(fields);
-	log.debug2("Updating: {}", json);
-	updateStoredObject(cur, json, daemon);
-      } catch (IOException e) {
-	log.error("Couldn't de/serialize AuState: {}", aus, e);
+	doPersistUpdate(key, aus, json, AuUtil.jsonToMap(json));
+	sendAuStateChangedEvent(auKey(aus.getArchivalUnit()), json, false);
+      } else if (isStoreOfMissingAuStateAllowed(fields)) {
+	auStates.put(key, aus);
+	String json = aus.toJson(fields);
+	doPersistNew(key, aus, json, AuUtil.jsonToMap(json));
+      } else {
+	throw new IllegalStateException("Attempt to apply partial update to AuState not in cache");
       }
-    } else if (isStoreOfMissingAuStateAllowed(fields)) {
-      storeAuState(aus);
-    } else {
-      throw new IllegalStateException("Attempt to apply partial update to AuState not in cache");
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuState: {}", aus, e);
+      // XXX throw
     }
+    
   }
 
-  protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
-    return fields == null || fields.isEmpty();
-  }
-
-  protected void updateStoredObject(AuState cur, String json,
-				    LockssDaemon daemon) throws IOException {
-    cur.updateFromJson(json, daemon);
-  }
-
-
-  /** Store the AuState for the AU.  Can only be used once per AU. */
+  /** Store an AuState not obtained from StateManager.  Useful in tests.
+   * Can only be called once per AU. */
   public void storeAuState(AuState aus) {
     String key = auKey(aus.getArchivalUnit());
     if (auStates.containsKey(key)) {
       throw new IllegalStateException("Storing 2nd AuState: " + key);
     }
     auStates.put(key, aus);
+    try {
+      String json = aus.toJson();
+      doPersistNew(key, aus, json, AuUtil.jsonToMap(json));
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuState: {}", aus, e);
+      // XXX throw
+    }
   }
 
-  private synchronized void handleAuDeleted(ArchivalUnit au) {
-    // XXX If AU recreated need to ensure new AU is store in AuState.
-    // Could do that with a handleAuCreated() which either stores the new
-    // AU or (better) restores the AuState from a "deleted" map
-
-//     auStates.remove(auKey(au));
-
+  /** Default behavior when AU is deleted/deactivated is to remove AuState
+   * from cache.  Persistent implementations should not remove it from
+   * storage. */
+  protected synchronized void handleAuDeleted(ArchivalUnit au) {
+    auStates.remove(auKey(au));
   }
 
   /** Handle a cache miss.  No-persistence here, just create a new
    * AuState and put it in the cache. */
   protected AuState handleCacheMiss(ArchivalUnit au) {
-    AuState aus = newDefaultAuState(au);
-    auStates.put(auKey(au), aus);
+    String key = auKey(au);
+    AuState aus = fetchPersistentAuState(au);
+    if (aus == null) {
+      aus = newDefaultAuState(au);
+      auStates.put(key, aus);
+      try {
+	String json = aus.toJson();
+	doPersistNew(key, aus, json, AuUtil.jsonToMap(json));
+      } catch (IOException e) {
+	log.error("Couldn't serialize AuState: {}", aus, e);
+	// XXX throw
+      }
+    }
     return aus;
   }
 
+  /** Default key->AuState map is HashMap */
   protected Map<String,AuState> newAuStateMap() {
     return new HashMap<>();
   }
 
+  protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
+    return fields == null || fields.isEmpty();
+  }
+
+  protected void doPersistUpdate(String key, AuState aus,
+				 String json, Map<String,Object> map) {
+  }
+
+  protected void doPersistNew(String key, AuState aus,
+			      String json, Map<String,Object> map) {
+  }
+
+  protected AuState fetchPersistentAuState(ArchivalUnit au) {
+    return null;
+  }
 }

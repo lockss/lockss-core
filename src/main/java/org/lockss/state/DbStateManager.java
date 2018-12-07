@@ -32,6 +32,7 @@ import java.io.*;
 import java.util.*;
 import org.apache.activemq.broker.*;
 import org.apache.activemq.store.*;
+import org.apache.commons.collections4.map.*;
 
 import org.lockss.app.*;
 import org.lockss.daemon.*;
@@ -40,61 +41,45 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
-/** Caching StateManager that accesses state objects from a REST
- * StateService.  Receives notifications of changes sent by service. */
-
-public class ClientStateManager extends CachingStateManager {
+/** StateManager that saves and loads state from persistent storage. */
+public class DbStateManager extends CachingStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
 
-  @Override
-  public void initService(LockssDaemon daemon) throws LockssAppException {
-    super.initService(daemon);
+
+  /** XXXFGL Entry point from service */
+  public void updateFromService(String auid, String json,
+				Map<String,Object> map) {
+
+    doPersistUpdate(auid, null, json, map);
   }
 
-  public void startService() {
-    super.startService();
-    setUpJmsReceive();
-  }
-
-  public void stopService() {
-    stopJms();
-    super.stopService();
-  }
-
-  /** Handle incoming AuState changed msg */
-  @Override
-  public synchronized void receiveAuState(String auid, String json,
-					  boolean complete) {
-    AuState cur = auStates.get(auid);
-    String msg = "Updating";
-    if (cur == null) {
-      msg = "Storing";
-      if (!complete) {
-	log.debug2("Ignoring partial update for AuState we don't have: {}", auid);
-	return;
-      }
-      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
-      if (au != null) {
-	cur = newDefaultAuState(au);
-      } else {	
-	log.error("Can't create AuState for non-existent AU: {}", auid);
-      }
-    }
-    try {
-      log.debug2("{}: {} from {}", msg, cur, json);
-      cur.updateFromJson(json, daemon);
-    } catch (IOException e) {
-      log.error("Couldn't deserialize AuState: {}", json, e);
-    }
-  }    
-
-  /** Send the changes to the StateService */
+  /** Save the changes to the DB.
+   * @param key the auid
+   * @param aus the AuState object, may be null
+   * @param json the serialized set of changes
+   * @param fields set of changed fields.  If null, all fields changed
+   * [Fernando - tell me if that makes it more difficult]
+   */
   @Override
   protected void doPersistUpdate(String key, AuState aus,
 				 String json, Map<String,Object> map) {
 
-    // XXXFGL send PATCH with json diffs
+    // XXXFGL store changes in DB
+
+  }
+
+  /** Save a new object to the DB.
+   * @param key the auid
+   * @param aus the AuState object, may be null
+   * @param json the serialized set of changes
+   * @throws IllegalStateException if this key is already present in the DB
+   */
+  @Override
+  protected void doPersistNew(String key, AuState aus,
+			      String json, Map<String,Object> map) {
+
+    // XXXFGL store new, complete object in DB
 
   }
 
@@ -103,9 +88,18 @@ public class ClientStateManager extends CachingStateManager {
     String key = auKey(au);
     AuState res = null;
 
-    // XXXFGL send GET, return null if server responds w/ 404
+    // load from DB, return null if not found
 
     return res;
   }
 
+  /** With DB, don't need to keep all AuState objects in memory, can allow
+   * them to be GCed if not referenced.  (Though, it might still be better
+   * to keep them all as it would improve server response, and probably not
+   * increase the peak memory needed. */
+  @Override
+  protected Map<String,AuState> newAuStateMap() {
+    return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
+			      AbstractReferenceMap.ReferenceStrength.WEAK);
+  }
 }

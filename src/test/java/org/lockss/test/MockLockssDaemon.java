@@ -950,7 +950,7 @@ public class MockLockssDaemon extends LockssDaemon {
   public void getNodeManager(ArchivalUnit au) {
   }
 
-  public static class TestingStateManager extends CachingStateManager {
+  public static class TestingStateManager extends InMemoryStateManager {
     protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
       return true;
     }

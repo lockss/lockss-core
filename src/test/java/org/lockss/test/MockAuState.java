@@ -74,6 +74,7 @@ public class MockAuState extends AuState {
 		     long lastPollTime, long lastPollStart,
                      long lastTreeWalk, HashSet crawlUrls,
                      StateManager stateMgr) {
+
     super(au,
 	  lastCrawlTime,
 	  lastCrawlAttempt,
@@ -84,7 +85,7 @@ public class MockAuState extends AuState {
 	  -1, // lastPollResult
 	  null, // lastPollResultMsg
 	  0L, // pollDuration
-        0L,
+	  0L,
 	  lastTreeWalk,
 	  crawlUrls,
 	  null, // accessType

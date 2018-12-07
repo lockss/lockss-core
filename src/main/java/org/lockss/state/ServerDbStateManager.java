@@ -41,18 +41,10 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
-/** StateManager that saves and loads state from persistent storage,
- * intended for use in REST service */
-public class ServerStateManager extends CachingStateManager {
+/** DbStateManager that also sends JMS state changed notifications */
+public class ServerDbStateManager extends DbStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
-
-
-//   @Override
-//   public void initService(LockssDaemon daemon) throws LockssAppException {
-//     super.initService(daemon);
-//   }
-
   public void startService() {
     super.startService();
     setUpJmsSend();
@@ -63,41 +55,12 @@ public class ServerStateManager extends CachingStateManager {
     super.stopService();
   }
 
-//   public void setConfig(Configuration config, Configuration oldConfig,
-// 			Configuration.Differences changedKeys) {
-//     if (changedKeys.contains(PREFIX)) {
-//     }
-//   }
-
-  /** Save the changes in the DB, send notification to clients */
+  /** Entry point from service? */
   @Override
-  protected void updateStoredObject(AuState cur, String json,
-				    LockssDaemon daemon) throws IOException {
-    super.updateStoredObject(cur, json, daemon);
+  public void updateFromService(String auid, String json,
+				Map<String,Object> map) {
+    super.updateFromService(auid, json, map);
 
-    // XXX store json diffs in DB
-
-    sendAuStateChangedEvent(auKey(cur.getArchivalUnit()), json, false);
-
-  }
-
-  /** Handle a cache miss.  Retrieve AuState from DB. */
-  @Override
-  protected AuState handleCacheMiss(ArchivalUnit au) {
-
-    AuState aus = null;
-
-    // XXX fetch AuState from database
-
-    if (aus != null) {
-      auStates.put(auKey(au), aus);
-    }
-    return aus;
-  }
-
-  @Override
-  protected Map<String,AuState> newAuStateMap() {
-    return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
-			      AbstractReferenceMap.ReferenceStrength.WEAK);
+    sendAuStateChangedEvent(auid, json, false);
   }
 }

@@ -130,7 +130,7 @@ public class TestAuState extends LockssTestCase {
     assertEquals(-1, aus.getLastCrawlResult());
     assertFalse(aus.isCrawlActive());
     assertFalse(aus.hasCrawled());
-    assertEquals(0, stateMgr.getAuStateStoreCount());
+    assertEquals(0, stateMgr.getAuStateUpdateCount());
 
     TimeBase.setSimulated(t1);
     aus.newCrawlStarted();
@@ -140,7 +140,7 @@ public class TestAuState extends LockssTestCase {
     assertEquals(-1, aus.getLastCrawlResult());
     assertTrue(aus.isCrawlActive());
     assertFalse(aus.hasCrawled());
-    assertEquals(1, stateMgr.getAuStateStoreCount());
+    assertEquals(1, stateMgr.getAuStateUpdateCount());
 
     TimeBase.setSimulated(t2);
     aus.newCrawlFinished(Crawler.STATUS_ERROR, "Plorg");
@@ -150,7 +150,7 @@ public class TestAuState extends LockssTestCase {
     assertEquals("Plorg", aus.getLastCrawlResultMsg());
     assertFalse(aus.isCrawlActive());
     assertFalse(aus.hasCrawled());
-    assertEquals(2, stateMgr.getAuStateStoreCount());
+    assertEquals(2, stateMgr.getAuStateUpdateCount());
 
     TimeBase.setSimulated(t3);
     aus.newCrawlFinished(Crawler.STATUS_SUCCESSFUL, "Syrah");
@@ -160,7 +160,7 @@ public class TestAuState extends LockssTestCase {
     assertEquals("Syrah", aus.getLastCrawlResultMsg());
     assertFalse(aus.isCrawlActive());
     assertTrue(aus.hasCrawled());
-    assertEquals(3, stateMgr.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateUpdateCount());
 
     aus = aus.simulateStoreLoad();
     assertEquals(t3, aus.getLastCrawlTime());
@@ -403,11 +403,11 @@ public class TestAuState extends LockssTestCase {
     assertEquals(SubstanceChecker.State.Unknown, aus.getSubstanceState());
     assertFalse(aus.hasNoSubstance());
     aus.setSubstanceState(SubstanceChecker.State.Yes);
-    assertEquals(1, stateMgr.getAuStateStoreCount());
+    assertEquals(1, stateMgr.getAuStateUpdateCount());
     assertEquals(SubstanceChecker.State.Yes, aus.getSubstanceState());
     assertFalse(aus.hasNoSubstance());
     aus.setSubstanceState(SubstanceChecker.State.No);
-    assertEquals(2, stateMgr.getAuStateStoreCount());
+    assertEquals(2, stateMgr.getAuStateUpdateCount());
     assertEquals(SubstanceChecker.State.No, aus.getSubstanceState());
     assertTrue(aus.hasNoSubstance());
     assertNotEquals("2", aus.getFeatureVersion(Plugin.Feature.Substance));
@@ -415,7 +415,7 @@ public class TestAuState extends LockssTestCase {
     aus.setSubstanceState(SubstanceChecker.State.Yes);
     // changing both the substance state and feature version should store
     // only once
-    assertEquals(3, stateMgr.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateUpdateCount());
     assertEquals(SubstanceChecker.State.Yes, aus.getSubstanceState());
     assertEquals("2", aus.getFeatureVersion(Plugin.Feature.Substance));
   }
@@ -525,10 +525,8 @@ public class TestAuState extends LockssTestCase {
     "numWillingRepairers",
     "numCurrentSuspectVersions",
     "cdnStems",
-    "crawlActive",
     "lastTopLevelPollTime",
-    "openAccess",
-//     "auCreationTime",
+    "auCreationTime",
     "averageHashDuration"};;
 
   String ignFields[] = {
@@ -607,30 +605,30 @@ public class TestAuState extends LockssTestCase {
 
   public void testBatch() {
     AuState aus = stateMgr.getAuState(mau);
-    assertEquals(0, stateMgr.getAuStateStoreCount());
+    assertEquals(0, stateMgr.getAuStateUpdateCount());
     aus.setNumAgreePeersLastPoR(1);
     aus.setNumWillingRepairers(3);
     aus.setNumCurrentSuspectVersions(5);
-    assertEquals(3, stateMgr.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateUpdateCount());
 
     aus.batchSaves();
     aus.setNumAgreePeersLastPoR(2);
     aus.setNumWillingRepairers(4);
     aus.setNumCurrentSuspectVersions(6);
-    assertEquals(3, stateMgr.getAuStateStoreCount());
+    assertEquals(3, stateMgr.getAuStateUpdateCount());
     aus.unBatchSaves();
-    assertEquals(4, stateMgr.getAuStateStoreCount());
+    assertEquals(4, stateMgr.getAuStateUpdateCount());
 
     aus.batchSaves();
     aus.setNumAgreePeersLastPoR(4);
     aus.batchSaves();
     aus.setNumWillingRepairers(8);
     aus.setNumCurrentSuspectVersions(12);
-    assertEquals(4, stateMgr.getAuStateStoreCount());
+    assertEquals(4, stateMgr.getAuStateUpdateCount());
     aus.unBatchSaves();
-    assertEquals(4, stateMgr.getAuStateStoreCount());
+    assertEquals(4, stateMgr.getAuStateUpdateCount());
     aus.unBatchSaves();
-    assertEquals(5, stateMgr.getAuStateStoreCount());
+    assertEquals(5, stateMgr.getAuStateUpdateCount());
   }
 
   // Return the serialized representation of the object
@@ -678,6 +676,7 @@ public class TestAuState extends LockssTestCase {
 
   static class MyStateManager extends CachingStateManager {
     int auStateStoreCount = 0;
+    int auStateUpdateCount = 0;
 
     @Override
     public void initService(LockssDaemon daemon) throws LockssAppException {
@@ -691,18 +690,24 @@ public class TestAuState extends LockssTestCase {
 
     @Override
     public void storeAuState(AuState auState) {
+      log.fatal("store", new Throwable());
       auStateStoreCount++;
       super.storeAuState(auState);
     }
 
     @Override
     public void updateAuState(AuState aus, Set<String> fields) {
-      auStateStoreCount++;
+      log.fatal("update", new Throwable());
+      auStateUpdateCount++;
       super.updateAuState(aus, fields);
     }
 
     public int getAuStateStoreCount() {
       return auStateStoreCount;
+    }
+
+    public int getAuStateUpdateCount() {
+      return auStateUpdateCount;
     }
   }
 
