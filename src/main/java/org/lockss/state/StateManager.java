@@ -53,11 +53,34 @@ public interface StateManager extends LockssManager {
    * this method may return a new instance on the next call.  If the AU is
    * deleted or deactivated, the next call (after the AU is reactivated)
    * may return a new instance.  */
-  public abstract AuState getAuState(ArchivalUnit au);
+  public AuState getAuState(ArchivalUnit au);
 
   /** Update the stored AuState with the values of the listed fields */
-  public abstract void updateAuState(AuState aus, Set<String> fields);
+  public void updateAuState(AuState aus, Set<String> fields);
 
   /** Store the AuState for the AU.  Can only be used once per AU. */
-  public abstract void storeAuState(AuState aus);
+  public void storeAuState(AuState aus);
+
+  /** Load/store exception.  Clients of AuState aren't prepared for checked
+   * exceptions; this is used to turn them into RuntimeExceptions */
+  public static class StateLoadStoreException extends RuntimeException {
+
+    public StateLoadStoreException() {
+      super();
+    }
+
+    public StateLoadStoreException(String message) {
+      super(message);
+    }
+
+    public StateLoadStoreException(Throwable cause) {
+      super(cause);
+    }
+
+    public StateLoadStoreException(String message, Throwable cause) {
+      super(message, cause);
+    }
+  }
+
+
 }

@@ -99,7 +99,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Update the stored AuState with the values of the listed fields.
    * @param aus The  source of the new values.  (Normally this will be
  */
-  public void updateAuState(AuState aus, Set<String> fields) {
+  public synchronized void updateAuState(AuState aus, Set<String> fields) {
     String key = auKey(aus.getArchivalUnit());
     log.error("Updating: {}: {}", key, fields);
     AuState cur = auStates.get(key);
@@ -109,25 +109,25 @@ public abstract class CachingStateManager extends BaseStateManager {
 	  throw new IllegalStateException("Attempt to store from wrong AuState instance");
 	}
 	String json = aus.toJson(fields);
-	doPersistUpdate(key, aus, json, AuUtil.jsonToMap(json));
-	sendAuStateChangedEvent(auKey(aus.getArchivalUnit()), json, false);
+	doStoreAuStateUpdate(key, aus, json, AuUtil.jsonToMap(json));
+	doNotifyAuStateChanged(key, json);
       } else if (isStoreOfMissingAuStateAllowed(fields)) {
+	// XXX log?
 	auStates.put(key, aus);
 	String json = aus.toJson(fields);
-	doPersistNew(key, aus, json, AuUtil.jsonToMap(json));
+	doStoreAuStateNew(key, aus, json, AuUtil.jsonToMap(json));
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to AuState not in cache");
       }
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", aus, e);
-      // XXX throw
+      throw new StateLoadStoreException("Couldn't serialize AuState: " + aus);
     }
-    
   }
 
   /** Store an AuState not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
-  public void storeAuState(AuState aus) {
+  public synchronized void storeAuState(AuState aus) {
     String key = auKey(aus.getArchivalUnit());
     if (auStates.containsKey(key)) {
       throw new IllegalStateException("Storing 2nd AuState: " + key);
@@ -135,10 +135,10 @@ public abstract class CachingStateManager extends BaseStateManager {
     auStates.put(key, aus);
     try {
       String json = aus.toJson();
-      doPersistNew(key, aus, json, AuUtil.jsonToMap(json));
+      doStoreAuStateNew(key, aus, json, AuUtil.jsonToMap(json));
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", aus, e);
-      // XXX throw
+      throw new StateLoadStoreException("Couldn't deserialize AuState: " + aus);
     }
   }
 
@@ -149,43 +149,37 @@ public abstract class CachingStateManager extends BaseStateManager {
     auStates.remove(auKey(au));
   }
 
-  /** Handle a cache miss.  No-persistence here, just create a new
-   * AuState and put it in the cache. */
+  /** Handle a cache miss.  Call hooks to load an object from backing
+   * store, if any, or to create and store new default object. */
   protected AuState handleCacheMiss(ArchivalUnit au) {
     String key = auKey(au);
-    AuState aus = fetchPersistentAuState(au);
+    AuState aus = doLoadAuState(au);
     if (aus == null) {
       aus = newDefaultAuState(au);
       auStates.put(key, aus);
       try {
 	String json = aus.toJson();
-	doPersistNew(key, aus, json, AuUtil.jsonToMap(json));
+	doStoreAuStateNew(key, aus, json, AuUtil.jsonToMap(json));
       } catch (IOException e) {
 	log.error("Couldn't serialize AuState: {}", aus, e);
-	// XXX throw
+	throw new StateLoadStoreException("Couldn't serialize AuState: " + aus);
       }
     }
     return aus;
   }
 
-  /** Default key->AuState map is HashMap */
+  /** @return a Map suitable for an AuState cache.  By default a HashMap,
+   * for a complete cache. */
   protected Map<String,AuState> newAuStateMap() {
     return new HashMap<>();
   }
 
+  /** Return true if an update call for an unknown AuState should be
+   * allowed (and treated as a store).  By default it's allowed iff it's a
+   * complete update (all fields).  Overridable because of the many tests
+   * that were written when this was permissiable */
   protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
     return fields == null || fields.isEmpty();
   }
 
-  protected void doPersistUpdate(String key, AuState aus,
-				 String json, Map<String,Object> map) {
-  }
-
-  protected void doPersistNew(String key, AuState aus,
-			      String json, Map<String,Object> map) {
-  }
-
-  protected AuState fetchPersistentAuState(ArchivalUnit au) {
-    return null;
-  }
 }

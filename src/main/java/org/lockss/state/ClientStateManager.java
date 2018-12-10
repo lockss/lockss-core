@@ -48,15 +48,12 @@ public class ClientStateManager extends CachingStateManager {
   protected static L4JLogger log = L4JLogger.getLogger();
 
   @Override
-  public void initService(LockssDaemon daemon) throws LockssAppException {
-    super.initService(daemon);
-  }
-
   public void startService() {
     super.startService();
     setUpJmsReceive();
   }
 
+  @Override
   public void stopService() {
     stopJms();
     super.stopService();
@@ -64,22 +61,12 @@ public class ClientStateManager extends CachingStateManager {
 
   /** Handle incoming AuState changed msg */
   @Override
-  public synchronized void receiveAuState(String auid, String json,
-					  boolean complete) {
+  public synchronized void doReceiveAuStateChanged(String auid, String json) {
     AuState cur = auStates.get(auid);
     String msg = "Updating";
     if (cur == null) {
-      msg = "Storing";
-      if (!complete) {
-	log.debug2("Ignoring partial update for AuState we don't have: {}", auid);
-	return;
-      }
-      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
-      if (au != null) {
-	cur = newDefaultAuState(au);
-      } else {	
-	log.error("Can't create AuState for non-existent AU: {}", auid);
-      }
+      log.debug2("Ignoring partial update for AuState we don't have: {}", auid);
+      return;
     }
     try {
       log.debug2("{}: {} from {}", msg, cur, json);
@@ -91,7 +78,7 @@ public class ClientStateManager extends CachingStateManager {
 
   /** Send the changes to the StateService */
   @Override
-  protected void doPersistUpdate(String key, AuState aus,
+  protected void doStoreAuStateUpdate(String key, AuState aus,
 				 String json, Map<String,Object> map) {
 
     // XXXFGL send PATCH with json diffs
@@ -99,7 +86,7 @@ public class ClientStateManager extends CachingStateManager {
   }
 
   @Override
-  protected AuState fetchPersistentAuState(ArchivalUnit au) {
+  protected AuState doLoadAuState(ArchivalUnit au) {
     String key = auKey(au);
     AuState res = null;
 

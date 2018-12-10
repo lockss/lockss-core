@@ -78,7 +78,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   /** Create a default AuState */
   protected AuState newDefaultAuState(ArchivalUnit au) {
-    return new AuState(au, null);
+    return new AuState(au, this);
   }
 
   /** return the string to use as a key for the AU's AuState.  Normally the
@@ -97,12 +97,10 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   // Notification message is a map:
   // name - Name of state class (e.g., AuState)
   // auid - if object is per-AU
-  // complete - true iff the entire object is represented, false if diffs
-  // json - serialized json of whole object or diffs
+    // json - serialized json of whole object or diffs
 
   public static final String JMS_MAP_NAME = "name";
   public static final String JMS_MAP_AUID = "auid";
-  public static final String JMS_MAP_COMPLETE = "complete";
   public static final String JMS_MAP_JSON = "json";
   
 
@@ -144,7 +142,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   void setUpJmsReceive() {
     if (!enableJmsReceive) {
-      log.info("JMS receive manually disabled, not processing incoming state changed notifications");
+      log.info("JMS receive manually disabled, not receiving incoming state changed notifications");
       return;
     }
     log.debug("Creating consumer");
@@ -192,13 +190,17 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     }
   }
 
-  void sendAuStateChangedEvent(String auid, String json, boolean complete) {
+  /** Send JMS notification of AuState change.  Should be called only from
+   * a hook in a server StateManager.
+   * @param key auid
+   * @param json string containing only the changed fields.
+   */
+  protected void sendAuStateChangedEvent(String key, String json) {
     if (jmsProducer != null) {
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_MAP_NAME, "AuState");
-      map.put(JMS_MAP_AUID, auid);
+      map.put(JMS_MAP_AUID, key);
       map.put(JMS_MAP_JSON, json);
-      map.put(JMS_MAP_COMPLETE, Boolean.toString(complete));
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
@@ -208,16 +210,15 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
   /** Incoming AuEvent message */
-  void receiveStateChangedNotification(Map map) {
+  protected void receiveStateChangedNotification(Map map) {
     log.debug2("Received notification: " + map);
     try {
       String name = (String)map.get(JMS_MAP_NAME);
       String auid = (String)map.get(JMS_MAP_AUID);
       String json = (String)map.get(JMS_MAP_JSON);
-      boolean complete = Boolean.valueOf((String)map.get(JMS_MAP_JSON));
       switch (name) {
       case "AuState":
-	receiveAuState(auid, json, complete);
+	doReceiveAuStateChanged(auid, json);
 	break;
       default:
 	log.warn("Receive state update for unknown object: {}", name);
@@ -225,9 +226,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     } catch (ClassCastException e) {
       log.error("Wrong type field in message: {}", map, e);
     }
-  }
-
-  void receiveAuState(String auid, String json, boolean complete) {
   }
 
   private class MyMessageListener
@@ -251,6 +249,46 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 	log.warn("foo", e);
       }
     }
+  }
+
+
+  // Hooks to be implemented by subclasses
+
+  /** Hook for subclass to store a new AuState in persistent storage.  Any
+   * of the three data sources may be used.
+   * @param key AUID or other key for AU
+   * @param aus AuState data source
+   * @param aus json data source
+   * @param aus Map data source
+   */
+  protected void doStoreAuStateNew(String key, AuState aus,
+			      String json, Map<String,Object> map) {
+  }
+
+  /** Hook for subclass to update an existing AuStatein persistent storage.
+   * Any of the three data sources may be used.  Only those fields present
+   * in the Map or the json string should be saved.
+   * @param key AUID or other key for AU
+   * @param aus AuState data source
+   * @param aus json data source
+   * @param aus Map data source
+   */
+  protected void doStoreAuStateUpdate(String key, AuState aus,
+				 String json, Map<String,Object> map) {
+  }
+
+  /** Hook for subclass to read an AuState instance from persistent
+   * storage. */
+  protected AuState doLoadAuState(ArchivalUnit au) {
+    return null;
+  }
+
+  /** Hook for subclass to send AuState changed notifications */
+  protected void doNotifyAuStateChanged(String auid, String json) {
+  }
+
+  /** Hook for subclass to receive AuState changed notifications */
+  protected void doReceiveAuStateChanged(String auid, String json) {
   }
 
 

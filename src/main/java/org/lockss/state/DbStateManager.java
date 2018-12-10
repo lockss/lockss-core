@@ -47,59 +47,71 @@ public class DbStateManager extends CachingStateManager {
   protected static L4JLogger log = L4JLogger.getLogger();
 
 
-  /** XXXFGL Entry point from service */
-  public void updateFromService(String auid, String json,
-				Map<String,Object> map) {
-
-    doPersistUpdate(auid, null, json, map);
-  }
-
-  /** Save the changes to the DB.
+  /** Entry point from state service to store changes to an AuState.  Write
+   * to DB, call hook to notify clients if appropriate
    * @param key the auid
-   * @param aus the AuState object, may be null
    * @param json the serialized set of changes
-   * @param fields set of changed fields.  If null, all fields changed
-   * [Fernando - tell me if that makes it more difficult]
+   * @param map Map representation of change fields.
    */
-  @Override
-  protected void doPersistUpdate(String key, AuState aus,
-				 String json, Map<String,Object> map) {
+  // XXXFGL
+  public void updateAuStateFromService(String auid, String json,
+				       Map<String,Object> map) {
 
-    // XXXFGL store changes in DB
-
+    doStoreAuStateUpdate(auid, null, json, map);
+    doNotifyAuStateChanged(auid, json);
   }
 
-  /** Save a new object to the DB.
+  /** Hook to store a new AuState in the DB.
    * @param key the auid
    * @param aus the AuState object, may be null
    * @param json the serialized set of changes
    * @throws IllegalStateException if this key is already present in the DB
    */
   @Override
-  protected void doPersistNew(String key, AuState aus,
+  protected void doStoreAuStateNew(String key, AuState aus,
 			      String json, Map<String,Object> map) {
 
     // XXXFGL store new, complete object in DB
 
   }
 
+  /** Hook to store the changes to the AuState in the DB.
+   * @param key the auid
+   * @param aus the AuState object, may be null
+   * @param json the serialized set of changes
+   * @param map Map representation of change fields.
+   */
   @Override
-  protected AuState fetchPersistentAuState(ArchivalUnit au) {
+  protected void doStoreAuStateUpdate(String key, AuState aus,
+				 String json, Map<String,Object> map) {
+
+    // XXXFGL store changes in DB
+
+  }
+
+  /** Hook to load an AuState from the DB.
+   * @param au the AU
+   * @return the AuState reflecting the current contents of the DB, or null
+   * if there's no AuState for the AU in the DB.
+   */
+  @Override
+  protected AuState doLoadAuState(ArchivalUnit au) {
     String key = auKey(au);
     AuState res = null;
 
-    // load from DB, return null if not found
+    // XXXFGL load from DB, return null if not found
 
     return res;
   }
 
-  /** With DB, don't need to keep all AuState objects in memory, can allow
-   * them to be GCed if not referenced.  (Though, it might still be better
-   * to keep them all as it would improve server response, and probably not
-   * increase the peak memory needed. */
-  @Override
-  protected Map<String,AuState> newAuStateMap() {
-    return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
-			      AbstractReferenceMap.ReferenceStrength.WEAK);
-  }
+  // A reference map provides minimum acceptable amount of caching, given
+  // the contract for getAuState().  But this would cause worse performance
+  // due to more DB accesses.  The default full map provides the best
+  // performance; if memory becomes an issue, an LRU reference map would
+  // provide better performance than just a reference map.
+//   @Override
+//   protected Map<String,AuState> newAuStateMap() {
+//     return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
+// 			      AbstractReferenceMap.ReferenceStrength.WEAK);
+//   }
 }

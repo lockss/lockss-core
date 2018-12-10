@@ -40,10 +40,10 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
-/** StateManager that keeps objects in memory, persists AuState objects
- * across AU deletion/creation but not across java invocations.  Suitable
- * for use in unit tests and other situations where on-disk persistence is
- * not needed.  */
+/** StateManager that keeps objects in memory, persists AuState objects (in
+ * memory) across AU deletion/creation, but not across java invocations.
+ * Suitable for use in unit tests and other situations where on-disk
+ * persistence is not needed.  */
 public class InMemoryStateManager extends CachingStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
@@ -51,16 +51,18 @@ public class InMemoryStateManager extends CachingStateManager {
   // Serialized AuState instances for AUs that have been
   // deleted/deactivated.  Serializing is a more realistic way to
   // save/restore the state, plus it provides a convenient way to restore
-  // the data into an object with a different AU.
+  // the data into an AuState object with a different AU.
   protected Map<String,String> deletedAuStates = new HashMap<>();
 
+  /** When AU deleted, backup any existing AuState to the deletedAuStates
+   * map and delete from cache */
   protected synchronized void handleAuDeleted(ArchivalUnit au) {
     // Serialize the AU's AuState to "backing" store so it can be restored
     // if the AU is reactivated.
 
     String key = auKey(au);
     AuState aus = auStates.get(key);
-    log.debug("Persisting: {}: {}", au, aus);
+    log.debug("Remembering: {}: {}", au, aus);
     if (aus != null) {
       try {
 	String json = aus.toJson();
@@ -68,13 +70,15 @@ public class InMemoryStateManager extends CachingStateManager {
       } catch (IOException e) {
 	log.error("Couldn't serialize AuState to \"backing\" store: {}",
 		  aus, e);
-	throw new RuntimeException("???");
+	throw new StateLoadStoreException("Couldn't serialize AuState to \"backing\" store",
+					  e);
       }
-    }      
+    }
     super.handleAuDeleted(au);
   }
 
-  protected AuState fetchPersistentAuState(ArchivalUnit au) {
+  /** "Load" an AuState from the deletedAuStates if it's there */
+  protected AuState doLoadAuState(ArchivalUnit au) {
     String key = auKey(au);
     String json = deletedAuStates.get(key);
     if (json != null) {
@@ -84,7 +88,8 @@ public class InMemoryStateManager extends CachingStateManager {
       } catch (IOException e) {
 	log.error("Couldn't deserialize AuState from \"backing\" store: {}",
 		  json, e);
-	throw new RuntimeException("???");
+	throw new StateLoadStoreException("Couldn't deserialize AuState from \"backing\" store",
+					  e);
       }
     }
     return null;

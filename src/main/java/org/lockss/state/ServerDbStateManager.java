@@ -28,39 +28,29 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
-import java.io.*;
-import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
-import org.apache.commons.collections4.map.*;
 
-import org.lockss.app.*;
-import org.lockss.daemon.*;
 import org.lockss.log.*;
-import org.lockss.util.*;
-import org.lockss.config.*;
-import org.lockss.plugin.*;
 
 /** DbStateManager that also sends JMS state changed notifications */
 public class ServerDbStateManager extends DbStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
   public void startService() {
     super.startService();
     setUpJmsSend();
   }
 
+  @Override
   public void stopService() {
     stopJms();
     super.stopService();
   }
 
-  /** Entry point from service? */
   @Override
-  public void updateFromService(String auid, String json,
-				Map<String,Object> map) {
-    super.updateFromService(auid, json, map);
-
-    sendAuStateChangedEvent(auid, json, false);
+  protected void doNotifyAuStateChanged(String key, String json) {
+    log.debug("Sending AuState changed notification for {}: {}", key, json);
+    sendAuStateChangedEvent(key, json);
   }
 }

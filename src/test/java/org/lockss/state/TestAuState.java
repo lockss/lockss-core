@@ -690,14 +690,12 @@ public class TestAuState extends LockssTestCase {
 
     @Override
     public void storeAuState(AuState auState) {
-      log.fatal("store", new Throwable());
       auStateStoreCount++;
       super.storeAuState(auState);
     }
 
     @Override
     public void updateAuState(AuState aus, Set<String> fields) {
-      log.fatal("update", new Throwable());
       auStateUpdateCount++;
       super.updateAuState(aus, fields);
     }
