@@ -65,6 +65,11 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 
   private static final Logger log = Logger.getLogger();
 
+  public static final String UI_PORT_CONFIGURATION_TEMPLATE =
+    "UiPortConfigTemplate.txt";
+  public static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
+
+
   // The path of a temporary directory where the test data will reside.
   private String tempDirPath = null;
 
