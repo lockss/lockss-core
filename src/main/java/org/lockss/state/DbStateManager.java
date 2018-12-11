@@ -28,17 +28,11 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
-import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
-import org.apache.commons.collections4.map.*;
-
 import org.lockss.app.*;
-import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.log.*;
-import org.lockss.util.*;
-import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.plugin.*;
 
 /** StateManager that saves and loads state from persistent storage. */
@@ -46,6 +40,8 @@ public class DbStateManager extends CachingStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
 
+  // The database state manager SQL executor.
+  private DbStateManagerSql dbStateManagerSql = null;
 
   /** Entry point from state service to store changes to an AuState.  Write
    * to DB, call hook to notify clients if appropriate
@@ -70,9 +66,33 @@ public class DbStateManager extends CachingStateManager {
   @Override
   protected void doStoreAuStateNew(String key, AuState aus,
 			      String json, Map<String,Object> map) {
+    log.debug2("key = {}", key);
+    log.debug2("aus = {}", aus);
+    log.debug2("json = {}", json);
+    log.debug2("map = {}", map);
 
-    // XXXFGL store new, complete object in DB
+    String pluginId = PluginManager.pluginIdFromAuId(key);
+    log.trace("pluginId = {}", pluginId);
 
+    String auKey = PluginManager.auKeyFromAuId(key);
+    log.trace("auKey = {}", auKey);
+
+    try {
+      Long auSeq =
+	  getDbStateManagerSql().addArchivalUnitState(pluginId, auKey, map);
+      log.trace("auSeq = {}", auSeq);
+    } catch (DbException dbe) {
+      String message = "Exception caught persisting new AuState";
+      log.error("key = {}", key);
+      log.error("aus = {}", aus);
+      log.error("json = {}", json);
+      log.error("map = {}", map);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new RuntimeException(message, dbe);
+    }
+
+    log.debug2("Done");
   }
 
   /** Hook to store the changes to the AuState in the DB.
@@ -96,11 +116,33 @@ public class DbStateManager extends CachingStateManager {
    */
   @Override
   protected AuState doLoadAuState(ArchivalUnit au) {
+    log.debug2("au = {}", au);
+
     String key = auKey(au);
     AuState res = null;
+    String pluginId = PluginManager.pluginIdFromAuId(key);
+    log.trace("pluginId = {}", pluginId);
 
-    // XXXFGL load from DB, return null if not found
+    String auKey = PluginManager.auKeyFromAuId(key);
+    log.trace("auKey = {}", auKey);
 
+    try {
+      Map<String, Object> auStateProps =
+	  getDbStateManagerSql().findArchivalUnitState(pluginId, auKey);
+      log.trace("auStateProps = {}", auStateProps);
+
+      if (auStateProps != null) {
+        res = populateAuStateFromMap(au, auStateProps);
+      }
+    } catch (DbException dbe) {
+      String message = "Exception caught finding AuState";
+      log.error("key = {}", key);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new RuntimeException(message, dbe);
+    }
+
+    log.debug2("res = {}", res);
     return res;
   }
 
@@ -114,4 +156,75 @@ public class DbStateManager extends CachingStateManager {
 //     return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
 // 			      AbstractReferenceMap.ReferenceStrength.WEAK);
 //   }
+
+  /**
+   * Provides the database state manager SQL executor.
+   * 
+   * @return a DbStateManagerSql with the database state manager SQL executor.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private DbStateManagerSql getDbStateManagerSql() throws DbException {
+    if (dbStateManagerSql == null) {
+      if (theApp == null) {
+	dbStateManagerSql = new DbStateManagerSql(
+	    LockssApp.getManagerByTypeStatic(ConfigDbManager.class));
+      } else {
+	dbStateManagerSql = new DbStateManagerSql(
+	    theApp.getManagerByType(ConfigDbManager.class));
+      }
+    }
+
+    return dbStateManagerSql;
+  }
+
+  /**
+   * Provides an AuState populated with the passed contents.
+   * 
+   * @param au
+   *          An ArchivalUnit with the Archival Unit.
+   * @param auStateProps
+   *          A Map<String, Object> with the Archival Unit state properties.
+   * @return an AuState populated with the passed contents.
+   */
+  private AuState populateAuStateFromMap(ArchivalUnit au,
+      Map<String, Object> auStateProps) {
+    log.debug2("au = {}", au);
+    log.debug2("auStateProps = {}", auStateProps);
+
+    AuState auState = new AuState(au,
+	(Long)auStateProps.get("lastCrawlTime"),
+	(Long)auStateProps.get("lastCrawlAttempt"),
+	(Integer)auStateProps.get("lastCrawlResult"),
+	(String)auStateProps.get("lastCrawlResultMsg"),
+	(Long)auStateProps.get("lastTopLevelPollTime"),
+	(Long)auStateProps.get("lastPollStart"),
+	(Integer)auStateProps.get("lastPollResult"),
+	(String)auStateProps.get("lastPollResultMsg"),
+	(Long)auStateProps.get("pollDuration"),
+	(Long)auStateProps.get("averageHashDuration"),
+	0,
+	null,
+	(AuState.AccessType)auStateProps.get("accessType"),
+	0,
+	(Double)auStateProps.get("v3Agreement"),
+	(Double)auStateProps.get("highestV3Agreement"),
+	(SubstanceChecker.State)auStateProps.get("hasSubstance"),
+	(String)auStateProps.get("substanceVersion"),
+	(String)auStateProps.get("metadataVersion"),
+	(Long)auStateProps.get("lastMetadataIndex"),
+	(Long)auStateProps.get("lastContentChange"),
+	(Long)auStateProps.get("lastPoPPoll"),
+	(Integer)auStateProps.get("lastPoPPollResult"),
+	(Long)auStateProps.get("lastLocalHashScan"),
+	(Integer)auStateProps.get("numAgreePeersLastPoR"),
+	(Integer)auStateProps.get("numWillingRepairers"),
+	(Integer)auStateProps.get("numCurrentSuspectVersions"),
+	(List<String>)auStateProps.get("cdnStems"),
+	this
+	);
+
+    log.debug2("auState = {}", auState);
+    return auState;
+  }
 }

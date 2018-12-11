@@ -61,7 +61,7 @@ import org.lockss.util.time.TimeBase;
 public class ConfigManagerSql {
   private static L4JLogger log = L4JLogger.getLogger();
 
-  private final ConfigDbManager configDbManager;
+  protected final ConfigDbManager configDbManager;
 
   // Query to find a plugin by its identifier.
   private static final String FIND_PLUGIN_QUERY = "select "
@@ -188,6 +188,9 @@ public class ConfigManagerSql {
 
   /**
    * Constructor.
+   * 
+   * @param configDbManager
+   *          A ConfigDbManager with the database manager.
    */
   public ConfigManagerSql(ConfigDbManager configDbManager) throws DbException {
     this.configDbManager = configDbManager;
@@ -575,7 +578,7 @@ public class ConfigManagerSql {
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
    *          A String with the Archival Unit key identifier.
-   * @return a Map<String,String> with the Archival Unit configurations.
+   * @return a Map<String, String> with the Archival Unit configurations.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
@@ -584,7 +587,7 @@ public class ConfigManagerSql {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
 
-    Map<String,String> auConfig = new HashMap<>();
+    Map<String, String> auConfig = new HashMap<>();
     PreparedStatement getConfiguration = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot get AU configuration";
@@ -840,7 +843,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private Long findOrCreatePlugin(Connection conn, String pluginId)
+  protected Long findOrCreatePlugin(Connection conn, String pluginId)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
 
@@ -989,7 +992,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private Long findOrCreateArchivalUnit(Connection conn, Long pluginSeq,
+  protected Long findOrCreateArchivalUnit(Connection conn, Long pluginSeq,
       String auKey, long creationTime) throws DbException {
     log.debug2("pluginSeq = {}", pluginSeq);
     log.debug2("auKey = {}", auKey);
