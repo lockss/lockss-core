@@ -152,9 +152,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(StateManager.class);
 
 
-  protected static final String DEFAULT_SCHED_SERVICE =
-    "org.lockss.scheduler.SchedService";
-
   // Managers specific to this service.  They are started in this order,
   // following the standard managers specified in BaseLockssDaemon
   private final ManagerDesc[] myManagerDescs = {
@@ -162,8 +159,7 @@ public class LockssDaemon extends LockssApp {
     CONFIG_DB_MANAGER_DESC,
     PLUGIN_MANAGER_DESC,
     // StateManager must follow PluginManager
-    SERVER_STATE_MANAGER_DESC,
-    CLIENT_STATE_MANAGER_DESC,
+    STATE_MANAGER_DESC,
     SCHED_SERVICE_DESC,
     HASH_SERVICE_DESC,
     SYSTEM_METRICS_DESC,
