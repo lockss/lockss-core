@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -178,6 +174,19 @@ public class AuUtil {
     Map<String,Object> res =
       mapper.readValue(json, new TypeReference<Map<String,Object>>() {});
     return res;
+  }
+
+  /**
+   * Provides the JSON serialization version of a map.
+   * 
+   * @param map
+   *          A Map<String,Object> with the map to be serialized.
+   * @return a String with the JSON serialization version of the map.
+   * @throws IOException
+   *           if any problem occurred.
+   */
+  public static String mapToJson(Map<String,Object> map) throws IOException {
+    return new ObjectMapper().writeValueAsString(map);
   }
 
   /**

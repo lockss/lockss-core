@@ -28,6 +28,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
+import java.io.IOException;
 import java.util.*;
 import org.lockss.app.*;
 import org.lockss.db.DbException;
@@ -132,8 +133,15 @@ public class DbStateManager extends CachingStateManager {
       log.trace("auStateProps = {}", auStateProps);
 
       if (auStateProps != null) {
-        res = populateAuStateFromMap(au, auStateProps);
+        res = newDefaultAuState(au)
+            .updateFromJson(AuUtil.mapToJson(auStateProps), daemon);
       }
+    } catch (IOException ioe) {
+      String message = "Exception caught composing AuState";
+      log.error("key = {}", key);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new RuntimeException(message, ioe);
     } catch (DbException dbe) {
       String message = "Exception caught finding AuState";
       log.error("key = {}", key);
@@ -176,55 +184,5 @@ public class DbStateManager extends CachingStateManager {
     }
 
     return dbStateManagerSql;
-  }
-
-  /**
-   * Provides an AuState populated with the passed contents.
-   * 
-   * @param au
-   *          An ArchivalUnit with the Archival Unit.
-   * @param auStateProps
-   *          A Map<String, Object> with the Archival Unit state properties.
-   * @return an AuState populated with the passed contents.
-   */
-  private AuState populateAuStateFromMap(ArchivalUnit au,
-      Map<String, Object> auStateProps) {
-    log.debug2("au = {}", au);
-    log.debug2("auStateProps = {}", auStateProps);
-
-    AuState auState = new AuState(au,
-	(Long)auStateProps.get("lastCrawlTime"),
-	(Long)auStateProps.get("lastCrawlAttempt"),
-	(Integer)auStateProps.get("lastCrawlResult"),
-	(String)auStateProps.get("lastCrawlResultMsg"),
-	(Long)auStateProps.get("lastTopLevelPollTime"),
-	(Long)auStateProps.get("lastPollStart"),
-	(Integer)auStateProps.get("lastPollResult"),
-	(String)auStateProps.get("lastPollResultMsg"),
-	(Long)auStateProps.get("pollDuration"),
-	(Long)auStateProps.get("averageHashDuration"),
-	0,
-	null,
-	(AuState.AccessType)auStateProps.get("accessType"),
-	0,
-	(Double)auStateProps.get("v3Agreement"),
-	(Double)auStateProps.get("highestV3Agreement"),
-	(SubstanceChecker.State)auStateProps.get("hasSubstance"),
-	(String)auStateProps.get("substanceVersion"),
-	(String)auStateProps.get("metadataVersion"),
-	(Long)auStateProps.get("lastMetadataIndex"),
-	(Long)auStateProps.get("lastContentChange"),
-	(Long)auStateProps.get("lastPoPPoll"),
-	(Integer)auStateProps.get("lastPoPPollResult"),
-	(Long)auStateProps.get("lastLocalHashScan"),
-	(Integer)auStateProps.get("numAgreePeersLastPoR"),
-	(Integer)auStateProps.get("numWillingRepairers"),
-	(Integer)auStateProps.get("numCurrentSuspectVersions"),
-	(List<String>)auStateProps.get("cdnStems"),
-	this
-	);
-
-    log.debug2("auState = {}", auState);
-    return auState;
   }
 }

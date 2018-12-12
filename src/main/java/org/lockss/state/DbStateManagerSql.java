@@ -49,7 +49,6 @@ import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.state.AuState.AccessType;
 import org.lockss.state.SubstanceChecker.State;
-import org.lockss.util.time.TimeBase;
 
 /**
  * The DbStateManager SQL code executor.
@@ -162,8 +161,7 @@ public class DbStateManagerSql extends ConfigManagerSql {
       + ") values (?,?,("
       + "select coalesce(max(" + ARCHIVAL_UNIT_CDN_STEM_IDX_COLUMN + "), 0) + 1"
       + " from " + ARCHIVAL_UNIT_CDN_STEM_TABLE
-      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?"
-      + " and " + STATE_CDN_STEM_SEQ_COLUMN + " = ?))";
+      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?))";
   
   // Query to add a state of an Archival Unit.
   private static final String ADD_AU_STATE_QUERY = "insert into "
@@ -734,11 +732,13 @@ public class DbStateManagerSql extends ConfigManagerSql {
       // Find the Archival Unit plugin, adding it if necessary.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
+      // The Archival Unit creation time.
+      long auCreationTime =
+	  ((Number)auStateProps.get("auCreationTime")).longValue();
+      log.trace("auCreationTime = {}", auCreationTime);
 
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, auCreationTime);
 
       // Add the new state of the Archival Unit.
       addArchivalUnitState(conn, auSeq, auStateProps);
@@ -775,12 +775,9 @@ public class DbStateManagerSql extends ConfigManagerSql {
    *           if any problem occurred accessing the database.
    */
   private int addArchivalUnitState(Connection conn, Long auSeq,
-      Map<String, Object> originalAuStateProps) throws DbException {
+      Map<String, Object> auStateProps) throws DbException {
     log.debug2("auSeq = {}", auSeq);
-    log.debug2("originalAuStateProps = {}", originalAuStateProps);
-
-    Map<String, Object> auStateProps = fixAuStateTypes(originalAuStateProps);
-    log.trace("auStateProps = {}", auStateProps);
+    log.debug2("auStateProps = {}", auStateProps);
 
     // Get the foreign key of the access type.
     String accessTypeText = (String)auStateProps.get("accessType");
@@ -849,17 +846,27 @@ public class DbStateManagerSql extends ConfigManagerSql {
 
       // Populate the query.
       addState.setLong(1, auSeq);
-      addState.setLong(2, (Long)auStateProps.get("lastCrawlTime"));
-      addState.setLong(3, (Long)auStateProps.get("lastCrawlAttempt"));
+      addState.setLong(2,
+	  ((Number)auStateProps.get("lastCrawlTime")).longValue());
+      addState.setLong(3,
+	  ((Number)auStateProps.get("lastCrawlAttempt")).longValue());
       addState.setLong(4, lastCrawlResultMsgSeq);
-      addState.setInt(5, (Integer)auStateProps.get("lastCrawlResult"));
-      addState.setLong(6, (Long)auStateProps.get("lastTopLevelPollTime"));
-      addState.setLong(7, (Long)auStateProps.get("lastPollStart"));
-      addState.setInt(8, (Integer)auStateProps.get("lastPollResult"));
-      addState.setLong(9, (Long)auStateProps.get("pollDuration"));
-      addState.setLong(10, (Long)auStateProps.get("averageHashDuration"));
-      addState.setDouble(11, (Double)auStateProps.get("v3Agreement"));
-      addState.setDouble(12, (Double)auStateProps.get("highestV3Agreement"));
+      addState.setInt(5,
+	  ((Number)auStateProps.get("lastCrawlResult")).intValue());
+      addState.setLong(6,
+	  ((Number)auStateProps.get("lastTopLevelPollTime")).longValue());
+      addState.setLong(7,
+	  ((Number)auStateProps.get("lastPollStart")).longValue());
+      addState.setInt(8,
+	  ((Number)auStateProps.get("lastPollResult")).intValue());
+      addState.setLong(9,
+	  ((Number)auStateProps.get("pollDuration")).longValue());
+      addState.setLong(10,
+	  ((Number)auStateProps.get("averageHashDuration")).longValue());
+      addState.setDouble(11,
+	  ((Number)auStateProps.get("v3Agreement")).doubleValue());
+      addState.setDouble(12,
+	  ((Number)auStateProps.get("highestV3Agreement")).doubleValue());
       addState.setLong(13, accessTypeSeq);
       addState.setLong(14, hasSubstanceSeq);
 
@@ -879,15 +886,22 @@ public class DbStateManagerSql extends ConfigManagerSql {
 	addState.setString(16, metadataVersion);
       }
 
-      addState.setLong(17, (Long)auStateProps.get("lastMetadataIndex"));
-      addState.setLong(18, (Long)auStateProps.get("lastContentChange"));
-      addState.setLong(19, (Long)auStateProps.get("lastPoPPoll"));
-      addState.setInt(20, (Integer)auStateProps.get("lastPoPPollResult"));
-      addState.setLong(21, (Long)auStateProps.get("lastLocalHashScan"));
-      addState.setInt(22, (Integer)auStateProps.get("numAgreePeersLastPoR"));
-      addState.setInt(23, (Integer)auStateProps.get("numWillingRepairers"));
+      addState.setLong(17,
+	  ((Number)auStateProps.get("lastMetadataIndex")).longValue());
+      addState.setLong(18,
+	  ((Number)auStateProps.get("lastContentChange")).longValue());
+      addState.setLong(19,
+	  ((Number)auStateProps.get("lastPoPPoll")).longValue());
+      addState.setInt(20,
+	  ((Number)auStateProps.get("lastPoPPollResult")).intValue());
+      addState.setLong(21,
+	  ((Number)auStateProps.get("lastLocalHashScan")).longValue());
+      addState.setInt(22,
+	  ((Number)auStateProps.get("numAgreePeersLastPoR")).intValue());
+      addState.setInt(23,
+	  ((Number)auStateProps.get("numWillingRepairers")).intValue());
       addState.setInt(24,
-	  (Integer)auStateProps.get("numCurrentSuspectVersions"));
+	  ((Number)auStateProps.get("numCurrentSuspectVersions")).intValue());
 
       int count = configDbManager.executeUpdate(addState);
       log.debug2("addedCount = {}", count);
@@ -1238,7 +1252,6 @@ public class DbStateManagerSql extends ConfigManagerSql {
       insertAuCdnStem.setLong(1, auSeq);
       insertAuCdnStem.setLong(2, cdnStemSeq);
       insertAuCdnStem.setLong(3, auSeq);
-      insertAuCdnStem.setLong(4, cdnStemSeq);
 
       // Add the CDN stem.
       int count = configDbManager.executeUpdate(insertAuCdnStem);
@@ -1261,51 +1274,5 @@ public class DbStateManagerSql extends ConfigManagerSql {
     }
 
     log.debug2("Done");
-  }
-
-  /**
-   * Sets the proper type of AuState properties in a map of objects.
-   * @param originalAuStateProps A Map<String, Object> with the original map.
-   * @return a Map<String, Object> with the fixed map.
-   */
-  private Map<String, Object> fixAuStateTypes(
-      Map<String, Object> originalAuStateProps) {
-    log.debug2("originalAuStateProps = {}", originalAuStateProps);
-
-    Map<String, Object> result = new HashMap<>();
-
-    for (String key : originalAuStateProps.keySet()) {
-      log.trace("key = {}", key);
-      Object value = originalAuStateProps.get(key);
-
-      switch (key) {
-        case "auCreationTime":
-        case "lastCrawlTime":
-        case "lastCrawlAttempt":
-        case "lastTopLevelPollTime":
-        case "lastPollStart":
-        case "pollDuration":
-        case "averageHashDuration":
-        case "lastMetadataIndex":
-        case "lastContentChange":
-        case "lastPoPPoll":
-        case "lastLocalHashScan":
-          if (value instanceof Integer) {
-            value = Long.valueOf(((Integer)value).longValue());
-            log.trace("converted value = {}", value);
-          } else if (value instanceof Long) {
-            log.trace("It is already a Long");
-          } else {
-            throw new IllegalArgumentException("Unexpected type for key '" + key
-        	+ "': " + value.getClass());
-          }
-          break;
-        default:
-      }
-
-      result.put(key, value);
-    }
-
-    return result;
   }
 }

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -762,6 +758,31 @@ public class TestAuUtil extends LockssTestCase {
       fail("getUrlFetchTime() didn't throw on bad URL");
     } catch (NullPointerException npe) {
     }
+  }
+
+  public void testMapToJsonRoundtrip() throws Exception {
+    // Create a source map.
+    Map<String, Object> map = new HashMap<>();
+    map.put("integerA", Integer.valueOf(1));
+    map.put("longA", Long.valueOf(1));
+    map.put("longB", Long.valueOf(1234567890123456L));
+    map.put("doubleA", Double.valueOf(123.456));
+    map.put("stringA", "stringA1");
+    map.put("listA", ListUtil.list("ListA1", "listA2", "listA3", "listA4"));
+
+    // Create a supposedly equivalent target map via JSON and back.
+    Map<String, Object> newMap = AuUtil.jsonToMap(AuUtil.mapToJson(map));
+
+    // Verify.
+    assertTrue(map.get("integerA").equals(newMap.get("integerA")));
+    // Long values small enough to fit in an integer are returned as Integers,
+    // not Longs.
+    assertTrue(((Number)map.get("longA")).longValue()
+	== ((Number)newMap.get("longA")).longValue());
+    assertTrue(map.get("longB").equals(newMap.get("longB")));
+    assertTrue(map.get("doubleA").equals(newMap.get("doubleA")));
+    assertTrue(map.get("stringA").equals(newMap.get("stringA")));
+    assertTrue(map.get("listA").equals(newMap.get("listA")));
   }
 
   private static class LocalMockArchivalUnit extends MockArchivalUnit {
