@@ -80,7 +80,7 @@ public class DbStateManager extends CachingStateManager {
 
     try {
       Long auSeq =
-	  getDbStateManagerSql().addArchivalUnitState(pluginId, auKey, map);
+	  getDbStateManagerSql().addArchivalUnitState(pluginId, auKey, json);
       log.trace("auSeq = {}", auSeq);
     } catch (DbException dbe) {
       String message = "Exception caught persisting new AuState";
@@ -128,13 +128,13 @@ public class DbStateManager extends CachingStateManager {
     log.trace("auKey = {}", auKey);
 
     try {
-      Map<String, Object> auStateProps =
+      String stateString =
 	  getDbStateManagerSql().findArchivalUnitState(pluginId, auKey);
-      log.trace("auStateProps = {}", auStateProps);
+      log.trace("auStateProps = {}", stateString);
 
-      if (auStateProps != null) {
+      if (stateString != null) {
         res = newDefaultAuState(au)
-            .updateFromJson(AuUtil.mapToJson(auStateProps), daemon);
+            .updateFromJson(stateString, daemon);
       }
     } catch (IOException ioe) {
       String message = "Exception caught composing AuState";

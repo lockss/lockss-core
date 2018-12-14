@@ -265,7 +265,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 			      String json, Map<String,Object> map) {
   }
 
-  /** Hook for subclass to update an existing AuStatein persistent storage.
+  /** Hook for subclass to update an existing AuState in persistent storage.
    * Any of the three data sources may be used.  Only those fields present
    * in the Map or the json string should be saved.
    * @param key AUID or other key for AU
