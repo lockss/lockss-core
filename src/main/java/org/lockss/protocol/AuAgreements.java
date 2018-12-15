@@ -96,8 +96,7 @@ public class AuAgreements implements LockssSerializable {
     try {
       rawAgreements = hRep.loadIdentityAgreements();
     } catch (LockssRepositoryException e) {
-      ArchivalUnit au = hRep.loadAuState().getArchivalUnit();
-      log.error("getRawAgreements au="+au, e);
+      log.error("getRawAgreements [" + hRep + "]", e);
       // Should anything else be done in case of error?
     }
     return rawAgreements;
@@ -126,8 +125,7 @@ public class AuAgreements implements LockssSerializable {
       updateListFromMap();
       hRep.storeIdentityAgreements(this);
     } catch (LockssRepositoryException e) {
-      ArchivalUnit au = hRep.loadAuState().getArchivalUnit();
-      log.error("AuAgreements.store("+au+")", e);
+      log.error("AuAgreements.store [" + hRep + "]", e);
       // Should anything else be done in case of error?
     }
   }
@@ -272,8 +270,7 @@ public class AuAgreements implements LockssSerializable {
 				    IdentityManager idMgr,
 				    InputStream in) throws IOException {
     if (haveAgreements()) {
-      ArchivalUnit au = hRep.loadAuState().getArchivalUnit();
-      log.debug("Ignoring request to restore "+au);
+      log.debug("Ignoring request to restore [" + hRep + "]");
     } else {
       File file = hRep.getIdentityAgreementFile();
       OutputStream out = new FileOutputStream(file);
@@ -287,8 +284,7 @@ public class AuAgreements implements LockssSerializable {
 	loadFrom(getRawAgreements(hRep), idMgr);
       } finally {
 	if (! copyFinished) {
-	  ArchivalUnit au = hRep.loadAuState().getArchivalUnit();
-	  log.debug("Copy failed restoring "+au);
+	  log.debug("Copy failed restoring [" + hRep + "]");
 	}
 	IOUtil.safeClose(out);
       }

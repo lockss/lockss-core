@@ -177,10 +177,7 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     mau.setAuId(auid);
     mau.setPlugin(new MockPlugin(theDaemon));
     PluginTestUtil.registerArchivalUnit(mau);
-    MockAuState aus = new MockAuState();
-    MockHistoryRepository nodeManager = new MockHistoryRepository();
-    getMockLockssDaemon().setHistoryRepository(nodeManager, mau);
-    nodeManager.setAuState(aus);
+    AuTestUtil.setUpMockAus(mau);
     return mau;
   }
 

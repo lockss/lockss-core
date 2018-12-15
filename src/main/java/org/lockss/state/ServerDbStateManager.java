@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,38 +25,32 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
-package org.lockss.daemon;
-import java.io.*;
-import java.util.*;
 
-import org.junit.Ignore;
-import org.junit.Test;
-import org.lockss.state.*;
-import org.lockss.plugin.*;
-import org.lockss.clockss.*;
-import org.lockss.extractor.*;
-import org.lockss.test.*;
-import org.lockss.test.MockCrawler.MockCrawlerFacade;
+package org.lockss.state;
 
-@Ignore
-public class LockssPermissionCheckerTestCase extends LockssTestCase {
 
-  protected MockArchivalUnit mau;
-  protected MockCrawlerFacade mcf;
-  protected MockAuState aus;
+import org.lockss.log.*;
 
-  public void setUp() throws Exception {
-    super.setUp();
+/** DbStateManager that also sends JMS state changed notifications */
+public class ServerDbStateManager extends DbStateManager {
 
-    MockLockssDaemon daemon = getMockLockssDaemon();
-    MockPlugin mplugin = new MockPlugin(daemon);
-    mau = new MockArchivalUnit(mplugin);
-    // Some tests want to make sure an unrelated link extractor gets
-    // invoked.
-    LinkExtractor ue = new RegexpCssLinkExtractor();
-    mau.setLinkExtractor("text/css", ue);
-    aus = AuTestUtil.setUpMockAus(mau);
-    mcf = new MockCrawler().new MockCrawlerFacade();
-    mcf.setAu(mau);
+  protected static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
+  public void startService() {
+    super.startService();
+    setUpJmsSend();
+  }
+
+  @Override
+  public void stopService() {
+    stopJms();
+    super.stopService();
+  }
+
+  @Override
+  protected void doNotifyAuStateChanged(String key, String json) {
+    log.debug("Sending AuState changed notification for {}: {}", key, json);
+    sendAuStateChangedEvent(key, json);
   }
 }

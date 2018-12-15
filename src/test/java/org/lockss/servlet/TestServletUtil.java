@@ -37,6 +37,7 @@ import java.io.*;
 
 import org.mortbay.html.*;
 import org.apache.oro.text.regex.*;
+import org.lockss.log.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
@@ -46,6 +47,7 @@ import org.lockss.daemon.*;
  * Test class for org.lockss.servlet.ServletUtil
  */
 public class TestServletUtil extends LockssTestCase {
+  L4JLogger log = L4JLogger.getLogger();
 
   public void testBackupFileUrl() throws Exception {
     assertEquals("http://host.edu:8081/BatchAuConfig?lockssAction=SelectBackup",
@@ -67,10 +69,8 @@ public class TestServletUtil extends LockssTestCase {
     mau.setStartUrls(ListUtil.list(manifest));
     mau.setCrawlRule(new MockCrawlRule());
     PluginTestUtil.registerArchivalUnit(pl, mau);
-    MockHistoryRepository nm = new MockHistoryRepository();
-    daemon.setHistoryRepository(nm, mau);
-    MockAuState aus = new MockAuState();
-    nm.setAuState(aus);
+    MockAuState aus = AuTestUtil.setUpMockAus(mau);
+
     aus.setLastCrawlTime(lastCrawlTime);
     return mau;
   }

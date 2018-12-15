@@ -1901,6 +1901,8 @@ public class PluginManager
       auConf.put(AU_PARAM_DISABLED, "false");
       ArchivalUnit au = createAu(plugin, auConf,
                                  AuEvent.model(AuEvent.Type.Create));
+      AuState aus = AuUtil.getAuState(au);
+      aus.setAuCreationTime(TimeBase.nowMs());
       updateAuIndatabase(au, auConf);
       return au;
     }

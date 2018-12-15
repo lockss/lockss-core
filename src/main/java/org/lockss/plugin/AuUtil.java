@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,12 +28,19 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin;
 
+import java.io.*;
 import java.net.*;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import org.apache.commons.collections4.*;
+import com.fasterxml.jackson.core.type.*;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.ser.*;
+import com.fasterxml.jackson.databind.ser.impl.*;
+import com.fasterxml.jackson.annotation.*;
+
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
@@ -110,8 +113,81 @@ public class AuUtil {
    * @return the AuState
    */
   public static AuState getAuState(ArchivalUnit au) {
-    HistoryRepository histRepo = getDaemon(au).getHistoryRepository(au);
-    return histRepo.getAuState();
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.getAuState(au);
+  }
+
+  /** Serialize an AuState to a json string
+   * @param aus the AuState
+   * @param fields Set of fields to include in the output.  If null or
+   *               empty, all fields are included
+   */
+  public static String jsonFromAuState(AuState aus, Set<String> fields)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
+
+    // XXXAUS Current AuState class isn't really a bean, has getXxx and
+    // putXxx methods that shouldn't be used during serialization.
+    // Serialize directly from the fields.
+    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
+				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+
+    SimpleBeanPropertyFilter propFilter;
+    if (fields == null || fields.isEmpty()) {
+      propFilter = SimpleBeanPropertyFilter.serializeAll();
+    } else {
+      propFilter = SimpleBeanPropertyFilter.filterOutAllExcept(fields);
+    }
+    FilterProvider filters =
+      new SimpleFilterProvider().addFilter("auStateFilter", propFilter);
+    return mapper.writer(filters).writeValueAsString(aus);
+  }
+
+  /** Deserialize a json string into an existing AuState, replacing only
+   * those fields that are present in the json string
+   * @param aus the AuState to modify
+   * @param json json string
+   */
+  // XXXAUS need string pool processing here, or enougn in AuState?
+  public static AuState updateFromJson(AuState aus, String json)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    // XXXAUS Until make separate AuState bean, don't want to call setters
+    // because they're not just setters - they contain other logic
+    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
+				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+    ObjectReader ordr = mapper.readerForUpdating(aus);
+    ordr.readValue(json);
+    return aus;
+  }
+
+  public static Map<String,Object> jsonToMap(String json) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String,Object> res =
+      mapper.readValue(json, new TypeReference<Map<String,Object>>() {});
+    return res;
+  }
+
+  /**
+   * Provides the JSON serialization version of a map.
+   * 
+   * @param map
+   *          A Map<String,Object> with the map to be serialized.
+   * @return a String with the JSON serialization version of the map.
+   * @throws IOException
+   *           if any problem occurred.
+   */
+  public static String mapToJson(Map<String,Object> map) throws IOException {
+    return new ObjectMapper().writeValueAsString(map);
   }
 
   /**

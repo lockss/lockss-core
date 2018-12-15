@@ -649,7 +649,7 @@ public class LockssApp {
   protected String getManagerClassName(ManagerDesc desc) {
     String key = MANAGER_PREFIX + desc.key;
     return System.getProperty(key,
-			      CurrentConfig.getParam(key, desc.defaultClass));
+			      CurrentConfig.getParam(key, desc.getDefaultClass(this)));
   }
 
   /** Create an instance of a LockssManager, from the configured or default
@@ -662,9 +662,9 @@ public class LockssApp {
       mgr = (LockssManager)makeInstance(managerName);
     } catch (ClassNotFoundException e) {
       log.warning("Couldn't load manager class " + managerName);
-      if (!managerName.equals(desc.defaultClass)) {
-	log.warning("Trying default manager class " + desc.defaultClass);
-	mgr = (LockssManager)makeInstance(desc.defaultClass);
+      if (!managerName.equals(desc.getDefaultClass(this))) {
+	log.warning("Trying default manager class " + desc.getDefaultClass(this));
+	mgr = (LockssManager)makeInstance(desc.getDefaultClass(this));
       } else {
 	throw e;
       }
@@ -1014,6 +1014,24 @@ public class LockssApp {
     }
   }
 
+  /** Determine which StateManager to use depending on the context.
+   * Current logic based on knowledge that the state service is the same as
+   * the config service.
+   * @return the StateManager implementation class name */
+  public String chooseStateManager() {
+    String res;
+    if (isConfigClient()) {
+      res = "org.lockss.state.ClientStateManager";
+    } else if (CurrentConfig.getBooleanParam(ConfigManager.PARAM_ENABLE_JMS_SEND,
+				      false)) {
+      res = "org.lockss.state.ServerDbStateManager";
+    } else {
+      res = "org.lockss.state.DbStateManager";
+    }
+    log.debug("StateManager: " + res);
+    return res;
+  }
+
   protected static StartupOptions getStartupOptions(String[] args) {
     return new StartupOptions().parse(args);
   }
@@ -1065,7 +1083,7 @@ public class LockssApp {
       return key;
     }
 
-    public String getDefaultClass() {
+    public String getDefaultClass(LockssApp app) {
       return defaultClass;
     }
 
@@ -1092,7 +1110,7 @@ public class LockssApp {
       if (obj instanceof ManagerDesc) {
 	ManagerDesc md = (ManagerDesc)obj;
 	if (StringUtil.equalStrings(this.key, md.getKey())
-	    && StringUtil.equalStrings(defaultClass, md.getDefaultClass())) {
+	    && StringUtil.equalStrings(defaultClass, md.defaultClass)) {
 	  return true;
 	}
       }

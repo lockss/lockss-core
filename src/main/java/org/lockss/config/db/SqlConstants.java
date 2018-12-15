@@ -50,6 +50,9 @@ public class SqlConstants {
   public static final String ARCHIVAL_UNIT_CONFIG_TABLE =
       "archival_unit_config";
 
+  /** Name of the archival unit state table. */
+  public static final String ARCHIVAL_UNIT_STATE_TABLE = "archival_unit_state";
+
   //
   // Database table column names.
   //
@@ -76,6 +79,9 @@ public class SqlConstants {
 
   /** Name of archival unit configuration value column. */
   public static final String CONFIG_VALUE_COLUMN = "config_value";
+  
+  /** Name of archival unit state string column */
+  public static final String STATE_STRING_COLUMN = "state_string";
 
   //
   // Maximum lengths of variable text length database columns.
@@ -90,4 +96,8 @@ public class SqlConstants {
 
   /** Length of the archival unit configuration value column. */
   public static final int MAX_CONFIG_VALUE_COLUMN = 4096;
+
+  /** Length of the archival unit state string column */
+  public static final int MAX_STATE_STRING_COLUMN = 1024;
+  
 }

@@ -50,10 +50,8 @@ import org.lockss.config.Configuration;
  */
 public class MockHistoryRepository implements HistoryRepository {
   private HashMap storedHistories = new HashMap();
-  public AuState theAuState;
   private DamagedNodeSet theDamagedNodeSet;
   private HashMap storedNodes = new HashMap();
-  private File auStateFile = null;
   private String baseDir;
   private Object storedIdentityAgreement = null;
   private Object loadedIdentityAgreement = null;
@@ -66,11 +64,9 @@ public class MockHistoryRepository implements HistoryRepository {
 
   public void initService(LockssApp app) throws LockssAppException { }
   public void startService() {
-    theAuState = new MockAuState();
   }
   public void stopService() {
     storedHistories = new HashMap();
-    theAuState = null;
     theDamagedNodeSet = null;
     storedNodes = new HashMap();
   }
@@ -79,16 +75,6 @@ public class MockHistoryRepository implements HistoryRepository {
   }
 
   public void setAuConfig(Configuration auConfig) {
-  }
-
-  public void storeAuState(AuState auState) {
-    theAuState = auState;
-  }
-
-  public void setAuState(AuState auState){theAuState = auState;}
-
-  public AuState loadAuState() {
-    return theAuState;
   }
 
   public void storeDamagedNodeSet(DamagedNodeSet nodeSet) {
@@ -102,14 +88,6 @@ public class MockHistoryRepository implements HistoryRepository {
 
   public DamagedNodeSet loadDamagedNodeSet() {
     return theDamagedNodeSet;
-  }
-
-  public AuState getAuState() {
-    return theAuState == null ? new MockAuState() : theAuState;
-  }
-
-  public void setAuState(MockAuState aus) {
-    theAuState = aus;
   }
 
   /**
@@ -131,16 +109,8 @@ public class MockHistoryRepository implements HistoryRepository {
     throw new UnsupportedOperationException();
   }
 
-  public File getAuStateFile() {
-    return auStateFile;
-  }
-
   public long getAuCreationTime() {
     return -1;
-  }
-
-  public void setAuStateFile(File file) {
-    auStateFile = file;
   }
 
   @Override
@@ -179,6 +149,10 @@ public class MockHistoryRepository implements HistoryRepository {
   }
   public DatedPeerIdSet getNoAuPeerSet() {
     return new DatedPeerIdSetImpl(peerIdFile, idMgr);
+  }
+
+  public AuState getAuState() {
+    return LockssDaemon.getManagerByTypeStatic(StateManager.class).getAuState(au);
   }
 
 }

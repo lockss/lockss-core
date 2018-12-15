@@ -44,37 +44,37 @@ import org.lockss.plugin.ArchivalUnit;
 public class MockAuState extends AuState {
 
   HashSet crawlUrls = new HashSet();
-  int updatedCrawlUrlsCalled = 0;
-  private long auCreate = -1;
+    private long auCreate = -1;
 
   public MockAuState(ArchivalUnit au) {
-    this(au, -1, -1, -1, new MockHistoryRepository());
+    this(au, -1, -1, -1, null);
   }
 
   public MockAuState() {
-    this(null, -1, -1, -1, new MockHistoryRepository());
+    this(null, -1, -1, -1, null);
   }
 
   public MockAuState(ArchivalUnit au,
 		     long lastCrawlTime, long lastPollTime,
-                     long lastTreeWalk, HistoryRepository historyRepo) {
+                     long lastTreeWalk, StateManager stateMgr) {
     this(au, lastCrawlTime, -1, lastPollTime, -1, lastTreeWalk,
-	 null, historyRepo);
+	 null, stateMgr);
   }
 
   public MockAuState(ArchivalUnit au,
 		     long lastCrawlTime, long lastCrawlAttempt,
 		     long lastPollTime, long lastPollStart,
-                     long lastTreeWalk, HistoryRepository historyRepo) {
+                     long lastTreeWalk, StateManager stateMgr) {
     this(au, lastCrawlTime, lastCrawlAttempt, lastPollTime, lastPollStart,
-	 lastTreeWalk, null, historyRepo);
+	 lastTreeWalk, null, stateMgr);
   }
 
   public MockAuState(ArchivalUnit au,
 		     long lastCrawlTime, long lastCrawlAttempt,
 		     long lastPollTime, long lastPollStart,
                      long lastTreeWalk, HashSet crawlUrls,
-                     HistoryRepository historyRepo) {
+                     StateManager stateMgr) {
+
     super(au,
 	  lastCrawlTime,
 	  lastCrawlAttempt,
@@ -85,12 +85,12 @@ public class MockAuState extends AuState {
 	  -1, // lastDeepCrawlResult
 	  null, // lastDeepCrawlResultMsg,
 	  -1, // lastDeepCrawlDepth
-	  lastPollTime, //lastTopLevelPoll
+	  lastPollTime, //lastTopLevelPollTime
 	  lastPollStart,
 	  -1, // lastPollResult
 	  null, // lastPollResultMsg
 	  0L, // pollDuration
-        0L,
+	  0L,
 	  lastTreeWalk,
 	  crawlUrls,
 	  null, // accessType
@@ -109,7 +109,7 @@ public class MockAuState extends AuState {
 	  -1, // numWillingRepairers
 	  -1, // numCurrentSuspectVersions
 	  null, // cdnStems
-	  historyRepo);
+	  stateMgr);
   }
 
   public long getAuCreationTime() {
@@ -132,7 +132,7 @@ public class MockAuState extends AuState {
   }
 
   public void setLastTopLevelPollTime(long newPollTime) {
-    lastTopLevelPoll = newPollTime;
+    lastTopLevelPollTime = newPollTime;
   }
 
   @Override
@@ -153,7 +153,7 @@ public class MockAuState extends AuState {
   }
 
   public void setLastToplevalPoll(long time) {
-    lastTopLevelPoll = time;
+    lastTopLevelPollTime = time;
   }
 
   public void setLastTreeWalkTime(long newTreeWalkTime) {
@@ -173,17 +173,8 @@ public class MockAuState extends AuState {
     lastCrawlResultMsg = resultMsg;
   }
 
-  public void setHistoryRepository(HistoryRepository histRepository)
-  {
-    super.setHistoryRepo(histRepository);
-  }
-
   public HashSet getCrawlUrls() {
     return crawlUrls;
-  }
-
-  public void updatedCrawlUrls(boolean forceUpdate) {
-    updatedCrawlUrlsCalled++;
   }
 
   boolean suppressRecomputeNumCurrentSuspectVersions = false;
@@ -198,13 +189,6 @@ public class MockAuState extends AuState {
       return 0;
     }
     return super.recomputeNumCurrentSuspectVersions();
-  }
-
-  public void assertUpdatedCrawlListCalled(int numTimes) {
-    if (numTimes != updatedCrawlUrlsCalled) {
-      Assert.fail("updatedCrawlUrls was only called "+updatedCrawlUrlsCalled
-	   +" but should have been called "+numTimes+" times");
-    }
   }
 }
 

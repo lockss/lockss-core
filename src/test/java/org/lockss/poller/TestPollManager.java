@@ -231,8 +231,7 @@ public class TestPollManager extends LockssTestCase4 {
 	     long lastPollStart, long lastTopLevelPoll, int lastPollResult,
 	     long pollDuration, double agreement) 
       throws Exception {
-    MockAuState aus = new MockAuState(mau);
-    ((MockHistoryRepository)theDaemon.getHistoryRepository(mau)).setAuState(aus);
+    MockAuState aus = AuTestUtil.setUpMockAus(mau);
     aus.setLastCrawlTime(100);
     aus.setLastPollStart(lastPollStart);
     aus.setLastToplevalPoll(lastTopLevelPoll);
@@ -485,8 +484,7 @@ public class TestPollManager extends LockssTestCase4 {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
     MockHistoryRepository histRepo = new MockHistoryRepository();
     theDaemon.setHistoryRepository(histRepo, mau);
-    MockAuState maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    MockAuState maus = AuTestUtil.setUpMockAus(mau);
     File file = FileTestUtil.tempFile("noau");
     DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(file, idmanager);
     assertTrue(noAuSet.isEmpty());

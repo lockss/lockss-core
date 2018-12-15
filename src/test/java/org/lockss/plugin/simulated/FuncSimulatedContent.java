@@ -99,7 +99,6 @@ public class FuncSimulatedContent extends LockssTestCase {
 
   public void tearDown() throws Exception {
     theDaemon.getLockssRepository(sau1).stopService();
-    theDaemon.getHistoryRepository(sau1).stopService();
     theDaemon.getPluginManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSystemMetrics().stopService();
@@ -249,7 +248,7 @@ public class FuncSimulatedContent extends LockssTestCase {
   protected void crawlContent(SimulatedArchivalUnit sau) {
     log.debug("crawlContent()");
     Crawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.doCrawl();
   }
 

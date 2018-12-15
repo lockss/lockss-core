@@ -100,9 +100,7 @@ public class TestV3PollFactory extends LockssTestCase {
     testAu = setupAu();
     aus = new MockAuState(testAu);
     aus.setLastCrawlTime(100);
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(testAu);
-    histRepo.startService();
-    histRepo.storeAuState(aus);
+    aus.storeAuState();
     idmgr.startService();
     theDaemon.getActivityRegulator(testAu).startService();
     pollManager.startService();

@@ -65,7 +65,6 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
   private MockAlertManager alertMgr;
   private int pauseBeforeFetchCounter;
   private UrlData ud;
-  private MockHistoryRepository histRepo = new MockHistoryRepository();
   private MockAuState maus;
 
 
@@ -97,8 +96,6 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     theDaemon.setLockssRepository(repo, mau);
     repo.startService();
 
-    theDaemon.setHistoryRepository(histRepo, mau);
-
     mcus = new MockCachedUrlSet(TEST_URL);
     mcus.setArchivalUnit(mau);
     mau.setAuCachedUrlSet(mcus);
@@ -107,9 +104,7 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     alertMgr = new MockAlertManager();
     getMockLockssDaemon().setAlertManager(alertMgr);
     
-    theDaemon.setHistoryRepository(histRepo, mau);
-    maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    maus = AuTestUtil.setUpMockAus(mau);
 
     useV2Repo();
 //     useV2Repo("local:foo:" + getTempDir().toString());

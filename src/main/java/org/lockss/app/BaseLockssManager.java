@@ -84,6 +84,7 @@ public abstract class BaseLockssManager implements LockssManager {
   /** Called to stop a service.  Service should extend this to stop all
    * ongoing activity (<i>eg</i>, threads). */
   public void stopService() {
+    if (log.isDebug2()) log.debug2(getClassName() + ".stopService()");
     shuttingDown = true;
     // checkpoint here
     unregisterConfig();

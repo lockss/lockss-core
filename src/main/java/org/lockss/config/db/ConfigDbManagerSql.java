@@ -33,12 +33,14 @@ package org.lockss.config.db;
 
 import static org.lockss.config.db.SqlConstants.*;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.sql.DataSource;
 import org.lockss.db.DbManagerSql;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.StringUtil;
 
 /**
  * The ConfigDbManager SQL code executor.
@@ -116,6 +118,23 @@ public class ConfigDbManagerSql extends DbManagerSql {
 	  + CONFIG_KEY_COLUMN + ")"
   };
 
+  // Query to create the table for recording archival units state properties.
+  private static final String CREATE_ARCHIVAL_UNIT_STATE_TABLE_QUERY =
+      "create table "
+      + ARCHIVAL_UNIT_STATE_TABLE + " ("
+      + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
+      + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + ") on delete cascade,"
+      + STATE_STRING_COLUMN + " varchar(" + MAX_STATE_STRING_COLUMN + ") not null"
+      + ")";
+
+  // The SQL code used to create the necessary version 2 database tables.
+  @SuppressWarnings("serial")
+  private static final Map<String, String> VERSION_2_TABLE_CREATE_QUERIES =
+    new LinkedHashMap<String, String>() {{
+      put(ARCHIVAL_UNIT_STATE_TABLE, CREATE_ARCHIVAL_UNIT_STATE_TABLE_QUERY);
+    }};
+
   /**
    * Constructor.
    * 
@@ -167,4 +186,26 @@ public class ConfigDbManagerSql extends DbManagerSql {
 
     log.debug2("Done");
   }
+
+  /**
+   * Updates the database from version 1 to version 2.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom1To2(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Create the necessary tables if they do not exist.
+    createTablesIfMissing(conn, VERSION_2_TABLE_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
 }

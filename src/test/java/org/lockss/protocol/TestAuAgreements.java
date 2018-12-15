@@ -351,12 +351,7 @@ public class TestAuAgreements extends LockssTestCase {
     MockHistoryRepository hRep = new MockHistoryRepository() {
 	@Override public File getIdentityAgreementFile() {
 	  return historyFile;
-	}
-
-	@Override public MockAuState loadAuState() {
-	  return new MockAuState(new MockArchivalUnit("Mock AU"));
-	}
-      };
+	}};
 
     AuAgreements auAgreementsVal = AuAgreements.make(hRep, idMgr);
     signalPartialAgreements(auAgreementsVal, AgreementType.SYMMETRIC_POP,

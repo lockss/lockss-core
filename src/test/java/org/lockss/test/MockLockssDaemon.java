@@ -190,6 +190,10 @@ public class MockLockssDaemon extends LockssDaemon {
   /** Create a manager instance, mimicking what LockssDaemon does */
   LockssManager newManager(String key) {
     log.debug2("Loading manager: " + key);
+    switch (key) {
+    case "org.lockss.state.StateManager":
+      return setUpStateManager();
+    }
     ManagerDesc desc = findManagerDesc(key);
     if (desc == null) {
       throw new LockssAppException("No ManagerDesc for: " + key);
@@ -724,6 +728,14 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.CONFIG_DB_MANAGER, configDbMan);
   }
 
+  /**
+   * Set the StateManager
+   * @param stateMan the new manager
+   */
+  public void setStateManager(StateManager stateMan) {
+    managerMap.put(LockssDaemon.STATE_MANAGER, stateMan);
+  }
+
   // AU managers
 
   /** Create an AU manager instance, mimicking what LockssDaemon does */
@@ -905,6 +917,7 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   ConfigDbManager configDbMgr;
+  StateManager stateMgr;
 
   /** Create and start service(s) necessary to create AUs in a testing
    * environment */
@@ -917,10 +930,32 @@ public class MockLockssDaemon extends LockssDaemon {
     return this;
   }
 
+  /** Create and start StateService */
+  public StateManager setUpStateManager() {
+    return setUpStateManager(new TestingStateManager());
+  }
+
+  public <T extends StateManager> T setUpStateManager(T mgr) {
+    stateMgr = mgr;
+    setStateManager(stateMgr);
+    stateMgr.initService(this);
+    stateMgr.startService();
+    return mgr;
+  }
+
   /** Here only to allow legacy plugin tests to compile
    * @deprecated
    */
   @Deprecated
   public void getNodeManager(ArchivalUnit au) {
   }
+
+  public static class TestingStateManager extends InMemoryStateManager {
+    protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
+      return true;
+    }
+
+
+  }
+
 }

@@ -125,7 +125,7 @@ public class AuWsSource extends AuWsResult {
 
   private LockssDaemon theDaemon = null;
   private Plugin plugin = null;
-  private HistoryRepository histRepo = null;
+  private StateManager stateMgr = null;
   private AuState state = null;
   private CachedUrlSet auCachedUrlSet = null;
   private PatternFloatMap resultWeightMap = null;
@@ -1033,16 +1033,16 @@ public class AuWsSource extends AuWsResult {
   }
 
   /**
-   * Provides the history Repository, initializing it if necessary.
+   * Provides the StateManager, initializing it if necessary.
    * 
-   * @return a HistoryRepository with the node manager.
+   * @return the StateManager
    */
-  private HistoryRepository getHistoryRepository() {
-    if (histRepo == null) {
-      histRepo = getTheDaemon().getHistoryRepository(au);
+  private StateManager getStateManager() {
+    if (stateMgr == null) {
+      stateMgr = getTheDaemon().getManagerByType(StateManager.class);
     }
 
-    return histRepo;
+    return stateMgr;
   }
 
   /**
@@ -1052,7 +1052,7 @@ public class AuWsSource extends AuWsResult {
    */
   private AuState getState() {
     if (state == null) {
-      state = getHistoryRepository().getAuState();
+      state = getStateManager().getAuState(au);
     }
 
     return state;
