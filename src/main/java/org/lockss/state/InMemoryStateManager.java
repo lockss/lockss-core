@@ -78,13 +78,13 @@ public class InMemoryStateManager extends CachingStateManager {
   }
 
   /** "Load" an AuState from the deletedAuStates if it's there */
-  protected AuState doLoadAuState(ArchivalUnit au) {
-    String key = auKey(au);
+  @Override
+  protected AuStateBean doLoadAuStateBean(String key) {
     String json = deletedAuStates.get(key);
     if (json != null) {
-      AuState aus = newDefaultAuState(au);
+      AuStateBean ausb = newDefaultAuStateBean(key);
       try {
-	return aus.updateFromJson(json, daemon);
+	return ausb.updateFromJson(json, daemon);
       } catch (IOException e) {
 	log.error("Couldn't deserialize AuState from \"backing\" store: {}",
 		  json, e);

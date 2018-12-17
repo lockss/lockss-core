@@ -30,7 +30,7 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.test;
+package org.lockss.state;
 
 import java.util.*;
 import junit.framework.*;
@@ -124,36 +124,36 @@ public class MockAuState extends AuState {
   }
 
   public void setLastCrawlTime(long newCrawlTime) {
-    lastCrawlTime = newCrawlTime;
+    bean.lastCrawlTime = newCrawlTime;
   }
 
   public void setLastContentChange(long newTime) {
-    lastContentChange = newTime;
+    bean.lastContentChange = newTime;
   }
 
   public void setLastTopLevelPollTime(long newPollTime) {
-    lastTopLevelPollTime = newPollTime;
+    bean.lastTopLevelPollTime = newPollTime;
   }
 
   @Override
   public void setV3Agreement(double d) {
-    v3Agreement = d;
+    bean.v3Agreement = d;
   }
 
   public void setHighestV3Agreement(double d) {
-    highestV3Agreement = d;
+    bean.highestV3Agreement = d;
   }
 
   public void setLastPollResult(int result) {
-    lastPollResult = result;
+    bean.lastPollResult = result;
   }
 
   public void setLastPollStart(long time) {
-    lastPollStart = time;
+    bean.lastPollStart = time;
   }
 
   public void setLastToplevalPoll(long time) {
-    lastTopLevelPollTime = time;
+    bean.lastTopLevelPollTime = time;
   }
 
   public void setLastTreeWalkTime(long newTreeWalkTime) {
@@ -161,7 +161,7 @@ public class MockAuState extends AuState {
   }
 
   public void setLastCrawlAttempt(long lastCrawlAttempt) {
-    this.lastCrawlAttempt = lastCrawlAttempt;
+    bean.lastCrawlAttempt = lastCrawlAttempt;
   }
 
   public void newCrawlFinished(int result, String resultMsg) {
@@ -169,8 +169,8 @@ public class MockAuState extends AuState {
   }
 
   public void setLastCrawlResult(int result, String resultMsg) {
-    lastCrawlResult = result;
-    lastCrawlResultMsg = resultMsg;
+    bean.lastCrawlResult = result;
+    bean.lastCrawlResultMsg = resultMsg;
   }
 
   public HashSet getCrawlUrls() {

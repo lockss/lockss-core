@@ -41,7 +41,7 @@ import org.lockss.crawler.PermissionRecord.PermissionStatus;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.repository.OldLockssRepositoryImpl;
-import org.lockss.state.AuState;
+import org.lockss.state.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;

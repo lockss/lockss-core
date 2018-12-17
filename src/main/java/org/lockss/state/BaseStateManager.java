@@ -81,10 +81,15 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     return new AuState(au, this);
   }
 
+  /** Create a default AuState */
+  protected AuStateBean newDefaultAuStateBean(String key) {
+    return new AuStateBean();
+  }
+
   /** return the string to use as a key for the AU's AuState.  Normally the
    * auid, this is necessary right now because in testing some AUs have no
    * auid */
-  protected String auKey(ArchivalUnit au) {
+  public String auKey(ArchivalUnit au) {
     try {
       return au.getAuId();
     } catch (RuntimeException e) {
@@ -97,7 +102,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   // Notification message is a map:
   // name - Name of state class (e.g., AuState)
   // auid - if object is per-AU
-    // json - serialized json of whole object or diffs
+  // json - serialized json of whole object or diffs
 
   public static final String JMS_MAP_NAME = "name";
   public static final String JMS_MAP_AUID = "auid";
@@ -261,25 +266,25 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * @param aus json data source
    * @param aus Map data source
    */
-  protected void doStoreAuStateNew(String key, AuState aus,
-			      String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanNew(String key, AuStateBean ausb,
+				   String json, Map<String,Object> map) {
   }
 
-  /** Hook for subclass to update an existing AuState in persistent storage.
+  /** Hook for subclass to update an existing AuStateBean in persistent storage.
    * Any of the three data sources may be used.  Only those fields present
    * in the Map or the json string should be saved.
    * @param key AUID or other key for AU
-   * @param aus AuState data source
+   * @param aus AuStateBean data source
    * @param aus json data source
    * @param aus Map data source
    */
-  protected void doStoreAuStateUpdate(String key, AuState aus,
-				 String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanUpdate(String key, AuStateBean ausb,
+				      String json, Map<String,Object> map) {
   }
 
-  /** Hook for subclass to read an AuState instance from persistent
+  /** Hook for subclass to read an AuStateBean instance from persistent
    * storage. */
-  protected AuState doLoadAuState(ArchivalUnit au) {
+  protected AuStateBean doLoadAuStateBean(String key) {
     return null;
   }
 

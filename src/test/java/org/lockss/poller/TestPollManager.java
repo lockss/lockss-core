@@ -43,6 +43,7 @@ import org.lockss.poller.v3.*;
 import org.lockss.protocol.*;
 import org.lockss.repository.RepositoryManager;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 

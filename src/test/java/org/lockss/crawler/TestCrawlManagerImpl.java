@@ -42,6 +42,7 @@ import org.lockss.util.time.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.exploded.*;
 import org.lockss.daemon.*;

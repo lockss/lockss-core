@@ -43,7 +43,11 @@ import org.lockss.plugin.*;
 /** Contains the basic logic for all StateManagers.  Exact behavior
  * implemented and modified subclasses.
  *
- * For AuState, guarantees and enforces a single AuState per AU.
+ * For AuState, guarantees and enforces a single AuState per AU.  Supports
+ * operations on either AuState or AuStateBean, to support both clients
+ * accessing AuState in the course of their work with an AU, and the state
+ * service, where not all AUs will necessarily exist (so AuState cannot
+ * exist) but still want to cache bean data to avoid extra DB accesses.
  */
 public abstract class CachingStateManager extends BaseStateManager {
 
@@ -52,12 +56,17 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Cache of extant AuState instances */
   protected Map<String,AuState> auStates;
 
+  /** Cache of extant AuStateBean instances.  AuStateBean stored here only
+   * when corresponding AuState does not exist. */
+  protected Map<String,AuStateBean> auStateBeans;
+
   protected AuEventHandler auEventHandler;
 
   @Override
   public void initService(LockssDaemon daemon) throws LockssAppException {
     super.initService(daemon);
     auStates = newAuStateMap();
+    auStateBeans = newAuStateBeanMap();
   }
 
   public void startService() {
@@ -88,20 +97,49 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Return the current singleton AuState for the AU, creating one if
    * necessary. */
   public synchronized AuState getAuState(ArchivalUnit au) {
-    AuState aus = auStates.get(auKey(au));
-    log.debug("getAuState({}) [{}] = {}", au, auKey(au), aus);
+    String key = auKey(au);
+    AuState aus = auStates.get(key);
     if (aus == null) {
-      aus = handleCacheMiss(au);
+      AuStateBean ausb = auStateBeans.get(key);
+      if (ausb != null) {
+	// Create an AuState, move the item from bean to main cache.  No
+	// store needed here has been exists and has been stored
+	aus = new AuState(au, this, ausb);
+	auStates.put(key, aus);
+	auStateBeans.remove(key);
+      }
+    }
+    log.debug2("getAuState({}) [{}] = {}", au, key, aus);
+    if (aus == null) {
+      aus = handleAuStateCacheMiss(au);
     }
     return aus;
   }
 
+  /** Return the current singleton AuStateBean for the auid, creating one
+   * if necessary. */
+  public synchronized AuStateBean getAuStateBean(String key) {
+    // first look for a cached AuState, return its bean
+    AuState aus = auStates.get(key);
+    if (aus != null) {
+      log.debug2("getAuStateBean({}) = {}", key, aus);
+      return aus.getBean();
+    }
+
+    AuStateBean ausb = auStateBeans.get(key);
+    log.debug2("getAuStateBean({}) = {}", key, ausb);
+    if (ausb == null) {
+      ausb = handleAuStateBeanCacheMiss(key);
+    }
+    return ausb;
+  }
+
   /** Update the stored AuState with the values of the listed fields.
-   * @param aus The  source of the new values.  (Normally this will be
- */
+   * @param aus The source of the new values.
+   */
   public synchronized void updateAuState(AuState aus, Set<String> fields) {
     String key = auKey(aus.getArchivalUnit());
-    log.error("Updating: {}: {}", key, fields);
+    log.debug2("updateAuState: {}: {}", key, fields);
     AuState cur = auStates.get(key);
     try {
       if (cur != null) {
@@ -109,19 +147,62 @@ public abstract class CachingStateManager extends BaseStateManager {
 	  throw new IllegalStateException("Attempt to store from wrong AuState instance");
 	}
 	String json = aus.toJson(fields);
-	doStoreAuStateUpdate(key, aus, json, AuUtil.jsonToMap(json));
+	doStoreAuStateBeanUpdate(key, aus.getBean(), json,
+				 AuUtil.jsonToMap(json));
 	doNotifyAuStateChanged(key, json);
       } else if (isStoreOfMissingAuStateAllowed(fields)) {
+	AuStateBean curbean = auStateBeans.get(key);
+	if (curbean != null) {
+	  throw new IllegalStateException("AuStateBean but no AuState exists.  Do we need to support this?");
+	}
+
 	// XXX log?
 	auStates.put(key, aus);
 	String json = aus.toJson(fields);
-	doStoreAuStateNew(key, aus, json, AuUtil.jsonToMap(json));
+	doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to AuState not in cache");
       }
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", aus, e);
       throw new StateLoadStoreException("Couldn't serialize AuState: " + aus);
+    }
+  }
+
+  /** Update the stored AuState with the values of the listed fields.
+   * @param aus The source of the new values.
+   */
+  public synchronized void updateAuStateBean(String key,
+					     AuStateBean ausb,
+					     Set<String> fields) {
+    log.debug2("Updating: {}: {}", key, fields);
+    AuState curaus = auStates.get(key);
+    AuStateBean curausb;
+    if (curaus != null) {
+      curausb = curaus.getBean();
+    } else {
+      curausb = auStateBeans.get(key);
+    }
+    try {
+      if (curausb != null) {
+	if (curausb != ausb) {
+	  throw new IllegalStateException("Attempt to store from wrong AuStateBean instance");
+	}
+	String json = ausb.toJson(fields);
+	doStoreAuStateBeanUpdate(key, ausb, json, AuUtil.jsonToMap(json));
+	doNotifyAuStateChanged(key, json);
+      } else if (isStoreOfMissingAuStateAllowed(fields)) {
+	// XXX log?
+	auStateBeans.put(key, ausb);
+	String json = ausb.toJson(fields);
+	doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
+      } else {
+	throw new IllegalStateException("Attempt to apply partial update to AuStateBean not in cache: " + key);
+      }
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuStateBean: {}", ausb, e);
+      throw new StateLoadStoreException("Couldn't serialize AuStateBean: " +
+					ausb);
     }
   }
 
@@ -135,7 +216,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     auStates.put(key, aus);
     try {
       String json = aus.toJson();
-      doStoreAuStateNew(key, aus, json, AuUtil.jsonToMap(json));
+      doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", aus, e);
       throw new StateLoadStoreException("Couldn't deserialize AuState: " + aus);
@@ -151,26 +232,49 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Handle a cache miss.  Call hooks to load an object from backing
    * store, if any, or to create and store new default object. */
-  protected AuState handleCacheMiss(ArchivalUnit au) {
+  protected AuState handleAuStateCacheMiss(ArchivalUnit au) {
     String key = auKey(au);
-    AuState aus = doLoadAuState(au);
-    if (aus == null) {
-      aus = newDefaultAuState(au);
-      auStates.put(key, aus);
-      try {
-	String json = aus.toJson();
-	doStoreAuStateNew(key, aus, json, AuUtil.jsonToMap(json));
-      } catch (IOException e) {
-	log.error("Couldn't serialize AuState: {}", aus, e);
-	throw new StateLoadStoreException("Couldn't serialize AuState: " + aus);
-      }
+    AuStateBean ausb = doLoadAuStateBean(key);
+    AuState aus =
+      (ausb != null) ? new AuState(au, this, ausb) : newDefaultAuState(au);
+    auStates.put(key, aus);
+    try {
+      String json = aus.toJson();
+      doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuState: {}", aus, e);
+      throw new StateLoadStoreException("Couldn't serialize AuState: " + aus);
     }
     return aus;
+  }
+
+  /** Handle a cache miss.  Call hooks to load an object from backing
+   * store, if any, or to create and store new default object. */
+  protected AuStateBean handleAuStateBeanCacheMiss(String key) {
+    AuStateBean ausb = doLoadAuStateBean(key);
+    if (ausb == null) {
+      ausb = newDefaultAuStateBean(key);
+      auStateBeans.put(key, ausb);
+      try {
+	String json = ausb.toJson();
+	doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
+      } catch (IOException e) {
+	log.error("Couldn't serialize AuStateBean: {}", ausb, e);
+	throw new StateLoadStoreException("Couldn't serialize AuStateBean: " + ausb);
+      }
+    }
+    return ausb;
   }
 
   /** @return a Map suitable for an AuState cache.  By default a HashMap,
    * for a complete cache. */
   protected Map<String,AuState> newAuStateMap() {
+    return new HashMap<>();
+  }
+
+  /** @return a Map suitable for an AuStateBean cache.  By default a
+   * HashMap, for a complete cache. */
+  protected Map<String,AuStateBean> newAuStateBeanMap() {
     return new HashMap<>();
   }
 

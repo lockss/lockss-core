@@ -78,17 +78,16 @@ public class ClientStateManager extends CachingStateManager {
 
   /** Send the changes to the StateService */
   @Override
-  protected void doStoreAuStateUpdate(String key, AuState aus,
-				 String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanUpdate(String key, AuStateBean ausb,
+					  String json, Map<String,Object> map) {
 
     // XXXFGL send PATCH with json diffs
 
   }
 
   @Override
-  protected AuState doLoadAuState(ArchivalUnit au) {
-    String key = auKey(au);
-    AuState res = null;
+  protected AuStateBean doLoadAuStateBean(String key) {
+    AuStateBean res = null;
 
     // XXXFGL send GET, return null if server responds w/ 404
 

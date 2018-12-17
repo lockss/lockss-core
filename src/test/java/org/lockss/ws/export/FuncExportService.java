@@ -49,7 +49,7 @@ import org.lockss.servlet.AdminServletManager;
 import org.lockss.servlet.ServletManager;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase;
-import org.lockss.test.MockAuState;
+import org.lockss.state.MockAuState;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.NoCrawlEndActionsFollowLinkCrawler;
 import org.lockss.test.TcpTestUtil;

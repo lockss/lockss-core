@@ -40,7 +40,7 @@ import org.apache.commons.lang3.tuple.*;
 
 import org.lockss.plugin.*;
 import org.lockss.daemon.*;
-import org.lockss.state.AuState;
+import org.lockss.state.*;
 import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.alert.*;

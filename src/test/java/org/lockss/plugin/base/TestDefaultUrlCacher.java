@@ -42,6 +42,7 @@ import org.lockss.plugin.*;
 import org.lockss.daemon.*;
 import org.lockss.state.AuState;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.app.*;
 import org.lockss.alert.*;
 import org.lockss.util.*;

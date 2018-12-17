@@ -393,7 +393,7 @@ public class ArchivalUnitStatus
           if (cmStatus != null && cmStatus.isRunningNCCrawl(au)) {
             stat = new OrderedObject("Crawling", STATUS_ORDER_CRAWLING);
           } else {
-            if (auState.lastCrawlTime > 0 || AuUtil.isPubDown(au)) {
+            if (auState.getLastCrawlTime() > 0 || AuUtil.isPubDown(au)) {
               stat = new OrderedObject("Waiting for Poll",
                   STATUS_ORDER_WAIT_POLL);
             } else {
@@ -1134,7 +1134,7 @@ public class ArchivalUnitStatus
       Object recentPollStat = null;
       if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
         if (state.getV3Agreement() < 0) {
-          if (state.lastCrawlTime < 0  && !AuUtil.isPubDown(au)) {
+          if (state.getLastCrawlTime() < 0  && !AuUtil.isPubDown(au)) {
             stat = "Waiting for Crawl";
           } else {
             stat = "Waiting for Poll";

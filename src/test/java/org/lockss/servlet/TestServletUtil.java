@@ -39,6 +39,7 @@ import org.mortbay.html.*;
 import org.apache.oro.text.regex.*;
 import org.lockss.log.*;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.daemon.*;

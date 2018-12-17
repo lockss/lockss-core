@@ -638,14 +638,21 @@ public class TestAuState extends LockssTestCase {
   }
 
   String ausFields[] = {
+    "auId",
     "lastCrawlTime",
     "lastCrawlAttempt",
     "lastCrawlResultMsg",
     "lastCrawlResult",
+    "lastDeepCrawlAttempt",
+    "lastDeepCrawlDepth",
+    "lastDeepCrawlResult",
+    "lastDeepCrawlResultMsg",
+    "lastDeepCrawlTime",
     "lastPollStart",
     "lastPollResult",
     "pollDuration",
     "clockssSubscriptionStatus",
+    "hasSubstance",
     "v3Agreement",
     "highestV3Agreement",
     "accessType",
@@ -660,6 +667,8 @@ public class TestAuState extends LockssTestCase {
     "cdnStems",
     "lastTopLevelPollTime",
     "auCreationTime",
+    "metadataVersion",
+    "substanceVersion",
     "averageHashDuration"};;
 
   String ignFields[] = {
@@ -683,10 +692,6 @@ public class TestAuState extends LockssTestCase {
     "lastCrawlResultMsg",
     "lastCrawlResult"};
 
-  private String wordpat(String word) {
-    return "\\b" + word + "\\b";
-  }
-
   public void testToJson() throws IOException {
     Set<String> f2set = new HashSet<>(Arrays.asList(ausFields2));
     AuState aus = makeAuState(mau, -1, -1, -1, -1, 123, null,
@@ -695,24 +700,17 @@ public class TestAuState extends LockssTestCase {
     String json1 = aus.toJson();
     // serialize only selected fields
     String json2 = aus.toJson(SetUtil.set(ausFields2));
-    log.debug("json: " + json1);
+    log.debug("json1: " + json1);
     log.debug("json2: " + json2);
-    for (String s : ausFields) {
-      // all the fields in ausFields should be present in json1
-      assertMatchesRE(wordpat(s), json1);
-      // but in json2 only if in ausFields2
-      if (!f2set.contains(s)) {
-	assertNotMatchesRE(wordpat(s), json2);
-      }
-    }
+    Map map1 = AuUtil.jsonToMap(json1);
+    Map map2 = AuUtil.jsonToMap(json2);
+    assertSameElements(ausFields, map1.keySet());
+    assertSameElements(ausFields2, map2.keySet());
+
     // these fields should never appear
     for (String s : ignFields) {
-      assertNotMatchesRE(wordpat(s), json1);
-      assertNotMatchesRE(wordpat(s), json2);
-    }
-    // json2 should contain all of ausFields2
-    for (String s : ausFields2) {
-      assertMatchesRE(wordpat(s), json2);
+      assertFalse(map1.containsKey(s));
+      assertFalse(map2.containsKey(s));
     }
   }
 
@@ -764,16 +762,14 @@ public class TestAuState extends LockssTestCase {
     assertEquals(5, stateMgr.getAuStateUpdateCount());
   }
 
-  // Return the serialized representation of the object
-  String ser(LockssSerializable o) throws Exception {
-    File tf = getTempFile("ser", ".xml");
-    new XStreamSerializer().serialize(tf, o);
-    return StringUtil.fromFile(tf);
+  // Return the serialized representation of the AuState
+  String ser(AuState aus) throws Exception {
+    return aus.toJson();
   }
 
-  // Deserialize and return a Holder from the string
+  // Deserialize and return AuState
   AuState deser(String s) throws Exception {
-    return (AuState)(new XStreamSerializer().deserialize(new StringReader(s)));
+    return new AuState(AuUtil.updateFromJson(new AuStateBean(), s));
   }
 
   // Ensure that fields added to AuState get their default value when
@@ -783,7 +779,7 @@ public class TestAuState extends LockssTestCase {
 			      1, -1.0, 1.0, stateMgr);
 
     String ser = ser(aus);
-    String edser = ser.replaceAll(".*numAgreePeersLastPoR.*", "");
+    String edser = ser.replaceAll("numAgreePeersLastPoR", "nonExistentField");
     log.debug2("old: " + ser);
     log.debug2("new: " + edser);
     AuState newaus = deser(edser);
@@ -819,6 +815,11 @@ public class TestAuState extends LockssTestCase {
     @Override
     protected AuState newDefaultAuState(ArchivalUnit au) {
       return new MyAuState(au, this);
+    }
+
+    @Override
+    protected AuStateBean newDefaultAuStateBean(String key) {
+      return new AuStateBean();
     }
 
     @Override

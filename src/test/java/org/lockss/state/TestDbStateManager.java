@@ -39,11 +39,8 @@ import org.lockss.config.ConfigManager;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.AuUtil;
-import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.LockssTestCase4;
-import org.lockss.test.MockArchivalUnit;
-import org.lockss.test.MockLockssDaemon;
-import org.lockss.test.MockPlugin;
+import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.ListUtil;
 import org.lockss.util.time.TimeBase;
 
@@ -86,18 +83,18 @@ public class TestDbStateManager extends LockssTestCase4 {
   public void testStoreAndLoadAuState() throws Exception {
     // First AU with default state properties.
     String key = stateMgr.auKey(mau1);
-    AuState auState = stateMgr.newDefaultAuState(mau1);
-    String json = auState.toJson();
+    AuStateBean ausb = stateMgr.newDefaultAuStateBean(key);
+    String json = ausb.toJson();
 
-    stateMgr.doStoreAuStateNew(key, auState, json, AuUtil.jsonToMap(json));
+    stateMgr.doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
 
-    AuState newAuState = stateMgr.doLoadAuState(mau1);
-    String newJson = AuUtil.jsonFromAuState(newAuState, null);
+    AuStateBean newausb = stateMgr.doLoadAuStateBean(key);
+    String newJson = newausb.toJson();
     assertEquals(AuUtil.jsonToMap(json), AuUtil.jsonToMap(newJson));
 
     // Do it again.
     try {
-      stateMgr.doStoreAuStateNew(key, auState, json, AuUtil.jsonToMap(json));
+      stateMgr.doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
       fail("Should have thrown IllegalStateException");
     } catch (IllegalStateException ise) {
       // Expected.
@@ -105,18 +102,18 @@ public class TestDbStateManager extends LockssTestCase4 {
 
     // Second AU with modified state properties.
     key = stateMgr.auKey(mau2);
-    auState = stateMgr.newDefaultAuState(mau2);
-    json = auState.toJson();
+    ausb = stateMgr.newDefaultAuStateBean(key);
+    json = ausb.toJson();
     Map<String, Object> auStateMap = AuUtil.jsonToMap(json);
     auStateMap.put("auCreationTime", TimeBase.nowMs());
     auStateMap.put("cdnStems",
 	ListUtil.list("http://abc.com", "https://xyz.org"));
     json = AuUtil.mapToJson(auStateMap);
 
-    stateMgr.doStoreAuStateNew(key, auState, json, auStateMap);
+    stateMgr.doStoreAuStateBeanNew(key, ausb, json, auStateMap);
 
-    newAuState = stateMgr.doLoadAuState(mau2);
-    newJson = AuUtil.jsonFromAuState(newAuState, null);
+    newausb = stateMgr.doLoadAuStateBean(key);
+    newJson = newausb.toJson();
     assertEquals(auStateMap, AuUtil.jsonToMap(newJson));
   }
 }

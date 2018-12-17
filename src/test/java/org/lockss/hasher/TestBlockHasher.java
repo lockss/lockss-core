@@ -37,6 +37,7 @@ import java.io.*;
 import java.security.*;
 
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
 import org.lockss.filter.*;

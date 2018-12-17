@@ -49,13 +49,15 @@ public class DbStateManager extends CachingStateManager {
    * @param key the auid
    * @param json the serialized set of changes
    * @param map Map representation of change fields.
+   * @throws IOException if json conversion throws
    */
   // XXXFGL
   public void updateAuStateFromService(String auid, String json,
-				       Map<String,Object> map) {
-
-    doStoreAuStateUpdate(auid, null, json, map);
-    doNotifyAuStateChanged(auid, json);
+				       Map<String,Object> map)
+      throws IOException {
+    AuStateBean ausb = getAuStateBean(auid);
+    ausb.updateFromJson(json, daemon);
+    updateAuStateBean(auid, ausb, map.keySet());
   }
 
   /** Hook to store a new AuState in the DB.
@@ -65,10 +67,10 @@ public class DbStateManager extends CachingStateManager {
    * @throws IllegalStateException if this key is already present in the DB
    */
   @Override
-  protected void doStoreAuStateNew(String key, AuState aus,
-			      String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanNew(String key, AuStateBean ausb,
+				       String json, Map<String,Object> map) {
     log.debug2("key = {}", key);
-    log.debug2("aus = {}", aus);
+    log.debug2("ausb = {}", ausb);
     log.debug2("json = {}", json);
     log.debug2("map = {}", map);
 
@@ -85,7 +87,7 @@ public class DbStateManager extends CachingStateManager {
     } catch (DbException dbe) {
       String message = "Exception caught persisting new AuState";
       log.error("key = {}", key);
-      log.error("aus = {}", aus);
+      log.error("ausb = {}", ausb);
       log.error("json = {}", json);
       log.error("map = {}", map);
       log.error("pluginId = {}", pluginId);
@@ -103,8 +105,8 @@ public class DbStateManager extends CachingStateManager {
    * @param map Map representation of change fields.
    */
   @Override
-  protected void doStoreAuStateUpdate(String key, AuState aus,
-				 String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanUpdate(String key, AuStateBean ausb,
+					  String json, Map<String,Object> map) {
 
     // XXXFGL store changes in DB
 
@@ -116,11 +118,8 @@ public class DbStateManager extends CachingStateManager {
    * if there's no AuState for the AU in the DB.
    */
   @Override
-  protected AuState doLoadAuState(ArchivalUnit au) {
-    log.debug2("au = {}", au);
-
-    String key = auKey(au);
-    AuState res = null;
+  protected AuStateBean doLoadAuStateBean(String key) {
+    AuStateBean res = null;
     String pluginId = PluginManager.pluginIdFromAuId(key);
     log.trace("pluginId = {}", pluginId);
 
@@ -133,7 +132,7 @@ public class DbStateManager extends CachingStateManager {
       log.trace("auStateProps = {}", stateString);
 
       if (stateString != null) {
-        res = newDefaultAuState(au)
+        res = newDefaultAuStateBean(key)
             .updateFromJson(stateString, daemon);
       }
     } catch (IOException ioe) {

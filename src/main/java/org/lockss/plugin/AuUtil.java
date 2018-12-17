@@ -117,19 +117,17 @@ public class AuUtil {
     return mgr.getAuState(au);
   }
 
-  /** Serialize an AuState to a json string
-   * @param aus the AuState
+  /** Serialize an AuStateBean to a json string
+   * @param aus the AuStateBean
    * @param fields Set of fields to include in the output.  If null or
    *               empty, all fields are included
    */
-  public static String jsonFromAuState(AuState aus, Set<String> fields)
+  public static String jsonFromAuStateBean(AuStateBean aus, Set<String> fields)
       throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     mapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
 
-    // XXXAUS Current AuState class isn't really a bean, has getXxx and
-    // putXxx methods that shouldn't be used during serialization.
-    // Serialize directly from the fields.
+    // XXXAUS don't need all of this anymore with bean
     mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
 				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
 				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
@@ -148,23 +146,24 @@ public class AuUtil {
     return mapper.writer(filters).writeValueAsString(aus);
   }
 
-  /** Deserialize a json string into an existing AuState, replacing only
+  /** Deserialize a json string into an existing AuStateBean, replacing only
    * those fields that are present in the json string
-   * @param aus the AuState to modify
+   * @param aus the AuStateBean to modify
    * @param json json string
    */
-  // XXXAUS need string pool processing here, or enougn in AuState?
-  public static AuState updateFromJson(AuState aus, String json)
+  public static AuStateBean updateFromJson(AuStateBean aus, String json)
       throws IOException {
     ObjectMapper mapper = new ObjectMapper();
-    // XXXAUS Until make separate AuState bean, don't want to call setters
-    // because they're not just setters - they contain other logic
+    // XXXAUS don't need all of this anymore with bean
     mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
 				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
 				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
 				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+    // Ignore unknown properties on deserialization
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
     ObjectReader ordr = mapper.readerForUpdating(aus);
     ordr.readValue(json);
     return aus;
@@ -176,6 +175,13 @@ public class AuUtil {
       mapper.readValue(json, new TypeReference<Map<String,Object>>() {});
     return res;
   }
+
+//   public static Map<String,Object> objectToMap(Object obj) throws IOException {
+//     ObjectMapper mapper = new ObjectMapper();
+//     Map<String,Object> res =
+//       mapper.convertValue(obj, new TypeReference<Map<String,Object>>() {});
+//     return res;
+//   }
 
   /**
    * Provides the JSON serialization version of a map.

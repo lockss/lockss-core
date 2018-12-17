@@ -39,6 +39,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.Crawler;
 import org.lockss.plugin.*;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.Logger;
 
 import junit.framework.*;

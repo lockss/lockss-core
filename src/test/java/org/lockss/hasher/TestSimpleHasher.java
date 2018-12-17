@@ -35,6 +35,7 @@ import java.util.*;
 import java.io.*;
 import java.security.*;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.config.ConfigManager;
