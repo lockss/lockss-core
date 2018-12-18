@@ -269,7 +269,8 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Put an AuState in the auStates map, and remove any AuStateBean entry
    * from auStateBeans. */
   protected void putAuState(String key, AuState aus) {
-    auStates.put(key, aus); auStateBeans.remove(key);
+    auStates.put(key, aus);
+    auStateBeans.remove(key);
   }
 
   /** @return a Map suitable for an AuState cache.  By default a HashMap,
