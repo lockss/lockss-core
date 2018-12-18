@@ -87,8 +87,6 @@ public class AuState implements LockssSerializable {
   // No longer set, never had a non-standard value
   protected transient String lastPollResultMsg;   // result of last poll
 
-  protected String auId = null;
-
   /** No-arg constructor for testing. */
   AuState() {
   }
@@ -878,12 +876,7 @@ public class AuState implements LockssSerializable {
   }
 
   public void setAuId(String auId) {
-    if (auId != null) {
-      throw new IllegalStateException("Cannot change AUId from '" + this.auId
-	  + "' to '" + auId);
-    }
-
-    bean.auId = auId;
+    bean.setAuId(auId);
   }
 
   /** Start a batch of updates, deferring saving until unBatchSaves() is

@@ -78,12 +78,16 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   /** Create a default AuState */
   protected AuState newDefaultAuState(ArchivalUnit au) {
-    return new AuState(au, this);
+    AuState aus = new AuState(au, this);
+    aus.setAuId(auKey(au));
+    return aus;
   }
 
   /** Create a default AuState */
   protected AuStateBean newDefaultAuStateBean(String key) {
-    return new AuStateBean();
+    AuStateBean ausb = new AuStateBean();
+    ausb.setAuId(key);
+    return ausb;
   }
 
   /** return the string to use as a key for the AU's AuState.  Normally the

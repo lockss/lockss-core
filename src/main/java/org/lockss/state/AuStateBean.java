@@ -91,7 +91,7 @@ public class AuStateBean {
   protected List<String> cdnStems = null; // URL stems of content on hosts
 					  // not predicted by permission URLs
 
-  protected String auId;
+  protected String auId = null;
 
   public AuStateBean() {
   }
@@ -479,8 +479,8 @@ public class AuStateBean {
    * @param auid the auid to set
    */
   public void setAuId(String auId) {
-    if (auId != null) {
-      throw new IllegalStateException("Cannot change AUId from '" + this.auId
+    if (this.auId != null) {
+      throw new IllegalStateException("Cannot change AUID from '" + this.auId
 	  + "' to '" + auId);
     }
     this.auId = auId;
