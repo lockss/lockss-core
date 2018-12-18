@@ -161,6 +161,8 @@ public class TestServerDbStateManager extends LockssTestCase4 {
     assertEquals(auStateUpdateMap(key, in1Map),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
+    assertTrue(stateMgr.isInAuStateBeanMap(key));
+
     // Create an AU with that auid, ensure resulting AuState has the values
     // that were set on the AuStateBean created by the update
 
@@ -171,18 +173,38 @@ public class TestServerDbStateManager extends LockssTestCase4 {
     assertEquals(666, aus.getLastCrawlTime());
     assertEquals(555, aus.getLastCrawlAttempt());
 
+    assertTrue(stateMgr.isInAuStateMap(key));
   }
 
 
   static class MyServerDbStateManager extends ServerDbStateManager {
     private SimpleBinarySemaphore rcvSem;
 
+    // Suppress DB load
     @Override
     protected AuStateBean doLoadAuStateBean(String key) {
       log.debug2("MyServerDbStateManager.doLoadAuState({})", key);
       return null;
     }
 
-  }
+    boolean isInAuStateMap(String key) {
+      if (!auStates.containsKey(key)) {
+	return false;
+      }
+      if (auStateBeans.containsKey(key)) {
+	throw new IllegalStateException("Key found in both auStates and auStateBeans: " + key);
+      }
+      return true;
+    }
 
+    boolean isInAuStateBeanMap(String key) {
+      if (!auStateBeans.containsKey(key)) {
+	return false;
+      }
+      if (auStates.containsKey(key)) {
+	throw new IllegalStateException("Key found in both auStates and auStateBeans: " + key);
+      }
+      return true;
+    }
+  }
 }

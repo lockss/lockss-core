@@ -51,7 +51,6 @@ public class DbStateManager extends CachingStateManager {
    * @param map Map representation of change fields.
    * @throws IOException if json conversion throws
    */
-  // XXXFGL
   public void updateAuStateFromService(String auid, String json,
 				       Map<String,Object> map)
       throws IOException {

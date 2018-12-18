@@ -105,8 +105,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	// Create an AuState, move the item from bean to main cache.  No
 	// store needed here has been exists and has been stored
 	aus = new AuState(au, this, ausb);
-	auStates.put(key, aus);
-	auStateBeans.remove(key);
+	putAuState(key, aus);
       }
     }
     log.debug2("getAuState({}) [{}] = {}", au, key, aus);
@@ -157,7 +156,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	}
 
 	// XXX log?
-	auStates.put(key, aus);
+	putAuState(key, aus);
 	String json = aus.toJson(fields);
 	doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
       } else {
@@ -213,7 +212,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     if (auStates.containsKey(key)) {
       throw new IllegalStateException("Storing 2nd AuState: " + key);
     }
-    auStates.put(key, aus);
+    putAuState(key, aus);
     try {
       String json = aus.toJson();
       doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
@@ -228,6 +227,7 @@ public abstract class CachingStateManager extends BaseStateManager {
    * storage. */
   protected synchronized void handleAuDeleted(ArchivalUnit au) {
     auStates.remove(auKey(au));
+    auStateBeans.remove(auKey(au));
   }
 
   /** Handle a cache miss.  Call hooks to load an object from backing
@@ -237,7 +237,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     AuStateBean ausb = doLoadAuStateBean(key);
     AuState aus =
       (ausb != null) ? new AuState(au, this, ausb) : newDefaultAuState(au);
-    auStates.put(key, aus);
+    putAuState(key, aus);
     try {
       String json = aus.toJson();
       doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
@@ -264,6 +264,12 @@ public abstract class CachingStateManager extends BaseStateManager {
       }
     }
     return ausb;
+  }
+
+  /** Put an AuState in the auStates map, and remove any AuStateBean entry
+   * from auStateBeans. */
+  protected void putAuState(String key, AuState aus) {
+    auStates.put(key, aus); auStateBeans.remove(key);
   }
 
   /** @return a Map suitable for an AuState cache.  By default a HashMap,

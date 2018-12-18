@@ -48,7 +48,7 @@ import org.lockss.state.AuState.AccessType;
  * AuStateBean is a bean for the data in AuState
  */
 @JsonFilter("auStateFilter")
-public class AuStateBean /*implements LockssSerializable*/ {
+public class AuStateBean {
 
   private static final Logger logger = Logger.getLogger();
 
