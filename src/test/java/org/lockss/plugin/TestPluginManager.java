@@ -800,7 +800,6 @@ public class TestPluginManager extends LockssTestCase4 {
     assertNotNull(au2);
     assertSame(cod_mpi, au2.getPlugin());
     assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
-    assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
 
     // verify created event was sent
     assertEquals(ListUtil.list(au1, au2), createEvents);
