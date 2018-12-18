@@ -82,38 +82,40 @@ public class TestDbStateManager extends LockssTestCase4 {
   @Test
   public void testStoreAndLoadAuState() throws Exception {
     // First AU with default state properties.
+    TimeBase.setSimulated(100L);
+
     String key = stateMgr.auKey(mau1);
     AuStateBean ausb = stateMgr.newDefaultAuStateBean(key);
-    String json = ausb.toJson();
+    String json = ausb.toJsonExcept("auCreationTime");
 
-    stateMgr.doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
+    stateMgr.doStoreAuStateBeanNew(key, ausb); // gets new creation time
 
     AuStateBean newausb = stateMgr.doLoadAuStateBean(key);
-    String newJson = newausb.toJson();
+    assertEquals(100L, newausb.getAuCreationTime());
+    String newJson = newausb.toJsonExcept("auCreationTime");
     assertEquals(AuUtil.jsonToMap(json), AuUtil.jsonToMap(newJson));
 
     // Do it again.
     try {
-      stateMgr.doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
+      stateMgr.doStoreAuStateBeanNew(key, ausb);
       fail("Should have thrown IllegalStateException");
     } catch (IllegalStateException ise) {
       // Expected.
     }
 
     // Second AU with modified state properties.
+    TimeBase.setSimulated(200L);
+    
     key = stateMgr.auKey(mau2);
     ausb = stateMgr.newDefaultAuStateBean(key);
+    ausb.setAuCreationTime(TimeBase.nowMs());
+    ausb.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
     json = ausb.toJson();
-    Map<String, Object> auStateMap = AuUtil.jsonToMap(json);
-    auStateMap.put("auCreationTime", TimeBase.nowMs());
-    auStateMap.put("cdnStems",
-	ListUtil.list("http://abc.com", "https://xyz.org"));
-    json = AuUtil.mapToJson(auStateMap);
 
-    stateMgr.doStoreAuStateBeanNew(key, ausb, json, auStateMap);
+    stateMgr.doStoreAuStateBeanNew(key, ausb); // has existing creation time
 
     newausb = stateMgr.doLoadAuStateBean(key);
     newJson = newausb.toJson();
-    assertEquals(auStateMap, AuUtil.jsonToMap(newJson));
+    assertEquals(AuUtil.jsonToMap(json), AuUtil.jsonToMap(newJson));
   }
 }

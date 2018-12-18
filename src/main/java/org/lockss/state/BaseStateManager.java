@@ -31,14 +31,10 @@ package org.lockss.state;
 import java.io.*;
 import java.util.*;
 import javax.jms.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
 
 import org.lockss.app.*;
-import org.lockss.daemon.*;
 import org.lockss.log.*;
 import org.lockss.jms.*;
-import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
@@ -267,11 +263,9 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * of the three data sources may be used.
    * @param key AUID or other key for AU
    * @param aus AuState data source
-   * @param aus json data source
-   * @param aus Map data source
    */
-  protected void doStoreAuStateBeanNew(String key, AuStateBean ausb,
-				   String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanNew(String key,
+                                       AuStateBean ausb) {
   }
 
   /** Hook for subclass to update an existing AuStateBean in persistent storage.
@@ -279,11 +273,11 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * in the Map or the json string should be saved.
    * @param key AUID or other key for AU
    * @param aus AuStateBean data source
-   * @param aus json data source
-   * @param aus Map data source
+   * @param fields The fields being updated
    */
-  protected void doStoreAuStateBeanUpdate(String key, AuStateBean ausb,
-				      String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanUpdate(String key,
+                                          AuStateBean ausb,
+                                          Set<String> fields) {
   }
 
   /** Hook for subclass to read an AuStateBean instance from persistent
