@@ -808,6 +808,7 @@ public class AuConfig extends LockssServlet {
 
   /** Return true iff newConfig is different from oldConfig */
   boolean isChanged(Configuration oldConfig, Configuration newConfig) {
+    if (oldConfig == null) return newConfig != null;
     Collection<String> dk = oldConfig.differentKeys(newConfig);
     boolean changed = false;
     for (Iterator iter = dk.iterator(); iter.hasNext(); ) {

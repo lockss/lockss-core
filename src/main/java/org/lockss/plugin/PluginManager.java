@@ -44,6 +44,7 @@ import org.lockss.daemon.*;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.plugin.definable.DefinablePlugin;
+import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
@@ -182,7 +183,18 @@ public class PluginManager
    * are started on demand. */
   public static final String PARAM_START_ALL_AUS =
     PREFIX + "startAllAus";
-  public static final boolean DEFAULT_START_ALL_AUS = false;
+  // Various tests assume no on-demand AU creation so this has to be true
+  // for now.  (Symptom is that they use AUIDs that can't be parsed by
+  // on-demand code)
+  public static final boolean DEFAULT_START_ALL_AUS = true;
+
+  /** When creating an on-demand AU, if no config is available in config DB
+   * or tdb, the AUs config will be inferred from the AUID if this is true,
+   * else the creation will fail.  "True" will not lead to correct behavior
+   * for all AUs. */
+  public static final String PARAM_INFER_CONFIG_FROM_AUID =
+    PREFIX + "inferConfigFromAuid";
+  public static final boolean DEFAULT_INFER_CONFIG_FROM_AUID = true;
 
   /** If true, all plugins loaded as they become available.  If false,
    * plugins are loaded as needed for AUs started on demand.  Not fully
@@ -444,6 +456,7 @@ public class PluginManager
     DEFAULT_PREVENT_CONCURRENT_SEARCHES;
 
   private boolean paramStartAllAus = DEFAULT_START_ALL_AUS;
+  private boolean paramInferConfigFromAuId = DEFAULT_INFER_CONFIG_FROM_AUID;
   private boolean paramLoadAllPlugins = DEFAULT_LOAD_ALL_PLUGINS;
 
   private Map titleMap = null;
@@ -652,6 +665,10 @@ public class PluginManager
       paramStartAllAus =
 	config.getBoolean(PARAM_START_ALL_AUS, DEFAULT_START_ALL_AUS);
 
+      paramInferConfigFromAuId =
+	config.getBoolean(PARAM_INFER_CONFIG_FROM_AUID,
+			  DEFAULT_INFER_CONFIG_FROM_AUID);
+
       paramLoadAllPlugins =
 	config.getBoolean(PARAM_LOAD_ALL_PLUGINS, DEFAULT_LOAD_ALL_PLUGINS);
 
@@ -709,6 +726,11 @@ public class PluginManager
    */
   private void configureAllArchivalUnits() {
     Collection<AuConfiguration> auConfigurations = null;
+
+    if (isStartAusOnDemand()) {
+      log.debug("In on-demand mode, Not starting AUs");
+      return;
+    }
 
     // Get the configurations of all the Archival Units.
     try {
@@ -1649,51 +1671,99 @@ public class PluginManager
     ArchivalUnit au = (ArchivalUnit)auMap.get(auId);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
-    // Check whether no Archival Unit was found and the content comes from web
-    // services.
+    // If AU doesn't exist, maybe create it on-demand
     if (au == null && isStartAusOnDemand()) {
-      String auKey = null;
-      try {
-	auKey = PluginManager.auKeyFromAuId(auId);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auKey = " + auKey);
-      } catch (IllegalArgumentException iae) {
-	return null;
-      }
-
-      // Get the properties encoded in the archival unit key.
-      Properties props = null;
-
-      try {
-	props = PropUtil.canonicalEncodedStringToProps(auKey);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "props = " + props);
-      } catch (IllegalArgumentException iae) {
-	return null;
-      }
-
-      Configuration auConfig = null;
-      try {
-	auConfig = ConfigManager.fromPropertiesUnsealed(props);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-      } catch (RuntimeException re) {
-	return null;
-      }
-
-      Plugin plugin = getPluginFromAuId(auId);
-
-      // Get the AU.
-      try {
-	au = createAu(plugin, auConfig,
-		      AuEvent.forAuId(auId, AuEvent.Type.Create));
-	au.setConfiguration(auConfig);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
-      } catch (Exception e) {
-	log.error("Failed to create Archival Unit - auId = " + auId
-	    + ", auConfig = " + auConfig, e);
-      }
+      au = createOnDemandAu(auId);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "au = " + au);
     return au;
+  }
+
+  ArchivalUnit createOnDemandAu(String auId) {
+    final String DEBUG_HEADER = "createOnDemandAu(): ";
+    Plugin plugin = getPluginFromAuId(auId);
+
+    Configuration auConfig = null;
+    try {
+      auConfig = getStoredAuConfigurationAsConfiguration(auId);
+    } catch (DbException e) {
+      log.warning("Error fetching AU config: " + auId, e);
+    }
+    if (auConfig != null) {
+      log.debug("Found stored config for on demand AU: " +
+		auId + " : " + auConfig);
+    } else {
+      auConfig = getAuConfigFromTdb(plugin, auId);
+      if (auConfig != null) {
+	log.debug("Found tdb config for on demand AU: " +
+		  auId + " : " + auConfig);
+      } else if (paramInferConfigFromAuId) {
+	auConfig = getAuConfigFromAuId(auId);
+	if (auConfig != null) {
+	  log.debug("Inferred config for on demand AU: " +
+		    auId + " : " + auConfig);
+	}
+      }
+    }
+    if (auConfig == null) {
+      log.warning("Can't create AU on demand: " + auId);
+      return null;
+    }
+
+    ArchivalUnit au = null;
+    // Get the AU.
+    try {
+      au = createAu(plugin, auConfig,
+		    AuEvent.forAuId(auId, AuEvent.Type.Create));
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
+    } catch (Exception e) {
+      log.error("Failed to create Archival Unit - auId = " + auId
+		+ ", auConfig = " + auConfig, e);
+    }
+    return au;
+  }
+
+  Configuration getAuConfigFromTdb(Plugin plugin, String auid) {
+    if (plugin instanceof BasePlugin) {
+      TitleConfig tc = ((BasePlugin)plugin).getTitleConfigFromAuId(auid);
+      if (tc == null) return null;
+      return tc.getConfig();
+    }
+    log.warning("Attempt to get TitleConfig for non-BasePlugin: " + auid);
+    return null;
+  }
+
+  Configuration getAuConfigFromAuId(String auid) {
+    final String DEBUG_HEADER = "getAuConfigFromAuId(): ";
+    String auKey = null;
+    try {
+      auKey = PluginManager.auKeyFromAuId(auid);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auKey = " + auKey);
+    } catch (IllegalArgumentException iae) {
+      log.warning("Can't infer config from AUID: " + auid, iae);
+      return null;
+    }
+
+    // Get the properties encoded in the archival unit key.
+    Properties props = null;
+
+    try {
+      props = PropUtil.canonicalEncodedStringToProps(auKey);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "props = " + props);
+    } catch (IllegalArgumentException iae) {
+      log.warning("Can't infer config from AUID: " + auid, iae);
+      return null;
+    }
+
+    try {
+      Configuration auConfig = ConfigManager.fromPropertiesUnsealed(props);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+      return auConfig;
+    } catch (RuntimeException re) {
+      log.warning("Can't infer config from AUID: " + auid, re);
+      return null;
+    }
   }
 
   public void addHostAus(ArchivalUnit au) {
@@ -2146,7 +2216,7 @@ public class PluginManager
       throws DbException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
-    Configuration config = ConfigManager.newConfiguration();
+    Configuration config = null;
     AuConfiguration auConfiguration =
 	configMgr.retrieveArchivalUnitConfiguration(auid);
 

@@ -30,6 +30,7 @@ package org.lockss.remote;
 
 import org.lockss.config.Configuration;
 import org.lockss.db.DbException;
+import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
 
@@ -59,7 +60,8 @@ public class InactiveAuProxy extends AuProxy {
    * @return a Configuration
    */
   public Configuration getConfiguration() throws DbException {
-    return getRemoteApi().getStoredAuConfiguration(this);
+    Configuration config = getRemoteApi().getStoredAuConfiguration(this);
+    return config != null ? config : ConfigManager.newConfiguration();
   }
 
   /**
