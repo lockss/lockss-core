@@ -33,27 +33,29 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.crawler;
 
 import org.lockss.daemon.ActivityRegulator;
-import org.lockss.plugin.*;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
 
 public class CrawlReq {
-  private ArchivalUnit au;
+
   String auid;
   String auName;
   CrawlManager.Callback cb;
   Object cookie;
   ActivityRegulator.Lock lock;
-  private AuState aus = null;
   String rateKey;
   int priority = 0;
   int refetchDepth = -1;
+  private ArchivalUnit au;
+  private AuState aus = null;
 
   public CrawlReq(ArchivalUnit au) {
     this(au, null, null, null);
   }
 
   public CrawlReq(ArchivalUnit au, CrawlManager.Callback cb,
-	   Object cookie, ActivityRegulator.Lock lock) {
+      Object cookie, ActivityRegulator.Lock lock) {
     this.au = au;
     this.auid = au.getAuId();
     this.auName = au.getName();
@@ -62,10 +64,6 @@ public class CrawlReq {
     this.lock = lock;
     this.aus = AuUtil.getAuState(au);
     this.rateKey = au.getFetchRateLimiterKey();
-  }
-
-  public void setPriority(int val) {
-    priority = val;
   }
 
   public void auDeleted() {
@@ -86,10 +84,6 @@ public class CrawlReq {
     return au != null /* && aus != null */;
   }
 
-  public void setCb(CrawlManager.Callback cb) {
-    this.cb = cb;
-  }
-
   public String getAuId() {
     return auid;
   }
@@ -100,6 +94,10 @@ public class CrawlReq {
 
   public CrawlManager.Callback getCb() {
     return cb;
+  }
+
+  public void setCb(CrawlManager.Callback cb) {
+    this.cb = cb;
   }
 
   public Object getCookie() {
@@ -122,16 +120,20 @@ public class CrawlReq {
     return priority;
   }
 
+  public void setPriority(int val) {
+    priority = val;
+  }
+
   public boolean isHiPri() {
     return priority > 0;
   }
 
-  public void setRefetchDepth(int val) {
-    refetchDepth = val;
-  }
-
   public int getRefetchDepth() {
     return refetchDepth;
+  }
+
+  public void setRefetchDepth(int val) {
+    refetchDepth = val;
   }
 
   public String toString() {
@@ -140,11 +142,13 @@ public class CrawlReq {
     if (au == null) {
       sb.append("(I): ");
       if (auName != null) {
-	sb.append(auName);
-      } else {
-	sb.append(auid);
+        sb.append(auName);
       }
-    } else {
+      else {
+        sb.append(auid);
+      }
+    }
+    else {
       sb.append(": ");
       sb.append(au);
     }
