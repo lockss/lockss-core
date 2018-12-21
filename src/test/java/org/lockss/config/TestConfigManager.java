@@ -208,8 +208,13 @@ public class TestConfigManager extends LockssTestCase4 {
     prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB,
 			     "GlobalConfigChanged"));
 
+    // Not expecting configurationChanged() to have been called, as it's
+    // called by the config reload thread after the config has been
+    // reloaded.
     assertNull(notifications.get(TIMEOUT_SHOULD));
 
+    // AuConfigStored and AuConfigRemoved notifications should call
+    // callback to be called
     prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
 			     ConfigManager.CONFIG_NOTIFY_AUID, "AU&IDIDID"));
     assertEquals("AuChanged", notifications.get(TIMEOUT_SHOULDNT));

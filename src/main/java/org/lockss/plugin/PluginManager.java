@@ -737,6 +737,10 @@ public class PluginManager
 
   @Override
   public void auConfigRemoved(String auid) {
+    if (auid == null && isStartAusOnDemand()) {
+      // Don't delete AUs on config change in on-demand mode
+      return;
+    }
     ArchivalUnit au = getAuFromIdIfExists(auid);
     if (au != null) {
       log.debug("Stopping AU due to AU config removed notification: " + auid);
@@ -902,9 +906,7 @@ public class PluginManager
 
       // Loop through each Archival Unit configuration found.
       for (AuConfiguration auConfiguration : pluginAus) {
-	synchronized (auAddDelLock) {
-	  startOrReconfigureAu(auConfiguration, scc);
-	}
+	startOrReconfigureAu(auConfiguration, scc);
       }
     }
   }

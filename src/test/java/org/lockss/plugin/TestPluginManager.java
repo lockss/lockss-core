@@ -896,13 +896,25 @@ public class TestPluginManager extends LockssTestCase4 {
     assertNull(mgr.getAuFromIdIfExists(auid2));
 
     mgr.auConfigChanged(auid1);
+    mgr.auConfigChanged(auid2);
     ArchivalUnit au1 = mgr.getAuFromIdIfExists(auid1);
     assertNotNull(au1);
     assertSame(cod_mpi, au1.getPlugin());
     assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
 
-    mgr.auConfigRemoved(auid1);
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(auid2);
+    assertNotNull(au2);
+    assertSame(cod_mpi, au2.getPlugin());
+    assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
+
+    auc1.put(PluginManager.AU_PARAM_DISABLED, "true");
+    mgr.updateAuInDatabase(auid1, auc1);
+    mgr.auConfigChanged(auid1);
     assertNull(mgr.getAuFromIdIfExists(auid1));
+
+    assertNotNull(mgr.getAuFromIdIfExists(auid2));
+    mgr.auConfigRemoved(auid2);
+    assertNull(mgr.getAuFromIdIfExists(auid2));
   }
 
 
