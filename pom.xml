@@ -51,8 +51,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <description>The Slimmed Down LOCKSS Daemon Core</description>
 
   <properties>
-    <jackson.version>2.9.5</jackson.version>
-    <build.releasename>1.74.0</build.releasename>
+    <jackson.version>2.9.7</jackson.version>
+    <build.releasename>1.75.0</build.releasename>
     <skip.stf.tests>true</skip.stf.tests>
     <run.classpath.file>${basedir}/target/run-classpath</run.classpath.file>
     <test.classpath.file>${basedir}/target/test-classpath</test.classpath.file>
@@ -168,7 +168,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
-      <version>3.7</version>
+      <version>3.8.1</version>
     </dependency>
     <dependency>
       <groupId>commons-primitives</groupId>
@@ -188,7 +188,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-collections4</artifactId>
-      <version>4.1</version>
+      <version>4.2</version>
     </dependency>
     <dependency>
       <groupId>commons-configuration</groupId>
@@ -203,12 +203,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>1.7</version>
+      <version>1.11</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.13</version>
+      <version>1.18</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
