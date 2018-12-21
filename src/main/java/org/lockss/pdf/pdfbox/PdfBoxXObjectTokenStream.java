@@ -65,7 +65,7 @@ public class PdfBoxXObjectTokenStream extends PdfBoxTokenStream {
    * 
    * @since 1.67.6
    */
-  private static final Logger log = Logger.getLogger();
+  private static final Logger log = Logger.getLogger(PdfBoxXObjectTokenStream.class);
   
   /**
    * <p>
@@ -127,7 +127,10 @@ public class PdfBoxXObjectTokenStream extends PdfBoxTokenStream {
       PDStream newPdStream = makeNewPdStream();
       newPdStream.getStream().setName(COSName.SUBTYPE, PDXObjectForm.SUB_TYPE);
       ContentStreamWriter tokenWriter = new ContentStreamWriter(newPdStream.createOutputStream());
-      tokenWriter.writeTokens(PdfBoxTokens.unwrapList(newTokens));
+      for (int i = 0 ; i < newTokens.size() ; i += 10000) {
+        int len = newTokens.size() - i > 10_000 ? 10_000 : newTokens.size() - i;
+        tokenWriter.writeTokens(PdfBoxTokens.unconvertList(newTokens.subList(i, i + len)));
+      }
       pdXObjectForm = new PDXObjectForm(newPdStream);
       pdXObjectForm.setResources(getStreamResources());
       Map<String, PDXObject> xobjects = parentResources.getXObjects();

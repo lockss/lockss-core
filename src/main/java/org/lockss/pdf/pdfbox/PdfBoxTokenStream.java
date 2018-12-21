@@ -35,11 +35,14 @@ package org.lockss.pdf.pdfbox;
 import java.io.IOException;
 import java.util.*;
 
+import org.apache.pdfbox.cos.COSString;
 import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.lockss.config.CurrentConfig;
 import org.lockss.pdf.*;
+import org.lockss.util.FileBackedList;
 
 /**
  * <p>
@@ -94,6 +97,16 @@ public abstract class PdfBoxTokenStream implements PdfTokenStream {
       pdfStreamParser = new PDFStreamParser(pdStream.getStream());
       Iterator<Object> iter = pdfStreamParser.getTokenIterator();
       while (iter.hasNext()) {
+        if (   CurrentConfig.getBooleanParam(PARAM_ENABLE_FILE_BACKED_LISTS,
+                                             DEFAULT_ENABLE_FILE_BACKED_LISTS)
+            && tokens.size() == CurrentConfig.getIntParam(PARAM_FILE_BACKED_LISTS_THRESHOLD,
+                                                          DEFAULT_FILE_BACKED_LISTS_THRESHOLD)) {
+          // List becoming too large for main memory
+          List<PdfToken> newList = new FileBackedList<PdfToken>();
+          tokens.clear();
+          ((ArrayList<PdfToken>)tokens).trimToSize();
+          tokens = newList;
+        }
         tokens.add(PdfBoxTokens.convertOne(iter.next()));
       }
       decodeStringsWithFontContext(tokens);
@@ -176,7 +189,7 @@ public abstract class PdfBoxTokenStream implements PdfTokenStream {
         }
         // See PDFBox 1.8.2, PDFStreamEngine, lines 387-514
         StringBuilder sb = new StringBuilder();
-        byte[] bytes = PdfBoxTokens.asCOSString(token).getBytes();
+        byte[] bytes = new COSString(token.getString()).getBytes();
         int codeLength = 1;
         for (int j = 0; j < bytes.length; j += codeLength) {
           codeLength = 1;
@@ -241,5 +254,27 @@ public abstract class PdfBoxTokenStream implements PdfTokenStream {
   protected PDStream makeNewPdStream() {
     return new PDStream(pdfBoxPage.pdfBoxDocument.pdDocument);
   }
+
+  /**
+   * Configuration prefix for PDFBox-related parameters (may be moved upstream
+   * later).
+   */
+  public static final String PREFIX = "org.lockss.pdfbox.";
+  
+  /**
+   * Whether to allow excessively large lists of PDFBox tokens go to disk above
+   * PARAM_FILE_BACKED_LISTS_THRESHOLD items.
+   */
+  public static final String PARAM_ENABLE_FILE_BACKED_LISTS = PREFIX + "enableFileBackedLists";
+  
+  public static final boolean DEFAULT_ENABLE_FILE_BACKED_LISTS = true;
+  
+  /**
+   * When PARAM_ENABLE_FILE_BACKED_LISTS is true, number of items that triggers
+   * the allocation of a file-backed list.
+   */
+  public static final String PARAM_FILE_BACKED_LISTS_THRESHOLD = PREFIX + "fileBackedListsThreshold";
+  
+  public static final int DEFAULT_FILE_BACKED_LISTS_THRESHOLD = 100_000;
   
 }
