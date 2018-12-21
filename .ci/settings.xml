@@ -20,11 +20,6 @@
         <gpg.keyname>${env.GPG_KEY_NAME}</gpg.keyname>
         <gpg.passphrase>${env.GPG_PASSPHRASE}</gpg.passphrase>
       </properties>
-      <pluginRepositories>
-        <pluginRepository>
-          <id>ossrh</id>
-        </pluginRepository>
-      </pluginRepositories>
     </profile>
   </profiles>
 </settings>

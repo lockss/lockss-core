@@ -871,5 +871,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       </releases>
     </repository>
   </repositories>
+     <pluginRepositories>
+       <pluginRepository>
+         <id>ossrh-snapshots</id>
+         <name>Sonatype OSSRH Snapshots</name>
+<url>https://oss.sonatype.org/service/local/repositories/snapshots/content</url>
+         <snapshots>
+           <enabled>true</enabled>
+           <updatePolicy>always</updatePolicy>
+         </snapshots>
+         <releases>
+           <enabled>false</enabled>
+           <updatePolicy>never</updatePolicy>
+         </releases>
+       </pluginRepository>
+     </pluginRepositories>
   
 </project>
