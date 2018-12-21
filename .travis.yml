@@ -25,7 +25,7 @@ cache:
   directories:
   - "$HOME/.m2"
 notifications:
-  email: clairetg@stanford.edu
+  email: dev-notify@lockss.org
 before_install:
 - openssl aes-256-cbc -K $encrypted_4effbd4536cc_key -iv $encrypted_4effbd4536cc_iv
   -in .ci/codesigning.asc.enc -out .ci/codesigning.asc -d
