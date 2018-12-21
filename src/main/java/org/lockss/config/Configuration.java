@@ -888,6 +888,14 @@ public abstract class Configuration {
     public void configurationChanged(Configuration newConfig,
 				     Configuration oldConfig,
 				     Configuration.Differences changes);
+    /** Callback used to inform clients that an AU's config has been
+     * created anew or changed. */
+    default public void auConfigChanged(String auid) {
+    }
+    /** Callback used to inform clients that an AU's config has been
+     * deleted. */
+    default public void auConfigRemoved(String auid) {
+    }
   }
 
   /** Differences represents the changes in a Configuration from the

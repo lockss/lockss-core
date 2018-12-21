@@ -882,6 +882,30 @@ public class TestPluginManager extends LockssTestCase4 {
     assertNotNull(au1);
   }
 
+  @Test
+  public void testNotifyAuChanged() throws Exception {
+    startAllSetup();
+    // Store two AU configs in DB
+    String auid1 = cod_tc1.getAuId(mgr);
+    Configuration auc1 = cod_tc1.getConfig();
+    mgr.updateAuInDatabase(auid1, auc1);
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration auc2 = cod_tc2.getConfig();
+    mgr.updateAuInDatabase(auid2, auc2);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+
+    mgr.auConfigChanged(auid1);
+    ArchivalUnit au1 = mgr.getAuFromIdIfExists(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+
+    mgr.auConfigRemoved(auid1);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+  }
+
+
   // TitleConfig setup for CreateOnDemand tests
 
   MockPlugin cod_mpi;
@@ -1094,13 +1118,6 @@ public class TestPluginManager extends LockssTestCase4 {
 
     void suppressEnxurePluginLoaded(List<String> pluginKeys) {
       suppressEnxurePluginLoaded = pluginKeys;
-    }
-
-    // Make it look like any AU's config are in the source, to simplify
-    // config in these tests.
-    @Override
-    boolean isAuConfInSource(String auId) {
-      return true;
     }
 
     @Override

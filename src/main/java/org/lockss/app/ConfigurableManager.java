@@ -50,5 +50,15 @@ public interface ConfigurableManager {
   void setConfig(Configuration newConfig,
 		 Configuration prevConfig,
 		 Configuration.Differences changedKeys);
+
+  /** Optional method to receive notifications that an AU's configuration
+   * has been set (created anew or changed). */
+  default public void auConfigChanged(String auid) {
+  }
+
+  /** Optional method to receive notifications that an AU's configuration
+   * has been deleted. */
+  default public void auConfigRemoved(String auid) {
+  }
 }
 
