@@ -82,25 +82,6 @@ class PeerAgreements implements LockssSerializable {
     this(pid.getIdString());
   }
 
-  /**
-   * Create an instance containing the agreements translated from the
-   * {@link IdentityManager.IdentityAgreement}.  For compatability
-   * with previous forms stored before daemon 1.62.
-   *
-   * @param idAgreement A {@link IdentityManager.IdentityAgreement}
-   * from the histroy repository.
-   */
-  public static PeerAgreements
-    from(IdentityManager.IdentityAgreement idAgreement) {
-    String id = idAgreement.getId();
-    EnumMap<AgreementType, PeerAgreement> map =
-      new EnumMap(AgreementType.class);
-    map.put(AgreementType.POR, PeerAgreement.porAgreement(idAgreement));
-    map.put(AgreementType.POR_HINT,
-	    PeerAgreement.porAgreementHint(idAgreement));
-    return new PeerAgreements(id, map);
-  }
-
   @Override
   public String toString() {
     return "PeerAgreements[id="+id+

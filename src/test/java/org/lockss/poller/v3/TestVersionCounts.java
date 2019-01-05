@@ -41,7 +41,6 @@ import org.lockss.hasher.HashResult;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
-import org.lockss.protocol.IdentityManager.IdentityAgreement;
 import org.lockss.protocol.MockPeerIdentity;
 import org.lockss.protocol.psm.*;
 import org.lockss.util.*;

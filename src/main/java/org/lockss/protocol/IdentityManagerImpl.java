@@ -276,10 +276,8 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   int[] reputationDeltas = new int[10];
 
   /**
-   * <p>Maps ArchivalUnit, by auid, to its agreement map.  Each
-   * agreement map in turn maps a PeerIdentity to its corresponding
-   * IdentityAgreement object. The LRU cache allows IdentityAgreement
-   * objects to be collected when they are no longer in use.</p>
+   * Maps auid to AuAgreements. The LRU cache allows objects to be
+   * collected when they are no longer in use.
    */
   private final UniqueRefLruCache agreeMapsCache =
     new UniqueRefLruCache(DEFAULT_AGREE_MAPS_CACHE_MAX);

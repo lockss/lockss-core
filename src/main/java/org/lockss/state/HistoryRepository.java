@@ -54,15 +54,9 @@ public interface HistoryRepository extends LockssAuManager {
       throws LockssRepositoryException;
 
   /**
-   * Loads and returns the saved {@link Object} representing the agreements.
+   * Loads and returns the saved {@link AuAgreements representing the agreements.
    *
-   * From daemon release 1.62, the daemon saves {@link
-   * AuAgreements}.
-   *
-   * Prior to release 1.62, the daemon saved {@link
-   * List<IdentityManager.IdentityAgreement>}.
-   *
-   * @return an {@link Object}, or {@code null} if there are no saved
+   * @return an {@link AuAgreements}, or {@code null} if there are no saved
    * agreements.
    */
   public Object loadIdentityAgreements() throws LockssRepositoryException;

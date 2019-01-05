@@ -140,9 +140,6 @@ public class AuAgreements implements LockssSerializable {
       loadInitial();
     } else if (rawAgreements instanceof AuAgreements) {
       loadFromAuAgreements((AuAgreements)rawAgreements);
-    } else if (rawAgreements instanceof List) {
-      loadFromList((List<IdentityManager.IdentityAgreement>)rawAgreements,
-		   idMgr);
     } else {
       throw new IllegalArgumentException("Unexpected class: "+
 					 rawAgreements.getClass().getName());
@@ -160,43 +157,6 @@ public class AuAgreements implements LockssSerializable {
     // Copy over the non-transient instance variables.
     this.list = auAgreements.list;
   }
-
-  // The format used prior to daemon 1.62
-  private void loadFromList(List<IdentityManager.IdentityAgreement> list,
-			    IdentityManager idMgr) {
-    this.list = makePeerAgreementsList(list, idMgr);
-  }
-
-  /**
-   * Translate a pre-1.62 List<IdentityAgreement> to a List<PeerAgreements>.
-   */
-  private List<PeerAgreements>
-      makePeerAgreementsList(List<IdentityManager.IdentityAgreement> list,
-			     IdentityManager idMgr) {
-    List<PeerAgreements> result = new ArrayList();
-    for (IdentityManager.IdentityAgreement idAgreement: list) {
-      try {
-	PeerIdentity pid = idMgr.stringToPeerIdentity(idAgreement.getId());
-	// Check that it's a V3 pid
-	if (! pid.isV3()) {
-	  log.debug("Ignoring non-V3 peer: "+pid);
-	  continue;
-	}
-	// Discard local hash data stored by early builds of 1.62
-	if (pid.isLocalIdentity()) {
-	  log.debug("Ignoring local identify: "+pid);
-	  continue;
-	}
-
-      } catch (IdentityManager.MalformedIdentityKeyException e) {
-	log.warning("Couldn't load agreement for key "+idAgreement.getId(), e);
-      }
-      PeerAgreements peerAgreements = PeerAgreements.from(idAgreement);
-      result.add(peerAgreements);
-    }
-    return result;
-  }
-
 
   private void updateListFromMap() {
     list = makeList(map);

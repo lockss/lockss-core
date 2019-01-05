@@ -61,35 +61,6 @@ final public class PeerAgreement implements LockssSerializable {
     this.highestPercentAgreementTime = highestPercentAgreementTime;
   }
 
-  /**
-   * @return The {@link PeerAgreement} for POR to use when moving from
-   * pre-1.63 data. The {@link getPercentAgreementTime} value will be
-   * a best-estimate.  The {@link #getHighestPercentAgreementTime}
-   * value will be zero.
-   */
-  static PeerAgreement
-    porAgreement(IdentityManager.IdentityAgreement idAgreement) {
-    long lastSignalTime = idAgreement.getLastSignalTime();
-    return new PeerAgreement(idAgreement.getPercentAgreement(),
-			     lastSignalTime,
-			     idAgreement.getHighestPercentAgreement(),
-			     0);
-  }
-
-  /**
-   * @return The {@link PeerAgreement} for POR_HINT to use when moving
-   * from pre-1.63 data. The {@link getPercentAgreementTime} value
-   * will be zero.  The {@link #getHighestPercentAgreementTime} value
-   * will be zero.
-   */
-  static PeerAgreement
-    porAgreementHint(IdentityManager.IdentityAgreement idAgreement) {
-    return new PeerAgreement(idAgreement.getPercentAgreementHint(),
-			     0,
-			     idAgreement.getHighestPercentAgreementHint(),
-			     0);
-  }
-
   @Override
   public String toString() {
     return "PeerAgreement["+
