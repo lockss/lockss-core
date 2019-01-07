@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -459,20 +459,17 @@ public class DbStateManagerSql extends ConfigManagerSql {
     Long auSeq = null;
 
     try {
-      // Find the Archival Unit plugin, adding it if necessary.
-      Long pluginSeq = findOrCreatePlugin(conn, pluginId);
+      // Find the Archival Unit plugin.
+      Long pluginSeq = findPlugin(conn, pluginId);
 
-      long auCreationTime = TimeBase.nowMs();
-      log.trace("auCreationTime = {}", auCreationTime);
-
-      // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, auCreationTime);
+      // Find the Archival Unit.
+      auSeq = findArchivalUnit(conn, pluginSeq, auKey);
 
       // Add the new state of the Archival Unit.
       int count = updateArchivalUnitState(conn, auSeq, ausb);
       log.trace("count = {}", count);
     } catch (DbException dbe) {
-      String message = "Cannot add AU state";
+      String message = "Cannot update AU state";
       log.error(message, dbe);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);

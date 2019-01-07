@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -873,7 +873,8 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private Long findPlugin(Connection conn, String pluginId) throws DbException {
+  protected Long findPlugin(Connection conn, String pluginId)
+      throws DbException {
     log.debug2("pluginId = {}", pluginId);
     Long pluginSeq = null;
     PreparedStatement findPlugin = null;
@@ -1027,7 +1028,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private Long findArchivalUnit(Connection conn, Long pluginSeq, String auKey)
+  protected Long findArchivalUnit(Connection conn, Long pluginSeq, String auKey)
       throws DbException {
     log.debug2("pluginSeq = {}", pluginSeq);
     log.debug2("auKey = {}", auKey);
