@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <description>The Slimmed Down LOCKSS Daemon Core</description>
 
   <properties>
-    <jackson.version>2.9.7</jackson.version>
+    <jackson.version>2.9.8</jackson.version>
     <build.releasename>1.75.0</build.releasename>
     <skip.stf.tests>true</skip.stf.tests>
     <run.classpath.file>${basedir}/target/run-classpath</run.classpath.file>
