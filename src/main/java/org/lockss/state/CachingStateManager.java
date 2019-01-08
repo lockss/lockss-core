@@ -96,6 +96,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return the current singleton AuState for the AU, creating one if
    * necessary. */
+  @Override
   public synchronized AuState getAuState(ArchivalUnit au) {
     String key = auKey(au);
     AuState aus = auStates.get(key);
@@ -117,6 +118,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return the current singleton AuStateBean for the auid, creating one
    * if necessary. */
+  @Override
   public synchronized AuStateBean getAuStateBean(String key) {
     // first look for a cached AuState, return its bean
     AuState aus = auStates.get(key);
@@ -136,6 +138,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Update the stored AuState with the values of the listed fields.
    * @param aus The source of the new values.
    */
+  @Override
   public synchronized void updateAuState(AuState aus, Set<String> fields) {
     String key = auKey(aus.getArchivalUnit());
     log.debug2("updateAuState: {}: {}", key, fields);
@@ -170,6 +173,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Update the stored AuState with the values of the listed fields.
    * @param aus The source of the new values.
    */
+  @Override
   public synchronized void updateAuStateBean(String key,
 					     AuStateBean ausb,
 					     Set<String> fields) {
@@ -205,6 +209,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Store an AuState not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
+  @Override
   public synchronized void storeAuState(AuState aus) {
     String key = auKey(aus.getArchivalUnit());
     if (auStates.containsKey(key)) {
@@ -218,6 +223,30 @@ public abstract class CachingStateManager extends BaseStateManager {
       log.error("Couldn't serialize AuState: {}", aus, e);
       throw new StateLoadStoreException("Couldn't deserialize AuState: " + aus);
     }
+  }
+
+  /** Store an AuStateBean not obtained from StateManager.  Useful in
+   * tests.  Can only be called once per AU. */
+  @Override
+  public synchronized void storeAuStateBean(String key, AuStateBean ausb) {
+    if (auStateExists(key)) {
+      throw new IllegalStateException("Storing 2nd AuState: " + key);
+    }
+    auStateBeans.put(key, ausb);
+    try {
+      String json = ausb.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
+      doStoreAuStateBeanNew(key, ausb);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuState: {}", ausb, e);
+      throw new StateLoadStoreException("Couldn't deserialize AuState: " + ausb);
+    }
+  }
+
+  /** Return true if an AuState(Bean) exists for the given auid
+   * @param key the auid
+   */
+  public boolean auStateExists(String key) {
+    return auStates.containsKey(key) || auStateBeans.containsKey(key);
   }
 
   /** Default behavior when AU is deleted/deactivated is to remove AuState

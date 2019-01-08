@@ -129,8 +129,7 @@ public class TestServerDbStateManager extends LockssTestCase4 {
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
     stateMgr.updateAuStateFromService(stateMgr.auKey(mau2),
-				      AuUtil.mapToJson(in1Map),
-				      in1Map);
+				      AuUtil.mapToJson(in1Map));
 
     assertEquals("Success", aus2.getLastCrawlResultMsg());
     assertEquals(666, aus2.getLastCrawlTime());
@@ -149,8 +148,7 @@ public class TestServerDbStateManager extends LockssTestCase4 {
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
     stateMgr.updateAuStateFromService(key,
-				      AuUtil.mapToJson(in1Map),
-				      in1Map);
+				      AuUtil.mapToJson(in1Map));
 
     assertEquals(auStateUpdateMap(key, in1Map),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));

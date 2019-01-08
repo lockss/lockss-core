@@ -44,19 +44,30 @@ public class DbStateManager extends CachingStateManager {
   // The database state manager SQL executor.
   private DbStateManagerSql dbStateManagerSql = null;
 
-  /** Entry point from state service to store changes to an AuState.  Write
-   * to DB, call hook to notify clients if appropriate
+  /** Entry point from state service to store changes to an AuState.
    * @param key the auid
    * @param json the serialized set of changes
-   * @param map Map representation of change fields.
    * @throws IOException if json conversion throws
    */
-  public void updateAuStateFromService(String auid, String json,
-				       Map<String,Object> map)
+  @Override
+  public void updateAuStateFromService(String auid, String json)
       throws IOException {
     AuStateBean ausb = getAuStateBean(auid);
     ausb.updateFromJson(json, daemon);
-    updateAuStateBean(auid, ausb, map.keySet());
+    updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet());
+  }
+
+  /** Entry point from state service to store a new AuState.
+   * @param key the auid
+   * @param json the serialized AuStateBean
+   * @throws IOException if json conversion throws
+   */
+  @Override
+  public void storeAuStateFromService(String auid, String json)
+      throws IOException {
+    AuStateBean ausb = getAuStateBean(auid);
+    ausb.updateFromJson(json, daemon);
+    storeAuStateBean(auid, ausb);
   }
 
   /** Hook to store a new AuState in the DB.

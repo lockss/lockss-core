@@ -55,11 +55,47 @@ public interface StateManager extends LockssManager {
    * may return a new instance.  */
   public AuState getAuState(ArchivalUnit au);
 
+  /** Return the current singleton AuStateBean for the auid, creating one
+   * if necessary. */
+  public AuStateBean getAuStateBean(String key);
+
   /** Update the stored AuState with the values of the listed fields */
   public void updateAuState(AuState aus, Set<String> fields);
 
+  /** Update the stored AuStateBean with the values of the listed fields */
+  public void updateAuStateBean(String key, AuStateBean ausb, Set<String> fields);
+
   /** Store the AuState for the AU.  Can only be used once per AU. */
   public void storeAuState(AuState aus);
+
+  /** Store the AuStateBean for the AU.  Can only be used once per AU. */
+  public void storeAuStateBean(String key, AuStateBean ausb);
+
+  /** Entry point from state service to store changes to an AuState.
+   * @param key the auid
+   * @param json the serialized set of changes
+   * @throws IOException if json conversion throws
+   */
+  default public void updateAuStateFromService(String auid, String json)
+      throws IOException {
+    throw new UnsupportedOperationException("updateAuStateFromService() available only in Server implementation");
+  }
+
+  /** Entry point from state service to store an AuState.
+   * @param key the auid
+   * @param json the serialized AuStateBean
+   * @throws IOException if json conversion throws
+   */
+  default public void storeAuStateFromService(String auid, String json)
+      throws IOException {
+    throw new UnsupportedOperationException("storeAuStateFromService() available only in Server implementation");
+  }
+
+  /** Return true if an AuState(Bean) exists for the given auid
+   * @param key the auid
+   */
+  public boolean auStateExists(String key);
+
 
   /** Load/store exception.  Clients of AuState aren't prepared for checked
    * exceptions; this is used to turn them into RuntimeExceptions */
