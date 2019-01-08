@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -32,23 +32,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.state;
 
 import java.io.File;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.db.ConfigDbManager;
-import org.lockss.log.L4JLogger;
 import org.lockss.plugin.AuUtil;
 import org.lockss.test.*;
-import org.lockss.state.*;
 import org.lockss.util.ListUtil;
+import org.lockss.util.SetUtil;
 import org.lockss.util.time.TimeBase;
 
 /**
  * Test class for org.lockss.state.DbStateManager.
  */
 public class TestDbStateManager extends LockssTestCase4 {
-  L4JLogger log = L4JLogger.getLogger();
   DbStateManager stateMgr;
   MockArchivalUnit mau1;
   MockArchivalUnit mau2;
@@ -84,20 +81,20 @@ public class TestDbStateManager extends LockssTestCase4 {
     // First AU with default state properties.
     TimeBase.setSimulated(100L);
 
-    String key = stateMgr.auKey(mau1);
-    AuStateBean ausb = stateMgr.newDefaultAuStateBean(key);
-    String json = ausb.toJsonExcept("auCreationTime");
+    String key1 = stateMgr.auKey(mau1);
+    AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(key1);
+    String json1 = ausb1.toJsonExcept("auCreationTime");
 
-    stateMgr.doStoreAuStateBeanNew(key, ausb); // gets new creation time
+    stateMgr.doStoreAuStateBeanNew(key1, ausb1); // gets new creation time
 
-    AuStateBean newausb = stateMgr.doLoadAuStateBean(key);
-    assertEquals(100L, newausb.getAuCreationTime());
-    String newJson = newausb.toJsonExcept("auCreationTime");
-    assertEquals(AuUtil.jsonToMap(json), AuUtil.jsonToMap(newJson));
+    AuStateBean ausb1b = stateMgr.doLoadAuStateBean(key1);
+    assertEquals(100L, ausb1b.getAuCreationTime());
+    String json1b = ausb1b.toJsonExcept("auCreationTime");
+    assertEquals(AuUtil.jsonToMap(json1), AuUtil.jsonToMap(json1b));
 
     // Do it again.
     try {
-      stateMgr.doStoreAuStateBeanNew(key, ausb);
+      stateMgr.doStoreAuStateBeanNew(key1, ausb1);
       fail("Should have thrown IllegalStateException");
     } catch (IllegalStateException ise) {
       // Expected.
@@ -106,16 +103,30 @@ public class TestDbStateManager extends LockssTestCase4 {
     // Second AU with modified state properties.
     TimeBase.setSimulated(200L);
     
-    key = stateMgr.auKey(mau2);
-    ausb = stateMgr.newDefaultAuStateBean(key);
-    ausb.setAuCreationTime(TimeBase.nowMs());
-    ausb.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
-    json = ausb.toJson();
+    String key2 = stateMgr.auKey(mau2);
+    AuStateBean ausb2 = stateMgr.newDefaultAuStateBean(key2);
+    ausb2.setAuCreationTime(TimeBase.nowMs());
+    ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
+    String json2 = ausb2.toJson();
 
-    stateMgr.doStoreAuStateBeanNew(key, ausb); // has existing creation time
+    stateMgr.doStoreAuStateBeanNew(key2, ausb2); // has existing creation time
 
-    newausb = stateMgr.doLoadAuStateBean(key);
-    newJson = newausb.toJson();
-    assertEquals(AuUtil.jsonToMap(json), AuUtil.jsonToMap(newJson));
+    AuStateBean ausb2b = stateMgr.doLoadAuStateBean(key2);
+    String json2b = ausb2b.toJson();
+    assertEquals(AuUtil.jsonToMap(json2), AuUtil.jsonToMap(json2b));
+
+    // Update a record
+    ausb2.setAverageHashDuration(1234L);
+    json2 = ausb2.toJson();
+    stateMgr.doStoreAuStateBeanUpdate(key2, ausb2,
+	SetUtil.set("averageHashDuration"));
+    AuStateBean ausb2c = stateMgr.doLoadAuStateBean(key2);
+    String json2c = ausb2c.toJson();
+    assertEquals(AuUtil.jsonToMap(json2), AuUtil.jsonToMap(json2c));
+  }
+
+  @Test
+  public void testManager() throws Exception {
+    
   }
 }

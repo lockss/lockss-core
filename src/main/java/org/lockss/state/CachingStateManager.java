@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -192,7 +192,6 @@ public abstract class CachingStateManager extends BaseStateManager {
       } else if (isStoreOfMissingAuStateAllowed(fields)) {
 	// XXX log?
 	auStateBeans.put(key, ausb);
-	String json = ausb.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
 	doStoreAuStateBeanNew(key, ausb);
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to AuStateBean not in cache: " + key);

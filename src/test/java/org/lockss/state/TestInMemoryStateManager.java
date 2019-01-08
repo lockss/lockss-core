@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,41 +28,33 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
-import java.io.*;
-import java.util.*;
-
-import org.lockss.app.*;
-import org.lockss.daemon.Crawler;
+import org.junit.*;
 import org.lockss.plugin.*;
-import org.lockss.poller.v3.V3Poller;
-import org.lockss.poller.v3.V3Poller.PollVariant;
-import org.lockss.repository.AuSuspectUrlVersions;
 import org.lockss.test.*;
-import org.lockss.log.*;
-import org.lockss.util.*;
-import org.lockss.util.io.LockssSerializable;
 
-public class TestInMemoryStateManager extends LockssTestCase {
-  L4JLogger log = L4JLogger.getLogger();
+public class TestInMemoryStateManager extends LockssTestCase4 {
+
   MockLockssDaemon daemon;
   PluginManager pluginMgr;
-  MyInMemoryStateManager stateMgr;
+  InMemoryStateManager stateMgr;
   MockPlugin mplug;
   MockArchivalUnit mau1;
   MockArchivalUnit mau2;
 
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     daemon = getMockLockssDaemon();
     pluginMgr = daemon.getPluginManager();
 //     pluginMgr.startService();
 
-    stateMgr = daemon.setUpStateManager(new MyInMemoryStateManager());
+    stateMgr = daemon.setUpStateManager(new InMemoryStateManager());
     mplug = new MockPlugin(daemon);
     mau1 = new MockArchivalUnit(mplug, "aaa1");
     mau2 = new MockArchivalUnit(mplug, "aaa2");
   }
 
+  @Test
   public void test1() {
     AuState aus1 = AuUtil.getAuState(mau1);
     AuState aus2 = AuUtil.getAuState(mau2);
@@ -87,9 +79,4 @@ public class TestInMemoryStateManager extends LockssTestCase {
   void auEvent(ArchivalUnit au, AuEvent.Type type) {
     pluginMgr.signalAuEvent(au, AuEvent.forAu(au, type));
   }
-
-
-  static class MyInMemoryStateManager extends InMemoryStateManager {
-  }
-
 }

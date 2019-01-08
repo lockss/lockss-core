@@ -34,16 +34,13 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.state;
 
 import static org.lockss.config.db.SqlConstants.*;
-
 import java.io.IOException;
 import java.sql.*;
 import java.util.*;
-
 import org.lockss.config.db.*;
 import org.lockss.db.*;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.AuUtil;
-import org.lockss.util.SetUtil;
 import org.lockss.util.time.TimeBase;
 
 /**
@@ -482,7 +479,7 @@ public class DbStateManagerSql extends ConfigManagerSql {
   }
 
   /**
-   * Adds to the database the state of an Archival Unit.
+   * Updates the state of an Archival Unit in the database.
    * 
    * @param conn
    *          A Connection with the database connection to be used.
@@ -490,7 +487,7 @@ public class DbStateManagerSql extends ConfigManagerSql {
    *          A Long with the database identifier of the Archival Unit.
    * @param ausb
    *          An {@link AuStateBean}.
-   * @return an int with the count of database rows added.
+   * @return an int with the count of database rows updated.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
@@ -501,7 +498,7 @@ public class DbStateManagerSql extends ConfigManagerSql {
     log.debug2("auSeq = {}", auSeq);
     log.debug2("ausb = {}", ausb);
 
-    PreparedStatement addState = null;
+    PreparedStatement updateState = null;
     String errorMessage = "Cannot update Archival Unit state";
 
     try {
@@ -509,19 +506,20 @@ public class DbStateManagerSql extends ConfigManagerSql {
       String json = ausb.toJsonExcept(auId_auCreationTime);
       
       // Prepare the query.
-      addState = configDbManager.prepareStatement(conn, UPDATE_AU_STATE_QUERY);
+      updateState =
+	  configDbManager.prepareStatement(conn, UPDATE_AU_STATE_QUERY);
 
       // Populate the query.
-      addState.setString(1, json);
-      addState.setLong(2, auSeq);
+      updateState.setString(1, json);
+      updateState.setLong(2, auSeq);
 
       // Execute the query
-      int count = configDbManager.executeUpdate(addState);
-      log.debug2("addedCount = {}", count);
+      int count = configDbManager.executeUpdate(updateState);
+      log.debug2("updatedCount = {}", count);
+      ConfigDbManager.commitOrRollback(conn, log);
       return count;
     } catch (IOException ioe) {
       log.error(errorMessage, ioe);
-      log.error("SQL = '{}'.", UPDATE_AU_STATE_QUERY);
       log.error("auSeq = {}", auSeq);
       log.error("ausb = {}", ausb);
       throw new DbException(errorMessage, ioe);
@@ -538,7 +536,7 @@ public class DbStateManagerSql extends ConfigManagerSql {
       log.error("ausb = {}", ausb);
       throw dbe;
     } finally {
-      ConfigDbManager.safeCloseStatement(addState);
+      ConfigDbManager.safeCloseStatement(updateState);
     }
   }
   
