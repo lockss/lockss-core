@@ -44,19 +44,30 @@ public class DbStateManager extends CachingStateManager {
   // The database state manager SQL executor.
   private DbStateManagerSql dbStateManagerSql = null;
 
-  /** Entry point from state service to store changes to an AuState.  Write
-   * to DB, call hook to notify clients if appropriate
+  /** Entry point from state service to store changes to an AuState.
    * @param key the auid
    * @param json the serialized set of changes
-   * @param map Map representation of change fields.
    * @throws IOException if json conversion throws
    */
-  public void updateAuStateFromService(String auid, String json,
-				       Map<String,Object> map)
+  @Override
+  public void updateAuStateFromService(String auid, String json)
       throws IOException {
     AuStateBean ausb = getAuStateBean(auid);
     ausb.updateFromJson(json, daemon);
-    updateAuStateBean(auid, ausb, map.keySet());
+    updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet());
+  }
+
+  /** Entry point from state service to store a new AuState.
+   * @param key the auid
+   * @param json the serialized AuStateBean
+   * @throws IOException if json conversion throws
+   */
+  @Override
+  public void storeAuStateFromService(String auid, String json)
+      throws IOException {
+    AuStateBean ausb = getAuStateBean(auid);
+    ausb.updateFromJson(json, daemon);
+    storeAuStateBean(auid, ausb);
   }
 
   /** Hook to store a new AuState in the DB.
@@ -66,12 +77,11 @@ public class DbStateManager extends CachingStateManager {
    * @throws IllegalStateException if this key is already present in the DB
    */
   @Override
-  protected void doStoreAuStateBeanNew(String key, AuStateBean ausb,
-				       String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanNew(String key,
+                                       AuStateBean ausb)
+      throws StateLoadStoreException {
     log.debug2("key = {}", key);
     log.debug2("ausb = {}", ausb);
-    log.debug2("json = {}", json);
-    log.debug2("map = {}", map);
 
     String pluginId = PluginManager.pluginIdFromAuId(key);
     log.trace("pluginId = {}", pluginId);
@@ -81,17 +91,15 @@ public class DbStateManager extends CachingStateManager {
 
     try {
       Long auSeq =
-	  getDbStateManagerSql().addArchivalUnitState(pluginId, auKey, json);
+	  getDbStateManagerSql().addArchivalUnitState(pluginId, auKey, ausb);
       log.trace("auSeq = {}", auSeq);
     } catch (DbException dbe) {
       String message = "Exception caught persisting new AuState";
       log.error("key = {}", key);
       log.error("ausb = {}", ausb);
-      log.error("json = {}", json);
-      log.error("map = {}", map);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
-      throw new RuntimeException(message, dbe);
+      throw new StateLoadStoreException(message, dbe);
     }
 
     log.debug2("Done");
@@ -104,11 +112,35 @@ public class DbStateManager extends CachingStateManager {
    * @param map Map representation of change fields.
    */
   @Override
-  protected void doStoreAuStateBeanUpdate(String key, AuStateBean ausb,
-					  String json, Map<String,Object> map) {
+  protected void doStoreAuStateBeanUpdate(String key,
+                                          AuStateBean ausb,
+					  Set<String> fields)
+      throws StateLoadStoreException {
+    log.debug2("key = {}", key);
+    log.debug2("ausb = {}", ausb);
+    log.debug2("fields = {}", fields);
 
-    // XXXFGL store changes in DB
+    String pluginId = PluginManager.pluginIdFromAuId(key);
+    log.trace("pluginId = {}", pluginId);
 
+    String auKey = PluginManager.auKeyFromAuId(key);
+    log.trace("auKey = {}", auKey);
+
+    try {
+      Long auSeq =
+          getDbStateManagerSql().updateArchivalUnitState(pluginId, auKey, ausb);
+      log.trace("auSeq = {}", auSeq);
+    } catch (DbException dbe) {
+      String message = "Exception caught persisting new AuState";
+      log.error("key = {}", key);
+      log.error("ausb = {}", ausb);
+      log.error("fields = {}", fields);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new StateLoadStoreException(message, dbe);
+    }
+
+    log.debug2("Done");
   }
 
   /** Hook to load an AuState from the DB.
@@ -117,7 +149,8 @@ public class DbStateManager extends CachingStateManager {
    * if there's no AuState for the AU in the DB.
    */
   @Override
-  protected AuStateBean doLoadAuStateBean(String key) {
+  protected AuStateBean doLoadAuStateBean(String key) 
+      throws StateLoadStoreException {
     AuStateBean res = null;
     String pluginId = PluginManager.pluginIdFromAuId(key);
     log.trace("pluginId = {}", pluginId);
@@ -139,29 +172,18 @@ public class DbStateManager extends CachingStateManager {
       log.error("key = {}", key);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
-      throw new RuntimeException(message, ioe);
+      throw new StateLoadStoreException(message, ioe);
     } catch (DbException dbe) {
       String message = "Exception caught finding AuState";
       log.error("key = {}", key);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
-      throw new RuntimeException(message, dbe);
+      throw new StateLoadStoreException(message, dbe);
     }
 
     log.debug2("res = {}", res);
     return res;
   }
-
-  // A reference map provides minimum acceptable amount of caching, given
-  // the contract for getAuState().  But this would cause worse performance
-  // due to more DB accesses.  The default full map provides the best
-  // performance; if memory becomes an issue, an LRU reference map would
-  // provide better performance than just a reference map.
-//   @Override
-//   protected Map<String,AuState> newAuStateMap() {
-//     return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
-// 			      AbstractReferenceMap.ReferenceStrength.WEAK);
-//   }
 
   /**
    * Provides the database state manager SQL executor.

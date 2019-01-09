@@ -34,14 +34,10 @@ import java.util.*;
 import com.fasterxml.jackson.annotation.*;
 
 import org.lockss.plugin.*;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.lockss.app.*;
 import org.lockss.util.*;
-import org.lockss.util.io.LockssSerializable;
-import org.lockss.util.time.TimeBase;
-import org.lockss.daemon.*;
 import org.lockss.crawler.CrawlerStatus;
-import org.lockss.poller.v3.*;
-import org.lockss.repository.*;
 import org.lockss.state.AuState.AccessType;
 
 /**
@@ -49,8 +45,6 @@ import org.lockss.state.AuState.AccessType;
  */
 @JsonFilter("auStateFilter")
 public class AuStateBean {
-
-  private static final Logger logger = Logger.getLogger();
 
   // Persistent state vars
   protected long auCreationTime = -1;
@@ -502,6 +496,16 @@ public class AuStateBean {
     return AuUtil.jsonFromAuStateBean(this, fields);
   }
 
+  /** Serialize all fields except given field to json string */
+  public String toJsonExcept(String field) throws IOException {
+    return toJsonExcept(SetUtil.set(field));
+  }
+
+  /** Serialize all fields except named fields to json string */
+  public String toJsonExcept(Set<String> fields) throws IOException {
+    return AuUtil.jsonFromAuStateBeanExcept(this, fields);
+  }
+
   /** Deserialize a json string into this AuStateBean, replacing only those
    * fields that are present in the json string
    * @param json json string
@@ -514,6 +518,44 @@ public class AuStateBean {
     return this;
   }
 
+  @Override
+  public String toString() {
+    return new ToStringBuilder(this)
+        .append("accessType", accessType)
+        .append("auCreationTime", auCreationTime)
+        .append("auId", auId)
+        .append("averageHashDuration", averageHashDuration)
+        .append("cdnStems", cdnStems)
+        .append("clockssSubscriptionStatus", clockssSubscriptionStatus)
+        .append("hasSubstance", hasSubstance)
+        .append("highestV3Agreement", highestV3Agreement)
+        .append("lastContentChange", lastContentChange)
+        .append("lastCrawlAttempt", lastCrawlAttempt)
+        .append("lastCrawlResult", lastCrawlResult)
+        .append("lastCrawlResultMsg", lastCrawlResultMsg)
+        .append("lastCrawlTime", lastCrawlTime)
+        .append("lastDeepCrawlAttempt", lastDeepCrawlAttempt)
+        .append("lastDeepCrawlDepth", lastDeepCrawlDepth)
+        .append("lastDeepCrawlResult", lastDeepCrawlResult)
+        .append("lastDeepCrawlResultMsg", lastDeepCrawlResultMsg)
+        .append("lastDeepCrawlTime", lastDeepCrawlTime)
+        .append("lastLocalHashScan", lastLocalHashScan)
+        .append("lastMetadataIndex", lastMetadataIndex)
+        .append("lastPollResult", lastPollResult)
+        .append("lastPollStart", lastPollStart)
+        .append("lastPoPPoll", lastPoPPoll)
+        .append("lastPoPPollResult", lastPoPPollResult)
+        .append("lastTopLevelPollTime", lastTopLevelPollTime)
+        .append("metadataVersion", metadataVersion)
+        .append("numAgreePeersLastPoR", numAgreePeersLastPoR)
+        .append("numCurrentSuspectVersions", numCurrentSuspectVersions)
+        .append("numWillingRepairers", numWillingRepairers)
+        .append("pollDuration", pollDuration)
+        .append("substanceVersion", substanceVersion)
+        .append("v3Agreement", v3Agreement)
+        .toString();
+  }
+  
   /**
    * Avoid duplicating common strings
    */
@@ -536,5 +578,5 @@ public class AuStateBean {
       }
     }
   }
-
+  
 }

@@ -965,6 +965,16 @@ public class AuState implements LockssSerializable {
     return bean.toJson(fields);
   }
 
+  /** Serialize all fields except given field to json string */
+  public String toJsonExcept(String field) throws IOException {
+    return bean.toJsonExcept(field);
+  }
+
+  /** Serialize all fields except named fields to json string */
+  public String toJsonExcept(Set<String> fields) throws IOException {
+    return bean.toJsonExcept(fields);
+  }
+
   /** Deserialize a json string into this AuState, replacing only those
    * fields that are present in the json string
    * @param json json string

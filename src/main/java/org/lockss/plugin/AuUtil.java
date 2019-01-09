@@ -117,7 +117,7 @@ public class AuUtil {
     return mgr.getAuState(au);
   }
 
-  /** Serialize an AuStateBean to a json string
+  /** Serialize some or all fields of an AuStateBean to a json string
    * @param aus the AuStateBean
    * @param fields Set of fields to include in the output.  If null or
    *               empty, all fields are included
@@ -140,6 +140,37 @@ public class AuUtil {
       propFilter = SimpleBeanPropertyFilter.serializeAll();
     } else {
       propFilter = SimpleBeanPropertyFilter.filterOutAllExcept(fields);
+    }
+    FilterProvider filters =
+      new SimpleFilterProvider().addFilter("auStateFilter", propFilter);
+    return mapper.writer(filters).writeValueAsString(aus);
+  }
+
+  /** Serialize all fields of an AuStateBean except some to a json string
+   * @param aus the AuStateBean
+   * @param fields Set of fields to exclude in the output.  If empty, all
+   *               fields are kept. If null, throws {@link NullPointerException}
+   * @throws NullPointerException if the set of fields is null
+   */
+  public static String jsonFromAuStateBeanExcept(AuStateBean aus, Set<String> fields)
+      throws IOException {
+    Objects.requireNonNull(fields, "Set of fields to exclude cannot be null");
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
+
+    // XXXAUS don't need all of this anymore with bean
+    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
+                                .withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+                                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                                .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+                                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+
+    SimpleBeanPropertyFilter propFilter;
+    if (fields == null || fields.isEmpty()) {
+      propFilter = SimpleBeanPropertyFilter.serializeAll();
+    } else {
+      propFilter = SimpleBeanPropertyFilter.serializeAllExcept(fields);
     }
     FilterProvider filters =
       new SimpleFilterProvider().addFilter("auStateFilter", propFilter);

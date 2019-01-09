@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -96,6 +96,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return the current singleton AuState for the AU, creating one if
    * necessary. */
+  @Override
   public synchronized AuState getAuState(ArchivalUnit au) {
     String key = auKey(au);
     AuState aus = auStates.get(key);
@@ -117,6 +118,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return the current singleton AuStateBean for the auid, creating one
    * if necessary. */
+  @Override
   public synchronized AuStateBean getAuStateBean(String key) {
     // first look for a cached AuState, return its bean
     AuState aus = auStates.get(key);
@@ -136,6 +138,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Update the stored AuState with the values of the listed fields.
    * @param aus The source of the new values.
    */
+  @Override
   public synchronized void updateAuState(AuState aus, Set<String> fields) {
     String key = auKey(aus.getArchivalUnit());
     log.debug2("updateAuState: {}: {}", key, fields);
@@ -145,20 +148,19 @@ public abstract class CachingStateManager extends BaseStateManager {
 	if (cur != aus) {
 	  throw new IllegalStateException("Attempt to store from wrong AuState instance");
 	}
-	String json = aus.toJson(fields);
-	doStoreAuStateBeanUpdate(key, aus.getBean(), json,
-				 AuUtil.jsonToMap(json));
-	doNotifyAuStateChanged(key, json);
+	String jsonChange = aus.toJson(fields);
+	doStoreAuStateBeanUpdate(key, aus.getBean(), fields);
+	doNotifyAuStateChanged(key, jsonChange);
       } else if (isStoreOfMissingAuStateAllowed(fields)) {
 	AuStateBean curbean = auStateBeans.get(key);
-	if (curbean != null) {
+	if (curbean != null) { // FIXME
 	  throw new IllegalStateException("AuStateBean but no AuState exists.  Do we need to support this?");
 	}
 
 	// XXX log?
 	putAuState(key, aus);
-	String json = aus.toJson(fields);
-	doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
+	String json = aus.toJson(SetUtil.set("auId", "auCreationTime"));
+	doStoreAuStateBeanNew(key, aus.getBean());
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to AuState not in cache");
       }
@@ -171,6 +173,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Update the stored AuState with the values of the listed fields.
    * @param aus The source of the new values.
    */
+  @Override
   public synchronized void updateAuStateBean(String key,
 					     AuStateBean ausb,
 					     Set<String> fields) {
@@ -187,14 +190,13 @@ public abstract class CachingStateManager extends BaseStateManager {
 	if (curausb != ausb) {
 	  throw new IllegalStateException("Attempt to store from wrong AuStateBean instance");
 	}
-	String json = ausb.toJson(fields);
-	doStoreAuStateBeanUpdate(key, ausb, json, AuUtil.jsonToMap(json));
-	doNotifyAuStateChanged(key, json);
+	String jsonChange = ausb.toJson(fields);
+	doStoreAuStateBeanUpdate(key, ausb, fields);
+	doNotifyAuStateChanged(key, jsonChange);
       } else if (isStoreOfMissingAuStateAllowed(fields)) {
 	// XXX log?
 	auStateBeans.put(key, ausb);
-	String json = ausb.toJson(fields);
-	doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
+	doStoreAuStateBeanNew(key, ausb);
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to AuStateBean not in cache: " + key);
       }
@@ -207,6 +209,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Store an AuState not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
+  @Override
   public synchronized void storeAuState(AuState aus) {
     String key = auKey(aus.getArchivalUnit());
     if (auStates.containsKey(key)) {
@@ -214,12 +217,36 @@ public abstract class CachingStateManager extends BaseStateManager {
     }
     putAuState(key, aus);
     try {
-      String json = aus.toJson();
-      doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
+      String json = aus.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
+      doStoreAuStateBeanNew(key, aus.getBean());
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", aus, e);
       throw new StateLoadStoreException("Couldn't deserialize AuState: " + aus);
     }
+  }
+
+  /** Store an AuStateBean not obtained from StateManager.  Useful in
+   * tests.  Can only be called once per AU. */
+  @Override
+  public synchronized void storeAuStateBean(String key, AuStateBean ausb) {
+    if (auStateExists(key)) {
+      throw new IllegalStateException("Storing 2nd AuState: " + key);
+    }
+    auStateBeans.put(key, ausb);
+    try {
+      String json = ausb.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
+      doStoreAuStateBeanNew(key, ausb);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuState: {}", ausb, e);
+      throw new StateLoadStoreException("Couldn't deserialize AuState: " + ausb);
+    }
+  }
+
+  /** Return true if an AuState(Bean) exists for the given auid
+   * @param key the auid
+   */
+  public boolean auStateExists(String key) {
+    return auStates.containsKey(key) || auStateBeans.containsKey(key);
   }
 
   /** Default behavior when AU is deleted/deactivated is to remove AuState
@@ -239,8 +266,8 @@ public abstract class CachingStateManager extends BaseStateManager {
       (ausb != null) ? new AuState(au, this, ausb) : newDefaultAuState(au);
     putAuState(key, aus);
     try {
-      String json = aus.toJson();
-      doStoreAuStateBeanNew(key, aus.getBean(), json, AuUtil.jsonToMap(json));
+      String json = aus.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
+      doStoreAuStateBeanNew(key, aus.getBean());
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", aus, e);
       throw new StateLoadStoreException("Couldn't serialize AuState: " + aus);
@@ -256,8 +283,8 @@ public abstract class CachingStateManager extends BaseStateManager {
       ausb = newDefaultAuStateBean(key);
       auStateBeans.put(key, ausb);
       try {
-	String json = ausb.toJson();
-	doStoreAuStateBeanNew(key, ausb, json, AuUtil.jsonToMap(json));
+	String json = ausb.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
+	doStoreAuStateBeanNew(key, ausb);
       } catch (IOException e) {
 	log.error("Couldn't serialize AuStateBean: {}", ausb, e);
 	throw new StateLoadStoreException("Couldn't serialize AuStateBean: " + ausb);
@@ -288,7 +315,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Return true if an update call for an unknown AuState should be
    * allowed (and treated as a store).  By default it's allowed iff it's a
    * complete update (all fields).  Overridable because of the many tests
-   * that were written when this was permissiable */
+   * that were written when this was permissible */
   protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
     return fields == null || fields.isEmpty();
   }

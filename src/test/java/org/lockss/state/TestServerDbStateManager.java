@@ -28,23 +28,17 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
-import java.io.*;
-import java.util.*;
-import org.junit.*;
-import org.apache.activemq.broker.BrokerService;
+import java.io.IOException;
+import java.util.Map;
 
-import org.lockss.app.*;
-import org.lockss.daemon.Crawler;
-import org.lockss.plugin.*;
-import org.lockss.poller.v3.V3Poller;
-import org.lockss.poller.v3.V3Poller.PollVariant;
-import org.lockss.repository.AuSuspectUrlVersions;
-import org.lockss.test.*;
-import org.lockss.log.*;
-import org.lockss.util.*;
+import org.apache.activemq.broker.BrokerService;
+import org.junit.*;
 import org.lockss.jms.*;
-import org.lockss.util.io.LockssSerializable;
-import org.lockss.util.time.TimerUtil;
+import org.lockss.log.L4JLogger;
+import org.lockss.plugin.*;
+import org.lockss.test.*;
+import org.lockss.util.MapUtil;
+import org.lockss.util.time.*;
 
 public class TestServerDbStateManager extends LockssTestCase4 {
   L4JLogger log = L4JLogger.getLogger();
@@ -135,8 +129,7 @@ public class TestServerDbStateManager extends LockssTestCase4 {
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
     stateMgr.updateAuStateFromService(stateMgr.auKey(mau2),
-				      AuUtil.mapToJson(in1Map),
-				      in1Map);
+				      AuUtil.mapToJson(in1Map));
 
     assertEquals("Success", aus2.getLastCrawlResultMsg());
     assertEquals(666, aus2.getLastCrawlTime());
@@ -155,8 +148,7 @@ public class TestServerDbStateManager extends LockssTestCase4 {
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
     stateMgr.updateAuStateFromService(key,
-				      AuUtil.mapToJson(in1Map),
-				      in1Map);
+				      AuUtil.mapToJson(in1Map));
 
     assertEquals(auStateUpdateMap(key, in1Map),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
