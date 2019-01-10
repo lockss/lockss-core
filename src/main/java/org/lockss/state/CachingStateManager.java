@@ -262,8 +262,12 @@ public abstract class CachingStateManager extends BaseStateManager {
   protected AuState handleAuStateCacheMiss(ArchivalUnit au) {
     String key = auKey(au);
     AuStateBean ausb = doLoadAuStateBean(key);
-    AuState aus =
-      (ausb != null) ? new AuState(au, this, ausb) : newDefaultAuState(au);
+    if (ausb != null) {
+      AuState aus = new AuState(au, this, ausb);
+      putAuState(key, aus);
+      return aus;
+    }
+    AuState aus = newDefaultAuState(au);
     putAuState(key, aus);
     try {
       String json = aus.toJsonExcept(SetUtil.set("auId", "auCreationTime"));

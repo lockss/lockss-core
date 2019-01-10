@@ -31,12 +31,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.state;
 
-import java.io.File;
+import java.io.*;
+import java.util.*;
+import org.mockito.Mockito;
 import org.junit.Before;
 import org.junit.Test;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.db.ConfigDbManager;
-import org.lockss.plugin.AuUtil;
+import org.lockss.db.DbException;
+import org.lockss.log.*;
+import org.lockss.plugin.*;
 import org.lockss.test.*;
 import org.lockss.util.ListUtil;
 import org.lockss.util.SetUtil;
@@ -46,18 +50,23 @@ import org.lockss.util.time.TimeBase;
  * Test class for org.lockss.state.DbStateManager.
  */
 public class TestDbStateManager extends LockssTestCase4 {
-  DbStateManager stateMgr;
+  static L4JLogger log = L4JLogger.getLogger();
+
+  PluginManager pluginMgr;
+  MyDbStateManager stateMgr;
   MockArchivalUnit mau1;
   MockArchivalUnit mau2;
+
+  static String AUID1 = MockPlugin.KEY + "&base_url~aaa1";
+  static String AUID2 = MockPlugin.KEY + "&base_url~aaa2";
+  static List CDN_STEMS = ListUtil.list("http://abc.com", "https://xyz.org");
 
   @Before
   public void setUp() throws Exception {
     super.setUp();
 
-    String tmpdir = getTempDir().toString();
-    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
-				  tmpdir);
-
+    
+    String tmpdir = setUpDiskSpace();
     System.setProperty("derby.stream.error.file",
 	new File(tmpdir, "derby.log").getAbsolutePath());
 
@@ -69,11 +78,14 @@ public class TestDbStateManager extends LockssTestCase4 {
     dbManager.initService(daemon);
     dbManager.startService();
 
-    stateMgr = daemon.setUpStateManager(new DbStateManager());
+    stateMgr = daemon.setUpStateManager(new MyDbStateManager());
+
+    pluginMgr = daemon.getPluginManager();
 
     MockPlugin plugin = new MockPlugin(daemon);
-    mau1 = new MockArchivalUnit(plugin, MockPlugin.KEY + "&base_url~aaa1");
-    mau2 = new MockArchivalUnit(plugin, MockPlugin.KEY + "&base_url~aaa2");
+    mau1 = new MockArchivalUnit(AUID1);
+    mau2 = new MockArchivalUnit(AUID2);
+
   }
 
   @Test
@@ -126,7 +138,125 @@ public class TestDbStateManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testManager() throws Exception {
+  public void testGetAuState() throws Exception {
+    // Store a bean in the db
+    AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(AUID1);
+    ausb1.setLastCrawlAttempt(7777);
+    ausb1.setCdnStems(CDN_STEMS);
+    String json = ausb1.toJson();
+
+    MyDbStateManagerSql dbsql = new MyDbStateManagerSql();
+    stateMgr.setDbSql(dbsql);
+    dbsql.setStoredValue(AUID1, json);
+
+    AuState aus1 = stateMgr.getAuState(mau1);
+    assertEquals(7777, aus1.getLastCrawlAttempt());
+    assertEquals(CDN_STEMS, aus1.getCdnStems());
+
+    AuState aus2 = stateMgr.getAuState(mau2);
+    assertEquals(-1, aus2.getLastCrawlAttempt());
+    assertEmpty(aus2.getCdnStems());
     
+  }
+
+  @Test
+  public void testGetAuStateBean() throws Exception {
+    // Store a bean in the db
+    AuStateBean b1 = stateMgr.newDefaultAuStateBean(AUID1);
+    b1.setLastCrawlAttempt(7777);
+    b1.setCdnStems(CDN_STEMS);
+    String json1 = b1.toJson();
+
+    MyDbStateManagerSql dbsql = new MyDbStateManagerSql();
+    stateMgr.setDbSql(dbsql);
+    dbsql.setStoredValue(AUID1, json1);
+
+    AuStateBean ausb1 = stateMgr.getAuStateBean(mau1.getAuId());
+    assertEquals(7777, ausb1.getLastCrawlAttempt());
+    assertEquals(CDN_STEMS, ausb1.getCdnStems());
+
+    AuStateBean ausb2 = stateMgr.getAuStateBean(mau2.getAuId());
+    assertEquals(-1, ausb2.getLastCrawlAttempt());
+    assertNull(ausb2.getCdnStems());
+  }
+
+  static class MyDbStateManager extends DbStateManager {
+    DbStateManagerSql dbSql;
+
+    @Override
+    protected DbStateManagerSql getDbStateManagerSql() throws DbException {
+      if (dbSql != null) return dbSql;
+      return super.getDbStateManagerSql();
+    }
+
+    void setDbSql(DbStateManagerSql val) {
+      dbSql = val;
+    }
+
+  }
+
+
+  static class MyDbStateManagerSql extends DbStateManagerSql {
+  
+    Map<String,String> austates = new HashMap<>();
+
+    public MyDbStateManagerSql() throws DbException {
+      super(null);
+    }
+
+    @Override
+    public String findArchivalUnitState(String pluginId,
+					String auKey)
+	throws DbException {
+      log.debug("findArchivalUnitState("+key(pluginId, auKey)+") = "
+		+austates.get(key(pluginId, auKey)));
+      return austates.get(key(pluginId, auKey));
+    }
+
+    @Override
+    public Long addArchivalUnitState(String pluginId,
+				     String auKey,
+				     AuStateBean ausb)
+	throws DbException {
+      String key = key(pluginId, auKey);
+      if (austates.containsKey(key)) {
+	throw new IllegalStateException("Attempt to add but already exists: "
+					+ key);
+      }
+      putAuState(key, ausb);
+      return 1L;
+    }
+
+    void putAuState(String key, AuStateBean ausb) {
+      try {
+	austates.put(key, ausb.toJson());
+      } catch (IOException e) {
+	throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Long updateArchivalUnitState(String pluginId,
+					String auKey,
+					AuStateBean ausb)
+	throws DbException {
+      String key = key(pluginId, auKey);
+      if (!austates.containsKey(key)) {
+	throw new IllegalStateException("Attempt to update but doesn't exist: "
+					+ key);
+      }
+      putAuState(key, ausb);
+      return 1L;
+    }
+
+    MyDbStateManagerSql setStoredValue(String key, String json) {
+      austates.put(key, json);
+      log.debug("setStoredValue("+key+", "+json+")");
+      return this;
+    }
+  }
+
+  static String key(String pluginId, String auKey) {
+    return pluginId+"&"+auKey;
   }
 }
