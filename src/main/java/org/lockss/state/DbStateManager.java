@@ -192,7 +192,7 @@ public class DbStateManager extends CachingStateManager {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private DbStateManagerSql getDbStateManagerSql() throws DbException {
+  protected DbStateManagerSql getDbStateManagerSql() throws DbException {
     if (dbStateManagerSql == null) {
       if (theApp == null) {
 	dbStateManagerSql = new DbStateManagerSql(
