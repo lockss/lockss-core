@@ -1,33 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
+<!--
 
-Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation and/or
-other materials provided with the distribution.
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its contributors
 may be used to endorse or promote products derived from this software without
 specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -38,7 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.9.0-SNAPSHOT</version>
+    <version>1.10.0-SNAPSHOT</version>
     <relativePath />
   </parent>
 
@@ -51,14 +52,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <description>The Slimmed Down LOCKSS Daemon Core</description>
 
   <properties>
-    <jackson.version>2.9.8</jackson.version>
-    <build.releasename>1.75.0</build.releasename>
-    <skip.stf.tests>true</skip.stf.tests>
-    <run.classpath.file>${basedir}/target/run-classpath</run.classpath.file>
-    <test.classpath.file>${basedir}/target/test-classpath</test.classpath.file>
-    <build.info.dir>target/classes/org/lockss/htdocs</build.info.dir>
-    <build.info.file>${build.info.dir}/build.properties</build.info.file>
-    <skipTestJar>false</skipTestJar>
+    <!-- Needs to export its tests JAR -->
+    <build.java.jarTests.skip>false</build.java.jarTests.skip>
+    <!-- Needs lockss-legacy repository for lockss-plugins -->
+    <repository.enabled.lockss-legacy>true</repository.enabled.lockss-legacy>
+
+    <skipStf>true</skipStf><!-- alias -->
+    <build.java.runStf.skip>${skipStf}</build.java.runStf.skip><!-- property -->
+
+    <stfSuite>simpleV3Tests</stfSuite><!-- alias -->
+    <build.java.runStf.suite>${stfSuite}</build.java.runStf.suite><!-- property -->
+
+    <!-- Needed for buildProperties step (see below) -->
+    <dir.buildProperties>${project.build.outputDirectory}/org/lockss/htdocs</dir.buildProperties>
+    <file.buildProperties>${dir.buildProperties}/build.properties</file.buildProperties>
   </properties>
 
   <!-- Must be in every lockss-parent-pom descendant -->
@@ -75,13 +82,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-util</artifactId>
-      <version>${lockss.util.version}</version>
+      <version>${version.lockss.lockss-util}</version>
     </dependency>
 
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-util</artifactId>
-      <version>${lockss.util.version}</version>
+      <version>${version.lockss.lockss-util}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
@@ -89,7 +96,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-junit4-bundle</artifactId>
-      <version>${lockss.junit4.bundleVersion}</version>
+      <version>${version.lockss.lockss-junit4-bundle}</version>
       <type>pom</type>
       <scope>test</scope>
     </dependency>
@@ -99,536 +106,642 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <artifactId>rhino</artifactId>
       <version>1.7.7</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.derby</groupId>
       <artifactId>derby</artifactId>
-      <version>10.9.1.0</version>
+      <version>${version.group.derby}</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.derby</groupId>
       <artifactId>derbyclient</artifactId>
-      <version>10.9.1.0</version>
+      <version>${version.group.derby}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.derby</groupId>
       <artifactId>derbynet</artifactId>
-      <version>10.9.1.0</version>
+      <version>${version.group.derby}</version>
     </dependency>
+
     <!--  Needed by org.lockss.util.MultipartUtil and org.lockss.util.MimeMultipartHttpMessageConverter -->
     <dependency>
-        <groupId>com.sun.mail</groupId>
-        <artifactId>javax.mail</artifactId>
-        <version>1.6.0</version>
+      <groupId>com.sun.mail</groupId>
+      <artifactId>javax.mail</artifactId>
+      <version>${version.dependency.javax.mail}</version>
     </dependency>
+    
     <dependency>
       <groupId>javax.activation</groupId>
       <artifactId>activation</artifactId>
-      <version>1.1.1</version>
+      <version>${version.dependency.activation}</version>
     </dependency>
+
     <dependency>
       <groupId>castor</groupId>
       <artifactId>castor</artifactId>
-      <version>0.9.4.2</version>
+      <version>${version.dependency.castor}</version>
     </dependency>
+
     <dependency>
       <groupId>xerces</groupId>
       <artifactId>xercesImpl</artifactId>
       <version>2.11.0</version>
     </dependency>
+
     <dependency>
       <groupId>xml-apis</groupId>
       <artifactId>xml-apis</artifactId>
       <version>1.4.01</version>
     </dependency>
+
     <dependency>
       <groupId>xalan</groupId>
       <artifactId>xalan</artifactId>
       <version>2.7.2</version>
     </dependency>
+
     <dependency>
       <groupId>xalan</groupId>
       <artifactId>serializer</artifactId>
       <version>2.7.2</version>
     </dependency>
+
     <dependency>
       <groupId>xml-resolver</groupId>
       <artifactId>xml-resolver</artifactId>
       <version>1.2</version>
     </dependency>
+
     <dependency>
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
       <version>1.2.13</version>
     </dependency>
+
     <dependency>
       <groupId>commons-lang</groupId>
       <artifactId>commons-lang</artifactId>
-      <version>2.6</version>
+      <version>${version.dependency.commons-lang}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
-      <version>3.8.1</version>
+      <version>${version.dependency.commons-lang3}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-primitives</groupId>
       <artifactId>commons-primitives</artifactId>
-      <version>1.0</version>
+      <version>${version.dependency.commons-primitives}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-cli</groupId>
       <artifactId>commons-cli</artifactId>
-      <version>1.4</version>
+      <version>${version.dependency.commons-cli}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-collections</groupId>
       <artifactId>commons-collections</artifactId>
-      <version>3.2.2</version>
+      <version>${version.dependency.commons-collections}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-collections4</artifactId>
-      <version>4.2</version>
+      <version>${version.dependency.commons-collections4}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-configuration</groupId>
       <artifactId>commons-configuration</artifactId>
-      <version>1.10</version>
+      <version>${version.dependency.commons-configuration}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-logging</groupId>
       <artifactId>commons-logging</artifactId>
-      <version>1.2</version>
+      <version>${version.dependency.commons-logging}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>1.11</version>
+      <version>${version.dependency.commons-codec}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.18</version>
+      <version>${version.dependency.commons-compress}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
-      <version>2.6</version>
+      <version>${version.dependency.commons-io}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-jxpath</groupId>
       <artifactId>commons-jxpath</artifactId>
-      <version>1.3</version>
+      <version>${version.dependency.commons-jxpath}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-beanutils</groupId>
       <artifactId>commons-beanutils</artifactId>
-      <version>1.9.3</version>
+      <version>${version.dependency.commons-beanutils}</version>
     </dependency>
+
     <dependency>
       <groupId>commons-validator</groupId>
       <artifactId>commons-validator</artifactId>
-      <version>1.6</version>
+      <version>${version.dependency.commons-validator}</version>
     </dependency>
+
     <dependency>
       <groupId>com.googlecode.gettext-commons</groupId>
       <artifactId>gettext-commons</artifactId>
       <version>0.9.8</version>
     </dependency>
+
     <dependency>
       <groupId>org.fedorahosted.tennera</groupId>
       <artifactId>ant-gettext</artifactId>
       <version>0.9</version>
     </dependency>
+
     <dependency>
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-driver-file</artifactId>
-      <version>7.7.10</version>
+      <version>${version.group.truezip}</version>
     </dependency>
+
     <dependency>
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-driver-tar</artifactId>
-      <version>7.7.10</version>
+      <version>${version.group.truezip}</version>
     </dependency>
+    
     <dependency>
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-driver-zip</artifactId>
-      <version>7.7.10</version>
+      <version>${version.group.truezip}</version>
     </dependency>
+    
     <dependency>
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-file</artifactId>
-      <version>7.7.10</version>
+      <version>${version.group.truezip}</version>
     </dependency>
+    
     <dependency>
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-kernel</artifactId>
-      <version>7.7.10</version>
+      <version>${version.group.truezip}</version>
     </dependency>
+    
     <dependency>
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-swing</artifactId>
-      <version>7.7.10</version>
+      <version>${version.group.truezip}</version>
     </dependency>
+    
     <dependency>
       <groupId>javatar</groupId>
       <artifactId>javatar</artifactId>
       <version>2.5</version>
     </dependency>
+    
     <dependency>
       <groupId>concurrent</groupId>
       <artifactId>concurrent</artifactId>
       <version>1.3.4</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>org-htmlparser</artifactId>
       <version>1.6-p2</version>
     </dependency>
+    
     <dependency>
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
       <version>1.10.2</version>
     </dependency>
+    
     <dependency>
       <groupId>org.jboss.apiviz</groupId>
       <artifactId>apiviz</artifactId>
       <version>1.3.2.GA</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>com-sun-jimi-pro</artifactId>
       <version>1.0.0-p1</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>edu-stanford-db-rdf-api</artifactId>
       <version>2001-01-19-p1</version>
     </dependency>
+    
     <dependency>
       <groupId>xstream</groupId>
       <artifactId>xstream</artifactId>
       <version>1.1.3</version>
     </dependency>
+    
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>javax.servlet-api</artifactId>
       <version>4.0.0</version>
       <scope>provided</scope>
     </dependency>
+    
     <dependency>
       <groupId>javax.xml.ws</groupId>
       <artifactId>jaxws-api</artifactId>
       <version>2.2.11</version>
     </dependency>
+    
     <dependency>
       <groupId>net.sourceforge.pjl-comp-filter</groupId>
       <artifactId>pjl-comp-filter</artifactId>
       <version>1.7</version>
     </dependency>
+    
     <dependency>
       <groupId>net.sourceforge.nekohtml</groupId>
       <artifactId>nekohtml</artifactId>
       <version>1.9.22</version>
     </dependency>
+    
     <dependency>
       <groupId>postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <version>9.1-901.jdbc4</version>
     </dependency>
+    
     <dependency>
       <groupId>ant-contrib</groupId>
       <artifactId>ant-contrib</artifactId>
       <version>1.0b3</version>
     </dependency>
+    
     <dependency>
       <groupId>com.lyncode</groupId>
       <artifactId>xoai-common</artifactId>
       <version>4.1.0</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>com-lyncode-xoai-service-provider</artifactId>
       <version>4.1.0-p4</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>com-lyncode-xml-io</artifactId>
       <version>1.0.3-p3</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpcore</artifactId>
-      <version>4.4.6</version>
+      <version>${version.dependency.httpcore}</version>
     </dependency>
+    
     <dependency>
       <groupId>org.hamcrest</groupId>
       <artifactId>hamcrest-all</artifactId>
-      <version>1.3</version>
+      <version>${version.group.hamcrest}</version>
     </dependency>
+    
     <dependency>
       <groupId>org.codehaus.woodstox</groupId>
       <artifactId>stax2-api</artifactId>
       <version>3.0.4</version>
     </dependency>
+
     <dependency>
       <groupId>com.lyncode</groupId>
       <artifactId>test-support</artifactId>
       <version>1.0.4</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
-      <version>4.5.3</version>
+      <version>${version.group.httpclient}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient-cache</artifactId>
-      <version>4.5.3</version>
+      <version>${version.group.httpclient}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
-      <version>1.8.16</version>
+      <version>${version.group.pdfbox}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>fontbox</artifactId>
-      <version>1.8.16</version>
+      <version>${version.group.pdfbox}</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
-      <artifactId>jempbox</artifactId>
-      <version>1.8.16</version>
+      <artifactId>xmpbox</artifactId>
+      <version>${version.group.pdfbox}</version>
     </dependency>
+
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk15on</artifactId>
-      <version>1.60</version>
+      <version>${version.group.bouncycastle}</version>
     </dependency>
+
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcmail-jdk15on</artifactId>
-      <version>1.60</version>
+      <version>${version.group.bouncycastle}</version>
     </dependency>
+
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j</artifactId>
-      <version>63.1</version>
+      <version>${version.group.icu4j}</version>
     </dependency>
+
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-charset</artifactId>
-      <version>63.1</version>
+      <version>${version.group.icu4j}</version>
     </dependency>
+
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-localespi</artifactId>
-      <version>63.1</version>
+      <version>${version.group.icu4j}</version>
     </dependency>
+
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>pdfbox</artifactId>
       <version>0.7.3-p1</version>
     </dependency>
+
     <dependency>
       <groupId>org.fontbox</groupId>
       <artifactId>fontbox</artifactId>
       <version>0.1.0</version>
     </dependency>
+
     <dependency>
       <groupId>aopalliance</groupId>
       <artifactId>aopalliance</artifactId>
       <version>1.0</version>
     </dependency>
+
     <dependency>
       <groupId>asm</groupId>
       <artifactId>asm</artifactId>
       <version>3.3.1</version>
     </dependency>
+
     <dependency>
       <groupId>asm</groupId>
       <artifactId>asm-tree</artifactId>
       <version>3.3.1</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.cxf</groupId>
       <artifactId>cxf-bundle</artifactId>
       <version>2.7.18</version>
     </dependency>
+
     <dependency>
       <groupId>com.sun.xml.fastinfoset</groupId>
       <artifactId>FastInfoset</artifactId>
       <version>1.2.13</version>
     </dependency>
+
     <dependency>
       <groupId>org.glassfish.jaxb</groupId>
       <artifactId>jaxb-core</artifactId>
       <version>2.2.11</version>
     </dependency>
+
     <dependency>
       <groupId>org.glassfish.jaxb</groupId>
       <artifactId>jaxb-runtime</artifactId>
       <version>2.2.11</version>
     </dependency>
+
     <dependency>
       <groupId>org.jvnet.mimepull</groupId>
       <artifactId>mimepull</artifactId>
       <version>1.9.7</version>
     </dependency>
+
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>2.7.22</version>
     </dependency>
+
     <dependency>
       <groupId>mysql</groupId>
       <artifactId>mysql-connector-java</artifactId>
       <version>5.1.29</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.neethi</groupId>
       <artifactId>neethi</artifactId>
       <version>3.0.3</version>
     </dependency>
+
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-core</artifactId>
-      <version>${lockss.spring.version}</version>
+      <version>${version.group.spring}</version>
     </dependency>
+
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-web</artifactId>
-      <version>${lockss.spring.version}</version>
+      <version>${version.group.spring}</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.velocity</groupId>
       <artifactId>velocity</artifactId>
       <version>1.7</version>
     </dependency>
+    
     <dependency>
       <groupId>wsdl4j</groupId>
       <artifactId>wsdl4j</artifactId>
       <version>1.6.3</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.ws.xmlschema</groupId>
       <artifactId>xmlschema-core</artifactId>
       <version>2.2.1</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>org-josql</artifactId>
       <version>2.2-p2</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>com-gentlyweb-utils</artifactId>
       <version>1.1-p1</version>
     </dependency>
+    
     <dependency>
       <groupId>org.opensaml</groupId>
       <artifactId>opensaml</artifactId>
       <version>2.6.4</version>
     </dependency>
+    
     <dependency>
       <groupId>commons-digester</groupId>
       <artifactId>commons-digester</artifactId>
-      <version>1.8.1</version>
+      <version>${version.dependency.commons-digester}</version>
     </dependency>
+    
     <dependency>
       <groupId>commons-fileupload</groupId>
       <artifactId>commons-fileupload</artifactId>
-      <version>1.3.3</version>
+      <version>${version.dependency.commons-fileupload}</version>
     </dependency>
+    
     <dependency>
       <groupId>org.owasp.esapi</groupId>
       <artifactId>esapi</artifactId>
       <version>2.1.0.1</version>
     </dependency>
+    
     <dependency>
       <groupId>joda-time</groupId>
       <artifactId>joda-time</artifactId>
       <version>2.9.9</version>
     </dependency>
+    
     <dependency>
       <groupId>ca.juliusdavies</groupId>
       <artifactId>not-yet-commons-ssl</artifactId>
       <version>0.3.11</version>
     </dependency>
+    
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>dk-digst-oiosaml-java</artifactId>
       <version>21188-p2</version>
     </dependency>
+    
     <dependency>
       <groupId>org.apache.santuario</groupId>
       <artifactId>xmlsec</artifactId>
       <version>1.5.8</version>
     </dependency>
+    
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk15on</artifactId>
-      <version>1.56</version>
+      <version>${version.group.bouncycastle}</version>
     </dependency>
+
     <dependency>
       <groupId>org.fishwife</groupId>
       <artifactId>jrugged-core</artifactId>
       <version>3.2.2</version>
     </dependency>
+
     <dependency>
       <groupId>org.opensaml</groupId>
       <artifactId>xmltooling</artifactId>
       <version>1.4.4</version>
     </dependency>
+
     <dependency>
       <groupId>oro</groupId>
       <artifactId>oro</artifactId>
       <version>2.0.8</version>
     </dependency>
+
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>org-mortbay-jetty</artifactId>
       <version>5.1.5-p4</version>
     </dependency>
+
     <dependency>
       <groupId>com.jcabi</groupId>
       <artifactId>jcabi-aspects</artifactId>
       <version>0.22.6</version>
     </dependency>
+
     <dependency>
       <groupId>org.aspectj</groupId>
       <artifactId>aspectjrt</artifactId>
       <version>1.8.10</version>
       <scope>runtime</scope>
     </dependency>
+
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>${jackson.version}</version>
+      <version>${version.group.jackson}</version>
     </dependency>
+
     <dependency>
       <groupId>org.antlr</groupId>
       <artifactId>antlr4-runtime</artifactId>
-      <version>4.7</version>
+      <version>${version.group.antlr}</version>
     </dependency>
+
     <dependency>
       <groupId>httpunit</groupId>
       <artifactId>httpunit</artifactId>
       <version>1.7</version>
       <scope>test</scope>
     </dependency>
+
     <dependency>
       <groupId>xmlunit</groupId>
       <artifactId>xmlunit</artifactId>
       <version>1.5</version>
       <scope>test</scope>
     </dependency>
+
     <dependency>
       <groupId>it.unimi.dsi</groupId>
       <artifactId>fastutil</artifactId>
       <version>6.3</version>
     </dependency>
+
     <dependency>
       <groupId>gnu.getopt</groupId>
       <artifactId>java-getopt</artifactId>
@@ -645,14 +758,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-plugins</artifactId>
-      <version>${lockss.plugins.version}</version>
+      <version>${version.lockss.lockss-plugins}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.lockss.laaws</groupId>
       <artifactId>laaws-repository-core</artifactId>
-      <version>${lockss.repository-core.version}</version>
+      <version>${version.lockss.lockss-repository-core}</version>
       <exclusions>
         <!-- brings sealed Jetty 6 but we have Jetty 5 -->
         <exclusion>
@@ -665,11 +778,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         </exclusion>
       </exclusions>
     </dependency>
+
     <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>org-netpreserve-commons-webarchive-commons</artifactId>
       <version>1.1.7-p2</version>
     </dependency>
+
     <!-- Because webarchive-commons 1.1.7-p1 doesn't bring in json; 1.1.8 (brought by the repo core) does but is preempted -->
     <dependency>
       <groupId>org.json</groupId>
@@ -680,19 +795,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.activemq</groupId>
       <artifactId>activemq-client</artifactId>
-      <version>${lockss.activemq.version}</version>
+      <version>${version.group.activemq}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.activemq</groupId>
       <artifactId>activemq-broker</artifactId>
-      <version>${lockss.activemq.version}</version>
+      <version>${version.group.activemq}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.activemq</groupId>
       <artifactId>activemq-kahadb-store</artifactId>
-      <version>${lockss.activemq.version}</version>
+      <version>${version.group.activemq}</version>
       <scope>test</scope>
     </dependency>
+    
     <dependency>
       <groupId>javax.jms</groupId>
       <artifactId>javax.jms-api</artifactId>
@@ -702,23 +820,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   </dependencies>
 
   <build>
+
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.7.0</version>
-        <configuration>
-          <useIncrementalCompilation>false</useIncrementalCompilation>
-          <!-- put your configurations here -->
-        </configuration>
-      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
-        <version>1.8</version>
+        <version>${version.plugin.maven-antrun-plugin}</version>
         <executions>
+        
           <execution>
-            <id>build-info-file</id>
+            <id>buildProperties</id>
             <phase>generate-resources</phase>
             <goals>
               <goal>run</goal>
@@ -726,8 +838,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             <configuration>
               <exportAntProperties>true</exportAntProperties>
               <target>
-		<exec executable="hostname" outputproperty="hostname0"
-		      failifexecutionfails="false"/>
+		<exec executable="hostname" outputproperty="hostname0" failifexecutionfails="false"/>
                 <condition property="hostname" value="${env.HOSTNAME}" else="${hostname0}">
                   <isset property="env.HOSTNAME" />
                 </condition>
@@ -740,9 +851,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                 <tstamp><!-- build.timestamp is a Maven property -->
                   <format property="build_timestamp" pattern="dd-MMM-yy' 'HH:mm:ss' 'zzz" />
                 </tstamp>                
-		<mkdir dir="${build.info.dir}" />
+		<mkdir dir="${dir.buildProperties}" />
 		<propertyfile comment="Build Information"
-			      file="${build.info.file}">
+			      file="${file.buildProperties}">
 		  <entry key="build.date"
 			 value="${build.date}"/>
 		  <entry key="build.time"
@@ -757,75 +868,103 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
               </target>
             </configuration>
           </execution>
+
           <execution>
-            <id>param-doclet</id>
+            <id>paramDoclet</id>
             <phase>package</phase>
             <goals>
               <goal>run</goal>
             </goals>
             <configuration>
+              <skip>${build.java.jarJavadoc.skip}</skip>
               <target>
                 <mkdir dir="${project.reporting.outputDirectory}/apidocs" />
                 <javadoc sourcepath="${project.build.sourceDirectory}"
-                  doclet="org.lockss.doclet.ParamDoclet"
-                  docletpathref="maven.test.classpath"
-                  classpathref="maven.test.classpath"
-                  packagenames="org.lockss.*"
-                  access="private"
-                  failonerror="true">
+                         doclet="org.lockss.doclet.ParamDoclet"
+                         docletpathref="maven.test.classpath"
+                         classpathref="maven.test.classpath"
+                         packagenames="org.lockss.*"
+                         access="private"
+                         failonerror="true">
                   <arg value="-f"/> <arg value="Alpha"/>
                   <arg value="-d"/> <arg value="${project.reporting.outputDirectory}/apidocs"/>
                   <arg value="-o"/> <arg value="paramdoc.html"/>
                   <arg value="-h"/> <arg value="Release&amp;nbsp;${build.releasename} Built&amp;nbsp;${build_timestamp} on&amp;nbsp;${hostname}"/>
                 </javadoc>
               </target>
-              <skip>${skipJavadoc}</skip>
             </configuration>
           </execution>
+          
         </executions>
       </plugin>
+      
+      <!-- BEGIN plugin lockss-tdbxml-maven-plugin -->
+      
       <plugin>
         <groupId>org.lockss.laaws</groupId>
         <artifactId>lockss-tdbxml-maven-plugin</artifactId>
-        <version>${lockss.tdbxml-maven-plugin.version}</version>
-        <configuration>
-          <srcDir>src/test/java</srcDir>
-          <dstDir>target/test-classes</dstDir>
-          <recurse>true</recurse>
-        </configuration>
+        <version>${version.lockss.lockss-tdbxml-maven-plugin}</version>
         <executions>
+          
+          <!-- BEGIN step processTdb -->
+
           <execution>
-            <phase>process-test-resources</phase>
+            <id>processTdb</id>
+            <phase>test-compile</phase>
             <goals>
               <goal>tdbxml</goal>
             </goals>
+            <configuration>
+              <skip>${build.java.runTests.skip}</skip>
+              <srcDir>${project.build.testSourceDirectory}</srcDir>
+              <dstDir>${project.build.testOutputDirectory}</dstDir>
+              <recurse>true</recurse>
+            </configuration>
           </execution>
+          
+          <!-- END step processTdb -->
+
         </executions>
       </plugin>
+      
+      <!-- END plugin lockss-tdbxml-maven-plugin -->
+      
+      <!-- BEGIN plugin exec-maven-plugin -->
+      
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
+        <version>${version.plugin.exec-maven-plugin}</version>
         <executions>
+
+          <!-- BEGIN step runStf -->
+
           <execution>
-            <id>run-stf</id>
-            <phase>verify</phase>
+            <id>runStf</id>
+            <phase>integration-test</phase>
             <goals>
               <goal>exec</goal>
             </goals>
             <configuration>
-              <skip>${skip.stf.tests}</skip>
-              <executable>python</executable>
+              <skip>${build.java.runStf.skip}</skip>
               <workingDirectory>test/frameworks/run_stf</workingDirectory>
+              <executable>python2</executable>
               <arguments>
                 <argument>testsuite.py</argument>
-                <argument>simpleV3Tests</argument>
+                <argument>${build.java.runStf.suite}</argument>
               </arguments>
             </configuration>
           </execution>
+
+          <!-- END step runStf -->
+
         </executions>
       </plugin>
+
+      <!-- END plugin exec-maven-plugin -->
+      
     </plugins>
+
     <resources>
       <resource>
         <directory>src/main/resources</directory>
@@ -855,35 +994,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       </excludes>
       </testResource>
     </testResources>
+    
   </build>
 
-  <repositories>
-    <repository>
-      <id>lockss-legacy</id>
-      <name>LOCKSS Legacy JARs</name>
-      <url>https://github.com/lockss/lockss-legacy-jars/raw/master/maven2</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-    </repository>
-  </repositories>
-     <pluginRepositories>
-       <pluginRepository>
-         <id>ossrh-snapshots</id>
-         <name>Sonatype OSSRH Snapshots</name>
-<url>https://oss.sonatype.org/service/local/repositories/snapshots/content</url>
-         <snapshots>
-           <enabled>true</enabled>
-           <updatePolicy>always</updatePolicy>
-         </snapshots>
-         <releases>
-           <enabled>false</enabled>
-           <updatePolicy>never</updatePolicy>
-         </releases>
-       </pluginRepository>
-     </pluginRepositories>
-  
 </project>
