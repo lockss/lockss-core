@@ -180,6 +180,17 @@ public class TestDbStateManager extends LockssTestCase4 {
     assertNull(ausb2.getCdnStems());
   }
 
+  @Test
+  public void testStoreAuStateBean() throws Exception {
+    // Store a bean in the db
+    AuStateBean b1 = stateMgr.newDefaultAuStateBean(AUID1);
+    b1.setLastCrawlAttempt(7777);
+    b1.setCdnStems(CDN_STEMS);
+    String json1 = b1.toJson();
+
+    stateMgr.storeAuStateFromService(AUID1, json1);
+  }
+
   static class MyDbStateManager extends DbStateManager {
     DbStateManagerSql dbSql;
 

@@ -65,7 +65,7 @@ public class DbStateManager extends CachingStateManager {
   @Override
   public void storeAuStateFromService(String auid, String json)
       throws IOException {
-    AuStateBean ausb = getAuStateBean(auid);
+    AuStateBean ausb = newDefaultAuStateBean(auid);
     ausb.updateFromJson(json, daemon);
     storeAuStateBean(auid, ausb);
   }
