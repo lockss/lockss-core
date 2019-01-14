@@ -39,6 +39,7 @@ import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 
 /** StateManager that keeps objects in memory, persists AuState objects (in
  * memory) across AU deletion/creation, but not across java invocations.
@@ -53,27 +54,16 @@ public class InMemoryStateManager extends CachingStateManager {
   // save/restore the state, plus it provides a convenient way to restore
   // the data into an AuState object with a different AU.
   protected Map<String,String> deletedAuStates = new HashMap<>();
+  protected Map<String,String> deletedAuAgreementses = new HashMap<>();
 
   /** When AU deleted, backup any existing AuState to the deletedAuStates
    * map and delete from cache */
   protected synchronized void handleAuDeleted(ArchivalUnit au) {
     // Serialize the AU's AuState to "backing" store so it can be restored
     // if the AU is reactivated.
-
     String key = auKey(au);
-    AuState aus = auStates.get(key);
-    log.debug("Remembering: {}: {}", au, aus);
-    if (aus != null) {
-      try {
-	String json = aus.toJson();
-	deletedAuStates.put(key, json);
-      } catch (IOException e) {
-	log.error("Couldn't serialize AuState to \"backing\" store: {}",
-		  aus, e);
-	throw new StateLoadStoreException("Couldn't serialize AuState to \"backing\" store",
-					  e);
-      }
-    }
+    saveDeletedAuAuState(key);
+    saveDeletedAuAuAgreements(key);
     super.handleAuDeleted(au);
   }
 
@@ -93,6 +83,61 @@ public class InMemoryStateManager extends CachingStateManager {
       }
     }
     return null;
+  }
+
+  void saveDeletedAuAuState(String key) {
+    AuState aus = auStates.get(key);
+    if (aus != null) {
+    log.debug("Remembering: {}: {}", key, aus);
+      try {
+	String json = aus.toJson();
+	deletedAuStates.put(key, json);
+      } catch (IOException e) {
+	log.error("Couldn't serialize AuState to \"backing\" store: {}",
+		  aus, e);
+	throw new StateLoadStoreException("Couldn't serialize AuState to \"backing\" store",
+					  e);
+      }
+    }
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // AuAgreements
+  // /////////////////////////////////////////////////////////////////
+
+  /** "Load" an AuAgreements from the deletedAuAgreementss if it's there */
+  @Override
+  protected AuAgreements doLoadAuAgreements(String key) {
+    String json = deletedAuAgreementses.get(key);
+    if (json != null) {
+      AuAgreements aua = newDefaultAuAgreements(key);
+      try {
+	aua.updateFromJson(json, daemon);
+	return aua;
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuAgreements from \"backing\" store: {}",
+		  json, e);
+	throw new StateLoadStoreException("Couldn't deserialize AuAgreements from \"backing\" store",
+					  e);
+      }
+    }
+    return null;
+  }
+
+  void saveDeletedAuAuAgreements(String key) {
+    AuAgreements aua = agmnts.get(key);
+    if (aua != null) {
+    log.debug("Remembering: {}: {}", key, aua);
+      try {
+	String json = aua.toJson();
+	deletedAuAgreementses.put(key, json);
+      } catch (IOException e) {
+	log.error("Couldn't serialize AuAgreements to \"backing\" store: {}",
+		  aua, e);
+	throw new StateLoadStoreException("Couldn't serialize AuAgreements to \"backing\" store",
+					  e);
+      }
+    }
   }
 
 }

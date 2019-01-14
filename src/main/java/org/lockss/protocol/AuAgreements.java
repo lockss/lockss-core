@@ -34,11 +34,14 @@ package org.lockss.protocol;
 
 import java.io.*;
 import java.util.*;
+import java.util.stream.*;
+import com.fasterxml.jackson.annotation.*;
 
+import org.lockss.app.*;
 import org.lockss.protocol.IdentityManager;
-import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.*;
 import org.lockss.repository.LockssRepositoryException;
-import org.lockss.state.HistoryRepository;
+import org.lockss.state.*;;
 import org.lockss.util.*;
 import org.lockss.util.io.LockssSerializable;
 
@@ -47,28 +50,25 @@ import org.lockss.util.io.LockssSerializable;
  * The saved information for a single {@link ArchivalUnit} about poll
  * agreements between this cache and all the peers it has agreements
  * with.
- *
- * This class is used by {@link
- * HistoryRepository#storeIdentityAgreements} and {@link
- * HistoryRepository#loadIdentityAgreements}.
  */
 public class AuAgreements implements LockssSerializable {
-
-  /**
-   * <p>A logger for this class.</p>
-   */
   protected static Logger log = Logger.getLogger();
 
-  // A collection of polling agreements as stored in the
-  // HistoryRepository. The content is cached in map, and the two
-  // structures are synchronized when needed. See updateListFromMap and
-  // updateMapFromList.
-  private List<PeerAgreements> list;
+  private String auid;
 
-  // A quick lookup to avoid traversing list.
-  private transient Map<PeerIdentity, PeerAgreements> map;
+  // Raw map for serialization
+  private Map<String, PeerAgreements> rawMap;
 
-  private AuAgreements() {
+  // Caches PeerIdentity -> PeerAgreements mapping once loaded
+  @JsonIgnore
+  private Map<PeerIdentity, PeerAgreements> map;
+
+  @JsonIgnore
+  private IdentityManager idMgr;
+
+  private AuAgreements(String auid, IdentityManager idMgr) {
+    this.auid = auid;
+    this.idMgr = idMgr;
     this.map = new HashMap();
   }
 
@@ -78,35 +78,96 @@ public class AuAgreements implements LockssSerializable {
    * @param idMgr A {@link IdentityManager} to translate {@link
    * String}s to {@link PeerIdentity} instances.
    */
-  public static AuAgreements make(HistoryRepository hRep,
-				  IdentityManager idMgr) {
-    AuAgreements auAgreements = new AuAgreements();
-    auAgreements.loadFrom(getRawAgreements(hRep), idMgr);
+  @JsonCreator
+  public static AuAgreements make(@JsonProperty("auid") String auid,
+				  @JsonProperty("idMgr") IdentityManager idMgr) {
+    AuAgreements auAgreements = new AuAgreements(auid, idMgr);
     return auAgreements;
   }
 
-  /**
-   * @param hRep A {@link HistoryRepository} to use.
-   * @return The value and type from {@link
-   * HistoryRepository#loadIdentityAgreements}, or {@code null} if the
-   * no value is available.
-   */
-  private static Object getRawAgreements(HistoryRepository hRep) {
-    Object rawAgreements = null;
-    try {
-      rawAgreements = hRep.loadIdentityAgreements();
-    } catch (LockssRepositoryException e) {
-      log.error("getRawAgreements [" + hRep + "]", e);
-      // Should anything else be done in case of error?
+  /** Serialize entire object to json string */
+  public String toJson() throws IOException {
+    return toJson((Set<PeerIdentity>)null);
+  }
+
+  /** Serialize a single field to json string */
+  public String toJson(PeerIdentity pid) throws IOException {
+    return toJson(SetUtil.set(pid));
+  }
+
+  /** Serialize PeerAgreements for named peers to json string */
+  public synchronized String toJson(Set<PeerIdentity> peers) throws IOException {
+    return AuUtil.jsonFromAuAgreements(makeBean(peers), peers);
+  }
+
+  AuAgreements makeBean(Set<PeerIdentity> peers) {
+    AuAgreements res = new AuAgreements(auid, idMgr);
+    res.rawMap = new HashMap<>();
+    for (Map.Entry<PeerIdentity,PeerAgreements> ent : map.entrySet()) {
+      if (peers == null || peers.contains(ent.getKey())) {
+	res.rawMap.put(ent.getKey().getKey(), ent.getValue());
+      }
     }
-    return rawAgreements;
+    return res;
+  }
+
+  /** Deserialize a json string into this AuAgreements, replacing only
+   * those PeerAgreements that are present in the json string
+   * @param json json string
+   * @param app
+   * @return set of the PeerIdentity of each PeerAgreements that was
+   * updated from the json source
+   */
+  public synchronized Set<PeerIdentity> updateFromJson(String json,
+						       LockssApp app)
+      throws IOException {
+    AuAgreements srcAgmnts = AuUtil.auAgreementsFromJson(json);
+    Set<PeerIdentity> res = new HashSet<>();
+    for (PeerAgreements pas : srcAgmnts.rawMap.values()) {
+      res.add(setPeerAgreements(pas));
+    }
+    postUnmarshal(app);
+    return res;
+  }
+
+  /** Deserialize a json string into a new AuAgreements
+   * @param json json string
+   * @param app
+   */
+  public static AuAgreements fromJson(String key, String json,
+				      LockssDaemon daemon)
+      throws IOException {
+    AuAgreements res = AuAgreements.make(key, daemon.getIdentityManager());
+    res.updateFromJson(json, daemon);
+    return res;
+  }
+
+  /** Update the saved state to reflect the changed made to the named
+   * fields.
+   * @param fields fields to store.  If null, all fields are stored
+   */
+  public synchronized void storeAuAgreements(Set<PeerIdentity> peers) {
+    getStateMgr().updateAuAgreements(auid, this, peers);
+  }
+
+  private StateManager getStateMgr() {
+//     if (stateMgr == null) {
+//       // XXX very handy for test.  alternative?
+      return LockssDaemon.getManagerByTypeStatic(StateManager.class);
+//     }
+//     return stateMgr;
+  }
+
+  /**
+   * Avoid duplicating common strings
+   */
+  protected void postUnmarshal(LockssApp lockssContext) {
+    auid = StringPool.AUIDS.intern(auid);
   }
 
   @Override
   public String toString() {
-    return "AuAgreements[list="+list+
-      ", map="+map+
-      "]";
+    return "[AuAgreements: " + map + "]";
   }
 
   /**
@@ -116,138 +177,20 @@ public class AuAgreements implements LockssSerializable {
     return !map.isEmpty();
   }
 
-  /**
-   * Store to the {@link HistoryRepository} supplied.
-   * @param hRep A {@link HistoryRepository} to use.
-   */
-  public synchronized void store(HistoryRepository hRep) {
+  public PeerIdentity setPeerAgreements(PeerAgreements peerAgreements)
+      throws IllegalArgumentException {
+    String id = peerAgreements.getId();
     try {
-      updateListFromMap();
-      hRep.storeIdentityAgreements(this);
-    } catch (LockssRepositoryException e) {
-      log.error("AuAgreements.store [" + hRep + "]", e);
-      // Should anything else be done in case of error?
-    }
-  }
-
-  // NOTE: Since this instance is already in the cache and used for
-  // initialization synchronization, we change the internal state to
-  // be that of the Object supplied -- even if it is an instance of
-  // AuAgreements.
-
-  private void loadFrom(Object rawAgreements, IdentityManager idMgr) {
-    if (rawAgreements == null) {
-      loadInitial();
-    } else if (rawAgreements instanceof AuAgreements) {
-      loadFromAuAgreements((AuAgreements)rawAgreements);
-    } else {
-      throw new IllegalArgumentException("Unexpected class: "+
-					 rawAgreements.getClass().getName());
-    }
-    updateMapFromList(idMgr);
-  }
-
-  // Create when the history has nothing
-  private void loadInitial() {
-    this.list = new ArrayList();
-  }
-
-  // The format used in daemon 1.62 and beyond.
-  private void loadFromAuAgreements(AuAgreements auAgreements) {
-    // Copy over the non-transient instance variables.
-    this.list = auAgreements.list;
-  }
-
-  private void updateListFromMap() {
-    list = makeList(map);
-  }
-
-  private void updateMapFromList(IdentityManager idMgr) {
-    map = makeMap(list, idMgr);
-  }
-
-  private List<PeerAgreements> makeList(Map<PeerIdentity, PeerAgreements> map) {
-    return new ArrayList<PeerAgreements>(map.values());
-  }
-
-  private Map<PeerIdentity, PeerAgreements> makeMap(List<PeerAgreements> list,
-						    IdentityManager idMgr) {
-    Map<PeerIdentity, PeerAgreements> map = new HashMap();
-    for (PeerAgreements peerAgreements: list) {
-      String id = peerAgreements.getId();
-      try {
-	PeerIdentity pid = idMgr.findPeerIdentity(id);
-	if (pid != null) {
-	  map.put(pid, peerAgreements);
-	} else {
-	  // This means these agreements will be lost when the
-	  // AuAgreements is saved.
-	  log.info("Could not find PeerIdentity for "+id);
-	}
-      } catch (IdentityManager.MalformedIdentityKeyException e) {
-	log.info("Ignoring malformed id: "+id);
+      PeerIdentity pid = idMgr.findPeerIdentity(id);
+      if (pid != null) {
+	map.put(pid, peerAgreements);
+      } else {
+	throw new IllegalArgumentException("Null pid in " + peerAgreements);
       }
-    }
-    return map;
-  }
-
-  // NOTE: The calls to HistoryRepository to store and load
-  // AuAgreements are serialized by locking the AuAgreements instance
-  // for the AU. The writeTo and ReadFrom calls are used from
-  // RemoteApi to save and restore back-ups, and need to make sure
-  // that the locking of the HistoryRepository is correct, so those
-  // calls are sent through the AuAgreements, via the
-  // IdentityManagerImpl.
-
-  /**
-   * <p>Copies the identity agreement file for the AU to the given
-   * stream.</p>
-   * @param hRep A {@link HistoryRepository} to use.
-   * @param out An output stream.
-   * @throws IOException if input or output fails.
-   */
-  public synchronized void writeTo(HistoryRepository hRep,
-				   OutputStream out) throws IOException {
-    File file = hRep.getIdentityAgreementFile();
-    InputStream in = new BufferedInputStream(new FileInputStream(file));
-    try {
-      StreamUtil.copy(in, out);
-    } finally {
-      IOUtil.safeClose(in);
-    }
-  }
-
-  /**
-   * <p>If there are no agreements, deserialize the contents of the
-   * stream as the identity agreement file for the AU. Otherwise,
-   * ignore the contents of the file.</p>
-   * @param hRep A {@link HistoryRepository} to use.
-   * @param idMgr A {@link IdentityManager} to translate {@link
-   * String}s to {@link PeerIdentity} instances.
-   * @param in An input stream to read from.
-   */
-  public synchronized void readFrom(HistoryRepository hRep,
-				    IdentityManager idMgr,
-				    InputStream in) throws IOException {
-    if (haveAgreements()) {
-      log.debug("Ignoring request to restore [" + hRep + "]");
-    } else {
-      File file = hRep.getIdentityAgreementFile();
-      OutputStream out = new FileOutputStream(file);
-      boolean copyFinished = false;
-      try  {
-	StreamUtil.copy(in, out);
-	copyFinished = true;
-	// If the copy fails, we remain empty.  The file may be
-	// corrupt and unusable, but if the copy failed, we don't
-	// detect that here.
-	loadFrom(getRawAgreements(hRep), idMgr);
-      } finally {
-	if (! copyFinished) {
-	  log.debug("Copy failed restoring [" + hRep + "]");
-	}
-	IOUtil.safeClose(out);
-      }
+      return pid;
+    } catch (IdentityManager.MalformedIdentityKeyException e) {
+	throw new IllegalArgumentException("Illegal pid " + id +
+					   " in " + peerAgreements);
     }
   }
 
@@ -380,4 +323,19 @@ public class AuAgreements implements LockssSerializable {
     }
     return res;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o instanceof AuAgreements) {
+      AuAgreements other = (AuAgreements)o;
+      return map.equals(other.map);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return map.hashCode();
+  }
+
 }

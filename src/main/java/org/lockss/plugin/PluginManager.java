@@ -370,8 +370,6 @@ public class PluginManager
   static final String DEFAULT_CONFIGURABLE_PLUGIN_NAME =
     DefinablePlugin.class.getName();
 
-  static StringPool AUID_POOL = new StringPool("AU IDs");
-
   private static Logger log = Logger.getLogger();
 
   private boolean useDefaultPluginRegistries =
@@ -1016,7 +1014,7 @@ public class PluginManager
   public static String generateAuId(String pluginId, String auKey) {
     String id = pluginKeyFromId(pluginId)+"&"+auKey;
     if (paramUseAuidPool) {
-      return AUID_POOL.intern(id);
+      return StringPool.AUIDS.intern(id);
     } else {
       return id;
     }

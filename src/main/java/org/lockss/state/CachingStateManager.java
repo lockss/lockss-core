@@ -39,6 +39,7 @@ import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 
 /** Contains the basic logic for all StateManagers.  Exact behavior
  * implemented and modified subclasses.
@@ -53,12 +54,13 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
 
-  /** Cache of extant AuState instances */
-  protected Map<String,AuState> auStates;
+  /**
+   * The max size of the LRU cache from AuId to agreement map.
+   */
+  public static final String PARAM_AGREE_MAPS_CACHE_SIZE
+    = PREFIX + "agreeMapsCacheSize";
+  public static final int DEFAULT_AGREE_MAPS_CACHE_SIZE = 50;
 
-  /** Cache of extant AuStateBean instances.  AuStateBean stored here only
-   * when corresponding AuState does not exist. */
-  protected Map<String,AuStateBean> auStateBeans;
 
   protected AuEventHandler auEventHandler;
 
@@ -67,6 +69,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     super.initService(daemon);
     auStates = newAuStateMap();
     auStateBeans = newAuStateBeanMap();
+    agmnts = newAuAgreementsMap();
   }
 
   public void startService() {
@@ -93,6 +96,23 @@ public abstract class CachingStateManager extends BaseStateManager {
     }
     super.stopService();
   }
+
+  protected void handleAuDeleted(ArchivalUnit au) {
+    handleAuDeletedAuState(au);
+    handleAuDeletedAuAgreements(au);
+  }
+
+
+  // /////////////////////////////////////////////////////////////////
+  // AuState
+  // /////////////////////////////////////////////////////////////////
+
+  /** Cache of extant AuState instances */
+  protected Map<String,AuState> auStates;
+
+  /** Cache of extant AuStateBean instances.  AuStateBean stored here only
+   * when corresponding AuState does not exist. */
+  protected Map<String,AuStateBean> auStateBeans;
 
   /** Return the current singleton AuState for the AU, creating one if
    * necessary. */
@@ -207,6 +227,32 @@ public abstract class CachingStateManager extends BaseStateManager {
     }
   }
 
+  /** Update AuState from a json string
+   * @param auid
+   * @param json the serialized set of changes
+   * @throws IOException if json conversion throws
+   */
+  @Override
+  public void updateAuStateFromJson(String auid, String json)
+      throws IOException {
+    AuStateBean ausb = getAuStateBean(auid);
+    ausb.updateFromJson(json, daemon);
+    updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet());
+  }
+
+  /** Store an AuState from a json string
+   * @param key the auid
+   * @param json the serialized AuStateBean
+   * @throws IOException if json conversion throws
+   */
+  @Override
+  public void storeAuStateFromJson(String auid, String json)
+      throws IOException {
+    AuStateBean ausb = newDefaultAuStateBean(auid);
+    ausb.updateFromJson(json, daemon);
+    storeAuStateBean(auid, ausb);
+  }
+
   /** Store an AuState not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
   @Override
@@ -245,6 +291,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Return true if an AuState(Bean) exists for the given auid
    * @param key the auid
    */
+  @Override
   public boolean auStateExists(String key) {
     return auStates.containsKey(key) || auStateBeans.containsKey(key);
   }
@@ -252,7 +299,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Default behavior when AU is deleted/deactivated is to remove AuState
    * from cache.  Persistent implementations should not remove it from
    * storage. */
-  protected synchronized void handleAuDeleted(ArchivalUnit au) {
+  protected synchronized void handleAuDeletedAuState(ArchivalUnit au) {
     auStates.remove(auKey(au));
     auStateBeans.remove(auKey(au));
   }
@@ -263,12 +310,17 @@ public abstract class CachingStateManager extends BaseStateManager {
     String key = auKey(au);
     AuStateBean ausb = doLoadAuStateBean(key);
     if (ausb != null) {
+      // If there's already a bean in the db, just create the corresponding
+      // AuState
       AuState aus = new AuState(au, this, ausb);
       putAuState(key, aus);
+      log.debug2("handleAuStateCacheMiss: loaded bean for {}", key);
       return aus;
     }
+    // Else create a new default object and store in the DB
     AuState aus = newDefaultAuState(au);
     putAuState(key, aus);
+    log.debug2("handleAuStateCacheMiss: new bean for {}", key);
     try {
       String json = aus.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
       doStoreAuStateBeanNew(key, aus.getBean());
@@ -283,9 +335,13 @@ public abstract class CachingStateManager extends BaseStateManager {
    * store, if any, or to create and store new default object. */
   protected AuStateBean handleAuStateBeanCacheMiss(String key) {
     AuStateBean ausb = doLoadAuStateBean(key);
-    if (ausb == null) {
+    if (ausb != null) {
+      log.debug2("handleAuStateBeanCacheMiss: loaded bean for {}", key);
+      auStateBeans.put(key, ausb);
+    } else {
       ausb = newDefaultAuStateBean(key);
       auStateBeans.put(key, ausb);
+      log.debug2("handleAuStateBeanCacheMiss: new bean for {}", key);
       try {
 	String json = ausb.toJsonExcept(SetUtil.set("auId", "auCreationTime"));
 	doStoreAuStateBeanNew(key, ausb);
@@ -322,6 +378,124 @@ public abstract class CachingStateManager extends BaseStateManager {
    * that were written when this was permissible */
   protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
     return fields == null || fields.isEmpty();
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // AuAgreements
+  // /////////////////////////////////////////////////////////////////
+
+  /** Cache of extant AuAgreements instances */
+  protected Map<String,AuAgreements> agmnts;
+
+  /** Return the current singleton AuAgreements for the auid, creating one
+   * if necessary. */
+  public synchronized AuAgreements getAuAgreements(String key) {
+    AuAgreements aua = agmnts.get(key);
+    log.debug2("getAuAgreements({}) = {}", key, aua);
+    if (aua == null) {
+      aua = handleAuAgreementsCacheMiss(key);
+    }
+    return aua;
+  }
+
+  public synchronized void updateAuAgreements(String key,
+					     AuAgreements aua,
+					     Set<PeerIdentity> peers) {
+    log.debug2("Updating: {}: {}", key, peers);
+    AuAgreements curaua = agmnts.get(key);
+    try {
+      if (curaua != null) {
+	if (curaua != aua) {
+	  throw new IllegalStateException("Attempt to store from wrong AuAgreements instance");
+	}
+	String json = aua.toJson(peers);
+	doStoreAuAgreementsUpdate(key, aua, peers);
+	doNotifyAuAgreementsChanged(key, json);
+      } else if (isStoreOfMissingAuAgreementsAllowed(peers)) {
+	// XXX log?
+	agmnts.put(key, aua);
+	String json = aua.toJson(peers);
+	doStoreAuAgreementsNew(key, aua);
+      } else {
+	throw new IllegalStateException("Attempt to apply partial update to AuAgreements not in cache: " + key);
+      }
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuAgreements: {}", aua, e);
+      throw new StateLoadStoreException("Couldn't serialize AuAgreements: " +
+					aua);
+    }
+  }
+
+  /** Entry point from state service to store changes to an AuAgreements.  Write
+   * to DB, call hook to notify clients if appropriate
+   * @param key the auid
+   * @param json the serialized set of changes
+   * @param map Map representation of change fields.
+   * @throws IOException if json conversion throws
+   */
+  public void updateAuAgreementsFromJson(String auid, String json)
+      throws IOException {
+    AuAgreements aua = getAuAgreements(auid);
+    Set<PeerIdentity> changedPids = aua.updateFromJson(json, daemon);
+    updateAuAgreements(auid, aua, changedPids);
+  }
+
+  /** Store an AuAgreements not obtained from StateManager.  Useful in tests.
+   * Can only be called once per AU. */
+  public synchronized void storeAuAgreements(String key, AuAgreements aua) {
+    updateAuAgreements(key, aua, null);
+  }
+
+  /** Default behavior when AU is deleted/deactivated is to remove
+   * AuAgreements from cache.  Persistent implementations should not remove
+   * it from storage. */
+  protected synchronized void handleAuDeletedAuAgreements(ArchivalUnit au) {
+    agmnts.remove(auKey(au));
+  }
+
+  /** Handle a cache miss.  Call hooks to load an object from backing
+   * store, if any, or to create and store new default object. */
+  protected AuAgreements handleAuAgreementsCacheMiss(String key) {
+    AuAgreements aua = doLoadAuAgreements(key);
+    if (aua == null) {
+      aua = newDefaultAuAgreements(key);
+      agmnts.put(key, aua);
+      try {
+	String json = aua.toJson();
+	doStoreAuAgreementsNew(key, aua);
+      } catch (IOException e) {
+	log.error("Couldn't serialize AuAgreements: {}", aua, e);
+	throw new StateLoadStoreException("Couldn't serialize AuAgreements: " + aua);
+      }
+    }
+    return aua;
+  }
+
+  /** Return true if an AuAgreements exists for the given auid
+   * @param key the auid
+   */
+  @Override
+  public boolean auAgreementsExists(String key) {
+    return agmnts.containsKey(key);
+  }
+
+  /** Put an AuAgreements in the agmnts map. */
+  protected void putAuAgreements(String key, AuAgreements aua) {
+    agmnts.put(key, aua);
+  }
+
+  /** @return a Map suitable for an AuAgreements cache.  By default a
+   * UniqueRefLruCache. */
+  protected Map<String,AuAgreements> newAuAgreementsMap() {
+    return new UniqueRefLruCache<>(DEFAULT_AGREE_MAPS_CACHE_SIZE);
+  }
+
+  /** Return true if an update call for an unknown AuAgreements should be
+   * allowed (and treated as a store).  By default it's allowed iff it's a
+   * complete update (all peers).  Overridable becauae of the many tests
+   * that were written when this was permissiable */
+  protected boolean isStoreOfMissingAuAgreementsAllowed(Set<PeerIdentity> peers) {
+    return peers == null || peers.isEmpty();
   }
 
 }

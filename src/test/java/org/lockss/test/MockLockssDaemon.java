@@ -936,6 +936,11 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   public <T extends StateManager> T setUpStateManager(T mgr) {
+    Configuration config = ConfigManager.getCurrentConfig();
+    if (!config.containsKey(IdentityManager.PARAM_LOCAL_V3_IDENTITY)) {
+      ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
+				    "TCP:[127.0.0.1]:9729");
+    }
     stateMgr = mgr;
     setStateManager(stateMgr);
     stateMgr.initService(this);

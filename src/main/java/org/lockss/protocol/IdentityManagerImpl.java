@@ -44,8 +44,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.poller.*;
 import org.lockss.protocol.IdentityManager.MalformedIdentityKeyException;
 import org.lockss.repository.*;
-import org.lockss.state.HistoryRepository;
-import org.lockss.state.AuState;
+import org.lockss.state.*;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
 import org.lockss.util.SerializationException.FileNotFound;
@@ -207,13 +206,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   public static final String PARAM_PEER_ADDRESS_MAP = PREFIX + "peerAddressMap";
 
   /**
-   * The max size of the LRU cache from AuId to agreement map.
-   */
-  public static final String PARAM_AGREE_MAPS_CACHE_MAX
-    = PREFIX + "agreeMapsCache.max";
-  public static final int DEFAULT_AGREE_MAPS_CACHE_MAX = 50;
-
-  /**
    * <p>An instance of {@link LockssRandom} for use by this class.</p>
    */
   static LockssRandom theRandom = new LockssRandom();
@@ -279,9 +271,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
    * Maps auid to AuAgreements. The LRU cache allows objects to be
    * collected when they are no longer in use.
    */
-  private final UniqueRefLruCache agreeMapsCache =
-    new UniqueRefLruCache(DEFAULT_AGREE_MAPS_CACHE_MAX);
-
   private float minPercentPartialAgreement = DEFAULT_MIN_PERCENT_AGREEMENT;
 
   private long updatesBeforeStoring = DEFAULT_UPDATES_BEFORE_STORING;
@@ -306,6 +295,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     // which will later be replaced by the local identity
     setupLocalIdentities();
     super.initService(daemon);
+    // Don't prefetch StateManager here as it uses IdentityManager
   }
 
   /**
@@ -1133,7 +1123,8 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     } else {
       auAgreements.signalPartialAgreement(pid, agreementType, agreement,
 					  TimeBase.nowMs());
-      auAgreements.store(getHistoryRepository(au));
+      auAgreements.storeAuAgreements(SetUtil.set(pid));
+
       AuState aus = AuUtil.getAuState(au);
       // XXX ER/EE AuState s.b. updated with repairer count, not repairee.
       int willingRepairers =
@@ -1289,38 +1280,25 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     return result;
   }
 
+  StateManager getStateManager() {
+    return getDaemon().getManagerByType(StateManager.class);
+  }
+
   protected AuAgreements findAuAgreements(ArchivalUnit au) {
-    AuAgreements auAgreements;
     String auId = au.getAuId();
-
-    HistoryRepository hRep = getHistoryRepository(au);
-    auAgreements = (AuAgreements)agreeMapsCache.get(auId);
-
-    if (auAgreements == null) {
-      auAgreements = AuAgreements.make(hRep, this);
-      // Multiple threads might have constructed an instance, but
-      // exactly one will put it in the cache. The rest will get that
-      // copy.
-      auAgreements = (AuAgreements)agreeMapsCache.putIfNew(auId, auAgreements);
-    }
+    AuAgreements auAgreements = getStateManager().getAuAgreements(auId);
     return auAgreements;
   }
 
   public boolean hasAgreeMap(ArchivalUnit au) {
-    synchronized (agreeMapsCache) {
-      AuAgreements auAgreements =
-	(AuAgreements)agreeMapsCache.get(au.getAuId());
-      // If we have a value in the map, it should be synched to the
-      // file.
-      if (auAgreements != null) {
-	return auAgreements.haveAgreements();
-      }
+    if (getStateManager().auAgreementsExists(au.getAuId())) {
+      return findAuAgreements(au).haveAgreements();
+    } else {
+      return false;
     }
-    
-    HistoryRepository hRep = getHistoryRepository(au);
-    return hRep.getIdentityAgreementFile().exists();
   }
   
+
   public synchronized void removePeer(String key) {
     log.debug("Removing peer " + key);
     PeerIdentity pid = (PeerIdentity)(pidMap.get(key));
@@ -1345,14 +1323,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     }
   }
 
-  // NOTE: The calls to HistoryRepository to store and load
-  // AuAgreements are serialized by locking the AuAgreements instance
-  // for the AU. The writeTo and ReadFrom calls are used from
-  // RemoteApi to save and restore back-ups, and need to make sure
-  // that the locking of the HistoryRepository is correct, so those
-  // calls are sent through the AuAgreements, via the
-  // IdentityManagerImpl.
-
   /**
    * <p>Copies the identity agreement file for the AU to the given
    * stream.</p>
@@ -1365,7 +1335,10 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     // have the file access performed by the AuAgreements instance,
     // since it has the appropriate lock
     AuAgreements auAgreements = findAuAgreements(au);
-    auAgreements.writeTo(getHistoryRepository(au), out);
+    OutputStreamWriter wrtr =
+      new OutputStreamWriter(out, Constants.ENCODING_UTF_8);
+    wrtr.write(auAgreements.toJson());
+    wrtr.flush();
   }
 
   /**
@@ -1380,8 +1353,10 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
       throws IOException {
     // have the file access performed by the AuAgreements instance,
     // since it has the appropriate lock
+    String json = StringUtil.fromInputStream(in);
     AuAgreements auAgreements = findAuAgreements(au);
-    auAgreements.readFrom(getHistoryRepository(au), this, in);
+    auAgreements.updateFromJson(json, getDaemon());
+    auAgreements.storeAuAgreements(null);
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
@@ -1416,9 +1391,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
       if (changedKeys.contains(PARAM_UI_STEM_MAP)) {
 	pidUiStemMap = makePidUiStemMap(config.getList(PARAM_UI_STEM_MAP));
       }
-      int agreeMapsCacheMax =
-	config.getInt(PARAM_AGREE_MAPS_CACHE_MAX, DEFAULT_AGREE_MAPS_CACHE_MAX);
-      agreeMapsCache.setMaxSize(agreeMapsCacheMax);
       setPeerAddresses(config.getList(PARAM_PEER_ADDRESS_MAP));
       configV3Identities();
     }
@@ -1512,9 +1484,4 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
       f.delete();
     }
   }
-
-  HistoryRepository getHistoryRepository(ArchivalUnit au) {
-    return getDaemon().getHistoryRepository(au);
-  }
-
 }

@@ -40,14 +40,14 @@ import org.lockss.test.*;
 import org.lockss.util.MapUtil;
 import org.lockss.util.time.*;
 
-public class TestServerDbStateManager extends LockssTestCase4 {
+public class TestServerStateManager extends LockssTestCase4 {
   L4JLogger log = L4JLogger.getLogger();
 
   static BrokerService broker;
 
   MockLockssDaemon daemon;
   PluginManager pluginMgr;
-  MyServerDbStateManager stateMgr;
+  MyServerStateManager stateMgr;
   MockPlugin mplug;
   MockArchivalUnit mau1;
   MockArchivalUnit mau2;
@@ -76,7 +76,7 @@ public class TestServerDbStateManager extends LockssTestCase4 {
     daemon.getManagerByType(org.lockss.config.db.ConfigDbManager.class)
       .startService();
 
-    stateMgr = daemon.setUpStateManager(new MyServerDbStateManager());
+    stateMgr = daemon.setUpStateManager(new MyServerStateManager());
     mplug = new MockPlugin(daemon);
 
     mau1 = new MockArchivalUnit(mplug, "plug&aaa1");
@@ -128,8 +128,8 @@ public class TestServerDbStateManager extends LockssTestCase4 {
 			     "lastCrawlAttempt", 555,
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
-    stateMgr.updateAuStateFromService(stateMgr.auKey(mau2),
-				      AuUtil.mapToJson(in1Map));
+    stateMgr.updateAuStateFromJson(stateMgr.auKey(mau2),
+				   AuUtil.mapToJson(in1Map));
 
     assertEquals("Success", aus2.getLastCrawlResultMsg());
     assertEquals(666, aus2.getLastCrawlTime());
@@ -147,8 +147,7 @@ public class TestServerDbStateManager extends LockssTestCase4 {
 			     "lastCrawlAttempt", 555,
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
-    stateMgr.updateAuStateFromService(key,
-				      AuUtil.mapToJson(in1Map));
+    stateMgr.updateAuStateFromJson(key, AuUtil.mapToJson(in1Map));
 
     assertEquals(auStateUpdateMap(key, in1Map),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
@@ -169,13 +168,13 @@ public class TestServerDbStateManager extends LockssTestCase4 {
   }
 
 
-  static class MyServerDbStateManager extends ServerDbStateManager {
+  static class MyServerStateManager extends ServerStateManager {
     private SimpleBinarySemaphore rcvSem;
 
     // Suppress DB load
     @Override
     protected AuStateBean doLoadAuStateBean(String key) {
-      log.debug2("MyServerDbStateManager.doLoadAuState({})", key);
+      log.debug2("MyServerStateManager.doLoadAuState({})", key);
       return null;
     }
 

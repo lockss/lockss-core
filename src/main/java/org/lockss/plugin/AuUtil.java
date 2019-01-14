@@ -50,6 +50,7 @@ import org.lockss.jetty.CuResourceHandler;
 import org.lockss.crawler.*;
 import org.lockss.state.*;
 import org.lockss.poller.*;
+import org.lockss.protocol.*;
 import org.lockss.repository.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.plugin.exploded.*;
@@ -117,6 +118,16 @@ public class AuUtil {
     return mgr.getAuState(au);
   }
 
+  static ObjectMapper setFieldsOnly(ObjectMapper mapper) {
+    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
+				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+    return mapper;
+  }
+
   /** Serialize some or all fields of an AuStateBean to a json string
    * @param aus the AuStateBean
    * @param fields Set of fields to include in the output.  If null or
@@ -125,16 +136,7 @@ public class AuUtil {
   public static String jsonFromAuStateBean(AuStateBean aus, Set<String> fields)
       throws IOException {
     ObjectMapper mapper = new ObjectMapper();
-    mapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
-
-    // XXXAUS don't need all of this anymore with bean
-    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
-				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
-				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
-				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
-				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
-				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
-
+    setFieldsOnly(mapper);
     SimpleBeanPropertyFilter propFilter;
     if (fields == null || fields.isEmpty()) {
       propFilter = SimpleBeanPropertyFilter.serializeAll();
@@ -156,16 +158,8 @@ public class AuUtil {
       throws IOException {
     Objects.requireNonNull(fields, "Set of fields to exclude cannot be null");
     ObjectMapper mapper = new ObjectMapper();
-    mapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
 
-    // XXXAUS don't need all of this anymore with bean
-    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
-                                .withFieldVisibility(JsonAutoDetect.Visibility.ANY)
-                                .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
-                                .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
-                                .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
-                                .withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
-
+    setFieldsOnly(mapper);
     SimpleBeanPropertyFilter propFilter;
     if (fields == null || fields.isEmpty()) {
       propFilter = SimpleBeanPropertyFilter.serializeAll();
@@ -185,19 +179,39 @@ public class AuUtil {
   public static AuStateBean updateFromJson(AuStateBean aus, String json)
       throws IOException {
     ObjectMapper mapper = new ObjectMapper();
-    // XXXAUS don't need all of this anymore with bean
-    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
-				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
-				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
-				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
-				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
-				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+    setFieldsOnly(mapper);
     // Ignore unknown properties on deserialization
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     ObjectReader ordr = mapper.readerForUpdating(aus);
     ordr.readValue(json);
     return aus;
+  }
+
+  /** Serialize an AuAgreements to a json string
+   * @param aua the AuAgreements
+   * @param fields Set of fields to include in the output.  If null or
+   *               empty, all fields are included
+   */
+  public static String jsonFromAuAgreements(AuAgreements aua,
+					    Set<PeerIdentity> peers)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(aua);
+    }
+
+  /** Deserialize a json string into a new AuAgreements, not connected to
+   * StateManager.
+   * @param json json string
+   */
+  public static AuAgreements auAgreementsFromJson(String json)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    AuAgreements aua =
+      mapper.readValue(json, new TypeReference<AuAgreements>() {});
+    return aua;
   }
 
   public static Map<String,Object> jsonToMap(String json) throws IOException {

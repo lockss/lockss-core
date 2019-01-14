@@ -35,40 +35,20 @@ import org.lockss.db.DbException;
 import org.lockss.log.*;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 
 /** StateManager that saves and loads state from persistent storage. */
-public class DbStateManager extends CachingStateManager {
+public class PersistentStateManager extends CachingStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
 
   // The database state manager SQL executor.
-  private DbStateManagerSql dbStateManagerSql = null;
+  private StateStore stateStore = null;
 
-  /** Entry point from state service to store changes to an AuState.
-   * @param key the auid
-   * @param json the serialized set of changes
-   * @throws IOException if json conversion throws
-   */
-  @Override
-  public void updateAuStateFromService(String auid, String json)
-      throws IOException {
-    AuStateBean ausb = getAuStateBean(auid);
-    ausb.updateFromJson(json, daemon);
-    updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet());
-  }
 
-  /** Entry point from state service to store a new AuState.
-   * @param key the auid
-   * @param json the serialized AuStateBean
-   * @throws IOException if json conversion throws
-   */
-  @Override
-  public void storeAuStateFromService(String auid, String json)
-      throws IOException {
-    AuStateBean ausb = newDefaultAuStateBean(auid);
-    ausb.updateFromJson(json, daemon);
-    storeAuStateBean(auid, ausb);
-  }
+  // /////////////////////////////////////////////////////////////////
+  // AuState
+  // /////////////////////////////////////////////////////////////////
 
   /** Hook to store a new AuState in the DB.
    * @param key the auid
@@ -83,22 +63,14 @@ public class DbStateManager extends CachingStateManager {
     log.debug2("key = {}", key);
     log.debug2("ausb = {}", ausb);
 
-    String pluginId = PluginManager.pluginIdFromAuId(key);
-    log.trace("pluginId = {}", pluginId);
-
-    String auKey = PluginManager.auKeyFromAuId(key);
-    log.trace("auKey = {}", auKey);
-
     try {
       Long auSeq =
-	  getDbStateManagerSql().addArchivalUnitState(pluginId, auKey, ausb);
+	  getStateStore().addArchivalUnitState(key, ausb);
       log.trace("auSeq = {}", auSeq);
     } catch (DbException dbe) {
       String message = "Exception caught persisting new AuState";
       log.error("key = {}", key);
       log.error("ausb = {}", ausb);
-      log.error("pluginId = {}", pluginId);
-      log.error("auKey = {}", auKey);
       throw new StateLoadStoreException(message, dbe);
     }
 
@@ -120,23 +92,15 @@ public class DbStateManager extends CachingStateManager {
     log.debug2("ausb = {}", ausb);
     log.debug2("fields = {}", fields);
 
-    String pluginId = PluginManager.pluginIdFromAuId(key);
-    log.trace("pluginId = {}", pluginId);
-
-    String auKey = PluginManager.auKeyFromAuId(key);
-    log.trace("auKey = {}", auKey);
-
     try {
       Long auSeq =
-          getDbStateManagerSql().updateArchivalUnitState(pluginId, auKey, ausb);
+	getStateStore().updateArchivalUnitState(key, ausb, fields);
       log.trace("auSeq = {}", auSeq);
     } catch (DbException dbe) {
       String message = "Exception caught persisting new AuState";
       log.error("key = {}", key);
       log.error("ausb = {}", ausb);
       log.error("fields = {}", fields);
-      log.error("pluginId = {}", pluginId);
-      log.error("auKey = {}", auKey);
       throw new StateLoadStoreException(message, dbe);
     }
 
@@ -152,32 +116,17 @@ public class DbStateManager extends CachingStateManager {
   protected AuStateBean doLoadAuStateBean(String key) 
       throws StateLoadStoreException {
     AuStateBean res = null;
-    String pluginId = PluginManager.pluginIdFromAuId(key);
-    log.trace("pluginId = {}", pluginId);
-
-    String auKey = PluginManager.auKeyFromAuId(key);
-    log.trace("auKey = {}", auKey);
 
     try {
-      String stateString =
-	  getDbStateManagerSql().findArchivalUnitState(pluginId, auKey);
-      log.trace("auStateProps = {}", stateString);
+      res = getStateStore().findArchivalUnitState(key);
 
-      if (stateString != null) {
-        res = newDefaultAuStateBean(key)
-            .updateFromJson(stateString, daemon);
-      }
     } catch (IOException ioe) {
       String message = "Exception caught composing AuState";
       log.error("key = {}", key);
-      log.error("pluginId = {}", pluginId);
-      log.error("auKey = {}", auKey);
       throw new StateLoadStoreException(message, ioe);
     } catch (DbException dbe) {
       String message = "Exception caught finding AuState";
       log.error("key = {}", key);
-      log.error("pluginId = {}", pluginId);
-      log.error("auKey = {}", auKey);
       throw new StateLoadStoreException(message, dbe);
     }
 
@@ -185,24 +134,95 @@ public class DbStateManager extends CachingStateManager {
     return res;
   }
 
+  // A reference map provides minimum acceptable amount of caching, given
+  // the contract for getAuState().  But this would cause worse performance
+  // due to more DB accesses.  The default full map provides the best
+  // performance; if memory becomes an issue, an LRU reference map would
+  // provide better performance than just a reference map.
+//   @Override
+//   protected Map<String,AuState> newAuStateMap() {
+//     return new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
+// 			      AbstractReferenceMap.ReferenceStrength.WEAK);
+//   }
+
+
+  // /////////////////////////////////////////////////////////////////
+  // AuAgreements
+  // /////////////////////////////////////////////////////////////////
+
+  /** Hook to load an AuAgreements from the DB.
+   * @param au the AU
+   * @return the AuAgreements reflecting the current contents of the DB, or null
+   * if there's no AuAgreements for the AU in the DB.
+   */
+  @Override
+  protected AuAgreements doLoadAuAgreements(String key) {
+    AuAgreements res = null;
+
+    try {
+      res = getStateStore().findAuAgreements(key);
+    } catch (IOException ioe) {
+      String message = "Exception caught composing AuAgreements";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, ioe);
+    } catch (DbException dbe) {
+      String message = "Exception caught finding AuAgreements";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, dbe);
+    }
+
+    log.debug2("res = {}", res);
+    return res;
+  }
+
+  /** Hook to store the changes to the AuAgreements in the DB.
+   * @param key the auid
+   * @param aua the AuAgreements object, may be null
+   * @param peers the set of PeerIdentity whose PeerAgreements should be
+   * stored
+   */
+  @Override
+  protected void doStoreAuAgreementsUpdate(String key, AuAgreements aua,
+					   Set<PeerIdentity> peers) {
+
+    log.debug2("key = {}", key);
+    log.debug2("aua = {}", aua);
+    log.debug2("peers = {}", peers);
+
+    try {
+      Long auSeq = getStateStore().updateAuAgreements(key, aua, peers);
+      log.trace("auSeq = {}", auSeq);
+    } catch (DbException dbe) {
+      String message = "Exception caught persisting AuAgreements";
+      log.error("key = {}", key);
+      log.error("aua = {}", aua);
+      log.error("peers = {}", peers);
+      throw new StateLoadStoreException(message, dbe);
+    }
+
+    log.debug2("Done");
+  }
+
   /**
-   * Provides the database state manager SQL executor.
+   * Provides the StateStore to use to load and store state objects in
+   * persistent store.  Currently creates a DbStateManagerSql, overriden in
+   * tests.
    * 
-   * @return a DbStateManagerSql with the database state manager SQL executor.
+   * @return a StateStore implementation
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  protected DbStateManagerSql getDbStateManagerSql() throws DbException {
-    if (dbStateManagerSql == null) {
+  protected StateStore getStateStore() throws DbException {
+    if (stateStore == null) {
       if (theApp == null) {
-	dbStateManagerSql = new DbStateManagerSql(
+	stateStore = new DbStateManagerSql(
 	    LockssApp.getManagerByTypeStatic(ConfigDbManager.class));
       } else {
-	dbStateManagerSql = new DbStateManagerSql(
+	stateStore = new DbStateManagerSql(
 	    theApp.getManagerByType(ConfigDbManager.class));
       }
     }
 
-    return dbStateManagerSql;
+    return stateStore;
   }
 }

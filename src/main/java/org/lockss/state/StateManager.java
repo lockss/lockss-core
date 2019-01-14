@@ -39,11 +39,17 @@ import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 
 /** Manages loading and storing state objects.  */
 public interface StateManager extends LockssManager {
 
   public static final String PREFIX = Configuration.PREFIX + "state.";
+
+
+  // /////////////////////////////////////////////////////////////////
+  // AuState
+  // /////////////////////////////////////////////////////////////////
 
   /** Return the current singleton AuState for the AU, creating one if
    * necessary.  There is only one AuState instance in existence for any AU
@@ -76,9 +82,9 @@ public interface StateManager extends LockssManager {
    * @param json the serialized set of changes
    * @throws IOException if json conversion throws
    */
-  default public void updateAuStateFromService(String auid, String json)
+  default public void updateAuStateFromJson(String auid, String json)
       throws IOException {
-    throw new UnsupportedOperationException("updateAuStateFromService() available only in Server implementation");
+    throw new UnsupportedOperationException("updateAuStateFromJson() available only in Server implementation");
   }
 
   /** Entry point from state service to store an AuState.
@@ -86,9 +92,9 @@ public interface StateManager extends LockssManager {
    * @param json the serialized AuStateBean
    * @throws IOException if json conversion throws
    */
-  default public void storeAuStateFromService(String auid, String json)
+  default public void storeAuStateFromJson(String auid, String json)
       throws IOException {
-    throw new UnsupportedOperationException("storeAuStateFromService() available only in Server implementation");
+    throw new UnsupportedOperationException("storeAuStateFromJson() available only in Server implementation");
   }
 
   /** Return true if an AuState(Bean) exists for the given auid
@@ -96,6 +102,34 @@ public interface StateManager extends LockssManager {
    */
   public boolean auStateExists(String key);
 
+
+  // /////////////////////////////////////////////////////////////////
+  // AuAgreements
+  // /////////////////////////////////////////////////////////////////
+
+  /** Return the current singleton AuAgreements for the AU, creating one if
+   * necessary.  There is only one AuAgreements instance in existence for any AU
+   * at any time, though that instance may change over time.  As long as
+   * anyone has a pointer to an instance, this method must return the same
+   * instance on each call.  If all references to the instance are deleted,
+   * this method may return a new instance on the next call.  If the AU is
+   * deleted or deactivated, the next call (after the AU is reactivated)
+   * may return a new instance.  */
+  public AuAgreements getAuAgreements(String key);
+
+  /** Update the stored AuAgreements with the values of the listed peers */
+  public void updateAuAgreements(String key, AuAgreements aua, Set<PeerIdentity> peers);
+
+  /** Store the AuAgreements for the AU.  Can only be used once per AU. */
+  public void storeAuAgreements(String key, AuAgreements aua);
+
+  public void updateAuAgreementsFromJson(String auid, String json)
+      throws IOException;
+
+  /** Return true if an AuAgreements exists for the given auid
+   * @param key the auid
+   */
+  public boolean auAgreementsExists(String key);
 
   /** Load/store exception.  Clients of AuState aren't prepared for checked
    * exceptions; this is used to turn them into RuntimeExceptions */

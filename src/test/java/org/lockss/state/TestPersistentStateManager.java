@@ -41,19 +41,21 @@ import org.lockss.config.db.ConfigDbManager;
 import org.lockss.db.DbException;
 import org.lockss.log.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 import org.lockss.test.*;
 import org.lockss.util.ListUtil;
 import org.lockss.util.SetUtil;
 import org.lockss.util.time.TimeBase;
 
 /**
- * Test class for org.lockss.state.DbStateManager.
+ * Test class for org.lockss.state.PersistentStateManager.
  */
-public class TestDbStateManager extends LockssTestCase4 {
+public class TestPersistentStateManager extends LockssTestCase4 {
   static L4JLogger log = L4JLogger.getLogger();
 
+  MockLockssDaemon daemon;
   PluginManager pluginMgr;
-  MyDbStateManager stateMgr;
+  MyPersistentStateManager stateMgr;
   MockArchivalUnit mau1;
   MockArchivalUnit mau2;
 
@@ -70,7 +72,7 @@ public class TestDbStateManager extends LockssTestCase4 {
     System.setProperty("derby.stream.error.file",
 	new File(tmpdir, "derby.log").getAbsolutePath());
 
-    MockLockssDaemon daemon = getMockLockssDaemon();
+    daemon = getMockLockssDaemon();
 
     // Create and start the database manager.
     ConfigDbManager dbManager = new ConfigDbManager();
@@ -78,7 +80,7 @@ public class TestDbStateManager extends LockssTestCase4 {
     dbManager.initService(daemon);
     dbManager.startService();
 
-    stateMgr = daemon.setUpStateManager(new MyDbStateManager());
+    stateMgr = daemon.setUpStateManager(new MyPersistentStateManager());
 
     pluginMgr = daemon.getPluginManager();
 
@@ -138,46 +140,71 @@ public class TestDbStateManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testGetAuState() throws Exception {
-    // Store a bean in the db
-    AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(AUID1);
-    ausb1.setLastCrawlAttempt(7777);
-    ausb1.setCdnStems(CDN_STEMS);
-    String json = ausb1.toJson();
-
-    MyDbStateManagerSql dbsql = new MyDbStateManagerSql();
-    stateMgr.setDbSql(dbsql);
-    dbsql.setStoredValue(AUID1, json);
-
-    AuState aus1 = stateMgr.getAuState(mau1);
-    assertEquals(7777, aus1.getLastCrawlAttempt());
-    assertEquals(CDN_STEMS, aus1.getCdnStems());
-
-    AuState aus2 = stateMgr.getAuState(mau2);
-    assertEquals(-1, aus2.getLastCrawlAttempt());
-    assertEmpty(aus2.getCdnStems());
-    
-  }
-
-  @Test
-  public void testGetAuStateBean() throws Exception {
+  public void testFuncAuStateBean() throws Exception {
     // Store a bean in the db
     AuStateBean b1 = stateMgr.newDefaultAuStateBean(AUID1);
     b1.setLastCrawlAttempt(7777);
     b1.setCdnStems(CDN_STEMS);
     String json1 = b1.toJson();
 
-    MyDbStateManagerSql dbsql = new MyDbStateManagerSql();
-    stateMgr.setDbSql(dbsql);
-    dbsql.setStoredValue(AUID1, json1);
+    MyStateStore sstore = new MyStateStore();
+    stateMgr.setStateStore(sstore);
+    sstore.setStoredAuState(AUID1, json1);
 
-    AuStateBean ausb1 = stateMgr.getAuStateBean(mau1.getAuId());
+    AuStateBean ausb1 = stateMgr.getAuStateBean(AUID1);
     assertEquals(7777, ausb1.getLastCrawlAttempt());
     assertEquals(CDN_STEMS, ausb1.getCdnStems());
 
-    AuStateBean ausb2 = stateMgr.getAuStateBean(mau2.getAuId());
+    AuStateBean ausb2 = stateMgr.getAuStateBean(AUID2);
     assertEquals(-1, ausb2.getLastCrawlAttempt());
     assertNull(ausb2.getCdnStems());
+
+    ausb1.setLastCrawlTime(32323);
+    stateMgr.updateAuStateBean(AUID1, ausb1, SetUtil.set("lastCrawlTime"));
+    String storedjson = sstore.getStoredAuState(AUID1);
+    assertMatchesRE("\"lastCrawlTime\":32323", storedjson);
+    assertMatchesRE("\"lastCrawlAttempt\":7777", storedjson);
+  }
+
+  @Test
+  public void testFuncAuState() throws Exception {
+    // Pre-store an AuState in the db
+    AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(AUID1);
+    ausb1.setLastCrawlAttempt(7777);
+    ausb1.setCdnStems(CDN_STEMS);
+    String json = ausb1.toJson();
+
+    // Set up fake DB SQL layer
+    MyStateStore sstore = new MyStateStore();
+    stateMgr.setStateStore(sstore);
+    sstore.setStoredAuState(AUID1, json);
+
+    // Fetch the AuState that's in the DB
+    AuState aus1 = stateMgr.getAuState(mau1);
+    assertEquals(7777, aus1.getLastCrawlAttempt());
+    assertEquals(CDN_STEMS, aus1.getCdnStems());
+
+    // Fetch one with no data
+    AuState aus2 = stateMgr.getAuState(mau2);
+    assertEquals(-1, aus2.getLastCrawlAttempt());
+    assertEmpty(aus2.getCdnStems());
+    
+    // Perform a json-only update from the service, ensure DB and
+    // existing AuState instance get updated.
+    AuStateBean ausb2 = stateMgr.newDefaultAuStateBean(AUID1);
+    ausb2.setLastCrawlAttempt(7778);
+    ausb2.setLastCrawlTime(7779);
+    String json2 = ausb2.toJson(SetUtil.set("lastCrawlTime",
+					    "lastCrawlAttempt"));
+    assertEquals(7777, aus1.getLastCrawlAttempt());
+    assertEquals(-1, aus1.getLastCrawlTime());
+    stateMgr.updateAuStateFromJson(AUID1, json2);
+    assertEquals(7778, aus1.getLastCrawlAttempt());
+    assertEquals(7779, aus1.getLastCrawlTime());
+
+    String storedjson = sstore.getStoredAuState(AUID1);
+    assertMatchesRE("\"lastCrawlAttempt\":7778", storedjson);
+    assertMatchesRE("\"lastCrawlTime\":7779", storedjson);
   }
 
   @Test
@@ -188,86 +215,121 @@ public class TestDbStateManager extends LockssTestCase4 {
     b1.setCdnStems(CDN_STEMS);
     String json1 = b1.toJson();
 
-    stateMgr.storeAuStateFromService(AUID1, json1);
+    stateMgr.storeAuStateFromJson(AUID1, json1);
   }
 
-  static class MyDbStateManager extends DbStateManager {
-    DbStateManagerSql dbSql;
+  static class MyPersistentStateManager extends PersistentStateManager {
+    StateStore sstore;
 
     @Override
-    protected DbStateManagerSql getDbStateManagerSql() throws DbException {
-      if (dbSql != null) return dbSql;
-      return super.getDbStateManagerSql();
+    protected StateStore getStateStore() throws DbException {
+      if (sstore != null) return sstore;
+      return super.getStateStore();
     }
 
-    void setDbSql(DbStateManagerSql val) {
-      dbSql = val;
+    void setStateStore(StateStore val) {
+      sstore = val;
     }
 
   }
 
 
-  static class MyDbStateManagerSql extends DbStateManagerSql {
+  class MyStateStore implements StateStore {
   
     Map<String,String> austates = new HashMap<>();
+    Map<String,String> auagmnts = new HashMap<>();
 
-    public MyDbStateManagerSql() throws DbException {
-      super(null);
+    @Override
+    public AuStateBean findArchivalUnitState(String auId)
+	throws DbException, IOException {
+      log.debug("findArchivalUnitState("+auId+") = "
+		+austates.get(auId));
+      return getAuState(auId);
     }
 
     @Override
-    public String findArchivalUnitState(String pluginId,
-					String auKey)
+    public Long addArchivalUnitState(String auId, AuStateBean ausb)
 	throws DbException {
-      log.debug("findArchivalUnitState("+key(pluginId, auKey)+") = "
-		+austates.get(key(pluginId, auKey)));
-      return austates.get(key(pluginId, auKey));
-    }
-
-    @Override
-    public Long addArchivalUnitState(String pluginId,
-				     String auKey,
-				     AuStateBean ausb)
-	throws DbException {
-      String key = key(pluginId, auKey);
-      if (austates.containsKey(key)) {
+      if (austates.containsKey(auId)) {
 	throw new IllegalStateException("Attempt to add but already exists: "
-					+ key);
+					+ auId);
       }
-      putAuState(key, ausb);
+      putAuState(auId, ausb);
       return 1L;
     }
 
-    void putAuState(String key, AuStateBean ausb) {
+    void putAuState(String auId, AuStateBean ausb) {
       try {
-	austates.put(key, ausb.toJson());
+	austates.put(auId, ausb.toJson());
       } catch (IOException e) {
 	throw new RuntimeException(e);
       }
     }
 
-    @Override
-    public Long updateArchivalUnitState(String pluginId,
-					String auKey,
-					AuStateBean ausb)
-	throws DbException {
-      String key = key(pluginId, auKey);
-      if (!austates.containsKey(key)) {
-	throw new IllegalStateException("Attempt to update but doesn't exist: "
-					+ key);
+    AuStateBean getAuState(String auId) throws IOException {
+      String json = austates.get(auId);
+      if (json != null) {
+	return AuStateBean.fromJson(auId, json, daemon);
       }
-      putAuState(key, ausb);
+      return null;
+    }
+
+
+
+    @Override
+    public Long updateArchivalUnitState(String auId, AuStateBean ausb,
+					Set<String> fields)
+	throws DbException {
+      if (!austates.containsKey(auId)) {
+	throw new IllegalStateException("Attempt to update but doesn't exist: "
+					+ auId);
+      }
+      putAuState(auId, ausb);
       return 1L;
     }
 
-    MyDbStateManagerSql setStoredValue(String key, String json) {
-      austates.put(key, json);
-      log.debug("setStoredValue("+key+", "+json+")");
+    MyStateStore setStoredAuState(String auId, String json) {
+      austates.put(auId, json);
+      log.debug("setStoredAuState("+auId+", "+json+")");
       return this;
     }
-  }
 
-  static String key(String pluginId, String auKey) {
-    return pluginId+"&"+auKey;
+    String getStoredAuState(String auId) {
+      return austates.get(auId);
+    }
+
+    @Override
+    public AuAgreements findAuAgreements(String key)
+	throws IOException {
+      return getAuAgreeements(key);
+    }
+
+    @Override
+    public Long updateAuAgreements(String key, AuAgreements aua,
+				   Set<PeerIdentity> peers) {
+      if (!auagmnts.containsKey(key)) {
+	throw new IllegalStateException("Attempt to update but doesn't exist: "
+					+ key);
+      }
+      putAuAgreements(key, aua);
+      return 1L;
+    }
+
+    void putAuAgreements(String key, AuAgreements aua) {
+      try {
+	auagmnts.put(key, aua.toJson());
+      } catch (IOException e) {
+	throw new RuntimeException(e);
+      }
+    }
+
+    AuAgreements getAuAgreeements(String auId) throws IOException {
+      String json = auagmnts.get(auId);
+      if (json != null) {
+	return AuAgreements.fromJson(auId, json, daemon);
+      }
+      return null;
+    }
+
   }
 }

@@ -1026,7 +1026,7 @@ public class LockssApp {
 				      false)) {
       res = "org.lockss.state.ServerDbStateManager";
     } else {
-      res = "org.lockss.state.DbStateManager";
+      res = "org.lockss.state.PersistentStateManager";
     }
     log.debug("StateManager: " + res);
     return res;

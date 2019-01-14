@@ -37,10 +37,13 @@ import static org.lockss.config.db.SqlConstants.*;
 import java.io.IOException;
 import java.sql.*;
 import java.util.*;
+import org.lockss.app.*;
 import org.lockss.config.db.*;
 import org.lockss.db.*;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.AuUtil;
+import org.lockss.plugin.PluginManager;
+import org.lockss.protocol.*;
 import org.lockss.util.time.TimeBase;
 
 /**
@@ -48,7 +51,7 @@ import org.lockss.util.time.TimeBase;
  * 
  * @author Fernando García-Loygorri
  */
-public class DbStateManagerSql extends ConfigManagerSql {
+public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   
   private static L4JLogger log = L4JLogger.getLogger();
 
@@ -540,6 +543,53 @@ public class DbStateManagerSql extends ConfigManagerSql {
     }
   }
   
+
+  // StateStore interface adapter
+
+  @Override
+  public AuStateBean findArchivalUnitState(String key)
+      throws DbException, IOException {
+    String json = findArchivalUnitState(PluginManager.pluginIdFromAuId(key),
+					PluginManager.auKeyFromAuId(key));
+    AuStateBean res = null;
+    if (json != null) {
+      res = AuStateBean.fromJson(key, json, LockssDaemon.getLockssDaemon());
+    }
+    return res;
+  }
+
+  @Override
+  public Long addArchivalUnitState(String key,
+				   AuStateBean ausb)
+      throws DbException {
+    return addArchivalUnitState(PluginManager.pluginIdFromAuId(key),
+				PluginManager.auKeyFromAuId(key),
+				ausb);
+  }
+
+  @Override
+  public Long updateArchivalUnitState(String key,
+				      AuStateBean ausb,
+				      Set<String> fields)
+      throws DbException {
+    return updateArchivalUnitState(PluginManager.pluginIdFromAuId(key),
+				   PluginManager.auKeyFromAuId(key),
+				   ausb);
+  }
+
+  @Override
+  public AuAgreements findAuAgreements(String key) {
+    return null;
+  }
+
+  @Override
+  public Long updateAuAgreements(String key,
+				 AuAgreements aua,
+				 Set<PeerIdentity> peers) {
+    return 0L;
+  }
+
+
   protected static final Set<String> auId_auCreationTime =
       Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("auId", "auCreationTime")));
   

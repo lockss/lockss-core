@@ -31,8 +31,8 @@ package org.lockss.state;
 
 import org.lockss.log.*;
 
-/** DbStateManager that also sends JMS state changed notifications */
-public class ServerDbStateManager extends DbStateManager {
+/** PersistentStateManager that also sends JMS state changed notifications */
+public class ServerStateManager extends PersistentStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
 

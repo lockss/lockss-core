@@ -518,6 +518,18 @@ public class AuStateBean {
     return this;
   }
 
+  /** Deserialize a json string into a new AuStateBean
+   * @param json json string
+   * @param app
+   */
+  public static AuStateBean fromJson(String key, String json, LockssApp app)
+      throws IOException {
+    AuStateBean res = new AuStateBean();
+    res.setAuId(key);
+    res.updateFromJson(json, app);
+    return res;
+  }
+
   @Override
   public String toString() {
     return new ToStringBuilder(this)
@@ -560,6 +572,8 @@ public class AuStateBean {
    * Avoid duplicating common strings
    */
   protected void postUnmarshal(LockssApp lockssContext) {
+    auId = StringPool.AUIDS.intern(auId);
+
     StringPool featPool = StringPool.FEATURE_VERSIONS;
     if (substanceVersion != null) {
       substanceVersion = featPool.intern(substanceVersion);

@@ -39,6 +39,7 @@ import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 
 /** Caching StateManager that accesses state objects from a REST
  * StateService.  Receives notifications of changes sent by service. */
@@ -58,6 +59,11 @@ public class ClientStateManager extends CachingStateManager {
     stopJms();
     super.stopService();
   }
+
+
+  // /////////////////////////////////////////////////////////////////
+  // AuState
+  // /////////////////////////////////////////////////////////////////
 
   /** Handle incoming AuState changed msg */
   @Override
@@ -95,4 +101,44 @@ public class ClientStateManager extends CachingStateManager {
     return res;
   }
 
+  // /////////////////////////////////////////////////////////////////
+  // AuAgreements
+  // /////////////////////////////////////////////////////////////////
+
+  /** Handle incoming AuAgreements changed msg */
+  @Override
+  public synchronized void doReceiveAuAgreementsChanged(String auid,
+							String json) {
+    AuAgreements cur = agmnts.get(auid);
+    String msg = "Updating";
+    if (cur == null) {
+      log.debug2("Ignoring partial update for AuAgreements we don't have: {}", auid);
+      return;
+    }
+    try {
+      log.debug2("{}: {} from {}", msg, cur, json);
+      cur.updateFromJson(json, daemon);
+    } catch (IOException e) {
+      log.error("Couldn't deserialize AuAgreements: {}", json, e);
+    }
+  }
+
+  /** Send the changes to the StateService */
+  @Override
+  protected void doStoreAuAgreementsUpdate(String key,
+					   AuAgreements aua,
+					   Set<PeerIdentity> peers) {
+
+    // XXXFGL send PATCH with json diffs
+
+  }
+
+  @Override
+  protected AuAgreements doLoadAuAgreements(String key) {
+    AuAgreements res = null;
+
+    // XXXFGL send GET, return null if server responds w/ 404
+
+    return res;
+  }
 }

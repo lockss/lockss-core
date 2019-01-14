@@ -37,6 +37,7 @@ import org.lockss.log.*;
 import org.lockss.jms.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 
 /** Building blocks for {@link StateManager}s.
 */
@@ -57,6 +58,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     this.daemon = daemon;
     configMgr = daemon.getConfigManager();
     pluginMgr = daemon.getPluginManager();
+    // Don't prefetch IdentityManager here as it uses StateManager
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
@@ -70,20 +72,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 					   DEFAULT_ENABLE_JMS_RECEIVE);
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
     }
-  }
-
-  /** Create a default AuState */
-  protected AuState newDefaultAuState(ArchivalUnit au) {
-    AuState aus = new AuState(au, this);
-    aus.setAuId(auKey(au));
-    return aus;
-  }
-
-  /** Create a default AuState */
-  protected AuStateBean newDefaultAuStateBean(String key) {
-    AuStateBean ausb = new AuStateBean();
-    ausb.setAuId(key);
-    return ausb;
   }
 
   /** return the string to use as a key for the AU's AuState.  Normally the
@@ -195,25 +183,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     }
   }
 
-  /** Send JMS notification of AuState change.  Should be called only from
-   * a hook in a server StateManager.
-   * @param key auid
-   * @param json string containing only the changed fields.
-   */
-  protected void sendAuStateChangedEvent(String key, String json) {
-    if (jmsProducer != null) {
-      Map<String,Object> map = new HashMap<>();
-      map.put(JMS_MAP_NAME, "AuState");
-      map.put(JMS_MAP_AUID, key);
-      map.put(JMS_MAP_JSON, json);
-      try {
-	jmsProducer.sendMap(map);
-      } catch (JMSException e) {
-	log.error("Couldn't send StateChanged notification", e);
-      }
-    }
-  }
-
   /** Incoming AuEvent message */
   protected void receiveStateChangedNotification(Map map) {
     log.debug2("Received notification: " + map);
@@ -257,6 +226,43 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
 
+  // /////////////////////////////////////////////////////////////////
+  // AuState
+  // /////////////////////////////////////////////////////////////////
+
+  /** Send JMS notification of AuState change.  Should be called only from
+   * a hook in a server StateManager.
+   * @param key auid
+   * @param json string containing only the changed fields.
+   */
+  protected void sendAuStateChangedEvent(String key, String json) {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_MAP_NAME, "AuState");
+      map.put(JMS_MAP_AUID, key);
+      map.put(JMS_MAP_JSON, json);
+      try {
+	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+	log.error("Couldn't send StateChanged notification", e);
+      }
+    }
+  }
+
+  /** Create a default AuState */
+  protected AuState newDefaultAuState(ArchivalUnit au) {
+    AuState aus = new AuState(au, this);
+    aus.setAuId(auKey(au));
+    return aus;
+  }
+
+  /** Create a default AuStateBean */
+  protected AuStateBean newDefaultAuStateBean(String key) {
+    AuStateBean ausb = new AuStateBean();
+    ausb.setAuId(key);
+    return ausb;
+  }
+
   // Hooks to be implemented by subclasses
 
   /** Hook for subclass to store a new AuState in persistent storage.  Any
@@ -294,5 +300,69 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   protected void doReceiveAuStateChanged(String auid, String json) {
   }
 
+
+  // /////////////////////////////////////////////////////////////////
+  // AuAgreements
+  // /////////////////////////////////////////////////////////////////
+
+  /** Send JMS notification of AuState change.  Should be called only from
+   * a hook in a server StateManager.
+   * @param key auid
+   * @param json string containing only the changed fields.
+   */
+  protected void sendAuAgreementsChangedEvent(String key, String json) {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_MAP_NAME, "AuAgreements");
+      map.put(JMS_MAP_AUID, key);
+      map.put(JMS_MAP_JSON, json);
+      try {
+	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+	log.error("Couldn't send StateChanged notification", e);
+      }
+    }
+  }
+
+  /** Create a default AuAgreementsBean */
+  protected AuAgreements newDefaultAuAgreements(String key) {
+    return AuAgreements.make(key, daemon.getIdentityManager());
+  }
+
+  // Hooks to be implemented by subclasses
+
+  /** Hook for subclass to store a new AuAgreements in persistent storage.
+   * Any of the three data sources may be used.
+   * @param key AUID or other key for AU
+   * @param aua AuAgreements data source
+   */
+  protected void doStoreAuAgreementsNew(String key, AuAgreements aua) {
+  }
+
+  /** Hook for subclass to update an existing AuAgreements in persistent
+   * storage.  Any of the three data sources may be used.  Only those
+   * fields present in the Map or the json string should be saved.
+   * @param key AUID or other key for AU
+   * @param aus AuAgreements data source
+   * @param aus json data source
+   * @param aus Map data source
+   */
+  protected void doStoreAuAgreementsUpdate(String key, AuAgreements aua,
+					   Set<PeerIdentity> peers) {
+  }
+
+  /** Hook for subclass to read an AuAgreements instance from persistent
+   * storage. */
+  protected AuAgreements doLoadAuAgreements(String key) {
+    return null;
+  }
+
+  /** Hook for subclass to send AuAgreements changed notifications */
+  protected void doNotifyAuAgreementsChanged(String auid, String json) {
+  }
+
+  /** Hook for subclass to receive AuAgreements changed notifications */
+  protected void doReceiveAuAgreementsChanged(String auid, String json) {
+  }
 
 }

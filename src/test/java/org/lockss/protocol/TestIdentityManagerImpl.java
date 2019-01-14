@@ -101,7 +101,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     idmgr = new TestableIdentityManager();
     idmgr.initService(theDaemon);
     theDaemon.setIdentityManager(idmgr);
-    theDaemon.setHistoryRepository(new MockHistoryRepository(), mau);
     idmgr.startService();
     MockPlugin plug = new MockPlugin(theDaemon);
     mau.setPlugin(plug);
@@ -681,27 +680,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
     final File nonExistingFile = new File(tempDirPath, "nofile");
 
-    MockHistoryRepository hRep = new MockHistoryRepository() {
-	private File agreementFile = nonExistingFile;
-	
-	@Override
-	public void storeIdentityAgreements(AuAgreements auAgreements) {
-	  try {
-	    agreementFile = File.createTempFile("id_agreement", ".xml");
-	  } catch (IOException e) {
-	    fail("couldn't create temp file", e);
-	  }
-	  agreementFile.deleteOnExit();
-	  super.storeIdentityAgreements(auAgreements);
-	}
-
-	@Override
-	public File getIdentityAgreementFile() {
-	  return agreementFile;
-	}
-      };
-    theDaemon.setHistoryRepository(hRep, mau);
-
     assertFalse(idmgr.hasAgreeMap(mau));
     idmgr.signalAgreed(peer1, mau);
     assertTrue(idmgr.hasAgreeMap(mau));
@@ -826,8 +804,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     mau2.setPlugin(plug);
     log.info("auid1: " + mau1.getAuId());
     log.info("auid2: " + mau2.getAuId());
-    theDaemon.setHistoryRepository(new MockHistoryRepository(), mau1);
-    theDaemon.setHistoryRepository(new MockHistoryRepository(), mau2);
 
     idmgr.signalAgreed(peer1, mau1);
     idmgr.signalAgreed(peer2, mau2);
