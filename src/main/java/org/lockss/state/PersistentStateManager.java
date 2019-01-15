@@ -31,7 +31,6 @@ package org.lockss.state;
 import java.io.IOException;
 import java.util.*;
 import org.lockss.app.*;
-import org.lockss.db.DbException;
 import org.lockss.log.*;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.plugin.*;
@@ -67,11 +66,11 @@ public class PersistentStateManager extends CachingStateManager {
       Long auSeq =
 	  getStateStore().addArchivalUnitState(key, ausb);
       log.trace("auSeq = {}", auSeq);
-    } catch (DbException dbe) {
+    } catch (StoreException se) {
       String message = "Exception caught persisting new AuState";
       log.error("key = {}", key);
       log.error("ausb = {}", ausb);
-      throw new StateLoadStoreException(message, dbe);
+      throw new StateLoadStoreException(message, se);
     }
 
     log.debug2("Done");
@@ -96,12 +95,12 @@ public class PersistentStateManager extends CachingStateManager {
       Long auSeq =
 	getStateStore().updateArchivalUnitState(key, ausb, fields);
       log.trace("auSeq = {}", auSeq);
-    } catch (DbException dbe) {
+    } catch (StoreException se) {
       String message = "Exception caught persisting new AuState";
       log.error("key = {}", key);
       log.error("ausb = {}", ausb);
       log.error("fields = {}", fields);
-      throw new StateLoadStoreException(message, dbe);
+      throw new StateLoadStoreException(message, se);
     }
 
     log.debug2("Done");
@@ -124,10 +123,10 @@ public class PersistentStateManager extends CachingStateManager {
       String message = "Exception caught composing AuState";
       log.error("key = {}", key);
       throw new StateLoadStoreException(message, ioe);
-    } catch (DbException dbe) {
+    } catch (StoreException se) {
       String message = "Exception caught finding AuState";
       log.error("key = {}", key);
-      throw new StateLoadStoreException(message, dbe);
+      throw new StateLoadStoreException(message, se);
     }
 
     log.debug2("res = {}", res);
@@ -165,10 +164,10 @@ public class PersistentStateManager extends CachingStateManager {
       String message = "Exception caught composing AuAgreements";
       log.error("key = {}", key);
       throw new StateLoadStoreException(message, ioe);
-    } catch (DbException dbe) {
+    } catch (StoreException se) {
       String message = "Exception caught finding AuAgreements";
       log.error("key = {}", key);
-      throw new StateLoadStoreException(message, dbe);
+      throw new StateLoadStoreException(message, se);
     }
 
     log.debug2("res = {}", res);
@@ -192,12 +191,12 @@ public class PersistentStateManager extends CachingStateManager {
     try {
       Long auSeq = getStateStore().updateAuAgreements(key, aua, peers);
       log.trace("auSeq = {}", auSeq);
-    } catch (DbException dbe) {
+    } catch (StoreException se) {
       String message = "Exception caught persisting AuAgreements";
       log.error("key = {}", key);
       log.error("aua = {}", aua);
       log.error("peers = {}", peers);
-      throw new StateLoadStoreException(message, dbe);
+      throw new StateLoadStoreException(message, se);
     }
 
     log.debug2("Done");
@@ -209,18 +208,13 @@ public class PersistentStateManager extends CachingStateManager {
    * tests.
    * 
    * @return a StateStore implementation
-   * @throws DbException
+   * @throws StoreException
    *           if any problem occurred accessing the database.
    */
-  protected StateStore getStateStore() throws DbException {
+  protected StateStore getStateStore() throws StoreException {
     if (stateStore == null) {
-      if (theApp == null) {
-	stateStore = new DbStateManagerSql(
-	    LockssApp.getManagerByTypeStatic(ConfigDbManager.class));
-      } else {
-	stateStore = new DbStateManagerSql(
+      stateStore = new DbStateManagerSql(
 	    theApp.getManagerByType(ConfigDbManager.class));
-      }
     }
 
     return stateStore;

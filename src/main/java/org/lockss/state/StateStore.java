@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,10 +51,10 @@ public interface StateStore {
    * @return the AuStateBean, or null if not present in the store
    */
   public AuStateBean findArchivalUnitState(String key)
-      throws DbException, IOException;
+      throws StoreException, IOException;
 
   public Long addArchivalUnitState(String key, AuStateBean ausb)
-      throws DbException;
+      throws StoreException;
 
   /** Update an AuStateBean in the store, creating it if not already
    * present.  If already present, only those fields listed in
@@ -67,14 +67,14 @@ public interface StateStore {
    */
   public Long updateArchivalUnitState(String key, AuStateBean ausb,
 				      Set<String> fields)
-      throws DbException;
+      throws StoreException;
 
   /** Return the AuAgreements associated with the key (an AUID)
    * @param key the key under which the AuAgreements is stored
    * @return the AuAgreements, or null if not present in the store
    */
   public AuAgreements findAuAgreements(String key)
-      throws DbException, IOException;
+      throws StoreException, IOException;
 
   /** Update an AuAgreements in the store, creating it if not already
    * present.  If already present, only those peers listed in
@@ -87,6 +87,6 @@ public interface StateStore {
    */
   public Long updateAuAgreements(String key, AuAgreements aua,
 				 Set<PeerIdentity> peers)
-      throws DbException;
+      throws StoreException;
 
 }

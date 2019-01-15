@@ -27,28 +27,27 @@
  */
 
 /**
- * Exception specific to database processing.
- * 
- * @version 1.0
+ * Implementation-independent parent of exceptions reading or writing
+ * persistent store
  */
-package org.lockss.db;
+package org.lockss.app;
 
 @SuppressWarnings("serial")
-public class DbException extends org.lockss.app.StoreException {
+public class StoreException extends Exception {
 
-  public DbException() {
+  public StoreException() {
     super();
   }
 
-  public DbException(String message) {
+  public StoreException(String message) {
     super(message);
   }
 
-  public DbException(Throwable cause) {
+  public StoreException(Throwable cause) {
     super(cause);
   }
 
-  public DbException(String message, Throwable cause) {
+  public StoreException(String message, Throwable cause) {
     super(message, cause);
   }
 }
