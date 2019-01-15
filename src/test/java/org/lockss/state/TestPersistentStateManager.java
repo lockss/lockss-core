@@ -93,14 +93,6 @@ public class TestPersistentStateManager extends StateTestCase {
     String json1b = ausb1b.toJsonExcept("auCreationTime");
     assertEquals(AuUtil.jsonToMap(json1), AuUtil.jsonToMap(json1b));
 
-    // Do it again.
-    try {
-      stateMgr.doStoreAuStateBeanNew(key1, ausb1);
-      fail("Should have thrown IllegalStateException");
-    } catch (IllegalStateException ise) {
-      // Expected.
-    }
-
     // Second AU with modified state properties.
     TimeBase.setSimulated(200L);
     

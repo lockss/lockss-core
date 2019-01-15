@@ -69,18 +69,17 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       + " and a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = s."
       + ARCHIVAL_UNIT_SEQ_COLUMN;
 
+  // Query to delete an AU state.
+  private static final String DELETE_AU_STATE_QUERY = "delete from "
+      + ARCHIVAL_UNIT_STATE_TABLE
+      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
+
   // Query to add an AU state string
   private static final String ADD_AU_STATE_QUERY = "insert into "
       + ARCHIVAL_UNIT_STATE_TABLE
       + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
       + "," + STATE_STRING_COLUMN
       + ") values (?,?)";
-
-  // Query to update an AU state string
-  private static final String UPDATE_AU_STATE_QUERY =
-      "update " + ARCHIVAL_UNIT_STATE_TABLE
-      + " set " + STATE_STRING_COLUMN + " = ?"
-      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
   
   /**
    * Constructor.
@@ -202,120 +201,51 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Adds to the database the state of an Archival Unit.
-   * 
-   * @param pluginId
-   *          A String with the Archival Unit plugin identifier.
-   * @param auKey
-   *          A String with the Archival Unit key identifier.
-   * @param ausb
-   *          An {@link AuStateBean}.
-   * @return a Long with the database identifier of the Archival Unit.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
-   */
-  public Long addArchivalUnitState(String pluginId,
-                                   String auKey,
-                                   AuStateBean ausb)
-      throws DbException {
-    log.debug2("pluginId = {}", pluginId);
-    log.debug2("auKey = {}", auKey);
-    log.debug2("ausb = {}", ausb);
-
-    Connection conn = null;
-
-    try {
-      // Get a connection to the database.
-      conn = getConnection();
-
-      // Get the state of the Archival Unit, if it exists.
-      String existingString =
-	  findArchivalUnitState(conn, pluginId, auKey);
-      log.trace("existingAuState = {}", existingString);
-
-      if (existingString != null) {
-	String message = "Attempt to replace existing AuState";
-	log.error(message);
-        log.error("pluginId = '{}, auKey = '{}'", pluginId, auKey);
-	log.error("Existing state string = '{}'", existingString);
-//	log.error("Replacement state string = '{}'", ausb.toJson()); FIXME
-	throw new IllegalStateException(message);
-      }
-
-      return addArchivalUnitState(conn, pluginId, auKey, ausb, true);
-    } catch (DbException dbe) {
-      String message = "Cannot add AU state";
-      log.error(message, dbe);
-      log.error("pluginId = {}", pluginId);
-      log.error("auKey = {}", auKey);
-      log.error("ausb = {}", ausb);
-      throw dbe;
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
-  }
-
-  /**
-   * Adds to the database the state of an Archival Unit.
+   * Deletes from the database the state of an Archival Unit.
    * 
    * @param conn
    *          A Connection with the database connection to be used.
-   * @param pluginId
-   *          A String with the Archival Unit plugin identifier.
-   * @param auKey
-   *          A String with the Archival Unit key identifier.
-   * @param ausb
-   *          An {@link AuStateBean}.
-   * @param commitAfterAdd
-   *          A boolean with the indication of whether the addition should be
-   *          committed in this method, or not.
-   * @return a Long with the database identifier of the Archival Unit.
+   * @param auSeq
+   *          A Long with the database identifier of the Archival Unit.
+   * @return an int with the count of database rows deleted.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public Long addArchivalUnitState(Connection conn,
-                                   String pluginId,
-                                   String auKey,
-                                   AuStateBean ausb,
-                                   boolean commitAfterAdd)
+  private int deleteArchivalUnitState(Connection conn,
+                                      Long auSeq)
       throws DbException {
-    log.debug2("pluginId = {}", pluginId);
-    log.debug2("auKey = {}", auKey);
-    log.debug2("ausb = {}", ausb);
-    log.debug2("commitAfterAdd = {}", commitAfterAdd);
+    log.debug2("auSeq = {}", auSeq);
 
-    Long auSeq = null;
+    int result = -1;
+    PreparedStatement deleteState = null;
+    String errorMessage = "Cannot delete Archival Unit state";
 
     try {
-      // Find the Archival Unit plugin, adding it if necessary.
-      Long pluginSeq = findOrCreatePlugin(conn, pluginId);
+      // Prepare the query.
+      deleteState =
+	  configDbManager.prepareStatement(conn, DELETE_AU_STATE_QUERY);
 
-      long auCreationTime = TimeBase.nowMs();
-      log.trace("auCreationTime = {}", auCreationTime);
+      // Populate the query.
+      deleteState.setLong(1, auSeq);
 
-      // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, auCreationTime);
-
-      // Add the new state of the Archival Unit.
-      int count = addArchivalUnitState(conn, auSeq, ausb);
-      log.trace("count = {}", count);
-      
-      if (commitAfterAdd) {
-	// Commit the transaction.
-	ConfigDbManager.commitOrRollback(conn, log);
-      }
+      // Execute the query
+      result = configDbManager.executeUpdate(deleteState);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", DELETE_AU_STATE_QUERY);
+      log.error("auSeq = {}", auSeq);
+      throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
-      String message = "Cannot add AU state";
-      log.error(message, dbe);
-      log.error("pluginId = {}", pluginId);
-      log.error("auKey = {}", auKey);
-      log.error("ausb = {}", ausb);
-      log.error("commitAfterAdd = {}", commitAfterAdd);
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", DELETE_AU_STATE_QUERY);
+      log.error("auSeq = {}", auSeq);
       throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(deleteState);
     }
 
-    log.debug2("auSeq = {}", auSeq);
-    return auSeq;
+    log.debug2("result = {}", result);
+    return result;
   }
 
   /**
@@ -400,26 +330,18 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     log.debug2("auKey = {}", auKey);
     log.debug2("ausb = {}", ausb);
 
+    Long result = null;
     Connection conn = null;
 
     try {
       // Get a connection to the database.
       conn = getConnection();
 
-      // Get the state of the Archival Unit, if it exists.
-      String existingString =
-          findArchivalUnitState(conn, pluginId, auKey);
-      log.trace("existingAuState = {}", existingString);
+      // Update the state.
+      result = updateArchivalUnitState(conn, pluginId, auKey, ausb);
 
-      if (existingString == null) {
-        String message = "Attempt to update a non-existent AuState";
-        log.error(message);
-        log.error("pluginId = '{}, auKey = '{}'", pluginId, auKey);
-        log.error("ausb = '{}'", ausb);
-        throw new IllegalStateException(message);
-      }
-
-      return updateArchivalUnitState(conn, pluginId, auKey, ausb);
+      // Commit the transaction.
+      ConfigDbManager.commitOrRollback(conn, log);
     } catch (DbException dbe) {
       String message = "Cannot add AU state";
       log.error(message, dbe);
@@ -430,6 +352,9 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
+
+    log.debug2("result = {}", result);
+    return result;
   }
 
   /**
@@ -460,14 +385,21 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
 
     try {
       // Find the Archival Unit plugin.
-      Long pluginSeq = findPlugin(conn, pluginId);
+      Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // Find the Archival Unit.
-      auSeq = findArchivalUnit(conn, pluginSeq, auKey);
+      // The current time.
+      long now = TimeBase.nowMs();
+
+      // Find the Archival Unit, adding it if necessary.
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+
+      // Delete any existing state of the Archival Unit.
+      int deletedCount = deleteArchivalUnitState(conn, auSeq);
+      log.trace("deletedCount = {}", deletedCount);
 
       // Add the new state of the Archival Unit.
-      int count = updateArchivalUnitState(conn, auSeq, ausb);
-      log.trace("count = {}", count);
+      int addedCount = addArchivalUnitState(conn, auSeq, ausb);
+      log.trace("addedCount = {}", addedCount);
     } catch (DbException dbe) {
       String message = "Cannot update AU state";
       log.error(message, dbe);
@@ -480,69 +412,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     log.debug2("auSeq = {}", auSeq);
     return auSeq;
   }
-
-  /**
-   * Updates the state of an Archival Unit in the database.
-   * 
-   * @param conn
-   *          A Connection with the database connection to be used.
-   * @param auSeq
-   *          A Long with the database identifier of the Archival Unit.
-   * @param ausb
-   *          An {@link AuStateBean}.
-   * @return an int with the count of database rows updated.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
-   */
-  private int updateArchivalUnitState(Connection conn,
-                                      Long auSeq,
-                                      AuStateBean ausb)
-      throws DbException {
-    log.debug2("auSeq = {}", auSeq);
-    log.debug2("ausb = {}", ausb);
-
-    PreparedStatement updateState = null;
-    String errorMessage = "Cannot update Archival Unit state";
-
-    try {
-      // Convert to JSON
-      String json = ausb.toJsonExcept(auId_auCreationTime);
-      
-      // Prepare the query.
-      updateState =
-	  configDbManager.prepareStatement(conn, UPDATE_AU_STATE_QUERY);
-
-      // Populate the query.
-      updateState.setString(1, json);
-      updateState.setLong(2, auSeq);
-
-      // Execute the query
-      int count = configDbManager.executeUpdate(updateState);
-      log.debug2("updatedCount = {}", count);
-      ConfigDbManager.commitOrRollback(conn, log);
-      return count;
-    } catch (IOException ioe) {
-      log.error(errorMessage, ioe);
-      log.error("auSeq = {}", auSeq);
-      log.error("ausb = {}", ausb);
-      throw new DbException(errorMessage, ioe);
-    } catch (SQLException sqle) {
-      log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", UPDATE_AU_STATE_QUERY);
-      log.error("auSeq = {}", auSeq);
-      log.error("ausb = {}", ausb);
-      throw new DbException(errorMessage, sqle);
-    } catch (DbException dbe) {
-      log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", UPDATE_AU_STATE_QUERY);
-      log.error("auSeq = {}", auSeq);
-      log.error("ausb = {}", ausb);
-      throw dbe;
-    } finally {
-      ConfigDbManager.safeCloseStatement(updateState);
-    }
-  }
-  
 
   // StateStore interface adapter
 
@@ -562,9 +431,9 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   public Long addArchivalUnitState(String key,
 				   AuStateBean ausb)
       throws DbException {
-    return addArchivalUnitState(PluginManager.pluginIdFromAuId(key),
-				PluginManager.auKeyFromAuId(key),
-				ausb);
+    return updateArchivalUnitState(PluginManager.pluginIdFromAuId(key),
+				   PluginManager.auKeyFromAuId(key),
+				   ausb);
   }
 
   @Override
