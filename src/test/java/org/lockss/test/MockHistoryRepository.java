@@ -42,7 +42,6 @@ import org.lockss.protocol.IdentityManager;
 import org.lockss.state.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.DatedPeerIdSet;
-import org.lockss.protocol.AuAgreements;
 import org.lockss.config.Configuration;
 
 /**
@@ -53,8 +52,6 @@ public class MockHistoryRepository implements HistoryRepository {
   private DamagedNodeSet theDamagedNodeSet;
   private HashMap storedNodes = new HashMap();
   private String baseDir;
-  private Object storedIdentityAgreement = null;
-  private Object loadedIdentityAgreement = null;
   private ArchivalUnit au;
   private int timesStoreDamagedNodeSetCalled = 0;
   private IdentityManager idMgr;
@@ -105,38 +102,8 @@ public class MockHistoryRepository implements HistoryRepository {
     theDamagedNodeSet = dnSet;
   }
 
-  public File getIdentityAgreementFile() {
-    throw new UnsupportedOperationException();
-  }
-
   public long getAuCreationTime() {
     return -1;
-  }
-
-  @Override
-  public void storeIdentityAgreements(AuAgreements auAgreements) {
-    storedIdentityAgreement = auAgreements;
-  }
-
-  @Override
-  public Object loadIdentityAgreements() {
-    return loadedIdentityAgreement;
-  }
-
-  public void setLoadedIdentityAgreement(AuAgreements auAgreements) {
-    loadedIdentityAgreement = auAgreements;
-  }
-
-  /**
-   * Used to inject pre-AuAgreements agreement structures for
-   * loading tests. See TestAuAgreements.
-   */
-  public void setLoadedIdentityAgreement(List loadedIdentityAgreement) {
-    this.loadedIdentityAgreement = loadedIdentityAgreement;
-  }
-
-  public Object getStoredIdentityAgreement() {
-    return storedIdentityAgreement;
   }
 
   public void setIdMgr(IdentityManager idMgr) {

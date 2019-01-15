@@ -457,7 +457,9 @@ public abstract class CachingStateManager extends BaseStateManager {
    * store, if any, or to create and store new default object. */
   protected AuAgreements handleAuAgreementsCacheMiss(String key) {
     AuAgreements aua = doLoadAuAgreements(key);
-    if (aua == null) {
+    if (aua != null) {
+      agmnts.put(key, aua);
+    } else {
       aua = newDefaultAuAgreements(key);
       agmnts.put(key, aua);
       try {

@@ -36,12 +36,13 @@ import java.util.*;
 import org.mockito.Mockito;
 import org.junit.Before;
 import org.junit.Test;
+import org.lockss.app.StoreException;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.db.ConfigDbManager;
-import org.lockss.db.DbException;
 import org.lockss.log.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
+import static org.lockss.protocol.AgreementType.*;
 import org.lockss.test.*;
 import org.lockss.util.ListUtil;
 import org.lockss.util.SetUtil;
@@ -50,29 +51,16 @@ import org.lockss.util.time.TimeBase;
 /**
  * Test class for org.lockss.state.PersistentStateManager.
  */
-public class TestPersistentStateManager extends LockssTestCase4 {
+public class TestPersistentStateManager extends StateTestCase {
   static L4JLogger log = L4JLogger.getLogger();
 
-  MockLockssDaemon daemon;
-  PluginManager pluginMgr;
-  MyPersistentStateManager stateMgr;
-  MockArchivalUnit mau1;
-  MockArchivalUnit mau2;
-
-  static String AUID1 = MockPlugin.KEY + "&base_url~aaa1";
-  static String AUID2 = MockPlugin.KEY + "&base_url~aaa2";
-  static List CDN_STEMS = ListUtil.list("http://abc.com", "https://xyz.org");
+  MyPersistentStateManager myStateMgr;
 
   @Before
   public void setUp() throws Exception {
     super.setUp();
-
-    
-    String tmpdir = setUpDiskSpace();
     System.setProperty("derby.stream.error.file",
 	new File(tmpdir, "derby.log").getAbsolutePath());
-
-    daemon = getMockLockssDaemon();
 
     // Create and start the database manager.
     ConfigDbManager dbManager = new ConfigDbManager();
@@ -80,22 +68,21 @@ public class TestPersistentStateManager extends LockssTestCase4 {
     dbManager.initService(daemon);
     dbManager.startService();
 
-    stateMgr = daemon.setUpStateManager(new MyPersistentStateManager());
-
-    pluginMgr = daemon.getPluginManager();
-
-    MockPlugin plugin = new MockPlugin(daemon);
-    mau1 = new MockArchivalUnit(AUID1);
-    mau2 = new MockArchivalUnit(AUID2);
-
   }
+
+  @Override
+  protected StateManager makeStateManager() {
+    myStateMgr = new MyPersistentStateManager();
+    return myStateMgr;
+  }
+
 
   @Test
   public void testStoreAndLoadAuState() throws Exception {
     // First AU with default state properties.
     TimeBase.setSimulated(100L);
 
-    String key1 = stateMgr.auKey(mau1);
+    String key1 = AUID1;
     AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(key1);
     String json1 = ausb1.toJsonExcept("auCreationTime");
 
@@ -148,7 +135,7 @@ public class TestPersistentStateManager extends LockssTestCase4 {
     String json1 = b1.toJson();
 
     MyStateStore sstore = new MyStateStore();
-    stateMgr.setStateStore(sstore);
+    myStateMgr.setStateStore(sstore);
     sstore.setStoredAuState(AUID1, json1);
 
     AuStateBean ausb1 = stateMgr.getAuStateBean(AUID1);
@@ -176,7 +163,7 @@ public class TestPersistentStateManager extends LockssTestCase4 {
 
     // Set up fake DB SQL layer
     MyStateStore sstore = new MyStateStore();
-    stateMgr.setStateStore(sstore);
+    myStateMgr.setStateStore(sstore);
     sstore.setStoredAuState(AUID1, json);
 
     // Fetch the AuState that's in the DB
@@ -218,118 +205,54 @@ public class TestPersistentStateManager extends LockssTestCase4 {
     stateMgr.storeAuStateFromJson(AUID1, json1);
   }
 
-  static class MyPersistentStateManager extends PersistentStateManager {
-    StateStore sstore;
 
-    @Override
-    protected StateStore getStateStore() throws DbException {
-      if (sstore != null) return sstore;
-      return super.getStateStore();
-    }
+  @Test
+  public void testFuncAuAgreements() throws Exception {
+    // Pre-store an AuAgreements in the db
+    AuAgreements aua0 = stateMgr.newDefaultAuAgreements(AUID1);
+    aua0.signalPartialAgreement(pid1, POR, .8f, 400);
+    aua0.signalPartialAgreement(pid1, POP, .6f, 400);
 
-    void setStateStore(StateStore val) {
-      sstore = val;
-    }
+    String json = aua0.toJson();
 
+    // Set up fake store
+    MyStateStore sstore = new MyStateStore();
+    myStateMgr.setStateStore(sstore);
+    sstore.setStoredAuAgreements(AUID1, json);
+
+    // Fetch the AuAgreements that's in the DB
+    AuAgreements aua1 = stateMgr.getAuAgreements(AUID1);
+    assertAgreeTime(.8f, 400, aua1.findPeerAgreement(pid1, POR));
+    assertAgreeTime(.6f, 400, aua1.findPeerAgreement(pid1, POP));
+    assertAgreeTime(-1.0f, 0, aua1.findPeerAgreement(pid0, POP));
+    assertSame(aua1, stateMgr.getAuAgreements(AUID1));
+
+    // Fetch one with no data
+    AuAgreements aua2 = stateMgr.getAuAgreements(AUID2);
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid0, POP));
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid1, POP));
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid0, POR));
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid1, POR));
+
+    // Perform a json-only update from the service, ensure DB and
+    // existing AuAgreements instance get updated.
+    AuAgreements aua3 = stateMgr.newDefaultAuAgreements(AUID1);
+    aua3.signalPartialAgreement(pid0, POR, .9f, 800);
+    aua3.signalPartialAgreement(pid0, POP, .7f, 800);
+    String json3 = aua3.toJson(SetUtil.set(pid0));
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid0, POP));
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid0, POR));
+    assertAgreeTime(.8f, 400, aua1.findPeerAgreement(pid1, POR));
+    assertAgreeTime(.6f, 400, aua1.findPeerAgreement(pid1, POP));
+    stateMgr.updateAuAgreementsFromJson(AUID1, json3);
+    assertAgreeTime(.9f, 800, aua1.findPeerAgreement(pid0, POR));
+    assertAgreeTime(.7f, 800, aua1.findPeerAgreement(pid0, POP));
+    assertAgreeTime(.8f, 400, aua1.findPeerAgreement(pid1, POR));
+    assertAgreeTime(.6f, 400, aua1.findPeerAgreement(pid1, POP));
+
+    String storedjson = sstore.getStoredAuAgreements(AUID1);
+    assertMatchesRE("\"percentAgreement\":0.9", storedjson);
+    assertMatchesRE("\"percentAgreementTime\":800", storedjson);
   }
 
-
-  class MyStateStore implements StateStore {
-  
-    Map<String,String> austates = new HashMap<>();
-    Map<String,String> auagmnts = new HashMap<>();
-
-    @Override
-    public AuStateBean findArchivalUnitState(String auId)
-	throws DbException, IOException {
-      log.debug("findArchivalUnitState("+auId+") = "
-		+austates.get(auId));
-      return getAuState(auId);
-    }
-
-    @Override
-    public Long addArchivalUnitState(String auId, AuStateBean ausb)
-	throws DbException {
-      if (austates.containsKey(auId)) {
-	throw new IllegalStateException("Attempt to add but already exists: "
-					+ auId);
-      }
-      putAuState(auId, ausb);
-      return 1L;
-    }
-
-    void putAuState(String auId, AuStateBean ausb) {
-      try {
-	austates.put(auId, ausb.toJson());
-      } catch (IOException e) {
-	throw new RuntimeException(e);
-      }
-    }
-
-    AuStateBean getAuState(String auId) throws IOException {
-      String json = austates.get(auId);
-      if (json != null) {
-	return AuStateBean.fromJson(auId, json, daemon);
-      }
-      return null;
-    }
-
-
-
-    @Override
-    public Long updateArchivalUnitState(String auId, AuStateBean ausb,
-					Set<String> fields)
-	throws DbException {
-      if (!austates.containsKey(auId)) {
-	throw new IllegalStateException("Attempt to update but doesn't exist: "
-					+ auId);
-      }
-      putAuState(auId, ausb);
-      return 1L;
-    }
-
-    MyStateStore setStoredAuState(String auId, String json) {
-      austates.put(auId, json);
-      log.debug("setStoredAuState("+auId+", "+json+")");
-      return this;
-    }
-
-    String getStoredAuState(String auId) {
-      return austates.get(auId);
-    }
-
-    @Override
-    public AuAgreements findAuAgreements(String key)
-	throws IOException {
-      return getAuAgreeements(key);
-    }
-
-    @Override
-    public Long updateAuAgreements(String key, AuAgreements aua,
-				   Set<PeerIdentity> peers) {
-      if (!auagmnts.containsKey(key)) {
-	throw new IllegalStateException("Attempt to update but doesn't exist: "
-					+ key);
-      }
-      putAuAgreements(key, aua);
-      return 1L;
-    }
-
-    void putAuAgreements(String key, AuAgreements aua) {
-      try {
-	auagmnts.put(key, aua.toJson());
-      } catch (IOException e) {
-	throw new RuntimeException(e);
-      }
-    }
-
-    AuAgreements getAuAgreeements(String auId) throws IOException {
-      String json = auagmnts.get(auId);
-      if (json != null) {
-	return AuAgreements.fromJson(auId, json, daemon);
-      }
-      return null;
-    }
-
-  }
 }

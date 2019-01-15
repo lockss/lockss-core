@@ -41,7 +41,6 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.CachedUrlSet;
-import org.lockss.protocol.AuAgreements;
 import org.lockss.protocol.DatedPeerIdSet;
 import org.lockss.protocol.DatedPeerIdSetImpl;
 import org.lockss.protocol.IdentityManager;
@@ -88,11 +87,6 @@ public class HistoryRepositoryImpl
    * <p>The history file name.</p>
    */
   static final String HISTORY_FILE_NAME = "#history.xml";
-
-  /**
-   * <p>The identity agreement list file name.</p>
-   */
-  static final String IDENTITY_AGREEMENT_FILE_NAME = "#id_agreement.xml";
 
   /**
    * <p>Mapping file for polls.</p>
@@ -146,10 +140,6 @@ public class HistoryRepositoryImpl
       // this shouldn't happen
       rootLocation += File.separator;
     }
-  }
-
-  public File getIdentityAgreementFile() {
-    return new File(rootLocation, IDENTITY_AGREEMENT_FILE_NAME);
   }
 
   // XXXAUS need new way to implement this
@@ -221,39 +211,6 @@ public class HistoryRepositoryImpl
     return new DamagedNodeSet(storedAu, this);
   }
 
-  /**
-   * <p>Loads an identity agreement.</p>
-   * @return The saved {@link Object}, or {@code null} if no instance
-   * is found.
-   * @throws RepositoryStateException if an error condition arises
-   *                                  that is neither a file not found
-   *                                  exception nor a serialization
-   *                                  exception.
-   *
-   */
-  public Object loadIdentityAgreements() {
-    logger.debug3("Loading identity agreements for AU '" + storedAu.getName() + "'");
-    File idFile = getIdentityAgreementFile();
-    ObjectSerializer deserializer = makeObjectSerializer();
-    String errorString = "Could not load identity agreements for AU '" + storedAu.getName() + "'";
-    try {
-      return deserializer.deserialize(idFile);
-    }
-    catch (SerializationException.FileNotFound fnf) {
-      logger.debug2("No identities file for AU '" + storedAu.getName() + "'");
-      // drop down to return null
-    }
-    catch (SerializationException se) {
-      logger.error(errorString, se);
-      // drop down to return null
-    }
-    catch (InterruptedIOException exc) {
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-    return null;
-  }
-
   public void setAuConfig(Configuration auConfig) {
 
   }
@@ -306,25 +263,6 @@ public class HistoryRepositoryImpl
       throw new RepositoryStateException(errorString, exc);
     }
   }
-
-  /**
-   * <p>Stores an identity agreement instance.</p>
-   * @param auAgreements A {@link AuAgreements} instance.
-   */
-  public void storeIdentityAgreements(AuAgreements auAgreements) {
-    logger.debug3("Storing identity agreements for AU '" + storedAu.getName() + "'");
-    File file = prepareFile(rootLocation, IDENTITY_AGREEMENT_FILE_NAME);
-    ObjectSerializer serializer = makeObjectSerializer();
-    try {
-      serializer.serialize(file, auAgreements);
-    }
-    catch (Exception exc) {
-      String errorString = "Could not store identity agreements for AU '" + storedAu.getName() + "'";
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-  }
-
 
   /**
    * <p>Factory method to create new HistoryRepository instances.</p>

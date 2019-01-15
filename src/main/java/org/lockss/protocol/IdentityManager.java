@@ -78,19 +78,6 @@ public interface IdentityManager extends LockssManager {
     Configuration.PREFIX + "localV3Identity";
 
   /**
-   * <p>If true, restored agreement maps will be merged with any
-   * already-loaded map
-   */
-  public static final String PARAM_MERGE_RESTORED_AGREE_MAP =
-    Configuration.PREFIX + "id.mergeAgreeMap";
-
-  /**
-   * <p>The default value for the MERGE_RESTORED_AGREE_MAP
-   * parameter.</p>
-   */
-  public static final boolean DEFAULT_MERGE_RESTORED_AGREE_MAP = true;
-
-  /**
    * <p>The IDDB_DIR parameter.</p>
    */
   public static final String PARAM_IDDB_DIR = PREFIX + "database.dir";

@@ -36,7 +36,6 @@ import java.io.*;
 import java.util.List;
 import org.lockss.plugin.*;
 import org.lockss.protocol.DatedPeerIdSet;
-import org.lockss.protocol.AuAgreements;
 import org.lockss.repository.*;
 import org.lockss.app.LockssAuManager;
 
@@ -45,25 +44,6 @@ import org.lockss.app.LockssAuManager;
  * storage of NodeStates.
  */
 public interface HistoryRepository extends LockssAuManager {
-
-  /**
-   * Stores {@link AuAgreements}.
-   * @param auAgreements The {@link AuAgreements} for this AU.
-   */
-  public void storeIdentityAgreements(AuAgreements auAgreements)
-      throws LockssRepositoryException;
-
-  /**
-   * Loads and returns the saved {@link AuAgreements representing the agreements.
-   *
-   * @return an {@link AuAgreements}, or {@code null} if there are no saved
-   * agreements.
-   */
-  public Object loadIdentityAgreements() throws LockssRepositoryException;
-
-  /** Return identity agreement File for this AU
-   */
-  public File getIdentityAgreementFile();
 
   /**
    * Return the date/time the au was created.

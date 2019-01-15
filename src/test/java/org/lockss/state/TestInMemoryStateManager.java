@@ -30,50 +30,67 @@ package org.lockss.state;
 
 import org.junit.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
+import static org.lockss.protocol.AgreementType.*;
 import org.lockss.test.*;
 
-public class TestInMemoryStateManager extends LockssTestCase4 {
+public class TestInMemoryStateManager extends StateTestCase {
 
-  MockLockssDaemon daemon;
-  PluginManager pluginMgr;
-  InMemoryStateManager stateMgr;
-  MockPlugin mplug;
-  MockArchivalUnit mau1;
-  MockArchivalUnit mau2;
+  InMemoryStateManager myStateMgr;
 
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    daemon = getMockLockssDaemon();
-    pluginMgr = daemon.getPluginManager();
-//     pluginMgr.startService();
+  }
 
-    stateMgr = daemon.setUpStateManager(new InMemoryStateManager());
-    mplug = new MockPlugin(daemon);
-    mau1 = new MockArchivalUnit(mplug, "aaa1");
-    mau2 = new MockArchivalUnit(mplug, "aaa2");
+  @Override
+  protected StateManager makeStateManager() {
+    myStateMgr = new InMemoryStateManager();
+    return myStateMgr;
   }
 
   @Test
-  public void test1() {
-    AuState aus1 = AuUtil.getAuState(mau1);
-    AuState aus2 = AuUtil.getAuState(mau2);
+  public void testAuState() {
+    AuState aus1 = stateMgr.getAuState(mau1);
+    AuState aus2 = stateMgr.getAuState(mau2);
     assertNotSame(aus1, aus2);
-    assertSame(aus1, AuUtil.getAuState(mau1));
-    assertSame(aus2, AuUtil.getAuState(mau2));
+    assertSame(aus1, stateMgr.getAuState(mau1));
+    assertSame(aus2, stateMgr.getAuState(mau2));
     assertEquals(-1, aus1.getLastMetadataIndex());
     aus1.setLastMetadataIndex(123);
     aus2.setLastMetadataIndex(321);
     assertEquals(123, aus1.getLastMetadataIndex());
     assertEquals(321, aus2.getLastMetadataIndex());
-    assertSame(aus1, AuUtil.getAuState(mau1));
+    assertSame(aus1, stateMgr.getAuState(mau1));
 
     // after deactivate event, getAuState() should return a new instance
     // with the same values as the old instance
     auEvent(mau1, AuEvent.Type.Deactivate);
-    AuState aus1b = AuUtil.getAuState(mau1);
+    AuState aus1b = stateMgr.getAuState(mau1);
     assertNotSame(aus1, aus1b);
     assertEquals(123, aus1b.getLastMetadataIndex());
+  }
+
+  @Test
+  public void testAuAgreements() {
+    AuAgreements aua1 = stateMgr.getAuAgreements(AUID1);
+    AuAgreements aua2 = stateMgr.getAuAgreements(AUID2);
+    assertNotSame(aua1, aua2);
+    assertSame(aua1, stateMgr.getAuAgreements(AUID1));
+    assertSame(aua2, stateMgr.getAuAgreements(AUID2));
+    assertAgreeTime(-1.0f, 0, aua1.findPeerAgreement(pid1, POP));
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid1, POP));
+    aua1.signalPartialAgreement(pid1, POP, .6f, 400);
+    assertAgreeTime(0.6f, 400, aua1.findPeerAgreement(pid1, POP));
+    assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid1, POP));
+    assertSame(aua1, stateMgr.getAuAgreements(AUID1));
+
+    // after deactivate event, getAuAgreements() should return a new instance
+    // with the same values as the old instance
+    auEvent(mau1, AuEvent.Type.Deactivate);
+    AuAgreements aua1b = stateMgr.getAuAgreements(AUID1);
+    assertNotSame(aua1, aua1b);
+    assertAgreeTime(0.6f, 400, aua1.findPeerAgreement(pid1, POP));
   }
 
   void auEvent(ArchivalUnit au, AuEvent.Type type) {

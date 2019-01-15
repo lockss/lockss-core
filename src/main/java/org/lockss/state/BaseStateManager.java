@@ -194,6 +194,9 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
       case "AuState":
 	doReceiveAuStateChanged(auid, json);
 	break;
+      case "AuAgreements":
+	doReceiveAuAgreementsChanged(auid, json);
+	break;
       default:
 	log.warn("Receive state update for unknown object: {}", name);
       }

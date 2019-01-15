@@ -190,7 +190,7 @@ public class AuAgreements implements LockssSerializable {
       return pid;
     } catch (IdentityManager.MalformedIdentityKeyException e) {
 	throw new IllegalArgumentException("Illegal pid " + id +
-					   " in " + peerAgreements);
+					   " in " + peerAgreements, e);
     }
   }
 
