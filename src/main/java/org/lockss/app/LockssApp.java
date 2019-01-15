@@ -1024,7 +1024,7 @@ public class LockssApp {
       res = "org.lockss.state.ClientStateManager";
     } else if (CurrentConfig.getBooleanParam(ConfigManager.PARAM_ENABLE_JMS_SEND,
 				      false)) {
-      res = "org.lockss.state.ServerDbStateManager";
+      res = "org.lockss.state.ServerStateManager";
     } else {
       res = "org.lockss.state.PersistentStateManager";
     }
