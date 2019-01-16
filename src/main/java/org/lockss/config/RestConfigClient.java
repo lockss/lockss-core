@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -800,10 +800,10 @@ public class RestConfigClient {
   }
 
   /**
-   * Stores the configurations of an Archival Unit via the REST web service.
+   * Stores the configuration of an Archival Unit via the REST web service.
    * 
-   * @param auId
-   *          A String with the Archival Unit identifier.
+   * @param auConfiguration
+   *          An AuConfiguration with the Archival Unit configuration.
    * @return a Long with the key under which the Archival Unit configuration has
    *         been stored.
    */
@@ -830,7 +830,7 @@ public class RestConfigClient {
 
     // Create the request entity.
     HttpEntity<AuConfiguration> requestEntity =
-	new HttpEntity<AuConfiguration>(null, requestHeaders);
+	new HttpEntity<AuConfiguration>(auConfiguration, requestHeaders);
 
     // Make the request and get the response. 
     ResponseEntity<Long> response = getRestTemplate().exchange(uri,
@@ -853,6 +853,107 @@ public class RestConfigClient {
   }
 
   /**
+   * Provides the state of an Archival Unit obtained via the REST web
+   * service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a String with the Archival Unit state.
+   */
+  public String getArchivalUnitState(String auId) {
+    if (log.isDebug2()) log.debug2("auId = " + auId);
+
+    // Get the URL template.
+    String template = getAuConfigRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<String> response = getRestTemplate().exchange(uri,
+	HttpMethod.GET, requestEntity, String.class);
+
+    // Get the response status.
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+
+    String result = null;
+
+    if (!isSuccess(statusCode)) {
+// TODO: Return the error?
+      if (log.isDebug2()) log.debug2("result = " + result);
+      return result;
+    }
+
+    result = response.getBody();
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  /**
+   * Stores the state of an Archival Unit via the REST web service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param auState
+   *          A String with the Archival Unit state.
+   */
+  public void patchArchivalUnitState(String auId, String auState) {
+    if (log.isDebug2()) {
+      log.debug2("auId = " + auId);
+      log.debug2("auState = " + auState);
+    }
+
+    // Get the URL template.
+    String template = getAuStateRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(auState, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<Void> response = getRestTemplate().exchange(uri,
+	HttpMethod.PUT, requestEntity, Void.class);
+
+    // Get the response status.
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+
+    if (!isSuccess(statusCode)) {
+// TODO: Return the error?
+    }
+  }
+
+  /**
    * Provides the URL needed to read from, or write to, the REST Configuration
    * Service the configuration of a section.
    * 
@@ -872,6 +973,16 @@ public class RestConfigClient {
    */
   private String getAuConfigRequestUrl() {
     return serviceLocation + "/aus/{auid}";
+  }
+
+  /**
+   * Provides the URL needed to read from, or write to, the REST Configuration
+   * Service the state of an Archival Unit.
+   * 
+   * @return a String with the URL.
+   */
+  private String getAuStateRequestUrl() {
+    return serviceLocation + "/austates/{auid}";
   }
 
   /**

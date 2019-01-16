@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -89,7 +89,15 @@ public class ClientStateManager extends CachingStateManager {
 				    Set<String> fields) {
 
     // XXXFGL send PATCH with json diffs
+    String auState = null;
 
+    try {
+      auState = ausb.toJson();
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuState: {}", ausb, e);
+    }
+
+    configMgr.getRestConfigClient().patchArchivalUnitState(key, auState);
   }
 
   @Override
@@ -97,6 +105,16 @@ public class ClientStateManager extends CachingStateManager {
     AuStateBean res = null;
 
     // XXXFGL send GET, return null if server responds w/ 404
+    String auState = configMgr.getRestConfigClient().getArchivalUnitState(key);
+    log.debug2("austate = {}", auState);
+
+    if (auState != null) {
+      try {
+	res = new AuStateBean().updateFromJson(auState, daemon);
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuState: {}", auState, e);
+      }
+    }
 
     return res;
   }
