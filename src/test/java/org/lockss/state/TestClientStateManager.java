@@ -194,8 +194,8 @@ public class TestClientStateManager extends StateTestCase {
     }
 
     @Override
-    protected void doStoreAuStateBeanUpdate(String key, AuStateBean ausb,
-					    Set<String> fields) {
+    protected void doStoreAuStateBean(String key, AuStateBean ausb,
+				      Set<String> fields) {
     }
 
     @Override

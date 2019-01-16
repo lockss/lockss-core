@@ -84,9 +84,9 @@ public class ClientStateManager extends CachingStateManager {
 
   /** Send the changes to the StateService */
   @Override
-  protected void doStoreAuStateBeanUpdate(String key,
-                                          AuStateBean ausb,
-					  Set<String> fields) {
+  protected void doStoreAuStateBean(String key,
+				    AuStateBean ausb,
+				    Set<String> fields) {
 
     // XXXFGL send PATCH with json diffs
 

@@ -268,25 +268,16 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   // Hooks to be implemented by subclasses
 
-  /** Hook for subclass to store a new AuState in persistent storage.  Any
-   * of the three data sources may be used.
-   * @param key AUID or other key for AU
-   * @param aus AuState data source
-   */
-  protected void doStoreAuStateBeanNew(String key,
-                                       AuStateBean ausb) {
-  }
-
-  /** Hook for subclass to update an existing AuStateBean in persistent storage.
-   * Any of the three data sources may be used.  Only those fields present
-   * in the Map or the json string should be saved.
+  /** Hook for subclass to store or update an AuStateBean in persistent
+   * storage.  If <code>fields</code> is a non-empty set, Only those fields
+   * named in it should be updated.
    * @param key AUID or other key for AU
    * @param aus AuStateBean data source
-   * @param fields The fields being updated
+   * @param fields The fields to store, or null to store all fields
    */
-  protected void doStoreAuStateBeanUpdate(String key,
-                                          AuStateBean ausb,
-                                          Set<String> fields) {
+  protected void doStoreAuStateBean(String key,
+				    AuStateBean ausb,
+				    Set<String> fields) {
   }
 
   /** Hook for subclass to read an AuStateBean instance from persistent

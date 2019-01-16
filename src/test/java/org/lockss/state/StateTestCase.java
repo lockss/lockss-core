@@ -148,17 +148,6 @@ public abstract class StateTestCase extends LockssTestCase4 {
       return getAuState(auId);
     }
 
-    @Override
-    public Long addArchivalUnitState(String auId, AuStateBean ausb)
-	throws StoreException {
-      if (austates.containsKey(auId)) {
-	throw new IllegalStateException("Attempt to add but already exists: "
-					+ auId);
-      }
-      putAuState(auId, ausb);
-      return 1L;
-    }
-
     void putAuState(String auId, AuStateBean ausb) {
       try {
 	austates.put(auId, ausb.toJson());
@@ -180,8 +169,7 @@ public abstract class StateTestCase extends LockssTestCase4 {
 					Set<String> fields)
 	throws StoreException {
       if (!austates.containsKey(auId)) {
-	throw new IllegalStateException("Attempt to update but doesn't exist: "
-					+ auId);
+	log.debug("Storing new AuStateBean: {}", auId);
       }
       putAuState(auId, ausb);
       return 1L;

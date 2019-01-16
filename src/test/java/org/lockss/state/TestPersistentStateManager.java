@@ -86,7 +86,7 @@ public class TestPersistentStateManager extends StateTestCase {
     AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(key1);
     String json1 = ausb1.toJsonExcept("auCreationTime");
 
-    stateMgr.doStoreAuStateBeanNew(key1, ausb1); // gets new creation time
+    stateMgr.doStoreAuStateBean(key1, ausb1, null); // gets new creation time
 
     AuStateBean ausb1b = stateMgr.doLoadAuStateBean(key1);
     assertEquals(100L, ausb1b.getAuCreationTime());
@@ -102,7 +102,7 @@ public class TestPersistentStateManager extends StateTestCase {
     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
     String json2 = ausb2.toJson();
 
-    stateMgr.doStoreAuStateBeanNew(key2, ausb2); // has existing creation time
+    stateMgr.doStoreAuStateBean(key2, ausb2, null); // has existing creation time
 
     AuStateBean ausb2b = stateMgr.doLoadAuStateBean(key2);
     String json2b = ausb2b.toJson();
@@ -111,7 +111,7 @@ public class TestPersistentStateManager extends StateTestCase {
     // Update a record
     ausb2.setAverageHashDuration(1234L);
     json2 = ausb2.toJson();
-    stateMgr.doStoreAuStateBeanUpdate(key2, ausb2,
+    stateMgr.doStoreAuStateBean(key2, ausb2,
 	SetUtil.set("averageHashDuration"));
     AuStateBean ausb2c = stateMgr.doLoadAuStateBean(key2);
     String json2c = ausb2c.toJson();

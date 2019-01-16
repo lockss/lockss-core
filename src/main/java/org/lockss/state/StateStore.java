@@ -53,9 +53,6 @@ public interface StateStore {
   public AuStateBean findArchivalUnitState(String key)
       throws StoreException, IOException;
 
-  public Long addArchivalUnitState(String key, AuStateBean ausb)
-      throws StoreException;
-
   /** Update an AuStateBean in the store, creating it if not already
    * present.  If already present, only those fields listed in
    * <code>fields</code> must be stored, but it it permissible to ignore

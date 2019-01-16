@@ -49,33 +49,6 @@ public class PersistentStateManager extends CachingStateManager {
   // AuState
   // /////////////////////////////////////////////////////////////////
 
-  /** Hook to store a new AuState in the DB.
-   * @param key the auid
-   * @param aus the AuState object, may be null
-   * @param json the serialized set of changes
-   * @throws IllegalStateException if this key is already present in the DB
-   */
-  @Override
-  protected void doStoreAuStateBeanNew(String key,
-                                       AuStateBean ausb)
-      throws StateLoadStoreException {
-    log.debug2("key = {}", key);
-    log.debug2("ausb = {}", ausb);
-
-    try {
-      Long auSeq =
-	  getStateStore().addArchivalUnitState(key, ausb);
-      log.trace("auSeq = {}", auSeq);
-    } catch (StoreException se) {
-      String message = "Exception caught persisting new AuState";
-      log.error("key = {}", key);
-      log.error("ausb = {}", ausb);
-      throw new StateLoadStoreException(message, se);
-    }
-
-    log.debug2("Done");
-  }
-
   /** Hook to store the changes to the AuState in the DB.
    * @param key the auid
    * @param aus the AuState object, may be null
@@ -83,9 +56,9 @@ public class PersistentStateManager extends CachingStateManager {
    * @param map Map representation of change fields.
    */
   @Override
-  protected void doStoreAuStateBeanUpdate(String key,
-                                          AuStateBean ausb,
-					  Set<String> fields)
+  protected void doStoreAuStateBean(String key,
+				    AuStateBean ausb,
+				    Set<String> fields)
       throws StateLoadStoreException {
     log.debug2("key = {}", key);
     log.debug2("ausb = {}", ausb);

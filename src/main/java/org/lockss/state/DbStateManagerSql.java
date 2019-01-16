@@ -428,15 +428,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   @Override
-  public Long addArchivalUnitState(String key,
-				   AuStateBean ausb)
-      throws DbException {
-    return updateArchivalUnitState(PluginManager.pluginIdFromAuId(key),
-				   PluginManager.auKeyFromAuId(key),
-				   ausb);
-  }
-
-  @Override
   public Long updateArchivalUnitState(String key,
 				      AuStateBean ausb,
 				      Set<String> fields)
