@@ -41,7 +41,7 @@ import org.lockss.app.*;
 import org.lockss.protocol.IdentityManager;
 import org.lockss.plugin.*;
 import org.lockss.repository.LockssRepositoryException;
-import org.lockss.state.*;;
+import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.util.io.LockssSerializable;
 
@@ -64,7 +64,7 @@ public class AuAgreements implements LockssSerializable {
   private Map<PeerIdentity, PeerAgreements> map;
 
   @JsonIgnore
-  private IdentityManager idMgr;
+  private final IdentityManager idMgr;
 
   private AuAgreements(String auid, IdentityManager idMgr) {
     this.auid = auid;
@@ -74,14 +74,24 @@ public class AuAgreements implements LockssSerializable {
 
   /**
    * Create a new instance.
-   * @param hRep The {@link HistoryRepository} to use.
+   * @param auid The AUID
    * @param idMgr A {@link IdentityManager} to translate {@link
    * String}s to {@link PeerIdentity} instances.
    */
-  @JsonCreator
-  public static AuAgreements make(@JsonProperty("auid") String auid,
-				  @JsonProperty("idMgr") IdentityManager idMgr) {
+  public static AuAgreements make(String auid, IdentityManager idMgr) {
     AuAgreements auAgreements = new AuAgreements(auid, idMgr);
+    return auAgreements;
+  }
+
+  /**
+   * Factory method for json/Jackson.  This creates a "bean" instance which
+   * is used only as a source from which to copy PeerAgreements, then it is
+   * discarded.  Hence, idMgr is not needed.
+   * @param auid The AUID
+   */
+  @JsonCreator
+  public static AuAgreements make(@JsonProperty("auid") String auid) {
+    AuAgreements auAgreements = new AuAgreements(auid, null);
     return auAgreements;
   }
 
@@ -121,7 +131,9 @@ public class AuAgreements implements LockssSerializable {
   public synchronized Set<PeerIdentity> updateFromJson(String json,
 						       LockssApp app)
       throws IOException {
+    // Deserialize json into a new, scratch instance
     AuAgreements srcAgmnts = AuUtil.auAgreementsFromJson(json);
+    // Copy the PeerAgreements from its rawMap into our map
     Set<PeerIdentity> res = new HashSet<>();
     for (PeerAgreements pas : srcAgmnts.rawMap.values()) {
       res.add(setPeerAgreements(pas));
