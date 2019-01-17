@@ -93,7 +93,8 @@ public class ConfigManagerSql {
       + "," + LAST_UPDATE_TIME_COLUMN
       + ") values (default,?,?,?,?)";
 
-  // Query to find the configurations of all the Archival Units.
+  // Query to find the configurations of all the Archival Units that have a
+  // configuration.
   private static final String GET_ALL_AU_CONFIGURATION_QUERY = "select "
       + "p." + PLUGIN_ID_COLUMN
       + ", a." + ARCHIVAL_UNIT_KEY_COLUMN
@@ -102,10 +103,10 @@ public class ConfigManagerSql {
       + ", ac." + CONFIG_VALUE_COLUMN
       + " from " + PLUGIN_TABLE + " p"
       + ", " + ARCHIVAL_UNIT_TABLE + " a"
-      + " left outer join " + ARCHIVAL_UNIT_CONFIG_TABLE + " ac"
-      + " on a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = ac."
-      + ARCHIVAL_UNIT_SEQ_COLUMN
+      + ", " + ARCHIVAL_UNIT_CONFIG_TABLE + " ac"
       + " where p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
+      + " and a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = ac."
+      + ARCHIVAL_UNIT_SEQ_COLUMN
       + " order by a." + ARCHIVAL_UNIT_SEQ_COLUMN;
 
   // Query to find the configurations of an Archival Unit.
