@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -295,16 +295,14 @@ public class RemoteApi
    * @param aup the AuProxy
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
-   * @return a Long with the key under which the AU configuration has been
-   *         saved.
    * @throws ArchivalUnit.ConfigurationException
    * @throws IOException
    */
-  public Long setAndSaveAuConfiguration(AuProxy aup,
+  public void setAndSaveAuConfiguration(AuProxy aup,
 					Configuration auConf)
       throws ArchivalUnit.ConfigurationException, DbException {
     ArchivalUnit au = aup.getAu();
-    return pluginMgr.setAndSaveAuConfiguration(au, auConf);
+    pluginMgr.setAndSaveAuConfiguration(au, auConf);
   }
 
   /**

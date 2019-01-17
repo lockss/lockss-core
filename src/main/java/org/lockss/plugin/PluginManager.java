@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1795,15 +1795,13 @@ public class PluginManager
    * @param au the AU
    * @param auProps the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
-   * @return a Long with the key under which the AU configuration has been
-   *         saved.
    * @throws ArchivalUnit.ConfigurationException
    * @throws IOException
    */
-  public Long setAndSaveAuConfiguration(ArchivalUnit au,
+  public void setAndSaveAuConfiguration(ArchivalUnit au,
 					Properties auProps)
       throws ArchivalUnit.ConfigurationException, DbException {
-    return setAndSaveAuConfiguration(au,
+    setAndSaveAuConfiguration(au,
 			      ConfigManager.fromPropertiesUnsealed(auProps));
   }
 
@@ -1813,23 +1811,20 @@ public class PluginManager
    * @param au the AU
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
-   * @return a Long with the key under which the AU configuration has been
-   *         saved.
    * @throws ArchivalUnit.ConfigurationException
    * @throws IOException
    */
-  public Long setAndSaveAuConfiguration(ArchivalUnit au,
+  public void setAndSaveAuConfiguration(ArchivalUnit au,
 					Configuration auConf)
       throws ArchivalUnit.ConfigurationException, DbException {
     synchronized (auAddDelLock) {
       log.debug("Reconfiguring AU " + au);
       au.setConfiguration(auConf);
-      Long auSeq = updateAuIndatabase(au, auConf);
-      return auSeq;
+      updateAuIndatabase(au, auConf);
     }
   }
 
-  private Long updateAuIndatabase(ArchivalUnit au, Configuration auConf)
+  private void updateAuIndatabase(ArchivalUnit au, Configuration auConf)
       throws DbException {
     if (!auConf.isEmpty()) {
       if (!auConf.isSealed()) {
@@ -1839,28 +1834,23 @@ public class PluginManager
 		  new Throwable());
       }
     }
-    Long auSeq = updateAuInDatabase(au.getAuId(), auConf);
-    return auSeq;
+    updateAuInDatabase(au.getAuId(), auConf);
   }
 
-  public Long updateAuInDatabase(AuConfiguration auConfiguration)
+  public void updateAuInDatabase(AuConfiguration auConfiguration)
       throws DbException {
     synchronized (auAddDelLock) {
-      Long auSeq = configMgr.storeArchivalUnitConfiguration(auConfiguration);
-      if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
-      return auSeq;
+      configMgr.storeArchivalUnitConfiguration(auConfiguration);
     }
   }
 
-  public Long updateAuInDatabase(String auid, Configuration auConf)
+  public void updateAuInDatabase(String auid, Configuration auConf)
       throws DbException {
     String prefix = auConfigPrefix(auid);
     Configuration fqConfig = auConf.addPrefix(prefix);
     synchronized (auAddDelLock) {
-      Long auSeq = configMgr.storeArchivalUnitConfiguration(
+      configMgr.storeArchivalUnitConfiguration(
 	  AuConfigurationUtils.fromConfiguration(prefix, fqConfig));
-      if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
-      return auSeq;
     }
   }
 

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -706,12 +706,11 @@ public class TestRemoteApi extends LockssTestCase {
       return mau;
     }
 
-    public Long setAndSaveAuConfiguration(ArchivalUnit au,
+    public void setAndSaveAuConfiguration(ArchivalUnit au,
 					  Configuration auConf)
 	throws ArchivalUnit.ConfigurationException {
       actions.add(new Pair(au, auConf));
       au.setConfiguration(auConf);
-      return null;
     }
 
     public void deleteAuConfiguration(String auid) {

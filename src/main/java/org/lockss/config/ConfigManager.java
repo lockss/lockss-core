@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -3903,11 +3903,10 @@ public class ConfigManager implements LockssManager {
    * @param auConfiguration
    *          An AuConfiguration with the Archival Unit configuration to be
    *          stored.
-   * @return a Long with the database identifier of the Archival Unit.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public Long storeArchivalUnitConfiguration(AuConfiguration auConfiguration)
+  public void storeArchivalUnitConfiguration(AuConfiguration auConfiguration)
       throws DbException {
     if (log.isDebug2()) log.debug2("auConfiguration = " + auConfiguration);
 
@@ -3929,20 +3928,15 @@ public class ConfigManager implements LockssManager {
       throw new IllegalArgumentException("Empty ArchivalUnit configuration");
     }
 
-    Long result = null;
-
     if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      result = restConfigClient.putArchivalUnitConfiguration(auConfiguration);
+      restConfigClient.putArchivalUnitConfiguration(auConfiguration);
     } else {
-      result = getConfigManagerSql().addArchivalUnitConfiguration(pluginId,
-	  auKey, auConfig);
+      getConfigManagerSql().addArchivalUnitConfiguration(pluginId, auKey,
+	  auConfig);
     }
-
-    if (log.isDebug2()) log.debug2("result = " + result);
-    return result;
   }
 
   /**
