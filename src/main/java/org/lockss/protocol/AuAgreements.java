@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -93,6 +89,13 @@ public class AuAgreements implements LockssSerializable {
   public static AuAgreements make(@JsonProperty("auid") String auid) {
     AuAgreements auAgreements = new AuAgreements(auid, null);
     return auAgreements;
+  }
+
+  /**
+   * @return the AUID
+   */
+  public String getAuid() {
+    return auid;
   }
 
   /** Serialize entire object to json string */

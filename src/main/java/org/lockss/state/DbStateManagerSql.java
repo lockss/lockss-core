@@ -57,8 +57,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
 
   // Query to retrieve an AU state string
   private static final String GET_AU_STATE_QUERY = "select "
-      + "a." + ARCHIVAL_UNIT_SEQ_COLUMN
-      + ", a." + CREATION_TIME_COLUMN
+      + "a." + CREATION_TIME_COLUMN
       + ", s." + STATE_STRING_COLUMN
       + " from " + PLUGIN_TABLE + " p"
       + ", " + ARCHIVAL_UNIT_TABLE + " a"
@@ -80,7 +79,31 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
       + "," + STATE_STRING_COLUMN
       + ") values (?,?)";
-  
+
+  // Query to retrieve an AU poll agreements string.
+  private static final String GET_AU_AGREEMENTS_QUERY = "select "
+      + "s." + AGREEMENTS_STRING_COLUMN
+      + " from " + PLUGIN_TABLE + " p"
+      + ", " + ARCHIVAL_UNIT_TABLE + " a"
+      + ", " + ARCHIVAL_UNIT_AGREEMENTS_TABLE + " s"
+      + " where p." + PLUGIN_ID_COLUMN + " = ?"
+      + " and p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
+      + " and a." + ARCHIVAL_UNIT_KEY_COLUMN + " = ?"
+      + " and a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = s."
+      + ARCHIVAL_UNIT_SEQ_COLUMN;
+
+  // Query to delete the poll agreements of an AU.
+  private static final String DELETE_AU_AGREEMENTS_QUERY = "delete from "
+      + ARCHIVAL_UNIT_AGREEMENTS_TABLE
+      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
+
+  // Query to add an AU poll agreements string.
+  private static final String ADD_AU_AGREEMENTS_QUERY = "insert into "
+      + ARCHIVAL_UNIT_AGREEMENTS_TABLE
+      + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + "," + AGREEMENTS_STRING_COLUMN
+      + ") values (?,?)";
+
   /**
    * Constructor.
    * 
@@ -104,8 +127,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public String findArchivalUnitState(String pluginId,
-                                      String auKey)
+  private String findArchivalUnitState(String pluginId,
+                                       String auKey)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
@@ -142,9 +165,9 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public String findArchivalUnitState(Connection conn,
-                                      String pluginId,
-                                      String auKey)
+  private String findArchivalUnitState(Connection conn,
+                                       String pluginId,
+                                       String auKey)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
@@ -322,9 +345,9 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public Long updateArchivalUnitState(String pluginId,
-                                      String auKey,
-                                      AuStateBean ausb)
+  private Long updateArchivalUnitState(String pluginId,
+                                       String auKey,
+                                       AuStateBean ausb)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
@@ -372,10 +395,10 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public Long updateArchivalUnitState(Connection conn,
-                                      String pluginId,
-                                      String auKey,
-                                      AuStateBean ausb)
+  private Long updateArchivalUnitState(Connection conn,
+                                       String pluginId,
+                                       String auKey,
+                                       AuStateBean ausb)
           throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
@@ -438,19 +461,329 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   @Override
-  public AuAgreements findAuAgreements(String key) {
-    return null;
+  public AuAgreements findAuAgreements(String key)
+      throws DbException, IOException {
+    String json = findArchivalUnitAgreements(
+	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
+
+    AuAgreements res = null;
+
+    if (json != null) {
+      res = AuAgreements.fromJson(key, json, LockssDaemon.getLockssDaemon());
+    }
+
+    return res;
   }
 
   @Override
   public Long updateAuAgreements(String key,
 				 AuAgreements aua,
-				 Set<PeerIdentity> peers) {
-    return 0L;
+				 Set<PeerIdentity> peers) throws DbException {
+    return updateArchivalUnitAgreements(PluginManager.pluginIdFromAuId(key),
+	PluginManager.auKeyFromAuId(key), aua);
   }
-
 
   protected static final Set<String> auId_auCreationTime =
       Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("auId", "auCreationTime")));
-  
+
+  /**
+   * Provides the poll agreements of an Archival Unit stored in the database.
+   * 
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a String with the Archival Unit poll agreements.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private String findArchivalUnitAgreements(String pluginId, String auKey)
+      throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      // Get the poll agreements of the Archival Unit, if it exists.
+      return findArchivalUnitAgreements(conn, pluginId, auKey);
+    } catch (DbException dbe) {
+      String message = "Cannot find AU poll agreements";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Provides the poll agreements of an Archival Unit stored in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a String with the Archival Unit poll agreements.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private String findArchivalUnitAgreements(Connection conn, String pluginId,
+      String auKey) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    String result = null;
+    PreparedStatement getAuAgreements = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get AU poll agreements";
+
+    try {
+      // Prepare the query.
+      getAuAgreements =
+	  configDbManager.prepareStatement(conn, GET_AU_AGREEMENTS_QUERY);
+
+      // Populate the query.
+      getAuAgreements.setString(1, pluginId);
+      getAuAgreements.setString(2, auKey);
+
+      // Get the configuration of the Archival Unit.
+      resultSet = configDbManager.executeQuery(getAuAgreements);
+
+      // Get the single result, if any.
+      if (resultSet.next()) {
+	result = resultSet.getString(AGREEMENTS_STRING_COLUMN);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_AU_AGREEMENTS_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", GET_AU_AGREEMENTS_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(getAuAgreements);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Updates the poll agreements of an Archival Unit in the database.
+   * 
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param aua
+   *          An {@link AuAgreements} with the poll agreements.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long updateArchivalUnitAgreements(String pluginId, String auKey,
+      AuAgreements aua) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("aua = {}", aua);
+
+    Long result = null;
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      // Update the poll agreements.
+      result = updateArchivalUnitAgreements(conn, pluginId, auKey, aua);
+
+      // Commit the transaction.
+      ConfigDbManager.commitOrRollback(conn, log);
+    } catch (DbException dbe) {
+      String message = "Cannot update AU poll agreements";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("aua = {}", aua);
+      throw dbe;
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Updates the poll agreements of an Archival Unit in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param aua
+   *          An {@link AuAgreements} with the poll agreements.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long updateArchivalUnitAgreements(Connection conn, String pluginId,
+      String auKey, AuAgreements aua) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("aua = {}", aua);
+
+    Long auSeq = null;
+
+    try {
+      // Find the Archival Unit plugin.
+      Long pluginSeq = findOrCreatePlugin(conn, pluginId);
+
+      // The current time.
+      long now = TimeBase.nowMs();
+
+      // Find the Archival Unit, adding it if necessary.
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+
+      // Delete any existing poll agreements of the Archival Unit.
+      int deletedCount = deleteArchivalUnitAgreements(conn, auSeq);
+      log.trace("deletedCount = {}", deletedCount);
+
+      // Add the new poll agreements of the Archival Unit.
+      int addedCount = addArchivalUnitAgreements(conn, auSeq, aua);
+      log.trace("addedCount = {}", addedCount);
+    } catch (DbException dbe) {
+      String message = "Cannot update AU poll agreements";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("aua = {}", aua);
+      throw dbe;
+    }
+
+    log.debug2("auSeq = {}", auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Deletes from the database the poll agreements of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the database identifier of the Archival Unit.
+   * @return an int with the count of database rows deleted.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private int deleteArchivalUnitAgreements(Connection conn, Long auSeq)
+      throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+
+    int result = -1;
+    PreparedStatement deleteAgreements = null;
+    String errorMessage = "Cannot delete Archival Unit poll agreements";
+
+    try {
+      // Prepare the query.
+      deleteAgreements =
+	  configDbManager.prepareStatement(conn, DELETE_AU_AGREEMENTS_QUERY);
+
+      // Populate the query.
+      deleteAgreements.setLong(1, auSeq);
+
+      // Execute the query
+      result = configDbManager.executeUpdate(deleteAgreements);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", DELETE_AU_AGREEMENTS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", DELETE_AU_AGREEMENTS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(deleteAgreements);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Adds to the database the poll agreements of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the database identifier of the Archival Unit.
+   * @param aua
+   *          An {@link AuAgreements} with the poll agreements.
+   * @return an int with the count of database rows added.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private int addArchivalUnitAgreements(Connection conn, Long auSeq,
+      AuAgreements aua) throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+    log.debug2("aua = {}", aua);
+
+    PreparedStatement addAgreements = null;
+    String errorMessage = "Cannot add Archival Unit poll agreements";
+
+    try {
+      // Convert to JSON
+      String json = aua.toJson();
+      
+      // Prepare the query.
+      addAgreements =
+	  configDbManager.prepareStatement(conn, ADD_AU_AGREEMENTS_QUERY);
+
+      // Populate the query.
+      addAgreements.setLong(1, auSeq);
+      addAgreements.setString(2, json);
+
+      // Execute the query
+      int count = configDbManager.executeUpdate(addAgreements);
+      log.debug2("addedCount = {}", count);
+      return count;
+    } catch (IOException ioe) {
+      log.error(errorMessage, ioe);
+      log.error("SQL = '{}'.", ADD_AU_AGREEMENTS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("aua = {}", aua);
+      throw new DbException(errorMessage, ioe);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", ADD_AU_AGREEMENTS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("aua = {}", aua);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", ADD_AU_AGREEMENTS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("aua = {}", aua);
+      throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(addAgreements);
+    }
+  }
 }
