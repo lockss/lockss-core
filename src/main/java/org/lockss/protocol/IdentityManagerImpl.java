@@ -953,14 +953,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   }
 
   /**
-   * @deprecated
-   */
-  public IdentityListBean getIdentityListBean() {
-    throw new UnsupportedOperationException("getIdentityListBean() has " + "" +
-    		                            "been deprecated.");
-  }
-
-  /**
    * <p>Return a collection o all V1-style PeerIdentities.</p>
    */
   public Collection getUdpPeerIdentities() {

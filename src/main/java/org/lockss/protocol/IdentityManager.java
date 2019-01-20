@@ -327,14 +327,6 @@ public interface IdentityManager extends LockssManager {
   public void writeIdentityDbTo(OutputStream out) throws IOException;
 
   /**
-   * Deprecated as of daemon 1.25.  There are currently no callers of this
-   * method.  Please remove after a few daemon releases.
-   * 
-   * @deprecated
-   */
-  public IdentityListBean getIdentityListBean();
-
-  /**
    * Return a list of all known UDP (suitable for V1) peer identities.
    */
   public Collection getUdpPeerIdentities();

@@ -187,12 +187,6 @@ public class MockIdentityManager implements IdentityManager {
   }
 
 
-  /** @deprecated */
-  @Override
-  public IdentityListBean getIdentityListBean() {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
   @Override
   public void signalAgreed(PeerIdentity pid, ArchivalUnit au) {
     throw new UnsupportedOperationException("not implemented");
