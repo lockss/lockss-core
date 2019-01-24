@@ -173,9 +173,54 @@ public class TestConfigManager extends LockssTestCase4 {
     String u1 = FileTestUtil.urlOfString(c1);
     assertTrue(mgr.updateConfig(ListUtil.list(u1)));
     assertTrue(mgr.haveConfig());
-    assertNull(cons.receiveText(TIMEOUT_SHOULD));
+    assertNull(cons.receiveMap(TIMEOUT_SHOULD));
     ConfigurationUtil.addFromArgs("sdflj", "sldfkj");
-    assertEquals("now", cons.receiveText(TIMEOUT_SHOULDNT));
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB,
+			     "GlobalConfigChanged"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+  }
+
+  // Verify that receiving various config changed JMS messages triggers
+  // config callback
+  @Test
+  public void testReceiveNotify() throws IOException, JMSException {
+    Producer prod =
+      Producer.createTopicProducer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    mymgr.setShouldReceiveNotifications("yes");
+    mymgr.setUpJmsNotifications();
+
+    SimpleQueue notifications = new SimpleQueue.Fifo();
+
+    mymgr.registerConfigurationCallback(new Configuration.Callback() {
+	public void configurationChanged(Configuration newConfig,
+					 Configuration oldConfig,
+					 Configuration.Differences diffs) {
+	  notifications.put("ConfigChanged");
+	}
+	public void auConfigChanged(String auid) {
+	  notifications.put("AuChanged");
+	}
+	public void auConfigRemoved(String auid) {
+	  notifications.put("AuRemoved");
+	}
+      });
+
+    prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB,
+			     "GlobalConfigChanged"));
+
+    // Not expecting configurationChanged() to have been called, as it's
+    // called by the config reload thread after the config has been
+    // reloaded.
+    assertNull(notifications.get(TIMEOUT_SHOULD));
+
+    // AuConfigStored and AuConfigRemoved notifications should call
+    // callback to be called
+    prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "AU&IDIDID"));
+    assertEquals("AuChanged", notifications.get(TIMEOUT_SHOULDNT));
+    prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigRemoved",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "AU&IDIDID"));
+    assertEquals("AuRemoved", notifications.get(TIMEOUT_SHOULDNT));
   }
 
   volatile Configuration.Differences cbDiffs = null;
@@ -1199,6 +1244,11 @@ public class TestConfigManager extends LockssTestCase4 {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  tmpdir);
 
+    Consumer cons =
+      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    mymgr.setShouldSendNotifications("yes");
+    mymgr.setUpJmsNotifications();
+
     System.setProperty("derby.stream.error.file",
 	new File(tmpdir, "derby.log").getAbsolutePath());
 
@@ -1231,6 +1281,10 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals("222", auConfig.get("bar"));
     assertEquals("333", auConfig.get("baz"));
 
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+
     // A second AU.
     p = new Properties();
     p.put("org.lockss.au.other.auid.foo", "11");
@@ -1239,6 +1293,10 @@ public class TestConfigManager extends LockssTestCase4 {
     // Store it.
     mgr.storeArchivalUnitConfiguration(AuConfigurationUtils.fromConfiguration(
 	"org.lockss.au.other.auid", fromProperties(p)));
+
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "other&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
     // Check that the AU has been stored.
     assertEquals(2, mgr.retrieveAllArchivalUnitConfiguration().size());
@@ -1265,6 +1323,10 @@ public class TestConfigManager extends LockssTestCase4 {
     mgr.storeArchivalUnitConfiguration(AuConfigurationUtils.fromConfiguration(
 	"org.lockss.au.foo.auid", fromProperties(p)));
 
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+
     // Check that the AU has been stored.
     assertEquals(2, mgr.retrieveAllArchivalUnitConfiguration().size());
     auConfiguration = mgr.retrieveArchivalUnitConfiguration("foo&auid");
@@ -1280,6 +1342,11 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(2, auConfig.size());
     assertEquals("11", auConfig.get("foo"));
     assertEquals("22", auConfig.get("bar"));
+
+    mgr.removeArchivalUnitConfiguration("foo&auid");
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigRemoved",
+			     "auid", "foo&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
   }
 
   @Test
@@ -2118,6 +2185,10 @@ public class TestConfigManager extends LockssTestCase4 {
 
     void setShouldSendNotifications(String val) {
       sendNotifications = val;
+    }
+
+    void setShouldReceiveNotifications(String val) {
+      receiveNotifications = val;
     }
 
     @Override

@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,35 +30,24 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.app;
+package org.lockss.util;
 
-import org.lockss.config.Configuration;
-
-/** Managers that implement this interface will have a
- * Configuration.Callback registered for them which calls {@link
- * #setConfig(Configuration, Configuration, Configuration.Differences)} */
-public interface ConfigurableManager {
-
-  /** ConfigurableManagers must implement this method.  It is called once
-   * at app init time (during initService()) and again whenever the current
-   * configuration changes.  This method should not invoke other services
-   * unless isAppInited() is true.
-   * @param newConfig the new {@link Configuration}
-   * @param prevConfig the previous {@link Configuration}
-   * @param changedKeys the keys whose values have changed
-   */
-  void setConfig(Configuration newConfig,
-		 Configuration prevConfig,
-		 Configuration.Differences changedKeys);
-
-  /** Optional method to receive notifications that an AU's configuration
-   * has been set (created anew or changed). */
-  default public void auConfigChanged(String auid) {
+/** RuntimeException thrown in response to thread interrupt in contexts
+ * where InterruptedException can't be thrown. */
+public class RuntimeInterruptedException extends RuntimeException {
+  public RuntimeInterruptedException() {
+    super();
   }
 
-  /** Optional method to receive notifications that an AU's configuration
-   * has been deleted. */
-  default public void auConfigRemoved(String auid) {
+  public RuntimeInterruptedException(String msg) {
+    super(msg);
+  }
+
+  public RuntimeInterruptedException(Throwable t) {
+    super(t);
+  }
+
+  public RuntimeInterruptedException(String msg, Throwable t) {
+    super(msg, t);
   }
 }
-

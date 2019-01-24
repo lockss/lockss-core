@@ -1236,8 +1236,8 @@ public class DbManagerSql {
 	    tableName, null);
       }
       
-      log.debug("Table Name : " + tableName);
-      log.debug("Column" + padding.substring(0, 32 - "Column".length())
+      log.debug2("Table Name : " + tableName);
+      log.debug2("Column" + padding.substring(0, 32 - "Column".length())
 	  + "\tsize\tDataType");
 
       // Loop through each column.
@@ -1253,7 +1253,7 @@ public class DbManagerSql {
 	sb.append(" \t");
 	sb.append(resultSet.getString(TYPE_NAME));
 
-	log.debug(sb.toString());
+	log.debug2(sb.toString());
       }
     } catch (SQLException sqle) {
       log.error("Cannot log table schema", sqle);

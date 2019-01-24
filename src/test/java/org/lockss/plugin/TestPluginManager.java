@@ -714,6 +714,237 @@ public class TestPluginManager extends LockssTestCase4 {
     }
   }
 
+
+  private void onDemandSetup() throws Exception {
+    ConfigurationUtil.addFromArgs(LockssApp.PARAM_START_PLUGINS, "true");
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "false");
+    mgr.startService();
+    minimalConfig();
+    createTitleConfigs();
+    cod_mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
+  }
+
+  private void startAllSetup() throws Exception {
+    ConfigurationUtil.addFromArgs(LockssApp.PARAM_START_PLUGINS, "true");
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
+    mgr.startService();
+    minimalConfig();
+    createTitleConfigs();
+    cod_mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
+  }
+
+  @Test
+  public void testCreateAusAtStartup() throws Exception {
+    startAllSetup();
+    // Store two AU configs in DB
+    String auid1 = cod_tc1.getAuId(mgr);
+    Configuration auc1 = cod_tc1.getConfig();
+    mgr.updateAuInDatabase(auid1, auc1);
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration auc2 = cod_tc2.getConfig();
+    mgr.updateAuInDatabase(auid2, auc2);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    // Kick off process that starts AUs
+    mgr.setLoadablePluginsReady(false);
+    mgr.startLoadablePlugins();
+    // Ensure that AUs now exist
+    ArchivalUnit au1 = mgr.getAuFromIdIfExists(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(auid2);
+    assertNotNull(au2);
+    assertSame(cod_mpi, au2.getPlugin());
+    assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
+  }
+
+  @Test
+  public void testDontCreateAusAtStartup() throws Exception {
+    onDemandSetup();
+    String auid1 = cod_tc1.getAuId(mgr);
+    Configuration auc1 = cod_tc1.getConfig();
+    mgr.updateAuInDatabase(auid1, auc1);
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration auc2 = cod_tc2.getConfig();
+    mgr.updateAuInDatabase(auid2, auc2);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    mgr.setLoadablePluginsReady(false);
+    mgr.startLoadablePlugins();
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+  }
+
+  // Tests on-demand creation from info in tdb.  Also tests deletion and
+  // that created AuEvent is sent
+  @Test
+  public void testCreateOnDemandAuFromTdb() throws Exception {
+    onDemandSetup();
+    installTitleConfigs();
+    mgr.registerAuEventHandler(new MyAuEventHandler());
+
+    assertEquals(2, cod_tc1.getConfig().keySet().size());
+    assertEquals(3, cod_tc2.getConfig().keySet().size());
+
+    String auid1 = cod_tc1.getAuId(mgr);
+    String auid2 = cod_tc2.getAuId(mgr);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    ArchivalUnit au1 = mgr.getAuFromId(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    ArchivalUnit au2 = mgr.getAuFromId(auid2);
+    assertNotNull(au2);
+    assertSame(cod_mpi, au2.getPlugin());
+    assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
+
+    // verify created event was sent
+    assertEquals(ListUtil.list(au1, au2), createEvents);
+    assertEmpty(deleteEvents);
+    assertEmpty(reconfigEvents);
+
+    // Stop it, recreate it, ensure we get a new instance
+    mgr.stopAu(au1, AuEvent.forAu(au1, AuEvent.Type.Deactivate));
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    ArchivalUnit au1a = mgr.getAuFromId(auid1);
+    assertNotNull(au1a);
+    assertSame(cod_mpi, au1a.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1a.getConfiguration());
+    assertNotSame(au1, au1a);
+
+    assertEquals(ListUtil.list(au1, au2, au1a), createEvents);
+    assertEquals(ListUtil.list(au1), deleteEvents);
+    assertEmpty(reconfigEvents);
+  }
+
+  @Test
+  public void testCreateOnDemandAuFromConfig() throws Exception {
+    onDemandSetup();
+    String auid1 = cod_tc1.getAuId(mgr);
+    Configuration auc1 = cod_tc1.getConfig();
+    mgr.updateAuInDatabase(auid1, auc1);
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration auc2 = cod_tc2.getConfig();
+    mgr.updateAuInDatabase(auid2, auc2);
+
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    ArchivalUnit au1 = mgr.getAuFromId(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    ArchivalUnit au2 = mgr.getAuFromId(auid2);
+    assertNotNull(au2);
+    assertSame(cod_mpi, au2.getPlugin());
+    assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
+  }
+
+  @Test
+  public void testCreateOnDemandAuFromAuId() throws Exception {
+    onDemandSetup();
+    String auid1 = cod_tc1.getAuId(mgr);
+    String auid2 = cod_tc2.getAuId(mgr);
+
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    ArchivalUnit au1 = mgr.getAuFromId(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    // cod_tc2 has a non-def param, which will not end up in the AU's config
+    // when created by auid
+    ArchivalUnit au2 = mgr.getAuFromId(auid2);
+    assertNotNull(au2);
+    assertSame(cod_mpi, au2.getPlugin());
+    Configuration tc2config = cod_tc2.getConfig().copy();
+    assertNotEquals(tc2config, au2.getConfiguration());
+    assertEquals("barbar", tc2config.get("nondefp1"));
+    tc2config.remove("nondefp1");
+    assertEquals(tc2config, au2.getConfiguration());
+  }
+
+  @Test
+  public void testCreateOnDemandAuFromAuIdDisabled() throws Exception {
+    onDemandSetup();
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_INFER_CONFIG_FROM_AUID,
+				  "false");
+    String auid1 = cod_tc1.getAuId(mgr);
+    ArchivalUnit au1 = mgr.getAuFromId(auid1);
+    assertNull(au1);
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_INFER_CONFIG_FROM_AUID,
+				  "true");
+    au1 = mgr.getAuFromId(auid1);
+    assertNotNull(au1);
+  }
+
+  @Test
+  public void testNotifyAuChanged() throws Exception {
+    startAllSetup();
+    // Store two AU configs in DB
+    String auid1 = cod_tc1.getAuId(mgr);
+    Configuration auc1 = cod_tc1.getConfig();
+    mgr.updateAuInDatabase(auid1, auc1);
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration auc2 = cod_tc2.getConfig();
+    mgr.updateAuInDatabase(auid2, auc2);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+
+    mgr.auConfigChanged(auid1);
+    mgr.auConfigChanged(auid2);
+    ArchivalUnit au1 = mgr.getAuFromIdIfExists(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(auid2);
+    assertNotNull(au2);
+    assertSame(cod_mpi, au2.getPlugin());
+    assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
+
+    auc1.put(PluginManager.AU_PARAM_DISABLED, "true");
+    mgr.updateAuInDatabase(auid1, auc1);
+    mgr.auConfigChanged(auid1);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+
+    assertNotNull(mgr.getAuFromIdIfExists(auid2));
+    mgr.auConfigRemoved(auid2);
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+  }
+
+
+  // TitleConfig setup for CreateOnDemand tests
+
+  MockPlugin cod_mpi;
+  TitleConfig cod_tc1, cod_tc2;
+
+  public void createTitleConfigs() {
+    mgr.ensurePluginLoaded(mockPlugKey);
+    mgr.ensurePluginLoaded(mockPlugKey);
+    ConfigParamDescr d1 = new ConfigParamDescr(MockPlugin.CONFIG_PROP_1);
+    ConfigParamDescr d2 = new ConfigParamDescr(MockPlugin.CONFIG_PROP_2);
+    ConfigParamDescr d3 = new ConfigParamDescr("nondefp1");
+    cod_tc1 = new TitleConfig("title1", mockPlugKey);
+    cod_tc2 = new TitleConfig("title2", mockPlugKey);
+    cod_tc1.setParams(ListUtil.list(new ConfigParamAssignment(d1, "a"),
+				new ConfigParamAssignment(d2, "foo")));
+    cod_tc2.setParams(ListUtil.list(new ConfigParamAssignment(d1, "a2"),
+				new ConfigParamAssignment(d2, "foo"),
+				new ConfigParamAssignment(d3, "barbar")));
+  }
+
+  public void installTitleConfigs() {
+    cod_mpi.setTitleConfigMap(MapUtil.map("title 1", cod_tc1, "title 2", cod_tc2),
+			  MapUtil.map(cod_tc1.getAuId(mgr), cod_tc1,
+				      cod_tc2.getAuId(mgr), cod_tc2));
+  }
+
+
   // ensure getAllAus() returns AUs in title sorted order
   @Test
   public void testGetAllAus() throws Exception {
@@ -899,13 +1130,6 @@ public class TestPluginManager extends LockssTestCase4 {
 
     void suppressEnxurePluginLoaded(List<String> pluginKeys) {
       suppressEnxurePluginLoaded = pluginKeys;
-    }
-
-    // Make it look like any AU's config are in the source, to simplify
-    // config in these tests.
-    @Override
-    boolean isAuConfInSource(String auId) {
-      return true;
     }
 
     @Override
@@ -1642,6 +1866,8 @@ public class TestPluginManager extends LockssTestCase4 {
 
   @Test
   public void testInitLoadablePluginRegistries() throws Exception {
+    // Ensure plugin AUs get started even when startAllAus is false
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "false");
     mgr.startService();
     Properties p = new Properties();
     prepareLoadablePluginTests(p);

@@ -1759,7 +1759,7 @@ public class ServletUtil {
       boolean isGray = true;
       String act;
 
-      if (cfg.isEmpty()) {
+      if (cfg == null || cfg.isEmpty()) {
         act = restoreAction;
       }
       else if (cfg.getBoolean(PluginManager.AU_PARAM_DISABLED, false)) {

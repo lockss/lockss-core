@@ -1004,10 +1004,15 @@ public class ConfigManager implements LockssManager {
     return waitConfig(Deadline.MAX);
   }
 
+  /** Run a config changed callback.  Used only in config-reload context,
+   * throws AbortConfigLoadException if interrupted */
   void runCallback(Configuration.Callback cb,
 		   Configuration newConfig,
 		   Configuration oldConfig,
 		   Configuration.Differences diffs) {
+    if (Thread.currentThread().isInterrupted()) {
+      throw new AbortConfigLoadException("Interrupted");
+    }
     try {
       cb.configurationChanged(newConfig, oldConfig, diffs);
     } catch (Exception e) {
@@ -1015,6 +1020,8 @@ public class ConfigManager implements LockssManager {
     }
   }
 
+  /** Run all the config changed callbacks.  Used only in config-reload
+   * context, throws AbortConfigLoadException if interrupted */
   void runCallbacks(Configuration newConfig,
 		    Configuration oldConfig,
 		    Configuration.Differences diffs) {
@@ -1026,15 +1033,22 @@ public class ConfigManager implements LockssManager {
     // going to do another config load immediately.  But that optimization
     // requires calculating diffs that encompass both loads.
 
+    runCallbacks(new java.util.function.Consumer<Configuration.Callback>() {
+	public void accept(Configuration.Callback cb) {
+	  runCallback(cb, newConfig, oldConfig, diffs);
+	}});
+  }
+
+  /** Invoke a method on all the callbacks.
+   * @param cbInvoker a Consumer that calls the desired
+   * Configuration.Callback method */
+  private void runCallbacks(java.util.function.Consumer cbInvoker) {
     // copy the list of callbacks as it could change during the loop.
     List cblist = new ArrayList(configChangedCallbacks);
     for (Iterator iter = cblist.iterator(); iter.hasNext();) {
-      if (Thread.currentThread().isInterrupted()) {
-	throw new AbortConfigLoadException("Interrupted");
-      }
       try {
 	Configuration.Callback cb = (Configuration.Callback)iter.next();
-	runCallback(cb, newConfig, oldConfig, diffs);
+	cbInvoker.accept(cb);
       } catch (RuntimeException e) {
 	throw e;
       }
@@ -3673,15 +3687,97 @@ public class ConfigManager implements LockssManager {
     }
   }
 
+  // JMS notification support
+
+  // Notification message is a map:
+  // verb - Name of state class (e.g., AuState)
+  // auid - if object is per-AU
+
+  // AU create/delete events are handled here, rather than with
+  // PluginManager's AuEvent mechanism, because it's the configuration
+  // addition / change / deletion that brings the AU into existence /
+  // reconfigures it / deletes it that's of interest to other cluster
+  // members, not the happenstance creation/deletion of AU instances in
+  // this jvm, which can happen for unrelated reasons.
+  //
+  // Deactivate is treated as a config change ("store") here because that's
+  // what it looks like to the DB store code.
+
+  public static final String CONFIG_NOTIFY_VERB = "verb";
+  public static final String CONFIG_NOTIFY_AUID = "auid";
+
+
+  void notifyAuConfigChanged(String auid, AuConfiguration auConfig) {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(CONFIG_NOTIFY_VERB, "AuConfigStored");
+      map.put(CONFIG_NOTIFY_AUID, auid);
+      try {
+	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+	log.error("Couldn't send AuConfigStored notification", e);
+      }
+    }
+  }
+
+  void notifyAuConfigRemoved(String auid) {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(CONFIG_NOTIFY_VERB, "AuConfigRemoved");
+      map.put(CONFIG_NOTIFY_AUID, auid);
+      try {
+	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+	log.error("Couldn't send AuConfigRemoved notification", e);
+      }
+    }
+  }
+
   void notifyConfigChanged() {
     if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(CONFIG_NOTIFY_VERB, "GlobalConfigChanged");
       try {
-	jmsProducer.sendText("now");
+	jmsProducer.sendMap(map);
       } catch (JMSException e) {
 	log.error("foo", e);
       }
     }
   }
+
+  /** Incoming JMS message */
+  protected void receiveConfigChangedNotification(Map map) {
+    log.debug2("Received notification: " + map);
+    try {
+      String verb = (String)map.get(CONFIG_NOTIFY_VERB);
+      String auid = (String)map.get(CONFIG_NOTIFY_AUID);
+      switch (verb) {
+      case "GlobalConfigChanged":
+	// Global config has changed, signal thread to reload it
+	requestReload();
+	break;
+      case "AuConfigStored":
+	// Invoke the auConfigChanged() method of all the callbacks
+	runCallbacks(new java.util.function.Consumer<Configuration.Callback>() {
+	    public void accept(Configuration.Callback cb) {
+	      cb.auConfigChanged(auid);
+	    }});
+	break;
+      case "AuConfigRemoved":
+	// Invoke the auConfigRemoved() method of all the callbacks
+	runCallbacks(new java.util.function.Consumer<Configuration.Callback>() {
+	    public void accept(Configuration.Callback cb) {
+	      cb.auConfigRemoved(auid);
+	    }});
+	break;
+      default:
+	log.warning("Received unknown config changed notification: " + map);
+      }
+    } catch (ClassCastException e) {
+      log.error("Wrong type field in message: " + map, e);
+    }
+  }
+
 
   /**
    * Provides the input stream to the content of this configuration file if the
@@ -3936,6 +4032,7 @@ public class ConfigManager implements LockssManager {
     } else {
       getConfigManagerSql().addArchivalUnitConfiguration(pluginId, auKey,
 	  auConfig);
+      notifyAuConfigChanged(auid, auConfiguration);
     }
   }
 
@@ -4134,6 +4231,8 @@ public class ConfigManager implements LockssManager {
 
       // Remove the Archival Unit configuration from the database.
       getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
+
+      notifyAuConfigRemoved(auid);
     }
 
     if (log.isDebug2()) log.debug2("Done");
@@ -4288,15 +4387,18 @@ public class ConfigManager implements LockssManager {
 
     @Override
     public void onMessage(Message message) {
-      requestReload();
-//       try {
-//         msgObject =  Consumer.convertMessage(message);
-//       }
-//       catch (JMSException e) {
-// 	log.warning("foo", e);
-//       }
+      if (log.isDebug3()) log.debug3("onMessage: " + message);
+      try {
+        Object msgObject = Consumer.convertMessage(message);
+	if (msgObject instanceof Map) {
+	  receiveConfigChangedNotification((Map)msgObject);
+	} else {
+	  log.warning("Unknown notification type: " + msgObject);
+	}
+      } catch (JMSException e) {
+	log.warning("Can't decode JMS message", e);
+      }
     }
-
   }
 
   class AbortConfigLoadException extends RuntimeException {

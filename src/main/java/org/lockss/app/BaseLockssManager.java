@@ -186,6 +186,14 @@ public abstract class BaseLockssManager implements LockssManager {
 				     Configuration.Differences changedKeys) {
       mgr.setConfig(newConfig, prevConfig, changedKeys);
     }
+
+    public void auConfigChanged(String auid) {
+      mgr.auConfigChanged(auid);
+    }
+
+    public void auConfigRemoved(String auid) {
+      mgr.auConfigRemoved(auid);
+    }
   }
 
   /**
