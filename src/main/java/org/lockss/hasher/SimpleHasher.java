@@ -442,18 +442,18 @@ public class SimpleHasher {
 
 	if (digest == null) {
 	  log.warning(DEBUG_HEADER + "No digest could be obtained");
-	  result.setRunnerStatus(HasherStatus.Error);
 	  result.setRunnerError("No digest could be obtained");
+	  result.setRunnerStatus(HasherStatus.Error);
 	}
       } catch (NoSuchAlgorithmException nsae) {
 	log.warning(DEBUG_HEADER, nsae);
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Invalid hashing algorithm: "
 	    + nsae.getMessage());
+	result.setRunnerStatus(HasherStatus.Error);
       } catch (Exception e) {
 	log.warning(DEBUG_HEADER, e);
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Error making digest: " + e.getMessage());
+	result.setRunnerStatus(HasherStatus.Error);
       }
 
       if (HasherStatus.Error == result.getRunnerStatus()) {
@@ -501,14 +501,14 @@ public class SimpleHasher {
 	  log.warning("hash()", e);
 	} catch (Error ee) {
 	}
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Error hashing: " + e.toString());
+	result.setRunnerStatus(HasherStatus.Error);
 	throw e;
       }
     } finally {
       if (result.getRunnerStatus() == HasherStatus.Running) {
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Unexpected abort");
+	result.setRunnerStatus(HasherStatus.Error);
       }
       IOUtil.safeClose(result.getRecordStream());
     }
@@ -517,11 +517,11 @@ public class SimpleHasher {
   }
 
   void fillInResult(HasherResult result, HasherStatus status, String errmsg) {
-    result.setRunnerStatus(status);
     result.setRunnerError(errmsg);
     result.setBytesHashed(getBytesHashed());
     result.setFilesHashed(getFilesHashed());
     result.setElapsedTime(getElapsedTime());
+    result.setRunnerStatus(status);
   }
 
   /**
@@ -550,15 +550,15 @@ public class SimpleHasher {
 	if (hashType == null) throw new ArrayIndexOutOfBoundsException();
 	params.setHashType(hashType.toString());
       } catch (ArrayIndexOutOfBoundsException aioobe) {
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Unknown hash type: " + params.getHashType();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       } catch (RuntimeException re) {
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage =
 	    "Can't parse hash type: " + params.getHashType() + re.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     } else {
@@ -566,10 +566,10 @@ public class SimpleHasher {
 	hashType = HashType.valueOf(params.getHashType());
       } catch (IllegalArgumentException iae) {
 	log.warning(DEBUG_HEADER, iae);
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Unknown hash type: " + params.getHashType() + " - "
 	    + iae.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     }
@@ -604,10 +604,10 @@ public class SimpleHasher {
 	resultEncoding = ResultEncoding.valueOf(params.getResultEncoding());
       } catch (IllegalArgumentException iae) {
 	log.warning(DEBUG_HEADER, iae);
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Unknown result encoding: " + params.getResultEncoding()
 	    + " - " + iae.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     }
@@ -654,10 +654,10 @@ public class SimpleHasher {
       result.setChallenge(challenge);
     } catch (IllegalArgumentException iae) {
       log.warning(DEBUG_HEADER, iae);
-      result.setRunnerStatus(HasherStatus.Error);
       errorMessage = "Challenge: Illegal Base64 string: "
 	  + params.getChallenge() + iae.getMessage();
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
@@ -666,10 +666,10 @@ public class SimpleHasher {
       result.setVerifier(verifier);
     } catch (IllegalArgumentException iae) {
       log.warning(DEBUG_HEADER, iae);
-      result.setRunnerStatus(HasherStatus.Error);
       errorMessage = "Verifier: Illegal Base64 string: " + params.getVerifier()
 	  + iae.getMessage();
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
@@ -687,9 +687,9 @@ public class SimpleHasher {
 						    tempDir));
       } catch (IOException ioe) {
 	log.warning(DEBUG_HEADER, ioe);
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Cannot create block file: " + ioe.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     }
@@ -717,8 +717,8 @@ public class SimpleHasher {
 
     if (StringUtil.isNullString(params.getAuId())) {
       log.warning(DEBUG_HEADER + "No AU identifer has been specified");
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError("No AU identifer has been specified");
+      result.setRunnerStatus(HasherStatus.Error);
       return "Select an AU";
     }
 
@@ -728,9 +728,9 @@ public class SimpleHasher {
     if (au == null) {
       log.warning(DEBUG_HEADER + "No AU exists with the specified identifier "
 	  + params.getAuId());
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError("No AU exists with the specified identifier "
 	  + params.getAuId());
+      result.setRunnerStatus(HasherStatus.Error);
       return "No such AU.  Select an AU";
     }
 
@@ -835,8 +835,8 @@ public class SimpleHasher {
     } catch (Exception e) {
       errorMessage = "Error making PollSpec: " + e.toString();
       if (log.isDebug()) log.debug("Making Pollspec", e);
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
@@ -846,8 +846,8 @@ public class SimpleHasher {
 
     if (result.getCus() == null) {
       errorMessage = "No such CUS: " + pollSpec;
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
