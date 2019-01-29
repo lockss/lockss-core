@@ -88,11 +88,6 @@ public class MockIdentityManager implements IdentityManager {
   }
   
   @Override
-  public void removePeer(String key) {
-    piMap.remove(key);
-  }
-
-  @Override
   public PeerIdentity ipAddrToPeerIdentity(IPAddr addr, int port) {
     String key = ""+addr+port;
     return new MockPeerIdentity(key);
