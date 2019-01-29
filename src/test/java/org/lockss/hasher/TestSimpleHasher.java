@@ -422,7 +422,9 @@ public class TestSimpleHasher extends LockssTestCase {
     hasher.getStartedSem().take();
     hasher.spinWhileTrue(true);
     openSem.give();
-    Deadline.in(1000).sleep();
+    while (!hasher.isSpinning()) {
+      Deadline.in(100).sleep();
+    }
     Future fut = result.getFuture();
     fut.cancel(true);
     Deadline.in(1000).sleep();
@@ -444,7 +446,6 @@ public class TestSimpleHasher extends LockssTestCase {
     assertMatchesRE("AU: MockAU", out);
     assertMatchesRE("72E9A547FBB17BEB5B5EA139F68F91EEA1ED3E1D +http://foo.bar/",
 		    out);
-
   }
 
   // Excplicit future.cancel() while thread waiting in Semaphore.  Causes
@@ -545,6 +546,7 @@ public class TestSimpleHasher extends LockssTestCase {
     MyBlockHasher bh;
     SimpleBinarySemaphore startedSem = new SimpleBinarySemaphore();
     SimpleBinarySemaphore openWaitSem;
+    boolean spinning = false;
     Map<String,RuntimeException> throwOnOpen = new HashMap<>();
     Map<String,IOException> throwOnRead = new HashMap<>();
 
@@ -588,6 +590,10 @@ public class TestSimpleHasher extends LockssTestCase {
       spinWhileTrue = val;
     }
 
+    public boolean isSpinning() {
+      return spinning;
+    }
+
     class MyBlockHasher extends BlockHasher {
       // vars that logically belong here are in MySimpleHasher for ease of
       // access.  (This object isn't created until the thread starts.)
@@ -608,7 +614,9 @@ public class TestSimpleHasher extends LockssTestCase {
       protected InputStream getInputStream(CachedUrl cu) {
 	startedSem.give();
 	if (openWaitSem != null) openWaitSem.take();
-	while (spinWhileTrue) ;
+	while (spinWhileTrue) {
+	  spinning = true;
+	}
 
 	RuntimeException rte = throwOnOpen.get(cu.getUrl());
 	if (rte != null) {
