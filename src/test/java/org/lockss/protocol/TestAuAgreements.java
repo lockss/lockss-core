@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,21 +41,20 @@ import org.lockss.test.*;
 
 public class TestAuAgreements extends LockssTestCase {
 
-  List<MockPeerIdentity> peerIdentityList;
-  MockIdentityManager idMgr;
+  List<PeerIdentity> peerIdentityList;
+  IdentityManager idMgr;
   PeerIdentity pid0, pid1;
   String AUID = "Plugin&auauau";
 
-  public void setUp() {
-    peerIdentityList = ListUtil.list(new MockPeerIdentity("id0"),
-				     new MockPeerIdentity("id1"),
-				     new MockPeerIdentity("id2"));
+  public void setUp() throws Exception {
+    super.setUp();
+    MockLockssDaemon daemon = getMockLockssDaemon();
+    idMgr = daemon.getIdentityManager();
+    peerIdentityList = ListUtil.list(daemon.findPeerIdentity("127.0.0.0"),
+				     daemon.findPeerIdentity("127.0.0.1"),
+				     daemon.findPeerIdentity("127.0.0.2"));
     pid0 = peerIdentityList.get(0);
     pid1 = peerIdentityList.get(1);
-    idMgr = new MockIdentityManager();
-    for (PeerIdentity pid : peerIdentityList) {
-      idMgr.addPeerIdentity(pid.getIdString(), pid);
-    }
   }
 
   AuAgreements makeAua() {
@@ -102,15 +97,15 @@ public class TestAuAgreements extends LockssTestCase {
 				  50.0f, 100);
     String json = aua1.toJson();
     log.debug2("json: " + json);
-    assertMatchesRE("\"id\":\"id0\"", json);
-    assertMatchesRE("\"id\":\"id1\"", json);
-    assertMatchesRE("\"id\":\"id2\"", json);
+    assertMatchesRE("\"id\":\"127.0.0.0\"", json);
+    assertMatchesRE("\"id\":\"127.0.0.1\"", json);
+    assertMatchesRE("\"id\":\"127.0.0.2\"", json);
 
     // write only pid1 data
     String jsonp1 = aua1.toJson(pid1);
-    assertNotMatchesRE("\"id\":\"id0\"", jsonp1);
-    assertMatchesRE("\"id\":\"id1\"", jsonp1);
-    assertNotMatchesRE("\"id\":\"id2\"", jsonp1);
+    assertNotMatchesRE("\"id\":\"127.0.0.0\"", jsonp1);
+    assertMatchesRE("\"id\":\"127.0.0.1\"", jsonp1);
+    assertNotMatchesRE("\"id\":\"127.0.0.2\"", jsonp1);
     
     AuAgreements aua2 = makeAua();
     assertNotEquals(aua1, aua2);
@@ -193,121 +188,6 @@ public class TestAuAgreements extends LockssTestCase {
       i++;
     }
   }
-
-//   public void testStore() throws Exception {
-//     // Create an AuAgreements object and put some agreements in it.
-//     AuAgreements auAgreements = makeAua();
-//     signalPartialAgreements(auAgreements, AgreementType.POR,
-// 			    50.0f, 100);
-//     signalPartialAgreements(auAgreements, AgreementType.POR,
-// 			    40.0f, 200);
-
-//     checkPercentAgreements(auAgreements, AgreementType.POR,
-// 			   40.0f, 200);
-//     checkHighestPercentAgreements(auAgreements, AgreementType.POR,
-// 				  50.0f, 100);
-
-//     assertEquals(null, hRep.getStoredIdentityAgreement());
-//     // Make auAgreements store into the Mock.
-//     auAgreements.store(hRep);
-//     assertEquals(auAgreements, hRep.getStoredIdentityAgreement());
-//   }
-
-//   public void testWriteTo() throws Exception {
-//     String content = "This is some content.";
-//     final File historyFile =
-//       FileTestUtil.writeTempFile("#id_agreement", "xml", content);
-//     MockHistoryRepository hRep = new MockHistoryRepository() {
-// 	@Override public File getIdentityAgreementFile() {
-// 	  return historyFile;
-// 	}
-//       };
-
-//     AuAgreements auAgreements = makeAua();
-//     ByteArrayOutputStream out = new ByteArrayOutputStream();
-//     auAgreements.writeTo(hRep, out);
-
-//     // The content was copied into the OutputStream.
-//     assertEquals(content, out.toString("UTF-8"));
-//   }
-
-//   public void testReadFrom() throws Exception {
-//     // NOTE: The mock doesn't actually deserialize the file content to
-//     // restore the agreements.
-//     String agreement = "this is an AuAgreements";
-//     final File historyFile = FileTestUtil.tempFile("#id_agreement", "xml");
-
-//     MockHistoryRepository hRep = new MockHistoryRepository() {
-// 	@Override public File getIdentityAgreementFile() {
-// 	  return historyFile;
-// 	}
-//       };
-
-//     AuAgreements auAgreementsVal = makeAua();
-//     signalPartialAgreements(auAgreementsVal, AgreementType.SYMMETRIC_POP,
-// 			    10.0f, 300);
-    
-//     // Make auAgreements before the History knows anything to load.
-//     AuAgreements auAgreements = makeAua();
-//     checkAgreementsMissing(auAgreements, AgreementType.SYMMETRIC_POP);
-
-//     // Tell the History to use auAgreementsVal.
-//     auAgreementsVal.store(hRep);
-//     hRep.setLoadedIdentityAgreement(
-//       (AuAgreements)hRep.getStoredIdentityAgreement());
-
-//     // Do the readFrom
-//     auAgreements.readFrom(hRep, idMgr,
-// 			  new ByteArrayInputStream(agreement.getBytes()));
-
-//     // The agreement was restored
-//     checkPercentAgreements(auAgreements, AgreementType.SYMMETRIC_POP,
-// 			   10.0f, 300);
-//     // The file was copied.
-//     assertEquals(agreement.getBytes(),
-// 		 FileUtils.readFileToByteArray(historyFile));
-//   }
-
-//   public void testReadFromNonempty() throws Exception {
-//     // NOTE: The mock doesn't actually deserialize the file content to
-//     // restore the agreements.
-//     String previousAgreement = "previous agreement";
-//     String agreement = "this is an AuAgreements";
-//     final File historyFile = FileTestUtil.writeTempFile("#id_agreement", "xml",
-// 							previousAgreement);
-
-//     MockHistoryRepository hRep = new MockHistoryRepository() {
-// 	@Override public File getIdentityAgreementFile() {
-// 	  return historyFile;
-// 	}};
-
-//     AuAgreements auAgreementsVal = makeAua();
-//     signalPartialAgreements(auAgreementsVal, AgreementType.SYMMETRIC_POP,
-// 			    10.0f, 300);
-    
-//     // Make auAgreements before the History knows anything to load.
-//     AuAgreements auAgreements = makeAua();
-//     checkAgreementsMissing(auAgreements, AgreementType.SYMMETRIC_POP);
-
-//     // Tell the History to use auAgreementsVal.
-//     auAgreementsVal.store(hRep);
-//     hRep.setLoadedIdentityAgreement(
-//       (AuAgreements)hRep.getStoredIdentityAgreement());
-
-//     // Put some content in auAgreements, then try the read.
-//     auAgreements.signalPartialAgreement(
-//       peerIdentityList.get(1), AgreementType.POR,
-//       0.5f, 100);
-//     auAgreements.readFrom(hRep, idMgr,
-// 			  new ByteArrayInputStream(agreement.getBytes()));
-
-//     // The agreement was not restored
-//     checkAgreementsMissing(auAgreements, AgreementType.SYMMETRIC_POP);
-
-//     // The file was not copied.
-//     assertEquals(previousAgreement.getBytes(),
-// 		 FileUtils.readFileToByteArray(historyFile));
-//   }
 
   public void testFindPeerAgreement() {
     AuAgreements auAgreements = makeAua();
