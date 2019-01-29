@@ -137,7 +137,7 @@ public class TestProxyAccessHandler extends LockssTestCase {
      pluginMgr.setCachedUrl(mcu);
 
      Map agreedMap = new HashMap();
-     MockPeerIdentity mockPid = new MockPeerIdentity("55.0.0.1");
+     PeerIdentity mockPid = theDaemon.findPeerIdentity("55.0.0.1");
      agreedMap.put(mockPid, "1010101010");
 
      idMgr.setAgeedForAu(mau, agreedMap);

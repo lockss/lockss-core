@@ -63,7 +63,6 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
   private String tempDirPath;
   MockArchivalUnit mau;
 
-  private MockIdentityManager idmgr;
   
   Properties props;
 
@@ -79,9 +78,6 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     theDaemon = getMockLockssDaemon();
     
     // Create the identity manager...
-    idmgr = new MockIdentityManager();
-    theDaemon.setIdentityManager(idmgr);
-    idmgr.initService(theDaemon);
     
     repo = (MyLockssRepositoryImpl)MyLockssRepositoryImpl.createNewLockssRepository(mau);
     theDaemon.setAuManager(LockssDaemon.LOCKSS_REPOSITORY, mau, repo);
@@ -376,8 +372,8 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     
     // Agreeing IDs.
     PeerIdentity[] agreeingPeers =
-      { new MockPeerIdentity("TCP:[192.168.0.1]:9723"),
-        new MockPeerIdentity("TCP:[192.168.0.2]:9723")
+      { theDaemon.findPeerIdentity("TCP:[192.168.0.1]:9723"),
+        theDaemon.findPeerIdentity("TCP:[192.168.0.2]:9723")
       };
     
     leaf.signalAgreement(ListUtil.fromArray(agreeingPeers));
@@ -391,15 +387,10 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     tempDirPath = OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau);
     tempDirPath = OldLockssRepositoryImpl.mapUrlToFileLocation(tempDirPath,
         "http://www.example.com/testDir/branch1/leaf1");
-    PeerIdentity testid_1 = new MockPeerIdentity("TCP:[192.168.0.1]:9723");
-    PeerIdentity testid_2 = new MockPeerIdentity("TCP:[192.168.0.2]:9723");
-    PeerIdentity testid_3 = new MockPeerIdentity("TCP:[192.168.0.3]:9723");
-    PeerIdentity testid_4 = new MockPeerIdentity("TCP:[192.168.0.4]:9723");
-    
-    idmgr.addPeerIdentity(testid_1.getIdString(), testid_1);
-    idmgr.addPeerIdentity(testid_2.getIdString(), testid_2);
-    idmgr.addPeerIdentity(testid_3.getIdString(), testid_3);
-    idmgr.addPeerIdentity(testid_4.getIdString(), testid_4);
+    PeerIdentity testid_1 = theDaemon.findPeerIdentity("TCP:[192.168.0.1]:9723");
+    PeerIdentity testid_2 = theDaemon.findPeerIdentity("TCP:[192.168.0.2]:9723");
+    PeerIdentity testid_3 = theDaemon.findPeerIdentity("TCP:[192.168.0.3]:9723");
+    PeerIdentity testid_4 = theDaemon.findPeerIdentity("TCP:[192.168.0.4]:9723");
     
     leaf.signalAgreement(ListUtil.list(testid_1, testid_3));
 
