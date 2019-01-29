@@ -31,6 +31,7 @@ package org.lockss.protocol;
 
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 
 import org.lockss.util.*;
@@ -267,6 +268,13 @@ public class TestAuAgreements extends LockssTestCase {
 
     map = auAgreements.getAgreements(AgreementType.SYMMETRIC_POR);
     assertTrue(map.isEmpty());
+
+    Set<PeerAgreements> paset = auAgreements.getAllPeerAgreements();
+    Set<String> pidset = paset.stream()
+      . map(pa -> pa.getId())
+      .collect(Collectors.toSet());
+    assertEquals(SetUtil.set("127.0.0.0", "127.0.0.1", "127.0.0.2"), pidset);
+
   }
 
   // Signal a sterotyped set of partial agreements

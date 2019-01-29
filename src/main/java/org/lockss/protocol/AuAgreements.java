@@ -214,8 +214,17 @@ public class AuAgreements implements LockssSerializable {
    * @return The {@link PeerAgreements} or {@code null} if no agreement
    * exists.
    */
-  private PeerAgreements getPeerAgreements(PeerIdentity pid) {
+  public PeerAgreements getPeerAgreements(PeerIdentity pid) {
     return map.get(pid);
+  }
+
+  /**
+   * @return All the {@link PeerAgreements}
+   */
+  public Set<PeerAgreements> getAllPeerAgreements() {
+    // Don't return HashMap.values() directly - it doesn't implement
+    // equals(), etc.
+    return new HashSet(map.values());
   }
 
   /**
