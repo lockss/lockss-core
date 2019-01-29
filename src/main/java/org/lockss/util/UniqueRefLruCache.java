@@ -179,7 +179,7 @@ public class UniqueRefLruCache<K,V> implements Map<K,V> {
   }
 
   public boolean containsKey(Object key) {
-    throw new UnsupportedOperationException();
+    return lruMap.containsKey(key);
   }
 
   /**
