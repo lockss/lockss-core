@@ -1291,30 +1291,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   }
   
 
-  public synchronized void removePeer(String key) {
-    log.debug("Removing peer " + key);
-    PeerIdentity pid = (PeerIdentity)(pidMap.get(key));
-    // Must remove all mappings from unnormalized key, in addition to the
-    // normalized one.  This operation is rare, so searching for them is
-    // ok.
-    List<String> allKeys = new ArrayList<String>();
-    for (Map.Entry<String,PeerIdentity> ent : pidMap.entrySet()) {
-      if (ent.getValue() == pid) {
-	allKeys.add(ent.getKey());
-      }
-    }
-    for (String onekey : allKeys) {
-      pidMap.remove(onekey);
-    }
-    pidSet.remove(pid);
-    theLcapIdentities.remove(pid);
-    try {
-      storeIdentities();
-    } catch (Exception ex) {
-      log.error("Unable to store IDDB!", ex);
-    }
-  }
-
   /**
    * <p>Copies the identity agreement file for the AU to the given
    * stream.</p>
