@@ -143,16 +143,33 @@ public class ClientStateManager extends CachingStateManager {
   protected void doStoreAuAgreementsUpdate(String key,
 					   AuAgreements aua,
 					   Set<PeerIdentity> peers) {
+    String auAgreementsJson = null;
 
-    // XXXFGL send PATCH with json diffs
+    try {
+      auAgreementsJson = aua.toJson(peers);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuAgreements: {}", aua, e);
+    }
 
+    configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
+	auAgreementsJson);
   }
 
   @Override
   protected AuAgreements doLoadAuAgreements(String key) {
-    AuAgreements res = null;
+    AuAgreements res = agmnts.get(key);
 
-    // XXXFGL send GET, return null if server responds w/ 404
+    String auAgreementsJson =
+	configMgr.getRestConfigClient().getArchivalUnitAgreements(key);
+    log.debug2("auAgreementsJson = {}", auAgreementsJson);
+
+    if (auAgreementsJson != null) {
+      try {
+	res.updateFromJson(auAgreementsJson, daemon);
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuAgreements: {}", auAgreementsJson, e);
+      }
+    }
 
     return res;
   }

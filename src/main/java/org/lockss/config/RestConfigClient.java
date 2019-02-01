@@ -58,6 +58,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.DefaultResponseErrorHandler;
@@ -922,6 +923,9 @@ public class RestConfigClient {
     // Initialize the request headers.
     HttpHeaders requestHeaders = new HttpHeaders();
 
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
     // Set the authentication credentials.
     setAuthenticationCredentials(requestHeaders);
 
@@ -930,8 +934,105 @@ public class RestConfigClient {
 	new HttpEntity<String>(auState, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<Void> response = getRestTemplate().exchange(uri,
-	HttpMethod.PUT, requestEntity, Void.class);
+    ResponseEntity<String> response = getRestTemplate().exchange(uri,
+	HttpMethod.PATCH, requestEntity, String.class);
+
+    // Get the response status.
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+  }
+
+  /**
+   * Provides the poll agreements of an Archival Unit obtained via the REST web
+   * service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a String with the Archival Unit poll agreements.
+   */
+  public String getArchivalUnitAgreements(String auId) {
+    if (log.isDebug2()) log.debug2("auId = " + auId);
+
+    // Get the URL template.
+    String template = getAuAgreementsRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<String> response = getRestTemplate().exchange(uri,
+	HttpMethod.GET, requestEntity, String.class);
+
+    // Get the response status.
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+
+    String result = null;
+
+    if (isSuccess(statusCode)) {
+      result = response.getBody();
+    }
+
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  /**
+   * Stores the poll agreements of an Archival Unit via the REST web service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param auAgreements
+   *          A String with the Archival Unit poll agreements.
+   */
+  public void patchArchivalUnitAgreements(String auId, String auAgreements) {
+    if (log.isDebug2()) {
+      log.debug2("auId = " + auId);
+      log.debug2("auAgreements = " + auAgreements);
+    }
+
+    // Get the URL template.
+    String template = getAuAgreementsRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(auAgreements, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<String> response = getRestTemplate().exchange(uri,
+	HttpMethod.PATCH, requestEntity, String.class);
 
     // Get the response status.
     HttpStatus statusCode = response.getStatusCode();
@@ -971,6 +1072,16 @@ public class RestConfigClient {
   }
 
   /**
+   * Provides the URL needed to read from, or write to, the REST Configuration
+   * Service the poll agreements of an Archival Unit.
+   * 
+   * @return a String with the URL.
+   */
+  private String getAuAgreementsRequestUrl() {
+    return serviceLocation + "/auagreements/{auid}";
+  }
+
+  /**
    * Sets the authentication credentials in a request.
    * 
    * @param requestHeaders
@@ -990,7 +1101,10 @@ public class RestConfigClient {
    * @return a RestTemplate with the standard REST template.
    */
   private RestTemplate getRestTemplate() {
-    RestTemplate restTemplate = new RestTemplate();
+    // Specifying the factory is necessary to get Spring support for PATCH
+    // operations.
+    RestTemplate restTemplate =
+	new RestTemplate(new HttpComponentsClientHttpRequestFactory());
 
     // Do not throw exceptions on non-success response status codes.
     restTemplate.setErrorHandler(new DefaultResponseErrorHandler(){
