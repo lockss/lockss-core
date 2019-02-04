@@ -40,6 +40,7 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
+import org.lockss.rs.exception.LockssRestException;
 
 /** Caching StateManager that accesses state objects from a REST
  * StateService.  Receives notifications of changes sent by service. */
@@ -151,8 +152,12 @@ public class ClientStateManager extends CachingStateManager {
       log.error("Couldn't serialize AuAgreements: {}", aua, e);
     }
 
-    configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
-	auAgreementsJson);
+    try {
+      configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
+	  auAgreementsJson);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't store AuAgreements: {}", aua, lre);
+    }
   }
 
   @Override

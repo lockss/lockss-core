@@ -45,6 +45,9 @@ import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
+import org.lockss.rs.exception.LockssRestException;
+import org.lockss.rs.exception.LockssRestHttpException;
+import org.lockss.rs.exception.LockssRestNetworkException;
 import org.lockss.rs.multipart.MultipartConnector;
 import org.lockss.rs.multipart.MultipartResponse;
 import org.lockss.rs.multipart.MultipartResponse.Part;
@@ -63,6 +66,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -999,8 +1003,11 @@ public class RestConfigClient {
    *          A String with the Archival Unit identifier.
    * @param auAgreements
    *          A String with the Archival Unit poll agreements.
+   * @throws LockssRestException
+   *           if there are problems updating the Archival Unit poll agreements.
    */
-  public void patchArchivalUnitAgreements(String auId, String auAgreements) {
+  public void patchArchivalUnitAgreements(String auId, String auAgreements)
+      throws LockssRestException {
     if (log.isDebug2()) {
       log.debug2("auId = " + auId);
       log.debug2("auAgreements = " + auAgreements);
@@ -1031,12 +1038,8 @@ public class RestConfigClient {
 	new HttpEntity<String>(auAgreements, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<String> response = getRestTemplate().exchange(uri,
-	HttpMethod.PATCH, requestEntity, String.class);
-
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+    callRestService(uri, HttpMethod.PATCH, requestEntity, String.class,
+	"Cannot update AU poll agreements");
   }
 
   /**
@@ -1114,6 +1117,76 @@ public class RestConfigClient {
     });
 
     return restTemplate;
+  }
+
+  /**
+   * Performs a call to a REST service.
+   * 
+   * @param uri
+   *          A String with the URI of the request to the REST service.
+   * @param method
+   *          An HttpMethod with the method of the request to the REST service.
+   * @param requestEntity
+   *          An HttpEntity with the entity of the request to the REST service.
+   * @param responseType
+   *          A {@code Class<T>} with the expected type of the response to the
+   *          request to the REST service.
+   * @param exceptionMessage
+   *          A String with the message to be returned if there are errors.
+   * @return a {@code ResponseEntity<T>} with the response to the request to the
+   *         REST service.
+   * @throws LockssRestException
+   *           if there are problems making the request to the REST service.
+   */
+  private <T> ResponseEntity<T> callRestService(URI uri, HttpMethod method,
+      HttpEntity<?> requestEntity, Class<T> responseType,
+      String exceptionMessage) throws LockssRestException {
+    if (log.isDebug2()) {
+      log.debug2("uri = " + uri);
+      log.debug2("method = " + method);
+      log.debug2("requestEntity = " + requestEntity);
+      log.debug2("responseType = " + responseType);
+      log.debug2("exceptionMessage = " + exceptionMessage);
+    }
+
+    try {
+      // Make the call to the REST service and get the response.
+      ResponseEntity<T> response =
+	  getRestTemplate().exchange(uri, method, requestEntity, responseType);
+
+      // Get the response status.
+      HttpStatus statusCode = response.getStatusCode();
+      if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+
+      // Check whether the call status code indicated failure.
+      if (!isSuccess(statusCode)) {
+	// Yes: Report it back to the caller.
+	LockssRestHttpException lrhe =
+	    new LockssRestHttpException(exceptionMessage);
+	lrhe.setHttpStatusCode(statusCode.value());
+	lrhe.setHttpStatusMessage(statusCode.getReasonPhrase());
+	if (log.isDebug2()) log.debug3("lrhe = " + lrhe);
+
+	throw lrhe;
+      }
+
+      // No: Return the received response.
+      return response;
+    } catch (RestClientException rce) {
+      // Get the cause, or this exception if there is no cause.
+      Throwable cause = rce.getCause();
+
+      if (cause == null) {
+	cause = rce;
+      }
+
+      // Report the problem back to the caller.
+      LockssRestNetworkException lrne =
+	  new LockssRestNetworkException(exceptionMessage, cause);
+      if (log.isDebug2()) log.debug3("lrne = " + lrne);
+
+      throw lrne;
+    }
   }
 
   /**
