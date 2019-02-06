@@ -42,6 +42,7 @@ import org.lockss.util.test.FileTestUtil;
 import org.lockss.mail.MimeMessage;
 import org.lockss.plugin.*;
 import org.lockss.protocol.MockIdentityManager;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -270,8 +271,11 @@ public class TestRemoteApi extends LockssTestCase {
    *          An AuConfiguration with the Archival Unit configuration.
    * @throws DbException
    *           if any problem occurred accessing the database.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
    */
-  void writeAuDb(AuConfiguration auConfiguration) throws DbException {
+  void writeAuDb(AuConfiguration auConfiguration)
+      throws DbException, LockssRestException {
     daemon.getConfigManager().storeArchivalUnitConfiguration(auConfiguration);
   }
 

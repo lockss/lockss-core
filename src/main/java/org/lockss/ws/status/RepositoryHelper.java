@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,6 +38,7 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.db.DbException;
 import org.lockss.remote.RemoteApi;
 import org.lockss.repository.OldLockssRepositoryImpl;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.ws.entities.RepositoryWsResult;
 
@@ -168,7 +169,7 @@ public class RepositoryHelper {
    * @return a String with the requested printable copy.
    */
   String nonDefaultToString(Collection<RepositoryWsResult> results)
-      throws DbException {
+      throws DbException, LockssRestException {
     StringBuilder builder = new StringBuilder("[");
     boolean isFirst = true;
 
@@ -196,7 +197,7 @@ public class RepositoryHelper {
    * @return a String with the requested printable copy.
    */
   private String nonDefaultToString(RepositoryWsResult result)
-      throws DbException {
+      throws DbException, LockssRestException {
     StringBuilder builder = new StringBuilder("RepositoryWsResult [");
     boolean isFirst = true;
 

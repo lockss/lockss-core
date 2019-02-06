@@ -96,14 +96,24 @@ public class ClientStateManager extends CachingStateManager {
       log.error("Couldn't serialize AuState: {}", ausb, e);
     }
 
-    configMgr.getRestConfigClient().patchArchivalUnitState(key, auState);
+    try {
+      configMgr.getRestConfigClient().patchArchivalUnitState(key, auState);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't store AuState: {}", ausb, lre);
+    }
   }
 
   @Override
   protected AuStateBean doLoadAuStateBean(String key) {
     AuStateBean res = null;
+    String auState = null;
 
-    String auState = configMgr.getRestConfigClient().getArchivalUnitState(key);
+    try {
+      auState = configMgr.getRestConfigClient().getArchivalUnitState(key);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't get AuState: {}", auState, lre);
+    }
+
     log.debug2("austate = {}", auState);
 
     if (auState != null) {
@@ -163,10 +173,15 @@ public class ClientStateManager extends CachingStateManager {
   @Override
   protected AuAgreements doLoadAuAgreements(String key) {
     AuAgreements res = agmnts.get(key);
+    String auAgreementsJson = null;
 
-    String auAgreementsJson =
-	configMgr.getRestConfigClient().getArchivalUnitAgreements(key);
-    log.debug2("auAgreementsJson = {}", auAgreementsJson);
+    try {
+      auAgreementsJson =
+	  configMgr.getRestConfigClient().getArchivalUnitAgreements(key);
+      log.debug2("auAgreementsJson = {}", auAgreementsJson);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't get AuAgreements: {}", key, lre);
+    }
 
     if (auAgreementsJson != null) {
       try {

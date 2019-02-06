@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -65,6 +65,7 @@ import org.lockss.plugin.CachedUrl;
 import org.lockss.plugin.CachedUrlSet;
 import org.lockss.plugin.CuIterator;
 import org.lockss.plugin.PluginManager;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
@@ -477,6 +478,12 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
 	throw new LockssWebServicesFault(dbe,
 	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
 		+ repositorySpaceQuery));
+      } catch (LockssRestException lre) {
+	log.error("Caught LockssRestException", lre);
+	log.error("fullQuery = '" + fullQuery + "'");
+	throw new LockssWebServicesFault(lre,
+	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
+		+ repositorySpaceQuery));
       }
     } catch (QueryParseException qpe) {
       log.error("Caught QueryParseException", qpe);
@@ -547,6 +554,12 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
 	log.error("Caught DbException", dbe);
 	log.error("fullQuery = '" + fullQuery + "'");
 	throw new LockssWebServicesFault(dbe,
+	    new LockssWebServicesFaultInfo("repositoryQuery = "
+		+ repositoryQuery));
+      } catch (LockssRestException lre) {
+	log.error("Caught LockssRestException", lre);
+	log.error("fullQuery = '" + fullQuery + "'");
+	throw new LockssWebServicesFault(lre,
 	    new LockssWebServicesFaultInfo("repositoryQuery = "
 		+ repositoryQuery));
       }

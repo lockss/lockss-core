@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,6 +37,7 @@ import org.lockss.daemon.status.StatusTable;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.RemoteApi;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;
@@ -130,8 +131,11 @@ public class AddContentTab extends LockssServlet {
      * Handle a request
      *
      * @throws java.io.IOException
+     * @throws DbException
+     * @throws LockssRestException
      */
-    public void lockssHandleRequest() throws IOException, DbException {
+    public void lockssHandleRequest()
+	throws IOException, DbException, LockssRestException {
         if (!StringUtil.isNullString(req.getParameter("isDaemonReady"))) {
             if (pluginMgr.areAusStarted()) {
                 resp.setStatus(200);
@@ -232,12 +236,14 @@ public class AddContentTab extends LockssServlet {
         }
     }
 
-    private void doHtmlStatusTable() throws IOException, DbException {
+    private void doHtmlStatusTable()
+	throws IOException, DbException, LockssRestException {
         writePage(doHtmlStatusTable0());
     }
 
     // Build the table, adding elements to page
-    private Page doHtmlStatusTable0() throws IOException, DbException {
+    private Page doHtmlStatusTable0()
+	throws IOException, DbException, LockssRestException {
         page = new Page();
         addJS("js/DisplayContentTab.js");
         HttpSession session = getSession();

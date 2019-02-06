@@ -64,9 +64,11 @@ public class LockssRestHttpException extends LockssRestException {
    * 
    * @param httpStatusCode
    *          An int with the HTTP status code.
+   * @return a LockssRestHttpException with this object.
    */
-  public void setHttpStatusCode(int httpStatusCode) {
+  public LockssRestHttpException setHttpStatusCode(int httpStatusCode) {
     this.httpStatusCode = httpStatusCode;
+    return this;
   }
 
   /**
@@ -83,8 +85,11 @@ public class LockssRestHttpException extends LockssRestException {
    * 
    * @param httpStatusMessage
    *          A String with the HTTP status message.
+   * @return a LockssRestHttpException with this object.
    */
-  public void setHttpStatusMessage(String httpStatusMessage) {
+  public LockssRestHttpException setHttpStatusMessage( String httpStatusMessage)
+  {
     this.httpStatusMessage = httpStatusMessage;
+    return this;
   }
 }

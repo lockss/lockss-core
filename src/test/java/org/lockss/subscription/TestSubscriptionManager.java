@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -61,6 +61,7 @@ import org.lockss.plugin.simulated.SimulatedPlugin;
 import org.lockss.protocol.MockIdentityManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockArchivalUnit;
@@ -833,7 +834,7 @@ public class TestSubscriptionManager extends LockssTestCase {
 
   private BatchAuStatus configureAu(TdbAu tdbAu, Subscription subscription,
       String subscribedRanges, String unsubscribedRanges) throws IOException,
-      DbException, SubscriptionException {
+      DbException, LockssRestException, SubscriptionException {
     subscription.setSubscribedRanges(Collections
 	.singletonList(new BibliographicPeriod(subscribedRanges)));
     subscription.setUnsubscribedRanges(Collections
