@@ -92,12 +92,9 @@ public class ClientStateManager extends CachingStateManager {
 
     try {
       auState = ausb.toJson();
+      configMgr.getRestConfigClient().patchArchivalUnitState(key, auState);
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", ausb, e);
-    }
-
-    try {
-      configMgr.getRestConfigClient().patchArchivalUnitState(key, auState);
     } catch (LockssRestException lre) {
       log.error("Couldn't store AuState: {}", ausb, lre);
     }
@@ -158,13 +155,10 @@ public class ClientStateManager extends CachingStateManager {
 
     try {
       auAgreementsJson = aua.toJson(peers);
-    } catch (IOException e) {
-      log.error("Couldn't serialize AuAgreements: {}", aua, e);
-    }
-
-    try {
       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
 	  auAgreementsJson);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuAgreements: {}", aua, e);
     } catch (LockssRestException lre) {
       log.error("Couldn't store AuAgreements: {}", aua, lre);
     }

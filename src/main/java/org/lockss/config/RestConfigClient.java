@@ -531,12 +531,6 @@ public class RestConfigClient {
       log.error("hcee.getStatusCode() = " + hcee.getStatusCode());
       output.setStatusCode(hcee.getStatusCode());
       output.setErrorMessage(errorMessage);
-    } catch (IOException ioe) {
-      String errorMessage = "Couldn't save config section '" + sectionName
-	  + "' from URL '" + requestUrl + "': " + ioe.toString();
-      log.error(errorMessage, ioe);
-      output.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-      output.setErrorMessage(errorMessage);
     }
 
     return output;
@@ -560,12 +554,10 @@ public class RestConfigClient {
    *          A long with the length of the content to be sent to the server.
    * @return an HttpResponseStatusAndHeaders with the status and headers of the
    *         response.
-   * @throws IOException
-   *           if there are problems reading the input stream.
    */
   public HttpResponseStatusAndHeaders callPutMultipartRequest(String url,
       HttpRequestPreconditions preconditions, InputStream inputStream,
-      String contentType, long contentLength) throws IOException {
+      String contentType, long contentLength) {
     final String DEBUG_HEADER = "callPutMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);

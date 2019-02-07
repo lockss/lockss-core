@@ -143,9 +143,9 @@ public class MultipartConnector {
       // Parse the response and return it.
       return new MultipartResponse(response);
     } catch (LockssRestException lre) {
-      log.warning("Exception caught getting MimeMultipart object", lre);
-      log.warning("uri = " + uri);
-      log.warning("requestHeaders = " + requestHeaders.toSingleValueMap());
+      log.debug2("Exception caught getting MimeMultipart object", lre);
+      log.debug2("uri = " + uri);
+      log.debug2("requestHeaders = " + requestHeaders.toSingleValueMap());
       return new MultipartResponse(lre);
     } catch (IOException | MessagingException e) {
       log.error("Exception caught getting MimeMultipart object", e);
@@ -245,9 +245,9 @@ public class MultipartConnector {
       return new HttpResponseStatusAndHeaders(response.getStatusCodeValue(),
 	  null, response.getHeaders());
     } catch (LockssRestException lre) {
-      log.warning("Exception caught getting MimeMultipart object", lre);
-      log.warning("uri = " + uri);
-      log.warning("requestHeaders = " + requestHeaders.toSingleValueMap());
+      log.debug2("Exception caught updating MimeMultipart object", lre);
+      log.debug2("uri = " + uri);
+      log.debug2("requestHeaders = " + requestHeaders.toSingleValueMap());
       return HttpResponseStatusAndHeaders.fromLockssRestException(lre);
     }
   }

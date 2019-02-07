@@ -3556,9 +3556,9 @@ public class ConfigManager implements LockssManager {
 	      AuConfigurationUtils.toAuidPrefixedConfiguration(auConfiguration);
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-	} catch (Exception e) {
+	} catch (LockssRestException lre) {
 	  log.error("Exception caught getting the configuration of Archival "
-	      + "Unit " + auId, e);
+	      + "Unit " + auId, lre);
 	}
       }
 

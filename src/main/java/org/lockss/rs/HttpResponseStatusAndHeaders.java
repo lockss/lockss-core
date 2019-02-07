@@ -35,13 +35,20 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
 /**
- * Encapsulation of an HTTP Status code, message and response headers.
+ * Encapsulation of an HTTP status code, message and response headers.
  */
 public class HttpResponseStatusAndHeaders {
   private int code;
   private String message;
   private HttpHeaders headers;
 
+  /**
+   * Constructor from fields.
+   *
+   * @param code An int with the response status code.
+   * @param message A String with the response status message.
+   * @param headers An HttpHeaders with the response headers.
+   */
   public HttpResponseStatusAndHeaders(int code, String message,
       HttpHeaders headers) {
     super();
@@ -76,7 +83,9 @@ public class HttpResponseStatusAndHeaders {
 
   /**
    * Map a LockssRestException into an object of this class.
-   * @param lre A LockssRestException with the exception to be mapped.
+   * 
+   * @param lre
+   *          A LockssRestException with the exception to be mapped.
    * @return an HttpStatusCodeAndMessage with the mapping result.
    */
   public static HttpResponseStatusAndHeaders fromLockssRestException(
@@ -97,13 +106,19 @@ public class HttpResponseStatusAndHeaders {
       // No.
       return new HttpResponseStatusAndHeaders(HttpStatus.BAD_GATEWAY.value(),
 	  lre.getMessage(), null);
-    }
+      // Check whether it is an HTTP exception.
+    } else if (lre instanceof LockssRestHttpException) {
+      // Yes.
+      LockssRestHttpException lrhe =(LockssRestHttpException)lre;
 
-    // No: It is an HTTP exception.
-    LockssRestHttpException lrhe =(LockssRestHttpException)lre;
-    
-    return new HttpResponseStatusAndHeaders(lrhe.getHttpStatusCode(),
-	lrhe.getHttpStatusMessage(), lrhe.getHttpResponseHeaders());
+      return new HttpResponseStatusAndHeaders(lrhe.getHttpStatusCode(),
+	  lrhe.getHttpStatusMessage(), lrhe.getHttpResponseHeaders());
+    } else {
+      // No: It is an unknown exception type.
+      return new HttpResponseStatusAndHeaders(
+	  HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unknown exception type",
+	  null);
+    }
   }
 
   @Override
