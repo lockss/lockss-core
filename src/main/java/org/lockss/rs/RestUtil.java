@@ -92,6 +92,7 @@ public class RestUtil {
 	    new LockssRestHttpException(exceptionMessage);
 	lrhe.setHttpStatusCode(statusCode.value());
 	lrhe.setHttpStatusMessage(statusCode.getReasonPhrase());
+	lrhe.setHttpResponseHeaders(response.getHeaders());
 	if (log.isDebug2()) log.debug3("lrhe = " + lrhe);
 
 	throw lrhe;

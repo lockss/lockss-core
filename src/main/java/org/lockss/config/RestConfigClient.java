@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
+import org.lockss.rs.HttpResponseStatusAndHeaders;
 import org.lockss.rs.RestUtil;
 import org.lockss.rs.exception.LockssRestException;
 import org.lockss.rs.multipart.MultipartConnector;
@@ -293,7 +294,7 @@ public class RestConfigClient {
       output.setErrorMessage(errorMessage);
       output.setStatusCode(hcee.getStatusCode());
       return output;
-    } catch (IOException | LockssRestException | MessagingException e) {
+    } catch (IOException | MessagingException e) {
       String errorMessage = "Couldn't load config section '" + sectionName
 	  + "' from URL '" + requestUrl + "': " + e.toString();
       log.error(errorMessage, e);
@@ -368,14 +369,12 @@ public class RestConfigClient {
    * @return a MultipartResponse with the response.
    * @throws IOException
    *           if there are problems getting the part payload.
-   * @throws LockssRestException
-   *           if there are problems accessing the REST service.
    * @throws MessagingException
    *           if there are other problems.
    */
   public MultipartResponse callGetMultipartRequest(String url,
       HttpRequestPreconditions preconditions)
-	  throws IOException, LockssRestException, MessagingException {
+	  throws IOException, MessagingException {
     final String DEBUG_HEADER = "callGetMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
@@ -504,25 +503,24 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the result.
-      ResponseEntity<?> response = callPutMultipartRequest(requestUrl,
+      HttpResponseStatusAndHeaders result = callPutMultipartRequest(requestUrl,
 	  input.getHttpRequestPreconditions(), config, input.getContentType(),
 	  input.getContentLength());
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
 
-      HttpStatus statusCode = response.getStatusCode();
-      output.setStatusCode(statusCode);
-      output.setErrorMessage(statusCode.toString());
+      output.setStatusCode(HttpStatus.valueOf(result.getCode()));
+      output.setErrorMessage(result.getMessage());
 
       // Get and populate the configuration data last modified header.
       String lastModified =
-	  response.getHeaders().getFirst(HttpHeaders.LAST_MODIFIED);
+	  result.getHeaders().getFirst(HttpHeaders.LAST_MODIFIED);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
 
       output.setLastModified(lastModified);
 
       // Get and populate the configuration data ETag header.
-      String etag = response.getHeaders().getETag();
+      String etag = result.getHeaders().getETag();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
       output.setEtag(etag);
@@ -537,12 +535,6 @@ public class RestConfigClient {
       String errorMessage = "Couldn't save config section '" + sectionName
 	  + "' from URL '" + requestUrl + "': " + ioe.toString();
       log.error(errorMessage, ioe);
-      output.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-      output.setErrorMessage(errorMessage);
-    } catch (LockssRestException lre) {
-      String errorMessage = "Couldn't save config section '" + sectionName
-	  + "' from URL '" + requestUrl + "': " + lre.toString();
-      log.error(errorMessage, lre);
       output.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
       output.setErrorMessage(errorMessage);
     }
@@ -566,16 +558,14 @@ public class RestConfigClient {
    *          server.
    * @param contentLength
    *          A long with the length of the content to be sent to the server.
-   * @return an HttpStatus with the status of the response.
+   * @return an HttpResponseStatusAndHeaders with the status and headers of the
+   *         response.
    * @throws IOException
    *           if there are problems reading the input stream.
-   * @throws LockssRestException
-   *           if there are problems accessing the REST service.
    */
-  public ResponseEntity<?> callPutMultipartRequest(String url,
+  public HttpResponseStatusAndHeaders callPutMultipartRequest(String url,
       HttpRequestPreconditions preconditions, InputStream inputStream,
-      String contentType, long contentLength)
-	  throws IOException, LockssRestException {
+      String contentType, long contentLength) throws IOException {
     final String DEBUG_HEADER = "callPutMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
@@ -659,8 +649,8 @@ public class RestConfigClient {
     }
 
     // Make the request and obtain the response.
-    ResponseEntity<?> response = new MultipartConnector(uri, requestHeaders,
-	parts).requestPut(serviceTimeout, serviceTimeout);
+    HttpResponseStatusAndHeaders response = new MultipartConnector(uri,
+	requestHeaders, parts).requestPut(serviceTimeout, serviceTimeout);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     return response;
@@ -700,20 +690,14 @@ public class RestConfigClient {
 	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get all AU configurations");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
     Collection<AuConfiguration> result = Collections.emptyList();
 
-    if (RestUtil.isSuccess(statusCode)) {
-      try {
-	ObjectMapper mapper = new ObjectMapper();
-	result = mapper.readValue((String)response.getBody(),
-	    new TypeReference<Collection<AuConfiguration>>(){});
-      } catch (Exception e) {
-	log.error("Cannot get body of response", e);
-      }
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      result = mapper.readValue((String)response.getBody(),
+	  new TypeReference<Collection<AuConfiguration>>(){});
+    } catch (Exception e) {
+      log.error("Cannot get body of response", e);
     }
 
     if (log.isDebug2()) log.debug2("result = " + result);
@@ -761,18 +745,7 @@ public class RestConfigClient {
 	    requestEntity, AuConfiguration.class,
 	    "Cannot get AU configuration");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
-    AuConfiguration result = null;
-
-    if (!RestUtil.isSuccess(statusCode)) {
-      if (log.isDebug2()) log.debug2("result = " + result);
-      return result;
-    }
-
-    result = response.getBody();
+    AuConfiguration result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -817,18 +790,7 @@ public class RestConfigClient {
 	    requestEntity, AuConfiguration.class,
 	    "Cannot delete AU configuration");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
-    AuConfiguration result = null;
-
-    if (!RestUtil.isSuccess(statusCode)) {
-      if (log.isDebug2()) log.debug2("result = " + result);
-      return result;
-    }
-
-    result = response.getBody();
+    AuConfiguration result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -865,14 +827,9 @@ public class RestConfigClient {
     HttpEntity<AuConfiguration> requestEntity =
 	new HttpEntity<AuConfiguration>(auConfiguration, requestHeaders);
 
-    // Make the request and get the response. 
-    ResponseEntity<Void> response = RestUtil.callRestService(getRestTemplate(),
-	uri, HttpMethod.PUT, requestEntity, Void.class,
-	"Cannot update AU configuration");
-
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+    // Make the request. 
+    RestUtil.callRestService(getRestTemplate(),	uri, HttpMethod.PUT,
+	requestEntity, Void.class, "Cannot update AU configuration");
   }
 
   /**
@@ -914,16 +871,7 @@ public class RestConfigClient {
 	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU state");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
-    String result = null;
-
-    if (RestUtil.isSuccess(statusCode)) {
-      result = response.getBody();
-    }
-
+    String result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -1014,16 +962,7 @@ public class RestConfigClient {
 	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU poll agreements");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
-    String result = null;
-
-    if (RestUtil.isSuccess(statusCode)) {
-      result = response.getBody();
-    }
-
+    String result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }

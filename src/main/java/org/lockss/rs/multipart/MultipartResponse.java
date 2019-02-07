@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,6 +37,9 @@ import javax.mail.Header;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMultipart;
+import org.lockss.rs.HttpResponseStatusAndHeaders;
+import org.lockss.rs.exception.LockssRestException;
+import org.lockss.rs.exception.LockssRestHttpException;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.springframework.http.HttpHeaders;
@@ -142,6 +145,30 @@ public class MultipartResponse {
       addPart(part);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "inputStream = " + part.getInputStream());
+    }
+  }
+
+  /**
+   * Constructor using a LockssRestException.
+   * 
+   * @param lre
+   *          A LockssRestException with the exception.
+   */
+  public MultipartResponse(LockssRestException lre) {
+    final String DEBUG_HEADER = "MultipartResponse(lre): ";
+
+    HttpResponseStatusAndHeaders status =
+	  HttpResponseStatusAndHeaders.fromLockssRestException(lre);
+
+    // Populate the status code.
+    statusCode = HttpStatus.valueOf(status.getCode());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+    if (lre instanceof LockssRestHttpException) {
+      // Populate the response headers.
+      responseHeaders = ((LockssRestHttpException)lre).getHttpResponseHeaders();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "responseHeaders = " + responseHeaders);
     }
   }
 

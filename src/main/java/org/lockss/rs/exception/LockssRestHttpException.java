@@ -27,11 +27,14 @@
  */
 package org.lockss.rs.exception;
 
+import org.springframework.http.HttpHeaders;
+
 public class LockssRestHttpException extends LockssRestException {
   private static final long serialVersionUID = -4151454747192096531L;
 
   private int httpStatusCode;
   private String httpStatusMessage;
+  private HttpHeaders responseHeaders;
 
   /**
    * Default constructor.
@@ -87,9 +90,31 @@ public class LockssRestHttpException extends LockssRestException {
    *          A String with the HTTP status message.
    * @return a LockssRestHttpException with this object.
    */
-  public LockssRestHttpException setHttpStatusMessage( String httpStatusMessage)
+  public LockssRestHttpException setHttpStatusMessage(String httpStatusMessage)
   {
     this.httpStatusMessage = httpStatusMessage;
+    return this;
+  }
+
+  /**
+   * Provides the HTTP response headers.
+   * 
+   * @return an HttpHeaders with the HTTP response headers.
+   */
+  public HttpHeaders getHttpResponseHeaders() {
+    return responseHeaders;
+  }
+
+  /**
+   * Saves the HTTP response headers.
+   * 
+   * @param httpStatusMessage
+   *          An HttpHeaders with the HTTP response headers.
+   * @return a LockssRestHttpException with this object.
+   */
+  public LockssRestHttpException setHttpResponseHeaders(
+      HttpHeaders responseHeaders) {
+    this.responseHeaders = responseHeaders;
     return this;
   }
 }

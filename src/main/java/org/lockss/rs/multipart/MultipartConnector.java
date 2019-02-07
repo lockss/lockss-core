@@ -32,6 +32,7 @@ import java.net.URI;
 import java.util.List;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMultipart;
+import org.lockss.rs.HttpResponseStatusAndHeaders;
 import org.lockss.rs.RestUtil;
 import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
@@ -94,13 +95,10 @@ public class MultipartConnector {
    * @return a MultipartResponse with the response.
    * @throws IOException
    *           if there are problems getting a part payload.
-   * @throws LockssRestException
-   *           if there are problems accessing the REST service.
    * @throws MessagingException
    *           if there are other problems.
    */
-  public MultipartResponse requestGet()
-      throws IOException, LockssRestException, MessagingException {
+  public MultipartResponse requestGet() throws IOException, MessagingException {
     return requestGet(60, 60);
   }
 
@@ -114,13 +112,11 @@ public class MultipartConnector {
    * @return a MultipartResponse with the response.
    * @throws IOException
    *           if there are problems getting a part payload.
-   * @throws LockssRestException
-   *           if there are problems accessing the REST service.
    * @throws MessagingException
    *           if there are other problems.
    */
   public MultipartResponse requestGet(int connectTimeout, int readTimeout)
-      throws IOException, LockssRestException, MessagingException {
+      throws IOException, MessagingException {
     final String DEBUG_HEADER = "requestGet(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
@@ -146,7 +142,12 @@ public class MultipartConnector {
 
       // Parse the response and return it.
       return new MultipartResponse(response);
-    } catch (IOException | LockssRestException | MessagingException e) {
+    } catch (LockssRestException lre) {
+      log.warning("Exception caught getting MimeMultipart object", lre);
+      log.warning("uri = " + uri);
+      log.warning("requestHeaders = " + requestHeaders.toSingleValueMap());
+      return new MultipartResponse(lre);
+    } catch (IOException | MessagingException e) {
       log.error("Exception caught getting MimeMultipart object", e);
       log.error("uri = " + uri);
       log.error("requestHeaders = " + requestHeaders.toSingleValueMap());
@@ -201,10 +202,8 @@ public class MultipartConnector {
    * Performs the PUT request.
    *
    * @return an HttpStatus with the response status.
-   * @throws LockssRestException
-   *           if there are problems accessing the REST service.
    */
-  public ResponseEntity<?> requestPut() throws LockssRestException {
+  public HttpResponseStatusAndHeaders requestPut() {
     return requestPut(60, 60);
   }
 
@@ -216,11 +215,9 @@ public class MultipartConnector {
    * @param readTimeout
    *          An int with the read timeout in seconds.
    * @return an HttpStatus with the response status.
-   * @throws LockssRestException
-   *           if there are problems accessing the REST service.
    */
-  public ResponseEntity<?> requestPut(int connectTimeout, int readTimeout)
-      throws LockssRestException {
+  public HttpResponseStatusAndHeaders requestPut(int connectTimeout,
+      int readTimeout) {
     final String DEBUG_HEADER = "requestPut(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
@@ -245,12 +242,13 @@ public class MultipartConnector {
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       // Parse the response and return it.
-      return response;
-    } catch (LockssRestException e) {
-      log.error("Exception caught getting MimeMultipart object", e);
-      log.error("uri = " + uri);
-      log.error("requestHeaders = " + requestHeaders.toSingleValueMap());
-      throw e;
+      return new HttpResponseStatusAndHeaders(response.getStatusCodeValue(),
+	  null, response.getHeaders());
+    } catch (LockssRestException lre) {
+      log.warning("Exception caught getting MimeMultipart object", lre);
+      log.warning("uri = " + uri);
+      log.warning("requestHeaders = " + requestHeaders.toSingleValueMap());
+      return HttpResponseStatusAndHeaders.fromLockssRestException(lre);
     }
   }
 }

@@ -56,6 +56,7 @@ import org.lockss.proxy.*;
 import org.lockss.remote.*;
 import org.lockss.repository.*;
 import org.lockss.rs.exception.LockssRestException;
+import org.lockss.rs.exception.LockssRestHttpException;
 import org.lockss.servlet.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
@@ -3538,8 +3539,17 @@ public class ConfigManager implements LockssManager {
       // Yes: Try to get it from the REST Configuration service.
       if (restConfigClient.isActive()) {
 	try {
-	  AuConfiguration auConfiguration =
-	      restConfigClient.getArchivalUnitConfiguration(auId);
+	  AuConfiguration auConfiguration = null;
+
+	  try {
+	    auConfiguration =
+		restConfigClient.getArchivalUnitConfiguration(auId);
+	  } catch (LockssRestHttpException lrhe) {
+	    // Do nothing: Continue with a null object.
+	    log.error("Exception caught getting the configuration of Archival "
+		+ "Unit " + auId, lrhe);
+	  }
+
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "auConfiguration = " + auConfiguration);
 	  auConfig =
@@ -3991,7 +4001,13 @@ public class ConfigManager implements LockssManager {
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      restConfigClient.putArchivalUnitConfiguration(auConfiguration);
+      try {
+	restConfigClient.putArchivalUnitConfiguration(auConfiguration);
+      } catch (LockssRestHttpException lrhe) {
+	// Do nothing.
+	log.error("Exception caught storing the Archival Unit configuration '"
+	    + auConfiguration + "'", lrhe);
+      }
     } else {
       getConfigManagerSql().addArchivalUnitConfiguration(pluginId, auKey,
 	  auConfig);
@@ -4021,7 +4037,13 @@ public class ConfigManager implements LockssManager {
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      result = restConfigClient.getAllArchivalUnitConfiguration();
+      try {
+	result = restConfigClient.getAllArchivalUnitConfiguration();
+      } catch (LockssRestHttpException lrhe) {
+	log.error("Exception caught getting the configurations of all Archival "
+	    + "Units", lrhe);
+	result = Collections.emptyList();
+      }
     } else {
       result = new ArrayList<>();
 
@@ -4067,7 +4089,13 @@ public class ConfigManager implements LockssManager {
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      result = restConfigClient.getArchivalUnitConfiguration(auid);
+      try {
+	result = restConfigClient.getArchivalUnitConfiguration(auid);
+      } catch (LockssRestHttpException lrhe) {
+	// Do nothing: Continue with a null object.
+	log.error("Exception caught getting the configuration of Archival "
+	    + "Unit " + auid, lrhe);
+      }
     } else {
       Connection conn = null;
 
@@ -4195,7 +4223,13 @@ public class ConfigManager implements LockssManager {
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      restConfigClient.deleteArchivalUnitConfiguration(auid);
+      try {
+	restConfigClient.deleteArchivalUnitConfiguration(auid);
+      } catch (LockssRestHttpException lrhe) {
+	// Do nothing.
+	log.error("Exception caught deleting the configuration of Archival "
+	    + "Unit " + auid, lrhe);
+      }
     } else {
       // Parse the Archival Unit identifier.
       String pluginId = PluginManager.pluginIdFromAuId(auid);
