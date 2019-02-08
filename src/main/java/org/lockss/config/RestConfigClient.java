@@ -838,7 +838,7 @@ public class RestConfigClient {
     if (log.isDebug2()) log.debug2("auId = " + auId);
 
     // Get the URL template.
-    String template = getAuConfigRequestUrl();
+    String template = getAuStateRequestUrl();
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
@@ -1000,7 +1000,7 @@ public class RestConfigClient {
     HttpEntity<String> requestEntity =
 	new HttpEntity<String>(auAgreements, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
 	requestEntity, String.class, "Cannot update AU poll agreements");
   }
