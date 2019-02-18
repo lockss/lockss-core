@@ -637,7 +637,9 @@ public class LockssApp {
     try {
       // call init on the service
       log.debug2("create & initService: " + managerName);
-      mgr.initService(this);
+      if (!mgr.isInited()) {
+	mgr.initService(this);
+      }
       managerMap.put(desc.key, mgr);
       return mgr;
     } catch (Exception ex) {

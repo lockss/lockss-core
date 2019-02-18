@@ -48,6 +48,7 @@ public abstract class BaseLockssManager implements LockssManager {
   protected LockssApp theApp = null;
   private Configuration.Callback configCallback;
   protected boolean isInited = false;
+  protected boolean isStarted = false;
   protected boolean shuttingDown = false;
 
   protected String getClassName() {
@@ -63,6 +64,7 @@ public abstract class BaseLockssManager implements LockssManager {
    * @throws LockssAppException
    */
   public void initService(LockssApp app) throws LockssAppException {
+    isInited = true;
     if (log.isDebug2()) log.debug2(getClassName() + ".initService()");
     if(theApp == null) {
       theApp = app;
@@ -77,7 +79,7 @@ public abstract class BaseLockssManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
-    isInited = true;
+    isStarted = true;
     if (log.isDebug2()) log.debug2(getClassName() + ".startService()");
   }
 
@@ -112,13 +114,19 @@ public abstract class BaseLockssManager implements LockssManager {
   }
 
   /**
-   * Return true iff this manager's init has completed.  This can differ
-   * from isAppInited in some testing situations where additional
-   * managers are started after the daemon is running
+   * Return true iff this manager's initService() has been called.
    * @return true if the manager is inited
    */
-  protected boolean isInited() {
+  public boolean isInited() {
     return isInited;
+  }
+
+  /**
+   * Return true iff this manager's startService() has been called.
+   * @return true if the manager is started
+   */
+  public boolean isStarted() {
+    return isStarted;
   }
 
   public <T> T getManagerByType(Class<T> mgrType) {

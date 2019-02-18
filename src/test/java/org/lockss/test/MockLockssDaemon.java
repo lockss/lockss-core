@@ -917,6 +917,40 @@ public class MockLockssDaemon extends LockssDaemon {
     }
   }
 
+  /** For each manager type in the arguments, install the default manager
+   * for the type if no other manager has been installed, init the manager
+   * if it hasn't been inited, and start the manager if it hasn't been
+   * started. */
+  public MockLockssDaemon startManagers(Class<? extends LockssManager>... mgrTypes) {
+    for (Class<? extends LockssManager> mgrType : mgrTypes) {
+      log.critical("startManagers: " + mgrTypes);
+      LockssManager mgr = getManagerByType(mgrType);
+      log.critical("mgr: " + mgr);
+      if (!mgr.isStarted()) {
+	log.critical("mgr starting");
+	mgr.startService();
+      }
+    }
+    return this;
+  }
+
+  /** Stop all the managers that were started */
+  public MockLockssDaemon stopManagers() {
+    List<String> rkeys = ListUtil.reverseCopy(managerMap.asList());
+    for (String key : rkeys) {
+      LockssManager lm = (LockssManager)managerMap.get(key);
+      if (lm.isStarted()) {
+	try {
+	  lm.stopService();
+	  managerMap.remove(key);
+	} catch (Exception e) {
+	  log.warning("Couldn't stop service " + lm, e);
+	}
+      }
+    }
+    return this;
+  }
+
   ConfigDbManager configDbMgr;
   StateManager stateMgr;
 

@@ -643,6 +643,8 @@ public class ConfigManager implements LockssManager {
   }
 
   protected LockssApp theApp = null;
+  protected boolean isInited = false;
+  protected boolean isStarted = false;
 
   private List configChangedCallbacks = new ArrayList();
 
@@ -795,6 +797,7 @@ public class ConfigManager implements LockssManager {
   }
 
   public void initService(LockssApp app) throws LockssAppException {
+    isInited = true;
     theApp = app;
   }
 
@@ -802,6 +805,7 @@ public class ConfigManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
+    isStarted = true;
     // Start the configuration handler that will periodically check the
     // configuration files.
     startHandler();
@@ -822,6 +826,18 @@ public class ConfigManager implements LockssManager {
     // Reset the config cache.
     configCache = null;
     haveConfig = new OneShotSemaphore();
+  }
+
+  public boolean isInited() {
+    return isInited;
+  }
+
+  /**
+   * Return true iff this manager's startService() has been called.
+   * @return true if the manager is started
+   */
+  public boolean isStarted() {
+    return isStarted;
   }
 
   public LockssApp getApp() {

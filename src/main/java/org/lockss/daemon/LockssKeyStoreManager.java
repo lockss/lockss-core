@@ -159,7 +159,7 @@ public class LockssKeyStoreManager
       if (changedKeys.contains(PARAM_KEYSTORE)) {
 	configureKeyStores(config);
 	// defer initial set of keystore loading until startService
-	if (isInited()) {
+	if (isStarted()) {
 	  // load any newly added keystores
 	  loadKeyStores();
 	}
