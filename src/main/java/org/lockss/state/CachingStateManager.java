@@ -61,6 +61,13 @@ public abstract class CachingStateManager extends BaseStateManager {
     = PREFIX + "agreeMapsCacheSize";
   public static final int DEFAULT_AGREE_MAPS_CACHE_SIZE = 50;
 
+  /**
+   * The max size of the LRU cache from AuId to agreement map.
+   */
+  public static final String PARAM_SUSPECT_VERSIONS_MAPS_CACHE_SIZE
+    = PREFIX + "suspectVersionsMapsCacheSize";
+  public static final int DEFAULT_SUSPECT_VERSIONS_MAPS_CACHE_SIZE = 50;
+
 
   protected AuEventHandler auEventHandler;
 
@@ -70,6 +77,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     auStates = newAuStateMap();
     auStateBeans = newAuStateBeanMap();
     agmnts = newAuAgreementsMap();
+    suspectVers = newAuSuspectUrlVersionsMap();
   }
 
   public void startService() {
@@ -269,7 +277,7 @@ public abstract class CachingStateManager extends BaseStateManager {
    * tests.  Can only be called once per AU. */
   @Override
   public synchronized void storeAuStateBean(String key, AuStateBean ausb) {
-    if (auStateExists(key)) {
+    if (hasAuState(key)) {
       throw new IllegalStateException("Storing 2nd AuState: " + key);
     }
     auStateBeans.put(key, ausb);
@@ -280,7 +288,7 @@ public abstract class CachingStateManager extends BaseStateManager {
    * @param key the auid
    */
   @Override
-  public boolean auStateExists(String key) {
+  public boolean hasAuState(String key) {
     return auStates.containsKey(key) || auStateBeans.containsKey(key);
   }
 
@@ -453,7 +461,7 @@ public abstract class CachingStateManager extends BaseStateManager {
    * @param key the auid
    */
   @Override
-  public boolean auAgreementsExists(String key) {
+  public boolean hasAuAgreements(String key) {
     return agmnts.containsKey(key);
   }
 
@@ -473,6 +481,125 @@ public abstract class CachingStateManager extends BaseStateManager {
    * complete update (all peers).  Overridable becauae of the many tests
    * that were written when this was permissiable */
   protected boolean isStoreOfMissingAuAgreementsAllowed(Set<PeerIdentity> peers) {
+    return peers == null || peers.isEmpty();
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // AuSuspectUrlVersions
+  // /////////////////////////////////////////////////////////////////
+
+  /** Cache of extant AuSuspectUrlVersions instances */
+  protected Map<String,AuSuspectUrlVersions> suspectVers;
+
+  /** Return the current singleton AuSuspectUrlVersions for the auid,
+   * creating one if necessary. */
+  public synchronized AuSuspectUrlVersions getAuSuspectUrlVersions(String key) {
+    AuSuspectUrlVersions asuv = suspectVers.get(key);
+    log.debug2("getAuSuspectUrlVersions({}) = {}", key, asuv);
+    if (asuv == null) {
+      asuv = handleAuSuspectUrlVersionsCacheMiss(key);
+    }
+    return asuv;
+  }
+
+  public synchronized void updateAuSuspectUrlVersions(String key,
+					     AuSuspectUrlVersions asuv) {
+    log.debug2("Not Updating: {}: {}", key, asuv);
+//     AuSuspectUrlVersions curasuv = suspectVers.get(key);
+//     try {
+//       if (curasuv != null) {
+// 	if (curasuv != asuv) {
+// 	  throw new IllegalStateException("Attempt to store from wrong AuSuspectUrlVersions instance");
+// 	}
+// 	String json = asuv.toJson(peers);
+// 	doStoreAuSuspectUrlVersionsUpdate(key, asuv, peers);
+// 	doNotifyAuSuspectUrlVersionsChanged(key, json);
+//       } else if (isStoreOfMissingAuSuspectUrlVersionsAllowed(peers)) {
+// 	// XXX log?
+// 	suspectVers.put(key, asuv);
+// 	String json = asuv.toJson(peers);
+// 	doStoreAuSuspectUrlVersionsNew(key, asuv);
+//       } else {
+// 	throw new IllegalStateException("Attempt to apply partial update to AuSuspectUrlVersions not in cache: " + key);
+//       }
+//     } catch (IOException e) {
+//       log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
+//       throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " +
+// 					asuv);
+//     }
+  }
+
+//   /** Entry point from state service to store changes to an AuSuspectUrlVersions.  Write
+//    * to DB, call hook to notify clients if appropriate
+//    * @param key the auid
+//    * @param json the serialized set of changes
+//    * @param map Map representation of change fields.
+//    * @throws IOException if json conversion throws
+//    */
+//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json)
+//       throws IOException {
+//     AuSuspectUrlVersions asuv = getAuSuspectUrlVersions(auid);
+//     Set<PeerIdentity> changedPids = asuv.updateFromJson(json, daemon);
+//     updateAuSuspectUrlVersions(auid, asuv, changedPids);
+//   }
+
+//   /** Store an AuSuspectUrlVersions not obtained from StateManager.  Useful in tests.
+//    * Can only be called once per AU. */
+//   public synchronized void storeAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv) {
+//     updateAuSuspectUrlVersions(key, asuv, null);
+//   }
+
+  /** Default behavior when AU is deleted/deactivated is to remove
+   * AuSuspectUrlVersions from cache.  Persistent implementations should not remove
+   * it from storage. */
+  protected synchronized void handleAuDeletedAuSuspectUrlVersions(ArchivalUnit au) {
+    suspectVers.remove(auKey(au));
+  }
+
+  /** Handle a cache miss.  Call hooks to load an object from backing
+   * store, if any, or to create and store new default object. */
+  protected AuSuspectUrlVersions handleAuSuspectUrlVersionsCacheMiss(String key) {
+    AuSuspectUrlVersions asuv = doLoadAuSuspectUrlVersions(key);
+    if (asuv != null) {
+      suspectVers.put(key, asuv);
+    } else {
+      asuv = newDefaultAuSuspectUrlVersions(key);
+      suspectVers.put(key, asuv);
+//       try {
+// 	String json = asuv.toJson();
+// 	doStoreAuSuspectUrlVersionsNew(key, asuv);
+//       } catch (IOException e) {
+// 	log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
+// 	throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " + asuv);
+//       }
+    }
+    return asuv;
+  }
+
+  /** Return true if an AuSuspectUrlVersions exists for the given auid
+   * @param key the auid
+   */
+  @Override
+  public boolean hasAuSuspectUrlVersions(String key) {
+    return suspectVers.containsKey(key);
+  }
+
+  /** Put an AuSuspectUrlVersions in the suspectVers map. */
+  protected void putAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv) {
+    suspectVers.put(key, asuv);
+  }
+
+  /** @return a Map suitable for an AuSuspectUrlVersions cache.  By default a
+   * UniqueRefLruCache. */
+  protected Map<String,AuSuspectUrlVersions> newAuSuspectUrlVersionsMap() {
+    return new UniqueRefLruCache<>(DEFAULT_SUSPECT_VERSIONS_MAPS_CACHE_SIZE);
+  }
+
+  /** Return true if an update call for an unknown AuSuspectUrlVersions should be
+   * allowed (and treated as a store).  By default it's allowed iff it's a
+   * complete update (all peers).  Overridable becasuve of the many tests
+   * that were written when this was permissiable */
+  protected boolean isStoreOfMissingAuSuspectUrlVersionsAllowed(Set<PeerIdentity> peers) {
     return peers == null || peers.isEmpty();
   }
 

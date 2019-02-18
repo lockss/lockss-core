@@ -100,7 +100,7 @@ public interface StateManager extends LockssManager {
   /** Return true if an AuState(Bean) exists for the given auid
    * @param key the auid
    */
-  public boolean auStateExists(String key);
+  public boolean hasAuState(String key);
 
 
   // /////////////////////////////////////////////////////////////////
@@ -134,7 +134,41 @@ public interface StateManager extends LockssManager {
   /** Return true if an AuAgreements exists for the given auid
    * @param key the auid
    */
-  public boolean auAgreementsExists(String key);
+  public boolean hasAuAgreements(String key);
+
+  // /////////////////////////////////////////////////////////////////
+  // AuSuspectUrlVersions
+  // /////////////////////////////////////////////////////////////////
+
+  /** Return the current singleton AuSuspectUrlVersions for the AU, creating one if
+   * necessary.  There is only one AuSuspectUrlVersions instance in existence for any AU
+   * at any time, though that instance may change over time.  As long as
+   * anyone has a pointer to an instance, this method must return the same
+   * instance on each call.  If all references to the instance are deleted,
+   * this method may return a new instance on the next call.  If the AU is
+   * deleted or deactivated, the next call (after the AU is reactivated)
+   * may return a new instance.  */
+  public AuSuspectUrlVersions getAuSuspectUrlVersions(String key);
+
+  /** Convenience method for {@link #getAuSuspectUrlVersions(String)} */
+  default public AuSuspectUrlVersions getAuSuspectUrlVersions(ArchivalUnit au) {
+    return getAuSuspectUrlVersions(au.getAuId());
+  }
+
+  /** Update the stored AuSuspectUrlVersions */
+  public void updateAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv);
+
+//   /** Store the AuSuspectUrlVersions for the AU.  Can only be used once per AU. */
+//   public void storeAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv);
+
+//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json)
+//       throws IOException;
+
+  /** Return true if an AuSuspectUrlVersions exists for the given auid
+   * @param key the auid
+   */
+  public boolean hasAuSuspectUrlVersions(String key);
+
 
   /** Load/store exception.  Clients of AuState aren't prepared for checked
    * exceptions; this is used to turn them into RuntimeExceptions */

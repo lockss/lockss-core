@@ -70,10 +70,6 @@ public class RepositoryManager
    * polls (poller and voter), as there is a cache entry per active AU.
    * Each poll will have one active AU at a time.
    */
-  public static final String PARAM_MAX_SUSPECT_VERSIONS_CACHE_SIZE =
-      PREFIX + "suspectVersionsCache.size";
-  public static final int DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE = 10;
-
   static final String GLOBAL_CACHE_PREFIX = PREFIX + "globalNodeCache.";
   public static final String PARAM_MAX_GLOBAL_CACHE_SIZE =
       GLOBAL_CACHE_PREFIX + "size";
@@ -169,11 +165,8 @@ public class RepositoryManager
   int paramNodeCacheSize = DEFAULT_MAX_PER_AU_CACHE_SIZE;
   boolean paramIsGlobalNodeCache = DEFAULT_GLOBAL_CACHE_ENABLED;
   int paramGlobalNodeCacheSize = DEFAULT_MAX_GLOBAL_CACHE_SIZE;
-  int paramSuspectVersionsCacheSize = DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE;
   UniqueRefLruCache globalNodeCache =
       new UniqueRefLruCache(DEFAULT_MAX_GLOBAL_CACHE_SIZE);
-  UniqueRefLruCache suspectVersionsCache =
-      new UniqueRefLruCache(DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE);
   Map localRepos = new HashMap();
   private static int maxUnusedDirSearch = DEFAULT_MAX_UNUSED_DIR_SEARCH;
   private static boolean isStatefulUnusedDirSearch =
@@ -228,12 +221,6 @@ public class RepositoryManager
           repoImpl.setNodeCacheSize(paramNodeCacheSize);
         }
       }
-    }
-    if (changedKeys.contains(PARAM_MAX_SUSPECT_VERSIONS_CACHE_SIZE)) {
-      paramSuspectVersionsCacheSize =
-          config.getInt(PARAM_MAX_SUSPECT_VERSIONS_CACHE_SIZE,
-              DEFAULT_MAX_SUSPECT_VERSIONS_CACHE_SIZE);
-      suspectVersionsCache.setMaxSize(paramSuspectVersionsCacheSize);
     }
     if (changedKeys.contains(GLOBAL_CACHE_PREFIX)) {
       paramIsGlobalNodeCache = config.getBoolean(PARAM_GLOBAL_CACHE_ENABLED,
@@ -517,10 +504,6 @@ public class RepositoryManager
 
   public UniqueRefLruCache getGlobalNodeCache() {
     return globalNodeCache;
-  }
-
-  public UniqueRefLruCache getSuspectVersionsCache() {
-    return suspectVersionsCache;
   }
 
   // Background thread to (re)calculate AU size and disk usage.

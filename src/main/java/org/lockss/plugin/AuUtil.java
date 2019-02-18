@@ -267,8 +267,8 @@ public class AuUtil {
    * @return the AuSuspectUrlVersions
    */
   public static AuSuspectUrlVersions getSuspectUrlVersions(ArchivalUnit au) {
-    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
-    return repo.getSuspectUrlVersions(au);
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.getAuSuspectUrlVersions(au);
   }
 
   /**
@@ -279,18 +279,18 @@ public class AuUtil {
   public static void saveSuspectUrlVersions(ArchivalUnit au,
 					    AuSuspectUrlVersions asuv)
       throws SerializationException {
-    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
-    repo.storeSuspectUrlVersions(au, asuv);
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    mgr.updateAuSuspectUrlVersions(au.getAuId(), asuv);
   }
 
   /**
-   * Return the AuSuspectUrlVersions object for the AU
+   * Return true if the AU has an associated AuSuspectUrlVersions
    * @param au the AU
-   * @return the AuSuspectUrlVersions
+   * @return true if an AuSuspectUrlVersions exists for the AU
    */
   public static boolean hasSuspectUrlVersions(ArchivalUnit au) {
-    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
-    return repo.hasSuspectUrlVersions(au);
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.hasAuSuspectUrlVersions(au.getAuId());
   }
 
   public static AuNodeImpl getAuRepoNode(ArchivalUnit au) {

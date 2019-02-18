@@ -861,7 +861,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     cacher.storeContent();
     CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
     mau.addCu(cu);
-    AuSuspectUrlVersions asuv = repo.getSuspectUrlVersions(mau);
+    AuSuspectUrlVersions asuv = AuUtil.getSuspectUrlVersions(mau);
     assertTrue(asuv.isEmpty());
     AuState aus = AuUtil.getAuState(mau);
     assertEquals(0, aus.recomputeNumCurrentSuspectVersions());

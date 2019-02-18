@@ -40,7 +40,6 @@ import org.lockss.poller.v3.V3Poller;
 import org.lockss.poller.v3.V3Poller.PollVariant;
 import org.lockss.protocol.*;
 import static org.lockss.protocol.AgreementType.*;
-import org.lockss.repository.AuSuspectUrlVersions;
 import org.lockss.test.*;
 import org.lockss.log.*;
 import org.lockss.util.*;

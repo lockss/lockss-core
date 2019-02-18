@@ -359,4 +359,69 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   protected void doReceiveAuAgreementsChanged(String auid, String json) {
   }
 
+
+  // /////////////////////////////////////////////////////////////////
+  // AuSuspectUrlVersions
+  // /////////////////////////////////////////////////////////////////
+
+//   /** Send JMS notification of AuState change.  Should be called only from
+//    * a hook in a server StateManager.
+//    * @param key auid
+//    * @param json string containing only the changed fields.
+//    */
+//   protected void sendAuSuspectUrlVersionsChangedEvent(String key, String json) {
+//     if (jmsProducer != null) {
+//       Map<String,Object> map = new HashMap<>();
+//       map.put(JMS_MAP_NAME, "AuSuspectUrlVersions");
+//       map.put(JMS_MAP_AUID, key);
+//       map.put(JMS_MAP_JSON, json);
+//       try {
+// 	jmsProducer.sendMap(map);
+//       } catch (JMSException e) {
+// 	log.error("Couldn't send StateChanged notification", e);
+//       }
+//     }
+//   }
+
+  /** Create a default AuSuspectUrlVersionsBean */
+  protected AuSuspectUrlVersions newDefaultAuSuspectUrlVersions(String key) {
+    return new AuSuspectUrlVersions();
+  }
+
+  // Hooks to be implemented by subclasses
+
+  /** Hook for subclass to store a new AuSuspectUrlVersions in persistent storage.
+   * Any of the three data sources may be used.
+   * @param key AUID or other key for AU
+   * @param aua AuSuspectUrlVersions data source
+   */
+  protected void doStoreAuSuspectUrlVersionsNew(String key, AuSuspectUrlVersions aua) {
+  }
+
+  /** Hook for subclass to update an existing AuSuspectUrlVersions in persistent
+   * storage.  Any of the three data sources may be used.  Only those
+   * fields present in the Map or the json string should be saved.
+   * @param key AUID or other key for AU
+   * @param aus AuSuspectUrlVersions data source
+   * @param aus json data source
+   * @param aus Map data source
+   */
+  protected void doStoreAuSuspectUrlVersionsUpdate(String key, AuSuspectUrlVersions aua,
+					   Set<PeerIdentity> peers) {
+  }
+
+  /** Hook for subclass to read an AuSuspectUrlVersions instance from persistent
+   * storage. */
+  protected AuSuspectUrlVersions doLoadAuSuspectUrlVersions(String key) {
+    return null;
+  }
+
+  /** Hook for subclass to send AuSuspectUrlVersions changed notifications */
+  protected void doNotifyAuSuspectUrlVersionsChanged(String auid, String json) {
+  }
+
+  /** Hook for subclass to receive AuSuspectUrlVersions changed notifications */
+  protected void doReceiveAuSuspectUrlVersionsChanged(String auid, String json) {
+  }
+
 }

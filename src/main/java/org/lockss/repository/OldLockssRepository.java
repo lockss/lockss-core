@@ -81,25 +81,6 @@ public interface OldLockssRepository extends LockssAuManager {
   public void nodeConsistencyCheck();
 
   /**
-   * Return the AuSuspectUrlVersions object for the AU
-   */
-  public AuSuspectUrlVersions getSuspectUrlVersions(ArchivalUnit au);
-
-  /**
-   * Store the AuSuspectUrlVersions object for the AU
-   */
-  public void storeSuspectUrlVersions(ArchivalUnit au,
-				      AuSuspectUrlVersions asuv)
-      throws SerializationException;
-
-  /**
-   * Return true if the AU has a record of suspect URL versions, even if
-   * that record is empty.  Does not put anything in the cache so can be
-   * used in iteration over AUs.
-   */
-  public boolean hasSuspectUrlVersions(ArchivalUnit au);
-
-  /**
    * Thrown when an unexpected error is encountered while caching.
    * Typically this is a file system error.
    */

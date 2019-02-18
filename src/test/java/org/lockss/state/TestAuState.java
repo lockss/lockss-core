@@ -40,7 +40,6 @@ import org.lockss.daemon.Crawler;
 import org.lockss.plugin.*;
 import org.lockss.poller.v3.V3Poller;
 import org.lockss.poller.v3.V3Poller.PollVariant;
-import org.lockss.repository.AuSuspectUrlVersions;
 import org.lockss.test.*;
 import org.lockss.log.*;
 import org.lockss.util.*;
@@ -592,11 +591,9 @@ public class TestAuState extends LockssTestCase {
   }
     
   public void testNumCurrentSuspectVersions() {
-    MyMockLockssRepository repo = new MyMockLockssRepository();
     MyAuSuspectUrlVersions asuv = new MyAuSuspectUrlVersions();
-    repo.setAsuv(asuv);
+    stateMgr.setAsuv(asuv);
 
-    daemon.setLockssRepository(repo, mau);
     AuState aus = stateMgr.getAuState(mau);
     assertEquals(0, aus.getNumCurrentSuspectVersions());
     // ensure this isn't automatically recomputed, as that would happen
@@ -806,6 +803,8 @@ public class TestAuState extends LockssTestCase {
   static class MyStateManager extends CachingStateManager {
     int auStateStoreCount = 0;
     int auStateUpdateCount = 0;
+    MyAuSuspectUrlVersions asuv;
+
 
     @Override
     public void initService(LockssDaemon daemon) throws LockssAppException {
@@ -841,25 +840,22 @@ public class TestAuState extends LockssTestCase {
     public int getAuStateUpdateCount() {
       return auStateUpdateCount;
     }
-  }
-
-  static class MyMockLockssRepository extends MockLockssRepository {
-    AuSuspectUrlVersions asuv;
 
     @Override
-    public AuSuspectUrlVersions getSuspectUrlVersions(ArchivalUnit au) {
+    public AuSuspectUrlVersions getAuSuspectUrlVersions(String auid) {
       return asuv;
     }
 
     @Override
-    public boolean hasSuspectUrlVersions(ArchivalUnit au) {
+    public boolean hasAuSuspectUrlVersions(String key) {
       return asuv != null;
     }
 
-    public void setAsuv(AuSuspectUrlVersions asuv) {
+    public void setAsuv(MyAuSuspectUrlVersions asuv) {
       this.asuv = asuv;
     }
   }
+
 
   static class MyAuSuspectUrlVersions extends AuSuspectUrlVersions {
     int countResult;

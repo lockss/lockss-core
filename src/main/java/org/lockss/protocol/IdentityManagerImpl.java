@@ -1283,7 +1283,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   }
 
   public boolean hasAgreeMap(ArchivalUnit au) {
-    if (getStateManager().auAgreementsExists(au.getAuId())) {
+    if (getStateManager().hasAuAgreements(au.getAuId())) {
       return findAuAgreements(au).haveAgreements();
     } else {
       return false;

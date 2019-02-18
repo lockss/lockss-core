@@ -377,87 +377,8 @@ public class OldLockssRepositoryImpl
     return null;
   }
 
-  /**
-   * Return the AuSuspectUrlVersions object for the AU, that can
-   * be used to mark versions of urls within the AU as suspect,
-   * and to determine whether a version of a url within the AU has
-   * been so marked.
-   * @param au the AU
-   * @return AuSuspectUrlversions object for the AU
-   */
-  public AuSuspectUrlVersions getSuspectUrlVersions(ArchivalUnit au) {
-    UniqueRefLruCache cache = repoMgr.getSuspectVersionsCache();
-    AuSuspectUrlVersions asuv = (AuSuspectUrlVersions)cache.get(au);
-    if (asuv != null) {
-      return asuv;
-    }
-    // not in cache.  Load from file or create a new one and insert in cache.
-    synchronized (this) {
-      asuv = loadSuspectUrlVersions(au);
-      return (AuSuspectUrlVersions)cache.putIfNew(au, asuv);
-    }
-  }
-
-  /**
-   * Return true if the AU has a record of suspect URL versions, even if
-   * that record is empty.  Does not put anything in the cache so can be
-   * used in iteration over AUs.
-   */
-  public boolean hasSuspectUrlVersions(ArchivalUnit au) {
-    AuSuspectUrlVersions asuv =
-      (AuSuspectUrlVersions)repoMgr.getSuspectVersionsCache().get(au);
-    if (asuv != null) {
-      return !asuv.isEmpty();
-    } else {
-      return getAsuvFile().exists();
-    }
-  }
-
-  private AuSuspectUrlVersions loadSuspectUrlVersions(ArchivalUnit au) {
-    ObjectSerializer deserializer = makeObjectSerializer();
-    try {
-      if (logger.isDebug3())
-	logger.debug3("Loading suspect versions for " + au);
-      File file = getAsuvFile();
-      AuSuspectUrlVersions asuv =
-	(AuSuspectUrlVersions)deserializer.deserialize(file);
-      return asuv;
-    } catch (SerializationException.FileNotFound fnf) {
-      if (logger.isDebug2())
-	logger.debug2("Creating new suspect versions for AU " + au);
-      // fall through to return new AuSuspectUrlVersions
-    } catch (SerializationException e) {
-      logger.error("Loading suspect versions for " + au, e);
-      // fall through to return new AuSuspectUrlVersions
-    } catch (InterruptedIOException e) {
-      logger.error("Loading suspect versions for " + au, e);
-      throw new RuntimeException("Could not load suspect versions", e);
-    }
-    // Return new object
-    return new AuSuspectUrlVersions();
-  }
-
   private ObjectSerializer makeObjectSerializer() {
     return new XStreamSerializer();
-  }
-
-  public void storeSuspectUrlVersions(ArchivalUnit au,
-				      AuSuspectUrlVersions asuv)
-      throws SerializationException {
-    try {
-      File file = getAsuvFile();
-      makeObjectSerializer().serialize(file, asuv);
-    } catch (SerializationException e) {
-      logger.error("Could not store suspect versions", e);
-      throw e;
-    } catch (InterruptedIOException e) {
-      logger.error("Could not store suspect versions", e);
-      throw new SerializationException(e);
-    }
-  }
-
-  File getAsuvFile() {
-    return new File(rootLocation, SUSPECT_VERSIONS_FILE);
   }
 
 
