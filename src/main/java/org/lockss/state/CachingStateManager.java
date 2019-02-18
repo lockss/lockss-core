@@ -88,6 +88,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   public void stopService() {
+    stopJms();
     if (auEventHandler != null) {
       if (pluginMgr != null) {
 	pluginMgr.unregisterAuEventHandler(auEventHandler);

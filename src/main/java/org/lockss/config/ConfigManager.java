@@ -95,6 +95,11 @@ public class ConfigManager implements LockssManager {
 
   static final String MYPREFIX = PREFIX + "config.";
 
+  /** Used in testing as an alternative to passing the REST config URL to
+   * makeConfigManager() */
+  public static final String SYSPROP_REST_CONFIG_SERVICE_URL =
+    MYPREFIX + "restConfigServiceUrl";
+
   /** The interval at which the daemon checks the various configuration
    * files, including title dbs, for changes.
    * @ParamCategory Tuning
@@ -731,8 +736,9 @@ public class ConfigManager implements LockssManager {
 
   private int auInsertCommitCount = DEFAULT_AU_INSERT_COMMIT_COUNT;
 
+  /** This constructor is used only for tests */
   public ConfigManager() {
-    this(null, null);
+    this(null, System.getProperty(SYSPROP_REST_CONFIG_SERVICE_URL), null, null);
 
     URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
     URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
@@ -815,6 +821,7 @@ public class ConfigManager implements LockssManager {
    * this is called.)
    */
   public void stopService() {
+    stopJms();
     stopHandler();
     currentConfig = newConfiguration();
     // this currently runs afoul of Logger, which registers itself once
@@ -3710,6 +3717,29 @@ public class ConfigManager implements LockssManager {
 	jmsProducer = Producer.createTopicProducer(clientId, notificationTopic);
       } catch (JMSException e) {
 	log.error("Couldn't create jms producer", e);
+      }
+    }
+  }
+
+  void stopJms() {
+    log.debug("stopJms");
+    Producer p = jmsProducer;
+    if (p != null) {
+      try {
+	jmsProducer = null;
+	p.closeConnection();
+	log.debug("Closed producer");
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms producer", e);
+      }
+    }
+    Consumer c = jmsConsumer;
+    if (c != null) {
+      try {
+	jmsConsumer = null;
+	c.closeConnection();
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms consumer", e);
       }
     }
   }
