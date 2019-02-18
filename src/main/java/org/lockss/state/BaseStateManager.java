@@ -214,7 +214,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
     @Override
     public void onMessage(Message message) {
-      log.debug2("onMessage: {}", message);
+      log.trace("onMessage: {}", message);
       try {
         Object msgObject =  Consumer.convertMessage(message);
 	if (msgObject instanceof Map) {
@@ -422,6 +422,70 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   /** Hook for subclass to receive AuSuspectUrlVersions changed notifications */
   protected void doReceiveAuSuspectUrlVersionsChanged(String auid, String json) {
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // NoAuPeerSet
+  // /////////////////////////////////////////////////////////////////
+
+//   /** Send JMS notification of AuState change.  Should be called only from
+//    * a hook in a server StateManager.
+//    * @param key auid
+//    * @param json string containing only the changed fields.
+//    */
+//   protected void sendNoAuPeerSetChangedEvent(String key, String json) {
+//     if (jmsProducer != null) {
+//       Map<String,Object> map = new HashMap<>();
+//       map.put(JMS_MAP_NAME, "NoAuPeerSet");
+//       map.put(JMS_MAP_AUID, key);
+//       map.put(JMS_MAP_JSON, json);
+//       try {
+// 	jmsProducer.sendMap(map);
+//       } catch (JMSException e) {
+// 	log.error("Couldn't send StateChanged notification", e);
+//       }
+//     }
+//   }
+
+  /** Create a default NoAuPeerSetBean */
+  protected DatedPeerIdSet newDefaultNoAuPeerSet(String key) {
+    return new DatedPeerIdSetImpl(daemon.getIdentityManager());
+  }
+
+  // Hooks to be implemented by subclasses
+
+  /** Hook for subclass to store a new NoAuPeerSet in persistent storage.
+   * Any of the three data sources may be used.
+   * @param key AUID or other key for AU
+   * @param aua NoAuPeerSet data source
+   */
+  protected void doStoreNoAuPeerSetNew(String key, DatedPeerIdSet aua) {
+  }
+
+  /** Hook for subclass to update an existing NoAuPeerSet in persistent
+   * storage.  Any of the three data sources may be used.  Only those
+   * fields present in the Map or the json string should be saved.
+   * @param key AUID or other key for AU
+   * @param aus NoAuPeerSet data source
+   * @param aus json data source
+   * @param aus Map data source
+   */
+  protected void doStoreNoAuPeerSetUpdate(String key, DatedPeerIdSet aua,
+					   Set<PeerIdentity> peers) {
+  }
+
+  /** Hook for subclass to read an NoAuPeerSet instance from persistent
+   * storage. */
+  protected DatedPeerIdSet doLoadNoAuPeerSet(String key) {
+    return null;
+  }
+
+  /** Hook for subclass to send NoAuPeerSet changed notifications */
+  protected void doNotifyNoAuPeerSetChanged(String auid, String json) {
+  }
+
+  /** Hook for subclass to receive NoAuPeerSet changed notifications */
+  protected void doReceiveNoAuPeerSetChanged(String auid, String json) {
   }
 
 }

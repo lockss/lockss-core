@@ -170,6 +170,40 @@ public interface StateManager extends LockssManager {
   public boolean hasAuSuspectUrlVersions(String key);
 
 
+  // /////////////////////////////////////////////////////////////////
+  // NoAuPeerSet
+  // /////////////////////////////////////////////////////////////////
+
+  /** Return the current singleton NoAuPeerSet for the AU, creating one if
+   * necessary.  There is only one NoAuPeerSet instance in existence for any AU
+   * at any time, though that instance may change over time.  As long as
+   * anyone has a pointer to an instance, this method must return the same
+   * instance on each call.  If all references to the instance are deleted,
+   * this method may return a new instance on the next call.  If the AU is
+   * deleted or deactivated, the next call (after the AU is reactivated)
+   * may return a new instance.  */
+  public DatedPeerIdSet getNoAuPeerSet(String key);
+
+  /** Convenience method for {@link #getNoAuPeerSet(String)} */
+  default public DatedPeerIdSet getNoAuPeerSet(ArchivalUnit au) {
+    return getNoAuPeerSet(au.getAuId());
+  }
+
+  /** Update the stored NoAuPeerSet */
+  public void updateNoAuPeerSet(String key, DatedPeerIdSet asuv);
+
+//   /** Store the NoAuPeerSet for the AU.  Can only be used once per AU. */
+//   public void storeNoAuPeerSet(String key, DatedPeerIdSet asuv);
+
+//   public void updateNoAuPeerSetFromJson(String auid, String json)
+//       throws IOException;
+
+  /** Return true if an NoAuPeerSet exists for the given auid
+   * @param key the auid
+   */
+  public boolean hasNoAuPeerSet(String key);
+
+
   /** Load/store exception.  Clients of AuState aren't prepared for checked
    * exceptions; this is used to turn them into RuntimeExceptions */
   public static class StateLoadStoreException extends RuntimeException {

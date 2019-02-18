@@ -360,57 +360,6 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     assertFalse(testFile.exists());
   }
   
-  public void testUpdateAgreementCreatesFile() throws Exception {
-    RepositoryNode leaf =
-      createLeaf("http://www.example.com/testDir/branch1/leaf1",
-                 "test stream", null);
-    tempDirPath = OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau);
-    tempDirPath = OldLockssRepositoryImpl.mapUrlToFileLocation(tempDirPath,
-        "http://www.example.com/testDir/branch1/leaf1");
-    File testFile = new File(tempDirPath, "#agreement");
-    assertFalse(testFile.exists());
-    
-    // Agreeing IDs.
-    PeerIdentity[] agreeingPeers =
-      { theDaemon.findPeerIdentity("TCP:[192.168.0.1]:9723"),
-        theDaemon.findPeerIdentity("TCP:[192.168.0.2]:9723")
-      };
-    
-    leaf.signalAgreement(ListUtil.fromArray(agreeingPeers));
-    assertTrue(testFile.exists());
-  }
-
-  public void testUpdateAndLoadAgreement() throws Exception {
-    RepositoryNode leaf =
-      createLeaf("http://www.example.com/testDir/branch1/leaf1",
-                 "test stream", null);
-    tempDirPath = OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau);
-    tempDirPath = OldLockssRepositoryImpl.mapUrlToFileLocation(tempDirPath,
-        "http://www.example.com/testDir/branch1/leaf1");
-    PeerIdentity testid_1 = theDaemon.findPeerIdentity("TCP:[192.168.0.1]:9723");
-    PeerIdentity testid_2 = theDaemon.findPeerIdentity("TCP:[192.168.0.2]:9723");
-    PeerIdentity testid_3 = theDaemon.findPeerIdentity("TCP:[192.168.0.3]:9723");
-    PeerIdentity testid_4 = theDaemon.findPeerIdentity("TCP:[192.168.0.4]:9723");
-    
-    leaf.signalAgreement(ListUtil.list(testid_1, testid_3));
-
-    assertEquals(2, ((RepositoryNodeImpl)leaf).loadAgreementHistory().size());
-
-    assertTrue(leaf.hasAgreement(testid_1));
-    assertFalse(leaf.hasAgreement(testid_2));
-    assertTrue(leaf.hasAgreement(testid_3));
-    assertFalse(leaf.hasAgreement(testid_4));
-
-    leaf.signalAgreement(ListUtil.list(testid_1, testid_2, testid_3, testid_4));
-    
-    assertEquals(4, ((RepositoryNodeImpl)leaf).loadAgreementHistory().size());
-
-    assertTrue(leaf.hasAgreement(testid_1));
-    assertTrue(leaf.hasAgreement(testid_2));
-    assertTrue(leaf.hasAgreement(testid_3));
-    assertTrue(leaf.hasAgreement(testid_4));
-  }
-  
   public void testVersionFileLocation() throws Exception {
     RepositoryNode leaf =
         createLeaf("http://www.example.com/testDir/branch1/leaf1",

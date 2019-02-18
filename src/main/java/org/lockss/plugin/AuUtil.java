@@ -293,6 +293,37 @@ public class AuUtil {
     return mgr.hasAuSuspectUrlVersions(au.getAuId());
   }
 
+  /**
+   * Return the NoAuPeerSet object for the AU
+   * @param au the AU
+   * @return the NoAuPeerSet
+   */
+  public static DatedPeerIdSet getNoAuPeerSet(ArchivalUnit au) {
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.getNoAuPeerSet(au);
+  }
+
+  /**
+   * Update the stored record of suspect versions for the AU
+   * @param au the AU
+   * @param asuv the NoAuPeerSet object to store
+   */
+  public static void saveNoAuPeerSet(ArchivalUnit au, DatedPeerIdSet asuv)
+      throws SerializationException {
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    mgr.updateNoAuPeerSet(au.getAuId(), asuv);
+  }
+
+  /**
+   * Return true if the AU has an associated NoAuPeerSet
+   * @param au the AU
+   * @return true if an NoAuPeerSet exists for the AU
+   */
+  public static boolean hasNoAuPeerSet(ArchivalUnit au) {
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.hasNoAuPeerSet(au.getAuId());
+  }
+
   public static AuNodeImpl getAuRepoNode(ArchivalUnit au) {
     LockssDaemon daemon = getDaemon(au);
     OldLockssRepository repo = daemon.getLockssRepository(au);

@@ -344,10 +344,6 @@ public class PollManager
       null, // new V2PollFactory(),
       new V3PollFactory(this),
   };
-  // Ensure only a single instance of a noAuSet exists for each AU, so can
-  // synchronize on them and use in multiple threads.
-  Map<ArchivalUnit, DatedPeerIdSet> noAuPeerSets =
-      new ReferenceMap(ReferenceMap.HARD, ReferenceMap.WEAK);
   Map<EventCtr, MutableInt> eventCounters =
       new EnumMap<EventCtr, MutableInt>(EventCtr.class);
   Map<PollNak, MutableInt> voterNakEventCounters =
@@ -1443,15 +1439,7 @@ public class PollManager
    * synchronize on that object before operating on it
    */
   public DatedPeerIdSet getNoAuPeerSet(ArchivalUnit au) {
-    synchronized (noAuPeerSets) {
-      DatedPeerIdSet noAuSet = noAuPeerSets.get(au);
-      if (noAuSet == null) {
-        HistoryRepository historyRepo = getDaemon().getHistoryRepository(au);
-        noAuSet = historyRepo.getNoAuPeerSet();
-        noAuPeerSets.put(au, noAuSet);
-      }
-      return noAuSet;
-    }
+    return AuUtil.getNoAuPeerSet(au);
   }
 
   /**

@@ -147,31 +147,6 @@ public class HistoryRepositoryImpl
     return auidfile.lastModified();
   }
   
-  private DatedPeerIdSet m_noAuDpis = null;
-  
-  /**
-   * Return the associated NoAuPeerIdSet
-   */
-  public DatedPeerIdSet getNoAuPeerSet()
-  {
-    IdentityManager idman;
-    
-    if (m_noAuDpis == null) {
-      File file = prepareFile(rootLocation, NO_AU_PEER_ID_SET_FILE_NAME);
-      LockssDaemon ld = getDaemon();
-      if (ld != null) {
-        idman = ld.getIdentityManager();
-      } else {
-        logger.error("When attempting to get a dated Peer ID set, I could not find the daemon.  Aborting.");
-        throw new NullPointerException();
-      }
-      
-      m_noAuDpis = new DatedPeerIdSetImpl(file, idman);
-    }
-    
-    return m_noAuDpis;
-  }
-
   public void setAuConfig(Configuration auConfig) {
 
   }

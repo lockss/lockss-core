@@ -35,7 +35,6 @@ package org.lockss.state;
 import java.io.*;
 import java.util.List;
 import org.lockss.plugin.*;
-import org.lockss.protocol.DatedPeerIdSet;
 import org.lockss.repository.*;
 import org.lockss.app.LockssAuManager;
 
@@ -50,11 +49,6 @@ public interface HistoryRepository extends LockssAuManager {
    */
   public long getAuCreationTime() throws LockssRepositoryException;
 
-  /**
-   * Return the associated DatedPeerIdSet
-   */
-  public DatedPeerIdSet getNoAuPeerSet();
-  
   /**
    * return the AuState.  Temporarily left here for a couple callers that
    * use other HistoryRepository methods

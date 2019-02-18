@@ -219,11 +219,11 @@ public class RepairPolicy {
 
     for (PeerIdentity pid:
 	   reputationTransfers.getAllReputationsTransferredFrom(reqPid)) {
-      if (node.hasAgreement(pid)) {
-	log.debug2("Previous agreement found for peer " + pid + " on URL "
-		  + url);
-	return true;
-      }
+//       if (node.hasAgreement(pid)) {
+// 	log.debug2("Previous agreement found for peer " + pid + " on URL "
+// 		  + url);
+// 	return true;
+//       }
     }
     log.debug2("No previous agreement found for URL " + url);
     return false;

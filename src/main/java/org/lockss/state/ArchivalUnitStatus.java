@@ -1881,18 +1881,9 @@ public class ArchivalUnitStatus
       table.setTitle("Peers not holding " + au.getName());
       DatedPeerIdSet noAuSet = theDaemon.getPollManager().getNoAuPeerSet(au);
       synchronized (noAuSet) {
-        try {
-          noAuSet.load();
-          table.setSummaryInfo(getSummaryInfo(au, noAuSet));
-          table.setColumnDescriptors(columnDescriptors);
-          table.setRows(getRows(table, au, noAuSet));
-        } catch (IOException e) {
-          String msg = "Couldn't load NoAuSet";
-          logger.warning(msg, e);
-          throw new StatusService.NoSuchTableException(msg, e);
-        } finally {
-          noAuSet.release();
-        }
+	table.setSummaryInfo(getSummaryInfo(au, noAuSet));
+	table.setColumnDescriptors(columnDescriptors);
+	table.setRows(getRows(table, au, noAuSet));
       }
     }
 
@@ -1900,28 +1891,22 @@ public class ArchivalUnitStatus
     private List getRows(StatusTable table, ArchivalUnit au,
         DatedPeerIdSet noAuSet) {
       List rows = new ArrayList();
-      try {
-        logger.info("noAuSet.size(): " + noAuSet.size());
-      } catch (IOException e) {
-        logger.error("noAuSet.size()", e);
-      }
-      for (PeerIdentity pid : noAuSet) {
-        logger.info("pid: " + pid);
-        Map row = new HashMap();
-        row.put("Peer", pid.getIdString());
-        rows.add(row);
+      logger.info("noAuSet.size(): " + noAuSet.size());
+      synchronized (noAuSet) {
+	for (PeerIdentity pid : noAuSet) {
+	  logger.info("pid: " + pid);
+	  Map row = new HashMap();
+	  row.put("Peer", pid.getIdString());
+	  rows.add(row);
+	}
       }
       return rows;
     }
     private List getSummaryInfo(ArchivalUnit au, DatedPeerIdSet noAuSet) {
       List res = new ArrayList();
-      try {
-        res.add(new StatusTable.SummaryInfo("Last cleared",
-            ColumnDescriptor.TYPE_DATE,
-            noAuSet.getDate()));
-      } catch (IOException e) {
-        logger.warning("Couldn't get date", e);
-      }
+      res.add(new StatusTable.SummaryInfo("Last cleared",
+					  ColumnDescriptor.TYPE_DATE,
+					  noAuSet.getDate()));
       return res;
     }
   }

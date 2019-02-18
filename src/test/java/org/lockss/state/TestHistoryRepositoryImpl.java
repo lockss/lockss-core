@@ -124,22 +124,6 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     super.tearDown();
   }
 
-  /**
-   *  Make sure that we have one (and only one) dated peer id set 
-   */
-  public void testGetNoAuPeerSet() {
-    DatedPeerIdSet dpis1;
-    DatedPeerIdSet dpis2;
-    
-    dpis1 = repository.getNoAuPeerSet();
-    assertNotNull(dpis1);
-    
-    dpis2 = repository.getNoAuPeerSet();
-    assertNotNull(dpis2);
-    
-    assertSame(dpis1, dpis2);
-  }
-
 
   public static void configHistoryParams(String rootLocation)
     throws IOException {

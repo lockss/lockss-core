@@ -78,6 +78,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     auStateBeans = newAuStateBeanMap();
     agmnts = newAuAgreementsMap();
     suspectVers = newAuSuspectUrlVersionsMap();
+    noAuPeerSets = newNoAuPeerSetMap();
   }
 
   public void startService() {
@@ -478,7 +479,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return true if an update call for an unknown AuAgreements should be
    * allowed (and treated as a store).  By default it's allowed iff it's a
-   * complete update (all peers).  Overridable becauae of the many tests
+   * complete update (all peers).  Overridable because of the many tests
    * that were written when this was permissiable */
   protected boolean isStoreOfMissingAuAgreementsAllowed(Set<PeerIdentity> peers) {
     return peers == null || peers.isEmpty();
@@ -597,9 +598,128 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return true if an update call for an unknown AuSuspectUrlVersions should be
    * allowed (and treated as a store).  By default it's allowed iff it's a
-   * complete update (all peers).  Overridable becasuve of the many tests
+   * complete update (all peers).  Overridable because of the many tests
    * that were written when this was permissiable */
   protected boolean isStoreOfMissingAuSuspectUrlVersionsAllowed(Set<PeerIdentity> peers) {
+    return peers == null || peers.isEmpty();
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // NoAuPeerSet
+  // /////////////////////////////////////////////////////////////////
+
+  /** Cache of extant NoAuPeerSet instances */
+  protected Map<String,DatedPeerIdSet> noAuPeerSets;
+
+  /** Return the current singleton NoAuPeerSet for the auid,
+   * creating one if necessary. */
+  public synchronized DatedPeerIdSet getNoAuPeerSet(String key) {
+    DatedPeerIdSet naps = noAuPeerSets.get(key);
+    log.debug2("getNoAuPeerSet({}) = {}", key, naps);
+    if (naps == null) {
+      naps = handleNoAuPeerSetCacheMiss(key);
+    }
+    return naps;
+  }
+
+  public synchronized void updateNoAuPeerSet(String key,
+					     DatedPeerIdSet naps) {
+    log.debug2("Not Updating: {}: {}", key, naps);
+//     DatedPeerIdSet curnaps = noAuPeerSets.get(key);
+//     try {
+//       if (curnaps != null) {
+// 	if (curnaps != naps) {
+// 	  throw new IllegalStateException("Attempt to store from wrong NoAuPeerSet instance");
+// 	}
+// 	String json = naps.toJson(peers);
+// 	doStoreNoAuPeerSetUpdate(key, naps, peers);
+// 	doNotifyNoAuPeerSetChanged(key, json);
+//       } else if (isStoreOfMissingNoAuPeerSetAllowed(peers)) {
+// 	// XXX log?
+// 	noAuPeerSets.put(key, naps);
+// 	String json = naps.toJson(peers);
+// 	doStoreNoAuPeerSetNew(key, naps);
+//       } else {
+// 	throw new IllegalStateException("Attempt to apply partial update to NoAuPeerSet not in cache: " + key);
+//       }
+//     } catch (IOException e) {
+//       log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
+//       throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " +
+// 					naps);
+//     }
+  }
+
+//   /** Entry point from state service to store changes to an NoAuPeerSet.  Write
+//    * to DB, call hook to notify clients if appropriate
+//    * @param key the auid
+//    * @param json the serialized set of changes
+//    * @param map Map representation of change fields.
+//    * @throws IOException if json conversion throws
+//    */
+//   public void updateNoAuPeerSetFromJson(String auid, String json)
+//       throws IOException {
+//     DatedPeerIdSet naps = getNoAuPeerSet(auid);
+//     Set<PeerIdentity> changedPids = naps.updateFromJson(json, daemon);
+//     updateNoAuPeerSet(auid, naps, changedPids);
+//   }
+
+//   /** Store an NoAuPeerSet not obtained from StateManager.  Useful in tests.
+//    * Can only be called once per AU. */
+//   public synchronized void storeNoAuPeerSet(String key, DatedPeerIdSet naps) {
+//     updateNoAuPeerSet(key, naps, null);
+//   }
+
+  /** Default behavior when AU is deleted/deactivated is to remove
+   * NoAuPeerSet from cache.  Persistent implementations should not remove
+   * it from storage. */
+  protected synchronized void handleAuDeletedNoAuPeerSet(ArchivalUnit au) {
+    noAuPeerSets.remove(auKey(au));
+  }
+
+  /** Handle a cache miss.  Call hooks to load an object from backing
+   * store, if any, or to create and store new default object. */
+  protected DatedPeerIdSet handleNoAuPeerSetCacheMiss(String key) {
+    DatedPeerIdSet naps = doLoadNoAuPeerSet(key);
+    if (naps != null) {
+      noAuPeerSets.put(key, naps);
+    } else {
+      naps = newDefaultNoAuPeerSet(key);
+      noAuPeerSets.put(key, naps);
+//       try {
+// 	String json = naps.toJson();
+// 	doStoreNoAuPeerSetNew(key, naps);
+//       } catch (IOException e) {
+// 	log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
+// 	throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " + naps);
+//       }
+    }
+    return naps;
+  }
+
+  /** Return true if an NoAuPeerSet exists for the given auid
+   * @param key the auid
+   */
+  @Override
+  public boolean hasNoAuPeerSet(String key) {
+    return noAuPeerSets.containsKey(key);
+  }
+
+  /** Put an NoAuPeerSet in the noAuPeerSets map. */
+  protected void putNoAuPeerSet(String key, DatedPeerIdSet naps) {
+    noAuPeerSets.put(key, naps);
+  }
+
+  /** @return a Map suitable for an NoAuPeerSet cache.  By default a
+   * UniqueRefLruCache. */
+  protected Map<String,DatedPeerIdSet> newNoAuPeerSetMap() {
+    return new UniqueRefLruCache<>(DEFAULT_SUSPECT_VERSIONS_MAPS_CACHE_SIZE);
+  }
+
+  /** Return true if an update call for an unknown NoAuPeerSet should be
+   * allowed (and treated as a store).  By default it's allowed iff it's a
+   * complete update (all peers).  Overridable because of the many tests
+   * that were written when this was permissiable */
+  protected boolean isStoreOfMissingNoAuPeerSetAllowed(Set<PeerIdentity> peers) {
     return peers == null || peers.isEmpty();
   }
 

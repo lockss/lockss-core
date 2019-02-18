@@ -37,11 +37,9 @@ import java.io.*;
 import java.util.*;
 import org.lockss.app.*;
 import org.lockss.daemon.Crawler;
-import org.lockss.protocol.DatedPeerIdSetImpl;
 import org.lockss.protocol.IdentityManager;
 import org.lockss.state.*;
 import org.lockss.plugin.*;
-import org.lockss.protocol.DatedPeerIdSet;
 import org.lockss.config.Configuration;
 
 /**
@@ -82,9 +80,6 @@ public class MockHistoryRepository implements HistoryRepository {
   public void setPeerIdFile(File peerIdFile)
   {
     this.peerIdFile = peerIdFile;
-  }
-  public DatedPeerIdSet getNoAuPeerSet() {
-    return new DatedPeerIdSetImpl(peerIdFile, idMgr);
   }
 
   public AuState getAuState() {
