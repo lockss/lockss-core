@@ -34,9 +34,9 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.mockito.Mockito;
-import org.junit.Before;
-import org.junit.Test;
+import java.util.stream.*;
+import org.junit.*;
+
 import org.lockss.app.StoreException;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.db.ConfigDbManager;
@@ -65,7 +65,7 @@ public abstract class StateTestCase extends LockssTestCase4 {
   protected MockArchivalUnit mau2;
 
   protected List<MockPeerIdentity> peerIdentityList;
-  protected PeerIdentity pid0, pid1;
+  protected PeerIdentity pid0, pid1, pid2, pid3;
 
   protected static String AUID1 = MockPlugin.KEY + "&base_url~aaa1";
   protected static String AUID2 = MockPlugin.KEY + "&base_url~aaa2";
@@ -79,20 +79,28 @@ public abstract class StateTestCase extends LockssTestCase4 {
     tmpdir = setUpDiskSpace();
     daemon = getMockLockssDaemon();
 
+    // Start the managers needed by the subclass
+    startManagers();
+    pluginMgr = daemon.getPluginManager();
+
     stateMgr = (BaseStateManager)daemon.setUpStateManager(makeStateManager());
 
-    pluginMgr = daemon.getPluginManager();
 
     MockPlugin plugin = new MockPlugin(daemon);
     mau1 = new MockArchivalUnit(plugin, AUID1);
     mau2 = new MockArchivalUnit(plugin, AUID2);
 
-    peerIdentityList = ListUtil.list(new MockPeerIdentity("id0"),
-				     new MockPeerIdentity("id1"),
-				     new MockPeerIdentity("id2"));
+    peerIdentityList =
+      ListUtil.list(new MockPeerIdentity("tcp:[127.0.0.0]:1231"),
+		    new MockPeerIdentity("tcp:[127.0.0.1]:1231"),
+		    new MockPeerIdentity("tcp:[127.0.0.2]:1231"),
+		    new MockPeerIdentity("tcp:[127.0.0.3]:1231"));
     pid0 = peerIdentityList.get(0);
     pid1 = peerIdentityList.get(1);
+    pid2 = peerIdentityList.get(2);
+    pid3 = peerIdentityList.get(3);
     log.debug("pid0: {}, pid1: {}", pid0, pid1);
+
     idMgr = new MockIdentityManager();
     daemon.setManagerByType(IdentityManager.class, idMgr);
     idMgr.initService(daemon);
@@ -103,16 +111,31 @@ public abstract class StateTestCase extends LockssTestCase4 {
     }
   }
 
+  @After
+  public void tearDown() throws Exception {
+    log.debug("tearDown");
+    stateMgr.stopService();
+    super.tearDown();
+  }
+
+  // Subclasses may implement to start necessary managers
+  protected void startManagers() {
+  }
+
   // Subclasses must implement to create their desired StateManager
   // implementation
   protected abstract StateManager makeStateManager();
+
+  protected void storeAuAgreements(AuAgreements aua, PeerIdentity... pids) {
+    aua.storeAuAgreements(Arrays.stream(pids).collect(Collectors.toSet()));
+  }
 
   // Assert the values in a single agreement
   protected void assertAgreeTime(float agree,
 				 long time,
 				 PeerAgreement peerAgreement) {
     assertEquals(agree, peerAgreement.getPercentAgreement(), .001);
-    assertEquals(time, peerAgreement.getPercentAgreementTime(), .001);
+    assertEquals(time, peerAgreement.getPercentAgreementTime());
   }
 
   /** A StateManager with an assignable StateStore */

@@ -53,4 +53,10 @@ public class ServerStateManager extends PersistentStateManager {
     log.debug("Sending AuState changed notification for {}: {}", key, json);
     sendAuStateChangedEvent(key, json);
   }
+
+  @Override
+  protected void doNotifyAuAgreementsChanged(String key, String json) {
+    log.debug("Sending AuAgreement changed notification for {}: {}", key, json);
+    sendAuAgreementsChangedEvent(key, json);
+  }
 }

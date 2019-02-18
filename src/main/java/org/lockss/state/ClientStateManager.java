@@ -66,18 +66,25 @@ public class ClientStateManager extends CachingStateManager {
   // AuState
   // /////////////////////////////////////////////////////////////////
 
+  // Temp(?) hack to avoid (re)applying our own changes
+  Set<Map<String,Object>> myChanges = new HashSet<>();
+
   /** Handle incoming AuState changed msg */
   @Override
   public synchronized void doReceiveAuStateChanged(String auid, String json) {
     AuState cur = auStates.get(auid);
-    String msg = "Updating";
     if (cur == null) {
       log.debug2("Ignoring partial update for AuState we don't have: {}", auid);
       return;
     }
     try {
-      log.debug2("{}: {} from {}", msg, cur, json);
-      cur.updateFromJson(json, daemon);
+      log.debug2("Updating: {} from {}", cur, json);
+      log.debug("mychanges.remove: {}", AuUtil.jsonToMap(json));
+      if (myChanges.remove(AuUtil.jsonToMap(json))) {
+	log.debug("Ignoring my change: {}", json);
+      } else {
+	cur.updateFromJson(json, daemon);
+      }
     } catch (IOException e) {
       log.error("Couldn't deserialize AuState: {}", json, e);
     }
@@ -91,7 +98,9 @@ public class ClientStateManager extends CachingStateManager {
     String auState = null;
 
     try {
-      auState = ausb.toJson();
+      auState = ausb.toJson(fields);
+      log.debug("mychanges.add: {}", AuUtil.jsonToMap(auState));
+      myChanges.add(AuUtil.jsonToMap(auState));
       configMgr.getRestConfigClient().patchArchivalUnitState(key, auState);
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", ausb, e);
@@ -133,13 +142,12 @@ public class ClientStateManager extends CachingStateManager {
   public synchronized void doReceiveAuAgreementsChanged(String auid,
 							String json) {
     AuAgreements cur = agmnts.get(auid);
-    String msg = "Updating";
     if (cur == null) {
       log.debug2("Ignoring partial update for AuAgreements we don't have: {}", auid);
       return;
     }
     try {
-      log.debug2("{}: {} from {}", msg, cur, json);
+      log.debug2("Updating: {} from {}", cur, json);
       cur.updateFromJson(json, daemon);
     } catch (IOException e) {
       log.error("Couldn't deserialize AuAgreements: {}", json, e);
@@ -166,7 +174,7 @@ public class ClientStateManager extends CachingStateManager {
 
   @Override
   protected AuAgreements doLoadAuAgreements(String key) {
-    AuAgreements res = agmnts.get(key);
+    AuAgreements res = null;
     String auAgreementsJson = null;
 
     try {
@@ -179,6 +187,7 @@ public class ClientStateManager extends CachingStateManager {
 
     if (auAgreementsJson != null) {
       try {
+	res = newDefaultAuAgreements(key);
 	res.updateFromJson(auAgreementsJson, daemon);
       } catch (IOException e) {
 	log.error("Couldn't deserialize AuAgreements: {}", auAgreementsJson, e);

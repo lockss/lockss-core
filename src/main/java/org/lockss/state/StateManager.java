@@ -117,6 +117,11 @@ public interface StateManager extends LockssManager {
    * may return a new instance.  */
   public AuAgreements getAuAgreements(String key);
 
+  /** Convenience method for {@link #getAuAgreements(String)} */
+  default public AuAgreements getAuAgreements(ArchivalUnit au) {
+    return getAuAgreements(au.getAuId());
+  }
+
   /** Update the stored AuAgreements with the values of the listed peers */
   public void updateAuAgreements(String key, AuAgreements aua, Set<PeerIdentity> peers);
 

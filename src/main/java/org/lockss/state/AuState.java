@@ -97,10 +97,6 @@ public class AuState implements LockssSerializable {
     if (bean == null) logger.critical("null bean", new Throwable());
   }
 
-  public AuState(ArchivalUnit au) {
-    this(au, LockssDaemon.getManagerByTypeStatic(StateManager.class));
-  }
-
   public AuState(ArchivalUnit au, StateManager stateMgr) {
     this(au, stateMgr, new AuStateBean());
   }
@@ -254,7 +250,7 @@ public class AuState implements LockssSerializable {
   /**
    * Returns the result of the last new content crawl
    */
-  public String getLastCrawlResultMsg() {
+  public synchronized String getLastCrawlResultMsg() {
     if (isCrawlActive()) {
       return previousCrawlState.getLastCrawlResultMsg();
     }
@@ -518,7 +514,14 @@ public class AuState implements LockssSerializable {
   public synchronized void setCdnStems(List<String> stems) {
     logger.debug("setCdnStems: " + stems);
     if (!getCdnStems().equals(stems)) {
-      bean.cdnStems = stems == null ? null : ListUtil.minimalArrayList(stems);
+      if (stems == null) {
+	bean.cdnStems = null;
+      } else {
+	// Must copy, as cdnStems gets modified
+	List<String> val = new ArrayList(stems.size());
+	val.addAll(stems);
+	bean.cdnStems = val;
+      }
       needSave("cdnStems");
       flushAuCaches();
     }

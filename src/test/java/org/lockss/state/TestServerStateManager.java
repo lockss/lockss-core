@@ -36,21 +36,19 @@ import org.junit.*;
 import org.lockss.jms.*;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
+import static org.lockss.protocol.AgreementType.*;
 import org.lockss.test.*;
-import org.lockss.util.MapUtil;
-import org.lockss.util.time.*;
+import org.lockss.util.*;
+import org.lockss.util.time.TimerUtil;
 
-public class TestServerStateManager extends LockssTestCase4 {
+public class TestServerStateManager extends StateTestCase {
   L4JLogger log = L4JLogger.getLogger();
 
   static BrokerService broker;
 
-  MockLockssDaemon daemon;
-  PluginManager pluginMgr;
-  MyServerStateManager stateMgr;
+  MyServerStateManager myStateMgr;
   MockPlugin mplug;
-  MockArchivalUnit mau1;
-  MockArchivalUnit mau2;
   Consumer cons;
 
   @BeforeClass
@@ -69,20 +67,24 @@ public class TestServerStateManager extends LockssTestCase4 {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setUpDiskSpace();
     daemon = getMockLockssDaemon();
     pluginMgr = daemon.getPluginManager();
 //     pluginMgr.startService();
     daemon.getManagerByType(org.lockss.config.db.ConfigDbManager.class)
       .startService();
 
-    stateMgr = daemon.setUpStateManager(new MyServerStateManager());
     mplug = new MockPlugin(daemon);
 
     mau1 = new MockArchivalUnit(mplug, "plug&aaa1");
     mau2 = new MockArchivalUnit(mplug, "plug&aaa2");
     
     cons = Consumer.createTopicConsumer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
+  }
+
+  @Override
+  protected StateManager makeStateManager() {
+    myStateMgr = new MyServerStateManager();
+    return myStateMgr;
   }
 
   // Construct a JMS message map for an AuState update
@@ -97,6 +99,14 @@ public class TestServerStateManager extends LockssTestCase4 {
     return MapUtil.map("name", "AuState",
 		       "auid", key,
 		       "json", AuUtil.mapToJson(map));
+  }
+
+  // Construct a JMS message map for an AuAgreements update
+  Map<String,Object> auAgreementsUpdateMap(String auid, String json)
+      throws IOException {
+    return MapUtil.map("name", "AuAgreements",
+		       "auid", auid,
+		       "json", json);
   }
 
   @Test
@@ -152,7 +162,7 @@ public class TestServerStateManager extends LockssTestCase4 {
     assertEquals(auStateUpdateMap(key, in1Map),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
-    assertTrue(stateMgr.isInAuStateBeanMap(key));
+    assertTrue(myStateMgr.isInAuStateBeanMap(key));
 
     // Create an AU with that auid, ensure resulting AuState has the values
     // that were set on the AuStateBean created by the update
@@ -164,7 +174,45 @@ public class TestServerStateManager extends LockssTestCase4 {
     assertEquals(666, aus.getLastCrawlTime());
     assertEquals(555, aus.getLastCrawlAttempt());
 
-    assertTrue(stateMgr.isInAuStateMap(key));
+    assertTrue(myStateMgr.isInAuStateMap(key));
+  }
+
+  @Test
+  // Test that local updates of AuAgreements objects cause notifications to be
+  // sent, and that updates from service cause local AuAgreements to be updated
+  public void testAuAgreements() throws Exception {
+    AuAgreements aua1 = stateMgr.getAuAgreements(mau1);
+    AuAgreements aua2 = stateMgr.getAuAgreements(mau2);
+    assertNotSame(aua1, aua2);
+    assertSame(aua1, stateMgr.getAuAgreements(mau1));
+    assertSame(aua2, stateMgr.getAuAgreements(mau2));
+    assertAgreeTime(-1.0f, 0, aua1.findPeerAgreement(pid1, POR));
+
+    aua1.signalPartialAgreement(pid0, POR, .10f, 910);
+    aua1.signalPartialAgreement(pid0, POP, .20f, 910);
+
+    aua1.signalPartialAgreement(pid1, POR, .30f, 920);
+    aua1.signalPartialAgreement(pid1, POP, .40f, 920);
+
+    assertAgreeTime(.10f, 910, aua1.findPeerAgreement(pid0, POR));
+    assertAgreeTime(.20f, 910, aua1.findPeerAgreement(pid0, POP));
+    assertAgreeTime(.30f, 920, aua1.findPeerAgreement(pid1, POR));
+    assertAgreeTime(.40f, 920, aua1.findPeerAgreement(pid1, POP));
+
+    String json = aua1.toJson(SetUtil.set(pid0, pid1));
+    storeAuAgreements(aua1, pid0, pid1);
+
+    assertEquals(auAgreementsUpdateMap(aua1.getAuid(), json),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+
+    aua2.signalPartialAgreement(pid0, POR, .50f, 1910);
+    aua2.signalPartialAgreement(pid0, POP, .60f, 1910);
+
+    String json2 = aua2.toJson(SetUtil.set(pid0));
+    stateMgr.updateAuAgreementsFromJson(stateMgr.auKey(mau1), json2);
+
+    assertAgreeTime(.50f, 1910, aua1.findPeerAgreement(pid0, POR));
+    assertAgreeTime(.60f, 1910, aua1.findPeerAgreement(pid0, POP));
   }
 
 
