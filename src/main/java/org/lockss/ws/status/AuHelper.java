@@ -231,23 +231,20 @@ public class AuHelper {
     result.setRepository(repo);
 
     CachedUrlSet auCus = au.getAuCachedUrlSet();
-    if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
-      if (state.getV3Agreement() < 0) {
-	if (state.getLastCrawlTime() < 0) {
-	  result.setStatus("Waiting for Crawl");
-	} else {
-	  result.setStatus("Waiting for Poll");
-	}
+    if (state.getV3Agreement() < 0) {
+      if (state.getLastCrawlTime() < 0) {
+	result.setStatus("Waiting for Crawl");
       } else {
-	result.setStatus(doubleToPercent(state.getHighestV3Agreement())
-	    + "% Agreement");
-	if (state.getHighestV3Agreement() != state.getV3Agreement()) {
-	  result.setRecentPollAgreement(state.getV3Agreement());
-	}
+	result.setStatus("Waiting for Poll");
       }
     } else {
-      result.setStatus(histRepo.hasDamage(auCus) ? "Repairing" : "Ok");
+      result.setStatus(doubleToPercent(state.getHighestV3Agreement())
+		       + "% Agreement");
+      if (state.getHighestV3Agreement() != state.getV3Agreement()) {
+	result.setRecentPollAgreement(state.getV3Agreement());
+      }
     }
+
 
     String publishingPlatform = plugin.getPublishingPlatform();
 

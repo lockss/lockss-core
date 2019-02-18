@@ -49,11 +49,9 @@ import org.lockss.config.Configuration;
  */
 public class MockHistoryRepository implements HistoryRepository {
   private HashMap storedHistories = new HashMap();
-  private DamagedNodeSet theDamagedNodeSet;
   private HashMap storedNodes = new HashMap();
   private String baseDir;
   private ArchivalUnit au;
-  private int timesStoreDamagedNodeSetCalled = 0;
   private IdentityManager idMgr;
   private File peerIdFile;
 
@@ -64,7 +62,6 @@ public class MockHistoryRepository implements HistoryRepository {
   }
   public void stopService() {
     storedHistories = new HashMap();
-    theDamagedNodeSet = null;
     storedNodes = new HashMap();
   }
   public LockssApp getApp() {
@@ -72,34 +69,6 @@ public class MockHistoryRepository implements HistoryRepository {
   }
 
   public void setAuConfig(Configuration auConfig) {
-  }
-
-  public void storeDamagedNodeSet(DamagedNodeSet nodeSet) {
-    timesStoreDamagedNodeSetCalled++;
-    theDamagedNodeSet = nodeSet;
-  }
-
-  public int timesStoreDamagedNodeSetCalled() {
-    return timesStoreDamagedNodeSetCalled;
-  }
-
-  public DamagedNodeSet loadDamagedNodeSet() {
-    return theDamagedNodeSet;
-  }
-
-  /**
-   * Return the
-   */
-  @Override
-  public boolean hasDamage(CachedUrlSet cus) {
-    return false;
-  }
-  public DamagedNodeSet getDamagedNodes() {
-    return theDamagedNodeSet;
-  }
-
-  public void setDamagedNodes(DamagedNodeSet dnSet) {
-    theDamagedNodeSet = dnSet;
   }
 
   public long getAuCreationTime() {

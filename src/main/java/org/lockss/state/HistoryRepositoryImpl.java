@@ -127,7 +127,6 @@ public class HistoryRepositoryImpl
 
   private ArchivalUnit storedAu;
   LockssDaemon theDaemon;
-  DamagedNodeSet damagedNodes;
   OldLockssRepository lockssRepo;
 
   protected HistoryRepositoryImpl(ArchivalUnit au, String rootPath) {
@@ -173,44 +172,6 @@ public class HistoryRepositoryImpl
     return m_noAuDpis;
   }
 
-  /**
-   * <p>Loads a damaged node set from file.</p>
-   * @return A damaged node set retrieved from file.
-   * @throws RepositoryStateException if an error condition arises
-   *                                  that is neither a file not found
-   *                                  exception nor a serialization
-   *                                  exception.
-   */
-  public DamagedNodeSet loadDamagedNodeSet() {
-    logger.debug3("Loading damaged nodes for AU '" + storedAu.getName() + "'");
-    File damFile = new File(rootLocation, DAMAGED_NODES_FILE_NAME);
-    ObjectSerializer deserializer = makeObjectSerializer();
-    String errorString = "Could not load damaged nodes '" + storedAu.getName() + "'";
-
-    try {
-      DamagedNodeSet damNodes = (DamagedNodeSet)deserializer.deserialize(damFile);
-      // set these fields manually // post-deserialization method?
-      damNodes.theAu = storedAu;
-      damNodes.repository = this;
-      return damNodes;
-    }
-    catch (SerializationException.FileNotFound fnf) {
-      logger.debug2("No damaged node file for AU '" + storedAu.getName() + "'");
-      // drop down to return empty set
-    }
-    catch (SerializationException se) {
-      logger.error(errorString, se);
-      // drop down to return empty set
-    }
-    catch (InterruptedIOException exc) {
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-
-    // Default: return empty set
-    return new DamagedNodeSet(storedAu, this);
-  }
-
   public void setAuConfig(Configuration auConfig) {
 
   }
@@ -220,7 +181,6 @@ public class HistoryRepositoryImpl
     // gets all the managers
     if (logger.isDebug2()) logger.debug2("Starting: " + storedAu);
     theDaemon = getDaemon();
-    damagedNodes = new DamagedNodeSet(storedAu, this);
 
     lockssRepo = theDaemon.getLockssRepository(storedAu);
     logger.debug2("HistoryRepository successfully started");
@@ -228,40 +188,12 @@ public class HistoryRepositoryImpl
 
   public void stopService() {
     if (logger.isDebug()) logger.debug("Stopping: " + storedAu);
-    if (damagedNodes != null) {
-      damagedNodes.clear();
-    }
     super.stopService();
     logger.debug2("HistoryRepository successfully stopped");
   }
 
   public AuState getAuState() {
     return theDaemon.getManagerByType(StateManager.class).getAuState(storedAu);
-  }
-
-  @Override
-  public boolean hasDamage(CachedUrlSet cus) {
-    return damagedNodes.hasDamage(cus);
-  }
-
-  /**
-   * <p>Stores a damaged node set.</p>
-   * @param nodeSet    A damaged node set.
-   * @see #storeDamagedNodeSet(ObjectSerializer, DamagedNodeSet)
-   */
-  public void storeDamagedNodeSet(DamagedNodeSet nodeSet) {
-    logger.debug3("Storing damaged nodes for AU '" + nodeSet.theAu.getName() + "'");
-    File file = prepareFile(rootLocation, DAMAGED_NODES_FILE_NAME);
-    ObjectSerializer serializer = makeObjectSerializer();
-
-    try {
-      serializer.serialize(file, nodeSet);
-    }
-    catch (Exception exc) {
-      String errorString = "Could not store damaged nodes for AU '" + nodeSet.theAu.getName() + "'";
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
   }
 
   /**

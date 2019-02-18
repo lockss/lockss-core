@@ -124,58 +124,6 @@ public abstract class TestHistoryRepositoryImpl extends LockssTestCase {
     super.tearDown();
   }
 
-  public void testStoreDamagedNodeSet() throws Exception {
-    DamagedNodeSet damNodes = new DamagedNodeSet(mau, repository);
-    damNodes.nodesWithDamage.add("test1");
-    damNodes.nodesWithDamage.add("test2");
-    damNodes.cusToRepair.put("cus1", ListUtil.list("cus1-1", "cus1-2"));
-    damNodes.cusToRepair.put("cus2", ListUtil.list("cus2-1"));
-    assertTrue(damNodes.containsWithDamage("test1"));
-    assertTrue(damNodes.containsWithDamage("test2"));
-    assertFalse(damNodes.containsWithDamage("test3"));
-
-    repository.storeDamagedNodeSet(damNodes);
-    String filePath = OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath,
-							       mau);
-    filePath += HistoryRepositoryImpl.DAMAGED_NODES_FILE_NAME;
-    File xmlFile = new File(filePath);
-    assertTrue(xmlFile.exists());
-
-    damNodes = null;
-    damNodes = repository.loadDamagedNodeSet();
-    // check damage
-    assertTrue(damNodes.containsWithDamage("test1"));
-    assertTrue(damNodes.containsWithDamage("test2"));
-    assertFalse(damNodes.containsWithDamage("test3"));
-
-    MockCachedUrlSet mcus1 = new MockCachedUrlSet("cus1");
-    MockCachedUrlSet mcus2 = new MockCachedUrlSet("cus2");
-
-    // check repairs
-    assertTrue(damNodes.containsToRepair(mcus1, "cus1-1"));
-    assertTrue(damNodes.containsToRepair(mcus1, "cus1-2"));
-    assertFalse(damNodes.containsToRepair(mcus1, "cus2-1"));
-    assertTrue(damNodes.containsToRepair(mcus2, "cus2-1"));
-    assertEquals(mau.getAuId(), damNodes.theAu.getAuId());
-
-    // check remove
-    damNodes.removeFromRepair(mcus1, "cus1-1");
-    assertFalse(damNodes.containsToRepair(mcus1, "cus1-1"));
-    assertTrue(damNodes.containsToRepair(mcus1, "cus1-2"));
-    damNodes.removeFromRepair(mcus1, "cus1-2");
-    assertFalse(damNodes.containsToRepair(mcus1, "cus1-2"));
-    assertNull(damNodes.cusToRepair.get(mcus1));
-
-    // check remove from damaged nodes
-    damNodes.removeFromDamage("test1");
-    damNodes.removeFromDamage("test2");
-    repository.storeDamagedNodeSet(damNodes);
-    damNodes = repository.loadDamagedNodeSet();
-    assertNotNull(damNodes);
-    assertFalse(damNodes.containsWithDamage("test1"));
-    assertFalse(damNodes.containsWithDamage("test2"));
-  }
-
   /**
    *  Make sure that we have one (and only one) dated peer id set 
    */
