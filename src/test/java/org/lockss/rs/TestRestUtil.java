@@ -65,7 +65,7 @@ public class TestRestUtil extends LockssTestCase4 {
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
       assertEquals(message, lre.getMessage());
-      assertTrue(lre.getCause() instanceof UnknownHostException);
+      assertClass(UnknownHostException.class, lre.getCause());
       assertEquals("fake-fake", lre.getCause().getMessage());
     }
 
@@ -76,8 +76,10 @@ public class TestRestUtil extends LockssTestCase4 {
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
       assertEquals(message, lre.getMessage());
-      assertTrue(lre.getCause() instanceof NoRouteToHostException);
-      assertTrue(lre.getCause().getMessage().startsWith("No route to host"));
+      // 192.0.2.0 isn't reliably unroutable. On some systems this throws
+      // SocketTimeoutException
+//       assertClass(NoRouteToHostException.class, lre.getCause());
+//       assertMatchesRE("^No route to host", lre.getCause().getMessage());
     }
 
     message = "Cannot perform call to 224.0.0.0";
@@ -87,9 +89,8 @@ public class TestRestUtil extends LockssTestCase4 {
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
       assertEquals(message, lre.getMessage());
-      assertTrue(lre.getCause() instanceof SocketException);
-      assertTrue(lre.getCause().getMessage()
-	  .startsWith("Network is unreachable"));
+      assertClass(SocketException.class, lre.getCause());
+      assertMatchesRE("^Network is unreachable", lre.getCause().getMessage());
     }
 
     message = "Cannot perform call to 127.0.0.1";
@@ -99,8 +100,8 @@ public class TestRestUtil extends LockssTestCase4 {
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
       assertEquals(message, lre.getMessage());
-      assertTrue(lre.getCause() instanceof ConnectException);
-      assertTrue(lre.getCause().getMessage().startsWith("Connection refused"));
+      assertClass(ConnectException.class, lre.getCause());
+      assertMatchesRE("^Connection refused", lre.getCause().getMessage());
     }
 
     message = "Cannot perform call to www.lockss.org";
@@ -110,8 +111,8 @@ public class TestRestUtil extends LockssTestCase4 {
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
       assertEquals(message, lre.getMessage());
-      assertTrue(lre.getCause() instanceof SocketTimeoutException);
-      assertTrue(lre.getCause().getMessage().startsWith("connect timed out"));
+      assertClass(SocketTimeoutException.class, lre.getCause());
+      assertMatchesRE("^connect timed out", lre.getCause().getMessage());
     }
   }
 
