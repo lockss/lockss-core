@@ -43,6 +43,7 @@ import dk.itst.oiosaml.sp.service.session.SessionDestroyListener;
 import dk.itst.oiosaml.sp.service.util.Constants;
 import org.apache.cxf.transport.servlet.CXFServlet;
 import org.lockss.app.*;
+import static org.lockss.app.ServiceDescr.*;
 import org.lockss.config.*;
 import org.lockss.account.*;
 import org.lockss.subscription.SubscriptionManager;
@@ -277,36 +278,33 @@ public class AdminServletManager extends BaseServletManager {
   // Descriptors for all admin servlets.
 
   protected static final ServletDescr SERVLET_HOME =
-          new ServletDescr("UiHome",
-          UiHome.class,
-          "LOCKSS Administration",
-          "Home",
-          ServletDescr.LARGE_LOGO);
+    new ServletDescr("UiHome",
+		     UiHome.class,
+		     "LOCKSS Administration")
+    .setFlags(ServletDescr.LARGE_LOGO)
+    .setPath("Home");
   protected static final ServletDescr SERVLET_EDIT_ACCOUNT =
-          new ServletDescr("UserEditAccount",
-          UserEditAccount.class,
-          "My Account",
-          (ServletDescr.IN_NAV),
-          "Update account info") {
-            public boolean isEnabled(LockssDaemon daemon) {
-              AccountManager acctMgr = daemon.getAccountManager();
-              return acctMgr != null && acctMgr.isEnabled();
-            }
-            public boolean isInNav(LockssServlet servlet) {
-// 	if (servlet.doesUserHaveRole(LockssServlet.ROLE_USER_ADMIN)
-// 	    && !servlet.doesUserHaveRole(LockssServlet.ROLE_DEBUG)) {
-// 	  return false;
-// 	}
-              UserAccount acct = servlet.getUserAccount();
-              return acct != null && acct.isEditable();
-            }
-            public String getNavHeading(LockssServlet servlet) {
-              UserAccount acct = servlet.getUserAccount();
-              if (acct != null) {
-                return super.getNavHeading(servlet) + " (" + acct.getName() + ")";
-              }
-              return super.getNavHeading(servlet);
-      }};
+    new ServletDescr("UserEditAccount",
+		     UserEditAccount.class,
+		     "My Account",
+		     (ServletDescr.IN_NAV),
+		     "Update account info") {
+      public boolean isEnabled(LockssDaemon daemon) {
+	AccountManager acctMgr = daemon.getAccountManager();
+	return acctMgr != null && acctMgr.isEnabled();
+      }
+      public boolean isInNav(LockssServlet servlet) {
+	UserAccount acct = servlet.getUserAccount();
+	return acct != null && acct.isEditable();
+      }
+      public String getNavHeading(LockssServlet servlet) {
+	UserAccount acct = servlet.getUserAccount();
+	if (acct != null) {
+	  return super.getNavHeading(servlet) + " (" + acct.getName() + ")";
+	}
+	return super.getNavHeading(servlet);
+      }}
+    .setService(SVC_CONFIG);
 
   protected static final ServletDescr SERVLET_EDIT_ACCOUNTS =
           new ServletDescr("AdminEditAccounts",
@@ -318,15 +316,18 @@ public class AdminServletManager extends BaseServletManager {
             public boolean isEnabled(LockssDaemon daemon) {
               AccountManager acctMgr = daemon.getAccountManager();
               return acctMgr != null && acctMgr.isEnabled();
-      }};
+      }}
+    .setService(SVC_CONFIG);
 
   protected static final ServletDescr SERVLET_BATCH_AU_CONFIG =
-          new ServletDescr("BatchAuConfig",
-          BatchAuConfig.class,
-          "Journal Configuration",
-          (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
-          | ServletDescr.NEED_ROLE_AU_ADMIN),
-          "Add or remove titles from this LOCKSS box");
+    new ServletDescr("BatchAuConfig",
+		     BatchAuConfig.class,
+		     "Journal Configuration",
+		     (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
+		      | ServletDescr.NEED_ROLE_AU_ADMIN),
+		     "Add or remove titles from this LOCKSS box")
+    .setService(SVC_CONFIG);
+
   // XXXUI Development version
 //  protected static final ServletDescr SERVLET_BATCH_AU_CONFIG_NEW =
 //          new ServletDescr("BatchAuConfigNew",
@@ -335,33 +336,38 @@ public class AdminServletManager extends BaseServletManager {
 //          (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
 //          | ServletDescr.NEED_ROLE_AU_ADMIN),
 //          "Add or remove titles from this LOCKSS box");
+
   protected static final ServletDescr SERVLET_AU_CONFIG =
-          new ServletDescr("AuConfig",
-          AuConfig.class,
-          "Manual Journal Configuration",
-          (ServletDescr.IN_UIHOME | ServletDescr.NEED_ROLE_AU_ADMIN),
-          "Manually edit single AU configuration");
+    new ServletDescr("AuConfig",
+		     AuConfig.class,
+		     "Manual Journal Configuration",
+		     (ServletDescr.IN_UIHOME | ServletDescr.NEED_ROLE_AU_ADMIN),
+		     "Manually edit single AU configuration")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_ADMIN_ACCESS_CONTROL =
           new ServletDescr("AdminIpAccess",
           AdminIpAccess.class,
           "Admin Access Control",
           (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
           | ServletDescr.NEED_ROLE_USER_ADMIN),
-          "Control access to the administrative UI");
+          "Control access to the administrative UI")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PROXY_ACCESS_CONTROL =
           new ServletDescr("ProxyIpAccess",
           ProxyIpAccess.class,
           "Content Access Control",
           (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
           | ServletDescr.NEED_ROLE_CONTENT_ADMIN),
-          "Control access to the preserved content");
+          "Control access to the preserved content")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PROXY_AND_CONTENT =
           new ServletDescr("ProxyAndContent",
           ProxyAndContent.class,
           "Content Access Options",
           (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
           | ServletDescr.NEED_ROLE_CONTENT_ADMIN),
-          "Configure the audit proxy and the ICP server");
+          "Configure the audit proxy and the ICP server")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PROXY_INFO =
           new ServletDescr("ProxyConfig",
           ProxyConfig.class,
@@ -370,14 +376,16 @@ public class AdminServletManager extends BaseServletManager {
           ServletDescr.IN_NAV | ServletDescr.IN_UIHOME,
           "Info for configuring browsers and proxies"
           + "<br>"
-          + "to access preserved content on this LOCKSS box");
+          + "to access preserved content on this LOCKSS box")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_EXPERT_CONFIG =
           new ServletDescr("ExpertConfig",
           ExpertConfig.class,
           "Expert Config",
           (ServletDescr.IN_NAV
           | ServletDescr.NEED_ROLE_USER_ADMIN),
-          "Allows arbitrary local configuration");
+          "Allows arbitrary local configuration")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PLUGIN_CONFIG =
           new ServletDescr("PluginConfig",
           PluginConfig.class,
@@ -391,7 +399,8 @@ public class AdminServletManager extends BaseServletManager {
             }
             public boolean isInUiHome(LockssServlet servlet) {
               return isInNav(servlet);
-      }};
+      }}
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_DAEMON_STATUS =
           new ServletDescr("DaemonStatus",
           DaemonStatus.class,
@@ -424,12 +433,14 @@ public class AdminServletManager extends BaseServletManager {
           new ServletDescr("AddContent",
           AddContent.class,
           "Add Content",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS);
+          ServletDescr.NEED_ROLE_CONTENT_ACCESS)
+    .setService(SVC_CONFIG);
   public static final ServletDescr SERVLET_ADD_CONTENT_TAB =
           new ServletDescr("AddContentTab",
           AddContentTab.class,
           "Add Content Tab",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS);
+          ServletDescr.NEED_ROLE_CONTENT_ACCESS)
+    .setService(SVC_CONFIG);
   // XXXUI New servlet
   public static final ServletDescr SERVLET_SERVE_CONTENT =
           new ServletDescr("ServeContent",
@@ -609,21 +620,24 @@ public class AdminServletManager extends BaseServletManager {
 	  } catch (Exception e) {
 	    return false;
 	  }
-	}};
+	}}
+    .setService(SVC_CONFIG);
 
   protected static final ServletDescr SERVLET_MD_MONITOR =
       new ServletDescr("MetadataMonitor",
 	  	       MetadataMonitor.class,
 	  	       "Metadata Monitor",
 	  	       ServletDescr.NEED_ROLE_DEBUG,
-	  	       "Metadata Monitor");
+	  	       "Metadata Monitor")
+    .setService(SVC_MDX);
 
   protected static final ServletDescr SERVLET_MD_CONTROL =
       new ServletDescr("MetadataControl",
 	  	       MetadataControl.class,
 	  	       "Metadata Control",
 	  	       ServletDescr.NEED_ROLE_AU_ADMIN,
-	  	       "Metadata Control");
+	  	       "Metadata Control")
+    .setService(SVC_MDX);
 
   protected static final ServletDescr SERVLET_OIOSAML =
       new ServletDescr("SAMLDispatcherServlet",

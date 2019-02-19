@@ -121,6 +121,10 @@ public class LockssApp {
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
 
+  private static final String PARAM_SERVICE_BINDINGS =
+    PREFIX + "serviceBindings";
+  private static final List DEFAULT_SERVICE_BINDINGS = null;
+
   public static final String MANAGER_PREFIX =
     Configuration.PREFIX + "manager.";
 
@@ -842,6 +846,11 @@ public class LockssApp {
 
     testingMode = config.get(PARAM_TESTING_MODE);
 
+    if (changedKeys.contains(PARAM_SERVICE_BINDINGS)) {
+      processServiceBindings(config.getList(PARAM_SERVICE_BINDINGS,
+					    DEFAULT_SERVICE_BINDINGS));
+    }
+
     if (changedKeys.contains(PARAM_DAEMON_DEADLINE_REASONABLE)) {
       long maxInPast =
         config.getTimeInterval(PARAM_DAEMON_DEADLINE_REASONABLE_PAST,
@@ -889,6 +898,48 @@ public class LockssApp {
     } else {
       prevExitOnce = exitOnce;
     }
+  }
+
+  Map<ServiceDescr,ServiceBinding> serviceBindings = new HashMap<>();
+  // XXX no way to determine this yet
+  ServiceDescr myServiceDescr;
+
+  public ServiceDescr getMyServiceDescr() {
+    return myServiceDescr;
+  }
+
+  public ServiceBinding getServiceBinding(ServiceDescr sd) {
+    return serviceBindings.get(sd);
+  }
+
+  //  svc_name=host:port    or   svc_name=:port
+  protected static final Pattern SERVICE_BINDING_PAT =
+    Pattern.compile("(.+)=(.+)?:(\\d+)");
+
+  void processServiceBindings(List<String> bindings) {
+    if (bindings == null) {
+      serviceBindings.clear();
+    } else {
+      for (String s : bindings) {
+	Matcher mat = SERVICE_BINDING_PAT.matcher(s);
+	if (mat.matches()) {
+	  String abbrev = mat.group(1);
+	  ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
+	  if (descr != null) {
+	    try {
+	      ServiceBinding binding =
+		new ServiceBinding(mat.group(2), Integer.parseInt(mat.group(3)));
+	      serviceBindings.put(descr, binding);
+	    } catch (NumberFormatException e) {
+	      log.error("Malformed service binding: " + s);
+	    }
+	  }
+	} else {
+	  log.error("Malformed service binding: " + s);
+	}
+      }
+    }
+    log.debug("Service bindings: " + serviceBindings);
   }
 
   /** Start a LockssApp to run the managers specified by the spec.

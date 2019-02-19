@@ -630,7 +630,7 @@ public abstract class LockssServlet extends HttpServlet
    *  browsers will prompt again for login
    */
   String srvURL(String host, ServletDescr d, String params) {
-    return srvURLFromStem(srvUrlStem(host), d, params);
+    return srvURLFromStem(srvUrlStem(host, d), d, params);
   }
 
   String srvURL(PeerIdentity peer, ServletDescr d, String params) {
@@ -663,9 +663,9 @@ public abstract class LockssServlet extends HttpServlet
     return sb.toString();
   }
 
-  String srvUrlStem(String host) {
+  String srvUrlStem(String host, ServletDescr d) {
     if (host == null) {
-      return null;
+      return srvUrlStemFromDescr(d);
     }
     StringBuilder sb = new StringBuilder();
     sb.append(reqURL.getProtocol());
@@ -673,6 +673,27 @@ public abstract class LockssServlet extends HttpServlet
     sb.append(host);
     sb.append(':');
     sb.append(reqURL.getPort());
+    return sb.toString();
+  }
+
+  String srvUrlStemFromDescr(ServletDescr d) {
+    if (d == null) {
+      return null;
+    }
+    ServiceDescr svc = d.getService();
+    if (svc == null || svc.equals(getLockssDaemon().getMyServiceDescr())) {
+      return null;
+    }
+    ServiceBinding binding = getLockssDaemon().getServiceBinding(svc);
+    if (binding == null) {
+      return null;
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append(reqURL.getProtocol());
+    sb.append("://");
+    sb.append(binding.getHost() != null ? binding.getHost() : "localhost");
+    sb.append(':');
+    sb.append(binding.getUiPort());
     return sb.toString();
   }
 

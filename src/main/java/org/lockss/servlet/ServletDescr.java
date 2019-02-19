@@ -43,6 +43,8 @@ public class ServletDescr {
 
   public Class cls;
 
+  public ServiceDescr svc;
+
   public String heading;	// display name
 
   public String path;		// url path component to invoke servlet
@@ -212,12 +214,32 @@ public class ServletDescr {
     return path;
   }
 
-  String getExplanation() {
+  public String getExplanation() {
     return expl;
   }
 
-  void setExplanation(String s) {
+  ServletDescr setExplanation(String s) {
     expl = s;
+    return this;
+  }
+
+  ServletDescr setPath(String val) {
+    path = val;
+    return this;
+  }
+
+  ServletDescr setFlags(int val) {
+    flags = val;
+    return this;
+  }
+
+  ServletDescr setService(ServiceDescr val) {
+    svc = val;
+    return this;
+  }
+
+  ServiceDescr getService() {
+    return svc;
   }
 
   public String getNavHeading(LockssServlet servlet) {

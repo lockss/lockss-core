@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -242,6 +238,16 @@ public class TestLockssApp extends LockssTestCase {
     List<String> list12 = opt12.getPropUrls();
     assertEquals(1, list12.size());
     assertNull(opt12.getBootstrapPropsUrl());
+  }
+
+  public void testProcessServiceBindings() {
+    app.processServiceBindings(ListUtil.list("cfg=:24621",
+					     "mdx=:1234",
+					     "poller=:4444"));
+    log.critical("serviceBindings: " + app.serviceBindings);
+    assertEquals(new ServiceBinding(null, 24621),
+		 app.getServiceBinding(ServiceDescr.SVC_CONFIG));
+
   }
 
   // load & init default manager
