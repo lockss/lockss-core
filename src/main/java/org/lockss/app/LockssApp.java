@@ -912,7 +912,7 @@ public class LockssApp {
     return serviceBindings.get(sd);
   }
 
-  //  svc_name=host:port    or   svc_name=:port
+  //  svc_abbrev=host:ui_port    or   svc_abbrev=:ui_port
   protected static final Pattern SERVICE_BINDING_PAT =
     Pattern.compile("(.+)=(.+)?:(\\d+)");
 
