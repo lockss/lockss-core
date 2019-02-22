@@ -81,6 +81,8 @@ public class RestConfigClient {
   // of 'file' and Swagger 2 uses the type as the part name.
   public static String CONFIG_PART_NAME = "file";
 
+  public static String X_LOCKSS_REQUEST_COOKIE_NAME = "X-Lockss-Request-Cookie";
+
   private static Logger log = Logger.getLogger();
 
   // The REST configuration service URL.
@@ -875,14 +877,17 @@ public class RestConfigClient {
    *          A String with the Archival Unit identifier.
    * @param auState
    *          A String with the Archival Unit state.
+   * @param xLockssRequestCookie
+   *          A String with the request cookie.
    * @throws LockssRestException
    *           if there are problems updating the Archival Unit state.
    */
-  public void patchArchivalUnitState(String auId, String auState)
-      throws LockssRestException {
+  public void patchArchivalUnitState(String auId, String auState,
+      String xLockssRequestCookie) throws LockssRestException {
     if (log.isDebug2()) {
       log.debug2("auId = " + auId);
       log.debug2("auState = " + auState);
+      log.debug2("xLockssRequestCookie = " + xLockssRequestCookie);
     }
 
     // Get the URL template.
@@ -904,6 +909,11 @@ public class RestConfigClient {
 
     // Set the authentication credentials.
     setAuthenticationCredentials(requestHeaders);
+
+    // Set the request cookie, if passed.
+    if (xLockssRequestCookie != null) {
+      requestHeaders.set(X_LOCKSS_REQUEST_COOKIE_NAME, xLockssRequestCookie);
+    }
 
     // Create the request entity.
     HttpEntity<String> requestEntity =
@@ -966,14 +976,17 @@ public class RestConfigClient {
    *          A String with the Archival Unit identifier.
    * @param auAgreements
    *          A String with the Archival Unit poll agreements.
+   * @param xLockssRequestCookie
+   *          A String with the request cookie.
    * @throws LockssRestException
    *           if there are problems updating the Archival Unit poll agreements.
    */
-  public void patchArchivalUnitAgreements(String auId, String auAgreements)
-      throws LockssRestException {
+  public void patchArchivalUnitAgreements(String auId, String auAgreements,
+      String xLockssRequestCookie) throws LockssRestException {
     if (log.isDebug2()) {
       log.debug2("auId = " + auId);
       log.debug2("auAgreements = " + auAgreements);
+      log.debug2("xLockssRequestCookie = " + xLockssRequestCookie);
     }
 
     // Get the URL template.
@@ -995,6 +1008,11 @@ public class RestConfigClient {
 
     // Set the authentication credentials.
     setAuthenticationCredentials(requestHeaders);
+
+    // Set the request cookie, if passed.
+    if (xLockssRequestCookie != null) {
+      requestHeaders.set(X_LOCKSS_REQUEST_COOKIE_NAME, xLockssRequestCookie);
+    }
 
     // Create the request entity.
     HttpEntity<String> requestEntity =

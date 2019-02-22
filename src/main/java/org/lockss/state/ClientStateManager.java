@@ -101,7 +101,8 @@ public class ClientStateManager extends CachingStateManager {
       auState = ausb.toJson(fields);
       log.debug("mychanges.add: {}", AuUtil.jsonToMap(auState));
       myChanges.add(AuUtil.jsonToMap(auState));
-      configMgr.getRestConfigClient().patchArchivalUnitState(key, auState);
+      configMgr.getRestConfigClient().patchArchivalUnitState(key, auState,
+	  null);
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", ausb, e);
     } catch (LockssRestException lre) {
@@ -164,7 +165,7 @@ public class ClientStateManager extends CachingStateManager {
     try {
       auAgreementsJson = aua.toJson(peers);
       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
-	  auAgreementsJson);
+	  auAgreementsJson, null);
     } catch (IOException e) {
       log.error("Couldn't serialize AuAgreements: {}", aua, e);
     } catch (LockssRestException lre) {

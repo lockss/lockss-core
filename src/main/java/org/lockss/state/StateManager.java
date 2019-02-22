@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -87,6 +87,17 @@ public interface StateManager extends LockssManager {
     throw new UnsupportedOperationException("updateAuStateFromJson() available only in Server implementation");
   }
 
+  /** Entry point from state service to store changes to an AuState.
+   * @param key the auid
+   * @param json the serialized set of changes
+   * @param xLockssRequestCookie A String with the request cookie.
+   * @throws IOException if json conversion throws
+   */
+  default public void updateAuStateFromJson(String auid, String json,
+      String xLockssRequestCookie) throws IOException {
+    throw new UnsupportedOperationException("updateAuStateFromJson() available only in Server implementation");
+  }
+
   /** Entry point from state service to store an AuState.
    * @param key the auid
    * @param json the serialized AuStateBean
@@ -130,6 +141,9 @@ public interface StateManager extends LockssManager {
 
   public void updateAuAgreementsFromJson(String auid, String json)
       throws IOException;
+
+  public void updateAuAgreementsFromJson(String auid, String json,
+      String xLockssRequestCookie) throws IOException;
 
   /** Return true if an AuAgreements exists for the given auid
    * @param key the auid

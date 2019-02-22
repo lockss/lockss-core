@@ -244,6 +244,18 @@ public abstract class CachingStateManager extends BaseStateManager {
   @Override
   public void updateAuStateFromJson(String auid, String json)
       throws IOException {
+    updateAuStateFromJson(auid, json, null);
+  }
+
+  /** Update AuState from a json string
+   * @param auid
+   * @param json the serialized set of changes
+   * @param xLockssRequestCookie A String with the request cookie.
+   * @throws IOException if json conversion throws
+   */
+  @Override
+  public void updateAuStateFromJson(String auid, String json,
+      String xLockssRequestCookie) throws IOException {
     AuStateBean ausb = getAuStateBean(auid);
     ausb.updateFromJson(json, daemon);
     updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet());
@@ -420,6 +432,18 @@ public abstract class CachingStateManager extends BaseStateManager {
    */
   public void updateAuAgreementsFromJson(String auid, String json)
       throws IOException {
+    updateAuAgreementsFromJson(auid, json, null);
+  }
+
+  /** Entry point from state service to store changes to an AuAgreements.  Write
+   * to DB, call hook to notify clients if appropriate
+   * @param auid the auid
+   * @param json the serialized set of changes
+   * @param xLockssRequestCookie A String with the request cookie.
+   * @throws IOException if json conversion throws
+   */
+  public void updateAuAgreementsFromJson(String auid, String json,
+      String xLockssRequestCookie) throws IOException {
     AuAgreements aua = getAuAgreements(auid);
     Set<PeerIdentity> changedPids = aua.updateFromJson(json, daemon);
     updateAuAgreements(auid, aua, changedPids);
