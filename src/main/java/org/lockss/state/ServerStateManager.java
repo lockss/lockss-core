@@ -49,14 +49,16 @@ public class ServerStateManager extends PersistentStateManager {
   }
 
   @Override
-  protected void doNotifyAuStateChanged(String key, String json) {
+  protected void doNotifyAuStateChanged(String key, String json,
+					String cookie) {
     log.debug("Sending AuState changed notification for {}: {}", key, json);
-    sendAuStateChangedEvent(key, json);
+    sendAuStateChangedEvent(key, json, cookie);
   }
 
   @Override
-  protected void doNotifyAuAgreementsChanged(String key, String json) {
+  protected void doNotifyAuAgreementsChanged(String key, String json,
+					     String cookie) {
     log.debug("Sending AuAgreement changed notification for {}: {}", key, json);
-    sendAuAgreementsChangedEvent(key, json);
+    sendAuAgreementsChangedEvent(key, json, cookie);
   }
 }

@@ -85,6 +85,12 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     }
   }
 
+  protected void putNotNull(Map map, String key, String val) {
+    if (val != null) {
+      map.put(key, val);
+    }
+  }
+
   // JMS notification support
 
   // Notification message is a map:
@@ -95,6 +101,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   public static final String JMS_MAP_NAME = "name";
   public static final String JMS_MAP_AUID = "auid";
   public static final String JMS_MAP_JSON = "json";
+  public static final String JMS_MAP_COOKIE = "cookie";
   
 
   public static final String JMS_PREFIX = PREFIX + "jms.";
@@ -190,12 +197,13 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
       String name = (String)map.get(JMS_MAP_NAME);
       String auid = (String)map.get(JMS_MAP_AUID);
       String json = (String)map.get(JMS_MAP_JSON);
+      String cookie = (String)map.get(JMS_MAP_COOKIE);
       switch (name) {
       case "AuState":
-	doReceiveAuStateChanged(auid, json);
+	doReceiveAuStateChanged(auid, json, cookie);
 	break;
       case "AuAgreements":
-	doReceiveAuAgreementsChanged(auid, json);
+	doReceiveAuAgreementsChanged(auid, json, cookie);
 	break;
       default:
 	log.warn("Receive state update for unknown object: {}", name);
@@ -238,12 +246,14 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * @param key auid
    * @param json string containing only the changed fields.
    */
-  protected void sendAuStateChangedEvent(String key, String json) {
+  protected void sendAuStateChangedEvent(String key, String json,
+					 String cookie) {
     if (jmsProducer != null) {
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_MAP_NAME, "AuState");
       map.put(JMS_MAP_AUID, key);
       map.put(JMS_MAP_JSON, json);
+      putNotNull(map, JMS_MAP_COOKIE, cookie);
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
@@ -287,11 +297,13 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
   /** Hook for subclass to send AuState changed notifications */
-  protected void doNotifyAuStateChanged(String auid, String json) {
+  protected void doNotifyAuStateChanged(String auid, String json,
+					String cookie) {
   }
 
   /** Hook for subclass to receive AuState changed notifications */
-  protected void doReceiveAuStateChanged(String auid, String json) {
+  protected void doReceiveAuStateChanged(String auid, String json,
+					 String cookie) {
   }
 
 
@@ -304,12 +316,14 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * @param key auid
    * @param json string containing only the changed fields.
    */
-  protected void sendAuAgreementsChangedEvent(String key, String json) {
+  protected void sendAuAgreementsChangedEvent(String key, String json,
+					      String cookie) {
     if (jmsProducer != null) {
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_MAP_NAME, "AuAgreements");
       map.put(JMS_MAP_AUID, key);
       map.put(JMS_MAP_JSON, json);
+      putNotNull(map, JMS_MAP_COOKIE, cookie);
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
@@ -352,11 +366,13 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
   /** Hook for subclass to send AuAgreements changed notifications */
-  protected void doNotifyAuAgreementsChanged(String auid, String json) {
+  protected void doNotifyAuAgreementsChanged(String auid, String json,
+					     String cookie) {
   }
 
   /** Hook for subclass to receive AuAgreements changed notifications */
-  protected void doReceiveAuAgreementsChanged(String auid, String json) {
+  protected void doReceiveAuAgreementsChanged(String auid, String json,
+					      String cookie) {
   }
 
 
@@ -375,6 +391,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 //       map.put(JMS_MAP_NAME, "AuSuspectUrlVersions");
 //       map.put(JMS_MAP_AUID, key);
 //       map.put(JMS_MAP_JSON, json);
+//       putNotNull(map, JMS_MAP_COOKIE, cookie);
 //       try {
 // 	jmsProducer.sendMap(map);
 //       } catch (JMSException e) {
@@ -417,11 +434,13 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
   /** Hook for subclass to send AuSuspectUrlVersions changed notifications */
-  protected void doNotifyAuSuspectUrlVersionsChanged(String auid, String json) {
+  protected void doNotifyAuSuspectUrlVersionsChanged(String auid, String json,
+						     String cookie) {
   }
 
   /** Hook for subclass to receive AuSuspectUrlVersions changed notifications */
-  protected void doReceiveAuSuspectUrlVersionsChanged(String auid, String json) {
+  protected void doReceiveAuSuspectUrlVersionsChanged(String auid, String json,
+						      String cookie) {
   }
 
   // /////////////////////////////////////////////////////////////////
@@ -439,6 +458,8 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 //       map.put(JMS_MAP_NAME, "NoAuPeerSet");
 //       map.put(JMS_MAP_AUID, key);
 //       map.put(JMS_MAP_JSON, json);
+//       putNotNull(map, JMS_MAP_COOKIE, cookie);
+//       map.put(JMS_MAP_COOKIE, cookie);
 //       try {
 // 	jmsProducer.sendMap(map);
 //       } catch (JMSException e) {
@@ -481,7 +502,8 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
   /** Hook for subclass to send NoAuPeerSet changed notifications */
-  protected void doNotifyNoAuPeerSetChanged(String auid, String json) {
+  protected void doNotifyNoAuPeerSetChanged(String auid, String json,
+					    String cookie) {
   }
 
   /** Hook for subclass to receive NoAuPeerSet changed notifications */

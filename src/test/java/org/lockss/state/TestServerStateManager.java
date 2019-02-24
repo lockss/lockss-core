@@ -139,7 +139,7 @@ public class TestServerStateManager extends StateTestCase {
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
     stateMgr.updateAuStateFromJson(stateMgr.auKey(mau2),
-				   AuUtil.mapToJson(in1Map));
+				   AuUtil.mapToJson(in1Map), null);
 
     assertEquals("Success", aus2.getLastCrawlResultMsg());
     assertEquals(666, aus2.getLastCrawlTime());
@@ -157,10 +157,11 @@ public class TestServerStateManager extends StateTestCase {
 			     "lastCrawlAttempt", 555,
 			     "lastCrawlResultMsg", "Success",
 			     "lastCrawlResult", 1);
-    stateMgr.updateAuStateFromJson(key, AuUtil.mapToJson(in1Map));
+    stateMgr.updateAuStateFromJson(key, AuUtil.mapToJson(in1Map), "Bath Oliver");
 
-    assertEquals(auStateUpdateMap(key, in1Map),
-		 cons.receiveMap(TIMEOUT_SHOULDNT));
+    Map outmap = auStateUpdateMap(key, in1Map);
+    outmap.put("cookie", "Bath Oliver");
+    assertEquals(outmap, cons.receiveMap(TIMEOUT_SHOULDNT));
 
     assertTrue(myStateMgr.isInAuStateBeanMap(key));
 
@@ -209,7 +210,7 @@ public class TestServerStateManager extends StateTestCase {
     aua2.signalPartialAgreement(pid0, POP, .60f, 1910);
 
     String json2 = aua2.toJson(SetUtil.set(pid0));
-    stateMgr.updateAuAgreementsFromJson(stateMgr.auKey(mau1), json2);
+    stateMgr.updateAuAgreementsFromJson(stateMgr.auKey(mau1), json2, null);
 
     assertAgreeTime(.50f, 1910, aua1.findPeerAgreement(pid0, POR));
     assertAgreeTime(.60f, 1910, aua1.findPeerAgreement(pid0, POP));

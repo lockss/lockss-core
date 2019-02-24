@@ -177,7 +177,7 @@ public class TestPersistentStateManager extends StateTestCase {
 					    "lastCrawlAttempt"));
     assertEquals(7777, aus1.getLastCrawlAttempt());
     assertEquals(-1, aus1.getLastCrawlTime());
-    stateMgr.updateAuStateFromJson(AUID1, json2);
+    stateMgr.updateAuStateFromJson(AUID1, json2, null);
     assertEquals(7778, aus1.getLastCrawlAttempt());
     assertEquals(7779, aus1.getLastCrawlTime());
 
@@ -236,7 +236,7 @@ public class TestPersistentStateManager extends StateTestCase {
     assertAgreeTime(-1.0f, 0, aua2.findPeerAgreement(pid0, POR));
     assertAgreeTime(.8f, 400, aua1.findPeerAgreement(pid1, POR));
     assertAgreeTime(.6f, 400, aua1.findPeerAgreement(pid1, POP));
-    stateMgr.updateAuAgreementsFromJson(AUID1, json3);
+    stateMgr.updateAuAgreementsFromJson(AUID1, json3, null);
     assertAgreeTime(.9f, 800, aua1.findPeerAgreement(pid0, POR));
     assertAgreeTime(.7f, 800, aua1.findPeerAgreement(pid0, POP));
     assertAgreeTime(.8f, 400, aua1.findPeerAgreement(pid1, POR));

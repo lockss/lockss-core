@@ -49,6 +49,18 @@ public class ClientStateManager extends CachingStateManager {
 
   protected static L4JLogger log = L4JLogger.getLogger();
 
+  // Unique client identifier
+  private String cliendId =
+    org.apache.commons.lang3.RandomStringUtils.randomAlphabetic(8);
+
+  // Request counter
+  private long reqId = 0;
+
+  // Make a unique cookie for a request
+  private String makeCookie() {
+    return cliendId + "-" + ++reqId;
+  }
+
   @Override
   public void startService() {
     super.startService();
@@ -66,12 +78,15 @@ public class ClientStateManager extends CachingStateManager {
   // AuState
   // /////////////////////////////////////////////////////////////////
 
-  // Temp(?) hack to avoid (re)applying our own changes
-  Set<Map<String,Object>> myChanges = new HashSet<>();
+  // Records changes we send so we can avoid (re)applying them when
+  // received.  Changeset is included along with request cookie to guard
+  // against non-unique cookie.
+  private Map<String,Map<String,Object>> myChanges = new HashMap<>();
 
   /** Handle incoming AuState changed msg */
   @Override
-  public synchronized void doReceiveAuStateChanged(String auid, String json) {
+  public synchronized void doReceiveAuStateChanged(String auid, String json,
+						   String cookie) {
     AuState cur = auStates.get(auid);
     if (cur == null) {
       log.debug2("Ignoring partial update for AuState we don't have: {}", auid);
@@ -79,9 +94,8 @@ public class ClientStateManager extends CachingStateManager {
     }
     try {
       log.debug2("Updating: {} from {}", cur, json);
-      log.debug("mychanges.remove: {}", AuUtil.jsonToMap(json));
-      if (myChanges.remove(AuUtil.jsonToMap(json))) {
-	log.debug("Ignoring my change: {}", json);
+      if (isMyUpdate(cookie, json)) {
+	log.debug2("Ignoring my AuState change: {}: {}", cookie, json);
       } else {
 	cur.updateFromJson(json, daemon);
       }
@@ -89,6 +103,31 @@ public class ClientStateManager extends CachingStateManager {
       log.error("Couldn't deserialize AuState: {}", json, e);
     }
   }    
+
+  private synchronized boolean isMyUpdate(String cookie, String json)
+      throws IOException {
+//     if (myChanges.containsKey(cookie)) {
+//       myChanges.remove(cookie);
+//       return true;
+//     }
+    if (myChanges.containsKey(cookie)) {
+      Map jmap = AuUtil.jsonToMap(json);
+      if (myChanges.remove(cookie, jmap)) {
+	return true;
+      } else {
+	log.error("Apparently non-unique cookie {} received with change: {}, expected {}",
+		  cookie, jmap, myChanges.get(cookie));
+	return false;
+      }
+    }
+    return false;
+  }
+
+  private synchronized void recordMyUpdate(String cookie, String json)
+      throws IOException {
+    log.debug2("mychanges.add: {}", cookie);
+    myChanges.put(cookie, AuUtil.jsonToMap(json));
+  }
 
   /** Send the changes to the StateService */
   @Override
@@ -99,10 +138,10 @@ public class ClientStateManager extends CachingStateManager {
 
     try {
       auState = ausb.toJson(fields);
-      log.debug("mychanges.add: {}", AuUtil.jsonToMap(auState));
-      myChanges.add(AuUtil.jsonToMap(auState));
+      String cookie = makeCookie();
+      recordMyUpdate(cookie, auState);
       configMgr.getRestConfigClient().patchArchivalUnitState(key, auState,
-	  null);
+							     cookie);
     } catch (IOException e) {
       log.error("Couldn't serialize AuState: {}", ausb, e);
     } catch (LockssRestException lre) {
@@ -141,7 +180,8 @@ public class ClientStateManager extends CachingStateManager {
   /** Handle incoming AuAgreements changed msg */
   @Override
   public synchronized void doReceiveAuAgreementsChanged(String auid,
-							String json) {
+							String json,
+							String cookie) {
     AuAgreements cur = agmnts.get(auid);
     if (cur == null) {
       log.debug2("Ignoring partial update for AuAgreements we don't have: {}", auid);
@@ -149,7 +189,11 @@ public class ClientStateManager extends CachingStateManager {
     }
     try {
       log.debug2("Updating: {} from {}", cur, json);
-      cur.updateFromJson(json, daemon);
+      if (isMyUpdate(cookie, json)) {
+	log.debug2("Ignoring my AuAgreements change: {}: {}", cookie, json);
+      } else {
+	cur.updateFromJson(json, daemon);
+      }
     } catch (IOException e) {
       log.error("Couldn't deserialize AuAgreements: {}", json, e);
     }
@@ -164,8 +208,10 @@ public class ClientStateManager extends CachingStateManager {
 
     try {
       auAgreementsJson = aua.toJson(peers);
+      String cookie = makeCookie();
+      recordMyUpdate(cookie, auAgreementsJson);
       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
-	  auAgreementsJson, null);
+	  auAgreementsJson, cookie);
     } catch (IOException e) {
       log.error("Couldn't serialize AuAgreements: {}", aua, e);
     } catch (LockssRestException lre) {

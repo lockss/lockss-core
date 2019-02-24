@@ -198,9 +198,9 @@ public class TestClientStateManager extends StateTestCase {
     }
 
     @Override
-    public synchronized void doReceiveAuStateChanged(String auid, String json) {
-      log.fatal("doReceiveAuStateChanged("+auid+", "+json+")");
-      super.doReceiveAuStateChanged(auid, json);
+    public synchronized void doReceiveAuStateChanged(String auid, String json,
+						     String cookie) {
+      super.doReceiveAuStateChanged(auid, json, cookie);
       if (rcvSem != null) rcvSem.give();
     }
 
@@ -216,8 +216,10 @@ public class TestClientStateManager extends StateTestCase {
     }
 
     @Override
-    public synchronized void doReceiveAuAgreementsChanged(String auid, String json) {
-      super.doReceiveAuAgreementsChanged(auid, json);
+    public synchronized void doReceiveAuAgreementsChanged(String auid,
+							  String json,
+							  String cookie) {
+      super.doReceiveAuAgreementsChanged(auid, json, cookie);
       if (rcvSem != null) rcvSem.give();
     }
 

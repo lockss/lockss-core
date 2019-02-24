@@ -180,7 +180,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	}
 	String jsonChange = aus.toJson(fields);
 	doStoreAuStateBean(key, aus.getBean(), fields);
-	doNotifyAuStateChanged(key, jsonChange);
+	doNotifyAuStateChanged(key, jsonChange, null);
       } else if (isStoreOfMissingAuStateAllowed(fields)) {
 	AuStateBean curbean = auStateBeans.get(key);
 	if (curbean != null) { // FIXME
@@ -206,6 +206,13 @@ public abstract class CachingStateManager extends BaseStateManager {
   public synchronized void updateAuStateBean(String key,
 					     AuStateBean ausb,
 					     Set<String> fields) {
+    updateAuStateBean(key, ausb, fields, null);
+  }
+
+  public synchronized void updateAuStateBean(String key,
+					     AuStateBean ausb,
+					     Set<String> fields,
+					     String cookie) {
     log.debug2("Updating: {}: {}", key, fields);
     AuState curaus = auStates.get(key);
     AuStateBean curausb;
@@ -221,7 +228,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	}
 	String jsonChange = ausb.toJson(fields);
 	doStoreAuStateBean(key, ausb, fields);
-	doNotifyAuStateChanged(key, jsonChange);
+	doNotifyAuStateChanged(key, jsonChange, cookie);
       } else if (isStoreOfMissingAuStateAllowed(fields)) {
 	// XXX log?
 	auStateBeans.put(key, ausb);
@@ -239,26 +246,15 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Update AuState from a json string
    * @param auid
    * @param json the serialized set of changes
+   * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
    */
   @Override
-  public void updateAuStateFromJson(String auid, String json)
+  public void updateAuStateFromJson(String auid, String json, String cookie)
       throws IOException {
-    updateAuStateFromJson(auid, json, null);
-  }
-
-  /** Update AuState from a json string
-   * @param auid
-   * @param json the serialized set of changes
-   * @param xLockssRequestCookie A String with the request cookie.
-   * @throws IOException if json conversion throws
-   */
-  @Override
-  public void updateAuStateFromJson(String auid, String json,
-      String xLockssRequestCookie) throws IOException {
     AuStateBean ausb = getAuStateBean(auid);
     ausb.updateFromJson(json, daemon);
-    updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet());
+    updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet(), cookie);
   }
 
   /** Store an AuState from a json string
@@ -396,8 +392,15 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   public synchronized void updateAuAgreements(String key,
-					     AuAgreements aua,
-					     Set<PeerIdentity> peers) {
+					      AuAgreements aua,
+					      Set<PeerIdentity> peers) {
+    updateAuAgreements(key, aua, peers, null);
+  }
+
+  public synchronized void updateAuAgreements(String key,
+					      AuAgreements aua,
+					      Set<PeerIdentity> peers,
+					      String cookie) {
     log.debug2("Updating: {}: {}", key, peers);
     AuAgreements curaua = agmnts.get(key);
     try {
@@ -407,7 +410,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	}
 	String json = aua.toJson(peers);
 	doStoreAuAgreementsUpdate(key, aua, peers);
-	doNotifyAuAgreementsChanged(key, json);
+	doNotifyAuAgreementsChanged(key, json, cookie);
       } else if (isStoreOfMissingAuAgreementsAllowed(peers)) {
 	// XXX log?
 	agmnts.put(key, aua);
@@ -425,28 +428,17 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Entry point from state service to store changes to an AuAgreements.  Write
    * to DB, call hook to notify clients if appropriate
-   * @param key the auid
-   * @param json the serialized set of changes
-   * @param map Map representation of change fields.
-   * @throws IOException if json conversion throws
-   */
-  public void updateAuAgreementsFromJson(String auid, String json)
-      throws IOException {
-    updateAuAgreementsFromJson(auid, json, null);
-  }
-
-  /** Entry point from state service to store changes to an AuAgreements.  Write
-   * to DB, call hook to notify clients if appropriate
    * @param auid the auid
    * @param json the serialized set of changes
-   * @param xLockssRequestCookie A String with the request cookie.
+   * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
    */
   public void updateAuAgreementsFromJson(String auid, String json,
-      String xLockssRequestCookie) throws IOException {
+					 String cookie)
+      throws IOException {
     AuAgreements aua = getAuAgreements(auid);
     Set<PeerIdentity> changedPids = aua.updateFromJson(json, daemon);
-    updateAuAgreements(auid, aua, changedPids);
+    updateAuAgreements(auid, aua, changedPids, cookie);
   }
 
   /** Store an AuAgreements not obtained from StateManager.  Useful in tests.
@@ -561,10 +553,10 @@ public abstract class CachingStateManager extends BaseStateManager {
 //    * @param map Map representation of change fields.
 //    * @throws IOException if json conversion throws
 //    */
-//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json)
+//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json, String cookie)
 //       throws IOException {
 //     AuSuspectUrlVersions asuv = getAuSuspectUrlVersions(auid);
-//     Set<PeerIdentity> changedPids = asuv.updateFromJson(json, daemon);
+//     Set<PeerIdentity> changedPids = asuv.updateFromJson(json, daemon, cookie);
 //     updateAuSuspectUrlVersions(auid, asuv, changedPids);
 //   }
 
@@ -680,10 +672,10 @@ public abstract class CachingStateManager extends BaseStateManager {
 //    * @param map Map representation of change fields.
 //    * @throws IOException if json conversion throws
 //    */
-//   public void updateNoAuPeerSetFromJson(String auid, String json)
+//   public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
 //       throws IOException {
 //     DatedPeerIdSet naps = getNoAuPeerSet(auid);
-//     Set<PeerIdentity> changedPids = naps.updateFromJson(json, daemon);
+//     Set<PeerIdentity> changedPids = naps.updateFromJson(json, daemon, cookie);
 //     updateNoAuPeerSet(auid, naps, changedPids);
 //   }
 

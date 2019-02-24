@@ -80,21 +80,12 @@ public interface StateManager extends LockssManager {
   /** Entry point from state service to store changes to an AuState.
    * @param key the auid
    * @param json the serialized set of changes
-   * @throws IOException if json conversion throws
-   */
-  default public void updateAuStateFromJson(String auid, String json)
-      throws IOException {
-    throw new UnsupportedOperationException("updateAuStateFromJson() available only in Server implementation");
-  }
-
-  /** Entry point from state service to store changes to an AuState.
-   * @param key the auid
-   * @param json the serialized set of changes
-   * @param xLockssRequestCookie A String with the request cookie.
+   * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
    */
   default public void updateAuStateFromJson(String auid, String json,
-      String xLockssRequestCookie) throws IOException {
+					    String cookie)
+      throws IOException {
     throw new UnsupportedOperationException("updateAuStateFromJson() available only in Server implementation");
   }
 
@@ -139,11 +130,15 @@ public interface StateManager extends LockssManager {
   /** Store the AuAgreements for the AU.  Can only be used once per AU. */
   public void storeAuAgreements(String key, AuAgreements aua);
 
-  public void updateAuAgreementsFromJson(String auid, String json)
-      throws IOException;
-
+  /** Entry point from state service to store changes to an AuAgreements.
+   * @param key the auid
+   * @param json the serialized set of changes
+   * @param cookie propagated to JMS change notifications (if non-null)
+   * @throws IOException if json conversion throws
+   */
   public void updateAuAgreementsFromJson(String auid, String json,
-      String xLockssRequestCookie) throws IOException;
+					 String cookie)
+      throws IOException;
 
   /** Return true if an AuAgreements exists for the given auid
    * @param key the auid
@@ -175,7 +170,7 @@ public interface StateManager extends LockssManager {
 //   /** Store the AuSuspectUrlVersions for the AU.  Can only be used once per AU. */
 //   public void storeAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv);
 
-//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json)
+//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json, String cookie)
 //       throws IOException;
 
   /** Return true if an AuSuspectUrlVersions exists for the given auid
@@ -209,7 +204,7 @@ public interface StateManager extends LockssManager {
 //   /** Store the NoAuPeerSet for the AU.  Can only be used once per AU. */
 //   public void storeNoAuPeerSet(String key, DatedPeerIdSet asuv);
 
-//   public void updateNoAuPeerSetFromJson(String auid, String json)
+//   public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
 //       throws IOException;
 
   /** Return true if an NoAuPeerSet exists for the given auid
