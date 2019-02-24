@@ -923,11 +923,10 @@ public class MockLockssDaemon extends LockssDaemon {
    * started. */
   public MockLockssDaemon startManagers(Class<? extends LockssManager>... mgrTypes) {
     for (Class<? extends LockssManager> mgrType : mgrTypes) {
-      log.critical("startManagers: " + mgrTypes);
+      log.debug2("startManagers: " + Arrays.asList(mgrTypes));
       LockssManager mgr = getManagerByType(mgrType);
-      log.critical("mgr: " + mgr);
+      log.debug3("mgr: " + mgr);
       if (!mgr.isStarted()) {
-	log.critical("mgr starting");
 	mgr.startService();
       }
     }
@@ -937,6 +936,7 @@ public class MockLockssDaemon extends LockssDaemon {
   /** Stop all the managers that were started */
   public MockLockssDaemon stopManagers() {
     List<String> rkeys = ListUtil.reverseCopy(managerMap.asList());
+    log.debug2("Stopping managers: " + rkeys);
     for (String key : rkeys) {
       LockssManager lm = (LockssManager)managerMap.get(key);
       if (lm.isStarted()) {
