@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,6 +36,7 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
+import org.lockss.rs.exception.LockssRestException;
 
 /**
  * A set of titles defined as an XPath predicate used to match some subset
@@ -199,7 +200,7 @@ public class TitleSetXpath extends BaseTitleSet {
     
     /** Return the number of titles in the set that can be
      * added/delated/reactivated. */
-    public int countTitles(int action) throws DbException {
+    public int countTitles(int action) throws DbException, LockssRestException {
       if ("publisher".equals(attr)) {
 	// Publisher titlesets are efficiently represented as TdbPublisher
 

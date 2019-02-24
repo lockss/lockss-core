@@ -460,10 +460,7 @@ public class FuncArcExploder extends LockssTestCase {
     sau.setExploderPattern(".arc.gz$");
     sau.setExploderHelper(new MyExploderHelper(bad));
     
-    AuState maus = new MyMockAuState(sau);
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(sau);
-    ((MockAuState)maus).setHistoryRepository(histRepo);
-    histRepo.storeAuState(maus);
+    AuState maus = AuTestUtil.setUpMockAus(sau);
     TestableFollowLinkCrawler crawler = new TestableFollowLinkCrawler(sau, maus);
     crawler.setDaemonPermissionCheckers(ListUtil.list(new MockPermissionChecker(99)));
     crawler.setCrawlManager(crawlMgr);

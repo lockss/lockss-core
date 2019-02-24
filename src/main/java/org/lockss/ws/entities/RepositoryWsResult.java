@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,6 +29,7 @@ package org.lockss.ws.entities;
 
 import java.util.Map;
 import org.lockss.db.DbException;
+import org.lockss.rs.exception.LockssRestException;
 
 /**
  * Container for the information related to a repository that is the result of a
@@ -73,7 +74,7 @@ public class RepositoryWsResult {
    * 
    * @return a String with the name.
    */
-  public String getAuName() throws DbException {
+  public String getAuName() throws DbException, LockssRestException {
     return auName;
   }
   public void setAuName(String auName) {
@@ -97,7 +98,7 @@ public class RepositoryWsResult {
    * 
    * @return a String with the status.
    */
-  public String getStatus() throws DbException {
+  public String getStatus() throws DbException, LockssRestException {
     return status;
   }
   public void setStatus(String status) {
@@ -133,7 +134,8 @@ public class RepositoryWsResult {
    * 
    * @return a {@code Map<String, String>} with the parameters.
    */
-  public Map<String, String> getParams() throws DbException {
+  public Map<String, String> getParams()
+      throws DbException, LockssRestException {
     return params;
   }
   public void setParams(Map<String, String> params) {

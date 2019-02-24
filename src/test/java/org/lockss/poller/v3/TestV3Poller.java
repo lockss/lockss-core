@@ -259,7 +259,6 @@ public class TestV3Poller extends LockssTestCase {
 
   public void tearDown() throws Exception {
     theDaemon.getLockssRepository(testau).stopService();
-    theDaemon.getHistoryRepository(testau).stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getSystemMetrics().stopService();
@@ -2180,9 +2179,8 @@ public class TestV3Poller extends LockssTestCase {
     theDaemon.getSystemMetrics().startService();
     theDaemon.getActivityRegulator(testau).startService();
     MockAuState aus = new MockAuState(testau);
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(testau);
-    histRepo.storeAuState(aus);
-    aus.setHistoryRepository(histRepo);
+    StateManager smgr = theDaemon.getManagerByType(StateManager.class);
+    smgr.storeAuState(aus);
     pollmanager.startService();
   }
 

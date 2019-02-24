@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -46,6 +46,7 @@ import org.lockss.db.DbManager;
 import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
@@ -381,8 +382,6 @@ public class PluginManager
 
   static final String DEFAULT_CONFIGURABLE_PLUGIN_NAME =
     DefinablePlugin.class.getName();
-
-  static StringPool AUID_POOL = new StringPool("AU IDs");
 
   private static Logger log = Logger.getLogger();
 
@@ -728,9 +727,13 @@ public class PluginManager
       log.debug("Starting or reconfiguring AU due to AU config changed notification: " + auid);
       startOrReconfigureAu(auConfiguration,
 			   SkipConfigCondition.ConfigUnchanged);
-    } catch (DbException e) {
+    } catch (DbException dbe) {
       log.critical("Error getting Archival Unit configuration: Not starting/reconfiguring AU from auConfigChanged message",
-		   e);
+		   dbe);
+      return;
+    } catch (LockssRestException lre) {
+      log.critical("Error getting Archival Unit configuration: Not starting/reconfiguring AU from auConfigChanged message",
+		   lre);
       return;
     }
   }
@@ -781,6 +784,11 @@ public class PluginManager
       log.critical(
 	  "Error getting Archival Unit configurations: Not starting AUs",
 	  ioe);
+      return;
+    } catch (LockssRestException lre) {
+      log.critical(
+	  "Error getting Archival Unit configurations: Not starting AUs",
+	  lre);
       return;
     }
 
@@ -1058,7 +1066,7 @@ public class PluginManager
   public static String generateAuId(String pluginId, String auKey) {
     String id = pluginKeyFromId(pluginId)+"&"+auKey;
     if (paramUseAuidPool) {
-      return AUID_POOL.intern(id);
+      return StringPool.AUIDS.intern(id);
     } else {
       return id;
     }
@@ -1691,8 +1699,10 @@ public class PluginManager
     Configuration auConfig = null;
     try {
       auConfig = getStoredAuConfigurationAsConfiguration(auId);
-    } catch (DbException e) {
-      log.warning("Error fetching AU config: " + auId, e);
+    } catch (DbException dbe) {
+      log.warning("Error fetching AU config: " + auId, dbe);
+    } catch (LockssRestException lre) {
+      log.warning("Error fetching AU config: " + auId, lre);
     }
     if (auConfig != null) {
       log.debug("Found stored config for on demand AU: " +
@@ -1871,15 +1881,15 @@ public class PluginManager
    * @param au the AU
    * @param auProps the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
-   * @return a Long with the key under which the AU configuration has been
-   *         saved.
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public Long setAndSaveAuConfiguration(ArchivalUnit au,
+  public void setAndSaveAuConfiguration(ArchivalUnit au,
 					Properties auProps)
-      throws ArchivalUnit.ConfigurationException, DbException {
-    return setAndSaveAuConfiguration(au,
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
+    setAndSaveAuConfiguration(au,
 			      ConfigManager.fromPropertiesUnsealed(auProps));
   }
 
@@ -1889,24 +1899,23 @@ public class PluginManager
    * @param au the AU
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
-   * @return a Long with the key under which the AU configuration has been
-   *         saved.
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public Long setAndSaveAuConfiguration(ArchivalUnit au,
+  public void setAndSaveAuConfiguration(ArchivalUnit au,
 					Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, DbException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     synchronized (auAddDelLock) {
       log.debug("Reconfiguring AU " + au);
       au.setConfiguration(auConf);
-      Long auSeq = updateAuIndatabase(au, auConf);
-      return auSeq;
+      updateAuIndatabase(au, auConf);
     }
   }
 
-  private Long updateAuIndatabase(ArchivalUnit au, Configuration auConf)
-      throws DbException {
+  private void updateAuIndatabase(ArchivalUnit au, Configuration auConf)
+      throws DbException, LockssRestException {
     if (!auConf.isEmpty()) {
       if (!auConf.isSealed()) {
 	auConf.put(AU_PARAM_DISPLAY_NAME, au.getName());
@@ -1915,28 +1924,23 @@ public class PluginManager
 		  new Throwable());
       }
     }
-    Long auSeq = updateAuInDatabase(au.getAuId(), auConf);
-    return auSeq;
+    updateAuInDatabase(au.getAuId(), auConf);
   }
 
-  public Long updateAuInDatabase(AuConfiguration auConfiguration)
-      throws DbException {
+  public void updateAuInDatabase(AuConfiguration auConfiguration)
+      throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
-      Long auSeq = configMgr.storeArchivalUnitConfiguration(auConfiguration);
-      if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
-      return auSeq;
+      configMgr.storeArchivalUnitConfiguration(auConfiguration);
     }
   }
 
-  public Long updateAuInDatabase(String auid, Configuration auConf)
-      throws DbException {
+  public void updateAuInDatabase(String auid, Configuration auConf)
+      throws DbException, LockssRestException {
     String prefix = auConfigPrefix(auid);
     Configuration fqConfig = auConf.addPrefix(prefix);
     synchronized (auAddDelLock) {
-      Long auSeq = configMgr.storeArchivalUnitConfiguration(
+      configMgr.storeArchivalUnitConfiguration(
 	  AuConfigurationUtils.fromConfiguration(prefix, fqConfig));
-      if (log.isDebug2()) log.debug2("auSeq = " + auSeq);
-      return auSeq;
     }
   }
 
@@ -1949,11 +1953,13 @@ public class PluginManager
    * prefixed with org.lockss.au.<i>auid</i>)
    * @return the new AU
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public ArchivalUnit createAndSaveAuConfiguration(Plugin plugin,
 						   Properties auProps)
-      throws ArchivalUnit.ConfigurationException, DbException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     return createAndSaveAuConfiguration(plugin,
 					ConfigManager.fromPropertiesUnsealed(auProps));
   }
@@ -1966,15 +1972,19 @@ public class PluginManager
    * prefixed with org.lockss.au.<i>auid</i>)
    * @return the new AU
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public ArchivalUnit createAndSaveAuConfiguration(Plugin plugin,
 						   Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, DbException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     synchronized (auAddDelLock) {
       auConf.put(AU_PARAM_DISABLED, "false");
       ArchivalUnit au = createAu(plugin, auConf,
                                  AuEvent.model(AuEvent.Type.Create));
+      AuState aus = AuUtil.getAuState(au);
+      aus.setAuCreationTime(TimeBase.nowMs());
       updateAuIndatabase(au, auConf);
       return au;
     }
@@ -1984,9 +1994,11 @@ public class PluginManager
    * Delete AU configuration from the database.  Need to find a better place for
    * this.
    * @param au the ArchivalUnit to be unconfigured
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public void deleteAuConfiguration(ArchivalUnit au) throws DbException {
+  public void deleteAuConfiguration(ArchivalUnit au)
+      throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
       log.debug("Deleting AU config: " + au);
       configMgr.removeArchivalUnitConfiguration(au.getAuId());
@@ -1997,9 +2009,11 @@ public class PluginManager
    * Delete AU configuration from the database.  Need to find a better place for
    * this.
    * @param auid the AuId
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public void deleteAuConfiguration(String auid) throws DbException {
+  public void deleteAuConfiguration(String auid)
+      throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
       log.debug("Deleting AU config: " + auid);
       configMgr.removeArchivalUnitConfiguration(auid);
@@ -2011,9 +2025,11 @@ public class PluginManager
   /**
    * Deactivate an AU in the database.  Does not actually stop the AU.
    * @param au the ArchivalUnit to be deactivated
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public void deactivateAuConfiguration(ArchivalUnit au) throws DbException {
+  public void deactivateAuConfiguration(ArchivalUnit au)
+      throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
       log.debug("Deactivating AU: " + au);
 
@@ -2032,9 +2048,11 @@ public class PluginManager
   /**
    * Delete an AU
    * @param au the ArchivalUnit to be deleted
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public void deleteAu(ArchivalUnit au) throws DbException {
+  public void deleteAu(ArchivalUnit au)
+      throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
       deleteAuConfiguration(au);
       if (isRemoveStoppedAus()) {
@@ -2046,9 +2064,11 @@ public class PluginManager
   /**
    * Deactivate an AU
    * @param au the ArchivalUnit to be deactivated
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public void deactivateAu(ArchivalUnit au) throws DbException {
+  public void deactivateAu(ArchivalUnit au)
+      throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
       deactivateAuConfiguration(au);
       deactivateAuOnly(au);
@@ -2211,7 +2231,7 @@ public class PluginManager
    * @return the AU's Configuration, with unprefixed keys.
    */
   public AuConfiguration getStoredAuConfiguration(String auid)
-      throws DbException {
+      throws DbException, LockssRestException {
     return configMgr.retrieveArchivalUnitConfiguration(auid);
   }
 
@@ -2221,7 +2241,7 @@ public class PluginManager
    * @return the AU's Configuration, with unprefixed keys.
    */
   public Configuration getStoredAuConfigurationAsConfiguration(String auid)
-      throws DbException {
+      throws DbException, LockssRestException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
     Configuration config = null;

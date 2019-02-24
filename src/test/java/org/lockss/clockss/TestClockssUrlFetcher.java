@@ -83,11 +83,8 @@ public class TestClockssUrlFetcher extends LockssTestCase {
     mp = new MockPlugin();
     mp.initPlugin(daemon);
     mau = new MockArchivalUnit(mp);
-    // accessing the AuState requires NodeManager, HistoryRepository
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    histRepo.storeAuState(new AuState(mau, histRepo));
-    daemon.setHistoryRepository(histRepo, mau);
-    aus = AuUtil.getAuState(mau);
+    aus = AuTestUtil.setUpMockAus(mau);
+
     Properties p = new Properties();
     p.put(ClockssParams.PARAM_INSTITUTION_SUBSCRIPTION_ADDR, INST_ADDR);
     p.put(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR, CLOCKSS_ADDR);

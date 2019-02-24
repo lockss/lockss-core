@@ -37,12 +37,9 @@ import java.io.*;
 import java.util.*;
 import org.lockss.app.*;
 import org.lockss.daemon.Crawler;
-import org.lockss.protocol.DatedPeerIdSetImpl;
 import org.lockss.protocol.IdentityManager;
 import org.lockss.state.*;
 import org.lockss.plugin.*;
-import org.lockss.protocol.DatedPeerIdSet;
-import org.lockss.protocol.AuAgreements;
 import org.lockss.config.Configuration;
 
 /**
@@ -50,15 +47,9 @@ import org.lockss.config.Configuration;
  */
 public class MockHistoryRepository implements HistoryRepository {
   private HashMap storedHistories = new HashMap();
-  public AuState theAuState;
-  private DamagedNodeSet theDamagedNodeSet;
   private HashMap storedNodes = new HashMap();
-  private File auStateFile = null;
   private String baseDir;
-  private Object storedIdentityAgreement = null;
-  private Object loadedIdentityAgreement = null;
   private ArchivalUnit au;
-  private int timesStoreDamagedNodeSetCalled = 0;
   private IdentityManager idMgr;
   private File peerIdFile;
 
@@ -66,12 +57,9 @@ public class MockHistoryRepository implements HistoryRepository {
 
   public void initService(LockssApp app) throws LockssAppException { }
   public void startService() {
-    theAuState = new MockAuState();
   }
   public void stopService() {
     storedHistories = new HashMap();
-    theAuState = null;
-    theDamagedNodeSet = null;
     storedNodes = new HashMap();
   }
   public LockssApp getApp() {
@@ -81,92 +69,8 @@ public class MockHistoryRepository implements HistoryRepository {
   public void setAuConfig(Configuration auConfig) {
   }
 
-  public void storeAuState(AuState auState) {
-    theAuState = auState;
-  }
-
-  public void setAuState(AuState auState){theAuState = auState;}
-
-  public AuState loadAuState() {
-    return theAuState;
-  }
-
-  public void storeDamagedNodeSet(DamagedNodeSet nodeSet) {
-    timesStoreDamagedNodeSetCalled++;
-    theDamagedNodeSet = nodeSet;
-  }
-
-  public int timesStoreDamagedNodeSetCalled() {
-    return timesStoreDamagedNodeSetCalled;
-  }
-
-  public DamagedNodeSet loadDamagedNodeSet() {
-    return theDamagedNodeSet;
-  }
-
-  public AuState getAuState() {
-    return theAuState == null ? new MockAuState() : theAuState;
-  }
-
-  public void setAuState(MockAuState aus) {
-    theAuState = aus;
-  }
-
-  /**
-   * Return the
-   */
-  @Override
-  public boolean hasDamage(CachedUrlSet cus) {
-    return false;
-  }
-  public DamagedNodeSet getDamagedNodes() {
-    return theDamagedNodeSet;
-  }
-
-  public void setDamagedNodes(DamagedNodeSet dnSet) {
-    theDamagedNodeSet = dnSet;
-  }
-
-  public File getIdentityAgreementFile() {
-    throw new UnsupportedOperationException();
-  }
-
-  public File getAuStateFile() {
-    return auStateFile;
-  }
-
   public long getAuCreationTime() {
     return -1;
-  }
-
-  public void setAuStateFile(File file) {
-    auStateFile = file;
-  }
-
-  @Override
-  public void storeIdentityAgreements(AuAgreements auAgreements) {
-    storedIdentityAgreement = auAgreements;
-  }
-
-  @Override
-  public Object loadIdentityAgreements() {
-    return loadedIdentityAgreement;
-  }
-
-  public void setLoadedIdentityAgreement(AuAgreements auAgreements) {
-    loadedIdentityAgreement = auAgreements;
-  }
-
-  /**
-   * Used to inject pre-AuAgreements agreement structures for
-   * loading tests. See TestAuAgreements.
-   */
-  public void setLoadedIdentityAgreement(List loadedIdentityAgreement) {
-    this.loadedIdentityAgreement = loadedIdentityAgreement;
-  }
-
-  public Object getStoredIdentityAgreement() {
-    return storedIdentityAgreement;
   }
 
   public void setIdMgr(IdentityManager idMgr) {
@@ -177,8 +81,9 @@ public class MockHistoryRepository implements HistoryRepository {
   {
     this.peerIdFile = peerIdFile;
   }
-  public DatedPeerIdSet getNoAuPeerSet() {
-    return new DatedPeerIdSetImpl(peerIdFile, idMgr);
+
+  public AuState getAuState() {
+    return LockssDaemon.getManagerByTypeStatic(StateManager.class).getAuState(au);
   }
 
 }

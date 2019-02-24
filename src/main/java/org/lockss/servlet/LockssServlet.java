@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,6 +50,7 @@ import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.account.*;
 import org.lockss.protocol.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.jetty.*;
 import org.lockss.alert.*;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
@@ -184,7 +185,7 @@ public abstract class LockssServlet extends HttpServlet
 
   /** Servlets must implement this method. */
   protected abstract void lockssHandleRequest()
-      throws ServletException, IOException, DbException;
+      throws ServletException, IOException, DbException, LockssRestException;
 
   /** Common request handling. */
   public void service(HttpServletRequest req, HttpServletResponse resp)
@@ -242,6 +243,9 @@ public abstract class LockssServlet extends HttpServlet
     } catch (DbException dbe) {
       log.error("Servlet threw", dbe);
       throw new RuntimeException("Database Error", dbe);
+    } catch (LockssRestException lre) {
+      log.error("Servlet threw", lre);
+      throw new RuntimeException("REST service Error", lre);
     } catch (RuntimeException e) {
       log.error("Servlet threw", e);
       throw e;

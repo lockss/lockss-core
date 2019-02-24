@@ -1564,12 +1564,9 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   AuState setUpAuState(MockArchivalUnit mau) {
-    // accessing the AuState requires HistoryRepository
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    histRepo.storeAuState(new AuState(mau, histRepo));
-    histRepo.startService();
-    theDaemon.setHistoryRepository(histRepo, mau);
-    return AuUtil.getAuState(mau);
+    AuState aus = AuTestUtil.setUpMockAus(mau);
+//     aus.storeAuState();
+    return aus;
   }
 
   @Test

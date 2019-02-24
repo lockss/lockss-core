@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,6 +38,7 @@ import org.lockss.daemon.TitleConfig;
 import org.lockss.db.DbException;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.ws.entities.ContentConfigurationResult;
@@ -285,6 +286,8 @@ public class ContentConfigurationServiceImpl implements
 	  LockssDaemon.getLockssDaemon().getRemoteApi().reactivateAus(auIds);
     } catch (DbException dbe) {
       throw new LockssWebServicesFault("Database Error", dbe);
+    } catch (LockssRestException lre) {
+      throw new LockssWebServicesFault("REST service Error", lre);
     }
 
     // Loop through all the results.

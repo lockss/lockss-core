@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -246,20 +242,6 @@ public interface RepositoryNode extends RepositoryNodeVersion {
    */
   public void setNewProperties(Properties newProps);
   
-  /**
-   * Signal that the given peers have agreed with this node, creating an
-   * agreement history file if necessary.
-   * @param peers A collection of peers for which to signal agreement.
-   */
-  public void signalAgreement(Collection peers);
-  
-  /**
-   * Returns true if the PeerIdentity has ever agreed with this node during
-   * a poll.
-   * @param peer The peer to check for agreement with this node.
-   */
-  public boolean hasAgreement(PeerIdentity peer);
-
   /**
    * RepositoryNodeContents is used to obtain Properties and InputStream.
    * This is intended to ensure props and stream reflect a consistent view

@@ -384,7 +384,7 @@ public class FuncTarExploder2 extends LockssTestCase {
     sau.setExploderPattern(".tar$");
     sau.setExploderHelper(new MyExploderHelper());
     FollowLinkCrawler crawler = 
-        new FollowLinkCrawler(sau, new MockAuState());
+        new FollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.setCrawlManager(crawlMgr);
     crawler.doCrawl();
   }

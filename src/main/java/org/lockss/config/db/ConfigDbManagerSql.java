@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -116,6 +116,52 @@ public class ConfigDbManagerSql extends DbManagerSql {
 	  + CONFIG_KEY_COLUMN + ")"
   };
 
+  // Query to create the table for recording archival units state properties.
+  private static final String CREATE_ARCHIVAL_UNIT_STATE_TABLE_QUERY =
+      "create table "
+      + ARCHIVAL_UNIT_STATE_TABLE + " ("
+      + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
+      + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + ") on delete cascade,"
+      + STATE_STRING_COLUMN + " varchar(" + MAX_STATE_STRING_COLUMN
+      + ") not null"
+      + ")";
+
+  // The SQL code used to create the necessary version 2 database tables.
+  @SuppressWarnings("serial")
+  private static final Map<String, String> VERSION_2_TABLE_CREATE_QUERIES =
+    new LinkedHashMap<String, String>() {{
+      put(ARCHIVAL_UNIT_STATE_TABLE, CREATE_ARCHIVAL_UNIT_STATE_TABLE_QUERY);
+    }};
+
+  // Query to create the table for recording archival units state properties.
+  private static final String CREATE_ARCHIVAL_UNIT_AGREEMENTS_TABLE_QUERY =
+      "create table "
+      + ARCHIVAL_UNIT_AGREEMENTS_TABLE + " ("
+      + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
+      + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + ") on delete cascade,"
+      + AGREEMENTS_STRING_COLUMN + " varchar(" + MAX_AGREEMENTS_STRING_COLUMN
+      + ") not null"
+      + ")";
+
+  // The SQL code used to create the necessary version 3 database tables.
+  @SuppressWarnings("serial")
+  private static final Map<String, String> VERSION_3_TABLE_CREATE_QUERIES =
+    new LinkedHashMap<String, String>() {{
+      put(ARCHIVAL_UNIT_AGREEMENTS_TABLE,
+	  CREATE_ARCHIVAL_UNIT_AGREEMENTS_TABLE_QUERY);
+    }};
+
+  // SQL statements that create the necessary version 3 indices.
+  private static final String[] VERSION_3_INDEX_CREATE_QUERIES = new String[] {
+      "create unique index idx1_" + ARCHIVAL_UNIT_STATE_TABLE + " on "
+	  + ARCHIVAL_UNIT_STATE_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN + ")",
+      "create unique index idx1_" + ARCHIVAL_UNIT_AGREEMENTS_TABLE + " on "
+	  + ARCHIVAL_UNIT_AGREEMENTS_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+	  + ")"
+  };
+
   /**
    * Constructor.
    * 
@@ -166,5 +212,50 @@ public class ConfigDbManagerSql extends DbManagerSql {
     }
 
     log.debug2("Done");
+  }
+
+  /**
+   * Updates the database from version 1 to version 2.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom1To2(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Create the necessary tables if they do not exist.
+    createTablesIfMissing(conn, VERSION_2_TABLE_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Updates the database from version 2 to version 3.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom2To3(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Create the necessary tables if they do not exist.
+    createTablesIfMissing(conn, VERSION_3_TABLE_CREATE_QUERIES);
+
+    // Create the necessary indices.
+    executeDdlQueries(conn, VERSION_3_INDEX_CREATE_QUERIES);
+
+    log.debug2("Done.");
   }
 }

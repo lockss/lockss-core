@@ -40,7 +40,7 @@ import org.apache.commons.lang3.tuple.*;
 
 import org.lockss.plugin.*;
 import org.lockss.daemon.*;
-import org.lockss.state.AuState;
+import org.lockss.state.*;
 import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.alert.*;
@@ -65,7 +65,6 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
   private MockAlertManager alertMgr;
   private int pauseBeforeFetchCounter;
   private UrlData ud;
-  private MockHistoryRepository histRepo = new MockHistoryRepository();
   private MockAuState maus;
 
 
@@ -97,8 +96,6 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     theDaemon.setLockssRepository(repo, mau);
     repo.startService();
 
-    theDaemon.setHistoryRepository(histRepo, mau);
-
     mcus = new MockCachedUrlSet(TEST_URL);
     mcus.setArchivalUnit(mau);
     mau.setAuCachedUrlSet(mcus);
@@ -107,9 +104,7 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     alertMgr = new MockAlertManager();
     getMockLockssDaemon().setAlertManager(alertMgr);
     
-    theDaemon.setHistoryRepository(histRepo, mau);
-    maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    maus = AuTestUtil.setUpMockAus(mau);
 
     useV2Repo();
 //     useV2Repo("local:foo:" + getTempDir().toString());
@@ -884,7 +879,7 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     cacher.storeContent();
     CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
     assertEquals(1, cu.getVersion());
-    AuSuspectUrlVersions asuv = repo.getSuspectUrlVersions(mau);
+    AuSuspectUrlVersions asuv = AuUtil.getSuspectUrlVersions(mau);
     assertTrue(asuv.isEmpty());
     AuState aus = AuUtil.getAuState(mau);
     assertEquals(0, aus.recomputeNumCurrentSuspectVersions());

@@ -315,7 +315,7 @@ public class FuncWarcRoundtrip extends LockssTestCase {
     sau.setExploderPattern(".warc.gz$");
     sau.setExploderHelper(new MyExploderHelper(null));
     
-    AuState maus = new MyMockAuState(sau);
+    AuState maus = AuUtil.getAuState(sau);
     Crawler crawler = new NoCrawlEndActionsFollowLinkCrawler(sau, maus);
     boolean res = crawler.doCrawl();
     lastCrawlResult = maus.getLastCrawlResult();

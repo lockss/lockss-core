@@ -35,7 +35,6 @@ package org.lockss.crawler;
 import java.util.*;
 import junit.framework.Test;
 
-import org.lockss.state.HistoryRepository;
 import org.lockss.util.*;
 import org.lockss.util.lang.LockssRandom;
 import org.lockss.util.os.PlatformUtil;
@@ -43,6 +42,7 @@ import org.lockss.util.time.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.exploded.*;
 import org.lockss.daemon.*;
@@ -57,7 +57,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
   protected TestableCrawlManagerImpl crawlManager = null;
   protected MockArchivalUnit mau = null;
   protected MockLockssDaemon theDaemon;
-  protected MockHistoryRepository histRepo;
   protected MockActivityRegulator activityRegulator;
   protected MockCrawler crawler;
   protected CachedUrlSet cus;
@@ -81,7 +80,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     rule = new MockCrawlRule();
 
     theDaemon = getMockLockssDaemon();
-    histRepo = new MockHistoryRepository();
 
     pluginMgr = new MyPluginManager();
     pluginMgr.initService(theDaemon);
@@ -114,11 +112,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     crawler = new MockCrawler();
     crawlManager.setTestCrawler(crawler);
 
-    MockAuState m_aus = new MockAuState();
-    m_aus.setHistoryRepository(histRepo);
-    histRepo.storeAuState(m_aus);
-    theDaemon.setHistoryRepository(histRepo, mau);
-    histRepo.startService();
+    AuTestUtil.setUpMockAus(mau);
+
   }
 
   public void tearDown() throws Exception {
@@ -134,12 +129,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    MockAuState m_aus = new MockAuState();
-    m_aus.setHistoryRepository(histRepo);
-    histRepo.storeAuState(m_aus);
-    theDaemon.setHistoryRepository(histRepo, mau);
-    histRepo.startService();
+    AuTestUtil.setUpMockAus(mau);
     return mau;
   }
 
@@ -1328,12 +1318,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       CrawlReq[] res = new CrawlReq[n];
       for (int ix = 0; ix < n; ix++) {
         MockArchivalUnit mau = newMockArchivalUnit(String.format("mau%2d", ix));
-        MockHistoryRepository mhr = new MockHistoryRepository();
-        theDaemon.setHistoryRepository(mhr, mau);
-        MockAuState m_aus = new MockAuState();
-        m_aus.setHistoryRepository(mhr);
-        mhr.storeAuState(m_aus);
-        mhr.startService();
         res[ix] = new CrawlReq(mau);
       }
       return res;
@@ -1362,8 +1346,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     void setAu(MockArchivalUnit mau,
         int crawlResult, long crawlAttempt, long crawlFinish,
         String limiterKey) {
-      HistoryRepository hRepo = theDaemon.getHistoryRepository(mau);
-      MockAuState aus = (MockAuState)hRepo.getAuState();
+      MockAuState aus = (MockAuState)AuUtil.getAuState(mau);
       aus.setLastCrawlTime(crawlFinish);
       aus.setLastCrawlAttempt(crawlAttempt);
       aus.setLastCrawlResult(crawlResult, "foo");
@@ -1905,12 +1888,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       regplugin.initPlugin(theDaemon);
     }
     RegistryArchivalUnit res = new MyRegistryArchivalUnit(regplugin);
-    HistoryRepository hrep = new MockHistoryRepository();
-    MockAuState m_aus = new MockAuState();
-    hrep.storeAuState(m_aus);
-    m_aus.setHistoryRepository(hrep);
-    theDaemon.setHistoryRepository(hrep, res);
-    hrep.startService();
+    AuTestUtil.setUpMockAus(mau);
+
     return res;
   }
 

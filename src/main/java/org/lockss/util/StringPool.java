@@ -69,6 +69,9 @@ public class StringPool {
   public static StringPool HTTP_HEADERS = new StringPool("HTTP headers");
   /** Pool for plugin IDs. */
   public static StringPool PLUGIN_IDS = new StringPool("Plugin IDs");
+  /** Pool for AUIDs. */
+  public static StringPool AUIDS = new StringPool("AU IDs");
+
   /** Pool for feature version strings. */
   public static StringPool FEATURE_VERSIONS = new StringPool("Feature versions");
   /** Pool for PropertyTree keys and subkeys. */

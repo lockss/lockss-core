@@ -85,8 +85,10 @@ public class TestUniqueRefLruCache extends LockssTestCase {
     assertNull(obj);
 
     obj = new Object();
+    assertFalse(cache.containsKey("foo"));
     cache.put("foo", obj);
     Object obj2 = cache.get("foo");
+    assertTrue(cache.containsKey("foo"));
     assertSame(obj, obj2);
     assertEquals(1, cache.getCacheHits());
     assertEquals(1, cache.getCacheMisses());

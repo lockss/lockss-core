@@ -217,7 +217,7 @@ public class FuncNewContentCrawler extends LockssTestCase {
   private NoCrawlEndActionsFollowLinkCrawler crawlContent() {
     log.debug("Crawling tree...");
     NoCrawlEndActionsFollowLinkCrawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.setCrawlManager(crawlMgr);
     crawlMgr.addToRunningCrawls(crawler.getAu(), crawler);
     crawler.doCrawl();

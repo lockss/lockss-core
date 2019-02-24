@@ -41,7 +41,6 @@ import org.lockss.hasher.HashResult;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
-import org.lockss.protocol.IdentityManager.IdentityAgreement;
 import org.lockss.protocol.MockPeerIdentity;
 import org.lockss.protocol.psm.*;
 import org.lockss.util.*;
@@ -77,9 +76,9 @@ public class TestVersionCounts extends LockssTestCase {
     daemon = getMockLockssDaemon();
     pollerId = findPeerIdentity(localPeerKey);
 
-    id1 = new MockPeerIdentity("TCP:[127.0.0.1]:8990");
-    id2 = new MockPeerIdentity("TCP:[127.0.0.1]:8991");
-    id3 = new MockPeerIdentity("TCP:[127.0.0.1]:8992");
+    id1 = daemon.findPeerIdentity("TCP:[127.0.0.1]:8990");
+    id2 = daemon.findPeerIdentity("TCP:[127.0.0.1]:8991");
+    id3 = daemon.findPeerIdentity("TCP:[127.0.0.1]:8992");
 
     v3Poller = makeV3Poller("testing poll key");
 

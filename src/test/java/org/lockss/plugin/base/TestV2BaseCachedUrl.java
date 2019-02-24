@@ -41,7 +41,6 @@ import org.lockss.app.*;
 import org.lockss.plugin.*;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
-import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;

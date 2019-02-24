@@ -348,7 +348,7 @@ public class TestLockssApp extends LockssTestCase {
       throw new UnsupportedOperationException("Not implemented");
     }
 
-    boolean isInited() {
+    public boolean isInited() {
       return isInited;
     }
   }

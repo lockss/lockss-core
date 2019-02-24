@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,6 +47,7 @@ import org.lockss.protocol.*;
 import org.lockss.state.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.repository.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
@@ -295,16 +296,16 @@ public class RemoteApi
    * @param aup the AuProxy
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
-   * @return a Long with the key under which the AU configuration has been
-   *         saved.
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
-  public Long setAndSaveAuConfiguration(AuProxy aup,
+  public void setAndSaveAuConfiguration(AuProxy aup,
 					Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, DbException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     ArchivalUnit au = aup.getAu();
-    return pluginMgr.setAndSaveAuConfiguration(au, auConf);
+    pluginMgr.setAndSaveAuConfiguration(au, auConf);
   }
 
   /**
@@ -315,11 +316,13 @@ public class RemoteApi
    * prefixed with org.lockss.au.<i>auid</i>)
    * @return the new AuProxy
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public AuProxy createAndSaveAuConfiguration(PluginProxy pluginp,
 					     Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, DbException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     Plugin plugin = pluginp.getPlugin();
     ArchivalUnit au = pluginMgr.createAndSaveAuConfiguration(plugin, auConf);
     return findAuProxy(au);
@@ -329,10 +332,12 @@ public class RemoteApi
    * Delete AU configuration from the local config file.
    * @param aup the AuProxy
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public void deleteAu(AuProxy aup)
-      throws ArchivalUnit.ConfigurationException, DbException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     if (aup.isActiveAu()) {
       ArchivalUnit au = aup.getAu();
       pluginMgr.deleteAu(au);
@@ -345,10 +350,12 @@ public class RemoteApi
    * Deactivate an AU
    * @param aup the AuProxy
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public void deactivateAu(AuProxy aup)
-      throws ArchivalUnit.ConfigurationException, DbException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     ArchivalUnit au = aup.getAu();
     pluginMgr.deactivateAu(au);
   }
@@ -365,7 +372,7 @@ public class RemoteApi
    * @return the AU's Configuration, with unprefixed keys.
    */
   public Configuration getStoredAuConfiguration(AuProxy aup)
-      throws DbException {
+      throws DbException, LockssRestException {
     return pluginMgr.getStoredAuConfigurationAsConfiguration(aup.getAuId());
   }
 
@@ -664,21 +671,23 @@ public class RemoteApi
 	} catch (FileNotFoundException e) {}
 	zip.closeEntry();
       }
-      File auStateFile = getAuStateFile(au);
+      // XXXAUS need new mechanism
+//       File auStateFile = getAuStateFile(au);
 
-      if (auStateFile.exists()) {
-	try {
-	  addCfgFileToZip(zip, auStateFile, dir + BACK_FILE_AUSTATE);
-	} catch (FileNotFoundException e) {}
-      }
+//       if (auStateFile.exists()) {
+// 	try {
+// 	  addCfgFileToZip(zip, auStateFile, dir + BACK_FILE_AUSTATE);
+// 	} catch (FileNotFoundException e) {}
+//       }
       dirn++;
     }
   }
 
-  File getAuStateFile(ArchivalUnit au) {
-    HistoryRepository hRep = getDaemon().getHistoryRepository(au);
-    return hRep.getAuStateFile();
-  }
+  // XXXAUS need to replace for new AuState mechanism
+//   File getAuStateFile(ArchivalUnit au) {
+//     HistoryRepository hRep = getDaemon().getHistoryRepository(au);
+//     return hRep.getAuStateFile();
+//   }
 
   void addPropsToZip(ZipOutputStream zip, Properties props,
 		     String entName, String header)
@@ -1017,6 +1026,9 @@ public class RemoteApi
 	} catch (DbException dbe) {
 	  stat.setStatus("Not Deactivated", STATUS_ORDER_WARN);
 	  stat.setExplanation("Error deleting: " + dbe.getMessage());
+	} catch (LockssRestException lre) {
+	  stat.setStatus("Not Deactivated", STATUS_ORDER_WARN);
+	  stat.setExplanation("Error deleting: " + lre.getMessage());
 	}
       } else {
 	stat.setStatus("Not Found", STATUS_ORDER_WARN);
@@ -1084,6 +1096,12 @@ public class RemoteApi
     } catch (DbException dbe) {
       stat.setStatus("Database Error", STATUS_ORDER_ERROR);
       stat.setExplanation(dbe.getMessage());
+
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "stat = " + stat);
+      return stat;
+    } catch (LockssRestException lre) {
+      stat.setStatus("REST service Error", STATUS_ORDER_ERROR);
+      stat.setExplanation(lre.getMessage());
 
       if (log.isDebug2()) log.debug2(DEBUG_HEADER + "stat = " + stat);
       return stat;
@@ -1235,6 +1253,9 @@ public class RemoteApi
       } catch (DbException dbe) {
 	stat.setStatus("Database Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(dbe.getMessage());
+      } catch (LockssRestException lre) {
+	stat.setStatus("REST service Error", STATUS_ORDER_ERROR);
+	stat.setExplanation(lre.getMessage());
       }
     }
     // If a restored AU config has no name, it's probably an old one.  Try
@@ -1287,7 +1308,8 @@ public class RemoteApi
     return findAusInSetsToAdd(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToAdd(TitleSet ts) throws DbException {
+  public BatchAuStatus findAusInSetToAdd(TitleSet ts)
+      throws DbException, LockssRestException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToAdd(bas, ts.getTitles().iterator());
   }
@@ -1336,7 +1358,8 @@ public class RemoteApi
     return findAusInSetsToDelete(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToDelete(TitleSet ts) throws DbException {
+  public BatchAuStatus findAusInSetToDelete(TitleSet ts)
+      throws DbException, LockssRestException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToDelete(bas, ts.getTitles().iterator());
   }
@@ -1383,7 +1406,8 @@ public class RemoteApi
     return findAusInSetsToActivate(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToActivate(TitleSet ts) throws DbException {
+  public BatchAuStatus findAusInSetToActivate(TitleSet ts)
+      throws DbException, LockssRestException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToActivate(bas, ts.getTitles().iterator());
   }
@@ -1730,6 +1754,8 @@ public class RemoteApi
 	return res;
       } catch (DbException dbe) {
 	throw new RuntimeException("Database error", dbe);
+      } catch (LockssRestException lre) {
+	throw new RuntimeException("REST service error", lre);
       }
     }
   }
@@ -2111,6 +2137,12 @@ public class RemoteApi
       statusEntry.setStatus("Not Configured", STATUS_ORDER_WARN);
       statusEntry.setExplanation("Error creating AU: " + dbe.getMessage());
       status.add(statusEntry);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't create AU", lre);
+      statusEntry.setName(auId);
+      statusEntry.setStatus("Not Configured", STATUS_ORDER_WARN);
+      statusEntry.setExplanation("Error creating AU: " + lre.getMessage());
+      status.add(statusEntry);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "status = " + status);
@@ -2263,7 +2295,8 @@ public class RemoteApi
    *          A List<String> with the identifiers of the archival units.
    * @return a BatchAuStatus object describing the results.
    */
-  public BatchAuStatus reactivateAus(List<String> auIds) throws DbException {
+  public BatchAuStatus reactivateAus(List<String> auIds)
+      throws DbException, LockssRestException {
     final String DEBUG_HEADER = "reactivateAus(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auIds = " + auIds);
 

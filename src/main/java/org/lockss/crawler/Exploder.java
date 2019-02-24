@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,6 +43,7 @@ import org.lockss.plugin.exploded.*;
 import org.lockss.config.*;
 import org.lockss.app.LockssDaemon;
 import org.lockss.repository.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.filter.StringFilter;
 
 /**
@@ -254,6 +255,10 @@ public abstract class Exploder {
       throw new IOException(pluginName + " not initialized for " + ae.getBaseUrl());
     } catch (DbException dbe) {
       logger.error("createAndSaveAuConfiguration() threw " + dbe.toString());
+      throw new IOException(pluginName + " not initialized for "
+	  + ae.getBaseUrl());
+    } catch (LockssRestException lre) {
+      logger.error("createAndSaveAuConfiguration() threw " + lre.toString());
       throw new IOException(pluginName + " not initialized for "
 	  + ae.getBaseUrl());
     }

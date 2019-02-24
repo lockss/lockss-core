@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.protocol;
 
 import java.util.*;
+import com.fasterxml.jackson.annotation.*;
 
 import org.lockss.util.io.LockssSerializable;
 
@@ -44,14 +41,15 @@ import org.lockss.util.io.LockssSerializable;
  * The saved information for a single {@link ArchivalUnit} about
  * poll agreements between this cache and another peer.
  */
-class PeerAgreements implements LockssSerializable {
+public class PeerAgreements implements LockssSerializable {
   // The String representing the other peer.
   private final String id;
   // A Map detailing the agreements with the other peer.
   private final EnumMap<AgreementType, PeerAgreement> map;
 
-  private PeerAgreements(String id,
-			 EnumMap<AgreementType, PeerAgreement> map) {
+  @JsonCreator
+  private PeerAgreements(@JsonProperty("id") String id,
+			 @JsonProperty("map") EnumMap<AgreementType, PeerAgreement> map) {
     if (id == null) {
       throw new IllegalArgumentException("id may not be null");
     }
@@ -80,25 +78,6 @@ class PeerAgreements implements LockssSerializable {
    */
   public PeerAgreements(PeerIdentity pid) {
     this(pid.getIdString());
-  }
-
-  /**
-   * Create an instance containing the agreements translated from the
-   * {@link IdentityManager.IdentityAgreement}.  For compatability
-   * with previous forms stored before daemon 1.62.
-   *
-   * @param idAgreement A {@link IdentityManager.IdentityAgreement}
-   * from the histroy repository.
-   */
-  public static PeerAgreements
-    from(IdentityManager.IdentityAgreement idAgreement) {
-    String id = idAgreement.getId();
-    EnumMap<AgreementType, PeerAgreement> map =
-      new EnumMap(AgreementType.class);
-    map.put(AgreementType.POR, PeerAgreement.porAgreement(idAgreement));
-    map.put(AgreementType.POR_HINT,
-	    PeerAgreement.porAgreementHint(idAgreement));
-    return new PeerAgreements(id, map);
   }
 
   @Override
@@ -140,4 +119,19 @@ class PeerAgreements implements LockssSerializable {
       getPeerAgreement(type).signalAgreement(percent, time);
     map.put(type, peerAgreement);
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o instanceof PeerAgreements) {
+      PeerAgreements other = (PeerAgreements)o;
+      return id.equals(other.id) && map.equals(other.map);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return id.hashCode() * 17 + map.hashCode();
+  }
+
 }

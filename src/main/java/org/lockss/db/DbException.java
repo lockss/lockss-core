@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,7 +34,7 @@
 package org.lockss.db;
 
 @SuppressWarnings("serial")
-public class DbException extends Exception {
+public class DbException extends org.lockss.app.StoreException {
 
   public DbException() {
     super();

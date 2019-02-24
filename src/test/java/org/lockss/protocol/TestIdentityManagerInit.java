@@ -45,26 +45,24 @@ import org.lockss.test.*;
  * IdentityManager tests. */
 public class TestIdentityManagerInit extends LockssTestCase {
   static int TEST_V3_PORT = 4456;
-  static String TEST_LOCAL_IP = "127.1.2.3";
+  static String TEST_LOCAL_ID = "TCP:[127.1.2.3]:123";
 
   Object testIdKey;
 
   private MockLockssDaemon theDaemon;
   private IdentityManager idmgr;
-  IPAddr testIpAddr;
 
   public void setUp() throws Exception {
     super.setUp();
-    testIpAddr = IPAddr.getByName(TEST_LOCAL_IP);
     theDaemon = getMockLockssDaemon();
   }
 
   public void configInit(boolean v3, boolean iddb) throws Exception {
     Properties p = new Properties();
-    p.setProperty(IdentityManager.PARAM_LOCAL_IP, TEST_LOCAL_IP);
-    if (v3) {
-      p.setProperty(IdentityManager.PARAM_LOCAL_V3_PORT, "" + TEST_V3_PORT);
+    if (!v3) {
+      throw new UnsupportedOperationException();
     }
+    p.setProperty(IdentityManager.PARAM_LOCAL_V3_IDENTITY, TEST_LOCAL_ID);
     if (iddb) {
       String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
       p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
@@ -82,37 +80,13 @@ public class TestIdentityManagerInit extends LockssTestCase {
     super.tearDown();
   }
 
-  public void testMissingLocalV1Identity() throws Exception {
-    try {
-      idmgr = theDaemon.getIdentityManager();
-      fail("No local ip addr, IdentityManager.initService() should throw");
-    } catch (LockssAppException e) {
-    }
-  }
-
-  public void testLocalV1Identity() throws Exception {
-    configInit(false, false);
-    PeerIdentity p1 = idmgr.ipAddrToPeerIdentity(testIpAddr, 0);
-    assertNotNull(p1);
-    assertTrue(p1.isLocalIdentity());
-    assertTrue(idmgr.isLocalIdentity(p1));
-
-    //    LcapIdentity i1 = idmgr.
-
-    PeerIdentity p2 = idmgr.ipAddrToPeerIdentity(IPAddr.getByName("4.22.66.78"),
-						 0);
-    assertNotNull(p2);
-    assertFalse(p2.isLocalIdentity());
-    assertFalse(idmgr.isLocalIdentity(p2));
-  }
-
   public void testLocalV3Identity() throws Exception {
     configInit(true, false);
-    PeerIdentity p1 = idmgr.ipAddrToPeerIdentity(testIpAddr, 0);
+    PeerIdentity p1 = idmgr.findPeerIdentity("tcp:[127.0.0.4]:9999");
     assertNotNull(p1);
-    assertTrue(p1.isLocalIdentity());
+    assertFalse(p1.isLocalIdentity());
 
-    PeerIdentity p2 = idmgr.ipAddrToPeerIdentity(testIpAddr, TEST_V3_PORT);
+    PeerIdentity p2 = idmgr.findPeerIdentity(TEST_LOCAL_ID);
     assertNotNull(p2);
     assertTrue(p2.isLocalIdentity());
     assertTrue(idmgr.isLocalIdentity(p2));

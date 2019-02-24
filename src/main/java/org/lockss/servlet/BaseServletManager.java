@@ -377,7 +377,7 @@ public abstract class BaseServletManager
   void startOrStop() {
     if (start) {
 //       if (getDaemon().isDaemonInited()) {
-      if (isInited()) {
+      if (isStarted()) {
 	startServlets();
       }
     } else if (isServerRunning()) {

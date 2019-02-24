@@ -62,7 +62,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
 
   private LockssDaemon theDaemon;
   private OldLockssRepository repository;
-  private HistoryRepository histRepo;
+  private StateManager stateMgr;
   private TrueZipManager trueZipManager;
   protected static Logger logger = Logger.getLogger();
 
@@ -99,7 +99,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       logger.debug3(DEBUG_HEADER + "au = " + au);
     }
     repository = theDaemon.getLockssRepository(owner);
-    histRepo = theDaemon.getHistoryRepository(owner);
+    stateMgr = theDaemon.getManagerByType(StateManager.class);
   }
 
   /**
@@ -271,7 +271,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     }
     // don't adjust for exceptions, except time-out exceptions
     long currentEstimate =
-      histRepo.getAuState().getAverageHashDuration();
+      stateMgr.getAuState(au).getAverageHashDuration();
     long newEst;
 
     logger.debug("storeActualHashDuration(" +
@@ -313,7 +313,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     if (newEst > 10 * Constants.HOUR) {
       logger.error("Unreasonably long hash estimate", new Throwable());
     }
-    histRepo.getAuState().setLastHashDuration(newEst);
+    stateMgr.getAuState(au).setLastHashDuration(newEst);
   }
 
   public long getContentSize() {
@@ -359,7 +359,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     if (spec.isSingleNode()) {
       return estimateFromSize(singleNodeSize());
     } else {
-      AuState state = histRepo.getAuState();
+      AuState state = stateMgr.getAuState(au);
       long lastDuration;
       if (state!=null) {
 	lastDuration = state.getAverageHashDuration();

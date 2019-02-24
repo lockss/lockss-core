@@ -40,7 +40,6 @@ import org.apache.commons.io.FileUtils;
 import org.lockss.config.Configuration;
 import org.lockss.hasher.HashResult;
 import org.lockss.plugin.*;
-import org.lockss.repository.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.test.*;
 import org.lockss.util.*;
 
@@ -146,121 +145,6 @@ public class TestLockssRepositoryImpl extends LockssTestCase {
 
   String addSlash(String s) {
     return (s.endsWith(File.separator)) ? s : s + File.separator;
-  }
-
-  public void testSuspectUrlVersions() throws Exception {
-    String location =
-      OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau);
-
-    String url1 = "http://www.example.com/testDir/branch1/leaf1";
-    createLeaf(url1, "test stream 1", null);
-    String url2 = "http://www.example.com/testDir/branch1/leaf2";
-    createLeaf(url2, "test stream 3", null);
-    String url3 = "http://www.example.com/testDir/branch1/leaf3333";
-    createLeaf(url3, "test stream 3", null);
-    createLeaf("http://www.example.com/testDir/branch2/leaf3",
-               "test stream 5", null);
-    createLeaf("http://www.example.com/testDir/leaf4", "test stream 6", null);
-    createLeaf("http://www.example.com/testDir/branch1/leaf1",
-               "test stream 2", null);
-    createLeaf("http://www.example.com/testDir/branch1/leaf2",
-               "test stream 4", null);
-    repo.startService();
-
-    MockCachedUrl cu1 = new MockCachedUrl(url1, mau);
-    cu1.setVersion(1);
-    mau.addCu(cu1);
-    MockCachedUrl cu2 = new MockCachedUrl(url2, mau);
-    cu2.setVersion(1);
-    mau.addCu(cu2);
-
-    assertFalse(repo.hasSuspectUrlVersions(mau));
-
-    AuSuspectUrlVersions asuv = repo.getSuspectUrlVersions(mau);
-    assertFalse(repo.hasSuspectUrlVersions(mau));
-    assertNotNull(asuv);
-    assertTrue(asuv.isEmpty());
-    // Might as well test the result here
-    assertFalse(asuv.isSuspect(url1, 0));
-    assertFalse(asuv.isSuspect(url1, 1));
-    assertFalse(asuv.isSuspect(url2, 0));
-    assertFalse(asuv.isSuspect(url2, 1));
-    assertFalse(repo.hasSuspectUrlVersions(mau));
-    assertEquals(0, asuv.countCurrentSuspectVersions(mau));
-    asuv.markAsSuspect(url1, 1);
-    assertFalse(asuv.isEmpty());
-    assertFalse(asuv.isSuspect(url1, 0));
-    assertTrue(asuv.isSuspect(url1, 1));
-    assertFalse(asuv.isSuspect(url2, 0));
-    assertFalse(asuv.isSuspect(url2, 1));
-    assertTrue(repo.hasSuspectUrlVersions(mau));
-    assertEquals(1, asuv.countCurrentSuspectVersions(mau));
-    cu1.setVersion(2);
-    assertEquals(0, asuv.countCurrentSuspectVersions(mau));
-    asuv.markAsSuspect(url2, 0);
-    assertFalse(asuv.isSuspect(url1, 0));
-    assertTrue(asuv.isSuspect(url1, 1));
-    assertTrue(asuv.isSuspect(url2, 0));
-    assertFalse(asuv.isSuspect(url2, 1));
-    assertTrue(repo.hasSuspectUrlVersions(mau));
-    assertEquals(0, asuv.countCurrentSuspectVersions(mau));
-
-    HashResult res1 = HashResult.make(ByteArray.makeRandomBytes(8), "Al");
-    HashResult res2 = HashResult.make(ByteArray.makeRandomBytes(8), "Al");
-    asuv.markAsSuspect(url2, 2, res1, res2);
-    assertTrue(asuv.isSuspect(url2, 2));
-
-    // Ensure we have some with leading zeros
-    HashResult res3 = HashResult.make("SHA1:0044ff");
-    HashResult res4 = HashResult.make("SHA1:0000ff");
-    asuv.markAsSuspect(url3, 2, res3, res4);
-    assertTrue(asuv.isSuspect(url2, 2));
-
-    File file = new File(location, OldLockssRepositoryImpl.SUSPECT_VERSIONS_FILE);
-    assertFalse("Suspect file shouldn't exist: " + file, file.exists());
-    repo.storeSuspectUrlVersions(mau, asuv);
-
-    assertTrue("Suspect file should exist: " + file, file.exists());
-
-    // Make a second AU and copy the serialized file, ensure it loads correctly
-
-    MockArchivalUnit mau2 = setUpMau("second");
-    OldLockssRepositoryImpl repo2 =
-      (OldLockssRepositoryImpl)daemon.getLockssRepository(mau2);
-    repo2.startService();
-    String location2 =
-      OldLockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau2);
-
-    File file2 = new File(location2,
-			  OldLockssRepositoryImpl.SUSPECT_VERSIONS_FILE);
-    assertFalse("Suspect file2 shouldn't exist: " + file2, file2.exists());
-    assertFalse(repo2.hasSuspectUrlVersions(mau2));
-    FileUtils.copyFile(file, file2);
-    assertTrue("Suspect file should exist: " + file2, file2.exists());
-    assertTrue(repo2.hasSuspectUrlVersions(mau2));
-
-    AuSuspectUrlVersions asuv2 = repo2.getSuspectUrlVersions(mau);
-    assertFalse(asuv2.isEmpty());
-
-    assertFalse(asuv2.isSuspect(url1, 0));
-    assertTrue(asuv2.isSuspect(url1, 1));
-    assertTrue(asuv2.isSuspect(url2, 0));
-    assertFalse(asuv2.isSuspect(url2, 1));
-    assertTrue(asuv2.isSuspect(url2, 2));
-
-    SuspectUrlVersion suv3 = findSuv(asuv2, url3, 2);
-    assertEquals("SHA1:0044FF", suv3.getComputedHash().toString());
-    assertEquals("SHA1:0000FF", suv3.getStoredHash().toString());
-  }
-
-  SuspectUrlVersion findSuv(AuSuspectUrlVersions asuv,
-			    String url, int version) {
-    for (SuspectUrlVersion suv : asuv.getSuspectList()) {
-      if (url.equals(suv.getUrl()) && version == suv.getVersion()) {
-	return suv;
-      }
-    }
-    return null;
   }
 
   public void testGetRepositoryRoot() throws Exception {

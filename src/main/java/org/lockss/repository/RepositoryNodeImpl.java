@@ -1197,35 +1197,6 @@ public class RepositoryNodeImpl implements RepositoryNode {
       is.close();
     }
   }
-  //todo: comment out all calls to this.
-  public synchronized boolean hasAgreement(PeerIdentity id) {
-    PersistentPeerIdSet agreeingPeers = loadAgreementHistory();
-    try {
-      return agreeingPeers.contains(id);
-    } catch (IOException e) {
-      return false;
-    }
-  }
-
-  //todo: comment out all calls to this.
-  public synchronized void signalAgreement(Collection peers) {
-    PersistentPeerIdSet agreeingPeers = loadAgreementHistory();
-    for (Iterator it = peers.iterator(); it.hasNext(); ) {
-      PeerIdentity key = (PeerIdentity)it.next();
-      try {
-        agreeingPeers.add(key);
-      } catch (IOException e) {
-        logger.warning("impossible error in loaded PeerIdSet");
-        return;   /* TODO: Should this pass up an exception? */
-      }
-    }
-    try {
-      agreeingPeers.store(true);
-    } catch (IOException e) {
-      logger.error("Couldn't store node agreement: " + getNodeUrl(), e);
-    }
-  }
-
   public void setNewProperties(Properties newProps) {
     if (!newVersionOpen) {
       throw new UnsupportedOperationException("New version not initialized.");
@@ -1346,62 +1317,11 @@ public class RepositoryNodeImpl implements RepositoryNode {
   /**
    * Return a set of PeerIdentity keys that have agreed with this node.
    *
-   * The previous version of this routine used 'Set<String>' (without declaring
-   * that it was a set of String)'.  This version returns a PersistentPeerIdSet.
    */
   PersistentPeerIdSet loadAgreementHistory() {
-    PersistentPeerIdSet ppisReturn;
-
-    if (agreementFile == null) {
-      initAgreementFile();
-    }
-
-    DataInputStream is = null;
-    try {
-//      ppisReturn = new PersistentPeerIdSetImpl(ppisAgreementFile, repository.getDaemon().getIdentityManager());
-      ppisReturn = new PersistentPeerIdSetImpl(agreementFile, repository.getDaemon().getIdentityManager());
-      ppisReturn.load();
-
-    } catch (Exception e) {
-      logger.error("Error loading agreement history" + e.getMessage());
-      throw new OldLockssRepository.RepositoryStateException("Couldn't load agreement file.");
-    } finally {
-      IOUtil.safeClose(is);
-    }
-
+    PersistentPeerIdSet ppisReturn = null;
+    // ... deleted ...
     return ppisReturn;
-  }
-
-
-  /** Consume the input stream, decoding peer identity keys  */
-  Set decodeAgreementHistory(DataInputStream is) {
-    Set history = new HashSet();
-    String id;
-    try {
-      while ((id = IDUtil.decodeOneKey(is)) != null) {
-        history.add(id);
-      }
-    } catch (IdentityParseException ex) {
-      // IDUtil.decodeOneKey will do its best to leave us at the
-      // start of the next key, but there's no guarantee.  All we can
-      // do here is log the fact that there was an error, and try
-      // again.
-      logger.error("Parse error while trying to decode agreement " +
-          "history file " + agreementFile + ": " + ex);
-    }
-    return history;
-  }
-
-  /* Rename a potentially corrupt agreement history file */
-  void backupAgreementHistoryFile() {
-    try {
-      PlatformUtil.updateAtomically(agreementFile,
-          new File(agreementFile.getCanonicalFile() + ".old"));
-    } catch (IOException ex) {
-      // This would only be caused by getCanonicalFile() throwing IOException.
-      // Worthy of a stack trace.
-      logger.error("Unable to back-up suspect agreement history file:", ex);
-    }
   }
 
 

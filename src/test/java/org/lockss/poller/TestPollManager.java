@@ -43,6 +43,7 @@ import org.lockss.poller.v3.*;
 import org.lockss.protocol.*;
 import org.lockss.repository.RepositoryManager;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 
@@ -231,8 +232,7 @@ public class TestPollManager extends LockssTestCase4 {
 	     long lastPollStart, long lastTopLevelPoll, int lastPollResult,
 	     long pollDuration, double agreement) 
       throws Exception {
-    MockAuState aus = new MockAuState(mau);
-    ((MockHistoryRepository)theDaemon.getHistoryRepository(mau)).setAuState(aus);
+    MockAuState aus = AuTestUtil.setUpMockAus(mau);
     aus.setLastCrawlTime(100);
     aus.setLastPollStart(lastPollStart);
     aus.setLastToplevalPoll(lastTopLevelPoll);
@@ -449,24 +449,14 @@ public class TestPollManager extends LockssTestCase4 {
     MockPlugin plugin = new MockPlugin(theDaemon);
     String auid1 = "auid111";
     MockArchivalUnit mau1 = new MockArchivalUnit(plugin, auid1);
-    MockHistoryRepository historyRepo1 = new MyMockHistoryRepository();
-    theDaemon.setHistoryRepository(historyRepo1, mau1);
     String auid2 = "auid222";
     MockArchivalUnit mau2 = new MockArchivalUnit(plugin, auid2);
-    MockHistoryRepository historyRepo2 = new MyMockHistoryRepository();
-    theDaemon.setHistoryRepository(historyRepo2, mau2);
 
     DatedPeerIdSet s1 = pollmanager.getNoAuPeerSet(mau1);
     DatedPeerIdSet s2 = pollmanager.getNoAuPeerSet(mau2);
     DatedPeerIdSet s3 = pollmanager.getNoAuPeerSet(mau1);
     assertNotSame(s1, s2);
     assertSame(s1, s3);
-  }
-
-  class MyMockHistoryRepository extends MockHistoryRepository {
-    public DatedPeerIdSet getNoAuPeerSet() {
-      return new DatedPeerIdSetImpl(new File("foo.bar"), idmanager);
-    }
   }
 
   public void testAgeNoAuSet() throws Exception {
@@ -485,10 +475,9 @@ public class TestPollManager extends LockssTestCase4 {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
     MockHistoryRepository histRepo = new MockHistoryRepository();
     theDaemon.setHistoryRepository(histRepo, mau);
-    MockAuState maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    MockAuState maus = AuTestUtil.setUpMockAus(mau);
     File file = FileTestUtil.tempFile("noau");
-    DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(file, idmanager);
+    DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(idmanager);
     assertTrue(noAuSet.isEmpty());
     assertTrue(noAuSet.getDate() < 0);
     pollmanager.ageNoAuSet(mau, noAuSet);

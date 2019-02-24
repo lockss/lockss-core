@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@ import org.lockss.daemon.status.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.RemoteApi;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
@@ -232,6 +233,8 @@ public class LockssRepositoryStatus extends BaseLockssDaemonManager {
 	    config = pluginMgr.getStoredAuConfigurationAsConfiguration(auid);
 	  } catch (DbException dbe) {
 	    log.warning("Couldn't get config of auid = " + auid, dbe);
+	  } catch (LockssRestException lre) {
+	    log.warning("Couldn't get config of auid = " + auid, lre);
 	  }
 	  Properties auidProps = null;
 	  try {

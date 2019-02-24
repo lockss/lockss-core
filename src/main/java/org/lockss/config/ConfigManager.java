@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -55,6 +55,8 @@ import org.lockss.protocol.*;
 import org.lockss.proxy.*;
 import org.lockss.remote.*;
 import org.lockss.repository.*;
+import org.lockss.rs.exception.LockssRestException;
+import org.lockss.rs.exception.LockssRestHttpException;
 import org.lockss.servlet.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
@@ -92,6 +94,11 @@ public class ConfigManager implements LockssManager {
   public static final String DAEMON = Configuration.DAEMON;
 
   static final String MYPREFIX = PREFIX + "config.";
+
+  /** Used in testing as an alternative to passing the REST config URL to
+   * makeConfigManager() */
+  public static final String SYSPROP_REST_CONFIG_SERVICE_URL =
+    MYPREFIX + "restConfigServiceUrl";
 
   /** The interval at which the daemon checks the various configuration
    * files, including title dbs, for changes.
@@ -641,6 +648,8 @@ public class ConfigManager implements LockssManager {
   }
 
   protected LockssApp theApp = null;
+  protected boolean isInited = false;
+  protected boolean isStarted = false;
 
   private List configChangedCallbacks = new ArrayList();
 
@@ -727,8 +736,9 @@ public class ConfigManager implements LockssManager {
 
   private int auInsertCommitCount = DEFAULT_AU_INSERT_COMMIT_COUNT;
 
+  /** This constructor is used only for tests */
   public ConfigManager() {
-    this(null, null);
+    this(null, System.getProperty(SYSPROP_REST_CONFIG_SERVICE_URL), null, null);
 
     URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
     URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
@@ -793,6 +803,7 @@ public class ConfigManager implements LockssManager {
   }
 
   public void initService(LockssApp app) throws LockssAppException {
+    isInited = true;
     theApp = app;
   }
 
@@ -800,6 +811,7 @@ public class ConfigManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
+    isStarted = true;
     // Start the configuration handler that will periodically check the
     // configuration files.
     startHandler();
@@ -809,6 +821,7 @@ public class ConfigManager implements LockssManager {
    * this is called.)
    */
   public void stopService() {
+    stopJms();
     stopHandler();
     currentConfig = newConfiguration();
     // this currently runs afoul of Logger, which registers itself once
@@ -820,6 +833,18 @@ public class ConfigManager implements LockssManager {
     // Reset the config cache.
     configCache = null;
     haveConfig = new OneShotSemaphore();
+  }
+
+  public boolean isInited() {
+    return isInited;
+  }
+
+  /**
+   * Return true iff this manager's startService() has been called.
+   * @return true if the manager is started
+   */
+  public boolean isStarted() {
+    return isStarted;
   }
 
   public LockssApp getApp() {
@@ -3537,17 +3562,26 @@ public class ConfigManager implements LockssManager {
       // Yes: Try to get it from the REST Configuration service.
       if (restConfigClient.isActive()) {
 	try {
-	  AuConfiguration auConfiguration =
-	      restConfigClient.getArchivalUnitConfiguration(auId);
+	  AuConfiguration auConfiguration = null;
+
+	  try {
+	    auConfiguration =
+		restConfigClient.getArchivalUnitConfiguration(auId);
+	  } catch (LockssRestHttpException lrhe) {
+	    // Do nothing: Continue with a null object.
+	    log.error("Exception caught getting the configuration of Archival "
+		+ "Unit " + auId, lrhe);
+	  }
+
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "auConfiguration = " + auConfiguration);
 	  auConfig =
 	      AuConfigurationUtils.toAuidPrefixedConfiguration(auConfiguration);
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-	} catch (Exception e) {
+	} catch (LockssRestException lre) {
 	  log.error("Exception caught getting the configuration of Archival "
-	      + "Unit " + auId, e);
+	      + "Unit " + auId, lre);
 	}
       }
 
@@ -3683,6 +3717,29 @@ public class ConfigManager implements LockssManager {
 	jmsProducer = Producer.createTopicProducer(clientId, notificationTopic);
       } catch (JMSException e) {
 	log.error("Couldn't create jms producer", e);
+      }
+    }
+  }
+
+  void stopJms() {
+    log.debug("stopJms");
+    Producer p = jmsProducer;
+    if (p != null) {
+      try {
+	jmsProducer = null;
+	p.closeConnection();
+	log.debug("Closed producer");
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms producer", e);
+      }
+    }
+    Consumer c = jmsConsumer;
+    if (c != null) {
+      try {
+	jmsConsumer = null;
+	c.closeConnection();
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms consumer", e);
       }
     }
   }
@@ -3907,9 +3964,12 @@ public class ConfigManager implements LockssManager {
    *           if any problem occurred accessing the database.
    * @throws IOException
    *           if any IO problem occurred.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
    */
   public Map<String, List<AuConfiguration>> retrieveAllPluginsAusConfigurations(
-      Collection<String> pluginKeys) throws DbException, IOException {
+      Collection<String> pluginKeys)
+	  throws DbException, IOException, LockssRestException {
     if (log.isDebug2()) log.debug2("pluginKeys = " + pluginKeys);
 
     Collection<AuConfiguration> auConfigurations =
@@ -3951,60 +4011,18 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
-   * Provides the Archival Unit configurations for a plugin that are stored in
-   * the database.
-   * 
-   * @param pluginId
-   *          A String with the plugin identifier.
-   * @return a Map<String, Map<String, String>> with the Archival Unit
-   *         configurations for the plugin.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
-   */
-  public Map<String, Map<String, String>> retrievePluginAusConfigurations(
-      String pluginId) throws DbException {
-    if (log.isDebug2()) log.debug2("pluginId = " + pluginId);
-
-    Map<String, Map<String, String>> result = null;
-
-    if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
-	+ restConfigClient.isActive());
-
-    if (restConfigClient.isActive()) {
-      Collection<AuConfiguration> auConfigurations =
-	  restConfigClient.getAllArchivalUnitConfiguration();
-      if (log.isDebug3()) log.debug3("auConfigurations = " + auConfigurations);
-
-      result = new HashMap<>();
-
-      for (AuConfiguration auConfiguration : auConfigurations) {
-	if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
-	String auId = auConfiguration.getAuId();
-	if (log.isDebug3()) log.debug3("auId = " + auId);
-	int endPluginLocation = auId.indexOf("&");
-	if (pluginId.equals(auId.substring(0, endPluginLocation))) {
-	  result.put(auId, auConfiguration.getAuConfig());
-	}
-      }
-    } else {
-      result = getConfigManagerSql().findPluginAuConfigurations(pluginId);
-    }
-    if (log.isDebug2()) log.debug2("result.size() = " + result.size());
-    return result;
-  }
-
-  /**
    * Stores in the database the configuration of an Archival Unit.
    * 
    * @param auConfiguration
    *          An AuConfiguration with the Archival Unit configuration to be
    *          stored.
-   * @return a Long with the database identifier of the Archival Unit.
    * @throws DbException
    *           if any problem occurred accessing the database.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
    */
-  public Long storeArchivalUnitConfiguration(AuConfiguration auConfiguration)
-      throws DbException {
+  public void storeArchivalUnitConfiguration(AuConfiguration auConfiguration)
+      throws DbException, LockssRestException {
     if (log.isDebug2()) log.debug2("auConfiguration = " + auConfiguration);
 
     // Validate the passed argument.
@@ -4025,23 +4043,22 @@ public class ConfigManager implements LockssManager {
       throw new IllegalArgumentException("Empty ArchivalUnit configuration");
     }
 
-    Long result = null;
-
     if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      log.debug2("Update AU config with REST client: " + auid);
-      result = restConfigClient.putArchivalUnitConfiguration(auConfiguration);
+      try {
+	restConfigClient.putArchivalUnitConfiguration(auConfiguration);
+      } catch (LockssRestHttpException lrhe) {
+	// Do nothing.
+	log.error("Exception caught storing the Archival Unit configuration '"
+	    + auConfiguration + "'", lrhe);
+      }
     } else {
-      log.debug2("Update AU config to DB: " + auid);
-      result = getConfigManagerSql().addArchivalUnitConfiguration(pluginId,
-	  auKey, auConfig);
+      getConfigManagerSql().addArchivalUnitConfiguration(pluginId, auKey,
+	  auConfig);
       notifyAuConfigChanged(auid, auConfiguration);
     }
-
-    if (log.isDebug2()) log.debug2("result = " + result);
-    return result;
   }
 
   /**
@@ -4051,9 +4068,13 @@ public class ConfigManager implements LockssManager {
    *         configurations.
    * @throws DbException
    *           if any problem occurred accessing the database.
+   * @throws IOException
+   *           if any IO problem occurred.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
    */
   public Collection<AuConfiguration> retrieveAllArchivalUnitConfiguration()
-      throws DbException, IOException {
+      throws DbException, IOException, LockssRestException {
     if (log.isDebug2()) log.debug2("Invoked");
 
     Collection<AuConfiguration> result = null;
@@ -4062,7 +4083,13 @@ public class ConfigManager implements LockssManager {
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      result = restConfigClient.getAllArchivalUnitConfiguration();
+      try {
+	result = restConfigClient.getAllArchivalUnitConfiguration();
+      } catch (LockssRestHttpException lrhe) {
+	log.error("Exception caught getting the configurations of all Archival "
+	    + "Units", lrhe);
+	result = Collections.emptyList();
+      }
     } else {
       result = new ArrayList<>();
 
@@ -4095,9 +4122,11 @@ public class ConfigManager implements LockssManager {
    * @return an AuConfiguration with the Archival Unit configuration.
    * @throws DbException
    *           if any problem occurred accessing the database.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
    */
   public AuConfiguration retrieveArchivalUnitConfiguration(String auid)
-      throws DbException {
+      throws DbException, LockssRestException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
     AuConfiguration result = null;
@@ -4106,7 +4135,13 @@ public class ConfigManager implements LockssManager {
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      result = restConfigClient.getArchivalUnitConfiguration(auid);
+      try {
+	result = restConfigClient.getArchivalUnitConfiguration(auid);
+      } catch (LockssRestHttpException lrhe) {
+	// Do nothing: Continue with a null object.
+	log.error("Exception caught getting the configuration of Archival "
+	    + "Unit " + auid, lrhe);
+      }
     } else {
       Connection conn = null;
 
@@ -4223,15 +4258,24 @@ public class ConfigManager implements LockssManager {
    *          A String with the Archival Unit identifier.
    * @throws DbException
    *           if any problem occurred accessing the database.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
    */
-  public void removeArchivalUnitConfiguration(String auid) throws DbException {
+  public void removeArchivalUnitConfiguration(String auid)
+      throws DbException, LockssRestException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
     if (log.isDebug3()) log.debug3("restConfigClient.isActive() = "
 	+ restConfigClient.isActive());
 
     if (restConfigClient.isActive()) {
-      restConfigClient.deleteArchivalUnitConfiguration(auid);
+      try {
+	restConfigClient.deleteArchivalUnitConfiguration(auid);
+      } catch (LockssRestHttpException lrhe) {
+	// Do nothing.
+	log.error("Exception caught deleting the configuration of Archival "
+	    + "Unit " + auid, lrhe);
+      }
     } else {
       // Parse the Archival Unit identifier.
       String pluginId = PluginManager.pluginIdFromAuId(auid);

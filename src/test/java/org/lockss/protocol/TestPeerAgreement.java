@@ -130,28 +130,4 @@ public class TestPeerAgreement extends LockssTestCase {
     assertEquals(a13, a3.mergeWith(a1));
   }
 
-  // Test the conversion from IdentityAgreement to PeerAgreement.
-  public void testIdentityAgreement() {
-    IdentityManager.IdentityAgreement idAgreement =
-      new IdentityManager.IdentityAgreement("foo");
-    idAgreement.setLastAgree(100);
-    idAgreement.setLastDisagree(200);
-    idAgreement.setPercentAgreement(0.5f);
-    idAgreement.setPercentAgreement(0.4f);
-    PeerAgreement agreement = PeerAgreement.porAgreement(idAgreement);
-
-    assertEquals(0.4f, agreement.getPercentAgreement());
-    assertEquals(200, agreement.getPercentAgreementTime());
-    assertEquals(0.5f, agreement.getHighestPercentAgreement());
-    assertEquals(0, agreement.getHighestPercentAgreementTime());
-
-    idAgreement.setPercentAgreementHint(0.7f);
-    idAgreement.setPercentAgreementHint(0.6f);
-    agreement = PeerAgreement.porAgreementHint(idAgreement);
-
-    assertEquals(0.6f, agreement.getPercentAgreement());
-    assertEquals(0, agreement.getPercentAgreementTime());
-    assertEquals(0.7f, agreement.getHighestPercentAgreement());
-    assertEquals(0, agreement.getHighestPercentAgreementTime());
-  }
 }

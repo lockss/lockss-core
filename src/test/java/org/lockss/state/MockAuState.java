@@ -30,7 +30,7 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.test;
+package org.lockss.state;
 
 import java.util.*;
 import junit.framework.*;
@@ -44,37 +44,37 @@ import org.lockss.plugin.ArchivalUnit;
 public class MockAuState extends AuState {
 
   HashSet crawlUrls = new HashSet();
-  int updatedCrawlUrlsCalled = 0;
-  private long auCreate = -1;
+    private long auCreate = -1;
 
   public MockAuState(ArchivalUnit au) {
-    this(au, -1, -1, -1, new MockHistoryRepository());
+    this(au, -1, -1, -1, null);
   }
 
   public MockAuState() {
-    this(null, -1, -1, -1, new MockHistoryRepository());
+    this(null, -1, -1, -1, null);
   }
 
   public MockAuState(ArchivalUnit au,
 		     long lastCrawlTime, long lastPollTime,
-                     long lastTreeWalk, HistoryRepository historyRepo) {
+                     long lastTreeWalk, StateManager stateMgr) {
     this(au, lastCrawlTime, -1, lastPollTime, -1, lastTreeWalk,
-	 null, historyRepo);
+	 null, stateMgr);
   }
 
   public MockAuState(ArchivalUnit au,
 		     long lastCrawlTime, long lastCrawlAttempt,
 		     long lastPollTime, long lastPollStart,
-                     long lastTreeWalk, HistoryRepository historyRepo) {
+                     long lastTreeWalk, StateManager stateMgr) {
     this(au, lastCrawlTime, lastCrawlAttempt, lastPollTime, lastPollStart,
-	 lastTreeWalk, null, historyRepo);
+	 lastTreeWalk, null, stateMgr);
   }
 
   public MockAuState(ArchivalUnit au,
 		     long lastCrawlTime, long lastCrawlAttempt,
 		     long lastPollTime, long lastPollStart,
                      long lastTreeWalk, HashSet crawlUrls,
-                     HistoryRepository historyRepo) {
+                     StateManager stateMgr) {
+
     super(au,
 	  lastCrawlTime,
 	  lastCrawlAttempt,
@@ -85,12 +85,12 @@ public class MockAuState extends AuState {
 	  -1, // lastDeepCrawlResult
 	  null, // lastDeepCrawlResultMsg,
 	  -1, // lastDeepCrawlDepth
-	  lastPollTime, //lastTopLevelPoll
+	  lastPollTime, //lastTopLevelPollTime
 	  lastPollStart,
 	  -1, // lastPollResult
 	  null, // lastPollResultMsg
 	  0L, // pollDuration
-        0L,
+	  0L,
 	  lastTreeWalk,
 	  crawlUrls,
 	  null, // accessType
@@ -109,7 +109,7 @@ public class MockAuState extends AuState {
 	  -1, // numWillingRepairers
 	  -1, // numCurrentSuspectVersions
 	  null, // cdnStems
-	  historyRepo);
+	  stateMgr);
   }
 
   public long getAuCreationTime() {
@@ -124,36 +124,36 @@ public class MockAuState extends AuState {
   }
 
   public void setLastCrawlTime(long newCrawlTime) {
-    lastCrawlTime = newCrawlTime;
+    bean.lastCrawlTime = newCrawlTime;
   }
 
   public void setLastContentChange(long newTime) {
-    lastContentChange = newTime;
+    bean.lastContentChange = newTime;
   }
 
   public void setLastTopLevelPollTime(long newPollTime) {
-    lastTopLevelPoll = newPollTime;
+    bean.lastTopLevelPollTime = newPollTime;
   }
 
   @Override
   public void setV3Agreement(double d) {
-    v3Agreement = d;
+    bean.v3Agreement = d;
   }
 
   public void setHighestV3Agreement(double d) {
-    highestV3Agreement = d;
+    bean.highestV3Agreement = d;
   }
 
   public void setLastPollResult(int result) {
-    lastPollResult = result;
+    bean.lastPollResult = result;
   }
 
   public void setLastPollStart(long time) {
-    lastPollStart = time;
+    bean.lastPollStart = time;
   }
 
   public void setLastToplevalPoll(long time) {
-    lastTopLevelPoll = time;
+    bean.lastTopLevelPollTime = time;
   }
 
   public void setLastTreeWalkTime(long newTreeWalkTime) {
@@ -161,7 +161,7 @@ public class MockAuState extends AuState {
   }
 
   public void setLastCrawlAttempt(long lastCrawlAttempt) {
-    this.lastCrawlAttempt = lastCrawlAttempt;
+    bean.lastCrawlAttempt = lastCrawlAttempt;
   }
 
   public void newCrawlFinished(int result, String resultMsg) {
@@ -169,21 +169,12 @@ public class MockAuState extends AuState {
   }
 
   public void setLastCrawlResult(int result, String resultMsg) {
-    lastCrawlResult = result;
-    lastCrawlResultMsg = resultMsg;
-  }
-
-  public void setHistoryRepository(HistoryRepository histRepository)
-  {
-    super.setHistoryRepo(histRepository);
+    bean.lastCrawlResult = result;
+    bean.lastCrawlResultMsg = resultMsg;
   }
 
   public HashSet getCrawlUrls() {
     return crawlUrls;
-  }
-
-  public void updatedCrawlUrls(boolean forceUpdate) {
-    updatedCrawlUrlsCalled++;
   }
 
   boolean suppressRecomputeNumCurrentSuspectVersions = false;
@@ -198,13 +189,6 @@ public class MockAuState extends AuState {
       return 0;
     }
     return super.recomputeNumCurrentSuspectVersions();
-  }
-
-  public void assertUpdatedCrawlListCalled(int numTimes) {
-    if (numTimes != updatedCrawlUrlsCalled) {
-      Assert.fail("updatedCrawlUrls was only called "+updatedCrawlUrlsCalled
-	   +" but should have been called "+numTimes+" times");
-    }
   }
 }
 
