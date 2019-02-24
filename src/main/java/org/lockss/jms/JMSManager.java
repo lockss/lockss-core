@@ -30,11 +30,15 @@ package org.lockss.jms;
 
 import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
+import javax.jms.*;
+import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.store.*;
+import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
 
 import org.lockss.app.*;
 import org.lockss.daemon.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
 
@@ -42,7 +46,7 @@ import org.lockss.config.*;
 public class JMSManager extends BaseLockssManager
   implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger();
+  protected static L4JLogger log = L4JLogger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "jms.";
   public static final String BROKER_PREFIX = PREFIX + "broker.";
@@ -98,6 +102,7 @@ public class JMSManager extends BaseLockssManager
   private BrokerService broker;
   private String brokerUri = DEFAULT_BROKER_URI;
   private String connectUri = DEFAULT_BROKER_URI;
+  private Map<String,Connection> connectionMap = new HashMap<>();
 
   public void startService() {
     super.startService();
@@ -117,6 +122,7 @@ public class JMSManager extends BaseLockssManager
   }
 
   public void stopService() {
+    closeConnections();
     if (broker != null) {
       try {
 	broker.stop();
@@ -126,6 +132,19 @@ public class JMSManager extends BaseLockssManager
       broker = null;
     }
     super.stopService();
+  }
+
+  private void closeConnections() {
+    synchronized (connectionMap) {
+      for (String uri : connectionMap.keySet()) {
+	try {
+	  Connection conn = connectionMap.get(uri);
+	  conn.close();
+	} catch (JMSException e) {
+	  log.error("Couldn't close JMS connection to {}", uri, e);
+	}
+      }
+    }
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
@@ -183,6 +202,26 @@ public class JMSManager extends BaseLockssManager
 //   public Broker getBroker() {
 //     return BrokerService.getBroker();
 //   }
+
+  /** Return a connection to the configured broker */
+  public Connection getConnection() throws JMSException {
+    return getConnection(getConnectUri());
+  }
+
+  /** Return a connection to the specified broker */
+  public Connection getConnection(String uri) throws JMSException {
+    synchronized (connectionMap) {
+      Connection res = connectionMap.get(uri);
+      if (res == null) {
+	ConnectionFactory connectionFactory =
+	  new ActiveMQConnectionFactory(uri);
+	// create a new Connection
+	res = connectionFactory.createConnection();
+	connectionMap.put(uri, res);
+      }
+      return res;
+    }
+  }
 
   public String getConnectUri() {
     return connectUri;

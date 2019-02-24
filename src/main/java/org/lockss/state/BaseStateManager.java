@@ -174,7 +174,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     if (p != null) {
       try {
 	jmsProducer = null;
-	p.closeConnection();
+	p.close();
       } catch (JMSException e) {
 	log.error("Couldn't stop jms producer", e);
       }
@@ -183,7 +183,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     if (c != null) {
       try {
 	jmsConsumer = null;
-	c.closeConnection();
+	c.close();
       } catch (JMSException e) {
 	log.error("Couldn't stop jms consumer", e);
       }

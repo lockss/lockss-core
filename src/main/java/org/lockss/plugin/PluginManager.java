@@ -1417,7 +1417,7 @@ public class PluginManager
     if (p != null) {
       try {
 	jmsProducer = null;
-	p.closeConnection();
+	p.close();
       } catch (JMSException e) {
 	log.error("Couldn't stop jms producer", e);
       }
@@ -1426,7 +1426,7 @@ public class PluginManager
     if (c != null) {
       try {
 	jmsConsumer = null;
-	c.closeConnection();
+	c.close();
       } catch (JMSException e) {
 	log.error("Couldn't stop jms consumer", e);
       }

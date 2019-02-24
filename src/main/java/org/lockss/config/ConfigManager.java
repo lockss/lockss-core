@@ -3727,7 +3727,7 @@ public class ConfigManager implements LockssManager {
     if (p != null) {
       try {
 	jmsProducer = null;
-	p.closeConnection();
+	p.close();
 	log.debug("Closed producer");
       } catch (JMSException e) {
 	log.error("Couldn't stop jms producer", e);
@@ -3737,7 +3737,7 @@ public class ConfigManager implements LockssManager {
     if (c != null) {
       try {
 	jmsConsumer = null;
-	c.closeConnection();
+	c.close();
       } catch (JMSException e) {
 	log.error("Couldn't stop jms consumer", e);
       }

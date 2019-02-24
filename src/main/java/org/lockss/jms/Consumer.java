@@ -31,8 +31,6 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import javax.jms.*;
-import org.apache.activemq.ActiveMQConnection;
-import org.apache.activemq.ActiveMQConnectionFactory;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
@@ -42,18 +40,17 @@ public class Consumer {
   private static final Logger log = Logger.getLogger();
 
   protected String clientId;
-  protected Connection connection;
   protected MessageConsumer messageConsumer;
   protected Session session;
 
   public static Consumer createTopicConsumer(String clientId,
-						 String topicName)
+					     String topicName)
       throws JMSException {
     return Consumer.createTopicConsumer(clientId, topicName, null);
   }
 
   public static Consumer createTopicConsumer(String clientId,
-						 String topicName,
+					     String topicName,
 						 MessageListener listener)
       throws JMSException {
     Consumer res = new Consumer();
@@ -62,28 +59,22 @@ public class Consumer {
   }
 
   private Consumer createTopic(String clientId,
-				 String topicName,
-				 MessageListener listener)
+			       String topicName,
+			       MessageListener listener)
       throws JMSException {
 
     this.clientId = clientId;
 
     JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
-    // create a Connection Factory
     log.debug("Creating consumer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
 	      mgr.getConnectUri());
-    ConnectionFactory connectionFactory =
-      new ActiveMQConnectionFactory(mgr.getConnectUri());
 
-    // create a Connection
-    connection = connectionFactory.createConnection();
-    connection.setClientID(clientId);
-    log.debug3("Created session for topic: " + topicName +
+    Connection connection = mgr.getConnection();
+    // create a Session
+    log.debug3("Creating session for topic: " + topicName +
 	       ", client: " + clientId + " at " +
 	       mgr.getConnectUri());
-
-    // create a Session
     session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
     // create the Topic from which messages will be received
@@ -100,9 +91,10 @@ public class Consumer {
     return this;
   }
 
-  public void closeConnection() throws JMSException {
-    if(connection != null)
-      connection.close();
+  public void close() throws JMSException {
+    if (messageConsumer != null) {
+      messageConsumer.close();
+    }
   }
 
   public void setListener(MessageListener listener) throws JMSException {
