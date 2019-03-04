@@ -138,6 +138,16 @@ public abstract class Exploder {
     return fetchUrl;
   }
 
+  // Hack to get around (some?) clients of this class which set a base
+  // ending with "/" and a restOfUrl beginning with "/".  URL Normalization
+  // in the old repository formerly masked the double "//"
+  String concatBaseRest(String base, String rest) {
+    if (rest.startsWith("/")) {
+      rest = rest.substring(1);
+    }
+    return base + rest;
+  }
+
   protected void storeEntry(ArchiveEntry ae) throws IOException {
     // We assume that all exploded content is organized into
     // AUs which each contain only URLs starting with the AUs
@@ -146,11 +156,12 @@ public abstract class Exploder {
     ArchivalUnit au = null;
     String baseUrl = ae.getBaseUrl();
     String restOfUrl = ae.getRestOfUrl();
-    CachedUrl cu = pluginMgr.findCachedUrl(baseUrl + restOfUrl,
+    String newUrl = concatBaseRest(baseUrl, restOfUrl);
+    CachedUrl cu = pluginMgr.findCachedUrl(newUrl,
 					   CuContentReq.DontCare);
     if (cu != null) {
       au = cu.getArchivalUnit();
-      logger.debug(baseUrl + restOfUrl + " old au " + au.getAuId());
+      logger.debug(newUrl + " old au " + au.getAuId());
       cu.release();
     }
     if (au == null) {
@@ -188,7 +199,6 @@ public abstract class Exploder {
       }
     }
     touchedAus.add(au);
-    String newUrl = baseUrl + restOfUrl;
     // Create a new UrlCacher from the ArchivalUnit and store the
     // element using it.
     logger.debug3("Storing " + newUrl + " in " + au.toString());

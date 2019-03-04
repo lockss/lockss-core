@@ -106,8 +106,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(RepositoryManager.class);
   public static final String LOCKSS_REPOSITORY =
     managerKey(OldLockssRepository.class);
-  public static final String HISTORY_REPOSITORY =
-    managerKey(HistoryRepository.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
@@ -219,9 +217,6 @@ public class LockssDaemon extends LockssApp {
     // LockssRepository uses ActivityRegulator
     new ManagerDesc(LOCKSS_REPOSITORY,
                     "org.lockss.repository.OldLockssRepositoryImpl$Factory"),
-    // HistoryRepository needs no extra managers
-    new ManagerDesc(HISTORY_REPOSITORY,
-                    "org.lockss.state.HistoryRepositoryImpl$Factory")
   };
 
   // Maps au to sequenced map of managerKey -> manager instance
@@ -546,16 +541,6 @@ public class LockssDaemon extends LockssApp {
    */
   public OldLockssRepository getLockssRepository(ArchivalUnit au) {
     return (OldLockssRepository)getAuManager(LOCKSS_REPOSITORY, au);
-  }
-
-  /**
-   * Return the HistoryRepository instance
-   * @param au the ArchivalUnit
-   * @return the HistoryRepository
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public HistoryRepository getHistoryRepository(ArchivalUnit au) {
-    return (HistoryRepository)getAuManager(HISTORY_REPOSITORY, au);
   }
 
   /**

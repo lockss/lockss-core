@@ -414,7 +414,7 @@ public class BaseCachedUrl implements CachedUrl {
     PatternStringMap map = getUrlMimeTypeMap();;
     String mime = map.getMatch(url);
     if (mime != null) {
-      logger.debug("Inferred mime type: " + mime + " for " + getUrl());
+      logger.debug("Inferred mime type: " + mime + " for " + url);
       return mime;
     }
     return null;
@@ -522,6 +522,8 @@ public class BaseCachedUrl implements CachedUrl {
       for (ArtifactData ad : allArtData) {
 	releaseArtifactData(ad);
       }
+      allArtData.clear();
+      artData = null;
       restInputStream = null;
     } else {
       if (rnc != null) {
@@ -576,7 +578,9 @@ public class BaseCachedUrl implements CachedUrl {
 
   // overridable for testing
   protected Artifact getArtifact() throws IOException {
-    return v2Repo.getArtifact(v2Coll, au.getAuId(), getUrl());
+    // Note url not getUrl(); always want actual Artifact URL, not archive
+    // member
+    return v2Repo.getArtifact(v2Coll, au.getAuId(), url);
   }
 
   private void ensureArtifact() {
@@ -698,7 +702,7 @@ public class BaseCachedUrl implements CachedUrl {
 
     protected Artifact getArtifact() throws IOException {
       return v2Repo.getArtifactVersion(v2Coll, au.getAuId(),
-				       getUrl(), specVersion);
+				       url, specVersion);
     }
 
     public int getVersion() {
@@ -780,14 +784,17 @@ public class BaseCachedUrl implements CachedUrl {
     /** True if the archive exists and the member exists */
     public boolean hasContent() {
       if (!super.hasContent()) {
+	logger.debug3("No super content: " + this);
 	return false;
       }
       try {
 	TFile tf = getTFile();
 	if (tf == null) {
+	  logger.debug2("No tfile: " + this);
 	  return false;
 	}
 	if (!tf.isDirectory()) {
+	  logger.debug2("tfile not dir: " + this);
 	  return false;
 	}
 	return getMemberTFile().exists();
@@ -908,6 +915,7 @@ public class BaseCachedUrl implements CachedUrl {
       checkValidTfcEntry();
       if (memberTf == null) {
 	memberTf = new TFile(getTFile(), ams.getName());
+	logger.debug("getMemberTFile: " + memberTf);
       }
       return memberTf;
     }

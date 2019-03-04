@@ -72,7 +72,6 @@ public class FuncNewContentCrawler extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 

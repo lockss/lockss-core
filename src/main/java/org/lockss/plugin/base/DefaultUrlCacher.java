@@ -80,7 +80,7 @@ public class DefaultUrlCacher implements UrlCacher {
   protected final String origUrl;   // URL with which I was created
   protected String fetchUrl;		// possibly affected by redirects
   private List<String> redirectUrls;
-  private final OldLockssRepository repository;
+  private OldLockssRepository repository = null;
   private final CacheResultMap resultMap;
   private LockssWatchdog wdog;
   private BitSet fetchFlags = new BitSet();
@@ -106,15 +106,17 @@ public class DefaultUrlCacher implements UrlCacher {
     headers = ud.headers;
     input = ud.input;
     au = owner;
-    Plugin plugin = au.getPlugin();
-    repository = plugin.getDaemon().getLockssRepository(au);
-    resultMap = plugin.getCacheResultMap();
 
     RepositoryManager repomgr =
       LockssDaemon.getLockssDaemon().getRepositoryManager();
     if (repomgr != null && repomgr.getV2Repository() != null) {
       v2Repo = repomgr.getV2Repository().getRepository();
       v2Coll = repomgr.getV2Repository().getCollection();
+    }
+    Plugin plugin = au.getPlugin();
+    resultMap = plugin.getCacheResultMap();
+    if (!isV2Repo()) {
+      repository = plugin.getDaemon().getLockssRepository(au);
     }
   }
 
@@ -380,6 +382,11 @@ public class DefaultUrlCacher implements UrlCacher {
 	  }
 	}
       }
+      if (doStore && isIdenticalToPreviousVersion(uncommittedArt)) {
+	abandonNewVersion(uncommittedArt);
+	uncommittedArt = null;
+	doStore = false;
+      }
       if (doStore) {
 	if (checksumProducer != null) {
 	  byte bdigest[] = checksumProducer.digest();
@@ -395,7 +402,8 @@ public class DefaultUrlCacher implements UrlCacher {
 	}
 	Artifact committedArt = v2Repo.commitArtifact(uncommittedArt);
 	if (logger.isDebug2()) {
-	  logger.debug2("Committed " + committedArt);
+	  logger.debug2("Committed v " + committedArt.getVersion()
+			+ " of " + committedArt);
 	}
 
 	AuState aus = AuUtil.getAuState(au);
@@ -423,6 +431,19 @@ public class DefaultUrlCacher implements UrlCacher {
       throw ex instanceof CacheException
 	? ex : resultMap.mapException(au, url, ex, null);
     }
+  }
+
+  protected boolean isIdenticalToPreviousVersion(Artifact art)
+      throws IOException {
+    int ver = art.getVersion();
+    if (ver < 2) return false;
+    String artHash = art.getContentDigest();
+    if (artHash == null) return false;
+    Artifact prev = v2Repo.getArtifactVersion(v2Coll, au.getAuId(),
+					      art.getUri(), ver - 1);
+    boolean res = artHash.equals(prev.getContentDigest());
+    if (res) logger.debug2("New version identical to old: " + art.getUri());
+    return res;
   }
 
   protected void storeContentInV1(String url, InputStream input,
@@ -454,7 +475,7 @@ public class DefaultUrlCacher implements UrlCacher {
       long bytes =
           StreamUtil.copy(input, os, -1, wdog, true, checksumProducer);
       if (logger.isDebug3()) {
-        logger.debug3("Stored " + bytes + " bytes in " + this);
+        logger.debug3("Stored " + bytes + " bytes of " + this);
       }
       if (!fetchFlags.get(DONT_CLOSE_INPUT_STREAM_FLAG)) {
         try {
@@ -502,6 +523,9 @@ public class DefaultUrlCacher implements UrlCacher {
 	}
 	leaf.setNewProperties(headers);
 	leaf.sealNewVersion();
+	if (logger.isDebug3()) {
+	  logger.debug3("Sealed v" + leaf.getVersion() + " of " + this);
+	}
 	AuState aus = AuUtil.getAuState(au);
 	if (aus != null && currentWasSuspect) {
 	  aus.incrementNumCurrentSuspectVersions(-1);

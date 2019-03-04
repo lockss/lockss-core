@@ -74,7 +74,6 @@ public class FuncHashService extends LockssTestCase {
 
   public void setUp(String hashSvcName) throws Exception {
     super.setUp();
-    useOldRepo();
     theDaemon = getMockLockssDaemon();
     ConfigurationUtil.addFromArgs(LockssApp.MANAGER_PREFIX +
 				  LockssApp.managerKey(HashService.class),

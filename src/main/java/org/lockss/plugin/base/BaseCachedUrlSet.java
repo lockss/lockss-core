@@ -30,6 +30,7 @@ package org.lockss.plugin.base;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.*;
 import java.net.MalformedURLException;
 import java.security.MessageDigest;
 import org.apache.commons.collections4.*;
@@ -98,8 +99,10 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
       logger.debug3(DEBUG_HEADER + "au = " + au);
     }
-    repository = theDaemon.getLockssRepository(owner);
     stateMgr = theDaemon.getManagerByType(StateManager.class);
+    if (!isV2Repo()) {
+      repository = theDaemon.getLockssRepository(owner);
+    }
   }
 
   /**
@@ -193,10 +196,58 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     }
   }
 
+  CachedUrlSetNode makeCusn(String url, boolean isLeaf) {
+    if (isLeaf) {
+      return au.makeCachedUrl(url);
+    } else {
+      CachedUrlSetSpec rSpec = new RangeCachedUrlSetSpec(url);
+      return au.makeCachedUrlSet(rSpec);
+    }
+  }
+
+  public Iterator v2FlatSetIterator() {
+    Map<String,CachedUrlSetNode> level = new LinkedHashMap<>();
+    String prefix = spec.getUrl();
+    if (AuUrl.isAuUrl(prefix)) {
+      for (CachedUrlSetNode cusn : getCuIterable()) {
+	String url = cusn.getUrl();
+	try {
+	  String stem = UrlUtil.getUrlPrefix(url);
+	  if (!level.containsKey(stem)) {
+	    level.put(stem, makeCusn(stem, stem.equalsIgnoreCase(url)));
+	  }
+	} catch (MalformedURLException e) {
+	  logger.error("Building flatSetIterator", e);
+	}
+      }
+    } else {
+      if (!prefix.endsWith("/")) {
+	prefix = prefix + "/";
+      }
+
+      final Pattern pat =
+	Pattern.compile(String.format("(%s[^/]+/?).*", prefix));
+
+      for (CachedUrlSetNode cusn : getCuIterable()) {
+	String url = cusn.getUrl();
+	Matcher m = pat.matcher(url);
+	if (m.matches()) {
+	  String s = m.group(1);
+	  if (!level.containsKey(s)) {
+	    level.put(s, makeCusn(s, s.equals(url)));
+	  }
+	}
+      }
+    }
+    return level.values().iterator();
+  }
+
   public Iterator flatSetIterator() {
-    checkNotV2Repo("flatSetIterator()");
     if (spec.isSingleNode()) {
       return CollectionUtil.EMPTY_ITERATOR;
+    }
+    if (isV2Repo()) {
+      return v2FlatSetIterator();
     }
     TreeSet flatSet = new TreeSet(new UrlComparator());
     String prefix = spec.getUrl();

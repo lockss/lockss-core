@@ -176,8 +176,7 @@ public class PluginTestUtil {
 
   static ArchivalUnit startAu(ArchivalUnit au) {
     LockssDaemon daemon = au.getPlugin().getDaemon();
-    daemon.getLockssRepository(au).startService();
-    daemon.getHistoryRepository(au).startService();
+//     daemon.getLockssRepository(au).startService();
     return au;
   }
 
@@ -331,12 +330,25 @@ public class PluginTestUtil {
     return res;
   }
 
-  public static List<String> urlsOf(final Iterable<CachedUrl> cus) {
+  public static List<String> urlsOf(final Iterable<CachedUrl> iterable) {
     return new ArrayList<String>() {{
-	for (CachedUrl cu : cus) {
-	  add(cu.getUrl());
-	}
-      }};
+      for (CachedUrl cu : iterable) {
+	add(cu.getUrl());
+      }
+    }};
+  }
+
+  public static List<String> urlsOf(final Iterator<CachedUrlSetNode> iter) {
+    return new ArrayList<String>() {{
+      while (iter.hasNext()) {
+	add(iter.next().getUrl());
+      }
+    }};
+  }
+
+  List<String> cusnUrls(Iterator<CachedUrlSetNode> iter) {
+    ArrayList<String> res = new ArrayList<>();
+    return res;
   }
 
   private static PluginManager getPluginManager() {

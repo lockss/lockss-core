@@ -820,28 +820,24 @@ public class AuWsSource extends AuWsResult {
 	// Get the URL.
 	String url = cus.getUrl();
 
+	// XXXREPO didn't change this; don't know why it's needed
 	if (url.endsWith(UrlUtil.URL_PATH_SEPARATOR)) {
 	  url = url.substring(0, url.length() - 1);
 	}
 
 	try {
-	  RepositoryNode node =
-	      getTheDaemon().getLockssRepository(au).getNode(url);
 	  // Get the URLproperties.
 	  UrlWsResult urlResult = new UrlWsResult();
-	  urlResult.setUrl(node.getNodeUrl());
+	  urlResult.setUrl(url);
 	  cu = au.makeCachedUrl(url);
 	  urlResult.setVersionCount(cu.getCuVersions().length);
-	  urlResult.setCurrentVersionSize(Long.valueOf(node.getContentSize()));
+	  urlResult.setCurrentVersionSize(Long.valueOf(cu.getContentSize()));
 	  if (includePollWeight) {
-	    urlResult.setPollWeight(getUrlResultWeight(node.getNodeUrl()));
+	    urlResult.setPollWeight(getUrlResultWeight(url));
 	  }
 
 	  // Add it to the results.
 	  results.add(urlResult);
-	} catch (MalformedURLException mue) {
-	  if (log.isDebug())
-	    log.debug("getUrls(): Ignored malformed URL '" + url + "'");
 	} finally {
 	  AuUtil.safeRelease(cu);
 	}

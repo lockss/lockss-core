@@ -2130,7 +2130,8 @@ public class LockssTestCase extends TestCase {
    */
   // TK eliminate calls
   protected void useOldRepo() {
-//     ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
+    ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY, "");
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
   }
 
   /**

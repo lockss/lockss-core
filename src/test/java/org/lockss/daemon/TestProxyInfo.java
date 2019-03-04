@@ -54,7 +54,7 @@ public class TestProxyInfo extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     setUpDiskSpace();
-    useOldRepo();
+//     useOldRepo();
     pi = new ProxyInfo(HOST);
     plug = new MockPlugin();
     getMockLockssDaemon().getPluginManager().startService();

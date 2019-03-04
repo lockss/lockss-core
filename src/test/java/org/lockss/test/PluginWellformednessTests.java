@@ -95,13 +95,6 @@ public final class PluginWellformednessTests extends LockssTestCase {
       super();
     }
 
-    public HistoryRepository getHistoryRepository(ArchivalUnit au) {
-      // try {
-      // 	return super.setHistoryRepository(au);
-      // } catch (IllegalArgumentException e) {
-	return (HistoryRepository)newAuManager(LockssDaemon.HISTORY_REPOSITORY, au);
-      // }
-    }
   }
 
   protected Plugin getPlugin() throws IOException {
@@ -141,7 +134,6 @@ public final class PluginWellformednessTests extends LockssTestCase {
   protected ArchivalUnit createAu()
       throws ArchivalUnit.ConfigurationException, IOException {
     ArchivalUnit au = PluginTestUtil.createAu(pluginName, getSampleAuConfig());
-    daemon.setHistoryRepository(new MockHistoryRepository(), au);
     daemon.setLockssRepository(new MockLockssRepository(), au);
     return au;
   }

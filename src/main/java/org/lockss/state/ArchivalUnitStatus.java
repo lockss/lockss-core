@@ -312,8 +312,7 @@ public class ArchivalUnitStatus
           continue;
         }
         try {
-          HistoryRepository histRepo = theDaemon.getHistoryRepository(au);
-          rowL.add(makeRow(au, histRepo, inclCols));
+          rowL.add(makeRow(au, inclCols));
           stats.aus++;
         } catch (Exception e) {
           logger.warning("Unexpected exception building row", e);
@@ -323,8 +322,8 @@ public class ArchivalUnitStatus
       return rowL;
     }
 
-    private Map makeRow(ArchivalUnit au, HistoryRepository histRepo, Set inclCols) {
-      AuState auState = histRepo.getAuState();
+    private Map makeRow(ArchivalUnit au, Set inclCols) {
+      AuState auState = AuUtil.getAuState(au);
       HashMap rowMap = new HashMap();
       // If this is a v3 AU, we cannot access some of the poll
       // status through the nodestate.  Eventually, this will be totally
@@ -801,12 +800,11 @@ public class ArchivalUnitStatus
     protected void populateTable(StatusTable table, ArchivalUnit au)
         throws StatusService.NoSuchTableException {
       OldLockssRepository repo = theDaemon.getLockssRepository(au);
-      HistoryRepository histRepo = theDaemon.getHistoryRepository(au);
 
       table.setTitle(getTitle(au.getName()));
       CachedUrlSet auCus = au.getAuCachedUrlSet();
       table.setSummaryInfo(getSummaryInfo(table, au,
-          histRepo.getAuState(), false));
+          AuUtil.getAuState(au), false));
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
         table.setColumnDescriptors(columnDescriptors);
         table.setDefaultSortRules(sortRules);
@@ -1877,7 +1875,6 @@ public class ArchivalUnitStatus
 
     protected void populateTable(StatusTable table, ArchivalUnit au)
         throws StatusService.NoSuchTableException {
-      HistoryRepository historyRepo = theDaemon.getHistoryRepository(au);
       table.setTitle("Peers not holding " + au.getName());
       DatedPeerIdSet noAuSet = theDaemon.getPollManager().getNoAuPeerSet(au);
       synchronized (noAuSet) {

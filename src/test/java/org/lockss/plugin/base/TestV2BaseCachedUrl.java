@@ -337,10 +337,14 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       cu = getTestCu(url2);
       urlIs = cu.getUnfilteredInputStream();
       assertEquals(content2, StringUtil.fromInputStream(urlIs));
+      // Read a second time
+      urlIs = cu.getUnfilteredInputStream();
+      assertEquals(content2, StringUtil.fromInputStream(urlIs));
 
       cu = getTestCu(url3);
       urlIs = cu.getUnfilteredInputStream();
       assertEquals("", StringUtil.fromInputStream(urlIs));
+
     }
 
     // Ensure all resources (multiple InputStreams) are released

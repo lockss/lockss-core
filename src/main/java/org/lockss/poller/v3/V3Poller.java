@@ -107,7 +107,6 @@ import org.lockss.scheduler.StepTask;
 import org.lockss.scheduler.TaskCallback;
 import org.lockss.servlet.DisplayConverter;
 import org.lockss.state.AuState;
-import org.lockss.state.HistoryRepository;
 import org.lockss.state.SubstanceChecker;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
@@ -3667,7 +3666,6 @@ public class V3Poller implements Poll {
 
       Collection<PeerIdentity> noAuPeers = pollerState.getNoAuPeers();
       if (noAuPeers != null && !noAuPeers.isEmpty()) {
-        HistoryRepository historyRepo = theDaemon.getHistoryRepository(getAu());
         DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
         synchronized (noAuSet) {
           try {

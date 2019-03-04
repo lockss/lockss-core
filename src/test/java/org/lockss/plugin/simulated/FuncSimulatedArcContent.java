@@ -69,7 +69,7 @@ public class FuncSimulatedArcContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
+//     useOldRepo();
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
     String tempDirPath2 = getTempDir().getAbsolutePath() + File.separator;
     String auIdStr = "org|lockss|plugin|simulated|SimulatedPlugin.root~" +
@@ -172,8 +172,8 @@ public class FuncSimulatedArcContent extends LockssTestCase {
     }
 
     String[] expectedA = new String[1];
-    expectedA[0] = sau.getUrlRoot();
-    assertIsomorphic(expectedA, childL);
+
+    assertIsomorphic(sau.getUrlStems(), childL);
 
     setIt = cus.flatSetIterator();
     childL = new ArrayList(7);

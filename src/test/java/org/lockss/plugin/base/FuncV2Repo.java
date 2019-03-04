@@ -101,8 +101,10 @@ public class FuncV2Repo extends LockssTestCase {
   public void testVersion() throws IOException {
     ArtifactData ad1 = createArtifact(COLL, AUID, url1, "content 11111");
     Artifact art1 = repo.addArtifact(ad1);
+    log.critical("art1 digest: " + art1.getContentDigest());
     repo.commitArtifact(art1);
     Artifact r1 = repo.getArtifact(COLL, AUID, url1);
+    log.critical("r1 digest: " + r1.getContentDigest());
     assertEquals(art1, r1);
     assertEquals(1, (int)r1.getVersion());
     Artifact aa = repo.getArtifactVersion(COLL, AUID, url1, 1);

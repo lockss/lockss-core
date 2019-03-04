@@ -952,8 +952,6 @@ public class PollManager
       theLog.error("Unable to write Identity DB file.");
     }
 
-    Poll p = pme.getPoll();
-    HistoryRepository hr = getDaemon().getHistoryRepository(p.getAu());
   }
 
   public void raiseAlert(Alert alert) {

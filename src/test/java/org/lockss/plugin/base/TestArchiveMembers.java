@@ -69,7 +69,7 @@ public class TestArchiveMembers extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     tempDirPath = setUpDiskSpace();
-    useOldRepo();
+//     useOldRepo();
     ConfigurationUtil.addFromArgs(TrueZipManager.PARAM_CACHE_DIR, tempDirPath);
     daemon = getMockLockssDaemon();
     pluginMgr = daemon.getPluginManager();
@@ -173,7 +173,7 @@ public class TestArchiveMembers extends LockssTestCase {
 			     String expMembUrl, CachedUrl cu, CachedUrl arcCu)
       throws IOException {
     assertClass(BaseCachedUrl.Member.class, cu);
-    assertTrue(cu.hasContent());
+    assertTrue("Should have content: " + cu, cu.hasContent());
     assertEquals(expMembUrl, cu.getUrl());
     InputStream is = cu.getUnfilteredInputStream();
     assertNotNull("getUnfilteredInputStream was null: " + cu, is);
@@ -343,6 +343,7 @@ public class TestArchiveMembers extends LockssTestCase {
 	htmlcnt++;
 	int depth =
 	  (m1.group(1) != null ? 1 : 0) + (m1.group(2) != null ? 1 : 0);
+	log.debug("Checking member: " + url);
 	String expContent =
 	  String.format("This is file %s, depth %s, branch %s",
 			m1.group(3),

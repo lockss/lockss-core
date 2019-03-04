@@ -68,7 +68,7 @@ public class FuncSimulatedContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
+//     useOldRepo();
     tempDirPath = getTempDir().getAbsolutePath() + File.separator;
 
     theDaemon = getMockLockssDaemon();
@@ -294,13 +294,13 @@ public class FuncSimulatedContent extends LockssTestCase {
     // If any changes are made to the contents or shape of the simulated
     // content tree, these hash values will have to be changed
     checkHashSet(sau, true, false,
-		 fromHex("6AB258B4E1FFD9F9B45316B4F54111FF5E5948D2"));
+		 fromHex("0DA8DF8068CB85D595D913B5264FD029C670570F"));
     checkHashSet(sau, true, true,
-		 fromHex("6AB258B4E1FFD9F9B45316B4F54111FF5E5948D2"));
+		 fromHex("0DA8DF8068CB85D595D913B5264FD029C670570F"));
     checkHashSet(sau, false, false,
-		 fromHex("409893F1A603F4C276632694DB1621B639BD5164"));
+		 fromHex("17F4DB7FD307AB8C28F1248B329C29A150264374"));
     checkHashSet(sau, false, true,
-		 fromHex("85E6213C3771BEAC5A4602CAF7982C6C222800D5"));
+		 fromHex("F7540ADCDA6AF9ACF014A799708240386379DF1E"));
   }
 
   protected void checkDepth(SimulatedArchivalUnit sau) {
@@ -328,8 +328,8 @@ public class FuncSimulatedContent extends LockssTestCase {
     String urlRoot = sau.getUrlRoot();
 
     String[] expectedA = new String[1];
-    expectedA[0] = urlRoot;
-    assertIsomorphic(expectedA, childL);
+
+    assertIsomorphic(sau.getUrlStems(), childL);
 
     setIt = cus.flatSetIterator();
     childL = new ArrayList(7);
@@ -342,8 +342,8 @@ public class FuncSimulatedContent extends LockssTestCase {
       urlRoot + "/001file.txt",
       urlRoot + "/002file.html",
       urlRoot + "/002file.txt",
-      urlRoot + "/branch1",
-      urlRoot + "/branch2",
+      urlRoot + "/branch1/",
+      urlRoot + "/branch2/",
       urlRoot + "/index.html"
     };
     assertIsomorphic(expectedA, childL);
@@ -360,18 +360,17 @@ public class FuncSimulatedContent extends LockssTestCase {
       childL.add( ( (CachedUrlSetNode) setIt.next()).getUrl());
     }
     String[] expectedA = new String[] {
-      parent,
+      parent + "/",
       parent + "/001file.html",
       parent + "/001file.txt",
       parent + "/002file.html",
       parent + "/002file.txt",
-      parent + "/branch1",
+      parent + "/branch1/",
       parent + "/branch1/001file.html",
       parent + "/branch1/001file.txt",
       parent + "/branch1/002file.html",
       parent + "/branch1/002file.txt",
       parent + "/branch1/index.html",
-      parent + "/branch2",
       parent + "/branch2/001file.html",
       parent + "/branch2/001file.txt",
       parent + "/branch2/002file.html",

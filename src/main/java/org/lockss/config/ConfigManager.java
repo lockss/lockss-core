@@ -2111,8 +2111,6 @@ public class ConfigManager implements LockssManager {
       platformOverride(config,
 		       OldLockssRepositoryImpl.PARAM_CACHE_LOCATION,
 		       firstSpace);
-      platformOverride(config, HistoryRepositoryImpl.PARAM_HISTORY_LOCATION,
-		       firstSpace);
       platformOverride(config, IdentityManager.PARAM_IDDB_DIR,
 		       new File(firstSpace, "iddb").toString());
       platformDefault(config,

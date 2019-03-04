@@ -63,7 +63,6 @@ public class TestTitleSetXpath extends LockssTestCase {
 
     getMockLockssDaemon().setUpAuConfig();
 
-    useOldRepo();
     pluginMgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();
     makeTitles();

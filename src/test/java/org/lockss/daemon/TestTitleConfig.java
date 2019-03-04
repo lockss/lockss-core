@@ -59,7 +59,7 @@ public class TestTitleConfig extends LockssTestCase {
 
     getMockLockssDaemon().setUpAuConfig();
 
-    useOldRepo();
+//     useOldRepo();
     pmgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();
   }

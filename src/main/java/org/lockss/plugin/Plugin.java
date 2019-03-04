@@ -243,8 +243,6 @@ public interface Plugin {
    * implementation/support for that feature.  (Could be used for other
    * things.)
    */
-  // Warning: when adding new Features that are preserved in AuState,
-  // HistoryRepositoryImpl.loadAuState must be updated.
   public enum Feature {
     /**
      * Version of Plugin data that affects polling, such as hash filters,

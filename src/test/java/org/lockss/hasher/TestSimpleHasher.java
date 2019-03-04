@@ -87,7 +87,7 @@ public class TestSimpleHasher extends LockssTestCase {
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
+//     useOldRepo();
     TimeBase.setReal();
     daemon = getMockLockssDaemon();
     tempDirPath = setUpDiskSpace();
@@ -868,8 +868,10 @@ public class TestSimpleHasher extends LockssTestCase {
   public void testDoV1() throws Exception {
     ArchivalUnit au = createAndStartAu();
 
+    // XXXREPO
     runTestDoV1(au, LcapMessage.getDefaultHashAlgorithm(), null, null, null,
-	"27831E7E869AF658024E1049DC1D1CF6C491F094");
+// 	"27831E7E869AF658024E1049DC1D1CF6C491F094");
+	"9FBCA2D772E6C4980275A25A1A3B850BAEE24EA1");
 
     runTestDoV1(au, LcapMessage.getDefaultHashAlgorithm(), null,
 	"RmVybmFuZG8gRy4gTG95Z29ycmkK", "TXlkdW5nIFQuIFRyYW4K",
