@@ -1816,7 +1816,7 @@ public class V3Poller implements Poll {
         } else {
           Collection<PeerIdentity> agreeVoterIds =
               getVotersIdentities(agreeVoters);
-          node.signalAgreement(agreeVoterIds);
+//           node.signalAgreement(agreeVoterIds);
         }
       } catch (MalformedURLException ex) {
         log.error("Malformed URL while updating agreement history: "
@@ -2898,43 +2898,36 @@ public class V3Poller implements Poll {
       // load list of peers who have recently said they don't have the AU
       DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
       synchronized (noAuSet) {
-        try {
-          try {
-            noAuSet.load();
-            int s = noAuSet.size();
-            pollManager.ageNoAuSet(getAu(), noAuSet);
-            log.debug2("NoAuSet: " + s + " aged-> " + noAuSet.size()
-                + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
-          } catch (IOException e) {
-            log.error("Failed to load no AU set", e);
-            noAuSet.release();
-            noAuSet = null;
-          }
-          // first build list of eligible peers
-          if (enableDiscovery) {
-            allPeers =
-                idManager.getTcpPeerIdentities(new EligiblePredicate(noAuSet));
-          } else {
-            Collection<String> keys =
-                CurrentConfig.getList(IdentityManagerImpl.PARAM_INITIAL_PEERS,
-                    IdentityManagerImpl.DEFAULT_INITIAL_PEERS);
-            allPeers = new ArrayList();
-            for (String key : keys) {
-              try {
-                PeerIdentity id = idManager.findPeerIdentity(key);
-                if (isPeerEligible(id, noAuSet)) {
-                  allPeers.add(id);
-                }
-              } catch (IdentityManager.MalformedIdentityKeyException e) {
-                log.warning("Can't add to inner circle: " + key, e);
-              }
-            }
-          }
-        } finally {
-          if (noAuSet != null) {
-            noAuSet.release();
-          }
-        }
+	try {
+	  int s = noAuSet.size();
+	  pollManager.ageNoAuSet(getAu(), noAuSet);
+	  log.debug2("NoAuSet: " + s + " aged-> " + noAuSet.size()
+		     + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
+	  noAuSet.store();
+	} catch (IOException e) {
+	  log.error("Failed to age no AU set", e);
+	  noAuSet = null;
+	}
+	// first build list of eligible peers
+	if (enableDiscovery) {
+	  allPeers =
+	    idManager.getTcpPeerIdentities(new EligiblePredicate(noAuSet));
+	} else {
+	  Collection<String> keys =
+	    CurrentConfig.getList(IdentityManagerImpl.PARAM_INITIAL_PEERS,
+				  IdentityManagerImpl.DEFAULT_INITIAL_PEERS);
+	  allPeers = new ArrayList();
+	  for (String key : keys) {
+	    try {
+	      PeerIdentity id = idManager.findPeerIdentity(key);
+	      if (isPeerEligible(id, noAuSet)) {
+		allPeers.add(id);
+	      }
+	    } catch (IdentityManager.MalformedIdentityKeyException e) {
+	      log.warning("Can't add to inner circle: " + key, e);
+	    }
+	  }
+	}
       }
       // then build map including invitation weight for each peer.
       availablePeers = new HashMap();
@@ -2991,15 +2984,11 @@ public class V3Poller implements Poll {
       return false;
     }
 
-    try {
-      if (noAuSet != null && noAuSet.contains(pid)) {
-        if (log.isDebug2()) {
-          log.debug2("Not eligible, no AU: " + pid);
-        }
-        return false;
+    if (noAuSet != null && noAuSet.contains(pid)) {
+      if (log.isDebug2()) {
+	log.debug2("Not eligible, no AU: " + pid);
       }
-    } catch (IOException e) {
-      // impossible with loaded PersistentPeerIdSet
+      return false;
     }
 
     PeerIdentityStatus status = idManager.getPeerIdentityStatus(pid);
@@ -3686,7 +3675,6 @@ public class V3Poller implements Poll {
               log.debug2("Poll " + getKey() + " Adding no AU peers: "
                   + noAuPeers);
             }
-            noAuSet.load();
             // Reset date if set is empty.  Slightly better to do here than
             // when set is emptied (due to age) as this doesn't start the
             // clock until some entries are actually added to the set.
@@ -3702,8 +3690,6 @@ public class V3Poller implements Poll {
             noAuSet.store(true);
           } catch (IOException e) {
             log.error("Failed to update no AU set", e);
-          } finally {
-            noAuSet.release();
           }
         }
       }

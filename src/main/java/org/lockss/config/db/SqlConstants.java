@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -50,6 +50,13 @@ public class SqlConstants {
   public static final String ARCHIVAL_UNIT_CONFIG_TABLE =
       "archival_unit_config";
 
+  /** Name of the archival unit state table. */
+  public static final String ARCHIVAL_UNIT_STATE_TABLE = "archival_unit_state";
+
+  /** Name of the archival unit poll agreements table. */
+  public static final String ARCHIVAL_UNIT_AGREEMENTS_TABLE =
+      "archival_unit_agreements";
+
   //
   // Database table column names.
   //
@@ -76,6 +83,12 @@ public class SqlConstants {
 
   /** Name of archival unit configuration value column. */
   public static final String CONFIG_VALUE_COLUMN = "config_value";
+  
+  /** Name of archival unit state string column */
+  public static final String STATE_STRING_COLUMN = "state_string";
+  
+  /** Name of archival unit poll agreements string column */
+  public static final String AGREEMENTS_STRING_COLUMN = "agreements_string";
 
   //
   // Maximum lengths of variable text length database columns.
@@ -90,4 +103,10 @@ public class SqlConstants {
 
   /** Length of the archival unit configuration value column. */
   public static final int MAX_CONFIG_VALUE_COLUMN = 4096;
+
+  /** Length of the archival unit state string column */
+  public static final int MAX_STATE_STRING_COLUMN = 1024;
+
+  /** Length of the archival unit poll agreements string column */
+  public static final int MAX_AGREEMENTS_STRING_COLUMN = 8192;
 }

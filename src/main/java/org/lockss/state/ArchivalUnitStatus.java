@@ -375,42 +375,33 @@ public class ArchivalUnitStatus
       rowMap.put("AuLastPoll", new Long(auState.getLastTimePollCompleted()));
 
       Object stat;
-      if (isV3) {
-	try {
-	  PollManager.V3PollStatusAccessor v3status =
-	    theDaemon.getPollManager().getV3Status();
-	  int numPolls = v3status.getNumPolls(au.getAuId());
-	  rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
-	} catch (RuntimeException e) {
-	  logger.warning("Can't get poll status for " + au.getName() + ": " +
-			 e.getMessage());
+      try {
+	PollManager.V3PollStatusAccessor v3status =
+	  theDaemon.getPollManager().getV3Status();
+	int numPolls = v3status.getNumPolls(au.getAuId());
+	rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
+      } catch (RuntimeException e) {
+	logger.warning("Can't get poll status for " + au.getName() + ": " +
+		       e.getMessage());
+      }
+      // Percent damaged.  It's scary to see '0% Agreement' if there's no
+      // history, so we just show a friendlier message.
+      //
+      if (auState.getHighestV3Agreement() < 0 ||
+	  auState.getLastTimePollCompleted() <= 0) {
+	if (cmStatus != null && cmStatus.isRunningNCCrawl(au)) {
+	  stat = new OrderedObject("Crawling", STATUS_ORDER_CRAWLING);
+	} else {
+	  if (auState.getLastCrawlTime() > 0 || AuUtil.isPubDown(au)) {
+	    stat = new OrderedObject("Waiting for Poll",
+				     STATUS_ORDER_WAIT_POLL);
+	  } else {
+	    stat = new OrderedObject("Waiting for Crawl",
+				     STATUS_ORDER_WAIT_CRAWL);
+	  }
 	}
-        // Percent damaged.  It's scary to see '0% Agreement' if there's no
-        // history, so we just show a friendlier message.
-        //
-        if (auState.getHighestV3Agreement() < 0 ||
-            auState.getLastTimePollCompleted() <= 0) {
-          if (cmStatus != null && cmStatus.isRunningNCCrawl(au)) {
-            stat = new OrderedObject("Crawling", STATUS_ORDER_CRAWLING);
-          } else {
-            if (auState.lastCrawlTime > 0 || AuUtil.isPubDown(au)) {
-              stat = new OrderedObject("Waiting for Poll",
-                  STATUS_ORDER_WAIT_POLL);
-            } else {
-              stat = new OrderedObject("Waiting for Crawl",
-                  STATUS_ORDER_WAIT_CRAWL);
-            }
-          }
-        } else {
-          stat = agreeStatus(auState.getHighestV3Agreement());
-        }
       } else {
-        rowMap.put("AuPolls",
-            theDaemon.getStatusService().
-                   getReference(PollManager.MANAGER_STATUS_TABLE_NAME,
-                    au));
-        CachedUrlSet auCus = au.getAuCachedUrlSet();
-        stat = histRepo.hasDamage(auCus) ? DAMAGE_STATE_DAMAGED : DAMAGE_STATE_OK;
+	stat = agreeStatus(auState.getHighestV3Agreement());
       }
 
       boolean isPubDown = AuUtil.isPubDown(au);
@@ -815,7 +806,7 @@ public class ArchivalUnitStatus
       table.setTitle(getTitle(au.getName()));
       CachedUrlSet auCus = au.getAuCachedUrlSet();
       table.setSummaryInfo(getSummaryInfo(table, au,
-          histRepo.getAuState(), histRepo.hasDamage(auCus)));
+          histRepo.getAuState(), false));
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
         table.setColumnDescriptors(columnDescriptors);
         table.setDefaultSortRules(sortRules);
@@ -1134,7 +1125,7 @@ public class ArchivalUnitStatus
       Object recentPollStat = null;
       if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
         if (state.getV3Agreement() < 0) {
-          if (state.lastCrawlTime < 0  && !AuUtil.isPubDown(au)) {
+          if (state.getLastCrawlTime() < 0  && !AuUtil.isPubDown(au)) {
             stat = "Waiting for Crawl";
           } else {
             stat = "Waiting for Poll";
@@ -1890,18 +1881,9 @@ public class ArchivalUnitStatus
       table.setTitle("Peers not holding " + au.getName());
       DatedPeerIdSet noAuSet = theDaemon.getPollManager().getNoAuPeerSet(au);
       synchronized (noAuSet) {
-        try {
-          noAuSet.load();
-          table.setSummaryInfo(getSummaryInfo(au, noAuSet));
-          table.setColumnDescriptors(columnDescriptors);
-          table.setRows(getRows(table, au, noAuSet));
-        } catch (IOException e) {
-          String msg = "Couldn't load NoAuSet";
-          logger.warning(msg, e);
-          throw new StatusService.NoSuchTableException(msg, e);
-        } finally {
-          noAuSet.release();
-        }
+	table.setSummaryInfo(getSummaryInfo(au, noAuSet));
+	table.setColumnDescriptors(columnDescriptors);
+	table.setRows(getRows(table, au, noAuSet));
       }
     }
 
@@ -1909,28 +1891,22 @@ public class ArchivalUnitStatus
     private List getRows(StatusTable table, ArchivalUnit au,
         DatedPeerIdSet noAuSet) {
       List rows = new ArrayList();
-      try {
-        logger.info("noAuSet.size(): " + noAuSet.size());
-      } catch (IOException e) {
-        logger.error("noAuSet.size()", e);
-      }
-      for (PeerIdentity pid : noAuSet) {
-        logger.info("pid: " + pid);
-        Map row = new HashMap();
-        row.put("Peer", pid.getIdString());
-        rows.add(row);
+      logger.info("noAuSet.size(): " + noAuSet.size());
+      synchronized (noAuSet) {
+	for (PeerIdentity pid : noAuSet) {
+	  logger.info("pid: " + pid);
+	  Map row = new HashMap();
+	  row.put("Peer", pid.getIdString());
+	  rows.add(row);
+	}
       }
       return rows;
     }
     private List getSummaryInfo(ArchivalUnit au, DatedPeerIdSet noAuSet) {
       List res = new ArrayList();
-      try {
-        res.add(new StatusTable.SummaryInfo("Last cleared",
-            ColumnDescriptor.TYPE_DATE,
-            noAuSet.getDate()));
-      } catch (IOException e) {
-        logger.warning("Couldn't get date", e);
-      }
+      res.add(new StatusTable.SummaryInfo("Last cleared",
+					  ColumnDescriptor.TYPE_DATE,
+					  noAuSet.getDate()));
       return res;
     }
   }

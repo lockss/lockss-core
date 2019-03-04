@@ -951,7 +951,7 @@ public class BlockingStreamComm
 			Configuration.Differences changedKeys) {
     // Instances of this manager are started incrementally in testing,
     // after the daemon is running, so isDaemonInited() won't work here
-    if (isInited()) {
+    if (isStarted()) {
       // one-time only init
       if (configShot.once()) {
 	configure(config, prevConfig, changedKeys);

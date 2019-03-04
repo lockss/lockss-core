@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -52,6 +48,10 @@ final public class PeerAgreement implements LockssSerializable {
   public static final PeerAgreement NO_AGREEMENT =
     new PeerAgreement(-1.0f, 0, -1.0f, 0);
 
+  public PeerAgreement() {
+    this(-1.0f, 0, -1.0f, 0);
+  }
+
   private PeerAgreement(
     float percentAgreement, long percentAgreementTime,
     float highestPercentAgreement, long highestPercentAgreementTime) {
@@ -59,35 +59,6 @@ final public class PeerAgreement implements LockssSerializable {
     this.percentAgreementTime = percentAgreementTime;
     this.highestPercentAgreement = highestPercentAgreement;
     this.highestPercentAgreementTime = highestPercentAgreementTime;
-  }
-
-  /**
-   * @return The {@link PeerAgreement} for POR to use when moving from
-   * pre-1.63 data. The {@link getPercentAgreementTime} value will be
-   * a best-estimate.  The {@link #getHighestPercentAgreementTime}
-   * value will be zero.
-   */
-  static PeerAgreement
-    porAgreement(IdentityManager.IdentityAgreement idAgreement) {
-    long lastSignalTime = idAgreement.getLastSignalTime();
-    return new PeerAgreement(idAgreement.getPercentAgreement(),
-			     lastSignalTime,
-			     idAgreement.getHighestPercentAgreement(),
-			     0);
-  }
-
-  /**
-   * @return The {@link PeerAgreement} for POR_HINT to use when moving
-   * from pre-1.63 data. The {@link getPercentAgreementTime} value
-   * will be zero.  The {@link #getHighestPercentAgreementTime} value
-   * will be zero.
-   */
-  static PeerAgreement
-    porAgreementHint(IdentityManager.IdentityAgreement idAgreement) {
-    return new PeerAgreement(idAgreement.getPercentAgreementHint(),
-			     0,
-			     idAgreement.getHighestPercentAgreementHint(),
-			     0);
   }
 
   @Override

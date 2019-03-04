@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +32,9 @@ import java.net.URI;
 import java.util.List;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMultipart;
+import org.lockss.rs.HttpResponseStatusAndHeaders;
+import org.lockss.rs.RestUtil;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -131,13 +134,19 @@ public class MultipartConnector {
 
     try {
       // Make the request to the REST service and get its response.
-      ResponseEntity<MimeMultipart> response = restTemplate.exchange(uri,
-	  HttpMethod.GET, new HttpEntity<>(null, requestHeaders),
-	  MimeMultipart.class);
+      ResponseEntity<MimeMultipart> response =
+	  RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+	      new HttpEntity<>(null, requestHeaders), MimeMultipart.class,
+	      "Cannot get MimeMultipart object");
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       // Parse the response and return it.
       return new MultipartResponse(response);
+    } catch (LockssRestException lre) {
+      log.debug2("Exception caught getting MimeMultipart object", lre);
+      log.debug2("uri = " + uri);
+      log.debug2("requestHeaders = " + requestHeaders.toSingleValueMap());
+      return new MultipartResponse(lre);
     } catch (IOException | MessagingException e) {
       log.error("Exception caught getting MimeMultipart object", e);
       log.error("uri = " + uri);
@@ -193,10 +202,8 @@ public class MultipartConnector {
    * Performs the PUT request.
    *
    * @return an HttpStatus with the response status.
-   * @throws Exception
-   *           if there are problems.
    */
-  public ResponseEntity<?> requestPut() {
+  public HttpResponseStatusAndHeaders requestPut() {
     return requestPut(60, 60);
   }
 
@@ -208,10 +215,9 @@ public class MultipartConnector {
    * @param readTimeout
    *          An int with the read timeout in seconds.
    * @return an HttpStatus with the response status.
-   * @throws Exception
-   *           if there are problems.
    */
-  public ResponseEntity<?> requestPut(int connectTimeout, int readTimeout) {
+  public HttpResponseStatusAndHeaders requestPut(int connectTimeout,
+      int readTimeout) {
     final String DEBUG_HEADER = "requestPut(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "connectTimeout = " + connectTimeout);
@@ -229,19 +235,20 @@ public class MultipartConnector {
 
     try {
       // Make the request to the REST service and get its response.
-      ResponseEntity<?> response = restTemplate.exchange(uri, HttpMethod.PUT,
+      ResponseEntity<?> response = RestUtil.callRestService(restTemplate, uri,
+	  HttpMethod.PUT,
 	  new HttpEntity<MultiValueMap<String, Object>>(parts, requestHeaders),
-	  Void.class);
+	  Void.class, "Cannot update MimeMultipart object");
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
       // Parse the response and return it.
-      return response;
-    } catch (RuntimeException re) {
-      log.error("Exception caught putting MimeMultipart object", re);
-      log.error("uri = " + uri);
-      log.error("requestHeaders = " + requestHeaders.toSingleValueMap());
-      log.error("parts = " + parts);
-      throw re;
+      return new HttpResponseStatusAndHeaders(response.getStatusCodeValue(),
+	  null, response.getHeaders());
+    } catch (LockssRestException lre) {
+      log.debug2("Exception caught updating MimeMultipart object", lre);
+      log.debug2("uri = " + uri);
+      log.debug2("requestHeaders = " + requestHeaders.toSingleValueMap());
+      return HttpResponseStatusAndHeaders.fromLockssRestException(lre);
     }
   }
 }

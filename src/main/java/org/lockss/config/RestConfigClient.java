@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,6 +27,8 @@
  */
 package org.lockss.config;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -43,13 +45,15 @@ import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
+import org.lockss.rs.HttpResponseStatusAndHeaders;
+import org.lockss.rs.RestUtil;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.rs.multipart.MultipartConnector;
 import org.lockss.rs.multipart.MultipartResponse;
 import org.lockss.rs.multipart.MultipartResponse.Part;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -57,6 +61,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.DefaultResponseErrorHandler;
@@ -75,6 +80,8 @@ public class RestConfigClient {
   // is represented by the 'in: formData' parameter, which needs to have a type
   // of 'file' and Swagger 2 uses the type as the part name.
   public static String CONFIG_PART_NAME = "file";
+
+  public static String X_LOCKSS_REQUEST_COOKIE_NAME = "X-Lockss-Request-Cookie";
 
   private static Logger log = Logger.getLogger();
 
@@ -498,25 +505,24 @@ public class RestConfigClient {
 	log.debug3(DEBUG_HEADER + "requestUrl = " + requestUrl);
 
       // Make the request and get the result.
-      ResponseEntity<?> response = callPutMultipartRequest(requestUrl,
+      HttpResponseStatusAndHeaders result = callPutMultipartRequest(requestUrl,
 	  input.getHttpRequestPreconditions(), config, input.getContentType(),
 	  input.getContentLength());
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
 
-      HttpStatus statusCode = response.getStatusCode();
-      output.setStatusCode(statusCode);
-      output.setErrorMessage(statusCode.toString());
+      output.setStatusCode(HttpStatus.valueOf(result.getCode()));
+      output.setErrorMessage(result.getMessage());
 
       // Get and populate the configuration data last modified header.
       String lastModified =
-	  response.getHeaders().getFirst(HttpHeaders.LAST_MODIFIED);
+	  result.getHeaders().getFirst(HttpHeaders.LAST_MODIFIED);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
 
       output.setLastModified(lastModified);
 
       // Get and populate the configuration data ETag header.
-      String etag = response.getHeaders().getETag();
+      String etag = result.getHeaders().getETag();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
 
       output.setEtag(etag);
@@ -526,12 +532,6 @@ public class RestConfigClient {
       log.error(errorMessage, hcee);
       log.error("hcee.getStatusCode() = " + hcee.getStatusCode());
       output.setStatusCode(hcee.getStatusCode());
-      output.setErrorMessage(errorMessage);
-    } catch (IOException ioe) {
-      String errorMessage = "Couldn't save config section '" + sectionName
-	  + "' from URL '" + requestUrl + "': " + ioe.toString();
-      log.error(errorMessage, ioe);
-      output.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
       output.setErrorMessage(errorMessage);
     }
 
@@ -554,13 +554,12 @@ public class RestConfigClient {
    *          server.
    * @param contentLength
    *          A long with the length of the content to be sent to the server.
-   * @return an HttpStatus with the status of the response.
-   * @throws IOException
-   *           if there are problems reading the input stream.
+   * @return an HttpResponseStatusAndHeaders with the status and headers of the
+   *         response.
    */
-  public ResponseEntity<?> callPutMultipartRequest(String url,
+  public HttpResponseStatusAndHeaders callPutMultipartRequest(String url,
       HttpRequestPreconditions preconditions, InputStream inputStream,
-      String contentType, long contentLength) throws IOException {
+      String contentType, long contentLength) {
     final String DEBUG_HEADER = "callPutMultipartRequest(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "url = " + url);
@@ -644,8 +643,8 @@ public class RestConfigClient {
     }
 
     // Make the request and obtain the response.
-    ResponseEntity<?> response = new MultipartConnector(uri, requestHeaders,
-	parts).requestPut(serviceTimeout, serviceTimeout);
+    HttpResponseStatusAndHeaders response = new MultipartConnector(uri,
+	requestHeaders, parts).requestPut(serviceTimeout, serviceTimeout);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     return response;
@@ -656,8 +655,12 @@ public class RestConfigClient {
    * web service.
    * 
    * @return a Collection<AuConfiguration> with the result.
+   * @throws LockssRestException
+   *           if there are problems getting the configurations of all the
+   *           Archival Units.
    */
-  public Collection<AuConfiguration> getAllArchivalUnitConfiguration() {
+  public Collection<AuConfiguration> getAllArchivalUnitConfiguration()
+      throws LockssRestException {
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
 	UriComponentsBuilder.fromUriString(serviceLocation + "/aus").build();
@@ -677,21 +680,20 @@ public class RestConfigClient {
 	new HttpEntity<Collection<AuConfiguration>>(null, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<Collection<AuConfiguration>> response = getRestTemplate()
-	.exchange(uri, HttpMethod.GET, requestEntity,
-	    new ParameterizedTypeReference<Collection<AuConfiguration>>(){});
+    ResponseEntity<String> response =
+	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	    requestEntity, String.class, "Cannot get all AU configurations");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
+    Collection<AuConfiguration> result = Collections.emptyList();
 
-    if (!isSuccess(statusCode)) {
-      if (log.isDebug2())
-	log.debug2("auConfigurations = " + Collections.emptyList());
-      return Collections.emptyList();
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      result = mapper.readValue((String)response.getBody(),
+	  new TypeReference<Collection<AuConfiguration>>(){});
+    } catch (Exception e) {
+      log.error("Cannot get body of response", e);
     }
 
-    Collection<AuConfiguration> result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -703,8 +705,11 @@ public class RestConfigClient {
    * @param auId
    *          A String with the Archival Unit identifier.
    * @return an AuConfiguration with the result.
+   * @throws LockssRestException
+   *           if there are problems getting the Archival Unit configuration.
    */
-  public AuConfiguration getArchivalUnitConfiguration(String auId) {
+  public AuConfiguration getArchivalUnitConfiguration(String auId)
+      throws LockssRestException {
     if (log.isDebug2()) log.debug2("auId = " + auId);
 
     // Get the URL template.
@@ -729,21 +734,12 @@ public class RestConfigClient {
 	new HttpEntity<AuConfiguration>(null, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<AuConfiguration> response = getRestTemplate().exchange(uri,
-	HttpMethod.GET, requestEntity, AuConfiguration.class);
+    ResponseEntity<AuConfiguration> response =
+	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	    requestEntity, AuConfiguration.class,
+	    "Cannot get AU configuration");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
-    AuConfiguration result = null;
-
-    if (!isSuccess(statusCode)) {
-      if (log.isDebug2()) log.debug2("result = " + result);
-      return result;
-    }
-
-    result = response.getBody();
+    AuConfiguration result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -754,8 +750,11 @@ public class RestConfigClient {
    * @param auId
    *          A String with the Archival Unit identifier.
    * @return an AuConfiguration with the configuration that has been deleted.
+   * @throws LockssRestException
+   *           if there are problems deleting the Archival Unit configuration.
    */
-  public AuConfiguration deleteArchivalUnitConfiguration(String auId) {
+  public AuConfiguration deleteArchivalUnitConfiguration(String auId)
+      throws LockssRestException {
     if (log.isDebug2()) log.debug2("auId = " + auId);
 
     // Get the URL template.
@@ -780,34 +779,24 @@ public class RestConfigClient {
 	new HttpEntity<AuConfiguration>(null, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<AuConfiguration> response = getRestTemplate().exchange(uri,
-	HttpMethod.DELETE, requestEntity, AuConfiguration.class);
+    ResponseEntity<AuConfiguration> response =
+	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.DELETE,
+	    requestEntity, AuConfiguration.class,
+	    "Cannot delete AU configuration");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
-    AuConfiguration result = null;
-
-    if (!isSuccess(statusCode)) {
-      if (log.isDebug2()) log.debug2("result = " + result);
-      return result;
-    }
-
-    result = response.getBody();
+    AuConfiguration result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
 
   /**
-   * Stores the configurations of an Archival Unit via the REST web service.
+   * Stores the configuration of an Archival Unit via the REST web service.
    * 
-   * @param auId
-   *          A String with the Archival Unit identifier.
-   * @return a Long with the key under which the Archival Unit configuration has
-   *         been stored.
+   * @param auConfiguration
+   *          An AuConfiguration with the Archival Unit configuration.
    */
-  public Long putArchivalUnitConfiguration(AuConfiguration auConfiguration) {
+  public void putArchivalUnitConfiguration(AuConfiguration auConfiguration)
+      throws LockssRestException {
     if (log.isDebug2()) log.debug2("auConfiguration = " + auConfiguration);
 
     // Get the URL template.
@@ -830,26 +819,208 @@ public class RestConfigClient {
 
     // Create the request entity.
     HttpEntity<AuConfiguration> requestEntity =
-	new HttpEntity<AuConfiguration>(null, requestHeaders);
+	new HttpEntity<AuConfiguration>(auConfiguration, requestHeaders);
+
+    // Make the request. 
+    RestUtil.callRestService(getRestTemplate(),	uri, HttpMethod.PUT,
+	requestEntity, Void.class, "Cannot update AU configuration");
+  }
+
+  /**
+   * Provides the state of an Archival Unit obtained via the REST web
+   * service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a String with the Archival Unit state.
+   * @throws LockssRestException
+   *           if there are problems getting the Archival Unit state.
+   */
+  public String getArchivalUnitState(String auId) throws LockssRestException {
+    if (log.isDebug2()) log.debug2("auId = " + auId);
+
+    // Get the URL template.
+    String template = getAuStateRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(null, requestHeaders);
 
     // Make the request and get the response. 
-    ResponseEntity<Long> response = getRestTemplate().exchange(uri,
-	HttpMethod.PUT, requestEntity, Long.class);
+    ResponseEntity<String> response =
+	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	    requestEntity, String.class, "Cannot get AU state");
 
-    // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3("statusCode = " + statusCode);
-
-    Long result = null;
-
-    if (!isSuccess(statusCode)) {
-      if (log.isDebug2()) log.debug2("result = " + result);
-      return result;
-    }
-
-    result = response.getBody();
+    String result = response.getBody();
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
+  }
+
+  /**
+   * Stores the state of an Archival Unit via the REST web service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param auState
+   *          A String with the Archival Unit state.
+   * @param xLockssRequestCookie
+   *          A String with the request cookie.
+   * @throws LockssRestException
+   *           if there are problems updating the Archival Unit state.
+   */
+  public void patchArchivalUnitState(String auId, String auState,
+      String xLockssRequestCookie) throws LockssRestException {
+    if (log.isDebug2()) {
+      log.debug2("auId = " + auId);
+      log.debug2("auState = " + auState);
+      log.debug2("xLockssRequestCookie = " + xLockssRequestCookie);
+    }
+
+    // Get the URL template.
+    String template = getAuStateRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Set the request cookie, if passed.
+    if (xLockssRequestCookie != null) {
+      requestHeaders.set(X_LOCKSS_REQUEST_COOKIE_NAME, xLockssRequestCookie);
+    }
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(auState, requestHeaders);
+
+    // Make the request and get the response. 
+    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+	requestEntity, String.class, "Cannot update AU state");
+  }
+
+  /**
+   * Provides the poll agreements of an Archival Unit obtained via the REST web
+   * service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a String with the Archival Unit poll agreements.
+   * @throws LockssRestException
+   *           if there are problems getting the Archival Unit poll agreements.
+   */
+  public String getArchivalUnitAgreements(String auId)
+      throws LockssRestException {
+    if (log.isDebug2()) log.debug2("auId = " + auId);
+
+    // Get the URL template.
+    String template = getAuAgreementsRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<String> response =
+	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	    requestEntity, String.class, "Cannot get AU poll agreements");
+
+    String result = response.getBody();
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  /**
+   * Stores the poll agreements of an Archival Unit via the REST web service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param auAgreements
+   *          A String with the Archival Unit poll agreements.
+   * @param xLockssRequestCookie
+   *          A String with the request cookie.
+   * @throws LockssRestException
+   *           if there are problems updating the Archival Unit poll agreements.
+   */
+  public void patchArchivalUnitAgreements(String auId, String auAgreements,
+      String xLockssRequestCookie) throws LockssRestException {
+    if (log.isDebug2()) {
+      log.debug2("auId = " + auId);
+      log.debug2("auAgreements = " + auAgreements);
+      log.debug2("xLockssRequestCookie = " + xLockssRequestCookie);
+    }
+
+    // Get the URL template.
+    String template = getAuAgreementsRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Set the request cookie, if passed.
+    if (xLockssRequestCookie != null) {
+      requestHeaders.set(X_LOCKSS_REQUEST_COOKIE_NAME, xLockssRequestCookie);
+    }
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(auAgreements, requestHeaders);
+
+    // Make the request and get the response.
+    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+	requestEntity, String.class, "Cannot update AU poll agreements");
   }
 
   /**
@@ -875,6 +1046,26 @@ public class RestConfigClient {
   }
 
   /**
+   * Provides the URL needed to read from, or write to, the REST Configuration
+   * Service the state of an Archival Unit.
+   * 
+   * @return a String with the URL.
+   */
+  private String getAuStateRequestUrl() {
+    return serviceLocation + "/austates/{auid}";
+  }
+
+  /**
+   * Provides the URL needed to read from, or write to, the REST Configuration
+   * Service the poll agreements of an Archival Unit.
+   * 
+   * @return a String with the URL.
+   */
+  private String getAuAgreementsRequestUrl() {
+    return serviceLocation + "/auagreements/{auid}";
+  }
+
+  /**
    * Sets the authentication credentials in a request.
    * 
    * @param requestHeaders
@@ -894,7 +1085,10 @@ public class RestConfigClient {
    * @return a RestTemplate with the standard REST template.
    */
   private RestTemplate getRestTemplate() {
-    RestTemplate restTemplate = new RestTemplate();
+    // Specifying the factory is necessary to get Spring support for PATCH
+    // operations.
+    RestTemplate restTemplate =
+	new RestTemplate(new HttpComponentsClientHttpRequestFactory());
 
     // Do not throw exceptions on non-success response status codes.
     restTemplate.setErrorHandler(new DefaultResponseErrorHandler(){
@@ -904,17 +1098,5 @@ public class RestConfigClient {
     });
 
     return restTemplate;
-  }
-
-  /**
-   * Provides an indication of whether a successful response has been obtained.
-   * 
-   * @param statusCode
-   *          An HttpStatus with the response status code.
-   * @return a boolean with <code>true</code> if a successful response has been
-   *         obtained, <code>false</code> otherwise.
-   */
-  private boolean isSuccess(HttpStatus statusCode) {
-    return statusCode.is2xxSuccessful();
   }
 }

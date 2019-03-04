@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48,6 +48,7 @@ import org.lockss.plugin.*;
 import org.lockss.remote.*;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.repository.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.servlet.BatchAuConfig.Verb;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
@@ -667,7 +668,8 @@ public class ServletUtil {
                                      String addAction,
                                      String restoreAction,
                                      String reactivateAction,
-                                     String editAction) throws DbException {
+                                     String editAction) throws DbException,
+  					LockssRestException {
     // Start form
     Form frm = newForm(formUrl);
     frm.attribute("id", formId);
@@ -1358,7 +1360,8 @@ public class ServletUtil {
                                          String submitText,
                                          String submitAction,
                                          MutableInt buttonNumber,
-                                         int atLeast) throws DbException {
+                                         int atLeast) throws DbException,
+  						LockssRestException {
     int actualRows = 0;
     isAnySelectable.setValue(false);
     Composite topRow;
@@ -1752,7 +1755,8 @@ public class ServletUtil {
                                           String restoreAction,
                                           String reactivateAction,
                                           String editAction)
-                                              throws DbException {
+                                              throws DbException,
+                                              LockssRestException {
     while (auProxyIter.hasNext()) {
       AuProxy au = (AuProxy)auProxyIter.next();
       Configuration cfg = remoteApi.getStoredAuConfiguration(au);

@@ -78,19 +78,6 @@ public interface IdentityManager extends LockssManager {
     Configuration.PREFIX + "localV3Identity";
 
   /**
-   * <p>If true, restored agreement maps will be merged with any
-   * already-loaded map
-   */
-  public static final String PARAM_MERGE_RESTORED_AGREE_MAP =
-    Configuration.PREFIX + "id.mergeAgreeMap";
-
-  /**
-   * <p>The default value for the MERGE_RESTORED_AGREE_MAP
-   * parameter.</p>
-   */
-  public static final boolean DEFAULT_MERGE_RESTORED_AGREE_MAP = true;
-
-  /**
    * <p>The IDDB_DIR parameter.</p>
    */
   public static final String PARAM_IDDB_DIR = PREFIX + "database.dir";
@@ -340,14 +327,6 @@ public interface IdentityManager extends LockssManager {
   public void writeIdentityDbTo(OutputStream out) throws IOException;
 
   /**
-   * Deprecated as of daemon 1.25.  There are currently no callers of this
-   * method.  Please remove after a few daemon releases.
-   * 
-   * @deprecated
-   */
-  public IdentityListBean getIdentityListBean();
-
-  /**
    * Return a list of all known UDP (suitable for V1) peer identities.
    */
   public Collection getUdpPeerIdentities();
@@ -533,11 +512,6 @@ public interface IdentityManager extends LockssManager {
   public boolean hasAgreeMap(ArchivalUnit au);
   
   /**
-   * <p>Remove a peer from our list of known peers.
-   */
-  public void removePeer(String key);
-
-  /**
    * <p>Copies the identity agreement file for the AU to the given
    * stream.</p>
    * @param au  An archival unit.
@@ -574,199 +548,6 @@ public interface IdentityManager extends LockssManager {
   public PeerIdentityStatus getPeerIdentityStatus(String key);
 
   public String getUiUrlStem(PeerIdentity pid);
-
-  public static class IdentityAgreement implements LockssSerializable {
-    private long lastAgree = 0;
-    private long lastDisagree = 0;
-    // The MOST RECENT percent agreement we tallied for a vote from this
-    // peer in a poll we called.
-    private float percentAgreement = 0.0f;
-    // The highest agreement we have EVER tallied in a vote from this peer.
-    private float highestPercentAgreement = 0.0f;
-    // The MOST RECENT percent agreement this peer reported in the receipt
-    // for one of our votes in a poll this peer called.
-    private float percentAgreementHint = -1.0f;
-    // The highest percent agreement we have ever seen in a receipt from
-    // one of any of our votes in polls this peer called.
-    private float highestPercentAgreementHint = -1.0f;
-    // Hists were added later; deserializing stored state with no hints
-    // sets them to zero (constructor doesn't run) so can't tell if they
-    // were ever really set.  This flag serves that function.
-    private boolean haveHints = false;
-
-    private String id = null;
-
-    IdentityAgreement(String id) {
-      this.id = id;
-    }
-
-    public IdentityAgreement(PeerIdentity pid) {
-      this(pid.getIdString());
-    }
-
-    // needed for marshalling
-    public IdentityAgreement() {}
-
-    public long getLastAgree() {
-      return lastAgree;
-    }
-
-    public void setLastAgree(long lastAgree) {
-      this.lastAgree = lastAgree;
-    }
-
-    public long getLastDisagree() {
-      return lastDisagree;
-    }
-
-    public void setLastDisagree(long lastDisagree) {
-      this.lastDisagree = lastDisagree;
-    }
-    
-    public long getLastSignalTime() {
-      return lastAgree > lastDisagree ? lastAgree : lastDisagree;
-    }
-
-    public float getHighestPercentAgreement() {
-      return agreePercentValue(highestPercentAgreement);
-    }
-    
-    public void setHighestPercentAgreement(float agreement) {
-      this.highestPercentAgreement = agreement;
-    }
-    
-    public float getPercentAgreement() {
-      return agreePercentValue(percentAgreement);
-    }
-    
-    public void setPercentAgreement(float percentAgreement) {
-      this.percentAgreement = percentAgreement;
-      if (percentAgreement > highestPercentAgreement) {
-        setHighestPercentAgreement(percentAgreement);
-      }
-    }
-
-    /** Return highest agreement peer has seen from us.
-     * @return highest agreement, -1.0 if not known */
-    public float getHighestPercentAgreementHint() {
-      return hintValue(highestPercentAgreementHint);
-    }
-    
-    void setHighestPercentAgreementHint(float agreement) {
-      this.highestPercentAgreementHint = agreement;
-    }
-    
-    /** Return agreement peer has most recently seen from us.
-     * @return agreement, -1.0 if not known */
-    public float getPercentAgreementHint() {
-      return hintValue(percentAgreementHint);
-    }
-    
-    public void setPercentAgreementHint(float percentAgreementHint) {
-      this.percentAgreementHint = percentAgreementHint;
-      if (percentAgreementHint > highestPercentAgreementHint) {
-        setHighestPercentAgreementHint(percentAgreementHint);
-      }
-      haveHints = true;
-    }
-
-
-    // Assume that if agreee percent is zero and we have no evidence we've
-    // set it (), then it isn't really known.
-    private float agreePercentValue(float agree) {
-      if (lastAgree > 0 || lastDisagree > 0 || agree != 0.0) {
-	return agree;
-      } else {
-	return -1.0f;
-      }
-    }
-
-    // Assume that if hint is zero and we have no evidence we've set it
-    // (haveHints), then it isn't really known.
-    private float hintValue(float hint) {
-      if (haveHints || hint != 0.0) {
-	return hint;
-      } else {
-	return -1.0f;
-      }
-    }
-
-
-    public String getId() {
-      return id;
-    }
-
-    public boolean hasAgreed() {
-      return lastAgree != 0;
-    }
-
-    public void setId(String id) {
-      this.id = id;
-    }
-
-    public void mergeFrom(IdentityAgreement ida) {
-      long ag = ida.getLastAgree();
-      if (ag > getLastAgree()) {
-        setLastAgree(ag);
-      }
-      long dis = ida.getLastDisagree();
-      if (dis > getLastDisagree()) {
-        setLastDisagree(dis);
-      }
-    }
-
-    /** 
-     * The highest percent agreement may need to be initialized to the
-     * most recent agreement level if this is the first time the agreement
-     * has been loaded since the highestPercentAgreement field was added.
-     */
-    protected void postUnmarshal(LockssApp lockssContext) {
-      if (highestPercentAgreement < percentAgreement) {
-        highestPercentAgreement = percentAgreement;
-      }
-    }
-
-    public String toString() {
-      StringBuilder sb = new StringBuilder();
-      sb.append("[IdentityAgreement: ");
-      sb.append("id=");
-      sb.append(id);
-      sb.append(", lastAgree=");
-      sb.append(lastAgree);
-      sb.append(", lastDisagree=");
-      sb.append(lastDisagree);
-      sb.append(", (agree,max)=(");
-      sb.append(percentAgreement);
-      sb.append(",");
-      sb.append(highestPercentAgreement);
-      sb.append(", hints=");
-      sb.append(haveHints);
-      sb.append(", (hint,max)=(");
-      sb.append(percentAgreementHint);
-      sb.append(",");
-      sb.append(highestPercentAgreementHint);
-      sb.append("]");
-      return sb.toString();
-    }
-
-    public boolean equals(Object obj) {
-      if (obj instanceof IdentityAgreement) {
-        IdentityAgreement ida = (IdentityAgreement)obj;
-        return (id.equals(ida.getId())
-            && ida.getLastDisagree() == getLastDisagree()
-            && ida.getLastAgree() == getLastAgree()
-            && ida.getPercentAgreement() == getPercentAgreement()
-            && ida.getHighestPercentAgreement() == getHighestPercentAgreement()
-            && ida.getPercentAgreementHint() == getPercentAgreementHint()
-            && ida.getHighestPercentAgreementHint() == getHighestPercentAgreementHint());
-      }
-      return false;
-    }
-
-    public int hashCode() {
-      return 7 * id.hashCode() + 3 * (int)(getLastDisagree() + getLastAgree());
-    }
-  }
 
   /**
    * <p>Exception thrown for illegal identity keys.</p>

@@ -44,7 +44,7 @@ import org.lockss.plugin.ArchivalUnit.ConfigurationException;
 import org.lockss.plugin.base.BaseArchivalUnit.*;
 import org.lockss.poller.PollManager;
 import org.lockss.rewriter.LinkRewriterFactory;
-import org.lockss.state.AuState;
+import org.lockss.state.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
@@ -80,7 +80,13 @@ public class TestBaseArchivalUnit extends LockssTestCase {
   static String MY_PLUG_ID = MyMockPlugin.class.getName();
 
   TestableBaseArchivalUnit makeMbau(String name, String baseUrl, String startUrl)
-      throws LockssRegexpException {
+      throws LockssRegexpException, ArchivalUnit.ConfigurationException {
+    return makeMbau(name, baseUrl, startUrl, null);
+  }
+
+  TestableBaseArchivalUnit makeMbau(String name, String baseUrl,
+				    String startUrl, Configuration auConfig)
+      throws LockssRegexpException, ArchivalUnit.ConfigurationException {
     List rules = new LinkedList();
     // exclude anything which doesn't start with our base url
     rules.add(new CrawlRules.RE("^" + baseUrl, CrawlRules.RE.NO_MATCH_EXCLUDE));
@@ -93,9 +99,9 @@ public class TestBaseArchivalUnit extends LockssTestCase {
 
     TestableBaseArchivalUnit au =
       new TestableBaseArchivalUnit(mplug, name, rule, startUrl);
-    MockHistoryRepository mhr = new MockHistoryRepository();
-    mhr.setAuState(new MockAuState(au));
-    getMockLockssDaemon().setHistoryRepository(mhr, au);
+    if (auConfig != null) {
+      au.setConfiguration(auConfig);
+    }
     return au;
   }
 
@@ -595,6 +601,7 @@ public class TestBaseArchivalUnit extends LockssTestCase {
   public void testGetUrlStems() throws Exception  {
     // uncofigured base url - return an empty list
     mbau = makeMbau(AU_NAME, BASE_URL, START_URL);
+    AuTestUtil.setUpMockAus(mbau);
 
     mbau.setStartUrl(null);
     assertEmpty(mbau.getUrlStems());
@@ -603,11 +610,13 @@ public class TestBaseArchivalUnit extends LockssTestCase {
 				 ConfigParamDescr.VOLUME_NUMBER.getKey(), "10");
     mbau.setConfiguration(config);
     mbau = makeMbau(AU_NAME, BASE_URL, START_URL);
+    AuTestUtil.setUpMockAus(mbau);
     mbau.setConfiguration(config);
     assertSameElements(ListUtil.list("http://www.example.com/"),
 		       mbau.getUrlStems());
 
     mbau = makeMbau(AU_NAME, BASE_URL, START_URL);
+    AuTestUtil.setUpMockAus(mbau);
     mbau.setConfiguration(config);
     mbau.setPermissionPages(ListUtil.list(BASE_URL,
 					  "http://foo.other.com:8080/vol20/manifest.html"));
@@ -615,6 +624,7 @@ public class TestBaseArchivalUnit extends LockssTestCase {
 				     "http://foo.other.com:8080/"),
 		       mbau.getUrlStems());
     mbau = makeMbau(AU_NAME, BASE_URL, START_URL);
+    AuTestUtil.setUpMockAus(mbau);
     mbau.setConfiguration(config);
     mbau.setPermissionPages(ListUtil.list(BASE_URL,
 					  "http://foo.other.com:8080/vol20/manifest.html",
@@ -789,10 +799,14 @@ public class TestBaseArchivalUnit extends LockssTestCase {
   }
 
   TitleConfig makeTitleConfig() {
+    return makeTitleConfig("42");
+  }
+
+  TitleConfig makeTitleConfig(String vol) {
     ConfigParamDescr d1 = new ConfigParamDescr("base_url");
     ConfigParamDescr d2 = new ConfigParamDescr("volume");
     ConfigParamAssignment a1 = new ConfigParamAssignment(d1, BASE_URL);
-    ConfigParamAssignment a2 = new ConfigParamAssignment(d2, "42");
+    ConfigParamAssignment a2 = new ConfigParamAssignment(d2, vol);
     a1.setEditable(false);
     a2.setEditable(false);
     TitleConfig tc1 = new TitleConfig("a", mplug.getPluginId());
@@ -802,15 +816,16 @@ public class TestBaseArchivalUnit extends LockssTestCase {
   }
 
   public void testGetTitleConfig() throws Exception {
-    TitleConfig tc = makeTitleConfig();
+    Configuration config =
+      ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(), BASE_URL,
+				 ConfigParamDescr.VOLUME_NUMBER.getKey(),"43");
+    mbau = makeMbau(AU_NAME, BASE_URL, START_URL, config);
+
+    TitleConfig tc = makeTitleConfig("43");
     Tdb tdb = new Tdb();
     tdb.addTdbAuFromProperties(tc.toProperties());
     ConfigurationUtil.setTdb(tdb);
 
-    Configuration config =
-      ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(), BASE_URL,
-				 ConfigParamDescr.VOLUME_NUMBER.getKey(),"42");
-    mbau.setConfiguration(config);
     assertEquals(tc, mbau.findTitleConfig());
 
     TestableBaseArchivalUnit mbau2 =
@@ -1008,6 +1023,13 @@ public class TestBaseArchivalUnit extends LockssTestCase {
 
     public void setStartUrl(String url) {
       m_startUrl = url;
+    }
+
+    public String getAuId() {
+      if (auId == null && auConfig == null) {
+	auId = StringUtil.gensym(m_startUrl);
+      }
+      return super.getAuId();
     }
 
     public void setName(String name) {

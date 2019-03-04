@@ -41,7 +41,6 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.CachedUrlSet;
-import org.lockss.protocol.AuAgreements;
 import org.lockss.protocol.DatedPeerIdSet;
 import org.lockss.protocol.DatedPeerIdSetImpl;
 import org.lockss.protocol.IdentityManager;
@@ -90,11 +89,6 @@ public class HistoryRepositoryImpl
   static final String HISTORY_FILE_NAME = "#history.xml";
 
   /**
-   * <p>The identity agreement list file name.</p>
-   */
-  static final String IDENTITY_AGREEMENT_FILE_NAME = "#id_agreement.xml";
-
-  /**
    * <p>Mapping file for polls.</p>
    */
   static final String MAPPING_FILE_NAME = "/org/lockss/state/pollmapping.xml";
@@ -133,8 +127,6 @@ public class HistoryRepositoryImpl
 
   private ArchivalUnit storedAu;
   LockssDaemon theDaemon;
-  DamagedNodeSet damagedNodes;
-  AuState auState;
   OldLockssRepository lockssRepo;
 
   protected HistoryRepositoryImpl(ArchivalUnit au, String rootPath) {
@@ -149,143 +141,12 @@ public class HistoryRepositoryImpl
     }
   }
 
-  public File getIdentityAgreementFile() {
-    return new File(rootLocation, IDENTITY_AGREEMENT_FILE_NAME);
-  }
-
-  public File getAuStateFile() {
-    return new File(rootLocation, AU_FILE_NAME);
-  }
-
+  // XXXAUS need new way to implement this
   public long getAuCreationTime() {
     File auidfile = new File(rootLocation, OldLockssRepositoryImpl.AU_ID_FILE);
     return auidfile.lastModified();
   }
   
-  private DatedPeerIdSet m_noAuDpis = null;
-  
-  /**
-   * Return the associated NoAuPeerIdSet
-   */
-  public DatedPeerIdSet getNoAuPeerSet()
-  {
-    IdentityManager idman;
-    
-    if (m_noAuDpis == null) {
-      File file = prepareFile(rootLocation, NO_AU_PEER_ID_SET_FILE_NAME);
-      LockssDaemon ld = getDaemon();
-      if (ld != null) {
-        idman = ld.getIdentityManager();
-      } else {
-        logger.error("When attempting to get a dated Peer ID set, I could not find the daemon.  Aborting.");
-        throw new NullPointerException();
-      }
-      
-      m_noAuDpis = new DatedPeerIdSetImpl(file, idman);
-    }
-    
-    return m_noAuDpis;
-  }
-
-  /**
-   * <p>Loads the state of an AU.</p>
-   * @return An AuState instance loaded from file.
-   * @throws RepositoryStateException if an error condition arises
-   *                                  that is neither a file not found
-   *                                  exception nor a serialization
-   *                                  exception.
-   */
-  public AuState loadAuState() {
-    logger.debug3("Loading state for AU '" + storedAu.getName() + "'");
-    File auFile = getAuStateFile();
-    String errorString = "Could not load AU state for AU '" + storedAu.getName() + "'";
-    ObjectSerializer deserializer = makeObjectSerializer();
-    try {
-      AuState auState = (AuState)deserializer.deserialize(auFile);
-      return  new AuState(auState, storedAu, this);
-    } catch (SerializationException.FileNotFound fnf) {
-      logger.debug2(errorString + ": " + fnf);
-    } catch (SerializationException se) {
-      logger.error(errorString, se);
-    } catch (InterruptedIOException iioe) {
-      logger.error(errorString, iioe);
-      throw new RepositoryStateException(errorString, iioe);
-    }
-    // Default: return default
-    return new AuState(storedAu, this);
-  }
-
-  /**
-   * <p>Loads a damaged node set from file.</p>
-   * @return A damaged node set retrieved from file.
-   * @throws RepositoryStateException if an error condition arises
-   *                                  that is neither a file not found
-   *                                  exception nor a serialization
-   *                                  exception.
-   */
-  public DamagedNodeSet loadDamagedNodeSet() {
-    logger.debug3("Loading damaged nodes for AU '" + storedAu.getName() + "'");
-    File damFile = new File(rootLocation, DAMAGED_NODES_FILE_NAME);
-    ObjectSerializer deserializer = makeObjectSerializer();
-    String errorString = "Could not load damaged nodes '" + storedAu.getName() + "'";
-
-    try {
-      DamagedNodeSet damNodes = (DamagedNodeSet)deserializer.deserialize(damFile);
-      // set these fields manually // post-deserialization method?
-      damNodes.theAu = storedAu;
-      damNodes.repository = this;
-      return damNodes;
-    }
-    catch (SerializationException.FileNotFound fnf) {
-      logger.debug2("No damaged node file for AU '" + storedAu.getName() + "'");
-      // drop down to return empty set
-    }
-    catch (SerializationException se) {
-      logger.error(errorString, se);
-      // drop down to return empty set
-    }
-    catch (InterruptedIOException exc) {
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-
-    // Default: return empty set
-    return new DamagedNodeSet(storedAu, this);
-  }
-
-  /**
-   * <p>Loads an identity agreement.</p>
-   * @return The saved {@link Object}, or {@code null} if no instance
-   * is found.
-   * @throws RepositoryStateException if an error condition arises
-   *                                  that is neither a file not found
-   *                                  exception nor a serialization
-   *                                  exception.
-   *
-   */
-  public Object loadIdentityAgreements() {
-    logger.debug3("Loading identity agreements for AU '" + storedAu.getName() + "'");
-    File idFile = getIdentityAgreementFile();
-    ObjectSerializer deserializer = makeObjectSerializer();
-    String errorString = "Could not load identity agreements for AU '" + storedAu.getName() + "'";
-    try {
-      return deserializer.deserialize(idFile);
-    }
-    catch (SerializationException.FileNotFound fnf) {
-      logger.debug2("No identities file for AU '" + storedAu.getName() + "'");
-      // drop down to return null
-    }
-    catch (SerializationException se) {
-      logger.error(errorString, se);
-      // drop down to return null
-    }
-    catch (InterruptedIOException exc) {
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-    return null;
-  }
-
   public void setAuConfig(Configuration auConfig) {
 
   }
@@ -295,8 +156,6 @@ public class HistoryRepositoryImpl
     // gets all the managers
     if (logger.isDebug2()) logger.debug2("Starting: " + storedAu);
     theDaemon = getDaemon();
-    auState = loadAuState();
-    damagedNodes = new DamagedNodeSet(storedAu, this);
 
     lockssRepo = theDaemon.getLockssRepository(storedAu);
     logger.debug2("HistoryRepository successfully started");
@@ -304,81 +163,13 @@ public class HistoryRepositoryImpl
 
   public void stopService() {
     if (logger.isDebug()) logger.debug("Stopping: " + storedAu);
-    if (damagedNodes != null) {
-      damagedNodes.clear();
-    }
     super.stopService();
     logger.debug2("HistoryRepository successfully stopped");
   }
 
   public AuState getAuState() {
-    return auState;
+    return theDaemon.getManagerByType(StateManager.class).getAuState(storedAu);
   }
-  public void setAuState(AuState auState) {this.auState = auState;}
-
-  @Override
-  public boolean hasDamage(CachedUrlSet cus) {
-    return damagedNodes.hasDamage(cus);
-  }
-
-  /**
-   * <p>Stores the state of an AU.</p>
-   * @param auState    A AU state instance.
-   * @see #storeAuState(ObjectSerializer, AuState)
-   */
-  public void storeAuState(AuState auState) {
-    logger.debug3("Storing state for AU '" + auState.getArchivalUnit().getName() + "'");
-    this.auState = auState;
-    File file = prepareFile(rootLocation, AU_FILE_NAME);
-    ObjectSerializer serializer = makeObjectSerializer();
-    try {
-      serializer.serialize(file, auState);
-    }
-    catch (Exception exc) {
-      String errorString = "Could not store AU state for AU '" + auState.getArchivalUnit().getName() + "'";
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-  }
-
-  /**
-   * <p>Stores a damaged node set.</p>
-   * @param nodeSet    A damaged node set.
-   * @see #storeDamagedNodeSet(ObjectSerializer, DamagedNodeSet)
-   */
-  public void storeDamagedNodeSet(DamagedNodeSet nodeSet) {
-    logger.debug3("Storing damaged nodes for AU '" + nodeSet.theAu.getName() + "'");
-    File file = prepareFile(rootLocation, DAMAGED_NODES_FILE_NAME);
-    ObjectSerializer serializer = makeObjectSerializer();
-
-    try {
-      serializer.serialize(file, nodeSet);
-    }
-    catch (Exception exc) {
-      String errorString = "Could not store damaged nodes for AU '" + nodeSet.theAu.getName() + "'";
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-  }
-
-  /**
-   * <p>Stores an identity agreement instance.</p>
-   * @param auAgreements A {@link AuAgreements} instance.
-   */
-  public void storeIdentityAgreements(AuAgreements auAgreements) {
-    logger.debug3("Storing identity agreements for AU '" + storedAu.getName() + "'");
-    File file = prepareFile(rootLocation, IDENTITY_AGREEMENT_FILE_NAME);
-    ObjectSerializer serializer = makeObjectSerializer();
-    try {
-      serializer.serialize(file, auAgreements);
-    }
-    catch (Exception exc) {
-      String errorString = "Could not store identity agreements for AU '" + storedAu.getName() + "'";
-      logger.error(errorString, exc);
-      throw new RepositoryStateException(errorString, exc);
-    }
-  }
-
 
   /**
    * <p>Factory method to create new HistoryRepository instances.</p>

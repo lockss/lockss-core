@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -42,6 +42,7 @@ import org.lockss.util.test.FileTestUtil;
 import org.lockss.mail.MimeMessage;
 import org.lockss.plugin.*;
 import org.lockss.protocol.MockIdentityManager;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -270,8 +271,11 @@ public class TestRemoteApi extends LockssTestCase {
    *          An AuConfiguration with the Archival Unit configuration.
    * @throws DbException
    *           if any problem occurred accessing the database.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
    */
-  void writeAuDb(AuConfiguration auConfiguration) throws DbException {
+  void writeAuDb(AuConfiguration auConfiguration)
+      throws DbException, LockssRestException {
     daemon.getConfigManager().storeArchivalUnitConfiguration(auConfiguration);
   }
 
@@ -315,9 +319,6 @@ public class TestRemoteApi extends LockssTestCase {
     mpm.setAllAus(ListUtil.list(mau1, mau2, mau3));
     idMgr.setAgreeMap(mau1, "agree map 1");
     idMgr.setAgreeMap(mau3, "agree map 3");
-    MockHistoryRepository hr = new MockHistoryRepository();
-    daemon.setHistoryRepository(hr, mau1);
-    hr.setAuStateFile(FileTestUtil.writeTempFile("austate", "dummy austate"));
 
     InputStream in = rapi.getAuConfigBackupStream("machine_foo");
     File zip = FileTestUtil.tempFile("foo", ".zip");
@@ -379,12 +380,14 @@ public class TestRemoteApi extends LockssTestCase {
     assertNotNull(agreefile = (File)auagreemap.get("mau3id"));
     assertEquals("agree map 3", StringUtil.fromFile(agreefile));
 
-    File statefile;
-    assertNotNull(statefile = (File)austatemap.get("mau1id"));
-    assertEquals("dummy austate", StringUtil.fromFile(statefile));
+    // XXXAUS
+//     File statefile;
+//     assertNotNull(statefile = (File)austatemap.get("mau1id"));
+//     assertEquals("dummy austate", StringUtil.fromFile(statefile));
 
     assertEquals(2, auagreemap.size());
-    assertEquals(1, austatemap.size());
+    // XXXAUS
+//     assertEquals(1, austatemap.size());
   }
 
   public void testCheckLegalAuConfigTree() throws Exception {
@@ -707,12 +710,11 @@ public class TestRemoteApi extends LockssTestCase {
       return mau;
     }
 
-    public Long setAndSaveAuConfiguration(ArchivalUnit au,
+    public void setAndSaveAuConfiguration(ArchivalUnit au,
 					  Configuration auConf)
 	throws ArchivalUnit.ConfigurationException {
       actions.add(new Pair(au, auConf));
       au.setConfiguration(auConf);
-      return null;
     }
 
     public void deleteAuConfiguration(String auid) {

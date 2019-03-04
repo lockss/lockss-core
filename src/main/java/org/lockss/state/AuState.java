@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +29,10 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
+import java.io.*;
 import java.util.*;
+import com.fasterxml.jackson.annotation.*;
+
 import org.lockss.plugin.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
@@ -55,165 +54,60 @@ public class AuState implements LockssSerializable {
 
   private static final Logger logger = Logger.getLogger();
 
-  /** The number of updates between writing to file  (currently unused) */
-  static final int URL_UPDATE_LIMIT = 1;
-
   public enum AccessType {OpenAccess, Subscription};
 
 
-  // Persistent state vars
-
-  // Note that WS exposes lastCrawlTime as lastCompletedCrawl, and
-  // lastCrawlAttempt as lastCrawl.
-  protected long lastCrawlTime;		// last successful crawl finish
-  protected long lastCrawlAttempt;	// last crawl start
-  protected String lastCrawlResultMsg;
-  protected int lastCrawlResult;
-  protected long lastDeepCrawlTime = -1; // last successful deep crawl finish
-  protected long lastDeepCrawlAttempt = -1; // last deep crawl start
-  protected String lastDeepCrawlResultMsg;
-  protected int lastDeepCrawlResult;
-  protected int lastDeepCrawlDepth;	// requested depth of last
-					// successful deep crawl
-  protected long lastTopLevelPoll;	// last completed PoR poll time
-  protected long lastPollStart;		// last time a poll started
-  protected int lastPollResult;         // ditto
-  protected long pollDuration;		// average of last two PoRpoll durations
-  protected long hashDuration = -1;
-  protected int clockssSubscriptionStatus;
-  protected double v3Agreement = -1.0;
-  protected double highestV3Agreement = -1.0;
-  protected AccessType accessType;
-  protected SubstanceChecker.State hasSubstance;
-  protected String substanceVersion;
-  protected String metadataVersion;
-  protected long lastMetadataIndex = -1; // last time metadata extraction
-					 // completed
-  protected long lastContentChange = -1; // last time a new URL version created
-  protected long lastPoPPoll = -1;      // last completed PoP poll time
-  protected int lastPoPPollResult;	// result of last PoP poll
-  protected long lastLocalHashScan = -1; // last completed local hash scan
-  protected int numAgreePeersLastPoR = -1; // Number of agreeing peers last PoR
-  protected int numWillingRepairers = -1; // Number of willing repairers
-  protected int numCurrentSuspectVersions = -1; // # URLs w/ current version suspect
-  protected List<String> cdnStems;	// URL stems of content on hosts
-					// not predicted by permission URLs
+  protected AuStateBean bean;
 
   protected transient long lastPollAttempt; // last time we attempted to
 					    // start a poll
 
-  // Note - the copy constructor (AuState(ArchivalUnit, HistoryRepository))
-  // must be udpated whenever a new persistent field is added
-
   // Non-persistent state vars
 
   // saves previous lastCrawl* state while crawl is running
-  protected transient AuState previousCrawlState = null;
+  protected transient AuStateBean previousCrawlState = null;
 
   // Runtime (non-state) vars
   protected transient ArchivalUnit au;
-  private transient HistoryRepository historyRepo;
-  private transient boolean needSave = false;
+
+  private transient StateManager stateMgr;
+
   private transient int batchSaveDepth = 0;
 
   // deprecated, kept for compatibility with old state files
   protected transient long lastTreeWalk = -1;
+
   // should be deprecated?
   protected HashSet crawlUrls;
+
   // deprecated, kept for compatibility with old state files
   /** @deprecated */
   protected transient boolean hasV3Poll = false;
+
   // No longer set, never had a non-standard value
   protected transient String lastPollResultMsg;   // result of last poll
 
-  transient int urlUpdateCntr = 0;
-
-  /** No-arg constructor required for pure-Java deserialization. */
-  private AuState() {
+  /** No-arg constructor for testing. */
+  AuState() {
   }
 
-  public AuState(ArchivalUnit au, HistoryRepository historyRepo) {
-    this(au,
-	 -1, // lastCrawlTime
-	 -1, // lastCrawlAttempt
-	 -1, // lastCrawlResult
-	 null, // lastCrawlResultMsg,
-	 -1, // lastDeepCrawlTime
-	 -1, // lastDeepCrawlAttempt
-	 -1, // lastDeepCrawlResult
-	 null, // lastDeepCrawlResultMsg,
-	 -1, // lastDeepCrawlDepth
-	 -1, // lastTopLevelPoll
-	 -1, // lastPollStart
-	 -1, // lastPollresult
-	 null, // lastPollresultMsg
-	 0, // pollDuration
-        -1, // hashDuration
-	 -1, // lastTreeWalk
-	 null, // crawlUrls
-	 null, // accessType
-	 CLOCKSS_SUB_UNKNOWN, // clockssSubscriptionState
-	 -1.0, // v3Agreement
-	 -1.0, // highestV3Agreement
-	 SubstanceChecker.State.Unknown,
-	 null, // substanceVersion
-	 null, // metadataVersion
-	 -1, // lastMetadataIndex
-	 0, // lastContentChange
-	 -1, // lastPoPPoll
-	 -1, // lastPoPPollResult
-	 -1, // lastLocalHashScan
-	 0,  // numAgreePeersLastPoR
-	 0,  // numWillingRepairers
-	 0,  // numCurrentSuspectVersions
-	 null, // cdnStems
-	 historyRepo);
+  /** Bean constructor for testing. */
+  AuState(AuStateBean bean) {
+    this.bean = bean;
+    if (bean == null) logger.critical("null bean", new Throwable());
   }
 
-  /** Copy constructor adds au and historyRepo, used after state loaded
-   * from file.  This constructor *must* be updated whenever new fields are
-   * added to the calss. */
-  public AuState(AuState aus, ArchivalUnit au, HistoryRepository historyRepo) {
+  public AuState(ArchivalUnit au, StateManager stateMgr) {
+    this(au, stateMgr, new AuStateBean());
+  }
+
+  public AuState(ArchivalUnit au, StateManager stateMgr, AuStateBean bean) {
     this.au = au;
-    this.historyRepo = historyRepo;
-    this.lastCrawlTime = aus.lastCrawlTime;
-    this.lastCrawlAttempt = aus.lastCrawlAttempt;
-    this.lastCrawlResult = aus.lastCrawlResult;
-    this.lastCrawlResultMsg = aus.lastCrawlResultMsg;
-    this.lastDeepCrawlTime = aus.lastDeepCrawlTime;
-    this.lastDeepCrawlAttempt = aus.lastDeepCrawlAttempt;
-    this.lastDeepCrawlResult = aus.lastDeepCrawlResult;
-    this.lastDeepCrawlResultMsg = aus.lastDeepCrawlResultMsg;
-    this.lastDeepCrawlDepth = aus.lastDeepCrawlDepth;
-    this.lastTopLevelPoll = aus.lastTopLevelPoll;
-    this.lastPollStart = aus.lastPollStart;
-    this.lastPollResult = aus.lastPollResult;
-    this.lastPollResultMsg = aus.lastPollResultMsg;
-    this.pollDuration = aus.pollDuration;
-    this.hashDuration = aus.hashDuration;
-    this.lastTreeWalk = aus.lastTreeWalk;
-    this.crawlUrls = aus.crawlUrls;
-    this.accessType = aus.accessType;
-    this.clockssSubscriptionStatus = aus.clockssSubscriptionStatus;
-    this.v3Agreement = aus.v3Agreement;
-    this.highestV3Agreement = aus.highestV3Agreement;
-    this.hasSubstance = aus.hasSubstance;
-    this.substanceVersion = aus.substanceVersion;
-    this.metadataVersion = aus.metadataVersion;
-    this.lastMetadataIndex = aus.lastMetadataIndex;
-    this.lastContentChange = aus.lastContentChange;
-    this.lastPoPPoll = aus.lastPoPPoll;
-    this.lastPoPPollResult = aus.lastPoPPollResult;
-    this.lastLocalHashScan = aus.lastLocalHashScan;
-    this.numAgreePeersLastPoR = aus.numAgreePeersLastPoR;
-    this.numWillingRepairers = aus.numWillingRepairers;
-    this.numCurrentSuspectVersions = aus.numCurrentSuspectVersions;
-    this.cdnStems = aus.cdnStems;
-
-    if (cdnStems != null) {
-      flushAuCaches();
-    }
+    this.stateMgr = stateMgr;
+    this.bean = bean;
+    if (bean == null) logger.critical("null bean", new Throwable());
   }
+
 
   public AuState(ArchivalUnit au,
 		 long lastCrawlTime, long lastCrawlAttempt,
@@ -221,10 +115,10 @@ public class AuState implements LockssSerializable {
 		 long lastDeepCrawlTime, long lastDeepCrawlAttempt,
 		 int lastDeepCrawlResult, String lastDeepCrawlResultMsg,
 		 int lastDeepCrawlDepth,
-		 long lastTopLevelPoll, long lastPollStart,
+		 long lastTopLevelPollTime, long lastPollStart,
 		 int lastPollResult, String lastPollResultMsg,
 		 long pollDuration,
-		 long hashDuration,
+		 long averageHashDuration,
 		 long lastTreeWalk, HashSet crawlUrls,
 		 AccessType accessType,
 		 int clockssSubscriptionStatus,
@@ -242,46 +136,55 @@ public class AuState implements LockssSerializable {
 		 int numWillingRepairers,
 		 int numCurrentSuspectVersions,
 		 List<String> cdnStems,
-		 HistoryRepository historyRepo) {
+		 StateManager stateMgr) {
+    this(au, stateMgr);
     this.au = au;
-    this.lastCrawlTime = lastCrawlTime;
-    this.lastCrawlAttempt = lastCrawlAttempt;
-    this.lastCrawlResult = lastCrawlResult;
-    this.lastCrawlResultMsg = lastCrawlResultMsg;
-    this.lastDeepCrawlTime = lastDeepCrawlTime;
-    this.lastDeepCrawlAttempt = lastDeepCrawlAttempt;
-    this.lastDeepCrawlResult = lastDeepCrawlResult;
-    this.lastDeepCrawlResultMsg = lastDeepCrawlResultMsg;
-    this.lastDeepCrawlDepth = lastDeepCrawlDepth;
-    this.lastTopLevelPoll = lastTopLevelPoll;
-    this.lastPollStart = lastPollStart;
-    this.lastPollResult = lastPollResult;
+    this.stateMgr = stateMgr;
+
+    bean.lastCrawlTime = lastCrawlTime;
+    bean.lastCrawlAttempt = lastCrawlAttempt;
+    bean.lastCrawlResult = lastCrawlResult;
+    bean.lastCrawlResultMsg = lastCrawlResultMsg;
+    bean.lastDeepCrawlTime = lastDeepCrawlTime;
+    bean.lastDeepCrawlAttempt = lastDeepCrawlAttempt;
+    bean.lastDeepCrawlResult = lastDeepCrawlResult;
+    bean.lastDeepCrawlResultMsg = lastDeepCrawlResultMsg;
+    bean.lastDeepCrawlDepth = lastDeepCrawlDepth;
+    bean.lastTopLevelPollTime = lastTopLevelPollTime;
+    bean.lastPollStart = lastPollStart;
+    bean.lastPollResult = lastPollResult;
     this.lastPollResultMsg = lastPollResultMsg;
-    this.pollDuration = pollDuration;
-    this.hashDuration = hashDuration;
+    bean.pollDuration = pollDuration;
+    bean.averageHashDuration = averageHashDuration;
     this.lastTreeWalk = lastTreeWalk;
     this.crawlUrls = crawlUrls;
-    this.accessType = accessType;
-    this.clockssSubscriptionStatus = clockssSubscriptionStatus;
-    this.v3Agreement = v3Agreement;
-    this.highestV3Agreement = highestV3Agreement;
-    this.hasSubstance = hasSubstance;
-    this.substanceVersion = substanceVersion;
-    this.metadataVersion = metadataVersion;
-    this.lastMetadataIndex = lastMetadataIndex;
-    this.lastContentChange = lastContentChange;
-    this.lastPoPPoll = lastPoPPoll;
-    this.lastPoPPollResult = lastPoPPollResult;
-    this.lastLocalHashScan = lastLocalHashScan;
-    this.numAgreePeersLastPoR = numAgreePeersLastPoR;
-    this.numWillingRepairers = numWillingRepairers;
-    this.numCurrentSuspectVersions = numCurrentSuspectVersions;
-    this.cdnStems = cdnStems;
-    this.historyRepo = historyRepo;
+    bean.accessType = accessType;
+    bean.clockssSubscriptionStatus = clockssSubscriptionStatus;
+    bean.v3Agreement = v3Agreement;
+    bean.highestV3Agreement = highestV3Agreement;
+    bean.hasSubstance = hasSubstance;
+    bean.substanceVersion = substanceVersion;
+    bean.metadataVersion = metadataVersion;
+    bean.lastMetadataIndex = lastMetadataIndex;
+    bean.lastContentChange = lastContentChange;
+    bean.lastPoPPoll = lastPoPPoll;
+    bean.lastPoPPollResult = lastPoPPollResult;
+    bean.lastLocalHashScan = lastLocalHashScan;
+    bean.numAgreePeersLastPoR = numAgreePeersLastPoR;
+    bean.numWillingRepairers = numWillingRepairers;
+    bean.numCurrentSuspectVersions = numCurrentSuspectVersions;
+    bean.cdnStems = cdnStems;
 
     if (cdnStems != null) {
       flushAuCaches();
     }
+  }
+
+  /**
+   * Returns the AuStateBean contains the actual data
+   */
+  public AuStateBean getBean() {
+    return bean;
   }
 
   /**
@@ -302,12 +205,17 @@ public class AuState implements LockssSerializable {
    * If there is a Lockss repository exception, this method returns -1.
    */
   public long getAuCreationTime() {
-    try {
-      return historyRepo.getAuCreationTime();
-    } catch (LockssRepositoryException e) {
-      logger.error("getAuCreationTime: LockssRepositoryException: " + e.getMessage());
-      return -1;
-    }
+    return bean.auCreationTime;
+  }
+
+  /**
+   * Returns the date/time the au was created.
+   * @return au creation time
+   * If there is a Lockss repository exception, this method returns -1.
+   */
+  public void setAuCreationTime(long time) {
+    bean.auCreationTime = time;
+    needSave("auCreationTime");
   }
 
   /**
@@ -315,7 +223,7 @@ public class AuState implements LockssSerializable {
    * @return the last crawl time in ms
    */
   public long getLastCrawlTime() {
-    return lastCrawlTime;
+    return bean.lastCrawlTime;
   }
 
   /**
@@ -326,7 +234,7 @@ public class AuState implements LockssSerializable {
     if (isCrawlActive()) {
       return previousCrawlState.getLastCrawlAttempt();
     }
-    return lastCrawlAttempt;
+    return bean.lastCrawlAttempt;
   }
 
   /**
@@ -336,20 +244,20 @@ public class AuState implements LockssSerializable {
     if (isCrawlActive()) {
       return previousCrawlState.getLastCrawlResult();
     }
-    return lastCrawlResult;
+    return bean.lastCrawlResult;
   }
 
   /**
    * Returns the result of the last new content crawl
    */
-  public String getLastCrawlResultMsg() {
+  public synchronized String getLastCrawlResultMsg() {
     if (isCrawlActive()) {
       return previousCrawlState.getLastCrawlResultMsg();
     }
-    if (lastCrawlResultMsg == null) {
-      return CrawlerStatus.getDefaultMessage(lastCrawlResult);
+    if (bean.lastCrawlResultMsg == null) {
+      return CrawlerStatus.getDefaultMessage(bean.lastCrawlResult);
     }
-    return lastCrawlResultMsg;
+    return bean.lastCrawlResultMsg;
   }
 
   /**
@@ -357,7 +265,7 @@ public class AuState implements LockssSerializable {
    * @return the last deep crawl time in ms
    */
   public long getLastDeepCrawlTime() {
-    return lastDeepCrawlTime;
+    return bean.lastDeepCrawlTime;
   }
 
   /**
@@ -368,7 +276,7 @@ public class AuState implements LockssSerializable {
     if (isCrawlActive()) {
       return previousCrawlState.getLastDeepCrawlAttempt();
     }
-    return lastDeepCrawlAttempt;
+    return bean.lastDeepCrawlAttempt;
   }
 
   /**
@@ -378,7 +286,7 @@ public class AuState implements LockssSerializable {
     if (isCrawlActive()) {
       return previousCrawlState.getLastDeepCrawlResult();
     }
-    return lastDeepCrawlResult;
+    return bean.lastDeepCrawlResult;
   }
 
   /**
@@ -388,10 +296,10 @@ public class AuState implements LockssSerializable {
     if (isCrawlActive()) {
       return previousCrawlState.getLastDeepCrawlResultMsg();
     }
-    if (lastDeepCrawlResultMsg == null) {
-      return CrawlerStatus.getDefaultMessage(lastDeepCrawlResult);
+    if (bean.lastDeepCrawlResultMsg == null) {
+      return CrawlerStatus.getDefaultMessage(bean.lastDeepCrawlResult);
     }
-    return lastDeepCrawlResultMsg;
+    return bean.lastDeepCrawlResultMsg;
   }
 
   /**
@@ -399,22 +307,22 @@ public class AuState implements LockssSerializable {
    * @return the depth of last deep crawl
    */
   public int getLastDeepCrawlDepth() {
-    return lastDeepCrawlDepth;
+    return bean.lastDeepCrawlDepth;
   }
 
   /**
    * @return last time metadata indexing was completed.
    */
   public long getLastMetadataIndex() {
-    return lastMetadataIndex;
+    return bean.lastMetadataIndex;
   }
 
   /**
    * Set last time metadata indexing was completed.
    */
   public synchronized void setLastMetadataIndex(long time) {
-    lastMetadataIndex = time;
-    needSave();
+    bean.lastMetadataIndex = time;
+    needSave("lastMetadataIndex");
   }
 
   /**
@@ -422,7 +330,7 @@ public class AuState implements LockssSerializable {
    * only the first such change per crawl is noted.
    */
   public long getLastContentChange() {
-    return lastContentChange;
+    return bean.lastContentChange;
   }
 
   /**
@@ -438,7 +346,7 @@ public class AuState implements LockssSerializable {
    * @return the last poll time in ms
    */
   public long getLastTopLevelPollTime() {
-    return lastTopLevelPoll;
+    return bean.lastTopLevelPollTime;
   }
 
   /**
@@ -446,7 +354,7 @@ public class AuState implements LockssSerializable {
    * @return the last poll time in ms
    */
   public long getLastPoPPoll() {
-    return lastPoPPoll;
+    return bean.lastPoPPoll;
   }
 
   /**
@@ -454,7 +362,7 @@ public class AuState implements LockssSerializable {
    * @return the last scan time in ms
    */
   public long getLastLocalHashScan() {
-    return lastLocalHashScan;
+    return bean.lastLocalHashScan;
   }
 
   /**
@@ -462,7 +370,7 @@ public class AuState implements LockssSerializable {
    * @return the last poll time in ms
    */
   public int getLastPoPPollResult() {
-    return lastPoPPollResult;
+    return bean.lastPoPPollResult;
   }
 
   /**
@@ -470,7 +378,7 @@ public class AuState implements LockssSerializable {
    * @return the last poll time in ms
    */
   public long getLastTimePollCompleted() {
-    return Math.max(lastTopLevelPoll, lastPoPPoll);
+    return Math.max(bean.lastTopLevelPollTime, bean.lastPoPPoll);
   }
 
   /**
@@ -478,7 +386,7 @@ public class AuState implements LockssSerializable {
    * @return the last poll time in ms
    */
   public long getLastPollStart() {
-    return lastPollStart;
+    return bean.lastPollStart;
   }
 
   /**
@@ -494,20 +402,20 @@ public class AuState implements LockssSerializable {
    * Returns the result code of the last poll
    */
   public int getLastPollResult() {
-    return lastPollResult;
+    return bean.lastPollResult;
   }
 
   /**
    * Returns the result of the last PoR poll
    */
   public String getLastPollResultMsg() {
-    if (lastPollResult < 0) {
+    if (bean.lastPollResult < 0) {
       return null;
     }
     try {
-      return V3Poller.getStatusString(lastPollResult);
+      return V3Poller.getStatusString(bean.lastPollResult);
     } catch (IndexOutOfBoundsException e) {
-      return "Poll result " + lastPollResult;
+      return "Poll result " + bean.lastPollResult;
     }
   }
 
@@ -515,17 +423,17 @@ public class AuState implements LockssSerializable {
    * Returns the result of the last PoP poll
    */
   public String getLastPoPPollResultMsg() {
-    if (lastPoPPollResult < 0) {
+    if (bean.lastPoPPollResult < 0) {
       return null;
     }
     try {
-      return V3Poller.getStatusString(lastPoPPollResult);
+      return V3Poller.getStatusString(bean.lastPoPPollResult);
     } catch (IndexOutOfBoundsException e) {
-      return "Poll result " + lastPoPPollResult;
+      return "Poll result " + bean.lastPoPPollResult;
     }
   }
   public long getAverageHashDuration() {
-    return hashDuration;
+    return bean.averageHashDuration;
   }
 
   public void setLastHashDuration(long newDuration) {
@@ -533,52 +441,52 @@ public class AuState implements LockssSerializable {
       logger.warning("Tried to update hash with negative duration.");
       return;
     }
-    hashDuration = newDuration;
+    bean.averageHashDuration = newDuration;
   }
 
   public int getNumAgreePeersLastPoR() {
-    return numAgreePeersLastPoR;
+    return bean.numAgreePeersLastPoR;
   }
 
   public synchronized void setNumAgreePeersLastPoR(int n) {
-    if (numAgreePeersLastPoR != n) {
-      numAgreePeersLastPoR = n;
-      needSave();
+    if (bean.numAgreePeersLastPoR != n) {
+      bean.numAgreePeersLastPoR = n;
+      needSave("numAgreePeersLastPoR");
     }
   }
 
   public int getNumWillingRepairers() {
-    return numWillingRepairers;
+    return bean.numWillingRepairers;
   }
 
   public synchronized void setNumWillingRepairers(int n) {
-    if (numWillingRepairers != n) {
+    if (bean.numWillingRepairers != n) {
       if (logger.isDebug3()) {
 	logger.debug3("setNumWillingRepairers: " +
-		      numWillingRepairers + " -> " + n);
+		      bean.numWillingRepairers + " -> " + n);
       }
-      numWillingRepairers = n;
-      needSave();
+      bean.numWillingRepairers = n;
+      needSave("numWillingRepairers");
     }
   }
 
   public int getNumCurrentSuspectVersions() {
-    return numCurrentSuspectVersions;
+    return bean.numCurrentSuspectVersions;
   }
 
   public synchronized void setNumCurrentSuspectVersions(int n) {
-    if (numCurrentSuspectVersions != n) {
+    if (bean.numCurrentSuspectVersions != n) {
       if (logger.isDebug3()) {
 	logger.debug3("setNumCurrentSuspectVersions: " +
-		      numCurrentSuspectVersions + " -> " + n);
+		      bean.numCurrentSuspectVersions + " -> " + n);
       }
-      numCurrentSuspectVersions = n;
-      needSave();
+      bean.numCurrentSuspectVersions = n;
+      needSave("numCurrentSuspectVersions");
     }
   }
 
   public synchronized void incrementNumCurrentSuspectVersions(int n) {
-    if (numCurrentSuspectVersions < 0) {
+    if (bean.numCurrentSuspectVersions < 0) {
       // If -1, this object was deserialized from a file written before
       // this field existed, so it needs to be computed.
       recomputeNumCurrentSuspectVersions();
@@ -593,32 +501,42 @@ public class AuState implements LockssSerializable {
       n = asuv.countCurrentSuspectVersions(au);
     }
     logger.debug2("recomputeNumCurrentSuspectVersions(" + au + "): " +
-		  numCurrentSuspectVersions + " -> " + n);
+		  bean.numCurrentSuspectVersions + " -> " + n);
     setNumCurrentSuspectVersions(n);
     return n;
   }
 
   public List<String> getCdnStems() {
-    return cdnStems == null ? (List<String>)Collections.EMPTY_LIST : cdnStems;
+    return bean.cdnStems != null ?  bean.cdnStems
+      : (List<String>)Collections.EMPTY_LIST;
   }
 
   public synchronized void setCdnStems(List<String> stems) {
+    logger.debug("setCdnStems: " + stems);
     if (!getCdnStems().equals(stems)) {
-      cdnStems = stems == null ? null : ListUtil.minimalArrayList(stems);
+      if (stems == null) {
+	bean.cdnStems = null;
+      } else {
+	// Must copy, as cdnStems gets modified
+	List<String> val = new ArrayList(stems.size());
+	val.addAll(stems);
+	bean.cdnStems = val;
+      }
+      needSave("cdnStems");
       flushAuCaches();
-      needSave();
     }
   }
 
   public synchronized void addCdnStem(String stem) {
+    logger.debug("addCdnStem: " + stem);
     if (!getCdnStems().contains(stem)) {
-      if (cdnStems == null) {
-	cdnStems = new ArrayList(4);
+      if (bean.cdnStems == null) {
+	bean.cdnStems = new ArrayList(4);
       }
-      cdnStems.add(stem);
-      flushAuCaches();
+      bean.cdnStems.add(stem);
       AuUtil.getDaemon(au).getPluginManager().addAuStem(stem, au);
-      needSave();
+      needSave("cdnStems");
+      flushAuCaches();
     }
   }
 
@@ -626,7 +544,7 @@ public class AuState implements LockssSerializable {
    * Returns the running average poll duration, or 0 if unknown
    */
   public long getPollDuration() {
-    return pollDuration;
+    return bean.pollDuration;
   }
 
   /**
@@ -634,12 +552,12 @@ public class AuState implements LockssSerializable {
    * average.  Return the new average.
    */
   public long setPollDuration(long duration) {
-    if (pollDuration == 0) {
-      pollDuration = duration;
+    if (bean.pollDuration == 0) {
+      bean.pollDuration = duration;
     } else {
-      pollDuration = (pollDuration + duration + 1) / 2;
+      bean.pollDuration = (bean.pollDuration + duration + 1) / 2;
     }
-    return pollDuration;
+    return bean.pollDuration;
   }
 
   /**
@@ -654,7 +572,7 @@ public class AuState implements LockssSerializable {
     if (previousCrawlState != null) {
       logger.error("saveLastCrawl() called twice", new Throwable());
     }
-    previousCrawlState = copy();
+    previousCrawlState = saveCrawlState();
   }
 
   /**
@@ -674,15 +592,18 @@ public class AuState implements LockssSerializable {
   private synchronized void newCrawlStarted(boolean isDeep) {
     saveLastCrawl();
     long now = TimeBase.nowMs();
-    lastCrawlAttempt = now;
-    lastCrawlResult = Crawler.STATUS_RUNNING_AT_CRASH;
-    lastCrawlResultMsg = null;
+    bean.lastCrawlAttempt = now;
+    bean.lastCrawlResult = Crawler.STATUS_RUNNING_AT_CRASH;
+    bean.lastCrawlResultMsg = null;
     if (isDeep) {
-      lastDeepCrawlAttempt = now;
-      lastDeepCrawlResult = Crawler.STATUS_RUNNING_AT_CRASH;
-      lastDeepCrawlResultMsg = null;
+      bean.lastDeepCrawlAttempt = now;
+      bean.lastDeepCrawlResult = Crawler.STATUS_RUNNING_AT_CRASH;
+      bean.lastDeepCrawlResultMsg = null;
+      needSave("lastCrawlAttempt", "lastCrawlResult", "lastCrawlResultMsg",
+	       "lastDeepCrawlAttempt", "lastDeepCrawlResult", "lastDeepCrawlResultMsg");
+    } else {
+      needSave("lastCrawlAttempt", "lastCrawlResult", "lastCrawlResultMsg");
     }
-    needSave();
   }
 
   /**
@@ -699,18 +620,18 @@ public class AuState implements LockssSerializable {
     switch (result) {
     case Crawler.STATUS_SUCCESSFUL:
       long now = TimeBase.nowMs();
-      lastCrawlTime = now;
+      bean.lastCrawlTime = now;
       if (depth > 0) {
-	lastDeepCrawlTime = now;
-	lastDeepCrawlDepth = depth;
+	bean.lastDeepCrawlTime = now;
+	bean.lastDeepCrawlDepth = depth;
       }
       // fall through
     default:
-      lastCrawlResult = result;
-      lastCrawlResultMsg = resultMsg;
+      bean.lastCrawlResult = result;
+      bean.lastCrawlResultMsg = resultMsg;
       if (depth > 0) {
-	lastDeepCrawlResult = result;
-	lastDeepCrawlResultMsg = resultMsg;
+	bean.lastDeepCrawlResult = result;
+	bean.lastDeepCrawlResultMsg = resultMsg;
       }
       break;
     case Crawler.STATUS_ACTIVE:
@@ -718,7 +639,8 @@ public class AuState implements LockssSerializable {
       break;
     }
     previousCrawlState = null;
-    needSave();
+    needSave("lastCrawlTime", "lastCrawlAttempt",
+	     "lastCrawlResult", "lastCrawlResultMsg");
   }
 
   /**
@@ -729,49 +651,33 @@ public class AuState implements LockssSerializable {
     if (previousCrawlState != null) {
       // Is the previous content change after the start of this
       // crawl?
-      if (lastContentChange > lastCrawlAttempt) {
+      if (bean.lastContentChange > bean.lastCrawlAttempt) {
 	// Yes - we already know this crawl changed things
 	return;
       }
     }
     // Yes - this is the first change in this crawl.
-    lastContentChange = TimeBase.nowMs();
-    needSave();
+    bean.lastContentChange = TimeBase.nowMs();
+    needSave("lastContentChange");
   }
 
-  private AuState copy() {
-    return new AuState(au,
-		       lastCrawlTime, lastCrawlAttempt,
-		       lastCrawlResult, lastCrawlResultMsg,
-		       lastDeepCrawlTime, lastDeepCrawlAttempt,
-		       lastDeepCrawlResult, lastDeepCrawlResultMsg,
-		       lastDeepCrawlDepth,
-		       lastTopLevelPoll, lastPollStart,
-		       lastPollResult, lastPollResultMsg, pollDuration,
-		       hashDuration,
-		       lastTreeWalk, crawlUrls,
-		       accessType,
-		       clockssSubscriptionStatus,
-		       v3Agreement, highestV3Agreement,
-		       hasSubstance,
-		       substanceVersion, metadataVersion,
-		       lastMetadataIndex,
-		       lastContentChange,
-		       lastPoPPoll, lastPoPPollResult,
-		       lastLocalHashScan,
-		       numAgreePeersLastPoR,
-		       numWillingRepairers,
-		       numCurrentSuspectVersions,
-		       cdnStems,
-		       null);
+  private AuStateBean saveCrawlState() {
+    AuStateBean res = new AuStateBean();
+    res.lastCrawlResultMsg = getLastCrawlResultMsg();
+    res.lastCrawlResult = getLastCrawlResult();
+    res.lastCrawlAttempt = getLastCrawlAttempt();
+    res.lastDeepCrawlResultMsg = getLastDeepCrawlResultMsg();
+    res.lastDeepCrawlResult = getLastDeepCrawlResult();
+    res.lastDeepCrawlAttempt = getLastDeepCrawlAttempt();
+    return res;
   }
 
   /**
    * Sets the last time a poll was started.
    */
   public synchronized void pollStarted() {
-    lastPollStart = TimeBase.nowMs();
-    needSave();
+    bean.lastPollStart = TimeBase.nowMs();
+    needSave("lastPollStart");
   }
 
   /**
@@ -779,7 +685,7 @@ public class AuState implements LockssSerializable {
    */
   public synchronized void pollAttempted() {
     lastPollAttempt = TimeBase.nowMs();
-    needSave();
+    needSave("lastPollAttempt");
   }
 
   /**
@@ -792,24 +698,25 @@ public class AuState implements LockssSerializable {
     switch (variant) {
     case PoR:
       if (complete) {
-	lastTopLevelPoll = now;
+	bean.lastTopLevelPollTime = now;
       }
-      lastPollResult = result;
+      bean.lastPollResult = result;
       setPollDuration(TimeBase.msSince(lastPollAttempt));
       break;
     case PoP:
       if (complete) {
-	lastPoPPoll = now;
+	bean.lastPoPPoll = now;
       }
-      lastPoPPollResult = result;
+      bean.lastPoPPollResult = result;
       break;
     case Local:
       if (complete) {
-	lastLocalHashScan = now;
+	bean.lastLocalHashScan = now;
       }
       break;
     }
-    needSave();
+    needSave("lastTopLevelPollTime", "lastPollResult", "pollDuration",
+	     "lastPoPPoll", "lastPoPPollResult", "lastLocalHashScan");
   }
 
   /**
@@ -821,23 +728,26 @@ public class AuState implements LockssSerializable {
   }
 
   public synchronized void setV3Agreement(double d) {
-    v3Agreement = d;
-    if (v3Agreement > highestV3Agreement) {
-      highestV3Agreement = v3Agreement;
+    bean.v3Agreement = d;
+    if (bean.v3Agreement > bean.highestV3Agreement) {
+      bean.highestV3Agreement = bean.v3Agreement;
+      needSave("v3Agreement", "highestV3Agreement");
+    } else {
+      needSave("v3Agreement");
     }
-    needSave();
   }
 
   /**
    * @return agreement in last V3 poll
    */
   public double getV3Agreement() {
-    return v3Agreement;
+    return bean.v3Agreement;
   }
   
   public double getHighestV3Agreement() {
     // We didn't used to track highest, so return last if no highest recorded
-    return v3Agreement > highestV3Agreement ? v3Agreement : highestV3Agreement;
+    return bean.v3Agreement > bean.highestV3Agreement
+      ? bean.v3Agreement : bean.highestV3Agreement;
   }
   
   public synchronized void setSubstanceState(SubstanceChecker.State state) {
@@ -845,28 +755,28 @@ public class AuState implements LockssSerializable {
     setFeatureVersion(Plugin.Feature.Substance,
 		      au.getPlugin().getFeatureVersion(Plugin.Feature.Substance));
     if (getSubstanceState() != state) {
-      hasSubstance = state;
-      needSave();
+      bean.hasSubstance = state;
+      needSave("hasSubstance");
     }
     unBatchSaves();
   }
 
   public SubstanceChecker.State getSubstanceState() {
-    if (hasSubstance == null) {
+    if (bean.hasSubstance == null) {
       return SubstanceChecker.State.Unknown;
     }
-    return hasSubstance;
+    return bean.hasSubstance;
   }
 
   public boolean hasNoSubstance() {
-    return hasSubstance == SubstanceChecker.State.No;
+    return bean.hasSubstance == SubstanceChecker.State.No;
   }
 
   /** Get the version string that was last set for the given feature */
   public String getFeatureVersion(Plugin.Feature feat) {
     switch (feat) {
-    case Substance: return substanceVersion;
-    case Metadata: return metadataVersion;
+    case Substance: return bean.substanceVersion;
+    case Metadata: return bean.metadataVersion;
     default: return null;
     }
   }
@@ -877,11 +787,16 @@ public class AuState implements LockssSerializable {
     String over = getFeatureVersion(feat);
     if (!StringUtil.equalStrings(ver, over)) {
       switch (feat) {
-      case Substance: substanceVersion = ver; break;
-      case Metadata: metadataVersion = ver; break;
+      case Substance:
+	bean.substanceVersion = ver;
+	needSave("substanceVersion");
+	break;
+      case Metadata:
+	bean.metadataVersion = ver;
+	needSave("metadataVersion");
+	break;
       default:
       }
-      needSave();
     }
   }
 
@@ -907,32 +822,17 @@ public class AuState implements LockssSerializable {
     return crawlUrls;
   }
 
-  /**
-   * Alert the AuState that the crawl url collection has been updated.  Waits
-   * until URL_UPDATE_LIMIT updates have been made, then writes the state to
-   * file.
-   * @param forceWrite forces state storage if true
-   * @deprecated
-   */
-  public void updatedCrawlUrls(boolean forceWrite) {
-    urlUpdateCntr++;
-    if (forceWrite || (urlUpdateCntr >= URL_UPDATE_LIMIT)) {
-      needSave();
-      urlUpdateCntr = 0;
-    }
-  }
-
   public void setAccessType(AccessType accessType) {
     // don't store, this will get stored at end of crawl
-    this.accessType = accessType;
+    bean.accessType = accessType;
   }
 
   public AccessType getAccessType() {
-    return accessType;
+    return bean.accessType;
   }
 
   public boolean isOpenAccess() {
-    return accessType == AccessType.OpenAccess;
+    return bean.accessType == AccessType.OpenAccess;
   }
 
   // CLOCKSS status
@@ -948,7 +848,7 @@ public class AuState implements LockssSerializable {
    * CLOCKSS_SUB_YES, CLOCKSS_SUB_NO
    */
   public int getClockssSubscriptionStatus() {
-    return clockssSubscriptionStatus;
+    return bean.clockssSubscriptionStatus;
   }
 
   public String getClockssSubscriptionStatusString() {
@@ -964,10 +864,22 @@ public class AuState implements LockssSerializable {
   }
 
   public synchronized void setClockssSubscriptionStatus(int val) {
-    if (clockssSubscriptionStatus != val) {
-      clockssSubscriptionStatus = val;
-      needSave();
+    if (bean.clockssSubscriptionStatus != val) {
+      bean.clockssSubscriptionStatus = val;
+      needSave("clockssSubscriptionStatus");
     }
+  }
+
+  /**
+   * Returns the auid
+   * @return the auid
+   */
+  public String getAuId() {
+    return bean.auId;
+  }
+
+  public void setAuId(String auId) {
+    bean.setAuId(auId);
   }
 
   /** Start a batch of updates, deferring saving until unBatchSaves() is
@@ -989,48 +901,102 @@ public class AuState implements LockssSerializable {
     if (logger.isDebug3()) {
       logger.debug3("End batch: " + batchSaveDepth);
     }
-    if (--batchSaveDepth == 0 && needSave) {
-      storeAuState();
+    if (--batchSaveDepth == 0 &&
+	changedFields != null && !changedFields.isEmpty()) {
+      storeAuState(SetUtil.theSet(changedFields));
     }
   }
 
-  private void needSave() {
+  private List<String> changedFields;
+
+  /** Save the named fields or, if we are in a deferred batch, just
+   * remember them */
+  protected synchronized void needSave(String ... fields) {
     if (batchSaveDepth == 0) {
-      storeAuState();
+      storeAuState(fields);
     } else {
-      needSave = true;
-    }
-  } 
-
-  public synchronized void storeAuState() {
-    historyRepo.storeAuState(this);
-    needSave = false;
-  }
-
-  /**
-   * Avoid duplicating common strings
-   */
-  protected void postUnmarshal(LockssApp lockssContext) {
-    lastPollResultMsg = null;		// no longer used
-    StringPool featPool = StringPool.FEATURE_VERSIONS;
-    if (substanceVersion != null) {
-      substanceVersion = featPool.intern(substanceVersion);
-    }
-    if (metadataVersion != null) {
-      metadataVersion = featPool.intern(metadataVersion);
-    }
-    StringPool cPool = CrawlerStatus.CRAWL_STATUS_POOL;
-    lastCrawlResultMsg = cPool.intern(lastCrawlResultMsg);
-    lastDeepCrawlResultMsg = cPool.intern(lastDeepCrawlResultMsg);
-    if (cdnStems != null) {
-      if (cdnStems.isEmpty()) {
-	cdnStems = null;
-      } else {
-	cdnStems = StringPool.URL_STEMS.internList(cdnStems);
+      if (changedFields == null) {
+	changedFields = new ArrayList<>(5);
+      }
+      for (String f : fields) {
+	changedFields.add(f);
       }
     }
   }
 
+  /** Update the saved state to reflect the changed made to the named
+   * fields.
+   * @param fields fields to store.  If null, all fields are stored
+   */
+  public synchronized void storeAuState(String ... fields) {
+    switch (fields.length) {
+    case 0:
+      storeAuState(Collections.EMPTY_SET);
+      break;
+    case 1:
+      storeAuState(Collections.singleton(fields[0]));
+      break;
+    default:
+      Set<String> s = new HashSet<>();
+      Collections.addAll(s, fields);
+      storeAuState(s);
+      break;
+    }
+  }
+
+  /** Update the saved state to reflect the changed made to the named
+   * fields.
+   * @param fields fields to store.  If null, all fields are stored
+   */
+  public synchronized void storeAuState(Set<String> fields) {
+    getStateMgr().updateAuState(this, fields);
+    changedFields = null;
+  }
+
+  /** Serialize entire object to json string */
+  public String toJson() throws IOException {
+    return bean.toJson();
+  }
+
+  /** Serialize a single field to json string */
+  public String toJson(String field) throws IOException {
+    return bean.toJson(field);
+  }
+
+  /** Serialize named fields to json string */
+  public String toJson(Set<String> fields) throws IOException {
+    return bean.toJson(fields);
+  }
+
+  /** Serialize all fields except given field to json string */
+  public String toJsonExcept(String field) throws IOException {
+    return bean.toJsonExcept(field);
+  }
+
+  /** Serialize all fields except named fields to json string */
+  public String toJsonExcept(Set<String> fields) throws IOException {
+    return bean.toJsonExcept(fields);
+  }
+
+  /** Deserialize a json string into this AuState, replacing only those
+   * fields that are present in the json string
+   * @param json json string
+   * @param app
+   */
+  public AuState updateFromJson(String json, LockssApp app) throws IOException {
+    bean.updateFromJson(json, app);
+    return this;
+  }
+
+  private StateManager getStateMgr() {
+    if (stateMgr == null) {
+      // XXX very handy for test.  alternative?
+      return LockssDaemon.getManagerByTypeStatic(StateManager.class);
+    }
+    return stateMgr;
+  }
+
+  // XXX must call this when load or change cdnStems
   protected void flushAuCaches() {
     try {
       au.setConfiguration(au.getConfiguration());
@@ -1040,31 +1006,26 @@ public class AuState implements LockssSerializable {
     }
   }
 
-  /**
-   * Set the history repository which manages this AuState file.
-   * @param histRepo
-   */
-  protected void setHistoryRepo(HistoryRepository histRepo) {
-    this.historyRepo = histRepo;
-  }
-
   public String toString() {
     StringBuffer sb = new StringBuffer();
     sb.append("[AuState: ");
     sb.append("lastCrawlTime=");
-    sb.append(new Date(lastCrawlTime));
+    sb.append(new Date(bean.lastCrawlTime));
     sb.append(", ");
     sb.append("lastCrawlAttempt=");
-    sb.append(new Date(lastCrawlAttempt));
+    sb.append(new Date(bean.lastCrawlAttempt));
     sb.append(", ");
     sb.append("lastCrawlResult=");
-    sb.append(lastCrawlResult);
+    sb.append(bean.lastCrawlResult);
     sb.append(", ");
-    sb.append("lastTopLevelPoll=");
-    sb.append(new Date(lastTopLevelPoll));
+    sb.append("lastTopLevelPollTime=");
+    sb.append(new Date(bean.lastTopLevelPollTime));
+//     sb.append(", ");
+//     sb.append("clockssSub=");
+//     sb.append(clockssSubscriptionStatus);
     sb.append(", ");
-    sb.append("clockssSub=");
-    sb.append(clockssSubscriptionStatus);
+    sb.append("cdn=");
+    sb.append(bean.cdnStems);
     sb.append("]");
     return sb.toString();
   }

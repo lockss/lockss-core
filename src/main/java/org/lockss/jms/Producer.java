@@ -29,11 +29,7 @@ package org.lockss.jms;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import javax.jms.*;
-
-import org.apache.activemq.ActiveMQConnection;
-import org.apache.activemq.ActiveMQConnectionFactory;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
@@ -43,12 +39,11 @@ public class Producer {
   private static final Logger log = Logger.getLogger();
 
   private String clientId;
-  private Connection connection;
   private Session session;
   private MessageProducer messageProducer;
 
   public static Producer createTopicProducer(String clientId,
-					       String topicName)
+					     String topicName)
       throws JMSException {
     Producer res = new Producer();
     res.createTopic(clientId, topicName);
@@ -64,19 +59,13 @@ public class Producer {
     log.debug("Creating producer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
 	      mgr.getConnectUri());
-    ConnectionFactory connectionFactory =
-      new ActiveMQConnectionFactory(mgr.getConnectUri());
 
-    // create a Connection
-    connection = connectionFactory.createConnection();
-    connection.setClientID(clientId);
-    log.debug3("Created session for topic: " + topicName +
+    Connection connection = mgr.getConnection();
+    // create a Session
+    log.debug3("Creating session for topic: " + topicName +
 	       ", client: " + clientId + " at " +
 	       mgr.getConnectUri());
-
-    // create a Session
-    session =
-        connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+    session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
     // create the Topic to which messages will be sent
     Topic topic = session.createTopic(topicName);
@@ -89,9 +78,9 @@ public class Producer {
     return this;
   }
 
-  public void closeConnection() throws JMSException {
-    if(connection != null) {
-      connection.close();
+  public void close() throws JMSException {
+    if (messageProducer != null) {
+      messageProducer.close();
     }
   }
 

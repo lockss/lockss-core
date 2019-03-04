@@ -148,7 +148,7 @@ public abstract class JettyManager
   protected boolean startServer(HttpServer server, int port, int sslPort,
 				String serverName) {
     try {
-      if (!isInited()) return false;
+      if (!isStarted()) return false;
       if (resourceMgr != null) {
 	if (!resourceMgr.reserveTcpPort(port, serverName)) {
 	  log.warning(serverName + " not started; port " + port + " is in use");

@@ -35,8 +35,6 @@ package org.lockss.state;
 import java.io.*;
 import java.util.List;
 import org.lockss.plugin.*;
-import org.lockss.protocol.DatedPeerIdSet;
-import org.lockss.protocol.AuAgreements;
 import org.lockss.repository.*;
 import org.lockss.app.LockssAuManager;
 
@@ -47,77 +45,17 @@ import org.lockss.app.LockssAuManager;
 public interface HistoryRepository extends LockssAuManager {
 
   /**
-   * Stores {@link AuAgreements}.
-   * @param auAgreements The {@link AuAgreements} for this AU.
-   */
-  public void storeIdentityAgreements(AuAgreements auAgreements)
-      throws LockssRepositoryException;
-
-  /**
-   * Loads and returns the saved {@link Object} representing the agreements.
-   *
-   * From daemon release 1.62, the daemon saves {@link
-   * AuAgreements}.
-   *
-   * Prior to release 1.62, the daemon saved {@link
-   * List<IdentityManager.IdentityAgreement>}.
-   *
-   * @return an {@link Object}, or {@code null} if there are no saved
-   * agreements.
-   */
-  public Object loadIdentityAgreements() throws LockssRepositoryException;
-
-  /** Return identity agreement File for this AU
-   */
-  public File getIdentityAgreementFile();
-
-  /** Return AuState File for this AU
-   */
-  public File getAuStateFile();
-
-  /**
    * Return the date/time the au was created.
    */
   public long getAuCreationTime() throws LockssRepositoryException;
 
   /**
-   * Return the associated DatedPeerIdSet
-   */
-  public DatedPeerIdSet getNoAuPeerSet();
-  
-  /**
-   * Stores the AuState for this ArchivalUnit
-   * @param auState the state to store
-   */
-  public void storeAuState(AuState auState);
-
-  /**
-   * Loads the AuState for this ArchivalUnit
-   * @return the {@link AuState}
-   */
-  public AuState loadAuState();
-
-  /**
-   * return the AuState
+   * return the AuState.  Temporarily left here for a couple callers that
+   * use other HistoryRepository methods
    * @return the loaded AuState.
+   * @deprecated
    */
+  @Deprecated
   public AuState getAuState();
 
-  /**
-   * set the AuState
-   */
-  public void setAuState(AuState auState);
-
-  /**
-   * Stores the DamagedNodeSet for this ArchivalUnit
-   * @param nodeSet the set to store
-   */
-  public void storeDamagedNodeSet(DamagedNodeSet nodeSet);
-
-  /**
-   * Loads the DamagedNodeSet for this ArchivalUnit
-   * @return the {@link DamagedNodeSet}
-   */
-  public DamagedNodeSet loadDamagedNodeSet();
-  public boolean hasDamage(CachedUrlSet cus);
 }

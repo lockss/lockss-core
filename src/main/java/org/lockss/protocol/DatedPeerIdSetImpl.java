@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,67 +28,32 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.protocol;
 
-import java.io.*;
-import java.util.HashSet;
-
-import org.lockss.util.IOUtil;
-
-/**
- * @author edwardsb
- *
- */
 public class DatedPeerIdSetImpl extends PersistentPeerIdSetImpl implements
     DatedPeerIdSet {
 
-  public static final long k_dateDefault = -1;
-  
-  private long m_date;
+  private long m_date = -1;
   
   /**
-   * @param filePeerId
    * @param identityManager
    */
-  public DatedPeerIdSetImpl(File filePeerId, IdentityManager identityManager) {
-    super(filePeerId, identityManager);
-
-    m_date = k_dateDefault;
+  public DatedPeerIdSetImpl(IdentityManager identityManager) {
+    super(identityManager);
   }
 
   /** (non-Javadoc)
    * @see org.lockss.protocol.DatedPeerIdSet#getDate()
    */
-  public long getDate() throws IOException {
-    loadIfNecessary();
+  public long getDate() {
     return m_date;
   }
 
   /* (non-Javadoc)
    * @see org.lockss.protocol.DatedPeerIdSet#setDate(java.lang.Long)
    */
-  public void setDate(long l) throws IOException {
-    loadIfNecessary();
+  public void setDate(long l) {
     if (m_date != l) {
       m_date = l;
       m_changed = true;
-      storeIfNecessary();
     }
-  }
-  
-  @Override
-  protected void readData(DataInputStream is) throws IOException {
-    m_date = is.readLong();
-    super.readData(is);
-  }
-
-  @Override
-  protected void newData() throws IOException {
-    m_date = k_dateDefault;
-    super.newData();
-  }
-
-  @Override
-  protected void writeData(DataOutputStream dos) throws IOException {
-    dos.writeLong(m_date);
-    super.writeData(dos);
   }
 }

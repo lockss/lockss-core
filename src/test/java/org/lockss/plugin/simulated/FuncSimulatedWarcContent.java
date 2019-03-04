@@ -39,6 +39,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.Crawler;
 import org.lockss.plugin.*;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.Logger;
 
 import junit.framework.*;
@@ -92,7 +93,6 @@ public class FuncSimulatedWarcContent extends LockssTestCase {
 
   public void tearDown() throws Exception {
     theDaemon.getLockssRepository(sau).stopService();
-    theDaemon.getHistoryRepository(sau).stopService();
     theDaemon.getPluginManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSystemMetrics().stopService();

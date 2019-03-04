@@ -38,7 +38,6 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.poller.ReputationTransfers;
 import org.lockss.protocol.AgreementType;
 import org.lockss.protocol.IdentityManagerImpl;
-import org.lockss.protocol.MockPeerIdentity;
 import org.lockss.protocol.PeerAgreement;
 import org.lockss.protocol.PeerIdentity;
 import org.lockss.test.ConfigurationUtil;

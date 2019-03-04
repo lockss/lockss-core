@@ -116,12 +116,8 @@ public class TestFollowLinkCrawler2 extends LockssTestCase {
   }
 
   MyMockArchivalUnit newMyMockArchivalUnit() {
-    MockHistoryRepository mhr = new MockHistoryRepository();
     MyMockArchivalUnit mau = new MyMockArchivalUnit();
-    getMockLockssDaemon().setHistoryRepository(mhr, mau);
-    aus = new MockAuState(mau);
-    mhr.setAuState(aus);
-    aus.setHistoryRepository(mhr);
+    aus = AuTestUtil.setUpMockAus(mau);
     return mau;
   }
 

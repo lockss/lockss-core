@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,6 +41,7 @@ import org.lockss.db.DbException;
 import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
@@ -136,7 +137,8 @@ public class BatchAuConfigNew extends LockssServlet {
     subManager = getLockssDaemon().getSubscriptionManager();
   }
 
-  protected void lockssHandleRequest() throws IOException, DbException {
+  protected void lockssHandleRequest()
+      throws IOException, DbException, LockssRestException {
     errMsg = null;
     statusMsg = null;
 
@@ -294,7 +296,8 @@ public class BatchAuConfigNew extends LockssServlet {
     endPage(page);
   }
 
-  private void chooseSets(Verb verb) throws IOException, DbException {
+  private void chooseSets(Verb verb)
+      throws IOException, DbException, LockssRestException {
     this.verb = verb;
 
     // Begin page
@@ -340,7 +343,8 @@ public class BatchAuConfigNew extends LockssServlet {
     endPage(page);
   }
 
-  private void chooseAus() throws IOException, DbException {
+  private void chooseAus()
+      throws IOException, DbException, LockssRestException {
     // Gather title sets
     String[] setNames = req.getParameterValues(KEY_TITLE_SET);
 
@@ -691,7 +695,7 @@ public class BatchAuConfigNew extends LockssServlet {
     }
 
     int countAusInSetForVerb(RemoteApi remoteApi, TitleSet ts)
-	throws DbException {
+	throws DbException, LockssRestException {
       switch (val) {
       case VV_ADD:
 	return ts.countTitles(TitleSet.SET_ADDABLE);

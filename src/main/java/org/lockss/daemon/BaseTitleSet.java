@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +33,7 @@ import org.lockss.app.*;
 import org.lockss.db.DbException;
 import org.lockss.util.*;
 import org.lockss.plugin.PluginManager;
+import org.lockss.rs.exception.LockssRestException;
 
 /** Base class for TitleSet implementations */
 public abstract class BaseTitleSet implements TitleSet {
@@ -71,7 +72,8 @@ public abstract class BaseTitleSet implements TitleSet {
   // Tdb where possible.  Move actionable logic from RemoteApi to
   // TitleConfig/TdbAu
 
-  public Collection<TitleConfig> getTitles() throws DbException {
+  public Collection<TitleConfig> getTitles()
+      throws DbException, LockssRestException {
     return filterTitles(daemon.getPluginManager().findAllTitleConfigs());
   }
 
@@ -79,7 +81,7 @@ public abstract class BaseTitleSet implements TitleSet {
    * added/deleted/reactivated.  Default implementation executes the filter
    * and counts the result
    * @return number of titles for which the action can be performed */
-  public int countTitles(int action) throws DbException {
+  public int countTitles(int action) throws DbException, LockssRestException {
     PluginManager pluginMgr = daemon.getPluginManager();
     int res = 0;
     for (TitleConfig tc : getTitles()) {

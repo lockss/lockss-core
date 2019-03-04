@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +34,7 @@ import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.*;
+import org.lockss.rs.exception.LockssRestException;
 
 /** The set of titles configured on the cache */
 public class TitleSetInactiveAus extends BaseTitleSet {
@@ -47,7 +48,8 @@ public class TitleSetInactiveAus extends BaseTitleSet {
 
   /** Return the titles in the set.
    * @return a collection of TitleConfig */
-  public Collection<TitleConfig> getTitles() throws DbException {
+  public Collection<TitleConfig> getTitles()
+      throws DbException, LockssRestException {
     Collection aus = daemon.getRemoteApi().getInactiveAus();
     ArrayList<TitleConfig> res = new ArrayList<TitleConfig>(aus.size());
     for (Iterator iter = aus.iterator(); iter.hasNext();) {
@@ -72,7 +74,8 @@ public class TitleSetInactiveAus extends BaseTitleSet {
 
   /** Return a TitleConfig for the AU.  Returns matching entry from the
    * title db if found, else creates one */
-  TitleConfig titleConfigFromAu(InactiveAuProxy au) throws DbException {
+  TitleConfig titleConfigFromAu(InactiveAuProxy au)
+      throws DbException, LockssRestException {
     PluginProxy plugin = au.getPlugin();
     String auname = au.getName();
     Configuration auConfig = au.getConfiguration();

@@ -36,6 +36,7 @@ import java.util.*;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.lockss.state.*;
+import org.lockss.plugin.*;
 import org.lockss.clockss.*;
 import org.lockss.extractor.*;
 import org.lockss.test.*;
@@ -58,10 +59,7 @@ public class LockssPermissionCheckerTestCase extends LockssTestCase {
     // invoked.
     LinkExtractor ue = new RegexpCssLinkExtractor();
     mau.setLinkExtractor("text/css", ue);
-    aus = new MockAuState(mau);
-    MockHistoryRepository mhr = new MockHistoryRepository();
-    mhr.setAuState(aus);
-    daemon.setHistoryRepository(mhr, mau);
+    aus = AuTestUtil.setUpMockAus(mau);
     mcf = new MockCrawler().new MockCrawlerFacade();
     mcf.setAu(mau);
   }

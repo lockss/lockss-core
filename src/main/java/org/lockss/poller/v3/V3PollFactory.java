@@ -175,11 +175,12 @@ public class V3PollFactory implements PollFactory {
   }
   
   void deleteFromNoAuPeers(ArchivalUnit au, PeerIdentity peer) {
-    DatedPeerIdSet noAuSet = pollMgr.getNoAuPeerSet(au);
+    DatedPeerIdSet noAuSet = AuUtil.getNoAuPeerSet(au);
     log.debug2("Deleting from NoAuPeer: " + au);
     synchronized (noAuSet) {
       try {
 	noAuSet.remove(peer);
+	noAuSet.store();
       } catch (IOException e) {
 	log.error("Failed to remove peer from AU set", e);
       }

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,32 +25,40 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
-package org.lockss.protocol;
 
-import java.io.Serializable;
-import java.util.Collection;
+package org.lockss.state;
 
-/**
- * As of daemon 1.25, this class is deprecated.  Please delete this class
- * after several daemon releases.
- * 
- * @deprecated
- */
-public class IdentityListBean implements Serializable {
-  Collection idBeans;
 
-  public IdentityListBean() {
+import org.lockss.log.*;
+
+/** PersistentStateManager that also sends JMS state changed notifications */
+public class ServerStateManager extends PersistentStateManager {
+
+  protected static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
+  public void startService() {
+    super.startService();
+    setUpJmsSend();
   }
 
-  IdentityListBean(Collection beans) {
-    idBeans = beans;
-  }
-  public void setIdBeans(Collection beans) {
-    idBeans = beans;
-  }
-
-  public Collection getIdBeans() {
-    return idBeans;
+  @Override
+  public void stopService() {
+    stopJms();
+    super.stopService();
   }
 
+  @Override
+  protected void doNotifyAuStateChanged(String key, String json,
+					String cookie) {
+    log.debug("Sending AuState changed notification for {}: {}", key, json);
+    sendAuStateChangedEvent(key, json, cookie);
+  }
+
+  @Override
+  protected void doNotifyAuAgreementsChanged(String key, String json,
+					     String cookie) {
+    log.debug("Sending AuAgreement changed notification for {}: {}", key, json);
+    sendAuAgreementsChangedEvent(key, json, cookie);
+  }
 }

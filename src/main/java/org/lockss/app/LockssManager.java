@@ -58,6 +58,9 @@ public interface LockssManager {
    */
   public void stopService();
 
+  public default boolean isInited() { return false; }
+  public default  boolean isStarted() { return false; }
+
   /**
    * Return the app instance in which this manager is running
    */

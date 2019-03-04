@@ -87,10 +87,7 @@ public class TestFollowLinkCrawler extends LockssTestCase {
     mau = new MyMockArchivalUnit();
     mau.setPlugin(plug);
     mau.setAuId("MyMockTestAu");
-    MockHistoryRepository mhr = new MockHistoryRepository();
-    getMockLockssDaemon().setHistoryRepository(mhr, mau);
-    aus = new MockAuState(mau);
-    mhr.setAuState(aus);
+    aus = AuTestUtil.setUpMockAus(mau);
     startUrls = ListUtil.list(startUrl);
     mcus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
 
@@ -120,7 +117,7 @@ public class TestFollowLinkCrawler extends LockssTestCase {
 
   public void testFlcThrowsForNullAu() {
     try {
-      crawler = new TestableFollowLinkCrawler(null, new MockAuState());
+      crawler = new TestableFollowLinkCrawler(null, null);
       fail("Constructing a FollowLinkCrawler with a null ArchivalUnit"
 	   +" should throw an IllegalArgumentException");
     } catch (IllegalArgumentException iae) {

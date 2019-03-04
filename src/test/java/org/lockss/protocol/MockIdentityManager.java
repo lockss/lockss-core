@@ -88,11 +88,6 @@ public class MockIdentityManager implements IdentityManager {
   }
   
   @Override
-  public void removePeer(String key) {
-    piMap.remove(key);
-  }
-
-  @Override
   public PeerIdentity ipAddrToPeerIdentity(IPAddr addr, int port) {
     String key = ""+addr+port;
     return new MockPeerIdentity(key);
@@ -186,12 +181,6 @@ public class MockIdentityManager implements IdentityManager {
     repMap.put(id, new Integer(rep));
   }
 
-
-  /** @deprecated */
-  @Override
-  public IdentityListBean getIdentityListBean() {
-    throw new UnsupportedOperationException("not implemented");
-  }
 
   @Override
   public void signalAgreed(PeerIdentity pid, ArchivalUnit au) {

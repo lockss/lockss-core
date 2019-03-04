@@ -804,21 +804,14 @@ public class V3Voter implements Poll {
     DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
     synchronized (noAuSet) {
       try {
-	try {
-	  noAuSet.load();
-	  pollManager.ageNoAuSet(getAu(), noAuSet);
-	} catch (IOException e) {
-	  log.error("Failed to load no AU set", e);
-	  noAuSet.release();
-	  noAuSet = null;
-	}
-	nominees = idManager.getTcpPeerIdentities(new NominationPred(noAuSet));
-      } finally {
-	if (noAuSet != null) {
-	  noAuSet.release();
-	}
+	pollManager.ageNoAuSet(getAu(), noAuSet);
+	noAuSet.store();
+      } catch (IOException e) {
+	log.error("Failed to age no AU set", e);
+	noAuSet = null;
       }
     }
+    nominees = idManager.getTcpPeerIdentities(new NominationPred(noAuSet));
     if (nomineeCount <= nominees.size()) {
       Map availablePeers = new HashMap();
       for (PeerIdentity id : nominees) {
@@ -857,12 +850,8 @@ public class V3Voter implements Poll {
 	if (pid == voterUserData.getPollerId()) {
 	  return false;
 	}
-	try {
-	  if (noAuSet != null && noAuSet.contains(pid)) {
-	    return false;
-	  }
-	} catch (IOException e) {
-	  log.warning("Couldn't chech NoAUSet", e);
+	if (noAuSet != null && noAuSet.contains(pid)) {
+	  return false;
 	}
 	PeerIdentityStatus status = idManager.getPeerIdentityStatus(pid);
 	if (status == null) {

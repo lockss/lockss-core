@@ -40,7 +40,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.oro.text.regex.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
-import org.lockss.repository.AuSuspectUrlVersions;
+import org.lockss.state.AuSuspectUrlVersions;
 import org.lockss.state.*;
 import org.lockss.util.*;
 

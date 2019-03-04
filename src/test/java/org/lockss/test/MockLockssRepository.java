@@ -136,15 +136,4 @@ public class MockLockssRepository implements OldLockssRepository {
     return node;
   }
 
-  public AuSuspectUrlVersions getSuspectUrlVersions(ArchivalUnit au) {
-    return null;
-  }
-
-  public void storeSuspectUrlVersions(ArchivalUnit au,
-				      AuSuspectUrlVersions asuv) {
-  }
-
-  public boolean hasSuspectUrlVersions(ArchivalUnit au) {
-    return false;
-  }
 }

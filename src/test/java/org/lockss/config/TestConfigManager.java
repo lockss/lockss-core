@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1456,8 +1456,7 @@ public class TestConfigManager extends LockssTestCase4 {
     AuConfiguration auConfiguration = new AuConfiguration("foo&auid", auConfig);
 
     // Store the Archival Unit configuration.
-    Long auSeq = mgr.storeArchivalUnitConfiguration(auConfiguration);
-    assertEquals(Long.valueOf(1), auSeq);
+    mgr.storeArchivalUnitConfiguration(auConfiguration);
 
     // Verify that the Archival Unit configuration has been stored.
     Collection<AuConfiguration> c2 = mgr.retrieveAllArchivalUnitConfiguration();
@@ -1947,10 +1946,8 @@ public class TestConfigManager extends LockssTestCase4 {
 
     // Store the configuration of the first AU.
     long beforeAdding1 = TimeBase.nowMs();
-    Long auSeq = mgr.storeArchivalUnitConfiguration(auConfiguration1);
+    mgr.storeArchivalUnitConfiguration(auConfiguration1);
     long afterAdding1 = TimeBase.nowMs();
-    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
-    assertEquals(1, auSeq.longValue());
 
     // Define the configuration of the second AU.
     String auid2 = pluginId1 + "&some_key_2";
@@ -1963,10 +1960,8 @@ public class TestConfigManager extends LockssTestCase4 {
 
     // Store the configuration of the second AU.
     long beforeAdding2 = TimeBase.nowMs();
-    auSeq = mgr.storeArchivalUnitConfiguration(auConfiguration2);
+    mgr.storeArchivalUnitConfiguration(auConfiguration2);
     long afterAdding2 = TimeBase.nowMs();
-    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
-    assertEquals(2, auSeq.longValue());
 
     // Retrieve all the AU configurations.
     Collection<AuConfiguration> auConfigs =
@@ -2019,10 +2014,8 @@ public class TestConfigManager extends LockssTestCase4 {
 
     // Store the updated configuration of the second AU.
     long beforeAdding2new = TimeBase.nowMs();
-    auSeq = mgr.storeArchivalUnitConfiguration(auConfiguration2new);
+    mgr.storeArchivalUnitConfiguration(auConfiguration2new);
     long afterAdding2new = TimeBase.nowMs();
-    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
-    assertEquals(2, auSeq.longValue());
 
     // Retrieve all the AU configurations.
     auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
@@ -2059,10 +2052,8 @@ public class TestConfigManager extends LockssTestCase4 {
 
     // Store the configuration of the third AU.
     long beforeAdding3 = TimeBase.nowMs();
-    auSeq = mgr.storeArchivalUnitConfiguration(auConfiguration3);
+    mgr.storeArchivalUnitConfiguration(auConfiguration3);
     long afterAdding3 = TimeBase.nowMs();
-    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
-    assertEquals(3, auSeq.longValue());
 
     Collection<String> pluginKeys = ListUtil.list(pluginId1, pluginId2);
 	

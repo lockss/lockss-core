@@ -44,6 +44,7 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.poller.Poll;
 import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.state.AuState;
+import org.lockss.state.StateManager;
 import org.lockss.state.HistoryRepository;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
@@ -204,7 +205,8 @@ public class AuHelper {
     result.setYear(AuUtil.getTitleAttribute(au, "year"));
 
     HistoryRepository histRepo = theDaemon.getHistoryRepository(au);
-    AuState state = histRepo.getAuState();
+    AuState state =
+      theDaemon.getManagerByType(StateManager.class).getAuState(au);
     AuState.AccessType atype = state.getAccessType();
 
     if (atype != null) {
@@ -229,23 +231,20 @@ public class AuHelper {
     result.setRepository(repo);
 
     CachedUrlSet auCus = au.getAuCachedUrlSet();
-    if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
-      if (state.getV3Agreement() < 0) {
-	if (state.getLastCrawlTime() < 0) {
-	  result.setStatus("Waiting for Crawl");
-	} else {
-	  result.setStatus("Waiting for Poll");
-	}
+    if (state.getV3Agreement() < 0) {
+      if (state.getLastCrawlTime() < 0) {
+	result.setStatus("Waiting for Crawl");
       } else {
-	result.setStatus(doubleToPercent(state.getHighestV3Agreement())
-	    + "% Agreement");
-	if (state.getHighestV3Agreement() != state.getV3Agreement()) {
-	  result.setRecentPollAgreement(state.getV3Agreement());
-	}
+	result.setStatus("Waiting for Poll");
       }
     } else {
-      result.setStatus(histRepo.hasDamage(auCus) ? "Repairing" : "Ok");
+      result.setStatus(doubleToPercent(state.getHighestV3Agreement())
+		       + "% Agreement");
+      if (state.getHighestV3Agreement() != state.getV3Agreement()) {
+	result.setRecentPollAgreement(state.getV3Agreement());
+      }
     }
+
 
     String publishingPlatform = plugin.getPublishingPlatform();
 

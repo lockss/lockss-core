@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,6 +45,7 @@ import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.repository.OldLockssRepositoryImpl;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.util.PropUtil;
 import org.lockss.ws.entities.RepositoryWsResult;
@@ -109,7 +110,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getAuName() throws DbException {
+  public String getAuName() throws DbException, LockssRestException {
     if (!auNamePopulated) {
       if (auId != null) {
 	String name = null;
@@ -153,7 +154,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getStatus() throws DbException {
+  public String getStatus() throws DbException, LockssRestException {
     if (!statusPopulated) {
       if (auId == null) {
 	setStatus("No AUID");
@@ -224,7 +225,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public Map<String, String> getParams() throws DbException {
+  public Map<String, String> getParams()
+      throws DbException, LockssRestException {
     if (!paramsPopulated) {
       if (auId != null) {
 	if (getArchivalUnit() != null) {

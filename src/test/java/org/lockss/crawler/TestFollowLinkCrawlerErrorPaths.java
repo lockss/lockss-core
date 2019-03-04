@@ -185,12 +185,10 @@ public class TestFollowLinkCrawlerErrorPaths extends LockssTestCase {
 
 
   MyMockArchivalUnit newMyMockArchivalUnit() {
-    HistoryRepository mhr = new MockHistoryRepository();
+    StateManager smgr = theDaemon.getManagerByType(StateManager.class);
     MyMockArchivalUnit mau = new MyMockArchivalUnit();
-    getMockLockssDaemon().setHistoryRepository(mhr, mau);
     aus = new MockAuState(mau);
-    mhr.storeAuState(aus);
-    aus.setHistoryRepository(mhr);
+    smgr.storeAuState(aus);
     return mau;
   }
 

@@ -33,17 +33,16 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util;
 
 import java.util.*;
-import org.apache.commons.collections.map.LRUMap;
-import org.apache.commons.collections.map.ReferenceMap;
+import org.apache.commons.collections4.map.*;
 
 /**
  * An LRU cache that guarantees to hold and return a reference to an object
  * as long as anyone else does.  Intended to cache objects for which
  * multiple instances per key must not exist.  This cache is synchronized.
  */
-public class UniqueRefLruCache {
-  LRUMap lruMap;
-  ReferenceMap refMap;
+public class UniqueRefLruCache<K,V> implements Map<K,V> {
+  LRUMap<K,V> lruMap;
+  ReferenceMap<K,V> refMap;
 
   // logging variables
   private int cacheHits = 0;
@@ -59,8 +58,9 @@ public class UniqueRefLruCache {
     if (maxSize<=0) {
       throw new IllegalArgumentException("Negative cache size");
     }
-    lruMap = new LRUMap(maxSize);
-    refMap = new ReferenceMap(ReferenceMap.HARD, ReferenceMap.WEAK);
+    lruMap = new LRUMap<>(maxSize);
+    refMap = new ReferenceMap<>(AbstractReferenceMap.ReferenceStrength.HARD,
+				AbstractReferenceMap.ReferenceStrength.WEAK);
   }
 
   /**
@@ -80,7 +80,7 @@ public class UniqueRefLruCache {
       throw new IllegalArgumentException("Negative cache size");
     }
     if (lruMap.maxSize() != newSize) {
-      LRUMap newMap = new LRUMap(newSize);
+      LRUMap<K,V> newMap = new LRUMap<>(newSize);
       newMap.putAll(lruMap);
       lruMap = newMap;
     }
@@ -92,9 +92,9 @@ public class UniqueRefLruCache {
    * @return the corresponding object, or null if no such object exists in
    * memory.
    */
-  public synchronized Object get(Object key) {
+  public synchronized V get(Object key) {
     // first check the LRUMap
-    Object obj = lruMap.get(key);
+    V obj = lruMap.get(key);
     if (obj!=null) {
       cacheHits++;
       return obj;
@@ -105,7 +105,7 @@ public class UniqueRefLruCache {
       if (obj!=null) {
         refHits++;
         // if found, put back in LRUMap
-        lruMap.put(key, obj);
+        lruMap.put((K)key, obj);
         return obj;
       } else {
         refMisses++;
@@ -119,9 +119,11 @@ public class UniqueRefLruCache {
    * @param key the key
    * @param obj the Object
    */
-  public synchronized void put(Object key, Object obj) {
+  public synchronized V put(K key, V obj) {
+    V res = refMap.get(key);
     refMap.put(key, obj);
     lruMap.put(key, obj);
+    return res;
   }
 
   /**
@@ -132,13 +134,52 @@ public class UniqueRefLruCache {
    * @param obj the Object
    * @return the value now in the map
    */
-  public synchronized Object putIfNew(Object key, Object obj) {
+  public synchronized Object putIfNew(K key, V obj) {
     Object val = get(key);
     if (val != null) {
       return val;
     }
     put(key, obj);
     return obj;
+  }
+
+  public synchronized V remove(Object key) {
+    V res = refMap.get(key);
+    refMap.remove(key);
+    lruMap.remove(key);
+    return res;
+  }
+
+  public boolean isEmpty() {
+    return !refMap.isEmpty();
+  }
+
+  public int size() {
+    return refMap.size();
+  }
+
+  public Set<Entry<K,V>> entrySet() {
+    throw new UnsupportedOperationException();
+  }
+
+  public Set<K> keySet() {
+    throw new UnsupportedOperationException();
+  }
+
+  public Set<V> values() {
+    throw new UnsupportedOperationException();
+  }
+
+  public void putAll(Map<? extends K,? extends V> m) {
+    throw new UnsupportedOperationException();
+  }
+
+  public boolean containsValue(Object value) {
+    throw new UnsupportedOperationException();
+  }
+
+  public boolean containsKey(Object key) {
+    return lruMap.containsKey(key);
   }
 
   /**

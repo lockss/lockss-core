@@ -40,7 +40,6 @@ import org.lockss.config.ConfigManager;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
-import org.lockss.protocol.IdentityManager.IdentityAgreement;
 import org.lockss.protocol.psm.*;
 import org.lockss.util.*;
 import org.lockss.poller.*;

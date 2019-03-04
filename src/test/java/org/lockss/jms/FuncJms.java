@@ -77,6 +77,10 @@ public class FuncJms extends LockssTestCase4 {
 
   @Before
   public void setUpObjs() throws Exception {
+    // ensure manager doesn't start another broker
+    ConfigurationUtil.addFromArgs(JMSManager.PARAM_START_BROKER, "false");
+    daemon = getMockLockssDaemon();
+    daemon.startManagers(JMSManager.class);
 
     producerPublishSubscribe =
       Producer.createTopicProducer("producer-publishsubscribe",
@@ -120,16 +124,18 @@ public class FuncJms extends LockssTestCase4 {
 
   @After
   public void tearDownObjs() throws Exception {
-    producerPublishSubscribe.closeConnection();
-    producerMultipleConsumers.closeConnection();
-    producerNonDurableConsumer.closeConnection();
+    producerPublishSubscribe.close();
+    producerMultipleConsumers.close();
+    producerNonDurableConsumer.close();
 
-    consumerPublishSubscribe.closeConnection();
-    consumer1MultipleConsumers.closeConnection();
-    consumer2MultipleConsumers.closeConnection();
-    consumer3MultipleConsumers.closeConnection();
-    consumer1NonDurableConsumer.closeConnection();
-    consumer2NonDurableConsumer.closeConnection();
+    consumerPublishSubscribe.close();
+    consumer1MultipleConsumers.close();
+    consumer2MultipleConsumers.close();
+    consumer3MultipleConsumers.close();
+    consumer1NonDurableConsumer.close();
+    consumer2NonDurableConsumer.close();
+
+    daemon.stopManagers();
   }
 
   @Test
@@ -211,7 +217,7 @@ public class FuncJms extends LockssTestCase4 {
     String testStr2 = "This is another durable test text string";
     // nondurable subscriptions, will not receive messages sent while
     // the consumers are not active
-    consumer2NonDurableConsumer.closeConnection();
+    consumer2NonDurableConsumer.close();
 
     producerNonDurableConsumer.sendText(testStr1);
 
