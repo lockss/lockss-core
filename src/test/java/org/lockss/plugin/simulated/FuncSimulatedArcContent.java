@@ -69,7 +69,6 @@ public class FuncSimulatedArcContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-//     useOldRepo();
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
     String tempDirPath2 = getTempDir().getAbsolutePath() + File.separator;
     String auIdStr = "org|lockss|plugin|simulated|SimulatedPlugin.root~" +

@@ -346,11 +346,6 @@ public class PluginTestUtil {
     }};
   }
 
-  List<String> cusnUrls(Iterator<CachedUrlSetNode> iter) {
-    ArrayList<String> res = new ArrayList<>();
-    return res;
-  }
-
   private static PluginManager getPluginManager() {
     return
       (PluginManager)LockssDaemon.getManager(LockssDaemon.PLUGIN_MANAGER);

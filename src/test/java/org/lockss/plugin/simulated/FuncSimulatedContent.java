@@ -68,7 +68,6 @@ public class FuncSimulatedContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-//     useOldRepo();
     tempDirPath = getTempDir().getAbsolutePath() + File.separator;
 
     theDaemon = getMockLockssDaemon();
@@ -291,6 +290,7 @@ public class FuncSimulatedContent extends LockssTestCase {
     log.debug("hashContent()");
     measureHashSpeed(sau);
 
+    // XXXREPO hash results
     // If any changes are made to the contents or shape of the simulated
     // content tree, these hash values will have to be changed
     checkHashSet(sau, true, false,

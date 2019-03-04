@@ -87,7 +87,6 @@ public class HashSpeedTest extends LockssTestCase {
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 		      tempDirPath);
     ConfigurationUtil.setCurrentConfigFromProps(props);
-//     useOldRepo();
 
     theDaemon.getPluginManager();
     theDaemon.getSystemMetrics();

@@ -81,7 +81,6 @@ public class TestDaemonStatusService extends LockssTestCase {
     super.setUp();
 
     tempDirPath = setUpDiskSpace();
-//     useOldRepo();
 
     ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_IP,
 	TEST_LOCAL_IP);

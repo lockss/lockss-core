@@ -69,7 +69,6 @@ public class TestArchiveMembers extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     tempDirPath = setUpDiskSpace();
-//     useOldRepo();
     ConfigurationUtil.addFromArgs(TrueZipManager.PARAM_CACHE_DIR, tempDirPath);
     daemon = getMockLockssDaemon();
     pluginMgr = daemon.getPluginManager();
@@ -295,6 +294,7 @@ public class TestArchiveMembers extends LockssTestCase {
   public void testIter2() throws Exception {
     PluginTestUtil.crawlSimAu(simau);
     CachedUrlSet cus = simau.makeCachedUrlSet(new AuCachedUrlSetSpec());
+    // XXXREPO srcpub_urls.txt edited to include final slash on dirs
     List urls = readLinesFromResource("srcpub_urls.txt");
     Iterator<CachedUrl> cuIter = cus.archiveMemberIterator();
     Iterator<String> urlIter = urls.iterator();

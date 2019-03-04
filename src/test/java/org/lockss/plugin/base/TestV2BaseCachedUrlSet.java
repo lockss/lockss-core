@@ -77,7 +77,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     props.setProperty(SystemMetrics.PARAM_DEFAULT_HASH_SPEED,
 		      Integer.toString(HASH_SPEED));
     ConfigurationUtil.setCurrentConfigFromProps(props);
-//     useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     hashService = theDaemon.getHashService();
@@ -133,6 +132,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
   }
 
 
+  // XXXREPO
   public void testFlatSetIterator() throws Exception {
     createLeaf("http://www.example.com/testDir/leaf4", null, null);
     createLeaf("http://www.example.com/testDir/branch1/leaf1", null, null);
@@ -170,26 +170,26 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     CachedUrlSet fileSet = mau.makeCachedUrlSet(rSpec);
     assertIsomorphic(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
 		     PluginTestUtil.urlsOf(fileSet.contentHashIterator()));
-		     
+
     CachedUrlSet cus = mau.getAuCachedUrlSet();
     assertIsomorphic(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
 		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
-		     
+
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1");
     cus = mau.makeCachedUrlSet(rSpec);
     assertIsomorphic(ListUtil.list(lurl1, lurl2),
 		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
-		     
+
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1/");
     cus = mau.makeCachedUrlSet(rSpec);
     assertIsomorphic(ListUtil.list(lurl1, lurl2),
 		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
-		     
+
     // Prefix must be a whole path component
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/bran");
     cus = mau.makeCachedUrlSet(rSpec);
     assertEmpty(PluginTestUtil.urlsOf(cus.contentHashIterator()));
-		     
+
 
     // test getCuIterator and getCuIterable
     assertEquals(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
@@ -198,34 +198,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
 		 PluginTestUtil.urlsOf(ListUtil.fromIterable(fileSet.getCuIterable())));
 
 
-    // add content to an internal node
-    // should behave normally
-//     createLeaf("http://www.example.com/testDir/branch1", "test stream", null);
-//     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1");
-//     fileSet = mau.makeCachedUrlSet(rSpec);
-//     setIt = fileSet.contentHashIterator();
-//     childL = new ArrayList(3);
-//     while (setIt.hasNext()) {
-//       childL.add(((CachedUrlSetNode)setIt.next()).getUrl());
-//     }
-//     assertFalse(setIt.hasNext());
-//     try {
-//       setIt.next();
-//       fail("setIt.next() should have thrown when it has no elements");
-//     } catch (NoSuchElementException e) {
-//     }
-
-//     // should be sorted
-//     expectedA = new String[] {
-//       "http://www.example.com/testDir/branch1",
-//       "http://www.example.com/testDir/branch1/leaf1",
-//       "http://www.example.com/testDir/branch1/leaf2"
-//       };
-//     assertIsomorphic(expectedA, childL);
-//     assertEquals(ListUtil.fromArray(expectedA),
-// 		 PluginTestUtil.urlsOf(ListUtil.fromIterator(fileSet.getCuIterator())));
-//     assertEquals(PluginTestUtil.urlsOf(ListUtil.fromIterator(fileSet.getCuIterator())),
-// 		 PluginTestUtil.urlsOf(ListUtil.fromIterable(fileSet.getCuIterable())));
   }
 
   public void testHashIteratorPruned() throws Exception {

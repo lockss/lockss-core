@@ -87,7 +87,6 @@ public class TestSimpleHasher extends LockssTestCase {
   @Override
   public void setUp() throws Exception {
     super.setUp();
-//     useOldRepo();
     TimeBase.setReal();
     daemon = getMockLockssDaemon();
     tempDirPath = setUpDiskSpace();
