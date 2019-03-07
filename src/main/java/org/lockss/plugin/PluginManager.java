@@ -531,7 +531,6 @@ public class PluginManager
     for (Plugin plugin : pluginMap.values()) {
       plugin.stopPlugin();
     }
-    stopJms();
     auEventHandlers = new ArrayList<AuEventHandler>();
     PluginStatus.unregister(getDaemon());
     unregisterAuEventHandler(myAuEventHandler);
@@ -1400,8 +1399,6 @@ public class PluginManager
   public static final String DEFAULT_JMS_CLIENT_ID = null;
 
 
-  private Consumer jmsConsumer;
-  private Producer jmsProducer;
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
   private boolean enableJmsNotifications = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
   private String clientId = DEFAULT_JMS_CLIENT_ID;
@@ -1412,43 +1409,10 @@ public class PluginManager
     }
   }
 
-  void stopJms() {
-    Producer p = jmsProducer;
-    if (p != null) {
-      try {
-	jmsProducer = null;
-	p.close();
-      } catch (JMSException e) {
-	log.error("Couldn't stop jms producer", e);
-      }
-    }
-    Consumer c = jmsConsumer;
-    if (c != null) {
-      try {
-	jmsConsumer = null;
-	c.close();
-      } catch (JMSException e) {
-	log.error("Couldn't stop jms consumer", e);
-      }
-    }
-  }
-
   void setUpJmsNotifications() {
-    try {
-      log.debug("Creating consumer");
-      jmsConsumer =
-	Consumer.createTopicConsumer(clientId, notificationTopic,
-				     new MyMessageListener("AuEvent Listener"));
-    } catch (JMSException e) {
-      log.error("Couldn't create jms consumer", e);
-    }
-    try {
-      log.debug("Creating producer");
-      jmsProducer = Producer.createTopicProducer(clientId,
-						 notificationTopic);
-    } catch (JMSException e) {
-      log.error("Couldn't create jms producer", e);
-    }
+    setUpJmsReceive(clientId, notificationTopic,
+		    new MapMessageListener("AuEvent Listener"));
+    setUpJmsSend(clientId, notificationTopic);
   }
 
   /** Send AuEvent to JMS notification topic, if appropriate.  Currently
@@ -1473,32 +1437,10 @@ public class PluginManager
     }
   }
 
-  private class MyMessageListener extends Consumer.SubscriptionListener {
-
-    MyMessageListener(String listenerName) {
-      super(listenerName);
-    }
-
-    @Override
-    public void onMessage(Message message) {
-      if (log.isDebug2()) {
-	log.debug2("onMessage: " + message);
-      }
-      try {
-        Object msgObject =  Consumer.convertMessage(message);
-	if (msgObject instanceof Map) {
-	  receiveAuEventNotification(AuEvent.fromMap((Map)msgObject));
-	} else {
-	  log.warning("Unknown notification type: " + msgObject);
-	}
-      } catch (JMSException e) {
-	log.warning("foo", e);
-      }
-    }
-  }
-
   /** Incoming AuEvent message */
-  void receiveAuEventNotification(AuEvent event) {
+  @Override
+  protected void receiveMessage(Map map) {
+    AuEvent event = AuEvent.fromMap(map);
     log.debug("Received notification: " + event);
     String auid = event.getAuId();
     ArchivalUnit au = getAuFromIdIfExists(auid);
