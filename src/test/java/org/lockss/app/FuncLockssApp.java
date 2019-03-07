@@ -99,6 +99,7 @@ public class FuncLockssApp extends LockssTestCase {
   private final ManagerDesc[] expMgrs = {
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
+    JMS_MANAGER_DESC,
     MAIL_SERVICE_DESC,
     ALERT_MANAGER_DESC,
     STATUS_SERVICE_DESC,
@@ -108,7 +109,6 @@ public class FuncLockssApp extends LockssTestCase {
     // keystore manager must be started before any others that need to
     // access managed keystores
     KEYSTORE_MANAGER_DESC,
-    JMS_MANAGER_DESC,
     aMgr,
     new ManagerDesc(CRON, "org.lockss.daemon.Cron"),
     new ManagerDesc(WATCHDOG_SERVICE, "org.lockss.daemon.WatchdogService"),
