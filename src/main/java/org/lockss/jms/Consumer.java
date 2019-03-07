@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,15 +51,24 @@ public class Consumer {
 
   public static Consumer createTopicConsumer(String clientId,
 					     String topicName,
-						 MessageListener listener)
+					     MessageListener listener)
+      throws JMSException {
+    return createTopicConsumer(clientId, topicName, false, listener);
+  }
+
+  public static Consumer createTopicConsumer(String clientId,
+					     String topicName,
+					     boolean noLocal,
+					     MessageListener listener)
       throws JMSException {
     Consumer res = new Consumer();
-    res.createTopic(clientId, topicName, listener);
+    res.createTopic(clientId, topicName, noLocal, listener);
     return res;
   }
 
   private Consumer createTopic(String clientId,
 			       String topicName,
+			       boolean noLocal,
 			       MessageListener listener)
       throws JMSException {
 
@@ -81,7 +90,7 @@ public class Consumer {
     Topic topic = session.createTopic(topicName);
 
     // create a MessageConsumer for receiving messages
-    messageConsumer = session.createConsumer(topic);
+    messageConsumer = session.createConsumer(topic, null, noLocal);
     if (listener != null) {
       messageConsumer.setMessageListener(listener);
     }
