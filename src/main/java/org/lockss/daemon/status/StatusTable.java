@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -615,9 +611,12 @@ public class StatusTable {
   public static class Reference implements LinkValue {
     private Object value;
     private PeerIdentity peerId;
+    private String stem;
+    private String service;
     private String tableName;
     private String key;
     private Properties props;
+    private boolean isLocal;
 
     /**
      * Create a Reference object with an embedded value.
@@ -698,12 +697,40 @@ public class StatusTable {
       return peerId;
     }
 
+    public Reference setServiceStem(String val) {
+      stem = val;
+      return this;
+    }
+
+    public Reference setServiceName(String val) {
+      service = val;
+      return this;
+    }
+
+    public String getServiceStem() {
+      return stem;
+    }
+
+    public String getServiceName() {
+      return service;
+    }
+
+
     public String getTableName() {
       return tableName;
     }
 
     public String getKey() {
       return key;
+    }
+
+    public Reference setLocal(boolean val) {
+      isLocal = val;
+      return this;
+    }
+
+    public boolean isLocal() {
+      return isLocal;
     }
 
     public String toString() {
@@ -744,6 +771,44 @@ public class StatusTable {
     public int hashCode() {
       throw new UnsupportedOperationException();
     }
+  }
+
+  /**
+   * Encapsulates info about a table not in this JVM
+   */
+  public static class ForeignTable {
+    private String name;		// table name
+    private String title;		// display name
+    private String stem;		// URL stem to access appropriate
+					// DaemonStatus
+    boolean requiresKey;
+    boolean isDebugOnly;
+
+    ForeignTable(String name, String title, String stem,
+		 boolean requiresKey, boolean isDebugOnly) {
+      this.name = name;
+      this.title = title;
+      this.stem = stem;
+      this.requiresKey = requiresKey;
+      this.isDebugOnly = isDebugOnly;
+    }
+
+    public String getName() { return name; }
+    public String getTitle() { return title; }
+    public String getStem() { return stem; }
+    public boolean requiresKey() { return requiresKey; }
+    public boolean isDebugOnly() { return isDebugOnly; }
+
+    public String toString() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("[ForeignTable: ");
+      sb.append(name);
+      sb.append(", ");
+      sb.append(stem);
+      sb.append("]");
+      return sb.toString();
+    }
+
   }
 
   /**

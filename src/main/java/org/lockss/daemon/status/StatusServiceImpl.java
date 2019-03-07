@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,11 +29,15 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.daemon.status;
 
 import java.util.*;
+import javax.jms.*;
 
 import org.apache.oro.text.regex.*;
 import org.lockss.app.*;
+import org.lockss.log.*;
+import org.lockss.jms.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
+import org.lockss.daemon.status.StatusTable.ForeignTable;
 
 /**
  * Main implementation of {@link StatusService}
@@ -45,30 +45,106 @@ import org.lockss.config.*;
 public class StatusServiceImpl
   extends BaseLockssManager implements StatusService, ConfigurableManager {
 
+  private static L4JLogger logger = L4JLogger.getLogger();
+
+  public static final String PREFIX = Configuration.PREFIX + "status.";
+
   /**
    * Name of default daemon status table
    */
-  public static final String PARAM_DEFAULT_TABLE =
-    Configuration.PREFIX + "status.defaultTable";
+  public static final String PARAM_DEFAULT_TABLE = PREFIX + "defaultTable";
   public static final String DEFAULT_DEFAULT_TABLE =
     OverviewStatus.OVERVIEW_STATUS_TABLE;
 
-  private static Logger logger = Logger.getLogger();
+  public static final String JMS_PREFIX = PREFIX + "jms.";
+
+  /** The jms topic to which status table notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_NOTIFICATION_TOPIC =
+    JMS_PREFIX + "topic";
+  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC =
+    "StatusTable";
+
+  /** The jms clientid of the StatusService.
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
+  public static final String DEFAULT_JMS_CLIENT_ID = null;
+
 
   private String paramDefaultTable = DEFAULT_DEFAULT_TABLE;
 
-  private Map statusAccessors = new HashMap();
-  private Map overviewAccessors = new HashMap();
-  private Map objRefAccessors = new HashMap();
+  // Maps table name to locally registered StatusAccessor
+  private Map<String,StatusAccessor> statusAccessors = new HashMap<>();
+
+  // Maps table name to locally registered OverviewAccessor
+  private Map<String,OverviewAccessor> overviewAccessors = new HashMap<>();
+
+  // Maps table name to locally registered ObjectReferenceAccessor
+  private Map<String,ObjRefAccessorSpec> objRefAccessors = new HashMap<>();
+
+  // Maps table name to ForeignTable registered in another service
+  private Map<String,ForeignTable> foreignTableBindings = new HashMap<>();
+
+  // Table names whose registrations we have broadcast to others
+  private Set<String> globallyRegisteredTables =
+    Collections.synchronizedSet(new HashSet<>());
+
+  // Specification of tables that should be globally associated with some
+  // service
+  private Map<String,ServiceDescr> globalTableService = //new HashMap<>();
+    MapUtil.map(
+		org.lockss.plugin.PluginStatus.ALL_AUIDS,
+		ServiceDescr.SVC_CONFIG,
+		org.lockss.crawler.CrawlManagerImpl.CRAWL_STATUS_TABLE_NAME,
+		ServiceDescr.SVC_CRAWLER,
+		org.lockss.hasher.HashSvcSchedImpl.HASH_STATUS_TABLE,
+		ServiceDescr.SVC_POLLER,
+		org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME,
+		ServiceDescr.SVC_POLLER,
+		org.lockss.poller.v3.V3PollStatus.VOTER_STATUS_TABLE_NAME,
+		ServiceDescr.SVC_POLLER,
+		"SCommChans",
+		ServiceDescr.SVC_POLLER,
+		"SCommPeers",
+		ServiceDescr.SVC_POLLER,
+		"Identities",
+		ServiceDescr.SVC_POLLER,
+		"SchedQ",
+		ServiceDescr.SVC_POLLER,
+		org.lockss.state.ArchivalUnitStatus.SERVICE_STATUS_TABLE_NAME,
+		ServiceDescr.SVC_POLLER,
+		org.lockss.state.ArchivalUnitStatus.AU_STATUS_TABLE_NAME,
+		ServiceDescr.SVC_POLLER,
+		org.lockss.state.ArchivalUnitStatus.AUIDS_TABLE_NAME,
+		ServiceDescr.SVC_POLLER,
+		org.lockss.state.ArchivalUnitStatus.AU_DEFINITION_TABLE_NAME,
+		ServiceDescr.SVC_POLLER
+		);
+
+  private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
+  private String clientId = DEFAULT_JMS_CLIENT_ID;
 
   public void startService() {
     super.startService();
+    setUpJmsNotifications();
     registerStatusAccessor(ALL_TABLES_TABLE, new AllTableStatusAccessor());
+    sendRequestRegisteredTables();
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
     paramDefaultTable = config.get(PARAM_DEFAULT_TABLE, DEFAULT_DEFAULT_TABLE);
+    notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
+				   DEFAULT_JMS_NOTIFICATION_TOPIC);
+    clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
+  }
+
+  void setUpJmsNotifications() {
+    setUpJmsReceive(clientId, notificationTopic, true,
+		    new MapMessageListener("StatusTable Registration Listener"));
+    setUpJmsSend(clientId, notificationTopic);
   }
 
   public String getDefaultTableName() {
@@ -101,7 +177,7 @@ public class StatusServiceImpl
     String tableName = table.getName();
     String key = table.getKey();
     synchronized(statusAccessors) {
-      statusAccessor = (StatusAccessor)statusAccessors.get(tableName);
+      statusAccessor = statusAccessors.get(tableName);
     }
     if (statusAccessor == null) {
       throw new StatusService.NoSuchTableException("Table not found: "
@@ -121,6 +197,10 @@ public class StatusServiceImpl
     }
   }
 
+  public ForeignTable getForeignTable(String table) {
+    return foreignTableBindings.get(table);
+  }
+
   static Pattern badTablePat =
     RegexpUtil.uncheckedCompile("[^a-zA-Z0-9_-]",
 				Perl5Compiler.READ_ONLY_MASK);
@@ -131,12 +211,25 @@ public class StatusServiceImpl
 
   public void registerStatusAccessor(String tableName,
 				     StatusAccessor statusAccessor) {
+    registerStatusAccessor(tableName, statusAccessor,
+			   globalTableService.get(tableName));
+  }
+
+  /** Register an accessor for a StatusTable
+   * @param tableName table name
+   * @param statusAccessor
+   * @param globalInService descriptor of service in which this table's
+   * registration should be broadcast globally
+   */
+  public void registerStatusAccessor(String tableName,
+				     StatusAccessor statusAccessor,
+				     ServiceDescr globalInService) {
     if (isBadTableName(tableName)) {
       throw new InvalidTableNameException("Invalid table name: "+tableName);
     }
 
     synchronized(statusAccessors) {
-      Object oldAccessor = statusAccessors.get(tableName);
+      StatusAccessor oldAccessor = statusAccessors.get(tableName);
       if (oldAccessor != null) {
 	throw new
 	  StatusService.MultipleRegistrationException(oldAccessor
@@ -145,7 +238,16 @@ public class StatusServiceImpl
       }
       statusAccessors.put(tableName, statusAccessor);
     }
+    if (isGlobal(globalInService)) {
+      sendTableRegistered(tableName, statusAccessor);
+      globallyRegisteredTables.add(tableName);
+    }
     logger.debug2("Registered statusAccessor for table "+tableName);
+  }
+
+  boolean isGlobal(ServiceDescr globalInService) {
+    return (globalInService != null
+	    && getApp().isMyService(globalInService));
   }
 
   public void unregisterStatusAccessor(String tableName){
@@ -153,6 +255,9 @@ public class StatusServiceImpl
       statusAccessors.remove(tableName);
     }
     logger.debug2("Unregistered statusAccessor for table "+tableName);
+    if (globallyRegisteredTables.remove(tableName)) {
+      sendTableUnregistered(tableName);
+    }
   }
 
   public void registerOverviewAccessor(String tableName,
@@ -162,7 +267,7 @@ public class StatusServiceImpl
     }
 
     synchronized(overviewAccessors) {
-      Object oldAccessor = overviewAccessors.get(tableName);
+      OverviewAccessor oldAccessor = overviewAccessors.get(tableName);
       if (oldAccessor != null) {
 	throw new
 	  StatusService.MultipleRegistrationException(oldAccessor
@@ -190,7 +295,7 @@ public class StatusServiceImpl
   public Object getOverview(String tableName, BitSet options) {
     OverviewAccessor acc;
     synchronized (overviewAccessors) {
-      acc = (OverviewAccessor)overviewAccessors.get(tableName);
+      acc = overviewAccessors.get(tableName);
     }
     if (acc != null) {
       return acc.getOverview(tableName,
@@ -203,7 +308,7 @@ public class StatusServiceImpl
   public StatusTable.Reference getReference(String tableName, Object obj) {
     ObjRefAccessorSpec spec;
     synchronized (objRefAccessors) {
-      spec = (ObjRefAccessorSpec)objRefAccessors.get(tableName);
+      spec = objRefAccessors.get(tableName);
     }
     if (spec != null && spec.cls.isInstance(obj)) {
       return spec.accessor.getReference(tableName, obj);
@@ -221,9 +326,8 @@ public class StatusServiceImpl
     registerObjectReferenceAccessor(String tableName, Class cls,
 				    ObjectReferenceAccessor objRefAccessor) {
     synchronized (objRefAccessors) {
-      Object oldEntry = objRefAccessors.get(tableName);
-      if (oldEntry != null) {
-	ObjRefAccessorSpec oldSpec = (ObjRefAccessorSpec)oldEntry;
+      ObjRefAccessorSpec oldSpec = objRefAccessors.get(tableName);
+      if (oldSpec != null) {
 	throw new
 	  StatusService.MultipleRegistrationException(oldSpec.accessor
 						      +" already registered "
@@ -258,6 +362,184 @@ public class StatusServiceImpl
     }
   }
 
+  // JMS notification support
+
+  // Notification message is a map:
+  // verb - {TableRegistered, TableUnregistered, RequestTableRegistrations}
+  // tableName - table key
+  // tableTitle - display name
+  // requiresKey - true iff StatusAccessor requires a key
+  // debugOnly
+
+  public static final String JMS_VERB = "verb";
+  public static final String JMS_TABLE_NAME = "tableName";
+  public static final String JMS_TABLE_TITLE = "tableTitle";
+  public static final String JMS_TABLE_REQUIRES_KEY = "requiresKey";
+  public static final String JMS_TABLE_DEBUG_ONLY = "debugOnly";
+  public static final String JMS_URL_STEM = "urlStem";
+
+  public static final String VERB_TABLE_REG = "TableRegistered";
+  public static final String VERB_TABLE_UNREG = "TableUnregistered";
+  public static final String VERB_REQ_REGS = "RequestTableRegistrations";
+
+  protected void sendRequestRegisteredTables() {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_VERB, VERB_REQ_REGS);
+      try {
+	logger.debug("Sending {}", map);
+	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+	logger.error("Couldn't send {}", VERB_REQ_REGS, e);
+      }
+    }
+  }
+
+  protected void sendTableRegistered(String tableName, StatusAccessor sa) {
+    if (jmsProducer != null) {
+      ServiceBinding myBinding = getApp().getMyServiceBinding();
+      if (myBinding == null) {
+	logger.warn("Can't send table registration because we have no ServiceBinding");
+	return;
+      }
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_VERB, VERB_TABLE_REG);
+      map.put(JMS_TABLE_NAME, tableName);
+      map.put(JMS_TABLE_TITLE, getTableTitle(tableName, sa));
+      if (sa.requiresKey()) {
+	map.put(JMS_TABLE_REQUIRES_KEY, "true");
+      }
+      if (sa instanceof StatusAccessor.DebugOnly) {
+	map.put(JMS_TABLE_DEBUG_ONLY, "true");
+      }
+      map.put(JMS_URL_STEM, myBinding.getStem("http"));
+      try {
+	logger.debug("Sending {}", map);
+	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+	logger.error("Couldn't send {}", VERB_TABLE_REG, e);
+      }
+    }
+  }
+
+  protected void sendTableUnregistered(String tableName) {
+    if (jmsProducer != null) {
+      ServiceBinding myBinding = getApp().getMyServiceBinding();
+      if (myBinding == null) {
+	logger.warn("Can't send table registration because we have no ServiceBinding");
+	return;
+      }
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_VERB, VERB_TABLE_UNREG);
+      map.put(JMS_TABLE_NAME, tableName);
+      map.put(JMS_URL_STEM, myBinding.getStem("http"));
+      try {
+	logger.debug("Sending {}", map);
+	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+	logger.error("Couldn't send {}", VERB_TABLE_UNREG, e);
+      }
+    }
+  }
+
+  void sendAllTableRegs() {
+    Map<String,StatusAccessor> copy = new HashMap<>();
+    synchronized(statusAccessors) {
+      copy.putAll(statusAccessors);
+    }
+
+    for (Map.Entry<String,StatusAccessor> ent : copy.entrySet()) {
+      if (globallyRegisteredTables.contains(ent.getKey())) {
+	sendTableRegistered(ent.getKey(), ent.getValue());
+      }
+    }
+  }
+
+  String getTableTitle(String tableName, StatusAccessor statusAccessor) {
+    String title = null;
+    try {
+      title = statusAccessor.getDisplayName();
+    } catch (Exception e) {
+      // no action, title is null here
+    }
+    // getDisplayName can return null or throw
+    if (title == null) {
+      title = tableName;
+    }
+    return title;
+  }
+
+  boolean getMapBool(Map map, String key) {
+    try {
+      return Boolean.parseBoolean((String)map.get(key));
+    } catch (ClassCastException e) {
+      return false;
+    }
+  }
+
+  /** Incoming Table registration message */
+  @Override
+  protected void receiveMessage(Map map) {
+    logger.debug2("Received message: " + map);
+    try {
+      String verb = (String)map.get(JMS_VERB);
+      String table = (String)map.get(JMS_TABLE_NAME); // might be null
+      switch (verb) {
+      case VERB_TABLE_REG:
+	processIncomingTableReg(map, table);
+	break;
+      case VERB_TABLE_UNREG:
+	processIncomingTableUnreg(map, table);
+	break;
+      case VERB_REQ_REGS:
+	sendAllTableRegs();
+	break;
+      default:
+	logger.warn("Received unknown status registration message: {}", verb);
+      }
+    } catch (ClassCastException e) {
+      logger.error("Wrong type field in message: {}", map, e);
+    }
+  }
+
+  /** TableRegistered */
+  void processIncomingTableReg(Map map, String table) {
+    ForeignTable ft = foreignTableBindings.get(table);
+    String title = (String)map.get(JMS_TABLE_TITLE);
+    String stem = (String)map.get(JMS_URL_STEM);
+    if (ft == null) {
+      boolean requiresKey = getMapBool(map, JMS_TABLE_REQUIRES_KEY);
+      boolean debugOnly = getMapBool(map, JMS_TABLE_DEBUG_ONLY);
+
+      ft = new ForeignTable(table, title, stem, requiresKey, debugOnly);
+      logger.debug("Registering foreign table {}", ft);
+      foreignTableBindings.put(table, ft);
+    } else if (!ft.getStem().equals(stem)) {
+      // XXX Can't rely on services to unregister tables when they crash,
+      // so this will be normal.  Will have to change to handle multiple
+      // service instanced.
+      logger.warn("Replacing global registration for table {} with {} was {}",
+		  table, stem, ft.getStem());
+    }
+  }
+
+  /** TableUnregistered */
+  void processIncomingTableUnreg(Map map, String table) {
+    String stem = (String)map.get(JMS_URL_STEM);
+    ForeignTable ft = foreignTableBindings.get(table);
+    if (ft == null) {
+      logger.warn("Ignored global unregistration for unregistered table {}",
+		  table);
+    } else if (stem.equals(ft.getStem())) {
+      logger.debug("Unregistering foreign table {}", ft);
+      foreignTableBindings.remove(table);
+    } else {
+      logger.warn("Ignored global unregistration for table {} from {}; is bound to {}",
+		  table, stem, ft.getStem());
+    }
+  }
+
+
   private class AllTableStatusAccessor implements StatusAccessor {
     private List columns;
     private List sortRules;
@@ -283,32 +565,39 @@ public class StatusServiceImpl
 
     private List getRows(boolean isDebugUser) {
       synchronized(statusAccessors) {
-	Set tables = statusAccessors.keySet();
-	Iterator it = tables.iterator();
-	List rows = new ArrayList(tables.size());
-	while (it.hasNext()) {
-	  String tableName = (String) it.next();
-	  StatusAccessor statusAccessor =
-	    (StatusAccessor)statusAccessors.get(tableName);
-	  if (!ALL_TABLES_TABLE.equals(tableName) &&
-	      !statusAccessor.requiresKey() &&
-	      (isDebugUser ||
-	       !(statusAccessor instanceof StatusAccessor.DebugOnly))) {
-	    Map row = new HashMap(1); //will only have the one key-value pair
-	    String title = null;
- 	    try {
-	      title = statusAccessor.getDisplayName();
- 	    } catch (Exception e) {
- 	      // no action, title is null here
- 	    }
- 	    // getTitle might return null or throw
-	    if (title == null) {
-	      title = tableName;
-	    }
-	    row.put(COL_NAME,
-		    new StatusTable.Reference(title, tableName, null));
-	    rows.add(row);
+	List rows = new ArrayList(statusAccessors.size());
+	// Include the locally registered tables that don't require a key
+	for (Map.Entry<String,StatusAccessor> ent : statusAccessors.entrySet()){
+	  String tableName = ent.getKey();
+	  StatusAccessor statusAccessor = ent.getValue();;
+	  if (ALL_TABLES_TABLE.equals(tableName) ||
+	      statusAccessor.requiresKey() ||
+	      (!isDebugUser &&
+	       (statusAccessor instanceof StatusAccessor.DebugOnly))) {
+	    continue;
 	  }
+	  StatusTable.Reference ref =
+	    new StatusTable.Reference(getTableTitle(tableName, statusAccessor),
+				      tableName, null);
+	  ref.setLocal(true);
+	  rows.add(Collections.singletonMap(COL_NAME, ref));
+	}
+	// Add the globally registered tables that don't require a key
+	for (Map.Entry<String,ForeignTable> ent :
+	       foreignTableBindings.entrySet()){
+	  String tableName = ent.getKey();
+	  ForeignTable ft = ent.getValue();
+	  if (ft.requiresKey() || (!isDebugUser && ft.isDebugOnly())) {
+	    continue;
+	  }
+	  String title = ft.getTitle();
+	  StatusTable.Reference ref =
+	    new StatusTable.Reference(title, tableName, null)
+	    .setServiceStem(ft.getStem())
+// 	    .setServiceName(ft.getDisplayName());
+	    .setServiceName(globalTableService.get(tableName).getAbbrev());
+
+	  rows.add(Collections.singletonMap(COL_NAME, ref));
 	}
 	return rows;
       }

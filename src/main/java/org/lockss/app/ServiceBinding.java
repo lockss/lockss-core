@@ -59,6 +59,20 @@ public class ServiceBinding {
     return restPort;
   }
 
+  /** Return the URL stem to use to reach the UI of the service with this
+   * binding.
+   * @param proto must be supplied as not currently part of binding
+   */
+  public String getStem(String proto) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(proto);
+    sb.append("://");
+    sb.append(getHost() != null ? getHost() : "localhost");
+    sb.append(':');
+    sb.append(getUiPort());
+    return sb.toString();
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof ServiceBinding) {

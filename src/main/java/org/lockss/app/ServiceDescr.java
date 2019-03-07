@@ -39,7 +39,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 /**
  * LOCKSS REST service descriptor
  */
-public class ServiceDescr {
+public class ServiceDescr implements Comparable {
   static Map<String,ServiceDescr> abbrevMap = new HashMap<>();
 
   private final String name;
@@ -92,6 +92,11 @@ public class ServiceDescr {
     hcb.append(name);
     hcb.append(abbrev);
     return hcb.toHashCode();
+  }
+
+  @Override
+  public int compareTo(Object o) {
+    return name.compareTo(((ServiceDescr)o).name);
   }
 
   @Override
