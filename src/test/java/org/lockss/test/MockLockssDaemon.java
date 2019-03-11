@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -990,6 +990,21 @@ public class MockLockssDaemon extends LockssDaemon {
   public PeerIdentity findPeerIdentity(String key)
       throws IdentityManager.MalformedIdentityKeyException {
     return getIdentityManager().findPeerIdentity(key);
+  }
+
+  private ServiceDescr myServiceDescr = null;
+
+  @Override
+  public ServiceDescr getMyServiceDescr() {
+    if (myServiceDescr != null) {
+      return myServiceDescr;
+    }
+    return super.getMyServiceDescr();
+  }
+
+  public MockLockssDaemon setMyServiceDescr(ServiceDescr descr) {
+    myServiceDescr = descr;
+    return this;
   }
 
   /** Here only to allow legacy plugin tests to compile

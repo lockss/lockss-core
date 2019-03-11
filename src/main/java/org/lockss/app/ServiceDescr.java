@@ -37,31 +37,40 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 /**
- * LOCKSS REST service descriptor
+ * LOCKSS REST service descriptor.  Primarily used as an identifier for
+ * naming and to locate a ServiceBinding.  Object identity is not
+ * important.
  */
 public class ServiceDescr implements Comparable {
+
+  // Static mapping of abbreviation -> ServiceDescr
   static Map<String,ServiceDescr> abbrevMap = new HashMap<>();
 
   private final String name;
   private final String abbrev;
 
   public static final ServiceDescr SVC_CONFIG =
-    new ServiceDescr("Config Service", "cfg");
+    register(new ServiceDescr("Config Service", "cfg"));
   public static final ServiceDescr SVC_MDX =
-    new ServiceDescr("Metadata Extraction Service", "mdx");
+    register(new ServiceDescr("Metadata Extraction Service", "mdx"));
   public static final ServiceDescr SVC_MDQ =
-    new ServiceDescr("Metadata Query Service", "mdq");
+    register(new ServiceDescr("Metadata Query Service", "mdq"));
   public static final ServiceDescr SVC_POLLER =
-    new ServiceDescr("Poller Service", "poller");
+    register(new ServiceDescr("Poller Service", "poller"));
   public static final ServiceDescr SVC_CRAWLER =
-    new ServiceDescr("Crawler Service", "crawler");
+    register(new ServiceDescr("Crawler Service", "crawler"));
   public static final ServiceDescr SVC_REPO =
-    new ServiceDescr("Repository Service", "repo");
+    register(new ServiceDescr("Repository Service", "repo"));
 
   public ServiceDescr(String name, String abbrev) {
+    if (name == null) {
+      throw new IllegalArgumentException("ServiceDescr name must not be null");
+    }
+    if (abbrev == null) {
+      throw new IllegalArgumentException("ServiceDescr abbrev must not be null");
+    }
     this.name = name;
     this.abbrev = abbrev;
-    abbrevMap.put(abbrev, this);
   }
 
   public String getName() {
@@ -70,10 +79,6 @@ public class ServiceDescr implements Comparable {
 
   public String getAbbrev() {
     return abbrev;
-  }
-
-  public static ServiceDescr fromAbbrev(String abbrev) {
-    return abbrevMap.get(abbrev);
   }
 
   @Override
@@ -104,4 +109,21 @@ public class ServiceDescr implements Comparable {
     return "[SD: " + name + ", " + abbrev + "]";
   }
 
+  /** Register a ServiceDescr under its abbreviation.  This is a static
+   * registry of known services, doesn't reflect any running state, so can
+   * be (is) implemented with a static Map.
+   */
+  public static ServiceDescr register(ServiceDescr sd) {
+    ServiceDescr oldreg = abbrevMap.get(sd.getAbbrev());
+    if (oldreg != null && !oldreg.equals(sd)) {
+      throw new IllegalStateException("A ServiceDescr is already registered for that abbreviation: " + oldreg);
+    }
+    abbrevMap.put(sd.getAbbrev(), sd);
+    return sd;
+  }
+
+  /** Return the ServiceDescr registered for the abbreviation, or null */
+  public static ServiceDescr fromAbbrev(String abbrev) {
+    return abbrevMap.get(abbrev);
+  }
 }

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -72,10 +68,11 @@ public class FuncLockssApp extends LockssTestCase {
     String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
-      .setName("Test App")
+      .setService(ServiceDescr.SVC_CONFIG)
       .setArgs(testArgs)
       .addAppConfig("o.l.p22", "vvv3")
       .addAppConfig("o.l.p333", "vvv4")
+      .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
 //       .setKeepRunning(true)
 //       .setAppManagers(managerDescs)
       ;
@@ -90,6 +87,13 @@ public class FuncLockssApp extends LockssTestCase {
 		app.getManagerByType(org.lockss.alert.AlertManager.class));
     assertEquals("foo", config.get("org.lockss.app.nonesuch"));
     assertEquals("vvv3", config.get("o.l.p22"));
+    assertEquals(ServiceDescr.SVC_CONFIG, app.getMyServiceDescr());
+    assertEquals("Config Service", app.getAppName());
+    assertTrue(app.isMyService(ServiceDescr.SVC_CONFIG));
+    assertFalse(app.isMyService(ServiceDescr.SVC_POLLER));
+
+    assertEquals(new ServiceBinding(null, 24621),
+		 app.getMyServiceBinding());
   }
   
 
@@ -160,7 +164,7 @@ public class FuncLockssApp extends LockssTestCase {
 	}};
     th.start();
 
-    assertTrue(startedSem.waitFull(Deadline.in(TIMEOUT_SHOULDNT)));
+    assertTrue(startedSem.waitFull(Deadline.in(TIMEOUT_SHOULDNT * 10)));
     LockssApp app = LockssApp.getLockssApp();
     app.waitUntilAppRunning();
     assertTrue(app.isAppRunning());

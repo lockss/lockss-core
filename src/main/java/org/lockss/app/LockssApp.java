@@ -121,9 +121,9 @@ public class LockssApp {
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
 
-  private static final String PARAM_SERVICE_BINDINGS =
+  public static final String PARAM_SERVICE_BINDINGS =
     PREFIX + "serviceBindings";
-  private static final List DEFAULT_SERVICE_BINDINGS = null;
+  public static final List DEFAULT_SERVICE_BINDINGS = null;
 
   public static final String MANAGER_PREFIX =
     Configuration.PREFIX + "manager.";
@@ -902,6 +902,8 @@ public class LockssApp {
     }
   }
 
+  // ServiceDescr, ServiceBinding support
+
   Map<ServiceDescr,ServiceBinding> serviceBindings = new HashMap<>();
 
   public ServiceDescr getMyServiceDescr() {
@@ -934,7 +936,8 @@ public class LockssApp {
   /** Return the ServiceBinding specified for the currently running
    * service */
   public ServiceBinding getMyServiceBinding() {
-    return getServiceBinding(getMyServiceDescr());
+    return getMyServiceDescr() == null ? null :
+      getServiceBinding(getMyServiceDescr());
   }
 
   //  svc_abbrev=host:ui_port    or   svc_abbrev=:ui_port
@@ -966,6 +969,8 @@ public class LockssApp {
     }
     log.debug("Service bindings: " + serviceBindings);
   }
+
+  // LockssApp framework startup
 
   /** Start a LockssApp to run the managers specified by the spec.
    * @param spec an AppSpec specifying the application name, additional

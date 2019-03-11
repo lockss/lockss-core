@@ -120,7 +120,9 @@ public class StatusServiceImpl
 		org.lockss.state.ArchivalUnitStatus.AUIDS_TABLE_NAME,
 		ServiceDescr.SVC_POLLER,
 		org.lockss.state.ArchivalUnitStatus.AU_DEFINITION_TABLE_NAME,
-		ServiceDescr.SVC_POLLER
+		ServiceDescr.SVC_POLLER,
+		org.lockss.metadata.MetadataManager.METADATA_STATUS_TABLE_NAME,
+		ServiceDescr.SVC_MDX
 		);
 
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
@@ -224,6 +226,7 @@ public class StatusServiceImpl
   public void registerStatusAccessor(String tableName,
 				     StatusAccessor statusAccessor,
 				     ServiceDescr globalInService) {
+    logger.debug("Registering statusAccessor for table "+tableName);
     if (isBadTableName(tableName)) {
       throw new InvalidTableNameException("Invalid table name: "+tableName);
     }
@@ -239,10 +242,9 @@ public class StatusServiceImpl
       statusAccessors.put(tableName, statusAccessor);
     }
     if (isGlobal(globalInService)) {
-      sendTableRegistered(tableName, statusAccessor);
       globallyRegisteredTables.add(tableName);
+      sendTableRegistered(tableName, statusAccessor);
     }
-    logger.debug2("Registered statusAccessor for table "+tableName);
   }
 
   boolean isGlobal(ServiceDescr globalInService) {
@@ -447,7 +449,6 @@ public class StatusServiceImpl
     synchronized(statusAccessors) {
       copy.putAll(statusAccessors);
     }
-
     for (Map.Entry<String,StatusAccessor> ent : copy.entrySet()) {
       if (globallyRegisteredTables.contains(ent.getKey())) {
 	sendTableRegistered(ent.getKey(), ent.getValue());
@@ -502,8 +503,21 @@ public class StatusServiceImpl
     }
   }
 
+  boolean isFromMe(Map map) {
+    ServiceBinding myBinding = getApp().getMyServiceBinding();
+    if (myBinding == null) {
+      logger.warn("Can't check isFromMe because we have no ServiceBinding");
+      return false;
+    }
+    return myBinding.getStem("http").equals(map.get(JMS_URL_STEM));
+  }
+
   /** TableRegistered */
   void processIncomingTableReg(Map map, String table) {
+    if (isFromMe(map)) {
+      logger.warn("Received message from me, shouldn't happen: {}", map);
+      return;
+    }
     ForeignTable ft = foreignTableBindings.get(table);
     String title = (String)map.get(JMS_TABLE_TITLE);
     String stem = (String)map.get(JMS_URL_STEM);
