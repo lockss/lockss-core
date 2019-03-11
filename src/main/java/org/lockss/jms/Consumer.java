@@ -75,7 +75,8 @@ public class Consumer {
     this.clientId = clientId;
 
     JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
-    log.debug("Creating consumer for topic: " + topicName +
+    log.debug("Creating " + (noLocal ? "NoLocal " : "") +
+	      "consumer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
 	      mgr.getConnectUri());
 
@@ -190,13 +191,21 @@ public class Consumer {
   @SuppressWarnings("unchecked")
   public Map<String, Object> receiveMap(int timeout) throws JMSException {
     Object received = receive(timeout);
-    // check if a message was received
-    if (received != null && received instanceof Map) {
-      log.debug(clientId + ": received map.");
-      return (Map<String, Object>) received;
+    if (received == null) {
+      log.debug(clientId + ": receive timed out in " + timeout);
+      return null;
     }
-    else {
-      log.debug(clientId + ": Map not received");
+    // check if a message was received
+    if (received instanceof Map) {
+      if (log.isDebug2()) {
+	log.debug2(clientId + ": received map: " + received);
+      } else {
+	log.debug(clientId + ": received map.");
+      }
+      return (Map<String, Object>) received;
+    } else {
+      log.warning(clientId + ": Expected map but received " +
+		  received.getClass());
     }
     return null;
   }
