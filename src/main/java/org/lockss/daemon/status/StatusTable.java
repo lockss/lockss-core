@@ -697,6 +697,11 @@ public class StatusTable {
       return peerId;
     }
 
+    /** For most references to foreign tables, the URL stem is determined
+     * at rendering time (by DaemonStatus, using just the table name).  In
+     * some cases (e.g., StatusServiceImpl.AllTableStatusAccessor) the
+     * table name alone isn't enough and the binding must be determined
+     * earlier when more info is available, and stored here. */
     public Reference setServiceStem(String val) {
       stem = val;
       return this;
@@ -724,6 +729,8 @@ public class StatusTable {
       return key;
     }
 
+    /** Set true for references that should never be resolved to a foreign
+     * table */
     public Reference setLocal(boolean val) {
       isLocal = val;
       return this;
@@ -774,7 +781,8 @@ public class StatusTable {
   }
 
   /**
-   * Encapsulates info about a table not in this JVM
+   * Encapsulates info about a table not in this JVM, received by
+   * StatusServiceImpl from other cluster members
    */
   public static class ForeignTable {
     private String name;		// table name

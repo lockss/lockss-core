@@ -35,7 +35,7 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 /**
- * Info about service binding of listen sockets
+ * Info about binding of listen sockets of known LOCKSS services
  */
 public class ServiceBinding {
   private final String host;

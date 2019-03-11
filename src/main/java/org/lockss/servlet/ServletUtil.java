@@ -1827,7 +1827,7 @@ public class ServletUtil {
     outerTable.add(navTable);
   }
 
-  // Build servlet navigation table
+  // Build service navigation table
   private static void layoutLeftNavTable(LockssServlet servlet,
 					 Table outerTable,
 					 boolean isLargeLogo) {

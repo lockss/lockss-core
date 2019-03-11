@@ -177,7 +177,7 @@ public abstract class BaseLockssManager implements LockssManager {
   protected Consumer jmsConsumer;
   protected Producer jmsProducer;
 
-  /** Establish a JMS listener for the topic.
+  /** Establish a JMS listener for the topic; store it in <tt>jmsConsumer</tt>
    * @param clientId
    * @param topicName
    * @param listener receives incoming messages
@@ -191,7 +191,8 @@ public abstract class BaseLockssManager implements LockssManager {
   /** Establish a JMS listener for the topic; store it in <tt>jmsConsumer</tt>
    * @param clientId
    * @param topicName
-   * @param noLocal if true, the listener will not receive messages we send
+   * @param noLocal if true, the listener will not receive messages sent by
+   * a Producer created with the same connection
    * @param listener receives incoming messages
    */
   protected void setUpJmsReceive(String clientId,
@@ -220,7 +221,7 @@ public abstract class BaseLockssManager implements LockssManager {
     }
   }
 
-  /** Cleanrly stop the JMS producer and/or consumer */
+  /** Cleanly stop the JMS producer and/or consumer */
   protected void stopJms() {
     Producer p = jmsProducer;
     if (p != null) {
@@ -242,14 +243,13 @@ public abstract class BaseLockssManager implements LockssManager {
     }
   }
 
-  /** Subclasses should override to hancle recieved Map messages */
+  /** Subclasses should override to handle recieved Map messages */
   protected void receiveMessage(Map map) {
   }
 
   /** A MessageListener suitable for receiving messages whose payload is a
    * map.  Dispatches received messages to {@link #receiveMessage(Map)} */
-  public class MapMessageListener extends
-  Consumer.SubscriptionListener {
+  public class MapMessageListener extends Consumer.SubscriptionListener {
 
     public MapMessageListener(String listenerName) {
       super(listenerName);
