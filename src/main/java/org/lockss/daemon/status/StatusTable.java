@@ -820,6 +820,46 @@ public class StatusTable {
   }
 
   /**
+   * Encapsulates info about a status overview available from some other
+   * cluster member
+   */
+  public static class ForeignOverview {
+    private String name;		// table name
+    private String serviceName;		// service name
+    private String stem;		// URL stem of overview owner
+    private Object value;
+    private long valueTimestamp = -1;
+
+    ForeignOverview(String name, String serviceName, String stem) {
+      this.name = name;
+      this.serviceName = serviceName;
+      this.stem = stem;
+    }
+
+    public String getName() { return name; }
+    public String getServiceName() { return serviceName; }
+    public String getStem() { return stem; }
+    public Object getValue() {return value;}
+    public long getValueTimestamp() {return valueTimestamp;}
+
+    public ForeignOverview setValue(Object val) {
+      this.value = val;
+      this.valueTimestamp = TimeBase.nowMs();
+      return this;
+    }
+
+    public String toString() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("[ForeignOverview: ");
+      sb.append(name);
+      sb.append(", ");
+      sb.append(stem);
+      sb.append("]");
+      return sb.toString();
+    }
+  }
+
+  /**
    * Object wrapping a link to a servlet
    */
   public static class SrvLink implements LinkValue {

@@ -126,6 +126,10 @@ public interface StatusService {
    * Unregister an OverviewAccessor */
   public void unregisterOverviewAccessor(String tableName);
 
+  /** Called by OverviewStatus to request up to date overview from other
+   * components */
+  public void requestOverviews(BitSet options);
+
   /**
    * Get the one-line overview of the subsystem associated with the table
    * name */
@@ -135,6 +139,10 @@ public interface StatusService {
    * Get the one-line overview of the subsystem associated with the table
    * name */
   public Object getOverview(String tableName, BitSet options);
+
+  /** Return the overview object most recently receieved from another
+   * component for the named table */
+  public Object getForeignOverview(String table);
 
   /**
    * Get a reference to the named table for the given object.

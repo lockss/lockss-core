@@ -122,6 +122,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
   @After
   public void tearDown() throws Exception {
     statusService.stopService();
+    getMockLockssDaemon().stopManagers();
     getMockLockssDaemon().stopDaemon();
     super.tearDown();
   }
@@ -205,15 +206,30 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     statusService.registerStatusAccessor("table1", new MockStatusAccessor());
   }
 
+  Producer prod;
+  Consumer cons;
+
+  void setUpJms() throws JMSException {
+    // Can't use the connection maintained by JMSManager (at least not for
+    // our Producer), as StatusServiceImpl's Consumer ignores locally sent
+    // messages
+    ConnectionFactory connectionFactory =
+      new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
+    Connection conn = connectionFactory.createConnection();
+
+    prod = Producer.createTopicProducer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
+    cons = Consumer.createTopicConsumer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, true, null, conn);
+  }
+
   Map MSG_REQ = MapUtil.map("verb", "RequestTableRegistrations");
 
   Map MSG_REG_1 = MapUtil.map("urlStem", "http://localhost:1234",
-			      "verb", "TableRegistered",
+			      "verb", "RegisterTable",
 			      "tableTitle", "MockStatusAccessor",
 			      "tableName", "V3PollerTable");
 
   Map MSG_REG_2 = MapUtil.map("urlStem", "http://localhost:4321",
-			      "verb", "TableRegistered",
+			      "verb", "RegisterTable",
 			      "tableTitle", "Vibes",
 			      "tableName", "Xylophones");
 
@@ -225,22 +241,11 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
 				  "poller=:1234");
 
-    // Can't use the connection maintained by JMSManager (at least not for
-    // our Producer), as StatusServiceImpl's Consumer ignores locally sent
-    // messages
-    ConnectionFactory connectionFactory =
-      new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
-    Connection conn = connectionFactory.createConnection();
-
-    Producer prod =
-      Producer.createTopicProducer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
-    Consumer cons =
-      Consumer.createTopicConsumer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC);
-
+    setUpJms();
     // This should cause a RequestTableRegistrations message to be sent
     statusService.startService();
 
-    // Register global table, ensure TableRegistered message is sent
+    // Register global table, ensure RegisterTable message is sent
     String pollTable =
       org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME;
     statusService.registerStatusAccessor(pollTable, new MockStatusAccessor());
@@ -249,17 +254,15 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     // Send a RequestTableRegistrations message, should receive it (from
     // ourselves) and the one registered global table
     prod.sendMap(MSG_REQ);
-    assertEquals(ListUtil.list(MSG_REQ, MSG_REG_1), nMsgs(cons, 2));
+    assertEquals(ListUtil.list(MSG_REG_1), nMsgs(cons, 1));
 
     // Tell MyStatusServiceImpl to post sem when foreign registration done
     SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
     statusService.setForRegSem(sem);
 
-    // Send a TableRegistered message, ensure it shows up in foreign
+    // Send a RegisterTable message, ensure it shows up in foreign
     // registrations map
     prod.sendMap(MSG_REG_2);
-    // us receiving our own message again
-    assertEquals(ListUtil.list(MSG_REG_2), nMsgs(cons, 1));
 
     assertTableExists(pollTable);
     
@@ -820,7 +823,14 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
   }
 
   @Test
-  public void testRegisterOveriewAccessor() {
+  public void testRegisterOveriewAccessor() throws Exception {
+    setUpJms();
+    getMockLockssDaemon().setMyServiceDescr(ServiceDescr.SVC_POLLER);
+    ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
+				  "poller=:1238");
+    // This should cause a RequestTableRegistrations message to be sent
+    statusService.startService();
+    assertEquals(ListUtil.list(MSG_REQ), nMsgs(cons, 1));
     statusService.registerOverviewAccessor("table1",
 					   new OverviewAccessor() {
 					     public Object getOverview(String tableName, 
@@ -836,7 +846,33 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     assertEquals("over1", statusService.getOverview("table1"));
     assertEquals("over2", statusService.getOverview("table2"));
     assertNull(statusService.getOverview("table3"));
+
+    statusService.registerOverviewAccessor(org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME,
+					   new OverviewAccessor() {
+					     public Object getOverview(String tableName, 
+								       BitSet options) {
+					       return "Poller Over";
+					     }});
+    assertEquals(ListUtil.list(MSG_REGOVER_1), nMsgs(cons, 1));
+
+
+    prod.sendMap(MSG_REQOVER);
+    assertEquals(ListUtil.list(MSG_OVER_1), nMsgs(cons, 1));
+
   }
+
+  Map MSG_REGOVER_1 = MapUtil.map("urlStem", "http://localhost:1238",
+				  "verb", "RegisterOverview",
+				  "serviceName", "poller",
+				  "tableName", "V3PollerTable");
+
+  Map MSG_REQOVER = MapUtil.map("verb", "RequestOverviews");
+
+  Map MSG_OVER_1 = MapUtil.map("verb", "Overview",
+			       "urlStem", "http://localhost:1238",
+			       "content", "Poller Over (poller)",
+			       "tableName", "V3PollerTable");
+
 
   @Test
   public void testRegisterObjectReferenceAccessor() {

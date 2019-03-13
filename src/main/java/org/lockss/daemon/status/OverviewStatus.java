@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2007 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,7 +39,8 @@ import org.lockss.poller.v3.*;
 import org.lockss.crawler.*;
 import org.lockss.repository.*;
 
-/** Display Platform Configuration */
+/** Display overview of each table that has registered an
+ * OverviewAccessor */
 public class OverviewStatus extends BaseLockssDaemonManager {
   static Logger log = Logger.getLogger();
   final static String OVERVIEW_STATUS_TABLE = "OverviewStatus";
@@ -96,11 +93,32 @@ public class OverviewStatus extends BaseLockssDaemonManager {
     };
 
     private List getSummaryInfo(StatusService statusServ, StatusTable table) {
+      // Request overview liens from other components
+      statusServ.requestOverviews(table.getOptions());
       List res = new ArrayList();
+
       for (int ix = 0; ix < overviewTableNames.length; ix++) {
+	// Local overview (null if no local overview accessor for that table)
 	Object v = statusServ.getOverview(overviewTableNames[ix],
 					 table.getOptions());
 
+	if (v != null) {
+	  if (v instanceof StatusTable.Reference) {
+	    // If a Reference, needed in case this table name is registered
+	    // globally, as this should always point to local table
+	    ((StatusTable.Reference)v).setLocal(true);
+	  }
+	  StatusTable.SummaryInfo summ =
+	    new StatusTable.SummaryInfo(null,
+					ColumnDescriptor.TYPE_STRING,
+					v);
+	  res.add(summ);
+	}
+
+	// Foreign overview (null if no component has registered a global
+	// overview accessor for that table, or if no overview value has
+	// been received sufficiently recently
+	v = statusServ.getForeignOverview(overviewTableNames[ix]);
 	if (v != null) {
 	  StatusTable.SummaryInfo summ =
 	    new StatusTable.SummaryInfo(null,
@@ -111,6 +129,5 @@ public class OverviewStatus extends BaseLockssDaemonManager {
       }
       return res;
     }
-    
   }
 }

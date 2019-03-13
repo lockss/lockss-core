@@ -705,7 +705,7 @@ public class DaemonStatus extends BaseDaemonStatus {
 
 
   // Handle lists
-  private String getTextDisplayString(Object val) {
+  public static String getTextDisplayString(Object val) {
     if (val == StatusTable.NO_VALUE) {
       // Some, but not all text formats avoid calling this with NO_VALUE
       return "";
