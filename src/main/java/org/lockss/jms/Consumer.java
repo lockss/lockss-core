@@ -62,14 +62,26 @@ public class Consumer {
 					     MessageListener listener)
       throws JMSException {
     Consumer res = new Consumer();
-    res.createTopic(clientId, topicName, noLocal, listener);
+    res.createTopic(clientId, topicName, noLocal, listener, null);
+    return res;
+  }
+
+  public static Consumer createTopicConsumer(String clientId,
+					     String topicName,
+					     boolean noLocal,
+					     MessageListener listener,
+					     Connection connection)
+      throws JMSException {
+    Consumer res = new Consumer();
+    res.createTopic(clientId, topicName, noLocal, listener, connection);
     return res;
   }
 
   private Consumer createTopic(String clientId,
 			       String topicName,
 			       boolean noLocal,
-			       MessageListener listener)
+			       MessageListener listener,
+			       Connection connection)
       throws JMSException {
 
     this.clientId = clientId;
@@ -80,7 +92,10 @@ public class Consumer {
 	      ", client: " + clientId + " at " +
 	      mgr.getConnectUri());
 
-    Connection connection = mgr.getConnection();
+    // Get shared connection from JMSManager if none supplied
+    if (connection == null) {
+      connection = mgr.getConnection();
+    }
     // create a Session
     log.debug3("Creating session for topic: " + topicName +
 	       ", client: " + clientId + " at " +
