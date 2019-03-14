@@ -490,7 +490,7 @@ public class StatusServiceImpl
       if (sa instanceof StatusAccessor.DebugOnly) {
 	map.put(JMS_TABLE_DEBUG_ONLY, "true");
       }
-      map.put(JMS_URL_STEM, myBinding.getStem("http"));
+      map.put(JMS_URL_STEM, myBinding.getUiStem("http"));
       sendVerb(VERB_REG_TABLE, map);
     }
   }
@@ -504,7 +504,7 @@ public class StatusServiceImpl
       }
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_TABLE_NAME, tableName);
-      map.put(JMS_URL_STEM, myBinding.getStem("http"));
+      map.put(JMS_URL_STEM, myBinding.getUiStem("http"));
       sendVerb(VERB_UNREG_TABLE, map);
     }
   }
@@ -520,7 +520,7 @@ public class StatusServiceImpl
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_VERB, VERB_REG_OVERVIEW);
       map.put(JMS_TABLE_NAME, tableName);
-      map.put(JMS_URL_STEM, myBinding.getStem("http"));
+      map.put(JMS_URL_STEM, myBinding.getUiStem("http"));
       map.put(JMS_SERVICE_NAME, myDescr.getAbbrev());
       sendVerb(VERB_REG_OVERVIEW, map);
     }
@@ -535,7 +535,7 @@ public class StatusServiceImpl
       }
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_TABLE_NAME, tableName);
-      map.put(JMS_URL_STEM, myBinding.getStem("http"));
+      map.put(JMS_URL_STEM, myBinding.getUiStem("http"));
       sendVerb(VERB_UNREG_OVERVIEW, map);
     }
   }
@@ -610,7 +610,7 @@ public class StatusServiceImpl
       }
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_TABLE_NAME, table);
-      map.put(JMS_URL_STEM, myBinding.getStem("http"));
+      map.put(JMS_URL_STEM, myBinding.getUiStem("http"));
       String str = getTextDisplayString(val);
       if (StringUtil.isNullString(str)) {
 	return;
@@ -664,22 +664,23 @@ public class StatusServiceImpl
       logger.warn("Received message from me, shouldn't happen: {}", map);
       return;
     }
-    ForeignTable ft = foreignTableBindings.get(table);
+    ForeignTable curFt = foreignTableBindings.get(table);
     String title = (String)map.get(JMS_TABLE_TITLE);
     String stem = (String)map.get(JMS_URL_STEM);
-    if (ft == null) {
-      boolean requiresKey = getMapBool(map, JMS_TABLE_REQUIRES_KEY);
-      boolean debugOnly = getMapBool(map, JMS_TABLE_DEBUG_ONLY);
-
-      ft = new ForeignTable(table, title, stem, requiresKey, debugOnly);
+    boolean requiresKey = getMapBool(map, JMS_TABLE_REQUIRES_KEY);
+    boolean debugOnly = getMapBool(map, JMS_TABLE_DEBUG_ONLY);
+    ForeignTable ft =
+      new ForeignTable(table, title, stem, requiresKey, debugOnly);
+    if (curFt == null) {
       logger.debug("Registering foreign table {}", ft);
       foreignTableBindings.put(table, ft);
-    } else if (!ft.getStem().equals(stem)) {
+    } else if (!curFt.getStem().equals(stem)) {
       // XXX Can't rely on services to unregister tables when they crash,
       // so this will be normal.  Will have to change to handle multiple
       // service instances.
       logger.warn("Replacing global registration for table {} with {} was {}",
-		  table, stem, ft.getStem());
+		  table, stem, curFt.getStem());
+      foreignTableBindings.put(table, ft);
     }
   }
 
@@ -706,20 +707,21 @@ public class StatusServiceImpl
       return;
     }
     synchronized (foreignOverviewBindings) {
-      ForeignOverview fo = foreignOverviewBindings.get(table);
+      ForeignOverview curFo = foreignOverviewBindings.get(table);
       String title = (String)map.get(JMS_TABLE_TITLE);
       String stem = (String)map.get(JMS_URL_STEM);
       String serviceName = (String)map.get(JMS_SERVICE_NAME);
-      if (fo == null) {
-	fo = new ForeignOverview(table, serviceName, stem);
+      ForeignOverview fo = new ForeignOverview(table, serviceName, stem);
+      if (curFo == null) {
 	logger.debug("Registering foreign overview {}", fo);
 	foreignOverviewBindings.put(table, fo);
-      } else if (!fo.getStem().equals(stem)) {
+      } else if (!curFo.getStem().equals(stem)) {
 	// XXX Can't rely on services to unregister overviews when they crash,
 	// so this will be normal.  Will have to change to handle multiple
 	// service instances.
 	logger.warn("Replacing global registration for overview {} with {} was {}",
-		    table, stem, fo.getStem());
+		    table, stem, curFo.getStem());
+	foreignOverviewBindings.put(table, fo);
       }
     }
   }
@@ -844,7 +846,7 @@ public class StatusServiceImpl
       logger.warn("Can't check isFromMe because we have no ServiceBinding");
       return false;
     }
-    return myBinding.getStem("http").equals(map.get(JMS_URL_STEM));
+    return myBinding.getUiStem("http").equals(map.get(JMS_URL_STEM));
   }
 
 

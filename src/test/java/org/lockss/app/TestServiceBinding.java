@@ -51,11 +51,11 @@ public class TestServiceBinding extends LockssTestCase {
     assertNotEquals(new ServiceBinding("xx", 12347), sb2);
   }
 
-  public void testGetStem() {
+  public void testGetUiStem() {
     assertEquals("https://foo.host:12345",
-		 new ServiceBinding("foo.host", 12345).getStem("https"));
+		 new ServiceBinding("foo.host", 12345).getUiStem("https"));
     assertEquals("http://localhost:666",
-		 new ServiceBinding(null, 666).getStem("http"));
+		 new ServiceBinding(null, 666).getUiStem("http"));
   }
 
 

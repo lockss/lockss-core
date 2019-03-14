@@ -63,7 +63,7 @@ public class ServiceBinding {
    * binding.
    * @param proto must be supplied as not currently part of binding
    */
-  public String getStem(String proto) {
+  public String getUiStem(String proto) {
     StringBuilder sb = new StringBuilder();
     sb.append(proto);
     sb.append("://");

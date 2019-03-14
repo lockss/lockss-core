@@ -1854,7 +1854,7 @@ public class ServletUtil {
       navTable.newRow();
       navTable.newCell();
       navTable.add("<font size=\"-1\">");
-      navTable.add(servlet.srvAbsLink(binding.getStem("http"),
+      navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
 				      AdminServletManager.SERVLET_DAEMON_STATUS,
 				      descr.getName(), null));
       navTable.add("</font>");

@@ -688,7 +688,7 @@ public abstract class LockssServlet extends HttpServlet
     if (binding == null) {
       return null;
     }
-    return binding.getStem(reqURL.getProtocol());
+    return binding.getUiStem(reqURL.getProtocol());
   }
 
   /** Return a link to a servlet */

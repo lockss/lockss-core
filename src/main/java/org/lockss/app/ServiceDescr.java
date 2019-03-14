@@ -41,7 +41,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  * naming and to locate a ServiceBinding.  Object identity is not
  * important.
  */
-public class ServiceDescr implements Comparable {
+public class ServiceDescr implements Comparable<ServiceDescr> {
 
   // Static mapping of abbreviation -> ServiceDescr
   static Map<String,ServiceDescr> abbrevMap = new HashMap<>();
@@ -100,8 +100,8 @@ public class ServiceDescr implements Comparable {
   }
 
   @Override
-  public int compareTo(Object o) {
-    return name.compareTo(((ServiceDescr)o).name);
+  public int compareTo(ServiceDescr o) {
+    return name.compareTo(o.name);
   }
 
   @Override
