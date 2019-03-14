@@ -463,8 +463,24 @@ public class TestConfigManager extends LockssTestCase4 {
     "    </list>\\n" +
     "  </property>\\n";
 
+  String expClust2 =
+    "  <property name=\"org.lockss.auxPropUrls\">\\n" +
+    "    <list append=\"false\">\\n" +
+    "      <value>http://host/lockss.xml</value>\\n" +
+    "      <value>./cluster.txt</value>\\n" +
+    "      <value>encode&lt;me&gt;</value>\\n" +
+    "\\n" +
+    "      <!-- Put static URLs here -->\\n" +
+    "      <value>.*/config/expert_config\\.txt</value>\\n" +
+    "\\n" +
+    "    </list>\\n" +
+    "  </property>\\n";
+
   @Test
   public void testGenerateCluster() throws Exception {
+    String tmpdir = getTempDir().toString();
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
+				  tmpdir);
     List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
 			     "encode<me>");
     mgr.setClusterUrls(exp);
@@ -472,6 +488,25 @@ public class TestConfigManager extends LockssTestCase4 {
     mgr.generateClusterFile(tmpFile);
     String clust = StringUtil.fromFile(tmpFile);
     assertMatchesRE(expClust, clust);
+
+    // Store a local cache config file (expert_config.txt), ensure it
+    // shows up in the cluster file
+    String relConfigPath =
+      CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
+                             ConfigManager.DEFAULT_CONFIG_PATH);
+    String exp_file =
+      mgr.getCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT).toString();
+
+    ConfigFile cf = mgr.getConfigCache().find(exp_file);
+    mgr.writeCacheConfigFile(PropUtil.fromArgs("k", "v"),
+			     ConfigManager.CONFIG_FILE_EXPERT,
+			     "Header");
+    // Force it to load else won't be included
+    Configuration econfig = cf.getConfiguration();
+    assertEquals("v", econfig.get("k"));
+    mgr.generateClusterFile(tmpFile);
+    String clust2 = StringUtil.fromFile(tmpFile);
+    assertMatchesRE(expClust2, clust2);
   }
 
   @Test
@@ -1837,6 +1872,9 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(12345, noRestServiceConfigManager.reloadInterval);
 
     // There is a remote configuration failover setup by default.
+    // (No longer - don't rely on the default)
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"true");
     noRestServiceConfigManager.setUpRemoteConfigFailover();
     assertNotNull(noRestServiceConfigManager.remoteConfigFailoverDir);
     assertNotNull(noRestServiceConfigManager.rcfm);
