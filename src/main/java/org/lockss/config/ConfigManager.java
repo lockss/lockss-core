@@ -3397,8 +3397,6 @@ public class ConfigManager implements LockssManager {
       for (LocalFileDescr lfd : getLocalFileDescrs()) {
 	String filename = lfd.getFile().toString();
 	ConfigFile cf = configCache.get(filename);
-	log.critical("cf: " + cf);
-	if (cf != null) log.critical("isLoaded: " + cf.isLoaded());
 	if (cf != null && cf.isLoaded()) {
 	  appendClusterUrl(sbLocal, filename);
 	}
