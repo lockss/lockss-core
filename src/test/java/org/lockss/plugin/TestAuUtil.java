@@ -760,6 +760,26 @@ public class TestAuUtil extends LockssTestCase {
     }
   }
 
+  public void testMapToJson() throws Exception {
+    assertEquals("{}", AuUtil.mapToJson(Collections.EMPTY_MAP));
+    assertEquals("{\"foo\":10}", AuUtil.mapToJson(MapUtil.map("foo", 10)));
+  }
+
+  public void testJsonToMap() throws Exception {
+    try {
+      AuUtil.jsonToMap(null);
+      fail("jsonToMap(null) is expected to throw NullPointerException");
+    } catch (NullPointerException e) {
+    }
+    try {
+      AuUtil.jsonToMap("");
+      fail("jsonToMap(\"\") is expected to throw MismatchedInputException");
+    } catch (com.fasterxml.jackson.databind.exc.MismatchedInputException e) {
+    }
+    assertEquals(Collections.EMPTY_MAP, AuUtil.jsonToMap("{}"));
+    assertEquals(MapUtil.map("bar", "zzz"), AuUtil.jsonToMap("{\"bar\":\"zzz\"}"));
+  }
+
   public void testMapToJsonRoundtrip() throws Exception {
     // Create a source map.
     Map<String, Object> map = new HashMap<>();
