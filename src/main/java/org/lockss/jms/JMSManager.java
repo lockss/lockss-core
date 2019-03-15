@@ -31,10 +31,11 @@ package org.lockss.jms;
 import java.io.*;
 import java.util.*;
 import javax.jms.*;
-import org.apache.activemq.broker.BrokerService;
-import org.apache.activemq.store.*;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.activemq.broker.BrokerService;
+import org.apache.activemq.store.*;
+import org.apache.activemq.transport.DefaultTransportListener;
 
 import org.lockss.app.*;
 import org.lockss.daemon.*;
@@ -199,9 +200,10 @@ public class JMSManager extends BaseLockssManager
     }
   }
 
-//   public Broker getBroker() {
-//     return BrokerService.getBroker();
-//   }
+  /** Return the URI that should be used to connect to the JMS broker */
+  public String getConnectUri() {
+    return connectUri;
+  }
 
   /** Return a connection to the configured broker */
   public Connection getConnection() throws JMSException {
@@ -211,19 +213,70 @@ public class JMSManager extends BaseLockssManager
   /** Return a connection to the specified broker */
   public Connection getConnection(String uri) throws JMSException {
     synchronized (connectionMap) {
-      Connection res = connectionMap.get(uri);
-      if (res == null) {
-	ConnectionFactory connectionFactory =
+      Connection conn = connectionMap.get(uri);
+      if (conn == null) {
+	ActiveMQConnectionFactory connectionFactory =
 	  new ActiveMQConnectionFactory(uri);
 	// create a new Connection
-	res = connectionFactory.createConnection();
-	connectionMap.put(uri, res);
+	conn = connectionFactory.createConnection();
+	if (conn instanceof ActiveMQConnection) {
+	  ActiveMQConnection amqConn = (ActiveMQConnection)conn;
+	  amqConn.addTransportListener(new DefaultTransportListener() {
+	      @Override
+	      public void transportInterupted() {
+		onTransportInterrupted();
+	      }
+	      @Override
+	      public void transportResumed() {
+		onTransportResumed();
+	      }});
+	  connectionMap.put(uri, conn);
+	} else {
+	  log.warn("Couldn't add transport listener as {} isn't an ActiveMQConnection", conn);
+	}
       }
-      return res;
+      return conn;
     }
   }
 
-  public String getConnectUri() {
-    return connectUri;
+  void onTransportInterrupted() {
+    synchronized (transportListeners) {
+      for (TransportListener tl : transportListeners) {
+	tl.transportInterrupted();
+      }
+    }
+  }
+
+  void onTransportResumed() {
+    synchronized (transportListeners) {
+      for (TransportListener tl : transportListeners) {
+	tl.transportResumed();
+      }
+    }
+  }
+
+  private List<TransportListener> transportListeners = new ArrayList<>();
+
+  public void registerTransportListener(TransportListener tl) {
+    synchronized (transportListeners) {
+      if (!transportListeners.contains(tl)) {
+	transportListeners.add(tl);
+      }
+    }
+  }
+
+  public void unregisterTransportListener(TransportListener tl) {
+    synchronized (transportListeners) {
+      transportListeners.remove(tl);
+    }
+  }
+
+  /** Clients can register an instance of this to listen for JMS transport
+   * events */
+  public interface TransportListener {
+    default public void transportInterrupted() {
+    }
+    default public void transportResumed() {
+    }
   }
 }

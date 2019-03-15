@@ -155,12 +155,29 @@ public class StatusServiceImpl
   private String clientId = DEFAULT_JMS_CLIENT_ID;
   private long overviewTimeout = DEFAULT_OVERVIEW_TIMEOUT;
   private long overviewStale = DEFAULT_OVERVIEW_STALE;
+  private JMSManager.TransportListener tListener;
 
   public void startService() {
     super.startService();
     setUpJmsNotifications();
+    tListener = new JMSManager.TransportListener() {
+	// When connection to JMS broker re-established, must send all
+	// registrations and ask others for theirs
+	public void transportResumed() {
+	  sendRequestRegisteredTables();
+	  sendAllTableRegs();
+	}};
+    JMSManager mgr = getApp().getManagerByType(JMSManager.class);
+    mgr.registerTransportListener(tListener);
     registerStatusAccessor(ALL_TABLES_TABLE, new AllTableStatusAccessor());
+
+
     sendRequestRegisteredTables();
+  }
+
+  public void stopService() {
+    JMSManager mgr = getApp().getManagerByType(JMSManager.class);
+    mgr.unregisterTransportListener(tListener);
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
