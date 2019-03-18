@@ -140,6 +140,7 @@ public class ClientStateManager extends CachingStateManager {
       auState = ausb.toJson(fields);
       String cookie = makeCookie();
       recordMyUpdate(cookie, auState);
+      log.debug2("patchArchivalUnitState({}, {}, {}, {}", key, auState, cookie, fields);
       configMgr.getRestConfigClient().patchArchivalUnitState(key, auState,
 							     cookie);
     } catch (IOException e) {
