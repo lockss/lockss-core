@@ -428,8 +428,14 @@ public abstract class LockssServlet extends HttpServlet
     return ip;
   }
 
-  protected String getRequestHost() {
-    return reqURL.getHost();
+  String getRequestStem() {
+    StringBuilder sb = new StringBuilder();
+    sb.append(reqURL.getProtocol());
+    sb.append("://");
+    sb.append(reqURL.getHost());
+    sb.append(':');
+    sb.append(reqURL.getPort());
+    return sb.toString();
   }
 
   protected String getMachineName() {
@@ -620,21 +626,21 @@ public abstract class LockssServlet extends HttpServlet
   /** Construct servlet absolute URL.
    */
   String srvAbsURL(ServletDescr d) {
-    return srvURL(getRequestHost(), d, null);
+    return srvURL(getRequestStem(), d, null);
   }
 
   /** Construct servlet absolute URL, with params as necessary.
    */
   String srvAbsURL(ServletDescr d, String params) {
-    return srvURL(getRequestHost(), d, params);
+    return srvURL(getRequestStem(), d, params);
   }
 
   /** Construct servlet URL, with params as necessary.  Avoid generating a
    *  hostname different from that used in the original request, or
    *  browsers will prompt again for login
    */
-  String srvURL(String host, ServletDescr d, String params) {
-    return srvURLFromStem(srvUrlStem(host), d, params);
+  String srvURL(String stem, ServletDescr d, String params) {
+    return srvURLFromStem(stem, d, params);
   }
 
   String srvURL(PeerIdentity peer, ServletDescr d, String params) {
@@ -648,6 +654,9 @@ public abstract class LockssServlet extends HttpServlet
   String srvURLFromStem(String stem, ServletDescr d, String params) {
     if (d.isPathIsUrl()) {
       return d.getPath();
+    }
+    if (stem == null) {
+      stem = srvUrlStemFromDescr(d);
     }
     StringBuilder sb = new StringBuilder(80);
     if (stem != null) {
@@ -667,17 +676,19 @@ public abstract class LockssServlet extends HttpServlet
     return sb.toString();
   }
 
-  String srvUrlStem(String host) {
-    if (host == null) {
+  String srvUrlStemFromDescr(ServletDescr d) {
+    if (d == null) {
       return null;
     }
-    StringBuilder sb = new StringBuilder();
-    sb.append(reqURL.getProtocol());
-    sb.append("://");
-    sb.append(host);
-    sb.append(':');
-    sb.append(reqURL.getPort());
-    return sb.toString();
+    ServiceDescr svc = d.getService();
+    if (svc == null || getLockssDaemon().isMyService(svc)) {
+      return null;
+    }
+    ServiceBinding binding = getLockssDaemon().getServiceBinding(svc);
+    if (binding == null) {
+      return null;
+    }
+    return binding.getUiStem(reqURL.getProtocol());
   }
 
   /** Return a link to a servlet */
@@ -719,8 +730,8 @@ public abstract class LockssServlet extends HttpServlet
   }
 
   /** Return an absolute link to a servlet with params */
-  String srvAbsLink(String host, ServletDescr d, String text, String params) {
-    return new Link(srvURL(host, d, params),
+  String srvAbsLink(String stem, ServletDescr d, String text, String params) {
+    return new Link(srvURL(stem, d, params),
 		    (text != null ? text : d.heading)).toString();
   }
 

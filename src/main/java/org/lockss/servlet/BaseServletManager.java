@@ -386,28 +386,44 @@ public abstract class BaseServletManager
   }
 
   // Create mapping from servlet class to ServletDescr
-  protected Hashtable servletToDescr = new Hashtable();
+  protected Map<Class,ServletDescr> servletToDescr =
+    Collections.synchronizedMap(new HashMap<>());
 
   protected void initDescrs() {
-    for (ServletDescr d : getServletDescrs()) {
+    initDescrs(getServletDescrs());
+  }
+
+  protected void initDescrs(ServletDescr[] descrs) {
+    for (ServletDescr d : descrs) {
       if (d.cls != null && d.cls != ServletDescr.UNAVAILABLE_SERVLET_MARKER) {
-	servletToDescr.put(d.cls, d);
+	// If the descr specifies a service that isn't us, it isn't one of
+	// ours so don't add to table
+	ServiceDescr serv = d.getService();
+	if (serv == null || !getDaemon().isLaaws()
+	    || getDaemon().isMyService(serv)) {
+	  servletToDescr.put(d.cls, d);
+	}
       }
     }
   }
 
   public ServletDescr findServletDescr(Object o) {
-    ServletDescr res = (ServletDescr)servletToDescr.get(o.getClass());
+    ServletDescr res = servletToDescr.get(o.getClass());
     if (res != null) return res;
     // if not in map, o might be an instance of a subclass of a servlet class
     // that's in the map.
     for (ServletDescr d : getServletDescrs()) {
       if (d.cls != null && d.cls.isInstance(o)) {
-	// found a descr that describes a superclass.  Add actual class to map
-	servletToDescr.put(o.getClass(), d);
-	return d;
+	ServiceDescr serv = d.getService();
+	if (serv == null || !getDaemon().isLaaws()
+	    || getDaemon().isMyService(serv)) {
+	  // found a descr that describes a superclass.  Add actual class to map
+	  servletToDescr.put(o.getClass(), d);
+	  return d;
+	}
       }
     }
+    log.error("No ServletDescr for " + o);
     return null;		// shouldn't happen
 				// XXX do something better here
   }

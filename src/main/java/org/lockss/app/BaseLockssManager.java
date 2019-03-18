@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,9 +28,13 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.app;
 
-import java.util.List;
+import java.util.*;
+import javax.jms.*;
+
 import org.lockss.alert.*;
 import org.lockss.config.*;
+import org.lockss.jms.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 
 /**
@@ -43,7 +43,7 @@ import org.lockss.util.*;
 
 public abstract class BaseLockssManager implements LockssManager {
 
-  private static final Logger log = Logger.getLogger();
+  private static final L4JLogger log = L4JLogger.getLogger();
 
   protected LockssApp theApp = null;
   private Configuration.Callback configCallback;
@@ -65,7 +65,7 @@ public abstract class BaseLockssManager implements LockssManager {
    */
   public void initService(LockssApp app) throws LockssAppException {
     isInited = true;
-    if (log.isDebug2()) log.debug2(getClassName() + ".initService()");
+    log.debug2("{}.initService()", getClassName());
     if(theApp == null) {
       theApp = app;
       registerDefaultConfigCallback();
@@ -80,13 +80,14 @@ public abstract class BaseLockssManager implements LockssManager {
    * necessary. */
   public void startService() {
     isStarted = true;
-    if (log.isDebug2()) log.debug2(getClassName() + ".startService()");
+    log.debug2("{}.startService()", getClassName());
   }
 
   /** Called to stop a service.  Service should extend this to stop all
    * ongoing activity (<i>eg</i>, threads). */
   public void stopService() {
-    if (log.isDebug2()) log.debug2(getClassName() + ".stopService()");
+    log.debug2("{}.stopService()", getClassName());
+    stopJms();
     shuttingDown = true;
     // checkpoint here
     unregisterConfig();
@@ -171,6 +172,106 @@ public abstract class BaseLockssManager implements LockssManager {
     }
   }
 
+  // JMS Producer and Consumer setup
+
+  protected Consumer jmsConsumer;
+  protected Producer jmsProducer;
+
+  /** Establish a JMS listener for the topic; store it in <tt>jmsConsumer</tt>
+   * @param clientId
+   * @param topicName
+   * @param listener receives incoming messages
+   */
+  protected void setUpJmsReceive(String clientId,
+				 String topicName,
+				 MessageListener listener) {
+    setUpJmsReceive(clientId, topicName, false, listener);
+  }
+
+  /** Establish a JMS listener for the topic; store it in <tt>jmsConsumer</tt>
+   * @param clientId
+   * @param topicName
+   * @param noLocal if true, the listener will not receive messages sent by
+   * a Producer created with the same connection
+   * @param listener receives incoming messages
+   */
+  protected void setUpJmsReceive(String clientId,
+				 String topicName,
+				 boolean noLocal,
+				 MessageListener listener) {
+    log.debug("Creating consumer for " + getClassName());
+    try {
+      jmsConsumer =
+	Consumer.createTopicConsumer(clientId, topicName, noLocal, listener);
+    } catch (JMSException e) {
+      log.fatal("Couldn't create jms consumer for " + getClassName(), e);
+    }
+  }
+
+  /** Establish a JMS producer for the topic; store it in <tt>jmsProducer</tt>.
+   * @param clientId
+   * @param topicName
+   */
+  protected void setUpJmsSend(String clientId, String topicName) {
+    log.debug("Creating producer for " + getClassName());
+    try {
+      jmsProducer = Producer.createTopicProducer(clientId, topicName);
+    } catch (JMSException e) {
+      log.error("Couldn't create jms producer for " + getClassName(), e);
+    }
+  }
+
+  /** Cleanly stop the JMS producer and/or consumer */
+  protected void stopJms() {
+    Producer p = jmsProducer;
+    if (p != null) {
+      try {
+	jmsProducer = null;
+	p.close();
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms producer for " + getClassName(), e);
+      }
+    }
+    Consumer c = jmsConsumer;
+    if (c != null) {
+      try {
+	jmsConsumer = null;
+	c.close();
+      } catch (JMSException e) {
+	log.error("Couldn't stop jms consumer for " + getClassName(), e);
+      }
+    }
+  }
+
+  /** Subclasses should override to handle recieved Map messages */
+  protected void receiveMessage(Map map) {
+  }
+
+  /** A MessageListener suitable for receiving messages whose payload is a
+   * map.  Dispatches received messages to {@link #receiveMessage(Map)} */
+  public class MapMessageListener extends Consumer.SubscriptionListener {
+
+    public MapMessageListener(String listenerName) {
+      super(listenerName);
+    }
+
+    @Override
+    public void onMessage(Message message) {
+      try {
+        Object msgObject =  Consumer.convertMessage(message);
+	if (msgObject instanceof Map) {
+	  receiveMessage((Map)msgObject);
+	} else {
+	  log.warn("Unknown notification type, not Map: " + msgObject);
+	}
+      } catch (JMSException e) {
+	log.warn("Failed to decode message: {}", message, e);
+      }
+    }
+  }
+
+
+
   // Convenience manager accessors
 
   public ConfigManager getConfigManager() {
@@ -224,8 +325,8 @@ public abstract class BaseLockssManager implements LockssManager {
       defaultTempRootDir = config.get(ConfigManager.PARAM_TMPDIR);
     }
 
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "defaultTempDbRootDir = '"
-	+ defaultTempRootDir + "'.");
+    log.debug2(DEBUG_HEADER + "defaultTempDbRootDir = '"
+	       + defaultTempRootDir + "'.");
     return defaultTempRootDir;
   }
 }

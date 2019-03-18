@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.util;
 
+import java.util.*;
 import org.json.JSONObject;
 
 /**
@@ -59,5 +60,28 @@ public class JsonUtil {
     JSONObject responseBody = new JSONObject();
     responseBody.put("error", errorElement);
     return responseBody.toString();
+  }
+
+  /** Turn a BitSet into a long to facilitate inclusion in message */
+  public static long asLong(BitSet val) {
+    long res = 0L;
+    for (int ix = 0; ix < val.length(); ix++) {
+      res |= val.get(ix) ? (1L << ix) : 0L;
+    }
+    return res;
+  }
+
+  /** Turn a long into a BitSet */
+  public static BitSet asBitSet(long value) {
+    BitSet res = new BitSet();
+    int ix = 0;
+    while (value != 0L) {
+      if (value % 2L != 0) {
+        res.set(ix);
+      }
+      ix++;
+      value = value >>> 1;
+    }
+    return res;
   }
 }
