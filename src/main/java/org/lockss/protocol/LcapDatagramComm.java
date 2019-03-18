@@ -62,7 +62,7 @@ public class LcapDatagramComm
 
   static final String PREFIX = Configuration.PREFIX + "comm.";
   public static final String PARAM_ENABLED = PREFIX + "enabled";
-  public static final boolean DEFAULT_ENABLED = true;
+  public static final boolean DEFAULT_ENABLED = false;
 
   public static final String PARAM_MULTI_GROUP = PREFIX + "multicast.group";
   public static final String PARAM_MULTI_PORT = PREFIX + "multicast.port";
