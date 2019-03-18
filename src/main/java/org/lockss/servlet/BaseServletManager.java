@@ -399,7 +399,8 @@ public abstract class BaseServletManager
 	// If the descr specifies a service that isn't us, it isn't one of
 	// ours so don't add to table
 	ServiceDescr serv = d.getService();
-	if (serv == null || getDaemon().isMyService(serv)) {
+	if (serv == null || !getDaemon().isLaaws()
+	    || getDaemon().isMyService(serv)) {
 	  servletToDescr.put(d.cls, d);
 	}
       }
@@ -414,13 +415,15 @@ public abstract class BaseServletManager
     for (ServletDescr d : getServletDescrs()) {
       if (d.cls != null && d.cls.isInstance(o)) {
 	ServiceDescr serv = d.getService();
-	if (serv == null || getDaemon().isMyService(serv)) {
+	if (serv == null || !getDaemon().isLaaws()
+	    || getDaemon().isMyService(serv)) {
 	  // found a descr that describes a superclass.  Add actual class to map
 	  servletToDescr.put(o.getClass(), d);
 	  return d;
 	}
       }
     }
+    log.error("No ServletDescr for " + o);
     return null;		// shouldn't happen
 				// XXX do something better here
   }

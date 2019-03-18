@@ -391,13 +391,13 @@ public class AdminServletManager extends BaseServletManager {
 		     ExpertConfig.class,
 		     "&nbsp(local)",
 		     (ServletDescr.IN_NAV
+		      | ServletDescr.SAME_LINE
 		      | ServletDescr.NEED_ROLE_USER_ADMIN),
 		     "Allows arbitrary local configuration") {
       public boolean isInNav(LockssServlet servlet) {
 	LockssApp app = servlet.getLockssApp();
 	return app.isLaaws() && !app.isMyService(SVC_CONFIG);
-      }}
-    .setFlags(ServletDescr.SAME_LINE);
+      }};
   protected static final ServletDescr SERVLET_PLUGIN_CONFIG =
           new ServletDescr("PluginConfig",
           PluginConfig.class,
