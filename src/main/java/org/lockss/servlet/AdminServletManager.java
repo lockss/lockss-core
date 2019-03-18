@@ -379,13 +379,25 @@ public class AdminServletManager extends BaseServletManager {
           + "to access preserved content on this LOCKSS box")
     .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_EXPERT_CONFIG =
-          new ServletDescr("ExpertConfig",
-          ExpertConfig.class,
-          "Expert Config",
-          (ServletDescr.IN_NAV
-          | ServletDescr.NEED_ROLE_USER_ADMIN),
-          "Allows arbitrary local configuration")
+    new ServletDescr("ExpertConfig",
+		     ExpertConfig.class,
+		     "Expert Config",
+		     (ServletDescr.IN_NAV
+		      | ServletDescr.NEED_ROLE_USER_ADMIN),
+		     "Allows arbitrary cluster configuration")
     .setService(SVC_CONFIG);
+  protected static final ServletDescr SERVLET_EXPERT_CONFIG_LOCAL =
+    new ServletDescr("ExpertConfig",
+		     ExpertConfig.class,
+		     "&nbsp(local)",
+		     (ServletDescr.IN_NAV
+		      | ServletDescr.NEED_ROLE_USER_ADMIN),
+		     "Allows arbitrary local configuration") {
+      public boolean isInNav(LockssServlet servlet) {
+	LockssApp app = servlet.getLockssApp();
+	return app.isLaaws() && !app.isMyService(SVC_CONFIG);
+      }}
+    .setFlags(ServletDescr.SAME_LINE);
   protected static final ServletDescr SERVLET_PLUGIN_CONFIG =
           new ServletDescr("PluginConfig",
           PluginConfig.class,
@@ -683,6 +695,7 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_LIST_OBJECTS,
     SERVLET_DEBUG_PANEL,
     SERVLET_EXPERT_CONFIG,
+    SERVLET_EXPERT_CONFIG_LOCAL,
     SERVLET_LIST_HOLDINGS,
     SERVLET_COUNTER_REPORTS,
     //SERVLET_OPENURL_QUERY,
@@ -812,16 +825,8 @@ public class AdminServletManager extends BaseServletManager {
   // XXXUI Override to init new servlets too
   @Override
   protected void initDescrs() {
-    for (ServletDescr d : getServletDescrs()) {
-      if (d.cls != null && d.cls != ServletDescr.UNAVAILABLE_SERVLET_MARKER) {
-        servletToDescr.put(d.cls, d);
-      }
-    }
-    for (ServletDescr d : servletDescrsNew) {
-      if (d.cls != null && d.cls != ServletDescr.UNAVAILABLE_SERVLET_MARKER) {
-        servletToDescr.put(d.cls, d);
-      }
-    }
+    initDescrs(getServletDescrs());
+    initDescrs(servletDescrsNew);
   }
 
   private String logdir;

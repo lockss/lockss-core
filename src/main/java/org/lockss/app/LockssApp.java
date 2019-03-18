@@ -86,6 +86,9 @@ public class LockssApp {
 
   public static final String PARAM_TESTING_MODE = PREFIX + "testingMode";
 
+  static final String PARAM_IS_LAAWS = PREFIX + "isLaaws";
+  static final boolean DEFAULT_IS_LAAWS = false;
+
   static final String PARAM_DAEMON_DEADLINE_REASONABLE =
     PREFIX + "deadline.reasonable.";
   static final String PARAM_DAEMON_DEADLINE_REASONABLE_PAST =
@@ -223,6 +226,7 @@ public class LockssApp {
   protected long appLifetime = DEFAULT_APP_EXIT_AFTER;
   protected Deadline timeToExit = Deadline.at(TimeBase.MAX);
   protected boolean isSafenet = false;
+  protected boolean isLaaws = false;
 
   // Map of managerKey -> manager instance. Need to preserve order so
   // managers are started and stopped in the right order.  This does not
@@ -292,6 +296,15 @@ public class LockssApp {
    */
   public boolean isSafenet() {
     return isSafenet;
+  }
+
+  /**
+   * True if running as part of a LAAWS cluster.  Normally determined by
+   * having a ServiceDescr, can be set via {@value PARAM_IS_LAAWS} for
+   * testing.
+   */
+  public boolean isLaaws() {
+    return getMyServiceDescr() != null || isLaaws;
   }
 
   /** Starts the standard pre managers, then the per-app managers, then the
@@ -847,6 +860,7 @@ public class LockssApp {
     }
 
     testingMode = config.get(PARAM_TESTING_MODE);
+    isLaaws = config.getBoolean(PARAM_IS_LAAWS, DEFAULT_IS_LAAWS);
 
     if (changedKeys.contains(PARAM_SERVICE_BINDINGS)) {
       processServiceBindings(config.getList(PARAM_SERVICE_BINDINGS,

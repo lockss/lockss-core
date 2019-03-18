@@ -1813,8 +1813,10 @@ public class ServletUtil {
 
     while (descrIterator.hasNext()) {
       ServletDescr d = (ServletDescr)descrIterator.next();
-      navTable.newRow();
-      navTable.newCell();
+      if (!d.isSameLine()) {
+	navTable.newRow();
+	navTable.newCell();
+      }
       if (false /*isThisServlet(d)*/) {
         navTable.add("<font size=\"-1\" color=\"green\">");
       } else {
