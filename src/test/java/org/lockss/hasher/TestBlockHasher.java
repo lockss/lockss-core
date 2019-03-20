@@ -890,22 +890,22 @@ public class TestBlockHasher extends LockssTestCase {
     assertEquals(3, maus.getNumCurrentSuspectVersions());
   }
   
-  public void testOneContentLocalHashMissing() throws Exception {
+  public void xxxtestOneContentLocalHashMissing() throws Exception {
     testOneContentLocalHashMissing(1);
     testOneContentLocalHashMissing(3);
     testOneContentLocalHashMissing(100);
   }
   
   // These mark suspect versions so must be in separate tests
-  public void testOneContentLocalHashMissing2a() throws Exception {
+  public void xxxtestOneContentLocalHashMissing2a() throws Exception {
     testOneContentLocalHashMissing2(1);
   }
   
-  public void testOneContentLocalHashMissing2b() throws Exception {
+  public void xxxtestOneContentLocalHashMissing2b() throws Exception {
     testOneContentLocalHashMissing2(3);
   }
   
-  public void testOneContentLocalHashMissing2c() throws Exception {
+  public void xxxtestOneContentLocalHashMissing2c() throws Exception {
     testOneContentLocalHashMissing2(100);
   }
   
