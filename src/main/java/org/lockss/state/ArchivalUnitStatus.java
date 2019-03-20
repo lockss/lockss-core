@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -2300,7 +2296,6 @@ public class ArchivalUnitStatus
 
     public Object getOverview(String tableName, BitSet options) {
       boolean isDebug = options.get(StatusTable.OPTION_DEBUG_USER);
-      List res = new ArrayList();
       int total = 0;
       int internal = 0;
       int neverCrawled = 0;

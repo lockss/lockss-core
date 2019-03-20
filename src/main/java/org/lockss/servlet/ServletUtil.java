@@ -876,19 +876,12 @@ public class ServletUtil {
                                   Iterator descrIterator) {
     Composite comp = new Composite();
     Table table = new Table(HEADER_TABLE_BORDER, HEADER_TABLE_ATTRIBUTES);
-    Image logo = ((isLargeLogo && thirdPartyLogo == null)
-		  ? IMAGE_LOGO_LARGE
-		  : IMAGE_LOGO_SMALL);
     table.newRow();
-    table.newCell("valign=\"top\" align=\"center\" width=\"20%\"");
-    table.add(new Link(Constants.LOCKSS_HOME_URL, logo));
-    table.add(IMAGE_TM);
-    if (thirdPartyLogo != null) {
-      Image img = new Image(thirdPartyLogo);
-      img.border(0);
-      table.add(new Link(thirdPartyLogoLink, img));
-    }
+    // Left
+    table.newCell("valign=\"top\" align=\"left\" width=\"20%\"");
+    layoutLeftNavTable(servlet, table, isLargeLogo);
 
+    // Center
     table.newCell("valign=\"top\" align=\"center\" width=\"60%\"");
     table.add("<br>");
     table.add(HEADER_HEADING_BEFORE);
@@ -927,6 +920,7 @@ public class ServletUtil {
     table.add(", up ");
     table.add(since);
 
+    // Right
     table.newCell("valign=\"center\" align=\"center\" width=\"20%\"");
     layoutNavTable(servlet, table, descrIterator);
     comp.add(table);
@@ -1819,8 +1813,10 @@ public class ServletUtil {
 
     while (descrIterator.hasNext()) {
       ServletDescr d = (ServletDescr)descrIterator.next();
-      navTable.newRow();
-      navTable.newCell("colspan=\"3\"");
+      if (!d.isSameLine()) {
+	navTable.newRow();
+	navTable.newCell();
+      }
       if (false /*isThisServlet(d)*/) {
         navTable.add("<font size=\"-1\" color=\"green\">");
       } else {
@@ -1830,7 +1826,41 @@ public class ServletUtil {
 					      servlet.isServletLinkInNav(d)));
       navTable.add("</font>");
     }
-    navTable.add("</font>");
+    outerTable.add(navTable);
+  }
+
+  // Build service navigation table
+  private static void layoutLeftNavTable(LockssServlet servlet,
+					 Table outerTable,
+					 boolean isLargeLogo) {
+
+    Image logo = ((isLargeLogo && thirdPartyLogo == null)
+		  ? IMAGE_LOGO_LARGE
+		  : IMAGE_LOGO_SMALL);
+
+    Table navTable = new Table(NAVTABLE_TABLE_BORDER, NAVTABLE_ATTRIBUTES);
+    navTable.newRow();
+    navTable.newCell("valign=\"top\" align=\"center\" width=\"20%\"");
+    navTable.add(new Link(Constants.LOCKSS_HOME_URL, logo));
+    navTable.add(IMAGE_TM);
+    if (thirdPartyLogo != null) {
+      Image img = new Image(thirdPartyLogo);
+      img.border(0);
+      navTable.add(new Link(thirdPartyLogoLink, img));
+    }
+    navTable.newRow();
+    navTable.newCell("height=\"10\"");
+    LockssDaemon daemon = servlet.getLockssDaemon();
+    for (ServiceDescr descr : daemon.getAllServiceDescrs()) {
+      ServiceBinding binding = daemon.getServiceBinding(descr);
+      navTable.newRow();
+      navTable.newCell();
+      navTable.add("<font size=\"-1\">");
+      navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
+				      AdminServletManager.SERVLET_DAEMON_STATUS,
+				      descr.getName(), null));
+      navTable.add("</font>");
+    }
     outerTable.add(navTable);
   }
 

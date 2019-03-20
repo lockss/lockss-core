@@ -66,10 +66,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     if (changedKeys.contains(PREFIX)) {
       notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
 				     DEFAULT_JMS_NOTIFICATION_TOPIC);
-      enableJmsSend = config.getBoolean(PARAM_ENABLE_JMS_SEND,
-					DEFAULT_ENABLE_JMS_SEND);
-      enableJmsReceive = config.getBoolean(PARAM_ENABLE_JMS_RECEIVE,
-					   DEFAULT_ENABLE_JMS_RECEIVE);
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
     }
   }
@@ -106,19 +102,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   public static final String JMS_PREFIX = PREFIX + "jms.";
 
-  /** Enable notification sending by server StateManager
-   * @ParamRelevance Rare
-   */
-  public static final String PARAM_ENABLE_JMS_SEND = JMS_PREFIX + "enableSend";
-  public static final boolean DEFAULT_ENABLE_JMS_SEND = true;
-
-  /** Enable notification receipt by client StateManager
-   * @ParamRelevance Rare
-   */
-  public static final String PARAM_ENABLE_JMS_RECEIVE =
-    JMS_PREFIX + "enableReceive";
-  public static final boolean DEFAULT_ENABLE_JMS_RECEIVE = true;
-
   /** The jms topic at which state change notifications are sent
    * @ParamRelevance Rare
    */
@@ -133,65 +116,22 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
   public static final String DEFAULT_JMS_CLIENT_ID = null;
 
-  private Consumer jmsConsumer;
-  private Producer jmsProducer;
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
-  private boolean enableJmsSend = DEFAULT_ENABLE_JMS_SEND;
-  private boolean enableJmsReceive = DEFAULT_ENABLE_JMS_RECEIVE;
   private String clientId = DEFAULT_JMS_CLIENT_ID;
 
   void setUpJmsReceive() {
-    if (!enableJmsReceive) {
-      log.info("JMS receive manually disabled, not receiving incoming state changed notifications");
-      return;
-    }
-    log.debug("Creating consumer");
-    try {
-      jmsConsumer =
-	Consumer.createTopicConsumer(clientId,
-				     notificationTopic,
-				     new MyMessageListener("State Listener"));
-    } catch (JMSException e) {
-      log.error("Couldn't create jms consumer", e);
-    }
+    super.setUpJmsReceive(clientId,
+			  notificationTopic,
+			  new MapMessageListener("State Listener"));
   }
 
   void setUpJmsSend() {
-    if (!enableJmsSend) {
-      log.info("JMS send manually disabled, not sending state changed notifications");
-      return;
-    }
-    log.debug("Creating producer");
-    try {
-      jmsProducer = Producer.createTopicProducer(clientId, notificationTopic);
-    } catch (JMSException e) {
-      log.error("Couldn't create jms producer", e);
-    }
+    super.setUpJmsSend(clientId, notificationTopic);
   }
 
-  void stopJms() {
-    Producer p = jmsProducer;
-    if (p != null) {
-      try {
-	jmsProducer = null;
-	p.close();
-      } catch (JMSException e) {
-	log.error("Couldn't stop jms producer", e);
-      }
-    }
-    Consumer c = jmsConsumer;
-    if (c != null) {
-      try {
-	jmsConsumer = null;
-	c.close();
-      } catch (JMSException e) {
-	log.error("Couldn't stop jms consumer", e);
-      }
-    }
-  }
-
-  /** Incoming AuEvent message */
-  protected void receiveStateChangedNotification(Map map) {
+  /** Incoming StateChange message */
+  @Override
+  protected void receiveMessage(Map map) {
     log.debug2("Received notification: " + map);
     try {
       String name = (String)map.get(JMS_MAP_NAME);
@@ -212,30 +152,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
       log.error("Wrong type field in message: {}", map, e);
     }
   }
-
-  private class MyMessageListener
-    extends Consumer.SubscriptionListener {
-
-    MyMessageListener(String listenerName) {
-      super(listenerName);
-    }
-
-    @Override
-    public void onMessage(Message message) {
-      log.trace("onMessage: {}", message);
-      try {
-        Object msgObject =  Consumer.convertMessage(message);
-	if (msgObject instanceof Map) {
-	  receiveStateChangedNotification((Map)msgObject);
-	} else {
-	  log.warn("Unknown notification type: " + msgObject);
-	}
-      } catch (JMSException e) {
-	log.warn("foo", e);
-      }
-    }
-  }
-
 
   // /////////////////////////////////////////////////////////////////
   // AuState

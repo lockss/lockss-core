@@ -370,7 +370,8 @@ public class ConfigManager implements LockssManager {
    */
   public static final String PARAM_REMOTE_CONFIG_FAILOVER = PLATFORM +
     "remoteConfigFailover";
-  public static final boolean DEFAULT_REMOTE_CONFIG_FAILOVER = true;
+//   public static final boolean DEFAULT_REMOTE_CONFIG_FAILOVER = true;
+  public static final boolean DEFAULT_REMOTE_CONFIG_FAILOVER = false;
 
   /** Dir in which to store local copies of remote config files.
    * @ParamCategory Platform
@@ -3374,19 +3375,35 @@ public class ConfigManager implements LockssManager {
     }
   }
 
+  void appendClusterUrl(StringBuilder sb, String url) {
+    sb.append("      <value>");
+    sb.append(StringEscapeUtils.escapeXml(url));
+    sb.append("</value>\n");
+  }
+
   void generateClusterFile(File file) throws IOException {
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sbCluster = new StringBuilder();
     if (clusterUrls == null) {
       clusterUrls = Collections.EMPTY_LIST;
     }
     for (String url : clusterUrls) {
-      sb.append("      <value>");
-      sb.append(StringEscapeUtils.escapeXml(url));
-      sb.append("</value>\n");
+      appendClusterUrl(sbCluster, url);
     }
+
+    StringBuilder sbLocal = new StringBuilder();
+    if (true || hasLocalCacheConfig()) {
+      for (LocalFileDescr lfd : getLocalFileDescrs()) {
+	String filename = lfd.getFile().toString();
+	ConfigFile cf = configCache.get(filename);
+	if (cf != null && cf.isLoaded()) {
+	  appendClusterUrl(sbLocal, filename);
+	}
+      }
+    }
+
     Map<String,String> valMap =
-      MapUtil.map("PreUrls", sb.toString(),
-		  "PostUrls", "");
+      MapUtil.map("PreUrls", sbCluster.toString(),
+		  "PostUrls", sbLocal.toString());
     try (Writer wrtr = new BufferedWriter(new FileWriter(file))) {
       TemplateUtil.expandTemplate("org/lockss/config/ClusterTemplate.xml",
 	  wrtr, valMap);

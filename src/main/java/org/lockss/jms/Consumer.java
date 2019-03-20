@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,26 +51,51 @@ public class Consumer {
 
   public static Consumer createTopicConsumer(String clientId,
 					     String topicName,
-						 MessageListener listener)
+					     MessageListener listener)
+      throws JMSException {
+    return createTopicConsumer(clientId, topicName, false, listener);
+  }
+
+  public static Consumer createTopicConsumer(String clientId,
+					     String topicName,
+					     boolean noLocal,
+					     MessageListener listener)
       throws JMSException {
     Consumer res = new Consumer();
-    res.createTopic(clientId, topicName, listener);
+    res.createTopic(clientId, topicName, noLocal, listener, null);
+    return res;
+  }
+
+  public static Consumer createTopicConsumer(String clientId,
+					     String topicName,
+					     boolean noLocal,
+					     MessageListener listener,
+					     Connection connection)
+      throws JMSException {
+    Consumer res = new Consumer();
+    res.createTopic(clientId, topicName, noLocal, listener, connection);
     return res;
   }
 
   private Consumer createTopic(String clientId,
 			       String topicName,
-			       MessageListener listener)
+			       boolean noLocal,
+			       MessageListener listener,
+			       Connection connection)
       throws JMSException {
 
     this.clientId = clientId;
 
     JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
-    log.debug("Creating consumer for topic: " + topicName +
+    log.debug("Creating " + (noLocal ? "NoLocal " : "") +
+	      "consumer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
 	      mgr.getConnectUri());
 
-    Connection connection = mgr.getConnection();
+    // Get shared connection from JMSManager if none supplied
+    if (connection == null) {
+      connection = mgr.getConnection();
+    }
     // create a Session
     log.debug3("Creating session for topic: " + topicName +
 	       ", client: " + clientId + " at " +
@@ -81,7 +106,7 @@ public class Consumer {
     Topic topic = session.createTopic(topicName);
 
     // create a MessageConsumer for receiving messages
-    messageConsumer = session.createConsumer(topic);
+    messageConsumer = session.createConsumer(topic, null, noLocal);
     if (listener != null) {
       messageConsumer.setMessageListener(listener);
     }
@@ -181,13 +206,21 @@ public class Consumer {
   @SuppressWarnings("unchecked")
   public Map<String, Object> receiveMap(int timeout) throws JMSException {
     Object received = receive(timeout);
-    // check if a message was received
-    if (received != null && received instanceof Map) {
-      log.debug(clientId + ": received map.");
-      return (Map<String, Object>) received;
+    if (received == null) {
+      log.debug(clientId + ": receive timed out in " + timeout);
+      return null;
     }
-    else {
-      log.debug(clientId + ": Map not received");
+    // check if a message was received
+    if (received instanceof Map) {
+      if (log.isDebug2()) {
+	log.debug2(clientId + ": received map: " + received);
+      } else {
+	log.debug(clientId + ": received map.");
+      }
+      return (Map<String, Object>) received;
+    } else {
+      log.warning(clientId + ": Expected map but received " +
+		  received.getClass());
     }
     return null;
   }

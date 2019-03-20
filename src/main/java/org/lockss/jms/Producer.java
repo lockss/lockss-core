@@ -46,21 +46,33 @@ public class Producer {
 					     String topicName)
       throws JMSException {
     Producer res = new Producer();
-    res.createTopic(clientId, topicName);
+    res.createTopic(clientId, topicName, null);
     return res;
   }
 
-  private Producer createTopic(String clientId, String topicName)
+  public static Producer createTopicProducer(String clientId,
+					     String topicName,
+					     Connection connection)
+      throws JMSException {
+    Producer res = new Producer();
+    res.createTopic(clientId, topicName, connection);
+    return res;
+  }
+
+  private Producer createTopic(String clientId, String topicName,
+			       Connection connection)
       throws JMSException {
     this.clientId = clientId;
 
     JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
-    // create a Connection Factory
+
     log.debug("Creating producer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
 	      mgr.getConnectUri());
-
-    Connection connection = mgr.getConnection();
+    // Get shared connection from JMSManager if none supplied
+    if (connection == null) {
+      connection = mgr.getConnection();
+    }
     // create a Session
     log.debug3("Creating session for topic: " + topicName +
 	       ", client: " + clientId + " at " +

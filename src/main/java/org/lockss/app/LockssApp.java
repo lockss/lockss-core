@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -86,6 +86,9 @@ public class LockssApp {
 
   public static final String PARAM_TESTING_MODE = PREFIX + "testingMode";
 
+  static final String PARAM_IS_LAAWS = PREFIX + "isLaaws";
+  static final boolean DEFAULT_IS_LAAWS = false;
+
   static final String PARAM_DAEMON_DEADLINE_REASONABLE =
     PREFIX + "deadline.reasonable.";
   static final String PARAM_DAEMON_DEADLINE_REASONABLE_PAST =
@@ -120,6 +123,10 @@ public class LockssApp {
 
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
+
+  public static final String PARAM_SERVICE_BINDINGS =
+    PREFIX + "serviceBindings";
+  public static final List DEFAULT_SERVICE_BINDINGS = null;
 
   public static final String MANAGER_PREFIX =
     Configuration.PREFIX + "manager.";
@@ -170,6 +177,7 @@ public class LockssApp {
   private final ManagerDesc[] stdPreManagers = {
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
+    JMS_MANAGER_DESC,
     MAIL_SERVICE_DESC,
     ALERT_MANAGER_DESC,
     STATUS_SERVICE_DESC,
@@ -179,7 +187,6 @@ public class LockssApp {
     // keystore manager must be started before any others that need to
     // access managed keystores
     KEYSTORE_MANAGER_DESC,
-    JMS_MANAGER_DESC,
     // PluginManager should be here once not dependent on LockssDaemon
 //     // start plugin manager after generic services
 //     PLUGIN_MANAGER_DESC,
@@ -219,6 +226,7 @@ public class LockssApp {
   protected long appLifetime = DEFAULT_APP_EXIT_AFTER;
   protected Deadline timeToExit = Deadline.at(TimeBase.MAX);
   protected boolean isSafenet = false;
+  protected boolean isLaaws = false;
 
   // Map of managerKey -> manager instance. Need to preserve order so
   // managers are started and stopped in the right order.  This does not
@@ -288,6 +296,15 @@ public class LockssApp {
    */
   public boolean isSafenet() {
     return isSafenet;
+  }
+
+  /**
+   * True if running as part of a LAAWS cluster.  Normally determined by
+   * having a ServiceDescr, can be set via {@value PARAM_IS_LAAWS} for
+   * testing.
+   */
+  public boolean isLaaws() {
+    return getMyServiceDescr() != null || isLaaws;
   }
 
   /** Starts the standard pre managers, then the per-app managers, then the
@@ -843,6 +860,12 @@ public class LockssApp {
     }
 
     testingMode = config.get(PARAM_TESTING_MODE);
+    isLaaws = config.getBoolean(PARAM_IS_LAAWS, DEFAULT_IS_LAAWS);
+
+    if (changedKeys.contains(PARAM_SERVICE_BINDINGS)) {
+      processServiceBindings(config.getList(PARAM_SERVICE_BINDINGS,
+					    DEFAULT_SERVICE_BINDINGS));
+    }
 
     if (changedKeys.contains(PARAM_DAEMON_DEADLINE_REASONABLE)) {
       long maxInPast =
@@ -892,6 +915,76 @@ public class LockssApp {
       prevExitOnce = exitOnce;
     }
   }
+
+  // ServiceDescr, ServiceBinding support
+
+  Map<ServiceDescr,ServiceBinding> serviceBindings = new HashMap<>();
+
+  public ServiceDescr getMyServiceDescr() {
+    return appSpec.getService();
+  }
+
+  /** Return list of all ServiceDescrs that have a known binding, sorted by
+   * service name */
+  public List<ServiceDescr> getAllServiceDescrs() {
+    List<ServiceDescr> res = new ArrayList<>();
+    res.addAll(serviceBindings.keySet());
+    Collections.sort(res);
+    return res;
+  }
+
+  /** Return true iff the supplied descr is the one specified for the
+   * currently running service */
+  public boolean isMyService(ServiceDescr descr) {
+    return descr != null && descr.equals(getMyServiceDescr());
+  }
+
+  /** Return the ServiceBinding currently bound to the ServletDescr */
+  public ServiceBinding getServiceBinding(ServiceDescr sd) {
+    if (sd == null) {
+      return null;
+    }
+    return serviceBindings.get(sd);
+  }
+
+  /** Return the ServiceBinding specified for the currently running
+   * service */
+  public ServiceBinding getMyServiceBinding() {
+    return getMyServiceDescr() == null ? null :
+      getServiceBinding(getMyServiceDescr());
+  }
+
+  //  svc_abbrev=host:ui_port    or   svc_abbrev=:ui_port
+  protected static final Pattern SERVICE_BINDING_PAT =
+    Pattern.compile("(.+)=(.+)?:(\\d+)");
+
+  void processServiceBindings(List<String> bindings) {
+    if (bindings == null) {
+      serviceBindings.clear();
+    } else {
+      for (String s : bindings) {
+	Matcher mat = SERVICE_BINDING_PAT.matcher(s);
+	if (mat.matches()) {
+	  String abbrev = mat.group(1);
+	  ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
+	  if (descr != null) {
+	    try {
+	      ServiceBinding binding =
+		new ServiceBinding(mat.group(2), Integer.parseInt(mat.group(3)));
+	      serviceBindings.put(descr, binding);
+	    } catch (NumberFormatException e) {
+	      log.error("Malformed service binding: " + s);
+	    }
+	  }
+	} else {
+	  log.error("Malformed service binding: " + s);
+	}
+      }
+    }
+    log.debug("Service bindings: " + serviceBindings);
+  }
+
+  // LockssApp framework startup
 
   /** Start a LockssApp to run the managers specified by the spec.
    * @param spec an AppSpec specifying the application name, additional
@@ -1303,6 +1396,7 @@ public class LockssApp {
    */
   public static class AppSpec {
     private String name;
+    private ServiceDescr service;
     private String[] args;
     private ManagerDesc[] appManagers;
     private boolean isComputeAppManagers = false;
@@ -1315,6 +1409,15 @@ public class LockssApp {
     /** Set the name */
     public AppSpec setName(String name) {
       this.name = name;
+      return this;
+    }
+
+    /** Set the service descriptor */
+    public AppSpec setService(ServiceDescr descr) {
+      this.service = descr;
+      if (descr.getName() != null) {
+	setName(descr.getName());
+      }
       return this;
     }
 
@@ -1383,6 +1486,11 @@ public class LockssApp {
     /** Return the application name */
     public String getName() {
       return name;
+    }
+
+    /** Return the application service descriptor */
+    public ServiceDescr getService() {
+      return service;
     }
 
     /** Return the command line args, an array of Strings */

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,7 +43,7 @@ public class PluginStatus {
   static Logger log = Logger.getLogger();
   final static String PLUGIN_TABLE = "Plugins";
   final static String PLUGIN_DETAIL = "PluginDetail";
-  final static String ALL_AUIDS = "AllAuids";
+  public final static String ALL_AUIDS = "AllAuids";
 
   /** If true the definition of definable plugins will be displayed along
    * with its details. */

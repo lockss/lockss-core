@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48,12 +48,13 @@ public class FuncJms extends LockssTestCase4 {
   private static BrokerService broker;
 
   private Producer producerPublishSubscribe,
-      producerMultipleConsumers, producerNonDurableConsumer;
+    producerMultipleConsumers, producerNonDurableConsumer;
   private Consumer consumerPublishSubscribe,
-      consumer1MultipleConsumers, consumer2MultipleConsumers,
-      consumer3MultipleConsumers,
-      consumer1NonDurableConsumer,
-      consumer2NonDurableConsumer;
+    consumerNoLocal,
+    consumer1MultipleConsumers, consumer2MultipleConsumers,
+    consumer3MultipleConsumers,
+    consumer1NonDurableConsumer,
+    consumer2NonDurableConsumer;
   private MyMessageListener listener;
   private SimpleQueue msgQueue;
 
@@ -84,42 +85,46 @@ public class FuncJms extends LockssTestCase4 {
 
     producerPublishSubscribe =
       Producer.createTopicProducer("producer-publishsubscribe",
-				     "publishsubscribe.t");
+				   "publishsubscribe.t");
 
     producerMultipleConsumers =
       Producer.createTopicProducer("producer-multipleconsumers",
-				     "multipleconsumers.t");
+				   "multipleconsumers.t");
 
     producerNonDurableConsumer =
       Producer.createTopicProducer("producer-nondurableconsumer",
-				     "nondurableconsumer.t");
+				   "nondurableconsumer.t");
 
     consumerPublishSubscribe =
       Consumer.createTopicConsumer("consumer-publishsubscribe",
-				       "publishsubscribe.t");
+				   "publishsubscribe.t");
+
+    consumerNoLocal =
+      Consumer.createTopicConsumer("consumer-publishsubscribe",
+				   "publishsubscribe.t", true, null);
 
     consumer1MultipleConsumers =
       Consumer.createTopicConsumer("consumer1-multipleconsumers",
-				       "multipleconsumers.t");
+				   "multipleconsumers.t");
 
     consumer2MultipleConsumers =
       Consumer.createTopicConsumer("consumer2-multipleconsumers",
-				       "multipleconsumers.t");
+				   "multipleconsumers.t");
 
     msgQueue = new SimpleQueue.Fifo();
     listener = new MyMessageListener("listenerConsuemer", msgQueue);
 
     consumer3MultipleConsumers =
       Consumer.createTopicConsumer("consumer3-multipleconsumers",
-				       "multipleconsumers.t", listener);
+				   "multipleconsumers.t", listener);
 
     consumer1NonDurableConsumer =
       Consumer.createTopicConsumer("consumer1-nondurableconsumer",
-				       "nondurableconsumer.t");
+				   "nondurableconsumer.t");
 
     consumer2NonDurableConsumer =
       Consumer.createTopicConsumer("consumer2-nondurableconsumer",
-				       "nondurableconsumer.t");
+				   "nondurableconsumer.t");
   }
 
   @After
@@ -129,6 +134,7 @@ public class FuncJms extends LockssTestCase4 {
     producerNonDurableConsumer.close();
 
     consumerPublishSubscribe.close();
+    consumerNoLocal.close();
     consumer1MultipleConsumers.close();
     consumer2MultipleConsumers.close();
     consumer3MultipleConsumers.close();
@@ -146,8 +152,7 @@ public class FuncJms extends LockssTestCase4 {
     String ret1 = consumerPublishSubscribe.receiveText(TIMEOUT_SHOULDNT);
     assertEquals(textString, ret1);
 
-    String ret2 = consumerPublishSubscribe.receiveText(TIMEOUT_SHOULD);
-    assertNull(ret2);
+    assertNull(consumerPublishSubscribe.receiveText(TIMEOUT_SHOULD));
   }
 
   @Test
@@ -180,6 +185,19 @@ public class FuncJms extends LockssTestCase4 {
       assertMatchesRE("but was.*FooObj", e.getMessage());
     }
 
+  }
+
+  // Verify that a consumer created with NoLocal doesn't receive messages
+  // sent on the same connection
+  @Test
+  public void testNoLocal() throws JMSException {
+    String textString = "This is a test text string";
+    producerPublishSubscribe.sendText(textString);
+
+    String ret1 = consumerPublishSubscribe.receiveText(TIMEOUT_SHOULDNT);
+    assertEquals(textString, ret1);
+
+    assertNull(consumerNoLocal.receiveText(TIMEOUT_SHOULD));
   }
 
   @Test
@@ -224,7 +242,7 @@ public class FuncJms extends LockssTestCase4 {
     // recreate a connection for the nondurable subscription
     consumer2NonDurableConsumer =
       Consumer.createTopicConsumer("consumer2-nondurableconsumer",
-				       "nondurableconsumer.t");
+				   "nondurableconsumer.t");
 
     producerNonDurableConsumer.sendText(testStr2);
 

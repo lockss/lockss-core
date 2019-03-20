@@ -685,7 +685,7 @@ public class AuState implements LockssSerializable {
    */
   public synchronized void pollAttempted() {
     lastPollAttempt = TimeBase.nowMs();
-    needSave("lastPollAttempt");
+    // This field is transient, do not call needSave("lastPollAttempt");
   }
 
   /**
