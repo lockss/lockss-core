@@ -287,7 +287,12 @@ public class RepositoryManager
 	  } else {
 	    switch (m1.group(1)) {
 	    case "volatile":
-	      repo = LockssRepositoryFactory.createVolatileRepository();
+	      try {
+          repo = LockssRepositoryFactory.createVolatileRepository();
+        } catch (IOException e) {
+	        // This should never happen - never actually thrown by volatile implementation
+	        log.critical("Caught IOException when attempting to create a volatile repository!", e);
+        }
 	      break;
 	    case "local":
 	      String s = m1.group(3);
