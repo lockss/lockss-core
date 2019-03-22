@@ -103,23 +103,49 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact art1 = repo.addArtifact(ad1);
     repo.commitArtifact(art1);
     Artifact r1 = repo.getArtifact(COLL, AUID, url1);
-    assertEquals(art1, r1);
+
+    assertArtifactCommitted(art1, r1);
+
     assertEquals(1, (int)r1.getVersion());
     Artifact aa = repo.getArtifactVersion(COLL, AUID, url1, 1);
-    assertEquals(art1, aa);
+
+    assertArtifactCommitted(art1, aa);
+
+    assertEquals(r1, aa);
 
     ArtifactData ad2 = createArtifact(COLL, AUID, url1, "content 22222");
     Artifact art2 = repo.addArtifact(ad2);
     repo.commitArtifact(art2);
-
     aa = repo.getArtifact(COLL, AUID, url1);
-    assertEquals(art2, aa);
+
+    assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
+
     aa = repo.getArtifactVersion(COLL, AUID, url1, 2);
-    assertEquals(art2, aa);
+
+    assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
   }
 
+  /**
+   * Asserts two Artifacts are the same, modulo the committed status and storage URL.
+   *
+   * @param expected
+   * @param actual
+   */
+  private void assertArtifactCommitted(Artifact expected, Artifact actual) {
+    assertEquals(expected.getId(), actual.getId());
+    assertEquals(expected.getCollection(), actual.getCollection());
+    assertEquals(expected.getAuid(), actual.getAuid());
+    assertEquals(expected.getUri(), actual.getUri());
+    assertEquals(expected.getContentLength(), actual.getContentLength());
+    assertEquals(expected.getContentDigest(), actual.getContentDigest());
+
+    assertEquals(expected.getVersion(), actual.getVersion());
+
+    assertNotEquals(expected.getCommitted(), actual.getCommitted());
+    assertNotEquals(expected.getStorageUrl(), actual.getStorageUrl());
+  }
 
   Artifact storeArt(String url, String content,
 		    CIProperties props) throws IOException {
