@@ -101,7 +101,7 @@ public class SimpleHasher {
    * The types of possible hashes to be performed.
    */
   public static enum HashType {
-    V1Content, V1Name, V1File, V3Tree, V3File;
+    V3Tree, V3File;
   }
 
   public static final HashType DEFAULT_HASH_TYPE = HashType.V3Tree;
@@ -157,9 +157,9 @@ public class SimpleHasher {
   // Support for old numeric input values.
   private HashType[] hashTypeCompat = {
     null,
-    HashType.V1Content,
-    HashType.V1Name,
-    HashType.V1File,
+    null,
+    null,
+    null,
     HashType.V3Tree,
     HashType.V3File
   };
@@ -242,13 +242,6 @@ public class SimpleHasher {
    */
   public void setBase64Result(boolean val) {
     isBase64 = val;
-  }
-
-  /** Do a V1 hash of the CUSH */
-  public byte[] doV1Hash(CachedUrlSetHasher cush) throws IOException {
-    initDigest(digest);
-    doHash(cush);
-    return digest.digest();
   }
 
   /** Do a V3 hash of the AU, recording the results to blockFile */
@@ -471,13 +464,6 @@ public class SimpleHasher {
 
       try {
 	switch (result.getHashType()) {
-	case V1Content:
-	case V1File:
-	  doV1(result.getCus().getContentHasher(digest), result);
-	  break;
-	case V1Name:
-	  doV1(result.getCus().getNameHasher(digest), result);
-	  break;
 	case V3Tree:
 	case V3File:
 	  doV3(params.getMachineName(), params.isExcludeSuspectVersions(), params.isIncludeWeight(),
@@ -814,23 +800,14 @@ public class SimpleHasher {
 
     try {
       switch (hashType) {
-      case V1File:
-	if (upper != null ||
-	    (lower != null && !lower.equals(PollSpec.SINGLE_NODE_LWRBOUND))) {
-	  errorMessage = "Upper/Lower ignored";
-	}
-	pollSpec = new PollSpec(auId, url, PollSpec.SINGLE_NODE_LWRBOUND, null,
-	    Poll.V1_CONTENT_POLL);
-	break;
       case V3Tree:
+      default:
 	pollSpec = new PollSpec(auId, url, lower, upper, Poll.V3_POLL);
 	break;
       case V3File:
 	pollSpec = new PollSpec(auId, url, PollSpec.SINGLE_NODE_LWRBOUND, null,
 	    Poll.V3_POLL);
 	break;
-      default:
-	pollSpec = new PollSpec(auId, url, lower, upper, Poll.V1_CONTENT_POLL);
       }
     } catch (Exception e) {
       errorMessage = "Error making PollSpec: " + e.toString();
@@ -903,24 +880,6 @@ public class SimpleHasher {
     return digest;
   }
 
-  /**
-   * Performs a version 1 hashing operation.
-   * 
-   * @param cush
-   *          A CachedUrlSetHasher with the hasher.
-   * @param result
-   *          A HasherResult where to store the result of the hashing operation.
-   * @throws IOException
-   */
-  void doV1(CachedUrlSetHasher cush, HasherResult result) throws IOException {
-    final String DEBUG_HEADER = "doV1(): ";
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cush = " + cush);
-    setFiltered(true);
-    result.setHashResult(doV1Hash(cush));
-    result.setShowResult(true);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Done.");
-  }
-  
   void doV3(String machineName, boolean excludeSuspectVersions,
       HasherResult result) throws IOException {
     doV3(machineName, excludeSuspectVersions, false, result);
