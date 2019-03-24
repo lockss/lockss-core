@@ -38,6 +38,7 @@ import java.security.*;
 
 import org.lockss.test.*;
 import org.lockss.state.*;
+import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
 import org.lockss.filter.*;
@@ -890,7 +891,14 @@ public class TestBlockHasher extends LockssTestCase {
     assertEquals(3, maus.getNumCurrentSuspectVersions());
   }
   
+  boolean isTestMissing() {
+    return CurrentConfig
+      .getBooleanParam(BlockHasher.PARAM_ADD_MISSING_LOCAL_HASH,
+		       BlockHasher.DEFAULT_ADD_MISSING_LOCAL_HASH);
+  }
+
   public void testOneContentLocalHashMissing() throws Exception {
+    if (!isTestMissing()) return;
     testOneContentLocalHashMissing(1);
     testOneContentLocalHashMissing(3);
     testOneContentLocalHashMissing(100);
@@ -898,14 +906,17 @@ public class TestBlockHasher extends LockssTestCase {
   
   // These mark suspect versions so must be in separate tests
   public void testOneContentLocalHashMissing2a() throws Exception {
+    if (!isTestMissing()) return;
     testOneContentLocalHashMissing2(1);
   }
   
   public void testOneContentLocalHashMissing2b() throws Exception {
+    if (!isTestMissing()) return;
     testOneContentLocalHashMissing2(3);
   }
   
   public void testOneContentLocalHashMissing2c() throws Exception {
+    if (!isTestMissing()) return;
     testOneContentLocalHashMissing2(100);
   }
   
