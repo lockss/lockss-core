@@ -219,8 +219,6 @@ public class TestPollManager extends LockssTestCase4 {
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    theDaemon.setHistoryRepository(histRepo, mau);
     MockLockssRepository repo = new MockLockssRepository();
     theDaemon.setLockssRepository(repo, mau);
     
@@ -473,8 +471,6 @@ public class TestPollManager extends LockssTestCase4 {
     String auid = "auid111";
     MockPlugin plugin = new MockPlugin(theDaemon);
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    theDaemon.setHistoryRepository(histRepo, mau);
     MockAuState maus = AuTestUtil.setUpMockAus(mau);
     File file = FileTestUtil.tempFile("noau");
     DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(idmanager);
@@ -566,7 +562,6 @@ public class TestPollManager extends LockssTestCase4 {
     theDaemon.getRouterManager().startService();
     theDaemon.getActivityRegulator(testau).startService();
 
-    theDaemon.setHistoryRepository(new MockHistoryRepository(), testau);
     pollmanager.startService();
     idmanager.startService();
   }

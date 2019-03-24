@@ -59,15 +59,27 @@ public class BlockHasher extends GenericHasher {
   public static final String PARAM_IGNORE_FILES_OUTSIDE_CRAWL_SPEC = 
     Configuration.PREFIX + "blockHasher.ignoreFilesOutsideCrawlSpec";
   public static final boolean DEFAULT_IGNORE_FILES_OUTSIDE_CRAWL_SPEC = false;
+
   /** If true, enable local hash generation and verification */
   public static final String PARAM_ENABLE_LOCAL_HASH =
     Configuration.PREFIX + "blockHasher.enableLocalHash";
   public static final boolean DEFAULT_ENABLE_LOCAL_HASH = false;
+
   /** Algorithm to use for newly-generated stored local hashes */
   public static final String PARAM_LOCAL_HASH_ALGORITHM =
     Configuration.PREFIX + "blockHasher.localHashAlgorithm";
   // This MUST NOT be null - see PollManager.processConfigMacros()
   public static final String DEFAULT_LOCAL_HASH_ALGORITHM = "SHA-1";
+
+  /** If true, will store local hash values in the properties of CUs that
+   * don't already have a local hash ("missing").  This was necessary with
+   * the V1 repo to update content that had not been hashed when it was
+   * collected.  It's neither possible the V2 repository (nor needed except
+   * possibly with imported content); left the code in because it may be
+   * needed in the future */
+  public static final String PARAM_ADD_MISSING_LOCAL_HASH =
+    Configuration.PREFIX + "blockHasher.addMissingLocalHash";
+  public static final boolean DEFAULT_ADD_MISSING_LOCAL_HASH = false;
 
   private static final Logger log = Logger.getLogger();
 
@@ -101,6 +113,7 @@ public class BlockHasher extends GenericHasher {
   private String localHashAlgorithm = null;
   private byte[] currentVersionStoredHash = null;
   private boolean enableLocalHash = DEFAULT_ENABLE_LOCAL_HASH;
+  private boolean addMissingLocalHash = DEFAULT_ADD_MISSING_LOCAL_HASH;
   // private LocalHashHandler localHashHandler = null;
   private AuSuspectUrlVersions asuv = null;
   private CuIterator cuIter;
@@ -180,6 +193,8 @@ public class BlockHasher extends GenericHasher {
       localHashDigestMap = new HashMap<String,MessageDigest>();
       localHashAlgorithm =
 	config.get(PARAM_LOCAL_HASH_ALGORITHM, DEFAULT_LOCAL_HASH_ALGORITHM);
+      addMissingLocalHash = config.getBoolean(PARAM_ADD_MISSING_LOCAL_HASH,
+					      DEFAULT_ADD_MISSING_LOCAL_HASH);
     }
     
   }
@@ -611,7 +626,7 @@ public class BlockHasher extends GenericHasher {
 	  mismatch(curVer, localHashAlgorithm,
 		   hashOfContent, currentVersionStoredHash);
 	}
-      } else {
+      } else if (addMissingLocalHash) {
 	// No checksum property - create one
 	missing(curVer, localHashAlgorithm, hashOfContent);
       }

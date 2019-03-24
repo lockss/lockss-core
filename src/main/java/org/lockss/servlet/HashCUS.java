@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -572,11 +568,6 @@ public class HashCUS extends LockssServlet {
     page.add("<br>");
     if (result.isShowResult()) {
       switch (result.getHashType()) {
-      case V1Content:
-      case V1File:
-      case V1Name:
-	page.add(makeV1Result(params, result));
-	break;
       case V3Tree:
       case V3File:
 	page.add(makeV3Result(params, result));
@@ -611,12 +602,6 @@ public class HashCUS extends LockssServlet {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result.getHashType() = "
 	+ result.getHashType());
     switch (result.getHashType()) {
-    case V1Content:
-    case V1File:
-    case V1Name:
-      errMsg = "Not implemented";
-      displayPage(resType, reqId, params, result);
-      break;
     case V3Tree:
     case V3File:
       sendV3DirectResponse(resType, reqId, params, result);
@@ -845,18 +830,6 @@ public class HashCUS extends LockssServlet {
 			resultEncoding == ResultEncoding.Base64));
 
     tbl.newRow();
-    tbl.addHeading("V1:", "align=right");
-    tbl.newCell();
-    tbl.add("&nbsp;&nbsp;");
-    tbl.add(radioButton(HASH_STRING_CONTENT, HashType.V1Content.toString(),
-			KEY_HASH_TYPE, hashType == HashType.V1Content));
-    tbl.add("&nbsp;&nbsp;");
-    tbl.add(radioButton(HASH_STRING_NAME, HashType.V1Name.toString(),
-			KEY_HASH_TYPE, hashType == HashType.V1Name));
-    tbl.add("&nbsp;&nbsp;");
-    tbl.add(radioButton(HASH_STRING_SNCUSS, HashType.V1File.toString(),
-			KEY_HASH_TYPE, hashType == HashType.V1File));
-    tbl.newRow();
     tbl.addHeading("V3:", "align=right");
     tbl.newCell();
     tbl.add("&nbsp;&nbsp;");
@@ -1065,32 +1038,6 @@ public class HashCUS extends LockssServlet {
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "Done - errorMessage = " + errorMessage);
     return errorMessage;
-  }
-
-  private Element makeV1Result(HasherParams params, HasherResult result) {
-    Table tbl = new Table(0, "align=center");
-    tbl.newRow();
-    tbl.addHeading("Hash Result", COL2);
-
-    addResultRow(tbl, "CUSS", result.getCus().getSpec().toString());
-    if (result.getChallenge() != null) {
-      addResultRow(tbl, "Challenge", SimpleHasher
-	  .byteString(result.getChallenge(), result.getResultEncoding()));
-    }
-    if (result.getVerifier() != null) {
-      addResultRow(tbl, "Verifier", SimpleHasher
-	  .byteString(result.getVerifier(), result.getResultEncoding()));
-    }
-    addResultRow(tbl, "Size", Long.toString(result.getBytesHashed()));
-
-    addResultRow(tbl, "Hash", SimpleHasher.byteString(result.getHashResult(),
-	result.getResultEncoding()));
-
-    addResultRow(tbl, "Time",
-	getElapsedString(result.getBytesHashed(), result.getElapsedTime()));
-
-    addRecordFile(result.getBytesHashed(), result.getRecordFile(), params, tbl);
-    return tbl;
   }
 
   private Element makeV3Result(HasherParams params, HasherResult result) {

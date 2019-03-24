@@ -70,7 +70,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     semsToGive = new ArrayList();
     // some tests start the service, but most don't want the crawl starter
     // to run.

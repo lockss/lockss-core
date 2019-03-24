@@ -683,12 +683,6 @@ public class RemoteApi
     }
   }
 
-  // XXXAUS need to replace for new AuState mechanism
-//   File getAuStateFile(ArchivalUnit au) {
-//     HistoryRepository hRep = getDaemon().getHistoryRepository(au);
-//     return hRep.getAuStateFile();
-//   }
-
   void addPropsToZip(ZipOutputStream zip, Properties props,
 		     String entName, String header)
       throws IOException {

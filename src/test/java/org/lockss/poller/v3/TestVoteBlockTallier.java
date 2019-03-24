@@ -78,8 +78,6 @@ public class TestVoteBlockTallier extends LockssTestCase {
     MockArchivalUnit mau = new MockArchivalUnit(mp);
     assertNotNull(mau.getPlugin());
     assertNotNull(mau.getPlugin().getDaemon());
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    daemon.setHistoryRepository(histRepo, mau);
     setupNonces();
     setupPeers();
   }
@@ -103,8 +101,6 @@ public class TestVoteBlockTallier extends LockssTestCase {
     PollSpec ps =
       new MockPollSpec(mau, "http://www.example.com/",
 		       null, null, Poll.V3_POLL);
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    daemon.setHistoryRepository(histRepo, mau);
     return new V3Poller(ps, daemon, null, key, 20000, "SHA-1");
   }
 

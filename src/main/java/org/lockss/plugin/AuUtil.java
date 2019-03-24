@@ -381,10 +381,15 @@ public class AuUtil {
    * (time consumeing)
    * @return the AU's disk usage in bytes.
    */
+  // XXXREPO
   public static long getAuDiskUsage(ArchivalUnit au, boolean calcIfUnknown) {
-    LockssDaemon daemon = getDaemon(au);
-    AuNodeImpl repoNode = getAuRepoNode(au);
-    return repoNode.getDiskUsage(calcIfUnknown);
+    if (isV2Repo()) {
+      return -1;
+    } else {
+      LockssDaemon daemon = getDaemon(au);
+      AuNodeImpl repoNode = getAuRepoNode(au);
+      return repoNode.getDiskUsage(calcIfUnknown);
+    }
   }
 
   /** Return a string appropriate to use as a thread name for the specified

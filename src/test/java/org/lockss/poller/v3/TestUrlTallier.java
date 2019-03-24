@@ -117,8 +117,6 @@ public class TestUrlTallier extends LockssTestCase {
   private MockArchivalUnit setupAu() {
     MockArchivalUnit mau = new MockArchivalUnit();
     mau.setAuId("mock");
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    theDaemon.setHistoryRepository(histRepo, mau);
     MockPlugin plug = new MockPlugin(theDaemon);
     mau.setPlugin(plug);
     MockCachedUrlSet cus = (MockCachedUrlSet)mau.getAuCachedUrlSet();

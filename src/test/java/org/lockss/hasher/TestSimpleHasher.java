@@ -87,7 +87,6 @@ public class TestSimpleHasher extends LockssTestCase {
   @Override
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     TimeBase.setReal();
     daemon = getMockLockssDaemon();
     tempDirPath = setUpDiskSpace();
@@ -261,15 +260,6 @@ public class TestSimpleHasher extends LockssTestCase {
     assertNull(errorMessage);
     assertNull(params.getHashType());
     assertEquals(SimpleHasher.DEFAULT_HASH_TYPE, result.getHashType());
-
-    params.setHashType("V1Content");
-    result = new HasherResult();
-    errorMessage = hasher.processHashTypeParam(params, result);
-    assertEquals(HasherStatus.NotStarted, result.getRunnerStatus());
-    assertNull(result.getRunnerError());
-    assertNull(errorMessage);
-    assertEquals("V1Content", params.getHashType());
-    assertEquals(HashType.V1Content, result.getHashType());
 
     params.setHashType("WrongType");
     result = new HasherResult();
@@ -711,9 +701,6 @@ public class TestSimpleHasher extends LockssTestCase {
   }
 
   public void testIsV3() throws Exception {
-    assertFalse(SimpleHasher.isV3(HashType.V1Content));
-    assertFalse(SimpleHasher.isV3(HashType.V1Name));
-    assertFalse(SimpleHasher.isV3(HashType.V1File));
     assertTrue(SimpleHasher.isV3(HashType.V3Tree));
     assertTrue(SimpleHasher.isV3(HashType.V3File));
   }
@@ -863,98 +850,6 @@ public class TestSimpleHasher extends LockssTestCase {
     } catch (NoSuchAlgorithmException nsae) {
       // Expected.
     }
-  }
-
-  public void testDoV1() throws Exception {
-    ArchivalUnit au = createAndStartAu();
-
-    runTestDoV1(au, LcapMessage.getDefaultHashAlgorithm(), null, null, null,
-	"27831E7E869AF658024E1049DC1D1CF6C491F094");
-
-    runTestDoV1(au, LcapMessage.getDefaultHashAlgorithm(), null,
-	"RmVybmFuZG8gRy4gTG95Z29ycmkK", "TXlkdW5nIFQuIFRyYW4K",
-	"578C716600A207EFC63FBFAE2DF331397A42F85D");
-
-    runTestDoV1(au, "SHA-1", null, null, null,
-	"27831E7E869AF658024E1049DC1D1CF6C491F094");
-
-    runTestDoV1(au, "SHA-1", null, "RmVybmFuZG8gRy4gTG95Z29ycmkK",
-	"TXlkdW5nIFQuIFRyYW4K", "578C716600A207EFC63FBFAE2DF331397A42F85D");
-
-    runTestDoV1(au, "MD5", null, null, null,
-	"F16B6C9E4F022BF78350CCB09CE7BF35");
-
-    runTestDoV1(au, "MD5", null, "RmVybmFuZG8gRy4gTG95Z29ycmkK",
-	"TXlkdW5nIFQuIFRyYW4K", "44C7B7CD4E10F20A3A265FDFF66FEF09");
-
-    runTestDoV1(au, "SHA-256", null, null, null,
-	"4D5BA4B4AD376937A9EB987C1636E7C5175D3CE266FDEBE433BF319771B7F0C9");
-
-    runTestDoV1(au, "SHA-256", null, "RmVybmFuZG8gRy4gTG95Z29ycmkK",
-	"TXlkdW5nIFQuIFRyYW4K",
-	"192B024B18D764E0A2B83624DC6A5D5307167C5363030B96C6D30F3E210E785D");
-
-    runTestDoV1(au, LcapMessage.getDefaultHashAlgorithm(),
-	"http://www.example.com/003file.pdf", null, null,
-	"B3C403B58B84B18CB1D4FD34F691BD894AABB7CA");
-
-    runTestDoV1(au, LcapMessage.getDefaultHashAlgorithm(),
-	"http://www.example.com/003file.pdf", "RmVybmFuZG8gRy4gTG95Z29ycmkK",
-	"TXlkdW5nIFQuIFRyYW4K", "01526544C35351819EEE11B736488B2829B7F835");
-
-    runTestDoV1(au, "SHA-1", "http://www.example.com/003file.pdf", null, null,
-	"B3C403B58B84B18CB1D4FD34F691BD894AABB7CA");
-
-    runTestDoV1(au, "SHA-1", "http://www.example.com/003file.pdf",
-	"RmVybmFuZG8gRy4gTG95Z29ycmkK", "TXlkdW5nIFQuIFRyYW4K",
-	"01526544C35351819EEE11B736488B2829B7F835");
-
-    runTestDoV1(au, "MD5", "http://www.example.com/003file.pdf", null, null,
-	"2D4284FB95A5368966C2EF640FE6083E");
-
-    runTestDoV1(au, "MD5", "http://www.example.com/003file.pdf",
-	"RmVybmFuZG8gRy4gTG95Z29ycmkK", "TXlkdW5nIFQuIFRyYW4K",
-	"A42495DF6A71E0EEE72AEA5D671CF4A9");
-
-    runTestDoV1(au, "SHA-256", "http://www.example.com/003file.pdf", null, null,
-	"18A1E3B2C4532F3B3CA2A76A12BA2587D91E73FC3F5049DAF0293C137C5D4EFB");
-
-    runTestDoV1(au, "SHA-256", "http://www.example.com/003file.pdf",
-	"RmVybmFuZG8gRy4gTG95Z29ycmkK", "TXlkdW5nIFQuIFRyYW4K",
-	"1BDA8A60D6DD16970DEF4A4AB9B46324D64A79D4E6956B8C00ABD6ABCA2308D3");
-  }
-
-  private void runTestDoV1(ArchivalUnit au, String digestType, String url,
-      String challenge, String verifier, String expectedHash) throws Exception {
-    HasherParams params = new HasherParams("thisMachine", false);
-    HasherResult result = new HasherResult();
-    MessageDigest digest = new SimpleHasher(null).makeDigestAndRecordStream(
-	digestType, false, result);
-    SimpleHasher hasher = new SimpleHasher(digest);
-    hasher.processHashTypeParam(params, result);
-    params.setAuId(au.getAuId());
-    params.setUrl(url);
-    params.setChallenge(challenge);
-    params.setVerifier(verifier);
-    hasher.processParams(params, result);
-
-    hasher.doV1(result.getCus().getContentHasher(digest), result);
-    assertEquals(HasherStatus.NotStarted, result.getRunnerStatus());
-    assertNull(result.getRunnerError());
-    assertTrue(result.isShowResult());
-    assertEquals(expectedHash, ByteArray.toHexString(result.getHashResult()));
-    if (StringUtil.isNullString(url)) {
-      assertEquals(4796, hasher.getBytesHashed());
-    } else {
-      assertEquals(36, hasher.getBytesHashed());
-    }
-    assertEquals(0, hasher.getFilesHashed());
-    File blockFile = result.getBlockFile();
-    assertNotNull(blockFile);
-    assertTrue(blockFile.exists());
-    assertEquals(0, blockFile.length());
-    // Clean up the result file.
-    blockFile.delete();
   }
 
   public void testDoV3() throws Exception {

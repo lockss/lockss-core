@@ -2,7 +2,7 @@ http://www.example.com/001file.html
 http://www.example.com/001file.xml
 http://www.example.com/002file.html
 http://www.example.com/002file.xml
-http://www.example.com/branch1
+http://www.example.com/branch1/
 http://www.example.com/branch1/001file.html
 http://www.example.com/branch1/001file.xml
 http://www.example.com/branch1/002file.html
@@ -84,7 +84,7 @@ http://www.example.com/branch1/branch2/zip8.zip!/branch8/branch2/001file.xml
 http://www.example.com/branch1/branch2/zip8.zip!/branch8/branch2/002file.html
 http://www.example.com/branch1/branch2/zip8.zip!/branch8/branch2/002file.xml
 http://www.example.com/branch1/index.html
-http://www.example.com/branch2
+http://www.example.com/branch2/
 http://www.example.com/branch2/001file.html
 http://www.example.com/branch2/001file.xml
 http://www.example.com/branch2/002file.html
@@ -100,7 +100,7 @@ http://www.example.com/branch2/branch2/002file.html
 http://www.example.com/branch2/branch2/002file.xml
 http://www.example.com/branch2/branch2/index.html
 http://www.example.com/branch2/index.html
-http://www.example.com/branch3
+http://www.example.com/branch3/
 http://www.example.com/branch3/001file.html
 http://www.example.com/branch3/001file.xml
 http://www.example.com/branch3/002file.html
@@ -144,7 +144,7 @@ http://www.example.com/branch3/tar1.tar!/branch2/branch2/001file.html
 http://www.example.com/branch3/tar1.tar!/branch2/branch2/001file.xml
 http://www.example.com/branch3/tar1.tar!/branch2/branch2/002file.html
 http://www.example.com/branch3/tar1.tar!/branch2/branch2/002file.xml
-http://www.example.com/branch4
+http://www.example.com/branch4/
 http://www.example.com/branch4/001file.html
 http://www.example.com/branch4/001file.xml
 http://www.example.com/branch4/002file.html
@@ -160,7 +160,7 @@ http://www.example.com/branch4/branch2/002file.html
 http://www.example.com/branch4/branch2/002file.xml
 http://www.example.com/branch4/branch2/index.html
 http://www.example.com/branch4/index.html
-http://www.example.com/branch5
+http://www.example.com/branch5/
 http://www.example.com/branch5/001file.html
 http://www.example.com/branch5/001file.xml
 http://www.example.com/branch5/002file.html
@@ -176,7 +176,7 @@ http://www.example.com/branch5/branch2/002file.html
 http://www.example.com/branch5/branch2/002file.xml
 http://www.example.com/branch5/branch2/index.html
 http://www.example.com/branch5/index.html
-http://www.example.com/branch6
+http://www.example.com/branch6/
 http://www.example.com/branch6/001file.html
 http://www.example.com/branch6/001file.xml
 http://www.example.com/branch6/002file.html
@@ -192,7 +192,7 @@ http://www.example.com/branch6/branch2/002file.html
 http://www.example.com/branch6/branch2/002file.xml
 http://www.example.com/branch6/branch2/index.html
 http://www.example.com/branch6/index.html
-http://www.example.com/branch7
+http://www.example.com/branch7/
 http://www.example.com/branch7/001file.html
 http://www.example.com/branch7/001file.xml
 http://www.example.com/branch7/002file.html
@@ -208,7 +208,7 @@ http://www.example.com/branch7/branch2/002file.html
 http://www.example.com/branch7/branch2/002file.xml
 http://www.example.com/branch7/branch2/index.html
 http://www.example.com/branch7/index.html
-http://www.example.com/branch8
+http://www.example.com/branch8/
 http://www.example.com/branch8/001file.html
 http://www.example.com/branch8/001file.xml
 http://www.example.com/branch8/002file.html

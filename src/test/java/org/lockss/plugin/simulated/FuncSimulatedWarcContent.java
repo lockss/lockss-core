@@ -40,7 +40,7 @@ import org.lockss.daemon.Crawler;
 import org.lockss.plugin.*;
 import org.lockss.test.*;
 import org.lockss.state.*;
-import org.lockss.util.Logger;
+import org.lockss.util.*;
 
 import junit.framework.*;
 
@@ -70,7 +70,6 @@ public class FuncSimulatedWarcContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
     Properties props = new Properties();
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -92,7 +91,6 @@ public class FuncSimulatedWarcContent extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    theDaemon.getLockssRepository(sau).stopService();
     theDaemon.getPluginManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSystemMetrics().stopService();
@@ -169,9 +167,7 @@ public class FuncSimulatedWarcContent extends LockssTestCase {
       childL.add(cus.getUrl());
     }
 
-    String[] expectedA = new String[1];
-    expectedA[0] = sau.getUrlRoot();
-    assertIsomorphic(expectedA, childL);
+    assertIsomorphic(sau.getUrlStems(), childL);
 
     setIt = cus.flatSetIterator();
     childL = new ArrayList(7);
@@ -180,10 +176,9 @@ public class FuncSimulatedWarcContent extends LockssTestCase {
     }
 
     // XXX assumpiton here that simulated content fits into a single warc.gz
-    expectedA = new String[2];
-    expectedA[0] = sau.getUrlRoot() + "/" + warcFileName;
-    expectedA[1] = sau.getUrlRoot() + "/index.html";
-    assertIsomorphic(expectedA, childL);
+    assertIsomorphic(ListUtil.list(sau.getUrlRoot() + "/" + warcFileName,
+				   sau.getUrlRoot() + "/index.html"),
+		     childL);
   }
 
   public static Test suite() {

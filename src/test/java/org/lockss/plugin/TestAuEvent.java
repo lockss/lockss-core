@@ -54,6 +54,13 @@ public class TestAuEvent extends LockssTestCase {
 				     "complete", false);
   Map mimeMap = MapUtil.map("text/html", 4, "img/png", 2);
 
+  void assertMapContainsAll(Map superMap, Map subMap) {
+    if (!superMap.entrySet().containsAll(subMap.entrySet())) {
+      fail("Map " + superMap + " does not contain all of map " + subMap);
+    }
+  }
+
+
   // test ContentChangeInfo.equals().  Incrementally build two objects in
   // parallel, which should alternate between equal and not equal as fields
   // are added.
@@ -172,7 +179,7 @@ public class TestAuEvent extends LockssTestCase {
     Map map;
 
     map = e1.toMap();
-    assertEquals(MapUtil.map("auid", "auid1", "type", "Create"), map);
+    assertMapContainsAll(map, MapUtil.map("auid", "auid1", "type", "Create"));
     e2 = AuEvent.fromMap(map);
     assertEquals(e1, e2);
 
@@ -187,15 +194,15 @@ public class TestAuEvent extends LockssTestCase {
     e1.setOldConfiguration(c1);
     map = e1.toMap();
 
-    assertEquals(MapUtil.map("auid", "auid1",
-			     "type", "Create",
-			     "in_batch", true,
-			     "change_info", MapUtil.map("type", "Crawl",
-						       "complete", false,
-						       "urls", ListUtil.list("u3", "u4"),
-						       "num_urls", 0),
-			     "old_config", MapUtil.map("p1", "v8")),
-		 map);
+    assertMapContainsAll(map,
+			 MapUtil.map("auid", "auid1",
+				     "type", "Create",
+				     "in_batch", true,
+				     "change_info", MapUtil.map("type", "Crawl",
+								"complete", false,
+								"urls", ListUtil.list("u3", "u4"),
+								"num_urls", 0),
+				     "old_config", MapUtil.map("p1", "v8")));
     e2 = AuEvent.fromMap(map);
     assertEquals(e1, e2);
 

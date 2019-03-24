@@ -683,7 +683,6 @@ public class TestConfigManager extends LockssTestCase4 {
     String tmpdir = setUpDiskSpace();
     Configuration config = ConfigManager.getCurrentConfig();
     assertEquals(tmpdir, config.get("org.lockss.cache.location"));
-    assertEquals(tmpdir, config.get("org.lockss.history.location"));
   }
 
   @Test
@@ -697,7 +696,6 @@ public class TestConfigManager extends LockssTestCase4 {
     ConfigurationUtil.setCurrentConfigFromProps(props);
     Configuration config = ConfigManager.getCurrentConfig();
     assertEquals(tmpdir1, config.get("org.lockss.cache.location"));
-    assertEquals(tmpdir1, config.get("org.lockss.history.location"));
     assertEquals(FileUtil.sysDepPath(new File(tmpdir1, "iddb").toString()),
 		 config.get("org.lockss.id.database.dir"));
     assertEquals(tmpdir1 + "/tfile",

@@ -54,7 +54,6 @@ public abstract class BaseFuncExporter extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     daemon = getMockLockssDaemon();
 
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;

@@ -70,7 +70,6 @@ public class TestMetadataManager extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     String tempDirPath = setUpDiskSpace();
-    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

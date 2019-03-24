@@ -135,7 +135,9 @@ public class RepositoryManager
    */
   public static final String PARAM_V2_REPOSITORY =
       PREFIX + "v2Repository";
-  public static final String DEFAULT_V2_REPOSITORY = null;
+  public static final String DEFAULT_V2_REPOSITORY = "volatile:baz";
+//   public static final String DEFAULT_V2_REPOSITORY = null;
+
   public static final String PARAM_PERSIST_INDEX_NAME =
       PREFIX + "persistIndexName";
   public static final String DEFAULT_PERSIST_INDEX_NAME = "artifact-index.ser";
@@ -275,6 +277,9 @@ public class RepositoryManager
     Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
 
   private void processV2RepoSpec(String spec, String persistedIndexName) {
+    if (!StringUtil.isNullString(System.getProperty("oldrepo"))) {
+      return;
+    }
     if (spec != null) {
       // currently set this only once
       if (v2Repo == null) {
