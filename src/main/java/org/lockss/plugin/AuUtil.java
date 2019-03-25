@@ -324,30 +324,6 @@ public class AuUtil {
     return mgr.hasNoAuPeerSet(au.getAuId());
   }
 
-  public static AuNodeImpl getAuRepoNode(ArchivalUnit au) {
-    LockssDaemon daemon = getDaemon(au);
-    OldLockssRepository repo = daemon.getLockssRepository(au);
-    try {
-      return(AuNodeImpl)repo.getNode(au.getAuCachedUrlSet().getUrl());
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
-    }
-  }
-  
-  /**
-   * @param au An ArchivalUnit
-   * @param url A URL
-   * @return The RepositoryNode representing the URL in the given AU.
-   * 
-   * @throws MalformedURLException if the URL cannot be parsed.
-   */
-  public static RepositoryNode getRepositoryNode(ArchivalUnit au, String url) 
-      throws MalformedURLException {
-    LockssDaemon daemon = getDaemon(au);
-    OldLockssRepository repo = daemon.getLockssRepository(au);
-    return repo.getNode(url);
-  }
-
   /**
    * Return the size of the AU, calculating it if necessary.
    * @param au the AU
@@ -355,12 +331,7 @@ public class AuUtil {
    */
   public static long getAuContentSize(ArchivalUnit au,
 				      boolean calcIfUnknown) {
-    if (isV2Repo()) {
-      return au.getAuCachedUrlSet().getContentSize();
-    } else {
-      RepositoryNode repoNode = getAuRepoNode(au);
-      return repoNode.getTreeContentSize(null, calcIfUnknown);
-    }
+    return au.getAuCachedUrlSet().getContentSize();
   }
 
   public static long calculateCusContentSize(Iterable<CachedUrl> coll) {
@@ -383,13 +354,7 @@ public class AuUtil {
    */
   // XXXREPO
   public static long getAuDiskUsage(ArchivalUnit au, boolean calcIfUnknown) {
-    if (isV2Repo()) {
-      return -1;
-    } else {
-      LockssDaemon daemon = getDaemon(au);
-      AuNodeImpl repoNode = getAuRepoNode(au);
-      return repoNode.getDiskUsage(calcIfUnknown);
-    }
+    return -1;
   }
 
   /** Return a string appropriate to use as a thread name for the specified
@@ -1155,10 +1120,6 @@ public class AuUtil {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "fetchTime = " + fetchTime);
     return fetchTime;
-  }
-
-  static boolean isV2Repo() {
-    return RepositoryManager.isV2Repo();
   }
 
   /**

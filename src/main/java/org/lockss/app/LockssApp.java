@@ -114,6 +114,11 @@ public class LockssApp {
   public static final String PARAM_DEBUG = PREFIX + "debug";
   public static final boolean DEFAULT_DEBUG = false;
 
+  /** If true, input streams are monitored for missed close()s */
+  public static final String PARAM_MONITOR_INPUT_STREAMS =
+      Configuration.PREFIX + "monitor.inputStreams";
+  public static final boolean DEFAULT_MONITOR_INPUT_STREAMS = false;
+
   static final String PARAM_PLATFORM_VERSION =
     Configuration.PREFIX + "platform.version";
 

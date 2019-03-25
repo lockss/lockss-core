@@ -39,7 +39,6 @@ import org.lockss.plugin.*;
 import org.lockss.config.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.repository.OldLockssRepositoryImpl;
 
 /**
  * Test class for org.lockss.daemon.CuUrl
@@ -77,7 +76,6 @@ public class TestCuUrl extends LockssTestCase {
     PluginTestUtil.registerArchivalUnit(spl, au);
     fillAu(au);
 
-    theDaemon.getLockssRepository(au);
   }
 
   public void tearDown() throws Exception {

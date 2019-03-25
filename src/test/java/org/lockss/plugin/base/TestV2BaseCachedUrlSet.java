@@ -56,7 +56,6 @@ import org.lockss.laaws.rs.util.*;
 public class TestV2BaseCachedUrlSet extends LockssTestCase {
   static Logger log = Logger.getLogger();
 
-  private OldLockssRepository repo;
   private HashService hashService;
   private MockArchivalUnit mau;
   private MockLockssDaemon theDaemon;
@@ -89,7 +88,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     plugin.initPlugin(theDaemon);
     mau.setPlugin(plugin);
 
-    repo = theDaemon.getLockssRepository(mau);
 
     useV2Repo();
     RepositoryManager repomgr =
@@ -102,7 +100,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    repo.stopService();
     hashService.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
@@ -329,17 +326,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
       fail("Bogus url should have caused a RuntimeException");
     } catch (RuntimeException e){
     }
-  }
-
-  // ensure accesses have proper null (empty) bahavior on non-existent nodes
-  public void notestNonExistentNode() throws Exception {
-    String url = "http://no.such.host/foopath";
-    assertNull(repo.getNode(url));
-    doNonExistentNode(new RangeCachedUrlSetSpec(url), false);
-    doNonExistentNode(new RangeCachedUrlSetSpec(url, "a", "z"), true);
-    doNonExistentNode(new SingleNodeCachedUrlSetSpec(url), false);
-    // make sure it didn't get created by one of the tests
-    assertNull(repo.getNode(url));
   }
 
   void doNonExistentNode(CachedUrlSetSpec spec, boolean isRanged)

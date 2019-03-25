@@ -100,9 +100,6 @@ public interface CachedUrl extends CachedUrlSetNode {
   public static final String PROPERTY_LAST_MODIFIED = "last-modified";
 
   /** Checksum: The checksum (hash) of the content in <alg>:<hash> format */
-  // XXX This must be lowercase, as it's sometimes get/put in a
-  // case-sensitive context in RepositoryNode.  The use of CIProperties
-  // should be pushed down into the repository.
   public static final String PROPERTY_CHECKSUM = "x-lockss-checksum";
 
   public static final String PROPERTY_CONTENT_ENCODING = "content-encoding";
@@ -124,7 +121,7 @@ public interface CachedUrl extends CachedUrlSetNode {
     PROPERTY_NODE_URL,
     PROPERTY_ORIG_URL,
     PROPERTY_REDIRECTED_TO,
-    org.lockss.repository.RepositoryNodeImpl.LOCKSS_VERSION_NUMBER,
+    "org.lockss.version.number", // was o.l.repository.RepositoryNodeImpl.LOCKSS_VERSION_NUMBER
   };
 				       
   /** CachedUrl properties that reflect the audit process, conditionally

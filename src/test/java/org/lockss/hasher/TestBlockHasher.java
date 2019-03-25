@@ -80,11 +80,6 @@ public class TestBlockHasher extends LockssTestCase {
     mau = new MockArchivalUnit(new MockPlugin(daemon));
     tempDirPath = setUpDiskSpace();
     daemon.startManagers(RepositoryManager.class);
-//     repo = (OldLockssRepositoryImpl)OldLockssRepositoryImpl.createNewLockssRepository(
-//         mau);
-//     daemon.setLockssRepository(repo, mau);
-//     repo.initService(daemon);
-//     repo.startService();
     maus = AuTestUtil.setUpMockAus( mau);
   }
 

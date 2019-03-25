@@ -44,7 +44,6 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
-import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.util.PropUtil;
@@ -82,16 +81,17 @@ public class RepositoryWsSource extends RepositoryWsResult {
     this.repositoryRootDirectory = repositoryRootDirectory;
     this.repositorySpaceRootName = repositorySpaceRootName;
 
-    File auIdFile = new File(repositoryRootDirectory,
-	OldLockssRepositoryImpl.AU_ID_FILE);
+    // XXXREPO
+//     File auIdFile = new File(repositoryRootDirectory,
+// 	OldLockssRepositoryImpl.AU_ID_FILE);
 
-    if (auIdFile.exists()) {
-      Properties props = propsFromFile(auIdFile);
+//     if (auIdFile.exists()) {
+//       Properties props = propsFromFile(auIdFile);
 
-      if (props != null) {
-	auId = props.getProperty("au.id");
-      }
-    }
+//       if (props != null) {
+// 	auId = props.getProperty("au.id");
+//       }
+//     }
   }
 
   @Override
@@ -329,20 +329,21 @@ public class RepositoryWsSource extends RepositoryWsResult {
    */
   private ArchivalUnit getArchivalUnit() {
     if (!auPopulated) {
-      au = getPluginManager().getAuFromIdIfExists(auId);
+      // XXXREPO
+//       au = getPluginManager().getAuFromIdIfExists(auId);
 
-      if (au != null) {
-	String repoSpec =
-	    au.getConfiguration().get(PluginManager.AU_PARAM_REPOSITORY);
-	String repoRoot = (repoSpec == null)
-	    ? CurrentConfig.getParam(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION)
-	    : OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
+//       if (au != null) {
+// 	String repoSpec =
+// 	    au.getConfiguration().get(PluginManager.AU_PARAM_REPOSITORY);
+// 	String repoRoot = (repoSpec == null)
+// 	    ? CurrentConfig.getParam(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION)
+// 	    : OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
 
-	if (!OldLockssRepositoryImpl.isDirInRepository(repositorySpaceRootName,
-	    repoRoot)) {
-	  au = null;
-	}
-      }
+// 	if (!OldLockssRepositoryImpl.isDirInRepository(repositorySpaceRootName,
+// 	    repoRoot)) {
+// 	  au = null;
+// 	}
+//       }
 
       auPopulated = true;
     }

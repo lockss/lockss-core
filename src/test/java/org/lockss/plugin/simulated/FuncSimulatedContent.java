@@ -97,7 +97,6 @@ public class FuncSimulatedContent extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    theDaemon.getLockssRepository(sau1).stopService();
     theDaemon.getPluginManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSystemMetrics().stopService();

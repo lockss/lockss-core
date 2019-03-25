@@ -99,7 +99,6 @@ import org.lockss.protocol.psm.PsmInterpStateBean;
 import org.lockss.protocol.psm.PsmMachine;
 import org.lockss.protocol.psm.PsmManager;
 import org.lockss.protocol.psm.PsmMsgEvent;
-import org.lockss.repository.RepositoryNode;
 import org.lockss.scheduler.SchedService;
 import org.lockss.scheduler.SchedulableTask;
 import org.lockss.scheduler.Schedule.EventType;
@@ -1808,19 +1807,10 @@ public class V3Poller implements Poll {
   private void signalNodeAgreement(BlockTally tally, String url) {
     Collection<ParticipantUserData> agreeVoters = tally.getAgreeVoters();
     if (!agreeVoters.isEmpty()) {
-      try {
-        RepositoryNode node = AuUtil.getRepositoryNode(getAu(), url);
-        if (node == null) {
-          // CR: throw new ShouldNotHappenException();
-        } else {
-          Collection<PeerIdentity> agreeVoterIds =
-              getVotersIdentities(agreeVoters);
+      Collection<PeerIdentity> agreeVoterIds =
+	getVotersIdentities(agreeVoters);
+      // XXXREPO
 //           node.signalAgreement(agreeVoterIds);
-        }
-      } catch (MalformedURLException ex) {
-        log.error("Malformed URL while updating agreement history: "
-            + url);
-      }
     }
   }
 
@@ -2319,7 +2309,9 @@ public class V3Poller implements Poll {
             new SingleNodeCachedUrlSetSpec(url);
         CachedUrlSet cus = getAu().makeCachedUrlSet(cuss);
         log.debug("Marking block deleted: " + url);
-        theDaemon.getLockssRepository(getAu()).deleteNode(cus.getUrl());
+	// XXXREPO
+//         theDaemon.getLockssRepository(getAu()).deleteNode(cus.getUrl());
+	if (false) throw new IOException("Satisfy compiler");
       } else {
         log.info("Asked to mark file " + url + " deleted in poll " +
             pollerState.getPollKey() + ".  Not actually deleting.");

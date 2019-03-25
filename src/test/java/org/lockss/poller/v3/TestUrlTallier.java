@@ -47,7 +47,6 @@ import org.lockss.poller.v3.FuncV3Poller.MyV3Poller;
 import org.lockss.poller.v3.V3Serializer.*;
 import org.lockss.test.*;
 import org.lockss.hasher.*;
-import org.lockss.repository.OldLockssRepositoryImpl;
 import org.mortbay.util.B64Code;
 
 import static org.lockss.util.Constants.*;
@@ -109,7 +108,6 @@ public class TestUrlTallier extends LockssTestCase {
     this.tempDir = getTempDir();
     this.testau = setupAu();
     initRequiredServices();
-    setupRepo(testau);
     this.pollerId = findPeerIdentity(localPeerKey);
     this.voters = makeVoters(initialPeers);
   }
@@ -132,14 +130,6 @@ public class TestUrlTallier extends LockssTestCase {
     return mau;
   }
   
-  private void setupRepo(ArchivalUnit au) throws Exception {
-    MockLockssRepository repo = new MockLockssRepository("/foo", au);
-    for (int ix =  0; ix < urls.length; ix++) {
-      repo.createNewNode(urls[ix]);
-    }
-    ((MockLockssDaemon)theDaemon).setLockssRepository(repo, au);
-  }
-
   PeerIdentity findPeerIdentity(String key) throws Exception {
     return V3TestUtils.findPeerIdentity(theDaemon, key);
   }
@@ -152,11 +142,6 @@ public class TestUrlTallier extends LockssTestCase {
       ids[idIndex++] = pid;
     }
     return ids;
-  }
-
-  public void tearDown() throws Exception {
-    theDaemon.getLockssRepository(testau).stopService();
-    super.tearDown();
   }
 
   private void makeParticipants(VoteBlock[][] voteBlocks) throws Exception {

@@ -38,6 +38,7 @@ import org.htmlparser.lexer.*;
 import org.htmlparser.util.*;
 import org.htmlparser.scanners.ScriptScanner;
 
+import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
@@ -284,8 +285,8 @@ public class HtmlFilterInputStream
     } else {
       out = new ReaderInputStream(new StringReader(h));
     }
-    if (CurrentConfig.getBooleanParam(RepositoryNodeImpl.PARAM_MONITOR_INPUT_STREAMS,
-   					  RepositoryNodeImpl.DEFAULT_MONITOR_INPUT_STREAMS)) {
+    if (CurrentConfig.getBooleanParam(LockssApp.PARAM_MONITOR_INPUT_STREAMS,
+				      LockssApp.DEFAULT_MONITOR_INPUT_STREAMS)) {
       out = new MonitoringInputStream(out,"HtmlFilterInputStream");
     }
   }
@@ -321,8 +322,8 @@ public class HtmlFilterInputStream
     // return an input stream of either the in memory bytes
     // or the file
     out = dtfos.getDeleteOnCloseInputStream();
-    if (CurrentConfig.getBooleanParam(RepositoryNodeImpl.PARAM_MONITOR_INPUT_STREAMS,
-   					  RepositoryNodeImpl.DEFAULT_MONITOR_INPUT_STREAMS)) {
+    if (CurrentConfig.getBooleanParam(LockssApp.PARAM_MONITOR_INPUT_STREAMS,
+				      LockssApp.DEFAULT_MONITOR_INPUT_STREAMS)) {
       out = new MonitoringInputStream(out,"HtmlFilterInputStream");
     }
   }

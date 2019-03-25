@@ -238,12 +238,6 @@ public class TestSampledBlockHasher extends LockssTestCase {
     MockArchivalUnit mau = new MockArchivalUnit(new MockPlugin(daemon), url);
     MockCachedUrlSet cus = new MockCachedUrlSet(url);
     cus.setArchivalUnit(mau);
-    OldLockssRepositoryImpl repo =
-      (OldLockssRepositoryImpl)OldLockssRepositoryImpl.createNewLockssRepository(
-        mau);
-    daemon.setLockssRepository(repo, mau);
-    repo.initService(daemon);
-    repo.startService();
     AuTestUtil.setUpMockAus(mau);
     return mau;
   }

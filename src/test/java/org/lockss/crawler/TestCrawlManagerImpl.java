@@ -102,7 +102,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     activityRegulator = new MyMockActivityRegulator(mau);
     activityRegulator.initService(theDaemon);
     theDaemon.setActivityRegulator(activityRegulator, mau);
-    theDaemon.setLockssRepository(new MockLockssRepository(), mau);
 
 
     cus = mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(GENERIC_URL));

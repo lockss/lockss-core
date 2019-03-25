@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -80,7 +76,6 @@ public class DefaultUrlCacher implements UrlCacher {
   protected final String origUrl;   // URL with which I was created
   protected String fetchUrl;		// possibly affected by redirects
   private List<String> redirectUrls;
-  private OldLockssRepository repository = null;
   private final CacheResultMap resultMap;
   private LockssWatchdog wdog;
   private BitSet fetchFlags = new BitSet();
@@ -115,13 +110,6 @@ public class DefaultUrlCacher implements UrlCacher {
     }
     Plugin plugin = au.getPlugin();
     resultMap = plugin.getCacheResultMap();
-    if (!isV2Repo()) {
-      repository = plugin.getDaemon().getLockssRepository(au);
-    }
-  }
-
-  protected boolean isV2Repo() {
-    return v2Repo != null;
   }
 
   /**
@@ -291,11 +279,7 @@ public class DefaultUrlCacher implements UrlCacher {
 				CIProperties headers,
 				boolean doValidate, List<String> redirUrls)
       throws IOException {
-    if (isV2Repo()) {
-      storeContentInV2(url, input, headers, doValidate, redirUrls);
-    } else {
-      storeContentInV1(url, input, headers, doValidate, redirUrls);
-    }
+    storeContentInV2(url, input, headers, doValidate, redirUrls);
   }
 
   protected void storeContentInV2(String url, InputStream input,
@@ -395,8 +379,6 @@ public class DefaultUrlCacher implements UrlCacher {
 			      String.format("%s:%s",
 					    checksumAlgorithm, sdigest));
 	}
-	// tk - how to set header after data consumed.  or do checksum in repo
-	//	leaf.setNewProperties(headers);
 	if (logger.isDebug2()) {
 	  logger.debug2("Committing " + uncommittedArt);
 	}
@@ -414,7 +396,7 @@ public class DefaultUrlCacher implements UrlCacher {
 	  aus.contentChanged();
 	}
 	// TK
-	if (alreadyHasContent /*&& !leaf.isIdenticalVersion()*/) {
+	if (alreadyHasContent /*&& !isIdenticalToPreviousVersion(committedArt)*/) {
 	  Alert alert = Alert.auAlert(Alert.NEW_FILE_VERSION, au);
 	  alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
 	  String msg = "Collected an additional version: " + getFetchUrl();
@@ -444,125 +426,6 @@ public class DefaultUrlCacher implements UrlCacher {
     boolean res = artHash.equals(prev.getContentDigest());
     if (res) logger.debug2("New version identical to old: " + art.getUri());
     return res;
-  }
-
-  protected void storeContentInV1(String url, InputStream input,
-				CIProperties headers,
-				boolean doValidate, List<String> redirUrls)
-      throws IOException {
-    RepositoryNode leaf = null;
-    OutputStream os = null;
-    boolean currentWasSuspect = isCurrentVersionSuspect();
-    try {
-      leaf = repository.createNewNode(url);
-      alreadyHasContent = leaf.hasContent();
-      leaf.makeNewVersion();
-      
-      MessageDigest checksumProducer = null;
-      String checksumAlgorithm =
-          CurrentConfig.getParam(PARAM_CHECKSUM_ALGORITHM,
-              DEFAULT_CHECKSUM_ALGORITHM);
-      if (!StringUtil.isNullString(checksumAlgorithm)) {
-        try {
-          checksumProducer = MessageDigest.getInstance(checksumAlgorithm);
-        } catch (NoSuchAlgorithmException ex) {
-          logger.warning(String.format("Checksum algorithm %s not found, "
-              + "checksumming disabled", checksumAlgorithm));
-        }
-      }
-
-      os = leaf.getNewOutputStream();
-      long bytes =
-          StreamUtil.copy(input, os, -1, wdog, true, checksumProducer);
-      if (logger.isDebug3()) {
-        logger.debug3("Stored " + bytes + " bytes of " + this);
-      }
-      if (!fetchFlags.get(DONT_CLOSE_INPUT_STREAM_FLAG)) {
-        try {
-          input.close();
-        } catch (IOException ex) {
-          CacheException closeEx =
-            resultMap.mapException(au, fetchUrl, ex, null);
-          if (!(closeEx instanceof CacheException.IgnoreCloseException)) {
-            throw new StreamUtil.InputException(ex);
-          }
-        }
-      }
-      os.close();
-      boolean doStore = true;
-      if (doValidate && !fetchFlags.get(SUPPRESS_CONTENT_VALIDATION)) {
-	// Don't modify passed-in headers
-	headers = CIProperties.fromProperties(headers);
-	if (redirUrls != null && !redirUrls.isEmpty()) {
-	  headers.put(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS, redirUrls);
-	}
-	CacheException vExp = validate(headers, leaf, bytes);
-	headers.remove(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS);
-	if (vExp != null) {
-	  if (vExp.isAttributeSet(CacheException.ATTRIBUTE_FAIL) ||
-	      vExp.isAttributeSet(CacheException.ATTRIBUTE_FATAL)) {
-	    abandonNewVersion(leaf);
-	    throw vExp;
-	  } else if (vExp.isAttributeSet(CacheException.ATTRIBUTE_NO_STORE)) {
-	    abandonNewVersion(leaf);
-	    infoException = vExp;
-	    doStore = false;
-	  } else {
-	    infoException = vExp;
-	  }
-	}
-      }
-      if (doStore) {
-	headers.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
-	if (checksumProducer != null) {
-	  byte bdigest[] = checksumProducer.digest();
-	  String sdigest = ByteArray.toHexString(bdigest);
-	  headers.setProperty(CachedUrl.PROPERTY_CHECKSUM,
-			      String.format("%s:%s",
-					    checksumAlgorithm, sdigest));
-	}
-	leaf.setNewProperties(headers);
-	leaf.sealNewVersion();
-	if (logger.isDebug3()) {
-	  logger.debug3("Sealed v" + leaf.getVersion() + " of " + this);
-	}
-	AuState aus = AuUtil.getAuState(au);
-	if (aus != null && currentWasSuspect) {
-	  aus.incrementNumCurrentSuspectVersions(-1);
-	}
-	if (aus != null && markLastContentChanged) {
-	  aus.contentChanged();
-	}
-	if (alreadyHasContent && !leaf.isIdenticalVersion()) {
-	  Alert alert = Alert.auAlert(Alert.NEW_FILE_VERSION, au);
-	  alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
-	  String msg = "Collected an additional version: " + getFetchUrl();
-	  alert.setAttribute(Alert.ATTR_TEXT, msg);
-	  raiseAlert(alert);
-	}
-      }
-    } catch (StreamUtil.OutputException ex) {
-      abandonNewVersion(leaf);
-      throw resultMap.getRepositoryException(ex.getIOCause());
-    } catch (IOException ex) {
-      logger.debug("storeContentIn1", ex);
-      abandonNewVersion(leaf);
-      // XXX some code below here maps the exception
-      throw ex instanceof CacheException
-	? ex : resultMap.mapException(au, url, ex, null);
-    } finally {
-      IOUtil.safeClose(os);
-    }
-  }
-
-  void abandonNewVersion(RepositoryNode node) {
-    if (node != null) {
-      try {
-	node.abandonNewVersion();
-      } catch (Exception e) {
-	// just being paranoid
-      }
-    }
   }
 
   void abandonNewVersion(Artifact art) {
@@ -650,67 +513,6 @@ public class DefaultUrlCacher implements UrlCacher {
     return firstMappedException(validationFailures);
   }
 
-  protected CacheException validate(CIProperties headers,
-				    RepositoryNode node,
-				    long size)
-      throws CacheException {
-    LinkedList<Pair<String,Exception>> validationFailures =
-      new LinkedList<Pair<String,Exception>>();
-
-    // First check actual length = Content-Length header if any
-    long contLen = getContentLength();
-    if (contLen >= 0 && contLen != size) {
-      Alert alert = Alert.auAlert(Alert.FILE_VERIFICATION, au);
-      alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
-      String msg = "File size (" + size +
-	") differs from Content-Length header (" + contLen + "): "
-	+ getFetchUrl();
-      alert.setAttribute(Alert.ATTR_TEXT, msg);
-      raiseAlert(alert);
-      validationFailures.add(new ImmutablePair(getUrl(),
-				      new ContentValidationException.WrongLength(msg)));
-    }
-
-    // 2nd, empty file
-    if (size == 0) {
-      Exception ex =
-	new ContentValidationException.EmptyFile("Empty file stored");
-      validationFailures.add(new ImmutablePair(getUrl(), ex));
-    }
-
-    // 3rd plugin-supplied ContentValidator.  Any
-    // ContentValidationException it throws will take precedence over the
-    // previous (wrong length, empty), but an unexpected exception will not
-    // take precedence.
-    String contentType = getContentType();
-    if (logger.isDebug3()) {
-      logger.debug3("Validate: " +
-		    getTempCachedUrl(headers, size, node).getUrl());
-    }
-    ContentValidatorFactory cvfact = au.getContentValidatorFactory(contentType);
-    if (cvfact != null) {
-      ContentValidator cv = cvfact.createContentValidator(au, contentType);
-      if (cv != null) {
-	CachedUrl cu = getTempCachedUrl(headers, size, node);
-	try {
-	  cv.validate(cu);
-	} catch (ContentValidationException e) {
-	  logger.debug2("Validation error1", e);
-	  // Plugin-triggered ContentValidationException goes first
-	  validationFailures.addFirst(new ImmutablePair(getUrl(), e));
-	} catch (Exception e) {
-	  logger.debug2("Validation error2", e);
-	  // Unexpected error in validator goes first
-	  validationFailures.addFirst(new ImmutablePair(getUrl(),
-							new ContentValidationException.ValidatorExeception(e)));
-	} finally {
-	  cu.release();
-	}
-      }
-    }
-    return firstMappedException(validationFailures);
-  }
-
   CachedUrl getTempCachedUrl(final CIProperties headers, long size,
 			     Artifact art) {
     return new BaseCachedUrl(au, art.getUri(), art) {
@@ -719,11 +521,6 @@ public class DefaultUrlCacher implements UrlCacher {
 	return headers;
       }
     };
-  }
-
-  CachedUrl getTempCachedUrl(CIProperties headers, long size,
-			     RepositoryNode node) {
-    return new TempCachedUrl(au, getUrl(), headers, size, node);
   }
 
   CacheException firstMappedException(List<Pair<String,Exception>> exps) {
@@ -767,106 +564,5 @@ public class DefaultUrlCacher implements UrlCacher {
   private String getContentType() {
     return headers.getProperty(CachedUrl.PROPERTY_CONTENT_TYPE);
   }  
-
-  /** A CachedUrl that can access the contents and properties that were
-   * just written by this UrlCacher.  It is intended for use only by
-   * content validators and supports only a subset of the CachedUrl
-   * methods */
-  class TempCachedUrl extends BaseCachedUrl {
-    private long size;
-    private CIProperties headers;
-    private RepositoryNode node;
-
-    TempCachedUrl(ArchivalUnit owner, String url,
-		  CIProperties headers, long size, RepositoryNode node) {
-      super(owner, url);
-      this.headers = headers;
-      this.node = node;
-    }
-
-    @Override
-    protected void ensureRnc() {
-      if (rnc == null) {
-	rnc = node.getUnsealedRnc();
-      }
-    }
-
-    @Override
-    public boolean hasContent() {
-      return true;
-    }
-
-    @Override
-    public CachedUrl getCuVersion(int version) {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public CachedUrl[] getCuVersions() {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public CachedUrl[] getCuVersions(int maxVersions) {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public int getVersion() {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-  
-    @Override
-    public void setOption(String option, String val) {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public InputStream openForHashing() {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public InputStream openForHashing(HashedInputStream.Hasher hasher) {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public LinkRewriterFactory getLinkRewriterFactory() {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public CIProperties getProperties() {
-      return headers;
-    }
-
-    @Override
-    public void addProperty(String key, String value) {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public long getContentSize() {
-      return size;
-    }
-
-    @Override
-    public FileMetadataExtractor getFileMetadataExtractor(MetadataTarget
-							  target) {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public CachedUrl getArchiveMemberCu(ArchiveMemberSpec ams) {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-
-    @Override
-    public boolean isArchiveMember() {
-      throw new UnsupportedOperationException("Not allowed for TempCachedUrl");
-    }
-  }
-
 
 }

@@ -44,7 +44,6 @@ import org.lockss.protocol.IdentityManager;
 import org.lockss.protocol.LcapStreamComm;
 import org.lockss.protocol.PeerAgreement;
 import org.lockss.protocol.PeerIdentity;
-import org.lockss.repository.RepositoryNode;
 import org.lockss.state.AuState;
 import org.lockss.util.Logger;
 
@@ -207,18 +206,9 @@ public class RepairPolicy {
    */
   boolean shouldServeUrlRepair(PeerIdentity reqPid,
 			       ArchivalUnit au, String url) {
-    RepositoryNode node;
-    try {
-      node = AuUtil.getRepositoryNode(au, url);
-    } catch (MalformedURLException ex) {
-      // Log the error, but certainly don't serve the repair.
-      log.error("serveRepairs: The URL " + url + " appears to be malformed. "
-		+ "Cannot serve repairs for this URL.");
-      return false;
-    }
-
     for (PeerIdentity pid:
 	   reputationTransfers.getAllReputationsTransferredFrom(reqPid)) {
+      // XXXREPO
 //       if (node.hasAgreement(pid)) {
 // 	log.debug2("Previous agreement found for peer " + pid + " on URL "
 // 		  + url);

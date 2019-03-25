@@ -35,6 +35,7 @@ package org.lockss.poller;
 import java.io.*;
 import java.util.*;
 
+import org.junit.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.util.test.FileTestUtil;
@@ -97,12 +98,12 @@ public class TestPollManager extends LockssTestCase4 {
     TimeBase.setReal();
     pollmanager.stopService();
     idmanager.stopService();
-    theDaemon.getLockssRepository(testau).stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getRouterManager().stopService();
     super.tearDown();
   }
 
+  @Test
   public void testConfig() throws Exception {
     assertEquals(ListUtil.list("all"), pollmanager.getAutoPollAuClasses());
     ConfigurationUtil.addFromArgs(PollManager.PARAM_AUTO_POLL_AUS,
@@ -111,6 +112,7 @@ public class TestPollManager extends LockssTestCase4 {
 		 pollmanager.getAutoPollAuClasses());
   }
 
+  @Test
   public void testGetPollFactoryByVersion() throws Exception {
     PollFactory pfm1 = pollmanager.getPollFactory(-1);
     PollFactory pf0 = pollmanager.getPollFactory(0);
@@ -127,6 +129,7 @@ public class TestPollManager extends LockssTestCase4 {
     assertNull(pf4);
   }
 
+  @Test
   public void testGetPollFactoryByPollSpec() throws Exception {
     CachedUrlSet cus =
       new MockCachedUrlSet(new MockArchivalUnit(plugin),
@@ -146,11 +149,10 @@ public class TestPollManager extends LockssTestCase4 {
     assertTrue(pfV3 instanceof V3PollFactory);
   }
 
-  // Tests for the V1 PollFactory implementation
-
   // Start by testing the local mock poll factory
 
   /** Test for getPollsForAu(String auId) */
+  @Test
   public void testGetV3PollStatus() throws Exception {
     String auId = testau.getAuId();
     PollManager.V3PollStatusAccessor accessor = 
@@ -219,9 +221,6 @@ public class TestPollManager extends LockssTestCase4 {
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockLockssRepository repo = new MockLockssRepository();
-    theDaemon.setLockssRepository(repo, mau);
-    
     return mau;
   }
 
@@ -264,6 +263,7 @@ public class TestPollManager extends LockssTestCase4 {
   static final int C = V3Poller.POLLER_STATUS_COMPLETE;
   static final int NC = V3Poller.POLLER_STATUS_NO_QUORUM;
 
+  @Test
   public void testPollQueue() throws Exception {
     testau.setShouldCallTopLevelPoll(false);
 
@@ -413,6 +413,7 @@ public class TestPollManager extends LockssTestCase4 {
     return res;
   }
 
+  @Test
   public void testAtRiskMap() throws Exception {
     String p1 = "TCP:[127.0.0.1]:12";
     String p2 = "TCP:[127.0.0.2]:12";
@@ -443,6 +444,7 @@ public class TestPollManager extends LockssTestCase4 {
 		 pollmanager.getPeersWithAuAtRisk(mau2));
   }
 
+  @Test
   public void testGetNoAuSet() throws Exception {
     MockPlugin plugin = new MockPlugin(theDaemon);
     String auid1 = "auid111";
@@ -457,6 +459,7 @@ public class TestPollManager extends LockssTestCase4 {
     assertSame(s1, s3);
   }
 
+  @Test
   public void testAgeNoAuSet() throws Exception {
     String p1 = "TCP:[127.0.0.1]:12";
     String p2 = "TCP:[127.0.0.2]:12";

@@ -56,38 +56,7 @@ public class TestRepositoryManager extends LockssTestCase {
     super.tearDown();
   }
 
-  MyMockLockssRepositoryImpl makeRepo(String root) {
-    MockArchivalUnit mau = new MockArchivalUnit();
-    MyMockLockssRepositoryImpl repo = new MyMockLockssRepositoryImpl(root);
-    theDaemon.setLockssRepository(repo, mau);
-    repo.initService(theDaemon);
-    repo.startService();
-    return repo;
-  }
-
   public void testConfig() throws Exception {
-    MyMockLockssRepositoryImpl repo1 = makeRepo("foo");
-    assertEquals(RepositoryManager.DEFAULT_MAX_PER_AU_CACHE_SIZE,
-		 repo1.nodeCacheSize);
-
-    ConfigurationUtil.setFromArgs(RepositoryManager.PARAM_MAX_PER_AU_CACHE_SIZE,
-				  "4");
-    MyMockLockssRepositoryImpl repo2 = makeRepo("bar");
-    assertEquals(4, repo1.nodeCacheSize);
-    assertEquals(4, repo2.nodeCacheSize);
-
-    repo1.cnt = 0;
-    ConfigurationUtil.setFromArgs(RepositoryManager.PARAM_MAX_PER_AU_CACHE_SIZE,
-				  "37");
-    assertEquals(37, repo1.nodeCacheSize);
-    assertEquals(37, repo2.nodeCacheSize);
-    assertEquals(1, repo1.cnt);
-    // ensure setNodeCacheSize doesn't get called if param doesn't change
-    ConfigurationUtil.setFromArgs(RepositoryManager.PARAM_MAX_PER_AU_CACHE_SIZE,
-				  "37",
-				  "org.lockss.somethingElse", "bar");
-    assertEquals(1, repo1.cnt);
-
     PlatformUtil.DF warn = mgr.getDiskWarnThreshold();
     PlatformUtil.DF full = mgr.getDiskFullThreshold();
     assertEquals(5000 * 1024, warn.getAvail());
@@ -133,31 +102,6 @@ public class TestRepositoryManager extends LockssTestCase {
     mgr.setRepoMap(repoMap);
 
     assertEquals("local:two", mgr.findLeastFullRepository());
-  }
-
-  public void testSizeCalc () throws Exception {
-    SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-    mgr.setSem(sem);
-    RepositoryNode node1 = new RepositoryNodeImpl("url1", "testDir", null);
-    RepositoryNode node2 = new RepositoryNodeImpl("url2", "testDir", null);
-    RepositoryNode node3 = new RepositoryNodeImpl("url3", "testDir", null);
-    mgr.queueSizeCalc(node1);
-    assertTrue(sem.take(TIMEOUT_SHOULDNT));
-    assertEquals(ListUtil.list(node1), mgr.getNodes());
-    mgr.queueSizeCalc(node2);
-    mgr.queueSizeCalc(node3);
-    assertTrue(sem.take(TIMEOUT_SHOULDNT));
-    if (mgr.getNodes().size() < 3) {
-      assertTrue(sem.take(TIMEOUT_SHOULDNT));
-    }
-    assertSameElements(ListUtil.list(node1, node2, node3), mgr.getNodes());
-  }
-
-  public void testSleepCalc () throws Exception {
-    assertEquals(90, mgr.sleepTimeToAchieveLoad(10L, .1F));
-    assertEquals(40, mgr.sleepTimeToAchieveLoad(10L, .2F));
-    assertEquals(10, mgr.sleepTimeToAchieveLoad(10L, .5F));
-    assertEquals(50, mgr.sleepTimeToAchieveLoad(150L, .75F));
   }
 
   public void testGetV2RepositoryIll () throws Exception {
@@ -216,11 +160,6 @@ public class TestRepositoryManager extends LockssTestCase {
     List getNodes() {
       return nodes;
     }
-    void doSizeCalc(RepositoryNode node) {
-      TimerUtil.guaranteedSleep(10);
-      nodes.add(node);
-      sem.give();
-    }    
     public List<String> getRepositoryList() {
       if (repos != null) return repos;
       return super.getRepositoryList();
@@ -242,19 +181,6 @@ public class TestRepositoryManager extends LockssTestCase {
     }
   }
 
-  class MyMockLockssRepositoryImpl extends OldLockssRepositoryImpl {
-    int nodeCacheSize = 0;
-    int cnt = 0;
-
-    public MyMockLockssRepositoryImpl(String root) {
-      super(root);
-    }
-
-    public void setNodeCacheSize(int size) {
-      nodeCacheSize = size;
-      cnt++;
-    }
-  }
   class MyDF extends PlatformUtil.DF {
     MyDF(String path, int avail) {
       super();

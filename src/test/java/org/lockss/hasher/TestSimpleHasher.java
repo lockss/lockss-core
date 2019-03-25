@@ -97,13 +97,6 @@ public class TestSimpleHasher extends LockssTestCase {
   }
 
   MockArchivalUnit setupContentTree() {
-    OldLockssRepositoryImpl repo =
-      (OldLockssRepositoryImpl)OldLockssRepositoryImpl.createNewLockssRepository(
-        mau);
-    daemon.setLockssRepository(repo, mau);
-    repo.initService(daemon);
-    repo.startService();
-
     MockCachedUrlSet cus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
     List<CachedUrl> files = new ArrayList<CachedUrl>();
     for (int ix = 0; ix < urls.length; ix++) {

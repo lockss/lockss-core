@@ -58,9 +58,6 @@ public class BaseCachedUrl implements CachedUrl {
   protected String url;
   protected static Logger logger = Logger.getLogger();
 
-  private OldLockssRepository repository;
-  private RepositoryNode leaf = null;
-  protected RepositoryNode.RepositoryNodeContents rnc = null;
   protected Properties options;
 
   protected LockssRepository v2Repo;
@@ -100,18 +97,6 @@ public class BaseCachedUrl implements CachedUrl {
 
   public static final String DEFAULT_METADATA_CONTENT_TYPE = "text/html";
 
-  /**
-   * The input stream of the URL content when obtained from a web service
-   * instead of the repository.
-   */
-  protected InputStream inputStreamFromWs = null;
-
-  /**
-   * The properties of the URL content when obtained from a web service instead
-   * of the repository.
-   */
-  protected Properties propertiesFromWs = null;
-
   public BaseCachedUrl(ArchivalUnit owner, String url) {
     final String DEBUG_HEADER = "BaseCachedUrl(): ";
     this.au = owner;
@@ -144,13 +129,6 @@ public class BaseCachedUrl implements CachedUrl {
       logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
   }
 
-  /**
-   * Temporary.  True if this AU should be accessed via the V2 repository.
-   */
-  protected boolean isV2Repo() {
-    return v2Repo != null;
-  }
-
   public String getUrl() {
     return url;
   }
@@ -179,25 +157,15 @@ public class BaseCachedUrl implements CachedUrl {
     return au;
   }
 
-  protected RepositoryNodeVersion getNodeVersion() {
-    ensureLeafLoaded();
-    return leaf;
-  }
-
   public CachedUrl getCuVersion(int version) {
-    if (isV2Repo()) {
-      Artifact verArt = null;
-      try {
-	verArt =
-	  v2Repo.getArtifactVersion(v2Coll, au.getAuId(), url, version);
-      } catch (IOException e) {
-	logger.error("Error getting Artifact version: " + url, e);
-      }
-      return new Version(au, url, version, verArt);
-    } else {
-      ensureLeafLoaded();
-      return new Version(au, url, leaf.getNodeVersion(version));
+    Artifact verArt = null;
+    try {
+      verArt =
+	v2Repo.getArtifactVersion(v2Coll, au.getAuId(), url, version);
+    } catch (IOException e) {
+      logger.error("Error getting Artifact version: " + url, e);
     }
+    return new Version(au, url, version, verArt);
   }
 
   public CachedUrl[] getCuVersions() {
@@ -205,42 +173,28 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CachedUrl[] getCuVersions(int maxVersions) {
-    if (isV2Repo()) {
-      List<CachedUrl> cuVers = new ArrayList<CachedUrl>();
-      try {
-	for (Artifact art : v2Repo.getArtifactAllVersions(v2Coll,
-							    au.getAuId(),
-							    url)) {
-	  if (art.getCommitted()) {
-	    cuVers.add(new Version(au, url, art.getVersion(), art));
-	    if (cuVers.size() >= maxVersions) {
-	      break;
-	    }
+    List<CachedUrl> cuVers = new ArrayList<CachedUrl>();
+    try {
+      for (Artifact art : v2Repo.getArtifactAllVersions(v2Coll,
+							au.getAuId(),
+							url)) {
+	if (art.getCommitted()) {
+	  cuVers.add(new Version(au, url, art.getVersion(), art));
+	  if (cuVers.size() >= maxVersions) {
+	    break;
 	  }
 	}
-      } catch (IOException e) {
-	logger.error("Couldn't get Artifact version iterator: " + url, e);
-	return new CachedUrl[0];
       }
-      return cuVers.toArray(new CachedUrl[0]);
-    } else {
-      ensureLeafLoaded();
-      RepositoryNodeVersion[] nodeVers = leaf.getNodeVersions(maxVersions);
-      CachedUrl[] res = new CachedUrl[nodeVers.length];
-      for (int ix = res.length - 1; ix >= 0; ix--) {
-	res[ix] = new Version(au, url, nodeVers[ix]);
-      }
-      return res;
+    } catch (IOException e) {
+      logger.error("Couldn't get Artifact version iterator: " + url, e);
+      return new CachedUrl[0];
     }
+    return cuVers.toArray(new CachedUrl[0]);
   }
 
   public int getVersion() {
-    if (isV2Repo()) {
-      ensureArtifact();
-      return art.getVersion();
-    } else {
-      return getNodeVersion().getVersion();
-    }
+    ensureArtifact();
+    return art.getVersion();
   }
 
   /**
@@ -297,30 +251,11 @@ public class BaseCachedUrl implements CachedUrl {
 
   public boolean hasContent() {
     final String DEBUG_HEADER = "hasContent(): ";
-    if (isV2Repo()) {
-      ensureArtifact();
-      if (logger.isDebug2()) {
-	logger.debug2("hasContent = " + (art != null) + ": " + art);
-      }
-      if (art == null) return false;
-    } else {
-      if (repository==null) {
-	getRepository();
-      }
-      if (leaf==null) {
-	try {
-	  leaf = repository.getNode(url);
-	} catch (MalformedURLException mue) {
-	  return false;
-	}
-      }
-      if (leaf == null || !leaf.hasContent()) {
-	if (logger.isDebug2())
-	  logger.debug2(DEBUG_HEADER + "hasContent(" + getUrl()
-			+ "): leaf == null || !leaf.hasContent() = true");
-	return false;
-      }
+    ensureArtifact();
+    if (logger.isDebug2()) {
+      logger.debug2("hasContent = " + (art != null) + ": " + art);
     }
+    if (art == null) return false;
     if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
       logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
       return false;
@@ -330,15 +265,10 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public InputStream getUnfilteredInputStream() {
-    if (isV2Repo()) {
-      ensureArtifactData();
-      inputStreamUsed = true;
-      restInputStream = artData.getInputStream();
-      return restInputStream;
-    } else {
-      ensureRnc();
-      return rnc.getInputStream();
-    }
+    ensureArtifactData();
+    inputStreamUsed = true;
+    restInputStream = artData.getInputStream();
+    return restInputStream;
   }
 
   public InputStream getUnfilteredInputStream(HashedInputStream.Hasher hasher) {
@@ -439,7 +369,7 @@ public class BaseCachedUrl implements CachedUrl {
       // XXX Wrong Exception.  Should this method be declared to throw
       // UnsupportedEncodingException?
       logger.error("Creating InputStreamReader for '" + getUrl() + "'", e);
-      throw new OldLockssRepository.RepositoryStateException
+      throw new RepositoryStateException
 	("Couldn't create InputStreamReader:" + e.toString());
     }
   }
@@ -454,24 +384,19 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CIProperties getProperties() {
-    if (isV2Repo()) {
-      if (restProps == null) {
-	ensureArtifactData();
-	restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
-	String chk = artData.getContentDigest();
-	// tk - hash alg shouldn't be hardwired
-	if (!StringUtil.isNullString(chk)) {
-	  restProps.put(PROPERTY_CHECKSUM, chk);
-	}
-	if (logger.isDebug3()) {
-	  logger.debug2("getProperties: " + url + ": " + restProps);
-	}
+    if (restProps == null) {
+      ensureArtifactData();
+      restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
+      String chk = artData.getContentDigest();
+      // tk - hash alg shouldn't be hardwired
+      if (!StringUtil.isNullString(chk)) {
+	restProps.put(PROPERTY_CHECKSUM, chk);
       }
-      return restProps;
-    } else {
-      ensureRnc();
-      return CIProperties.fromProperties(rnc.getProperties());
+      if (logger.isDebug3()) {
+	logger.debug2("getProperties: " + url + ": " + restProps);
+      }
     }
+    return restProps;
   }
 
   /**
@@ -484,20 +409,14 @@ public class BaseCachedUrl implements CachedUrl {
    * already contains the key.
    */
   public void addProperty(String key, String value) {
-    checkNotV2Repo("addProperty()");
-    ensureRnc();
-    rnc.addProperty(key, value);
+    throw new UnsupportedOperationException("addProperty no longer supporte");
   }
 
   public long getContentSize() {
-    if (isV2Repo()) {
-      if (hasContent()) {
-	return art.getContentLength();
-      } else {
-	throw new UnsupportedOperationException("No content: " + url);
-      }
+    if (hasContent()) {
+      return art.getContentLength();
     } else {
-      return getNodeVersion().getContentSize();
+      throw new UnsupportedOperationException("No content: " + url);
     }
   }
 
@@ -518,26 +437,12 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public void release() {
-    if (isV2Repo()) {
-      for (ArtifactData ad : allArtData) {
-	releaseArtifactData(ad);
-      }
-      allArtData.clear();
-      artData = null;
-      restInputStream = null;
-    } else {
-      if (rnc != null) {
-	rnc.release();
-	rnc = null;
-      }
+    for (ArtifactData ad : allArtData) {
+      releaseArtifactData(ad);
     }
-  }
-
-  protected void ensureRnc() {
-    checkNotV2Repo("ensureRnc()");
-    if (rnc == null) {
-      rnc = getNodeVersion().getNodeContents();
-    }
+    allArtData.clear();
+    artData = null;
+    restInputStream = null;
   }
 
   private LockssDaemon getDaemon() {
@@ -545,35 +450,6 @@ public class BaseCachedUrl implements CachedUrl {
 //       return au.getPlugin().getDaemon();
 //     }
     return LockssDaemon.getLockssDaemon();
-  }
-
-  private void getRepository() {
-    repository = getDaemon().getLockssRepository(au);
-  }
-
-  protected void checkNotV2Repo(String msg) {
-    if (isV2Repo())
-      throw new UnsupportedOperationException(msg + " called when using V2 repository");
-  }
-
-  protected void checkV2Repo(String msg) {
-    if (!isV2Repo())
-      throw new UnsupportedOperationException(msg + " called when using V1 repository");
-  }
-
-  private void ensureLeafLoaded() {
-    checkNotV2Repo("ensureLeafLoaded()");
-    if (repository==null) {
-      getRepository();
-    }
-    if (leaf==null) {
-      try {
-        leaf = repository.createNewNode(url);
-      } catch (MalformedURLException mue) {
-        logger.error("Couldn't load node due to bad url: "+url);
-        throw new IllegalArgumentException("Couldn't parse url properly.", mue);
-      }
-    }
   }
 
   // overridable for testing
@@ -584,7 +460,6 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   private void ensureArtifact() {
-    checkV2Repo("ensureArtifact()");
     if (!artifactObtained) {
       try {
 	art = getArtifact();
@@ -604,7 +479,6 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   private void ensureArtifactData() {
-    checkV2Repo("ensureArtifactData()");
     if (hasContent()) {
       if (inputStreamUsed || artData == null) {
 	try {
@@ -685,15 +559,8 @@ public class BaseCachedUrl implements CachedUrl {
 
   /** A CachedUrl that's bound to a specific version. */
   static class Version extends BaseCachedUrl {
-    private RepositoryNodeVersion nodeVer;
     protected int specVersion = -1;     // explicitly specified verson
 					// (used if no Artifact)
-
-    public Version(ArchivalUnit owner, String url,
-		   RepositoryNodeVersion nodeVer) {
-      super(owner, url);
-      this.nodeVer = nodeVer;
-    }
 
     public Version(ArchivalUnit owner, String url, int vernum, Artifact art) {
       super(owner, url, art);
@@ -713,19 +580,9 @@ public class BaseCachedUrl implements CachedUrl {
       }
     }
 
-    protected RepositoryNodeVersion getNodeVersion() {
-      return nodeVer;
-    }
-
     public boolean hasContent() {
-      if (isV2Repo()) {
-	if (!super.hasContent()) {
-	  return false;
-	}
-      } else {
-	if (!getNodeVersion().hasContent()) {
-	  return false;
-	}
+      if (!super.hasContent()) {
+	return false;
       }
       if (isIncludedOnly() && !au.shouldBeCached(getUrl())) {
 	logger.debug2("hasContent("+getUrl()+"): excluded by crawl rule");
@@ -802,7 +659,7 @@ public class BaseCachedUrl implements CachedUrl {
 	String msg =
 	  "Couldn't open member for which exists() was true: " + this;
 	logger.error(msg);
-	throw new OldLockssRepository.RepositoryStateException(msg, e);
+	throw new RepositoryStateException(msg, e);
       }
     }
 
@@ -825,8 +682,8 @@ public class BaseCachedUrl implements CachedUrl {
 	  return null;
 	}
 	InputStream is = new TFileInputStream(membtf);
-	if (CurrentConfig.getBooleanParam(RepositoryNodeImpl.PARAM_MONITOR_INPUT_STREAMS,
-					  RepositoryNodeImpl.DEFAULT_MONITOR_INPUT_STREAMS)) {
+	if (CurrentConfig.getBooleanParam(LockssApp.PARAM_MONITOR_INPUT_STREAMS,
+					  LockssApp.DEFAULT_MONITOR_INPUT_STREAMS)) {
 	  is = new MonitoringInputStream(is, this.toString());
 	}
 	return is;
@@ -834,7 +691,7 @@ public class BaseCachedUrl implements CachedUrl {
 	String msg =
 	  "Couldn't open member for which exists() was true: " + this;
 	logger.error(msg);
-	throw new OldLockssRepository.RepositoryStateException(msg, e);
+	throw new RepositoryStateException(msg, e);
       }
     }
 
@@ -898,7 +755,7 @@ public class BaseCachedUrl implements CachedUrl {
       try {
 	return getMemberTFile().length();
       } catch (IOException e) {
-	throw new OldLockssRepository.RepositoryStateException
+	throw new RepositoryStateException
 	  ("Couldn't get archive member length", e);
       }
     }
@@ -979,4 +836,23 @@ public class BaseCachedUrl implements CachedUrl {
     }
 
   }
+  /**
+   * Thrown when an unexpected error is encountered while caching.
+   * Typically this is a file system error.
+   */
+  public class RepositoryStateException extends RuntimeException {
+    public RepositoryStateException() {
+      super();
+    }
+    public RepositoryStateException(String msg) {
+      super(msg);
+    }
+    public RepositoryStateException(Throwable cause) {
+      super(cause);
+    }
+    public RepositoryStateException(String msg, Throwable cause) {
+      super(msg, cause);
+    }
+  }
+
 }

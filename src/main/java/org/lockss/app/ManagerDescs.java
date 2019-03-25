@@ -150,9 +150,6 @@ public class ManagerDescs {
   public static ManagerDesc ARCHIVAL_UNIT_STATUS_DESC =
     new ManagerDesc(LockssDaemon.ARCHIVAL_UNIT_STATUS,
                     "org.lockss.state.ArchivalUnitStatus");
-  public static ManagerDesc REPOSITORY_STATUS_DESC =
-    new ManagerDesc(LockssDaemon.REPOSITORY_STATUS,
-                    "org.lockss.repository.LockssRepositoryStatus");
   public static ManagerDesc OVERVIEW_STATUS_DESC =
     new ManagerDesc(LockssDaemon.OVERVIEW_STATUS,
                     "org.lockss.daemon.status.OverviewStatus");

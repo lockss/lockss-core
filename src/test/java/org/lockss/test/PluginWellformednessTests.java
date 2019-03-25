@@ -134,7 +134,6 @@ public final class PluginWellformednessTests extends LockssTestCase {
   protected ArchivalUnit createAu()
       throws ArchivalUnit.ConfigurationException, IOException {
     ArchivalUnit au = PluginTestUtil.createAu(pluginName, getSampleAuConfig());
-    daemon.setLockssRepository(new MockLockssRepository(), au);
     return au;
   }
 

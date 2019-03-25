@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,7 +62,6 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   static final double TIMEOUT_INCREASE = 1.5;
 
   private LockssDaemon theDaemon;
-  private OldLockssRepository repository;
   private StateManager stateMgr;
   private TrueZipManager trueZipManager;
   protected static Logger logger = Logger.getLogger();
@@ -100,26 +99,6 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       logger.debug3(DEBUG_HEADER + "au = " + au);
     }
     stateMgr = theDaemon.getManagerByType(StateManager.class);
-    if (!isV2Repo()) {
-      repository = theDaemon.getLockssRepository(owner);
-    }
-  }
-
-  /**
-   * Temporary.  True if this AU should be accessed via the V2 repository.
-   */
-  protected boolean isV2Repo() {
-    return v2Repo != null;
-  }
-
-  protected void checkNotV2Repo(String msg) {
-    if (isV2Repo())
-      throw new UnsupportedOperationException(msg + " called when using V2 repository");
-  }
-
-  protected void checkV2Repo(String msg) {
-    if (!isV2Repo())
-      throw new UnsupportedOperationException(msg + " called when using old repository");
   }
 
   /**
@@ -139,17 +118,6 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   public boolean hasContent() {
-    if (!isV2Repo()) {
-      try {
-	RepositoryNode node = repository.getNode(getUrl());
-	if (node == null) {
-	  // avoid creating node just to answer no.
-	  return false;
-	}
-      } catch (MalformedURLException e) {
-	return false;
-      }
-    }
     CachedUrl cu = au.makeCachedUrl(getUrl());
     try {
       return (cu == null ? false : cu.hasContent());
@@ -185,15 +153,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   public boolean isLeaf() {
-    checkNotV2Repo("isLeaf()");
-    try {
-      RepositoryNode node = repository.getNode(getUrl());
-      return (node == null) ? false : node.isLeaf();
-    } catch (MalformedURLException mue) {
-      logger.error("Bad url in spec: " + getUrl());
-      throw new OldLockssRepository.RepositoryStateException("Bad url in spec: "
-                                                          +getUrl());
-    }
+    throw new UnsupportedOperationException("isLeaf() no longer supported");
   }
 
   CachedUrlSetNode makeCusn(String url, boolean isLeaf) {
@@ -246,34 +206,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     if (spec.isSingleNode()) {
       return CollectionUtil.EMPTY_ITERATOR;
     }
-    if (isV2Repo()) {
-      return v2FlatSetIterator();
-    }
-    TreeSet flatSet = new TreeSet(new UrlComparator());
-    String prefix = spec.getUrl();
-    try {
-      RepositoryNode intNode = repository.getNode(prefix);
-      if (intNode == null) {
-	return CollectionUtil.EMPTY_ITERATOR;
-      }
-      Iterator children = intNode.listChildren(spec, false);
-      while (children.hasNext()) {
-        RepositoryNode child = (RepositoryNode)children.next();
-        if (child.isLeaf()) {
-          CachedUrl newUrl = au.makeCachedUrl(child.getNodeUrl());
-          flatSet.add(newUrl);
-        } else {
-          CachedUrlSetSpec rSpec =
-            new RangeCachedUrlSetSpec(child.getNodeUrl());
-          CachedUrlSet newSet = au.makeCachedUrlSet(rSpec);
-          flatSet.add(newSet);
-        }
-      }
-    } catch (MalformedURLException mue) {
-      logger.error("Bad url in spec: "+prefix);
-      throw new RuntimeException("Bad url in spec: "+prefix);
-    }
-    return flatSet.iterator();
+    return v2FlatSetIterator();
   }
 
   /**
@@ -283,11 +216,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
    * @return an {@link Iterator}
    */
   public Iterator<CachedUrlSetNode> contentHashIterator() {
-    if (isV2Repo()) {
-      return artifactCuIterator();
-    } else {
-      return new CusIterator();
-    }
+    return artifactCuIterator();
   }
 
   public CuIterator getCuIterator() {
@@ -386,24 +315,11 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   private long singleNodeSize() {
-    if (isV2Repo()) {
-      CachedUrl cu = au.makeCachedUrl(getUrl());
-      if (!hasContent()) {
-	return 0;
-      }
-      return cu.getContentSize();
-    } else {
-      RepositoryNode node;
-      try {
-	node = repository.getNode(spec.getUrl());
-	if (node == null || !node.hasContent()) {
-	  return 0;
-	}
-	return node.getContentSize();
-      } catch (MalformedURLException e) {
-	return 0;
-      }
+    CachedUrl cu = au.makeCachedUrl(getUrl());
+    if (!hasContent()) {
+      return 0;
     }
+    return cu.getContentSize();
   }
 
   private long makeHashEstimate() {
@@ -455,27 +371,11 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   }
 
   void calculateNodeSize() {
-    if (isV2Repo()) {
-      calculateNodeSizeV2();
-    } else {
-      calculateNodeSizeV1();
-    }
+    calculateNodeSizeV2();
   }
 
   void calculateNodeSizeV2() {
     totalNodeSize = AuUtil.calculateCusContentSize(getCuIterable());
-  }
-
-  void calculateNodeSizeV1() {
-    if (totalNodeSize==0) {
-      try {
-	RepositoryNode node = repository.getNode(getUrl());
-	totalNodeSize = node == null ? 0 : node.getTreeContentSize(spec, true);
-      } catch (MalformedURLException mue) {
-        // this shouldn't happen
-        logger.error("Malformed URL exception on "+spec.getUrl());
-      }
-    }
   }
 
   public void setExcludeFilesUnchangedAfter(long date) {

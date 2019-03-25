@@ -2109,9 +2109,6 @@ public class ConfigManager implements LockssManager {
     if (!StringUtil.isNullString(space)) {
       String firstSpace =
 	((String)StringUtil.breakAt(space, ';', 1).elementAt(0));
-      platformOverride(config,
-		       OldLockssRepositoryImpl.PARAM_CACHE_LOCATION,
-		       firstSpace);
       platformOverride(config, IdentityManager.PARAM_IDDB_DIR,
 		       new File(firstSpace, "iddb").toString());
       platformDefault(config,

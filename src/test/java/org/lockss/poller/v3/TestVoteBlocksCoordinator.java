@@ -47,7 +47,6 @@ import org.lockss.poller.v3.FuncV3Poller.MyV3Poller;
 import org.lockss.poller.v3.V3Serializer.*;
 import org.lockss.test.*;
 import org.lockss.hasher.*;
-import org.lockss.repository.OldLockssRepositoryImpl;
 import org.mortbay.util.B64Code;
 
 import static org.lockss.util.Constants.*;

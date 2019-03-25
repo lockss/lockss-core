@@ -104,8 +104,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(PsmManager.class);
   public static final String REPOSITORY_MANAGER =
     managerKey(RepositoryManager.class);
-  public static final String LOCKSS_REPOSITORY =
-    managerKey(OldLockssRepository.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
@@ -118,8 +116,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(FailOverProxyManager.class);
   public static final String REMOTE_API =
     managerKey(RemoteApi.class);
-  public static final String REPOSITORY_STATUS =
-    managerKey(LockssRepositoryStatus.class);
   public static final String ARCHIVAL_UNIT_STATUS =
     managerKey(ArchivalUnitStatus.class);
   public static final String PLATFORM_CONFIG_STATUS =
@@ -195,7 +191,6 @@ public class LockssDaemon extends LockssApp {
     PLATFORM_CONFIG_STATUS_DESC,
     CONFIG_STATUS_DESC,
     ARCHIVAL_UNIT_STATUS_DESC,
-    REPOSITORY_STATUS_DESC,
     OVERVIEW_STATUS_DESC,
     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
       public boolean shouldStart(LockssApp app) {
@@ -214,9 +209,6 @@ public class LockssDaemon extends LockssApp {
   protected final ManagerDesc[] auManagerDescs = {
     new ManagerDesc(ACTIVITY_REGULATOR,
                     "org.lockss.daemon.ActivityRegulator$Factory"),
-    // LockssRepository uses ActivityRegulator
-    new ManagerDesc(LOCKSS_REPOSITORY,
-                    "org.lockss.repository.OldLockssRepositoryImpl$Factory"),
   };
 
   // Maps au to sequenced map of managerKey -> manager instance
@@ -534,16 +526,6 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * Get Lockss Repository instance
-   * @param au the ArchivalUnit
-   * @return the LockssRepository
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public OldLockssRepository getLockssRepository(ArchivalUnit au) {
-    return (OldLockssRepository)getAuManager(LOCKSS_REPOSITORY, au);
-  }
-
-  /**
    * Return ActivityRegulator instance
    * @param au the ArchivalUnit
    * @return the ActivityRegulator
@@ -560,15 +542,6 @@ public class LockssDaemon extends LockssApp {
   public List<ActivityRegulator> getAllActivityRegulators() {
     return getAuManagersOfType(ACTIVITY_REGULATOR);
   }
-
-  /**
-   * Return all LockssRepositories.
-   * @return a list of all LockssRepositories for all AUs
-   */
-  public List<OldLockssRepository> getAllLockssRepositories() {
-    return getAuManagersOfType(LOCKSS_REPOSITORY);
-  }
-
 
   // AU specific manager loading, starting, stopping
 

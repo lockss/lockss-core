@@ -119,7 +119,6 @@ public class TestV3Poller extends LockssTestCase {
     this.tempDir = getTempDir();
     this.testau = setupAu();
     initRequiredServices();
-    setupRepo(testau);
     this.pollerId = findPeerIdentity(localPeerKey);
     this.voters = makeVoters(initialPeers);
     this.pollerNonces = makeNonces();
@@ -150,14 +149,6 @@ public class TestV3Poller extends LockssTestCase {
     cus.setHashItSource(files);
     cus.setFlatItSource(files);
     return mau;
-  }
-
-  private void setupRepo(ArchivalUnit au) throws Exception {
-    MockLockssRepository repo = new MockLockssRepository("/foo", au);
-    for (int ix =  0; ix < urls.length; ix++) {
-      repo.createNewNode(urls[ix]);
-    }
-    ((MockLockssDaemon)theDaemon).setLockssRepository(repo, au);
   }
 
   PeerIdentity findPeerIdentity(String key) throws Exception {
@@ -258,8 +249,6 @@ public class TestV3Poller extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    theDaemon.getLockssRepository(testau).stopService();
-    theDaemon.getHashService().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getPollManager().stopService();

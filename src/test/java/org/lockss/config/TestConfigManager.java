@@ -679,13 +679,6 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testPlatformSpace1() throws Exception {
-    String tmpdir = setUpDiskSpace();
-    Configuration config = ConfigManager.getCurrentConfig();
-    assertEquals(tmpdir, config.get("org.lockss.cache.location"));
-  }
-
-  @Test
   public void testPlatformSpace2() throws Exception {
     String tmpdir1 = getTempDir().toString();
     String tmpdir2 = getTempDir().toString();
@@ -695,7 +688,6 @@ public class TestConfigManager extends LockssTestCase4 {
 					 , ";"));
     ConfigurationUtil.setCurrentConfigFromProps(props);
     Configuration config = ConfigManager.getCurrentConfig();
-    assertEquals(tmpdir1, config.get("org.lockss.cache.location"));
     assertEquals(FileUtil.sysDepPath(new File(tmpdir1, "iddb").toString()),
 		 config.get("org.lockss.id.database.dir"));
     assertEquals(tmpdir1 + "/tfile",

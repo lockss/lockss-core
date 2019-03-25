@@ -61,7 +61,6 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
 
   private MyMockArchivalUnit mau;
   private MockLockssDaemon theDaemon;
-  private OldLockssRepository repo;
   private MockAlertManager alertMgr;
   private int pauseBeforeFetchCounter;
   private UrlData ud;
@@ -89,12 +88,6 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     plugin = new MockPlugin();
     plugin.initPlugin(theDaemon);
     mau.setPlugin(plugin);
-
-    repo =
-      (OldLockssRepository)theDaemon.newAuManager(LockssDaemon.LOCKSS_REPOSITORY,
-                                               mau);
-    theDaemon.setLockssRepository(repo, mau);
-    repo.startService();
 
     mcus = new MockCachedUrlSet(TEST_URL);
     mcus.setArchivalUnit(mau);
@@ -374,10 +367,10 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
 		    cacher.getInfoException().toString());
     expVers.add("");
 
-    // TK - new repo doesn't check for identical version
-//     doStore("", "invalid_2");
-//     assertMatchesRE("WarningOnly: v ex 2",
-// 		    cacher.getInfoException().toString());
+    // This doesn't get written because it's identical to previous
+    doStore("", "invalid_2");
+    assertMatchesRE("WarningOnly: v ex 2",
+		    cacher.getInfoException().toString());
 
     // Store a non-empty version so repository doesn't suppress next empty
     // store.

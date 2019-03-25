@@ -1093,23 +1093,6 @@ public class TestPluginManager extends LockssTestCase4 {
     List getAuMgrsStarted() {
       return auMgrsStarted;
     }
-
-//     // For testLoadLoadablePlugins -- need a mock repository
-//     public LockssRepository getLockssRepository(ArchivalUnit au) {
-//       return new MyMockLockssRepository();
-//     }
-  }
-
-  static class MyMockLockssRepository extends MockLockssRepository {
-    public RepositoryNode getNode(String url) {
-      return new MyMockRepositoryNode();
-    }
-  }
-
-  static class MyMockRepositoryNode extends MockRepositoryNode {
-    public int getCurrentVersion() {
-      return 1;
-    }
   }
 
   static class MyPluginManager extends PluginManager {

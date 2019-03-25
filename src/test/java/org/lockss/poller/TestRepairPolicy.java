@@ -84,8 +84,6 @@ public class TestRepairPolicy extends LockssTestCase {
   public void tearDown() throws Exception {
     pollManager.stopService();
     idManager.stopService();
-    daemon.getLockssRepository(highAgreeAu).stopService();
-    daemon.getLockssRepository(lowAgreeAu).stopService();
     daemon.getHashService().stopService();
     daemon.getRouterManager().stopService();
     super.tearDown();

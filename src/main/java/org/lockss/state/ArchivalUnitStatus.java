@@ -194,7 +194,7 @@ public class ArchivalUnitStatus
 
   /** By default the AuSummary table omits the size columns.  Specify
    * columns=* to include them */
-  static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;DiskUsage";
+//   static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;DiskUsage";
 
   static class AuSummary implements StatusAccessor {
     static final String TABLE_TITLE = "Archival Units";
@@ -259,7 +259,8 @@ public class ArchivalUnitStatus
         cols.add(new ColumnDescriptor("Subscribed", "Subscribed",
             ColumnDescriptor.TYPE_STRING));
       }
-      table.setColumnDescriptors(cols, DEFAULT_AU_SUMMARY_COLUMNS);
+      table.setColumnDescriptors(cols);
+//       table.setColumnDescriptors(cols, DEFAULT_AU_SUMMARY_COLUMNS);
       table.setDefaultSortRules(sortRules);
       Set<String> inclCols = new HashSet<String>();
       for (ColumnDescriptor cd : table.getColumnDescriptors()) {
@@ -462,30 +463,6 @@ public class ArchivalUnitStatus
         res.add(new StatusTable.SummaryInfo(null,
             ColumnDescriptor.TYPE_STRING,
             stats.restarting + " restarting"));
-      }
-      if (inclCols.contains("AuSize") || inclCols.contains("DiskUsage")) {
-        int n = repoMgr.sizeCalcQueueLen();
-        if (n != 0) {
-          res.add(new StatusTable.SummaryInfo(null,
-              ColumnDescriptor.TYPE_STRING,
-              n + " awaiting recalc"));
-        }
-        StatusTable.Reference hideSize =
-            new StatusTable.Reference("Hide AU Sizes",
-                ArchivalUnitStatus.SERVICE_STATUS_TABLE_NAME,
-                table.getKey());
-        res.add(new StatusTable.SummaryInfo(null,
-            ColumnDescriptor.TYPE_STRING,
-            hideSize));
-      } else {
-        StatusTable.Reference showSize =
-            new StatusTable.Reference("Show AU Sizes",
-                ArchivalUnitStatus.SERVICE_STATUS_TABLE_NAME,
-                table.getKey());
-        showSize.setProperty("columns", "*");
-        res.add(new StatusTable.SummaryInfo(null,
-            ColumnDescriptor.TYPE_STRING,
-            showSize));
       }
       return res;
     }
@@ -795,7 +772,6 @@ public class ArchivalUnitStatus
 
     protected void populateTable(StatusTable table, ArchivalUnit au)
         throws StatusService.NoSuchTableException {
-      OldLockssRepository repo = theDaemon.getLockssRepository(au);
 
       table.setTitle(getTitle(au.getName()));
       CachedUrlSet auCus = au.getAuCachedUrlSet();
@@ -804,11 +780,7 @@ public class ArchivalUnitStatus
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
         table.setColumnDescriptors(columnDescriptors);
         table.setDefaultSortRules(sortRules);
-	if (RepositoryManager.isV2Repo()) {
-	  table.setRows(getV2Rows(table, au));
-	} else {
-	  table.setRows(getV1Rows(table, au, repo));
-	}
+	table.setRows(getV2Rows(table, au));
       }
     }
 
@@ -950,147 +922,6 @@ public class ArchivalUnitStatus
       return rowMap;
     }
 
-    private List getV1Rows(StatusTable table, ArchivalUnit au,
-        OldLockssRepository repo) {
-      int startRow = Math.max(0, getIntProp(table, "skiprows"));
-      int numRows = getIntProp(table, "numrows");
-      if (numRows <= 0) {
-        numRows = defaultNumRows;
-      }
-
-      Collection<String> startUrls = au.getStartUrls();
-
-      List rowL = new ArrayList();
-      Iterator cusIter = au.getAuCachedUrlSet().contentHashIterator();
-      int endRow1 = startRow + numRows; // end row + 1
-
-      if (startRow > 0) {
-        // add 'previous'
-        int start = startRow - defaultNumRows;
-        if (start < 0) {
-          start = 0;
-        }
-        rowL.add(makeOtherRowsLink(false, start, au.getAuId()));
-      }
-
-      for (int curRow = 0; (curRow < endRow1) && cusIter.hasNext(); curRow++) {
-        CachedUrlSetNode cusn = (CachedUrlSetNode)cusIter.next();
-        if (curRow < startRow) {
-          continue;
-        }
-        CachedUrlSet cus;
-        if (cusn.getType() == CachedUrlSetNode.TYPE_CACHED_URL_SET) {
-          cus = (CachedUrlSet)cusn;
-        } else {
-          CachedUrlSetSpec cuss = new RangeCachedUrlSetSpec(cusn.getUrl());
-          cus = au.makeCachedUrlSet(cuss);
-        }
-        String url = cus.getUrl();
-
-        CachedUrl cu = au.makeCachedUrl(url);
-        try {
-          // XXX Remove this when we move to a repository that
-          // distinguishes "foo/" from "foo".
-          String normUrl = url;
-          if (normUrl.endsWith(UrlUtil.URL_PATH_SEPARATOR)) {
-            normUrl = normUrl.substring(0, normUrl.length() - 1);
-          }
-          Map row = makeRow(au, repo.getNode(normUrl), cu, startUrls);
-          row.put("sort", new Integer(curRow));
-          rowL.add(row);
-        } catch (MalformedURLException ignore) {
-        } finally {
-          AuUtil.safeRelease(cu);
-        }
-      }
-
-      if (cusIter.hasNext()) {
-        // add 'next'
-        rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId()));
-      }
-      return rowL;
-    }
-
-    private Map makeRow(ArchivalUnit au, RepositoryNode node,
-        CachedUrl cu, Collection<String> startUrls) {
-      boolean hasContent = node.hasContent();
-      String url = null;
-      boolean isStartUrl = false;
-      if (false && hasContent) {
-        // Repository v1 may return a name that omits the trailing slash
-        // (even without removing it above).  Use the name explicitly
-        // stored with the CU if any.
-        Properties cuProps = cu.getProperties();
-        url = cuProps.getProperty(CachedUrl.PROPERTY_NODE_URL);
-        isStartUrl = startUrls.contains(url);
-      }
-      if (url == null) {
-        url = node.getNodeUrl();
-        isStartUrl |= startUrls.contains(url);
-      }
-      Object val = url;
-      if (isStartUrl) {
-        val = new StatusTable.DisplayedValue(val).setBold(true);
-      }
-      HashMap rowMap = new HashMap();
-      if (hasContent && isContentIsLink) {
-        Properties args = new Properties();
-        args.setProperty("auid", au.getAuId());
-        args.setProperty("url", url);
-        val =
-            new StatusTable.SrvLink(val,
-                AdminServletManager.SERVLET_DISPLAY_CONTENT,
-                args);
-      } else {
-        val = url;
-      }
-      rowMap.put("NodeName", val);
-
-      String status = null;
-      if (node.isDeleted()) {
-        status = "Deleted";
-      } else if (node.isContentInactive()) {
-        status = "Inactive";
-      } else {
-//         status = "Active";
-      }
-      if (status != null) {
-        rowMap.put("NodeStatus", status);
-      }
-      Object versionObj = StatusTable.NO_VALUE;
-      Object sizeObj = StatusTable.NO_VALUE;
-      if (hasContent) {
-        int version = node.getCurrentVersion();
-        versionObj = new OrderedObject(new Long(version));
-        if (version > 1) {
-          CachedUrl[] cuVersions = cu.getCuVersions(2);
-          if (cuVersions.length > 1) {
-            StatusTable.Reference verLink =
-                new StatusTable.Reference(versionObj,
-                    FILE_VERSIONS_TABLE_NAME, au.getAuId());
-            verLink.setProperty("url", url);
-            versionObj = verLink;
-          }
-        }
-        sizeObj = new OrderedObject(new Long(node.getContentSize()));
-      }
-      rowMap.put("NodeHasContent", (hasContent ? "yes" : "no"));
-      rowMap.put("NodeVersion", versionObj);
-      rowMap.put("NodeContentSize", sizeObj);
-      if (!node.isLeaf()) {
-        rowMap.put("NodeChildCount",
-            new OrderedObject(new Long(node.getChildCount())));
-        long treeSize = node.getTreeContentSize(null, false);
-        if (treeSize != -1) {
-          rowMap.put("NodeTreeSize", new OrderedObject(new Long(treeSize)));
-        }
-      } else {
-        rowMap.put("NodeChildCount", StatusTable.NO_VALUE);
-        rowMap.put("NodeTreeSize", StatusTable.NO_VALUE);
-      }
-      return rowMap;
-    }
-
     private Map makeOtherRowsLink(boolean isNext, int startRow, String auKey) {
       HashMap rowMap = new HashMap();
       String label = (isNext ? "Next" : "Previous") + " (" +
@@ -1170,9 +1001,10 @@ public class ArchivalUnitStatus
             ColumnDescriptor.TYPE_STRING,
             "Awaiting recalc"));
       }
-      AuNodeImpl auNode = AuUtil.getAuRepoNode(au);
-      String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
-      String repo = OldLockssRepositoryImpl.mapAuToFileLocation(OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
+      // XXXREPO
+//       String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
+//       String repo = OldLockssRepositoryImpl.mapAuToFileLocation(OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
+      String repo = "???";
 
       res.add(new StatusTable.SummaryInfo("Repository",
           ColumnDescriptor.TYPE_STRING,

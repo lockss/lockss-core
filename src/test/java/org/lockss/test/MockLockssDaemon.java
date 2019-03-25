@@ -803,16 +803,6 @@ public class MockLockssDaemon extends LockssDaemon {
     }
   }
 
-  /** Return LockssRepository for AU */
-  public OldLockssRepository getLockssRepository(ArchivalUnit au) {
-    try {
-      return super.getLockssRepository(au);
-    } catch (IllegalArgumentException e) {
-      return (OldLockssRepository)newAuManager(LockssDaemon.LOCKSS_REPOSITORY,
-					    au);
-    }
-  }
-
   /**
    * Set the ActivityRegulator for a given AU.
    * @param actReg the new regulator
@@ -821,16 +811,6 @@ public class MockLockssDaemon extends LockssDaemon {
   public void setActivityRegulator(ActivityRegulator actReg, ArchivalUnit au) {
     setAuManager(ACTIVITY_REGULATOR, au, actReg);
   }
-
-  /**
-   * Set the LockssRepository for a given AU.
-   * @param repo the new repository
-   * @param au the ArchivalUnit
-   */
-  public void setLockssRepository(OldLockssRepository repo, ArchivalUnit au) {
-    setAuManager(LOCKSS_REPOSITORY, au, repo);
-  }
-
 
   /**
    * <p>Forcibly sets the ICP manager to a new value.</p>

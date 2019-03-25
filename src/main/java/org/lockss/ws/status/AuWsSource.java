@@ -55,8 +55,6 @@ import org.lockss.protocol.AgreementType;
 import org.lockss.protocol.IdentityManager;
 import org.lockss.protocol.PeerAgreement;
 import org.lockss.protocol.PeerIdentity;
-import org.lockss.repository.OldLockssRepositoryImpl;
-import org.lockss.repository.RepositoryNode;
 import org.lockss.state.*;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
@@ -234,10 +232,7 @@ public class AuWsSource extends AuWsResult {
   @Override
   public String getRepositoryPath() {
     if (!repositoryPathPopulated) {
-      String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
-      setRepositoryPath(OldLockssRepositoryImpl
-	  .mapAuToFileLocation(OldLockssRepositoryImpl
-  	      .getLocalRepositoryPath(spec), au));
+      setRepositoryPath("XXXREPO");
       repositoryPathPopulated = true;
     }
 

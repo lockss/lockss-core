@@ -49,11 +49,6 @@ import org.lockss.config.*;
 public class DiskVoteBlocks implements VoteBlocks {
   private static final Logger log = Logger.getLogger();
 
-  /** If true, input streams are monitored for missed close()s */
-  public static final String PARAM_MONITOR_INPUT_STREAMS =
-    Configuration.PREFIX + "monitor.inputStreams";
-  public static final boolean DEFAULT_MONITOR_INPUT_STREAMS = false;
-
   private String m_filePath;
   private transient File m_file;
   private int m_size = 0;
@@ -175,8 +170,8 @@ public class DiskVoteBlocks implements VoteBlocks {
 
   public synchronized InputStream getInputStream() throws IOException {
     InputStream is = new BufferedInputStream(new FileInputStream(m_file));
-    if (CurrentConfig.getBooleanParam(PARAM_MONITOR_INPUT_STREAMS,
-				      DEFAULT_MONITOR_INPUT_STREAMS)) {
+    if (CurrentConfig.getBooleanParam(LockssApp.PARAM_MONITOR_INPUT_STREAMS,
+				      LockssApp.DEFAULT_MONITOR_INPUT_STREAMS)) {
       is = new MonitoringInputStream(is, "dvb getInputStream()");
     }
     return is;

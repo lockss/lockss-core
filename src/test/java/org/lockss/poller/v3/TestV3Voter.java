@@ -57,7 +57,6 @@ public class TestV3Voter extends LockssTestCase {
   PeerIdentity repairRequestor;
   MockArchivalUnit au;
   MockAuState aus;
-  RepositoryNode repoNode;
   V3LcapMessage startMsg;
   
 
@@ -92,12 +91,6 @@ public class TestV3Voter extends LockssTestCase {
     au = new MockArchivalUnit(new MockPlugin(lockssDaemon));
     PluginTestUtil.registerArchivalUnit(au);
     ((MockArchivalUnit)au).addUrl(repairUrl);
-
-    // Create the repository
-    MockLockssRepository repo = new MockLockssRepository("/foo", au);
-    repoNode = repo.createNewNode(repairUrl);
-
-    lockssDaemon.setLockssRepository(repo, au);
 
     aus = AuTestUtil.setUpMockAus(au);
     MockCachedUrlSet cus = (MockCachedUrlSet)au.getAuCachedUrlSet();

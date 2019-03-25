@@ -42,7 +42,6 @@ import org.lockss.plugin.CachedUrlSet;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.poller.Poll;
-import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.state.AuState;
 import org.lockss.state.StateManager;
 import org.lockss.util.Logger;
@@ -223,10 +222,11 @@ public class AuHelper {
       result.setDiskUsage(du);
     }
 
-    String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
-    String repo = OldLockssRepositoryImpl.mapAuToFileLocation(
-	OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
-    result.setRepository(repo);
+    // XXXREPO
+//     String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
+//     String repo = OldLockssRepositoryImpl.mapAuToFileLocation(
+// 	OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
+//     result.setRepository(repo);
 
     CachedUrlSet auCus = au.getAuCachedUrlSet();
     if (state.getV3Agreement() < 0) {
