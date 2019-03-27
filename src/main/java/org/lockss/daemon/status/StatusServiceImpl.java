@@ -338,7 +338,7 @@ public class StatusServiceImpl
     if (isBadTableName(tableName)) {
       throw new InvalidTableNameException("Invalid table name: "+tableName);
     }
-    logger.debug("Registering OvervewAccessor for table "+tableName);
+    logger.debug("Registering OverviewAccessor for table "+tableName);
 
     synchronized(overviewAccessors) {
       OverviewAccessor oldAccessor = overviewAccessors.get(tableName);
