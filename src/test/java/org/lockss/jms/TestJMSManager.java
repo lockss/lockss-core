@@ -43,20 +43,6 @@ public class TestJMSManager extends LockssTestCase4 {
   MockLockssDaemon daemon;
   JMSManager mgr;
 
-//   @BeforeClass
-//   public static void setUpBeforeClass() throws Exception {
-//     log.debug("create broker");
-//     broker = JMSManager.createBroker(BROKER_URI);
-//   }
-
-//   @AfterClass
-//   public static void tearDownAfterClass() throws Exception {
-//     if (broker != null) {
-//       log.debug("stop broker");
-//       broker.stop();
-//     }
-//   }
-
   @Before
   public void setUpObjs() throws Exception {
     // ensure manager doesn't start another broker
@@ -64,66 +50,7 @@ public class TestJMSManager extends LockssTestCase4 {
     daemon = getMockLockssDaemon();
     daemon.startManagers(JMSManager.class);
 
-//     producerPublishSubscribe =
-//       Producer.createTopicProducer("producer-publishsubscribe",
-// 				   "publishsubscribe.t");
-
-//     producerMultipleConsumers =
-//       Producer.createTopicProducer("producer-multipleconsumers",
-// 				   "multipleconsumers.t");
-
-//     producerNonDurableConsumer =
-//       Producer.createTopicProducer("producer-nondurableconsumer",
-// 				   "nondurableconsumer.t");
-
-//     consumerPublishSubscribe =
-//       Consumer.createTopicConsumer("consumer-publishsubscribe",
-// 				   "publishsubscribe.t");
-
-//     consumerNoLocal =
-//       Consumer.createTopicConsumer("consumer-publishsubscribe",
-// 				   "publishsubscribe.t", true, null);
-
-//     consumer1MultipleConsumers =
-//       Consumer.createTopicConsumer("consumer1-multipleconsumers",
-// 				   "multipleconsumers.t");
-
-//     consumer2MultipleConsumers =
-//       Consumer.createTopicConsumer("consumer2-multipleconsumers",
-// 				   "multipleconsumers.t");
-
-//     msgQueue = new SimpleQueue.Fifo();
-//     listener = new MyMessageListener("listenerConsuemer", msgQueue);
-
-//     consumer3MultipleConsumers =
-//       Consumer.createTopicConsumer("consumer3-multipleconsumers",
-// 				   "multipleconsumers.t", listener);
-
-//     consumer1NonDurableConsumer =
-//       Consumer.createTopicConsumer("consumer1-nondurableconsumer",
-// 				   "nondurableconsumer.t");
-
-//     consumer2NonDurableConsumer =
-//       Consumer.createTopicConsumer("consumer2-nondurableconsumer",
-// 				   "nondurableconsumer.t");
   }
-
-//   @After
-//   public void tearDownObjs() throws Exception {
-//     producerPublishSubscribe.close();
-//     producerMultipleConsumers.close();
-//     producerNonDurableConsumer.close();
-
-//     consumerPublishSubscribe.close();
-//     consumerNoLocal.close();
-//     consumer1MultipleConsumers.close();
-//     consumer2MultipleConsumers.close();
-//     consumer3MultipleConsumers.close();
-//     consumer1NonDurableConsumer.close();
-//     consumer2NonDurableConsumer.close();
-
-//     daemon.stopManagers();
-//   }
 
   @Test
   public void testConfig1() throws JMSException {
