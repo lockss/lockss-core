@@ -618,12 +618,12 @@ public class TestDaemonStatusService extends LockssTestCase {
     CrawlReq req1 = new CrawlReq(sau1);
     req1.setPriority(8);
     req1.setRefetchDepth(1232);
-    crawlMgr.startNewContentCrawl(req1, null);
+    crawlMgr.startNewContentCrawl(req1);
 
     CrawlReq req2 = new CrawlReq(sau2);
     req2.setPriority(9);
     req2.setRefetchDepth(1231);
-    crawlMgr.startNewContentCrawl(req2, null);
+    crawlMgr.startNewContentCrawl(req2);
 
 
     String query = "select *";

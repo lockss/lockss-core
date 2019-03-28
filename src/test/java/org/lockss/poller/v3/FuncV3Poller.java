@@ -142,7 +142,6 @@ public class FuncV3Poller extends LockssTestCase {
     theDaemon.setPluginManager(new MyMockPluginManager(theDaemon, testau));
     theDaemon.setDaemonInited(true);
     theDaemon.getSchedService().startService();
-    theDaemon.getActivityRegulator(testau).startService();
     idmgr.startService();
     hashService.startService();
     pollmanager.startService();
@@ -159,7 +158,6 @@ public class FuncV3Poller extends LockssTestCase {
   private void stopDaemon() throws Exception {
     theDaemon.getPollManager().stopService();
     theDaemon.getPluginManager().stopService();
-    theDaemon.getActivityRegulator(testau).stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getHashService().stopService();

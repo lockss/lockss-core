@@ -563,7 +563,6 @@ public class TestPollManager extends LockssTestCase4 {
     theDaemon.getSchedService().startService();
     theDaemon.getHashService().startService();
     theDaemon.getRouterManager().startService();
-    theDaemon.getActivityRegulator(testau).startService();
 
     pollmanager.startService();
     idmanager.startService();

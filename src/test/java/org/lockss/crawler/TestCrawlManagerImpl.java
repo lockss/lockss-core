@@ -57,7 +57,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
   protected TestableCrawlManagerImpl crawlManager = null;
   protected MockArchivalUnit mau = null;
   protected MockLockssDaemon theDaemon;
-  protected MockActivityRegulator activityRegulator;
   protected MockCrawler crawler;
   protected CachedUrlSet cus;
   protected CrawlRule rule;
@@ -99,14 +98,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     mau.setCrawlWindow(new MockCrawlWindow(true));
 
     PluginTestUtil.registerArchivalUnit(plugin, mau);
-    activityRegulator = new MyMockActivityRegulator(mau);
-    activityRegulator.initService(theDaemon);
-    theDaemon.setActivityRegulator(activityRegulator, mau);
-
 
     cus = mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(GENERIC_URL));
-    activityRegulator.setStartCusActivity(cus, true);
-    activityRegulator.setStartAuActivity(true);
     crawler = new MockCrawler();
     crawlManager.setTestCrawler(crawler);
 
@@ -170,7 +163,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testNullAuForIsCrawlingAu() {
       try {
         TestCrawlCB cb = new TestCrawlCB(new SimpleBinarySemaphore());
-        crawlManager.startNewContentCrawl(null, cb, "blah", null);
+        crawlManager.startNewContentCrawl(null, cb, "blah");
         fail("Didn't throw an IllegalArgumentException on a null AU");
       } catch (IllegalArgumentException iae) {
       }
@@ -200,7 +193,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.setTestCrawler(crawler);
 
       assertFalse(sem1.take(0));
-      crawlManager.startNewContentCrawl(mau, cb, null, null);
+      crawlManager.startNewContentCrawl(mau, cb, null);
       assertTrue(didntMsg("start", TIMEOUT_SHOULDNT),
           sem1.take(TIMEOUT_SHOULDNT));
       //we know that doCrawl started
@@ -214,7 +207,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testStoppingCrawlDoesntAbortCompletedCrawl() {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
 
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
+      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null);
 
       waitForCrawlToFinish(sem);
       assertTrue("doCrawl() not called", crawler.doCrawlCalled());
@@ -242,7 +235,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       semToGive(sem2);
       crawlManager.setTestCrawler(crawler);
 
-      crawlManager.startRepair(mau, urls, cb, null, null);
+      crawlManager.startRepair(mau, urls, cb, null);
       assertTrue(didntMsg("start", TIMEOUT_SHOULDNT),
           sem1.take(TIMEOUT_SHOULDNT));
       //we know that doCrawl started
@@ -324,7 +317,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     private void assertDoesCrawlNew(MockCrawler crawler) {
       crawler.setDoCrawlCalled(false);
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
+      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null);
       waitForCrawlToFinish(sem);
       assertTrue("doCrawl() not called at time " + TimeBase.nowMs(),
           crawler.doCrawlCalled());
@@ -337,7 +330,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     private void assertDoesNotCrawlNew() {
       crawler.setDoCrawlCalled(false);
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
+      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null);
       waitForCrawlToFinish(sem);
       assertFalse("doCrawl() called at time " + TimeBase.nowMs(),
           crawler.doCrawlCalled());
@@ -347,7 +340,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawler.setDoCrawlCalled(false);
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-          new TestCrawlCB(sem), null, null);
+          new TestCrawlCB(sem), null);
       waitForCrawlToFinish(sem);
       assertTrue("doCrawl() not called at time " + TimeBase.nowMs(),
           crawler.doCrawlCalled());
@@ -357,7 +350,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawler.setDoCrawlCalled(false);
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-          new TestCrawlCB(sem), null, null);
+          new TestCrawlCB(sem), null);
       waitForCrawlToFinish(sem);
       assertFalse("doCrawl() called at time " + TimeBase.nowMs(),
           crawler.doCrawlCalled());
@@ -454,11 +447,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertDoesCrawlNew();
     }
 
-    public void testDoesntNCCrawlWhenCantGetLock() {
-      activityRegulator.setStartAuActivity(false);
-      assertDoesNotCrawlNew();
-    }
-
     public void testDoesntNCCrawlWhenOutsideWindow() {
       mau.setCrawlWindow(new ClosedCrawlWindow());
       assertDoesNotCrawlNew();
@@ -467,7 +455,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testNewContentRateLimiter() {
       TimeBase.setSimulated(100);
       setNewContentRateLimit("4/100", "unlimited", "1/100000");
-      activityRegulator.setStartAuActivity(true);
       for (int ix = 1; ix <= 4; ix++) {
         assertDoesCrawlNew();
         TimeBase.step(10);
@@ -492,7 +479,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.setInternalAu(true);
       TimeBase.setSimulated(100);
       setNewContentRateLimit("1/1000000", "unlimited", "3/100");
-      activityRegulator.setStartAuActivity(true);
       for (int ix = 1; ix <= 3; ix++) {
         assertDoesCrawlNew();
         TimeBase.step(10);
@@ -533,7 +519,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testRepairRateLimiter() {
       TimeBase.setSimulated(100);
       setRepairRateLimit(6, 200);
-      activityRegulator.setStartAuActivity(true);
       for (int ix = 1; ix <= 6; ix++) {
         assertDoesCrawlRepair();
         TimeBase.step(10);
@@ -553,53 +538,13 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       assertDoesCrawlRepair();
     }
 
-    public void testRateLimitedNewContentCrawlDoesntGrabLocks() {
-      TimeBase.setSimulated(100);
-      setNewContentRateLimit("1/200", "unlimited", "1/100000");
-      assertDoesCrawlNew();
-      activityRegulator.resetLastActivityLock();
-      assertDoesNotCrawlNew();
-      assertEquals(null, activityRegulator.getLastActivityLock());
-    }
-
-    public void testRateLimitedRepairCrawlDoesntGrabLocks() {
-      TimeBase.setSimulated(100);
-      setRepairRateLimit(1, 200);
-      assertDoesCrawlRepair();
-      activityRegulator.resetLastActivityLock();
-      assertDoesNotCrawlRepair();
-      assertEquals(null, activityRegulator.getLastActivityLock());
-    }
-
     public void testBasicNewContentCrawl() {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
 
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
+      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null);
 
       waitForCrawlToFinish(sem);
       assertTrue("doCrawl() not called", crawler.doCrawlCalled());
-    }
-
-    public void testNCCrawlFreesActivityLockWhenDone() {
-      activityRegulator.resetLastActivityLock();
-      SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
-      assertNotNull(activityRegulator.getLastActivityLock());
-
-      waitForCrawlToFinish(sem);
-      activityRegulator.assertNewContentCrawlFinished();
-    }
-
-    public void testNCCrawlFreesActivityLockWhenError() {
-      SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-      crawler = new ThrowingCrawler(new RuntimeException("Expected"));
-      crawlManager.setTestCrawler(crawler);
-
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
-
-      waitForCrawlToFinish(sem);
-      activityRegulator.assertNewContentCrawlFinished();
     }
 
     //If the AU throws, the crawler should trap it and call the callbacks
@@ -607,8 +552,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
       ThrowingAU au = new ThrowingAU();
-      theDaemon.setActivityRegulator(activityRegulator, au);
-      crawlManager.startNewContentCrawl(au, cb, null, null);
+      crawlManager.startNewContentCrawl(au, cb, null);
       assertTrue(cb.wasTriggered());
     }
 
@@ -624,14 +568,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       CachedUrlSet cus2 =
           mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
 
-      activityRegulator.setStartCusActivity(cus1, true);
-      activityRegulator.setStartCusActivity(cus2, true);
-
-      crawlManager.startRepair(mau, urls, cb, null, null);
+      crawlManager.startRepair(mau, urls, cb, null);
 
       waitForCrawlToFinish(sem);
-      activityRegulator.assertRepairCrawlFinished(cus1);
-      activityRegulator.assertRepairCrawlFinished(cus2);
     }
 
     List<AuEvent.ContentChangeInfo> changeEvents = new ArrayList();
@@ -656,7 +595,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.setTestCrawler(auc);
 
       pluginMgr.registerAuEventHandler(new MyAuEventHandler());
-      crawlManager.startNewContentCrawl(mau, null, null, null);
+      crawlManager.startNewContentCrawl(mau, null, null);
       waitForCrawlToFinish(eventSem);
       assertEquals(1, changeEvents.size());
       AuEvent.ContentChangeInfo ci = changeEvents.get(0);
@@ -682,7 +621,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.setTestCrawler(auc);
 
       pluginMgr.registerAuEventHandler(new MyAuEventHandler());
-      crawlManager.startNewContentCrawl(mau, null, null, null);
+      crawlManager.startNewContentCrawl(mau, null, null);
       waitForCrawlToFinish(eventSem);
       assertEquals(1, changeEvents.size());
       AuEvent.ContentChangeInfo ci = changeEvents.get(0);
@@ -709,7 +648,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.setTestCrawler(auc);
 
       pluginMgr.registerAuEventHandler(new MyAuEventHandler());
-      crawlManager.startRepair(mau, ListUtil.list("foo"), null, null, null);
+      crawlManager.startRepair(mau, ListUtil.list("foo"), null, null);
       waitForCrawlToFinish(eventSem);
       assertEquals(1, changeEvents.size());
       AuEvent.ContentChangeInfo ci = changeEvents.get(0);
@@ -729,7 +668,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
 
       TestCrawlCB cb = new TestCrawlCB(sem);
-      crawlManager.startNewContentCrawl(mau, cb, null, null);
+      crawlManager.startNewContentCrawl(mau, cb, null);
 
       waitForCrawlToFinish(sem);
       assertTrue("Callback wasn't triggered", cb.wasTriggered());
@@ -742,7 +681,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       String cookie = "cookie string";
 
       TestCrawlCB cb = new TestCrawlCB(sem);
-      crawlManager.startNewContentCrawl(mau, cb, cookie, null);
+      crawlManager.startNewContentCrawl(mau, cb, cookie);
 
       waitForCrawlToFinish(sem);
       assertEquals(cookie, (String)cb.getCookie());
@@ -753,7 +692,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       String cookie = null;
 
       TestCrawlCB cb = new TestCrawlCB(sem);
-      crawlManager.startNewContentCrawl(mau, cb, cookie, null);
+      crawlManager.startNewContentCrawl(mau, cb, cookie);
 
       waitForCrawlToFinish(sem);
       assertEquals(cookie, (String)cb.getCookie());
@@ -773,7 +712,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       semToGive(sem2);
       crawlManager.setTestCrawler(crawler);
 
-      crawlManager.startNewContentCrawl(mau, cb, null, null);
+      crawlManager.startNewContentCrawl(mau, cb, null);
       assertTrue(didntMsg("start", TIMEOUT_SHOULDNT),
           sem1.take(TIMEOUT_SHOULDNT));
       //we know that doCrawl started
@@ -787,7 +726,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testScheduleRepairNullAu() {
       try{
         crawlManager.startRepair(null, ListUtil.list("http://www.example.com"),
-            new TestCrawlCB(), "blah", null);
+            new TestCrawlCB(), "blah");
         fail("Didn't throw IllegalArgumentException on null AU");
       } catch (IllegalArgumentException iae) {
       }
@@ -796,39 +735,17 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testScheduleRepairNullUrls() {
       try{
         crawlManager.startRepair(mau, (Collection)null,
-            new TestCrawlCB(), "blah", null);
+            new TestCrawlCB(), "blah");
         fail("Didn't throw IllegalArgumentException on null URL list");
       } catch (IllegalArgumentException iae) {
       }
-    }
-
-    public void testNoRepairIfNotAllowed() {
-      String url1 = "http://www.example.com/index1.html";
-      String url2 = "http://www.example.com/index2.html";
-      Set urls = SetUtil.set(url1, url2);
-
-      SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-      TestCrawlCB cb = new TestCrawlCB(sem);
-      CachedUrlSet cus1 =
-          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
-      CachedUrlSet cus2 =
-          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
-
-      activityRegulator.setStartCusActivity(cus1, true);
-      activityRegulator.setStartCusActivity(cus2, false);
-
-      crawlManager.startRepair(mau, urls, cb, null, null);
-
-      waitForCrawlToFinish(sem);
-      assertTrue("doCrawl() not called", crawler.doCrawlCalled());
-      assertIsomorphic(SetUtil.set(url1), crawler.getStartUrls());
     }
 
     public void testBasicRepairCrawl() {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
 
-      crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL), cb, null, null);
+      crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL), cb, null);
 
       waitForCrawlToFinish(sem);
       assertTrue("doCrawl() not called", crawler.doCrawlCalled());
@@ -838,33 +755,10 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
 
-      crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL), cb, null, null);
+      crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL), cb, null);
 
       waitForCrawlToFinish(sem);
       assertTrue("Callback wasn't triggered", cb.wasTriggered());
-    }
-
-    public void testRepairCrawlUnsuccessfulIfCantGetAllLocks() {
-      String url1 = "http://www.example.com/index1.html";
-      String url2 = "http://www.example.com/index2.html";
-      List urls = ListUtil.list(url1, url2);
-
-      SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-      TestCrawlCB cb = new TestCrawlCB(sem);
-      CachedUrlSet cus1 =
-          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url1));
-      CachedUrlSet cus2 =
-          mau.makeCachedUrlSet(new SingleNodeCachedUrlSetSpec(url2));
-
-      activityRegulator.setStartCusActivity(cus1, true);
-      activityRegulator.setStartCusActivity(cus2, false);
-
-      crawlManager.startRepair(mau, urls, cb, null, null);
-
-      waitForCrawlToFinish(sem);
-      assertTrue("Callback wasn't triggered", cb.wasTriggered());
-      assertFalse("Crawl was successful even though we couldn't lock everything",
-          cb.wasSuccessful());
     }
 
     public void testRepairCallbackGetsCookie() {
@@ -872,7 +766,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
 
-      crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL), cb, cookie, null);
+      crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL), cb, cookie);
 
       waitForCrawlToFinish(sem);
       assertEquals(cookie, cb.getCookie());
@@ -889,7 +783,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     public void testGetCrawlsOneRepairCrawl() {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-          new TestCrawlCB(sem), null, null);
+          new TestCrawlCB(sem), null);
       List actual = statusSource.getStatus().getCrawlerStatusList();
       List expected = ListUtil.list(crawler.getCrawlerStatus());
 
@@ -899,7 +793,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     public void testGetCrawlsOneNCCrawl() {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null, null);
+      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem), null);
       List actual = statusSource.getStatus().getCrawlerStatusList();
       List expected = ListUtil.list(crawler.getCrawlerStatus());
       assertEquals(expected, actual);
@@ -910,11 +804,11 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem1 = new SimpleBinarySemaphore();
       SimpleBinarySemaphore sem2 = new SimpleBinarySemaphore();
       crawlManager.startRepair(mau, ListUtil.list(GENERIC_URL),
-          new TestCrawlCB(sem1), null, null);
+          new TestCrawlCB(sem1), null);
 
       MockCrawler crawler2 = new MockCrawler();
       crawlManager.setTestCrawler(crawler2);
-      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem2), null, null);
+      crawlManager.startNewContentCrawl(mau, new TestCrawlCB(sem2), null);
 
       // The two status objects will have been added to the status map in
       // the order created above, but if one of them gets referenced before
@@ -1081,7 +975,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
         setupAuToCrawl(au, crawler[ix]);
         semToGive(endSem[ix]);
 
-        crawlManager.startNewContentCrawl(au, cb[ix], null, null);
+        crawlManager.startNewContentCrawl(au, cb[ix], null);
       }
       for (int ix = 0; ix < max; ix++) {
         assertTrue(didntMsg("start("+ix+")", TIMEOUT_SHOULDNT),
@@ -1095,7 +989,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.setTestCrawler(crawlerN);
       TestCrawlCB onecb = new TestCrawlCB();
       log.info("Pool is blocked exception expected");
-      crawlManager.startNewContentCrawl(mau, onecb, null, null);
+      crawlManager.startNewContentCrawl(mau, onecb, null);
       assertTrue("Callback for non schedulable crawl wasn't triggered",
           onecb.wasTriggered());
       assertFalse("Non schedulable crawl succeeded",
@@ -1153,7 +1047,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
         semToGive(endSem[ix]);
 
         // queue the crawl directly
-        crawlManager.startNewContentCrawl(au, cb[ix], null, null);
+        crawlManager.startNewContentCrawl(au, cb[ix], null);
       }
       // wait for the first poolMax crawlers to start.  Keep track of their
       // start times
@@ -1190,7 +1084,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.setTestCrawler(failcrawler);
       TestCrawlCB onecb = new TestCrawlCB();
       log.info("Pool is blocked exception expected");
-      crawlManager.startNewContentCrawl(mau, onecb, null, null);
+      crawlManager.startNewContentCrawl(mau, onecb, null);
       assertTrue("Callback for non schedulable crawl wasn't triggered",
           onecb.wasTriggered());
       assertFalse("Non schedulable crawl succeeded",
@@ -1232,10 +1126,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.recordExecute(true);
       assertEmpty(pluginMgr.getAllAus());
       // Create AUs and build the pieces necessary for the crawl starter to
-      // get the list of AUs from the PluginManager and a NodeManager and
-      // Activityregulator for each.  The crawl starter should then shortly
-      // start poolMax of them.  We only check that it called
-      // startNewContentCrawl() on each.
+      // get the list of AUs from the PluginManager.  The crawl starter
+      // should then shortly start poolMax of them.  We only check that it
+      // called startNewContentCrawl() on each.
       for (int ix = 0; ix < tot-1; ix++) {
         crawler[ix] = new HangingCrawler("testQueuedPool " + ix,
             null, endSem);
@@ -1275,9 +1168,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     }
 
     void setupAuToCrawl(ArchivalUnit au, MockCrawler crawler) {
-      MockActivityRegulator act = new MockActivityRegulator(au);
-      act.setStartAuActivity(true);
-      theDaemon.setActivityRegulator(act, au);
       crawlManager.setTestCrawler(au, crawler);
     }
 
@@ -1546,7 +1436,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       aus[12].setShouldCrawlForNewContent(false);
       aus[7].setShouldCrawlForNewContent(false);
       auPri.setShouldCrawlForNewContent(false);
-      crawlManager.startNewContentCrawl(auPri, 1, null, null, null);
+      crawlManager.startNewContentCrawl(auPri, 1, null, null);
       assertEquals(auPri, crawlManager.nextReq().getAu());
       crawlManager.addToRunningRateKeys(auPri);
       auPri.setShouldCrawlForNewContent(false);
@@ -1802,10 +1692,9 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       crawlManager.recordExecute(true);
 
       // Create AUs and build the pieces necessary for the crawl starter to
-      // get the list of AUs from the PluginManager and a NodeManager and
-      // Activityregulator for each.  The crawl starter should then shortly
-      // start poolMax of them.  We only check that it called
-      // startNewContentCrawl() on each.
+      // get the list of AUs from the PluginManager.  The crawl starter
+      // should then shortly start poolMax of them.  We only check that it
+      // called startNewContentCrawl() on each.
       for (int ix = 0; ix < tot; ix++) {
         startSem[ix] = new SimpleBinarySemaphore();
         endSem[ix] = new SimpleBinarySemaphore();
@@ -1920,14 +1809,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
     @Override
     protected void raiseAlert(Alert alert, String msg) {
-    }
-  }
-
-  class MyMockActivityRegulator extends MockActivityRegulator {
-    public MyMockActivityRegulator(ArchivalUnit au) {
-      super(au);
-    }
-    public void stopService() {
     }
   }
 

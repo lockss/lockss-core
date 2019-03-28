@@ -134,7 +134,6 @@ public class FuncV3Voter extends LockssTestCase {
     //MockAuState aus = new MockAuState(mau);
     //nodeManager.setAuState(aus);
 
-    theDaemon.getActivityRegulator(mau).startService();
     idmgr.startService();
     hashService.startService();
     pollmanager.startService();
@@ -149,7 +148,6 @@ public class FuncV3Voter extends LockssTestCase {
   private void stopDaemon() throws Exception {
     theDaemon.getPollManager().stopService();
     theDaemon.getPluginManager().stopService();
-    theDaemon.getActivityRegulator(mau).stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getHashService().stopService();

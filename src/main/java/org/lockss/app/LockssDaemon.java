@@ -82,8 +82,6 @@ public class LockssDaemon extends LockssApp {
   public static final String PARAM_BIND_ADDRS = PREFIX + "bindAddrs";
 
   // Parameter keys for daemon managers
-  public static final String ACTIVITY_REGULATOR =
-    managerKey(ActivityRegulator.class);
   public static final String HASH_SERVICE =
     managerKey(HashService.class);
   public static final String DATAGRAM_COMM_MANAGER =
@@ -207,8 +205,6 @@ public class LockssDaemon extends LockssApp {
   // AU-specific manager descriptors.  As each AU is created its managers
   // are started in this order.
   protected final ManagerDesc[] auManagerDescs = {
-    new ManagerDesc(ACTIVITY_REGULATOR,
-                    "org.lockss.daemon.ActivityRegulator$Factory"),
   };
 
   // Maps au to sequenced map of managerKey -> manager instance
@@ -523,24 +519,6 @@ public class LockssDaemon extends LockssApp {
       throw new IllegalArgumentException("Unavailable au manager:" + key);
     }
     return mgr;
-  }
-
-  /**
-   * Return ActivityRegulator instance
-   * @param au the ArchivalUnit
-   * @return the ActivityRegulator
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public ActivityRegulator getActivityRegulator(ArchivalUnit au) {
-    return (ActivityRegulator)getAuManager(ACTIVITY_REGULATOR, au);
-  }
-
-  /**
-   * Return all ActivityRegulators.
-   * @return a list of all ActivityRegulators for all AUs
-   */
-  public List<ActivityRegulator> getAllActivityRegulators() {
-    return getAuManagersOfType(ACTIVITY_REGULATOR);
   }
 
   // AU specific manager loading, starting, stopping

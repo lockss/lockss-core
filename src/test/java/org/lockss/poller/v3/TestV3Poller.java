@@ -2166,7 +2166,6 @@ public class TestV3Poller extends LockssTestCase {
     hashService.startService();
     theDaemon.getRouterManager().startService();
     theDaemon.getSystemMetrics().startService();
-    theDaemon.getActivityRegulator(testau).startService();
     MockAuState aus = new MockAuState(testau);
     StateManager smgr = theDaemon.getManagerByType(StateManager.class);
     smgr.storeAuState(aus);

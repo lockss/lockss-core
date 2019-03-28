@@ -365,11 +365,6 @@ public class V3PollFactory implements PollFactory {
     return PollUtil.countWillingRepairers(au, pollMgr, idMgr);
   }
 
-  // Not used.
-  public int getPollActivity(PollSpec pollspec, PollManager pm) {
-    return ActivityRegulator.STANDARD_CONTENT_POLL;
-  }
-
   public void setConfig(Configuration newConfig, Configuration oldConfig,
                         Differences changedKeys) {
   }

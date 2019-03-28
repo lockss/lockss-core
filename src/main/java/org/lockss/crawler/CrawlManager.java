@@ -34,7 +34,6 @@ package org.lockss.crawler;
 
 import java.util.Collection;
 import org.lockss.app.LockssDaemon;
-import org.lockss.daemon.ActivityRegulator;
 import org.lockss.daemon.Crawler;
 import org.lockss.plugin.ArchivalUnit;
 
@@ -46,31 +45,27 @@ public interface CrawlManager {
 
   /**
    * Schedules a repair crawl and calls cb.signalRepairAttemptCompleted when
-   * done.  If lock is null, attempts to get its own.  If multiple locks are
-   * needed, gets
+   * done.
    *
    * @param au ArchivalUnit that the crawl manager should check
    * @param urls url Strings that need to be repaired
    * @param cb callback to talk to when repair attempt is done
    * @param cookie object that the callback needs to understand which repair
    * we're referring to.
-   * @param lock the activity lock (can be null)
    */
   void startRepair(ArchivalUnit au, Collection urls,
-      CrawlManager.Callback cb, Object cookie,
-      ActivityRegulator.Lock lock);
+      CrawlManager.Callback cb, Object cookie);
 
   /**
-   * Starts a new content crawl.  If lock is null, attempts to get its own.
+   * Starts a new content crawl.
    *
    * @param au ArchivalUnit that the crawl manager should check
    * @param cb callback to be called when the crawler is done with the AU, if
    * not now
    * @param cookie cookie for the callback
-   * @param lock the activity lock (can be null)
    */
   void startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
-      Object cookie, ActivityRegulator.Lock lock);
+			    Object cookie);
 
 
   /**
@@ -82,18 +77,16 @@ public interface CrawlManager {
    * @param cb callback to be called when the crawler is done with the AU, if
    * not now
    * @param cookie cookie for the callback
-   * @param lock the activity lock (can be null)
    */
   void startNewContentCrawl(ArchivalUnit au, int priority,
-      CrawlManager.Callback cb,
-      Object cookie, ActivityRegulator.Lock lock);
+			    CrawlManager.Callback cb, Object cookie);
 
   /**
    * Starts a new content crawl specified by a CrawlReq
    *
-   * @param lock the activity lock (can be null)
+   * @param req
    */
-  void startNewContentCrawl(CrawlReq req, ActivityRegulator.Lock lock);
+  void startNewContentCrawl(CrawlReq req);
 
   /**
    * Return the CrawlRateLimiter assigned to the crawler.

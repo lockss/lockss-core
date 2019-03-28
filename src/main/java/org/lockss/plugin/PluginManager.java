@@ -3148,7 +3148,7 @@ public class PluginManager
   private void queuePluginRegistryCrawls() {
     CrawlManager crawlMgr = getDaemon().getCrawlManager();
     for (ArchivalUnit au : getAllRegistryAus()) {
-      crawlMgr.startNewContentCrawl(au, null, null, null);
+      crawlMgr.startNewContentCrawl(au, null, null);
     }
   }
 
@@ -3398,7 +3398,7 @@ public class PluginManager
     if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
       if (log.isDebug2()) log.debug2("Starting new crawl:: " + registryAu);
       getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
-							 url, null);
+							 url);
     } else {
       if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
 

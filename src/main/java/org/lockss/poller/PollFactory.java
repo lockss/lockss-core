@@ -63,16 +63,6 @@ public interface PollFactory {
                       LcapMessage msg) throws ProtocolException;
 
   /**
-   * getPollActivity returns the type of activity defined by ActivityRegulator
-   * that describes this poll.
-   * @param pollspec the PollSpec for the poll.
-   * @param pm the PollManager that called this method.
-   * @return one of the activity codes defined by ActivityRegulator
-   */
-   int getPollActivity(PollSpec pollspec,
-		       PollManager pm);
-
-  /**
    * setConfig updates the poll factory's configuration
    * @param newConfig the new gonfiguration of the daemon
    * @param oldConfig the previous configuration of the daemon

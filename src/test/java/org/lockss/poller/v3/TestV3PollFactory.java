@@ -101,7 +101,6 @@ public class TestV3PollFactory extends LockssTestCase {
     aus.setLastCrawlTime(100);
     aus.storeAuState();
     idmgr.startService();
-    theDaemon.getActivityRegulator(testAu).startService();
     pollManager.startService();
 
     testId = idmgr.findPeerIdentity("TCP:[127.0.0.1]:9000");

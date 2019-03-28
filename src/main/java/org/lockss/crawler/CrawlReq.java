@@ -32,7 +32,6 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.crawler;
 
-import org.lockss.daemon.ActivityRegulator;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
@@ -43,7 +42,6 @@ public class CrawlReq {
   String auName;
   CrawlManager.Callback cb;
   Object cookie;
-  ActivityRegulator.Lock lock;
   String rateKey;
   int priority = 0;
   int refetchDepth = -1;
@@ -51,17 +49,15 @@ public class CrawlReq {
   private AuState aus = null;
 
   public CrawlReq(ArchivalUnit au) {
-    this(au, null, null, null);
+    this(au, null, null);
   }
 
-  public CrawlReq(ArchivalUnit au, CrawlManager.Callback cb,
-      Object cookie, ActivityRegulator.Lock lock) {
+  public CrawlReq(ArchivalUnit au, CrawlManager.Callback cb, Object cookie) {
     this.au = au;
     this.auid = au.getAuId();
     this.auName = au.getName();
     this.cb = cb;
     this.cookie = cookie;
-    this.lock = lock;
     this.aus = AuUtil.getAuState(au);
     this.rateKey = au.getFetchRateLimiterKey();
   }
@@ -102,10 +98,6 @@ public class CrawlReq {
 
   public Object getCookie() {
     return cookie;
-  }
-
-  public ActivityRegulator.Lock getLock() {
-    return lock;
   }
 
   public AuState getAuState() {

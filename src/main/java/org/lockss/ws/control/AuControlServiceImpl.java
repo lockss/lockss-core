@@ -622,7 +622,7 @@ public class AuControlServiceImpl implements AuControlService {
     }
 
     // Perform the crawl request.
-    cmi.startNewContentCrawl(req, null);
+    cmi.startNewContentCrawl(req);
 
     result = new RequestDeepCrawlResult(auId,
 	depth == null ? -1 : depth.intValue(), true, delayReason, null);

@@ -793,25 +793,6 @@ public class MockLockssDaemon extends LockssDaemon {
     super.startOrReconfigureAuManagers(au, auConfig);
   }
 
-  /** Return ActivityRegulator for AU */
-  public ActivityRegulator getActivityRegulator(ArchivalUnit au) {
-    try {
-      return super.getActivityRegulator(au);
-    } catch (IllegalArgumentException e) {
-      return (ActivityRegulator)newAuManager(LockssDaemon.ACTIVITY_REGULATOR,
-					     au);
-    }
-  }
-
-  /**
-   * Set the ActivityRegulator for a given AU.
-   * @param actReg the new regulator
-   * @param au the ArchivalUnit
-   */
-  public void setActivityRegulator(ActivityRegulator actReg, ArchivalUnit au) {
-    setAuManager(ACTIVITY_REGULATOR, au, actReg);
-  }
-
   /**
    * <p>Forcibly sets the ICP manager to a new value.</p>
    * @param icpManager A new ICP manager to use.

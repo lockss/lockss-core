@@ -330,7 +330,7 @@ public class DebugPanel extends LockssServlet {
       errMsg = "Couldn't create CrawlReq: " + e.toString();
       return false;
     }
-    cmi.startNewContentCrawl(req, null);
+    cmi.startNewContentCrawl(req);
     statusMsg = deepMsg + "Crawl requested for " + au.getName() + delayMsg;
     return true;
   }

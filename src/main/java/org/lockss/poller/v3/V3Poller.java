@@ -2380,7 +2380,7 @@ public class V3Poller implements Poll {
 
       queue.markActive(pendingPublisherRepairs);
       cm.startRepair(getAu(), pendingPublisherRepairs,
-          cb, null /*cookie*/, null /*lock*/);
+          cb, null /*cookie*/);
     }
 
     // If we have decided to repair from any caches, iterate over the list
