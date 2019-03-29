@@ -75,7 +75,6 @@ public class MockLockssDaemon extends LockssDaemon {
 //   SystemMetrics systemMetrics = null;
 //   PollManager pollManager = null;
 //   PsmManager psmManager = null;
-//   LcapDatagramComm commManager = null;
 //   LcapStreamComm scommManager = null;
 //   LcapDatagramRouter datagramRouterManager = null;
 //   LcapRouter routerManager = null;
@@ -322,14 +321,6 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   /**
-   * return the datagram communication manager instance
-   * @return the LcapDatagramComm
-   */
-  public LcapDatagramComm getDatagramCommManager() {
-    return getManagerByType(LcapDatagramComm.class);
-  }
-
-  /**
    * return the stream communication manager instance
    * @return the LcapStreamComm
    */
@@ -502,14 +493,6 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setManagerByType(Class mgrType, LockssManager mgr) {
     managerMap.put(managerKey(mgrType), mgr);
-  }
-
-  /**
-   * Set the datagram CommManager
-   * @param commMan the new manager
-   */
-  public void setDatagramCommManager(LcapDatagramComm commMan) {
-    managerMap.put(LockssDaemon.DATAGRAM_COMM_MANAGER, commMan);
   }
 
   /**

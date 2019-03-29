@@ -79,8 +79,7 @@ public class TestPollManager extends LockssTestCase4 {
 
     String tempDirPath = setUpDiskSpace();
     ConfigurationUtil.addFromArgs(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb",
-				  IdentityManager.PARAM_LOCAL_IP, "127.1.2.3",
-				  LcapDatagramComm.PARAM_ENABLED, "false");
+				  IdentityManager.PARAM_LOCAL_IP, "127.1.2.3");
     plugin = new MockPlugin(getMockLockssDaemon());
     TimeBase.setSimulated();
     initRequiredServices();
@@ -579,7 +578,6 @@ public class TestPollManager extends LockssTestCase4 {
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.0.0.1");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
   }
 
   private void initTestAddr() {

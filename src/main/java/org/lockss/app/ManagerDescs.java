@@ -129,9 +129,6 @@ public class ManagerDescs {
   public static ManagerDesc FAIL_OVER_PROXY_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.FAIL_OVER_PROXY_MANAGER ,
                     "org.lockss.proxy.FailOverProxyManager");
-  public static ManagerDesc DATAGRAM_COMM_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.DATAGRAM_COMM_MANAGER,
-                    "org.lockss.protocol.LcapDatagramComm");
   public static ManagerDesc STREAM_COMM_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.STREAM_COMM_MANAGER,
                     "org.lockss.protocol.BlockingStreamComm");

@@ -45,9 +45,8 @@ import org.lockss.poller.*;
 /**
  * LcapRouter is the topmost layer of the comm services, to which clients
  * pass outgoing messages and with which they register incoming message
- * handlers.  This class interacts with LcapDatagramRouter or
- * LcapStreamComm to send and receive datagram and stream messages,
- * respectively.
+ * handlers.  This class interacts with LcapStreamComm to send and receive
+ * messages.
  */
 public class LcapRouter
   extends BaseLockssDaemonManager implements ConfigurableManager {

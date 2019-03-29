@@ -126,7 +126,6 @@ public class FuncV3Poller extends LockssTestCase {
     p.setProperty(V3Poller.PARAM_MAX_POLL_DURATION, "6m");
     p.setProperty(V3Poller.PARAM_QUORUM, "3");
     p.setProperty(LcapStreamComm.PARAM_ENABLED, "true");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
     p.setProperty(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
 		  "TCP:[127.0.0.1]:3456");
     p.setProperty(IdentityManagerImpl.PARAM_INITIAL_PEERS,

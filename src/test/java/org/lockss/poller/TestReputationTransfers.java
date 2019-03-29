@@ -75,7 +75,6 @@ public class TestReputationTransfers extends LockssTestCase {
     Properties p = new Properties();
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.1.2.3");
-    //p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     initRequiredServices();
     peer1 = idManager.stringToPeerIdentity(p1);

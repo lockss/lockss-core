@@ -75,7 +75,6 @@ public class TestRepairPolicy extends LockssTestCase {
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.1.2.3");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     initRequiredServices();
   }

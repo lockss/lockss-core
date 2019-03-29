@@ -84,8 +84,6 @@ public class LockssDaemon extends LockssApp {
   // Parameter keys for daemon managers
   public static final String HASH_SERVICE =
     managerKey(HashService.class);
-  public static final String DATAGRAM_COMM_MANAGER =
-    managerKey(LcapDatagramComm.class);
   public static final String STREAM_COMM_MANAGER =
     managerKey(LcapStreamComm.class);
   public static final String ROUTER_MANAGER =
@@ -333,15 +331,6 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * return the datagram communication manager instance
-   * @return the LcapDatagramComm
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapDatagramComm getDatagramCommManager()  {
-    return (LcapDatagramComm) getManager(DATAGRAM_COMM_MANAGER);
-  }
-
-  /**
    * return the stream communication manager instance
    * @return the LcapStreamComm
    * @throws IllegalArgumentException if the manager is not available.
@@ -352,7 +341,7 @@ public class LockssDaemon extends LockssApp {
 
   /**
    * return the communication router manager instance
-   * @return the LcapDatagramRouter
+   * @return the LcapRouter
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LcapRouter getRouterManager()  {
