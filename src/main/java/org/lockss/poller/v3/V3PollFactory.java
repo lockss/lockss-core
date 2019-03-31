@@ -61,14 +61,14 @@ public class V3PollFactory implements PollFactory {
    */
   public static final String PARAM_ENABLE_V3_VOTER =
     PREFIX + "enableV3Voter";
-  public static final boolean DEFAULT_ENABLE_V3_VOTER = true;
+  public static final boolean DEFAULT_ENABLE_V3_VOTER = false;
 
   /** If set to 'false', do not start V3 Polls.  This parameter is used
    * by NodeManagerImpl and PollManager.
    */
   public static final String PARAM_ENABLE_V3_POLLER =
     PREFIX + "enableV3Poller";
-  public static final boolean DEFAULT_ENABLE_V3_POLLER = true;
+  public static final boolean DEFAULT_ENABLE_V3_POLLER = false;
 
   /** Curve expressing probability of accepting invitation based on number
    * of safe replicas known.  E.g., <code>[10,100],[10,10]</code> sets

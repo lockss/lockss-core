@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -91,6 +87,9 @@ public class TestV3PollFactory extends LockssTestCase {
     p.setProperty(V3Poller.PARAM_QUORUM, "3");
     p.setProperty(V3Poller.PARAM_STATE_PATH, tempDirPath);
     p.setProperty(IdentityManager.PARAM_LOCAL_V3_IDENTITY, "TCP:[127.0.0.1]:9729");
+    p.setProperty(V3PollFactory.PARAM_ENABLE_V3_POLLER, "true");
+    p.setProperty(V3PollFactory.PARAM_ENABLE_V3_VOTER, "true");
+
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
     idmgr.initService(theDaemon);

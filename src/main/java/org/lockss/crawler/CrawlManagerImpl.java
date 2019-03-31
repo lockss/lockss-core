@@ -91,7 +91,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    */
   public static final String PARAM_CRAWLER_ENABLED =
       PREFIX + "enabled";
-  static final boolean DEFAULT_CRAWLER_ENABLED = true;
+  static final boolean DEFAULT_CRAWLER_ENABLED = false;
 
   /**
    * Set false to prevent the crawl starter from starting queued crawls. Allows queues to be built, which {@value
