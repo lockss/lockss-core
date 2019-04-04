@@ -68,111 +68,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   protected static Logger log = Logger.getLogger();
 
   /**
-   * <p>The MAX_DELTA parameter.</p>
-   */
-  static final String PARAM_MAX_DELTA = PREFIX + "maxReputationDelta";
-
-  /**
-   * <p>The default value for the MAX_DELTA parameter.</p>
-   */
-  static final int DEFAULT_MAX_DELTA = 100;
-
-  /**
-   * <p>The AGREE_DELTA parameter.</p>
-   */
-  static final String PARAM_AGREE_DELTA = PREFIX + "agreeDelta";
-
-  /**
-   * <p>The default value for the AGREE_DELTA parameter.</p>
-   */
-  static final int DEFAULT_AGREE_DELTA = 100;
-
-  /**
-   * <p>The DISAGREE_DELTA parameter.</p>
-   */
-  static final String PARAM_DISAGREE_DELTA = PREFIX + "disagreeDelta";
-
-  /**
-   * <p>The default value for the DISAGREE_DELTA parameter.</p>
-   */
-  static final int DEFAULT_DISAGREE_DELTA = -150;
-
-  /**
-   * <p>The CALL_INTERNAL parameter.</p>
-   */
-  static final String PARAM_CALL_INTERNAL = PREFIX + "callInternalDelta";
-
-  /**
-   * <p>The default value for the CALL_INTERNAL parameter.</p>
-   */
-  static final int DEFAULT_CALL_INTERNAL = 100;
-
-  /**
-   * <p>The SPOOF_DETECTED parameter.</p>
-   */
-  static final String PARAM_SPOOF_DETECTED = PREFIX + "spoofDetected"; //no
-
-  /**
-   * <p>The default value for the SPOOF_DETECTED parameter.</p>
-   */
-  static final int DEFAULT_SPOOF_DETECTED = -30;
-
-  /**
-   * <p>The REPLAY_DETECTED parameter.</p>
-   */
-  static final String PARAM_REPLAY_DETECTED = PREFIX + "replayDetected";
-
-  /**
-   * <p>The default value for the REPLAY_DETECTED parameter.</p>
-   */
-  static final int DEFAULT_REPLAY_DETECTED = -20;
-
-  /**
-   * <p>The ATTACK_DETECTED parameter.</p>
-   */
-  static final String PARAM_ATTACK_DETECTED = PREFIX + "attackDetected"; //no
-
-  /**
-   * <p>The default value for the ATTACK_DETECTED parameter.</p>
-   */
-  static final int DEFAULT_ATTACK_DETECTED = -500;
-
-  /**
-   * <p>The VOTE_NOTVERIFIED parameter.</p>
-   */
-  static final String PARAM_VOTE_NOTVERIFIED = PREFIX + "voteNotVerified ";
-
-  /**
-   * <p>The default value for the VOTE_NOTVERIFIED parameter.</p>
-   */
-  static final int DEFAULT_VOTE_NOTVERIFIED = -30;
-
-  /**
-   * <p>The VOTE_VERIFIED parameter.</p>
-   */
-  static final String PARAM_VOTE_VERIFIED = PREFIX + "voteVerified";
-
-  /**
-   * <p>The default value for the VOTE_VERIFIED parameter.</p>
-   */
-  static final int DEFAULT_VOTE_VERIFIED = 40;
-
-  /**
-   * <p>The VOTE_DISOWNED parameter.</p>
-   */
-  static final String PARAM_VOTE_DISOWNED = PREFIX + "voteDisowned";
-
-  /**
-   * <p>The default value for the VOTE_DISOWNED parameter.</p>
-   */
-  static final int DEFAULT_VOTE_DISOWNED = -400;
-
-  /**
-   * <p>The initial reputation numerator.</p>
-   */
-  static final int REPUTATION_NUMERATOR = 1000;
-  
-  /**
    * <p>The number of update events between IDDB serializations.
    * This parameter is a maximum, and does not alter the fact that
    * the IDDB table is serialized at the end of every poll, and
@@ -210,21 +105,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
    */
   static LockssRandom theRandom = new LockssRandom();
 
-  /*
-   * There are two classes representing the identity of a peer.
-   * PeerData is used only by the IdentityManager; instances
-   * contain all the actual information about the peer.  PeerIdentity
-   * is an opaque cookie that the IdentityManager provides to its
-   * clients; they use it to refer to a peer without having a reference
-   * to an instance of PeerData.  Peers have very long lives and
-   * potentially have a lot of information but only a few will be
-   * actively in use at any one time. The PeerData
-   * is found by looking up the PeerIdentity in a HashMap called
-   * thePeerCache;  it should be a cache of active PeerData
-   * instances but it currently contains all of them.
-   * XXX currently using LcapIdentity instead of PeerData
-   */
-
   /**
    * <p>IP address of our identity (not necessarily this machine's IP
    * if behind NAT).<p>
@@ -243,7 +123,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
    * <p>A mapping of PeerIdentity objects to status objects.  This is
    * the map that is actually serialized onto disk for persistence</p>
    */
-  protected Map<PeerIdentity,PeerIdentityStatus> theLcapIdentities;
+  protected Map<PeerIdentity,PeerIdentityStatus> pidStatusMap;
 
   /**
    * Maps PeerIdentity key (<i>eg</i>, <tt>TCP:[192.168.0.1]:9729</tt>) to
@@ -256,7 +136,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
    * Set of all PeerIdentity objects.  Separate set required when
    * enumerating pids as map may contain mappings from unnormalized keys.
    */
-  // Currently duplicates theLcapIdentities.keySet(), but that will be
+  // Currently duplicates pidStatusMap.keySet(), but that will be
   // going away.
   private Set<PeerIdentity> pidSet;
 
@@ -264,8 +144,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
    * <p>The IDDB file.</p>
    */
   File iddbFile = null;
-
-  int[] reputationDeltas = new int[10];
 
   /**
    * Maps auid to AuAgreements. The LRU cache allows objects to be
@@ -284,7 +162,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
    * <p>Builds a new IdentityManager instance.</p>
    */
   public IdentityManagerImpl() {
-    theLcapIdentities = new HashMap();
+    pidStatusMap = new HashMap();
     pidMap = new HashMap();
     pidSet = new HashSet();
   }
@@ -399,12 +277,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
       }
     });
 
-    // If requested, delete any old IDDB files.
-    if (CurrentConfig.getBooleanParam(PARAM_DELETE_OLD_IDDB_FILES,
-                                      DEFAULT_DELETE_OLD_IDDB_FILES)) {
-      unlinkOldIddbFiles();
-    }
-
     reloadIdentities();
 
     if (localPeerIdentities[Poll.V1_PROTOCOL] != null)
@@ -440,8 +312,8 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   }
 
   public List<PeerIdentityStatus> getPeerIdentityStatusList() {
-    synchronized (theLcapIdentities) {
-      return new ArrayList(theLcapIdentities.values());
+    synchronized (pidStatusMap) {
+      return new ArrayList(pidStatusMap.values());
     }
   }
 
@@ -454,16 +326,14 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
    * @throws MalformedIdentityKeyException 
    */
   private PeerIdentityStatus findPeerIdentityStatus(PeerIdentity id) {
-    PeerIdentityStatus status = null;
-    synchronized (theLcapIdentities) {
-      status = theLcapIdentities.get(id);
+    synchronized (pidStatusMap) {
+      PeerIdentityStatus status = pidStatusMap.get(id);
       if (status == null) {
-        LcapIdentity lcapId = findLcapIdentity(id, id.getIdString());
-        log.debug2("Making new PeerIdentityStatus for: " + id);
-        status = new PeerIdentityStatus(lcapId);
+        status = new PeerIdentityStatus(id);
+	pidStatusMap.put(id, status);
       }
+      return status;
     }
-    return status;
   }
   
   
@@ -491,9 +361,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   }
 
   /**
-   * <p>Finds or creates unique instances of both PeerIdentity and
-   * LcapIdentity.</p>
-   * <p>Eventually, LcapIdentity won't always be created here.</p>
+   * <p>Finds or creates unique instance of PeerIdentity.</p>
    */
   private PeerIdentity findLocalPeerIdentity(String key)
       throws MalformedIdentityKeyException {
@@ -506,8 +374,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
 	pidSet.add(pid);
       }
     }
-    // for now always make sure LcapIdentity instance exists
-    findLcapIdentity(pid, key);
     return pid;
   }
 
@@ -548,62 +414,22 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   }
 
   /**
-   * <p>Finds or creates unique instances of both PeerIdentity and
-   * LcapIdentity.</p>
-   * <p>Eventually, LcapIdentity won't always be created here.
+   * <p>Finds or creates unique instances of PeerIdentity.</p>
    */
   private PeerIdentity findPeerIdentityAndData(String key)
       throws MalformedIdentityKeyException {
     PeerIdentity pid = findPeerIdentity(key);
-    // for now always make sure LcapIdentity instance exists
-    findLcapIdentity(pid, key);
     return pid;
   }
 
   /**
-   * <p>Finds or creates unique instances of both PeerIdentity and
-   * LcapIdentity.</p>
-   * <p>Eventually, LcapIdentity won't always be created here.</p>
+   * <p>Finds or creates unique instances of PeerIdentity.</p>
    */
   private PeerIdentity findPeerIdentityAndData(IPAddr addr, int port)
       throws MalformedIdentityKeyException {
     String key = IDUtil.ipAddrToKey(addr, port);
     PeerIdentity pid = findPeerIdentity(key);
-    // for now always make sure LcapIdentity instance exists
-    findLcapIdentity(pid, addr, port);
     return pid;
-  }
-
-  /**
-   * <p>Finds or creates unique instances of LcapIdentity.</p>
-   */
-  public LcapIdentity findLcapIdentity(PeerIdentity pid, String key) {
-    synchronized (theLcapIdentities) {
-      PeerIdentityStatus status = theLcapIdentities.get(pid);
-      if (status == null) {
-        log.debug2("Making new PeerIdentityStatus for: " + pid);
-        status = new PeerIdentityStatus(new LcapIdentity(pid, key));
-        theLcapIdentities.put(pid, status);
-      }
-      return status.getLcapIdentity();
-    }
-  }
-
-  /**
-   * <p>Finds or creates unique instances of LcapIdentity.</p>
-   */
-  protected LcapIdentity findLcapIdentity(PeerIdentity pid,
-                                          IPAddr addr,
-                                          int port) {
-    synchronized (theLcapIdentities) {
-      PeerIdentityStatus status = theLcapIdentities.get(pid);
-      if (status == null) {
-        log.debug2("Making new PeerIdentityStatus for: " + pid);
-        status = new PeerIdentityStatus(new LcapIdentity(pid, addr, port));
-        theLcapIdentities.put(pid, status);
-      }
-      return status.getLcapIdentity();
-    }
   }
 
   /**
@@ -652,18 +478,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     else {
       return findPeerIdentityAndData(idKey);
     }
-  }
-
-  public IPAddr identityToIPAddr(PeerIdentity pid) {
-    LcapIdentity lid = theLcapIdentities.get(pid).getLcapIdentity();
-    if (lid == null) {
-      log.error(pid.toString() + " has no LcapIdentity");
-    } else if (lid.getPort() != 0) {
-      log.error(pid.toString() + " is not a V1 identity");
-    } else {
-      return lid.getAddress();
-    }
-    throw new IllegalArgumentException(pid.toString());
   }
 
   /**
@@ -734,100 +548,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     }
   }
 
-  /**
-   * <p>Associates the event with the peer identity.</p>
-   * @param id    The PeerIdentity.
-   * @param event The event code.
-   * @param msg   The LcapMessage involved.
-   */
-  public void rememberEvent(PeerIdentity id, int event, LcapMessage msg) {
-    LcapIdentity lid = theLcapIdentities.get(id).getLcapIdentity();
-    if (lid != null) {
-      lid.rememberEvent(event, msg);
-    }
-  }
-
-  /**
-   * <p>Returns the max value of an Identity's reputation.</p>
-   * @return The int value of max reputation.
-   */
-  public int getMaxReputation() {
-    return REPUTATION_NUMERATOR;
-  }
-
-  /**
-   * <p>Returns the reputation of the peer.</p>
-   * @param id The PeerIdentity.
-   * @return The peer's reputation.
-   */
-  public int getReputation(PeerIdentity id) {
-    int ret = 0;
-    LcapIdentity lid = theLcapIdentities.get(id).getLcapIdentity();
-    if (lid == null) {
-      log.error("Can't find LcapIdentity for " + id.toString());
-    } else {
-      ret = lid.getReputation();
-    }
-    return ret;
-  }
-
-  /**
-   * <p>Returns the amount of reputation change that reflects the
-   * specified kind of event.</p>
-   * @param changeKind The type of event.
-   * @return The delta that would be applied to a peer's reputation.
-   */
-  protected int getReputationDelta(int changeKind) {
-    int ret = -1;
-    if (changeKind >= 0 && changeKind < reputationDeltas.length)
-      ret = reputationDeltas[changeKind];
-    return ret;
-  }
-
-  /**
-   * <p>Makes the change to the reputation of the peer "id" matching
-   * the event "changeKind".
-   * @param id         The PeerIdentity of the peer to affect.
-   * @param changeKind The type of event that is being reflected.
-   */
-  public void changeReputation(PeerIdentity id, int changeKind) {
-    int delta = getReputationDelta(changeKind);
-    int max_delta = reputationDeltas[MAX_DELTA];
-    LcapIdentity lid = theLcapIdentities.get(id).getLcapIdentity();
-    if (lid == null) {
-      log.error("Can't find LcapIdentity for " + id.toString());
-      return;
-    }
-    int reputation = lid.getReputation();
-
-    if (id.isLocalIdentity()) {
-      log.debug(id.toString() + " ignoring reputation delta " + delta);
-      return;
-    }
-
-    delta = (int) (((float) delta) * theRandom.nextFloat());
-
-    if (delta > 0) {
-      if (delta > max_delta) {
-        delta = max_delta;
-      }
-      if (delta > (REPUTATION_NUMERATOR - reputation)) {
-        delta = (REPUTATION_NUMERATOR - reputation);
-      }
-    } else if (delta < 0) {
-      if (delta < (-max_delta)) {
-        delta = -max_delta;
-      }
-      if ((reputation + delta) < 0) {
-        delta = -reputation;
-      }
-    }
-    if (delta != 0)
-      log.debug(id.toString() +" change reputation from " + reputation +
-          " to " + (reputation + delta));
-    lid.changeReputation(delta);
-  }
-
   File setupIddbFile() {
     if (iddbFile == null) {
       String iddbDir = CurrentConfig.getParam(PARAM_IDDB_DIR);
@@ -840,7 +560,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
 
   /**
    * <p>Reloads the peer data from the identity database.</p>
-   * <p>This may overwrite the LcapIdentity instance for local
+   * <p>This may overwrite the PeerIdentityStatus instance for local
    * identity(s). That may not be appropriate if this is ever called
    * other than at startup.</p>
    * @see #reloadIdentities(ObjectSerializer)
@@ -864,12 +584,11 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
 
     synchronized (iddbFile) {
       try {
-        // CASTOR: Remove unwrap() call; add cast to HashMap
         HashMap map = 
           (HashMap<PeerIdentity,PeerIdentityStatus>) deserializer.
           deserialize(iddbFile);
-        synchronized (theLcapIdentities) {
-          theLcapIdentities.putAll(map);
+        synchronized (pidStatusMap) {
+          pidStatusMap.putAll(map);
         }
       }
       catch (SerializationException.FileNotFound e) {
@@ -909,8 +628,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
         if (dir != null) {
 	  FileUtil.ensureDirExists(dir);
 	}
-        // CASTOR: Remove call to wrap()
-        serializer.serialize(iddbFile, wrap(theLcapIdentities));
+        serializer.serialize(iddbFile, wrap(pidStatusMap));
       }
       catch (Exception e) {
         log.error("Could not store identity database", e);
@@ -953,19 +671,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   }
 
   /**
-   * <p>Return a collection o all V1-style PeerIdentities.</p>
-   */
-  public Collection getUdpPeerIdentities() {
-    Collection retVal = new ArrayList();
-    for (PeerIdentity id : pidSet) {
-      if (id.getPeerAddress() instanceof PeerAddress.Udp &&
-	  !id.isLocalIdentity())
-	retVal.add(id);
-    }
-    return retVal;
-  }
-
-  /**
    * <p>Return a collection of all V3-style PeerIdentities.</p>
    */
   public Collection getTcpPeerIdentities() {
@@ -990,7 +695,7 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   /**
    * <p>Castor+XStream transition helper method, that wraps the
    * identity map into the object expected by serialization code.</p>
-   * @param theIdentities The {@link #theLcapIdentities} map.
+   * @param theIdentities The {@link #pidStatusMap} map.
    * @return An object suitable for serialization.
    */
   private Serializable wrap(Map theIdentities) {
@@ -1330,26 +1035,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
     if (changedKeys.contains(PREFIX)) {
-      reputationDeltas[MAX_DELTA] =
-        config.getInt(PARAM_MAX_DELTA, DEFAULT_MAX_DELTA);
-      reputationDeltas[AGREE_VOTE] =
-        config.getInt(PARAM_AGREE_DELTA, DEFAULT_AGREE_DELTA);
-      reputationDeltas[DISAGREE_VOTE] =
-      config.getInt(PARAM_DISAGREE_DELTA, DEFAULT_DISAGREE_DELTA);
-      reputationDeltas[CALL_INTERNAL] =
-        config.getInt(PARAM_CALL_INTERNAL, DEFAULT_CALL_INTERNAL);
-      reputationDeltas[SPOOF_DETECTED] =
-        config.getInt(PARAM_SPOOF_DETECTED, DEFAULT_SPOOF_DETECTED);
-      reputationDeltas[REPLAY_DETECTED] =
-        config.getInt(PARAM_REPLAY_DETECTED, DEFAULT_REPLAY_DETECTED);
-      reputationDeltas[ATTACK_DETECTED] =
-        config.getInt(PARAM_ATTACK_DETECTED, DEFAULT_ATTACK_DETECTED);
-      reputationDeltas[VOTE_NOTVERIFIED] =
-        config.getInt(PARAM_VOTE_NOTVERIFIED, DEFAULT_VOTE_NOTVERIFIED);
-      reputationDeltas[VOTE_VERIFIED] =
-        config.getInt(PARAM_VOTE_VERIFIED, DEFAULT_VOTE_VERIFIED);
-      reputationDeltas[VOTE_DISOWNED] =
-        config.getInt(PARAM_VOTE_DISOWNED, DEFAULT_VOTE_DISOWNED);
       updatesBeforeStoring =
         config.getLong(PARAM_UPDATES_BEFORE_STORING,
                        DEFAULT_UPDATES_BEFORE_STORING);
@@ -1441,15 +1126,4 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     return null;
   }
 
-  boolean areMapsEqualSize() {
-    return pidMap.size() == theLcapIdentities.size();
-  }
-
-  void unlinkOldIddbFiles() {
-    String oldIddbFile = IdentityManager.V1_IDDB_FILENAME;
-    File f = new File(oldIddbFile);
-    if (f.exists() && f.canWrite()) {
-      f.delete();
-    }
-  }
 }

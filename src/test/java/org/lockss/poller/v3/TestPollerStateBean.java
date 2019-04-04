@@ -87,8 +87,6 @@ public class TestPollerStateBean extends LockssTestCase {
 
   PeerIdentity findPeerIdentity(String key) throws Exception {
     PeerIdentity pid = idMgr.findPeerIdentity(key);
-    // hack to ensure it's created
-    idMgr.findLcapIdentity(pid, pid.getIdString());
     return pid;
   }
 

@@ -39,8 +39,8 @@ import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimeBase;
 
 public class PeerIdentityStatus implements LockssSerializable {
-  // The LCAP Identity of the peer
-  private LcapIdentity lcapIdentity = null;
+  // The peer
+  private PeerIdentity pid = null;
 
   // Timestamp of the most recently heard message from this peer.
   private long lastMessageTime = 0L;
@@ -89,31 +89,17 @@ public class PeerIdentityStatus implements LockssSerializable {
   /**
    * Construct a new PeerIdentityStatus object.
    * 
-   * @param lcapIdentity The LCAP Identity associated with this status object.
+   * @param pid The PeerIdentity of the peer.
    */
-  public PeerIdentityStatus(LcapIdentity lcapIdentity) {
-    this.lcapIdentity = lcapIdentity;
+  public PeerIdentityStatus(PeerIdentity pid) {
+    this.pid = pid;
   }
   
-  /**
-   * @return the LCAP identity for this peer.
-   */
-  public LcapIdentity getLcapIdentity() {
-    return lcapIdentity;
-  }
-
   /**
    * @return the PeerIdentity for this peer.
    */
   public PeerIdentity getPeerIdentity() {
-    return lcapIdentity.getPeerIdentity();
-  }
-
-  /**
-   * @param lcapIdentity the LCAP identity to set
-   */
-  public void setLcapIdentity(LcapIdentity lcapIdentity) {
-    this.lcapIdentity = lcapIdentity;
+    return pid;
   }
 
   /**

@@ -153,8 +153,6 @@ public class TestV3Poller extends LockssTestCase {
 
   PeerIdentity findPeerIdentity(String key) throws Exception {
     PeerIdentity pid = idMgr.findPeerIdentity(key);
-    // hack to ensure it's created
-    idMgr.findLcapIdentity(pid, pid.getIdString());
     return pid;
   }
 
@@ -261,7 +259,6 @@ public class TestV3Poller extends LockssTestCase {
     String id = "tcp:[1.2.3.4]:4321";
     V3Poller poller = makeV3Poller("testing poll key");
     PeerIdentity pid = findPeerIdentity(id);
-    idMgr.findLcapIdentity(pid, id);
     PeerIdentityStatus status = idMgr.getPeerIdentityStatus(pid);
     status.setLastMessageTime(lastMsg);
     status.setLastPollInvitationTime(lastInvite);

@@ -136,7 +136,6 @@ public class TestV3Voter extends LockssTestCase {
     String id = "tcp:[1.2.3.4]:4321";
     IdentityManager idMgr = lockssDaemon.getIdentityManager();
     PeerIdentity pid = idMgr.findPeerIdentity(id);
-    idMgr.findLcapIdentity(pid, id);
     PeerIdentityStatus status = idMgr.getPeerIdentityStatus(pid);
     status.setLastVoterTime(lastVoteTime);
     TimeBase.setSimulated(now);

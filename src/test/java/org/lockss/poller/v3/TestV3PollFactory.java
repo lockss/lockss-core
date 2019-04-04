@@ -303,7 +303,6 @@ public class TestV3PollFactory extends LockssTestCase {
     for (String key : keys) {
       PeerIdentity pid = idmgr.findPeerIdentity(key);
       peerIds[idIndex++] = pid;
-      idmgr.findLcapIdentity(pid, key);
       PeerIdentityStatus status = getStatus(pid);
       status.setLastMessageTime(900);
       idmgr.signalPartialAgreementHint(pid, testAu, hint);

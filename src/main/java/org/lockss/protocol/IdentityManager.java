@@ -83,18 +83,6 @@ public interface IdentityManager extends LockssManager {
   public static final String PARAM_IDDB_DIR = PREFIX + "database.dir";
 
   /**
-   * <p>The name of the pre-V3 IDDB file.</p>
-   */
-  public static final String V1_IDDB_FILENAME = "iddb.xml";
-
-  /**
-   * <p>If true, any old (V1) IDDB files will be deleted on startup.</p>
-   */
-  public static final String PARAM_DELETE_OLD_IDDB_FILES =
-    PREFIX + "deleteOldIddbFiles";
-  public static final boolean DEFAULT_DELETE_OLD_IDDB_FILES = false;
-
-  /**
    * <p>The name of the IDDB file.</p>
    */
   public static final String IDDB_FILENAME = "iddb_v3.xml";
@@ -117,56 +105,6 @@ public interface IdentityManager extends LockssManager {
    */
   public static final float DEFAULT_MIN_PERCENT_AGREEMENT =
     0.5f;
-
-  /**
-   * <p>The MAX_DELTA reputation constant.</p>
-   */
-  public static final int MAX_DELTA = 0;
-
-  /**
-   * <p>The MAX_DELTA reputation constant.</p>
-   */
-  public static final int AGREE_VOTE = 1;
-
-  /**
-   * <p>The DISAGREE_VOTE reputation constant.</p>
-   */
-  public static final int DISAGREE_VOTE = 2;
-
-  /**
-   * <p>The CALL_INTERNAL reputation constant.</p>
-   */
-  public static final int CALL_INTERNAL = 3;
-
-  /**
-   * <p>The SPOOF_DETECTED reputation constant.</p>
-   */
-  public static final int SPOOF_DETECTED = 4;
-
-  /**
-   * <p>The REPLAY_DETECTED reputation constant.</p>
-   */
-  public static final int REPLAY_DETECTED = 5;
-
-  /**
-   * <p>The ATTACK_DETECTED reputation constant.</p>
-   */
-  public static final int ATTACK_DETECTED = 6;
-
-  /**
-   * <p>The VOTE_NOTVERIFIED reputation constant.</p>
-   */
-  public static final int VOTE_NOTVERIFIED = 7;
-
-  /**
-   * <p>The VOTE_VERIFIED reputation constant.</p>
-   */
-  public static final int VOTE_VERIFIED = 8;
-
-  /**
-   * <p>The VOTE_DISOWNED reputation constant.</p>
-   */
-  public static final int VOTE_DISOWNED = 9;
 
   /**
    * <p>Currently the only allowed V3 protocol.</p>
@@ -194,20 +132,10 @@ public interface IdentityManager extends LockssManager {
   public static final String V3_ID_TCP_IP_PORT_SEPARATOR = ":";
 
   /**
-   * <p>The initial reputation value.</p>
-   */
-  public static final int INITIAL_REPUTATION = 500;
-
   /**
    * <p>Finds or creates unique instances of PeerIdentity.</p>
    */
   public PeerIdentity findPeerIdentity(String key)
-      throws MalformedIdentityKeyException;
-
-  /**
-   * <p>Finds or creates unique instances of LcapIdentity.</p>
-   */
-  public LcapIdentity findLcapIdentity(PeerIdentity pid, String key)
       throws MalformedIdentityKeyException;
 
   /**
@@ -236,8 +164,6 @@ public interface IdentityManager extends LockssManager {
    */
   public PeerIdentity stringToPeerIdentity(String idKey)
       throws IdentityManager.MalformedIdentityKeyException;
-
-  public IPAddr identityToIPAddr(PeerIdentity pid);
 
   /**
    * <p>Returns the local peer identity.</p>
@@ -278,35 +204,6 @@ public interface IdentityManager extends LockssManager {
   public boolean isLocalIdentity(String idStr);
 
   /**
-   * <p>Associates the event with the peer identity.</p>
-   * @param id    The PeerIdentity.
-   * @param event The event code.
-   * @param msg   The LcapMessage involved.
-   */
-  public void rememberEvent(PeerIdentity id, int event, LcapMessage msg);
-
-  /**
-   * <p>Returns the max value of an Identity's reputation.</p>
-   * @return The int value of max reputation.
-   */
-  public int getMaxReputation();
-
-  /**
-   * <p>Returns the reputation of the peer.</p>
-   * @param id The PeerIdentity.
-   * @return The peer's reputation.
-   */
-  public int getReputation(PeerIdentity id);
-
-  /**
-   * <p>Makes the change to the reputation of the peer "id" matching
-   * the event "changeKind".
-   * @param id         The PeerIdentity of the peer to affect.
-   * @param changeKind The type of event that is being reflected.
-   */
-  public void changeReputation(PeerIdentity id, int changeKind);
-
-  /**
    * <p>Used by the PollManager to record the result of tallying a
    * poll.</p>
    * @see #storeIdentities(ObjectSerializer)
@@ -325,11 +222,6 @@ public interface IdentityManager extends LockssManager {
    * @param out An OutputStream instance.
    */
   public void writeIdentityDbTo(OutputStream out) throws IOException;
-
-  /**
-   * Return a list of all known UDP (suitable for V1) peer identities.
-   */
-  public Collection getUdpPeerIdentities();
 
   /**
    * Return a list of all known TCP (V3) peer identities.

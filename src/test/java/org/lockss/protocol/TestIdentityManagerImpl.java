@@ -1,7 +1,7 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
-All rights reserved.
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
@@ -288,25 +288,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     assertSame(peer1, idmgr.getLocalPeerIdentity(Poll.V1_PROTOCOL));
   }
 
-  public void testIdentityToIPAddr() throws Exception {
-    IPAddr ip1 = IPAddr.getByName("127.0.0.1");
-    IPAddr ip2 = IPAddr.getByName("127.0.0.2");
-    peer1 = idmgr.ipAddrToPeerIdentity(ip1);
-    peer2 = idmgr.ipAddrToPeerIdentity(ip2);
-
-    assertEquals(ip1, idmgr.identityToIPAddr(peer1));
-    assertEquals(ip2, idmgr.identityToIPAddr(peer2));
-  }
-
-  public void testIdentityToIPAddrV3() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity(IDUtil.ipAddrToKey("127.0.0.1", "23"));
-    try {
-      idmgr.identityToIPAddr(peer1);
-      fail("identityToIPAddr(V3PeerId) should throw");
-    } catch (IllegalArgumentException e) {
-    }
-  }
-
   public void testGetLocalIdentity() {
     peer1 = idmgr.getLocalPeerIdentity(Poll.V1_PROTOCOL);
     assertTrue(peer1.isLocalIdentity());
@@ -324,96 +305,7 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     }
   }
 
-  void checkReputation(int orgRep, int maxDelta, int curRep) {
-    if(maxDelta > 0) {
-      assertTrue(curRep <= orgRep + maxDelta);
-    }
-    else if(maxDelta < 0) {
-      assertTrue(curRep >= orgRep + maxDelta);
-    }
-  }
   // -----------------------------------------------------
-
-  /** test for method agreeWithVote(..) */
-  public void testAgreeWithVote() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1, IdentityManager.AGREE_VOTE);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.AGREE_VOTE],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method disagreeWithVote(..) */
-  public void testDisagreeWithVote() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.DISAGREE_VOTE);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.DISAGREE_VOTE],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method callInternalPoll(..) */
-  public void testCallInternalPoll() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.CALL_INTERNAL);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.CALL_INTERNAL],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method spoofDetected(..) */
-  public void testSpoofDetected() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.SPOOF_DETECTED);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.SPOOF_DETECTED],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method replayDected(..) */
-  public void testReplayDetected() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.REPLAY_DETECTED);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.REPLAY_DETECTED],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method acttackDetected(..) */
-  public void testAttackDetected() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.ATTACK_DETECTED);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.ATTACK_DETECTED],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method voteNotVerify(..) */
-  public void testVoteNotVerify() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.VOTE_NOTVERIFIED);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.VOTE_NOTVERIFIED],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method voteVerify(..) */
-  public void testVoteVerify() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.VOTE_VERIFIED);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.VOTE_VERIFIED],
-                    idmgr.getReputation(peer1));
-  }
-
-  /** test for method voteDisown(..) */
-  public void testVoteDisown() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity("127.0.0.1");
-    int rep = idmgr.getReputation(peer1);
-    idmgr.changeReputation(peer1,IdentityManager.VOTE_DISOWNED);
-    checkReputation(rep, idmgr.reputationDeltas[IdentityManager.VOTE_DISOWNED],
-                    idmgr.getReputation(peer1));
-  }
 
   public void testStoreIdentities() throws Exception {
     setupPeer123();
@@ -832,41 +724,20 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     idmgr.signalAgreed(peer1, mau);
     idmgr.signalAgreed(peer2, mau);
 
-    Map idMap = idmgr.getIdentityMap();
+    Map<PeerIdentity,PeerIdentityStatus> idMap = idmgr.getIdentityMap();
     Set expectedAddresses = new HashSet();
     expectedAddresses.add("127.0.0.1");
     expectedAddresses.add("127.0.0.2");
     expectedAddresses.add(LOCAL_IP);
 
-    for (Iterator iter = idMap.values().iterator();
-	 iter.hasNext();) {
-      LcapIdentity id = ((PeerIdentityStatus)iter.next()).getLcapIdentity();
-      assertTrue(id.getPeerIdentity() + " not found in " + expectedAddresses,
-		 expectedAddresses.contains(id.getPeerIdentity().getIdString()));
+    for (PeerIdentityStatus pis : idMap.values()) {
+      assertTrue(pis.getPeerIdentity() + " not found in " + expectedAddresses,
+		 expectedAddresses.contains(pis.getPeerIdentity().getIdString()));
     }
 
     assertEquals(expectedAddresses.size(), idMap.size()); //2 above,plus me
     assertEquals(SetUtil.theSet(idMap.values()),
 		 SetUtil.theSet(idmgr.getPeerIdentityStatusList()));
-  }
-
-  public void NoTestGetUdpPeerIdentities() throws Exception {
-    Collection udpPeers = idmgr.getUdpPeerIdentities();
-    assertNotNull(udpPeers);
-    idmgr.findPeerIdentity("tcp:[127.0.0.1]:8001");
-    idmgr.findPeerIdentity("tcp:[127.0.0.1]:8002");
-    idmgr.findPeerIdentity("tcp:[127.0.0.1]:8003");
-    idmgr.findPeerIdentity("tcp:[127.0.0.1]:8004");
-    PeerIdentity id1 = idmgr.findPeerIdentity("127.0.0.2");
-    PeerIdentity id2 = idmgr.findPeerIdentity("127.0.0.3");
-    PeerIdentity id3 = idmgr.findPeerIdentity("127.0.0.4");
-    udpPeers = idmgr.getUdpPeerIdentities();
-    log.info("udp peers: " + udpPeers);
-    assertEquals(3, udpPeers.size());
-    Collection expectedPeers =
-      ListUtil.list(id1, id2, id3);
-    assertTrue(udpPeers.containsAll(expectedPeers));
-    assertTrue(expectedPeers.containsAll(udpPeers));
   }
 
   public void NoTestGetTcpPeerIdentities() throws Exception {
@@ -956,7 +827,7 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     }
 
     protected IdentityManagerStatus makeStatusAccessor() {
-      this.identities = theLcapIdentities;
+      this.identities = pidStatusMap;
       return new MockIdentityManagerStatus();
     }
 

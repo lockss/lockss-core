@@ -109,11 +109,6 @@ public class MockIdentityManager implements IdentityManager {
   }
 
   @Override
-  public IPAddr identityToIPAddr(PeerIdentity pid) {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
-  @Override
   public PeerIdentity getLocalPeerIdentity(int pollVersion) {
     switch (pollVersion) {
     case 3:
@@ -150,37 +145,9 @@ public class MockIdentityManager implements IdentityManager {
     throw new UnsupportedOperationException("not implemented");
   }
 
-  @Override
-  public void rememberEvent(PeerIdentity id, int event, LcapMessage msg) {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
-  @Override
-  public int getMaxReputation() {
-    return maxRep;
-  }
-  
   public Map getIdentities() {
     return piMap;
   }
-
-  public void setMaxReputation(int maxRep) {
-    this.maxRep = maxRep;
-  }
-
-  @Override
-  public int getReputation(PeerIdentity id) {
-    Integer rep = (Integer)repMap.get(id);
-    if (rep == null) {
-      return 0;
-    }
-    return rep.intValue();
-  }
-
-  public void setReputation(PeerIdentity id, int rep) {
-    repMap.put(id, new Integer(rep));
-  }
-
 
   @Override
   public void signalAgreed(PeerIdentity pid, ArchivalUnit au) {
@@ -263,12 +230,6 @@ public class MockIdentityManager implements IdentityManager {
 //     super.stopService();
 //     idMap = null;
 //   }
-
-  @Override
-  public void changeReputation(PeerIdentity id, int changeKind) {
-    throw new UnsupportedOperationException("not implemented");
-    //      idMap.put(id, new Integer(changeKind));
-  }
 
   @Override
   public void storeIdentities() throws ProtocolException {
@@ -364,20 +325,6 @@ public class MockIdentityManager implements IdentityManager {
     agreeMap.put(au, map);
   }
 
-  // XXX What does it mean to have unused protected methods on a mock?
-  protected LcapIdentity findLcapIdentity(PeerIdentity pid,
-					  IPAddr addr, int port) {
-    throw new UnsupportedOperationException("not implemented");
-  }
-  protected int getReputationDelta(int changeKind) {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
-  @Override
-  public Collection getUdpPeerIdentities() {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
   @Override
   public Collection getTcpPeerIdentities() {
     throw new UnsupportedOperationException("not implemented");
@@ -385,11 +332,6 @@ public class MockIdentityManager implements IdentityManager {
 
   @Override
   public Collection getTcpPeerIdentities(Predicate peerPredicate) {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
-  @Override
-  public LcapIdentity findLcapIdentity(PeerIdentity pid, String key) {
     throw new UnsupportedOperationException("not implemented");
   }
 
