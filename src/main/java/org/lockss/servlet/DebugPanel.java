@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -420,7 +420,7 @@ public class DebugPanel extends LockssServlet {
       }
       int cnt = 0;
       for (org.lockss.laaws.rs.model.Artifact art :
-	     v2Repo.getArtifactAllVersions(coll, au.getAuId(), url)) {
+	     v2Repo.getArtifactsAllVersions(coll, au.getAuId(), url)) {
 	log.debug2("deleting: " + art);
 	v2Repo.deleteArtifact(art);
 	cnt++;

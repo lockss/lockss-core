@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -208,9 +208,9 @@ public class BaseCachedUrl implements CachedUrl {
     if (isV2Repo()) {
       List<CachedUrl> cuVers = new ArrayList<CachedUrl>();
       try {
-	for (Artifact art : v2Repo.getArtifactAllVersions(v2Coll,
-							    au.getAuId(),
-							    url)) {
+	for (Artifact art : v2Repo.getArtifactsAllVersions(v2Coll,
+							   au.getAuId(),
+							   url)) {
 	  if (art.getCommitted()) {
 	    cuVers.add(new Version(au, url, art.getVersion(), art));
 	    if (cuVers.size() >= maxVersions) {
