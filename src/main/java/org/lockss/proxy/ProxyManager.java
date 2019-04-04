@@ -54,7 +54,7 @@ public class ProxyManager extends BaseProxyManager {
 
   public static final String PREFIX = Configuration.PREFIX + "proxy.";
   public static final String PARAM_START = PREFIX + "start";
-  public static final boolean DEFAULT_START = true;
+  public static final boolean DEFAULT_START = false;
 
   public static final String PARAM_PORT = PREFIX + "port";
   public static final int DEFAULT_PORT = 9090;

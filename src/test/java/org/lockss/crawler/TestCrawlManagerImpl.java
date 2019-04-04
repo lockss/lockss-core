@@ -70,6 +70,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     semsToGive = new ArrayList();
+    // default enable is now false for laaws.
+    ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_CRAWLER_ENABLED, "true");
     // some tests start the service, but most don't want the crawl starter
     // to run.
     cprops.put(CrawlManagerImpl.PARAM_START_CRAWLS_INTERVAL, "0");

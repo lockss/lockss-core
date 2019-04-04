@@ -58,7 +58,7 @@ public interface LcapStreamComm extends PeerMessage.Factory {
    * false while running comm will be stopped cannot be restarted without
    * restarting the daemon */
   static final String PARAM_ENABLED = PREFIX + "enabled";
-  static final boolean DEFAULT_ENABLED = true;
+  static final boolean DEFAULT_ENABLED = false;
 
   /** Listen socket backlog */
   public static final String PARAM_LISTEN_BACKLOG =

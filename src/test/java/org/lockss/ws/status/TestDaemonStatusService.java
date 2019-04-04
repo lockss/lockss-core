@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -83,7 +83,9 @@ public class TestDaemonStatusService extends LockssTestCase {
     tempDirPath = setUpDiskSpace();
 
     ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_IP,
-	TEST_LOCAL_IP);
+				  TEST_LOCAL_IP,
+				  CrawlManagerImpl.PARAM_CRAWLER_ENABLED,
+				  "true");
 
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);

@@ -100,26 +100,32 @@ public class JMSManager extends BaseLockssManager
   public static final String PARAM_USE_JMX = BROKER_PREFIX + "useJmx";
   public static final boolean DEFAULT_USE_JMS = false;
 
-  private BrokerService broker;
   private String brokerUri = DEFAULT_BROKER_URI;
   private String connectUri = DEFAULT_BROKER_URI;
+  private boolean startBroker = DEFAULT_START_BROKER;
+
+  private BrokerService broker;
   private Map<String,Connection> connectionMap = new HashMap<>();
 
   public void startService() {
     super.startService();
-    Configuration config = ConfigManager.getCurrentConfig();
-    brokerUri = config.get(PARAM_BROKER_URI, DEFAULT_BROKER_URI);
-
-    String curi;
-    if (config.getBoolean(PARAM_CONNECT_FAILOVER, DEFAULT_CONNECT_FAILOVER)) {
-      curi = "failover:(" + brokerUri + ")";
-    } else {
-      curi = config.get(PARAM_CONNECT_URI, brokerUri);
-    }
-    connectUri = curi;
-    if (config.getBoolean(PARAM_START_BROKER, DEFAULT_START_BROKER)) {
+    if (startBroker) {
       broker = createBroker(brokerUri); 
     }
+  }
+
+  public void setConfig(Configuration config, Configuration oldConfig,
+			Configuration.Differences changedKeys) {
+    if (changedKeys.contains(PREFIX)) {
+      brokerUri = config.get(PARAM_BROKER_URI, DEFAULT_BROKER_URI);
+
+      String curi = config.get(PARAM_CONNECT_URI, brokerUri);
+      if (config.getBoolean(PARAM_CONNECT_FAILOVER, DEFAULT_CONNECT_FAILOVER)) {
+	curi = "failover:(" + curi + ")";
+      }
+      connectUri = curi;
+    }
+    startBroker = config.getBoolean(PARAM_START_BROKER, DEFAULT_START_BROKER);
   }
 
   public void stopService() {
@@ -145,12 +151,6 @@ public class JMSManager extends BaseLockssManager
 	  log.error("Couldn't close JMS connection to {}", uri, e);
 	}
       }
-    }
-  }
-
-  public void setConfig(Configuration config, Configuration oldConfig,
-			Configuration.Differences changedKeys) {
-    if (changedKeys.contains(PREFIX)) {
     }
   }
 
@@ -203,6 +203,11 @@ public class JMSManager extends BaseLockssManager
   /** Return the URI that should be used to connect to the JMS broker */
   public String getConnectUri() {
     return connectUri;
+  }
+
+  /** Return the URI that the JMS broker should listen on */
+  public String getBrokerUri() {
+    return brokerUri;
   }
 
   /** Return a connection to the configured broker */

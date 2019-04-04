@@ -496,9 +496,7 @@ public class IcpManager
    */
   protected boolean shouldIcpServerStart(Configuration theConfig) {
    return    isIcpServerAllowed(theConfig)
-          && theConfig.getBoolean(PARAM_ICP_ENABLED,
-                                  theConfig.getBoolean(PARAM_PLATFORM_ICP_ENABLED,
-                                                       false))
+          && theConfig.getBoolean(PARAM_ICP_ENABLED, DEFAULT_ICP_ENABLED)
           && getPortFromConfig(theConfig) > 0;
   }
 
@@ -598,6 +596,7 @@ public class IcpManager
    */
   public static final String PARAM_ICP_ENABLED =
     PREFIX_ICP + "enabled";
+  public static final boolean DEFAULT_ICP_ENABLED = true;
 
   /**
    * <p>The ICP port parameter.</p>

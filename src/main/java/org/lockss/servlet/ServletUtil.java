@@ -144,13 +144,13 @@ public class ServletUtil {
     new SimpleDateFormat("HH:mm:ss MM/dd/yy");
 
   static final Image IMAGE_LOGO_LARGE =
-    image("lockss-logo-large.gif", 160, 160, 0);
+    image("lockss-logo-large.gif", 160, 122, 0);
 
   static final Image IMAGE_LOGO_SMALL =
-    image("lockss-logo-small.gif", 80, 81, 0);
+    image("lockss-logo-small.gif", 80, 61, 0);
 
   /* private */static final Image IMAGE_TM =
-    image("tm.gif", 16, 16, 0);
+    image("tm.gif", 16, 8, 0);
 
   private static final String ALIGN_CENTER = "align=\"center\""; /* (a) */
 
