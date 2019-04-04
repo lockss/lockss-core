@@ -61,7 +61,6 @@ public class TestPollSpec extends LockssTestCase {
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.0.0.1");
     ConfigurationUtil.setCurrentConfigFromProps(p);
-    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getIdentityManager();

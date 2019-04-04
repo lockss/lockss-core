@@ -2125,12 +2125,6 @@ public class LockssTestCase extends TestCase {
     return dbManager;
   }
 
-  // XXXREPO eliminate this
-  protected void useOldRepo() {
-    ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY, "");
-    ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
-  }
-
   /**
    * Configure daemon to use a volatile LockssRepository
    */

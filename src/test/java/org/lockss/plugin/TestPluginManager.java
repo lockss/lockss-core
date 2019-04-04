@@ -124,7 +124,6 @@ public class TestPluginManager extends LockssTestCase4 {
     UrlManager uMgr = new UrlManager();
     uMgr.initService(theDaemon);
     uMgr.startService();
-//     useOldRepo();
 
     RepositoryManager repoMgr = theDaemon.getRepositoryManager();
     repoMgr.startService();
