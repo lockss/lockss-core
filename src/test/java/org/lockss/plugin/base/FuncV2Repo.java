@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -163,12 +163,12 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact art1 = repo.addArtifact(ad1);
     repo.commitArtifact(art1);
     List<Artifact> l0 =
-      ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+      ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
 
     assertEquals(url1, l0.get(0).getUri());
     log.critical("testVersion all: " + l0);
-    List l = ListUtil.fromIterator(repo.getArtifactAllVersions(COLL, AUID,
-							       url1).iterator());
+    List l = ListUtil.fromIterator(repo.getArtifactsAllVersions(COLL, AUID,
+							        url1).iterator());
     assertEquals(1, l.size());
   }
 
@@ -212,13 +212,13 @@ public class FuncV2Repo extends LockssTestCase {
     log.critical("new artData meta: " + repo.getArtifactData(newArt).getMetadata());
     assertCompareIsEqualTo(art1.getIdentifier(), newArt.getIdentifier());
     List<Artifact> aids = 
-      ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+      ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
     log.critical("foo: " + aids);
 
     Artifact committedArt = repo.commitArtifact(newArt);
     log.critical("committedArt ver: " + committedArt.getVersion());
 
-    aids = ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+    aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
     log.critical("foo: " + aids);
     ArtifactData a1 = repo.getArtifactData(committedArt);
     assertInputStreamMatchesString("content 11111", a1.getInputStream());
@@ -233,7 +233,7 @@ public class FuncV2Repo extends LockssTestCase {
     ArtifactData ad2 = createArtifact(COLL, AUID, url2, "content xxxxx");
     Artifact art2 = repo.addArtifact(ad2);
     Artifact datas = repo.commitArtifact(art2);
-    aids = ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+    aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
     log.critical("foo: " + aids);
 
 

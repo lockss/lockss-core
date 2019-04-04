@@ -514,15 +514,15 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     Iterator<Artifact> artIter;
     try {
       if (spec.isAu()) {
-	artIter = v2Repo.getAllArtifacts(v2Coll, au.getAuId()).iterator();
+	artIter = v2Repo.getArtifacts(v2Coll, au.getAuId()).iterator();
       } else if (spec.isSingleNode()) {
 	artIter =
 	  new SingletonIterator<Artifact>(v2Repo.getArtifact(v2Coll,
 							     au.getAuId(),
 							     spec.getUrl()));
       } else {
-	artIter = v2Repo.getAllArtifactsWithPrefix(v2Coll, au.getAuId(),
-						     getUrl()).iterator();
+	artIter = v2Repo.getArtifactsWithPrefix(v2Coll, au.getAuId(),
+						getUrl()).iterator();
       }
     } catch (IOException e) {
       throw new RuntimeException("Error getting Artifact Iterator", e);
