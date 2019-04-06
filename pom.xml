@@ -63,9 +63,6 @@ POSSIBILITY OF SUCH DAMAGE.
     <stfSuite>simpleV3Tests</stfSuite><!-- alias -->
     <build.java.runStf.suite>${stfSuite}</build.java.runStf.suite><!-- property -->
 
-    <!-- Needed for buildProperties step (see below) -->
-    <dir.buildProperties>${project.build.outputDirectory}/org/lockss/htdocs</dir.buildProperties>
-    <file.buildProperties>${dir.buildProperties}/build.properties</file.buildProperties>
   </properties>
 
   <!-- Must be in every lockss-parent-pom descendant -->
@@ -829,46 +826,6 @@ POSSIBILITY OF SUCH DAMAGE.
         <version>${version.plugin.maven-antrun-plugin}</version>
         <executions>
         
-          <execution>
-            <id>buildProperties</id>
-            <phase>generate-resources</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <exportAntProperties>true</exportAntProperties>
-              <target>
-		<exec executable="hostname" outputproperty="hostname0" failifexecutionfails="false"/>
-                <condition property="hostname" value="${env.HOSTNAME}" else="${hostname0}">
-                  <isset property="env.HOSTNAME" />
-                </condition>
-                <tstamp>
-                  <format property="build.date" pattern="EEEE MMM dd, yyyy" />
-                </tstamp>
-                <tstamp>
-                  <format property="build.time" pattern="HH:mm:ss" />
-                </tstamp>
-                <tstamp><!-- build.timestamp is a Maven property -->
-                  <format property="build_timestamp" pattern="dd-MMM-yy' 'HH:mm:ss' 'zzz" />
-                </tstamp>                
-		<mkdir dir="${dir.buildProperties}" />
-		<propertyfile comment="Build Information"
-			      file="${file.buildProperties}">
-		  <entry key="build.date"
-			 value="${build.date}"/>
-		  <entry key="build.time"
-			 value="${build.time}"/>
-		  <entry key="build.timestamp"
-			 value="${build_timestamp}"/>
-		  <entry key="build.user.name" value="${user.name}"/>
-		  <entry key="build.host" value="${hostname}"/>
-		  <entry key="build.releasename" value="${build.releasename}"/>
-<!-- 		  <entry key="build.branchxx" value="${branch.name}"/> -->
-		</propertyfile>
-              </target>
-            </configuration>
-          </execution>
-
           <execution>
             <id>paramDoclet</id>
             <phase>package</phase>
