@@ -793,11 +793,7 @@ public class LockssApp {
     // initialize our properties from the urls given
     initProperties();
 
-    // repeat the version info, as we may now be logging to a different target
-    // (And to include the platform version, which wasn't availabe before the
-    // config was loaded.)
-    log.info(getJavaVersionInfo());
-    log.info(getVersionInfo() + ": starting managers");
+    log.info("Starting managers");
 
     // startup all services
     initManagers();
