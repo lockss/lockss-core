@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -124,6 +124,8 @@ public class LockssDaemon extends LockssApp {
     managerKey(ArchivalUnitStatus.class);
   public static final String PLATFORM_CONFIG_STATUS =
     managerKey(PlatformConfigStatus.class);
+  public static final String BUILD_INFO_STATUS =
+    managerKey(BuildInfoStatus.class);
   public static final String CONFIG_STATUS =
     managerKey(ConfigStatus.class);
   public static final String OVERVIEW_STATUS =
@@ -193,6 +195,7 @@ public class LockssDaemon extends LockssApp {
     ROUTER_MANAGER_DESC,
     ICP_MANAGER_DESC,
     PLATFORM_CONFIG_STATUS_DESC,
+    BUILD_INFO_STATUS_DESC,
     CONFIG_STATUS_DESC,
     ARCHIVAL_UNIT_STATUS_DESC,
     REPOSITORY_STATUS_DESC,

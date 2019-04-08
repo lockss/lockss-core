@@ -718,6 +718,16 @@ public abstract class LockssServlet extends HttpServlet
     return link.toString();
   }
 
+  /** Return a link to a servlet with params */
+  String srvLinkWithStyle(ServletDescr d, String text,
+		       String style, Properties params) {
+    Link link = new Link(srvURL(d, params), text);
+    if (!StringUtil.isNullString(style)) {
+      link.attribute("style", style);
+    }
+    return link.toString();
+  }
+
   /** Return an absolute link to a servlet with params */
   String srvAbsLink(ServletDescr d, String text, Properties params) {
     return srvAbsLink(d, text, concatParams(params));
@@ -1193,7 +1203,8 @@ public abstract class LockssServlet extends HttpServlet
   }
 
   protected void layoutFooter(Page page) {
-    ServletUtil.doLayoutFooter(page,
+    ServletUtil.doLayoutFooter(this,
+			       page,
                               (footnotes == null ? null : footnotes.iterator()),
                               getLockssApp().getVersionInfo());
     if (footnotes != null) {

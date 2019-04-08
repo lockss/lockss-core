@@ -115,6 +115,7 @@ public class FuncLockssApp extends LockssTestCase {
     // keystore manager must be started before any others that need to
     // access managed keystores
     KEYSTORE_MANAGER_DESC,
+    BUILD_INFO_STATUS_DESC,
     aMgr,
     new ManagerDesc(CRON, "org.lockss.daemon.Cron"),
     new ManagerDesc(WATCHDOG_SERVICE, "org.lockss.daemon.WatchdogService"),
