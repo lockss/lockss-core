@@ -828,10 +828,11 @@ public class StatusServiceImpl
     while (!areOverviewsRecent()) {
       synchronized(waitMonitor) {
 	long wait = TimeBase.msUntil(exp);
-	if (wait < 0) {
+	if (wait <= 0) {
 	  return false;
 	}
 	try {
+	  logger.debug2("waitMonitor.wait({})", wait);
 	  waitMonitor.wait(wait);
 	} catch (InterruptedException e) {
 	  return false;
