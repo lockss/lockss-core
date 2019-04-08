@@ -784,7 +784,7 @@ public class LockssApp {
     log.info("Java: " + getJavaVersionInfo());
     for (BuildInfo bi : BuildInfo.getAllBuildInfo()) {
       log.info("Build: " +
-	       bi.getBuildInfoStringInst("name",
+	       bi.getBuildInfoStringInst(BuildInfo.BUILD_ARTIFACT,
 					 BuildInfo.BUILD_VERSION,
 					 BuildInfo.BUILD_TIMESTAMP,
 					 BuildInfo.BUILD_HOST));
