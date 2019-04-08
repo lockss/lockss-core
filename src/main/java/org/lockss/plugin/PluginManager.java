@@ -910,10 +910,11 @@ public class PluginManager
 
       // Get all the Archival Unit configurations for this plugin.
       List<AuConfiguration> pluginAus = pluginsAuConfs.get(pluginKey);
-
-      // Loop through each Archival Unit configuration found.
-      for (AuConfiguration auConfiguration : pluginAus) {
-	startOrReconfigureAu(auConfiguration, scc);
+      if (pluginAus != null) {
+	// Loop through each Archival Unit configuration found.
+	for (AuConfiguration auConfiguration : pluginAus) {
+	  startOrReconfigureAu(auConfiguration, scc);
+	}
       }
     }
   }
