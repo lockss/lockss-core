@@ -70,7 +70,7 @@ public class StatusServiceImpl
     "StatusTable";
 
   /** Enable jms send/receive
-   * ParamRelevance Testing FIXME
+   * @ParamRelevance Testing
    */
   public static final String PARAM_JMS_ENABLED = JMS_PREFIX + "enabled";
   public static final boolean DEFAULT_JMS_ENABLED = true;

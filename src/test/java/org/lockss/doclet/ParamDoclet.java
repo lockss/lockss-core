@@ -61,6 +61,9 @@ import org.lockss.util.time.TimeUtil;
  * <li>LessCommon - Less commonly used.</li>
  * <li>Unknown - Relevance of parameter not specified.  This is the default
  *   if no relevance is specified.</li>
+ * <li>Testing - Primarily used by unit tests to disable some default
+ *   behavior that's undesirable when runnning tests, such as connecting to
+ *   a JMS broker.</li>
  * <li>Rare - Rarely used.</li>
  * <li>BackwardCompatibility - Used to restore some aspect of the daemon's
  *   behavior to what is was before some change or new feature was
@@ -630,6 +633,7 @@ public class ParamDoclet {
     Common("Commonly used"),
     LessCommon("Less commonly used"),
     Unknown("Relevance of parameter not specified"),
+    Testing("Primarily for use by unit tests"),
     Rare("Rarely used"),
     BackwardCompatibility("Used to restore some aspect of the daemon's behavior to what is was before some change or new feature was implemented.  Included primarily as a failsafe in case of unforseen consequences of the change."),
     Obsolescent("Enables or controls a feature that is no longer used"),
