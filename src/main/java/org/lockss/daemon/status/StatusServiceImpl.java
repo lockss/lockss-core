@@ -69,6 +69,12 @@ public class StatusServiceImpl
   public static final String DEFAULT_JMS_NOTIFICATION_TOPIC =
     "StatusTable";
 
+  /** Enable jms send/receive
+   * @ParamRelevance Testing
+   */
+  public static final String PARAM_JMS_ENABLED = JMS_PREFIX + "enabled";
+  public static final boolean DEFAULT_JMS_ENABLED = true;
+
   /** The jms clientid of the StatusService.
    * @ParamRelevance Rare
    */
@@ -92,6 +98,7 @@ public class StatusServiceImpl
 
 
   private String paramDefaultTable = DEFAULT_DEFAULT_TABLE;
+  private boolean paramJmsEnabled = DEFAULT_JMS_ENABLED;
 
   // Maps table name to locally registered StatusAccessor
   private Map<String,StatusAccessor> statusAccessors = new HashMap<>();
@@ -190,12 +197,15 @@ public class StatusServiceImpl
 					     DEFAULT_OVERVIEW_TIMEOUT);
     overviewStale = config.getTimeInterval(PARAM_OVERVIEW_STALE,
 					     DEFAULT_OVERVIEW_STALE);
+    paramJmsEnabled = config.getBoolean(PARAM_JMS_ENABLED, DEFAULT_JMS_ENABLED);
   }
 
   void setUpJmsNotifications() {
-    setUpJmsReceive(clientId, notificationTopic, true,
-		    new MapMessageListener("StatusTable Registration Listener"));
-    setUpJmsSend(clientId, notificationTopic);
+    if (paramJmsEnabled) {
+      setUpJmsReceive(clientId, notificationTopic, true,
+		      new MapMessageListener("StatusTable Registration Listener"));
+      setUpJmsSend(clientId, notificationTopic);
+    }
   }
 
   public String getDefaultTableName() {
@@ -818,10 +828,11 @@ public class StatusServiceImpl
     while (!areOverviewsRecent()) {
       synchronized(waitMonitor) {
 	long wait = TimeBase.msUntil(exp);
-	if (wait < 0) {
+	if (wait <= 0) {
 	  return false;
 	}
 	try {
+	  logger.debug2("waitMonitor.wait({})", wait);
 	  waitMonitor.wait(wait);
 	} catch (InterruptedException e) {
 	  return false;

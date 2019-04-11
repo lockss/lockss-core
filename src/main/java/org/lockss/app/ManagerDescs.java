@@ -141,6 +141,9 @@ public class ManagerDescs {
   public static ManagerDesc PLATFORM_CONFIG_STATUS_DESC =
     new ManagerDesc(LockssDaemon.PLATFORM_CONFIG_STATUS,
                     "org.lockss.config.PlatformConfigStatus");
+  public static ManagerDesc BUILD_INFO_STATUS_DESC =
+    new ManagerDesc(LockssDaemon.BUILD_INFO_STATUS,
+                    "org.lockss.config.BuildInfoStatus");
   public static ManagerDesc CONFIG_STATUS_DESC =
     new ManagerDesc(LockssDaemon.CONFIG_STATUS,
                     "org.lockss.config.ConfigStatus");

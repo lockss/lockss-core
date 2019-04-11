@@ -446,9 +446,10 @@ public class ServletUtil {
   }
 
   // Common page footer
-  public static void doLayoutFooter(Page page,
-                                  Iterator notesIterator,
-                                  String versionInfo) {
+  public static void doLayoutFooter(LockssServlet servlet,
+				    Page page,
+				    Iterator notesIterator,
+				    String versionInfo) {
     Composite comp = new Composite();
 
     addNotes(comp, notesIterator);
@@ -463,7 +464,16 @@ public class ServletUtil {
     table.add(IMAGE_TM);
     table.newRow();
     table.newCell("colspan=\"2\"");
-    table.add("<center><font size=\"-1\">" + versionInfo + "</font></center>");
+
+    Properties args =
+      PropUtil.fromArgs("table", BuildInfoStatus.BUILD_INFO_TABLE);
+    String verInfoLink =
+      servlet.srvLinkWithStyle(AdminServletManager.SERVLET_DAEMON_STATUS,
+			       versionInfo,
+			       "text-decoration: none; color: black",
+			       args);
+
+    table.add("<center><font size=\"-1\">" + verInfoLink + "</font></center>");
     comp.add(table);
     page.add(comp);
   }

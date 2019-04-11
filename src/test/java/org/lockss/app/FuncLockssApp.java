@@ -36,6 +36,7 @@ import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.daemon.status.*;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.plugin.*;
 import static org.lockss.app.ManagerDescs.*;
@@ -70,6 +71,7 @@ public class FuncLockssApp extends LockssTestCase {
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
       .setService(ServiceDescr.SVC_CONFIG)
       .setArgs(testArgs)
+      .addAppConfig(StatusServiceImpl.PARAM_JMS_ENABLED, "false")
       .addAppConfig("o.l.p22", "vvv3")
       .addAppConfig("o.l.p333", "vvv4")
       .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
@@ -113,6 +115,7 @@ public class FuncLockssApp extends LockssTestCase {
     // keystore manager must be started before any others that need to
     // access managed keystores
     KEYSTORE_MANAGER_DESC,
+    BUILD_INFO_STATUS_DESC,
     aMgr,
     new ManagerDesc(CRON, "org.lockss.daemon.Cron"),
     new ManagerDesc(WATCHDOG_SERVICE, "org.lockss.daemon.WatchdogService"),
@@ -144,6 +147,7 @@ public class FuncLockssApp extends LockssTestCase {
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
       .setName("Test App KeepRunning")
       .setArgs(testArgs)
+      .addAppConfig(StatusServiceImpl.PARAM_JMS_ENABLED, "false")
       .addAppConfig("o.l.p22", "vvv3")
       .addAppConfig("o.l.p333", "vvv4")
       .setKeepRunning(true)

@@ -200,6 +200,7 @@ public class LockssApp {
     // JOB_MANAGER_DESC,
 //     // Start the job database manager.
     // JOB_DB_MANAGER_DESC,
+    BUILD_INFO_STATUS_DESC,
   };
 
   private final ManagerDesc[] stdPostManagers = {
@@ -785,17 +786,19 @@ public class LockssApp {
   protected void startApp() throws Exception {
     startDate = TimeBase.nowDate();
 
-    log.info(getJavaVersionInfo());
-    log.info(getVersionInfo() + ": starting");
+    log.info("Java: " + getJavaVersionInfo());
+    for (BuildInfo bi : BuildInfo.getAllBuildInfo()) {
+      log.info("Build: " +
+	       bi.getBuildInfoStringInst(BuildInfo.BUILD_ARTIFACT,
+					 BuildInfo.BUILD_VERSION,
+					 BuildInfo.BUILD_TIMESTAMP,
+					 BuildInfo.BUILD_HOST));
+    }
 
     // initialize our properties from the urls given
     initProperties();
 
-    // repeat the version info, as we may now be logging to a different target
-    // (And to include the platform version, which wasn't availabe before the
-    // config was loaded.)
-    log.info(getJavaVersionInfo());
-    log.info(getVersionInfo() + ": starting managers");
+    log.info("Starting managers");
 
     // startup all services
     initManagers();
