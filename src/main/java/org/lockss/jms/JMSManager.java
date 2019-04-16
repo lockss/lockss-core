@@ -233,7 +233,9 @@ public class JMSManager extends BaseLockssManager
 	      }
 	      @Override
 	      public void transportResumed() {
-		onTransportResumed();
+		// Calling MessageProducer inside transportResumed() can
+		// cause deadlock
+		new Thread(() -> {onTransportResumed();}).start();
 	      }});
 	  connectionMap.put(uri, conn);
 	} else {
