@@ -38,6 +38,7 @@ import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.util.urlconn.*;
 import org.lockss.protocol.*;
 import org.junit.*;
@@ -511,14 +512,28 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testDynCluster() throws Exception {
+    String tempDirPath = setUpDiskSpace();
     List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
 			     "encode<me>");
     mgr.setClusterUrls(exp);
     ConfigFile cf = mgr.getConfigCache().find(CLUST_URL);
     Configuration config = cf.getConfiguration();
     assertEquals(exp, config.getList("org.lockss.auxPropUrls"));
+    String last = cf.getLastModified();
     // ensure file isn't regenerated each time
     assertSame(config, cf.getConfiguration());
+    assertEquals(last, cf.getLastModified());
+
+    TimerUtil.guaranteedSleep(1);
+    String fname = ConfigManager.CONFIG_FILE_EXPERT;
+    mgr.writeCacheConfigFile(PropUtil.fromArgs("exp.foo", "valfoo"),
+			     fname, "header");
+    Configuration config2 = cf.getConfiguration();
+    assertNotSame(config, config2);
+    assertNotEquals(last, cf.getLastModified());
+    exp.add(new File(tempDirPath, "config/expert_config.txt").toString());
+    assertEquals(exp, config2.getList("org.lockss.auxPropUrls"));
+
   }
 
   @Test

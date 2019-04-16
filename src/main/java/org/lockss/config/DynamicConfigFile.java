@@ -37,6 +37,10 @@ import org.lockss.util.*;
  * the content. */
 public abstract class DynamicConfigFile extends FileConfigFile {
 
+  private boolean valid = false;
+  // Time the file was last generated.  More precise than file's timestamp.
+  long newLastModified = 0;
+
   public DynamicConfigFile(String url, ConfigManager cfgMgr)  {
     super(url, cfgMgr);
   }
@@ -45,12 +49,16 @@ public abstract class DynamicConfigFile extends FileConfigFile {
   protected void initFile() {
   }
 
-   public InputStream getInputStream() throws IOException {
-     if (m_fileFile == null || !m_fileFile.exists() ) {
-       generateFile();
-     }
-     return super.getInputStream();
-   }
+  private void generateFileIfNecessary() throws IOException {
+    if (m_fileFile == null || !m_fileFile.exists() || !valid) {
+      generateFile();
+    }
+  }
+
+  public InputStream getInputStream() throws IOException {
+    generateFileIfNecessary();
+    return super.getInputStream();
+  }
 
   protected void generateFile() throws IOException {
      if (m_fileFile == null) {
@@ -63,6 +71,10 @@ public abstract class DynamicConfigFile extends FileConfigFile {
        m_fileFile.deleteOnExit();
      }
      generateFileContent(m_fileFile, m_cfgMgr);
+     valid = true;
+     // keep track of last generation time, so can notice updates with more
+     // precision than filesystem.  This is mostly useful for unit test.
+     newLastModified = TimeBase.nowMs();
   }
 
   /** Concrete subclass must implement this method, to store the file
@@ -73,19 +85,21 @@ public abstract class DynamicConfigFile extends FileConfigFile {
   protected abstract void generateFileContent(File file, ConfigManager cfgMgr)
       throws IOException;
 
-  /**
-   * Provides the last modification timestamp of this file.
-   * 
-   * @return a String with the new last-modified time.
-   * @throws IOException
-   *           if there are problems.
-   */
-  protected String calcNewLastModified() throws IOException {
-    if (m_fileFile == null || !m_fileFile.exists() ) {
-      generateFile();
-    }
+  /** Cause the content to be regenerated */
+  public void invalidate() {
+    // setting m_fileFile null here would create concurrency issues
+    log.debug("Invalidating: " + m_fileUrl);
+    valid = false;
+    setNeedsReload();
+  }
 
-    return super.calcNewLastModified();
+  /**
+   * Regenerate the file if necessary, then return the last generation
+   * time.  This is more precise than the file modification time and allows
+   * for easier testing */
+  protected String calcNewLastModified() throws IOException {
+    generateFileIfNecessary();
+    return Long.toString(newLastModified);
   }
 
   /** Return true of the URL matches the pattern for dynamic config files:

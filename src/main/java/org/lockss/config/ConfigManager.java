@@ -432,7 +432,10 @@ public class ConfigManager implements LockssManager {
   public static final String REMOTE_CONFIG_FAILOVER_FILENAME =
     "remote_config_failover_info.xml";
 
-  // Name of ClientCacheSpec used by HTTPConfigFile
+  /** URL of the dynamic cluster config "file" */
+  public static final String CLUSTER_URL = "dyn:cluster.xml";
+
+  /** Name of ClientCacheSpec used by HTTPConfigFile */
   public static final String HTTP_CACHE_NAME = "HTTPConfigFile";
 
   /** If set to a list of regexps, matching parameter names will be allowed
@@ -2666,15 +2669,8 @@ public class ConfigManager implements LockssManager {
     }
     config.store(os, header, addtl);
     os.close();
-    File cfile = new File(cacheConfigDir, cacheConfigFileName);
-    configCache.find(cfile.toString()).writeFromTempFile(tempfile, config);
-    log.debug2("Wrote cache config file: " + cfile);
-    LocalFileDescr descr = getLocalFileDescr(cacheConfigFileName);
-    if (!suppressReload) {
-      if (descr == null || descr.isNeedReloadAfterWrite()) {
-	requestReload();
-      }
-    }
+    installCacheConfigFile(cacheConfigFileName, tempfile,
+			   config, suppressReload);
   }
 
   /** Write the named local cache config file into the previously determined
@@ -2695,10 +2691,35 @@ public class ConfigManager implements LockssManager {
     // Write to a temp file and rename
     File tempfile = File.createTempFile("tmp_config", ".tmp", cacheConfigDir);
     StringUtil.toFile(tempfile, text);
+    installCacheConfigFile(cacheConfigFileName, tempfile, null, suppressReload);
+  }
+
+  private void installCacheConfigFile(String cacheConfigFileName,
+				      File tempfile,
+				      Configuration config,
+				      boolean suppressReload)
+      throws IOException {
     File cfile = new File(cacheConfigDir, cacheConfigFileName);
-    configCache.find(cfile.toString()).writeFromTempFile(tempfile, null);
+    ConfigFile cf = configCache.find(cfile.toString());
+    cf.writeFromTempFile(tempfile, config);
+
+    // local files are included in the cluster file only if they've been
+    // loaded, so ensure that it's been loaded.  Really only necessary the
+    // first time the file is written, but harmless in general - the file
+    // gets (re)loaded earlier than necessary.
+    cf.getConfiguration();
+
+    // If this is the first time this file was written, the cluster file
+    // may need to be regenerated.  Doing it every time a local file is
+    // written is overkill, but negligible extra work
+    invalidateClusterFile();
+
+    log.debug2("Wrote cache config file: " + cfile);
+    LocalFileDescr descr = getLocalFileDescr(cacheConfigFileName);
     if (!suppressReload) {
-      requestReload();
+      if (descr == null || descr.isNeedReloadAfterWrite()) {
+	requestReload();
+      }
     }
   }
 
@@ -3358,7 +3379,7 @@ public class ConfigManager implements LockssManager {
    * files should be added here. */
   public DynamicConfigFile newDynamicConfigFile(String url) {
     switch (url) {
-    case "dyn:cluster.xml":
+    case CLUSTER_URL:
       return new DynamicConfigFile(url, this) {
 	@Override
 	protected void generateFileContent(File file,
@@ -3398,12 +3419,23 @@ public class ConfigManager implements LockssManager {
       }
     }
 
+    log.debug2("Dyn PreUrls: " + sbCluster.toString());
+    log.debug2("Dyn PostUrls: " + sbLocal.toString());
     Map<String,String> valMap =
       MapUtil.map("PreUrls", sbCluster.toString(),
 		  "PostUrls", sbLocal.toString());
     try (Writer wrtr = new BufferedWriter(new FileWriter(file))) {
       TemplateUtil.expandTemplate("org/lockss/config/ClusterTemplate.xml",
 	  wrtr, valMap);
+    }
+  }
+
+  /** Cause the cluster file to be regenerated */
+  void invalidateClusterFile() {
+    ConfigFile cf = configCache.find(CLUSTER_URL);
+    if (cf instanceof DynamicConfigFile) {
+      log.debug2("Invalidating: " + cf);
+      ((DynamicConfigFile)cf).invalidate();
     }
   }
 

@@ -554,8 +554,7 @@ public class TestConfigFile {
     protected void updateLastModified(ConfigFile cf, long time)
 	throws IOException {
       DynamicConfigFile dcf = (DynamicConfigFile)cf;
-      File file = dcf.getFile();
-      file.setLastModified(time);
+      dcf.newLastModified = time;
     }
 
     protected boolean isAlwaysAttempt() {
