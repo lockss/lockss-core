@@ -118,18 +118,25 @@ public class Consumer {
 
   public void close() throws JMSException {
     if (messageConsumer != null) {
-      messageConsumer.close();
+      synchronized (messageConsumer) {
+	messageConsumer.close();
+      }
     }
   }
 
   public void setListener(MessageListener listener) throws JMSException {
-    if(messageConsumer != null) {
-      messageConsumer.setMessageListener(listener);
+    if (messageConsumer != null) {
+      synchronized (messageConsumer) {
+	messageConsumer.setMessageListener(listener);
+      }
     }
   }
 
   public Object receive(int timeout) throws JMSException {
-    Message message = messageConsumer.receive(timeout);
+    Message message = null;
+    synchronized (messageConsumer) {
+      message = messageConsumer.receive(timeout);
+    }
     if (message != null) {
       return convertMessage(message);
     }

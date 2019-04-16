@@ -92,7 +92,9 @@ public class Producer {
 
   public void close() throws JMSException {
     if (messageProducer != null) {
-      messageProducer.close();
+      synchronized (messageProducer) {
+	messageProducer.close();
+      }
     }
   }
 
@@ -104,14 +106,14 @@ public class Producer {
   public void sendText(String text) throws JMSException {
     // create a JMS TextMessage
     TextMessage textMessage = session.createTextMessage(text);
-
     // send the message to the topic destination
-    messageProducer.send(textMessage);
-
-    if (log.isDebug()) {
-      log.debug(clientId + ": sent to topic " +
-		messageProducer.getDestination() +
-		" message with text='" + text + "'");
+    synchronized (messageProducer) {
+      messageProducer.send(textMessage);
+      if (log.isDebug()) {
+	log.debug(clientId + ": sent to topic " +
+		  messageProducer.getDestination() +
+		  " message with text='" + text + "'");
+      }
     }
   }
 
@@ -131,7 +133,9 @@ public class Producer {
       }
       msg.setObject((String) entry.getKey(), entry.getValue());
     }
-    messageProducer.send(msg);
+    synchronized (messageProducer) {
+      messageProducer.send(msg);
+    }
     if (log.isDebug()) {
       log.debug(clientId + ": sent message with map='" + map + "'");
     }
@@ -146,7 +150,9 @@ public class Producer {
 
     BytesMessage msg = session.createBytesMessage();
     msg.writeBytes(bytes);
-    messageProducer.send(msg);
+    synchronized (messageProducer) {
+      messageProducer.send(msg);
+    }
     if (log.isDebug()) {
       log.debug(clientId + ": sent message of bytes ='" + bytes + "'");
     }
@@ -160,7 +166,9 @@ public class Producer {
   public void sendObject(Serializable obj) throws JMSException {
     ObjectMessage msg = session.createObjectMessage();
     msg.setObject(obj);
-    messageProducer.send(msg);
+    synchronized (messageProducer) {
+      messageProducer.send(msg);
+    }
     if (log.isDebug()) {
       log.debug(clientId + ": sent serialiable object ='" + msg + "'");
     }
