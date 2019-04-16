@@ -1149,6 +1149,10 @@ public class LockssApp {
   // classes to be loaded
   protected static void setSystemProperties() {
     System.setProperty(IMAGEIO_DISABLE_NATIVE_CODE, "true");
+    // Use a unique session cookie so that multiple instances running on
+    // the same host don't overwrite each other's session id
+    System.setProperty("org.mortbay.jetty.servlet.SessionCookie",
+		       "JSESSIONID_" + RandomStringUtils.randomAlphabetic(5));
   }
 
 
