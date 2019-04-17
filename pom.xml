@@ -839,7 +839,7 @@ POSSIBILITY OF SUCH DAMAGE.
                   <arg value="-f"/> <arg value="Alpha"/>
                   <arg value="-d"/> <arg value="${project.reporting.outputDirectory}/apidocs"/>
                   <arg value="-o"/> <arg value="paramdoc.html"/>
-                  <arg value="-h"/> <arg value="Release&amp;nbsp;${build.releasename} Built&amp;nbsp;${build_timestamp} on&amp;nbsp;${hostname}"/>
+                  <arg value="-h"/> <arg value="Release&amp;nbsp;${build.releasename} Built&amp;nbsp;${local.build.timestamp} on&amp;nbsp;${hostname}"/>
                 </javadoc>
               </target>
             </configuration>
