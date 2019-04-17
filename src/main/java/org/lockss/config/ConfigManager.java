@@ -109,8 +109,8 @@ public class ConfigManager implements LockssManager {
   static final long DEFAULT_RELOAD_INTERVAL = 30 * Constants.MINUTE;
 
   /** If set to <i>hostname</i>:<i>port</i>, the configuration server will
-   * be accessed via the specified proxy.  Leave unset for direct
-   * connection.
+   * be accessed via the specified proxy.  For direct connection, leave
+   * unset or set to <tt>DIRECT</tt> or <tt>NONE</tt>
    * @ParamCategory Platform
    */
   public static final String PARAM_PROPS_PROXY = PLATFORM + "propsProxy";
