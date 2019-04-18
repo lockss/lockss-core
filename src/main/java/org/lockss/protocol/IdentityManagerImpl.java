@@ -154,8 +154,6 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
   private long updatesBeforeStoring = DEFAULT_UPDATES_BEFORE_STORING;
   private long updates = 0;
 
-  private IdentityManagerStatus status;
-
   private Map<PeerIdentity,String> pidUiStemMap;
 
   /**
@@ -284,10 +282,9 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
     if (localPeerIdentities[Poll.V3_PROTOCOL] != null)
       log.info("Local V3 identity: " + getLocalPeerIdentity(Poll.V3_PROTOCOL));
 
-    status = makeStatusAccessor();
+    IdentityManagerStatus status = makeStatusAccessor();
     getDaemon().getStatusService().registerStatusAccessor("Identities",
 							  status);
-
     Vote.setIdentityManager(this);
     LcapMessage.setIdentityManager(this);
   }

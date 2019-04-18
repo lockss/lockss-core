@@ -30,6 +30,7 @@ package org.lockss.daemon.status;
 
 import java.util.*;
 import org.lockss.app.ServiceDescr;
+import org.lockss.daemon.status.StatusTable.ForeignOverview;
 
 /**
  * This object sits between the daemon and the UI code to function as a
@@ -142,7 +143,7 @@ public interface StatusService {
 
   /** Return the overview object most recently receieved from another
    * component for the named table */
-  public Object getForeignOverview(String table);
+  public ForeignOverview getForeignOverview(String table);
 
   /**
    * Get a reference to the named table for the given object.
