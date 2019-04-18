@@ -164,7 +164,7 @@ public class AdminServletManager extends BaseServletManager {
 
   public static final String PARAM_HELP_URL = PREFIX + "helpUrl";
   static final String DEFAULT_HELP_URL =
-          "http://www.lockss.org/lockss/Cache_Help";
+    "https://lockss.github.io/software/manual/using";
 
   /** If set, fetches of the UI root (http://cache:8081/) will be
    * redirected to this path (on same host and port) instead of serving the
