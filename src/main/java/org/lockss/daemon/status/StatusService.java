@@ -168,6 +168,10 @@ public interface StatusService {
   public List getReferences(Object obj);
 
 
+  /** Return true if a local version of the table should not be linked to
+   * if a global one exists */
+  public boolean isGlobalOnlyTable(String name);
+
   /**
    * Register an ObjectReferenceAccessor that knows how to create a {@link
    * StatusTable.Reference}s to one or more tables with a key appropriate to
