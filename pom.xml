@@ -826,7 +826,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <goal>run</goal>
             </goals>
             <configuration>
-              <skip>${build.java.jarJavadoc.skip}</skip>
+              <skip>${build.java.jarMainJavadoc.skip}</skip>
               <target>
                 <mkdir dir="${project.reporting.outputDirectory}/apidocs" />
                 <javadoc sourcepath="${project.build.sourceDirectory}"
