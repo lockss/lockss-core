@@ -28,11 +28,17 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.IOException;
 import java.util.*;
 import org.lockss.util.*;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.AuUtil;
+import org.lockss.app.LockssApp;
+import org.lockss.app.LockssDaemon;
 import org.lockss.hasher.HashResult;
 
 /**
@@ -110,10 +116,29 @@ public class AuSuspectUrlVersions implements LockssSerializable {
     }
   }
 
+  private String auid;
+
   private Set<SuspectUrlVersion> suspectVersions =
     new HashSet<SuspectUrlVersion>();
 
   protected AuSuspectUrlVersions() {
+  }
+
+  protected AuSuspectUrlVersions(String auid) {
+    this.auid = auid;
+  }
+
+  /**
+   * Creates and provides a new instance.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @return an AuSuspectUrlVersions with the newly created object.
+   */
+  @JsonCreator
+  public static AuSuspectUrlVersions make(@JsonProperty("auid") String auid) {
+    AuSuspectUrlVersions auSuspectUrlVersions = new AuSuspectUrlVersions(auid);
+    return auSuspectUrlVersions;
   }
 
   /**
@@ -201,5 +226,111 @@ public class AuSuspectUrlVersions implements LockssSerializable {
       }
     }
     return ret;
+  }
+
+  /**
+   * Provides a serialized version of this entire object as a JSON string.
+   * 
+   * @return a String with this object serialized as a JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public String toJson() throws IOException {
+    return toJson((Set<SuspectUrlVersion>)null);
+  }
+
+  /**
+   * Provides a serialized version of this object with the single field as a
+   * JSON string.
+   * 
+   * @param suspectUrlVersion
+   *          A SuspectUrlVersion with the field to be included.
+   * 
+   * @return a String with this object serialized as a JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public String toJson(SuspectUrlVersion suspectUrlVersion) throws IOException {
+    return toJson(SetUtil.set(suspectUrlVersion));
+  }
+
+  /**
+   * Provides a serialized version of this object with the passed fields as a
+   * JSON string.
+   * 
+   * @param suspectUrlVersions
+   *          A Set<SuspectUrlVersion> with the fields to be included.
+   * 
+   * @return a String with this object serialized as a JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public synchronized String toJson(Set<SuspectUrlVersion> suspectUrlVersions)
+      throws IOException {
+    return AuUtil.jsonFromAuSuspectUrlVersions(makeBean(suspectUrlVersions),
+	suspectUrlVersions);
+  }
+
+  /**
+   * Creates and provides a new instance with the passed fields.
+   * 
+   * @param suspectUrlVersions
+   *          A Set<SuspectUrlVersion> with the fields to be included.
+   * @return an AuSuspectUrlVersions with the newly created object.
+   */
+  AuSuspectUrlVersions makeBean(Set<SuspectUrlVersion> suspectUrlVersions) {
+    AuSuspectUrlVersions res = new AuSuspectUrlVersions(auid);
+    res.suspectVersions = suspectUrlVersions;
+    return res;
+  }
+
+  /**
+   * Provides the SuspectUrlVersions that are present in a serialized JSON
+   * string.
+   * 
+   * @param json
+   *          A String with the JSON text.
+   * @param app
+   *          A LockssApp with the LOCKSS context.
+   * @return a Set<SuspectUrlVersion> that was updated from the JSON source.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public synchronized Set<SuspectUrlVersion> updateFromJson(String json,
+      LockssApp app) throws IOException {
+    // Deserialize the JSON text into a new, scratch instance.
+    AuSuspectUrlVersions srcSuvs = AuUtil.auSuspectUrlVersionsFromJson(json);
+    // Get the fields in the new instance.
+    Set<SuspectUrlVersion> res = srcSuvs.suspectVersions;
+    postUnmarshal(app);
+    return res;
+  }
+
+  /**
+   * Deserializes a JSON string into a new AuSuspectUrlVersions object.
+   * 
+   * @param key
+   *          A String with the Archival Unit identifier.
+   * @param json
+   *          A String with the JSON text.
+   * @param daemon
+   *          A LockssDaemon with the LOCKSS daemon.
+   * @return a AuSuspectUrlVersions with the newly created object.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static AuSuspectUrlVersions fromJson(String key, String json,
+					      LockssDaemon daemon)
+						  throws IOException {
+    AuSuspectUrlVersions res = AuSuspectUrlVersions.make(key);
+    res.updateFromJson(json, daemon);
+    return res;
+  }
+
+  /**
+   * Avoids duplicating common strings.
+   */
+  protected void postUnmarshal(LockssApp lockssContext) {
+    auid = StringPool.AUIDS.intern(auid);
   }
 }

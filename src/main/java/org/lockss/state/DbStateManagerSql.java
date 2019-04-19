@@ -44,6 +44,7 @@ import org.lockss.log.L4JLogger;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.PluginManager;
 import org.lockss.protocol.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.util.time.TimeBase;
 
 /**
@@ -102,6 +103,54 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       + ARCHIVAL_UNIT_AGREEMENTS_TABLE
       + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
       + "," + AGREEMENTS_STRING_COLUMN
+      + ") values (?,?)";
+
+  // Query to retrieve an AU suspect URL versions string.
+  private static final String GET_AU_SUSPECT_URL_VERSIONS_QUERY = "select "
+      + "s." + SUSPECT_URL_VERSIONS_STRING_COLUMN
+      + " from " + PLUGIN_TABLE + " p"
+      + ", " + ARCHIVAL_UNIT_TABLE + " a"
+      + ", " + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE + " s"
+      + " where p." + PLUGIN_ID_COLUMN + " = ?"
+      + " and p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
+      + " and a." + ARCHIVAL_UNIT_KEY_COLUMN + " = ?"
+      + " and a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = s."
+      + ARCHIVAL_UNIT_SEQ_COLUMN;
+
+  // Query to delete the suspect URL versions of an AU.
+  private static final String DELETE_AU_SUSPECT_URL_VERSIONS_QUERY =
+      "delete from " + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE
+      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
+
+  // Query to add an AU suspect URL versions string.
+  private static final String ADD_AU_SUSPECT_URL_VERSIONS_QUERY = "insert into "
+      + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE
+      + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + "," + SUSPECT_URL_VERSIONS_STRING_COLUMN
+      + ") values (?,?)";
+
+  // Query to retrieve an AU dated peer set string.
+  private static final String GET_DATED_PEER_SET_QUERY = "select "
+      + "s." + DATED_PEER_SET_STRING_COLUMN
+      + " from " + PLUGIN_TABLE + " p"
+      + ", " + ARCHIVAL_UNIT_TABLE + " a"
+      + ", " + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + " s"
+      + " where p." + PLUGIN_ID_COLUMN + " = ?"
+      + " and p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
+      + " and a." + ARCHIVAL_UNIT_KEY_COLUMN + " = ?"
+      + " and a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = s."
+      + ARCHIVAL_UNIT_SEQ_COLUMN;
+
+  // Query to delete the dated peer set of an AU.
+  private static final String DELETE_DATED_PEER_SET_QUERY = "delete from "
+      + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE
+      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
+
+  // Query to add an AU dated peer set string.
+  private static final String ADD_DATED_PEER_SET_QUERY = "insert into "
+      + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE
+      + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + "," + DATED_PEER_SET_STRING_COLUMN
       + ") values (?,?)";
 
   /**
@@ -784,6 +833,718 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       throw dbe;
     } finally {
       ConfigDbManager.safeCloseStatement(addAgreements);
+    }
+  }
+
+  /**
+   * Provides the AuSuspectUrlVersions associated with the key (an AUID).
+   * 
+   * @param key
+   *          A String with the key under which the AuSuspectUrlVersions is
+   *          stored.
+   * @return an AuSuspectUrlVersions, or null if not present in the store.
+   * @throws DbException
+   *           if any problem occurred accessing the data.
+   * @throws IOException
+   *           if any problem occurred accessing the data.
+   */
+  @Override
+  public AuSuspectUrlVersions findAuSuspectUrlVersions(String key)
+      throws DbException, IOException {
+    String json = findArchivalUnitSuspectUrlVersions(
+	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
+
+    AuSuspectUrlVersions res = null;
+
+    if (json != null) {
+      res = AuSuspectUrlVersions.fromJson(key, json,
+	  LockssDaemon.getLockssDaemon());
+    }
+
+    return res;
+  }
+
+  /**
+   * Updates an AuSuspectUrlVersions in the store, creating it if not already
+   * present. If already present, only those fields listed in <code>ausuv</code>
+   * must be stored, but it it permissible to ignore <code>ausuv</code> and
+   * store the entire object.
+   * 
+   * @param key
+   *          A String with the key under which the AuSuspectUrlVersions is
+   *          stored.
+   * @param ausuv
+   *          An AuSuspectUrlVersions with the object to be updated.
+   * @param versions
+   *          A Set<SuspectUrlVersion> with the fields that must be written.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the data.
+   */
+  @Override
+  public Long updateAuSuspectUrlVersions(String key,
+					 AuSuspectUrlVersions ausuv,
+					 Set<SuspectUrlVersion> versions)
+					     throws DbException {
+    return updateArchivalUnitSuspectUrlVersions(
+	PluginManager.pluginIdFromAuId(key),
+	PluginManager.auKeyFromAuId(key), ausuv);
+  }
+
+  /**
+   * Provides the suspect URL versions of an Archival Unit stored in the
+   * database.
+   * 
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a String with the Archival Unit suspect URL versions.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private String findArchivalUnitSuspectUrlVersions(String pluginId,
+      String auKey) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      // Get the suspect URL versions of the Archival Unit, if it exists.
+      return findArchivalUnitSuspectUrlVersions(conn, pluginId, auKey);
+    } catch (DbException dbe) {
+      String message = "Cannot find AU suspect URL versions";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Provides the suspect URL versions of an Archival Unit stored in the
+   * database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a String with the Archival Unit suspect URL versions.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private String findArchivalUnitSuspectUrlVersions(Connection conn,
+      String pluginId, String auKey) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    String result = null;
+    PreparedStatement getAuSuspectUrlVersions = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get AU suspect URL versions";
+
+    try {
+      // Prepare the query.
+      getAuSuspectUrlVersions = configDbManager.prepareStatement(conn,
+	  GET_AU_SUSPECT_URL_VERSIONS_QUERY);
+
+      // Populate the query.
+      getAuSuspectUrlVersions.setString(1, pluginId);
+      getAuSuspectUrlVersions.setString(2, auKey);
+
+      // Get the suspect URL versions of the Archival Unit.
+      resultSet = configDbManager.executeQuery(getAuSuspectUrlVersions);
+
+      // Get the single result, if any.
+      if (resultSet.next()) {
+	result = resultSet.getString(SUSPECT_URL_VERSIONS_STRING_COLUMN);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_AU_SUSPECT_URL_VERSIONS_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", GET_AU_SUSPECT_URL_VERSIONS_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(getAuSuspectUrlVersions);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Updates the suspect URL versions of an Archival Unit in the database.
+   * 
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param ausuv
+   *          An {@link AuSuspectUrlVersions} with the suspect URL versions.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long updateArchivalUnitSuspectUrlVersions(String pluginId,
+      String auKey, AuSuspectUrlVersions ausuv) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("ausuv = {}", ausuv);
+
+    Long result = null;
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      // Update the suspect URL versions.
+      result =
+	  updateArchivalUnitSuspectUrlVersions(conn, pluginId, auKey, ausuv);
+
+      // Commit the transaction.
+      ConfigDbManager.commitOrRollback(conn, log);
+    } catch (DbException dbe) {
+      String message = "Cannot update AU suspect URL versions";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("ausuv = {}", ausuv);
+      throw dbe;
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Updates the suspect URL versions of an Archival Unit in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param ausuv
+   *          An {@link AuSuspectUrlVersions} with the suspect URL versions.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long updateArchivalUnitSuspectUrlVersions(Connection conn,
+      String pluginId, String auKey, AuSuspectUrlVersions ausuv)
+	  throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("ausuv = {}", ausuv);
+
+    Long auSeq = null;
+
+    try {
+      // Find the Archival Unit plugin.
+      Long pluginSeq = findOrCreatePlugin(conn, pluginId);
+
+      // The current time.
+      long now = TimeBase.nowMs();
+
+      // Find the Archival Unit, adding it if necessary.
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+
+      // Delete any existing suspect URL versions of the Archival Unit.
+      int deletedCount = deleteArchivalUnitSuspectUrlVersions(conn, auSeq);
+      log.trace("deletedCount = {}", deletedCount);
+
+      // Add the new suspect URL versions of the Archival Unit.
+      int addedCount = addArchivalUnitSuspectUrlVersions(conn, auSeq, ausuv);
+      log.trace("addedCount = {}", addedCount);
+    } catch (DbException dbe) {
+      String message = "Cannot update AU suspect URL versions";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("ausuv = {}", ausuv);
+      throw dbe;
+    }
+
+    log.debug2("auSeq = {}", auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Deletes from the database the suspect URL versions of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the database identifier of the Archival Unit.
+   * @return an int with the count of database rows deleted.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private int deleteArchivalUnitSuspectUrlVersions(Connection conn, Long auSeq)
+      throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+
+    int result = -1;
+    PreparedStatement deleteSuspectUrlVersions = null;
+    String errorMessage = "Cannot delete Archival Unit suspect URL versions";
+
+    try {
+      // Prepare the query.
+      deleteSuspectUrlVersions = configDbManager.prepareStatement(conn,
+	  DELETE_AU_SUSPECT_URL_VERSIONS_QUERY);
+
+      // Populate the query.
+      deleteSuspectUrlVersions.setLong(1, auSeq);
+
+      // Execute the query
+      result = configDbManager.executeUpdate(deleteSuspectUrlVersions);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", DELETE_AU_SUSPECT_URL_VERSIONS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", DELETE_AU_SUSPECT_URL_VERSIONS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(deleteSuspectUrlVersions);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Adds to the database the suspect URL versions of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the database identifier of the Archival Unit.
+   * @param ausuv
+   *          An {@link AuSuspectUrlVersions} with the suspect URL versions.
+   * @return an int with the count of database rows added.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private int addArchivalUnitSuspectUrlVersions(Connection conn, Long auSeq,
+      AuSuspectUrlVersions ausuv) throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+    log.debug2("ausuv = {}", ausuv);
+
+    PreparedStatement addSuspectUrlVersions = null;
+    String errorMessage = "Cannot add Archival Unit suspect URL versions";
+
+    try {
+      // Convert to JSON
+      String json = ausuv.toJson();
+      
+      // Prepare the query.
+      addSuspectUrlVersions = configDbManager.prepareStatement(conn,
+	  ADD_AU_SUSPECT_URL_VERSIONS_QUERY);
+
+      // Populate the query.
+      addSuspectUrlVersions.setLong(1, auSeq);
+      addSuspectUrlVersions.setString(2, json);
+
+      // Execute the query
+      int count = configDbManager.executeUpdate(addSuspectUrlVersions);
+      log.debug2("addedCount = {}", count);
+      return count;
+    } catch (IOException ioe) {
+      log.error(errorMessage, ioe);
+      log.error("SQL = '{}'.", ADD_AU_SUSPECT_URL_VERSIONS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("ausuv = {}", ausuv);
+      throw new DbException(errorMessage, ioe);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", ADD_AU_SUSPECT_URL_VERSIONS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("ausuv = {}", ausuv);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", ADD_AU_SUSPECT_URL_VERSIONS_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("ausuv = {}", ausuv);
+      throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(addSuspectUrlVersions);
+    }
+  }
+
+  /**
+   * Provides the DatedPeerIdSet associated with the key (an AUID).
+   * 
+   * @param key
+   *          A String with the key under which the DatedPeerIdSet is stored.
+   * @return a DatedPeerIdSet, or null if not present in the store.
+   * @throws DbException
+   *           if any problem occurred accessing the data.
+   * @throws IOException
+   *           if any problem occurred accessing the data.
+   */
+  @Override
+  public DatedPeerIdSet findDatedPeerIdSet(String key)
+      throws DbException, IOException {
+    String json = findArchivalUnitDatedPeerIdSet(
+	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
+
+    DatedPeerIdSet res = null;
+
+    if (json != null) {
+      res = (DatedPeerIdSet)(PersistentPeerIdSetImpl.fromJson(key, json, LockssDaemon.getLockssDaemon()));
+    }
+
+    return res;
+  }
+
+  /**
+   * Updates a DatedPeerIdSet in the store, creating it if not already present.
+   * If already present, only those peers listed in <code>peers</code> must be
+   * stored, but it it permissible to ignore <code>peers</code> and store the
+   * entire object.
+   * 
+   * @param key
+   *          A String with the key under which the DatedPeerIdSet is stored.
+   * @param dpis
+   *          A DatedPeerIdSet wth the object to be updated.
+   * @param peers
+   *          A Set<PeerIdentity> with the peers that must be written.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the data.
+   */
+  @Override
+  public Long updateDatedPeerIdSet(String key,
+				     DatedPeerIdSet dpis,
+				     Set<PeerIdentity> peers)
+					 throws DbException {
+    return updateArchivalUnitDatedPeerIdSet(PluginManager.pluginIdFromAuId(key),
+	PluginManager.auKeyFromAuId(key), dpis);
+  }
+
+  /**
+   * Provides the dated peers of an Archival Unit stored in the database.
+   * 
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a String with the Archival Unit dated peers.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private String findArchivalUnitDatedPeerIdSet(String pluginId, String auKey)
+      throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      // Get the dated peers of the Archival Unit, if it exists.
+      return findArchivalUnitDatedPeerIdSet(conn, pluginId, auKey);
+    } catch (DbException dbe) {
+      String message = "Cannot find AU dated peers";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Provides the dated peers of an Archival Unit stored in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @return a String with the Archival Unit dated peers.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private String findArchivalUnitDatedPeerIdSet(Connection conn, String pluginId,
+      String auKey) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+
+    String result = null;
+    PreparedStatement getDatedPeerIdSet = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get AU dated peers";
+
+    try {
+      // Prepare the query.
+      getDatedPeerIdSet =
+	  configDbManager.prepareStatement(conn, GET_DATED_PEER_SET_QUERY);
+
+      // Populate the query.
+      getDatedPeerIdSet.setString(1, pluginId);
+      getDatedPeerIdSet.setString(2, auKey);
+
+      // Get the configuration of the Archival Unit.
+      resultSet = configDbManager.executeQuery(getDatedPeerIdSet);
+
+      // Get the single result, if any.
+      if (resultSet.next()) {
+	result = resultSet.getString(DATED_PEER_SET_STRING_COLUMN);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_DATED_PEER_SET_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", GET_DATED_PEER_SET_QUERY);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(getDatedPeerIdSet);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Updates the dated peers of an Archival Unit in the database.
+   * 
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param dpis
+   *          An {@link DatedPeerIdSet} with the dated peers.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long updateArchivalUnitDatedPeerIdSet(String pluginId, String auKey,
+      DatedPeerIdSet dpis) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("dpis = {}", dpis);
+
+    Long result = null;
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database.
+      conn = getConnection();
+
+      // Update the dated peers.
+      result = updateArchivalUnitDatedPeerIdSet(conn, pluginId, auKey, dpis);
+
+      // Commit the transaction.
+      ConfigDbManager.commitOrRollback(conn, log);
+    } catch (DbException dbe) {
+      String message = "Cannot update AU dated peers";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("dpis = {}", dpis);
+      throw dbe;
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Updates the dated peers of an Archival Unit in the database.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginId
+   *          A String with the Archival Unit plugin identifier.
+   * @param auKey
+   *          A String with the Archival Unit key identifier.
+   * @param dpis
+   *          An {@link DatedPeerIdSet} with the dated peers.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private Long updateArchivalUnitDatedPeerIdSet(Connection conn, String pluginId,
+      String auKey, DatedPeerIdSet dpis) throws DbException {
+    log.debug2("pluginId = {}", pluginId);
+    log.debug2("auKey = {}", auKey);
+    log.debug2("dpis = {}", dpis);
+
+    Long auSeq = null;
+
+    try {
+      // Find the Archival Unit plugin.
+      Long pluginSeq = findOrCreatePlugin(conn, pluginId);
+
+      // The current time.
+      long now = TimeBase.nowMs();
+
+      // Find the Archival Unit, adding it if necessary.
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+
+      // Delete any existing dated peers of the Archival Unit.
+      int deletedCount = deleteArchivalUnitDatedPeerIdSet(conn, auSeq);
+      log.trace("deletedCount = {}", deletedCount);
+
+      // Add the new dated peers of the Archival Unit.
+      int addedCount = addArchivalUnitDatedPeerIdSet(conn, auSeq, dpis);
+      log.trace("addedCount = {}", addedCount);
+    } catch (DbException dbe) {
+      String message = "Cannot update AU dated peers";
+      log.error(message, dbe);
+      log.error("pluginId = {}", pluginId);
+      log.error("auKey = {}", auKey);
+      log.error("dpis = {}", dpis);
+      throw dbe;
+    }
+
+    log.debug2("auSeq = {}", auSeq);
+    return auSeq;
+  }
+
+  /**
+   * Deletes from the database the dated peers of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the database identifier of the Archival Unit.
+   * @return an int with the count of database rows deleted.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private int deleteArchivalUnitDatedPeerIdSet(Connection conn, Long auSeq)
+      throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+
+    int result = -1;
+    PreparedStatement deleteDatedPeerIdSet = null;
+    String errorMessage = "Cannot delete Archival Unit dated peers";
+
+    try {
+      // Prepare the query.
+      deleteDatedPeerIdSet =
+	  configDbManager.prepareStatement(conn, DELETE_DATED_PEER_SET_QUERY);
+
+      // Populate the query.
+      deleteDatedPeerIdSet.setLong(1, auSeq);
+
+      // Execute the query
+      result = configDbManager.executeUpdate(deleteDatedPeerIdSet);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", DELETE_DATED_PEER_SET_QUERY);
+      log.error("auSeq = {}", auSeq);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", DELETE_DATED_PEER_SET_QUERY);
+      log.error("auSeq = {}", auSeq);
+      throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(deleteDatedPeerIdSet);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  /**
+   * Adds to the database the dated peers of an Archival Unit.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param auSeq
+   *          A Long with the database identifier of the Archival Unit.
+   * @param dpis
+   *          An {@link DatedPeerIdSet} with the dated peers.
+   * @return an int with the count of database rows added.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private int addArchivalUnitDatedPeerIdSet(Connection conn, Long auSeq,
+      DatedPeerIdSet dpis) throws DbException {
+    log.debug2("auSeq = {}", auSeq);
+    log.debug2("dpis = {}", dpis);
+
+    PreparedStatement addDatedPeerIdSet = null;
+    String errorMessage = "Cannot add Archival Unit dated peers";
+
+    try {
+      // Convert to JSON
+      String json = dpis.toJson();
+      
+      // Prepare the query.
+      addDatedPeerIdSet =
+	  configDbManager.prepareStatement(conn, ADD_DATED_PEER_SET_QUERY);
+
+      // Populate the query.
+      addDatedPeerIdSet.setLong(1, auSeq);
+      addDatedPeerIdSet.setString(2, json);
+
+      // Execute the query
+      int count = configDbManager.executeUpdate(addDatedPeerIdSet);
+      log.debug2("addedCount = {}", count);
+      return count;
+    } catch (IOException ioe) {
+      log.error(errorMessage, ioe);
+      log.error("SQL = '{}'.", ADD_DATED_PEER_SET_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("dpis = {}", dpis);
+      throw new DbException(errorMessage, ioe);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", ADD_DATED_PEER_SET_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("dpis = {}", dpis);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", ADD_DATED_PEER_SET_QUERY);
+      log.error("auSeq = {}", auSeq);
+      log.error("dpis = {}", dpis);
+      throw dbe;
+    } finally {
+      ConfigDbManager.safeCloseStatement(addDatedPeerIdSet);
     }
   }
 }

@@ -169,7 +169,7 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
    * Sets up update versions.
    */
   private void setUpVersions() {
-    targetDatabaseVersion = 3;
+    targetDatabaseVersion = 4;
     asynchronousUpdates = new int[] {};
   }
 
@@ -394,6 +394,8 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
       configDbManagerSql.updateDatabaseFrom1To2(conn);
     } else if (databaseVersion == 3) {
       configDbManagerSql.updateDatabaseFrom2To3(conn);
+    } else if (databaseVersion == 4) {
+      configDbManagerSql.updateDatabaseFrom3To4(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
 	  + "to version " + databaseVersion + ".");

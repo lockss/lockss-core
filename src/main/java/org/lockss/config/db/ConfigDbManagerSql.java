@@ -134,7 +134,7 @@ public class ConfigDbManagerSql extends DbManagerSql {
       put(ARCHIVAL_UNIT_STATE_TABLE, CREATE_ARCHIVAL_UNIT_STATE_TABLE_QUERY);
     }};
 
-  // Query to create the table for recording archival units state properties.
+  // Query to create the table for recording archival units agreements.
   private static final String CREATE_ARCHIVAL_UNIT_AGREEMENTS_TABLE_QUERY =
       "create table "
       + ARCHIVAL_UNIT_AGREEMENTS_TABLE + " ("
@@ -159,6 +159,49 @@ public class ConfigDbManagerSql extends DbManagerSql {
 	  + ARCHIVAL_UNIT_STATE_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN + ")",
       "create unique index idx1_" + ARCHIVAL_UNIT_AGREEMENTS_TABLE + " on "
 	  + ARCHIVAL_UNIT_AGREEMENTS_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+	  + ")"
+  };
+
+  // Query to create the table for recording archival units suspect URL
+  // versions.
+  private static final String
+  CREATE_ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE_QUERY = "create table "
+      + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE + " ("
+      + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
+      + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + ") on delete cascade,"
+      + SUSPECT_URL_VERSIONS_STRING_COLUMN + " varchar("
+      + MAX_SUSPECT_URL_VERSIONS_STRING_COLUMN + ") not null"
+      + ")";
+
+  // Query to create the table for recording archival units dated peer sets.
+  private static final String CREATE_ARCHIVAL_UNIT_DATED_PEER_SET_TABLE_QUERY =
+      "create table "
+      + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + " ("
+      + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
+      + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
+      + ") on delete cascade,"
+      + DATED_PEER_SET_STRING_COLUMN + " varchar("
+      + MAX_DATED_PEER_SET_STRING_COLUMN + ") not null"
+      + ")";
+
+  // The SQL code used to create the necessary version 4 database tables.
+  @SuppressWarnings("serial")
+  private static final Map<String, String> VERSION_4_TABLE_CREATE_QUERIES =
+    new LinkedHashMap<String, String>() {{
+      put(ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE,
+	  CREATE_ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE_QUERY);
+      put(ARCHIVAL_UNIT_DATED_PEER_SET_TABLE,
+	  CREATE_ARCHIVAL_UNIT_DATED_PEER_SET_TABLE_QUERY);
+    }};
+
+  // SQL statements that create the necessary version 4 indices.
+  private static final String[] VERSION_4_INDEX_CREATE_QUERIES = new String[] {
+      "create unique index idx1_" + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE
+      + " on " + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE + "("
+	  + ARCHIVAL_UNIT_SEQ_COLUMN + ")",
+      "create unique index idx1_" + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + " on "
+	  + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
 	  + ")"
   };
 
@@ -255,6 +298,30 @@ public class ConfigDbManagerSql extends DbManagerSql {
 
     // Create the necessary indices.
     executeDdlQueries(conn, VERSION_3_INDEX_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Updates the database from version 3 to version 4.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom3To4(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Create the necessary tables if they do not exist.
+    createTablesIfMissing(conn, VERSION_4_TABLE_CREATE_QUERIES);
+
+    // Create the necessary indices.
+    executeDdlQueries(conn, VERSION_4_INDEX_CREATE_QUERIES);
 
     log.debug2("Done.");
   }
