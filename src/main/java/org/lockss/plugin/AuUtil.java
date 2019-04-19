@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -49,6 +49,7 @@ import org.lockss.daemon.*;
 import org.lockss.jetty.CuResourceHandler;
 import org.lockss.crawler.*;
 import org.lockss.state.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.repository.*;
@@ -294,6 +295,46 @@ public class AuUtil {
   }
 
   /**
+   * Serialize an AuSuspectUrlVersions object into a JSON string
+   * 
+   * @param ausuv
+   *          An AuSuspectUrlVersions with the object to be serialized.
+   * @param ssuv
+   *          A Set<SuspectUrlVersion> with fields to include in the output. If
+   *          null or empty, all fields are included.
+   * @return a String with the AuSuspectUrlVersions object serialized as a JSON
+   *         string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public static String jsonFromAuSuspectUrlVersions(AuSuspectUrlVersions ausuv,
+						    Set<SuspectUrlVersion> ssuv)
+							throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(ausuv);
+  }
+
+  /**
+   * Deserialize a JSON string into a new AuSuspectUrlVersions, not connected to
+   * StateManager.
+   * 
+   * @param json
+   *          A String with the JSON text.
+   * @return an AuSuspectUrlVersions built with the deserialized JSON string.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static AuSuspectUrlVersions auSuspectUrlVersionsFromJson(String json)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    AuSuspectUrlVersions ausuv =
+	mapper.readValue(json, new TypeReference<AuSuspectUrlVersions>() {});
+    return ausuv;
+  }
+
+  /**
    * Return the NoAuPeerSet object for the AU
    * @param au the AU
    * @return the NoAuPeerSet
@@ -322,6 +363,46 @@ public class AuUtil {
   public static boolean hasNoAuPeerSet(ArchivalUnit au) {
     StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
     return mgr.hasNoAuPeerSet(au.getAuId());
+  }
+
+  /**
+   * Serialize a PersistentPeerIdSetImpl object into a JSON string.
+   * 
+   * @param ppis
+   *          A PersistentPeerIdSetImpl with the object to be serialized.
+   * @param peers
+   *          A Set<PeerIdentity> with fields to include in the output. If null
+   *          or empty, all fields are included
+   * @return a String with the PersistentPeerIdSetImpl object serialized as a
+   *         JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public static String jsonFromPersistentPeerIdSetImpl(
+      PersistentPeerIdSetImpl ppis, Set<PeerIdentity> peers)
+	  throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(ppis);
+  }
+
+  /**
+   * Deserialize a JSON string into a new PersistentPeerIdSetImpl, not connected
+   * to StateManager.
+   * 
+   * @param json
+   *          A String with the JSON text.
+   * @return a PersistentPeerIdSetImpl built with the deserialized JSON string.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static PersistentPeerIdSetImpl persistentPeerIdSetImplFromJson(
+      String json) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    PersistentPeerIdSetImpl ppis =
+	mapper.readValue(json, new TypeReference<PersistentPeerIdSetImpl>() {});
+    return ppis;
   }
 
   /**

@@ -43,6 +43,7 @@ import org.lockss.config.db.ConfigDbManager;
 import org.lockss.log.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import static org.lockss.protocol.AgreementType.*;
 import org.lockss.test.*;
 import org.lockss.util.ListUtil;
@@ -162,6 +163,8 @@ public abstract class StateTestCase extends LockssTestCase4 {
 
     Map<String,String> austates = new HashMap<>();
     Map<String,String> auagmnts = new HashMap<>();
+    Map<String,String> ausuvs = new HashMap<>();
+    Map<String,String> audpis = new HashMap<>();
 
     @Override
     public AuStateBean findArchivalUnitState(String auId)
@@ -245,6 +248,66 @@ public abstract class StateTestCase extends LockssTestCase4 {
 
     String getStoredAuAgreements(String auId) {
       return auagmnts.get(auId);
+    }
+
+    @Override
+    public AuSuspectUrlVersions findAuSuspectUrlVersions(String key)
+	      throws IOException {
+      return getAuSuspectUrlVersions(key);
+    }
+
+    @Override
+    public Long updateAuSuspectUrlVersions(String key,
+					   AuSuspectUrlVersions ausuv,
+					   Set<SuspectUrlVersion> urlVersions)
+					     throws StoreException {
+      putAuSuspectUrlVersions(key, ausuv);
+      return 1L;
+    }
+
+    void putAuSuspectUrlVersions(String key, AuSuspectUrlVersions aua) {
+      try {
+	ausuvs.put(key, aua.toJson());
+      } catch (IOException e) {
+	throw new RuntimeException(e);
+      }
+    }
+
+    AuSuspectUrlVersions getAuSuspectUrlVersions(String auId)
+	throws IOException {
+      String json = ausuvs.get(auId);
+      if (json != null) {
+	return AuSuspectUrlVersions.fromJson(auId, json, daemon);
+      }
+      return null;
+    }
+
+    @Override
+    public DatedPeerIdSet findDatedPeerIdSet(String key) throws IOException {
+      return (DatedPeerIdSet)getDatedPeerIdSet(key);
+    }
+
+    @Override
+    public Long updateDatedPeerIdSet(String key, DatedPeerIdSet dpis,
+				     Set<PeerIdentity> peers) {
+      putDatedPeerIdSet(key, dpis);
+      return 1L;
+    }
+
+    void putDatedPeerIdSet(String key, DatedPeerIdSet dpis) {
+      try {
+	audpis.put(key, dpis.toJson());
+      } catch (IOException e) {
+	throw new RuntimeException(e);
+      }
+    }
+
+    PersistentPeerIdSetImpl getDatedPeerIdSet(String auId) throws IOException {
+      String json = audpis.get(auId);
+      if (json != null) {
+	return PersistentPeerIdSetImpl.fromJson(auId, json, daemon);
+      }
+      return null;
     }
   }
 }

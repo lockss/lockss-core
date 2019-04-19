@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,6 +38,7 @@ import org.lockss.jms.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
 /** Building blocks for {@link StateManager}s.
 */
@@ -144,6 +145,12 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 	break;
       case "AuAgreements":
 	doReceiveAuAgreementsChanged(auid, json, cookie);
+	break;
+      case "AuSuspectUrlVersions":
+	doReceiveAuSuspectUrlVersionsChanged(auid, json, cookie);
+	break;
+      case "NoAuPeerSet":
+	doReceiveNoAuPeerSetChanged(auid, json, cookie);
 	break;
       default:
 	log.warn("Receive state update for unknown object: {}", name);
@@ -296,29 +303,30 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   // AuSuspectUrlVersions
   // /////////////////////////////////////////////////////////////////
 
-//   /** Send JMS notification of AuState change.  Should be called only from
-//    * a hook in a server StateManager.
-//    * @param key auid
-//    * @param json string containing only the changed fields.
-//    */
-//   protected void sendAuSuspectUrlVersionsChangedEvent(String key, String json) {
-//     if (jmsProducer != null) {
-//       Map<String,Object> map = new HashMap<>();
-//       map.put(JMS_MAP_NAME, "AuSuspectUrlVersions");
-//       map.put(JMS_MAP_AUID, key);
-//       map.put(JMS_MAP_JSON, json);
-//       putNotNull(map, JMS_MAP_COOKIE, cookie);
-//       try {
-// 	jmsProducer.sendMap(map);
-//       } catch (JMSException e) {
-// 	log.error("Couldn't send StateChanged notification", e);
-//       }
-//     }
-//   }
+  /** Send JMS notification of AuState change.  Should be called only from
+   * a hook in a server StateManager.
+   * @param key auid
+   * @param json string containing only the changed fields.
+   */
+  protected void sendAuSuspectUrlVersionsChangedEvent(String key, String json,
+						      String cookie) {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_MAP_NAME, "AuSuspectUrlVersions");
+      map.put(JMS_MAP_AUID, key);
+      map.put(JMS_MAP_JSON, json);
+      putNotNull(map, JMS_MAP_COOKIE, cookie);
+      try {
+ 	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+ 	log.error("Couldn't send StateChanged notification", e);
+      }
+    }
+  }
 
   /** Create a default AuSuspectUrlVersionsBean */
   protected AuSuspectUrlVersions newDefaultAuSuspectUrlVersions(String key) {
-    return new AuSuspectUrlVersions();
+    return new AuSuspectUrlVersions(key);
   }
 
   // Hooks to be implemented by subclasses
@@ -340,7 +348,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * @param aus Map data source
    */
   protected void doStoreAuSuspectUrlVersionsUpdate(String key, AuSuspectUrlVersions aua,
-					   Set<PeerIdentity> peers) {
+					   Set<SuspectUrlVersion> versions) {
   }
 
   /** Hook for subclass to read an AuSuspectUrlVersions instance from persistent
@@ -363,30 +371,31 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   // NoAuPeerSet
   // /////////////////////////////////////////////////////////////////
 
-//   /** Send JMS notification of AuState change.  Should be called only from
-//    * a hook in a server StateManager.
-//    * @param key auid
-//    * @param json string containing only the changed fields.
-//    */
-//   protected void sendNoAuPeerSetChangedEvent(String key, String json) {
-//     if (jmsProducer != null) {
-//       Map<String,Object> map = new HashMap<>();
-//       map.put(JMS_MAP_NAME, "NoAuPeerSet");
-//       map.put(JMS_MAP_AUID, key);
-//       map.put(JMS_MAP_JSON, json);
-//       putNotNull(map, JMS_MAP_COOKIE, cookie);
-//       map.put(JMS_MAP_COOKIE, cookie);
-//       try {
-// 	jmsProducer.sendMap(map);
-//       } catch (JMSException e) {
-// 	log.error("Couldn't send StateChanged notification", e);
-//       }
-//     }
-//   }
+  /** Send JMS notification of AuState change.  Should be called only from
+   * a hook in a server StateManager.
+   * @param key auid
+   * @param json string containing only the changed fields.
+   */
+  protected void sendNoAuPeerSetChangedEvent(String key, String json,
+					     String cookie) {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_MAP_NAME, "NoAuPeerSet");
+      map.put(JMS_MAP_AUID, key);
+      map.put(JMS_MAP_JSON, json);
+      putNotNull(map, JMS_MAP_COOKIE, cookie);
+      map.put(JMS_MAP_COOKIE, cookie);
+      try {
+ 	jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+ 	log.error("Couldn't send StateChanged notification", e);
+      }
+    }
+  }
 
   /** Create a default NoAuPeerSetBean */
   protected DatedPeerIdSet newDefaultNoAuPeerSet(String key) {
-    return new DatedPeerIdSetImpl(daemon.getIdentityManager());
+    return new DatedPeerIdSetImpl(key, daemon.getIdentityManager());
   }
 
   // Hooks to be implemented by subclasses
@@ -423,7 +432,8 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
   /** Hook for subclass to receive NoAuPeerSet changed notifications */
-  protected void doReceiveNoAuPeerSetChanged(String auid, String json) {
+  protected void doReceiveNoAuPeerSetChanged(String auid, String json,
+					     String cookie) {
   }
 
 }

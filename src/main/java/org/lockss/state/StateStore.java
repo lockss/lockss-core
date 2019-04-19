@@ -38,6 +38,7 @@ import org.lockss.daemon.*;
 import org.lockss.db.*;
 import org.lockss.log.*;
 import org.lockss.protocol.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.util.*;
 
 /** interface between StateManager and persistent state store
@@ -86,4 +87,73 @@ public interface StateStore {
 				 Set<PeerIdentity> peers)
       throws StoreException;
 
+  /**
+   * Provides the AuSuspectUrlVersions associated with the key (an AUID).
+   * 
+   * @param key
+   *          A String with the key under which the AuSuspectUrlVersions is
+   *          stored.
+   * @return an AuSuspectUrlVersions, or null if not present in the store.
+   * @throws StoreException
+   *           if any problem occurred accessing the data.
+   * @throws IOException
+   *           if any problem occurred accessing the data.
+   */
+  public AuSuspectUrlVersions findAuSuspectUrlVersions(String key)
+      throws StoreException, IOException;
+
+  /**
+   * Updates an AuSuspectUrlVersions in the store, creating it if not already
+   * present. If already present, only those fields listed in <code>ausuv</code>
+   * must be stored, but it it permissible to ignore <code>ausuv</code> and
+   * store the entire object.
+   * 
+   * @param key
+   *          A String with the key under which the AuSuspectUrlVersions is
+   *          stored.
+   * @param ausuv
+   *          An AuSuspectUrlVersions with the object to be updated.
+   * @param versions
+   *          A Set<SuspectUrlVersion> with the fields that must be written.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws StoreException
+   *           if any problem occurred accessing the data.
+   */
+  public Long updateAuSuspectUrlVersions(String key, AuSuspectUrlVersions ausuv,
+				         Set<SuspectUrlVersion> versions)
+				             throws StoreException;
+
+  /**
+   * Provides the DatedPeerIdSet associated with the key (an AUID).
+   * 
+   * @param key
+   *          A String with the key under which the DatedPeerIdSet is stored.
+   * @return a DatedPeerIdSet, or null if not present in the store.
+   * @throws StoreException
+   *           if any problem occurred accessing the data.
+   * @throws IOException
+   *           if any problem occurred accessing the data.
+   */
+  public DatedPeerIdSet findDatedPeerIdSet(String key)
+      throws StoreException, IOException;
+
+  /**
+   * Updates a DatedPeerIdSet in the store, creating it if not already present.
+   * If already present, only those peers listed in <code>peers</code> must be
+   * stored, but it it permissible to ignore <code>peers</code> and store the
+   * entire object.
+   * 
+   * @param key
+   *          A String with the key under which the DatedPeerIdSet is stored.
+   * @param dpis
+   *          A DatedPeerIdSet wth the object to be updated.
+   * @param peers
+   *          A Set<PeerIdentity> with the peers that must be written.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws StoreException
+   *           if any problem occurred accessing the data.
+   */
+  public Long updateDatedPeerIdSet(String key, DatedPeerIdSet dpis,
+				   Set<PeerIdentity> peers)
+				       throws StoreException;
 }

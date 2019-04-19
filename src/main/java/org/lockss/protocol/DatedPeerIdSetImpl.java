@@ -40,6 +40,19 @@ public class DatedPeerIdSetImpl extends PersistentPeerIdSetImpl implements
     super(identityManager);
   }
 
+  /**
+   * Constructor.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @param identityManager
+   *          An {@link IdentityManager} to translate {@link String}s to
+   *          {@link PeerIdentity} instances.
+   */
+  public DatedPeerIdSetImpl(String auid, IdentityManager identityManager) {
+    super(auid, identityManager);
+  }
+
   /** (non-Javadoc)
    * @see org.lockss.protocol.DatedPeerIdSet#getDate()
    */

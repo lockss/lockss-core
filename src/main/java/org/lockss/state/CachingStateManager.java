@@ -40,6 +40,7 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
 /** Contains the basic logic for all StateManagers.  Exact behavior
  * implemented and modified subclasses.
@@ -62,12 +63,18 @@ public abstract class CachingStateManager extends BaseStateManager {
   public static final int DEFAULT_AGREE_MAPS_CACHE_SIZE = 50;
 
   /**
-   * The max size of the LRU cache from AuId to agreement map.
+   * The max size of the LRU cache from AuId to suspect URL versions map.
    */
   public static final String PARAM_SUSPECT_VERSIONS_MAPS_CACHE_SIZE
     = PREFIX + "suspectVersionsMapsCacheSize";
   public static final int DEFAULT_SUSPECT_VERSIONS_MAPS_CACHE_SIZE = 50;
 
+  /**
+   * The max size of the LRU cache from AuId to no peer set map.
+   */
+  public static final String PARAM_NO_PEER_SET_MAPS_CACHE_SIZE
+    = PREFIX + "noPeerSetMapsCacheSize";
+  public static final int DEFAULT_NO_PEER_SET_MAPS_CACHE_SIZE = 50;
 
   protected AuEventHandler auEventHandler;
 
@@ -110,6 +117,8 @@ public abstract class CachingStateManager extends BaseStateManager {
   protected void handleAuDeleted(ArchivalUnit au) {
     handleAuDeletedAuState(au);
     handleAuDeletedAuAgreements(au);
+    handleAuDeletedAuSuspectUrlVersions(au);
+    handleAuDeletedNoAuPeerSet(au);
   }
 
 
@@ -521,50 +530,65 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   public synchronized void updateAuSuspectUrlVersions(String key,
 					     AuSuspectUrlVersions asuv) {
-    log.debug2("Not Updating: {}: {}", key, asuv);
-//     AuSuspectUrlVersions curasuv = suspectVers.get(key);
-//     try {
-//       if (curasuv != null) {
-// 	if (curasuv != asuv) {
-// 	  throw new IllegalStateException("Attempt to store from wrong AuSuspectUrlVersions instance");
-// 	}
-// 	String json = asuv.toJson(peers);
-// 	doStoreAuSuspectUrlVersionsUpdate(key, asuv, peers);
-// 	doNotifyAuSuspectUrlVersionsChanged(key, json);
-//       } else if (isStoreOfMissingAuSuspectUrlVersionsAllowed(peers)) {
-// 	// XXX log?
-// 	suspectVers.put(key, asuv);
-// 	String json = asuv.toJson(peers);
-// 	doStoreAuSuspectUrlVersionsNew(key, asuv);
-//       } else {
-// 	throw new IllegalStateException("Attempt to apply partial update to AuSuspectUrlVersions not in cache: " + key);
-//       }
-//     } catch (IOException e) {
-//       log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
-//       throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " +
-// 					asuv);
-//     }
+    updateAuSuspectUrlVersions(key, asuv, null);
   }
 
-//   /** Entry point from state service to store changes to an AuSuspectUrlVersions.  Write
-//    * to DB, call hook to notify clients if appropriate
-//    * @param key the auid
-//    * @param json the serialized set of changes
-//    * @param map Map representation of change fields.
-//    * @throws IOException if json conversion throws
-//    */
-//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json, String cookie)
-//       throws IOException {
-//     AuSuspectUrlVersions asuv = getAuSuspectUrlVersions(auid);
-//     Set<PeerIdentity> changedPids = asuv.updateFromJson(json, daemon, cookie);
-//     updateAuSuspectUrlVersions(auid, asuv, changedPids);
-//   }
+  public synchronized void updateAuSuspectUrlVersions(String key,
+					      AuSuspectUrlVersions asuv,
+					      Set<SuspectUrlVersion> versions) {
+    updateAuSuspectUrlVersions(key, asuv, versions, null);
+  }
 
-//   /** Store an AuSuspectUrlVersions not obtained from StateManager.  Useful in tests.
-//    * Can only be called once per AU. */
-//   public synchronized void storeAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv) {
-//     updateAuSuspectUrlVersions(key, asuv, null);
-//   }
+  public synchronized void updateAuSuspectUrlVersions(String key,
+					      AuSuspectUrlVersions asuv,
+					      Set<SuspectUrlVersion> versions,
+					      String cookie) {
+    log.debug2("Updating: {}: {}", key, versions);
+    AuSuspectUrlVersions curasuv = suspectVers.get(key);
+    try {
+      if (curasuv != null) {
+	if (curasuv != asuv) {
+	  throw new IllegalStateException("Attempt to store from wrong AuSuspectUrlVersions instance");
+	}
+	String json = asuv.toJson(versions);
+	doStoreAuSuspectUrlVersionsUpdate(key, asuv, versions);
+	doNotifyAuAgreementsChanged(key, json, cookie);
+      } else if (isStoreOfMissingAuSuspectUrlVersionsAllowed(versions)) {
+	// XXX log?
+ 	suspectVers.put(key, asuv);
+ 	String json = asuv.toJson(versions);
+ 	doStoreAuSuspectUrlVersionsNew(key, asuv);
+      } else {
+	throw new IllegalStateException("Attempt to apply partial update to AuSuspectUrlVersions not in cache: " + key);
+      }
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
+      throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " +
+	  asuv);
+    }
+  }
+
+  /** Entry point from state service to store changes to an AuSuspectUrlVersions.  Write
+   * to DB, call hook to notify clients if appropriate
+   * @param key the auid
+   * @param json the serialized set of changes
+   * @param map Map representation of change fields.
+   * @throws IOException if json conversion throws
+   */
+  public void updateAuSuspectUrlVersionsFromJson(String auid, String json,
+						 String cookie)
+						     throws IOException {
+    AuSuspectUrlVersions asuv = getAuSuspectUrlVersions(auid);
+    Set<SuspectUrlVersion> changedVersions = asuv.updateFromJson(json, daemon);
+    updateAuSuspectUrlVersions(auid, asuv, changedVersions);
+  }
+
+  /** Store an AuSuspectUrlVersions not obtained from StateManager.  Useful in tests.
+   * Can only be called once per AU. */
+  public synchronized void storeAuSuspectUrlVersions(String key,
+      AuSuspectUrlVersions asuv) {
+    updateAuSuspectUrlVersions(key, asuv, null);
+  }
 
   /** Default behavior when AU is deleted/deactivated is to remove
    * AuSuspectUrlVersions from cache.  Persistent implementations should not remove
@@ -582,13 +606,13 @@ public abstract class CachingStateManager extends BaseStateManager {
     } else {
       asuv = newDefaultAuSuspectUrlVersions(key);
       suspectVers.put(key, asuv);
-//       try {
-// 	String json = asuv.toJson();
-// 	doStoreAuSuspectUrlVersionsNew(key, asuv);
-//       } catch (IOException e) {
-// 	log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
-// 	throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " + asuv);
-//       }
+      try {
+	String json = asuv.toJson();
+ 	doStoreAuSuspectUrlVersionsNew(key, asuv);
+      } catch (IOException e) {
+ 	log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
+ 	throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " + asuv);
+      }
     }
     return asuv;
   }
@@ -616,8 +640,8 @@ public abstract class CachingStateManager extends BaseStateManager {
    * allowed (and treated as a store).  By default it's allowed iff it's a
    * complete update (all peers).  Overridable because of the many tests
    * that were written when this was permissiable */
-  protected boolean isStoreOfMissingAuSuspectUrlVersionsAllowed(Set<PeerIdentity> peers) {
-    return peers == null || peers.isEmpty();
+  protected boolean isStoreOfMissingAuSuspectUrlVersionsAllowed(Set<SuspectUrlVersion> versions) {
+    return versions == null || versions.isEmpty();
   }
 
   // /////////////////////////////////////////////////////////////////
@@ -640,50 +664,63 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   public synchronized void updateNoAuPeerSet(String key,
 					     DatedPeerIdSet naps) {
-    log.debug2("Not Updating: {}: {}", key, naps);
-//     DatedPeerIdSet curnaps = noAuPeerSets.get(key);
-//     try {
-//       if (curnaps != null) {
-// 	if (curnaps != naps) {
-// 	  throw new IllegalStateException("Attempt to store from wrong NoAuPeerSet instance");
-// 	}
-// 	String json = naps.toJson(peers);
-// 	doStoreNoAuPeerSetUpdate(key, naps, peers);
-// 	doNotifyNoAuPeerSetChanged(key, json);
-//       } else if (isStoreOfMissingNoAuPeerSetAllowed(peers)) {
-// 	// XXX log?
-// 	noAuPeerSets.put(key, naps);
-// 	String json = naps.toJson(peers);
-// 	doStoreNoAuPeerSetNew(key, naps);
-//       } else {
-// 	throw new IllegalStateException("Attempt to apply partial update to NoAuPeerSet not in cache: " + key);
-//       }
-//     } catch (IOException e) {
-//       log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
-//       throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " +
-// 					naps);
-//     }
+    updateNoAuPeerSet(key, naps, null);
   }
 
-//   /** Entry point from state service to store changes to an NoAuPeerSet.  Write
-//    * to DB, call hook to notify clients if appropriate
-//    * @param key the auid
-//    * @param json the serialized set of changes
-//    * @param map Map representation of change fields.
-//    * @throws IOException if json conversion throws
-//    */
-//   public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
-//       throws IOException {
-//     DatedPeerIdSet naps = getNoAuPeerSet(auid);
-//     Set<PeerIdentity> changedPids = naps.updateFromJson(json, daemon, cookie);
-//     updateNoAuPeerSet(auid, naps, changedPids);
-//   }
+  public synchronized void updateNoAuPeerSet(String key,
+					     DatedPeerIdSet naps,
+					     Set<PeerIdentity> peers) {
+    updateNoAuPeerSet(key, naps, peers, null);
+  }
 
-//   /** Store an NoAuPeerSet not obtained from StateManager.  Useful in tests.
-//    * Can only be called once per AU. */
-//   public synchronized void storeNoAuPeerSet(String key, DatedPeerIdSet naps) {
-//     updateNoAuPeerSet(key, naps, null);
-//   }
+  public synchronized void updateNoAuPeerSet(String key,
+					     DatedPeerIdSet naps,
+					     Set<PeerIdentity> peers,
+					     String cookie) {
+    log.debug2("Updating: {}: {}", key, peers);
+    DatedPeerIdSet curnaps = noAuPeerSets.get(key);
+    try {
+      if (curnaps != null) {
+	if (curnaps != naps) {
+	  throw new IllegalStateException("Attempt to store from wrong NoAuPeerSet instance");
+	}
+	String json = naps.toJson(peers);
+	doStoreNoAuPeerSetUpdate(key, naps, peers);
+	doNotifyAuAgreementsChanged(key, json, cookie);
+      } else if (isStoreOfMissingNoAuPeerSetAllowed(peers)) {
+	// XXX log?
+	noAuPeerSets.put(key, naps);
+	String json = naps.toJson(peers);
+	doStoreNoAuPeerSetNew(key, naps);
+      } else {
+	throw new IllegalStateException("Attempt to apply partial update to NoAuPeerSet not in cache: " + key);
+      }
+    } catch (IOException e) {
+      log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
+      throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " +
+					naps);
+    }
+  }
+
+  /** Entry point from state service to store changes to an NoAuPeerSet.  Write
+   * to DB, call hook to notify clients if appropriate
+   * @param key the auid
+   * @param json the serialized set of changes
+   * @param map Map representation of change fields.
+   * @throws IOException if json conversion throws
+   */
+  public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
+      throws IOException {
+    DatedPeerIdSet naps = getNoAuPeerSet(auid);
+    Set<PeerIdentity> changedPids = naps.updateFromJson(json, daemon);
+    updateNoAuPeerSet(auid, naps, changedPids);
+  }
+
+  /** Store an NoAuPeerSet not obtained from StateManager.  Useful in tests.
+   * Can only be called once per AU. */
+  public synchronized void storeNoAuPeerSet(String key, DatedPeerIdSet naps) {
+    updateNoAuPeerSet(key, naps, null);
+  }
 
   /** Default behavior when AU is deleted/deactivated is to remove
    * NoAuPeerSet from cache.  Persistent implementations should not remove
@@ -701,13 +738,13 @@ public abstract class CachingStateManager extends BaseStateManager {
     } else {
       naps = newDefaultNoAuPeerSet(key);
       noAuPeerSets.put(key, naps);
-//       try {
-// 	String json = naps.toJson();
-// 	doStoreNoAuPeerSetNew(key, naps);
-//       } catch (IOException e) {
-// 	log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
-// 	throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " + naps);
-//       }
+      try {
+ 	String json = naps.toJson();
+ 	doStoreNoAuPeerSetNew(key, naps);
+      } catch (IOException e) {
+ 	log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
+ 	throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " + naps);
+      }
     }
     return naps;
   }
@@ -728,7 +765,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** @return a Map suitable for an NoAuPeerSet cache.  By default a
    * UniqueRefLruCache. */
   protected Map<String,DatedPeerIdSet> newNoAuPeerSetMap() {
-    return new UniqueRefLruCache<>(DEFAULT_SUSPECT_VERSIONS_MAPS_CACHE_SIZE);
+    return new UniqueRefLruCache<>(DEFAULT_NO_PEER_SET_MAPS_CACHE_SIZE);
   }
 
   /** Return true if an update call for an unknown NoAuPeerSet should be

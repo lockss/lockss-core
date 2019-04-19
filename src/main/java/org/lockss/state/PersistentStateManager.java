@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +35,7 @@ import org.lockss.log.*;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
 /** StateManager that saves and loads state from persistent storage. */
 public class PersistentStateManager extends CachingStateManager {
@@ -168,6 +169,141 @@ public class PersistentStateManager extends CachingStateManager {
       String message = "Exception caught persisting AuAgreements";
       log.error("key = {}", key);
       log.error("aua = {}", aua);
+      log.error("peers = {}", peers);
+      throw new StateLoadStoreException(message, se);
+    }
+
+    log.debug2("Done");
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // AuSuspectUrlVersions
+  // /////////////////////////////////////////////////////////////////
+
+  /**
+   * Loads an AuSuspectUrlVersions object from the DB.
+   * 
+   * @param key
+   *          A String with the key under which the AuSuspectUrlVersions is
+   *          stored.
+   * @return an AuSuspectUrlVersions object reflecting the current contents of
+   *         the DB, or null if there's no AuSuspectUrlVersions for the AU in
+   *         the DB.
+   */
+  @Override
+  protected AuSuspectUrlVersions doLoadAuSuspectUrlVersions(String key) {
+    AuSuspectUrlVersions res = null;
+
+    try {
+      res = getStateStore().findAuSuspectUrlVersions(key);
+    } catch (IOException ioe) {
+      String message = "Exception caught composing AuSuspectUrlVersions";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, ioe);
+    } catch (StoreException se) {
+      String message = "Exception caught finding AuSuspectUrlVersions";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, se);
+    }
+
+    log.debug2("res = {}", res);
+    return res;
+  }
+
+  /**
+   * Stores in the DB the changes to an AuSuspectUrlVersions object.
+   * 
+   * @param key
+   *          A String with the key under which the AuSuspectUrlVersions is
+   *          stored.
+   * @param ausuv
+   *          An AuSuspectUrlVersions with the object to be stored, which may be
+   *          null.
+   * @param versions
+   *          A Set<SuspectUrlVersion> with the suspect URL versions to be
+   *          stored.
+   */
+  @Override
+  protected void doStoreAuSuspectUrlVersionsUpdate(String key,
+      AuSuspectUrlVersions ausuv, Set<SuspectUrlVersion> versions) {
+
+    log.debug2("key = {}", key);
+    log.debug2("aua = {}", ausuv);
+    log.debug2("versions = {}", versions);
+
+    try {
+      Long auSeq =
+	  getStateStore().updateAuSuspectUrlVersions(key, ausuv, versions);
+      log.trace("auSeq = {}", auSeq);
+    } catch (StoreException se) {
+      String message = "Exception caught persisting AuAgreements";
+      log.error("key = {}", key);
+      log.error("aua = {}", ausuv);
+      log.error("versions = {}", versions);
+      throw new StateLoadStoreException(message, se);
+    }
+
+    log.debug2("Done");
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // DatedPeerIdSet
+  // /////////////////////////////////////////////////////////////////
+
+  /**
+   * Loads a DatedPeerIdSet object from the DB.
+   * 
+   * @param key
+   *          A String with the key under which the DatedPeerIdSet is stored.
+   * @return an DatedPeerIdSet object reflecting the current contents of the DB,
+   *         or null if there's no AuSuspectUrlVersions for the AU in the DB.
+   */
+  @Override
+  protected DatedPeerIdSet doLoadNoAuPeerSet(String key) {
+    DatedPeerIdSet res = null;
+
+    try {
+      res = getStateStore().findDatedPeerIdSet(key);
+    } catch (IOException ioe) {
+      String message = "Exception caught composing DatedPeerIdSet";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, ioe);
+    } catch (StoreException se) {
+      String message = "Exception caught finding DatedPeerIdSet";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, se);
+    }
+
+    log.debug2("res = {}", res);
+    return res;
+  }
+
+  /**
+   * Stores in the DB the changes to a DatedPeerIdSet object.
+   * 
+   * @param key
+   *          A String with the key under which the DatedPeerIdSet is stored.
+   * @param ausuv
+   *          An DatedPeerIdSet with the object to be stored, which may be null.
+   * @param peers
+   *          A Set<PeerIdentity> with the peers whose PeerAgreements should be
+   *          stored.
+   */
+  @Override
+  protected void doStoreNoAuPeerSetUpdate(String key, DatedPeerIdSet dpis,
+					   Set<PeerIdentity> peers) {
+
+    log.debug2("key = {}", key);
+    log.debug2("dpis = {}", dpis);
+    log.debug2("peers = {}", peers);
+
+    try {
+      Long auSeq = getStateStore().updateDatedPeerIdSet(key, dpis, peers);
+      log.trace("auSeq = {}", auSeq);
+    } catch (StoreException se) {
+      String message = "Exception caught persisting AuAgreements";
+      log.error("key = {}", key);
+      log.error("dpis = {}", dpis);
       log.error("peers = {}", peers);
       throw new StateLoadStoreException(message, se);
     }
