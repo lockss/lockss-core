@@ -78,9 +78,8 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
    */
   public static PersistentPeerIdSetImpl make(String auid,
       IdentityManager idMgr) {
-    PersistentPeerIdSetImpl persistentPeerIdSetImpl =
-	new PersistentPeerIdSetImpl(auid, idMgr);
-    return persistentPeerIdSetImpl;
+    PersistentPeerIdSetImpl ppisi = new PersistentPeerIdSetImpl(auid, idMgr);
+    return ppisi;
   }
 
   /** Store the set and retain in memory

@@ -505,7 +505,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Return true if an update call for an unknown AuAgreements should be
    * allowed (and treated as a store).  By default it's allowed iff it's a
    * complete update (all peers).  Overridable because of the many tests
-   * that were written when this was permissiable */
+   * that were written when this was permissible */
   protected boolean isStoreOfMissingAuAgreementsAllowed(Set<PeerIdentity> peers) {
     return peers == null || peers.isEmpty();
   }
@@ -639,7 +639,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Return true if an update call for an unknown AuSuspectUrlVersions should be
    * allowed (and treated as a store).  By default it's allowed iff it's a
    * complete update (all peers).  Overridable because of the many tests
-   * that were written when this was permissiable */
+   * that were written when this was permissible */
   protected boolean isStoreOfMissingAuSuspectUrlVersionsAllowed(Set<SuspectUrlVersion> versions) {
     return versions == null || versions.isEmpty();
   }
@@ -771,7 +771,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Return true if an update call for an unknown NoAuPeerSet should be
    * allowed (and treated as a store).  By default it's allowed iff it's a
    * complete update (all peers).  Overridable because of the many tests
-   * that were written when this was permissiable */
+   * that were written when this was permissible */
   protected boolean isStoreOfMissingNoAuPeerSetAllowed(Set<PeerIdentity> peers) {
     return peers == null || peers.isEmpty();
   }

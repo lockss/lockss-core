@@ -334,21 +334,22 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   /** Hook for subclass to store a new AuSuspectUrlVersions in persistent storage.
    * Any of the three data sources may be used.
    * @param key AUID or other key for AU
-   * @param aua AuSuspectUrlVersions data source
+   * @param ausuv AuSuspectUrlVersions data source
    */
-  protected void doStoreAuSuspectUrlVersionsNew(String key, AuSuspectUrlVersions aua) {
+  protected void doStoreAuSuspectUrlVersionsNew(String key,
+						AuSuspectUrlVersions ausuv) {
   }
 
   /** Hook for subclass to update an existing AuSuspectUrlVersions in persistent
    * storage.  Any of the three data sources may be used.  Only those
    * fields present in the Map or the json string should be saved.
    * @param key AUID or other key for AU
-   * @param aus AuSuspectUrlVersions data source
-   * @param aus json data source
-   * @param aus Map data source
+   * @param ausuv AuSuspectUrlVersions data source
+   * @param versions Map data source
    */
-  protected void doStoreAuSuspectUrlVersionsUpdate(String key, AuSuspectUrlVersions aua,
-					   Set<SuspectUrlVersion> versions) {
+  protected void doStoreAuSuspectUrlVersionsUpdate(String key,
+						   AuSuspectUrlVersions ausuv,
+					      Set<SuspectUrlVersion> versions) {
   }
 
   /** Hook for subclass to read an AuSuspectUrlVersions instance from persistent
@@ -403,21 +404,20 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   /** Hook for subclass to store a new NoAuPeerSet in persistent storage.
    * Any of the three data sources may be used.
    * @param key AUID or other key for AU
-   * @param aua NoAuPeerSet data source
+   * @param dpis NoAuPeerSet data source
    */
-  protected void doStoreNoAuPeerSetNew(String key, DatedPeerIdSet aua) {
+  protected void doStoreNoAuPeerSetNew(String key, DatedPeerIdSet dpis) {
   }
 
   /** Hook for subclass to update an existing NoAuPeerSet in persistent
    * storage.  Any of the three data sources may be used.  Only those
    * fields present in the Map or the json string should be saved.
    * @param key AUID or other key for AU
-   * @param aus NoAuPeerSet data source
-   * @param aus json data source
-   * @param aus Map data source
+   * @param dpis NoAuPeerSet data source
+   * @param peers Map data source
    */
-  protected void doStoreNoAuPeerSetUpdate(String key, DatedPeerIdSet aua,
-					   Set<PeerIdentity> peers) {
+  protected void doStoreNoAuPeerSetUpdate(String key, DatedPeerIdSet dpis,
+					  Set<PeerIdentity> peers) {
   }
 
   /** Hook for subclass to read an NoAuPeerSet instance from persistent
