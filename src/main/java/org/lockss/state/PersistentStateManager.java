@@ -228,7 +228,7 @@ public class PersistentStateManager extends CachingStateManager {
       AuSuspectUrlVersions ausuv, Set<SuspectUrlVersion> versions) {
 
     log.debug2("key = {}", key);
-    log.debug2("aua = {}", ausuv);
+    log.debug2("ausuv = {}", ausuv);
     log.debug2("versions = {}", versions);
 
     try {
@@ -236,9 +236,9 @@ public class PersistentStateManager extends CachingStateManager {
 	  getStateStore().updateAuSuspectUrlVersions(key, ausuv, versions);
       log.trace("auSeq = {}", auSeq);
     } catch (StoreException se) {
-      String message = "Exception caught persisting AuAgreements";
+      String message = "Exception caught persisting AuSuspectUrlVersions";
       log.error("key = {}", key);
-      log.error("aua = {}", ausuv);
+      log.error("ausuv = {}", ausuv);
       log.error("versions = {}", versions);
       throw new StateLoadStoreException(message, se);
     }
@@ -255,8 +255,8 @@ public class PersistentStateManager extends CachingStateManager {
    * 
    * @param key
    *          A String with the key under which the DatedPeerIdSet is stored.
-   * @return an DatedPeerIdSet object reflecting the current contents of the DB,
-   *         or null if there's no AuSuspectUrlVersions for the AU in the DB.
+   * @return a DatedPeerIdSet object reflecting the current contents of the DB,
+   *         or null if there's no DatedPeerIdSet for the AU in the DB.
    */
   @Override
   protected DatedPeerIdSet doLoadNoAuPeerSet(String key) {
@@ -283,15 +283,15 @@ public class PersistentStateManager extends CachingStateManager {
    * 
    * @param key
    *          A String with the key under which the DatedPeerIdSet is stored.
-   * @param ausuv
-   *          An DatedPeerIdSet with the object to be stored, which may be null.
+   * @param dpis
+   *          A DatedPeerIdSet with the object to be stored, which may be null.
    * @param peers
    *          A Set<PeerIdentity> with the peers whose PeerAgreements should be
    *          stored.
    */
   @Override
   protected void doStoreNoAuPeerSetUpdate(String key, DatedPeerIdSet dpis,
-					   Set<PeerIdentity> peers) {
+					  Set<PeerIdentity> peers) {
 
     log.debug2("key = {}", key);
     log.debug2("dpis = {}", dpis);
@@ -301,7 +301,7 @@ public class PersistentStateManager extends CachingStateManager {
       Long auSeq = getStateStore().updateDatedPeerIdSet(key, dpis, peers);
       log.trace("auSeq = {}", auSeq);
     } catch (StoreException se) {
-      String message = "Exception caught persisting AuAgreements";
+      String message = "Exception caught persisting DatedPeerIdSet";
       log.error("key = {}", key);
       log.error("dpis = {}", dpis);
       log.error("peers = {}", peers);
