@@ -601,6 +601,7 @@ public abstract class CachingStateManager extends BaseStateManager {
    * store, if any, or to create and store new default object. */
   protected AuSuspectUrlVersions handleAuSuspectUrlVersionsCacheMiss(String key) {
     AuSuspectUrlVersions asuv = doLoadAuSuspectUrlVersions(key);
+    log.debug2("handleAuSuspectUrlVersionsCacheMiss: {}", asuv);
     if (asuv != null) {
       suspectVers.put(key, asuv);
     } else {

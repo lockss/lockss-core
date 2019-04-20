@@ -50,12 +50,15 @@ import org.lockss.hasher.HashResult;
 public class AuSuspectUrlVersions implements LockssSerializable {
   private static final Logger log = Logger.getLogger();
 
-  public class SuspectUrlVersion implements LockssSerializable {
-    private final String url;
-    private final int version;
-    private final long created;
-    private final HashResult computedHash;
-    private final HashResult storedHash;
+  public static class SuspectUrlVersion implements LockssSerializable {
+    private String url;
+    private int version;
+    private long created;
+    private HashResult computedHash;
+    private HashResult storedHash;
+
+    protected SuspectUrlVersion() {
+    }
 
     protected SuspectUrlVersion(String url, int version) {
       this.url = url;
@@ -267,8 +270,7 @@ public class AuSuspectUrlVersions implements LockssSerializable {
    */
   public synchronized String toJson(Set<SuspectUrlVersion> suspectUrlVersions)
       throws IOException {
-    return AuUtil.jsonFromAuSuspectUrlVersions(makeBean(suspectUrlVersions),
-	suspectUrlVersions);
+    return AuUtil.jsonFromAuSuspectUrlVersions(makeBean(suspectUrlVersions));
   }
 
   /**
@@ -279,6 +281,7 @@ public class AuSuspectUrlVersions implements LockssSerializable {
    * @return an AuSuspectUrlVersions with the newly created object.
    */
   AuSuspectUrlVersions makeBean(Set<SuspectUrlVersion> suspectUrlVersions) {
+    if (suspectUrlVersions == null) return this;
     AuSuspectUrlVersions res = new AuSuspectUrlVersions(auid);
     res.suspectVersions = suspectUrlVersions;
     return res;
@@ -300,10 +303,10 @@ public class AuSuspectUrlVersions implements LockssSerializable {
       LockssApp app) throws IOException {
     // Deserialize the JSON text into a new, scratch instance.
     AuSuspectUrlVersions srcSuvs = AuUtil.auSuspectUrlVersionsFromJson(json);
-    // Get the fields in the new instance.
-    Set<SuspectUrlVersion> res = srcSuvs.suspectVersions;
+    // Note: do NOT merge the fields in the new instance.
+    suspectVersions = srcSuvs.suspectVersions;
     postUnmarshal(app);
-    return res;
+    return suspectVersions;
   }
 
   /**
@@ -321,7 +324,7 @@ public class AuSuspectUrlVersions implements LockssSerializable {
    */
   public static AuSuspectUrlVersions fromJson(String key, String json,
 					      LockssDaemon daemon)
-						  throws IOException {
+      throws IOException {
     AuSuspectUrlVersions res = AuSuspectUrlVersions.make(key);
     res.updateFromJson(json, daemon);
     return res;
@@ -332,5 +335,9 @@ public class AuSuspectUrlVersions implements LockssSerializable {
    */
   protected void postUnmarshal(LockssApp lockssContext) {
     auid = StringPool.AUIDS.intern(auid);
+  }
+
+  public String toString() {
+    return "[ASUVs: " + suspectVersions + "]";
   }
 }

@@ -1458,7 +1458,7 @@ public class PollManager
       long threshold = (long) Math.round(v3NoAuResetIntervalCurve.getY(auAge));
       if (TimeBase.msSince(lastTimestamp) >= threshold) {
         noAuSet.clear();
-        noAuSet.store(false);
+        noAuSet.store();
       }
     } catch (IOException e) {
       // impossible with loaded PersistentPeerIdSet

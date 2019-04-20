@@ -475,7 +475,7 @@ public class TestPollManager extends LockssTestCase4 {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
     MockAuState maus = AuTestUtil.setUpMockAus(mau);
     File file = FileTestUtil.tempFile("noau");
-    DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(idmanager);
+    DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(auid, idmanager);
     assertTrue(noAuSet.isEmpty());
     assertTrue(noAuSet.getDate() < 0);
     pollmanager.ageNoAuSet(mau, noAuSet);

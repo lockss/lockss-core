@@ -44,7 +44,6 @@ import org.lockss.app.LockssApp;
 
 public interface PersistentPeerIdSet extends Iterable<PeerIdentity>  {
   public void store() throws IOException;
-  public void store(boolean release) throws IOException;
 
   /* These methods are equivalents to the functions of java.util.Set. */
   public boolean add(PeerIdentity pi);

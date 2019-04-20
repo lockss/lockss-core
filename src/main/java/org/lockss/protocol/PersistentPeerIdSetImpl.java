@@ -30,21 +30,28 @@ package org.lockss.protocol;
 
 import java.io.*;
 import java.util.*;
+import com.fasterxml.jackson.annotation.*;
+
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
+import org.lockss.state.*;
 import org.lockss.util.os.PlatformUtil;
 
 public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
+  private static Logger m_logger = Logger.getLogger();
+
   // Static constants 
   protected static final String TEMP_EXTENSION = ".temp";
 
   // Internal variables
-  private String auid;
-  private IdentityManager m_identityManager;
-  private static Logger m_logger = Logger.getLogger();
+  protected String auid;
   protected Set<PeerIdentity> m_setPeerId = new HashSet<PeerIdentity>();
+
+  @JsonIgnore
+  protected IdentityManager m_identityManager;
+  @JsonIgnore
   protected boolean m_changed = false;
 
 
@@ -85,12 +92,11 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   /** Store the set and retain in memory
    */
   public void store() throws IOException {
+    throw new UnsupportedOperationException("Storing PersistentPeerIdSet is currently only implemented for DatedPeerIdSet");
   }
 
-  /** Store the set and optionally remove from memory
-   * @param release if true the set will be released
-   */
-  public void store(boolean release) throws IOException {
+  protected StateManager getStateMgr() {
+    return LockssDaemon.getManagerByTypeStatic(StateManager.class);
   }
 
   /** Release resources without saving */
@@ -227,7 +233,7 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   @Override
   public synchronized String toJson(Set<PeerIdentity> peers)
       throws IOException {
-    return AuUtil.jsonFromPersistentPeerIdSetImpl(makeBean(peers), peers);
+    return AuUtil.jsonFromPersistentPeerIdSetImpl(makeBean(peers));
   }
 
   /**
@@ -238,10 +244,14 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
    * @return a PersistentPeerIdSetImpl with the newly created object.
    */
   PersistentPeerIdSetImpl makeBean(Set<PeerIdentity> peers) {
-    PersistentPeerIdSetImpl res =
+    if (peers != null) {
+      PersistentPeerIdSetImpl res =
 	new PersistentPeerIdSetImpl(auid, m_identityManager);
-    res.addAll(peers);
-    return res;
+      res.addAll(peers);
+      return res;
+    } else {
+      return this;
+    }
   }
 
   /**

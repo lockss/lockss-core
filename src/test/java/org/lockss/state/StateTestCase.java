@@ -70,6 +70,8 @@ public abstract class StateTestCase extends LockssTestCase4 {
 
   protected static String AUID1 = MockPlugin.KEY + "&base_url~aaa1";
   protected static String AUID2 = MockPlugin.KEY + "&base_url~aaa2";
+  protected static String URL1 = "http://host.tld/path/to/file.html";
+  protected static String URL2 = "http://host.tld/path/to/doc.pdf";
   protected static List CDN_STEMS =
     ListUtil.list("http://abc.com", "https://xyz.org");
 
@@ -276,10 +278,23 @@ public abstract class StateTestCase extends LockssTestCase4 {
     AuSuspectUrlVersions getAuSuspectUrlVersions(String auId)
 	throws IOException {
       String json = ausuvs.get(auId);
+      log.debug2("getAuSuspectUrlVersions({}): {}", auId, json);
       if (json != null) {
+	log.debug2("fromJson: {}" ,
+		   AuSuspectUrlVersions.fromJson(auId, json, daemon));
 	return AuSuspectUrlVersions.fromJson(auId, json, daemon);
       }
       return null;
+    }
+
+    MyStateStore setStoredAuSuspectUrlVersions(String auId, String json) {
+      ausuvs.put(auId, json);
+      log.debug2("setStoredAuSuspectUrlVersions("+auId+", "+json+")");
+      return this;
+    }
+
+    String getStoredAuSuspectUrlVersions(String auId) {
+      return ausuvs.get(auId);
     }
 
     @Override

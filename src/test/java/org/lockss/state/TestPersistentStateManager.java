@@ -44,8 +44,7 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import static org.lockss.protocol.AgreementType.*;
 import org.lockss.test.*;
-import org.lockss.util.ListUtil;
-import org.lockss.util.SetUtil;
+import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 
 /**
@@ -245,6 +244,52 @@ public class TestPersistentStateManager extends StateTestCase {
     String storedjson = sstore.getStoredAuAgreements(AUID1);
     assertMatchesRE("\"percentAgreement\":0.9", storedjson);
     assertMatchesRE("\"percentAgreementTime\":800", storedjson);
+  }
+
+  @Test
+  public void testFuncAuSuspectUrlVersions() throws Exception {
+    // Pre-store an AuSuspectUrlVersions in the db
+    AuSuspectUrlVersions asuv0 = stateMgr.newDefaultAuSuspectUrlVersions(AUID1);
+    assertTrue(asuv0.isEmpty());
+    asuv0.markAsSuspect(URL1, 1, null, null);
+    assertFalse(asuv0.isEmpty());
+    assertTrue(asuv0.isSuspect(URL1, 1));
+    assertFalse(asuv0.isSuspect(URL1, 2));
+
+    String json = asuv0.toJson();
+
+    // Set up fake store
+    MyStateStore sstore = new MyStateStore();
+    myStateMgr.setStateStore(sstore);
+    sstore.setStoredAuSuspectUrlVersions(AUID1, json);
+
+    // Fetch the AuSuspectUrlVersions that's in the DB
+    AuSuspectUrlVersions asuv1 = stateMgr.getAuSuspectUrlVersions(AUID1);
+    assertFalse(asuv1.isEmpty());
+    assertTrue(asuv1.isSuspect(URL1, 1));
+    assertFalse(asuv1.isSuspect(URL1, 2));
+    assertEquals(1, asuv1.getSuspectList().size());
+    assertSame(asuv1, stateMgr.getAuSuspectUrlVersions(AUID1));
+
+    // Fetch one with no data
+    AuSuspectUrlVersions asuv2 = stateMgr.getAuSuspectUrlVersions(AUID2);
+    assertTrue(asuv2.isEmpty());
+    assertFalse(asuv2.isSuspect(URL1, 1));
+
+    // Perform a json-only update from the service, ensure DB and
+    // existing AuSuspectUrlVersions instance get updated.
+    AuSuspectUrlVersions asuv3 = stateMgr.newDefaultAuSuspectUrlVersions(AUID1);
+    asuv3.markAsSuspect(URL1, 3, null, null);
+
+    String json3 = asuv3.toJson();
+    assertTrue(asuv3.isSuspect(URL1, 3));
+    stateMgr.updateAuSuspectUrlVersionsFromJson(AUID1, json3, null);
+    assertTrue(asuv1.isSuspect(URL1, 3));
+
+    String storedjson = sstore.getStoredAuSuspectUrlVersions(AUID1);
+    assertMatchesRE("\"auid\":\"" + RegexpUtil.quotemeta(AUID1), storedjson);
+    assertMatchesRE("\"version\":3", storedjson);
+    assertNotMatchesRE("\"version\":1", storedjson);
   }
 
 }
