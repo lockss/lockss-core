@@ -226,7 +226,7 @@ public class RepositoryManager
 	      log.critical("Illegal V2 repository spec: " + spec);
 	    }
 	    if (repo != null) {
-	      v2Repo = new RepositoryAndCollection(repoSpec, repo, coll);
+	      v2Repo = new RepositoryAndCollection(spec, repoSpec, repo, coll);
 	    }
 	  }
 	} else {
@@ -239,20 +239,27 @@ public class RepositoryManager
   }
 
   public class RepositoryAndCollection {
-    private String spec;
+    private String repoSpec;
+    private String type;
     private LockssRepository repo;
     private String collection;
 
-    private RepositoryAndCollection(String spec,
+    private RepositoryAndCollection(String repoSpec,
+				    String type,
 				    LockssRepository repo,
 				    String collection) {
-      this.spec = spec;
+      this.repoSpec = repoSpec;
+      this.type = type;
       this.repo = repo;
       this.collection = collection;
     }
 
-    public String getSpec() {
-      return spec;
+    public String getRepoType() {
+      return type;
+    }
+
+    public String getRepoSpec() {
+      return repoSpec;
     }
 
     public LockssRepository getRepository() {
@@ -261,6 +268,10 @@ public class RepositoryManager
 
     public String getCollection() {
       return collection;
+    }
+
+    public String toString() {
+      return repoSpec;
     }
   }
 
@@ -332,7 +343,7 @@ public class RepositoryManager
     try {
       for (String id : repo.getAuIds(v2Repo.getCollection())) {
 	if (auid.equals(id)) {
-	  return Collections.singletonList(v2Repo.getSpec());
+	  return Collections.singletonList(v2Repo.getRepoSpec());
 	}
       }
     } catch (IOException e) {
