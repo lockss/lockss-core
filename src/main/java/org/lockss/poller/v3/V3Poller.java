@@ -1809,7 +1809,7 @@ public class V3Poller implements Poll {
     if (!agreeVoters.isEmpty()) {
       Collection<PeerIdentity> agreeVoterIds =
 	getVotersIdentities(agreeVoters);
-      // XXXREPO
+      // XXXSTATE per-URL agreement
 //           node.signalAgreement(agreeVoterIds);
     }
   }
@@ -3677,7 +3677,7 @@ public class V3Poller implements Poll {
               log.debug2("NoAuSet: " + s + " -> " + noAuSet.size()
                   + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
             }
-            noAuSet.store(true);
+            noAuSet.store();
           } catch (IOException e) {
             log.error("Failed to update no AU set", e);
           }

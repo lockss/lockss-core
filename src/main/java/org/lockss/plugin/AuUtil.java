@@ -191,11 +191,8 @@ public class AuUtil {
 
   /** Serialize an AuAgreements to a json string
    * @param aua the AuAgreements
-   * @param fields Set of fields to include in the output.  If null or
-   *               empty, all fields are included
    */
-  public static String jsonFromAuAgreements(AuAgreements aua,
-					    Set<PeerIdentity> peers)
+  public static String jsonFromAuAgreements(AuAgreements aua)
       throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     setFieldsOnly(mapper);
@@ -299,17 +296,13 @@ public class AuUtil {
    * 
    * @param ausuv
    *          An AuSuspectUrlVersions with the object to be serialized.
-   * @param ssuv
-   *          A Set<SuspectUrlVersion> with fields to include in the output. If
-   *          null or empty, all fields are included.
    * @return a String with the AuSuspectUrlVersions object serialized as a JSON
    *         string.
    * @throws IOException
    *           if any problem occurred during the serialization.
    */
-  public static String jsonFromAuSuspectUrlVersions(AuSuspectUrlVersions ausuv,
-						    Set<SuspectUrlVersion> ssuv)
-							throws IOException {
+  public static String jsonFromAuSuspectUrlVersions(AuSuspectUrlVersions ausuv)
+      throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     setFieldsOnly(mapper);
     return mapper.writer().writeValueAsString(ausuv);
@@ -345,7 +338,7 @@ public class AuUtil {
   }
 
   /**
-   * Update the stored record of suspect versions for the AU
+   * Update the NoAuPeerSet for the AU
    * @param au the AU
    * @param asuv the NoAuPeerSet object to store
    */
@@ -370,16 +363,13 @@ public class AuUtil {
    * 
    * @param ppis
    *          A PersistentPeerIdSetImpl with the object to be serialized.
-   * @param peers
-   *          A Set<PeerIdentity> with fields to include in the output. If null
-   *          or empty, all fields are included
    * @return a String with the PersistentPeerIdSetImpl object serialized as a
    *         JSON string.
    * @throws IOException
    *           if any problem occurred during the serialization.
    */
   public static String jsonFromPersistentPeerIdSetImpl(
-      PersistentPeerIdSetImpl ppis, Set<PeerIdentity> peers)
+      PersistentPeerIdSetImpl ppis)
 	  throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     setFieldsOnly(mapper);

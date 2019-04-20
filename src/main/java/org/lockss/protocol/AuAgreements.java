@@ -110,7 +110,7 @@ public class AuAgreements implements LockssSerializable {
 
   /** Serialize PeerAgreements for named peers to json string */
   public synchronized String toJson(Set<PeerIdentity> peers) throws IOException {
-    return AuUtil.jsonFromAuAgreements(makeBean(peers), peers);
+    return AuUtil.jsonFromAuAgreements(makeBean(peers));
   }
 
   AuAgreements makeBean(Set<PeerIdentity> peers) {

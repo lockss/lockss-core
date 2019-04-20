@@ -170,8 +170,8 @@ public interface StateManager extends LockssManager {
 //   /** Store the AuSuspectUrlVersions for the AU.  Can only be used once per AU. */
 //   public void storeAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv);
 
-//   public void updateAuSuspectUrlVersionsFromJson(String auid, String json, String cookie)
-//       throws IOException;
+  public void updateAuSuspectUrlVersionsFromJson(String auid, String json, String cookie)
+      throws IOException;
 
   /** Return true if an AuSuspectUrlVersions exists for the given auid
    * @param key the auid

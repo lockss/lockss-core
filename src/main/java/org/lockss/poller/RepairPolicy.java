@@ -208,7 +208,7 @@ public class RepairPolicy {
 			       ArchivalUnit au, String url) {
     for (PeerIdentity pid:
 	   reputationTransfers.getAllReputationsTransferredFrom(reqPid)) {
-      // XXXREPO
+      // XXXSTATE per-URL agreement
 //       if (node.hasAgreement(pid)) {
 // 	log.debug2("Previous agreement found for peer " + pid + " on URL "
 // 		  + url);

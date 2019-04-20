@@ -268,6 +268,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * @param aua AuAgreements data source
    */
   protected void doStoreAuAgreementsNew(String key, AuAgreements aua) {
+    doStoreAuAgreementsUpdate(key, aua, null);
   }
 
   /** Hook for subclass to update an existing AuAgreements in persistent
@@ -338,6 +339,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    */
   protected void doStoreAuSuspectUrlVersionsNew(String key,
 						AuSuspectUrlVersions ausuv) {
+    doStoreAuSuspectUrlVersionsUpdate(key, ausuv, null);
   }
 
   /** Hook for subclass to update an existing AuSuspectUrlVersions in persistent
