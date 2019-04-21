@@ -46,6 +46,7 @@ import org.lockss.util.*;
 import org.lockss.jms.*;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimerUtil;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
 public class TestClientStateManager extends StateTestCase {
   L4JLogger log = L4JLogger.getLogger();
@@ -101,6 +102,14 @@ public class TestClientStateManager extends StateTestCase {
   Map<String,Object> auAgreementsUpdateMap(String auid, String json)
       throws IOException {
     return MapUtil.map("name", "AuAgreements",
+		       "auid", auid,
+		       "json", json);
+  }
+
+  // Construct a JMS message map for an AuSuspectUrlVersions update
+  Map<String,Object> auSuspectUrlVersionsUpdateMap(String auid, String json)
+      throws IOException {
+    return MapUtil.map("name", "AuSuspectUrlVersions",
 		       "auid", auid,
 		       "json", json);
   }
@@ -182,9 +191,60 @@ public class TestClientStateManager extends StateTestCase {
 
   }
 
+  @Test
+  public void testReceiveAuSuspectUrlVersionsNotification() throws Exception {
+    SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
+    myStateMgr.setRcvSem(sem);
+
+    AuSuspectUrlVersions asuv1 = stateMgr.getAuSuspectUrlVersions(AUID1);
+    AuSuspectUrlVersions asuv2 = stateMgr.getAuSuspectUrlVersions(AUID2);
+    assertNotSame(asuv1, asuv2);
+    assertTrue(asuv1.isEmpty());
+    assertFalse(asuv1.isSuspect(URL1, 1));
+    assertSame(asuv1, stateMgr.getAuSuspectUrlVersions(AUID1));
+    assertSame(asuv2, stateMgr.getAuSuspectUrlVersions(AUID2));
+
+    asuv1.markAsSuspect(URL1, 1, HASH1, HASH2);
+    asuv1.markAsSuspect(URL2, 2, HASH2, HASH1);
+    String json = asuv1.toJson();
+
+    assertFalse(sem.take(TIMEOUT_SHOULD));
+
+    assertTrue(asuv1.isSuspect(URL1, 1));
+    assertTrue(asuv1.isSuspect(URL2, 2));
+    assertFalse(asuv1.isSuspect(URL1, 2));
+    assertFalse(asuv1.isSuspect(URL2, 1));
+
+    asuv1.unmarkAsSuspect(URL1, 1);
+    asuv1.unmarkAsSuspect(URL2, 2);
+    assertFalse(asuv1.isSuspect(URL1, 1));
+    assertFalse(asuv1.isSuspect(URL2, 2));
+    assertTrue(asuv1.isEmpty());
+
+    prod.sendMap(auSuspectUrlVersionsUpdateMap(AUID1, json));
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+
+    assertTrue(asuv1.isSuspect(URL1, 1));
+    assertTrue(asuv1.isSuspect(URL2, 2));
+    assertFalse(asuv1.isSuspect(URL1, 2));
+    assertFalse(asuv1.isSuspect(URL2, 1));
+
+    assertSame(asuv1, stateMgr.getAuSuspectUrlVersions(AUID1));
+
+  }
+
 
   static class MyClientStateManager extends ClientStateManager {
     private SimpleBinarySemaphore rcvSem;
+
+    public void setRcvSem(SimpleBinarySemaphore sem) {
+      this.rcvSem = sem;
+    }
+
+
+    // /////////////////////////////////////////////////////////////////
+    // AuState
+    // /////////////////////////////////////////////////////////////////
 
     @Override
     protected AuStateBean doLoadAuStateBean(String key) {
@@ -203,6 +263,10 @@ public class TestClientStateManager extends StateTestCase {
       super.doReceiveAuStateChanged(auid, json, cookie);
       if (rcvSem != null) rcvSem.give();
     }
+
+    // /////////////////////////////////////////////////////////////////
+    // AuAgreements
+    // /////////////////////////////////////////////////////////////////
 
     @Override
     protected AuAgreements doLoadAuAgreements(String key) {
@@ -223,9 +287,30 @@ public class TestClientStateManager extends StateTestCase {
       if (rcvSem != null) rcvSem.give();
     }
 
-    public void setRcvSem(SimpleBinarySemaphore sem) {
-      this.rcvSem = sem;
+    // /////////////////////////////////////////////////////////////////
+    // AuSuspectUrlVersions
+    // /////////////////////////////////////////////////////////////////
+
+    @Override
+    protected AuSuspectUrlVersions doLoadAuSuspectUrlVersions(String key) {
+      log.debug2("MyClientStateManager.doLoadAuSuspectUrlVersions");
+      return null;
     }
+
+    @Override
+    protected void doStoreAuSuspectUrlVersionsUpdate(String key,
+						     AuSuspectUrlVersions aus,
+						     Set<SuspectUrlVersion> versions) {
+    }
+
+    @Override
+    public synchronized void doReceiveAuSuspectUrlVersionsChanged(String auid,
+								  String json,
+								  String cookie) {
+      super.doReceiveAuSuspectUrlVersionsChanged(auid, json, cookie);
+      if (rcvSem != null) rcvSem.give();
+    }
+
   }
 
 }

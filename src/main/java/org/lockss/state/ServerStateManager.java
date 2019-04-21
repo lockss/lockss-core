@@ -61,4 +61,12 @@ public class ServerStateManager extends PersistentStateManager {
     log.debug("Sending AuAgreement changed notification for {}: {}", key, json);
     sendAuAgreementsChangedEvent(key, json, cookie);
   }
+
+  @Override
+  protected void doNotifyAuSuspectUrlVersionsChanged(String key, String json,
+					     String cookie) {
+    log.debug("Sending AuSuspectUrlVersions changed notification for {}: {}",
+	      key, json);
+    sendAuSuspectUrlVersionsChangedEvent(key, json, cookie);
+  }
 }

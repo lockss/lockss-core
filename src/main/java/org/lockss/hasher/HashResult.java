@@ -34,6 +34,8 @@ package org.lockss.hasher;
 
 import java.security.MessageDigest;
 import java.util.*;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import org.lockss.util.*;
 import org.lockss.util.io.LockssSerializable;
@@ -52,7 +54,9 @@ final public class HashResult implements LockssSerializable {
     this.algorithm = null;
   }
 
-  private HashResult(byte[] bytes, String algorithm) {
+  @JsonCreator
+  private HashResult(@JsonProperty("bytes") byte[] bytes,
+		     @JsonProperty("algorithm") String algorithm) {
     this.bytes = bytes;
     this.algorithm = algorithm;
   }

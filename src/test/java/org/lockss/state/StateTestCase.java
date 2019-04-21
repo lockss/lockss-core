@@ -49,6 +49,7 @@ import org.lockss.test.*;
 import org.lockss.util.ListUtil;
 import org.lockss.util.SetUtil;
 import org.lockss.util.time.TimeBase;
+import org.lockss.hasher.*;
 
 /**
  * Framework, utilities and assertions for state-related tests
@@ -74,6 +75,11 @@ public abstract class StateTestCase extends LockssTestCase4 {
   protected static String URL2 = "http://host.tld/path/to/doc.pdf";
   protected static List CDN_STEMS =
     ListUtil.list("http://abc.com", "https://xyz.org");
+  protected  HashResult HASH1 =
+    HashResult.make("SHA-1:deadbeef");
+  protected HashResult HASH2 =
+    HashResult.make("SHA-256:abcdef00000000000000");
+
 
   @Before
   public void setUp() throws Exception {

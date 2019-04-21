@@ -41,6 +41,7 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.rs.exception.LockssRestException;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
 /** Caching StateManager that accesses state objects from a REST
  * StateService.  Receives notifications of changes sent by service. */
@@ -244,4 +245,78 @@ public class ClientStateManager extends CachingStateManager {
 
     return res;
   }
+
+  // /////////////////////////////////////////////////////////////////
+  // AuSuspectUrlVersions
+  // /////////////////////////////////////////////////////////////////
+
+  /** Handle incoming AuSuspectUrlVersions changed msg */
+  @Override
+  public synchronized void doReceiveAuSuspectUrlVersionsChanged(String auid,
+							String json,
+							String cookie) {
+    AuSuspectUrlVersions cur = suspectVers.get(auid);
+    if (cur == null) {
+      log.debug2("Ignoring partial update for AuSuspectUrlVersions we don't have: {}", auid);
+      return;
+    }
+    try {
+      log.debug2("Updating: {} from {}", cur, json);
+      if (isMyUpdate(cookie, json)) {
+	log.debug2("Ignoring my AuSuspectUrlVersions change: {}: {}", cookie, json);
+      } else {
+	cur.updateFromJson(json, daemon);
+      }
+    } catch (IOException e) {
+      log.error("Couldn't deserialize AuSuspectUrlVersions: {}", json, e);
+    }
+  }
+
+  /** Send the changes to the StateService */
+  @Override
+  protected void doStoreAuSuspectUrlVersionsUpdate(String key,
+					   AuSuspectUrlVersions asuv,
+					   Set<SuspectUrlVersion> versions) {
+    String json = null;
+
+    try {
+      json = asuv.toJson(versions);
+      String cookie = makeCookie();
+      recordMyUpdate(cookie, json);
+      // XXX SUSPECT
+//       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
+// 	  json, cookie);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
+//     } catch (LockssRestException lre) {
+//       log.error("Couldn't store AuSuspectUrlVersions: {}", asuv, lre);
+    }
+  }
+
+  @Override
+  protected AuSuspectUrlVersions doLoadAuSuspectUrlVersions(String key) {
+    AuSuspectUrlVersions res = null;
+    String json = null;
+
+//     try {
+      // XXX SUSPECT
+//       json =
+// 	  configMgr.getRestConfigClient().getArchivalUnitAgreements(key);
+//       log.debug2("json = {}", json);
+//     } catch (LockssRestException lre) {
+//       log.error("Couldn't get AuSuspectUrlVersions: {}", key, lre);
+//     }
+
+    if (json != null) {
+      try {
+	res = newDefaultAuSuspectUrlVersions(key);
+	res.updateFromJson(json, daemon);
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuSuspectUrlVersions: {}", json, e);
+      }
+    }
+
+    return res;
+  }
+
 }
