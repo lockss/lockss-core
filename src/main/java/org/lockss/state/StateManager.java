@@ -149,14 +149,8 @@ public interface StateManager extends LockssManager {
   // AuSuspectUrlVersions
   // /////////////////////////////////////////////////////////////////
 
-  /** Return the current singleton AuSuspectUrlVersions for the AU, creating one if
-   * necessary.  There is only one AuSuspectUrlVersions instance in existence for any AU
-   * at any time, though that instance may change over time.  As long as
-   * anyone has a pointer to an instance, this method must return the same
-   * instance on each call.  If all references to the instance are deleted,
-   * this method may return a new instance on the next call.  If the AU is
-   * deleted or deactivated, the next call (after the AU is reactivated)
-   * may return a new instance.  */
+  /** Return the current singleton AuSuspectUrlVersions for the AU,
+   * creating one if necessary. */
   public AuSuspectUrlVersions getAuSuspectUrlVersions(String key);
 
   /** Convenience method for {@link #getAuSuspectUrlVersions(String)} */
@@ -164,7 +158,11 @@ public interface StateManager extends LockssManager {
     return getAuSuspectUrlVersions(au.getAuId());
   }
 
-  /** Update the stored AuSuspectUrlVersions */
+  /** Update the stored AuSuspectUrlVersions.  This is a complete
+   * replacement - there's currently no support for incremental update (But
+   * see {@link CachingStateManager#updateAuSuspectUrlVersions(String,
+   * AuSuspectUrlVersions, Set<SuspectUrlVersion>)})
+   */
   public void updateAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv);
 
 //   /** Store the AuSuspectUrlVersions for the AU.  Can only be used once per AU. */

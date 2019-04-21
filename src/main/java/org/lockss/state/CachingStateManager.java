@@ -528,11 +528,18 @@ public abstract class CachingStateManager extends BaseStateManager {
     return asuv;
   }
 
+  /** Completely replace the stored AuSuspectUrlVersions with the data from
+   * this one.
+   */
   public synchronized void updateAuSuspectUrlVersions(String key,
 					     AuSuspectUrlVersions asuv) {
     updateAuSuspectUrlVersions(key, asuv, null);
   }
 
+  /** Completely replace the stored AuSuspectUrlVersions with the data from
+   * this one.  The versions arg is intended for future use, to support
+   * incremental udpate.  It's currently always null.
+   */
   public synchronized void updateAuSuspectUrlVersions(String key,
 					      AuSuspectUrlVersions asuv,
 					      Set<SuspectUrlVersion> versions) {
@@ -552,7 +559,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	}
 	String json = asuv.toJson(versions);
 	doStoreAuSuspectUrlVersionsUpdate(key, asuv, versions);
-	doNotifyAuAgreementsChanged(key, json, cookie);
+	doNotifyAuSuspectUrlVersionsChanged(key, json, cookie);
       } else if (isStoreOfMissingAuSuspectUrlVersionsAllowed(versions)) {
 	// XXX log?
  	suspectVers.put(key, asuv);
@@ -577,7 +584,7 @@ public abstract class CachingStateManager extends BaseStateManager {
    */
   public void updateAuSuspectUrlVersionsFromJson(String auid, String json,
 						 String cookie)
-						     throws IOException {
+      throws IOException {
     AuSuspectUrlVersions asuv = getAuSuspectUrlVersions(auid);
     Set<SuspectUrlVersion> changedVersions = asuv.updateFromJson(json, daemon);
     updateAuSuspectUrlVersions(auid, asuv, changedVersions);
@@ -687,7 +694,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	}
 	String json = naps.toJson(peers);
 	doStoreNoAuPeerSetUpdate(key, naps, peers);
-	doNotifyAuAgreementsChanged(key, json, cookie);
+	doNotifyAuSuspectUrlVersionsChanged(key, json, cookie);
       } else if (isStoreOfMissingNoAuPeerSetAllowed(peers)) {
 	// XXX log?
 	noAuPeerSets.put(key, naps);

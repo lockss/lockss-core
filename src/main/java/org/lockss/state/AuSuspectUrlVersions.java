@@ -166,6 +166,19 @@ public class AuSuspectUrlVersions implements LockssSerializable {
   }
 
   /**
+   * Unmark the version of the url as suspect
+   */
+  public synchronized void unmarkAsSuspect(String url, int version) {
+    if (!isSuspect(url, version)) {
+      log.warning("Unmark but not suspect: ver " + version + " of: " + url);
+    }
+    if (log.isDebug3()) {
+      log.debug3("Unmark suspect: ver " + version + " of: " + url);
+    }
+    suspectVersions.remove(new SuspectUrlVersion(url, version));
+  }
+
+  /**
    * Mark the version of the url as suspect
    */
   public synchronized void markAsSuspect(String url, int version,
@@ -328,6 +341,29 @@ public class AuSuspectUrlVersions implements LockssSerializable {
     AuSuspectUrlVersions res = AuSuspectUrlVersions.make(key);
     res.updateFromJson(json, daemon);
     return res;
+  }
+
+  /** Update the saved state to reflect the current contents
+   */
+  public synchronized void storeAuSuspectUrlVersions() {
+    getStateMgr().updateAuSuspectUrlVersions(auid, this);
+  }
+
+  private StateManager getStateMgr() {
+    return LockssDaemon.getManagerByTypeStatic(StateManager.class);
+  }
+
+  public int hashCode() {
+    return auid.hashCode() + suspectVersions.hashCode();
+  }
+
+  public boolean equals(Object obj) {
+    if (obj instanceof AuSuspectUrlVersions) {
+      AuSuspectUrlVersions asuv = (AuSuspectUrlVersions)obj;
+      return StringUtil.equalStrings(auid, asuv.auid)
+	&& suspectVersions.equals(asuv.suspectVersions);
+    }
+    return false;
   }
 
   /**

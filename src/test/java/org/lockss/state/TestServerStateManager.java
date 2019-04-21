@@ -109,6 +109,14 @@ public class TestServerStateManager extends StateTestCase {
 		       "json", json);
   }
 
+  // Construct a JMS message map for an AuSuspectUrlVersions update
+  Map<String,Object> auSuspectUrlVersionsUpdateMap(String auid, String json)
+      throws IOException {
+    return MapUtil.map("name", "AuSuspectUrlVersions",
+		       "auid", auid,
+		       "json", json);
+  }
+
   @Test
   // Test that local updates of AuState objects cause notifications to be
   // sent, and that updates from service cause local AuState to be updated
@@ -217,6 +225,42 @@ public class TestServerStateManager extends StateTestCase {
   }
 
 
+  @Test
+  // Test that local updates of AuSuspectUrlVersions objects cause
+  // notifications to be sent, and that updates from service cause local
+  // AuSuspectUrlVersions to be updated
+  public void testAuSuspectUrlVersions() throws Exception {
+    AuSuspectUrlVersions asuv1 = stateMgr.getAuSuspectUrlVersions(mau1);
+    AuSuspectUrlVersions asuv2 = stateMgr.getAuSuspectUrlVersions(mau2);
+    assertNotSame(asuv1, asuv2);
+    assertSame(asuv1, stateMgr.getAuSuspectUrlVersions(mau1));
+    assertSame(asuv2, stateMgr.getAuSuspectUrlVersions(mau2));
+    assertTrue(asuv1.isEmpty());
+    assertFalse(asuv1.isSuspect(URL1, 1));
+
+    asuv1.markAsSuspect(URL1, 1, HASH1, HASH2);
+    asuv1.markAsSuspect(URL2, 2, HASH2, HASH1);
+    assertTrue(asuv1.isSuspect(URL1, 1));
+    assertTrue(asuv1.isSuspect(URL2, 2));
+    assertFalse(asuv1.isSuspect(URL1, 2));
+    assertFalse(asuv1.isSuspect(URL2, 1));
+
+    String json = asuv1.toJson();
+    asuv1.storeAuSuspectUrlVersions();
+    assertEquals(auSuspectUrlVersionsUpdateMap(mau1.getAuId(), json),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+
+    asuv1.markAsSuspect(URL1, 33, HASH2, HASH1);
+    asuv1.markAsSuspect(URL2, 222, HASH1, HASH2);
+    String json2 = asuv1.toJson();
+    assertNotEquals(json, json2);
+    stateMgr.updateAuSuspectUrlVersionsFromJson(mau1.getAuId(), json2, "toll");
+
+    assertEquals(auSuspectUrlVersionsUpdateMap(mau1.getAuId(), json2),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+  }
+
+
   static class MyServerStateManager extends ServerStateManager {
     private SimpleBinarySemaphore rcvSem;
 
@@ -245,6 +289,20 @@ public class TestServerStateManager extends StateTestCase {
 	throw new IllegalStateException("Key found in both auStates and auStateBeans: " + key);
       }
       return true;
+    }
+
+    // Suppress DB load
+    @Override
+    protected AuAgreements doLoadAuAgreements(String key) {
+      log.debug2("MyServerStateManager.doLoadAuAgreements({})", key);
+      return null;
+    }
+
+    // Suppress DB load
+    @Override
+    protected AuSuspectUrlVersions doLoadAuSuspectUrlVersions(String key) {
+      log.debug2("MyServerStateManager.doLoadAuSuspectUrlVersions({})", key);
+      return null;
     }
   }
 }

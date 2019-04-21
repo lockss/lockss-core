@@ -93,6 +93,31 @@ public class TestInMemoryStateManager extends StateTestCase {
     assertAgreeTime(0.6f, 400, aua1.findPeerAgreement(pid1, POP));
   }
 
+
+  @Test
+  public void testAuSuspectUrlVersions() {
+    AuSuspectUrlVersions asuv1 = stateMgr.getAuSuspectUrlVersions(AUID1);
+    AuSuspectUrlVersions asuv2 = stateMgr.getAuSuspectUrlVersions(AUID2);
+    assertNotSame(asuv1, asuv2);
+    assertSame(asuv1, stateMgr.getAuSuspectUrlVersions(AUID1));
+    assertSame(asuv2, stateMgr.getAuSuspectUrlVersions(AUID2));
+    assertTrue(asuv1.isEmpty());
+    assertFalse(asuv1.isSuspect(URL1, 1));
+    assertFalse(asuv1.isSuspect(URL1, 2));
+    asuv1.markAsSuspect(URL1, 1, HASH1, HASH2);
+    assertTrue(asuv1.isSuspect(URL1, 1));
+    assertFalse(asuv1.isSuspect(URL1, 2));
+    assertSame(asuv1, stateMgr.getAuSuspectUrlVersions(AUID1));
+
+    // after deactivate event, getAuSuspectUrlVersions() should return a
+    // new instance with the same values as the old instance
+    auEvent(mau1, AuEvent.Type.Deactivate);
+    AuSuspectUrlVersions asuv1b = stateMgr.getAuSuspectUrlVersions(AUID1);
+    assertNotSame(asuv1, asuv1b);
+    assertTrue(asuv1b.isSuspect(URL1, 1));
+    assertFalse(asuv1b.isSuspect(URL1, 2));
+  }
+
   void auEvent(ArchivalUnit au, AuEvent.Type type) {
     pluginMgr.signalAuEvent(au, AuEvent.forAu(au, type));
   }
