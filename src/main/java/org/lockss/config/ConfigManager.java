@@ -1609,7 +1609,7 @@ public class ConfigManager implements LockssManager {
     if (getApp() != null) {
       Configuration appConfig = getApp().getAppConfig();
       if (appConfig != null && !appConfig.isEmpty()) {
-	log.debug("Adding app config: " + appConfig);
+	if (log.isDebug2()) log.debug2("Adding app config: " + appConfig);
 	newConfig.copyFrom(appConfig);
       }
     }
@@ -2429,7 +2429,9 @@ public class ConfigManager implements LockssManager {
 
   private void processExpertAllowDeny(List<String> expertAllow,
 				      List<String> expertDeny) {
-    log.debug("processExpertAllowDeny("+expertAllow+", "+expertDeny+")");
+    if (log.isDebug2()) {
+      log.debug2("processExpertAllowDeny("+expertAllow+", "+expertDeny+")");
+    }
     try {
       expertConfigAllowPats = compilePatternList(expertAllow);
       expertConfigDenyPats =  compilePatternList(expertDeny);
