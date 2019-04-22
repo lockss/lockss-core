@@ -694,7 +694,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 	}
 	String json = naps.toJson(peers);
 	doStoreNoAuPeerSetUpdate(key, naps, peers);
-	doNotifyAuSuspectUrlVersionsChanged(key, json, cookie);
+	doNotifyNoAuPeerSetChanged(key, json, cookie);
       } else if (isStoreOfMissingNoAuPeerSetAllowed(peers)) {
 	// XXX log?
 	noAuPeerSets.put(key, naps);

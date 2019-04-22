@@ -1197,10 +1197,10 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Provides the DatedPeerIdSet associated with the key (an AUID).
+   * Provides the NoAuPeerSet associated with the key (an AUID).
    * 
    * @param key
-   *          A String with the key under which the DatedPeerIdSet is stored.
+   *          A String with the key under which the NoAuPeerSet is stored.
    * @return a DatedPeerIdSet, or null if not present in the store.
    * @throws DbException
    *           if any problem occurred accessing the data.
@@ -1208,7 +1208,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    *           if any problem occurred accessing the data.
    */
   @Override
-  public DatedPeerIdSet findDatedPeerIdSet(String key)
+  public DatedPeerIdSet findNoAuPeerSet(String key)
       throws DbException, IOException {
     String json = findArchivalUnitDatedPeerIdSet(
 	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
@@ -1223,13 +1223,13 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Updates a DatedPeerIdSet in the store, creating it if not already present.
+   * Updates a NoAuPeerSet in the store, creating it if not already present.
    * If already present, only those peers listed in <code>peers</code> must be
    * stored, but it it permissible to ignore <code>peers</code> and store the
    * entire object.
    * 
    * @param key
-   *          A String with the key under which the DatedPeerIdSet is stored.
+   *          A String with the key under which the NoAuPeerSet is stored.
    * @param dpis
    *          A DatedPeerIdSet wth the object to be updated.
    * @param peers
@@ -1239,7 +1239,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    *           if any problem occurred accessing the data.
    */
   @Override
-  public Long updateDatedPeerIdSet(String key,
+  public Long updateNoAuPeerSet(String key,
 				     DatedPeerIdSet dpis,
 				     Set<PeerIdentity> peers)
 					 throws DbException {

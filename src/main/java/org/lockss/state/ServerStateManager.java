@@ -69,4 +69,12 @@ public class ServerStateManager extends PersistentStateManager {
 	      key, json);
     sendAuSuspectUrlVersionsChangedEvent(key, json, cookie);
   }
+
+  @Override
+  protected void doNotifyNoAuPeerSetChanged(String key, String json,
+					     String cookie) {
+    log.debug("Sending NoAuPeerSet changed notification for {}: {}",
+	      key, json);
+    sendNoAuPeerSetChangedEvent(key, json, cookie);
+  }
 }

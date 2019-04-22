@@ -40,14 +40,16 @@ import org.lockss.state.*;
 import org.lockss.util.os.PlatformUtil;
 
 public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
-  private static Logger m_logger = Logger.getLogger();
+  private static Logger log = Logger.getLogger();
 
   // Static constants 
   protected static final String TEMP_EXTENSION = ".temp";
 
   // Internal variables
   protected String auid;
-  protected Set<PeerIdentity> m_setPeerId = new HashSet<PeerIdentity>();
+  @JsonIgnore
+  protected Set<PeerIdentity> peerSet = new HashSet<>();
+  protected Set<String> rawSet = new HashSet<>();
 
   @JsonIgnore
   protected IdentityManager m_identityManager;
@@ -89,6 +91,18 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
     return ppisi;
   }
 
+  /**
+   * Factory method for json/Jackson.  This creates a "bean" instance which
+   * is used only as a source from which to copy data, then it is
+   * discarded.  Hence, idMgr is not needed.
+   * @param auid The AUID
+   */
+  @JsonCreator
+  public static PersistentPeerIdSetImpl make(@JsonProperty("auid") String auid) {
+    PersistentPeerIdSetImpl res = new PersistentPeerIdSetImpl(auid, null);
+    return res;
+  }
+
   /** Store the set and retain in memory
    */
   public void store() throws IOException {
@@ -106,7 +120,7 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   public boolean add(PeerIdentity pi) {
     boolean result;
 
-    result = m_setPeerId.add(pi);
+    result = peerSet.add(pi);
     m_changed |= result;
       
     return result;
@@ -115,7 +129,7 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   public boolean addAll(Collection<? extends PeerIdentity> cpi) {
     boolean result;
 
-    result = m_setPeerId.addAll(cpi);
+    result = peerSet.addAll(cpi);
     m_changed |= result;
 
     return result;
@@ -123,29 +137,29 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
 
 
   public void clear() {
-    if (!m_setPeerId.isEmpty()) {
-      m_setPeerId.clear();
+    if (!peerSet.isEmpty()) {
+      peerSet.clear();
       m_changed = true;
     }
   }
 
 
   public boolean contains(Object o) {
-    return m_setPeerId.contains(o);
+    return peerSet.contains(o);
   }
 
 
   public boolean containsAll(Collection<?> co) {
-    return m_setPeerId.containsAll(co);
+    return peerSet.containsAll(co);
   }
 
 
-  // One exception is equals.
+  // Using class.equals() because this has a subclass
   public boolean equals(Object o) {
-    if (o instanceof PersistentPeerIdSetImpl) {
+    if (getClass().equals(o.getClass())) {
       PersistentPeerIdSetImpl ppis = (PersistentPeerIdSetImpl) o;
 
-      return m_setPeerId.equals(ppis.m_setPeerId);
+      return peerSet.equals(ppis.peerSet);
     } else {
       return false;
     }
@@ -154,24 +168,24 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
 
   /* A hash code must always return a value; it cannot throw an IOException. */
   public int hashCode() {
-    return m_setPeerId.hashCode();
+    return peerSet.hashCode();
   }
 
 
   public boolean isEmpty() {
-    return m_setPeerId.isEmpty();
+    return peerSet.isEmpty();
   }
 
 
   public Iterator<PeerIdentity> iterator() {
-    return m_setPeerId.iterator();
+    return peerSet.iterator();
   }
 
 
   public boolean remove(Object o) {
     boolean result;
 
-    result = m_setPeerId.remove(o);
+    result = peerSet.remove(o);
     m_changed |= result;
 
     return result;
@@ -181,7 +195,7 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   public boolean removeAll(Collection<?> c) {
     boolean result;
 
-    result = m_setPeerId.removeAll(c);
+    result = peerSet.removeAll(c);
     m_changed |= result;
 
     return result;
@@ -191,7 +205,7 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   public boolean retainAll(Collection<?> c) {
     boolean result;
 
-    result = m_setPeerId.retainAll(c);
+    result = peerSet.retainAll(c);
     m_changed |= result;
 
     return result;
@@ -199,12 +213,12 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
 
 
   public int size() {
-    return m_setPeerId.size();
+    return peerSet.size();
   }
 
 
   public Object[] toArray() {
-    return m_setPeerId.toArray();
+    return peerSet.toArray();
   }
 
   /**
@@ -236,6 +250,18 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
     return AuUtil.jsonFromPersistentPeerIdSetImpl(makeBean(peers));
   }
 
+  /** Return a set of Strings of the keys of the pids in our peerSet that
+   * are contained in filterPeers */
+  protected Set<String> makeRawSet(Set<PeerIdentity> filterPeers) {
+    Set<String> res = new HashSet<>();
+    for (PeerIdentity pid : peerSet) {
+      if (filterPeers == null || filterPeers.contains(pid)) {
+	res.add(pid.getKey());
+      }
+    }
+    return res;
+  }
+
   /**
    * Creates and provides a new instance with the named peers.
    * 
@@ -244,14 +270,25 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
    * @return a PersistentPeerIdSetImpl with the newly created object.
    */
   PersistentPeerIdSetImpl makeBean(Set<PeerIdentity> peers) {
-    if (peers != null) {
-      PersistentPeerIdSetImpl res =
-	new PersistentPeerIdSetImpl(auid, m_identityManager);
-      res.addAll(peers);
-      return res;
-    } else {
-      return this;
+    PersistentPeerIdSetImpl res =
+      new PersistentPeerIdSetImpl(auid, m_identityManager);
+    res.rawSet = makeRawSet(peers);
+    return res;
+  }
+
+  /** Return a set of PeerIdentity created from the supplied id strings */
+  protected Set<PeerIdentity> internPeerIdSet(IdentityManager idMgr,
+					      Set<String> ids) {
+    Set<PeerIdentity> res = new HashSet<>();
+    for (String s : ids) {
+      try {
+	res.add(idMgr.findPeerIdentity(s));
+      } catch (IdentityManager.MalformedIdentityKeyException e) {
+	throw new IllegalArgumentException("Illegal pid " + s +
+					   " in " + ids, e);
+      }
     }
+    return res;
   }
 
   /**
@@ -269,12 +306,12 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
 						       LockssApp app)
       throws IOException {
     // Deserialize the JSON text into a new, scratch instance.
-    PersistentPeerIdSetImpl srcPpisis =
+    PersistentPeerIdSetImpl srcSet =
 	AuUtil.persistentPeerIdSetImplFromJson(json);
     // Get the peer identities.
-    Set<PeerIdentity> res = srcPpisis.m_setPeerId;
+    peerSet = internPeerIdSet(m_identityManager, srcSet.rawSet);
     postUnmarshal(app);
-    return res;
+    return peerSet;
   }
 
   /**
@@ -292,7 +329,7 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
    */
   public static PersistentPeerIdSetImpl fromJson(String key, String json,
 						 LockssDaemon daemon)
-						     throws IOException {
+      throws IOException {
     PersistentPeerIdSetImpl res =
 	PersistentPeerIdSetImpl.make(key, daemon.getIdentityManager());
     res.updateFromJson(json, daemon);

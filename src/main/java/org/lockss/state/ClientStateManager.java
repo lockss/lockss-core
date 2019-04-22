@@ -319,4 +319,77 @@ public class ClientStateManager extends CachingStateManager {
     return res;
   }
 
+  // /////////////////////////////////////////////////////////////////
+  // NoAuPeerSet
+  // /////////////////////////////////////////////////////////////////
+
+  /** Handle incoming NoAuPeerSet changed msg */
+  @Override
+  public synchronized void doReceiveNoAuPeerSetChanged(String auid,
+							String json,
+							String cookie) {
+    DatedPeerIdSet cur = noAuPeerSets.get(auid);
+    if (cur == null) {
+      log.debug2("Ignoring partial update for NoAuPeerSet we don't have: {}", auid);
+      return;
+    }
+    try {
+      log.debug2("Updating: {} from {}", cur, json);
+      if (isMyUpdate(cookie, json)) {
+	log.debug2("Ignoring my NoAuPeerSet change: {}: {}", cookie, json);
+      } else {
+	cur.updateFromJson(json, daemon);
+      }
+    } catch (IOException e) {
+      log.error("Couldn't deserialize NoAuPeerSet: {}", json, e);
+    }
+  }
+
+  /** Send the changes to the StateService */
+  @Override
+  protected void doStoreNoAuPeerSetUpdate(String key,
+					   DatedPeerIdSet naps,
+					   Set<PeerIdentity> peers) {
+    String json = null;
+
+    try {
+      json = naps.toJson(peers);
+      String cookie = makeCookie();
+      recordMyUpdate(cookie, json);
+      // XXX NUAUPEER
+//       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
+// 	  json, cookie);
+    } catch (IOException e) {
+      log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
+//     } catch (LockssRestException lre) {
+//       log.error("Couldn't store NoAuPeerSet: {}", naps, lre);
+    }
+  }
+
+  @Override
+  protected DatedPeerIdSet doLoadNoAuPeerSet(String key) {
+    DatedPeerIdSet res = null;
+    String json = null;
+
+//     try {
+      // XXX NUAUPEER
+//       json =
+// 	  configMgr.getRestConfigClient().getArchivalUnitAgreements(key);
+//       log.debug2("json = {}", json);
+//     } catch (LockssRestException lre) {
+//       log.error("Couldn't get NoAuPeerSet: {}", key, lre);
+//     }
+
+    if (json != null) {
+      try {
+	res = newDefaultNoAuPeerSet(key);
+	res.updateFromJson(json, daemon);
+      } catch (IOException e) {
+	log.error("Couldn't deserialize NoAuPeerSet: {}", json, e);
+      }
+    }
+
+    return res;
+  }
+
 }

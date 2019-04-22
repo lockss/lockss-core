@@ -56,6 +56,7 @@ public class InMemoryStateManager extends CachingStateManager {
   protected Map<String,String> deletedAuStates = new HashMap<>();
   protected Map<String,String> deletedAuAgreementses = new HashMap<>();
   protected Map<String,String> deletedAuSuspectUrlVersionses = new HashMap<>();
+  protected Map<String,String> deletedNoAuPeerSets = new HashMap<>();
 
   /** When AU deleted, backup any existing AuState to the deletedAuStates
    * map and delete from cache */
@@ -181,6 +182,46 @@ public class InMemoryStateManager extends CachingStateManager {
 	log.error("Couldn't serialize AuSuspectUrlVersions to \"backing\" store: {}",
 		  asuv, e);
 	throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions to \"backing\" store",
+					  e);
+      }
+    }
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // NoAuPeerSet
+  // /////////////////////////////////////////////////////////////////
+
+  /** "Load" an NoAuPeerSet from the deletedNoAuPeerSets
+   * if it's there */
+  @Override
+  protected DatedPeerIdSet doLoadNoAuPeerSet(String key) {
+    String json = deletedNoAuPeerSets.get(key);
+    if (json != null) {
+      DatedPeerIdSet naps = newDefaultNoAuPeerSet(key);
+      try {
+	naps.updateFromJson(json, daemon);
+	return naps;
+      } catch (IOException e) {
+	log.error("Couldn't deserialize NoAuPeerSet from \"backing\" store: {}",
+		  json, e);
+	throw new StateLoadStoreException("Couldn't deserialize NoAuPeerSet from \"backing\" store",
+					  e);
+      }
+    }
+    return null;
+  }
+
+  void saveDeletedAuNoAuPeerSet(String key) {
+    DatedPeerIdSet naps = noAuPeerSets.get(key);
+    if (naps != null) {
+    log.debug("Remembering: {}: {}", key, naps);
+      try {
+	String json = naps.toJson();
+	deletedNoAuPeerSets.put(key, json);
+      } catch (IOException e) {
+	log.error("Couldn't serialize NoAuPeerSet to \"backing\" store: {}",
+		  naps, e);
+	throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet to \"backing\" store",
 					  e);
       }
     }

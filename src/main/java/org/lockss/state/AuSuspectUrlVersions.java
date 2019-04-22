@@ -217,8 +217,21 @@ public class AuSuspectUrlVersions implements LockssSerializable {
   }
 
   /** Return the collection of SuspectUrlVersion */
-  public synchronized Collection<SuspectUrlVersion> getSuspectList() {
+  public synchronized List<SuspectUrlVersion> getSuspectList() {
     return new ArrayList(suspectVersions);
+  }
+
+  /** Return stored SuspectUrlVersion with the same url and version of the
+   * specified one, if any.  Inefficient, used in testing */
+  public synchronized SuspectUrlVersion getSuspectUrlVersion(String url,
+							     int version) {
+    SuspectUrlVersion pat = new SuspectUrlVersion(url, version);
+    for (SuspectUrlVersion suv : suspectVersions) {
+      if (suv.equals(pat)) {
+	return suv;
+      }
+    }
+    return null;
   }
 
   /**

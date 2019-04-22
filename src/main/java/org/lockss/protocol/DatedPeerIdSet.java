@@ -28,6 +28,9 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.protocol;
 
+import java.io.*;
+import org.lockss.app.LockssDaemon;
+
 /**
  * A PersistentPeerIdSet with a timestamp.
  */

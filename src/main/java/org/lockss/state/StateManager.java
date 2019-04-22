@@ -41,7 +41,16 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 
-/** Manages loading and storing state objects.  */
+/** Manages loading and storing state objects.
+ *
+ * All the getXxx() methods return a singleton-per-AU state object,
+ * creating one if necessary.  There is only one Xxx instance in existence
+ * for any AU at any time, though that instance may change over time.  As
+ * long as anyone has a pointer to an instance, these methods must return
+ * the same instance on each call.  If all references to the instance are
+ * deleted, these methods may return a new instance on the next call.  If
+ * the AU is deleted or deactivated, the next call (after the AU is
+ * reactivated) may return a new instance.  */
 public interface StateManager extends LockssManager {
 
   public static final String PREFIX = Configuration.PREFIX + "state.";
@@ -52,13 +61,7 @@ public interface StateManager extends LockssManager {
   // /////////////////////////////////////////////////////////////////
 
   /** Return the current singleton AuState for the AU, creating one if
-   * necessary.  There is only one AuState instance in existence for any AU
-   * at any time, though that instance may change over time.  As long as
-   * anyone has a pointer to an instance, this method must return the same
-   * instance on each call.  If all references to the instance are deleted,
-   * this method may return a new instance on the next call.  If the AU is
-   * deleted or deactivated, the next call (after the AU is reactivated)
-   * may return a new instance.  */
+   * necessary.  */
   public AuState getAuState(ArchivalUnit au);
 
   /** Return the current singleton AuStateBean for the auid, creating one
@@ -110,13 +113,7 @@ public interface StateManager extends LockssManager {
   // /////////////////////////////////////////////////////////////////
 
   /** Return the current singleton AuAgreements for the AU, creating one if
-   * necessary.  There is only one AuAgreements instance in existence for any AU
-   * at any time, though that instance may change over time.  As long as
-   * anyone has a pointer to an instance, this method must return the same
-   * instance on each call.  If all references to the instance are deleted,
-   * this method may return a new instance on the next call.  If the AU is
-   * deleted or deactivated, the next call (after the AU is reactivated)
-   * may return a new instance.  */
+   * necessary.  */
   public AuAgreements getAuAgreements(String key);
 
   /** Convenience method for {@link #getAuAgreements(String)} */
@@ -182,13 +179,7 @@ public interface StateManager extends LockssManager {
   // /////////////////////////////////////////////////////////////////
 
   /** Return the current singleton NoAuPeerSet for the AU, creating one if
-   * necessary.  There is only one NoAuPeerSet instance in existence for any AU
-   * at any time, though that instance may change over time.  As long as
-   * anyone has a pointer to an instance, this method must return the same
-   * instance on each call.  If all references to the instance are deleted,
-   * this method may return a new instance on the next call.  If the AU is
-   * deleted or deactivated, the next call (after the AU is reactivated)
-   * may return a new instance.  */
+   * necessary.  */
   public DatedPeerIdSet getNoAuPeerSet(String key);
 
   /** Convenience method for {@link #getNoAuPeerSet(String)} */
@@ -202,8 +193,8 @@ public interface StateManager extends LockssManager {
 //   /** Store the NoAuPeerSet for the AU.  Can only be used once per AU. */
 //   public void storeNoAuPeerSet(String key, DatedPeerIdSet asuv);
 
-//   public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
-//       throws IOException;
+  public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
+      throws IOException;
 
   /** Return true if an NoAuPeerSet exists for the given auid
    * @param key the auid

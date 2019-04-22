@@ -30,8 +30,11 @@ import java.util.*;
 import org.junit.*;
 
 import org.lockss.state.*;
+import org.lockss.log.*;
+import org.lockss.util.*;
 
 public class TestDatedPeerIdSetImpl extends StateTestCase {
+  L4JLogger log = L4JLogger.getLogger();
 
   @Override
   protected StateManager makeStateManager() {
@@ -39,11 +42,55 @@ public class TestDatedPeerIdSetImpl extends StateTestCase {
   }
 
   @Test
-  public void testGetAndSetDate() throws Exception {
-    DatedPeerIdSet set = new DatedPeerIdSetImpl(idMgr);
-    assertEquals(-1, set.getDate());
-    set.setDate(222333444);
-    assertEquals(222333444, set.getDate());
+  public void testBasicOps() throws Exception {
+    DatedPeerIdSet dpis1 = DatedPeerIdSetImpl.make(AUID1, idMgr);
+    DatedPeerIdSet dpis2 = DatedPeerIdSetImpl.make(AUID1, idMgr);
+    assertEquals(-1, dpis1.getDate());
+    assertTrue(dpis1.isEmpty());
+    assertFalse(dpis1.contains(pid0));
+    assertEquals(dpis1, dpis2);
+
+    dpis1.add(pid0);
+    assertEquals(-1, dpis1.getDate());
+    assertFalse(dpis1.isEmpty());
+    assertTrue(dpis1.contains(pid0));
+
+    assertNotEquals(dpis1, dpis2);
+    dpis2.add(pid0);
+    assertEquals(dpis1, dpis2);
+
+    dpis1.setDate(222333444);
+    assertEquals(222333444, dpis1.getDate());
+    assertFalse(dpis1.isEmpty());
+    assertTrue(dpis1.contains(pid0));
+    assertNotEquals(dpis1, dpis2);
+    dpis2.setDate(222333444);
+    assertEquals(dpis1, dpis2);
   }
 
+  @Test
+  public void testToJson() throws Exception {
+    DatedPeerIdSet dpis1 = DatedPeerIdSetImpl.make(AUID1, idMgr);
+    DatedPeerIdSet dpis2 = DatedPeerIdSetImpl.make(AUID1, idMgr);
+    dpis1.add(pid0);
+    dpis1.add(pid1);
+    dpis1.setDate(9876);
+    String json = dpis1.toJson();
+    log.debug2("json: " + json);
+    assertMatchesRE("\"auid\":\"" + RegexpUtil.quotemeta(AUID1), json);
+    assertMatchesRE("\"rawSet\":", json);
+    assertMatchesRE("\"" + RegexpUtil.quotemeta(pid0.getIdString()) + "\"",
+		    json);
+    assertMatchesRE("\"" + RegexpUtil.quotemeta(pid1.getIdString()) + "\"",
+		    json);
+    assertMatchesRE("\"date\":9876", json);
+
+    assertNotEquals(dpis2, dpis1);
+    dpis2.updateFromJson(json, getMockLockssDaemon());
+    assertEquals(dpis2, dpis1);
+    dpis1.remove(pid0);
+    assertNotEquals(dpis2, dpis1);
+    dpis2.updateFromJson(dpis1.toJson(), getMockLockssDaemon());
+    assertEquals(dpis2, dpis1);
+  }
 }

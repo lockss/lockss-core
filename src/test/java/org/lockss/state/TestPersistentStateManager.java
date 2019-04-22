@@ -66,7 +66,6 @@ public class TestPersistentStateManager extends StateTestCase {
     daemon.setManagerByType(ConfigDbManager.class, dbManager);
     dbManager.initService(daemon);
     dbManager.startService();
-
   }
 
   @Override
@@ -288,8 +287,68 @@ public class TestPersistentStateManager extends StateTestCase {
 
     String storedjson = sstore.getStoredAuSuspectUrlVersions(AUID1);
     assertMatchesRE("\"auid\":\"" + RegexpUtil.quotemeta(AUID1), storedjson);
+    assertMatchesRE("\"url\":\"" + RegexpUtil.quotemeta(URL1), storedjson);
     assertMatchesRE("\"version\":3", storedjson);
     assertNotMatchesRE("\"version\":1", storedjson);
+  }
+
+
+  @Test
+  public void testFuncNoAuPeerSet() throws Exception {
+    // Pre-store an NoAuPeerSet in the db
+    DatedPeerIdSet naps0 = stateMgr.newDefaultNoAuPeerSet(AUID1);
+    assertTrue(naps0.isEmpty());
+    assertEquals(-1, naps0.getDate());
+    naps0.add(pid0);
+    naps0.add(pid2);
+    naps0.setDate(123);
+    assertFalse(naps0.isEmpty());
+    assertTrue(naps0.contains(pid0));
+    assertFalse(naps0.contains(pid1));
+    assertTrue(naps0.contains(pid2));
+    assertEquals(123, naps0.getDate());
+
+    String json = naps0.toJson();
+
+    // Set up fake store
+    MyStateStore sstore = new MyStateStore();
+    myStateMgr.setStateStore(sstore);
+    sstore.setStoredNoAuPeerSet(AUID1, json);
+
+    // Fetch the NoAuPeerSet that's in the DB
+    DatedPeerIdSet naps1 = stateMgr.getNoAuPeerSet(AUID1);
+    // shouldn't get naps0 back as it didn't come from StateManager
+    assertNotSame(naps1, naps0);
+
+    assertFalse(naps1.isEmpty());
+    assertTrue(naps1.contains(pid0));
+    assertFalse(naps1.contains(pid1));
+    assertTrue(naps1.contains(pid2));
+    assertEquals(123, naps1.getDate());
+    assertSame(naps1, stateMgr.getNoAuPeerSet(AUID1));
+
+    // Fetch one with no data
+    DatedPeerIdSet naps2 = stateMgr.getNoAuPeerSet(AUID2);
+    assertTrue(naps2.isEmpty());
+    assertFalse(naps2.contains(pid1));
+
+    // Perform a json-only update from the service, ensure DB and
+    // existing NoAuPeerSet instance get updated.
+    DatedPeerIdSet naps3 = stateMgr.newDefaultNoAuPeerSet(AUID1);
+    naps3.add(pid1);
+    naps3.setDate(333);
+
+    assertTrue(naps3.contains(pid1));
+    assertFalse(naps1.contains(pid1));
+    String json3 = naps3.toJson();
+    stateMgr.updateNoAuPeerSetFromJson(AUID1, json3, null);
+    assertTrue(naps1.contains(pid1));
+
+    String storedjson = sstore.getStoredNoAuPeerSet(AUID1);
+    assertMatchesRE("\"auid\":\"" + RegexpUtil.quotemeta(AUID1), storedjson);
+    assertMatchesRE("\"rawSet\":\\[\"" + RegexpUtil.quotemeta(pid1.getIdString()),
+		    storedjson);
+    assertMatchesRE("\"date\":333", storedjson);
   }
 
 }

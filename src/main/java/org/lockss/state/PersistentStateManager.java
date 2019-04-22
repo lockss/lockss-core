@@ -247,29 +247,29 @@ public class PersistentStateManager extends CachingStateManager {
   }
 
   // /////////////////////////////////////////////////////////////////
-  // DatedPeerIdSet
+  // NoAuPeerSet
   // /////////////////////////////////////////////////////////////////
 
   /**
-   * Loads a DatedPeerIdSet object from the DB.
+   * Loads a NoAuPeerSet object from the DB.
    * 
    * @param key
-   *          A String with the key under which the DatedPeerIdSet is stored.
+   *          A String with the key under which the NoAuPeerSet is stored.
    * @return a DatedPeerIdSet object reflecting the current contents of the DB,
-   *         or null if there's no DatedPeerIdSet for the AU in the DB.
+   *         or null if there's no NoAuPeerSet for the AU in the DB.
    */
   @Override
   protected DatedPeerIdSet doLoadNoAuPeerSet(String key) {
     DatedPeerIdSet res = null;
 
     try {
-      res = getStateStore().findDatedPeerIdSet(key);
+      res = getStateStore().findNoAuPeerSet(key);
     } catch (IOException ioe) {
-      String message = "Exception caught composing DatedPeerIdSet";
+      String message = "Exception caught composing NoAuPeerSet";
       log.error("key = {}", key);
       throw new StateLoadStoreException(message, ioe);
     } catch (StoreException se) {
-      String message = "Exception caught finding DatedPeerIdSet";
+      String message = "Exception caught finding NoAuPeerSet";
       log.error("key = {}", key);
       throw new StateLoadStoreException(message, se);
     }
@@ -279,10 +279,10 @@ public class PersistentStateManager extends CachingStateManager {
   }
 
   /**
-   * Stores in the DB the changes to a DatedPeerIdSet object.
+   * Stores in the DB the changes to a NoAuPeerSet object.
    * 
    * @param key
-   *          A String with the key under which the DatedPeerIdSet is stored.
+   *          A String with the key under which the NoAuPeerSet is stored.
    * @param dpis
    *          A DatedPeerIdSet with the object to be stored, which may be null.
    * @param peers
@@ -298,10 +298,10 @@ public class PersistentStateManager extends CachingStateManager {
     log.debug2("peers = {}", peers);
 
     try {
-      Long auSeq = getStateStore().updateDatedPeerIdSet(key, dpis, peers);
+      Long auSeq = getStateStore().updateNoAuPeerSet(key, dpis, peers);
       log.trace("auSeq = {}", auSeq);
     } catch (StoreException se) {
-      String message = "Exception caught persisting DatedPeerIdSet";
+      String message = "Exception caught persisting NoAuPeerSet";
       log.error("key = {}", key);
       log.error("dpis = {}", dpis);
       log.error("peers = {}", peers);

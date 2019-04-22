@@ -192,7 +192,7 @@ public class AuAgreements implements LockssSerializable {
     return !map.isEmpty();
   }
 
-  public PeerIdentity setPeerAgreements(PeerAgreements peerAgreements)
+  private PeerIdentity setPeerAgreements(PeerAgreements peerAgreements)
       throws IllegalArgumentException {
     String id = peerAgreements.getId();
     try {

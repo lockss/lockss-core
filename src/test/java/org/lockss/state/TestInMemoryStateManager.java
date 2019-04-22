@@ -93,7 +93,6 @@ public class TestInMemoryStateManager extends StateTestCase {
     assertAgreeTime(0.6f, 400, aua1.findPeerAgreement(pid1, POP));
   }
 
-
   @Test
   public void testAuSuspectUrlVersions() {
     AuSuspectUrlVersions asuv1 = stateMgr.getAuSuspectUrlVersions(AUID1);
@@ -116,6 +115,31 @@ public class TestInMemoryStateManager extends StateTestCase {
     assertNotSame(asuv1, asuv1b);
     assertTrue(asuv1b.isSuspect(URL1, 1));
     assertFalse(asuv1b.isSuspect(URL1, 2));
+  }
+
+  @Test
+  public void testNoAuPeerSet() {
+    DatedPeerIdSet naps1 = stateMgr.getNoAuPeerSet(AUID1);
+    DatedPeerIdSet naps2 = stateMgr.getNoAuPeerSet(AUID2);
+    assertNotSame(naps1, naps2);
+    assertSame(naps1, stateMgr.getNoAuPeerSet(AUID1));
+    assertSame(naps2, stateMgr.getNoAuPeerSet(AUID2));
+    assertTrue(naps1.isEmpty());
+
+    naps1.add(pid0);
+    assertFalse(naps1.isEmpty());
+    assertEquals(1, naps1.size());
+    assertTrue(naps1.contains(pid0));
+    assertFalse(naps1.contains(pid1));
+    assertSame(naps1, stateMgr.getNoAuPeerSet(AUID1));
+
+    // after deactivate event, getNoAuPeerSet() should return a
+    // new instance with the same values as the old instance
+    auEvent(mau1, AuEvent.Type.Deactivate);
+    DatedPeerIdSet naps1b = stateMgr.getNoAuPeerSet(AUID1);
+    assertNotSame(naps1, naps1b);
+    assertTrue(naps1.contains(pid0));
+    assertFalse(naps1.contains(pid1));
   }
 
   void auEvent(ArchivalUnit au, AuEvent.Type type) {
