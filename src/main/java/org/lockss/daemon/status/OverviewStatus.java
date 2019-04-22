@@ -32,6 +32,7 @@ import java.util.*;
 
 import org.lockss.app.*;
 import org.lockss.daemon.status.*;
+import org.lockss.daemon.status.StatusTable.ForeignOverview;
 import org.lockss.util.*;
 import org.lockss.state.*;
 import org.lockss.poller.*;
@@ -96,9 +97,21 @@ public class OverviewStatus extends BaseLockssDaemonManager {
       statusServ.requestOverviews(table.getOptions());
       List res = new ArrayList();
 
-      for (int ix = 0; ix < overviewTableNames.length; ix++) {
+      for (String overviewTableName : overviewTableNames) {
+	// Foreign overview (null if no component has registered a global
+	// overview accessor for that table, or if no overview value has
+	// been received sufficiently recently
+	ForeignOverview fo =
+	  statusServ.getForeignOverview(overviewTableName);
+	if (fo != null) {
+	  StatusTable.SummaryInfo summ =
+	    new StatusTable.SummaryInfo(null,
+					ColumnDescriptor.TYPE_STRING,
+					fo.getValue());
+	  res.add(summ);
+	}
 	// Local overview (null if no local overview accessor for that table)
-	Object v = statusServ.getOverview(overviewTableNames[ix],
+	Object v = statusServ.getOverview(overviewTableName,
 					 table.getOptions());
 
 	if (v != null) {
@@ -107,23 +120,22 @@ public class OverviewStatus extends BaseLockssDaemonManager {
 	    // globally, as this should always point to local table
 	    ((StatusTable.Reference)v).setLocal(true);
 	  }
-	  StatusTable.SummaryInfo summ =
-	    new StatusTable.SummaryInfo(null,
-					ColumnDescriptor.TYPE_STRING,
-					v);
-	  res.add(summ);
-	}
-
-	// Foreign overview (null if no component has registered a global
-	// overview accessor for that table, or if no overview value has
-	// been received sufficiently recently
-	v = statusServ.getForeignOverview(overviewTableNames[ix]);
-	if (v != null) {
-	  StatusTable.SummaryInfo summ =
-	    new StatusTable.SummaryInfo(null,
-					ColumnDescriptor.TYPE_STRING,
-					v);
-	  res.add(summ);
+	  if (fo == null || !statusServ.isGlobalOnlyTable(overviewTableName)) {
+	    if (fo != null) {
+	      // If we have both a local and global overview for this table,
+	      // label the local one
+	      if (v instanceof List) {
+		v = ListUtil.append((List)v, ListUtil.list(" (local)"));
+	      } else {
+		v = ListUtil.list(v, " (local)");
+	      }
+	    }
+	    StatusTable.SummaryInfo summ =
+	      new StatusTable.SummaryInfo(null,
+					  ColumnDescriptor.TYPE_STRING,
+					  v);
+	    res.add(summ);
+	  }
 	}
       }
       return res;

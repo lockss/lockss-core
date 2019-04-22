@@ -67,8 +67,9 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
     RegistryPlugin.PREFIX + "crawlInterval";
   static final long DEFAULT_REGISTRY_CRAWL_INTERVAL = Constants.DAY;
 
-  /** The proxy to use for registry crawls, or DIRECT to override a global
-   * crawl proxy.  Changes take effect at start of next crawl. */
+  /** The proxy to use for registry crawls, or <tt>DIRECT</tt> or
+   * <tt>NONE</tt> to override a global crawl proxy.  Changes take effect
+   * at start of next crawl. */
   static final String PARAM_REGISTRY_CRAWL_PROXY =
     RegistryPlugin.PREFIX + "crawlProxy";
 

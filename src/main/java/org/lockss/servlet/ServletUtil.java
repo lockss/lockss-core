@@ -1823,7 +1823,9 @@ public class ServletUtil {
 
     while (descrIterator.hasNext()) {
       ServletDescr d = (ServletDescr)descrIterator.next();
-      if (!d.isSameLine()) {
+      if (d.isSameLine()) {
+	navTable.add("&nbsp&nbsp");
+      } else {
 	navTable.newRow();
 	navTable.newCell();
       }

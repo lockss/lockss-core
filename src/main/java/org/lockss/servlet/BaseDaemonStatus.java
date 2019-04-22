@@ -130,8 +130,10 @@ public abstract class BaseDaemonStatus extends LockssServlet {
 			  sb.toString());
       }
     }
+    String disp = getDisplayString(ref.getValue(), type);
+    if (ref.isLabelLocal()) disp += " (local)";
     return srvLink(myServletDescr(),
-		   getDisplayString(ref.getValue(), type),
+		   disp,
 		   sb.toString());
   }
 
@@ -177,13 +179,11 @@ public abstract class BaseDaemonStatus extends LockssServlet {
         statSvc.getTable(StatusService.ALL_TABLES_TABLE, null,
 			 isDebugUser() ? debugOptions : null);
       java.util.List colList = statTable.getColumnDescriptors();
-      java.util.List rowList = statTable.getSortedRows();
       ColumnDescriptor cd = (ColumnDescriptor)colList.get(0);
       Select sel = new Select("table", false);
       sel.attribute("onchange", "this.form.submit()");
       boolean foundIt = false;
-      for (Iterator rowIter = rowList.iterator(); rowIter.hasNext(); ) {
-        Map rowMap = (Map)rowIter.next();
+      for (Map rowMap : statTable.getSortedRows()) {
         Object val = rowMap.get(cd.getColumnName());
         String display = StatusTable.getActualValue(val).toString();
         if (val instanceof StatusTable.Reference) {
@@ -193,7 +193,7 @@ public abstract class BaseDaemonStatus extends LockssServlet {
           boolean isThis = false;
 	  if (!StringUtil.isNullString(stem)) {
 	    key += ":" + ref.getServiceName() + ":" + stem;
-	    display += " (" + ref.getServiceName() + ")";
+// 	    display += " (" + ref.getServiceName() + ")";
 	  } else {
 	    // select the currently displayed table (always local)
 	    isThis = (tableKey == null) && tableName.equals(ref.getTableName());

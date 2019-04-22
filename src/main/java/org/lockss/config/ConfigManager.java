@@ -109,8 +109,8 @@ public class ConfigManager implements LockssManager {
   static final long DEFAULT_RELOAD_INTERVAL = 30 * Constants.MINUTE;
 
   /** If set to <i>hostname</i>:<i>port</i>, the configuration server will
-   * be accessed via the specified proxy.  Leave unset for direct
-   * connection.
+   * be accessed via the specified proxy.  For direct connection, leave
+   * unset or set to <tt>DIRECT</tt> or <tt>NONE</tt>
    * @ParamCategory Platform
    */
   public static final String PARAM_PROPS_PROXY = PLATFORM + "propsProxy";
@@ -421,7 +421,9 @@ public class ConfigManager implements LockssManager {
   public static final String CONFIG_FILE_ACCESS_GROUPS =
     "access_groups_config.txt"; // not yet in use
   public static final String CONFIG_FILE_CRAWL_PROXY = "crawl_proxy.txt";
-  public static final String CONFIG_FILE_EXPERT = "expert_config.txt";
+  public static final String CONFIG_FILE_EXPERT_CLUSTER = "expert_config.txt";
+  public static final String CONFIG_FILE_EXPERT_LOCAL =
+    "expert_config_local.txt";
 
   /** Obsolescent - replaced by CONFIG_FILE_CONTENT_SERVERS */
   public static final String CONFIG_FILE_ICP_SERVER = "icp_server_config.txt";
@@ -476,6 +478,7 @@ public class ConfigManager implements LockssManager {
     File file;
     KeyPredicate keyPred;
     Predicate includePred;
+    boolean includeInCluster = true;
     boolean needReloadAfterWrite = true;
 
     LocalFileDescr(String name) {
@@ -509,6 +512,15 @@ public class ConfigManager implements LockssManager {
 
     LocalFileDescr setIncludePredicate(Predicate pred) {
       this.includePred = pred;
+      return this;
+    }
+
+    boolean isIncludeInCluster() {
+      return includeInCluster;
+    }
+
+    LocalFileDescr setIncludeInClusterConfig(boolean val) {
+      this.includeInCluster = val;
       return this;
     }
 
@@ -638,9 +650,13 @@ public class ConfigManager implements LockssManager {
     new LocalFileDescr(CONFIG_FILE_CONTENT_SERVERS),
     new LocalFileDescr(CONFIG_FILE_ACCESS_GROUPS), // not yet in use
     new LocalFileDescr(CONFIG_FILE_CRAWL_PROXY),
-    new LocalFileDescr(CONFIG_FILE_EXPERT)
+    new LocalFileDescr(CONFIG_FILE_EXPERT_CLUSTER)
     .setKeyPredicate(expertConfigKeyPredicate)
     .setIncludePredicate(expertConfigIncludePredicate),
+    new LocalFileDescr(CONFIG_FILE_EXPERT_LOCAL)
+    .setKeyPredicate(expertConfigKeyPredicate)
+    .setIncludePredicate(expertConfigIncludePredicate)
+    .setIncludeInClusterConfig(false),
   };
 
   private static final Logger log = Logger.getLogger();
@@ -3413,6 +3429,9 @@ public class ConfigManager implements LockssManager {
     StringBuilder sbLocal = new StringBuilder();
     if (true || hasLocalCacheConfig()) {
       for (LocalFileDescr lfd : getLocalFileDescrs()) {
+	if (!lfd.isIncludeInCluster()) {
+	  continue;
+	}
 	String filename = lfd.getFile().toString();
 	ConfigFile cf = configCache.get(filename);
 	if (cf != null && cf.isLoaded()) {

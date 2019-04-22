@@ -495,19 +495,28 @@ public class TestConfigManager extends LockssTestCase4 {
     String relConfigPath =
       CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
                              ConfigManager.DEFAULT_CONFIG_PATH);
-    String exp_file =
-      mgr.getCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT).toString();
+    Configuration econfig =
+      writeCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT_CLUSTER,
+			   PropUtil.fromArgs("k", "v"));
 
-    ConfigFile cf = mgr.getConfigCache().find(exp_file);
-    mgr.writeCacheConfigFile(PropUtil.fromArgs("k", "v"),
-			     ConfigManager.CONFIG_FILE_EXPERT,
-			     "Header");
-    // Force it to load else won't be included
-    Configuration econfig = cf.getConfiguration();
+    // expert_config_local.txt should *not* show up in cluster file
+    writeCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT_LOCAL,
+			 PropUtil.fromArgs("xx", "yy"));
+
     assertEquals("v", econfig.get("k"));
     mgr.generateClusterFile(tmpFile);
     String clust2 = StringUtil.fromFile(tmpFile);
     assertMatchesRE(expClust2, clust2);
+  }
+
+  Configuration writeCacheConfigFile(String filename, Properties props)
+      throws IOException {
+    String exp_file = mgr.getCacheConfigFile(filename).toString();
+
+    ConfigFile cf = mgr.getConfigCache().find(exp_file);
+    mgr.writeCacheConfigFile(props, filename, "Header");
+    // Force it to load else won't be included
+    return cf.getConfiguration();
   }
 
   @Test
@@ -525,7 +534,7 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(last, cf.getLastModified());
 
     TimerUtil.guaranteedSleep(1);
-    String fname = ConfigManager.CONFIG_FILE_EXPERT;
+    String fname = ConfigManager.CONFIG_FILE_EXPERT_CLUSTER;
     mgr.writeCacheConfigFile(PropUtil.fromArgs("exp.foo", "valfoo"),
 			     fname, "header");
     Configuration config2 = cf.getConfiguration();
@@ -1096,7 +1105,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -1135,7 +1144,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -1178,7 +1187,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -1218,7 +1227,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -1400,7 +1409,8 @@ public class TestConfigManager extends LockssTestCase4 {
 		    CONFIG_FILE_CONTENT_SERVERS,
 		    CONFIG_FILE_ACCESS_GROUPS,
 		    CONFIG_FILE_CRAWL_PROXY,
-		    CONFIG_FILE_EXPERT);
+		    CONFIG_FILE_EXPERT_CLUSTER,
+		    CONFIG_FILE_EXPERT_LOCAL);
 
     List<String> names = new ArrayList<String>();
     for (LocalFileDescr descr : mgr.getLocalFileDescrs()) {
@@ -1411,15 +1421,15 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testGetLocalFileDescr() throws Exception {
-    LocalFileDescr descr = mgr.getLocalFileDescr(CONFIG_FILE_EXPERT);
-    assertEquals(CONFIG_FILE_EXPERT, descr.getName());
+    LocalFileDescr descr = mgr.getLocalFileDescr(CONFIG_FILE_EXPERT_CLUSTER);
+    assertEquals(CONFIG_FILE_EXPERT_CLUSTER, descr.getName());
     assertTrue(descr.isNeedReloadAfterWrite());
   }
 
   @Test
   public void testModifyCacheConfigFile() throws Exception {
     // Arbitrary config file
-    final String FILE = ConfigManager.CONFIG_FILE_EXPERT;
+    final String FILE = ConfigManager.CONFIG_FILE_EXPERT_CLUSTER;
 
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -1699,7 +1709,7 @@ public class TestConfigManager extends LockssTestCase4 {
     assertFalse(mgr.hasLocalCacheConfig());
 
     // write a local config file
-    mgr.writeCacheConfigFile(props, ConfigManager.CONFIG_FILE_EXPERT,
+    mgr.writeCacheConfigFile(props, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER,
 			     "this is a header");
 
     assertFalse(mgr.hasLocalCacheConfig());

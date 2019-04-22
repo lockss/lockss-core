@@ -371,7 +371,7 @@ public class StatusTable {
    * @return list of {@link java.util.Map}s representing rows in the table
    * in their default sort order
    */
-  public List getSortedRows() {
+  public List<Map> getSortedRows() {
     if (rows == null) {
       return Collections.EMPTY_LIST;
     }
@@ -617,6 +617,7 @@ public class StatusTable {
     private String key;
     private Properties props;
     private boolean isLocal;
+    private boolean isLabelLocal;
 
     /**
      * Create a Reference object with an embedded value.
@@ -736,8 +737,18 @@ public class StatusTable {
       return this;
     }
 
+    /** Set true for references that should be labelled "local" */
+    public Reference setLabelLocal(boolean val) {
+      isLabelLocal = val;
+      return this;
+    }
+
     public boolean isLocal() {
       return isLocal;
+    }
+
+    public boolean isLabelLocal() {
+      return isLabelLocal;
     }
 
     public String toString() {

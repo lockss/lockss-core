@@ -124,39 +124,99 @@ public class StatusServiceImpl
   private Set<String> globallyRegisteredOverviews =
     Collections.synchronizedSet(new HashSet<>());
 
-  // Specification of tables that should be globally associated with some
-  // service
-  private Map<String,ServiceDescr> globalTableService = //new HashMap<>();
-    MapUtil.map(
-		org.lockss.plugin.PluginStatus.ALL_AUIDS,
-		ServiceDescr.SVC_CONFIG,
-		org.lockss.crawler.CrawlManagerImpl.CRAWL_STATUS_TABLE_NAME,
-		ServiceDescr.SVC_CRAWLER,
-		org.lockss.hasher.HashSvcSchedImpl.HASH_STATUS_TABLE,
-		ServiceDescr.SVC_POLLER,
-		org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME,
-		ServiceDescr.SVC_POLLER,
-		org.lockss.poller.v3.V3PollStatus.VOTER_STATUS_TABLE_NAME,
-		ServiceDescr.SVC_POLLER,
-		"SCommChans",
-		ServiceDescr.SVC_POLLER,
-		"SCommPeers",
-		ServiceDescr.SVC_POLLER,
-		"Identities",
-		ServiceDescr.SVC_POLLER,
-		"SchedQ",
-		ServiceDescr.SVC_POLLER,
-		org.lockss.state.ArchivalUnitStatus.SERVICE_STATUS_TABLE_NAME,
-		ServiceDescr.SVC_POLLER,
-		org.lockss.state.ArchivalUnitStatus.AU_STATUS_TABLE_NAME,
-		ServiceDescr.SVC_POLLER,
-		org.lockss.state.ArchivalUnitStatus.AUIDS_TABLE_NAME,
-		ServiceDescr.SVC_POLLER,
-		org.lockss.state.ArchivalUnitStatus.AU_DEFINITION_TABLE_NAME,
-		ServiceDescr.SVC_POLLER,
-		org.lockss.metadata.MetadataManager.METADATA_STATUS_TABLE_NAME,
-		ServiceDescr.SVC_MDX
-		);
+  /** Associates a table with a service, This is an expedient way of
+   * declaring which service should globally register which tables, and
+   * which ones are of interest locally even if there's a global one.  This
+   * knowledge should probably reside with the tables, but this is an
+   * interim facility.
+   */
+  static class GlobalTableAssociation {
+    private String name;
+    private ServiceDescr descr;
+    boolean globalOnly = false;
+    GlobalTableAssociation(String name, ServiceDescr descr) {
+      this.name = name;
+      this.descr = descr;
+    }
+
+    GlobalTableAssociation setGlobalOnly() {
+      globalOnly = true;
+      return this;
+    }
+
+    /** Return the table name */
+    String getName() {
+      return name;
+    }
+
+    /** Return the ServiceDescr with which the table should be globally
+     * associated */
+    ServiceDescr getServiceDescr() {
+      return descr;
+    }
+
+    /** Return true if a the manu item for a local table of the same name
+     * should be suppressed when a global one is available */
+    boolean isGlobalOnly() {
+      return globalOnly;
+    }
+  }
+
+  void initGlobalAssocs() {
+    for (GlobalTableAssociation gta : globalAssocs) {
+      globalTableAssocs.put(gta.getName(), gta);
+    }
+  }
+
+  public boolean isGlobalOnlyTable(String name) {
+    GlobalTableAssociation gta = globalTableAssocs.get(name);
+    if (gta == null) return false;
+    return gta.isGlobalOnly();
+  }
+
+  ServiceDescr getGlobalTableService(String name) {
+    GlobalTableAssociation gta = globalTableAssocs.get(name);
+    if (gta == null) return null;
+    return gta.getServiceDescr();
+  }
+
+  private Map<String,GlobalTableAssociation> globalTableAssocs =
+    new HashMap<>();
+
+  /** Specification of tables that should be globally associated with some
+   * service
+   */
+  static GlobalTableAssociation globalAssocs[] = {
+    new GlobalTableAssociation(org.lockss.plugin.PluginStatus.ALL_TITLE_AUIDS,
+			       ServiceDescr.SVC_CONFIG).setGlobalOnly(),
+    new GlobalTableAssociation(org.lockss.crawler.CrawlManagerImpl.CRAWL_STATUS_TABLE_NAME,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.hasher.HashSvcSchedImpl.HASH_STATUS_TABLE,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.poller.v3.V3PollStatus.VOTER_STATUS_TABLE_NAME,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation("SCommChans",
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation("SCommPeers",
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation("Identities",
+			       ServiceDescr.SVC_POLLER).setGlobalOnly(),
+    new GlobalTableAssociation("SchedQ",
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.state.ArchivalUnitStatus.SERVICE_STATUS_TABLE_NAME,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.state.ArchivalUnitStatus.AU_STATUS_TABLE_NAME,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.state.ArchivalUnitStatus.AUIDS_TABLE_NAME,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.state.ArchivalUnitStatus.AU_DEFINITION_TABLE_NAME,
+			       ServiceDescr.SVC_POLLER),
+    new GlobalTableAssociation(org.lockss.metadata.MetadataManager.METADATA_STATUS_TABLE_NAME,
+			       ServiceDescr.SVC_MDX).setGlobalOnly(),
+  };
+
 
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
   private String clientId = DEFAULT_JMS_CLIENT_ID;
@@ -164,6 +224,13 @@ public class StatusServiceImpl
   private long overviewStale = DEFAULT_OVERVIEW_STALE;
   private JMSManager.TransportListener tListener;
 
+  @Override
+  public void initService(LockssApp app) throws LockssAppException {
+    super.initService(app);
+    initGlobalAssocs();
+  }
+
+  @Override
   public void startService() {
     super.startService();
     setUpJmsNotifications();
@@ -262,7 +329,7 @@ public class StatusServiceImpl
     return foreignTableBindings.get(table);
   }
 
-  public Object getForeignOverview(String table) {
+  public ForeignOverview getForeignOverview(String table) {
     synchronized (foreignOverviewBindings) {
       ForeignOverview fo = foreignOverviewBindings.get(table);
       if (fo == null) {
@@ -272,7 +339,7 @@ public class StatusServiceImpl
 	logger.debug2("Omitting stale overview for {}", table);
 	return null;
       }
-      return fo.getValue();
+      return fo;
     }
   }
 
@@ -287,7 +354,7 @@ public class StatusServiceImpl
   public void registerStatusAccessor(String tableName,
 				     StatusAccessor statusAccessor) {
     registerStatusAccessor(tableName, statusAccessor,
-			   globalTableService.get(tableName));
+			   getGlobalTableService(tableName));
   }
 
   /** Register an accessor for a StatusTable
@@ -339,7 +406,7 @@ public class StatusServiceImpl
   public void registerOverviewAccessor(String tableName,
 				       OverviewAccessor acc) {
     registerOverviewAccessor(tableName, acc,
-			     globalTableService.get(tableName));
+			     getGlobalTableService(tableName));
   }
 
   public void registerOverviewAccessor(String tableName,
@@ -642,7 +709,7 @@ public class StatusServiceImpl
       if (StringUtil.isNullString(str)) {
 	return;
       }
-      map.put(JMS_CONTENT, str + " (" + myDescr.getAbbrev() + ")");
+      map.put(JMS_CONTENT, str);
       sendVerb(VERB_OVERVIEW, map);
     }
   }
@@ -908,37 +975,60 @@ public class StatusServiceImpl
 	for (Map.Entry<String,StatusAccessor> ent : statusAccessors.entrySet()){
 	  String tableName = ent.getKey();
 	  StatusAccessor statusAccessor = ent.getValue();;
+	  // Don't include the table of all tables
 	  if (ALL_TABLES_TABLE.equals(tableName) ||
 	      statusAccessor.requiresKey() ||
 	      (!isDebugUser &&
 	       (statusAccessor instanceof StatusAccessor.DebugOnly))) {
 	    continue;
 	  }
-	  StatusTable.Reference ref =
-	    new StatusTable.Reference(getTableTitle(tableName, statusAccessor),
-				      tableName, null);
-	  ref.setLocal(true);
-	  rows.add(Collections.singletonMap(COL_NAME, ref));
+	  String label = getTableTitle(tableName, statusAccessor);
+	  boolean includeLocal = true;
+
+	  // Check for a global table with this name
+	  ForeignTable ft = getForeignTable(tableName);
+	  if (isIncludeForeignTable(ft, isDebugUser)) {
+	    // Identify the local one iff a global one will also be included
+	    label += " (local)";
+	    // exclude the local one if the global one should be exlusive
+	    GlobalTableAssociation gta = globalTableAssocs.get(tableName);
+	    if (gta != null && gta.isGlobalOnly()) {
+	      includeLocal = false;
+	    }
+	  }
+	  if (includeLocal) {
+	    StatusTable.Reference ref =
+	      new StatusTable.Reference(label, tableName, null);
+	    ref.setLocal(true);
+	    rows.add(Collections.singletonMap(COL_NAME, ref));
+	  }
 	}
 	// Add the globally registered tables that don't require a key
 	for (Map.Entry<String,ForeignTable> ent :
 	       foreignTableBindings.entrySet()){
 	  String tableName = ent.getKey();
 	  ForeignTable ft = ent.getValue();
-	  if (ft.requiresKey() || (!isDebugUser && ft.isDebugOnly())) {
+	  if (!isIncludeForeignTable(ft, isDebugUser)) {
 	    continue;
 	  }
 	  String title = ft.getTitle();
+	  // Ensure this sorts after the local table of the same name
+	  // XXX should use a sort colume
 	  StatusTable.Reference ref =
-	    new StatusTable.Reference(title, tableName, null)
+	    new StatusTable.Reference(title + " ", tableName, null)
 	    .setServiceStem(ft.getStem())
 // 	    .setServiceName(ft.getDisplayName());
-	    .setServiceName(globalTableService.get(tableName).getAbbrev());
+	    .setServiceName(getGlobalTableService(tableName).getAbbrev());
 
 	  rows.add(Collections.singletonMap(COL_NAME, ref));
 	}
 	return rows;
       }
+    }
+
+    boolean isIncludeForeignTable(ForeignTable ft, boolean isDebugUser) {
+      return ft != null && !ft.requiresKey()
+	&& (isDebugUser || !ft.isDebugOnly());
     }
 
     /**

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2006 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,7 +46,7 @@ import org.lockss.account.*;
 /** Allow user to edit arbitrary config params (subject to
  * org.lockss.config.expert.allow and org.lockss.config.expert.deny)
  */
-public class ExpertConfig extends LockssServlet {
+public abstract class ExpertConfig extends LockssServlet {
   static Logger log = Logger.getLogger();
 
   /** URL of parameter documentation page */
@@ -114,9 +110,12 @@ public class ExpertConfig extends LockssServlet {
     }
   }
 
+  protected abstract String getConfigFileName();
+  protected abstract String getLocalClustFootnote();
+
   protected String readExpertConfigFile()
       throws FileNotFoundException, IOException {
-    File efile = configMgr.getCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = configMgr.getCacheConfigFile(getConfigFileName());
     return StringUtil.fromFile(efile);
   }
 
@@ -167,11 +166,13 @@ public class ExpertConfig extends LockssServlet {
     Table table = new Table(0, "align=\"center\" cellspacing=\"2\"");
     table.newRow();
     table.newCell("align=center");
-    String ft =
+    String ft1 =
       StringUtil.replaceString(foot1, "@PARAMDOCURL@",
 			       CurrentConfig.getParam(PARAM_PARAM_DOC_URL,
 						      DEFAULT_PARAM_DOC_URL));
-    table.add(makeTextArea("Configuration Parameters" + addFootnote(ft),
+    table.add(makeTextArea(("Configuration Parameters"
+			    + addFootnote(ft1)
+			    + addFootnote(getLocalClustFootnote())),
 			   KEY_TEXT, etext));
     spaceRow(table);
     ServletUtil.layoutSubmitButton(this, table, ACTION_UPDATE, I18N_ACTION_UPDATE);
@@ -273,11 +274,11 @@ public class ExpertConfig extends LockssServlet {
       }
       log.info("saving expert config");
       configMgr.writeCacheConfigFile(etext,
-				     ConfigManager.CONFIG_FILE_EXPERT,
+				     getConfigFileName(),
 				     false);
       statusMsg = "Update successful";
       displayConfig =
-	configMgr.readCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT);
+	configMgr.readCacheConfigFile(getConfigFileName());
       raiseAlert(acct, origText, etext, displayConfig);
       return true;
     } catch (IOException e) {

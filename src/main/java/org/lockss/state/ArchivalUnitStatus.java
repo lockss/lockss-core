@@ -209,8 +209,8 @@ public class ArchivalUnitStatus
 //       new ColumnDescriptor("AuNodeCount", "Nodes", ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("AuSize", "Content Size",
             ColumnDescriptor.TYPE_INT, FOOT_SIZE),
-        new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
-            ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
+//         new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
+//             ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
         new ColumnDescriptor("Peers", "Peers", ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("AuPolls", "Recent Polls",
             ColumnDescriptor.TYPE_INT),
@@ -322,13 +322,8 @@ public class ArchivalUnitStatus
     private Map makeRow(ArchivalUnit au, Set inclCols) {
       AuState auState = AuUtil.getAuState(au);
       HashMap rowMap = new HashMap();
-      // If this is a v3 AU, we cannot access some of the poll
-      // status through the nodestate.  Eventually, this will be totally
-      // refactored.
-      boolean isV3 = AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL;
-      //"AuID"
-      rowMap.put("AuName", AuStatus.makeAuRef(au.getName(), au.getAuId()));
-//       rowMap.put("AuNodeCount", new Integer(-1));
+      rowMap.put("AuName",
+		 AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
       if (inclCols.contains("AuSize")) {
         long contentSize = AuUtil.getAuContentSize(au, false);
         if (contentSize != -1) {
@@ -540,7 +535,8 @@ public class ArchivalUnitStatus
         ArchivalUnit au) {
       HashMap rowMap = new HashMap();
       rowMap.put("AuId", au.getAuId());
-      rowMap.put("AuName", AuStatus.makeAuRef(au.getName(), au.getAuId()));
+      rowMap.put("AuName",
+		 AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
       if (table.isIncludeColumn("CrawlPool")) {
         String rateKey = au.getFetchRateLimiterKey();
         rowMap.put("CrawlPool", rateKey != null ? rateKey : au.getAuId());
@@ -647,8 +643,8 @@ public class ArchivalUnitStatus
       try {
         HashMap rowMap = new HashMap();
         ArchivalUnit au = cu.getArchivalUnit();
-        rowMap.put("AuName", AuStatus.makeAuRef(au.getName(), au.getAuId()));
-
+        rowMap.put("AuName",
+		   AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
 
         long size = cu.getContentSize();
         Object val =
@@ -766,8 +762,11 @@ public class ArchivalUnitStatus
     private static final List sortRules =
         ListUtil.list(new StatusTable.SortRule("sort", true));
 
+    private RepositoryManager repoMgr;
+
     AuStatus(LockssDaemon theDaemon) {
       super(theDaemon);
+      repoMgr = theDaemon.getRepositoryManager();
     }
 
     protected void populateTable(StatusTable table, ArchivalUnit au)
@@ -988,23 +987,23 @@ public class ArchivalUnitStatus
             ColumnDescriptor.TYPE_INT,
             new Long(contentSize)));
       } else {
-        res.add(new StatusTable.SummaryInfo("Content Size",
-            ColumnDescriptor.TYPE_STRING,
-            "Awaiting recalc"));
+	// XXX DISKUSAGE
+//         res.add(new StatusTable.SummaryInfo("Content Size",
+//             ColumnDescriptor.TYPE_STRING,
+//             "Awaiting recalc"));
       }
       if (du != -1) {
         res.add(new StatusTable.SummaryInfo("Disk Usage (MB)",
             ColumnDescriptor.TYPE_FLOAT,
             new Float(du / (float)(1024 * 1024))));
       } else {
-        res.add(new StatusTable.SummaryInfo("Disk Usage",
-            ColumnDescriptor.TYPE_STRING,
-            "Awaiting recalc"));
+	// XXX DISKUSAGE
+//         res.add(new StatusTable.SummaryInfo("Disk Usage",
+//             ColumnDescriptor.TYPE_STRING,
+//             "Awaiting recalc"));
       }
       // XXXREPO
-//       String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
-//       String repo = OldLockssRepositoryImpl.mapAuToFileLocation(OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
-      String repo = "???";
+      String repo = repoMgr.getV2Repository().getRepoSpec();
 
       res.add(new StatusTable.SummaryInfo("Repository",
           ColumnDescriptor.TYPE_STRING,
@@ -1379,10 +1378,20 @@ public class ArchivalUnitStatus
 
     // utility method for making a Reference
     public static StatusTable.Reference makeAuRef(Object value,
-        String key) {
+						  String key) {
+      return makeAuRef(value, key, false);
+    }
+
+    // utility method for making a Reference
+    public static StatusTable.Reference makeAuRef(Object value,
+						  String key,
+						  boolean forceLocal) {
       StatusTable.Reference ref =
           new StatusTable.Reference(value, AU_STATUS_TABLE_NAME, key);
 //       ref.setProperty("numrows", Integer.toString(defaultNumRows));
+      if (forceLocal) {
+	ref.setLocal(true);
+      }
       return ref;
     }
   }

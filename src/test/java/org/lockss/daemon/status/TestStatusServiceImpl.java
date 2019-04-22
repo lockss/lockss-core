@@ -870,7 +870,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
 
   Map MSG_OVER_1 = MapUtil.map("verb", "Overview",
 			       "urlStem", "http://localhost:1238",
-			       "content", "Poller Over (poller)",
+			       "content", "Poller Over",
 			       "tableName", "V3PollerTable");
 
 
