@@ -172,7 +172,7 @@ public abstract class StateTestCase extends LockssTestCase4 {
     Map<String,String> austates = new HashMap<>();
     Map<String,String> auagmnts = new HashMap<>();
     Map<String,String> ausuvs = new HashMap<>();
-    Map<String,String> audpis = new HashMap<>();
+    Map<String,String> noaupeers = new HashMap<>();
 
     @Override
     public AuStateBean findArchivalUnitState(String auId)
@@ -304,31 +304,42 @@ public abstract class StateTestCase extends LockssTestCase4 {
     }
 
     @Override
-    public DatedPeerIdSet findDatedPeerIdSet(String key) throws IOException {
-      return (DatedPeerIdSet)getDatedPeerIdSet(key);
+    public DatedPeerIdSet findNoAuPeerSet(String key) throws IOException {
+      return getNoAuPeerSet(key);
     }
 
     @Override
-    public Long updateDatedPeerIdSet(String key, DatedPeerIdSet dpis,
+    public Long updateNoAuPeerSet(String key, DatedPeerIdSet dpis,
 				     Set<PeerIdentity> peers) {
-      putDatedPeerIdSet(key, dpis);
+      putNoAuPeerSet(key, dpis);
       return 1L;
     }
 
-    void putDatedPeerIdSet(String key, DatedPeerIdSet dpis) {
+    void putNoAuPeerSet(String key, DatedPeerIdSet dpis) {
       try {
-	audpis.put(key, dpis.toJson());
+	noaupeers.put(key, dpis.toJson());
       } catch (IOException e) {
 	throw new RuntimeException(e);
       }
     }
 
-    PersistentPeerIdSetImpl getDatedPeerIdSet(String auId) throws IOException {
-      String json = audpis.get(auId);
+    DatedPeerIdSet getNoAuPeerSet(String auId) throws IOException {
+      String json = noaupeers.get(auId);
       if (json != null) {
-	return PersistentPeerIdSetImpl.fromJson(auId, json, daemon);
+	return DatedPeerIdSetImpl.fromJson(auId, json, daemon);
       }
       return null;
     }
+
+    MyStateStore setStoredNoAuPeerSet(String auId, String json) {
+      noaupeers.put(auId, json);
+      log.debug2("setStoredNoAuPeerSet("+auId+", "+json+")");
+      return this;
+    }
+
+    String getStoredNoAuPeerSet(String auId) {
+      return noaupeers.get(auId);
+    }
+
   }
 }

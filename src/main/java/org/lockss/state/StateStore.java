@@ -121,30 +121,30 @@ public interface StateStore {
    */
   public Long updateAuSuspectUrlVersions(String key, AuSuspectUrlVersions ausuv,
 				         Set<SuspectUrlVersion> versions)
-				             throws StoreException;
+      throws StoreException;
 
   /**
-   * Provides the DatedPeerIdSet associated with the key (an AUID).
+   * Provides the NoAuPeerSet associated with the key (an AUID).
    * 
    * @param key
-   *          A String with the key under which the DatedPeerIdSet is stored.
+   *          A String with the key under which the NoAuPeerSet is stored.
    * @return a DatedPeerIdSet, or null if not present in the store.
    * @throws StoreException
    *           if any problem occurred accessing the data.
    * @throws IOException
    *           if any problem occurred accessing the data.
    */
-  public DatedPeerIdSet findDatedPeerIdSet(String key)
+  public DatedPeerIdSet findNoAuPeerSet(String key)
       throws StoreException, IOException;
 
   /**
-   * Updates a DatedPeerIdSet in the store, creating it if not already present.
+   * Updates a NoAuPeerSet in the store, creating it if not already present.
    * If already present, only those peers listed in <code>peers</code> must be
    * stored, but it it permissible to ignore <code>peers</code> and store the
    * entire object.
    * 
    * @param key
-   *          A String with the key under which the DatedPeerIdSet is stored.
+   *          A String with the key under which the NoAuPeerSet is stored.
    * @param dpis
    *          A DatedPeerIdSet wth the object to be updated.
    * @param peers
@@ -153,7 +153,7 @@ public interface StateStore {
    * @throws StoreException
    *           if any problem occurred accessing the data.
    */
-  public Long updateDatedPeerIdSet(String key, DatedPeerIdSet dpis,
-				   Set<PeerIdentity> peers)
-				       throws StoreException;
+  public Long updateNoAuPeerSet(String key, DatedPeerIdSet dpis,
+				Set<PeerIdentity> peers)
+      throws StoreException;
 }

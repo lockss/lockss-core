@@ -396,6 +396,43 @@ public class AuUtil {
   }
 
   /**
+   * Serialize a DatedPeerIdSetImpl object into a JSON string.
+   *
+   * @param dpis
+   *          A DatedPeerIdSetImpl with the object to be serialized.
+   * @return a String with the DatedPeerIdSetImpl object serialized as a
+   *         JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public static String jsonFromDatedPeerIdSetImpl(
+      DatedPeerIdSetImpl dpis)
+	  throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(dpis);
+  }
+
+  /**
+   * Deserialize a JSON string into a new DatedPeerIdSetImpl, not connected
+   * to StateManager.
+   *
+   * @param json
+   *          A String with the JSON text.
+   * @return a DatedPeerIdSetImpl built with the deserialized JSON string.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static DatedPeerIdSetImpl datedPeerIdSetImplFromJson(
+      String json) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    DatedPeerIdSetImpl dpis =
+	mapper.readValue(json, new TypeReference<DatedPeerIdSetImpl>() {});
+    return dpis;
+  }
+
+  /**
    * Return the size of the AU, calculating it if necessary.
    * @param au the AU
    * @return the AU's total content size.
