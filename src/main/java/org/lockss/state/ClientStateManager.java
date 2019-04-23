@@ -283,13 +283,12 @@ public class ClientStateManager extends CachingStateManager {
       json = asuv.toJson(versions);
       String cookie = makeCookie();
       recordMyUpdate(cookie, json);
-      // XXX SUSPECT
-//       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
-// 	  json, cookie);
+      configMgr.getRestConfigClient().patchArchivalUnitSuspectUrlVersions(key,
+	  json, cookie);
     } catch (IOException e) {
       log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
-//     } catch (LockssRestException lre) {
-//       log.error("Couldn't store AuSuspectUrlVersions: {}", asuv, lre);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't store AuSuspectUrlVersions: {}", asuv, lre);
     }
   }
 
@@ -298,14 +297,13 @@ public class ClientStateManager extends CachingStateManager {
     AuSuspectUrlVersions res = null;
     String json = null;
 
-//     try {
-      // XXX SUSPECT
-//       json =
-// 	  configMgr.getRestConfigClient().getArchivalUnitAgreements(key);
-//       log.debug2("json = {}", json);
-//     } catch (LockssRestException lre) {
-//       log.error("Couldn't get AuSuspectUrlVersions: {}", key, lre);
-//     }
+    try {
+      json = configMgr.getRestConfigClient()
+	  .getArchivalUnitSuspectUrlVersions(key);
+      log.debug2("json = {}", json);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't get AuSuspectUrlVersions: {}", key, lre);
+    }
 
     if (json != null) {
       try {
@@ -356,13 +354,11 @@ public class ClientStateManager extends CachingStateManager {
       json = naps.toJson(peers);
       String cookie = makeCookie();
       recordMyUpdate(cookie, json);
-      // XXX NUAUPEER
-//       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
-// 	  json, cookie);
+      configMgr.getRestConfigClient().patchNoAuPeerSet(key, json, cookie);
     } catch (IOException e) {
       log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
-//     } catch (LockssRestException lre) {
-//       log.error("Couldn't store NoAuPeerSet: {}", naps, lre);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't store NoAuPeerSet: {}", naps, lre);
     }
   }
 
@@ -371,14 +367,12 @@ public class ClientStateManager extends CachingStateManager {
     DatedPeerIdSet res = null;
     String json = null;
 
-//     try {
-      // XXX NUAUPEER
-//       json =
-// 	  configMgr.getRestConfigClient().getArchivalUnitAgreements(key);
-//       log.debug2("json = {}", json);
-//     } catch (LockssRestException lre) {
-//       log.error("Couldn't get NoAuPeerSet: {}", key, lre);
-//     }
+    try {
+      json = configMgr.getRestConfigClient().getNoAuPeerSet(key);
+      log.debug2("json = {}", json);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't get NoAuPeerSet: {}", key, lre);
+    }
 
     if (json != null) {
       try {
