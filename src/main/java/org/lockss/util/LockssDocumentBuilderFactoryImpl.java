@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -52,7 +52,9 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   public LockssDocumentBuilderFactoryImpl() {
 //     fact = new org.apache.crimson.jaxp.DocumentBuilderFactoryImpl();
     fact = new org.apache.xerces.jaxp.DocumentBuilderFactoryImpl();
-    log.debug3("Created fact: " + fact);
+    // Log call may cause XML DocumentBuilderFactory to be loaded,
+    // resulting in circular loading reference
+//     log.debug3("Created fact: " + fact);
   }
 
   /** Forward to real factory, set error handler */
@@ -60,7 +62,7 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   public DocumentBuilder newDocumentBuilder()
       throws ParserConfigurationException {
     DocumentBuilder db = fact.newDocumentBuilder();
-    log.debug3("Created builder: " + db);
+//     log.debug3("Created builder: " + db);
     db.setErrorHandler(new MyErrorHandler());
     return db;
   }
