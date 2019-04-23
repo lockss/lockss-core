@@ -129,28 +129,28 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       + "," + SUSPECT_URL_VERSIONS_STRING_COLUMN
       + ") values (?,?)";
 
-  // Query to retrieve an AU dated peer set string.
-  private static final String GET_DATED_PEER_SET_QUERY = "select "
-      + "s." + DATED_PEER_SET_STRING_COLUMN
+  // Query to retrieve a no AU peer set string.
+  private static final String GET_NO_AU_PEER_SET_QUERY = "select "
+      + "s." + NO_AU_PEER_SET_STRING_COLUMN
       + " from " + PLUGIN_TABLE + " p"
       + ", " + ARCHIVAL_UNIT_TABLE + " a"
-      + ", " + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + " s"
+      + ", " + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE + " s"
       + " where p." + PLUGIN_ID_COLUMN + " = ?"
       + " and p." + PLUGIN_SEQ_COLUMN + " = a." + PLUGIN_SEQ_COLUMN
       + " and a." + ARCHIVAL_UNIT_KEY_COLUMN + " = ?"
       + " and a." + ARCHIVAL_UNIT_SEQ_COLUMN + " = s."
       + ARCHIVAL_UNIT_SEQ_COLUMN;
 
-  // Query to delete the dated peer set of an AU.
-  private static final String DELETE_DATED_PEER_SET_QUERY = "delete from "
-      + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE
+  // Query to delete the no AU peer set of an AU.
+  private static final String DELETE_NO_AU_PEER_SET_QUERY = "delete from "
+      + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE
       + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
 
-  // Query to add an AU dated peer set string.
-  private static final String ADD_DATED_PEER_SET_QUERY = "insert into "
-      + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE
+  // Query to add a no AU peer set string.
+  private static final String ADD_NO_AU_PEER_SET_QUERY = "insert into "
+      + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE
       + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
-      + "," + DATED_PEER_SET_STRING_COLUMN
+      + "," + NO_AU_PEER_SET_STRING_COLUMN
       + ") values (?,?)";
 
   /**
@@ -1210,7 +1210,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   @Override
   public DatedPeerIdSet findNoAuPeerSet(String key)
       throws DbException, IOException {
-    String json = findArchivalUnitDatedPeerIdSet(
+    String json = findArchivalUnitNoAuPeerSet(
 	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
 
     DatedPeerIdSet res = null;
@@ -1231,7 +1231,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @param key
    *          A String with the key under which the NoAuPeerSet is stored.
    * @param dpis
-   *          A DatedPeerIdSet wth the object to be updated.
+   *          A DatedPeerIdSet with the object to be updated.
    * @param peers
    *          A Set<PeerIdentity> with the peers that must be written.
    * @return a Long with the database identifier of the Archival Unit.
@@ -1243,22 +1243,22 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
 				     DatedPeerIdSet dpis,
 				     Set<PeerIdentity> peers)
 					 throws DbException {
-    return updateArchivalUnitDatedPeerIdSet(PluginManager.pluginIdFromAuId(key),
+    return updateArchivalUnitNoAuPeerSet(PluginManager.pluginIdFromAuId(key),
 	PluginManager.auKeyFromAuId(key), dpis);
   }
 
   /**
-   * Provides the dated peers of an Archival Unit stored in the database.
+   * Provides the NoAuPeerSet of an Archival Unit stored in the database.
    * 
    * @param pluginId
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
    *          A String with the Archival Unit key identifier.
-   * @return a String with the Archival Unit dated peers.
+   * @return a String with the Archival Unit NoAuPeerSet.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private String findArchivalUnitDatedPeerIdSet(String pluginId, String auKey)
+  private String findArchivalUnitNoAuPeerSet(String pluginId, String auKey)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
@@ -1269,10 +1269,10 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Get a connection to the database.
       conn = getConnection();
 
-      // Get the dated peers of the Archival Unit, if it exists.
-      return findArchivalUnitDatedPeerIdSet(conn, pluginId, auKey);
+      // Get the NoAuPeerSet of the Archival Unit, if it exists.
+      return findArchivalUnitNoAuPeerSet(conn, pluginId, auKey);
     } catch (DbException dbe) {
-      String message = "Cannot find AU dated peers";
+      String message = "Cannot find AU NoAuPeerSet";
       log.error(message, dbe);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
@@ -1283,7 +1283,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Provides the dated peers of an Archival Unit stored in the database.
+   * Provides the NoAuPeerSet of an Archival Unit stored in the database.
    * 
    * @param conn
    *          A Connection with the database connection to be used.
@@ -1291,51 +1291,51 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
    *          A String with the Archival Unit key identifier.
-   * @return a String with the Archival Unit dated peers.
+   * @return a String with the Archival Unit NoAuPeerSet.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private String findArchivalUnitDatedPeerIdSet(Connection conn, String pluginId,
+  private String findArchivalUnitNoAuPeerSet(Connection conn, String pluginId,
       String auKey) throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
 
     String result = null;
-    PreparedStatement getDatedPeerIdSet = null;
+    PreparedStatement getNoAuPeerSet = null;
     ResultSet resultSet = null;
-    String errorMessage = "Cannot get AU dated peers";
+    String errorMessage = "Cannot get AU NoAuPeerSet";
 
     try {
       // Prepare the query.
-      getDatedPeerIdSet =
-	  configDbManager.prepareStatement(conn, GET_DATED_PEER_SET_QUERY);
+      getNoAuPeerSet =
+	  configDbManager.prepareStatement(conn, GET_NO_AU_PEER_SET_QUERY);
 
       // Populate the query.
-      getDatedPeerIdSet.setString(1, pluginId);
-      getDatedPeerIdSet.setString(2, auKey);
+      getNoAuPeerSet.setString(1, pluginId);
+      getNoAuPeerSet.setString(2, auKey);
 
       // Get the configuration of the Archival Unit.
-      resultSet = configDbManager.executeQuery(getDatedPeerIdSet);
+      resultSet = configDbManager.executeQuery(getNoAuPeerSet);
 
       // Get the single result, if any.
       if (resultSet.next()) {
-	result = resultSet.getString(DATED_PEER_SET_STRING_COLUMN);
+	result = resultSet.getString(NO_AU_PEER_SET_STRING_COLUMN);
       }
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", GET_DATED_PEER_SET_QUERY);
+      log.error("SQL = '{}'.", GET_NO_AU_PEER_SET_QUERY);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", GET_DATED_PEER_SET_QUERY);
+      log.error("SQL = '{}'.", GET_NO_AU_PEER_SET_QUERY);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
       throw dbe;
     } finally {
       DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(getDatedPeerIdSet);
+      DbManager.safeCloseStatement(getNoAuPeerSet);
     }
 
     log.debug2("result = {}", result);
@@ -1343,7 +1343,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Updates the dated peers of an Archival Unit in the database.
+   * Updates the NoAuPeerSet of an Archival Unit in the database.
    * 
    * @param pluginId
    *          A String with the Archival Unit plugin identifier.
@@ -1355,7 +1355,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private Long updateArchivalUnitDatedPeerIdSet(String pluginId, String auKey,
+  private Long updateArchivalUnitNoAuPeerSet(String pluginId, String auKey,
       DatedPeerIdSet dpis) throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
@@ -1368,13 +1368,13 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Get a connection to the database.
       conn = getConnection();
 
-      // Update the dated peers.
-      result = updateArchivalUnitDatedPeerIdSet(conn, pluginId, auKey, dpis);
+      // Update the NoAuPeerSet.
+      result = updateArchivalUnitNoAuPeerSet(conn, pluginId, auKey, dpis);
 
       // Commit the transaction.
       ConfigDbManager.commitOrRollback(conn, log);
     } catch (DbException dbe) {
-      String message = "Cannot update AU dated peers";
+      String message = "Cannot update AU NoAuPeerSet";
       log.error(message, dbe);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
@@ -1389,7 +1389,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Updates the dated peers of an Archival Unit in the database.
+   * Updates the NoAuPeerSet of an Archival Unit in the database.
    * 
    * @param conn
    *          A Connection with the database connection to be used.
@@ -1403,7 +1403,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private Long updateArchivalUnitDatedPeerIdSet(Connection conn, String pluginId,
+  private Long updateArchivalUnitNoAuPeerSet(Connection conn, String pluginId,
       String auKey, DatedPeerIdSet dpis) throws DbException {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
@@ -1421,15 +1421,15 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit, adding it if necessary.
       auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
 
-      // Delete any existing dated peers of the Archival Unit.
-      int deletedCount = deleteArchivalUnitDatedPeerIdSet(conn, auSeq);
+      // Delete any existing NoAuPeerSet of the Archival Unit.
+      int deletedCount = deleteArchivalUnitNoAuPeerSet(conn, auSeq);
       log.trace("deletedCount = {}", deletedCount);
 
-      // Add the new dated peers of the Archival Unit.
-      int addedCount = addArchivalUnitDatedPeerIdSet(conn, auSeq, dpis);
+      // Add the new NoAuPeerSet of the Archival Unit.
+      int addedCount = addArchivalUnitNoAuPeerSet(conn, auSeq, dpis);
       log.trace("addedCount = {}", addedCount);
     } catch (DbException dbe) {
-      String message = "Cannot update AU dated peers";
+      String message = "Cannot update AU NoAuPeerSet";
       log.error(message, dbe);
       log.error("pluginId = {}", pluginId);
       log.error("auKey = {}", auKey);
@@ -1442,7 +1442,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Deletes from the database the dated peers of an Archival Unit.
+   * Deletes from the database the NoAuPeerSet of an Archival Unit.
    * 
    * @param conn
    *          A Connection with the database connection to be used.
@@ -1452,36 +1452,36 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private int deleteArchivalUnitDatedPeerIdSet(Connection conn, Long auSeq)
+  private int deleteArchivalUnitNoAuPeerSet(Connection conn, Long auSeq)
       throws DbException {
     log.debug2("auSeq = {}", auSeq);
 
     int result = -1;
-    PreparedStatement deleteDatedPeerIdSet = null;
-    String errorMessage = "Cannot delete Archival Unit dated peers";
+    PreparedStatement deleteNoAuPeerSet = null;
+    String errorMessage = "Cannot delete Archival Unit NoAuPeerSet";
 
     try {
       // Prepare the query.
-      deleteDatedPeerIdSet =
-	  configDbManager.prepareStatement(conn, DELETE_DATED_PEER_SET_QUERY);
+      deleteNoAuPeerSet =
+	  configDbManager.prepareStatement(conn, DELETE_NO_AU_PEER_SET_QUERY);
 
       // Populate the query.
-      deleteDatedPeerIdSet.setLong(1, auSeq);
+      deleteNoAuPeerSet.setLong(1, auSeq);
 
       // Execute the query
-      result = configDbManager.executeUpdate(deleteDatedPeerIdSet);
+      result = configDbManager.executeUpdate(deleteNoAuPeerSet);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", DELETE_DATED_PEER_SET_QUERY);
+      log.error("SQL = '{}'.", DELETE_NO_AU_PEER_SET_QUERY);
       log.error("auSeq = {}", auSeq);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", DELETE_DATED_PEER_SET_QUERY);
+      log.error("SQL = '{}'.", DELETE_NO_AU_PEER_SET_QUERY);
       log.error("auSeq = {}", auSeq);
       throw dbe;
     } finally {
-      ConfigDbManager.safeCloseStatement(deleteDatedPeerIdSet);
+      ConfigDbManager.safeCloseStatement(deleteNoAuPeerSet);
     }
 
     log.debug2("result = {}", result);
@@ -1489,7 +1489,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   /**
-   * Adds to the database the dated peers of an Archival Unit.
+   * Adds to the database the NoAuPeerSet of an Archival Unit.
    * 
    * @param conn
    *          A Connection with the database connection to be used.
@@ -1501,50 +1501,50 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private int addArchivalUnitDatedPeerIdSet(Connection conn, Long auSeq,
+  private int addArchivalUnitNoAuPeerSet(Connection conn, Long auSeq,
       DatedPeerIdSet dpis) throws DbException {
     log.debug2("auSeq = {}", auSeq);
     log.debug2("dpis = {}", dpis);
 
-    PreparedStatement addDatedPeerIdSet = null;
-    String errorMessage = "Cannot add Archival Unit dated peers";
+    PreparedStatement addNoAuPeerSet = null;
+    String errorMessage = "Cannot add Archival Unit NoAuPeerSet";
 
     try {
       // Convert to JSON
       String json = dpis.toJson();
       
       // Prepare the query.
-      addDatedPeerIdSet =
-	  configDbManager.prepareStatement(conn, ADD_DATED_PEER_SET_QUERY);
+      addNoAuPeerSet =
+	  configDbManager.prepareStatement(conn, ADD_NO_AU_PEER_SET_QUERY);
 
       // Populate the query.
-      addDatedPeerIdSet.setLong(1, auSeq);
-      addDatedPeerIdSet.setString(2, json);
+      addNoAuPeerSet.setLong(1, auSeq);
+      addNoAuPeerSet.setString(2, json);
 
       // Execute the query
-      int count = configDbManager.executeUpdate(addDatedPeerIdSet);
+      int count = configDbManager.executeUpdate(addNoAuPeerSet);
       log.debug2("addedCount = {}", count);
       return count;
     } catch (IOException ioe) {
       log.error(errorMessage, ioe);
-      log.error("SQL = '{}'.", ADD_DATED_PEER_SET_QUERY);
+      log.error("SQL = '{}'.", ADD_NO_AU_PEER_SET_QUERY);
       log.error("auSeq = {}", auSeq);
       log.error("dpis = {}", dpis);
       throw new DbException(errorMessage, ioe);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", ADD_DATED_PEER_SET_QUERY);
+      log.error("SQL = '{}'.", ADD_NO_AU_PEER_SET_QUERY);
       log.error("auSeq = {}", auSeq);
       log.error("dpis = {}", dpis);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", ADD_DATED_PEER_SET_QUERY);
+      log.error("SQL = '{}'.", ADD_NO_AU_PEER_SET_QUERY);
       log.error("auSeq = {}", auSeq);
       log.error("dpis = {}", dpis);
       throw dbe;
     } finally {
-      ConfigDbManager.safeCloseStatement(addDatedPeerIdSet);
+      ConfigDbManager.safeCloseStatement(addNoAuPeerSet);
     }
   }
 }

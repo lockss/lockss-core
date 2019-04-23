@@ -61,9 +61,9 @@ public class SqlConstants {
   public static final String ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE =
       "archival_unit_suspect_url_versions";
 
-  /** Name of the archival unit dated peer set table. */
-  public static final String ARCHIVAL_UNIT_DATED_PEER_SET_TABLE =
-      "archival_unit_dated_peer_set";
+  /** Name of the archival unit no AU peer set table. */
+  public static final String ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE =
+      "archival_unit_no_au_peer_set";
 
   //
   // Database table column names.
@@ -102,9 +102,9 @@ public class SqlConstants {
   public static final String SUSPECT_URL_VERSIONS_STRING_COLUMN =
       "suspect_url_versions_string";
   
-  /** Name of archival unit dated peer set string column */
-  public static final String DATED_PEER_SET_STRING_COLUMN =
-      "dated_peer_set_string";
+  /** Name of archival unit no AU peer set string column */
+  public static final String NO_AU_PEER_SET_STRING_COLUMN =
+      "no_au_peer_set_string";
 
   //
   // Maximum lengths of variable text length database columns.
@@ -130,6 +130,6 @@ public class SqlConstants {
   /** Length of the archival unit suspect URL versions string column */
   public static final int MAX_SUSPECT_URL_VERSIONS_STRING_COLUMN = 8192;
 
-  /** Length of the archival unit dated peer set string column */
-  public static final int MAX_DATED_PEER_SET_STRING_COLUMN = 8192;
+  /** Length of the archival unit no AU peer set string column */
+  public static final int MAX_NO_AU_PEER_SET_STRING_COLUMN = 8192;
 }
