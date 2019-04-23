@@ -63,6 +63,8 @@ POSSIBILITY OF SUCH DAMAGE.
     <stfSuite>simpleV3Tests</stfSuite><!-- alias -->
     <build.java.runStf.suite>${stfSuite}</build.java.runStf.suite><!-- property -->
 
+    <dir.apidocs>${project.reporting.outputDirectory}/apidocs</dir.apidocs>
+
   </properties>
 
   <dependencies>
@@ -807,7 +809,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>2.0.1</version>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/net.sourceforge.schemaspy/schemaspy -->
     <dependency>
       <groupId>net.sourceforge.schemaspy</groupId>
       <artifactId>schemaspy</artifactId>
@@ -835,7 +836,7 @@ POSSIBILITY OF SUCH DAMAGE.
             <configuration>
               <skip>${build.java.jarMainJavadoc.skip}</skip>
               <target>
-                <mkdir dir="${project.reporting.outputDirectory}/apidocs" />
+                <mkdir dir="${dir.apidocs}" />
                 <javadoc sourcepath="${project.build.sourceDirectory}"
                          doclet="org.lockss.doclet.ParamDoclet"
                          docletpathref="maven.test.classpath"
@@ -844,10 +845,32 @@ POSSIBILITY OF SUCH DAMAGE.
                          access="private"
                          failonerror="true">
                   <arg value="-f"/> <arg value="Alpha"/>
-                  <arg value="-d"/> <arg value="${project.reporting.outputDirectory}/apidocs"/>
+                  <arg value="-d"/> <arg value="${dir.apidocs}"/>
                   <arg value="-o"/> <arg value="paramdoc.html"/>
                   <arg value="-h"/> <arg value="Release&amp;nbsp;${build.releasename} Built&amp;nbsp;${local.build.timestamp} on&amp;nbsp;${hostname}"/>
                 </javadoc>
+              </target>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>paramList</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <skip>${build.java.jarMainJavadoc.skip}</skip>
+              <target>
+                <mkdir dir="${dir.apidocs}" />
+		<java classname="ParamDoc" fork="true" >
+		  <classpath refid="maven.test.classpath" />
+		  <!-- Loading LockssOiosamlSpFilter causes errors in this
+		       context for some reason - exclude it -->
+		  <arg line="-o ${dir.apidocs}/paramdoc.txt ${project.build.directory}/current.jar -x org.lockss.servlet.LockssOiosamlSpFilter" />
+   		  <sysproperty key="org.lockss.defaultLogLevel"
+			       value="${loglevel}" />
+   		</java>
               </target>
             </configuration>
           </execution>
@@ -864,7 +887,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		<property name="empty.db.parent.dir" value="${tmpdir}" />
 		<property name="empty.db.dir"
 			  value="${empty.db.parent.dir}/db" />
-                <mkdir dir="${project.reporting.outputDirectory}/apidocs/schemadoc" />
+                <mkdir dir="${dir.apidocs}/schemadoc" />
    		<java classname="org.lockss.metadata.EmptyDbCreator"
 		      fork="true">
    		  <classpath refid="maven.test.classpath" />
@@ -877,7 +900,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		      fork="true"
 		      dir="${empty.db.dir}">
    		  <classpath refid="maven.test.classpath" />
-		  <arg line="-t derby -db MetadataDbManager -dp derbynet-${version.group.derby}.jar -hq -noads -norows -u LOCKSS -o ${project.reporting.outputDirectory}/apidocs/schemadoc" />
+		  <arg line="-t derby -db MetadataDbManager -dp derbynet-${version.group.derby}.jar -hq -noads -norows -u LOCKSS -o ${dir.apidocs}/schemadoc" />
 		  <sysproperty key="org.lockss.defaultLogLevel"
 			       value="${loglevel}"/>
 		</java>
