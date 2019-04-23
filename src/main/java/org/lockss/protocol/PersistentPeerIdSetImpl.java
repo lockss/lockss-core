@@ -222,6 +222,15 @@ public class PersistentPeerIdSetImpl implements PersistentPeerIdSet {
   }
 
   /**
+   * Provides the AUID.
+   * 
+   * @return A String with the AUID.
+   */
+  public String getAuid() {
+    return auid;
+  }
+
+  /**
    * Provides a serialized version of this entire object as a JSON string.
    * 
    * @return a String with this object serialized as a JSON string.

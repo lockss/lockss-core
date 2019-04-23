@@ -74,14 +74,18 @@ import org.springframework.web.util.UriComponentsBuilder;
  * A client representation of the Configuration REST web service.
  */
 public class RestConfigClient {
-  // The part with the configuration file must be named this way because the
-  // use of Swagger 2 requires it.
-  // In the Swagger YAML configuration file, a multipart/form-data body payload
-  // is represented by the 'in: formData' parameter, which needs to have a type
-  // of 'file' and Swagger 2 uses the type as the part name.
+  /**
+   * The name of the part with the configuration file.
+   * 
+   * It must be named this way because the use of Swagger 2 requires it. In the
+   * Swagger YAML configuration file, a multipart/form-data body payload is
+   * represented by the 'in: formData' parameter, which needs to have a type of
+   * 'file' and Swagger 2 uses the type as the part name.
+   */
   public static String CONFIG_PART_NAME = "file";
 
-  public static String X_LOCKSS_REQUEST_COOKIE_NAME = "X-Lockss-Request-Cookie";
+  private static String X_LOCKSS_REQUEST_COOKIE_NAME =
+      "X-Lockss-Request-Cookie";
 
   private static Logger log = Logger.getLogger();
 
@@ -239,7 +243,7 @@ public class RestConfigClient {
   /**
    * Provides the configuration of a section obtained via the REST web service.
    * 
-   * @param restConfigSection
+   * @param input
    *          A RestConfigSection with the request parameters.
    * @return a RestConfigSection with the result.
    */
@@ -442,6 +446,15 @@ public class RestConfigClient {
     return response;
   }
 
+  /**
+   * Provides the TDB entry for an Archival Unit.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a TdbAu with the TDB entry for the Archival Unit.
+   * @throws Exception
+   *           if there are problems getting the TDB entry.
+   */
   public TdbAu getTdbAu(String auId) throws Exception {
     return new GetTdbAuClient(serviceLocation, serviceUser,
 	    servicePassword, serviceTimeout).getTdbAu(auId);
@@ -450,7 +463,7 @@ public class RestConfigClient {
   /**
    * Sends the configuration of a section to the REST web service for saving.
    * 
-   * @param restConfigSection
+   * @param input
    *          A RestConfigSection with the request parameters.
    * @return a RestConfigSection with the result.
    */
@@ -794,6 +807,8 @@ public class RestConfigClient {
    * 
    * @param auConfiguration
    *          An AuConfiguration with the Archival Unit configuration.
+   * @throws LockssRestException
+   *           if there are problems storing the Archival Unit configuration.
    */
   public void putArchivalUnitConfiguration(AuConfiguration auConfiguration)
       throws LockssRestException {
@@ -1024,6 +1039,209 @@ public class RestConfigClient {
   }
 
   /**
+   * Provides the suspect URL versions of an Archival Unit obtained via the REST
+   * web service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a String with the Archival Unit suspect URL versions.
+   * @throws LockssRestException
+   *           if there are problems getting the Archival Unit suspect URL
+   *           versions.
+   */
+  public String getArchivalUnitSuspectUrlVersions(String auId)
+      throws LockssRestException {
+    if (log.isDebug2()) log.debug2("auId = " + auId);
+
+    // Get the URL template.
+    String template = getAuSuspectUrlVersionsRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<String> response =
+	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	    requestEntity, String.class, "Cannot get AU suspect URL versions");
+
+    String result = response.getBody();
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  /**
+   * Stores the suspect URL versions of an Archival Unit via the REST web
+   * service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param auSuspectUrlVersions
+   *          A String with the Archival Unit suspect URL versions.
+   * @param xLockssRequestCookie
+   *          A String with the request cookie.
+   * @throws LockssRestException
+   *           if there are problems updating the Archival Unit suspect URL
+   *           versions.
+   */
+  public void patchArchivalUnitSuspectUrlVersions(String auId,
+      String auSuspectUrlVersions, String xLockssRequestCookie)
+	  throws LockssRestException {
+    if (log.isDebug2()) {
+      log.debug2("auId = " + auId);
+      log.debug2("auSuspectUrlVersions = " + auSuspectUrlVersions);
+      log.debug2("xLockssRequestCookie = " + xLockssRequestCookie);
+    }
+
+    // Get the URL template.
+    String template = getAuSuspectUrlVersionsRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Set the request cookie, if passed.
+    if (xLockssRequestCookie != null) {
+      requestHeaders.set(X_LOCKSS_REQUEST_COOKIE_NAME, xLockssRequestCookie);
+    }
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(auSuspectUrlVersions, requestHeaders);
+
+    // Make the request and get the response.
+    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+	requestEntity, String.class, "Cannot update AU suspect URL versions");
+  }
+
+  /**
+   * Provides the NoAuPeerSet object of an Archival Unit obtained via the REST
+   * web service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a String with the Archival Unit NoAuPeerSet object.
+   * @throws LockssRestException
+   *           if there are problems getting the Archival Unit NoAuPeerSet
+   *           object.
+   */
+  public String getNoAuPeerSet(String auId) throws LockssRestException {
+    if (log.isDebug2()) log.debug2("auId = " + auId);
+
+    // Get the URL template.
+    String template = getNoAuPeerSetRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response. 
+    ResponseEntity<String> response =
+	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	    requestEntity, String.class, "Cannot get AU NoAuPeerSet object");
+
+    String result = response.getBody();
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  /**
+   * Stores the NoAuPeerSet object of an Archival Unit via the REST web service.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @param noAuPeerSet
+   *          A String with the Archival Unit NoAuPeerSet object.
+   * @param xLockssRequestCookie
+   *          A String with the request cookie.
+   * @throws LockssRestException
+   *           if there are problems updating the Archival Unit NoAuPeerSet
+   *           object.
+   */
+  public void patchNoAuPeerSet(String auId, String noAuPeerSet,
+      String xLockssRequestCookie) throws LockssRestException {
+    if (log.isDebug2()) {
+      log.debug2("auId = " + auId);
+      log.debug2("noAuPeerSet = " + noAuPeerSet);
+      log.debug2("xLockssRequestCookie = " + xLockssRequestCookie);
+    }
+
+    // Get the URL template.
+    String template = getNoAuPeerSetRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+	.build().expand(Collections.singletonMap("auid", auId));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Set the request cookie, if passed.
+    if (xLockssRequestCookie != null) {
+      requestHeaders.set(X_LOCKSS_REQUEST_COOKIE_NAME, xLockssRequestCookie);
+    }
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+	new HttpEntity<String>(noAuPeerSet, requestHeaders);
+
+    // Make the request and get the response.
+    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+	requestEntity, String.class, "Cannot update AU NoAuPeerSet object");
+  }
+
+  /**
    * Provides the URL needed to read from, or write to, the REST Configuration
    * Service the configuration of a section.
    * 
@@ -1063,6 +1281,26 @@ public class RestConfigClient {
    */
   private String getAuAgreementsRequestUrl() {
     return serviceLocation + "/auagreements/{auid}";
+  }
+
+  /**
+   * Provides the URL needed to read from, or write to, the REST Configuration
+   * Service the suspect URL versions of an Archival Unit.
+   * 
+   * @return a String with the URL.
+   */
+  private String getAuSuspectUrlVersionsRequestUrl() {
+    return serviceLocation + "/aususpecturls/{auid}";
+  }
+
+  /**
+   * Provides the URL needed to read from, or write to, the REST Configuration
+   * Service the NoAuPeerSet object of an Archival Unit.
+   * 
+   * @return a String with the URL.
+   */
+  private String getNoAuPeerSetRequestUrl() {
+    return serviceLocation + "/noaupeerset/{auid}";
   }
 
   /**
