@@ -174,15 +174,15 @@ public class ConfigDbManagerSql extends DbManagerSql {
       + MAX_SUSPECT_URL_VERSIONS_STRING_COLUMN + ") not null"
       + ")";
 
-  // Query to create the table for recording archival units dated peer sets.
-  private static final String CREATE_ARCHIVAL_UNIT_DATED_PEER_SET_TABLE_QUERY =
+  // Query to create the table for recording archival units no AU peer sets.
+  private static final String CREATE_ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE_QUERY =
       "create table "
-      + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + " ("
+      + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE + " ("
       + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
       + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
       + ") on delete cascade,"
-      + DATED_PEER_SET_STRING_COLUMN + " varchar("
-      + MAX_DATED_PEER_SET_STRING_COLUMN + ") not null"
+      + NO_AU_PEER_SET_STRING_COLUMN + " varchar("
+      + MAX_NO_AU_PEER_SET_STRING_COLUMN + ") not null"
       + ")";
 
   // The SQL code used to create the necessary version 4 database tables.
@@ -191,8 +191,8 @@ public class ConfigDbManagerSql extends DbManagerSql {
     new LinkedHashMap<String, String>() {{
       put(ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE,
 	  CREATE_ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE_QUERY);
-      put(ARCHIVAL_UNIT_DATED_PEER_SET_TABLE,
-	  CREATE_ARCHIVAL_UNIT_DATED_PEER_SET_TABLE_QUERY);
+      put(ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE,
+	  CREATE_ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE_QUERY);
     }};
 
   // SQL statements that create the necessary version 4 indices.
@@ -200,8 +200,8 @@ public class ConfigDbManagerSql extends DbManagerSql {
       "create unique index idx1_" + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE
       + " on " + ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE + "("
 	  + ARCHIVAL_UNIT_SEQ_COLUMN + ")",
-      "create unique index idx1_" + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + " on "
-	  + ARCHIVAL_UNIT_DATED_PEER_SET_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
+      "create unique index idx1_" + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE + " on "
+	  + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
 	  + ")"
   };
 
