@@ -36,6 +36,7 @@ import java.util.*;
 
 import org.lockss.app.*;
 import org.lockss.daemon.status.*;
+import org.lockss.servlet.*;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
@@ -64,6 +65,12 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 
   static class PCStatus implements StatusAccessor {
 
+    private final List colDescs =
+      ListUtil.list(new ColumnDescriptor("URL", "Config URL",
+					 ColumnDescriptor.TYPE_STRING),
+		    new ColumnDescriptor("LastModified", "Last Modified",
+					 ColumnDescriptor.TYPE_DATE));
+
     private LockssDaemon daemon;
 
     PCStatus(LockssDaemon daemon) {
@@ -80,9 +87,44 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 
     public void populateTable(StatusTable table) {
       Configuration config = ConfigManager.getCurrentConfig();
+      table.setDefaultSortRules(Collections.EMPTY_LIST);
+      table.setColumnDescriptors(colDescs);
+      table.setRows(getRows(table.getOptions()));
       table.setSummaryInfo(getSummaryInfo(config));
     }
 
+    public List getRows(BitSet options) {
+      ConfigManager mgr = ConfigManager.getConfigManager();
+      List rows = new ArrayList();
+      List<String> urls = mgr.getSpecUrlList();
+      if (urls != null) {
+	for (String url : urls) {
+	  // This links to ListObjects to display the text of the file, but
+	  // doesn't quite work yet.
+// 	  Object val =
+// 	    new StatusTable.SrvLink(url,
+// 				    AdminServletManager.SERVLET_LIST_OBJECTS,
+// 				    PropUtil.fromArgs("type", "configfile",
+// 						      "url", url));
+	  Object val =
+	    new StatusTable.Reference(url,
+				      ConfigStatus.CONFIG_FILE_STATUS_TABLE,
+				      "cf:" + url);
+
+	  Map row = MapUtil.map("URL", val);
+	  ConfigFile cf = mgr.getConfigCache().get(url);
+	  if (cf != null) {
+	    String rawlast = cf.getLastModified();
+	    // Compensate for FileConfigFile's numeric Last-Modified
+	    // headers
+	    String last = DateTimeUtil.gmtDateOf(rawlast);
+	    row.put("LastModified", last != null ? last : rawlast);
+	  }
+	  rows.add(row);
+	}
+      }
+      return rows;
+    }
 
     void addSum(List lst, String head, String val) {
       if (val != null) {
@@ -122,7 +164,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 	addSum(res, "Mail Relay", smtpHost + ":" + smtpPort);
       }
       addSum(res, "Admin Email", config.get(PARAM_PLATFORM_ADMIN_EMAIL));
-      addSum(res, "Disks",
+      addSum(res, "Local Storage",
 	     seplist(config.getList(PARAM_PLATFORM_DISK_SPACE_LIST)));
 
       res.add(new StatusTable.SummaryInfo("Current Time", 
@@ -150,15 +192,15 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       if (restUrl != null) {
 	addSum(res, "Config Service", UrlUtil.obfuscatePassword(restUrl));
       }
-      List propsUrls = mgr.getSpecUrlList();
-      List loadedUrls = mgr.getLoadedUrlList();
-      if (propsUrls != null) {
-	addSum(res, "Props", StringUtil.separatedString(propsUrls, ", "));
-	if (!propsUrls.equals(loadedUrls)) {
-	  addSum(res, "Loaded from local failover",
-		 StringUtil.separatedString(loadedUrls, ", "));
-	}
-      }
+//       List propsUrls = mgr.getSpecUrlList();
+//       List loadedUrls = mgr.getLoadedUrlList();
+//       if (propsUrls != null) {
+// 	addSum(res, "Props", StringUtil.separatedString(propsUrls, ", "));
+// 	if (!propsUrls.equals(loadedUrls)) {
+// 	  addSum(res, "Loaded from local failover",
+// 		 StringUtil.separatedString(loadedUrls, ", "));
+// 	}
+//       }
       return res;
     }
     

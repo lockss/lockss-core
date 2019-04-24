@@ -124,7 +124,7 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     Properties p = new Properties();
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
-    p.setProperty(IdentityManager.PARAM_LOCAL_IP, LOCAL_IP);
+    p.setProperty(IdentityManager.PARAM_LOCAL_V3_IDENTITY, LOCAL_V3_ID);
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath);
     return p;
   }
@@ -141,21 +141,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     peer2 = idmgr.stringToPeerIdentity("tcp:[127.0.0.2]:2222");
     peer3 = idmgr.stringToPeerIdentity("tcp:[127.0.0.3]:3333");
     peer4 = idmgr.stringToPeerIdentity("tcp:[127.0.0.4]:4444");
-  }
-
-  public void testSetupLocalIdentitiesV1Only()
-      throws IdentityManager.MalformedIdentityKeyException {
-    IdentityManagerImpl mgr = new IdentityManagerImpl();
-    mgr.initService(theDaemon);
-    assertNull(mgr.localPeerIdentities[Poll.V3_PROTOCOL]);
-    PeerIdentity pid1 = mgr.localPeerIdentities[Poll.V1_PROTOCOL];
-    PeerIdentity pid2 = mgr.stringToPeerIdentity(LOCAL_IP);
-    assertTrue("Peer ID is not a local identity.", pid1.isLocalIdentity());
-    assertSame(pid1, pid2);
-    PeerAddress pa = pid1.getPeerAddress();
-    assertTrue(pa instanceof PeerAddress.Udp);
-    assertEquals(LOCAL_IP, ((PeerAddress.Udp)pa).getIPAddr().getHostAddress());
-    assertEquals(ListUtil.list(pid1), mgr.getLocalPeerIdentities());
   }
 
   public void testSetupLocalIdentitiesV3Normal()
@@ -175,8 +160,7 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     assertTrue(pa instanceof PeerAddress.Tcp);
     assertEquals(LOCAL_IP, ((PeerAddress.Tcp)pa).getIPAddr().getHostAddress());
     assertEquals(LOCAL_PORT_NUM, ((PeerAddress.Tcp)pa).getPort());
-    assertEquals(ListUtil.list(mgr.stringToPeerIdentity(LOCAL_IP),pid1),
-		 mgr.getLocalPeerIdentities());
+    assertEquals(ListUtil.list(pid1), mgr.getLocalPeerIdentities());
   }
   
   public void testSetupLocalIdentitiesV3Only()
@@ -185,8 +169,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
                                   LOCAL_PORT);
     ConfigurationUtil.addFromArgs(IdentityManagerImpl.PARAM_INITIAL_PEERS,
                                   LOCAL_V3_ID);
-    ConfigurationUtil.addFromArgs(IdentityManagerImpl.PARAM_ENABLE_V1,
-				  "false");
     IdentityManagerImpl mgr = new IdentityManagerImpl();
     mgr.initService(theDaemon);
     assertNull(mgr.localPeerIdentities[Poll.V1_PROTOCOL]);
@@ -251,13 +233,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     assertNotEquals(peer3, peer1);
   }
 
-  // XXX this should go away
-  public void testStringToPeerIdentityNull() throws Exception {
-    peer1 = idmgr.stringToPeerIdentity(null);
-    assertTrue(peer1.isLocalIdentity());
-    assertSame(peer1, idmgr.getLocalPeerIdentity(Poll.V1_PROTOCOL));
-  }
-
   /** test for method ipAddrToPeerIdentity **/
   public void testIPAddrToPeerIdentity() throws Exception {
     IPAddr ip1 = IPAddr.getByName("127.0.0.1");
@@ -279,21 +254,6 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     assertSame(peer3,
 	       idmgr.stringToPeerIdentity(IDUtil.ipAddrToKey("127.0.0.2",
 							     "300")));
-  }
-
-  // XXX this should go away
-  public void testIPAddrToPeerIdentityNull() throws Exception {
-    peer1 = idmgr.ipAddrToPeerIdentity(null);
-    assertTrue(peer1.isLocalIdentity());
-    assertSame(peer1, idmgr.getLocalPeerIdentity(Poll.V1_PROTOCOL));
-  }
-
-  public void testGetLocalIdentity() {
-    peer1 = idmgr.getLocalPeerIdentity(Poll.V1_PROTOCOL);
-    assertTrue(peer1.isLocalIdentity());
-    assertTrue(idmgr.isLocalIdentity(peer1));
-    String key = peer1.getIdString();
-    assertTrue(idmgr.isLocalIdentity(key));
   }
 
   public void testGetLocalIdentityIll() {

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -112,6 +108,8 @@ public class ListObjects extends LockssServlet {
       new AuNameList().execute();
     } else if (type.equalsIgnoreCase("auids")) {
       new AuidList().execute();
+    } else if (type.equalsIgnoreCase("configfile")) {
+      new DisplayConfigFile(getParameter("url")).execute();
     } else {
       // all others need au
       auid = getParameter("auid");
@@ -920,6 +918,35 @@ public class ListObjects extends LockssServlet {
 
   }
 
+  /** Not a list, displays the contents of a ConfigFile as text.  Doesn't
+   * yet work right for HTTPConfigFile as cf.getInputStream() returns null
+   * if not-modified */
+  class DisplayConfigFile extends BaseList {
+    private String url;
+
+    DisplayConfigFile(String url) {
+      this.url = url;
+    }
+
+    void printHeader() {
+      wrtr.println("Contents of config file: " + url);
+    }
+
+    String unitName() {return "";}
+    void finish() {}
+
+    void doBody() throws IOException {
+      ConfigManager mgr = ConfigManager.getConfigManager();
+      ConfigFile cf = mgr.getConfigCache().get(url);
+      if (cf != null) {
+	try (InputStream ins = cf.getInputStream()) {
+	  Reader rdr = new BufferedReader(new InputStreamReader(ins));
+	  StreamUtil.copy(rdr, wrtr);
+	}
+      }
+      wrtr.flush();
+    }
+  }
 
   class MyLinkExtractorCallback implements LinkExtractor.Callback {
     TreeSet<String> foundUrls = new TreeSet<String>();
