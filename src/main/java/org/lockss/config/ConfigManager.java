@@ -1157,7 +1157,7 @@ public class ConfigManager implements LockssManager {
    * @return the List of config urls, including auxilliary files (e.g.,
    * specified by {@value PARAM_TITLE_DB_URLS}).
    */
-  public List getSpecUrlList() {
+  public List<String> getSpecUrlList() {
     return specUrls;
   }
 
@@ -1166,7 +1166,7 @@ public class ConfigManager implements LockssManager {
    * This differs from {@link #getSpecUrlList()} in that it reflects any
    * failover to local copies.
    */
-  public List getLoadedUrlList() {
+  public List<String> getLoadedUrlList() {
     return loadedUrls;
   }
 

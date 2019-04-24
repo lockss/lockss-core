@@ -211,8 +211,6 @@ public class StatusServiceImpl
 			       ServiceDescr.SVC_POLLER),
     new GlobalTableAssociation(org.lockss.state.ArchivalUnitStatus.AUIDS_TABLE_NAME,
 			       ServiceDescr.SVC_POLLER),
-    new GlobalTableAssociation(org.lockss.state.ArchivalUnitStatus.AU_DEFINITION_TABLE_NAME,
-			       ServiceDescr.SVC_POLLER),
     new GlobalTableAssociation(org.lockss.metadata.MetadataManager.METADATA_STATUS_TABLE_NAME,
 			       ServiceDescr.SVC_MDX).setGlobalOnly(),
   };
