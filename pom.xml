@@ -64,6 +64,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <build.java.runStf.suite>${stfSuite}</build.java.runStf.suite><!-- property -->
 
     <dir.apidocs>${project.reporting.outputDirectory}/apidocs</dir.apidocs>
+    <skipDot>true</skipDot>
 
   </properties>
 
@@ -908,6 +909,67 @@ POSSIBILITY OF SUCH DAMAGE.
               </target>
             </configuration>
           </execution>
+
+          <execution>
+            <id>v3StateDiag</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+	      <!-- failonerror doesn't seem to work, trycatch requires
+	           ant-contrib, rely on prop for now -->
+              <skip>${skipDot}</skip>
+              <skip>${build.java.jarMainJavadoc.skip}</skip>
+              <target>
+		<property name="dir.states" value="${dir.apidocs}" />
+                <mkdir dir="${dir.states}" />
+
+		<!-- Generate .dot from state machine definition -->
+		<java classname="org.lockss.doclet.PsmToDot" fork="true">
+   		  <classpath refid="maven.test.classpath" />
+		  <arg line="-m org.lockss.poller.v3.PollerStateMachineFactory -l Poller -a org.lockss.poller.v3.PollerActions -m org.lockss.poller.v3.VoterStateMachineFactory -l Voter -a org.lockss.poller.v3.VoterActions -o ${dir.states}/states.dot" />
+		  <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
+		</java>
+
+<!-- 		<trycatch property="dotfail"> -->
+<!-- 		  <try> -->
+		    <!-- Generate .png from .dot -->
+		    <apply executable="dot" dir="${basedir}"
+			   dest="${dir.states}"
+			   failifexecutionfails="false"
+			   failonerror="false" >
+		      <arg value="-Tpng"/> <arg value="-o"/> <targetfile/> <srcfile/>
+		      <fileset dir="${dir.states}" includes="**/*.dot"/>
+		      <mapper type="glob" from="*.dot" to="*.png"/>
+		    </apply>
+		    <!-- Generate .ps from .dot -->
+		    <apply executable="dot" dir="${basedir}"
+			   dest="${dir.states}"
+			   failifexecutionfails="false" >
+		      <arg value="-Tps2"/> <arg value="-o"/> <targetfile/> <srcfile/>
+		      <fileset dir="${dir.states}" includes="**/*.dot"/>
+		      <mapper type="glob" from="*.dot" to="*.ps"/>
+		    </apply>
+		    <!-- Generate .pdf from .ps -->
+		    <apply executable="ps2pdf" dir="${basedir}"
+			   dest="${dir.states}"
+			   failifexecutionfails="false" >
+		      <srcfile/> <targetfile/>
+		      <fileset dir="${dir.states}" includes="**/*.ps"/>
+		      <mapper type="glob" from="*.ps" to="*.pdf"/>
+		    </apply>
+<!-- 		  </try> -->
+<!-- 		  <catch> -->
+<!-- 		    <echo message="dot or ps2pdf failed, continuing" /> -->
+<!-- 		  </catch> -->
+<!-- 		</trycatch> -->
+              </target>
+            </configuration>
+          </execution>
+
+
+
 
         </executions>
       </plugin>
