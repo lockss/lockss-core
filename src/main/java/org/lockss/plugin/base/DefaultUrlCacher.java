@@ -417,13 +417,21 @@ public class DefaultUrlCacher implements UrlCacher {
 
   protected boolean isIdenticalToPreviousVersion(Artifact art)
       throws IOException {
+    if (art.getCommitted()) {
+      throw new IllegalStateException("Can't perform identical check after artifact if committed");
+    }
     int ver = art.getVersion();
     if (ver < 2) return false;
     String artHash = art.getContentDigest();
     if (artHash == null) return false;
-    Artifact prev = v2Repo.getArtifactVersion(v2Coll, au.getAuId(),
-					      art.getUri(), ver - 1);
+    // Fetch the latest committed version, if any
+    Artifact prev = v2Repo.getArtifact(v2Coll, au.getAuId(), art.getUri());
     if (prev == null) return false;
+    if (art.getId().equals(prev.getId())) {
+      logger.error("Uncommitted artifact has same ID as supposedly committed most recent version: " + art);
+      // throw?
+      return false;
+    }
     boolean res = artHash.equals(prev.getContentDigest());
     if (res) logger.debug2("New version identical to old: " + art.getUri());
     return res;
@@ -434,7 +442,7 @@ public class DefaultUrlCacher implements UrlCacher {
       try {
 	v2Repo.deleteArtifact(art);
       } catch (Exception e) {
-	logger.error("Error deleting uncommited artifact: " + art, e);
+	logger.error("Error deleting uncommitted artifact: " + art, e);
       }
     }
   }
