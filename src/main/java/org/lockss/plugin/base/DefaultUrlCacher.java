@@ -423,6 +423,7 @@ public class DefaultUrlCacher implements UrlCacher {
     if (artHash == null) return false;
     Artifact prev = v2Repo.getArtifactVersion(v2Coll, au.getAuId(),
 					      art.getUri(), ver - 1);
+    if (prev == null) return false;
     boolean res = artHash.equals(prev.getContentDigest());
     if (res) logger.debug2("New version identical to old: " + art.getUri());
     return res;
