@@ -1110,7 +1110,8 @@ public class IdentityManagerImpl extends BaseLockssDaemonManager
 
   protected String getLocalIpParam(Configuration config) {
     // overridable for testing
-    return config.get(PARAM_LOCAL_IP);
+//     return config.get(PARAM_LOCAL_IP);
+    return null;
   }
 
   public String getUiUrlStem(PeerIdentity pid) {
