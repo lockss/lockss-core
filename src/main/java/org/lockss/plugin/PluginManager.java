@@ -1456,7 +1456,7 @@ public class PluginManager
     @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
 					   AuEvent.ContentChangeInfo info) {
       if (loadablePluginsReady && isRegistryAu(au)) {
-	processRegistryAus(ListUtil.list(au), true);
+	processRegistryAus(ListUtil.list(au), paramStartAllAus);
       }
       if (shouldFlush404Cache(au, info)) {
 	flush404Cache(au);
