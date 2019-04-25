@@ -93,14 +93,16 @@ public class OverviewStatus extends BaseLockssDaemonManager {
     };
 
     private List getSummaryInfo(StatusService statusServ, StatusTable table) {
-      // Request overview liens from other components
+      // Request overview lines from other components, wait briefly
       statusServ.requestOverviews(table.getOptions());
       List res = new ArrayList();
 
+      // Iterate over locally registered overviews
       for (String overviewTableName : overviewTableNames) {
+
 	// Foreign overview (null if no component has registered a global
 	// overview accessor for that table, or if no overview value has
-	// been received sufficiently recently
+	// been received sufficiently recently)
 	ForeignOverview fo =
 	  statusServ.getForeignOverview(overviewTableName);
 	if (fo != null) {
@@ -115,11 +117,11 @@ public class OverviewStatus extends BaseLockssDaemonManager {
 					 table.getOptions());
 
 	if (v != null) {
-	  if (v instanceof StatusTable.Reference) {
-	    // If a Reference, needed in case this table name is registered
-	    // globally, as this should always point to local table
-	    ((StatusTable.Reference)v).setLocal(true);
-	  }
+	  // May be or contain a Reference to an overview accessor that's
+	  // registered globally, but this one should always be local
+	  // because it came from our local overview table
+	  StatusTable.setLocal(v, true);
+
 	  if (fo == null || !statusServ.isGlobalOnlyTable(overviewTableName)) {
 	    if (fo != null) {
 	      // If we have both a local and global overview for this table,

@@ -400,6 +400,20 @@ public class StatusTable {
     this.rows = rows;
   }
 
+  /** Mark any References contained in the value as local.  */
+  public static void setLocal(Object v, boolean b) {
+    if (v == null) return;
+    if (v instanceof Reference) {
+      ((Reference)v).setLocal(b);
+    } else if (v instanceof List) {
+      for (Object o : ((List)v)) {
+	setLocal(o, b);
+      }
+    } else if (v instanceof EmbeddedValue) {
+      setLocal(((EmbeddedValue)v).getValue(), b);
+    }
+  }
+
   /** Return the actual value, possibly embedded in a {@link
    * StatusTable.DisplayedValue} and/or a {@link StatusTable.LinkValue}
    * @param value an object, possibly a DisplayedValue or LinkValue

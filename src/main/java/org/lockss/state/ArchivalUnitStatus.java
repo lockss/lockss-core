@@ -1387,8 +1387,7 @@ public class ArchivalUnitStatus
 						  String key,
 						  boolean forceLocal) {
       StatusTable.Reference ref =
-          new StatusTable.Reference(value, AU_STATUS_TABLE_NAME, key);
-//       ref.setProperty("numrows", Integer.toString(defaultNumRows));
+	new StatusTable.Reference(value, AU_STATUS_TABLE_NAME, key);
       if (forceLocal) {
 	ref.setLocal(true);
       }

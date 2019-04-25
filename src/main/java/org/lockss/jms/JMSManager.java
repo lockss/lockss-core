@@ -70,7 +70,7 @@ public class JMSManager extends BaseLockssManager
    * here</a> for a full list of transport protocols. */
   public static final String PARAM_BROKER_URI = BROKER_PREFIX + "uri";
   public static String DEFAULT_BROKER_URI =
-    "vm://localhost?create=false";
+    "vm://localhost?create=true&broker.persistent=false";
 //   public static String DEFAULT_BROKER_URI = "tcp://localhost:61616";
 
   /** Broker URI to which producers and consumers will connect.  <i>Eg</i>,
