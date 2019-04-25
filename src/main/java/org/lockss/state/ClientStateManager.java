@@ -283,7 +283,7 @@ public class ClientStateManager extends CachingStateManager {
       json = asuv.toJson(versions);
       String cookie = makeCookie();
       recordMyUpdate(cookie, json);
-      configMgr.getRestConfigClient().patchArchivalUnitSuspectUrlVersions(key,
+      configMgr.getRestConfigClient().putArchivalUnitSuspectUrlVersions(key,
 	  json, cookie);
     } catch (IOException e) {
       log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
@@ -354,7 +354,7 @@ public class ClientStateManager extends CachingStateManager {
       json = naps.toJson(peers);
       String cookie = makeCookie();
       recordMyUpdate(cookie, json);
-      configMgr.getRestConfigClient().patchNoAuPeerSet(key, json, cookie);
+      configMgr.getRestConfigClient().putNoAuPeers(key, json, cookie);
     } catch (IOException e) {
       log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
     } catch (LockssRestException lre) {
@@ -368,7 +368,7 @@ public class ClientStateManager extends CachingStateManager {
     String json = null;
 
     try {
-      json = configMgr.getRestConfigClient().getNoAuPeerSet(key);
+      json = configMgr.getRestConfigClient().getNoAuPeers(key);
       log.debug2("json = {}", json);
     } catch (LockssRestException lre) {
       log.error("Couldn't get NoAuPeerSet: {}", key, lre);

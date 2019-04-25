@@ -1098,7 +1098,7 @@ public class RestConfigClient {
    *           if there are problems updating the Archival Unit suspect URL
    *           versions.
    */
-  public void patchArchivalUnitSuspectUrlVersions(String auId,
+  public void putArchivalUnitSuspectUrlVersions(String auId,
       String auSuspectUrlVersions, String xLockssRequestCookie)
 	  throws LockssRestException {
     if (log.isDebug2()) {
@@ -1137,7 +1137,7 @@ public class RestConfigClient {
 	new HttpEntity<String>(auSuspectUrlVersions, requestHeaders);
 
     // Make the request and get the response.
-    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PUT,
 	requestEntity, String.class, "Cannot update AU suspect URL versions");
   }
 
@@ -1152,11 +1152,11 @@ public class RestConfigClient {
    *           if there are problems getting the Archival Unit NoAuPeerSet
    *           object.
    */
-  public String getNoAuPeerSet(String auId) throws LockssRestException {
+  public String getNoAuPeers(String auId) throws LockssRestException {
     if (log.isDebug2()) log.debug2("auId = " + auId);
 
     // Get the URL template.
-    String template = getNoAuPeerSetRequestUrl();
+    String template = getNoAuPeersRequestUrl();
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
@@ -1199,7 +1199,7 @@ public class RestConfigClient {
    *           if there are problems updating the Archival Unit NoAuPeerSet
    *           object.
    */
-  public void patchNoAuPeerSet(String auId, String noAuPeerSet,
+  public void putNoAuPeers(String auId, String noAuPeerSet,
       String xLockssRequestCookie) throws LockssRestException {
     if (log.isDebug2()) {
       log.debug2("auId = " + auId);
@@ -1208,7 +1208,7 @@ public class RestConfigClient {
     }
 
     // Get the URL template.
-    String template = getNoAuPeerSetRequestUrl();
+    String template = getNoAuPeersRequestUrl();
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
@@ -1237,7 +1237,7 @@ public class RestConfigClient {
 	new HttpEntity<String>(noAuPeerSet, requestHeaders);
 
     // Make the request and get the response.
-    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PUT,
 	requestEntity, String.class, "Cannot update AU NoAuPeerSet object");
   }
 
@@ -1299,8 +1299,8 @@ public class RestConfigClient {
    * 
    * @return a String with the URL.
    */
-  private String getNoAuPeerSetRequestUrl() {
-    return serviceLocation + "/noaupeerset/{auid}";
+  private String getNoAuPeersRequestUrl() {
+    return serviceLocation + "/noaupeers/{auid}";
   }
 
   /**
