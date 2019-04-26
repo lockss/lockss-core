@@ -929,6 +929,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <skip>${skipDot}</skip>
 <!--               <skip>${build.java.jarMainJavadoc.skip}</skip> -->
               <target>
+                <taskdef resource="net/sf/antcontrib/antcontrib.properties" />
 		<property name="dir.states" value="${dir.apidocs}" />
                 <mkdir dir="${dir.states}" />
 
