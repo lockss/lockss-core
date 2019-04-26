@@ -826,6 +826,13 @@ POSSIBILITY OF SUCH DAMAGE.
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
         <version>${version.plugin.maven-antrun-plugin}</version>
+        <dependencies>
+          <dependency>
+            <groupId>ant-contrib</groupId>
+            <artifactId>ant-contrib</artifactId>
+            <version>${version.dependency.ant-contrib}</version>
+          </dependency>
+        </dependencies>
         <executions>
         
           <execution>
@@ -920,7 +927,7 @@ POSSIBILITY OF SUCH DAMAGE.
 	      <!-- failonerror doesn't seem to work, trycatch requires
 	           ant-contrib, rely on prop for now -->
               <skip>${skipDot}</skip>
-              <skip>${build.java.jarMainJavadoc.skip}</skip>
+<!--               <skip>${build.java.jarMainJavadoc.skip}</skip> -->
               <target>
 		<property name="dir.states" value="${dir.apidocs}" />
                 <mkdir dir="${dir.states}" />
@@ -932,8 +939,8 @@ POSSIBILITY OF SUCH DAMAGE.
 		  <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
 		</java>
 
-<!-- 		<trycatch property="dotfail"> -->
-<!-- 		  <try> -->
+		<trycatch property="dotfail">
+		  <try>
 		    <!-- Generate .png from .dot -->
 		    <apply executable="dot" dir="${basedir}"
 			   dest="${dir.states}"
@@ -959,17 +966,14 @@ POSSIBILITY OF SUCH DAMAGE.
 		      <fileset dir="${dir.states}" includes="**/*.ps"/>
 		      <mapper type="glob" from="*.ps" to="*.pdf"/>
 		    </apply>
-<!-- 		  </try> -->
-<!-- 		  <catch> -->
-<!-- 		    <echo message="dot or ps2pdf failed, continuing" /> -->
-<!-- 		  </catch> -->
-<!-- 		</trycatch> -->
+		  </try>
+		  <catch>
+		    <echo message="dot or ps2pdf failed, continuing" />
+		  </catch>
+		</trycatch>
               </target>
             </configuration>
           </execution>
-
-
-
 
         </executions>
       </plugin>
