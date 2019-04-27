@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2004 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2004-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,7 +33,8 @@ public class MockPeerIdentity extends PeerIdentity {
   private String keyMock;
 
   public MockPeerIdentity(String newKey) {
-    keyMock = newKey;
+    // Ensure we don't return an unnormalized key
+    keyMock = newKey.toUpperCase();
   }
 
   /**
