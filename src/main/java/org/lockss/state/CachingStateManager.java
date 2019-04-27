@@ -222,7 +222,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 					     AuStateBean ausb,
 					     Set<String> fields,
 					     String cookie) {
-    log.debug2("Updating: {}: {}", key, fields);
+    log.debug2("Updating AuState: {}: {}", key, fields);
     AuState curaus = auStates.get(key);
     AuStateBean curausb;
     if (curaus != null) {
@@ -410,7 +410,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 					      AuAgreements aua,
 					      Set<PeerIdentity> peers,
 					      String cookie) {
-    log.debug2("Updating: {}: {}", key, peers);
+    log.debug2("Updating AuAgreements: {}: {}", key, peers);
     AuAgreements curaua = agmnts.get(key);
     try {
       if (curaua != null) {
@@ -550,7 +550,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 					      AuSuspectUrlVersions asuv,
 					      Set<SuspectUrlVersion> versions,
 					      String cookie) {
-    log.debug2("Updating: {}: {}", key, versions);
+    log.debug2("Updating suspectUrlVersions: {}: {}", key, asuv);
     AuSuspectUrlVersions curasuv = suspectVers.get(key);
     try {
       if (curasuv != null) {
@@ -685,7 +685,7 @@ public abstract class CachingStateManager extends BaseStateManager {
 					     DatedPeerIdSet naps,
 					     Set<PeerIdentity> peers,
 					     String cookie) {
-    log.debug2("Updating: {}: {}", key, peers);
+    log.debug2("Updating NoAuPeerSet: {}: {})", key, naps);
     DatedPeerIdSet curnaps = noAuPeerSets.get(key);
     try {
       if (curnaps != null) {

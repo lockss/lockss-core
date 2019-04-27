@@ -182,4 +182,9 @@ public class DatedPeerIdSetImpl extends PersistentPeerIdSetImpl implements
     getStateMgr().updateNoAuPeerSet(auid, this);
   }
 
+  @Override
+  public String toString() {
+    return "[DPIDSet: " + auid + ": " + date + ": " + peerSet + "]";
+  }
+
 }
