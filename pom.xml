@@ -64,7 +64,6 @@ POSSIBILITY OF SUCH DAMAGE.
     <build.java.runStf.suite>${stfSuite}</build.java.runStf.suite><!-- property -->
 
     <dir.apidocs>${project.reporting.outputDirectory}/apidocs</dir.apidocs>
-    <skipDot>true</skipDot>
 
   </properties>
 
@@ -926,8 +925,7 @@ POSSIBILITY OF SUCH DAMAGE.
             <configuration>
 	      <!-- failonerror doesn't seem to work, trycatch requires
 	           ant-contrib, rely on prop for now -->
-              <skip>${skipDot}</skip>
-<!--               <skip>${build.java.jarMainJavadoc.skip}</skip> -->
+              <skip>${build.java.jarMainJavadoc.skip}</skip>
               <target>
                 <taskdef resource="net/sf/antcontrib/antcontrib.properties" />
 		<property name="dir.states" value="${dir.apidocs}" />
