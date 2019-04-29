@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2001-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +30,7 @@ package org.lockss.test;
 
 import java.util.*;
 import org.lockss.util.*;
+import org.lockss.app.*;
 
 public class MockXmlPropertyLoader extends XmlPropertyLoader {
 
@@ -62,7 +59,6 @@ public class MockXmlPropertyLoader extends XmlPropertyLoader {
     this.m_groups = groups;
   }
 
-
   public Version getDaemonVersion() {
     return m_daemonVersion;
   }
@@ -77,5 +73,17 @@ public class MockXmlPropertyLoader extends XmlPropertyLoader {
 
   public List<String> getPlatformGroupList() {
     return StringUtil.breakAt(m_groups, ';');
+  }
+
+  public void setServiceDescr(ServiceDescr descr) {
+    m_serviceDescr = descr;
+  }
+
+  @Override
+  protected ServiceDescr getServiceDescr() {
+    if (m_serviceDescr != null) {
+      return m_serviceDescr;
+    }
+    return super.getServiceDescr();
   }
 }

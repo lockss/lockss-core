@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2008 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,6 +36,7 @@ import javax.xml.parsers.*;
 import org.xml.sax.helpers.*;
 import org.lockss.test.*;
 import org.lockss.config.*;
+import org.lockss.app.*;
 
 /**
  * Test class for <code>org.lockss.util.XmlPropertyLoader</code> and
@@ -49,11 +46,7 @@ import org.lockss.config.*;
 public class TestXmlPropertyLoader extends LockssTestCase {
 
   private PropertyTree m_props = null;
-  private XmlPropertyLoader m_xmlPropertyLoader = null;
-
-  public static Class testedClasses[] = {
-    org.lockss.util.XmlPropertyLoader.class
-  };
+  private MockXmlPropertyLoader m_xmlPropertyLoader = null;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -832,6 +825,40 @@ public class TestXmlPropertyLoader extends LockssTestCase {
     assertEquals("bar", m_props.get("org.lockss.nulltest.h"));
   }
 
+  public void testServiceName() throws Exception {
+    // No ServiceDescr
+    setVersions(null, null, null, null);
+    parseXmlProperties();
+    assertEquals("another service",
+		 m_props.get("org.lockss.test.serviceName.foo"));
+    assertEquals("not service 1",
+		 m_props.get("org.lockss.test.serviceAbbrev.foo"));
+
+    // Both name and abbrev false
+    setVersions(null, null, null, null, "Name xxx", "Abbrevxxx");
+    parseXmlProperties();
+    assertEquals("another service",
+		 m_props.get("org.lockss.test.serviceName.foo"));
+    assertEquals("not service 1",
+		 m_props.get("org.lockss.test.serviceAbbrev.foo"));
+
+    // name true, abbrev false
+    setVersions(null, null, null, null, "Rest Service 1", "Abbrevxxx");
+    parseXmlProperties();
+    assertEquals("the service",
+		 m_props.get("org.lockss.test.serviceName.foo"));
+    assertEquals("not service 1",
+		 m_props.get("org.lockss.test.serviceAbbrev.foo"));
+
+    // both true
+    setVersions(null, null, null, null, "Rest Service 1", "sabbrev");
+    parseXmlProperties();
+    assertEquals("the service",
+		 m_props.get("org.lockss.test.serviceName.foo"));
+    assertEquals("service 1",
+		 m_props.get("org.lockss.test.serviceAbbrev.foo"));
+}
+
   /* The following test comes from Issue 2790.  Here's the bug:
 
      This construct resulted in machines in the test group (which are not
@@ -1414,6 +1441,17 @@ public class TestXmlPropertyLoader extends LockssTestCase {
   private void setVersions(String daemonVersion, String platformVersion,
 			   String hostname, String group) {
     ((MockXmlPropertyLoader)m_xmlPropertyLoader).setVersions(daemonVersion, platformVersion, hostname, group);
+  }
+
+  private void setVersions(String daemonVersion, String platformVersion,
+			   String hostname, String group,
+			   String serviceName, String serviceAbbrev) {
+    m_xmlPropertyLoader.setVersions(daemonVersion, platformVersion,
+				    hostname, group);
+    if (serviceName != null || serviceAbbrev != null) {
+      m_xmlPropertyLoader.setServiceDescr(new ServiceDescr(serviceName,
+							   serviceAbbrev));
+    }
   }
 
 }

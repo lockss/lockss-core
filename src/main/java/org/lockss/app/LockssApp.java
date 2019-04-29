@@ -933,6 +933,9 @@ public class LockssApp {
   Map<ServiceDescr,ServiceBinding> serviceBindings = new HashMap<>();
 
   public ServiceDescr getMyServiceDescr() {
+    if (appSpec == null) {
+      return null;
+    }
     return appSpec.getService();
   }
 
