@@ -856,6 +856,10 @@ public class LockssApp {
     return getAppSpec().getAppConfig();
   }
 
+  public Configuration getAppDefault() {
+    return getAppSpec().getAppDefault();
+  }
+
   boolean prevExitOnce = false;
 
   protected void setConfig(Configuration config, Configuration prevConfig,
@@ -1413,6 +1417,7 @@ public class LockssApp {
     private ManagerDesc[] appManagers;
     private boolean isComputeAppManagers = false;
     private Configuration appConfig;
+    private Configuration appDefault;
     private boolean isKeepRunning = false;
     private JavaVersion minJavaVersion = JavaVersion.JAVA_1_8;
 //     private JavaVersion maxJavaVersion;
@@ -1476,6 +1481,27 @@ public class LockssApp {
 	appConfig = ConfigManager.newConfiguration();
       }
       appConfig.put(key, val);
+      return this;
+    }
+
+    /** Set the app-specific Configuration default */
+    public AppSpec setAppDefault(Configuration config) {
+      appDefault = config;
+      return this;
+    }
+
+    /** Set the app-specific Configuration default */
+    public AppSpec setAppDefault(Properties props) {
+      appDefault = ConfigManager.fromPropertiesUnsealed(props);
+      return this;
+    }
+
+    /** Add to the app-specific Configuration default */
+    public AppSpec addAppDefault(String key, String val) {
+      if (appDefault == null) {
+	appDefault = ConfigManager.newConfiguration();
+      }
+      appDefault.put(key, val);
       return this;
     }
 
@@ -1543,9 +1569,16 @@ public class LockssApp {
 //       return maxJavaVersion;
 //     }
 
-    /** Return the app-specific Configuration */
+    /** Return the app-specific Configuration (cannot be overridden by
+     * loaded config) */
     public Configuration getAppConfig() {
       return appConfig;
+    }
+
+    /** Return the app-specific default Configuration (can be overridden by
+     * loaded config) */
+    public Configuration getAppDefault() {
+      return appDefault;
     }
 
     /** Return true if startStatic() should deley return until told to

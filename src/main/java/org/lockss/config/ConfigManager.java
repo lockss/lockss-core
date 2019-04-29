@@ -1605,7 +1605,17 @@ public class ConfigManager implements LockssManager {
       return false;
     }
     Configuration newConfig = initNewConfiguration();
+    // Add app defaults
+    if (getApp() != null) {
+      Configuration appDefault = getApp().getAppDefault();
+      if (appDefault != null && !appDefault.isEmpty()) {
+	if (log.isDebug2()) log.debug2("Adding app default: " +
+				       appDefault);
+	newConfig.copyFrom(appDefault);
+      }
+    }
     loadList(newConfig, gens);
+    // Add app un-overridable config
     if (getApp() != null) {
       Configuration appConfig = getApp().getAppConfig();
       if (appConfig != null && !appConfig.isEmpty()) {

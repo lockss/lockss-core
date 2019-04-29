@@ -65,7 +65,9 @@ public class FuncLockssApp extends LockssTestCase {
 
   public void testStartApp() throws Exception {
     String propurl =
-      FileTestUtil.urlOfString("org.lockss.app.nonesuch=foo");
+      FileTestUtil.urlOfString("org.lockss.app.nonesuch=foo\n" +
+			       "deftest1=file\n" +
+			       "deftest2=file");
     String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
@@ -73,7 +75,9 @@ public class FuncLockssApp extends LockssTestCase {
       .setArgs(testArgs)
       .addAppConfig(StatusServiceImpl.PARAM_JMS_ENABLED, "false")
       .addAppConfig("o.l.p22", "vvv3")
-      .addAppConfig("o.l.p333", "vvv4")
+      .addAppConfig("deftest1", "app")
+      .addAppDefault("deftest2", "app")
+      .addAppDefault("deftest3", "app3")
       .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
 //       .setKeepRunning(true)
 //       .setAppManagers(managerDescs)
@@ -89,6 +93,9 @@ public class FuncLockssApp extends LockssTestCase {
 		app.getManagerByType(org.lockss.alert.AlertManager.class));
     assertEquals("foo", config.get("org.lockss.app.nonesuch"));
     assertEquals("vvv3", config.get("o.l.p22"));
+    assertEquals("app", config.get("deftest1"));
+    assertEquals("file", config.get("deftest2"));
+    assertEquals("app3", config.get("deftest3"));
     assertEquals(ServiceDescr.SVC_CONFIG, app.getMyServiceDescr());
     assertEquals("Config Service", app.getAppName());
     assertTrue(app.isMyService(ServiceDescr.SVC_CONFIG));
