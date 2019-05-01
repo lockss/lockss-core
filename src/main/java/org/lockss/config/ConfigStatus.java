@@ -121,7 +121,7 @@ public class ConfigStatus extends BaseLockssDaemonManager {
   class Status extends BaseStatus {
 
     public String getDisplayName() {
-      return "Configuration File";
+      return "Configuration";
     }
 
     public boolean requiresKey() {
