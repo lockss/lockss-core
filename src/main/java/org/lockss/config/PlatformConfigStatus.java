@@ -114,11 +114,10 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 	  Map row = MapUtil.map("URL", val);
 	  ConfigFile cf = mgr.getConfigCache().get(url);
 	  if (cf != null) {
-	    String rawlast = cf.getLastModified();
 	    // Compensate for FileConfigFile's numeric Last-Modified
 	    // headers
-	    String last = DateTimeUtil.gmtDateOf(rawlast);
-	    row.put("LastModified", last != null ? last : rawlast);
+	    String last = DateTimeUtil.gmtDateOf(cf.getLastModified());
+	    row.put("LastModified", last);
 	  }
 	  rows.add(row);
 	}

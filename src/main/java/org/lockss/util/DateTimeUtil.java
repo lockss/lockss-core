@@ -53,7 +53,7 @@ public class DateTimeUtil {
       long ms = Long.parseLong(mstime);
       return DateTimeUtil.GMT_DATE_FORMATTER.format(new Date(ms));
     } catch (Exception e) {
-      return null;
+      return mstime;
     }
   }
 }
