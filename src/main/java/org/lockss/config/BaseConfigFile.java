@@ -64,6 +64,7 @@ public abstract class BaseConfigFile implements ConfigFile {
   protected int m_generation = 0;
   protected Map<String, Object> m_props;
   protected ConfigManager.KeyPredicate keyPred;
+  protected boolean m_isPlatformFile;
 
   /**
    * Create a ConfigFile for the URL
@@ -113,11 +114,17 @@ public abstract class BaseConfigFile implements ConfigFile {
    * needed in order to properly parse other config files.
    */
   public boolean isPlatformFile() {
-    if (m_cfgMgr != null) {
-      return m_fileUrl.equals(m_cfgMgr.getBootstrapPropsUrl());
+    if (m_isPlatformFile) {
+      return true;
     }
-
+    if (m_cfgMgr != null) {
+      return m_cfgMgr.isBootstrapPropsUrl(m_fileUrl);
+    }
     return false;
+  }
+
+  public void setPlatformFile(boolean val) {
+    m_isPlatformFile = val;
   }
 
   public int getFileType() {

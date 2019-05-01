@@ -1,0 +1,4 @@
+# test file for TestResourceConfigFile
+
+prop1=val42
+bar=baz

@@ -219,7 +219,7 @@ public class LockssApp {
 
 
   protected AppSpec appSpec;
-  protected String bootstrapPropsUrl = null;
+  protected List<String> bootstrapPropsUrls = null;
   protected String restConfigServiceUrl = null;
   protected List<String> propUrls = null;
   protected List<String> clusterUrls = null;
@@ -263,9 +263,11 @@ public class LockssApp {
     theApp = this;
   }
 
-  protected LockssApp(String bootstrapPropsUrl, String restConfigServiceUrl,
-      List<String> propUrls, String groupNames) {
-    this.bootstrapPropsUrl = bootstrapPropsUrl;
+  protected LockssApp(List<String> bootstrapPropsUrls,
+		      String restConfigServiceUrl,
+		      List<String> propUrls,
+		      String groupNames) {
+    this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.propUrls = propUrls;
     this.groupNames = groupNames;
@@ -819,8 +821,9 @@ public class LockssApp {
    * init our configuration and extract any parameters we will use locally
    */
   protected void initProperties() {
-    ConfigManager configMgr = ConfigManager.makeConfigManager(bootstrapPropsUrl,
-	restConfigServiceUrl, propUrls, groupNames);
+    ConfigManager configMgr =
+      ConfigManager.makeConfigManager(bootstrapPropsUrls, restConfigServiceUrl,
+				      propUrls, groupNames);
     configMgr.setClusterUrls(clusterUrls);
 
     configMgr.initService(this);
@@ -1071,7 +1074,7 @@ public class LockssApp {
 
     setSystemProperties();
 
-    bootstrapPropsUrl = opts.getBootstrapPropsUrl();
+    bootstrapPropsUrls = opts.getBootstrapPropsUrls();
     restConfigServiceUrl = opts.getRestConfigServiceUrl();
     propUrls = opts.getPropUrls();
     clusterUrls = opts.getClusterUrls();
@@ -1275,7 +1278,7 @@ public class LockssApp {
     public static final String OPTION_XML_PROP_DIR = "-x";
     public static final String OPTION_SYSPROP = "-D";
 
-    private String bootstrapPropsUrl;
+    private List<String> bootstrapPropsUrls = new ArrayList<>();
     private String restConfigServiceUrl;
     private String groupNames;
     private List<String> propUrls = new ArrayList<String>();
@@ -1286,16 +1289,18 @@ public class LockssApp {
     }
 
     @Deprecated
-    public StartupOptions(String bootstrapPropsUrl, String restConfigServiceUrl,
-	List<String> propUrls, String groupNames) {
-      this.bootstrapPropsUrl = bootstrapPropsUrl;
+    public StartupOptions(List<String> bootstrapPropsUrls,
+			  String restConfigServiceUrl,
+			  List<String> propUrls,
+			  String groupNames) {
+      this.bootstrapPropsUrls = bootstrapPropsUrls;
       this.restConfigServiceUrl = restConfigServiceUrl;
       this.propUrls = propUrls;
       this.groupNames = groupNames;
     }
 
-    public String getBootstrapPropsUrl() {
-      return bootstrapPropsUrl;
+    public List<String> getBootstrapPropsUrls() {
+      return bootstrapPropsUrls;
     }
 
     public String getRestConfigServiceUrl() {
@@ -1355,12 +1360,12 @@ public class LockssApp {
 	} else if (args[i].equals(OPTION_BOOTSTRAP_PROPURL)
 		   && i < args.length - 1) {
 	  // Handle bootstrap properties URL.
-	  bootstrapPropsUrl = args[++i];
+	  String burl = args[++i];
+	  bootstrapPropsUrls.add(burl);
 	  if (log.isDebug3()) {
-	    log.debug3("getStartupOptions(): bootstrapPropsUrl: " +
-		       bootstrapPropsUrl);
+	    log.debug3("getStartupOptions(): added bootstrapPropsUrl: " + burl);
 	  }
-	  propUrls.add(bootstrapPropsUrl);
+	  propUrls.add(burl);
 	} else if (args[i].equals(OPTION_REST_CONFIG_SERVICE_URL)
 		   && i < args.length - 1) {
 	  // Handle the REST configuration service URL.

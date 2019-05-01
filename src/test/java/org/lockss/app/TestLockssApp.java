@@ -106,7 +106,7 @@ public class TestLockssApp extends LockssTestCase {
     assertTrue("foo".equals(list1.get(0)) ||
 	       "bar".equals(list1.get(0)) ||
 	       "baz".equals(list1.get(0)));
-    assertNull(opt1.getBootstrapPropsUrl());
+    assertEmpty(opt1.getBootstrapPropsUrls());
 
     // Ensure that multiple prop URLs can be set with multiple "-p"
     // options.
@@ -120,7 +120,7 @@ public class TestLockssApp extends LockssTestCase {
     assertEquals("foo", list2.get(0));
     assertEquals("bar", list2.get(1));
     assertEquals("baz", list2.get(2));
-    assertNull(opt2.getBootstrapPropsUrl());
+    assertEmpty(opt2.getBootstrapPropsUrls());
 
     // Ensure that only one URL is chosen from a semicolon-separated
     // list of URLs, and that additional -p parameters can be provided.
@@ -135,7 +135,7 @@ public class TestLockssApp extends LockssTestCase {
 	       "bar".equals(list3.get(0)) ||
 	       "baz".equals(list3.get(0)));
     assertEquals("quux", list3.get(1));
-    assertNull(opt3.getBootstrapPropsUrl());
+    assertEmpty(opt3.getBootstrapPropsUrls());
 
     // Ensure that only one URL is chosen from each semicolon-separated
     // list of URLs
@@ -151,7 +151,7 @@ public class TestLockssApp extends LockssTestCase {
     assertTrue("foo2".equals(list4.get(1)) ||
 	       "bar2".equals(list4.get(1)) ||
 	       "baz2".equals(list4.get(1)));
-    assertNull(opt4.getBootstrapPropsUrl());
+    assertEmpty(opt4.getBootstrapPropsUrls());
 
     // Test cluster urls
     LockssDaemon.StartupOptions opt2a =
@@ -166,7 +166,7 @@ public class TestLockssApp extends LockssTestCase {
     List<String> list5 = opt5.getPropUrls();
     assertEquals(1, list5.size());
     assertEquals("foo", list5.get(0));
-    assertNull(opt5.getBootstrapPropsUrl());
+    assertEmpty(opt5.getBootstrapPropsUrls());
 
     // -p should be ignored, no prop URLS.
     LockssDaemon.StartupOptions opt6 =
@@ -176,7 +176,7 @@ public class TestLockssApp extends LockssTestCase {
     List<String> list6 = opt6.getPropUrls();
     assertNotNull(list6);
     assertEquals(0, list6.size());
-    assertNull(opt6.getBootstrapPropsUrl());
+    assertEmpty(opt6.getBootstrapPropsUrls());
 
     // -g should be ignored, no group name.
     LockssDaemon.StartupOptions opt7 =
@@ -186,7 +186,7 @@ public class TestLockssApp extends LockssTestCase {
     assertNotNull(list7);
     assertEquals(1, list7.size());
     assertEquals("foo", list7.get(0));
-    assertNull(opt7.getBootstrapPropsUrl());
+    assertEmpty(opt7.getBootstrapPropsUrls());
 
     // Test -x.
     String xmlFilename = "file.xml";
@@ -215,7 +215,7 @@ public class TestLockssApp extends LockssTestCase {
     assertNull(opt10.getGroupNames());
     List<String> list10 = opt10.getPropUrls();
     assertEquals(1, list10.size());
-    assertNull(opt10.getBootstrapPropsUrl());
+    assertEmpty(opt10.getBootstrapPropsUrls());
 
     // Test -b.
     LockssDaemon.StartupOptions opt11 =
@@ -229,7 +229,7 @@ public class TestLockssApp extends LockssTestCase {
 	       "bar".equals(list11.get(0)) ||
 	       "baz".equals(list11.get(0)));
     assertTrue("boot".equals(list11.get(1)));
-    assertEquals("boot", opt11.getBootstrapPropsUrl());
+    assertEquals(ListUtil.list("boot"), opt11.getBootstrapPropsUrls());
 
     // Test some bad options. -b should be ignored.
     LockssDaemon.StartupOptions opt12 =
@@ -237,7 +237,7 @@ public class TestLockssApp extends LockssTestCase {
     assertNull(opt12.getGroupNames());
     List<String> list12 = opt12.getPropUrls();
     assertEquals(1, list12.size());
-    assertNull(opt12.getBootstrapPropsUrl());
+    assertEmpty(opt12.getBootstrapPropsUrls());
   }
 
   public void testProcessServiceBindings() {

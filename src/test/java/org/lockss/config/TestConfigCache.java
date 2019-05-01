@@ -91,6 +91,13 @@ public class TestConfigCache extends LockssTestCase4 {
   }
 
   @Test
+  public void testFindResource() throws IOException {
+    ConfigFile cf = cache.find("resource:foo");
+    assertClass(ResourceConfigFile.class, cf);
+    assertEquals("resource:foo", cf.getFileUrl());
+  }
+
+  @Test
   public void testSize() throws IOException {
     assertEquals(0, cache.size());
 

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -518,8 +518,9 @@ public class TestConfigFile {
 	  null));
       assertFalse(cf.isPlatformFile());
 
-      cf.setConfigManager(new MyConfigManager(getTempDir(), cf.getFileUrl(),
-	  null, null, null));
+      cf.setConfigManager(new MyConfigManager(getTempDir(),
+					      ListUtil.list(cf.getFileUrl()),
+					      null, null, null));
       assertTrue(cf.isPlatformFile());
     }
 
@@ -625,8 +626,9 @@ public class TestConfigFile {
 	  null));
       assertFalse(cf.isPlatformFile());
 
-      cf.setConfigManager(new MyConfigManager(getTempDir(), cf.getFileUrl(),
-	  null, null, null));
+      cf.setConfigManager(new MyConfigManager(getTempDir(),
+					      ListUtil.list(cf.getFileUrl()),
+					      null, null, null));
       assertTrue(cf.isPlatformFile());
     }
 
@@ -1144,9 +1146,10 @@ public class TestConfigFile {
       this.tmpdir = tmpdir;
     }
 
-    public MyConfigManager(File tmpdir, String bootstrapPropsUrl,
-	String restConfigServiceUrl, List<String> urls, String groupNames) {
-      super(bootstrapPropsUrl, restConfigServiceUrl, urls, groupNames);
+    public MyConfigManager(File tmpdir, List<String> bootstrapPropsUrls,
+			   String restConfigServiceUrl, List<String> urls,
+			   String groupNames) {
+      super(bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
       this.tmpdir = tmpdir;
     }
 

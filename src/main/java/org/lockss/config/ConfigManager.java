@@ -717,20 +717,15 @@ public class ConfigManager implements LockssManager {
   private List<Pattern> expertConfigDenyPats;
   private boolean enableExpertConfig;
 
-  private String bootstrapPropsUrl; // The daemon bootstrap properties URL.
+  // URLs that are loaded first and go into the platform config, which is
+  // available early.
+  private List<String> bootstrapPropsUrls;
 
   // The Configuration REST web service client.
   RestConfigClient restConfigClient = null;
 
   // The URL of the REST Configuration service.
   String restConfigServiceUrl = null;
-
-  // The path to the directory containing any resource configuration files. 
-  private static final String RESOURCE_CONFIG_DIR_PATH =
-      "org/lockss/config/resourcefile";
-
-  // A map of existing resource configuration files, indexed by file name.
-  private Map<String, File> resourceConfigFiles = null;
 
   // The map of parent configuration files.
   Map<String, ConfigFile> parentConfigFile = new HashMap<String, ConfigFile>();
@@ -773,13 +768,17 @@ public class ConfigManager implements LockssManager {
     this(null, urls, groupNames);
   }
 
-  public ConfigManager(String bootstrapPropsUrl, List urls, String groupNames) {
-    this(bootstrapPropsUrl, null, urls, groupNames);
+  public ConfigManager(List<String> bootstrapPropsUrls,
+		       List<String> urls,
+		       String groupNames) {
+    this(bootstrapPropsUrls, null, urls, groupNames);
   }
 
-  public ConfigManager(String bootstrapPropsUrl, String restConfigServiceUrl,
-      List urls, String groupNames) {
-    this.bootstrapPropsUrl = bootstrapPropsUrl;
+  public ConfigManager(List<String> bootstrapPropsUrls,
+		       String restConfigServiceUrl,
+		       List<String> urls,
+		       String groupNames) {
+    this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
     // Check whether this is not happening in a REST Configuration service
@@ -794,9 +793,6 @@ public class ConfigManager implements LockssManager {
     this.groupNames = groupNames;
     configCache = new ConfigCache(this);
     registerConfigurationCallback(MiscConfig.getConfigCallback());
-
-    // Create the map of resource configuration files.
-    resourceConfigFiles = populateResourceFileMap();
   }
 
   public void setClusterUrls(List<String> urls) {
@@ -887,10 +883,12 @@ public class ConfigManager implements LockssManager {
     return theMgr;
   }
 
-  public static ConfigManager makeConfigManager(String bootstrapPropsUrl,
-      String restConfigServiceUrl, List urls, String groupNames) {
-    theMgr = new ConfigManager(bootstrapPropsUrl, restConfigServiceUrl, urls,
-	groupNames);
+  public static ConfigManager makeConfigManager(List<String> bootstrapPropsUrls,
+						String restConfigServiceUrl,
+						List<String> urls,
+						String groupNames) {
+    theMgr = new ConfigManager(bootstrapPropsUrls, restConfigServiceUrl, urls,
+			       groupNames);
     return theMgr;
   }
 
@@ -3226,12 +3224,12 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
-   * Provides the daemon bootstrap properties URL.
+   * Provides the daemon bootstrap properties URLs.
    *
-   * @return a String with the daemon bootstrap properties URL.
+   * @return a List of the daemon bootstrap properties URLs.
    */
-  public String getBootstrapPropsUrl() {
-    return bootstrapPropsUrl;
+  public boolean isBootstrapPropsUrl(String url) {
+    return bootstrapPropsUrls != null && bootstrapPropsUrls.contains(url);
   }
 
   /**
@@ -3250,88 +3248,6 @@ public class ConfigManager implements LockssManager {
    */
   public String getRestConfigServiceUrl() {
     return restConfigServiceUrl;
-  }
-
-  /**
-   * Populates the map of resource configuration files.
-   * 
-   * @return a Map<String, File> with the map of resource configuration files.
-   */
-  private Map<String, File> populateResourceFileMap() {
-    final String DEBUG_HEADER = "populateResourceFileMap(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
-
-    Map<String, File> result = new HashMap<String, File>();
-
-    // Get the URL of the directory with the resource configuration files.
-    URL resourceConfigUrl =
-	getClass().getClassLoader().getResource(RESOURCE_CONFIG_DIR_PATH);
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "resourceConfigUrl = " + resourceConfigUrl);
-
-    // Check whether there is no directory with the resource configuration
-    // files.
-    if (resourceConfigUrl == null) {
-      // Yes: Nothing more to do.
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-      return result;
-    }
-
-    // No: Get the directory with the resource configuration files.
-    File resourceConfigDir = new File(resourceConfigUrl.getFile());
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "resourceConfigDir = " + resourceConfigDir);
-
-    // Check whether the directory is valid.
-    if (resourceConfigDir.exists() && resourceConfigDir.isDirectory()
-	&& resourceConfigDir.canRead()) {
-      // Yes: Get any files in the directory.
-      File[] resourceFiles = resourceConfigDir.listFiles();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "resourceFiles = " + resourceFiles);
-
-      // Check whether there are any files in the directory.
-      if (resourceFiles != null) {
-	// Yes: Loop through all the resource configuration files.
-	for (int i = 0; i < resourceFiles.length; i++) {
-	  // Add the resource configuration file to the map. 
-	  File resourceFile = resourceFiles[i];
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "resourceFile = " + resourceFile);
-
-	  result.put(resourceFile.getName(), resourceFile);
-	}
-      }
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-    return result;
-  }
-
-  /**
-   * Provides an indication of whether a resource configuration file with a
-   * given name exists.
-   * 
-   * @param fileName
-   *          A String with the name.
-   * @return a boolean with <code>true</code> if a resource configuration file
-   *         with the given name exists, <code>false</code> otherwise.
-   */
-  public boolean existsResourceConfigFile(String fileName) {
-    return resourceConfigFiles.containsKey(fileName);
-  }
-
-  /**
-   * Provides a resource configuration file, given its name.
-   * 
-   * @param fileName
-   *          A String with the resource configuration file name.
-   * @return a File with the requested resource configuration file, or
-   *         <code>null</code> if no resource configuration file with that name
-   *         exists.
-   */
-  public File getResourceConfigFile(String fileName) {
-    return resourceConfigFiles.get(fileName);
   }
 
   /**
@@ -3376,28 +3292,21 @@ public class ConfigManager implements LockssManager {
 
     ConfigFile cf = null;
 
-    // Check whether it is a resource file.
-    if (resourceConfigFiles.containsKey(cacheConfigFileName)) {
-      // Yes: Get it from the cache.
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "It is a Resource file.");
-      cf = configCache.find(cacheConfigFileName);
-    } else {
-      // No: Check whether there is no cache directory.
-      if (cacheConfigDir == null) {
-	// Yes:
-	log.warning("Attempting to read cache config file: " +
-	    cacheConfigFileName + ", but no cache config dir exists");
-	throw new IOException("No cache config dir");
-      }
-
-      // No: Get the name of the cached file.
-      String cfile = new File(cacheConfigDir, cacheConfigFileName).toString();
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cfile = " + cfile);
-
-      // Get it from the cache.
-      cf = configCache.find(cfile);
+    if (cacheConfigDir == null) {
+      log.warning("Attempting to read cache config file: " +
+		  cacheConfigFileName + ", but no cache config dir exists");
+      throw new IOException("No cache config dir");
     }
 
+    // This should theoretically lookup the config file thusly, but tests
+    // create cache config files without them getting a registered
+    // LocalFileDescr.  Do it the old way for now.
+    //     LocalFileDescr lfd = getLocalFileDescr(cacheConfigFileName);
+    //     if (lfd != null) {
+    //       cf = configCache.find(lfd.getFile().toString());
+    //     }
+    String cfile = new File(cacheConfigDir, cacheConfigFileName).toString();
+    cf = configCache.find(cfile);
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cf = " + cf);
     return cf;
   }

@@ -234,9 +234,11 @@ public class LockssDaemon extends LockssApp {
     theDaemon = this;
   }
 
-  protected LockssDaemon(String bootstrapPropsUrl, String restConfigServiceUrl,
-      List<String> propUrls, String groupNames) {
-    super(bootstrapPropsUrl, restConfigServiceUrl, propUrls, groupNames);
+  protected LockssDaemon(List<String> bootstrapPropsUrls,
+			 String restConfigServiceUrl,
+			 List<String> propUrls,
+			 String groupNames) {
+    super(bootstrapPropsUrls, restConfigServiceUrl, propUrls, groupNames);
     theDaemon = this;
   }
 

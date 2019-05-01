@@ -54,6 +54,9 @@ public interface ConfigFile {
    */
   public boolean isPlatformFile();
 
+  /** if true, forces isPlatformFile() to return true */
+  public void setPlatformFile(boolean val);
+
   public int getFileType();
 
   public String getLastModified();

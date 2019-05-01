@@ -75,7 +75,7 @@ public class ConfigCache {
 	}
 	bcf = configMgr.newDynamicConfigFile(url);
 	// Check whether it is a resource configuration file.
-      } else if (configMgr != null && configMgr.existsResourceConfigFile(url)) {
+      } else if (ResourceConfigFile.isResourceConfigUrl(url, configMgr)) {
 	// Yes.
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Is ResourceConfigFile.");
 	bcf = new ResourceConfigFile(url, configMgr);

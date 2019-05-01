@@ -104,7 +104,11 @@ public class MemoryConfigFile implements ConfigFile {
   }
 
   public boolean isPlatformFile() {
-    return false;
+    return m_isPlatformFile;
+  }
+
+  public void setPlatformFile(boolean val) {
+    m_isPlatformFile = val;
   }
 
   public int getFileType() {

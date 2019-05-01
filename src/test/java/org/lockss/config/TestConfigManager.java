@@ -2220,9 +2220,9 @@ public class TestConfigManager extends LockssTestCase4 {
       super();
     }
 
-    public MyConfigManager(String bootstrapPropsUrl,
+    public MyConfigManager(List<String> bootstrapPropsUrls,
 	String restConfigServiceUrl, List<String> urls, String groupNames) {
-      super(bootstrapPropsUrl, restConfigServiceUrl, urls, groupNames);
+      super(bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
     }
 
     @Override
