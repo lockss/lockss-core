@@ -36,6 +36,7 @@ import java.io.*;
 import java.net.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.jetty.*;
@@ -254,19 +255,36 @@ public class TinyUi extends BaseServletManager {
 			 ServletUtil.IMAGE_LOGO_LARGE));
       table.add(ServletUtil.IMAGE_TM);
 
-      Composite b = new Font(1, true);
-      b.add("<br>This LOCKSS box");
-      String name = PlatformUtil.getLocalHostname();
-      if (name != null) {
-	b.add(" (");
-	b.add(name);
-	b.add(")");
+      StringBuilder sb = new StringBuilder();
+      String hostName = PlatformUtil.getLocalHostname();
+      String serviceName = null;
+      ServiceDescr descr = LockssApp.getLockssApp().getMyServiceDescr();
+      if (descr != null) {
+	serviceName = descr.getName();
       }
-      b.add(" has not started because ");
-      b.add("it is unable to load configuration data.<br>");
+      sb.append("<br>This LOCKSS service");
+      if (hostName != null || serviceName != null) {
+	sb.append(" (");
+	if (serviceName != null) {
+	  sb.append(serviceName);
+	  if (hostName != null) {
+	    sb.append(" ");
+	  }
+	}
+	if (hostName != null) {
+	  sb.append("on ");
+	  sb.append(hostName);
+	}
+	sb.append(")");
+      }
+      sb.append(" has not started because ");
+      sb.append("it is unable to load configuration data.<br>");
       if (tinyData[0] != null) {
-	b.add(tinyData[0]);
+	sb.append(tinyData[0]);
       }
+      Composite b = new Font(1, true);
+      b.add(sb.toString());
+
       table.newRow();
       table.newCell("valign=top align=left");
       table.add(b);
