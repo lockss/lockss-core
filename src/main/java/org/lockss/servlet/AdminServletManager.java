@@ -458,7 +458,8 @@ public class AdminServletManager extends BaseServletManager {
           new ServletDescr("ServeContent",
           ServeContent.class,
           "Serve Content",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS | ServletDescr.WILDCARD_PATH);
+          ServletDescr.NEED_ROLE_CONTENT_ACCESS | ServletDescr.WILDCARD_PATH)
+    .setService(SVC_POLLER);
   public static final ServletDescr SERVLET_TIME_GATE =
       new ServletDescr("TimeGateService",
 		       TimeGateService.class,
