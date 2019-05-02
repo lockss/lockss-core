@@ -88,20 +88,31 @@ public class ClientStateManager extends CachingStateManager {
   @Override
   public synchronized void doReceiveAuStateChanged(String auid, String json,
 						   String cookie) {
-    AuState cur = auStates.get(auid);
-    if (cur == null) {
-      log.debug2("Ignoring partial update for AuState we don't have: {}", auid);
-      return;
-    }
-    try {
-      log.debug2("Updating: {} from {}", cur, json);
-      if (isMyUpdate(cookie, json)) {
-	log.debug2("Ignoring my AuState change: {}: {}", cookie, json);
-      } else {
-	cur.updateFromJson(json, daemon);
+    boolean doit = false;
+    AuState cur;
+    synchronized (this) {
+      cur = auStates.get(auid);
+      if (cur == null) {
+	log.debug2("Ignoring partial update for AuState we don't have: {}", auid);
+	return;
       }
-    } catch (IOException e) {
-      log.error("Couldn't deserialize AuState: {}", json, e);
+      try {
+	log.debug2("Updating: {} from {}", cur, json);
+	if (isMyUpdate(cookie, json)) {
+	  log.debug2("Ignoring my AuState change: {}: {}", cookie, json);
+	} else {
+	  doit = true;
+	}
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuState: {}", json, e);
+      }
+    }
+    if (doit) {
+      try {
+	cur.updateFromJson(json, daemon);
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuState: {}", json, e);
+      }
     }
   }    
 
@@ -181,23 +192,33 @@ public class ClientStateManager extends CachingStateManager {
 
   /** Handle incoming AuAgreements changed msg */
   @Override
-  public synchronized void doReceiveAuAgreementsChanged(String auid,
-							String json,
-							String cookie) {
-    AuAgreements cur = agmnts.get(auid);
-    if (cur == null) {
-      log.debug2("Ignoring partial update for AuAgreements we don't have: {}", auid);
-      return;
-    }
-    try {
-      log.debug2("Updating: {} from {}", cur, json);
-      if (isMyUpdate(cookie, json)) {
-	log.debug2("Ignoring my AuAgreements change: {}: {}", cookie, json);
-      } else {
-	cur.updateFromJson(json, daemon);
+  public void doReceiveAuAgreementsChanged(String auid,
+					   String json,
+					   String cookie) {
+    boolean doit = false;
+    synchronized (this) {
+      AuAgreements cur = agmnts.get(auid);
+      if (cur == null) {
+	log.debug2("Ignoring partial update for AuAgreements we don't have: {}", auid);
+	return;
       }
-    } catch (IOException e) {
-      log.error("Couldn't deserialize AuAgreements: {}", json, e);
+      try {
+	log.debug2("Updating: {} from {}", cur, json);
+	if (isMyUpdate(cookie, json)) {
+	  log.debug2("Ignoring my AuAgreements change: {}: {}", cookie, json);
+	} else {
+	  doit = true;
+	}
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuAgreements: {}", json, e);
+      }
+      if (doit) {
+	try {
+	  cur.updateFromJson(json, daemon);
+	} catch (IOException e) {
+	  log.error("Couldn't deserialize AuAgreements: {}", json, e);
+	}
+      }
     }
   }
 
@@ -255,20 +276,31 @@ public class ClientStateManager extends CachingStateManager {
   public synchronized void doReceiveAuSuspectUrlVersionsChanged(String auid,
 							String json,
 							String cookie) {
-    AuSuspectUrlVersions cur = suspectVers.get(auid);
-    if (cur == null) {
-      log.debug2("Ignoring partial update for AuSuspectUrlVersions we don't have: {}", auid);
-      return;
-    }
-    try {
-      log.debug2("Updating: {} from {}", cur, json);
-      if (isMyUpdate(cookie, json)) {
-	log.debug2("Ignoring my AuSuspectUrlVersions change: {}: {}", cookie, json);
-      } else {
-	cur.updateFromJson(json, daemon);
+    boolean doit = false;
+    AuSuspectUrlVersions cur;
+    synchronized (this) {
+      cur = suspectVers.get(auid);
+      if (cur == null) {
+	log.debug2("Ignoring partial update for AuSuspectUrlVersions we don't have: {}", auid);
+	return;
       }
-    } catch (IOException e) {
-      log.error("Couldn't deserialize AuSuspectUrlVersions: {}", json, e);
+      try {
+	log.debug2("Updating: {} from {}", cur, json);
+	if (isMyUpdate(cookie, json)) {
+	  log.debug2("Ignoring my AuSuspectUrlVersions change: {}: {}", cookie, json);
+	} else {
+	  doit = true;
+	}
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuSuspectUrlVersions: {}", json, e);
+      }
+    }
+    if (doit) {
+      try {
+	cur.updateFromJson(json, daemon);
+      } catch (IOException e) {
+	log.error("Couldn't deserialize AuSuspectUrlVersions: {}", json, e);
+      }
     }
   }
 
@@ -323,23 +355,35 @@ public class ClientStateManager extends CachingStateManager {
 
   /** Handle incoming NoAuPeerSet changed msg */
   @Override
-  public synchronized void doReceiveNoAuPeerSetChanged(String auid,
-							String json,
-							String cookie) {
-    DatedPeerIdSet cur = noAuPeerSets.get(auid);
-    if (cur == null) {
-      log.debug2("Ignoring partial update for NoAuPeerSet we don't have: {}", auid);
-      return;
-    }
-    try {
-      log.debug2("Updating: {} from {}", cur, json);
-      if (isMyUpdate(cookie, json)) {
-	log.debug2("Ignoring my NoAuPeerSet change: {}: {}", cookie, json);
-      } else {
-	cur.updateFromJson(json, daemon);
+  public void doReceiveNoAuPeerSetChanged(String auid,
+					  String json,
+					  String cookie) {
+    boolean doit = false;
+    DatedPeerIdSet cur;
+    synchronized (this) {
+      cur = noAuPeerSets.get(auid);
+      if (cur == null) {
+	log.debug2("Ignoring partial update for NoAuPeerSet we don't have: {}",
+		   auid);
+	return;
       }
-    } catch (IOException e) {
-      log.error("Couldn't deserialize NoAuPeerSet: {}", json, e);
+      try {
+	log.debug2("Updating: {} from {}", cur, json);
+	if (isMyUpdate(cookie, json)) {
+	  log.debug2("Ignoring my NoAuPeerSet change: {}: {}", cookie, json);
+	} else {
+	  doit = true;
+	}
+      } catch (IOException e) {
+	log.error("Couldn't deserialize NoAuPeerSet: {}", json, e);
+      }
+    }
+    if (doit) {
+      try {
+	cur.updateFromJson(json, daemon);
+      } catch (IOException e) {
+	log.error("Couldn't deserialize NoAuPeerSet: {}", json, e);
+      }
     }
   }
 
