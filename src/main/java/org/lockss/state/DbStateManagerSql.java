@@ -1216,7 +1216,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     DatedPeerIdSet res = null;
 
     if (json != null) {
-      res = (DatedPeerIdSet)(PersistentPeerIdSetImpl.fromJson(key, json, LockssDaemon.getLockssDaemon()));
+      res = DatedPeerIdSetImpl.fromJson(key, json, LockssDaemon.getLockssDaemon());
     }
 
     return res;
