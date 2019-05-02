@@ -264,7 +264,6 @@ public class TestProxyInfo extends LockssTestCase {
   public void testSquidFragmentBuilder() {
     MockLockssDaemon mockLockssDaemon = getMockLockssDaemon();
     IcpManager testableIcpManager = new IcpManager() {
-      public boolean isIcpServerAllowed() { return true; }
       public synchronized boolean isIcpServerRunning() { return true; }
     };
     mockLockssDaemon.setIcpManager(testableIcpManager);

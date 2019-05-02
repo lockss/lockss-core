@@ -320,6 +320,7 @@ public class ServeContent extends LockssServlet {
   private String accessLogInfo;
   private AccessLogType requestType = AccessLogType.None;
 
+  private LockssDaemon daemon;;
   private PluginManager pluginMgr;
   private ProxyManager proxyMgr;
   private OpenUrlResolver openUrlResolver;
@@ -340,7 +341,7 @@ public class ServeContent extends LockssServlet {
 
   public void init(ServletConfig config) throws ServletException {
     super.init(config);
-    LockssDaemon daemon = getLockssDaemon();
+    daemon = getLockssDaemon();
     pluginMgr = daemon.getPluginManager();
     proxyMgr = daemon.getProxyManager();
     openUrlResolver = new OpenUrlResolver(daemon);
@@ -1116,7 +1117,8 @@ public class ServeContent extends LockssServlet {
   void recordRequest(String url,
 		     CounterReportsRequestRecorder.PublisherContacted contacted,
 		     int publisherCode) {
-    if (proxyMgr.isCounterCountable(req.getHeader(HttpFields.__UserAgent))) {
+    if (daemon.hasManagerByKey(LockssDaemon.COUNTER_REPORTS_MANAGER) &&
+	proxyMgr.isCounterCountable(req.getHeader(HttpFields.__UserAgent))) {
       CounterReportsRequestRecorder.getInstance().recordRequest(url, contacted,
 	  publisherCode, null);
     }

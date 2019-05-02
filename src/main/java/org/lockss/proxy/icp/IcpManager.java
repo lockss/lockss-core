@@ -309,7 +309,7 @@ public class IcpManager
    * <p>Determines whether an ICP server is allowed to run.</p>
    * @return True if and only if and ICP server is allowed to run.
    */
-  public boolean isIcpServerAllowed() {
+  public static boolean isIcpServerAllowed() {
     return isIcpServerAllowed(CurrentConfig.getCurrentConfig());
   }
 
@@ -387,7 +387,7 @@ public class IcpManager
    * @return True unless the platform indicates it prohibits ICP.
    * @see #PARAM_PLATFORM_ICP_ENABLED
    */
-  protected boolean isIcpServerAllowed(Configuration theConfig) {
+  protected static boolean isIcpServerAllowed(Configuration theConfig) {
     /*
      * The ICP server is allowed to run unless the platform
      * says it is not.

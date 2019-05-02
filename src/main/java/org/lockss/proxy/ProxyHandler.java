@@ -506,9 +506,8 @@ public class ProxyHandler extends AbstractHttpHandler {
 			 response, cu);
 	  logAccess(request, "200 from cache", TimeBase.msSince(reqStartTime));
 	  // Record the necessary information required for COUNTER reports.
-	  CounterReportsRequestRecorder.getInstance().recordRequest(urlString,
-	      CounterReportsRequestRecorder.PublisherContacted.FALSE, 200,
-	      null);
+	  recordRequest(urlString,
+	      CounterReportsRequestRecorder.PublisherContacted.FALSE, 200);
 	  return;
 	} else {
 	  // Not found on cache and told not to forward request
@@ -749,6 +748,17 @@ public class ProxyHandler extends AbstractHttpHandler {
 		     CounterReportsRequestRecorder.PublisherContacted contacted,
 		     int publisherCode) {
     if (proxyMgr.isCounterCountable(request.getField(HttpFields.__UserAgent))) {
+      recordRequest(url, contacted, publisherCode);
+    }
+  }
+
+  /**
+   * Record the request in COUNTER if it's running
+   */
+  void recordRequest(String url,
+		     CounterReportsRequestRecorder.PublisherContacted contacted,
+		     int publisherCode) {
+    if (theDaemon.hasManagerByKey(LockssDaemon.COUNTER_REPORTS_MANAGER)) {
       CounterReportsRequestRecorder.getInstance().recordRequest(url, contacted,
 	  publisherCode, null);
     }

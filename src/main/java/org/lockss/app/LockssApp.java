@@ -420,6 +420,15 @@ public class LockssApp {
   // LockssManager accessors
 
   /**
+   * Return true if a manager by that name exists
+   * @param managerKey the name of the manager
+   * @return true if manager exists
+   */
+  public boolean hasManagerByKey(String managerKey) {
+    return managerMap.containsKey(managerKey);
+  }
+
+  /**
    * Find a lockss manager by name.  This will need to be cast to the
    * appropriate class.
    * @param managerKey the name of the manager
