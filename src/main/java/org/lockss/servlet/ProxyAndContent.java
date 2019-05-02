@@ -118,6 +118,7 @@ public class ProxyAndContent extends LockssServlet {
 		      "content_server",
 		      ContentServletManager.PARAM_START,
 		      ContentServletManager.PARAM_PORT,
+		      ContentServletManager.DEFAULT_PORT,
 		      ContentServletManager.DEFAULT_START);
 
   ServerInfo contentProxyInfo =
@@ -126,7 +127,9 @@ public class ProxyAndContent extends LockssServlet {
 		      "content_proxy",
 		      ProxyManager.PARAM_START,
 		      ProxyManager.PARAM_PORT,
+		      ProxyManager.DEFAULT_PORT,
 		      ProxyManager.PARAM_SSL_PORT,
+		      -1 /*ProxyManager.DEFAULT_SSL_PORT*/,
 		      ProxyManager.DEFAULT_START);
 
   ServerInfo auditProxyInfo =
@@ -135,7 +138,9 @@ public class ProxyAndContent extends LockssServlet {
 		      "audit_proxy",
 		      AuditProxyManager.PARAM_START,
 		      AuditProxyManager.PARAM_PORT,
+		      AuditProxyManager.DEFAULT_PORT,
 		      AuditProxyManager.PARAM_SSL_PORT,
+		      -1 /*AuditProxyManager.DEFAULT_SSL_PORT*/,
 		      AuditProxyManager.DEFAULT_START);
 
   ServerInfo icpServerInfo =
@@ -144,6 +149,7 @@ public class ProxyAndContent extends LockssServlet {
 		      "icp",
 		      IcpManager.PARAM_ICP_ENABLED,
 		      IcpManager.PARAM_ICP_PORT,
+		      IcpManager.DEFAULT_PARAM_PLATFORM_ICP_PORT,
 		      false);
 
   ServerInfo[] serverInfos = {
@@ -159,7 +165,9 @@ public class ProxyAndContent extends LockssServlet {
     String formKeyPrefix;
     String enableParam;
     String portParam;
+    int portDefault;
     String sslPortParam;
+    int sslPortDefault;
     String hostParam;
     boolean enableParamDefault;
 
@@ -178,10 +186,12 @@ public class ProxyAndContent extends LockssServlet {
 	       String formKeyPrefix,
 	       String enableParam,
 	       String portParam,
+	       int portDefault,
 	       String sslPortParam,
+	       int sslPortDefault,
 	       boolean enableParamDefault) {
       this(name, resourceName, formKeyPrefix, enableParam,
-	   portParam, sslPortParam,
+	   portParam, portDefault, sslPortParam, sslPortDefault,
 	   null, enableParamDefault);
     }
 
@@ -190,7 +200,9 @@ public class ProxyAndContent extends LockssServlet {
 	       String formKeyPrefix,
 	       String enableParam,
 	       String portParam,
+	       int portDefault,
 	       String sslPortParam,
+	       int sslPortDefault,
 	       String hostParam,
 	       boolean enableParamDefault) {
       this.name = name;
@@ -198,7 +210,9 @@ public class ProxyAndContent extends LockssServlet {
       this.formKeyPrefix = formKeyPrefix;
       this.enableParam = enableParam;
       this.portParam = portParam;
+      this.portDefault = portDefault;
       this.sslPortParam = sslPortParam;
+      this.sslPortDefault = sslPortDefault;
       this.hostParam = hostParam;
       this.enableParamDefault = enableParamDefault;
     }
@@ -213,7 +227,9 @@ public class ProxyAndContent extends LockssServlet {
     String getHostKey() { return formKeyPrefix + SUFFIX_KEY_HOST; }
     String getEnableParam() { return enableParam; }
     String getPortParam() { return portParam; }
+    int getPortDefault() { return portDefault; }
     String getSslPortParam() { return sslPortParam; }
+    int getSslPortDefault() { return sslPortDefault; }
     String getHostParam() { return hostParam; }
     boolean getEnableParamDefault() { return enableParamDefault; }
 
@@ -239,6 +255,12 @@ public class ProxyAndContent extends LockssServlet {
       if (StringUtil.isNullString(port)) {
 	port = CurrentConfig.getParam(getPortParam());
       }
+      if (StringUtil.isNullString(port)) {
+	if (getPortDefault() > 0) {
+	  port = Integer.toString(getPortDefault());
+	}
+      }
+
       if (!StringUtil.isNullString(port)) {
 	try {
 	  int portNumber = Integer.parseInt(port);
@@ -261,14 +283,11 @@ public class ProxyAndContent extends LockssServlet {
       if (StringUtil.isNullString(sslPort)) {
 	sslPort = CurrentConfig.getParam(getSslPortParam());
       }
-//       if (!StringUtil.isNullString(sslPort)) {
-// 	try {
-// 	  int sslPortNumber = Integer.parseInt(sslPort);
-// 	  if (sslPortNumber <= 0) {
-// 	    sslPort = "";
-// 	  }
-// 	} catch (NumberFormatException nfeIgnore) {}
-//       }
+      if (StringUtil.isNullString(sslPort)) {
+	if (getSslPortDefault() > 0) {
+	  sslPort = Integer.toString(getSslPortDefault());
+	}
+      }
       return sslPort;
     }
 
@@ -342,8 +361,10 @@ public class ProxyAndContent extends LockssServlet {
 		  String formKeyPrefix,
 		  String enableParam,
 		  String portParam,
+		  int portDefault,
 		  boolean enableParamDefault) {
-      super(name, resourceName, formKeyPrefix, enableParam, portParam, null,
+      super(name, resourceName, formKeyPrefix, enableParam,
+	    portParam, portDefault, null, -1,
 	    enableParamDefault);
     }
     TcpServerInfo(String name,
@@ -351,10 +372,12 @@ public class ProxyAndContent extends LockssServlet {
 		  String formKeyPrefix,
 		  String enableParam,
 		  String portParam,
+		  int portDefault,
 		  String sslPortParam,
+		  int sslPortDefault,
 		  boolean enableParamDefault) {
       super(name, resourceName, formKeyPrefix, enableParam,
-	    portParam, sslPortParam,
+	    portParam, portDefault, sslPortParam, sslPortDefault,
 	    enableParamDefault);
     }
     List getUsablePorts() {
@@ -374,8 +397,10 @@ public class ProxyAndContent extends LockssServlet {
 		  String formKeyPrefix,
 		  String enableParam,
 		  String portParam,
+		  int portDefault,
 		  boolean enableParamDefault) {
-      super(name, resourceName, formKeyPrefix, enableParam, portParam, null,
+      super(name, resourceName, formKeyPrefix, enableParam,
+	    portParam, portDefault, null, -1,
 	    enableParamDefault);
     }
     List getUsablePorts() {
@@ -502,7 +527,7 @@ public class ProxyAndContent extends LockssServlet {
     // Audit proxy
     layoutEnablePortRow(tbl, auditProxyInfo, "audit proxy", AUDIT_PROXY_FOOT);
     // ICP server
-    if (getLockssDaemon().getIcpManager().isIcpServerAllowed()) {
+    if (IcpManager.isIcpServerAllowed()) {
       layoutEnablePortRow(tbl, icpServerInfo, "ICP server", ICP_FOOT);
     } else {
       final String ICP_DISABLED_FOOT =
