@@ -284,7 +284,7 @@ public class IcpManager
   /**
    * <p>A port number.</p>
    */
-  private int port = BAD_PORT;
+  private int port = DEFAULT_PARAM_PLATFORM_ICP_PORT;
 
   /**
    * <p>A reference to the proxy manager.</p>
@@ -362,7 +362,7 @@ public class IcpManager
   protected synchronized void forget() {
     icpFactory = null;
     icpRunnable = null;
-    port = BAD_PORT;
+    port = DEFAULT_PARAM_PLATFORM_ICP_PORT;
     rateLimiter = null;
     udpSocket = null;
   }
@@ -376,7 +376,7 @@ public class IcpManager
   protected int getPortFromConfig(Configuration theConfig) {
     return theConfig.getInt(PARAM_ICP_PORT,
                             theConfig.getInt(PARAM_PLATFORM_ICP_PORT,
-                                             BAD_PORT));
+                                             DEFAULT_PARAM_PLATFORM_ICP_PORT));
   }
 
   /**
@@ -496,8 +496,7 @@ public class IcpManager
    */
   protected boolean shouldIcpServerStart(Configuration theConfig) {
    return    isIcpServerAllowed(theConfig)
-          && theConfig.getBoolean(PARAM_ICP_ENABLED, DEFAULT_ICP_ENABLED)
-          && getPortFromConfig(theConfig) > 0;
+          && theConfig.getBoolean(PARAM_ICP_ENABLED, DEFAULT_ICP_ENABLED);
   }
 
   /**
@@ -596,7 +595,7 @@ public class IcpManager
    */
   public static final String PARAM_ICP_ENABLED =
     PREFIX_ICP + "enabled";
-  public static final boolean DEFAULT_ICP_ENABLED = true;
+  public static final boolean DEFAULT_ICP_ENABLED = false;
 
   /**
    * <p>The ICP port parameter.</p>
@@ -617,14 +616,14 @@ public class IcpManager
     PREFIX_PLATFORM + "port";
 
   /**
+   * <p>The default platform ICP port.</p>
+   */
+  public static final int DEFAULT_PARAM_PLATFORM_ICP_PORT = 24674;
+
+  /**
    * <p>A logger for use by instances of this class.</p>
    */
   protected static Logger logger = Logger.getLogger();
-
-  /**
-   * <p>An invalid port number.</p>
-   */
-  private static final int BAD_PORT = -1;
 
   /**
    * <p>The default ICP rate-limiting string.</p>
