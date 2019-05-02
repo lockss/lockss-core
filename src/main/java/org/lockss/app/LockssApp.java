@@ -511,7 +511,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public AlertManager getAlertManager() {
-    return (AlertManager)getManager(ALERT_MANAGER);
+    return (AlertManager)getManagerByKey(ALERT_MANAGER);
   }
 
   /**
@@ -520,7 +520,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public SystemMetrics getSystemMetrics() {
-    return (SystemMetrics) getManager(SYSTEM_METRICS);
+    return (SystemMetrics) getManagerByKey(SYSTEM_METRICS);
   }
 
   /**
@@ -529,7 +529,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public PluginManager getPluginManager() {
-    return (PluginManager) getManager(PLUGIN_MANAGER);
+    return (PluginManager) getManagerByKey(PLUGIN_MANAGER);
   }
 
   /**
@@ -538,7 +538,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public AccountManager getAccountManager() {
-    return (AccountManager) getManager(ACCOUNT_MANAGER);
+    return (AccountManager) getManagerByKey(ACCOUNT_MANAGER);
   }
 
   /**
@@ -547,7 +547,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public RandomManager getRandomManager() {
-    return (RandomManager) getManager(RANDOM_MANAGER);
+    return (RandomManager) getManagerByKey(RANDOM_MANAGER);
   }
 
   /**
@@ -556,7 +556,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LockssKeyStoreManager getKeystoreManager() {
-    return (LockssKeyStoreManager) getManager(KEYSTORE_MANAGER);
+    return (LockssKeyStoreManager) getManagerByKey(KEYSTORE_MANAGER);
   }
 
   /**
@@ -565,7 +565,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public IdentityManager getIdentityManager() {
-    return (IdentityManager) getManager(IDENTITY_MANAGER);
+    return (IdentityManager) getManagerByKey(IDENTITY_MANAGER);
   }
 
 //   /**
@@ -574,7 +574,7 @@ public class LockssApp {
 //    * @throws IllegalArgumentException if the manager is not available.
 //    */
 //   public RemoteApi getRemoteApi() {
-//     return (RemoteApi) getManager(REMOTE_API);
+//     return (RemoteApi) getManagerByKey(REMOTE_API);
 //   }
 
 //   /**
@@ -583,7 +583,7 @@ public class LockssApp {
 //    * @throws IllegalArgumentException if the manager is not available.
 //    */
 //   public ArchivalUnitStatus getArchivalUnitStatus() {
-//     return (ArchivalUnitStatus) getManager(ARCHIVAL_UNIT_STATUS);
+//     return (ArchivalUnitStatus) getManagerByKey(ARCHIVAL_UNIT_STATUS);
 //   }
 
   /**
@@ -592,7 +592,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public TrueZipManager getTrueZipManager() {
-    return (TrueZipManager)getManager(TRUEZIP_MANAGER);
+    return (TrueZipManager)getManagerByKey(TRUEZIP_MANAGER);
   }
 
   // Eventually wants to be here but currently specific to MetadataManager
@@ -604,7 +604,7 @@ public class LockssApp {
 //    *           if the manager is not available.
 //    */
 //   public JobManager getJobManager() {
-//     return (JobManager) getManager(JOB_MANAGER);
+//     return (JobManager) getManagerByKey(JOB_MANAGER);
 //   }
 
 //   /**
@@ -615,7 +615,7 @@ public class LockssApp {
 //    *           if the manager is not available.
 //    */
 //   public JobDbManager getJobDbManager() {
-//     return (JobDbManager) getManager(JOB_DB_MANAGER);
+//     return (JobDbManager) getManagerByKey(JOB_DB_MANAGER);
 //   }
 
 
@@ -625,7 +625,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public StatusService getStatusService() {
-    return (StatusService) getManager(STATUS_SERVICE);
+    return (StatusService) getManagerByKey(STATUS_SERVICE);
   }
 
   /**
@@ -634,7 +634,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public WatchdogService getWatchdogService() {
-    return (WatchdogService)getManager(WATCHDOG_SERVICE);
+    return (WatchdogService)getManagerByKey(WATCHDOG_SERVICE);
   }
 
   /**
@@ -643,7 +643,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public MailService getMailService() {
-    return (MailService)getManager(MAIL_SERVICE);
+    return (MailService)getManagerByKey(MAIL_SERVICE);
   }
 
   /**
@@ -652,7 +652,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
   */
   public ResourceManager getResourceManager() {
-    return (ResourceManager) getManager(RESOURCE_MANAGER);
+    return (ResourceManager) getManagerByKey(RESOURCE_MANAGER);
   }
 
   // Manager loading, starting, stopping

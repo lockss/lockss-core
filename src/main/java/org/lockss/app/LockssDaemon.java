@@ -289,7 +289,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public ClockssParams getClockssParams() {
-    return (ClockssParams) getManager(CLOCKSS_PARAMS);
+    return (ClockssParams) getManagerByKey(CLOCKSS_PARAMS);
   }
 
   /** Stop the daemon.  Currently only used in testing. */
@@ -305,7 +305,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public HashService getHashService() {
-    return (HashService) getManager(HASH_SERVICE);
+    return (HashService) getManagerByKey(HASH_SERVICE);
   }
 
   /**
@@ -314,7 +314,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public SchedService getSchedService() {
-    return (SchedService) getManager(SCHED_SERVICE);
+    return (SchedService) getManagerByKey(SCHED_SERVICE);
   }
 
   /**
@@ -323,7 +323,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public PollManager getPollManager() {
-    return (PollManager) getManager(POLL_MANAGER);
+    return (PollManager) getManagerByKey(POLL_MANAGER);
   }
 
   /**
@@ -332,7 +332,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public PsmManager getPsmManager() {
-    return (PsmManager) getManager(PSM_MANAGER);
+    return (PsmManager) getManagerByKey(PSM_MANAGER);
   }
 
   /**
@@ -341,7 +341,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LcapStreamComm getStreamCommManager()  {
-    return (LcapStreamComm) getManager(STREAM_COMM_MANAGER);
+    return (LcapStreamComm) getManagerByKey(STREAM_COMM_MANAGER);
   }
 
   /**
@@ -350,7 +350,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LcapRouter getRouterManager()  {
-    return (LcapRouter) getManager(ROUTER_MANAGER);
+    return (LcapRouter) getManagerByKey(ROUTER_MANAGER);
   }
 
   /**
@@ -359,7 +359,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
   */
   public ProxyManager getProxyManager() {
-    return (ProxyManager) getManager(PROXY_MANAGER);
+    return (ProxyManager) getManagerByKey(PROXY_MANAGER);
   }
 
   /**
@@ -368,7 +368,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public CrawlManager getCrawlManager() {
-    return (CrawlManager) getManager(CRAWL_MANAGER);
+    return (CrawlManager) getManagerByKey(CRAWL_MANAGER);
   }
 
   /**
@@ -377,7 +377,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public RepositoryManager getRepositoryManager()  {
-    return (RepositoryManager)getManager(REPOSITORY_MANAGER);
+    return (RepositoryManager)getManagerByKey(REPOSITORY_MANAGER);
   }
 
   /**
@@ -386,7 +386,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public MetadataManager getMetadataManager() {
-    return (MetadataManager) getManager(METADATA_MANAGER);
+    return (MetadataManager) getManagerByKey(METADATA_MANAGER);
   }
 
   /**
@@ -395,7 +395,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public IcpManager getIcpManager() {
-    return (IcpManager)getManager(ICP_MANAGER);
+    return (IcpManager)getManagerByKey(ICP_MANAGER);
   }
 
   /**
@@ -404,7 +404,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public RemoteApi getRemoteApi() {
-    return (RemoteApi) getManager(REMOTE_API);
+    return (RemoteApi) getManagerByKey(REMOTE_API);
   }
 
   /**
@@ -413,7 +413,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public ArchivalUnitStatus getArchivalUnitStatus() {
-    return (ArchivalUnitStatus) getManager(ARCHIVAL_UNIT_STATUS);
+    return (ArchivalUnitStatus) getManagerByKey(ARCHIVAL_UNIT_STATUS);
   }
 
   /**
@@ -424,7 +424,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public CounterReportsManager getCounterReportsManager() {
-    return (CounterReportsManager) getManager(COUNTER_REPORTS_MANAGER);
+    return (CounterReportsManager) getManagerByKey(COUNTER_REPORTS_MANAGER);
   }
 
   /**
@@ -435,7 +435,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public SubscriptionManager getSubscriptionManager() {
-    return (SubscriptionManager) getManager(SUBSCRIPTION_MANAGER);
+    return (SubscriptionManager) getManagerByKey(SUBSCRIPTION_MANAGER);
   }
 
   /**
@@ -446,7 +446,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public FetchTimeExportManager getFetchTimeExportManager() {
-    return (FetchTimeExportManager) getManager(FETCH_TIME_EXPORT_MANAGER);
+    return (FetchTimeExportManager) getManagerByKey(FETCH_TIME_EXPORT_MANAGER);
   }
 
   /**
@@ -457,7 +457,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public MetadataDbManager getMetadataDbManager() {
-    return (MetadataDbManager) getManager(METADATA_DB_MANAGER);
+    return (MetadataDbManager) getManagerByKey(METADATA_DB_MANAGER);
   }
 
   /**
@@ -466,7 +466,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public StatusService getStatusService() {
-    return (StatusService) getManager(STATUS_SERVICE);
+    return (StatusService) getManagerByKey(STATUS_SERVICE);
   }
 
   /**
@@ -475,7 +475,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public EntitlementRegistryClient getEntitlementRegistryClient() {
-    return (EntitlementRegistryClient) getManager(SAFENET_MANAGER);
+    return (EntitlementRegistryClient) getManagerByKey(SAFENET_MANAGER);
   }
 
   // LockssAuManager accessors
