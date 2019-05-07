@@ -78,6 +78,7 @@ public class HTTPConfigFile extends BaseConfigFile {
   private boolean checkAuth = false;
   private MessageDigest chkDig;
   private String chkAlg;
+  private String proxyUsed;
 
   public HTTPConfigFile(String url, ConfigManager cfgMgr) {
     super(url, cfgMgr);
@@ -175,6 +176,9 @@ public class HTTPConfigFile extends BaseConfigFile {
     if (proxyHost != null) {
       log.debug2("Setting request proxy to: " + proxyHost + ":" + proxyPort);
       conn.setProxy(proxyHost, proxyPort);
+      proxyUsed = proxySpec;
+    } else {
+      proxyUsed = null;
     }
 
     conn.setRequestProperty(HttpHeaders.ACCEPT_ENCODING, "gzip");
@@ -215,6 +219,11 @@ public class HTTPConfigFile extends BaseConfigFile {
     }
 
     return in;
+  }
+
+  @Override
+  public String getProxyUsed() {
+    return proxyUsed;
   }
 
   private static Pattern HINT_PAT =

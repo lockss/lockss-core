@@ -1126,6 +1126,11 @@ public class ConfigManager implements LockssManager {
       sb.append(HtmlUtil.htmlEncode(cf.getLoadErrorMessage()));
       sb.append("<br>Last attempt: ");
       sb.append(new Date(cf.getLastAttemptTime()));
+      String proxySpec = cf.getProxyUsed();
+      if (proxySpec != null) {
+	sb.append("<br>Using proxy: ");
+	sb.append(proxySpec);
+      }
       return sb.toString();
     } else {
       return "Error loading unknown file: shouldn't happen";

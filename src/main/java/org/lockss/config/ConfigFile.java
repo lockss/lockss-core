@@ -63,6 +63,10 @@ public interface ConfigFile {
 
   public long getLastAttemptTime();
 
+  public default String getProxyUsed() {
+    return null;
+  }
+
   public void setKeyPredicate(ConfigManager.KeyPredicate pred);
 
   public Generation getGeneration() throws IOException;
