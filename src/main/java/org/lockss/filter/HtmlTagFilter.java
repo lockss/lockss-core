@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -55,9 +51,10 @@ public class HtmlTagFilter extends Reader {
   public static final String PARAM_BUFFER_CAPACITY =
     Configuration.PREFIX + "filter.buffer_capacity";
 
+  /** If true, require strict pairing of start and end tags */
   public static final String PARAM_THROW_IF_NO_END_TAG =
     Configuration.PREFIX + "HtmlTagFilter.throwIfNoEndTag";
-  public static final boolean DEFAULT_THROW_IF_NO_END_TAG = true;
+  public static final boolean DEFAULT_THROW_IF_NO_END_TAG = false;
 
 
   Reader reader;

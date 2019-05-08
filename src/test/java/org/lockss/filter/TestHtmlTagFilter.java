@@ -231,28 +231,16 @@ public class TestHtmlTagFilter extends LockssTestCase {
   public void testNoEndTagDefault() throws IOException {
     String content = "This "+startTag1+"is test content";
     String expectedContent = "This ";
-    try {
-      assertFilterString(expectedContent, content, tagPair1);
-      fail("Trying to filter content with missing end tag should throw");
-    } catch (HtmlTagFilter.MissingEndTagException ex) {
-      //expected
-    }
-  }
-
-  public void testNoEndTagParamFalse() throws IOException {
-    Properties p = new Properties();
-    p.setProperty(PARAM_THROW_IF_NO_END_TAG, "false");
-    ConfigurationUtil.setCurrentConfigFromProps(p);
-
-    String content = "This "+startTag1+"is test content";
-    String expectedContent = "This ";
     assertFilterString(expectedContent, content, tagPair1);
   }
 
+  public void testNoEndTagParamFalse() throws IOException {
+    ConfigurationUtil.addFromArgs(PARAM_THROW_IF_NO_END_TAG, "false");
+
+  }
+
   public void testNoEndTagParamTrue() throws IOException {
-    Properties p = new Properties();
-    p.setProperty(PARAM_THROW_IF_NO_END_TAG, "true");
-    ConfigurationUtil.setCurrentConfigFromProps(p);
+    ConfigurationUtil.addFromArgs(PARAM_THROW_IF_NO_END_TAG, "true");
 
     String content = "This "+startTag1+"is test content";
     String expectedContent = "This ";

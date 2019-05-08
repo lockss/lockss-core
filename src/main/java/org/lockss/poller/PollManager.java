@@ -87,9 +87,10 @@ public class PollManager
   // Shared with MockPollManager
   protected static final Logger theLog = Logger.getLogger();
   static final String PREFIX = Configuration.PREFIX + "poll.";
-  static final String PARAM_RECENT_EXPIRATION = PREFIX + "expireRecent";
 
-  static final long DEFAULT_RECENT_EXPIRATION = DAY;
+  /** Amount of time finished polls remain in the poll status display */
+  static final String PARAM_RECENT_EXPIRATION = PREFIX + "expireRecent";
+  static final long DEFAULT_RECENT_EXPIRATION = 2 * DAY;
 
   /** If true, empty poll state directories found at startup will be
    * deleted.

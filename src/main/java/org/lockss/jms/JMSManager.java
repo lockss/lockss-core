@@ -78,12 +78,11 @@ public class JMSManager extends BaseLockssManager
    * set {@value #PARAM_START_BROKER} is used. */
   public static final String PARAM_CONNECT_URI = CONNECT_PREFIX + "uri";
 
-  /** If true, <code>failover:</code> will be prepended to the value of
-   * {@value #PARAM_BROKER_URI} to obtain the broker URI to which producers
-   * and consumers will connect. */
+  /** If true, use a failover transport to talk to the broker; see <a
+   * href="http://activemq.apache.org/failover-transport-reference">here</a>. */
   public static final String PARAM_CONNECT_FAILOVER =
     CONNECT_PREFIX + "failover";
-  public static boolean DEFAULT_CONNECT_FAILOVER = false;
+  public static boolean DEFAULT_CONNECT_FAILOVER = true;
 
   /** If true, the broker will use a persistent store */
   public static final String PARAM_IS_PERSISTENT =

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -69,7 +65,6 @@ public class HashSvcSchedImpl
   private BigInteger totalBytesHashed = BigInteger.valueOf(0);
   private int reqCtr = 0;
   private long totalTime = 0;
-  private long nameHashEstimate = DEFAULT_NAME_HASH_ESTIMATE;
 
   public HashSvcSchedImpl() {}
 
@@ -104,8 +99,6 @@ public class HashSvcSchedImpl
     estPadPercent = config.getLong(PARAM_ESTIMATE_PAD_PERCENT,
 				   DEFAULT_ESTIMATE_PAD_PERCENT);
     hashStepBytes = config.getInt(PARAM_STEP_BYTES, DEFAULT_STEP_BYTES);
-    nameHashEstimate = config.getTimeInterval(PARAM_NAME_HASH_ESTIMATE,
-					      DEFAULT_NAME_HASH_ESTIMATE);
     int cMax = config.getInt(PARAM_COMPLETED_MAX, DEFAULT_COMPLETED_MAX);
     if (changedKeys.contains(PARAM_COMPLETED_MAX) ) {
       synchronized (queueLock) {
