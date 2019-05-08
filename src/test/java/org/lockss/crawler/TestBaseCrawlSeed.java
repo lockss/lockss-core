@@ -42,7 +42,7 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.ArchivalUnit.ConfigurationException;
 import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockArchivalUnit;
-import org.lockss.test.MockAuState;
+import org.lockss.state.MockAuState;
 import org.lockss.test.MockCrawlRule;
 import org.lockss.test.MockLinkExtractor;
 import org.lockss.test.MockLockssDaemon;

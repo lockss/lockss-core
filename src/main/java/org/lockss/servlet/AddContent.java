@@ -52,7 +52,7 @@ import java.util.List;
  * Display Content Status servlet
  */
 public class AddContent extends LockssServlet {
-    protected static Logger log = Logger.getLogger("AddContent");
+    protected static Logger log = Logger.getLogger();
 
     private static final int LETTERS_IN_ALPHABET = 26;
     private static final int DEFAULT_NUMBER_IN_GROUP = 2;

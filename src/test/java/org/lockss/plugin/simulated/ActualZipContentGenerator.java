@@ -53,7 +53,7 @@ import org.lockss.daemon.*;
  */
 
 public class ActualZipContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("ActualZipContentGenerator");
+  private static Logger logger = Logger.getLogger();
   String zipFilePrefix = "SimulatedCrawl";
   AtomicInteger serialNo = new AtomicInteger(0);
   int maxSize = 100000000;

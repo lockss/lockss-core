@@ -38,6 +38,7 @@ import java.net.*;
 import java.text.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 
@@ -45,7 +46,7 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.alert.Alert
  */
 public class TestAlert extends LockssTestCase {
-  private static final Logger log = Logger.getLogger(TestAlert.class);
+  private static final Logger log = Logger.getLogger();
 
   public void setUp() throws Exception {
     super.setUp();

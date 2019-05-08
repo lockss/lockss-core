@@ -59,7 +59,7 @@ import org.lockss.state.*;
 
 public class SimulatedArchivalUnit extends BaseArchivalUnit 
     implements ExplodableArchivalUnit {
-  static final Logger log = Logger.getLogger("SAU");
+  static final Logger log = Logger.getLogger();
 
   private static final String SIMULATED_URL_BASE = "http://www.example.com/";
 

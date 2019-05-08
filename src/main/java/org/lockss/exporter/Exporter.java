@@ -40,6 +40,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
@@ -48,7 +50,7 @@ import org.lockss.plugin.*;
  */
 public abstract class Exporter {
 
-  private static final Logger log = Logger.getLogger(Exporter.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "exporter.";
 

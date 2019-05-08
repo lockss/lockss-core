@@ -47,7 +47,7 @@ import java.security.*;
  * resource, open it and return a proxy for that URLConnection.
  */
 public class ResourceURLConnection extends URLConnection {
-  Logger log = Logger.getLogger("ResourceURLConnection");
+  Logger log = Logger.getLogger();
 
   URLConnection proxiedConnection;
 

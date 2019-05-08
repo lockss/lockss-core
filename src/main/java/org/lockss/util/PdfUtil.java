@@ -701,7 +701,7 @@ return success;
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("PdfUtil");
+  private static Logger logger = Logger.getLogger();
 
   /**
    * <p>Applies the given transform to the given PDF document, and

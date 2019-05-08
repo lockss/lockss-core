@@ -52,7 +52,7 @@ import java.util.Map;
 
 public class JsoupTagExtractor extends SimpleFileMetadataExtractor {
   
-  private static final Logger theLog = Logger.getLogger(JsoupTagExtractor.class);
+  private static final Logger theLog = Logger.getLogger();
 
   static final String DEFAULT_META_TAG = "meta";
   protected Collection<String> m_selectors;

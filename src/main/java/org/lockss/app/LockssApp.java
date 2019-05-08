@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,9 +33,15 @@ package org.lockss.app;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.*;
 import org.apache.commons.lang3.*;
+import gnu.getopt.Getopt;
 import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeZoneUtil;
 import org.lockss.alert.*;
 import org.lockss.mail.*;
 import org.lockss.config.*;
@@ -46,6 +52,7 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.truezip.*;
 import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 /**
  * Configuration and startup of LOCKSS applications.  Application
@@ -55,9 +62,7 @@ import org.apache.commons.collections.map.LinkedMap;
  * used directly.
  */
 public class LockssApp {
-  private static final Logger log =
-    Logger.getLoggerWithInitialLevel("LockssApp",
-				     Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
 /**
  * LOCKSS is a trademark of Stanford University.  Stanford hereby grants you
@@ -80,6 +85,9 @@ public class LockssApp {
   private static final String PREFIX = Configuration.PREFIX + "app.";
 
   public static final String PARAM_TESTING_MODE = PREFIX + "testingMode";
+
+  static final String PARAM_IS_LAAWS = PREFIX + "isLaaws";
+  static final boolean DEFAULT_IS_LAAWS = false;
 
   static final String PARAM_DAEMON_DEADLINE_REASONABLE =
     PREFIX + "deadline.reasonable.";
@@ -106,6 +114,11 @@ public class LockssApp {
   public static final String PARAM_DEBUG = PREFIX + "debug";
   public static final boolean DEFAULT_DEBUG = false;
 
+  /** If true, input streams are monitored for missed close()s */
+  public static final String PARAM_MONITOR_INPUT_STREAMS =
+      Configuration.PREFIX + "monitor.inputStreams";
+  public static final boolean DEFAULT_MONITOR_INPUT_STREAMS = false;
+
   static final String PARAM_PLATFORM_VERSION =
     Configuration.PREFIX + "platform.version";
 
@@ -115,6 +128,10 @@ public class LockssApp {
 
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
+
+  public static final String PARAM_SERVICE_BINDINGS =
+    PREFIX + "serviceBindings";
+  public static final List DEFAULT_SERVICE_BINDINGS = null;
 
   public static final String MANAGER_PREFIX =
     Configuration.PREFIX + "manager.";
@@ -165,6 +182,7 @@ public class LockssApp {
   private final ManagerDesc[] stdPreManagers = {
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
+    JMS_MANAGER_DESC,
     MAIL_SERVICE_DESC,
     ALERT_MANAGER_DESC,
     STATUS_SERVICE_DESC,
@@ -182,6 +200,7 @@ public class LockssApp {
     // JOB_MANAGER_DESC,
 //     // Start the job database manager.
     // JOB_DB_MANAGER_DESC,
+    BUILD_INFO_STATUS_DESC,
   };
 
   private final ManagerDesc[] stdPostManagers = {
@@ -192,7 +211,7 @@ public class LockssApp {
 
     // unused
 //     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
-//       public boolean shouldStart() {
+//       public boolean shouldStart(LockssApp app) {
 //         return isClockss();
 //       }},
     
@@ -200,9 +219,10 @@ public class LockssApp {
 
 
   protected AppSpec appSpec;
-  protected String bootstrapPropsUrl = null;
+  protected List<String> bootstrapPropsUrls = null;
   protected String restConfigServiceUrl = null;
   protected List<String> propUrls = null;
+  protected List<String> clusterUrls = null;
   protected String groupNames = null;
 
   protected boolean appInited = false;	// true after all managers inited
@@ -212,6 +232,7 @@ public class LockssApp {
   protected long appLifetime = DEFAULT_APP_EXIT_AFTER;
   protected Deadline timeToExit = Deadline.at(TimeBase.MAX);
   protected boolean isSafenet = false;
+  protected boolean isLaaws = false;
 
   // Map of managerKey -> manager instance. Need to preserve order so
   // managers are started and stopped in the right order.  This does not
@@ -242,9 +263,11 @@ public class LockssApp {
     theApp = this;
   }
 
-  protected LockssApp(String bootstrapPropsUrl, String restConfigServiceUrl,
-      List<String> propUrls, String groupNames) {
-    this.bootstrapPropsUrl = bootstrapPropsUrl;
+  protected LockssApp(List<String> bootstrapPropsUrls,
+		      String restConfigServiceUrl,
+		      List<String> propUrls,
+		      String groupNames) {
+    this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.propUrls = propUrls;
     this.groupNames = groupNames;
@@ -265,6 +288,12 @@ public class LockssApp {
     return LOCKSS_USER_AGENT;
   }
 
+  /** Return true if this app obtains config info from a REST config
+   * service.  (I.e., it was started with a -c arg) */
+  public boolean isConfigClient() {
+    return restConfigServiceUrl != null;
+  }
+
   /** Return the current testing mode. */
   public String getTestingMode() {
     return testingMode;
@@ -277,13 +306,22 @@ public class LockssApp {
     return isSafenet;
   }
 
+  /**
+   * True if running as part of a LAAWS cluster.  Normally determined by
+   * having a ServiceDescr, can be set via {@value PARAM_IS_LAAWS} for
+   * testing.
+   */
+  public boolean isLaaws() {
+    return getMyServiceDescr() != null || isLaaws;
+  }
+
   /** Starts the standard pre managers, then the per-app managers, then the
    * post managers.  The per-app ManagerDescs are obtained from the AppSpec
    * if present, else getAppManagerDescs() will be called.  Apps may
    * override that if non-static ManagerDescs are needed.  Or may implement
    * this method to completely override the standard manager startup. */
   protected ManagerDesc[] getManagerDescs() {
-    List<ManagerDesc> res = new ArrayList<ManagerDesc>(50);
+    LinkedHashSet<ManagerDesc> res = new LinkedHashSet<ManagerDesc>(50);
     Collections.addAll(res, stdPreManagers);
     if (getAppSpec().isComputeAppManagers()) {
       Collections.addAll(res, getAppManagerDescs());
@@ -349,9 +387,17 @@ public class LockssApp {
     return startDate;
   }
 
+  /** Return the app name */
+  public String getAppName() {
+    return appSpec.getName();
+  }
+
   /** Return a string describing the version of the app and platform */
   public String getVersionInfo() {
     String vApp = BuildInfo.getBuildInfoString();
+    if (!StringUtil.isNullString(getAppName())) {
+      vApp = getAppName() + " " + vApp;
+    }
     PlatformVersion plat = Configuration.getPlatformVersion();
     if (plat != null) {
       vApp = vApp + ", " + plat.displayString();
@@ -372,6 +418,15 @@ public class LockssApp {
   }
 
   // LockssManager accessors
+
+  /**
+   * Return true if a manager by that name exists
+   * @param managerKey the name of the manager
+   * @return true if manager exists
+   */
+  public boolean hasManagerByKey(String managerKey) {
+    return managerMap.containsKey(managerKey);
+  }
 
   /**
    * Find a lockss manager by name.  This will need to be cast to the
@@ -436,7 +491,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public static <T> T getManagerByTypeStatic(Class<T> mgrType) {
-    return (T)theApp.getManagerByKey(managerKey(mgrType));
+    return theApp.getManagerByType(mgrType);
   }
 
   // Standard manager accessors
@@ -456,7 +511,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public AlertManager getAlertManager() {
-    return (AlertManager)getManager(ALERT_MANAGER);
+    return (AlertManager)getManagerByKey(ALERT_MANAGER);
   }
 
   /**
@@ -465,7 +520,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public SystemMetrics getSystemMetrics() {
-    return (SystemMetrics) getManager(SYSTEM_METRICS);
+    return (SystemMetrics) getManagerByKey(SYSTEM_METRICS);
   }
 
   /**
@@ -474,7 +529,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public PluginManager getPluginManager() {
-    return (PluginManager) getManager(PLUGIN_MANAGER);
+    return (PluginManager) getManagerByKey(PLUGIN_MANAGER);
   }
 
   /**
@@ -483,7 +538,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public AccountManager getAccountManager() {
-    return (AccountManager) getManager(ACCOUNT_MANAGER);
+    return (AccountManager) getManagerByKey(ACCOUNT_MANAGER);
   }
 
   /**
@@ -492,7 +547,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public RandomManager getRandomManager() {
-    return (RandomManager) getManager(RANDOM_MANAGER);
+    return (RandomManager) getManagerByKey(RANDOM_MANAGER);
   }
 
   /**
@@ -501,7 +556,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LockssKeyStoreManager getKeystoreManager() {
-    return (LockssKeyStoreManager) getManager(KEYSTORE_MANAGER);
+    return (LockssKeyStoreManager) getManagerByKey(KEYSTORE_MANAGER);
   }
 
   /**
@@ -510,7 +565,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public IdentityManager getIdentityManager() {
-    return (IdentityManager) getManager(IDENTITY_MANAGER);
+    return (IdentityManager) getManagerByKey(IDENTITY_MANAGER);
   }
 
 //   /**
@@ -519,7 +574,7 @@ public class LockssApp {
 //    * @throws IllegalArgumentException if the manager is not available.
 //    */
 //   public RemoteApi getRemoteApi() {
-//     return (RemoteApi) getManager(REMOTE_API);
+//     return (RemoteApi) getManagerByKey(REMOTE_API);
 //   }
 
 //   /**
@@ -528,7 +583,7 @@ public class LockssApp {
 //    * @throws IllegalArgumentException if the manager is not available.
 //    */
 //   public ArchivalUnitStatus getArchivalUnitStatus() {
-//     return (ArchivalUnitStatus) getManager(ARCHIVAL_UNIT_STATUS);
+//     return (ArchivalUnitStatus) getManagerByKey(ARCHIVAL_UNIT_STATUS);
 //   }
 
   /**
@@ -537,7 +592,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public TrueZipManager getTrueZipManager() {
-    return (TrueZipManager)getManager(TRUEZIP_MANAGER);
+    return (TrueZipManager)getManagerByKey(TRUEZIP_MANAGER);
   }
 
   // Eventually wants to be here but currently specific to MetadataManager
@@ -549,7 +604,7 @@ public class LockssApp {
 //    *           if the manager is not available.
 //    */
 //   public JobManager getJobManager() {
-//     return (JobManager) getManager(JOB_MANAGER);
+//     return (JobManager) getManagerByKey(JOB_MANAGER);
 //   }
 
 //   /**
@@ -560,7 +615,7 @@ public class LockssApp {
 //    *           if the manager is not available.
 //    */
 //   public JobDbManager getJobDbManager() {
-//     return (JobDbManager) getManager(JOB_DB_MANAGER);
+//     return (JobDbManager) getManagerByKey(JOB_DB_MANAGER);
 //   }
 
 
@@ -570,7 +625,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public StatusService getStatusService() {
-    return (StatusService) getManager(STATUS_SERVICE);
+    return (StatusService) getManagerByKey(STATUS_SERVICE);
   }
 
   /**
@@ -579,7 +634,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public WatchdogService getWatchdogService() {
-    return (WatchdogService)getManager(WATCHDOG_SERVICE);
+    return (WatchdogService)getManagerByKey(WATCHDOG_SERVICE);
   }
 
   /**
@@ -588,7 +643,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public MailService getMailService() {
-    return (MailService)getManager(MAIL_SERVICE);
+    return (MailService)getManagerByKey(MAIL_SERVICE);
   }
 
   /**
@@ -597,7 +652,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
   */
   public ResourceManager getResourceManager() {
-    return (ResourceManager) getManager(RESOURCE_MANAGER);
+    return (ResourceManager) getManagerByKey(RESOURCE_MANAGER);
   }
 
   // Manager loading, starting, stopping
@@ -616,7 +671,9 @@ public class LockssApp {
     try {
       // call init on the service
       log.debug2("create & initService: " + managerName);
-      mgr.initService(this);
+      if (!mgr.isInited()) {
+	mgr.initService(this);
+      }
       managerMap.put(desc.key, mgr);
       return mgr;
     } catch (Exception ex) {
@@ -628,7 +685,7 @@ public class LockssApp {
   protected String getManagerClassName(ManagerDesc desc) {
     String key = MANAGER_PREFIX + desc.key;
     return System.getProperty(key,
-			      CurrentConfig.getParam(key, desc.defaultClass));
+			      CurrentConfig.getParam(key, desc.getDefaultClass(this)));
   }
 
   /** Create an instance of a LockssManager, from the configured or default
@@ -641,9 +698,9 @@ public class LockssApp {
       mgr = (LockssManager)makeInstance(managerName);
     } catch (ClassNotFoundException e) {
       log.warning("Couldn't load manager class " + managerName);
-      if (!managerName.equals(desc.defaultClass)) {
-	log.warning("Trying default manager class " + desc.defaultClass);
-	mgr = (LockssManager)makeInstance(desc.defaultClass);
+      if (!managerName.equals(desc.getDefaultClass(this))) {
+	log.warning("Trying default manager class " + desc.getDefaultClass(this));
+	mgr = (LockssManager)makeInstance(desc.getDefaultClass(this));
       } else {
 	throw e;
       }
@@ -671,7 +728,7 @@ public class LockssApp {
     }
     for(int i=0; i< managerDescs.length; i++) {
       ManagerDesc desc = managerDescs[i];
-      if (desc.shouldStart()) {
+      if (desc.shouldStart(this)) {
 	if (managerMap.get(desc.key) != null) {
 	  throw new RuntimeException("Duplicate manager key: " + desc.key);
 	}
@@ -740,17 +797,19 @@ public class LockssApp {
   protected void startApp() throws Exception {
     startDate = TimeBase.nowDate();
 
-    log.info(getJavaVersionInfo());
-    log.info(getVersionInfo() + ": starting");
+    log.info("Java: " + getJavaVersionInfo());
+    for (BuildInfo bi : BuildInfo.getAllBuildInfo()) {
+      log.info("Build: " +
+	       bi.getBuildInfoStringInst(BuildInfo.BUILD_ARTIFACT,
+					 BuildInfo.BUILD_VERSION,
+					 BuildInfo.BUILD_TIMESTAMP,
+					 BuildInfo.BUILD_HOST));
+    }
 
     // initialize our properties from the urls given
     initProperties();
 
-    // repeat the version info, as we may now be logging to a different target
-    // (And to include the platform version, which wasn't availabe before the
-    // config was loaded.)
-    log.info(getJavaVersionInfo());
-    log.info(getVersionInfo() + ": starting managers");
+    log.info("Starting managers");
 
     // startup all services
     initManagers();
@@ -771,8 +830,10 @@ public class LockssApp {
    * init our configuration and extract any parameters we will use locally
    */
   protected void initProperties() {
-    ConfigManager configMgr = ConfigManager.makeConfigManager(bootstrapPropsUrl,
-	restConfigServiceUrl, propUrls, groupNames);
+    ConfigManager configMgr =
+      ConfigManager.makeConfigManager(bootstrapPropsUrls, restConfigServiceUrl,
+				      propUrls, groupNames);
+    configMgr.setClusterUrls(clusterUrls);
 
     configMgr.initService(this);
     configMgr.startService();
@@ -807,6 +868,10 @@ public class LockssApp {
     return getAppSpec().getAppConfig();
   }
 
+  public Configuration getAppDefault() {
+    return getAppSpec().getAppDefault();
+  }
+
   boolean prevExitOnce = false;
 
   protected void setConfig(Configuration config, Configuration prevConfig,
@@ -819,6 +884,12 @@ public class LockssApp {
     }
 
     testingMode = config.get(PARAM_TESTING_MODE);
+    isLaaws = config.getBoolean(PARAM_IS_LAAWS, DEFAULT_IS_LAAWS);
+
+    if (changedKeys.contains(PARAM_SERVICE_BINDINGS)) {
+      processServiceBindings(config.getList(PARAM_SERVICE_BINDINGS,
+					    DEFAULT_SERVICE_BINDINGS));
+    }
 
     if (changedKeys.contains(PARAM_DAEMON_DEADLINE_REASONABLE)) {
       long maxInPast =
@@ -868,6 +939,79 @@ public class LockssApp {
       prevExitOnce = exitOnce;
     }
   }
+
+  // ServiceDescr, ServiceBinding support
+
+  Map<ServiceDescr,ServiceBinding> serviceBindings = new HashMap<>();
+
+  public ServiceDescr getMyServiceDescr() {
+    if (appSpec == null) {
+      return null;
+    }
+    return appSpec.getService();
+  }
+
+  /** Return list of all ServiceDescrs that have a known binding, sorted by
+   * service name */
+  public List<ServiceDescr> getAllServiceDescrs() {
+    List<ServiceDescr> res = new ArrayList<>();
+    res.addAll(serviceBindings.keySet());
+    Collections.sort(res);
+    return res;
+  }
+
+  /** Return true iff the supplied descr is the one specified for the
+   * currently running service */
+  public boolean isMyService(ServiceDescr descr) {
+    return descr != null && descr.equals(getMyServiceDescr());
+  }
+
+  /** Return the ServiceBinding currently bound to the ServletDescr */
+  public ServiceBinding getServiceBinding(ServiceDescr sd) {
+    if (sd == null) {
+      return null;
+    }
+    return serviceBindings.get(sd);
+  }
+
+  /** Return the ServiceBinding specified for the currently running
+   * service */
+  public ServiceBinding getMyServiceBinding() {
+    return getMyServiceDescr() == null ? null :
+      getServiceBinding(getMyServiceDescr());
+  }
+
+  //  svc_abbrev=host:ui_port    or   svc_abbrev=:ui_port
+  protected static final Pattern SERVICE_BINDING_PAT =
+    Pattern.compile("(.+)=(.+)?:(\\d+)");
+
+  void processServiceBindings(List<String> bindings) {
+    if (bindings == null) {
+      serviceBindings.clear();
+    } else {
+      for (String s : bindings) {
+	Matcher mat = SERVICE_BINDING_PAT.matcher(s);
+	if (mat.matches()) {
+	  String abbrev = mat.group(1);
+	  ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
+	  if (descr != null) {
+	    try {
+	      ServiceBinding binding =
+		new ServiceBinding(mat.group(2), Integer.parseInt(mat.group(3)));
+	      serviceBindings.put(descr, binding);
+	    } catch (NumberFormatException e) {
+	      log.error("Malformed service binding: " + s);
+	    }
+	  }
+	} else {
+	  log.error("Malformed service binding: " + s);
+	}
+      }
+    }
+    log.debug("Service bindings: " + serviceBindings);
+  }
+
+  // LockssApp framework startup
 
   /** Start a LockssApp to run the managers specified by the spec.
    * @param spec an AppSpec specifying the application name, additional
@@ -939,9 +1083,10 @@ public class LockssApp {
 
     setSystemProperties();
 
-    bootstrapPropsUrl = opts.getBootstrapPropsUrl();
+    bootstrapPropsUrls = opts.getBootstrapPropsUrls();
     restConfigServiceUrl = opts.getRestConfigServiceUrl();
     propUrls = opts.getPropUrls();
+    clusterUrls = opts.getClusterUrls();
     groupNames = opts.getGroupNames();
 
     try {
@@ -991,6 +1136,24 @@ public class LockssApp {
     }
   }
 
+  /** Determine which StateManager to use depending on the context.
+   * Current logic based on knowledge that the state service is the same as
+   * the config service.
+   * @return the StateManager implementation class name */
+  public String chooseStateManager() {
+    String res;
+    if (isConfigClient()) {
+      res = "org.lockss.state.ClientStateManager";
+    } else if (CurrentConfig.getBooleanParam(ConfigManager.PARAM_ENABLE_JMS_SEND,
+				      false)) {
+      res = "org.lockss.state.ServerStateManager";
+    } else {
+      res = "org.lockss.state.PersistentStateManager";
+    }
+    log.debug("StateManager: " + res);
+    return res;
+  }
+
   protected static StartupOptions getStartupOptions(String[] args) {
     return new StartupOptions().parse(args);
   }
@@ -1005,6 +1168,10 @@ public class LockssApp {
   // classes to be loaded
   protected static void setSystemProperties() {
     System.setProperty(IMAGEIO_DISABLE_NATIVE_CODE, "true");
+    // Use a unique session cookie so that multiple instances running on
+    // the same host don't overwrite each other's session id
+    System.setProperty("org.mortbay.jetty.servlet.SessionCookie",
+		       "JSESSIONID_" + RandomStringUtils.randomAlphabetic(5));
   }
 
 
@@ -1042,15 +1209,38 @@ public class LockssApp {
       return key;
     }
 
-    public String getDefaultClass() {
+    public String getDefaultClass(LockssApp app) {
       return defaultClass;
     }
 
     /** Return true iff the manager should be started.  Allows runtime
      * determination of manager inclusion by implementing in an anonymous
      * inner class in a ManagerDesc declaration. */
-    public boolean shouldStart() {
+    public boolean shouldStart(LockssApp app) {
       return true;
+    }
+
+    @Override
+    public int hashCode() {
+      HashCodeBuilder hcb = new HashCodeBuilder();
+      hcb.append(key);
+      hcb.append(defaultClass);
+      return hcb.toHashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+	return true;
+      }
+      if (obj instanceof ManagerDesc) {
+	ManagerDesc md = (ManagerDesc)obj;
+	if (StringUtil.equalStrings(this.key, md.getKey())
+	    && StringUtil.equalStrings(defaultClass, md.defaultClass)) {
+	  return true;
+	}
+      }
+      return false;
     }
 
     public String toString() {
@@ -1091,28 +1281,35 @@ public class LockssApp {
     public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
     public static final String OPTION_REST_CONFIG_SERVICE_URL = "-c";
     public static final String OPTION_PROPURL = "-p";
+    public static final String OPTION_CLUSTERURL = "-l";
     public static final String OPTION_GROUP = "-g";
     public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
     public static final String OPTION_XML_PROP_DIR = "-x";
+    public static final String OPTION_SYSPROP = "-D";
 
-    private String bootstrapPropsUrl;
+    private List<String> bootstrapPropsUrls = new ArrayList<>();
     private String restConfigServiceUrl;
     private String groupNames;
     private List<String> propUrls = new ArrayList<String>();
+    // clusterUrls is a subset of propUrls
+    private List<String> clusterUrls = new ArrayList<String>();
 
     public StartupOptions() {
     }
 
-    public StartupOptions(String bootstrapPropsUrl, String restConfigServiceUrl,
-	List<String> propUrls, String groupNames) {
-      this.bootstrapPropsUrl = bootstrapPropsUrl;
+    @Deprecated
+    public StartupOptions(List<String> bootstrapPropsUrls,
+			  String restConfigServiceUrl,
+			  List<String> propUrls,
+			  String groupNames) {
+      this.bootstrapPropsUrls = bootstrapPropsUrls;
       this.restConfigServiceUrl = restConfigServiceUrl;
       this.propUrls = propUrls;
       this.groupNames = groupNames;
     }
 
-    public String getBootstrapPropsUrl() {
-      return bootstrapPropsUrl;
+    public List<String> getBootstrapPropsUrls() {
+      return bootstrapPropsUrls;
     }
 
     public String getRestConfigServiceUrl() {
@@ -1121,6 +1318,10 @@ public class LockssApp {
 
     public List<String> getPropUrls() {
       return propUrls;
+    }
+
+    public List<String> getClusterUrls() {
+      return clusterUrls;
     }
 
     public String getGroupNames() {
@@ -1141,6 +1342,10 @@ public class LockssApp {
 	  if (log.isDebug3())
 	    log.debug3("getStartupOptions(): propUrl: " + v.get(idx));
 	  propUrls.add(v.get(idx));
+	} else if (args[i].equals(OPTION_CLUSTERURL) && i < args.length - 1) {
+	  String clustUrl = args[++i];
+	  propUrls.add(clustUrl);
+	  clusterUrls.add(clustUrl);
 	} else if (args[i].equals(OPTION_LOG_CRYPTO_PROVIDERS)) {
 	  SslUtil.logCryptoProviders(true);
 	} else if (args[i].equals(OPTION_XML_PROP_DIR) && i < args.length - 1) {
@@ -1159,17 +1364,17 @@ public class LockssApp {
 	  } catch (IOException ioe) {
 	    log.error("Cannot process XML directory option '"
 		      + OPTION_XML_PROP_DIR + " " +
-		      optionXmlDir + "', ignoring.", ioe);
+		      optionXmlDir + "', ignoring: " + ioe.toString());
 	  }
 	} else if (args[i].equals(OPTION_BOOTSTRAP_PROPURL)
 		   && i < args.length - 1) {
 	  // Handle bootstrap properties URL.
-	  bootstrapPropsUrl = args[++i];
+	  String burl = args[++i];
+	  bootstrapPropsUrls.add(burl);
 	  if (log.isDebug3()) {
-	    log.debug3("getStartupOptions(): bootstrapPropsUrl: " +
-		       bootstrapPropsUrl);
+	    log.debug3("getStartupOptions(): added bootstrapPropsUrl: " + burl);
 	  }
-	  propUrls.add(bootstrapPropsUrl);
+	  propUrls.add(burl);
 	} else if (args[i].equals(OPTION_REST_CONFIG_SERVICE_URL)
 		   && i < args.length - 1) {
 	  // Handle the REST configuration service URL.
@@ -1178,11 +1383,22 @@ public class LockssApp {
 	    log.debug3("getStartupOptions(): " +
 		       "restConfigServiceUrl: " + restConfigServiceUrl);
 	  }
+	} else if (args[i].startsWith(OPTION_SYSPROP)) {
+	  // Set sysprop
+	  Matcher mat = SYSPROP_PAT.matcher(args[i]);
+	  if (mat.matches()) {
+	    System.setProperty(mat.group(1), mat.group(2));
+	  } else {
+	    log.error("Malformed -D arg, should be -Dsysprop=val");
+	  }
 	}
       }
       return this;
     }
   }
+
+  protected static final Pattern SYSPROP_PAT = Pattern.compile("-D(.+)=(.*)");
+
 
   /**
    * Specification of components and configuration of a lockss application.
@@ -1213,10 +1429,12 @@ public class LockssApp {
    */
   public static class AppSpec {
     private String name;
+    private ServiceDescr service;
     private String[] args;
     private ManagerDesc[] appManagers;
     private boolean isComputeAppManagers = false;
     private Configuration appConfig;
+    private Configuration appDefault;
     private boolean isKeepRunning = false;
     private JavaVersion minJavaVersion = JavaVersion.JAVA_1_8;
 //     private JavaVersion maxJavaVersion;
@@ -1225,6 +1443,15 @@ public class LockssApp {
     /** Set the name */
     public AppSpec setName(String name) {
       this.name = name;
+      return this;
+    }
+
+    /** Set the service descriptor */
+    public AppSpec setService(ServiceDescr descr) {
+      this.service = descr;
+      if (descr.getName() != null) {
+	setName(descr.getName());
+      }
       return this;
     }
 
@@ -1274,6 +1501,27 @@ public class LockssApp {
       return this;
     }
 
+    /** Set the app-specific Configuration default */
+    public AppSpec setAppDefault(Configuration config) {
+      appDefault = config;
+      return this;
+    }
+
+    /** Set the app-specific Configuration default */
+    public AppSpec setAppDefault(Properties props) {
+      appDefault = ConfigManager.fromPropertiesUnsealed(props);
+      return this;
+    }
+
+    /** Add to the app-specific Configuration default */
+    public AppSpec addAppDefault(String key, String val) {
+      if (appDefault == null) {
+	appDefault = ConfigManager.newConfiguration();
+      }
+      appDefault.put(key, val);
+      return this;
+    }
+
     /** Set the keepRunning flag */
     public AppSpec setKeepRunning(boolean val) {
       this.isKeepRunning = val;
@@ -1293,6 +1541,11 @@ public class LockssApp {
     /** Return the application name */
     public String getName() {
       return name;
+    }
+
+    /** Return the application service descriptor */
+    public ServiceDescr getService() {
+      return service;
     }
 
     /** Return the command line args, an array of Strings */
@@ -1333,9 +1586,16 @@ public class LockssApp {
 //       return maxJavaVersion;
 //     }
 
-    /** Return the app-specific Configuration */
+    /** Return the app-specific Configuration (cannot be overridden by
+     * loaded config) */
     public Configuration getAppConfig() {
       return appConfig;
+    }
+
+    /** Return the app-specific default Configuration (can be overridden by
+     * loaded config) */
+    public Configuration getAppDefault() {
+      return appDefault;
     }
 
     /** Return true if startStatic() should deley return until told to

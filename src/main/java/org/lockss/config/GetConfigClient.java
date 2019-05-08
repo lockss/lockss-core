@@ -45,7 +45,7 @@ import org.springframework.web.client.RestTemplate;
  * current configuration.
  */
 public class GetConfigClient {
-  private static Logger log = Logger.getLogger(GetConfigClient.class);
+  private static Logger log = Logger.getLogger();
 
   private String serviceLocation = null;
   private String serviceUser = null;

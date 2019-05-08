@@ -27,22 +27,20 @@
  */
 package org.lockss.config;
 
+import static org.lockss.config.RestConfigClient.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import org.apache.commons.io.input.ReaderInputStream;
-import org.lockss.rs.multipart.TextMultipartResponse;
-import org.lockss.rs.multipart.TextMultipartResponse.Part;
-import org.lockss.util.StringUtil;
-import org.lockss.util.UrlUtil;
+import java.net.*;
+import java.util.*;
+import org.lockss.rs.multipart.MultipartResponse;
+import org.lockss.rs.multipart.MultipartResponse.Part;
+import org.lockss.util.*;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.util.UriUtils;
+import org.springframework.web.util.*;
+import org.springframework.util.MultiValueMap;
 
 /**
  * A ConfigFile loaded from a REST configuration service.
@@ -50,6 +48,7 @@ import org.springframework.web.util.UriUtils;
 public class RestConfigFile extends BaseConfigFile {
 
   private String lastModifiedString = null;
+  private String eTag = null;
   private RestConfigClient serviceClient = null;
   private String requestUrl = null;
 
@@ -79,14 +78,28 @@ public class RestConfigFile extends BaseConfigFile {
     final String DEBUG_HEADER = "getInputStreamIfModified(" + m_fileUrl + "): ";
 
     String ifModifiedSince = null;
+    String ifNoneMatch = null;
 
-    if (m_config != null && m_lastModified != null) {
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER
-	  + "Setting request if-modified-since to: " + m_lastModified);
-      ifModifiedSince = m_lastModified;
+    if (m_config != null) {
+      if (m_lastModified != null) {
+	if (log.isDebug2()) {
+	  log.debug2(DEBUG_HEADER
+		     + "Setting request if-modified-since to: " +
+		     m_lastModified);
+	ifModifiedSince = m_lastModified;
+	}
+      }
+      if (eTag != null) {
+	if (log.isDebug2()) {
+	  log.debug2(DEBUG_HEADER
+		     + "Setting request if-none-match to: " +
+		     eTag);
+	ifNoneMatch = eTag;
+	}
+      }
     }
 
-    return getInputStreamIfModifiedSince(ifModifiedSince);
+    return getInputStreamIfModifiedSince(ifModifiedSince, ifNoneMatch);
   }
 
   /**
@@ -101,7 +114,7 @@ public class RestConfigFile extends BaseConfigFile {
    */
   @Override
   public InputStream getInputStream() throws IOException {
-    return getInputStreamIfModifiedSince(null);
+    return getInputStreamIfModifiedSince(null, null);
   }
 
   /**
@@ -114,21 +127,42 @@ public class RestConfigFile extends BaseConfigFile {
    * @throws IOException
    *           if there are problems.
    */
-  public InputStream getInputStreamIfModifiedSince(String ifModifiedSince)
+  private InputStream getInputStreamIfModifiedSince(String ifModifiedSince,
+						    String ifNoneMatch)
       throws IOException {
     final String DEBUG_HEADER =
 	"getInputStreamIfModifiedSince(" + m_fileUrl + "): ";
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "ifModifiedSince = " + ifModifiedSince);
 
-    TextMultipartResponse response = null;
+    MultipartResponse response = null;
 
     try {
-      response = serviceClient.callGetTextMultipartRequest(requestUrl,
-	  ifModifiedSince);
-    } catch (Exception e) {
+      List<String> ifNoneMatchList = new ArrayList<>();
+
+      if (!StringUtil.isNullString(ifNoneMatch)) {
+	if (log.isDebug2())
+	  log.debug2(DEBUG_HEADER + "ifNoneMatch = " + ifNoneMatch);
+	ifNoneMatchList.add(ifNoneMatch);
+      } else {
+	ifNoneMatchList = null;
+      }
+
+      response = serviceClient.callGetMultipartRequest(requestUrl,
+	  new HttpRequestPreconditions(null, ifModifiedSince, ifNoneMatchList,
+	      null));
+    } catch (IOException e) {
+      // The HTTP fetch failed.  First see if we already found a failover
+      // file.
+      log.info("Couldn't load remote config URL: " + m_fileUrl + ": "
+	  + e.toString());
       m_loadError = e.getMessage();
-      throw new RuntimeException(m_loadError);
+      throw e;
+    } catch (Exception e) {
+      log.info("Couldn't load remote config URL: " + m_fileUrl + ": "
+	  + e.toString());
+      m_loadError = e.getMessage();
+      throw new IOException(e.toString());
     }
 
     InputStream in = null;
@@ -143,31 +177,21 @@ public class RestConfigFile extends BaseConfigFile {
       LinkedHashMap<String, Part> parts = response.getParts();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "parts = " + parts);
 
-      Part configDataPart = parts.get("config-data");
+      Part configDataPart = parts.get(CONFIG_PART_NAME);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "configDataPart = " + configDataPart);
 
-      String partLastModified = null;
-
-      partLastModified = configDataPart.getLastModified();
+      lastModifiedString = configDataPart.getLastModified();
+      eTag = configDataPart.getEtag();
       if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partLastModified = " + partLastModified);
+	log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
+	log.debug3(DEBUG_HEADER + "eTag = " + eTag);
 
       Map<String, String> partHeaders = configDataPart.getHeaders();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
-      if (StringUtil.isNullString(partLastModified)) {
-	partLastModified = partHeaders.get(HttpHeaders.LAST_MODIFIED);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "partLastModified = " + partLastModified);
-      }
-
-      lastModifiedString = partLastModified;
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "lastModifiedString = " + lastModifiedString);
-
-      String contentType = partHeaders.get("Content-Type");
+      String contentType = partHeaders.get(HttpHeaders.CONTENT_TYPE);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
 
@@ -177,13 +201,7 @@ public class RestConfigFile extends BaseConfigFile {
 	  log.debug3(DEBUG_HEADER + "m_fileType = " + m_fileType);
       }
 
-      String partPayload = configDataPart.getPayload();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "partPayload = " + partPayload);
-
-      StringReader payloadReader = new StringReader(partPayload);
-
-      in = new ReaderInputStream(payloadReader, StandardCharsets.UTF_8);
+      in = configDataPart.getInputStream();
       break;
     case NOT_MODIFIED:
       m_loadError = null;
@@ -328,6 +346,40 @@ public class RestConfigFile extends BaseConfigFile {
     return urlToUse;
   }
 
+  @Override
+  public String resolveConfigUrl(String relUrl) {
+    final String DEBUG_HEADER = "resolveConfigUrl(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "relUrl = " + relUrl);
+    String restUrl = getFileUrl();
+    UriComponentsBuilder ucb =
+      UriComponentsBuilder.fromUriString(restUrl);
+    UriComponents comp = ucb.build();
+    String path = comp.getPath();
+
+    if (path.startsWith("/config/url")) {
+	MultiValueMap<String, String> params = comp.getQueryParams();
+	List<String> urls = params.get("url");
+	String base = UrlUtil.decodeUrl(urls.get(0));
+
+	try {
+	  String absUrl = UrlUtil.resolveUri(base, relUrl);
+	  //       ucb.replaceQueryParam("url", UrlUtil.encodeUrl(absUrl));
+	  ucb.replaceQueryParam("url", absUrl);
+	  return ucb.toUriString();
+	} catch (MalformedURLException e) {
+	  log.error("Malformed props base URL: " + base + ", rel: " + relUrl,
+		    e);
+	  return relUrl;
+	}
+      } else if (path.startsWith("/config/file")) {
+	ucb.replacePath("/config/url");
+// 	String base = ucb.build().toUriString();
+	ucb.replaceQueryParam("url", relUrl);
+	return ucb.toUriString();
+      }
+    return relUrl;
+  }
+
   /**
    * Provides the redirection URL for an absolute URL to go through the REST
    * Configuration service.
@@ -365,7 +417,8 @@ public class RestConfigFile extends BaseConfigFile {
     } else {
       // No: Build the redirected URL.
       redirectionUrl = serviceLocation + UrlUtil.URL_PATH_SEPARATOR
-	  + "config/url/" + UriUtils.encodePathSegment(originalUrl, "UTF-8");
+	  + "config/url?url=" +
+	UriUtils.encodePathSegment(originalUrl, "UTF-8");
     }
 
     if (log.isDebug2())

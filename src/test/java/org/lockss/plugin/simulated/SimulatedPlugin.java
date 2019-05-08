@@ -46,7 +46,7 @@ import org.lockss.test.*;
  * locally generated simulated content.
  */
 public class SimulatedPlugin extends BasePlugin implements PluginTestable {
-  static Logger log = Logger.getLogger("SimulatedPlugin");
+  static Logger log = Logger.getLogger();
 
   /**
    * The root location for the simulated content to be generated.

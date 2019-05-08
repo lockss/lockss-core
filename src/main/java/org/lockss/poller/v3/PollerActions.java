@@ -44,10 +44,11 @@ import org.lockss.protocol.psm.*;
 import org.lockss.protocol.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 public class PollerActions {
 
-  private static final Logger log = Logger.getLogger("PollerActions");
+  private static final Logger log = Logger.getLogger();
 
   @ReturnEvents("evtOk")
   public static PsmEvent handleProveIntroEffort(PsmEvent evt,

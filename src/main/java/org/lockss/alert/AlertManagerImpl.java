@@ -38,6 +38,8 @@ import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 
 /**
  * <p>Matches alerts against configured filters and invokes the
@@ -51,7 +53,7 @@ public class AlertManagerImpl
   /**
    * <p>A logger for use by instances of this class.</p>
    */
-  protected static Logger log = Logger.getLogger("AlertMgr");
+  protected static Logger log = Logger.getLogger();
 
   /** List of names of alerts that should be ignored if raised */
   static final String PARAM_IGNORED_ALERTS = PREFIX + "ignoredAlerts";

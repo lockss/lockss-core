@@ -40,7 +40,7 @@ import org.lockss.plugin.*;
 
 /** Convenience methods for filters and filter factories */
 public class FilterUtil {
-  static Logger log = Logger.getLogger("FilterUtil");
+  static Logger log = Logger.getLogger();
 
   // no instances
   private FilterUtil() {

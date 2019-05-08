@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.protocol.psm;
 
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * <p>

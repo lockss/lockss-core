@@ -1,9 +1,5 @@
 /*
- * $Id$
- */
-
-/*
-Copyright (c) 2000-2008 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +30,8 @@ package org.lockss.protocol;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Set;
+import org.lockss.app.LockssApp;
 
 /* Note: This interface comes very close to 'implement Set<PeerIdentity>'.
  * However, it isn't an implementation.
@@ -45,26 +43,56 @@ import java.util.Iterator;
 
 
 public interface PersistentPeerIdSet extends Iterable<PeerIdentity>  {
-  /* To handle direct loading and saving. */
-  public void load() throws IOException;
   public void store() throws IOException;
-  public void store(boolean release) throws IOException;
-  public void release();
 
   /* These methods are equivalents to the functions of java.util.Set. */
-  public boolean add(PeerIdentity pi) throws IOException;
-  public boolean addAll(Collection<? extends PeerIdentity> cpi) throws IOException;
-  public void clear() throws IOException;
-  public boolean contains(Object o) throws IOException;
-  public boolean containsAll(Collection<?> co) throws IOException;
+  public boolean add(PeerIdentity pi);
+  public boolean addAll(Collection<? extends PeerIdentity> cpi);
+  public void clear();
+  public boolean contains(Object o);
+  public boolean containsAll(Collection<?> co);
   public boolean equals(Object o);
   public int hashCode();
-  public boolean isEmpty() throws IOException;
+  public boolean isEmpty();
   public Iterator<PeerIdentity> iterator();
-  public boolean remove(Object o) throws IOException;
-  public boolean removeAll(Collection<?> c) throws IOException;
-  public boolean retainAll(Collection<?> c) throws IOException;
-  public int size() throws IOException;
-  public Object[] toArray() throws IOException;
-  // public <T> T[] toArray(T[] a) throws IOException;  // Reinsert if you use it.
+  public boolean remove(Object o);
+  public boolean removeAll(Collection<?> c);
+  public boolean retainAll(Collection<?> c);
+  public int size();
+  public Object[] toArray();
+  // public <T> T[] toArray(T[] a);  // Reinsert if you use it.
+
+  /**
+   * Provides a serialized version of this entire object as a JSON string.
+   * 
+   * @return a String with this object serialized as a JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  String toJson() throws IOException;
+
+  /**
+   * Provides a serialized version of this entire object as a JSON string.
+   * 
+   * @param peers
+   *          A Set<PeerIdentity> with the peers to be included.
+   * @return a String with this object serialized as a JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  String toJson(Set<PeerIdentity> peers) throws IOException;
+
+  /**
+   * Provides the PeerIdentitys that are present in a serialized JSON string.
+   * 
+   * @param json
+   *          A String with the JSON text.
+   * @param app
+   *          A LockssApp with the LOCKSS context.
+   * @return a Set<PeerIdentity> that was updated from the JSON source.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  Set<PeerIdentity> updateFromJson(String json, LockssApp app)
+      throws IOException;
 }

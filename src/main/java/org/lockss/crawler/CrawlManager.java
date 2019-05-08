@@ -32,44 +32,40 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.crawler;
 
-import java.util.*;
-
-import org.lockss.daemon.*;
-import org.lockss.app.*;
-import org.lockss.plugin.*;
+import java.util.Collection;
+import org.lockss.app.LockssDaemon;
+import org.lockss.daemon.Crawler;
+import org.lockss.plugin.ArchivalUnit;
 
 /**
- * This is the interface for the object which will sit between the crawler
- * and the rest of the world.  It mediates the different crawl types.
+ * This is the interface for the object which will sit between the crawler and
+ * the rest of the world.  It mediates the different crawl types.
  */
 public interface CrawlManager {
+
   /**
-   * Schedules a repair crawl and calls cb.signalRepairAttemptCompleted
-   * when done.  If lock is null, attempts to get its own.  If multiple locks
-   * are needed, gets
+   * Schedules a repair crawl and calls cb.signalRepairAttemptCompleted when
+   * done.
    *
    * @param au ArchivalUnit that the crawl manager should check
    * @param urls url Strings that need to be repaired
    * @param cb callback to talk to when repair attempt is done
-   * @param cookie object that the callback needs to understand which
-   * repair we're referring to.
-   * @param lock the activity lock (can be null)
+   * @param cookie object that the callback needs to understand which repair
+   * we're referring to.
    */
-  public void startRepair(ArchivalUnit au, Collection urls,
-			  CrawlManager.Callback cb, Object cookie,
-                          ActivityRegulator.Lock lock);
+  void startRepair(ArchivalUnit au, Collection urls,
+      CrawlManager.Callback cb, Object cookie);
 
   /**
-   * Starts a new content crawl.  If lock is null, attempts to get its own.
+   * Starts a new content crawl.
    *
    * @param au ArchivalUnit that the crawl manager should check
-   * @param cb callback to be called when the crawler is done with the AU,
-   * if not now
+   * @param cb callback to be called when the crawler is done with the AU, if
+   * not now
    * @param cookie cookie for the callback
-   * @param lock the activity lock (can be null)
    */
-  public void startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
-                                   Object cookie, ActivityRegulator.Lock lock);
+  void startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
+			    Object cookie);
 
 
   /**
@@ -78,76 +74,96 @@ public interface CrawlManager {
    * @param au ArchivalUnit that the crawl manager should check
    * @param priority If greater then zero, this crawl will have start-order
    * priority over those with lower priority
-   * @param cb callback to be called when the crawler is done with the AU,
-   * if not now
+   * @param cb callback to be called when the crawler is done with the AU, if
+   * not now
    * @param cookie cookie for the callback
-   * @param lock the activity lock (can be null)
    */
-  public void startNewContentCrawl(ArchivalUnit au, int priority,
-				   CrawlManager.Callback cb,
-				   Object cookie, ActivityRegulator.Lock lock);
+  void startNewContentCrawl(ArchivalUnit au, int priority,
+			    CrawlManager.Callback cb, Object cookie);
 
   /**
    * Starts a new content crawl specified by a CrawlReq
    *
    * @param req
-   * @param lock the activity lock (can be null)
    */
-  public void startNewContentCrawl(CrawlReq req, ActivityRegulator.Lock lock);
+  void startNewContentCrawl(CrawlReq req);
 
-  /** Return the CrawlRateLimiter assigned to the crawler. */
-  public CrawlRateLimiter getCrawlRateLimiter(Crawler crawler);
+  /**
+   * Return the CrawlRateLimiter assigned to the crawler.
+   */
+  CrawlRateLimiter getCrawlRateLimiter(Crawler crawler);
 
-  /** Return true if the periodic crawl starter is running */
-  public boolean isCrawlStarterRunning();
+  /**
+   * Return true if the periodic crawl starter is running
+   */
+  boolean isCrawlStarterRunning();
 
-  /** Return the StatusSource */
-  public StatusSource getStatusSource();
+  /**
+   * Return the StatusSource
+   */
+  StatusSource getStatusSource();
 
-  /** Return the AU's crawl priority as specified by {@value
-   * CrawlManagerImpl#PARAM_CRAWL_PRIORITY_AUID_MAP} */
-  public int getAuPriority(ArchivalUnit au);
+  /**
+   * Return the AU's crawl priority as specified by {@value
+   * CrawlManagerImpl#PARAM_CRAWL_PRIORITY_AUID_MAP}
+   */
+  int getAuPriority(ArchivalUnit au);
 
-  /** Hook to apply patterns to exclude recursive URLs, etc. */
-  public boolean isGloballyExcludedUrl(ArchivalUnit au, String url);
+  /**
+   * Hook to apply patterns to exclude recursive URLs, etc.
+   */
+  boolean isGloballyExcludedUrl(ArchivalUnit au, String url);
 
-  /** Return true if collection from the host is permitted by the global
-   * configuration */
-  public boolean isGloballyPermittedHost(String host);
+  /**
+   * Return true if collection from the host is permitted by the globalk
+   * configuration
+   */
+  boolean isGloballyPermittedHost(String host);
 
-  /** Return true if plugins are allowed to permit collection from the
-   * host */
-  public boolean isAllowedPluginPermittedHost(String host);
+  /**
+   * Return true if plugins are allowed to permit collection from the host
+   */
+  boolean isAllowedPluginPermittedHost(String host);
 
-  public interface Callback {
+  interface Callback {
+
     /**
      * Called when the crawl is completed
+     *
      * @param success whether the crawl was successful or not
-     * @param cookie object used by callback to designate which crawl
-     * attempt this is
+     * @param cookie object used by callback to designate which crawl attempt
+     * this is
      */
-    public void signalCrawlAttemptCompleted(boolean success,
-					    Object cookie,
-					    CrawlerStatus status);
+    void signalCrawlAttemptCompleted(boolean success,
+        Object cookie,
+        CrawlerStatus status);
   }
 
-  public interface StatusSource {
+  interface StatusSource {
 
     /**
      * Return the CrawlManager's status object
      */
-    public CrawlManagerStatus getStatus();
+    CrawlManagerStatus getStatus();
 
-    /** Return the dameon instance */
-    public LockssDaemon getDaemon();
+    /**
+     * Return the dameon instance
+     */
+    LockssDaemon getDaemon();
 
-    /** Return true if the crawler is enabled */
-    public boolean isCrawlerEnabled();
+    /**
+     * Return true if the crawler is enabled
+     */
+    boolean isCrawlerEnabled();
 
-    /** Return true if the crawl starter is enabled */
-    public boolean isCrawlStarterEnabled();
+    /**
+     * Return true if the crawl starter is enabled
+     */
+    boolean isCrawlStarterEnabled();
 
-    /** Return collection of pending CrawlReq */
+    /**
+     * Return collection of pending CrawlReq
+     */
     Collection<CrawlReq> getPendingQueue();
   }
 }

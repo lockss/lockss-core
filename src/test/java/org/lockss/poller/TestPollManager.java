@@ -35,20 +35,22 @@ package org.lockss.poller;
 import java.io.*;
 import java.util.*;
 
+import org.junit.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.plugin.*;
 import org.lockss.poller.v3.*;
 import org.lockss.protocol.*;
 import org.lockss.repository.RepositoryManager;
 import org.lockss.test.*;
+import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /** JUnitTest case for class: org.lockss.poller.PollManager */
 public class TestPollManager extends LockssTestCase4 {
-  private static final Logger log =
-      Logger.getLoggerWithInitialLevel("TestPollManager",
-          Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
   private static String[] rooturls = {"http://www.test.org",
 				      "http://www.test1.org",
@@ -77,8 +79,7 @@ public class TestPollManager extends LockssTestCase4 {
 
     String tempDirPath = setUpDiskSpace();
     ConfigurationUtil.addFromArgs(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb",
-				  IdentityManager.PARAM_LOCAL_IP, "127.1.2.3",
-				  LcapDatagramComm.PARAM_ENABLED, "false");
+				  IdentityManager.PARAM_LOCAL_IP, "127.1.2.3");
     plugin = new MockPlugin(getMockLockssDaemon());
     TimeBase.setSimulated();
     initRequiredServices();
@@ -96,12 +97,12 @@ public class TestPollManager extends LockssTestCase4 {
     TimeBase.setReal();
     pollmanager.stopService();
     idmanager.stopService();
-    theDaemon.getLockssRepository(testau).stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getRouterManager().stopService();
     super.tearDown();
   }
 
+  @Test
   public void testConfig() throws Exception {
     assertEquals(ListUtil.list("all"), pollmanager.getAutoPollAuClasses());
     ConfigurationUtil.addFromArgs(PollManager.PARAM_AUTO_POLL_AUS,
@@ -110,6 +111,7 @@ public class TestPollManager extends LockssTestCase4 {
 		 pollmanager.getAutoPollAuClasses());
   }
 
+  @Test
   public void testGetPollFactoryByVersion() throws Exception {
     PollFactory pfm1 = pollmanager.getPollFactory(-1);
     PollFactory pf0 = pollmanager.getPollFactory(0);
@@ -126,6 +128,7 @@ public class TestPollManager extends LockssTestCase4 {
     assertNull(pf4);
   }
 
+  @Test
   public void testGetPollFactoryByPollSpec() throws Exception {
     CachedUrlSet cus =
       new MockCachedUrlSet(new MockArchivalUnit(plugin),
@@ -145,11 +148,10 @@ public class TestPollManager extends LockssTestCase4 {
     assertTrue(pfV3 instanceof V3PollFactory);
   }
 
-  // Tests for the V1 PollFactory implementation
-
   // Start by testing the local mock poll factory
 
   /** Test for getPollsForAu(String auId) */
+  @Test
   public void testGetV3PollStatus() throws Exception {
     String auId = testau.getAuId();
     PollManager.V3PollStatusAccessor accessor = 
@@ -218,11 +220,6 @@ public class TestPollManager extends LockssTestCase4 {
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    theDaemon.setHistoryRepository(histRepo, mau);
-    MockLockssRepository repo = new MockLockssRepository();
-    theDaemon.setLockssRepository(repo, mau);
-    
     return mau;
   }
 
@@ -231,8 +228,7 @@ public class TestPollManager extends LockssTestCase4 {
 	     long lastPollStart, long lastTopLevelPoll, int lastPollResult,
 	     long pollDuration, double agreement) 
       throws Exception {
-    MockAuState aus = new MockAuState(mau);
-    ((MockHistoryRepository)theDaemon.getHistoryRepository(mau)).setAuState(aus);
+    MockAuState aus = AuTestUtil.setUpMockAus(mau);
     aus.setLastCrawlTime(100);
     aus.setLastPollStart(lastPollStart);
     aus.setLastToplevalPoll(lastTopLevelPoll);
@@ -266,6 +262,7 @@ public class TestPollManager extends LockssTestCase4 {
   static final int C = V3Poller.POLLER_STATUS_COMPLETE;
   static final int NC = V3Poller.POLLER_STATUS_NO_QUORUM;
 
+  @Test
   public void testPollQueue() throws Exception {
     testau.setShouldCallTopLevelPoll(false);
 
@@ -415,6 +412,7 @@ public class TestPollManager extends LockssTestCase4 {
     return res;
   }
 
+  @Test
   public void testAtRiskMap() throws Exception {
     String p1 = "TCP:[127.0.0.1]:12";
     String p2 = "TCP:[127.0.0.2]:12";
@@ -445,16 +443,13 @@ public class TestPollManager extends LockssTestCase4 {
 		 pollmanager.getPeersWithAuAtRisk(mau2));
   }
 
+  @Test
   public void testGetNoAuSet() throws Exception {
     MockPlugin plugin = new MockPlugin(theDaemon);
     String auid1 = "auid111";
     MockArchivalUnit mau1 = new MockArchivalUnit(plugin, auid1);
-    MockHistoryRepository historyRepo1 = new MyMockHistoryRepository();
-    theDaemon.setHistoryRepository(historyRepo1, mau1);
     String auid2 = "auid222";
     MockArchivalUnit mau2 = new MockArchivalUnit(plugin, auid2);
-    MockHistoryRepository historyRepo2 = new MyMockHistoryRepository();
-    theDaemon.setHistoryRepository(historyRepo2, mau2);
 
     DatedPeerIdSet s1 = pollmanager.getNoAuPeerSet(mau1);
     DatedPeerIdSet s2 = pollmanager.getNoAuPeerSet(mau2);
@@ -463,12 +458,7 @@ public class TestPollManager extends LockssTestCase4 {
     assertSame(s1, s3);
   }
 
-  class MyMockHistoryRepository extends MockHistoryRepository {
-    public DatedPeerIdSet getNoAuPeerSet() {
-      return new DatedPeerIdSetImpl(new File("foo.bar"), idmanager);
-    }
-  }
-
+  @Test
   public void testAgeNoAuSet() throws Exception {
     String p1 = "TCP:[127.0.0.1]:12";
     String p2 = "TCP:[127.0.0.2]:12";
@@ -483,12 +473,9 @@ public class TestPollManager extends LockssTestCase4 {
     String auid = "auid111";
     MockPlugin plugin = new MockPlugin(theDaemon);
     MockArchivalUnit mau = new MockArchivalUnit(plugin, auid);
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    theDaemon.setHistoryRepository(histRepo, mau);
-    MockAuState maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    MockAuState maus = AuTestUtil.setUpMockAus(mau);
     File file = FileTestUtil.tempFile("noau");
-    DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(file, idmanager);
+    DatedPeerIdSet noAuSet = new DatedPeerIdSetImpl(auid, idmanager);
     assertTrue(noAuSet.isEmpty());
     assertTrue(noAuSet.getDate() < 0);
     pollmanager.ageNoAuSet(mau, noAuSet);
@@ -575,9 +562,7 @@ public class TestPollManager extends LockssTestCase4 {
     theDaemon.getSchedService().startService();
     theDaemon.getHashService().startService();
     theDaemon.getRouterManager().startService();
-    theDaemon.getActivityRegulator(testau).startService();
 
-    theDaemon.setHistoryRepository(new MockHistoryRepository(), testau);
     pollmanager.startService();
     idmanager.startService();
   }
@@ -593,7 +578,6 @@ public class TestPollManager extends LockssTestCase4 {
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.0.0.1");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
   }
 
   private void initTestAddr() {

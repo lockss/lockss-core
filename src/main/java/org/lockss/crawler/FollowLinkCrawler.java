@@ -60,7 +60,7 @@ import org.lockss.util.urlconn.CacheException;
  */
 public class FollowLinkCrawler extends BaseCrawler {
 
-  private static final Logger log = Logger.getLogger(FollowLinkCrawler.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "crawler.";
 

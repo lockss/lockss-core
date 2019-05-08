@@ -47,16 +47,25 @@ public interface ConfigFile {
 
   public String getLoadedUrl();
 
+  public String resolveConfigUrl(String relativeUrl);
+
   /** Return true if this file might contain platform values that are
    * needed in order to properly parse other config files.
    */
   public boolean isPlatformFile();
+
+  /** if true, forces isPlatformFile() to return true */
+  public void setPlatformFile(boolean val);
 
   public int getFileType();
 
   public String getLastModified();
 
   public long getLastAttemptTime();
+
+  public default String getProxyUsed() {
+    return null;
+  }
 
   public void setKeyPredicate(ConfigManager.KeyPredicate pred);
 
@@ -112,6 +121,46 @@ public interface ConfigFile {
    */
   default boolean isRestConfigFile() {
     return false;
+  }
+
+  /**
+   * Provides the input stream to the content of this configuration file if the
+   * passed preconditions are met.
+   * 
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
+   * @throws IOException
+   *           if there are problems.
+   * @throws UnsupportedOperationException
+   *           if the operation is not overriden in a subclass.
+   */
+  default ConfigFileReadWriteResult conditionallyRead(HttpRequestPreconditions
+      preconditions) throws IOException, UnsupportedOperationException {
+    throw new UnsupportedOperationException("Not implemented");
+  }
+
+  /**
+   * Writes the passed content to this configuration file if the passed
+   * preconditions are met.
+   * 
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
+   * @param inputStream
+   *          An InputStream to the content to be written to this configuration
+   *          file.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
+   * @throws IOException
+   *           if there are problems.
+   * @throws UnsupportedOperationException
+   *           if the operation is not overriden in a subclass.
+   */
+  default ConfigFileReadWriteResult conditionallyWrite(HttpRequestPreconditions
+      preconditions, InputStream inputStream)
+	  throws IOException, UnsupportedOperationException {
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   /** Represents a single generation (version) of the contents of a

@@ -38,7 +38,7 @@ import org.lockss.util.*;
 
 /** An input stream that can throw an exception on demand. */
 public class ThrowingInputStream extends FilterInputStream {
-  static Logger log = Logger.getLogger("ThrowingInputStream");
+  static Logger log = Logger.getLogger();
 
   private IOException throwOnRead;
   private IOException throwOnClose;

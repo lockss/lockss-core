@@ -48,9 +48,7 @@ import org.xnap.commons.i18n.I18nFactory;
 public class I18nUtil {
 
   // Avoid circular loading dependencies.
-  protected static Logger log =
-    Logger.getLoggerWithInitialLevel("I18nUtil",
-				     Logger.getInitialDefaultLevel());
+  protected static Logger log = Logger.getLogger();
 
   /** The name of the default backup bundle. This should always be in the build. */
   private static final String defaultBundle = "DefaultBundle";
@@ -91,7 +89,7 @@ public class I18nUtil {
     // If i18n disabled (manually or through failure), load the default bundle
     if (!enableI18n) try {
       i18n = I18nFactory.getI18n(clazz, defaultBundle);
-      log.warning("i18n is disabled: using "+defaultBundle);
+      log.debug2("i18n is disabled: using "+defaultBundle);
     } catch (MissingResourceException e) {
       log.critical("Cannot initialize "+defaultBundle+" for "+clazz, e);
       i18n = null;

@@ -39,7 +39,7 @@ import org.lockss.util.*;
  * LockssUrlConnection.  Used for all non-http(s) connections.
  */
 public class JavaUrlConnection extends BaseLockssUrlConnection {
-  private static Logger log = Logger.getLogger("JavaUrlConn");
+  private static Logger log = Logger.getLogger();
 
   private URLConnection urlConn;
 

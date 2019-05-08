@@ -44,7 +44,7 @@ import org.lockss.plugin.*;
 public class SimpleHtmlMetaTagMetadataExtractor
   extends SimpleFileMetadataExtractor {
 
-  private static final Logger log = Logger.getLogger(SimpleHtmlMetaTagMetadataExtractor.class);
+  private static final Logger log = Logger.getLogger();
   
   private Pattern whiteSpacePat = Pattern.compile("\\s+");
 

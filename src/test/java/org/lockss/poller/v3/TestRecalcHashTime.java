@@ -38,6 +38,7 @@ import java.security.*;
 import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.config.*;
 import org.lockss.hasher.*;
@@ -52,7 +53,7 @@ import org.lockss.scheduler.*;
  */
 
 public class TestRecalcHashTime extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestRecalcHashTime");
+  private static Logger log = Logger.getLogger();
 
   public static Class testedClasses[] = {
     org.lockss.poller.v3.RecalcHashTime.class,

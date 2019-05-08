@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -37,6 +37,7 @@ import java.util.*;
 import org.apache.commons.lang3.*;
 import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.alert.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
@@ -58,6 +59,7 @@ import org.lockss.subscription.SubscriptionManager;
 import org.lockss.proxy.*;
 import org.lockss.proxy.icp.IcpManager;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.crawler.*;
 import org.lockss.remote.*;
 import org.lockss.clockss.*;
@@ -69,7 +71,7 @@ import org.apache.commons.collections.map.LinkedMap;
  */
 public class LockssDaemon extends LockssApp {
   
-  private static final Logger log = Logger.getLogger(LockssDaemon.class);
+  private static final Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "daemon.";
 
@@ -80,12 +82,8 @@ public class LockssDaemon extends LockssApp {
   public static final String PARAM_BIND_ADDRS = PREFIX + "bindAddrs";
 
   // Parameter keys for daemon managers
-  public static final String ACTIVITY_REGULATOR =
-    managerKey(ActivityRegulator.class);
   public static final String HASH_SERVICE =
     managerKey(HashService.class);
-  public static final String DATAGRAM_COMM_MANAGER =
-    managerKey(LcapDatagramComm.class);
   public static final String STREAM_COMM_MANAGER =
     managerKey(LcapStreamComm.class);
   public static final String ROUTER_MANAGER =
@@ -102,10 +100,6 @@ public class LockssDaemon extends LockssApp {
     managerKey(PsmManager.class);
   public static final String REPOSITORY_MANAGER =
     managerKey(RepositoryManager.class);
-  public static final String LOCKSS_REPOSITORY =
-    managerKey(OldLockssRepository.class);
-  public static final String HISTORY_REPOSITORY =
-    managerKey(HistoryRepository.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
@@ -118,12 +112,12 @@ public class LockssDaemon extends LockssApp {
     managerKey(FailOverProxyManager.class);
   public static final String REMOTE_API =
     managerKey(RemoteApi.class);
-  public static final String REPOSITORY_STATUS =
-    managerKey(LockssRepositoryStatus.class);
   public static final String ARCHIVAL_UNIT_STATUS =
     managerKey(ArchivalUnitStatus.class);
   public static final String PLATFORM_CONFIG_STATUS =
     managerKey(PlatformConfigStatus.class);
+  public static final String BUILD_INFO_STATUS =
+    managerKey(BuildInfoStatus.class);
   public static final String CONFIG_STATUS =
     managerKey(ConfigStatus.class);
   public static final String OVERVIEW_STATUS =
@@ -144,16 +138,20 @@ public class LockssDaemon extends LockssApp {
     managerKey(MetadataDbManager.class);
   public static final String SCHED_SERVICE =
     managerKey(SchedService.class);
+  public static final String CONFIG_DB_MANAGER =
+    managerKey(ConfigDbManager.class);
+  public static final String STATE_MANAGER =
+    managerKey(StateManager.class);
 
-
-  protected static final String DEFAULT_SCHED_SERVICE =
-    "org.lockss.scheduler.SchedService";
 
   // Managers specific to this service.  They are started in this order,
   // following the standard managers specified in BaseLockssDaemon
   private final ManagerDesc[] myManagerDescs = {
     // start plugin manager after generic services
+    CONFIG_DB_MANAGER_DESC,
     PLUGIN_MANAGER_DESC,
+    // StateManager must follow PluginManager
+    STATE_MANAGER_DESC,
     SCHED_SERVICE_DESC,
     HASH_SERVICE_DESC,
     SYSTEM_METRICS_DESC,
@@ -185,37 +183,29 @@ public class LockssDaemon extends LockssApp {
     FAIL_OVER_PROXY_MANAGER_DESC,
     // comm after other major services so don't process messages until
     // they're ready
-    DATAGRAM_COMM_MANAGER_DESC,
     STREAM_COMM_MANAGER_DESC,
     ROUTER_MANAGER_DESC,
     ICP_MANAGER_DESC,
     PLATFORM_CONFIG_STATUS_DESC,
+    BUILD_INFO_STATUS_DESC,
     CONFIG_STATUS_DESC,
     ARCHIVAL_UNIT_STATUS_DESC,
-    REPOSITORY_STATUS_DESC,
     OVERVIEW_STATUS_DESC,
     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
-      public boolean shouldStart() {
+      public boolean shouldStart(LockssApp app) {
         return isClockss();
       }},
     new ManagerDesc(SAFENET_MANAGER,
 		    "org.lockss.safenet.CachingEntitlementRegistryClient") {
-      public boolean shouldStart() {
+      public boolean shouldStart(LockssApp app) {
         return isSafenet();
       }},
+    METADATA_DB_MANAGER_DESC
   };
 
   // AU-specific manager descriptors.  As each AU is created its managers
   // are started in this order.
   protected final ManagerDesc[] auManagerDescs = {
-    new ManagerDesc(ACTIVITY_REGULATOR,
-                    "org.lockss.daemon.ActivityRegulator$Factory"),
-    // LockssRepository uses ActivityRegulator
-    new ManagerDesc(LOCKSS_REPOSITORY,
-                    "org.lockss.repository.OldLockssRepositoryImpl$Factory"),
-    // HistoryRepository needs no extra managers
-    new ManagerDesc(HISTORY_REPOSITORY,
-                    "org.lockss.state.HistoryRepositoryImpl$Factory")
   };
 
   // Maps au to sequenced map of managerKey -> manager instance
@@ -244,9 +234,11 @@ public class LockssDaemon extends LockssApp {
     theDaemon = this;
   }
 
-  protected LockssDaemon(String bootstrapPropsUrl, String restConfigServiceUrl,
-      List<String> propUrls, String groupNames) {
-    super(bootstrapPropsUrl, restConfigServiceUrl, propUrls, groupNames);
+  protected LockssDaemon(List<String> bootstrapPropsUrls,
+			 String restConfigServiceUrl,
+			 List<String> propUrls,
+			 String groupNames) {
+    super(bootstrapPropsUrls, restConfigServiceUrl, propUrls, groupNames);
     theDaemon = this;
   }
 
@@ -297,7 +289,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public ClockssParams getClockssParams() {
-    return (ClockssParams) getManager(CLOCKSS_PARAMS);
+    return (ClockssParams) getManagerByKey(CLOCKSS_PARAMS);
   }
 
   /** Stop the daemon.  Currently only used in testing. */
@@ -313,7 +305,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public HashService getHashService() {
-    return (HashService) getManager(HASH_SERVICE);
+    return (HashService) getManagerByKey(HASH_SERVICE);
   }
 
   /**
@@ -322,7 +314,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public SchedService getSchedService() {
-    return (SchedService) getManager(SCHED_SERVICE);
+    return (SchedService) getManagerByKey(SCHED_SERVICE);
   }
 
   /**
@@ -331,7 +323,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public PollManager getPollManager() {
-    return (PollManager) getManager(POLL_MANAGER);
+    return (PollManager) getManagerByKey(POLL_MANAGER);
   }
 
   /**
@@ -340,16 +332,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public PsmManager getPsmManager() {
-    return (PsmManager) getManager(PSM_MANAGER);
-  }
-
-  /**
-   * return the datagram communication manager instance
-   * @return the LcapDatagramComm
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public LcapDatagramComm getDatagramCommManager()  {
-    return (LcapDatagramComm) getManager(DATAGRAM_COMM_MANAGER);
+    return (PsmManager) getManagerByKey(PSM_MANAGER);
   }
 
   /**
@@ -358,16 +341,16 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LcapStreamComm getStreamCommManager()  {
-    return (LcapStreamComm) getManager(STREAM_COMM_MANAGER);
+    return (LcapStreamComm) getManagerByKey(STREAM_COMM_MANAGER);
   }
 
   /**
    * return the communication router manager instance
-   * @return the LcapDatagramRouter
+   * @return the LcapRouter
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LcapRouter getRouterManager()  {
-    return (LcapRouter) getManager(ROUTER_MANAGER);
+    return (LcapRouter) getManagerByKey(ROUTER_MANAGER);
   }
 
   /**
@@ -376,7 +359,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
   */
   public ProxyManager getProxyManager() {
-    return (ProxyManager) getManager(PROXY_MANAGER);
+    return (ProxyManager) getManagerByKey(PROXY_MANAGER);
   }
 
   /**
@@ -385,7 +368,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public CrawlManager getCrawlManager() {
-    return (CrawlManager) getManager(CRAWL_MANAGER);
+    return (CrawlManager) getManagerByKey(CRAWL_MANAGER);
   }
 
   /**
@@ -394,7 +377,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public RepositoryManager getRepositoryManager()  {
-    return (RepositoryManager)getManager(REPOSITORY_MANAGER);
+    return (RepositoryManager)getManagerByKey(REPOSITORY_MANAGER);
   }
 
   /**
@@ -403,7 +386,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public MetadataManager getMetadataManager() {
-    return (MetadataManager) getManager(METADATA_MANAGER);
+    return (MetadataManager) getManagerByKey(METADATA_MANAGER);
   }
 
   /**
@@ -412,7 +395,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public IcpManager getIcpManager() {
-    return (IcpManager)getManager(ICP_MANAGER);
+    return (IcpManager)getManagerByKey(ICP_MANAGER);
   }
 
   /**
@@ -421,7 +404,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public RemoteApi getRemoteApi() {
-    return (RemoteApi) getManager(REMOTE_API);
+    return (RemoteApi) getManagerByKey(REMOTE_API);
   }
 
   /**
@@ -430,7 +413,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public ArchivalUnitStatus getArchivalUnitStatus() {
-    return (ArchivalUnitStatus) getManager(ARCHIVAL_UNIT_STATUS);
+    return (ArchivalUnitStatus) getManagerByKey(ARCHIVAL_UNIT_STATUS);
   }
 
   /**
@@ -441,7 +424,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public CounterReportsManager getCounterReportsManager() {
-    return (CounterReportsManager) getManager(COUNTER_REPORTS_MANAGER);
+    return (CounterReportsManager) getManagerByKey(COUNTER_REPORTS_MANAGER);
   }
 
   /**
@@ -452,7 +435,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public SubscriptionManager getSubscriptionManager() {
-    return (SubscriptionManager) getManager(SUBSCRIPTION_MANAGER);
+    return (SubscriptionManager) getManagerByKey(SUBSCRIPTION_MANAGER);
   }
 
   /**
@@ -463,7 +446,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public FetchTimeExportManager getFetchTimeExportManager() {
-    return (FetchTimeExportManager) getManager(FETCH_TIME_EXPORT_MANAGER);
+    return (FetchTimeExportManager) getManagerByKey(FETCH_TIME_EXPORT_MANAGER);
   }
 
   /**
@@ -474,7 +457,7 @@ public class LockssDaemon extends LockssApp {
    *           if the manager is not available.
    */
   public MetadataDbManager getMetadataDbManager() {
-    return (MetadataDbManager) getManager(METADATA_DB_MANAGER);
+    return (MetadataDbManager) getManagerByKey(METADATA_DB_MANAGER);
   }
 
   /**
@@ -483,7 +466,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public StatusService getStatusService() {
-    return (StatusService) getManager(STATUS_SERVICE);
+    return (StatusService) getManagerByKey(STATUS_SERVICE);
   }
 
   /**
@@ -492,7 +475,7 @@ public class LockssDaemon extends LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public EntitlementRegistryClient getEntitlementRegistryClient() {
-    return (EntitlementRegistryClient) getManager(SAFENET_MANAGER);
+    return (EntitlementRegistryClient) getManagerByKey(SAFENET_MANAGER);
   }
 
   // LockssAuManager accessors
@@ -531,53 +514,6 @@ public class LockssDaemon extends LockssApp {
     }
     return mgr;
   }
-
-  /**
-   * Get Lockss Repository instance
-   * @param au the ArchivalUnit
-   * @return the LockssRepository
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public OldLockssRepository getLockssRepository(ArchivalUnit au) {
-    return (OldLockssRepository)getAuManager(LOCKSS_REPOSITORY, au);
-  }
-
-  /**
-   * Return the HistoryRepository instance
-   * @param au the ArchivalUnit
-   * @return the HistoryRepository
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public HistoryRepository getHistoryRepository(ArchivalUnit au) {
-    return (HistoryRepository)getAuManager(HISTORY_REPOSITORY, au);
-  }
-
-  /**
-   * Return ActivityRegulator instance
-   * @param au the ArchivalUnit
-   * @return the ActivityRegulator
-   * @throws IllegalArgumentException if the manager is not available.
-   */
-  public ActivityRegulator getActivityRegulator(ArchivalUnit au) {
-    return (ActivityRegulator)getAuManager(ACTIVITY_REGULATOR, au);
-  }
-
-  /**
-   * Return all ActivityRegulators.
-   * @return a list of all ActivityRegulators for all AUs
-   */
-  public List<ActivityRegulator> getAllActivityRegulators() {
-    return getAuManagersOfType(ACTIVITY_REGULATOR);
-  }
-
-  /**
-   * Return all LockssRepositories.
-   * @return a list of all LockssRepositories for all AUs
-   */
-  public List<OldLockssRepository> getAllLockssRepositories() {
-    return getAuManagersOfType(LOCKSS_REPOSITORY);
-  }
-
 
   // AU specific manager loading, starting, stopping
 
@@ -643,7 +579,7 @@ public class LockssDaemon extends LockssApp {
     ManagerDesc descs[] = getAuManagerDescs();
     for (int ix = 0; ix < descs.length; ix++) {
       ManagerDesc desc = descs[ix];
-      if (desc.shouldStart()) {
+      if (desc.shouldStart(this)) {
         try {
           LockssAuManager mgr = initAuManager(desc, au);
           auMgrMap.put(desc.key, mgr);

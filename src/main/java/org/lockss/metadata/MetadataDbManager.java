@@ -27,13 +27,17 @@
  */
 package org.lockss.metadata;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 import org.lockss.app.ConfigurableManager;
+import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.db.DbManager;
+import org.lockss.db.DbManagerSql;
 import org.lockss.db.DbException;
+import org.lockss.util.FileUtil;
 import org.lockss.util.Logger;
 
 /**
@@ -43,7 +47,7 @@ import org.lockss.util.Logger;
  */
 public class MetadataDbManager extends DbManager
   implements ConfigurableManager {
-  protected static final Logger log = Logger.getLogger(MetadataDbManager.class);
+  protected static final Logger log = Logger.getLogger();
 
   // Prefix for the database manager configuration entries.
   private static final String PREFIX =
@@ -157,6 +161,7 @@ public class MetadataDbManager extends DbManager
    */
   public MetadataDbManager() {
     super();
+    setUpVersions();
   }
 
   /**
@@ -167,6 +172,15 @@ public class MetadataDbManager extends DbManager
    */
   public MetadataDbManager(boolean skipAsynchronousUpdates) {
     super(skipAsynchronousUpdates);
+    setUpVersions();
+  }
+
+  /**
+   * Sets up update versions.
+   */
+  private void setUpVersions() {
+    targetDatabaseVersion = 28;
+    asynchronousUpdates = new int[] {10, 15, 17, 20, 22};
   }
 
   /**
@@ -214,9 +228,6 @@ public class MetadataDbManager extends DbManager
       fetchSize = config.getInt(PARAM_FETCH_SIZE, DEFAULT_FETCH_SIZE);
       dbManagerSql.setFetchSize(fetchSize);
     }
-
-    targetDatabaseVersion = 27;
-    asynchronousUpdates = new int[] {10, 15, 17, 20, 22};
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
@@ -278,14 +289,23 @@ public class MetadataDbManager extends DbManager
 
   @Override
   protected String getDataSourceDatabaseName(Configuration config) {
-    if (isTypeDerby()) {
-      return config.get(PARAM_DATASOURCE_DATABASENAME,
-	"db/" + this.getClass().getSimpleName());
+    // Get the configured database name.
+    String dbName = config.get(PARAM_DATASOURCE_DATABASENAME,
+	  this.getClass().getSimpleName());
+
+    // Check whether it is a Derby database with a relative path database name.
+    if (isTypeDerby() && !dbName.startsWith(File.separator)) {
+      // Yes: Get the data source root directory.
+      String pathFromCache = "db/" + dbName;
+      File datasourceDir = ConfigManager.getConfigManager()
+	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
+
+      // Return the data source root directory.
+      return FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
     }
 
-    return config.get(PARAM_DATASOURCE_DATABASENAME,
-	this.getClass().getSimpleName());
-}
+    return dbName;
+  }
 
   @Override
   protected String getDerbyInfoLogAppend(Configuration config) {
@@ -574,6 +594,8 @@ public class MetadataDbManager extends DbManager
       mdDbManagerSql.updateDatabaseFrom25To26(conn);
     } else if (databaseVersion == 27) {
       mdDbManagerSql.updateDatabaseFrom26To27(conn);
+    } else if (databaseVersion == 28) {
+      mdDbManagerSql.updateDatabaseFrom27To28(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
 	  + "to version " + databaseVersion + ".");
@@ -939,5 +961,43 @@ public class MetadataDbManager extends DbManager
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "count = " + count);
     return count;
+  }
+
+  /**
+   * Provides the Archival Unit identifier and the URL linked to a DOI.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param doi
+   *          A String with the DOI.
+   * @return a Map<String, String> with the AUID/URL pair.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Map<String, String> getAuUrlForDoi(Connection conn, String doi)
+      throws DbException {
+    if (!ready) {
+      throw new DbException("DbManager has not been initialized.");
+    }
+
+    try {
+      return mdDbManagerSql.getAuUrlForDoi(conn, doi);
+    } catch (SQLException sqle) {
+      throw new DbException("Cannot get AUID and URL for DOI = " + doi, sqle);
+    } catch (RuntimeException re) {
+      throw new DbException("Cannot get AUID and URL for DOI = " + doi, re);
+    }
+  }
+
+  /**
+   * Provides the base SQL code executor.
+   * 
+   * @return a DbManagerSql with the SQL code executor.
+   * @throws DbException
+   *           if this object is not ready.
+   */
+  @Override
+  protected DbManagerSql getDbManagerSql() throws DbException {
+    return super.getDbManagerSql();
   }
 }

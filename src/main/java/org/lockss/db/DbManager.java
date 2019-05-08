@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,11 +51,10 @@ import org.lockss.app.BaseLockssManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
-import org.lockss.util.Constants;
-import org.lockss.util.Deadline;
-import org.lockss.util.FileUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
+import org.lockss.log.L4JLogger;
+import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * Generic database manager.
@@ -64,7 +63,7 @@ import org.lockss.util.StringUtil;
  */
 public class DbManager extends BaseLockssManager
   implements ConfigurableManager {
-  protected static final Logger log = Logger.getLogger(DbManager.class);
+  protected static final Logger log = Logger.getLogger();
 
   /**
    * Derby log append option. Changes require daemon restart.
@@ -393,6 +392,33 @@ public class DbManager extends BaseLockssManager
   }
 
   /**
+   * Commits a connection or rolls it back if it's not possible.
+   * 
+   * @param conn
+   *          A connection with the database connection to be committed.
+   * @param logger
+   *          A L4JLogger used to report errors.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public static void commitOrRollback(Connection conn, L4JLogger logger)
+      throws DbException {
+    try {
+      DbManagerSql.commitOrRollback(conn, logger);
+    } catch (SQLException sqle) {
+      String message = "Cannot commit the connection";
+      logger.error(message, sqle);
+      DbManagerSql.safeRollbackAndClose(conn);
+      throw new DbException(message, sqle);
+    } catch (RuntimeException re) {
+      String message = "Cannot commit the connection";
+      logger.error(message, re);
+      DbManagerSql.safeRollbackAndClose(conn);
+      throw new DbException(message, re);
+    }
+  }
+
+  /**
    * Rolls back a transaction.
    * 
    * @param conn
@@ -649,7 +675,7 @@ public class DbManager extends BaseLockssManager
    * @throws DbException
    *           if this object is not ready.
    */
-  DbManagerSql getDbManagerSql() throws DbException {
+  protected DbManagerSql getDbManagerSql() throws DbException {
     if (!ready) {
       throw new DbException("DbManager has not been initialized.");
     }
@@ -773,15 +799,10 @@ public class DbManager extends BaseLockssManager
     dataSource = createDataSource(dataSourceConfig.get("className"));
     dbManagerSql.setDataSource(dataSource);
 
-    // Check whether the PostgreSQL database is being used.
-    if (dbManagerSql.isTypePostgresql()) {
+    // Check whether the database is external.
+    if (dbManagerSql.isTypePostgresql() || dbManagerSql.isTypeMysql()) {
       // Yes: Initialize the database, if necessary.
-      initializePostgresqlDbIfNeeded(dataSourceConfig);
-
-      // No: Check whether the MySQL database is being used.
-    } else if (dbManagerSql.isTypeMysql()) {
-      // Yes: Initialize the database, if necessary.
-      initializeMysqlDbIfNeeded(dataSourceConfig);
+      initializeExternalDbIfNeeded(dataSourceConfig);
     }
 
     // Initialize the datasource properties.
@@ -898,19 +919,6 @@ public class DbManager extends BaseLockssManager
     if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	+ "dataSourceDbName = '" + dataSourceDbName + "'.");
 
-    // Check whether the Derby database is being used.
-    if (dbManagerSql.isTypeDerby()) {
-      // Yes: Get the data source root directory.
-      File datasourceDir = ConfigManager.getConfigManager()
-	  .findConfiguredDataDir(dataSourceDbName, dataSourceDbName, false);
-	      //"db/" + this.getClass().getSimpleName(), false);
-
-      // Save the data source root directory.
-      dataSourceDbName = FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	  + "dataSourceDbName = '" + dataSourceDbName + "'.");
-    }
-
     dsConfig.put("databaseName", dataSourceDbName);
 
     // Save the Derby credentials for later authentication.
@@ -937,7 +945,7 @@ public class DbManager extends BaseLockssManager
       }
     }
 
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "dsConfig = " + dsConfig);
     return dsConfig;
   }
 
@@ -977,7 +985,13 @@ public class DbManager extends BaseLockssManager
 
   protected String getDataSourceDatabaseName(Configuration config) {
     if (dbManagerSql.isTypeDerby()) {
-      return "db/" + this.getClass().getSimpleName();
+      // Yes: Get the data source root directory.
+      String pathFromCache = "db/" + this.getClass().getSimpleName();
+      File datasourceDir = ConfigManager.getConfigManager()
+	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
+
+      // Return the data source root directory.
+      return FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
     }
 
     return this.getClass().getSimpleName();
@@ -1047,6 +1061,72 @@ public class DbManager extends BaseLockssManager
 
   protected String getDerbyStreamErrorLogSeverityLevel(Configuration config) {
     return DEFAULT_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL;
+  }
+
+  /**
+   * Initializes an external database, if it does not exist already.
+   * 
+   * @param dsConfig
+   *          A Configuration with the datasource configuration.
+   * @throws DbException
+   *           if the database discovery or initialization processes failed.
+   */
+  private void initializeExternalDbIfNeeded(Configuration dsConfig)
+      throws DbException {
+    final String DEBUG_HEADER = "initializeExternalDbIfNeeded(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    boolean success = false;
+    int retryCount = 0;
+    long retryDelayHere = 10 * retryDelay;
+
+    // Keep trying until success.
+    while (!success) {
+      try {
+	// Check whether the PostgreSQL database is being used.
+	if (dbManagerSql.isTypePostgresql()) {
+	  // Yes: Initialize the database, if necessary.
+	  initializePostgresqlDbIfNeeded(dataSourceConfig);
+	  success = true;
+
+	  // No: Check whether the MySQL database is being used.
+	} else if (dbManagerSql.isTypeMysql()) {
+	  // Yes: Initialize the database, if necessary.
+	  initializeMysqlDbIfNeeded(dataSourceConfig);
+	  success = true;
+	}
+      } catch (DbException dbe) {
+	// The remote database server is not available: Count the next retry.
+	retryCount++;
+
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "Next retry is " + retryCount + " of " + maxRetryCount);
+
+	// Check whether the next retry would go beyond the specified maximum
+	// number of retries.
+	if (retryCount > maxRetryCount) {
+	  // Yes: Report the failure.
+	  log.error("Exception caught", dbe);
+	  log.error("Maximum retry count of " + maxRetryCount + " reached.");
+	  throw dbe;
+	} else {
+	  // No: Wait for the specified amount of time before attempting the
+	  // next retry.
+	  log.debug(DEBUG_HEADER + "Exception caught", dbe);
+	  log.debug(DEBUG_HEADER + "Waiting "
+	      + TimeUtil.timeIntervalToString(retryDelayHere)
+	      + " before retry number " + retryCount + "...");
+
+	  try {
+	    Deadline.in(retryDelayHere).sleep();
+	  } catch (InterruptedException ie) {
+	    // Continue with the next retry.
+	  }
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   /**
@@ -1493,7 +1573,7 @@ public class DbManager extends BaseLockssManager
 	    + " column in " + VERSION_TABLE + " table exists.");
       }
 
-      String subsystem = this.getClass().getSimpleName();
+      String subsystem = getVersionSubsystemName();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "subsystem = " + subsystem);
 
       // Find the current database version.
@@ -1683,6 +1763,9 @@ public class DbManager extends BaseLockssManager
 	  + finalDatabaseVersion);
     }
 
+    String subsystem = getVersionSubsystemName();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "subsystem = " + subsystem);
+
     int lastRecordedVersion = existingDatabaseVersion;
 
     // Loop through all the versions to be updated to reach the targeted
@@ -1717,16 +1800,14 @@ public class DbManager extends BaseLockssManager
 		|| Arrays.binarySearch(asynchronousUpdates, from + 1) < 0) {
 	      // Yes: Record the current database version in the database.
 	      lastRecordedVersion = from + 1;
-	      recordDbVersion(conn, this.getClass().getSimpleName(),
-		  lastRecordedVersion);
+	      recordDbVersion(conn, subsystem, lastRecordedVersion);
 	      if (log.isDebug())
 		log.debug("Database updated to version " + lastRecordedVersion);
 	    }
 	  } else {
 	    // No: Record the current database version in the database.
 	    lastRecordedVersion = from + 1;
-	    recordDbVersion(conn, this.getClass().getSimpleName(),
-		lastRecordedVersion);
+	    recordDbVersion(conn, subsystem, lastRecordedVersion);
 	    if (log.isDebug())
 	      log.debug("Database updated to version " + lastRecordedVersion);
 
@@ -1933,7 +2014,22 @@ public class DbManager extends BaseLockssManager
     return result;
   }
 
+  /**
+   * Provides the credentials map used to verify authentication when accessing a
+   * Derby database that requires it.
+   * 
+   * @return a Map<String, DbCredentials> with the credentials map.
+   */
   static Map<String, DbCredentials> getDbCredentialsMap() {
     return dbCredentialsMap;
+  }
+
+  /**
+   * Provides the subsystem name to be used in the version table.
+   * 
+   * @return A String with the subsystem name to be used in the version table.
+   */
+  protected String getVersionSubsystemName() {
+    return this.getClass().getSimpleName();
   }
 }

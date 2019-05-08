@@ -52,7 +52,7 @@ import java.math.BigInteger;
  * Minimal fully functional plugin capable of serving a little static content.
  */
 public class StaticContentPlugin extends BasePlugin implements PluginTestable {
-  static Logger log = Logger.getLogger("StaticContentPlugin");
+  static Logger log = Logger.getLogger();
 
   Map cuMap = new HashMap();
 

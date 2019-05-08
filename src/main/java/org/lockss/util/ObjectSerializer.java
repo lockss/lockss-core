@@ -39,6 +39,8 @@ import javax.xml.parsers.*;
 import org.lockss.app.LockssApp;
 import org.lockss.config.*;
 import org.lockss.util.SerializationException;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.os.PlatformUtil;
 import org.xml.sax.SAXException;
 
 /**
@@ -1139,6 +1141,6 @@ public abstract class ObjectSerializer {
   /**
    * <p>A logger for use by this serializer.</p>
    */
-  private static Logger logger = Logger.getLogger("ObjectSerializer");
+  private static Logger logger = Logger.getLogger();
 
 }

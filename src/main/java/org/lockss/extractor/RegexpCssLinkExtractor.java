@@ -48,7 +48,7 @@ import org.lockss.util.*;
  * whitespace make a single statement larger than the buffer overlap.
  */
 public class RegexpCssLinkExtractor implements LinkExtractor {
-  private static final Logger log = Logger.getLogger("RegexpCssLinkExtractor");
+  private static final Logger log = Logger.getLogger();
   
   private static final int MAX_URL_LENGTH = 2100;
   // Amount of CSS input to buffer up for matcher

@@ -35,7 +35,7 @@ package org.lockss.servlet;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.CachedUrl;
 import org.lockss.util.Logger;
-import org.lockss.util.TimeZoneUtil;
+import org.lockss.util.time.TimeZoneUtil;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -55,7 +55,7 @@ import java.util.*;
  */
 
 public class CuTimeMap {
-  protected static final Logger log = Logger.getLogger("CuTimeMap");
+  protected static final Logger log = Logger.getLogger();
   static final SimpleDateFormat formatter =
       new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 

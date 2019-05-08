@@ -43,7 +43,7 @@ import org.lockss.util.*;
 
 public class TestBaseArticleMetadataExtractor extends LockssTestCase {
   
-  private static final Logger log = Logger.getLogger(TestBaseArticleMetadataExtractor.class);
+  private static final Logger log = Logger.getLogger();
 
   private MockPlugin mplug;
 

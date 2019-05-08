@@ -34,6 +34,8 @@ package org.lockss.util;
 
 import java.util.*;
 
+import org.lockss.util.time.Deadline;
+
 /**
  * Queue interface.
 */

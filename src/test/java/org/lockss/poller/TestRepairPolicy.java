@@ -75,7 +75,6 @@ public class TestRepairPolicy extends LockssTestCase {
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.1.2.3");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     initRequiredServices();
   }
@@ -84,8 +83,6 @@ public class TestRepairPolicy extends LockssTestCase {
   public void tearDown() throws Exception {
     pollManager.stopService();
     idManager.stopService();
-    daemon.getLockssRepository(highAgreeAu).stopService();
-    daemon.getLockssRepository(lowAgreeAu).stopService();
     daemon.getHashService().stopService();
     daemon.getRouterManager().stopService();
     super.tearDown();
@@ -93,9 +90,7 @@ public class TestRepairPolicy extends LockssTestCase {
 
   private void setUpAu(MockArchivalUnit au) {
     au.setPlugin(new MockPlugin(daemon));
-    MockHistoryRepository mhr = new MockHistoryRepository();
-    daemon.setHistoryRepository(mhr, au);
-    mhr.setAuState(new MockAuState());
+    AuTestUtil.setUpMockAus(au);
   }
 
   private void initRequiredServices() throws Exception {

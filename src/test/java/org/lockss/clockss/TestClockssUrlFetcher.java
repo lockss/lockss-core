@@ -44,13 +44,14 @@ import org.lockss.crawler.*;
 import org.lockss.test.*;
 import org.lockss.test.MockCrawler.MockCrawlerFacade;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 
 /**
  * test class for org.lockss.clockss.ClockssUrlCacher
  */
 public class TestClockssUrlFetcher extends LockssTestCase {
-  protected static Logger logger = Logger.getLogger("TestClockssUrlCacher");
+  protected static Logger logger = Logger.getLogger();
 
   static final String URL = "http://example.com/foo.html";
   static final String INST_ADDR = "44.55.77.88";
@@ -82,11 +83,8 @@ public class TestClockssUrlFetcher extends LockssTestCase {
     mp = new MockPlugin();
     mp.initPlugin(daemon);
     mau = new MockArchivalUnit(mp);
-    // accessing the AuState requires NodeManager, HistoryRepository
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    histRepo.storeAuState(new AuState(mau, histRepo));
-    daemon.setHistoryRepository(histRepo, mau);
-    aus = AuUtil.getAuState(mau);
+    aus = AuTestUtil.setUpMockAus(mau);
+
     Properties p = new Properties();
     p.put(ClockssParams.PARAM_INSTITUTION_SUBSCRIPTION_ADDR, INST_ADDR);
     p.put(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR, CLOCKSS_ADDR);

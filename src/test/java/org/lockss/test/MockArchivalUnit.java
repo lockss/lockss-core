@@ -52,6 +52,8 @@ import org.lockss.extractor.*;
  * This is a mock version of <code>ArchivalUnit</code> used for testing
  */
 public class MockArchivalUnit implements ArchivalUnit {
+  private static Logger log = Logger.getLogger();
+
   private Configuration config = ConfigManager.EMPTY_CONFIGURATION;
   private CrawlRule rule;
   private String pluginId = "mock";
@@ -73,7 +75,6 @@ public class MockArchivalUnit implements ArchivalUnit {
   
   private boolean shouldCrawlForNewContent = true;
   private boolean shouldCallTopLevelPoll = true;
-  private static Logger log = Logger.getLogger("MockArchivalUnit");
   private Map<String,String> urlNormalizeMap;
 
   private HashSet urlsToCache = new HashSet();
@@ -114,8 +115,6 @@ public class MockArchivalUnit implements ArchivalUnit {
 
   boolean isBulkContent = false;
   ArchiveFileTypes aft = null;
-
-  private static final Logger logger = Logger.getLogger("MockArchivalUnit");
 
   public static MockArchivalUnit newInited() {
     MockArchivalUnit mau = new MockArchivalUnit(new MockPlugin(),
@@ -203,6 +202,10 @@ public class MockArchivalUnit implements ArchivalUnit {
   }
 
   public PatternStringMap makeUrlMimeTypeMap() {
+    return PatternStringMap.EMPTY;
+  }
+
+  public PatternStringMap makeUrlMimeValidationMap() {
     return PatternStringMap.EMPTY;
   }
 
@@ -326,9 +329,9 @@ public class MockArchivalUnit implements ArchivalUnit {
     CachedUrl cu = null;
     if (cuHash != null) {
       cu = (CachedUrl)cuHash.get(url);
-      logger.debug(cu+" came from cuHash for "+url);
+      log.debug(cu+" came from cuHash for "+url);
     } else {
-      logger.debug("cuHash is null, so makeCachedUrl is returning null");
+      log.debug("cuHash is null, so makeCachedUrl is returning null");
     }
     return cu;
   }
@@ -343,9 +346,9 @@ public class MockArchivalUnit implements ArchivalUnit {
       // semantics of makeUrlCacher() is that it makes a new one each
       // time.)
       ((MockUrlCacher)uc).setNotExecuted(ud);
-      logger.debug(uc+" came from ucHash");
+      log.debug(uc+" came from ucHash");
     } else {
-      logger.debug("ucHash is null, so makeUrlCacher is returning null");
+      log.debug("ucHash is null, so makeUrlCacher is returning null");
     }
     return uc;
   }
@@ -360,11 +363,11 @@ public class MockArchivalUnit implements ArchivalUnit {
      // semantics of makeUrlFetcher() is that it makes a new one each
      // time.)
      ((MockUrlFetcher)uf).setNotExecuted();
-     logger.debug(uf+" came from ufHash");
+     log.debug(uf+" came from ufHash");
      uf.setUrlConsumerFactory(new SimpleUrlConsumerFactory());
      uf.setFetchFlags(new BitSet());
    } else {
-     logger.debug("ufHash is null, so makeUrlFetcher is returning null");
+     log.debug("ufHash is null, so makeUrlFetcher is returning null");
    }
    return uf;
  }
@@ -504,7 +507,7 @@ public class MockArchivalUnit implements ArchivalUnit {
         uf.setCachingException((RuntimeException)cacheException, timesToThrow);
       }
     }
-    logger.debug2(this + "Adding "+url+" to cuHash and ucHash");
+    log.debug2(this + "Adding "+url+" to cuHash and ucHash");
 
     cuHash.put(url, cu);
     ucHash.put(url, uc);

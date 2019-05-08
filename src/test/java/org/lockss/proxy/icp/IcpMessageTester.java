@@ -379,6 +379,6 @@ public abstract class IcpMessageTester extends LockssTestCase {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("IcpMessageTester");
+  private static Logger logger = Logger.getLogger();
 
 }

@@ -52,11 +52,12 @@ import org.mortbay.http.*;
 import org.mortbay.util.*;
 import org.mortbay.jetty.servlet.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.account.*;
 
 /** Realm wrapper around UserAccount */
 public class LockssUserRealm implements UserRealm {
-  private static Logger log = Logger.getLogger("LockssUserRealm");
+  private static Logger log = Logger.getLogger();
 
   private AccountManager _acctMgr;
   private String _realmName;

@@ -40,6 +40,7 @@ import java.util.*;
 import org.mortbay.jetty.servlet.*;
 import javax.servlet.http.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.account.*;
 import org.lockss.jetty.*;
 
@@ -47,7 +48,7 @@ import org.lockss.jetty.*;
 /** Derived from Jetty SessionManager with some extra LOCKSS fetaures
  */
 public class LockssSessionManager extends AbstractSessionManager {
-  private static Logger log = Logger.getLogger("LockssSessionManager");
+  private static Logger log = Logger.getLogger();
 
   public LockssSessionManager() {
     super();

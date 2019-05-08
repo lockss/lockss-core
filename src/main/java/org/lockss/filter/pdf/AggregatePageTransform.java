@@ -286,6 +286,6 @@ public class AggregatePageTransform implements PageTransform {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("AggregatePageTransform");
+  private static Logger logger = Logger.getLogger();
 
 }

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,13 +29,16 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.remote;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.*;
 import java.util.*;
+import java.util.stream.Stream;
 import java.util.zip.*;
-
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.account.*;
 import org.lockss.plugin.*;
@@ -44,9 +47,12 @@ import org.lockss.protocol.*;
 import org.lockss.state.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.repository.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.mail.*;
 import org.lockss.servlet.ServletUtil;
 import org.apache.commons.collections.map.LinkedMap;
@@ -59,12 +65,11 @@ import org.apache.commons.collections.map.ReferenceMap;
  */
 public class RemoteApi
   extends BaseLockssDaemonManager implements ConfigurableManager {
-  private static Logger log = Logger.getLogger("RemoteApi");
+  private static Logger log = Logger.getLogger();
 
   static CatalogueOrderComparator coc = CatalogueOrderComparator.SINGLETON;
   static Comparator auProxyComparator = new AuProxyOrderComparator();
 
-  static final String PARAM_AU_TREE = PluginManager.PARAM_AU_TREE;
   static final String AU_PARAM_DISPLAY_NAME =
     PluginManager.AU_PARAM_DISPLAY_NAME;
 
@@ -133,6 +138,10 @@ public class RemoteApi
 						    ReferenceMap.WEAK);
   private ReferenceMap pluginProxies = new ReferenceMap(ReferenceMap.WEAK,
 							ReferenceMap.WEAK);
+
+  // The name of the file used to back-up the AU configuration database.
+  static final String BACK_FILE_AU_CONFIGURATION_DB = "auConfigurationDb.bak";
+
   public RemoteApi() {
   }
 
@@ -288,11 +297,13 @@ public class RemoteApi
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public void setAndSaveAuConfiguration(AuProxy aup,
 					Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     ArchivalUnit au = aup.getAu();
     pluginMgr.setAndSaveAuConfiguration(au, auConf);
   }
@@ -305,11 +316,13 @@ public class RemoteApi
    * prefixed with org.lockss.au.<i>auid</i>)
    * @return the new AuProxy
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public AuProxy createAndSaveAuConfiguration(PluginProxy pluginp,
 					     Configuration auConf)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     Plugin plugin = pluginp.getPlugin();
     ArchivalUnit au = pluginMgr.createAndSaveAuConfiguration(plugin, auConf);
     return findAuProxy(au);
@@ -319,10 +332,12 @@ public class RemoteApi
    * Delete AU configuration from the local config file.
    * @param aup the AuProxy
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public void deleteAu(AuProxy aup)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     if (aup.isActiveAu()) {
       ArchivalUnit au = aup.getAu();
       pluginMgr.deleteAu(au);
@@ -335,10 +350,12 @@ public class RemoteApi
    * Deactivate an AU
    * @param aup the AuProxy
    * @throws ArchivalUnit.ConfigurationException
-   * @throws IOException
+   * @throws DbException
+   * @throws LockssRestException
    */
   public void deactivateAu(AuProxy aup)
-      throws ArchivalUnit.ConfigurationException, IOException {
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
     ArchivalUnit au = aup.getAu();
     pluginMgr.deactivateAu(au);
   }
@@ -354,17 +371,9 @@ public class RemoteApi
    * @param aup the AuProxy
    * @return the AU's Configuration, with unprefixed keys.
    */
-  public Configuration getStoredAuConfiguration(AuProxy aup) {
-    return pluginMgr.getStoredAuConfiguration(aup.getAuId());
-  }
-
-  /**
-   * Return the current config info for an AU (from current configuration)
-   * @param aup the AuProxy
-   * @return the AU's Configuration, with unprefixed keys.
-   */
-  public Configuration getCurrentAuConfiguration(AuProxy aup) {
-    return pluginMgr.getCurrentAuConfiguration(aup.getAuId());
+  public Configuration getStoredAuConfiguration(AuProxy aup)
+      throws DbException, LockssRestException {
+    return pluginMgr.getStoredAuConfigurationAsConfiguration(aup.getAuId());
   }
 
   /**
@@ -576,6 +585,12 @@ public class RemoteApi
 	  addCfgFileToZip(zip, cfgfile, null);
 	}
       }
+
+      // Add the Archival Unit configuration database.
+      zip.putNextEntry(new ZipEntry(BACK_FILE_AU_CONFIGURATION_DB));
+      configMgr.writeAuConfigurationDatabaseBackupToZip(zip);
+      zip.closeEntry();
+
       // add identity db
       zip.putNextEntry(new ZipEntry(IdentityManager.IDDB_FILENAME));
       try {
@@ -642,10 +657,6 @@ public class RemoteApi
       Configuration auConfig = au.getConfiguration();
       Properties auprops = new Properties();
       auprops.setProperty(AU_BACK_PROP_AUID, au.getAuId());
-      String repo = OldLockssRepositoryImpl.getRepositorySpec(au);
-      auprops.setProperty(AU_BACK_PROP_REPOSPEC, repo);
-      auprops.setProperty(AU_BACK_PROP_REPODIR,
-			  OldLockssRepositoryImpl.mapAuToFileLocation(OldLockssRepositoryImpl.getLocalRepositoryPath(repo), au));
 
       addPropsToZip(zip, auprops, dir + BACK_FILE_AU_PROPS,
 		    "AU " + au.getName());
@@ -656,20 +667,16 @@ public class RemoteApi
 	} catch (FileNotFoundException e) {}
 	zip.closeEntry();
       }
-      File auStateFile = getAuStateFile(au);
+      // XXXAUS need new mechanism
+//       File auStateFile = getAuStateFile(au);
 
-      if (auStateFile.exists()) {
-	try {
-	  addCfgFileToZip(zip, auStateFile, dir + BACK_FILE_AUSTATE);
-	} catch (FileNotFoundException e) {}
-      }
+//       if (auStateFile.exists()) {
+// 	try {
+// 	  addCfgFileToZip(zip, auStateFile, dir + BACK_FILE_AUSTATE);
+// 	} catch (FileNotFoundException e) {}
+//       }
       dirn++;
     }
-  }
-
-  File getAuStateFile(ArchivalUnit au) {
-    HistoryRepository hRep = getDaemon().getHistoryRepository(au);
-    return hRep.getAuStateFile();
   }
 
   void addPropsToZip(ZipOutputStream zip, Properties props,
@@ -760,16 +767,22 @@ public class RemoteApi
 
       File autxt = new File(dir, ConfigManager.CONFIG_FILE_AU_CONFIG);
       if (!autxt.exists()) {
-	throw new InvalidAuConfigBackupFile("Uploaded file does not appear to be a saved AU configuration: no au.txt");
+	File auDbFile = new File(dir, BACK_FILE_AU_CONFIGURATION_DB);
+	if (log.isDebug3()) log.debug3("auDbFile = " + auDbFile);
+	if (!auDbFile.exists()) {
+	  throw new InvalidAuConfigBackupFile("Uploaded file does not appear to be a saved AU configuration: no AUs found");
+	}
+	BatchAuStatus bas = processSavedDbConfig(auDbFile);
+	bas.setBackupInfo(buildBackupInfo(dir));
+	if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
+	return bas;
       }
       BufferedInputStream auin =
-	new BufferedInputStream(new FileInputStream(autxt));
+	  new BufferedInputStream(new FileInputStream(autxt));
       try {
 	BatchAuStatus bas = processSavedConfigProps(auin);
 	bas.setBackupInfo(buildBackupInfo(dir));
-	if (log.isDebug3()) {
-	  log.debug3("processSavedConfigZip: " + bas);
-	}
+	if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
 	return bas;
       } finally {
 	IOUtil.safeClose(auin);
@@ -827,6 +840,59 @@ public class RemoteApi
     return batchProcessAus(false, BATCH_ADD_RESTORE, allAuConfig, null);
   }
 
+  /**
+   * Processes the Archival Units saved in the Archival Unit configuration
+   * database backup file.
+   * 
+   * @param auDbFile
+   *          A File with the Archival Unit configuration database backup file.
+   * @return a BatchAuStatus with the processing status.
+   * @throws IOException
+   *           if there are problems accessing the database backup file.
+   */
+  public BatchAuStatus processSavedDbConfig(File auDbFile) throws IOException {
+    if (log.isDebug2()) log.debug2("auDbFile = " + auDbFile);
+    Configuration allAuConfig = getConfigurationFromSavedDbConfig(auDbFile);
+    if (log.isDebug3()) log.debug3("allAuConfig = " + allAuConfig);
+    return batchProcessAus(false, BATCH_ADD_RESTORE, allAuConfig, null);
+  }
+
+  /**
+   * Provides a Configuration object with the contents of the Archival Unit
+   * configuration database backup file.
+   * 
+   * @param auDbFile
+   *          A File with the Archival Unit configuration database backup file.
+   * @return a Configuration with the Archival Unit configurations.
+   * @throws IOException
+   *           if there are problems accessing the database backup file.
+   */
+  public Configuration getConfigurationFromSavedDbConfig(File auDbFile)
+      throws IOException {
+    if (log.isDebug2()) log.debug2("auDbFile = " + auDbFile);
+
+    Configuration result = ConfigManager.newConfiguration();
+    String prefix = PluginManager.PARAM_AU_TREE + ".";
+    if (log.isDebug3()) log.debug3("prefix = " + prefix);
+
+    try (Stream<String> stream =
+	Files.lines(Paths.get(auDbFile.getAbsolutePath()))) {
+      for (String line : (Iterable<String>) stream::iterator) {
+	AuConfiguration auConfiguration =
+	    AuConfigurationUtils.fromBackupLine(line);
+	if (log.isDebug3()) log.debug3("auConfiguration = " + auConfiguration);
+
+	Configuration configuration =
+	    AuConfigurationUtils.toAuidPrefixedConfiguration(auConfiguration);
+	if (log.isDebug3()) log.debug3("configuration = " + configuration);
+
+	result.addAsSubTree(configuration, prefix);
+      }
+    }
+
+    return result;
+  }
+
   /** Throw InvalidAuConfigBackupFile if the config is of an unknown
    * version or contains any keys that shouldn't be part of an AU config
    * backup, such as any keys outside the AU config subtree.
@@ -875,49 +941,28 @@ public class RemoteApi
 				       int addOp,
 				       Configuration allAuConfig,
 				       BackupInfo bi) {
-    Configuration allPlugs = allAuConfig.getConfigTree(PARAM_AU_TREE);
+    Configuration allPlugs =
+	allAuConfig.getConfigTree(PluginManager.PARAM_AU_TREE);
     BatchAuStatus bas = new BatchAuStatus();
     BatchAuStatus.Entry lastStat = null;
-    try {
-      if (doCreate) {
-	configMgr.startAuBatch();
+    for (Iterator iter = allPlugs.nodeIterator(); iter.hasNext(); ) {
+      String pluginKey = (String)iter.next();
+      PluginProxy pluginp = findPluginProxy(pluginKey);
+      // Do not dereference pluginp before null check in batchProcessOneAu()
+      Configuration pluginConf = allPlugs.getConfigTree(pluginKey);
+      for (Iterator auIter = pluginConf.nodeIterator(); auIter.hasNext(); ) {
+	String auKey = (String)auIter.next();
+	Configuration auConf = pluginConf.getConfigTree(auKey);
+	String auid = PluginManager.generateAuId(pluginKey, auKey);
+	lastStat = batchProcessOneAu(doCreate, addOp,
+				     pluginp, auid, auConf, bi);
+	bas.add(lastStat);
       }
-      for (Iterator iter = allPlugs.nodeIterator(); iter.hasNext(); ) {
-	String pluginKey = (String)iter.next();
-	PluginProxy pluginp = findPluginProxy(pluginKey);
-	// Do not dereference pluginp before null check in batchProcessOneAu()
-	Configuration pluginConf = allPlugs.getConfigTree(pluginKey);
-	for (Iterator auIter = pluginConf.nodeIterator(); auIter.hasNext(); ) {
-	  String auKey = (String)auIter.next();
-	  Configuration auConf = pluginConf.getConfigTree(auKey);
-	  String auid = PluginManager.generateAuId(pluginKey, auKey);
-	  lastStat = batchProcessOneAu(doCreate, addOp,
-				       pluginp, auid, auConf, bi);
-	  bas.add(lastStat);
-	}
-      }
-    } finally {
-      if (doCreate) {
-	try {
-	  configMgr.finishAuBatch();
-	} catch (IOException e) {
-	  batchFinishError(lastStat, e);
-	}
-      }
-    }	       
+    }
     if (doCreate) {
       configMgr.requestReload();
     }
     return bas;
-  }
-
-  void batchFinishError(BatchAuStatus.Entry lastStat, IOException e) {
-    log.error("finishAuBatch", e);
-    if (lastStat != null) {
-      lastStat.setStatus("Error", STATUS_ORDER_ERROR);
-      lastStat.setExplanation("Error saving AU configurations: " +
-			      e.toString());
-    }
   }
 
   /** Delete a batch of AUs
@@ -927,37 +972,28 @@ public class RemoteApi
   public BatchAuStatus deleteAus(List auids) {
     BatchAuStatus bas = new BatchAuStatus();
     BatchAuStatus.Entry lastStat = null;
-    try {
-      configMgr.startAuBatch();
-      for (Iterator iter = auids.iterator(); iter.hasNext(); ) {
-	String auid = (String)iter.next();
-	BatchAuStatus.Entry stat = bas.newEntry(auid);
-	ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
-	if (au != null) {
-	  stat.setName(au.getName(), au.getPlugin());
-	  try {
-	    pluginMgr.deleteAu(au);
-	    stat.setStatus("Deleted", STATUS_ORDER_NORM);
-	    lastStat = stat;
-	  } catch (Exception e) {
-	    log.warning("Error deleting AU", e);
-	    stat.setStatus("Possibly Not Deleted", STATUS_ORDER_WARN);
-	    stat.setExplanation("Error deleting: " + e.getMessage());
-	  }
-	} else {
-	  stat.setStatus("Not Found", STATUS_ORDER_WARN);
-	  stat.setName(auid);
+    for (Iterator iter = auids.iterator(); iter.hasNext(); ) {
+      String auid = (String)iter.next();
+      BatchAuStatus.Entry stat = bas.newEntry(auid);
+      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
+      if (au != null) {
+	stat.setName(au.getName(), au.getPlugin());
+	try {
+	  pluginMgr.deleteAu(au);
+	  stat.setStatus("Deleted", STATUS_ORDER_NORM);
+	  lastStat = stat;
+	} catch (Exception e) {
+	  log.warning("Error deleting AU", e);
+	  stat.setStatus("Possibly Not Deleted", STATUS_ORDER_WARN);
+	  stat.setExplanation("Error deleting: " + e.getMessage());
 	}
-	bas.add(stat);
+      } else {
+	stat.setStatus("Not Found", STATUS_ORDER_WARN);
+	stat.setName(auid);
       }
-      return bas;
-    } finally {
-      try {
-	configMgr.finishAuBatch();
-      } catch (IOException e) {
-	batchFinishError(lastStat, e);
-      }
-    }	       
+      bas.add(stat);
+    }
+    return bas;
   }
 
   /** Deactivate a batch of AUs
@@ -967,36 +1003,30 @@ public class RemoteApi
   public BatchAuStatus deactivateAus(List auids) {
     BatchAuStatus bas = new BatchAuStatus();
     BatchAuStatus.Entry lastStat = null;
-    try {
-      configMgr.startAuBatch();
-      for (Iterator iter = auids.iterator(); iter.hasNext(); ) {
-	String auid = (String)iter.next();
-	BatchAuStatus.Entry stat = bas.newEntry(auid);
-	ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
-	if (au != null) {
-	  stat.setName(au.getName(), au.getPlugin());
-	  try {
-	    pluginMgr.deactivateAu(au);
-	    stat.setStatus("Deactivated", STATUS_ORDER_NORM);
-	    lastStat = stat;
-	  } catch (IOException e) {
-	    stat.setStatus("Not Deactivated", STATUS_ORDER_WARN);
-	    stat.setExplanation("Error deleting: " + e.getMessage());
-	  }
-	} else {
-	  stat.setStatus("Not Found", STATUS_ORDER_WARN);
-	  stat.setName(auid);
+    for (Iterator iter = auids.iterator(); iter.hasNext(); ) {
+      String auid = (String)iter.next();
+      BatchAuStatus.Entry stat = bas.newEntry(auid);
+      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
+      if (au != null) {
+	stat.setName(au.getName(), au.getPlugin());
+	try {
+	  pluginMgr.deactivateAu(au);
+	  stat.setStatus("Deactivated", STATUS_ORDER_NORM);
+	  lastStat = stat;
+	} catch (DbException dbe) {
+	  stat.setStatus("Not Deactivated", STATUS_ORDER_WARN);
+	  stat.setExplanation("Error deleting: " + dbe.getMessage());
+	} catch (LockssRestException lre) {
+	  stat.setStatus("Not Deactivated", STATUS_ORDER_WARN);
+	  stat.setExplanation("Error deleting: " + lre.getMessage());
 	}
-	bas.add(stat);
+      } else {
+	stat.setStatus("Not Found", STATUS_ORDER_WARN);
+	stat.setName(auid);
       }
-      return bas;
-    } finally {
-      try {
-	configMgr.finishAuBatch();
-      } catch (IOException e) {
-	batchFinishError(lastStat, e);
-      }
-    }	       
+      bas.add(stat);
+    }
+    return bas;
   }
 
   /** Canonicalize a configuration so we can check it for equality with
@@ -1048,7 +1078,25 @@ public class RemoteApi
 
     BatchAuStatus.Entry stat = new BatchAuStatus.Entry(auid);
     stat.setRepoNames(repoMgr.findExistingRepositoriesFor(auid));
-    Configuration oldConfig = pluginMgr.getStoredAuConfiguration(auid);
+
+    Configuration oldConfig = null;
+
+    try {
+      oldConfig = pluginMgr.getStoredAuConfigurationAsConfiguration(auid);
+    } catch (DbException dbe) {
+      stat.setStatus("Database Error", STATUS_ORDER_ERROR);
+      stat.setExplanation(dbe.getMessage());
+
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "stat = " + stat);
+      return stat;
+    } catch (LockssRestException lre) {
+      stat.setStatus("REST service Error", STATUS_ORDER_ERROR);
+      stat.setExplanation(lre.getMessage());
+
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "stat = " + stat);
+      return stat;
+    }
+
     String name = null;
     if (oldConfig != null) {
       name = oldConfig.get(AU_PARAM_DISPLAY_NAME);
@@ -1164,7 +1212,7 @@ public class RemoteApi
 	if (auConfig.getBoolean(PluginManager.AU_PARAM_DISABLED, false)) {
 	  if (doCreate) {
 	    log.debug(addOpName(addOp) + " inactive: " + auid);
-	    pluginMgr.updateAuConfigFile(auid, auConfig);
+	    pluginMgr.updateAuInDatabase(auid, auConfig);
 	    stat.setStatus("Added (inactive)", STATUS_ORDER_NORM);
 	  } else {
 	    stat.setStatus(null, STATUS_ORDER_NORM);
@@ -1192,6 +1240,12 @@ public class RemoteApi
       } catch (IOException e) {
 	stat.setStatus("I/O Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(e.getMessage());
+      } catch (DbException dbe) {
+	stat.setStatus("Database Error", STATUS_ORDER_ERROR);
+	stat.setExplanation(dbe.getMessage());
+      } catch (LockssRestException lre) {
+	stat.setStatus("REST service Error", STATUS_ORDER_ERROR);
+	stat.setExplanation(lre.getMessage());
       }
     }
     // If a restored AU config has no name, it's probably an old one.  Try
@@ -1244,7 +1298,8 @@ public class RemoteApi
     return findAusInSetsToAdd(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToAdd(TitleSet ts) {
+  public BatchAuStatus findAusInSetToAdd(TitleSet ts)
+      throws DbException, LockssRestException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToAdd(bas, ts.getTitles().iterator());
   }
@@ -1293,7 +1348,8 @@ public class RemoteApi
     return findAusInSetsToDelete(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToDelete(TitleSet ts) {
+  public BatchAuStatus findAusInSetToDelete(TitleSet ts)
+      throws DbException, LockssRestException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToDelete(bas, ts.getTitles().iterator());
   }
@@ -1340,7 +1396,8 @@ public class RemoteApi
     return findAusInSetsToActivate(bas, tcs.iterator());
   }
 
-  public BatchAuStatus findAusInSetToActivate(TitleSet ts) {
+  public BatchAuStatus findAusInSetToActivate(TitleSet ts)
+      throws DbException, LockssRestException {
     BatchAuStatus bas = new BatchAuStatus();
     return findAusInSetsToActivate(bas, ts.getTitles().iterator());
   }
@@ -1677,13 +1734,19 @@ public class RemoteApi
    * TreeSet unless changed to never return 0. */
   static class AuProxyOrderComparator implements Comparator {
     public int compare(Object o1, Object o2) {
-      AuProxy a1 = (AuProxy)o1;
-      AuProxy a2 = (AuProxy)o2;
-      int res = coc.compare(a1.getName(), a2.getName());
-      if (res == 0) {
-	res = a1.getAuId().compareTo(a2.getAuId());
+      try {
+	AuProxy a1 = (AuProxy)o1;
+	AuProxy a2 = (AuProxy)o2;
+	int res = coc.compare(a1.getName(), a2.getName());
+	if (res == 0) {
+	  res = a1.getAuId().compareTo(a2.getAuId());
+	}
+	return res;
+      } catch (DbException dbe) {
+	throw new RuntimeException("Database error", dbe);
+      } catch (LockssRestException lre) {
+	throw new RuntimeException("REST service error", lre);
       }
-      return res;
     }
   }
 
@@ -2058,11 +2121,17 @@ public class RemoteApi
       statusEntry.setStatus("Not Configured", STATUS_ORDER_WARN);
       statusEntry.setExplanation("Error creating AU: " + ce.getMessage());
       status.add(statusEntry);
-    } catch (IOException ioe) {
-      log.error("Couldn't create AU", ioe);
+    } catch (DbException dbe) {
+      log.error("Couldn't create AU", dbe);
       statusEntry.setName(auId);
       statusEntry.setStatus("Not Configured", STATUS_ORDER_WARN);
-      statusEntry.setExplanation("Error creating AU: " + ioe.getMessage());
+      statusEntry.setExplanation("Error creating AU: " + dbe.getMessage());
+      status.add(statusEntry);
+    } catch (LockssRestException lre) {
+      log.error("Couldn't create AU", lre);
+      statusEntry.setName(auId);
+      statusEntry.setStatus("Not Configured", STATUS_ORDER_WARN);
+      statusEntry.setExplanation("Error creating AU: " + lre.getMessage());
       status.add(statusEntry);
     }
 
@@ -2216,7 +2285,8 @@ public class RemoteApi
    *          A List<String> with the identifiers of the archival units.
    * @return a BatchAuStatus object describing the results.
    */
-  public BatchAuStatus reactivateAus(List<String> auIds) {
+  public BatchAuStatus reactivateAus(List<String> auIds)
+      throws DbException, LockssRestException {
     final String DEBUG_HEADER = "reactivateAus(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auIds = " + auIds);
 
@@ -2225,7 +2295,8 @@ public class RemoteApi
     // Loop through all the identifiers of the archival units to be reactivated.
     for (String auId : auIds) {
       // Store the archival unit configuration in the map.
-      Configuration auConfig = pluginMgr.getStoredAuConfiguration(auId);
+      Configuration auConfig =
+	  pluginMgr.getStoredAuConfigurationAsConfiguration(auId);
 
       if (auConfig.isSealed()) {
 	auConfig = auConfig.copy();

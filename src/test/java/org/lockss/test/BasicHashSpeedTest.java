@@ -35,6 +35,8 @@ package org.lockss.test;
 import java.io.*;
 import java.util.*;
 import java.security.*;
+
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.*;
 
 public class BasicHashSpeedTest {

@@ -37,6 +37,8 @@ import java.util.*;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.daemon.status.*;
 //import com.meterware.servletunit.*;
 import com.meterware.httpunit.*;
@@ -46,7 +48,7 @@ import com.meterware.httpunit.*;
  */
 public class TestDaemonStatus extends LockssServletTestCase {
 
-  private static final Logger log = Logger.getLogger(TestDaemonStatus.class);
+  private static final Logger log = Logger.getLogger();
 
 //  private DaemonStatus ds;
 
@@ -120,7 +122,7 @@ public class TestDaemonStatus extends LockssServletTestCase {
     // test time interval
     long timeInt = Constants.HOUR + Constants.MINUTE;
     testObj = new Long(timeInt);
-    assertEquals(StringUtil.timeIntervalToString(timeInt),
+    assertEquals(TimeUtil.timeIntervalToString(timeInt),
                  format(testObj, ColumnDescriptor.TYPE_TIME_INTERVAL));
 
     // test unknown

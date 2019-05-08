@@ -34,7 +34,7 @@ package org.lockss.daemon;
 
 import java.util.*;
 
-import org.lockss.util.LockssSerializable;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * Interface for crawl windows, used to determine whether a crawl should be

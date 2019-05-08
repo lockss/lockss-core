@@ -57,7 +57,7 @@ import edu.stanford.db.rdf.model.i.StatementImpl;
  */
 public class DublinCoreLinkExtractor implements LinkExtractor {
   
-  private static final Logger log = Logger.getLogger("DublinCoreLinkExtractor");
+  private static final Logger log = Logger.getLogger();
 
   /** Resource name of local copy of expected DTD */
   static final String DTD_RESOURCE = "dcmes-xml-20000714.dtd";

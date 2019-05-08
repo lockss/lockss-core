@@ -40,11 +40,12 @@ import org.apache.commons.lang3.tuple.*;
 
 import org.lockss.plugin.*;
 import org.lockss.daemon.*;
-import org.lockss.state.AuState;
+import org.lockss.state.*;
 import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.alert.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.*;
 import org.lockss.repository.*;
 import org.lockss.crawler.*;
@@ -52,7 +53,7 @@ import org.lockss.config.*;
 
 public class TestV2DefaultUrlCacher extends LockssTestCase {
 
-  protected static Logger logger = Logger.getLogger("TestV2DefaultUrlCacher");
+  protected static Logger logger = Logger.getLogger();
 
   MyDefaultUrlCacher cacher;
   MockCachedUrlSet mcus;
@@ -60,11 +61,9 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
 
   private MyMockArchivalUnit mau;
   private MockLockssDaemon theDaemon;
-  private OldLockssRepository repo;
   private MockAlertManager alertMgr;
   private int pauseBeforeFetchCounter;
   private UrlData ud;
-  private MockHistoryRepository histRepo = new MockHistoryRepository();
   private MockAuState maus;
 
 
@@ -90,14 +89,6 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     plugin.initPlugin(theDaemon);
     mau.setPlugin(plugin);
 
-    repo =
-      (OldLockssRepository)theDaemon.newAuManager(LockssDaemon.LOCKSS_REPOSITORY,
-                                               mau);
-    theDaemon.setLockssRepository(repo, mau);
-    repo.startService();
-
-    theDaemon.setHistoryRepository(histRepo, mau);
-
     mcus = new MockCachedUrlSet(TEST_URL);
     mcus.setArchivalUnit(mau);
     mau.setAuCachedUrlSet(mcus);
@@ -106,9 +97,7 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     alertMgr = new MockAlertManager();
     getMockLockssDaemon().setAlertManager(alertMgr);
     
-    theDaemon.setHistoryRepository(histRepo, mau);
-    maus = new MockAuState(mau);
-    histRepo.setAuState(maus);
+    maus = AuTestUtil.setUpMockAus(mau);
 
     useV2Repo();
 //     useV2Repo("local:foo:" + getTempDir().toString());
@@ -378,10 +367,10 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
 		    cacher.getInfoException().toString());
     expVers.add("");
 
-    // TK - new repo doesn't check for identical version
-//     doStore("", "invalid_2");
-//     assertMatchesRE("WarningOnly: v ex 2",
-// 		    cacher.getInfoException().toString());
+    // This doesn't get written because it's identical to previous
+    doStore("", "invalid_2");
+    assertMatchesRE("WarningOnly: v ex 2",
+		    cacher.getInfoException().toString());
 
     // Store a non-empty version so repository doesn't suppress next empty
     // store.
@@ -883,7 +872,7 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     cacher.storeContent();
     CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
     assertEquals(1, cu.getVersion());
-    AuSuspectUrlVersions asuv = repo.getSuspectUrlVersions(mau);
+    AuSuspectUrlVersions asuv = AuUtil.getSuspectUrlVersions(mau);
     assertTrue(asuv.isEmpty());
     AuState aus = AuUtil.getAuState(mau);
     assertEquals(0, aus.recomputeNumCurrentSuspectVersions());

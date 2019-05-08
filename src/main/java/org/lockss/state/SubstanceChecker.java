@@ -52,7 +52,7 @@ import org.lockss.alert.Alert;
  * Typically used during a crawl or vote.
  */
 public class SubstanceChecker {
-  static Logger log = Logger.getLogger("SubstanceChecker");
+  static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX +
     "substanceChecker.";

@@ -53,7 +53,7 @@ import com.ice.tar.*;
  */
 
 public class ActualTarContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("ActualTarContentGenerator");
+  private static Logger logger = Logger.getLogger();
   String tarFilePrefix = "SimulatedCrawl";
   String[] suffix = {
     ".txt",

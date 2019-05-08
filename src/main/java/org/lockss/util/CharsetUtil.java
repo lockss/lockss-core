@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
  * A class meant to encapsulate static character encoding/decoding using icu4j
  */
 public class CharsetUtil {
-  private static final Logger log = Logger.getLogger(CharsetUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final String PREFIX = org.lockss.config.Configuration.PREFIX + "crawler.";
   /** If true, CharsetUtil will try to infer the proper charset to use,
@@ -101,7 +101,7 @@ public class CharsetUtil {
     ByteArrayOutputStream buffered = new ByteArrayOutputStream();
     byte[] buf = new byte[inferCharsetBufSize];
     in.mark(inferCharsetBufSize + 1024);
-    int len = in.read(buf);
+    int len = StreamUtil.readBytes(in, buf, buf.length);
     if (len <= 0) {
       return UTF8; // this is just a default for 0 len stream
     }
@@ -174,7 +174,7 @@ public class CharsetUtil {
     int len = 0;
     byte[] buf = new byte[inferCharsetBufSize];
     if(inStream != null) {
-      len = inStream.read(buf);
+      len = StreamUtil.readBytes(inStream, buf, buf.length);
     }
     if (len <= 0) {
       return new InputStreamAndCharset(inStream, expectedCharset);

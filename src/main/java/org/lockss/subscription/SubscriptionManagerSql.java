@@ -45,8 +45,7 @@ import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 
 public class SubscriptionManagerSql {
-  private static final Logger log =
-      Logger.getLogger(SubscriptionManagerSql.class);
+  private static final Logger log = Logger.getLogger();
 
   // Query to find a subscription by its publication and provider.
   private static final String FIND_SUBSCRIPTION_QUERY = "select "

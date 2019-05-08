@@ -53,8 +53,7 @@ public class DispatchingSSLProtocolSocketFactory
   public static DispatchingSSLProtocolSocketFactory INSTANCE =
     new DispatchingSSLProtocolSocketFactory();
 
-  private static final Logger log =
-    Logger.getLogger("DispatchingSSLProtocolSocketFactory");
+  private static final Logger log = Logger.getLogger();
 
   MultiKeyMap hostmap = new MultiKeyMap(); // Maps host,port to factory
 //HC3   SecureProtocolSocketFactory defaultFact;

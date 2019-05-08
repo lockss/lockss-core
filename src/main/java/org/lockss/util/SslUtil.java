@@ -37,7 +37,7 @@ import java.security.Security;
 import java.util.Arrays;
 
 public class SslUtil {
-  private static final Logger log = Logger.getLogger(SslUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   public static void logCryptoProviders(boolean verbose) {
     final Provider[] providers = Security.getProviders();

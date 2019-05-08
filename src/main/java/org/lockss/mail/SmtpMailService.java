@@ -36,6 +36,8 @@ import java.net.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.PriorityQueue;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 
@@ -44,7 +46,7 @@ import org.lockss.daemon.*;
  * successfully sent */
 public class SmtpMailService
   extends BaseLockssManager implements MailService, ConfigurableManager {
-  protected static Logger log = Logger.getLogger("Mail");
+  protected static Logger log = Logger.getLogger();
 
   static final String PRIORITY_PARAM_MAILQ = "MailQueue";
   static final int PRIORITY_DEFAULT_MAILQ = Thread.NORM_PRIORITY /*+ 1*/;

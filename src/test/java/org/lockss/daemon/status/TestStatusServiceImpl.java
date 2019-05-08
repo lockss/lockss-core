@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 
  all rights reserved.
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,11 +29,24 @@
 package org.lockss.daemon.status;
 import java.util.*;
 import java.net.*;
+import javax.jms.*;
+import org.apache.activemq.broker.BrokerService;
+import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.junit.*;
+
+import org.lockss.app.*;
+import org.lockss.jms.*;
 import org.lockss.test.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.TimerUtil;
 
 
-public class TestStatusServiceImpl extends LockssTestCase {
+public class TestStatusServiceImpl extends LockssTestCase4 {
+  private static L4JLogger log = L4JLogger.getLogger();
+
   private static final Object[][] colArray1 = {
     {"name", "Name", new Integer(ColumnDescriptor.TYPE_STRING), "Foot note"},
     {"rank", "Rank", new Integer(ColumnDescriptor.TYPE_INT)}
@@ -95,15 +104,30 @@ public class TestStatusServiceImpl extends LockssTestCase {
     {"CName", new Integer(1), new Integer(-1)}
   };
 
-  private StatusServiceImpl statusService;
+  private static BrokerService broker;
 
+  private MyStatusServiceImpl statusService;
+  private JMSManager jmsMgr;
+
+  @Before
   public void setUp() throws Exception {
     super.setUp();
-    statusService = new StatusServiceImpl();
+    ConfigurationUtil.addFromArgs(JMSManager.PARAM_START_BROKER, "true");
+    getMockLockssDaemon().startManagers(JMSManager.class);
+    jmsMgr = getMockLockssDaemon().getManagerByType(JMSManager.class);
+    statusService = new MyStatusServiceImpl();
     statusService.initService(getMockLockssDaemon());
   }
 
+  @After
+  public void tearDown() throws Exception {
+    statusService.stopService();
+    getMockLockssDaemon().stopManagers();
+    getMockLockssDaemon().stopDaemon();
+    super.tearDown();
+  }
 
+  @Test
   public void testGetTableWithNullTableNameThrows()
       throws StatusService.NoSuchTableException {
     try {
@@ -113,6 +137,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     }
   }
 
+  @Test
   public void testGetTableWithUnknownTableThrows() {
     try {
       statusService.getTable("Bad name", "bad key");
@@ -121,6 +146,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     }
   }
 
+  @Test
   public void testMultipleRegistriesThrows() {
     statusService.registerStatusAccessor("table1", new MockStatusAccessor());
     try {
@@ -130,6 +156,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     }
   }
 
+  @Test
   public void testRegisteringAllTableThrows() {
     try {
       statusService.startService(); //registers table of all tables
@@ -141,6 +168,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     }
   }
 
+  @Test
   public void testRegisteringInvalidTableNameThrows() {
     try {
       statusService.registerStatusAccessor("!Table",
@@ -159,22 +187,109 @@ public class TestStatusServiceImpl extends LockssTestCase {
     }
   }
 
+  @Test
   public void testUnregisteringBadDoesntThrow() {
     statusService.unregisterStatusAccessor("table1");
   }
 
+  @Test
   public void testMultipleUnregisteringDontThrow() {
     statusService.registerStatusAccessor("table1", new MockStatusAccessor());
     statusService.unregisterStatusAccessor("table1");
     statusService.unregisterStatusAccessor("table1");
   }
 
+  @Test
   public void testCanRegisterUnregisteredTable() {
     statusService.registerStatusAccessor("table1", new MockStatusAccessor());
     statusService.unregisterStatusAccessor("table1");
     statusService.registerStatusAccessor("table1", new MockStatusAccessor());
   }
 
+  Producer prod;
+  Consumer cons;
+
+  void setUpJms() throws JMSException {
+    // Can't use the connection maintained by JMSManager (at least not for
+    // our Producer), as StatusServiceImpl's Consumer ignores locally sent
+    // messages
+    ConnectionFactory connectionFactory =
+      new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
+    Connection conn = connectionFactory.createConnection();
+
+    prod = Producer.createTopicProducer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
+    cons = Consumer.createTopicConsumer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, true, null, conn);
+  }
+
+  Map MSG_REQ = MapUtil.map("verb", "RequestTableRegistrations");
+
+  Map MSG_REG_1 = MapUtil.map("urlStem", "http://localhost:1234",
+			      "verb", "RegisterTable",
+			      "tableTitle", "MockStatusAccessor",
+			      "tableName", "V3PollerTable");
+
+  Map MSG_REG_2 = MapUtil.map("urlStem", "http://localhost:4321",
+			      "verb", "RegisterTable",
+			      "tableTitle", "Vibes",
+			      "tableName", "Xylophones");
+
+  @Test
+  public void testRegistrationNotification() throws Exception {
+    // Must have a ServiceDescr with a ServiceBinding in order for table
+    // registrations to be sent
+    getMockLockssDaemon().setMyServiceDescr(ServiceDescr.SVC_POLLER);
+    ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
+				  "poller=:1234");
+
+    setUpJms();
+    // This should cause a RequestTableRegistrations message to be sent
+    statusService.startService();
+
+    // Register global table, ensure RegisterTable message is sent
+    String pollTable =
+      org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME;
+    statusService.registerStatusAccessor(pollTable, new MockStatusAccessor());
+    assertEquals(ListUtil.list(MSG_REQ, MSG_REG_1), nMsgs(cons, 2));
+
+    // Send a RequestTableRegistrations message, should receive it (from
+    // ourselves) and the one registered global table
+    prod.sendMap(MSG_REQ);
+    assertEquals(ListUtil.list(MSG_REG_1), nMsgs(cons, 1));
+
+    // Tell MyStatusServiceImpl to post sem when foreign registration done
+    SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
+    statusService.setForRegSem(sem);
+
+    // Send a RegisterTable message, ensure it shows up in foreign
+    // registrations map
+    prod.sendMap(MSG_REG_2);
+
+    assertTableExists(pollTable);
+    
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+    assertNotNull(statusService.getForeignTable("Xylophones"));
+
+  }
+
+  // Read and return n messages, ensure there are no more waiting
+  List<Map> nMsgs(Consumer cons, int n) throws Exception {
+    List<Map> res = new ArrayList<>();
+    while (res.size() != n) {
+      res.add(cons.receiveMap(TIMEOUT_SHOULDNT));
+    }
+    assertEquals(null, cons.receiveMap(TIMEOUT_SHOULD));
+    return res;
+  }
+
+  void assertTableExists(String tableName) {
+    try {
+      statusService.getTable(tableName, null);
+    } catch (StatusService.NoSuchTableException e) {
+      fail("Table " + tableName + " threw", e);
+    }
+  }
+
+  @Test
   public void testGetTableHasName()
       throws StatusService.NoSuchTableException {
     MockStatusAccessor statusAccessor =
@@ -188,6 +303,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertNull(table.getKey());
   }
 
+  @Test
   public void testGetTableHasKey()
       throws StatusService.NoSuchTableException {
     String key = "theKey";
@@ -199,6 +315,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertEquals(key, table.getKey());
   }
 
+  @Test
   public void testGetTableTitle()
       throws StatusService.NoSuchTableException {
     String key = "theKey";
@@ -218,6 +335,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     {"SummaryInfo3", new Integer(ColumnDescriptor.TYPE_STRING), "SummaryInfo value 3"}
   };
 
+  @Test
   public void testGetTableSummaryInfo()
       throws StatusService.NoSuchTableException {
     String key = "theKey";
@@ -251,6 +369,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertFalse(actualIt.hasNext());
   }
 
+  @Test
   public void testGetTableWithKey()
       throws StatusService.NoSuchTableException {
     String key = "key1";
@@ -273,6 +392,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
   }
 
 
+  @Test
   public void testGetTablesWithDifferentKeys()
       throws StatusService.NoSuchTableException {
     String key1 = "key1";
@@ -310,6 +430,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertRowsEqual(expectedRows, table.getSortedRows());
   }
 
+  @Test
   public void testSortsByAscStrings()
       throws StatusService.NoSuchTableException {
     StatusTable.SortRule rule = new StatusTable.SortRule("name", true);
@@ -333,6 +454,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertRowsEqual(expectedRows, actualRows);
   }
 
+  @Test
   public void testGetTableSortsDescStrings()
       throws StatusService.NoSuchTableException {
     StatusTable.SortRule rule = new StatusTable.SortRule("name", false);
@@ -356,6 +478,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertRowsEqual(expectedRows, actualRows);
   }
 
+  @Test
   public void testGetTableSortsNumsAsc()
       throws StatusService.NoSuchTableException {
     StatusTable.SortRule rule = new StatusTable.SortRule("rank", true);
@@ -379,6 +502,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertRowsEqual(expectedRows, actualRows);
   }
 
+  @Test
   public void testGetTableSortsMultiCols()
       throws StatusService.NoSuchTableException {
     List sortRules =
@@ -405,6 +529,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertRowsEqual(expectedRows, actualRows);
   }
 
+  @Test
   public void testSortsByNonDefaultRules()
       throws StatusService.NoSuchTableException {
     List sortRules = ListUtil.list(new StatusTable.SortRule("name", false));
@@ -427,6 +552,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertRowsEqual(expectedRows, actualRows);
   }
 
+  @Test
   public void testSortsByDefaultDefaultRules()
       throws StatusService.NoSuchTableException {
     Object[][] expectedRowsArray = new Object[3][];
@@ -468,6 +594,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     {new StatusTable.Reference("MockStatusAccessor", "Z_table", null)},
   };
 
+  @Test
   public void registerSomeTables() {
     statusService.registerStatusAccessor("A_table",
 					 makeMockStatusAccessor(null));
@@ -481,6 +608,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
 					 makeMockStatusAccessor("Z_table"));
   }
 
+  @Test
   public void testGetTableOfAllTables()
       throws StatusService.NoSuchTableException {
     statusService.startService(); //registers table of all tables
@@ -500,6 +628,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertRowsEqualNoOrder(expectedRows, table.getSortedRows());
   }
 
+  @Test
   public void testGetTableOfAllTablesDebugUser()
       throws StatusService.NoSuchTableException {
     statusService.startService(); //registers table of all tables
@@ -537,6 +666,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     extends MockStatusAccessor implements StatusAccessor.DebugOnly {
   }
 
+  @Test
   public void testGetTableOfAllTablesFiltersTablesThatRequireKeys()
       throws StatusService.NoSuchTableException {
     statusService.startService(); //registers table of all tables
@@ -575,6 +705,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     {"DD", "4"}
   };
 
+  @Test
   public void testNullRowValues()
       throws StatusService.NoSuchTableException {
     String key = "key1";
@@ -608,6 +739,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     {"name", "Name", new Integer(ColumnDescriptor.TYPE_STRING)}
   };
 
+  @Test
   public void testSortsIPAddres()
       throws UnknownHostException, StatusService.NoSuchTableException {
     Object[][] inetAddrRowArray = {
@@ -680,6 +812,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertFalse(actualIt.hasNext());
   }
 
+  @Test
   public void testGetDefaultTableName() {
     assertEquals(OverviewStatus.OVERVIEW_STATUS_TABLE,
 		 statusService.getDefaultTableName());
@@ -689,7 +822,15 @@ public class TestStatusServiceImpl extends LockssTestCase {
 		 statusService.getDefaultTableName());
   }
 
-  public void testRegisterOveriewAccessor() {
+  @Test
+  public void testRegisterOveriewAccessor() throws Exception {
+    setUpJms();
+    getMockLockssDaemon().setMyServiceDescr(ServiceDescr.SVC_POLLER);
+    ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
+				  "poller=:1238");
+    // This should cause a RequestTableRegistrations message to be sent
+    statusService.startService();
+    assertEquals(ListUtil.list(MSG_REQ), nMsgs(cons, 1));
     statusService.registerOverviewAccessor("table1",
 					   new OverviewAccessor() {
 					     public Object getOverview(String tableName, 
@@ -705,8 +846,35 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertEquals("over1", statusService.getOverview("table1"));
     assertEquals("over2", statusService.getOverview("table2"));
     assertNull(statusService.getOverview("table3"));
+
+    statusService.registerOverviewAccessor(org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME,
+					   new OverviewAccessor() {
+					     public Object getOverview(String tableName, 
+								       BitSet options) {
+					       return "Poller Over";
+					     }});
+    assertEquals(ListUtil.list(MSG_REGOVER_1), nMsgs(cons, 1));
+
+
+    prod.sendMap(MSG_REQOVER);
+    assertEquals(ListUtil.list(MSG_OVER_1), nMsgs(cons, 1));
+
   }
 
+  Map MSG_REGOVER_1 = MapUtil.map("urlStem", "http://localhost:1238",
+				  "verb", "RegisterOverview",
+				  "serviceName", "poller",
+				  "tableName", "V3PollerTable");
+
+  Map MSG_REQOVER = MapUtil.map("verb", "RequestOverviews");
+
+  Map MSG_OVER_1 = MapUtil.map("verb", "Overview",
+			       "urlStem", "http://localhost:1238",
+			       "content", "Poller Over",
+			       "tableName", "V3PollerTable");
+
+
+  @Test
   public void testRegisterObjectReferenceAccessor() {
     MockObjectReferenceAccessor refAcc = new MockObjectReferenceAccessor();
     statusService.registerObjectReferenceAccessor("table1", Integer.class,
@@ -724,6 +892,11 @@ public class TestStatusServiceImpl extends LockssTestCase {
 						  refAcc);
   }
 
+
+  private class C1 {}
+  private class C2 extends C1 {}
+
+  @Test
   public void testGetReference() {
     MockObjectReferenceAccessor refAcc = new MockObjectReferenceAccessor();
     refAcc.setRef(new StatusTable.Reference("value", "table1", "key"));
@@ -738,6 +911,7 @@ public class TestStatusServiceImpl extends LockssTestCase {
     assertEquals("table1", ref.getTableName());
   }
 
+  @Test
   public void testSAThrowsAreTrapped() throws
     StatusService.NoSuchTableException {
     StatusAccessor statusAccessor = new StatusAccessor() {
@@ -756,7 +930,16 @@ public class TestStatusServiceImpl extends LockssTestCase {
     statusService.getTable("table_of_all_tables", null);
   }
 
-  private class C1 {}
-  private class C2 extends C1 {}
-  private class C3 extends C2 {}
+  class MyStatusServiceImpl extends StatusServiceImpl {
+    private SimpleBinarySemaphore forRegSem;
+
+    @Override
+    void processIncomingTableReg(Map map, String table) {
+      super.processIncomingTableReg(map, table);
+      if (forRegSem != null) forRegSem.give();
+    }
+    void setForRegSem(SimpleBinarySemaphore sem) {
+      forRegSem = sem;
+    }
+  }
 }

@@ -48,7 +48,7 @@ import org.mortbay.html.*;
  * Display content utility class
  */
 public class DisplayContentTable {
-  protected static Logger log = Logger.getLogger("DisplayContentTable");
+  protected static Logger log = Logger.getLogger();
 
   private static final int LETTERS_IN_ALPHABET = 26;
   private static final int DEFAULT_NUMBER_IN_GROUP = 4;

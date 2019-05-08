@@ -36,7 +36,9 @@ import java.util.*;
 import java.io.*;
 import junit.framework.TestCase;
 import org.lockss.app.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 
@@ -45,7 +47,7 @@ import org.lockss.test.*;
  */
 
 public class TestWatchdogService extends LockssTestCase {
-//   protected static Logger log = Logger.getLogger("TestWdogSvc");
+//   protected static Logger log = Logger.getLogger();
 
   LockssDaemon daemon;
   WatchdogService wdog;

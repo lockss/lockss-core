@@ -44,12 +44,16 @@ import org.apache.commons.logging.Log;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.daemon.CuUrl;
+import org.lockss.daemon.PluginBehaviorException;
 import org.lockss.exporter.counter.CounterReportsRequestRecorder;
 import org.lockss.exporter.counter.CounterReportsRequestRecorder.PublisherContacted;
 import org.lockss.plugin.*;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.StringUtil;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.*;
 import org.lockss.servlet.ServletUtil;
 import org.lockss.jetty.*;
@@ -72,7 +76,7 @@ import org.mortbay.html.*;
  */
 @SuppressWarnings("serial")
 public class ProxyHandler extends AbstractHttpHandler {
-  private static Logger log = Logger.getLogger("ProxyHandler");
+  private static Logger log = Logger.getLogger();
   private static Log jlog = LogFactory.getLog(ProxyHandler.class);
 
 
@@ -455,7 +459,15 @@ public class ProxyHandler extends AbstractHttpHandler {
 	}
 	return;
       }
-      cu = au.makeCachedUrl(urlString);
+      String normUrl = urlString;
+      if (proxyMgr.isNormalizeAuidRequest()) {
+	try {
+	  normUrl = UrlUtil.normalizeUrl(urlString, au);
+	} catch (PluginBehaviorException e) {
+	  log.siteWarning("Normalizer error: " + urlString, e);
+	}
+      }
+      cu = au.makeCachedUrl(normUrl);
     } else {
       cu = pluginMgr.findCachedUrl(urlString);
     }
@@ -494,9 +506,8 @@ public class ProxyHandler extends AbstractHttpHandler {
 			 response, cu);
 	  logAccess(request, "200 from cache", TimeBase.msSince(reqStartTime));
 	  // Record the necessary information required for COUNTER reports.
-	  CounterReportsRequestRecorder.getInstance().recordRequest(urlString,
-	      CounterReportsRequestRecorder.PublisherContacted.FALSE, 200,
-	      null);
+	  recordRequest(urlString,
+	      CounterReportsRequestRecorder.PublisherContacted.FALSE, 200);
 	  return;
 	} else {
 	  // Not found on cache and told not to forward request
@@ -737,6 +748,17 @@ public class ProxyHandler extends AbstractHttpHandler {
 		     CounterReportsRequestRecorder.PublisherContacted contacted,
 		     int publisherCode) {
     if (proxyMgr.isCounterCountable(request.getField(HttpFields.__UserAgent))) {
+      recordRequest(url, contacted, publisherCode);
+    }
+  }
+
+  /**
+   * Record the request in COUNTER if it's running
+   */
+  void recordRequest(String url,
+		     CounterReportsRequestRecorder.PublisherContacted contacted,
+		     int publisherCode) {
+    if (theDaemon.hasManagerByKey(LockssDaemon.COUNTER_REPORTS_MANAGER)) {
       CounterReportsRequestRecorder.getInstance().recordRequest(url, contacted,
 	  publisherCode, null);
     }

@@ -71,7 +71,7 @@ public class MockCachedUrlSet implements CachedUrlSet {
 
   private Map cacheAttempts = new HashMap();
 
-  private static final Logger logger = Logger.getLogger("MockCachedUrlSet");
+  private static final Logger logger = Logger.getLogger();
 
   public MockCachedUrlSet() {
     this(new MockArchivalUnit(), (MockCachedUrlSetSpec)null);

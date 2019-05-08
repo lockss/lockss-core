@@ -37,6 +37,7 @@ import org.lockss.test.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.simulated.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.app.*;
 import org.lockss.config.*;
 
@@ -45,7 +46,7 @@ import org.lockss.config.*;
  */
 
 public class PluginTestUtil {
-  static Logger log = Logger.getLogger("PluginTestUtil");
+  static Logger log = Logger.getLogger();
   static List aulist = new LinkedList();
 
   public static void registerArchivalUnit(Plugin plug, ArchivalUnit au) {
@@ -134,7 +135,7 @@ public class PluginTestUtil {
       tp.unregisterArchivalUnit(au);
       aulist.remove(au);
     }
-    mgr.stopAu(au, new AuEvent(AuEvent.Type.Delete, false));
+    mgr.stopAu(au, AuEvent.forAu(au, AuEvent.Type.Delete));
   }
 
   public static void unregisterAllArchivalUnits() {
@@ -146,9 +147,13 @@ public class PluginTestUtil {
   }
 
   public static Plugin findPlugin(String pluginName) {
+    return findPlugin(pluginName, null);
+  }
+
+  public static Plugin findPlugin(String pluginName, ClassLoader loader) {
     PluginManager pluginMgr = getPluginManager();
     String key = pluginMgr.pluginKeyFromName(pluginName);
-    pluginMgr.ensurePluginLoaded(key);
+    pluginMgr.ensurePluginLoaded(key, loader);
     return pluginMgr.getPlugin(key);
   }
 
@@ -160,7 +165,7 @@ public class PluginTestUtil {
 				      Configuration auConfig)
       throws ArchivalUnit.ConfigurationException {
     return getPluginManager().createAu(plugin, auConfig,
-                                       new AuEvent(AuEvent.Type.Create, false));
+                                       AuEvent.model(AuEvent.Type.Create));
   }
 
   public static ArchivalUnit createAndStartAu(Plugin plugin,
@@ -171,8 +176,7 @@ public class PluginTestUtil {
 
   static ArchivalUnit startAu(ArchivalUnit au) {
     LockssDaemon daemon = au.getPlugin().getDaemon();
-    daemon.getLockssRepository(au).startService();
-    daemon.getHistoryRepository(au).startService();
+//     daemon.getLockssRepository(au).startService();
     return au;
   }
 
@@ -254,7 +258,7 @@ public class PluginTestUtil {
     }
     log.debug("Crawling simulated content");
     NoCrawlEndActionsFollowLinkCrawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     //crawler.setCrawlManager(crawlMgr);
     crawler.doCrawl();
   }
@@ -326,12 +330,20 @@ public class PluginTestUtil {
     return res;
   }
 
-  public static List<String> urlsOf(final Iterable<CachedUrl> cus) {
+  public static List<String> urlsOf(final Iterable<CachedUrl> iterable) {
     return new ArrayList<String>() {{
-	for (CachedUrl cu : cus) {
-	  add(cu.getUrl());
-	}
-      }};
+      for (CachedUrl cu : iterable) {
+	add(cu.getUrl());
+      }
+    }};
+  }
+
+  public static List<String> urlsOf(final Iterator<CachedUrlSetNode> iter) {
+    return new ArrayList<String>() {{
+      while (iter.hasNext()) {
+	add(iter.next().getUrl());
+      }
+    }};
   }
 
   private static PluginManager getPluginManager() {

@@ -35,6 +35,7 @@ package org.lockss.protocol;
 import java.util.*;
 import java.io.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * Provide an Iterator with a <tt>peek</tt> method.

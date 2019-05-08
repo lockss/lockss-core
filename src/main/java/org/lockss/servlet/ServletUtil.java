@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,21 +35,24 @@ import java.text.*;
 import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
-
 import org.apache.commons.collections.*;
 import org.apache.commons.lang3.mutable.*;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.lockss.config.*;
 import org.lockss.app.*;
 import org.lockss.daemon.*;
+import org.lockss.db.DbException;
 import org.lockss.jetty.Button;
 import org.lockss.jetty.MyTextArea;
 import org.lockss.plugin.*;
 import org.lockss.remote.*;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.repository.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.servlet.BatchAuConfig.Verb;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.mortbay.html.*;
 
 public class ServletUtil {
@@ -109,7 +108,7 @@ public class ServletUtil {
 
   }
 
-  private static final Logger log = Logger.getLogger(ServletUtil.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "ui.";
 
@@ -145,13 +144,13 @@ public class ServletUtil {
     new SimpleDateFormat("HH:mm:ss MM/dd/yy");
 
   static final Image IMAGE_LOGO_LARGE =
-    image("lockss-logo-large.gif", 160, 160, 0);
+    image("lockss-logo-large.gif", 160, 122, 0);
 
   static final Image IMAGE_LOGO_SMALL =
-    image("lockss-logo-small.gif", 80, 81, 0);
+    image("lockss-logo-small.gif", 80, 61, 0);
 
   /* private */static final Image IMAGE_TM =
-    image("tm.gif", 16, 16, 0);
+    image("tm.gif", 16, 8, 0);
 
   private static final String ALIGN_CENTER = "align=\"center\""; /* (a) */
 
@@ -447,9 +446,10 @@ public class ServletUtil {
   }
 
   // Common page footer
-  public static void doLayoutFooter(Page page,
-                                  Iterator notesIterator,
-                                  String versionInfo) {
+  public static void doLayoutFooter(LockssServlet servlet,
+				    Page page,
+				    Iterator notesIterator,
+				    String versionInfo) {
     Composite comp = new Composite();
 
     addNotes(comp, notesIterator);
@@ -464,7 +464,16 @@ public class ServletUtil {
     table.add(IMAGE_TM);
     table.newRow();
     table.newCell("colspan=\"2\"");
-    table.add("<center><font size=\"-1\">" + versionInfo + "</font></center>");
+
+    Properties args =
+      PropUtil.fromArgs("table", BuildInfoStatus.BUILD_INFO_TABLE);
+    String verInfoLink =
+      servlet.srvLinkWithStyle(AdminServletManager.SERVLET_DAEMON_STATUS,
+			       versionInfo,
+			       "text-decoration: none; color: black",
+			       args);
+
+    table.add("<center><font size=\"-1\">" + verInfoLink + "</font></center>");
     comp.add(table);
     page.add(comp);
   }
@@ -669,7 +678,8 @@ public class ServletUtil {
                                      String addAction,
                                      String restoreAction,
                                      String reactivateAction,
-                                     String editAction) {
+                                     String editAction) throws DbException,
+  					LockssRestException {
     // Start form
     Form frm = newForm(formUrl);
     frm.attribute("id", formId);
@@ -869,25 +879,19 @@ public class ServletUtil {
                                   Page page,
                                   String heading,
                                   boolean isLargeLogo,
+				  String appName,
                                   String machineName,
                                   String machineIpAddr,
                                   Date startDate,
                                   Iterator descrIterator) {
     Composite comp = new Composite();
     Table table = new Table(HEADER_TABLE_BORDER, HEADER_TABLE_ATTRIBUTES);
-    Image logo = ((isLargeLogo && thirdPartyLogo == null)
-		  ? IMAGE_LOGO_LARGE
-		  : IMAGE_LOGO_SMALL);
     table.newRow();
-    table.newCell("valign=\"top\" align=\"center\" width=\"20%\"");
-    table.add(new Link(Constants.LOCKSS_HOME_URL, logo));
-    table.add(IMAGE_TM);
-    if (thirdPartyLogo != null) {
-      Image img = new Image(thirdPartyLogo);
-      img.border(0);
-      table.add(new Link(thirdPartyLogoLink, img));
-    }
+    // Left
+    table.newCell("valign=\"top\" align=\"left\" width=\"20%\"");
+    layoutLeftNavTable(servlet, table, isLargeLogo);
 
+    // Center
     table.newCell("valign=\"top\" align=\"center\" width=\"60%\"");
     table.add("<br>");
     table.add(HEADER_HEADING_BEFORE);
@@ -895,6 +899,10 @@ public class ServletUtil {
     table.add(HEADER_HEADING_AFTER);
     table.add("<br>");
 
+    if (!StringUtil.isNullString(appName)) {
+      addBold(table, appName);
+      table.add(" on ");
+    }
     addBold(table, machineName);
     if (displayIpAddr && machineIpAddr != null) {
       table.add(" (");
@@ -922,6 +930,7 @@ public class ServletUtil {
     table.add(", up ");
     table.add(since);
 
+    // Right
     table.newCell("valign=\"center\" align=\"center\" width=\"20%\"");
     layoutNavTable(servlet, table, descrIterator);
     comp.add(table);
@@ -1355,7 +1364,8 @@ public class ServletUtil {
                                          String submitText,
                                          String submitAction,
                                          MutableInt buttonNumber,
-                                         int atLeast) {
+                                         int atLeast) throws DbException,
+  						LockssRestException {
     int actualRows = 0;
     isAnySelectable.setValue(false);
     Composite topRow;
@@ -1748,14 +1758,16 @@ public class ServletUtil {
                                           String auIdName,
                                           String restoreAction,
                                           String reactivateAction,
-                                          String editAction) {
+                                          String editAction)
+                                              throws DbException,
+                                              LockssRestException {
     while (auProxyIter.hasNext()) {
       AuProxy au = (AuProxy)auProxyIter.next();
       Configuration cfg = remoteApi.getStoredAuConfiguration(au);
       boolean isGray = true;
       String act;
 
-      if (cfg.isEmpty()) {
+      if (cfg == null || cfg.isEmpty()) {
         act = restoreAction;
       }
       else if (cfg.getBoolean(PluginManager.AU_PARAM_DISABLED, false)) {
@@ -1811,8 +1823,12 @@ public class ServletUtil {
 
     while (descrIterator.hasNext()) {
       ServletDescr d = (ServletDescr)descrIterator.next();
-      navTable.newRow();
-      navTable.newCell("colspan=\"3\"");
+      if (d.isSameLine()) {
+	navTable.add("&nbsp&nbsp");
+      } else {
+	navTable.newRow();
+	navTable.newCell();
+      }
       if (false /*isThisServlet(d)*/) {
         navTable.add("<font size=\"-1\" color=\"green\">");
       } else {
@@ -1822,7 +1838,41 @@ public class ServletUtil {
 					      servlet.isServletLinkInNav(d)));
       navTable.add("</font>");
     }
-    navTable.add("</font>");
+    outerTable.add(navTable);
+  }
+
+  // Build service navigation table
+  private static void layoutLeftNavTable(LockssServlet servlet,
+					 Table outerTable,
+					 boolean isLargeLogo) {
+
+    Image logo = ((isLargeLogo && thirdPartyLogo == null)
+		  ? IMAGE_LOGO_LARGE
+		  : IMAGE_LOGO_SMALL);
+
+    Table navTable = new Table(NAVTABLE_TABLE_BORDER, NAVTABLE_ATTRIBUTES);
+    navTable.newRow();
+    navTable.newCell("valign=\"top\" align=\"center\" width=\"20%\"");
+    navTable.add(new Link(Constants.LOCKSS_HOME_URL, logo));
+    navTable.add(IMAGE_TM);
+    if (thirdPartyLogo != null) {
+      Image img = new Image(thirdPartyLogo);
+      img.border(0);
+      navTable.add(new Link(thirdPartyLogoLink, img));
+    }
+    navTable.newRow();
+    navTable.newCell("height=\"10\"");
+    LockssDaemon daemon = servlet.getLockssDaemon();
+    for (ServiceDescr descr : daemon.getAllServiceDescrs()) {
+      ServiceBinding binding = daemon.getServiceBinding(descr);
+      navTable.newRow();
+      navTable.newCell();
+      navTable.add("<font size=\"-1\">");
+      navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
+				      AdminServletManager.SERVLET_DAEMON_STATUS,
+				      descr.getName(), null));
+      navTable.add("</font>");
+    }
     outerTable.add(navTable);
   }
 
@@ -2062,7 +2112,7 @@ public class ServletUtil {
       tbl.newCell("align=\"center\" colspan=\"3\"");
       tbl.add(header);
     }
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       tbl.newRow();
       tbl.newCell("align=\"center\" colspan=\"3\"");
       tbl.add(ServletUtil.notStartedWarning());

@@ -36,10 +36,11 @@ import java.util.*;
 import java.io.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.plugin.*;
 
 public class TimeHtmlTagFilter extends LockssTiming {
-  private static Logger log = Logger.getLogger("TimeHtmlTagFilter");
+  private static Logger log = Logger.getLogger();
 
   static final int FILE_LINES = 10000;
 

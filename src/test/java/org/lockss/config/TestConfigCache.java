@@ -32,6 +32,7 @@ import java.io.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.lockss.config.ConfigCache;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 import org.lockss.util.*;
 
@@ -40,7 +41,7 @@ import org.lockss.util.*;
  */
 
 public class TestConfigCache extends LockssTestCase4 {
-  static Logger log = Logger.getLogger("TestConfigCache");
+  static Logger log = Logger.getLogger();
 
   private static final String config1 =
     "prop.1=foo\n" +
@@ -87,6 +88,13 @@ public class TestConfigCache extends LockssTestCase4 {
     assertTrue(cf instanceof RestConfigFile);
     assertSame(cf, cache.find(url));
     assertSame(cf, cache.get(url));
+  }
+
+  @Test
+  public void testFindResource() throws IOException {
+    ConfigFile cf = cache.find("resource:foo");
+    assertClass(ResourceConfigFile.class, cf);
+    assertEquals("resource:foo", cf.getFileUrl());
   }
 
   @Test

@@ -38,6 +38,7 @@ import java.net.*;
 import junit.framework.TestCase;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.net.IPAddr;
 import org.lockss.test.*;
 
 
@@ -46,7 +47,7 @@ import org.lockss.test.*;
  */
 
 public class TestInternalSocket extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestServerSocket");
+  static Logger log = Logger.getLogger();
 
   String testStr = "This is test data";
   byte[] testData = testStr.getBytes();

@@ -43,13 +43,14 @@ import java.util.*;
 
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.Deadline;
 import org.lockss.util.FifoQueue;
 
 /**
  * Server socket that accepts and maintains "connections" internal to a jvm
  */
 public class InternalServerSocket extends ServerSocket {
-  static Logger log = Logger.getLogger("InternalServerSocket");
+  static Logger log = Logger.getLogger();
 
   static final InetAddress internalInetAddr;
   static {

@@ -55,7 +55,7 @@ public class TestTdbPublisher extends LockssTestCase {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestTdbPublisher");
+  static Logger log = Logger.getLogger();
 
   /**
    * Test creating valid TdbPublisher.

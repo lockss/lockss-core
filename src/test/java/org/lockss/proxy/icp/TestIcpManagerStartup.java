@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2007 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +30,7 @@ package org.lockss.proxy.icp;
 
 import junit.framework.Test;
 
+import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.Configuration.Differences;
 import org.lockss.test.*;
@@ -222,7 +219,7 @@ public abstract class TestIcpManagerStartup extends LockssTestCase {
 
   protected abstract void setConfig();
 
-  private static Logger logger = Logger.getLogger("TestIcpManagerStartup");
+  private static Logger logger = Logger.getLogger();
 
   private static int port = 65000;
 
@@ -231,7 +228,7 @@ public abstract class TestIcpManagerStartup extends LockssTestCase {
   }
 
   protected static int getNewPort() {
-    return port++;
+    return TcpTestUtil.findUnboundTcpPort();
   }
 
 }

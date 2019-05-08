@@ -54,7 +54,7 @@ import java.nio.charset.*;
  */
 public class ReaderInputStream extends InputStream {
 
-   protected static Logger log = Logger.getLogger("ReaderInputStream");
+   protected static Logger log = Logger.getLogger();
 
   /** Source Reader */
   private Reader in;

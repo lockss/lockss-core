@@ -45,8 +45,7 @@ public class BibliographicPeriodEdge {
   public static final BibliographicPeriodEdge INFINITY_EDGE =
       new BibliographicPeriodEdge();
 
-  private static final Logger log =
-      Logger.getLogger(BibliographicPeriodEdge.class);
+  private static final Logger log = Logger.getLogger();
 
   private String year = null;
   private String volume = null;

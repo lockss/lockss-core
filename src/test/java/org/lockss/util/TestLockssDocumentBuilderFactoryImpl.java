@@ -104,20 +104,20 @@ public class TestLockssDocumentBuilderFactoryImpl extends LockssTestCase {
     fail("No match for " + expRe + " in " + coll);
   }
 
-  public void testLog() throws Exception {
-    Logger l =
-      Logger.getLogger(LockssDocumentBuilderFactoryImpl.ERROR_LOGGER_NAME);
-    MockLogTarget target = new MockLogTarget();
-    Logger.setTarget(target);
+//   public void testLog() throws Exception {
+//     Logger l =
+//       Logger.getLogger(LockssDocumentBuilderFactoryImpl.ERROR_LOGGER_NAME);
+//     MockLogTarget target = new MockLogTarget();
+//     Logger.setTarget(target);
 
-    DocumentBuilderFactory fact = DocumentBuilderFactory.newInstance();
-    DocumentBuilder builder = fact.newDocumentBuilder();
-    try {
-      builder.parse(new StringInputStream(""));
-      fail("Expected parse of empty string to throw SAXParseException");
-    } catch (SAXParseException e) {
-      // this string depends on parser, may need to be changed
-      assertContainsMatchForRe("Premature end of file", target.getMessages());
-    }
-  }
+//     DocumentBuilderFactory fact = DocumentBuilderFactory.newInstance();
+//     DocumentBuilder builder = fact.newDocumentBuilder();
+//     try {
+//       builder.parse(new StringInputStream(""));
+//       fail("Expected parse of empty string to throw SAXParseException");
+//     } catch (SAXParseException e) {
+//       // this string depends on parser, may need to be changed
+//       assertContainsMatchForRe("Premature end of file", target.getMessages());
+//     }
+//   }
 }

@@ -53,7 +53,7 @@ public class PollRunner {
 
   private Executor executor;
 
-  private static final Logger log = Logger.getLogger("PollRunner");
+  private static final Logger log = Logger.getLogger();
 
   public PollRunner() {
     this.executor = new QueuedExecutor();

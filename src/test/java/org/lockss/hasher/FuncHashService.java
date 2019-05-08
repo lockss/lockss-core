@@ -41,6 +41,9 @@ import org.lockss.config.*;
 import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 import org.lockss.plugin.*;
 import org.lockss.scheduler.*;
@@ -51,7 +54,7 @@ import org.lockss.scheduler.*;
  */
 
 public class FuncHashService extends LockssTestCase {
-  private static Logger log = Logger.getLogger("FuncHashSvc");
+  private static Logger log = Logger.getLogger();
 
   public static Class testedClasses[] = {
     org.lockss.scheduler.SchedService.class,
@@ -71,7 +74,6 @@ public class FuncHashService extends LockssTestCase {
 
   public void setUp(String hashSvcName) throws Exception {
     super.setUp();
-    useOldRepo();
     theDaemon = getMockLockssDaemon();
     ConfigurationUtil.addFromArgs(LockssApp.MANAGER_PREFIX +
 				  LockssApp.managerKey(HashService.class),

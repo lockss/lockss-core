@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2007-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,24 +30,18 @@ package org.lockss.crawler;
 
 import java.io.*;
 import java.util.*;
-
 import org.apache.commons.collections.MultiMap;
 import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.apache.commons.collections.map.*;
 import org.lockss.config.*;
-import org.lockss.crawler.FuncWarcExploder.MyCrawlRule;
-import org.lockss.crawler.FuncWarcExploder.MyExploderHelper;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
 import org.lockss.plugin.exploded.*;
-import org.lockss.plugin.base.*;
 import org.lockss.plugin.ExploderHelper;
-import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.state.*;
 import org.lockss.extractor.*;
 
 /**
@@ -68,7 +58,7 @@ import org.lockss.extractor.*;
  */
 
 public class FuncTarExploder2 extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncTarExploder2");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;
@@ -141,7 +131,6 @@ public class FuncTarExploder2 extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -168,6 +157,9 @@ public class FuncTarExploder2 extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
+
+    theDaemon.setUpAuConfig();
+
     pluginMgr = new NonVersionCheckingPluginManager();
     pluginMgr.initService(theDaemon);
     theDaemon.setPluginManager(pluginMgr);
@@ -391,7 +383,7 @@ public class FuncTarExploder2 extends LockssTestCase {
     sau.setExploderPattern(".tar$");
     sau.setExploderHelper(new MyExploderHelper());
     FollowLinkCrawler crawler = 
-        new FollowLinkCrawler(sau, new MockAuState());
+        new FollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.setCrawlManager(crawlMgr);
     crawler.doCrawl();
   }

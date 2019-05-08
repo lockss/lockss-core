@@ -36,6 +36,7 @@ import java.net.*;
 import java.lang.reflect.*;
 import java.util.jar.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeUtil;
 
 public class ParamDoc {
   static final String blanks = "                                                                                ";
@@ -45,13 +46,14 @@ public class ParamDoc {
   static final String PRIORITY_PATTERN =
     org.lockss.daemon.LockssThread.PARAM_NAMED_THREAD_PRIORITY;
 
-  private static Logger log = Logger.getLogger("ParamDoc");
+  private static Logger log = Logger.getLogger();
 
   static Map paramMap = new TreeMap();
   static Map classMap = new TreeMap();
   static Map paramToSymbol = new HashMap();
   static Map paramSymToDefaultSym = new HashMap();
   static Map wdogSymbolToName = new HashMap();
+  static Set excludeClasses = new HashSet();
 
   static Map defaultMap = new TreeMap();
 
@@ -66,6 +68,8 @@ public class ParamDoc {
 	if (arg.startsWith("-")) {
 	  if (arg.startsWith("-o")) {
 	    ofile = argv[++ix];
+	  } else if (arg.startsWith("-x")) {
+	    excludeClasses.add(argv[++ix]);
 	  } else {
 	    usage();
 	  }
@@ -114,7 +118,7 @@ public class ParamDoc {
   }
 
   static void usage() {
-    System.err.println("Usage: ParamDoc [-o outfile] <jars ...>");
+    System.err.println("Usage: ParamDoc [-o outfile] [-x exclude_class] <jars ...>");
     System.exit(1);
   }
 
@@ -160,7 +164,7 @@ public class ParamDoc {
       if (defaultVal instanceof Long) {
 	long val = ((Long)defaultVal).longValue();
 	if (val > 0) {
-	  timeStr = " (" + StringUtil.timeIntervalToString(val) + ")";
+	  timeStr = " (" + TimeUtil.timeIntervalToString(val) + ")";
 	}	  
       }
       pout.println(timeStr);
@@ -182,10 +186,14 @@ public class ParamDoc {
     Class cls;
     String cname = classNameFromEntry(ent);
     if (cname == null) return;
+    if (excludeClasses.contains(cname)) {
+      log.debug2("Excluding: " + cname);
+      return;
+    }
     try {
       cls = Class.forName(cname);
-    } catch (ClassNotFoundException e) {
-      log.error(cname, e);
+    } catch (Exception e) {
+      log.error("Error loading class " + cname);
       return;
     }
     Field flds[] = cls.getDeclaredFields();
@@ -249,7 +257,7 @@ public class ParamDoc {
 	addParam(paramMap, paramName, cls.getName());
 	addParam(classMap, cls.getName(), paramName);
 	putIfNotDifferent(paramToSymbol, paramName, fname,
-			  "Multiple symbols used to define parameter name ");
+			  "Multiple symbols used to define parameter name");
       }
     }
   }
@@ -303,7 +311,7 @@ public class ParamDoc {
   static void putIfNotDifferent(Map map, Object key, Object val, String msg) {
     Object existingVal = map.get(key);
     if (existingVal != null && !existingVal.equals(val)) {
-      System.err.println("*** " +msg+" "+key+" "+val+" "+existingVal);
+      System.err.println("*** " +msg+": "+key+": "+val+", "+existingVal);
     } else {
       map.put(key, val);
     }
@@ -364,10 +372,13 @@ public class ParamDoc {
    * Find a plain file or a directory.
    *
    * @param dirs search paths
-   * @param name filename (basename with extension) or dirname
+   * @param name filename (basename with extension) or dirname, either
+   * absolute, relative or in search path
    * @return <code>null</code> if not found
    */
   public static File find_jar(File[] dirs, String name) {
+    File f = new File(name);
+    if (f.exists()) return f;
     for (int i=0; i<dirs.length; i++) {
       File file = dirs[i];
       if (file.getName().equals(name)) return file;

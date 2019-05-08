@@ -42,7 +42,9 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.state.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.*;
 import org.lockss.clockss.*;
 import org.lockss.test.*;
@@ -56,6 +58,7 @@ import org.lockss.crawler.BaseCrawler.StorePermissionScheme;
  * @version 0.0
  */
 public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
+  L4JLogger log = L4JLogger.getLogger();
 //   private PermissionChecker checker;
 
   private MockLockssDaemon theDaemon;
@@ -72,7 +75,7 @@ public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
 
   public static final String startUrl = "http://www.example.com/index.html";
   private MockCrawlRule crawlRule;
-  private MockAuState aus = new MockAuState();
+  private MockAuState aus;
 
   private MockLinkExtractor extractor = new MockLinkExtractor();
 
@@ -85,7 +88,6 @@ public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
   private String permissionPage = "http://example.com/permission.html";
   private String permissionPage2 = "http://example.com/permission2.html";
   private MockCrawlerFacade mcf;
-  private MockHistoryRepository histRepo;
   
   public static Class testedClasses[] = {
     org.lockss.crawler.BaseCrawler.class
@@ -104,7 +106,7 @@ public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
     
     mau = new MockArchivalUnit();
     mau.setPlugin(new MockPlugin(theDaemon));
-
+    aus = new MockAuState(mau);
     startUrls = ListUtil.list(startUrl);
     cus = new MyMockCachedUrlSet(mau, null);
     mau.setAuCachedUrlSet(cus);
@@ -182,11 +184,9 @@ public class TestBaseCrawler extends LockssPermissionCheckerTestCase {
   }
 
   void setupAuState() {
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    aus.setHistoryRepository(histRepo);
-    histRepo.storeAuState(aus);
-    getMockLockssDaemon().setHistoryRepository(histRepo, mau);
-    histRepo.startService();
+    AuTestUtil.setMockAus(aus);
+    assertSame(aus, AuUtil.getAuState(mau));
+    aus.storeAuState();
   }
 
   public void testWholeCrawlUpdatesLastCrawlTime() {

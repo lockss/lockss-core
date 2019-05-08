@@ -34,31 +34,43 @@ package org.lockss.util;
 
 import java.util.*;
 import org.lockss.test.*;
+import org.lockss.util.time.TimerUtil;
 
 
 /**
  * Test class for <code>org.lockss.scheduler.TimeBase</code>
+ * 
+ * @deprecated {@code org.lockss.util.TimeBase} is deprecated (but is used by
+ *             plugins); use {@code org.lockss.util.time.TimeBase} in
+ *             lockss-util instead.
  */
-
+@Deprecated
 public class TestTimeBase extends LockssTestCase {
+
+  @Deprecated
   public static Class testedClasses[] = {
     org.lockss.util.TimeBase.class
   };
 
-  static Logger log = Logger.getLogger("TestTimeBase");
+  @Deprecated
+  static Logger log = Logger.getLogger();
 
+  @Deprecated
   public void setUp() throws Exception {
     super.setUp();
   }
 
+  @Deprecated
   public void tearDown() throws Exception {
     super.tearDown();
   }
 
+  @Deprecated
   public void testConstants() {
     assertEquals(Long.MAX_VALUE, TimeBase.MAX);
   }
 
+  @Deprecated
   public void testReal() {
     TimeBase.setReal();
     assertFalse(TimeBase.isSimulated());
@@ -67,6 +79,7 @@ public class TestTimeBase extends LockssTestCase {
     assertTrue(TimeBase.nowMs() > now);
   }
 
+  @Deprecated
   public void testSimulated() throws Exception {
     TimeBase.setSimulated();
     assertTrue(TimeBase.isSimulated());
@@ -101,6 +114,7 @@ public class TestTimeBase extends LockssTestCase {
     assertEquals(90000000, TimeBase.nowMs());
   }
 
+  @Deprecated
   public void testCalendar() throws Exception {
     TimeBase.setReal();
     Calendar tbcal = TimeBase.nowCalendar();

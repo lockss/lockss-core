@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,17 +27,24 @@
  */
 package org.lockss.test;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Properties;
 import org.lockss.config.ConfigManager;
 import org.lockss.util.Logger;
+import org.lockss.util.MapUtil;
+import org.lockss.util.TemplateUtil;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -54,11 +61,14 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 public abstract class SpringLockssTestCase extends LockssTestCase4 {
   public static final String PLATFORM_DISK_SPACE_CONFIG_FILENAME =
-      "platform.opt";
+      "platform.txt";
 
-  private static final Logger log =
-      Logger.getLoggerWithInitialLevel("SpringLockssTestCase",
-                                       Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
+
+  public static final String UI_PORT_CONFIGURATION_TEMPLATE =
+    "UiPortConfigTemplate.txt";
+  public static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
+
 
   // The path of a temporary directory where the test data will reside.
   private String tempDirPath = null;
@@ -66,6 +76,15 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   // The path to the configuration file with the platform disk space location
   // definition.
   private String platformDiskSpaceConfigPath = null;
+
+  // The configuration file that specifies the UI port.
+  private File uiPortConfigFile = null;
+
+  // The configuration file that specifies the database properties.
+  private File dbConfigFile = null;
+
+  // The configuration file that specifies the repository.
+  private File repoConfigFile = null;
 
   /**
    * Provides the path to the temporary directory where the test data will
@@ -276,6 +295,171 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     } else {
       // Make the copy.
       FileCopyUtils.copy(source, destination);
+    }
+  }
+
+  /**
+   * Creates the configuration file that specifies the UI port, determined by
+   * picking a currently unused port.
+   * 
+   * @param uiPortConfigTemplateName
+   *          A String with the name of the template used as a source.
+   * @param uiPortConfigFileName
+   *          A String with the name of the UI port configuration file to be
+   *          created.
+   * @throws IOException
+   *           if there are problems reading the template or writing the output.
+   */
+  protected void setUpUiPort(String uiPortConfigTemplateName,
+      String uiPortConfigFileName) throws IOException {
+    if (log.isDebug2())
+      log.debug2("uiPortConfigFileName = " + uiPortConfigFileName);
+
+    // Create the UI port configuration file output file.
+    uiPortConfigFile = new File(getTempDirPath(), uiPortConfigFileName);
+    if (log.isDebug3()) log.debug("uiPortConfigFile = " + uiPortConfigFile);
+
+    // Find an unused port.
+    int uiPort = TcpTestUtil.findUnboundTcpPort();
+    if (log.isDebug3()) log.debug("uiPort = " + uiPort);
+
+    // Write the UI port configuration file using the template file.
+    try (Writer writer = new BufferedWriter(new FileWriter(uiPortConfigFile))) {
+      TemplateUtil.expandTemplate(uiPortConfigTemplateName, writer,
+	  MapUtil.map("UIPort", Integer.toString(uiPort)));
+    }
+  }
+
+  /**
+   * Provides the UI port configuration file.
+   * 
+   * @return a File with the UI port configuration file.
+   */
+  protected File getUiPortConfigFile() {
+    return uiPortConfigFile;
+  }
+
+  /**
+   * Creates the configuration file that specifies the database properties.
+   * 
+   * @param dbConfigTemplateName
+   *          A String with the name of the template used as a source.
+   * @param dbConfigFileName
+   *          A String with the name of the database configuration file to be
+   *          created.
+   * @throws IOException
+   *           if there are problems reading the template or writing the output.
+   */
+  protected void setUpDbConfig(String dbConfigTemplateName,
+      String dbConfigFileName) throws IOException {
+    if (log.isDebug2()) log.debug2("dbConfigFileName = " + dbConfigFileName);
+
+    // Create the database configuration file output file.
+    dbConfigFile = new File(getTempDirPath(), dbConfigFileName);
+    if (log.isDebug3()) log.debug("dbConfigFile = " + dbConfigFile);
+
+    // Write the database configuration file using the template file.
+    try (Writer writer = new BufferedWriter(new FileWriter(dbConfigFile))) {
+      TemplateUtil.expandTemplate(dbConfigTemplateName, writer,
+	  MapUtil.map("DbPath", getTempDirPath()));
+    }
+  }
+
+  /**
+   * Creates the configuration file that specifies the repository.
+   * 
+   * @param repoConfigTemplateName
+   *          A String with the name of the template used as a source.
+   * @param repoConfigFileName
+   *          A String with the name of the repository configuration file to be
+   *          created.
+   * @throws IOException
+   *           if there are problems reading the template or writing the output.
+   */
+  protected void setUpRepositoryConfig(String repoConfigTemplateName,
+      String repoConfigFileName) throws IOException {
+    if (log.isDebug2())
+      log.debug2("repoConfigFileName = " + repoConfigFileName);
+
+    // Create the repository configuration file output file.
+    repoConfigFile = new File(getTempDirPath(), repoConfigFileName);
+    if (log.isDebug3()) log.debug("repoConfigFile = " + repoConfigFile);
+
+    // Write the repository configuration file using the template file.
+    try (Writer writer = new BufferedWriter(new FileWriter(repoConfigFile))) {
+      TemplateUtil.expandTemplate(repoConfigTemplateName, writer,
+	  MapUtil.map("RepoPath", getTempDirPath()));
+    }
+  }
+
+  /**
+   * Provides the database configuration file.
+   * 
+   * @return a File with the database configuration file.
+   */
+  protected File getDbConfigFile() {
+    return dbConfigFile;
+  }
+
+  /**
+   * Provides the repository configuration file.
+   * 
+   * @return a File with the repository configuration file.
+   */
+  protected File getRepositoryConfigFile() {
+    return repoConfigFile;
+  }
+
+  /**
+   * Encapsulation of web authentication credentials.
+   */
+  protected class Credentials {
+    private final String user;
+    private final String password;
+
+    /**
+     * Constructor.
+     * 
+     * @param user
+     *          A String with the user identifier.
+     * @param password
+     *          A String with the password used to authenticate the user.
+     */
+    public Credentials (String user, String password) {
+      this.user = user;
+      this.password = password;
+    }
+
+    public String getUser() {
+      return user;
+    }
+
+    public String getPassword() {
+      return password;
+    }
+
+    /**
+     * Sets up these credentials for Basic authentication.
+     * 
+     * @param headers
+     *          An HttpHeaders with the HTTP headers where to set up Basic
+     *          authentication.
+     */
+    public void setUpBasicAuthentication(HttpHeaders headers) {
+      // Check whether there are credentials to be added.
+      if (user != null && password != null) {
+        // Yes: Set the authentication credentials.
+        String credentialsInHeader = user + ":" + password;
+        String authHeaderValue = "Basic " + Base64.getEncoder().encodeToString(
+            credentialsInHeader.getBytes(Charset.forName("US-ASCII")));
+
+        headers.set("Authorization", authHeaderValue);
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "[Credentials user=" + user + ", password=" + password + "]";
     }
   }
 }

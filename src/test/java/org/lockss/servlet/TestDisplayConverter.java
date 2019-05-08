@@ -33,10 +33,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.servlet;
 
 import org.lockss.test.LockssTestCase;
-import org.lockss.util.Constants;
-import org.lockss.util.Deadline;
-import org.lockss.util.ListUtil;
-import org.lockss.util.Logger;
+import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 
 import java.text.Format;
 import java.util.Date;
@@ -45,7 +43,7 @@ import static org.lockss.daemon.status.ColumnDescriptor.*;
 
 public class TestDisplayConverter extends LockssTestCase {
 
-  static Logger log = Logger.getLogger("TestDisplayConverter");
+  static Logger log = Logger.getLogger();
 
   private DisplayConverter dc;
 

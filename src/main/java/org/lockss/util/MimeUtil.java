@@ -41,7 +41,7 @@ import java.util.*;
 // XXX Will eventually need to allow plugins to override/add mappings.
 // XXX Should be initialized from mime.types resource
 public class MimeUtil {
-  static Logger log = Logger.getLogger("MimeUtil");
+  static Logger log = Logger.getLogger();
 
   static Map<String,String> mimeExtensionMap = new HashMap<String,String>();
   static Map<String,String> extensionMimeMap = new HashMap<String,String>();

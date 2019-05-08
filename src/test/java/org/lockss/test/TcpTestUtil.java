@@ -34,17 +34,18 @@ package org.lockss.test;
 
 import java.io.*;
 import java.net.*;
+import java.util.*;
 import org.lockss.util.*;
 
 /**
  *  TCP Utilities used for testing.
  */
 public class TcpTestUtil {
-  static Logger log = Logger.getLogger("TcpTestUtil");
+  static Logger log = Logger.getLogger();
 
   static int nextPort = 2000;
 
-  public static int findUnboundTcpPort() {
+  public static int findUnboundTcpPortOld() {
     for (int p = nextPort; p < 65535; p++) {
       try {
 	ServerSocket sock = new ServerSocket(p);
@@ -56,5 +57,19 @@ public class TcpTestUtil {
     }
     log.error("Couldn't find unused TCP port");
     return -1;
+  }
+
+  public static int findUnboundTcpPort() {
+    return new Random().ints(2000, 65535)
+      .filter(p -> {
+	  try {
+	    ServerSocket sock = new ServerSocket(p);
+	    sock.close();
+	    return true;
+	  } catch (IOException e) {
+	    return false;
+	  }})
+      .findFirst()
+      .orElse(-1);
   }
 }

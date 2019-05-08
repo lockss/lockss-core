@@ -34,6 +34,7 @@ package org.lockss.util;
 
 import org.lockss.config.*;
 import org.lockss.test.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Test class for org.lockss.util.RateLimiter
@@ -209,15 +210,14 @@ public class TestRateLimiter extends LockssTestCase {
     lim.event();
     assertFalse(lim.isEventOk());
     assertEquals(5, lim.timeUntilEventOk());
-    DoLater doer = null;
-      doer = new DoLater(100) {
-	  protected void doit() {
-	    TimeBase.step(5);
-	  }
-	};
-      doer.start();
-      assertTrue(lim.waitUntilEventOk());
-      doer.cancel();
+    DoLater doer = new DoLater(100) {
+	protected void doit() {
+	  TimeBase.step(5);
+	}
+      };
+    doer.start();
+    assertTrue(lim.waitUntilEventOk());
+    doer.cancel();
   }
 
   public void xxxtestFifoWaitAndSignalEvent() throws InterruptedException {

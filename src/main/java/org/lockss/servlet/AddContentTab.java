@@ -1,10 +1,6 @@
 /*
- * $Id DisplayContentStatus.java 2013/7/02 14:52:00 rwincewicz $
- */
 
-/*
-
- Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,18 +29,21 @@ package org.lockss.servlet;
 
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.lockss.config.TdbAu;
-import org.lockss.config.TdbUtil;
 import org.lockss.daemon.TitleConfig;
 import org.lockss.daemon.TitleSet;
 import org.lockss.daemon.status.ColumnDescriptor;
 import org.lockss.daemon.status.StatusService;
 import org.lockss.daemon.status.StatusTable;
+import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.RemoteApi;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.mortbay.html.*;
-
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpSession;
@@ -64,7 +63,7 @@ import java.util.List;
  */
 public class AddContentTab extends LockssServlet {
     
-  private static final Logger log = Logger.getLogger(AddContentTab.class);
+  private static final Logger log = Logger.getLogger();
 
     /**
      * Supported output formats
@@ -132,8 +131,11 @@ public class AddContentTab extends LockssServlet {
      * Handle a request
      *
      * @throws java.io.IOException
+     * @throws DbException
+     * @throws LockssRestException
      */
-    public void lockssHandleRequest() throws IOException {
+    public void lockssHandleRequest()
+	throws IOException, DbException, LockssRestException {
         if (!StringUtil.isNullString(req.getParameter("isDaemonReady"))) {
             if (pluginMgr.areAusStarted()) {
                 resp.setStatus(200);
@@ -234,12 +236,14 @@ public class AddContentTab extends LockssServlet {
         }
     }
 
-    private void doHtmlStatusTable() throws IOException {
+    private void doHtmlStatusTable()
+	throws IOException, DbException, LockssRestException {
         writePage(doHtmlStatusTable0());
     }
 
     // Build the table, adding elements to page
-    private Page doHtmlStatusTable0() throws IOException {
+    private Page doHtmlStatusTable0()
+	throws IOException, DbException, LockssRestException {
         page = new Page();
         addJS("js/DisplayContentTab.js");
         HttpSession session = getSession();
@@ -583,106 +587,6 @@ public class AddContentTab extends LockssServlet {
         return (rowCount % 2 == 0) ? "even-row" : "odd-row";
     }
 
-    // Handle lists
-    private String getDisplayString(Object val, int type) {
-        if (val instanceof List) {
-            StringBuilder sb = new StringBuilder();
-            for (Object obj : ((List) val)) {
-                sb.append(getDisplayString0(obj, type));
-            }
-            return sb.toString();
-        } else {
-            return getDisplayString0(val, type);
-        }
-    }
-
-    // Process References and other links
-    private String getDisplayString0(Object val, int type) {
-        if (val instanceof StatusTable.Reference) {
-            return getRefString((StatusTable.Reference) val, type);
-        } else if (val instanceof StatusTable.SrvLink) {
-            // Display as link iff user is allowed access to the target servlet
-            StatusTable.SrvLink slink = (StatusTable.SrvLink) val;
-            if (isServletRunnable(slink.getServletDescr())) {
-                return getSrvLinkString(slink, type);
-            } else {
-                return getDisplayString1(StatusTable.getActualValue(val), type);
-            }
-        } else if (val instanceof StatusTable.LinkValue) {
-            // A LinkValue type we don't know about.  Just display its embedded
-            // value.
-            return getDisplayString1(StatusTable.getActualValue(val), type);
-        } else {
-            return getDisplayString1(val, type);
-        }
-    }
-
-    // turn References into html links
-    private String getRefString(StatusTable.Reference ref, int type) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("table=");
-        sb.append(ref.getTableName());
-        String key = ref.getKey();
-        if (!StringUtil.isNullString(key)) {
-            sb.append("&key=");
-            sb.append(urlEncode(key));
-        }
-        Properties refProps = ref.getProperties();
-        if (refProps != null) {
-            for (Map.Entry<Object, Object> objectObjectEntry : refProps.entrySet()) {
-                Map.Entry ent = (Map.Entry) objectObjectEntry;
-                sb.append("&");
-                sb.append(ent.getKey());
-                sb.append("=");
-                sb.append(urlEncode((String) ent.getValue()));
-            }
-        }
-        if (ref.getPeerId() != null) {
-            return srvAbsLink(ref.getPeerId(),
-                    myServletDescr(),
-                    getDisplayString(ref.getValue(), type),
-                    sb.toString());
-        } else {
-            return srvLink(myServletDescr(),
-                    getDisplayString(ref.getValue(), type),
-                    sb.toString());
-        }
-    }
-
-    // turn UrlLink into html link
-    private String getSrvLinkString(StatusTable.SrvLink link, int type) {
-        return srvLink(link.getServletDescr(),
-                getDisplayString1(link.getValue(), type),
-                link.getArgs());
-    }
-
-    // add display attributes from a DisplayedValue
-    private String getDisplayString1(Object val, int type) {
-        if (val instanceof StatusTable.DisplayedValue) {
-            StatusTable.DisplayedValue aval = (StatusTable.DisplayedValue) val;
-            String str = aval.hasDisplayString()
-                    ? HtmlUtil.htmlEncode(aval.getDisplayString())
-                    : getDisplayString1(aval.getValue(), type);
-            String color = aval.getColor();
-            String footnote = aval.getFootnote();
-            if (color != null) {
-                str = "<font color=" + color + ">" + str + "</font>";
-            }
-            if (aval.getBold()) {
-                str = "<b>" + str + "</b>";
-            }
-            if (footnote != null) {
-                str = str + addFootnote(footnote);
-            }
-            return str;
-        } else {
-            String str = convertDisplayString(val, type);
-            if (type == ColumnDescriptor.TYPE_STRING) {
-                str = HtmlUtil.htmlEncode(str);
-            }
-            return str;
-        }
-    }
     // Thread-safe formatters.
     // FastDateFormat is thread-safe, NumberFormat & subclasses aren't.
     /**
@@ -786,7 +690,7 @@ public class AddContentTab extends LockssServlet {
                     return ((IPAddr) val).getHostAddress();
                 case ColumnDescriptor.TYPE_TIME_INTERVAL:
                     long millis = ((Number) val).longValue();
-                    return StringUtil.timeIntervalToString(millis);
+                    return TimeUtil.timeIntervalToString(millis);
             }
         } catch (NumberFormatException e) {
             log.warning("Bad number: " + val.toString(), e);

@@ -36,7 +36,7 @@ import org.lockss.util.Logger;
  * A JDBC context that allows the cancellation of SQL queries.
  */
 public class JdbcContext {
-  private static Logger log = Logger.getLogger(JdbcContext.class);
+  private static Logger log = Logger.getLogger();
 
   private Connection connection;
   private Statement statement;

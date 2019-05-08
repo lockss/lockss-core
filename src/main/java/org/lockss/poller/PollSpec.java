@@ -55,7 +55,7 @@ public class PollSpec {
   public static final String SINGLE_NODE_LWRBOUND = ".";
   public static final String DEFAULT_PLUGIN_VERSION = "1";
 
-  private static Logger theLog = Logger.getLogger("PollSpec");
+  private static Logger theLog = Logger.getLogger();
 
   private String auId;
   private String pluginVersion;

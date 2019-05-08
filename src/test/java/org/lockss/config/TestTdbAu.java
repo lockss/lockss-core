@@ -57,7 +57,7 @@ public class TestTdbAu extends LockssTestCase {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestTdbAu");
+  static Logger log = Logger.getLogger();
 
   /**
    * Test creating valid TdbAu.

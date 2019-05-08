@@ -53,7 +53,7 @@ import org.lockss.util.StringUtil;
  * This is for use by PLN admins when changing IP of a node.
  */
 public class ReputationTransfers {
-  private static final Logger log = Logger.getLogger("ReputationTransfers");
+  private static final Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "poll.v3.";
 

@@ -35,6 +35,9 @@ package org.lockss.daemon;
 import java.util.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 
 
@@ -43,7 +46,7 @@ import org.lockss.test.*;
  */
 
 public class TestLockssThread extends LockssTestCase {
-//   protected static Logger log = Logger.getLogger("TestLockssThread");
+//   protected static Logger log = Logger.getLogger();
 
   LockssDaemon daemon;
   WatchdogService wdog;

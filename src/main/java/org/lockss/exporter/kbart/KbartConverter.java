@@ -103,7 +103,7 @@ import static org.lockss.exporter.kbart.KbartTitle.Field.*;
  */
 public class KbartConverter {
 
-  private static Logger log = Logger.getLogger("KbartConverter");
+  private static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "kbart.";
 

@@ -42,7 +42,7 @@ import org.lockss.util.*;
  */
 
 public class MockArchiveReader extends ArchiveReader {
-  Logger log = Logger.getLogger("MockArchiveReader");
+  Logger log = Logger.getLogger();
 
   private UrlCacher myUrlCacher;
   private InputStream myInputStream;

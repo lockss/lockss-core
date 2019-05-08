@@ -33,10 +33,13 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.plugin;
 
 import java.util.*;
+import java.io.*;
+import java.net.*;
 
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.test.*;
 import org.lockss.test.*;
 
 /**
@@ -50,6 +53,46 @@ public class TestPluginTestUtil extends LockssTestCase {
     super.setUp();
     pluginMgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();
+  }
+
+  String GOOD_PLUG_NAME = "org.lockss.plugin.definable.GoodPlugin";
+
+  public void testFindPlugin() throws Exception {
+    Plugin plug = PluginTestUtil.findPlugin(GOOD_PLUG_NAME);
+    assertNotNull(plug);
+    assertNull(PluginTestUtil.findPlugin("org.lockss.nope.NotPlugin"));
+  }
+
+  public void testFindPluginWithClassLoader() throws Exception {
+    ClassLoader loader = this.getClass().getClassLoader();
+    Plugin plug = PluginTestUtil.findPlugin(GOOD_PLUG_NAME, loader);
+    assertNotNull(plug);
+    assertNull(PluginTestUtil.findPlugin("org.lockss.nope.NotPlugin", loader));
+  }
+
+  String PLUG_SRC =
+    "<map>\n" +
+    " <entry>\n" +
+    "  <string>plugin_identifier</string>\n" +
+    "  <string>aplug.AaaPlugin</string>\n" +
+    " </entry>\n" +
+    "</map>\n";
+
+
+  public void testFindPluginWithClassLoader2() throws Exception {
+    String pname = "AaaPlugin";
+    String fqpname = "aplug." + pname;
+    File dir = getTempDir("plugs");
+    File plugdir = new File(dir, "aplug");
+    FileUtil.ensureDirExists(plugdir);
+    // classpath element must end with slash
+    String pathElement = dir.toString() + "/";
+    ClassLoader loader =
+      new URLClassLoader(ClassPathUtil.toUrlArray(ListUtil.list(pathElement)));
+    assertNull(PluginTestUtil.findPlugin(fqpname, loader));
+    FileTestUtil.writeFile(new File(plugdir, pname + ".xml"), PLUG_SRC);
+    Plugin plug = PluginTestUtil.findPlugin(fqpname, loader);
+    assertNotNull(plug);
   }
 
   public void testCreateAuFromTdb() throws Exception {

@@ -37,6 +37,7 @@ import java.security.MessageDigest;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.app.*;
 import org.lockss.plugin.*;
 
@@ -51,7 +52,7 @@ import org.lockss.plugin.*;
 public class HashSvcQueueImpl
   extends BaseLockssDaemonManager implements HashService, ConfigurableManager {
 
-  protected static Logger log = Logger.getLogger("HashSvcQueueImpl");
+  protected static Logger log = Logger.getLogger();
 
   // Queue of outstanding hash requests.  The currently executing request,
   // if any, is on the queue, but not necessarily still at the head.

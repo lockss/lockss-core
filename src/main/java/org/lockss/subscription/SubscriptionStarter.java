@@ -59,7 +59,7 @@ import org.lockss.util.RateLimiter;
  * @author Fernando Garcia-Loygorri
  */
 public class SubscriptionStarter extends LockssRunnable {
-  private static Logger log = Logger.getLogger(SubscriptionStarter.class);
+  private static Logger log = Logger.getLogger();
 
   private static final String CANNOT_CONNECT_TO_DB_ERROR_MESSAGE =
       "Cannot connect to the database";

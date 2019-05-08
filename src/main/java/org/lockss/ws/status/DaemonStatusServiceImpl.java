@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2013-2015 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,19 +58,17 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.RangeCachedUrlSetSpec;
+import org.lockss.db.DbException;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.CachedUrl;
 import org.lockss.plugin.CachedUrlSet;
 import org.lockss.plugin.CuIterator;
 import org.lockss.plugin.PluginManager;
-import org.lockss.util.BuildInfo;
-import org.lockss.util.DaemonVersion;
-import org.lockss.util.Logger;
-import org.lockss.util.PlatformUtil;
-import org.lockss.util.PlatformVersion;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.ws.entities.AuStatus;
 import org.lockss.ws.entities.AuWsResult;
 import org.lockss.ws.entities.CrawlWsResult;
@@ -99,7 +93,7 @@ import org.lockss.ws.status.DaemonStatusService;
 @WebService
 public class DaemonStatusServiceImpl implements DaemonStatusService {
   public static String BUILD_TIMESTAMP_FORMAT = "dd-MMM-yy HH:mm:ss zzz";
-  private static Logger log = Logger.getLogger(DaemonStatusServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides an indication of whether the daemon is ready.
@@ -469,10 +463,25 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
 	  log.debug3(DEBUG_HEADER + "results = "
 	      + repositorySpaceHelper.nonDefaultToString(results));
 	}
+
+	if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
+	    + repositorySpaceHelper.nonDefaultToString(results));
       } catch (QueryExecutionException qee) {
 	log.error("Caught QueryExecuteException", qee);
 	log.error("fullQuery = '" + fullQuery + "'");
 	throw new LockssWebServicesFault(qee,
+	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
+		+ repositorySpaceQuery));
+      } catch (DbException dbe) {
+	log.error("Caught DbException", dbe);
+	log.error("fullQuery = '" + fullQuery + "'");
+	throw new LockssWebServicesFault(dbe,
+	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
+		+ repositorySpaceQuery));
+      } catch (LockssRestException lre) {
+	log.error("Caught LockssRestException", lre);
+	log.error("fullQuery = '" + fullQuery + "'");
+	throw new LockssWebServicesFault(lre,
 	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
 		+ repositorySpaceQuery));
       }
@@ -484,8 +493,6 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
 		+ repositorySpaceQuery));
     }
 
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
-	+ repositorySpaceHelper.nonDefaultToString(results));
     return results;
   }
 
@@ -501,57 +508,72 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
    * @throws LockssWebServicesFault
    */
   @Override
+  // XXXREPO
   public List<RepositoryWsResult> queryRepositories(String repositoryQuery)
       throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "queryRepositories(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "repositoryQuery = "
-	+ repositoryQuery);
+    throw new UnsupportedOperationException("XXXREPO");
+//     final String DEBUG_HEADER = "queryRepositories(): ";
+//     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "repositoryQuery = "
+// 	+ repositoryQuery);
 
-    RepositoryHelper repositoryHelper = new RepositoryHelper();
-    List<RepositoryWsResult> results = null;
+//     RepositoryHelper repositoryHelper = new RepositoryHelper();
+//     List<RepositoryWsResult> results = null;
 
-    // Create the full query.
-    String fullQuery = createFullQuery(repositoryQuery,
-	RepositoryHelper.SOURCE_FQCN, RepositoryHelper.PROPERTY_NAMES,
-	RepositoryHelper.RESULT_FQCN);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "fullQuery = " + fullQuery);
+//     // Create the full query.
+//     String fullQuery = createFullQuery(repositoryQuery,
+// 	RepositoryHelper.SOURCE_FQCN, RepositoryHelper.PROPERTY_NAMES,
+// 	RepositoryHelper.RESULT_FQCN);
+//     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "fullQuery = " + fullQuery);
 
-    // Create a new JoSQL query.
-    Query q = new Query();
+//     // Create a new JoSQL query.
+//     Query q = new Query();
 
-    try {
-      // Parse the SQL-like query.
-      q.parse(fullQuery);
+//     try {
+//       // Parse the SQL-like query.
+//       q.parse(fullQuery);
 
-      try {
-	// Execute the query.
-	QueryResults qr = q.execute(repositoryHelper.createUniverse());
+//       try {
+// 	// Execute the query.
+// 	QueryResults qr = q.execute(repositoryHelper.createUniverse());
 
-	// Get the query results.
-	results = (List<RepositoryWsResult>)qr.getResults();
-	if (log.isDebug3()) {
-	  log.debug3(DEBUG_HEADER + "results.size() = " + results.size());
-	  log.debug3(DEBUG_HEADER + "results = "
-	      + repositoryHelper.nonDefaultToString(results));
-	}
-      } catch (QueryExecutionException qee) {
-	log.error("Caught QueryExecuteException", qee);
-	log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qee,
-	    new LockssWebServicesFaultInfo("repositoryQuery = "
-		+ repositoryQuery));
-      }
-    } catch (QueryParseException qpe) {
-      log.error("Caught QueryParseException", qpe);
-      log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qpe,
-	    new LockssWebServicesFaultInfo("repositoryQuery = "
-		+ repositoryQuery));
-    }
+// 	// Get the query results.
+// 	results = (List<RepositoryWsResult>)qr.getResults();
+// 	if (log.isDebug3()) {
+// 	  log.debug3(DEBUG_HEADER + "results.size() = " + results.size());
+// 	  log.debug3(DEBUG_HEADER + "results = "
+// 	      + repositoryHelper.nonDefaultToString(results));
+// 	}
 
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
-	+ repositoryHelper.nonDefaultToString(results));
-    return results;
+// 	if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
+// 	    + repositoryHelper.nonDefaultToString(results));
+//       } catch (QueryExecutionException qee) {
+// 	log.error("Caught QueryExecuteException", qee);
+// 	log.error("fullQuery = '" + fullQuery + "'");
+// 	throw new LockssWebServicesFault(qee,
+// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
+// 		+ repositoryQuery));
+//       } catch (DbException dbe) {
+// 	log.error("Caught DbException", dbe);
+// 	log.error("fullQuery = '" + fullQuery + "'");
+// 	throw new LockssWebServicesFault(dbe,
+// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
+// 		+ repositoryQuery));
+//       } catch (LockssRestException lre) {
+// 	log.error("Caught LockssRestException", lre);
+// 	log.error("fullQuery = '" + fullQuery + "'");
+// 	throw new LockssWebServicesFault(lre,
+// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
+// 		+ repositoryQuery));
+//       }
+//     } catch (QueryParseException qpe) {
+//       log.error("Caught QueryParseException", qpe);
+//       log.error("fullQuery = '" + fullQuery + "'");
+// 	throw new LockssWebServicesFault(qpe,
+// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
+// 		+ repositoryQuery));
+//     }
+
+//     return results;
   }
 
   /**

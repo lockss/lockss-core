@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This should be identical to the file of the same name in the
+     lockss-util project test/resources.  But, in this project, lockss-util
+     is ahead of lockss-util-test on the classpath, so the empty file in
+     lockss-util main/resources is used.  Moving the lockss-util-test
+     dependency ahead of lockss-util in this project's pom would alleviate
+     the need for a copy of the file, but then the testing config would
+     also be in effect in the testing scope of all projects that depend on
+     lockss-core, which seems undesireable. -->
+
+  <!-- Needed for logging tests in org.lockss.util. -->
+
+<Configuration status="WARN" packages="org.lockss.log">
+
+  <Appenders>
+    <ListAppender name="ListAppender">
+    </ListAppender>
+  </Appenders>
+
+  <Loggers>
+    <!-- Record events for org.lockss.log.TestLogger -->
+    <Logger name="test" level="DEBUG">
+      <AppenderRef ref="ListAppender"/>
+    </Logger>
+
+    <!-- Default log levels -->
+    <Logger name="test.critical" level="FATAL"/>
+    <Logger name="test.error" level="ERROR"/>
+    <Logger name="test.warning" level="WARN"/>
+    <Logger name="test.info" level="INFO"/>
+    <Logger name="test.debug" level="DEBUG"/>
+    <Logger name="test.debug.w" level="WARN"/>
+    <Logger name="test.debug2" level="DEBUG2"/>
+    <Logger name="test.debug3" level="DEBUG3"/>
+    <Logger name="test.trace" level="TRACE"/>
+
+    <Logger name="test.sw" level="SITE_WARNING"/>
+    <Logger name="test.se" level="SITE_ERROR"/>
+
+  </Loggers>
+</Configuration>

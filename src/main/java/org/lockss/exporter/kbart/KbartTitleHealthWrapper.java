@@ -44,7 +44,7 @@ import org.lockss.util.*;
  */
 public class KbartTitleHealthWrapper extends KbartTitle {
 
-  protected static Logger log = Logger.getLogger("KbartTitleHealthWrapper");   
+  protected static Logger log = Logger.getLogger();
   
   /**
    * A health value, to 2 decimal places.

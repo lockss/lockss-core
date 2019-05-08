@@ -101,7 +101,7 @@ public class TestDbManager extends LockssTestCase {
     assertTrue(dbManager.isReady());
 
     Connection conn = dbManager.getConnection();
-    Logger logger = Logger.getLogger("testCommitOrRollback");
+    Logger logger = Logger.getLogger();
     DbManager.commitOrRollback(conn, logger);
     DbManager.safeCloseConnection(conn);
 

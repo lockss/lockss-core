@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2006-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2006-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,6 +41,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 /**
@@ -97,6 +94,7 @@ public class TestBlockingSslStreamComm1 extends TestBlockingStreamComm {
     p.setProperty(BlockingStreamComm.PARAM_USE_V3_OVER_SSL, "true");
     p.setProperty(BlockingStreamComm.PARAM_SSL_KEYSTORE_NAME, KS_NAME);
     p.setProperty(BlockingStreamComm.PARAM_USE_SSL_CLIENT_AUTH, "true");
+    p.setProperty(LcapStreamComm.PARAM_ENABLED, "true");
     setKeyStoreProps(p, "id1", KS_NAME,
 		     keyStoreFileName, keyStorePassword, keyPassword, null);
   }

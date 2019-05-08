@@ -33,61 +33,80 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.crawler;
 
 import java.util.*;
-
-import org.apache.commons.lang3.mutable.MutableInt;
-import org.apache.commons.collections.set.ListOrderedSet;
+import org.apache.commons.collections.iterators.IteratorChain;
 import org.apache.commons.collections.map.LinkedMap;
-import org.apache.commons.collections.iterators.*;
-import org.lockss.util.*;
+import org.apache.commons.collections.set.ListOrderedSet;
+import org.apache.commons.lang3.mutable.MutableInt;
+import org.lockss.app.LockssDaemon;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
+import org.lockss.config.CurrentConfig;
+import org.lockss.daemon.Crawler;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.AuUtil;
+import org.lockss.plugin.PluginManager;
+import org.lockss.util.CollectionUtil;
+import org.lockss.util.Logger;
+import org.lockss.util.StringPool;
+import org.lockss.util.StringUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.CacheException;
-import org.lockss.app.*;
-import org.lockss.daemon.*;
-import org.lockss.config.*;
-import org.lockss.plugin.*;
 
-/** Status of an individual crawl, including start, stop times, bytes
- * fetched, and URL counters/sets (fetched, excluded, errors, etc.)  A
- * config param ({@link #PARAM_RECORD_URLS}) controls whether the sets/maps
- * of URLs are recorded and displayed in the UI, or merely counted.
+/**
+ * Status of an individual crawl, including start, stop times, bytes fetched,
+ * and URL counters/sets (fetched, excluded, errors, etc.)  A config param
+ * ({@link #PARAM_RECORD_URLS}) controls whether the sets/maps of URLs are
+ * recorded and displayed in the UI, or merely counted.
+ *
  * @ParamCategory Crawler
-*/
+ */
 public class CrawlerStatus {
-  
-  private static final Logger log = Logger.getLogger(CrawlerStatus.class);
+
+  private static final Logger log = Logger.getLogger();
 
   public static final String ALL_URLS = "all";
 
-  /** Determines which sets/maps of URLs are recorded and which are only
-   * counted.  (Recording URLs in crawl status takes lots of memory.)  If
-   * the substrings <code>fetched</code>, <code>excluded</code>,
+  /**
+   * Determines which sets/maps of URLs are recorded and which are only counted.
+   *  (Recording URLs in crawl status takes lots of memory.)  If the substrings
+   * <code>fetched</code>,
+   * <code>excluded</code>,
    * <code>parsed</code>, <code>notModified</code>, <code>pending</code>,
    * <code>error</code> appear in the value of the parameter, the
-   * corresponding sets or URLs will be recorded.  <code>all</code> causes
-   * all sets to be recorded. */
+   * corresponding sets or URLs will be recorded.  <code>all</code> causes all
+   * sets to be recorded.
+   */
   public static final String PARAM_RECORD_URLS =
-    Configuration.PREFIX + "crawlStatus.recordUrls";
+      Configuration.PREFIX + "crawlStatus.recordUrls";
   public static final String DEFAULT_RECORD_URLS = ALL_URLS;
 
-  /** Determines which sets/maps of URLs are kept after the crawl ends.
-   * (Accumulating lots of URL lists from multiple crawls can cause the
-   * daemon to run out of memory.)  If the substrings <code>fetched</code>,
+  /**
+   * Determines which sets/maps of URLs are kept after the crawl ends.
+   * (Accumulating lots of URL lists from multiple crawls can cause the daemon
+   * to run out of memory.)  If the substrings
+   * <code>fetched</code>,
    * <code>excluded</code>, <code>parsed</code>, <code>notModified</code>,
    * <code>pending</code>, <code>error</code>, <code>referrers</code>
-   * appear in the value of the parameter, the corresponding sets or URLs
-   * will be recorded.  <code>all</code> causes all sets to be kept. */
+   * appear in the value of the parameter, the corresponding sets or URLs will
+   * be recorded.
+   * <code>all</code> causes all sets to be kept.
+   */
   public static final String PARAM_KEEP_URLS =
-    Configuration.PREFIX + "crawlStatus.keepUrls";
+      Configuration.PREFIX + "crawlStatus.keepUrls";
   public static final String DEFAULT_KEEP_URLS = "errors, sources, referrers";
 
-  /** Max number of off-site excluded URLs to keep; any more are just
-   * counted.  -1 is the same as infinite. */
+  /**
+   * Max number of off-site excluded URLs to keep; any more are just counted.
+   * -1 is the same as infinite.
+   */
   public static final String PARAM_KEEP_OFF_HOST_EXCLUDES =
-    Configuration.PREFIX + "crawlStatus.keepOffHostExcludes";
+      Configuration.PREFIX + "crawlStatus.keepOffHostExcludes";
   public static final int DEFAULT_KEEP_OFF_HOST_EXCLUDES = 50;
 
-  /** Determines whether to record referrer URLs, and how many.  See also
+  /**
+   * Determines whether to record referrer URLs, and how many.  See also
    * org.lockss.crawlStatus.recordReferrerTypes
-   * 
+   *
    * <p>Set to one of:</p>
    * <dl>
    * <dt>None</dt><dd>Referrers will not be recorded.</dd>
@@ -98,12 +117,13 @@ public class CrawlerStatus {
    * </dl>
    */
   public static final String PARAM_RECORD_REFERRERS_MODE =
-    Configuration.PREFIX + "crawlStatus.recordReferrers";
+      Configuration.PREFIX + "crawlStatus.recordReferrers";
   public static final RecordReferrersMode DEFAULT_RECORD_REFERRERS_MODE =
-    RecordReferrersMode.None;
+      RecordReferrersMode.None;
 
-  /** Specifies the types of URLs whose referrers will be recorded.  See
-   * also org.lockss.crawlStatus.recordReferrers
+  /**
+   * Specifies the types of URLs whose referrers will be recorded.  See also
+   * org.lockss.crawlStatus.recordReferrers
    *
    * <p>Set to one of:</p>
    * <dl>
@@ -123,28 +143,31 @@ public class CrawlerStatus {
    * </dl>
    */
   public static final String PARAM_RECORD_REFERRER_TYPES =
-    Configuration.PREFIX + "crawlStatus.recordReferrerTypes";
+      Configuration.PREFIX + "crawlStatus.recordReferrerTypes";
   public static final RecordReferrerTypes DEFAULT_RECORD_REFERRER_TYPES =
-    RecordReferrerTypes.All;
+      RecordReferrerTypes.All;
 
-  /** Record no referrer info, only the first referrer to any URL, or all
-   * referrers */
-  public enum RecordReferrersMode {None, First, All};
+  /**
+   * Record no referrer info, only the first referrer to any URL, or all
+   * referrers
+   */
+  public enum RecordReferrersMode {None, First, All}
 
-  /** URLs whose referrers are recorded.  See
-   * {@link #PARAM_RECORD_REFERRER_TYPES} */
+  /**
+   * URLs whose referrers are recorded.  See {@link #PARAM_RECORD_REFERRER_TYPES}
+   */
   public enum RecordReferrerTypes {
-    All, Included, Excluded, ExcludedOnHost, ExcludedOffHost};
+    All, Included, Excluded, ExcludedOnHost, ExcludedOffHost}
 
-  public enum ReferrerType {Included, Excluded};
+  public enum ReferrerType {Included, Excluded}
 
   public static String HOST_PERM_ERR_MSG = "No permission for host";
   public static String NO_PERM_STATMENT_ERR_MSG = "No permission statement on permission page";
   public static String UNABLE_TO_FETCH_PERM_ERR_MSG = "Unable to fetch permission page";
   public static String UNABLE_TO_FETCH_PROBE_PERM_ERR_MSG = "Unable to fetch probe permission page";
-  public static String START_URL_ERR_MSG = "Failed to fetch start url"; 
-  
-  static Map<Integer,String> DEFAULT_MESSAGES = new HashMap();
+  public static String START_URL_ERR_MSG = "Failed to fetch start url";
+
+  static Map<Integer, String> DEFAULT_MESSAGES = new HashMap();
   public static StringPool CRAWL_STATUS_POOL = new StringPool("Crawl Status");
 
   static {
@@ -152,21 +175,22 @@ public class CrawlerStatus {
     DEFAULT_MESSAGES.put(Crawler.STATUS_QUEUED, "Pending");
     DEFAULT_MESSAGES.put(Crawler.STATUS_ACTIVE, "Active");
     DEFAULT_MESSAGES.put(Crawler.STATUS_SUCCESSFUL, "Successful");
-    DEFAULT_MESSAGES.put(Crawler.STATUS_CRAWL_TEST_SUCCESSFUL, "Crawl test successful");
+    DEFAULT_MESSAGES
+        .put(Crawler.STATUS_CRAWL_TEST_SUCCESSFUL, "Crawl test successful");
     DEFAULT_MESSAGES.put(Crawler.STATUS_CRAWL_TEST_FAIL, "Crawl test failed");
     DEFAULT_MESSAGES.put(Crawler.STATUS_ERROR, "Error");
     DEFAULT_MESSAGES.put(Crawler.STATUS_ABORTED, "Aborted");
     DEFAULT_MESSAGES.put(Crawler.STATUS_WINDOW_CLOSED,
-			 "Interrupted by crawl window");
+        "Interrupted by crawl window");
     DEFAULT_MESSAGES.put(Crawler.STATUS_FETCH_ERROR, "Fetch error");
     DEFAULT_MESSAGES.put(Crawler.STATUS_NO_PUB_PERMISSION,
-			 "No permission from publisher");
+        "No permission from publisher");
     DEFAULT_MESSAGES.put(Crawler.STATUS_PLUGIN_ERROR, "Plugin error");
     DEFAULT_MESSAGES.put(Crawler.STATUS_REPO_ERR, "Repository error");
     DEFAULT_MESSAGES.put(Crawler.STATUS_RUNNING_AT_CRASH,
-			 "Interrupted by daemon exit");
+        "Interrupted by daemon exit");
     DEFAULT_MESSAGES.put(Crawler.STATUS_EXTRACTOR_ERROR,
-			 "Link extractor error");
+        "Link extractor error");
 
     // Put all these strings in a sealed StringPool
     for (String s : DEFAULT_MESSAGES.values()) {
@@ -175,7 +199,7 @@ public class CrawlerStatus {
     CRAWL_STATUS_POOL.seal();
   }
 
-  private static int ctr = 0;		// Instance counter (for getKey())
+  private static int ctr = 0;    // Instance counter (for getKey())
 
   protected LockssDaemon daemon;
 
@@ -212,12 +236,12 @@ public class CrawlerStatus {
   protected RecordReferrersMode recordRefMode;
 
   // Maps mimetype to UrlCounter
-  protected Map<String,UrlCount> mimeCounts = new HashMap<String,UrlCount>(); 
-    
+  protected Map<String, UrlCount> mimeCounts = new HashMap<String, UrlCount>();
+
   public CrawlerStatus(ArchivalUnit au, Collection startUrls, String type) {
-    this.au = au;;
-    this.auid = au.getAuId();;
-    this.auName = au.getName();;
+    this.au = au;
+    this.auid = au.getAuId();
+    this.auName = au.getName();
     this.daemon = AuUtil.getDaemon(au);
     this.startUrls = startUrls;
     this.type = type;
@@ -226,19 +250,21 @@ public class CrawlerStatus {
   }
 
   public CrawlerStatus(ArchivalUnit au, Collection startUrls, String type,
-		       String forceRecord) {
+      String forceRecord) {
     this(au, startUrls, type);
     this.forceRecord = forceRecord;
   }
 
-  /** Create UrlCounters with or without lists/maps.  Create ListCounters
-   * for those lists that are already maintained as sets by the crawler (so
-   * no dups); SetCounters for others. */
+  /**
+   * Create UrlCounters with or without lists/maps.  Create ListCounters for
+   * those lists that are already maintained as sets by the crawler (so no
+   * dups); SetCounters for others.
+   */
   void initCounters() {
     Configuration config = ConfigManager.getCurrentConfig();
 
     paramKeepOffHostExcludes = config.getInt(PARAM_KEEP_OFF_HOST_EXCLUDES,
-					     DEFAULT_KEEP_OFF_HOST_EXCLUDES);
+        DEFAULT_KEEP_OFF_HOST_EXCLUDES);
     if (paramKeepOffHostExcludes == -1) {
       paramKeepOffHostExcludes = Integer.MAX_VALUE;
     }
@@ -257,23 +283,25 @@ public class CrawlerStatus {
       errors = newMapCounter("error", recordUrls);
       paramRecordUrls = recordUrls;
       RecordReferrerTypes rrt =
-	(RecordReferrerTypes)config.getEnum(RecordReferrerTypes.class,
-					    PARAM_RECORD_REFERRER_TYPES,
-					    DEFAULT_RECORD_REFERRER_TYPES);
+          (RecordReferrerTypes) config.getEnum(RecordReferrerTypes.class,
+              PARAM_RECORD_REFERRER_TYPES,
+              DEFAULT_RECORD_REFERRER_TYPES);
       recordRefMode =
-	(RecordReferrersMode)config.getEnum(RecordReferrersMode.class,
-					    PARAM_RECORD_REFERRERS_MODE,
-					    DEFAULT_RECORD_REFERRERS_MODE);
+          (RecordReferrersMode) config.getEnum(RecordReferrersMode.class,
+              PARAM_RECORD_REFERRERS_MODE,
+              DEFAULT_RECORD_REFERRERS_MODE);
       referrers = new ReferrerMap(recordRefMode, rrt);
     }
   }
 
-  /** Called after crawl ends and lists/counts are no longer needed by any
-   * daemon processing.  Currently deletes or trims in-core structures.
-   * Eventually should write lists to disk, delete in-core struct. */
+  /**
+   * Called after crawl ends and lists/counts are no longer needed by any daemon
+   * processing. Currently deletes or trims in-core structures. Eventually
+   * should write lists to disk, delete in-core struct.
+   */
   public void sealCounters() {
     String keepUrls = CurrentConfig.getParam(PARAM_KEEP_URLS,
-					     DEFAULT_KEEP_URLS);
+        DEFAULT_KEEP_URLS);
     log.debug2("sealCounters(" + keepUrls + ")");
     fetched = fetched.seal(isType("fetched", keepUrls));
     excluded = excluded.seal(isType("excluded", keepUrls));
@@ -285,24 +313,26 @@ public class CrawlerStatus {
     // referrers must be last as seal() looks to see what's left in other
     // lists.
     referrers = referrers.seal(isType("referrers", keepUrls),
-			       isAllUrls(keepUrls),
-			       retainedUrlsIterator());
+        isAllUrls(keepUrls),
+        retainedUrlsIterator());
     boolean keepMime = isType("mime", keepUrls);
-    for (Map.Entry<String,UrlCount> ent : mimeCounts.entrySet()) {
+    for (Map.Entry<String, UrlCount> ent : mimeCounts.entrySet()) {
       ent.setValue((ent.getValue()).seal(keepMime));
     }
   }
 
-  /** Return an iterator over all the URLs contained in any UrlCount */
+  /**
+   * Return an iterator over all the URLs contained in any UrlCount
+   */
   private Iterator retainedUrlsIterator() {
     IteratorChain res = new IteratorChain();
-    UrlCount[] urlcs = new UrlCount[] {
-      fetched, excluded, notModified,
-      parsed, pending, errors};
-    
+    UrlCount[] urlcs = new UrlCount[]{
+        fetched, excluded, notModified,
+        parsed, pending, errors};
+
     for (UrlCount urlc : urlcs) {
       if (urlc.hasCollection() && urlc.getCollSize() > 0) {
-	res.addIterator(urlc.getUrlIterator());
+        res.addIterator(urlc.getUrlIterator());
       }
     }
     return res;
@@ -312,11 +342,14 @@ public class CrawlerStatus {
     return Integer.toString(++ctr);
   }
 
-  /** Return true if we should record URLs of type <code>type</code>,
-   * according to the param value in <code>recordTypes</code> */
+  /**
+   * Return true if we should record URLs of type <code>type</code>, according
+   * to the param value in
+   * <code>recordTypes</code>
+   */
   static boolean isType(String type, String urlTypes) {
     return (isAllUrls(urlTypes) ||
-	    StringUtil.indexOfIgnoreCase(urlTypes, type) >= 0);
+        StringUtil.indexOfIgnoreCase(urlTypes, type) >= 0);
   }
 
   static boolean isAllUrls(String urlTypes) {
@@ -324,34 +357,45 @@ public class CrawlerStatus {
   }
 
 
-  /** Make a list counter, with a list if specified by config */
+  /**
+   * Make a list counter, with a list if specified by config
+   */
   static UrlCount newListCounter(String type, String recordTypes) {
     if (isType(type, recordTypes)) {
       return new UrlCountWithList();
-    } else {
+    }
+    else {
       return new UrlCount();
     }
   }
 
-  /** Make a set counter, with a set if specified by config */
+  /**
+   * Make a set counter, with a set if specified by config
+   */
   static UrlCount newSetCounter(String type, String recordTypes) {
     if (isType(type, recordTypes)) {
       return new UrlCountWithSet();
-    } else {
+    }
+    else {
       return new UrlCount();
     }
   }
 
-  /** Make a map counter, with a map if specified by config */
+  /**
+   * Make a map counter, with a map if specified by config
+   */
   static UrlCount newMapCounter(String type, String recordTypes) {
     if (isType(type, recordTypes)) {
       return new UrlCountWithMap();
-    } else {
+    }
+    else {
       return new UrlCount();
     }
   }
 
-  /** Return key for this CrawlerStatus */
+  /**
+   * Return key for this CrawlerStatus
+   */
   public String getKey() {
     return key;
   }
@@ -362,26 +406,34 @@ public class CrawlerStatus {
     return type;
   }
 
-  /** Return the AU, looking it up again from the auid if necessary (e.g.,
-      after au delete event) */
+  /**
+   * Return the AU, looking it up again from the auid if necessary (e.g., after
+   * au delete event)
+   */
   public void auDeleted(ArchivalUnit deletedAu) {
     if (au == deletedAu) {
       au = null;
     }
   }
 
-  /** Return the AUID */
+  /**
+   * Return the AUID
+   */
   public String getAuId() {
     return auid;
   }
 
-  /** Return the AU's name */
+  /**
+   * Return the AU's name
+   */
   public String getAuName() {
     return auName;
   }
 
-  /** Return the AU, looking it up again from the auid if necessary (e.g.,
-      after au delete event) */
+  /**
+   * Return the AU, looking it up again from the auid if necessary (e.g., after
+   * au delete event)
+   */
   public ArchivalUnit getAu() {
     if (au == null) {
       PluginManager pmgr = daemon.getPluginManager();
@@ -390,8 +442,10 @@ public class CrawlerStatus {
     return au;
   }
 
-  /** Signal that crawl has started.  Config'ed counter type is checked
-  again here because it's easier for tests */
+  /**
+   * Signal that crawl has started.  Config'ed counter type is checked again
+   * here because it's easier for tests
+   */
   public void signalCrawlStarted() {
     startTime = TimeBase.nowMs();
     setCrawlStatus(Crawler.STATUS_ACTIVE);
@@ -405,7 +459,9 @@ public class CrawlerStatus {
     return startTime;
   }
 
-  /** Signal that crawl has ended. */
+  /**
+   * Signal that crawl has ended.
+   */
   public void signalCrawlEnded() {
     endTime = TimeBase.nowMs();
     if (!isCrawlError()) {
@@ -429,31 +485,39 @@ public class CrawlerStatus {
     this.statusMessage = message;
   }
 
-  /** Return true if crawl hasn't started yet */
+  /**
+   * Return true if crawl hasn't started yet
+   */
   public boolean isCrawlWaiting() {
     return (startTime == -1);
   }
 
-  /** Return true if crawl is active */
+  /**
+   * Return true if crawl is active
+   */
   public boolean isCrawlActive() {
     return (startTime != -1) && (endTime == -1);
   }
 
-  /** Return true if any error has been recorded */
+  /**
+   * Return true if any error has been recorded
+   */
   public boolean isCrawlError() {
     return isCrawlError(status);
   }
 
-  /** Return true if crawlStatus is an error status */
+  /**
+   * Return true if crawlStatus is an error status
+   */
   public boolean isCrawlError(int crawlStatus) {
     switch (crawlStatus) {
-    case Crawler.STATUS_UNKNOWN:
-    case Crawler.STATUS_SUCCESSFUL:
-    case Crawler.STATUS_ACTIVE:
-    case Crawler.STATUS_QUEUED:
-      return false;
-    default:
-      return true;
+      case Crawler.STATUS_UNKNOWN:
+      case Crawler.STATUS_SUCCESSFUL:
+      case Crawler.STATUS_ACTIVE:
+      case Crawler.STATUS_QUEUED:
+        return false;
+      default:
+        return true;
     }
   }
 
@@ -461,23 +525,29 @@ public class CrawlerStatus {
     return status;
   }
 
-  /** Return current status of crawl.  If crawl is still running, this will
-   * be "Active" even if an error has occurred */
+  /**
+   * Return current status of crawl.  If crawl is still running, this will be
+   * "Active" even if an error has occurred
+   */
   public String getCrawlStatusMsg() {
     if (startTime != -1 && endTime == -1) {
       return getDefaultMessage(Crawler.STATUS_ACTIVE);
 //     } else if (startTime == -1 && status != null) {
 //       return getDefaultMessage(Crawler.STATUS_QUEUED);
-    } else {
+    }
+    else {
       return getCrawlErrorMsg();
     }
   }
 
-  /** Return crawl error message, even if crawl is still running */
+  /**
+   * Return crawl error message, even if crawl is still running
+   */
   public String getCrawlErrorMsg() {
     if (statusMessage != null) {
       return statusMessage;
-    } else {
+    }
+    else {
       return getDefaultMessage(status);
     }
   }
@@ -490,7 +560,9 @@ public class CrawlerStatus {
     return msg;
   }
 
-  /** Increment counter of total bytes fetched */
+  /**
+   * Increment counter of total bytes fetched
+   */
   public synchronized void addContentBytesFetched(long size) {
     contentBytesFetched += size;
   }
@@ -543,7 +615,9 @@ public class CrawlerStatus {
 
   // Sources
 
-  /** Add to the list of sources for the crawl (e.g., Publisher) */
+  /**
+   * Add to the list of sources for the crawl (e.g., Publisher)
+   */
   public synchronized void addSource(String source) {
     sources.addToList(source);
   }
@@ -568,6 +642,7 @@ public class CrawlerStatus {
 
   /**
    * Return the number of urls that have been fetched by this crawler
+   *
    * @return number of urls that have been fetched by this crawler
    */
   public synchronized int getNumFetched() {
@@ -589,15 +664,17 @@ public class CrawlerStatus {
   public synchronized void signalUrlExcluded(String url, String reason) {
     if (excluded.hasMap() && isOffHost(url)) {
       if (includedExcludes >= paramKeepOffHostExcludes) {
-	excludedExcludes++;
-      } else {
-	int cnt = excluded.getCount();
-	addExcluded0(url, reason);
-	if (cnt != excluded.getCount()) {
-	  includedExcludes++;
-	}
+        excludedExcludes++;
       }
-    } else {
+      else {
+        int cnt = excluded.getCount();
+        addExcluded0(url, reason);
+        if (cnt != excluded.getCount()) {
+          includedExcludes++;
+        }
+      }
+    }
+    else {
       addExcluded0(url, reason);
     }
   }
@@ -621,15 +698,16 @@ public class CrawlerStatus {
     try {
       Collection<String> stems = getAu().getUrlStems();
       if (stems == null) {
-	return false;
+        return false;
       }
       for (String stem : stems) {
-	if (StringUtil.startsWithIgnoreCase(url, stem)) {
-	  return false;
-	}
+        if (StringUtil.startsWithIgnoreCase(url, stem)) {
+          return false;
+        }
       }
       return true;
-    } catch (NullPointerException e) {
+    }
+    catch (NullPointerException e) {
       // getAu() can return null if AU has been deleted
       return false;
     }
@@ -640,10 +718,11 @@ public class CrawlerStatus {
   }
 
   /**
-   * Return the number of urls that have been excluded because they didn't 
-   * match the crawl rules
-   * @return number of urls that have been excluded because they didn't 
-   * match the crawl rules
+   * Return the number of urls that have been excluded because they didn't match
+   * the crawl rules
+   *
+   * @return number of urls that have been excluded because they didn't match
+   * the crawl rules
    */
   public synchronized int getNumExcluded() {
     return excluded.getCount();
@@ -653,7 +732,7 @@ public class CrawlerStatus {
     return excluded.getList();
   }
 
-  public synchronized Map<String,String> getUrlsExcludedMap() {
+  public synchronized Map<String, String> getUrlsExcludedMap() {
     return excluded.getMap();
   }
 
@@ -673,6 +752,7 @@ public class CrawlerStatus {
 
   /**
    * Return the number of urls whose GETs returned 304 not modified
+   *
    * @return number of urls whose contents were not modified
    */
   public synchronized int getNumNotModified() {
@@ -686,26 +766,25 @@ public class CrawlerStatus {
   // Pending
 
   /**
-   *  add url to the list of pending urls
+   * add url to the list of pending urls
    */
   public synchronized void addPendingUrl(String url) {
     pending.addToList(url);
   }
-    
+
   /**
    * remove one url element from the list of the pending urls
    */
   public synchronized void removePendingUrl(String url) {
     pending.removeFromList(url);
   }
-    
+
   public UrlCount getPendingCtr() {
     return pending;
   }
 
   /**
-   * @return number of urls that are pending  
-   * to be handled by the crawler 
+   * @return number of urls that are pending to be handled by the crawler
    */
   public synchronized int getNumPending() {
     return pending.getCount();
@@ -730,6 +809,7 @@ public class CrawlerStatus {
 
   /**
    * Return the number of urls that have been parsed by this crawler
+   *
    * @return number of urls that have been parsed by this crawler
    */
   public synchronized int getNumParsed() {
@@ -739,12 +819,13 @@ public class CrawlerStatus {
   public synchronized List getUrlsParsed() {
     return parsed.getList();
   }
-    
+
   // Errors
 
-  public enum Severity {Warning, Error, Fatal};
+  public enum Severity {Warning, Error, Fatal}
 
   public static class UrlErrorInfo {
+
     private String message;
     private Severity sev;
 
@@ -752,6 +833,7 @@ public class CrawlerStatus {
       this.message = message;
       this.sev = sev;
     }
+
     public String getMessage() {
       return message;
     }
@@ -762,9 +844,9 @@ public class CrawlerStatus {
 
     public boolean equals(Object o) {
       if (o instanceof UrlErrorInfo) {
-	UrlErrorInfo other = (UrlErrorInfo)o;
-	return StringUtil.equalStrings(getMessage(), other.getMessage())
-	  && getSeverity() == other.getSeverity();
+        UrlErrorInfo other = (UrlErrorInfo) o;
+        return StringUtil.equalStrings(getMessage(), other.getMessage())
+            && getSeverity() == other.getSeverity();
       }
       return false;
     }
@@ -773,11 +855,11 @@ public class CrawlerStatus {
       return "[UE: " + sev + ": " + message + "]";
     }
   }
-  
+
   private UrlErrorInfo errInfo(String urlMsg, Severity sev) {
     return new UrlErrorInfo(urlMsg, sev);
   }
-  
+
   private UrlErrorInfo errInfo(String urlMsg) {
     return new UrlErrorInfo(urlMsg, Severity.Warning);
   }
@@ -786,7 +868,8 @@ public class CrawlerStatus {
     Severity sev;
     if (isCrawlError(status)) {
       sev = Severity.Error;
-    } else {
+    }
+    else {
       sev = Severity.Warning;
     }
     return new UrlErrorInfo(urlMsg, sev);
@@ -799,17 +882,19 @@ public class CrawlerStatus {
   Severity severityOf(CacheException ex) {
     if (ex.isAttributeSet(CacheException.ATTRIBUTE_FATAL)) {
       return Severity.Fatal;
-    } else if (ex.isAttributeSet(CacheException.ATTRIBUTE_FAIL)) {
+    }
+    else if (ex.isAttributeSet(CacheException.ATTRIBUTE_FAIL)) {
       return Severity.Error;
-    } else {
+    }
+    else {
       return Severity.Warning;
     }
   }
 
   // Ad hoc error severity counters.
 
-  protected Map<Severity,MutableInt> errorSeverityCounts =
-    new HashMap<Severity,MutableInt>();
+  protected Map<Severity, MutableInt> errorSeverityCounts =
+      new HashMap<Severity, MutableInt>();
 
   private void incrSeverity(Severity sev) {
     MutableInt n = errorSeverityCounts.get(sev);
@@ -825,10 +910,11 @@ public class CrawlerStatus {
     incrSeverity(ei.getSeverity());
   }
 
-  public synchronized void signalErrorForUrl(String url, String urlMsg, Severity sev) {
+  public synchronized void signalErrorForUrl(String url, String urlMsg,
+      Severity sev) {
     signalErrorForUrl(url, errInfo(urlMsg, sev));
   }
-  
+
   public synchronized void signalErrorForUrl(String url, CacheException ex) {
     signalErrorForUrl(url, errInfo(ex));
   }
@@ -838,12 +924,12 @@ public class CrawlerStatus {
   }
 
   public synchronized void signalErrorForUrl(String url, String urlMsg,
-					     int status) {
+      int status) {
     signalErrorForUrl(url, urlMsg, status, null);
   }
 
   public synchronized void signalErrorForUrl(String url, String urlMsg,
-					     int status, String message) {
+      int status, String message) {
     setCrawlStatus(status, message);
     signalErrorForUrl(url, errInfo(urlMsg, status));
   }
@@ -872,9 +958,9 @@ public class CrawlerStatus {
    * @return map of the urls that couldn't be fetched due to errors and the
    * error they got
    */
-  public synchronized Map<String,String> getUrlsWithErrors() {
-    Map<String,String> res = new HashMap<String,String>();
-    for (Map.Entry<String,UrlErrorInfo> ent : getUrlsErrorMap().entrySet()) {
+  public synchronized Map<String, String> getUrlsWithErrors() {
+    Map<String, String> res = new HashMap<String, String>();
+    for (Map.Entry<String, UrlErrorInfo> ent : getUrlsErrorMap().entrySet()) {
       res.put(ent.getKey(), ent.getValue().getMessage());
     }
     return res;
@@ -884,13 +970,13 @@ public class CrawlerStatus {
    * @return map of the urls that couldn't be fetched due to errors and the
    * error they got
    */
-  public synchronized Map<String,UrlErrorInfo> getUrlsErrorMap() {
+  public synchronized Map<String, UrlErrorInfo> getUrlsErrorMap() {
     return errors.getMap();
   }
 
   /**
-   * @return number of URLs that got errors of specified severity
    * @param sev the severity of errors to count
+   * @return number of URLs that got errors of specified severity
    */
   public synchronized int getNumUrlsWithErrorsOfSeverity(Severity sev) {
     MutableInt n = errorSeverityCounts.get(sev);
@@ -900,27 +986,30 @@ public class CrawlerStatus {
   // MIME types
 
   public synchronized void signalMimeTypeOfUrl(String mimeType,
-					       String url) {
-    if (mimeType == null) return;      
-    UrlCount ctr = mimeCounts.get(mimeType);  
-    if (ctr == null) {          
+      String url) {
+    if (mimeType == null) {
+      return;
+    }
+    UrlCount ctr = mimeCounts.get(mimeType);
+    if (ctr == null) {
       ctr = newListCounter("mime", paramRecordUrls);
       mimeCounts.put(mimeType, ctr);
     }
-    ctr.addToList(url);     
+    ctr.addToList(url);
   }
- 
+
   public UrlCount getMimeTypeCtr(String mimeType) {
-    return mimeCounts.get(mimeType);  
+    return mimeCounts.get(mimeType);
   }
 
   /**
    * @return list of the mime types
    */
   public synchronized Collection<String> getMimeTypes() {
-    if (isCrawlActive()) {   
+    if (isCrawlActive()) {
       return new ArrayList<String>(mimeCounts.keySet());
-    } else {
+    }
+    else {
       return mimeCounts.keySet();
     }
   }
@@ -929,16 +1018,16 @@ public class CrawlerStatus {
    * @return the number of different types of mime types
    */
   public synchronized int getNumOfMimeTypes() {
-    return mimeCounts.size();               
+    return mimeCounts.size();
   }
-    
+
   /**
    * @return list of urls with this mime-type found during a crawl
    */
   public synchronized List getUrlsOfMimeType(String mimeType) {
-    UrlCount ctr = mimeCounts.get(mimeType);  
-    if (ctr != null) {          
-      return ctr.getList(); 
+    UrlCount ctr = mimeCounts.get(mimeType);
+    if (ctr != null) {
+      return ctr.getList();
     }
     return Collections.EMPTY_LIST;
   }
@@ -947,32 +1036,34 @@ public class CrawlerStatus {
    * @return number of urls with this mime-type found during a crawl
    */
   public synchronized int getNumUrlsOfMimeType(String mimeType) {
-    UrlCount ctr = mimeCounts.get(mimeType);  
-    if (ctr != null) {          
-      return ctr.getCount(); 
+    UrlCount ctr = mimeCounts.get(mimeType);
+    if (ctr != null) {
+      return ctr.getCount();
     }
-    return 0;  
+    return 0;
   }
 
   // Referrers
 
-  /** Record a referrer URL for a URL.  Must be called only once for any
-   * {referrer, URL} pair */
+  /**
+   * Record a referrer URL for a URL.  Must be called only once for any
+   * {referrer, URL} pair
+   */
   public synchronized void signalReferrer(String url, String referrerUrl,
-					  ReferrerType rt) {
+      ReferrerType rt) {
     referrers.addReferrer(url, referrerUrl, rt);
   }
- 
+
   public RecordReferrersMode getRecordReferrersMode() {
     return recordRefMode;
   }
 
   public boolean hasReferrers() {
     switch (recordRefMode) {
-    case None:
-      return false;
-    default:
-      return true;
+      case None:
+        return false;
+      default:
+        return true;
     }
   }
 
@@ -981,17 +1072,20 @@ public class CrawlerStatus {
   }
 
   public synchronized List<String> getReferrers(String url) {
-    return referrers.getReferrers(url);  
+    return referrers.getReferrers(url);
   }
 
 
-  /** Maintain a count and optional collection (list/set/map).  If
-  collection is present, seal() will make it immutable and possibly
-  condense it.  Set or map count may behave differently if collection is
-  not present, as redundant operations won't be detected. */
+  /**
+   * Maintain a count and optional collection (list/set/map).  If collection is
+   * present, seal() will make it immutable and possibly condense it.  Set or
+   * map count may behave differently if collection is not present, as redundant
+   * operations won't be detected.
+   */
 
   public static class UrlCount {
-    protected int cnt = 0;	     // set negative minus 1 to mark sealed
+
+    protected int cnt = 0;       // set negative minus 1 to mark sealed
 
     protected UrlCount() {
     }
@@ -1002,9 +1096,11 @@ public class CrawlerStatus {
 
     public int getCount() {
       if (hasCollection() && getCollection() != null) {
-	return getCollSize();
+        return getCollSize();
       }
-      if (cnt >= 0) return cnt;
+      if (cnt >= 0) {
+        return cnt;
+      }
       return -1 - cnt;
     }
 
@@ -1015,7 +1111,9 @@ public class CrawlerStatus {
 
     void removeFromList(String s) {
       chkUpdate();
-      if (cnt > 0) cnt--;
+      if (cnt > 0) {
+        cnt--;
+      }
     }
 
     void addToMap(String key, Object val) {
@@ -1057,7 +1155,7 @@ public class CrawlerStatus {
 
     public UrlCount seal(boolean keepColl) {
       if (!isSealed()) {
-	cnt = -1 - cnt;
+        cnt = -1 - cnt;
       }
       return this;
     }
@@ -1068,13 +1166,14 @@ public class CrawlerStatus {
 
     protected void chkUpdate() {
       if (isSealed()) {
-	throw
-	  new IllegalStateException("Can't modify counter after it's sealed");
+        throw
+            new IllegalStateException("Can't modify counter after it's sealed");
       }
     }
   }
 
   public static class UrlCountWithList extends UrlCount {
+
     ArrayList lst;
 
     UrlCountWithList() {
@@ -1084,15 +1183,15 @@ public class CrawlerStatus {
     UrlCountWithList(Collection init) {
       super();
       if (init != null) {
-	lst = new ArrayList(init.size());
-	lst.addAll(init);
+        lst = new ArrayList(init.size());
+        lst.addAll(init);
       }
     }
 
     void addToList(String s) {
       super.addToList(s);
       if (lst == null) {
-	lst = new ArrayList();
+        lst = new ArrayList();
       }
       lst.add(s);
     }
@@ -1108,10 +1207,10 @@ public class CrawlerStatus {
 
     public List getList() {
       if (lst == null) {
-	return Collections.EMPTY_LIST;
+        return Collections.EMPTY_LIST;
       }
       if (isSealed()) {
-	return lst;
+        return lst;
       }
       return new ArrayList(lst);
     }
@@ -1131,40 +1230,42 @@ public class CrawlerStatus {
     public UrlCount seal(boolean keepColl) {
       super.seal(keepColl);
       if (keepColl) {
-	if (lst != null) {
-	  lst.trimToSize();
-	}
-	return this;
-      } else {
-	return new UrlCount((lst != null) ? lst.size() : 0);
+        if (lst != null) {
+          lst.trimToSize();
+        }
+        return this;
+      }
+      else {
+        return new UrlCount((lst != null) ? lst.size() : 0);
       }
     }
   }
 
   public static class UrlCountWithSet extends UrlCount {
+
     Set set;
 
     void addToList(String s) {
       super.addToList(s);
       if (set == null) {
-	set = new ListOrderedSet();
+        set = new ListOrderedSet();
       }
       set.add(s);
       if (set.size() != getCount()) {
-	log.warning("Added " + s + ", UrlSet size: " + getCount() +
-		    ", s.b. " + set.size() + ", " + set);
+        log.warning("Added " + s + ", UrlSet size: " + getCount() +
+            ", s.b. " + set.size() + ", " + set);
       }
     }
 
     void removeFromList(String s) {
       super.removeFromList(s);
       if (set == null) {
-	return;
+        return;
       }
       set.remove(s);
       if (set.size() != getCount()) {
-	log.warning("Removed " + s + ", UrlSet size: " + getCount() +
-		    ", s.b. " + set.size() + ", " + set);
+        log.warning("Removed " + s + ", UrlSet size: " + getCount() +
+            ", s.b. " + set.size() + ", " + set);
       }
     }
 
@@ -1174,7 +1275,7 @@ public class CrawlerStatus {
 
     public List getList() {
       if (set == null) {
-	return Collections.EMPTY_LIST;
+        return Collections.EMPTY_LIST;
       }
       return new ArrayList(set);
     }
@@ -1194,20 +1295,22 @@ public class CrawlerStatus {
     public UrlCount seal(boolean keepColl) {
       super.seal(keepColl);
       if (keepColl) {
-	return new UrlCountWithList(set);
-      } else {
-	return new UrlCount((set != null) ? set.size() : 0);
+        return new UrlCountWithList(set);
+      }
+      else {
+        return new UrlCount((set != null) ? set.size() : 0);
       }
     }
   }
 
   public static class UrlCountWithMap extends UrlCount {
+
     LinkedMap map;
 
     void addToMap(String key, Object val) {
       super.addToMap(key, val);
       if (map == null) {
-	map = new LinkedMap();
+        map = new LinkedMap();
       }
       map.put(key, val);
     }
@@ -1218,17 +1321,17 @@ public class CrawlerStatus {
 
     public Map getMap() {
       if (map == null) {
-	return Collections.EMPTY_MAP;
+        return Collections.EMPTY_MAP;
       }
       if (isSealed()) {
-	return map;
+        return map;
       }
       return new LinkedMap(map);
     }
 
     public List getList() {
       if (map == null) {
-	return Collections.EMPTY_LIST;
+        return Collections.EMPTY_LIST;
       }
       return new ArrayList(map.keySet());
     }
@@ -1248,138 +1351,147 @@ public class CrawlerStatus {
     public UrlCount seal(boolean keepColl) {
       super.seal(keepColl);
       if (keepColl) {
-	return this;
-      } else {
-	return new UrlCount((map != null) ? map.size() : 0);
+        return this;
+      }
+      else {
+        return new UrlCount((map != null) ? map.size() : 0);
       }
     }
   }
 
   public class ReferrerMap {
+
     Map map;
     RecordReferrersMode recordMode;
     RecordReferrerTypes recordTypes;
     boolean isSealed = false;
 
     ReferrerMap(RecordReferrersMode recordMode,
-		RecordReferrerTypes recordTypes) {
+        RecordReferrerTypes recordTypes) {
       this.recordMode = recordMode;
       this.recordTypes = recordTypes;
     }
 
     boolean shouldRecord(String url, ReferrerType rt) {
       if (recordMode == RecordReferrersMode.None) {
-	return false;
+        return false;
       }
       switch (recordTypes) {
-      case All:
-	return true;
-      case Included:
-	return rt == ReferrerType.Included;
-      case Excluded:
-	return rt == ReferrerType.Excluded;
-      case ExcludedOffHost:
-	return rt == ReferrerType.Excluded && isOffHost(url);
-      case ExcludedOnHost:
-	return rt == ReferrerType.Excluded && !isOffHost(url);
-      default:
-	throw new RuntimeException("Shouldn't happen - unknown ReferrerType: "
-				   + recordTypes);
+        case All:
+          return true;
+        case Included:
+          return rt == ReferrerType.Included;
+        case Excluded:
+          return rt == ReferrerType.Excluded;
+        case ExcludedOffHost:
+          return rt == ReferrerType.Excluded && isOffHost(url);
+        case ExcludedOnHost:
+          return rt == ReferrerType.Excluded && !isOffHost(url);
+        default:
+          throw new RuntimeException("Shouldn't happen - unknown ReferrerType: "
+              + recordTypes);
       }
     }
 
     public boolean hasReferrersOfType(ReferrerType rt) {
-      if (recordMode == RecordReferrersMode.None  ||
-	  (isSealed && map == null)) {
-	return false;
+      if (recordMode == RecordReferrersMode.None ||
+          (isSealed && map == null)) {
+        return false;
       }
       switch (rt) {
-      case Included:
-	switch (recordTypes) {
-	case All:
-	case Included:
-	  return true;
-	default:
-	  return false;
-	}
-      case Excluded:
-	switch (recordTypes) {
-	case All:
-	case Excluded:
-	case ExcludedOffHost:
-	case ExcludedOnHost:
-	  return true;
-	default:
-	  return false;
-	}
+        case Included:
+          switch (recordTypes) {
+            case All:
+            case Included:
+              return true;
+            default:
+              return false;
+          }
+        case Excluded:
+          switch (recordTypes) {
+            case All:
+            case Excluded:
+            case ExcludedOffHost:
+            case ExcludedOnHost:
+              return true;
+            default:
+              return false;
+          }
       }
       return false;
     }
 
     void addReferrer(String url, String referrerUrl, ReferrerType rt) {
       if (shouldRecord(url, rt)) {
-	if (map == null) {
-	  map = new HashMap();
-	}
-	Object val = map.get(url);
-	if (val == null) {
-	  map.put(url, referrerUrl);
-	} else if (val instanceof List) {
-	  ((List)val).add(referrerUrl);
-	} else {
-	  switch (recordMode) {
-	  case All:
-	    List coll = new ArrayList(4);
-	    map.put(url, coll);
-	    coll.add(val);
-	    coll.add(referrerUrl);
-	    break;
-	  case First:
-	    // no action
-	    break;
-	  }
-	}
+        if (map == null) {
+          map = new HashMap();
+        }
+        Object val = map.get(url);
+        if (val == null) {
+          map.put(url, referrerUrl);
+        }
+        else if (val instanceof List) {
+          ((List) val).add(referrerUrl);
+        }
+        else {
+          switch (recordMode) {
+            case All:
+              List coll = new ArrayList(4);
+              map.put(url, coll);
+              coll.add(val);
+              coll.add(referrerUrl);
+              break;
+            case First:
+              // no action
+              break;
+          }
+        }
       }
     }
 
     List<String> getReferrers(String url) {
       if (map == null) {
-	return Collections.EMPTY_LIST;
+        return Collections.EMPTY_LIST;
       }
       Object val = map.get(url);
       if (val == null) {
-	return Collections.EMPTY_LIST;
-      } else if (val instanceof List) {
-	List<String> lst = (List<String>)val;
-	if (isSealed()) {
-	  return lst;
-	} else {
-	  return new ArrayList<String>(lst);
-	}
-      } else {
-	return Collections.singletonList((String)val);
+        return Collections.EMPTY_LIST;
+      }
+      else if (val instanceof List) {
+        List<String> lst = (List<String>) val;
+        if (isSealed()) {
+          return lst;
+        }
+        else {
+          return new ArrayList<String>(lst);
+        }
+      }
+      else {
+        return Collections.singletonList((String) val);
       }
     }
 
-    /** Remove from the referrers map any URLs that are no longer
-     * referenced by any UrlCount.  In the common case where referrers are
-     * recorded but only the error list is kept after the crawl ends, this
-     * saves lots of memory.  Must be called after the other UrlCount
-     * objects have been sealed. */ 
+    /**
+     * Remove from the referrers map any URLs that are no longer referenced by
+     * any UrlCount.  In the common case where referrers are recorded but only
+     * the error list is kept after the crawl ends, this saves lots of memory.
+     * Must be called after the other UrlCount objects have been sealed.
+     */
     public ReferrerMap seal(boolean keepAny, boolean keepAll,
-			    Iterator<String> retainedUrlsIter) {
+        Iterator<String> retainedUrlsIter) {
       if (!keepAny || !retainedUrlsIter.hasNext()) {
-	map = null;
-      } else if (!keepAll && map != null) {
-	HashMap newmap = new HashMap();
-	while (retainedUrlsIter.hasNext()) {
-	  String url = retainedUrlsIter.next();
-	  Object refs = map.get(url);
-	  if (refs != null) {
-	    newmap.put(url, refs);
-	  }
-	}
-	map = newmap;
+        map = null;
+      }
+      else if (!keepAll && map != null) {
+        HashMap newmap = new HashMap();
+        while (retainedUrlsIter.hasNext()) {
+          String url = retainedUrlsIter.next();
+          Object refs = map.get(url);
+          if (refs != null) {
+            newmap.put(url, refs);
+          }
+        }
+        map = newmap;
       }
       isSealed = true;
       return this;

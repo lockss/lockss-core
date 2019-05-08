@@ -43,6 +43,8 @@ import javax.net.ssl.*;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
+
 import static org.lockss.daemon.LockssKeyStoreManager.*;
 
 

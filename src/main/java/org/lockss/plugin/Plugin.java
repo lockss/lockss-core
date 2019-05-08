@@ -225,6 +225,11 @@ public interface Plugin {
   public String getDefaultArticleMimeType();
 
   /**
+   * Returns the plugin-supplied MimeTypeMap
+   */
+  public MimeTypeMap getMimeTypeMap();
+
+  /**
    * Provides an indication of whether this is a plugin for bulk content.
    * 
    * @return a boolean with <code>true</code> if this is a plugin for bulk
@@ -238,8 +243,6 @@ public interface Plugin {
    * implementation/support for that feature.  (Could be used for other
    * things.)
    */
-  // Warning: when adding new Features that are preserved in AuState,
-  // HistoryRepositoryImpl.loadAuState must be updated.
   public enum Feature {
     /**
      * Version of Plugin data that affects polling, such as hash filters,

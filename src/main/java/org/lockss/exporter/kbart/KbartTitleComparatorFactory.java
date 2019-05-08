@@ -61,7 +61,7 @@ import org.lockss.util.*;
  */
 public class KbartTitleComparatorFactory {
 
-  private static Logger log = Logger.getLogger("KbartTitleComparatorFactory");
+  private static Logger log = Logger.getLogger();
  
   /** Whether KbartTitle string comparison is case-sensitive by default. */
   private static final boolean CASE_SENSITIVITY_DEFAULT = 

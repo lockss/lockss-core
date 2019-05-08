@@ -40,7 +40,7 @@ import org.lockss.plugin.definable.*;
 
 /** Utilities to wrap plugin classes in error-catching proxy classes */
 public class WrapperUtil {
-  static final Logger log = Logger.getLogger("WrapperUtil");
+  static final Logger log = Logger.getLogger();
 
   private static Map wrapperFactories = new HashMap();
 

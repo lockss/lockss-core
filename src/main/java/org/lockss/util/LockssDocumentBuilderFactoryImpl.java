@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2008 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48,15 +44,17 @@ import org.lockss.util.*;
  * also dependent on xercesImpl - XXX Xerces
  */
 public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
-  static Logger log = Logger.getLogger("DocumentBuilderFactory");
-  public static String ERROR_LOGGER_NAME = "SAX";
+  static Logger log = Logger.getLogger();
+  public static String ERROR_LOGGER_NAME = "org.lockss.SAX";
 
   DocumentBuilderFactory fact;
 
   public LockssDocumentBuilderFactoryImpl() {
 //     fact = new org.apache.crimson.jaxp.DocumentBuilderFactoryImpl();
     fact = new org.apache.xerces.jaxp.DocumentBuilderFactoryImpl();
-    log.debug3("Created fact: " + fact);
+    // Log call may cause XML DocumentBuilderFactory to be loaded,
+    // resulting in circular loading reference
+//     log.debug3("Created fact: " + fact);
   }
 
   /** Forward to real factory, set error handler */
@@ -64,29 +62,14 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   public DocumentBuilder newDocumentBuilder()
       throws ParserConfigurationException {
     DocumentBuilder db = fact.newDocumentBuilder();
-    log.debug3("Created builder: " + db);
+//     log.debug3("Created builder: " + db);
     db.setErrorHandler(new MyErrorHandler());
     return db;
   }
 
   @Override
-  public void setAttribute(String name, Object value) {
-    fact.setAttribute(name, value);
-  }
-
-  @Override
-  public Object getAttribute(String name) {
-    return fact.getAttribute(name);
-  }
-
-  @Override
   public void setNamespaceAware(boolean awareness) {
     fact.setNamespaceAware(awareness);
-  }
-
-  @Override
-  public void setSchema(Schema schema) {
-    fact.setSchema(schema);
   }
 
   @Override
@@ -145,6 +128,16 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   }
 
   @Override
+  public void setAttribute(String name, Object value) {
+    fact.setAttribute(name, value);
+  }
+
+  @Override
+  public Object getAttribute(String name) {
+    return fact.getAttribute(name);
+  }
+
+  @Override
   public boolean getFeature(String name) throws ParserConfigurationException {
     return fact.getFeature(name);
   }
@@ -154,6 +147,27 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
       throws ParserConfigurationException {
     fact.setFeature(name, value);
   }
+
+  @Override
+  public Schema getSchema() {
+    return fact.getSchema();
+  }
+
+  @Override
+  public void setSchema(Schema schema) {
+    fact.setSchema(schema);
+  }
+
+  @Override
+  public boolean isXIncludeAware() {
+    return fact.isXIncludeAware();
+  }
+
+  @Override
+  public void setXIncludeAware(boolean state) {
+    fact.setXIncludeAware(state);
+  }
+
 
   // This error handler uses a Logger to log error messages
   static class MyErrorHandler implements ErrorHandler {

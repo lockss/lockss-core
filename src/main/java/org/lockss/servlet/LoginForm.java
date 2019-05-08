@@ -53,7 +53,7 @@ import org.lockss.daemon.status.*;
 /** Login page form
  */
 public class LoginForm extends LockssServlet {
-  static Logger log = Logger.getLogger("LoginForm");
+  static Logger log = Logger.getLogger();
 
   static final String FORM_ACTION = "j_security_check";
   static final String FORM_METHOD = "post";

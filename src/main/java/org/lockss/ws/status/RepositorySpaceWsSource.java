@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +26,6 @@
 
  */
 
-/**
- * Container for the information that is used as the source for a query related
- * to repository spaces.
- */
 package org.lockss.ws.status;
 
 import java.io.File;
@@ -48,19 +40,22 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
+import org.lockss.db.DbException;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
-import org.lockss.repository.OldLockssRepositoryImpl;
-import org.lockss.util.Logger;
-import org.lockss.util.PlatformUtil;
-import org.lockss.util.PropUtil;
-import org.lockss.util.StringUtil;
+import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 
+/**
+ * Container for the information that is used as the source for a query related
+ * to repository spaces.
+ */
 public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
-  private static Logger log = Logger.getLogger(RepositorySpaceWsSource.class);
+  private static Logger log = Logger.getLogger();
 
   private PlatformUtil.DF puDf;
 
@@ -130,7 +125,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getActiveCount() {
+  public Integer getActiveCount() throws DbException, LockssRestException {
     if (!activeCountPopulated) {
       if (allActiveCount < 0) {
 	populateCounts();
@@ -144,7 +139,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getInactiveCount() {
+  public Integer getInactiveCount() throws DbException, LockssRestException {
     if (!inactiveCountPopulated) {
       if (allInactiveCount < 0) {
 	populateCounts();
@@ -158,7 +153,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getDeletedCount() {
+  public Integer getDeletedCount() throws DbException, LockssRestException {
     if (!deletedCountPopulated) {
       if (allDeletedCount < 0) {
 	populateCounts();
@@ -172,7 +167,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getOrphanedCount() {
+  public Integer getOrphanedCount() throws DbException, LockssRestException {
     if (!orphanedCountPopulated) {
       if (allOrphanedCount < 0) {
 	populateCounts();
@@ -185,124 +180,125 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
     return super.getOrphanedCount();
   }
 
-  private void populateCounts() {
-    TreeSet<String> roots = new TreeSet<String>();
-    Collection<String> specs = StringUtil.breakAt(getRepositorySpaceId(), ";");
+  private void populateCounts() throws DbException, LockssRestException {
+    // XXXREPO
+//     TreeSet<String> roots = new TreeSet<String>();
+//     Collection<String> specs = StringUtil.breakAt(getRepositorySpaceId(), ";");
 
-    for (String repoSpec : specs) {
-      String path = OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
+//     for (String repoSpec : specs) {
+//       String path = OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
 
-      if (path != null) {
-	roots.add(path);
-      }
-    }
+//       if (path != null) {
+// 	roots.add(path);
+//       }
+//     }
 
-    allActiveCount = 0;
-    allInactiveCount = 0;
-    allDeletedCount = 0;
-    allOrphanedCount = 0;
+//     allActiveCount = 0;
+//     allInactiveCount = 0;
+//     allDeletedCount = 0;
+//     allOrphanedCount = 0;
 
-    for (Iterator<String> iter = roots.iterator(); iter.hasNext(); ) {
-      String root = iter.next();
+//     for (Iterator<String> iter = roots.iterator(); iter.hasNext(); ) {
+//       String root = iter.next();
 	
-      StringBuilder buffer = new StringBuilder(root);
+//       StringBuilder buffer = new StringBuilder(root);
 
-      if (!root.endsWith(File.separator)) {
-	buffer.append(File.separator);
-      }
+//       if (!root.endsWith(File.separator)) {
+// 	buffer.append(File.separator);
+//       }
 
-      buffer.append(OldLockssRepositoryImpl.CACHE_ROOT_NAME);
-      buffer.append(File.separator);
-      String extendedCacheLocation = buffer.toString();
+//       buffer.append(OldLockssRepositoryImpl.CACHE_ROOT_NAME);
+//       buffer.append(File.separator);
+//       String extendedCacheLocation = buffer.toString();
 
-      File dir = new File(extendedCacheLocation);
-      File[] subs = dir.listFiles();
+//       File dir = new File(extendedCacheLocation);
+//       File[] subs = dir.listFiles();
 
-      if (subs != null) {
-	for (int ix = 0; ix < subs.length; ix++) {
-	  File sub = subs[ix];
+//       if (subs != null) {
+// 	for (int ix = 0; ix < subs.length; ix++) {
+// 	  File sub = subs[ix];
 
-	  if (sub.isDirectory()) {
-	    String auid = null;
-	    File auidfile = new File(sub, OldLockssRepositoryImpl.AU_ID_FILE);
+// 	  if (sub.isDirectory()) {
+// 	    String auid = null;
+// 	    File auidfile = new File(sub, OldLockssRepositoryImpl.AU_ID_FILE);
 
-	    if (auidfile.exists()) {
-	      Properties props = propsFromFile(auidfile);
+// 	    if (auidfile.exists()) {
+// 	      Properties props = propsFromFile(auidfile);
 
-	      if (props != null) {
-		auid = props.getProperty("au.id");
-	      }
-	    }
+// 	      if (props != null) {
+// 		auid = props.getProperty("au.id");
+// 	      }
+// 	    }
 
-	    if (auid != null) {
-	      PluginManager pluginMgr = (PluginManager)LockssDaemon
-		  .getManager(LockssDaemon.PLUGIN_MANAGER);
-	      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
+// 	    if (auid != null) {
+// 	      PluginManager pluginMgr = (PluginManager)LockssDaemon
+// 		  .getManager(LockssDaemon.PLUGIN_MANAGER);
+// 	      ArchivalUnit au = pluginMgr.getAuFromIdIfExists(auid);
 
-	      if (au != null) {
-		String repoSpec = au.getConfiguration()
-		    .get(PluginManager.AU_PARAM_REPOSITORY);
+// 	      if (au != null) {
+// 		String repoSpec = au.getConfiguration()
+// 		    .get(PluginManager.AU_PARAM_REPOSITORY);
 
-		String repoRoot = (repoSpec == null) ? CurrentConfig
-		    .getParam(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION)
-		    : OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
+// 		String repoRoot = (repoSpec == null) ? CurrentConfig
+// 		    .getParam(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION)
+// 		    : OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
 
-		if (!OldLockssRepositoryImpl
-		    .isDirInRepository(extendedCacheLocation, repoRoot)) {
-		  au = null;
-		}
-	      }
+// 		if (!OldLockssRepositoryImpl
+// 		    .isDirInRepository(extendedCacheLocation, repoRoot)) {
+// 		  au = null;
+// 		}
+// 	      }
 
-	      if (au != null) {
-		allActiveCount++;
-	      } else {
-		String auKey = PluginManager.auKeyFromAuId(auid);
-		Properties auidProps = null;
+// 	      if (au != null) {
+// 		allActiveCount++;
+// 	      } else {
+// 		String auKey = PluginManager.auKeyFromAuId(auid);
+// 		Properties auidProps = null;
 
-		try {
-		  auidProps = PropUtil.canonicalEncodedStringToProps(auKey);
-		} catch (Exception e) {
-		  log.warning("Couldn't decode AUKey in " + sub + ": " + auKey,
-		      e);
-		}
+// 		try {
+// 		  auidProps = PropUtil.canonicalEncodedStringToProps(auKey);
+// 		} catch (Exception e) {
+// 		  log.warning("Couldn't decode AUKey in " + sub + ": " + auKey,
+// 		      e);
+// 		}
 		  
-		boolean isOrphaned = true;
-		String pluginKey = PluginManager
-		    .pluginKeyFromId(PluginManager.pluginIdFromAuId(auid));
-		Plugin plugin = pluginMgr.getPlugin(pluginKey);
+// 		boolean isOrphaned = true;
+// 		String pluginKey = PluginManager
+// 		    .pluginKeyFromId(PluginManager.pluginIdFromAuId(auid));
+// 		Plugin plugin = pluginMgr.getPlugin(pluginKey);
 
-		if (plugin != null && auidProps != null) {
-		  Configuration defConfig =
-		      ConfigManager.fromProperties(auidProps);
-		  isOrphaned =
-		      !AuUtil.isConfigCompatibleWithPlugin(defConfig, plugin);
-		}
+// 		if (plugin != null && auidProps != null) {
+// 		  Configuration defConfig =
+// 		      ConfigManager.fromProperties(auidProps);
+// 		  isOrphaned =
+// 		      !AuUtil.isConfigCompatibleWithPlugin(defConfig, plugin);
+// 		}
 
-		if (isOrphaned) {
-		  allOrphanedCount++;
-		} else {
-		  Configuration config =
-		      pluginMgr.getStoredAuConfiguration(auid);
+// 		if (isOrphaned) {
+// 		  allOrphanedCount++;
+// 		} else {
+// 		  Configuration config =
+// 		      pluginMgr.getStoredAuConfigurationAsConfiguration(auid);
 		      
-		  if (config == null || config.isEmpty()) {
-		    allDeletedCount++;
-		  } else {
-		    boolean isInactive = config
-			.getBoolean(PluginManager.AU_PARAM_DISABLED, false);
+// 		  if (config == null || config.isEmpty()) {
+// 		    allDeletedCount++;
+// 		  } else {
+// 		    boolean isInactive = config
+// 			.getBoolean(PluginManager.AU_PARAM_DISABLED, false);
 			
-		    if (isInactive) {
-		      allInactiveCount++;
-		    } else {
-		      allDeletedCount++;
-		    }	  
-		  }
-		}
-	      }
-	    }
-	  }
-	}
-      }
-    }
+// 		    if (isInactive) {
+// 		      allInactiveCount++;
+// 		    } else {
+// 		      allDeletedCount++;
+// 		    }	  
+// 		  }
+// 		}
+// 	      }
+// 	    }
+// 	  }
+// 	}
+//       }
+//     }
   }
 
   private Properties propsFromFile(File file) {

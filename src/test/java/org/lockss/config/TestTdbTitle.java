@@ -55,7 +55,7 @@ public class TestTdbTitle extends LockssTestCase {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestTdbTitle");
+  static Logger log = Logger.getLogger();
 
   /**
    * Test creating valid TdbTitle.

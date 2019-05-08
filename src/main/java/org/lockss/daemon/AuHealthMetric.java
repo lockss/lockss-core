@@ -36,6 +36,8 @@ import java.util.*;
 import javax.script.*;
 
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.config.*;
 import org.lockss.state.*;
 import org.lockss.plugin.*;
@@ -52,7 +54,7 @@ import org.lockss.protocol.*;
  */
 public class AuHealthMetric {
 
-  private static final Logger log = Logger.getLogger("AuHealthMetric");
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "auHealth.";
 

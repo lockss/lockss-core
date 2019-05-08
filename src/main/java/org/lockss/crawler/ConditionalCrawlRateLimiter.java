@@ -35,6 +35,7 @@ package org.lockss.crawler;
 import java.util.*;
 
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 
@@ -44,7 +45,7 @@ import org.lockss.plugin.*;
  */
 public class ConditionalCrawlRateLimiter extends BaseCrawlRateLimiter {
 
-  static Logger log = Logger.getLogger("ConditionalCrawlRateLimiter");
+  static Logger log = Logger.getLogger();
 
   List<Clause> clauses = new ArrayList<Clause>(4);
   boolean didChangeWindow = false;

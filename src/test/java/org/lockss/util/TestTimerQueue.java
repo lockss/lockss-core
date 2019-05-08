@@ -36,6 +36,8 @@ import java.util.*;
 import java.io.*;
 import junit.framework.TestCase;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 
@@ -47,7 +49,6 @@ public class TestTimerQueue extends LockssTestCase {
   public static Class testedClasses[] = {
     org.lockss.util.TimerQueue.class
   };
-//   protected static Logger log = Logger.getLogger("TestTimer");
 
   String O1 = "foo";
   Integer O2 = new Integer(42);

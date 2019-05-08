@@ -42,6 +42,7 @@ import org.lockss.daemon.Crawler.CrawlerFacade;
 import org.lockss.crawler.TestFollowLinkCrawler.MyMockUrlFetcher;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 import org.lockss.plugin.UrlFetcher.FetchResult;
 import org.lockss.test.*;
@@ -115,12 +116,8 @@ public class TestFollowLinkCrawler2 extends LockssTestCase {
   }
 
   MyMockArchivalUnit newMyMockArchivalUnit() {
-    MockHistoryRepository mhr = new MockHistoryRepository();
     MyMockArchivalUnit mau = new MyMockArchivalUnit();
-    getMockLockssDaemon().setHistoryRepository(mhr, mau);
-    aus = new MockAuState(mau);
-    mhr.setAuState(aus);
-    aus.setHistoryRepository(mhr);
+    aus = AuTestUtil.setUpMockAus(mau);
     return mau;
   }
 

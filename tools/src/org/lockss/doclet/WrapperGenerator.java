@@ -128,7 +128,7 @@ import java.util.*;
  */
 
 public class WrapperGenerator extends Doclet {
-  static Logger log = Logger.getLogger("WrapperGenerator");
+  static Logger log = Logger.getLogger();
 
   /** Command-line option to specify template file name */
   static final String templateOption = "-template";

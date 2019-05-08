@@ -36,6 +36,7 @@ import java.io.*;
 
 import org.lockss.app.LockssApp;
 import org.lockss.test.StringInputStream;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * <p>Tests the {@link org.lockss.util.XStreamSerializer} class.</p>

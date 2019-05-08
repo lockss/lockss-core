@@ -48,8 +48,7 @@ import org.lockss.servlet.*;
  * @deprecated RegexpCssLinkRewriterFactory is more complete.
  */
 public class StringFilterCssLinkRewriterFactory implements LinkRewriterFactory {
-  static final Logger logger =
-    Logger.getLogger("StringFilterCssLinkRewriterFactory");
+  static final Logger logger = Logger.getLogger();
 
   public StringFilterCssLinkRewriterFactory() {
   }

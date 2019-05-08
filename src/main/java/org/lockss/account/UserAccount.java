@@ -44,6 +44,10 @@ import javax.servlet.http.*;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.jetty.*;
 import org.lockss.alert.*;
 import org.lockss.app.*;
@@ -53,7 +57,7 @@ import org.lockss.servlet.*;
  */
 public abstract class UserAccount implements LockssSerializable, Comparable {
   
-  private static final Logger log = Logger.getLogger(UserAccount.class);
+  private static final Logger log = Logger.getLogger();
 
   // XXX enhance test/src/org/lockss/account/TestLCUserAccount.java
 
@@ -463,7 +467,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 	(TimeBase.msSince(lastUserPasswordChange)
 	 < getMinPasswordChangeInterval())) {
       String msg = "Cannot change password more than once every "
-	+ StringUtil.timeIntervalToLongString(getMinPasswordChangeInterval());
+	+ TimeUtil.timeIntervalToLongString(getMinPasswordChangeInterval());
       throw new IllegalPasswordChange(msg);
     }
 

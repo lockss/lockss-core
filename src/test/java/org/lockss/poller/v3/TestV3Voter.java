@@ -46,6 +46,7 @@ import org.lockss.state.*;
 import org.lockss.hasher.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 import static org.lockss.util.Constants.*;
 
@@ -56,7 +57,6 @@ public class TestV3Voter extends LockssTestCase {
   PeerIdentity repairRequestor;
   MockArchivalUnit au;
   MockAuState aus;
-  RepositoryNode repoNode;
   V3LcapMessage startMsg;
   
 
@@ -92,16 +92,7 @@ public class TestV3Voter extends LockssTestCase {
     PluginTestUtil.registerArchivalUnit(au);
     ((MockArchivalUnit)au).addUrl(repairUrl);
 
-    // Create the repository
-    MockLockssRepository repo = new MockLockssRepository("/foo", au);
-    repoNode = repo.createNewNode(repairUrl);
-
-    lockssDaemon.setLockssRepository(repo, au);
-
-    aus = new MockAuState(au);
-    HistoryRepository histRepo = lockssDaemon.getHistoryRepository(au);
-    histRepo.storeAuState(aus);
-    histRepo.startService();
+    aus = AuTestUtil.setUpMockAus(au);
     MockCachedUrlSet cus = (MockCachedUrlSet)au.getAuCachedUrlSet();
     cus.setEstimatedHashDuration(1000);
     List files = new ArrayList();
@@ -145,7 +136,6 @@ public class TestV3Voter extends LockssTestCase {
     String id = "tcp:[1.2.3.4]:4321";
     IdentityManager idMgr = lockssDaemon.getIdentityManager();
     PeerIdentity pid = idMgr.findPeerIdentity(id);
-    idMgr.findLcapIdentity(pid, id);
     PeerIdentityStatus status = idMgr.getPeerIdentityStatus(pid);
     status.setLastVoterTime(lastVoteTime);
     TimeBase.setSimulated(now);

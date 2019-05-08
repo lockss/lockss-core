@@ -53,6 +53,10 @@ import org.lockss.state.*;
 import org.lockss.scheduler.*;
 import org.lockss.scheduler.Schedule.*;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * <p>Represents a voter in a V3 poll.</p>
@@ -255,7 +259,7 @@ public class V3Voter implements Poll {
   // This task is cancelled before the real hash is scheduled.
   private SchedulableTask task;
 
-  private static final Logger log = Logger.getLogger("V3Voter");
+  private static final Logger log = Logger.getLogger();
 
   // CR: refactor common parts of constructors
   /**
@@ -272,7 +276,7 @@ public class V3Voter implements Poll {
     long duration = msg.getDuration() + padding;
 
     log.debug3("Creating V3 Voter for poll: " + msg.getKey() +
-               "; duration=" + StringUtil.timeIntervalToString(duration));
+               "; duration=" + TimeUtil.timeIntervalToString(duration));
 
     String hashAlgorithm = msg.getHashAlgorithm();
     if (hashAlgorithm == null) {
@@ -520,9 +524,9 @@ public class V3Voter implements Poll {
 
     if (estimatedHashDuration > voteDuration) {
       String msg = "Estimated hash duration (" 
-        + StringUtil.timeIntervalToString(estimatedHashDuration) 
+        + TimeUtil.timeIntervalToString(estimatedHashDuration) 
         + ") is too long to complete within the voting period ("
-        + StringUtil.timeIntervalToString(voteDuration) + ")";
+        + TimeUtil.timeIntervalToString(voteDuration) + ")";
       voterUserData.setErrorDetail(msg);
       log.warning(msg);
       recalcHashEstimate(voterUserData.getVoteDeadline() - now);
@@ -800,21 +804,14 @@ public class V3Voter implements Poll {
     DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
     synchronized (noAuSet) {
       try {
-	try {
-	  noAuSet.load();
-	  pollManager.ageNoAuSet(getAu(), noAuSet);
-	} catch (IOException e) {
-	  log.error("Failed to load no AU set", e);
-	  noAuSet.release();
-	  noAuSet = null;
-	}
-	nominees = idManager.getTcpPeerIdentities(new NominationPred(noAuSet));
-      } finally {
-	if (noAuSet != null) {
-	  noAuSet.release();
-	}
+	pollManager.ageNoAuSet(getAu(), noAuSet);
+	noAuSet.store();
+      } catch (IOException e) {
+	log.error("Failed to age no AU set", e);
+	noAuSet = null;
       }
     }
+    nominees = idManager.getTcpPeerIdentities(new NominationPred(noAuSet));
     if (nomineeCount <= nominees.size()) {
       Map availablePeers = new HashMap();
       for (PeerIdentity id : nominees) {
@@ -853,12 +850,8 @@ public class V3Voter implements Poll {
 	if (pid == voterUserData.getPollerId()) {
 	  return false;
 	}
-	try {
-	  if (noAuSet != null && noAuSet.contains(pid)) {
-	    return false;
-	  }
-	} catch (IOException e) {
-	  log.warning("Couldn't chech NoAUSet", e);
+	if (noAuSet != null && noAuSet.contains(pid)) {
+	  return false;
 	}
 	PeerIdentityStatus status = idManager.getPeerIdentityStatus(pid);
 	if (status == null) {

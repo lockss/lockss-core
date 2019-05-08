@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +33,10 @@ import java.io.*;
 import java.util.*;
 import org.mortbay.html.*;
 import org.lockss.app.*;
+import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.poller.*;
 import org.lockss.crawler.*;
 import org.lockss.state.*;
@@ -89,6 +92,7 @@ public class DebugPanel extends LockssServlet {
   public static final String ACTION_START_DEEP_CRAWL = "Deep Crawl";
   public static final String ACTION_FORCE_START_DEEP_CRAWL = "Force Deep Crawl";
   public static final String ACTION_CHECK_SUBSTANCE = "Check Substance";
+  public static final String ACTION_VALIDATE_FILES = "Validate Files";
   public static final String ACTION_DELETE_URL = "Delete File";
   static final String ACTION_CRAWL_PLUGINS = "Crawl Plugins";
   static final String ACTION_RELOAD_CONFIG = "Reload Config";
@@ -101,7 +105,7 @@ public class DebugPanel extends LockssServlet {
   static final String COL2 = "colspan=2";
   static final String COL2CENTER = COL2 + " align=center";
 
-  static Logger log = Logger.getLogger("DebugPanel");
+  static Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
   private PluginManager pluginMgr;
@@ -134,10 +138,25 @@ public class DebugPanel extends LockssServlet {
     super.init(config);
     daemon = getLockssDaemon();
     pluginMgr = daemon.getPluginManager();
-    pollManager = daemon.getPollManager();
-    crawlMgr = daemon.getCrawlManager();
+    try {
+      pollManager = daemon.getPollManager();
+    } catch (IllegalArgumentException e) {
+      log.debug("No poll manager, some functions nonfunctional");
+      pollManager = null;
+    }
+    try {
+      crawlMgr = daemon.getCrawlManager();
+    } catch (IllegalArgumentException e) {
+      log.debug("No crawl manager, some functions nonfunctional");
+      crawlMgr = null;
+    }
     cfgMgr = daemon.getConfigManager();
-    rmtApi = daemon.getRemoteApi();
+    try {
+      rmtApi = daemon.getRemoteApi();
+    } catch (IllegalArgumentException e) {
+      log.debug("No RemoteApi, some functions nonfunctional");
+      rmtApi = null;
+    }
   }
 
   public void lockssHandleRequest() throws IOException {
@@ -193,6 +212,9 @@ public class DebugPanel extends LockssServlet {
     if (ACTION_DELETE_URL.equals(action)) {
       doDeleteUrl();
     }
+    if (ACTION_VALIDATE_FILES.equals(action)) {
+      doValidateFiles();
+    }
     if (ACTION_CRAWL_PLUGINS.equals(action)) {
       crawlPluginRegistries();
     }
@@ -226,7 +248,7 @@ public class DebugPanel extends LockssServlet {
     try {
       long time = StringUtil.parseTimeInterval(timestr);
       Deadline.in(time).sleep();
-      statusMsg = "Slept for " + StringUtil.timeIntervalToString(time);
+      statusMsg = "Slept for " + TimeUtil.timeIntervalToString(time);
     } catch (NumberFormatException e) {
       errMsg = "Illegal duration: " + e;
     } catch (InterruptedException e) {
@@ -308,7 +330,7 @@ public class DebugPanel extends LockssServlet {
       errMsg = "Couldn't create CrawlReq: " + e.toString();
       return false;
     }
-    cmi.startNewContentCrawl(req, null);
+    cmi.startNewContentCrawl(req);
     statusMsg = deepMsg + "Crawl requested for " + au.getName() + delayMsg;
     return true;
   }
@@ -320,7 +342,7 @@ public class DebugPanel extends LockssServlet {
       checkSubstance(au);
     } catch (RuntimeException e) {
       log.error("Error in SubstanceChecker", e);
-      errMsg = "Error in SubstanceChecker; see log.";
+      errMsg = "Error in SubstanceChecker; " + e.toString();
     }
   }
 
@@ -352,6 +374,23 @@ public class DebugPanel extends LockssServlet {
     }
   }
 
+  private void doValidateFiles() throws IOException {
+    ArchivalUnit au = getAu();
+    if (au == null) return;
+    if (!AuUtil.hasContentValidator(au)) {
+      errMsg = au.getPlugin().getPluginName() +
+	" does not supply a content validator";
+      return;
+    }
+    String redir =
+      srvURL(AdminServletManager.SERVLET_LIST_OBJECTS,
+	     PropUtil.fromArgs("type", "auvalidate",
+			       "auid", au.getAuId()));
+
+    resp.setContentLength(0);
+    resp.sendRedirect(redir);
+  }
+
   private void doDeleteUrl() {
     ArchivalUnit au = getAu();
     if (au == null) return;
@@ -381,7 +420,7 @@ public class DebugPanel extends LockssServlet {
       }
       int cnt = 0;
       for (org.lockss.laaws.rs.model.Artifact art :
-	     v2Repo.getArtifactAllVersions(coll, au.getAuId(), url)) {
+	     v2Repo.getArtifactsAllVersions(coll, au.getAuId(), url)) {
 	log.debug2("deleting: " + art);
 	v2Repo.deleteArtifact(art);
 	cnt++;
@@ -547,6 +586,10 @@ public class DebugPanel extends LockssServlet {
 				     ACTION_CHECK_SUBSTANCE);
     frm.add("<br>");
     frm.add(checkSubstance);
+    Input validateFiles = new Input(Input.Submit, KEY_ACTION,
+				    ACTION_VALIDATE_FILES);
+    frm.add(" ");
+    frm.add(validateFiles);
     if (CurrentConfig.getBooleanParam(PARAM_DELETE_ENABLED, DEFAULT_DELETE_ENABLED)) {
       Input delUrl = new Input(Input.Submit, KEY_ACTION, ACTION_DELETE_URL);
       frm.add(" ");

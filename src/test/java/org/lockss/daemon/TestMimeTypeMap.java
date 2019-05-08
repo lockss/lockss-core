@@ -32,6 +32,9 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.daemon;
 
+import org.apache.commons.collections4.*;
+import org.lockss.plugin.*;
+import org.lockss.plugin.base.*;
 import org.lockss.extractor.*;
 import org.lockss.rewriter.*;
 import org.lockss.test.*;
@@ -121,6 +124,27 @@ public class TestMimeTypeMap extends LockssTestCase {
     assertNull(mt5.getCrawlFilterFactory());
     assertTrue(mt5.getLinkExtractorFactory() instanceof XmlLinkExtractorFactory);
     assertNull(mt5.getLinkRewriterFactory());
+
+    // -------- ALL --------
+    MimeTypeInfo mt6 = MimeTypeMap.DEFAULT.getMimeTypeInfo("*/*");
+    assertNull(mt6.getHashFilterFactory());
+    assertNull(mt6.getCrawlFilterFactory());
+    assertNull(mt6.getLinkExtractorFactory());
+    assertNull(mt6.getLinkRewriterFactory());
+    assertTrue(mt6.getContentValidatorFactory() instanceof MimeTypeContentValidatorFactory);
+
+    MimeTypeInfo mta = MimeTypeMap.DEFAULT.getMimeTypeInfo("*/*");
+    ConfigurationUtil.setFromArgs(MimeTypeMap.PARAM_DEFAULT_ALL_MIME_TYPE_VALIDATION_FACTORY,
+                                  MyValidatorFact.class.getName());
+
+    assertClass(MyValidatorFact.class, mta.getContentValidatorFactory());
+  }
+
+  static class MyValidatorFact implements ContentValidatorFactory {
+    public ContentValidator createContentValidator(ArchivalUnit au,
+						   String contentType) {
+      return null;
+    }
   }
 
   public void testModifyMimeTypeInfo() {
@@ -144,6 +168,41 @@ public class TestMimeTypeMap extends LockssTestCase {
     assertSame(wild, MimeTypeMap.wildSubType("image/*"));
     assertEquals("image", MimeTypeMap.wildSubType("image"));
     assertEquals("image/bad/mime", MimeTypeMap.wildSubType("image/bad/mime"));
+  }
+
+  public void testHasAnyThat() {
+    map = new MimeTypeMap(MimeTypeMap.DEFAULT);
+    assertTrue(map.hasAnyThat(new Predicate<MimeTypeInfo>() {
+	public boolean evaluate(MimeTypeInfo mti) {
+	  return mti.getLinkExtractorFactory() != null;
+	}}));
+    assertFalse(map.hasAnyThat(new Predicate<MimeTypeInfo>() {
+	public boolean evaluate(MimeTypeInfo mti) {
+	  return mti.getCrawlFilterFactory() != null;
+	}}));
+    assertTrue(map.hasAnyThat(new Predicate<MimeTypeInfo>() {
+	public boolean evaluate(MimeTypeInfo mti) {
+	  return mti.getContentValidatorFactory() != null;
+	}}));
+
+    MimeTypeInfo.Mutable mt1 = new MimeTypeInfo.Impl();
+    MimeTypeInfo.Mutable mt2 = new MimeTypeInfo.Impl();
+
+    ContentValidatorFactory cv = new MockContentValidatorFactory();
+    mt1.setContentValidatorFactory(cv);
+    FilterFactory cff = new MockFilterFactory();
+    mt2.setCrawlFilterFactory(cff);
+    map.putMimeTypeInfo("text/html", mt1);
+    map.putMimeTypeInfo("image/*", mt2);
+
+    assertTrue(map.hasAnyThat(new Predicate<MimeTypeInfo>() {
+	public boolean evaluate(MimeTypeInfo mti) {
+	  return mti.getCrawlFilterFactory() != null;
+	}}));
+    assertTrue(map.hasAnyThat(new Predicate<MimeTypeInfo>() {
+	public boolean evaluate(MimeTypeInfo mti) {
+	  return mti.getContentValidatorFactory() != null;
+	}}));
   }
 
   public void testHtmlParserLinkExtractor()

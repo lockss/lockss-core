@@ -45,7 +45,7 @@ import org.lockss.extractor.*;
  */
 public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   
-  static Logger log = Logger.getLogger(SubTreeArticleIterator.class);
+  static Logger log = Logger.getLogger();
   
   /** Specification of the CachedUrls the iterator should return.  Setters
    * are chained. */

@@ -43,6 +43,7 @@ import org.mortbay.util.B64Code;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.servlet.ServletUtil;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 import org.lockss.plugin.ArchivalUnit.ConfigurationException;
 import org.lockss.poller.Poll;
@@ -59,7 +60,7 @@ import org.lockss.daemon.*;
  * to change.
  */
 public class SimpleHasher {
-  static Logger log = Logger.getLogger("SimpleHasher");
+  static Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "hashcus.";
 
@@ -89,11 +90,18 @@ public class SimpleHasher {
 
   private static final int MAX_RANDOM_SEARCH = 100000;
 
+  // Hack for testing
+  private static File tempDir = null;
+
+  public static void setTempDir(File dir) {
+    tempDir = dir;
+  }
+
   /**
    * The types of possible hashes to be performed.
    */
   public static enum HashType {
-    V1Content, V1Name, V1File, V3Tree, V3File;
+    V3Tree, V3File;
   }
 
   public static final HashType DEFAULT_HASH_TYPE = HashType.V3Tree;
@@ -112,7 +120,23 @@ public class SimpleHasher {
    * The possible statuses of a hasher.
    */
   public static enum HasherStatus {
-    NotStarted, Init, Starting, Running, Done, Error, RequestError;
+    NotStarted(false),
+    Init(false),
+    Starting(false),
+    Running(false),
+    Done(true),
+    Error(true),
+    RequestError(true);
+
+    final boolean isDone;
+
+    HasherStatus(boolean isDone) {
+      this.isDone = isDone;
+    }
+    public boolean isDone() {
+      return isDone;
+    }
+
    }
 
   /**
@@ -133,9 +157,9 @@ public class SimpleHasher {
   // Support for old numeric input values.
   private HashType[] hashTypeCompat = {
     null,
-    HashType.V1Content,
-    HashType.V1Name,
-    HashType.V1File,
+    null,
+    null,
+    null,
     HashType.V3Tree,
     HashType.V3File
   };
@@ -220,13 +244,6 @@ public class SimpleHasher {
     isBase64 = val;
   }
 
-  /** Do a V1 hash of the CUSH */
-  public byte[] doV1Hash(CachedUrlSetHasher cush) throws IOException {
-    initDigest(digest);
-    doHash(cush);
-    return digest.digest();
-  }
-
   /** Do a V3 hash of the AU, recording the results to blockFile */
   public void doV3Hash(ArchivalUnit au, File blockFile,
 		       String header, String footer)
@@ -243,10 +260,10 @@ public class SimpleHasher {
     if (header != null) {
       blockOuts.println(header);
     }
-    BlockHasher hasher = new BlockHasher(cus, 1,
-					 initHasherDigests(),
-					 initHasherByteArrays(),
-					 new BlockEventHandler(blockOuts));
+    BlockHasher hasher = newBlockHasher(cus, 1,
+					initHasherDigests(),
+					initHasherByteArrays(),
+					new BlockEventHandler(blockOuts));
 
     hasher.setIncludeUrl(isIncludeUrl);
     hasher.setExcludeSuspectVersions(isExcludeSuspectVersions);
@@ -259,11 +276,29 @@ public class SimpleHasher {
         log.warning("Error building weightMap", e);
       }
     }
-    doHash(hasher);
-    if (footer != null) {
-      blockOuts.println(footer);
+    try {
+      doHash(hasher);
+      if (footer != null) {
+	blockOuts.println(footer);
+      }
+    } catch (RuntimeInterruptedException e) {
+      if (e.getCause() != null) {
+	blockOuts.println("\nAborted: " + e.getCause().getMessage());
+      } else {
+	blockOuts.println("\nAborted: " + e.getMessage());
+      }
+      throw e;
+    } catch (InterruptedIOException e) {
+      blockOuts.println("\nAborted: " + e.getMessage());
+      throw e;
+    } catch (Exception e) {
+      blockOuts.println("\nError: " + e.toString());
+      throw e;
+    } finally {
+      blockOuts.close();
+      // ensure files closed if terminated early, harmless otherwise
+      hasher.abortHash();
     }
-    blockOuts.close();
   }
 
   private void initDigest(MessageDigest digest) {
@@ -273,6 +308,14 @@ public class SimpleHasher {
     if (verifier != null) {
       digest.update(verifier, 0, verifier.length);
     }
+  }
+
+  protected BlockHasher newBlockHasher(CachedUrlSet cus,
+				       int maxVersions,
+				       MessageDigest[] digests,
+				       byte[][] initByteArrays,
+				       BlockHasher.EventHandler cb) {
+    return  new BlockHasher(cus, maxVersions, digests, initByteArrays, cb);
   }
 
   private byte[][] initHasherByteArrays() {
@@ -292,8 +335,16 @@ public class SimpleHasher {
     long startTime = TimeBase.nowMs();
     while (!cush.finished()) {
       bytesHashed += cush.hashStep(nbytes);
+      elapsedTime = TimeBase.msSince(startTime);
+
+      // Check whether the thread has been interrupted (e.g., by the future
+      // being cancel()ed) and exit if so
+      if (Thread.currentThread().interrupted()) {
+	log.warning("Hash interrupted, aborting: " +
+		    cush.getCachedUrlSet().getArchivalUnit());
+	throw new RuntimeInterruptedException("Thread interrupted");
+      }
     }
-    elapsedTime = TimeBase.msSince(startTime);
   }
 
   private MessageDigest[] initHasherDigests() {
@@ -314,16 +365,19 @@ public class SimpleHasher {
       filesHashed++;
       HashBlock.Version ver = block.currentVersion();
       if (ver != null) {
+	String out;
 	if (ver.getHashError() != null) {
 	  // Pylorus' diff() depends upon the first 20 characters of this string
-	  outs.println("Hash error (see log)        " + block.getUrl());
+	  out =  "Hash error (see log)        " + block.getUrl();
 	} else {
 	  if(isIncludeWeight) {
-	    outs.println(byteString(ver.getHashes()[0]) + "   " + getUrlResultWeight(block.getUrl()) + "   " + block.getUrl());
+	    out = byteString(ver.getHashes()[0]) + "   " + getUrlResultWeight(block.getUrl()) + "   " + block.getUrl();
 	  } else {
-	    outs.println(byteString(ver.getHashes()[0]) + "   " + block.getUrl());
+	    out = byteString(ver.getHashes()[0]) + "   " + block.getUrl();
 	  }
 	}
+	log.debug3(out);
+	outs.println(out);
       }
     }
 
@@ -381,18 +435,18 @@ public class SimpleHasher {
 
 	if (digest == null) {
 	  log.warning(DEBUG_HEADER + "No digest could be obtained");
-	  result.setRunnerStatus(HasherStatus.Error);
 	  result.setRunnerError("No digest could be obtained");
+	  result.setRunnerStatus(HasherStatus.Error);
 	}
       } catch (NoSuchAlgorithmException nsae) {
 	log.warning(DEBUG_HEADER, nsae);
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Invalid hashing algorithm: "
 	    + nsae.getMessage());
+	result.setRunnerStatus(HasherStatus.Error);
       } catch (Exception e) {
 	log.warning(DEBUG_HEADER, e);
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Error making digest: " + e.getMessage());
+	result.setRunnerStatus(HasherStatus.Error);
       }
 
       if (HasherStatus.Error == result.getRunnerStatus()) {
@@ -410,46 +464,50 @@ public class SimpleHasher {
 
       try {
 	switch (result.getHashType()) {
-	case V1Content:
-	case V1File:
-	  doV1(result.getCus().getContentHasher(digest), result);
-	  break;
-	case V1Name:
-	  doV1(result.getCus().getNameHasher(digest), result);
-	  break;
 	case V3Tree:
 	case V3File:
 	  doV3(params.getMachineName(), params.isExcludeSuspectVersions(), params.isIncludeWeight(),
 	      result);
 	  break;
 	}
-
-	result.setBytesHashed(getBytesHashed());
-	result.setFilesHashed(getFilesHashed());
-	result.setElapsedTime(getElapsedTime());
-	result.setRunnerStatus(HasherStatus.Done);
+	fillInResult(result, HasherStatus.Done, null);
+      } catch (RuntimeInterruptedException e) {
+	if (e.getCause() != null) {
+	  fillInResult(result, HasherStatus.Error, e.getCause().getMessage());
+	} else {
+	  fillInResult(result, HasherStatus.Error, e.getMessage());
+	}
+      } catch (InterruptedIOException e) {
+	fillInResult(result, HasherStatus.Error, e.getMessage());
       } catch (Exception e) {
 	log.warning("hash()", e);
-	result.setRunnerStatus(HasherStatus.Error);
-	result.setRunnerError("Error hashing: " + e.toString());
+	fillInResult(result, HasherStatus.Error, "Error hashing: " + e.toString());
       } catch (Error e) {
 	try {
 	  log.warning("hash()", e);
 	} catch (Error ee) {
 	}
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Error hashing: " + e.toString());
+	result.setRunnerStatus(HasherStatus.Error);
 	throw e;
       }
     } finally {
       if (result.getRunnerStatus() == HasherStatus.Running) {
-	result.setRunnerStatus(HasherStatus.Error);
 	result.setRunnerError("Unexpected abort");
+	result.setRunnerStatus(HasherStatus.Error);
       }
       IOUtil.safeClose(result.getRecordStream());
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+  }
+
+  void fillInResult(HasherResult result, HasherStatus status, String errmsg) {
+    result.setRunnerError(errmsg);
+    result.setBytesHashed(getBytesHashed());
+    result.setFilesHashed(getFilesHashed());
+    result.setElapsedTime(getElapsedTime());
+    result.setRunnerStatus(status);
   }
 
   /**
@@ -478,15 +536,15 @@ public class SimpleHasher {
 	if (hashType == null) throw new ArrayIndexOutOfBoundsException();
 	params.setHashType(hashType.toString());
       } catch (ArrayIndexOutOfBoundsException aioobe) {
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Unknown hash type: " + params.getHashType();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       } catch (RuntimeException re) {
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage =
 	    "Can't parse hash type: " + params.getHashType() + re.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     } else {
@@ -494,10 +552,10 @@ public class SimpleHasher {
 	hashType = HashType.valueOf(params.getHashType());
       } catch (IllegalArgumentException iae) {
 	log.warning(DEBUG_HEADER, iae);
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Unknown hash type: " + params.getHashType() + " - "
 	    + iae.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     }
@@ -532,10 +590,10 @@ public class SimpleHasher {
 	resultEncoding = ResultEncoding.valueOf(params.getResultEncoding());
       } catch (IllegalArgumentException iae) {
 	log.warning(DEBUG_HEADER, iae);
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Unknown result encoding: " + params.getResultEncoding()
 	    + " - " + iae.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     }
@@ -582,10 +640,10 @@ public class SimpleHasher {
       result.setChallenge(challenge);
     } catch (IllegalArgumentException iae) {
       log.warning(DEBUG_HEADER, iae);
-      result.setRunnerStatus(HasherStatus.Error);
       errorMessage = "Challenge: Illegal Base64 string: "
 	  + params.getChallenge() + iae.getMessage();
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
@@ -594,10 +652,10 @@ public class SimpleHasher {
       result.setVerifier(verifier);
     } catch (IllegalArgumentException iae) {
       log.warning(DEBUG_HEADER, iae);
-      result.setRunnerStatus(HasherStatus.Error);
       errorMessage = "Verifier: Illegal Base64 string: " + params.getVerifier()
 	  + iae.getMessage();
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
@@ -611,12 +669,13 @@ public class SimpleHasher {
 
     if (isV3(result.getHashType()) && result.getBlockFile() == null) {
       try {
-	result.setBlockFile(FileUtil.createTempFile("HashCUS", ".tmp"));
+	result.setBlockFile(FileUtil.createTempFile("HashCUS", ".tmp",
+						    tempDir));
       } catch (IOException ioe) {
 	log.warning(DEBUG_HEADER, ioe);
-	result.setRunnerStatus(HasherStatus.Error);
 	errorMessage = "Cannot create block file: " + ioe.getMessage();
 	result.setRunnerError(errorMessage);
+	result.setRunnerStatus(HasherStatus.Error);
 	return errorMessage;
       }
     }
@@ -644,8 +703,8 @@ public class SimpleHasher {
 
     if (StringUtil.isNullString(params.getAuId())) {
       log.warning(DEBUG_HEADER + "No AU identifer has been specified");
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError("No AU identifer has been specified");
+      result.setRunnerStatus(HasherStatus.Error);
       return "Select an AU";
     }
 
@@ -655,9 +714,9 @@ public class SimpleHasher {
     if (au == null) {
       log.warning(DEBUG_HEADER + "No AU exists with the specified identifier "
 	  + params.getAuId());
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError("No AU exists with the specified identifier "
 	  + params.getAuId());
+      result.setRunnerStatus(HasherStatus.Error);
       return "No such AU.  Select an AU";
     }
 
@@ -741,29 +800,20 @@ public class SimpleHasher {
 
     try {
       switch (hashType) {
-      case V1File:
-	if (upper != null ||
-	    (lower != null && !lower.equals(PollSpec.SINGLE_NODE_LWRBOUND))) {
-	  errorMessage = "Upper/Lower ignored";
-	}
-	pollSpec = new PollSpec(auId, url, PollSpec.SINGLE_NODE_LWRBOUND, null,
-	    Poll.V1_CONTENT_POLL);
-	break;
       case V3Tree:
+      default:
 	pollSpec = new PollSpec(auId, url, lower, upper, Poll.V3_POLL);
 	break;
       case V3File:
 	pollSpec = new PollSpec(auId, url, PollSpec.SINGLE_NODE_LWRBOUND, null,
 	    Poll.V3_POLL);
 	break;
-      default:
-	pollSpec = new PollSpec(auId, url, lower, upper, Poll.V1_CONTENT_POLL);
       }
     } catch (Exception e) {
       errorMessage = "Error making PollSpec: " + e.toString();
       if (log.isDebug()) log.debug("Making Pollspec", e);
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
@@ -773,8 +823,8 @@ public class SimpleHasher {
 
     if (result.getCus() == null) {
       errorMessage = "No such CUS: " + pollSpec;
-      result.setRunnerStatus(HasherStatus.Error);
       result.setRunnerError(errorMessage);
+      result.setRunnerStatus(HasherStatus.Error);
       return errorMessage;
     }
 
@@ -811,7 +861,7 @@ public class SimpleHasher {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "digest = " + digest);
 
     if (isRecordFilteredStream) {
-      result.setRecordFile(FileUtil.createTempFile("HashCUS", ".tmp"));
+      result.setRecordFile(FileUtil.createTempFile("HashCUS", ".tmp", tempDir));
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result.getRecordFile() = "
 	  + result.getRecordFile());
       OutputStream recordStream = new BufferedOutputStream(
@@ -830,24 +880,6 @@ public class SimpleHasher {
     return digest;
   }
 
-  /**
-   * Performs a version 1 hashing operation.
-   * 
-   * @param cush
-   *          A CachedUrlSetHasher with the hasher.
-   * @param result
-   *          A HasherResult where to store the result of the hashing operation.
-   * @throws IOException
-   */
-  void doV1(CachedUrlSetHasher cush, HasherResult result) throws IOException {
-    final String DEBUG_HEADER = "doV1(): ";
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cush = " + cush);
-    setFiltered(true);
-    result.setHashResult(doV1Hash(cush));
-    result.setShowResult(true);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Done.");
-  }
-  
   void doV3(String machineName, boolean excludeSuspectVersions,
       HasherResult result) throws IOException {
     doV3(machineName, excludeSuspectVersions, false, result);
@@ -997,6 +1029,10 @@ public class SimpleHasher {
 	  hash(params, result);
 	  triggerWDogOnExit(false);
 	  setThreadName("HashCUS: idle");
+	  // Ensure we don't leave thread interrupt flag on
+	  if (Thread.currentThread().interrupted()) {
+	    log.debug("Thread interrupt flag was on when SimpleHasher finished");
+	  }
 	}
 
 	@Override

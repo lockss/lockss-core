@@ -55,15 +55,7 @@ public class V3TestUtils {
   public static PeerIdentity findPeerIdentity(MockLockssDaemon daemon,
 					      String id)
       throws IdentityManager.MalformedIdentityKeyException {
-    IdentityManager idMgr;
-    if (daemon.hasIdentityManager()) {
-      idMgr = daemon.getIdentityManager();
-    } else {
-      idMgr = new NoStoreIdentityManager();
-      daemon.setIdentityManager(idMgr);
-      idMgr.initService(daemon);
-//       idMgr.startService();
-    }
+    IdentityManager idMgr = daemon.getIdentityManager();
     return idMgr.findPeerIdentity(id);
   }
 

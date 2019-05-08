@@ -38,6 +38,7 @@ import org.mortbay.http.*;
 import org.mortbay.http.handler.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.jetty.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
@@ -48,7 +49,7 @@ public class ProxyAccessHandler extends IpAccessHandler {
 // A single handler instance may run concurrently in multiple threads, so
 // there must not be any per-request local state.
 
-  private static Logger log = Logger.getLogger("ProxyAccess");
+  private static Logger log = Logger.getLogger();
   private final LockssDaemon daemon;
   private final PluginManager pluginMgr;
   private final IdentityManager idMgr;

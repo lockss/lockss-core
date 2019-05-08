@@ -37,6 +37,7 @@ import java.util.*;
 import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.poller.*;
@@ -124,7 +125,7 @@ public class TestV3Serializer extends LockssTestCase {
     pollerSerializer = new V3PollerSerializer(theDaemon, pollDir);
     ParticipantUserData ud3 = pollerSerializer.loadPollerUserData(id);
     V3PollTestUtil.assertEqualParticipantUserData(ud1, ud3);
-    PeerIdentity id2 = new MockPeerIdentity("TCP:[192.168.1.1]:9999");
+    PeerIdentity id2 = idManager.findPeerIdentity("TCP:[192.168.1.1]:9999");
     try {
       pollerSerializer.loadPollerUserData(id2);
       fail("Should have thrown");
@@ -183,7 +184,7 @@ public class TestV3Serializer extends LockssTestCase {
     vsb.setHashAlgorithm("SHA1");
     vsb.setLastHashedBlock("http://www.example.com/file1.html");
     vsb.setPluginVersion("mock");
-    vsb.setPollerId(new MockPeerIdentity("TCP:[127.0.0.1]:8080"));
+    vsb.setPollerId(idManager.findPeerIdentity("TCP:[127.0.0.1]:8080"));
     vsb.setPollKey("mock-poll-1");
     vsb.setProtocolVersion(1);
     return vsb;
@@ -233,7 +234,7 @@ public class TestV3Serializer extends LockssTestCase {
     ud.setNominees(ListUtil.list("TCP:[10.1.0.1]:8000", "TCP:[10.1.0.2]:8000"));
     ud.setPluginVersion("1.0");
     ud.setPollAckEffortProof(ByteArray.makeRandomBytes(20));
-    ud.setPollerId(new MockPeerIdentity("TCP:[10.2.0.1]:9000"));
+    ud.setPollerId(idManager.findPeerIdentity("TCP:[10.2.0.1]:9000"));
     ud.setPollerNonce(ByteArray.makeRandomBytes(20));
     ud.setPollKey("pollkey");
     ud.setPollVersion(1);

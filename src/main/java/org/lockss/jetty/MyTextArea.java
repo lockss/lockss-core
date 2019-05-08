@@ -40,7 +40,7 @@ import org.lockss.util.*;
  * html on the page in the textarea, so suppress the newline in this
  * case. */
 public class MyTextArea extends TextArea {
-  static Logger log = Logger.getLogger("IpAccessServlet");
+  static Logger log = Logger.getLogger();
 
   private String mytag;			// private in Block, dammit
 

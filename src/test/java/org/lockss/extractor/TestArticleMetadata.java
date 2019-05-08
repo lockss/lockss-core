@@ -44,7 +44,7 @@ import static org.lockss.extractor.ArticleMetadata.InvalidValue;
 
 public class TestArticleMetadata extends LockssTestCase {
   
-  private static final Logger log = Logger.getLogger(TestArticleMetadata.class);
+  private static final Logger log = Logger.getLogger();
 
   static String RAW_KEY1 = "key1";
   static String RAW_KEY2 = "key2";

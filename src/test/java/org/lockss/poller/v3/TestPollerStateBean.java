@@ -38,6 +38,7 @@ import java.util.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.poller.*;
 import org.lockss.test.*;
 
@@ -86,8 +87,6 @@ public class TestPollerStateBean extends LockssTestCase {
 
   PeerIdentity findPeerIdentity(String key) throws Exception {
     PeerIdentity pid = idMgr.findPeerIdentity(key);
-    // hack to ensure it's created
-    idMgr.findLcapIdentity(pid, pid.getIdString());
     return pid;
   }
 

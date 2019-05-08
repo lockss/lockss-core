@@ -135,7 +135,7 @@ import org.lockss.util.StringUtil;
  */
 public final class BibliographicOrderScorer {
 
-  private static Logger log = Logger.getLogger("BibliographicOrderScorer");
+  private static Logger log = Logger.getLogger();
 
   /** Do not allow instantiation outside of package or subclasses. */
   protected BibliographicOrderScorer() { /* No instantiation. */ }

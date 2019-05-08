@@ -52,7 +52,7 @@ import org.lockss.daemon.*;
  */
 
 public class SimulatedZipContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("SimulatedZipContentGenerator");
+  private static Logger logger = Logger.getLogger();
   int maxSize = 100000000;
   String[] suffix = {
     ".txt",

@@ -34,7 +34,7 @@ package org.lockss.util;
 import java.io.*;
 
 public class CharRing {
-  private static Logger logger = Logger.getLogger("CharRing");
+  private static Logger logger = Logger.getLogger();
 
   protected char chars[];
   protected int head = 0;

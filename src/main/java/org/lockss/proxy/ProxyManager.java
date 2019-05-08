@@ -1,32 +1,33 @@
 /*
- * $Id$
- */
 
-/*
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University
+All rights reserved.
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -37,25 +38,25 @@ import org.mortbay.http.*;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 import org.lockss.config.*;
-import org.lockss.daemon.*;
 import org.lockss.alert.*;
-import org.lockss.jetty.*;
 import org.lockss.servlet.*;
 
 /** LOCKSS proxy manager, starts main proxy.
  */
 public class ProxyManager extends BaseProxyManager {
   public static final String SERVER_NAME = "Proxy";
-  private static Logger log = Logger.getLogger("Proxy");
+  private static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "proxy.";
   public static final String PARAM_START = PREFIX + "start";
-  public static final boolean DEFAULT_START = true;
+  public static final boolean DEFAULT_START = false;
 
   public static final String PARAM_PORT = PREFIX + "port";
-  public static final int DEFAULT_PORT = 9090;
+  public static final int DEFAULT_PORT = 24670;
 
   /** List of IP addresses to which to bind listen socket.  If not set,
    * server listens on all interfaces.  All listeners must be on the same
@@ -65,7 +66,7 @@ public class ProxyManager extends BaseProxyManager {
 
   /** Proxy SSL listen port */
   public static final String PARAM_SSL_PORT = PREFIX + "sslPort";
-  public static final int DEFAULT_SSL_PORT = -1;
+  public static final int DEFAULT_SSL_PORT = 9001;
 
   /** List of IP addresses to which to bind the SSL listen socket.  If not
    * set, server listens on all interfaces.  All listeners must be on the
@@ -150,10 +151,10 @@ public class ProxyManager extends BaseProxyManager {
 
   /** If true, when serving cached Files that have no stored Content-Type
    * (and for which none is supplied using the plugin's
-   * <code>au_url_mime_type</code>, one will be inferred from the extension
-   * using Jetty's mechanism.  Setting this false ensures that files
-   * without Content-Type won't inadvertently get one when transferred to
-   * another cache using the audit proxy. */
+   * <code>au_url_mime_type_map</code>), one will be inferred from the
+   * extension using Jetty's mechanism.  Setting this false ensures that
+   * files without Content-Type won't inadvertently get one when
+   * transferred to another cache using the audit proxy. */
   public static final String PARAM_INFER_MIME_TYPE = PREFIX + "inferMimeType";
   public static final boolean DEFAULT_INFER_MIME_TYPE = true;
 
@@ -166,6 +167,12 @@ public class ProxyManager extends BaseProxyManager {
   public static final String PARAM_ALLOW_BIND_LOCAL_ADDRESSES =
     PREFIX + "allowBindLocalAddresses";
   public static final List<String> DEFAULT_ALLOW_BIND_LOCAL_ADDRESSES = null;
+
+  /** If true, URLs in requests that contain an AUID will be normalized.
+   * Set false only to reproduce previous, buggy behavior */
+  public static final String PARAM_NORMALIZE_AUID_REQUEST =
+    PREFIX + "normalizeAuidRequest";
+  public static final boolean DEFAULT_NORMALIZE_AUID_REQUEST = true;
 
   /** If true, successive accesses to recently accessed content on the
    * cache does not trigger a request to the publisher */
@@ -307,6 +314,8 @@ public class ProxyManager extends BaseProxyManager {
     DEFAULT_COPY_STORED_RESPONSE_HEADERS;
   private List<String> paramAllowBindLocalAddresses =
     DEFAULT_ALLOW_BIND_LOCAL_ADDRESSES;
+  private boolean paramNormalizeAuidRequest =
+    DEFAULT_NORMALIZE_AUID_REQUEST;
 
 
   public void setConfig(Configuration config, Configuration prevConfig,
@@ -326,7 +335,7 @@ public class ProxyManager extends BaseProxyManager {
 	String accessLogLevel = config.get(PARAM_ACCESS_LOG_LEVEL,
 					   DEFAULT_ACCESS_LOG_LEVEL);
 	paramAccessLogLevel = Logger.levelOf(accessLogLevel);
-      } catch (RuntimeException e) {
+      } catch (Exception e) {
 	log.error("Couldn't set access log level", e);
 	paramAccessLogLevel = -1;
       }	  
@@ -354,6 +363,9 @@ public class ProxyManager extends BaseProxyManager {
       paramAllowBindLocalAddresses =
 	config.getList(PARAM_ALLOW_BIND_LOCAL_ADDRESSES,
 		       DEFAULT_ALLOW_BIND_LOCAL_ADDRESSES);
+      paramNormalizeAuidRequest =
+	config.getBoolean(PARAM_NORMALIZE_AUID_REQUEST,
+			  DEFAULT_NORMALIZE_AUID_REQUEST);
       paramCopyStoredResponseHeaders =
 	config.getBoolean(PARAM_COPY_STORED_RESPONSE_HEADERS,
 			  DEFAULT_COPY_STORED_RESPONSE_HEADERS);
@@ -600,6 +612,10 @@ public class ProxyManager extends BaseProxyManager {
     return paramCopyStoredResponseHeaders;
   }
 
+  public boolean isNormalizeAuidRequest() {
+    return paramNormalizeAuidRequest;
+  }
+
   public List<String> getAllowedLocalAddress() {
     return paramAllowBindLocalAddresses;
   }
@@ -688,7 +704,7 @@ public class ProxyManager extends BaseProxyManager {
   public void logAccess(String method, String url, String msg,
 			String remoteAddr, long reqElapsedTime) {
     if (reqElapsedTime >= 0) {
-      msg += " in " + StringUtil.timeIntervalToString(reqElapsedTime);
+      msg += " in " + TimeUtil.timeIntervalToString(reqElapsedTime);
     }
     logAccess(method, url, msg, remoteAddr);
   }

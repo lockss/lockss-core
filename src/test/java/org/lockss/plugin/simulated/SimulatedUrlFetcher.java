@@ -38,6 +38,8 @@ import java.text.*;
 
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeZoneUtil;
 import org.lockss.util.urlconn.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
@@ -51,7 +53,7 @@ import static org.lockss.util.DateTimeUtil.GMT_DATE_FORMATTER;
 
 public class SimulatedUrlFetcher extends BaseUrlFetcher {
 
-  private static final Logger log = Logger.getLogger(SimulatedUrlFetcher.class);
+  private static final Logger log = Logger.getLogger();
   
   private String fileRoot;
   private File contentFile = null;

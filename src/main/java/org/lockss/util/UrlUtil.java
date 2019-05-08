@@ -64,7 +64,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 public class UrlUtil {
   
-  private static final Logger log = Logger.getLogger(UrlUtil.class);
+  private static final Logger log = Logger.getLogger();
   
   /**
    * The separator string for URLs.
@@ -1371,6 +1371,19 @@ public class UrlUtil {
     }
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "luc = " + luc);
     return luc;
+  }
+
+  /** Pattern to match URLs that have a password */
+  static Pattern PASSWORD_PAT = Pattern.compile("^(.+?//.+?:)(.+?)(@.+)$");
+
+  /** Return the URL with the password, if any, replaced by XXXXXX */
+  public static String obfuscatePassword(String url) {
+    Matcher m = PASSWORD_PAT.matcher(url);
+    if (m.matches()) {
+      return m.group(1) + "XXXXXX" + m.group(3);
+    } else {
+      return url;
+    }
   }
 
 //   /** Return input stream for url iff 200 response code, else throw.

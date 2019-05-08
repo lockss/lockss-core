@@ -44,11 +44,9 @@ import org.lockss.hasher.HasherResult;
 import org.lockss.hasher.SimpleHasher;
 import org.lockss.hasher.SimpleHasher.HasherStatus;
 import org.lockss.hasher.SimpleHasher.ParamsAndResult;
-import org.lockss.util.FileUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.PlatformUtil;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.ws.entities.HasherWsAsynchronousResult;
 import org.lockss.ws.entities.HasherWsParams;
 import org.lockss.ws.entities.HasherWsResult;
@@ -58,7 +56,7 @@ import org.lockss.ws.entities.LockssWebServicesFault;
  * The Hasher web service implementation.
  */
 public class HasherServiceImpl implements HasherService {
-  private static Logger log = Logger.getLogger(HasherServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   private static final Map<String, SimpleHasher.ParamsAndResult> HASH_REQUESTS =
       new LinkedHashMap<String, SimpleHasher.ParamsAndResult>();

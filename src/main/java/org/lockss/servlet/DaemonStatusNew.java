@@ -1,10 +1,6 @@
 /*
- * $Id $
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -46,29 +42,23 @@ import org.lockss.config.*;
 import org.lockss.daemon.status.*;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 
 /**
  * DaemonStatus servlet
  */
-public class DaemonStatusNew extends LockssServlet {
+public class DaemonStatusNew extends BaseDaemonStatus {
   
-  private static final Logger log = Logger.getLogger("DaemonStatus");
+  private static final Logger log = Logger.getLogger();
 
-  /** Supported output formats */
-  static final int OUTPUT_HTML = 1;
-  static final int OUTPUT_TEXT = 2;
-  static final int OUTPUT_XML = 3;
-  static final int OUTPUT_CSV = 4;
-
-  private String tableName;
-  private String tableKey;
   private String sortKey;
-  private StatusService statSvc;
   private int outputFmt;
   private java.util.List rules;
   private BitSet tableOptions;
-  private PluginManager pluginMgr;
 
   protected void resetLocals() {
     super.resetLocals();
@@ -77,8 +67,6 @@ public class DaemonStatusNew extends LockssServlet {
 
   public void init(ServletConfig config) throws ServletException {
     super.init(config);
-    statSvc = getLockssDaemon().getStatusService();
-    pluginMgr = getLockssDaemon().getPluginManager();
   }
 
   static final Set fixedParams =
@@ -90,7 +78,7 @@ public class DaemonStatusNew extends LockssServlet {
    */
   public void lockssHandleRequest() throws IOException {
     if (!StringUtil.isNullString(req.getParameter("isDaemonReady"))) {
-      if (pluginMgr.areAusStarted()) {
+      if (pluginMgr.areAusStartedOrStartOnDemand()) {
 	resp.setStatus(200);
 	PrintWriter wrtr = resp.getWriter();
 	resp.setContentType("text/plain");
@@ -124,6 +112,10 @@ public class DaemonStatusNew extends LockssServlet {
 
     tableOptions = new BitSet();
 
+    tableName = req.getParameter("table");
+    if (handleForeignRedirect()) {
+      return;
+    }
     if (isDebugUser()) {
       log.debug2("Debug user.  Setting OPTION_DEBUG_USER");
       tableOptions.set(StatusTable.OPTION_DEBUG_USER);
@@ -137,7 +129,6 @@ public class DaemonStatusNew extends LockssServlet {
       }
     }
 
-    tableName = req.getParameter("table");
     tableKey = req.getParameter("key");
     if (StringUtil.isNullString(tableName)) {
       tableName = statSvc.getDefaultTableName();
@@ -174,7 +165,7 @@ public class DaemonStatusNew extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
 
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       page.add(ServletUtil.notStartedWarning());
     }
 
@@ -518,15 +509,6 @@ public class DaemonStatusNew extends LockssServlet {
     }
   }
 
-  static final Image UPARROW1 = ServletUtil.image("uparrow1blue.gif", 16, 16, 0,
-				      "Primary sort column, ascending");
-  static final Image UPARROW2 = ServletUtil.image("uparrow2blue.gif", 16, 16, 0,
-				      "Secondary sort column, ascending");
-  static final Image DOWNARROW1 = ServletUtil.image("downarrow1blue.gif", 16, 16, 0,
-					"Primary sort column, descending");
-  static final Image DOWNARROW2 = ServletUtil.image("downarrow2blue.gif", 16, 16, 0,
-					"Secondary sort column, descending");
-
   /** Create a column heading element:<ul>
    *   <li> plain text if not sortable
    *   <li> if sortable, link with sortkey set to solumn name,
@@ -741,7 +723,7 @@ public class DaemonStatusNew extends LockssServlet {
 
 
   // Handle lists
-  private String getDisplayString(Object val, int type) {
+  protected String getDisplayString(Object val, int type) {
     if (val instanceof java.util.List) {
       StringBuilder sb = new StringBuilder();
       for (Iterator iter = ((java.util.List)val).iterator(); iter.hasNext(); ) {
@@ -754,7 +736,7 @@ public class DaemonStatusNew extends LockssServlet {
   }
 
   // Process References and other links
-  private String getDisplayString0(Object val, int type) {
+  protected String getDisplayString0(Object val, int type) {
     if (val instanceof StatusTable.Reference) {
       return getRefString((StatusTable.Reference)val, type);
     } else if (val instanceof StatusTable.SrvLink) {
@@ -774,47 +756,8 @@ public class DaemonStatusNew extends LockssServlet {
     }
   }
 
-  // turn References into html links
-  private String getRefString(StatusTable.Reference ref, int type) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("table=");
-    sb.append(ref.getTableName());
-    String key = ref.getKey();
-    if (!StringUtil.isNullString(key)) {
-      sb.append("&key=");
-      sb.append(urlEncode(key));
-    }
-    Properties refProps = ref.getProperties();
-    if (refProps != null) {
-      for (Iterator iter = refProps.entrySet().iterator(); iter.hasNext(); ) {
-	Map.Entry ent = (Map.Entry)iter.next();
-	sb.append("&");
-	sb.append(ent.getKey());
-	sb.append("=");
-	sb.append(urlEncode((String)ent.getValue()));
-      }
-    }
-    if (ref.getPeerId() != null) {
-      return srvAbsLink(ref.getPeerId(),
-			myServletDescr(),
-			getDisplayString(ref.getValue(), type),
-			sb.toString());
-    } else {
-      return srvLink(myServletDescr(),
-		     getDisplayString(ref.getValue(), type),
-		     sb.toString());
-    }
-  }
-
-  // turn UrlLink into html link
-  private String getSrvLinkString(StatusTable.SrvLink link, int type) {
-    return srvLink(link.getServletDescr(),
-		   getDisplayString1(link.getValue(), type),
-		   link.getArgs());
-  }
-
   // add display attributes from a DisplayedValue
-  private String getDisplayString1(Object val, int type) {
+  protected String getDisplayString1(Object val, int type) {
     if (val instanceof StatusTable.DisplayedValue) {
       StatusTable.DisplayedValue aval = (StatusTable.DisplayedValue)val;
       String str = aval.hasDisplayString()
@@ -942,7 +885,7 @@ public class DaemonStatusNew extends LockssServlet {
 	return ((IPAddr)val).getHostAddress();
       case ColumnDescriptor.TYPE_TIME_INTERVAL:
 	long millis = ((Number)val).longValue();
-	return StringUtil.timeIntervalToString(millis);
+	return TimeUtil.timeIntervalToString(millis);
       }
     } catch (NumberFormatException e) {
       log.warning("Bad number: " + val.toString(), e);
@@ -962,60 +905,6 @@ public class DaemonStatusNew extends LockssServlet {
       return "never";
     } else {
       return getTableDateFormat().format(d);
-    }
-  }
-
-  private static BitSet debugOptions = new BitSet();
-  static {
-    debugOptions.set(StatusTable.OPTION_DEBUG_USER);
-  }
-
-  /**
-   * Build a form with a select box that fetches a named table
-   * @return the Composite object
-   */
-  private Composite getSelectTableForm() {
-    try {
-      StatusTable statTable =
-        statSvc.getTable(StatusService.ALL_TABLES_TABLE, null,
-			 isDebugUser() ? debugOptions : null);
-      java.util.List colList = statTable.getColumnDescriptors();
-      java.util.List rowList = statTable.getSortedRows();
-      ColumnDescriptor cd = (ColumnDescriptor)colList.get(0);
-      Select sel = new Select("table", false);
-      sel.attribute("onchange", "this.form.submit()");
-      boolean foundIt = false;
-      for (Iterator rowIter = rowList.iterator(); rowIter.hasNext(); ) {
-        Map rowMap = (Map)rowIter.next();
-        Object val = rowMap.get(cd.getColumnName());
-        String display = StatusTable.getActualValue(val).toString();
-        if (val instanceof StatusTable.Reference) {
-          StatusTable.Reference ref = (StatusTable.Reference)val;
-          String key = ref.getTableName();
-          // select the current table
-          boolean isThis = (tableKey == null) && tableName.equals(key);
-          foundIt = foundIt || isThis;
-          sel.add(display, isThis, key);
-        } else {
-          sel.add(display, false);
-        }
-      }
-      // if not currently displaying a table in the list, select a blank entry
-      if (!foundIt) {
-        sel.add(" ", true, "");
-      }
-      Form frm = new Form(srvURL(myServletDescr()));
-      // use GET so user can refresh in browser
-      frm.method("GET");
-      frm.add(sel);
-      Input submit = new Input(Input.Submit, "foo", "Go");
-      submit.attribute("id", "dsSelectBox");
-      frm.add(submit);
-      return frm;
-    } catch (Exception e) {
-      // if this fails for any reason, just don't include this form
-      log.warning("Failed to build status table selector", e);
-      return new Composite();
     }
   }
 

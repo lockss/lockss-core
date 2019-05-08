@@ -38,7 +38,7 @@ import org.lockss.test.*;
 import org.htmlparser.util.*;
 
 public class TestHtmlCompoundTransform extends LockssTestCase {
-  static Logger log = Logger.getLogger(TestHtmlCompoundTransform.class);
+  static Logger log = Logger.getLogger();
 
   public void testIll() {
     try {

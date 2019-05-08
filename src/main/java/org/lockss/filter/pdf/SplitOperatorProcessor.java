@@ -83,6 +83,6 @@ public class SplitOperatorProcessor extends PdfOperatorProcessor {
     pageStreamTransform.getOutputList().add(operator);
   }
 
-  private static Logger logger = Logger.getLogger("SplitOperatorProcessor");
+  private static Logger logger = Logger.getLogger();
 
 }

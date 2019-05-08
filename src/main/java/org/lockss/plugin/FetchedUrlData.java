@@ -46,7 +46,7 @@ import org.lockss.util.*;
  *to pass between UrlFetcher and UrlConsumer
  */
 public class FetchedUrlData {
-  static Logger log = Logger.getLogger(FetchedUrlData.class);
+  static Logger log = Logger.getLogger();
 
   public InputStream input;
   public CIProperties headers;

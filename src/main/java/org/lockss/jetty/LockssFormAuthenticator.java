@@ -46,6 +46,7 @@ import org.mortbay.util.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.StringUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.account.*;
 import org.lockss.servlet.*;
 
@@ -56,7 +57,7 @@ import org.lockss.servlet.*;
  * If the realm implements SSORealm, SSO is supported.
  */
 public class LockssFormAuthenticator implements Authenticator {
-  static Logger log = Logger.getLogger("LockssFormAuthenticator");
+  static Logger log = Logger.getLogger();
 
   /** Login form submission URL */
   public final static String __J_SECURITY_CHECK="j_security_check";

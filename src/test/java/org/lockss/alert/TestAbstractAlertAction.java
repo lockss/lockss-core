@@ -46,7 +46,7 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.alert.AbstractAlertAction
  */
 public class TestAbstractAlertAction extends LockssTestCase {
-  private static final Logger log = Logger.getLogger(TestAbstractAlertAction.class);
+  private static final Logger log = Logger.getLogger();
 
   MyMockAlertAction action;
 

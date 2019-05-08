@@ -43,7 +43,7 @@ import org.lockss.test.*;
  * Test class for org.lockss.plugin.AuSearchSet
  */
 public class TestAuSearchSet extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestAuSearchSet");
+  private static Logger log = Logger.getLogger();
 
   MockArchivalUnit[] maus;
 

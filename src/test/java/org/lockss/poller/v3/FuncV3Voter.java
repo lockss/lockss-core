@@ -45,6 +45,7 @@ import org.lockss.state.*;
 import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 public class FuncV3Voter extends LockssTestCase {
 
@@ -110,7 +111,6 @@ public class FuncV3Voter extends LockssTestCase {
     p.setProperty(V3Poller.PARAM_MAX_POLL_DURATION, "6m");
     p.setProperty(V3Poller.PARAM_QUORUM, "3");
     p.setProperty(LcapStreamComm.PARAM_ENABLED, "true");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
     p.setProperty(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
 		  "TCP:[127.0.0.1]:3456");
     p.setProperty(IdentityManagerImpl.PARAM_INITIAL_PEERS,
@@ -126,7 +126,6 @@ public class FuncV3Voter extends LockssTestCase {
     theDaemon.setRouterManager(new MyMockLcapRouter());
     setupAu();
 
-    theDaemon.getHistoryRepository(mau).startService();
     theDaemon.getPluginManager();
     theDaemon.setDaemonInited(true);
     theDaemon.getSchedService().startService();
@@ -134,7 +133,6 @@ public class FuncV3Voter extends LockssTestCase {
     //MockAuState aus = new MockAuState(mau);
     //nodeManager.setAuState(aus);
 
-    theDaemon.getActivityRegulator(mau).startService();
     idmgr.startService();
     hashService.startService();
     pollmanager.startService();
@@ -149,7 +147,6 @@ public class FuncV3Voter extends LockssTestCase {
   private void stopDaemon() throws Exception {
     theDaemon.getPollManager().stopService();
     theDaemon.getPluginManager().stopService();
-    theDaemon.getActivityRegulator(mau).stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getHashService().stopService();
@@ -178,12 +175,6 @@ public class FuncV3Voter extends LockssTestCase {
     cus.setHashItSource(files);
     cus.setFlatItSource(files);
 
-    OldLockssRepositoryImpl repo =
-      (OldLockssRepositoryImpl)OldLockssRepositoryImpl.createNewLockssRepository(
-        mau);
-    theDaemon.setLockssRepository(repo, mau);
-    repo.initService(theDaemon);
-    repo.startService();
   }
 
   public V3LcapMessage makePollMsg() {

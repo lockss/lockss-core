@@ -34,7 +34,7 @@ package org.lockss.proxy.icp;
 
 import java.net.DatagramPacket;
 
-import org.lockss.util.IPAddr;
+import org.lockss.util.net.IPAddr;
 
 /**
  * <p>An abstraction for ICP messages as described in

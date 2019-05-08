@@ -48,7 +48,7 @@ public class IpAccessHandler extends AbstractHttpHandler {
 // A single handler instance may run concurrently in multiple threads, so
 // there must not be any per-request local state.
 
-  private static Logger log = Logger.getLogger("IpAccess");
+  private static Logger log = Logger.getLogger();
 
   private static String LOCAL_IP_FILTERS = "127.0.0.0/8;::1";
 

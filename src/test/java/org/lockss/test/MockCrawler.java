@@ -37,7 +37,7 @@ import java.util.*;
 import org.lockss.crawler.*;
 import org.lockss.daemon.Crawler;
 import org.lockss.plugin.*;
-import org.lockss.util.Deadline;
+import org.lockss.util.time.Deadline;
 import org.lockss.util.urlconn.CacheException;
 
 public class MockCrawler extends NullCrawler {

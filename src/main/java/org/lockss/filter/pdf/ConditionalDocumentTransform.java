@@ -435,6 +435,6 @@ public class ConditionalDocumentTransform extends DocumentTransformDecorator {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("ConditionalDocumentTransform");
+  private static Logger logger = Logger.getLogger();
 
 }

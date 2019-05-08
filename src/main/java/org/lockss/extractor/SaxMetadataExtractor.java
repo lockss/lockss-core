@@ -45,7 +45,7 @@ import org.xml.sax.helpers.*;
  * {@link SimpleXmlMetadataExtractor} for a more permissive alternative.
 */
 public class SaxMetadataExtractor extends SimpleFileMetadataExtractor {
-  static Logger log = Logger.getLogger("SaxMetadataExtractor");
+  static Logger log = Logger.getLogger();
   protected Collection<String> tags;
   protected ArticleMetadata am;
 

@@ -502,7 +502,7 @@ public class CXSerializer extends ObjectSerializer {
   /**
    * <p>A logger for use by this serializer.</p>
    */
-  private static final Logger logger = Logger.getLogger(CXSerializer.class);
+  private static final Logger logger = Logger.getLogger();
 
   /**
    * <p>Returns the mode for this class from the configuration.</p>

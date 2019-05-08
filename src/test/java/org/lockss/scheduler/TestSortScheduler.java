@@ -34,6 +34,8 @@ package org.lockss.scheduler;
 
 import java.util.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 /**
@@ -41,7 +43,7 @@ import org.lockss.test.*;
  */
 
 public class TestSortScheduler extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestScheduler");
+  static Logger log = Logger.getLogger();
   static final List EMPTY_LIST = Collections.EMPTY_LIST;
 
   public void setUp() throws Exception {

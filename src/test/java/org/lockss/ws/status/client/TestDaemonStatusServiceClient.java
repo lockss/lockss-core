@@ -57,7 +57,7 @@ import org.lockss.ws.status.DaemonStatusService;
  */
 @Ignore
 public class TestDaemonStatusServiceClient extends LockssTestCase {
-  static Logger log = Logger.getLogger(TestDaemonStatusServiceClient.class);
+  static Logger log = Logger.getLogger();
 
   private static final String USER_NAME = "lockss-u";
   private static final String PASSWORD = "lockss-p";

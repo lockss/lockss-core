@@ -32,18 +32,21 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.config;
 
+import java.io.*;
 import java.util.*;
 import org.lockss.app.*;
 import org.lockss.daemon.status.*;
+import org.lockss.daemon.status.StatusService.NoSuchTableException;
 import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
 /** Config status table */
 public class ConfigStatus extends BaseLockssDaemonManager {
-  static Logger log = Logger.getLogger("ConfigStatus");
+  static Logger log = Logger.getLogger();
 
   final static String CONFIG_STATUS_TABLE = "ConfigStatus";
+  final static String CONFIG_FILE_STATUS_TABLE = "ConfigFileStatus";
 
   public static final String PREFIX = Configuration.PREFIX + "configStatus.";
 
@@ -60,41 +63,36 @@ public class ConfigStatus extends BaseLockssDaemonManager {
     super.startService();
     StatusService statusServ = getDaemon().getStatusService();
     statusServ.registerStatusAccessor(CONFIG_STATUS_TABLE, new Status());
+    statusServ.registerStatusAccessor(CONFIG_FILE_STATUS_TABLE, new OneFile());
     configMgr = getDaemon().getConfigManager();
   }
 
   public void stopService() {
     StatusService statusServ = getDaemon().getStatusService();
     statusServ.unregisterStatusAccessor(CONFIG_STATUS_TABLE);
+    statusServ.unregisterStatusAccessor(CONFIG_FILE_STATUS_TABLE);
   }
 
-  class Status implements StatusAccessor.DebugOnly {
+  /** Base class for status tables displaying a Configuration */
+  abstract class BaseStatus implements StatusAccessor.DebugOnly {
 
-    private final List colDescs =
+    protected final List colDescs =
       ListUtil.list(new ColumnDescriptor("name", "Name",
 					 ColumnDescriptor.TYPE_STRING),
 		    new ColumnDescriptor("value", "Value",
 					 ColumnDescriptor.TYPE_STRING)
 		    );
 
-    public String getDisplayName() {
-      return "Configuration";
-    }
+    public abstract String getDisplayName();
 
-    public boolean requiresKey() {
-      return false;
-    }
+    public abstract boolean requiresKey();
 
-    public void populateTable(StatusTable table) {
-      table.setColumnDescriptors(colDescs);
-      table.setSummaryInfo(getSummaryInfo());
-      table.setRows(getRows(table.getOptions()));
-    }
+    public abstract void populateTable(StatusTable table)
+	throws NoSuchTableException;
 
-    public List getRows(BitSet options) {
+    protected List getRows(BitSet options, Configuration config) {
       List rows = new ArrayList();
 
-      Configuration config = ConfigManager.getCurrentConfig();
       int maxLen = config.getInt(PARAM_MAX_DISPLAY_VAL_LEN,
 				 DEFAULT_MAX_DISPLAY_VAL_LEN);
       for (Iterator iter = config.keySet().iterator(); iter.hasNext(); ) {
@@ -117,19 +115,85 @@ public class ConfigStatus extends BaseLockssDaemonManager {
 					    val));
       }
     }
+  }
 
-    String seplist(Collection c) {
-      return StringUtil.separatedString(c, ", ");
+  /** Global Configuration status table */
+  class Status extends BaseStatus {
+
+    public String getDisplayName() {
+      return "Configuration";
     }
 
-    private List getSummaryInfo() {
+    public boolean requiresKey() {
+      return false;
+    }
+
+    public void populateTable(StatusTable table) {
+      table.setColumnDescriptors(colDescs);
+      table.setSummaryInfo(getSummaryInfo());
+      table.setRows(getRows(table.getOptions(),
+			    ConfigManager.getCurrentConfig()));
+    }
+
+    protected List getSummaryInfo() {
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Last Reload",
 					  ColumnDescriptor.TYPE_DATE,
 					  configMgr.getLastUpdateTime()));
       return res;
     }
+  }
 
+  /** Individual ConfigFile status table */
+  class OneFile extends BaseStatus {
+
+    public String getDisplayName() {
+      return "Configuration File:";
+    }
+
+    public boolean requiresKey() {
+      return true;
+    }
+
+    public void populateTable(StatusTable table) throws NoSuchTableException {
+      String key = table.getKey();
+      if (key != null) {
+        if (!key.startsWith("cf:")) {
+          throw new StatusService.NoSuchTableException("Unknown selector: "
+						       + key);
+        }
+        String[] foo = org.apache.commons.lang3.StringUtils.split(key, ":", 2);
+        if (foo.length < 2 || StringUtil.isNullString(foo[1])) {
+          throw new StatusService.NoSuchTableException("Empty config file url: "
+						       + key);
+        }
+        String url = foo[1];
+	ConfigFile cf = configMgr.getConfigCache().get(url);
+	if (cf != null) {
+	  try {
+	    Configuration config = cf.getConfiguration();
+	    table.setTitle("Config File: " + url);
+	    table.setColumnDescriptors(colDescs);
+	    table.setSummaryInfo(getSummaryInfo(cf));
+	    table.setRows(getRows(table.getOptions(), config));
+	  } catch (IOException e) {
+	    log.error("Couldn't get config for: " + cf, e);
+	    throw new StatusService.NoSuchTableException("Couldn't get config for: " + cf,
+							 e);
+	  }
+	}
+      }
+    }
+
+    protected List getSummaryInfo(ConfigFile cf) {
+      List res = new ArrayList();
+      // Compensate for FileConfigFile's numeric Last-Modified headers
+      String last = DateTimeUtil.gmtDateOf(cf.getLastModified());
+      res.add(new StatusTable.SummaryInfo("Last Modified",
+					  ColumnDescriptor.TYPE_DATE,
+					  last));
+      return res;
+    }
   }
 }
 

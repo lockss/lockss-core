@@ -37,12 +37,14 @@ import java.util.*;
 import java.net.*;
 
 import org.lockss.config.*;
+import org.lockss.util.test.FileTestUtil;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.util.*;
 
 /** Utilities for Configuration and ConfigManager
  */
 public class ConfigurationUtil {
-  public static Logger log = Logger.getLogger("ConfigUtil");
+  public static Logger log = Logger.getLogger();
 
   private static ConfigManager mgr() {
     return ConfigManager.getConfigManager();
@@ -287,9 +289,9 @@ public class ConfigurationUtil {
    * @param url URL of a config file.
    */
   public static boolean setTdb(Tdb tdb) {
-    Configuration config = ConfigManager.newConfiguration();
+    Configuration config = CurrentConfig.getCurrentConfig().copy();
     config.setTdb(tdb);
-    return installConfig(merge(CurrentConfig.getCurrentConfig(), config));
+    return installConfig(config);
   }
 
   /** Install the supplied Configuration as the current configuration.

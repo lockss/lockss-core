@@ -66,7 +66,6 @@ public class TestCrawlerStatus extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     MockLockssDaemon daemon = getMockLockssDaemon();
     mau = MockArchivalUnit.newInited(daemon);
     PluginTestUtil.registerArchivalUnit(mau.getPlugin(), mau);

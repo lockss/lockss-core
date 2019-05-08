@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -53,6 +53,7 @@ import org.lockss.daemon.TitleConfig;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.metadata.MetadataManager;
+import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
@@ -60,13 +61,14 @@ import org.lockss.plugin.simulated.SimulatedPlugin;
 import org.lockss.protocol.MockIdentityManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockArchivalUnit;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.MockPlugin;
 import org.lockss.util.ListUtil;
-import org.lockss.util.PlatformUtil;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Test class for org.lockss.subscription.SubscriptionManager.
@@ -83,6 +85,7 @@ public class TestSubscriptionManager extends LockssTestCase {
   private DbManager dbManager;
   private MetadataManager metadataManager;
   private MockPlugin plugin;
+  private MockLockssDaemon theDaemon = null;
 
   @Override
   public void setUp() throws Exception {
@@ -92,8 +95,10 @@ public class TestSubscriptionManager extends LockssTestCase {
     ConfigurationUtil.addFromArgs(SubscriptionManager
 	.PARAM_SUBSCRIPTION_ENABLED, "true");
 
-    MockLockssDaemon theDaemon = getMockLockssDaemon();
+    theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
+
+    theDaemon.setUpAuConfig();
 
     pluginManager = theDaemon.getPluginManager();
     pluginManager.setLoadablePluginsReady(true);
@@ -128,6 +133,11 @@ public class TestSubscriptionManager extends LockssTestCase {
 
     PluginTestUtil.createAndStartSimAu(SimulatedPlugin.class,
 	simAuConfig(tempDirPath + "/0"));
+  }
+
+  public void tearDown() throws Exception {
+    theDaemon.stopDaemon();
+    super.tearDown();
   }
 
   private Configuration simAuConfig(String rootPath) {
@@ -824,7 +834,7 @@ public class TestSubscriptionManager extends LockssTestCase {
 
   private BatchAuStatus configureAu(TdbAu tdbAu, Subscription subscription,
       String subscribedRanges, String unsubscribedRanges) throws IOException,
-      SubscriptionException {
+      DbException, LockssRestException, SubscriptionException {
     subscription.setSubscribedRanges(Collections
 	.singletonList(new BibliographicPeriod(subscribedRanges)));
     subscription.setUnsubscribedRanges(Collections
@@ -1679,5 +1689,45 @@ public class TestSubscriptionManager extends LockssTestCase {
     tdb.addTdbAuFromProperties(auUp);
     title = tdb.getTdbTitlesByIssn("1144-875X").iterator().next();
     assertTrue(subManager.isSubscribable(title));
+  }
+
+  public void testAddAuConfiguration() throws TdbException {
+    // Specify the relevant properties of the archival unit.
+    Properties properties = new Properties();
+    properties.setProperty("title", "MyTitle");
+    properties.setProperty("plugin",
+	"org.lockss.plugin.simulated.SimulatedPlugin");
+    properties.setProperty("param.1.key", "root");
+    properties.setProperty("param.1.value", tempDirPath + "/0");
+    properties.setProperty("param.2.key", "base_url");
+    properties.setProperty("param.2.value", "http://www.title3.org/");
+    properties.setProperty("param.3.key", "pub_down");
+    properties.setProperty("param.3.value", "false");
+    properties.setProperty("param.4.key", "param4key");
+    properties.setProperty("param.4.value", "param4value");
+
+    // Ensure some def and some non-def params
+    Plugin plug = new SimulatedPlugin();
+    ConfigParamDescr descr = plug.findAuConfigDescr("pub_down");
+    assertFalse(descr.isDefinitional());
+    descr = plug.findAuConfigDescr("root");
+    assertTrue(descr.isDefinitional());
+
+    // Create the archival unit.
+    TdbAu tdbAu = createTdbAu(properties);
+    assertFalse(tdbAu.isDown());
+
+    String auId = tdbAu.getAuId(pluginManager);
+    String paramPrefix = PluginManager.auConfigPrefix(auId) + ".";
+
+    Configuration config = subManager.addAuConfiguration(tdbAu, auId,
+	ConfigManager.newConfiguration());
+    log.error("config = " + config);
+
+    assertEquals(tempDirPath + "/0", config.get(paramPrefix + "root"));
+    assertEquals("http://www.title3.org/",
+	config.get(paramPrefix + "base_url"));
+    assertEquals("false", config.get(paramPrefix + "pub_down"));
+    assertEquals("param4value", config.get(paramPrefix + "param4key"));
   }
 }

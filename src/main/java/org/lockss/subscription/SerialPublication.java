@@ -44,7 +44,7 @@ import org.lockss.util.MetadataUtil;
  * @author Fernando Garcia-Loygorri
  */
 public class SerialPublication {
-  private static final Logger log = Logger.getLogger(SerialPublication.class);
+  private static final Logger log = Logger.getLogger();
 
   private Long publicationNumber;
   private String publicationName;

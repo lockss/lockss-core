@@ -55,7 +55,7 @@ import junit.framework.*;
  */
 
 public class FuncSimulatedArcContent extends LockssTestCase {
-  static final Logger log = Logger.getLogger("FuncSimulatedArcContent");
+  static final Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;
@@ -69,7 +69,6 @@ public class FuncSimulatedArcContent extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
     String tempDirPath2 = getTempDir().getAbsolutePath() + File.separator;
     String auIdStr = "org|lockss|plugin|simulated|SimulatedPlugin.root~" +
@@ -94,8 +93,6 @@ public class FuncSimulatedArcContent extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    theDaemon.getLockssRepository(sau).stopService();
-    theDaemon.getHistoryRepository(sau).stopService();
     theDaemon.getPluginManager().stopService();
     theDaemon.getHashService().stopService();
     theDaemon.getSystemMetrics().stopService();
@@ -152,7 +149,7 @@ public class FuncSimulatedArcContent extends LockssTestCase {
   protected void crawlContent() {
     log.debug("crawlContent()");
     Crawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.doCrawl();
   }
 
@@ -173,8 +170,8 @@ public class FuncSimulatedArcContent extends LockssTestCase {
     }
 
     String[] expectedA = new String[1];
-    expectedA[0] = sau.getUrlRoot();
-    assertIsomorphic(expectedA, childL);
+
+    assertIsomorphic(sau.getUrlStems(), childL);
 
     setIt = cus.flatSetIterator();
     childL = new ArrayList(7);

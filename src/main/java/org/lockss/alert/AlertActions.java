@@ -36,7 +36,7 @@ import org.lockss.util.*;
 
 /** AlertActions is a group of  {@link AlertAction} factories */
 public class AlertActions {
-  private static final Logger log = Logger.getLogger(AlertActions.class);
+  private static final Logger log = Logger.getLogger();
 
   public static AlertAction Log(AlertLog log) {
     return new AlertActionLog(log);

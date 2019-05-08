@@ -46,7 +46,7 @@ import org.lockss.app.*;
  */
 public class NullAlertManager extends BaseLockssDaemonManager
   implements AlertManager {
-  private static Logger log = Logger.getLogger("NullAlertManager");
+  private static Logger log = Logger.getLogger();
 
   protected void setConfig(Configuration config, Configuration oldConfig,
 			   Configuration.Differences changedKeys) {

@@ -43,6 +43,7 @@ import dk.itst.oiosaml.sp.service.session.SessionDestroyListener;
 import dk.itst.oiosaml.sp.service.util.Constants;
 import org.apache.cxf.transport.servlet.CXFServlet;
 import org.lockss.app.*;
+import static org.lockss.app.ServiceDescr.*;
 import org.lockss.config.*;
 import org.lockss.account.*;
 import org.lockss.subscription.SubscriptionManager;
@@ -55,7 +56,7 @@ import org.springframework.web.context.ContextLoaderListener;
  * Local UI servlet starter
  */
 public class AdminServletManager extends BaseServletManager {
-  private static Logger log = Logger.getLogger("ServletMgr");
+  private static Logger log = Logger.getLogger();
 
   /** Prefix for this server's config tree */
   public static final String PREFIX = Configuration.PREFIX + "ui.";
@@ -163,7 +164,7 @@ public class AdminServletManager extends BaseServletManager {
 
   public static final String PARAM_HELP_URL = PREFIX + "helpUrl";
   static final String DEFAULT_HELP_URL =
-          "http://www.lockss.org/lockss/Cache_Help";
+    "https://lockss.github.io/software/manual/using";
 
   /** If set, fetches of the UI root (http://cache:8081/) will be
    * redirected to this path (on same host and port) instead of serving the
@@ -277,36 +278,33 @@ public class AdminServletManager extends BaseServletManager {
   // Descriptors for all admin servlets.
 
   protected static final ServletDescr SERVLET_HOME =
-          new ServletDescr("UiHome",
-          UiHome.class,
-          "LOCKSS Administration",
-          "Home",
-          ServletDescr.LARGE_LOGO);
+    new ServletDescr("UiHome",
+		     UiHome.class,
+		     "LOCKSS Administration")
+    .setFlags(ServletDescr.LARGE_LOGO)
+    .setPath("Home");
   protected static final ServletDescr SERVLET_EDIT_ACCOUNT =
-          new ServletDescr("UserEditAccount",
-          UserEditAccount.class,
-          "My Account",
-          (ServletDescr.IN_NAV),
-          "Update account info") {
-            public boolean isEnabled(LockssDaemon daemon) {
-              AccountManager acctMgr = daemon.getAccountManager();
-              return acctMgr != null && acctMgr.isEnabled();
-            }
-            public boolean isInNav(LockssServlet servlet) {
-// 	if (servlet.doesUserHaveRole(LockssServlet.ROLE_USER_ADMIN)
-// 	    && !servlet.doesUserHaveRole(LockssServlet.ROLE_DEBUG)) {
-// 	  return false;
-// 	}
-              UserAccount acct = servlet.getUserAccount();
-              return acct != null && acct.isEditable();
-            }
-            public String getNavHeading(LockssServlet servlet) {
-              UserAccount acct = servlet.getUserAccount();
-              if (acct != null) {
-                return super.getNavHeading(servlet) + " (" + acct.getName() + ")";
-              }
-              return super.getNavHeading(servlet);
-      }};
+    new ServletDescr("UserEditAccount",
+		     UserEditAccount.class,
+		     "My Account",
+		     (ServletDescr.IN_NAV),
+		     "Update account info") {
+      public boolean isEnabled(LockssDaemon daemon) {
+	AccountManager acctMgr = daemon.getAccountManager();
+	return acctMgr != null && acctMgr.isEnabled();
+      }
+      public boolean isInNav(LockssServlet servlet) {
+	UserAccount acct = servlet.getUserAccount();
+	return acct != null && acct.isEditable();
+      }
+      public String getNavHeading(LockssServlet servlet) {
+	UserAccount acct = servlet.getUserAccount();
+	if (acct != null) {
+	  return super.getNavHeading(servlet) + " (" + acct.getName() + ")";
+	}
+	return super.getNavHeading(servlet);
+      }}
+    .setService(SVC_CONFIG);
 
   protected static final ServletDescr SERVLET_EDIT_ACCOUNTS =
           new ServletDescr("AdminEditAccounts",
@@ -318,15 +316,18 @@ public class AdminServletManager extends BaseServletManager {
             public boolean isEnabled(LockssDaemon daemon) {
               AccountManager acctMgr = daemon.getAccountManager();
               return acctMgr != null && acctMgr.isEnabled();
-      }};
+      }}
+    .setService(SVC_CONFIG);
 
   protected static final ServletDescr SERVLET_BATCH_AU_CONFIG =
-          new ServletDescr("BatchAuConfig",
-          BatchAuConfig.class,
-          "Journal Configuration",
-          (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
-          | ServletDescr.NEED_ROLE_AU_ADMIN),
-          "Add or remove titles from this LOCKSS box");
+    new ServletDescr("BatchAuConfig",
+		     BatchAuConfig.class,
+		     "Journal Configuration",
+		     (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
+		      | ServletDescr.NEED_ROLE_AU_ADMIN),
+		     "Add or remove titles from this LOCKSS box")
+    .setService(SVC_CONFIG);
+
   // XXXUI Development version
 //  protected static final ServletDescr SERVLET_BATCH_AU_CONFIG_NEW =
 //          new ServletDescr("BatchAuConfigNew",
@@ -335,33 +336,38 @@ public class AdminServletManager extends BaseServletManager {
 //          (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
 //          | ServletDescr.NEED_ROLE_AU_ADMIN),
 //          "Add or remove titles from this LOCKSS box");
+
   protected static final ServletDescr SERVLET_AU_CONFIG =
-          new ServletDescr("AuConfig",
-          AuConfig.class,
-          "Manual Journal Configuration",
-          (ServletDescr.IN_UIHOME | ServletDescr.NEED_ROLE_AU_ADMIN),
-          "Manually edit single AU configuration");
+    new ServletDescr("AuConfig",
+		     AuConfig.class,
+		     "Manual Journal Configuration",
+		     (ServletDescr.IN_UIHOME | ServletDescr.NEED_ROLE_AU_ADMIN),
+		     "Manually edit single AU configuration")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_ADMIN_ACCESS_CONTROL =
           new ServletDescr("AdminIpAccess",
           AdminIpAccess.class,
           "Admin Access Control",
           (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
           | ServletDescr.NEED_ROLE_USER_ADMIN),
-          "Control access to the administrative UI");
+          "Control access to the administrative UI")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PROXY_ACCESS_CONTROL =
           new ServletDescr("ProxyIpAccess",
           ProxyIpAccess.class,
           "Content Access Control",
           (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
           | ServletDescr.NEED_ROLE_CONTENT_ADMIN),
-          "Control access to the preserved content");
+          "Control access to the preserved content")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PROXY_AND_CONTENT =
           new ServletDescr("ProxyAndContent",
           ProxyAndContent.class,
           "Content Access Options",
           (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
           | ServletDescr.NEED_ROLE_CONTENT_ADMIN),
-          "Configure the audit proxy and the ICP server");
+          "Configure the audit proxy and the ICP server")
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PROXY_INFO =
           new ServletDescr("ProxyConfig",
           ProxyConfig.class,
@@ -370,14 +376,28 @@ public class AdminServletManager extends BaseServletManager {
           ServletDescr.IN_NAV | ServletDescr.IN_UIHOME,
           "Info for configuring browsers and proxies"
           + "<br>"
-          + "to access preserved content on this LOCKSS box");
-  protected static final ServletDescr SERVLET_EXPERT_CONFIG =
-          new ServletDescr("ExpertConfig",
-          ExpertConfig.class,
-          "Expert Config",
-          (ServletDescr.IN_NAV
-          | ServletDescr.NEED_ROLE_USER_ADMIN),
-          "Allows arbitrary local configuration");
+          + "to access preserved content on this LOCKSS box")
+    .setService(SVC_CONFIG);
+  protected static final ServletDescr SERVLET_EXPERT_CONFIG_CLUSTER =
+    new ServletDescr("ExpertConfigC",
+		     ExpertConfigCluster.class,
+		     "Expert Config",
+		     (ServletDescr.IN_NAV
+		      | ServletDescr.NEED_ROLE_USER_ADMIN),
+		     "Allows arbitrary cluster configuration")
+    .setService(SVC_CONFIG);
+  protected static final ServletDescr SERVLET_EXPERT_CONFIG_LOCAL =
+    new ServletDescr("ExpertConfigL",
+		     ExpertConfigLocal.class,
+		     "Expert Config (local)",
+		     (ServletDescr.IN_NAV
+		      | ServletDescr.SAME_LINE
+		      | ServletDescr.NEED_ROLE_USER_ADMIN),
+		     "Allows arbitrary local configuration") {
+      @Override
+      public String getNavHeading(LockssServlet servlet) {
+	return "(local)";
+      }};
   protected static final ServletDescr SERVLET_PLUGIN_CONFIG =
           new ServletDescr("PluginConfig",
           PluginConfig.class,
@@ -391,7 +411,8 @@ public class AdminServletManager extends BaseServletManager {
             }
             public boolean isInUiHome(LockssServlet servlet) {
               return isInNav(servlet);
-      }};
+      }}
+    .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_DAEMON_STATUS =
           new ServletDescr("DaemonStatus",
           DaemonStatus.class,
@@ -424,18 +445,21 @@ public class AdminServletManager extends BaseServletManager {
           new ServletDescr("AddContent",
           AddContent.class,
           "Add Content",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS);
+          ServletDescr.NEED_ROLE_CONTENT_ACCESS)
+    .setService(SVC_CONFIG);
   public static final ServletDescr SERVLET_ADD_CONTENT_TAB =
           new ServletDescr("AddContentTab",
           AddContentTab.class,
           "Add Content Tab",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS);
+          ServletDescr.NEED_ROLE_CONTENT_ACCESS)
+    .setService(SVC_CONFIG);
   // XXXUI New servlet
   public static final ServletDescr SERVLET_SERVE_CONTENT =
           new ServletDescr("ServeContent",
           ServeContent.class,
           "Serve Content",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS | ServletDescr.WILDCARD_PATH);
+          ServletDescr.NEED_ROLE_CONTENT_ACCESS | ServletDescr.WILDCARD_PATH)
+    .setService(SVC_POLLER);
   public static final ServletDescr SERVLET_TIME_GATE =
       new ServletDescr("TimeGateService",
 		       TimeGateService.class,
@@ -576,8 +600,13 @@ public class AdminServletManager extends BaseServletManager {
 		       (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME),
 		       "COUNTER Report generator") {
 	public boolean isEnabled(LockssDaemon daemon) {
-	  CounterReportsManager mgr = daemon.getCounterReportsManager();
-	  return mgr != null && mgr.isReady();
+	  try {
+	    CounterReportsManager mgr = daemon.getCounterReportsManager();
+	    return mgr != null && mgr.isReady();
+	  } catch (IllegalArgumentException e) {
+	    // manager not started
+	    return false;
+	  }
 	}};
 
   protected static final ServletDescr SERVLET_CXF_WEB_SERVICES =
@@ -604,21 +633,24 @@ public class AdminServletManager extends BaseServletManager {
 	  } catch (Exception e) {
 	    return false;
 	  }
-	}};
+	}}
+    .setService(SVC_CONFIG);
 
   protected static final ServletDescr SERVLET_MD_MONITOR =
       new ServletDescr("MetadataMonitor",
 	  	       MetadataMonitor.class,
 	  	       "Metadata Monitor",
 	  	       ServletDescr.NEED_ROLE_DEBUG,
-	  	       "Metadata Monitor");
+	  	       "Metadata Monitor")
+    .setService(SVC_MDX);
 
   protected static final ServletDescr SERVLET_MD_CONTROL =
       new ServletDescr("MetadataControl",
 	  	       MetadataControl.class,
 	  	       "Metadata Control",
 	  	       ServletDescr.NEED_ROLE_AU_ADMIN,
-	  	       "Metadata Control");
+	  	       "Metadata Control")
+    .setService(SVC_MDX);
 
   protected static final ServletDescr SERVLET_OIOSAML =
       new ServletDescr("SAMLDispatcherServlet",
@@ -663,7 +695,8 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_EXPORT_CONTENT,
     SERVLET_LIST_OBJECTS,
     SERVLET_DEBUG_PANEL,
-    SERVLET_EXPERT_CONFIG,
+    SERVLET_EXPERT_CONFIG_CLUSTER,
+    SERVLET_EXPERT_CONFIG_LOCAL,
     SERVLET_LIST_HOLDINGS,
     SERVLET_COUNTER_REPORTS,
     //SERVLET_OPENURL_QUERY,
@@ -710,7 +743,8 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_EXPORT_CONTENT,
     SERVLET_LIST_OBJECTS,
     SERVLET_DEBUG_PANEL,
-    SERVLET_EXPERT_CONFIG,
+    SERVLET_EXPERT_CONFIG_CLUSTER,
+    SERVLET_EXPERT_CONFIG_LOCAL,
     SERVLET_LIST_HOLDINGS,
     SERVLET_COUNTER_REPORTS,
     //SERVLET_OPENURL_QUERY,
@@ -758,7 +792,8 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_EXPORT_CONTENT,
     SERVLET_LIST_OBJECTS,
     SERVLET_DEBUG_PANEL,
-    SERVLET_EXPERT_CONFIG,
+    SERVLET_EXPERT_CONFIG_CLUSTER,
+    SERVLET_EXPERT_CONFIG_LOCAL,
     SERVLET_LIST_HOLDINGS,
     SERVLET_COUNTER_REPORTS,
     //SERVLET_OPENURL_QUERY,
@@ -793,16 +828,8 @@ public class AdminServletManager extends BaseServletManager {
   // XXXUI Override to init new servlets too
   @Override
   protected void initDescrs() {
-    for (ServletDescr d : getServletDescrs()) {
-      if (d.cls != null && d.cls != ServletDescr.UNAVAILABLE_SERVLET_MARKER) {
-        servletToDescr.put(d.cls, d);
-      }
-    }
-    for (ServletDescr d : servletDescrsNew) {
-      if (d.cls != null && d.cls != ServletDescr.UNAVAILABLE_SERVLET_MARKER) {
-        servletToDescr.put(d.cls, d);
-      }
-    }
+    initDescrs(getServletDescrs());
+    initDescrs(servletDescrsNew);
   }
 
   private String logdir;
@@ -1006,8 +1033,6 @@ public class AdminServletManager extends BaseServletManager {
 
     handler.addServlet("ProxyInfo", "/info/ProxyInfo",
             "org.lockss.servlet.ProxyConfig");
-    addServletIfAvailable(handler, "Api", "/Api",
-            "org.lockss.uiapi.servlet.Api");
     context.addHandler(handler);
 
     // ResourceHandler should come after servlets

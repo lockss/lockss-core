@@ -36,7 +36,7 @@ import org.lockss.test.*;
 import org.lockss.plugin.*;
 
 public class TestAuXpathFloatMap extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestAuXpathFloatMap");
+  private static Logger log = Logger.getLogger();
 
   private MockArchivalUnit au1, au2, au3;
   private TdbAu tau1, tau2, tau3;

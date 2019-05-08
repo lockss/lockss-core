@@ -36,6 +36,7 @@ import java.util.*;
 
 import org.lockss.app.LockssApp;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * Descriptor for a configuration parameter, and instances of descriptors
@@ -44,7 +45,7 @@ import org.lockss.util.*;
  */
 public class ConfigParamDescr implements Comparable, LockssSerializable {
 
-  private static final Logger log = Logger.getLogger(ConfigParamDescr.class);
+  private static final Logger log = Logger.getLogger();
 
   /** Value is any string */
   public static final int TYPE_STRING = 1;

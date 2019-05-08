@@ -47,7 +47,7 @@ import static org.lockss.daemon.LockssKeyStore.LocationType;
 public class LockssKeyStoreManager
   extends BaseLockssManager implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger("LockssKeyStoreManager");
+  protected static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "keyMgr.";
 
@@ -159,7 +159,7 @@ public class LockssKeyStoreManager
       if (changedKeys.contains(PARAM_KEYSTORE)) {
 	configureKeyStores(config);
 	// defer initial set of keystore loading until startService
-	if (isInited()) {
+	if (isStarted()) {
 	  // load any newly added keystores
 	  loadKeyStores();
 	}

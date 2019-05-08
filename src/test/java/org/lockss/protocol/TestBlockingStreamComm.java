@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,6 +43,9 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 /**
@@ -58,7 +57,7 @@ public class TestBlockingStreamComm extends LockssTestCase {
     BlockingPeerChannel.class,
   };
 
-  static Logger log = Logger.getLogger("TestBlockingStreamComm");
+  static Logger log = Logger.getLogger();
 
   // limit on number of BlockingStreamComm instances, and number created by
   // testMultipleChannels
@@ -159,6 +158,7 @@ public class TestBlockingStreamComm extends LockssTestCase {
     addSuiteProps(cprops);
     cprops.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     cprops.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.0.0.1");
+    cprops.setProperty(LcapStreamComm.PARAM_ENABLED, "true");
     ConfigurationUtil.setCurrentConfigFromProps(cprops);
     daemon.setDaemonInited(true);
     setupMessages();

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,11 +28,19 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin;
 
+import java.io.*;
 import java.net.*;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import org.apache.commons.collections4.*;
+import com.fasterxml.jackson.core.type.*;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.ser.*;
+import com.fasterxml.jackson.databind.ser.impl.*;
+import com.fasterxml.jackson.annotation.*;
+
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
@@ -45,7 +49,9 @@ import org.lockss.daemon.*;
 import org.lockss.jetty.CuResourceHandler;
 import org.lockss.crawler.*;
 import org.lockss.state.*;
+import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.poller.*;
+import org.lockss.protocol.*;
 import org.lockss.repository.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.plugin.exploded.*;
@@ -61,7 +67,7 @@ import org.lockss.laaws.rs.model.*;
  */
 public class AuUtil {
 	
-  private static final Logger log = Logger.getLogger(AuUtil.class);
+  private static final Logger log = Logger.getLogger();
   
   /** The default poll protocol to use, unless otherwise overridden by the
    * Archival Unit's poll_protocol config param.=
@@ -109,8 +115,128 @@ public class AuUtil {
    * @return the AuState
    */
   public static AuState getAuState(ArchivalUnit au) {
-    HistoryRepository histRepo = getDaemon(au).getHistoryRepository(au);
-    return histRepo.getAuState();
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.getAuState(au);
+  }
+
+  static ObjectMapper setFieldsOnly(ObjectMapper mapper) {
+    mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
+				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+    return mapper;
+  }
+
+  /** Serialize some or all fields of an AuStateBean to a json string
+   * @param aus the AuStateBean
+   * @param fields Set of fields to include in the output.  If null or
+   *               empty, all fields are included
+   */
+  public static String jsonFromAuStateBean(AuStateBean aus, Set<String> fields)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    SimpleBeanPropertyFilter propFilter;
+    if (fields == null || fields.isEmpty()) {
+      propFilter = SimpleBeanPropertyFilter.serializeAll();
+    } else {
+      propFilter = SimpleBeanPropertyFilter.filterOutAllExcept(fields);
+    }
+    FilterProvider filters =
+      new SimpleFilterProvider().addFilter("auStateFilter", propFilter);
+    return mapper.writer(filters).writeValueAsString(aus);
+  }
+
+  /** Serialize all fields of an AuStateBean except some to a json string
+   * @param aus the AuStateBean
+   * @param fields Set of fields to exclude in the output.  If empty, all
+   *               fields are kept. If null, throws {@link NullPointerException}
+   * @throws NullPointerException if the set of fields is null
+   */
+  public static String jsonFromAuStateBeanExcept(AuStateBean aus, Set<String> fields)
+      throws IOException {
+    Objects.requireNonNull(fields, "Set of fields to exclude cannot be null");
+    ObjectMapper mapper = new ObjectMapper();
+
+    setFieldsOnly(mapper);
+    SimpleBeanPropertyFilter propFilter;
+    if (fields == null || fields.isEmpty()) {
+      propFilter = SimpleBeanPropertyFilter.serializeAll();
+    } else {
+      propFilter = SimpleBeanPropertyFilter.serializeAllExcept(fields);
+    }
+    FilterProvider filters =
+      new SimpleFilterProvider().addFilter("auStateFilter", propFilter);
+    return mapper.writer(filters).writeValueAsString(aus);
+  }
+
+  /** Deserialize a json string into an existing AuStateBean, replacing only
+   * those fields that are present in the json string
+   * @param aus the AuStateBean to modify
+   * @param json json string
+   */
+  public static AuStateBean updateFromJson(AuStateBean aus, String json)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    // Ignore unknown properties on deserialization
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    ObjectReader ordr = mapper.readerForUpdating(aus);
+    ordr.readValue(json);
+    return aus;
+  }
+
+  /** Serialize an AuAgreements to a json string
+   * @param aua the AuAgreements
+   */
+  public static String jsonFromAuAgreements(AuAgreements aua)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(aua);
+    }
+
+  /** Deserialize a json string into a new AuAgreements, not connected to
+   * StateManager.
+   * @param json json string
+   */
+  public static AuAgreements auAgreementsFromJson(String json)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    AuAgreements aua =
+      mapper.readValue(json, new TypeReference<AuAgreements>() {});
+    return aua;
+  }
+
+  public static Map<String,Object> jsonToMap(String json) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String,Object> res =
+      mapper.readValue(json, new TypeReference<Map<String,Object>>() {});
+    return res;
+  }
+
+//   public static Map<String,Object> objectToMap(Object obj) throws IOException {
+//     ObjectMapper mapper = new ObjectMapper();
+//     Map<String,Object> res =
+//       mapper.convertValue(obj, new TypeReference<Map<String,Object>>() {});
+//     return res;
+//   }
+
+  /**
+   * Provides the JSON serialization version of a map.
+   * 
+   * @param map
+   *          A Map<String,Object> with the map to be serialized.
+   * @return a String with the JSON serialization version of the map.
+   * @throws IOException
+   *           if any problem occurred.
+   */
+  public static String mapToJson(Map<String,Object> map) throws IOException {
+    return new ObjectMapper().writeValueAsString(map);
   }
 
   /**
@@ -139,8 +265,8 @@ public class AuUtil {
    * @return the AuSuspectUrlVersions
    */
   public static AuSuspectUrlVersions getSuspectUrlVersions(ArchivalUnit au) {
-    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
-    return repo.getSuspectUrlVersions(au);
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.getAuSuspectUrlVersions(au);
   }
 
   /**
@@ -151,42 +277,159 @@ public class AuUtil {
   public static void saveSuspectUrlVersions(ArchivalUnit au,
 					    AuSuspectUrlVersions asuv)
       throws SerializationException {
-    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
-    repo.storeSuspectUrlVersions(au, asuv);
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    mgr.updateAuSuspectUrlVersions(au.getAuId(), asuv);
   }
 
   /**
-   * Return the AuSuspectUrlVersions object for the AU
+   * Return true if the AU has an associated AuSuspectUrlVersions
    * @param au the AU
-   * @return the AuSuspectUrlVersions
+   * @return true if an AuSuspectUrlVersions exists for the AU
    */
   public static boolean hasSuspectUrlVersions(ArchivalUnit au) {
-    OldLockssRepository repo = getDaemon(au).getLockssRepository(au);
-    return repo.hasSuspectUrlVersions(au);
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.hasAuSuspectUrlVersions(au.getAuId());
   }
 
-  public static AuNodeImpl getAuRepoNode(ArchivalUnit au) {
-    LockssDaemon daemon = getDaemon(au);
-    OldLockssRepository repo = daemon.getLockssRepository(au);
-    try {
-      return(AuNodeImpl)repo.getNode(au.getAuCachedUrlSet().getUrl());
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
-    }
-  }
-  
   /**
-   * @param au An ArchivalUnit
-   * @param url A URL
-   * @return The RepositoryNode representing the URL in the given AU.
+   * Serialize an AuSuspectUrlVersions object into a JSON string
    * 
-   * @throws MalformedURLException if the URL cannot be parsed.
+   * @param ausuv
+   *          An AuSuspectUrlVersions with the object to be serialized.
+   * @return a String with the AuSuspectUrlVersions object serialized as a JSON
+   *         string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
    */
-  public static RepositoryNode getRepositoryNode(ArchivalUnit au, String url) 
-      throws MalformedURLException {
-    LockssDaemon daemon = getDaemon(au);
-    OldLockssRepository repo = daemon.getLockssRepository(au);
-    return repo.getNode(url);
+  public static String jsonFromAuSuspectUrlVersions(AuSuspectUrlVersions ausuv)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(ausuv);
+  }
+
+  /**
+   * Deserialize a JSON string into a new AuSuspectUrlVersions, not connected to
+   * StateManager.
+   * 
+   * @param json
+   *          A String with the JSON text.
+   * @return an AuSuspectUrlVersions built with the deserialized JSON string.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static AuSuspectUrlVersions auSuspectUrlVersionsFromJson(String json)
+      throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    AuSuspectUrlVersions ausuv =
+	mapper.readValue(json, new TypeReference<AuSuspectUrlVersions>() {});
+    return ausuv;
+  }
+
+  /**
+   * Return the NoAuPeerSet object for the AU
+   * @param au the AU
+   * @return the NoAuPeerSet
+   */
+  public static DatedPeerIdSet getNoAuPeerSet(ArchivalUnit au) {
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.getNoAuPeerSet(au);
+  }
+
+  /**
+   * Update the NoAuPeerSet for the AU
+   * @param au the AU
+   * @param asuv the NoAuPeerSet object to store
+   */
+  public static void saveNoAuPeerSet(ArchivalUnit au, DatedPeerIdSet asuv)
+      throws SerializationException {
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    mgr.updateNoAuPeerSet(au.getAuId(), asuv);
+  }
+
+  /**
+   * Return true if the AU has an associated NoAuPeerSet
+   * @param au the AU
+   * @return true if an NoAuPeerSet exists for the AU
+   */
+  public static boolean hasNoAuPeerSet(ArchivalUnit au) {
+    StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
+    return mgr.hasNoAuPeerSet(au.getAuId());
+  }
+
+  /**
+   * Serialize a PersistentPeerIdSetImpl object into a JSON string.
+   * 
+   * @param ppis
+   *          A PersistentPeerIdSetImpl with the object to be serialized.
+   * @return a String with the PersistentPeerIdSetImpl object serialized as a
+   *         JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public static String jsonFromPersistentPeerIdSetImpl(
+      PersistentPeerIdSetImpl ppis)
+	  throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(ppis);
+  }
+
+  /**
+   * Deserialize a JSON string into a new PersistentPeerIdSetImpl, not connected
+   * to StateManager.
+   * 
+   * @param json
+   *          A String with the JSON text.
+   * @return a PersistentPeerIdSetImpl built with the deserialized JSON string.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static PersistentPeerIdSetImpl persistentPeerIdSetImplFromJson(
+      String json) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    PersistentPeerIdSetImpl ppis =
+	mapper.readValue(json, new TypeReference<PersistentPeerIdSetImpl>() {});
+    return ppis;
+  }
+
+  /**
+   * Serialize a DatedPeerIdSetImpl object into a JSON string.
+   *
+   * @param dpis
+   *          A DatedPeerIdSetImpl with the object to be serialized.
+   * @return a String with the DatedPeerIdSetImpl object serialized as a
+   *         JSON string.
+   * @throws IOException
+   *           if any problem occurred during the serialization.
+   */
+  public static String jsonFromDatedPeerIdSetImpl(
+      DatedPeerIdSetImpl dpis)
+	  throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    return mapper.writer().writeValueAsString(dpis);
+  }
+
+  /**
+   * Deserialize a JSON string into a new DatedPeerIdSetImpl, not connected
+   * to StateManager.
+   *
+   * @param json
+   *          A String with the JSON text.
+   * @return a DatedPeerIdSetImpl built with the deserialized JSON string.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static DatedPeerIdSetImpl datedPeerIdSetImplFromJson(
+      String json) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    setFieldsOnly(mapper);
+    DatedPeerIdSetImpl dpis =
+	mapper.readValue(json, new TypeReference<DatedPeerIdSetImpl>() {});
+    return dpis;
   }
 
   /**
@@ -196,12 +439,7 @@ public class AuUtil {
    */
   public static long getAuContentSize(ArchivalUnit au,
 				      boolean calcIfUnknown) {
-    if (isV2Repo()) {
-      return au.getAuCachedUrlSet().getContentSize();
-    } else {
-      RepositoryNode repoNode = getAuRepoNode(au);
-      return repoNode.getTreeContentSize(null, calcIfUnknown);
-    }
+    return au.getAuCachedUrlSet().getContentSize();
   }
 
   public static long calculateCusContentSize(Iterable<CachedUrl> coll) {
@@ -222,10 +460,9 @@ public class AuUtil {
    * (time consumeing)
    * @return the AU's disk usage in bytes.
    */
+  // XXXREPO
   public static long getAuDiskUsage(ArchivalUnit au, boolean calcIfUnknown) {
-    LockssDaemon daemon = getDaemon(au);
-    AuNodeImpl repoNode = getAuRepoNode(au);
-    return repoNode.getDiskUsage(calcIfUnknown);
+    return -1;
   }
 
   /** Return a string appropriate to use as a thread name for the specified
@@ -642,6 +879,16 @@ public class AuUtil {
     return -1;
   }
 
+  public static boolean hasContentValidator(ArchivalUnit au) {
+    MimeTypeMap mtm = au.getPlugin().getMimeTypeMap();
+    return
+      mtm.hasAnyThat(new Predicate<MimeTypeInfo>() {
+	  public boolean evaluate(MimeTypeInfo mti) {
+	    return mti.getContentValidatorFactory() != null;
+	  }});
+  }
+
+
   public static boolean getBoolValue(Object value, boolean dfault) {
     if (value instanceof Boolean) {
       return ((Boolean)value).booleanValue();
@@ -981,10 +1228,6 @@ public class AuUtil {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "fetchTime = " + fetchTime);
     return fetchTime;
-  }
-
-  static boolean isV2Repo() {
-    return RepositoryManager.isV2Repo();
   }
 
   /**

@@ -61,6 +61,7 @@ import org.lockss.rewriter.LinkRewriterFactory;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 import org.mortbay.html.*;
 import org.mortbay.http.*;
@@ -86,7 +87,7 @@ import org.mortbay.http.*;
 @SuppressWarnings("serial")
 public class ServeContent extends LockssServlet {
 
-  private static final Logger log = Logger.getLogger(ServeContent.class);
+  private static final Logger log = Logger.getLogger();
 
   /** Prefix for this server's config tree */
   public static final String PREFIX = Configuration.PREFIX + "serveContent.";
@@ -319,6 +320,7 @@ public class ServeContent extends LockssServlet {
   private String accessLogInfo;
   private AccessLogType requestType = AccessLogType.None;
 
+  private LockssDaemon daemon;;
   private PluginManager pluginMgr;
   private ProxyManager proxyMgr;
   private OpenUrlResolver openUrlResolver;
@@ -339,7 +341,7 @@ public class ServeContent extends LockssServlet {
 
   public void init(ServletConfig config) throws ServletException {
     super.init(config);
-    LockssDaemon daemon = getLockssDaemon();
+    daemon = getLockssDaemon();
     pluginMgr = daemon.getPluginManager();
     proxyMgr = daemon.getProxyManager();
     openUrlResolver = new OpenUrlResolver(daemon);
@@ -354,7 +356,7 @@ public class ServeContent extends LockssServlet {
         String accessLogLevel = config.get(PARAM_ACCESS_LOG_LEVEL,
             DEFAULT_ACCESS_LOG_LEVEL);
         paramAccessLogLevel = Logger.levelOf(accessLogLevel);
-      } catch (RuntimeException e) {
+      } catch (Exception e) {
         log.error("Couldn't set access log level", e);
         paramAccessLogLevel = -1;
       }
@@ -451,7 +453,7 @@ public class ServeContent extends LockssServlet {
 
   void logAccess(String msg) {
     if (paramAccessLogLevel >= 0) {
-      msg += " in " + StringUtil.timeIntervalToString(reqElapsedTime());
+      msg += " in " + TimeUtil.timeIntervalToString(reqElapsedTime());
 
       switch (requestType) {
         case None:
@@ -492,7 +494,7 @@ public class ServeContent extends LockssServlet {
    * @throws IOException
    */
   public void lockssHandleRequest() throws IOException {
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       displayNotStarted();
       return;
     }
@@ -684,6 +686,16 @@ public class ServeContent extends LockssServlet {
     if (au != null) {
       Collection<String> starts = au.getAccessUrls();
       if (!starts.isEmpty()) {
+	// look for a start URL with content
+	for (String startUrl : starts) {
+	  CachedUrl scu = au.makeCachedUrl(startUrl);
+	  if (scu.hasContent()) {
+	    url = startUrl;
+	    handleUrlRequest();
+	    return true;
+	  }
+	}
+	// if none found, use first start URL
 	url = starts.iterator().next();
 	handleUrlRequest();
 	return true;
@@ -1105,7 +1117,8 @@ public class ServeContent extends LockssServlet {
   void recordRequest(String url,
 		     CounterReportsRequestRecorder.PublisherContacted contacted,
 		     int publisherCode) {
-    if (proxyMgr.isCounterCountable(req.getHeader(HttpFields.__UserAgent))) {
+    if (daemon.hasManagerByKey(LockssDaemon.COUNTER_REPORTS_MANAGER) &&
+	proxyMgr.isCounterCountable(req.getHeader(HttpFields.__UserAgent))) {
       CounterReportsRequestRecorder.getInstance().recordRequest(url, contacted,
 	  publisherCode, null);
     }

@@ -157,7 +157,7 @@ public class TestRestConfigFile extends LockssTestCase4 {
     } catch (IllegalArgumentException iae) {}
 
     rcf = new RestConfigFile(url, mgr);
-    assertEquals(restLocationUrl + "/config/url/"
+    assertEquals(restLocationUrl + "/config/url?url="
 	+ UriUtils.encodePathSegment(url, "UTF-8"), rcf.getRequestUrl());
   }
 
@@ -165,6 +165,21 @@ public class TestRestConfigFile extends LockssTestCase4 {
   public void testGetRequestUrl() throws Exception {
     RestConfigFile rcf = new RestConfigFile(restLocationUrl, mgr);
     assertEquals(restLocationUrl, rcf.getRequestUrl());
+  }
+
+
+  @Test
+  public void testResolveConfigUrl() {
+    String fbase = "./config/common.xml";
+    String stem = "http://props.lockss.org/";
+    String hbase = stem +"path/lockss.xml";
+    RestConfigFile rcf = new RestConfigFile("http://localhost:54420/config/url?url=http%3A%2F%2Fprops.lockss.org%2Flockss%2Flockss.xml", mgr);
+    assertEquals("http://localhost:54420/config/url?url=http://props.lockss.org/lockss/tdb.xml",
+		 rcf.resolveConfigUrl("tdb.xml"));
+
+    rcf = new RestConfigFile("http://localhost:54420/config/file/cluster", mgr);
+    assertEquals("http://localhost:54420/config/url?url=config/common.xml",
+		 rcf.resolveConfigUrl("config/common.xml"));
   }
 
   @Test
@@ -217,8 +232,7 @@ public class TestRestConfigFile extends LockssTestCase4 {
       fail("redirectAbsoluteUrl() should throw for a not-absolute URL");
     } catch (IllegalArgumentException iae) {}
 
-    assertEquals(restLocationUrl + "/config/url/"
-	+ UriUtils.encodePathSegment(url, "UTF-8"),
-	rcf.redirectAbsoluteUrl(url));
+    assertEquals("http://rest/config/url?url=http:%2F%2Fxyz.org%2Fxpath%2Fx.xml",
+		 rcf.redirectAbsoluteUrl(url));
   }
 }

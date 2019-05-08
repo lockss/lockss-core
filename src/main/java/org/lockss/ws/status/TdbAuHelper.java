@@ -90,7 +90,7 @@ public class TdbAuHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(TdbAuHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of title database archival unit-related query objects

@@ -54,10 +54,8 @@ import org.lockss.laaws.rs.model.*;
 import org.lockss.laaws.rs.util.*;
 
 public class TestV2BaseCachedUrlSet extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestV2BaseCachedUrlSet");
+  static Logger log = Logger.getLogger();
 
-  private OldLockssRepository repo;
-  private HistoryRepository histRepo;
   private HashService hashService;
   private MockArchivalUnit mau;
   private MockLockssDaemon theDaemon;
@@ -78,7 +76,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     props.setProperty(SystemMetrics.PARAM_DEFAULT_HASH_SPEED,
 		      Integer.toString(HASH_SPEED));
     ConfigurationUtil.setCurrentConfigFromProps(props);
-    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     hashService = theDaemon.getHashService();
@@ -91,9 +88,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     plugin.initPlugin(theDaemon);
     mau.setPlugin(plugin);
 
-    repo = theDaemon.getLockssRepository(mau);
-    histRepo = theDaemon.getHistoryRepository(mau);
-    histRepo.startService();
+
     useV2Repo();
     RepositoryManager repomgr =
       LockssDaemon.getLockssDaemon().getRepositoryManager();
@@ -105,8 +100,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    repo.stopService();
-    histRepo.stopService();
     hashService.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
@@ -135,27 +128,27 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     assertFalse(cus.isExcludedByDate(mau.makeCachedUrl(base + "/leaf4")));
   }
 
-  public void no_testFlatSetIterator() throws Exception {
+
+  // XXXREPO
+  public void testFlatSetIterator() throws Exception {
     createLeaf("http://www.example.com/testDir/leaf4", null, null);
     createLeaf("http://www.example.com/testDir/branch1/leaf1", null, null);
     createLeaf("http://www.example.com/testDir/branch2/leaf3", null, null);
     createLeaf("http://www.example.com/testDir/branch1/leaf2", null, null);
 
+    CachedUrlSet top = mau.getAuCachedUrlSet();
+    assertIsomorphic(ListUtil.list("http://www.example.com/"),
+		     PluginTestUtil.urlsOf(top.flatSetIterator()));
+
     CachedUrlSetSpec rSpec =
-        new RangeCachedUrlSetSpec("http://www.example.com/testDir");
-    CachedUrlSet fileSet = mau.makeCachedUrlSet(rSpec);
-    Iterator setIt = fileSet.flatSetIterator();
-    ArrayList childL = new ArrayList(3);
-    while (setIt.hasNext()) {
-      childL.add(((CachedUrlSetNode)setIt.next()).getUrl());
-    }
-    // should be sorted
-    String[] expectedA = new String[] {
-      "http://www.example.com/testDir/branch1",
-      "http://www.example.com/testDir/branch2",
-      "http://www.example.com/testDir/leaf4"
-      };
-    assertIsomorphic(expectedA, childL);
+        new RangeCachedUrlSetSpec("http://www.example.com/testDir/");
+
+    CachedUrlSet set1 = mau.makeCachedUrlSet(rSpec);
+    assertIsomorphic(ListUtil.list("http://www.example.com/testDir/branch1/",
+				   "http://www.example.com/testDir/branch2/",
+				   "http://www.example.com/testDir/leaf4"),
+		     PluginTestUtil.urlsOf(set1.flatSetIterator()));
+
   }
 
   public void testHashIterator() throws Exception {
@@ -172,22 +165,28 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     CachedUrlSetSpec rSpec =
         new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     CachedUrlSet fileSet = mau.makeCachedUrlSet(rSpec);
-    Iterator setIt = fileSet.contentHashIterator();
-    ArrayList childL = new ArrayList(7);
-    while (setIt.hasNext()) {
-      childL.add(((CachedUrlSetNode)setIt.next()).getUrl());
-    }
-    // should be sorted
-    String[] expectedA = new String[] {
-//       "http://www.example.com/testDir",
-//       "http://www.example.com/testDir/branch1",
-      lurl1,
-      lurl2,
-//       "http://www.example.com/testDir/branch2",
-      lurl3,
-      lurl4,
-      };
-    assertIsomorphic(expectedA, childL);
+    assertIsomorphic(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
+		     PluginTestUtil.urlsOf(fileSet.contentHashIterator()));
+
+    CachedUrlSet cus = mau.getAuCachedUrlSet();
+    assertIsomorphic(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
+		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
+
+    rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1");
+    cus = mau.makeCachedUrlSet(rSpec);
+    assertIsomorphic(ListUtil.list(lurl1, lurl2),
+		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
+
+    rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1/");
+    cus = mau.makeCachedUrlSet(rSpec);
+    assertIsomorphic(ListUtil.list(lurl1, lurl2),
+		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
+
+    // Prefix must be a whole path component
+    rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/bran");
+    cus = mau.makeCachedUrlSet(rSpec);
+    assertEmpty(PluginTestUtil.urlsOf(cus.contentHashIterator()));
+
 
     // test getCuIterator and getCuIterable
     assertEquals(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
@@ -196,34 +195,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
 		 PluginTestUtil.urlsOf(ListUtil.fromIterable(fileSet.getCuIterable())));
 
 
-    // add content to an internal node
-    // should behave normally
-    createLeaf("http://www.example.com/testDir/branch1", "test stream", null);
-    rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1");
-    fileSet = mau.makeCachedUrlSet(rSpec);
-    setIt = fileSet.contentHashIterator();
-    childL = new ArrayList(3);
-    while (setIt.hasNext()) {
-      childL.add(((CachedUrlSetNode)setIt.next()).getUrl());
-    }
-    assertFalse(setIt.hasNext());
-    try {
-      setIt.next();
-      fail("setIt.next() should have thrown when it has no elements");
-    } catch (NoSuchElementException e) {
-    }
-
-    // should be sorted
-    expectedA = new String[] {
-      "http://www.example.com/testDir/branch1",
-      "http://www.example.com/testDir/branch1/leaf1",
-      "http://www.example.com/testDir/branch1/leaf2"
-      };
-    assertIsomorphic(expectedA, childL);
-    assertEquals(ListUtil.fromArray(expectedA),
-		 PluginTestUtil.urlsOf(ListUtil.fromIterator(fileSet.getCuIterator())));
-    assertEquals(PluginTestUtil.urlsOf(ListUtil.fromIterator(fileSet.getCuIterator())),
-		 PluginTestUtil.urlsOf(ListUtil.fromIterable(fileSet.getCuIterable())));
   }
 
   public void testHashIteratorPruned() throws Exception {
@@ -357,17 +328,6 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     }
   }
 
-  // ensure accesses have proper null (empty) bahavior on non-existent nodes
-  public void notestNonExistentNode() throws Exception {
-    String url = "http://no.such.host/foopath";
-    assertNull(repo.getNode(url));
-    doNonExistentNode(new RangeCachedUrlSetSpec(url), false);
-    doNonExistentNode(new RangeCachedUrlSetSpec(url, "a", "z"), true);
-    doNonExistentNode(new SingleNodeCachedUrlSetSpec(url), false);
-    // make sure it didn't get created by one of the tests
-    assertNull(repo.getNode(url));
-  }
-
   void doNonExistentNode(CachedUrlSetSpec spec, boolean isRanged)
       throws Exception {
     CachedUrlSet cus = mau.makeCachedUrlSet(spec);
@@ -455,7 +415,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     CachedUrlSetSpec rSpec =
         new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     CachedUrlSet cus = mau.makeCachedUrlSet(rSpec);
-    AuState node = histRepo.getAuState();
+    AuState node = AuUtil.getAuState(mau);
     long estimate = cus.estimatedHashDuration();
     assertTrue(estimate > 0);
 
@@ -499,7 +459,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
 
     assertEquals(estimate, hashService.padHashEstimate(expectedEstimate));
     // check that estimation isn't stored for single node sets
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
   }
 
   public void testIrregularHashStorage() throws Exception {
@@ -509,32 +469,32 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
         new SingleNodeCachedUrlSetSpec("http://www.example.com/testDir");
     CachedUrlSet fileSet = mau.makeCachedUrlSet(sSpec);
     fileSet.storeActualHashDuration(123, null);
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
 
     // check that estimation isn't changed for ranged sets
     CachedUrlSetSpec rSpec =
         new RangeCachedUrlSetSpec("http://www.example.com/testDir", "ab", "yz");
     fileSet = mau.makeCachedUrlSet(rSpec);
     fileSet.storeActualHashDuration(123, null);
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
 
     // check that estimation isn't changed for exceptions
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     fileSet = mau.makeCachedUrlSet(rSpec);
     fileSet.storeActualHashDuration(123, new Exception("bad"));
-    assertEquals(-1, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(-1, AuUtil.getAuState(mau).getAverageHashDuration());
 
     // check that estimation is grown for timeout exceptions
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     fileSet = mau.makeCachedUrlSet(rSpec);
     fileSet.storeActualHashDuration(100, null);
-    assertEquals(100, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(100, AuUtil.getAuState(mau).getAverageHashDuration());
     // simulate a timeout
     fileSet.storeActualHashDuration(200, new SchedService.Timeout("test"));
-    assertEquals(300, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(300, AuUtil.getAuState(mau).getAverageHashDuration());
     // and another,less than current estimate, shouldn't change it
     fileSet.storeActualHashDuration(100, new HashService.Timeout("test"));
-    assertEquals(300, histRepo.getAuState().getAverageHashDuration());
+    assertEquals(300, AuUtil.getAuState(mau).getAverageHashDuration());
   }
 
   public void testCusCompare() throws Exception {

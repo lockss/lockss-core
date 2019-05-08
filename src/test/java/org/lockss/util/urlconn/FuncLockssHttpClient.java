@@ -33,7 +33,9 @@ import java.net.*;
 import java.util.*;
 import org.apache.oro.text.regex.*;
 import org.lockss.test.*;
+import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.HttpClientUrlConnection.PrematureCloseException;
 
 /**
@@ -41,7 +43,7 @@ import org.lockss.util.urlconn.HttpClientUrlConnection.PrematureCloseException;
  * LockssUrlConnectionPool, etc.
  */
 public class FuncLockssHttpClient extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncLockssHttpClient");
+  static Logger log = Logger.getLogger();
 
   static String URL_BAD_PROTOCOL = "noproto://foo.bar/";
   static String URL_NO_DOMAIN = "http://no.such.domain.lockss.org/";
@@ -55,12 +57,14 @@ public class FuncLockssHttpClient extends LockssTestCase {
   LockssUrlConnectionPool connectionPool;
   LockssUrlConnection conn;
   ConnAbort aborter;
+  HttpCacheManager hcMgr;
 
   public void setUp() throws Exception {
     super.setUp();
     connectionPool = new LockssUrlConnectionPool();
     connectionPool.setConnectTimeout(10000);
     aborter = null;
+    hcMgr = ConfigManager.getConfigManager().getHttpCacheManager();
   }
 
   public void tearDown() throws Exception {
@@ -174,14 +178,14 @@ public class FuncLockssHttpClient extends LockssTestCase {
 
   static String RESP_200 =
     "HTTP/1.1 200 OK\r\n" +
-    "Content-Length: 0\r\n" +
+    "Content-Length: %d\r\n" +
     "Keep-Alive: timeout=15, max=100\r\n" +
     "Connection: Keep-Alive\r\n" +
     "Content-Type: text/html\r\n";
 
   static String RESP_200_PARTIAL_HDR =
     "HTTP/1.1 200 OK\r\n" +
-    "Content-Length: 0\r\n" +
+    "Content-Length: %d\r\n" +
     "Keep-Alive: timeout=15, max=100\r\n" +
     "Connection: Keep-Alive\r\n" +
     "Content-Ty";
@@ -198,7 +202,7 @@ public class FuncLockssHttpClient extends LockssTestCase {
   static String RESP_301 =
     "HTTP/1.1 301 Moved Permanently\r\n" +
     "Location: " + URL_NO_DOMAIN + "\r\n" +
-    "Content-Length: 0\r\n" +
+    "Content-Length: %d\r\n" +
     "Content-Type: text/html\r\n";
 
   static String RESP_304 =
@@ -210,7 +214,7 @@ public class FuncLockssHttpClient extends LockssTestCase {
     "HTTP/1.1 401 Authorization Required\r\n" +
     "Date: Sun, 14 Sep 2008 20:46:12 GMT\r\n" +
     "WWW-Authenticate: Basic realm=\"Middle Earth\"\r\n" +
-    "Content-Length: 0\r\n" +
+    "Content-Length: %d\r\n" +
     "Keep-Alive: timeout=15, max=100\r\n" +
     "Connection: Keep-Alive\r\n" +
     "Content-Type: text/html; charset=iso-8859-1\r\n";
@@ -222,7 +226,7 @@ public class FuncLockssHttpClient extends LockssTestCase {
     "    qop=\"auth,auth-int\",\r\n" +
     "    nonce=\"dcd98b7102dd2f0e8b11d0f600bfb0c093\",\r\n" +
     "    opaque=\"5ccc069c403ebaf9f0171e9517f40e41\"\r\n" +
-    "Content-Length: 0\r\n" +
+    "Content-Length: %d\r\n" +
     "Keep-Alive: timeout=15, max=100\r\n" +
     "Connection: Keep-Alive\r\n" +
     "Content-Type: text/html; charset=iso-8859-1\r\n";
@@ -236,7 +240,7 @@ public class FuncLockssHttpClient extends LockssTestCase {
   // separating them with crlf
   String resp(String hdr, String cont) {
     StringBuffer sb = new StringBuffer();
-    sb.append(hdr);
+    sb.append(String.format(hdr, (cont != null) ? cont.length() : 0));
     sb.append("\r\n");
     if (cont != null) {
       sb.append(cont);
@@ -642,6 +646,188 @@ public class FuncLockssHttpClient extends LockssTestCase {
     assertMatchesRE("^GET /foo HTTP/", req1);
     assertMatchesRE("Authorization: Basic dXNlcmZvbzpwYXNzYmFy", req1);
     assertEquals(401, conn.getResponseCode());
+    conn.release();
+
+    th.stopServer();
+    assertEquals(1, th.getNumConnects());
+  }
+
+  public void xxtestCacheProps() throws Exception {
+    String url = "http://props.lockss.org:8001/samplepln/lockss.xml";
+
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url, connectionPool);
+    File tmpdir = getTempDir();
+    log.debug("cache dir: " + tmpdir);
+    conn.setClientCache(hcMgr.getCacheSpec("foo"));
+
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+
+    assertEquals(200, conn.getResponseCode());
+    conn.release();
+
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url, connectionPool);
+    conn.setClientCache(hcMgr.getCacheSpec("foo"));
+
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+
+    assertEquals(200, conn.getResponseCode());
+    conn.release();
+  }
+
+  String respBody(LockssUrlConnection conn) throws IOException {
+    return StringUtil.fromInputStream(conn.getResponseInputStream());
+  }
+
+  public void testCache() throws Exception {
+    int port = TcpTestUtil.findUnboundTcpPort();
+    String url1 = localurl(port) + "foo";
+    String url2 = localurl(port) + "bar";
+    File tmpdir = getTempDir();
+    log.debug("cache dir: " + tmpdir);
+    ClientCacheSpec ccs = hcMgr.getCacheSpec("spec_name");
+    ccs.setCacheDir(tmpdir);
+
+    ServerSocket server = new ServerSocket(port);
+    ServerThread th = new ServerThread(server);
+    th.setResponses(resp(RESP_200, "one"),
+		    resp(RESP_200, "22"),
+		    resp(RESP_304),
+		    resp(RESP_200, "barcontent")
+		    );
+    th.setMaxReads(10);
+    th.start();
+
+    // First req loads cache
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url1,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+    assertEquals(1, th.getRequests().size());
+    assertMatchesRE("^GET /foo HTTP/", th.getRequest(0));
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("one", respBody(conn));
+    conn.release();
+
+    // from cache
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url1,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+    // server should not have seen another request
+    assertEquals(1, th.getRequests().size());
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("one", respBody(conn));
+    conn.release();
+
+    // force cache miss
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url1,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.addRequestProperty("Cache-Control", "no-cache");
+    conn.execute();
+    aborter.cancel();
+    assertEquals(2, th.getRequests().size());
+    assertMatchesRE("^GET /foo HTTP/", th.getRequest(1));
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("22", respBody(conn));
+    conn.release();
+    assertEquals(1, th.getNumConnects());
+
+    // from cache
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url1,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+    assertEquals(2, th.getRequests().size());
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("22", respBody(conn));
+    conn.release();
+
+    // force cache miss, get 304
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url1,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.addRequestProperty("Cache-Control", "no-cache");
+    conn.execute();
+    aborter.cancel();
+    assertEquals(3, th.getRequests().size());
+    assertMatchesRE("^GET /foo HTTP/", th.getRequest(1));
+    assertEquals(304, conn.getResponseCode());
+    conn.release();
+
+    // should still be in cache after 304
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url1,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+    assertEquals(3, th.getRequests().size());
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("22", respBody(conn));
+    conn.release();
+
+    // Different URL, ensure first fetch w/ no-cache does cache it
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url2,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    conn.addRequestProperty("Cache-Control", "no-cache");
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+    assertEquals(4, th.getRequests().size());
+    assertMatchesRE("^GET /bar HTTP/", th.getRequest(3));
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("barcontent", respBody(conn));
+    conn.release();
+
+    // foo from cache
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url1,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+    // server should not have seen another request
+    assertEquals(4, th.getRequests().size());
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("22", respBody(conn));
+    conn.release();
+
+    // bar from cache
+    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+				  url2,
+				  connectionPool);
+    conn.setClientCache(ccs);
+    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+    conn.execute();
+    aborter.cancel();
+    // server should not have seen another request
+    assertEquals(4, th.getRequests().size());
+    assertEquals(200, conn.getResponseCode());
+    assertEquals("barcontent", respBody(conn));
     conn.release();
 
     th.stopServer();
@@ -1103,16 +1289,8 @@ public class FuncLockssHttpClient extends LockssTestCase {
       responses = l;
     }
 
-    void setResponses(String r1) {
+    void setResponses(String... r1) {
       responses = ListUtil.list(r1);
-    }
-
-    void setResponses(String r1, String r2) {
-      responses = ListUtil.list(r1, r2);
-    }
-
-    void setResponses(String r1, String r2, String r3) {
-      responses = ListUtil.list(r1, r2, r3);
     }
 
     void setDelayClose(boolean val) {

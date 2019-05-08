@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -55,7 +55,7 @@ import org.springframework.http.HttpHeaders;
  * behavior
  */
 public class FuncV2Repo extends LockssTestCase {
-  private static final Logger log = Logger.getLogger("FuncV2Repo");
+  private static final Logger log = Logger.getLogger();
 
   protected LockssRepository repo;
   protected MockArchivalUnit mau;
@@ -103,23 +103,49 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact art1 = repo.addArtifact(ad1);
     repo.commitArtifact(art1);
     Artifact r1 = repo.getArtifact(COLL, AUID, url1);
-    assertEquals(art1, r1);
+
+    assertArtifactCommitted(art1, r1);
+
     assertEquals(1, (int)r1.getVersion());
     Artifact aa = repo.getArtifactVersion(COLL, AUID, url1, 1);
-    assertEquals(art1, aa);
+
+    assertArtifactCommitted(art1, aa);
+
+    assertEquals(r1, aa);
 
     ArtifactData ad2 = createArtifact(COLL, AUID, url1, "content 22222");
     Artifact art2 = repo.addArtifact(ad2);
     repo.commitArtifact(art2);
-
     aa = repo.getArtifact(COLL, AUID, url1);
-    assertEquals(art2, aa);
+
+    assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
+
     aa = repo.getArtifactVersion(COLL, AUID, url1, 2);
-    assertEquals(art2, aa);
+
+    assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
   }
 
+  /**
+   * Asserts two Artifacts are the same, modulo the committed status and storage URL.
+   *
+   * @param expected
+   * @param actual
+   */
+  private void assertArtifactCommitted(Artifact expected, Artifact actual) {
+    assertEquals(expected.getId(), actual.getId());
+    assertEquals(expected.getCollection(), actual.getCollection());
+    assertEquals(expected.getAuid(), actual.getAuid());
+    assertEquals(expected.getUri(), actual.getUri());
+    assertEquals(expected.getContentLength(), actual.getContentLength());
+    assertEquals(expected.getContentDigest(), actual.getContentDigest());
+
+    assertEquals(expected.getVersion(), actual.getVersion());
+
+    assertNotEquals(expected.getCommitted(), actual.getCommitted());
+    assertNotEquals(expected.getStorageUrl(), actual.getStorageUrl());
+  }
 
   Artifact storeArt(String url, String content,
 		    CIProperties props) throws IOException {
@@ -137,12 +163,12 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact art1 = repo.addArtifact(ad1);
     repo.commitArtifact(art1);
     List<Artifact> l0 =
-      ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+      ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
 
     assertEquals(url1, l0.get(0).getUri());
     log.critical("testVersion all: " + l0);
-    List l = ListUtil.fromIterator(repo.getArtifactAllVersions(COLL, AUID,
-							       url1).iterator());
+    List l = ListUtil.fromIterator(repo.getArtifactsAllVersions(COLL, AUID,
+							        url1).iterator());
     assertEquals(1, l.size());
   }
 
@@ -186,23 +212,28 @@ public class FuncV2Repo extends LockssTestCase {
     log.critical("new artData meta: " + repo.getArtifactData(newArt).getMetadata());
     assertCompareIsEqualTo(art1.getIdentifier(), newArt.getIdentifier());
     List<Artifact> aids = 
-      ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+      ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
     log.critical("foo: " + aids);
 
     Artifact committedArt = repo.commitArtifact(newArt);
     log.critical("committedArt ver: " + committedArt.getVersion());
 
-    aids = ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+    aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
     log.critical("foo: " + aids);
     ArtifactData a1 = repo.getArtifactData(committedArt);
-    assertSame(a1.getInputStream(), a1.getInputStream());
     assertInputStreamMatchesString("content 11111", a1.getInputStream());
+    try {
+      a1.getInputStream();
+      fail("Attempt to call getInputStream() twice should throw");
+    } catch (IllegalStateException e) {
+    }
+
 //     assertInputStreamMatchesString("content 2222", a1.getInputStream());
 
     ArtifactData ad2 = createArtifact(COLL, AUID, url2, "content xxxxx");
     Artifact art2 = repo.addArtifact(ad2);
     Artifact datas = repo.commitArtifact(art2);
-    aids = ListUtil.fromIterator(repo.getAllArtifacts(COLL, AUID).iterator());
+    aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
     log.critical("foo: " + aids);
 
 

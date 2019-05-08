@@ -35,6 +35,7 @@ import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.*;
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
 import org.lockss.config.*;
 
 import java.io.*;
@@ -45,7 +46,7 @@ import java.util.*;
  */
 public class ParticipantUserData implements LockssSerializable {
 
-  private static transient final Logger log = Logger.getLogger("V3Poller");
+  private static transient final Logger log = Logger.getLogger();
 
   /** Keeps track of per-peer agreement data.  Concrete subclasses either
    * do or don't keep full URL lists */

@@ -405,7 +405,7 @@ public class FuncHasherService extends LockssTestCase {
     // Schedule another asynchronous hash.
     params = new HasherWsParams();
     params.setAuId(au.getAuId());
-    params.setHashType(SimpleHasher.HashType.V1File.toString());
+    params.setHashType(SimpleHasher.HashType.V3File.toString());
     params.setAlgorithm("SHA-256");
     result = proxy.hashAsynchronously(params);
     assertNotNull(result.getRequestTime());

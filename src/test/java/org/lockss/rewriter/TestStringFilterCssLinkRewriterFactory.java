@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.rewriter;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.servlet.*;
@@ -40,8 +41,7 @@ import java.util.*;
 import java.io.*;
 
 public class TestStringFilterCssLinkRewriterFactory extends LockssTestCase {
-  static Logger log =
-      Logger.getLogger("TestStringFilterCssLinkRewriterFactory");
+  static Logger log = Logger.getLogger();
 
   private MockArchivalUnit au;
   private StringFilterCssLinkRewriterFactory sfclrf;

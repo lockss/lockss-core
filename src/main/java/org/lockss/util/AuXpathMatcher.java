@@ -76,7 +76,7 @@ import org.lockss.plugin.*;
  * </ul>
  */
 public class AuXpathMatcher {
-  private static final Logger log = Logger.getLogger(AuXpathMatcher.class);
+  private static final Logger log = Logger.getLogger();
 
   // static context used to predefine RE class functions, and to compile
   // xpath in constructor

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -44,10 +40,10 @@ import org.lockss.plugin.definable.DefinablePlugin;
 /** Base class for plugin status accessors, and static register/unregister
  */
 public class PluginStatus {
-  static Logger log = Logger.getLogger("PluginStatus");
+  static Logger log = Logger.getLogger();
   final static String PLUGIN_TABLE = "Plugins";
   final static String PLUGIN_DETAIL = "PluginDetail";
-  final static String ALL_AUIDS = "AllAuids";
+  public final static String ALL_TITLE_AUIDS = "AllAuids";
 
   /** If true the definition of definable plugins will be displayed along
    * with its details. */
@@ -64,15 +60,15 @@ public class PluginStatus {
 				      new Plugins(daemon, mgr));
     statusServ.registerStatusAccessor(PLUGIN_DETAIL,
 				      new PluginDetail(daemon, mgr));
-    statusServ.registerStatusAccessor(ALL_AUIDS,
-				      new AllAuids(daemon, mgr));
+    statusServ.registerStatusAccessor(ALL_TITLE_AUIDS,
+				      new AllTitleAuids(daemon, mgr));
   }
 
   static void unregister(LockssDaemon daemon) {
     StatusService statusServ = daemon.getStatusService();
     statusServ.unregisterStatusAccessor(PLUGIN_TABLE);
     statusServ.unregisterStatusAccessor(PLUGIN_DETAIL);
-    statusServ.unregisterStatusAccessor(ALL_AUIDS);
+    statusServ.unregisterStatusAccessor(ALL_TITLE_AUIDS);
   }
 
   PluginStatus(LockssDaemon daemon, PluginManager mgr) {
@@ -320,7 +316,7 @@ class PluginDetail extends PluginStatus implements StatusAccessor {
 /**
  * List of AUID of all currently defined titles.
  */
-class AllAuids extends PluginStatus implements StatusAccessor.DebugOnly {
+class AllTitleAuids extends PluginStatus implements StatusAccessor.DebugOnly {
 
   private final List colDescs =
     ListUtil.list(
@@ -334,7 +330,7 @@ class AllAuids extends PluginStatus implements StatusAccessor.DebugOnly {
     ListUtil.list(new StatusTable.SortRule("name",
 					   CatalogueOrderComparator.SINGLETON));
 
-  AllAuids(LockssDaemon daemon, PluginManager mgr) {
+  AllTitleAuids(LockssDaemon daemon, PluginManager mgr) {
     super(daemon, mgr);
   }
 

@@ -98,9 +98,7 @@ public class TestRegistryPlugin extends LockssTestCase {
 	       "http://foo.com/bar");
     ArchivalUnit au = m_plugin.createAu(auConf);
     assertTrue(au instanceof RegistryArchivalUnit);
-    MockHistoryRepository mhr = new MockHistoryRepository();
-    mhr.setAuState(new MockAuState(au));
-    getMockLockssDaemon().setHistoryRepository(mhr, au);
+    AuTestUtil.setUpMockAus(au);
     assertSameElements(ListUtil.list("http://foo.com/"), au.getUrlStems());
   }
 

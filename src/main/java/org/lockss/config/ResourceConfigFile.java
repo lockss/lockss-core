@@ -27,33 +27,62 @@
  */
 package org.lockss.config;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.net.*;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
 
 /**
  * A ConfigFile loaded as a resource.
  */
 public class ResourceConfigFile extends BaseConfigFile {
 
-  private File file = null;
+  public static String RESOURCE_PREFIX = "resource:";
+
+  private URL m_resoureUrl = null;
 
   /**
    * Constructor.
    *
    * @param url
-   *          A String withe the URL of the file.
+   *          A String withe the URL of the resource.
    * @param cfgMgr
    *          A ConfigManager with the configuration manager.
    */
   public ResourceConfigFile(String url, ConfigManager cfgMgr) {
     super(url, cfgMgr);
     final String DEBUG_HEADER = "ResourceConfigFile(): ";
-    file = cfgMgr.getResourceConfigFile(url);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "file = " + file);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
+  }
+
+  /** Extract the actual resource name from the <tt>resource:</tt>-prefixed
+   * string */
+  public static String extractResourceName(String url, ConfigManager cfgMgr) {
+    if (!ResourceConfigFile.isResourceConfigUrl(url, cfgMgr)) {
+      throw new IllegalArgumentException("ResourceConfigFile can be used only with 'resource:' URLs");
+    }
+    return url.substring(RESOURCE_PREFIX.length());
+  }
+
+  /** Locate the resource */
+  URL getResourceUrl() throws FileNotFoundException {
+    if (m_resoureUrl == null) {
+      ClassLoader loader = Thread.currentThread().getContextClassLoader();
+      String rName = ResourceConfigFile.extractResourceName(m_fileUrl, m_cfgMgr);
+      m_resoureUrl = loader.getResource(rName);
+      if (m_resoureUrl == null) {
+	throw new FileNotFoundException("Resource not found: " + m_fileUrl);
+      }
+    }
+    return m_resoureUrl;
+  }
+
+  /** Return true iff url starts with <tt>resource:</tt> */
+  public static boolean isResourceConfigUrl(String url,
+					    ConfigManager configMgr) {
+    return url != null &&
+      StringUtil.startsWithIgnoreCase(url, RESOURCE_PREFIX);
   }
 
   /**
@@ -72,7 +101,7 @@ public class ResourceConfigFile extends BaseConfigFile {
     String lm = calcNewLastModified();
 
     // Only reload the file if the last modified timestamp is different.
-    if (lm.equals(m_lastModified)) {
+    if (lm != null && lm.equals(m_lastModified)) {
       if (log.isDebug2()) log.debug2(DEBUG_HEADER
 	  + "File has not changed on disk, not reloading: " + m_fileUrl);
       return null;
@@ -103,34 +132,28 @@ public class ResourceConfigFile extends BaseConfigFile {
    */
   @Override
   public InputStream getInputStream() throws IOException {
-    InputStream in = new FileInputStream(file);
-
-    if (StringUtil.endsWithIgnoreCase(file.getName(), ".gz")) {
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    URLConnection conn = getResourceUrl().openConnection();
+    long lastMod = conn.getLastModified();
+    if (lastMod > 0) {
+      m_lastModified =
+	DateTimeUtil.GMT_DATE_FORMATTER.format(new Date(lastMod));
+    }
+    InputStream in = conn.getInputStream();
+    if (in == null) {
+      throw new IOException("Resource not found: " + m_fileUrl);
+    }
+    if (StringUtil.endsWithIgnoreCase(m_fileUrl, ".gz")) {
       in = new GZIPInputStream(in);
     }
-
     return in;
   }
 
   /**
-   * Provides the last modification timestamp as a text string.
-   * 
-   * @return a String with the last modification timestamp.
+   * Resource last modified is stored when it's read, never changes.
    */
   @Override
   protected String calcNewLastModified() {
-    final String DEBUG_HEADER = "calcNewLastModified(" + m_fileUrl + "): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "m_lastModified = " + m_lastModified);
-
-    if (m_lastModified == null) {
-      String result = Long.toString(file.lastModified());
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-      return result;
-    }
-
-    String result = m_lastModified;
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-    return result;
+    return m_lastModified;
   }
 }

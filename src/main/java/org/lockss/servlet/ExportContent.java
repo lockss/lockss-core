@@ -42,6 +42,7 @@ import org.mortbay.html.*;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.daemon.*;
@@ -52,7 +53,7 @@ import org.lockss.exporter.Exporter.FilenameTranslation;
 /** 
  */
 public class ExportContent extends LockssServlet {
-  static Logger log = Logger.getLogger("ExportContent");
+  static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "export.";
 

@@ -35,14 +35,14 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.lockss.app.LockssDaemon;
 import org.lockss.db.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * The COUNTER Journal Report 5.
  */
 public class CounterReportsJournalReport5 extends CounterReportsJournalReport {
   
-  private static final Logger log =
-      Logger.getLogger(CounterReportsJournalReport5.class);
+  private static final Logger log = Logger.getLogger();
 
   // Query to get the journals to be included in the report.
   private static final String SQL_QUERY_REPORT_JOURNALS_SELECT = "select "

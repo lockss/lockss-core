@@ -43,11 +43,13 @@ import org.lockss.poller.v3.V3Poller;
 import org.lockss.protocol.*;
 import org.lockss.scheduler.*;
 import org.lockss.util.*;
-import static org.lockss.util.StringUtil.timeIntervalToString;
+import org.lockss.util.time.TimeBase;
+
+import static org.lockss.util.time.TimeUtil.timeIntervalToString;
 
 public class PollUtil {
 
-  public static Logger log = Logger.getLogger("PollUtil");
+  public static Logger log = Logger.getLogger();
 
   public static String makeShortPollKey(String pollKey) {
     if (pollKey == null || pollKey.length() <= 10) {

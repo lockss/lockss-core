@@ -41,7 +41,7 @@ import org.apache.commons.io.input.ProxyReader;
  * is being closed.
  */
 public class MonitoringReader extends ProxyReader {
-  private static final Logger log = Logger.getLogger("MonitoringReader");
+  private static final Logger log = Logger.getLogger();
 
   private String name;
   private String openTrace;

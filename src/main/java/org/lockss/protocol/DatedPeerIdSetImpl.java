@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,66 +29,162 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.protocol;
 
 import java.io.*;
-import java.util.HashSet;
+import java.util.*;
+import com.fasterxml.jackson.annotation.*;
 
-import org.lockss.util.IOUtil;
+import org.lockss.app.*;
+import org.lockss.plugin.AuUtil;
 
-/**
- * @author edwardsb
- *
- */
+
 public class DatedPeerIdSetImpl extends PersistentPeerIdSetImpl implements
     DatedPeerIdSet {
 
-  public static final long k_dateDefault = -1;
-  
-  private long m_date;
+  private long date = -1;
   
   /**
-   * @param filePeerId
    * @param identityManager
    */
-  public DatedPeerIdSetImpl(File filePeerId, IdentityManager identityManager) {
-    super(filePeerId, identityManager);
+  public DatedPeerIdSetImpl(IdentityManager identityManager) {
+    super(identityManager);
+  }
 
-    m_date = k_dateDefault;
+  /**
+   * Constructor.
+   * 
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @param identityManager
+   *          An {@link IdentityManager} to translate {@link String}s to
+   *          {@link PeerIdentity} instances.
+   */
+  public DatedPeerIdSetImpl(String auid, IdentityManager identityManager) {
+    super(auid, identityManager);
+  }
+
+  /**
+   * Factory method for json/Jackson.  This creates a "bean" instance which
+   * is used only as a source from which to copy data, then it is
+   * discarded.  Hence, idMgr is not needed.
+   * @param auid The AUID
+   */
+  @JsonCreator
+  public static DatedPeerIdSetImpl make(@JsonProperty("auid") String auid) {
+    DatedPeerIdSetImpl res = new DatedPeerIdSetImpl(auid, null);
+    return res;
+  }
+
+  public static DatedPeerIdSetImpl make(String auid, IdentityManager idMgr) {
+    DatedPeerIdSetImpl res = new DatedPeerIdSetImpl(auid, idMgr);
+    return res;
   }
 
   /** (non-Javadoc)
    * @see org.lockss.protocol.DatedPeerIdSet#getDate()
    */
-  public long getDate() throws IOException {
-    loadIfNecessary();
-    return m_date;
+  public long getDate() {
+    return date;
   }
 
   /* (non-Javadoc)
    * @see org.lockss.protocol.DatedPeerIdSet#setDate(java.lang.Long)
    */
-  public void setDate(long l) throws IOException {
-    loadIfNecessary();
-    if (m_date != l) {
-      m_date = l;
+  public void setDate(long l) {
+    if (date != l) {
+      date = l;
       m_changed = true;
-      storeIfNecessary();
     }
   }
-  
-  @Override
-  protected void readData(DataInputStream is) throws IOException {
-    m_date = is.readLong();
-    super.readData(is);
+
+  public boolean equals(Object o) {
+    if (o instanceof DatedPeerIdSetImpl) {
+      DatedPeerIdSetImpl dpis = (DatedPeerIdSetImpl)o;
+      return date == dpis.date && peerSet.equals(dpis.peerSet);
+    } else {
+      return false;
+    }
+  }
+
+  /* A hash code must always return a value; it cannot throw an IOException. */
+  public int hashCode() {
+    return peerSet.hashCode() + (int)date;
   }
 
   @Override
-  protected void newData() throws IOException {
-    m_date = k_dateDefault;
-    super.newData();
+  public synchronized String toJson(Set<PeerIdentity> peers)
+      throws IOException {
+    return AuUtil.jsonFromDatedPeerIdSetImpl(makeBean(peers));
+  }
+
+  /**
+   * Creates serializable bean, with peerids replaces by their string
+   *
+   * @param peers
+   *          A Set<PeerIdentity> with the peers to be included.
+   * @return a DatedPeerIdSetImpl with the newly created object.
+   */
+  DatedPeerIdSetImpl makeBean(Set<PeerIdentity> peers) {
+    DatedPeerIdSetImpl res = new DatedPeerIdSetImpl(auid, m_identityManager);
+    res.rawSet = makeRawSet(peers);
+    res.date = date;
+    return res;
+  }
+
+  /**
+   * Update this object from the serialized data in the json string
+   *
+   * @param json
+   *          A String with the JSON text.
+   * @param app
+   *          A LockssApp with the LOCKSS context.
+   * @return a Set<PeerIdentity> that was updated from the JSON source.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public synchronized Set<PeerIdentity> updateFromJson(String json,
+						       LockssApp app)
+      throws IOException {
+    // Deserialize the JSON text into a new, scratch instance.
+    DatedPeerIdSetImpl srcSet = AuUtil.datedPeerIdSetImplFromJson(json);
+    // Get the peer identities.
+    peerSet = internPeerIdSet(m_identityManager, srcSet.rawSet);
+    date = srcSet.date;
+    postUnmarshal(app);
+    return peerSet;
+  }
+
+  /**
+   * Deserializes a JSON string into a new DatedPeerIdSetImpl object.
+   *
+   * @param key
+   *          A String with the Archival Unit identifier.
+   * @param json
+   *          A String with the JSON text.
+   * @param daemon
+   *          A LockssDaemon with the LOCKSS daemon.
+   * @return a DatedPeerIdSetImpl with the newly created object.
+   * @throws IOException
+   *           if any problem occurred during the deserialization.
+   */
+  public static DatedPeerIdSetImpl fromJson(String key, String json,
+					    LockssDaemon daemon)
+      throws IOException {
+    DatedPeerIdSetImpl res =
+	DatedPeerIdSetImpl.make(key, daemon.getIdentityManager());
+    res.updateFromJson(json, daemon);
+    return res;
+  }
+
+
+  /** Store the set
+   */
+  @Override
+  public void store() {
+    getStateMgr().updateNoAuPeerSet(auid, this);
   }
 
   @Override
-  protected void writeData(DataOutputStream dos) throws IOException {
-    dos.writeLong(m_date);
-    super.writeData(dos);
+  public String toString() {
+    return "[DPIDSet: " + auid + ": " + date + ": " + peerSet + "]";
   }
+
 }

@@ -54,7 +54,7 @@ import org.lockss.ws.entities.LockssWebServicesFault;
 @MTOM
 @WebService
 public class ContentServiceImpl implements ContentService {
-  private static Logger log = Logger.getLogger(ContentServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the content defined by a URL and Archival Unit.

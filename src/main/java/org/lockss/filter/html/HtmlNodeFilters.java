@@ -52,7 +52,7 @@ import org.lockss.servlet.ServletUtil;
  */
 public class HtmlNodeFilters {
 
-  private static Logger log = Logger.getLogger(HtmlNodeFilters.class);
+  private static Logger log = Logger.getLogger();
 
   /** No instances */
   private HtmlNodeFilters() {

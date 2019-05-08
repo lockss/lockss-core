@@ -84,7 +84,7 @@ public class VoteBlockTallier implements UrlTallier.VoteCallback {
   // other reasons as well.
   private boolean votingStarted = false;
 
-  private static final Logger log = Logger.getLogger("VoteBlockTallier");
+  private static final Logger log = Logger.getLogger();
 
   private VoteBlockTallier(HashBlockVoteBlockComparerFactory comparerFactory) {
     this.comparerFactory = comparerFactory;

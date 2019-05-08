@@ -2,10 +2,10 @@
 
 group="dev"
 
-arg_mem="-Xmx250m"
+arg_mem="-Xmx1g"
 
 prop_url="http://props.lockss.org:8001/daemon/lockss.xml"
-CLASSPATH=lib/lockss.jar:`cat ${PROJECT_DIR}/test/run-classpath`
+CLASSPATH=lib/current.jar:`cat ${PROJECT_DIR}/target/test-classpath`
 
 while true ; do
   case "$1" in
@@ -26,23 +26,34 @@ while true ; do
       group="$2"
       echo "group=$group"
       shift; shift; continue;;
-    "-1.4" )
-      if [ -z "$JAVA_14_HOME" ] ; then
-	echo "-1.4 option requires JAVA_14_HOME to point to 1.4 install dir"
+    "-1.7" )
+      if [ -z "$JAVA_17_HOME" ] ; then
+	echo "-1.7 option requires JAVA_17_HOME to point to 1.7 install dir"
 	exit 1;
       fi
-      JAVA_HOME="${JAVA_14_HOME}"
+      JAVA_HOME="${JAVA_17_HOME}"
       export JAVA_HOME
       PATH="$JAVA_HOME/bin:$PATH"
       export PATH
       echo JAVA_HOME="$JAVA_HOME"
       shift; continue;;
-    "-1.5" )
-      if [ -z "$JAVA_15_HOME" ] ; then
-	echo "-1.5 option requires JAVA_15_HOME to point to 1.5 install dir"
+    "-1.8" )
+      if [ -z "$JAVA_18_HOME" ] ; then
+	echo "-1.8 option requires JAVA_18_HOME to point to 1.8 install dir"
 	exit 1;
       fi
-      JAVA_HOME="${JAVA_15_HOME}"
+      JAVA_HOME="${JAVA_18_HOME}"
+      export JAVA_HOME
+      PATH="$JAVA_HOME/bin:$PATH"
+      export PATH
+      echo JAVA_HOME="$JAVA_HOME"
+      shift; continue;;
+    "-1.9" )
+      if [ -z "$JAVA_19_HOME" ] ; then
+	echo "-1.9 option requires JAVA_19_HOME to point to 1.9 install dir"
+	exit 1;
+      fi
+      JAVA_HOME="${JAVA_19_HOME}"
       export JAVA_HOME
       PATH="$JAVA_HOME/bin:$PATH"
       export PATH
@@ -70,13 +81,9 @@ PROP_URL_LIST="-p $prop_url -p local.txt"
 
 # local copy of lockss jars allows recompile while we're running
 mkdir -p lib
-cp "${PROJECT_DIR}/lib/lockss.jar" lib
-cp "${PROJECT_DIR}/lib/lockss-test.jar" lib
-cp "${PROJECT_DIR}/lib/lockss-plugins.jar" lib
-# Transform paths when running under cygwin
-if [ "$TERM" = "cygwin" ]; then
-  CLASSPATH=`cygpath -w -p $CLASSPATH`
-fi
+cp "${PROJECT_DIR}/target/current.jar" lib
+cp "${PROJECT_DIR}/target/current-tests.jar" lib
+#cp "${PROJECT_DIR}/lib/lockss-plugins.jar" lib
 export CLASSPATH
 #echo CLASSPATH=$CLASSPATH
 

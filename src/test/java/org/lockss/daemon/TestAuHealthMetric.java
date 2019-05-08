@@ -39,6 +39,8 @@ import org.lockss.daemon.AuHealthMetric;
 import org.lockss.plugin.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.lockss.protocol.*;
 
 import static org.lockss.util.Constants.DAY;
@@ -68,10 +70,7 @@ public class TestAuHealthMetric extends LockssTestCase {
     au4 = MockArchivalUnit.newInited(daemon);
     List<ArchivalUnit> aulist = ListUtil.list(au1, au2, au3, au4);
     for (ArchivalUnit au : aulist) {
-      MockHistoryRepository histRepo = new MockHistoryRepository();
-      daemon.setHistoryRepository(histRepo, au);
-      MockAuState maus = new MockAuState(au);
-      histRepo.setAuState(new MockAuState(au));
+      MockAuState maus = AuTestUtil.setUpMockAus(au);
     }
   }
 

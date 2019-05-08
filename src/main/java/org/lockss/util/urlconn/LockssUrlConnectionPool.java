@@ -56,7 +56,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
  * on individual requests.
  */
 public class LockssUrlConnectionPool {
-  private static Logger log = Logger.getLogger(LockssUrlConnectionPool.class);
+  private static Logger log = Logger.getLogger();
   /* The configuration parameter for the maximum number of total connections
    * supported by this pool.
    */

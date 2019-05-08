@@ -48,6 +48,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.base.BaseArchivalUnit;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * <p>PluginArchivalUnit: The Archival Unit Class for PluginPlugin.
@@ -58,7 +59,7 @@ import org.lockss.util.*;
 
 public class RegistryArchivalUnit extends BaseArchivalUnit {
 	
-  private static final Logger log = Logger.getLogger(RegistryArchivalUnit.class);
+  private static final Logger log = Logger.getLogger();
 
   /** The interval between recrawls of the loadable plugin
       registry AUs.  Changes take effect only when AU is started. */
@@ -66,8 +67,9 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
     RegistryPlugin.PREFIX + "crawlInterval";
   static final long DEFAULT_REGISTRY_CRAWL_INTERVAL = Constants.DAY;
 
-  /** The proxy to use for registry crawls, or DIRECT to override a global
-   * crawl proxy.  Changes take effect at start of next crawl. */
+  /** The proxy to use for registry crawls, or <tt>DIRECT</tt> or
+   * <tt>NONE</tt> to override a global crawl proxy.  Changes take effect
+   * at start of next crawl. */
   static final String PARAM_REGISTRY_CRAWL_PROXY =
     RegistryPlugin.PREFIX + "crawlProxy";
 
@@ -128,7 +130,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
 					    DEFAULT_REGISTRY_CRAWL_INTERVAL));
     if (log.isDebug2()) {
       log.debug2("Setting Registry AU recrawl interval to " +
-		 StringUtil.timeIntervalToString(paramMap.getLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL)));
+		 TimeUtil.timeIntervalToString(paramMap.getLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL)));
     }
   }
 
@@ -163,7 +165,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
     }
     try {
       CachedUrl cu = makeCachedUrl(m_registryUrl);
-      if (cu == null) return null;
+      if (!cu.hasContent()) return null;
       URL cuUrl = CuUrl.fromCu(cu);
       Parser parser = new Parser(cuUrl.toString());
       NodeList nodelst =

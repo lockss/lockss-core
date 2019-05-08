@@ -38,6 +38,7 @@ import java.net.*;
 import junit.framework.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 
@@ -45,7 +46,7 @@ import org.lockss.test.*;
  * Test class for org.lockss.protocol.PeerMessage
  */
 public class TestPeerMessage extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestPeerMessage");
+  static Logger log = Logger.getLogger();
 
   String testStr;
   byte[] testData;

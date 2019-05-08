@@ -41,7 +41,7 @@ import org.lockss.servlet.*;
 
 /** User status table */
 public class UserStatus implements StatusAccessor {
-  private static final Logger log = Logger.getLogger(UserStatus.class);
+  private static final Logger log = Logger.getLogger();
 
   final static String USER_STATUS_TABLE = "UserStatus";
 

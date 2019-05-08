@@ -53,6 +53,8 @@ import org.lockss.state.*;
 import org.lockss.scheduler.*;
 import org.lockss.scheduler.Schedule.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 
 import static org.lockss.poller.v3.V3Voter.*;
 
@@ -62,7 +64,7 @@ import static org.lockss.poller.v3.V3Voter.*;
  * poll has ended and the voter object reset.
  */
 public class RecalcHashTime {
-  private static final Logger log = Logger.getLogger("RecalcHash");
+  private static final Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
   protected ArchivalUnit au;
@@ -210,7 +212,7 @@ public class RecalcHashTime {
       totalTime += timeUsed;
       if (e == null) {
 	log.debug("Recalc finished, setting hash estimate to " +
-		  StringUtil.timeIntervalToString(totalTime) +
+		  TimeUtil.timeIntervalToString(totalTime) +
 		  " for " + au);
 	hasher.storeActualHashDuration(totalTime,
 				       new HashService.SetEstimate());
@@ -218,7 +220,7 @@ public class RecalcHashTime {
       } else if (e instanceof HashService.Timeout
 		 || e instanceof SchedService.Timeout) {
 	log.debug("Recalc timed out after " +
-		  StringUtil.timeIntervalToString(totalTime) +
+		  TimeUtil.timeIntervalToString(totalTime) +
 		  ", rescheduling " + au);
 	// run again with the same hasher, which will pick up from where it
 	// left off

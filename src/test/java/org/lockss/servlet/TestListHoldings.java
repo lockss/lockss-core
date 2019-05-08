@@ -44,7 +44,7 @@ import org.lockss.util.Logger;
 
 public class TestListHoldings extends LockssServletTestCase {
 
-  static Logger log = Logger.getLogger("TestListHoldings");
+  static Logger log = Logger.getLogger();
 
   private StatusService statSvc;
   private StatusServiceImpl ssi;

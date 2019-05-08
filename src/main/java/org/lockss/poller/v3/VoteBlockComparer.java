@@ -51,7 +51,7 @@ import org.lockss.util.Logger;
  */
 public final class VoteBlockComparer {
 
-  private static final Logger log = Logger.getLogger(V3Poller.class);
+  private static final Logger log = Logger.getLogger();
 
   public interface NoncedForPlain {
     /**

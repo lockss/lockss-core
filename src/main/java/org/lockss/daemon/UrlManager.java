@@ -34,6 +34,7 @@ package org.lockss.daemon;
 
 import java.io.*;
 import java.net.*;
+import java.lang.reflect.Field;
 
 import org.lockss.util.*;
 import org.lockss.app.*;
@@ -50,31 +51,46 @@ public class UrlManager extends BaseLockssManager {
   public static final String PROTOCOL_AU = "lockssau";
   public static final String PROTOCOL_RESOURCE = "resource";
 
-  private static Logger log = Logger.getLogger("UrlManager");
-
-  private int startCnt = 0;
+  private static Logger log = Logger.getLogger();
 
   /** Install the URLStreamHandlerFactory */
   public void startService() {
-    try {
-      URL.setURLStreamHandlerFactory(new LockssUrlFactory());
-    } catch (Error e) {
-      if (startCnt != 0) {
-	throw e;
-      } else {
-	log.warning("duplicate init - ok if testing");
-      }
-    }
-    startCnt++;
+    setOrAddUrlFactory();
   }
 
   public void stopService() {
-    startCnt--;
+  }
+
+  private void setOrAddUrlFactory() {
+    try {
+      Field field = URL.class.getDeclaredField("factory");
+      field.setAccessible(true);
+      final URLStreamHandlerFactory currentFactory =
+	(URLStreamHandlerFactory)field.get(null);
+      if (currentFactory != null) {
+	log.debug("old fact: " + currentFactory);
+	if (currentFactory instanceof LockssUrlFactory) {
+	  return;
+	}
+	field.set(null, null);
+      }
+
+      URLStreamHandlerFactory fact = new LockssUrlFactory(currentFactory);
+      URL.setURLStreamHandlerFactory(fact);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      log.error("Setting URLStreamHandlerFactory", e);
+    }
   }
 
   /** A URLStreamHandlerFactory that returns URLStreamHandlers for
       locksscu: and lockssau: protocols. */
   private static class LockssUrlFactory implements URLStreamHandlerFactory {
+    private URLStreamHandlerFactory wrapFact;
+
+    public LockssUrlFactory(URLStreamHandlerFactory wrapFact) {
+      this.wrapFact = wrapFact;
+    }
+
     public URLStreamHandler createURLStreamHandler(String protocol) {
       if (PROTOCOL_CU.equalsIgnoreCase(protocol)) {
 	// locksscu: gets a CuUrlConnection
@@ -98,6 +114,9 @@ public class UrlManager extends BaseLockssManager {
 	    protected URLConnection openConnection(URL u) throws IOException {
 	      return new ResourceURLConnection(u);
 	    }};
+      }
+      if (wrapFact != null) {
+	return wrapFact.createURLStreamHandler(protocol);
       }
       return null;	 // use default stream handlers for other protocols
     }

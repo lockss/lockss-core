@@ -49,7 +49,7 @@ import org.lockss.protocol.psm.*;
 import org.lockss.util.*;
 
 public class ReusableRepairerActions {
-  private static final Logger log = Logger.getLogger("ReusableRepairerActions");
+  private static final Logger log = Logger.getLogger();
 
   @ReturnEvents("evtRepairRequestOk,evtNoSuchRepair")
   public static PsmEvent handleReceiveRepairRequest(PsmMsgEvent evt,

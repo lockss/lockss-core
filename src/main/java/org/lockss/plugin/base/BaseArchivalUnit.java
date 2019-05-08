@@ -48,6 +48,8 @@ import org.lockss.plugin.ArchivalUnit.ConfigurationException;
 import org.lockss.rewriter.*;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * Abstract base class for ArchivalUnits.
@@ -55,7 +57,7 @@ import org.lockss.util.*;
  */
 public abstract class BaseArchivalUnit implements ArchivalUnit {
   
-  private static final Logger log = Logger.getLogger(BaseArchivalUnit.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final long
     DEFAULT_FETCH_DELAY = 6 * Constants.SECOND;
@@ -288,7 +290,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
                                 defaultContentCrawlIntv)
        : paramMap.getLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL, defaultContentCrawlIntv));
     log.debug2("Setting new content crawl interval to " +
-                  StringUtil.timeIntervalToString(newContentCrawlIntv));
+                  TimeUtil.timeIntervalToString(newContentCrawlIntv));
     paramMap.putLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL, newContentCrawlIntv);
     
     rule = makeRule();
@@ -399,7 +401,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
    * @return id by joining the plugin id to the canonical representation of
    * the defining properties as an encoded string
    */
-  public final String getAuId() {
+  public String getAuId() {
     if (auId == null) {
       auId = PluginManager.generateAuId(getPlugin(), auConfig);
     }
@@ -655,6 +657,10 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   }
 
   public PatternStringMap makeUrlMimeTypeMap() {
+    return PatternStringMap.EMPTY;
+  }
+
+  public PatternStringMap makeUrlMimeValidationMap() {
     return PatternStringMap.EMPTY;
   }
 

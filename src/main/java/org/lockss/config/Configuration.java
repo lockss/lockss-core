@@ -37,6 +37,7 @@ import java.util.*;
 
 import org.lockss.config.Tdb.TdbException;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /** <code>Configuration</code> provides access to the LOCKSS configuration
  * parameters.  Instances of (concrete subclasses of)
@@ -55,11 +56,8 @@ public abstract class Configuration {
   public static final String PLATFORM = PREFIX + "platform.";
   public static final String DAEMON = PREFIX + "daemon.";
 
-  // MUST pass in explicit log level to avoid recursive call back to
-  // Configuration to get Config log level.  (Others should NOT do this.)
-  protected static Logger log =
-    Logger.getLoggerWithInitialLevel("Config",
-                                     Logger.getInitialDefaultLevel());
+  protected static Logger log = Logger.getLogger();
+
   private static final String noProp = new String(); // guaranteed unique obj
 
   /**
@@ -840,6 +838,16 @@ public abstract class Configuration {
    */
   public abstract Iterator nodeIterator(String key);
 
+  public Map<String,String> toStringMap() {
+    Map<String,String> res = new HashMap<String,String>();
+    for (Iterator iter = keyIterator(); iter.hasNext();) {
+      String key = (String)iter.next();
+      String val = get(key);
+      res.put(key, val);
+    }
+    return res;
+  }
+
   /**
    * Provides a loggable version of the contents of a Configuration.
    * 
@@ -880,6 +888,14 @@ public abstract class Configuration {
     public void configurationChanged(Configuration newConfig,
 				     Configuration oldConfig,
 				     Configuration.Differences changes);
+    /** Callback used to inform clients that an AU's config has been
+     * created anew or changed. */
+    default public void auConfigChanged(String auid) {
+    }
+    /** Callback used to inform clients that an AU's config has been
+     * deleted. */
+    default public void auConfigRemoved(String auid) {
+    }
   }
 
   /** Differences represents the changes in a Configuration from the

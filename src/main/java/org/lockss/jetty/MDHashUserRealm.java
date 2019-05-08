@@ -58,7 +58,7 @@ import org.lockss.util.*;
 public class MDHashUserRealm extends HashMap
   implements UserRealm, SSORealm, Externalizable {
 
-  private static Logger log = Logger.getLogger("MDHashUserRealm");
+  private static Logger log = Logger.getLogger();
 
   /* ------------------------------------------------------------ */
   private String _realmName;

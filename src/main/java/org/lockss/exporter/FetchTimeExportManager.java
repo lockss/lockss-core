@@ -107,8 +107,7 @@ public class FetchTimeExportManager extends BaseLockssDaemonManager implements
    */
   public static final boolean DEFAULT_FETCH_TIME_EXPORT_RUN_ON_STARTUP = false;
 
-  private static final Logger log =
-      Logger.getLogger(FetchTimeExportManager.class);
+  private static final Logger log = Logger.getLogger();
 
   // An indication of whether this object is ready to be used.
   private boolean ready = false;

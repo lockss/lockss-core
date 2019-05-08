@@ -53,7 +53,7 @@ import org.lockss.util.*;
  * instances and the hashes of the versions they contain.
  */
 class VoteBlocksTallier {
-  private static final Logger log = Logger.getLogger(V3Voter.class);
+  private static final Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "poll.v3.";
 

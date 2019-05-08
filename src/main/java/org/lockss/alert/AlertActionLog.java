@@ -37,7 +37,7 @@ import org.lockss.util.*;
 
 /** An AlertAction that records the Alert by adding it to an AlertLog */
 public class AlertActionLog extends AbstractAlertAction {
-  private static final Logger log = Logger.getLogger(AlertActionLog.class);
+  private static final Logger log = Logger.getLogger();
   private AlertLog alertLog;
 
   public AlertActionLog(AlertLog alertLog) {

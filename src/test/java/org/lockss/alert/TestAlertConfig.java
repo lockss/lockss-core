@@ -34,6 +34,8 @@ package org.lockss.alert;
 
 import java.io.*;
 import java.util.*;
+
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 import org.lockss.util.*;
 

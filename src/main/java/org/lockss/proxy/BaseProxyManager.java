@@ -53,7 +53,7 @@ import org.mortbay.http.handler.*;
  */
 public abstract class BaseProxyManager extends JettyManager {
 
-  private static Logger log = Logger.getLogger("BaseProxy");
+  private static Logger log = Logger.getLogger();
 
   public static final String PARAM_403_MSG =
     Configuration.PREFIX + "proxy.403Msg";

@@ -30,11 +30,10 @@ package org.lockss.metadata;
 import java.io.File;
 import java.util.Properties;
 import org.lockss.config.ConfigManager;
-import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.util.Logger;
-import org.lockss.util.PlatformUtil;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Creates an empty database.
@@ -67,7 +66,6 @@ public class EmptyDbCreator {
 		       new File(tempDirPath, "derby.log").getAbsolutePath());
 
     Properties props = new Properties();
-    props.setProperty(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION, tempDirPath);
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 	tempDirPath);
     ConfigurationUtil.setCurrentConfigFromProps(props);

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2007-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,17 +30,13 @@ package org.lockss.crawler;
 
 import java.io.*;
 import java.util.*;
-
 import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.lockss.config.*;
-import org.lockss.crawler.FuncWarcExploder.MyCrawlRule;
-import org.lockss.crawler.FuncWarcExploder.MyExploderHelper;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
 import org.lockss.plugin.exploded.*;
-import org.lockss.repository.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.state.*;
@@ -66,7 +58,7 @@ import org.lockss.app.*;
  */
 
 public class FuncTarExploder extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncTarExploder");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;
@@ -101,7 +93,6 @@ public class FuncTarExploder extends LockssTestCase {
 
   static final String GOOD_YEAR = "1968";
 
-
   public static void main(String[] args) throws Exception {
     // XXX should be much simpler.
     FuncTarExploder test = new FuncTarExploder();
@@ -120,7 +111,6 @@ public class FuncTarExploder extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -147,7 +137,9 @@ public class FuncTarExploder extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
-    
+
+    theDaemon.setUpAuConfig();
+
     pluginMgr = theDaemon.getPluginManager();
     crawlMgr = new NoPauseCrawlManagerImpl();
     theDaemon.setCrawlManager(crawlMgr);
@@ -162,7 +154,6 @@ public class FuncTarExploder extends LockssTestCase {
 
     sau = PluginTestUtil.createAndStartSimAu(MySimulatedPlugin.class,
 					     simAuConfig(tempDirPath));
-    theDaemon.getHistoryRepository(sau).startService();
     sau.setUrlConsumerFactory(new ExplodingUrlConsumerFactory());
   }
 
@@ -335,10 +326,8 @@ public class FuncTarExploder extends LockssTestCase {
     sau.setRule(new MyCrawlRule());
     sau.setExploderPattern(".tar$");
     sau.setExploderHelper(new MyExploderHelper(bad));
-    AuState maus = new MyMockAuState(sau);
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(sau);
-    ((MockAuState)maus).setHistoryRepository(histRepo);
-    histRepo.storeAuState(maus);
+    AuState maus = AuTestUtil.setUpMockAus(sau);
+
     FollowLinkCrawler crawler = new FollowLinkCrawler(sau, maus);
     crawler.setCrawlManager(crawlMgr);
     boolean res = crawler.doCrawl();

@@ -41,7 +41,7 @@ import org.lockss.util.*;
 
 public class IdentityManagerStatus
   implements StatusAccessor,  StatusAccessor.DebugOnly {
-  static Logger log=Logger.getLogger("IdentityManagerStatus");
+  static Logger log=Logger.getLogger();
 
   private IdentityManager mgr;
   private boolean includeV1 = false;

@@ -55,7 +55,7 @@ import org.lockss.test.*;
  * @version 1.0
  */
 public class TestMetadataManager extends LockssTestCase {
-  static Logger log = Logger.getLogger(TestMetadataManager.class);
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau0, sau1, sau2, sau3, sau4;
   private MockLockssDaemon theDaemon;
@@ -70,7 +70,6 @@ public class TestMetadataManager extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     String tempDirPath = setUpDiskSpace();
-    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

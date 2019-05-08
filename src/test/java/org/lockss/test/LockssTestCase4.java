@@ -42,11 +42,16 @@ import org.apache.oro.text.regex.Pattern;
 import org.junit.*;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.*;
+import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.Parameterized.Parameter;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.*;
+import org.lockss.util.lang.LockssRandom;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimerUtil;
 
 import junit.framework.TestCase;
 
@@ -487,9 +492,7 @@ public class TestFoo extends LockssTestCase4 {
  */
 public class LockssTestCase4 extends Assert {
 
-  private static final Logger log =
-    Logger.getLoggerWithInitialLevel("LockssTest4",
-                                     Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
   /** Timeout duration for timeouts that are expected to time out.  Setting
    * this higher makes normal tests take longer, setting it too low might
@@ -656,6 +659,11 @@ public class LockssTestCase4 extends Assert {
       // will create a new instance of the test case, and get a different
       // doLaters list
     }
+
+    // Interrupters can result in the thread interrupt flag being set.
+    // Clear it here to ensure it doesn't affect ensuing tests.
+    Thread.interrupted();
+
     // XXX this should be folded into LockssDaemon shutdown
     ConfigManager cfg = ConfigManager.getConfigManager();
     if (cfg != null) {
@@ -2507,6 +2515,12 @@ public class LockssTestCase4 extends Assert {
     getErrorCollector().addError(error);
   }
   
+  @Rule public MethodRule watchman = new TestWatchman() {
+    public void starting(FrameworkMethod method) {
+      log.debug("Testcase " + method.getName());
+    }
+  };
+
   /**
    * <p>
    * Returns the Cartesian product of one or more arrays of values, to be used

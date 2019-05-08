@@ -42,6 +42,10 @@ import org.lockss.crawler.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -50,7 +54,7 @@ import org.lockss.util.urlconn.*;
  */
 public class BaseUrlFetcher implements UrlFetcher {
 
-  private static final Logger log = Logger.getLogger("BaseUrlFetcher");
+  private static final Logger log = Logger.getLogger();
 
   /** If true, use so_keepalive on server connections. */
   public static final String PARAM_SO_KEEPALIVE =
@@ -279,7 +283,7 @@ public class BaseUrlFetcher implements UrlFetcher {
           long delayTime = crawlFacade.getRetryDelay(e);
           Deadline wait = Deadline.in(delayTime);
           log.debug3("Waiting " +
-              StringUtil.timeIntervalToString(delayTime) +
+              TimeUtil.timeIntervalToString(delayTime) +
               " before retry");
           while (!wait.expired()) {
             try {

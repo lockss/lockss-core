@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -67,7 +67,7 @@ public class TestSpringLockssTestCase extends SpringLockssTestCase {
     assertTrue(getPlatformDiskSpaceConfigPath().startsWith(getTempDirPath()
 	+ File.separator));
     assertTrue(getPlatformDiskSpaceConfigPath().endsWith(File.separator
-	+ "platform.opt"));
+	+ PLATFORM_DISK_SPACE_CONFIG_FILENAME));
   }
 
   /**

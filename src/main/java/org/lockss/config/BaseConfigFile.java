@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,9 +33,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.config;
 
 import java.io.*;
+import java.net.*;
 import java.util.*;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.*;
 
 /**
@@ -45,7 +47,7 @@ import org.lockss.util.urlconn.*;
 public abstract class BaseConfigFile implements ConfigFile {
   
   // Shared with subclasses
-  protected static final Logger log = Logger.getLogger("ConfigFile");
+  protected static final Logger log = Logger.getLogger();
 
   protected ConfigManager m_cfgMgr;
   protected int m_fileType;
@@ -55,13 +57,14 @@ public abstract class BaseConfigFile implements ConfigFile {
   protected String m_loadedUrl;
   protected String m_loadError = "Not yet loaded";
   protected IOException m_IOException;
-  protected long m_lastAttempt;
+  protected volatile long m_lastAttempt;
   protected boolean m_needsReload = true;
   protected boolean reloadUnconditionally = false;
   protected ConfigurationPropTreeImpl m_config;
   protected int m_generation = 0;
   protected Map<String, Object> m_props;
   protected ConfigManager.KeyPredicate keyPred;
+  protected boolean m_isPlatformFile;
 
   /**
    * Create a ConfigFile for the URL
@@ -91,15 +94,37 @@ public abstract class BaseConfigFile implements ConfigFile {
     return m_loadedUrl != null ? m_loadedUrl : m_fileUrl;
   }
 
+  @Override
+  public String resolveConfigUrl(String relUrl) {
+    final String DEBUG_HEADER = "resolveConfigUrl(): ";
+    String base = getFileUrl();
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "base = " + base);
+      log.debug2(DEBUG_HEADER + "relUrl = " + relUrl);
+    }
+    try {
+      return UrlUtil.resolveUri(base, relUrl);
+    } catch (MalformedURLException e) {
+      log.error("Can't resolve, base: " + base + ", rel: " + relUrl, e);
+      return relUrl;
+    }
+  }
+
   /** Return true if this file might contain platform values that are
    * needed in order to properly parse other config files.
    */
   public boolean isPlatformFile() {
-    if (m_cfgMgr != null) {
-      return m_fileUrl.equals(m_cfgMgr.getBootstrapPropsUrl());
+    if (m_isPlatformFile) {
+      return true;
     }
-
+    if (m_cfgMgr != null) {
+      return m_cfgMgr.isBootstrapPropsUrl(m_fileUrl);
+    }
     return false;
+  }
+
+  public void setPlatformFile(boolean val) {
+    m_isPlatformFile = val;
   }
 
   public int getFileType() {
@@ -193,7 +218,7 @@ public abstract class BaseConfigFile implements ConfigFile {
       m_loadError = ex.toString();
       throw ex;
     } catch (IOException ex) {
-      log.warning("Exception loading " + m_fileUrl + ": " + ex);
+      log.warning("Exception loading " + m_fileUrl, ex);
       m_IOException = ex;
       if (m_loadError == null ||
 	  !StringUtil.equalStrings(ex.getMessage(), m_loadError)) {
@@ -336,8 +361,12 @@ public abstract class BaseConfigFile implements ConfigFile {
 
   /**
    * Return the new last-modified time
+   * 
+   * @return a String with the new last-modified time.
+   * @throws IOException
+   *           if there are problems.
    */
-  protected abstract String calcNewLastModified();
+  protected abstract String calcNewLastModified() throws IOException;
 
   /**
    * Do the actual writing of the file to the disk by renaming a temporary file.

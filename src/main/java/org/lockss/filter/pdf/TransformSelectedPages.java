@@ -317,6 +317,6 @@ public abstract class TransformSelectedPages extends PageTransformWrapper {
    */
   public static final ResultPolicy POLICY_DEFAULT = PdfUtil.AND;
 
-  private static Logger logger = Logger.getLogger("TransformSelectedPages");
+  private static Logger logger = Logger.getLogger();
 
 }

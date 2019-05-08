@@ -92,7 +92,7 @@ public class TdbTitleHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(TdbTitleHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of title database title-related query objects used as

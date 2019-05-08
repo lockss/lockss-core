@@ -55,13 +55,12 @@ import org.lockss.protocol.AgreementType;
 import org.lockss.protocol.IdentityManager;
 import org.lockss.protocol.PeerAgreement;
 import org.lockss.protocol.PeerIdentity;
-import org.lockss.repository.OldLockssRepositoryImpl;
-import org.lockss.repository.RepositoryNode;
 import org.lockss.state.*;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.TypedEntryMap;
 import org.lockss.util.UrlUtil;
+import org.lockss.util.PatternFloatMap;
 import org.lockss.ws.entities.AgreementTypeWsResult;
 import org.lockss.ws.entities.AuConfigurationWsResult;
 import org.lockss.ws.entities.AuWsResult;
@@ -74,7 +73,7 @@ import org.lockss.ws.entities.UrlWsResult;
  * to Archival Units.
  */
 public class AuWsSource extends AuWsResult {
-  private static Logger log = Logger.getLogger(AuWsSource.class);
+  private static Logger log = Logger.getLogger();
 
   private ArchivalUnit au;
 
@@ -100,6 +99,10 @@ public class AuWsSource extends AuWsResult {
   private boolean lastCompletedCrawlPopulated = false;
   private boolean lastCrawlPopulated = false;
   private boolean lastCrawlResultPopulated = false;
+  private boolean lastDeepCrawlPopulated = false;
+  private boolean lastCompletedDeepCrawlPopulated = false;
+  private boolean lastDeepCrawlResultPopulated = false;
+  private boolean lastCompletedDeepCrawlDepthPopulated = false;
   private boolean lastMetadataIndexPopulated = false;
   private boolean lastCompletedPollPopulated = false;
   private boolean lastPollPopulated = false;
@@ -120,9 +123,12 @@ public class AuWsSource extends AuWsResult {
 
   private LockssDaemon theDaemon = null;
   private Plugin plugin = null;
-  private HistoryRepository histRepo = null;
+  private StateManager stateMgr = null;
   private AuState state = null;
   private CachedUrlSet auCachedUrlSet = null;
+  private PatternFloatMap resultWeightMap = null;
+  private boolean includePollWeight = false;
+
 
   public AuWsSource(ArchivalUnit au) {
     this.au = au;
@@ -226,10 +232,7 @@ public class AuWsSource extends AuWsResult {
   @Override
   public String getRepositoryPath() {
     if (!repositoryPathPopulated) {
-      String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
-      setRepositoryPath(OldLockssRepositoryImpl
-	  .mapAuToFileLocation(OldLockssRepositoryImpl
-  	      .getLocalRepositoryPath(spec), au));
+      setRepositoryPath("XXXREPO");
       repositoryPathPopulated = true;
     }
 
@@ -424,6 +427,66 @@ public class AuWsSource extends AuWsResult {
   }
 
   @Override
+  public Long getLastDeepCrawl() {
+    if (!lastDeepCrawlPopulated) {
+      long lastDeepCrawl = getState().getLastDeepCrawlAttempt();
+
+      if (lastDeepCrawl > 0) {
+	setLastDeepCrawl(Long.valueOf(lastDeepCrawl));
+      }
+
+      lastDeepCrawlPopulated = true;
+    }
+
+    return super.getLastDeepCrawl();
+  }
+
+  @Override
+  public Long getLastCompletedDeepCrawl() {
+    if (!lastCompletedDeepCrawlPopulated) {
+      long lastCompletedDeepCrawl = getState().getLastDeepCrawlTime();
+
+      if (lastCompletedDeepCrawl > 0) {
+	setLastCompletedDeepCrawl(Long.valueOf(lastCompletedDeepCrawl));
+      }
+
+      lastCompletedDeepCrawlPopulated = true;
+    }
+
+    return super.getLastCompletedDeepCrawl();
+  }
+
+  @Override
+  public String getLastDeepCrawlResult() {
+    if (!lastDeepCrawlResultPopulated) {
+      long lastDeepCrawlAttempt = getState().getLastDeepCrawlAttempt();
+
+      if (lastDeepCrawlAttempt > 0) {
+	setLastDeepCrawlResult(state.getLastDeepCrawlResultMsg());
+      }
+
+      lastDeepCrawlResultPopulated = true;
+    }
+
+    return super.getLastDeepCrawlResult();
+  }
+
+  @Override
+  public Integer getLastCompletedDeepCrawlDepth() {
+    if (!lastCompletedDeepCrawlDepthPopulated) {
+      int lastCompletedDeepCrawlDepth = getState().getLastDeepCrawlDepth();
+
+      if (lastCompletedDeepCrawlDepth > 0) {
+	setLastCompletedDeepCrawlDepth(Integer.valueOf(lastCompletedDeepCrawlDepth));
+      }
+
+      lastCompletedDeepCrawlDepthPopulated = true;
+    }
+
+    return super.getLastCompletedDeepCrawlDepth();
+  }
+
+  @Override
   public Long getLastMetadataIndex() {
     if (!lastMetadataIndexPopulated) {
       long lastMetadataIndex = getState().getLastMetadataIndex();
@@ -548,12 +611,7 @@ public class AuWsSource extends AuWsResult {
 	for (Map.Entry entry : auProperties.entrySet()) {
 	  // Get the key and value of this property.
 	  String key = (String)entry.getKey();
-	  String val = null;
-
-	  // Handle only non-null values.
-	  if (entry.getValue() != null) {
-	    val = entry.getValue().toString();
-	  }
+	  Object val = entry.getValue();
 
 	  // Find the property type from the Archival Unit configuration.
 	  ConfigParamDescr descr = getPlugin().findAuConfigDescr(key);
@@ -564,10 +622,10 @@ public class AuWsSource extends AuWsResult {
 	    // No: Check whether the property is definitional.
 	  } else if (descr.isDefinitional()) {
 	    // Yes: Place it in the appropriate list.
-	    defParams.put(key, val);
+	    defParams.put(key, valString(val, descr));
 	  } else {
 	    // No: Place it in the appropriate list.
-	    nonDefParams.put(key, val);
+	    nonDefParams.put(key, valString(val, descr));
 	  }
 	}
 
@@ -578,6 +636,29 @@ public class AuWsSource extends AuWsResult {
     }
 
     return super.getAuConfiguration();
+  }
+
+  /** Return an appropriate string representation of the config value */
+  String valString(Object val, ConfigParamDescr descr) {
+    if (val == null) {
+      return null;
+    } else if (val instanceof org.apache.oro.text.regex.Perl5Pattern) {
+      return ((org.apache.oro.text.regex.Perl5Pattern)val).getPattern();
+    } else if (descr == null) {
+      return val.toString();
+    } else {
+      switch (descr.getType()) {
+      case ConfigParamDescr.TYPE_USER_PASSWD:
+	if (val instanceof List) {
+	  List l = (List)val;
+	  return l.get(0) + ":******";
+	}
+	break;
+      default:
+	return val.toString();
+      }
+    }
+    return val.toString();
   }
 
   @Override
@@ -712,6 +793,14 @@ public class AuWsSource extends AuWsResult {
       // Initialize the results.
       List<UrlWsResult> results = new ArrayList<UrlWsResult>();
 
+      try {
+	resultWeightMap = au.makeUrlPollResultWeightMap();
+	includePollWeight = true;
+      } catch (ArchivalUnit.ConfigurationException e) {
+	log.warning("Error building urlResultWeightMap, disabling",
+		    e);
+      }
+
       // Loop through all the URL nodes.
       for (CachedUrlSetNode cusn : getAuCachedUrlSet().getCuIterable()) {
 	CachedUrlSet cus;
@@ -726,26 +815,24 @@ public class AuWsSource extends AuWsResult {
 	// Get the URL.
 	String url = cus.getUrl();
 
+	// XXXREPO didn't change this; don't know why it's needed
 	if (url.endsWith(UrlUtil.URL_PATH_SEPARATOR)) {
 	  url = url.substring(0, url.length() - 1);
 	}
 
 	try {
-	  RepositoryNode node =
-	      getTheDaemon().getLockssRepository(au).getNode(url);
-
 	  // Get the URLproperties.
 	  UrlWsResult urlResult = new UrlWsResult();
-	  urlResult.setUrl(node.getNodeUrl());
+	  urlResult.setUrl(url);
 	  cu = au.makeCachedUrl(url);
 	  urlResult.setVersionCount(cu.getCuVersions().length);
-	  urlResult.setCurrentVersionSize(Long.valueOf(node.getContentSize()));
+	  urlResult.setCurrentVersionSize(Long.valueOf(cu.getContentSize()));
+	  if (includePollWeight) {
+	    urlResult.setPollWeight(getUrlResultWeight(url));
+	  }
 
 	  // Add it to the results.
 	  results.add(urlResult);
-	} catch (MalformedURLException mue) {
-	  if (log.isDebug())
-	    log.debug("getUrls(): Ignored malformed URL '" + url + "'");
 	} finally {
 	  AuUtil.safeRelease(cu);
 	}
@@ -756,6 +843,13 @@ public class AuWsSource extends AuWsResult {
     }
 
     return super.getUrls();
+  }
+
+  protected float getUrlResultWeight(String url) {
+    if (resultWeightMap == null || resultWeightMap.isEmpty()) {
+      return 1.0f;
+    }
+    return resultWeightMap.getMatch(url, 1.0f);
   }
 
   @Override
@@ -930,16 +1024,16 @@ public class AuWsSource extends AuWsResult {
   }
 
   /**
-   * Provides the history Repository, initializing it if necessary.
+   * Provides the StateManager, initializing it if necessary.
    * 
-   * @return a HistoryRepository with the node manager.
+   * @return the StateManager
    */
-  private HistoryRepository getHistoryRepository() {
-    if (histRepo == null) {
-      histRepo = getTheDaemon().getHistoryRepository(au);
+  private StateManager getStateManager() {
+    if (stateMgr == null) {
+      stateMgr = getTheDaemon().getManagerByType(StateManager.class);
     }
 
-    return histRepo;
+    return stateMgr;
   }
 
   /**
@@ -949,7 +1043,7 @@ public class AuWsSource extends AuWsResult {
    */
   private AuState getState() {
     if (state == null) {
-      state = getHistoryRepository().getAuState();
+      state = getStateManager().getAuState(au);
     }
 
     return state;

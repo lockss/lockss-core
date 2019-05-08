@@ -41,6 +41,7 @@ import java.util.*;
 import java.lang.reflect.*;
 
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.alert.*;
 

@@ -36,6 +36,7 @@ import java.net.*;
 import java.util.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
@@ -44,9 +45,8 @@ import org.lockss.poller.*;
 /**
  * LcapRouter is the topmost layer of the comm services, to which clients
  * pass outgoing messages and with which they register incoming message
- * handlers.  This class interacts with LcapDatagramRouter or
- * LcapStreamComm to send and receive datagram and stream messages,
- * respectively.
+ * handlers.  This class interacts with LcapStreamComm to send and receive
+ * messages.
  */
 public class LcapRouter
   extends BaseLockssDaemonManager implements ConfigurableManager {
@@ -60,7 +60,7 @@ public class LcapRouter
   private static final String DEFAULT_V3_LCAP_MESSAGE_DATA_DIR =
     "System tmpdir";
   
-  static Logger log = Logger.getLogger("Router");
+  static Logger log = Logger.getLogger();
 
   private IdentityManager idMgr;
   private LcapStreamComm scomm = null;

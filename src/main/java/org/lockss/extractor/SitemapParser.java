@@ -73,8 +73,7 @@ import org.xml.sax.SAXException;
  */
 public class SitemapParser {
   
-  private static Logger log =
-      Logger.getLogger(SitemapParser.class);
+  private static Logger log = Logger.getLogger();
 
   /** According to the specs, 50K URLs per Sitemap is the max */
   private int MAX_URLS_ALLOWED = 50000;

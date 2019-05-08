@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
  */
 public class ZipExporter extends Exporter {
 
-  private static Logger log = Logger.getLogger("ZipExporter");
+  private static Logger log = Logger.getLogger();
 
   ZipOutputStream zip = null;
   FileOutputStream fos = null;

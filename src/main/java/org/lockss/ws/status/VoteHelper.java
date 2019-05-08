@@ -115,7 +115,7 @@ public class VoteHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(VoteHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of vote-related objects used as the source for a

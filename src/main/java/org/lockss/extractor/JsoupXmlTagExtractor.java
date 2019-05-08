@@ -53,7 +53,7 @@ import java.util.Map;
  */
 public class JsoupXmlTagExtractor extends SimpleFileMetadataExtractor {
   
-  private static final Logger theLog = Logger.getLogger(JsoupXmlTagExtractor.class);
+  private static final Logger theLog = Logger.getLogger();
   
   protected Collection<String> m_tags;
   Parser m_parser = Parser.xmlParser();

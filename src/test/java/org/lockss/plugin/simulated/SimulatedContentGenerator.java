@@ -191,7 +191,7 @@ public class SimulatedContentGenerator {
   private static NumberFormat fileNameFormatter = new DecimalFormat("000");
 
   protected String contentRoot;
-  protected static Logger logger = Logger.getLogger("SimulatedContentGenerator");
+  protected static Logger logger = Logger.getLogger();
 
   /**
    * @param rootPath path where the content directory will be generated

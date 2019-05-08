@@ -37,7 +37,6 @@ import org.lockss.util.*;
 import org.lockss.protocol.*;
 import org.lockss.plugin.*;
 import org.lockss.poller.*;
-import org.lockss.daemon.ActivityRegulator;
 
 /**
  * Mock vote tallier.
@@ -59,7 +58,6 @@ public class MockTallier implements Tallier {
   ArrayList m_pollVotes;
   int m_error = 0;
   int m_result = 0;
-  ActivityRegulator.Lock m_lock;
 
   public MockTallier() {
   }
@@ -242,11 +240,4 @@ public class MockTallier implements Tallier {
     m_result = result;
   }
 
-  public ActivityRegulator.Lock getActivityLock() {
-    return m_lock;
-  }
-
-  public void setActivityLock(ActivityRegulator.Lock lock) {
-    m_lock = lock;
-  }
 }

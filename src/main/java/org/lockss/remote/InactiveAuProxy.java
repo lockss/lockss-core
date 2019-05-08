@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,12 +28,11 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.remote;
 
-import java.io.*;
-import java.util.*;
-import org.lockss.app.*;
 import org.lockss.config.Configuration;
-import org.lockss.daemon.*;
+import org.lockss.db.DbException;
+import org.lockss.config.*;
 import org.lockss.plugin.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.*;
 
 /**
@@ -65,8 +60,10 @@ public class InactiveAuProxy extends AuProxy {
    * Return the AU's current configuration.
    * @return a Configuration
    */
-  public Configuration getConfiguration() {
-    return getRemoteApi().getStoredAuConfiguration(this);
+  public Configuration getConfiguration()
+      throws DbException, LockssRestException {
+    Configuration config = getRemoteApi().getStoredAuConfiguration(this);
+    return config != null ? config : ConfigManager.newConfiguration();
   }
 
   /**
@@ -98,7 +95,7 @@ public class InactiveAuProxy extends AuProxy {
    * Returns a human-readable name for the ArchivalUnit.
    * @return the AU name
    */
-  public String getName() {
+  public String getName() throws DbException, LockssRestException {
     Configuration config = getConfiguration();
     String name = config.get(PluginManager.AU_PARAM_DISPLAY_NAME);
     if (StringUtil.isNullString(name)) {

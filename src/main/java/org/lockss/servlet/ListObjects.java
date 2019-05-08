@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -53,10 +49,15 @@ import org.mortbay.html.*;
  * debugging/testing; also able to handle unlimited length lists. */
 public class ListObjects extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger(ListObjects.class);
+  private static final Logger log = Logger.getLogger();
+
+  public static final String FIELD_POLL_WEIGHT = "PollWeight";
+  public static final String FIELD_CONTENT_TYPE = "ContentType";
+  public static final String FIELD_SIZE = "Size";
 
   private String auid;
   private String url;
+  private List<String> fields;
   
   private ArchivalUnit au;
 
@@ -68,6 +69,7 @@ public class ListObjects extends LockssServlet {
     au = null;
     auid = null;
     url = null;
+    fields = null;
     super.resetLocals();
   }
 
@@ -82,7 +84,7 @@ public class ListObjects extends LockssServlet {
    * @throws IOException
    */
   public void lockssHandleRequest() throws IOException {
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       displayNotStarted();
       return;
     }
@@ -91,10 +93,23 @@ public class ListObjects extends LockssServlet {
       displayError("\"type\" arg must be specified");
       return;
     }
+    String fieldParam = getParameter("fields");
+    if (!StringUtil.isNullString(fieldParam)) {
+      fields = StringUtil.breakAt(fieldParam, ",", 0, true);
+    }
+
+    // Backwards compatibility with old "Files"
+    if (type.equalsIgnoreCase("files")) {
+      type = "urls";
+      fields = ListUtil.list(FIELD_CONTENT_TYPE, FIELD_SIZE, FIELD_POLL_WEIGHT);
+    }    
+
     if (type.equalsIgnoreCase("aus")) {
       new AuNameList().execute();
     } else if (type.equalsIgnoreCase("auids")) {
       new AuidList().execute();
+    } else if (type.equalsIgnoreCase("configfile")) {
+      new DisplayConfigFile(getParameter("url")).execute();
     } else {
       // all others need au
       auid = getParameter("auid");
@@ -108,8 +123,6 @@ public class ListObjects extends LockssServlet {
 	new UrlList().execute();
       } else if (type.equalsIgnoreCase("urlsm")) {
 	new UrlMemberList().execute();
-      } else if (type.equalsIgnoreCase("files")) {
-	new FileList().execute();
       } else if (type.equalsIgnoreCase("filesm")) {
 	new FileMemberList().execute();
       } else if (type.equalsIgnoreCase("suburls")) {
@@ -132,6 +145,8 @@ public class ListObjects extends LockssServlet {
 	new MetadataList().execute();
       } else if (type.equalsIgnoreCase("extracturls")) {
 	new ExtractUrlsList().execute();
+      } else if (type.equalsIgnoreCase("auvalidate")) {
+	new ValidationList().execute();
       } else {
 	displayError("Unknown list type: " + type);
 	return;
@@ -243,9 +258,23 @@ public class ListObjects extends LockssServlet {
 
   /** List URLs in AU */
   class UrlList extends BaseNodeList {
+    private PatternFloatMap resultWeightMap = null;
     
+
     void printHeader() {
       wrtr.println("# URLs in " + au.getName());
+      if (fields != null) {
+	if (fields.contains(FIELD_POLL_WEIGHT)) {
+	  try {
+	    resultWeightMap = au.makeUrlPollResultWeightMap();
+	  } catch (ArchivalUnit.ConfigurationException e) {
+	    log.warning("Error building urlResultWeightMap, disabling",
+			e);
+	    wrtr.println("# Poll weights not included: " + e.toString());
+	  }
+	}
+	wrtr.println("# URL\t" + StringUtil.separatedString(fields, "\t"));
+      }
     }
     
     String unitName() {
@@ -253,7 +282,38 @@ public class ListObjects extends LockssServlet {
     }
 
     void processContentCu(CachedUrl cu) {
-      wrtr.println(cu.getUrl());
+      String url = cu.getUrl();
+      wrtr.print(url);
+      if (fields != null) {
+	for (String f : fields) {
+	  switch (f) {
+	  case FIELD_POLL_WEIGHT:
+	    wrtr.print("\t");
+	    if (resultWeightMap != null) {
+	      wrtr.print(getUrlResultWeight(url));
+	    }
+	    break;
+	  case FIELD_CONTENT_TYPE:
+	    String contentType = cu.getContentType();
+	    if (contentType == null) {
+	      contentType = "unknown";
+	    }
+	    wrtr.print("\t" + contentType);
+	    break;
+	  case FIELD_SIZE:
+	    wrtr.print("\t" + cu.getContentSize());
+	    break;
+	  }
+	}
+      }
+      wrtr.println();
+    }
+
+    protected float getUrlResultWeight(String url) {
+      if (resultWeightMap == null || resultWeightMap.isEmpty()) {
+	return 1.0f;
+      }
+      return resultWeightMap.getMatch(url, 1.0f);
     }
   }
 
@@ -814,6 +874,78 @@ public class ListObjects extends LockssServlet {
       return "Extracted URL";
     }
 
+  }
+
+  /** Run ContentValidator on all URLs in AU, display any failures */
+  class ValidationList extends BaseList {
+
+    void printHeader() {
+      wrtr.println("# Content Validation in " + au.getName());
+      if (!AuUtil.hasContentValidator(au)) {
+	wrtr.println("# Plugin (" + au.getPlugin().getPluginName() +
+		     ") does not supply a content validator  ");
+      }
+      wrtr.println("# URL\tError");
+    }
+
+    void doBody() throws IOException {
+      try {
+	AuValidator v = new AuValidator(au);
+	AuValidator.Result res = v.validateAu();
+	for (AuValidator.ValidationFailure vf : res.getValidationFailures()) {
+	  wrtr.println(vf.getUrl() + "\t" + vf.getMessage());
+	}
+	wrtr.println();
+	wrtr.println("# " +
+		     StringUtil.numberOfUnits(res.numValidationFailures(),
+					      "validation failure"));
+	wrtr.println("# " +
+		     StringUtil.numberOfUnits(res.numValidations(),
+					      "file validated",
+					      "files validated"));
+	itemCnt = res.numFiles();
+      } catch (RuntimeException e) {
+	log.error("Error in AU Validator", e);
+	wrtr.println("Error in AU Validator: " + e.toString());
+	isError = true;
+      }
+
+    }
+
+    String unitName() {
+      return "file";
+    }
+
+  }
+
+  /** Not a list, displays the contents of a ConfigFile as text.  Doesn't
+   * yet work right for HTTPConfigFile as cf.getInputStream() returns null
+   * if not-modified */
+  class DisplayConfigFile extends BaseList {
+    private String url;
+
+    DisplayConfigFile(String url) {
+      this.url = url;
+    }
+
+    void printHeader() {
+      wrtr.println("Contents of config file: " + url);
+    }
+
+    String unitName() {return "";}
+    void finish() {}
+
+    void doBody() throws IOException {
+      ConfigManager mgr = ConfigManager.getConfigManager();
+      ConfigFile cf = mgr.getConfigCache().get(url);
+      if (cf != null) {
+	try (InputStream ins = cf.getInputStream()) {
+	  Reader rdr = new BufferedReader(new InputStreamReader(ins));
+	  StreamUtil.copy(rdr, wrtr);
+	}
+      }
+      wrtr.flush();
+    }
   }
 
   class MyLinkExtractorCallback implements LinkExtractor.Callback {

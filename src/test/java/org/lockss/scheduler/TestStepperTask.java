@@ -34,6 +34,8 @@ package org.lockss.scheduler;
 
 import java.util.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 
@@ -47,7 +49,7 @@ public class TestStepperTask extends LockssTestCase {
     org.lockss.scheduler.StepperTask.class,
   };
 
-  static Logger log = Logger.getLogger("TestStepperTask");
+  static Logger log = Logger.getLogger();
 
   public void setUp() throws Exception {
     super.setUp();

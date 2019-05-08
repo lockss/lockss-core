@@ -46,7 +46,7 @@ import org.lockss.extractor.*;
  * Iterator over a possibly filtered set of CachedUrls.
  */
 public class CuContentIterator extends CuIterator {
-  static Logger log = Logger.getLogger("CuContentIterator");
+  static Logger log = Logger.getLogger();
 
   private Iterator<CachedUrlSetNode> cusIter;
   private CachedUrl nextElement = null;

@@ -34,6 +34,9 @@ package org.lockss.util;
 import java.util.*;
 
 import org.lockss.config.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * RateLimiter is used to limit the rate at which some class of events
@@ -48,7 +51,7 @@ import org.lockss.config.*;
     }</pre>
  */
 public class RateLimiter {
-  static Logger log = Logger.getLogger("RateLimiter");
+  static Logger log = Logger.getLogger();
 
   /** A RateLimiter that allows events at an unlimited rate. */
   public final static RateLimiter UNLIMITED = new Constant("unlimited");
@@ -389,7 +392,7 @@ public class RateLimiter {
     if (isUnlimited()) {
       return "unlimited";
     }
-    return events + "/" + StringUtil.timeIntervalToString(interval);
+    return events + "/" + TimeUtil.timeIntervalToString(interval);
   }
 
   public String toString() {

@@ -50,6 +50,7 @@ import org.lockss.plugin.SubTreeArticleIterator;
 import org.lockss.plugin.UrlCacher;
 import org.lockss.plugin.UrlData;
 import org.lockss.util.CIProperties;
+import org.lockss.util.test.PrivilegedAccessor;
 
 /** Framework for ArticleIterator tests. */
 public abstract class ArticleIteratorTestCase extends LockssTestCase {
@@ -74,14 +75,18 @@ public abstract class ArticleIteratorTestCase extends LockssTestCase {
     super.tearDown();
   }
 
-  protected SubTreeArticleIterator createSubTreeIter() {
-    Iterator<ArticleFiles> iter =  au.getArticleIterator(MetadataTarget.Any());
+  protected SubTreeArticleIterator createSubTreeIter(MetadataTarget mt) {
+    Iterator<ArticleFiles> iter =  au.getArticleIterator(mt);
     assertNotNull("ArticleIterator is null", iter);
     if (iter instanceof SubTreeArticleIterator) {
       return (SubTreeArticleIterator)iter;
     }
     fail("ArticleIterator isn't a SubTreeArticleIterator: " + iter.getClass());
     return null;
+  }
+
+  protected SubTreeArticleIterator createSubTreeIter() {
+    return createSubTreeIter(MetadataTarget.Any());
   }
 
   protected Pattern getPattern(SubTreeArticleIterator iter) {

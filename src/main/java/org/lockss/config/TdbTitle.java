@@ -50,7 +50,7 @@ public class TdbTitle {
   /**
    * Set up logger
    */
-  protected final static Logger logger = Logger.getLogger("TdbTitle");
+  protected final static Logger logger = Logger.getLogger();
 
   /**
    * This enumeration defines a relationship between two titles,

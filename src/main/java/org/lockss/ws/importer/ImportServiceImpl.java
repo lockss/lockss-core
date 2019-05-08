@@ -66,14 +66,8 @@ import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.plugin.UrlCacher;
 import org.lockss.plugin.UrlData;
-import org.lockss.util.ByteArray;
-import org.lockss.util.CIProperties;
-import org.lockss.util.IOUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.PropUtil;
-import org.lockss.util.StreamUtil;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.ws.entities.ImportWsParams;
 import org.lockss.ws.entities.ImportWsResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
@@ -82,7 +76,7 @@ import org.lockss.ws.entities.LockssWebServicesFault;
  * The Import web service implementation.
  */
 public class ImportServiceImpl implements ImportService {
-  private static Logger log = Logger.getLogger(ImportServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   private static final String BASIC_AUTH_KEY = "BasicAuthorization";
   static final String CHECKSUM_KEY = "Checksum";

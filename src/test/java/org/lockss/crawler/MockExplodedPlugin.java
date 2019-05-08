@@ -56,18 +56,11 @@ public class MockExplodedPlugin extends ExplodedPlugin {
   protected ArchivalUnit createAu0(Configuration auConfig)
       throws ArchivalUnit.ConfigurationException {
     ArchivalUnit au = super.createAu0(auConfig);
-    createMockAuManagers(au);
     return au;
   }
 
   public String getPluginName() {
     return "MockExplodedPlugin";
-  }
-
-  void createMockAuManagers(ArchivalUnit au) {
-    MockLockssDaemon daemon = (MockLockssDaemon)getDaemon();
-    daemon.getLockssRepository(au).startService();
-    daemon.setHistoryRepository(new MockHistoryRepository(), au);
   }
 
   public ArticleMetadataExtractor

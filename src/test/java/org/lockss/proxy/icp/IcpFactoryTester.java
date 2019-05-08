@@ -129,7 +129,7 @@ public abstract class IcpFactoryTester extends LockssTestCase {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static final Logger logger = Logger.getLogger("IcpFactoryTester");
+  private static final Logger logger = Logger.getLogger();
 
   /**
    * <p>Asserts that the argument message has desired properties with

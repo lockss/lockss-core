@@ -77,7 +77,7 @@ while [ $ix -le $rpt ]; do
   echo "** iter $ix" >> $stderr
   echo "** iter $ix" >> $stdout
 
-  if ! java $jvmargs junit.textui.TestRunner $class >>$stdout 2>>$stderr; then
+  if ! java $jvmargs org.junit.runner.JUnitCore $class >>$stdout 2>>$stderr; then
     failcnt=$((failcnt + 1))
     [ $showdots = 1 ] && echo -n F
   else

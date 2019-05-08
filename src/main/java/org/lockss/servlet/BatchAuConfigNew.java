@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,10 +31,8 @@ package org.lockss.servlet;
 import java.io.*;
 import java.util.*;
 import java.util.List;
-
 import javax.servlet.*;
 import javax.servlet.http.HttpSession;
-
 import org.apache.commons.collections.map.LinkedMap;
 import org.apache.commons.lang3.mutable.*;
 import org.lockss.config.*;
@@ -47,9 +41,11 @@ import org.lockss.db.DbException;
 import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.mortbay.html.*;
 
 /** Create and update AU configuration.
@@ -72,7 +68,7 @@ public class BatchAuConfigNew extends LockssServlet {
     "If only one choice is shown for an AU, the contents of that AU " +
     "already exist in the selected disk.";
 
-  private static final Logger log = Logger.getLogger("BatchAuConfig");
+  private static final Logger log = Logger.getLogger();
 
   static final int VV_ADD = 1;
   static final int VV_DEL = 2;
@@ -141,7 +137,8 @@ public class BatchAuConfigNew extends LockssServlet {
     subManager = getLockssDaemon().getSubscriptionManager();
   }
 
-  protected void lockssHandleRequest() throws IOException {
+  protected void lockssHandleRequest()
+      throws IOException, DbException, LockssRestException {
     errMsg = null;
     statusMsg = null;
 
@@ -299,7 +296,8 @@ public class BatchAuConfigNew extends LockssServlet {
     endPage(page);
   }
 
-  private void chooseSets(Verb verb) throws IOException {
+  private void chooseSets(Verb verb)
+      throws IOException, DbException, LockssRestException {
     this.verb = verb;
 
     // Begin page
@@ -345,7 +343,8 @@ public class BatchAuConfigNew extends LockssServlet {
     endPage(page);
   }
 
-  private void chooseAus() throws IOException {
+  private void chooseAus()
+      throws IOException, DbException, LockssRestException {
     // Gather title sets
     String[] setNames = req.getParameterValues(KEY_TITLE_SET);
 
@@ -695,7 +694,8 @@ public class BatchAuConfigNew extends LockssServlet {
       return null;
     }
 
-    int countAusInSetForVerb(RemoteApi remoteApi, TitleSet ts) {
+    int countAusInSetForVerb(RemoteApi remoteApi, TitleSet ts)
+	throws DbException, LockssRestException {
       switch (val) {
       case VV_ADD:
 	return ts.countTitles(TitleSet.SET_ADDABLE);

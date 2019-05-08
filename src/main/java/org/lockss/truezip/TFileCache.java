@@ -43,6 +43,7 @@ import de.schlichtherle.truezip.fs.*;
 
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 
 /**
@@ -64,7 +65,7 @@ public class TFileCache {
   //
 
 
-  static final Logger log = Logger.getLogger("TFileCache");
+  static final Logger log = Logger.getLogger();
 
   private File tmpDir;
   private long maxSize;

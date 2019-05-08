@@ -43,6 +43,8 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.base.DefaultUrlCacher;
 import org.lockss.protocol.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
+import org.lockss.util.time.TimeBase;
 import org.lockss.poller.*;
 import org.lockss.poller.v3.V3Serializer.*;
 import org.lockss.test.*;
@@ -117,7 +119,6 @@ public class TestV3Poller extends LockssTestCase {
     this.tempDir = getTempDir();
     this.testau = setupAu();
     initRequiredServices();
-    setupRepo(testau);
     this.pollerId = findPeerIdentity(localPeerKey);
     this.voters = makeVoters(initialPeers);
     this.pollerNonces = makeNonces();
@@ -150,18 +151,8 @@ public class TestV3Poller extends LockssTestCase {
     return mau;
   }
 
-  private void setupRepo(ArchivalUnit au) throws Exception {
-    MockLockssRepository repo = new MockLockssRepository("/foo", au);
-    for (int ix =  0; ix < urls.length; ix++) {
-      repo.createNewNode(urls[ix]);
-    }
-    ((MockLockssDaemon)theDaemon).setLockssRepository(repo, au);
-  }
-
   PeerIdentity findPeerIdentity(String key) throws Exception {
     PeerIdentity pid = idMgr.findPeerIdentity(key);
-    // hack to ensure it's created
-    idMgr.findLcapIdentity(pid, pid.getIdString());
     return pid;
   }
 
@@ -256,9 +247,6 @@ public class TestV3Poller extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
-    theDaemon.getLockssRepository(testau).stopService();
-    theDaemon.getHistoryRepository(testau).stopService();
-    theDaemon.getHashService().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getPollManager().stopService();
@@ -271,7 +259,6 @@ public class TestV3Poller extends LockssTestCase {
     String id = "tcp:[1.2.3.4]:4321";
     V3Poller poller = makeV3Poller("testing poll key");
     PeerIdentity pid = findPeerIdentity(id);
-    idMgr.findLcapIdentity(pid, id);
     PeerIdentityStatus status = idMgr.getPeerIdentityStatus(pid);
     status.setLastMessageTime(lastMsg);
     status.setLastPollInvitationTime(lastInvite);
@@ -1622,19 +1609,19 @@ public class TestV3Poller extends LockssTestCase {
     assertEquals(0, changeEvents.size());
     poller.signalAuEvent();
     assertEquals(1, changeEvents.size());
-    AuEventHandler.ChangeInfo ci = changeEvents.get(0);
-    assertEquals(AuEventHandler.ChangeInfo.Type.Repair, ci.getType());
+    AuEvent.ContentChangeInfo ci = changeEvents.get(0);
+    assertEquals(AuEvent.ContentChangeInfo.Type.Repair, ci.getType());
     assertTrue(ci.isComplete());
     assertEquals(2, ci.getNumUrls());
     assertNull(ci.getMimeCounts());
     assertEquals(urls, ci.getUrls());
   }
 
-  List<AuEventHandler.ChangeInfo> changeEvents = new ArrayList();
+  List<AuEvent.ContentChangeInfo> changeEvents = new ArrayList();
 
   class MyAuEventHandler extends AuEventHandler.Base {
     @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
-        AuEventHandler.ChangeInfo info) {
+        AuEvent.ContentChangeInfo info) {
       changeEvents.add(info);
     }
   }
@@ -2157,7 +2144,6 @@ public class TestV3Poller extends LockssTestCase {
 
     Properties p = new Properties();
     p.setProperty(IdentityManagerImpl.PARAM_ENABLE_V1, "false");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
 
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.0.0.1");
@@ -2176,11 +2162,9 @@ public class TestV3Poller extends LockssTestCase {
     hashService.startService();
     theDaemon.getRouterManager().startService();
     theDaemon.getSystemMetrics().startService();
-    theDaemon.getActivityRegulator(testau).startService();
     MockAuState aus = new MockAuState(testau);
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(testau);
-    histRepo.storeAuState(aus);
-    aus.setHistoryRepository(histRepo);
+    StateManager smgr = theDaemon.getManagerByType(StateManager.class);
+    smgr.storeAuState(aus);
     pollmanager.startService();
   }
 

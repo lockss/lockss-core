@@ -55,7 +55,7 @@ public class TestTdbProvider extends LockssTestCase {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestTdbProvider");
+  static Logger log = Logger.getLogger();
 
   /**
    * Test creating valid TdbProvider.

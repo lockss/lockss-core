@@ -43,7 +43,7 @@ import org.lockss.util.*;
  * @ThreadSafe
  */
 public abstract class BaseCrawlRateLimiter implements CrawlRateLimiter {
-  static Logger log = Logger.getLogger("BaseCrawlRateLimiter");
+  static Logger log = Logger.getLogger();
 
   protected Set<Crawler> crawlers = new HashSet<Crawler>();
   protected int pauseCounter = 0;

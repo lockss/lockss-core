@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,9 +26,6 @@
 
  */
 
-/**
- * Helper of the DaemonStatus web service implementation of repository queries.
- */
 package org.lockss.ws.status;
 
 import java.io.File;
@@ -42,11 +35,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.lockss.app.LockssDaemon;
+import org.lockss.db.DbException;
 import org.lockss.remote.RemoteApi;
-import org.lockss.repository.OldLockssRepositoryImpl;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.ws.entities.RepositoryWsResult;
 
+/**
+ * Helper of the DaemonStatus web service implementation of repository queries.
+ */
 public class RepositoryHelper {
   /**
    * The fully-qualified name of the class of the objects used as source in a
@@ -88,7 +85,7 @@ public class RepositoryHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(RepositoryHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of repository-related objects used as the source for
@@ -113,49 +110,50 @@ public class RepositoryHelper {
 	+ "allRepositorySpacesNames.size() = "
 	+ allRepositorySpacesNames.size());
 
-    // Loop through all the repository space names.
-    for (String repositorySpaceName : allRepositorySpacesNames) {
-      // Get the name of the path to this repository space.
-      String pathName =
-	  OldLockssRepositoryImpl.getLocalRepositoryPath(repositorySpaceName);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pathName = " + pathName);
+    // XXXREPO
+//     // Loop through all the repository space names.
+//     for (String repositorySpaceName : allRepositorySpacesNames) {
+//       // Get the name of the path to this repository space.
+//       String pathName =
+// 	  OldLockssRepositoryImpl.getLocalRepositoryPath(repositorySpaceName);
+//       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pathName = " + pathName);
 
-      // Get the name of the root directory of this repository space.
-      StringBuilder buffer = new StringBuilder(pathName);
+//       // Get the name of the root directory of this repository space.
+//       StringBuilder buffer = new StringBuilder(pathName);
 
-      if (!pathName.endsWith(File.separator)) {
-	buffer.append(File.separator);
-      }
+//       if (!pathName.endsWith(File.separator)) {
+// 	buffer.append(File.separator);
+//       }
 
-      buffer.append(OldLockssRepositoryImpl.CACHE_ROOT_NAME);
-      buffer.append(File.separator);
+//       buffer.append(OldLockssRepositoryImpl.CACHE_ROOT_NAME);
+//       buffer.append(File.separator);
 
-      String repositorySpaceRootName = buffer.toString();
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "repositorySpaceRootName = "
-	  + repositorySpaceRootName);
+//       String repositorySpaceRootName = buffer.toString();
+//       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "repositorySpaceRootName = "
+// 	  + repositorySpaceRootName);
 
-      // Find all the objects hanging from the root directory of this repository
-      // space.
-      File[] repositorySpaceFiles =
-	  new File(repositorySpaceRootName).listFiles();
+//       // Find all the objects hanging from the root directory of this repository
+//       // space.
+//       File[] repositorySpaceFiles =
+// 	  new File(repositorySpaceRootName).listFiles();
 
-      if (repositorySpaceFiles != null) {
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "repositorySpaceFiles.length = " + repositorySpaceFiles.length);
+//       if (repositorySpaceFiles != null) {
+// 	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+// 	    + "repositorySpaceFiles.length = " + repositorySpaceFiles.length);
 
-	// Loop through all the objects hanging from the root directory of this
-	// repository space.
-	for (File repositoryRootDirectory : repositorySpaceFiles) {
-	  // Check whether it is a subdirectory.
-	  if (repositoryRootDirectory.isDirectory()) {
-	    // Yes: Add the object initialized with this repository data to the
-	    // universe of objects.
-	    universe.add(new RepositoryWsSource(repositoryRootDirectory,
-		repositorySpaceName, repositorySpaceRootName));
-	  }
-	}
-      }
-    }
+// 	// Loop through all the objects hanging from the root directory of this
+// 	// repository space.
+// 	for (File repositoryRootDirectory : repositorySpaceFiles) {
+// 	  // Check whether it is a subdirectory.
+// 	  if (repositoryRootDirectory.isDirectory()) {
+// 	    // Yes: Add the object initialized with this repository data to the
+// 	    // universe of objects.
+// 	    universe.add(new RepositoryWsSource(repositoryRootDirectory,
+// 		repositorySpaceName, repositorySpaceRootName));
+// 	  }
+// 	}
+//       }
+//     }
 
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "universe.size() = " + universe.size());
@@ -170,7 +168,8 @@ public class RepositoryHelper {
    *          A {@code Collection<RepositoryWsResult>} with the query results.
    * @return a String with the requested printable copy.
    */
-  String nonDefaultToString(Collection<RepositoryWsResult> results) {
+  String nonDefaultToString(Collection<RepositoryWsResult> results)
+      throws DbException, LockssRestException {
     StringBuilder builder = new StringBuilder("[");
     boolean isFirst = true;
 
@@ -197,7 +196,8 @@ public class RepositoryHelper {
    *          A RepositoryWsResult with the query result.
    * @return a String with the requested printable copy.
    */
-  private String nonDefaultToString(RepositoryWsResult result) {
+  private String nonDefaultToString(RepositoryWsResult result)
+      throws DbException, LockssRestException {
     StringBuilder builder = new StringBuilder("RepositoryWsResult [");
     boolean isFirst = true;
 

@@ -37,10 +37,12 @@ import java.net.*;
 import java.math.BigInteger;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.time.TimeBase;
 import org.lockss.daemon.status.*;
 
 public class SimulatedStatusAccessor {
-  private static Logger log = Logger.getLogger("SimStatus");
+  private static Logger log = Logger.getLogger();
 
   public static void register(LockssDaemon daemon) {
     log.debug("registering");

@@ -85,8 +85,7 @@ public class CreativeCommonsRdfPermissionChecker extends BasePermissionChecker {
   private static final Resource DISTRIBUTION =
     new ResourceImpl(CC_NAMESPACE + "Distribution");
 
-  private static final Logger log =
-    Logger.getLogger(CreativeCommonsRdfPermissionChecker.class);
+  private static final Logger log = Logger.getLogger();
 
   // The URI of the resource being checked for permission
   private String m_licenseURI;

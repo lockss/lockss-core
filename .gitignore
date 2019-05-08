@@ -11,6 +11,7 @@
 
 # Logs and databases #
 ######################
+/logs/
 *.log
 *.sql
 *.sqlite
@@ -75,6 +76,7 @@ test/test-classpath
 test/test-p-classpath
 generated/*
 target/
+logs/
 
 lib/lockss-*.jar
 lib/lockss.jar
@@ -416,3 +418,6 @@ lib/run-props
 /tools/test/results
 /publish.properties
 /TAGS
+/pom.xml.versionsBackup
+/test/frameworks/run_dev/remoteCopy
+/test/frameworks/run_dev/remote_config_failover_info.xml

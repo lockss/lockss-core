@@ -163,7 +163,7 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
   // initial url string buffer size
   private static int EST_URL_LENGTH = 40;
 
-  private static Logger logger = Logger.getLogger("GoslingHtmlLinkExtractor");
+  private static Logger logger = Logger.getLogger();
 
   protected String srcUrl = null;
   protected URL baseUrl = null;

@@ -43,7 +43,7 @@ import org.lockss.util.Logger;
  */
 @SuppressWarnings("serial")
 public class MetadataControl extends LockssServlet {
-  private static final Logger log = Logger.getLogger(MetadataControl.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String DELETE_PUBLICATION_ISSN_ACTION = "deletePublicationIssn";
   static final String DELETE_DB_AU_ACTION = "deleteDbAu";

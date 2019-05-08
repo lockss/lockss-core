@@ -36,6 +36,7 @@ import org.lockss.app.BaseLockssManager;
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssAppException;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * <p>Arbitrates ownership of resources such as TCP listen ports and
@@ -47,7 +48,7 @@ public class ResourceManager extends BaseLockssManager  {
   /**
    * <p>A logger for use by this class.</p>
    */
-  protected static Logger logger = Logger.getLogger("ResourceManager");
+  protected static Logger logger = Logger.getLogger();
 
   /**
    * <p>A map keyed by resource identifiers; the values are ownership

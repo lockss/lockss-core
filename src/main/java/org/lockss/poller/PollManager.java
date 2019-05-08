@@ -42,6 +42,8 @@ import java.util.*;
 
 import org.apache.commons.collections.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.mortbay.util.B64Code;
+
 import org.lockss.alert.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -58,6 +60,9 @@ import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.PsmManager;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.repository.*;
 
 /**
@@ -80,11 +85,12 @@ public class PollManager
     extends BaseLockssDaemonManager implements ConfigurableManager {
   public static final String MANAGER_STATUS_TABLE_NAME = "PollManagerTable";
   // Shared with MockPollManager
-  protected static final Logger theLog = Logger.getLogger(PollManager.class);
+  protected static final Logger theLog = Logger.getLogger();
   static final String PREFIX = Configuration.PREFIX + "poll.";
-  static final String PARAM_RECENT_EXPIRATION = PREFIX + "expireRecent";
 
-  static final long DEFAULT_RECENT_EXPIRATION = DAY;
+  /** Amount of time finished polls remain in the poll status display */
+  static final String PARAM_RECENT_EXPIRATION = PREFIX + "expireRecent";
+  static final long DEFAULT_RECENT_EXPIRATION = 2 * DAY;
 
   /** If true, empty poll state directories found at startup will be
    * deleted.
@@ -339,10 +345,6 @@ public class PollManager
       null, // new V2PollFactory(),
       new V3PollFactory(this),
   };
-  // Ensure only a single instance of a noAuSet exists for each AU, so can
-  // synchronize on them and use in multiple threads.
-  Map<ArchivalUnit, DatedPeerIdSet> noAuPeerSets =
-      new ReferenceMap(ReferenceMap.HARD, ReferenceMap.WEAK);
   Map<EventCtr, MutableInt> eventCounters =
       new EnumMap<EventCtr, MutableInt>(EventCtr.class);
   Map<PollNak, MutableInt> voterNakEventCounters =
@@ -650,7 +652,6 @@ public class PollManager
   /**
    * REST Service entry point for stopping a previously requested poll
    * @param au the au
-   * @param key the key of the poll to stop.
    * @return a the stopped poll
    */
   public Poll stopPoll(ArchivalUnit au)
@@ -701,12 +702,12 @@ public class PollManager
     return retPoll;
   }
 
-  public
   /**
    * Cancel all polls on the specified AU.
    *
    * @param au the AU
    */
+  public
   void cancelAuPolls(ArchivalUnit au) {
     // first remove from queues, so none will run.
     pollQueue.cancelAuPolls(au);
@@ -952,8 +953,6 @@ public class PollManager
       theLog.error("Unable to write Identity DB file.");
     }
 
-    Poll p = pme.getPoll();
-    HistoryRepository hr = getDaemon().getHistoryRepository(p.getAu());
   }
 
   public void raiseAlert(Alert alert) {
@@ -1439,15 +1438,7 @@ public class PollManager
    * synchronize on that object before operating on it
    */
   public DatedPeerIdSet getNoAuPeerSet(ArchivalUnit au) {
-    synchronized (noAuPeerSets) {
-      DatedPeerIdSet noAuSet = noAuPeerSets.get(au);
-      if (noAuSet == null) {
-        HistoryRepository historyRepo = getDaemon().getHistoryRepository(au);
-        noAuSet = historyRepo.getNoAuPeerSet();
-        noAuPeerSets.put(au, noAuSet);
-      }
-      return noAuSet;
-    }
+    return AuUtil.getNoAuPeerSet(au);
   }
 
   /**
@@ -1468,7 +1459,7 @@ public class PollManager
       long threshold = (long) Math.round(v3NoAuResetIntervalCurve.getY(auAge));
       if (TimeBase.msSince(lastTimestamp) >= threshold) {
         noAuSet.clear();
-        noAuSet.store(false);
+        noAuSet.store();
       }
     } catch (IOException e) {
       // impossible with loaded PersistentPeerIdSet
@@ -1873,8 +1864,8 @@ public class PollManager
     long sinceLast = TimeBase.msSince(auState.getLastPollAttempt());
     if (sinceLast < paramMinPollAttemptInterval) {
       String msg = "Poll attempted too recently (" +
-          StringUtil.timeIntervalToString(sinceLast) + " < " +
-          StringUtil.timeIntervalToString(paramMinPollAttemptInterval) + ").";
+          TimeUtil.timeIntervalToString(sinceLast) + " < " +
+          TimeUtil.timeIntervalToString(paramMinPollAttemptInterval) + ").";
       theLog.debug3(msg + " " + au);
       throw new NotEligibleException(msg);
     }
@@ -2531,14 +2522,16 @@ public class PollManager
     }
   }
 
-  static class PollReq {
+  public static class PollReq {
 
     ArchivalUnit au;
     int priority = 0;
     PollSpec spec;
+    String reqId;
 
     public PollReq(ArchivalUnit au) {
       this.au = au;
+      this.reqId = String.valueOf(B64Code.encode(ByteArray.makeRandomBytes(20)));
     }
 
     public PollSpec getPollSpec() {
@@ -2553,6 +2546,7 @@ public class PollManager
     public ArchivalUnit getAu() {
       return au;
     }
+    public String getReqId() {return reqId;}
 
     public int getPriority() {
       return priority;
@@ -2747,6 +2741,18 @@ public class PollManager
       }
       return aus;
     }
+
+    public PollReq getPendingPoll(String reqId) {
+      rebuildPollQueueIfNeeded();
+      synchronized (queueLock) {
+        for (PollReq req : pollQueue) {
+          if(req.getReqId().equals(reqId))
+            return req;
+        }
+      }
+      return null;
+    }
+
     public PollReq getPendingPoll(ArchivalUnit au)
     {
       rebuildPollQueueIfNeeded();

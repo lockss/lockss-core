@@ -47,7 +47,7 @@ import org.springframework.web.client.RestTemplate;
  * title database of an Archival Unit.
  */
 public class GetTdbAuClient {
-  private static Logger log = Logger.getLogger(GetTdbAuClient.class);
+  private static Logger log = Logger.getLogger();
 
   private String serviceLocation = null;
   private String serviceUser = null;

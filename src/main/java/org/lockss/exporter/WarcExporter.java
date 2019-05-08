@@ -40,6 +40,7 @@ import org.archive.util.anvl.*;
 import static org.archive.io.warc.WARCConstants.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 
 /**
@@ -47,7 +48,7 @@ import org.lockss.plugin.*;
  */
 public class WarcExporter extends Exporter {
 
-  private static Logger log = Logger.getLogger("WarcExporter");
+  private static Logger log = Logger.getLogger();
 
   protected CIProperties arcProps = null;
   AtomicInteger serialNo = new AtomicInteger(0);
@@ -118,8 +119,7 @@ public class WarcExporter extends Exporter {
 
     long fetchTime =
       Long.parseLong(props.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
-//HC3     String timestamp = ArchiveUtils.getLog14Date(fetchTime);
-    String timestamp = ArchiveUtils.get14DigitDate(fetchTime);
+    String timestamp = ArchiveUtils.getLog14Date(fetchTime);
     InputStream contentIn = cu.getUnfilteredInputStream();
     try {
       // Web Archive Commons now uses a properties file.

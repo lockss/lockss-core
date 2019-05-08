@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -73,15 +73,11 @@ import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuEvent;
 import org.lockss.plugin.AuEventHandler;
-import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
-import org.lockss.util.Logger;
-import org.lockss.util.MetadataUtil;
-import org.lockss.util.PlatformUtil;
-import org.lockss.util.RateLimiter;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * Manager of serial publication subscriptions.
@@ -91,7 +87,7 @@ import org.lockss.util.StringUtil;
 public class SubscriptionManager extends BaseLockssDaemonManager implements
     ConfigurableManager {
 
-  private static final Logger log = Logger.getLogger(SubscriptionManager.class);
+  private static final Logger log = Logger.getLogger();
 
   // Prefix for the subscription manager configuration entries.
   private static final String PREFIX = Configuration.PREFIX + "subscription.";
@@ -952,12 +948,8 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       //log.debug2(DEBUG_HEADER + "config = " + config);
     }
 
-    Plugin plugin = tdbAu.getPlugin(pluginManager);
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "pluginId = " + plugin.getPluginId());
-
-    Map<String, String> params = tdbAu.getParams();
-    Properties props = PluginManager.defPropsFromProps(plugin, params);
+    Properties props = new Properties();
+    props.putAll(tdbAu.getParams());
     Configuration auConfig = ConfigManager.fromPropertiesUnsealed(props);
 
     // Specify the repository.

@@ -79,7 +79,7 @@ import org.lockss.util.*;
  *
  */
 public class LockssResourceServlet extends LockssServlet {
-  protected static Logger log = Logger.getLogger("ResourceServlet");
+  protected static Logger log = Logger.getLogger();
 
   private static String _AllowString = "GET, POST, HEAD, OPTIONS, TRACE";
 

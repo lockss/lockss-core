@@ -39,11 +39,14 @@ import org.lockss.app.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.protocol.*;
 
 
 public class TestPsmInterp extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestPsmInterp");
+  static Logger log = Logger.getLogger();
 
   // Event classes.  RcvMsg events form hierarchy
   private static class Sched extends PsmEvent {}

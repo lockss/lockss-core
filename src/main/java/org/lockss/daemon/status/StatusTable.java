@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +31,7 @@ package org.lockss.daemon.status;
 import java.util.*;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.protocol.*;
 import org.lockss.servlet.ServletDescr;
 
@@ -61,7 +58,7 @@ public class StatusTable {
   private Map columnDescriptorMap;
   private List rows;
   private List defaultSortRules;
-  private static Logger logger = Logger.getLogger("StatusTable");
+  private static Logger logger = Logger.getLogger();
   private List summaryInfo;
   private BitSet options = new BitSet();
   private boolean isResortable = true;
@@ -374,7 +371,7 @@ public class StatusTable {
    * @return list of {@link java.util.Map}s representing rows in the table
    * in their default sort order
    */
-  public List getSortedRows() {
+  public List<Map> getSortedRows() {
     if (rows == null) {
       return Collections.EMPTY_LIST;
     }
@@ -401,6 +398,20 @@ public class StatusTable {
    */
   public void setRows(List rows) {
     this.rows = rows;
+  }
+
+  /** Mark any References contained in the value as local.  */
+  public static void setLocal(Object v, boolean b) {
+    if (v == null) return;
+    if (v instanceof Reference) {
+      ((Reference)v).setLocal(b);
+    } else if (v instanceof List) {
+      for (Object o : ((List)v)) {
+	setLocal(o, b);
+      }
+    } else if (v instanceof EmbeddedValue) {
+      setLocal(((EmbeddedValue)v).getValue(), b);
+    }
   }
 
   /** Return the actual value, possibly embedded in a {@link
@@ -614,9 +625,13 @@ public class StatusTable {
   public static class Reference implements LinkValue {
     private Object value;
     private PeerIdentity peerId;
+    private String stem;
+    private String service;
     private String tableName;
     private String key;
     private Properties props;
+    private boolean isLocal;
+    private boolean isLabelLocal;
 
     /**
      * Create a Reference object with an embedded value.
@@ -697,12 +712,57 @@ public class StatusTable {
       return peerId;
     }
 
+    /** For most references to foreign tables, the URL stem is determined
+     * at rendering time (by DaemonStatus, using just the table name).  In
+     * some cases (e.g., StatusServiceImpl.AllTableStatusAccessor) the
+     * table name alone isn't enough and the binding must be determined
+     * earlier when more info is available, and stored here. */
+    public Reference setServiceStem(String val) {
+      stem = val;
+      return this;
+    }
+
+    public Reference setServiceName(String val) {
+      service = val;
+      return this;
+    }
+
+    public String getServiceStem() {
+      return stem;
+    }
+
+    public String getServiceName() {
+      return service;
+    }
+
+
     public String getTableName() {
       return tableName;
     }
 
     public String getKey() {
       return key;
+    }
+
+    /** Set true for references that should never be resolved to a foreign
+     * table */
+    public Reference setLocal(boolean val) {
+      isLocal = val;
+      return this;
+    }
+
+    /** Set true for references that should be labelled "local" */
+    public Reference setLabelLocal(boolean val) {
+      isLabelLocal = val;
+      return this;
+    }
+
+    public boolean isLocal() {
+      return isLocal;
+    }
+
+    public boolean isLabelLocal() {
+      return isLabelLocal;
     }
 
     public String toString() {
@@ -742,6 +802,85 @@ public class StatusTable {
 
     public int hashCode() {
       throw new UnsupportedOperationException();
+    }
+  }
+
+  /**
+   * Encapsulates info about a table not in this JVM, received by
+   * StatusServiceImpl from other cluster members
+   */
+  public static class ForeignTable {
+    private String name;		// table name
+    private String title;		// display name
+    private String stem;		// URL stem to access appropriate
+					// DaemonStatus
+    boolean requiresKey;
+    boolean isDebugOnly;
+
+    ForeignTable(String name, String title, String stem,
+		 boolean requiresKey, boolean isDebugOnly) {
+      this.name = name;
+      this.title = title;
+      this.stem = stem;
+      this.requiresKey = requiresKey;
+      this.isDebugOnly = isDebugOnly;
+    }
+
+    public String getName() { return name; }
+    public String getTitle() { return title; }
+    public String getStem() { return stem; }
+    public boolean requiresKey() { return requiresKey; }
+    public boolean isDebugOnly() { return isDebugOnly; }
+
+    public String toString() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("[ForeignTable: ");
+      sb.append(name);
+      sb.append(", ");
+      sb.append(stem);
+      sb.append("]");
+      return sb.toString();
+    }
+
+  }
+
+  /**
+   * Encapsulates info about a status overview available from some other
+   * cluster member
+   */
+  public static class ForeignOverview {
+    private String name;		// table name
+    private String serviceName;		// service name
+    private String stem;		// URL stem of overview owner
+    private Object value;
+    private long valueTimestamp = -1;
+
+    ForeignOverview(String name, String serviceName, String stem) {
+      this.name = name;
+      this.serviceName = serviceName;
+      this.stem = stem;
+    }
+
+    public String getName() { return name; }
+    public String getServiceName() { return serviceName; }
+    public String getStem() { return stem; }
+    public Object getValue() {return value;}
+    public long getValueTimestamp() {return valueTimestamp;}
+
+    public ForeignOverview setValue(Object val) {
+      this.value = val;
+      this.valueTimestamp = TimeBase.nowMs();
+      return this;
+    }
+
+    public String toString() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("[ForeignOverview: ");
+      sb.append(name);
+      sb.append(", ");
+      sb.append(stem);
+      sb.append("]");
+      return sb.toString();
     }
   }
 

@@ -29,12 +29,15 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.io.*;
+import java.net.*;
+import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 
 /**
  * A ConfigFile wrapper for an in-memory Configuration
  */
 public class MemoryConfigFile implements ConfigFile {
+  private static final Logger log = Logger.getLogger();
 
   private String url;
   private int fileType;
@@ -90,8 +93,22 @@ public class MemoryConfigFile implements ConfigFile {
     return getFileUrl();
   }
 
+  @Override
+  public String resolveConfigUrl(String relUrl) {
+    try {
+      return UrlUtil.resolveUri(url, relUrl);
+    } catch (MalformedURLException e) {
+      log.error("Can't resolve, base: " + url + ", rel: " + relUrl, e);
+      return relUrl;
+    }
+  }
+
   public boolean isPlatformFile() {
-    return false;
+    return m_isPlatformFile;
+  }
+
+  public void setPlatformFile(boolean val) {
+    m_isPlatformFile = val;
   }
 
   public int getFileType() {

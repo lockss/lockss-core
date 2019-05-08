@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2007-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,9 +30,9 @@ package org.lockss.crawler;
 
 import java.io.*;
 import java.util.*;
-
 import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler.CrawlerFacade;
+import org.lockss.db.DbException;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 import org.lockss.plugin.*;
@@ -47,6 +43,7 @@ import org.lockss.plugin.exploded.*;
 import org.lockss.config.*;
 import org.lockss.app.LockssDaemon;
 import org.lockss.repository.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.filter.StringFilter;
 
 /**
@@ -59,7 +56,7 @@ import org.lockss.filter.StringFilter;
  */
 
 public abstract class Exploder {
-  private static Logger logger = Logger.getLogger("Exploder");
+  private static Logger logger = Logger.getLogger();
 
   public static final String PARAM_EXPLODED_PLUGIN_NAME =
     Configuration.PREFIX + "crawler.exploder.explodedPluginName";
@@ -141,6 +138,16 @@ public abstract class Exploder {
     return fetchUrl;
   }
 
+  // Hack to get around (some?) clients of this class which set a base
+  // ending with "/" and a restOfUrl beginning with "/".  URL Normalization
+  // in the old repository formerly masked the double "//"
+  String concatBaseRest(String base, String rest) {
+    if (rest.startsWith("/")) {
+      rest = rest.substring(1);
+    }
+    return base + rest;
+  }
+
   protected void storeEntry(ArchiveEntry ae) throws IOException {
     // We assume that all exploded content is organized into
     // AUs which each contain only URLs starting with the AUs
@@ -149,11 +156,12 @@ public abstract class Exploder {
     ArchivalUnit au = null;
     String baseUrl = ae.getBaseUrl();
     String restOfUrl = ae.getRestOfUrl();
-    CachedUrl cu = pluginMgr.findCachedUrl(baseUrl + restOfUrl,
+    String newUrl = concatBaseRest(baseUrl, restOfUrl);
+    CachedUrl cu = pluginMgr.findCachedUrl(newUrl,
 					   CuContentReq.DontCare);
     if (cu != null) {
       au = cu.getArchivalUnit();
-      logger.debug(baseUrl + restOfUrl + " old au " + au.getAuId());
+      logger.debug(newUrl + " old au " + au.getAuId());
       cu.release();
     }
     if (au == null) {
@@ -191,7 +199,6 @@ public abstract class Exploder {
       }
     }
     touchedAus.add(au);
-    String newUrl = baseUrl + restOfUrl;
     // Create a new UrlCacher from the ArchivalUnit and store the
     // element using it.
     logger.debug3("Storing " + newUrl + " in " + au.toString());
@@ -256,6 +263,14 @@ public abstract class Exploder {
     } catch (ArchivalUnit.ConfigurationException ex) {
       logger.error("createAndSaveAuConfiguration() threw " + ex.toString());
       throw new IOException(pluginName + " not initialized for " + ae.getBaseUrl());
+    } catch (DbException dbe) {
+      logger.error("createAndSaveAuConfiguration() threw " + dbe.toString());
+      throw new IOException(pluginName + " not initialized for "
+	  + ae.getBaseUrl());
+    } catch (LockssRestException lre) {
+      logger.error("createAndSaveAuConfiguration() threw " + lre.toString());
+      throw new IOException(pluginName + " not initialized for "
+	  + ae.getBaseUrl());
     }
   }
 

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,7 +39,7 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.util.LockssApp
  */
 public class TestLockssApp extends LockssTestCase {
-  private final static Logger log = Logger.getLogger(TestLockssApp.class);
+  private final static Logger log = Logger.getLogger();
 
   MyMockLockssApp app;
   private String tempDirPath;
@@ -67,6 +63,9 @@ public class TestLockssApp extends LockssTestCase {
 		      "-g", "test3-group"};
     String[] test4 = {"-p", "foo1;bar1;baz1",
 		      "-p", "foo2;bar2;baz2"};
+    String[] test2a = {"-l", "foo",
+		       "-p", "bar",
+		       "-l", "baz"};
 
 
     // bad options (-p without argument, should be ignored)
@@ -107,7 +106,7 @@ public class TestLockssApp extends LockssTestCase {
     assertTrue("foo".equals(list1.get(0)) ||
 	       "bar".equals(list1.get(0)) ||
 	       "baz".equals(list1.get(0)));
-    assertNull(opt1.getBootstrapPropsUrl());
+    assertEmpty(opt1.getBootstrapPropsUrls());
 
     // Ensure that multiple prop URLs can be set with multiple "-p"
     // options.
@@ -121,7 +120,7 @@ public class TestLockssApp extends LockssTestCase {
     assertEquals("foo", list2.get(0));
     assertEquals("bar", list2.get(1));
     assertEquals("baz", list2.get(2));
-    assertNull(opt2.getBootstrapPropsUrl());
+    assertEmpty(opt2.getBootstrapPropsUrls());
 
     // Ensure that only one URL is chosen from a semicolon-separated
     // list of URLs, and that additional -p parameters can be provided.
@@ -136,7 +135,7 @@ public class TestLockssApp extends LockssTestCase {
 	       "bar".equals(list3.get(0)) ||
 	       "baz".equals(list3.get(0)));
     assertEquals("quux", list3.get(1));
-    assertNull(opt3.getBootstrapPropsUrl());
+    assertEmpty(opt3.getBootstrapPropsUrls());
 
     // Ensure that only one URL is chosen from each semicolon-separated
     // list of URLs
@@ -152,7 +151,13 @@ public class TestLockssApp extends LockssTestCase {
     assertTrue("foo2".equals(list4.get(1)) ||
 	       "bar2".equals(list4.get(1)) ||
 	       "baz2".equals(list4.get(1)));
-    assertNull(opt4.getBootstrapPropsUrl());
+    assertEmpty(opt4.getBootstrapPropsUrls());
+
+    // Test cluster urls
+    LockssDaemon.StartupOptions opt2a =
+      LockssDaemon.getStartupOptions(test2a);
+    assertEquals(ListUtil.list("foo", "bar", "baz"), opt2a.getPropUrls());
+    assertEquals(ListUtil.list("foo", "baz"), opt2a.getClusterUrls());
 
     // Test some bad options.  Second -p should be ignored.
     LockssDaemon.StartupOptions opt5 =
@@ -161,7 +166,7 @@ public class TestLockssApp extends LockssTestCase {
     List<String> list5 = opt5.getPropUrls();
     assertEquals(1, list5.size());
     assertEquals("foo", list5.get(0));
-    assertNull(opt5.getBootstrapPropsUrl());
+    assertEmpty(opt5.getBootstrapPropsUrls());
 
     // -p should be ignored, no prop URLS.
     LockssDaemon.StartupOptions opt6 =
@@ -171,7 +176,7 @@ public class TestLockssApp extends LockssTestCase {
     List<String> list6 = opt6.getPropUrls();
     assertNotNull(list6);
     assertEquals(0, list6.size());
-    assertNull(opt6.getBootstrapPropsUrl());
+    assertEmpty(opt6.getBootstrapPropsUrls());
 
     // -g should be ignored, no group name.
     LockssDaemon.StartupOptions opt7 =
@@ -181,7 +186,7 @@ public class TestLockssApp extends LockssTestCase {
     assertNotNull(list7);
     assertEquals(1, list7.size());
     assertEquals("foo", list7.get(0));
-    assertNull(opt7.getBootstrapPropsUrl());
+    assertEmpty(opt7.getBootstrapPropsUrls());
 
     // Test -x.
     String xmlFilename = "file.xml";
@@ -210,7 +215,7 @@ public class TestLockssApp extends LockssTestCase {
     assertNull(opt10.getGroupNames());
     List<String> list10 = opt10.getPropUrls();
     assertEquals(1, list10.size());
-    assertNull(opt10.getBootstrapPropsUrl());
+    assertEmpty(opt10.getBootstrapPropsUrls());
 
     // Test -b.
     LockssDaemon.StartupOptions opt11 =
@@ -224,7 +229,7 @@ public class TestLockssApp extends LockssTestCase {
 	       "bar".equals(list11.get(0)) ||
 	       "baz".equals(list11.get(0)));
     assertTrue("boot".equals(list11.get(1)));
-    assertEquals("boot", opt11.getBootstrapPropsUrl());
+    assertEquals(ListUtil.list("boot"), opt11.getBootstrapPropsUrls());
 
     // Test some bad options. -b should be ignored.
     LockssDaemon.StartupOptions opt12 =
@@ -232,7 +237,25 @@ public class TestLockssApp extends LockssTestCase {
     assertNull(opt12.getGroupNames());
     List<String> list12 = opt12.getPropUrls();
     assertEquals(1, list12.size());
-    assertNull(opt12.getBootstrapPropsUrl());
+    assertEmpty(opt12.getBootstrapPropsUrls());
+  }
+
+  public void testProcessServiceBindings() {
+    app.processServiceBindings(ListUtil.list("cfg=:24621",
+					     "mdx=:1234",
+					     "poller=pollhost:4444"));
+    assertEquals(new ServiceBinding(null, 24621),
+		 app.getServiceBinding(ServiceDescr.SVC_CONFIG));
+    assertEquals(new ServiceBinding(null, 1234),
+		 app.getServiceBinding(ServiceDescr.SVC_MDX));
+    assertEquals(new ServiceBinding("pollhost", 4444),
+		 app.getServiceBinding(ServiceDescr.SVC_POLLER));
+
+    assertSameElements(ListUtil.list(ServiceDescr.SVC_CONFIG,
+				     ServiceDescr.SVC_MDX,
+				     ServiceDescr.SVC_POLLER),
+
+		       app.getAllServiceDescrs());
   }
 
   // load & init default manager
@@ -291,7 +314,7 @@ public class TestLockssApp extends LockssTestCase {
     LockssApp.ManagerDesc[] descrs = {
       new LockssApp.ManagerDesc("mgr_1", MockMgr1.class.getName()),
       new LockssApp.ManagerDesc("mgr_2", MockMgr2.class.getName()) {
-      public boolean shouldStart() {
+      public boolean shouldStart(LockssApp app) {
 	return false;
       }},
       new LockssApp.ManagerDesc("mgr_3", MockMgr3.class.getName()),
@@ -339,7 +362,7 @@ public class TestLockssApp extends LockssTestCase {
       throw new UnsupportedOperationException("Not implemented");
     }
 
-    boolean isInited() {
+    public boolean isInited() {
       return isInited;
     }
   }

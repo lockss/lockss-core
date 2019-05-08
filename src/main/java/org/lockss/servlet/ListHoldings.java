@@ -52,9 +52,8 @@ import static org.lockss.exporter.kbart.KbartExportFilter.*;
 import org.lockss.exporter.kbart.KbartTitle.Field;
 import org.lockss.metadata.MetadataDatabaseUtil;
 import org.lockss.plugin.ArchivalUnit;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
+import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.mortbay.html.Form;
 import org.mortbay.html.Input;
 import org.mortbay.html.Table;
@@ -88,7 +87,7 @@ import org.mortbay.html.Page;
 @SuppressWarnings("serial")
 public class ListHoldings extends LockssServlet {
   
-  private static final Logger log = Logger.getLogger(ListHoldings.class);
+  private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "listHoldings.";
 

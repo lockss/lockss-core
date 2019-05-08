@@ -45,7 +45,7 @@ import org.lockss.state.*;
  */
 public class TestRegistryArchivalUnit extends LockssTestCase {
 	
-  private static final Logger log = Logger.getLogger(TestRegistryArchivalUnit.class);
+  private static final Logger log = Logger.getLogger();
   
   private RegistryPlugin regPlugin;
   private MockLockssDaemon daemon;
@@ -170,6 +170,11 @@ public class TestRegistryArchivalUnit extends LockssTestCase {
 			      321, // lastCrawlAttempt
 			      -1, // lastCrawlResult
 			      null, // lastCrawlResultMsg,
+			      -1, // lastDeepCrawlTime
+			      -1, // lastDeepCrawlAttempt
+			      -1, // lastDeepCrawlResult
+			      null, // lastDeepCrawlResultMsg,
+			      -1, // lastDeepCrawlDepth
 			      -1, // lastTopLevelPoll
 			      -1, // lastPollStart
 			      -1, // lastPollresult
@@ -194,7 +199,7 @@ public class TestRegistryArchivalUnit extends LockssTestCase {
 			      -1, // numWillingRepairers
 			      -1, // numCurrentSuspectVersions
 			      null, // cdnStems
-			      (HistoryRepository)null);
+			      (StateManager)null);
     assertFalse(au.shouldCallTopLevelPoll(aus));
     ConfigurationUtil.setFromArgs(RegistryArchivalUnit.PARAM_ENABLE_REGISTRY_POLLS,
 				  "true");

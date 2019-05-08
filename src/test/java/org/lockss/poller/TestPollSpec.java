@@ -37,6 +37,7 @@ import junit.framework.TestCase;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.protocol.*;
 import java.net.*;
@@ -60,7 +61,6 @@ public class TestPollSpec extends LockssTestCase {
     p.setProperty(IdentityManager.PARAM_IDDB_DIR, tempDirPath + "iddb");
     p.setProperty(IdentityManager.PARAM_LOCAL_IP, "127.0.0.1");
     ConfigurationUtil.setCurrentConfigFromProps(p);
-    useOldRepo();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getIdentityManager();

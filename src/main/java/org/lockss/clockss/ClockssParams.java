@@ -36,6 +36,7 @@ import java.net.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 
 /**
  * Centralized place for CLOCKSS parameters
@@ -45,7 +46,7 @@ public class ClockssParams
   extends BaseLockssDaemonManager
   implements ConfigurableManager {
 
-  static Logger log = Logger.getLogger("ClockssParams");
+  static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "clockss.";
 

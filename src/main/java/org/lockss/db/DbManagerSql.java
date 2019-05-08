@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -42,6 +42,7 @@ import org.apache.derby.jdbc.ClientConnectionPoolDataSource;
 import org.apache.derby.jdbc.ClientDataSource;
 import org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource;
 import org.apache.derby.jdbc.EmbeddedDataSource;
+import org.lockss.log.L4JLogger;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.postgresql.ds.PGPoolingDataSource;
@@ -53,7 +54,7 @@ import org.postgresql.ds.PGSimpleDataSource;
  * @author Fernando García-Loygorri
  */
 public class DbManagerSql {
-  private static final Logger log = Logger.getLogger(DbManagerSql.class);
+  private static final Logger log = Logger.getLogger();
 
   /**
    * The indicator to be inserted in the database at the end of truncated text
@@ -297,6 +298,21 @@ public class DbManagerSql {
    *           if any problem occurred accessing the database.
    */
   public static void commitOrRollback(Connection conn, Logger logger)
+      throws SQLException {
+    JdbcBridge.commitOrRollback(conn, logger);
+  }
+
+  /**
+   * Commits a connection or rolls it back if it's not possible.
+   * 
+   * @param conn
+   *          A connection with the database connection to be committed.
+   * @param logger
+   *          A L4JLogger used to report errors.
+   * @throws SQLException
+   *           if any problem occurred accessing the database.
+   */
+  public static void commitOrRollback(Connection conn, L4JLogger logger)
       throws SQLException {
     JdbcBridge.commitOrRollback(conn, logger);
   }
@@ -1220,8 +1236,8 @@ public class DbManagerSql {
 	    tableName, null);
       }
       
-      log.debug("Table Name : " + tableName);
-      log.debug("Column" + padding.substring(0, 32 - "Column".length())
+      log.debug2("Table Name : " + tableName);
+      log.debug2("Column" + padding.substring(0, 32 - "Column".length())
 	  + "\tsize\tDataType");
 
       // Loop through each column.
@@ -1237,7 +1253,7 @@ public class DbManagerSql {
 	sb.append(" \t");
 	sb.append(resultSet.getString(TYPE_NAME));
 
-	log.debug(sb.toString());
+	log.debug2(sb.toString());
       }
     } catch (SQLException sqle) {
       log.error("Cannot log table schema", sqle);

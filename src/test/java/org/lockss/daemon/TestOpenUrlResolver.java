@@ -65,7 +65,7 @@ import org.lockss.test.*;
  * @version 1.0 
  */
 public abstract class TestOpenUrlResolver extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestOpenUrlResolver");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau0, sau1_1, sau1_2, sau2, sau3_1, sau3_2;
   private MockLockssDaemon theDaemon;

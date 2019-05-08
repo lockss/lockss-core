@@ -69,7 +69,7 @@ import org.opensaml.DefaultBootstrap;
 import org.opensaml.xml.ConfigurationException;
 
 public class LockssOiosamlSpFilter extends SPFilter {
-  private static Logger log = Logger.getLogger("LockssOiosamlSpFilter");
+  private static Logger log = Logger.getLogger();
   private CRLChecker crlChecker = new CRLChecker();
   private boolean filterInitialized;
   private SAMLConfiguration conf;

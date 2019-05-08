@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +29,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.daemon.status;
 
 import java.util.*;
+import org.lockss.app.ServiceDescr;
+import org.lockss.daemon.status.StatusTable.ForeignOverview;
 
 /**
  * This object sits between the daemon and the UI code to function as a
@@ -81,6 +79,8 @@ public interface StatusService {
   public void fillInTable(StatusTable table)
       throws StatusService.NoSuchTableException;
 
+  public StatusTable.ForeignTable getForeignTable(String table);
+
   /**
    * Register a StatusAccessor that knows how to get a table for a certain name
    * @param tableName name of the table that statusAccessor can provide
@@ -94,6 +94,22 @@ public interface StatusService {
   public void registerStatusAccessor(String tableName,
 				     StatusAccessor statusAccessor);
 
+  /**
+   * Register a StatusAccessor that knows how to get a table for a certain name
+   * @param tableName name of the table that statusAccessor can provide
+   * @param statusAccessor StatusAccessor that can provide the specified table
+   * @param globalInService T descriptor of service in which the table
+   * should be globally registered registration is broadcast to other
+   * cluster components, or null.
+   * @throws StatusService.MultipleRegistrationException if multiple
+   * StatusAccessors are registered to the same tableName
+   * @throws StatusService.InvalidTableNameException if you attempt to register
+   * a StatusAccessor for a table name that has anything other than
+   * <i>[a-zA-Z0-9]</i>, <i>-</i>, and <i>_</i>  in it
+   */
+  public void registerStatusAccessor(String tableName,
+				     StatusAccessor statusAccessor,
+				     ServiceDescr globalInService);
   /**
    * Unregister a previously registered StatusAccessor
    * @param tableName name of the table to unregister
@@ -111,6 +127,10 @@ public interface StatusService {
    * Unregister an OverviewAccessor */
   public void unregisterOverviewAccessor(String tableName);
 
+  /** Called by OverviewStatus to request up to date overview from other
+   * components */
+  public void requestOverviews(BitSet options);
+
   /**
    * Get the one-line overview of the subsystem associated with the table
    * name */
@@ -120,6 +140,10 @@ public interface StatusService {
    * Get the one-line overview of the subsystem associated with the table
    * name */
   public Object getOverview(String tableName, BitSet options);
+
+  /** Return the overview object most recently receieved from another
+   * component for the named table */
+  public ForeignOverview getForeignOverview(String table);
 
   /**
    * Get a reference to the named table for the given object.
@@ -143,6 +167,10 @@ public interface StatusService {
    */
   public List getReferences(Object obj);
 
+
+  /** Return true if a local version of the table should not be linked to
+   * if a global one exists */
+  public boolean isGlobalOnlyTable(String name);
 
   /**
    * Register an ObjectReferenceAccessor that knows how to create a {@link

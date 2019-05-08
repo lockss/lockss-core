@@ -81,8 +81,7 @@ public class HtmlParserLinkExtractor implements LinkExtractor {
   public static final String PREFIX = Configuration.PREFIX + "extractor" +
       ".htmlparser.";
 
-  private static final Logger logger =
-      Logger.getLogger("HtmlParserLinkExtractor");
+  private static final Logger logger = Logger.getLogger();
 
   private boolean isBaseSet = false;
   // the AU

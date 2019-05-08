@@ -129,7 +129,7 @@ public class TestIcpManager extends LockssTestCase {
    */
   public void testStartIcpServer() throws Exception {
     assertFalse(testableIcpManager.isIcpServerRunning());
-    assertNegative(testableIcpManager.getCurrentPort());
+    assertEquals(24674, testableIcpManager.getCurrentPort());
     setConfigCalled = false;
     int port = getNewPort();
     setEnabled(true, port);
@@ -147,7 +147,7 @@ public class TestIcpManager extends LockssTestCase {
     setEnabled(false, BAD_PORT);
     assertTrue(setConfigCalled);
     assertFalse(testableIcpManager.isIcpServerRunning());
-    assertNegative(testableIcpManager.getCurrentPort());
+    assertEquals(24674, testableIcpManager.getCurrentPort());
   }
 
   private int getNewPort() {

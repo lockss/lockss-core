@@ -42,6 +42,8 @@ import org.apache.commons.collections.Bag;
 import org.apache.commons.collections.bag.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
@@ -70,6 +72,8 @@ import org.lockss.crawler.*;
  */
 
 public class FuncWarcRoundtrip extends LockssTestCase {
+
+  static L4JLogger log = L4JLogger.getLogger();
 
   public static final String INDEX_NAME = "index.html";
   protected MockLockssDaemon daemon;
@@ -120,7 +124,6 @@ public class FuncWarcRoundtrip extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     daemon = getMockLockssDaemon();
 
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
@@ -128,10 +131,8 @@ public class FuncWarcRoundtrip extends LockssTestCase {
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 		      tempDirPath);
     ConfigurationUtil.addFromProps(props);
-
-    daemon.getPluginManager();
+    daemon.startManagers(ConfigDbManager.class, PluginManager.class);
     daemon.setDaemonInited(true);
-    daemon.getPluginManager().startService();
     daemon.getPluginManager().startLoadablePlugins();
 
     sau = PluginTestUtil.createAndStartSimAu(simAuConfig(tempDirPath));
@@ -261,7 +262,7 @@ public class FuncWarcRoundtrip extends LockssTestCase {
       try {
         FileOutputStream fos = new FileOutputStream(index);
         PrintWriter pw = new PrintWriter(fos);
-        log.debug3("Re-creating index file at " + index.getAbsolutePath());
+        log.trace("Re-creating index file at " + index.getAbsolutePath());
         String file_content =
           getIndexContent(dir, INDEX_NAME, LockssPermission.LOCKSS_PERMISSION_STRING);
         pw.print(file_content);
@@ -315,7 +316,7 @@ public class FuncWarcRoundtrip extends LockssTestCase {
     sau.setExploderPattern(".warc.gz$");
     sau.setExploderHelper(new MyExploderHelper(null));
     
-    AuState maus = new MyMockAuState(sau);
+    AuState maus = AuUtil.getAuState(sau);
     Crawler crawler = new NoCrawlEndActionsFollowLinkCrawler(sau, maus);
     boolean res = crawler.doCrawl();
     lastCrawlResult = maus.getLastCrawlResult();
@@ -338,7 +339,7 @@ public class FuncWarcRoundtrip extends LockssTestCase {
       if ("http://www.example.com/index.html" == urls[i]) {
           assertEquals(indexVersion, version);
       } else {
-          assertEquals(version, 1);
+	  assertEquals(urls[i], 1, version);
       }
     }
     log.debug2("Checking Exploded URLs done.");
@@ -388,7 +389,7 @@ public class FuncWarcRoundtrip extends LockssTestCase {
     public void process(ArchiveEntry ae) {
       String baseUrl = null;
       String restOfUrl = ae.getName();
-      log.debug3("process(" + restOfUrl + ") " + badName);
+      log.trace("process(" + restOfUrl + ") " + badName);
       if (restOfUrl == null || restOfUrl.equals(badName)) {
         log.debug("Synthetic failure at " + badName);
         return;

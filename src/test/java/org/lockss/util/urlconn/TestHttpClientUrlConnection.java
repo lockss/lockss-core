@@ -59,12 +59,13 @@ import org.lockss.util.*;
 //HC3 import org.apache.commons.httpclient.protocol.*;
 //HC3 import org.lockss.util.urlconn.HttpClientUrlConnection.LockssGetMethod;
 //HC3 import org.lockss.util.urlconn.HttpClientUrlConnection.LockssGetMethodImpl;
+import org.lockss.util.net.IPAddr;
 
 /**
  * Test class for org.lockss.util.urlconn.HttpClientUrlConnection
  */
 public class TestHttpClientUrlConnection extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestHttpClientUrlConnection");
+  static Logger log = Logger.getLogger();
 
   MyMockHttpClient client;
 //HC3   MyMockGetMethod method;

@@ -70,7 +70,7 @@ public class AuControlServiceImpl implements AuControlService {
   static final String USE_FORCE_MESSAGE =
       "Use the 'force' parameter to override.";
 
-  private static Logger log = Logger.getLogger(AuControlServiceImpl.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides an indication of whether an Archival Unit has substance.
@@ -622,7 +622,7 @@ public class AuControlServiceImpl implements AuControlService {
     }
 
     // Perform the crawl request.
-    cmi.startNewContentCrawl(req, null);
+    cmi.startNewContentCrawl(req);
 
     result = new RequestDeepCrawlResult(auId,
 	depth == null ? -1 : depth.intValue(), true, delayReason, null);

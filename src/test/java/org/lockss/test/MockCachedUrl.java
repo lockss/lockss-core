@@ -51,7 +51,7 @@ import org.lockss.extractor.*;
  */
 
 public class MockCachedUrl implements CachedUrl {
-  Logger log = Logger.getLogger(MockCachedUrl.class);
+  Logger log = Logger.getLogger();
   private ArrayList versions;
   private ArchivalUnit au;
   private String url;

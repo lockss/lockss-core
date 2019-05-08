@@ -37,6 +37,7 @@ import java.security.MessageDigest;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.app.*;
 import org.lockss.plugin.*;
 
@@ -55,9 +56,6 @@ public interface HashService extends LockssManager {
   static final String PARAM_NUM_STEPS = PREFIX + "numSteps";
   static final int DEFAULT_NUM_STEPS = 10;
 
-  static final String PARAM_NAME_HASH_ESTIMATE = PREFIX + "nameHashEstimate";
-  static final long DEFAULT_NAME_HASH_ESTIMATE = Constants.SECOND;
-
   static final String PARAM_COMPLETED_MAX = PREFIX + "historySize";
   static final int DEFAULT_COMPLETED_MAX = 50;
 
@@ -71,10 +69,6 @@ public interface HashService extends LockssManager {
     PREFIX + "estimate.pad.percent";
   static final int DEFAULT_ESTIMATE_PAD_PERCENT = 10;
 
-
-
-  public static final int CONTENT_HASH = 1;
-  public static final int NAME_HASH = 2;
 
   /**
    * Ask for the <code>CachedUrlSetHasher</code> to be

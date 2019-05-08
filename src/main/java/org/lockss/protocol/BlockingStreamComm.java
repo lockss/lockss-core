@@ -44,6 +44,10 @@ import EDU.oswego.cs.dl.util.concurrent.*;
 
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
@@ -58,7 +62,7 @@ public class BlockingStreamComm
   extends BaseLockssDaemonManager
   implements ConfigurableManager, LcapStreamComm, PeerMessage.Factory {
 
-  static Logger log = Logger.getLogger("SComm");
+  static Logger log = Logger.getLogger();
 
   public static final String SERVER_NAME = "StreamComm";
 
@@ -947,7 +951,7 @@ public class BlockingStreamComm
 			Configuration.Differences changedKeys) {
     // Instances of this manager are started incrementally in testing,
     // after the daemon is running, so isDaemonInited() won't work here
-    if (isInited()) {
+    if (isStarted()) {
       // one-time only init
       if (configShot.once()) {
 	configure(config, prevConfig, changedKeys);

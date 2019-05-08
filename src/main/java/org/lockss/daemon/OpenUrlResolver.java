@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -106,7 +106,7 @@ import org.lockss.util.urlconn.*;
 @Loggable(value = Loggable.TRACE, prepend = true)
 public class OpenUrlResolver {
   
-  private static final Logger log = Logger.getLogger(OpenUrlResolver.class);
+  private static final Logger log = Logger.getLogger();
 
   /** the LOCKSS daemon */
   private final LockssDaemon daemon;
@@ -549,32 +549,10 @@ public class OpenUrlResolver {
       String rft_id = params.get("rft_id");
       // handle rft_id that is an HTTP or HTTPS URL
       if (UrlUtil.isHttpOrHttpsUrl(rft_id)) {
-        boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
-            .getBoolean(PluginManager.PARAM_AU_CONTENT_FROM_WS,
-        	PluginManager.DEFAULT_AU_CONTENT_FROM_WS);
-        if (log.isDebug3())
-          log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
-
-	if (isUrlCachedFromWs) {
-	  boolean isUrlCached = false;
-
-	  try {
-	    isUrlCached = new IsUrlCachedClient().isUrlCached(rft_id);
-	    if (log.isDebug3())
-	      log.debug3(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
-	  } catch (Exception e) {
-	    log.warning("IsUrlCachedClient().isCached() threw: ", e);
-          }
-
-	  if (isUrlCached) {
-	    return OpenUrlInfo.newInstance(rft_id, null);
-	  }
-        } else {
-          resolvedDirectly = resolveFromUrl(rft_id);
-          if (resolvedDirectly.isResolved()) {
-            return resolvedDirectly;
-          }
-        }
+	resolvedDirectly = resolveFromUrl(rft_id);
+	if (resolvedDirectly.isResolved()) {
+	  return resolvedDirectly;
+	}
 
         if (log.isDebug3())
           log.debug3(DEBUG_HEADER + "Failed to resolve from URL: " + rft_id);
@@ -1340,47 +1318,27 @@ public class OpenUrlResolver {
     try {
       conn = dbMgr.getConnection();
 
-      String query = "select u." + URL_COLUMN
-	  + " from " + URL_TABLE + " u,"
-	  + DOI_TABLE + " d"
-	  + " where u." + MD_ITEM_SEQ_COLUMN + " = d." + MD_ITEM_SEQ_COLUMN
-	  + " and upper(d." + DOI_COLUMN + ") = ?";
-      
-      PreparedStatement stmt = dbMgr.prepareStatement(conn, query);
-      stmt.setString(1, doi.toUpperCase());
-      ResultSet resultSet = dbMgr.executeQuery(stmt);
-      if (resultSet.next()) {
-        String url = resultSet.getString(1);
+      // Find in the database the Archival Unit identifier and URL linked to the
+      // passed DOI.
+      Map<String, String> result = dbMgr.getAuUrlForDoi(conn, doi);
+
+      // Check whether the links were found.
+      if (result != null && !result.isEmpty()) {
+	// Yes: Get the Archival Unit identifier.
+	String auid = result.get("auid");
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auid = " + auid);
+
+        // Make sure that the Archival Unit has been created.
+	ArchivalUnit au = pluginMgr.getAuFromId(auid);
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
+
+        // Get the URL linked to the DOI.
+        String url = result.get("url");
         if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
 
-        boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
-            .getBoolean(PluginManager.PARAM_AU_CONTENT_FROM_WS,
-        	PluginManager.DEFAULT_AU_CONTENT_FROM_WS);
-        if (log.isDebug3())
-          log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
-
-        if (isUrlCachedFromWs) {
-          boolean isUrlCached = false;
-
-          try {
-            isUrlCached = new IsUrlCachedClient().isUrlCached(url);
-            if (log.isDebug3())
-              log.debug3(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
-          } catch (Exception e) {
-	    log.warning("IsUrlCachedClient().isCached() threw: ", e);
-            return OPEN_URL_INFO_NONE;
-          }
-
-          if (isUrlCached) {
-            return OpenUrlInfo.newInstance(url, null);
-          }
-        } else {
-          OpenUrlInfo resolved = resolveFromUrl(url);
-          return resolved;
-        }
+        OpenUrlInfo resolved = resolveFromUrl(url);
+        return resolved;
       }
-    } catch (SQLException ex) {
-      log.error("Getting DOI:" + doi, ex);
     } catch (DbException dbe) {
       log.error("Getting DOI:" + doi, dbe);
     } finally {

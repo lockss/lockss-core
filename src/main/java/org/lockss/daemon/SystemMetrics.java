@@ -42,6 +42,8 @@ import org.lockss.hasher.HashService;
 import org.lockss.plugin.PluginManager;
 import org.lockss.protocol.LcapMessage;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 
 /**
  * A singleton class which provides access to various system calculations, such
@@ -87,7 +89,7 @@ public class SystemMetrics
   public static final String PARAM_SLOWEST_RATE = PREFIX + "slowest.hashrate";
   static final int DEFAULT_SLOWEST_RATE = 250;
 
-  private static Logger logger = Logger.getLogger("SystemMetrics");
+  private static Logger logger = Logger.getLogger();
 
   Hashtable estimateTable = new Hashtable();
   MessageDigest defaultDigest = LcapMessage.getDefaultMessageDigest();

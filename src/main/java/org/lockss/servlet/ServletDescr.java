@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,6 +39,8 @@ public class ServletDescr {
 
   public Class cls;
 
+  public ServiceDescr svc;
+
   public String heading;	// display name
 
   public String path;		// url path component to invoke servlet
@@ -58,6 +56,9 @@ public class ServletDescr {
   // flags
   /** Include link in nav table */
   public static final int IN_NAV = 0x04;
+
+  /** Should be on same line as preceding item */
+  public static final int SAME_LINE = 0x02;
 
   /** Include link in UI home page */
   public static final int IN_UIHOME = 0x08;
@@ -212,16 +213,40 @@ public class ServletDescr {
     return path;
   }
 
-  String getExplanation() {
+  public String getExplanation() {
     return expl;
   }
 
-  void setExplanation(String s) {
+  ServletDescr setExplanation(String s) {
     expl = s;
+    return this;
+  }
+
+  ServletDescr setPath(String val) {
+    path = val;
+    return this;
+  }
+
+  ServletDescr setFlags(int val) {
+    flags = val;
+    return this;
+  }
+
+  ServletDescr setService(ServiceDescr val) {
+    svc = val;
+    return this;
+  }
+
+  ServiceDescr getService() {
+    return svc;
   }
 
   public String getNavHeading(LockssServlet servlet) {
     return heading;
+  }
+
+  boolean isSameLine() {
+    return (flags & SAME_LINE) != 0;
   }
 
   boolean needsUserAdminRole() {

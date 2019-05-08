@@ -39,7 +39,7 @@ import java.util.Map;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.crawler.CrawlerStatus.UrlErrorInfo;
-import org.lockss.util.TimeBase;
+import org.lockss.util.time.TimeBase;
 import org.lockss.ws.entities.CrawlWsResult;
 import org.lockss.ws.entities.UrlErrorWsResult;
 

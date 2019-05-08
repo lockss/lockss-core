@@ -1,5 +1,4 @@
 deleteAfterSuccess=False
 delayShutdown=True
 daemonLogLevel=Error
-org.lockss.log.V3Poller.level=debug3
-org.lockss.log.V3Voter.level=debug3
+org.lockss.log.org.lockss.poller.v3.level=debug3

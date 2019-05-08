@@ -37,6 +37,9 @@ import java.util.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 
 /** LockssRunnable abstracts out common features of LOCKSS daemon threads,
  * notably watchdog timers.  This should replace LockssThread.
@@ -71,7 +74,7 @@ public abstract class LockssRunnable  implements LockssWatchdog, Runnable {
   public static final String PARAM_NAMED_THREAD_PRIORITY =
     PREFIX + "<name>.priority";
 
-  private static Logger log = Logger.getLogger("LockssRunnable");
+  private static Logger log = Logger.getLogger();
 
   private Thread thread;
   private String name;
@@ -301,7 +304,7 @@ public abstract class LockssRunnable  implements LockssWatchdog, Runnable {
     if (CurrentConfig.getBooleanParam(PARAM_THREAD_WDOG_HUNG_DUMP,
 				      DEFAULT_THREAD_WDOG_HUNG_DUMP)) {
       log.error("Thread hung for " +
-		StringUtil.timeIntervalToString(interval) + ": " + getName());
+		TimeUtil.timeIntervalToString(interval) + ": " + getName());
       PlatformUtil.getInstance().threadDump(false);
       try {
 	Thread.sleep(30 * Constants.SECOND);
@@ -311,7 +314,7 @@ public abstract class LockssRunnable  implements LockssWatchdog, Runnable {
     if (isWDogExpired()) {
       exitDaemon(Constants.EXIT_CODE_THREAD_HUNG,
 		 "Thread hung for " +
-		 StringUtil.timeIntervalToString(interval));
+		 TimeUtil.timeIntervalToString(interval));
     } else {
       log.info("Thread woke up, continuing: " + getName());
     }
@@ -402,7 +405,7 @@ public abstract class LockssRunnable  implements LockssWatchdog, Runnable {
       sb.append(")");
       if (includeInterval) {
 	sb.append(": ");
-	sb.append(StringUtil.timeIntervalToString(interval));
+	sb.append(TimeUtil.timeIntervalToString(interval));
       }
       log.debug3(sb.toString());
     }
@@ -430,7 +433,6 @@ public abstract class LockssRunnable  implements LockssWatchdog, Runnable {
 	String oldName = thread.getName();
 	if (!oldName.equals(name)) {
 	  thread.setName(name);
-	  log.threadNameChanged();
 	}
       }
 

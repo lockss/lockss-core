@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,15 +33,19 @@ import java.util.*;
 import static org.lockss.app.LockssApp.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.daemon.status.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.plugin.*;
+import static org.lockss.app.ManagerDescs.*;
 
 /**
  * Functional tests for org.lockss.util.LockssApp
  */
 public class FuncLockssApp extends LockssTestCase {
-  private final static Logger log = Logger.getLogger(FuncLockssApp.class);
+  private final static Logger log = Logger.getLogger();
 
   private String tempDirPath;
   private OneShotSemaphore startedSem = new OneShotSemaphore();
@@ -54,6 +54,8 @@ public class FuncLockssApp extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     tempDirPath = setUpDiskSpace();
+    org.lockss.truezip.TrueZipManager.setTempDir(getTempDir());
+
   }
 
   // Prevent MockLockssDaemon being created by LockssTestCase
@@ -63,14 +65,20 @@ public class FuncLockssApp extends LockssTestCase {
 
   public void testStartApp() throws Exception {
     String propurl =
-      FileTestUtil.urlOfString("org.lockss.app.nonesuch=foo");
+      FileTestUtil.urlOfString("org.lockss.app.nonesuch=foo\n" +
+			       "deftest1=file\n" +
+			       "deftest2=file");
     String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
-      .setName("Test App")
+      .setService(ServiceDescr.SVC_CONFIG)
       .setArgs(testArgs)
+      .addAppConfig(StatusServiceImpl.PARAM_JMS_ENABLED, "false")
       .addAppConfig("o.l.p22", "vvv3")
-      .addAppConfig("o.l.p333", "vvv4")
+      .addAppConfig("deftest1", "app")
+      .addAppDefault("deftest2", "app")
+      .addAppDefault("deftest3", "app3")
+      .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
 //       .setKeepRunning(true)
 //       .setAppManagers(managerDescs)
       ;
@@ -85,8 +93,59 @@ public class FuncLockssApp extends LockssTestCase {
 		app.getManagerByType(org.lockss.alert.AlertManager.class));
     assertEquals("foo", config.get("org.lockss.app.nonesuch"));
     assertEquals("vvv3", config.get("o.l.p22"));
+    assertEquals("app", config.get("deftest1"));
+    assertEquals("file", config.get("deftest2"));
+    assertEquals("app3", config.get("deftest3"));
+    assertEquals(ServiceDescr.SVC_CONFIG, app.getMyServiceDescr());
+    assertEquals("Config Service", app.getAppName());
+    assertTrue(app.isMyService(ServiceDescr.SVC_CONFIG));
+    assertFalse(app.isMyService(ServiceDescr.SVC_POLLER));
+
+    assertEquals(new ServiceBinding(null, 24621),
+		 app.getMyServiceBinding());
   }
   
+
+  private final ManagerDesc aMgr =
+    new ManagerDesc(MyLockssManager.class.getName());
+
+  private final ManagerDesc[] expMgrs = {
+    RANDOM_MANAGER_DESC,
+    RESOURCE_MANAGER_DESC,
+    JMS_MANAGER_DESC,
+    MAIL_SERVICE_DESC,
+    ALERT_MANAGER_DESC,
+    STATUS_SERVICE_DESC,
+    TRUEZIP_MANAGER_DESC,
+    URL_MANAGER_DESC,
+    TIMER_SERVICE_DESC,
+    // keystore manager must be started before any others that need to
+    // access managed keystores
+    KEYSTORE_MANAGER_DESC,
+    BUILD_INFO_STATUS_DESC,
+    aMgr,
+    new ManagerDesc(CRON, "org.lockss.daemon.Cron"),
+    new ManagerDesc(WATCHDOG_SERVICE, "org.lockss.daemon.WatchdogService"),
+  };
+
+  private final ManagerDesc[] mine = {
+    new ManagerDesc(MyLockssManager.class.getName()),
+    STATUS_SERVICE_DESC,
+    ALERT_MANAGER_DESC,
+  };
+
+  public void testGetManagerDescs() throws Exception {
+    LockssApp.AppSpec spec = new LockssApp.AppSpec()
+      .setName("Test descs")
+      .setAppManagers(new ManagerDesc[] {
+	  new ManagerDesc(MyLockssManager.class.getName()),
+	}) ;
+
+    LockssApp app = new LockssApp(spec);
+    assertEquals(ListUtil.list(expMgrs), ListUtil.list(app.getManagerDescs()));
+  }
+
+
   public void testStartAppKeepRunning() throws Exception {
     String propurl =
       FileTestUtil.urlOfString("foo=bar");
@@ -95,6 +154,7 @@ public class FuncLockssApp extends LockssTestCase {
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
       .setName("Test App KeepRunning")
       .setArgs(testArgs)
+      .addAppConfig(StatusServiceImpl.PARAM_JMS_ENABLED, "false")
       .addAppConfig("o.l.p22", "vvv3")
       .addAppConfig("o.l.p333", "vvv4")
       .setKeepRunning(true)
@@ -115,7 +175,7 @@ public class FuncLockssApp extends LockssTestCase {
 	}};
     th.start();
 
-    assertTrue(startedSem.waitFull(Deadline.in(TIMEOUT_SHOULDNT)));
+    assertTrue(startedSem.waitFull(Deadline.in(TIMEOUT_SHOULDNT * 10)));
     LockssApp app = LockssApp.getLockssApp();
     app.waitUntilAppRunning();
     assertTrue(app.isAppRunning());

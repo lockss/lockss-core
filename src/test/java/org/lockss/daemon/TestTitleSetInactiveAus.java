@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,19 +29,17 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.daemon;
 
 import java.util.*;
-
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.repository.*;
 
 /**
  * This is the test class for org.lockss.daemon.TitleSetInactiveAus
  */
 
 public class TestTitleSetInactiveAus extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestTitleSetInactiveAus");
+  private static Logger log = Logger.getLogger();
 
   PluginManager pluginMgr;
   MockPlugin mp;
@@ -58,6 +52,9 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
     super.setUp();
     setUpDiskSpace();
     getMockLockssDaemon().setIdentityManager(new org.lockss.protocol.MockIdentityManager());
+
+    getMockLockssDaemon().setUpAuConfig();
+
     pluginMgr = getMockLockssDaemon().getPluginManager();
     pluginMgr.startService();
     getMockLockssDaemon().getRemoteApi().startService();
@@ -103,6 +100,7 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
 
   public void tearDown() throws Exception {
     pluginMgr.stopService();
+    getMockLockssDaemon().stopDaemon();
     super.tearDown();
   }
 
@@ -111,7 +109,7 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
     PluginTestUtil.registerArchivalUnit(mp, mau2);
     mau1.setTitleConfig(tc1);
     mau2.setTitleConfig(tc2);
-    pluginMgr.updateAuConfigFile(mau1.getAuId(), mau1.getConfiguration());
+    pluginMgr.updateAuInDatabase(mau1.getAuId(), mau1.getConfiguration());
     pluginMgr.deactivateAu(mau1);
     TitleSet ts = new TitleSetInactiveAus(getMockLockssDaemon());
     Collection set = ts.getTitles();

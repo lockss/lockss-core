@@ -45,7 +45,7 @@ import org.lockss.util.*;
  */
 public class PrunedCachedUrlSetSpec extends RangeCachedUrlSetSpec {
   
-  private static final Logger log = Logger.getLogger("PCUSS");
+  private static final Logger log = Logger.getLogger();
 
   Pattern includePat;
   Pattern excludePat;

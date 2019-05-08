@@ -35,18 +35,20 @@ package org.lockss.test;
 import java.io.*;
 import java.util.*;
 import junit.framework.TestCase;
+
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.*;
 
 /** Functional tests to ensure that the filesystem behaves as we expect
  */
 public class FuncFilesystem extends LockssTestCase {
-  static final Logger log = Logger.getLogger("FuncFilesystem");
+  static final Logger log = Logger.getLogger();
 
   // Running out of file descriptors should cause FileNotFoundException
   // with "Too many open files" in the message.
   public void testTooManyOpenFiles() throws IOException {
     int nfiles = 1;
-    int nstreams = 100000;
+    int nstreams = 10000000;
     File[] files = new File[nfiles];
     for (int ix = 0; ix < nfiles; ix++) {
       files[ix] = FileTestUtil.writeTempFile("test", "foobar");

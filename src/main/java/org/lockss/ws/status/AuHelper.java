@@ -42,9 +42,8 @@ import org.lockss.plugin.CachedUrlSet;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
 import org.lockss.poller.Poll;
-import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.state.AuState;
-import org.lockss.state.HistoryRepository;
+import org.lockss.state.StateManager;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.ws.entities.AuStatus;
@@ -93,6 +92,10 @@ public class AuHelper {
   static String LAST_COMPLETED_CRAWL = "lastCompletedCrawl";
   static String LAST_CRAWL = "lastCrawl";
   static String LAST_CRAWL_RESULT = "lastCrawlResult";
+  static String LAST_COMPLETED_DEEP_CRAWL = "lastCompletedDeepCrawl";
+  static String LAST_DEEP_CRAWL = "lastDeepCrawl";
+  static String LAST_DEEP_CRAWL_RESULT = "lastDeepCrawlResult";
+  static String LAST_COMPLETED_DEEP_CRAWL_DEPTH = "lastCompletedDeepCrawlDepth";
   static String LAST_METADATA_INDEX = "lastMetadataIndex";
   static String LAST_COMPLETED_POLL = "lastCompletedPoll";
   static String LAST_POLL = "lastPoll";
@@ -139,6 +142,10 @@ public class AuHelper {
       add(LAST_COMPLETED_CRAWL);
       add(LAST_CRAWL);
       add(LAST_CRAWL_RESULT);
+      add(LAST_COMPLETED_DEEP_CRAWL);
+      add(LAST_DEEP_CRAWL);
+      add(LAST_DEEP_CRAWL_RESULT);
+      add(LAST_COMPLETED_DEEP_CRAWL_DEPTH);
       add(LAST_METADATA_INDEX);
       add(LAST_COMPLETED_POLL);
       add(LAST_POLL);
@@ -159,7 +166,7 @@ public class AuHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(AuHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the status information of an archival unit in the system.
@@ -195,8 +202,8 @@ public class AuHelper {
 
     result.setYear(AuUtil.getTitleAttribute(au, "year"));
 
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(au);
-    AuState state = histRepo.getAuState();
+    AuState state =
+      theDaemon.getManagerByType(StateManager.class).getAuState(au);
     AuState.AccessType atype = state.getAccessType();
 
     if (atype != null) {
@@ -215,29 +222,27 @@ public class AuHelper {
       result.setDiskUsage(du);
     }
 
-    String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
-    String repo = OldLockssRepositoryImpl.mapAuToFileLocation(
-	OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
-    result.setRepository(repo);
+    // XXXREPO
+//     String spec = OldLockssRepositoryImpl.getRepositorySpec(au);
+//     String repo = OldLockssRepositoryImpl.mapAuToFileLocation(
+// 	OldLockssRepositoryImpl.getLocalRepositoryPath(spec), au);
+//     result.setRepository(repo);
 
     CachedUrlSet auCus = au.getAuCachedUrlSet();
-    if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
-      if (state.getV3Agreement() < 0) {
-	if (state.getLastCrawlTime() < 0) {
-	  result.setStatus("Waiting for Crawl");
-	} else {
-	  result.setStatus("Waiting for Poll");
-	}
+    if (state.getV3Agreement() < 0) {
+      if (state.getLastCrawlTime() < 0) {
+	result.setStatus("Waiting for Crawl");
       } else {
-	result.setStatus(doubleToPercent(state.getHighestV3Agreement())
-	    + "% Agreement");
-	if (state.getHighestV3Agreement() != state.getV3Agreement()) {
-	  result.setRecentPollAgreement(state.getV3Agreement());
-	}
+	result.setStatus("Waiting for Poll");
       }
     } else {
-      result.setStatus(histRepo.hasDamage(auCus) ? "Repairing" : "Ok");
+      result.setStatus(doubleToPercent(state.getHighestV3Agreement())
+		       + "% Agreement");
+      if (state.getHighestV3Agreement() != state.getV3Agreement()) {
+	result.setRecentPollAgreement(state.getV3Agreement());
+      }
     }
+
 
     String publishingPlatform = plugin.getPublishingPlatform();
 
@@ -291,12 +296,19 @@ public class AuHelper {
     result.setCrawlPool(crawlPool);
 
     result.setLastCompletedCrawl(state.getLastCrawlTime());
+    result.setLastCompletedDeepCrawl(state.getLastDeepCrawlTime());
 
     long lastCrawlAttempt = state.getLastCrawlAttempt();
+    long lastDeepCrawlAttempt = state.getLastDeepCrawlAttempt();
 
     if (lastCrawlAttempt > 0) {
       result.setLastCrawl(lastCrawlAttempt);
       result.setLastCrawlResult(state.getLastCrawlResultMsg());
+    }
+    if (lastDeepCrawlAttempt > 0) {
+      result.setLastDeepCrawl(lastDeepCrawlAttempt);
+      result.setLastDeepCrawlResult(state.getLastDeepCrawlResultMsg());
+      result.setLastCompletedDeepCrawlDepth(state.getLastDeepCrawlDepth());
     }
 
     result.setLastMetadataIndex(state.getLastMetadataIndex());
@@ -640,6 +652,47 @@ public class AuHelper {
       }
 
       builder.append("lastCrawlResult=").append(result.getLastCrawlResult());
+    }
+
+    if (result.getLastCompletedDeepCrawl() != null) {
+      if (!isFirst) {
+	builder.append(", ");
+      } else {
+	isFirst = false;
+      }
+
+      builder.append("lastCompletedDeepCrawl=")
+      .append(result.getLastCompletedDeepCrawl());
+    }
+
+    if (result.getLastDeepCrawl() != null) {
+      if (!isFirst) {
+	builder.append(", ");
+      } else {
+	isFirst = false;
+      }
+
+      builder.append("lastDeepCrawl=").append(result.getLastDeepCrawl());
+    }
+
+    if (result.getLastDeepCrawlResult() != null) {
+      if (!isFirst) {
+	builder.append(", ");
+      } else {
+	isFirst = false;
+      }
+
+      builder.append("lastDeepCrawlResult=").append(result.getLastDeepCrawlResult());
+    }
+
+    if (result.getLastCompletedDeepCrawlDepth() != null) {
+      if (!isFirst) {
+	builder.append(", ");
+      } else {
+	isFirst = false;
+      }
+
+      builder.append("lastCompletedDeepCrawlDepth=").append(result.getLastCompletedDeepCrawlDepth());
     }
 
     if (result.getLastMetadataIndex() != null) {

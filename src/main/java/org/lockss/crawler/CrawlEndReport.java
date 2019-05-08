@@ -39,6 +39,7 @@ import java.util.*;
 import java.security.*;
 import org.apache.commons.collections.map.LRUMap;
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.mail.*;
 import org.lockss.config.*;
 import org.lockss.app.*;
@@ -51,7 +52,7 @@ import org.lockss.hasher.*;
  * Utility class to generate and mail a report 
  */
 public class CrawlEndReport {
-  static final Logger log = Logger.getLogger("CrawlEndReport");
+  static final Logger log = Logger.getLogger();
 
   IdentityManager idMgr;
   LockssDaemon daemon;

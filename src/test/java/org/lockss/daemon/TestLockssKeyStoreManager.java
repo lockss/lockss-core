@@ -37,6 +37,7 @@ import java.io.*;
 import java.security.*;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.*;
 import org.lockss.test.*;
 import static org.lockss.daemon.LockssKeyStoreManager.*;

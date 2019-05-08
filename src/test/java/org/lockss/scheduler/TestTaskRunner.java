@@ -36,6 +36,8 @@ import java.util.*;
 
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 
@@ -48,7 +50,7 @@ public class TestTaskRunner extends LockssTestCase {
     org.lockss.scheduler.TaskRunner.class
   };
 
-  private static final Logger log = Logger.getLogger(TestTaskRunner.class);
+  private static final Logger log = Logger.getLogger();
 
   private MyMockTaskRunner tr;
   private SchedFact fact;

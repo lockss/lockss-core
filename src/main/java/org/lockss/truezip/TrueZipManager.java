@@ -48,7 +48,7 @@ import org.lockss.config.*;
 public class TrueZipManager extends BaseLockssManager
   implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger("TrueZipManager");
+  protected static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "truezip.";
 
@@ -66,6 +66,13 @@ public class TrueZipManager extends BaseLockssManager
   public static final String PARAM_CACHE_MAX_FILES =
     PREFIX + "cacheMaxFiles";
   public static final int DEFAULT_CACHE_MAX_FILES = 100;
+
+  // Hack for testing
+  private static File tempDir = null;
+
+  public static void setTempDir(File dir) {
+    tempDir = dir;
+  }
 
   String cacheDir;
   TFileCache tfc;
@@ -92,7 +99,8 @@ public class TrueZipManager extends BaseLockssManager
 	cacheDir = config.get(PARAM_CACHE_DIR, DEFAULT_CACHE_DIR);
 	if (cacheDir == null) {
 	  try {
-	    cacheDir = FileUtil.createTempDir("TZCache", "").toString();
+	    cacheDir =
+	      FileUtil.createTempDir("TZCache", "", tempDir).toString();
 	  } catch (IOException e) {
 	    throw new RuntimeException("TrueZipManager: " + PARAM_CACHE_DIR +
 				       " not set, and couldn't create temp dir",

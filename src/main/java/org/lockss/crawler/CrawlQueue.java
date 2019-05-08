@@ -49,7 +49,7 @@ import org.lockss.util.*;
  * the results are undefined.
  */
 public class CrawlQueue {
-  static Logger log = Logger.getLogger("CrawlQueue");
+  static Logger log = Logger.getLogger();
 
   Buffer sorted;
   Map<String,CrawlUrlData> map;

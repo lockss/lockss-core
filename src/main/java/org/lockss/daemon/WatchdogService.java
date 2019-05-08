@@ -36,6 +36,9 @@ import java.net.*;
 import org.lockss.app.*;
 import org.lockss.config.Configuration;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /** WatchdogService pokes a file periodically to reassure the platform that
  * java is still running ok.  If the file's last-modified time is not
@@ -61,7 +64,7 @@ public class WatchdogService
   static final String PARAM_PLATFORM_WDOG_DNS_DOMAIN = PREFIX + "dns.domain";
   static final String DEFAULT_PLATFORM_WDOG_DNS_DOMAIN = "lockss.org";
 
-  protected static Logger log = Logger.getLogger("PlatformWatchdog");
+  protected static Logger log = Logger.getLogger();
   private File watchedFile = null;
   private boolean enabled = false;
   private boolean stopped = false;
@@ -93,7 +96,7 @@ public class WatchdogService
       if (!StringUtil.isNullString(name) && interval > 0) {
 	watchedFile = new File(name);
 	log.info("Platform watchdog interval: " +
-		 StringUtil.timeIntervalToString(interval) +
+		 TimeUtil.timeIntervalToString(interval) +
 		 ", file: " + watchedFile);
 	if (theApp.isAppRunning()) {
 	  enable();

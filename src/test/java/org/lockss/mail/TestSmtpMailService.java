@@ -38,6 +38,7 @@ import java.net.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.TimeBase;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 
@@ -45,7 +46,7 @@ import org.lockss.plugin.*;
  * This is the test class for org.lockss.mail.SmtpMailService
  */
 public class TestSmtpMailService extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestSMS");
+  private static Logger log = Logger.getLogger();
 
   private MockLockssDaemon daemon;
   MyMockSmtpMailService svc;

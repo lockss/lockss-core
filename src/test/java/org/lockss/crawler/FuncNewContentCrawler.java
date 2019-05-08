@@ -47,7 +47,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 
 public class FuncNewContentCrawler extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncNewContentCrawler");
+  static Logger log = Logger.getLogger();
 
   private MySimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;
@@ -72,7 +72,6 @@ public class FuncNewContentCrawler extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -217,7 +216,7 @@ public class FuncNewContentCrawler extends LockssTestCase {
   private NoCrawlEndActionsFollowLinkCrawler crawlContent() {
     log.debug("Crawling tree...");
     NoCrawlEndActionsFollowLinkCrawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.setCrawlManager(crawlMgr);
     crawlMgr.addToRunningCrawls(crawler.getAu(), crawler);
     crawler.doCrawl();

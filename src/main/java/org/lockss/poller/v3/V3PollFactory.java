@@ -49,9 +49,10 @@ import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 public class V3PollFactory implements PollFactory {
-  public static Logger log = Logger.getLogger("V3PollFactory");
+  public static Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "poll.v3.";
   
@@ -60,14 +61,14 @@ public class V3PollFactory implements PollFactory {
    */
   public static final String PARAM_ENABLE_V3_VOTER =
     PREFIX + "enableV3Voter";
-  public static final boolean DEFAULT_ENABLE_V3_VOTER = true;
+  public static final boolean DEFAULT_ENABLE_V3_VOTER = false;
 
   /** If set to 'false', do not start V3 Polls.  This parameter is used
    * by NodeManagerImpl and PollManager.
    */
   public static final String PARAM_ENABLE_V3_POLLER =
     PREFIX + "enableV3Poller";
-  public static final boolean DEFAULT_ENABLE_V3_POLLER = true;
+  public static final boolean DEFAULT_ENABLE_V3_POLLER = false;
 
   /** Curve expressing probability of accepting invitation based on number
    * of safe replicas known.  E.g., <code>[10,100],[10,10]</code> sets
@@ -174,11 +175,12 @@ public class V3PollFactory implements PollFactory {
   }
   
   void deleteFromNoAuPeers(ArchivalUnit au, PeerIdentity peer) {
-    DatedPeerIdSet noAuSet = pollMgr.getNoAuPeerSet(au);
+    DatedPeerIdSet noAuSet = AuUtil.getNoAuPeerSet(au);
     log.debug2("Deleting from NoAuPeer: " + au);
     synchronized (noAuSet) {
       try {
 	noAuSet.remove(peer);
+	noAuSet.store();
       } catch (IOException e) {
 	log.error("Failed to remove peer from AU set", e);
       }
@@ -361,11 +363,6 @@ public class V3PollFactory implements PollFactory {
 
   int countWillingRepairers(ArchivalUnit au) {
     return PollUtil.countWillingRepairers(au, pollMgr, idMgr);
-  }
-
-  // Not used.
-  public int getPollActivity(PollSpec pollspec, PollManager pm) {
-    return ActivityRegulator.STANDARD_CONTENT_POLL;
   }
 
   public void setConfig(Configuration newConfig, Configuration oldConfig,

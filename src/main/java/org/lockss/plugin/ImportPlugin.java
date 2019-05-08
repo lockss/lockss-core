@@ -47,7 +47,7 @@ import org.lockss.util.urlconn.HttpResultMap;
  * The plugin used to import files into archival units.
  */
 public class ImportPlugin extends BasePlugin {
-  private static final Logger log = Logger.getLogger(ImportPlugin.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final String PLUGIN_ID = "org.lockss.plugin.ImportPlugin";
   public static final String PLUGIN_KEY = "org|lockss|plugin|ImportPlugin";

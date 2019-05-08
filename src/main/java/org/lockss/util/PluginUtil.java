@@ -41,7 +41,7 @@ import org.mortbay.util.*;
  * @version 0.0
  */
 public class PluginUtil {
-  static Logger log = Logger.getLogger("PluginUtil");
+  static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "PluginUtil.";
 

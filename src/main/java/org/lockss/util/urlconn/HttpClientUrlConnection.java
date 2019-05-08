@@ -83,6 +83,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 //HC3 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.client.cache.*;
 import org.apache.http.cookie.Cookie;
 import org.apache.http.cookie.CookieSpecProvider;
 import org.apache.http.cookie.SetCookie;
@@ -98,6 +99,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.client.cache.*;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.BasicClientCookie;
@@ -126,7 +128,7 @@ import org.lockss.util.*;
  * because HttpClient doesn't.
  */
 public class HttpClientUrlConnection extends BaseLockssUrlConnection {
-  public static Logger log = Logger.getLogger("HttpClientUrlConnection");
+  public static Logger log = Logger.getLogger();
 
   /* Accept header value.  Can be overridden by plugin. */
   static final String PARAM_ACCEPT_HEADER = PREFIX + "acceptHeader";
@@ -408,6 +410,7 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
   private RequestBuilder reqBuilder = null;
   private HttpUriRequest httpUriRequest = null;
   private HttpClientBuilder clientBuilder = null;
+  private CachingHttpClientBuilder cachingClientBuilder = null;
   private HttpClientContext context = null;
   private RequestConfig.Builder requestConfigBuilder = null;
   private RequestConfig reqConfig = null;
@@ -418,6 +421,8 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
   private boolean followRedirects = true;
   private LayeredConnectionSocketFactory hcSockFact;
   private static Lookup<CookieSpecProvider> cookieSpecRegistry;
+  private CookieStore cookieStore = null;
+  private ClientCacheSpec ccs;
 
   /** Create a connection object, defaulting to GET method */
 //HC3   public HttpClientUrlConnection(String urlString, HttpClient client)
@@ -449,8 +454,6 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
     reqBuilder = RequestBuilder.get().setUri(urlString);
 
     // Handle cookies.
-    CookieStore cookieStore = null;
-
     if (connectionPool == null) {
       context = HttpClientContext.create();
     } else {
@@ -470,11 +473,42 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
       requestConfigBuilder.setCookieSpec(cookiePolicy);
     }
 
-    clientBuilder = HttpClients.custom();
-    clientBuilder.setDefaultCookieStore(cookieStore);
-
     connectionConfigBuilder = ConnectionConfig.custom();
     connectionConfigBuilder.setCharset(charset);
+  }
+
+  HttpClientBuilder getClientBuilder() {
+    if (clientBuilder == null) {
+      if (isCaching()) {
+	cachingClientBuilder = CachingHttpClients.custom();
+	clientBuilder = cachingClientBuilder;
+      } else {
+	clientBuilder = HttpClients.custom();
+      }
+      clientBuilder.setDefaultCookieStore(cookieStore);
+    }
+    return clientBuilder;
+  }
+
+  /** If the client builder is a CachingHttpClientBuilder return it, else
+   * return null. */
+  CachingHttpClientBuilder getCachingClientBuilder() {
+    getClientBuilder();
+    return cachingClientBuilder;
+  }
+
+  /** True if local caching is in effect */
+  boolean isCaching() {
+    return ccs != null;
+  }
+
+  /** Enable local caching with details as specified in the
+   * ClientCacheSpec */
+  public void setClientCache(ClientCacheSpec ccs) {
+    if (clientBuilder != null) {
+      throw new IllegalStateException("Must call setClientCache() before any operation that causes the client builder to be created");
+    }
+    this.ccs = ccs;
   }
 
 //HC3   private HttpMethod createMethod(int methodCode, String urlString)
@@ -542,7 +576,7 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
     if (methodCode != LockssUrlConnection.METHOD_PROXY) {
       mimicSunRequestHeaders();
     } else {
-      clientBuilder.setHttpProcessor(HttpProcessorBuilder.create().build());
+      getClientBuilder().setHttpProcessor(HttpProcessorBuilder.create().build());
     }
 
 //HC3     HostConfiguration hostConfig = client.getHostConfiguration();
@@ -582,7 +616,7 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
       hcSockFact = getDefaultSocketFactory(stl);
     }
 
-    clientBuilder.setSSLSocketFactory(hcSockFact);
+    getClientBuilder().setSSLSocketFactory(hcSockFact);
 
     Registry<ConnectionSocketFactory> rcsf =
 	RegistryBuilder.<ConnectionSocketFactory>create()
@@ -655,15 +689,23 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
       reqConfig = requestConfigBuilder.build();
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "reqConfig = " + reqConfig);
 
-      clientBuilder.setConnectionManager(connManager)
+      getClientBuilder().setConnectionManager(connManager)
       .setDefaultCookieSpecRegistry(cookieSpecRegistry) 	
       .setDefaultSocketConfig(socketConfig).setDefaultRequestConfig(reqConfig);
 
       if (!followRedirects) {
-	clientBuilder.disableRedirectHandling();
+	getClientBuilder().disableRedirectHandling();
       }
 
-      client = clientBuilder.build();
+      if (isCaching()) {
+	getCachingClientBuilder()
+	  .setCacheConfig(ccs.getCacheConfig())
+	  .setCacheDir(ccs.getCacheDir())
+	  .setHttpCacheStorage(ccs.getCacheStorage())
+	  ;
+      }
+
+      client = getClientBuilder().build();
 
       httpUriRequest = reqBuilder.build();
       if (log.isDebug3())
@@ -749,6 +791,11 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
     final String DEBUG_HEADER = "executeRequest(): ";
     response = client.execute(httpUriRequest, context);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
+
+    if (isCaching()) {
+      log.debug2("Cache response status: " +
+		 HttpCacheContext.adapt(context).getCacheResponseStatus());
+    }
 
     responseCode = response.getStatusLine().getStatusCode();
     if (log.isDebug3())

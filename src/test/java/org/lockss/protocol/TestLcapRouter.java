@@ -41,6 +41,8 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.test.PrivilegedAccessor;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 
 /**
@@ -51,7 +53,7 @@ public class TestLcapRouter extends LockssTestCase {
     LcapRouter.class,
   };
 
-  static Logger log = Logger.getLogger("TestRouter");
+  static Logger log = Logger.getLogger();
 
   private MockLockssDaemon daemon;
   MyLcapRouter rtr;

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +26,6 @@
 
  */
 
-/**
- * Container for the information that is used as the source for a query related
- * to repositories.
- */
 package org.lockss.ws.status;
 
 import java.io.File;
@@ -47,17 +39,22 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
+import org.lockss.db.DbException;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
-import org.lockss.repository.OldLockssRepositoryImpl;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.util.PropUtil;
 import org.lockss.ws.entities.RepositoryWsResult;
 
+/**
+ * Container for the information that is used as the source for a query related
+ * to repositories.
+ */
 public class RepositoryWsSource extends RepositoryWsResult {
-  private static Logger log = Logger.getLogger(RepositoryWsSource.class);
+  private static Logger log = Logger.getLogger();
 
   private boolean directoryNamePopulated;
   private boolean auNamePopulated;
@@ -84,16 +81,17 @@ public class RepositoryWsSource extends RepositoryWsResult {
     this.repositoryRootDirectory = repositoryRootDirectory;
     this.repositorySpaceRootName = repositorySpaceRootName;
 
-    File auIdFile = new File(repositoryRootDirectory,
-	OldLockssRepositoryImpl.AU_ID_FILE);
+    // XXXREPO
+//     File auIdFile = new File(repositoryRootDirectory,
+// 	OldLockssRepositoryImpl.AU_ID_FILE);
 
-    if (auIdFile.exists()) {
-      Properties props = propsFromFile(auIdFile);
+//     if (auIdFile.exists()) {
+//       Properties props = propsFromFile(auIdFile);
 
-      if (props != null) {
-	auId = props.getProperty("au.id");
-      }
-    }
+//       if (props != null) {
+// 	auId = props.getProperty("au.id");
+//       }
+//     }
   }
 
   @Override
@@ -112,7 +110,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getAuName() {
+  public String getAuName() throws DbException, LockssRestException {
     if (!auNamePopulated) {
       if (auId != null) {
 	String name = null;
@@ -123,8 +121,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  name = "";
 
 	  if (!isOrphaned()) {
-	    Configuration config =
-		getPluginManager().getStoredAuConfiguration(auId);
+	    Configuration config = getPluginManager()
+		.getStoredAuConfigurationAsConfiguration(auId);
 
 	    if (config != null && !config.isEmpty()) {
 	      name = config.get(PluginManager.AU_PARAM_DISPLAY_NAME);
@@ -156,7 +154,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getStatus() {
+  public String getStatus() throws DbException, LockssRestException {
     if (!statusPopulated) {
       if (auId == null) {
 	setStatus("No AUID");
@@ -167,8 +165,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  if (isOrphaned()) {
 	    setStatus("Orphaned");
 	  } else {
-	    Configuration config =
-		getPluginManager().getStoredAuConfiguration(auId);
+	    Configuration config = getPluginManager()
+		.getStoredAuConfigurationAsConfiguration(auId);
 
 	    if (config == null || config.isEmpty()) {
 	      setStatus("Deleted");
@@ -227,7 +225,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public Map<String, String> getParams() {
+  public Map<String, String> getParams()
+      throws DbException, LockssRestException {
     if (!paramsPopulated) {
       if (auId != null) {
 	if (getArchivalUnit() != null) {
@@ -242,8 +241,8 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  }
 
 	  if (!isOrphaned()) {
-	    Configuration config =
-		getPluginManager().getStoredAuConfiguration(auId);
+	    Configuration config = getPluginManager()
+		.getStoredAuConfigurationAsConfiguration(auId);
 
 	    if (config != null && !config.isEmpty()) {
 	      setParams(makeParams(config));
@@ -330,20 +329,21 @@ public class RepositoryWsSource extends RepositoryWsResult {
    */
   private ArchivalUnit getArchivalUnit() {
     if (!auPopulated) {
-      au = getPluginManager().getAuFromIdIfExists(auId);
+      // XXXREPO
+//       au = getPluginManager().getAuFromIdIfExists(auId);
 
-      if (au != null) {
-	String repoSpec =
-	    au.getConfiguration().get(PluginManager.AU_PARAM_REPOSITORY);
-	String repoRoot = (repoSpec == null)
-	    ? CurrentConfig.getParam(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION)
-	    : OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
+//       if (au != null) {
+// 	String repoSpec =
+// 	    au.getConfiguration().get(PluginManager.AU_PARAM_REPOSITORY);
+// 	String repoRoot = (repoSpec == null)
+// 	    ? CurrentConfig.getParam(OldLockssRepositoryImpl.PARAM_CACHE_LOCATION)
+// 	    : OldLockssRepositoryImpl.getLocalRepositoryPath(repoSpec);
 
-	if (!OldLockssRepositoryImpl.isDirInRepository(repositorySpaceRootName,
-	    repoRoot)) {
-	  au = null;
-	}
-      }
+// 	if (!OldLockssRepositoryImpl.isDirInRepository(repositorySpaceRootName,
+// 	    repoRoot)) {
+// 	  au = null;
+// 	}
+//       }
 
       auPopulated = true;
     }

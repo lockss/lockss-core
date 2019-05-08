@@ -51,36 +51,6 @@ public class TestPeerAgreements extends LockssTestCase {
     }
   }
 
-  public void testCreateFromIdentityAgreement() throws Exception {
-    // Create pre-1.62 IdentityAgreement.
-    IdentityManager.IdentityAgreement identityAgreement =
-      new IdentityManager.IdentityAgreement("id0");
-    identityAgreement.setLastAgree(1000);
-    identityAgreement.setLastDisagree(2000);
-    // call twice with a lower value than the first time, to make
-    // the highest and the most recent different.
-    identityAgreement.setPercentAgreement(0.5f);
-    identityAgreement.setPercentAgreement(0.4f);
-    identityAgreement.setPercentAgreementHint(0.3f);
-    identityAgreement.setPercentAgreementHint(0.2f);
-
-    PeerAgreements peerAgreements = PeerAgreements.from(identityAgreement);
-    assertEquals("id0", peerAgreements.getId());
-    PeerAgreement porAgreement = 
-      peerAgreements.getPeerAgreement(AgreementType.POR);
-    assertEquals(0.4f, porAgreement.getPercentAgreement());
-    assertEquals(0.5f, porAgreement.getHighestPercentAgreement());
-    assertEquals(2000, porAgreement.getPercentAgreementTime());
-    assertEquals(0, porAgreement.getHighestPercentAgreementTime());
-
-    PeerAgreement porHintAgreement = 
-      peerAgreements.getPeerAgreement(AgreementType.POR_HINT);
-    assertEquals(0.2f, porHintAgreement.getPercentAgreement());
-    assertEquals(0.3f, porHintAgreement.getHighestPercentAgreement());
-    assertEquals(0, porHintAgreement.getPercentAgreementTime());
-    assertEquals(0, porHintAgreement.getHighestPercentAgreementTime());
-  }
-
   public void testSignalValues() throws Exception {
     PeerAgreements peerAgreements = new PeerAgreements("id0");
     assertEquals("id0", peerAgreements.getId());

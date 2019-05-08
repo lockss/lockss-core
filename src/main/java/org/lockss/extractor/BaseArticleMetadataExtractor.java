@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
  */
 public class BaseArticleMetadataExtractor implements ArticleMetadataExtractor {
 
-  private static Logger log = Logger.getLogger(BaseArticleMetadataExtractor.class);
+  private static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "metadata.";
 

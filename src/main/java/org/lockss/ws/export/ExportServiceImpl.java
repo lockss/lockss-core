@@ -61,7 +61,7 @@ public class ExportServiceImpl implements ExportService {
   private PluginManager pluginMgr;
   private Configuration config;
 
-  static Logger log = Logger.getLogger(ExportServiceImpl.class);
+  static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "export.";
   static final String DEFAULT_EXPORT_DIR = "export";

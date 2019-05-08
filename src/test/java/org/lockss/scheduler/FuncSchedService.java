@@ -36,6 +36,9 @@ import java.util.*;
 import java.io.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.time.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.plugin.*;
 
@@ -45,7 +48,7 @@ import org.lockss.plugin.*;
  */
 
 public class FuncSchedService extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncSchedService");
+  static Logger log = Logger.getLogger();
 
   public static Class testedClasses[] = {
     org.lockss.scheduler.SchedService.class,
@@ -112,7 +115,7 @@ public class FuncSchedService extends LockssTestCase {
       future = 2 * future;
     }
     fail("Couldn't schedule background task within " +
-	 StringUtil.timeIntervalToString(future));
+	 TimeUtil.timeIntervalToString(future));
   }
 
   // Background event record

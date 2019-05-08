@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,13 +47,17 @@ import org.mortbay.servlet.MultiPartRequest;
 
 import org.lockss.app.*;
 import org.lockss.config.*;
+import org.lockss.db.DbException;
 import org.lockss.account.*;
 import org.lockss.protocol.*;
+import org.lockss.rs.exception.LockssRestException;
 import org.lockss.jetty.*;
 import org.lockss.alert.*;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.lockss.util.*;
-
+import org.lockss.util.net.IPAddr;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.time.TimeBase;
 import org.xnap.commons.i18n.I18n;
 
 /** Abstract base class for LOCKSS servlets
@@ -67,7 +67,7 @@ import org.xnap.commons.i18n.I18n;
 public abstract class LockssServlet extends HttpServlet
   implements SingleThreadModel {
   
-  private static final Logger log = Logger.getLogger(LockssServlet.class);
+  private static final Logger log = Logger.getLogger();
 
   /** A gettext-commons I18n object usable by all servlets. The object is
    * cached per-package (internally to the gettext-commons library). */
@@ -185,7 +185,7 @@ public abstract class LockssServlet extends HttpServlet
 
   /** Servlets must implement this method. */
   protected abstract void lockssHandleRequest()
-      throws ServletException, IOException;
+      throws ServletException, IOException, DbException, LockssRestException;
 
   /** Common request handling. */
   public void service(HttpServletRequest req, HttpServletResponse resp)
@@ -240,6 +240,12 @@ public abstract class LockssServlet extends HttpServlet
     } catch (IOException e) {
       log.error("Servlet threw", e);
       throw e;
+    } catch (DbException dbe) {
+      log.error("Servlet threw", dbe);
+      throw new RuntimeException("Database Error", dbe);
+    } catch (LockssRestException lre) {
+      log.error("Servlet threw", lre);
+      throw new RuntimeException("REST service Error", lre);
     } catch (RuntimeException e) {
       log.error("Servlet threw", e);
       throw e;
@@ -422,8 +428,14 @@ public abstract class LockssServlet extends HttpServlet
     return ip;
   }
 
-  protected String getRequestHost() {
-    return reqURL.getHost();
+  String getRequestStem() {
+    StringBuilder sb = new StringBuilder();
+    sb.append(reqURL.getProtocol());
+    sb.append("://");
+    sb.append(reqURL.getHost());
+    sb.append(':');
+    sb.append(reqURL.getPort());
+    return sb.toString();
   }
 
   protected String getMachineName() {
@@ -614,21 +626,21 @@ public abstract class LockssServlet extends HttpServlet
   /** Construct servlet absolute URL.
    */
   String srvAbsURL(ServletDescr d) {
-    return srvURL(getRequestHost(), d, null);
+    return srvURL(getRequestStem(), d, null);
   }
 
   /** Construct servlet absolute URL, with params as necessary.
    */
   String srvAbsURL(ServletDescr d, String params) {
-    return srvURL(getRequestHost(), d, params);
+    return srvURL(getRequestStem(), d, params);
   }
 
   /** Construct servlet URL, with params as necessary.  Avoid generating a
    *  hostname different from that used in the original request, or
    *  browsers will prompt again for login
    */
-  String srvURL(String host, ServletDescr d, String params) {
-    return srvURLFromStem(srvUrlStem(host), d, params);
+  String srvURL(String stem, ServletDescr d, String params) {
+    return srvURLFromStem(stem, d, params);
   }
 
   String srvURL(PeerIdentity peer, ServletDescr d, String params) {
@@ -642,6 +654,9 @@ public abstract class LockssServlet extends HttpServlet
   String srvURLFromStem(String stem, ServletDescr d, String params) {
     if (d.isPathIsUrl()) {
       return d.getPath();
+    }
+    if (stem == null) {
+      stem = srvUrlStemFromDescr(d);
     }
     StringBuilder sb = new StringBuilder(80);
     if (stem != null) {
@@ -661,17 +676,19 @@ public abstract class LockssServlet extends HttpServlet
     return sb.toString();
   }
 
-  String srvUrlStem(String host) {
-    if (host == null) {
+  String srvUrlStemFromDescr(ServletDescr d) {
+    if (d == null) {
       return null;
     }
-    StringBuilder sb = new StringBuilder();
-    sb.append(reqURL.getProtocol());
-    sb.append("://");
-    sb.append(host);
-    sb.append(':');
-    sb.append(reqURL.getPort());
-    return sb.toString();
+    ServiceDescr svc = d.getService();
+    if (svc == null || getLockssDaemon().isMyService(svc)) {
+      return null;
+    }
+    ServiceBinding binding = getLockssDaemon().getServiceBinding(svc);
+    if (binding == null) {
+      return null;
+    }
+    return binding.getUiStem(reqURL.getProtocol());
   }
 
   /** Return a link to a servlet */
@@ -701,6 +718,16 @@ public abstract class LockssServlet extends HttpServlet
     return link.toString();
   }
 
+  /** Return a link to a servlet with params */
+  String srvLinkWithStyle(ServletDescr d, String text,
+		       String style, Properties params) {
+    Link link = new Link(srvURL(d, params), text);
+    if (!StringUtil.isNullString(style)) {
+      link.attribute("style", style);
+    }
+    return link.toString();
+  }
+
   /** Return an absolute link to a servlet with params */
   String srvAbsLink(ServletDescr d, String text, Properties params) {
     return srvAbsLink(d, text, concatParams(params));
@@ -713,8 +740,8 @@ public abstract class LockssServlet extends HttpServlet
   }
 
   /** Return an absolute link to a servlet with params */
-  String srvAbsLink(String host, ServletDescr d, String text, String params) {
-    return new Link(srvURL(host, d, params),
+  String srvAbsLink(String stem, ServletDescr d, String text, String params) {
+    return new Link(srvURL(stem, d, params),
 		    (text != null ? text : d.heading)).toString();
   }
 
@@ -833,8 +860,9 @@ public abstract class LockssServlet extends HttpServlet
                              page,
                              heading,
                              isLargeLogo(),
+			     getLockssDaemon().getAppName(),
                              getMachineName(),
-                             getMachineIpAddr(),
+			     getMachineIpAddr(),
                              getLockssApp().getStartDate(),
                              inNavIterator);
     String warnMsg = servletMgr.getWarningMsg();
@@ -1175,7 +1203,8 @@ public abstract class LockssServlet extends HttpServlet
   }
 
   protected void layoutFooter(Page page) {
-    ServletUtil.doLayoutFooter(page,
+    ServletUtil.doLayoutFooter(this,
+			       page,
                               (footnotes == null ? null : footnotes.iterator()),
                               getLockssApp().getVersionInfo());
     if (footnotes != null) {

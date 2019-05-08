@@ -47,7 +47,7 @@ import org.lockss.app.*;
 public class PsmManager extends BaseLockssDaemonManager
   implements ConfigurableManager {
 
-  static Logger log = Logger.getLogger("PsmManager");
+  static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "psm.";
 

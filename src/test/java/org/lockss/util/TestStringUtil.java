@@ -37,6 +37,7 @@ import java.util.*;
 import java.lang.reflect.*;
 
 import org.lockss.test.*;
+import org.lockss.util.os.PlatformUtil;
 
 /**
  * This is the test class for org.lockss.util.StringUtil
@@ -874,43 +875,11 @@ public class TestStringUtil extends LockssTestCase {
   }
 
   public void testTimeIntervalToString() throws Exception {
-    assertEquals("0ms", StringUtil.timeIntervalToString(0));
-    assertEquals("1000ms", StringUtil.timeIntervalToString(SECOND));
-    assertEquals("-1000ms", StringUtil.timeIntervalToString(- SECOND));
-    assertEquals("9000ms", StringUtil.timeIntervalToString(SECOND * 9));
-    assertEquals("-9000ms", StringUtil.timeIntervalToString(- SECOND * 9));
-    assertEquals("10s", StringUtil.timeIntervalToString(SECOND * 10));
-    assertEquals("1m0s", StringUtil.timeIntervalToString(MINUTE));
-    assertEquals("1h0m0s", StringUtil.timeIntervalToString(HOUR));
-    assertEquals("2d3h0m",
-		 StringUtil.timeIntervalToString(DAY * 2 + HOUR * 3));
-    assertEquals("20d23h0m",
-		 StringUtil.timeIntervalToString(WEEK * 3 - (HOUR * 1)));
-    assertEquals("-20d23h0m",
-		 StringUtil.timeIntervalToString(- (WEEK * 3 - (HOUR * 1))));
-    assertEquals("3w0d0h", StringUtil.timeIntervalToString(WEEK * 3));
+    // see lockss-util TimeTestUtil testTimeIntervalToString
   }
 
   public void testTimeIntervalToLong() throws Exception {
-    assertEquals("0 seconds", StringUtil.timeIntervalToLongString(0));
-    assertEquals("1 second", StringUtil.timeIntervalToLongString(SECOND));
-    assertEquals("-1 second", StringUtil.timeIntervalToLongString(- SECOND));
-    assertEquals("9 seconds", StringUtil.timeIntervalToLongString(SECOND * 9));
-    assertEquals("-9 seconds",
-		 StringUtil.timeIntervalToLongString(- SECOND * 9));
-    assertEquals("10 seconds",
-		 StringUtil.timeIntervalToLongString(SECOND * 10));
-    assertEquals("1 minute", StringUtil.timeIntervalToLongString(MINUTE));
-    assertEquals("1 hour", StringUtil.timeIntervalToLongString(HOUR));
-    assertEquals("2 days, 3 hours",
-		 StringUtil.timeIntervalToLongString(DAY * 2 + HOUR * 3));
-    assertEquals("20 days, 23 hours, 45 minutes",
-		 StringUtil.timeIntervalToLongString(WEEK * 3 - (HOUR * 1)
-						     + MINUTE * 45));
-    assertEquals("12 days, 13 minutes, 1 second",
-		 StringUtil.timeIntervalToLongString(DAY * 12 + MINUTE * 13
-						     + SECOND));
-    assertEquals("21 days", StringUtil.timeIntervalToLongString(WEEK * 3));
+    // see lockss-util TimeTestUtil testTimeIntervalToLong
   }
 
   public void testParseSize() throws Exception {

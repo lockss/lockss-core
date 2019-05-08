@@ -136,6 +136,6 @@ public abstract class ConditionalOperatorProcessor extends PdfOperatorProcessor 
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("ConditionalOperatorProcessor");
+  private static Logger logger = Logger.getLogger();
 
 }

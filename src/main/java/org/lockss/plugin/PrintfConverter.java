@@ -39,7 +39,7 @@ import org.lockss.util.*;
 import org.lockss.util.Constants.RegexpContext;
 
 public abstract class PrintfConverter {
-  static Logger log = Logger.getLogger("PrintfConverter");
+  static Logger log = Logger.getLogger();
 
   public static final String RANGE_SUBSTITUTION_STRING = "(.*)";
   public static final String NUM_SUBSTITUTION_STRING = "(\\d+)";

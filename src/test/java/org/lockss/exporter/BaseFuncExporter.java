@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,19 +31,12 @@ package org.lockss.exporter;
 import java.io.*;
 import java.util.*;
 import java.util.regex.*;
-
-import org.archive.io.*;
-import org.archive.io.arc.*;
-
-import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
-import org.lockss.repository.OldLockssRepositoryImpl;
-import org.lockss.protocol.*;
 
 public abstract class BaseFuncExporter extends LockssTestCase {
   protected static final int DEFAULT_FILESIZE = 3000;
@@ -61,12 +50,10 @@ public abstract class BaseFuncExporter extends LockssTestCase {
   protected File[] exportFiles = null;
   protected int exportFileIx;
 
-
   protected int fileSize = DEFAULT_FILESIZE;
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     daemon = getMockLockssDaemon();
 
     String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
@@ -74,6 +61,8 @@ public abstract class BaseFuncExporter extends LockssTestCase {
     Properties props = new Properties();
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.addFromProps(props);
+
+    daemon.setUpAuConfig();
 
     daemon.getPluginManager();
     daemon.setDaemonInited(true);
@@ -107,7 +96,7 @@ public abstract class BaseFuncExporter extends LockssTestCase {
 
   protected void crawlContent() {
     Crawler crawler =
-      new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+      new NoCrawlEndActionsFollowLinkCrawler(sau, AuUtil.getAuState(sau));
     crawler.doCrawl();
     auUrls = new ArrayList<String>();
     auDirs = new ArrayList<String>();

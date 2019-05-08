@@ -45,7 +45,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 
 public class TestSampledBlockHasher extends LockssTestCase {
-  private static final Logger log = Logger.getLogger("TestSampledBlockHasher");
+  private static final Logger log = Logger.getLogger();
 
   private static final String TEST_URL_BASE = "http://www.test.com/blah/";
   private static final String TEST_URL = TEST_URL_BASE+"blah.html";
@@ -79,11 +79,8 @@ public class TestSampledBlockHasher extends LockssTestCase {
     dig = new MockMessageDigest();
     digests = new MessageDigest[]{ dig };
     initByteArrays = new byte[][]{ testContent };
-    mau = new MockArchivalUnit(new MockPlugin(daemon), TEST_URL_BASE);
+    mau = newMockArchivalUnit(TEST_URL_BASE);
     cus = makeFakeCachedUrlSet(1);
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    daemon.setHistoryRepository(histRepo, mau);
-    histRepo.setAuState(new MockAuState(mau));
 
     ConfigurationUtil.addFromArgs(LcapMessage.PARAM_HASH_ALGORITHM,
                                   LcapMessage.DEFAULT_HASH_ALGORITHM);
@@ -241,15 +238,7 @@ public class TestSampledBlockHasher extends LockssTestCase {
     MockArchivalUnit mau = new MockArchivalUnit(new MockPlugin(daemon), url);
     MockCachedUrlSet cus = new MockCachedUrlSet(url);
     cus.setArchivalUnit(mau);
-    OldLockssRepositoryImpl repo =
-      (OldLockssRepositoryImpl)OldLockssRepositoryImpl.createNewLockssRepository(
-        mau);
-    daemon.setLockssRepository(repo, mau);
-    repo.initService(daemon);
-    repo.startService();
-    MockHistoryRepository histRepo = new MockHistoryRepository();
-    daemon.setHistoryRepository(histRepo, mau);
-    histRepo.setAuState(new MockAuState(mau));
+    AuTestUtil.setUpMockAus(mau);
     return mau;
   }
 
@@ -257,7 +246,6 @@ public class TestSampledBlockHasher extends LockssTestCase {
       throws IOException, FileNotFoundException {
     Vector files = new Vector(numFiles+1);
 
-    MockArchivalUnit mau = newMockArchivalUnit(TEST_URL_BASE);
     MockCachedUrlSet cus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
     mau.addUrl(TEST_URL_BASE, true, true);
     mau.addContent(TEST_URL_BASE,  TEST_FILE_CONTENT+" base");

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2013 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,32 +28,18 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.protocol;
 
-import java.io.IOException;
+import java.io.*;
+import org.lockss.app.LockssDaemon;
 
 /**
- * @author edwardsb
- *
- * This method adds a date (implemented as a long) to the set.
+ * A PersistentPeerIdSet with a timestamp.
  */
 public interface DatedPeerIdSet extends PersistentPeerIdSet {
-  /**
-   * Notice that the "date" being set is actually a long.  The code internally uses long for dates.
-   * You can convert between dates and longs with:
-   * 
-   *   Date d -> long
-   *   d.getTime()
-   *   
-   *   long l -> Date
-   *   Date newDate = new Date();
-   *   newDate.setTime(l);
-   *   
-   * @param l
-   */
-  public void setDate(long l) throws IOException;
+  /** Set the set's timestamp */
+  public void setDate(long l);
   
   /**
-   * 
-   * @return long
+   * @return the set's timestamp
    */
-  public long getDate() throws IOException;
+  public long getDate();
 }

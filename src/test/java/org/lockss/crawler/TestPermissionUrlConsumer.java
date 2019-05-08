@@ -82,10 +82,7 @@ public abstract class TestPermissionUrlConsumer extends LockssTestCase {
     mplug = new MockPlugin(daemon);
     mplug.initPlugin(daemon);
     mau = new MockArchivalUnit(mplug, "testau");
-    MockHistoryRepository nodeManager = new MockHistoryRepository();
-    daemon.setHistoryRepository(nodeManager, mau);
-    MockAuState aus = new MockAuState(mau);
-    nodeManager.setAuState(aus);
+    AuTestUtil.setUpMockAus(mau);
 
     mau.addUrl(url1);
     mcf = new MockCrawler().new MockCrawlerFacade();

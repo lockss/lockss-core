@@ -48,7 +48,7 @@ import org.lockss.state.*;
 /** ViewContent servlet displays cached content
  */
 public class ViewContent extends LockssServlet {
-  static final Logger log = Logger.getLogger("ViewContent");
+  static final Logger log = Logger.getLogger();
 
   private String action;
   private String verbose;
@@ -92,7 +92,7 @@ public class ViewContent extends LockssServlet {
    * @throws IOException
    */
   public void lockssHandleRequest() throws IOException {
-    if (!pluginMgr.areAusStarted()) {
+    if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       displayNotStarted();
       return;
     }

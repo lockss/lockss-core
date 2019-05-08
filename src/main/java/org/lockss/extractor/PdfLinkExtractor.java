@@ -98,6 +98,6 @@ public class PdfLinkExtractor implements LinkExtractor {
     pdfDocument.close();
   }
 
-  private static final Logger logger = Logger.getLogger("PdfLinkExtractor");
+  private static final Logger logger = Logger.getLogger();
   
 }

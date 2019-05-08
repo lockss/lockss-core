@@ -36,7 +36,7 @@ import org.lockss.util.Logger;
  * Migrates in a separate thread the database from version 19 to version 20.
  */
 public class DbVersion19To20Migrator extends LockssRunnable {
-  private static Logger log = Logger.getLogger(DbVersion19To20Migrator.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Constructor.

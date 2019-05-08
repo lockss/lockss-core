@@ -36,7 +36,10 @@ import java.util.*;
 import java.io.*;
 
 import org.lockss.util.*;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 import org.lockss.app.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 
 /**
@@ -44,7 +47,7 @@ import org.lockss.test.*;
  */
 public class TestAlertManagerImpl extends LockssTestCase {
 
-  private static final Logger log = Logger.getLogger(TestAlertManagerImpl.class);
+  private static final Logger log = Logger.getLogger();
 
   MockLockssDaemon daemon;
   MyMockAlertManagerImpl mgr;

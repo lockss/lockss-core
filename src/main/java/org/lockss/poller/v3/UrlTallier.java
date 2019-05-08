@@ -51,7 +51,7 @@ import org.lockss.util.*;
  * participant.
  */
 final class UrlTallier {
-  private static Logger log = Logger.getLogger(UrlTallier.class);
+  private static Logger log = Logger.getLogger();
 
   // Note: Use of the ParticipantUserData here ties this class to
   // V3Poller pretty tightly.

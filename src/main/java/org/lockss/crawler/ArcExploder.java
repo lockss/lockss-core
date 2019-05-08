@@ -38,6 +38,8 @@ import java.io.*;
 import org.archive.io.*;
 import org.archive.io.arc.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeUtil;
 import org.lockss.util.urlconn.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -55,7 +57,7 @@ import org.lockss.plugin.*;
 
 public class ArcExploder extends Exploder {
 
-  private static Logger logger = Logger.getLogger("ArcExploder");
+  private static Logger logger = Logger.getLogger();
   protected CIProperties arcProps;
   protected InputStream arcStream;
 
@@ -118,7 +120,7 @@ public class ArcExploder extends Exploder {
     	  if ((++entriesBetweenSleep % sleepAfter) == 0) {
     	    Deadline pause = Deadline.in(pauseTime);
     	    logger.debug3("Sleeping for " +
-    	      StringUtil.timeIntervalToString(pauseTime));
+    	      TimeUtil.timeIntervalToString(pauseTime));
     	    while (!pause.expired()) {
     	      try {
     	        pause.sleep();

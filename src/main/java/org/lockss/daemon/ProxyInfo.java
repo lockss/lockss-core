@@ -45,6 +45,7 @@ import org.lockss.protocol.IdentityManager;
 import org.lockss.proxy.*;
 import org.lockss.proxy.icp.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Generate config files for external proxies, specifying patterns of URLs
@@ -775,7 +776,7 @@ public class ProxyInfo {
 //    return getPluginMgr().getAllAus();
 //  }
 
-  protected static Logger log = Logger.getLogger("ProxyInfo");
+  protected static Logger log = Logger.getLogger();
 
   static final int MAX_ENCAPSULATED_PAC_SIZE = 100 * 1024;
 

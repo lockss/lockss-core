@@ -62,7 +62,7 @@ import org.lockss.plugin.*;
  */
 public class BaseAuParamFunctor implements AuParamFunctor {
 
-  private static final Logger log = Logger.getLogger(BaseAuParamFunctor.class);
+  private static final Logger log = Logger.getLogger();
 
   public static final AuParamFunctor SINGLETON = new BaseAuParamFunctor();
 

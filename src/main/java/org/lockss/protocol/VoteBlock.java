@@ -33,6 +33,7 @@ import org.mortbay.util.*;
 
 import org.lockss.util.*;
 import org.lockss.util.StringUtil;
+import org.lockss.util.io.LockssSerializable;
 
 /**
  * A simple bean representing a V3 vote block -- a file, or part of a file.

@@ -48,7 +48,7 @@ public class FormUrlHelper {
   ArrayList<FormUrlInput> m_inputs;
   boolean m_valid = false;
   
-  private static final Logger logger = Logger.getLogger(FormUrlHelper.class);
+  private static final Logger logger = Logger.getLogger();
 
 
   public FormUrlHelper() {

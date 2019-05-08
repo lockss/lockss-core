@@ -48,7 +48,7 @@ import org.lockss.daemon.*;
 /** Tests for both SimpleXmlMetadataExtractor and SaxMetadataExtractor */
 public abstract class TestXmlMetadataExtractor
   extends FileMetadataExtractorTestCase {
-  static Logger log = Logger.getLogger("TestXmlMetadataExtractor");
+  static Logger log = Logger.getLogger();
 
   // Variant to test SaxMetadataExtractor
   public static class TestSax extends TestXmlMetadataExtractor {

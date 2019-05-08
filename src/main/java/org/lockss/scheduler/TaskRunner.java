@@ -46,6 +46,9 @@ import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 class TaskRunner {
   // Sort options for displaying queue
@@ -92,7 +95,7 @@ class TaskRunner {
   static final String WDOG_PARAM_NOTIFIER = "Notifier";
   static final long WDOG_DEFAULT_NOTIFIER = Constants.HOUR;
 
-  private static final Logger log = Logger.getLogger(TaskRunner.class);
+  private static final Logger log = Logger.getLogger();
 
   private LockssDaemon daemon;
   private final SchedulerFactory schedulerFactory;
@@ -1214,7 +1217,7 @@ class TaskRunner {
       if (delta > 1000) {
 	delta = ((delta + 500) / 1000) * 1000; // round to nearest second
       }
-      return StringUtil.timeIntervalToString(delta);
+      return TimeUtil.timeIntervalToString(delta);
     }
 
     private class CombinedBackgroundEvent extends Schedule.BackgroundEvent {

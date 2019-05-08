@@ -32,6 +32,7 @@ import java.util.*;
 import java.io.*;
 import java.net.SocketException;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.config.Configuration;
 
 /** Encapsulates and abstracts a URL connection, using either Sun's
@@ -89,6 +90,10 @@ public interface LockssUrlConnection {
    * @throws UnsupportedOperationException if canProxy() returns false
    */
   public void setProxy(String host, int port) throws CantProxyException ;
+
+  /** Configure caching
+   */
+  public void setClientCache(ClientCacheSpec ccs);
 
   /** Set the ProtocolSocketFactory to be used with this connection */
   public void setSecureSocketFactory(LockssSecureSocketFactory sockFact);

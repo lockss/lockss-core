@@ -45,7 +45,7 @@ import org.lockss.util.*;
  * password
  */
 public class MDCredential extends Credential {
-  static Logger log = Logger.getLogger("MDCredential");
+  static Logger log = Logger.getLogger();
 
   private static HashMap mdMap = new HashMap();
 

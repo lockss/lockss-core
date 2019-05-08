@@ -1,45 +1,49 @@
 /*
- * $Id$
- */
 
-/*
+Copyright (c) 2000-2019, Board of Trustees of Leland Stanford Jr. University
+All rights reserved.
 
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
 
 package org.lockss.util;
 
 import java.util.StringTokenizer;
+import java.util.regex.*;
 
 /**
- * Representation of a daemon version.  Currently this is a string
- * with three integer parts separated by a period ("."), i.e. "1.1.3".
+ * Representation of a daemon version.
+ * @see #DaemonVersion(String)
  */
-public class DaemonVersion implements Version, Comparable {
+public class DaemonVersion implements Version, Comparable<DaemonVersion> {
 
+  public static final Pattern PATTERN = Pattern.compile("(?:([01])(?:-[0-9a-zA-Z]+)?\\.)?([0-9]{1,3})(?:-[0-9a-zA-Z]+)?\\.([0-9]{1,3})(?:-[0-9a-zA-Z]+)?");
+  
   private String m_verStr;
   private int m_versionMajor;
   private int m_versionMinor;
@@ -48,41 +52,37 @@ public class DaemonVersion implements Version, Comparable {
   /**
    * Construct a Daemon Version from a string.
    *
-   * Valid formats are three period (.) separated tokens, each of which
-   * consists of a nuumber, optionally followed by a dash and any string.
-   * The dash and any following characters in each token are ignored.
-   * Tokens must be three characters or less, not including dashes and
-   * characters following the dash.  For example:
-   *
-   *   1.2.3
-   *   1.2.3-testing  (sorts same as 1.2.3)
-   *   1.2-b.3  (sorts same as 1.2.3)
-   *
-   * Illegal formats:
-   *   1.0
-   *   1.0.0.0
-   *   1a.2b.3c
-   *   1.2.3ab
-   *   1.2323.3b
+   * Valid formats are period-separated tokens, each consisting of up to
+   * three digits optionally followed by a dash and any nonempty string (where
+   * the optional dash and string are ignored); either three tokens if the
+   * leading token is 0 or 1, or two tokens otherwise. Examples of valid
+   * versions: 2.0, 2.0-alpha (sorts the same as 2.0), 2-b.0 (sorts the same
+   * as 2.0), 1.2.3, 1.2.3-testing (sorts the same as 1.2.3), 1.2-b.3 (sorts
+   * the same as 1.2.3), 0.1.0. Examples of invalid versions: 0.1 (leading
+   * token 0 but only two tokens), 1.2 (leading token 1 but only two tokens),
+   * 2.0.0.0 (too many tokens), 7 (not enough tokens), 2a.3b.4c (string not
+   * separated from digits by dash), 2.9999.0 (too many digits).
    */
   public DaemonVersion(String ver) {
-    StringTokenizer st = new StringTokenizer(ver, ".");
-
-    if (st.countTokens() != 3) {
-      throw new IllegalArgumentException("Illegal format for Daemon Version: "
-	+ ver);
+    Matcher mat = PATTERN.matcher(ver);
+    if (!mat.matches()) {
+      throw new IllegalArgumentException("Illegal format for Daemon Version: " + ver);
     }
-
     m_verStr = ver;
+
     try {
-      if (st.hasMoreTokens()) {
-	m_versionMajor = parseToken(st.nextToken());
+      if (StringUtil.isNullString(mat.group(1))) {
+        m_versionMajor = Integer.parseInt(mat.group(2));
+        if (m_versionMajor < 2) {
+          throw new IllegalArgumentException("Illegal format for Daemon Version: " + ver);
+        }
+        m_versionMinor = Integer.parseInt(mat.group(3));
+        m_versionBuild = 0;
       }
-      if (st.hasMoreTokens()) {
-	m_versionMinor = parseToken(st.nextToken());
-      }
-      if (st.hasMoreTokens()) {
-	m_versionBuild = parseToken(st.nextToken());
+      else {
+        m_versionMajor = Integer.parseInt(mat.group(1));
+        m_versionMinor = Integer.parseInt(mat.group(2));
+        m_versionBuild = Integer.parseInt(mat.group(3));
       }
     } catch (NumberFormatException ex) {
       throw new IllegalArgumentException(ex.toString());
@@ -91,15 +91,7 @@ public class DaemonVersion implements Version, Comparable {
   }
 
   public long toLong() {
-    long base = 10 * 10 * 10;
-    long num = m_versionMajor;
-    num = (num * base) + m_versionMinor;
-    num = (num * base) + m_versionBuild;
-    return num;
-  }
-
-  public int compareTo(Object o) {
-    return compareTo((DaemonVersion)o);
+    return 1_000_000L * m_versionMajor + 1_000L * m_versionMinor + m_versionBuild;
   }
 
   public int compareTo(DaemonVersion other) {
@@ -107,19 +99,6 @@ public class DaemonVersion implements Version, Comparable {
     if (x > 0) return 1;
     if (x < 0) return -1;
     return 0;
-  }
-
-  private static int parseToken(String token) {
-    String intPart = token;
-    int dash = token.indexOf('-');
-
-    if (dash > -1) {
-      intPart = token.substring(0, dash);
-    }
-    if (intPart.length() > 3) {
-      throw new IllegalArgumentException("Token is too long: " + intPart);
-    }
-    return Integer.parseInt(intPart, 10);
   }
 
   public String displayString() {

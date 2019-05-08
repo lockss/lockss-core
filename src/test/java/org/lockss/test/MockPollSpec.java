@@ -49,7 +49,7 @@ import org.lockss.test.*;
  */
 
 public class MockPollSpec extends PollSpec {
-  private static Logger log = Logger.getLogger("MockPollSpec");
+  private static Logger log = Logger.getLogger();
 
   private String overridePluginVersion = null;
   private boolean nullCUS = false;

@@ -102,7 +102,7 @@ public class BlockTally implements VoteBlockTallier.VoteBlockTally {
     return pollerHashes;
   }
 
-  private static final Logger log = Logger.getLogger("BlockTally");
+  private static final Logger log = Logger.getLogger();
 
   // package level, for testing, and access by BlockTally.
   // List of voters with whom the poller agrees.

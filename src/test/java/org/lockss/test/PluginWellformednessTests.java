@@ -44,6 +44,7 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.state.*;
 import org.lockss.extractor.*;
+import org.lockss.util.test.FileTestUtil;
 
 /** Performs basic well-formedness tests on one or more plugins.  The list
  * of plugins may be supplied as a semicolon-separated list in the System
@@ -56,7 +57,7 @@ import org.lockss.extractor.*;
  */
 
 public final class PluginWellformednessTests extends LockssTestCase {
-  static Logger log = Logger.getLogger("PluginWellformednessTests");
+  static Logger log = Logger.getLogger();
 
   /** The System property under which this class expects to find a
    * semicolon-separated list of plugin names. */
@@ -94,13 +95,6 @@ public final class PluginWellformednessTests extends LockssTestCase {
       super();
     }
 
-    public HistoryRepository getHistoryRepository(ArchivalUnit au) {
-      // try {
-      // 	return super.setHistoryRepository(au);
-      // } catch (IllegalArgumentException e) {
-	return (HistoryRepository)newAuManager(LockssDaemon.HISTORY_REPOSITORY, au);
-      // }
-    }
   }
 
   protected Plugin getPlugin() throws IOException {
@@ -140,8 +134,6 @@ public final class PluginWellformednessTests extends LockssTestCase {
   protected ArchivalUnit createAu()
       throws ArchivalUnit.ConfigurationException, IOException {
     ArchivalUnit au = PluginTestUtil.createAu(pluginName, getSampleAuConfig());
-    daemon.setHistoryRepository(new MockHistoryRepository(), au);
-    daemon.setLockssRepository(new MockLockssRepository(), au);
     return au;
   }
 

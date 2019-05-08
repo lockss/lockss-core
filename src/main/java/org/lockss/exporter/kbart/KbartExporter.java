@@ -83,7 +83,7 @@ import org.mortbay.html.Composite;
  */
 public abstract class KbartExporter {
 
-  private static Logger log = Logger.getLogger("KbartExporter");
+  private static Logger log = Logger.getLogger();
 
   // Footnotes for the interface options
   private static final String CSV_NOTE = "CSV (comma-separated values) files " +

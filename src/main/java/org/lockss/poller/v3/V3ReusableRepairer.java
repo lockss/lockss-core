@@ -61,7 +61,7 @@ public class V3ReusableRepairer {
   private LockssDaemon daemon;
   private PollManager pollManager;
 
-  private static final Logger log = Logger.getLogger("V3ReusableRepairer");
+  private static final Logger log = Logger.getLogger();
 
   /**
    * Return true iff this is a valid starting message.

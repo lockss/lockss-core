@@ -129,9 +129,6 @@ public class ManagerDescs {
   public static ManagerDesc FAIL_OVER_PROXY_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.FAIL_OVER_PROXY_MANAGER ,
                     "org.lockss.proxy.FailOverProxyManager");
-  public static ManagerDesc DATAGRAM_COMM_MANAGER_DESC =
-    new ManagerDesc(LockssDaemon.DATAGRAM_COMM_MANAGER,
-                    "org.lockss.protocol.LcapDatagramComm");
   public static ManagerDesc STREAM_COMM_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.STREAM_COMM_MANAGER,
                     "org.lockss.protocol.BlockingStreamComm");
@@ -144,16 +141,35 @@ public class ManagerDescs {
   public static ManagerDesc PLATFORM_CONFIG_STATUS_DESC =
     new ManagerDesc(LockssDaemon.PLATFORM_CONFIG_STATUS,
                     "org.lockss.config.PlatformConfigStatus");
+  public static ManagerDesc BUILD_INFO_STATUS_DESC =
+    new ManagerDesc(LockssDaemon.BUILD_INFO_STATUS,
+                    "org.lockss.config.BuildInfoStatus");
   public static ManagerDesc CONFIG_STATUS_DESC =
     new ManagerDesc(LockssDaemon.CONFIG_STATUS,
                     "org.lockss.config.ConfigStatus");
   public static ManagerDesc ARCHIVAL_UNIT_STATUS_DESC =
     new ManagerDesc(LockssDaemon.ARCHIVAL_UNIT_STATUS,
                     "org.lockss.state.ArchivalUnitStatus");
-  public static ManagerDesc REPOSITORY_STATUS_DESC =
-    new ManagerDesc(LockssDaemon.REPOSITORY_STATUS,
-                    "org.lockss.repository.LockssRepositoryStatus");
   public static ManagerDesc OVERVIEW_STATUS_DESC =
     new ManagerDesc(LockssDaemon.OVERVIEW_STATUS,
                     "org.lockss.daemon.status.OverviewStatus");
+  public static ManagerDesc JMS_MANAGER_DESC =
+    new ManagerDesc("org.lockss.jms.JMSManager");
+
+  public static ManagerDesc STATE_MANAGER_DESC =
+    new ManagerDesc(LockssDaemon.STATE_MANAGER,
+		    "org.lockss.state.ClientStateManager") {
+      public String getDefaultClass(LockssApp app) {
+	return app.chooseStateManager();
+      }};
+  
+  public static ManagerDesc CONFIG_DB_MANAGER_DESC =
+    new ManagerDesc(LockssDaemon.CONFIG_DB_MANAGER,
+		    "org.lockss.config.db.ConfigDbManager") {
+      // Start ConfigDbManager iff we're not using a remote config service
+      public boolean shouldStart(LockssApp app) {
+	// Temporarily unconditional until ConfigManager fixed
+// 	return true;
+        return !app.isConfigClient();
+      }};
 }

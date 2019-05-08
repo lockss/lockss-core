@@ -45,7 +45,7 @@ import org.lockss.extractor.*;
 import org.lockss.plugin.simulated.*;
 
 public class TestSubTreeArticleIterator extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestSubTreeArticleIterator");
+  static Logger log = Logger.getLogger();
 
   static final String BASE_URL = "http://example.org/wombat/";
 

@@ -46,6 +46,7 @@ import org.lockss.plugin.UrlFetcher.FetchResult;
 import org.lockss.protocol.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 import org.lockss.clockss.*;
 
@@ -56,7 +57,7 @@ import org.lockss.clockss.*;
  * @ParamCategory Crawler
  */
 public abstract class BaseCrawler implements Crawler {
-  static Logger logger = Logger.getLogger(BaseCrawler.class);
+  static Logger logger = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "crawler.";
 
@@ -381,7 +382,11 @@ public abstract class BaseCrawler implements Crawler {
    */
   public boolean doCrawl() {
     if (isWholeAU()) {
-      aus.newCrawlStarted();
+      if (req != null && req.getRefetchDepth() > 0) {
+	aus.deepCrawlStarted(req.getRefetchDepth());
+      } else {
+	aus.newCrawlStarted();
+      }
     }
     setCrawlConfig(ConfigManager.getCurrentConfig());
     crawlStatus.setProxy(proxyStatus);
@@ -431,10 +436,10 @@ public abstract class BaseCrawler implements Crawler {
       	raiseAlert(Alert.auAlert(alert, au), sb.toString());
       
       	if (res) {
-          AuUtil.getAuState(au).newCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
+          newContentCrawlFinished(Crawler.STATUS_SUCCESSFUL, null);
         } else {
-          AuUtil.getAuState(au).newCrawlFinished(crawlStatus.getCrawlStatus(),
-      					      crawlStatus.getCrawlErrorMsg());
+	  newContentCrawlFinished(crawlStatus.getCrawlStatus(),
+				  crawlStatus.getCrawlErrorMsg());
       	}
       }
       return res;
@@ -462,6 +467,15 @@ public abstract class BaseCrawler implements Crawler {
     }
   }
 
+  void newContentCrawlFinished(int status, String msg) {
+    AuState aus = AuUtil.getAuState(au);
+    if (req != null && req.getRefetchDepth() > 0) {
+      aus.newCrawlFinished(status, null, req.getRefetchDepth());
+    } else {
+      aus.newCrawlFinished(status, null);
+    }
+  }
+
   protected void raiseAlert(Alert alert, String text) {
     alertMgr.raiseAlert(alert, text);
   }
@@ -476,8 +490,7 @@ public abstract class BaseCrawler implements Crawler {
 				 "Aborted: " + t.getMessage()); 
     }
     if (isWholeAU()) {
-      AuUtil.getAuState(getAu()).newCrawlFinished(Crawler.STATUS_ABORTED,
-					  t.getMessage());
+      newContentCrawlFinished(Crawler.STATUS_ABORTED, t.getMessage());
     }
   }
 

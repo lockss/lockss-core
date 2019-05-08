@@ -66,7 +66,7 @@ import org.lockss.util.*;
  *  return new HtmlCompoundTransform(transforms));</pre>
  */
 public class HtmlCompoundTransform implements HtmlTransform {
-  private static Logger log = Logger.getLogger("HtmlCompoundTransform");
+  private static Logger log = Logger.getLogger();
 
   private HtmlTransform[] transforms;
 

@@ -50,10 +50,10 @@ import org.lockss.protocol.BlockingStreamComm.*;
 import org.lockss.protocol.LcapStreamComm.*;
 import org.lockss.protocol.psm.*;
 import org.lockss.repository.*;
-import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Functional tests for the V3Poller.
@@ -126,7 +126,6 @@ public class FuncV3Poller extends LockssTestCase {
     p.setProperty(V3Poller.PARAM_MAX_POLL_DURATION, "6m");
     p.setProperty(V3Poller.PARAM_QUORUM, "3");
     p.setProperty(LcapStreamComm.PARAM_ENABLED, "true");
-    p.setProperty(LcapDatagramComm.PARAM_ENABLED, "false");
     p.setProperty(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
 		  "TCP:[127.0.0.1]:3456");
     p.setProperty(IdentityManagerImpl.PARAM_INITIAL_PEERS,
@@ -139,12 +138,9 @@ public class FuncV3Poller extends LockssTestCase {
     hashService = theDaemon.getHashService();
     theDaemon.setStreamCommManager(new MyMockStreamCommManager(theDaemon));
     theDaemon.setRouterManager(new MyMockLcapRouter());
-    theDaemon.getHistoryRepository(testau);
-    //theDaemon.setHistoryRepository(new MockHistoryRepository(), testau);
     theDaemon.setPluginManager(new MyMockPluginManager(theDaemon, testau));
     theDaemon.setDaemonInited(true);
     theDaemon.getSchedService().startService();
-    theDaemon.getActivityRegulator(testau).startService();
     idmgr.startService();
     hashService.startService();
     pollmanager.startService();
@@ -161,7 +157,6 @@ public class FuncV3Poller extends LockssTestCase {
   private void stopDaemon() throws Exception {
     theDaemon.getPollManager().stopService();
     theDaemon.getPluginManager().stopService();
-    theDaemon.getActivityRegulator(testau).stopService();
     theDaemon.getSystemMetrics().stopService();
     theDaemon.getRouterManager().stopService();
     theDaemon.getHashService().stopService();

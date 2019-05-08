@@ -42,7 +42,7 @@ import org.lockss.extractor.*;
 /** A simple link extractor for testing, emits each space-delimited
  * substring of the input */
 public class DelimitedLinkExtractor implements LinkExtractor {
-  static Logger log = Logger.getLogger("DelimitedLinkExtractor");
+  static Logger log = Logger.getLogger();
 
   public void extractUrls(ArchivalUnit au, InputStream in, String encoding,
 			  String srcUrl, LinkExtractor.Callback cb)

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2001-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,9 +34,12 @@ import java.util.*;
 import java.util.zip.GZIPOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import javax.ws.rs.core.HttpHeaders;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.TeeInputStream;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
+import org.springframework.http.MediaType;
 import org.lockss.hasher.*;
 import org.apache.oro.text.regex.*;
 
@@ -64,10 +67,18 @@ public class HTTPConfigFile extends BaseConfigFile {
 
   private String m_httpLastModifiedString = null;
 
+  // The maximum size in bytes for the contents of a response to be kept in
+  // memory.
+  private static final int RESPONSE_MEMORY_THRESHOLD = 64 * 1024;
+
+  // The Etag received in the last HTTP response.
+  private String responseHttpEtag = null;
+
   private LockssUrlConnectionPool m_connPool;
   private boolean checkAuth = false;
   private MessageDigest chkDig;
   private String chkAlg;
+  private String proxyUsed;
 
   public HTTPConfigFile(String url, ConfigManager cfgMgr) {
     super(url, cfgMgr);
@@ -97,6 +108,14 @@ public class HTTPConfigFile extends BaseConfigFile {
 						 DEFAULT_DATA_TIMEOUT));
     LockssUrlConnection conn = UrlUtil.openConnection(url, connPool);
     if (m_cfgMgr != null) {
+
+      // Set up local HTTP cache.  Some code paths will add a no-cache
+      // header to prevent the request from being served from the cache.
+      // All responses, including those in response to a no-cache request,
+      // are eligible to be stored in the cache.
+      conn.setClientCache(m_cfgMgr.getHttpCacheManager()
+			  .getCacheSpec(ConfigManager.HTTP_CACHE_NAME));
+
       LockssSecureSocketFactory fact = m_cfgMgr.getSecureSocketFactory();
       if (fact != null) {
 	checkAuth = true;
@@ -116,10 +135,10 @@ public class HTTPConfigFile extends BaseConfigFile {
    * Given a URL, open an input stream, handling the appropriate
    * if-modified-since behavior.
    */
-  private InputStream getUrlInputStream(String url)
+  private InputStream getUrlInputStream(LockssUrlConnection conn)
       throws IOException, MalformedURLException {
     try {
-      return getUrlInputStream0(url);
+      return getUrlInputStream0(conn);
     } catch (javax.net.ssl.SSLHandshakeException e) {
       m_loadError = "Could not authenticate server: " + e.getMessage();
       throw new IOException(m_loadError, e);
@@ -131,15 +150,15 @@ public class HTTPConfigFile extends BaseConfigFile {
       m_loadError = "Could not verify server identity: " + e.getMessage();
       throw new IOException(m_loadError, e);
     } catch (javax.net.ssl.SSLException e) {
-      m_loadError = "Error negotiating SSL seccion: " + e.getMessage();
+      m_loadError = "Error negotiating SSL session: " + e.getMessage();
       throw new IOException(m_loadError, e);
     }
   }
 
-  private InputStream getUrlInputStream0(String url)
+  private InputStream getUrlInputStream0(LockssUrlConnection conn)
       throws IOException, MalformedURLException {
     InputStream in = null;
-    LockssUrlConnection conn = openUrlConnection(url);
+    String url = conn.getURL();
 
     Configuration conf = ConfigManager.getPlatformConfig();
     String proxySpec = conf.get(ConfigManager.PARAM_PROPS_PROXY);
@@ -157,12 +176,12 @@ public class HTTPConfigFile extends BaseConfigFile {
     if (proxyHost != null) {
       log.debug2("Setting request proxy to: " + proxyHost + ":" + proxyPort);
       conn.setProxy(proxyHost, proxyPort);
+      proxyUsed = proxySpec;
+    } else {
+      proxyUsed = null;
     }
-    if (m_config != null && m_lastModified != null) {
-      log.debug2("Setting request if-modified-since to: " + m_lastModified);
-      conn.setIfModifiedSince(m_lastModified);
-    }
-    conn.setRequestProperty("Accept-Encoding", "gzip");
+
+    conn.setRequestProperty(HttpHeaders.ACCEPT_ENCODING, "gzip");
 
     if (m_props != null) {
       Object x = m_props.get(Constants.X_LOCKSS_INFO);
@@ -181,49 +200,30 @@ public class HTTPConfigFile extends BaseConfigFile {
     log.debug2(url + " request got response: " + resp + ": " + respMsg);
     switch (resp) {
     case HttpURLConnection.HTTP_OK:
-      m_loadError = null;
-
-      String eTag = conn.getResponseHeaderValue("ETag");
-      log.debug3(url + " eTag = " + eTag);
-
-      // Check whether the raw eTag has content.
-      if (!StringUtil.isNullString(eTag)) {
-	// Yes: Check whether it is surrounded by double quotes.
-	if (eTag.startsWith("\"") && eTag.endsWith("\"")) {
-	  // Yes: Remove any surrounding double quotes.
-	  m_httpLastModifiedString = eTag.substring(1, eTag.length()-1);
-	} else {
-	  // No: Use it as is.
-	  m_httpLastModifiedString = eTag;
-	}
-      } else {
-	// No: use the Last-Modified header.
-	m_httpLastModifiedString = conn.getResponseHeaderValue("last-modified");
-      }
       log.debug2("New file, or file changed.  Loading file from " +
 		 "remote connection:" + url);
       in = conn.getUncompressedResponseInputStream();
       break;
     case HttpURLConnection.HTTP_NOT_MODIFIED:
-      m_loadError = null;
       log.debug2("HTTP content not changed, not reloading.");
-      IOUtil.safeRelease(conn);
+      break;
+    case HttpURLConnection.HTTP_PRECON_FAILED:
+      log.debug2("Precondition failed, not reloading.");
       break;
     case HttpURLConnection.HTTP_NOT_FOUND:
-      m_loadError = resp + ": " + respMsg;
-      IOUtil.safeRelease(conn);
-      throw new FileNotFoundException(m_loadError);
+      throw new FileNotFoundException(resp + ": " + respMsg);
     case HttpURLConnection.HTTP_FORBIDDEN:
-      m_loadError = findErrorMessage(resp, conn);
-      IOUtil.safeRelease(conn);
-      throw new IOException(m_loadError);
+      throw new IOException(findErrorMessage(resp, conn));
     default:
-      m_loadError = resp + ": " + respMsg;
-      IOUtil.safeRelease(conn);
-      throw new IOException(m_loadError);
+      throw new IOException(resp + ": " + respMsg);
     }
 
     return in;
+  }
+
+  @Override
+  public String getProxyUsed() {
+    return proxyUsed;
   }
 
   private static Pattern HINT_PAT =
@@ -266,10 +266,54 @@ public class HTTPConfigFile extends BaseConfigFile {
   FileConfigFile failoverFcf;
 
   /** Return an InputStream open on the HTTP url.  If inaccessible and a
-      local copy of the remote file exists, failover to it. */
-  protected InputStream getInputStreamIfModified() throws IOException {
+   * local copy of the remote file exists, failover to it.
+   *
+   * Called by periodic or on-demand config reload.
+   */
+  protected synchronized InputStream getInputStreamIfModified()
+      throws IOException {
+    LockssUrlConnection conn = null;
+    InputStream in = null;
+    boolean gettingResponse = false;
+
     try {
-      InputStream in = openHttpInputStream();
+      conn = openUrlConnection(m_fileUrl);
+      // When reloading config always go to server, don't serve from local
+      // cache.
+      conn.addRequestProperty("Cache-Control", "no-cache");
+
+      // Check whether this configuration file has already been retrieved
+      // before.
+      if (m_config != null) {
+	// Yes: Set the "If-Modified-Since" request header, if possible.
+	if (m_lastModified != null) {
+	  log.debug2("Setting request if-modified-since to: " + m_lastModified);
+	  conn.setIfModifiedSince(m_lastModified);
+	}
+
+	// Yes: Set the "If-None-Match" request header, if possible.
+	if (responseHttpEtag != null) {
+	  log.debug2("Setting request if-none-match to: " + responseHttpEtag);
+	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, responseHttpEtag);
+	}
+      }
+
+      gettingResponse = true;
+      in = openHttpInputStream(conn);
+
+      int resp = conn.getResponseCode();
+      switch (resp) {
+      case HttpURLConnection.HTTP_OK:
+	// Save the "Last-Modified" response header.
+	m_httpLastModifiedString =
+	conn.getResponseHeaderValue(HttpHeaders.LAST_MODIFIED);
+	// Save the "ETag" response header.
+	responseHttpEtag = conn.getResponseHeaderValue(HttpHeaders.ETAG);
+      case HttpURLConnection.HTTP_NOT_MODIFIED:
+      case HttpURLConnection.HTTP_PRECON_FAILED:
+	m_loadError = null;
+      }
+
       if (in != null) {
 	// If we got remote content, clear any local failover copy as it
 	// may now be obsolete
@@ -277,6 +321,10 @@ public class HTTPConfigFile extends BaseConfigFile {
       }
       return in;
     } catch (IOException e) {
+      if (gettingResponse) {
+	m_loadError = e.getMessage();
+      }
+
       // The HTTP fetch failed.  First see if we already found a failover
       // file.
       log.info("Couldn't load remote config URL: " + m_fileUrl + ": "
@@ -286,6 +334,13 @@ public class HTTPConfigFile extends BaseConfigFile {
 	throw e;
       }
       return failoverFile.getInputStreamIfModified();
+    } finally {
+      // Release the connection only if no remote content was obtained;
+      // otherwise, the returned input stream to the remote content will be
+      // closed.
+      if (in == null) {
+	IOUtil.safeRelease(conn);
+      }
     }
   }
 
@@ -350,6 +405,8 @@ public class HTTPConfigFile extends BaseConfigFile {
    * Provides an input stream to the content of this file.
    * <br>
    * Use this to stream the file contents.
+   *
+   * Called to read the file for local editing.
    * 
    * @return an InputStream with the input stream to the file contents.
    * @throws IOException
@@ -369,19 +426,70 @@ public class HTTPConfigFile extends BaseConfigFile {
     }
 
     // No: Get the input stream from the network request.
-    InputStream in = openHttpInputStream();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "in == null? " + (in == null));
+    LockssUrlConnection conn = null;
+    InputStream in = null;
 
-    // Check whether the network request provided no input stream.
-    if (in == null) {
-      // Yes: Report the problem.
-      String message = "Cannot get an input stream from '" + m_fileUrl + "'";
-      log.error(message);
-      throw new IOException(message);
+    try {
+      conn = openUrlConnection(m_fileUrl);
+      // When reading file for local editing always go to server, don't
+      // serve from local cache.
+      conn.addRequestProperty("Cache-Control", "no-cache");
+
+      // Check whether this configuration file has already been retrieved
+      // before.
+      if (m_config != null) {
+	// Yes: Set the "If-Modified-Since" request header, if possible.
+	if (m_lastModified != null) {
+	  log.debug2("Setting request if-modified-since to: " + m_lastModified);
+	  conn.setIfModifiedSince(m_lastModified);
+	}
+
+	// Yes: Set the "If-None-Match" request header, if possible.
+	if (responseHttpEtag != null) {
+	  log.debug2("Setting request if-none-match to: " + responseHttpEtag);
+	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, responseHttpEtag);
+	}
+      }
+
+      try {
+	in = openHttpInputStream(conn);
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "in == null? " + (in == null));
+
+	int resp = conn.getResponseCode();
+	switch (resp) {
+	case HttpURLConnection.HTTP_OK:
+	  // Save the "Last-Modified" response header.
+	  m_httpLastModifiedString =
+	  conn.getResponseHeaderValue(HttpHeaders.LAST_MODIFIED);
+	  // Save the "ETag" response header.
+	  responseHttpEtag = conn.getResponseHeaderValue(HttpHeaders.ETAG);
+	case HttpURLConnection.HTTP_NOT_MODIFIED:
+	case HttpURLConnection.HTTP_PRECON_FAILED:
+	  m_loadError = null;
+	}
+      } catch (IOException ioe) {
+	m_loadError = ioe.getMessage();
+	throw ioe;
+      }
+
+      // Check whether the network request provided no input stream.
+      if (in == null) {
+	// Yes: Report the problem.
+	String message = "Cannot get an input stream from '" + m_fileUrl + "'";
+	log.error(message);
+	throw new IOException(message);
+      }
+
+      return in;
+    } finally {
+      // Release the connection only if no remote content was obtained;
+      // otherwise, the returned input stream to the remote content will be
+      // closed.
+      if (in == null) {
+	IOUtil.safeRelease(conn);
+      }
     }
-
-    return in;
   }
 
   // XXX Find a place for this
@@ -400,42 +508,10 @@ public class HTTPConfigFile extends BaseConfigFile {
     }
   }
 
-  protected InputStream openHttpInputStream() throws IOException {
-    InputStream in = null;
+  protected InputStream openHttpInputStream(LockssUrlConnection conn)
+      throws IOException {
     m_IOException = null;
-
-    // KLUDGE: Part of the XML config file transition.  If this is
-    // an HTTP URL and we have never loaded the file before, see if an
-    // XML version of the file is available first.  If none can be
-    // found, try the original URL.
-    //
-    // This logic can and should go away when we're no longer in a
-    // transition period, and the platform knows about XML config
-    // files.
-    if (!Boolean.getBoolean("org.lockss.config.noXmlHack") &&
-	m_config == null &&
-	m_fileType == PROPERTIES_FILE) {
-      String xmlUrl = makeXmlUrl(m_fileUrl);
-
-      try {
-	log.debug2("First pass: Trying to load XML-ized URL: " + xmlUrl);
-	in = getUrlInputStream(xmlUrl);
-	if (in == null) {
-	  throw new FileNotFoundException("No XML file: " + xmlUrl);
-	}
-	// This is really an XML file, deceitfully set the URL and
-	// file type for when we reload.
-	m_fileType = XML_FILE;
-	m_fileUrl = xmlUrl;
-      } catch (Exception dontCare) {
-	// Couldn't load it as an XML file, try to load the real URL name.
-	log.debug2("Second pass: That didn't work, trying to " +
-		   "load original URL: " + m_fileUrl);
-	in = getUrlInputStream(m_fileUrl);
-      }
-    } else {
-      in = getUrlInputStream(m_fileUrl);
-    }
+    InputStream in = getUrlInputStream(conn);
     if (in != null) {
       m_loadedUrl = null; // we're no longer loaded from failover, if we were.
       File tmpCacheFile;
@@ -500,13 +576,162 @@ public class HTTPConfigFile extends BaseConfigFile {
   }
 
   /**
-   * KLUDGE: Part of the XML configuration file transition.
+   * Provides the input stream to the content of this configuration file if the
+   * passed preconditions are met.
    *
-   * Given a URL, return a version that ends with ".xml".  For
-   * example, "lockss.txt" -> "lockss.xml", "foobar" -> "foobar.xml"
+   * Will return a cached copy of the file if one is present and not stale.
+   * 
+   * @param preconditions
+   *          An HttpRequestPreconditions with the request preconditions to be
+   *          met.
+   * @return a ConfigFileReadWriteResult with the result of the operation.
+   * @throws IOException
+   *           if there are problems.
    */
-  private String makeXmlUrl(String url) {
-    return StringUtil.upToFinal(url, ".") + ".xml";
+  @Override
+  public synchronized ConfigFileReadWriteResult conditionallyRead(HttpRequestPreconditions preconditions)
+      throws IOException {
+    final String DEBUG_HEADER = "conditionallyRead(" + m_fileUrl + "): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "preconditions = " + preconditions);
+
+    LockssUrlConnection conn = null;
+    InputStream inputStream = null;
+    String lastModified = null;
+    String etag = null;
+    boolean preconditionsMet = false;
+    MediaType contentType = null;
+    long contentLength = -1;
+
+    try {
+      // Create the connection.
+      conn = openUrlConnection(m_fileUrl);
+
+      // Get the individual preconditions.
+      List<String> ifMatch = null;
+      String ifModifiedSince = null;
+      List<String> ifNoneMatch = null;
+      String ifUnmodifiedSince = null;
+
+      if (preconditions != null) {
+  	ifMatch = preconditions.getIfMatch();
+  	ifModifiedSince = preconditions.getIfModifiedSince();
+  	ifNoneMatch = preconditions.getIfNoneMatch();
+  	ifUnmodifiedSince = preconditions.getIfUnmodifiedSince();
+      }
+
+      // Check whether there are If-Match entity tags to be passed.
+      if (ifMatch != null && !ifMatch.isEmpty()) {
+	// Yes: Loop through all the If-Match entity tags.
+	for (String ifMatchEtag : ifMatch) {
+	  // Add the header to the request.
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "ifMatchEtag = " + ifMatchEtag);
+	  conn.addRequestProperty(HttpHeaders.IF_MATCH, ifMatchEtag);
+	}
+      }
+
+      // Check whether there is an If-Modified-Since condition.
+      if (!StringUtil.isNullString(ifModifiedSince)) {
+	// Yes: Add the header to the request.
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "ifModifiedSince = " + ifModifiedSince);
+	conn.setIfModifiedSince(ifModifiedSince);
+      }
+
+      // Check whether there are If-None-Match entity tags to be passed.
+      if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
+	// Yes: Loop through all the If-None-Match entity tags.
+	for (String ifNoneMatchEtag : ifNoneMatch) {
+	  // Add the header to the request.
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "ifNoneMatchEtag = " + ifNoneMatchEtag);
+	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, ifNoneMatchEtag);
+	}
+      }
+
+      // Check whether there is an If-Unmodified-Since condition.
+      if (!StringUtil.isNullString(ifUnmodifiedSince)) {
+	// Yes: Add the header to the request.
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "ifUnmodifiedSince = " + ifUnmodifiedSince);
+	conn.addRequestProperty(HttpHeaders.IF_UNMODIFIED_SINCE,
+	    ifUnmodifiedSince);
+      }
+
+      // Make the connection and get the response.
+      inputStream = openHttpInputStream(conn);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "inputStream == null = " + (inputStream == null));
+
+      // Get any incoming last-modified header.
+      lastModified = conn.getResponseHeaderValue(HttpHeaders.LAST_MODIFIED);
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "lastModified = " + lastModified);
+
+      // Get any incoming ETag header.
+      etag = conn.getResponseHeaderValue(HttpHeaders.ETAG);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "etag = " + etag);
+
+      // Check whether the input stream was obtained.
+      if (inputStream != null) {
+	// Yes.
+	preconditionsMet = true;
+
+	contentType = MediaType.parseMediaType(conn.getResponseContentType());
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "contentType = " + contentType);
+
+	// Get the response content length.
+	contentLength = conn.getResponseContentLength();
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
+
+	// Check whether the remote server did not set the response content
+	// length header. This is going to be needed later by Spring to send the
+	// response contents back to the client.
+	if (contentLength < 0) {
+	  // Yes: Read the response content and compute its length.
+	  try (DeferredTempFileOutputStream dtfos =
+	      new DeferredTempFileOutputStream(RESPONSE_MEMORY_THRESHOLD,
+		  "httpConfigFile")) {
+	    // Copy the response content.
+	    contentLength = IOUtils.copy(inputStream, dtfos);
+	    IOUtil.safeClose(inputStream);
+
+	    inputStream = dtfos.getDeleteOnCloseInputStream();
+	  }
+
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
+	}
+      }
+    } finally {
+      // Release the connection only if no remote content was obtained;
+      // otherwise, the returned input stream to the remote content will be
+      // closed.
+      if (inputStream == null) {
+	IOUtil.safeRelease(conn);
+      }
+    }
+
+    // Build the result to be returned.
+    ConfigFileReadWriteResult readResult =
+	new ConfigFileReadWriteResult(inputStream, lastModified, etag,
+	    preconditionsMet, contentType, contentLength);
+
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "readResult = " + readResult);
+    return readResult;
   }
 
+  /**
+   * Used for logging and testing and debugging.
+   */
+  @Override
+  public String toString() {
+    return "[HTTPConfigFile: m_httpLastModifiedString="
+	+ m_httpLastModifiedString + ", responseHttpEtag=" + responseHttpEtag
+	+ ", failoverFcf=" + failoverFcf + ", " + super.toString() + "]";
+  }
 }

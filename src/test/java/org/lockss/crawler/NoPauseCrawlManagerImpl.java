@@ -46,7 +46,7 @@ import org.lockss.plugin.base.*;
  * For testing, uses a CrawlRateLimiter that records args and doesn't pause
  */
 public class NoPauseCrawlManagerImpl extends CrawlManagerImpl {
-  static Logger log = Logger.getLogger("NoPauseCrawlManagerImpl");
+  static Logger log = Logger.getLogger();
 
   private Map<ArchivalUnit,CrawlRateLimiter> limiterMap =
     new HashMap<ArchivalUnit,CrawlRateLimiter>();

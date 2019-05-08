@@ -33,6 +33,7 @@ package org.lockss.util;
 import java.util.*;
 import java.io.*;
 import org.lockss.protocol.*;
+import org.lockss.util.net.IPAddr;
 
 public class IDUtil {
   // Length of the Protocol field of stored keys, in bytes. 
@@ -50,7 +51,7 @@ public class IDUtil {
   // CRC-8 utility.  Must be reset with Crc8.reset() before each use.
   private static final Crc8 crc = new Crc8();
 
-  private static final Logger log = Logger.getLogger("IDUtil");
+  private static final Logger log = Logger.getLogger();
 
   private static final String V3_TCP_KEY_PREFIX =
     IdentityManager.V3_ID_PROTOCOL_TCP +

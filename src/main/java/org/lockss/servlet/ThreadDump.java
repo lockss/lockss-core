@@ -41,12 +41,13 @@ import java.lang.management.*;
 import org.mortbay.html.*;
 
 import org.lockss.util.*;
+import org.lockss.util.os.PlatformUtil;
 
 /** ThreadDump servlet
  */
 public class ThreadDump extends LockssServlet {
 
-  private static final Logger log = Logger.getLogger(TimeMapService.class);
+  private static final Logger log = Logger.getLogger();
   
   private static String
     KEY_IS_THREAD_CONTENTION_MONITORING_ENABLED = "Contention";

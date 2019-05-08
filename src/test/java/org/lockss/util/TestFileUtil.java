@@ -36,6 +36,8 @@ import org.apache.commons.lang3.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.apache.commons.collections.*;
+import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 
 /**
@@ -43,9 +45,7 @@ import org.lockss.test.*;
  */
 
 public class TestFileUtil extends LockssTestCase4 {
-  private static final Logger log =
-      Logger.getLoggerWithInitialLevel("TestFileUtil",
-                                       Logger.getInitialDefaultLevel());
+  private static final Logger log = Logger.getLogger();
 
   String tempDirPath;
 

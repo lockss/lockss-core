@@ -41,6 +41,9 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /** Builds status info for CrawlManager 
  * @ParamCategory Crawler
@@ -423,7 +426,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	String instr;
 	long in = TimeBase.msUntil(nextStarter.getExpirationTime());
 	if (in > 0) {
-	  instr = StringUtil.timeIntervalToString(in);
+	  instr = TimeUtil.timeIntervalToString(in);
 	} else {
 	  instr = "running";
 	}

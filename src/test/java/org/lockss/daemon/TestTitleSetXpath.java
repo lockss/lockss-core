@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,14 +33,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.daemon;
 
 import java.io.*;
-import java.net.*;
 import java.util.*;
-
 import org.apache.commons.jxpath.*;
 import org.lockss.config.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.app.*;
 import org.lockss.plugin.*;
 
 /**
@@ -48,7 +45,7 @@ import org.lockss.plugin.*;
  */
 
 public class TestTitleSetXpath extends LockssTestCase {
-  private static Logger log = Logger.getLogger("TestTitleSetXpath");
+  private static Logger log = Logger.getLogger();
 
   PluginManager pluginMgr;
   MockPlugin mp1;
@@ -58,10 +55,22 @@ public class TestTitleSetXpath extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
+
+    String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
+    Properties p = new Properties();
+    p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
+    ConfigurationUtil.setCurrentConfigFromProps(p);
+
+    getMockLockssDaemon().setUpAuConfig();
+
     pluginMgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();
     makeTitles();
+  }
+
+  public void tearDown() throws Exception {
+    getMockLockssDaemon().stopDaemon();
+    super.tearDown();
   }
 
   public void makeTitles() {
@@ -230,7 +239,7 @@ public class TestTitleSetXpath extends LockssTestCase {
     assertSameElements(ListUtil.list(tc4, tc5, tc6), tsp3.filterTitles(titles));
   }
 
-  public void testOptimizedAttr() {
+  public void testOptimizedAttr() throws Exception {
     TitleSetXpath tsa1 = newSet("[attributes/key1='val1']");
     assertClass(TitleSetXpath.TSAttr.class, tsa1);
     TitleSetXpath tsa2 = newSet("[attributes/key1=\"val1\"]");

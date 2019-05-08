@@ -4,8 +4,8 @@ import org.lockss.plugin.CachedUrl;
 import org.lockss.test.MockArchivalUnit;
 import org.lockss.test.MockCachedUrl;
 import org.lockss.util.Logger;
-import org.lockss.util.TimeZoneUtil;
 import org.lockss.util.UrlUtil;
+import org.lockss.util.time.TimeZoneUtil;
 
 import javax.servlet.ServletException;
 import java.io.IOException;
@@ -21,7 +21,7 @@ import java.util.TimeZone;
  * @version 1.0
  */
 public class TestTimeServlet extends LockssServletTestCase {
-  static Logger log = Logger.getLogger("TestServeContent");
+  static Logger log = Logger.getLogger();
   static final SimpleDateFormat dateFormatter =
       new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
 

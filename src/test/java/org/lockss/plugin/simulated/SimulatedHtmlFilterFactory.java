@@ -36,12 +36,13 @@ import java.io.*;
 import java.util.List;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.config.*;
 import org.lockss.filter.*;
 import org.lockss.plugin.*;
 
 public class SimulatedHtmlFilterFactory implements FilterFactory {
-  static final Logger log = Logger.getLogger("SimulatedHtmlFilterFactory");
+  static final Logger log = Logger.getLogger();
 
   static final String CITATION_STRING = "Citation String";
 

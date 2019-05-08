@@ -35,7 +35,7 @@ package org.lockss.alert;
 import java.util.*;
 
 import org.lockss.app.*;
-import org.lockss.util.LockssSerializable;
+import org.lockss.util.io.LockssSerializable;
 
 /** AbstractAlertAction has common code for AlertActions */
 public abstract class AbstractAlertAction

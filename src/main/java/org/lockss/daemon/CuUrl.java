@@ -44,7 +44,7 @@ import org.lockss.plugin.*;
 /** A CuUrl is a URL that accesses a CachedUrl, providing access to cached
  * content via the normal java url mechanism. */
 public class CuUrl {
-  private static Logger log = Logger.getLogger("CuUrl");
+  private static Logger log = Logger.getLogger();
 
   public static final String PROTOCOL = UrlManager.PROTOCOL_CU;
   public static final String PROTOCOL_COLON = PROTOCOL + ":";

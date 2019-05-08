@@ -37,6 +37,7 @@ import java.util.zip.*;
 import java.security.MessageDigest;
 
 import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.time.TimeBase;
 
 /**
  * This is a class to contain generic stream utilities
@@ -47,7 +48,7 @@ import org.lockss.daemon.LockssWatchdog;
 
 public class StreamUtil {
 
-  static Logger log = Logger.getLogger("StreamUtil");
+  static Logger log = Logger.getLogger();
 
   private static final int BUFFER_SIZE = 256;
   static final int COPY_WDOG_CHECK_EVERY_BYTES = 1024 * 1024;

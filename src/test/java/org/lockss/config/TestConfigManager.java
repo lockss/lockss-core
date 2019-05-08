@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,17 +31,25 @@ package org.lockss.config;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import javax.jms.*;
+import org.apache.activemq.broker.BrokerService;
 import org.lockss.test.*;
+import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimerUtil;
 import org.lockss.util.urlconn.*;
 import org.lockss.protocol.*;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 import org.lockss.clockss.*;
 import org.lockss.config.Configuration;
 import org.lockss.config.Tdb;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.servlet.*;
+import org.lockss.jms.*;
+import org.lockss.util.test.FileTestUtil;
+
 import static org.lockss.config.ConfigManager.*;
 
 /**
@@ -52,20 +60,40 @@ public class TestConfigManager extends LockssTestCase4 {
 
   ConfigManager mgr;
   MyConfigManager mymgr;
+  static BrokerService broker;
+  MockLockssDaemon theDaemon = null;
+  ConfigDbManager dbManager = null;
 
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    mgr = MyConfigManager.makeConfigManager();
+    theDaemon = getMockLockssDaemon();
+    mgr = MyConfigManager.makeConfigManager(theDaemon);
     mymgr = (MyConfigManager)mgr;
   }
 
   @After
   public void tearDown() throws Exception {
+    TimeBase.setReal();
+    if (dbManager != null) {
+      dbManager.stopService();
+    }
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestConfig");
+  @BeforeClass
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      broker.stop();
+    }
+  }
+
+  static Logger log = Logger.getLogger();
 
   private static final String c1 = "prop1=12\nprop2=foobar\nprop3=true\n" +
     "prop5=False\n";
@@ -133,6 +161,67 @@ public class TestConfigManager extends LockssTestCase4 {
     String u1 = FileTestUtil.urlOfString(c1);
     assertTrue(mgr.updateConfig(ListUtil.list(u1)));
     assertTrue(mgr.haveConfig());
+  }
+
+  @Test
+  public void testNotifyChanged() throws IOException, JMSException {
+    Consumer cons =
+      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    mymgr.setShouldSendNotifications("yes");
+    getMockLockssDaemon().setAppRunning(true);
+
+    assertFalse(mgr.haveConfig());
+    String u1 = FileTestUtil.urlOfString(c1);
+    assertTrue(mgr.updateConfig(ListUtil.list(u1)));
+    assertTrue(mgr.haveConfig());
+    assertNull(cons.receiveMap(TIMEOUT_SHOULD));
+    ConfigurationUtil.addFromArgs("sdflj", "sldfkj");
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB,
+			     "GlobalConfigChanged"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+  }
+
+  // Verify that receiving various config changed JMS messages triggers
+  // config callback
+  @Test
+  public void testReceiveNotify() throws IOException, JMSException {
+    Producer prod =
+      Producer.createTopicProducer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    mymgr.setShouldReceiveNotifications("yes");
+    mymgr.setUpJmsNotifications();
+
+    SimpleQueue notifications = new SimpleQueue.Fifo();
+
+    mymgr.registerConfigurationCallback(new Configuration.Callback() {
+	public void configurationChanged(Configuration newConfig,
+					 Configuration oldConfig,
+					 Configuration.Differences diffs) {
+	  notifications.put("ConfigChanged");
+	}
+	public void auConfigChanged(String auid) {
+	  notifications.put("AuChanged");
+	}
+	public void auConfigRemoved(String auid) {
+	  notifications.put("AuRemoved");
+	}
+      });
+
+    prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB,
+			     "GlobalConfigChanged"));
+
+    // Not expecting configurationChanged() to have been called, as it's
+    // called by the config reload thread after the config has been
+    // reloaded.
+    assertNull(notifications.get(TIMEOUT_SHOULD));
+
+    // AuConfigStored and AuConfigRemoved notifications should call
+    // callback to be called
+    prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "AU&IDIDID"));
+    assertEquals("AuChanged", notifications.get(TIMEOUT_SHOULDNT));
+    prod.sendMap(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigRemoved",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "AU&IDIDID"));
+    assertEquals("AuRemoved", notifications.get(TIMEOUT_SHOULDNT));
   }
 
   volatile Configuration.Differences cbDiffs = null;
@@ -315,15 +404,15 @@ public class TestConfigManager extends LockssTestCase4 {
     Properties props = new Properties();
     props.put("org.lockss.platform.localIPAddress", "1.2.3.4");
     props.put("org.lockss.platform.v3.identity", "tcp:[1.2.3.4]:4321");
-    props.put("org.lockss.platform.logdirectory", "/var/log/foo");
-    props.put("org.lockss.platform.logfile", "bar");
+//     props.put("org.lockss.platform.logdirectory", "/var/log/foo");
+//     props.put("org.lockss.platform.logfile", "bar");
     ConfigurationUtil.setCurrentConfigFromProps(props);
     Configuration config = ConfigManager.getCurrentConfig();
     assertEquals("1.2.3.4", config.get("org.lockss.localIPAddress"));
     assertEquals("tcp:[1.2.3.4]:4321",
 		 config.get("org.lockss.localV3Identity"));
-    assertEquals(FileUtil.sysDepPath("/var/log/foo/bar"),
-		 config.get(FileTarget.PARAM_FILE));
+//     assertEquals(FileUtil.sysDepPath("/var/log/foo/bar"),
+// 		 config.get(FileTarget.PARAM_FILE));
   }
 
   @Test
@@ -359,6 +448,118 @@ public class TestConfigManager extends LockssTestCase4 {
 		 config.get(ClockssParams.PARAM_INSTITUTION_SUBSCRIPTION_ADDR));
     assertEquals("2.2.2.2",
 		 config.get(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR));
+  }
+
+  static final String CLUST_URL = "dyn:cluster.xml";
+
+  String expClust =
+    "  <property name=\"org.lockss.auxPropUrls\">\\n" +
+    "    <list append=\"false\">\\n" +
+    "      <value>http://host/lockss.xml</value>\\n" +
+    "      <value>./cluster.txt</value>\\n" +
+    "      <value>encode&lt;me&gt;</value>\\n" +
+    "\\n" +
+    "      <!-- Put static URLs here -->\\n" +
+    "\\n" +
+    "    </list>\\n" +
+    "  </property>\\n";
+
+  String expClust2 =
+    "  <property name=\"org.lockss.auxPropUrls\">\\n" +
+    "    <list append=\"false\">\\n" +
+    "      <value>http://host/lockss.xml</value>\\n" +
+    "      <value>./cluster.txt</value>\\n" +
+    "      <value>encode&lt;me&gt;</value>\\n" +
+    "\\n" +
+    "      <!-- Put static URLs here -->\\n" +
+    "      <value>.*/config/expert_config\\.txt</value>\\n" +
+    "\\n" +
+    "    </list>\\n" +
+    "  </property>\\n";
+
+  @Test
+  public void testGenerateCluster() throws Exception {
+    String tmpdir = getTempDir().toString();
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
+				  tmpdir);
+    List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+			     "encode<me>");
+    mgr.setClusterUrls(exp);
+    File tmpFile = getTempFile("configtmp", "");
+    mgr.generateClusterFile(tmpFile);
+    String clust = StringUtil.fromFile(tmpFile);
+    assertMatchesRE(expClust, clust);
+
+    // Store a local cache config file (expert_config.txt), ensure it
+    // shows up in the cluster file
+    String relConfigPath =
+      CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
+                             ConfigManager.DEFAULT_CONFIG_PATH);
+    Configuration econfig =
+      writeCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT_CLUSTER,
+			   PropUtil.fromArgs("k", "v"));
+
+    // expert_config_local.txt should *not* show up in cluster file
+    writeCacheConfigFile(ConfigManager.CONFIG_FILE_EXPERT_LOCAL,
+			 PropUtil.fromArgs("xx", "yy"));
+
+    assertEquals("v", econfig.get("k"));
+    mgr.generateClusterFile(tmpFile);
+    String clust2 = StringUtil.fromFile(tmpFile);
+    assertMatchesRE(expClust2, clust2);
+  }
+
+  Configuration writeCacheConfigFile(String filename, Properties props)
+      throws IOException {
+    String exp_file = mgr.getCacheConfigFile(filename).toString();
+
+    ConfigFile cf = mgr.getConfigCache().find(exp_file);
+    mgr.writeCacheConfigFile(props, filename, "Header");
+    // Force it to load else won't be included
+    return cf.getConfiguration();
+  }
+
+  @Test
+  public void testDynCluster() throws Exception {
+    String tempDirPath = setUpDiskSpace();
+    List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+			     "encode<me>");
+    mgr.setClusterUrls(exp);
+    ConfigFile cf = mgr.getConfigCache().find(CLUST_URL);
+    Configuration config = cf.getConfiguration();
+    assertEquals(exp, config.getList("org.lockss.auxPropUrls"));
+    String last = cf.getLastModified();
+    // ensure file isn't regenerated each time
+    assertSame(config, cf.getConfiguration());
+    assertEquals(last, cf.getLastModified());
+
+    TimerUtil.guaranteedSleep(1);
+    String fname = ConfigManager.CONFIG_FILE_EXPERT_CLUSTER;
+    mgr.writeCacheConfigFile(PropUtil.fromArgs("exp.foo", "valfoo"),
+			     fname, "header");
+    Configuration config2 = cf.getConfiguration();
+    assertNotSame(config, config2);
+    assertNotEquals(last, cf.getLastModified());
+    exp.add(new File(tempDirPath, "config/expert_config.txt").toString());
+    assertEquals(exp, config2.getList("org.lockss.auxPropUrls"));
+
+  }
+
+  @Test
+  public void testDynClusterNone() throws Exception {
+    ConfigFile cf = mgr.getConfigCache().find(CLUST_URL);
+    Configuration config = cf.getConfiguration();
+    assertEmpty(config.getList("org.lockss.auxPropUrls"));
+  }
+
+  @Test
+  public void testDynClusterInputStream() throws Exception {
+    List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+			     "encode<me>");
+    mgr.setClusterUrls(exp);
+    String clust =
+      StringUtil.fromInputStream(mgr.getCacheConfigFileInputStream(CLUST_URL));
+    assertMatchesRE(expClust, clust);
   }
 
   @Test
@@ -502,14 +703,6 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testPlatformSpace1() throws Exception {
-    String tmpdir = setUpDiskSpace();
-    Configuration config = ConfigManager.getCurrentConfig();
-    assertEquals(tmpdir, config.get("org.lockss.cache.location"));
-    assertEquals(tmpdir, config.get("org.lockss.history.location"));
-  }
-
-  @Test
   public void testPlatformSpace2() throws Exception {
     String tmpdir1 = getTempDir().toString();
     String tmpdir2 = getTempDir().toString();
@@ -519,8 +712,6 @@ public class TestConfigManager extends LockssTestCase4 {
 					 , ";"));
     ConfigurationUtil.setCurrentConfigFromProps(props);
     Configuration config = ConfigManager.getCurrentConfig();
-    assertEquals(tmpdir1, config.get("org.lockss.cache.location"));
-    assertEquals(tmpdir1, config.get("org.lockss.history.location"));
     assertEquals(FileUtil.sysDepPath(new File(tmpdir1, "iddb").toString()),
 		 config.get("org.lockss.id.database.dir"));
     assertEquals(tmpdir1 + "/tfile",
@@ -798,6 +989,13 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testGetHttpCacheManager() throws Exception {
+    HttpCacheManager hcm = mgr.getHttpCacheManager();
+    ClientCacheSpec ccs = hcm.getCacheSpec(ConfigManager.HTTP_CACHE_NAME);
+    assertMatchesRE(".+/hcfcache$", ccs.getCacheDir().toString());
+  }
+
+  @Test
   public void testConfigVersionProp() {
     assertEquals("org.lockss.config.fileVersion.foo",
 		 ConfigManager.configVersionProp("foo"));
@@ -907,7 +1105,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -946,7 +1144,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -989,7 +1187,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -1029,7 +1227,7 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     File cdir = new File(tmpdir, relConfigPath);
     cdir.mkdirs();
-    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT);
+    File efile = new File(cdir, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER);
 
     assertTrue(cdir.exists());
     String k1 = "org.lockss.foo";
@@ -1095,137 +1293,109 @@ public class TestConfigManager extends LockssTestCase4 {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  tmpdir);
 
+    Consumer cons =
+      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    mymgr.setShouldSendNotifications("yes");
+    mymgr.setUpJmsNotifications();
+
+    System.setProperty("derby.stream.error.file",
+	new File(tmpdir, "derby.log").getAbsolutePath());
+
+    // Create and start the database manager.
+    dbManager = new ConfigDbManager();
+    theDaemon.setManagerByType(ConfigDbManager.class, dbManager);
+    dbManager.initService(theDaemon);
+    dbManager.startService();
+
+    // Check that the database is empty.
+    assertEquals(0, mgr.retrieveAllArchivalUnitConfiguration().size());
+
+    // The first AU.
     Properties p = new Properties();
-    p.put("org.lockss.au.fooauid.foo", "111");
-    p.put("org.lockss.au.fooauid.bar", "222");
-    p.put("org.lockss.au.fooauid.baz", "333");
+    p.put("org.lockss.au.foo.auid.foo", "111");
+    p.put("org.lockss.au.foo.auid.bar", "222");
+    p.put("org.lockss.au.foo.auid.baz", "333");
 
-    Configuration config = CurrentConfig.getCurrentConfig();
-    assertNull(config.get("org.lockss.au.auid.foo"));
+    // Store it.
+    mgr.storeArchivalUnitConfiguration(AuConfigurationUtils.fromConfiguration(
+	"org.lockss.au.foo.auid", fromProperties(p)));
+    // Check that the AU has been stored.
+    assertEquals(1, mgr.retrieveAllArchivalUnitConfiguration().size());
+    AuConfiguration auConfiguration =
+	mgr.retrieveArchivalUnitConfiguration("foo&auid");
+    Map<String, String> auConfig = auConfiguration.getAuConfig();
+    assertFalse(auConfig.isEmpty());
+    assertEquals(3, auConfig.size());
+    assertEquals("111", auConfig.get("foo"));
+    assertEquals("222", auConfig.get("bar"));
+    assertEquals("333", auConfig.get("baz"));
 
-    assertEmpty(mymgr.writeArgs);
-    // should create file first time
-    mgr.updateAuConfigFile(p, "org.lockss.au.fooauid");
-    // check that file was written (see testBatchUpdateAuConfig())
-    assertEquals(1, mymgr.writeArgs.size());
-    assertWriteArgs(null, "au.txt", null, false, mymgr.writeArgs.get(0));
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
-
-    // next update should load au config file
-    assertTrue(mgr.updateConfig());
-    config = CurrentConfig.getCurrentConfig();
-    assertEquals("111", config.get("org.lockss.au.fooauid.foo"));
-    assertEquals("222", config.get("org.lockss.au.fooauid.bar"));
-    assertEquals("333", config.get("org.lockss.au.fooauid.baz"));
-    assertNull(config.get("org.lockss.au.auid.foo"));
-    assertNull(config.get("org.lockss.au.auid.bar"));
-
-    // add a different au, make sure they both get loaded
+    // A second AU.
     p = new Properties();
-    p.put("org.lockss.au.auid.foo", "11");
-    p.put("org.lockss.au.auid.bar", "22");
+    p.put("org.lockss.au.other.auid.foo", "11");
+    p.put("org.lockss.au.other.auid.bar", "22");
 
-    updateAuLastModified(TimeBase.nowMs() + Constants.SECOND);
+    // Store it.
+    mgr.storeArchivalUnitConfiguration(AuConfigurationUtils.fromConfiguration(
+	"org.lockss.au.other.auid", fromProperties(p)));
 
-    mgr.updateAuConfigFile(p, "org.lockss.au.auid");
-    assertEquals(2, mymgr.writeArgs.size());
-    assertWriteArgs(null, "au.txt", null, false, mymgr.writeArgs.get(0));
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "other&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
-    // next update should load au config file
-    assertTrue(mgr.updateConfig());
-    config = CurrentConfig.getCurrentConfig();
-    assertEquals("111", config.get("org.lockss.au.fooauid.foo"));
-    assertEquals("222", config.get("org.lockss.au.fooauid.bar"));
-    assertEquals("333", config.get("org.lockss.au.fooauid.baz"));
-    assertEquals("11", config.get("org.lockss.au.auid.foo"));
-    assertEquals("22", config.get("org.lockss.au.auid.bar"));
+    // Check that the AU has been stored.
+    assertEquals(2, mgr.retrieveAllArchivalUnitConfiguration().size());
+    auConfiguration = mgr.retrieveArchivalUnitConfiguration("foo&auid");
+    auConfig = auConfiguration.getAuConfig();
+    assertFalse(auConfig.isEmpty());
+    assertEquals(3, auConfig.size());
+    assertEquals("111", auConfig.get("foo"));
+    assertEquals("222", auConfig.get("bar"));
+    assertEquals("333", auConfig.get("baz"));
 
-    // update first au, removing a property, make sure it really gets deleted
+    auConfiguration = mgr.retrieveArchivalUnitConfiguration("other&auid");
+    auConfig = auConfiguration.getAuConfig();
+    assertFalse(auConfig.isEmpty());
+    assertEquals(2, auConfig.size());
+    assertEquals("11", auConfig.get("foo"));
+    assertEquals("22", auConfig.get("bar"));
+
+    // Update the first AU, removing a property.
     p = new Properties();
-    p.put("org.lockss.au.fooauid.foo", "111");
-    p.put("org.lockss.au.fooauid.bar", "222");
+    p.put("org.lockss.au.foo.auid.foo", "111");
+    p.put("org.lockss.au.foo.auid.bar", "222");
 
-    mgr.updateAuConfigFile(p, "org.lockss.au.fooauid");
+    mgr.storeArchivalUnitConfiguration(AuConfigurationUtils.fromConfiguration(
+	"org.lockss.au.foo.auid", fromProperties(p)));
 
-    assertTrue(mgr.updateConfig());
-    config = CurrentConfig.getCurrentConfig();
-    assertEquals("111", config.get("org.lockss.au.fooauid.foo"));
-    assertEquals("222", config.get("org.lockss.au.fooauid.bar"));
-    assertEquals(null, config.get("org.lockss.au.fooauid.baz"));
-    assertEquals("11", config.get("org.lockss.au.auid.foo"));
-    assertEquals("22", config.get("org.lockss.au.auid.bar"));
-  }
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
+			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
-  @Test
-  public void testBatchUpdateAuConfig() throws Exception {
-    String tmpdir = getTempDir().toString();
-    Configuration allConfig = ConfigManager.newConfiguration();
-    // establish cache config dir
-    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
-				  tmpdir,
-				  ConfigManager.PARAM_MAX_DEFERRED_AU_BATCH_SIZE,
-				  "3");
+    // Check that the AU has been stored.
+    assertEquals(2, mgr.retrieveAllArchivalUnitConfiguration().size());
+    auConfiguration = mgr.retrieveArchivalUnitConfiguration("foo&auid");
+    auConfig = auConfiguration.getAuConfig();
+    assertFalse(auConfig.isEmpty());
+    assertEquals(2, auConfig.size());
+    assertEquals("111", auConfig.get("foo"));
+    assertEquals("222", auConfig.get("bar"));
 
-    Properties p = new Properties();
-    p.put("org.lockss.au.auid11.foo", "111");
-    p.put("org.lockss.au.auid11.bar", "222");
-    p.put("org.lockss.au.auid11.baz", "333");
+    auConfiguration = mgr.retrieveArchivalUnitConfiguration("other&auid");
+    auConfig = auConfiguration.getAuConfig();
+    assertFalse(auConfig.isEmpty());
+    assertEquals(2, auConfig.size());
+    assertEquals("11", auConfig.get("foo"));
+    assertEquals("22", auConfig.get("bar"));
 
-    allConfig.copyFrom(ConfigurationUtil.fromProps(p));
-    Configuration config = CurrentConfig.getCurrentConfig();
-    assertNull(config.get("org.lockss.au.auid11.foo"));
-
-    mgr.startAuBatch();
-    mgr.updateAuConfigFile(p, "org.lockss.au.auid11");
-
-    // should be no update available
-    assertFalse(mgr.updateConfig());
-    config = CurrentConfig.getCurrentConfig();
-    assertNull(config.get("org.lockss.au.auid11.foo"));
-
-    // add au 2
-    p = new Properties();
-    p.put("org.lockss.auid22.foo", "11");
-    p.put("org.lockss.auid22.bar", "22");
-    allConfig.copyFrom(ConfigurationUtil.fromProps(p));
-
-    updateAuLastModified(TimeBase.nowMs() + Constants.SECOND);
-
-    mgr.updateAuConfigFile(p, "org.lockss.auid22");
-    assertEmpty(mymgr.writeArgs);
-
-    // still no file
-    assertFalse(mgr.updateConfig());
-    config = CurrentConfig.getCurrentConfig();
-    assertNull(config.get("org.lockss.auid22.foo"));
-
-    // add au 3
-    p = new Properties();
-    p.put("org.lockss.auid33.foo", "11");
-    p.put("org.lockss.auid33.bar", "22");
-    allConfig.copyFrom(ConfigurationUtil.fromProps(p));
-
-    updateAuLastModified(TimeBase.nowMs() + Constants.SECOND);
-
-    mgr.updateAuConfigFile(p, "org.lockss.auid33");
-    assertEquals(1, mymgr.writeArgs.size());
-    assertWriteArgs(allConfig, "au.txt", null, true, mymgr.writeArgs.get(0));
-
-    // add au 4
-    p = new Properties();
-    p.put("org.lockss.auid44.foo", "11");
-    p.put("org.lockss.auid44.bar", "22");
-    allConfig.copyFrom(ConfigurationUtil.fromProps(p));
-
-    updateAuLastModified(TimeBase.nowMs() + Constants.SECOND);
-
-    mgr.updateAuConfigFile(p, "org.lockss.auid44");
-    assertEquals(1, mymgr.writeArgs.size());
-
-    mgr.finishAuBatch();
-    allConfig.put("org.lockss.config.fileVersion.au", "1");
-    assertEquals(2, mymgr.writeArgs.size());
-    assertWriteArgs(allConfig, "au.txt", null, true, mymgr.writeArgs.get(1));
+    mgr.removeArchivalUnitConfiguration("foo&auid");
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigRemoved",
+			     "auid", "foo&auid"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
   }
 
   @Test
@@ -1234,13 +1404,13 @@ public class TestConfigManager extends LockssTestCase4 {
       ListUtil.list(CONFIG_FILE_UI_IP_ACCESS,
 		    CONFIG_FILE_PROXY_IP_ACCESS,
 		    CONFIG_FILE_PLUGIN_CONFIG,
-		    CONFIG_FILE_AU_CONFIG,
 		    CONFIG_FILE_ICP_SERVER,
 		    CONFIG_FILE_AUDIT_PROXY,
 		    CONFIG_FILE_CONTENT_SERVERS,
 		    CONFIG_FILE_ACCESS_GROUPS,
 		    CONFIG_FILE_CRAWL_PROXY,
-		    CONFIG_FILE_EXPERT);
+		    CONFIG_FILE_EXPERT_CLUSTER,
+		    CONFIG_FILE_EXPERT_LOCAL);
 
     List<String> names = new ArrayList<String>();
     for (LocalFileDescr descr : mgr.getLocalFileDescrs()) {
@@ -1251,28 +1421,15 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testGetLocalFileDescr() throws Exception {
-    LocalFileDescr descr = mgr.getLocalFileDescr(CONFIG_FILE_EXPERT);
-    assertEquals(CONFIG_FILE_EXPERT, descr.getName());
+    LocalFileDescr descr = mgr.getLocalFileDescr(CONFIG_FILE_EXPERT_CLUSTER);
+    assertEquals(CONFIG_FILE_EXPERT_CLUSTER, descr.getName());
     assertTrue(descr.isNeedReloadAfterWrite());
-
-    descr = mgr.getLocalFileDescr(CONFIG_FILE_AU_CONFIG);
-    assertEquals(CONFIG_FILE_AU_CONFIG, descr.getName());
-    assertFalse(descr.isNeedReloadAfterWrite());
-  }
-
-  void updateAuLastModified(long time) {
-    for (ConfigManager.LocalFileDescr lfd : mgr.getLocalFileDescrs()) {
-      File file = lfd.getFile();
-      if (ConfigManager.CONFIG_FILE_AU_CONFIG.equals(file.getName())) {
-	file.setLastModified(time);
-      }
-    }
   }
 
   @Test
   public void testModifyCacheConfigFile() throws Exception {
     // Arbitrary config file
-    final String FILE = ConfigManager.CONFIG_FILE_AU_CONFIG;
+    final String FILE = ConfigManager.CONFIG_FILE_EXPERT_CLUSTER;
 
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -1321,28 +1478,43 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testReadAuConfigFile() throws Exception {
-    String tmpdir = getTempDir().toString();
-    // establish cache config dir
-    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
-				  tmpdir);
+  public void testReadAuDb() throws Exception {
+    log.debug2("Invoked");
 
-    Configuration c1 = mgr.readAuConfigFile();
+    String tempDirPath = setUpDiskSpace();
+    if (log.isDebug3()) log.debug3("tempDirPath = " + tempDirPath);
+
+    System.setProperty("derby.stream.error.file",
+	new File(tempDirPath, "derby.log").getAbsolutePath());
+
+    // Create and start the database manager.
+    dbManager = new ConfigDbManager();
+    theDaemon.setManagerByType(ConfigDbManager.class, dbManager);
+    dbManager.initService(theDaemon);
+    dbManager.startService();
+
+    // Initially, there are no Archival Units.
+    Collection<AuConfiguration> c1 = mgr.retrieveAllArchivalUnitConfiguration();
     assertTrue(c1.isEmpty());
 
-    Properties p = new Properties();
-    p.put("org.lockss.au.fooauid.foo", "111");
-    p.put("org.lockss.au.fooauid.bar", "222");
-    p.put("org.lockss.au.fooauid.baz", "333");
+    // Create the configuration of an Archival Unit.
+    Map<String, String> auConfig = new HashMap<>();
+    auConfig.put("foo", "111");
+    auConfig.put("bar", "222");
+    auConfig.put("bar", "222");
 
-    mgr.updateAuConfigFile(p, "org.lockss.au.fooauid");
+    AuConfiguration auConfiguration = new AuConfiguration("foo&auid", auConfig);
 
-    Configuration c2 = mgr.readAuConfigFile();
+    // Store the Archival Unit configuration.
+    mgr.storeArchivalUnitConfiguration(auConfiguration);
+
+    // Verify that the Archival Unit configuration has been stored.
+    Collection<AuConfiguration> c2 = mgr.retrieveAllArchivalUnitConfiguration();
     assertFalse(c2.isEmpty());
+    assertEquals(1, c2.size());
+    assertTrue(c2.contains(auConfiguration));
 
-    assertEquals("111", c2.get("org.lockss.au.fooauid.foo"));
-    assertEquals("222", c2.get("org.lockss.au.fooauid.bar"));
-    assertEquals("333", c2.get("org.lockss.au.fooauid.baz"));
+    log.debug2("Done");
   }
 
   @Test
@@ -1499,6 +1671,7 @@ public class TestConfigManager extends LockssTestCase4 {
     assertTrue(mgr.updateConfig(ListUtil.list(u1)));
     BaseConfigFile cf = (BaseConfigFile)mgr.getConfigCache().find(u1);
     String info = (String)cf.m_props.get("X-Lockss-Info");
+    log.error("info = " + info);
     assertMatchesRE("groups=nogroup", info);
     // official build will set daemon, unofficial will set built_on
     assertMatchesRE("daemon=|built_on=", info);
@@ -1536,7 +1709,7 @@ public class TestConfigManager extends LockssTestCase4 {
     assertFalse(mgr.hasLocalCacheConfig());
 
     // write a local config file
-    mgr.writeCacheConfigFile(props, ConfigManager.CONFIG_FILE_AU_CONFIG,
+    mgr.writeCacheConfigFile(props, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER,
 			     "this is a header");
 
     assertFalse(mgr.hasLocalCacheConfig());
@@ -1698,16 +1871,358 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(cf, mgr.getUrlParent("http://child"));
   }
 
+  @Test
+  public void testRestServiceEffect() {
+    // No REST Configuration service configured: This is the REST Configuration
+    // service itself.
+    ConfigManager noRestServiceConfigManager =
+	MyConfigManager.makeConfigManager(getMockLockssDaemon());
+
+    // Long reload interval default.
+    assertEquals(10 * Constants.MINUTE,
+	noRestServiceConfigManager.reloadInterval);
+
+    // Reconfigure the reload interval.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_RELOAD_INTERVAL, "12345");
+    assertEquals(12345, noRestServiceConfigManager.reloadInterval);
+
+    // There is a remote configuration failover setup by default.
+    // (No longer - don't rely on the default)
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"true");
+    noRestServiceConfigManager.setUpRemoteConfigFailover();
+    assertNotNull(noRestServiceConfigManager.remoteConfigFailoverDir);
+    assertNotNull(noRestServiceConfigManager.rcfm);
+
+    // Disable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"false");
+    noRestServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(noRestServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(noRestServiceConfigManager.rcfm);
+
+    // Enable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"true");
+    noRestServiceConfigManager.setUpRemoteConfigFailover();
+    assertNotNull(noRestServiceConfigManager.remoteConfigFailoverDir);
+    assertNotNull(noRestServiceConfigManager.rcfm);
+
+    // There is a REST Configuration service configured: This is a client.
+    ConfigManager restServiceConfigManager =
+	MyConfigManager.makeConfigManager(getMockLockssDaemon(),
+	    "http://localhost:12345");
+
+    // Short reload interval default.
+    assertEquals(15 * Constants.SECOND,
+	restServiceConfigManager.reloadInterval);
+
+    // Reconfigure the reload interval.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_RELOAD_INTERVAL, "12345");
+    assertEquals(12345, restServiceConfigManager.reloadInterval);
+
+    // There is no remote configuration failover setup by default.
+    restServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(restServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(restServiceConfigManager.rcfm);
+
+    // Disable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"false");
+    restServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(restServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(restServiceConfigManager.rcfm);
+
+    // Enable the remote configuration failover system.
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+	"true");
+    restServiceConfigManager.setUpRemoteConfigFailover();
+    assertNull(restServiceConfigManager.remoteConfigFailoverDir);
+    assertNull(restServiceConfigManager.rcfm);
+  }
+
+  /**
+   * Tests the Archival Unit configuration database.
+   */
+  @Test
+  public void testDb() throws Exception {
+    log.debug2("Invoked");
+
+    String tempDirPath = setUpDiskSpace();
+    if (log.isDebug3()) log.debug3("tempDirPath = " + tempDirPath);
+
+    System.setProperty("derby.stream.error.file",
+	new File(tempDirPath, "derby.log").getAbsolutePath());
+
+    // Create and start the database manager.
+    dbManager = new ConfigDbManager();
+    theDaemon.setManagerByType(ConfigDbManager.class, dbManager);
+    dbManager.initService(theDaemon);
+    dbManager.startService();
+
+    // Validation.
+    try {
+      mgr.storeArchivalUnitConfiguration(null);
+      fail("Failed to throw storing a null AuConfig");
+    } catch (IllegalArgumentException iae) {
+      // Expected.
+    }
+
+    String pluginId1 = "org|lockss|plugin|SomePlugin1";
+    String auid1 = pluginId1 + "&some_key_1";
+
+    try {
+      Map<String, String> configuration = null;
+      mgr.storeArchivalUnitConfiguration(new AuConfiguration(auid1,
+	  configuration));
+      fail("Failed to throw storing a null configuration");
+    } catch (IllegalArgumentException iae) {
+      // Expected.
+    }
+
+    try {
+      mgr.storeArchivalUnitConfiguration(new AuConfiguration(auid1,
+	  new HashMap<String, String>()));
+      fail("Failed to throw storing an empty configuration");
+    } catch (IllegalArgumentException iae) {
+      // Expected.
+    }
+
+    // Define the configuration of the first AU.
+    Map<String, String> configuration1 = new HashMap<>();
+    configuration1.put("au_oai_date", "2014");
+    configuration1.put("au_oai_set", "biorisk");
+    configuration1.put("reserved.displayName", "BioRisk Volume 2014");
+
+    AuConfiguration auConfiguration1 =
+	new AuConfiguration(auid1, configuration1);
+
+    // Store the configuration of the first AU.
+    long beforeAdding1 = TimeBase.nowMs();
+    mgr.storeArchivalUnitConfiguration(auConfiguration1);
+    long afterAdding1 = TimeBase.nowMs();
+
+    // Define the configuration of the second AU.
+    String auid2 = pluginId1 + "&some_key_2";
+
+    Map<String, String> configuration2 = new HashMap<>();
+    configuration2.put("reserved.disabled", "false");
+
+    AuConfiguration auConfiguration2 =
+	new AuConfiguration(auid2, configuration2);
+
+    // Store the configuration of the second AU.
+    long beforeAdding2 = TimeBase.nowMs();
+    mgr.storeArchivalUnitConfiguration(auConfiguration2);
+    long afterAdding2 = TimeBase.nowMs();
+
+    // Retrieve all the AU configurations.
+    Collection<AuConfiguration> auConfigs =
+	mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(2, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfiguration1));
+    assertTrue(auConfigs.contains(auConfiguration2));
+
+    // Retrieve the configuration of the first AU.
+    AuConfiguration config1 = mgr.retrieveArchivalUnitConfiguration(auid1);
+
+    assertEquals(auConfiguration1, config1);
+
+    // Retrieve the configuration of the second AU.
+    AuConfiguration config2 = mgr.retrieveArchivalUnitConfiguration(auid2);
+
+    assertEquals(auConfiguration2, config2);
+
+    // Retrieve the configuration creation time of the first AU.
+    long creationTime1 =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid1).longValue();
+    assertTrue(creationTime1 >= beforeAdding1);
+    assertTrue(creationTime1 <= afterAdding1);
+
+    // Retrieve the configuration last update time of the first AU.
+    long lastUpdateTime1 =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid1).longValue();
+    assertEquals(creationTime1, lastUpdateTime1);
+
+    // Retrieve the configuration creation time of the second AU.
+    long creationTime2 =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid2).longValue();
+    assertTrue(creationTime2 >= beforeAdding2);
+    assertTrue(creationTime2 <= afterAdding2);
+
+    // Retrieve the configuration last update time of the second AU.
+    long lastUpdateTime2 =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2).longValue();
+    assertEquals(creationTime2, lastUpdateTime2);
+
+    // Define the updated configuration of the second AU.
+    Map<String, String> configuration3 = new HashMap<>();
+    configuration3.put("newKey1", "newValue1");
+    configuration3.put("newKey2", "newValue2");
+
+    AuConfiguration auConfiguration2new =
+	new AuConfiguration(auid2, configuration3);
+
+    // Store the updated configuration of the second AU.
+    long beforeAdding2new = TimeBase.nowMs();
+    mgr.storeArchivalUnitConfiguration(auConfiguration2new);
+    long afterAdding2new = TimeBase.nowMs();
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(2, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfiguration1));
+    assertTrue(auConfigs.contains(auConfiguration2new));
+
+    // Retrieve the configuration of the second AU.
+    AuConfiguration config2new = mgr.retrieveArchivalUnitConfiguration(auid2);
+
+    assertEquals(auConfiguration2new, config2new);
+
+    assertEquals(creationTime2,
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid2).longValue());
+
+    // Retrieve the configuration last update time of the second AU.
+    long lastUpdateTime2new =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2).longValue();
+    assertTrue(lastUpdateTime2new > creationTime2);
+    assertTrue(lastUpdateTime2new >= beforeAdding2new);
+    assertTrue(lastUpdateTime2new <= afterAdding2new);
+
+    String pluginId2 = "org|lockss|plugin|SomePlugin2";
+    String auid3 = pluginId2 + "&some_key_2";
+    Map<String, String> configuration4 = new HashMap<>();
+    configuration4.put("au_oai_date", "2019");
+    configuration4.put("au_oai_set", "biorisk");
+    configuration4.put("reserved.displayName", "BioRisk Volume 2019");
+
+    AuConfiguration auConfiguration3 =
+	new AuConfiguration(auid3, configuration4);
+
+    // Store the configuration of the third AU.
+    long beforeAdding3 = TimeBase.nowMs();
+    mgr.storeArchivalUnitConfiguration(auConfiguration3);
+    long afterAdding3 = TimeBase.nowMs();
+
+    Collection<String> pluginKeys = ListUtil.list(pluginId1, pluginId2);
+	
+    // Retrieve the configurations keyed by plugin.
+    Map<String, List<AuConfiguration>> pluginsAusConfigs =
+	mgr.retrieveAllPluginsAusConfigurations(pluginKeys);
+
+    // Check the first plugin.
+    assertEquals(2, pluginsAusConfigs.size());
+
+    List<AuConfiguration> plugin1Config = pluginsAusConfigs.get(pluginId1);
+
+    assertEquals(2, plugin1Config.size());
+    assertTrue(plugin1Config.contains(auConfiguration1));
+    assertTrue(plugin1Config.contains(config2new));
+
+    // Check the second plugin.
+    List<AuConfiguration> plugin2Config = pluginsAusConfigs.get(pluginId2);
+
+    assertEquals(1, plugin2Config.size());
+    assertEquals(auConfiguration3, plugin2Config.get(0));
+
+    // Remove the configuration of the first AU.
+    mgr.removeArchivalUnitConfiguration(auid1);
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(2, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfiguration2new));
+    assertTrue(auConfigs.contains(auConfiguration3));
+
+    // Retrieve the configuration of the first (deleted) AU.
+    AuConfiguration config1new = mgr.retrieveArchivalUnitConfiguration(auid1);
+    if (log.isDebug3()) log.debug3("config1new = " + config1new);
+    assertNull(config1new);
+
+    // Retrieve the configuration creation time of the first (deleted) AU.
+    Long creationTime1new =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid1);
+    if (log.isDebug3()) log.debug3("creationTime1new = " + creationTime1new);
+    assertNull(creationTime1new);
+
+    // Retrieve the configuration last update time of the first (deleted) AU.
+    Long lastUpdateTime1new =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid1);
+    assertNull(lastUpdateTime1new);
+
+    // Remove the configuration of the second AU.
+    mgr.removeArchivalUnitConfiguration(auid2);
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(1, auConfigs.size());
+    assertTrue(auConfigs.contains(auConfiguration3));
+
+    // Retrieve the configuration of the second (deleted) AU.
+    config2new = mgr.retrieveArchivalUnitConfiguration(auid2);
+    if (log.isDebug3()) log.debug3("config2new = " + config2new);
+    assertNull(config2new);
+
+    // Retrieve the configuration creation time of the second (deleted) AU.
+    Long creationTime2new =
+	mgr.retrieveArchivalUnitConfigurationCreationTime(auid2);
+    if (log.isDebug3()) log.debug3("creationTime2new = " + creationTime2new);
+    assertNull(creationTime2new);
+
+    // Retrieve the configuration last update time of the second (deleted) AU.
+    Long lastUpdateTime2newest =
+	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2);
+    assertNull(lastUpdateTime2newest);
+
+    // Remove the configuration of the third AU.
+    mgr.removeArchivalUnitConfiguration(auid3);
+
+    // Retrieve all the AU configurations.
+    auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
+    if (log.isDebug3()) log.debug3("auConfigs = " + auConfigs);
+
+    assertEquals(0, auConfigs.size());
+
+    log.debug2("Done");
+  }
+
   private Configuration newConfiguration() {
     return new ConfigurationPropTreeImpl();
   }
 
   static class MyConfigManager extends ConfigManager {
     List<List> writeArgs = new ArrayList<List>();
+    String sendNotifications = "super";
+    String receiveNotifications = "super";
 
-    public static ConfigManager makeConfigManager() {
+    public static ConfigManager makeConfigManager(LockssDaemon daemon) {
       theMgr = new MyConfigManager();
+      theMgr.initService(daemon);
       return theMgr;
+    }
+
+    public static ConfigManager makeConfigManager(LockssDaemon daemon,
+	String restConfigServiceUrl) {
+      theMgr = new MyConfigManager(null, restConfigServiceUrl, null, null);
+      theMgr.initService(daemon);
+      return theMgr;
+    }
+
+    public MyConfigManager() {
+      super();
+    }
+
+    public MyConfigManager(List<String> bootstrapPropsUrls,
+	String restConfigServiceUrl, List<String> urls, String groupNames) {
+      super(bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
     }
 
     @Override
@@ -1720,5 +2235,32 @@ public class TestConfigManager extends LockssTestCase4 {
 				 header, suppressReload);
       writeArgs.add(ListUtil.list(config, cacheConfigFileName, header, suppressReload));
     }
+
+    void setShouldSendNotifications(String val) {
+      sendNotifications = val;
+    }
+
+    void setShouldReceiveNotifications(String val) {
+      receiveNotifications = val;
+    }
+
+    @Override
+    protected boolean shouldSendNotifications() {
+      switch(sendNotifications) {
+      case "yes": return true;
+      case "no": return false;
+      default: return super.shouldSendNotifications();
+      }
+    }
+
+    @Override
+    protected boolean shouldReceiveNotifications() {
+      switch(receiveNotifications) {
+      case "yes": return true;
+      case "no": return false;
+      default: return super.shouldReceiveNotifications();
+      }
+    }
+
   }
 }

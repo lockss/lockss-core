@@ -47,7 +47,7 @@ import org.lockss.filter.html.*;
 import org.lockss.filter.html.HtmlNodeFilters.*;
 
 public class TestNodeFilterHtmlLinkRewriterFactory extends LockssTestCase {
-  static Logger log = Logger.getLogger("TestNodeFilterHtmlLinkRewriterFactory");
+  static Logger log = Logger.getLogger();
 
   static String ISO = "ISO-8859-1";
   static String UTF8 = "UTF-8";

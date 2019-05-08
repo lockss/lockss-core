@@ -51,7 +51,7 @@ import org.lockss.plugin.*;
 /** Utilities for V2 repository
  */
 public class V2RepoUtil {
-  private static final Logger log = Logger.getLogger("V2RepoUtil");
+  private static final Logger log = Logger.getLogger();
 
   /** Build a Spring HttpHeaders from CIProperties */
   public static HttpHeaders httpHeadersFromProps(CIProperties props) {

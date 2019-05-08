@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,9 +34,9 @@ import java.io.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.daemon.*;
 import org.lockss.app.*;
-import org.lockss.repository.OldLockssRepositoryImpl;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
@@ -90,6 +86,9 @@ public class TestV3PollFactory extends LockssTestCase {
     p.setProperty(V3Poller.PARAM_QUORUM, "3");
     p.setProperty(V3Poller.PARAM_STATE_PATH, tempDirPath);
     p.setProperty(IdentityManager.PARAM_LOCAL_V3_IDENTITY, "TCP:[127.0.0.1]:9729");
+    p.setProperty(V3PollFactory.PARAM_ENABLE_V3_POLLER, "true");
+    p.setProperty(V3PollFactory.PARAM_ENABLE_V3_VOTER, "true");
+
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
     idmgr.initService(theDaemon);
@@ -99,11 +98,8 @@ public class TestV3PollFactory extends LockssTestCase {
     testAu = setupAu();
     aus = new MockAuState(testAu);
     aus.setLastCrawlTime(100);
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(testAu);
-    histRepo.startService();
-    histRepo.storeAuState(aus);
+    aus.storeAuState();
     idmgr.startService();
-    theDaemon.getActivityRegulator(testAu).startService();
     pollManager.startService();
 
     testId = idmgr.findPeerIdentity("TCP:[127.0.0.1]:9000");
@@ -306,7 +302,6 @@ public class TestV3PollFactory extends LockssTestCase {
     for (String key : keys) {
       PeerIdentity pid = idmgr.findPeerIdentity(key);
       peerIds[idIndex++] = pid;
-      idmgr.findLcapIdentity(pid, key);
       PeerIdentityStatus status = getStatus(pid);
       status.setLastMessageTime(900);
       idmgr.signalPartialAgreementHint(pid, testAu, hint);

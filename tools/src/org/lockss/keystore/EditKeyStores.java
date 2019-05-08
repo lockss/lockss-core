@@ -46,7 +46,7 @@ import org.lockss.util.*;
  */
 
 public class EditKeyStores {
-  protected static Logger log = Logger.getLogger("EditKeyStores");
+  protected static Logger log = Logger.getLogger();
   
   private static SecureRandom testOnlySecureRandom = null;
 

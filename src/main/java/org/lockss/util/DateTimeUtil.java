@@ -32,9 +32,9 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 
-import java.util.TimeZone;
-import java.util.Locale;
+import java.util.*;
 import org.apache.commons.lang3.time.FastDateFormat;
+import org.lockss.util.time.TimeZoneUtil;
 
 /**
  * Date/Time utilities
@@ -47,4 +47,13 @@ public class DateTimeUtil {
     FastDateFormat.getInstance("EEE, dd MMM yyyy HH:mm:ss 'GMT'",
                                TimeZoneUtil.getExactTimeZone("GMT"),
 			       Locale.US);
+
+  public static String gmtDateOf(String mstime) {
+    try {
+      long ms = Long.parseLong(mstime);
+      return DateTimeUtil.GMT_DATE_FORMATTER.format(new Date(ms));
+    } catch (Exception e) {
+      return mstime;
+    }
+  }
 }

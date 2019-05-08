@@ -46,7 +46,7 @@ import org.lockss.crawler.*;
  */
 
 public class MockUrlCacher implements UrlCacher {
-  private static Logger logger = Logger.getLogger("MockUrlCacher");
+  private static Logger logger = Logger.getLogger();
 
   private MockArchivalUnit au = null;
   private MockCachedUrlSet cus = null;

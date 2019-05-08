@@ -40,7 +40,7 @@ import org.lockss.plugin.*;
  * Logic for 2-IP-address CLOCKSS subscription probe.
  */
 public class ClockssSubscriptionProbe {
-  private static Logger log = Logger.getLogger("ClockssSubscriptionProbe");
+  private static Logger log = Logger.getLogger();
 
   public static final int PROBE_NONE = 0;
   public static final int PROBE_INST = 1;

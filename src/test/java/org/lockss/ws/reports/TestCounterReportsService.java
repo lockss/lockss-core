@@ -51,7 +51,7 @@ import org.lockss.ws.entities.CounterReportResult;
  * @author Fernando Garcia-Loygorri
  */
 public class TestCounterReportsService extends LockssTestCase {
-  static Logger log = Logger.getLogger(TestCounterReportsService.class);
+  static Logger log = Logger.getLogger();
 
   private String tempDirPath;
   private CounterReportsServiceImpl service;

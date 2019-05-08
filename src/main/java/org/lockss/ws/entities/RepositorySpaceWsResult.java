@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2014 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,6 +26,9 @@
 
  */
 package org.lockss.ws.entities;
+
+import org.lockss.db.DbException;
+import org.lockss.rs.exception.LockssRestException;
 
 /**
  * Container for the information related to a repository space that is the
@@ -111,7 +110,7 @@ public class RepositorySpaceWsResult {
    * 
    * @return a Integer with the count.
    */
-  public Integer getActiveCount() {
+  public Integer getActiveCount() throws DbException, LockssRestException {
     return activeCount;
   }
   public void setActiveCount(Integer activeCount) {
@@ -123,7 +122,7 @@ public class RepositorySpaceWsResult {
    * 
    * @return a Integer with the count.
    */
-  public Integer getInactiveCount() {
+  public Integer getInactiveCount() throws DbException, LockssRestException {
     return inactiveCount;
   }
   public void setInactiveCount(Integer inactiveCount) {
@@ -135,7 +134,7 @@ public class RepositorySpaceWsResult {
    * 
    * @return a Integer with the count.
    */
-  public Integer getDeletedCount() {
+  public Integer getDeletedCount() throws DbException, LockssRestException {
     return deletedCount;
   }
   public void setDeletedCount(Integer deletedCount) {
@@ -147,7 +146,7 @@ public class RepositorySpaceWsResult {
    * 
    * @return a Integer with the count.
    */
-  public Integer getOrphanedCount() {
+  public Integer getOrphanedCount() throws DbException, LockssRestException {
     return orphanedCount;
   }
   public void setOrphanedCount(Integer orphanedCount) {

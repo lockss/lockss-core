@@ -337,6 +337,6 @@ public class AggregateDocumentTransform implements DocumentTransform {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static Logger logger = Logger.getLogger("AggregateDocumentTransform");
+  private static Logger logger = Logger.getLogger();
 
 }

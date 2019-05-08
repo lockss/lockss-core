@@ -99,7 +99,6 @@ import org.lockss.protocol.psm.PsmInterpStateBean;
 import org.lockss.protocol.psm.PsmMachine;
 import org.lockss.protocol.psm.PsmManager;
 import org.lockss.protocol.psm.PsmMsgEvent;
-import org.lockss.repository.RepositoryNode;
 import org.lockss.scheduler.SchedService;
 import org.lockss.scheduler.SchedulableTask;
 import org.lockss.scheduler.Schedule.EventType;
@@ -107,21 +106,11 @@ import org.lockss.scheduler.StepTask;
 import org.lockss.scheduler.TaskCallback;
 import org.lockss.servlet.DisplayConverter;
 import org.lockss.state.AuState;
-import org.lockss.state.HistoryRepository;
 import org.lockss.state.SubstanceChecker;
-import org.lockss.util.ByteArray;
-import org.lockss.util.CollectionUtil;
-import org.lockss.util.CompoundLinearSlope;
-import org.lockss.util.Constants;
-import org.lockss.util.Deadline;
-import org.lockss.util.Logger;
-import org.lockss.util.PatternFloatMap;
-import org.lockss.util.ProbabilisticChoice;
-import org.lockss.util.RegexpUtil;
-import org.lockss.util.StringUtil;
-import org.lockss.util.TimeBase;
-import org.lockss.util.TimeInterval;
-import org.lockss.util.TimerQueue;
+import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 /**
  * <p>The caller of a V3 Poll.  This class is responsible for inviting
@@ -522,7 +511,7 @@ public class V3Poller implements Poll {
   public static final String PARAM_MAX_ALERT_URLS = PREFIX + "maxAlertUrls";
   public static long DEFAULT_MAX_POLL_DURATION = 3 * Constants.WEEK;
   public static long DEFAULT_MIN_POLL_DURATION = 10 * Constants.MINUTE;
-  private static Logger log = Logger.getLogger(V3Poller.class);
+  private static Logger log = Logger.getLogger();
   // The order of theParticipants is used in indexing into the Arrays
   // passed to BlockHasher, and so it is a LinkedHashMap.
   protected LinkedHashMap<PeerIdentity, ParticipantUserData> theParticipants =
@@ -941,7 +930,7 @@ public class V3Poller implements Poll {
     boolean suc = theDaemon.getSchedService().scheduleTask(task);
     if (!suc) {
       String msg = "No room in schedule for " +
-          StringUtil.timeIntervalToString(hashEst) + " hash between " +
+          TimeUtil.timeIntervalToString(hashEst) + " hash between " +
           earliestStart + " and " + latestFinish + ", at " + TimeBase.nowDate();
       pollerState.setErrorDetail(msg);
       log.warning(msg);
@@ -1108,7 +1097,7 @@ public class V3Poller implements Poll {
       // Set up an event on the timer queue to check for accepted peers.
       // If we haven't got enough peers, invite more.
       log.debug("Scheduling check for more peers to invite in " +
-          StringUtil.timeIntervalToString(timeBetweenInvitations));
+          TimeUtil.timeIntervalToString(timeBetweenInvitations));
       nextInvitationTime = Deadline.in(timeBetweenInvitations);
       invitationRequest =
           TimerQueue.schedule(nextInvitationTime,
@@ -1818,19 +1807,10 @@ public class V3Poller implements Poll {
   private void signalNodeAgreement(BlockTally tally, String url) {
     Collection<ParticipantUserData> agreeVoters = tally.getAgreeVoters();
     if (!agreeVoters.isEmpty()) {
-      try {
-        RepositoryNode node = AuUtil.getRepositoryNode(getAu(), url);
-        if (node == null) {
-          // CR: throw new ShouldNotHappenException();
-        } else {
-          Collection<PeerIdentity> agreeVoterIds =
-              getVotersIdentities(agreeVoters);
-          node.signalAgreement(agreeVoterIds);
-        }
-      } catch (MalformedURLException ex) {
-        log.error("Malformed URL while updating agreement history: "
-            + url);
-      }
+      Collection<PeerIdentity> agreeVoterIds =
+	getVotersIdentities(agreeVoters);
+      // XXXSTATE per-URL agreement
+//           node.signalAgreement(agreeVoterIds);
     }
   }
 
@@ -2329,7 +2309,9 @@ public class V3Poller implements Poll {
             new SingleNodeCachedUrlSetSpec(url);
         CachedUrlSet cus = getAu().makeCachedUrlSet(cuss);
         log.debug("Marking block deleted: " + url);
-        theDaemon.getLockssRepository(getAu()).deleteNode(cus.getUrl());
+	// XXXREPO
+//         theDaemon.getLockssRepository(getAu()).deleteNode(cus.getUrl());
+	if (false) throw new IOException("Satisfy compiler");
       } else {
         log.info("Asked to mark file " + url + " deleted in poll " +
             pollerState.getPollKey() + ".  Not actually deleting.");
@@ -2398,7 +2380,7 @@ public class V3Poller implements Poll {
 
       queue.markActive(pendingPublisherRepairs);
       cm.startRepair(getAu(), pendingPublisherRepairs,
-          cb, null /*cookie*/, null /*lock*/);
+          cb, null /*cookie*/);
     }
 
     // If we have decided to repair from any caches, iterate over the list
@@ -2559,21 +2541,15 @@ public class V3Poller implements Poll {
         urls.add(rp.getUrl());
       }
       final ArchivalUnit au = getAu();
-      final AuEventHandler.ChangeInfo chInfo = new AuEventHandler.ChangeInfo();
-      chInfo.setType(AuEventHandler.ChangeInfo.Type.Repair);
+      final AuEvent.ContentChangeInfo chInfo = new AuEvent.ContentChangeInfo();
+      chInfo.setType(AuEvent.ContentChangeInfo.Type.Repair);
       chInfo.setNumUrls(nrepairs);
       chInfo.setUrls(urls);
-      chInfo.setAu(au);
       chInfo.setComplete(true);
       PluginManager plugMgr = theDaemon.getPluginManager();
-      plugMgr.applyAuEvent(new PluginManager.AuEventClosure() {
-        public void execute(AuEventHandler hand) {
-          hand.auContentChanged(new AuEvent(AuEvent.Type.
-                  ContentChanged,
-                  false),
-              au, chInfo);
-        }
-      });
+      AuEvent event =
+	AuEvent.forAu(au, AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
+      plugMgr.signalAuEvent(au, event);
     }
   }
 
@@ -2913,43 +2889,36 @@ public class V3Poller implements Poll {
       // load list of peers who have recently said they don't have the AU
       DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
       synchronized (noAuSet) {
-        try {
-          try {
-            noAuSet.load();
-            int s = noAuSet.size();
-            pollManager.ageNoAuSet(getAu(), noAuSet);
-            log.debug2("NoAuSet: " + s + " aged-> " + noAuSet.size()
-                + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
-          } catch (IOException e) {
-            log.error("Failed to load no AU set", e);
-            noAuSet.release();
-            noAuSet = null;
-          }
-          // first build list of eligible peers
-          if (enableDiscovery) {
-            allPeers =
-                idManager.getTcpPeerIdentities(new EligiblePredicate(noAuSet));
-          } else {
-            Collection<String> keys =
-                CurrentConfig.getList(IdentityManagerImpl.PARAM_INITIAL_PEERS,
-                    IdentityManagerImpl.DEFAULT_INITIAL_PEERS);
-            allPeers = new ArrayList();
-            for (String key : keys) {
-              try {
-                PeerIdentity id = idManager.findPeerIdentity(key);
-                if (isPeerEligible(id, noAuSet)) {
-                  allPeers.add(id);
-                }
-              } catch (IdentityManager.MalformedIdentityKeyException e) {
-                log.warning("Can't add to inner circle: " + key, e);
-              }
-            }
-          }
-        } finally {
-          if (noAuSet != null) {
-            noAuSet.release();
-          }
-        }
+	try {
+	  int s = noAuSet.size();
+	  pollManager.ageNoAuSet(getAu(), noAuSet);
+	  log.debug2("NoAuSet: " + s + " aged-> " + noAuSet.size()
+		     + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
+	  noAuSet.store();
+	} catch (IOException e) {
+	  log.error("Failed to age no AU set", e);
+	  noAuSet = null;
+	}
+	// first build list of eligible peers
+	if (enableDiscovery) {
+	  allPeers =
+	    idManager.getTcpPeerIdentities(new EligiblePredicate(noAuSet));
+	} else {
+	  Collection<String> keys =
+	    CurrentConfig.getList(IdentityManagerImpl.PARAM_INITIAL_PEERS,
+				  IdentityManagerImpl.DEFAULT_INITIAL_PEERS);
+	  allPeers = new ArrayList();
+	  for (String key : keys) {
+	    try {
+	      PeerIdentity id = idManager.findPeerIdentity(key);
+	      if (isPeerEligible(id, noAuSet)) {
+		allPeers.add(id);
+	      }
+	    } catch (IdentityManager.MalformedIdentityKeyException e) {
+	      log.warning("Can't add to inner circle: " + key, e);
+	    }
+	  }
+	}
       }
       // then build map including invitation weight for each peer.
       availablePeers = new HashMap();
@@ -3006,15 +2975,11 @@ public class V3Poller implements Poll {
       return false;
     }
 
-    try {
-      if (noAuSet != null && noAuSet.contains(pid)) {
-        if (log.isDebug2()) {
-          log.debug2("Not eligible, no AU: " + pid);
-        }
-        return false;
+    if (noAuSet != null && noAuSet.contains(pid)) {
+      if (log.isDebug2()) {
+	log.debug2("Not eligible, no AU: " + pid);
       }
-    } catch (IOException e) {
-      // impossible with loaded PersistentPeerIdSet
+      return false;
     }
 
     PeerIdentityStatus status = idManager.getPeerIdentityStatus(pid);
@@ -3693,7 +3658,6 @@ public class V3Poller implements Poll {
 
       Collection<PeerIdentity> noAuPeers = pollerState.getNoAuPeers();
       if (noAuPeers != null && !noAuPeers.isEmpty()) {
-        HistoryRepository historyRepo = theDaemon.getHistoryRepository(getAu());
         DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
         synchronized (noAuSet) {
           try {
@@ -3701,7 +3665,6 @@ public class V3Poller implements Poll {
               log.debug2("Poll " + getKey() + " Adding no AU peers: "
                   + noAuPeers);
             }
-            noAuSet.load();
             // Reset date if set is empty.  Slightly better to do here than
             // when set is emptied (due to age) as this doesn't start the
             // clock until some entries are actually added to the set.
@@ -3714,11 +3677,9 @@ public class V3Poller implements Poll {
               log.debug2("NoAuSet: " + s + " -> " + noAuSet.size()
                   + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
             }
-            noAuSet.store(true);
+            noAuSet.store();
           } catch (IOException e) {
             log.error("Failed to update no AU set", e);
-          } finally {
-            noAuSet.release();
           }
         }
       }
@@ -3804,7 +3765,7 @@ public class V3Poller implements Poll {
           new BlockEventHandler())) {
         long hashEst = cus.estimatedHashDuration();
         String msg = "No time for " +
-            StringUtil.timeIntervalToString(hashEst) + " hash between " +
+            TimeUtil.timeIntervalToString(hashEst) + " hash between " +
             TimeBase.nowDate() + " and " + Deadline.at(tallyEnd);
         log.error(msg + ": " + pollerState.getPollKey());
         pollerState.setErrorDetail(msg);

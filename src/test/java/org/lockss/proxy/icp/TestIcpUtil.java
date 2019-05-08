@@ -400,6 +400,6 @@ public class TestIcpUtil extends LockssTestCase {
   /**
    * <p>A logger for use by this class.</p>
    */
-  private static final Logger logger = Logger.getLogger("TestIcpUtil");
+  private static final Logger logger = Logger.getLogger();
 
 }

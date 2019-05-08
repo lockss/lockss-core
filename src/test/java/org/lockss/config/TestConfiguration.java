@@ -40,6 +40,7 @@ import org.lockss.config.Configuration;
 import org.lockss.config.ConfigurationPropTreeImpl;
 import org.lockss.config.Tdb;
 import org.lockss.config.Tdb.TdbException;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.config.TdbAu;
 import org.lockss.config.TdbPublisher;
 import org.lockss.config.TdbTitle;
@@ -66,7 +67,7 @@ public class TestConfiguration extends LockssTestCase4 {
     super.tearDown();
   }
 
-  static Logger log = Logger.getLogger("TestConfig");
+  static Logger log = Logger.getLogger();
 
   private static final String c1 = "prop1=12\nprop2=foobar\nprop3=true\n" +
     "prop5=False\n";
@@ -297,6 +298,12 @@ public class TestConfiguration extends LockssTestCase4 {
     Tdb tdb2 = c2.getTdb();
     assertEmpty(tdb1.computeDifferences(tdb2).getPluginIdsForDifferences());
     assertNotSame(tdb1, tdb2);
+  }
+
+  @Test
+  public void testToStringMap() throws TdbException {
+    Configuration c1 = ConfigurationUtil.fromArgs("k1", "v1", "k2", "v2");
+    assertEquals(MapUtil.map("k1", "v1", "k2", "v2"), c1.toStringMap());
   }
 
   @Test

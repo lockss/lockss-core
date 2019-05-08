@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,10 +34,10 @@ import org.lockss.alert.AlertManager;
 import org.lockss.account.AccountManager;
 import org.lockss.app.*;
 import org.lockss.config.*;
+import org.lockss.config.db.ConfigDbManager;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.StatusService;
-import org.lockss.db.DbManager;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.hasher.HashService;
 import org.lockss.mail.MailService;
@@ -61,7 +61,7 @@ import org.lockss.clockss.*;
 import org.lockss.safenet.*;
 
 public class MockLockssDaemon extends LockssDaemon {
-  private static Logger log = Logger.getLogger("MockLockssDaemon");
+  private static Logger log = Logger.getLogger();
 
 //   ResourceManager resourceManager = null;
 //   WatchdogService wdogService = null;
@@ -75,7 +75,6 @@ public class MockLockssDaemon extends LockssDaemon {
 //   SystemMetrics systemMetrics = null;
 //   PollManager pollManager = null;
 //   PsmManager psmManager = null;
-//   LcapDatagramComm commManager = null;
 //   LcapStreamComm scommManager = null;
 //   LcapDatagramRouter datagramRouterManager = null;
 //   LcapRouter routerManager = null;
@@ -92,7 +91,6 @@ public class MockLockssDaemon extends LockssDaemon {
 //   RemoteApi remoteApi = null;
 //   IcpManager icpManager = null;
 //   ClockssParams clockssParams = null;
-//   DbManager dbManager = null;
 //   MetadataDbManager metadataDbManager = null;
 //   CounterReportsManager counterReportsManager = null;
 //   SubscriptionManager subscriptionManager = null;
@@ -141,6 +139,18 @@ public class MockLockssDaemon extends LockssDaemon {
     //super.stopDaemon();
   }
 
+  @Override
+  public void stopDaemon() {
+    if (configDbMgr != null) {
+      configDbMgr.stopService();
+    }
+    auManagerMaps.clear();
+
+    managerMap.clear();
+
+    //super.stopDaemon();
+  }
+
   /** Set the testing mode.  (Normally done through config and daemon
    * startup.) */
   public void setTestingMode(String mode) {
@@ -179,6 +189,10 @@ public class MockLockssDaemon extends LockssDaemon {
   /** Create a manager instance, mimicking what LockssDaemon does */
   LockssManager newManager(String key) {
     log.debug2("Loading manager: " + key);
+    switch (key) {
+    case "org.lockss.state.StateManager":
+      return setUpStateManager();
+    }
     ManagerDesc desc = findManagerDesc(key);
     if (desc == null) {
       throw new LockssAppException("No ManagerDesc for: " + key);
@@ -198,6 +212,14 @@ public class MockLockssDaemon extends LockssDaemon {
     T mgr = (T)managerMap.get(managerKey(mgrType));
     if (mgr == null) {
       mgr = (T)newManager(managerKey(mgrType));
+    }
+    return mgr;
+  }
+
+  public LockssManager getManagerByKey(String managerKey) {
+    LockssManager mgr = (LockssManager)managerMap.get(managerKey);
+    if (mgr == null) {
+      mgr = (LockssManager)newManager(managerKey);
     }
     return mgr;
   }
@@ -299,14 +321,6 @@ public class MockLockssDaemon extends LockssDaemon {
   }
 
   /**
-   * return the datagram communication manager instance
-   * @return the LcapDatagramComm
-   */
-  public LcapDatagramComm getDatagramCommManager() {
-    return getManagerByType(LcapDatagramComm.class);
-  }
-
-  /**
    * return the stream communication manager instance
    * @return the LcapStreamComm
    */
@@ -385,20 +399,13 @@ public class MockLockssDaemon extends LockssDaemon {
    * @return IdentityManager
    */
   public IdentityManager getIdentityManager() {
+    ensureLocalId();
     return getManagerByType(IdentityManager.class);
   }
 
   public boolean hasIdentityManager() {
     return managerMap.containsKey(managerKey(IdentityManager.class));
   }
-
-  /**
-   * return the database manager instance
-   * @return the DbManager
-   */
-//   public DbManager getDbManager() {
-//     return getManagerByType(DbManager.class);
-//   }
 
   /**
    * return the metadata database manager instance
@@ -422,6 +429,14 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public SubscriptionManager getSusbcriptionManager() {
     return getManagerByType(SubscriptionManager.class);
+  }
+
+  /**
+   * return the configuration database manager instance
+   * @return the ConfigDbManager
+   */
+  public ConfigDbManager getConfigDbManager() {
+    return getManagerByType(ConfigDbManager.class);
   }
 
   /**
@@ -478,14 +493,6 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setManagerByType(Class mgrType, LockssManager mgr) {
     managerMap.put(managerKey(mgrType), mgr);
-  }
-
-  /**
-   * Set the datagram CommManager
-   * @param commMan the new manager
-   */
-  public void setDatagramCommManager(LcapDatagramComm commMan) {
-    managerMap.put(LockssDaemon.DATAGRAM_COMM_MANAGER, commMan);
   }
 
   /**
@@ -641,14 +648,6 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.TRUEZIP_MANAGER, tzMgr);
   }
 
-//   /**
-//    * Set the DbManager
-//    * @param dbMan the new manager
-//    */
-//   public void setDbManager(DbManager dbMan) {
-//     managerMap.put(LockssDaemon.DB_MANAGER, dbMan);
-//   }
-
   /**
    * Set the MetadataDbManager
    * @param mdDbMan the new manager
@@ -703,6 +702,22 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setEntitlementRegistryClient(EntitlementRegistryClient entitlementRegistryClient) {
     managerMap.put(LockssDaemon.SAFENET_MANAGER, entitlementRegistryClient);
+  }
+
+  /**
+   * Set the ConfigDbManager
+   * @param configDbMan the new manager
+   */
+  public void setConfigDbManager(ConfigDbManager configDbMan) {
+    managerMap.put(LockssDaemon.CONFIG_DB_MANAGER, configDbMan);
+  }
+
+  /**
+   * Set the StateManager
+   * @param stateMan the new manager
+   */
+  public void setStateManager(StateManager stateMan) {
+    managerMap.put(LockssDaemon.STATE_MANAGER, stateMan);
   }
 
   // AU managers
@@ -761,64 +776,6 @@ public class MockLockssDaemon extends LockssDaemon {
     super.startOrReconfigureAuManagers(au, auConfig);
   }
 
-  /** Return ActivityRegulator for AU */
-  public ActivityRegulator getActivityRegulator(ArchivalUnit au) {
-    try {
-      return super.getActivityRegulator(au);
-    } catch (IllegalArgumentException e) {
-      return (ActivityRegulator)newAuManager(LockssDaemon.ACTIVITY_REGULATOR,
-					     au);
-    }
-  }
-
-  /** Return LockssRepository for AU */
-  public OldLockssRepository getLockssRepository(ArchivalUnit au) {
-    try {
-      return super.getLockssRepository(au);
-    } catch (IllegalArgumentException e) {
-      return (OldLockssRepository)newAuManager(LockssDaemon.LOCKSS_REPOSITORY,
-					    au);
-    }
-  }
-
-  /** Return HistoryRepository for AU */
-  public HistoryRepository getHistoryRepository(ArchivalUnit au) {
-    try {
-      return super.getHistoryRepository(au);
-    } catch (IllegalArgumentException e) {
-      return (HistoryRepository)newAuManager(LockssDaemon.HISTORY_REPOSITORY,
-          au);
-    }
-  }
-
-  /**
-   * Set the ActivityRegulator for a given AU.
-   * @param actReg the new regulator
-   * @param au the ArchivalUnit
-   */
-  public void setActivityRegulator(ActivityRegulator actReg, ArchivalUnit au) {
-    setAuManager(ACTIVITY_REGULATOR, au, actReg);
-  }
-
-  /**
-   * Set the LockssRepository for a given AU.
-   * @param repo the new repository
-   * @param au the ArchivalUnit
-   */
-  public void setLockssRepository(OldLockssRepository repo, ArchivalUnit au) {
-    setAuManager(LOCKSS_REPOSITORY, au, repo);
-  }
-
-
-  /**
-   * Set the HistoryRepository for a given AU.
-   * @param histRepo the new repository
-   * @param au the ArchivalUnit
-   */
-  public void setHistoryRepository(HistoryRepository histRepo, ArchivalUnit au) {
-    setAuManager(HISTORY_REPOSITORY, au, histRepo);
-  }
-
   /**
    * <p>Forcibly sets the ICP manager to a new value.</p>
    * @param icpManager A new ICP manager to use.
@@ -868,6 +825,15 @@ public class MockLockssDaemon extends LockssDaemon {
     daemonRunning = val;
   }
 
+  /** set daemonRunning
+   * @param val true if running
+   */
+  public void setAppRunning(boolean val) {
+    if (val) {
+      appRunningSem.fill();
+    }
+  }
+
   public void setAusStarted(boolean val) {
     if (val) {
       ausStarted.fill();
@@ -875,4 +841,110 @@ public class MockLockssDaemon extends LockssDaemon {
       ausStarted = new OneShotSemaphore();
     }
   }
+
+  /** For each manager type in the arguments, install the default manager
+   * for the type if no other manager has been installed, init the manager
+   * if it hasn't been inited, and start the manager if it hasn't been
+   * started. */
+  public MockLockssDaemon startManagers(Class<? extends LockssManager>... mgrTypes) {
+    for (Class<? extends LockssManager> mgrType : mgrTypes) {
+      log.debug2("startManagers: " + Arrays.asList(mgrTypes));
+      LockssManager mgr = getManagerByType(mgrType);
+      log.debug3("mgr: " + mgr);
+      if (!mgr.isStarted()) {
+	mgr.startService();
+      }
+    }
+    return this;
+  }
+
+  /** Stop all the managers that were started */
+  public MockLockssDaemon stopManagers() {
+    List<String> rkeys = ListUtil.reverseCopy(managerMap.asList());
+    log.debug2("Stopping managers: " + rkeys);
+    for (String key : rkeys) {
+      LockssManager lm = (LockssManager)managerMap.get(key);
+      if (lm.isStarted()) {
+	try {
+	  lm.stopService();
+	  managerMap.remove(key);
+	} catch (Exception e) {
+	  log.warning("Couldn't stop service " + lm, e);
+	}
+      }
+    }
+    return this;
+  }
+
+  ConfigDbManager configDbMgr;
+  StateManager stateMgr;
+
+  /** Create and start service(s) necessary to create AUs in a testing
+   * environment */
+  public MockLockssDaemon setUpAuConfig() {
+    // Create the configuration database manager.
+    configDbMgr = new ConfigDbManager();
+    setConfigDbManager(configDbMgr);
+    configDbMgr.initService(this);
+    configDbMgr.startService();
+    return this;
+  }
+
+  /** Create and start StateService */
+  public StateManager setUpStateManager() {
+    return setUpStateManager(new TestingStateManager());
+  }
+
+  public <T extends StateManager> T setUpStateManager(T mgr) {
+    ensureLocalId();
+    stateMgr = mgr;
+    setStateManager(stateMgr);
+    stateMgr.initService(this);
+    stateMgr.startService();
+    return mgr;
+  }
+
+  void ensureLocalId() {
+    Configuration config = ConfigManager.getCurrentConfig();
+    if (!config.containsKey(IdentityManager.PARAM_LOCAL_V3_IDENTITY)) {
+      ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
+				    "TCP:[127.0.0.1]:9729");
+    }
+  }
+
+  public PeerIdentity findPeerIdentity(String key)
+      throws IdentityManager.MalformedIdentityKeyException {
+    return getIdentityManager().findPeerIdentity(key);
+  }
+
+  private ServiceDescr myServiceDescr = null;
+
+  @Override
+  public ServiceDescr getMyServiceDescr() {
+    if (myServiceDescr != null) {
+      return myServiceDescr;
+    }
+    return super.getMyServiceDescr();
+  }
+
+  public MockLockssDaemon setMyServiceDescr(ServiceDescr descr) {
+    myServiceDescr = descr;
+    return this;
+  }
+
+  /** Here only to allow legacy plugin tests to compile
+   * @deprecated
+   */
+  @Deprecated
+  public void getNodeManager(ArchivalUnit au) {
+  }
+
+  public static class TestingStateManager extends InMemoryStateManager {
+    protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
+      return true;
+    }
+
+
+  }
+
 }

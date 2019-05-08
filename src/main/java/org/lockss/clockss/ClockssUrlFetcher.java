@@ -36,6 +36,7 @@ import java.io.*;
 import java.util.*;
 
 import org.lockss.util.*;
+import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 import org.lockss.daemon.*;
 import org.lockss.state.*;
@@ -47,7 +48,7 @@ import org.lockss.crawler.*;
  * detection.
  */
 public class ClockssUrlFetcher implements UrlFetcher {
-  private static Logger log = Logger.getLogger("ClockssUrlCacher");
+  private static Logger log = Logger.getLogger();
 
   private UrlFetcher uf;
   ArchivalUnit au;

@@ -37,6 +37,8 @@ import org.lockss.plugin.*;
 import org.lockss.poller.*;
 import org.lockss.util.*;
 import org.lockss.util.StringUtil;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Class that encapsulates a V3 LCAP message that has been received or will be
@@ -70,7 +72,7 @@ public class V3LcapMessage extends LcapMessage implements LockssSerializable {
   public static final String[] POLL_MESSAGES = { "Poll", "PollAck", "PollProof",
     "Nominate", "VoteRequest", "Vote", "RepairReq", "RepairRep",
     "EvaluationReceipt", "NoOp" };
-  private static Logger log = Logger.getLogger("V3LcapMessage");
+  private static Logger log = Logger.getLogger();
   
   
   // Poll rejection codes.

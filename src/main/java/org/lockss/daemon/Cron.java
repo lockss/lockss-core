@@ -39,6 +39,9 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
 import org.lockss.util.SerializationException.FileNotFound;
+import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.remote.*;
 import org.lockss.account.*;
 
@@ -49,7 +52,7 @@ import org.lockss.account.*;
 public class Cron
   extends BaseLockssManager implements ConfigurableManager  {
 
-  protected static Logger log = Logger.getLogger("Cron");
+  protected static Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "cron.";
 

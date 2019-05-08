@@ -41,7 +41,6 @@ import org.lockss.app.*;
 import org.lockss.plugin.*;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
-import org.lockss.state.HistoryRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
@@ -60,7 +59,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
   private static final String PARAM_SHOULD_FILTER_HASH_STREAM =
     Configuration.PREFIX+"baseCachedUrl.filterHashStream";
 
-  private static final Logger logger = Logger.getLogger(TestV2BaseCachedUrl.class);
+  private static final Logger logger = Logger.getLogger();
 
   protected MockArchivalUnit mau;
   protected MockLockssDaemon theDaemon;
@@ -152,6 +151,39 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       } catch (UnsupportedOperationException e) {
 	assertMatchesRE("No content", e.getMessage());
       }
+    }
+  }
+
+  // Instrumented BaseCachedUrl.  In order to do analogous for versioned
+  // CU's, need to implement factory in BaseCachedUrl
+  private static class InstrumentedBaseCachedUrl extends BaseCachedUrl {
+    private List<ArtifactData> releasedAds = new ArrayList<ArtifactData>();
+    private List<ArtifactData> obtainedAds = new ArrayList<ArtifactData>();
+
+    public InstrumentedBaseCachedUrl(ArchivalUnit au, String url) {
+      super(au, url);
+    }
+
+    @Override
+    ArtifactData getArtifactData(LockssRepository repo, Artifact art)
+	throws IOException {
+      ArtifactData res = super.getArtifactData(repo, art);
+      obtainedAds.add(res);
+      return res;
+    }
+
+    @Override
+    void releaseArtifactData(ArtifactData ad) {
+      releasedAds.add(ad);
+      super.releaseArtifactData(ad);
+    }
+
+    public List<ArtifactData> getObtainedAds() {
+      return obtainedAds;
+    }
+
+    public List<ArtifactData> getReleasedAds() {
+      return releasedAds;
     }
   }
 
@@ -305,10 +337,42 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       cu = getTestCu(url2);
       urlIs = cu.getUnfilteredInputStream();
       assertEquals(content2, StringUtil.fromInputStream(urlIs));
+      // Read a second time
+      urlIs = cu.getUnfilteredInputStream();
+      assertEquals(content2, StringUtil.fromInputStream(urlIs));
 
       cu = getTestCu(url3);
       urlIs = cu.getUnfilteredInputStream();
       assertEquals("", StringUtil.fromInputStream(urlIs));
+
+    }
+
+    // Ensure all resources (multiple InputStreams) are released
+
+    // Currently runs only in highest-version variants, as there's no
+    // mechanism to create a custom subclass of BaseCachedUrl.Version.
+    // Need to change BaseCachedUrl to use a factory.
+    public void doTestGetMultipleStreams() throws Exception {
+      createLeaf(url1, content1, null);
+
+      CachedUrl cu1 = getTestCu(url1);
+      InputStream u1i1 = cu1.getUnfilteredInputStream();
+      InputStream u1i2 = cu1.getUnfilteredInputStream();
+      assertNotSame(u1i1, u1i2);
+      assertEquals(content1, StringUtil.fromInputStream(u1i1));
+      assertEquals(content1, StringUtil.fromInputStream(u1i2));
+      InputStream u1i3 = cu1.getUnfilteredInputStream();
+      assertNotSame(u1i1, u1i3);
+      assertNotSame(u1i2, u1i3);
+      assertEquals(content1, StringUtil.fromInputStream(u1i3));
+
+      InstrumentedBaseCachedUrl ibcu1 = (InstrumentedBaseCachedUrl)cu1;
+      assertEmpty(ibcu1.getReleasedAds());
+      u1i2.close();	     // close one explcitly, should change behavior
+      cu1.release();
+      assertEquals(ibcu1.getObtainedAds(), ibcu1.getReleasedAds());
+      // XXX would be better to check that InputStreams get closed but no
+      // good way to get ahold of them.
     }
 
     public void testGZipped() throws Exception {
@@ -761,7 +825,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
     }
 
     public CachedUrl makeCachedUrl(String url) {
-      return new BaseCachedUrl(this, url);
+      return new InstrumentedBaseCachedUrl(this, url);
     }
 
     public UrlCacher makeUrlCacher(UrlData ud) {
@@ -899,7 +963,11 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       CachedUrl cu = getTestCu(url1);
       assertEquals(1, cu.getVersion());
     }
-  }
+
+    public void testGetMultipleStreams() throws Exception {
+      doTestGetMultipleStreams();
+    }
+}
 
   /** Variant that performs the tests with the current version when there's
    * a previous version */
@@ -931,6 +999,10 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 		   curcu.toString());
       assertEquals("[BCU: http://www.example.com/testDir/leaf1]",
 		   cu.toString());
+    }
+
+    public void testGetMultipleStreams() throws Exception {
+      doTestGetMultipleStreams();
     }
   }
 

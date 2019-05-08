@@ -142,7 +142,7 @@ public class PollHelper {
     }
   };
 
-  private static Logger log = Logger.getLogger(PollHelper.class);
+  private static Logger log = Logger.getLogger();
 
   /**
    * Provides the universe of poll-related objects used as the source for a

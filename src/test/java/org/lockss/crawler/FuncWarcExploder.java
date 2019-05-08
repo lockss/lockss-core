@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2007-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -58,7 +58,7 @@ import org.lockss.state.*;
  */
 
 public class FuncWarcExploder extends LockssTestCase {
-  static Logger log = Logger.getLogger("FuncWarcExploder");
+  static Logger log = Logger.getLogger();
 
   private SimulatedArchivalUnit sau;
   private MockLockssDaemon theDaemon;
@@ -141,7 +141,6 @@ public class FuncWarcExploder extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
-    useOldRepo();
     this.setUp(DEFAULT_MAX_DEPTH);
   }
 
@@ -166,6 +165,9 @@ public class FuncWarcExploder extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
+
+    theDaemon.setUpAuConfig();
+
     pluginMgr = new MyPluginManager();
     pluginMgr.initService(theDaemon);
     theDaemon.setPluginManager(pluginMgr);
@@ -182,7 +184,6 @@ public class FuncWarcExploder extends LockssTestCase {
 
     sau = PluginTestUtil.createAndStartSimAu(MySimulatedPlugin.class,
 					     simAuConfig(tempDirPath));
-    theDaemon.getHistoryRepository(sau).startService();
     sau.setUrlConsumerFactory(new ExplodingUrlConsumerFactory());
   }
 
@@ -283,8 +284,7 @@ public class FuncWarcExploder extends LockssTestCase {
     // SimulatedContentGenerator is changed, this number may have to
     // change.  NB - because the WARC files are compressed,  their
     // size varies randomly by a small amount.
-//HC3    long expected = 9394;
-    long expected = 9230;
+    long expected = 9394;
     long actual = AuUtil.getAuContentSize(sau, true);
     long error = expected - actual;
     log.debug("Expected " + expected + " actual " + actual);
@@ -461,10 +461,7 @@ public class FuncWarcExploder extends LockssTestCase {
     sau.setExploderPattern(".warc.gz$");
     sau.setExploderHelper(new MyExploderHelper(bad));
     
-    AuState maus = new MyMockAuState(sau);
-    HistoryRepository histRepo = theDaemon.getHistoryRepository(sau);
-    ((MockAuState)maus).setHistoryRepository(histRepo);
-    histRepo.storeAuState(maus);
+    AuState maus = AuTestUtil.setUpMockAus(sau);
     FollowLinkCrawler crawler = new FollowLinkCrawler(sau, maus);
     crawler.setCrawlManager(crawlMgr);
     boolean res = crawler.doCrawl();

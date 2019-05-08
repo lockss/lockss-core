@@ -107,8 +107,7 @@ public class LinkExtractorStatisticsManager {
     }
     System.out.println("Comparing " + base + " and " + alt + " " +
         "for " + name);
-    Logger logger = Logger.getLoggerWithInitialLevel("LinkExtractorStats",
-        Logger.LEVEL_DEBUG3);
+    Logger logger = Logger.getLogger();
     Set<String> base_urls = m_callbacks.get(base).GetUrls();
     Set<String> alt_urls = m_callbacks.get(alt).GetUrls();
     Set<String> common_urls = new HashSet<String>(alt_urls);

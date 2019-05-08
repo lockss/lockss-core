@@ -41,6 +41,7 @@ import com.thoughtworks.xstream.alias.CannotResolveClassException;
 import org.lockss.app.LockssApp;
 import org.lockss.hasher.HashResult;
 import org.lockss.util.SerializationException;
+import org.lockss.util.io.LockssSerializable;
 
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.alias.*;
@@ -65,7 +66,7 @@ import com.thoughtworks.xstream.mapper.*;
  * <p>This class supports post-deserialization processing. To take
  * advantage of it, you can either use the traditional Java post-
  * deserialization convention with {@link Serializable}, or you can
- * implement {@link org.lockss.util.LockssSerializable}. In that case,
+ * implement {@link org.lockss.util.io.LockssSerializable}. In that case,
  * your class has to define a method named <code>postUnmarshal</code>
  * that accepts one parameter of type {@link LockssApp} and returns
  * <code>void</code>. Although the underlying implementation does not
@@ -809,6 +810,6 @@ public class XStreamSerializer extends ObjectSerializer {
   /**
    * <p>A logger for use by this serializer.</p>
    */
-  private static Logger logger = Logger.getLogger(XStreamSerializer.class);
+  private static Logger logger = Logger.getLogger();
 
 }

@@ -32,6 +32,8 @@ package org.lockss.util;
 
 import java.util.*;
 import java.io.*;
+
+import org.lockss.util.os.PlatformUtil;
 import org.mortbay.util.B64Code;
 
 /**
@@ -47,7 +49,7 @@ public class EncodedProperty extends Properties {
 
   public static final String DEFAULT_ENCODING = "UTF-8";
 
-  private static final Logger log = Logger.getLogger("EncodedProperty");
+  private static final Logger log = Logger.getLogger();
 
 
   /**

@@ -40,7 +40,7 @@ import org.lockss.util.*;
  * Simple mail message with text body
  */
 public class TextMessage implements MailMessage  {
-  protected static Logger log = Logger.getLogger("TextMessage");
+  protected static Logger log = Logger.getLogger();
 
   private StringBuffer headers = new StringBuffer();
   private String text;

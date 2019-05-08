@@ -38,6 +38,9 @@ import java.security.MessageDigest;
 import junit.framework.TestCase;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.test.PrivilegedAccessor;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
 import org.lockss.plugin.*;
 
@@ -51,7 +54,7 @@ public class TestHashQueue extends LockssTestCase {
     org.lockss.hasher.HashQueue.class
   };
 
-  static Logger log = Logger.getLogger("HashQueue");
+  static Logger log = Logger.getLogger();
 //    static HashServiceTestPlugin.CUS cus = HashServiceTestPlugin.getCUS();
   MockArchivalUnit mau = null;
   MockCachedUrlSet cus;

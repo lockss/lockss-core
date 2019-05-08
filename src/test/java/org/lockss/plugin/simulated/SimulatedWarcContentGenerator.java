@@ -52,7 +52,7 @@ import org.lockss.daemon.*;
  */
 
 public class SimulatedWarcContentGenerator extends SimulatedContentGenerator {
-  private static Logger logger = Logger.getLogger("SimulatedWarcContentGenerator");
+  private static Logger logger = Logger.getLogger();
   String warcFilePrefix = "SimulatedCrawl";
   AtomicInteger serialNo = new AtomicInteger(0);
   int maxSize = 100000000;
@@ -153,8 +153,7 @@ public class SimulatedWarcContentGenerator extends SimulatedContentGenerator {
         String uri = url.toString();
         String contentType = mimeType[mimeType.length-1];
         String hostIP = "127.0.0.1";
-//HC3         String timeStamp = ArchiveUtils.getLog14Date();
-        String timeStamp = ArchiveUtils.get14DigitDate();
+	String timeStamp = ArchiveUtils.getLog14Date();
         int recordLength = (int) f.length();
         InputStream is = new FileInputStream(f);
 
