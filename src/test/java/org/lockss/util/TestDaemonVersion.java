@@ -31,6 +31,8 @@ in this Software without prior written authorization from Stanford University.
 */
 
 package org.lockss.util;
+import java.util.Arrays;
+
 import org.lockss.test.*;
 
 /**
@@ -46,24 +48,36 @@ public class TestDaemonVersion extends LockssTestCase {
   public void testMakeVersion() {
     try {
       Version a = new DaemonVersion("1.0.0");
-      Version b = new DaemonVersion("2.3.5-test");
+      Version b = new DaemonVersion("2.3-test");
     } catch (Throwable t) {
       fail("Unparsable daemon version. " + t);
     }
   }
 
   public void testEquals() {
-    Version a = new DaemonVersion("2.3.5");
-    Version b = new DaemonVersion("2.3.5");
+    Version a = new DaemonVersion("2.3");
+    Version b = new DaemonVersion("2.3");
     assertEquals(a.toLong(), b.toLong());
 
-    Version c = new DaemonVersion("2.3.5-test");
+    Version c = new DaemonVersion("2.3-test");
     assertEquals(a.toLong(), c.toLong());
 
-    Version d = new DaemonVersion("2.3.6");
+    Version d = new DaemonVersion("2.4");
     assertNotEquals(a.toLong(), d.toLong());
   }
 
+  public void testLegalFormat() throws Exception {
+    for (String v : Arrays.asList("0.0.0",
+                                  "0-test.0-test.0-test",
+                                  "1.1.1",
+                                  "1-test.1-test.1-test",
+                                  "2.0",
+                                  "2-test.0-test",
+                                  "999.999")) {
+      new DaemonVersion(v);
+    }
+  }
+  
   public void testIllegalFormat() {
     assertIllegalFormat("1.2.3.4");
     assertIllegalFormat("1234.123.123");
@@ -71,36 +85,38 @@ public class TestDaemonVersion extends LockssTestCase {
     assertIllegalFormat("1.2.$");
     assertIllegalFormat("2.3b.5");
     assertIllegalFormat("2.b.5");
+    assertIllegalFormat("2.0.5");
+    assertIllegalFormat("2.0.5.9");
+    assertIllegalFormat("2.0.5.9.9");
+    assertIllegalFormat("0.1");
+    assertIllegalFormat("1.999");
   }
 
   public void testDisplayString() {
     assertEquals("1.2.3", new DaemonVersion("1.2.3").displayString());
+    assertEquals("1.2.3-test", new DaemonVersion("1.2.3-test").displayString());
   }
 
   public void testToLong() {
     try {
-      Version a = new DaemonVersion("123.123.123");
+      Version a = new DaemonVersion("123.123");
     } catch (IllegalArgumentException ex) {
       fail("Should not have thrown.");
     }
 
     try {
-      Version a = new DaemonVersion("1234.123.123");
+      Version a = new DaemonVersion("1234.123");
       fail("Should have thrown.");
     } catch (IllegalArgumentException ex) {
     }
 
     try {
-      Version a = new DaemonVersion("123.1234.123");
+      Version a = new DaemonVersion("123.1234");
       fail("Should have thrown.");
     } catch (IllegalArgumentException ex) {
     }
 
-    try {
-      Version a = new DaemonVersion("123.123.1234");
-      fail("Should have thrown.");
-    } catch (IllegalArgumentException ex) {
-    }
+    // I mean, this doesn't really test toLong()...
   }
 
   void assertIllegalFormat(String s) {
@@ -112,11 +128,11 @@ public class TestDaemonVersion extends LockssTestCase {
   }
 
   public void testGreaterOrLessThan() {
-    Version a = new DaemonVersion("2.3.5");
-    Version b = new DaemonVersion("2.3.6");
-    Version c = new DaemonVersion("2.4.0");
-    Version d = new DaemonVersion("3.2.0");
-    Version e = new DaemonVersion("2.3.5-test"); // should equal a
+    Version a = new DaemonVersion("2.5");
+    Version b = new DaemonVersion("2.6");
+    Version c = new DaemonVersion("3.0");
+    Version d = new DaemonVersion("3.1");
+    Version e = new DaemonVersion("2.5-test"); // should equal a
 
     assertTrue(a.toLong() < b.toLong());
     assertTrue(a.toLong() < c.toLong());
@@ -128,10 +144,10 @@ public class TestDaemonVersion extends LockssTestCase {
   }
 
   public void testCompareTo() {
-    DaemonVersion a = new DaemonVersion("2.3.5");
-    DaemonVersion b = new DaemonVersion("2.3.6");
-    DaemonVersion c = new DaemonVersion("2.4.0");
-    DaemonVersion e = new DaemonVersion("2.3.5-test"); // should equal a
+    DaemonVersion a = new DaemonVersion("2.5");
+    DaemonVersion b = new DaemonVersion("2.6");
+    DaemonVersion c = new DaemonVersion("3.0");
+    DaemonVersion e = new DaemonVersion("2.5-test"); // should equal a
 
     assertTrue(a.compareTo(a) == 0);
     assertTrue(a.compareTo(e) == 0);

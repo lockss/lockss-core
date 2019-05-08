@@ -635,7 +635,7 @@
           <test hostname="foo" /> <!-- false -->
         </or> <!-- false -->
         <and>
-          <test daemonVersionMin="1.0.0" daemonVersionMax="2.0.0" /> <!-- true -->
+          <test daemonVersionMin="1.0.0" daemonVersionMax="2.0" /> <!-- true -->
           <test platformVersionMin="100" platformVersionMax="130" /> <!-- false -->
         </and> <!-- false -->
       </or><!-- false -->
@@ -658,7 +658,7 @@
           </or> <!-- true -->
           <and>
             <test group="beta" /> <!-- true -->
-            <test daemonVersionMin="1.0.0" daemonVersionMax="2.0.0" /> <!-- true -->
+            <test daemonVersionMin="1.0.0" daemonVersionMax="2.0" /> <!-- true -->
           </and> <!-- true -->
         </or> <!-- true -->
       </not> <!-- false -->
