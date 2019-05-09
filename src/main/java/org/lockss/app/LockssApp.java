@@ -930,11 +930,11 @@ public class LockssApp {
       }
     }
 
-    // THIS MUST BE LAST IN THIS ROUTINE
     boolean exitOnce = config.getBoolean(PARAM_APP_EXIT_ONCE,
 					 DEFAULT_APP_EXIT_ONCE);
     if (!prevExitOnce && exitOnce) {
-      timeToExit.expire();
+      log.info("Exiting because exitOnce transitioned to true");
+      systemExit(Constants.EXIT_CODE_NORMAL);
     } else {
       prevExitOnce = exitOnce;
     }
