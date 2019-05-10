@@ -188,10 +188,8 @@ public class FuncLockssApp extends LockssTestCase {
     assertClass(MyLockssManager.class,
 		app.getManagerByType(MyLockssManager.class));
     assertFalse(sem.take(0));
-    ConfigurationUtil.addFromArgs("org.lockss.app.exitOnce", "true");
+    ConfigurationUtil.addFromArgs("org.lockss.app.exitImmediately", "true");
     assertTrue(sem.take(TIMEOUT_SHOULDNT));
-    assertClass(RuntimeException.class, startThreadException);
-    assertEquals("System.exit(0)", startThreadException.getMessage());
   }
   
 
@@ -219,7 +217,6 @@ public class FuncLockssApp extends LockssTestCase {
 
     protected void systemExit(int val) {
       log.critical("System.exit(" + val + ")");
-      throw new RuntimeException("System.exit(" + val + ")");
     }
   }
 

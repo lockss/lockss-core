@@ -932,8 +932,13 @@ public class LockssApp {
 
     boolean exitOnce = config.getBoolean(PARAM_APP_EXIT_ONCE,
 					 DEFAULT_APP_EXIT_ONCE);
-    if (!prevExitOnce && exitOnce) {
-      log.info("Exiting because exitOnce transitioned to true");
+    boolean exitImm = config.getBoolean(PARAM_APP_EXIT_IMM,
+					DEFAULT_APP_EXIT_IMM);
+    if (exitImm || (!prevExitOnce && exitOnce)) {
+      log.info("Exiting because " +
+	       (exitImm ? "of exitImmediately"
+		: "exitOnce transitioned to true"));
+      timeToExit.expire();
       systemExit(Constants.EXIT_CODE_NORMAL);
     } else {
       prevExitOnce = exitOnce;
