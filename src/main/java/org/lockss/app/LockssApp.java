@@ -394,15 +394,20 @@ public class LockssApp {
 
   /** Return a string describing the version of the app and platform */
   public String getVersionInfo() {
-    String vApp = BuildInfo.getBuildInfoString();
-    if (!StringUtil.isNullString(getAppName())) {
-      vApp = getAppName() + " " + vApp;
-    }
+    String app = StringUtil.isNullString(getAppName())
+      ? BuildInfo.getBuildProperty(BuildInfo.BUILD_ARTIFACT) : getAppName();
+    StringBuilder sb = new StringBuilder();
+    String res =
+      BuildInfo.getBuildInfoString("LOCKSSS :" + BuildInfo.BUILD_RELEASENAME,
+				   app + ":",
+				   BuildInfo.BUILD_VERSION,
+				   BuildInfo.BUILD_TIMESTAMP,
+				   BuildInfo.BUILD_HOST);
     PlatformVersion plat = Configuration.getPlatformVersion();
     if (plat != null) {
-      vApp = vApp + ", " + plat.displayString();
+      res = res + ", " + plat.displayString();
     }
-    return vApp;
+    return res;
   }
 
   /** Return a string describing the JVM */
