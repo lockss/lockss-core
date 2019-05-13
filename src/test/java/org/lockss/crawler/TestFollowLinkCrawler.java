@@ -1082,7 +1082,7 @@ public class TestFollowLinkCrawler extends LockssTestCase {
 
   public void testMyLinkExtractorCallback() {
     final String prefix = "http://www.example.com/"; // pseudo crawl rule
-    MockArchivalUnit mau = new MockArchivalUnit() {
+    MockArchivalUnit mau = new MockArchivalUnit(plug) {
 	// shouldBeCached() is true of anything starting with prefix
 	public boolean shouldBeCached(String url) {
 	  return StringUtil.startsWithIgnoreCase(url, prefix);

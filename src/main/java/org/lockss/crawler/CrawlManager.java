@@ -110,11 +110,6 @@ public interface CrawlManager {
   int getAuPriority(ArchivalUnit au);
 
   /**
-   * Hook to apply patterns to exclude recursive URLs, etc.
-   */
-  boolean isGloballyExcludedUrl(ArchivalUnit au, String url);
-
-  /**
    * Return true if collection from the host is permitted by the globalk
    * configuration
    */

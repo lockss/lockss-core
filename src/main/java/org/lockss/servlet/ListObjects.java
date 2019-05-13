@@ -62,7 +62,6 @@ public class ListObjects extends LockssServlet {
   private ArchivalUnit au;
 
   private PluginManager pluginMgr;
-  private CrawlManager crawlMgr;
 
   // don't hold onto objects after request finished
   protected void resetLocals() {
@@ -76,7 +75,6 @@ public class ListObjects extends LockssServlet {
   public void init(ServletConfig config) throws ServletException {
     super.init(config);
     pluginMgr = getLockssDaemon().getPluginManager();
-    crawlMgr = getLockssDaemon().getCrawlManager();
   }
 
   /**
@@ -839,8 +837,7 @@ public class ListObjects extends LockssServlet {
 	    if (!au.shouldBeCached(eurl)) {
 	      excl = "Excluded";
 	    } else {
-	      if (crawlMgr != null &&
-		  crawlMgr.isGloballyExcludedUrl(au, eurl)) {
+	      if (AuUtil.isGloballyExcludedUrl(au, eurl)) {
 		excl = "Globally excluded";
 	      }
 	    }

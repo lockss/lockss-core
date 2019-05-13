@@ -39,6 +39,9 @@ import org.lockss.app.LockssApp.ManagerDesc;
  * - apps can construct their own ManagerDesc.
  */
 public class ManagerDescs {
+  public static ManagerDesc MISC_PARAMS_MANAGER_DESC =
+    new ManagerDesc(LockssApp.MISC_PARAMS,
+		    "org.lockss.config.MiscParams");
   public static ManagerDesc RANDOM_MANAGER_DESC =
     new ManagerDesc(LockssApp.RANDOM_MANAGER,
 		    "org.lockss.daemon.RandomManager");
@@ -74,7 +77,7 @@ public class ManagerDescs {
 		    "org.lockss.scheduler.SchedService");
   public static ManagerDesc HASH_SERVICE_DESC =
     new ManagerDesc(LockssDaemon.HASH_SERVICE,
-		    "org.lockss.hasher.HashSvcQueueImpl");
+		    "org.lockss.hasher.HashSvcSchedImpl");
   public static ManagerDesc SYSTEM_METRICS_DESC =
     new ManagerDesc(LockssDaemon.SYSTEM_METRICS,
 		    "org.lockss.daemon.SystemMetrics");

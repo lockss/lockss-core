@@ -137,6 +137,8 @@ public class LockssApp {
     Configuration.PREFIX + "manager.";
 
   // Parameter keys for standard managers
+  public static final String MISC_PARAMS =
+    managerKey(MiscParams.class);
   public static final String WATCHDOG_SERVICE =
     managerKey(WatchdogService.class);
   public static final String MAIL_SERVICE =
@@ -180,6 +182,7 @@ public class LockssApp {
   // order, followed by the service-specific managers specified by
   // subclasses, followed by post managers below
   private final ManagerDesc[] stdPreManagers = {
+    MISC_PARAMS_MANAGER_DESC,
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
     JMS_MANAGER_DESC,
