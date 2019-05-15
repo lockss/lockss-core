@@ -484,29 +484,6 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     return NO_RELATION;
   }
 
-  private static class UrlComparator implements Comparator {
-    public int compare(Object o1, Object o2) {
-      // This now happens on the first insertion into a TreeMap, and would
-      // falsely trigger the prefix error below.
-      if (o1 == o2) return 0;
-      String prefix = null;
-      String prefix2 = null;
-      if ((o1 instanceof CachedUrlSetNode)
-          && (o2 instanceof CachedUrlSetNode)) {
-        prefix = ((CachedUrlSetNode)o1).getUrl();
-        prefix2 = ((CachedUrlSetNode)o2).getUrl();
-      } else {
-        throw new IllegalStateException("Bad object in iterator: " +
-                                        o1.getClass() + "," +
-                                        o2.getClass());
-      }
-      if (prefix.equals(prefix2)) {
-        throw new UnsupportedOperationException("Comparing equal prefixes: "+prefix);
-      }
-      return StringUtil.preOrderCompareTo(prefix, prefix2);
-    }
-  }
-
   /**
    * Iterator over the Artifacts in a rest repository
    */
