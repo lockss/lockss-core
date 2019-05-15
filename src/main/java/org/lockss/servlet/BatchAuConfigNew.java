@@ -105,6 +105,7 @@ public class BatchAuConfigNew extends LockssServlet {
   static final String ACTION_REACT_AUS = "DoReactivateAus";
   static final String ACTION_RESTORE_AUS = "DoAddAus";
   static final String ACTION_DO_BACKUP = "Backup";
+  static final String ACTION_BACK_TO_HERE = "BackToHere";
 
   static final String KEY_VERB = "Verb";
   static final String KEY_DEFAULT_REPO = "DefaultRepository";
@@ -189,6 +190,7 @@ public class BatchAuConfigNew extends LockssServlet {
     else if (action.equals(ACTION_DO_BACKUP)) doBackup();
     else if (action.equals(ACTION_REMOVE_AUS)) doRemoveAus(false);
     else if (action.equals(ACTION_DEACT_AUS)) doRemoveAus(true);
+    else if (action.equals(ACTION_BACK_TO_HERE)) displayMenu();
     else {
       errMsg = "Unknown action: " + action;
       log.warning(errMsg);
