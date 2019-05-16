@@ -37,18 +37,18 @@ import java.lang.reflect.Method;
 import java.text.ParseException;
 import java.util.*;
 
-import com.thoughtworks.xstream.alias.CannotResolveClassException;
+import com.thoughtworks.xstream.mapper.CannotResolveClassException;
 import org.lockss.app.LockssApp;
 import org.lockss.hasher.HashResult;
 import org.lockss.util.SerializationException;
 import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeZoneUtil;
 
 import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.alias.*;
 import com.thoughtworks.xstream.converters.*;
-import com.thoughtworks.xstream.converters.basic.*;
 import com.thoughtworks.xstream.converters.reflection.*;
 import com.thoughtworks.xstream.core.*;
+import com.thoughtworks.xstream.core.util.ThreadSafeSimpleDateFormat;
 import com.thoughtworks.xstream.io.*;
 import com.thoughtworks.xstream.io.xml.DomDriver;
 import com.thoughtworks.xstream.mapper.*;
@@ -136,12 +136,16 @@ public class XStreamSerializer extends ObjectSerializer {
     }
 
     protected static final ThreadSafeSimpleDateFormat formatter = new ThreadSafeSimpleDateFormat("yyyy-MM-dd HH:mm:ss.S Z",
+                                                                                                 TimeZoneUtil.TIMEZONE_GMT,
                                                                                                  4,
-                                                                                                 20);
+                                                                                                 20,
+                                                                                                 true);
 
     protected static final ThreadSafeSimpleDateFormat oldFormatter = new ThreadSafeSimpleDateFormat("yyyy-MM-dd HH:mm:ss.S z",
+                                                                                                    TimeZoneUtil.TIMEZONE_GMT,
                                                                                                     4,
-                                                                                                    20);
+                                                                                                    20,
+                                                                                                    true);
 
   }
   /*
@@ -290,13 +294,13 @@ public class XStreamSerializer extends ObjectSerializer {
      * <p>Builds a new marshaller.</p>
      * @param writer
      * @param converterLookup
-     * @param classMapper
+     * @param mapper
      */
     public LockssReferenceByXPathMarshaller(HierarchicalStreamWriter writer,
                                             DefaultConverterLookup converterLookup,
-                                            ClassMapper classMapper,
+                                            Mapper mapper,
                                             String rootClassName) {
-      super(writer, converterLookup, classMapper);
+      super(writer, converterLookup, mapper, -1); // FIXME XSTREAM
       this.rootClassName = rootClassName;
     }
 
@@ -361,6 +365,7 @@ public class XStreamSerializer extends ObjectSerializer {
      *                      unmarshaller).
      */
     public LockssReferenceByXPathMarshallingStrategy(LockssApp lockssContext) {
+      super(-1); // FIXME XSTREAM
       this.lockssContext = lockssContext;
     }
 
@@ -372,12 +377,12 @@ public class XStreamSerializer extends ObjectSerializer {
     public void marshal(HierarchicalStreamWriter writer,
                         Object root,
                         DefaultConverterLookup converterLookup,
-                        ClassMapper classMapper,
+                        Mapper mapper,
                         DataHolder dataHolder) {
       new LockssReferenceByXPathMarshaller(
           writer,
           converterLookup,
-          classMapper,
+          mapper,
           root.getClass().getName()
       ).start(root, dataHolder);
     }
@@ -391,9 +396,9 @@ public class XStreamSerializer extends ObjectSerializer {
                             HierarchicalStreamReader reader,
                             DataHolder dataHolder,
                             DefaultConverterLookup converterLookup,
-                            ClassMapper classMapper) {
+                            Mapper mapper) {
       return new LockssReferenceByXPathUnmarshaller(
-          lockssContext, root, reader, converterLookup, classMapper).start(
+          lockssContext, root, reader, converterLookup, mapper).start(
               dataHolder);
     }
 
@@ -429,14 +434,14 @@ public class XStreamSerializer extends ObjectSerializer {
      * @param root
      * @param reader
      * @param converterLookup
-     * @param classMapper
+     * @param mapper
      */
     public LockssReferenceByXPathUnmarshaller(LockssApp lockssContext,
                                               Object root,
                                               HierarchicalStreamReader reader,
                                               ConverterLookup converterLookup,
-                                              ClassMapper classMapper) {
-      super(root, reader, converterLookup, classMapper);
+                                              Mapper mapper) {
+      super(root, reader, converterLookup, mapper);
       this.lockssContext = lockssContext;
     }
 
@@ -802,7 +807,7 @@ public class XStreamSerializer extends ObjectSerializer {
       xs.setMarshallingStrategy(new LockssReferenceByXPathMarshallingStrategy(lockssContext));
       xs.registerConverter(new LockssDateConverter());
       xs.registerConverter(new LockssHashResultConverter());
-      xs.registerConverter(new LockssConstructingConverter(xs.getClassMapper()));
+      xs.registerConverter(new LockssConstructingConverter(xs.getMapper()));
       initialized = true;
     }
   }
