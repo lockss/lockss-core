@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2001-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,6 +38,7 @@ import javax.ws.rs.core.HttpHeaders;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.TeeInputStream;
 import org.lockss.util.*;
+import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.urlconn.*;
 import org.springframework.http.MediaType;
 import org.lockss.hasher.*;

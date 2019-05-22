@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,6 +37,7 @@ import org.lockss.filter.pdf.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.definable.DefinableArchivalUnit;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
+import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.pdfbox.cos.*;
 import org.pdfbox.util.PDFOperator;
 
