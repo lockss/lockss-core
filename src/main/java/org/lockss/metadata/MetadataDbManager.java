@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -150,6 +150,13 @@ public class MetadataDbManager extends DbManager
    * SQL statement fetch size.
    */
   public static final String PARAM_FETCH_SIZE = PREFIX + "fetchSize";
+
+  /**
+   * Indication of whether the startup code should wait for the external setup
+   * of the database. Changes require daemon restart.
+   */
+  public static final String PARAM_WAIT_FOR_EXTERNAL_SETUP = PREFIX
+      + ".waitForExternalSetup";
 
   // The SQL code executor.
   private MetadataDbManagerSql mdDbManagerSql = new MetadataDbManagerSql(null,
@@ -334,6 +341,12 @@ public class MetadataDbManager extends DbManager
   protected String getDerbyStreamErrorLogSeverityLevel(Configuration config) {
     return config.get(PARAM_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL,
 	DEFAULT_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL);
+  }
+
+  @Override
+  protected boolean getWaitForExternalSetup(Configuration config) {
+    return config.getBoolean(PARAM_WAIT_FOR_EXTERNAL_SETUP,
+	DEFAULT_WAIT_FOR_EXTERNAL_SETUP);
   }
 
   /**

@@ -152,6 +152,13 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
    */
   public static final String PARAM_FETCH_SIZE = PREFIX + "fetchSize";
 
+  /**
+   * Indication of whether the startup code should wait for the external setup
+   * of the database. Changes require daemon restart.
+   */
+  public static final String PARAM_WAIT_FOR_EXTERNAL_SETUP = PREFIX
+      + ".waitForExternalSetup";
+
   // The SQL code executor.
   private ConfigDbManagerSql configDbManagerSql = new ConfigDbManagerSql(null,
       DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
@@ -313,6 +320,12 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
   protected String getDerbyStreamErrorLogSeverityLevel(Configuration config) {
     return config.get(PARAM_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL,
 	DEFAULT_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL);
+  }
+
+  @Override
+  protected boolean getWaitForExternalSetup(Configuration config) {
+    return config.getBoolean(PARAM_WAIT_FOR_EXTERNAL_SETUP,
+	DEFAULT_WAIT_FOR_EXTERNAL_SETUP);
   }
 
   /**

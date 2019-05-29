@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -144,6 +144,12 @@ public class DbManager extends BaseLockssManager
    * SQL statement fetch size.
    */
   public static final int DEFAULT_FETCH_SIZE = 5000;
+
+  /**
+   * Indication of whether the startup code should wait for the external setup
+   * of the database. Changes require daemon restart.
+   */
+  protected static final boolean DEFAULT_WAIT_FOR_EXTERNAL_SETUP = false;
 
   // Derby SQL state of exception thrown on successful database shutdown.
   private static final String SHUTDOWN_SUCCESS_STATE_CODE = "08006";
@@ -808,10 +814,43 @@ public class DbManager extends BaseLockssManager
     // Initialize the datasource properties.
     initializeDataSourceProperties(dataSourceConfig, dataSource);
 
+    // Get the indication of whether the startup code should wait for the
+    // external setup of the database.
+    boolean waitForExternalSetup =
+	getWaitForExternalSetup(ConfigManager.getCurrentConfig());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "waitForExternalSetup = " + waitForExternalSetup);
+
+    // Get the name of the database from the configuration.
+    String databaseName = dataSourceConfig.get("databaseName");
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "databaseName = " + databaseName);
+
     // Check whether the Derby database is being used.
     if (dbManagerSql.isTypeDerby()) {
-      // Yes: Check whether the Derby NetworkServerControl for client
-      // connections needs to be started.
+      // Yes: Check whether it should wait for the database to be setup
+      // externally.
+      if (waitForExternalSetup) {
+	// Yes: Get the location where the database files are stored.
+	File dbDir = new File(databaseName);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "dbDir = " + dbDir);
+
+	// Wait until the database files top directory exists.
+	while (!dbDir.exists()) {
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database directory '"
+	      + dbDir + "' does not exist. Sleeping for 1 minute...");
+
+	  try {
+	    Thread.sleep(Constants.MINUTE);
+	  } catch (InterruptedException ie)
+	  {
+	    // Expected.
+	  }
+	}
+      }
+
+      // Check whether the Derby NetworkServerControl for client connections
+      // needs to be started.
       if (dataSource instanceof ClientDataSource) {
 	// Yes: Start it.
 	ClientDataSource cds = (ClientDataSource)dataSource;
@@ -829,15 +868,11 @@ public class DbManager extends BaseLockssManager
 
       // No: Check whether the PostgreSQL database is being used.
     } else if (dbManagerSql.isTypePostgresql()) {
-      // Yes: Get the name of the database from the configuration.
-      String databaseName = dataSourceConfig.get("databaseName");
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "databaseName = " + databaseName);
-
+      // Yes.
       try {
 	// Create the schema if it does not exist.
 	dbManagerSql.createPostgresqlSchemaIfMissing(dataSourceUser,
-	    dataSource);
+	    dataSource, waitForExternalSetup);
       } catch (SQLException sqle) {
 	String msg = "Error creating PostgreSQL schema if missing";
 	log.error(msg, sqle);
@@ -1063,6 +1098,10 @@ public class DbManager extends BaseLockssManager
     return DEFAULT_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL;
   }
 
+  protected boolean getWaitForExternalSetup(Configuration config) {
+    return DEFAULT_WAIT_FOR_EXTERNAL_SETUP;
+  }
+
   /**
    * Initializes an external database, if it does not exist already.
    * 
@@ -1162,7 +1201,8 @@ public class DbManager extends BaseLockssManager
 
     // Create the database if it does not exist.
     try {
-      dbManagerSql.createPostgreSqlDbIfMissing(ds, databaseName);
+      dbManagerSql.createPostgreSqlDbIfMissing(ds, databaseName,
+	  getWaitForExternalSetup(ConfigManager.getCurrentConfig()));
     } catch (SQLException sqle) {
       String message = "Error creating PostgreSQL database '" + databaseName
 	  + "' if missing";
@@ -1305,7 +1345,8 @@ public class DbManager extends BaseLockssManager
 
     // Create the database if it does not exist.
     try {
-      dbManagerSql.createMySqlDbIfMissing(ds, databaseName);
+      dbManagerSql.createMySqlDbIfMissing(ds, databaseName,
+	  getWaitForExternalSetup(ConfigManager.getCurrentConfig()));
     } catch (SQLException sqle) {
       String message = "Error creating MySQL database '" + databaseName
 	  + "' if missing";
@@ -1532,6 +1573,13 @@ public class DbManager extends BaseLockssManager
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "targetDbVersion = " + targetDbVersion);
 
+    // Get the indication of whether the startup code should wait for the
+    // external setup of the database.
+    boolean waitForExternalSetup =
+	getWaitForExternalSetup(ConfigManager.getCurrentConfig());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "waitForExternalSetup = " + waitForExternalSetup);
+
     Connection conn = null;
 
     try {
@@ -1539,18 +1587,38 @@ public class DbManager extends BaseLockssManager
 
       // Check whether the version table does not exist.
       if (!dbManagerSql.tableExists(conn, VERSION_TABLE)) {
-	// Yes.
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + VERSION_TABLE + " table does not exist.");
-	// Create the table (without the subsystem column).
-	dbManagerSql.createVersionTable(conn);
+	// Yes: Check whether it should wait for the table to be created
+	// externally.
+	if (waitForExternalSetup) {
+	  // Yes: Wait until the table is created externally.
+	  while (!dbManagerSql.tableExists(conn, VERSION_TABLE)) {
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Table '"
+		+ VERSION_TABLE + "' does not exist. Sleeping for 1 minute...");
 
-	// Add the subsystem column.
-	dbManagerSql.addVersionSubsystemColumn(conn);
+	    try {
+	      Thread.sleep(Constants.MINUTE);
+	    } catch (InterruptedException ie)
+	    {
+	      // Expected.
+	    }
+	  }
 
-	// Record the DbManager subsystem version in the database.
-	int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + VERSION_TABLE + " table exists.");
+	} else {
+	  // No.
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + VERSION_TABLE + " table does not exist.");
+	  // Create the table (without the subsystem column).
+	  dbManagerSql.createVersionTable(conn);
+
+	  // Add the subsystem column.
+	  dbManagerSql.addVersionSubsystemColumn(conn);
+
+	  // Record the DbManager subsystem version in the database.
+	  int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	}
       } else {
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + VERSION_TABLE + " table exists.");
@@ -1558,16 +1626,38 @@ public class DbManager extends BaseLockssManager
 
       // Check whether the subsystem column of the version table does not exist.
       if (!dbManagerSql.columnExists(conn, VERSION_TABLE, SUBSYSTEM_COLUMN)) {
-	// Yes.
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	// Yes: Check whether it should wait for the column to be created
+	// externally.
+	if (waitForExternalSetup) {
+	  // Yes: Wait until the column is created externally.
+	  while (!dbManagerSql.columnExists(conn, VERSION_TABLE,
+	      SUBSYSTEM_COLUMN)) {
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
+		+ " column in " + VERSION_TABLE
+		+ " table does not exist. Sleeping for 1 minute...");
+
+	    try {
+	      Thread.sleep(Constants.MINUTE);
+	    } catch (InterruptedException ie)
+	    {
+	      // Expected.
+	    }
+	  }
+
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	      + " column in " + VERSION_TABLE + " table exists.");
+	} else {
+	  // No.
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
 	    + " column in " + VERSION_TABLE + " table does not exist.");
 
-	// Add the subsystem column.
-	dbManagerSql.addVersionSubsystemColumn(conn);
+	  // Add the subsystem column.
+	  dbManagerSql.addVersionSubsystemColumn(conn);
 
-	// Record the DbManager subsystem version in the database.
-	int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	  // Record the DbManager subsystem version in the database.
+	  int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	}
       } else {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
 	    + " column in " + VERSION_TABLE + " table exists.");
@@ -1594,9 +1684,27 @@ public class DbManager extends BaseLockssManager
 	    + " for this daemon. Possibly caused by daemon downgrade.");
       }
 
-      // Check whether any previously started threaded database updates need to
-      // be checked for completion.
-      if (existingDbVersion >= 2) {
+      // Wait, if necessary, for the database to be updated externally.
+      while (waitForExternalSetup && targetDbVersion > existingDbVersion) {
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "targetDbVersion = " + targetDbVersion
+	    + ", existingDbVersion = " + existingDbVersion
+	    + ". Sleeping for 1 minute...");
+
+	try {
+	  Thread.sleep(Constants.MINUTE);
+	} catch (InterruptedException ie)
+	{
+	  // Expected.
+	}
+
+	existingDbVersion =
+	    dbManagerSql.getHighestNumberedDatabaseVersion(conn, subsystem);
+      }
+
+      // Check whether the database is not updated externally and any previously
+      // started threaded database updates need to be checked for completion.
+      if (!waitForExternalSetup && existingDbVersion >= 2) {
 	// Yes: Get all the version updates recorded in the database.
 	List<Integer> recordedVersions =
 	    dbManagerSql.getSortedDatabaseVersions(conn, subsystem);
