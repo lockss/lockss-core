@@ -32,6 +32,7 @@ import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -840,22 +841,8 @@ public abstract class DbManager extends BaseLockssManager
       // Yes: Check whether it should wait for the database to be setup
       // externally.
       if (waitForExternalSetup) {
-	// Yes: Get the location where the database files are stored.
-	File dbDir = new File(databaseName);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "dbDir = " + dbDir);
-
-	// Wait until the database files top directory exists.
-	while (!dbDir.exists()) {
-	  if (log.isDebug()) log.debug(DEBUG_HEADER + "Database directory '"
-	      + dbDir + "' does not exist. " + waitForExternalSetupMessage);
-
-	  try {
-	    Thread.sleep(waitForExternalSetupInterval);
-	  } catch (InterruptedException ie)
-	  {
-	    // Expected.
-	  }
-	}
+	// Yes: Wait until the file tree used by the database is available.
+	waitForDerbyFileTree(databaseName);
       }
 
       // Check whether the Derby NetworkServerControl for client connections
@@ -865,11 +852,27 @@ public abstract class DbManager extends BaseLockssManager
 	ClientDataSource cds = (ClientDataSource)dataSource;
 	startDerbyNetworkServerControl(cds);
 
-	// Set up the Derby authentication configuration, if necessary.
-	setUpDerbyAuthentication(dataSourceConfig, cds);
+	// Check whether no wait for the database to be setup externally is
+	// needed.
+	if (!waitForExternalSetup) {
+	  // Yes: Set up the Derby authentication configuration, if necessary.
+	  setUpDerbyAuthentication(dataSourceConfig, cds);
+	}
       } else {
 	// No: Remove the Derby authentication configuration, if necessary.
 	removeDerbyAuthentication(dataSourceConfig, dataSource);
+      }
+
+      // Check whether it should wait for the database to be setup externally.
+      if (waitForExternalSetup) {
+	// Yes: Wait for the ability to establish a connection to the database.
+	waitForConnection(databaseName);
+
+	// Wait until the database metadata is available.
+	waitForMetadata(databaseName);
+
+	// Wait until the database version table is available.
+	waitForDerbyVersionTable(databaseName);
       }
 
       // Remember that the Derby database has been booted.
@@ -1370,6 +1373,39 @@ public abstract class DbManager extends BaseLockssManager
   }
 
   /**
+   * Waits until the file tree used by a Derby database is available.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForDerbyFileTree(String databaseName) {
+    final String DEBUG_HEADER = "waitForDerbyFileTree(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    // Get the location where the database files are stored.
+    File dbDir = new File(databaseName);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "dbDir = " + dbDir);
+
+    // Wait until the database files top directory exists.
+    while (!dbDir.exists()) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + "Database directory '"
+	  + dbDir + "' does not exist. " + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	    // Expected.
+      }
+    }
+
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database directory '"
+	  + dbDir + "' exists.");
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
    * Starts the Derby NetworkServerControl and waits for it to be ready.
    * 
    * @param cds
@@ -1567,9 +1603,202 @@ public abstract class DbManager extends BaseLockssManager
   }
 
   /**
+   * Waits until a database accepts a connection.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForConnection(String databaseName) {
+    final String DEBUG_HEADER = "waitForConnection(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    Connection conn = null;
+
+    // Wait until a connection to the database is acquired.
+    while (conn == null) {
+      try {
+	conn = JdbcBridge.getConnection(dataSource, maxRetryCount, retryDelay,
+	    false);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database '" + 
+	    databaseName + "' accepted a connection.");
+      } catch (SQLException sqle) {
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	    + databaseName + "' refuses connections. "
+	    + waitForExternalSetupMessage);
+
+	try {
+	  Thread.sleep(waitForExternalSetupInterval);
+	} catch (InterruptedException ie)
+	{
+	  // Expected.
+	}
+      } finally {
+	// Roll back the connection.
+	try {
+	  conn.rollback();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Connection rolled back.");
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+
+	// Close the connection.
+	try {
+	  if ((conn != null) && !conn.isClosed()) {
+	    conn.close();
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Connection closed.");
+	  }
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the metadata of a database is available.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForMetadata(String databaseName) {
+    final String DEBUG_HEADER = "waitForMetadata(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    DatabaseMetaData metadata = null;
+
+    // Wait until the database metadata is acquired.
+    while (metadata == null) {
+      Connection conn = null;
+
+      try {
+	// Get a connection to the database.
+	conn = JdbcBridge.getConnection(dataSource, maxRetryCount, retryDelay,
+	    false);
+
+	// Get the database metadata.
+	metadata = JdbcBridge.getMetadata(conn);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database '" + 
+	    databaseName + "' metadata is available.");
+      } catch (SQLException sqle) {
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	    + databaseName + "' metadata is not available. "
+	    + waitForExternalSetupMessage);
+
+	try {
+	  Thread.sleep(waitForExternalSetupInterval);
+	} catch (InterruptedException ie)
+	{
+	  // Expected.
+	}
+      } finally {
+	// Roll back the connection.
+	try {
+	  conn.rollback();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Connection rolled back.");
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+
+	// Close the connection.
+	try {
+	  if ((conn != null) && !conn.isClosed()) {
+	    conn.close();
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Connection closed.");
+	  }
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the version table of a Derby database is available.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForDerbyVersionTable(String databaseName) {
+    final String DEBUG_HEADER = "waitForDerbyVersionTable(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    ResultSet rs = null;
+
+    // Wait until the version table is available.
+    while (rs == null) {
+      Connection conn = null;
+
+      try {
+	// Get a connection to the database.
+	conn = JdbcBridge.getConnection(dataSource, maxRetryCount, retryDelay,
+	    false);
+
+	// Get the version table metadata.
+	rs = JdbcBridge.getStandardTables(conn, null, dataSourceUser,
+	    VERSION_TABLE.toUpperCase());
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database table '" + 
+	    VERSION_TABLE + "' is available.");
+      } catch (SQLException sqle) {
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database table '"
+	    + VERSION_TABLE + "' is not available. "
+	    + waitForExternalSetupMessage);
+
+	try {
+	  Thread.sleep(waitForExternalSetupInterval);
+	} catch (InterruptedException ie)
+	{
+	  // Expected.
+	}
+      } finally {
+	// Roll back the connection.
+	try {
+	  conn.rollback();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Connection rolled back.");
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+
+	// Close the connection.
+	try {
+	  if ((conn != null) && !conn.isClosed()) {
+	    conn.close();
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Connection closed.");
+	  }
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
    * Updates the database to a given version, if necessary.
    * 
-   * @param targetDbCersion
+   * @param targetDbVersion
    *          An int with the database version that is the target of the update.
    * 
    * @throws DbException
@@ -1598,21 +1827,7 @@ public abstract class DbManager extends BaseLockssManager
 	// externally.
 	if (waitForExternalSetup) {
 	  // Yes: Wait until the table is created externally.
-	  while (!dbManagerSql.tableExists(conn, VERSION_TABLE)) {
-	    if (log.isDebug()) log.debug(DEBUG_HEADER + "Table '"
-		+ VERSION_TABLE + "' does not exist. "
-		+ waitForExternalSetupMessage);
-
-	    try {
-	      Thread.sleep(waitForExternalSetupInterval);
-	    } catch (InterruptedException ie)
-	    {
-	      // Expected.
-	    }
-	  }
-
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + VERSION_TABLE + " table exists.");
+	  waitForVersionTable(conn);
 	} else {
 	  // No.
 	  if (log.isDebug3())
@@ -1638,22 +1853,7 @@ public abstract class DbManager extends BaseLockssManager
 	// externally.
 	if (waitForExternalSetup) {
 	  // Yes: Wait until the column is created externally.
-	  while (!dbManagerSql.columnExists(conn, VERSION_TABLE,
-	      SUBSYSTEM_COLUMN)) {
-	    if (log.isDebug()) log.debug(DEBUG_HEADER + SUBSYSTEM_COLUMN
-		+ " column in " + VERSION_TABLE
-		+ " table does not exist. " + waitForExternalSetupMessage);
-
-	    try {
-	      Thread.sleep(waitForExternalSetupInterval);
-	    } catch (InterruptedException ie)
-	    {
-	      // Expected.
-	    }
-	  }
-
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
-	      + " column in " + VERSION_TABLE + " table exists.");
+	  waitForVersionSubsystemColumn(conn);
 	} else {
 	  // No.
 	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
@@ -1692,21 +1892,11 @@ public abstract class DbManager extends BaseLockssManager
 	    + " for this daemon. Possibly caused by daemon downgrade.");
       }
 
-      // Wait, if necessary, for the database to be updated externally.
-      while (waitForExternalSetup && targetDbVersion > existingDbVersion) {
-	if (log.isDebug()) log.debug(DEBUG_HEADER + "targetDbVersion = "
-	    + targetDbVersion + ", existingDbVersion = " + existingDbVersion
-	    + ". " + waitForExternalSetupMessage);
-
-	try {
-	  Thread.sleep(waitForExternalSetupInterval);
-	} catch (InterruptedException ie)
-	{
-	  // Expected.
-	}
-
-	existingDbVersion =
-	    dbManagerSql.getHighestNumberedDatabaseVersion(conn, subsystem);
+      // Check whether it should wait for the database to be updated externally.
+      if (waitForExternalSetup) {
+	// Yes: Wait for the database to be updated externally.
+	existingDbVersion = waitForDatabaseUpdate(conn, subsystem,
+	    existingDbVersion, targetDbVersion);
       }
 
       // Check whether the database is not updated externally and any previously
@@ -1795,6 +1985,116 @@ public abstract class DbManager extends BaseLockssManager
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the version table of a database exists.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  private void waitForVersionTable(Connection conn) throws SQLException {
+    final String DEBUG_HEADER = "waitForVersionTable(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    // Wait until the database version table exists.
+    while (!dbManagerSql.tableExists(conn, VERSION_TABLE)) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + "Table '" + VERSION_TABLE
+	  + "' does not exist. " + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	// Expected.
+      }
+    }
+
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + VERSION_TABLE + " table exists.");
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the subsystem column of the version table exists.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  private void waitForVersionSubsystemColumn(Connection conn)
+      throws SQLException {
+    final String DEBUG_HEADER = "waitForVersionSubsystemColumn(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    // Wait until the subsystem column of the version table exists.
+    while (!dbManagerSql.columnExists(conn, VERSION_TABLE, SUBSYSTEM_COLUMN)) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	  + " column in " + VERSION_TABLE + " table does not exist. "
+	  + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	// Expected.
+      }
+    }
+
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	+ " column in " + VERSION_TABLE + " table exists.");
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the database has been updated to the target version.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param subsystem
+   *          A String with the subsystem name to e used in the version table.
+   * @param currentDbVersion
+   *          An int with the existing database version.
+   * @param targetDbVersion
+   *          An int with the database version that is the target of the update.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  private int waitForDatabaseUpdate(Connection conn, String subsystem,
+      int currentDbVersion, int targetDbVersion) throws SQLException {
+    final String DEBUG_HEADER = "waitForDatabaseUpdate(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "subsystem = " + subsystem);
+      log.debug2(DEBUG_HEADER + "currentDbVersion = " + currentDbVersion);
+      log.debug2(DEBUG_HEADER + "targetDbVersion = " + targetDbVersion);
+    }
+
+    // Wait while the current version is smaller than the target version.
+    while (targetDbVersion > currentDbVersion) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + "targetDbVersion = "
+	  + targetDbVersion + " > currentDbVersion = " + currentDbVersion + ". "
+	  + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	// Expected.
+      }
+
+      // Get the current version.
+      currentDbVersion =
+	  dbManagerSql.getHighestNumberedDatabaseVersion(conn, subsystem);
+    }
+
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "currentDbVersion = " + currentDbVersion);
+    return currentDbVersion;
   }
 
   /**
