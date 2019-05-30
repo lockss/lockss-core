@@ -1329,11 +1329,12 @@ public class DbManagerSql {
       if (waitForExternalSetup) {
 	// Yes: Wait until the database is created externally.
 	while (!postgresqlDbExists(conn, databaseName)) {
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database '"
-	      + databaseName + "' does not exist. Sleeping for 1 minute...");
+	  if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	      + databaseName + "' does not exist. "
+	      + DbManager.waitForExternalSetupMessage);
 
 	  try {
-	    Thread.sleep(Constants.MINUTE);
+	    Thread.sleep(DbManager.waitForExternalSetupInterval);
 	  } catch (InterruptedException ie)
 	  {
 	    // Expected.
@@ -1818,11 +1819,12 @@ public class DbManagerSql {
         if (waitForExternalSetup) {
           // Yes: Wait until the schema is created externally.
           while (!postgresqlSchemaExists(conn, schemaName)) {
-            if (log.isDebug3()) log.debug3(DEBUG_HEADER + "schemaName '"
-        	+ schemaName + "' does not exist. Sleeping for 1 minute...");
+            if (log.isDebug()) log.debug(DEBUG_HEADER + "schemaName '"
+        	+ schemaName + "' does not exist. "
+        	+ DbManager.waitForExternalSetupMessage);
 
             try {
-              Thread.sleep(Constants.MINUTE);
+              Thread.sleep(DbManager.waitForExternalSetupInterval);
             } catch (InterruptedException ie)
             {
               // Expected.
@@ -1961,11 +1963,12 @@ public class DbManagerSql {
       if (waitForExternalSetup) {
 	// Yes: Wait until the database is created externally.
 	while (!mysqlDbExists(conn, databaseName)) {
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database '"
-	      + databaseName + "' does not exist. Sleeping for 1 minute...");
+	  if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	      + databaseName + "' does not exist. "
+	      + DbManager.waitForExternalSetupMessage);
 
 	  try {
-	    Thread.sleep(Constants.MINUTE);
+	    Thread.sleep(DbManager.waitForExternalSetupInterval);
 	  } catch (InterruptedException ie)
 	  {
 	    // Expected.

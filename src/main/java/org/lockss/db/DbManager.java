@@ -61,7 +61,7 @@ import org.lockss.util.time.TimeUtil;
  * 
  * @author Fernando García-Loygorri
  */
-public class DbManager extends BaseLockssManager
+public abstract class DbManager extends BaseLockssManager
   implements ConfigurableManager {
   protected static final Logger log = Logger.getLogger();
 
@@ -223,6 +223,15 @@ public class DbManager extends BaseLockssManager
 
   // The database subsystem.
   private static final String DB_VERSION_SUBSYSTEM = "DbManager";
+
+  // The interval in milliseconds between consecutive checks while waiting for a
+  // database to be set up externally.
+  static final long waitForExternalSetupInterval = 15 * Constants.SECOND;
+
+  // The interval message used while waiting for a database to be set up
+  // externally.
+  static final String waitForExternalSetupMessage =
+      "Sleeping for 15 seconds...";
 
   /**
    * Default constructor.
@@ -837,11 +846,11 @@ public class DbManager extends BaseLockssManager
 
 	// Wait until the database files top directory exists.
 	while (!dbDir.exists()) {
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database directory '"
-	      + dbDir + "' does not exist. Sleeping for 1 minute...");
+	  if (log.isDebug()) log.debug(DEBUG_HEADER + "Database directory '"
+	      + dbDir + "' does not exist. " + waitForExternalSetupMessage);
 
 	  try {
-	    Thread.sleep(Constants.MINUTE);
+	    Thread.sleep(waitForExternalSetupInterval);
 	  } catch (InterruptedException ie)
 	  {
 	    // Expected.
@@ -1098,9 +1107,7 @@ public class DbManager extends BaseLockssManager
     return DEFAULT_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL;
   }
 
-  protected boolean getWaitForExternalSetup(Configuration config) {
-    return DEFAULT_WAIT_FOR_EXTERNAL_SETUP;
-  }
+  protected abstract boolean getWaitForExternalSetup(Configuration config);
 
   /**
    * Initializes an external database, if it does not exist already.
@@ -1592,11 +1599,12 @@ public class DbManager extends BaseLockssManager
 	if (waitForExternalSetup) {
 	  // Yes: Wait until the table is created externally.
 	  while (!dbManagerSql.tableExists(conn, VERSION_TABLE)) {
-	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Table '"
-		+ VERSION_TABLE + "' does not exist. Sleeping for 1 minute...");
+	    if (log.isDebug()) log.debug(DEBUG_HEADER + "Table '"
+		+ VERSION_TABLE + "' does not exist. "
+		+ waitForExternalSetupMessage);
 
 	    try {
-	      Thread.sleep(Constants.MINUTE);
+	      Thread.sleep(waitForExternalSetupInterval);
 	    } catch (InterruptedException ie)
 	    {
 	      // Expected.
@@ -1632,12 +1640,12 @@ public class DbManager extends BaseLockssManager
 	  // Yes: Wait until the column is created externally.
 	  while (!dbManagerSql.columnExists(conn, VERSION_TABLE,
 	      SUBSYSTEM_COLUMN)) {
-	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	    if (log.isDebug()) log.debug(DEBUG_HEADER + SUBSYSTEM_COLUMN
 		+ " column in " + VERSION_TABLE
-		+ " table does not exist. Sleeping for 1 minute...");
+		+ " table does not exist. " + waitForExternalSetupMessage);
 
 	    try {
-	      Thread.sleep(Constants.MINUTE);
+	      Thread.sleep(waitForExternalSetupInterval);
 	    } catch (InterruptedException ie)
 	    {
 	      // Expected.
@@ -1686,13 +1694,12 @@ public class DbManager extends BaseLockssManager
 
       // Wait, if necessary, for the database to be updated externally.
       while (waitForExternalSetup && targetDbVersion > existingDbVersion) {
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "targetDbVersion = " + targetDbVersion
-	    + ", existingDbVersion = " + existingDbVersion
-	    + ". Sleeping for 1 minute...");
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "targetDbVersion = "
+	    + targetDbVersion + ", existingDbVersion = " + existingDbVersion
+	    + ". " + waitForExternalSetupMessage);
 
 	try {
-	  Thread.sleep(Constants.MINUTE);
+	  Thread.sleep(waitForExternalSetupInterval);
 	} catch (InterruptedException ie)
 	{
 	  // Expected.
