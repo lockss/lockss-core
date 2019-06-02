@@ -983,7 +983,7 @@ public class AuUtil {
       do {
 	res.add(redirUrl);
 	CachedUrl redirCu = au.makeCachedUrl(redirUrl);
-	if (redirCu == null) {
+	if (redirCu == null || !redirCu.hasContent()) {
 	  break;
 	}
 	try {
