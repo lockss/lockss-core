@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +33,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import org.lockss.config.ConfigManager;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.db.DbManagerSql;
@@ -61,6 +62,80 @@ public class TestMetadataDbManager extends LockssTestCase {
   }
 
   /**
+   * Tests PostgreSQL database creation with defaults.
+   */
+  public void testCreatePgsqlDb1() {
+    createPgsqlDb();
+
+    assertEquals("LockssMetadataDbManager", metadataDbManager
+	.getDataSourceDatabaseName(ConfigManager.getCurrentConfig()));
+
+    assertEquals("LOCKSS", metadataDbManager
+	.getDataSourceUser(ConfigManager.getCurrentConfig()));
+
+    assertEquals("LOCKSS", metadataDbManager
+	.getDataSourceSchemaName(ConfigManager.getCurrentConfig()));
+  }
+
+  /**
+   * Tests PostgreSQL database creation with database name and user.
+   */
+  public void testCreatePgsqlDb2() {
+    ConfigurationUtil.addFromArgs(
+	MetadataDbManager.PARAM_DATASOURCE_DATABASENAME, "TestDbManager");
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_USER,
+	"otherUser");
+
+    createPgsqlDb();
+
+    assertEquals("TestDbManager", metadataDbManager
+	.getDataSourceDatabaseName(ConfigManager.getCurrentConfig()));
+
+    assertEquals("otherUser", metadataDbManager
+	.getDataSourceUser(ConfigManager.getCurrentConfig()));
+
+    assertEquals("otherUser", metadataDbManager
+	.getDataSourceSchemaName(ConfigManager.getCurrentConfig()));
+  }
+
+  /**
+   * Tests PostgreSQL database creation with schema name and user.
+   */
+  public void testCreatePgsqlDb3() {
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_USER,
+	"otherUser");
+    ConfigurationUtil.addFromArgs(
+	MetadataDbManager.PARAM_DATASOURCE_SCHEMA_NAME, "anotherSchema");
+
+    createPgsqlDb();
+
+    assertEquals("LockssMetadataDbManager", metadataDbManager
+	.getDataSourceDatabaseName(ConfigManager.getCurrentConfig()));
+
+    assertEquals("otherUser", metadataDbManager
+	.getDataSourceUser(ConfigManager.getCurrentConfig()));
+
+    assertEquals("anotherSchema", metadataDbManager
+	.getDataSourceSchemaName(ConfigManager.getCurrentConfig()));
+  }
+
+  /**
+   * Creates a PostgreSQL database.
+   */
+  protected void createPgsqlDb() {
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
+	"org.postgresql.ds.PGSimpleDataSource");
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER,
+	"1527");
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_MAX_RETRY_COUNT, "0");
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_RETRY_DELAY, "0");
+
+    metadataDbManager = new MetadataDbManager(true);
+    metadataDbManager.initService(getMockLockssDaemon());
+    metadataDbManager.startService();
+  }
+
+  /**
    * Tests table creation with a database name.
    * 
    * @throws Exception
@@ -70,6 +145,12 @@ public class TestMetadataDbManager extends LockssTestCase {
 	MetadataDbManager.PARAM_DATASOURCE_DATABASENAME, "TestDbManager");
 
     createTable();
+
+    assertTrue(metadataDbManager.getDataSourceDatabaseName(
+	ConfigManager.getCurrentConfig()).endsWith(".tmp/db/TestDbManager"));
+
+    assertEquals("LOCKSS",
+	metadataDbManager.getDataSourceUser(ConfigManager.getCurrentConfig()));
   }
 
   /**
@@ -84,6 +165,13 @@ public class TestMetadataDbManager extends LockssTestCase {
 	"somePassword");
 
     createTable();
+
+    assertTrue(metadataDbManager.getDataSourceDatabaseName(
+	ConfigManager.getCurrentConfig())
+	.endsWith(".tmp/db/LockssMetadataDbManager"));
+
+    assertEquals("LOCKSS",
+	metadataDbManager.getDataSourceUser(ConfigManager.getCurrentConfig()));
   }
 
   /**
@@ -97,6 +185,13 @@ public class TestMetadataDbManager extends LockssTestCase {
     // Create the database manager.
     metadataDbManager = getTestDbManager(tempDirPath);
     assertFalse(metadataDbManager.isReady());
+
+    assertTrue(metadataDbManager.getDataSourceDatabaseName(
+	ConfigManager.getCurrentConfig())
+	.endsWith(".tmp/db/LockssMetadataDbManager"));
+
+    assertEquals("LOCKSS",
+	metadataDbManager.getDataSourceUser(ConfigManager.getCurrentConfig()));
 
     try {
       metadataDbManager.getConnection();

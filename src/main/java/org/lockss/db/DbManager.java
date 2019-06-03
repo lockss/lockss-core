@@ -176,6 +176,9 @@ public abstract class DbManager extends BaseLockssManager
   // The data source password.
   protected String dataSourcePassword = null;
 
+  // The data source schema name.
+  protected String dataSourceSchemaName = null;
+
   // The network server control.
   protected NetworkServerControl networkServerControl = null;
 
@@ -745,6 +748,15 @@ public abstract class DbManager extends BaseLockssManager
   }
 
   /**
+   * Provides the data source schema name. To be used during initialization.
+   * 
+   * @return a String with the data source schema name.
+   */
+  public String getDataSourceSchemaNameBeforeReady() {
+    return dataSourceSchemaName;
+  }
+
+  /**
    * Creates a datasource using the specified class name.
    * 
    * @param dsClassName
@@ -883,7 +895,7 @@ public abstract class DbManager extends BaseLockssManager
       // Yes.
       try {
 	// Create the schema if it does not exist.
-	dbManagerSql.createPostgresqlSchemaIfMissing(dataSourceUser,
+	dbManagerSql.createPostgresqlSchemaIfMissing(dataSourceSchemaName,
 	    dataSource, waitForExternalSetup);
       } catch (SQLException sqle) {
 	String msg = "Error creating PostgreSQL schema if missing";
@@ -968,6 +980,15 @@ public abstract class DbManager extends BaseLockssManager
 
     dsConfig.put("databaseName", dataSourceDbName);
 
+    // Save the schema name, if not configured.
+    if (dbManagerSql.isTypePostgresql()) {
+      dataSourceSchemaName = getDataSourceSchemaName(currentConfig);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "dataSourceSchemaName = " + dataSourceSchemaName);
+
+      dsConfig.put("schemaName", dataSourceSchemaName);
+    }
+
     // Save the Derby credentials for later authentication.
     if (dbManagerSql.isTypeDerby()) {
       synchronized (this) {
@@ -1030,10 +1051,31 @@ public abstract class DbManager extends BaseLockssManager
     return DEFAULT_DATASOURCE_PASSWORD;
   }
 
-  protected String getDataSourceDatabaseName(Configuration config) {
+  /**
+   * Provides the full name of the database to be used.
+   * 
+   * @param config
+   *          A Configuration that includes the simple name of the database.
+   * @return a String with the full name of the database.
+   */
+  protected abstract String getDataSourceDatabaseName(Configuration config);
+
+  /**
+   * Provides the full name of the database to be used.
+   * 
+   * @param simpleDbName
+   *          A String with the simple name of the database.
+   * @return a String with the full name of the database.
+   */
+  protected String getDataSourceDatabaseName(String simpleDbName) {
+    final String DEBUG_HEADER = "getDataSourceDatabaseName(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	+ "simpleDbName = " + simpleDbName);
+
+    // Check whether the Derby database is being used.
     if (dbManagerSql.isTypeDerby()) {
       // Yes: Get the data source root directory.
-      String pathFromCache = "db/" + this.getClass().getSimpleName();
+      String pathFromCache = "db/" + simpleDbName;
       File datasourceDir = ConfigManager.getConfigManager()
 	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
 
@@ -1041,8 +1083,18 @@ public abstract class DbManager extends BaseLockssManager
       return FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
     }
 
-    return this.getClass().getSimpleName();
+    // No: The full name is just the simple name.
+    return simpleDbName;
   }
+
+  /**
+   * Provides the name of the database schema to be used.
+   * 
+   * @param config
+   *          A Configuration that includes the name of the database schema.
+   * @return a String with the name of the database schema.
+   */
+  protected abstract String getDataSourceSchemaName(Configuration config);
 
   /**
    * Sets the Derby database properties.
@@ -1306,7 +1358,8 @@ public abstract class DbManager extends BaseLockssManager
       // being used.
     } else if (dbManagerSql.isTypePostgresql()
 	&& ("initialConnections".equals(name) || "maxConnections".equals(name)
-	    || "portNumber".equals(name) || "password".equals(name))) {
+	    || "portNumber".equals(name) || "password".equals(name)
+	    || "schemaName".equals(name))) {
       if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = true.");
       return true;
 

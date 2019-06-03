@@ -27,17 +27,14 @@
  */
 package org.lockss.metadata;
 
-import java.io.File;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 import org.lockss.app.ConfigurableManager;
-import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.db.DbManagerSql;
-import org.lockss.db.DbException;
-import org.lockss.util.FileUtil;
 import org.lockss.util.Logger;
 
 /**
@@ -130,6 +127,12 @@ public class MetadataDbManager extends DbManager
    */
   public static final String PARAM_DATASOURCE_PASSWORD = DATASOURCE_ROOT
       + ".password";
+
+  /**
+   * Name of the database schema. Changes require daemon restart.
+   */
+  public static final String PARAM_DATASOURCE_SCHEMA_NAME = DATASOURCE_ROOT
+      + ".schemaName";
 
   /**
    * Set to false to prevent DbManager from running
@@ -294,24 +297,30 @@ public class MetadataDbManager extends DbManager
     return config.get(PARAM_DATASOURCE_PASSWORD, DEFAULT_DATASOURCE_PASSWORD);
   }
 
+  /**
+   * Provides the full name of the database to be used.
+   * 
+   * @param config
+   *          A Configuration that includes the simple name of the database.
+   * @return a String with the full name of the database.
+   */
   @Override
   protected String getDataSourceDatabaseName(Configuration config) {
-    // Get the configured database name.
-    String dbName = config.get(PARAM_DATASOURCE_DATABASENAME,
-	  this.getClass().getSimpleName());
+    // Return the configured database name.
+    return getDataSourceDatabaseName(config.get(PARAM_DATASOURCE_DATABASENAME,
+	"Lockss" + this.getClass().getSimpleName()));
+  }
 
-    // Check whether it is a Derby database with a relative path database name.
-    if (isTypeDerby() && !dbName.startsWith(File.separator)) {
-      // Yes: Get the data source root directory.
-      String pathFromCache = "db/" + dbName;
-      File datasourceDir = ConfigManager.getConfigManager()
-	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
-
-      // Return the data source root directory.
-      return FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
-    }
-
-    return dbName;
+  /**
+   * Provides the name of the database schema to be used.
+   * 
+   * @param config
+   *          A Configuration that includes the name of the database schema.
+   * @return a String with the name of the database schema.
+   */
+  @Override
+  protected String getDataSourceSchemaName(Configuration config) {
+    return config.get(PARAM_DATASOURCE_SCHEMA_NAME, getDataSourceUser(config));
   }
 
   @Override
