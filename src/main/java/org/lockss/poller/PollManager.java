@@ -2819,7 +2819,7 @@ public class PollManager
       long startTime = TimeBase.nowMs();
 
       rebuildPollQueue0();
-      theLog.debug("rebuildPollQueue(): " +
+      theLog.debug2("rebuildPollQueue(): " +
           (TimeBase.nowMs() - startTime) + "ms");
     }
 
@@ -2882,8 +2882,8 @@ public class PollManager
             }
           }
         }
-        if (theLog.isDebug()) {
-          theLog.debug("Poll queue: " + pollQueue);
+        if (theLog.isDebug2()) {
+          theLog.debug2("Poll queue: " + pollQueue);
         }
       }
     }
