@@ -752,10 +752,6 @@ public class ArchivalUnitStatus
         new ColumnDescriptor("NodeVersion", "Version",
             ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("NodeContentSize", "Size",
-            ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("NodeTreeSize", "Tree Size",
-            ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("NodeChildCount", "Children",
             ColumnDescriptor.TYPE_INT)
     );
 
@@ -907,17 +903,6 @@ public class ArchivalUnitStatus
       rowMap.put("NodeHasContent", (hasContent ? "yes" : "no"));
       rowMap.put("NodeVersion", versionObj);
       rowMap.put("NodeContentSize", sizeObj);
-//       if (!node.isLeaf()) {
-//         rowMap.put("NodeChildCount",
-//             new OrderedObject(new Long(node.getChildCount())));
-//         long treeSize = node.getTreeContentSize(null, false);
-//         if (treeSize != -1) {
-//           rowMap.put("NodeTreeSize", new OrderedObject(new Long(treeSize)));
-//         }
-//       } else {
-        rowMap.put("NodeChildCount", StatusTable.NO_VALUE);
-        rowMap.put("NodeTreeSize", StatusTable.NO_VALUE);
-//       }
       return rowMap;
     }
 

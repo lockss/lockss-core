@@ -291,6 +291,13 @@ public class AuUtil {
     return mgr.hasAuSuspectUrlVersions(au.getAuId());
   }
 
+  /** Convenience method forwards to {@link org.lockss.conflg.MiscParams#isGloballyExcludedUrl(ArchivalUnit,String)}
+   */
+  public static boolean isGloballyExcludedUrl(ArchivalUnit au, String url) {
+    MiscParams mgr = getDaemon(au).getManagerByType(MiscParams.class);
+    return mgr.isGloballyExcludedUrl(au, url);
+  }
+
   /**
    * Serialize an AuSuspectUrlVersions object into a JSON string
    * 

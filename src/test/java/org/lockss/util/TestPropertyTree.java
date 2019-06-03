@@ -232,7 +232,8 @@ public class TestPropertyTree extends LockssTestCase {
     props.setProperty("test", "value");
     props.setProperty("test-prop", "prop-%"+propName+"%");
     props.setProperty("prop-%"+propName+"%", "value2");
-    props.setProperty("prop-%test%", "value-%test%");
+    // percent-delimited string in value must not be a System property
+    props.setProperty("prop-%test%", "value-%testnotsys%");
 
     PropertyTree propTree = new PropertyTree(props);
     // normal property
@@ -244,7 +245,7 @@ public class TestPropertyTree extends LockssTestCase {
     // uses local value correctly
     assertEquals("prop-value", propTree.getProperty(propName));
     // doesn't expand for local parameters
-    assertEquals("value-%test%", propTree.getProperty("prop-%test%"));
+    assertEquals("value-%testnotsys%", propTree.getProperty("prop-%test%"));
   }
 
   private Vector enum2vector(Enumeration e) {

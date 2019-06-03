@@ -110,6 +110,7 @@ public class FuncLockssApp extends LockssTestCase {
     new ManagerDesc(MyLockssManager.class.getName());
 
   private final ManagerDesc[] expMgrs = {
+    MISC_PARAMS_MANAGER_DESC,
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
     JMS_MANAGER_DESC,

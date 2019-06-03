@@ -137,6 +137,8 @@ public class LockssApp {
     Configuration.PREFIX + "manager.";
 
   // Parameter keys for standard managers
+  public static final String MISC_PARAMS =
+    managerKey(MiscParams.class);
   public static final String WATCHDOG_SERVICE =
     managerKey(WatchdogService.class);
   public static final String MAIL_SERVICE =
@@ -180,6 +182,7 @@ public class LockssApp {
   // order, followed by the service-specific managers specified by
   // subclasses, followed by post managers below
   private final ManagerDesc[] stdPreManagers = {
+    MISC_PARAMS_MANAGER_DESC,
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
     JMS_MANAGER_DESC,
@@ -394,15 +397,20 @@ public class LockssApp {
 
   /** Return a string describing the version of the app and platform */
   public String getVersionInfo() {
-    String vApp = BuildInfo.getBuildInfoString();
-    if (!StringUtil.isNullString(getAppName())) {
-      vApp = getAppName() + " " + vApp;
-    }
+    String app = StringUtil.isNullString(getAppName())
+      ? BuildInfo.getBuildProperty(BuildInfo.BUILD_ARTIFACT) : getAppName();
+    StringBuilder sb = new StringBuilder();
+    String res =
+      BuildInfo.getBuildInfoString("LOCKSSS :" + BuildInfo.BUILD_RELEASENAME,
+				   app + ":",
+				   BuildInfo.BUILD_VERSION,
+				   BuildInfo.BUILD_TIMESTAMP,
+				   BuildInfo.BUILD_HOST);
     PlatformVersion plat = Configuration.getPlatformVersion();
     if (plat != null) {
-      vApp = vApp + ", " + plat.displayString();
+      res = res + ", " + plat.displayString();
     }
-    return vApp;
+    return res;
   }
 
   /** Return a string describing the JVM */

@@ -377,11 +377,11 @@ public class TestBlockHasher extends LockssTestCase {
     addContent(mau, urls[2], s1);
     assertTrue(hasher.isIncluded(cu));
 
-    ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
+    ConfigurationUtil.addFromArgs(MiscParams.PARAM_EXCLUDE_URL_PATTERN,
 				  "http:");
     assertFalse(hasher.isIncluded(cu));
 
-    ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
+    ConfigurationUtil.addFromArgs(MiscParams.PARAM_EXCLUDE_URL_PATTERN,
 				  "xyznotfound");
     assertTrue(hasher.isIncluded(cu));
 

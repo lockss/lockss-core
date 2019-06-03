@@ -1997,19 +1997,23 @@ public class ConfigManager implements LockssManager {
   static final String DEFAULT_HASH_SVC = "org.lockss.hasher.HashSvcSchedImpl";
 
   private void inferMiscParams(Configuration config) {
-    // hack to make hash use new scheduler without directly setting
-    // org.lockss.manager.HashService, which would break old daemons.
-    // don't set if already has a value
-    if (config.get(PARAM_HASH_SVC) == null &&
-	config.getBoolean(PARAM_NEW_SCHEDULER, DEFAULT_NEW_SCHEDULER)) {
-      config.put(PARAM_HASH_SVC, DEFAULT_HASH_SVC);
-    }
+//     // hack to make hash use new scheduler without directly setting
+//     // org.lockss.manager.HashService, which would break old daemons.
+//     // don't set if already has a value
+//     if (config.get(PARAM_HASH_SVC) == null &&
+// 	config.getBoolean(PARAM_NEW_SCHEDULER, DEFAULT_NEW_SCHEDULER)) {
+//       config.put(PARAM_HASH_SVC, DEFAULT_HASH_SVC);
+//     }
 
     setUpTmp(config);
 
     System.setProperty("jsse.enableSNIExtension",
 		       Boolean.toString(config.getBoolean(PARAM_JSSE_ENABLESNIEXTENSION,
 							  DEFAULT_JSSE_ENABLESNIEXTENSION)));
+
+    setIfNotSet(config,
+		org.lockss.crawler.CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
+		MiscParams.PARAM_EXCLUDE_URL_PATTERN);
 
     String fromParam = LockssDaemon.PARAM_BIND_ADDRS;
     setIfNotSet(config, fromParam, AdminServletManager.PARAM_BIND_ADDRS);

@@ -111,9 +111,7 @@ public class CuContentIterator extends CuIterator {
       excluded++;
       return false;
     }
-    if (getCrawlManager(cu) != null &&
-	getCrawlManager(cu).isGloballyExcludedUrl(cu.getArchivalUnit(),
-						cu.getUrl())) {
+    if (AuUtil.isGloballyExcludedUrl(cu.getArchivalUnit(), cu.getUrl())) {
       excluded++;
       return false;
     }

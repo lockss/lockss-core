@@ -599,16 +599,14 @@ public abstract class BaseCrawler implements Crawler {
   }
 
   protected boolean checkGloballyExcludedUrl(ArchivalUnit au, String url) {
-    if (crawlMgr != null) {
-      if (crawlMgr.isGloballyExcludedUrl(au, url)) {
-        crawlStatus.signalErrorForUrl(url, "Excluded (probable recursion)");
-        String msg = "URL excluded (probable recursion): " + url;
-        logger.siteWarning(msg);
-        if (alertMgr != null) {
-          alertMgr.raiseAlert(Alert.auAlert(Alert.CRAWL_EXCLUDED_URL, au), msg);
-        }
-        return true;
+    if (AuUtil.isGloballyExcludedUrl(au, url)) {
+      crawlStatus.signalErrorForUrl(url, "Excluded (probable recursion)");
+      String msg = "URL excluded (probable recursion): " + url;
+      logger.siteWarning(msg);
+      if (alertMgr != null) {
+	alertMgr.raiseAlert(Alert.auAlert(Alert.CRAWL_EXCLUDED_URL, au), msg);
       }
+      return true;
     }
     return false;
   }

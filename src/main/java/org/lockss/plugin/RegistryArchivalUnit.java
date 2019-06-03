@@ -177,7 +177,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
       TitleTag tag = (TitleTag)nodes[0];
       if (tag == null) return null;
       return StringEscapeUtils.unescapeHtml4(tag.getTitle());
-    } catch (MalformedURLException e) {
+    } catch (MalformedURLException | RuntimeException e) {
       log.warning("recomputeRegName", e);
       return null;
     } catch (ParserException e) {
