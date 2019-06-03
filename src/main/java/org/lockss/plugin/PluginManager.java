@@ -712,7 +712,7 @@ public class PluginManager
 
   @Override
   public void auConfigChanged(String auid) {
-    if (auid == null && isStartAusOnDemand()) {
+    if (auid == null || isStartAusOnDemand()) {
       // Don't create AUs on config change in on-demand mode
       return;
     }
@@ -739,8 +739,8 @@ public class PluginManager
 
   @Override
   public void auConfigRemoved(String auid) {
-    if (auid == null && isStartAusOnDemand()) {
-      // Don't delete AUs on config change in on-demand mode
+    // Do delete AUs on config change even in on-demand mode
+    if (auid == null) {
       return;
     }
     ArchivalUnit au = getAuFromIdIfExists(auid);
