@@ -1072,8 +1072,10 @@ public abstract class DbManager extends BaseLockssManager
     if (log.isDebug2()) log.debug2(DEBUG_HEADER
 	+ "simpleDbName = " + simpleDbName);
 
-    // Check whether the Derby database is being used.
-    if (dbManagerSql.isTypeDerby()) {
+    // Check whether the Derby database is being used and a full path has not
+    // been passed.
+    if (dbManagerSql.isTypeDerby()
+	&& !simpleDbName.startsWith(File.separator)) {
       // Yes: Get the data source root directory.
       String pathFromCache = "db/" + simpleDbName;
       File datasourceDir = ConfigManager.getConfigManager()
