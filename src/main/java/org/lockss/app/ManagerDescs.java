@@ -171,8 +171,6 @@ public class ManagerDescs {
 		    "org.lockss.config.db.ConfigDbManager") {
       // Start ConfigDbManager iff we're not using a remote config service
       public boolean shouldStart(LockssApp app) {
-	// Temporarily unconditional until ConfigManager fixed
-// 	return true;
         return !app.isConfigClient();
       }};
 }
