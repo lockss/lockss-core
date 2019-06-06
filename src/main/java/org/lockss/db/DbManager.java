@@ -1067,7 +1067,7 @@ public abstract class DbManager extends BaseLockssManager
    *          A String with the simple name of the database.
    * @return a String with the full name of the database.
    */
-  protected String getDataSourceDatabaseName(String simpleDbName) {
+  protected String getFullDataSourceDatabaseName(String simpleDbName) {
     final String DEBUG_HEADER = "getDataSourceDatabaseName(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER
 	+ "simpleDbName = " + simpleDbName);

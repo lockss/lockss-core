@@ -286,7 +286,7 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
   @Override
   protected String getDataSourceDatabaseName(Configuration config) {
     // Return the configured database name.
-    return getDataSourceDatabaseName(config.get(PARAM_DATASOURCE_DATABASENAME,
+    return getFullDataSourceDatabaseName(config.get(PARAM_DATASOURCE_DATABASENAME,
 	"Lockss" + this.getClass().getSimpleName()));
   }
 
