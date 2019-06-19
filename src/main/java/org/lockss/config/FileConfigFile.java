@@ -272,7 +272,7 @@ public class FileConfigFile extends BaseConfigFile {
       // Use the last modification timestamp for the ETag.
       String lastModifiedAsEtag = "\"" + lastModified + "\"";
       if (log.isDebug3())
-	log.error(DEBUG_HEADER + "lastModifiedAsEtag = " + lastModifiedAsEtag);
+	log.debug3(DEBUG_HEADER + "lastModifiedAsEtag = " + lastModifiedAsEtag);
 
       // Get the file content type.
       MediaType contentType = MediaType.TEXT_PLAIN;
