@@ -54,7 +54,7 @@ public class ConfigurationPropTreeImpl extends Configuration {
     props = tree;
   }
 
-  PropertyTree getPropertyTree() {
+  public PropertyTree getPropertyTree() {
     return props;
   }
 
