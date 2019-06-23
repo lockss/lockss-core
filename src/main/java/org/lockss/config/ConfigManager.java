@@ -33,6 +33,7 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.Function;
 import java.net.*;
 import java.sql.Connection;
 import org.apache.commons.collections.Predicate;
@@ -969,6 +970,10 @@ public class ConfigManager implements LockssManager {
     return ver == null ? null : new DaemonVersion(ver);
   }
 
+  public static Configuration getPlatformConfigOnly() {
+    return platformConfig;
+  }
+
   public static Configuration getPlatformConfig() {
     Configuration res = getCurrentConfig();
     if (res.isEmpty()) {
@@ -1609,23 +1614,11 @@ public class ConfigManager implements LockssManager {
     }
     Configuration newConfig = initNewConfiguration();
     // Add app defaults
-    if (getApp() != null) {
-      Configuration appDefault = getApp().getAppDefault();
-      if (appDefault != null && !appDefault.isEmpty()) {
-	if (log.isDebug2()) log.debug2("Adding app default: " +
-				       appDefault);
-	newConfig.copyFrom(appDefault);
-      }
-    }
+    mergeAppConfig(newConfig, LockssApp::getBootDefault, "app bootstrap default");
+    mergeAppConfig(newConfig, LockssApp::getAppDefault, "app default");
     loadList(newConfig, gens);
     // Add app un-overridable config
-    if (getApp() != null) {
-      Configuration appConfig = getApp().getAppConfig();
-      if (appConfig != null && !appConfig.isEmpty()) {
-	if (log.isDebug2()) log.debug2("Adding app config: " + appConfig);
-	newConfig.copyFrom(appConfig);
-      }
-    }
+    mergeAppConfig(newConfig, LockssApp::getAppConfig, "app config");
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
 
     boolean did = installConfig(newConfig, gens);
@@ -1716,6 +1709,8 @@ public class ConfigManager implements LockssManager {
     final String DEBUG_HEADER = "setupPlatformConfig(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
     Configuration platConfig = initNewConfiguration();
+    mergeAppConfig(platConfig, LockssApp::getBootDefault,
+		   "app bootstrap default");
     for (Iterator iter = urls.iterator(); iter.hasNext();) {
       Object o = iter.next();
       ConfigFile cf;
@@ -2091,6 +2086,18 @@ public class ConfigManager implements LockssManager {
     }
     if ("compat".equalsIgnoreCase(acctPolicy)) {
       setParamsFromPairs(config, AccountManager.POLICY_COMPAT);
+    }
+  }
+
+  void mergeAppConfig(Configuration config,
+		      Function<LockssApp,Configuration> getter,
+		      String msg) {
+    if (getApp() != null) {
+      Configuration toMerge = getter.apply(getApp());
+      if (toMerge != null && !toMerge.isEmpty()) {
+	if (log.isDebug2()) log.debug2("Adding " + msg + ": " + toMerge);
+	config.copyFrom(toMerge);
+      }
     }
   }
 
