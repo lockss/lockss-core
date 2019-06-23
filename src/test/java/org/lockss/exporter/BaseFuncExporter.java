@@ -62,7 +62,7 @@ public abstract class BaseFuncExporter extends LockssTestCase {
     props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.addFromProps(props);
 
-    daemon.setUpAuConfig();
+    daemon.setUpFastAuConfig();
 
     daemon.getPluginManager();
     daemon.setDaemonInited(true);

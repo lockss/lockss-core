@@ -57,7 +57,7 @@ public class TestTitleConfig extends LockssTestCase {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
-    getMockLockssDaemon().setUpAuConfig();
+    getMockLockssDaemon().setUpFastAuConfig();
 
     pmgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();

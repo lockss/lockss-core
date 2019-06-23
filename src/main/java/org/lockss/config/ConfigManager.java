@@ -736,8 +736,8 @@ public class ConfigManager implements LockssManager {
   // threads.
   private volatile int configReloadRequestCounter = 0;
 
-  // The configuration manager SQL executor.
-  private ConfigManagerSql configManagerSql = null;
+  // The configuration store (usually a ConfigManagerSql)
+  private ConfigStore configStore = null;
 
   private boolean noNag = false;
 
@@ -3970,29 +3970,36 @@ public class ConfigManager implements LockssManager {
    *           if any problem occurred accessing the database.
    */
   public Connection getConnection() throws DbException {
-    return getConfigManagerSql().getConnection();
+    return getConfigStore().getConnection();
+  }
+
+  private void safeRollbackAndClose(Connection conn) {
+    try {
+      getConfigStore().safeRollbackAndClose(conn);
+    } catch (DbException e) {
+      log.warning("Exception in finally", e);
+    }
   }
 
   /**
-   * Provides the configuration manager SQL executor.
+   * Provides the configuration store
    * 
-   * @return a ConfigManagerSql with the configuration manager SQL executor.
+   * @return a ConfigStore with the configuration manager SQL executor.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private ConfigManagerSql getConfigManagerSql() throws DbException {
-    if (configManagerSql == null) {
-      if (theApp == null) {
-	configManagerSql = new ConfigManagerSql(
-	    LockssApp.getManagerByTypeStatic(ConfigDbManager.class));
-      } else {
-	configManagerSql = new ConfigManagerSql(
-	    theApp.getManagerByType(ConfigDbManager.class));
-      }
+  public ConfigStore getConfigStore() throws DbException {
+    if (configStore == null) {
+      configStore = theApp.makeConfigStore();
     }
-
-    return configManagerSql;
+    return configStore;
   }
+
+  public static ConfigStore makeNormalConfigStore(LockssApp app)
+      throws DbException {
+    return new ConfigManagerSql(app.getManagerByType(ConfigDbManager.class));
+  }
+
 
   /**
    * Provides the Archival Unit configurations that involve some plugins.
@@ -4097,7 +4104,7 @@ public class ConfigManager implements LockssManager {
 	    + auConfiguration + "'", lrhe);
       }
     } else {
-      getConfigManagerSql().addArchivalUnitConfiguration(pluginId, auKey,
+      getConfigStore().addArchivalUnitConfiguration(pluginId, auKey,
 	  auConfig);
       notifyAuConfigChanged(auid, auConfiguration);
     }
@@ -4136,7 +4143,7 @@ public class ConfigManager implements LockssManager {
       result = new ArrayList<>();
 
       // Retrieve from the database all the Archival Unit configurations.
-      Map<String, Map<String, String>> auConfigurations = getConfigManagerSql().
+      Map<String, Map<String, String>> auConfigurations = getConfigStore().
 	  findAllArchivalUnitConfiguration();
 
       // Loop through all the retrieved Archival Units identifiers.
@@ -4193,7 +4200,7 @@ public class ConfigManager implements LockssManager {
 
 	result = retrieveArchivalUnitConfiguration(conn, auid);
       } finally {
-	DbManager.safeRollbackAndClose(conn);
+	safeRollbackAndClose(conn);
       }
     }
 
@@ -4223,7 +4230,7 @@ public class ConfigManager implements LockssManager {
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Retrieve the Archival Unit configuration stored in the database.
-    Map<String, String> auConfig = getConfigManagerSql()
+    Map<String, String> auConfig = getConfigStore()
 	.findArchivalUnitConfiguration(conn, pluginId, auKey);
 
     // Check whether a configuration was found.
@@ -4258,7 +4265,7 @@ public class ConfigManager implements LockssManager {
     // Retrieve the Archival Unit configuration creation time stored in the
     // database.
     Long creationTime =
-	getConfigManagerSql().findArchivalUnitCreationTime(pluginId, auKey);
+	getConfigStore().findArchivalUnitCreationTime(pluginId, auKey);
 
     if (log.isDebug2()) log.debug2("creationTime = " + creationTime);
     return creationTime;
@@ -4286,7 +4293,7 @@ public class ConfigManager implements LockssManager {
     // Retrieve the Archival Unit configuration last update time stored in the
     // database.
     Long lastUpdateTime =
-	getConfigManagerSql().findArchivalUnitLastUpdateTime(pluginId, auKey);
+	getConfigStore().findArchivalUnitLastUpdateTime(pluginId, auKey);
 
     if (log.isDebug2()) log.debug2("creationTime = " + lastUpdateTime);
     return lastUpdateTime;
@@ -4324,7 +4331,7 @@ public class ConfigManager implements LockssManager {
       String auKey = PluginManager.auKeyFromAuId(auid);
 
       // Remove the Archival Unit configuration from the database.
-      getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
+      getConfigStore().removeArchivalUnit(pluginId, auKey);
 
       notifyAuConfigRemoved(auid);
     }
@@ -4370,7 +4377,7 @@ public class ConfigManager implements LockssManager {
 
       try {
         // Get a connection to the database.
-        conn = getConfigManagerSql().getConnection();
+        conn = getConfigStore().getConnection();
 
 	// Load the Archival Unit configurations from the file.
 	Configuration orgLockssAu = getConfigGeneration(auTxtFile.getPath(),
@@ -4410,7 +4417,7 @@ public class ConfigManager implements LockssManager {
 
 	    // Write to the database the configuration properties of this
 	    // Archival Unit.
-	    Long auSeq = getConfigManagerSql().addArchivalUnitConfiguration(
+	    Long auSeq = getConfigStore().addArchivalUnitConfiguration(
 		conn, pluginKey, auKey, auConfig, false);
 	    if (log.isDebug3()) log.debug3("auSeq = " + auSeq);
 
@@ -4419,7 +4426,7 @@ public class ConfigManager implements LockssManager {
 	    addedCount++;
 
 	    if (addedCount % auInsertCommitCount == 0) {
-	      ConfigDbManager.commitOrRollback(conn, log);
+	      getConfigStore().commitOrRollback(conn, log);
 	      totalAddedCount += addedCount;
 	      addedCount = 0;
 	    }
@@ -4428,7 +4435,7 @@ public class ConfigManager implements LockssManager {
 
 	// Commit the configurations written since the last commit.
 	if (addedCount > 0) {
-	  ConfigDbManager.commitOrRollback(conn, log);
+	  getConfigStore().commitOrRollback(conn, log);
 	  totalAddedCount += addedCount;
 	}
 
@@ -4441,7 +4448,7 @@ public class ConfigManager implements LockssManager {
       } catch (IOException ioe) {
 	log.critical("Error reading contents of file '" + auTxtFile + "'", ioe);
       } finally {
-	DbManager.safeRollbackAndClose(conn);
+	safeRollbackAndClose(conn);
       }
 
       //TODO: Record failed AUs?
@@ -4469,7 +4476,7 @@ public class ConfigManager implements LockssManager {
    */
   public void writeAuConfigurationDatabaseBackupToZip(OutputStream outputStream)
       throws IOException, DbException {
-    getConfigManagerSql().processAllArchivalUnitConfigurations(outputStream);
+    getConfigStore().processAllArchivalUnitConfigurations(outputStream);
   }
 
   private class MyMessageListener

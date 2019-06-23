@@ -61,7 +61,7 @@ public class TestTitleSetXpath extends LockssTestCase {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
-    getMockLockssDaemon().setUpAuConfig();
+    getMockLockssDaemon().setUpFastAuConfig();
 
     pluginMgr = getMockLockssDaemon().getPluginManager();
     setUpDiskSpace();

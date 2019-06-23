@@ -53,7 +53,7 @@ public class TestTitleSetInactiveAus extends LockssTestCase {
     setUpDiskSpace();
     getMockLockssDaemon().setIdentityManager(new org.lockss.protocol.MockIdentityManager());
 
-    getMockLockssDaemon().setUpAuConfig();
+    getMockLockssDaemon().setUpFastAuConfig();
 
     pluginMgr = getMockLockssDaemon().getPluginManager();
     pluginMgr.startService();

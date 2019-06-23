@@ -115,7 +115,7 @@ public class TestPluginManager extends LockssTestCase4 {
 
     theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
 
-    theDaemon.setUpAuConfig();
+    theDaemon.setUpFastAuConfig();
 
     mgr = new MyPluginManager();
     theDaemon.setPluginManager(mgr);
@@ -634,9 +634,9 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(mgr.ensurePluginLoaded(key));
     ThrowingMockPlugin mpi = (ThrowingMockPlugin)mgr.getPlugin(key);
     assertNotNull(mpi);
-    Configuration config = ConfigurationUtil.fromArgs("a", "b");
-    ArchivalUnit au = mgr.createAu(mpi, config,
-                                   AuEvent.model(AuEvent.Type.Create));
+    Configuration config = ConfigurationUtil.fromArgs("base_url", "b",
+						      "volume", "23");
+    ArchivalUnit au = mgr.createAndSaveAuConfiguration(mpi, config);
     assertNotNull(au);
     assertTrue(mgr.isActiveAu(au));
     String auId = au.getAuId();
@@ -658,8 +658,7 @@ public class TestPluginManager extends LockssTestCase4 {
       fail("Deactivating au should not have thrown", ex);
     }
     // Recreate the AU, will get a new instance
-    ArchivalUnit au2 = mgr.createAu(mpi, config,
-                                    AuEvent.model(AuEvent.Type.Create));
+    ArchivalUnit au2 = mgr.createAndSaveAuConfiguration(mpi, config);
     assertNotNull(au2);
     assertFalse(mgr.isActiveAu(au));
     assertTrue(mgr.isActiveAu(au2));
@@ -678,7 +677,8 @@ public class TestPluginManager extends LockssTestCase4 {
     assertNotNull(mpi);
 
     Properties props = new Properties();
-    props.put("a", "b");
+    props.put("base_url", "http://foo.com/b");
+    props.put("volume", "3");
 
     // Test creating and deleting by au reference.
     ArchivalUnit au1 = mgr.createAndSaveAuConfiguration(mpi, props);
@@ -690,7 +690,7 @@ public class TestPluginManager extends LockssTestCase4 {
     }
 
     // Test creating and deleting by au ID.
-    props.put("a", "c");
+    props.put("volume", "7");
     ArchivalUnit au2 = mgr.createAndSaveAuConfiguration(mpi, props);
     assertNotNull(au2);
     try {

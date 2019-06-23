@@ -133,7 +133,7 @@ public class FuncZipExploder extends LockssTestCase {
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
 
-    theDaemon.setUpAuConfig();
+    theDaemon.setUpFastAuConfig();
 
     pluginMgr = theDaemon.getPluginManager();
     crawlMgr = new NoPauseCrawlManagerImpl();

@@ -48,6 +48,7 @@ import org.lockss.config.*;
 import org.lockss.account.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
+import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.truezip.*;
@@ -870,6 +871,10 @@ public class LockssApp {
 	  setConfig(newConfig, prevConfig, changedKeys);
 	}
       });
+  }
+
+  public ConfigStore makeConfigStore() throws DbException {
+    return ConfigManager.makeNormalConfigStore(this);
   }
 
   public Configuration getBootDefault() {

@@ -890,6 +890,40 @@ public class MockLockssDaemon extends LockssDaemon {
     return this;
   }
 
+  public MockLockssDaemon setUpFastAuConfig() {
+    useFastConfigStore = true;
+    return this;
+  }
+
+  boolean useFastConfigStore = false;
+  private ConfigStore configStore;
+
+  @Override
+  public ConfigStore makeConfigStore() throws DbException {
+    if (configStore != null) return configStore;
+    if (useFastConfigStore) {
+      return configStore = new InMemoryConfigStore();
+    } else {
+      return configStore = ConfigManager.makeNormalConfigStore(this);
+    }
+  }
+
+  public ConfigStore getConfigStore() {
+    if (configStore == null) {
+      try {
+	makeConfigStore();
+      } catch (DbException e) {
+	log.error("Can't create ConfigStore", e);
+	throw new IllegalStateException("Can't create ConfigStore", e);
+      }
+    }
+    return configStore;
+  }
+
+  public InMemoryConfigStore getInMemoryConfigStore() {
+    return (InMemoryConfigStore)getConfigStore();
+  }
+
   /** Create and start StateService */
   public StateManager setUpStateManager() {
     return setUpStateManager(new TestingStateManager());

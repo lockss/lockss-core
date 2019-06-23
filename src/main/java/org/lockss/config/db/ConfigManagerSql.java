@@ -47,9 +47,11 @@ import java.util.HashMap;
 import java.util.Map;
 import org.lockss.config.AuConfiguration;
 import org.lockss.config.AuConfigurationUtils;
+import org.lockss.config.ConfigStore;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.Logger;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.time.TimeBase;
 
@@ -58,7 +60,7 @@ import org.lockss.util.time.TimeBase;
  * 
  * @author Fernando García-Loygorri
  */
-public class ConfigManagerSql {
+public class ConfigManagerSql implements ConfigStore {
   private static L4JLogger log = L4JLogger.getLogger();
 
   protected final ConfigDbManager configDbManager;
@@ -204,6 +206,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Connection getConnection() throws DbException {
     return configDbManager.getConnection();
   }
@@ -221,6 +224,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Long addArchivalUnitConfiguration(String pluginId, String auKey,
       Map<String,String> auConfig) throws DbException {
     log.debug2("pluginId = {}", pluginId);
@@ -265,6 +269,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Long addArchivalUnitConfiguration(Connection conn, String pluginId,
       String auKey, Map<String,String> auConfig, boolean commitAfterAdd)
 	  throws DbException {
@@ -321,6 +326,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Map<String, Map<String,String>> findAllArchivalUnitConfiguration()
       throws IOException, DbException {
     return processAllArchivalUnitConfigurations(null);
@@ -342,6 +348,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Map<String, Map<String,String>> processAllArchivalUnitConfigurations(
       OutputStream outputStream) throws IOException, DbException {
     log.debug2("Invoked");
@@ -509,6 +516,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Map<String,String> findArchivalUnitConfiguration(String pluginId,
       String auKey) throws DbException {
     log.debug2("pluginId = {}", pluginId);
@@ -583,6 +591,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Map<String,String> findArchivalUnitConfiguration(Connection conn,
       String pluginId, String auKey) throws DbException {
     log.debug2("pluginId = {}", pluginId);
@@ -652,6 +661,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Long findArchivalUnitCreationTime(String pluginId, String auKey)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
@@ -719,6 +729,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Long findArchivalUnitLastUpdateTime(String pluginId, String auKey)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
@@ -784,6 +795,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public int removeArchivalUnit(String pluginId, String auKey)
       throws DbException {
     log.debug2("pluginId = {}", pluginId);
@@ -1334,6 +1346,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Collection<String> findAllPluginIds() throws DbException {
     log.debug2("Invoked");
 
@@ -1392,6 +1405,7 @@ public class ConfigManagerSql {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+  @Override
   public Map<String, Map<String,String>> findPluginAuConfigurations(
       String pluginId) throws DbException {
     log.debug2("pluginId = {}", pluginId);
@@ -1476,4 +1490,20 @@ public class ConfigManagerSql {
     log.debug2("Done");
     return result;
   }
+
+  public void safeRollbackAndClose(Connection conn) {
+    DbManager.safeRollbackAndClose(conn);
+  }
+
+  public void commitOrRollback(Connection conn, L4JLogger log)
+      throws DbException {
+    ConfigDbManager.commitOrRollback(conn, log);
+  }
+
+  public void commitOrRollback(Connection conn, Logger log)
+      throws DbException {
+    ConfigDbManager.commitOrRollback(conn, log);
+  }
+
+
 }

@@ -98,7 +98,7 @@ public class TestSubscriptionManager extends LockssTestCase {
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
 
-    theDaemon.setUpAuConfig();
+    theDaemon.setUpFastAuConfig();
 
     pluginManager = theDaemon.getPluginManager();
     pluginManager.setLoadablePluginsReady(true);

@@ -158,7 +158,7 @@ public class FuncTarExploder2 extends LockssTestCase {
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
 
-    theDaemon.setUpAuConfig();
+    theDaemon.setUpFastAuConfig();
 
     pluginMgr = new NonVersionCheckingPluginManager();
     pluginMgr.initService(theDaemon);

@@ -258,7 +258,7 @@ public class FuncWarcExploder2 extends LockssTestCase {
     theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
 
-    theDaemon.setUpAuConfig();
+    theDaemon.setUpFastAuConfig();
 
     pluginMgr = theDaemon.getPluginManager();
     crawlMgr = new NoPauseCrawlManagerImpl();
