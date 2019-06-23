@@ -195,15 +195,24 @@ public class LockssTestCase extends TestCase {
   protected void setUp() throws Exception {
     TimerQueue.setSingleton(new ErrorRecordingTimerQueue());
     javaIoTmpdir = System.getProperty("java.io.tmpdir");
-    ConfigManager.makeConfigManager();
-    Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
+    makeConfigManager();
+    if (mockDaemon != null) {
+      mockDaemon.registerConfigCallback();
+    }
+    Logger.resetLogs();
     super.setUp();
     disableThreadWatchdog();
   }
 
   protected MockLockssDaemon newMockLockssDaemon() {
     return new MockLockssDaemon();
+  }
+
+  protected ConfigManager makeConfigManager() {
+    ConfigManager mgr = ConfigManager.makeConfigManager();
+    mgr.initService(mockDaemon);
+    return mgr;
   }
 
   /**

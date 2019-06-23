@@ -864,7 +864,11 @@ public class LockssApp {
     prevExitOnce = CurrentConfig.getBooleanParam(PARAM_APP_EXIT_ONCE,
 						 DEFAULT_APP_EXIT_ONCE);
 
-    configMgr.registerConfigurationCallback(new Configuration.Callback() {
+    registerConfigCallback();
+  }
+
+  public void registerConfigCallback() {
+    ConfigManager.getConfigManager().registerConfigurationCallback(new Configuration.Callback() {
 	public void configurationChanged(Configuration newConfig,
 					 Configuration prevConfig,
 					 Configuration.Differences changedKeys) {

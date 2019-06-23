@@ -36,6 +36,7 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.crawler.CrawlManager;
+import org.lockss.db.DbException;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.StatusService;
 import org.lockss.exporter.counter.CounterReportsManager;
@@ -109,16 +110,9 @@ public class MockLockssDaemon extends LockssDaemon {
 
   private MockLockssDaemon(List<String> urls) {
     super(urls);
-    ConfigManager mgr = ConfigManager.getConfigManager();
-    mgr.registerConfigurationCallback(new Configuration.Callback() {
-	public void configurationChanged(Configuration newConfig,
-					 Configuration prevConfig,
-					 Configuration.Differences changedKeys) {
-	  setConfig(newConfig, prevConfig, changedKeys);
-	}
-      });
   }
 
+  @Override
   protected void setConfig(Configuration config, Configuration prevConfig,
 			   Configuration.Differences changedKeys) {
     super.setConfig(config, prevConfig, changedKeys);
