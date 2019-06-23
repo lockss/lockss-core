@@ -33,6 +33,7 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.Function;
 import java.net.*;
 import java.sql.Connection;
 import org.apache.commons.collections.Predicate;
@@ -198,7 +199,6 @@ public class ConfigManager implements LockssManager {
   /** List of URLs of title DBs configured locally using UI.  Do not set
    * manually
    * @ParamRelevance Never
-   * @ParamAuto
    */
   public static final String PARAM_USER_TITLE_DB_URLS =
     Configuration.PREFIX + "userTitleDbs";
@@ -242,11 +242,11 @@ public class ConfigManager implements LockssManager {
     URL_PARAMS.put(PARAM_AUX_PROP_URLS, auxPropsMap);
 
     Map<String, Object> userTitleDbMap = new HashMap<String, Object>();
-    auxPropsMap.put("message", "user title DBs");
+    userTitleDbMap.put("message", "user title DBs");
     URL_PARAMS.put(PARAM_USER_TITLE_DB_URLS, userTitleDbMap);
 
     Map<String, Object> globalTitleDbMap = new HashMap<String, Object>();
-    auxPropsMap.put("message", "global titledb");
+    globalTitleDbMap.put("message", "global titledb");
     URL_PARAMS.put(PARAM_TITLE_DB_URLS, globalTitleDbMap);
   }
 
@@ -756,6 +756,9 @@ public class ConfigManager implements LockssManager {
     this(null, System.getProperty(SYSPROP_REST_CONFIG_SERVICE_URL), null, null);
 
     URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
+    // Fail the load if file in auxPropUrls is missing, allow missing
+    // titledb URLs
+    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("required", true);
     URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
     URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
   }
@@ -813,7 +816,10 @@ public class ConfigManager implements LockssManager {
       // Set up http cache dir for HTTPConfigFile
       File cacheDir = ensureDir(getTmpDir(), "hcfcache");
       log.info("http cache dir: " + cacheDir);
-      getHttpCacheManager().getCacheSpec(HTTP_CACHE_NAME).setCacheDir(cacheDir);
+      getHttpCacheManager().getCacheSpec(HTTP_CACHE_NAME)
+	.setCacheDir(cacheDir)
+	.setResourceFactory(new GzippedFileResourceFactory(cacheDir))
+	;
     }
     return hCacheMgr;
   }
@@ -967,6 +973,10 @@ public class ConfigManager implements LockssManager {
       ver = getCurrentConfig().get(PARAM_DAEMON_VERSION);
     }
     return ver == null ? null : new DaemonVersion(ver);
+  }
+
+  public static Configuration getPlatformConfigOnly() {
+    return platformConfig;
   }
 
   public static Configuration getPlatformConfig() {
@@ -1474,17 +1484,19 @@ public class ConfigManager implements LockssManager {
 	  parentConfigFile.put(resolvedUrl, configCache.find(base));
 	}
 
+	Map<String,Object> keyParams = URL_PARAMS.get(includingKey);
 	// Add the generations of the resolved URLs to the list, if not there
 	// already.
-	String message = (String)(URL_PARAMS.get(includingKey).get("message"));
+	String message = (String)(keyParams.get("message"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "message = " + message);
-	ConfigManager.KeyPredicate keyPredicate = (ConfigManager.KeyPredicate)
-	    (URL_PARAMS.get(includingKey).get("predicate"));
+	ConfigManager.KeyPredicate keyPredicate =
+	  (ConfigManager.KeyPredicate) (keyParams.get("predicate"));
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "keyPredicate = " + keyPredicate);
 
+	boolean req = (boolean)keyParams.getOrDefault("required", false);
 	addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
-	    false, reload, message, keyPredicate), targetList);
+	    req, reload, message, keyPredicate), targetList);
 
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	    + StringUtil.loggableCollection(targetList, "targetList"));
@@ -1547,6 +1559,7 @@ public class ConfigManager implements LockssManager {
       if (!haveConfig.isFull()) {
 	schedSetUpJmsNotifications();
       }
+      invalidateClusterFile();
       haveConfig.fill();
     }
     connPool.closeIdleConnections(0);
@@ -1609,23 +1622,11 @@ public class ConfigManager implements LockssManager {
     }
     Configuration newConfig = initNewConfiguration();
     // Add app defaults
-    if (getApp() != null) {
-      Configuration appDefault = getApp().getAppDefault();
-      if (appDefault != null && !appDefault.isEmpty()) {
-	if (log.isDebug2()) log.debug2("Adding app default: " +
-				       appDefault);
-	newConfig.copyFrom(appDefault);
-      }
-    }
+    mergeAppConfig(newConfig, LockssApp::getBootDefault, "app bootstrap default");
+    mergeAppConfig(newConfig, LockssApp::getAppDefault, "app default");
     loadList(newConfig, gens);
     // Add app un-overridable config
-    if (getApp() != null) {
-      Configuration appConfig = getApp().getAppConfig();
-      if (appConfig != null && !appConfig.isEmpty()) {
-	if (log.isDebug2()) log.debug2("Adding app config: " + appConfig);
-	newConfig.copyFrom(appConfig);
-      }
-    }
+    mergeAppConfig(newConfig, LockssApp::getAppConfig, "app config");
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
 
     boolean did = installConfig(newConfig, gens);
@@ -1716,6 +1717,8 @@ public class ConfigManager implements LockssManager {
     final String DEBUG_HEADER = "setupPlatformConfig(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
     Configuration platConfig = initNewConfiguration();
+    mergeAppConfig(platConfig, LockssApp::getBootDefault,
+		   "app bootstrap default");
     for (Iterator iter = urls.iterator(); iter.hasNext();) {
       Object o = iter.next();
       ConfigFile cf;
@@ -2091,6 +2094,18 @@ public class ConfigManager implements LockssManager {
     }
     if ("compat".equalsIgnoreCase(acctPolicy)) {
       setParamsFromPairs(config, AccountManager.POLICY_COMPAT);
+    }
+  }
+
+  void mergeAppConfig(Configuration config,
+		      Function<LockssApp,Configuration> getter,
+		      String msg) {
+    if (getApp() != null) {
+      Configuration toMerge = getter.apply(getApp());
+      if (toMerge != null && !toMerge.isEmpty()) {
+	if (log.isDebug2()) log.debug2("Adding " + msg + ": " + toMerge);
+	config.copyFrom(toMerge);
+      }
     }
   }
 
@@ -2899,6 +2914,10 @@ public class ConfigManager implements LockssManager {
   // Remote config failover mechanism maintain local copy of remote config
   // files, uses them on daemon startup if origin file not available
 
+  // Ideally this whole mechanism could be eliminated by making the HTTP
+  // cache use a persistent HttpCacheStorage (e.g.,
+  // PersistentManagedHttpCacheStorage)
+
   File remoteConfigFailoverDir;			// Copies written to this dir
   File remoteConfigFailoverInfoFile;		// State file
   RemoteConfigFailoverMap rcfm;
@@ -2909,7 +2928,9 @@ public class ConfigManager implements LockssManager {
     final String url;
     String filename;
     String chksum;
-    long date;
+    long storeDate;
+    String etag;
+    String lastModified;
     transient File dir;
     transient File tempfile;
     transient int seq;
@@ -2936,6 +2957,22 @@ public class ConfigManager implements LockssManager {
       return url;
     }
 
+    String getEtag() {
+      return etag;
+    }
+
+    void setEtag(String etag) {
+      this.etag = etag;
+    }
+
+    String getLastModified() {
+      return lastModified;
+    }
+
+    void setLastModified(String lastModified) {
+      this.lastModified = lastModified;
+    }
+
     String getFilename() {
       return filename;
     }
@@ -2959,7 +2996,7 @@ public class ConfigManager implements LockssManager {
 	log.debug2("Rename " + tempfile + " -> " + pfile);
 	PlatformUtil.updateAtomically(tempfile, pfile);
 	tempfile = null;
-	date = TimeBase.nowMs();
+	storeDate = TimeBase.nowMs();
 	filename = pname;
 	return true;
       } else {
@@ -2975,7 +3012,7 @@ public class ConfigManager implements LockssManager {
     }
 
     long getDate() {
-      return date;
+      return storeDate;
     }
 
     String getOrMakePermFilename() {
@@ -3063,6 +3100,7 @@ public class ConfigManager implements LockssManager {
 	rcfm = null;
       }
     } else {
+      log.debug2("Remote failover disabled");
       remoteConfigFailoverDir = null;
       rcfm = null;
     }
@@ -3101,7 +3139,7 @@ public class ConfigManager implements LockssManager {
     return rcfi.getPermFileAbs();
   }    
 
-  public File getRemoteConfigFailoverTempFile(String url) {
+  public RemoteConfigFailoverInfo getRemoteConfigFailoverWithTempFile(String url) {
     if (!isRemoteConfigFailoverEnabled()) return null;
     RemoteConfigFailoverInfo rcfi = getRcfi(url);
     if (rcfi == null) {
@@ -3109,7 +3147,7 @@ public class ConfigManager implements LockssManager {
     }
     File tempfile = rcfi.getTempFile();
     if (tempfile != null) {
-      log.warning("getRemoteConfigFailoverTempFile: temp file already exists for " + url);
+      log.warning("getRemoteConfigFailoverWithTempFile: temp file already exists for " + url);
       FileUtil.safeDeleteFile(tempfile);
       rcfi.setTempFile(null);
     }
@@ -3122,7 +3160,7 @@ public class ConfigManager implements LockssManager {
 		+ url + " in " + remoteConfigFailoverDir, e);
     }
     rcfi.setTempFile(tempfile);
-    return tempfile;
+    return rcfi;
   }
 
   void updateRemoteConfigFailover() {
@@ -4498,6 +4536,9 @@ public class ConfigManager implements LockssManager {
 		updateTinyData();
 	      }
 	    }
+	  }
+	  if (hCacheMgr != null) {
+	    hCacheMgr.cleanResources();
 	  }
 	  pokeWDog();			// in case update took a long time
 	  long reloadRange = reloadInterval/4;

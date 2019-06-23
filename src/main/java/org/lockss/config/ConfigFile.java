@@ -67,6 +67,10 @@ public interface ConfigFile {
     return null;
   }
 
+  default public boolean isLoadedFromFailover() {
+    return false;
+  }
+
   public void setKeyPredicate(ConfigManager.KeyPredicate pred);
 
   public Generation getGeneration() throws IOException;

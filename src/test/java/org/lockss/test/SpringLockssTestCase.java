@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -45,9 +46,11 @@ import org.lockss.config.ConfigManager;
 import org.lockss.util.Logger;
 import org.lockss.util.MapUtil;
 import org.lockss.util.TemplateUtil;
+import org.skyscreamer.jsonassert.JSONAssert;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.FileCopyUtils;
@@ -55,20 +58,30 @@ import org.springframework.util.FileSystemUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.yaml.snakeyaml.Yaml;
 
 /**
  * Base class for Spring REST web service test classes.
  */
 public abstract class SpringLockssTestCase extends LockssTestCase4 {
+  /**
+   * The name of the file with the configured platform disk space.
+   */
   public static final String PLATFORM_DISK_SPACE_CONFIG_FILENAME =
       "platform.txt";
 
-  private static final Logger log = Logger.getLogger();
-
+  /**
+   * The name of the file with the UI port configuration template.
+   */
   public static final String UI_PORT_CONFIGURATION_TEMPLATE =
     "UiPortConfigTemplate.txt";
+
+  /**
+   * The name of the file with the configured UI port.
+   */
   public static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
 
+  private static final Logger log = Logger.getLogger();
 
   // The path of a temporary directory where the test data will reside.
   private String tempDirPath = null;
@@ -408,6 +421,56 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
    */
   protected File getRepositoryConfigFile() {
     return repoConfigFile;
+  }
+
+  /**
+   * Runs the Swagger-related tests.
+   * 
+   * @param restTemplate
+   *          A RestTemplate to be used to call the REST service.
+   * @param url
+   *          A String with the URL of the REST service.
+   * 
+   * @throws Exception
+   *           if there are problems.
+   */
+  protected void runGetSwaggerDocsTest(String url) throws Exception {
+    log.debug3("url = " + url);
+
+    // Perform the call to the REST service.
+    ResponseEntity<String> successResponse =
+	new RestTemplate().exchange(url,HttpMethod.GET, null, String.class);
+
+    // Check the status.
+    HttpStatus statusCode = successResponse.getStatusCode();
+    assertEquals(HttpStatus.OK, statusCode);
+
+    // Read the Swagger YAML configuration file.
+    try (InputStream is = Thread.currentThread().getContextClassLoader()
+	  .getResourceAsStream("swagger/swagger.yaml")) {
+      Map<String, Object> swaggerConf = new Yaml().load(is);
+      log.debug3("swaggerConf = " + swaggerConf);
+
+      // Get the Swagger version.
+      String swaggerVersion = (String)(swaggerConf.get("swagger"));
+      log.debug3("swaggerVersion = " + swaggerVersion);
+
+      // Get the Swagger description.
+      String swaggerDescription =
+	  ((Map<String, String>)(swaggerConf.get("info"))).get("description");
+      log.debug3("swaggerDescription = " + swaggerDescription);
+
+      // Verify the body of the response.
+      String expectedBody = "{'swagger':'" + swaggerVersion + "',"
+  	+ "'info':{'description':'" + swaggerDescription + "'}}";
+
+      JSONAssert.assertEquals(expectedBody, successResponse.getBody(), false);
+    } catch (Exception e) {
+      log.error("Exception caught getting the Swagger configuration: ", e);
+      throw e;
+    }
+
+    log.debug2("Done");
   }
 
   /**

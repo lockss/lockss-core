@@ -31,6 +31,7 @@ package org.lockss.util.urlconn;
 import java.io.*;
 import java.util.*;
 import java.net.*;
+import org.apache.http.impl.client.cache.ManagedHttpCacheStorage;
 
 import org.lockss.util.*;
 import org.lockss.app.*;
@@ -75,11 +76,16 @@ public class HttpCacheManager {
     return res;
   }
 
-  // MUST EXIST
-  File defaultCacheDir = new File(System.getProperty("java.io.tmpdir"));
-
   File getDefaultCacheDir() {
     return tmpdir;
+  }
+
+  public void cleanResources() {
+    for (ClientCacheSpec ccs : configs.values()) {
+      if (ccs.getCacheStorage() instanceof ManagedHttpCacheStorage) {
+	((ManagedHttpCacheStorage)ccs.getCacheStorage()).cleanResources();
+      }
+    }
   }
 
   public void setConfig(Configuration newConfig,

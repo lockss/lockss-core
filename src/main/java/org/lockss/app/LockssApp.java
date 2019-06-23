@@ -872,6 +872,10 @@ public class LockssApp {
       });
   }
 
+  public Configuration getBootDefault() {
+    return getAppSpec().getBootDefault();
+  }
+
   public Configuration getAppConfig() {
     return getAppSpec().getAppConfig();
   }
@@ -1446,6 +1450,7 @@ public class LockssApp {
     private String[] args;
     private ManagerDesc[] appManagers;
     private boolean isComputeAppManagers = false;
+    private Configuration bootDefault;
     private Configuration appConfig;
     private Configuration appDefault;
     private boolean isKeepRunning = false;
@@ -1490,6 +1495,15 @@ public class LockssApp {
      * AppSpec */
     public AppSpec setComputeAppManagers(boolean val) {
       isComputeAppManagers = val;
+      return this;
+    }
+
+    /** Add to the default platform Configuration */
+    public AppSpec addBootDefault(String key, String val) {
+      if (bootDefault == null) {
+	bootDefault = ConfigManager.newConfiguration();
+      }
+      bootDefault.put(key, val);
       return this;
     }
 
@@ -1598,6 +1612,11 @@ public class LockssApp {
 //     public JavaVersion getMaxJavaVersion() {
 //       return maxJavaVersion;
 //     }
+
+    /** Return the app-specific default platform Configuration */
+    public Configuration getBootDefault() {
+      return bootDefault;
+    }
 
     /** Return the app-specific Configuration (cannot be overridden by
      * loaded config) */

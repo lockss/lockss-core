@@ -702,6 +702,7 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
 	  .setCacheConfig(ccs.getCacheConfig())
 	  .setCacheDir(ccs.getCacheDir())
 	  .setHttpCacheStorage(ccs.getCacheStorage())
+	  .setResourceFactory(ccs.getResourceFactory())
 	  ;
       }
 
@@ -786,6 +787,26 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
     }
   }
 
+  CacheResponseStatus cacheStatus = null;
+
+  public boolean isResponseFromCache() {
+    switch (cacheStatus) {
+    case CACHE_HIT:
+      // Response was generated from the cache with no requests sent upstream
+    case VALIDATED:
+      // Response was generated from the cache after validating the entry
+      // with the origin server
+    case CACHE_MODULE_RESPONSE:
+      // Response was generated directly by the caching module
+      return true;
+    case CACHE_MISS:
+      // Response came from an upstream server
+      return false;
+    }
+    log.warning("Unknown CacheResponseStatus: " + cacheStatus);
+    return false;
+  }
+
   protected HttpResponse executeRequest(HttpUriRequest httpUriRequest,
 	HttpClientContext context) throws ClientProtocolException, IOException {
     final String DEBUG_HEADER = "executeRequest(): ";
@@ -793,8 +814,8 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     if (isCaching()) {
-      log.debug2("Cache response status: " +
-		 HttpCacheContext.adapt(context).getCacheResponseStatus());
+      cacheStatus = HttpCacheContext.adapt(context).getCacheResponseStatus();
+      log.debug2("Cache response status: " + cacheStatus);
     }
 
     responseCode = response.getStatusLine().getStatusCode();

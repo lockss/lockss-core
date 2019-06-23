@@ -78,6 +78,12 @@ public interface LockssUrlConnection {
    * if unsuccessful). */
   public boolean isExecuted();
 
+  /** Returns true if the response was generated from the local http
+   * cache. */
+  default public boolean isResponseFromCache() {
+    return false;
+  }
+
   /** Return the URL
    * @return the URL
    */
@@ -286,4 +292,20 @@ public interface LockssUrlConnection {
       initCause(t);
     }
   }
+
+  public default CIProperties responseCiProps() {
+    CIProperties res = new CIProperties();
+    for (int i = 0; true; i++) {
+      String key = getResponseHeaderFieldKey(i);
+      String val = getResponseHeaderFieldVal(i);
+      if ((key == null) && (val == null)) {
+	break;
+      }
+      res.put(key, val);
+    }
+    return res;
+  }
+
+
+
 }

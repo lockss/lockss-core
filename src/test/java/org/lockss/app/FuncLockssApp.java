@@ -78,6 +78,7 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppConfig("deftest1", "app")
       .addAppDefault("deftest2", "app")
       .addAppDefault("deftest3", "app3")
+      .addBootDefault("o.l.plat.xxy", "zzz")
       .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
 //       .setKeepRunning(true)
 //       .setAppManagers(managerDescs)
@@ -103,6 +104,10 @@ public class FuncLockssApp extends LockssTestCase {
 
     assertEquals(new ServiceBinding(null, 24621),
 		 app.getMyServiceBinding());
+
+    assertEquals("zzz",
+		 ConfigManager.getPlatformConfigOnly().get("o.l.plat.xxy"));
+    assertEquals("zzz", config.get("o.l.plat.xxy"));
   }
   
 

@@ -1767,4 +1767,15 @@ public class Tdb {
     }
 
   }
+  public String summaryString() {
+    return String.format("%d publishers, %d titles, %d AUs",
+			 getTdbPublisherCount(),
+			 getTdbTitleCount(),
+			 getTdbAuCount());
+  }
+
+  public String toString() {
+    return "[Tdb" + summaryString() + "]";
+  }
+
 }
