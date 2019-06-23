@@ -168,6 +168,7 @@ public class RestConfigFile extends BaseConfigFile {
     InputStream in = null;
 
     HttpStatus statusCode = response.getStatusCode();
+    String statusMsg = response.getStatusMessage();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
 
     switch (statusCode) {
@@ -208,7 +209,15 @@ public class RestConfigFile extends BaseConfigFile {
       log.debug2("Rest Service content not changed, not reloading.");
       break;
     default:
-      m_loadError = statusCode.toString();
+      StringBuilder sb = new StringBuilder();
+      sb.append(statusCode.toString());
+      sb.append(": ");
+      sb.append(statusCode.getReasonPhrase());
+      if (statusMsg != null) {
+	sb.append(": ");
+	sb.append(statusMsg);
+      }
+      m_loadError = sb.toString();
       throw new IOException(m_loadError);
     }
 

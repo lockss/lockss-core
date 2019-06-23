@@ -1592,7 +1592,8 @@ public class TestConfigManager extends LockssTestCase4 {
     assertFalse(mgr.waitConfig(Deadline.EXPIRED));
   }
 
-  // Illegal title db key prevents loading the entire file.
+  // Illegal title db key prevents loading the entire file, lost still
+  // succeeds
   @Test
   public void testLoadIllTitleDb() throws IOException {
     String u2 = FileTestUtil.urlOfString("org.lockss.notTitleDb.foo=bar\n" +
@@ -1611,6 +1612,28 @@ public class TestConfigManager extends LockssTestCase4 {
     String u2 = FileTestUtil.urlOfString("org.lockss.notTitleDb.foo=bar\n" +
 					 "org.lockss.title.x.foo=bar");
     String u1 = FileTestUtil.urlOfString("a=1\norg.lockss.titleDbs="+u2);
+    assertTrue(mgr.updateConfig(ListUtil.list(u1)));
+    Configuration config = mgr.getCurrentConfig();
+    assertEquals(null, config.get("org.lockss.title.x.foo"));
+    assertEquals(null, config.get("org.lockss.notTitleDb.foo"));
+    assertEquals("1", config.get("a"));
+  }
+
+  // Missing aux file causes load to fail
+  @Test
+  public void testLoadMissingAuxFile() throws IOException {
+    String u2 = FileTestUtil.urlOfString("org.lockss.title.x.foo=baz");
+    String u1 = FileTestUtil.urlOfString("a=1\norg.lockss.auxPropUrls="+u2+".missing");
+    assertFalse(mgr.updateConfig(ListUtil.list(u1)));
+    Configuration config = mgr.getCurrentConfig();
+    assertEquals(null, config.get("org.lockss.title.x.foo"));
+  }
+
+  // Missing titledb file, load succeeds
+  @Test
+  public void testLoadMissingTitleFile() throws IOException {
+    String u2 = FileTestUtil.urlOfString("org.lockss.title.x.foo=baz");
+    String u1 = FileTestUtil.urlOfString("a=1\norg.lockss.titleDbs="+u2+".missing");
     assertTrue(mgr.updateConfig(ListUtil.list(u1)));
     Configuration config = mgr.getCurrentConfig();
     assertEquals(null, config.get("org.lockss.title.x.foo"));
@@ -1747,7 +1770,7 @@ public class TestConfigManager extends LockssTestCase4 {
     String relConfigPath =
       CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
                              ConfigManager.DEFAULT_CONFIG_PATH);
-    assertNull(mgr.getRemoteConfigFailoverTempFile(url1));
+    assertNull(mgr.getRemoteConfigFailoverWithTempFile(url1));
     assertNull(mgr.getRemoteConfigFailoverFile(url1));
   }
 
@@ -1769,7 +1792,9 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     assertEquals(null, mgr.getRemoteConfigFailoverFile(url1));
 
-    File tf1 = mgr.getRemoteConfigFailoverTempFile(url1);
+    RemoteConfigFailoverInfo rcfi =
+      mgr.getRemoteConfigFailoverWithTempFile(url1);
+    File tf1 = rcfi.getTempFile();
     assertMatchesRE("^" + tmpdir + ".*\\.tmp$", tf1.getPath());
 
     assertEquals(null, mgr.getRemoteConfigFailoverFile(url1));
@@ -1793,7 +1818,9 @@ public class TestConfigManager extends LockssTestCase4 {
     String relConfigPath =
       CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
                              ConfigManager.DEFAULT_CONFIG_PATH);
-    File tf1 = mgr.getRemoteConfigFailoverTempFile(url1);
+    RemoteConfigFailoverInfo rcfi =
+      mgr.getRemoteConfigFailoverWithTempFile(url1);
+    File tf1 = rcfi.getTempFile();
     assertMatchesRE("^" + tmpdir + ".*\\.tmp$", tf1.getPath());
     String sss = "sasdflkajsdlfj content dfljasdfl;ajsdf";
     StringUtil.toFile(tf1, sss);
@@ -1811,7 +1838,9 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(pf1.getName(), rcci.getFilename());
     assertEquals("01-xxx.xml.gz", rcci.getFilename());
 
-    File tf2 = mgr.getRemoteConfigFailoverTempFile(url2);
+    RemoteConfigFailoverInfo rcfi2 =
+      mgr.getRemoteConfigFailoverWithTempFile(url2);
+    File tf2 = rcfi.getTempFile();
     mgr.updateRemoteConfigFailover();
     File pf2 = mgr.getRemoteConfigFailoverFile(url2);
     assertMatchesRE("02-yyy.txt.gz$", pf2.getPath());

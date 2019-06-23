@@ -192,6 +192,35 @@ public class ConfigStatus extends BaseLockssDaemonManager {
       res.add(new StatusTable.SummaryInfo("Last Modified",
 					  ColumnDescriptor.TYPE_DATE,
 					  last));
+      if (cf.isLoadedFromFailover()) {
+	res.add(new StatusTable.SummaryInfo("Loaded from Failover",
+					    ColumnDescriptor.TYPE_STRING,
+					    cf.getLoadedUrl()));
+	ConfigManager.RemoteConfigFailoverInfo rcfi =
+	  configMgr.getRcfi(cf.getFileUrl());
+	if (rcfi != null) {
+	res.add(new StatusTable.SummaryInfo("Failover Created",
+					    ColumnDescriptor.TYPE_DATE,
+					    rcfi.getDate()));
+	}
+      }
+      String err = cf.getLoadErrorMessage();
+      if (err != null) {
+	res.add(new StatusTable.SummaryInfo("Error",
+					    ColumnDescriptor.TYPE_STRING,
+					    err));
+      }
+
+      try {
+	Tdb tdb = cf.getConfiguration().getTdb();
+	if (tdb != null && tdb.getTdbAuCount() != 0) {
+	  res.add(new StatusTable.SummaryInfo("TDB",
+					      ColumnDescriptor.TYPE_STRING,
+					      tdb.summaryString()));
+	}
+      } catch (IOException e) {
+	log.error("Couldn't get config for: " + cf, e);
+      }
       return res;
     }
   }

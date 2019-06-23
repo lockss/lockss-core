@@ -53,6 +53,7 @@ public class MultipartResponse {
   private static Logger log = Logger.getLogger();
 
   private HttpStatus statusCode;
+  private String statusMessage;
   private HttpHeaders responseHeaders;
   private LinkedHashMap<String, Part> parts = new LinkedHashMap<String, Part>();
 
@@ -160,8 +161,9 @@ public class MultipartResponse {
     HttpResponseStatusAndHeaders status =
 	  HttpResponseStatusAndHeaders.fromLockssRestException(lre);
 
-    // Populate the status code.
+    // Populate the status code and message.
     statusCode = HttpStatus.valueOf(status.getCode());
+    statusMessage = status.getMessage();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
 
     if (lre instanceof LockssRestHttpException) {
@@ -179,6 +181,15 @@ public class MultipartResponse {
    */
   public HttpStatus getStatusCode() {
     return statusCode;
+  }
+
+  /**
+   * Provides the status message of the response.
+   *
+   * @return a String with the response message.
+   */
+  public String getStatusMessage() {
+    return statusMessage;
   }
 
   /**

@@ -207,10 +207,10 @@ public abstract class BaseConfigFile implements ConfigFile {
       if (in != null) {
 	try {
 	  setConfigFrom(in);
+	  loadFinished();
 	} finally {
 	  IOUtil.safeClose(in);
 	}
-	loadFinished();
       }
     } catch (FileNotFoundException ex) {
       log.debug2("File not found: " + m_fileUrl);
