@@ -711,12 +711,15 @@ public class PluginManager
   }
 
   @Override
-  public void auConfigChanged(String auid) {
+  public void auConfigChanged(String auid, Map<String,String> auConfig) {
     if (auid == null || isStartAusOnDemand()) {
       // Don't create AUs on config change in on-demand mode
       return;
     }
     try {
+      // XXXONDEMAND
+//       AuConfiguration auConfiguration = new AuConfiguration(auid, auConfig);
+
       AuConfiguration auConfiguration =
 	configMgr.retrieveArchivalUnitConfiguration(auid);
       if (auConfiguration == null) {

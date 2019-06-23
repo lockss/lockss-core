@@ -153,6 +153,11 @@ public class ConfigurationUtil {
     return fromProps(props);
   }
 
+  public static Map toMap(Configuration config) {
+    return
+      new HashMap(((ConfigurationPropTreeImpl)config).getPropertyTree());
+  }
+
   /** Reset the current configuration so all params have their default
    * value */
   public static void resetConfig() {

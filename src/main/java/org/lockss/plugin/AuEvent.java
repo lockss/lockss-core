@@ -326,7 +326,8 @@ public class AuEvent {
   /** Build an AuEvent instance from the Map representation produced
    * by {@link #toMap()} */
   public static AuEvent fromMap(Map<String,Object> map) {
-    AuEvent res = AuEvent.forAuId((String)map.get(KEY_AUID),
+    String auid = StringPool.AUIDS.intern((String)map.get(KEY_AUID));
+    AuEvent res = AuEvent.forAuId(auid,
                                   AuEvent.Type.valueOf((String)map.get(KEY_TYPE)));
     if (map.get(KEY_CHANGE_INFO) != null) {
       res.changeInfo = ContentChangeInfo.fromMap((Map)map.get(KEY_CHANGE_INFO));

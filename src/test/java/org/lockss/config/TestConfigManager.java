@@ -198,7 +198,7 @@ public class TestConfigManager extends LockssTestCase4 {
 					 Configuration.Differences diffs) {
 	  notifications.put("ConfigChanged");
 	}
-	public void auConfigChanged(String auid) {
+	public void auConfigChanged(String auid, Map<String,String> auConfig) {
 	  notifications.put("AuChanged");
 	}
 	public void auConfigRemoved(String auid) {
@@ -1331,20 +1331,27 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals("333", auConfig.get("baz"));
 
     assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
-			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid"),
+			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid",
+			     ConfigManager.CONFIG_NOTIFY_AUCONFIG,
+			     MapUtil.map("bar", "222", "baz", "333", "foo", "111")),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
     // A second AU.
     p = new Properties();
     p.put("org.lockss.au.other.auid.foo", "11");
     p.put("org.lockss.au.other.auid.bar", "22");
+    p.put("org.lockss.au.other.auid.reserved.disabled", "true");
 
     // Store it.
     mgr.storeArchivalUnitConfiguration(AuConfigurationUtils.fromConfiguration(
 	"org.lockss.au.other.auid", fromProperties(p)));
 
     assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
-			     ConfigManager.CONFIG_NOTIFY_AUID, "other&auid"),
+			     ConfigManager.CONFIG_NOTIFY_AUID, "other&auid",
+			     ConfigManager.CONFIG_NOTIFY_AUCONFIG,
+			     MapUtil.map("bar", "22",
+					 "foo", "11",
+					 "reserved.disabled", "true")),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
     // Check that the AU has been stored.
@@ -1360,9 +1367,10 @@ public class TestConfigManager extends LockssTestCase4 {
     auConfiguration = mgr.retrieveArchivalUnitConfiguration("other&auid");
     auConfig = auConfiguration.getAuConfig();
     assertFalse(auConfig.isEmpty());
-    assertEquals(2, auConfig.size());
+    assertEquals(3, auConfig.size());
     assertEquals("11", auConfig.get("foo"));
     assertEquals("22", auConfig.get("bar"));
+    assertEquals("true", auConfig.get("reserved.disabled"));
 
     // Update the first AU, removing a property.
     p = new Properties();
@@ -1373,7 +1381,9 @@ public class TestConfigManager extends LockssTestCase4 {
 	"org.lockss.au.foo.auid", fromProperties(p)));
 
     assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
-			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid"),
+			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid",
+			     ConfigManager.CONFIG_NOTIFY_AUCONFIG,
+			     MapUtil.map("bar", "222", "foo", "111")),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
 
     // Check that the AU has been stored.
@@ -1388,9 +1398,10 @@ public class TestConfigManager extends LockssTestCase4 {
     auConfiguration = mgr.retrieveArchivalUnitConfiguration("other&auid");
     auConfig = auConfiguration.getAuConfig();
     assertFalse(auConfig.isEmpty());
-    assertEquals(2, auConfig.size());
+    assertEquals(3, auConfig.size());
     assertEquals("11", auConfig.get("foo"));
     assertEquals("22", auConfig.get("bar"));
+    assertEquals("true", auConfig.get("reserved.disabled"));
 
     mgr.removeArchivalUnitConfiguration("foo&auid");
     assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigRemoved",

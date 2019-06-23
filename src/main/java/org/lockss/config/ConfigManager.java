@@ -940,22 +940,22 @@ public class ConfigManager implements LockssManager {
   }
 
   /** Create a sealed Configuration object from a Properties */
-  public static Configuration fromProperties(Properties props) {
+  public static Configuration fromProperties(Map props) {
     Configuration config = fromPropertiesUnsealed(props);
     config.seal();
     return config;
   }
 
   /** Create an unsealed Configuration object from a Properties */
-  public static Configuration fromPropertiesUnsealed(Properties props) {
+  public static Configuration fromPropertiesUnsealed(Map props) {
     Configuration config = new ConfigurationPropTreeImpl();
     for (Iterator iter = props.keySet().iterator(); iter.hasNext(); ) {
       String key = (String)iter.next();
-      if (props.getProperty(key) == null) {
+      if (props.get(key) == null) {
 	log.error(key + " has no value");
 	throw new RuntimeException("no value for " + key);
       }
-      config.put(key, props.getProperty(key));
+      config.put(key, (String)props.get(key));
     }
     return config;
   }
@@ -3793,13 +3793,19 @@ public class ConfigManager implements LockssManager {
 
   public static final String CONFIG_NOTIFY_VERB = "verb";
   public static final String CONFIG_NOTIFY_AUID = "auid";
+  public static final String CONFIG_NOTIFY_AUCONFIG = "auconfig";
 
+  public static final String CONFIG_VERB_AU_CONFIG_STORED = "AuConfigStored";
+  public static final String CONFIG_VERB_AU_CONFIG_REMOVED = "AuConfigRemoved";
+  public static final String CONFIG_VERB_CONFIG_CHANGED = "GlobalConfigChanged";
 
   void notifyAuConfigChanged(String auid, AuConfiguration auConfig) {
     if (jmsProducer != null) {
       Map<String,Object> map = new HashMap<>();
-      map.put(CONFIG_NOTIFY_VERB, "AuConfigStored");
+      map.put(CONFIG_NOTIFY_VERB, CONFIG_VERB_AU_CONFIG_STORED);
       map.put(CONFIG_NOTIFY_AUID, auid);
+      map.put(CONFIG_NOTIFY_AUCONFIG, auConfig.getAuConfig());
+
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
@@ -3811,7 +3817,7 @@ public class ConfigManager implements LockssManager {
   void notifyAuConfigRemoved(String auid) {
     if (jmsProducer != null) {
       Map<String,Object> map = new HashMap<>();
-      map.put(CONFIG_NOTIFY_VERB, "AuConfigRemoved");
+      map.put(CONFIG_NOTIFY_VERB, CONFIG_VERB_AU_CONFIG_REMOVED);
       map.put(CONFIG_NOTIFY_AUID, auid);
       try {
 	jmsProducer.sendMap(map);
@@ -3824,7 +3830,7 @@ public class ConfigManager implements LockssManager {
   void notifyConfigChanged() {
     if (jmsProducer != null) {
       Map<String,Object> map = new HashMap<>();
-      map.put(CONFIG_NOTIFY_VERB, "GlobalConfigChanged");
+      map.put(CONFIG_NOTIFY_VERB, CONFIG_VERB_CONFIG_CHANGED);
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
@@ -3838,20 +3844,25 @@ public class ConfigManager implements LockssManager {
     log.debug2("Received notification: " + map);
     try {
       String verb = (String)map.get(CONFIG_NOTIFY_VERB);
-      String auid = (String)map.get(CONFIG_NOTIFY_AUID);
+      String auid = StringPool.AUIDS.intern((String)map.get(CONFIG_NOTIFY_AUID));
       switch (verb) {
-      case "GlobalConfigChanged":
+      case "CONFIG_VERB_CONFIG_CHANGED":
 	// Global config has changed, signal thread to reload it
 	requestReload();
 	break;
-      case "AuConfigStored":
+      case CONFIG_VERB_AU_CONFIG_STORED:
 	// Invoke the auConfigChanged() method of all the callbacks
+	Map<String,String> aucmap =
+	  (Map<String,String>)map.get(CONFIG_NOTIFY_AUCONFIG);
+
+	// XXX intern the auconfig keys in StringPool.AU_CONFIG_PROPS
+
 	runCallbacks(new java.util.function.Consumer<Configuration.Callback>() {
 	    public void accept(Configuration.Callback cb) {
-	      cb.auConfigChanged(auid);
+	      cb.auConfigChanged(auid, aucmap);
 	    }});
 	break;
-      case "AuConfigRemoved":
+      case CONFIG_VERB_AU_CONFIG_REMOVED:
 	// Invoke the auConfigRemoved() method of all the callbacks
 	runCallbacks(new java.util.function.Consumer<Configuration.Callback>() {
 	    public void accept(Configuration.Callback cb) {

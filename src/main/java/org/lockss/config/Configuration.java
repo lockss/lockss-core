@@ -361,7 +361,7 @@ public abstract class Configuration {
     boolStrings.put("0", Boolean.FALSE);
   }
 
-  private Boolean stringToBool(String s) {
+  public static Boolean stringToBool(String s) {
     if (s == null) {
       return null;
     }
@@ -890,7 +890,8 @@ public abstract class Configuration {
 				     Configuration.Differences changes);
     /** Callback used to inform clients that an AU's config has been
      * created anew or changed. */
-    default public void auConfigChanged(String auid) {
+    default public void auConfigChanged(String auid,
+					Map<String,String> auConfig) {
     }
     /** Callback used to inform clients that an AU's config has been
      * deleted. */

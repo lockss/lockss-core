@@ -32,6 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.app;
 
+import java.util.Map;
 import org.lockss.config.Configuration;
 
 /** Managers that implement this interface will have a
@@ -53,7 +54,8 @@ public interface ConfigurableManager {
 
   /** Optional method to receive notifications that an AU's configuration
    * has been set (created anew or changed). */
-  default public void auConfigChanged(String auid) {
+  default public void auConfigChanged(String auid,
+				      Map<String,String> auConfig) {
   }
 
   /** Optional method to receive notifications that an AU's configuration

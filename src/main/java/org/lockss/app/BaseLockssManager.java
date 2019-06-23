@@ -296,8 +296,8 @@ public abstract class BaseLockssManager implements LockssManager {
       mgr.setConfig(newConfig, prevConfig, changedKeys);
     }
 
-    public void auConfigChanged(String auid) {
-      mgr.auConfigChanged(auid);
+    public void auConfigChanged(String auid, Map<String,String> auConfig) {
+      mgr.auConfigChanged(auid, auConfig);
     }
 
     public void auConfigRemoved(String auid) {

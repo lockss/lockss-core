@@ -896,13 +896,13 @@ public class TestPluginManager extends LockssTestCase4 {
 
     // Notification should be ignored in ondemand mode
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "false");
-    mgr.auConfigChanged(auid1);
+    mgr.auConfigChanged(auid1, auc1.toStringMap());
     assertNull(mgr.getAuFromIdIfExists(auid1));
 
     // Return to startAll mode
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
-    mgr.auConfigChanged(auid1);
-    mgr.auConfigChanged(auid2);
+    mgr.auConfigChanged(auid1, auc1.toStringMap());
+    mgr.auConfigChanged(auid2, auc2.toStringMap());
     ArchivalUnit au1 = mgr.getAuFromIdIfExists(auid1);
     assertNotNull(au1);
     assertSame(cod_mpi, au1.getPlugin());
@@ -915,7 +915,7 @@ public class TestPluginManager extends LockssTestCase4 {
 
     auc1.put(PluginManager.AU_PARAM_DISABLED, "true");
     mgr.updateAuInDatabase(auid1, auc1);
-    mgr.auConfigChanged(auid1);
+    mgr.auConfigChanged(auid1, auc1.toStringMap());
     assertNull(mgr.getAuFromIdIfExists(auid1));
 
     assertNotNull(mgr.getAuFromIdIfExists(auid2));
