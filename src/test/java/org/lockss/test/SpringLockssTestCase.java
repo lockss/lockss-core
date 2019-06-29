@@ -42,7 +42,11 @@ import java.nio.file.StandardOpenOption;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Properties;
+import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
+import org.lockss.plugin.PluginManager;
+import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.Logger;
 import org.lockss.util.MapUtil;
 import org.lockss.util.TemplateUtil;
@@ -471,6 +475,43 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     }
 
     log.debug2("Done");
+  }
+
+  /** Intended for tests of code that normally runs in on-demand AU
+   * creation mode (e.g., mdq & mdx services), to make the tests work in
+   * startAllAus mode.  Creates an AU from config inferred from the AUID,
+   * iff the AU doesn't already exist and the daemon is not running in
+   * on-demand mode. */
+
+  protected void startAuIfNecessary(String auId) {
+    log.debug("startAuIfNecessary("+auId+")");
+    if (auId == null) {
+      // avoid making tests of illegal/missing auids get NPE
+      return;
+    }
+    LockssDaemon daemon = LockssDaemon.getLockssDaemon();
+    PluginManager pmgr = daemon.getPluginManager();
+    if (pmgr.isStartAusOnDemand()) {
+      return;
+    }
+    ArchivalUnit au = pmgr.getAuFromId(auId);
+    if (au != null) {
+      return;
+    }
+    Configuration auConfig = PluginManager.getAuConfigFromAuId(auId);
+    if (auConfig == null) {
+      log.error("Couldn't infer AU config in order to create it: " + auId);
+      return;
+    }
+    String pluginId = PluginManager.pluginIdFromAuId(auId);
+    pmgr.ensurePluginLoaded(pluginId);
+    try {
+      pmgr.createAndSaveAuConfiguration(pmgr.getPlugin(pluginId), auConfig);
+    } catch (org.lockss.plugin.ArchivalUnit.ConfigurationException |
+	     org.lockss.db.DbException |
+	     org.lockss.rs.exception.LockssRestException e) {
+      log.error("Error creating AU", e);
+    }
   }
 
   /**

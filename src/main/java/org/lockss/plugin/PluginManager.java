@@ -1691,7 +1691,10 @@ public class PluginManager
     return null;
   }
 
-  Configuration getAuConfigFromAuId(String auid) {
+  /** Infer a (possibly incomplete) AU configuration from an AUID.  This
+   * should generally not be used as the result will include only
+   * definitional params.  Intended for testing */
+  public static Configuration getAuConfigFromAuId(String auid) {
     final String DEBUG_HEADER = "getAuConfigFromAuId(): ";
     String auKey = null;
     try {
