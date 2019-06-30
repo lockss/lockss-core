@@ -130,13 +130,13 @@ public class FuncHashService extends LockssTestCase {
   }
 
   class MyCallback implements HashService.Callback {
-    long timeUsed = 0;
+    volatile long timeUsed = 0;
     public void hashingFinished(CachedUrlSet urlset,
 				long timeUsed,
 				Object cookie,
 				CachedUrlSetHasher hasher,
 				Exception e) {
-      log.debug("Hashing finished: " + cookie);
+      log.debug("Hashing finished: " + cookie + ", timeUsed: " + timeUsed);
       this.timeUsed = timeUsed;
       //	  cookieList.add(cookie);
     }
