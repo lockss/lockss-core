@@ -232,7 +232,7 @@ public class LockssTestCase extends TestCase {
     Thread.interrupted();
 
     // XXX this should be folded into LockssDaemon shutdown
-    ConfigManager cfg = ConfigManager.getConfigManager();
+    ConfigManager cfg = ConfigManager.getConfigManagerOrNull();
     if (cfg != null) {
       cfg.stopService();
     }

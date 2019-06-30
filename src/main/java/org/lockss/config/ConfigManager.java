@@ -872,34 +872,51 @@ public class ConfigManager implements LockssManager {
   public LockssApp getApp() {
     return theApp;
   }
-  protected static ConfigManager theMgr;
+
+  protected static WaitableObject<ConfigManager> theMgr =
+    new WaitableObject<>();
 
   public static ConfigManager  makeConfigManager() {
-    theMgr = new ConfigManager();
-    return theMgr;
+    return theMgr.setValue(new ConfigManager());
   }
 
   public static ConfigManager makeConfigManager(List urls) {
-    theMgr = new ConfigManager(urls);
-    return theMgr;
+    return theMgr.setValue(new ConfigManager(urls));
   }
 
   public static ConfigManager makeConfigManager(List urls, String groupNames) {
-    theMgr = new ConfigManager(urls, groupNames);
-    return theMgr;
+    return theMgr.setValue(new ConfigManager(urls, groupNames));
   }
 
   public static ConfigManager makeConfigManager(List<String> bootstrapPropsUrls,
 						String restConfigServiceUrl,
 						List<String> urls,
 						String groupNames) {
-    theMgr = new ConfigManager(bootstrapPropsUrls, restConfigServiceUrl, urls,
-			       groupNames);
-    return theMgr;
+    return theMgr.setValue(new ConfigManager(bootstrapPropsUrls,
+					     restConfigServiceUrl,
+					     urls,
+					     groupNames));
   }
 
+  /**
+   * static accessor for the ConfigManager instance.  In support of Spring
+   * and other inverted start-order frameworks, this method will wait a
+   * short time for the ConfigManager instance to be created.
+   * @throws IllegalStateException if that doesn't happen quickly
+   * @return the ConfigManager instance
+   */
   public static ConfigManager getConfigManager() {
-    return theMgr;
+    try {
+      return theMgr.waitValue(15 * Constants.SECOND);
+    } catch (IllegalStateException e) {
+      throw new IllegalStateException("ConfigManager was not instantiated");
+    }
+  }
+
+  /** Return the ConfigManager instance if it exists, else null; do not
+   * wait */
+  public static ConfigManager getConfigManagerOrNull() {
+    return theMgr.getValue();
   }
 
   /** Factory to create instance of appropriate class */
@@ -926,10 +943,13 @@ public class ConfigManager implements LockssManager {
   /** Return current configuration, or an empty configuration if there is
    * no current configuration. */
   public static Configuration getCurrentConfig() {
-    if (theMgr == null || theMgr.currentConfig == null) {
-      return EMPTY_CONFIGURATION;
+    Configuration res = EMPTY_CONFIGURATION;
+    ConfigManager mgr = getConfigManagerOrNull();
+      if (mgr != null && mgr.currentConfig != null) {
+	res = mgr.currentConfig;
+      }
     }
-    return theMgr.currentConfig;
+    return res;
   }
 
   public void setCurrentConfig(Configuration newConfig) {

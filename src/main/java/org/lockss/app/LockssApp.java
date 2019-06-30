@@ -242,28 +242,29 @@ public class LockssApp {
   // need to be synchronized.
   protected LinkedMap managerMap = new LinkedMap();
 
-  protected static LockssApp theApp;
+  protected static WaitableObject<LockssApp> theApp = new WaitableObject<>();
+
 //   private boolean isClockss;
   protected String testingMode;
 
   protected LockssApp() {
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(AppSpec spec) {
     appSpec = spec;
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls) {
     this.propUrls = propUrls;
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls, String groupNames) {
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(List<String> bootstrapPropsUrls,
@@ -274,7 +275,17 @@ public class LockssApp {
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    theApp = this;
+    setLockssApp(this);
+  }
+
+  private static void setLockssApp(LockssApp app) {
+    theApp.setValue(app);
+  }
+
+  /** Testing startup repeatedly requires a way to reset the
+   * OneShotSemaphore in theApp. */
+  static void testingReinitialize() {
+    theApp.reset();
   }
 
   public void setAppSpec(AppSpec spec) {
@@ -360,8 +371,15 @@ public class LockssApp {
 
   /** Wait until app is running.  This must be called only from your own
    * thread (<i>eg</i>, not the startup thread.) */
-  public void waitUntilAppRunning() throws InterruptedException {
-    appRunningSem.waitFull(Deadline.MAX);
+  public boolean waitUntilAppRunning() throws InterruptedException {
+    return waitUntilAppRunning(Deadline.MAX);
+  }
+
+  /** Wait until app is running.  This must be called only from your own
+   * thread (<i>eg</i>, not the startup thread.) */
+  public boolean waitUntilAppRunning(Deadline until)
+      throws InterruptedException {
+    return appRunningSem.waitFull(until);
   }
 
   /**
@@ -372,11 +390,18 @@ public class LockssApp {
   }
 
   /**
-   * static accessor for the LockssApp instance
+   * static accessor for the LockssApp instance.  In support of Spring and
+   * other inverted start-order frameworks, this method will wait a short
+   * time for the LockssApp instance to be created.
+   * @throws IllegalStateException if that doesn't happen quickly
    * @return the LockssApp instance
    */
   public static LockssApp getLockssApp() {
-    return theApp;
+    try {
+      return theApp.waitValue(15 * Constants.SECOND);
+    } catch (IllegalStateException e) {
+      throw new IllegalStateException("LockssApp was not instantiated");
+    }
   }
 
   /** Return the time the app started running.
@@ -471,10 +496,7 @@ public class LockssApp {
    * @deprecated use {@link #getManagerByKeyStatic(String)}
    */
   public static LockssManager getManager(String managerKey) {
-    if (theApp == null) {
-      throw new NullPointerException("App has not been created");
-    }
-    return theApp.getManagerByKey(managerKey);
+    return getLockssApp().getManagerByKey(managerKey);
   }
 
   /**
@@ -485,10 +507,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public static LockssManager getManagerByKeyStatic(String managerKey) {
-    if (theApp == null) {
-      throw new NullPointerException("App has not been created");
-    }
-    return theApp.getManagerByKey(managerKey);
+    return getLockssApp().getManagerByKey(managerKey);
   }
 
   /**
@@ -499,7 +518,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public static <T> T getManagerByTypeStatic(Class<T> mgrType) {
-    return theApp.getManagerByType(mgrType);
+    return getLockssApp().getManagerByType(mgrType);
   }
 
   // Standard manager accessors

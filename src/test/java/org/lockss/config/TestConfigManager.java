@@ -2233,16 +2233,17 @@ public class TestConfigManager extends LockssTestCase4 {
     String receiveNotifications = "super";
 
     public static ConfigManager makeConfigManager(LockssDaemon daemon) {
-      theMgr = new MyConfigManager();
-      theMgr.initService(daemon);
-      return theMgr;
+      ConfigManager mgr = new MyConfigManager();
+      mgr.initService(daemon);
+      return theMgr.setValue(mgr);
     }
 
     public static ConfigManager makeConfigManager(LockssDaemon daemon,
 	String restConfigServiceUrl) {
-      theMgr = new MyConfigManager(null, restConfigServiceUrl, null, null);
-      theMgr.initService(daemon);
-      return theMgr;
+      ConfigManager mgr =
+	new MyConfigManager(null, restConfigServiceUrl, null, null);
+      mgr.initService(daemon);
+      return theMgr.setValue(mgr);
     }
 
     public MyConfigManager() {
