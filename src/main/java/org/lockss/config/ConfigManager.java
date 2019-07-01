@@ -943,13 +943,11 @@ public class ConfigManager implements LockssManager {
   /** Return current configuration, or an empty configuration if there is
    * no current configuration. */
   public static Configuration getCurrentConfig() {
-    Configuration res = EMPTY_CONFIGURATION;
     ConfigManager mgr = getConfigManagerOrNull();
-      if (mgr != null && mgr.currentConfig != null) {
-	res = mgr.currentConfig;
-      }
+    if (mgr != null && mgr.currentConfig != null) {
+      return mgr.currentConfig;
     }
-    return res;
+    return EMPTY_CONFIGURATION;
   }
 
   public void setCurrentConfig(Configuration newConfig) {

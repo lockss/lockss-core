@@ -272,22 +272,35 @@ public class HTTPConfigFile extends BaseConfigFile {
    *
    * Called by periodic or on-demand config reload.
    */
-  protected synchronized InputStream getInputStreamIfModified()
+  @Override
+  protected synchronized InputStream getInputStreamIfModifiedNoCache()
       throws IOException {
-    return getInputStreamIfModified(m_lastModified);
+    return getInputStreamIfModified(m_lastModified, false);
   }
 
-  protected synchronized InputStream getInputStreamIfModified(String lastModified)
+  // Should not be called because only call is in the base class
+  // getInputStreamIfModifiedNoCache() which isn't used because of the
+  // override above */
+  @Override
+  protected synchronized InputStream getInputStreamIfModified()
       throws IOException {
+    throw new UnsupportedOperationException("getInputStreamIfModified() should never be called in this class");
+  }
+
+  private InputStream getInputStreamIfModified(String lastModified,
+					       boolean useCache)
+	throws IOException {
     LockssUrlConnection conn = null;
     InputStream in = null;
     boolean gettingResponse = false;
 
     try {
       conn = openUrlConnection(m_fileUrl);
-      // When reloading config always go to server, don't serve from local
-      // cache.
-      conn.addRequestProperty("Cache-Control", "no-cache");
+      if (!useCache) {
+	// When reloading config always go to server, don't serve from local
+	// cache.
+	conn.addRequestProperty("Cache-Control", "no-cache");
+      }
 
       // Check whether this configuration file has already been retrieved
       // before.
@@ -425,7 +438,7 @@ public class HTTPConfigFile extends BaseConfigFile {
    *           if there are problems.
    */
   public InputStream getInputStream() throws IOException {
-    return getInputStreamIfModified(null);
+    return getInputStreamIfModified(null, true);
   }
 
   // XXX Find a place for this
@@ -451,14 +464,14 @@ public class HTTPConfigFile extends BaseConfigFile {
     if (in != null) {
       m_loadedUrl = null; // we're no longer loaded from failover, if we were.
       RemoteConfigFailoverInfo rcfi;
-      // If so configured, save the contents of the remote file in a locally
-      // cached copy.
+      // If so configured, save the contents of the remote file in a local
+      // failover copy.
       if (!conn.isResponseFromCache() &&
 	  null != m_cfgMgr &&
 	  null != (rcfi =
 		   m_cfgMgr.getRemoteConfigFailoverWithTempFile(m_fileUrl))) {
-	File tmpCacheFile = rcfi.getTempFile();
-	if (tmpCacheFile != null) {
+	File tmpFailoverFile = rcfi.getTempFile();
+	if (tmpFailoverFile != null) {
 	  rcfi.setLastModified(conn.getResponseHeaderValue(HttpHeaders.LAST_MODIFIED));
 	  rcfi.setEtag(conn.getResponseHeaderValue(HttpHeaders.ETAG));
 	  try {
@@ -467,14 +480,14 @@ public class HTTPConfigFile extends BaseConfigFile {
 		       : Logger.LEVEL_INFO),
 		    "Copying remote config: " + m_fileUrl);
 	    OutputStream out =
-	      new BufferedOutputStream(new FileOutputStream(tmpCacheFile));
+	      new BufferedOutputStream(new FileOutputStream(tmpFailoverFile));
 	    out = makeHashedOutputStream(out);
 	    out = new GZIPOutputStream(out, true);
 	    InputStream wrapped = new TeeInputStream(in, out, true);
 	    return wrapped;
 	  } catch (IOException e) {
 	    log.error("Error opening remote config failover temp file: " +
-		      tmpCacheFile, e);
+		      tmpFailoverFile, e);
 	    return in;
 	  }
 	}
