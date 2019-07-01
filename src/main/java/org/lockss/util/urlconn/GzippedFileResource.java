@@ -60,6 +60,7 @@ import java.util.zip.GZIPInputStream;;
 import org.apache.http.annotation.Contract;
 import org.apache.http.annotation.ThreadingBehavior;
 import org.apache.http.client.cache.Resource;
+import org.lockss.log.*;
 
 /**
  * Cache resource backed by a file.
@@ -68,6 +69,7 @@ import org.apache.http.client.cache.Resource;
  */
 @Contract(threading = ThreadingBehavior.SAFE)
 public class GzippedFileResource implements Resource {
+  private static L4JLogger log = L4JLogger.getLogger();
 
   private static final long serialVersionUID = 4132244415919043397L;
 
@@ -89,6 +91,7 @@ public class GzippedFileResource implements Resource {
 
   @Override
   public synchronized InputStream getInputStream() throws IOException {
+    log.debug2("Reading: {}", this.file);
     return new GZIPInputStream(new FileInputStream(this.file));
   }
 
@@ -106,4 +109,7 @@ public class GzippedFileResource implements Resource {
     this.file.delete();
   }
 
+  public String toString() {
+    return "[GZFileResource: " + file + "]";
+  }
 }

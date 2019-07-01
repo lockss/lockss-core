@@ -112,7 +112,8 @@ public class GzippedFileResourceFactory implements ResourceFactory {
 			   final InputStream instream,
 			   final InputLimit limit) throws IOException {
     final File file = generateUniqueCacheFile(requestId);
-    log.debug2("Writing: " + file);
+    log.debug2("Writing: {}", file);
+//     log.fatal("Writing {}", file, new Throwable());
     final OutputStream outstream =
       new GZIPOutputStream(new FileOutputStream(file));
     long total = 0;
@@ -137,6 +138,7 @@ public class GzippedFileResourceFactory implements ResourceFactory {
   public Resource copy(final String requestId,
 		       final Resource resource) throws IOException {
     final File file = generateUniqueCacheFile(requestId);
+//     log.fatal("Copying {} to {}", resource, file, new Throwable());
 
     if (resource instanceof GzippedFileResource) {
       final File src = ((GzippedFileResource) resource).getFile();
