@@ -112,12 +112,13 @@ public class TestMetadataDbManager extends LockssTestCase4 {
   @Test
   public void testCreatePgsqlDb3() {
     ConfigurationUtil.addFromArgs(
+	DbManager.PARAM_DATABASE_NAME_PREFIX, "SomePrefix",
 	MetadataDbManager.PARAM_DATASOURCE_USER, "otherUser",
 	MetadataDbManager.PARAM_DATASOURCE_SCHEMA_NAME, "anotherSchema");
 
     createPgsqlDb();
 
-    assertEquals("LockssMetadataDbManager", metadataDbManager
+    assertEquals("SomePrefixMetadataDbManager", metadataDbManager
 	.getDataSourceDatabaseName(ConfigManager.getCurrentConfig()));
 
     assertEquals("otherUser", metadataDbManager

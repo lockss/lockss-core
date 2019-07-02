@@ -56,7 +56,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util.urlconn;
 
 import java.io.*;
-import java.util.zip.GZIPInputStream;;
+import java.util.zip.GZIPInputStream;
 import org.apache.http.annotation.Contract;
 import org.apache.http.annotation.ThreadingBehavior;
 import org.apache.http.client.cache.Resource;

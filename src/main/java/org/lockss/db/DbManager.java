@@ -66,6 +66,9 @@ public abstract class DbManager extends BaseLockssManager
   implements ConfigurableManager {
   protected static final Logger log = Logger.getLogger();
 
+  // Prefix for the database manager configuration entries.
+  private static final String PREFIX = Configuration.PREFIX + "db.";
+
   /**
    * Derby log append option. Changes require daemon restart.
    */
@@ -152,6 +155,17 @@ public abstract class DbManager extends BaseLockssManager
    */
   protected static final boolean DEFAULT_WAIT_FOR_EXTERNAL_SETUP = false;
 
+  /**
+   * The name of the configuration parameter for the prefix for database names.
+   */
+  public static final String PARAM_DATABASE_NAME_PREFIX =
+      PREFIX + "databaseNamePrefix";
+
+  /** 
+   * The default prefix for database names.
+   */
+  private static final String DEFAULT_DATABASE_NAME_PREFIX = "Lockss";
+
   // Derby SQL state of exception thrown on successful database shutdown.
   private static final String SHUTDOWN_SUCCESS_STATE_CODE = "08006";
 
@@ -237,6 +251,9 @@ public abstract class DbManager extends BaseLockssManager
   static final String waitForExternalSetupMessage =
       "Sleeping for 15 seconds...";
 
+  // The prefix for database names.
+  private String databaseNamePrefix = DEFAULT_DATABASE_NAME_PREFIX;
+
   /**
    * Default constructor.
    */
@@ -310,6 +327,13 @@ public abstract class DbManager extends BaseLockssManager
 			Configuration.Differences changedKeys) {
     final String DEBUG_HEADER = "setConfig(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    if (changedKeys.contains(PREFIX)) {
+      // Update the prefix for database names.
+      databaseNamePrefix =
+	  config.get(PARAM_DATABASE_NAME_PREFIX, DEFAULT_DATABASE_NAME_PREFIX);
+    }
+
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
@@ -480,15 +504,6 @@ public abstract class DbManager extends BaseLockssManager
   public static String truncateVarchar(String original, int maxLength) {
     return DbManagerSql.truncateVarchar(original, maxLength);
   }
-
-  /**
-   * Provides the key used by the application to locate this manager.
-   * 
-   * @return a String with the manager key.
-   */
-//  public static String getManagerKey() {
-//    return "DbManager";
-//  }
 
   /**
    * Provides an indication of whether this object is ready to be used.
@@ -2501,5 +2516,14 @@ public abstract class DbManager extends BaseLockssManager
    */
   protected String getVersionSubsystemName() {
     return this.getClass().getSimpleName();
+  }
+
+  /**
+   * Provides the prefix for database names.
+   * 
+   * @return A String with the prefix for database names.
+   */
+  public String getDatabaseNamePrefix() {
+    return databaseNamePrefix;
   }
 }
