@@ -174,6 +174,105 @@ public class StatusTable {
     return props.getProperty(key);
   }
 
+  /** Convenience method to parse a table property as an int.  Returns -1
+   * if the property is absent or not parseable as an integer */
+  public int getIntProp(String key) {
+    String s = getProperty(key);
+    if (StringUtil.isNullString(s)) return -1;
+    try {
+      return Integer.parseInt(s);
+    } catch (Exception e) {
+      return -1;
+    }
+  }
+
+  /** Convenience method to return the <tt>skiprows</tt> table property as
+   * an int. */
+  public int getStartRow() {
+    return Math.max(0, getIntProp("skiprows"));
+  }
+
+  /** Convenience method to return the <tt>skiprows</tt> table property as
+   * an int.  If absent or not parseable, returns defaultNumRows */
+  public int getNumRows(int defaultNumRows) {
+    int numRows = getIntProp("numrows");
+    if (numRows <= 0) {
+      numRows = defaultNumRows;
+    }
+    return numRows;
+  }
+
+  /** Make a row containing a <tt>Next</tt> or <tt>Prev</tt> link.
+   * @param column the name of the column in which to store the link
+   * @param isNext true = Next, false = Prev
+   * @param startRow the linked-to first row number
+   * @param numRows the linked-to number of rows
+   * @return the row Map
+   */
+  public Map makeOtherRowsLink(String column, boolean isNext,
+			       int startRow, int numRows) {
+    return makeOtherRowsLink(column, isNext, startRow, numRows, null);
+  }
+
+  /** Make a row containing a <tt>Next</tt> or <tt>Prev</tt> link.
+   * @param column the name of the column in which to store the link
+   * @param isNext true = Next, false = Prev
+   * @param startRow the linked-to first row number
+   * @param numRows the linked-to number of rows
+   * @param refModifier a Consumer that may modify the created Reference,
+   * e.g., to add additional properties
+   * @return the row Map
+   */
+  public Map makeOtherRowsLink(String column, boolean isNext,
+			       int startRow, int numRows,
+			       java.util.function.Consumer<Reference> refModifier) {
+    HashMap rowMap = new HashMap();
+    String label = (isNext ? "Next" : "Previous") + " (" +
+      (startRow + 1) + "-" + (startRow + numRows) + ")";
+    StatusTable.Reference link =
+      new StatusTable.Reference(label, name, key);
+    if (refModifier != null) {
+      refModifier.accept(link);
+    }
+    link.setProperty("skiprows", Integer.toString(startRow));
+    link.setProperty("numrows", Integer.toString(numRows));
+    rowMap.put(column, link);
+    rowMap.put("sort", new Integer(isNext ? Integer.MAX_VALUE : -1));
+    return rowMap;
+  }
+
+  /** Conditionally add a row with a <tt>Prev</tt> link (if startRow > 0)
+   * @param rows the row list to add to
+   * @param column the name of the column in which to store the link
+   * @param startRow the linked-to first row number
+   * @param numRows the linked-to number of rows
+   */
+  public void addPrevRowsLink(List rows, String column,
+			      int startRow, int numRows) {
+    addPrevRowsLink(rows, column, startRow, numRows, null);
+  }
+
+  /** Conditionally add a row with a <tt>Prev</tt> link (if startRow > 0)
+   * @param rows the row list to add to
+   * @param column the name of the column in which to store the link
+   * @param startRow the linked-to first row number
+   * @param numRows the linked-to number of rows
+   * @param refModifier a Consumer that may modify the created Reference,
+   * e.g., to add additional properties
+   */
+  public void addPrevRowsLink(List rows, String column,
+			      int startRow, int numRows,
+			      java.util.function.Consumer<Reference> refModifier) {
+    if (startRow > 0) {
+      // add 'previous'
+      int start = startRow - numRows;
+      if (start < 0) {
+	start = 0;
+      }
+      rows.add(makeOtherRowsLink(column, false, start, numRows, refModifier));
+    }
+  }
+
   /**
    * Returns a List of {@link SummaryInfo} objects for this table
    * @return List of {@link SummaryInfo} objects for this table
@@ -693,11 +792,12 @@ public class StatusTable {
       this.key = key;
     }
 
-    public void setProperty(String key, String val) {
+    public Reference setProperty(String key, String val) {
       if (props == null) {
 	props = new Properties();
       }
       props.setProperty(key, val);
+      return this;
     }
 
     public Properties getProperties() {
