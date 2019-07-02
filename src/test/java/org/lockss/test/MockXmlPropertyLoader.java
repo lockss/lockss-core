@@ -39,6 +39,7 @@ public class MockXmlPropertyLoader extends XmlPropertyLoader {
   private Version m_daemonVersion;
   private PlatformVersion m_platformVersion;
   private String m_hostname;
+  private String m_hostIP;
   private String m_groups;
 
   public void setVersions(String daemonVersion, String platformVersion,
@@ -59,24 +60,67 @@ public class MockXmlPropertyLoader extends XmlPropertyLoader {
     this.m_groups = groups;
   }
 
+  public MockXmlPropertyLoader setDaemonVersion(String val) {
+    if (val == null) {
+      m_daemonVersion = null;
+    } else {
+      m_daemonVersion = new DaemonVersion(val);
+    }
+    return this;
+  }
+
+  @Override
   public Version getDaemonVersion() {
     return m_daemonVersion;
   }
 
+  public MockXmlPropertyLoader setPlatformVersion(String val) {
+    if (val == null) {
+      m_platformVersion = null;
+    } else {
+      m_platformVersion = new PlatformVersion(val);
+    }
+    return this;
+  }
+
+  @Override
   public PlatformVersion getPlatformVersion() {
     return m_platformVersion;
   }
 
+  public MockXmlPropertyLoader setPlatformHostname(String val) {
+    m_hostname = val;
+    return this;
+  }
+
+  @Override
   public String getPlatformHostname() {
     return m_hostname;
   }
 
+  public MockXmlPropertyLoader setPlatformHostIP(String val) {
+    m_hostIP = val;
+    return this;
+  }
+
+  @Override
+  public String getPlatformHostIP() {
+    return m_hostIP;
+  }
+
+  public MockXmlPropertyLoader setPlatformGroups(String val) {
+    m_groups = val;
+    return this;
+  }
+
+  @Override
   public List<String> getPlatformGroupList() {
     return StringUtil.breakAt(m_groups, ';');
   }
 
-  public void setServiceDescr(ServiceDescr descr) {
+  public MockXmlPropertyLoader setServiceDescr(ServiceDescr descr) {
     m_serviceDescr = descr;
+    return this;
   }
 
   @Override

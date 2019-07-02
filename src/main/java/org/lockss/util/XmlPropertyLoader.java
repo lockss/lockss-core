@@ -57,9 +57,10 @@ public class XmlPropertyLoader {
   private static final Set conditionals =
     SetUtil.fromArray(new String[] {
       "serviceName", "serviceAbbrev",
-      "group", "hostname", "daemonVersion", "daemonVersionMin",
-      "daemonVersionMax", "platformName", "platformVersion",
-      "platformVersionMin", "platformVersionMax"
+      "group", "hostname", "hostIP",
+      "daemonVersion", "daemonVersionMin", "daemonVersionMax",
+      "platformName",
+      "platformVersion", "platformVersionMin", "platformVersionMax"
     });
 
   private static XmlPropertyLoader m_instance = null;
@@ -133,6 +134,10 @@ public class XmlPropertyLoader {
 
   public String getPlatformHostname() {
     return ConfigManager.getPlatformHostname();
+  }
+
+  public String getPlatformHostIP() {
+    return CurrentConfig.getParam(ConfigManager.PARAM_PLATFORM_IP_ADDRESS);
   }
 
   public List getPlatformGroupList() {
@@ -216,6 +221,7 @@ public class XmlPropertyLoader {
     private String m_sysPlatformName;
     private List m_sysGroups;
     private String m_sysHostname;
+    private String m_sysIPAddr;
     private String m_serviceName;
     private String m_serviceAbbrev;
 
@@ -238,6 +244,7 @@ public class XmlPropertyLoader {
       }
       m_sysGroups = getPlatformGroupList();
       m_sysHostname = getPlatformHostname();
+      m_sysIPAddr = getPlatformHostIP();
 
       ServiceDescr descr = getServiceDescr();
       if (descr != null) {
@@ -250,6 +257,7 @@ public class XmlPropertyLoader {
 		 "{daemonVer=" + m_sysDaemonVer + "}, " +
 		 "{groups=" + m_sysGroups + "}, " +
 		 "{hostname=" + m_sysHostname + "}, " +
+		 "{hostIP=" + m_sysIPAddr + "}, " +
 		 "{platformName=" + m_sysPlatformName + "}, " +
 		 "{serviceName=" + m_serviceName + "}, " +
 		 "{serviceAbbrev=" + m_serviceAbbrev + "}");
@@ -759,6 +767,7 @@ public class XmlPropertyLoader {
       // Get the XML element attributes
       String group = null;
       String hostname = null;
+      String hostIP = null;
       String serviceName = null;
       String serviceAbbrev = null;
       String platformName = null;
@@ -769,6 +778,7 @@ public class XmlPropertyLoader {
 
       group = attrs.getValue("group");
       hostname = attrs.getValue("hostname");
+      hostIP = attrs.getValue("hostIP");
       serviceName = attrs.getValue("serviceName");
       serviceAbbrev = attrs.getValue("serviceAbbrev");
       platformName = attrs.getValue("platformName");
@@ -821,6 +831,13 @@ public class XmlPropertyLoader {
        */
       if (hostname != null) {
 	returnVal &= StringUtil.equalStringsIgnoreCase(m_sysHostname, hostname);
+      }
+
+      /*
+       * hostIP checking.
+       */
+      if (hostIP != null) {
+	returnVal &= StringUtil.equalStringsIgnoreCase(m_sysIPAddr, hostIP);
       }
 
       /*
