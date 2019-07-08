@@ -230,10 +230,6 @@ public class StaticContentPlugin extends BasePlugin implements PluginTestable {
       props.setProperty("Content-Length", ""+s.length());
     }
 
-    public String getUrl() {
-      return url;
-    }
-
     public boolean hasContent() {
       return contents != null;
     }

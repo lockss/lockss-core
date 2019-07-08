@@ -55,7 +55,8 @@ import org.lockss.laaws.rs.util.*;
 public class BaseCachedUrl implements CachedUrl {
 
   protected ArchivalUnit au;
-  protected String url;
+  // The url of the artifact.  Differs from getUrl() for archive members.
+  protected String artifactUrl;
   protected static Logger logger = Logger.getLogger();
 
   protected Properties options;
@@ -100,7 +101,7 @@ public class BaseCachedUrl implements CachedUrl {
   public BaseCachedUrl(ArchivalUnit owner, String url) {
     final String DEBUG_HEADER = "BaseCachedUrl(): ";
     this.au = owner;
-    this.url = url;
+    this.artifactUrl = url;
 
     RepositoryManager repomgr = getDaemon().getRepositoryManager();
     if (repomgr != null && repomgr.getV2Repository() != null) {
@@ -114,7 +115,7 @@ public class BaseCachedUrl implements CachedUrl {
   protected BaseCachedUrl(ArchivalUnit owner, String url, Artifact art) {
     final String DEBUG_HEADER = "BaseCachedUrl(): ";
     this.au = owner;
-    this.url = url;
+    this.artifactUrl = url;
     this.art = art;
     if (art != null) {
       artifactObtained = true;
@@ -130,7 +131,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public String getUrl() {
-    return url;
+    return artifactUrl;
   }
 
   public int getType() {
@@ -161,11 +162,11 @@ public class BaseCachedUrl implements CachedUrl {
     Artifact verArt = null;
     try {
       verArt =
-	v2Repo.getArtifactVersion(v2Coll, au.getAuId(), url, version);
+	v2Repo.getArtifactVersion(v2Coll, au.getAuId(), artifactUrl, version);
     } catch (IOException e) {
-      logger.error("Error getting Artifact version: " + url, e);
+      logger.error("Error getting Artifact version: " + artifactUrl, e);
     }
-    return new Version(au, url, version, verArt);
+    return new Version(au, artifactUrl, version, verArt);
   }
 
   public CachedUrl[] getCuVersions() {
@@ -177,16 +178,16 @@ public class BaseCachedUrl implements CachedUrl {
     try {
       for (Artifact art : v2Repo.getArtifactsAllVersions(v2Coll,
 							 au.getAuId(),
-							 url)) {
+							 artifactUrl)) {
 	if (art.getCommitted()) {
-	  cuVers.add(new Version(au, url, art.getVersion(), art));
+	  cuVers.add(new Version(au, artifactUrl, art.getVersion(), art));
 	  if (cuVers.size() >= maxVersions) {
 	    break;
 	  }
 	}
       }
     } catch (IOException e) {
-      logger.error("Couldn't get Artifact version iterator: " + url, e);
+      logger.error("Couldn't get Artifact version iterator: " + artifactUrl, e);
       return new CachedUrl[0];
     }
     return cuVers.toArray(new CachedUrl[0]);
@@ -393,7 +394,7 @@ public class BaseCachedUrl implements CachedUrl {
 	restProps.put(PROPERTY_CHECKSUM, chk);
       }
       if (logger.isDebug3()) {
-	logger.debug2("getProperties: " + url + ": " + restProps);
+	logger.debug2("getProperties: " + artifactUrl + ": " + restProps);
       }
     }
     return restProps;
@@ -416,7 +417,7 @@ public class BaseCachedUrl implements CachedUrl {
     if (hasContent()) {
       return art.getContentLength();
     } else {
-      throw new UnsupportedOperationException("No content: " + url);
+      throw new UnsupportedOperationException("No content: " + artifactUrl);
     }
   }
 
@@ -454,9 +455,9 @@ public class BaseCachedUrl implements CachedUrl {
 
   // overridable for testing
   protected Artifact getArtifact() throws IOException {
-    // Note url not getUrl(); always want actual Artifact URL, not archive
-    // member
-    return v2Repo.getArtifact(v2Coll, au.getAuId(), url);
+    // Note artifactUrl not getUrl(); always want actual Artifact URL, not
+    // archive member
+    return v2Repo.getArtifact(v2Coll, au.getAuId(), artifactUrl);
   }
 
   private void ensureArtifact() {
@@ -490,7 +491,7 @@ public class BaseCachedUrl implements CachedUrl {
 	inputStreamUsed = false;
       }
     } else {
-      throw new UnsupportedOperationException("No content: " + url);
+      throw new UnsupportedOperationException("No content: " + artifactUrl);
     }
   }
 
@@ -543,12 +544,12 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public CachedUrl getArchiveMemberCu(ArchiveMemberSpec ams) {
-    Member memb = new Member(au, url, this, ams);
+    Member memb = new Member(au, artifactUrl, this, ams);
     return memb;
   }
 
   CachedUrl getArchiveMemberCu(ArchiveMemberSpec ams, TFile memberTf) {
-    Member memb = new Member(au, url, this, ams, memberTf);
+    Member memb = new Member(au, artifactUrl, this, ams, memberTf);
     return memb;
   }
 
@@ -569,7 +570,7 @@ public class BaseCachedUrl implements CachedUrl {
 
     protected Artifact getArtifact() throws IOException {
       return v2Repo.getArtifactVersion(v2Coll, au.getAuId(),
-				       url, specVersion);
+				       artifactUrl, specVersion);
     }
 
     public int getVersion() {
@@ -602,7 +603,7 @@ public class BaseCachedUrl implements CachedUrl {
       } catch (RuntimeException e) {
 	ver = -1;
       }
-      return "[BCU: v=" + ver + " " + url+"]";
+      return "[BCU: v=" + ver + " " + artifactUrl+"]";
     }
   }
 
@@ -795,7 +796,7 @@ public class BaseCachedUrl implements CachedUrl {
       checkValidTfcEntry();
       if (tfcEntry == null) {
 	TrueZipManager tzm = bcu.getDaemon().getTrueZipManager();
-	tfcEntry = tzm.getCachedTFileEntry(au.makeCachedUrl(url));
+	tfcEntry = tzm.getCachedTFileEntry(au.makeCachedUrl(artifactUrl));
       }
       return tfcEntry;
     }
