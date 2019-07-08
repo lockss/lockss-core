@@ -312,10 +312,7 @@ public class HTTPConfigFile extends BaseConfigFile {
 	}
 
 	// Yes: Set the "If-None-Match" request header, if possible.
-	if (responseHttpEtag != null) {
-	  log.debug2("Setting request if-none-match to: " + responseHttpEtag);
-	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, responseHttpEtag);
-	}
+	addIfNoneMatch(conn, responseHttpEtag);
       }
 
       gettingResponse = true;
@@ -360,6 +357,23 @@ public class HTTPConfigFile extends BaseConfigFile {
       // closed.
       if (in == null) {
 	IOUtil.safeRelease(conn);
+      }
+    }
+  }
+
+  private void addIfNoneMatch(LockssUrlConnection conn, String etag) {
+    if (etag != null) {
+      log.debug2("Adding request if-none-match: " + etag);
+      conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, etag);
+
+      // Work around apache-deflate-etag bug
+      // (https://bz.apache.org/bugzilla/show_bug.cgi?id=45023#c22
+      // https://httpd.apache.org/docs/trunk/mod/mod_deflate.html) by
+      // also sending the etag with the -gzip suffix removed.
+      if (etag.endsWith("-gzip\"")) {
+	String v = StringUtil.removeTrailing(etag, "-gzip\"") + "\"";
+	log.debug2("Adding request if-none-match: " + v);
+	conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, v);
       }
     }
   }
@@ -616,10 +630,7 @@ public class HTTPConfigFile extends BaseConfigFile {
       if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
 	// Yes: Loop through all the If-None-Match entity tags.
 	for (String ifNoneMatchEtag : ifNoneMatch) {
-	  // Add the header to the request.
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "ifNoneMatchEtag = " + ifNoneMatchEtag);
-	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, ifNoneMatchEtag);
+	  addIfNoneMatch(conn, ifNoneMatchEtag);
 	}
       }
 
