@@ -89,8 +89,12 @@ public class TestRestUtil extends LockssTestCase4 {
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
       assertEquals(message, lre.getMessage());
-      assertClass(SocketException.class, lre.getCause());
-      assertMatchesRE("^Network is unreachable", lre.getCause().getMessage());
+      Throwable cause = lre.getCause();
+      if (! (cause instanceof SocketException ||
+	     cause instanceof SocketTimeoutException)) {
+	fail("Expected LockssRestException cause to be SocketException or SocketTimeoutException but was: "
+	     + cause);
+      }
     }
 
     message = "Cannot perform call to 127.0.0.1";
