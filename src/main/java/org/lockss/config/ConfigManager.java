@@ -1684,7 +1684,7 @@ public class ConfigManager implements LockssManager {
 	  StringUtil.separatedString(getPlatformGroupList(), ";"));
     putIf(p, "host", getPlatformHostname());
     putIf(p, "peerid",
-	  currentConfig.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY));
+	  getPlatformConfig().get(PARAM_PLATFORM_LOCAL_V3_IDENTITY));
     return p;
   }
 

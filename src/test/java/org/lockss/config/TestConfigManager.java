@@ -964,7 +964,7 @@ public class TestConfigManager extends LockssTestCase4 {
 		   SetUtil.theSet(pairs));
     }
     mgr.setGroups("grouper");
-    ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_LOCAL_V3_IDENTITY,
 				  "tcp:[111.32.14.5]:9876");
     pairs = StringUtil.breakAt(mgr.getVersionString(), ',');
     if (release != null) {
