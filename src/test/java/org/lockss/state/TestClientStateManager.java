@@ -31,7 +31,10 @@ package org.lockss.state;
 import java.io.*;
 import java.util.*;
 import org.junit.*;
+import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
+// import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
 
 import org.lockss.app.*;
 import org.lockss.daemon.Crawler;
@@ -81,7 +84,13 @@ public class TestClientStateManager extends StateTestCase {
 
     mplug = new MockPlugin(daemon);
 
-    prod = Producer.createTopicProducer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
+    // Can't use the connection maintained by JMSManager, as StateManager's
+    // Consumer ignores locally sent messages
+    JMSManager jmsMgr = daemon.getManagerByType(JMSManager.class);
+    ConnectionFactory connectionFactory =
+      new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
+    Connection conn = connectionFactory.createConnection();
+    prod = Producer.createTopicProducer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
   }
 
   @Override

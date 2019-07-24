@@ -39,6 +39,7 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
+import org.lockss.util.*;
 
 /** Building blocks for {@link StateManager}s.
 */
@@ -122,7 +123,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   void setUpJmsReceive() {
     super.setUpJmsReceive(clientId,
-			  notificationTopic,
+			  notificationTopic, true,
 			  new MapMessageListener("State Listener"));
   }
 
@@ -137,6 +138,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     try {
       String name = (String)map.get(JMS_MAP_NAME);
       String auid = (String)map.get(JMS_MAP_AUID);
+      auid = StringPool.AUIDS.intern(auid);
       String json = (String)map.get(JMS_MAP_JSON);
       String cookie = (String)map.get(JMS_MAP_COOKIE);
       switch (name) {

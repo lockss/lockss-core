@@ -60,7 +60,7 @@ public class MockArchivalUnit implements ArchivalUnit {
   private TitleConfig tc = null;
   private TdbAu tau = null;
   private String auId = null;
-  private String defaultAUId = StringUtil.gensym("MockAU_");
+  private String defaultAUId = StringUtil.gensym("MockPlugin&MockAU_");
   private CachedUrlSet cus = null;
   private List<Pattern> excludeUrlFromPollPatterns = null;
   private List<Pattern> nonSubstanceUrlPatterns = null;

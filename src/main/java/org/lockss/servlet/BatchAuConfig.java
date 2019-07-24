@@ -200,6 +200,7 @@ public class BatchAuConfig extends LockssServlet {
 
   private Iterator<LinkWithExplanation> getMenuDescriptors() {
     String ACTION = ACTION_TAG + "=";
+    // XXXONDEMAND getAllAus
     int numActive = remoteApi.getAllAus().size();
     boolean someInactive = remoteApi.countInactiveAus() > 0;
     ServletDescr myDescr = myServletDescr();

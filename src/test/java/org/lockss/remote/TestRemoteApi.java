@@ -58,27 +58,28 @@ public class TestRemoteApi extends LockssTestCase {
 
   MockLockssDaemon daemon;
   MyMockPluginManager mpm;
+  MockPlugin mp1;
   MyIdentityManager idMgr;
   RemoteApi rapi;
   SubscriptionManager subscriptionManager;
-  File tempDir = null;
+  String tempDir = null;
 
   public void setUp() throws Exception {
     super.setUp();
 
-    tempDir = getTempDir();
-    String tempDirPath = tempDir.getAbsolutePath() + File.separator;
-    Properties p = new Properties();
-    p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
-    ConfigurationUtil.setCurrentConfigFromProps(p);
+    tempDir = setUpDiskSpace();
 
     daemon = getMockLockssDaemon();
 
-    daemon.setUpAuConfig();
+    daemon.setUpFastAuConfig();
 
     mpm = new MyMockPluginManager();
-    mpm.mockInit();
     daemon.setPluginManager(mpm);
+    mpm.initService(daemon);
+    mpm.mockInit();
+    mp1 = (MockPlugin)mpm.getPlugin(PID1);
+    assertNotNull(mp1);
+    assertEquals(PID1, mp1.getPluginId());
     rapi = new RemoteApi();
     daemon.setRemoteApi(rapi);
     rapi.initService(daemon);
@@ -103,6 +104,23 @@ public class TestRemoteApi extends LockssTestCase {
     MockArchivalUnit mau1 = new MockArchivalUnit();
     AuProxy aup = rapi.findAuProxy(mau1);
     assertNotNull(aup);
+    assertTrue(aup.isActiveAu());
+    assertSame(mau1, aup.getAu());
+    assertSame(aup, rapi.findAuProxy(mau1));
+    ArchivalUnit mau2 = mpm.getAuFromIdIfExists(AUID1);
+    assertNotNull(mau2);
+    AuProxy aup2b = rapi.findAuProxy(mau2);
+    AuProxy aup2a = rapi.findAuProxy(AUID1);
+    assertNotNull(aup2a);
+    assertSame(aup2a, aup2b);
+    assertTrue(aup2a.isActiveAu());
+  }
+
+  public void testFindInactiveAuProxy() {
+    MockArchivalUnit mau1 = new MockArchivalUnit();
+    AuProxy aup = rapi.findAuProxy(mau1);
+    assertTrue(aup.isActiveAu());
+    assertNotNull(aup);
     assertSame(mau1, aup.getAu());
     assertSame(aup, rapi.findAuProxy(mau1));
     ArchivalUnit mau2 = mpm.getAuFromIdIfExists(AUID1);
@@ -113,21 +131,36 @@ public class TestRemoteApi extends LockssTestCase {
     assertSame(aup2a, aup2b);
   }
 
+  InMemoryConfigStore getConfigStore() {
+    return daemon.getInMemoryConfigStore();
+  }
+
   public void testGetInactiveAus() throws Exception {
-    String id1 = "xxx1";
-    String id2 = "xxx2";
-    mpm.setStoredConfig(id1, ConfigManager.EMPTY_CONFIGURATION);
-    mpm.setStoredConfig(id2, ConfigManager.EMPTY_CONFIGURATION);
-    mpm.setInactiveAuIds(ListUtil.list(id1, id2));
-    assertEquals(ListUtil.list(rapi.findInactiveAuProxy(id1),
-			       rapi.findInactiveAuProxy(id2)),
+    String id1 = "p1&xxx1";
+    String id2 = "p1&xxx2";
+    String id3 = "p2&xxx2";
+    Map inact = MapUtil.map(PluginManager.AU_PARAM_DISABLED, "true");
+    Map act = MapUtil.map("base_url", "foo");
+    Configuration inactconfig = ConfigManager.fromProperties(inact);
+    getConfigStore().addArchivalUnitConfiguration(id1, inact);
+    getConfigStore().addArchivalUnitConfiguration(id2, act);
+    getConfigStore().addArchivalUnitConfiguration(id3, inact);
+//     mpm.setStoredConfig(id1, ConfigManager.fromProperties(inact));
+//     mpm.setStoredConfig(id2, ConfigManager.EMPTY_CONFIGURATION);
+//     mpm.setStoredConfig(id3, ConfigManager.fromProperties(inact));
+    assertEquals(ListUtil.list(rapi.findAuProxy(id1),
+			       rapi.findAuProxy(id3)),
 		 rapi.getInactiveAus());
     assertEquals(2, rapi.countInactiveAus());
 
+    assertFalse(rapi.findAuProxy(id1).isActiveAu());
+    assertTrue(rapi.findAuProxy(id2).isActiveAu());
+    assertFalse(rapi.findAuProxy(id3).isActiveAu());
 
     MockArchivalUnit mau1 = new MockArchivalUnit(id1);
+    mau1.setConfiguration(inactconfig);
     AuProxy aup1 = rapi.findAuProxy(mau1);
-    assertFalse(aup1 instanceof InactiveAuProxy);
+    assertFalse(aup1.isActiveAu());
   }
 
   public void testGetAllAus() throws Exception {
@@ -150,7 +183,6 @@ public class TestRemoteApi extends LockssTestCase {
   }
 
   public void testFindPluginProxy() throws Exception {
-    MockPlugin mp1 = new MockPlugin();
     PluginProxy pp1 = rapi.findPluginProxy(mp1);
     assertNotNull(pp1);
     assertSame(mp1, pp1.getPlugin());
@@ -164,7 +196,6 @@ public class TestRemoteApi extends LockssTestCase {
   }
 
   public void testMapPlugins() {
-    MockPlugin mp1 = new MockPlugin();
     Plugin mp2 = mpm.getPlugin(PluginManager.pluginKeyFromId(PID1));
     List mapped = rapi.mapPluginsToProxies(ListUtil.list(mp1, mp2));
     assertEquals(2, mapped.size());
@@ -176,22 +207,21 @@ public class TestRemoteApi extends LockssTestCase {
 
   public void testCreateAndSaveAuConfiguration() throws Exception {
     ConfigParamDescr d1 = ConfigParamDescr.BASE_URL;
-    MockPlugin mp1 = new MockPlugin();
     mp1.setAuConfigDescrs(ListUtil.list(d1));
 
     PluginProxy pp1 = rapi.findPluginProxy(mp1);
     Configuration config = ConfigurationUtil.fromArgs(d1.getKey(), "v1");
     AuProxy aup = rapi.createAndSaveAuConfiguration(pp1, config);
     Pair pair = (Pair)mpm.actions.get(0);
+
     assertEquals(mp1, pair.one);
     assertEquals(config, pair.two);
-    assertEquals(pp1, aup.getPlugin());
     assertEquals(config, aup.getConfiguration());
+    assertEquals(pp1, aup.getPlugin());
   }
 
   public void testSetAndSaveAuConfiguration() throws Exception {
     ConfigParamDescr d1 = ConfigParamDescr.BASE_URL;
-    MockPlugin mp1 = new MockPlugin();
     mp1.setAuConfigDescrs(ListUtil.list(d1));
     MockArchivalUnit mau1 = new MockArchivalUnit();
     AuProxy aup = rapi.findAuProxy(mau1);
@@ -204,42 +234,66 @@ public class TestRemoteApi extends LockssTestCase {
     assertEquals(config, pair.two);
   }
 
-  public void testDeleteAu() throws Exception {
+  public void testDeleteAuPresent() throws Exception {
+    ConfigParamDescr d1 = ConfigParamDescr.BASE_URL;
+    mp1.setAuConfigDescrs(ListUtil.list(d1));
+    PluginProxy pp1 = rapi.findPluginProxy(mp1);
+    Configuration config = ConfigurationUtil.fromArgs(d1.getKey(), "v1");
+    AuProxy aup = rapi.createAndSaveAuConfiguration(pp1, config);
+    ArchivalUnit au = aup.getAu();
+    rapi.deleteAu(aup);
+    Pair pair = (Pair)mpm.actions.get(0);
+    assertEquals(mp1, pair.one);
+    assertEquals(config, pair.two);
+    pair = (Pair)mpm.actions.get(1);
+    assertEquals("Delete", pair.one);
+    assertEquals(au, pair.two);
+  }
+
+  public void testDeleteAuAbsent() throws Exception {
     MockArchivalUnit mau1 = new MockArchivalUnit();
     AuProxy aup = rapi.findAuProxy(mau1);
     rapi.deleteAu(aup);
     Pair pair = (Pair)mpm.actions.get(0);
     assertEquals("Delete", pair.one);
-    assertEquals(mau1, pair.two);
+    assertEquals(mau1.getAuId(), pair.two);
   }
 
-  public void testDeactivateAu() throws Exception {
+  public void testDeactivateAuPresent() throws Exception {
+    ConfigParamDescr d1 = ConfigParamDescr.BASE_URL;
+    mp1.setAuConfigDescrs(ListUtil.list(d1));
+    PluginProxy pp1 = rapi.findPluginProxy(mp1);
+    Configuration config = ConfigurationUtil.fromArgs(d1.getKey(), "v1");
+    AuProxy aup = rapi.createAndSaveAuConfiguration(pp1, config);
+    ArchivalUnit au = aup.getAu();
+    rapi.deactivateAu(aup);
+    Pair pair = (Pair)mpm.actions.get(0);
+    assertEquals(mp1, pair.one);
+    assertEquals(config, pair.two);
+    pair = (Pair)mpm.actions.get(1);
+    assertEquals("Deactivate", pair.one);
+    assertEquals(au, pair.two);
+  }
+
+  public void testDeactivateAuAbsent() throws Exception {
     MockArchivalUnit mau1 = new MockArchivalUnit();
     AuProxy aup = rapi.findAuProxy(mau1);
     rapi.deactivateAu(aup);
     Pair pair = (Pair)mpm.actions.get(0);
     assertEquals("Deactivate", pair.one);
-    assertEquals(mau1, pair.two);
+    assertEquals(mau1.getAuId(), pair.two);
   }
 
   public void testGetStoredAuConfiguration() throws Exception {
     MockArchivalUnit mau1 = new MockArchivalUnit();
-    String id = "auid3";
+    String id = "Mock&auid3";
     Configuration config = ConfigurationUtil.fromArgs("k1", "v1");
     mau1.setAuId(id);
-    mpm.setStoredConfig(id, config);
+    getConfigStore().addArchivalUnitConfiguration(id, ConfigurationUtil.toMap(config));
+//     mpm.setStoredConfig(id, config);
     AuProxy aup = rapi.findAuProxy(mau1);
     assertEquals(config, rapi.getStoredAuConfiguration(aup));
-  }
-
-  public void testGetCurrentAuConfiguration() throws Exception {
-    MockArchivalUnit mau1 = new MockArchivalUnit();
-    String id = "auid3";
-    Configuration config = ConfigurationUtil.fromArgs("k1", "v1");
-    mau1.setAuId(id);
-    mpm.setCurrentConfig(id, config);
-    AuProxy aup = rapi.findAuProxy(mau1);
-    assertNull(rapi.getStoredAuConfiguration(aup));
+//     assertEquals(config, aup.getConfiguration());
   }
 
   public void testGetRepositoryDF () throws Exception {
@@ -254,11 +308,11 @@ public class TestRemoteApi extends LockssTestCase {
   void writeCacheConfigFile(String cfileName, String s) throws IOException {
     String tmpdir = tempDir.toString();
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
-				  tmpdir);
+				  tempDir);
     String relConfigPath =
       CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
                              ConfigManager.DEFAULT_CONFIG_PATH);
-    File cdir = new File(tmpdir, relConfigPath);
+    File cdir = new File(tempDir, relConfigPath);
     File configFile = new File(cdir, cfileName);
     FileTestUtil.writeFile(configFile, s);
     log.debug("Wrote: " + configFile);
@@ -667,39 +721,31 @@ public class TestRemoteApi extends LockssTestCase {
   class MyMockPluginManager extends PluginManager {
     List actions = new ArrayList();
     List allAus;
-    List inactiveAuIds;
 
     Map storedConfigs = new HashMap();
-    Map currentConfigs = new HashMap();
 
     void mockInit() {
-      MockArchivalUnit mau1 = new MockArchivalUnit();
-      mau1.setAuId(AUID1);
-      putAuInMap(mau1);
       MockPlugin mp1 = new MockPlugin();
       mp1.setPluginId(PID1);
       setPlugin(pluginKeyFromId(mp1.getPluginId()), mp1);
+      MockArchivalUnit mau1 = new MockArchivalUnit(mp1);
+      mau1.setAuId(AUID1);
+      putAuInMap(mau1);
     }
 
-    void setStoredConfig(String auid, Configuration config) {
-      storedConfigs.put(auid, config);
-    }
-
-    void setCurrentConfig(String auid, Configuration config) {
-      currentConfigs.put(auid, config);
-    }
+//     void setStoredConfig(String auid, Configuration config) {
+//       storedConfigs.put(auid, config);
+//     }
 
     void setAllAus(List allAus) {
       this.allAus = allAus;
     }
 
-    void setInactiveAuIds(List inactiveAuIds) {
-      this.inactiveAuIds = inactiveAuIds;
-    }
-
+    @Override
     public ArchivalUnit createAndSaveAuConfiguration(Plugin plugin,
 						     Configuration auConf)
-    throws ArchivalUnit.ConfigurationException {
+	throws ArchivalUnit.ConfigurationException,
+	       DbException, LockssRestException {
       actions.add(new Pair(plugin, auConf));
       MockArchivalUnit mau = new MockArchivalUnit();
       mau.setPlugin(plugin);
@@ -707,43 +753,57 @@ public class TestRemoteApi extends LockssTestCase {
       mau.setAuId(auid);
       mau.setConfiguration(auConf);
       putAuInMap(mau);
+      updateAuInDatabase(auid, auConf);
       return mau;
     }
 
+    @Override
     public void setAndSaveAuConfiguration(ArchivalUnit au,
 					  Configuration auConf)
-	throws ArchivalUnit.ConfigurationException {
+	throws ArchivalUnit.ConfigurationException,
+	       DbException, LockssRestException {
       actions.add(new Pair(au, auConf));
-      au.setConfiguration(auConf);
+      super.setAndSaveAuConfiguration(au, auConf);
     }
 
-    public void deleteAuConfiguration(String auid) {
+    @Override
+    public void deleteAuConfiguration(String auid)
+	throws DbException, LockssRestException {
       actions.add(new Pair("Delete", auid));
+      super.deleteAuConfiguration(auid);
     }
 
-    public void deleteAuConfiguration(ArchivalUnit au) {
+    @Override
+    public void deleteAuConfiguration(ArchivalUnit au)
+	throws DbException, LockssRestException {
       actions.add(new Pair("Delete", au));
+      super.deleteAuConfiguration(au);
     }
 
-    public void deactivateAuConfiguration(ArchivalUnit au) {
+    @Override
+    public void deactivateAuConfiguration(ArchivalUnit au)
+	throws DbException, LockssRestException {
       actions.add(new Pair("Deactivate", au));
+      super.deactivateAuConfiguration(au);
     }
 
-    public Configuration getStoredAuConfigurationAsConfiguration(String auid) {
-      return (Configuration)storedConfigs.get(auid);
+    @Override
+    public void deactivateAuConfiguration(String auid)
+	throws DbException, LockssRestException {
+      actions.add(new Pair("Deactivate", auid));
+      super.deactivateAuConfiguration(auid);
     }
 
-    public Configuration getCurrentAuConfiguration(String auid) {
-      return (Configuration)currentConfigs.get(auid);
-    }
+//     @Override
+//     public Configuration getStoredAuConfigurationAsConfiguration(String auid) {
+//       return (Configuration)storedConfigs.get(auid);
+//     }
 
+    @Override
     public List getAllAus() {
       return allAus;
     }
 
-    public Collection getInactiveAuIds() {
-      return inactiveAuIds;
-    }
   }
   static class MyIdentityManager extends MockIdentityManager {
     private Map agreeMapContents = new HashMap();

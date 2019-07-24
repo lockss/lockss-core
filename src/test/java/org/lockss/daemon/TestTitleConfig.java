@@ -217,8 +217,7 @@ public class TestTitleConfig extends LockssTestCase {
     assertFalse(tc1.isActionable(pmgr, TitleSet.SET_REACTABLE));
 
     // Create an AU matching this TitleConfig
-    ArchivalUnit au =
-      PluginTestUtil.createAndStartAu(mp.getPluginId(), tc1.getConfig());
+    ArchivalUnit au = pmgr.createAndSaveAuConfiguration(mp, tc1.getConfig());
     assertEquals(tc1.getAuId(pmgr, mp), au.getAuId());
 
     assertFalse(tc1.isActionable(pmgr, TitleSet.SET_ADDABLE));
@@ -229,7 +228,7 @@ public class TestTitleConfig extends LockssTestCase {
     pmgr.deactivateAu(au);
 
     assertFalse(tc1.isActionable(pmgr, TitleSet.SET_ADDABLE));
-    assertFalse(tc1.isActionable(pmgr, TitleSet.SET_DELABLE));
+    assertTrue(tc1.isActionable(pmgr, TitleSet.SET_DELABLE));
     assertTrue(tc1.isActionable(pmgr, TitleSet.SET_REACTABLE));
   }
 

@@ -699,6 +699,10 @@ public class ConfigManager implements LockssManager {
   // Start with an empty one to avoid errors in the static accessors.
   private volatile Configuration currentConfig = EMPTY_CONFIGURATION;
 
+  // Caches AuConfigurations loaded from DB or remote ConfigService.
+  // Also updated by "AuConfigStored" message
+  private Map<String,AuConfiguration> auConfigurationCache = new HashMap<>();
+
   private OneShotSemaphore haveConfig = new OneShotSemaphore();
 
   private HandlerThread handlerThread; // reload handler thread
@@ -818,8 +822,7 @@ public class ConfigManager implements LockssManager {
       log.info("http cache dir: " + cacheDir);
       getHttpCacheManager().getCacheSpec(HTTP_CACHE_NAME)
 	.setCacheDir(cacheDir)
-	.setResourceFactory(new GzippedFileResourceFactory(cacheDir))
-	;
+	.setResourceFactory(new GzippedFileResourceFactory(cacheDir));
     }
     return hCacheMgr;
   }
@@ -957,14 +960,14 @@ public class ConfigManager implements LockssManager {
     currentConfig = newConfig;
   }
 
-  /** Create a sealed Configuration object from a Properties */
+  /** Create a sealed Configuration object from a Map or Properties */
   public static Configuration fromProperties(Map props) {
     Configuration config = fromPropertiesUnsealed(props);
     config.seal();
     return config;
   }
 
-  /** Create an unsealed Configuration object from a Properties */
+  /** Create an unsealed Configuration object from a Map or Properties */
   public static Configuration fromPropertiesUnsealed(Map props) {
     Configuration config = new ConfigurationPropTreeImpl();
     for (Iterator iter = props.keySet().iterator(); iter.hasNext(); ) {
@@ -3583,8 +3586,11 @@ public class ConfigManager implements LockssManager {
    * @param auId
    *          A String with the identifier of the archival unit.
    * @return a Configuration with the configuration of the archival unit.
+   *
    */
-  public Configuration getAuConfig(String auId, Plugin plugin) {
+  // XXX No callers - is this needed?
+  @Deprecated
+  public Configuration unused_getAuConfig(String auId, Plugin plugin) {
     final String DEBUG_HEADER = "getAuConfig(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "auId = " + auId);

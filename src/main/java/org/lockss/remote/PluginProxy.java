@@ -144,6 +144,7 @@ public class PluginProxy {
    * that exist within this plugin.
    * @return a Collection of {@link AuProxy}s
    */
+  // XXXONDEMAND
   public Collection getAllAus() {
     return remoteApi.mapAusToProxies(plugin.getAllAus());
   }

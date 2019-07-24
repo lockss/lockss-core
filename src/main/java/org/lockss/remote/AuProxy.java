@@ -32,6 +32,7 @@ import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
+import org.lockss.log.*;
 import org.lockss.rs.exception.LockssRestException;
 
 /**
@@ -40,16 +41,18 @@ import org.lockss.rs.exception.LockssRestException;
  * replaced with {@link PluginProxy}s and {@link AuProxy}s.
  */
 public class AuProxy {
+  private static L4JLogger log = L4JLogger.getLogger();
+
   private RemoteApi remoteApi;
-  transient ArchivalUnit au;
+  private ArchivalUnit au;
+  private String auid;
+  private Configuration config;
 
   AuProxy(ArchivalUnit au, RemoteApi remoteApi) {
     this.remoteApi = remoteApi;
     this.au = au;
-  }
-
-  AuProxy(RemoteApi remoteApi) {
-    this.remoteApi = remoteApi;
+    this.auid = au.getAuId();
+    this.config = au.getConfiguration();
   }
 
   /** Create an AuProxy for the AU with the given ID.
@@ -58,25 +61,49 @@ public class AuProxy {
    * @throws NoSuchAU if no AU with the given ID exists
    */
   public AuProxy(String auid, RemoteApi remoteApi)
-      throws NoSuchAU {
-    au = remoteApi.getAuFromId(auid);
-    if (au == null) {
-      throw new NoSuchAU(auid);
-    }
+      throws NoSuchAU, DbException, LockssRestException {
+    this.auid = auid;
     this.remoteApi = remoteApi;
+    au = remoteApi.getAuFromIdIfExists(auid);
+    if (au != null) {
+      config = au.getConfiguration();
+    } else {
+      config = getStoredConfiguration();
+      if (config == null) {
+	throw new NoSuchAU(auid);
+      }
+    }
   }
 
-  ArchivalUnit getAu() {
-    return au;
+//   AuProxy(RemoteApi remoteApi) {
+//     this.remoteApi = remoteApi;
+//   }
+
+  public ArchivalUnit getAu() {
+    if (au != null) {
+      return au;
+    } else {
+      throw new IllegalStateException("Can't get AU from absent AU");
+    }
   }
 
   /**
    * Return the AU's current configuration.
    * @return a Configuration
    */
-  public Configuration getConfiguration()
+  public Configuration getConfiguration() {
+    return config;
+  }
+
+  /**
+   * Return the AU's current configuration or null if not configured
+   * @return a Configuration
+   * @throws DbException
+   * @throws LockssRestException
+   */
+  public Configuration getStoredConfiguration()
       throws DbException, LockssRestException {
-    return au.getConfiguration();
+    return getRemoteApi().getStoredAuConfiguration(auid);
   }
 
   /**
@@ -93,7 +120,7 @@ public class AuProxy {
    * @return the plugin
    */
   public PluginProxy getPlugin() {
-    return remoteApi.findPluginProxy(au.getPlugin());
+    return getRemoteApi().findPluginProxy(getPluginId());
   }
 
   /**
@@ -101,7 +128,7 @@ public class AuProxy {
    * @return a unique id
    */
   public String getPluginId() {
-    return au.getPluginId();
+    return getRemoteApi().pluginIdFromAuId(getAuId());
   }
 
   /**
@@ -109,15 +136,19 @@ public class AuProxy {
    * @return a unique id
    */
   public String getAuId() {
-    return au.getAuId();
+    return auid;
   }
 
   /**
    * Returns a human-readable name for the ArchivalUnit.
    * @return the AU name
    */
-  public String getName() throws DbException, LockssRestException {
-    return au.getName();
+  public String getName() {
+    if (au != null) {
+      return au.getName();
+    } else {
+      return "Noname AU: " + auid;
+    }
   }
 
   public static class NoSuchAU extends Exception {
@@ -131,6 +162,6 @@ public class AuProxy {
   }
 
   public boolean isActiveAu() {
-    return true;
+    return !config.getBoolean(PluginManager.AU_PARAM_DISABLED, false);
   }
 }

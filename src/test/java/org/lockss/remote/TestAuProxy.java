@@ -35,7 +35,10 @@ package org.lockss.remote;
 import java.io.*;
 import java.util.*;
 import org.lockss.daemon.*;
+import org.lockss.config.*;
+import org.lockss.config.db.*;
 import org.lockss.plugin.*;
+import org.lockss.util.*;
 import org.lockss.test.*;
 
 /**
@@ -53,8 +56,13 @@ public class TestAuProxy extends LockssTestCase {
   public void setUp() throws Exception {
     super.setUp();
     daemon = getMockLockssDaemon();
+    daemon.setUpFastAuConfig();
+    setUpDiskSpace();
+    daemon.startManagers(PluginManager.class);
     mrapi = new MyMockRemoteApi();
     daemon.setRemoteApi(mrapi);
+    mrapi.initService(daemon);
+    mrapi.startService();
     daemon.setDaemonInited(true);
     mau = new MockArchivalUnit();
   }
@@ -64,30 +72,80 @@ public class TestAuProxy extends LockssTestCase {
     super.tearDown();
   }
 
-  public void testConstructFromId()
-      throws AuProxy.NoSuchAU {
-    mrapi.setAuFromId("idid", mau);
-    AuProxy aup = new AuProxy("idid", mrapi);
-    assertSame(mau, aup.getAu());
+  InMemoryConfigStore getConfigStore() {
+    return daemon.getInMemoryConfigStore();
   }
 
-  public void testConstructFromIdThrows() {
+  public void testPresentAuFromAuid() throws Exception {
+    String auid = "p1&a2";
+    mau.setAuId(auid);
+    mrapi.setAuFromId(auid, mau);
+    MockPlugin mp = new MockPlugin();
+    mrapi.setPluginFromId("p1", mp);
+    AuProxy aup = new AuProxy(auid, mrapi);
+    assertSame(mau, aup.getAu());
+    assertTrue(aup.isActiveAu());
+    PluginProxy pp = aup.getPlugin();
+    assertSame(mp, pp.getPlugin());
+  }
+
+  public void testPresentAuFromAu() throws Exception {
+    String auid = "p2&a2";
+    mau.setAuId(auid);
+    mrapi.setAuFromId(auid, mau);
+    MockPlugin mp = new MockPlugin();
+    mrapi.setPluginFromId("p2", mp);
+    AuProxy aup = new AuProxy(mau, mrapi);
+    assertSame(mau, aup.getAu());
+    assertTrue(aup.isActiveAu());
+    PluginProxy pp = aup.getPlugin();
+    assertSame(mp, pp.getPlugin());
+  }
+
+  public void testNoSuchAu() throws Exception {
     try {
-      AuProxy aup = new AuProxy("id1", mrapi);
-      fail("Failed to throw AuProxy.NoSuchAU");
+      AuProxy aup = new AuProxy("p1&a2", mrapi);
+      fail("Create from missing auid should throw");
     } catch (AuProxy.NoSuchAU e) {
     }
   }
 
-  public void testIsActiveAu() {
-    AuProxy aup = new AuProxy(mau, mrapi);
+  public void testAbsentActive() throws Exception {
+    String auid = "p1&a3";
+    getConfigStore().addArchivalUnitConfiguration(auid,
+					     MapUtil.map("base_url", "foo"));
+    AuProxy aup = new AuProxy(auid, mrapi);
     assertTrue(aup.isActiveAu());
   }
 
+  public void testAbsentInactive() throws Exception {
+    String auid = "p1&a3";
+    getConfigStore().addArchivalUnitConfiguration(auid,
+					     MapUtil.map("base_url", "foo",
+							 "reserved.disabled", "true"));
+    AuProxy aup = new AuProxy(auid, mrapi);
+    assertFalse(aup.isActiveAu());
+  }
+
   class MyMockRemoteApi extends RemoteApi {
+    Map pluginmap = new HashMap();
     Map aumap = new HashMap();
 
+    Plugin getPluginFromId(String pluginid) {
+      return (Plugin)pluginmap.get(pluginid);
+    }
+
+    void setPluginFromId(String pluginid, Plugin plugin) {
+      pluginmap.put(pluginid, plugin);
+    }
+
+    @Override
     ArchivalUnit getAuFromId(String auid) {
+      return (ArchivalUnit)aumap.get(auid);
+    }
+
+    @Override
+    public ArchivalUnit getAuFromIdIfExists(String auid) {
       return (ArchivalUnit)aumap.get(auid);
     }
 

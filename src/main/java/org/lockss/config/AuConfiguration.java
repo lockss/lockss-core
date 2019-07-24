@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.*;
+import org.lockss.util.*;
 
 /**
  * The encapsulation of an Archival Unit configuration
@@ -144,7 +145,7 @@ public class AuConfiguration   {
   }
 
   public AuConfiguration putAuConfigItem(String key, String auConfigItem) {
-    this.auConfig.put(key, auConfigItem);
+    this.auConfig.put(StringPool.AU_CONFIG_PROPS.intern(key), auConfigItem);
     return this;
   }
 
@@ -181,6 +182,15 @@ public class AuConfiguration   {
     this.auConfig = auConfig;
   }
 
+
+  public String get(String key) {
+    if (auConfig == null || auConfig.isEmpty()) {
+      throw new IllegalArgumentException("Invalid configuration: '" + auConfig
+	  + "'");
+    }
+
+    return auConfig.get(key);
+  }
 
   @Override
   public boolean equals(java.lang.Object o) {

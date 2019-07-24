@@ -152,9 +152,6 @@ public class AuConfig extends LockssServlet {
              || action.equals(ACTION_CONFIRM_DELETE)) {
       AuProxy au = getAuProxy(auid);
       if (au == null) {
-	au = getInactiveAuProxy(auid);
-      }
-      if (au == null) {
 	if (auid != null) {
 	  errMsg = "Invalid AuId: " + auid;
 	}
@@ -551,7 +548,8 @@ public class AuConfig extends LockssServlet {
                                    editable);
 
     if (isNew) {
-      addRepoChoice(frm);
+      // XXXREPO Disabled unless until disk info/choice comes back
+//       addRepoChoice(frm);
       addPlugId(frm, plugin);
     } else {
       addAuId(frm, au);
@@ -970,14 +968,6 @@ public class AuConfig extends LockssServlet {
   private AuProxy getAuProxy(String auid) {
     try {
       return remoteApi.findAuProxy(auid);
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
-  private InactiveAuProxy getInactiveAuProxy(String auid) {
-    try {
-      return remoteApi.findInactiveAuProxy(auid);
     } catch (Exception e) {
       return null;
     }

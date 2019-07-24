@@ -184,7 +184,24 @@ public class RemoteApi
    * id.
    */
   public AuProxy findAuProxy(String auid) {
-    return findAuProxy(getAuFromId(auid));
+    AuProxy aup = (AuProxy)auProxies.get(auid);
+    if (aup == null) {
+      ArchivalUnit au = getAuFromIdIfExists(auid);
+      if (au != null) {
+	return findAuProxy(au);
+      }
+      try {
+	aup = new AuProxy(auid, this);
+	auProxies.put(auid, aup);
+      } catch (AuProxy.NoSuchAU e) {
+	log.warning("NoSuchAU: " + auid);
+	return null;
+      } catch (DbException | LockssRestException e) {
+	log.error("Error retrieving AU configuration", e);
+	return null;
+      }
+    }
+    return aup;
   }
 
   /** Create or return an AuProxy for the AU
@@ -199,18 +216,19 @@ public class RemoteApi
     if (aup == null) {
       aup = new AuProxy(au, this);
       auProxies.put(au, aup);
+      auProxies.put(au.getAuId(), aup);
     }
     return aup;
   }
 
-  public synchronized InactiveAuProxy findInactiveAuProxy(String auid) {
-    InactiveAuProxy aup = (InactiveAuProxy)auProxies.get(auid);
-    if (aup == null) {
-      aup = new InactiveAuProxy(auid, this);
-      auProxies.put(auid, aup);
-    }
-    return aup;
-  }
+//   public synchronized InactiveAuProxy findInactiveAuProxy(String auid) {
+//     InactiveAuProxy aup = (InactiveAuProxy)auProxies.get(auid);
+//     if (aup == null) {
+//       aup = new InactiveAuProxy(auid, this);
+//       auProxies.put(auid, aup);
+//     }
+//     return aup;
+//   }
 
   /** Create or return a PluginProxy for the Plugin corresponding to the id.
    * @param pluginid the plugin id
@@ -221,6 +239,11 @@ public class RemoteApi
     PluginProxy pluginp = (PluginProxy)pluginProxies.get(pluginid);
     if (pluginp == null ||
 	pluginp.getPlugin() != getPluginFromId(pluginid)) {
+      if (pluginp != null && pluginp.getPlugin() != getPluginFromId(pluginid)) {
+	log.warning("Different plugin for: " + pluginid + ", was: " +
+		    pluginp.getPlugin() + ", now: " + getPluginFromId(pluginid),
+		    new Throwable());
+      }
       String key = PluginManager.pluginKeyFromId(pluginid);
       pluginMgr.ensurePluginLoaded(key);
       try {
@@ -338,12 +361,13 @@ public class RemoteApi
   public void deleteAu(AuProxy aup)
       throws ArchivalUnit.ConfigurationException, DbException,
       LockssRestException {
-    if (aup.isActiveAu()) {
-      ArchivalUnit au = aup.getAu();
-      pluginMgr.deleteAu(au);
-    } else {
-      pluginMgr.deleteAuConfiguration(aup.getAuId());
-    }
+    pluginMgr.deleteAu(aup);
+//     if (aup.isActiveAu()) {
+//       ArchivalUnit au = aup.getAu();
+//       pluginMgr.deleteAu(au);
+//     } else {
+//       pluginMgr.deleteAuConfiguration(aup.getAuId());
+//     }
   }
 
   /**
@@ -356,8 +380,7 @@ public class RemoteApi
   public void deactivateAu(AuProxy aup)
       throws ArchivalUnit.ConfigurationException, DbException,
       LockssRestException {
-    ArchivalUnit au = aup.getAu();
-    pluginMgr.deactivateAu(au);
+    pluginMgr.deactivateAu(aup);
   }
 
   // temporary
@@ -373,14 +396,19 @@ public class RemoteApi
    */
   public Configuration getStoredAuConfiguration(AuProxy aup)
       throws DbException, LockssRestException {
-    return pluginMgr.getStoredAuConfigurationAsConfiguration(aup.getAuId());
+    return getStoredAuConfiguration(aup.getAuId());
+  }
+
+  public Configuration getStoredAuConfiguration(String auid)
+      throws DbException, LockssRestException {
+    return pluginMgr.getStoredAuConfigurationAsConfiguration(auid);
   }
 
   /**
    * Return a list of AuProxies for all configured ArchivalUnits.
    * @return the List of AuProxies
    */
-  public List getAllAus() {
+  public List<AuProxy> getAllAus() {
     return mapAusToProxies(pluginMgr.getAllAus());
   }
 
@@ -389,15 +417,14 @@ public class RemoteApi
   }
 
   public List getInactiveAus() {
-    Collection inactiveAuIds = pluginMgr.getInactiveAuIds();
+    Collection<String> inactiveAuIds = pluginMgr.getInactiveAuIds();
     if (inactiveAuIds == null || inactiveAuIds.isEmpty()) {
       return Collections.EMPTY_LIST;
     }
-    List res = new ArrayList();
-    for (Iterator iter = inactiveAuIds.iterator(); iter.hasNext(); ) {
-      String auid = (String)iter.next();
+    List res = new ArrayList(inactiveAuIds.size());
+    for (String auid : inactiveAuIds) {
       if (!pluginMgr.isInternalAu(pluginMgr.getAuFromIdIfExists(auid))) {
-	res.add(findInactiveAuProxy(auid));
+	res.add(findAuProxy(auid));
       }
     }
     Collections.sort(res, auProxyComparator);
@@ -450,7 +477,7 @@ public class RemoteApi
     return pluginMgr.getAuFromId(auid);
   }
 
-  ArchivalUnit getAuFromIdIfExists(String auid) {
+  public ArchivalUnit getAuFromIdIfExists(String auid) {
     return pluginMgr.getAuFromIdIfExists(auid);
   }
 
@@ -1734,19 +1761,13 @@ public class RemoteApi
    * TreeSet unless changed to never return 0. */
   static class AuProxyOrderComparator implements Comparator {
     public int compare(Object o1, Object o2) {
-      try {
-	AuProxy a1 = (AuProxy)o1;
-	AuProxy a2 = (AuProxy)o2;
-	int res = coc.compare(a1.getName(), a2.getName());
-	if (res == 0) {
-	  res = a1.getAuId().compareTo(a2.getAuId());
-	}
-	return res;
-      } catch (DbException dbe) {
-	throw new RuntimeException("Database error", dbe);
-      } catch (LockssRestException lre) {
-	throw new RuntimeException("REST service error", lre);
+      AuProxy a1 = (AuProxy)o1;
+      AuProxy a2 = (AuProxy)o2;
+      int res = coc.compare(a1.getName(), a2.getName());
+      if (res == 0) {
+	res = a1.getAuId().compareTo(a2.getAuId());
       }
+      return res;
     }
   }
 

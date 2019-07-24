@@ -362,16 +362,18 @@ public class TitleConfig {
    */
   public boolean isActionable(PluginManager pluginMgr, int action) {
     try {
+      String auid = getAuId(pluginMgr);
+      // XXXONDEMAND
       switch (action) {
       case TitleSet.SET_ADDABLE:
 	// addable if doesn't exist and pub not down and not deactivated
-	return (pluginMgr.getAuFromIdIfExists(getAuId(pluginMgr)) == null
-		&& !pluginMgr.isInactiveAuId(getAuId(pluginMgr))
-		&& !AuUtil.isPubDown(this));
+	return (!AuUtil.isPubDown(this)
+		&& !pluginMgr.hasStoredAuConfiguration(auid)
+		);
       case TitleSet.SET_REACTABLE:
-	return pluginMgr.isInactiveAuId(getAuId(pluginMgr));
+	return pluginMgr.isInactiveAuId(auid);
       case TitleSet.SET_DELABLE:
-	return pluginMgr.getAuFromIdIfExists(getAuId(pluginMgr)) != null;
+	return pluginMgr.hasStoredAuConfiguration(auid);
       }
     } catch (RuntimeException e) {
       log.error("TC: " + displayName, e);

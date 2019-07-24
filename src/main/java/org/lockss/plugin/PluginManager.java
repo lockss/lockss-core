@@ -45,6 +45,7 @@ import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
+import org.lockss.remote.*;
 import org.lockss.poller.PollSpec;
 import org.lockss.rs.exception.LockssRestException;
 import org.lockss.state.AuState;
@@ -52,6 +53,7 @@ import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
+import org.lockss.state.*;
 import javax.jms.*;
 import org.lockss.jms.*;
 
@@ -390,6 +392,8 @@ public class PluginManager
 
   private ConfigManager configMgr;
   private AlertManager alertMgr;
+  private StateManager stateMgr;
+
 
   private File pluginDir = null;
   private AuOrderComparator auComparator = new AuOrderComparator();
@@ -413,9 +417,6 @@ public class PluginManager
   // for incoming URLs.  Each collection is sorted in AU order (for proxy
   // manifest index display).
   private Map<String,AuSearchSet> hostAus = new HashMap<String,AuSearchSet>();
-
-  private Set<String> inactiveAuIds =
-      Collections.synchronizedSet(new HashSet<String>());
 
   private List<AuEventHandler> auEventHandlers =
     new ArrayList<AuEventHandler>();
@@ -480,18 +481,26 @@ public class PluginManager
   }
 
   /* ------- LockssManager implementation ------------------ */
+
+  @Override
+  public void initService(LockssDaemon daemon) {
+    super.initService(daemon);
+    configMgr = getDaemon().getConfigManager();
+  }
+
   /**
    * start the plugin manager.
    * @see org.lockss.app.LockssManager#startService()
    */
+  @Override
   public void startService() {
     super.startService();
-    configMgr = getDaemon().getConfigManager();
 
     // Initialize the configuration database, if necessary.
     configMgr.deferredConfigDbInit();
 
     alertMgr = getDaemon().getAlertManager();
+    stateMgr = getDaemon().getManagerByType(StateManager.class);
     // Initialize the plugin directory.
     initPluginDir();
     configureDefaultTitleSets();
@@ -876,7 +885,6 @@ public class PluginManager
 
 	// Configure this Archival Unit.
 	configureAu(plugin, auConf, auId);
-	inactiveAuIds.remove(generateAuId(pluginKey, auKey));
       } catch (ArchivalUnit.ConfigurationException e) {
 	log.error("Failed to configure AU " + auId, e);
       } catch (Exception e) {
@@ -1159,10 +1167,6 @@ public class PluginManager
 	  // tk should actually remove AU?
 	  if (log.isDebug2())
 	    log.debug2("Not configuring disabled AU id: " + auKey);
-	  if (auMap.get(auId) == null) {
-	    // don't add to inactive if it's still running
-	    inactiveAuIds.add(auId);
-	  }
 	  continue nextAU;
 	}
 	switch (scc) {
@@ -1193,7 +1197,6 @@ public class PluginManager
 	  continue nextAU;
 	}
 	configureAu(plugin, auConf, auId);
-	inactiveAuIds.remove(generateAuId(pluginKey, auKey));
       } catch (ArchivalUnit.ConfigurationException e) {
 	log.error("Failed to configure AU " + auId, e);
       } catch (Exception e) {
@@ -1232,13 +1235,11 @@ public class PluginManager
 	  ", expected: "+ auId;
 	throw new ArchivalUnit.ConfigurationException(msg);
       }
-      if (!isAuContentFromWs()) {
-	try {
-	  getDaemon().startOrReconfigureAuManagers(au, auConf);
-	} catch (Exception e) {
-	  throw new ArchivalUnit.ConfigurationException(
+      try {
+	getDaemon().startOrReconfigureAuManagers(au, auConf);
+      } catch (Exception e) {
+	throw new ArchivalUnit.ConfigurationException(
 	      "Couldn't configure AU managers", e);
-	}
       }
       if (oldAu != null) {
 	log.debug("Reconfigured AU " + au);
@@ -1271,31 +1272,25 @@ public class PluginManager
     try {
       auid = generateAuId(plugin, auConf);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auid = " + auid);
-      if (!isAuContentFromWs()) {
-	oldAu = getAuFromIdIfExists(auid);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "oldAu = " + oldAu);
-      }
+      oldAu = getAuFromIdIfExists(auid);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "oldAu = " + oldAu);
     } catch (Exception e) {
-      // no action.  Bad/missing config value might cause getAuFromId() to
+      // no action.  Bad/missing config value might cause generateAuId() to
       // throw.  It will be caught soon when creating the AU; for now we
       // can assume it means the AU doesn't already exist.
     }
     if (oldAu != null) {
-      inactiveAuIds.remove(oldAu.getAuId());
       throw new ArchivalUnit.ConfigurationException("Cannot create that AU because it already exists: " + oldAu.getName());
     }
     try {
       ArchivalUnit au = plugin.createAu(auConf);
-      inactiveAuIds.remove(au.getAuId());
       log.debug("Created AU " + au);
-      if (!isAuContentFromWs()) {
-	try {
-	  getDaemon().startOrReconfigureAuManagers(au, auConf);
-	} catch (Exception e) {
-	  log.error("Couldn't start AU processes", e);
-	  throw new ArchivalUnit.ConfigurationException(
+      try {
+	getDaemon().startOrReconfigureAuManagers(au, auConf);
+      } catch (Exception e) {
+	log.error("Couldn't start AU processes", e);
+	throw new ArchivalUnit.ConfigurationException(
 	      "Couldn't start AU processes", e);
-	}
       }
       putAuInMap(au);
       event = AuEvent.forAu(au, event);
@@ -1414,7 +1409,7 @@ public class PluginManager
   }
 
   void setUpJmsNotifications() {
-    setUpJmsReceive(clientId, notificationTopic,
+    setUpJmsReceive(clientId, notificationTopic, true,
 		    new MapMessageListener("AuEvent Listener"));
     setUpJmsSend(clientId, notificationTopic);
   }
@@ -1449,7 +1444,7 @@ public class PluginManager
     String auid = event.getAuId();
     ArchivalUnit au = getAuFromIdIfExists(auid);
     if (au == null) {
-      log.debug("Ignoring received AuEvent for non-configured AU: " + auid);
+      log.debug("Ignoring received AuEvent for nonexistent AU: " + auid);
       return;
     }
     signalAuEventInternal(au, event);
@@ -1592,9 +1587,7 @@ public class PluginManager
       }
       auList = null;
     }
-    if (!isAuContentFromWs()) {
-      addHostAus(au);
-    }
+    addHostAus(au);
   }
 
   /**
@@ -1777,21 +1770,19 @@ public class PluginManager
   }
 
   void flush404Cache(ArchivalUnit au) {
-    if (!isAuContentFromWs()) {
-      try {
-	Collection<String> stems = normalizeStems(au.getUrlStems());
-	synchronized (hostAus) {
-	  for (String stem : stems) {
-	    AuSearchSet searchSet = hostAus.get(stem);
-	    if (searchSet != null) {
-	      if (log.isDebug2()) log.debug2("Flushing 404 cache for: " + stem);
-	      searchSet.flush404Cache();
-	    }
+    try {
+      Collection<String> stems = normalizeStems(au.getUrlStems());
+      synchronized (hostAus) {
+	for (String stem : stems) {
+	  AuSearchSet searchSet = hostAus.get(stem);
+	  if (searchSet != null) {
+	    if (log.isDebug2()) log.debug2("Flushing 404 cache for: " + stem);
+	    searchSet.flush404Cache();
 	  }
 	}
-      } catch (Exception e) {
-	log.error("flush404Cache()", e);
       }
+    } catch (Exception e) {
+      log.error("flush404Cache()", e);
     }
   }
 
@@ -1859,11 +1850,11 @@ public class PluginManager
     synchronized (auAddDelLock) {
       log.debug("Reconfiguring AU " + au);
       au.setConfiguration(auConf);
-      updateAuIndatabase(au, auConf);
+      updateAuInDatabase(au, auConf);
     }
   }
 
-  private void updateAuIndatabase(ArchivalUnit au, Configuration auConf)
+  private void updateAuInDatabase(ArchivalUnit au, Configuration auConf)
       throws DbException, LockssRestException {
     if (!auConf.isEmpty()) {
       if (!auConf.isSealed()) {
@@ -1893,6 +1884,71 @@ public class PluginManager
     }
   }
 
+
+  /**
+   * Convenience method to provide an indication of whether an Archival Unit is
+   * not configured in the daemon and it's not inactive.
+   *
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a boolean with <code>true</code> if the Archival Unit is not
+   *         configured in the daemon and it's not inactive, <code>false</code>
+   *         otherwise.
+   */
+  public boolean isNotConfiguredAndNotInactive(String auId) {
+    try {
+      Configuration oldConfig = getStoredAuConfigurationAsConfiguration(auId);
+      return oldConfig == null;
+    } catch (DbException | LockssRestException e) {
+      log.warning("Error getting AU config", e);
+      return false;
+    }
+
+  }
+
+  public boolean isAuConfigured(String auId) {
+    try {
+      Configuration oldConfig = getStoredAuConfigurationAsConfiguration(auId);
+      return oldConfig != null;
+    } catch (DbException | LockssRestException e) {
+      log.warning("Error getting AU config", e);
+      return false;
+    }
+  }
+
+  void checkNotConfigured(Plugin plugin, Configuration auConf)
+      throws ArchivalUnit.ConfigurationException, DbException,
+	     LockssRestException {
+    checkNotConfigured(generateAuId(plugin, auConf), auConf);
+  }
+
+  void checkNotConfigured(String auid, Configuration auConf)
+      throws ArchivalUnit.ConfigurationException, DbException,
+	     LockssRestException {
+    ArchivalUnit oldAu = getAuFromIdIfExists(auid);
+    if (oldAu != null) {
+      throw new ArchivalUnit.ConfigurationException("Cannot create that AU because it already exists: " + oldAu.getName());
+    }
+    Configuration oldConfig = getStoredAuConfigurationAsConfiguration(auid);
+    if (oldConfig != null) {
+      String name = oldConfig.get(AU_PARAM_DISPLAY_NAME);
+      if (name == null) {
+	name = auid;
+      }
+      if (oldConfig.getBoolean(AU_PARAM_DISABLED, false)) {
+	// Do anything different if config is there but disabled?
+      }
+      throw new ArchivalUnit.ConfigurationException("Cannot create that AU because it's already configured: " + name);
+    }
+  }
+
+  void checkNotPresent(String auid)
+      throws ArchivalUnit.ConfigurationException {
+    ArchivalUnit oldAu = getAuFromIdIfExists(auid);
+    if (oldAu != null) {
+      throw new ArchivalUnit.ConfigurationException("Cannot create that AU because it already exists: " + oldAu.getName());
+    }
+  }
 
   /**
    * Create an AU and save its configuration in the database.  Need to find a
@@ -1929,12 +1985,19 @@ public class PluginManager
       throws ArchivalUnit.ConfigurationException, DbException,
       LockssRestException {
     synchronized (auAddDelLock) {
+      String auId = generateAuId(plugin, auConf);
+//       checkNotConfigured(auid, auConf);
+      checkNotPresent(auId);
       auConf.put(AU_PARAM_DISABLED, "false");
-      ArchivalUnit au = createAu(plugin, auConf,
-                                 AuEvent.model(AuEvent.Type.Create));
-      AuState aus = AuUtil.getAuState(au);
-      aus.setAuCreationTime(TimeBase.nowMs());
-      updateAuIndatabase(au, auConf);
+      ArchivalUnit au = null;
+      if (isStartAusOnCreation()) {
+	au = createAu(plugin, auConf, AuEvent.model(AuEvent.Type.Create));
+      }
+      updateAuInDatabase(auId, auConf);
+      AuStateBean ausb = stateMgr.getAuStateBean(auId);
+      ausb.setAuCreationTime(TimeBase.nowMs());
+      stateMgr.updateAuStateBean(auId, ausb,
+				 Collections.singleton("auCreationTime"));
       return au;
     }
   }
@@ -1966,8 +2029,6 @@ public class PluginManager
     synchronized (auAddDelLock) {
       log.debug("Deleting AU config: " + auid);
       configMgr.removeArchivalUnitConfiguration(auid);
-      // might be deleting an inactive au
-      inactiveAuIds.remove(auid);
     }
   }
 
@@ -1979,17 +2040,44 @@ public class PluginManager
    */
   public void deactivateAuConfiguration(ArchivalUnit au)
       throws DbException, LockssRestException {
-    synchronized (auAddDelLock) {
-      log.debug("Deactivating AU: " + au);
+    log.debug("Deactivating AU: " + au);
+    deactivateAuConfiguration(au.getAuId());
+  }
 
-      AuConfiguration auConfiguration =
-	  configMgr.retrieveArchivalUnitConfiguration(au.getAuId());
+  public void deactivateAuConfiguration(String auid)
+      throws DbException, LockssRestException {
+    synchronized (auAddDelLock) {
+      log.debug2("Deactivating AU: " + auid);
+
+      AuConfiguration auConfiguration = getStoredAuConfiguration(auid);
       if (log.isDebug3()) log.debug3("auConfig = " + auConfiguration);
 
       if (auConfiguration != null) {
 	auConfiguration.getAuConfig().put(AU_PARAM_DISABLED, "true");
 
 	configMgr.storeArchivalUnitConfiguration(auConfiguration);
+      }
+    }
+  }
+
+  public boolean isPresentAu(String auid) {
+    return auMap.get(auid) != null;
+  }
+
+  /**
+   * Delete an AU
+   * @param au the ArchivalUnit to be deleted
+   * @throws DbException
+   * @throws LockssRestException
+   */
+  public void deleteAu(AuProxy aup)
+      throws ArchivalUnit.ConfigurationException, DbException,
+      LockssRestException {
+    synchronized (auAddDelLock) {
+      if (isPresentAu(aup.getAuId())) {
+	deleteAu(aup.getAu());
+      } else {
+	deleteAuConfiguration(aup.getAuId());
       }
     }
   }
@@ -2006,6 +2094,23 @@ public class PluginManager
       deleteAuConfiguration(au);
       if (isRemoveStoppedAus()) {
 	stopAu(au, AuEvent.forAu(au, AuEvent.Type.Delete));
+      }
+    }
+  }
+
+  /**
+   * Deactivate an AU
+   * @param au the ArchivalUnit to be deactivated
+   * @throws DbException
+   * @throws LockssRestException
+   */
+  public void deactivateAu(AuProxy aup)
+    throws DbException, LockssRestException {
+    synchronized (auAddDelLock) {
+      if (isPresentAu(aup.getAuId())) {
+	deactivateAu(aup.getAu());
+      } else {
+	deactivateAuConfiguration(aup.getAuId());
       }
     }
   }
@@ -2033,9 +2138,24 @@ public class PluginManager
     if (isRemoveStoppedAus()) {
       String auid = au.getAuId();
       stopAu(au, AuEvent.forAu(au, AuEvent.Type.Deactivate));
-      inactiveAuIds.add(auid);
     }
   }
+
+//   /**
+//    * Deactivate an AU
+//    * @param au the ArchivalUnit to be deactivated
+//    * @throws DbException
+//    * @throws LockssRestException
+//    */
+//   public void reactivateAu(AuProxy aup)
+//     throws DbException, LockssRestException {
+//     synchronized (auAddDelLock) {
+// //       if (isPresentAu(aup.getAuId())) {
+// // 	pluginMgr.deleteAu(aup.getAu());
+// //       } else {
+// // 	deleteAuConfiguration(aup.getAuId());
+//     }
+//   }
 
   // Stops and restarts a set of AUs so that they start using the current
   // version of their plugin.  Waits a little while between stopping and
@@ -2182,6 +2302,21 @@ public class PluginManager
   public AuConfiguration getStoredAuConfiguration(String auid)
       throws DbException, LockssRestException {
     return configMgr.retrieveArchivalUnitConfiguration(auid);
+  }
+
+  /**
+   * Return the config tree for an AU id (from the database, not the au itself).
+   * @param auid the AU's id.
+   * @return the AU's Configuration, with unprefixed keys.
+   */
+  public boolean hasStoredAuConfiguration(String auid) {
+    try {
+      AuConfiguration auc = configMgr.retrieveArchivalUnitConfiguration(auid);
+      return auc != null;
+    } catch (DbException | LockssRestException e) {
+      log.error("Can't retrieve AU config, reporting hasn't one", e);
+      return false;
+    }
   }
 
   /**
@@ -3137,11 +3272,26 @@ public class PluginManager
     }
   }
 
-  // XXXX lots of things depend on this.  fix it for env where not all AUs
-  // are created
+  // XXXONDEMAND PERF
   /** Return the AUIDs all AU that have been explicitly deactivated */
   public Collection<String> getInactiveAuIds() {
-    return inactiveAuIds;
+    try {
+      List<String> res = new ArrayList<>();
+      for (AuConfiguration auc :
+	     configMgr.retrieveAllArchivalUnitConfiguration()) {
+	if (isDisabledAuConfig(auc)) {
+	  res.add(auc.getAuId());
+	}
+      }
+      return res;
+    } catch (DbException | IOException | LockssRestException e) {
+      log.error("Error getting Archival Unit configurations", e);
+      return Collections.emptyList();
+    }
+  }
+
+  boolean isDisabledAuConfig(AuConfiguration auConfig) {
+    return Configuration.stringToBool(auConfig.getAuConfig().getOrDefault(AU_PARAM_DISABLED, "false"));
   }
 
   // XXXX lots of things depend on this.  fix it for env where not all AUs
@@ -3149,7 +3299,16 @@ public class PluginManager
   /** Return true if the AUID is that of an AU that has been explicitly
    * deactivated */
   public boolean isInactiveAuId(String auid) {
-    return inactiveAuIds.contains(auid);
+    try {
+      AuConfiguration auConf = getStoredAuConfiguration(auid);
+      if (auConf != null) {
+	return isDisabledAuConfig(auConf);
+      }
+    } catch (DbException | LockssRestException e) {
+      log.error("Error getting Archival Unit configuration", e);
+      return false;
+    }
+    return false;
   }
 
   private void queuePluginRegistryCrawls() {
@@ -3947,24 +4106,6 @@ public class PluginManager
     }
 
   /**
-   * Convenience method to provide an indication of whether an Archival Unit is
-   * not configured in the daemon and it's not inactive.
-   * 
-   * @param auId
-   *          A String with the Archival Unit identifier.
-   * @return a boolean with <code>true</code> if the Archival Unit is not
-   *         configured in the daemon and it's not inactive, <code>false</code>
-   *         otherwise.
-   */
-  public boolean isNotConfiguredAndNotInactive(String auId) {
-    // The third element of the intersection below is there to handle the
-    // potential race condition triggered by the Archival Unit being reactivated
-    // between the first two calls.
-    return getAuFromIdIfExists(auId) == null && !isInactiveAuId(auId)
-	&& getAuFromIdIfExists(auId) == null;
-  }
-
-  /**
    * CrawlManager callback that is responsible for handling Registry
    * AUs when they're finished with their initial crawls.
    */
@@ -4019,23 +4160,17 @@ public class PluginManager
     }
   }
 
-  /*
-   * Provides the indication of whether the URLs (and their content) of an
-   * archival unit should be obtained from a web service instead of the
-   * repository.
-   * 
-   * @return a boolean with <code>true</code> if the URLs (and their content) of
-   * an archival unit should be obtained from a web service, <code>false</code>
-   * otherwise.
-   */
-  // TK calls to this remain in order to document previous behavior
-  public boolean isAuContentFromWs() {
-    return false;
-//     return paramAuContentFromWs;
-  }
-
   public boolean isStartAusOnDemand() {
     return !paramStartAllAus;
+  }
+
+  // XXXONDEMAND
+  public boolean isStartAusOnCreation() {
+    // Eventually this will be equivalent to paramStartAllAus, but there's
+    // still code that relies on the return value of
+    // createAndSaveAuConfiguration() being a running AU
+//     return paramStartAllAus;
+    return true;
   }
 
   public boolean isLoadAllPlugins() {

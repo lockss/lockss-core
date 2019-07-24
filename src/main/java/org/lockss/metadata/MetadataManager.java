@@ -2206,6 +2206,11 @@ public class MetadataManager extends BaseLockssManager {
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
+
+  // XXXONDEMAND Note that this is now likely a perfomance problem because
+  // pluginMgr.isNotConfiguredAndNotInactive() now requires a transaction
+  // with ConfigService
+
   public Collection<Map<String, Object>> getDbArchivalUnitsDeletedFromDaemon()
       throws DbException {
     final String DEBUG_HEADER = "getDbArchivalUnitsDeletedFromDaemon(): ";

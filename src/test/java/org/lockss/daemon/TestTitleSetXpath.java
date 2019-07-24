@@ -286,14 +286,13 @@ public class TestTitleSetXpath extends LockssTestCase {
     // Create an AU matching this TitleConfig
     TitleConfig tc = lst.get(3);
     ArchivalUnit au =
-      PluginTestUtil.createAndStartAu(plug.getPluginId(), tc.getConfig());
+      pluginMgr.createAndSaveAuConfiguration(plug, tc.getConfig());
     assertEquals(tc.getAuId(pluginMgr, plug), au.getAuId());
     assertEquals(7, tsa1.countTitles(TitleSet.SET_ADDABLE));
     assertEquals(8, tsa1.getTitles().size());
 
     ArchivalUnit au2 =
-      PluginTestUtil.createAndStartAu(plug.getPluginId(),
-				      lst.get(1).getConfig());
+      pluginMgr.createAndSaveAuConfiguration(plug, lst.get(1).getConfig());
     assertEquals(6, tsa1.countTitles(TitleSet.SET_ADDABLE));
     assertEquals(8, tsa1.getTitles().size());
 

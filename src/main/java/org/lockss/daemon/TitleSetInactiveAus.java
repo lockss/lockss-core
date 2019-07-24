@@ -50,10 +50,9 @@ public class TitleSetInactiveAus extends BaseTitleSet {
    * @return a collection of TitleConfig */
   public Collection<TitleConfig> getTitles()
       throws DbException, LockssRestException {
-    Collection aus = daemon.getRemoteApi().getInactiveAus();
+    Collection<AuProxy> aus = daemon.getRemoteApi().getInactiveAus();
     ArrayList<TitleConfig> res = new ArrayList<TitleConfig>(aus.size());
-    for (Iterator iter = aus.iterator(); iter.hasNext();) {
-      InactiveAuProxy aup = (InactiveAuProxy)iter.next();
+    for (AuProxy aup : aus) {
       res.add(titleConfigFromAu(aup));
     }
     res.trimToSize();
@@ -74,7 +73,7 @@ public class TitleSetInactiveAus extends BaseTitleSet {
 
   /** Return a TitleConfig for the AU.  Returns matching entry from the
    * title db if found, else creates one */
-  TitleConfig titleConfigFromAu(InactiveAuProxy au)
+  TitleConfig titleConfigFromAu(AuProxy au)
       throws DbException, LockssRestException {
     PluginProxy plugin = au.getPlugin();
     String auname = au.getName();

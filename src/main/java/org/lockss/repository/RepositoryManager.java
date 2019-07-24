@@ -86,6 +86,7 @@ public class RepositoryManager
   public static final String DEFAULT_V2_REPOSITORY = "volatile:baz";
 //   public static final String DEFAULT_V2_REPOSITORY = null;
 
+  /** Should be moved into repo code */
   public static final String PARAM_PERSIST_INDEX_NAME =
       PREFIX + "persistIndexName";
   public static final String DEFAULT_PERSIST_INDEX_NAME = "artifact-index.ser";

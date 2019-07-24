@@ -151,6 +151,18 @@ public class CollectionUtil {
     return it.next();
   }
 
+//   public static int sizeOf(Iterable iter) {
+//     if (iter instanceof Collection) {
+//       return ((Colletion)iter).size();
+//     }
+//     int ret = 0;
+//     for (Object o : iter) {
+//       ++ret;
+//     }
+//     return ret;
+//   }
+
+
   private static LockssRandom random = new LockssRandom();
 
   /**
