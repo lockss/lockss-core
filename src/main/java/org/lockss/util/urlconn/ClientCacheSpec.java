@@ -58,7 +58,9 @@ public class ClientCacheSpec {
       // cache responses even if no headers saying that's ok
       .setHeuristicCachingEnabled(true)
       .setHeuristicDefaultLifetime(Constants.HOUR)
-      // 	  .setSharedCache(false)
+//       .setSharedCache(false)
+      // Don't do background cache revalidation
+      .setAsynchronousWorkersMax(0)
       .build();
   }
   

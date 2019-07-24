@@ -151,6 +151,14 @@
       <property name="test.t" value="foo"/>
     </if>
 
+    <!-- Test hostIP -->
+    <if hostIP="11.22.33.44">
+      <property name="test.hostIP.true" value="foo"/>
+    </if>
+    <if hostIP="66.66.66.66">
+      <property name="test.hostIP.false" value="foo"/>
+    </if>
+
     <!-- Test platform name -->
     <if platformName="Linux rpm">
       <property name="test.platformName.linux" value="linux"/>

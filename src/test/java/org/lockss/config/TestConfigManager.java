@@ -964,7 +964,7 @@ public class TestConfigManager extends LockssTestCase4 {
 		   SetUtil.theSet(pairs));
     }
     mgr.setGroups("grouper");
-    ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_LOCAL_V3_IDENTITY,
 				  "tcp:[111.32.14.5]:9876");
     pairs = StringUtil.breakAt(mgr.getVersionString(), ',');
     if (release != null) {
@@ -2244,16 +2244,17 @@ public class TestConfigManager extends LockssTestCase4 {
     String receiveNotifications = "super";
 
     public static ConfigManager makeConfigManager(LockssDaemon daemon) {
-      theMgr = new MyConfigManager();
-      theMgr.initService(daemon);
-      return theMgr;
+      ConfigManager mgr = new MyConfigManager();
+      mgr.initService(daemon);
+      return theMgr.setValue(mgr);
     }
 
     public static ConfigManager makeConfigManager(LockssDaemon daemon,
 	String restConfigServiceUrl) {
-      theMgr = new MyConfigManager(null, restConfigServiceUrl, null, null);
-      theMgr.initService(daemon);
-      return theMgr;
+      ConfigManager mgr =
+	new MyConfigManager(null, restConfigServiceUrl, null, null);
+      mgr.initService(daemon);
+      return theMgr.setValue(mgr);
     }
 
     public MyConfigManager() {

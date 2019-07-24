@@ -705,9 +705,14 @@ public class TestXmlPropertyLoader extends LockssTestCase {
     assertNull(m_props.get("org.lockss.test.r"));
   }
 
-  public void testHostnameMembership() throws Exception {
+  public void testHostname() throws Exception {
     assertEquals("foo", m_props.get("org.lockss.test.s"));
     assertNull(m_props.get("org.lockss.test.t"));
+  }
+
+  public void testHostIP() throws Exception {
+    assertEquals("foo", m_props.get("org.lockss.test.hostIP.true"));
+    assertNull(m_props.get("org.lockss.test.hostIP.false"));
   }
 
   public void testHostMembership() throws Exception {
@@ -1432,7 +1437,12 @@ public class TestXmlPropertyLoader extends LockssTestCase {
    * Set default values for testing conditionals.
    */
   private void setDefaultVersions() {
-    ((MockXmlPropertyLoader)m_xmlPropertyLoader).setVersions("1.2.8", "OpenBSD CD-135", "testhost", "beta");
+    m_xmlPropertyLoader
+      .setDaemonVersion("1.2.8")
+      .setPlatformVersion("OpenBSD CD-135")
+      .setPlatformHostname("testhost")
+      .setPlatformGroups("beta")
+      .setPlatformHostIP("11.22.33.44");
   }
 
   /**
@@ -1440,7 +1450,11 @@ public class TestXmlPropertyLoader extends LockssTestCase {
    */
   private void setVersions(String daemonVersion, String platformVersion,
 			   String hostname, String group) {
-    ((MockXmlPropertyLoader)m_xmlPropertyLoader).setVersions(daemonVersion, platformVersion, hostname, group);
+    m_xmlPropertyLoader
+      .setDaemonVersion(daemonVersion)
+      .setPlatformVersion(platformVersion)
+      .setPlatformHostname(hostname)
+      .setPlatformGroups(group);
   }
 
   private void setVersions(String daemonVersion, String platformVersion,

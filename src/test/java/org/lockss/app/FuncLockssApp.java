@@ -53,6 +53,7 @@ public class FuncLockssApp extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    LockssApp.testingReinitialize();
     tempDirPath = setUpDiskSpace();
     org.lockss.truezip.TrueZipManager.setTempDir(getTempDir());
 
@@ -68,6 +69,15 @@ public class FuncLockssApp extends LockssTestCase {
       FileTestUtil.urlOfString("org.lockss.app.nonesuch=foo\n" +
 			       "deftest1=file\n" +
 			       "deftest2=file");
+
+    final SimpleQueue appq = new SimpleQueue.Fifo();
+    Thread th = new Thread() {
+	public void run() {
+	  appq.put(LockssApp.getLockssApp());
+	}};
+    th.start();
+    assertTrue(appq.isEmpty());
+
     String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
@@ -80,10 +90,11 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppDefault("deftest3", "app3")
       .addBootDefault("o.l.plat.xxy", "zzz")
       .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
-//       .setKeepRunning(true)
-//       .setAppManagers(managerDescs)
       ;
+
+    assertTrue(appq.isEmpty());
     LockssApp app = LockssApp.startStatic(MyMockLockssApp.class, spec);
+    assertSame(app, appq.get(TIMEOUT_SHOULDNT));
 
     assertTrue(app.isAppRunning());
     Configuration config = ConfigManager.getCurrentConfig();

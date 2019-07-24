@@ -221,6 +221,7 @@ public class MetadataDbManager extends DbManager
 			Configuration.Differences changedKeys) {
     final String DEBUG_HEADER = "setConfig(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+    super.setConfig(config, prevConfig, changedKeys);
 
     if (changedKeys.contains(PREFIX)) {
       // Update the reconfigured parameters.
@@ -241,15 +242,6 @@ public class MetadataDbManager extends DbManager
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
-
-  /**
-   * Provides the key used by the application to locate this manager.
-   * 
-   * @return a String with the manager key.
-   */
-//  public static String getManagerKey() {
-//    return "MetadataDbManager";
-//  }
 
   @Override
   protected String getDataSourceRootName() {
@@ -301,14 +293,15 @@ public class MetadataDbManager extends DbManager
    * Provides the full name of the database to be used.
    * 
    * @param config
-   *          A Configuration that includes the simple name of the database.
+   *          A Configuration that may include the simple name of the database.
    * @return a String with the full name of the database.
    */
   @Override
   protected String getDataSourceDatabaseName(Configuration config) {
     // Return the configured database name.
-    return getFullDataSourceDatabaseName(config.get(PARAM_DATASOURCE_DATABASENAME,
-	"Lockss" + this.getClass().getSimpleName()));
+    return getFullDataSourceDatabaseName(config.get(
+	PARAM_DATASOURCE_DATABASENAME,
+	getDatabaseNamePrefix() + this.getClass().getSimpleName()));
   }
 
   /**

@@ -43,7 +43,9 @@ import org.lockss.util.time.TimeUtil;
 import org.lockss.plugin.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
+import org.lockss.daemon.status.*;
 import org.lockss.laaws.rs.core.*;
+import static org.lockss.repository.LockssRepositoryStatus.*;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -109,7 +111,7 @@ public class RepositoryManager
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
 
-  private RepositoryAndCollection v2Repo = null;
+  private RepoSpec v2Repo = null;
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
@@ -121,6 +123,22 @@ public class RepositoryManager
   public void startService() {
     super.startService();
     localRepos = new HashMap();
+    LockssDaemon daemon = getDaemon();
+    StatusService statusServ = daemon.getStatusService();
+    statusServ.registerStatusAccessor(SERVICE_STATUS_TABLE_NAME,
+				      new RepoCollsStatusAccessor(daemon));
+    statusServ.registerStatusAccessor(AUIDS_STATUS_TABLE_NAME,
+				      new CollectionAuidsStatusAccessor(daemon));
+    statusServ.registerStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME,
+				      new AuidArtifactsStatusAccessor(daemon));
+  }
+
+  public void stopService() {
+    StatusService statusServ = getDaemon().getStatusService();
+    statusServ.unregisterStatusAccessor(SERVICE_STATUS_TABLE_NAME);
+    statusServ.unregisterStatusAccessor(AUIDS_STATUS_TABLE_NAME);
+    statusServ.unregisterStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME);
+    super.stopService();
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
@@ -159,130 +177,58 @@ public class RepositoryManager
               config.getEnum(CheckUnnormalizedMode.class,
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
     }
-    processV2RepoSpec(config.get(PARAM_V2_REPOSITORY,
-				   DEFAULT_V2_REPOSITORY),
-	config.get(PARAM_PERSIST_INDEX_NAME, DEFAULT_PERSIST_INDEX_NAME));
+    processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
   }
 
   static Pattern REPO_SPEC_PATTERN =
     Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
 
-  private void processV2RepoSpec(String spec, String persistedIndexName) {
+  private void processV2RepoSpec(String spec) {
     if (!StringUtil.isNullString(System.getProperty("oldrepo"))) {
       return;
     }
     if (spec != null) {
       // currently set this only once
-      if (v2Repo == null) {
-	LockssRepository repo = null;
-	Matcher m1 = REPO_SPEC_PATTERN.matcher(spec);
-	if (m1.matches()) {
-	  String coll = m1.group(2);
-	  if (StringUtil.isNullString(coll)) {
-	    log.critical("Illegal V2 repository spec: " + spec);
-	  } else {
-	    String repoSpec = m1.group(1);
-	    switch (repoSpec) {
-	    case "volatile":
-	      try {
-		repo = LockssRepositoryFactory.createVolatileRepository();
-	      } catch (IOException e) {
-	        // This should never happen - never actually thrown by volatile implementation
-	        log.critical("Caught IOException when attempting to create a volatile repository!", e);
-	      }
-	      break;
-	    case "local":
-	      String s = m1.group(3);
-	      if (StringUtil.isNullString(s)) {
-		log.critical("Illegal V2 repository spec: " + spec);
-	      } else {
-		File path = new File(s);
-		try {
-		  repo = LockssRepositoryFactory.createLocalRepository(path,
-		      persistedIndexName);
-		} catch (IOException e) {
-		  log.critical("Illegal V2 repository path: " + path +
-			       ", persistedIndexName: " + persistedIndexName +
-			       ": " + e.getMessage());
-		}
-	      }
-	      break;
-	    case "rest":
-	      String u = m1.group(3);
-	      if (StringUtil.isNullString(u)) {
-		log.critical("Illegal V2 repository spec: " + spec);
-	      } else {
-		try {
-		  URL url = new URL(u);
-		  repo =
-		    LockssRepositoryFactory.createRestLockssRepository(url);
-		} catch (MalformedURLException e) {
-		  log.critical("Illegal V2 repository spec URL: " + spec +
-			       ": " + e.getMessage());
-		}
-	      }
-	      break;
-	    default:
-	      log.critical("Illegal V2 repository spec: " + spec);
-	    }
-	    if (repo != null) {
-	      v2Repo = new RepositoryAndCollection(spec, repoSpec, repo, coll);
-	    }
-	  }
-	} else {
-	  log.critical("Illegal V2 repository spec: " + spec);
+      if (!repoSpecMap.containsKey(spec)) {
+	try {
+	  RepoSpec rs = RepoSpec.fromSpec(spec);
+	  rs.getRepository();
+	  setV2Repo(rs);
+	} catch (Exception e) {
+	  log.critical("Can't create V2 repo", e);
 	}
       }
     } else {
-      v2Repo = null;
+      repoSpecMap.remove(spec);
     }
   }
 
-  public class RepositoryAndCollection {
-    private String repoSpec;
-    private String type;
-    private LockssRepository repo;
-    private String collection;
-
-    private RepositoryAndCollection(String repoSpec,
-				    String type,
-				    LockssRepository repo,
-				    String collection) {
-      this.repoSpec = repoSpec;
-      this.type = type;
-      this.repo = repo;
-      this.collection = collection;
-    }
-
-    public String getRepoType() {
-      return type;
-    }
-
-    public String getRepoSpec() {
-      return repoSpec;
-    }
-
-    public LockssRepository getRepository() {
-      return repo;
-    }
-
-    public String getCollection() {
-      return collection;
-    }
-
-    public String toString() {
-      return repoSpec;
-    }
+  private void setV2Repo(RepoSpec rs) {
+    repoSpecMap.put(rs.getSpec(), rs);
+    v2Repo = rs;
   }
 
   public static boolean isV2Repo() {
-    RepositoryAndCollection rac =
+    RepoSpec rs =
       LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository();
-    return rac != null && rac.getRepository() != null;
+    return rs != null && rs.getRepository() != null;
   }
 
-  public RepositoryAndCollection getV2Repository() {
+  Map<String,RepoSpec> repoSpecMap = new HashMap<>();
+
+  /** Temporary until multiple repos */
+  public RepoSpec getV2Repository() {
     return v2Repo;
+  }
+
+  public RepoSpec getV2Repository(String spec) {
+    return repoSpecMap.get(spec);
+  }
+
+  /** Return list of known repository names.  Needs a registration
+   * mechanism if ever another repository implementation. */
+  public Collection<RepoSpec> getV2RepositoryList() {
+    return repoSpecMap.values();
   }
 
   public static int getMaxComponentLength() {
@@ -343,7 +289,7 @@ public class RepositoryManager
     try {
       for (String id : repo.getAuIds(v2Repo.getCollection())) {
 	if (auid.equals(id)) {
-	  return Collections.singletonList(v2Repo.getRepoSpec());
+	  return Collections.singletonList(v2Repo.getSpec());
 	}
       }
     } catch (IOException e) {

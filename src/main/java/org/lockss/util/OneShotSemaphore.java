@@ -67,6 +67,11 @@ public class OneShotSemaphore {
     return state;
   }
 
+  /** Return true if the semaphore has been filled */
+  public boolean peek() {
+    return state;
+  }
+
   /** Fill the semaphore.  All threads waiting on this semaphore will
    * proceed.  */
   synchronized public void fill() {

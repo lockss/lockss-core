@@ -209,6 +209,7 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
   public void setConfig(Configuration config, Configuration prevConfig,
 			Configuration.Differences changedKeys) {
     log.debug2("Invoked");
+    super.setConfig(config, prevConfig, changedKeys);
 
     if (changedKeys.contains(PREFIX)) {
       // Update the reconfigured parameters.
@@ -280,14 +281,15 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
    * Provides the full name of the database to be used.
    * 
    * @param config
-   *          A Configuration that includes the simple name of the database.
+   *          A Configuration that may include the simple name of the database.
    * @return a String with the full name of the database.
    */
   @Override
   protected String getDataSourceDatabaseName(Configuration config) {
     // Return the configured database name.
-    return getFullDataSourceDatabaseName(config.get(PARAM_DATASOURCE_DATABASENAME,
-	"Lockss" + this.getClass().getSimpleName()));
+    return getFullDataSourceDatabaseName(config.get(
+	PARAM_DATASOURCE_DATABASENAME,
+	getDatabaseNamePrefix() + this.getClass().getSimpleName()));
   }
 
   /**
