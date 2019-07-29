@@ -61,7 +61,7 @@ public class Cron
 
   /** Enable Cron facility */
   static final String PARAM_ENABLED = PREFIX + "enabled";
-  static final boolean DEFAULT_ENABLED = true;
+  static final boolean DEFAULT_ENABLED = false;
 
   /** Interval at which Cron wakes up to check for runnable tasks */
   static final String PARAM_SLEEP = PREFIX + "sleep";

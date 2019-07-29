@@ -36,6 +36,7 @@ import org.apache.activemq.broker.BrokerService;
 import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
@@ -165,8 +166,8 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testNotifyChanged() throws IOException, JMSException {
-    Consumer cons =
-      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsConsumer cons =
+      JMSManager.getJmsFactoryStatic().createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
     mymgr.setShouldSendNotifications("yes");
     getMockLockssDaemon().setAppRunning(true);
 
@@ -185,8 +186,8 @@ public class TestConfigManager extends LockssTestCase4 {
   // config callback
   @Test
   public void testReceiveNotify() throws IOException, JMSException {
-    Producer prod =
-      Producer.createTopicProducer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsProducer prod =
+      JMSManager.getJmsFactoryStatic().createTopicProducer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
     mymgr.setShouldReceiveNotifications("yes");
     mymgr.setUpJmsNotifications();
 
@@ -1293,8 +1294,8 @@ public class TestConfigManager extends LockssTestCase4 {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  tmpdir);
 
-    Consumer cons =
-      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsConsumer cons =
+      JMSManager.getJmsFactoryStatic().createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
     mymgr.setShouldSendNotifications("yes");
     mymgr.setUpJmsNotifications();
 

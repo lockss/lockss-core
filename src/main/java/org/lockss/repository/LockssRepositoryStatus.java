@@ -56,13 +56,32 @@ public class LockssRepositoryStatus {
   static final int DEFAULT_MAX_ARTIFACTS_TO_DISPLAY = 200;
 
 
-  public static final String SERVICE_STATUS_TABLE_NAME = "RepositoryTable";
+  public static final String SERVICE_STATUS_TABLE_NAME = "RepositoriesTable";
+  public static final String REPO_STATUS_TABLE_NAME = "RepositoryTable";
   public static final String AUIDS_STATUS_TABLE_NAME = "CollectionTable";
   public static final String ARTIFACTS_STATUS_TABLE_NAME = "ArtifactsTable";
 //   public static final String SPACE_TABLE_NAME = "RepositorySpace";
 
   public static final String AU_STATUS_TABLE_NAME =
     ArchivalUnitStatus.AU_STATUS_TABLE_NAME;
+
+  static void registerAccessors(LockssDaemon daemon, StatusService statusServ) {
+    statusServ.registerStatusAccessor(SERVICE_STATUS_TABLE_NAME,
+				      new RepoCollsStatusAccessor(daemon));
+    statusServ.registerStatusAccessor(REPO_STATUS_TABLE_NAME,
+				      new RepoStatusAccessor(daemon));
+    statusServ.registerStatusAccessor(AUIDS_STATUS_TABLE_NAME,
+				      new CollectionAuidsStatusAccessor(daemon));
+    statusServ.registerStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME,
+				      new AuidArtifactsStatusAccessor(daemon));
+  }
+
+  static void unregisterAccessors(StatusService statusServ) {
+    statusServ.unregisterStatusAccessor(SERVICE_STATUS_TABLE_NAME);
+    statusServ.unregisterStatusAccessor(REPO_STATUS_TABLE_NAME);
+    statusServ.unregisterStatusAccessor(AUIDS_STATUS_TABLE_NAME);
+    statusServ.unregisterStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME);
+  }
 
   // Base class
   static abstract class AbstractRepoStatusAccessor implements StatusAccessor {
@@ -75,6 +94,7 @@ public class LockssRepositoryStatus {
     }
   }
 
+  /** Display list of all Collections on all known repositories */
   static class RepoCollsStatusAccessor extends AbstractRepoStatusAccessor {
 
     private static final List columnDescriptors = ListUtil.list
@@ -118,7 +138,11 @@ public class LockssRepositoryStatus {
 	    Map row = new HashMap();
 	    row.put("type", rs.getType());
 	    if (!StringUtil.isNullString(rs.getPath())) {
-	      row.put("path", rs.getPath());
+	      StatusTable.Reference path =
+		new StatusTable.Reference(rs.getPath(),
+					  REPO_STATUS_TABLE_NAME,
+					  rs.getSpec());
+	      row.put("path", path);
 	    }
 	    row.put("coll",
 		    new StatusTable.Reference(rs.getCollection(),
@@ -147,7 +171,60 @@ public class LockssRepositoryStatus {
     }
   }
 
+  /** Display scalar info about a LockssRepository */
+  static class RepoStatusAccessor extends AbstractRepoStatusAccessor {
 
+    private static final List columnDescriptors = Collections.EMPTY_LIST;
+
+    RepoStatusAccessor(LockssDaemon daemon) {
+      super(daemon);
+    }
+
+    public String getDisplayName() {
+      return "Repository Info";
+    }
+
+    public void populateTable(StatusTable table)
+        throws StatusService.NoSuchTableException {
+      String key = table.getKey();
+      RepoSpec rs = repoMgr.getV2Repository(key);
+//       table.setColumnDescriptors(columnDescriptors);
+//       table.setDefaultSortRules(sortRules);
+//       table.setRows(getRows(table, rs));
+      table.setSummaryInfo(getSummaryInfo(rs));
+    }
+
+    public boolean requiresKey() {
+      return true;
+    }
+
+
+    private List getSummaryInfo(RepoSpec rs) {
+      List res = new ArrayList();
+      LockssRepository repo = rs.getRepository();
+      if (repo instanceof RestLockssRepository) {
+	RestLockssRepository rrepo = (RestLockssRepository)repo;
+	res.add(new StatusTable.SummaryInfo("Spec",
+					    ColumnDescriptor.TYPE_STRING,
+					    rs.getSpec()));
+	ArtifactCache artCache = rrepo.getArtifactCache();
+	if (artCache.isEnabled()) {
+	  String val =
+	    String.format("%d hits, %d misses, %d stores, %d invalidates",
+			  artCache.getCacheHits(),
+			  artCache.getCacheMisses(),
+			  artCache.getCacheStores(),
+			  artCache.getCacheInvalidates());
+	  res.add(new StatusTable.SummaryInfo("Artifact cache",
+					      ColumnDescriptor.TYPE_STRING,
+					      val));
+	}
+      }
+      return res;
+    }
+  }
+
+  /** Display list of AUIDs in a Collection */
   static class CollectionAuidsStatusAccessor
     extends AbstractRepoStatusAccessor {
 
@@ -215,6 +292,7 @@ public class LockssRepositoryStatus {
     }
   }
 
+  /** Display list of Artifacts in a an AUID (in a Collection) */
   static class AuidArtifactsStatusAccessor extends AbstractRepoStatusAccessor {
     private static final List columnDescriptors = ListUtil.list
       (new ColumnDescriptor("url", "URL", ColumnDescriptor.TYPE_STRING),

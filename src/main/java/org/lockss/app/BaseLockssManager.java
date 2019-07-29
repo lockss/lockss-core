@@ -36,6 +36,7 @@ import org.lockss.config.*;
 import org.lockss.jms.*;
 import org.lockss.log.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 
 /**
  * Base implementation of LockssManager
@@ -174,8 +175,12 @@ public abstract class BaseLockssManager implements LockssManager {
 
   // JMS Producer and Consumer setup
 
-  protected Consumer jmsConsumer;
-  protected Producer jmsProducer;
+  protected JmsConsumer jmsConsumer;
+  protected JmsProducer jmsProducer;
+
+  protected JMSManager getJMSManager() {
+    return theApp.getManagerByType(JMSManager.class);
+  }
 
   /** Establish a JMS listener for the topic; store it in <tt>jmsConsumer</tt>
    * @param clientId
@@ -202,7 +207,8 @@ public abstract class BaseLockssManager implements LockssManager {
     log.debug("Creating consumer for " + getClassName());
     try {
       jmsConsumer =
-	Consumer.createTopicConsumer(clientId, topicName, noLocal, listener);
+	getJMSManager().getJmsFactory()
+	.createTopicConsumer(clientId, topicName, noLocal, listener);
     } catch (JMSException e) {
       log.fatal("Couldn't create jms consumer for " + getClassName(), e);
     }
@@ -215,7 +221,9 @@ public abstract class BaseLockssManager implements LockssManager {
   protected void setUpJmsSend(String clientId, String topicName) {
     log.debug("Creating producer for " + getClassName());
     try {
-      jmsProducer = Producer.createTopicProducer(clientId, topicName);
+      jmsProducer =
+	getJMSManager().getJmsFactory()
+	.createTopicProducer(clientId, topicName);
     } catch (JMSException e) {
       log.error("Couldn't create jms producer for " + getClassName(), e);
     }
@@ -223,7 +231,7 @@ public abstract class BaseLockssManager implements LockssManager {
 
   /** Cleanly stop the JMS producer and/or consumer */
   protected void stopJms() {
-    Producer p = jmsProducer;
+    JmsProducer p = jmsProducer;
     if (p != null) {
       try {
 	jmsProducer = null;
@@ -232,7 +240,7 @@ public abstract class BaseLockssManager implements LockssManager {
 	log.error("Couldn't stop jms producer for " + getClassName(), e);
       }
     }
-    Consumer c = jmsConsumer;
+    JmsConsumer c = jmsConsumer;
     if (c != null) {
       try {
 	jmsConsumer = null;
@@ -249,7 +257,7 @@ public abstract class BaseLockssManager implements LockssManager {
 
   /** A MessageListener suitable for receiving messages whose payload is a
    * map.  Dispatches received messages to {@link #receiveMessage(Map)} */
-  public class MapMessageListener extends Consumer.SubscriptionListener {
+  public class MapMessageListener extends JmsConsumerImpl.SubscriptionListener {
 
     public MapMessageListener(String listenerName) {
       super(listenerName);
@@ -258,7 +266,7 @@ public abstract class BaseLockssManager implements LockssManager {
     @Override
     public void onMessage(Message message) {
       try {
-        Object msgObject =  Consumer.convertMessage(message);
+        Object msgObject =  JmsUtil.convertMessage(message);
 	if (msgObject instanceof Map) {
 	  receiveMessage((Map)msgObject);
 	} else {

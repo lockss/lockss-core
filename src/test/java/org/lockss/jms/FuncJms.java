@@ -35,8 +35,10 @@ import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
 import org.junit.*;
 
+import org.lockss.app.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.jms.*;
 
 public class FuncJms extends LockssTestCase4 {
@@ -47,9 +49,9 @@ public class FuncJms extends LockssTestCase4 {
 
   private static BrokerService broker;
 
-  private Producer producerPublishSubscribe,
+  private JmsProducer producerPublishSubscribe,
     producerMultipleConsumers, producerNonDurableConsumer;
-  private Consumer consumerPublishSubscribe,
+  private JmsConsumer consumerPublishSubscribe,
     consumerNoLocal,
     consumer1MultipleConsumers, consumer2MultipleConsumers,
     consumer3MultipleConsumers,
@@ -60,7 +62,6 @@ public class FuncJms extends LockssTestCase4 {
 
 
   MockLockssDaemon daemon;
-  JMSManager mgr;
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
@@ -76,6 +77,10 @@ public class FuncJms extends LockssTestCase4 {
     }
   }
 
+  JmsFactory getJmsFact() {
+    return LockssApp.getManagerByTypeStatic(JMSManager.class).getJmsFactory();
+  }
+
   @Before
   public void setUpObjs() throws Exception {
     // ensure manager doesn't start another broker
@@ -84,47 +89,47 @@ public class FuncJms extends LockssTestCase4 {
     daemon.startManagers(JMSManager.class);
 
     producerPublishSubscribe =
-      Producer.createTopicProducer("producer-publishsubscribe",
-				   "publishsubscribe.t");
+      getJmsFact().createTopicProducer("producer-publishsubscribe",
+				       "publishsubscribe.t");
 
     producerMultipleConsumers =
-      Producer.createTopicProducer("producer-multipleconsumers",
-				   "multipleconsumers.t");
+      getJmsFact().createTopicProducer("producer-multipleconsumers",
+				       "multipleconsumers.t");
 
     producerNonDurableConsumer =
-      Producer.createTopicProducer("producer-nondurableconsumer",
-				   "nondurableconsumer.t");
+      getJmsFact().createTopicProducer("producer-nondurableconsumer",
+				       "nondurableconsumer.t");
 
     consumerPublishSubscribe =
-      Consumer.createTopicConsumer("consumer-publishsubscribe",
-				   "publishsubscribe.t");
+      getJmsFact().createTopicConsumer("consumer-publishsubscribe",
+				       "publishsubscribe.t");
 
     consumerNoLocal =
-      Consumer.createTopicConsumer("consumer-publishsubscribe",
-				   "publishsubscribe.t", true, null);
+      getJmsFact().createTopicConsumer("consumer-publishsubscribe",
+				       "publishsubscribe.t", true, null);
 
     consumer1MultipleConsumers =
-      Consumer.createTopicConsumer("consumer1-multipleconsumers",
-				   "multipleconsumers.t");
+      getJmsFact().createTopicConsumer("consumer1-multipleconsumers",
+				       "multipleconsumers.t");
 
     consumer2MultipleConsumers =
-      Consumer.createTopicConsumer("consumer2-multipleconsumers",
-				   "multipleconsumers.t");
+      getJmsFact().createTopicConsumer("consumer2-multipleconsumers",
+				       "multipleconsumers.t");
 
     msgQueue = new SimpleQueue.Fifo();
     listener = new MyMessageListener("listenerConsuemer", msgQueue);
 
     consumer3MultipleConsumers =
-      Consumer.createTopicConsumer("consumer3-multipleconsumers",
-				   "multipleconsumers.t", listener);
+      getJmsFact().createTopicConsumer("consumer3-multipleconsumers",
+				       "multipleconsumers.t", listener);
 
     consumer1NonDurableConsumer =
-      Consumer.createTopicConsumer("consumer1-nondurableconsumer",
-				   "nondurableconsumer.t");
+      getJmsFact().createTopicConsumer("consumer1-nondurableconsumer",
+				       "nondurableconsumer.t");
 
     consumer2NonDurableConsumer =
-      Consumer.createTopicConsumer("consumer2-nondurableconsumer",
-				   "nondurableconsumer.t");
+      getJmsFact().createTopicConsumer("consumer2-nondurableconsumer",
+				       "nondurableconsumer.t");
   }
 
   @After
@@ -241,8 +246,8 @@ public class FuncJms extends LockssTestCase4 {
 
     // recreate a connection for the nondurable subscription
     consumer2NonDurableConsumer =
-      Consumer.createTopicConsumer("consumer2-nondurableconsumer",
-				   "nondurableconsumer.t");
+      getJmsFact().createTopicConsumer("consumer2-nondurableconsumer",
+				       "nondurableconsumer.t");
 
     producerNonDurableConsumer.sendText(testStr2);
 
@@ -260,7 +265,7 @@ public class FuncJms extends LockssTestCase4 {
   }
 
   private static class MyMessageListener
-    extends Consumer.SubscriptionListener {
+    extends JmsConsumerImpl.SubscriptionListener {
 
     SimpleQueue queue;
 
@@ -272,7 +277,7 @@ public class FuncJms extends LockssTestCase4 {
     @Override
     public void onMessage(Message message) {
       try {
-	queue.put(Consumer.convertMessage(message));
+	queue.put(JmsUtil.convertMessage(message));
       } catch (JMSException e) {
         fail("Exception converting message", e);
       }

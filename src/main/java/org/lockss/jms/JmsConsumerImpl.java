@@ -27,79 +27,48 @@
 package org.lockss.jms;
 
 import java.io.Serializable;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import javax.jms.*;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 
-public class Consumer {
+public class JmsConsumerImpl implements JmsConsumer {
 
   private static final Logger log = Logger.getLogger();
 
+  protected JMSManager jmsMgr;
   protected String clientId;
   protected MessageConsumer messageConsumer;
   protected Session session;
 
-  public static Consumer createTopicConsumer(String clientId,
-					     String topicName)
-      throws JMSException {
-    return Consumer.createTopicConsumer(clientId, topicName, null);
+  JmsConsumerImpl(JMSManager mgr) {
+    this.jmsMgr = mgr;
   }
 
-  public static Consumer createTopicConsumer(String clientId,
-					     String topicName,
-					     MessageListener listener)
-      throws JMSException {
-    return createTopicConsumer(clientId, topicName, false, listener);
-  }
-
-  public static Consumer createTopicConsumer(String clientId,
-					     String topicName,
-					     boolean noLocal,
-					     MessageListener listener)
-      throws JMSException {
-    Consumer res = new Consumer();
-    res.createTopic(clientId, topicName, noLocal, listener, null);
-    return res;
-  }
-
-  public static Consumer createTopicConsumer(String clientId,
-					     String topicName,
-					     boolean noLocal,
-					     MessageListener listener,
-					     Connection connection)
-      throws JMSException {
-    Consumer res = new Consumer();
-    res.createTopic(clientId, topicName, noLocal, listener, connection);
-    return res;
-  }
-
-  private Consumer createTopic(String clientId,
-			       String topicName,
-			       boolean noLocal,
-			       MessageListener listener,
-			       Connection connection)
+  JmsConsumer createTopic(String clientId,
+			  String topicName,
+			  boolean noLocal,
+			  MessageListener listener,
+			  Connection connection)
       throws JMSException {
 
     this.clientId = clientId;
 
-    JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
     log.debug("Creating " + (noLocal ? "NoLocal " : "") +
 	      "consumer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
-	      mgr.getConnectUri());
+	      jmsMgr.getConnectUri());
 
     // Get shared connection from JMSManager if none supplied
     if (connection == null) {
-      connection = mgr.getConnection();
+      connection = jmsMgr.getConnection();
     }
     // create a Session
     log.debug3("Creating session for topic: " + topicName +
 	       ", client: " + clientId + " at " +
-	       mgr.getConnectUri());
+	       jmsMgr.getConnectUri());
     session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
     // create the Topic from which messages will be received
@@ -138,43 +107,9 @@ public class Consumer {
       message = messageConsumer.receive(timeout);
     }
     if (message != null) {
-      return convertMessage(message);
+      return JmsUtil.convertMessage(message);
     }
     return null;
-  }
-
-  /**
-   * This implementation converts a Message to the underlying type.
-   * TextMessage back to a String, a ByteMessage back to a byte array,
-   * a MapMessage back to a Map, and an ObjectMessage back to a Serializable object. Returns
-   * the plain Message object in case of an unknown message type.
-   */
-  public static Object convertMessage(Message message) throws JMSException {
-    if (message instanceof TextMessage) {
-      return ((TextMessage) message).getText();
-    }
-    else if (message instanceof BytesMessage) {
-      BytesMessage bytesMessage = (BytesMessage) message;
-      byte[] bytes = new byte[(int) bytesMessage.getBodyLength()];
-      bytesMessage.readBytes(bytes);
-      return bytes;
-    }
-    else if (message instanceof MapMessage) {
-      MapMessage mapMessage = (MapMessage) message;
-      Map<String, Object> map = new HashMap<String, Object>();
-      Enumeration<String> en = mapMessage.getMapNames();
-      while (en.hasMoreElements()) {
-        String key = en.nextElement();
-        map.put(key, mapMessage.getObject(key));
-      }
-      return map;
-    }
-    else if (message instanceof ObjectMessage) {
-      return ((ObjectMessage) message).getObject();
-    }
-    else {
-      return message;
-    }
   }
 
   /**

@@ -40,6 +40,7 @@ import org.lockss.protocol.*;
 import static org.lockss.protocol.AgreementType.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.time.TimerUtil;
 
 public class TestServerStateManager extends StateTestCase {
@@ -49,7 +50,7 @@ public class TestServerStateManager extends StateTestCase {
 
   MyServerStateManager myStateMgr;
   MockPlugin mplug;
-  Consumer cons;
+  JmsConsumer cons;
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
@@ -78,7 +79,7 @@ public class TestServerStateManager extends StateTestCase {
     mau1 = new MockArchivalUnit(mplug, "plug&aaa1");
     mau2 = new MockArchivalUnit(mplug, "plug&aaa2");
     
-    cons = Consumer.createTopicConsumer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
+    cons = JMSManager.getJmsFactoryStatic().createTopicConsumer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
   }
 
   @Override

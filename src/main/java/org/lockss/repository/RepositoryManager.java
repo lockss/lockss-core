@@ -36,6 +36,8 @@ import org.apache.commons.collections.map.LinkedMap;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
+import org.lockss.jms.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
@@ -45,7 +47,6 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.laaws.rs.core.*;
-import static org.lockss.repository.LockssRepositoryStatus.*;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -86,6 +87,12 @@ public class RepositoryManager
   public static final String DEFAULT_V2_REPOSITORY = "volatile:baz";
 //   public static final String DEFAULT_V2_REPOSITORY = null;
 
+  /** If true, instruct RestLockssRepository to cache Artifacts on the
+   * client side to reduce REST transactions */
+  public static final String PARAM_USE_ARTIFACT_CACHE =
+      PREFIX + "useArtifactCache";
+  public static final boolean DEFAULT_USE_ARTIFACT_CACHE = true;
+
   public static final String PARAM_PERSIST_INDEX_NAME =
       PREFIX + "persistIndexName";
   public static final String DEFAULT_PERSIST_INDEX_NAME = "artifact-index.ser";
@@ -123,21 +130,12 @@ public class RepositoryManager
   public void startService() {
     super.startService();
     localRepos = new HashMap();
-    LockssDaemon daemon = getDaemon();
-    StatusService statusServ = daemon.getStatusService();
-    statusServ.registerStatusAccessor(SERVICE_STATUS_TABLE_NAME,
-				      new RepoCollsStatusAccessor(daemon));
-    statusServ.registerStatusAccessor(AUIDS_STATUS_TABLE_NAME,
-				      new CollectionAuidsStatusAccessor(daemon));
-    statusServ.registerStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME,
-				      new AuidArtifactsStatusAccessor(daemon));
+    LockssRepositoryStatus.registerAccessors(getDaemon(),
+					     getDaemon().getStatusService());
   }
 
   public void stopService() {
-    StatusService statusServ = getDaemon().getStatusService();
-    statusServ.unregisterStatusAccessor(SERVICE_STATUS_TABLE_NAME);
-    statusServ.unregisterStatusAccessor(AUIDS_STATUS_TABLE_NAME);
-    statusServ.unregisterStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME);
+    LockssRepositoryStatus.unregisterAccessors(getDaemon().getStatusService());
     super.stopService();
   }
 
@@ -192,7 +190,7 @@ public class RepositoryManager
       if (!repoSpecMap.containsKey(spec)) {
 	try {
 	  RepoSpec rs = RepoSpec.fromSpec(spec);
-	  rs.getRepository();
+	  rs.setRepository(createLockssRepository(rs));
 	  setV2Repo(rs);
 	} catch (Exception e) {
 	  log.critical("Can't create V2 repo", e);
@@ -231,12 +229,50 @@ public class RepositoryManager
     return repoSpecMap.values();
   }
 
-  public static int getMaxComponentLength() {
-    return maxComponentLength;
-  }
+  /** Create a LockssRepository instance according to the spec */
+  LockssRepository createLockssRepository(RepoSpec spec) {
+    Configuration config = ConfigManager.getCurrentConfig();
+    switch (spec.getType()) {
+    case "volatile":
+      try {
+	return LockssRepositoryFactory.createVolatileRepository();
+      } catch (IOException e) {
+	String msg = "Error creating volatile repository";
+	throw new IllegalArgumentException(msg, e);
+      }
+    case "local":
+      File file = new File(spec.getPath());
+      String persistedIndexName =
+	config.get(PARAM_PERSIST_INDEX_NAME, DEFAULT_PERSIST_INDEX_NAME);
+      try {
+	return
+	  LockssRepositoryFactory.createLocalRepository(file,
+							persistedIndexName);
+      } catch (IOException e) {
+	String msg = "Illegal V2 repository path: " + spec.getPath() +
+	  ", persistedIndexName: " + persistedIndexName;
+	throw new IllegalArgumentException(msg, e);
+      }
+    case "rest":
+      try {
+	URL url = new URL(spec.getPath());
+	RestLockssRepository repo =
+	  LockssRepositoryFactory.createRestLockssRepository(url);
+	if (config.getBoolean(PARAM_USE_ARTIFACT_CACHE,
+			      DEFAULT_USE_ARTIFACT_CACHE)) {
+	  JMSManager mgr = getDaemon().getManagerByType(JMSManager.class);
+ 	  repo.enableArtifactCache(true, mgr.getJmsFactory());
+	}
 
-  public static CheckUnnormalizedMode getCheckUnnormalizedMode() {
-    return checkUnnormalized;
+	  return repo;
+      } catch (MalformedURLException e) {
+	String msg = "Illegal V2 repository URL: " + spec.getPath() +
+	  ": " + e.getMessage();
+	throw new IllegalArgumentException(msg);
+      }
+    default:
+      throw new IllegalStateException("Unknown type: " + spec.getType());
+    }
   }
 
   /** Return list of known repository names.  Needs a registration

@@ -804,12 +804,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     
     <dependency>
-      <groupId>javax.jms</groupId>
-      <artifactId>javax.jms-api</artifactId>
-      <version>2.0.1</version>
-    </dependency>
-
-    <dependency>
       <groupId>net.sourceforge.schemaspy</groupId>
       <artifactId>schemaspy</artifactId>
       <version>5.0.0</version>

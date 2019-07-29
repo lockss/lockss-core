@@ -149,48 +149,14 @@ public class RepoSpec {
     throw new IllegalArgumentException("Illegal V2 repository spec; couldn't parse: " + spec);
   }
 
+  RepoSpec setRepository(LockssRepository repo) {
+    this.repo = repo;
+    return this;
+  }
+
   /** Return a LockssRepository instance appropriate for the spec, creating
    * one if necessary */
   public LockssRepository getRepository() {
-    if (repo == null) {
-      switch (type) {
-      case "volatile":
-	try {
-	  repo = LockssRepositoryFactory.createVolatileRepository();
-	} catch (IOException e) {
-	  String msg = "Error creating volatile repository";
-	  throw new IllegalArgumentException(msg, e);
-	}
-	break;
-      case "local":
-	File file = new File(path);
-	String persistedIndexName =
-	  CurrentConfig.getParam(RepositoryManager.PARAM_V2_REPOSITORY,
-				 RepositoryManager.DEFAULT_V2_REPOSITORY);
-	try {
-	  repo =
-	    LockssRepositoryFactory.createLocalRepository(file,
-							  persistedIndexName);
-	} catch (IOException e) {
-	  String msg = "Illegal V2 repository path: " + path +
-	    ", persistedIndexName: " + persistedIndexName;
-	  throw new IllegalArgumentException(msg, e);
-	}
-	break;
-      case "rest":
-	try {
-	  URL url = new URL(path);
-	  repo = LockssRepositoryFactory.createRestLockssRepository(url);
-	} catch (MalformedURLException e) {
-	  String msg = "Illegal V2 repository URL: " + path +
-	    ": " + e.getMessage();
-	  throw new IllegalArgumentException(msg);
-	}
-	break;
-      default:
-	  throw new IllegalStateException("Unknown type: " + type);
-      }
-    }
     return repo;
   }
 }

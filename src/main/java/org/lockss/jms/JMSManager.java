@@ -41,6 +41,7 @@ import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.log.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.config.*;
 
 /** Manages (starts & stops) an embedded ActiveMQ broker */
@@ -75,7 +76,7 @@ public class JMSManager extends BaseLockssManager
 
   /** Broker URI to which producers and consumers will connect.  <i>Eg</i>,
    * <code>failover:tcp://<i>hostname</i>:<i>port</i></code>&nbsp;.  If not
-   * set {@value #PARAM_START_BROKER} is used. */
+   * set {@value #PARAM_BROKER_URI} is used. */
   public static final String PARAM_CONNECT_URI = CONNECT_PREFIX + "uri";
 
   /** If true, use a failover transport to talk to the broker; see <a
@@ -108,6 +109,7 @@ public class JMSManager extends BaseLockssManager
 
   public void startService() {
     super.startService();
+    log.info("startBroker: " + startBroker);
     if (startBroker) {
       broker = createBroker(brokerUri); 
     }
@@ -151,6 +153,15 @@ public class JMSManager extends BaseLockssManager
 	}
       }
     }
+  }
+
+  public static JmsFactory getJmsFactoryStatic() {
+    JMSManager mgr = LockssDaemon.getManagerByTypeStatic(JMSManager.class);
+    return mgr.getJmsFactory();
+  }
+
+  public JmsFactory getJmsFactory() {
+    return new JmsFactoryImpl(this);
   }
 
   /** Start and return a broker with config given by the params under
@@ -215,6 +226,9 @@ public class JMSManager extends BaseLockssManager
   }
 
   /** Return a connection to the specified broker */
+  // If there's ever more than one broker, this should be changed to use
+  // StripedExecutorService to run concurrent connect threads, one for each
+  // broker URI.
   public Connection getConnection(String uri) throws JMSException {
     synchronized (connectionMap) {
       Connection conn = connectionMap.get(uri);
@@ -241,6 +255,8 @@ public class JMSManager extends BaseLockssManager
 	  log.warn("Couldn't add transport listener as {} isn't an ActiveMQConnection", conn);
 	}
       }
+//       // start the connection in order to receive messages
+//       conn.start();
       return conn;
     }
   }

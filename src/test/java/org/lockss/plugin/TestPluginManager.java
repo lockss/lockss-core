@@ -46,6 +46,7 @@ import org.lockss.plugin.definable.*;
 import org.lockss.poller.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
@@ -2096,8 +2097,8 @@ public class TestPluginManager extends LockssTestCase4 {
   public void testRegistryAuEventHandler() throws Exception {
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
 				  "volatile:baz");
-    Consumer cons =
-      Consumer.createTopicConsumer(null, PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsConsumer cons =
+      JMSManager.getJmsFactoryStatic().createTopicConsumer(null, PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
 				  "true");
     assertNull(cons.receiveMap(TIMEOUT_SHOULD));

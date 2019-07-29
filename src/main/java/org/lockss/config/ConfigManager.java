@@ -61,6 +61,7 @@ import org.lockss.rs.exception.LockssRestHttpException;
 import org.lockss.servlet.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.Deadline;
@@ -2432,10 +2433,10 @@ public class ConfigManager implements LockssManager {
     if (v.size() == 0) {
       if (noNag) {
 	log.debug2(PARAM_PLATFORM_DISK_SPACE_LIST +
-		   " not specified, not configuring local cache config dir");
+		   " not specified, not configuring local data dir");
       } else {
-	log.error(PARAM_PLATFORM_DISK_SPACE_LIST +
-		  " not specified, not configuring local cache config dir");
+	log.warning(PARAM_PLATFORM_DISK_SPACE_LIST +
+		    " not specified, not configuring local data dir");
       }
       return;
     }
@@ -3697,8 +3698,8 @@ public class ConfigManager implements LockssManager {
 //   public static final String DEFAULT_JMS_CLIENT_ID = "ConfigManger";
   public static final String DEFAULT_JMS_CLIENT_ID = null;
 
-  private Consumer jmsConsumer;
-  private Producer jmsProducer;
+  private JmsConsumer jmsConsumer;
+  private JmsProducer jmsProducer;
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
   private boolean enableJmsSend = DEFAULT_ENABLE_JMS_SEND;
   private boolean enableJmsReceive = DEFAULT_ENABLE_JMS_RECEIVE;
@@ -3727,12 +3728,16 @@ public class ConfigManager implements LockssManager {
     th.start();
   }
 
-  private boolean isJMSManager() {
+  private JMSManager getJMSManager() {
     try {
-      return null != LockssApp.getManagerByTypeStatic(JMSManager.class);
+      return theApp.getManagerByType(JMSManager.class);
     } catch (IllegalArgumentException | NullPointerException e) {
-      return false;
+      return null;
     }
+  }
+
+  private boolean isJMSManager() {
+    return getJMSManager() != null;
   }
 
   // Overridable for testing
@@ -3752,9 +3757,10 @@ public class ConfigManager implements LockssManager {
       log.debug("Creating consumer");
       try {
 	jmsConsumer =
-	  Consumer.createTopicConsumer(clientId,
-					   notificationTopic,
-					   new MyMessageListener("Config Listener"));
+	  getJMSManager().getJmsFactory()
+	  .createTopicConsumer(clientId,
+			       notificationTopic,
+			       new MyMessageListener("Config Listener"));
       } catch (JMSException e) {
 	log.error("Couldn't create jms consumer", e);
       }
@@ -3763,7 +3769,8 @@ public class ConfigManager implements LockssManager {
       log.debug("Creating producer");
       // else set up a notifier
       try {
-	jmsProducer = Producer.createTopicProducer(clientId, notificationTopic);
+	jmsProducer = getJMSManager().getJmsFactory()
+	  .createTopicProducer(clientId, notificationTopic);
       } catch (JMSException e) {
 	log.error("Couldn't create jms producer", e);
       }
@@ -3772,7 +3779,7 @@ public class ConfigManager implements LockssManager {
 
   void stopJms() {
     log.debug("stopJms");
-    Producer p = jmsProducer;
+    JmsProducer p = jmsProducer;
     if (p != null) {
       try {
 	jmsProducer = null;
@@ -3782,7 +3789,7 @@ public class ConfigManager implements LockssManager {
 	log.error("Couldn't stop jms producer", e);
       }
     }
-    Consumer c = jmsConsumer;
+    JmsConsumer c = jmsConsumer;
     if (c != null) {
       try {
 	jmsConsumer = null;
@@ -4480,7 +4487,7 @@ public class ConfigManager implements LockssManager {
   }
 
   private class MyMessageListener
-    extends Consumer.SubscriptionListener {
+    extends JmsConsumerImpl.SubscriptionListener {
 
     MyMessageListener(String listenerName) {
       super(listenerName);
@@ -4490,7 +4497,7 @@ public class ConfigManager implements LockssManager {
     public void onMessage(Message message) {
       if (log.isDebug3()) log.debug3("onMessage: " + message);
       try {
-        Object msgObject = Consumer.convertMessage(message);
+        Object msgObject = JmsUtil.convertMessage(message);
 	if (msgObject instanceof Map) {
 	  receiveConfigChangedNotification((Map)msgObject);
 	} else {
