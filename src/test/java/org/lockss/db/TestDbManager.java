@@ -30,8 +30,7 @@ package org.lockss.db;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import org.lockss.db.DbException;
-import org.lockss.test.LockssTestCase;
-import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.*;
 import org.lockss.util.Logger;
 
 /**
@@ -47,6 +46,7 @@ public class TestDbManager extends LockssTestCase {
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
   private DbManager dbManager;
+  private String dbPort;
 
   @Override
   public void setUp() throws Exception {
@@ -57,6 +57,9 @@ public class TestDbManager extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
+    dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
+    ConfigurationUtil.addFromArgs(org.lockss.metadata.MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER,
+				  dbPort);
   }
 
   /**
@@ -174,8 +177,9 @@ public class TestDbManager extends LockssTestCase {
   public void testAuthenticationDefault() throws Exception {
     dbManager = getTestDbManager(tempDirPath);
 
-    String dbUrlRoot = "jdbc:derby://localhost:1527/" + tempDirPath
-	+ "/db/DbManager";
+    String dbUrlRoot =
+      String.format("jdbc:derby://localhost:%s/%s/db/DbManager",
+		    dbPort, tempDirPath);
 
     try {
       Class.forName("org.apache.derby.jdbc.ClientDriver").newInstance();

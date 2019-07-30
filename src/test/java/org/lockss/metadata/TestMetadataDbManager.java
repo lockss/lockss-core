@@ -40,9 +40,7 @@ import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.db.DbManagerSql;
 import org.lockss.db.SqlConstants;
-import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.LockssTestCase4;
-import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.*;
 import org.lockss.util.Logger;
 
 /**
@@ -56,6 +54,7 @@ public class TestMetadataDbManager extends LockssTestCase4 {
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
   private MetadataDbManager metadataDbManager;
+  private String dbPort;
 
   @Override
   public void setUp() throws Exception {
@@ -66,6 +65,9 @@ public class TestMetadataDbManager extends LockssTestCase4 {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
+    dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER,
+				  dbPort);
   }
 
   /**
@@ -134,7 +136,6 @@ public class TestMetadataDbManager extends LockssTestCase4 {
   protected void createPgsqlDb() {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.postgresql.ds.PGSimpleDataSource",
-	MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER, "1527",
 	MetadataDbManager.PARAM_MAX_RETRY_COUNT, "0",
 	MetadataDbManager.PARAM_RETRY_DELAY, "0");
 
@@ -416,8 +417,9 @@ public class TestMetadataDbManager extends LockssTestCase4 {
 
     metadataDbManager = getTestDbManager(tempDirPath);
 
-    String dbUrlRoot = "jdbc:derby://localhost:1527/" + tempDirPath
-	+ "/db/MetadataDbManager";
+    String dbUrlRoot =
+      String.format("jdbc:derby://localhost:%s/%s/db/MetadataDbManager",
+		    dbPort, tempDirPath);
 
     try {
       Class.forName("org.apache.derby.jdbc.ClientDriver").newInstance();
