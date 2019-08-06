@@ -209,12 +209,14 @@ public class LockssRepositoryStatus {
 					    rs.getSpec()));
 	ArtifactCache artCache = rrepo.getArtifactCache();
 	if (artCache.isEnabled()) {
+	  ArtifactCache.Stats stats = artCache.getStats();
 	  String val =
-	    String.format("%d hits, %d misses, %d stores, %d invalidates",
-			  artCache.getCacheHits(),
-			  artCache.getCacheMisses(),
-			  artCache.getCacheStores(),
-			  artCache.getCacheInvalidates());
+	    String.format("%d hits, %d iter hits, %d misses, %d stores, %d invalidates",
+			  stats.getCacheHits(),
+			  stats.getCacheIterHits(),
+			  stats.getCacheMisses(),
+			  stats.getCacheStores(),
+			  stats.getCacheInvalidates());
 	  res.add(new StatusTable.SummaryInfo("Artifact cache",
 					      ColumnDescriptor.TYPE_STRING,
 					      val));

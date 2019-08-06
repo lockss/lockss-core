@@ -59,12 +59,6 @@ public class RepositoryManager
 
   public static final String PREFIX = Configuration.PREFIX + "repository.";
 
-  /** Maximum length of a filesystem path component. */
-  public static final String PARAM_MAX_COMPONENT_LENGTH =
-      PREFIX + "maxComponentLength";
-  public static final int DEFAULT_MAX_COMPONENT_LENGTH = 255;
-
-
   /** @see #PARAM_CHECK_UNNORMALIZED */
   public enum CheckUnnormalizedMode {No, Log, Fix};
 
@@ -85,20 +79,35 @@ public class RepositoryManager
   public static final String PARAM_V2_REPOSITORY =
       PREFIX + "v2Repository";
   public static final String DEFAULT_V2_REPOSITORY = "volatile:baz";
-//   public static final String DEFAULT_V2_REPOSITORY = null;
 
   /** If true, instruct RestLockssRepository to cache Artifacts on the
    * client side to reduce REST transactions */
-  public static final String PARAM_USE_ARTIFACT_CACHE =
-      PREFIX + "useArtifactCache";
-  public static final boolean DEFAULT_USE_ARTIFACT_CACHE = true;
+  public static final String PARAM_ENABLE_ARTIFACT_CACHE =
+    PREFIX + "artifactCache.enable";
+  public static final boolean DEFAULT_ENABLE_ARTIFACT_CACHE = true;
+
+  /** Maximum size of Artifact cache */
+  public static final String PARAM_ARTIFACT_CACHE_MAX =
+    PREFIX + "artifactCache.maxSize";
+  public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
+
+  /** If true, the ArtifactCache will be instrumented, at some performance
+   * cost */
+  public static final String PARAM_ARTIFACT_CACHE_INSTRUMENT =
+    PREFIX + "artifactCache.instrument";
+  public static final boolean DEFAULT_ARTIFACT_CACHE_INSTRUMENT = false;
 
   public static final String PARAM_PERSIST_INDEX_NAME =
       PREFIX + "persistIndexName";
   public static final String DEFAULT_PERSIST_INDEX_NAME = "artifact-index.ser";
 
-  static final String DISK_PREFIX = PREFIX + "diskSpace.";
+  /** Maximum age of AUID -> repo map */
+  public static final String PARAM_AUID_REPO_MAP_AGE =
+    PREFIX + "auidRepoMapAge";
+  public static final long DEFAULT_AUID_REPO_MAP_AGE = Constants.HOUR;
 
+
+  static final String DISK_PREFIX = PREFIX + "diskSpace.";
 
   static final String PARAM_DISK_WARN_FRRE_MB = DISK_PREFIX + "warn.freeMB";
   static final int DEFAULT_DISK_WARN_FRRE_MB = 5000;
@@ -113,12 +122,13 @@ public class RepositoryManager
 
   private PlatformUtil platInfo = PlatformUtil.getInstance();
   private List repoList = Collections.EMPTY_LIST;
-  Map localRepos = new HashMap();
-  private static int maxComponentLength = DEFAULT_MAX_COMPONENT_LENGTH;
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
+  private long auidRepoMapAge = DEFAULT_AUID_REPO_MAP_AGE;
 
   private RepoSpec v2Repo = null;
+
+  private AuEventHandler auEventHandler;
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
@@ -129,12 +139,23 @@ public class RepositoryManager
 
   public void startService() {
     super.startService();
-    localRepos = new HashMap();
     LockssRepositoryStatus.registerAccessors(getDaemon(),
 					     getDaemon().getStatusService());
+    // register our AU event handler
+    auEventHandler = new AuEventHandler.Base() {
+      @Override
+      public void auCreated(AuEvent event, ArchivalUnit au) {
+	flushAuidRepoMap();
+      }
+    };
+    getDaemon().getPluginManager().registerAuEventHandler(auEventHandler);
   }
 
   public void stopService() {
+    if (auEventHandler != null) {
+      getDaemon().getPluginManager().unregisterAuEventHandler(auEventHandler);
+      auEventHandler = null;
+    }
     LockssRepositoryStatus.unregisterAccessors(getDaemon().getStatusService());
     super.stopService();
   }
@@ -168,14 +189,15 @@ public class RepositoryManager
       paramDFFull = PlatformUtil.DF.makeThreshold(minMB, minPer);
     }
     if (changedKeys.contains(PREFIX)) {
-      maxComponentLength = config.getInt(PARAM_MAX_COMPONENT_LENGTH,
-          DEFAULT_MAX_COMPONENT_LENGTH);
       checkUnnormalized =
           (CheckUnnormalizedMode)
               config.getEnum(CheckUnnormalizedMode.class,
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
+      auidRepoMapAge = config.getTimeInterval(PARAM_AUID_REPO_MAP_AGE,
+					      DEFAULT_AUID_REPO_MAP_AGE);
+      processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
+      reconfigureRepos(config);
     }
-    processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
   }
 
   static Pattern REPO_SPEC_PATTERN =
@@ -258,13 +280,8 @@ public class RepositoryManager
 	URL url = new URL(spec.getPath());
 	RestLockssRepository repo =
 	  LockssRepositoryFactory.createRestLockssRepository(url);
-	if (config.getBoolean(PARAM_USE_ARTIFACT_CACHE,
-			      DEFAULT_USE_ARTIFACT_CACHE)) {
-	  JMSManager mgr = getDaemon().getManagerByType(JMSManager.class);
- 	  repo.enableArtifactCache(true, mgr.getJmsFactory());
-	}
-
-	  return repo;
+	configureArtifactCache(repo, config);
+	return repo;
       } catch (MalformedURLException e) {
 	String msg = "Illegal V2 repository URL: " + spec.getPath() +
 	  ": " + e.getMessage();
@@ -272,6 +289,33 @@ public class RepositoryManager
       }
     default:
       throw new IllegalStateException("Unknown type: " + spec.getType());
+    }
+  }
+
+  private void reconfigureRepos(Configuration config) {
+    for (RepoSpec rs : getV2RepositoryList()) {
+      if (rs.getRepository() instanceof RestLockssRepository) {
+	configureArtifactCache((RestLockssRepository)rs.getRepository(),
+			       config);
+      }
+    }
+  }
+
+  private void configureArtifactCache(RestLockssRepository repo,
+				      Configuration config) {
+    if (config.getBoolean(PARAM_ENABLE_ARTIFACT_CACHE,
+			  DEFAULT_ENABLE_ARTIFACT_CACHE)) {
+      ArtifactCache artCache = repo.getArtifactCache();
+      artCache.setMaxSize(config.getInt(PARAM_ARTIFACT_CACHE_MAX,
+					DEFAULT_ARTIFACT_CACHE_MAX));
+//       boolean instrument =
+// 	config.getBoolean(PARAM_ARTIFACT_CACHE_INSTRUMENT,
+// 			  DEFAULT_ARTIFACT_CACHE_INSTRUMENT);
+//       artCache.enableInstrumentation(instrument);
+      // RestLockssRepository will enable the cache only once it has
+      // created a JMS consuler for invalidate notifications
+      JMSManager mgr = getDaemon().getManagerByType(JMSManager.class);
+      repo.enableArtifactCache(true, mgr.getJmsFactory());
     }
   }
 
@@ -320,19 +364,44 @@ public class RepositoryManager
     return paramDFFull;
   }
 
-  public List<String> findExistingRepositoriesFor(String auid) {
+  // BatchAuConfig (via RemoteApi) asks for existing repo info for large
+  // numbers of AUIDs at a time. Querying the repo for each is way
+  // expensive (esp. as the only way to do it currently is to enumerate the
+  // known AUIDs, but would still be a huge number of roundtrips even if
+  // there were a way to query by AUID).  Build a map of auid -> repsspec
+  // on first use, or if it it stale (PARAM_AUID_REPO_MAP_AGE), or if an
+  // auCreated() event has been seen.
+
+  private Map<String,List<String>> auidToRepoSpec;
+  private long auidToRepoMapDate;
+
+  /** Build a map of AUID -> repository spec. */
+  public synchronized void buildAuMap() {
+    Map<String,List<String>> res = new HashMap<>();
     LockssRepository repo = v2Repo.getRepository();
     try {
-      for (String id : repo.getAuIds(v2Repo.getCollection())) {
-	if (auid.equals(id)) {
-	  return Collections.singletonList(v2Repo.getSpec());
-	}
+      for (String auid : repo.getAuIds(v2Repo.getCollection())) {
+	res.put(auid, Collections.singletonList(v2Repo.getSpec()));
       }
     } catch (IOException e) {
       log.warning("Error getting list of AUID in repository collection");
-      return Collections.emptyList();
     }
-    return Collections.emptyList();
+    auidToRepoSpec = res;
+    auidToRepoMapDate = TimeBase.nowMs();
+  }
+
+  void flushAuidRepoMap() {
+    auidToRepoSpec = null;
+  }
+
+  /** Return a list of repo specs where the auid has content.  Currently
+   * returns either a singleton or null */
+  public List<String> findExistingRepositoriesFor(String auid) {
+    if (auidToRepoSpec == null ||
+	TimeBase.msSince(auidToRepoMapDate) > auidRepoMapAge) {
+      buildAuMap();
+    }
+    return auidToRepoSpec.get(auid);
   }
 
   /**
