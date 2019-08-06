@@ -98,7 +98,7 @@ public class JMSManager extends BaseLockssManager
 
   /** If true the broker will enable the JMX management interface */
   public static final String PARAM_ENABLE_JMX = BROKER_PREFIX + "enableJmx";
-  public static final boolean DEFAULT_ENABLE_JMX = true;
+  public static final boolean DEFAULT_ENABLE_JMX = false;
 
   /** JMX listen port */
   public static final String PARAM_JMX_PORT = BROKER_PREFIX + "jmxPort";
@@ -210,6 +210,8 @@ public class JMSManager extends BaseLockssManager
 	sb.append(port);
 	res.setUseJmx(true);
 	res.getManagementContext().setConnectorPort(port);
+      } else {
+	res.setUseJmx(false);
       }
 
       res.addConnector(uri); 
