@@ -80,8 +80,6 @@ public class JmsConsumerImpl implements JmsConsumer {
       messageConsumer.setMessageListener(listener);
     }
 
-    // start the connection in order to receive messages
-    connection.start();
     return this;
   }
 
