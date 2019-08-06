@@ -2466,9 +2466,11 @@ public class LockssTestCase4 extends Assert {
         new File(tempDirPath, "derby.log").getAbsolutePath());
 
     try {
-      // Extract the database from the zip file.
-      ZipUtil.unzip(getResourceAsStream(TEST_DB_FILE_SPEC, false),
-          new File(tempDirPath, "db"));
+      // Extract the database from the zip file, if it exists.
+      InputStream dbzip = getResourceAsStream(TEST_DB_FILE_SPEC, false);
+      if (dbzip != null) {
+	ZipUtil.unzip(dbzip, new File(tempDirPath, "db"));
+      }
     } catch (Exception e) {
       log.debug("Unable to unzip database files from file " + TEST_DB_FILE_SPEC,
           e);
