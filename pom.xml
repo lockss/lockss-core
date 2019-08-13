@@ -895,6 +895,48 @@ POSSIBILITY OF SUCH DAMAGE.
             </configuration>
           </execution>
 
+	  <!-- If there isn't already an up-to-date archive of an
+	       initialized, empty metadata database, create one and zip it.
+	       Used by LockssTestCase[4] to reduce Derby start time for
+	       tests. -->
+          <execution>
+            <id>emptyDbArchive</id>
+            <phase>process-test-classes</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <taskdef resource="net/sf/antcontrib/antcontrib.properties" />
+		<property name="empty.db.archive"
+			  value="${project.build.outputDirectory}/org/lockss/db/db.zip" />
+		<uptodate property="archive.db.is.up.to.date"
+			  srcfile="${project.build.outputDirectory}/org/lockss/metadata/MetadataDbManagerSql.class"
+			  targetfile="${empty.db.archive}" />
+		<if>
+		  <isset property="archive.db.is.up.to.date" />
+		  <else>
+		    <echo message="Generating empty DB for tests" />
+		    <property name="empty.db.parent.dir" value="${tmpdir}" />
+		    <property name="empty.db.dir"
+			      value="${empty.db.parent.dir}/db" />
+		    <delete dir="${empty.db.dir}" quiet="true" />
+		    <java classname="org.lockss.metadata.EmptyDbCreator"
+			  fork="true">
+   		      <classpath refid="maven.test.classpath" />
+		      <arg line="-d ${empty.db.parent.dir}" />
+		      <sysproperty key="org.lockss.defaultLogLevel"
+				   value="${loglevel}" />
+		    </java>
+		    <zip destfile="${empty.db.archive}"
+			 basedir="${empty.db.dir}" />
+		    <delete dir="${empty.db.dir}" quiet="true" />
+		  </else>
+		</if>
+	      </target>
+            </configuration>
+          </execution>
+
           <execution>
             <id>dbSchema</id>
             <phase>package</phase>
@@ -917,6 +959,7 @@ POSSIBILITY OF SUCH DAMAGE.
    		</java>
 
 		<java classname="net.sourceforge.schemaspy.Main"
+		      failonerror="true"
 		      fork="true"
 		      dir="${empty.db.dir}">
    		  <classpath refid="maven.test.classpath" />

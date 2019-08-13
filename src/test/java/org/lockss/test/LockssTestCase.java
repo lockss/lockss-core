@@ -2111,6 +2111,8 @@ public class LockssTestCase extends TestCase {
       // Extract the database from the zip file, if it exists.
       InputStream dbzip = getResourceAsStream(TEST_DB_FILE_SPEC, false);
       if (dbzip != null) {
+	log.debug("Unzipping pre-built database files from " +
+		  TEST_DB_FILE_SPEC);
 	ZipUtil.unzip(dbzip, new File(tempDirPath, "db"));
       }
     } catch (Exception e) {
