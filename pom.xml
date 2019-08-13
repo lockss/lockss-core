@@ -920,7 +920,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		      fork="true"
 		      dir="${empty.db.dir}">
    		  <classpath refid="maven.test.classpath" />
-		  <arg line="-t derby -db MetadataDbManager -dp derbynet-${version.group.derby}.jar -hq -noads -norows -u LOCKSS -o ${dir.apidocs}/schemadoc" />
+		  <arg line="-t derby -db LockssMetadataDbManager -dp derbynet-${version.group.derby}.jar -hq -noads -norows -u LOCKSS -o ${dir.apidocs}/schemadoc" />
 		  <sysproperty key="org.lockss.defaultLogLevel"
 			       value="${loglevel}"/>
 		</java>
