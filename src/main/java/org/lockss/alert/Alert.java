@@ -494,12 +494,7 @@ public class Alert {
   }
 
   public String getMailSubject() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("LOCKSS box ");
-    sb.append(getSeverityString());
-    sb.append(": ");
-    sb.append(getName());
-    return sb.toString();
+    return "LOCKSS alert: " + getName();
   }
 
   public String getMailBody() {
@@ -512,7 +507,7 @@ public class Alert {
       sb.append(getAttribute(ATTR_COMPONENT_NAME));
       sb.append("\n");
     }
-    sb.append("raised an alert at ");
+    sb.append("Time: ");
     sb.append(getDate());
     sb.append("\n\n");
     appendVal(sb, "Name: ", getName());
