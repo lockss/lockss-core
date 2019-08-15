@@ -241,7 +241,12 @@ public class ServletDescr {
     return svc;
   }
 
+  /** Some ServletDescrs override this */
   public String getNavHeading(LockssServlet servlet) {
+    return heading;
+  }
+
+  public final String getRawHeading() {
     return heading;
   }
 
