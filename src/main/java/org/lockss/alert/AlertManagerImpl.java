@@ -33,8 +33,7 @@ package org.lockss.alert;
 import java.io.*;
 import java.util.*;
 
-import org.lockss.app.BaseLockssManager;
-import org.lockss.app.ConfigurableManager;
+import org.lockss.app.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.util.*;
@@ -305,6 +304,8 @@ public class AlertManagerImpl
       log.debug3("alerts disabled");
       return;
     }
+    setComponentName(alert);
+
     boolean doRaise = false;
     if (enabledAlerts != null) {
       doRaise = enabledAlerts.contains(alert.getName());
@@ -324,6 +325,17 @@ public class AlertManagerImpl
 	}
       } catch (Exception e) {
 	log.error("Filter or action threw", e);
+      }
+    }
+  }
+
+  void setComponentName(Alert alert) {
+    LockssApp app = getApp();
+    if (app.isLaaws()) {
+      ServiceDescr descr = app.getMyServiceDescr();
+      if (descr != null) {
+	alert.setAttribute(Alert.ATTR_COMPONENT_NAME, descr.getName());
+	alert.setAttribute(Alert.ATTR_COMPONENT_ABBREV, descr.getAbbrev());
       }
     }
   }

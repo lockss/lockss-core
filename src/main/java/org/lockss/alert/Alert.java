@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -65,6 +61,8 @@ public class Alert {
   public static final String ATTR_GENERIC_TEXT = "generic_text";
   public static final String ATTR_TEXT = "text";
   public static final String ATTR_CACHE = "cache";
+  public static final String ATTR_COMPONENT_NAME = "component_name";
+  public static final String ATTR_COMPONENT_ABBREV = "component_abbrev";
   public static final String ATTR_URL = "url";
   public static final String ATTR_AUID = "auid";
   public static final String ATTR_AU_NAME = "au_name";
@@ -506,9 +504,15 @@ public class Alert {
 
   public String getMailBody() {
     StringBuilder sb = new StringBuilder();
-    sb.append("LOCKSS box '");
+    sb.append("LOCKSS box: ");
     sb.append(getAttribute(ATTR_CACHE));
-    sb.append("' raised an alert at ");
+    sb.append("\n");
+    if (getAttribute(ATTR_COMPONENT_NAME) != null) {
+      sb.append("Component: ");
+      sb.append(getAttribute(ATTR_COMPONENT_NAME));
+      sb.append("\n");
+    }
+    sb.append("raised an alert at ");
     sb.append(getDate());
     sb.append("\n\n");
     appendVal(sb, "Name: ", getName());

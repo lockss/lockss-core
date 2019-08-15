@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -292,12 +288,15 @@ public class TestAlert extends LockssTestCase {
     Alert a2 = Alert.auAlert(Alert.REPAIR_COMPLETE, mau);
     a2.setAttribute(Alert.ATTR_TEXT, "Explanatory text");
     a2.setAttribute(Alert.ATTR_SEVERITY, 7);
+    a2.setAttribute(Alert.ATTR_COMPONENT_NAME, "Poller Service");
     String body = a2.getMailBody();
     log.debug(body);
     String[] lbody =
       (String[])StringUtil.breakAt(body, '\n').toArray(new String[0]);
     int line = 0;
-    assertMatchesRE("^LOCKSS box .* raised an alert at ", lbody[line++]);
+    assertMatchesRE("^LOCKSS box: .*", lbody[line++]);
+    assertMatchesRE("^Component: Poller Service", lbody[line++]);
+    assertMatchesRE("^raised an alert at ", lbody[line++]);
     assertMatchesRE("^$", lbody[line++]);
     assertMatchesRE("^Name: RepairComplete$", lbody[line++]);
     assertMatchesRE("^Severity: trace$", lbody[line++]);
