@@ -64,7 +64,8 @@ public class TestRestUtil extends LockssTestCase4 {
       doCallRestService("http://fake-fake:12345/v2/api-docs", message);
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
-      assertEquals(message, lre.getMessage());
+      assertMatchesRE(message + ".*UnknownHostException.*fake-fake",
+		      lre.getMessage());
       assertClass(UnknownHostException.class, lre.getCause());
       assertEquals("fake-fake", lre.getCause().getMessage());
     }
@@ -75,7 +76,7 @@ public class TestRestUtil extends LockssTestCase4 {
       doCallRestService("http://192.0.2.0:23456/v2/api-docs", message);
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
-      assertEquals(message, lre.getMessage());
+      assertMatchesRE(message, lre.getMessage());
       // 192.0.2.0 isn't reliably unroutable. On some systems this throws
       // SocketTimeoutException
 //       assertClass(NoRouteToHostException.class, lre.getCause());
@@ -88,7 +89,7 @@ public class TestRestUtil extends LockssTestCase4 {
       doCallRestService("http://224.0.0.0:34567/v2/api-docs", message);
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
-      assertEquals(message, lre.getMessage());
+      assertMatchesRE(message, lre.getMessage());
       Throwable cause = lre.getCause();
       if (! (cause instanceof SocketException ||
 	     cause instanceof SocketTimeoutException)) {
@@ -103,7 +104,7 @@ public class TestRestUtil extends LockssTestCase4 {
       doCallRestService("http://127.0.0.1:45678/v2/api-docs", message);
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
-      assertEquals(message, lre.getMessage());
+      assertMatchesRE(message + ".*Connection refused", lre.getMessage());
       assertClass(ConnectException.class, lre.getCause());
       assertMatchesRE("^Connection refused", lre.getCause().getMessage());
     }
@@ -114,7 +115,7 @@ public class TestRestUtil extends LockssTestCase4 {
       doCallRestService("http://www.lockss.org:45678/v2/api-docs", message);
       fail("Should have thrown LockssRestException");
     } catch (LockssRestException lre) {
-      assertEquals(message, lre.getMessage());
+      assertMatchesRE(message + ".*SocketTimeoutException", lre.getMessage());
       assertClass(SocketTimeoutException.class, lre.getCause());
       assertMatchesRE("^connect timed out", lre.getCause().getMessage());
     }
