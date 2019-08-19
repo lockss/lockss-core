@@ -2437,6 +2437,7 @@ public class ConfigManager implements LockssManager {
       } else {
 	log.warning(PARAM_PLATFORM_DISK_SPACE_LIST +
 		    " not specified, not configuring local data dir");
+	noNag = true;
       }
       return;
     }
