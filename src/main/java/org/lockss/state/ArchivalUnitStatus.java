@@ -1553,10 +1553,8 @@ public class ArchivalUnitStatus
         }
         int endRow1 = startRow + numRows; // end row + 1
         int curRow = -1;
-        int curVer = curCu.getVersion() + 1;
         for (CachedUrl cu : cuVersions) {
           curRow++;
-          curVer--;
           if (curRow < startRow) {
             continue;
           }
@@ -1565,7 +1563,7 @@ public class ArchivalUnitStatus
             rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId(), url));
             break;
           }
-          Map row = makeRow(au, cu, curVer);
+          Map row = makeRow(au, cu, cu.getVersion());
           row.put("sort", curRow);
           rowL.add(row);
         }
