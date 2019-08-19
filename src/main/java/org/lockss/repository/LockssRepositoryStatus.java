@@ -220,6 +220,10 @@ public class LockssRepositoryStatus {
 	  res.add(new StatusTable.SummaryInfo("Artifact cache",
 					      ColumnDescriptor.TYPE_STRING,
 					      val));
+	} else if (rrepo.isArtifactCacheEnabled()) {
+	  res.add(new StatusTable.SummaryInfo("Artifact cache",
+					      ColumnDescriptor.TYPE_STRING,
+					      "enabling (waiting for confirmation from repository service)"));
 	}
       }
       return res;
