@@ -140,7 +140,7 @@ public class TestAlertActionMail extends LockssTestCase {
     assertEquals("To: recipient", body[line++]);
     String date = body[line++];
     assertTrue(date.startsWith("Date: "));
-    assertEquals("Subject: LOCKSS box warning: AName", body[line++]);
+    assertEquals("Subject: LOCKSS alert: AName", body[line++]);
     assertEquals("X-Mailer: " + getXMailer(), body[line++]);
     assertEquals("", body[line++]);
   }
@@ -169,7 +169,7 @@ public class TestAlertActionMail extends LockssTestCase {
     assertEquals("To: recipient", body[line++]);
     String date = body[line++];
     assertTrue(date.startsWith("Date: "));
-    assertEquals("Subject: LOCKSS box warning: AName (multiple)",
+    assertEquals("Subject: LOCKSS alert: AName (multiple)",
 		 body[line++]);
     assertEquals("X-Mailer: " + getXMailer(), body[line++]);
     assertEquals("", body[line++]);
