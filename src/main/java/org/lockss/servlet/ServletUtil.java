@@ -1871,13 +1871,15 @@ public class ServletUtil {
     LockssDaemon daemon = servlet.getLockssDaemon();
     for (ServiceDescr descr : daemon.getAllServiceDescrs()) {
       ServiceBinding binding = daemon.getServiceBinding(descr);
-      navTable.newRow();
-      navTable.newCell();
-      navTable.add("<font size=\"-1\">");
-      navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
-				      AdminServletManager.SERVLET_DAEMON_STATUS,
-				      descr.getName(), null));
-      navTable.add("</font>");
+      if (binding.hasUiPort()) {
+	navTable.newRow();
+	navTable.newCell();
+	navTable.add("<font size=\"-1\">");
+	navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
+					AdminServletManager.SERVLET_DAEMON_STATUS,
+					descr.getName(), null));
+	navTable.add("</font>");
+      }
     }
     outerTable.add(navTable);
   }

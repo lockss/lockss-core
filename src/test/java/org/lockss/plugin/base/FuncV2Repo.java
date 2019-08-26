@@ -125,6 +125,27 @@ public class FuncV2Repo extends LockssTestCase {
 
     assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
+
+    ArtifactData ad3 = createArtifact(COLL, AUID, url1, "content 33333");
+    Artifact art3 = repo.addArtifact(ad3);
+    assertEquals(3, (int)art3.getVersion());
+    repo.deleteArtifact(art3);
+    ArtifactData ad4 = createArtifact(COLL, AUID, url1, "content 44444");
+    Artifact art4 = repo.addArtifact(ad4);
+    assertEquals(3, (int)art4.getVersion());
+
+    ArtifactData ad5 = createArtifact(COLL, AUID, url1, "content 55555");
+    Artifact art5 = repo.addArtifact(ad5);
+    assertEquals(4, (int)art5.getVersion());
+
+    ArtifactData ad4a = repo.getArtifactData(art4);
+    assertInputStreamMatchesString("content 44444", ad4a.getInputStream());
+    Artifact uncArt = repo.getArtifactVersion(COLL, AUID, url1, 3);
+    assertNull(uncArt);
+    repo.commitArtifact(art4);
+    uncArt = repo.getArtifactVersion(COLL, AUID, url1, 3);
+    assertNotNull(uncArt);
+
   }
 
   /**

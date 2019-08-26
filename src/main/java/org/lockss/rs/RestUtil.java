@@ -92,6 +92,8 @@ public class RestUtil {
 	LockssRestHttpException lrhe =
 	    new LockssRestHttpException(exceptionMessage);
 	lrhe.setHttpStatusCode(statusCode.value());
+	// XXX this is the stock reason phrase, not what was received in
+	// the response.  How to get the actual reason?
 	lrhe.setHttpStatusMessage(statusCode.getReasonPhrase());
 	lrhe.setHttpResponseHeaders(response.getHeaders());
 	if (log.isDebug2()) log.debug3("lrhe = " + lrhe);

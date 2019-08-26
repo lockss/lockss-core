@@ -40,11 +40,16 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 public class ServiceBinding {
   private final String host;
   private final int uiPort;
-  private int restPort;
+  private final int restPort;
 
   public ServiceBinding(String host, int uiPort) {
+    this(host, uiPort, 0);
+  }
+
+  public ServiceBinding(String host, int uiPort, int restPort) {
     this.host = host;
     this.uiPort = uiPort;
+    this.restPort = restPort;
   }
 
   public String getHost() {
@@ -55,8 +60,16 @@ public class ServiceBinding {
     return uiPort;
   }
 
+  public boolean hasUiPort() {
+    return uiPort != 0;
+  }
+
   public int getRestPort() {
     return restPort;
+  }
+
+  public boolean hasRestPort() {
+    return restPort != 0;
   }
 
   /** Return the URL stem to use to reach the UI of the service with this
@@ -70,6 +83,19 @@ public class ServiceBinding {
     sb.append(getHost() != null ? getHost() : "localhost");
     sb.append(':');
     sb.append(getUiPort());
+    return sb.toString();
+  }
+
+  /** Return the URL stem to use to reach the REST port the service with
+   * this binding.
+   */
+  public String getRestStem() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("http");
+    sb.append("://");
+    sb.append(getHost() != null ? getHost() : "localhost");
+    sb.append(':');
+    sb.append(getRestPort());
     return sb.toString();
   }
 
@@ -102,6 +128,9 @@ public class ServiceBinding {
     }
     sb.append(":");
     sb.append(uiPort);
+    sb.append(":");
+    sb.append(restPort);
+    sb.append("]");
     return sb.toString();
   }
 

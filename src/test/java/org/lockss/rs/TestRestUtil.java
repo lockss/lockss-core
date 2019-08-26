@@ -33,10 +33,10 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.UnknownHostException;
-import org.junit.Test;
+import org.junit.*;
 import org.lockss.rs.exception.LockssRestException;
 import org.lockss.test.LockssTestCase4;
-import org.lockss.util.Logger;
+import org.lockss.log.*;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -47,17 +47,22 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import org.mockserver.junit.*;
+import org.mockserver.client.*;
+import static org.mockserver.model.HttpRequest.*;
+import static org.mockserver.model.HttpResponse.*;
+
 /**
  * Test class for org.lockss.rs.RestUtil.
  */
 public class TestRestUtil extends LockssTestCase4 {
-  private static Logger log = Logger.getLogger();
+  private static L4JLogger log = L4JLogger.getLogger();
 
   /**
-   * Tests the call to a REST service.
+   * Tests error reporting for network errors
    */
   @Test
-  public void testCallRestService() {
+  public void testNetworkErrors() {
     String message = "Cannot perform call to fake-fake";
 
     try {
@@ -121,6 +126,31 @@ public class TestRestUtil extends LockssTestCase4 {
     }
   }
 
+  @Rule
+  public MockServerRule msRule = new MockServerRule(this);
+
+  private MockServerClient msClient;
+
+  @Test
+
+  public void exampleTest() throws LockssRestException {
+    int port = msRule.getPort();
+    msClient
+      .when(request()
+            .withMethod("GET")
+            .withPath("/foo"))
+      .respond(response()
+	       .withStatusCode(200));
+    ResponseEntity<String> resp =
+      doCallRestService("http://localhost:" + port + "/foo", "bar");
+
+    log.info("resp: {}", resp);
+//     assertTrue(result.wasSuccessful());
+
+//     verify(postRequestedFor(urlMatching("/my/resource/[a-z0-9]+"))
+//             .withRequestBody(matching(".*<message>1234</message>.*"))
+//             .withHeader("Content-Type", notMatching("application/json")));
+  }
   /**
    * Tests the success evaluation of an HTTP status code.
    */
@@ -229,7 +259,7 @@ public class TestRestUtil extends LockssTestCase4 {
     URI uri = UriComponentsBuilder.newInstance()
 	.uriComponents(UriComponentsBuilder.fromUriString(url).build())
 	.build().encode().toUri();
-    if (log.isDebug3()) log.debug3("uri = " + uri);
+    log.trace("uri = {}", uri);
 
     // Perform the call.
     return RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,

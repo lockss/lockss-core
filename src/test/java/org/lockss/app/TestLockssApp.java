@@ -241,9 +241,12 @@ public class TestLockssApp extends LockssTestCase {
   }
 
   public void testProcessServiceBindings() {
-    app.processServiceBindings(ListUtil.list("cfg=:24621",
+    app.processServiceBindings(ListUtil.list("cfg=:24621:0",
 					     "mdx=:1234",
-					     "poller=pollhost:4444"));
+					     "mdq=:12377:",
+					     "crawler=:1111:",
+					     "repo=::111",
+					     "poller=pollhost:4444:0"));
     assertEquals(new ServiceBinding(null, 24621),
 		 app.getServiceBinding(ServiceDescr.SVC_CONFIG));
     assertEquals(new ServiceBinding(null, 1234),
@@ -253,6 +256,9 @@ public class TestLockssApp extends LockssTestCase {
 
     assertSameElements(ListUtil.list(ServiceDescr.SVC_CONFIG,
 				     ServiceDescr.SVC_MDX,
+				     ServiceDescr.SVC_MDQ,
+				     ServiceDescr.SVC_CRAWLER,
+				     ServiceDescr.SVC_REPO,
 				     ServiceDescr.SVC_POLLER),
 
 		       app.getAllServiceDescrs());

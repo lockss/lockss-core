@@ -35,20 +35,35 @@ public class TestServiceBinding extends LockssTestCase {
   private final static Logger log = Logger.getLogger();
 
   public void testEqualsHash() {
-    ServiceBinding sb1 = new ServiceBinding("foo", 12345);
-    ServiceBinding sb2 = new ServiceBinding(null, 12347);
-    ServiceBinding sb3 = new ServiceBinding("foo", 0);
-    assertEquals(new ServiceBinding("foo", 12345), sb1);
-    assertEquals(new ServiceBinding("foo", 12345).hashCode(), sb1.hashCode());
+    assertEquals(new ServiceBinding("foo", 12345, 0),
+		 new ServiceBinding("foo", 12345, 0));
+    assertEquals(new ServiceBinding("foo", 12345, 123),
+		 new ServiceBinding("foo", 12345, 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, 123),
+		    new ServiceBinding("bar", 12345, 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, 123),
+		    new ServiceBinding("foo", 12346, 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, 123),
+		    new ServiceBinding("foo", 12345, 124));
+    assertNotEquals(new ServiceBinding("foo", 12345, 123),
+		    new ServiceBinding("foo", 0, 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, 123),
+		    new ServiceBinding("foo", 12345, 0));
 
-    assertNotEquals(new ServiceBinding("fooo", 12345), sb1);
-    assertNotEquals(new ServiceBinding("fooo", 12345).hashCode(),
-		    sb1.hashCode());
-    assertNotEquals(new ServiceBinding("foo", 12346), sb1);
-    assertEquals(new ServiceBinding(null, 12347), sb2);
-    assertEquals(new ServiceBinding(null, 12347).hashCode(), sb2.hashCode());
-    assertNotEquals(new ServiceBinding(null, 12346), sb2);
-    assertNotEquals(new ServiceBinding("xx", 12347), sb2);
+    assertEquals(new ServiceBinding("foo", 12345, 0).hashCode(),
+		 new ServiceBinding("foo", 12345, 0).hashCode());
+    assertEquals(new ServiceBinding("foo", 12345, 123).hashCode(),
+		 new ServiceBinding("foo", 12345, 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, 123).hashCode(),
+		    new ServiceBinding("bar", 12345, 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, 123).hashCode(),
+		    new ServiceBinding("foo", 12346, 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, 123).hashCode(),
+		    new ServiceBinding("foo", 12345, 124).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, 123).hashCode(),
+		    new ServiceBinding("foo", 0, 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, 123).hashCode(),
+		    new ServiceBinding("foo", 12345, 0).hashCode());
   }
 
   public void testGetUiStem() {
@@ -56,8 +71,17 @@ public class TestServiceBinding extends LockssTestCase {
 		 new ServiceBinding("foo.host", 12345).getUiStem("https"));
     assertEquals("http://localhost:666",
 		 new ServiceBinding(null, 666).getUiStem("http"));
+    assertEquals(666, new ServiceBinding(null, 666).getUiPort());
+    assertTrue(new ServiceBinding(null, 666).hasUiPort());
   }
 
-
+  public void testGetRestStem() {
+    assertEquals("http://foo.host:22222",
+		 new ServiceBinding("foo.host", 12345, 22222).getRestStem());
+    assertEquals("http://localhost:666",
+		 new ServiceBinding(null, 0, 666).getRestStem());
+    assertEquals(0, new ServiceBinding(null, 666).getRestPort());
+    assertFalse(new ServiceBinding(null, 666).hasRestPort());
+  }
 }
 

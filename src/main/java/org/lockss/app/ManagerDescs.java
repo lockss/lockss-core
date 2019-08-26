@@ -57,6 +57,12 @@ public class ManagerDescs {
   public static ManagerDesc STATUS_SERVICE_DESC =
     new ManagerDesc(LockssApp.STATUS_SERVICE,
 		    "org.lockss.daemon.status.StatusServiceImpl");
+  public static ManagerDesc REST_SERVICES_MANAGER_DESC =
+    new ManagerDesc(LockssApp.REST_SERVICES_MANAGER,
+		    "org.lockss.daemon.RestServicesManager") {
+      public boolean shouldStart(LockssApp app) {
+        return app.isLaaws();
+      }};
   public static ManagerDesc TRUEZIP_MANAGER_DESC =
     new ManagerDesc(LockssApp.TRUEZIP_MANAGER,
 		    "org.lockss.truezip.TrueZipManager");
@@ -168,9 +174,5 @@ public class ManagerDescs {
   
   public static ManagerDesc CONFIG_DB_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.CONFIG_DB_MANAGER,
-		    "org.lockss.config.db.ConfigDbManager") {
-      // Start ConfigDbManager iff we're not using a remote config service
-      public boolean shouldStart(LockssApp app) {
-        return !app.isConfigClient();
-      }};
+		    "org.lockss.config.db.ConfigDbManager");
 }
