@@ -1075,6 +1075,13 @@ public abstract class DbManager extends BaseLockssManager
    */
   protected abstract String getDataSourceDatabaseName(Configuration config);
 
+  /** Return the prefix + simple class name, to be used as the base for the
+   * database name.
+   */
+  protected String getSimpleDbName() {
+    return getDatabaseNamePrefix() + this.getClass().getSimpleName();
+  }
+
   /**
    * Provides the full name of the database to be used.
    * 
@@ -1823,12 +1830,14 @@ public abstract class DbManager extends BaseLockssManager
 	// Get the version table metadata.
 	rs = JdbcBridge.getStandardTables(conn, null, dataSourceUser,
 	    VERSION_TABLE.toUpperCase());
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database table '" + 
-	    VERSION_TABLE + "' is available.");
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database "
+				       + getSimpleDbName() + " table '" +
+				       VERSION_TABLE + "' is available.");
       } catch (SQLException sqle) {
-	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database table '"
-	    + VERSION_TABLE + "' is not available. "
-	    + waitForExternalSetupMessage);
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database "
+				     + getSimpleDbName() + " table '"
+				     + VERSION_TABLE + "' is not available. "
+				     + waitForExternalSetupMessage);
 
 	try {
 	  Thread.sleep(waitForExternalSetupInterval);
@@ -2001,10 +2010,11 @@ public abstract class DbManager extends BaseLockssManager
       // database version.
       if (targetDbVersion > existingDbVersion) {
 	// Yes.
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "Database needs to be updated from existing version "
-	    + existingDbVersion + " to new version " + targetDbVersion);
-
+	if (log.isDebug3()) {
+	  log.debug3(DEBUG_HEADER + "Database " + getSimpleDbName()
+		     + " needs to be updated from existing version " + existingDbVersion
+		     + " to new version " + targetDbVersion);
+	}
 	// Update the database.
 	int lastRecordedVersion =
 	    updateDatabase(conn, existingDbVersion, targetDbVersion);
@@ -2017,18 +2027,21 @@ public abstract class DbManager extends BaseLockssManager
 
 	if (pendingUpdates.size() > 0) {
 	  if (lastRecordedVersion > existingDbVersion) {
-	    log.info("Database has been updated to version "
-		+ lastRecordedVersion + ". Pending updates: " + pendingUpdates);
+	    log.info("Database " + getSimpleDbName()
+		     + " has been updated to version " + lastRecordedVersion
+		     + ". Pending updates: " + pendingUpdates);
 	  } else {
-	    log.info("Database remains at version " + lastRecordedVersion
-		+ ". Pending updates: " + pendingUpdates);
+	    log.info("Database " + getSimpleDbName()
+		     + " remains at version " + lastRecordedVersion
+		     + ". Pending updates: " + pendingUpdates);
 	  }
 	} else {
 	  if (lastRecordedVersion > existingDbVersion) {
-	    log.info("Database has been updated to version "
-	      + lastRecordedVersion);
+	    log.info("Database " + getSimpleDbName()
+		     + " has been updated to version " + lastRecordedVersion);
 	  } else {
-	    log.info("Database remains at version " + lastRecordedVersion);
+	    log.info("Database " + getSimpleDbName()
+		     + " remains at version " + lastRecordedVersion);
 	  }
 	}
       } else {
@@ -2038,10 +2051,12 @@ public abstract class DbManager extends BaseLockssManager
 		+ pendingUpdates + "'");
 
 	if (pendingUpdates.size() > 0) {
-	  log.info("Database is up-to-date at version " + existingDbVersion
-	      + ". Pending updates: " + pendingUpdates);
+	  log.info("Database " + getSimpleDbName()
+		   + " is up-to-date at version " + existingDbVersion
+		   + ". Pending updates: " + pendingUpdates);
 	} else {
-	  log.info("Database is up-to-date at version " + existingDbVersion);
+	  log.info("Database " + getSimpleDbName()
+		   + " is up-to-date at version " + existingDbVersion);
 	}
       }
     } catch (SQLException sqle) {
@@ -2214,7 +2229,8 @@ public abstract class DbManager extends BaseLockssManager
 	  // dbVersion + 1.
 	  updateDatabase(conn, version, version + 1);
 	  if (log.isDebug3())
-	    log.debug3("Database has been updated to version " + (version + 1));
+	    log.debug3("Database " + getSimpleDbName()
+		       + " has been updated to version " + (version + 1));
 	}
       }
 
@@ -2287,14 +2303,16 @@ public abstract class DbManager extends BaseLockssManager
 	      lastRecordedVersion = from + 1;
 	      recordDbVersion(conn, subsystem, lastRecordedVersion);
 	      if (log.isDebug())
-		log.debug("Database updated to version " + lastRecordedVersion);
+		log.debug("Database " + getSimpleDbName()
+			  + " updated to version " + lastRecordedVersion);
 	    }
 	  } else {
 	    // No: Record the current database version in the database.
 	    lastRecordedVersion = from + 1;
 	    recordDbVersion(conn, subsystem, lastRecordedVersion);
 	    if (log.isDebug())
-	      log.debug("Database updated to version " + lastRecordedVersion);
+	      log.debug("Database " + getSimpleDbName()
+			+ " updated to version " + lastRecordedVersion);
 
 	    // Commit this partial update.
 	    try {
