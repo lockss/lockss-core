@@ -29,13 +29,19 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.app;
 
 import java.util.*;
-import javax.jms.*;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.JMSException;
 
 import org.lockss.alert.*;
 import org.lockss.config.*;
+import org.lockss.daemon.*;
 import org.lockss.jms.*;
 import org.lockss.log.*;
+import org.lockss.app.*;
+import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
 import org.lockss.util.jms.*;
 
 /**
@@ -171,6 +177,48 @@ public abstract class BaseLockssManager implements LockssManager {
     } else {
       throw new RuntimeException("Not a ConfigurableManager");
     }
+  }
+
+  /** Wait forever for the repo service to be ready.
+   * @return true if the repo is ready, false if not or if the status can't
+   * be determined (no RestServicesManager, no binding for the repo svc, no
+   * status available)
+   */
+  protected boolean waitForRepo() {
+    return waitForRepo(Deadline.MAX);
+  }
+
+  /** Wait for the repo service to be ready.
+   * @param until time at which to give up waiting
+   * @return true if the repo is ready, false if not or if the status can't
+   * be determined (no RestServicesManager, no binding for the repo svc, no
+   * status available, timed out
+   */
+  protected boolean waitForRepo(Deadline until) {
+    RestServicesManager svcsMgr =
+      getApp().getManagerByType(RestServicesManager.class);
+    if (svcsMgr != null) {
+      RestServicesManager.ServiceStatus stat =
+	svcsMgr.waitServiceReady(ServiceDescr.SVC_REPO, until);
+      if (stat != null) {
+	return stat.isReady();
+      }
+    }
+    return false;
+  }
+
+  /** Return true if the repository on which the specified AU resides is
+   * ready
+   * @param auid
+   * @return true if the repo is ready, false if not
+   */
+  protected boolean isRepoReady(String auid) {
+    RepositoryManager repoMgr =
+      getApp().getManagerByType(RepositoryManager.class);
+    if (repoMgr == null) {
+      throw new IllegalStateException("No RepositoryManager");
+    }
+    return repoMgr.isRepoReady(auid);
   }
 
   // JMS Producer and Consumer setup

@@ -30,7 +30,6 @@ package org.lockss.daemon;
 
 import java.io.*;
 import java.util.*;
-// import java.util.concurrent.*;
 import org.apache.commons.collections4.set.*;
 
 import org.lockss.app.*;
@@ -44,10 +43,12 @@ import org.lockss.rs.*;
 import org.lockss.laaws.status.model.*;
 import org.lockss.rs.exception.LockssRestException;
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX JMS XXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-
-/** Polls service dependencies on startup */
+/** Queries readiness of known REST services on startup, keeps querying
+ * until service is ready, provides readiness status.
+ * TODO - ongoing service monitoring
+ * TODO - multiple service instances (multiple bindings)
+ * TODO - could improve responsiveness w/ JMS hint
+ */
 public class RestServicesManager
   extends BaseLockssManager implements ConfigurableManager {
 
@@ -55,55 +56,54 @@ public class RestServicesManager
 
   public static final String PREFIX = Configuration.PREFIX + "services.";
   
-  public static final String PARAM_RATE = PREFIX + "rate";
-  public static final long DEFAULT_RATE = 10 * Constants.SECOND;
+  /** Interval at which each service is probed until it becomes ready. */
+  public static final String PARAM_PROBE_INTERVAL = PREFIX + "probeInterval";
+  public static final long DEFAULT_PROBE_INTERVAL = 10 * Constants.SECOND;
 
+  /** Connect timeout for REST call to service's status endpoint. */
   public static final String PARAM_CONNECT_TIMEOUT = PREFIX + "connectTimeout";
   public static final long DEFAULT_CONNECT_TIMEOUT = 30 + Constants.SECOND;
 
+  /** Read timeout for REST call to service's status endpoint. */
   public static final String PARAM_READ_TIMEOUT = PREFIX + "readTimeout";
   public static final long DEFAULT_READ_TIMEOUT = 30 + Constants.SECOND;
 
-  public static final String PARAM_PREREQUISITES = Configuration.PREFIX +
-    "prerequisites";
-  public static final List DEFAULT_PREREQUISITES = null;
+//   public static final String PARAM_PREREQUISITES = Configuration.PREFIX +
+//     "prerequisites";
+//   public static final List DEFAULT_PREREQUISITES = null;
 
-  private long probeInterval = DEFAULT_RATE;;
+  private long probeInterval = DEFAULT_PROBE_INTERVAL;;
   private long probeConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
   private long probeReadTimeout = DEFAULT_READ_TIMEOUT;
 
 
-  private Map<String,ServiceStatus> serviceStatusMap = new HashMap<>();
+  /** Maps service binding to status.  When the status changes, the
+   * ServiceStatus object in this map is replaced, not updated, so that no
+   * synchronization is needed within ServiceStatus. */
+  protected Map<ServiceBinding,ServiceStatus> serviceStatusMap =
+    new HashMap<>();
 
-  private ListOrderedSet<ServiceDescr> unsatisfied = new ListOrderedSet<>();
-  private ListOrderedSet<ServiceDescr> satisfied = new ListOrderedSet<>();
+  protected Map<ServiceBinding,Thread> probeThreads = new HashMap<>();
 
-//   private static ThreadPoolExecutor executor;
+  // Will have to change to resettable latch when ongoing monitoring is added
+  protected Map<ServiceBinding,OneShotSemaphore> waitSems = new HashMap<>();
 
   public void startService() {
     super.startService();
     RestServiceStatus.registerAccessors(getApp());
     startProbes();
-//     if (!unsatisfied.isEmpty()) {
-// //       startWatcher();
-//     }
   }
 
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
     if (changedKeys.contains(PREFIX)) {
-      probeInterval = config.getTimeInterval(PARAM_RATE, DEFAULT_RATE);
+      probeInterval = config.getTimeInterval(PARAM_PROBE_INTERVAL,
+					     DEFAULT_PROBE_INTERVAL);
       probeConnectTimeout = config.getTimeInterval(PARAM_CONNECT_TIMEOUT,
 						   DEFAULT_CONNECT_TIMEOUT);
       probeReadTimeout = config.getTimeInterval(PARAM_READ_TIMEOUT,
 						   DEFAULT_READ_TIMEOUT);
     }
-
-//     if (!getApp().isAppRunning()) {
-//       processPrerequisites(config.getList(PARAM_PREREQUISITES,
-// 					  DEFAULT_PREREQUISITES));
-//     }
-
   }
 
   public void stopService() {
@@ -111,54 +111,31 @@ public class RestServicesManager
     super.stopService();
   }
 
-//   void processPrerequisites(List<String> svcNames) {
-//     if (svcNames == null) {
-//       return;
-//     }
-//     for (String name : svcNames) {
-//     }
-//     if (!unsatisfied.isEmpty()) {
-//       new Thread(() -> {checkPrerequisites();}).start();
-//     }
-//   }
-
-//   void checkPrerequisites() {
-//     while (true) {
-//       List<ServiceDescr> nowReady = new ArrayList<>();
-//       for (ServiceDescr descr : unsatisfied) {
-// // 	if (probeService(descr)) {
-// // 	  nowReady.add(descr);
-// // 	}
-//       }
-//       unsatisfied.removeAll(nowReady);
-//       satisfied.addAll(nowReady);
-//     }
-    
-//   }
-
-  Map<String,Thread> probeThreads = new HashMap<>();
-
+  /** Start probes for all known services. */
   void startProbes() {
-    for (ServiceDescr descr : getApp().getAllServiceDescrs()) {
-      ServiceBinding binding = getApp().getServiceBinding(descr);
+    log.debug2("descrs: {}", getAllServiceDescrs());
+    for (ServiceDescr descr : getAllServiceDescrs()) {
+      ServiceBinding binding = getServiceBinding(descr);
       if (binding != null) {
 	startProbe(descr, binding);
       }
     }
   }
 
+  /** Start a probe thread for a single service. */
   void startProbe(ServiceDescr descr, ServiceBinding binding) {
-    String key = binding.getRestStem();
     synchronized (probeThreads) {
-      if (!probeThreads.containsKey(key)) {
+      if (!probeThreads.containsKey(binding)) {
 	Thread th = new Thread(() -> {probeService(descr, binding);});
 	th.start();
-	probeThreads.put(key, th);
+	probeThreads.put(binding, th);
       }
     }
   }
 
+  /** Probe a service until it becumes ready. */
   void probeService(ServiceDescr descr, ServiceBinding binding) {
+    log.debug2("Probing {}: {}", descr, binding);
     try {
       while (true) {
 	long start = TimeBase.nowMs();
@@ -166,6 +143,8 @@ public class RestServicesManager
 	ServiceStatus stat = getServiceStatus(binding);
 	if (stat != null) {
 	  if (stat.isReady()) {
+	    log.debug2("probe thread exiting because service is ready: {}: {}",
+		       descr, binding);
 	    break;
 	  }
 	} else {
@@ -179,63 +158,57 @@ public class RestServicesManager
       }
     } finally {
       synchronized (probeThreads) {
-	probeThreads.remove(Thread.currentThread());
+	probeThreads.remove(binding);
+	log.debug2("Removed thread: {}", binding);
       }
     }
   }
 
-  void putServiceStatus(ServiceBinding binding, ServiceStatus stat) {
-    synchronized (serviceStatusMap) {
-      serviceStatusMap.put(binding.getRestStem(), stat);
-    }
-  }
-
-//   void probeOnce(ServiceDescr descr) {
-//     // Eventually this will have to deal with multiple bindings per
-//     // service.
-//     probeOnce(descr, getApp().getServiceBinding(descr));
-//   }
-
+  /** Execute a single probe of a service and store the results. */
   void probeOnce(ServiceDescr descr, ServiceBinding binding) {
     if (binding == null) {
       ServiceStatus stat = new ServiceStatus(descr, binding, "Unknown");
       putServiceStatus(binding, stat);
       return;
     }
-    String uri = binding.getRestStem();
-    RestStatusClient client =
-      new RestStatusClient(uri, probeConnectTimeout, probeReadTimeout);
     try {
       synchronized (serviceStatusMap) {
-	if (!serviceStatusMap.containsKey(descr)) {
+	if (!serviceStatusMap.containsKey(binding)) {
+	  // set the status to updating only if it doesn't already have a
+	  // status (i.e., first time)
 	  ServiceStatus stat = new ServiceStatus(descr, binding, "Updating");
 	  putServiceStatus(binding, stat);
 	}
       }
-      ApiStatus apiStat = client.getStatus();
+      ApiStatus apiStat = callClientStatus(binding);
       ServiceStatus stat = new ServiceStatus(descr, binding, apiStat);
       stat.setLastTransition(TimeBase.nowMs());
       putServiceStatus(binding, stat);
     } catch (LockssRestException e) {
       ServiceStatus stat = new ServiceStatus(descr, binding, e);
       synchronized (serviceStatusMap) {
-	// update lastTransition on network error only if we already had a
-	// last transition time
-	ServiceStatus curStat = getServiceStatus(binding);
-	if (curStat != null && curStat.getLastTransition() > 0) {
-	  stat.setLastTransition(TimeBase.nowMs());
-	}
-	putServiceStatus(binding, stat);
+	stat.setLastTransition(TimeBase.nowMs());
       }
+      putServiceStatus(binding, stat);
     }
   }
 
+  /** Return last recorded status of service.
+   * @param binding ServiceBinding of service
+   * @return last recorded ServiceStatus of service
+   */
   public ServiceStatus getServiceStatus(ServiceBinding binding) {
     synchronized (serviceStatusMap) {
-      return serviceStatusMap.get(binding.getRestStem());
+      return serviceStatusMap.get(binding);
     }
   }
 
+  /** Wait until service is ready.  If a non-infinite Deadline is supplied
+   * the service will not necessarily be ready when this returns.
+   * @param descr ServiceDescr of service
+   * @return last recorded ServiceStatus of service, when it becomes ready
+   * or when the Deadline expires
+   */
   public ServiceStatus waitServiceReady(ServiceDescr descr,
 					Deadline until) {
     ServiceBinding binding = getApp().getServiceBinding(descr);
@@ -245,6 +218,13 @@ public class RestServicesManager
     return null;
   }
 
+  /** Wait until service is ready.  If a non-infinite Deadline is supplied
+   * the service will not necessarily be ready when this returns.
+   * @param descr ServiceDescr of service
+   * @param binding ServiceBinding of service
+   * @return last recorded ServiceStatus of service, when it becomes ready
+   * or when the Deadline expires
+   */
   public ServiceStatus waitServiceReady(ServiceDescr descr,
 					ServiceBinding binding,
 					Deadline until) {
@@ -263,8 +243,9 @@ public class RestServicesManager
 	log.debug("Waiting for service ready: {}", descr);
 	logged = true;
       }
+      OneShotSemaphore sem = getWaitSem(binding);
       try {
-	Deadline.in(10 * Constants.SECOND).sleep();
+	sem.waitFull(until);
       } catch (InterruptedException e) {
       }
     } while (!until.expired());
@@ -274,8 +255,59 @@ public class RestServicesManager
     return getServiceStatus(binding);
   }
 
-  /** Service status.  Isolates clients from the REST-specific ApiStatus,
-   * and holds some state info */
+  /** Return true if the service is ready
+   * @param binding ServiceBinding of service
+   * @return true if service is ready
+   */
+  public boolean isServiceReady(ServiceBinding binding) {
+    ServiceStatus stat = getServiceStatus(binding);
+    return stat != null && stat.isReady();
+  }
+
+  void putServiceStatus(ServiceBinding binding, ServiceStatus stat) {
+    synchronized (serviceStatusMap) {
+      log.debug2("putStatus {}: {}", binding, stat);
+      serviceStatusMap.put(binding, stat);
+    }
+    if (stat.isReady()) {
+      getWaitSem(binding).fill();
+    }
+  }
+
+  // Overridable for testing
+  protected List<ServiceDescr> getAllServiceDescrs() {
+    return getApp().getAllServiceDescrs();
+  }
+
+  // Overridable for testing
+  protected ServiceBinding getServiceBinding(ServiceDescr sd) {
+    return getApp().getServiceBinding(sd);
+  }
+
+  // Overridable for testing
+  protected ApiStatus callClientStatus(ServiceBinding binding)
+      throws LockssRestException {
+    RestStatusClient client =
+      new RestStatusClient(binding.getRestStem(),
+			   probeConnectTimeout, probeReadTimeout);
+    return client.getStatus();
+  }
+
+  OneShotSemaphore getWaitSem(ServiceBinding binding) {
+    synchronized (waitSems) {
+      OneShotSemaphore sem = waitSems.get(binding);
+      if (sem == null) {
+	sem = new OneShotSemaphore();
+	waitSems.put(binding, sem);
+      }
+      return sem;
+    }
+  }
+
+  /** Service status.  Records and provides access to results of most
+   * recent probe: returned ApiStatus, network error, fixed message.
+   * Immutable.
+   */
   public static class ServiceStatus {
     private ServiceDescr descr;
     private ServiceBinding binding;
@@ -317,11 +349,20 @@ public class RestServicesManager
       if (apiStat != null) {
 	return apiStat.getReason();
       } else if (restEx != null) {
-	return restEx.getMessage();
+	return restEx.getShortMessage();
       } else if (msg != null) {
 	return msg;
       } else {
 	return "Not determined";
+      }
+    }
+
+    /** Return the time at which the service claims to have become ready. */
+    public long getReadyTime() {
+      if (apiStat != null) {
+	return apiStat.getReadyTime();
+      } else {
+	return 0;
       }
     }
 
@@ -336,7 +377,7 @@ public class RestServicesManager
 
     public String toString() {
       return "[ServiceStatus: " + (isReady() ? "Ready" : "Not Ready")
-	+ ", " + getReason();
+	+ ", " + getReason() + "]";
     }
   }
 

@@ -235,6 +235,7 @@ public class LockssApp {
   protected volatile boolean appRunning = false; // true after all managers started
   protected OneShotSemaphore appRunningSem = new OneShotSemaphore();
   protected Date startDate;
+  protected long readyTime = 0;		// Time the daemon became ready.
   protected long appLifetime = DEFAULT_APP_EXIT_AFTER;
   protected Deadline timeToExit = Deadline.at(TimeBase.MAX);
   protected boolean isSafenet = false;
@@ -416,6 +417,20 @@ public class LockssApp {
       startDate = TimeBase.nowDate();
     }
     return startDate;
+  }
+
+  /** Return the time the app started running.
+   * @return the time the app started running, as a long
+   */
+  public long getStartTime() {
+    return startDate.getTime();
+  }
+
+  /** Return the time the app became ready
+   * @return the time the app started running, as a long
+   */
+  public long getReadyTime() {
+    return readyTime;
   }
 
   /** Return the app name */
@@ -781,6 +796,7 @@ public class LockssApp {
       }
     }
 
+    readyTime = TimeBase.nowMs();
     appRunning = true;
     appRunningSem.fill();
     if (getAppSpec() != null) {

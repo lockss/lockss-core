@@ -81,6 +81,8 @@ public class RestServiceStatus {
 					 ColumnDescriptor.TYPE_STRING),
 		    new ColumnDescriptor("since", "Since",
 					 ColumnDescriptor.TYPE_DATE),
+// 		    new ColumnDescriptor("lasttrans", "Noticed at",
+// 					 ColumnDescriptor.TYPE_DATE),
 		    new ColumnDescriptor("reason", "Reason",
 					 ColumnDescriptor.TYPE_STRING)
 		    );
@@ -118,7 +120,12 @@ public class RestServiceStatus {
 	if (stat != null) {
 	  row.put("status", stat.isReady() ? "Ready" : "Not Ready");
 	  row.put("reason", stat.getReason());
-	  row.put("since", stat.getLastTransition());
+	  if (stat.getLastTransition() > 0) {
+	    row.put("lasttrans", stat.getLastTransition());
+	  }
+	  if (stat.getReadyTime() > 0) {
+	    row.put("since", stat.getReadyTime());
+	  }
 	}
 	rows.add(row);
       }

@@ -1562,6 +1562,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
             startOneWait.expireIn(paramStartCrawlsInitialDelay);
             cmStatus.setNextCrawlStarter(startOneWait);
             startOneWait.sleep();
+	    // Can't do anything until repository is ready
+	    waitForRepo(Deadline.MAX);
           } else {
             logger.debug("Waiting until AUs started");
             waitUntilAusStarted();

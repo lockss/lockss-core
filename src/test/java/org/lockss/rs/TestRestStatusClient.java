@@ -67,7 +67,7 @@ public class TestRestStatusClient extends LockssTestCase4 {
   public MockServerRule msRule = new MockServerRule(this);
 
   @Before
-  public void getPort() throws LockssRestException {
+  public void getPort() {
     port = msRule.getPort();
   }
 

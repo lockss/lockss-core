@@ -28,6 +28,7 @@
 package org.lockss.daemon;
 
 import java.net.*;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.junit.*;
 import com.fasterxml.jackson.core.*;
@@ -37,12 +38,19 @@ import org.mockserver.client.*;
 import static org.mockserver.model.HttpRequest.*;
 import static org.mockserver.model.HttpResponse.*;
 import org.mockserver.model.Header;
+import org.apache.commons.collections4.*;
+import org.apache.commons.collections4.multimap.*;
+import org.apache.commons.lang3.tuple.*;
 
 import org.lockss.laaws.status.model.ApiStatus;
 import org.lockss.app.*;
 import org.lockss.log.*;
 import org.lockss.rs.exception.*;
-import org.lockss.test.LockssTestCase4;
+import org.lockss.util.*;
+import org.lockss.util.time.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.test.*;
+import static  org.lockss.daemon.RestServicesManager.ServiceStatus;
 
 /**
  * Test class for RestServicesManager.
@@ -59,7 +67,7 @@ public class TestRestServicesManager extends LockssTestCase4 {
   int port;
 
 //   private JMSManager jmsMgr;
-  private RestServicesManager srvMgr;
+  private MyRestServicesManager srvMgr;
 
   String baseUrl() {
     return "http://localhost:" + port;
@@ -76,11 +84,17 @@ public class TestRestServicesManager extends LockssTestCase4 {
   @Before
   public void setUp() throws Exception {
     super.setUp();
+    getMockLockssDaemon().registerTestManager(RestServicesManager.class,
+					      MyRestServicesManager.class);
+
+    ConfigurationUtil.addFromArgs(RestServicesManager.PARAM_PROBE_INTERVAL,
+				  "1s");
+
 //     ConfigurationUtil.addFromArgs(JMSManager.PARAM_START_BROKER, "true");
     getMockLockssDaemon().startManagers(/*JMSManager.class,*/
 					RestServicesManager.class);
 //     jmsMgr = getMockLockssDaemon().getManagerByType(JMSManager.class);
-    srvMgr = getMockLockssDaemon().getManagerByType(RestServicesManager.class);
+    srvMgr = (MyRestServicesManager)getMockLockssDaemon().getManagerByType(RestServicesManager.class);
   }
 
   @After
@@ -121,9 +135,12 @@ public class TestRestServicesManager extends LockssTestCase4 {
       .setRestStem(baseUrl());
 
     srvMgr.probeOnce(d, b);
-    RestServicesManager.ServiceStatus stat = srvMgr.getServiceStatus(b);
+    ServiceStatus stat = srvMgr.getServiceStatus(b);
     log.debug("stat: {}", stat);
     assertTrue(stat.isReady());
+    ServiceStatus stat2 =
+      srvMgr.waitServiceReady(d, b, Deadline.in(TIMEOUT_SHOULDNT));
+    assertTrue(stat2.isReady());
   }
 
   @Test
@@ -143,90 +160,167 @@ public class TestRestServicesManager extends LockssTestCase4 {
       .setRestStem(baseUrl());
 
     srvMgr.probeOnce(d, b);
-    RestServicesManager.ServiceStatus stat = srvMgr.getServiceStatus(b);
+    ServiceStatus stat = srvMgr.getServiceStatus(b);
     log.debug("stat: {}", stat);
     assertFalse(stat.isReady());
+    ServiceStatus stat2 = srvMgr.waitServiceReady(d, b, Deadline.EXPIRED);
+    assertFalse(stat2.isReady());
   }
 
-//   @Test
-//   public void testConnectTimeout() throws LockssRestException {
-//     msClient
-//       .when(request()
-//             .withMethod("GET")
-//             .withPath("/status")
-// 	    )
-//       .respond(response()
-// 	       .withStatusCode(200)
-// 	       .withHeaders(new Header("Content-Type",
-// 				       "application/json; charset=utf-8"))
-// 	       .withBody(toJson(AS_READY))
-// 	       );
+  // Functional test of probe threads and progression through various
+  // errors and states, mock-like programmed responses (no MockServer)
 
-//     RestStatusClient rsc = new RestStatusClient("http://www.lockss.org:45678",
-// 						1, 60);
+  LockssRestException e1 =
+    new LockssRestNetworkException("lrne1",
+				   new java.net.UnknownHostException("unkh"));
+  LockssRestException e2 =
+    new LockssRestNetworkException("lrne2",
+				   new java.net.ConnectException("Connection refused (Connection refused)"));
 
-//     try {
-//       ApiStatus as = rsc.getStatus();
-//       fail("Expected read timeout to throw but returned: " + as);
-//     } catch (LockssRestNetworkException e) {
-//       assertMatchesRE("Cannot get status.*connect timed out", e.getMessage());
-//     } catch (LockssRestException e) {
-//       fail("Should have thrown LockssRestNetworkException but threw LockssRestException: " + e);
-//     }
-//   }
+  ApiStatus apiReady = new ApiStatus().setReady(true);
+  ApiStatus apiNotReady = new ApiStatus().setReady(false).setReason("rhyme");
+  ServiceDescr sd1 = new ServiceDescr("s1", "1");
+  ServiceDescr sd2 = new ServiceDescr("s2", "2");
+  ServiceBinding sb1 = new ServiceBinding("h", 123, 1111);
+  ServiceBinding sb2 = new ServiceBinding("h", 124, 2222);
 
-//   @Test
-//   public void testResponseTimeout() throws LockssRestException {
-//     msClient
-//       .when(request()
-//             .withMethod("GET")
-//             .withPath("/status")
-// 	    )
-//       .respond(response()
-// 	       .withStatusCode(200)
-// 	       .withHeaders(new Header("Content-Type",
-// 				       "application/json; charset=utf-8"))
-// 	       .withDelay(TimeUnit.SECONDS, 10)
-// 	       .withBody(toJson(AS_READY))
-// 	       );
+  @Test
+  public void testProbes() throws LockssRestException {
+    Map<ServiceDescr,ServiceBinding> map = MapUtil.map(sd1, sb1, sd2, sb2);
+    srvMgr.setDescrs(ListUtil.list(sd1, sd2));
+    srvMgr.setBindings(map);
+    List<TimeResp> l1 = ListUtil.list(new TimeResp(200, apiReady));
+    List<TimeResp> l2 = ListUtil.list(new TimeResp(100, e1),
+				      new TimeResp(100, e2),
+				      new TimeResp(100, apiNotReady));
+    srvMgr.setProbeMap(MapUtil.map(sb1, l1, sb2, l2));
+    srvMgr.setStart(true);
+    srvMgr.startProbes();
+    srvMgr.waitProbes();
+    List<ServiceStatus> stats1 = srvMgr.getStats(sb1);
+    List<ServiceStatus> stats2 = srvMgr.getStats(sb2);
+    log.debug("stats1 {}: ", stats1);
+    log.debug("stats2 {}: ", stats2);
+    // The getReason() tests may need adjusting for portability
+    assertFalse(stats1.get(0).isReady());
+    assertEquals("Updating", stats1.get(0).getReason());
+    assertTrue(stats1.get(1).isReady());
+    assertFalse(stats2.get(0).isReady());
+    assertEquals("Updating", stats2.get(0).getReason());
+    assertFalse(stats2.get(1).isReady());
+    assertEquals("UnknownHostException: unkh", stats2.get(1).getReason());
+    assertFalse(stats2.get(2).isReady());
+    assertEquals("Connection refused", stats2.get(2).getReason());
+    assertFalse(stats2.get(3).isReady());
+    assertEquals("rhyme", stats2.get(3).getReason());
+  }
 
-//     RestStatusClient rsc = new RestStatusClient(baseUrl(), 60, 1);
+  public static class MyRestServicesManager extends RestServicesManager {
+    private boolean doStart = false;
+    private List<ServiceDescr> descrs;
+    private Map<ServiceDescr,ServiceBinding> bindMap;
+    private Map<ServiceBinding,List<TimeResp>> probeMap;
+    private ListValuedMap<ServiceBinding,ServiceStatus> stats =
+      new ArrayListValuedHashMap<>();
 
-//     try {
-//       ApiStatus as = rsc.getStatus();
-//       fail("Expected read timeout to throw but returned: " + as);
-//     } catch (LockssRestNetworkException e) {
-//       assertMatchesRE("Cannot get status.*Read timed out", e.getMessage());
-//     } catch (LockssRestException e) {
-//       fail("Should have thrown LockssRestNetworkException but threw LockssRestException: " + e);
-//     }
-//   }
+    void waitProbes() {
+      while (!probeThreads.isEmpty()) {
+	TimerUtil.guaranteedSleep(100);
+      }
+    }
 
-//   @Test
-//   public void test500() throws LockssRestException {
-//     msClient
-//       .when(request()
-//             .withMethod("GET")
-//             .withPath("/status"))
-//       .respond(response()
-// 	       .withStatusCode(500)
-// 	       .withReasonPhrase("English Pointer Exception")
-// 	       );
+    MyRestServicesManager setStart(boolean val) {
+      doStart = val;
+      return this;
+    }
 
-//     RestStatusClient rsc = new RestStatusClient(baseUrl());
+    void startProbes() {
+      if (!doStart) return;
+      super.startProbes();
+    }
 
-//     try {
-//       ApiStatus as = rsc.getStatus();
-//       fail("Expected 500 response to throw but returned: " + as);
-//     } catch (LockssRestHttpException e) {
-//       assertMatchesRE("Cannot get status", e.getMessage());
-//       assertEquals(500, e.getHttpStatusCode());
-//       // XXX We always get the default message for the status code
-// //       assertEquals("English Pointer Exception", e.getHttpStatusMessage());
-//     } catch (LockssRestException e) {
-//       fail("Should have thrown LockssRestHttpException but threw LockssRestException: " + e);
-//     }
-//   }
+    @Override
+    protected List<ServiceDescr> getAllServiceDescrs() {
+      if (descrs != null) {
+	return descrs;
+      }
+      return super.getAllServiceDescrs();
+    }
+
+    MyRestServicesManager setDescrs(List<ServiceDescr> descrs) {
+      this.descrs = descrs;
+      return this;
+    }
+
+    @Override
+    protected ServiceBinding getServiceBinding(ServiceDescr sd) {
+      if (bindMap != null) {
+	return bindMap.get(sd);
+      }
+      return super.getServiceBinding(sd);
+    }
+
+    MyRestServicesManager setBindings(Map<ServiceDescr,ServiceBinding> map) {
+      this.bindMap = map;
+      return this;
+    }
+
+    MyRestServicesManager setProbeMap(Map<ServiceBinding,List<TimeResp>> map) {
+      this.probeMap = map;
+      return this;
+    }
+
+    @Override
+    protected ApiStatus callClientStatus(ServiceBinding binding)
+	throws LockssRestException {
+      if (probeMap != null) {
+	List<TimeResp> lst = probeMap.get(binding);
+	if (lst != null) {
+	  if (lst.isEmpty()) {
+	    throw new RuntimeException("Exit probe thread");
+	  }
+	  TimeResp tr = lst.remove(0);
+	  TimerUtil.guaranteedSleep(tr.getTime());
+	  if (tr.isThrow()) {
+	    throw tr.getException();
+	  } else {
+	    return tr.getApiStatus();
+	  }
+	}
+      }
+      return super.callClientStatus(binding);
+    }
+
+    @Override
+    void putServiceStatus(ServiceBinding binding, ServiceStatus stat) {
+      stats.put(binding, stat);
+      super.putServiceStatus(binding, stat);
+    }
+
+    List<ServiceStatus> getStats(ServiceBinding binding) {
+      return stats.get(binding);
+    }
+  }
+
+  class TimeResp {
+    long time;
+    ApiStatus apiStat;
+    LockssRestException ex;
+
+    TimeResp(long time, ApiStatus apiStat) {
+      this.time = time;
+      this.apiStat = apiStat;
+    }
+
+    TimeResp(long time, LockssRestException ex) {
+      this.time = time;
+      this.ex = ex;
+    }
+    long getTime() { return time; }
+    ApiStatus getApiStatus() { return apiStat; }
+    LockssRestException getException() { return ex; }
+    boolean isThrow() { return ex != null; }
+  }
 
   class MyServiceBinding extends ServiceBinding {
     String restStem;

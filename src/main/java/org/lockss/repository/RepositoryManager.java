@@ -251,6 +251,49 @@ public class RepositoryManager
     return repoSpecMap.values();
   }
 
+  /** Return the repository containing the specified AU. */
+  public RepoSpec findAuRepository(ArchivalUnit au) {
+    return findAuRepository(au.getAuId());
+  }
+
+  /** Return the repository containing the specified auid. */
+  // XXX MULTIREPO
+  public RepoSpec findAuRepository(String auid) {
+    return getV2Repository();
+  }
+
+  /** Return true if the repository on which the specified AU resides is
+   * ready
+   * @param auid
+   * @return true if the repo is ready, false if not
+   */
+  public boolean isRepoReady(String auid) {
+    return isRepoReady(findAuRepository(auid));
+  }
+
+  protected boolean isRepoReady(RepoSpec spec) {
+    switch (spec.getType()) {
+    case "rest":
+      // XXX MULTIREPO needs to map spec to binding
+      RestServicesManager svcsMgr =
+	getApp().getManagerByType(RestServicesManager.class);
+      if (svcsMgr != null) {
+	RestServicesManager.ServiceStatus stat =
+	  svcsMgr.getServiceStatus(getApp().getServiceBinding(ServiceDescr.SVC_REPO));
+	if (stat != null) {
+	  return stat.isReady();
+	}
+      }
+      return false;
+    case "volatile":
+    case "local":
+      return true;
+    default:
+      log.warning("Unknown repository type: " + spec.getType());
+      return true;
+    }
+  }
+
   /** Create a LockssRepository instance according to the spec */
   LockssRepository createLockssRepository(RepoSpec spec) {
     Configuration config = ConfigManager.getCurrentConfig();

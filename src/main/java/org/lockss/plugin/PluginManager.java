@@ -553,13 +553,7 @@ public class PluginManager
     Configuration config = CurrentConfig.getCurrentConfig();
     if (log.isDebug3())
       log.debug3("config.keySet().size() = " + config.keySet().size());
-    RestServicesManager svcsMgr =
-      getDaemon().getManagerByType(RestServicesManager.class);
-    if (svcsMgr != null) {
-      svcsMgr.waitServiceReady(ServiceDescr.SVC_REPO,
-			       Deadline.in(10 * Constants.MINUTE));
-    }
-			  
+    waitForRepo();
     log.debug("Initializing loadable plugin registries before starting AUs");
     initLoadablePluginRegistries(getPluginRegistryUrls(config));
     synchStaticPluginList(config);
