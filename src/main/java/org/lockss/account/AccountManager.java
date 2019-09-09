@@ -99,6 +99,12 @@ public class AccountManager
     PREFIX + "passwordCheck.frequency";
   public static final String DEFAULT_PASSWORD_CHECK_FREQ = "daily";
 
+  /** If true, login and logout events will be included in auditable event
+   * alerts */
+  public static final String PARAM_ALERT_ON_LOGIN_LOGOUT =
+    PREFIX + "alertOnLoginLogout";
+  public static final boolean DEFAULT_ALERT_ON_LOGIN_LOGOUT = false;
+
   /** Alertconfig set by AccountManager */
   public static final String PARAM_PASSWORD_REMINDER_ALERT_CONFIG =
     AlertManagerImpl.PARAM_CONFIG + ".acct";
@@ -192,6 +198,7 @@ public class AccountManager
   private boolean mailEnabled = DEFAULT_MAIL_ENABLED;
   private boolean mailAdminIfNoUserEmail = DEFAULT_MAIL_ADMIN_IF_NO_USER_EMAIL;
   private String adminEmail = null;
+  private boolean alertOnLoginLogout = DEFAULT_ALERT_ON_LOGIN_LOGOUT;
 
   private ConfigManager configMgr;
   private String acctRelDir;
@@ -244,6 +251,8 @@ public class AccountManager
 	config.getBoolean(PARAM_MAIL_ADMIN_IF_NO_USER_EMAIL,
 			  DEFAULT_MAIL_ADMIN_IF_NO_USER_EMAIL);
       adminEmail = config.get(ConfigManager.PARAM_PLATFORM_ADMIN_EMAIL);
+      alertOnLoginLogout = config.getBoolean(PARAM_ALERT_ON_LOGIN_LOGOUT,
+					     DEFAULT_ALERT_ON_LOGIN_LOGOUT);
     }
   }
 
@@ -639,6 +648,10 @@ public class AccountManager
       acct.reportEventBy(actor, "failed to delete");
     }
     return res;
+  }
+
+  public boolean isAlertOnLoginLogout() {
+    return alertOnLoginLogout;
   }
 
   public void auditableEvent(String msg) {
