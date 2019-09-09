@@ -106,9 +106,9 @@ public class MultipartConnector {
    * Performs the GET request.
    * 
    * @param connectTimeout
-   *          An int with the connection timeout in seconds.
+   *          An int with the connection timeout in ms.
    * @param readTimeout
-   *          An int with the read timeout in seconds.
+   *          An int with the read timeout in ms.
    * @return a MultipartResponse with the response.
    * @throws IOException
    *           if there are problems getting a part payload.
@@ -159,9 +159,9 @@ public class MultipartConnector {
    * Creates the REST template for the request.
    * 
    * @param connectTimeout
-   *          An int with the connection timeout in seconds.
+   *          An int with the connection timeout in ms.
    * @param readTimeout
-   *          An int with the read timeout in seconds.
+   *          An int with the read timeout in ms.
    * @return a RestTemplate with the REST template for the request.
    */
   private RestTemplate createRestTemplate(int connectTimeout, int readTimeout) {
@@ -192,8 +192,8 @@ public class MultipartConnector {
     SimpleClientHttpRequestFactory requestFactory =
 	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
 
-    requestFactory.setConnectTimeout(1000*connectTimeout);
-    requestFactory.setReadTimeout(1000*readTimeout);
+    requestFactory.setConnectTimeout(connectTimeout);
+    requestFactory.setReadTimeout(readTimeout);
 
     return restTemplate;
   }
@@ -211,9 +211,9 @@ public class MultipartConnector {
    * Performs the PUT request.
    * 
    * @param connectTimeout
-   *          An int with the connection timeout in seconds.
+   *          An int with the connection timeout in ms.
    * @param readTimeout
-   *          An int with the read timeout in seconds.
+   *          An int with the read timeout in ms.
    * @return an HttpStatus with the response status.
    */
   public HttpResponseStatusAndHeaders requestPut(int connectTimeout,
