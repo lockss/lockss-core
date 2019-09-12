@@ -46,6 +46,7 @@ import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.util.urlconn.*;
+import org.lockss.util.io.*;
 import org.lockss.daemon.*;
 
 import org.lockss.rewriter.*;
@@ -292,6 +293,11 @@ public class DefaultUrlCacher implements UrlCacher {
     try {
       alreadyHasContent =
 	v2Repo.getArtifact(v2Coll, au.getAuId(), url) != null;
+    } catch (IOException ex) {
+      logger.warning("Repository error checking for existing content: " + url,
+		     ex);
+    }
+    try {
       MessageDigest checksumProducer = null;
       String checksumAlgorithm =
           CurrentConfig.getParam(PARAM_CHECKSUM_ALGORITHM,
@@ -318,13 +324,13 @@ public class DefaultUrlCacher implements UrlCacher {
       BasicStatusLine statusLine =
 	new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
 
-      ArtifactData ad = new ArtifactData(id, metadata,
- 					 new IgnoreCloseInputStream(in),
-					 statusLine);
+      InputStream adin =
+	new ExceptionWrappingInputStream(new IgnoreCloseInputStream(in));
+      ArtifactData ad = new ArtifactData(id, metadata, adin, statusLine);
       if (logger.isDebug2()) {
         logger.debug2("Creating artifact: " + ad);
       }
-      uncommittedArt = v2Repo.addArtifact(ad);
+      uncommittedArt = addArtifact(ad);
       long bytes = uncommittedArt.getContentLength();
       if (logger.isDebug2()) {
         logger.debug2("Stored " + bytes + " bytes: " + uncommittedArt);
@@ -404,15 +410,24 @@ public class DefaultUrlCacher implements UrlCacher {
 	  raiseAlert(alert);
 	}
       }
-    } catch (StreamUtil.OutputException ex) {
+    } catch (InputIOException ex) {
+      // error reading from input stream
       abandonNewVersion(uncommittedArt);
-      throw resultMap.getRepositoryException(ex.getIOCause());
-    } catch (IOException ex) {
-      abandonNewVersion(uncommittedArt);
+      throw resultMap.mapException(au, url, ex.getIOCause(), null);
+    } catch (CacheException ex) {
       // XXX some code below here maps the exception
-      throw ex instanceof CacheException
-	? ex : resultMap.mapException(au, url, ex, null);
+      abandonNewVersion(uncommittedArt);
+      throw ex;
+    } catch (IOException ex) {
+      // any other error is theoretically a repository error
+      abandonNewVersion(uncommittedArt);
+      throw resultMap.getRepositoryException(ex);
     }
+  }
+
+  // Overridable for testing
+  protected Artifact addArtifact(ArtifactData ad) throws IOException {
+    return v2Repo.addArtifact(ad);
   }
 
   protected boolean isIdenticalToPreviousVersion(Artifact art)
