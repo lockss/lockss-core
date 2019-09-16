@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2012-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +30,7 @@ package org.lockss.plugin;
 
 import java.util.*;
 import org.lockss.config.*;
+import org.lockss.log.*;
 import org.lockss.plugin.AuEvent;
 
 /**
@@ -44,19 +41,78 @@ import org.lockss.plugin.AuEvent;
  */
 public interface AuEventHandler {
   /** Called after the AU is created (either by user action or at daemon
-   * start time */
-  void auCreated(AuEvent event, ArchivalUnit au);
-  /** Called before the AU is deleted */
-  void auDeleted(AuEvent event, ArchivalUnit au);
-  /** Called after an existing AU's configuration is changed */
-  void auReconfigured(AuEvent event, ArchivalUnit au, Configuration oldAuConf);
-  /** Called after a change to the AU's content */
-  void auContentChanged(AuEvent event, ArchivalUnit au,
+   * start time.
+   * @param event the AuEvent
+   * @param auid the auid
+   * @param au the AU, if present in this component, else null.
+   */
+  void auCreated(AuEvent event, String auid, ArchivalUnit au);
+  /** Called before the AU is deleted.
+   * @param event the AuEvent
+   * @param auid the auid
+   * @param au the AU, if present in this component, else null.
+   */
+  void auDeleted(AuEvent event, String auid, ArchivalUnit au);
+  /** Called after an existing AU's configuration is changed.
+   * @param event the AuEvent
+   * @param auid the auid
+   * @param au the AU, if present in this component, else null.
+   * @param oldAuConf the AU's previous configuration.
+   */
+  void auReconfigured(AuEvent event, String auid, ArchivalUnit au,
+		      Configuration oldAuConf);
+  /** Called after a change to the AU's content.
+   * @param event the AuEvent
+   * @param auid the auid
+   * @param au the AU, if present in this component, else null.
+   * @param info describes the change to the AU's content.
+   */
+  void auContentChanged(AuEvent event, String auid, ArchivalUnit au,
 			AuEvent.ContentChangeInfo info);
 
   /** Convenience class with null handlers for all AuEventHandler events.
-   * Specialize this and override the events of interest */
+   * Specialize this and override the events of interest.  If you are only
+   * interested in events pertaining to AUs that are present, override
+   * methods that take an AU but not the auid.  If you are interested in
+   * events pertaining to AUs that may not be present, override methods
+   * that take also take an auid; the AU will be null if the AU is not
+   * present.
+   */
   public class Base implements AuEventHandler {
+    private static L4JLogger log = L4JLogger.getLogger();
+    public void auCreated(AuEvent event, String auid, ArchivalUnit au) {
+      if (au != null) {
+	auCreated(event, au);
+      } else {
+	log.debug("Ignoring received auCreated event for absent AU: " + auid);
+      }
+    }
+    public void auDeleted(AuEvent event, String auid, ArchivalUnit au) {
+      if (au != null) {
+	auDeleted(event, au);
+      } else {
+	log.debug("Ignoring received auDeleted event for absent AU: " + auid);
+      }
+    }
+    public void auReconfigured(AuEvent event, String auid, ArchivalUnit au,
+			       Configuration oldAuConf) {
+      if (au != null) {
+	auReconfigured(event, au, oldAuConf);
+      } else {
+	log.debug("Ignoring received auReconfigured event for absent AU: "
+		  + auid);
+      }
+    }
+    public void auContentChanged(AuEvent event, String auid, ArchivalUnit au,
+				 AuEvent.ContentChangeInfo info) {
+      if (au != null) {
+	auContentChanged(event, au, info);
+      } else {
+	log.debug("Ignoring received auContentChanged event for absent AU: "
+		  + auid);
+      }
+    }
+
     public void auCreated(AuEvent event, ArchivalUnit au) {}
     public void auDeleted(AuEvent event, ArchivalUnit au) {}
     public void auReconfigured(AuEvent event, ArchivalUnit au,
