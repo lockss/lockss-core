@@ -135,7 +135,7 @@ public class RestServicesManager
 
   /** Probe a service until it becumes ready. */
   void probeService(ServiceDescr descr, ServiceBinding binding) {
-    log.debug2("Probing {}: {}", descr, binding);
+    log.debug2("Probing {}: {}", descr.getAbbrev(), binding);
     try {
       while (true) {
 	long start = TimeBase.nowMs();
@@ -144,7 +144,7 @@ public class RestServicesManager
 	if (stat != null) {
 	  if (stat.isReady()) {
 	    log.debug2("probe thread exiting because service is ready: {}: {}",
-		       descr, binding);
+		       descr.getAbbrev(), binding);
 	    break;
 	  }
 	} else {
@@ -234,13 +234,15 @@ public class RestServicesManager
       if (stat != null) {
 	if (stat.isReady()) {
 	  if (logged) {
-	    log.debug("Done waiting for service ready: {}", descr);
+	    log.debug("Done waiting for service ready: {}: {}",
+		      descr.getAbbrev(), binding);
 	  }
 	  return stat;
 	}
       }
       if (!logged) {
-	log.debug("Waiting for service ready: {}", descr);
+	log.debug("Waiting for service ready: {}: {}",
+		  descr.getAbbrev(), binding);
 	logged = true;
       }
       OneShotSemaphore sem = getWaitSem(binding);
@@ -250,7 +252,8 @@ public class RestServicesManager
       }
     } while (!until.expired());
     if (logged) {
-      log.debug("Gave up waiting for service ready: {}", descr);
+      log.debug("Gave up waiting for service ready: {}: {}",
+		descr.getAbbrev(), binding);
     }
     return getServiceStatus(binding);
   }
