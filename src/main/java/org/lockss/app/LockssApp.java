@@ -129,6 +129,8 @@ public class LockssApp {
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
 
+  /** Defines the ports on which laaws components listen.  List of
+   * <code><i>abbrev</i>=<i>host</i>:<i>rest_port</i>[:<i>ui_port</i>]</code> */
   public static final String PARAM_SERVICE_BINDINGS =
     PREFIX + "serviceBindings";
   public static final List DEFAULT_SERVICE_BINDINGS = null;
@@ -1036,8 +1038,8 @@ public class LockssApp {
       getServiceBinding(getMyServiceDescr());
   }
 
-  //  svc_abbrev=host:ui_port[:rest_port]
-  //  Any of host, ui_port, or rest_port may be empty
+  //  svc_abbrev=host:rest_port[:ui_port]
+  //  Any of host, rest_port, or ui_port may be empty
   protected static final Pattern SERVICE_BINDING_PAT =
     Pattern.compile("(.+)=([^:]*):(\\d+)?(?::(\\d+)?)?$");
 

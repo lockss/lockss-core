@@ -66,22 +66,24 @@ public class TestServiceBinding extends LockssTestCase {
 		    new ServiceBinding("foo", 12345, 0).hashCode());
   }
 
-  public void testGetUiStem() {
-    assertEquals("https://foo.host:12345",
-		 new ServiceBinding("foo.host", 12345).getUiStem("https"));
-    assertEquals("http://localhost:666",
-		 new ServiceBinding(null, 666).getUiStem("http"));
-    assertEquals(666, new ServiceBinding(null, 666).getUiPort());
-    assertTrue(new ServiceBinding(null, 666).hasUiPort());
-  }
-
   public void testGetRestStem() {
     assertEquals("http://foo.host:22222",
-		 new ServiceBinding("foo.host", 12345, 22222).getRestStem());
+		 new ServiceBinding("foo.host", 22222, 12345).getRestStem());
     assertEquals("http://localhost:666",
-		 new ServiceBinding(null, 0, 666).getRestStem());
-    assertEquals(0, new ServiceBinding(null, 666).getRestPort());
-    assertFalse(new ServiceBinding(null, 666).hasRestPort());
+		 new ServiceBinding(null, 666, 0).getRestStem());
+    assertEquals(666, new ServiceBinding(null, 666, 0).getRestPort());
+    assertTrue(new ServiceBinding(null, 666, 0).hasRestPort());
+    assertFalse(new ServiceBinding(null, 0, 666).hasRestPort());
+  }
+
+  public void testGetUiStem() {
+    assertEquals("https://foo.host:12345",
+		 new ServiceBinding("foo.host", 0, 12345).getUiStem("https"));
+    assertEquals("http://localhost:666",
+		 new ServiceBinding(null, 123, 666).getUiStem("http"));
+    assertEquals(666, new ServiceBinding(null, 111, 666).getUiPort());
+    assertTrue(new ServiceBinding(null, 111, 666).hasUiPort());
+    assertFalse(new ServiceBinding(null, 111, 0).hasUiPort());
   }
 }
 

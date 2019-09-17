@@ -89,7 +89,8 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppDefault("deftest2", "app")
       .addAppDefault("deftest3", "app3")
       .addBootDefault("o.l.plat.xxy", "zzz")
-      .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
+      .addAppConfig("org.lockss.app.serviceBindings",
+		    "cfg=:24620:24621;mdx=:1234");
       ;
 
     assertTrue(appq.isEmpty());
@@ -113,7 +114,7 @@ public class FuncLockssApp extends LockssTestCase {
     assertTrue(app.isMyService(ServiceDescr.SVC_CONFIG));
     assertFalse(app.isMyService(ServiceDescr.SVC_POLLER));
 
-    assertEquals(new ServiceBinding(null, 24621),
+    assertEquals(new ServiceBinding(null, 24620, 24621),
 		 app.getMyServiceBinding());
 
     assertEquals("zzz",

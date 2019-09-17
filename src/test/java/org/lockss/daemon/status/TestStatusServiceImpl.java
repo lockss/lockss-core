@@ -243,7 +243,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     // registrations to be sent
     getMockLockssDaemon().setMyServiceDescr(ServiceDescr.SVC_POLLER);
     ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
-				  "poller=:1234");
+				  "poller=:1233:1234");
 
     setUpJms();
     // This should cause a RequestTableRegistrations message to be sent
@@ -831,7 +831,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     setUpJms();
     getMockLockssDaemon().setMyServiceDescr(ServiceDescr.SVC_POLLER);
     ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
-				  "poller=:1238");
+				  "poller=:1237:1238");
     // This should cause a RequestTableRegistrations message to be sent
     statusService.startService();
     assertEquals(ListUtil.list(MSG_REQ), nMsgs(cons, 1));
