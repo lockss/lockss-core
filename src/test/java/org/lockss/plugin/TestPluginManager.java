@@ -36,7 +36,10 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.security.KeyStore;
+import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
+import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
 import org.junit.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -486,6 +489,7 @@ public class TestPluginManager extends LockssTestCase4 {
   List createEvents = new ArrayList();
   List deleteEvents = new ArrayList();
   List reconfigEvents = new ArrayList();
+  List auChangeEvents = new ArrayList();
 
   class MyAuEventHandler extends AuEventHandler.Base {
     @Override public void auCreated(AuEvent event, ArchivalUnit au) {
@@ -498,7 +502,65 @@ public class TestPluginManager extends LockssTestCase4 {
 					 Configuration oldAuConf) {
       reconfigEvents.add(ListUtil.list(au, oldAuConf));
     }
+    @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
+					   AuEvent.ContentChangeInfo info) {
+      auChangeEvents.add(ListUtil.list(au, info));
+    }
   }
+
+  class MyAbsentAuEventHandler extends AuEventHandler.Base {
+    @Override public void auCreated(AuEvent event, String auid,
+				    ArchivalUnit au) {
+      createEvents.add(auid);
+    }
+    @Override public void auDeleted(AuEvent event, String auid,
+				    ArchivalUnit au) {
+      deleteEvents.add(auid);
+    }
+    @Override public void auReconfigured(AuEvent event, String auid,
+					 ArchivalUnit au,
+					 Configuration oldAuConf) {
+      reconfigEvents.add(ListUtil.list(auid, oldAuConf));
+    }
+    @Override public void auContentChanged(AuEvent event, String auid,
+					   ArchivalUnit au,
+					   AuEvent.ContentChangeInfo info) {
+      auChangeEvents.add(ListUtil.list(auid, info));
+    }
+  }
+
+  @Test
+  public void testAbsentAuEvent() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
+				  "true");
+    mgr.startService();
+    minimalConfig();
+    // Don't use the connection maintained by JMSManager in case
+    // PluginManager's Consumer ignores locally sent messages
+    JMSManager jmsMgr =
+      getMockLockssDaemon().getManagerByType(JMSManager.class);
+    ConnectionFactory connectionFactory =
+      new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
+    Connection conn = connectionFactory.createConnection();
+    conn.start();
+    JmsFactory fact = jmsMgr.getJmsFactory();
+    JmsProducer prod =
+      fact.createTopicProducer(null,
+			       PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC,
+			       conn);
+    mgr.registerAuEventHandler(new MyAbsentAuEventHandler());
+    AuEvent.ContentChangeInfo chInfo = new AuEvent.ContentChangeInfo()
+      .setType(AuEvent.ContentChangeInfo.Type.Crawl)
+      .setNumUrls(10)
+      .setComplete(true);
+    AuEvent event =
+      AuEvent.forAuId("auid1",
+		      AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
+    prod.sendMap(event.toMap());
+    TimerUtil.sleep(1000);
+    assertEquals(ListUtil.list(ListUtil.list("auid1", chInfo)), auChangeEvents);
+  }
+
 
   @Test
   public void testCreateAu() throws Exception {

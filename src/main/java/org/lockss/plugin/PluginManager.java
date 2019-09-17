@@ -1446,11 +1446,7 @@ public class PluginManager
     log.debug("Received notification: " + event);
     String auid = event.getAuId();
     ArchivalUnit au = getAuFromIdIfExists(auid);
-    if (au == null) {
-      log.debug("Ignoring received AuEvent for non-configured AU: " + auid);
-      return;
-    }
-    signalAuEventInternal(au, event);
+    signalAuEventInternal(auid, au, event);
   }
 
   class PlugMgrAuEventHandler extends AuEventHandler.Base {
@@ -1493,11 +1489,12 @@ public class PluginManager
 			    final AuEvent event) {
     if (log.isDebug2()) log.debug2("AuEvent " + event);
     sendAuEventNotification(au, event);
-    signalAuEventInternal(au, event);
+    signalAuEventInternal(au.getAuId(), au, event);
   }
 
   /** Signal an AuEvent to all local listeners */
-  void signalAuEventInternal(final ArchivalUnit au,
+  void signalAuEventInternal(final String auid,
+			     final ArchivalUnit au,
 			     final AuEvent event) {
     switch (event.getType()) {
     case Create:
@@ -1509,7 +1506,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auCreated(event, au);
+	      hand.auCreated(event, auid, au);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1523,7 +1520,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auDeleted(event, au);
+	      hand.auDeleted(event, auid, au);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1534,7 +1531,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auReconfigured(event, au, oldAuConfig);
+	      hand.auReconfigured(event, auid, au, oldAuConfig);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1545,7 +1542,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auContentChanged(event, au, chInfo);
+	      hand.auContentChanged(event, auid, au, chInfo);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
