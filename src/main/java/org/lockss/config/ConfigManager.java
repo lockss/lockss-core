@@ -755,13 +755,6 @@ public class ConfigManager implements LockssManager {
   /** This constructor is used only for tests */
   public ConfigManager() {
     this(null, System.getProperty(SYSPROP_REST_CONFIG_SERVICE_URL), null, null);
-
-    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
-    // Fail the load if file in auxPropUrls is missing, allow missing
-    // titledb URLs
-    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("required", true);
-    URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
-    URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
   }
 
   public ConfigManager(List urls) {
@@ -782,6 +775,16 @@ public class ConfigManager implements LockssManager {
 		       String restConfigServiceUrl,
 		       List<String> urls,
 		       String groupNames) {
+
+    // Require auxPropUrls to load successfully.  For now allow titleDbs
+    // and userTitleDbs to fail without causing entire load to fail
+    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
+    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("required", true);
+    URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
+//     URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("required", true);
+    URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
+//     URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("required", true);
+
     this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
@@ -1405,7 +1408,7 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
-   * Adds to a target list any generation from a source list that it's not in
+   * Adds to a target list any generation from a source list if it's not in
    * the target list yet.
    *
    * @param sourceGenList
@@ -1485,7 +1488,7 @@ public class ConfigManager implements LockssManager {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "urls = " + urls);
 
 	// Ignore an empty value.
-	if (urls.size() == 0) {
+	if (urls.isEmpty()) {
 	  log.warning(includingKey + " has empty value");
 	  continue;
 	}
@@ -1514,6 +1517,10 @@ public class ConfigManager implements LockssManager {
 	  log.debug3(DEBUG_HEADER + "keyPredicate = " + keyPredicate);
 
 	boolean req = (boolean)keyParams.getOrDefault("required", false);
+	if (log.isDebug2()) {
+	  log.debug2("Referenced by key: " + includingKey +
+		     ", req: " + req + ", urls: " + resolvedUrls);
+	}
 	addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
 	    req, reload, message, keyPredicate), targetList);
 

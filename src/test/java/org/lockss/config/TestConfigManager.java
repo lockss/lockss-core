@@ -607,6 +607,26 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testUrlParams() throws Exception {
+    mgr =  new ConfigManager(null, null,
+			     ListUtil.list("foo"),
+			     "group1;GROUP2");
+    Map<String,Map<String,Object>> uparams = ConfigManager.URL_PARAMS;
+
+    Map<String,Object> auxPropsMap = uparams.get(PARAM_AUX_PROP_URLS);
+    assertEquals("auxilliary props", auxPropsMap.get("message"));
+    assertEquals(true, auxPropsMap.getOrDefault("required", false));
+
+    Map<String,Object> titlePropsMap = uparams.get(PARAM_TITLE_DB_URLS);
+    assertEquals("global titledb", titlePropsMap.get("message"));
+    assertEquals(false, titlePropsMap.getOrDefault("required", false));
+
+    Map<String,Object> userTitlePropsMap = uparams.get(PARAM_USER_TITLE_DB_URLS);
+    assertEquals("user title DBs", userTitlePropsMap.get("message"));
+    assertEquals(false, userTitlePropsMap.getOrDefault("required", false));
+  }
+
+  @Test
   public void testGroup() throws Exception {
     Properties props = new Properties();
     ConfigurationUtil.setCurrentConfigFromProps(props);
