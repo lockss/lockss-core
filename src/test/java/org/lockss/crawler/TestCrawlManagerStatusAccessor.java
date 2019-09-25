@@ -59,7 +59,7 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
   private static final String NUM_URLS_EXCLUDED = "num_urls_excluded";
   private static final String NUM_URLS_WITH_ERRORS = "num_urls_with_errors";
   private static final String NUM_URLS_NOT_MODIFIED = "num_urls_not_modified";
-  private static final String NUM_URLS_IDENTICAL = "num_urls_identical";
+  private static final String NUM_URLS_UNCHANGED = "num_urls_unchanged";
   private static final String NUM_OF_MIME_TYPES = "num_of_mime_types";
   private static final String START_URLS = "start_urls";
   private static final String CRAWL_STATUS = "crawl_status";
@@ -102,7 +102,7 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
 			   ColumnDescriptor.TYPE_INT),
       new ColumnDescriptor(NUM_URLS_NOT_MODIFIED, "Not Modified",
 			   ColumnDescriptor.TYPE_INT),
-      new ColumnDescriptor(NUM_URLS_IDENTICAL, "Identical",
+      new ColumnDescriptor(NUM_URLS_UNCHANGED, "Unchanged",
 			   ColumnDescriptor.TYPE_INT),
       new ColumnDescriptor(NUM_URLS_WITH_ERRORS, "Errors",
 			   ColumnDescriptor.TYPE_INT),
@@ -194,7 +194,7 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     status.setNumParsed(0);
     status.setNumPending(0);
     status.setNumNotModified(0);
-    status.setNumIdentical(0);
+    status.setNumUnchanged(0);
     status.setNumUrlsWithErrors(0);
     status.setAu(makeMockAuWithId("test_key"));
 
@@ -210,7 +210,7 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
 //     assertEquals(new Long(0), map.get(NUM_URLS_FETCHED));
 //     assertEquals(new Long(0), map.get(NUM_URLS_PARSED));
 //     assertEquals(new Long(0), map.get(NUM_URLS_NOT_MODIFIED));
-//     assertEquals(new Long(0), map.get(NUM_URLS_IDENTICAL));
+//     assertEquals(new Long(0), map.get(NUM_URLS_UNCHANGED));
 //     assertEquals(new Long(0), map.get(NUM_URLS_WITH_ERRORS));
   }
 
@@ -269,7 +269,7 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     status.setNumPending(4);
     status.setNumUrlsWithErrors(5);
     status.setNumNotModified(6);
-    status.setNumIdentical(2);
+    status.setNumUnchanged(2);
     status.setNumExcluded(7);
     status.setAu(makeMockAuWithId("id1"));
 
@@ -280,7 +280,7 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     status2.setNumParsed(10);
     status2.setNumPending(10);
     status2.setNumUrlsWithErrors(11);
-    status2.setNumIdentical(4);
+    status2.setNumUnchanged(4);
     status2.setAu(makeMockAuWithId("id2"));
 
     statusSource.setCrawlStatusList(ListUtil.list(status, status2));
@@ -322,10 +322,10 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".not-modified", ref.getKey());
 
-    ref = (StatusTable.Reference)map.get(NUM_URLS_IDENTICAL);
+    ref = (StatusTable.Reference)map.get(NUM_URLS_UNCHANGED);
     assertEquals(new Long(2), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
-    assertEquals(status.getKey()+".identical", ref.getKey());
+    assertEquals(status.getKey()+".unchanged", ref.getKey());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_EXCLUDED);
     assertEquals(new Long(7), ref.getValue());

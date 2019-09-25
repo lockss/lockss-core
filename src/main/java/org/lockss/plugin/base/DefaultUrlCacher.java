@@ -385,7 +385,7 @@ public class DefaultUrlCacher implements UrlCacher {
 	if (facade != null) {
 	  CrawlerStatus status = facade.getCrawlerStatus();
 	  if (status != null) {
-	    status.signalUrlIdentical(fetchUrl);
+	    status.signalUrlUnchanged(fetchUrl);
 	  }
 	}
       }

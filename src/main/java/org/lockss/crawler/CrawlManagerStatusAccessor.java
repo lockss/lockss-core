@@ -71,7 +71,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
   private static final String NUM_URLS_PENDING = "num_urls_pending";
   private static final String NUM_URLS_WITH_ERRORS = "num_urls_with_errors";
   private static final String NUM_URLS_NOT_MODIFIED = "num_urls_not_modified";
-  private static final String NUM_URLS_IDENTICAL = "num_urls_identical";
+  private static final String NUM_URLS_UNCHANGED = "num_urls_unchanged";
   private static final String CRAWL_URLS_STATUS_ACCESSOR =
                                 CrawlManagerImpl.CRAWL_URLS_STATUS_TABLE;
   private static final String SINGLE_CRAWL_STATUS_ACCESSOR =
@@ -138,9 +138,9 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
       new ColumnDescriptor(NUM_URLS_NOT_MODIFIED, "Not Modified",
 			   ColumnDescriptor.TYPE_INT,
 			   "Number of pages for which we already had current content"),
-      new ColumnDescriptor(NUM_URLS_IDENTICAL, "Identical",
+      new ColumnDescriptor(NUM_URLS_UNCHANGED, "Unchanged",
 			   ColumnDescriptor.TYPE_INT,
-			   "Number of pages that were received but not stored because there were identical to the previous version"),
+			   "Number of pages that were received but not stored because they were identical to the previous version"),
       new ColumnDescriptor(NUM_URLS_WITH_ERRORS, "Errors",
 			   ColumnDescriptor.TYPE_INT,
 			   "Number of pages that could not be fetched"),
@@ -309,8 +309,8 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	      makeRefIfColl(status.getErrorCtr(), key, "error"));
       row.put(NUM_URLS_NOT_MODIFIED,
 	      makeRefIfColl(status.getNotModifiedCtr(), key, "not-modified"));
-      row.put(NUM_URLS_IDENTICAL,
-	      makeRefIfColl(status.getIdenticalCtr(), key, "identical"));
+      row.put(NUM_URLS_UNCHANGED,
+	      makeRefIfColl(status.getUnchangedCtr(), key, "unchanged"));
       row.put(NUM_URLS_PARSED,
 	      makeRefIfColl(status.getParsedCtr(), key, "parsed"));
       row.put(NUM_URLS_PENDING,
