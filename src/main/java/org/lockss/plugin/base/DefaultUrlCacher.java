@@ -41,6 +41,7 @@ import org.lockss.app.*;
 import org.lockss.state.*;
 import org.lockss.alert.*;
 import org.lockss.config.*;
+import org.lockss.crawler.*;
 import org.lockss.plugin.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
@@ -86,6 +87,7 @@ public class DefaultUrlCacher implements UrlCacher {
   private boolean alreadyHasContent;
   private LockssRepository v2Repo;
   private String v2Coll;
+  private Crawler.CrawlerFacade facade;
   
   /**
    * Uncached url object and Archival Unit owner 
@@ -111,6 +113,10 @@ public class DefaultUrlCacher implements UrlCacher {
     }
     Plugin plugin = au.getPlugin();
     resultMap = plugin.getCacheResultMap();
+  }
+
+  public void setCrawlerFacade(Crawler.CrawlerFacade facade) {
+    this.facade = facade;
   }
 
   /**
@@ -376,6 +382,12 @@ public class DefaultUrlCacher implements UrlCacher {
 	abandonNewVersion(uncommittedArt);
 	uncommittedArt = null;
 	doStore = false;
+	if (facade != null) {
+	  CrawlerStatus status = facade.getCrawlerStatus();
+	  if (status != null) {
+	    status.signalUrlIdentical(fetchUrl);
+	  }
+	}
       }
       if (doStore) {
 	if (checksumProducer != null) {

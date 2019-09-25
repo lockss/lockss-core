@@ -53,6 +53,7 @@ public class MockUrlCacher implements UrlCacher {
   private MockCachedUrl cu;
   private String url;
   private CIProperties uncachedProp;
+  private Crawler.CrawlerFacade facade;
 
   private boolean shouldBeCached = false;
   private IOException cachingException = null;
@@ -263,6 +264,10 @@ public class MockUrlCacher implements UrlCacher {
   
   public void setFetchUrl(String fetchUrl) {
     this.fetchUrl = fetchUrl;
+  }
+
+  public void setCrawlerFacade(Crawler.CrawlerFacade facade) {
+    this.facade = facade;
   }
 
 }

@@ -121,8 +121,16 @@ public class MockCrawlStatus extends CrawlerStatus {
     notModified = new MyUrlCount(numNotModified);
   }
 
+  public void setNumIdentical(int numIdentical) {
+    identical = new MyUrlCount(numIdentical);
+  }
+
   public void setUrlsNotModified(List urlsNotModified) {
     notModified = new MyUrlCount(urlsNotModified);
+  }
+
+  public void setUrlsIdentical(List urlsIdentical) {
+    identical = new MyUrlCount(urlsIdentical);
   }
 
   public void setNumParsed(int numParsed) {

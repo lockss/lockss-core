@@ -67,14 +67,13 @@ public class CrawlerStatus {
   public static final String ALL_URLS = "all";
 
   /**
-   * Determines which sets/maps of URLs are recorded and which are only counted.
-   *  (Recording URLs in crawl status takes lots of memory.)  If the substrings
-   * <code>fetched</code>,
-   * <code>excluded</code>,
-   * <code>parsed</code>, <code>notModified</code>, <code>pending</code>,
-   * <code>error</code> appear in the value of the parameter, the
-   * corresponding sets or URLs will be recorded.  <code>all</code> causes all
-   * sets to be recorded.
+   * Determines which sets/maps of URLs are recorded and which are only
+   *  counted.  (Recording URLs in crawl status takes lots of memory.)  If
+   *  the substrings <code>fetched</code>, <code>excluded</code>,
+   *  <code>parsed</code>, <code>notModified</code>,
+   *  <code>identical</code>, <code>pending</code>, <code>error</code>
+   *  appear in the value of the parameter, the corresponding sets or URLs
+   *  will be recorded.  <code>all</code> causes all sets to be recorded.
    */
   public static final String PARAM_RECORD_URLS =
       Configuration.PREFIX + "crawlStatus.recordUrls";
@@ -82,14 +81,13 @@ public class CrawlerStatus {
 
   /**
    * Determines which sets/maps of URLs are kept after the crawl ends.
-   * (Accumulating lots of URL lists from multiple crawls can cause the daemon
-   * to run out of memory.)  If the substrings
-   * <code>fetched</code>,
+   * (Accumulating lots of URL lists from multiple crawls can cause the
+   * daemon to run out of memory.)  If the substrings <code>fetched</code>,
    * <code>excluded</code>, <code>parsed</code>, <code>notModified</code>,
-   * <code>pending</code>, <code>error</code>, <code>referrers</code>
-   * appear in the value of the parameter, the corresponding sets or URLs will
-   * be recorded.
-   * <code>all</code> causes all sets to be kept.
+   * <code>identical</code>, <code>pending</code>, <code>error</code>,
+   * <code>referrers</code> appear in the value of the parameter, the
+   * corresponding sets or URLs will be recorded.  <code>all</code> causes
+   * all sets to be kept.
    */
   public static final String PARAM_KEEP_URLS =
       Configuration.PREFIX + "crawlStatus.keepUrls";
@@ -229,6 +227,7 @@ public class CrawlerStatus {
   protected int excludedExcludes = 0;
   protected int includedExcludes = 0;
   protected UrlCount notModified;
+  protected UrlCount identical;
   protected UrlCount parsed;
   protected UrlCount pending;
   protected UrlCount errors;
@@ -277,6 +276,7 @@ public class CrawlerStatus {
       fetched = newListCounter("fetched", recordUrls);
       excluded = newMapCounter("excluded", recordUrls);
       notModified = newListCounter("notModified", recordUrls);
+      identical = newListCounter("identical", recordUrls);
       parsed = newListCounter("parsed", recordUrls);
       sources = newSetCounter("source", recordUrls);
       pending = newSetCounter("pending", recordUrls);
@@ -306,6 +306,7 @@ public class CrawlerStatus {
     fetched = fetched.seal(isType("fetched", keepUrls));
     excluded = excluded.seal(isType("excluded", keepUrls));
     notModified = notModified.seal(isType("notModified", keepUrls));
+    identical = identical.seal(isType("identical", keepUrls));
     parsed = parsed.seal(isType("parsed", keepUrls));
     sources = sources.seal(isType("sources", keepUrls));
     pending = pending.seal(isType("pending", keepUrls));
@@ -327,7 +328,7 @@ public class CrawlerStatus {
   private Iterator retainedUrlsIterator() {
     IteratorChain res = new IteratorChain();
     UrlCount[] urlcs = new UrlCount[]{
-        fetched, excluded, notModified,
+        fetched, excluded, notModified, identical,
         parsed, pending, errors};
 
     for (UrlCount urlc : urlcs) {
@@ -761,6 +762,31 @@ public class CrawlerStatus {
 
   public synchronized List getUrlsNotModified() {
     return notModified.getList();
+  }
+
+  // Identical
+
+  public synchronized void signalUrlIdentical(String url) {
+    identical.addToList(url);
+  }
+
+  public UrlCount getIdenticalCtr() {
+    return identical;
+  }
+
+  /**
+   * Return the number of urls whose GETs returned 200 with content
+   * identical to the previous version
+   *
+   * @return number of urls whose contents were identical to the previous
+   * version
+   */
+  public synchronized int getNumIdentical() {
+    return identical.getCount();
+  }
+
+  public synchronized List getUrlsIdentical() {
+    return identical.getList();
   }
 
   // Pending

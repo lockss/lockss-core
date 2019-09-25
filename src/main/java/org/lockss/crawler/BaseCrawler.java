@@ -645,6 +645,7 @@ public abstract class BaseCrawler implements Crawler {
   public UrlCacher makeUrlCacher(UrlData ud) {
     UrlCacher uc = au.makeUrlCacher(ud);
     uc.setWatchdog(wdog);
+    uc.setCrawlerFacade(getCrawlerFacade());
     return uc;
   }
   
