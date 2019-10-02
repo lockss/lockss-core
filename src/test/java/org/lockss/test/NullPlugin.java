@@ -407,6 +407,9 @@ public class NullPlugin {
       throw new UnsupportedOperationException();
     }
 
+    public void setCrawlerFacade(Crawler.CrawlerFacade facade) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   /**

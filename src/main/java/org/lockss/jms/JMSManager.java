@@ -41,6 +41,7 @@ import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.log.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.config.*;
 
 /** Manages (starts & stops) an embedded ActiveMQ broker */
@@ -75,7 +76,7 @@ public class JMSManager extends BaseLockssManager
 
   /** Broker URI to which producers and consumers will connect.  <i>Eg</i>,
    * <code>failover:tcp://<i>hostname</i>:<i>port</i></code>&nbsp;.  If not
-   * set {@value #PARAM_START_BROKER} is used. */
+   * set {@value #PARAM_BROKER_URI} is used. */
   public static final String PARAM_CONNECT_URI = CONNECT_PREFIX + "uri";
 
   /** If true, use a failover transport to talk to the broker; see <a
@@ -95,9 +96,13 @@ public class JMSManager extends BaseLockssManager
     BROKER_PREFIX + "persistentDir";
   public static final String DEFAULT_PERSISTENT_DIR = "activemq";
 
-  /** If true the broker will be accessible via JMX */
-  public static final String PARAM_USE_JMX = BROKER_PREFIX + "useJmx";
-  public static final boolean DEFAULT_USE_JMS = false;
+  /** If true the broker will enable the JMX management interface */
+  public static final String PARAM_ENABLE_JMX = BROKER_PREFIX + "enableJmx";
+  public static final boolean DEFAULT_ENABLE_JMX = false;
+
+  /** JMX listen port */
+  public static final String PARAM_JMX_PORT = BROKER_PREFIX + "jmxPort";
+  public static final int DEFAULT_JMX_PORT = 24629;
 
   private String brokerUri = DEFAULT_BROKER_URI;
   private String connectUri = DEFAULT_BROKER_URI;
@@ -108,6 +113,7 @@ public class JMSManager extends BaseLockssManager
 
   public void startService() {
     super.startService();
+    log.info("startBroker: " + startBroker);
     if (startBroker) {
       broker = createBroker(brokerUri); 
     }
@@ -153,6 +159,15 @@ public class JMSManager extends BaseLockssManager
     }
   }
 
+  public static JmsFactory getJmsFactoryStatic() {
+    JMSManager mgr = LockssDaemon.getManagerByTypeStatic(JMSManager.class);
+    return mgr.getJmsFactory();
+  }
+
+  public JmsFactory getJmsFactory() {
+    return new JmsFactoryImpl(this);
+  }
+
   /** Start and return a broker with config given by the params under
    * {@value #BROKER_PREFIX} */
   public static BrokerService createBroker(String uri) {
@@ -165,10 +180,9 @@ public class JMSManager extends BaseLockssManager
       persistentDir = cfgMgr.findConfiguredDataDir(PARAM_PERSISTENT_DIR,
 						      DEFAULT_PERSISTENT_DIR);
     }
-    boolean useJmx = config.getBoolean(PARAM_USE_JMX, DEFAULT_USE_JMS);
 
     try {
-    BrokerService res = new BrokerService(); 
+      BrokerService res = new BrokerService();
 //     res.setBrokerName("foo");
       StringBuilder sb = new StringBuilder();
       sb.append("Started broker ");
@@ -186,8 +200,19 @@ public class JMSManager extends BaseLockssManager
 	sb.append(")");
       }
 
-      res.setUseJmx(useJmx);
-      if (useJmx) sb.append(", useJmx");
+      // This enables JMX for the whole JVM, so probably belongs elsewhere.
+      // (It's odd that a system-wide management interface would be enabled
+      // in the broker config.  I assume it can be enabled in other ways
+      // too.)
+      if (config.getBoolean(PARAM_ENABLE_JMX, DEFAULT_ENABLE_JMX)) {
+	int port = config.getInt(PARAM_JMX_PORT, DEFAULT_JMX_PORT);
+	sb.append(", jmxPort: ");
+	sb.append(port);
+	res.setUseJmx(true);
+	res.getManagementContext().setConnectorPort(port);
+      } else {
+	res.setUseJmx(false);
+      }
 
       res.addConnector(uri); 
       res.start();
@@ -215,6 +240,9 @@ public class JMSManager extends BaseLockssManager
   }
 
   /** Return a connection to the specified broker */
+  // If there's ever more than one broker, this should be changed to use
+  // StripedExecutorService to run concurrent connect threads, one for each
+  // broker URI.
   public Connection getConnection(String uri) throws JMSException {
     synchronized (connectionMap) {
       Connection conn = connectionMap.get(uri);
@@ -241,6 +269,8 @@ public class JMSManager extends BaseLockssManager
 	  log.warn("Couldn't add transport listener as {} isn't an ActiveMQConnection", conn);
 	}
       }
+      // start the connection in order to receive messages
+      conn.start();
       return conn;
     }
   }

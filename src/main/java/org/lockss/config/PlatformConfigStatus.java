@@ -186,7 +186,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       // The configuration may not be set in development environments
       PlatformVersion version = Configuration.getPlatformVersion();
       if (version != null) {
-	addSum(res, "Platform", version.getName());
+	addSum(res, "Platform", version.displayString());
       }
       
       addSum(res, "Cwd",

@@ -352,7 +352,9 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       }
       if (!active.containsKey(session)) {
 	active.put(session, this);
-	auditableEvent("logged in");
+	if (acctMgr.isAlertOnLoginLogout()) {
+	  auditableEvent("logged in");
+	}
       } else {
 	log.debug("Redundant nowAuthenticated()");
       }
@@ -364,7 +366,9 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     synchronized (active) {
       if (active.containsKey(session)) {
 	active.remove(session);
-	auditableEvent("logged out");
+	if (acctMgr.isAlertOnLoginLogout()) {
+	  auditableEvent("logged out");
+	}
 	if (alerter != null) {
 	  if (active.size() == 0) {
 	    TimerQueue.cancel(alerter);

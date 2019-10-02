@@ -32,6 +32,7 @@ import org.lockss.rs.exception.LockssRestException;
 import org.lockss.rs.exception.LockssRestHttpException;
 import org.lockss.rs.exception.LockssRestNetworkException;
 import org.lockss.util.Logger;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -91,6 +92,8 @@ public class RestUtil {
 	LockssRestHttpException lrhe =
 	    new LockssRestHttpException(exceptionMessage);
 	lrhe.setHttpStatusCode(statusCode.value());
+	// XXX this is the stock reason phrase, not what was received in
+	// the response.  How to get the actual reason?
 	lrhe.setHttpStatusMessage(statusCode.getReasonPhrase());
 	lrhe.setHttpResponseHeaders(response.getHeaders());
 	if (log.isDebug2()) log.debug3("lrhe = " + lrhe);
@@ -110,7 +113,9 @@ public class RestUtil {
 
       // Report the problem back to the caller.
       LockssRestNetworkException lrne =
-	  new LockssRestNetworkException(exceptionMessage, cause);
+	new LockssRestNetworkException(exceptionMessage + ": " +
+				       ExceptionUtils.getRootCauseMessage(cause),
+				       cause);
       if (log.isDebug2()) log.debug3("lrne = " + lrne);
 
       throw lrne;

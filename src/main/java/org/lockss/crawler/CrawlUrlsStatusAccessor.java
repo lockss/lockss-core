@@ -52,6 +52,7 @@ public class CrawlUrlsStatusAccessor implements StatusAccessor {
   private static final String FETCHED_TABLE_NAME = "fetched";
   private static final String ERROR_TABLE_NAME = "error";
   private static final String NOT_MODIFIED_TABLE_NAME = "not-modified";
+  private static final String UNCHANGED_TABLE_NAME = "unchanged";
   private static final String PARSED_TABLE_NAME = "parsed";
   private static final String PENDING_TABLE_NAME = "pending";
   private static final String EXCLUDED_TABLE_NAME = "excluded";
@@ -63,6 +64,10 @@ public class CrawlUrlsStatusAccessor implements StatusAccessor {
 
   private static List colDescsNotModified =
     ListUtil.list(new ColumnDescriptor(URL, "URL Not-Modified",
+				       ColumnDescriptor.TYPE_STRING));
+
+  private static List colDescsUnchanged =
+    ListUtil.list(new ColumnDescriptor(URL, "Unchanged Content",
 				       ColumnDescriptor.TYPE_STRING));
 
   private static List colDescsParsed =
@@ -163,6 +168,8 @@ public class CrawlUrlsStatusAccessor implements StatusAccessor {
       return "Errors during crawl of "+auName;
     } else if (NOT_MODIFIED_TABLE_NAME.equals(tableStr)) {
       return "URLs not modified during crawl of "+auName;
+    } else if (UNCHANGED_TABLE_NAME.equals(tableStr)) {
+      return "URLs with unchanged content during crawl of "+auName;
     } else if (PARSED_TABLE_NAME.equals(tableStr)) {
       return "URLs parsed during crawl of "+auName;
     } else if (PENDING_TABLE_NAME.equals(tableStr)) {
@@ -197,6 +204,8 @@ public class CrawlUrlsStatusAccessor implements StatusAccessor {
       return colDescsError;
     } else if (NOT_MODIFIED_TABLE_NAME.equals(tableStr)) {
       return colDescsNotModified;
+    } else if (UNCHANGED_TABLE_NAME.equals(tableStr)) {
+      return colDescsUnchanged;
     } else if (PARSED_TABLE_NAME.equals(tableStr)) {
       return colDescsParsed;
     } else if (PENDING_TABLE_NAME.equals(tableStr)) {
@@ -225,6 +234,8 @@ public class CrawlUrlsStatusAccessor implements StatusAccessor {
     } else if (NOT_MODIFIED_TABLE_NAME.equals(tableStr)) {
       rows = urlSetToRows(status.getUrlsNotModified(),
 			  status, includeReferrers);
+    } else if (UNCHANGED_TABLE_NAME.equals(tableStr)) {
+      rows = urlSetToRows(status.getUrlsUnchanged(), status, includeReferrers);
     } else if (PARSED_TABLE_NAME.equals(tableStr)) {
       rows = urlSetToRows(status.getUrlsParsed(), status, includeReferrers);
     } else if (PENDING_TABLE_NAME.equals(tableStr)) {

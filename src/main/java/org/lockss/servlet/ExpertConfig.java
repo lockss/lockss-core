@@ -261,7 +261,8 @@ public abstract class ExpertConfig extends LockssServlet {
 	errMsg = "Error: Illegal parameter" + (illKeys.size() > 1 ? "s" : "")
 	  + " in expert config: " + StringUtil.separatedString(illKeys, ", ");
 	if (acct != null) {
-	  acct.auditableEvent("used Expert Config but failed: " + etext);
+	  acct.auditableEvent("used " + getMyServletName() +
+			      " but failed: " + etext);
 	}
 	return false;
       }
@@ -272,7 +273,7 @@ public abstract class ExpertConfig extends LockssServlet {
 	log.error("Error reading expert config file", e);
 	origText = null;
       }
-      log.info("saving expert config");
+      log.info("saving expert config: " + getConfigFileName());
       configMgr.writeCacheConfigFile(etext,
 				     getConfigFileName(),
 				     false);
@@ -291,12 +292,19 @@ public abstract class ExpertConfig extends LockssServlet {
     }
   }
 
+  /** Return "Expert Config" or "Expert Config (local)" */
+  private String getMyServletName() {
+    return myServletDescr().getRawHeading();
+  }
+
   protected void raiseAlert(UserAccount acct,
 			    String orig, String cur,
 			    Configuration newConfig) {
     if (acct != null) {
       StringBuilder sb = new StringBuilder();
-      sb.append("used Expert Config.\n\n");
+      sb.append("used ");
+      sb.append(getMyServletName());
+      sb.append(".\n\n");
       if (!StringUtil.isNullString(orig)) {
 	sb.append("Differences:\n\n");
 	sb.append(DiffUtil.diff_configText(orig, cur));
@@ -304,7 +312,9 @@ public abstract class ExpertConfig extends LockssServlet {
 	sb.append("New text:\n\n");
 	sb.append(cur);
       }
-      sb.append("\n\nCurrent Expert Config:\n\n");
+      sb.append("\n\nCurrent ");
+      sb.append(getMyServletName());
+      sb.append(":\n\n");
       List<String> keys = new ArrayList<String>(newConfig.keySet());
       Collections.sort(keys);
       for (String key : keys) {

@@ -130,6 +130,8 @@ public class LockssApp {
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
 
+  /** Defines the ports on which laaws components listen.  List of
+   * <code><i>abbrev</i>=<i>host</i>:<i>rest_port</i>[:<i>ui_port</i>]</code> */
   public static final String PARAM_SERVICE_BINDINGS =
     PREFIX + "serviceBindings";
   public static final List DEFAULT_SERVICE_BINDINGS = null;
@@ -146,6 +148,8 @@ public class LockssApp {
     managerKey(MailService.class);
   public static final String STATUS_SERVICE =
     managerKey(StatusService.class);
+  public static final String REST_SERVICES_MANAGER =
+    managerKey(RestServicesManager.class);
   public static final String RESOURCE_MANAGER =
     managerKey(ResourceManager.class);
   public static final String RANDOM_MANAGER =
@@ -190,6 +194,7 @@ public class LockssApp {
     MAIL_SERVICE_DESC,
     ALERT_MANAGER_DESC,
     STATUS_SERVICE_DESC,
+    REST_SERVICES_MANAGER_DESC,
     TRUEZIP_MANAGER_DESC,
     URL_MANAGER_DESC,
     TIMER_SERVICE_DESC,
@@ -233,6 +238,7 @@ public class LockssApp {
   protected volatile boolean appRunning = false; // true after all managers started
   protected OneShotSemaphore appRunningSem = new OneShotSemaphore();
   protected Date startDate;
+  protected long readyTime = 0;		// Time the daemon became ready.
   protected long appLifetime = DEFAULT_APP_EXIT_AFTER;
   protected Deadline timeToExit = Deadline.at(TimeBase.MAX);
   protected boolean isSafenet = false;
@@ -414,6 +420,20 @@ public class LockssApp {
       startDate = TimeBase.nowDate();
     }
     return startDate;
+  }
+
+  /** Return the time the app started running.
+   * @return the time the app started running, as a long
+   */
+  public long getStartTime() {
+    return startDate.getTime();
+  }
+
+  /** Return the time the app became ready
+   * @return the time the app started running, as a long
+   */
+  public long getReadyTime() {
+    return readyTime;
   }
 
   /** Return the app name */
@@ -779,6 +799,7 @@ public class LockssApp {
       }
     }
 
+    readyTime = TimeBase.nowMs();
     appRunning = true;
     appRunningSem.fill();
     if (getAppSpec() != null) {
@@ -1026,9 +1047,10 @@ public class LockssApp {
       getServiceBinding(getMyServiceDescr());
   }
 
-  //  svc_abbrev=host:ui_port    or   svc_abbrev=:ui_port
+  //  svc_abbrev=host:rest_port[:ui_port]
+  //  Any of host, rest_port, or ui_port may be empty
   protected static final Pattern SERVICE_BINDING_PAT =
-    Pattern.compile("(.+)=(.+)?:(\\d+)");
+    Pattern.compile("(.+)=([^:]*):(\\d+)?(?::(\\d+)?)?$");
 
   void processServiceBindings(List<String> bindings) {
     if (bindings == null) {
@@ -1040,12 +1062,25 @@ public class LockssApp {
 	  String abbrev = mat.group(1);
 	  ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
 	  if (descr != null) {
+	    String g3 = mat.group(3);
+	    if (StringUtil.isNullString(g3)) {
+	      g3 = "0";
+	    }
+	    String g4 = mat.group(4);
+	    if (StringUtil.isNullString(g4)) {
+	      g4 = "0";
+	    }
 	    try {
+	      String host = mat.group(2);
+	      if (StringUtil.isNullString(host)) {
+		host = null;
+	      }
 	      ServiceBinding binding =
-		new ServiceBinding(mat.group(2), Integer.parseInt(mat.group(3)));
+		new ServiceBinding(host, Integer.parseInt(g3),
+				   Integer.parseInt(g4));
 	      serviceBindings.put(descr, binding);
 	    } catch (NumberFormatException e) {
-	      log.error("Malformed service binding: " + s);
+	      log.error("Malformed service binding: " + s, e);
 	    }
 	  }
 	} else {

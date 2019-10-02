@@ -36,6 +36,8 @@ import org.apache.commons.collections.map.LinkedMap;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
+import org.lockss.jms.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
@@ -45,7 +47,6 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.laaws.rs.core.*;
-import static org.lockss.repository.LockssRepositoryStatus.*;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -57,12 +58,6 @@ public class RepositoryManager
   private static Logger log = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "repository.";
-
-  /** Maximum length of a filesystem path component. */
-  public static final String PARAM_MAX_COMPONENT_LENGTH =
-      PREFIX + "maxComponentLength";
-  public static final int DEFAULT_MAX_COMPONENT_LENGTH = 255;
-
 
   /** @see #PARAM_CHECK_UNNORMALIZED */
   public enum CheckUnnormalizedMode {No, Log, Fix};
@@ -84,15 +79,36 @@ public class RepositoryManager
   public static final String PARAM_V2_REPOSITORY =
       PREFIX + "v2Repository";
   public static final String DEFAULT_V2_REPOSITORY = "volatile:baz";
-//   public static final String DEFAULT_V2_REPOSITORY = null;
+
+  /** If true, instruct RestLockssRepository to cache Artifacts on the
+   * client side to reduce REST transactions */
+  public static final String PARAM_ENABLE_ARTIFACT_CACHE =
+    PREFIX + "artifactCache.enable";
+  public static final boolean DEFAULT_ENABLE_ARTIFACT_CACHE = true;
+
+  /** Maximum size of Artifact cache */
+  public static final String PARAM_ARTIFACT_CACHE_MAX =
+    PREFIX + "artifactCache.maxSize";
+  public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
+
+  /** If true, the ArtifactCache will be instrumented, at some performance
+   * cost */
+  public static final String PARAM_ARTIFACT_CACHE_INSTRUMENT =
+    PREFIX + "artifactCache.instrument";
+  public static final boolean DEFAULT_ARTIFACT_CACHE_INSTRUMENT = false;
 
   /** Should be moved into repo code */
   public static final String PARAM_PERSIST_INDEX_NAME =
       PREFIX + "persistIndexName";
   public static final String DEFAULT_PERSIST_INDEX_NAME = "artifact-index.ser";
 
-  static final String DISK_PREFIX = PREFIX + "diskSpace.";
+  /** Maximum age of AUID -> repo map */
+  public static final String PARAM_AUID_REPO_MAP_AGE =
+    PREFIX + "auidRepoMapAge";
+  public static final long DEFAULT_AUID_REPO_MAP_AGE = Constants.HOUR;
 
+
+  static final String DISK_PREFIX = PREFIX + "diskSpace.";
 
   static final String PARAM_DISK_WARN_FRRE_MB = DISK_PREFIX + "warn.freeMB";
   static final int DEFAULT_DISK_WARN_FRRE_MB = 5000;
@@ -107,12 +123,13 @@ public class RepositoryManager
 
   private PlatformUtil platInfo = PlatformUtil.getInstance();
   private List repoList = Collections.EMPTY_LIST;
-  Map localRepos = new HashMap();
-  private static int maxComponentLength = DEFAULT_MAX_COMPONENT_LENGTH;
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
+  private long auidRepoMapAge = DEFAULT_AUID_REPO_MAP_AGE;
 
   private RepoSpec v2Repo = null;
+
+  private AuEventHandler auEventHandler;
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
@@ -123,22 +140,24 @@ public class RepositoryManager
 
   public void startService() {
     super.startService();
-    localRepos = new HashMap();
-    LockssDaemon daemon = getDaemon();
-    StatusService statusServ = daemon.getStatusService();
-    statusServ.registerStatusAccessor(SERVICE_STATUS_TABLE_NAME,
-				      new RepoCollsStatusAccessor(daemon));
-    statusServ.registerStatusAccessor(AUIDS_STATUS_TABLE_NAME,
-				      new CollectionAuidsStatusAccessor(daemon));
-    statusServ.registerStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME,
-				      new AuidArtifactsStatusAccessor(daemon));
+    LockssRepositoryStatus.registerAccessors(getDaemon(),
+					     getDaemon().getStatusService());
+    // register our AU event handler
+    auEventHandler = new AuEventHandler.Base() {
+      @Override
+      public void auCreated(AuEvent event, ArchivalUnit au) {
+	flushAuidRepoMap();
+      }
+    };
+    getDaemon().getPluginManager().registerAuEventHandler(auEventHandler);
   }
 
   public void stopService() {
-    StatusService statusServ = getDaemon().getStatusService();
-    statusServ.unregisterStatusAccessor(SERVICE_STATUS_TABLE_NAME);
-    statusServ.unregisterStatusAccessor(AUIDS_STATUS_TABLE_NAME);
-    statusServ.unregisterStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME);
+    if (auEventHandler != null) {
+      getDaemon().getPluginManager().unregisterAuEventHandler(auEventHandler);
+      auEventHandler = null;
+    }
+    LockssRepositoryStatus.unregisterAccessors(getDaemon().getStatusService());
     super.stopService();
   }
 
@@ -171,14 +190,15 @@ public class RepositoryManager
       paramDFFull = PlatformUtil.DF.makeThreshold(minMB, minPer);
     }
     if (changedKeys.contains(PREFIX)) {
-      maxComponentLength = config.getInt(PARAM_MAX_COMPONENT_LENGTH,
-          DEFAULT_MAX_COMPONENT_LENGTH);
       checkUnnormalized =
           (CheckUnnormalizedMode)
               config.getEnum(CheckUnnormalizedMode.class,
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
+      auidRepoMapAge = config.getTimeInterval(PARAM_AUID_REPO_MAP_AGE,
+					      DEFAULT_AUID_REPO_MAP_AGE);
+      processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
+      reconfigureRepos(config);
     }
-    processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
   }
 
   static Pattern REPO_SPEC_PATTERN =
@@ -193,7 +213,7 @@ public class RepositoryManager
       if (!repoSpecMap.containsKey(spec)) {
 	try {
 	  RepoSpec rs = RepoSpec.fromSpec(spec);
-	  rs.getRepository();
+	  rs.setRepository(createLockssRepository(rs));
 	  setV2Repo(rs);
 	} catch (Exception e) {
 	  log.critical("Can't create V2 repo", e);
@@ -232,12 +252,115 @@ public class RepositoryManager
     return repoSpecMap.values();
   }
 
-  public static int getMaxComponentLength() {
-    return maxComponentLength;
+  /** Return the repository containing the specified AU. */
+  public RepoSpec findAuRepository(ArchivalUnit au) {
+    return findAuRepository(au.getAuId());
   }
 
-  public static CheckUnnormalizedMode getCheckUnnormalizedMode() {
-    return checkUnnormalized;
+  /** Return the repository containing the specified auid. */
+  // XXX MULTIREPO
+  public RepoSpec findAuRepository(String auid) {
+    return getV2Repository();
+  }
+
+  /** Return true if the repository on which the specified AU resides is
+   * ready
+   * @param auid
+   * @return true if the repo is ready, false if not
+   */
+  public boolean isRepoReady(String auid) {
+    return isRepoReady(findAuRepository(auid));
+  }
+
+  protected boolean isRepoReady(RepoSpec spec) {
+    switch (spec.getType()) {
+    case "rest":
+      // XXX MULTIREPO needs to map spec to binding
+      RestServicesManager svcsMgr =
+	getApp().getManagerByType(RestServicesManager.class);
+      if (svcsMgr != null) {
+	RestServicesManager.ServiceStatus stat =
+	  svcsMgr.getServiceStatus(getApp().getServiceBinding(ServiceDescr.SVC_REPO));
+	if (stat != null) {
+	  return stat.isReady();
+	}
+      }
+      return false;
+    case "volatile":
+    case "local":
+      return true;
+    default:
+      log.warning("Unknown repository type: " + spec.getType());
+      return true;
+    }
+  }
+
+  /** Create a LockssRepository instance according to the spec */
+  LockssRepository createLockssRepository(RepoSpec spec) {
+    Configuration config = ConfigManager.getCurrentConfig();
+    switch (spec.getType()) {
+    case "volatile":
+      try {
+	return LockssRepositoryFactory.createVolatileRepository();
+      } catch (IOException e) {
+	String msg = "Error creating volatile repository";
+	throw new IllegalArgumentException(msg, e);
+      }
+    case "local":
+      File file = new File(spec.getPath());
+      String persistedIndexName =
+	config.get(PARAM_PERSIST_INDEX_NAME, DEFAULT_PERSIST_INDEX_NAME);
+      try {
+	return
+	  LockssRepositoryFactory.createLocalRepository(file,
+							persistedIndexName);
+      } catch (IOException e) {
+	String msg = "Illegal V2 repository path: " + spec.getPath() +
+	  ", persistedIndexName: " + persistedIndexName;
+	throw new IllegalArgumentException(msg, e);
+      }
+    case "rest":
+      try {
+	URL url = new URL(spec.getPath());
+	RestLockssRepository repo =
+	  LockssRepositoryFactory.createRestLockssRepository(url);
+	configureArtifactCache(repo, config);
+	return repo;
+      } catch (MalformedURLException e) {
+	String msg = "Illegal V2 repository URL: " + spec.getPath() +
+	  ": " + e.getMessage();
+	throw new IllegalArgumentException(msg);
+      }
+    default:
+      throw new IllegalStateException("Unknown type: " + spec.getType());
+    }
+  }
+
+  private void reconfigureRepos(Configuration config) {
+    for (RepoSpec rs : getV2RepositoryList()) {
+      if (rs.getRepository() instanceof RestLockssRepository) {
+	configureArtifactCache((RestLockssRepository)rs.getRepository(),
+			       config);
+      }
+    }
+  }
+
+  private void configureArtifactCache(RestLockssRepository repo,
+				      Configuration config) {
+    if (config.getBoolean(PARAM_ENABLE_ARTIFACT_CACHE,
+			  DEFAULT_ENABLE_ARTIFACT_CACHE)) {
+      ArtifactCache artCache = repo.getArtifactCache();
+      artCache.setMaxSize(config.getInt(PARAM_ARTIFACT_CACHE_MAX,
+					DEFAULT_ARTIFACT_CACHE_MAX));
+//       boolean instrument =
+// 	config.getBoolean(PARAM_ARTIFACT_CACHE_INSTRUMENT,
+// 			  DEFAULT_ARTIFACT_CACHE_INSTRUMENT);
+//       artCache.enableInstrumentation(instrument);
+      // RestLockssRepository will enable the cache only once it has
+      // created a JMS consuler for invalidate notifications
+      JMSManager mgr = getDaemon().getManagerByType(JMSManager.class);
+      repo.enableArtifactCache(true, mgr.getJmsFactory());
+    }
   }
 
   /** Return list of known repository names.  Needs a registration
@@ -285,19 +408,44 @@ public class RepositoryManager
     return paramDFFull;
   }
 
-  public List<String> findExistingRepositoriesFor(String auid) {
+  // BatchAuConfig (via RemoteApi) asks for existing repo info for large
+  // numbers of AUIDs at a time. Querying the repo for each is way
+  // expensive (esp. as the only way to do it currently is to enumerate the
+  // known AUIDs, but would still be a huge number of roundtrips even if
+  // there were a way to query by AUID).  Build a map of auid -> repsspec
+  // on first use, or if it it stale (PARAM_AUID_REPO_MAP_AGE), or if an
+  // auCreated() event has been seen.
+
+  private Map<String,List<String>> auidToRepoSpec;
+  private long auidToRepoMapDate;
+
+  /** Build a map of AUID -> repository spec. */
+  public synchronized void buildAuMap() {
+    Map<String,List<String>> res = new HashMap<>();
     LockssRepository repo = v2Repo.getRepository();
     try {
-      for (String id : repo.getAuIds(v2Repo.getCollection())) {
-	if (auid.equals(id)) {
-	  return Collections.singletonList(v2Repo.getSpec());
-	}
+      for (String auid : repo.getAuIds(v2Repo.getCollection())) {
+	res.put(auid, Collections.singletonList(v2Repo.getSpec()));
       }
     } catch (IOException e) {
       log.warning("Error getting list of AUID in repository collection");
-      return Collections.emptyList();
     }
-    return Collections.emptyList();
+    auidToRepoSpec = res;
+    auidToRepoMapDate = TimeBase.nowMs();
+  }
+
+  void flushAuidRepoMap() {
+    auidToRepoSpec = null;
+  }
+
+  /** Return a list of repo specs where the auid has content.  Currently
+   * returns either a singleton or null */
+  public List<String> findExistingRepositoriesFor(String auid) {
+    if (auidToRepoSpec == null ||
+	TimeBase.msSince(auidToRepoMapDate) > auidRepoMapAge) {
+      buildAuMap();
+    }
+    return auidToRepoSpec.get(auid);
   }
 
   /**

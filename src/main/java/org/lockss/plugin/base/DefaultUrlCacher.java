@@ -41,11 +41,13 @@ import org.lockss.app.*;
 import org.lockss.state.*;
 import org.lockss.alert.*;
 import org.lockss.config.*;
+import org.lockss.crawler.*;
 import org.lockss.plugin.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.util.urlconn.*;
+import org.lockss.util.io.*;
 import org.lockss.daemon.*;
 
 import org.lockss.rewriter.*;
@@ -85,6 +87,7 @@ public class DefaultUrlCacher implements UrlCacher {
   private boolean alreadyHasContent;
   private LockssRepository v2Repo;
   private String v2Coll;
+  private Crawler.CrawlerFacade facade;
   
   /**
    * Uncached url object and Archival Unit owner 
@@ -110,6 +113,10 @@ public class DefaultUrlCacher implements UrlCacher {
     }
     Plugin plugin = au.getPlugin();
     resultMap = plugin.getCacheResultMap();
+  }
+
+  public void setCrawlerFacade(Crawler.CrawlerFacade facade) {
+    this.facade = facade;
   }
 
   /**
@@ -292,6 +299,11 @@ public class DefaultUrlCacher implements UrlCacher {
     try {
       alreadyHasContent =
 	v2Repo.getArtifact(v2Coll, au.getAuId(), url) != null;
+    } catch (IOException ex) {
+      logger.warning("Repository error checking for existing content: " + url,
+		     ex);
+    }
+    try {
       MessageDigest checksumProducer = null;
       String checksumAlgorithm =
           CurrentConfig.getParam(PARAM_CHECKSUM_ALGORITHM,
@@ -318,13 +330,13 @@ public class DefaultUrlCacher implements UrlCacher {
       BasicStatusLine statusLine =
 	new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
 
-      ArtifactData ad = new ArtifactData(id, metadata,
- 					 new IgnoreCloseInputStream(in),
-					 statusLine);
+      InputStream adin =
+	new ExceptionWrappingInputStream(new IgnoreCloseInputStream(in));
+      ArtifactData ad = new ArtifactData(id, metadata, adin, statusLine);
       if (logger.isDebug2()) {
         logger.debug2("Creating artifact: " + ad);
       }
-      uncommittedArt = v2Repo.addArtifact(ad);
+      uncommittedArt = addArtifact(ad);
       long bytes = uncommittedArt.getContentLength();
       if (logger.isDebug2()) {
         logger.debug2("Stored " + bytes + " bytes: " + uncommittedArt);
@@ -370,6 +382,12 @@ public class DefaultUrlCacher implements UrlCacher {
 	abandonNewVersion(uncommittedArt);
 	uncommittedArt = null;
 	doStore = false;
+	if (facade != null) {
+	  CrawlerStatus status = facade.getCrawlerStatus();
+	  if (status != null) {
+	    status.signalUrlUnchanged(fetchUrl);
+	  }
+	}
       }
       if (doStore) {
 	if (checksumProducer != null) {
@@ -404,15 +422,24 @@ public class DefaultUrlCacher implements UrlCacher {
 	  raiseAlert(alert);
 	}
       }
-    } catch (StreamUtil.OutputException ex) {
+    } catch (InputIOException ex) {
+      // error reading from input stream
       abandonNewVersion(uncommittedArt);
-      throw resultMap.getRepositoryException(ex.getIOCause());
-    } catch (IOException ex) {
-      abandonNewVersion(uncommittedArt);
+      throw resultMap.mapException(au, url, ex.getIOCause(), null);
+    } catch (CacheException ex) {
       // XXX some code below here maps the exception
-      throw ex instanceof CacheException
-	? ex : resultMap.mapException(au, url, ex, null);
+      abandonNewVersion(uncommittedArt);
+      throw ex;
+    } catch (IOException ex) {
+      // any other error is theoretically a repository error
+      abandonNewVersion(uncommittedArt);
+      throw resultMap.getRepositoryException(ex);
     }
+  }
+
+  // Overridable for testing
+  protected Artifact addArtifact(ArtifactData ad) throws IOException {
+    return v2Repo.addArtifact(ad);
   }
 
   protected boolean isIdenticalToPreviousVersion(Artifact art)

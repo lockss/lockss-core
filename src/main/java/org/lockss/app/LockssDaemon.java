@@ -216,22 +216,18 @@ public class LockssDaemon extends LockssApp {
   protected HashMap<String,LockssAuManager.Factory> auManagerFactoryMap = 
       new HashMap<String,LockssAuManager.Factory>();
 
-  private static LockssDaemon theDaemon;
   private boolean isClockss;
 
   protected LockssDaemon() {
     super();
-    theDaemon = this;
   }
 
   protected LockssDaemon(List<String> propUrls) {
     super(propUrls);
-    theDaemon = this;
   }
 
   protected LockssDaemon(List<String> propUrls, String groupNames) {
     super(propUrls, groupNames);
-    theDaemon = this;
   }
 
   protected LockssDaemon(List<String> bootstrapPropsUrls,
@@ -239,7 +235,6 @@ public class LockssDaemon extends LockssApp {
 			 List<String> propUrls,
 			 String groupNames) {
     super(bootstrapPropsUrls, restConfigServiceUrl, propUrls, groupNames);
-    theDaemon = this;
   }
 
   @Override
@@ -262,10 +257,15 @@ public class LockssDaemon extends LockssApp {
   }
 
   /**
-   * Return the LockssDaemon instance
+   * static accessor for the LockssDaemon instance.  In support of Spring and
+   * other inverted start-order frameworks, this method will wait a short
+   * time for the LockssDaemon instance to be created.
+   * @throws IllegalStateException if that doesn't happen quickly
+   * @return the LockssDaemon instance
    */
   public static LockssDaemon getLockssDaemon() {
-    return theDaemon;
+    // cast is ugly but safe; avoids a redundant WaitableObject in this class
+    return (LockssDaemon)getLockssApp();
   }
 
   /**
@@ -490,7 +490,7 @@ public class LockssDaemon extends LockssApp {
    */
   public static LockssAuManager getStaticAuManager(String key,
                                                    ArchivalUnit au) {
-    return theDaemon.getAuManager(key, au);
+    return getLockssDaemon().getAuManager(key, au);
   }
 
   /**

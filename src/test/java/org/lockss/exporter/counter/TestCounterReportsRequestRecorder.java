@@ -38,9 +38,7 @@ import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
-import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.LockssTestCase;
-import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.*;
 
 /**
  * Test class for org.lockss.exporter.counter.CounterReportsRequestRecorder.
@@ -68,6 +66,7 @@ public class TestCounterReportsRequestRecorder extends LockssTestCase {
   private DbManager dbManager;
   private MetadataManager metadataManager;
   private CounterReportsManager counterReportsManager;
+  private String dbPort;
 
   @Override
   public void setUp() throws Exception {
@@ -87,6 +86,9 @@ public class TestCounterReportsRequestRecorder extends LockssTestCase {
 
     MockLockssDaemon theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
+    dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER,
+				  dbPort);
 
     dbManager = getTestDbManager(tempDirPath);
 

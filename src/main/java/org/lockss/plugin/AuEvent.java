@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2012 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2012-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -132,8 +128,9 @@ public class AuEvent {
       return res;
     }
 
-    public void setType(ContentChangeInfo.Type type) {
+    public ContentChangeInfo setType(ContentChangeInfo.Type type) {
       this.type = type;
+      return this;
     }
 
     /** Type of content changes: Crawl means new content crawl, Repair
@@ -142,8 +139,9 @@ public class AuEvent {
       return type;
     }
 
-    public void setComplete(boolean complete) {
+    public ContentChangeInfo setComplete(boolean complete) {
       this.complete = complete;
+      return this;
     }
 
     /** True if this is expected to be a partial change (<i>e.g.</i> new
@@ -153,8 +151,9 @@ public class AuEvent {
       return complete;
     }
 
-    public void setUrls(List<String> urls) {
+    public ContentChangeInfo setUrls(List<String> urls) {
       this.urls = urls;
+      return this;
     }
 
     /** The list of URLs that change, if known and manageable. */
@@ -168,8 +167,9 @@ public class AuEvent {
       return urls != null && numUrls == urls.size();
     }
 
-    public void setNumUrls(int numUrls) {
+    public ContentChangeInfo setNumUrls(int numUrls) {
       this.numUrls = numUrls;
+      return this;
     }
 
     /** The number of URLs that changed.  This is always available even if
@@ -178,8 +178,9 @@ public class AuEvent {
       return numUrls;
     }
 
-    public void setMimeCounts(Map<String,Integer> mimeCounts) {
+    public ContentChangeInfo setMimeCounts(Map<String,Integer> mimeCounts) {
       this.mimeCounts = mimeCounts;
+      return this;
     }
 
     /** Returns a map from MIME type to the count of files of that MIME

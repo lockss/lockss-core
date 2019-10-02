@@ -68,4 +68,9 @@ public abstract class LockssRestException extends Exception {
   public LockssRestException(String message, Throwable cause) {
     super(message, cause);
   }
+
+  public String getShortMessage() {
+    return getMessage();
+  }
+
 }

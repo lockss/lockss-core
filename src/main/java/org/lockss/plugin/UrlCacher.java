@@ -124,4 +124,11 @@ public interface UrlCacher {
    */
   public void setFetchUrl(String fetchUrl);
 
+  /**
+   * Set the CrawlerFacade to which this UrlCacher should report
+   * statistics.
+   * @param facade
+   */
+  public void setCrawlerFacade(Crawler.CrawlerFacade facade);
+
 }

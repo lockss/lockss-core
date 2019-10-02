@@ -26,6 +26,8 @@
 
  */
 package org.lockss.rs.exception;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import java.util.regex.*;
 
 public class LockssRestNetworkException extends LockssRestException {
   private static final long serialVersionUID = 2600539944608507147L;
@@ -67,5 +69,29 @@ public class LockssRestNetworkException extends LockssRestException {
    */
   public LockssRestNetworkException(String message, Throwable cause) {
     super(message, cause);
+  }
+
+  /** Return a shortened exception message */
+  public String getShortMessage() {
+    Throwable cause = getCause();
+    if (cause instanceof java.net.ConnectException) {
+      return cleanupExceptionMessage(cause.getMessage());
+    }
+    if (cause != null) {
+      return ExceptionUtils.getRootCauseMessage(cause);
+    }
+    return getMessage();
+  }
+
+  // Clean up ugliness like "Connection refused (Connection refused)"
+  protected static final Pattern DUP_MSG_PAT =
+    Pattern.compile("(.*)(.*) ?\\(\\2\\)(.*)");
+
+  String cleanupExceptionMessage(String msg) {
+    Matcher mat = DUP_MSG_PAT.matcher(msg);
+    if (mat.matches()) {
+      return mat.group(1) + mat.group(2) + mat.group(3);
+    }
+    return msg;
   }
 }

@@ -229,14 +229,25 @@ public class V3PollFactory implements PollFactory {
     CachedUrlSet cus = pollspec.getCachedUrlSet();
     // Do we have the AU?
     if (cus == null) {
-      log.debug2("Ignoring poll request from " + orig + " don't have AU: "
-		 + pollspec.getAuId());
-      PollNak reason =
-	daemon.areAusStarted() ? PollNak.NAK_NO_AU : PollNak.NAK_NOT_READY;
+      PollNak reason;
+      if (daemon.areAusStarted()) {
+	log.debug2("Ignoring poll request from " + orig + " don't have AU: "
+		   + pollspec.getAuId());
+	reason = PollNak.NAK_NO_AU;
+      } else {
+	log.debug2("Ignoring poll request from " + orig + ", AUs not started");
+	reason = PollNak.NAK_NOT_READY;
+      }
       sendNak(daemon, reason, pollspec.getAuId(), (V3LcapMessage)msg);
       return null;
     }
     ArchivalUnit au = cus.getArchivalUnit();
+    if (!daemon.getPollManager().isRepoReady(au)) {
+      log.debug2("Ignoring poll request from " + orig + ", repo not ready");
+      sendNak(daemon, PollNak.NAK_NOT_READY,
+	      pollspec.getAuId(), (V3LcapMessage)msg);
+      return null;
+    }
     String auPollVer = AuUtil.getPollVersion(au);
     if (!pollspec.getPluginVersion().equals(auPollVer)) {
       log.debug("Ignoring poll request from " + orig + " for " + au.getName()

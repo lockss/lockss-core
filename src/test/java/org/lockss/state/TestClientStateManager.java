@@ -30,10 +30,10 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
+import javax.jms.*;
 import org.junit.*;
 import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
-// import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 
 import org.lockss.app.*;
@@ -45,8 +45,9 @@ import org.lockss.protocol.*;
 import static org.lockss.protocol.AgreementType.*;
 import org.lockss.test.*;
 import org.lockss.log.*;
-import org.lockss.util.*;
 import org.lockss.jms.*;
+import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
@@ -59,7 +60,7 @@ public class TestClientStateManager extends StateTestCase {
   MyClientStateManager myStateMgr;
 
   MockPlugin mplug;
-  Producer prod;
+  JmsProducer prod;
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
@@ -90,7 +91,8 @@ public class TestClientStateManager extends StateTestCase {
     ConnectionFactory connectionFactory =
       new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
     Connection conn = connectionFactory.createConnection();
-    prod = Producer.createTopicProducer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
+    conn.start();
+    prod = jmsMgr.getJmsFactory().createTopicProducer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
   }
 
   @Override

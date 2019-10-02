@@ -202,6 +202,16 @@ public class MockLockssDaemon extends LockssDaemon {
     }
   }
 
+  public MockLockssDaemon registerTestManager(Class key, Class cls) {
+    return registerTestManager(key.getName(), cls);
+  }
+
+  public MockLockssDaemon registerTestManager(String key, Class cls) {
+    ConfigurationUtil.addFromArgs(MANAGER_PREFIX + key,
+				  cls.getName());
+    return this;
+  }
+
   public <T> T getManagerByType(Class<T> mgrType) {
     T mgr = (T)managerMap.get(managerKey(mgrType));
     if (mgr == null) {

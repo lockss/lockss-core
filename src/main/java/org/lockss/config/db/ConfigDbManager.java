@@ -289,7 +289,7 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
     // Return the configured database name.
     return getFullDataSourceDatabaseName(config.get(
 	PARAM_DATASOURCE_DATABASENAME,
-	getDatabaseNamePrefix() + this.getClass().getSimpleName()));
+	getSimpleDbName()));
   }
 
   /**

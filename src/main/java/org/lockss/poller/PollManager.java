@@ -3050,6 +3050,8 @@ public class PollManager
           Deadline initial = Deadline.in(pollStartInitialDelay);
           pollManager.getV3Status().setNextPollStartTime(initial);
           initial.sleep();
+	  // Call no polls before repo is ready
+	  waitForRepo();
         } catch (InterruptedException e) {
           // just wakeup and check for exit
         }
@@ -3082,6 +3084,10 @@ public class PollManager
       interruptThread();
     }
 
+  }
+
+  public boolean isRepoReady(ArchivalUnit au) {
+    return isRepoReady(au.getAuId());
   }
 
   /**
