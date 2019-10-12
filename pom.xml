@@ -73,16 +73,22 @@ POSSIBILITY OF SUCH DAMAGE.
 	 providers and its log4j2.xml config file take precedence. -->
     <dependency>
       <groupId>org.lockss</groupId>
-      <artifactId>lockss-util</artifactId>
-      <version>${version.lockss.lockss-util}</version>
+      <artifactId>lockss-util-core</artifactId>
+      <version>${version.lockss.lockss-util-core}</version>
     </dependency>
 
     <dependency>
       <groupId>org.lockss</groupId>
-      <artifactId>lockss-util</artifactId>
-      <version>${version.lockss.lockss-util}</version>
+      <artifactId>lockss-util-core</artifactId>
+      <version>${version.lockss.lockss-util-core}</version>
       <type>test-jar</type>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-util-rest</artifactId>
+      <version>${version.lockss.lockss-util-rest}</version>
     </dependency>
 
     <dependency>
