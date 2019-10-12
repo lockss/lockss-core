@@ -39,9 +39,9 @@ import org.lockss.log.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.*;
 import org.lockss.config.*;
-import org.lockss.rs.*;
-import org.lockss.laaws.status.model.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.*;
+import org.lockss.util.rest.status.*;
+import org.lockss.util.rest.exception.LockssRestException;
 
 /** Queries readiness of known REST services on startup, keeps querying
  * until service is ready, provides readiness status.

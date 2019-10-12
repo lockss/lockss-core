@@ -50,7 +50,7 @@ import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.account.*;
 import org.lockss.protocol.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.jetty.*;
 import org.lockss.alert.*;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;

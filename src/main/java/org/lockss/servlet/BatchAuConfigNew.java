@@ -41,7 +41,7 @@ import org.lockss.db.DbException;
 import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;

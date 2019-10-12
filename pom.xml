@@ -123,13 +123,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.group.derby}</version>
     </dependency>
 
-    <!--  Needed by org.lockss.util.MultipartUtil and org.lockss.util.MimeMultipartHttpMessageConverter -->
-    <dependency>
-      <groupId>com.sun.mail</groupId>
-      <artifactId>javax.mail</artifactId>
-      <version>${version.dependency.javax.mail}</version>
-    </dependency>
-    
     <dependency>
       <groupId>javax.activation</groupId>
       <artifactId>activation</artifactId>
@@ -712,18 +705,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <artifactId>aspectjrt</artifactId>
       <version>1.8.10</version>
       <scope>runtime</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>${version.group.jackson}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
-      <version>${version.group.jackson}</version>
     </dependency>
 
     <dependency>

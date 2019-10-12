@@ -29,7 +29,7 @@ package org.lockss.ws.entities;
 
 import java.util.Map;
 import org.lockss.db.DbException;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 
 /**
  * Container for the information related to a repository that is the result of a

@@ -36,7 +36,7 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 
 /**
  * A set of titles defined as an XPath predicate used to match some subset

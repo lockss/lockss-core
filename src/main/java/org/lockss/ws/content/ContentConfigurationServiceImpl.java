@@ -38,7 +38,7 @@ import org.lockss.daemon.TitleConfig;
 import org.lockss.db.DbException;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.ws.entities.ContentConfigurationResult;

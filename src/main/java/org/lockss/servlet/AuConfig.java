@@ -39,7 +39,7 @@ import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.*;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.*;
 import org.mortbay.html.*;
 

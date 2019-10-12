@@ -46,7 +46,7 @@ import org.lockss.db.DbManager;
 import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;

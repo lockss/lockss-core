@@ -40,7 +40,7 @@ import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
 /** Caching StateManager that accesses state objects from a REST

@@ -47,7 +47,7 @@ import org.lockss.protocol.*;
 import org.lockss.state.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.repository.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
