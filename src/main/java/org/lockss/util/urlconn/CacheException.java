@@ -720,10 +720,11 @@ public class CacheException
       suppressStackTrace = false;
     }
 
-    /** Create this if details of causal exception are more relevant. */
+    /** Create this if details of causal exception are relevant. */
     public RepositoryException(Exception e) {
       super(e.toString());
       initCause(e);
+      suppressStackTrace = false;
     }
   }
 
