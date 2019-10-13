@@ -619,11 +619,11 @@ public class FollowLinkCrawler extends BaseCrawler {
               abortCrawl();
               return false;
             } else if (ex.isAttributeSet(CacheException.ATTRIBUTE_FATAL)) {
-              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getMessage());
+              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getShortMessage());
               abortCrawl();
               return false;
             } else if (!crawlStatus.isCrawlError()) {
-              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getMessage());
+              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getShortMessage());
             }
           }
         }
