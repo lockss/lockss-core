@@ -942,19 +942,27 @@ public class MockLockssDaemon extends LockssDaemon {
     return this;
   }
 
-  /** Here only to allow legacy plugin tests to compile
+
+  public static class TestingStateManager extends InMemoryStateManager {
+    protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
+      return true;
+    }
+  }
+
+  // Symbols needed in order to compile legacy plugin tests
+
+  /**
    * @deprecated
    */
   @Deprecated
   public void getNodeManager(ArchivalUnit au) {
   }
 
-  public static class TestingStateManager extends InMemoryStateManager {
-    protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
-      return true;
-    }
-
-
+  /**
+   * @deprecated
+   */
+  @Deprecated
+  public void getLockssRepository(ArchivalUnit au) {
   }
 
 }
