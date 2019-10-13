@@ -152,10 +152,10 @@ public class ClientStateManager extends CachingStateManager {
       log.debug2("patchArchivalUnitState({}, {}, {}, {}", key, auState, cookie, fields);
       configMgr.getRestConfigClient().patchArchivalUnitState(key, auState,
 							     cookie);
-    } catch (IOException e) {
-      log.error("Couldn't serialize AuState: {}", ausb, e);
     } catch (LockssRestException lre) {
       log.error("Couldn't store AuState: {}", ausb, lre);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuState: {}", ausb, e);
     }
   }
 
@@ -230,10 +230,10 @@ public class ClientStateManager extends CachingStateManager {
       recordMyUpdate(cookie, auAgreementsJson);
       configMgr.getRestConfigClient().patchArchivalUnitAgreements(key,
 	  auAgreementsJson, cookie);
-    } catch (IOException e) {
-      log.error("Couldn't serialize AuAgreements: {}", aua, e);
     } catch (LockssRestException lre) {
       log.error("Couldn't store AuAgreements: {}", aua, lre);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuAgreements: {}", aua, e);
     }
   }
 
@@ -309,10 +309,10 @@ public class ClientStateManager extends CachingStateManager {
       recordMyUpdate(cookie, json);
       configMgr.getRestConfigClient().putArchivalUnitSuspectUrlVersions(key,
 	  json, cookie);
-    } catch (IOException e) {
-      log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
     } catch (LockssRestException lre) {
       log.error("Couldn't store AuSuspectUrlVersions: {}", asuv, lre);
+    } catch (IOException e) {
+      log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
     }
   }
 
@@ -388,10 +388,10 @@ public class ClientStateManager extends CachingStateManager {
       String cookie = makeCookie();
       recordMyUpdate(cookie, json);
       configMgr.getRestConfigClient().putNoAuPeers(key, json, cookie);
-    } catch (IOException e) {
-      log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
     } catch (LockssRestException lre) {
       log.error("Couldn't store NoAuPeerSet: {}", naps, lre);
+    } catch (IOException e) {
+      log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
     }
   }
 

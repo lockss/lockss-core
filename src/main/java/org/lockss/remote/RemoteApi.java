@@ -1237,15 +1237,15 @@ public class RemoteApi
 	log.warning("batchProcessOneAu: " + auid + ", " + auConfig);
 	stat.setStatus("Configuration Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(e.getMessage());
-      } catch (IOException e) {
-	stat.setStatus("I/O Error", STATUS_ORDER_ERROR);
-	stat.setExplanation(e.getMessage());
       } catch (DbException dbe) {
 	stat.setStatus("Database Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(dbe.getMessage());
       } catch (LockssRestException lre) {
 	stat.setStatus("REST service Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(lre.getMessage());
+      } catch (IOException e) {
+	stat.setStatus("I/O Error", STATUS_ORDER_ERROR);
+	stat.setExplanation(e.getMessage());
       }
     }
     // If a restored AU config has no name, it's probably an old one.  Try

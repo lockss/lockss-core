@@ -629,14 +629,14 @@ public class AuConfig extends LockssServlet {
     } catch (ArchivalUnit.ConfigurationException e) {
       log.error("Error configuring AU", e);
       errMsg = "Error configuring AU:<br>" + encodeText(e.getMessage());
+    } catch (LockssRestException e) {
+      log.error("Error configuring AU", e);
+      errMsg = "Error configuring AU:<br>" + encodeText(e.getMessage());
     } catch (IOException e) {
       log.error("Error saving AU configuration", e);
       errMsg = "Error saving AU configuration:<br>" +
 	encodeText(e.getMessage());
     } catch (DbException e) {
-      log.error("Error configuring AU", e);
-      errMsg = "Error configuring AU:<br>" + encodeText(e.getMessage());
-    } catch (LockssRestException e) {
       log.error("Error configuring AU", e);
       errMsg = "Error configuring AU:<br>" + encodeText(e.getMessage());
     }
@@ -676,15 +676,15 @@ public class AuConfig extends LockssServlet {
     } catch (ArchivalUnit.ConfigurationException e) {
       log.error("Couldn't reconfigure AU", e);
       errMsg = encodeText(e.getMessage());
+    } catch (LockssRestException lre) {
+      log.error("Couldn't reconfigure AU", lre);
+      errMsg = encodeText(lre.getMessage());
     } catch (IOException e) {
       log.error("Couldn't save AU configuraton", e);
       errMsg = "Error saving AU:<br>" + encodeText(e.getMessage());
     } catch (DbException dbe) {
       log.error("Couldn't reconfigure AU", dbe);
       errMsg = encodeText(dbe.getMessage());
-    } catch (LockssRestException lre) {
-      log.error("Couldn't reconfigure AU", lre);
-      errMsg = encodeText(lre.getMessage());
     }
     displayEditAu(au);
   }
@@ -761,10 +761,10 @@ public class AuConfig extends LockssServlet {
     } catch (ArchivalUnit.ConfigurationException e) {
       log.error("Can't happen", e);
       errMsg = encodeText(e.getMessage());
-    } catch (IOException e) {
+    } catch (LockssRestException e) {
       log.error("Couldn't save AU configuraton", e);
       errMsg = "Error deleting AU:<br>" + encodeText(e.getMessage());
-    } catch (LockssRestException e) {
+    } catch (IOException e) {
       log.error("Couldn't save AU configuraton", e);
       errMsg = "Error deleting AU:<br>" + encodeText(e.getMessage());
     }
@@ -807,15 +807,15 @@ public class AuConfig extends LockssServlet {
     } catch (ArchivalUnit.ConfigurationException e) {
       log.error("Can't happen", e);
       errMsg = encodeText(e.getMessage());
+    } catch (LockssRestException lre) {
+      log.error("Couldn't save AU configuraton", lre);
+      errMsg = "Error deactivating AU:<br>" + encodeText(lre.getMessage());
     } catch (IOException e) {
       log.error("Couldn't save AU configuraton", e);
       errMsg = "Error deactivating AU:<br>" + encodeText(e.getMessage());
     } catch (DbException dbe) {
       log.error("Couldn't save AU configuraton", dbe);
       errMsg = "Error deactivating AU:<br>" + encodeText(dbe.getMessage());
-    } catch (LockssRestException lre) {
-      log.error("Couldn't save AU configuraton", lre);
-      errMsg = "Error deactivating AU:<br>" + encodeText(lre.getMessage());
     }
     confirmDeactivateAu(au);
   }
