@@ -257,9 +257,11 @@ public class PermissionMap {
         return false;
       }
     }
-    //if a bad permission page caused an abort ignore because we have
-    //permission
-    crawlStatus.setCrawlStatus(Crawler.STATUS_ACTIVE);
+    // if a bad permission page caused an abort ignore because we have
+    // some permission.
+    if (crawlStatus.isFetchError()) {
+      crawlStatus.setCrawlStatus(Crawler.STATUS_ACTIVE);
+    }
     return true;
   }
   
