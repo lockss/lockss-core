@@ -522,6 +522,19 @@ public class CrawlerStatus {
     }
   }
 
+  /**
+   * Return true if a fetch error has been recorded
+   */
+  public boolean isFetchError() {
+    switch (status) {
+      case Crawler.STATUS_FETCH_ERROR:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+
   public int getCrawlStatus() {
     return status;
   }

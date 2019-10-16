@@ -50,7 +50,7 @@ import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.account.*;
 import org.lockss.protocol.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.jetty.*;
 import org.lockss.alert.*;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
@@ -237,15 +237,15 @@ public abstract class LockssServlet extends HttpServlet
     } catch (ServletException e) {
       log.error("Servlet threw", e);
       throw e;
-    } catch (IOException e) {
-      log.error("Servlet threw", e);
-      throw e;
     } catch (DbException dbe) {
       log.error("Servlet threw", dbe);
       throw new RuntimeException("Database Error", dbe);
     } catch (LockssRestException lre) {
       log.error("Servlet threw", lre);
       throw new RuntimeException("REST service Error", lre);
+    } catch (IOException e) {
+      log.error("Servlet threw", e);
+      throw e;
     } catch (RuntimeException e) {
       log.error("Servlet threw", e);
       throw e;

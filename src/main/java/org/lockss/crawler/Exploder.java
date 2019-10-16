@@ -43,7 +43,7 @@ import org.lockss.plugin.exploded.*;
 import org.lockss.config.*;
 import org.lockss.app.LockssDaemon;
 import org.lockss.repository.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.filter.StringFilter;
 
 /**

@@ -65,7 +65,7 @@ import org.lockss.plugin.CachedUrl;
 import org.lockss.plugin.CachedUrlSet;
 import org.lockss.plugin.CuIterator;
 import org.lockss.plugin.PluginManager;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;

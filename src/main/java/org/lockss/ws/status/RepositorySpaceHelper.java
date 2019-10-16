@@ -36,7 +36,7 @@ import java.util.Set;
 import org.lockss.app.LockssDaemon;
 import org.lockss.db.DbException;
 import org.lockss.remote.RemoteApi;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 

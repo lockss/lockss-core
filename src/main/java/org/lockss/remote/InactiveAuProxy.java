@@ -32,7 +32,7 @@ import org.lockss.config.Configuration;
 import org.lockss.db.DbException;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.*;
 
 /**

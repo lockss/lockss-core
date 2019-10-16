@@ -33,7 +33,7 @@ import org.lockss.app.*;
 import org.lockss.db.DbException;
 import org.lockss.util.*;
 import org.lockss.plugin.PluginManager;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 
 /** Base class for TitleSet implementations */
 public abstract class BaseTitleSet implements TitleSet {

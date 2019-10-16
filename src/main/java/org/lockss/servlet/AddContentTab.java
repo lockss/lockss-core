@@ -37,7 +37,7 @@ import org.lockss.daemon.status.StatusTable;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.RemoteApi;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;

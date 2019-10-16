@@ -44,7 +44,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.Logger;
 import org.lockss.util.PropUtil;
 import org.lockss.ws.entities.RepositoryWsResult;
