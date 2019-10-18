@@ -36,6 +36,7 @@ import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.log.*;
+import org.lockss.metadata.extractor.RestMetadataExtractorClient;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.*;
 import org.lockss.config.*;
@@ -305,6 +306,31 @@ public class RestServicesManager
       }
       return sem;
     }
+  }
+
+  /**
+   * Makes a call to the REST metadata extractor service to extract the metadata
+   * of an Archival Unit.
+   * 
+   * @param binding     A ServiceBinding with the service binding of the REST
+   *                    metadata extractor service.
+   * @param auId        A String with the identifier of the archival unit
+   *                    involved in the operation.
+   * @param fullReindex A boolean indicating whether a full metadata reindex is
+   *                    requested.
+   * @return a String with the result of the call.
+   * @throws LockssRestException if there are problems making the call.
+   */
+  public String callRestMetadataExtraction(ServiceBinding binding, String auId,
+      boolean fullReindex) throws LockssRestException {
+    log.debug2("binding = {}", binding);
+    log.debug2("auId = {}", auId);
+    log.debug2("fullReindex = {}", fullReindex);
+
+    RestMetadataExtractorClient client =
+      new RestMetadataExtractorClient(binding.getRestStem(),
+	  probeConnectTimeout, probeReadTimeout);
+    return client.scheduleMetadataExtraction(auId, fullReindex);
   }
 
   /** Service status.  Records and provides access to results of most

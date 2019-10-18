@@ -33,7 +33,7 @@ import java.io.*;
 import java.util.*;
 import org.mortbay.html.*;
 import org.lockss.app.*;
-import org.lockss.daemon.*;
+import org.lockss.daemon.RestServicesManager;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
@@ -85,6 +85,9 @@ public class DebugPanel extends LockssServlet {
   static final String ACTION_THROW_IOEXCEPTION = "Throw IOException";
   static final String ACTION_FIND_URL = "Find Preserved URL";
 
+  public static final String ACTION_REINDEX_METADATA = "Reindex Metadata";
+  public static final String ACTION_FORCE_REINDEX_METADATA =
+      "Force Reindex Metadata";
   public static final String ACTION_START_V3_POLL = "Start V3 Poll";
   static final String ACTION_FORCE_START_V3_POLL = "Force V3 Poll";
   public static final String ACTION_START_CRAWL = "Start Crawl";
@@ -112,11 +115,13 @@ public class DebugPanel extends LockssServlet {
   private PollManager pollManager;
   private CrawlManager crawlMgr;
   private ConfigManager cfgMgr;
+  private ServiceBinding mdxServiceBinding = null;
   private RemoteApi rmtApi;
 
   boolean showResult;
   boolean showForcePoll;
   boolean showForceCrawl;
+  boolean showForceReindexMetadata;
 
   String formAuid;
   String formDepth = "100";
@@ -132,6 +137,7 @@ public class DebugPanel extends LockssServlet {
     statusMsg = null;
     showForcePoll = false;
     showForceCrawl = false;
+    showForceReindexMetadata = false;
   }
 
   public void init(ServletConfig config) throws ServletException {
@@ -156,6 +162,10 @@ public class DebugPanel extends LockssServlet {
     } catch (IllegalArgumentException e) {
       log.debug("No RemoteApi, some functions nonfunctional");
       rmtApi = null;
+    }
+    mdxServiceBinding = daemon.getServiceBinding(ServiceDescr.SVC_MDX);
+    if (mdxServiceBinding == null) {
+      log.debug("No MDX Service binding, some functions nonfunctional");
     }
   }
 
@@ -221,6 +231,12 @@ public class DebugPanel extends LockssServlet {
     if (ACTION_FIND_URL.equals(action)) {
       showForm = doFindUrl();
     }
+    if (ACTION_REINDEX_METADATA.equals(action)) {
+      doReindexMetadata();
+    }
+    if (ACTION_FORCE_REINDEX_METADATA.equals(action)) {
+      forceReindexMetadata();
+    }
     if (showForm) {
       displayPage();
     }
@@ -253,6 +269,28 @@ public class DebugPanel extends LockssServlet {
       errMsg = "Illegal duration: " + e;
     } catch (InterruptedException e) {
       errMsg = "Interrupted: " + e;
+    }
+  }
+
+  private void doReindexMetadata() {
+    ArchivalUnit au = getAu();
+    if (au == null) return;
+    try {
+      startReindexingMetadata(au, false);
+    } catch (RuntimeException e) {
+      log.error("Can't reindex metadata", e);
+      errMsg = "Error: " + e.toString();
+    }
+  }
+
+  private void forceReindexMetadata() {
+    ArchivalUnit au = getAu();
+    if (au == null) return;
+    try {
+      startReindexingMetadata(au, true);
+    } catch (RuntimeException e) {
+      log.error("Can't reindex metadata", e);
+      errMsg = "Error: " + e.toString();
     }
   }
 
@@ -389,6 +427,59 @@ public class DebugPanel extends LockssServlet {
 
     resp.setContentLength(0);
     resp.sendRedirect(redir);
+  }
+
+  private boolean startReindexingMetadata(ArchivalUnit au, boolean force) {
+    if (mdxServiceBinding == null) {
+      errMsg = "Metadata Extraction Service is not accessible.";
+      return false;
+    }
+
+    if (!force) {
+      if (!AuUtil.hasCrawled(au)) {
+        errMsg = "Au has never crawled. Click again to reindex metadata";
+        showForceReindexMetadata = true;
+        return false;
+      }
+
+      AuState auState = AuUtil.getAuState(au);
+      switch (auState.getSubstanceState()) {
+      case No:
+        errMsg = "Au has no substance. Click again to reindex metadata";
+        showForceReindexMetadata = true;
+        return false;
+      case Unknown:
+        errMsg = "Unknown substance for Au. Click again to reindex metadata.";
+        showForceReindexMetadata = true;
+        return false;
+      case Yes:
+	// fall through
+      }
+    }
+
+    if (au != null) {
+      try {
+	// Schedule the metadata reindexing.
+	RestServicesManager svcsMgr =
+	    daemon.getManagerByType(RestServicesManager.class);
+
+	if (svcsMgr != null) {
+	  String result = svcsMgr.callRestMetadataExtraction(
+	      mdxServiceBinding, au.getAuId(), true);
+	  log.debug2("result = " + result);
+	  return true;
+	}
+      } catch (Exception e) {
+	log.error("Cannot schedule reindex metadata for " + au.getName(), e);
+      }
+    }
+
+    if (force) {
+      errMsg = "Still cannot reindex metadata for " + au.getName();
+    } else {
+      errMsg = "Cannot reindex metadata for " + au.getName();
+    }
+    return false;
   }
 
   private void doDeleteUrl() {
@@ -590,6 +681,14 @@ public class DebugPanel extends LockssServlet {
 				    ACTION_VALIDATE_FILES);
     frm.add(" ");
     frm.add(validateFiles);
+    if (mdxServiceBinding != null) {
+      Input reindex = new Input(Input.Submit, KEY_ACTION,
+                                ( showForceReindexMetadata
+                                  ? ACTION_FORCE_REINDEX_METADATA
+                                  : ACTION_REINDEX_METADATA));
+      frm.add(" ");
+      frm.add(reindex);
+    }
     if (CurrentConfig.getBooleanParam(PARAM_DELETE_ENABLED, DEFAULT_DELETE_ENABLED)) {
       Input delUrl = new Input(Input.Submit, KEY_ACTION, ACTION_DELETE_URL);
       frm.add(" ");
