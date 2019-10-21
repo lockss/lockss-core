@@ -3446,7 +3446,7 @@ public class PluginManager
 	  sem.give();
 	  return;
 	} else {
-	  log.debug2(Plugin registries not ready");
+	  log.debug2("Plugin registries not ready");
 	}
       } catch (IOException e) {
 	log.warning("Can't check plugins crawler status", e);

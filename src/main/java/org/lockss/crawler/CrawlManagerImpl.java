@@ -1186,11 +1186,11 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
     if (pluginMgr.isRegistryAu(au)) {
       if (!isCrawlPlugins()) {
-	throw new NotEligibleException("Configuration does not allowed plugin regsitry crawls");
+	throw new NotEligibleException("Configuration does not allowe plugin registry crawls");
       }
     } else {
       if (!isCrawlNonPlugins()) {
-	throw new NotEligibleException("Configuration allows only plugin regsitry crawls");
+	throw new NotEligibleException("Configuration allows only plugin registry crawls");
       }
     }
     checkEligibleToQueueNewContentCrawl(au);
