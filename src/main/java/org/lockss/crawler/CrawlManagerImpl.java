@@ -659,6 +659,14 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     return crawlerEnabled;
   }
 
+  public boolean isCrawlPlugins() {
+    return getDaemon().getCrawlMode().isCrawlPlugins();
+  }
+
+  public boolean isCrawlNonPlugins() {
+    return getDaemon().getCrawlMode().isCrawlNonPlugins();
+  }
+
   public boolean isGloballyPermittedHost(String host) {
     for (Pattern pat : globallyPermittedHostPatterns) {
       if (RegexpUtil.getMatcher().contains(host, pat)) {
@@ -1175,6 +1183,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       throws NotEligibleException {
     if (!windowOkToStart(au.getCrawlWindow())) {
       throw new NotEligibleException("Crawl window is closed");
+    }
+    if (pluginMgr.isRegistryAu(au)) {
+      if (!isCrawlPlugins()) {
+	throw new NotEligibleException("Configuration does not allowed plugin regsitry crawls");
+      }
+    } else {
+      if (!isCrawlNonPlugins()) {
+	throw new NotEligibleException("Configuration allows only plugin regsitry crawls");
+      }
     }
     checkEligibleToQueueNewContentCrawl(au);
   }

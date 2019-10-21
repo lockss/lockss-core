@@ -81,6 +81,44 @@ public class LockssDaemon extends LockssApp {
    * Changing this requires daemon restart. */
   public static final String PARAM_BIND_ADDRS = PREFIX + "bindAddrs";
 
+  /** Specifies whether only plugin registry AUs should be crawled, only
+   * normal AUs, or both.
+   */
+  public enum CrawlMode {
+    /** Don't crawl at all  */
+    None(false, false),
+    /** Crawl only plugin registry AUs */
+    Plugins(true, false),
+    /** Crawl all AUs */
+    All(true, true),
+    /** Crawl only non-plugin registry AUs */
+    NonPlugins(false, true);
+
+    private final boolean isCrawlPlugins;
+    private final boolean isCrawlNonPlugins;
+
+    CrawlMode(boolean plug, boolean nonplug) {
+      this.isCrawlPlugins = plug;
+      this.isCrawlNonPlugins = nonplug;
+    }
+    public boolean isCrawlPlugins() { return isCrawlPlugins; }
+    public boolean isCrawlNonPlugins() { return isCrawlNonPlugins; }
+  }
+
+  /** Crawl <b><tt>Plugins</tt></b> only,
+   * <b><tt>NonPlugins</tt></b> only, or <b><tt>All</tt></b> AUs
+   */
+  public static final String PARAM_CRAWL_MODE = PREFIX + "crawlMode";
+  static final CrawlMode DEFAULT_CRAWL_MODE = CrawlMode.All;
+
+
+  /**
+   * Set to the abbreviation of the component that should crawl plugin
+   * registries
+   */
+  public static final String PARAM_PLUGINS_CRAWLER = PREFIX + "pluginsCrawler";
+  static final String DEFAULT_PLUGINS_CRAWLER = null;
+
   // Parameter keys for daemon managers
   public static final String HASH_SERVICE =
     managerKey(HashService.class);
@@ -217,6 +255,8 @@ public class LockssDaemon extends LockssApp {
       new HashMap<String,LockssAuManager.Factory>();
 
   private boolean isClockss;
+  private CrawlMode paramCrawlMode = DEFAULT_CRAWL_MODE;
+  private ServiceBinding pluginsCrawler = null;
 
   protected LockssDaemon() {
     super();
@@ -747,14 +787,43 @@ public class LockssDaemon extends LockssApp {
     return ausStarted.isFull();
   }
 
+  /** Return true if the loadable plugin registry AUs are ready to be
+   * loaded */
+  public boolean areLoadablePluginsReady() {
+    try {
+      return getPluginManager().getLoadablePluginsReady();
+    } catch (IllegalArgumentException e) {
+      // No PluginManager means we didn't crawl plugin registries
+      return false;
+    }
+  }
+
   protected void setConfig(Configuration config, Configuration prevConfig,
                            Configuration.Differences changedKeys) {
+
+    super.setConfig(config, prevConfig, changedKeys);
 
     String proj = ConfigManager.getPlatformProject();
     isClockss = "clockss".equalsIgnoreCase(proj);
     isSafenet = "safenet".equalsIgnoreCase(proj);
+    paramCrawlMode = (CrawlMode)config.getEnum(CrawlMode.class,
+					       PARAM_CRAWL_MODE,
+					       DEFAULT_CRAWL_MODE);
+    String paramPluginsCrawler = config.get(PARAM_PLUGINS_CRAWLER,
+					    DEFAULT_PLUGINS_CRAWLER);
+    ServiceDescr descr = ServiceDescr.fromAbbrev(paramPluginsCrawler);
+    if (descr != null) {
+      pluginsCrawler = getServiceBinding(descr);
+    }
+    log.debug("Plugins crawler: " + descr + ": " + pluginsCrawler);
+  }
 
-    super.setConfig(config, prevConfig, changedKeys);
+  public CrawlMode getCrawlMode() {
+    return paramCrawlMode;
+  }
+
+  public ServiceBinding getPluginsCrawler() {
+    return pluginsCrawler;
   }
 
   /**

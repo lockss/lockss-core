@@ -52,6 +52,7 @@ import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
+import org.lockss.util.rest.status.*;
 import javax.jms.*;
 import org.lockss.jms.*;
 
@@ -567,6 +568,10 @@ public class PluginManager
 
   public void setLoadablePluginsReady(boolean val) {
     loadablePluginsReady = val;
+  }
+
+  public boolean getLoadablePluginsReady() {
+    return loadablePluginsReady;
   }
 
   List getPluginRegistryUrls(Configuration config) {
@@ -3148,9 +3153,11 @@ public class PluginManager
   }
 
   private void queuePluginRegistryCrawls() {
-    CrawlManager crawlMgr = getDaemon().getCrawlManager();
-    for (ArchivalUnit au : getAllRegistryAus()) {
-      crawlMgr.startNewContentCrawl(au, null, null);
+    if (isCrawlPlugins()) {
+      CrawlManager crawlMgr = getDaemon().getCrawlManager();
+      for (ArchivalUnit au : getAllRegistryAus()) {
+	crawlMgr.startNewContentCrawl(au, null, null);
+      }
     }
   }
 
@@ -3334,17 +3341,25 @@ public class PluginManager
       }
     }
 
+    // If another component is crawling plugins, wait for it to finish
+    ServiceBinding pCrawler = getDaemon().getPluginsCrawler();
+    if (pCrawler != null) {
+      new Thread(() -> {waitRegistriesReady(pCrawler, bs);}).start();
+    }
+
     // Wait for a while for the AU crawls to complete, then process all the
     // registries in the load list.
     log.debug("Waiting for loadable plugins to finish loading...");
     try {
       if (!bs.take(Deadline.in(registryTimeout))) {
-	log.warning("Timed out while waiting for registries to finish loading. " +
-		    "Remaining registry URL list: " + regCallback.getRegistryUrls());
+	log.warning("Timed out waiting for registries to finish loading. " +
+		    "Remaining registry URLs: " +
+		    regCallback.getRegistryUrls());
       }
     } catch (InterruptedException ex) {
-      log.warning("Binary semaphore threw InterruptedException while waiting." +
-		  "Remaining registry URL list: " + regCallback.getRegistryUrls());
+      log.warning("InterruptedException while waiting for registry crawls." +
+		  "Remaining registry URL list: " +
+		  regCallback.getRegistryUrls());
     }
 
     processRegistryAus(loadAus);
@@ -3397,16 +3412,56 @@ public class PluginManager
   protected void possiblyStartRegistryAuCrawl(ArchivalUnit registryAu,
 					      String url,
 					      InitialRegistryCallback cb) {
-    if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
-      if (log.isDebug2()) log.debug2("Starting new crawl:: " + registryAu);
-      getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
-							 url);
-    } else {
-      if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
+    if (isCrawlPlugins()) {
+      if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
+	if (log.isDebug2()) log.debug2("Starting new crawl: " + registryAu);
+	getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
+							   url);
+      } else {
+	if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
 
-      // If we're not going to crawl this AU, let the callback know.
-      cb.crawlCompleted(url);
+	// If we're not going to crawl this AU, let the callback know.
+	cb.crawlCompleted(url);
+      }
     }
+  }
+
+  private boolean isCrawlPlugins() {
+    try {
+      CrawlManager crawlMgr = getDaemon().getCrawlManager();
+      return getDaemon().getCrawlMode().isCrawlPlugins();
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
+  }
+
+  private void waitRegistriesReady(ServiceBinding pCrawler,
+				   BinarySemaphore sem) {
+    log.debug("Waiting until " + pCrawler +
+	      " reports plugin registries are ready");
+    while (true) {
+      try {
+	if (getApiStatus(pCrawler).getPluginsReady()) {
+	  log.debug(pCrawler + " reports plugin registries are now ready");
+	  sem.give();
+	  return;
+	} else {
+	  log.debug2(Plugin registries not ready");
+	}
+      } catch (IOException e) {
+	log.warning("Can't check plugins crawler status", e);
+      }
+      try {
+	Deadline.in(Constants.SECOND).sleep();
+      } catch (InterruptedException ex) {}
+    }
+  }
+
+  ApiStatus getApiStatus(ServiceBinding binding) throws LockssRestException {
+    RestStatusClient client =
+      new RestStatusClient(binding.getRestStem(),
+			   60 * Constants.SECOND, 60 * Constants.SECOND);
+    return client.getStatus();
   }
 
   /** Return true if any of the glob patterns in a list match the string */

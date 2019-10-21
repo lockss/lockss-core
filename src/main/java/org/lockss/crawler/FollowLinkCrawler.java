@@ -545,10 +545,6 @@ public class FollowLinkCrawler extends BaseCrawler {
    * necessary environment may not be set up */
   protected void doCrawlEndActions() {
     sendCrawlEndReport();
-    // Cause the content size and disk usage to be calculated in a
-    // background thread
-    AuUtil.getAuContentSize(au, false);
-    AuUtil.getAuDiskUsage(au, false);
   }
 
   private void sendCrawlEndReport() {
