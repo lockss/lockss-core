@@ -34,6 +34,7 @@ import java.util.*;
 import org.mortbay.html.*;
 import org.lockss.app.*;
 import org.lockss.daemon.RestServicesManager;
+import org.lockss.metadata.extractor.RestMetadataExtractorClient;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
@@ -449,9 +450,6 @@ public class DebugPanel extends LockssServlet {
         showForceReindexMetadata = true;
         return false;
       case Unknown:
-        errMsg = "Unknown substance for Au. Click again to reindex metadata.";
-        showForceReindexMetadata = true;
-        return false;
       case Yes:
 	// fall through
       }
@@ -460,15 +458,11 @@ public class DebugPanel extends LockssServlet {
     if (au != null) {
       try {
 	// Schedule the metadata reindexing.
-	RestServicesManager svcsMgr =
-	    daemon.getManagerByType(RestServicesManager.class);
-
-	if (svcsMgr != null) {
-	  String result = svcsMgr.callRestMetadataExtraction(
-	      mdxServiceBinding, au.getAuId(), true);
-	  log.debug2("result = " + result);
-	  return true;
-	}
+	RestMetadataExtractorClient client =
+	    new RestMetadataExtractorClient(mdxServiceBinding.getRestStem());
+	String result = client.scheduleMetadataExtraction(au.getAuId(), true);
+	log.debug2("result = " + result);
+	return true;
       } catch (Exception e) {
 	log.error("Cannot schedule reindex metadata for " + au.getName(), e);
       }

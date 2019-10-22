@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.metadata.extractor;
 
+import static org.lockss.util.rest.MetadataExtractorConstants.*;
 import java.net.URI;
 import java.util.Objects;
 import org.springframework.http.HttpEntity;
@@ -117,8 +118,8 @@ public class RestMetadataExtractorClient {
     MetadataUpdateSpec metadataUpdateSpec = new MetadataUpdateSpec();
     metadataUpdateSpec.setAuid(auId);
 
-    String updateType =
-	fullReindex ? "full_extraction" : "incremental_extraction";
+    String updateType = fullReindex
+	? MD_UPDATE_INCREMENTAL_EXTRACTION : MD_UPDATE_FULL_EXTRACTION;
     metadataUpdateSpec.setUpdateType(updateType);
     log.trace("metadataUpdateSpec = {}", metadataUpdateSpec);
 
