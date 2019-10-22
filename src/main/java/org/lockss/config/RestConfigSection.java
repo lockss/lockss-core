@@ -28,7 +28,7 @@
 package org.lockss.config;
 
 import java.io.InputStream;
-import org.lockss.rs.multipart.MultipartResponse;
+import org.lockss.util.rest.multipart.MultipartResponse;
 import org.springframework.http.HttpStatus;
 
 /**

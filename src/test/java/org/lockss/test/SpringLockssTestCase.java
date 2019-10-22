@@ -509,7 +509,7 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
       pmgr.createAndSaveAuConfiguration(pmgr.getPlugin(pluginId), auConfig);
     } catch (org.lockss.plugin.ArchivalUnit.ConfigurationException |
 	     org.lockss.db.DbException |
-	     org.lockss.rs.exception.LockssRestException e) {
+	     org.lockss.util.rest.exception.LockssRestException e) {
       log.error("Error creating AU", e);
     }
   }

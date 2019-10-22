@@ -257,9 +257,11 @@ public class PermissionMap {
         return false;
       }
     }
-    //if a bad permission page caused an abort ignore because we have
-    //permission
-    crawlStatus.setCrawlStatus(Crawler.STATUS_ACTIVE);
+    // if a bad permission page caused an abort ignore because we have
+    // some permission.
+    if (crawlStatus.isFetchError()) {
+      crawlStatus.setCrawlStatus(Crawler.STATUS_ACTIVE);
+    }
     return true;
   }
   
@@ -403,6 +405,12 @@ public class PermissionMap {
       crawlStatus.signalErrorForUrl(pUrl,
             "Can't store page: " + ex.getMessage(),
             Crawler.STATUS_REPO_ERR);
+    } catch (CacheException.PermissionException ex) {
+      logger.siteError("CacheException.PermissionException reading permission page", ex);
+      rec.setStatus(PermissionStatus.PERMISSION_NOT_OK);
+      crawlStatus.signalErrorForUrl(pUrl, ex.getMessage(),
+            Crawler.STATUS_NO_PUB_PERMISSION,
+            CrawlerStatus.UNABLE_TO_FETCH_PERM_ERR_MSG);
     } catch (CacheException ex) {
       logger.siteError("CacheException reading permission page", ex);
       rec.setStatus(PermissionStatus.PERMISSION_FETCH_FAILED);
@@ -415,7 +423,7 @@ public class PermissionMap {
       crawlStatus.signalErrorForUrl(pUrl, ex.getMessage(),
             Crawler.STATUS_FETCH_ERROR);
       raiseAlert(Alert.auAlert(Alert.PERMISSION_PAGE_FETCH_ERROR, au).
-     setAttribute(Alert.ATTR_TEXT,
+	 setAttribute(Alert.ATTR_TEXT,
             "The LOCKSS permission page at " + pUrl +
             "\ncould not be fetched. " +
             "The error was:\n" + ex.getMessage() + "\n"));

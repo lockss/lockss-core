@@ -156,10 +156,11 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 
   private CrawlManager.StatusSource statusSource;
   private PluginManager pluginMgr;
+  private LockssDaemon daemon;
 
   public CrawlManagerStatusAccessor(CrawlManager.StatusSource statusSource) {
     this.statusSource = statusSource;
-    LockssDaemon daemon = statusSource.getDaemon();
+    this.daemon = statusSource.getDaemon();
     this.pluginMgr = daemon.getPluginManager();
   }
 
@@ -191,7 +192,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
     table.setColumnDescriptors(getColDescs(cms, ct),
 			       "-" + StringUtil.separatedString(DEF_OMITTED,
 								";"));
-    table.setSummaryInfo(getSummaryInfo(cms, ct));
+    table.setSummaryInfo(getSummaryInfo(table, cms, ct));
   }
 
   static final String ODC_PENDING_FOOTNOTE =
@@ -398,7 +399,8 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
     return new StatusTable.Reference(value, tableName, key);
   }
 
-  private List getSummaryInfo(CrawlManagerStatus cms, Counts ct) {
+  private List getSummaryInfo(StatusTable table,
+			      CrawlManagerStatus cms, Counts ct) {
     List res = new ArrayList();
     long totalTime = 0;
     addIfNonZero(res, "Active Crawls", ct.active);
@@ -422,23 +424,42 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
       res.add(new StatusTable.SummaryInfo("Crawler is disabled",
 					  ColumnDescriptor.TYPE_STRING,
 					  null));
-    } else if (!statusSource.isCrawlStarterEnabled()) {
-      res.add(new StatusTable.SummaryInfo("Crawler starter is disabled",
-					  ColumnDescriptor.TYPE_STRING,
-					  null));
     } else {
-      Deadline nextStarter = cms.getNextCrawlStarter();
-      if (nextStarter != null) {
-	String instr;
-	long in = TimeBase.msUntil(nextStarter.getExpirationTime());
-	if (in > 0) {
-	  instr = TimeUtil.timeIntervalToString(in);
-	} else {
-	  instr = "running";
+      if (table.getOptions().get(StatusTable.OPTION_DEBUG_USER)) {
+	LockssDaemon.CrawlMode cMode = daemon.getCrawlMode();
+	String modeMsg = null;
+	switch (cMode) {
+	case Plugins:
+	  modeMsg = "Crawling only plugin registry AUs";
+	  break;
+	case NonPlugins:
+	  modeMsg = "Not crawling plugin registry AUs";
+	  break;
 	}
-	res.add(new StatusTable.SummaryInfo("Crawl Starter",
+	if (modeMsg != null) {
+	  res.add(new StatusTable.SummaryInfo(modeMsg,
+					      ColumnDescriptor.TYPE_STRING,
+					      null));
+	}
+      }
+      if (!statusSource.isCrawlStarterEnabled()) {
+	res.add(new StatusTable.SummaryInfo("Crawler starter is disabled",
 					    ColumnDescriptor.TYPE_STRING,
-					    instr));
+					    null));
+      } else {
+	Deadline nextStarter = cms.getNextCrawlStarter();
+	if (nextStarter != null) {
+	  String instr;
+	  long in = TimeBase.msUntil(nextStarter.getExpirationTime());
+	  if (in > 0) {
+	    instr = TimeUtil.timeIntervalToString(in);
+	  } else {
+	    instr = "running";
+	  }
+	  res.add(new StatusTable.SummaryInfo("Crawl Starter",
+					      ColumnDescriptor.TYPE_STRING,
+					      instr));
+	}
       }
     }
     return res;

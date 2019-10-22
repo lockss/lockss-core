@@ -42,10 +42,10 @@ import org.apache.commons.collections4.*;
 import org.apache.commons.collections4.multimap.*;
 import org.apache.commons.lang3.tuple.*;
 
-import org.lockss.laaws.status.model.ApiStatus;
+import org.lockss.util.rest.status.ApiStatus;
 import org.lockss.app.*;
 import org.lockss.log.*;
-import org.lockss.rs.exception.*;
+import org.lockss.util.rest.exception.*;
 import org.lockss.util.*;
 import org.lockss.util.time.*;
 import org.lockss.util.time.Deadline;

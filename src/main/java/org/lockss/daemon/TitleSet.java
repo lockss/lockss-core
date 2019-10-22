@@ -29,7 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.daemon;
 import java.util.*;
 import org.lockss.db.DbException;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 
 /** Enumerates a set of titles ({@link TitleConfig}), presumably for AU
  * configuration purposes */

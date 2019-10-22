@@ -1217,6 +1217,7 @@ public class TestPluginManager extends LockssTestCase4 {
       processOneRegistryJarThrowIf = url;
     }
 
+    @Override
     protected void possiblyStartRegistryAuCrawl(ArchivalUnit au,
 						String url,
 						PluginManager.InitialRegistryCallback cb) {
@@ -1945,7 +1946,8 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.startService();
     MockCrawlManager mcm = new MockCrawlManager();
     theDaemon.setCrawlManager(mcm);
-
+    ConfigurationUtil.addFromArgs(org.lockss.crawler.CrawlManagerImpl.PARAM_CRAWLER_ENABLED,
+				  "true");
     Properties p = new Properties();
     prepareLoadablePluginTests(p);
     List urls = ListUtil.list("http://plug1.example.com/blueplugs/",

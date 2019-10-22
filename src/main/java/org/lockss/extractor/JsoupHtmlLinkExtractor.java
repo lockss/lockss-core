@@ -128,6 +128,8 @@ public class JsoupHtmlLinkExtractor implements LinkExtractor {
                     new SimpleTagLinkExtractor(new String[]
                                                    {"poster", "src"})
                    );
+    theTagTable.put("source", new SimpleTagLinkExtractor("src"));
+    theTagTable.put("track", new SimpleTagLinkExtractor("src"));
     theTagTable.put("param",
                     new SimpleTagLinkExtractor(new String[]
                                                    {"url", "src", "filename"})

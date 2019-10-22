@@ -545,10 +545,6 @@ public class FollowLinkCrawler extends BaseCrawler {
    * necessary environment may not be set up */
   protected void doCrawlEndActions() {
     sendCrawlEndReport();
-    // Cause the content size and disk usage to be calculated in a
-    // background thread
-    AuUtil.getAuContentSize(au, false);
-    AuUtil.getAuDiskUsage(au, false);
   }
 
   private void sendCrawlEndReport() {
@@ -619,11 +615,11 @@ public class FollowLinkCrawler extends BaseCrawler {
               abortCrawl();
               return false;
             } else if (ex.isAttributeSet(CacheException.ATTRIBUTE_FATAL)) {
-              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getMessage());
+              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getShortMessage());
               abortCrawl();
               return false;
             } else if (!crawlStatus.isCrawlError()) {
-              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getMessage());
+              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getShortMessage());
             }
           }
         }

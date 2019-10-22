@@ -47,13 +47,14 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.remote.*;
 import org.lockss.poller.PollSpec;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
 import org.lockss.state.*;
+import org.lockss.util.rest.status.*;
 import javax.jms.*;
 import org.lockss.jms.*;
 
@@ -578,6 +579,10 @@ public class PluginManager
     loadablePluginsReady = val;
   }
 
+  public boolean getLoadablePluginsReady() {
+    return loadablePluginsReady;
+  }
+
   List getPluginRegistryUrls(Configuration config) {
     final String DEBUG_HEADER = "getPluginRegistryUrls(): ";
     if (log.isDebug3()) log.debug3(DEBUG_HEADER
@@ -792,15 +797,15 @@ public class PluginManager
 	  "Error getting Archival Unit configurations: Not starting AUs",
 	  dbe);
       return;
-    } catch (IOException ioe) {
-      log.critical(
-	  "Error getting Archival Unit configurations: Not starting AUs",
-	  ioe);
-      return;
     } catch (LockssRestException lre) {
       log.critical(
 	  "Error getting Archival Unit configurations: Not starting AUs",
 	  lre);
+      return;
+    } catch (IOException ioe) {
+      log.critical(
+	  "Error getting Archival Unit configurations: Not starting AUs",
+	  ioe);
       return;
     }
 
@@ -3282,7 +3287,7 @@ public class PluginManager
 	}
       }
       return res;
-    } catch (DbException | IOException | LockssRestException e) {
+    } catch (DbException | IOException e) {
       log.error("Error getting Archival Unit configurations", e);
       return Collections.emptyList();
     }
@@ -3310,9 +3315,11 @@ public class PluginManager
   }
 
   private void queuePluginRegistryCrawls() {
-    CrawlManager crawlMgr = getDaemon().getCrawlManager();
-    for (ArchivalUnit au : getAllRegistryAus()) {
-      crawlMgr.startNewContentCrawl(au, null, null);
+    if (isCrawlPlugins()) {
+      CrawlManager crawlMgr = getDaemon().getCrawlManager();
+      for (ArchivalUnit au : getAllRegistryAus()) {
+	crawlMgr.startNewContentCrawl(au, null, null);
+      }
     }
   }
 
@@ -3496,17 +3503,25 @@ public class PluginManager
       }
     }
 
+    // If another component is crawling plugins, wait for it to finish
+    ServiceBinding pCrawler = getDaemon().getPluginsCrawler();
+    if (pCrawler != null) {
+      new Thread(() -> {waitRegistriesReady(pCrawler, bs);}).start();
+    }
+
     // Wait for a while for the AU crawls to complete, then process all the
     // registries in the load list.
     log.debug("Waiting for loadable plugins to finish loading...");
     try {
       if (!bs.take(Deadline.in(registryTimeout))) {
-	log.warning("Timed out while waiting for registries to finish loading. " +
-		    "Remaining registry URL list: " + regCallback.getRegistryUrls());
+	log.warning("Timed out waiting for registries to finish loading. " +
+		    "Remaining registry URLs: " +
+		    regCallback.getRegistryUrls());
       }
     } catch (InterruptedException ex) {
-      log.warning("Binary semaphore threw InterruptedException while waiting." +
-		  "Remaining registry URL list: " + regCallback.getRegistryUrls());
+      log.warning("InterruptedException while waiting for registry crawls." +
+		  "Remaining registry URL list: " +
+		  regCallback.getRegistryUrls());
     }
 
     processRegistryAus(loadAus);
@@ -3559,16 +3574,58 @@ public class PluginManager
   protected void possiblyStartRegistryAuCrawl(ArchivalUnit registryAu,
 					      String url,
 					      InitialRegistryCallback cb) {
-    if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
-      if (log.isDebug2()) log.debug2("Starting new crawl:: " + registryAu);
-      getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
-							 url);
-    } else {
-      if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
+    if (isCrawlPlugins()) {
+      if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
+	if (log.isDebug2()) log.debug2("Starting new crawl: " + registryAu);
+	getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
+							   url);
+      } else {
+	if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
 
-      // If we're not going to crawl this AU, let the callback know.
-      cb.crawlCompleted(url);
+	// If we're not going to crawl this AU, let the callback know.
+	cb.crawlCompleted(url);
+      }
     }
+  }
+
+  private boolean isCrawlPlugins() {
+    try {
+      return
+	getDaemon().getCrawlManager().isCrawlerEnabled() &&
+	getDaemon().getCrawlMode().isCrawlPlugins();
+    } catch (IllegalArgumentException e) {
+      log.debug("Can't get CrawlManager", e);
+      return false;
+    }
+  }
+
+  private void waitRegistriesReady(ServiceBinding pCrawler,
+				   BinarySemaphore sem) {
+    log.debug("Waiting until " + pCrawler +
+	      " reports plugin registries are ready");
+    while (true) {
+      try {
+	if (getApiStatus(pCrawler).getPluginsReady()) {
+	  log.debug(pCrawler + " reports plugin registries are now ready");
+	  sem.give();
+	  return;
+	} else {
+	  log.debug2("Plugin registries not ready");
+	}
+      } catch (IOException e) {
+	log.warning("Can't check plugins crawler status", e);
+      }
+      try {
+	Deadline.in(Constants.SECOND).sleep();
+      } catch (InterruptedException ex) {}
+    }
+  }
+
+  ApiStatus getApiStatus(ServiceBinding binding) throws LockssRestException {
+    RestStatusClient client =
+      new RestStatusClient(binding.getRestStem(),
+			   60 * Constants.SECOND, 60 * Constants.SECOND);
+    return client.getStatus();
   }
 
   /** Return true if any of the glob patterns in a list match the string */

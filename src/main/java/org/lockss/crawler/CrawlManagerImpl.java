@@ -91,7 +91,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    */
   public static final String PARAM_CRAWLER_ENABLED =
       PREFIX + "enabled";
-  static final boolean DEFAULT_CRAWLER_ENABLED = false;
+  public static final boolean DEFAULT_CRAWLER_ENABLED = false;
 
   /**
    * Set false to prevent the crawl starter from starting queued crawls. Allows queues to be built, which {@value
@@ -99,7 +99,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    */
   public static final String PARAM_CRAWL_STARTER_ENABLED =
       PREFIX + "starterEnabled";
-  static final boolean DEFAULT_CRAWL_STARTER_ENABLED = true;
+  public static final boolean DEFAULT_CRAWL_STARTER_ENABLED = true;
 
   /**
    * Use thread pool and queue if true, start threads directly if false. Only takes effect at startup.
@@ -659,6 +659,14 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     return crawlerEnabled;
   }
 
+  public boolean isCrawlPlugins() {
+    return getDaemon().getCrawlMode().isCrawlPlugins();
+  }
+
+  public boolean isCrawlNonPlugins() {
+    return getDaemon().getCrawlMode().isCrawlNonPlugins();
+  }
+
   public boolean isGloballyPermittedHost(String host) {
     for (Pattern pat : globallyPermittedHostPatterns) {
       if (RegexpUtil.getMatcher().contains(host, pat)) {
@@ -1175,6 +1183,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       throws NotEligibleException {
     if (!windowOkToStart(au.getCrawlWindow())) {
       throw new NotEligibleException("Crawl window is closed");
+    }
+    if (pluginMgr.isRegistryAu(au)) {
+      if (!isCrawlPlugins()) {
+	throw new NotEligibleException("Configuration does not allowe plugin registry crawls");
+      }
+    } else {
+      if (!isCrawlNonPlugins()) {
+	throw new NotEligibleException("Configuration allows only plugin registry crawls");
+      }
     }
     checkEligibleToQueueNewContentCrawl(au);
   }

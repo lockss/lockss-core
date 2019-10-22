@@ -33,7 +33,7 @@ import org.lockss.daemon.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.log.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 
 /**
  * Proxy object for remote access to ArchivalUnit.  Subset of ArchivalUnit

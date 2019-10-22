@@ -432,6 +432,7 @@ public class DefaultUrlCacher implements UrlCacher {
       throw ex;
     } catch (IOException ex) {
       // any other error is theoretically a repository error
+      logger.error("Can't store artifact: repository error", ex);
       abandonNewVersion(uncommittedArt);
       throw resultMap.getRepositoryException(ex);
     }
