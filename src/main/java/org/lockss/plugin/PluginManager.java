@@ -3428,9 +3428,11 @@ public class PluginManager
 
   private boolean isCrawlPlugins() {
     try {
-      CrawlManager crawlMgr = getDaemon().getCrawlManager();
-      return getDaemon().getCrawlMode().isCrawlPlugins();
+      return
+	getDaemon().getCrawlManager().isCrawlerEnabled() &&
+	getDaemon().getCrawlMode().isCrawlPlugins();
     } catch (IllegalArgumentException e) {
+      log.debug("Can't get CrawlManager", e);
       return false;
     }
   }
