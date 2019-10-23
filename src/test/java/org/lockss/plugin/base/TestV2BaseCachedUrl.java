@@ -694,7 +694,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       try {
 	InputStream urlIs = cu.openForHashing(hasher);
 	fail("reset to invalid mark should throw");
-      } catch (Exception e) {
+      } catch (LockssUncheckedException e) {
 	assertMatchesRE("IOException: Resetting to invalid mark", e.toString());
       }
       assertFalse(hasher.isValid());
@@ -892,7 +892,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 	in.reset();
 	StreamUtil.copy(in, baos);
       } catch (IOException e) {
-	throw new RuntimeException(e);
+	throw new LockssUncheckedIOException(e);
       }
       return new ByteArrayInputStream(baos.toByteArray());
     }

@@ -367,11 +367,8 @@ public class BaseCachedUrl implements CachedUrl {
     try {
       return CharsetUtil.getReader(this);
     } catch (IOException e) {
-      // XXX Wrong Exception.  Should this method be declared to throw
-      // UnsupportedEncodingException?
       logger.error("Creating InputStreamReader for '" + getUrl() + "'", e);
-      throw new RepositoryStateException
-	("Couldn't create InputStreamReader:" + e.toString());
+      throw new LockssUncheckedIOException(e);
     }
   }
 
@@ -468,7 +465,7 @@ public class BaseCachedUrl implements CachedUrl {
 	  logger.debug3("Got art: " + art);
 	}
       } catch (IOException e) {
-	throw new RuntimeException(e);
+	throw new LockssUncheckedIOException(e);
       }
     }
     artifactObtained = true;
@@ -486,7 +483,7 @@ public class BaseCachedUrl implements CachedUrl {
 	  artData = getArtifactData(v2Repo, art);
 	  allArtData.add(artData);
 	} catch (IOException e) {
-	  throw new RuntimeException(e);
+	  throw new LockssUncheckedIOException(e);
 	}
 	inputStreamUsed = false;
       }
@@ -513,7 +510,7 @@ public class BaseCachedUrl implements CachedUrl {
 	return fact.createFilteredInputStream(au, unfis, getEncoding());
       } catch (PluginException e) {
 	IOUtil.safeClose(unfis);
-	throw new RuntimeException(e);
+	throw new LockssUncheckedPluginException(e);
       } catch (RuntimeException e) {
 	IOUtil.safeClose(unfis);
 	throw e;
@@ -532,7 +529,7 @@ public class BaseCachedUrl implements CachedUrl {
 	return new ReaderInputStream(rd);
       } catch (PluginException e) {
 	IOUtil.safeClose(unfrdr);
-        throw new RuntimeException(e);
+        throw new LockssUncheckedPluginException(e);
       }
     }
     if (logger.isDebug3()) logger.debug3("Not filtering " + contentType);
@@ -656,11 +653,10 @@ public class BaseCachedUrl implements CachedUrl {
 	  return false;
 	}
 	return getMemberTFile().exists();
-      } catch (Exception e) {
-	String msg =
-	  "Couldn't open member for which exists() was true: " + this;
-	logger.error(msg);
-	throw new RepositoryStateException(msg, e);
+      } catch (IOException e) {
+	logger.error("Couldn't open member for which exists() was true: " + this,
+		     e);
+	throw new LockssUncheckedIOException(e);
       }
     }
 
@@ -688,11 +684,10 @@ public class BaseCachedUrl implements CachedUrl {
 	  is = new MonitoringInputStream(is, this.toString());
 	}
 	return is;
-      } catch (Exception e) {
-	String msg =
-	  "Couldn't open member for which exists() was true: " + this;
-	logger.error(msg);
-	throw new RepositoryStateException(msg, e);
+      } catch (IOException e) {
+	logger.error("Couldn't open member for which exists() was true: " + this,
+		     e);
+	throw new LockssUncheckedIOException(e);
       }
     }
 
@@ -756,8 +751,8 @@ public class BaseCachedUrl implements CachedUrl {
       try {
 	return getMemberTFile().length();
       } catch (IOException e) {
-	throw new RepositoryStateException
-	  ("Couldn't get archive member length", e);
+	logger.error("Couldn't get archive member length: " + this, e);
+	throw new LockssUncheckedIOException(e);
       }
     }
 
@@ -837,23 +832,4 @@ public class BaseCachedUrl implements CachedUrl {
     }
 
   }
-  /**
-   * Thrown when an unexpected error is encountered while caching.
-   * Typically this is a file system error.
-   */
-  public class RepositoryStateException extends RuntimeException {
-    public RepositoryStateException() {
-      super();
-    }
-    public RepositoryStateException(String msg) {
-      super(msg);
-    }
-    public RepositoryStateException(Throwable cause) {
-      super(cause);
-    }
-    public RepositoryStateException(String msg, Throwable cause) {
-      super(msg, cause);
-    }
-  }
-
 }

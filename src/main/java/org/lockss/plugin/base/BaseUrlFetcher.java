@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -304,14 +300,21 @@ public class BaseUrlFetcher implements UrlFetcher {
     }
   }
 
+  /** Return the Last-Modified of the existing CU, if any.  Return null if
+   * no existing CU, it doesn't have a Last-Modified, or an error occurs */
   protected String getLastModified(){
     String lastModified = null;
     CachedUrl cachedVersion = au.makeCachedUrl(origUrl);
-    if ((cachedVersion!=null) && cachedVersion.hasContent()) {
-      CIProperties cachedProps = cachedVersion.getProperties();
-      lastModified =
+    try {
+      if ((cachedVersion!=null) && cachedVersion.hasContent()) {
+	CIProperties cachedProps = cachedVersion.getProperties();
+	lastModified =
           cachedProps.getProperty(CachedUrl.PROPERTY_LAST_MODIFIED);
-      cachedVersion.release();
+      }
+    } catch (LockssUncheckedException e) {
+      log.warning("Can't get Last-Modified: " + curl, e);
+    } finally {
+      AuUtil.safeRelease(cachedVersion);
     }
     return lastModified;
   }
@@ -568,7 +571,7 @@ public class BaseUrlFetcher implements UrlFetcher {
   }
 
   protected InputStream checkLoginPage(InputStream input, CIProperties headers,
-      String lastModified)
+				       String lastModified)
       throws IOException {
     LoginPageChecker checker = au.getLoginPageChecker();
     if (checker != null) {
@@ -602,8 +605,11 @@ public class BaseUrlFetcher implements UrlFetcher {
           input = resetInputStream(input, lastModified);
         }
       } catch (PluginException e) {
-        //XXX: this should be changed so that plugin exception perpetuates
-        throw new RuntimeException(e);
+	log.warning("Couldn't check for login page", e);
+	throw new LockssUncheckedPluginException(e);
+      } catch (LockssUncheckedIOException e) {
+	log.warning("Couldn't check for login page", e);
+	throw e.getIOCause();
       }
     } else {
       log.debug3("Didn't find a login page checker");

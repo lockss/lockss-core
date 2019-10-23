@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -427,7 +423,7 @@ public abstract class BasePlugin
     try {
       return getUrlNormalizer().normalizeUrl(url, au);
     } catch (PluginException e) {
-      throw new RuntimeException(e);
+      throw new LockssUncheckedPluginException(e);
     }
   }
 
@@ -452,7 +448,7 @@ public abstract class BasePlugin
 	}
 	return extractor;
       } catch (PluginException e) {
-	throw new RuntimeException(e);
+	throw new LockssUncheckedPluginException(e);
       }
     }
     return null;
@@ -666,7 +662,7 @@ public abstract class BasePlugin
 	return WrapperUtil.wrap(fact.createArticleMetadataExtractor(target),
 				ArticleMetadataExtractor.class);
       } catch (PluginException e) {
-	throw new RuntimeException(e);
+	throw new LockssUncheckedPluginException(e);
       }
     }
     return null;
@@ -701,7 +697,7 @@ public abstract class BasePlugin
 								 contentType),
 				FileMetadataExtractor.class);
       } catch (PluginException e) {
-	throw new RuntimeException(e);
+	throw new LockssUncheckedPluginException(e);
       }
     }
     return null;

@@ -303,7 +303,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       } catch (IOException e) {
 	logger.error("getContentSize", e);
 	// TK what to do here
-	throw new RuntimeException(e);
+	throw new LockssUncheckedIOException(e);
       }
     } else {
       return AuUtil.calculateCusContentSize(getCuIterable());
@@ -502,7 +502,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
 						getUrl()).iterator();
       }
     } catch (IOException e) {
-      throw new RuntimeException("Error getting Artifact Iterator", e);
+      throw new LockssUncheckedIOException("Error getting Artifact Iterator", e);
     }
     artIter = filteredArtifactIterator(artIter);
     return artToCuIter(artIter);
