@@ -32,9 +32,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.metadata.extractor;
 
 import static org.lockss.util.rest.MetadataExtractorConstants.*;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Objects;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -43,8 +47,12 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
+import org.lockss.servlet.ServletManager;
 import org.lockss.util.Constants;
+import org.lockss.util.FileUtil;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestNetworkException;
 import org.lockss.util.rest.RestUtil;
@@ -57,7 +65,13 @@ import org.lockss.util.rest.RestUtil;
 public class RestMetadataExtractorClient {
   private static L4JLogger log = L4JLogger.getLogger();
 
+  /** Password file pathname. */
+  public static final String PARAM_PLATFORM_PASSWORD_FILE =
+    Configuration.PLATFORM + "ui.passwordfile";
+
   private String endpointUrl;
+  private String serviceUser = null;
+  private String servicePassword = null;
   private long connectTimeout;
   private long readTimeout;
 
@@ -82,6 +96,31 @@ public class RestMetadataExtractorClient {
     this.endpointUrl = endpointUrl;
     this.connectTimeout = connectTimeout;
     this.readTimeout = readTimeout;
+
+    // Populate the authentication credentials, if any.
+    setAuthenticationCredentials();
+  }
+
+
+  /**
+   * Saves the authentication credentials, if any.
+   */
+  private void setAuthenticationCredentials() {
+    Configuration config = ConfigManager.getCurrentConfig();
+    serviceUser = config.get(ServletManager.PARAM_PLATFORM_USERNAME);
+    log.trace("serviceUser = {}", serviceUser);
+
+    String servicePasswordFilePathName =
+	config.get(PARAM_PLATFORM_PASSWORD_FILE);
+    log.trace("servicePasswordFilePathName = {}", servicePasswordFilePathName);
+
+    if (servicePasswordFilePathName != null) {
+      try {
+	servicePassword = FileUtil.readPasswdFile(servicePasswordFilePathName);
+      } catch (IOException ioe) {
+	log.error("Exception caught getting service password", ioe);
+      }
+    }
   }
 
   /**
@@ -114,6 +153,12 @@ public class RestMetadataExtractorClient {
 	.build().encode().toUri();
     log.trace("uri = {}", () -> uri);
 
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
     // Initialize the payload.
     MetadataUpdateSpec metadataUpdateSpec = new MetadataUpdateSpec();
     metadataUpdateSpec.setAuid(auId);
@@ -125,7 +170,7 @@ public class RestMetadataExtractorClient {
 
     // Create the request entity.
     HttpEntity<MetadataUpdateSpec> requestEntity =
-	new HttpEntity<MetadataUpdateSpec>(metadataUpdateSpec, null);
+	new HttpEntity<MetadataUpdateSpec>(metadataUpdateSpec, requestHeaders);
 
     try {
       // Make the REST call.
@@ -145,6 +190,22 @@ public class RestMetadataExtractorClient {
     } catch (RuntimeException re) {
       log.error("Exception caught", re);
       throw new LockssRestNetworkException(re);
+    }
+  }
+
+  /**
+   * Sets the authentication credentials in a request.
+   * 
+   * @param requestHeaders
+   *          An HttpHeaders with the request headers.
+   */
+  private void setAuthenticationCredentials(HttpHeaders requestHeaders) {
+    if (serviceUser != null && servicePassword != null) {
+      String credentials = serviceUser + ":" + servicePassword;
+      String authHeaderValue = "Basic " + Base64.getEncoder()
+      .encodeToString(credentials.getBytes(StandardCharsets.US_ASCII));
+      requestHeaders.set("Authorization", authHeaderValue);
+      log.trace("requestHeaders = {}", requestHeaders);
     }
   }
 
