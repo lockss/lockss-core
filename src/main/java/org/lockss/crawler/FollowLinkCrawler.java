@@ -628,7 +628,15 @@ public class FollowLinkCrawler extends BaseCrawler {
       }
     } else {
       // If didn't fetch, check for existing substance file
-      checkSubstanceCollected(au.makeCachedUrl(url));
+      try {
+	checkSubstanceCollected(au.makeCachedUrl(url));
+      } catch (CacheException e) {
+	String msg = "Substance checker error";
+	log.error(msg, e);
+	crawlStatus.signalErrorForUrl(url,
+				      msg + ": " + e.getMessage(),
+				      CrawlerStatus.Severity.Warning);
+      }
       if (refindCdnStems) {
         updateCdnStems(url);
       }
@@ -672,6 +680,8 @@ public class FollowLinkCrawler extends BaseCrawler {
                   // done adding children, trim to size
                   curl.trimChildren();
                   crawlStatus.signalUrlParsed(curl.getUrl());
+		} catch (LockssUncheckedException e) {
+		  throw au.getPlugin().getCacheResultMap().getRepositoryException(e.getCause());
                 } catch (PluginException e) {
                   String msg = "Plugin LinkExtractor error";
                   log.error(msg, e);
@@ -722,7 +732,7 @@ public class FollowLinkCrawler extends BaseCrawler {
   }
 
   // Callers are all local and know that we release the CU
-  private void checkSubstanceCollected(CachedUrl cu) {
+  private void checkSubstanceCollected(CachedUrl cu) throws CacheException {
     try {
       if (subChecker != null) {
         subChecker.checkSubstance(cu);
@@ -732,6 +742,8 @@ public class FollowLinkCrawler extends BaseCrawler {
           crawlTerminated = true;
         }
       }
+    } catch (LockssUncheckedException e) {
+      throw au.getPlugin().getCacheResultMap().getRepositoryException(e.getCause());
     } finally {
       AuUtil.safeRelease(cu);
     }
