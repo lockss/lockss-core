@@ -165,9 +165,10 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
     }
 
     @Override
-    ArtifactData getArtifactData(LockssRepository repo, Artifact art)
+    ArtifactData getArtifactData(LockssRepository repo, Artifact art,
+				 boolean needInputStream)
 	throws IOException {
-      ArtifactData res = super.getArtifactData(repo, art);
+      ArtifactData res = super.getArtifactData(repo, art, needInputStream);
       obtainedAds.add(res);
       return res;
     }

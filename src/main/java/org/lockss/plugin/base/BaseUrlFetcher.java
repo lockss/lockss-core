@@ -312,7 +312,7 @@ public class BaseUrlFetcher implements UrlFetcher {
           cachedProps.getProperty(CachedUrl.PROPERTY_LAST_MODIFIED);
       }
     } catch (LockssUncheckedException e) {
-      log.warning("Can't get Last-Modified: " + curl, e);
+      log.warning("Can't get Last-Modified: " + curl.getUrl(), e);
     } finally {
       AuUtil.safeRelease(cachedVersion);
     }
@@ -821,11 +821,11 @@ public class BaseUrlFetcher implements UrlFetcher {
 
   public CIProperties getUncachedProperties()
       throws UnsupportedOperationException {
-    if (conn == null) {
-      throw new UnsupportedOperationException("Called getUncachedProperties "
-          + "before calling getUncachedInputStream.");
-    }
     if (uncachedProperties == null) {
+      if (conn == null) {
+	throw new UnsupportedOperationException("Called getUncachedProperties "
+						+ "before calling getUncachedInputStream.");
+      }
       CIProperties props = new CIProperties();
       // set header properties in which we have interest
       String ctype = conn.getResponseContentType();

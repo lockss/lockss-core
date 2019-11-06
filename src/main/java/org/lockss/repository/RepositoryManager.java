@@ -91,11 +91,16 @@ public class RepositoryManager
     PREFIX + "artifactCache.maxSize";
   public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
 
+  /** Maximum size of ArtifactData cache */
+  public static final String PARAM_ARTIFACT_DATA_CACHE_MAX =
+    PREFIX + "artifactDataCache.maxSize";
+  public static final int DEFAULT_ARTIFACT_DATA_CACHE_MAX = 20;
+
   /** If true, the ArtifactCache will be instrumented, at some performance
    * cost */
   public static final String PARAM_ARTIFACT_CACHE_INSTRUMENT =
     PREFIX + "artifactCache.instrument";
-  public static final boolean DEFAULT_ARTIFACT_CACHE_INSTRUMENT = false;
+  public static final boolean DEFAULT_ARTIFACT_CACHE_INSTRUMENT = true;
 
   public static final String PARAM_PERSIST_INDEX_NAME =
       PREFIX + "persistIndexName";
@@ -350,13 +355,15 @@ public class RepositoryManager
 			  DEFAULT_ENABLE_ARTIFACT_CACHE)) {
       ArtifactCache artCache = repo.getArtifactCache();
       artCache.setMaxSize(config.getInt(PARAM_ARTIFACT_CACHE_MAX,
-					DEFAULT_ARTIFACT_CACHE_MAX));
-//       boolean instrument =
-// 	config.getBoolean(PARAM_ARTIFACT_CACHE_INSTRUMENT,
-// 			  DEFAULT_ARTIFACT_CACHE_INSTRUMENT);
-//       artCache.enableInstrumentation(instrument);
+					DEFAULT_ARTIFACT_CACHE_MAX),
+			  config.getInt(PARAM_ARTIFACT_DATA_CACHE_MAX,
+					DEFAULT_ARTIFACT_DATA_CACHE_MAX));
+      boolean instrument =
+	config.getBoolean(PARAM_ARTIFACT_CACHE_INSTRUMENT,
+			  DEFAULT_ARTIFACT_CACHE_INSTRUMENT);
+      artCache.enableInstrumentation(instrument);
       // RestLockssRepository will enable the cache only once it has
-      // created a JMS consuler for invalidate notifications
+      // created a JMS consumer for invalidate notifications
       JMSManager mgr = getDaemon().getManagerByType(JMSManager.class);
       repo.enableArtifactCache(true, mgr.getJmsFactory());
     }

@@ -285,7 +285,7 @@ public class RepairCrawler extends BaseCrawler {
     }
     UrlFetcher uf = makeRepairUrlFetcher(url);
     
-    updateCacheStats(uf.fetch(), new CrawlUrlData(url, 1));
+    updateCacheStats(uf, uf.fetch(), new CrawlUrlData(url, 1));
     crawlStatus.addSource("Publisher");
   }
 

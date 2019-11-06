@@ -293,7 +293,7 @@ public class FollowLinkCrawler extends BaseCrawler {
                                          CrawlerStatus.UNABLE_TO_FETCH_PROBE_PERM_ERR_MSG);
             return false;
           } else {
-            updateCacheStats(FetchResult.FETCHED, pud);
+            updateCacheStats(uf, FetchResult.FETCHED, pud);
             updateCdnStems(pud.getUrl());
           }
         } catch (CacheException e) {
@@ -585,7 +585,7 @@ public class FollowLinkCrawler extends BaseCrawler {
           fetcher = makeUrlFetcher(curl);
           try {
             res = fetcher.fetch();
-            updateCacheStats(res, curl);
+            updateCacheStats(fetcher, res, curl);
             if (res == FetchResult.NOT_FETCHED) {
               if(curl.isStartUrl() && isFailOnStartUrlError()) {
                 // fail if cannot fetch a StartUrl

@@ -266,7 +266,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public InputStream getUnfilteredInputStream() {
-    ensureArtifactData();
+    ensureArtifactData(true);
     inputStreamUsed = true;
     restInputStream = artData.getInputStream();
     return restInputStream;
@@ -318,20 +318,12 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   public String getContentType() {
-    String res = null;
-    CIProperties props = getProperties();
-    if (props != null) {
-      res = props.getProperty(PROPERTY_CONTENT_TYPE);
-    }
-    if (res == null &&
-	CurrentConfig.getBooleanParam(PARAM_USE_RAW_CONTENT_TYPE,
-				      DEFAULT_USE_RAW_CONTENT_TYPE)) {
-      res = props.getProperty("Content-Type");
-    }
+    String res =
+      AuUtil.contentTypeFromHeadersOrUrl(au, getUrl(), getProperties());
     if (res != null) {
       return res;
     }
-    return matchUrlMimeMap(getUrl());
+    return AuUtil.matchUrlMimeMap(getUrlMimeTypeMap(), getUrl());
   }
 
   PatternStringMap getUrlMimeTypeMap() {
@@ -383,13 +375,7 @@ public class BaseCachedUrl implements CachedUrl {
 
   public CIProperties getProperties() {
     if (restProps == null) {
-      ensureArtifactData();
-      restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
-      String chk = artData.getContentDigest();
-      // tk - hash alg shouldn't be hardwired
-      if (!StringUtil.isNullString(chk)) {
-	restProps.put(PROPERTY_CHECKSUM, chk);
-      }
+      ensureArtifactData(false);
       if (logger.isDebug3()) {
 	logger.debug2("getProperties: " + artifactUrl + ": " + restProps);
       }
@@ -431,7 +417,12 @@ public class BaseCachedUrl implements CachedUrl {
 
   // overridable for testing
   void releaseArtifactData(ArtifactData ad) {
-    ad.release();
+    // TODO: This is currently disabled to allow more ArtifactData reuse so
+    // as not to defeat the ArtifactData cache.  The cache calls release()
+    // when items age out, which isn't perfect because it delays the
+    // freeing of resources.  This should be fixed when ArtifactData is
+    // refactored to make the InputStream optional.
+//     ad.release();
   }
 
   public void release() {
@@ -471,16 +462,23 @@ public class BaseCachedUrl implements CachedUrl {
     artifactObtained = true;
   }
 
-  ArtifactData getArtifactData(LockssRepository repo, Artifact art)
+  ArtifactData getArtifactData(LockssRepository repo, Artifact art,
+			       boolean needInputStream)
       throws IOException {
-    return repo.getArtifactData(art);
+    return repo.getArtifactData(art, needInputStream);
   }
 
-  private void ensureArtifactData() {
+  private void ensureArtifactData(boolean needInputStream) {
     if (hasContent()) {
-      if (inputStreamUsed || artData == null) {
+      if (artData == null || (needInputStream && !artData.hasInputStream()) ) {
 	try {
-	  artData = getArtifactData(v2Repo, art);
+	  artData = getArtifactData(v2Repo, art, needInputStream);
+	  restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
+	  String chk = art.getContentDigest();
+	  // tk - hash alg shouldn't be hardwired
+	  if (!StringUtil.isNullString(chk)) {
+	    restProps.put(PROPERTY_CHECKSUM, chk);
+	  }
 	  allArtData.add(artData);
 	} catch (IOException e) {
 	  throw new LockssUncheckedIOException(e);

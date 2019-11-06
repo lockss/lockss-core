@@ -237,12 +237,14 @@ public class MockUrlFetcher implements UrlFetcher {
 
  //mock specific acessors
 
-  public void setUncachedInputStream(InputStream is){
+  public MockUrlFetcher setUncachedInputStream(InputStream is){
     uncachedIS = is;
+    return this;
   }
 
-  public void setUncachedProperties(CIProperties prop){
+  public MockUrlFetcher setUncachedProperties(CIProperties prop){
     uncachedProp = prop;
+    return this;
   }
 
   public CacheException getInfoException() {
