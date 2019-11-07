@@ -86,6 +86,7 @@ public class PluginPackager {
   boolean forceRebuild = false;
   List<Result> results = new ArrayList<>();
   boolean nofail = false;
+  boolean includeLibDir = true;
   List<String> excluded = new ArrayList<>();
 
   List<PlugSpec> argSpecs = new ArrayList<>();
@@ -99,6 +100,7 @@ public class PluginPackager {
   String argKeystore = null;
   String argKeyPass = "password";
   String argStorePass = "password";
+  String argStoreType = null;
   String argAlias = null;
 
 
@@ -170,6 +172,15 @@ public class PluginPackager {
     return nofail;
   }
 
+  public PluginPackager setIncludeLibDir(boolean val) {
+    this.includeLibDir = val;
+    return this;
+  }
+
+  public boolean isIncludeLibDir() {
+    return includeLibDir;
+  }
+
   /** Set the pat of the plugin signing keystore.  Plugins will be signed
    * if this is provided */
   public PluginPackager setKeystore(String ks) {
@@ -194,6 +205,12 @@ public class PluginPackager {
    * "password". */
   public PluginPackager setStorePass(String val) {
     argStorePass = val;
+    return this;
+  }
+
+  /** Set the keystore type. */
+  public PluginPackager setStoreType(String val) {
+    argStoreType = val;
     return this;
   }
 
@@ -363,13 +380,15 @@ public class PluginPackager {
       }
     }
 
-    String SIGN_CMD = "jarsigner -keystore %s -keypass %s -storepass %s %s %s";
+    String SIGN_CMD =
+      "jarsigner -keystore %s -keypass %s -storepass %s%s %s %s";
 
     public void signJar() throws IOException {
+      String stype = argStoreType != null ? (" -storetype " + argStoreType) : "";
       String cmd =
 	String.format(SIGN_CMD, argKeystore, argKeyPass, argStorePass,
-		      spec.getJar(), argAlias);
-      log.debug2("cmd: " + cmd);
+		      stype, spec.getJar(), argAlias);
+      log.debug("cmd: " + cmd);
       String s;
       Reader rdr = null;
       try {
@@ -484,6 +503,11 @@ public class PluginPackager {
 	for (PData pd : pds) {
 	  for (PkgUrl pu : pd.listFiles()) {
 	    res.add(pu);
+	  }
+	  if (isIncludeLibDir()) {
+	    for (PkgUrl pu : pd.listLibFiles()) {
+	      res.add(pu);
+	    }
 	  }
 	}
 	allFiles = res;
@@ -691,6 +715,25 @@ public class PluginPackager {
 	.flatMap(pu -> listFilesInDirOf(pu).stream())
 	.collect(Collectors.toList());
     }
+
+    /** Return list of PkgUrl for all files in dir of plugin and its
+     * parents */
+    List<PkgUrl> listLibFiles() {
+      return pluginUrls.stream()
+	.flatMap(pu ->
+		 listFilesIn(new PkgUrl("lib", subUrl(pu.getUrl(), "lib/")))
+		 .stream())
+	.collect(Collectors.toList());
+    }
+
+    URL subUrl(URL url, String subdir) {
+      try {
+	return new URL(UrlUtil.resolveUri(url, subdir));
+      } catch (MalformedURLException e) {
+	throw new RuntimeException(e);
+      }
+    }
+
   }
 
   /** Visitor for Files.walkFileTree(), makes a PlugSpec for each plugin in
@@ -795,16 +838,33 @@ public class PluginPackager {
    * paths for the jar */
   List<PkgUrl> listFilesInDirOf(PkgUrl pu) {
     try {
+      List<PkgUrl> res;
       URL dirURL = dirOfUrl(pu.getUrl());
+      return listFilesIn(new PkgUrl(pu.getPkg(), dirURL));
+    } catch (URISyntaxException | IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /** Find all the files in the supplied directory, recording the package
+   * name */
+  List<PkgUrl> listFilesIn(PkgUrl pu) {
+    try {
+      List<PkgUrl> res;
+      URL dirURL = pu.getUrl();
       switch (dirURL.getProtocol()) {
       case "file":
-	return enumerateDir(pu, dirURL);
+	res = enumerateDir(pu, dirURL);
+	break;
       case "jar":
-	return enumerateJarDir(pu, dirURL);
+	res = enumerateJarDir(pu, dirURL);
+	break;
       default:
 	throw new UnsupportedOperationException("Cannot list files for URL "+
 						pu.getUrl());
       }
+      log.debug2("listFilesInDirOf({}): {}", pu, res);
+      return res;
     } catch (URISyntaxException | IOException e) {
       throw new RuntimeException(e);
     }
@@ -814,8 +874,10 @@ public class PluginPackager {
       throws URISyntaxException, IOException {
     String[] files = new File(dirURL.toURI()).list();
     List<PkgUrl> res = new ArrayList<>();
-    for (String f : files) {
-      res.add(new PkgUrl(pu.getPkg(), new URL(dirURL, f)));
+    if (files != null) {
+      for (String f : files) {
+	res.add(new PkgUrl(pu.getPkg(), new URL(dirURL, f)));
+      }
     }
     return res;
   }
@@ -887,12 +949,12 @@ public class PluginPackager {
 
   static String USAGE =
     "Usage:\n" +
-    "PluginPackager [common-args] -p <plugin-id> ... -o <output-jar> ...\n" +
+    "PluginPackager [common-args] -pl <plugin-id> ... -oj <output-jar> ...\n" +
     "  or\n" +
     "PluginPackager [common-args] -pd <plugins-class-dir> -od <output-dir>\n" +
     "\n" +
-    "     -p <plugin-id>    Fully-qualified plugin id.\n" +
-    "     -o <output-jar>   Output jar path/name.\n" +
+    "     -pl <plugin-id>   Fully-qualified plugin id.\n" +
+    "     -oj <output-jar>  Output jar path/name.\n" +
     "     -pd <plugins-class-dir>  Root of compiled plugins tree.\n" +
     "     -od <output-dir>  Dir to which to write plugin jars.\n" +
     "     -x <exclude-pat>  Used with -pd.  Plugins whose id matches this\n" +
@@ -900,6 +962,7 @@ public class PluginPackager {
     " Common args:\n" +
     "     -f                Force rebuild even if jar appears to be up-to-date.\n" +
     "     -nofail           Exit with 0 status even if some plugins can't be built.\n" +
+    "     -nolib            Don't include files in lib subdirs.\n" +
     "     -cp <classpath>   Load plugins from specified colon-separated classpath.\n" +
     "     -keystore <file>  Signing keystore.\n" +
     "     -alias <alias>    Key alias (required if -keystore is used).\n" +
@@ -964,6 +1027,8 @@ public class PluginPackager {
 	  pkgr.setForceRebuild(true);
 	} else if (arg.equals("-nofail")) {
 	  pkgr.setNoFail(true);
+	} else if (arg.equals("-nolib")) {
+	  pkgr.setIncludeLibDir(false);
 	} else if (arg.equals("-keystore")) {
 	  pkgr.setKeystore(argv[++ix]);
 	} else if (arg.equals("-alias")) {
@@ -972,9 +1037,11 @@ public class PluginPackager {
 	  pkgr.setKeyPass(argv[++ix]);
 	} else if (arg.equals("-storepass")) {
 	  pkgr.setStorePass(argv[++ix]);
-	} else if (arg.equals("-p")) {
+	} else if (arg.equals("-storetype")) {
+	  pkgr.setStoreType(argv[++ix]);
+	} else if (arg.equals("-pl")) {
 	  curSpec.addPlug(argv[++ix]);
-	} else if (arg.equals("-o")) {
+	} else if (arg.equals("-oj")) {
 	  curSpec.setJar(argv[++ix]);
 	  pkgr.addSpec(curSpec);
 	  curSpec = new PlugSpec();

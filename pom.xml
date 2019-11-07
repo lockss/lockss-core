@@ -1092,6 +1092,45 @@ POSSIBILITY OF SUCH DAMAGE.
 
           <!-- END step runStf -->
 
+          <!-- BEGIN step package-test-plugins -->
+
+	  <!-- Package a test plugin that contains a lib jar, for
+	       TestPluginManager -->
+
+          <execution>
+            <id>package-test-plugins</id>
+            <phase>process-test-classes</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+	      <classpathScope>test</classpathScope>
+
+              <arguments>
+		<argument>-classpath</argument>
+		<classpath/>
+                <argument>-Dorg.lockss.defaultLogLevel=${loglevel}</argument>
+                <argument>org.lockss.util.PluginPackager</argument>
+                <argument>-pl</argument>
+                <argument>org.lockss.plugin.plugtest1.PlugTest1Plugin</argument>
+                <argument>-oj</argument>
+                <argument>${basedir}/target/test-classes/org/lockss/test/plugin-with-libs.jar</argument>
+                <argument>-keystore</argument>
+                <argument>${basedir}/src/test/java/org/lockss/test/goodguy.keystore</argument>
+                <argument>-alias</argument>
+                <argument>goodguy</argument>
+                <argument>-storepass</argument>
+                <argument>f00bar</argument>
+                <argument>-keypass</argument>
+                <argument>f00bar</argument>
+
+              </arguments>
+            </configuration>
+          </execution>
+
+          <!-- END step package-test-plugins -->
+
         </executions>
       </plugin>
 
