@@ -470,7 +470,7 @@ public class BaseCachedUrl implements CachedUrl {
 
   private void ensureArtifactData(boolean needInputStream) {
     if (hasContent()) {
-      if (artData == null || (needInputStream && !artData.hasInputStream()) ) {
+      if (artData == null || (needInputStream && !artData.hasContentInputStream()) ) {
 	try {
 	  artData = getArtifactData(v2Repo, art, needInputStream);
 	  restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
