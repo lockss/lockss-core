@@ -202,6 +202,20 @@ public class TestPluginPackager extends LockssTestCase5 {
     assertMarkedAsPlugin(man, ID_PL);
   }
 
+  boolean isNoExplode(String s) {
+    return PluginPackager.EXCLUDE_FROM_EXPLODE_PAT.matcher(s).matches();
+  }
+
+  @Test
+  public void testNoExplodePat() throws Exception {
+    assertTrue(isNoExplode("meta-inf/manifest.mf"));
+    assertTrue(isNoExplode("META-INF/MANIFEST.MF"));
+    assertTrue(isNoExplode("meta-inf/signer.sf"));
+    assertTrue(isNoExplode("meta-inf/signer.dsa"));
+    assertTrue(isNoExplode("meta-inf/ECPLISE_.rsa"));
+    assertFalse(isNoExplode("meta-inf/foo.cxf"));
+    assertFalse(isNoExplode("meta-inf/services/foo"));
+  }
 
   @Test
   public void testFail() throws Exception {

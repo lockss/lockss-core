@@ -76,12 +76,13 @@ public class PluginPackager {
   static final String VERSION = "1.0";
 
   // Match the signature file in a signed jar
-  static Pattern SIG_FILE_PAT =
+  static final Pattern SIG_FILE_PAT =
     Pattern.compile("META-INF/[^/.]+\\.SF$", Pattern.CASE_INSENSITIVE);
 
   // Match jar entries that should *not* be exploded into plugin jar
-  final static Pattern EXCLUDE_FROM_EXPLODE_PAT =
-    Pattern.compile("^META-INF", Pattern.CASE_INSENSITIVE);
+  static final Pattern EXCLUDE_FROM_EXPLODE_PAT =
+    Pattern.compile("^META-INF/\\w+\\.(mf|sf|dsa|rsa)$",
+		    Pattern.CASE_INSENSITIVE);
 
 
   MockLockssDaemon daemon;
