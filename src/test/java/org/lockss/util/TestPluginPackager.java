@@ -50,20 +50,17 @@ public class TestPluginPackager extends LockssTestCase5 {
   static String ID_B = "org.lockss.util.testplugin.child.BPlug";
   static String ID_C = "org.lockss.util.testplugin.child.CPlug";
   static String ID_P = "org.lockss.util.testplugin.PPlug";
+  static String ID_PL = "org.lockss.util.testpluginwithlib.Plug";
 
-
+  PluginPackager pkgr;
   File tmpdir;
   File jar;
-
 
   @BeforeEach
   public void beach() throws IOException {
     tmpdir = getTempDir("TestPluginPackager");
     jar = new File(tmpdir, "plug1.jar");
-  }
-
-  @BeforeAll
-  public static void beforeAll() throws Exception {
+    pkgr = new PluginPackager();
   }
 
   public void assertMarkedAsPlugin(Manifest man, String id) {
@@ -84,7 +81,6 @@ public class TestPluginPackager extends LockssTestCase5 {
   }
 
   List<Result> runPackager(PlugSpec spec) throws Exception {
-    PluginPackager pkgr = new PluginPackager();
     pkgr.addSpec(spec);
     pkgr.build();
     return pkgr.getResults();
@@ -99,8 +95,9 @@ public class TestPluginPackager extends LockssTestCase5 {
     Result res = rs.get(0);
     assertFalse(res.isError());
     JarFile jf = new JarFile(jar);
-    List<JarEntry> lst = Collections.list(jf.entries());
-    List<String> names = lst.stream().map(JarEntry::getName).collect(Collectors.toList());
+    List<String> names = Collections.list(jf.entries()).stream()
+      .map(JarEntry::getName)
+      .collect(Collectors.toList());
 
     // All files in dir should be there, but not parent dir
     assertThat(names, hasItems("META-INF/",
@@ -132,8 +129,9 @@ public class TestPluginPackager extends LockssTestCase5 {
     Result res = rs.get(0);
     assertFalse(res.isError());
     JarFile jf = new JarFile(jar);
-    List<JarEntry> lst = Collections.list(jf.entries());
-    List<String> names = lst.stream().map(JarEntry::getName).collect(Collectors.toList());
+    List<String> names = Collections.list(jf.entries()).stream()
+      .map(JarEntry::getName)
+      .collect(Collectors.toList());
 
     assertThat(names, hasItems("META-INF/",
 			       "META-INF/MANIFEST.MF",
@@ -149,6 +147,61 @@ public class TestPluginPackager extends LockssTestCase5 {
     assertMarkedAsPlugin(man, ID_C);
     assertNotMarkedAsPlugin(man, ID_P);
   }
+
+  @Test
+  public void testPackageLib() throws Exception {
+    List<Result> rs = runPackager(new PlugSpec()
+				  .addPlug(ID_PL)
+				  .setJar(jar.toString()));
+    assertEquals(1, rs.size());
+    Result res = rs.get(0);
+    assertFalse(res.isError());
+    JarFile jf = new JarFile(jar);
+    List<String> names = Collections.list(jf.entries()).stream()
+      .map(JarEntry::getName)
+      .collect(Collectors.toList());
+
+    // jar in lib dir should be copied in
+    assertThat(names, hasItems("META-INF/",
+			       "META-INF/MANIFEST.MF",
+			       "org/lockss/util/testpluginwithlib/",
+			       idToPath(ID_PL),
+			       "lib/",
+			       "lib/plugin-lib.jar"));
+    Manifest man = jf.getManifest();
+    Attributes main = man.getMainAttributes();
+    assertMarkedAsPlugin(man, ID_PL);
+  }
+
+  @Test
+  public void testPackageExplodedLib() throws Exception {
+    pkgr.setExplodeLib(true);
+    List<Result> rs = runPackager(new PlugSpec()
+				  .addPlug(ID_PL)
+				  .setJar(jar.toString()));
+    assertEquals(1, rs.size());
+    Result res = rs.get(0);
+    assertFalse(res.isError());
+    JarFile jf = new JarFile(jar);
+    List<String> names = Collections.list(jf.entries()).stream()
+      .map(JarEntry::getName)
+      .collect(Collectors.toList());
+
+    // jar in lib dir should be exploded
+    assertThat(names, hasItems("META-INF/",
+			       "META-INF/MANIFEST.MF",
+			       "org/lockss/util/testpluginwithlib/",
+			       idToPath(ID_PL),
+			       "org/",
+			       "org/lockss/",
+			       "org/lockss/pkgpkg/",
+			       "org/lockss/pkgpkg/pkgd_resource.txt",
+			       "toplevel_resource.txt"));
+    Manifest man = jf.getManifest();
+    Attributes main = man.getMainAttributes();
+    assertMarkedAsPlugin(man, ID_PL);
+  }
+
 
   @Test
   public void testFail() throws Exception {

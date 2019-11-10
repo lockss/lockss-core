@@ -2025,6 +2025,8 @@ public class TestPluginManager extends LockssTestCase4 {
     testLoadLoadablePlugin(false);
   }
 
+  // plugin-with-libs.jar contains a plugin, and a dependency jar in the
+  // lib/ dir
   @Test
   public void testLoadLoadablePluginWithLibJars() throws Exception {
     boolean preferLoadable = true;
@@ -2049,7 +2051,39 @@ public class TestPluginManager extends LockssTestCase4 {
     ArchivalUnit au1 = mgr.createAu(plug, config,
                                     AuEvent.model(AuEvent.Type.Create));
 
-    assertMatchesRE("^String in lib jar\\.",
+    assertMatchesRE("^String in toplevel resource\\.\\n"
+		    + "String in packaged resource\\.",
+		    au1.siteNormalizeUrl("http://foo.bar"));
+  }
+
+  // plugin-with-exploded-libs.jar contains a plugin, and the exploded
+  // contents of the dependency jar
+  @Test
+  public void testLoadLoadablePluginWithExplodedLibJars() throws Exception {
+    boolean preferLoadable = true;
+    mgr.startService();
+    Properties p = new Properties();
+    p.setProperty(PluginManager.PARAM_PREFER_LOADABLE_PLUGIN,
+		  "" + preferLoadable);
+    prepareLoadablePluginTests(p);
+    pluginJar = "org/lockss/test/plugin-with-exploded-libs.jar";
+    String pluginKey = "org|lockss|plugin|plugtest1|PlugTest1Plugin";
+    // Set up a MyMockRegistryArchivalUnit with the right data.
+    List plugins = ListUtil.list(pluginJar);
+    MyMockRegistryArchivalUnit mmau = new MyMockRegistryArchivalUnit(plugins);
+    List registryAus = ListUtil.list(mmau);
+    assertNull(mgr.getPlugin(pluginKey));
+    mgr.processRegistryAus(registryAus);
+    Plugin plug = mgr.getPlugin(pluginKey);
+    assertNotNull(plug);
+    Configuration config =
+      ConfigurationUtil.fromArgs("base_url", "http://example.com/a/",
+				 "year", "1942");
+    ArchivalUnit au1 = mgr.createAu(plug, config,
+                                    AuEvent.model(AuEvent.Type.Create));
+
+    assertMatchesRE("^String in toplevel resource\\.\\n"
+		    + "String in packaged resource\\.",
 		    au1.siteNormalizeUrl("http://foo.bar"));
   }
 

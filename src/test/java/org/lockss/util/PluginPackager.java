@@ -39,6 +39,7 @@ import java.nio.file.attribute.*;
 import org.apache.commons.collections.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.*;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 import static java.nio.file.FileVisitResult.CONTINUE;
 
@@ -78,6 +79,10 @@ public class PluginPackager {
   static Pattern SIG_FILE_PAT =
     Pattern.compile("META-INF/[^/.]+\\.SF$", Pattern.CASE_INSENSITIVE);
 
+  // Match jar entries that should *not* be exploded into plugin jar
+  final static Pattern EXCLUDE_FROM_EXPLODE_PAT =
+    Pattern.compile("^META-INF", Pattern.CASE_INSENSITIVE);
+
 
   MockLockssDaemon daemon;
   PluginManager pluginMgr;
@@ -87,6 +92,7 @@ public class PluginPackager {
   List<Result> results = new ArrayList<>();
   boolean nofail = false;
   boolean includeLibDir = true;
+  boolean explodeLib = false;
   List<String> excluded = new ArrayList<>();
 
   List<PlugSpec> argSpecs = new ArrayList<>();
@@ -179,6 +185,15 @@ public class PluginPackager {
 
   public boolean isIncludeLibDir() {
     return includeLibDir;
+  }
+
+  public PluginPackager setExplodeLib(boolean val) {
+    this.explodeLib = val;
+    return this;
+  }
+
+  public boolean isExplodeLib() {
+    return explodeLib;
   }
 
   /** Set the pat of the plugin signing keystore.  Plugins will be signed
@@ -322,7 +337,7 @@ public class PluginPackager {
     PlugSpec spec;			// spec for what should go in jar
 
     List<PData> pds = new ArrayList<>(); // PData for each plugin in spec
-    Collection<PkgUrl> allFiles;	 // all files to be written to jar
+    Collection<FileInfo> allFiles;	 // all files to be written to jar
 
     JarOutputStream jarOut;
 
@@ -422,9 +437,9 @@ public class PluginPackager {
 // 	Plugin plug = PluginTestUtil.findPlugin(pluginId, oneLoader);
 	Plugin plug = loadPlugin(pluginId, oneLoader);
 	log.debug2("Loaded plugin: " + plug.getPluginId());
-	List<PkgUrl> plugUrls = getOnePluginUrls(packageOf(pluginId), plug);
-	log.debug2("plugin {} URLs: {}", pluginId, plugUrls);
-	pds.add(new PData(pluginId, plugUrls));
+	List<FileInfo> fis = getOnePluginInfos(packageOf(pluginId), plug);
+	log.debug2("plugin {} URLs: {}", pluginId, fis);
+	pds.add(new PData(pluginId, fis));
       }
     }
 
@@ -438,16 +453,16 @@ public class PluginPackager {
       }
     }
 
-    // Retrieve the package and URL of the plugin and its parents
-    List<PkgUrl> getOnePluginUrls(String pkg, Plugin plug) {
-      ArrayList<PkgUrl> res = new ArrayList<>();
+    // Retrieve the FileInfo(s) for the plugin and its parents
+    List<FileInfo> getOnePluginInfos(String pkg, Plugin plug) {
+      ArrayList<FileInfo> res = new ArrayList<>();
       if (plug instanceof DefinablePlugin) {
 	DefinablePlugin dplug = (DefinablePlugin)plug;
 	for (Pair<String,URL> pair : dplug.getIdsUrls()) {
-	  res.add(new PkgUrl(packageOf(pair.getLeft()), pair.getRight()));
+	  res.add(FileInfo.forFile(pair.getRight(), packageOf(pair.getLeft())));
 	}
       } else {
-	res.add(new PkgUrl(pkg, findJavaPluginUrl(plug)));
+	res.add(FileInfo.forFile(findJavaPluginUrl(plug), pkg));
       }
       return res;
     }
@@ -496,17 +511,17 @@ public class PluginPackager {
     }
 
     // find the entire set of files to be written to the jar
-    Collection<PkgUrl> findAllFiles() throws Exception {
+    Collection<FileInfo> findAllFiles() throws Exception {
       if (allFiles == null) {
-	Set<PkgUrl> res = new LinkedHashSet<>();
+	Set<FileInfo> res = new LinkedHashSet<>();
 
 	for (PData pd : pds) {
-	  for (PkgUrl pu : pd.listFiles()) {
-	    res.add(pu);
+	  for (FileInfo fi : pd.listFiles()) {
+	    res.add(fi);
 	  }
 	  if (isIncludeLibDir()) {
-	    for (PkgUrl pu : pd.listLibFiles()) {
-	      res.add(pu);
+	    for (FileInfo fi : pd.listLibFiles()) {
+	      res.add(fi);
 	    }
 	  }
 	}
@@ -522,7 +537,7 @@ public class PluginPackager {
 	return false;
       }
       long latest = findAllFiles().stream()
-	.map(PkgUrl::getUrl)
+	.map(FileInfo::getUrl)
 	.map(u -> urlToFile(u))
 	.map(File::lastModified)
 	.mapToLong(v -> v)
@@ -557,15 +572,15 @@ public class PluginPackager {
       Set<URL> urlsAdded = new HashSet<>();
       Set<String> dirsAdded = new HashSet<>();
 
-      for (PkgUrl pu : findAllFiles()) {
-	URL url = pu.getUrl();
+      for (FileInfo fi : findAllFiles()) {
+	URL url = fi.getUrl();
 	if (urlsAdded.add(url)) {
 	  // xxx check for not jar:file:
 	  if (url.getProtocol().equalsIgnoreCase("file")) {
 	    String path = url.getPath();
 	    File f = new File(path);
-	    if (f.isDirectory()) continue;
-	    String relPath = pathOfPkg(pu.getPkg());
+	    if (f.isDirectory()) continue; // ignore directories
+	    String relPath = pathOfPkg(fi.getPkg());
 	    String dir = f.getParent();
 	    if (dirsAdded.add(dir)) {
 	      log.debug2("Adding dir {}", relPath);
@@ -576,21 +591,45 @@ public class PluginPackager {
 	      jarOut.closeEntry();
 	    }
 	    String entPath = relPath + "/" + f.getName();
-	    log.debug2("Adding file {}", entPath);
-	    JarEntry entry = new JarEntry(entPath);
-	    entry.setTime(f.lastModified());
-	    jarOut.putNextEntry(entry);
-	    try (InputStream in =
-		 new BufferedInputStream(new FileInputStream(path))) {
-	      StreamUtil.copy(in, jarOut);
+	    if (fi.isJar() && isExplodeLib()) {
+	      explodeJar(url);
+	    } else {
+	      log.debug2("Adding file {}", entPath);
+	      JarEntry entry = new JarEntry(entPath);
+	      entry.setTime(f.lastModified());
+	      jarOut.putNextEntry(entry);
+	      try (InputStream in =
+		   new BufferedInputStream(new FileInputStream(path))) {
+		StreamUtil.copy(in, jarOut);
+	      }
+	      jarOut.closeEntry();
 	    }
-	    jarOut.closeEntry();
 	  } else {
 	    throw new UnsupportedOperationException("Can't handle jar: URLs yet: " + url);
 	  }
 	}
       }
     }
+
+    void explodeJar(URL jarUrl) throws IOException {
+      try (JarInputStream jis = new JarInputStream(jarUrl.openStream())) {
+	// Iterate across all the JAR entries
+	JarEntry ent;
+	while ((ent = jis.getNextJarEntry()) != null) {
+	  Matcher mat = EXCLUDE_FROM_EXPLODE_PAT.matcher(ent.getName());
+	  if (!mat.matches()) {
+	    JarEntry destEnt = new JarEntry(ent.getName());
+	    destEnt.setTime(ent.getTime());
+	    jarOut.putNextEntry(destEnt);
+	    // 	  try {
+	    StreamUtil.copy(jis, jarOut);
+	    // 	  }
+	    jarOut.closeEntry();
+	  }
+	}
+      }
+    }
+
   }
 
   /** Result status of one JarBuilder operation, for reporting */
@@ -624,16 +663,35 @@ public class PluginPackager {
     }
   }
 
-  /** Package and URL pair.  Simpler to keep track of each file's package
-   * from the beginning than to re-derive package from path and base
-   * path. */
-  static class PkgUrl {
+  /** Info about a file to be packaged: a source URL and an optional
+   * package/dir in which it should be placed in the jar.  May be either a
+   * file and package, or a jar that should be copied into lib/ or exploded
+   * into the proper package dirs. */
+  static class FileInfo {
     String pkg;
     URL url;
+    boolean isJar;
 
-    PkgUrl(String pkg, URL url) {
+    FileInfo(String pkg, URL url) {
       this.pkg = pkg;
       this.url = url;
+    }
+
+    static FileInfo forFile(URL url, String pkg) {
+      return new FileInfo(pkg, url);
+    }
+
+    static FileInfo forJar(URL url) {
+      return new FileInfo("lib", url).setIsJar(true);
+    }
+
+    FileInfo setIsJar(boolean val) {
+      isJar = val;
+      return this;
+    }
+
+    boolean isJar() {
+      return isJar;
     }
 
     String getPkg() {
@@ -644,8 +702,26 @@ public class PluginPackager {
       return url;
     }
 
+    @Override
+    public int hashCode() {
+      HashCodeBuilder hcb = new HashCodeBuilder();
+      hcb.append(getPkg());
+      hcb.append(getUrl());
+      return hcb.toHashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o instanceof FileInfo) {
+	FileInfo other = (FileInfo)o;
+	return Objects.equals(pkg, other.getPkg())
+	  && Objects.equals(url, other.getUrl());
+      }
+      return false;
+    }
+
     public String toString() {
-      return "[PkgUrl: " + pkg + ", " + url + "]";
+      return "[FileInfo: " + (isJar() ? "(jar) " : "") + pkg + ", " + url + "]";
     }
   }
 
@@ -690,12 +766,12 @@ public class PluginPackager {
   /** Info about a single plugin */
   class PData {
     String pluginId;
-    List<PkgUrl> pluginUrls;	    // URLs of plugin and parent .xml files
+    List<FileInfo> fis;	    // FileInfo(s) of plugin and parent .xml files
     String file;
 
-    PData(String id, List<PkgUrl> urls) {
+    PData(String id, List<FileInfo> fis) {
       this.pluginId = id;
-      this.pluginUrls = urls;
+      this.fis = fis;
     }
 
     String getPackagePath() {
@@ -703,25 +779,25 @@ public class PluginPackager {
     }
 
     String getPluginPath() throws IOException {
-      String plugPath = pluginUrls.get(0).getUrl().getPath();
+      String plugPath = fis.get(0).getUrl().getPath();
       String plugName = new File(plugPath).getName();
       return getPackagePath() + "/" + plugName;
     }
 
-    /** Return list of PkgUrl for all files in dir of plugin and its
+    /** Return list of FileInfo for all files in dir of plugin and its
      * parents */
-    List<PkgUrl> listFiles() {
-      return pluginUrls.stream()
+    List<FileInfo> listFiles() {
+      return fis.stream()
 	.flatMap(pu -> listFilesInDirOf(pu).stream())
 	.collect(Collectors.toList());
     }
 
-    /** Return list of PkgUrl for all files in dir of plugin and its
-     * parents */
-    List<PkgUrl> listLibFiles() {
-      return pluginUrls.stream()
+    /** Return list of FileInfo for all lib jars in plugin (& parents)'s lib/
+     * dirs */
+    List<FileInfo> listLibFiles() {
+      return fis.stream()
 	.flatMap(pu ->
-		 listFilesIn(new PkgUrl("lib", subUrl(pu.getUrl(), "lib/")))
+		 listFilesIn(FileInfo.forJar(subUrl(pu.getUrl(), "lib/")), true)
 		 .stream())
 	.collect(Collectors.toList());
     }
@@ -836,11 +912,11 @@ public class PluginPackager {
   /** Find all the files in the directory of the supplied URL, recording
    * the package name to make it easier to generate the necessary relative
    * paths for the jar */
-  List<PkgUrl> listFilesInDirOf(PkgUrl pu) {
+  List<FileInfo> listFilesInDirOf(FileInfo pu) {
     try {
-      List<PkgUrl> res;
+      List<FileInfo> res;
       URL dirURL = dirOfUrl(pu.getUrl());
-      return listFilesIn(new PkgUrl(pu.getPkg(), dirURL));
+      return listFilesIn(FileInfo.forFile(dirURL, pu.getPkg()), false);
     } catch (URISyntaxException | IOException e) {
       throw new RuntimeException(e);
     }
@@ -848,46 +924,51 @@ public class PluginPackager {
 
   /** Find all the files in the supplied directory, recording the package
    * name */
-  List<PkgUrl> listFilesIn(PkgUrl pu) {
+  List<FileInfo> listFilesIn(FileInfo pu, boolean jars) {
     try {
-      List<PkgUrl> res;
+      List<FileInfo> res;
       URL dirURL = pu.getUrl();
       switch (dirURL.getProtocol()) {
       case "file":
-	res = enumerateDir(pu, dirURL);
+	res = enumerateDir(pu, dirURL, jars);
 	break;
       case "jar":
-	res = enumerateJarDir(pu, dirURL);
+	res = enumerateJarDir(pu, dirURL, jars);
 	break;
       default:
 	throw new UnsupportedOperationException("Cannot list files for URL "+
 						pu.getUrl());
       }
-      log.debug2("listFilesInDirOf({}): {}", pu, res);
+      log.debug2("listFilesIn({}): {}", pu, res);
       return res;
     } catch (URISyntaxException | IOException e) {
       throw new RuntimeException(e);
     }
   }
 
-  List<PkgUrl> enumerateDir(PkgUrl pu, URL dirURL)
+  List<FileInfo> enumerateDir(FileInfo pu, URL dirURL, boolean jars)
       throws URISyntaxException, IOException {
     String[] files = new File(dirURL.toURI()).list();
-    List<PkgUrl> res = new ArrayList<>();
+    List<FileInfo> res = new ArrayList<>();
     if (files != null) {
       for (String f : files) {
-	res.add(new PkgUrl(pu.getPkg(), new URL(dirURL, f)));
+	if (jars) {
+	  res.add(FileInfo.forJar(new URL(dirURL, f)));
+	} else {
+	  res.add(FileInfo.forFile(new URL(dirURL, f), pu.getPkg()));
+	}
       }
     }
     return res;
   }
 
-  List<PkgUrl> enumerateJarDir(PkgUrl pu, URL dirURL) throws IOException {
+  List<FileInfo> enumerateJarDir(FileInfo pu, URL dirURL, boolean jars)
+      throws IOException {
     if (true) throw new UnsupportedOperationException("nyi");
 
     JarURLConnection jarConnection = (JarURLConnection)dirURL.openConnection();
     JarFile jf = jarConnection.getJarFile();
-    List<PkgUrl> res = new ArrayList<>();
+    List<FileInfo> res = new ArrayList<>();
 
     Enumeration<JarEntry> entries = jf.entries(); //gives ALL entries in jar
     while(entries.hasMoreElements()) {
@@ -949,12 +1030,12 @@ public class PluginPackager {
 
   static String USAGE =
     "Usage:\n" +
-    "PluginPackager [common-args] -pl <plugin-id> ... -oj <output-jar> ...\n" +
+    "PluginPackager [common-args] -p <plugin-id> ... -o <output-jar> ...\n" +
     "  or\n" +
     "PluginPackager [common-args] -pd <plugins-class-dir> -od <output-dir>\n" +
     "\n" +
-    "     -pl <plugin-id>   Fully-qualified plugin id.\n" +
-    "     -oj <output-jar>  Output jar path/name.\n" +
+    "     -p <plugin-id>    Fully-qualified plugin id.\n" +
+    "     -o <output-jar>   Output jar path/name.\n" +
     "     -pd <plugins-class-dir>  Root of compiled plugins tree.\n" +
     "     -od <output-dir>  Dir to which to write plugin jars.\n" +
     "     -x <exclude-pat>  Used with -pd.  Plugins whose id matches this\n" +
@@ -963,6 +1044,7 @@ public class PluginPackager {
     "     -f                Force rebuild even if jar appears to be up-to-date.\n" +
     "     -nofail           Exit with 0 status even if some plugins can't be built.\n" +
     "     -nolib            Don't include files in lib subdirs.\n" +
+    "     -explodelib       Explode lib jars rather than copying to plugin jar.\n" +
     "     -cp <classpath>   Load plugins from specified colon-separated classpath.\n" +
     "     -keystore <file>  Signing keystore.\n" +
     "     -alias <alias>    Key alias (required if -keystore is used).\n" +
@@ -1029,6 +1111,8 @@ public class PluginPackager {
 	  pkgr.setNoFail(true);
 	} else if (arg.equals("-nolib")) {
 	  pkgr.setIncludeLibDir(false);
+	} else if (arg.equals("-explodelib")) {
+	  pkgr.setExplodeLib(true);
 	} else if (arg.equals("-keystore")) {
 	  pkgr.setKeystore(argv[++ix]);
 	} else if (arg.equals("-alias")) {
@@ -1039,9 +1123,9 @@ public class PluginPackager {
 	  pkgr.setStorePass(argv[++ix]);
 	} else if (arg.equals("-storetype")) {
 	  pkgr.setStoreType(argv[++ix]);
-	} else if (arg.equals("-pl")) {
+	} else if (arg.equals("-p")) {
 	  curSpec.addPlug(argv[++ix]);
-	} else if (arg.equals("-oj")) {
+	} else if (arg.equals("-o")) {
 	  curSpec.setJar(argv[++ix]);
 	  pkgr.addSpec(curSpec);
 	  curSpec = new PlugSpec();
