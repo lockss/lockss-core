@@ -81,7 +81,7 @@ public class PluginPackager {
 
   // Match jar entries that should *not* be exploded into plugin jar
   static final Pattern EXCLUDE_FROM_EXPLODE_PAT =
-    Pattern.compile("^META-INF/\\w+\\.(mf|sf|dsa|rsa)$",
+    Pattern.compile("^META-INF/(\\w+\\.(mf|sf|dsa|rsa)$)?",
 		    Pattern.CASE_INSENSITIVE);
 
 
