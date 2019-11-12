@@ -81,7 +81,7 @@ public class PluginPackager {
 
   // Match jar entries that should *not* be exploded into plugin jar
   static final Pattern EXCLUDE_FROM_EXPLODE_PAT =
-    Pattern.compile("^META-INF/(\\w+\\.(mf|sf|dsa|rsa)$)?",
+    Pattern.compile("^META-INF/\\w+\\.(mf|sf|dsa|rsa)$?",
 		    Pattern.CASE_INSENSITIVE);
 
 
@@ -621,10 +621,20 @@ public class PluginPackager {
 	  if (!mat.matches()) {
 	    JarEntry destEnt = new JarEntry(ent.getName());
 	    destEnt.setTime(ent.getTime());
-	    jarOut.putNextEntry(destEnt);
-	    // 	  try {
+	    try {
+	      jarOut.putNextEntry(destEnt);
+	    } catch (RuntimeException/*java.util.zip.ZipException*/ e) {
+	      // Duplicate dir entries are expected.  Other duplicate
+	      // entries can't be assumed to be benign.
+	      if (ent.isDirectory()
+// 		  && StringUtil.indexOfIgnoreCase(e.toString(), "duplicate")
+		  ) {
+		log.debug2("Not exploding duplicate dir entry: {}", ent.getName());
+	      } else {
+		throw e;
+	      }
+	    }
 	    StreamUtil.copy(jis, jarOut);
-	    // 	  }
 	    jarOut.closeEntry();
 	  }
 	}
