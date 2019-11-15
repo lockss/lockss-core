@@ -38,6 +38,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.*;
 import org.apache.commons.collections.*;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.tuple.*;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
@@ -623,7 +624,7 @@ public class PluginPackager {
 	    destEnt.setTime(ent.getTime());
 	    try {
 	      jarOut.putNextEntry(destEnt);
-	    } catch (RuntimeException/*java.util.zip.ZipException*/ e) {
+	    } catch (java.util.zip.ZipException e) {
 	      // Duplicate dir entries are expected.  Other duplicate
 	      // entries can't be assumed to be benign.
 	      if (ent.isDirectory()
@@ -1124,6 +1125,8 @@ public class PluginPackager {
 	  pkgr.setIncludeLibDir(false);
 	} else if (arg.equals("-explodelib")) {
 	  pkgr.setExplodeLib(true);
+	} else if (arg.startsWith("-explodelib=")) {
+	  pkgr.setExplodeLib(BooleanUtils.toBoolean(arg.substring("-explodelib=".length())));
 	} else if (arg.equals("-keystore")) {
 	  pkgr.setKeystore(argv[++ix]);
 	} else if (arg.equals("-alias")) {
