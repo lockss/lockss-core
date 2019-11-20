@@ -32,7 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.metadata.extractor;
 
 import static org.lockss.util.rest.MetadataExtractorConstants.*;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -47,13 +46,12 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.lockss.account.AccountManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
-import org.lockss.servlet.ServletManager;
-import org.lockss.account.AccountManager;
 import org.lockss.util.Constants;
-import org.lockss.util.FileUtil;
+import org.lockss.util.PasswordUtil;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestNetworkException;
 import org.lockss.util.rest.RestUtil;
@@ -115,12 +113,11 @@ public class RestMetadataExtractorClient {
 	config.get(PARAM_PLATFORM_PASSWORD_FILE);
     log.trace("servicePasswordFilePathName = {}", servicePasswordFilePathName);
 
+    // Check whether there is a password file path name.
     if (servicePasswordFilePathName != null) {
-      try {
-	servicePassword = FileUtil.readPasswdFile(servicePasswordFilePathName);
-      } catch (IOException ioe) {
-	log.error("Exception caught getting service password", ioe);
-      }
+      // Yes: Get the password in the password file.
+      servicePassword =
+	  PasswordUtil.getPasswordFromResource(servicePasswordFilePathName);
     }
   }
 
