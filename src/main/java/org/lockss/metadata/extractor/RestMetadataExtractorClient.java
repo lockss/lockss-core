@@ -51,6 +51,7 @@ import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
 import org.lockss.servlet.ServletManager;
+import org.lockss.account.AccountManager;
 import org.lockss.util.Constants;
 import org.lockss.util.FileUtil;
 import org.lockss.util.rest.exception.LockssRestException;
@@ -107,7 +108,7 @@ public class RestMetadataExtractorClient {
    */
   private void setAuthenticationCredentials() {
     Configuration config = ConfigManager.getCurrentConfig();
-    serviceUser = config.get(ServletManager.PARAM_PLATFORM_USERNAME);
+    serviceUser = config.get(AccountManager.PARAM_PLATFORM_USERNAME);
     log.trace("serviceUser = {}", serviceUser);
 
     String servicePasswordFilePathName =
