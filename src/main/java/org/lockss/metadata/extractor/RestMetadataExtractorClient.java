@@ -35,6 +35,7 @@ import static org.lockss.util.rest.MetadataExtractorConstants.*;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -46,12 +47,9 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
-import org.lockss.account.AccountManager;
-import org.lockss.config.ConfigManager;
-import org.lockss.config.Configuration;
+import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.Constants;
-import org.lockss.util.PasswordUtil;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestNetworkException;
 import org.lockss.util.rest.RestUtil;
@@ -63,11 +61,6 @@ import org.lockss.util.rest.RestUtil;
  */
 public class RestMetadataExtractorClient {
   private static L4JLogger log = L4JLogger.getLogger();
-
-  /** Password file pathname. */
-  public static final String PARAM_PLATFORM_PASSWORD_FILE =
-    Configuration.PLATFORM + "ui.passwordfile";
-
   private String endpointUrl;
   private String serviceUser = null;
   private String servicePassword = null;
@@ -105,19 +98,22 @@ public class RestMetadataExtractorClient {
    * Saves the authentication credentials, if any.
    */
   private void setAuthenticationCredentials() {
-    Configuration config = ConfigManager.getCurrentConfig();
-    serviceUser = config.get(AccountManager.PARAM_PLATFORM_USERNAME);
-    log.trace("serviceUser = {}", serviceUser);
+    // Get the REST client credentials.
+    List<String> restClientCredentials = LockssDaemon.getLockssDaemon()
+	.getRestClientCredentials();
+    log.trace("restClientCredentials = " + restClientCredentials);
 
-    String servicePasswordFilePathName =
-	config.get(PARAM_PLATFORM_PASSWORD_FILE);
-    log.trace("servicePasswordFilePathName = {}", servicePasswordFilePathName);
+    // Check whether there is a user name.
+    if (restClientCredentials != null && restClientCredentials.size() > 0) {
+      // Yes: Get the user name.
+      serviceUser = restClientCredentials.get(0);
+      log.trace("serviceUser = " + serviceUser);
 
-    // Check whether there is a password file path name.
-    if (servicePasswordFilePathName != null) {
-      // Yes: Get the password in the password file.
-      servicePassword =
-	  PasswordUtil.getPasswordFromResource(servicePasswordFilePathName);
+      // Check whether there is a user password.
+      if (restClientCredentials.size() > 1) {
+	// Yes: Get the user password.
+	servicePassword = restClientCredentials.get(1);
+      }
     }
   }
 

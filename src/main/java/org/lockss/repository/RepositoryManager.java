@@ -124,8 +124,6 @@ public class RepositoryManager
   static final String PARAM_DISK_FULL_FRRE_PERCENT =
       DISK_PREFIX + "full.freePercent";
   static final double DEFAULT_DISK_FULL_FRRE_PERCENT = .01;
-  static final String PARAM_PLATFORM_PASSWORD_FILE =
-      Configuration.PLATFORM + "ui.passwordfile";
 
   private PlatformUtil platInfo = PlatformUtil.getInstance();
   private List repoList = Collections.EMPTY_LIST;
@@ -328,21 +326,26 @@ public class RepositoryManager
     case "rest":
       try {
 	URL url = new URL(spec.getPath());
-	String serviceUser = config.get(AccountManager.PARAM_PLATFORM_USERNAME);
-	if (log.isDebug3()) log.debug3("serviceUser = " + serviceUser);
-
+	String serviceUser = null;
 	String servicePassword = null;
 
-	String servicePasswordFilePathName =
-	    config.get(PARAM_PLATFORM_PASSWORD_FILE);
-	if (log.isDebug3()) log.debug3("servicePasswordFilePathName = "
-	    + servicePasswordFilePathName);
+	// Get the REST client credentials.
+	List<String> restClientCredentials =
+	    getDaemon().getRestClientCredentials();
+	if (log.isDebug3())
+	  log.debug3("restClientCredentials = " + restClientCredentials);
 
-	// Check whether there is a password file path name.
-	if (servicePasswordFilePathName != null) {
-	  // Yes: Get the password in the password file.
-	  servicePassword =
-	      PasswordUtil.getPasswordFromResource(servicePasswordFilePathName);
+	// Check whether there is a user name.
+	if (restClientCredentials != null && restClientCredentials.size() > 0) {
+	  // Yes: Get the user name.
+	  serviceUser = restClientCredentials.get(0);
+	  if (log.isDebug3()) log.debug3("serviceUser = " + serviceUser);
+
+	  // Check whether there is a user password.
+	  if (restClientCredentials.size() > 1) {
+	    // Yes: Get the user password.
+	    servicePassword = restClientCredentials.get(1);
+	  }
 	}
 
 	RestLockssRepository repo = LockssRepositoryFactory

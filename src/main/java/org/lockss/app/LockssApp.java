@@ -229,6 +229,9 @@ public class LockssApp {
   protected AppSpec appSpec;
   protected List<String> bootstrapPropsUrls = null;
   protected String restConfigServiceUrl = null;
+  protected String restClientCredentialsFilePath = null;
+  protected List<String> restClientCredentials = null;
+  protected boolean restClientCredentialsPopulated = false;
   protected List<String> propUrls = null;
   protected List<String> clusterUrls = null;
   protected String groupNames = null;
@@ -312,6 +315,50 @@ public class LockssApp {
    * service.  (I.e., it was started with a -c arg) */
   public boolean isConfigClient() {
     return restConfigServiceUrl != null;
+  }
+
+  /**
+   * Provides the REST Client credentials.
+   * 
+   * @return a List<String> with the REST Client credentials, or
+   *         <code>null</code> if no REST Client credentials have been
+   *         specified.
+   */
+  public List<String> getRestClientCredentials() {
+    if (log.isDebug3()) log.debug3("restClientCredentialsPopulated = "
+	+ restClientCredentialsPopulated);
+
+    // Check whether the credentials need to be populated.
+    if (!restClientCredentialsPopulated) {
+      // Yes.
+      if (log.isDebug3()) log.debug3("restClientCredentialsFilePath = "
+	  + restClientCredentialsFilePath);
+
+      // Check whether a file path for the credentials has been specified.
+      if (restClientCredentialsFilePath != null) {
+	// Yes.
+	try {
+	  // Read the credentials from the file.
+	  String credentials =
+	      FileUtil.readPasswdFile(restClientCredentialsFilePath);
+	  if (log.isDebug3()) log.debug3("credentials = " + credentials);
+
+	  // Parse the credentials.
+	  if (credentials != null && !credentials.isEmpty()) {
+	    restClientCredentials = StringUtil.breakAt(credentials, ":");
+	  }
+	} catch (IOException ioe) {
+	  log.warning("Exception caught getting REST client credentials", ioe);
+	}
+      }
+
+      // Remember that the credentials have been populated.
+      restClientCredentialsPopulated = true;
+    }
+
+    if (log.isDebug2())
+      log.debug2("restClientCredentials = " + restClientCredentials);
+    return restClientCredentials;
   }
 
   /** Return the current testing mode. */
@@ -1156,6 +1203,7 @@ public class LockssApp {
 
     bootstrapPropsUrls = opts.getBootstrapPropsUrls();
     restConfigServiceUrl = opts.getRestConfigServiceUrl();
+    restClientCredentialsFilePath = opts.getRestClientCredentialsFilePath();
     propUrls = opts.getPropUrls();
     clusterUrls = opts.getClusterUrls();
     groupNames = opts.getGroupNames();
@@ -1334,6 +1382,8 @@ public class LockssApp {
    *     <dd>Load bootstrap properties from url</dd>
    * <dt>-c url</dt>
    *     <dd>The URL of a REST Configuration service</dd>
+   * <dt>-r filePath</dt>
+   *     <dd>The file path of the credentials for REST service clients</dd>
    * <dt>-p url<i>n</i></dt>
    *     <dd>Load properties from url<i>n</i></dd>
    * <dt>-p url1 -p url2;url3;url4</dt>
@@ -1351,6 +1401,7 @@ public class LockssApp {
 
     public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
     public static final String OPTION_REST_CONFIG_SERVICE_URL = "-c";
+    public static final String OPTION_REST_CLIENT_CREDENTIALS_FILE_PATH = "-r";
     public static final String OPTION_PROPURL = "-p";
     public static final String OPTION_CLUSTERURL = "-l";
     public static final String OPTION_GROUP = "-g";
@@ -1360,6 +1411,7 @@ public class LockssApp {
 
     private List<String> bootstrapPropsUrls = new ArrayList<>();
     private String restConfigServiceUrl;
+    private String restClientCredentialsFilePath = null;
     private String groupNames;
     private List<String> propUrls = new ArrayList<String>();
     // clusterUrls is a subset of propUrls
@@ -1385,6 +1437,10 @@ public class LockssApp {
 
     public String getRestConfigServiceUrl() {
       return restConfigServiceUrl;
+    }
+
+    public String getRestClientCredentialsFilePath() {
+      return restClientCredentialsFilePath;
     }
 
     public List<String> getPropUrls() {
@@ -1453,6 +1509,14 @@ public class LockssApp {
 	  if (log.isDebug3()) {
 	    log.debug3("getStartupOptions(): " +
 		       "restConfigServiceUrl: " + restConfigServiceUrl);
+	  }
+	} else if (args[i].equals(OPTION_REST_CLIENT_CREDENTIALS_FILE_PATH)
+		   && i < args.length - 1) {
+	  // Handle the REST credentials file path.
+	  restClientCredentialsFilePath = args[++i];
+	  if (log.isDebug3()) {
+	    log.debug3("getStartupOptions(): restClientCredentialsFilePath: " +
+		       restClientCredentialsFilePath);
 	  }
 	} else if (args[i].startsWith(OPTION_SYSPROP)) {
 	  // Set sysprop
