@@ -35,6 +35,7 @@ import java.net.*;
 import java.util.*;
 import org.lockss.util.rest.multipart.MultipartResponse;
 import org.lockss.util.rest.multipart.MultipartResponse.Part;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.*;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -209,6 +210,15 @@ public class RestConfigFile extends BaseConfigFile {
       log.debug2("Rest Service content not changed, not reloading.");
       break;
     default:
+      // LockssRestException is encoded into MultipartResponse below here;
+      // undo that if reporting as exception, as the contrived HTTP status
+      // codes (e.g., 502 bad gateway for any network error) are confusing.
+      // (Said encoding should probably happen at a higher level, in the
+      // path back to Config Service.)
+      LockssRestException lre = response.getLockssRestException();
+      if (lre != null) {
+	throw lre;
+      }
       StringBuilder sb = new StringBuilder();
       sb.append(statusCode.toString());
       sb.append(": ");
