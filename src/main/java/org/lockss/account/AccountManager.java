@@ -400,6 +400,8 @@ public class AccountManager
 	  log.info("User " + acct.getName() + " " + msg);
 	  acct.auditableEvent(msg);
 	}
+      } catch (UserExistsException e) {
+	log.debug("Already installed platform user");
       } catch (NotAddedException e) {
 	log.error("Can't install platform user", e);
       }
@@ -448,6 +450,8 @@ public class AccountManager
 	  if (!StringUtil.isNullString(roles)) {
 	    acct.setRoles(roles);
 	  }
+	} catch (UserExistsException e) {
+	  log.debug("Already installed static user: " + user);
 	} catch (AccountManager.NotAddedException e) {
 	  log.error(e.getMessage());
 	}
@@ -562,6 +566,8 @@ public class AccountManager
 	  if (!StringUtil.isNullString(roles)) {
 	    acct.setRoles(roles);
 	  }
+	} catch (UserExistsException e) {
+	  log.debug("Already installed user: " + username);
 	} catch (NotAddedException e) {
 	  log.error("Can't install user: " + e.getMessage());
 	}
@@ -646,6 +652,8 @@ public class AccountManager
       if (acct != null) {
 	try {
 	  internalAddUser(acct);
+	} catch (UserExistsException e) {
+	  log.debug("Already installed user: " + e.getMessage());
 	} catch (NotAddedException e) {
 	  log.error("Can't install user: " + e.getMessage());
 	}
