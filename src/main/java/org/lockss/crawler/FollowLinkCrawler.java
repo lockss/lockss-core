@@ -699,6 +699,8 @@ public class FollowLinkCrawler extends BaseCrawler {
             } else {
 	      if (log.isDebug3()) log.debug3("No content: " + cu);
 	    }
+	  } catch (LockssUncheckedException e) {
+	    throw au.getPlugin().getCacheResultMap().getRepositoryException(e.getCause());
           } finally {
             cu.release();
           }
