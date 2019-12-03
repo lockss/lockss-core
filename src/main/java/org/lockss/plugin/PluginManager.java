@@ -36,6 +36,7 @@ import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
 import org.apache.commons.collections.map.*;
+import org.apache.commons.lang3.tuple.*;
 import org.lockss.alert.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -419,8 +420,7 @@ public class PluginManager
   // manifest index display).
   private Map<String,AuSearchSet> hostAus = new HashMap<String,AuSearchSet>();
 
-  private List<AuEventHandler> auEventHandlers =
-    new ArrayList<AuEventHandler>();
+  private List<AuEventHandler> auEventHandlers = new ArrayList<>();
 
   // Counters for AUs restarted due to new plugin loaded
   private int numAusRestarting = 0;
@@ -3838,16 +3838,23 @@ public class PluginManager
     this.keystoreInited = val;
   }
 
+
+  final static Pattern LIB_JAR_PAT = Pattern.compile("lib/.*\\.jar$");
+
   /**
-   * Given a file representing a JAR, retrieve a list of available
-   * plugin classes to load.
+   * Given a file representing a JAR, construct a list of available plugin
+   * classes to load, and a list of lib jars that should be on the
+   * classpath.
    */
-  private List<String> getJarPluginClasses(File blessedJar) throws IOException {
+  private Pair<List<String>,List<String>> processJarPlugin(File blessedJar)
+      throws IOException {
     JarFile jar = new JarFile(blessedJar);
     Manifest manifest = jar.getManifest();
     Map entries = manifest.getEntries();
-    List<String> plugins = new ArrayList<String>();
+    List<String> plugins = new ArrayList<>();
+    List<String> libjars = new ArrayList<>();
 
+    // Search manifest for plugin names
     for (Iterator manIter = entries.keySet().iterator(); manIter.hasNext();) {
       String key = (String)manIter.next();
 
@@ -3871,9 +3878,41 @@ public class PluginManager
 
     }
 
+    // Search for jars in lib/ dir
+    File depLibDir =
+      new File(FileUtil.getButExtension(blessedJar.toString()), "lib");
+    for (Enumeration<JarEntry> en = jar.entries(); en.hasMoreElements(); ) {
+      JarEntry ent = en.nextElement();
+      Matcher mat = LIB_JAR_PAT.matcher(ent.getName());
+      if (mat.matches()) {
+	try {
+	  libjars.add(copyDependentJar(jar, ent, depLibDir));
+	} catch (IOException e) {
+	  log.error("Couldn't copy plugin lib jars", e);
+	}
+      }
+    }
+
     jar.close();
 
-    return plugins;
+    return new ImmutablePair(plugins, libjars);
+  }
+
+  private String copyDependentJar(JarFile jfile, JarEntry ent, File libdir)
+      throws IOException {
+    if (!FileUtil.ensureDirExists(libdir)) {
+      throw new IOException("Couldn't create plugin lib dir " + libdir);
+    }
+    try (InputStream is = jfile.getInputStream(ent)) {
+      // ent.getName() is "lib/foo.jar"
+      File outfile = new File(libdir, new File(ent.getName()).getName());
+      log.debug("Copying " + ent + " to " + outfile);
+      try (OutputStream os =
+	   new BufferedOutputStream(new FileOutputStream(outfile))) {
+	StreamUtil.copy(is, os);
+	return outfile.toString();
+      }
+    }
   }
 
   public synchronized void processRegistryAus(List registryAus) {
@@ -3910,7 +3949,7 @@ public class PluginManager
 
     // AUs running under plugins that have been replaced by new versions.
     List<ArchivalUnit> needRestartAus = new ArrayList();
-    List<String> changedPluginKeys = new ArrayList<String>();
+    List<String> changedPluginKeys = new ArrayList<>();
 
     for (Map.Entry<String,PluginInfo> entry : tmpMap.entrySet()) {
       String key = entry.getKey();
@@ -4025,9 +4064,12 @@ public class PluginManager
 				    ArchivalUnit au, CachedUrl cu,
 				    Map tmpMap) {
     // Get the list of plugins to load from this jar.
-    List loadPlugins = null;
+    List<String> loadPlugins;
+    List<String> libJars;
     try {
-      loadPlugins = getJarPluginClasses(jarFile);
+      Pair<List<String>,List<String>> p = processJarPlugin(jarFile);
+      loadPlugins = p.getLeft();
+      libJars = p.getRight();
     } catch (IOException ex) {
       log.error("Error while getting list of plugins for " +
 		jarFile);
@@ -4048,7 +4090,13 @@ public class PluginManager
     URL blessedUrl;
     try {
       blessedUrl = jarFile.toURL();
-      URL[] urls = new URL[] { blessedUrl };
+      List<URL> cp = new ArrayList<>();
+      cp.add(blessedUrl);
+      for (String jar : libJars) {
+	cp.add(new File(jar).toURL());
+      }
+      URL[] urls = cp.toArray(new URL[0]);
+      log.debug2("Plugin classpath: " + cp);
       pluginLoader =
 	preferLoadablePlugin
 	? new LoadablePluginClassLoader(urls, getClass().getClassLoader())
@@ -4059,11 +4107,7 @@ public class PluginManager
       return; // skip this CU.
     }
 
-    String pluginName = null;
-
-    for (Iterator pluginIter = loadPlugins.iterator();
-	 pluginIter.hasNext();) {
-      pluginName = (String)pluginIter.next();
+    for (String pluginName : loadPlugins) {
       String key = pluginKeyFromName(pluginName);
 
       Plugin plugin;

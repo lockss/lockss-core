@@ -120,7 +120,6 @@ public class TestFollowLinkCrawlerErrorPaths extends LockssTestCase {
     Properties p = new Properties();
     p.setProperty(FollowLinkCrawler.PARAM_DEFAULT_RETRY_DELAY, "0");
     p.setProperty(FollowLinkCrawler.PARAM_MIN_RETRY_DELAY, "0");
-    p.setProperty("org.lockss.log.FollowLinkCrawler.level", "3");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     cf = crawler.getCrawlerFacade();
   }

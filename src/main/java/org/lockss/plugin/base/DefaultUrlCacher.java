@@ -213,7 +213,12 @@ public class DefaultUrlCacher implements UrlCacher {
           String name = redirectUrls.get(ix);
           if (logger.isDebug2())
             logger.debug2("Storing in redirected-to url: " + name);
-          InputStream is = cu.getUnfilteredInputStream();
+          InputStream is;
+	  try {
+	    is = cu.getUnfilteredInputStream();
+	  } catch (LockssUncheckedException e) {
+	    throw resultMap.getRepositoryException(e.getCause());
+	  }
           try {
             if (ix < last) {
               // this one was redirected, set its redirected-to prop to the
@@ -306,18 +311,18 @@ public class DefaultUrlCacher implements UrlCacher {
     try {
       MessageDigest checksumProducer = null;
       String checksumAlgorithm =
-          CurrentConfig.getParam(PARAM_CHECKSUM_ALGORITHM,
-              DEFAULT_CHECKSUM_ALGORITHM);
+	CurrentConfig.getParam(PARAM_CHECKSUM_ALGORITHM,
+			       DEFAULT_CHECKSUM_ALGORITHM);
       if (!StringUtil.isNullString(checksumAlgorithm)) {
-        try {
-          checksumProducer = MessageDigest.getInstance(checksumAlgorithm);
+	try {
+	  checksumProducer = MessageDigest.getInstance(checksumAlgorithm);
 	  HashedInputStream.Hasher hasher =
 	    new HashedInputStream.Hasher(checksumProducer);
 	  in = new BufferedInputStream(new HashedInputStream(in, hasher));
-        } catch (NoSuchAlgorithmException ex) {
-          logger.warning(String.format("Checksum algorithm %s not found, "
-              + "checksumming disabled", checksumAlgorithm));
-        }
+	} catch (NoSuchAlgorithmException ex) {
+	  logger.warning(String.format("Checksum algorithm %s not found, "
+				       + "checksumming disabled", checksumAlgorithm));
+	}
       }
       // TK shouldn't supply version number
       ArtifactIdentifier id = new ArtifactIdentifier(v2Coll, au.getAuId(),
@@ -349,7 +354,7 @@ public class DefaultUrlCacher implements UrlCacher {
           CacheException closeEx =
             resultMap.mapException(au, fetchUrl, ex, null);
           if (!(closeEx instanceof CacheException.IgnoreCloseException)) {
-            throw new StreamUtil.InputException(ex);
+            throw new InputIOException(ex);
           }
         }
       }

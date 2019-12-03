@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2009 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -169,7 +165,7 @@ public class LockssKeyStore {
       throw new NullPointerException("location must be a non-null string");
     try {
       if (keyPassword == null && keyPasswordFile != null) {
-	keyPassword = readPasswdFile();
+	keyPassword = FileUtil.readPasswdFile(keyPasswordFile);
       }
       if (mayCreate) {
 	File file = new File(location);
@@ -192,47 +188,6 @@ public class LockssKeyStore {
       // logged at higher level
       throw new UnavailableKeyStoreException(e);
     }
-  }
-
-  /** Read password from file, then overwrite and delete file */
-  String readPasswdFile() throws IOException {
-    File file = new File(keyPasswordFile);
-    FileInputStream fis = new FileInputStream(file);
-    long llen = file.length();
-    if (llen > 1000) {
-      throw new IOException("Unreasonably large password file: " + llen);
-    }
-    int len = (int)llen;
-    byte[] pwdChars = new byte[len];
-    try {
-      try {
-	int nread = StreamUtil.readBytes(fis, pwdChars, len);
-	if (nread != len) {
-	  throw new IOException("short read");
-	}
-      } finally {
-	IOUtil.safeClose(fis);
-      }
-    } finally {
-      overwriteAndDelete(file, len);
-    }
-    return new String(pwdChars);
-  }
-
-  /** Overwrite and delete file, trap and log any exceptions */
-  void overwriteAndDelete(File file, int len) {
-    OutputStream fos = null;
-    try {
-      fos = new FileOutputStream(file);
-      byte[] junk = new byte[len];
-      Arrays.fill(junk, (byte)0x5C);
-      fos.write(junk);
-    } catch (IOException e) {
-      log.error("Couldn't overwrite file: " + file, e);
-    } finally {
-      IOUtil.safeClose(fos);
-    }
-    file.delete();
   }
 
   /** Create a keystore with a self-signed certificate */

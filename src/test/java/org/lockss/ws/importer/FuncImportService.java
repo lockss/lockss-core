@@ -83,8 +83,8 @@ public class FuncImportService extends LockssTestCase {
 
     int port = TcpTestUtil.findUnboundTcpPort();
     ConfigurationUtil.addFromArgs(AdminServletManager.PARAM_PORT, "" + port,
-	ServletManager.PARAM_PLATFORM_USERNAME, USER_NAME,
-	ServletManager.PARAM_PLATFORM_PASSWORD, PASSWORD_SHA1);
+	AccountManager.PARAM_PLATFORM_USERNAME, USER_NAME,
+	AccountManager.PARAM_PLATFORM_PASSWORD, PASSWORD_SHA1);
 
     theDaemon = getMockLockssDaemon();
     theDaemon.suppressStartAuManagers(false);

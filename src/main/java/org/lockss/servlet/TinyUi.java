@@ -37,6 +37,7 @@ import java.net.*;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.app.*;
+import org.lockss.account.AccountManager;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.jetty.*;
@@ -63,6 +64,7 @@ public class TinyUi extends BaseServletManager {
   public static final boolean DO_USER_AUTH = false;
 
   private String[] tinyData;
+  protected boolean enableDebugUser = true;
 
   public TinyUi() {
     super(SERVER_NAME);
@@ -110,9 +112,8 @@ public class TinyUi extends BaseServletManager {
     mi.doAuth = DO_USER_AUTH;
     mi.doFilterIpAccess = false;
     mi.authRealm = AdminServletManager.UI_REALM;
-    mi.defaultLogForbidden = AdminServletManager.DEFAULT_ENABLE_DEBUG_USER;
-    mi.defaultEnableDebugUser = true;
-    mi.debugUserFile = AdminServletManager.PASSWORD_PROPERTY_FILE;
+    mi.defaultLogForbidden = AdminServletManager.DEFAULT_LOG_FORBIDDEN;
+    mi.debugUserFile = AccountManager.DEBUG_USER_PROPERTY_FILE;
     return mi;
   }
 
@@ -165,8 +166,8 @@ public class TinyUi extends BaseServletManager {
   protected void installPlatformUser() {
     // Use platform config as real config hasn't been loaded yet
     Configuration platConfig = ConfigManager.getPlatformConfig();
-    String platUser = platConfig.get(PARAM_PLATFORM_USERNAME);
-    String platPass = platConfig.get(PARAM_PLATFORM_PASSWORD);
+    String platUser = platConfig.get(AccountManager.PARAM_PLATFORM_USERNAME);
+    String platPass = platConfig.get(AccountManager.PARAM_PLATFORM_PASSWORD);
 
     if (!StringUtil.isNullString(platUser) &&
 	!StringUtil.isNullString(platPass)) {

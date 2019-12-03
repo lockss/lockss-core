@@ -583,8 +583,8 @@ public class RemoteApi
       Configuration platConfig =
 	ConfigManager.getPlatformConfig().getConfigTree(Configuration.PLATFORM).addPrefix(Configuration.PLATFORM);
       // remove password info
-      platConfig.remove(ServletManager.PARAM_PLATFORM_USERNAME);
-      platConfig.remove(ServletManager.PARAM_PLATFORM_PASSWORD);
+      platConfig.remove(AccountManager.PARAM_PLATFORM_USERNAME);
+      platConfig.remove(AccountManager.PARAM_PLATFORM_PASSWORD);
 
       platConfig.put(BACK_PROP_VERSION, "2");
       platConfig.put(BACK_PROP_VERSION, "2");

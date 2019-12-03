@@ -191,7 +191,7 @@ public class LockssRepositoryStatus {
 //       table.setColumnDescriptors(columnDescriptors);
 //       table.setDefaultSortRules(sortRules);
 //       table.setRows(getRows(table, rs));
-      table.setSummaryInfo(getSummaryInfo(rs));
+      table.setSummaryInfo(getSummaryInfo(table, rs));
     }
 
     public boolean requiresKey() {
@@ -199,7 +199,7 @@ public class LockssRepositoryStatus {
     }
 
 
-    private List getSummaryInfo(RepoSpec rs) {
+    private List getSummaryInfo(StatusTable table, RepoSpec rs) {
       List res = new ArrayList();
       LockssRepository repo = rs.getRepository();
       if (repo instanceof RestLockssRepository) {
@@ -210,7 +210,7 @@ public class LockssRepositoryStatus {
 	ArtifactCache artCache = rrepo.getArtifactCache();
 	if (artCache.isEnabled()) {
 	  ArtifactCache.Stats stats = artCache.getStats();
-	  String val =
+	  String artStats =
 	    String.format("%d hits, %d iter hits, %d misses, %d stores, %d invalidates",
 			  stats.getCacheHits(),
 			  stats.getCacheIterHits(),
@@ -219,15 +219,59 @@ public class LockssRepositoryStatus {
 			  stats.getCacheInvalidates());
 	  res.add(new StatusTable.SummaryInfo("Artifact cache",
 					      ColumnDescriptor.TYPE_STRING,
-					      val));
+					      artStats));
+	  if (artCache.isInstrumented()) {
+	    String hist = makeHist(stats.getArtHist(),
+				   stats.getMaxArtSize());
+	    res.add(new StatusTable.SummaryInfo("Histogram",
+						ColumnDescriptor.TYPE_STRING,
+						hist));
+	    String iterHist = makeHist(stats.getArtIterHist(),
+				       stats.getMaxArtSize());
+	    res.add(new StatusTable.SummaryInfo("Iter hist",
+						ColumnDescriptor.TYPE_STRING,
+						iterHist));
+	  }
+	  String dataStats =
+	    String.format("%d hits, %d misses, %d stores",
+			  stats.getDataCacheHits(),
+			  stats.getDataCacheMisses(),
+			  stats.getDataCacheStores());
+	  res.add(new StatusTable.SummaryInfo("ArtifactData cache",
+					      ColumnDescriptor.TYPE_STRING,
+					      dataStats));
+	  if (artCache.isInstrumented()) {
+	    String hist = makeHist(stats.getArtDataHist(),
+				   stats.getMaxArtDataSize());
+	    res.add(new StatusTable.SummaryInfo("Histogram",
+						ColumnDescriptor.TYPE_STRING,
+						hist));
+	  }
 	} else if (rrepo.isArtifactCacheEnabled()) {
 	  res.add(new StatusTable.SummaryInfo("Artifact cache",
 					      ColumnDescriptor.TYPE_STRING,
 					      "enabling (waiting for confirmation from repository service)"));
 	}
+	if (table.getOptions().get(StatusTable.OPTION_DEBUG_USER)) {
+	  ArtifactData.Stats stats = ArtifactData.getStats();
+	  String str =
+	    StringUtil.numberOfUnits(stats.getInputUsed(), "InputStream") +
+	    " used, " + stats.getInputUnused() + " unused";
+	  if (stats.getUnreleased() > 0) {
+	    str += ", " + stats.getUnreleased() + " unreleased";
+	  }
+	  res.add(new StatusTable.SummaryInfo("ArtifactData",
+					      ColumnDescriptor.TYPE_STRING,
+					      str));
+	}
       }
       return res;
     }
+  }
+
+  private static String makeHist(int[] hist, int max) {
+    return String.format("%d-%d by %ds: %s", 1, max, max / hist.length,
+			 StringUtil.separatedString(hist, ", "));
   }
 
   /** Display list of AUIDs in a Collection */

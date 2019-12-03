@@ -33,8 +33,12 @@ package org.lockss.metadata.extractor;
 
 import static org.lockss.util.rest.MetadataExtractorConstants.*;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +47,7 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.Constants;
 import org.lockss.util.rest.exception.LockssRestException;
@@ -56,8 +61,9 @@ import org.lockss.util.rest.RestUtil;
  */
 public class RestMetadataExtractorClient {
   private static L4JLogger log = L4JLogger.getLogger();
-
   private String endpointUrl;
+  private String serviceUser = null;
+  private String servicePassword = null;
   private long connectTimeout;
   private long readTimeout;
 
@@ -82,6 +88,33 @@ public class RestMetadataExtractorClient {
     this.endpointUrl = endpointUrl;
     this.connectTimeout = connectTimeout;
     this.readTimeout = readTimeout;
+
+    // Populate the authentication credentials, if any.
+    setAuthenticationCredentials();
+  }
+
+
+  /**
+   * Saves the authentication credentials, if any.
+   */
+  private void setAuthenticationCredentials() {
+    // Get the REST client credentials.
+    List<String> restClientCredentials = LockssDaemon.getLockssDaemon()
+	.getRestClientCredentials();
+    log.trace("restClientCredentials = " + restClientCredentials);
+
+    // Check whether there is a user name.
+    if (restClientCredentials != null && restClientCredentials.size() > 0) {
+      // Yes: Get the user name.
+      serviceUser = restClientCredentials.get(0);
+      log.trace("serviceUser = " + serviceUser);
+
+      // Check whether there is a user password.
+      if (restClientCredentials.size() > 1) {
+	// Yes: Get the user password.
+	servicePassword = restClientCredentials.get(1);
+      }
+    }
   }
 
   /**
@@ -114,6 +147,12 @@ public class RestMetadataExtractorClient {
 	.build().encode().toUri();
     log.trace("uri = {}", () -> uri);
 
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
     // Initialize the payload.
     MetadataUpdateSpec metadataUpdateSpec = new MetadataUpdateSpec();
     metadataUpdateSpec.setAuid(auId);
@@ -125,7 +164,7 @@ public class RestMetadataExtractorClient {
 
     // Create the request entity.
     HttpEntity<MetadataUpdateSpec> requestEntity =
-	new HttpEntity<MetadataUpdateSpec>(metadataUpdateSpec, null);
+	new HttpEntity<MetadataUpdateSpec>(metadataUpdateSpec, requestHeaders);
 
     try {
       // Make the REST call.
@@ -145,6 +184,22 @@ public class RestMetadataExtractorClient {
     } catch (RuntimeException re) {
       log.error("Exception caught", re);
       throw new LockssRestNetworkException(re);
+    }
+  }
+
+  /**
+   * Sets the authentication credentials in a request.
+   * 
+   * @param requestHeaders
+   *          An HttpHeaders with the request headers.
+   */
+  private void setAuthenticationCredentials(HttpHeaders requestHeaders) {
+    if (serviceUser != null && servicePassword != null) {
+      String credentials = serviceUser + ":" + servicePassword;
+      String authHeaderValue = "Basic " + Base64.getEncoder()
+      .encodeToString(credentials.getBytes(StandardCharsets.US_ASCII));
+      requestHeaders.set("Authorization", authHeaderValue);
+      log.trace("requestHeaders = {}", requestHeaders);
     }
   }
 

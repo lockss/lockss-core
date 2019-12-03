@@ -39,6 +39,7 @@ import java.util.Properties;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import org.junit.Ignore;
+import org.lockss.account.AccountManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.servlet.AdminServletManager;
@@ -80,8 +81,8 @@ public class TestDaemonStatusServiceClient extends LockssTestCase {
 	tempDirPath);
 
     props.setProperty(AdminServletManager.PARAM_PORT, "" + port);
-    props.setProperty(ServletManager.PARAM_PLATFORM_USERNAME, USER_NAME);
-    props.setProperty(ServletManager.PARAM_PLATFORM_PASSWORD, PASSWORD_SHA1);
+    props.setProperty(AccountManager.PARAM_PLATFORM_USERNAME, USER_NAME);
+    props.setProperty(AccountManager.PARAM_PLATFORM_PASSWORD, PASSWORD_SHA1);
 
     ConfigurationUtil.setCurrentConfigFromProps(props);
 

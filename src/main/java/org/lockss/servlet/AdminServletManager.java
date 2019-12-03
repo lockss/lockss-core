@@ -64,9 +64,6 @@ public class AdminServletManager extends BaseServletManager {
   public static final String SERVER_NAME = "Admin";
   /** Auth realm */
   public static final String UI_REALM = "LOCKSS Admin";
-  /** File holding debug user passwd */
-  public static final String PASSWORD_PROPERTY_FILE =
-          "/org/lockss/servlet/admin.props";
 
   // All of the params that are defined in terms of SUFFIX_XXX are accessed
   // via the generic mechanism in BaseServletManager.setConfig().  The
@@ -127,10 +124,6 @@ public class AdminServletManager extends BaseServletManager {
   public static final String DEFAULT_403_MSG =
           "Access to the admin UI is not allowed from this IP address (%IP%)";
 
-  public static final String PARAM_ENABLE_DEBUG_USER =
-          PREFIX + SUFFIX_ENABLE_DEBUG_USER;
-  public static final boolean DEFAULT_ENABLE_DEBUG_USER = true;
-
   /** Path to directory holding daemon logs */
   public static final String PARAM_LOGDIR =
     Configuration.PREFIX +  "platform.logdirectory";
@@ -147,10 +140,9 @@ public class AdminServletManager extends BaseServletManager {
     mi.default403Msg = DEFAULT_403_MSG;
     mi.doAuth = DO_USER_AUTH;
     mi.authRealm = UI_REALM;
-    mi.defaultEnableDebugUser = DEFAULT_ENABLE_DEBUG_USER;
     mi.defaultLogForbidden = DEFAULT_LOG_FORBIDDEN;
     mi.defaultResolveRemoteHost = DEFAULT_RESOLVE_REMOTE_HOST;
-    mi.debugUserFile = PASSWORD_PROPERTY_FILE;
+    mi.debugUserFile = AccountManager.DEBUG_USER_PROPERTY_FILE;
     return mi;
   }
 

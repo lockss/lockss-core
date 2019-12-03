@@ -191,28 +191,20 @@ public abstract class BaseServletManager
   /** String to display in red on ui pages. */
   public static final String PARAM_WARNING = DOC_PREFIX + SUFFIX_WARNING;
 
-  public static final String SUFFIX_ENABLE_DEBUG_USER = "debugUser.enable";
-  /** Enable the debug user on named server.  Daemon restart required. */
-  public static final String PARAM_ENABLE_DEBUG_USER =
-    DOC_PREFIX + SUFFIX_ENABLE_DEBUG_USER;
-
   // User login tree below org.lockss.<server>.users
   public static final String SUFFIX_USERS = "users";
   public static final String DOC_USERS_PREFIX =
     DOC_PREFIX + SUFFIX_USERS + ".";
 
-  public static final String USER_PARAM_USER = "user";
   /** Username */
   public static final String PARAM_USER_PARAM_USER =
-    DOC_USERS_PREFIX + USER_PARAM_USER;
-  public static final String USER_PARAM_PWD = "password";
+    DOC_USERS_PREFIX + AccountManager.USER_PARAM_USER;
   /** Encrypted password */
   public static final String PARAM_USER_PARAM_PWD =
-    DOC_USERS_PREFIX + USER_PARAM_PWD;
-  public static final String USER_PARAM_ROLES = "roles";
+    DOC_USERS_PREFIX + AccountManager.USER_PARAM_PWD;
   /** List of roles (Debug, Admin) */
   public static final String PARAM_USER_PARAM_ROLES =
-    DOC_USERS_PREFIX + USER_PARAM_ROLES;
+    DOC_USERS_PREFIX + AccountManager.USER_PARAM_ROLES;
 
 
   public enum AuthType {Basic, Form}
@@ -236,7 +228,6 @@ public abstract class BaseServletManager
   private String excludeIps;
   private boolean logForbidden;
   private long maxLoginInactivity = DEFAULT_MAX_LOGIN_INACTIVITY;
-  protected boolean enableDebugUser;
   protected boolean useSsl;
   protected boolean resolveRemoteHost;
   protected String warningMsg;
@@ -307,8 +298,6 @@ public abstract class BaseServletManager
 					  DEFAULT_TCP_KEEPALIVE);
       start = config.getBoolean(prefix + SUFFIX_START, mi.defaultStart);
       _403Msg = config.get(prefix + SUFFIX_403_MSG, mi.default403Msg);
-      enableDebugUser = config.getBoolean(prefix + SUFFIX_ENABLE_DEBUG_USER,
-					  mi.defaultEnableDebugUser);
       useSsl = config.getBoolean(mi.prefix + SUFFIX_USE_SSL, false);
       if (useSsl) {
  	sslKeystoreName = config.get(mi.prefix + SUFFIX_SSL_KEYSTORE_NAME);
@@ -599,60 +588,23 @@ public abstract class BaseServletManager
   }
 
   protected void installDebugUser() {
-    if (enableDebugUser) {
-      try {
-	log.debug("passwd props file: " + mi.debugUserFile);
-	URL propsUrl = this.getClass().getResource(mi.debugUserFile);
-	if (propsUrl != null) {
-	  log.debug("passwd props file: " + propsUrl);
-	  log.debug("debugUserFile: " + mi.debugUserFile);
-	  acctMgr.loadFromProps(mi.debugUserFile);
-	}
-      } catch (IOException e) {
-	log.warning("Error loading " + mi.debugUserFile, e);
-      }
-    }
+    acctMgr.installDebugUser(mi.debugUserFile);
   }
 
   // Manually install password set by platform config.
   protected void installPlatformUser() {
-    // Use platform config in case real config hasn't been loaded yet (when
-    // used from TinyUI)
-    Configuration platConfig = ConfigManager.getPlatformConfig();
-    String platUser = platConfig.get(PARAM_PLATFORM_USERNAME);
-    String platPass = platConfig.get(PARAM_PLATFORM_PASSWORD);
-    acctMgr.installPlatformUser(platUser, platPass);
+    acctMgr.installPlatformUser();
   }
 
   protected void installGlobalUsers() {
     // Install globally configured users
     // XXX disallow this on the platform
-    installUsers(ConfigManager.getCurrentConfig().getConfigTree(mi.prefix + SUFFIX_USERS));
+    acctMgr.installStaticConfigUsers(ConfigManager.getCurrentConfig().getConfigTree(mi.prefix + SUFFIX_USERS));
   }
 
   protected void installLocalUsers() {
     // Install locally configured users
 //     installUsers(ConfigManager.getCurrentConfig().getConfigTree(PARAM_USERS));
-  }
-
-  protected void installUsers(Configuration users) {
-    for (Iterator iter = users.nodeIterator(); iter.hasNext(); ) {
-      Configuration oneUser = users.getConfigTree((String)iter.next());
-      String user = oneUser.get(USER_PARAM_USER);
-      String pwd = oneUser.get(USER_PARAM_PWD);
-      String roles = oneUser.get(USER_PARAM_ROLES);
-      if (!StringUtil.isNullString(user) &&
-	  !StringUtil.isNullString(pwd)) {
-	try {
-	  UserAccount acct = acctMgr.addStaticUser(user, pwd);
-	  if (!StringUtil.isNullString(roles)) {
-	    acct.setRoles(roles);
-	  }
-	} catch (AccountManager.NotAddedException e) {
-	  log.error(e.getMessage());
-	}
-      }
-    }
   }
 
   protected void addAccessHandler(HttpContext context) {
@@ -823,7 +775,6 @@ public abstract class BaseServletManager
     boolean doAuth;
     boolean doFilterIpAccess = true;
     String authRealm;
-    boolean defaultEnableDebugUser;
     boolean defaultLogForbidden;
     boolean defaultResolveRemoteHost;
     String debugUserFile;

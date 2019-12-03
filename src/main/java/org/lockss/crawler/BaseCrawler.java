@@ -550,7 +550,9 @@ public abstract class BaseCrawler implements Crawler {
     }
   }
 
-  protected void updateCacheStats(FetchResult res, CrawlUrlData curl) {
+  protected void updateCacheStats(UrlFetcher uf,
+				  FetchResult res,
+				  CrawlUrlData curl) {
     // Paranoia - assert that the rate limiter was actually used
     CrawlRateLimiter crl = getCrawlRateLimiter();
     if(res != FetchResult.NOT_FETCHED &&
@@ -571,9 +573,11 @@ public abstract class BaseCrawler implements Crawler {
         CachedUrl cu = au.makeCachedUrl(curl.getUrl());
 
         if (cu.hasContent()) {
-          updateStatusMimeType(cu);
+          previousContentType =
+	    AuUtil.contentTypeFromHeadersOrUrl(au, curl.getUrl(),
+					       uf.getUncachedProperties());
+          updateStatusMimeType(previousContentType, cu);
           crawlStatus.addContentBytesFetched(cu.getContentSize());
-          previousContentType = cu.getContentType();
         }
         cu.release();
       }
@@ -703,13 +707,11 @@ public abstract class BaseCrawler implements Crawler {
    * update the crawl.status to keep record of urls 
    * found with different types of mime-types 
    */
-  private void updateStatusMimeType(CachedUrl cu) {
-    String conType = cu.getContentType();  
-    if (conType != null) {      
-      String mimeType = HeaderUtil.getMimeTypeFromContentType(conType);
+  private void updateStatusMimeType(String contentType, CachedUrl cu) {
+    if (contentType != null) {
+      String mimeType = HeaderUtil.getMimeTypeFromContentType(contentType);
       crawlStatus.signalMimeTypeOfUrl(mimeType, cu.getUrl()); 
     }
-    return;
   }
   
   // Follow http: and https: links

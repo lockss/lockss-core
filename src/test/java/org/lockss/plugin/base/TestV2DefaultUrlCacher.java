@@ -941,8 +941,8 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     cacher = new MyDefaultUrlCacher(mau, ud);
     try {
       cacher.storeContent();
-      fail("Copy should have thrown");
-    } catch (IOException e) {
+      fail("Copy should have thrown CacheException");
+    } catch (CacheException e) {
       Throwable t = e.getCause();
       assertClass(IOException.class, t);
       assertEquals("java.io.IOException: Malformed chunk", t.toString());
@@ -959,12 +959,12 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     cacher = new MyDefaultUrlCacher(mau, ud);
     try {
       cacher.storeContent();
-      fail("Copy should have thrown");
-    } catch (IOException e) {
+      fail("Copy should have thrown CacheException");
+    } catch (CacheException e) {
       Throwable t = e.getCause();
       assertClass(IOException.class, t);
       assertEquals("java.io.IOException: CRLF expected at end of chunk: -1/-1",
-		   t.getMessage());
+		   t.toString());
     }
   }
 
@@ -1037,7 +1037,7 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     @Override
     protected Artifact addArtifact(ArtifactData ad) throws IOException {
       if (throwOnAdd != null) {
-	logger.critical("Throwing: " + throwOnAdd);
+	logger.debug("Throwing: " + throwOnAdd);
 	throw throwOnAdd;
       }
       return super.addArtifact(ad);

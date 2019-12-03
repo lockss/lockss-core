@@ -388,8 +388,9 @@ public class MockArchivalUnit implements ArchivalUnit {
   }
   
   protected MockUrlFetcher makeMockUrlFetcher(MockCrawlerFacade mcf, 
-      String url) {
-    return new MockUrlFetcher(mcf, url);
+					      String url,
+					      CIProperties props) {
+    return new MockUrlFetcher(mcf, url).setUncachedProperties(props);
   }
 
   /**
@@ -479,6 +480,12 @@ public class MockArchivalUnit implements ArchivalUnit {
     CIProperties props = new CIProperties();
     props.setProperty(CachedUrl.PROPERTY_CONTENT_TYPE, contentType);
     cu.setProperties(props);
+    if (ufHash != null) {
+      UrlFetcher uf = (UrlFetcher)ufHash.get(url);
+      if (uf instanceof MockUrlFetcher) {
+	((MockUrlFetcher)uf).setUncachedProperties(props);
+      }
+    }
     return cu;
   }
   
@@ -492,7 +499,7 @@ public class MockArchivalUnit implements ArchivalUnit {
     cu.setExists(exists);
     MockCrawlerFacade mcf = new MockCrawler().new MockCrawlerFacade(this);
     MockUrlCacher uc = makeMockUrlCacher(new UrlData(null, props, url));
-    MockUrlFetcher uf = makeMockUrlFetcher(mcf, url);
+    MockUrlFetcher uf = makeMockUrlFetcher(mcf, url, props);
     uc.setShouldBeCached(shouldCache);
     if (shouldCache) {
       addUrlToBeCached(url);
