@@ -174,5 +174,8 @@ public class ManagerDescs {
   
   public static ManagerDesc CONFIG_DB_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.CONFIG_DB_MANAGER,
-		    "org.lockss.config.db.ConfigDbManager");
+		    "org.lockss.config.db.ConfigDbManager") {
+      public boolean shouldStart(LockssApp app) {
+        return !app.isConfigClient();
+      }};
 }
