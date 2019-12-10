@@ -671,7 +671,7 @@ public class FileUtil {
       Arrays.fill(junk, (byte)0x5C);
       fos.write(junk);
     } catch (IOException e) {
-      log.error("Couldn't overwrite file: " + file, e);
+      log.warning("Couldn't overwrite file: " + file + ": " + e);
     } finally {
       IOUtil.safeClose(fos);
     }
