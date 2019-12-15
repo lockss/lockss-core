@@ -54,6 +54,7 @@ import org.lockss.util.rest.multipart.MultipartResponse.Part;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
+import org.lockss.util.Constants;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -96,7 +97,7 @@ public class RestConfigClient {
   private String serviceLocation = null;
   private String serviceUser = null;
   private String servicePassword = null;
-  private Integer serviceTimeout = new Integer(60);
+  private int serviceTimeout = (int)(60 * Constants.SECOND);
 
   /**
    * Constructor.
