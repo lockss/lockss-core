@@ -2956,22 +2956,26 @@ public class V3Poller implements Poll {
   boolean isPeerEligible(PeerIdentity pid, DatedPeerIdSet noAuSet) {
     // never include a local id.
     if (pid.isLocalIdentity()) {
+      log.debug3("Not eligible: is local: " + pid);
       return false;
     }
     // never include a peer that's already participating or has already
     // dropped out of this poll
     synchronized (theParticipants) {
       if (theParticipants.containsKey(pid)) {
+      log.debug3("Not eligible: already participating: " + pid);
         return false;
       }
       synchronized (exParticipants) {
         if (exParticipants.containsKey(pid)) {
+	  log.debug3("Not eligible: is an ex-participant: " + pid);
           return false;
         }
       }
     }
     // don't include peers on our subnet if told not to
     if (pollManager.isNoInvitationSubnet(pid)) {
+      log.debug3("Not eligible: in noInvitationSubnet: " + pid);
       return false;
     }
 
@@ -2990,6 +2994,7 @@ public class V3Poller implements Poll {
 
     // Never include a peer whose groups are known to be disjoint with ours
     if (!isGroupMatch(status)) {
+      log.debug2("Not eligible: group mismatch: " + pid);
       return false;
     }
     return true;
@@ -3007,8 +3012,6 @@ public class V3Poller implements Poll {
     }
     if (TimeBase.msSince(status.getLastGroupTime()) >
         pollManager.getWrongGroupRetryTime()) {
-      // Don't want to keep trying him
-      status.setLastGroupTime(TimeBase.nowMs());
       return true;
     }
     return false;
