@@ -333,6 +333,7 @@ public class TestSimpleHasher extends LockssTestCase {
 			      null);
     tis.setErrorOnRead(new OutOfMemoryError("Test OOME"));
     mfilt.setFilteredInputStream(tis);
+    params.setFiltered(true);
     mau.setHashFilterFactory(mfilt);
     mau.populateAuCachedUrlSet();
     result = new HasherResult();
@@ -1178,9 +1179,10 @@ public class TestSimpleHasher extends LockssTestCase {
     params.setUrl(url);
     params.setChallenge(challenge);
     params.setVerifier(verifier);
+    params.setMachineName("thisMachine");
     hasher.processParams(params, result);
 
-    hasher.doV3("thisMachine", false, result);
+    hasher.doV3(params, result);
     if (hashType == null) {
       assertEquals(SimpleHasher.DEFAULT_HASH_TYPE, result.getHashType());
     } else {

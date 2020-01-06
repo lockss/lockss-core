@@ -38,6 +38,7 @@ public class HasherParams {
   private String url;
   private String lower;
   private String upper;
+  private boolean filtered;
   private boolean recordFilteredStream;
   private boolean excludeSuspectVersions;
   private boolean includeWeight;
@@ -98,6 +99,14 @@ public class HasherParams {
 
   public void setUpper(String upper) {
     this.upper = upper;
+  }
+
+  public boolean isFiltered() {
+    return filtered;
+  }
+
+  public void setFiltered(boolean val) {
+    this.filtered = val;
   }
 
   public boolean isRecordFilteredStream() {
