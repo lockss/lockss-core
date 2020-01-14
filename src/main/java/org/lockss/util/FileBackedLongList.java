@@ -356,10 +356,12 @@ public class FileBackedLongList
    * @since 1.74.4
    */
   @Override
-  public void close() {
-    force();
-    CountingRandomAccessFile.unmap(mbbuf);
-    mbbuf = null;
+  public synchronized void close() {
+    if (mbbuf != null) {
+      force();
+      CountingRandomAccessFile.unmap(mbbuf);
+      mbbuf = null;
+    }
     IOUtils.closeQuietly(craf);
     craf = null;
     IOUtils.closeQuietly(chan);
@@ -367,6 +369,7 @@ public class FileBackedLongList
     lbuf = null;
     if (deleteFile) {
       file.delete();
+      deleteFile = false;
     }
     size = -1;
   }

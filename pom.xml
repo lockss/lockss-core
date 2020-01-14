@@ -166,12 +166,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
-      <version>1.2.13</version>
-    </dependency>
-
-    <dependency>
       <groupId>commons-lang</groupId>
       <artifactId>commons-lang</artifactId>
       <version>${version.dependency.commons-lang}</version>
