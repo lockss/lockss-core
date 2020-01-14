@@ -43,6 +43,7 @@ import org.apache.commons.collections.primitives.*;
 import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.lockss.log.*;
 
 /**
  * <p>
@@ -85,6 +86,8 @@ import org.apache.commons.io.output.ByteArrayOutputStream;
 public class FileBackedList<E>
     extends AbstractList<E>
     implements AutoCloseable {
+
+  private static L4JLogger log = L4JLogger.getLogger();
 
   /**
    * <p>
@@ -554,32 +557,39 @@ public class FileBackedList<E>
    * @since 1.74.4
    */
   @Override
-  public void close() {
-    force();
-    for (MappedByteBuffer mbbuf : buffers.values()) {
-      CountingRandomAccessFile.unmap(mbbuf);
+  public synchronized void close() {
+    try {
+      if (buffers != null) {
+	force();
+	for (MappedByteBuffer mbbuf : buffers.values()) {
+	  CountingRandomAccessFile.unmap(mbbuf);
+	}
+	buffers.clear();
+	buffers = null;
+      }
+      IOUtils.closeQuietly(craf);
+      craf = null;
+      IOUtils.closeQuietly(chan);
+      chan = null;
+      if (arrayLongList != null) {
+	arrayLongList.clear(); // see Commons Primitives 1.0 note in constructor
+	arrayLongList.trimToSize();
+	arrayLongList = null;
+      }
+      if (fileBackedLongList != null) {
+	fileBackedLongList.close();
+	fileBackedLongList = null;
+	getLongsFile().delete();
+      }
+      offsets = null;
+      if (deleteFile) {
+	file.delete();
+	deleteFile = false;
+      }
+      file = null;
+    } catch (Exception e) {
+      log.fatal("close() threw", e);
     }
-    buffers.clear();
-    buffers = null;
-    IOUtils.closeQuietly(craf);
-    craf = null;
-    IOUtils.closeQuietly(chan);
-    chan = null;
-    if (arrayLongList != null) {
-      arrayLongList.clear(); // see Commons Primitives 1.0 note in constructor
-      arrayLongList.trimToSize();
-      arrayLongList = null;
-    }
-    if (fileBackedLongList != null) {
-      fileBackedLongList.close();
-      fileBackedLongList = null;
-      getLongsFile().delete();
-    }
-    offsets = null;
-    if (deleteFile) {
-      file.delete();
-    }
-    file = null;
   }
   
   /**
@@ -774,7 +784,6 @@ public class FileBackedList<E>
   
   protected static File createTempFile() throws IOException {
     File tempFile = File.createTempFile(FileBackedList.class.getSimpleName(), ".bin");
-    tempFile.deleteOnExit();
     return tempFile;
   }
   
