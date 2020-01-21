@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -608,73 +608,5 @@ public class FileUtil {
     if (log.isDebug2())
       log.debug2("listDirFilesWithExtension(): result = " + result);
     return result;
-  }
-
-  /**
-   * Reads password from file, then overwrites and deletes file.
-   * 
-   * @param keyPasswordFile A String with the password file pathname.
-   * @return a String with the password read from the file.
-   * @throws IOException if there are problems reading the password.
-   */
-  public static String readPasswdFile(String keyPasswordFile)
-      throws IOException {
-    if (log.isDebug2()) log.debug2("keyPasswordFile = " + keyPasswordFile);
-
-    // Parameter validation.
-    if (keyPasswordFile == null) {
-      throw new IOException("Null password file");
-    }
-
-    File file = new File(keyPasswordFile);
-    if (log.isDebug3())
-      log.debug3("file.getAbsolutePath() = " + file.getAbsolutePath());
-
-    // File length validation.
-    long llen = file.length();
-    if (llen > 1000) {
-      throw new IOException("Unreasonably large password file: " + llen);
-    }
-
-    FileInputStream fis = new FileInputStream(file);
-    int len = (int)llen;
-    byte[] pwdChars = new byte[len];
-
-    try {
-      try {
-	// Read the password.
-	int nread = StreamUtil.readBytes(fis, pwdChars, len);
-	if (nread != len) {
-	  throw new IOException("short read: " + nread + " instead of " + len);
-	}
-      } finally {
-	IOUtil.safeClose(fis);
-      }
-    } finally {
-      overwriteAndDelete(file, len);
-    }
-    return new String(pwdChars);
-  }
-
-  /**
-   * Overwrites and deletes a file, trapping and logging any exceptions.
-   * 
-   * @param file A File with the file to be overwritten and deleted.
-   * @param len  An int with the length of data to be used to overwrite the
-   *             file.
-   */
-  private static void overwriteAndDelete(File file, int len) {
-    OutputStream fos = null;
-    try {
-      fos = new FileOutputStream(file);
-      byte[] junk = new byte[len];
-      Arrays.fill(junk, (byte)0x5C);
-      fos.write(junk);
-    } catch (IOException e) {
-      log.warning("Couldn't overwrite file: " + file + ": " + e);
-    } finally {
-      IOUtil.safeClose(fos);
-    }
-    file.delete();
   }
 }

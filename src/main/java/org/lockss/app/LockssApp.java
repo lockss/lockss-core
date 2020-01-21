@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -38,6 +38,7 @@ import org.apache.commons.lang3.*;
 import gnu.getopt.Getopt;
 import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
