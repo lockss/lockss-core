@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,7 +36,6 @@ import org.apache.commons.lang3.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.apache.commons.collections.*;
-import org.lockss.util.io.FileUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
