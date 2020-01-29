@@ -1163,6 +1163,81 @@ POSSIBILITY OF SUCH DAMAGE.
             </configuration>
           </execution>
 
+	  <!-- Package V1 of a loadable test plugin, for TestPluginManager -->
+          <execution>
+            <id>package-test-plugins-3</id>
+            <phase>process-test-classes</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+	      <classpathScope>test</classpathScope>
+	      <!-- Workaround for exec-maven-plugin bug that causes error
+	           with -p argument -->
+	      <longModulepath>false</longModulepath>
+
+              <arguments>
+		<argument>-classpath</argument>
+		<classpath/>
+                <argument>-Dorg.lockss.defaultLogLevel=${loglevel}</argument>
+                <argument>org.lockss.util.PluginPackager</argument>
+                <argument>-p</argument>
+                <argument>org.lockss.test.MockConfigurablePlugin</argument>
+                <argument>-o</argument>
+                <argument>${basedir}/target/test-classes/org/lockss/test/good-plugin.jar</argument>
+                <argument></argument>
+                <argument>-keystore</argument>
+                <argument>${basedir}/src/test/java/org/lockss/test/goodguy.keystore</argument>
+                <argument>-alias</argument>
+                <argument>goodguy</argument>
+                <argument>-storepass</argument>
+                <argument>f00bar</argument>
+                <argument>-keypass</argument>
+                <argument>f00bar</argument>
+
+              </arguments>
+            </configuration>
+          </execution>
+
+	  <!-- Package V2 of the same loadable test plugin, for
+	       TestPluginManager -->
+          <execution>
+            <id>package-test-plugins-4</id>
+            <phase>process-test-classes</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+	      <classpathScope>test</classpathScope>
+	      <!-- Workaround for exec-maven-plugin bug that causes error
+	           with -p argument -->
+	      <longModulepath>false</longModulepath>
+
+              <arguments>
+		<argument>-classpath</argument>
+		<classpath/>
+                <argument>-Dorg.lockss.defaultLogLevel=${loglevel}</argument>
+                <argument>org.lockss.util.PluginPackager</argument>
+                <argument>-p</argument>
+                <argument>org.lockss.test.MockConfigurablePluginV2</argument>
+                <argument>-o</argument>
+                <argument>${basedir}/target/test-classes/org/lockss/test/good-plugin2.jar</argument>
+                <argument></argument>
+                <argument>-keystore</argument>
+                <argument>${basedir}/src/test/java/org/lockss/test/goodguy.keystore</argument>
+                <argument>-alias</argument>
+                <argument>goodguy</argument>
+                <argument>-storepass</argument>
+                <argument>f00bar</argument>
+                <argument>-keypass</argument>
+                <argument>f00bar</argument>
+
+              </arguments>
+            </configuration>
+          </execution>
+
           <!-- END step package-test-plugins -->
 
         </executions>
