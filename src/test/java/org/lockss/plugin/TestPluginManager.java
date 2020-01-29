@@ -1916,6 +1916,20 @@ public class TestPluginManager extends LockssTestCase4 {
     ConfigurationUtil.addFromProps(p);
   }
 
+  private void prepareLoadablePluginTestsNew(Properties p) throws Exception {
+    pluginJar = "org/lockss/test/good-plugin.jar";
+    if (p == null) {
+      p = new Properties();
+    }
+    p.setProperty(PluginManager.PARAM_KEYSTORE_LOCATION,
+		  "org/lockss/plugin/lockss-testing.keystore");
+    p.setProperty(PluginManager.PARAM_KEYSTORE_PASSWORD,
+		  "password");
+    p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRIES,
+		  "");
+    ConfigurationUtil.addFromProps(p);
+  }
+
 
   @Test
   public void testInitLoadablePluginRegistries() throws Exception {
@@ -2034,7 +2048,7 @@ public class TestPluginManager extends LockssTestCase4 {
     Properties p = new Properties();
     p.setProperty(PluginManager.PARAM_PREFER_LOADABLE_PLUGIN,
 		  "" + preferLoadable);
-    prepareLoadablePluginTests(p);
+    prepareLoadablePluginTestsNew(p);
     pluginJar = "org/lockss/test/plugin-with-libs.jar";
     String pluginKey = "org|lockss|plugin|plugtest1|PlugTest1Plugin";
     // Set up a MyMockRegistryArchivalUnit with the right data.
@@ -2065,7 +2079,7 @@ public class TestPluginManager extends LockssTestCase4 {
     Properties p = new Properties();
     p.setProperty(PluginManager.PARAM_PREFER_LOADABLE_PLUGIN,
 		  "" + preferLoadable);
-    prepareLoadablePluginTests(p);
+    prepareLoadablePluginTestsNew(p);
     pluginJar = "org/lockss/test/plugin-with-exploded-libs.jar";
     String pluginKey = "org|lockss|plugin|plugtest1|PlugTest1Plugin";
     // Set up a MyMockRegistryArchivalUnit with the right data.
