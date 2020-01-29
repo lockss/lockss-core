@@ -75,10 +75,10 @@ def prompt_password():
 def gather_input():
 
     while not args.has_key("full_name") or len(args["full_name"]) == 0:
-        args["full_name"] = raw_input("Full Name (i.e., First Last-lockss): ")
+        args["full_name"] = raw_input("Full Name (i.e., First Last): ")
         
     while not args.has_key("alias") or len(args["alias"]) == 0:
-        args["alias"] = raw_input("Alias (i.e., flast-lockss): ")
+        args["alias"] = raw_input("Alias (i.e., flast): ")
 
     ## Get the passphrase safely
     (passphrase, confirmation) = prompt_password()
