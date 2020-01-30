@@ -1183,7 +1183,9 @@ POSSIBILITY OF SUCH DAMAGE.
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
-                <argument>org.lockss.test.MockConfigurablePlugin</argument>
+                <argument>org.lockss.test.mcpv1.MockConfigurablePlugin</argument>
+                <argument>-rename</argument>
+                <argument>org/lockss/test/mcpv1/MockConfigurablePlugin.xml->org/lockss/test/MockConfigurablePlugin.xml</argument>
                 <argument>-o</argument>
                 <argument>${basedir}/target/test-classes/org/lockss/test/good-plugin.jar</argument>
                 <argument></argument>
@@ -1221,7 +1223,9 @@ POSSIBILITY OF SUCH DAMAGE.
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
-                <argument>org.lockss.test.MockConfigurablePluginV2</argument>
+                <argument>org.lockss.test.mcpv2.MockConfigurablePluginV2</argument>
+                <argument>-rename</argument>
+                <argument>org/lockss/test/mcpv2/MockConfigurablePluginV2.xml->org/lockss/test/MockConfigurablePlugin.xml</argument>
                 <argument>-o</argument>
                 <argument>${basedir}/target/test-classes/org/lockss/test/good-plugin2.jar</argument>
                 <argument></argument>
