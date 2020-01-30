@@ -244,19 +244,6 @@ public class PluginPackager {
     return excluded;
   }
 
-  private Map<String,String> renameMap = new HashMap<>();
-
-  /** Force jars to be rebuilt even if they exist and are up-to-date */
-  public PluginPackager addRename(String rename) {
-    List<String> pair = StringUtil.breakAt(rename, "->", 3, false, true);
-    if (pair.size() == 2) {
-      renameMap.put(pair.get(0), pair.get(1));
-      log.fatal("rename put: {} -> {}", pair.get(0), pair.get(1));
-    }
-    return this;
-  }
-
-
   /** Check the args and build all the plugins specified */
   public void build() throws Exception {
     List<PlugSpec> specs = argSpecs;
@@ -536,7 +523,7 @@ public class PluginPackager {
 
       // Add entry that marks a LOCKSS plugin file
       for (PData pd : pds) {
-	String secName = getEntPath(pd.getPluginPath());
+	String secName = pd.getPluginPath();
 	manifest.getEntries().put(secName, new Attributes());
 	Attributes plugAttr = manifest.getAttributes(secName);
 	plugAttr.put(new Attributes.Name("Lockss-Plugin"), "true");
@@ -640,7 +627,7 @@ public class PluginPackager {
 	      jarOut.putNextEntry(entry);
 	      jarOut.closeEntry();
 	    }
-	    String entPath = getEntPath(relPath + "/" + f.getName());
+	    String entPath = relPath + "/" + f.getName();
 	    if (fi.isJar() && isExplodeLib()) {
 	      explodeJar(url);
 	    } else {
@@ -659,11 +646,6 @@ public class PluginPackager {
 	  }
 	}
       }
-    }
-
-    String getEntPath(String name) {
-      String mappedName = renameMap.get(name);
-      return mappedName != null ? mappedName : name;
     }
 
     void explodeJar(URL jarUrl) throws IOException {
@@ -1213,8 +1195,6 @@ public class PluginPackager {
 	  pkgr.setOutputDir(new File(argv[++ix]));
 	} else if (arg.equals("-x")) {
 	  pkgr.addExclusion(argv[++ix]);
-	} else if (arg.equals("-rename")) {
-	  pkgr.addRename(argv[++ix]);
 	} else {
 	  usage();
 	}
