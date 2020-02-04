@@ -84,14 +84,14 @@ public interface AuEventHandler {
       if (au != null) {
 	auCreated(event, au);
       } else {
-	log.debug("Ignoring received auCreated event for absent AU: " + auid);
+	log.debug2("Ignoring received auCreated event for absent AU: " + auid);
       }
     }
     public void auDeleted(AuEvent event, String auid, ArchivalUnit au) {
       if (au != null) {
 	auDeleted(event, au);
       } else {
-	log.debug("Ignoring received auDeleted event for absent AU: " + auid);
+	log.debug2("Ignoring received auDeleted event for absent AU: " + auid);
       }
     }
     public void auReconfigured(AuEvent event, String auid, ArchivalUnit au,
@@ -99,8 +99,8 @@ public interface AuEventHandler {
       if (au != null) {
 	auReconfigured(event, au, oldAuConf);
       } else {
-	log.debug("Ignoring received auReconfigured event for absent AU: "
-		  + auid);
+	log.debug2("Ignoring received auReconfigured event for absent AU: "
+		   + auid);
       }
     }
     public void auContentChanged(AuEvent event, String auid, ArchivalUnit au,
@@ -108,8 +108,8 @@ public interface AuEventHandler {
       if (au != null) {
 	auContentChanged(event, au, info);
       } else {
-	log.debug("Ignoring received auContentChanged event for absent AU: "
-		  + auid);
+	log.debug2("Ignoring received auContentChanged event for absent AU: "
+		   + auid);
       }
     }
 
