@@ -525,7 +525,7 @@ public class FileBackedList<E>
   }
   
   @Override
-  public void add(int index, E element) throws IOError {
+  public void add(int index, E element) throws RuntimeException {
     if (index < 0 || index > size()) {
       throw new IndexOutOfBoundsException(Integer.toString(index));
     }
@@ -544,7 +544,7 @@ public class FileBackedList<E>
       }
     }
     catch (IOException exc) {
-      throw new IOError(exc);
+      throw new RuntimeException(exc);
     }
   }
   
@@ -608,7 +608,7 @@ public class FileBackedList<E>
   }
   
   @Override
-  public E get(int index) throws IOError {
+  public E get(int index) throws RuntimeException {
     if (index < 0 || index >= size()) {
       throw new IndexOutOfBoundsException(Integer.toString(index));
     }
@@ -623,7 +623,7 @@ public class FileBackedList<E>
       return (E)fromBytes(bytes);
     }
     catch (IOException exc) {
-      throw new IOError(exc);
+      throw new RuntimeException(exc);
     }
   }
   
@@ -635,14 +635,14 @@ public class FileBackedList<E>
   }
   
   @Override
-  public E set(int index, E element) throws IOError {
+  public E set(int index, E element) throws RuntimeException {
     E ret = get(index); // does the bounds check
     try {
       offsets.set(index, append(element));
       return ret;
     }
     catch (IOException exc) {
-      throw new IOError(exc);
+      throw new RuntimeException(exc);
     }
   }
 
@@ -787,18 +787,18 @@ public class FileBackedList<E>
     return tempFile;
   }
   
-  protected static Object fromBytes(byte[] bytes) throws IOError {
+  protected static Object fromBytes(byte[] bytes) throws RuntimeException {
     try {
       ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
       ObjectInputStream ois = new ObjectInputStream(bais);
       return ois.readObject();
     }
     catch (ClassNotFoundException | IOException exc) {
-      throw new IOError(exc);
+      throw new RuntimeException(exc);
     }
   }
   
-  protected static byte[] toBytes(Object obj) throws IOError {
+  protected static byte[] toBytes(Object obj) throws RuntimeException {
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -806,8 +806,8 @@ public class FileBackedList<E>
       return baos.toByteArray();
     }
     catch (IOException exc) {
-      throw new IOError(exc);
+      throw new RuntimeException(exc);
     }
   }
-  
+
 }
