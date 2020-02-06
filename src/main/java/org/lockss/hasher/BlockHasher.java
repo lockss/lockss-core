@@ -270,7 +270,7 @@ public class BlockHasher extends GenericHasher {
    */
   protected boolean isIncluded(CachedUrlSetNode node) {
     String url = node.getUrl();
-    if (crawlMgr != null && crawlMgr.isGloballyExcludedUrl(au, url)) {
+    if (AuUtil.isGloballyExcludedUrl(au, url)) {
       if (isTrace) log.debug3("isIncluded(" + url + "): globally excluded");
       excludedByCrawlRule++;
       return false;

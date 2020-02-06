@@ -34,7 +34,7 @@ import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.*;
 import org.lockss.remote.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 
 /** The set of titles configured on the cache */
 public class TitleSetInactiveAus extends BaseTitleSet {

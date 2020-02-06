@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,6 +43,7 @@ import org.apache.derby.jdbc.ClientDataSource;
 import org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource;
 import org.apache.derby.jdbc.EmbeddedDataSource;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.Constants;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.postgresql.ds.PGPoolingDataSource;
@@ -226,6 +227,13 @@ public class DbManagerSql {
     return retryDelay;
   }
 
+  /**
+   * Saves the number of milliseconds to wait between consecutive retries.
+   *
+   * @param retryDelay
+   *          A long with the number of milliseconds to wait between consecutive
+   *          retries.
+   */
   public void setRetryDelay(long retryDelay) {
     this.retryDelay = retryDelay;
   }
@@ -234,6 +242,12 @@ public class DbManagerSql {
     return maxRetryCount;
   }
 
+  /**
+   * Saves the maximum number of retries to be attempted.
+   *
+   * @param maxRetryCount
+   *          An int with the maximum number of retries to be attempted.
+   */
   public void setMaxRetryCount(int maxRetryCount) {
     this.maxRetryCount = maxRetryCount;
   }
@@ -242,6 +256,12 @@ public class DbManagerSql {
     return fetchSize;
   }
 
+  /**
+   * Saves the SQL statement fetch size..
+   *
+   * @param fetchSize
+   *          An int with the SQL statement fetch size.
+   */
   public void setFetchSize(int fetchSize) {
     this.fetchSize = fetchSize;
   }
@@ -872,6 +892,8 @@ public class DbManagerSql {
    * 
    * @param conn
    *          A Connection with the database connection to be used.
+   * @param subsystem
+   *          A String with the name of the versioned subsystem.
    * @return an int with the database update version.
    * @throws SQLException
    *           if any problem occurred accessing the database.
@@ -1277,16 +1299,22 @@ public class DbManagerSql {
    *          A DataSource with the datasource that provides the connection.
    * @param databaseName
    *          A String with the name of the database to create, if missing.
+   * @param waitForExternalSetup
+   *          A boolean with <code>true</code> if the code must wait for the
+   *          database to be setup externally, <code>false</code> otherwise.
    * @return <code>true</code> if the database did not exist and it was created,
    *         <code>false</code> otherwise.
    * @throws SQLException
    *           if the database creation process failed.
    */
-  boolean createPostgreSqlDbIfMissing(DataSource ds, String databaseName)
-      throws SQLException {
+  boolean createPostgreSqlDbIfMissing(DataSource ds, String databaseName,
+      boolean waitForExternalSetup) throws SQLException {
     final String DEBUG_HEADER = "createPostgreSqlDbIfMissing(): ";
-    if (log.isDebug2())
+    if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "databaseName = '" + databaseName + "'");
+      log.debug2(DEBUG_HEADER
+	  + "waitForExternalSetup = " + waitForExternalSetup);
+    }
 
     boolean result = false;
 
@@ -1296,10 +1324,28 @@ public class DbManagerSql {
 
     // Check whether the database does not exist.
     if (!postgresqlDbExists(conn, databaseName)) {
-      // Yes: Create it.
-      createPostgresqlDb(conn, databaseName);
+      // Yes: Check whether it should wait for the database to be created
+      // externally.
+      if (waitForExternalSetup) {
+	// Yes: Wait until the database is created externally.
+	while (!postgresqlDbExists(conn, databaseName)) {
+	  if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	      + databaseName + "' does not exist. "
+	      + DbManager.waitForExternalSetupMessage);
 
-      result = true;
+	  try {
+	    Thread.sleep(DbManager.waitForExternalSetupInterval);
+	  } catch (InterruptedException ie)
+	  {
+	    // Expected.
+	  }
+	}
+      } else {
+	// No: Create it.
+	createPostgresqlDb(conn, databaseName);
+
+	result = true;
+      }
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
@@ -1743,16 +1789,22 @@ public class DbManagerSql {
    *          A String with the name of the schema to create, if missing.
    * @param ds
    *          A DataSource with the data source to be used to get a connection.
+   * @param waitForExternalCreation
+   *          A boolean with <code>true</code> if the code must wait for the
+   *          database to be setup externally, <code>false</code> otherwise.
    * @return <code>true</code> if the schema did not exist and it was created,
    *         <code>false</code> otherwise.
    * @throws SQLException
    *           if the schema creation process failed.
    */
-  boolean createPostgresqlSchemaIfMissing(String schemaName, DataSource ds)
-      throws SQLException {
+  boolean createPostgresqlSchemaIfMissing(String schemaName, DataSource ds,
+      boolean waitForExternalSetup) throws SQLException {
     final String DEBUG_HEADER = "createPostgresqlSchemaIfMissing(): ";
-    if (log.isDebug2())
+    if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "schemaName = '" + schemaName + "'");
+      log.debug2(DEBUG_HEADER
+	  + "waitForExternalSetup = " + waitForExternalSetup);
+    }
 
     boolean result = false;
 
@@ -1762,12 +1814,30 @@ public class DbManagerSql {
     try {
       // Check whether the schema does not exist.
       if (!postgresqlSchemaExists(conn, schemaName)) {
-	// Yes: Create it.
-	createPostgresqlSchema(conn, schemaName);
+        // Yes: Check whether it should wait for the schema to be created
+        // externally.
+        if (waitForExternalSetup) {
+          // Yes: Wait until the schema is created externally.
+          while (!postgresqlSchemaExists(conn, schemaName)) {
+            if (log.isDebug()) log.debug(DEBUG_HEADER + "schemaName '"
+        	+ schemaName + "' does not exist. "
+        	+ DbManager.waitForExternalSetupMessage);
 
-	// Finish the transaction.
-	JdbcBridge.commitOrRollback(conn, log);
-	result = true;
+            try {
+              Thread.sleep(DbManager.waitForExternalSetupInterval);
+            } catch (InterruptedException ie)
+            {
+              // Expected.
+            }
+          }
+        } else {
+          // No: Create it.
+          createPostgresqlSchema(conn, schemaName);
+
+          // Finish the transaction.
+          JdbcBridge.commitOrRollback(conn, log);
+          result = true;
+        }
       }
     } finally {
       JdbcBridge.safeRollbackAndClose(conn);
@@ -1864,16 +1934,22 @@ public class DbManagerSql {
    *          A DataSource with the datasource that provides the connection.
    * @param databaseName
    *          A String with the name of the database to create, if missing.
+   * @param waitForExternalCreation
+   *          A boolean with <code>true</code> if the code must wait for the
+   *          database to be setup externally, <code>false</code> otherwise.
    * @return <code>true</code> if the database did not exist and it was created,
    *         <code>false</code> otherwise.
    * @throws SQLException
    *           if the database creation process failed.
    */
-  boolean createMySqlDbIfMissing(DataSource ds, String databaseName)
-      throws SQLException {
+  boolean createMySqlDbIfMissing(DataSource ds, String databaseName,
+      boolean waitForExternalSetup) throws SQLException {
     final String DEBUG_HEADER = "createMySqlDbIfMissing(): ";
-    if (log.isDebug2())
+    if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "databaseName = '" + databaseName + "'");
+      log.debug2(DEBUG_HEADER
+	  + "waitForExternalSetup = " + waitForExternalSetup);
+    }
 
     boolean result = false;
 
@@ -1882,9 +1958,28 @@ public class DbManagerSql {
 
     // Check whether the database does not exist.
     if (!mysqlDbExists(conn, databaseName)) {
-      // Yes: Create it.
-      createMysqlDb(conn, databaseName);
-      result = true;
+      // Yes: Check whether it should wait for the database to be created
+      // externally.
+      if (waitForExternalSetup) {
+	// Yes: Wait until the database is created externally.
+	while (!mysqlDbExists(conn, databaseName)) {
+	  if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	      + databaseName + "' does not exist. "
+	      + DbManager.waitForExternalSetupMessage);
+
+	  try {
+	    Thread.sleep(DbManager.waitForExternalSetupInterval);
+	  } catch (InterruptedException ie)
+	  {
+	    // Expected.
+	  }
+	}
+      } else {
+	// No: Create it.
+	createMysqlDb(conn, databaseName);
+
+	result = true;
+      }
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);

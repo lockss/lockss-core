@@ -39,11 +39,12 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  */
 public class ServiceBinding {
   private final String host;
+  private final int restPort;
   private final int uiPort;
-  private int restPort;
 
-  public ServiceBinding(String host, int uiPort) {
+  public ServiceBinding(String host, int restPort, int uiPort) {
     this.host = host;
+    this.restPort = restPort;
     this.uiPort = uiPort;
   }
 
@@ -51,12 +52,33 @@ public class ServiceBinding {
     return host;
   }
 
+  public int getRestPort() {
+    return restPort;
+  }
+
+  public boolean hasRestPort() {
+    return restPort != 0;
+  }
+
   public int getUiPort() {
     return uiPort;
   }
 
-  public int getRestPort() {
-    return restPort;
+  public boolean hasUiPort() {
+    return uiPort != 0;
+  }
+
+  /** Return the URL stem to use to reach the REST port the service with
+   * this binding.
+   */
+  public String getRestStem() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("http");
+    sb.append("://");
+    sb.append(getHost() != null ? getHost() : "localhost");
+    sb.append(':');
+    sb.append(getRestPort());
+    return sb.toString();
   }
 
   /** Return the URL stem to use to reach the UI of the service with this
@@ -78,8 +100,8 @@ public class ServiceBinding {
     if (obj instanceof ServiceBinding) {
       ServiceBinding sb = (ServiceBinding)obj;
       return ObjectUtils.equals(host, sb.getHost())
-	&& ObjectUtils.equals(uiPort, sb.getUiPort())
-	&& ObjectUtils.equals(restPort, sb.getRestPort());
+	&& ObjectUtils.equals(restPort, sb.getRestPort())
+	&& ObjectUtils.equals(uiPort, sb.getUiPort()) ;
     }
     return false;
   }
@@ -88,8 +110,8 @@ public class ServiceBinding {
   public int hashCode() {
     HashCodeBuilder hcb = new HashCodeBuilder();
     hcb.append(host);
-    hcb.append(uiPort);
     hcb.append(restPort);
+    hcb.append(uiPort);
     return hcb.toHashCode();
   }
 
@@ -101,7 +123,10 @@ public class ServiceBinding {
       sb.append(host);
     }
     sb.append(":");
+    sb.append(restPort);
+    sb.append(":");
     sb.append(uiPort);
+    sb.append("]");
     return sb.toString();
   }
 

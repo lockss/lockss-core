@@ -71,6 +71,7 @@ public class CacheException
   protected static boolean defaultSuppressStackTrace = true;
 
   protected String message;
+  protected String shortMessage;
   protected BitSet attributeBits = new BitSet();
 
   // Most of these exceptions are created at a known place (in
@@ -96,12 +97,21 @@ public class CacheException
     return res;
   }
 
+  public CacheException setShortMessage(String msg) {
+    shortMessage = msg;
+    return this;
+  }
+
   void initMessage(String message) {
     this.message = message;
   }
 
   public String getMessage() {
     return message;
+  }
+
+  public String getShortMessage() {
+    return shortMessage != null ? shortMessage : message;
   }
 
   public boolean isAttributeSet(int attribute) {
@@ -720,10 +730,11 @@ public class CacheException
       suppressStackTrace = false;
     }
 
-    /** Create this if details of causal exception are more relevant. */
+    /** Create this if details of causal exception are relevant. */
     public RepositoryException(Exception e) {
       super(e.toString());
       initCause(e);
+      suppressStackTrace = false;
     }
   }
 

@@ -43,8 +43,10 @@ import org.lockss.util.*;
  * methods.  Needs to know what underlying factory to use, which makes it
  * also dependent on xercesImpl - XXX Xerces
  */
+// Note: do not call logger factory during class loading.  In some
+// environments that will cause XML DocumentBuilderFactory to be loaded to
+// parse the logging config files, resulting in circular loading reference
 public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
-  static Logger log = Logger.getLogger();
   public static String ERROR_LOGGER_NAME = "org.lockss.SAX";
 
   DocumentBuilderFactory fact;
@@ -52,9 +54,6 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   public LockssDocumentBuilderFactoryImpl() {
 //     fact = new org.apache.crimson.jaxp.DocumentBuilderFactoryImpl();
     fact = new org.apache.xerces.jaxp.DocumentBuilderFactoryImpl();
-    // Log call may cause XML DocumentBuilderFactory to be loaded,
-    // resulting in circular loading reference
-//     log.debug3("Created fact: " + fact);
   }
 
   /** Forward to real factory, set error handler */
@@ -62,7 +61,6 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
   public DocumentBuilder newDocumentBuilder()
       throws ParserConfigurationException {
     DocumentBuilder db = fact.newDocumentBuilder();
-//     log.debug3("Created builder: " + db);
     db.setErrorHandler(new MyErrorHandler());
     return db;
   }
@@ -171,7 +169,15 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
 
   // This error handler uses a Logger to log error messages
   static class MyErrorHandler implements ErrorHandler {
-    private Logger log = Logger.getLogger(ERROR_LOGGER_NAME);
+    Logger log;
+
+    // Defer logger creation
+    private Logger getLog() {
+      if (log == null) {
+	log = Logger.getLogger(ERROR_LOGGER_NAME);
+      }
+      return log;
+    }
 
     //  This method is called in the event of a recoverable error
     public void error(SAXParseException e) {
@@ -209,7 +215,7 @@ public class LockssDocumentBuilderFactoryImpl extends DocumentBuilderFactory {
 	sb.append(systemId);
       }
       // Log the message
-      log.log(level, sb.toString());
+      getLog().log(level, sb.toString());
     }
   }
 

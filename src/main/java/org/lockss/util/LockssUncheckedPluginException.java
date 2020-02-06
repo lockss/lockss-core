@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2010 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,51 +26,39 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.test;
+package org.lockss.util;
+import org.lockss.daemon.PluginException;
 
-import java.io.*;
-import java.util.*;
+/**
+ * RuntimeException to wrap PluginExceptions that can't be thrown due to
+ * interface constraints.
+ */
+public class LockssUncheckedPluginException extends LockssUncheckedException {
 
-/** An output stream that can throw an exception on demand. */
-public class ThrowingOutputStream extends FilterOutputStream {
-  private IOException throwOnWrite;
-  private IOException throwOnClose;
-
-  public ThrowingOutputStream(OutputStream out,
-			      IOException throwOnWrite,
-			      IOException throwOnClose) throws IOException {
-    super(out);
-    this.throwOnWrite = throwOnWrite;
-    this.throwOnClose = throwOnClose;
+  /**
+   * Constructor with a specified cause.
+   * 
+   * @param cause
+   *          A PluginException with the exception cause.
+   */
+  public LockssUncheckedPluginException(PluginException cause) {
+    super(cause);
   }
 
-  public void write(int b) throws IOException {
-    if (throwOnWrite != null) {
-      throw throwOnWrite;
-    } else {
-      out.write(b);
-    }
+  /**
+   * Constructor with specified message and cause.
+   * 
+   * @param message
+   *          A String with the exception message.
+   * @param cause
+   *          A PluginException with the exception cause.
+   */
+  public LockssUncheckedPluginException(String message, PluginException cause) {
+    super(message, cause);
   }
 
-  public void write(byte[] b, int off, int len) throws IOException {
-    if (throwOnWrite != null) {
-      throw throwOnWrite;
-    }
-    out.write(b, off, len);
-  }
-
-  public void write(byte[] b) throws IOException {
-    if (throwOnWrite != null) {
-      throw throwOnWrite;
-    }
-    out.write(b);
-  }
-
-  public void close() throws IOException {
-    if (throwOnClose != null) {
-      throw throwOnClose;
-    } else {
-      out.close();
-    }
+  /** Return the causal PluginException */
+  public PluginException getPluginCause() {
+    return (PluginException)super.getCause();
   }
 }

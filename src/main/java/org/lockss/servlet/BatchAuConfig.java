@@ -41,7 +41,7 @@ import org.lockss.db.DbException;
 import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
@@ -105,6 +105,7 @@ public class BatchAuConfig extends LockssServlet {
   static final String ACTION_REACT_AUS = "DoReactivateAus";
   static final String ACTION_RESTORE_AUS = "DoAddAus";
   static final String ACTION_DO_BACKUP = "Backup";
+  static final String ACTION_BACK_TO_HERE = "BackToHere";
 
   static final String KEY_VERB = "Verb";
   static final String KEY_DEFAULT_REPO = "DefaultRepository";
@@ -189,6 +190,7 @@ public class BatchAuConfig extends LockssServlet {
     else if (action.equals(ACTION_DO_BACKUP)) doBackup();
     else if (action.equals(ACTION_REMOVE_AUS)) doRemoveAus(false);
     else if (action.equals(ACTION_DEACT_AUS)) doRemoveAus(true);
+    else if (action.equals(ACTION_BACK_TO_HERE)) displayMenu();
     else {
       errMsg = "Unknown action: " + action;
       log.warning(errMsg);
@@ -413,7 +415,7 @@ public class BatchAuConfig extends LockssServlet {
     frm.add(new Input(Input.Hidden, ACTION_TAG));
     frm.add(new Input(Input.Hidden, KEY_VERB, verb.valStr));
 
-    if (verb.isAdd) {
+    if (false && verb.isAdd) {
       // display df for Add even if only one repo
       Map<String,PlatformUtil.DF> repoMap = remoteApi.getRepositoryMap();
       frm.add(ServletUtil.makeRepoTable(this, remoteApi,

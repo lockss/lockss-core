@@ -30,8 +30,7 @@ package org.lockss.metadata;
 import java.io.File;
 import java.util.Properties;
 import org.lockss.config.ConfigManager;
-import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.*;
 import org.lockss.util.Logger;
 import org.lockss.util.os.PlatformUtil;
 
@@ -65,10 +64,11 @@ public class EmptyDbCreator {
     System.setProperty("derby.stream.error.file",
 		       new File(tempDirPath, "derby.log").getAbsolutePath());
 
-    Properties props = new Properties();
-    props.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
-	tempDirPath);
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    String dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
+    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
+				  tempDirPath,
+				  MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER,
+				  dbPort);
 
     MetadataDbManager dbManager = new MetadataDbManager(true);
     daemon.setMetadataDbManager(dbManager);

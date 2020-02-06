@@ -53,6 +53,7 @@ import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.repository.*;
+import org.lockss.plugin.base.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.plugin.exploded.*;
 
@@ -289,6 +290,13 @@ public class AuUtil {
   public static boolean hasSuspectUrlVersions(ArchivalUnit au) {
     StateManager mgr = getDaemon(au).getManagerByType(StateManager.class);
     return mgr.hasAuSuspectUrlVersions(au.getAuId());
+  }
+
+  /** Convenience method forwards to {@link org.lockss.conflg.MiscParams#isGloballyExcludedUrl(ArchivalUnit,String)}
+   */
+  public static boolean isGloballyExcludedUrl(ArchivalUnit au, String url) {
+    MiscParams mgr = getDaemon(au).getManagerByType(MiscParams.class);
+    return mgr.isGloballyExcludedUrl(au, url);
   }
 
   /**
@@ -888,6 +896,43 @@ public class AuUtil {
 	  }});
   }
 
+  /** Return {@value org.lockss.plugin.CachedUrl#PROPERTY_CONTENT_TYPE}
+   * header if present (historical reasons), else "Content-Type" header */
+  public static String contentTypeFromHeaders(ArchivalUnit au,
+					      CIProperties props) {
+    String res = null;
+    if (props != null) {
+      res = props.getProperty(CachedUrl.PROPERTY_CONTENT_TYPE);
+      if (res == null &&
+	  CurrentConfig.getBooleanParam(BaseCachedUrl.PARAM_USE_RAW_CONTENT_TYPE,
+					BaseCachedUrl.DEFAULT_USE_RAW_CONTENT_TYPE)) {
+	res = props.getProperty("Content-Type");
+      }
+    }
+    return res;
+  }
+
+  /** Return {@value org.lockss.plugin.CachedUrl#PROPERTY_CONTENT_TYPE}
+   * header if present (historical reasons), else "Content-Type" header,
+   * else infer from URL if plugin so specified */
+  public static String contentTypeFromHeadersOrUrl(ArchivalUnit au,
+						   String url,
+						   CIProperties props) {
+    String res = contentTypeFromHeaders(au, props);
+    if (res != null) {
+      return res;
+    }
+    return matchUrlMimeMap(au.makeUrlMimeTypeMap(), url);
+  }
+
+  public static String matchUrlMimeMap(PatternStringMap map, String url) {
+    String mime = map.getMatch(url);
+    if (mime != null) {
+      log.debug2("Inferred mime type: " + mime + " for " + url);
+      return mime;
+    }
+    return null;
+  }
 
   public static boolean getBoolValue(Object value, boolean dfault) {
     if (value instanceof Boolean) {
@@ -983,7 +1028,7 @@ public class AuUtil {
       do {
 	res.add(redirUrl);
 	CachedUrl redirCu = au.makeCachedUrl(redirUrl);
-	if (redirCu == null) {
+	if (redirCu == null || !redirCu.hasContent()) {
 	  break;
 	}
 	try {

@@ -293,7 +293,7 @@ public class FollowLinkCrawler extends BaseCrawler {
                                          CrawlerStatus.UNABLE_TO_FETCH_PROBE_PERM_ERR_MSG);
             return false;
           } else {
-            updateCacheStats(FetchResult.FETCHED, pud);
+            updateCacheStats(uf, FetchResult.FETCHED, pud);
             updateCdnStems(pud.getUrl());
           }
         } catch (CacheException e) {
@@ -545,10 +545,6 @@ public class FollowLinkCrawler extends BaseCrawler {
    * necessary environment may not be set up */
   protected void doCrawlEndActions() {
     sendCrawlEndReport();
-    // Cause the content size and disk usage to be calculated in a
-    // background thread
-    AuUtil.getAuContentSize(au, false);
-    AuUtil.getAuDiskUsage(au, false);
   }
 
   private void sendCrawlEndReport() {
@@ -589,7 +585,7 @@ public class FollowLinkCrawler extends BaseCrawler {
           fetcher = makeUrlFetcher(curl);
           try {
             res = fetcher.fetch();
-            updateCacheStats(res, curl);
+            updateCacheStats(fetcher, res, curl);
             if (res == FetchResult.NOT_FETCHED) {
               if(curl.isStartUrl() && isFailOnStartUrlError()) {
                 // fail if cannot fetch a StartUrl
@@ -619,11 +615,11 @@ public class FollowLinkCrawler extends BaseCrawler {
               abortCrawl();
               return false;
             } else if (ex.isAttributeSet(CacheException.ATTRIBUTE_FATAL)) {
-              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getMessage());
+              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getShortMessage());
               abortCrawl();
               return false;
             } else if (!crawlStatus.isCrawlError()) {
-              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getMessage());
+              crawlStatus.setCrawlStatus(Crawler.STATUS_FETCH_ERROR, ex.getShortMessage());
             }
           }
         }
@@ -632,7 +628,15 @@ public class FollowLinkCrawler extends BaseCrawler {
       }
     } else {
       // If didn't fetch, check for existing substance file
-      checkSubstanceCollected(au.makeCachedUrl(url));
+      try {
+	checkSubstanceCollected(au.makeCachedUrl(url));
+      } catch (CacheException e) {
+	String msg = "Substance checker error";
+	log.error(msg, e);
+	crawlStatus.signalErrorForUrl(url,
+				      msg + ": " + e.getMessage(),
+				      CrawlerStatus.Severity.Warning);
+      }
       if (refindCdnStems) {
         updateCdnStems(url);
       }
@@ -676,6 +680,8 @@ public class FollowLinkCrawler extends BaseCrawler {
                   // done adding children, trim to size
                   curl.trimChildren();
                   crawlStatus.signalUrlParsed(curl.getUrl());
+		} catch (LockssUncheckedException e) {
+		  throw au.getPlugin().getCacheResultMap().getRepositoryException(e.getCause());
                 } catch (PluginException e) {
                   String msg = "Plugin LinkExtractor error";
                   log.error(msg, e);
@@ -693,6 +699,8 @@ public class FollowLinkCrawler extends BaseCrawler {
             } else {
 	      if (log.isDebug3()) log.debug3("No content: " + cu);
 	    }
+	  } catch (LockssUncheckedException e) {
+	    throw au.getPlugin().getCacheResultMap().getRepositoryException(e.getCause());
           } finally {
             cu.release();
           }
@@ -726,7 +734,7 @@ public class FollowLinkCrawler extends BaseCrawler {
   }
 
   // Callers are all local and know that we release the CU
-  private void checkSubstanceCollected(CachedUrl cu) {
+  private void checkSubstanceCollected(CachedUrl cu) throws CacheException {
     try {
       if (subChecker != null) {
         subChecker.checkSubstance(cu);
@@ -736,6 +744,8 @@ public class FollowLinkCrawler extends BaseCrawler {
           crawlTerminated = true;
         }
       }
+    } catch (LockssUncheckedException e) {
+      throw au.getPlugin().getCacheResultMap().getRepositoryException(e.getCause());
     } finally {
       AuUtil.safeRelease(cu);
     }

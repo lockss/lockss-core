@@ -665,7 +665,7 @@ public class LockssTestCase4 extends Assert {
     Thread.interrupted();
 
     // XXX this should be folded into LockssDaemon shutdown
-    ConfigManager cfg = ConfigManager.getConfigManager();
+    ConfigManager cfg = ConfigManager.getConfigManagerOrNull();
     if (cfg != null) {
       cfg.stopService();
     }
@@ -2466,9 +2466,13 @@ public class LockssTestCase4 extends Assert {
         new File(tempDirPath, "derby.log").getAbsolutePath());
 
     try {
-      // Extract the database from the zip file.
-      ZipUtil.unzip(getResourceAsStream(TEST_DB_FILE_SPEC, false),
-          new File(tempDirPath, "db"));
+      // Extract the database from the zip file, if it exists.
+      InputStream dbzip = getResourceAsStream(TEST_DB_FILE_SPEC, false);
+      if (dbzip != null) {
+	log.debug("Unzipping pre-built database files from " +
+		  TEST_DB_FILE_SPEC);
+	ZipUtil.unzip(dbzip, new File(tempDirPath, "db"));
+      }
     } catch (Exception e) {
       log.debug("Unable to unzip database files from file " + TEST_DB_FILE_SPEC,
           e);

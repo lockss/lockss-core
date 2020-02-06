@@ -53,6 +53,7 @@ public class FuncLockssApp extends LockssTestCase {
 
   public void setUp() throws Exception {
     super.setUp();
+    LockssApp.testingReinitialize();
     tempDirPath = setUpDiskSpace();
     org.lockss.truezip.TrueZipManager.setTempDir(getTempDir());
 
@@ -68,6 +69,15 @@ public class FuncLockssApp extends LockssTestCase {
       FileTestUtil.urlOfString("org.lockss.app.nonesuch=foo\n" +
 			       "deftest1=file\n" +
 			       "deftest2=file");
+
+    final SimpleQueue appq = new SimpleQueue.Fifo();
+    Thread th = new Thread() {
+	public void run() {
+	  appq.put(LockssApp.getLockssApp());
+	}};
+    th.start();
+    assertTrue(appq.isEmpty());
+
     String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
@@ -78,11 +88,14 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppConfig("deftest1", "app")
       .addAppDefault("deftest2", "app")
       .addAppDefault("deftest3", "app3")
-      .addAppConfig("org.lockss.app.serviceBindings", "cfg=:24621;mdx=:1234");
-//       .setKeepRunning(true)
-//       .setAppManagers(managerDescs)
+      .addBootDefault("o.l.plat.xxy", "zzz")
+      .addAppConfig("org.lockss.app.serviceBindings",
+		    "cfg=:24620:24621;mdx=:1234");
       ;
+
+    assertTrue(appq.isEmpty());
     LockssApp app = LockssApp.startStatic(MyMockLockssApp.class, spec);
+    assertSame(app, appq.get(TIMEOUT_SHOULDNT));
 
     assertTrue(app.isAppRunning());
     Configuration config = ConfigManager.getCurrentConfig();
@@ -101,8 +114,12 @@ public class FuncLockssApp extends LockssTestCase {
     assertTrue(app.isMyService(ServiceDescr.SVC_CONFIG));
     assertFalse(app.isMyService(ServiceDescr.SVC_POLLER));
 
-    assertEquals(new ServiceBinding(null, 24621),
+    assertEquals(new ServiceBinding(null, 24620, 24621),
 		 app.getMyServiceBinding());
+
+    assertEquals("zzz",
+		 ConfigManager.getPlatformConfigOnly().get("o.l.plat.xxy"));
+    assertEquals("zzz", config.get("o.l.plat.xxy"));
   }
   
 
@@ -110,12 +127,14 @@ public class FuncLockssApp extends LockssTestCase {
     new ManagerDesc(MyLockssManager.class.getName());
 
   private final ManagerDesc[] expMgrs = {
+    MISC_PARAMS_MANAGER_DESC,
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
     JMS_MANAGER_DESC,
     MAIL_SERVICE_DESC,
     ALERT_MANAGER_DESC,
     STATUS_SERVICE_DESC,
+    REST_SERVICES_MANAGER_DESC,
     TRUEZIP_MANAGER_DESC,
     URL_MANAGER_DESC,
     TIMER_SERVICE_DESC,
@@ -188,10 +207,8 @@ public class FuncLockssApp extends LockssTestCase {
     assertClass(MyLockssManager.class,
 		app.getManagerByType(MyLockssManager.class));
     assertFalse(sem.take(0));
-    ConfigurationUtil.addFromArgs("org.lockss.app.exitOnce", "true");
+    ConfigurationUtil.addFromArgs("org.lockss.app.exitImmediately", "true");
     assertTrue(sem.take(TIMEOUT_SHOULDNT));
-    assertClass(RuntimeException.class, startThreadException);
-    assertEquals("System.exit(0)", startThreadException.getMessage());
   }
   
 
@@ -219,7 +236,6 @@ public class FuncLockssApp extends LockssTestCase {
 
     protected void systemExit(int val) {
       log.critical("System.exit(" + val + ")");
-      throw new RuntimeException("System.exit(" + val + ")");
     }
   }
 

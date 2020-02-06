@@ -130,14 +130,14 @@ public class FuncHashService extends LockssTestCase {
   }
 
   class MyCallback implements HashService.Callback {
-    long timeUsed = 0;
+    SimpleQueue timeUsed = new SimpleQueue.Fifo();
     public void hashingFinished(CachedUrlSet urlset,
 				long timeUsed,
 				Object cookie,
 				CachedUrlSetHasher hasher,
 				Exception e) {
-      log.debug("Hashing finished: " + cookie);
-      this.timeUsed = timeUsed;
+      log.debug("Hashing finished: " + cookie + ", timeUsed: " + timeUsed);
+      this.timeUsed.put(timeUsed);
       //	  cookieList.add(cookie);
     }
   }
@@ -170,7 +170,7 @@ public class FuncHashService extends LockssTestCase {
     assertEquals(300, cus.actualHashDuration);
     assertNull(cus.actualHashException);
     assertFalse(hasher.isAborted);
-    assertEquals(300, cb.timeUsed);
+    assertEquals(300, (long)cb.timeUsed.get(TIMEOUT_SHOULDNT));
   }
 
   int stepBytes() {

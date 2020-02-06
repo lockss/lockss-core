@@ -48,7 +48,7 @@ import org.lockss.plugin.*;
 import org.lockss.remote.*;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.repository.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.BatchAuConfig.Verb;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
@@ -456,14 +456,20 @@ public class ServletUtil {
 
     comp.add("<p>");
 
+    // Logo & tm get their own table to top-align tm
+    Table t2 = new Table(FOOTER_BORDER, FOOTER_ATTRIBUTES);
+    t2.newRow("valign=\"top\"");
+    t2.newCell();
+    t2.add(IMAGE_LOCKSS_RED);
+    t2.newCell();
+    t2.add(IMAGE_TM);
+
     Table table = new Table(FOOTER_BORDER, FOOTER_ATTRIBUTES);
-    table.newRow("valign=\"top\"");
-    table.newCell();
-    table.add(IMAGE_LOCKSS_RED);
-    table.newCell();
-    table.add(IMAGE_TM);
     table.newRow();
-    table.newCell("colspan=\"2\"");
+    table.newCell();
+    table.add(t2);
+    table.newRow();
+    table.newCell();
 
     Properties args =
       PropUtil.fromArgs("table", BuildInfoStatus.BUILD_INFO_TABLE);
@@ -1865,13 +1871,15 @@ public class ServletUtil {
     LockssDaemon daemon = servlet.getLockssDaemon();
     for (ServiceDescr descr : daemon.getAllServiceDescrs()) {
       ServiceBinding binding = daemon.getServiceBinding(descr);
-      navTable.newRow();
-      navTable.newCell();
-      navTable.add("<font size=\"-1\">");
-      navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
-				      AdminServletManager.SERVLET_DAEMON_STATUS,
-				      descr.getName(), null));
-      navTable.add("</font>");
+      if (binding.hasUiPort()) {
+	navTable.newRow();
+	navTable.newCell();
+	navTable.add("<font size=\"-1\">");
+	navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
+					AdminServletManager.SERVLET_DAEMON_STATUS,
+					descr.getName(), null));
+	navTable.add("</font>");
+      }
     }
     outerTable.add(navTable);
   }

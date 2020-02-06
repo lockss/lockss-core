@@ -35,7 +35,9 @@ import java.sql.Connection;
 import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
+import java.util.stream.*;
 import org.apache.commons.collections.map.*;
+import org.apache.commons.lang3.tuple.*;
 import org.lockss.alert.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -46,12 +48,13 @@ import org.lockss.db.DbManager;
 import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
+import org.lockss.util.rest.status.*;
 import javax.jms.*;
 import org.lockss.jms.*;
 
@@ -117,11 +120,12 @@ public class PluginManager
     PREFIX + "useDefaultRegistries";
   public static final boolean DEFAULT_USE_DEFAULT_PLUGIN_REGISTRIES = true;
 
-  /** If true, default plugin signature keystore is used in addition to
-   * user-specified keystore */
-  public static final String PARAM_USE_DEFAULT_KEYSTORE =
-    PREFIX + "useDefaultKeystore";
-  public static final boolean DEFAULT_USE_DEFAULT_KEYSTORE = true;
+  // Not Implemented
+//   /** If true, default plugin signature keystore is used in addition to
+//    * user-specified keystore */
+//   public static final String PARAM_USE_DEFAULT_KEYSTORE =
+//     PREFIX + "useDefaultKeystore";
+//   public static final boolean DEFAULT_USE_DEFAULT_KEYSTORE = true;
 
   /** If true (the default), plugins that appear both in a loadable plugin
    * registry jar and on the local classpath will be loaded from the
@@ -137,7 +141,7 @@ public class PluginManager
   /** Common prefix of plugin keystore params */
   static final String KEYSTORE_PREFIX = PREFIX + "keystore.";
 
-  /** The location of a Java JKS keystore to use for verifying
+  /** The location of a Java keystore to use for verifying
       loadable plugins.  Defaults to the keystore packaged with the daemon. */
   static final String PARAM_KEYSTORE_LOCATION = KEYSTORE_PREFIX + "location";
   static final String DEFAULT_KEYSTORE_LOCATION =
@@ -417,8 +421,7 @@ public class PluginManager
   private Set<String> inactiveAuIds =
       Collections.synchronizedSet(new HashSet<String>());
 
-  private List<AuEventHandler> auEventHandlers =
-    new ArrayList<AuEventHandler>();
+  private List<AuEventHandler> auEventHandlers = new ArrayList<>();
 
   // Counters for AUs restarted due to new plugin loaded
   private int numAusRestarting = 0;
@@ -553,6 +556,7 @@ public class PluginManager
     Configuration config = CurrentConfig.getCurrentConfig();
     if (log.isDebug3())
       log.debug3("config.keySet().size() = " + config.keySet().size());
+    waitForRepo();
     log.debug("Initializing loadable plugin registries before starting AUs");
     initLoadablePluginRegistries(getPluginRegistryUrls(config));
     synchStaticPluginList(config);
@@ -566,6 +570,10 @@ public class PluginManager
 
   public void setLoadablePluginsReady(boolean val) {
     loadablePluginsReady = val;
+  }
+
+  public boolean getLoadablePluginsReady() {
+    return loadablePluginsReady;
   }
 
   List getPluginRegistryUrls(Configuration config) {
@@ -712,7 +720,7 @@ public class PluginManager
 
   @Override
   public void auConfigChanged(String auid) {
-    if (auid == null && isStartAusOnDemand()) {
+    if (auid == null || isStartAusOnDemand()) {
       // Don't create AUs on config change in on-demand mode
       return;
     }
@@ -739,8 +747,8 @@ public class PluginManager
 
   @Override
   public void auConfigRemoved(String auid) {
-    if (auid == null && isStartAusOnDemand()) {
-      // Don't delete AUs on config change in on-demand mode
+    // Do delete AUs on config change even in on-demand mode
+    if (auid == null) {
       return;
     }
     ArchivalUnit au = getAuFromIdIfExists(auid);
@@ -779,15 +787,15 @@ public class PluginManager
 	  "Error getting Archival Unit configurations: Not starting AUs",
 	  dbe);
       return;
-    } catch (IOException ioe) {
-      log.critical(
-	  "Error getting Archival Unit configurations: Not starting AUs",
-	  ioe);
-      return;
     } catch (LockssRestException lre) {
       log.critical(
 	  "Error getting Archival Unit configurations: Not starting AUs",
 	  lre);
+      return;
+    } catch (IOException ioe) {
+      log.critical(
+	  "Error getting Archival Unit configurations: Not starting AUs",
+	  ioe);
       return;
     }
 
@@ -1445,11 +1453,7 @@ public class PluginManager
     log.debug("Received notification: " + event);
     String auid = event.getAuId();
     ArchivalUnit au = getAuFromIdIfExists(auid);
-    if (au == null) {
-      log.debug("Ignoring received AuEvent for non-configured AU: " + auid);
-      return;
-    }
-    signalAuEventInternal(au, event);
+    signalAuEventInternal(auid, au, event);
   }
 
   class PlugMgrAuEventHandler extends AuEventHandler.Base {
@@ -1492,11 +1496,12 @@ public class PluginManager
 			    final AuEvent event) {
     if (log.isDebug2()) log.debug2("AuEvent " + event);
     sendAuEventNotification(au, event);
-    signalAuEventInternal(au, event);
+    signalAuEventInternal(au.getAuId(), au, event);
   }
 
   /** Signal an AuEvent to all local listeners */
-  void signalAuEventInternal(final ArchivalUnit au,
+  void signalAuEventInternal(final String auid,
+			     final ArchivalUnit au,
 			     final AuEvent event) {
     switch (event.getType()) {
     case Create:
@@ -1508,7 +1513,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auCreated(event, au);
+	      hand.auCreated(event, auid, au);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1522,7 +1527,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auDeleted(event, au);
+	      hand.auDeleted(event, auid, au);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1533,7 +1538,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auReconfigured(event, au, oldAuConfig);
+	      hand.auReconfigured(event, auid, au, oldAuConfig);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1544,7 +1549,7 @@ public class PluginManager
       applyAuEvent(new AuEventClosure() {
 	  public void execute(AuEventHandler hand) {
 	    try {
-	      hand.auContentChanged(event, au, chInfo);
+	      hand.auContentChanged(event, auid, au, chInfo);
 	    } catch (Exception e) {
 	      log.error("AuEventHandler threw", e);
 	    }
@@ -1691,7 +1696,10 @@ public class PluginManager
     return null;
   }
 
-  Configuration getAuConfigFromAuId(String auid) {
+  /** Infer a (possibly incomplete) AU configuration from an AUID.  This
+   * should generally not be used as the result will include only
+   * definitional params.  Intended for testing */
+  public static Configuration getAuConfigFromAuId(String auid) {
     final String DEBUG_HEADER = "getAuConfigFromAuId(): ";
     String auKey = null;
     try {
@@ -3147,9 +3155,11 @@ public class PluginManager
   }
 
   private void queuePluginRegistryCrawls() {
-    CrawlManager crawlMgr = getDaemon().getCrawlManager();
-    for (ArchivalUnit au : getAllRegistryAus()) {
-      crawlMgr.startNewContentCrawl(au, null, null);
+    if (isCrawlPlugins()) {
+      CrawlManager crawlMgr = getDaemon().getCrawlManager();
+      for (ArchivalUnit au : getAllRegistryAus()) {
+	crawlMgr.startNewContentCrawl(au, null, null);
+      }
     }
   }
 
@@ -3333,17 +3343,25 @@ public class PluginManager
       }
     }
 
+    // If another component is crawling plugins, wait for it to finish
+    ServiceBinding pCrawler = getDaemon().getPluginsCrawler();
+    if (pCrawler != null) {
+      new Thread(() -> {waitRegistriesReady(pCrawler, bs);}).start();
+    }
+
     // Wait for a while for the AU crawls to complete, then process all the
     // registries in the load list.
     log.debug("Waiting for loadable plugins to finish loading...");
     try {
       if (!bs.take(Deadline.in(registryTimeout))) {
-	log.warning("Timed out while waiting for registries to finish loading. " +
-		    "Remaining registry URL list: " + regCallback.getRegistryUrls());
+	log.warning("Timed out waiting for registries to finish loading. " +
+		    "Remaining registry URLs: " +
+		    regCallback.getRegistryUrls());
       }
     } catch (InterruptedException ex) {
-      log.warning("Binary semaphore threw InterruptedException while waiting." +
-		  "Remaining registry URL list: " + regCallback.getRegistryUrls());
+      log.warning("InterruptedException while waiting for registry crawls." +
+		  "Remaining registry URL list: " +
+		  regCallback.getRegistryUrls());
     }
 
     processRegistryAus(loadAus);
@@ -3396,16 +3414,58 @@ public class PluginManager
   protected void possiblyStartRegistryAuCrawl(ArchivalUnit registryAu,
 					      String url,
 					      InitialRegistryCallback cb) {
-    if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
-      if (log.isDebug2()) log.debug2("Starting new crawl:: " + registryAu);
-      getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
-							 url);
-    } else {
-      if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
+    if (isCrawlPlugins()) {
+      if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
+	if (log.isDebug2()) log.debug2("Starting new crawl: " + registryAu);
+	getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
+							   url);
+      } else {
+	if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
 
-      // If we're not going to crawl this AU, let the callback know.
-      cb.crawlCompleted(url);
+	// If we're not going to crawl this AU, let the callback know.
+	cb.crawlCompleted(url);
+      }
     }
+  }
+
+  private boolean isCrawlPlugins() {
+    try {
+      return
+	getDaemon().getCrawlManager().isCrawlerEnabled() &&
+	getDaemon().getCrawlMode().isCrawlPlugins();
+    } catch (IllegalArgumentException e) {
+      log.debug("Can't get CrawlManager", e);
+      return false;
+    }
+  }
+
+  private void waitRegistriesReady(ServiceBinding pCrawler,
+				   BinarySemaphore sem) {
+    log.debug("Waiting until " + pCrawler +
+	      " reports plugin registries are ready");
+    while (true) {
+      try {
+	if (getApiStatus(pCrawler).getPluginsReady()) {
+	  log.debug(pCrawler + " reports plugin registries are now ready");
+	  sem.give();
+	  return;
+	} else {
+	  log.debug2("Plugin registries not ready");
+	}
+      } catch (IOException e) {
+	log.warning("Can't check plugins crawler status", e);
+      }
+      try {
+	Deadline.in(Constants.SECOND).sleep();
+      } catch (InterruptedException ex) {}
+    }
+  }
+
+  ApiStatus getApiStatus(ServiceBinding binding) throws LockssRestException {
+    RestStatusClient client =
+      new RestStatusClient(binding.getRestStem(),
+			   60 * Constants.SECOND, 60 * Constants.SECOND);
+    return client.getStatus();
   }
 
   /** Return true if any of the glob patterns in a list match the string */
@@ -3442,7 +3502,7 @@ public class PluginManager
       Pattern pat =
 	Pattern.compile(config.get(PARAM_PLUGIN_MEMBER_PATTERN,
 				   DEFAULT_PLUGIN_MEMBER_PATTERN));
-      for (String name : getClasspath()) {
+      for (String name : getPluginJarSearchPath()) {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "name = " + name);
 	if (globMatch(jarPatList, name) ||
 	    globMatch(jarPatList, new File(name).getName())) {
@@ -3491,12 +3551,51 @@ public class PluginManager
     }
   }
 
-  private static List<String> getClasspath() {
-    String cp = System.getProperty("java.class.path");
-    if (cp == null) {
-      return Collections.EMPTY_LIST;
+  // The Spring Boot classloader returns URLs of the form
+  // file:/path/to/XxxPlugin.jar!/ for files,
+  // file:/path/to/uber.jar!/BOOT-INF/classes!/ for classes in jar, and
+  // file:/path/to/uber.jar!/BOOT-INF/lib/lib-jar.jar!/ for embeded
+  // dependency jars.  Include only files (as we don't yet know how to
+  // search the others for plugins), as simple filenames.
+
+  private static List<String> PLUGIN_JAR_SEACH_PATH;
+
+  final static Pattern SPRING_CLASSPATH_URL = Pattern.compile("file:(.*)!/");
+
+  /** Return the list of jars in which to search for plugin registry jars */
+  private static List<String> getPluginJarSearchPath() {
+    if (PLUGIN_JAR_SEACH_PATH == null) {
+      List<String> res = new ArrayList<>();
+      for (String url : clClassPath()) {
+	Matcher mat = SPRING_CLASSPATH_URL.matcher(url);
+	if (mat.matches()) {
+	  String jarfile = mat.group(1);
+	  if (jarfile.indexOf("!/") < 0) {
+	    res.add(jarfile);
+	  }
+	} else {
+	  res.add(url);
+	}
+      }
+      PLUGIN_JAR_SEACH_PATH = res;
     }
-    return StringUtil.breakAt(cp, File.pathSeparator);
+    return PLUGIN_JAR_SEACH_PATH;
+  }
+
+  /** Return the classpath from the ClassLoader, if possible, else the
+   * System property */
+  private static List<String> clClassPath() {
+    ClassLoader cl = Thread.currentThread().getContextClassLoader();
+    if (cl instanceof URLClassLoader) {
+      return Arrays.stream(((URLClassLoader)cl).getURLs())
+	.map(URL::getFile)
+	.collect(Collectors.toList());
+    }
+    String cp = System.getProperty("java.class.path");
+    if (cp != null) {
+      return StringUtil.breakAt(cp, File.pathSeparator);
+    }
+    return Collections.emptyList();
   }
 
   /**
@@ -3570,7 +3669,7 @@ public class PluginManager
 	  InputStream kin =
 	    getClass().getClassLoader().getResourceAsStream(keystoreLoc);
 	  if (kin == null) {
-	    throw new IOException("Keystore reousrce not found: " +
+	    throw new IOException("Keystore resource not found: " +
 				  keystoreLoc);
 	  }
 	  ks.load(kin, passchar);
@@ -3618,16 +3717,23 @@ public class PluginManager
     this.keystoreInited = val;
   }
 
+
+  final static Pattern LIB_JAR_PAT = Pattern.compile("lib/.*\\.jar$");
+
   /**
-   * Given a file representing a JAR, retrieve a list of available
-   * plugin classes to load.
+   * Given a file representing a JAR, construct a list of available plugin
+   * classes to load, and a list of lib jars that should be on the
+   * classpath.
    */
-  private List<String> getJarPluginClasses(File blessedJar) throws IOException {
+  private Pair<List<String>,List<String>> processJarPlugin(File blessedJar)
+      throws IOException {
     JarFile jar = new JarFile(blessedJar);
     Manifest manifest = jar.getManifest();
     Map entries = manifest.getEntries();
-    List<String> plugins = new ArrayList<String>();
+    List<String> plugins = new ArrayList<>();
+    List<String> libjars = new ArrayList<>();
 
+    // Search manifest for plugin names
     for (Iterator manIter = entries.keySet().iterator(); manIter.hasNext();) {
       String key = (String)manIter.next();
 
@@ -3651,9 +3757,41 @@ public class PluginManager
 
     }
 
+    // Search for jars in lib/ dir
+    File depLibDir =
+      new File(FileUtil.getButExtension(blessedJar.toString()), "lib");
+    for (Enumeration<JarEntry> en = jar.entries(); en.hasMoreElements(); ) {
+      JarEntry ent = en.nextElement();
+      Matcher mat = LIB_JAR_PAT.matcher(ent.getName());
+      if (mat.matches()) {
+	try {
+	  libjars.add(copyDependentJar(jar, ent, depLibDir));
+	} catch (IOException e) {
+	  log.error("Couldn't copy plugin lib jars", e);
+	}
+      }
+    }
+
     jar.close();
 
-    return plugins;
+    return new ImmutablePair(plugins, libjars);
+  }
+
+  private String copyDependentJar(JarFile jfile, JarEntry ent, File libdir)
+      throws IOException {
+    if (!FileUtil.ensureDirExists(libdir)) {
+      throw new IOException("Couldn't create plugin lib dir " + libdir);
+    }
+    try (InputStream is = jfile.getInputStream(ent)) {
+      // ent.getName() is "lib/foo.jar"
+      File outfile = new File(libdir, new File(ent.getName()).getName());
+      log.debug("Copying " + ent + " to " + outfile);
+      try (OutputStream os =
+	   new BufferedOutputStream(new FileOutputStream(outfile))) {
+	StreamUtil.copy(is, os);
+	return outfile.toString();
+      }
+    }
   }
 
   public synchronized void processRegistryAus(List registryAus) {
@@ -3690,7 +3828,7 @@ public class PluginManager
 
     // AUs running under plugins that have been replaced by new versions.
     List<ArchivalUnit> needRestartAus = new ArrayList();
-    List<String> changedPluginKeys = new ArrayList<String>();
+    List<String> changedPluginKeys = new ArrayList<>();
 
     for (Map.Entry<String,PluginInfo> entry : tmpMap.entrySet()) {
       String key = entry.getKey();
@@ -3805,9 +3943,12 @@ public class PluginManager
 				    ArchivalUnit au, CachedUrl cu,
 				    Map tmpMap) {
     // Get the list of plugins to load from this jar.
-    List loadPlugins = null;
+    List<String> loadPlugins;
+    List<String> libJars;
     try {
-      loadPlugins = getJarPluginClasses(jarFile);
+      Pair<List<String>,List<String>> p = processJarPlugin(jarFile);
+      loadPlugins = p.getLeft();
+      libJars = p.getRight();
     } catch (IOException ex) {
       log.error("Error while getting list of plugins for " +
 		jarFile);
@@ -3828,7 +3969,13 @@ public class PluginManager
     URL blessedUrl;
     try {
       blessedUrl = jarFile.toURL();
-      URL[] urls = new URL[] { blessedUrl };
+      List<URL> cp = new ArrayList<>();
+      cp.add(blessedUrl);
+      for (String jar : libJars) {
+	cp.add(new File(jar).toURL());
+      }
+      URL[] urls = cp.toArray(new URL[0]);
+      log.debug2("Plugin classpath: " + cp);
       pluginLoader =
 	preferLoadablePlugin
 	? new LoadablePluginClassLoader(urls, getClass().getClassLoader())
@@ -3839,11 +3986,7 @@ public class PluginManager
       return; // skip this CU.
     }
 
-    String pluginName = null;
-
-    for (Iterator pluginIter = loadPlugins.iterator();
-	 pluginIter.hasNext();) {
-      pluginName = (String)pluginIter.next();
+    for (String pluginName : loadPlugins) {
       String key = pluginKeyFromName(pluginName);
 
       Plugin plugin;

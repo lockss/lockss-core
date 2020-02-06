@@ -101,6 +101,11 @@ public class FuncV2Repo extends LockssTestCase {
   public void testVersion() throws IOException {
     ArtifactData ad1 = createArtifact(COLL, AUID, url1, "content 11111");
     Artifact art1 = repo.addArtifact(ad1);
+    assertNull(repo.getArtifactVersion(COLL, AUID, url1, 1));
+    assertNull(repo.getArtifactVersion(COLL, AUID, url1, 1, false));
+    Artifact uncArt = repo.getArtifactVersion(COLL, AUID, url1, 1, true);
+    assertEquals(art1.getId(), uncArt.getId());
+
     repo.commitArtifact(art1);
     Artifact r1 = repo.getArtifact(COLL, AUID, url1);
 
@@ -112,6 +117,17 @@ public class FuncV2Repo extends LockssTestCase {
     assertArtifactCommitted(art1, aa);
 
     assertEquals(r1, aa);
+
+    aa = repo.getArtifactVersion(COLL, AUID, url1, 1, false);
+
+    assertArtifactCommitted(art1, aa);
+    assertEquals(r1, aa);
+
+    Artifact aa2 = repo.getArtifactVersion(COLL, AUID, url1, 1, true);
+
+    assertArtifactCommitted(art1, aa2);
+
+    assertEquals(r1, aa2);
 
     ArtifactData ad2 = createArtifact(COLL, AUID, url1, "content 22222");
     Artifact art2 = repo.addArtifact(ad2);
@@ -125,6 +141,37 @@ public class FuncV2Repo extends LockssTestCase {
 
     assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
+
+    aa = repo.getArtifactVersion(COLL, AUID, url1, 2, false);
+
+    assertArtifactCommitted(art2, aa);
+    assertEquals(2, (int)aa.getVersion());
+
+    aa = repo.getArtifactVersion(COLL, AUID, url1, 2, true);
+
+    assertArtifactCommitted(art2, aa);
+    assertEquals(2, (int)aa.getVersion());
+
+    ArtifactData ad3 = createArtifact(COLL, AUID, url1, "content 33333");
+    Artifact art3 = repo.addArtifact(ad3);
+    assertEquals(3, (int)art3.getVersion());
+    repo.deleteArtifact(art3);
+    ArtifactData ad4 = createArtifact(COLL, AUID, url1, "content 44444");
+    Artifact art4 = repo.addArtifact(ad4);
+    assertEquals(3, (int)art4.getVersion());
+
+    ArtifactData ad5 = createArtifact(COLL, AUID, url1, "content 55555");
+    Artifact art5 = repo.addArtifact(ad5);
+    assertEquals(4, (int)art5.getVersion());
+
+    ArtifactData ad4a = repo.getArtifactData(art4);
+    assertInputStreamMatchesString("content 44444", ad4a.getInputStream());
+    uncArt = repo.getArtifactVersion(COLL, AUID, url1, 3);
+    assertNull(uncArt);
+    repo.commitArtifact(art4);
+    uncArt = repo.getArtifactVersion(COLL, AUID, url1, 3);
+    assertNotNull(uncArt);
+
   }
 
   /**

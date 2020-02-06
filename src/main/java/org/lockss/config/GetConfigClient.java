@@ -63,7 +63,7 @@ public class GetConfigClient {
    *          A String with the password of the user that performs the
    *          operation.
    * @param timeoutValue
-   *          An Integer with the connection and socket timeout, in seconds.
+   *          An Integer with the connection and socket timeout, in mss.
    */
   public GetConfigClient(String location, String userName, String password,
       Integer timeoutValue) {
@@ -92,8 +92,8 @@ public class GetConfigClient {
     SimpleClientHttpRequestFactory requestFactory =
 	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
 
-    requestFactory.setReadTimeout(1000*serviceTimeout);
-    requestFactory.setConnectTimeout(1000*serviceTimeout);
+    requestFactory.setReadTimeout(serviceTimeout);
+    requestFactory.setConnectTimeout(serviceTimeout);
 
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);

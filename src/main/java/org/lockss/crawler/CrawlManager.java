@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2006 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -99,6 +95,11 @@ public interface CrawlManager {
   boolean isCrawlStarterRunning();
 
   /**
+   * Return true if the crawler is enabled
+   */
+  boolean isCrawlerEnabled();
+
+  /**
    * Return the StatusSource
    */
   StatusSource getStatusSource();
@@ -108,11 +109,6 @@ public interface CrawlManager {
    * CrawlManagerImpl#PARAM_CRAWL_PRIORITY_AUID_MAP}
    */
   int getAuPriority(ArchivalUnit au);
-
-  /**
-   * Hook to apply patterns to exclude recursive URLs, etc.
-   */
-  boolean isGloballyExcludedUrl(ArchivalUnit au, String url);
 
   /**
    * Return true if collection from the host is permitted by the globalk

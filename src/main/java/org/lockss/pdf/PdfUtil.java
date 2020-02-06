@@ -41,6 +41,7 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.definable.DefinableArchivalUnit;
 import org.lockss.util.*;
+import org.lockss.util.io.DeferredTempFileOutputStream;
 
 /**
  * <p>

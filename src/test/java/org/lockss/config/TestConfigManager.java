@@ -36,6 +36,7 @@ import org.apache.activemq.broker.BrokerService;
 import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
@@ -165,8 +166,8 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testNotifyChanged() throws IOException, JMSException {
-    Consumer cons =
-      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsConsumer cons =
+      JMSManager.getJmsFactoryStatic().createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
     mymgr.setShouldSendNotifications("yes");
     getMockLockssDaemon().setAppRunning(true);
 
@@ -185,8 +186,8 @@ public class TestConfigManager extends LockssTestCase4 {
   // config callback
   @Test
   public void testReceiveNotify() throws IOException, JMSException {
-    Producer prod =
-      Producer.createTopicProducer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsProducer prod =
+      JMSManager.getJmsFactoryStatic().createTopicProducer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
     mymgr.setShouldReceiveNotifications("yes");
     mymgr.setUpJmsNotifications();
 
@@ -606,6 +607,26 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testUrlParams() throws Exception {
+    mgr =  new ConfigManager(null, null,
+			     ListUtil.list("foo"),
+			     "group1;GROUP2");
+    Map<String,Map<String,Object>> uparams = ConfigManager.URL_PARAMS;
+
+    Map<String,Object> auxPropsMap = uparams.get(PARAM_AUX_PROP_URLS);
+    assertEquals("auxilliary props", auxPropsMap.get("message"));
+    assertEquals(true, auxPropsMap.getOrDefault("required", false));
+
+    Map<String,Object> titlePropsMap = uparams.get(PARAM_TITLE_DB_URLS);
+    assertEquals("global titledb", titlePropsMap.get("message"));
+    assertEquals(false, titlePropsMap.getOrDefault("required", false));
+
+    Map<String,Object> userTitlePropsMap = uparams.get(PARAM_USER_TITLE_DB_URLS);
+    assertEquals("user title DBs", userTitlePropsMap.get("message"));
+    assertEquals(false, userTitlePropsMap.getOrDefault("required", false));
+  }
+
+  @Test
   public void testGroup() throws Exception {
     Properties props = new Properties();
     ConfigurationUtil.setCurrentConfigFromProps(props);
@@ -964,7 +985,7 @@ public class TestConfigManager extends LockssTestCase4 {
 		   SetUtil.theSet(pairs));
     }
     mgr.setGroups("grouper");
-    ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_LOCAL_V3_IDENTITY,
 				  "tcp:[111.32.14.5]:9876");
     pairs = StringUtil.breakAt(mgr.getVersionString(), ',');
     if (release != null) {
@@ -1293,8 +1314,8 @@ public class TestConfigManager extends LockssTestCase4 {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  tmpdir);
 
-    Consumer cons =
-      Consumer.createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsConsumer cons =
+      JMSManager.getJmsFactoryStatic().createTopicConsumer(null, DEFAULT_JMS_NOTIFICATION_TOPIC);
     mymgr.setShouldSendNotifications("yes");
     mymgr.setUpJmsNotifications();
 
@@ -1592,7 +1613,8 @@ public class TestConfigManager extends LockssTestCase4 {
     assertFalse(mgr.waitConfig(Deadline.EXPIRED));
   }
 
-  // Illegal title db key prevents loading the entire file.
+  // Illegal title db key prevents loading the entire file, lost still
+  // succeeds
   @Test
   public void testLoadIllTitleDb() throws IOException {
     String u2 = FileTestUtil.urlOfString("org.lockss.notTitleDb.foo=bar\n" +
@@ -1611,6 +1633,28 @@ public class TestConfigManager extends LockssTestCase4 {
     String u2 = FileTestUtil.urlOfString("org.lockss.notTitleDb.foo=bar\n" +
 					 "org.lockss.title.x.foo=bar");
     String u1 = FileTestUtil.urlOfString("a=1\norg.lockss.titleDbs="+u2);
+    assertTrue(mgr.updateConfig(ListUtil.list(u1)));
+    Configuration config = mgr.getCurrentConfig();
+    assertEquals(null, config.get("org.lockss.title.x.foo"));
+    assertEquals(null, config.get("org.lockss.notTitleDb.foo"));
+    assertEquals("1", config.get("a"));
+  }
+
+  // Missing aux file causes load to fail
+  @Test
+  public void testLoadMissingAuxFile() throws IOException {
+    String u2 = FileTestUtil.urlOfString("org.lockss.title.x.foo=baz");
+    String u1 = FileTestUtil.urlOfString("a=1\norg.lockss.auxPropUrls="+u2+".missing");
+    assertFalse(mgr.updateConfig(ListUtil.list(u1)));
+    Configuration config = mgr.getCurrentConfig();
+    assertEquals(null, config.get("org.lockss.title.x.foo"));
+  }
+
+  // Missing titledb file, load succeeds
+  @Test
+  public void testLoadMissingTitleFile() throws IOException {
+    String u2 = FileTestUtil.urlOfString("org.lockss.title.x.foo=baz");
+    String u1 = FileTestUtil.urlOfString("a=1\norg.lockss.titleDbs="+u2+".missing");
     assertTrue(mgr.updateConfig(ListUtil.list(u1)));
     Configuration config = mgr.getCurrentConfig();
     assertEquals(null, config.get("org.lockss.title.x.foo"));
@@ -1747,7 +1791,7 @@ public class TestConfigManager extends LockssTestCase4 {
     String relConfigPath =
       CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
                              ConfigManager.DEFAULT_CONFIG_PATH);
-    assertNull(mgr.getRemoteConfigFailoverTempFile(url1));
+    assertNull(mgr.getRemoteConfigFailoverWithTempFile(url1));
     assertNull(mgr.getRemoteConfigFailoverFile(url1));
   }
 
@@ -1769,7 +1813,9 @@ public class TestConfigManager extends LockssTestCase4 {
                              ConfigManager.DEFAULT_CONFIG_PATH);
     assertEquals(null, mgr.getRemoteConfigFailoverFile(url1));
 
-    File tf1 = mgr.getRemoteConfigFailoverTempFile(url1);
+    RemoteConfigFailoverInfo rcfi =
+      mgr.getRemoteConfigFailoverWithTempFile(url1);
+    File tf1 = rcfi.getTempFile();
     assertMatchesRE("^" + tmpdir + ".*\\.tmp$", tf1.getPath());
 
     assertEquals(null, mgr.getRemoteConfigFailoverFile(url1));
@@ -1793,7 +1839,9 @@ public class TestConfigManager extends LockssTestCase4 {
     String relConfigPath =
       CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
                              ConfigManager.DEFAULT_CONFIG_PATH);
-    File tf1 = mgr.getRemoteConfigFailoverTempFile(url1);
+    RemoteConfigFailoverInfo rcfi =
+      mgr.getRemoteConfigFailoverWithTempFile(url1);
+    File tf1 = rcfi.getTempFile();
     assertMatchesRE("^" + tmpdir + ".*\\.tmp$", tf1.getPath());
     String sss = "sasdflkajsdlfj content dfljasdfl;ajsdf";
     StringUtil.toFile(tf1, sss);
@@ -1811,7 +1859,9 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(pf1.getName(), rcci.getFilename());
     assertEquals("01-xxx.xml.gz", rcci.getFilename());
 
-    File tf2 = mgr.getRemoteConfigFailoverTempFile(url2);
+    RemoteConfigFailoverInfo rcfi2 =
+      mgr.getRemoteConfigFailoverWithTempFile(url2);
+    File tf2 = rcfi.getTempFile();
     mgr.updateRemoteConfigFailover();
     File pf2 = mgr.getRemoteConfigFailoverFile(url2);
     assertMatchesRE("02-yyy.txt.gz$", pf2.getPath());
@@ -2204,16 +2254,17 @@ public class TestConfigManager extends LockssTestCase4 {
     String receiveNotifications = "super";
 
     public static ConfigManager makeConfigManager(LockssDaemon daemon) {
-      theMgr = new MyConfigManager();
-      theMgr.initService(daemon);
-      return theMgr;
+      ConfigManager mgr = new MyConfigManager();
+      mgr.initService(daemon);
+      return theMgr.setValue(mgr);
     }
 
     public static ConfigManager makeConfigManager(LockssDaemon daemon,
 	String restConfigServiceUrl) {
-      theMgr = new MyConfigManager(null, restConfigServiceUrl, null, null);
-      theMgr.initService(daemon);
-      return theMgr;
+      ConfigManager mgr =
+	new MyConfigManager(null, restConfigServiceUrl, null, null);
+      mgr.initService(daemon);
+      return theMgr.setValue(mgr);
     }
 
     public MyConfigManager() {

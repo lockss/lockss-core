@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,27 +37,30 @@ import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.util.*;
 import java.lang.reflect.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.servlet.*;
 import org.lockss.test.*;
 import static org.lockss.servlet.LockssServlet.ROLE_USER_ADMIN;
+import static org.lockss.servlet.LockssServlet.ROLE_DEBUG;
 
 /**
  * Test class for org.lockss.account.AccountManager
  */
 public class TestAccountManager extends LockssTestCase {
 
+  L4JLogger log = L4JLogger.getLogger();
+
   MyAccountManager acctMgr;
 
   public void setUp() throws Exception {
     super.setUp();
-    Properties p = new Properties();
-    p.put(AccountManager.PARAM_ENABLED, "true");
-    p.put(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
-	  getTempDir("accttest").toString());
-    ConfigurationUtil.setCurrentConfigFromProps(p);
+    ConfigurationUtil.addFromArgs(AccountManager.PARAM_ENABLED, "true",
+				  AccountManager.PARAM_ENABLE_DEBUG_USER, "false",
+				  ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
+				  getTempDir("accttest").toString());
     acctMgr = new MyAccountManager();
     getMockLockssDaemon().setAccountManager(acctMgr);
     acctMgr.initService(getMockLockssDaemon());
@@ -99,34 +98,28 @@ public class TestAccountManager extends LockssTestCase {
   }
 
   public void testGetUserFactory() {
-    assertTrue(acctMgr.getUserFactory("basic")
-	       instanceof BasicUserAccount.Factory);
-    assertTrue(acctMgr.getUserFactory("Basic")
-	       instanceof BasicUserAccount.Factory);
-    assertTrue(acctMgr.getUserFactory("Unknown")
-	       instanceof BasicUserAccount.Factory);
-    assertTrue(acctMgr.getUserFactory("LC")
-	       instanceof LCUserAccount.Factory);
-    assertTrue(acctMgr.getUserFactory("org.lockss.account.LCUserAccount")
-	       instanceof LCUserAccount.Factory);
-    assertTrue(acctMgr.getUserFactory("org.lockss.account.StaticUserAccount")
-	       instanceof StaticUserAccount.Factory);
+    assertClass(BasicUserAccount.Factory.class, acctMgr.getUserFactory("basic"));
+    assertClass(BasicUserAccount.Factory.class, acctMgr.getUserFactory("Basic"));
+    assertClass(BasicUserAccount.Factory.class, acctMgr.getUserFactory("Unknown"));
 
-    assertTrue(acctMgr.getUserFactory("Unknown")
-	       instanceof BasicUserAccount.Factory);
-    assertTrue(acctMgr.getUserFactory("")
-	       instanceof BasicUserAccount.Factory);
-    assertTrue(acctMgr.getUserFactory(null)
-	       instanceof BasicUserAccount.Factory);
+    assertClass(LCUserAccount.Factory.class, acctMgr.getUserFactory("LC"));
+    assertClass(LCUserAccount.Factory.class,
+		acctMgr.getUserFactory("org.lockss.account.LCUserAccount"));
+    assertClass(StaticUserAccount.Factory.class,
+		acctMgr.getUserFactory("org.lockss.account.StaticUserAccount"));
+
+    assertClass(BasicUserAccount.Factory.class, acctMgr.getUserFactory("Unknown"));
+    assertClass(BasicUserAccount.Factory.class, acctMgr.getUserFactory(""));
+    assertClass(BasicUserAccount.Factory.class, acctMgr.getUserFactory(null));
   }
 
   public void testCreateUser() {
     UserAccount acct = acctMgr.createUser("fred");
-    assertTrue(acct instanceof BasicUserAccount);
+    assertClass(BasicUserAccount.class, acct);
     assertEquals("fred", acct.getName());
     ConfigurationUtil.addFromArgs(AccountManager.PARAM_NEW_ACCOUNT_TYPE, "lc");
     acct = acctMgr.createUser("ethel");
-    assertTrue(acct.getClass().toString(), acct instanceof LCUserAccount);
+    assertClass(LCUserAccount.class, acct);
     assertEquals("ethel", acct.getName());
   }
 
@@ -175,7 +168,20 @@ public class TestAccountManager extends LockssTestCase {
     assertFalse(f1.exists());
   }
 
-  public void testAddPlatformUser0() throws Exception {
+  public void testInstallDebugUser() throws Exception {
+    String user = "lochs";
+    assertEquals(0, acctMgr.getUsers().size());
+    ConfigurationUtil.addFromArgs(AccountManager.PARAM_ENABLE_DEBUG_USER,
+				  "true");
+    acctMgr.installDebugUser(AccountManager.DEBUG_USER_PROPERTY_FILE);
+    assertEquals(1, acctMgr.getUsers().size());
+    UserAccount acct1 = acctMgr.getUser(user);
+    assertEquals(user, acct1.getName());
+    assertEquals("debugRole,userAdminRole", acct1.getRoles());
+    assertTrue(acct1.isStaticUser());
+  }
+
+  public void testInstallPlatformUser0() throws Exception {
     String user = "ferd";
     String cred = "SHA-1:01020304";
 
@@ -196,7 +202,7 @@ public class TestAccountManager extends LockssTestCase {
     assertFalse(f1.exists());
   }
 
-  public void testAddPlatformUser1() throws Exception {
+  public void testInstallPlatformUser1() throws Exception {
     String user = "ferd";
     String cred = "SHA-1:01020304";
 

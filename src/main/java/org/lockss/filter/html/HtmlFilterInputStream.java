@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -42,6 +38,7 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.io.DeferredTempFileOutputStream;
 
 import java.io.*;
 

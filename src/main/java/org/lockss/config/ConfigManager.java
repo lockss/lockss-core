@@ -33,6 +33,7 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.Function;
 import java.net.*;
 import java.sql.Connection;
 import org.apache.commons.collections.Predicate;
@@ -55,11 +56,12 @@ import org.lockss.protocol.*;
 import org.lockss.proxy.*;
 import org.lockss.remote.*;
 import org.lockss.repository.*;
-import org.lockss.rs.exception.LockssRestException;
-import org.lockss.rs.exception.LockssRestHttpException;
+import org.lockss.util.rest.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestHttpException;
 import org.lockss.servlet.*;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.Deadline;
@@ -198,7 +200,6 @@ public class ConfigManager implements LockssManager {
   /** List of URLs of title DBs configured locally using UI.  Do not set
    * manually
    * @ParamRelevance Never
-   * @ParamAuto
    */
   public static final String PARAM_USER_TITLE_DB_URLS =
     Configuration.PREFIX + "userTitleDbs";
@@ -242,11 +243,11 @@ public class ConfigManager implements LockssManager {
     URL_PARAMS.put(PARAM_AUX_PROP_URLS, auxPropsMap);
 
     Map<String, Object> userTitleDbMap = new HashMap<String, Object>();
-    auxPropsMap.put("message", "user title DBs");
+    userTitleDbMap.put("message", "user title DBs");
     URL_PARAMS.put(PARAM_USER_TITLE_DB_URLS, userTitleDbMap);
 
     Map<String, Object> globalTitleDbMap = new HashMap<String, Object>();
-    auxPropsMap.put("message", "global titledb");
+    globalTitleDbMap.put("message", "global titledb");
     URL_PARAMS.put(PARAM_TITLE_DB_URLS, globalTitleDbMap);
   }
 
@@ -754,10 +755,6 @@ public class ConfigManager implements LockssManager {
   /** This constructor is used only for tests */
   public ConfigManager() {
     this(null, System.getProperty(SYSPROP_REST_CONFIG_SERVICE_URL), null, null);
-
-    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
-    URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
-    URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
   }
 
   public ConfigManager(List urls) {
@@ -778,6 +775,16 @@ public class ConfigManager implements LockssManager {
 		       String restConfigServiceUrl,
 		       List<String> urls,
 		       String groupNames) {
+
+    // Require auxPropUrls to load successfully.  For now allow titleDbs
+    // and userTitleDbs to fail without causing entire load to fail
+    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("predicate", trueKeyPredicate);
+    URL_PARAMS.get(PARAM_AUX_PROP_URLS).put("required", true);
+    URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
+//     URL_PARAMS.get(PARAM_USER_TITLE_DB_URLS).put("required", true);
+    URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
+//     URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("required", true);
+
     this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
@@ -813,7 +820,10 @@ public class ConfigManager implements LockssManager {
       // Set up http cache dir for HTTPConfigFile
       File cacheDir = ensureDir(getTmpDir(), "hcfcache");
       log.info("http cache dir: " + cacheDir);
-      getHttpCacheManager().getCacheSpec(HTTP_CACHE_NAME).setCacheDir(cacheDir);
+      getHttpCacheManager().getCacheSpec(HTTP_CACHE_NAME)
+	.setCacheDir(cacheDir)
+	.setResourceFactory(new GzippedFileResourceFactory(cacheDir))
+	;
     }
     return hCacheMgr;
   }
@@ -866,34 +876,51 @@ public class ConfigManager implements LockssManager {
   public LockssApp getApp() {
     return theApp;
   }
-  protected static ConfigManager theMgr;
+
+  protected static WaitableObject<ConfigManager> theMgr =
+    new WaitableObject<>();
 
   public static ConfigManager  makeConfigManager() {
-    theMgr = new ConfigManager();
-    return theMgr;
+    return theMgr.setValue(new ConfigManager());
   }
 
   public static ConfigManager makeConfigManager(List urls) {
-    theMgr = new ConfigManager(urls);
-    return theMgr;
+    return theMgr.setValue(new ConfigManager(urls));
   }
 
   public static ConfigManager makeConfigManager(List urls, String groupNames) {
-    theMgr = new ConfigManager(urls, groupNames);
-    return theMgr;
+    return theMgr.setValue(new ConfigManager(urls, groupNames));
   }
 
   public static ConfigManager makeConfigManager(List<String> bootstrapPropsUrls,
 						String restConfigServiceUrl,
 						List<String> urls,
 						String groupNames) {
-    theMgr = new ConfigManager(bootstrapPropsUrls, restConfigServiceUrl, urls,
-			       groupNames);
-    return theMgr;
+    return theMgr.setValue(new ConfigManager(bootstrapPropsUrls,
+					     restConfigServiceUrl,
+					     urls,
+					     groupNames));
   }
 
+  /**
+   * static accessor for the ConfigManager instance.  In support of Spring
+   * and other inverted start-order frameworks, this method will wait a
+   * short time for the ConfigManager instance to be created.
+   * @throws IllegalStateException if that doesn't happen quickly
+   * @return the ConfigManager instance
+   */
   public static ConfigManager getConfigManager() {
-    return theMgr;
+    try {
+      return theMgr.waitValue(15 * Constants.SECOND);
+    } catch (IllegalStateException e) {
+      throw new IllegalStateException("ConfigManager was not instantiated");
+    }
+  }
+
+  /** Return the ConfigManager instance if it exists, else null; do not
+   * wait */
+  public static ConfigManager getConfigManagerOrNull() {
+    return theMgr.getValue();
   }
 
   /** Factory to create instance of appropriate class */
@@ -920,10 +947,11 @@ public class ConfigManager implements LockssManager {
   /** Return current configuration, or an empty configuration if there is
    * no current configuration. */
   public static Configuration getCurrentConfig() {
-    if (theMgr == null || theMgr.currentConfig == null) {
-      return EMPTY_CONFIGURATION;
+    ConfigManager mgr = getConfigManagerOrNull();
+    if (mgr != null && mgr.currentConfig != null) {
+      return mgr.currentConfig;
     }
-    return theMgr.currentConfig;
+    return EMPTY_CONFIGURATION;
   }
 
   public void setCurrentConfig(Configuration newConfig) {
@@ -967,6 +995,10 @@ public class ConfigManager implements LockssManager {
       ver = getCurrentConfig().get(PARAM_DAEMON_VERSION);
     }
     return ver == null ? null : new DaemonVersion(ver);
+  }
+
+  public static Configuration getPlatformConfigOnly() {
+    return platformConfig;
   }
 
   public static Configuration getPlatformConfig() {
@@ -1376,7 +1408,7 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
-   * Adds to a target list any generation from a source list that it's not in
+   * Adds to a target list any generation from a source list if it's not in
    * the target list yet.
    *
    * @param sourceGenList
@@ -1456,7 +1488,7 @@ public class ConfigManager implements LockssManager {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "urls = " + urls);
 
 	// Ignore an empty value.
-	if (urls.size() == 0) {
+	if (urls.isEmpty()) {
 	  log.warning(includingKey + " has empty value");
 	  continue;
 	}
@@ -1474,17 +1506,23 @@ public class ConfigManager implements LockssManager {
 	  parentConfigFile.put(resolvedUrl, configCache.find(base));
 	}
 
+	Map<String,Object> keyParams = URL_PARAMS.get(includingKey);
 	// Add the generations of the resolved URLs to the list, if not there
 	// already.
-	String message = (String)(URL_PARAMS.get(includingKey).get("message"));
+	String message = (String)(keyParams.get("message"));
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "message = " + message);
-	ConfigManager.KeyPredicate keyPredicate = (ConfigManager.KeyPredicate)
-	    (URL_PARAMS.get(includingKey).get("predicate"));
+	ConfigManager.KeyPredicate keyPredicate =
+	  (ConfigManager.KeyPredicate) (keyParams.get("predicate"));
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "keyPredicate = " + keyPredicate);
 
+	boolean req = (boolean)keyParams.getOrDefault("required", false);
+	if (log.isDebug2()) {
+	  log.debug2("Referenced by key: " + includingKey +
+		     ", req: " + req + ", urls: " + resolvedUrls);
+	}
 	addGenerationsToListIfNotInIt(getConfigGenerations(resolvedUrls,
-	    false, reload, message, keyPredicate), targetList);
+	    req, reload, message, keyPredicate), targetList);
 
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	    + StringUtil.loggableCollection(targetList, "targetList"));
@@ -1547,6 +1585,7 @@ public class ConfigManager implements LockssManager {
       if (!haveConfig.isFull()) {
 	schedSetUpJmsNotifications();
       }
+      invalidateClusterFile();
       haveConfig.fill();
     }
     connPool.closeIdleConnections(0);
@@ -1609,23 +1648,11 @@ public class ConfigManager implements LockssManager {
     }
     Configuration newConfig = initNewConfiguration();
     // Add app defaults
-    if (getApp() != null) {
-      Configuration appDefault = getApp().getAppDefault();
-      if (appDefault != null && !appDefault.isEmpty()) {
-	if (log.isDebug2()) log.debug2("Adding app default: " +
-				       appDefault);
-	newConfig.copyFrom(appDefault);
-      }
-    }
+    mergeAppConfig(newConfig, LockssApp::getBootDefault, "app bootstrap default");
+    mergeAppConfig(newConfig, LockssApp::getAppDefault, "app default");
     loadList(newConfig, gens);
     // Add app un-overridable config
-    if (getApp() != null) {
-      Configuration appConfig = getApp().getAppConfig();
-      if (appConfig != null && !appConfig.isEmpty()) {
-	if (log.isDebug2()) log.debug2("Adding app config: " + appConfig);
-	newConfig.copyFrom(appConfig);
-      }
-    }
+    mergeAppConfig(newConfig, LockssApp::getAppConfig, "app config");
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newConfig = " + newConfig);
 
     boolean did = installConfig(newConfig, gens);
@@ -1665,7 +1692,7 @@ public class ConfigManager implements LockssManager {
 	  StringUtil.separatedString(getPlatformGroupList(), ";"));
     putIf(p, "host", getPlatformHostname());
     putIf(p, "peerid",
-	  currentConfig.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY));
+	  getPlatformConfig().get(PARAM_PLATFORM_LOCAL_V3_IDENTITY));
     return p;
   }
 
@@ -1716,6 +1743,8 @@ public class ConfigManager implements LockssManager {
     final String DEBUG_HEADER = "setupPlatformConfig(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
     Configuration platConfig = initNewConfiguration();
+    mergeAppConfig(platConfig, LockssApp::getBootDefault,
+		   "app bootstrap default");
     for (Iterator iter = urls.iterator(); iter.hasNext();) {
       Object o = iter.next();
       ConfigFile cf;
@@ -1997,19 +2026,23 @@ public class ConfigManager implements LockssManager {
   static final String DEFAULT_HASH_SVC = "org.lockss.hasher.HashSvcSchedImpl";
 
   private void inferMiscParams(Configuration config) {
-    // hack to make hash use new scheduler without directly setting
-    // org.lockss.manager.HashService, which would break old daemons.
-    // don't set if already has a value
-    if (config.get(PARAM_HASH_SVC) == null &&
-	config.getBoolean(PARAM_NEW_SCHEDULER, DEFAULT_NEW_SCHEDULER)) {
-      config.put(PARAM_HASH_SVC, DEFAULT_HASH_SVC);
-    }
+//     // hack to make hash use new scheduler without directly setting
+//     // org.lockss.manager.HashService, which would break old daemons.
+//     // don't set if already has a value
+//     if (config.get(PARAM_HASH_SVC) == null &&
+// 	config.getBoolean(PARAM_NEW_SCHEDULER, DEFAULT_NEW_SCHEDULER)) {
+//       config.put(PARAM_HASH_SVC, DEFAULT_HASH_SVC);
+//     }
 
     setUpTmp(config);
 
     System.setProperty("jsse.enableSNIExtension",
 		       Boolean.toString(config.getBoolean(PARAM_JSSE_ENABLESNIEXTENSION,
 							  DEFAULT_JSSE_ENABLESNIEXTENSION)));
+
+    setIfNotSet(config,
+		org.lockss.crawler.CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
+		MiscParams.PARAM_EXCLUDE_URL_PATTERN);
 
     String fromParam = LockssDaemon.PARAM_BIND_ADDRS;
     setIfNotSet(config, fromParam, AdminServletManager.PARAM_BIND_ADDRS);
@@ -2087,6 +2120,18 @@ public class ConfigManager implements LockssManager {
     }
     if ("compat".equalsIgnoreCase(acctPolicy)) {
       setParamsFromPairs(config, AccountManager.POLICY_COMPAT);
+    }
+  }
+
+  void mergeAppConfig(Configuration config,
+		      Function<LockssApp,Configuration> getter,
+		      String msg) {
+    if (getApp() != null) {
+      Configuration toMerge = getter.apply(getApp());
+      if (toMerge != null && !toMerge.isEmpty()) {
+	if (log.isDebug2()) log.debug2("Adding " + msg + ": " + toMerge);
+	config.copyFrom(toMerge);
+      }
     }
   }
 
@@ -2395,10 +2440,11 @@ public class ConfigManager implements LockssManager {
     if (v.size() == 0) {
       if (noNag) {
 	log.debug2(PARAM_PLATFORM_DISK_SPACE_LIST +
-		   " not specified, not configuring local cache config dir");
+		   " not specified, not configuring local data dir");
       } else {
-	log.error(PARAM_PLATFORM_DISK_SPACE_LIST +
-		  " not specified, not configuring local cache config dir");
+	log.warning(PARAM_PLATFORM_DISK_SPACE_LIST +
+		    " not specified, not configuring local data dir");
+	noNag = true;
       }
       return;
     }
@@ -2895,6 +2941,10 @@ public class ConfigManager implements LockssManager {
   // Remote config failover mechanism maintain local copy of remote config
   // files, uses them on daemon startup if origin file not available
 
+  // Ideally this whole mechanism could be eliminated by making the HTTP
+  // cache use a persistent HttpCacheStorage (e.g.,
+  // PersistentManagedHttpCacheStorage)
+
   File remoteConfigFailoverDir;			// Copies written to this dir
   File remoteConfigFailoverInfoFile;		// State file
   RemoteConfigFailoverMap rcfm;
@@ -2905,7 +2955,9 @@ public class ConfigManager implements LockssManager {
     final String url;
     String filename;
     String chksum;
-    long date;
+    long storeDate;
+    String etag;
+    String lastModified;
     transient File dir;
     transient File tempfile;
     transient int seq;
@@ -2932,6 +2984,22 @@ public class ConfigManager implements LockssManager {
       return url;
     }
 
+    String getEtag() {
+      return etag;
+    }
+
+    void setEtag(String etag) {
+      this.etag = etag;
+    }
+
+    String getLastModified() {
+      return lastModified;
+    }
+
+    void setLastModified(String lastModified) {
+      this.lastModified = lastModified;
+    }
+
     String getFilename() {
       return filename;
     }
@@ -2955,7 +3023,7 @@ public class ConfigManager implements LockssManager {
 	log.debug2("Rename " + tempfile + " -> " + pfile);
 	PlatformUtil.updateAtomically(tempfile, pfile);
 	tempfile = null;
-	date = TimeBase.nowMs();
+	storeDate = TimeBase.nowMs();
 	filename = pname;
 	return true;
       } else {
@@ -2971,7 +3039,7 @@ public class ConfigManager implements LockssManager {
     }
 
     long getDate() {
-      return date;
+      return storeDate;
     }
 
     String getOrMakePermFilename() {
@@ -3059,6 +3127,7 @@ public class ConfigManager implements LockssManager {
 	rcfm = null;
       }
     } else {
+      log.debug2("Remote failover disabled");
       remoteConfigFailoverDir = null;
       rcfm = null;
     }
@@ -3097,7 +3166,7 @@ public class ConfigManager implements LockssManager {
     return rcfi.getPermFileAbs();
   }    
 
-  public File getRemoteConfigFailoverTempFile(String url) {
+  public RemoteConfigFailoverInfo getRemoteConfigFailoverWithTempFile(String url) {
     if (!isRemoteConfigFailoverEnabled()) return null;
     RemoteConfigFailoverInfo rcfi = getRcfi(url);
     if (rcfi == null) {
@@ -3105,7 +3174,7 @@ public class ConfigManager implements LockssManager {
     }
     File tempfile = rcfi.getTempFile();
     if (tempfile != null) {
-      log.warning("getRemoteConfigFailoverTempFile: temp file already exists for " + url);
+      log.warning("getRemoteConfigFailoverWithTempFile: temp file already exists for " + url);
       FileUtil.safeDeleteFile(tempfile);
       rcfi.setTempFile(null);
     }
@@ -3118,7 +3187,7 @@ public class ConfigManager implements LockssManager {
 		+ url + " in " + remoteConfigFailoverDir, e);
     }
     rcfi.setTempFile(tempfile);
-    return tempfile;
+    return rcfi;
   }
 
   void updateRemoteConfigFailover() {
@@ -3637,8 +3706,8 @@ public class ConfigManager implements LockssManager {
 //   public static final String DEFAULT_JMS_CLIENT_ID = "ConfigManger";
   public static final String DEFAULT_JMS_CLIENT_ID = null;
 
-  private Consumer jmsConsumer;
-  private Producer jmsProducer;
+  private JmsConsumer jmsConsumer;
+  private JmsProducer jmsProducer;
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
   private boolean enableJmsSend = DEFAULT_ENABLE_JMS_SEND;
   private boolean enableJmsReceive = DEFAULT_ENABLE_JMS_RECEIVE;
@@ -3667,12 +3736,16 @@ public class ConfigManager implements LockssManager {
     th.start();
   }
 
-  private boolean isJMSManager() {
+  private JMSManager getJMSManager() {
     try {
-      return null != LockssApp.getManagerByTypeStatic(JMSManager.class);
+      return theApp.getManagerByType(JMSManager.class);
     } catch (IllegalArgumentException | NullPointerException e) {
-      return false;
+      return null;
     }
+  }
+
+  private boolean isJMSManager() {
+    return getJMSManager() != null;
   }
 
   // Overridable for testing
@@ -3692,9 +3765,10 @@ public class ConfigManager implements LockssManager {
       log.debug("Creating consumer");
       try {
 	jmsConsumer =
-	  Consumer.createTopicConsumer(clientId,
-					   notificationTopic,
-					   new MyMessageListener("Config Listener"));
+	  getJMSManager().getJmsFactory()
+	  .createTopicConsumer(clientId,
+			       notificationTopic,
+			       new MyMessageListener("Config Listener"));
       } catch (JMSException e) {
 	log.error("Couldn't create jms consumer", e);
       }
@@ -3703,7 +3777,8 @@ public class ConfigManager implements LockssManager {
       log.debug("Creating producer");
       // else set up a notifier
       try {
-	jmsProducer = Producer.createTopicProducer(clientId, notificationTopic);
+	jmsProducer = getJMSManager().getJmsFactory()
+	  .createTopicProducer(clientId, notificationTopic);
       } catch (JMSException e) {
 	log.error("Couldn't create jms producer", e);
       }
@@ -3712,7 +3787,7 @@ public class ConfigManager implements LockssManager {
 
   void stopJms() {
     log.debug("stopJms");
-    Producer p = jmsProducer;
+    JmsProducer p = jmsProducer;
     if (p != null) {
       try {
 	jmsProducer = null;
@@ -3722,7 +3797,7 @@ public class ConfigManager implements LockssManager {
 	log.error("Couldn't stop jms producer", e);
       }
     }
-    Consumer c = jmsConsumer;
+    JmsConsumer c = jmsConsumer;
     if (c != null) {
       try {
 	jmsConsumer = null;
@@ -4420,7 +4495,7 @@ public class ConfigManager implements LockssManager {
   }
 
   private class MyMessageListener
-    extends Consumer.SubscriptionListener {
+    extends JmsConsumerImpl.SubscriptionListener {
 
     MyMessageListener(String listenerName) {
       super(listenerName);
@@ -4430,7 +4505,7 @@ public class ConfigManager implements LockssManager {
     public void onMessage(Message message) {
       if (log.isDebug3()) log.debug3("onMessage: " + message);
       try {
-        Object msgObject = Consumer.convertMessage(message);
+        Object msgObject = JmsUtil.convertMessage(message);
 	if (msgObject instanceof Map) {
 	  receiveConfigChangedNotification((Map)msgObject);
 	} else {
@@ -4494,6 +4569,9 @@ public class ConfigManager implements LockssManager {
 		updateTinyData();
 	      }
 	    }
+	  }
+	  if (hCacheMgr != null) {
+	    hCacheMgr.cleanResources();
 	  }
 	  pokeWDog();			// in case update took a long time
 	  long reloadRange = reloadInterval/4;

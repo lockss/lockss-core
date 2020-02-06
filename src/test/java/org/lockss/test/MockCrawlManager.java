@@ -35,6 +35,7 @@ package org.lockss.test;
 import java.util.*;
 import org.lockss.app.*;
 import org.lockss.state.*;
+import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.crawler.*;
@@ -116,14 +117,16 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
   }
 
   public boolean isCrawlStarterEnabled() {
-    return false;
+    return CurrentConfig.getBooleanParam(CrawlManagerImpl.PARAM_CRAWL_STARTER_ENABLED,
+					 CrawlManagerImpl.DEFAULT_CRAWL_STARTER_ENABLED);
+  }
+
+  public boolean isCrawlerEnabled() {
+    return CurrentConfig.getBooleanParam(CrawlManagerImpl.PARAM_CRAWLER_ENABLED,
+					 CrawlManagerImpl.DEFAULT_CRAWLER_ENABLED);
   }
 
   public boolean isCrawlStarterRunning() {
-    return false;
-  }
-
-  public boolean isGloballyExcludedUrl(ArchivalUnit au, String url) {
     return false;
   }
 

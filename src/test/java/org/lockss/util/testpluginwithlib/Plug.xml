@@ -1,0 +1,10 @@
+<map>
+  <entry>
+    <string>plugin_identifier</string>
+    <string>org.lockss.util.testplugin.child.PPlug</string>
+  </entry>
+  <entry>
+    <string>plugin_name</string>
+    <string>P Plugin</string>
+  </entry>
+</map>

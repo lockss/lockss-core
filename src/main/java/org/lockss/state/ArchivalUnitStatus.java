@@ -56,6 +56,7 @@ public class ArchivalUnitStatus
     extends BaseLockssDaemonManager implements ConfigurableManager {
 
   public static final String PREFIX = Configuration.PREFIX + "auStatus.";
+
   /**
    * The default maximum number of nodes to display in a single page of the ui.
    */
@@ -752,10 +753,6 @@ public class ArchivalUnitStatus
         new ColumnDescriptor("NodeVersion", "Version",
             ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("NodeContentSize", "Size",
-            ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("NodeTreeSize", "Tree Size",
-            ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("NodeChildCount", "Children",
             ColumnDescriptor.TYPE_INT)
     );
 
@@ -785,11 +782,8 @@ public class ArchivalUnitStatus
 
 
     private List getV2Rows(StatusTable table, ArchivalUnit au) {
-      int startRow = Math.max(0, getIntProp(table, "skiprows"));
-      int numRows = getIntProp(table, "numrows");
-      if (numRows <= 0) {
-        numRows = defaultNumRows;
-      }
+      int startRow = table.getStartRow();
+      int numRows = table.getNumRows(defaultNumRows);
 
       Collection<String> startUrls = au.getStartUrls();
 
@@ -797,14 +791,7 @@ public class ArchivalUnitStatus
       Iterator cusIter = au.getAuCachedUrlSet().contentHashIterator();
       int endRow1 = startRow + numRows; // end row + 1
 
-      if (startRow > 0) {
-        // add 'previous'
-        int start = startRow - defaultNumRows;
-        if (start < 0) {
-          start = 0;
-        }
-        rowL.add(makeOtherRowsLink(false, start, au.getAuId()));
-      }
+      table.addPrevRowsLink(rowL, "NodeName", startRow, numRows);
 
       for (int curRow = 0; (curRow < endRow1) && cusIter.hasNext(); curRow++) {
         CachedUrlSetNode cusn = (CachedUrlSetNode)cusIter.next();
@@ -838,7 +825,7 @@ public class ArchivalUnitStatus
 
       if (cusIter.hasNext()) {
         // add 'next'
-        rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId()));
+        rowL.add(table.makeOtherRowsLink("NodeName", true, endRow1, numRows));
       }
       return rowL;
     }
@@ -907,30 +894,6 @@ public class ArchivalUnitStatus
       rowMap.put("NodeHasContent", (hasContent ? "yes" : "no"));
       rowMap.put("NodeVersion", versionObj);
       rowMap.put("NodeContentSize", sizeObj);
-//       if (!node.isLeaf()) {
-//         rowMap.put("NodeChildCount",
-//             new OrderedObject(new Long(node.getChildCount())));
-//         long treeSize = node.getTreeContentSize(null, false);
-//         if (treeSize != -1) {
-//           rowMap.put("NodeTreeSize", new OrderedObject(new Long(treeSize)));
-//         }
-//       } else {
-        rowMap.put("NodeChildCount", StatusTable.NO_VALUE);
-        rowMap.put("NodeTreeSize", StatusTable.NO_VALUE);
-//       }
-      return rowMap;
-    }
-
-    private Map makeOtherRowsLink(boolean isNext, int startRow, String auKey) {
-      HashMap rowMap = new HashMap();
-      String label = (isNext ? "Next" : "Previous") + " (" +
-          (startRow + 1) + "-" + (startRow + defaultNumRows) + ")";
-      StatusTable.Reference link =
-          new StatusTable.Reference(label, AU_STATUS_TABLE_NAME, auKey);
-      link.setProperty("skiprows", Integer.toString(startRow));
-      link.setProperty("numrows", Integer.toString(defaultNumRows));
-      rowMap.put("NodeName", link);
-      rowMap.put("sort", new Integer(isNext ? Integer.MAX_VALUE : -1));
       return rowMap;
     }
 
@@ -1003,7 +966,7 @@ public class ArchivalUnitStatus
 //             "Awaiting recalc"));
       }
       // XXXREPO
-      String repo = repoMgr.getV2Repository().getRepoSpec();
+      String repo = repoMgr.getV2Repository().getSpec();
 
       res.add(new StatusTable.SummaryInfo("Repository",
           ColumnDescriptor.TYPE_STRING,
@@ -1554,7 +1517,7 @@ public class ArchivalUnitStatus
 
     protected void populateTable(StatusTable table, ArchivalUnit au)
         throws StatusService.NoSuchTableException {
-      String url = getStringProp(table, "url");
+      String url = table.getProperty("url");
       table.setTitle("Versions of " + url + " in " + au.getName());
       table.setColumnDescriptors(columnDescriptors);
       table.setDefaultSortRules(sortRules);
@@ -1563,8 +1526,8 @@ public class ArchivalUnitStatus
 
     private List getRows(StatusTable table, ArchivalUnit au, String url)
         throws StatusService.NoSuchTableException {
-      int startRow = Math.max(0, getIntProp(table, "skiprows"));
-      int numRows = getIntProp(table, "numrows");
+      int startRow = Math.max(0, table.getIntProp("skiprows"));
+      int numRows = table.getIntProp("numrows");
       if (numRows <= 0) {
         numRows = defaultNumRows;
       }
@@ -1590,10 +1553,8 @@ public class ArchivalUnitStatus
         }
         int endRow1 = startRow + numRows; // end row + 1
         int curRow = -1;
-        int curVer = curCu.getVersion() + 1;
         for (CachedUrl cu : cuVersions) {
           curRow++;
-          curVer--;
           if (curRow < startRow) {
             continue;
           }
@@ -1602,7 +1563,7 @@ public class ArchivalUnitStatus
             rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId(), url));
             break;
           }
-          Map row = makeRow(au, cu, curVer);
+          Map row = makeRow(au, cu, cu.getVersion());
           row.put("sort", curRow);
           rowL.add(row);
         }
@@ -1838,7 +1799,7 @@ public class ArchivalUnitStatus
     }
 
     protected String getTitle(StatusTable table, ArchivalUnit au) {
-      String polltype = getStringProp(table, POLL_TYPE);
+      String polltype = table.getProperty(POLL_TYPE);
       AgreementType at = getAgreementType(polltype);
       if (at != null) {
         return at.toString() + " agreements for AU: " + au.getName();
@@ -1863,7 +1824,7 @@ public class ArchivalUnitStatus
         table.setColumnDescriptors(columnDescriptors);
         table.setDefaultSortRules(sortRules);
 
-        String agmntName = getStringProp(table, POLL_TYPE);
+        String agmntName = table.getProperty(POLL_TYPE);
         AgreementType type = getAgreementType(agmntName);
         AgreementType[] types;
         if (type != null) {
@@ -2221,24 +2182,6 @@ public class ArchivalUnitStatus
     return new StatusTable.Reference(value,
         V3PollStatus.POLLER_STATUS_TABLE_NAME,
         au.getAuId());
-  }
-
-  static int getIntProp(StatusTable table, String name) {
-    Properties props = table.getProperties();
-    if (props == null) return -1;
-    String s = props.getProperty(name);
-    if (StringUtil.isNullString(s)) return -1;
-    try {
-      return Integer.parseInt(s);
-    } catch (Exception e) {
-      return -1;
-    }
-  }
-
-  static String getStringProp(StatusTable table, String name) {
-    Properties props = table.getProperties();
-    if (props == null) return null;
-    return props.getProperty(name);
   }
 
   static class Stats {

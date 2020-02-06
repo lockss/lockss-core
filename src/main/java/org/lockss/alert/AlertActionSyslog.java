@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2009 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -139,7 +135,19 @@ public class AlertActionSyslog extends AbstractAlertAction {
       return;
     }
     int indicator = (facility << 3 + level);
-    String msg = "<"+ indicator +">" + "LOCKSS: " + makeMessage(alert);
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("<");
+    sb.append(indicator);
+    sb.append(">");
+    sb.append("LOCKSS: ");
+    if (alert.getAttribute(Alert.ATTR_COMPONENT_ABBREV) != null) {
+      sb.append("(");
+      sb.append(alert.getAttribute(Alert.ATTR_COMPONENT_ABBREV));
+      sb.append(")");
+    }
+    String msg = sb.toString();
+
     try {
       DatagramPacket packet =
 	new DatagramPacket(msg.getBytes(),

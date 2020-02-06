@@ -179,10 +179,8 @@ public class TestFollowLinkCrawler extends LockssTestCase {
     public Collection<String> doGetStartUrls()
 	throws ConfigurationException, PluginException, IOException {
       if (startUrls == null) {
-	log.critical("doGetStartUrls: " + super.doGetStartUrls());
 	return super.doGetStartUrls();
       }
-      log.critical("doGetStartUrls: " + startUrls);
       return startUrls;
     }
     void setStartUrls(List<String> urls) {
@@ -1082,7 +1080,7 @@ public class TestFollowLinkCrawler extends LockssTestCase {
 
   public void testMyLinkExtractorCallback() {
     final String prefix = "http://www.example.com/"; // pseudo crawl rule
-    MockArchivalUnit mau = new MockArchivalUnit() {
+    MockArchivalUnit mau = new MockArchivalUnit(plug) {
 	// shouldBeCached() is true of anything starting with prefix
 	public boolean shouldBeCached(String url) {
 	  return StringUtil.startsWithIgnoreCase(url, prefix);
@@ -1252,8 +1250,12 @@ public class TestFollowLinkCrawler extends LockssTestCase {
   private class MyMockArchivalUnit extends MockArchivalUnit {
     MyMockUrlFetcher lastMmuf;
 
-    protected MockUrlFetcher makeMockUrlFetcher(MockCrawlerFacade mcf, String url) {
+    @Override
+    protected MockUrlFetcher makeMockUrlFetcher(MockCrawlerFacade mcf,
+						String url,
+						CIProperties props) {
       lastMmuf = new MyMockUrlFetcher(mcf, url);
+      lastMmuf.setUncachedProperties(props);
       return lastMmuf;
     }
   }

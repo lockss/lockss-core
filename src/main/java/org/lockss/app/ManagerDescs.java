@@ -39,6 +39,9 @@ import org.lockss.app.LockssApp.ManagerDesc;
  * - apps can construct their own ManagerDesc.
  */
 public class ManagerDescs {
+  public static ManagerDesc MISC_PARAMS_MANAGER_DESC =
+    new ManagerDesc(LockssApp.MISC_PARAMS,
+		    "org.lockss.config.MiscParams");
   public static ManagerDesc RANDOM_MANAGER_DESC =
     new ManagerDesc(LockssApp.RANDOM_MANAGER,
 		    "org.lockss.daemon.RandomManager");
@@ -54,6 +57,12 @@ public class ManagerDescs {
   public static ManagerDesc STATUS_SERVICE_DESC =
     new ManagerDesc(LockssApp.STATUS_SERVICE,
 		    "org.lockss.daemon.status.StatusServiceImpl");
+  public static ManagerDesc REST_SERVICES_MANAGER_DESC =
+    new ManagerDesc(LockssApp.REST_SERVICES_MANAGER,
+		    "org.lockss.daemon.RestServicesManager") {
+      public boolean shouldStart(LockssApp app) {
+        return app.isLaaws();
+      }};
   public static ManagerDesc TRUEZIP_MANAGER_DESC =
     new ManagerDesc(LockssApp.TRUEZIP_MANAGER,
 		    "org.lockss.truezip.TrueZipManager");
@@ -74,7 +83,7 @@ public class ManagerDescs {
 		    "org.lockss.scheduler.SchedService");
   public static ManagerDesc HASH_SERVICE_DESC =
     new ManagerDesc(LockssDaemon.HASH_SERVICE,
-		    "org.lockss.hasher.HashSvcQueueImpl");
+		    "org.lockss.hasher.HashSvcSchedImpl");
   public static ManagerDesc SYSTEM_METRICS_DESC =
     new ManagerDesc(LockssDaemon.SYSTEM_METRICS,
 		    "org.lockss.daemon.SystemMetrics");
@@ -166,10 +175,7 @@ public class ManagerDescs {
   public static ManagerDesc CONFIG_DB_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.CONFIG_DB_MANAGER,
 		    "org.lockss.config.db.ConfigDbManager") {
-      // Start ConfigDbManager iff we're not using a remote config service
       public boolean shouldStart(LockssApp app) {
-	// Temporarily unconditional until ConfigManager fixed
-// 	return true;
         return !app.isConfigClient();
       }};
 }

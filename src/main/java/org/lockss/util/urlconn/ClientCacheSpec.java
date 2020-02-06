@@ -47,17 +47,20 @@ public class ClientCacheSpec {
 
   File cacheDir = null;
   HttpCacheStorage cacheStorage;
+  ResourceFactory resourceFact;
   CacheConfig cacheConfig;
 
 
   CacheConfig getCacheConfig() {
     return CacheConfig.custom()
-      .setMaxCacheEntries(1000)
-      .setMaxObjectSize(1000 * 1000 * 10)
+      .setMaxCacheEntries(100)
+      .setMaxObjectSize(1000 * 1000 * 1000)
       // cache responses even if no headers saying that's ok
       .setHeuristicCachingEnabled(true)
       .setHeuristicDefaultLifetime(Constants.HOUR)
-      // 	  .setSharedCache(false)
+//       .setSharedCache(false)
+      // Don't do background cache revalidation
+      .setAsynchronousWorkersMax(0)
       .build();
   }
   
@@ -66,6 +69,16 @@ public class ClientCacheSpec {
     return this;
   }
   
+  public ClientCacheSpec setCacheStorage(HttpCacheStorage storage) {
+    cacheStorage = storage;
+    return this;
+  }
+
+  public ClientCacheSpec setResourceFactory(ResourceFactory fact) {
+    resourceFact = fact;
+    return this;
+  }
+
   public File getCacheDir() {
     return cacheDir;
   }
@@ -75,6 +88,10 @@ public class ClientCacheSpec {
       cacheStorage = new ManagedHttpCacheStorage(getCacheConfig());
     }
     return cacheStorage;
+  }
+
+  public ResourceFactory getResourceFactory() {
+    return resourceFact;
   }
 
 }

@@ -129,6 +129,8 @@ public class LockssApp {
   private static final String PARAM_EXERCISE_DNS = PREFIX + "poundDns";
   private static final boolean DEFAULT_EXERCISE_DNS = false;
 
+  /** Defines the ports on which laaws components listen.  List of
+   * <code><i>abbrev</i>=<i>host</i>:<i>rest_port</i>[:<i>ui_port</i>]</code> */
   public static final String PARAM_SERVICE_BINDINGS =
     PREFIX + "serviceBindings";
   public static final List DEFAULT_SERVICE_BINDINGS = null;
@@ -137,12 +139,16 @@ public class LockssApp {
     Configuration.PREFIX + "manager.";
 
   // Parameter keys for standard managers
+  public static final String MISC_PARAMS =
+    managerKey(MiscParams.class);
   public static final String WATCHDOG_SERVICE =
     managerKey(WatchdogService.class);
   public static final String MAIL_SERVICE =
     managerKey(MailService.class);
   public static final String STATUS_SERVICE =
     managerKey(StatusService.class);
+  public static final String REST_SERVICES_MANAGER =
+    managerKey(RestServicesManager.class);
   public static final String RESOURCE_MANAGER =
     managerKey(ResourceManager.class);
   public static final String RANDOM_MANAGER =
@@ -180,12 +186,14 @@ public class LockssApp {
   // order, followed by the service-specific managers specified by
   // subclasses, followed by post managers below
   private final ManagerDesc[] stdPreManagers = {
+    MISC_PARAMS_MANAGER_DESC,
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
     JMS_MANAGER_DESC,
     MAIL_SERVICE_DESC,
     ALERT_MANAGER_DESC,
     STATUS_SERVICE_DESC,
+    REST_SERVICES_MANAGER_DESC,
     TRUEZIP_MANAGER_DESC,
     URL_MANAGER_DESC,
     TIMER_SERVICE_DESC,
@@ -221,6 +229,9 @@ public class LockssApp {
   protected AppSpec appSpec;
   protected List<String> bootstrapPropsUrls = null;
   protected String restConfigServiceUrl = null;
+  protected String restClientCredentialsFilePath = null;
+  protected List<String> restClientCredentials = null;
+  protected boolean restClientCredentialsPopulated = false;
   protected List<String> propUrls = null;
   protected List<String> clusterUrls = null;
   protected String groupNames = null;
@@ -229,6 +240,7 @@ public class LockssApp {
   protected volatile boolean appRunning = false; // true after all managers started
   protected OneShotSemaphore appRunningSem = new OneShotSemaphore();
   protected Date startDate;
+  protected long readyTime = 0;		// Time the daemon became ready.
   protected long appLifetime = DEFAULT_APP_EXIT_AFTER;
   protected Deadline timeToExit = Deadline.at(TimeBase.MAX);
   protected boolean isSafenet = false;
@@ -239,28 +251,29 @@ public class LockssApp {
   // need to be synchronized.
   protected LinkedMap managerMap = new LinkedMap();
 
-  protected static LockssApp theApp;
+  protected static WaitableObject<LockssApp> theApp = new WaitableObject<>();
+
 //   private boolean isClockss;
   protected String testingMode;
 
   protected LockssApp() {
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(AppSpec spec) {
     appSpec = spec;
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls) {
     this.propUrls = propUrls;
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls, String groupNames) {
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    theApp = this;
+    setLockssApp(this);
   }
 
   protected LockssApp(List<String> bootstrapPropsUrls,
@@ -271,7 +284,17 @@ public class LockssApp {
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    theApp = this;
+    setLockssApp(this);
+  }
+
+  private static void setLockssApp(LockssApp app) {
+    theApp.setValue(app);
+  }
+
+  /** Testing startup repeatedly requires a way to reset the
+   * OneShotSemaphore in theApp. */
+  static void testingReinitialize() {
+    theApp.reset();
   }
 
   public void setAppSpec(AppSpec spec) {
@@ -292,6 +315,50 @@ public class LockssApp {
    * service.  (I.e., it was started with a -c arg) */
   public boolean isConfigClient() {
     return restConfigServiceUrl != null;
+  }
+
+  /**
+   * Provides the REST Client credentials.
+   * 
+   * @return a List<String> with the REST Client credentials, or
+   *         <code>null</code> if no REST Client credentials have been
+   *         specified.
+   */
+  public List<String> getRestClientCredentials() {
+    if (log.isDebug3()) log.debug3("restClientCredentialsPopulated = "
+	+ restClientCredentialsPopulated);
+
+    // Check whether the credentials need to be populated.
+    if (!restClientCredentialsPopulated) {
+      // Yes.
+      if (log.isDebug3()) log.debug3("restClientCredentialsFilePath = "
+	  + restClientCredentialsFilePath);
+
+      // Check whether a file path for the credentials has been specified.
+      if (restClientCredentialsFilePath != null) {
+	// Yes.
+	try {
+	  // Read the credentials from the file.
+	  String credentials =
+	      FileUtil.readPasswdFile(restClientCredentialsFilePath);
+	  if (log.isDebug3()) log.debug3("credentials = " + credentials);
+
+	  // Parse the credentials.
+	  if (credentials != null && !credentials.isEmpty()) {
+	    restClientCredentials = StringUtil.breakAt(credentials, ":");
+	  }
+	} catch (IOException ioe) {
+	  log.warning("Exception caught getting REST client credentials", ioe);
+	}
+      }
+
+      // Remember that the credentials have been populated.
+      restClientCredentialsPopulated = true;
+    }
+
+    if (log.isDebug2())
+      log.debug2("restClientCredentials = " + restClientCredentials);
+    return restClientCredentials;
   }
 
   /** Return the current testing mode. */
@@ -357,8 +424,15 @@ public class LockssApp {
 
   /** Wait until app is running.  This must be called only from your own
    * thread (<i>eg</i>, not the startup thread.) */
-  public void waitUntilAppRunning() throws InterruptedException {
-    appRunningSem.waitFull(Deadline.MAX);
+  public boolean waitUntilAppRunning() throws InterruptedException {
+    return waitUntilAppRunning(Deadline.MAX);
+  }
+
+  /** Wait until app is running.  This must be called only from your own
+   * thread (<i>eg</i>, not the startup thread.) */
+  public boolean waitUntilAppRunning(Deadline until)
+      throws InterruptedException {
+    return appRunningSem.waitFull(until);
   }
 
   /**
@@ -369,11 +443,18 @@ public class LockssApp {
   }
 
   /**
-   * static accessor for the LockssApp instance
+   * static accessor for the LockssApp instance.  In support of Spring and
+   * other inverted start-order frameworks, this method will wait a short
+   * time for the LockssApp instance to be created.
+   * @throws IllegalStateException if that doesn't happen quickly
    * @return the LockssApp instance
    */
   public static LockssApp getLockssApp() {
-    return theApp;
+    try {
+      return theApp.waitValue(15 * Constants.SECOND);
+    } catch (IllegalStateException e) {
+      throw new IllegalStateException("LockssApp was not instantiated");
+    }
   }
 
   /** Return the time the app started running.
@@ -387,6 +468,20 @@ public class LockssApp {
     return startDate;
   }
 
+  /** Return the time the app started running.
+   * @return the time the app started running, as a long
+   */
+  public long getStartTime() {
+    return startDate.getTime();
+  }
+
+  /** Return the time the app became ready
+   * @return the time the app started running, as a long
+   */
+  public long getReadyTime() {
+    return readyTime;
+  }
+
   /** Return the app name */
   public String getAppName() {
     return appSpec.getName();
@@ -394,15 +489,20 @@ public class LockssApp {
 
   /** Return a string describing the version of the app and platform */
   public String getVersionInfo() {
-    String vApp = BuildInfo.getBuildInfoString();
-    if (!StringUtil.isNullString(getAppName())) {
-      vApp = getAppName() + " " + vApp;
-    }
+    String app = StringUtil.isNullString(getAppName())
+      ? BuildInfo.getBuildProperty(BuildInfo.BUILD_ARTIFACT) : getAppName();
+    StringBuilder sb = new StringBuilder();
+    String res =
+      BuildInfo.getBuildInfoString("LOCKSSS :" + BuildInfo.BUILD_RELEASENAME,
+				   app + ":",
+				   BuildInfo.BUILD_VERSION,
+				   BuildInfo.BUILD_TIMESTAMP,
+				   BuildInfo.BUILD_HOST);
     PlatformVersion plat = Configuration.getPlatformVersion();
     if (plat != null) {
-      vApp = vApp + ", " + plat.displayString();
+      res = res + ", " + plat.displayString();
     }
-    return vApp;
+    return res;
   }
 
   /** Return a string describing the JVM */
@@ -463,10 +563,7 @@ public class LockssApp {
    * @deprecated use {@link #getManagerByKeyStatic(String)}
    */
   public static LockssManager getManager(String managerKey) {
-    if (theApp == null) {
-      throw new NullPointerException("App has not been created");
-    }
-    return theApp.getManagerByKey(managerKey);
+    return getLockssApp().getManagerByKey(managerKey);
   }
 
   /**
@@ -477,10 +574,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public static LockssManager getManagerByKeyStatic(String managerKey) {
-    if (theApp == null) {
-      throw new NullPointerException("App has not been created");
-    }
-    return theApp.getManagerByKey(managerKey);
+    return getLockssApp().getManagerByKey(managerKey);
   }
 
   /**
@@ -491,7 +585,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public static <T> T getManagerByTypeStatic(Class<T> mgrType) {
-    return theApp.getManagerByType(mgrType);
+    return getLockssApp().getManagerByType(mgrType);
   }
 
   // Standard manager accessors
@@ -751,6 +845,7 @@ public class LockssApp {
       }
     }
 
+    readyTime = TimeBase.nowMs();
     appRunning = true;
     appRunningSem.fill();
     if (getAppSpec() != null) {
@@ -864,6 +959,10 @@ public class LockssApp {
       });
   }
 
+  public Configuration getBootDefault() {
+    return getAppSpec().getBootDefault();
+  }
+
   public Configuration getAppConfig() {
     return getAppSpec().getAppConfig();
   }
@@ -930,11 +1029,16 @@ public class LockssApp {
       }
     }
 
-    // THIS MUST BE LAST IN THIS ROUTINE
     boolean exitOnce = config.getBoolean(PARAM_APP_EXIT_ONCE,
 					 DEFAULT_APP_EXIT_ONCE);
-    if (!prevExitOnce && exitOnce) {
+    boolean exitImm = config.getBoolean(PARAM_APP_EXIT_IMM,
+					DEFAULT_APP_EXIT_IMM);
+    if (exitImm || (!prevExitOnce && exitOnce)) {
+      log.info("Exiting because " +
+	       (exitImm ? "of exitImmediately"
+		: "exitOnce transitioned to true"));
       timeToExit.expire();
+      systemExit(Constants.EXIT_CODE_NORMAL);
     } else {
       prevExitOnce = exitOnce;
     }
@@ -981,9 +1085,10 @@ public class LockssApp {
       getServiceBinding(getMyServiceDescr());
   }
 
-  //  svc_abbrev=host:ui_port    or   svc_abbrev=:ui_port
+  //  svc_abbrev=host:rest_port[:ui_port]
+  //  Any of host, rest_port, or ui_port may be empty
   protected static final Pattern SERVICE_BINDING_PAT =
-    Pattern.compile("(.+)=(.+)?:(\\d+)");
+    Pattern.compile("(.+)=([^:]*):(\\d+)?(?::(\\d+)?)?$");
 
   void processServiceBindings(List<String> bindings) {
     if (bindings == null) {
@@ -995,12 +1100,25 @@ public class LockssApp {
 	  String abbrev = mat.group(1);
 	  ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
 	  if (descr != null) {
+	    String g3 = mat.group(3);
+	    if (StringUtil.isNullString(g3)) {
+	      g3 = "0";
+	    }
+	    String g4 = mat.group(4);
+	    if (StringUtil.isNullString(g4)) {
+	      g4 = "0";
+	    }
 	    try {
+	      String host = mat.group(2);
+	      if (StringUtil.isNullString(host)) {
+		host = null;
+	      }
 	      ServiceBinding binding =
-		new ServiceBinding(mat.group(2), Integer.parseInt(mat.group(3)));
+		new ServiceBinding(host, Integer.parseInt(g3),
+				   Integer.parseInt(g4));
 	      serviceBindings.put(descr, binding);
 	    } catch (NumberFormatException e) {
-	      log.error("Malformed service binding: " + s);
+	      log.error("Malformed service binding: " + s, e);
 	    }
 	  }
 	} else {
@@ -1085,6 +1203,7 @@ public class LockssApp {
 
     bootstrapPropsUrls = opts.getBootstrapPropsUrls();
     restConfigServiceUrl = opts.getRestConfigServiceUrl();
+    restClientCredentialsFilePath = opts.getRestClientCredentialsFilePath();
     propUrls = opts.getPropUrls();
     clusterUrls = opts.getClusterUrls();
     groupNames = opts.getGroupNames();
@@ -1263,6 +1382,8 @@ public class LockssApp {
    *     <dd>Load bootstrap properties from url</dd>
    * <dt>-c url</dt>
    *     <dd>The URL of a REST Configuration service</dd>
+   * <dt>-r filePath</dt>
+   *     <dd>The file path of the credentials for REST service clients</dd>
    * <dt>-p url<i>n</i></dt>
    *     <dd>Load properties from url<i>n</i></dd>
    * <dt>-p url1 -p url2;url3;url4</dt>
@@ -1280,6 +1401,7 @@ public class LockssApp {
 
     public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
     public static final String OPTION_REST_CONFIG_SERVICE_URL = "-c";
+    public static final String OPTION_REST_CLIENT_CREDENTIALS_FILE_PATH = "-r";
     public static final String OPTION_PROPURL = "-p";
     public static final String OPTION_CLUSTERURL = "-l";
     public static final String OPTION_GROUP = "-g";
@@ -1289,6 +1411,7 @@ public class LockssApp {
 
     private List<String> bootstrapPropsUrls = new ArrayList<>();
     private String restConfigServiceUrl;
+    private String restClientCredentialsFilePath = null;
     private String groupNames;
     private List<String> propUrls = new ArrayList<String>();
     // clusterUrls is a subset of propUrls
@@ -1314,6 +1437,10 @@ public class LockssApp {
 
     public String getRestConfigServiceUrl() {
       return restConfigServiceUrl;
+    }
+
+    public String getRestClientCredentialsFilePath() {
+      return restClientCredentialsFilePath;
     }
 
     public List<String> getPropUrls() {
@@ -1383,6 +1510,14 @@ public class LockssApp {
 	    log.debug3("getStartupOptions(): " +
 		       "restConfigServiceUrl: " + restConfigServiceUrl);
 	  }
+	} else if (args[i].equals(OPTION_REST_CLIENT_CREDENTIALS_FILE_PATH)
+		   && i < args.length - 1) {
+	  // Handle the REST credentials file path.
+	  restClientCredentialsFilePath = args[++i];
+	  if (log.isDebug3()) {
+	    log.debug3("getStartupOptions(): restClientCredentialsFilePath: " +
+		       restClientCredentialsFilePath);
+	  }
 	} else if (args[i].startsWith(OPTION_SYSPROP)) {
 	  // Set sysprop
 	  Matcher mat = SYSPROP_PAT.matcher(args[i]);
@@ -1433,6 +1568,7 @@ public class LockssApp {
     private String[] args;
     private ManagerDesc[] appManagers;
     private boolean isComputeAppManagers = false;
+    private Configuration bootDefault;
     private Configuration appConfig;
     private Configuration appDefault;
     private boolean isKeepRunning = false;
@@ -1477,6 +1613,15 @@ public class LockssApp {
      * AppSpec */
     public AppSpec setComputeAppManagers(boolean val) {
       isComputeAppManagers = val;
+      return this;
+    }
+
+    /** Add to the default platform Configuration */
+    public AppSpec addBootDefault(String key, String val) {
+      if (bootDefault == null) {
+	bootDefault = ConfigManager.newConfiguration();
+      }
+      bootDefault.put(key, val);
       return this;
     }
 
@@ -1585,6 +1730,11 @@ public class LockssApp {
 //     public JavaVersion getMaxJavaVersion() {
 //       return maxJavaVersion;
 //     }
+
+    /** Return the app-specific default platform Configuration */
+    public Configuration getBootDefault() {
+      return bootDefault;
+    }
 
     /** Return the app-specific Configuration (cannot be overridden by
      * loaded config) */

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -453,5 +453,39 @@ public class TestFileUtil extends LockssTestCase4 {
 	new File(dir, "abc2.xyz"), "abc").size());
     assertEquals("xyz.abc", FileUtil.listDirFilesWithExtension(
 	new File(dir, "abc2.xyz"), "abc").get(0));
+  }
+
+  /**
+   * Tests for readPasswdFile().
+   * 
+   * @throws IOException if there are problems running the tests.
+   */
+  @Test
+  public void testReadPasswdFile() throws Exception {
+    try {
+      FileUtil.readPasswdFile(null);
+      fail("FileUtil.testReadPasswdFile(null) should throw");
+    } catch (IOException e) {
+      assertEquals("Null password file", e.getMessage());
+    }
+
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < 100; i++) {
+      sb.append("13 characters");
+    }
+
+    try {
+      FileUtil.readPasswdFile(createFile(tempDirPath + "tooLong", sb.toString())
+	  .getAbsolutePath());
+      fail("FileUtil.testReadPasswdFile(null) should throw");
+    } catch (IOException e) {
+      assertEquals("Unreasonably large password file: "
+	  + sb.toString().length(), e.getMessage());
+    }
+
+    String password = "supersecret";
+
+    assertEquals(password, FileUtil.readPasswdFile(
+	createFile(tempDirPath + "supsec", password).getAbsolutePath()));
   }
 }

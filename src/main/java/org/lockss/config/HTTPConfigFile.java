@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2001-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,11 +37,14 @@ import java.security.NoSuchAlgorithmException;
 import javax.ws.rs.core.HttpHeaders;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.TeeInputStream;
-import org.lockss.util.*;
-import org.lockss.util.urlconn.*;
-import org.springframework.http.MediaType;
-import org.lockss.hasher.*;
 import org.apache.oro.text.regex.*;
+import org.springframework.http.MediaType;
+
+import org.lockss.util.*;
+import org.lockss.util.io.DeferredTempFileOutputStream;
+import org.lockss.util.urlconn.*;
+import org.lockss.config.ConfigManager.RemoteConfigFailoverInfo;
+import org.lockss.hasher.*;
 
 /**
  * A ConfigFile loaded from a URL.
@@ -79,6 +82,7 @@ public class HTTPConfigFile extends BaseConfigFile {
   private MessageDigest chkDig;
   private String chkAlg;
   private String proxyUsed;
+  private FileConfigFile m_failoverFcf;
 
   public HTTPConfigFile(String url, ConfigManager cfgMgr) {
     super(url, cfgMgr);
@@ -263,39 +267,52 @@ public class HTTPConfigFile extends BaseConfigFile {
     }
   }
 
-  FileConfigFile failoverFcf;
-
   /** Return an InputStream open on the HTTP url.  If inaccessible and a
    * local copy of the remote file exists, failover to it.
    *
    * Called by periodic or on-demand config reload.
    */
+  @Override
+  protected synchronized InputStream getInputStreamIfModifiedNoCache()
+      throws IOException {
+    return getInputStreamIfModified(m_lastModified, false);
+  }
+
+  // Should not be called because only call is in the base class
+  // getInputStreamIfModifiedNoCache() which isn't used because of the
+  // override above */
+  @Override
   protected synchronized InputStream getInputStreamIfModified()
       throws IOException {
+    throw new UnsupportedOperationException("getInputStreamIfModified() should never be called in this class");
+  }
+
+  private InputStream getInputStreamIfModified(String lastModified,
+					       boolean useCache)
+	throws IOException {
     LockssUrlConnection conn = null;
     InputStream in = null;
     boolean gettingResponse = false;
 
     try {
       conn = openUrlConnection(m_fileUrl);
-      // When reloading config always go to server, don't serve from local
-      // cache.
-      conn.addRequestProperty("Cache-Control", "no-cache");
+      if (!useCache) {
+	// When reloading config always go to server, don't serve from local
+	// cache.
+	conn.addRequestProperty("Cache-Control", "no-cache");
+      }
 
       // Check whether this configuration file has already been retrieved
       // before.
       if (m_config != null) {
 	// Yes: Set the "If-Modified-Since" request header, if possible.
-	if (m_lastModified != null) {
-	  log.debug2("Setting request if-modified-since to: " + m_lastModified);
-	  conn.setIfModifiedSince(m_lastModified);
+	if (lastModified != null) {
+	  log.debug2("Setting request if-modified-since to: " + lastModified);
+	  conn.setIfModifiedSince(lastModified);
 	}
 
 	// Yes: Set the "If-None-Match" request header, if possible.
-	if (responseHttpEtag != null) {
-	  log.debug2("Setting request if-none-match to: " + responseHttpEtag);
-	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, responseHttpEtag);
-	}
+	addIfNoneMatch(conn, responseHttpEtag);
       }
 
       gettingResponse = true;
@@ -317,7 +334,7 @@ public class HTTPConfigFile extends BaseConfigFile {
       if (in != null) {
 	// If we got remote content, clear any local failover copy as it
 	// may now be obsolete
-	failoverFcf = null;
+	m_failoverFcf = null;
       }
       return in;
     } catch (IOException e) {
@@ -344,6 +361,23 @@ public class HTTPConfigFile extends BaseConfigFile {
     }
   }
 
+  private void addIfNoneMatch(LockssUrlConnection conn, String etag) {
+    if (etag != null) {
+      log.debug2("Adding request if-none-match: " + etag);
+      conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, etag);
+
+      // Work around apache-deflate-etag bug
+      // (https://bz.apache.org/bugzilla/show_bug.cgi?id=45023#c22
+      // https://httpd.apache.org/docs/trunk/mod/mod_deflate.html) by
+      // also sending the etag with the -gzip suffix removed.
+      if (etag.endsWith("-gzip\"")) {
+	String v = StringUtil.removeTrailing(etag, "-gzip\"") + "\"";
+	log.debug2("Adding request if-none-match: " + v);
+	conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, v);
+      }
+    }
+  }
+
   /**
    * Provides the fail-over file.
    * 
@@ -352,17 +386,20 @@ public class HTTPConfigFile extends BaseConfigFile {
   private FileConfigFile getFailoverFile() {
     // The HTTP fetch failed.  First see if we already found a failover
     // file.
-    if (failoverFcf == null) {
+    if (m_failoverFcf == null) {
       if (m_cfgMgr == null) {
+	log.warning("getFailoverFile: no ConfigManager");
 	return null;
       }
       ConfigManager.RemoteConfigFailoverInfo rcfi =
 	  m_cfgMgr.getRcfi(m_fileUrl);
       if (rcfi == null || !rcfi.exists()) {
+	log.debug3("no rcfi file: " + rcfi);
 	return null;
       }
       File failoverFile = rcfi.getPermFileAbs();
       if (failoverFile == null) {
+	log.debug3("no failoverFile");
 	return null;
       }
       String chksum = rcfi.getChksum();
@@ -395,10 +432,12 @@ public class HTTPConfigFile extends BaseConfigFile {
       // Found one, 
       long date = rcfi.getDate();
       log.info("Substituting local copy created: " + new Date(date));
-      failoverFcf = new FileConfigFile(failoverFile.getPath(), m_cfgMgr);
+      m_failoverFcf = new FailoverFileConfigFile(failoverFile.getPath(),
+						 m_cfgMgr,
+						 rcfi);
       m_loadedUrl = failoverFile.getPath();
     }
-    return failoverFcf;
+    return m_failoverFcf;
   }
 
   /**
@@ -413,83 +452,7 @@ public class HTTPConfigFile extends BaseConfigFile {
    *           if there are problems.
    */
   public InputStream getInputStream() throws IOException {
-    final String DEBUG_HEADER = "getInputStream(): ";
-    // Get the fail-over file, if any.
-    FileConfigFile failoverFile = getFailoverFile();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "failoverFile = " + failoverFile);
-
-    // Check whether a fail-over file was found.
-    if (failoverFile != null) {
-      // Yes: Return the input stream to the fail-over file.
-      return failoverFile.getInputStream();
-    }
-
-    // No: Get the input stream from the network request.
-    LockssUrlConnection conn = null;
-    InputStream in = null;
-
-    try {
-      conn = openUrlConnection(m_fileUrl);
-      // When reading file for local editing always go to server, don't
-      // serve from local cache.
-      conn.addRequestProperty("Cache-Control", "no-cache");
-
-      // Check whether this configuration file has already been retrieved
-      // before.
-      if (m_config != null) {
-	// Yes: Set the "If-Modified-Since" request header, if possible.
-	if (m_lastModified != null) {
-	  log.debug2("Setting request if-modified-since to: " + m_lastModified);
-	  conn.setIfModifiedSince(m_lastModified);
-	}
-
-	// Yes: Set the "If-None-Match" request header, if possible.
-	if (responseHttpEtag != null) {
-	  log.debug2("Setting request if-none-match to: " + responseHttpEtag);
-	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, responseHttpEtag);
-	}
-      }
-
-      try {
-	in = openHttpInputStream(conn);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "in == null? " + (in == null));
-
-	int resp = conn.getResponseCode();
-	switch (resp) {
-	case HttpURLConnection.HTTP_OK:
-	  // Save the "Last-Modified" response header.
-	  m_httpLastModifiedString =
-	  conn.getResponseHeaderValue(HttpHeaders.LAST_MODIFIED);
-	  // Save the "ETag" response header.
-	  responseHttpEtag = conn.getResponseHeaderValue(HttpHeaders.ETAG);
-	case HttpURLConnection.HTTP_NOT_MODIFIED:
-	case HttpURLConnection.HTTP_PRECON_FAILED:
-	  m_loadError = null;
-	}
-      } catch (IOException ioe) {
-	m_loadError = ioe.getMessage();
-	throw ioe;
-      }
-
-      // Check whether the network request provided no input stream.
-      if (in == null) {
-	// Yes: Report the problem.
-	String message = "Cannot get an input stream from '" + m_fileUrl + "'";
-	log.error(message);
-	throw new IOException(message);
-      }
-
-      return in;
-    } finally {
-      // Release the connection only if no remote content was obtained;
-      // otherwise, the returned input stream to the remote content will be
-      // closed.
-      if (in == null) {
-	IOUtil.safeRelease(conn);
-      }
-    }
+    return getInputStreamIfModified(null, true);
   }
 
   // XXX Find a place for this
@@ -514,27 +477,33 @@ public class HTTPConfigFile extends BaseConfigFile {
     InputStream in = getUrlInputStream(conn);
     if (in != null) {
       m_loadedUrl = null; // we're no longer loaded from failover, if we were.
-      File tmpCacheFile;
-      // If so configured, save the contents of the remote file in a locally
-      // cached copy.
-      if (m_cfgMgr != null &&
-	  (tmpCacheFile =
-	   m_cfgMgr.getRemoteConfigFailoverTempFile(m_fileUrl)) != null) {
-	try {
-	  log.log((  m_cfgMgr.haveConfig()
-		     ? Logger.LEVEL_DEBUG
-		     : Logger.LEVEL_INFO),
-		  "Copying remote config: " + m_fileUrl);
-	  OutputStream out =
-	    new BufferedOutputStream(new FileOutputStream(tmpCacheFile));
-	  out = makeHashedOutputStream(out);
-	  out = new GZIPOutputStream(out, true);
-	  InputStream wrapped = new TeeInputStream(in, out, true);
-	  return wrapped;
-	} catch (IOException e) {
-	  log.error("Error opening remote config failover temp file: " +
-		    tmpCacheFile, e);
-	  return in;
+      RemoteConfigFailoverInfo rcfi;
+      // If so configured, save the contents of the remote file in a local
+      // failover copy.
+      if (!conn.isResponseFromCache() &&
+	  null != m_cfgMgr &&
+	  null != (rcfi =
+		   m_cfgMgr.getRemoteConfigFailoverWithTempFile(m_fileUrl))) {
+	File tmpFailoverFile = rcfi.getTempFile();
+	if (tmpFailoverFile != null) {
+	  rcfi.setLastModified(conn.getResponseHeaderValue(HttpHeaders.LAST_MODIFIED));
+	  rcfi.setEtag(conn.getResponseHeaderValue(HttpHeaders.ETAG));
+	  try {
+	    log.log((  m_cfgMgr.haveConfig()
+		       ? Logger.LEVEL_DEBUG
+		       : Logger.LEVEL_INFO),
+		    "Copying remote config: " + m_fileUrl);
+	    OutputStream out =
+	      new BufferedOutputStream(new FileOutputStream(tmpFailoverFile));
+	    out = makeHashedOutputStream(out);
+	    out = new GZIPOutputStream(out, true);
+	    InputStream wrapped = new TeeInputStream(in, out, true);
+	    return wrapped;
+	  } catch (IOException e) {
+	    log.error("Error opening remote config failover temp file: " +
+		      tmpFailoverFile, e);
+	    return in;
+	  }
 	}
       }
     }
@@ -571,6 +540,20 @@ public class HTTPConfigFile extends BaseConfigFile {
     }      
   }
 
+  @Override
+  public boolean isLoadedFromFailover() {
+    return m_failoverFcf != null;
+  }
+
+  @Override
+  public String getLastModified() {
+    if (m_failoverFcf != null && m_failoverFcf.getLastModified() != null) {
+      return m_failoverFcf.getLastModified();
+    }
+    return super.getLastModified();
+  }
+
+  @Override
   protected String calcNewLastModified() {
     return m_httpLastModifiedString;
   }
@@ -602,8 +585,12 @@ public class HTTPConfigFile extends BaseConfigFile {
     boolean preconditionsMet = false;
     MediaType contentType = null;
     long contentLength = -1;
+    ConfigFileReadWriteResult readResult = null;
 
     try {
+      if (isLoadedFromFailover()) {
+	throw new IOException("Failover file is active");
+      }
       // Create the connection.
       conn = openUrlConnection(m_fileUrl);
 
@@ -643,10 +630,7 @@ public class HTTPConfigFile extends BaseConfigFile {
       if (ifNoneMatch != null && !ifNoneMatch.isEmpty()) {
 	// Yes: Loop through all the If-None-Match entity tags.
 	for (String ifNoneMatchEtag : ifNoneMatch) {
-	  // Add the header to the request.
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "ifNoneMatchEtag = " + ifNoneMatchEtag);
-	  conn.addRequestProperty(HttpHeaders.IF_NONE_MATCH, ifNoneMatchEtag);
+	  addIfNoneMatch(conn, ifNoneMatchEtag);
 	}
       }
 
@@ -706,6 +690,16 @@ public class HTTPConfigFile extends BaseConfigFile {
 	    log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
 	}
       }
+    } catch (IOException e) {
+      // The HTTP fetch failed.  See if we have a failover file.
+      log.info("Couldn't load remote config URL for REST client: " +
+	       m_fileUrl + ": " + e.toString());
+      FileConfigFile failoverFile = getFailoverFile();
+      if (failoverFile == null) {
+	throw e;
+      }
+      // delegate to failover file
+      readResult = failoverFile.conditionallyRead(preconditions);
     } finally {
       // Release the connection only if no remote content was obtained;
       // otherwise, the returned input stream to the remote content will be
@@ -716,10 +710,12 @@ public class HTTPConfigFile extends BaseConfigFile {
     }
 
     // Build the result to be returned.
-    ConfigFileReadWriteResult readResult =
+    if (readResult == null) {
+      readResult =
 	new ConfigFileReadWriteResult(inputStream, lastModified, etag,
-	    preconditionsMet, contentType, contentLength);
-
+				      preconditionsMet, contentType,
+				      contentLength);
+    }
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "readResult = " + readResult);
     return readResult;
@@ -732,6 +728,6 @@ public class HTTPConfigFile extends BaseConfigFile {
   public String toString() {
     return "[HTTPConfigFile: m_httpLastModifiedString="
 	+ m_httpLastModifiedString + ", responseHttpEtag=" + responseHttpEtag
-	+ ", failoverFcf=" + failoverFcf + ", " + super.toString() + "]";
+	+ ", failoverFcf=" + m_failoverFcf + ", " + super.toString() + "]";
   }
 }

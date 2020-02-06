@@ -36,7 +36,10 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.security.KeyStore;
+import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
+import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
 import org.junit.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -46,6 +49,7 @@ import org.lockss.plugin.definable.*;
 import org.lockss.poller.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
@@ -485,6 +489,7 @@ public class TestPluginManager extends LockssTestCase4 {
   List createEvents = new ArrayList();
   List deleteEvents = new ArrayList();
   List reconfigEvents = new ArrayList();
+  List auChangeEvents = new ArrayList();
 
   class MyAuEventHandler extends AuEventHandler.Base {
     @Override public void auCreated(AuEvent event, ArchivalUnit au) {
@@ -497,7 +502,65 @@ public class TestPluginManager extends LockssTestCase4 {
 					 Configuration oldAuConf) {
       reconfigEvents.add(ListUtil.list(au, oldAuConf));
     }
+    @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
+					   AuEvent.ContentChangeInfo info) {
+      auChangeEvents.add(ListUtil.list(au, info));
+    }
   }
+
+  class MyAbsentAuEventHandler extends AuEventHandler.Base {
+    @Override public void auCreated(AuEvent event, String auid,
+				    ArchivalUnit au) {
+      createEvents.add(auid);
+    }
+    @Override public void auDeleted(AuEvent event, String auid,
+				    ArchivalUnit au) {
+      deleteEvents.add(auid);
+    }
+    @Override public void auReconfigured(AuEvent event, String auid,
+					 ArchivalUnit au,
+					 Configuration oldAuConf) {
+      reconfigEvents.add(ListUtil.list(auid, oldAuConf));
+    }
+    @Override public void auContentChanged(AuEvent event, String auid,
+					   ArchivalUnit au,
+					   AuEvent.ContentChangeInfo info) {
+      auChangeEvents.add(ListUtil.list(auid, info));
+    }
+  }
+
+  @Test
+  public void testAbsentAuEvent() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
+				  "true");
+    mgr.startService();
+    minimalConfig();
+    // Don't use the connection maintained by JMSManager in case
+    // PluginManager's Consumer ignores locally sent messages
+    JMSManager jmsMgr =
+      getMockLockssDaemon().getManagerByType(JMSManager.class);
+    ConnectionFactory connectionFactory =
+      new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
+    Connection conn = connectionFactory.createConnection();
+    conn.start();
+    JmsFactory fact = jmsMgr.getJmsFactory();
+    JmsProducer prod =
+      fact.createTopicProducer(null,
+			       PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC,
+			       conn);
+    mgr.registerAuEventHandler(new MyAbsentAuEventHandler());
+    AuEvent.ContentChangeInfo chInfo = new AuEvent.ContentChangeInfo()
+      .setType(AuEvent.ContentChangeInfo.Type.Crawl)
+      .setNumUrls(10)
+      .setComplete(true);
+    AuEvent event =
+      AuEvent.forAuId("auid1",
+		      AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
+    prod.sendMap(event.toMap());
+    TimerUtil.sleep(1000);
+    assertEquals(ListUtil.list(ListUtil.list("auid1", chInfo)), auChangeEvents);
+  }
+
 
   @Test
   public void testCreateAu() throws Exception {
@@ -894,6 +957,13 @@ public class TestPluginManager extends LockssTestCase4 {
     assertNull(mgr.getAuFromIdIfExists(auid1));
     assertNull(mgr.getAuFromIdIfExists(auid2));
 
+    // Notification should be ignored in ondemand mode
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "false");
+    mgr.auConfigChanged(auid1);
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+
+    // Return to startAll mode
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_START_ALL_AUS, "true");
     mgr.auConfigChanged(auid1);
     mgr.auConfigChanged(auid2);
     ArchivalUnit au1 = mgr.getAuFromIdIfExists(auid1);
@@ -1147,6 +1217,7 @@ public class TestPluginManager extends LockssTestCase4 {
       processOneRegistryJarThrowIf = url;
     }
 
+    @Override
     protected void possiblyStartRegistryAuCrawl(ArchivalUnit au,
 						String url,
 						PluginManager.InitialRegistryCallback cb) {
@@ -1845,7 +1916,6 @@ public class TestPluginManager extends LockssTestCase4 {
     ConfigurationUtil.addFromProps(p);
   }
 
-
   @Test
   public void testInitLoadablePluginRegistries() throws Exception {
     // Ensure plugin AUs get started even when startAllAus is false
@@ -1875,7 +1945,8 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.startService();
     MockCrawlManager mcm = new MockCrawlManager();
     theDaemon.setCrawlManager(mcm);
-
+    ConfigurationUtil.addFromArgs(org.lockss.crawler.CrawlManagerImpl.PARAM_CRAWLER_ENABLED,
+				  "true");
     Properties p = new Properties();
     prepareLoadablePluginTests(p);
     List urls = ListUtil.list("http://plug1.example.com/blueplugs/",
@@ -1951,6 +2022,68 @@ public class TestPluginManager extends LockssTestCase4 {
   @Test
   public void testLoadLoadablePluginPreferLibJar() throws Exception {
     testLoadLoadablePlugin(false);
+  }
+
+  // plugin-with-libs.jar contains a plugin, and a dependency jar in the
+  // lib/ dir
+  @Test
+  public void testLoadLoadablePluginWithLibJars() throws Exception {
+    boolean preferLoadable = true;
+    mgr.startService();
+    Properties p = new Properties();
+    p.setProperty(PluginManager.PARAM_PREFER_LOADABLE_PLUGIN,
+		  "" + preferLoadable);
+    prepareLoadablePluginTests(p);
+    pluginJar = "org/lockss/test/plugin-with-libs.jar";
+    String pluginKey = "org|lockss|plugin|plugtest1|PlugTest1Plugin";
+    // Set up a MyMockRegistryArchivalUnit with the right data.
+    List plugins = ListUtil.list(pluginJar);
+    MyMockRegistryArchivalUnit mmau = new MyMockRegistryArchivalUnit(plugins);
+    List registryAus = ListUtil.list(mmau);
+    assertNull(mgr.getPlugin(pluginKey));
+    mgr.processRegistryAus(registryAus);
+    Plugin plug = mgr.getPlugin(pluginKey);
+    assertNotNull(plug);
+    Configuration config =
+      ConfigurationUtil.fromArgs("base_url", "http://example.com/a/",
+				 "year", "1942");
+    ArchivalUnit au1 = mgr.createAu(plug, config,
+                                    AuEvent.model(AuEvent.Type.Create));
+
+    assertMatchesRE("^String in toplevel resource\\.\\n"
+		    + "String in packaged resource\\.",
+		    au1.siteNormalizeUrl("http://foo.bar"));
+  }
+
+  // plugin-with-exploded-libs.jar contains a plugin, and the exploded
+  // contents of the dependency jar
+  @Test
+  public void testLoadLoadablePluginWithExplodedLibJars() throws Exception {
+    boolean preferLoadable = true;
+    mgr.startService();
+    Properties p = new Properties();
+    p.setProperty(PluginManager.PARAM_PREFER_LOADABLE_PLUGIN,
+		  "" + preferLoadable);
+    prepareLoadablePluginTests(p);
+    pluginJar = "org/lockss/test/plugin-with-exploded-libs.jar";
+    String pluginKey = "org|lockss|plugin|plugtest1|PlugTest1Plugin";
+    // Set up a MyMockRegistryArchivalUnit with the right data.
+    List plugins = ListUtil.list(pluginJar);
+    MyMockRegistryArchivalUnit mmau = new MyMockRegistryArchivalUnit(plugins);
+    List registryAus = ListUtil.list(mmau);
+    assertNull(mgr.getPlugin(pluginKey));
+    mgr.processRegistryAus(registryAus);
+    Plugin plug = mgr.getPlugin(pluginKey);
+    assertNotNull(plug);
+    Configuration config =
+      ConfigurationUtil.fromArgs("base_url", "http://example.com/a/",
+				 "year", "1942");
+    ArchivalUnit au1 = mgr.createAu(plug, config,
+                                    AuEvent.model(AuEvent.Type.Create));
+
+    assertMatchesRE("^String in toplevel resource\\.\\n"
+		    + "String in packaged resource\\.",
+		    au1.siteNormalizeUrl("http://foo.bar"));
   }
 
   /** Runtime errors loading plugins should be caught. */
@@ -2089,8 +2222,8 @@ public class TestPluginManager extends LockssTestCase4 {
   public void testRegistryAuEventHandler() throws Exception {
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
 				  "volatile:baz");
-    Consumer cons =
-      Consumer.createTopicConsumer(null, PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
+    JmsConsumer cons =
+      JMSManager.getJmsFactoryStatic().createTopicConsumer(null, PluginManager.DEFAULT_JMS_NOTIFICATION_TOPIC);
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
 				  "true");
     assertNull(cons.receiveMap(TIMEOUT_SHOULD));

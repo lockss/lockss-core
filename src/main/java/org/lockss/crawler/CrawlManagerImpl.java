@@ -91,7 +91,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    */
   public static final String PARAM_CRAWLER_ENABLED =
       PREFIX + "enabled";
-  static final boolean DEFAULT_CRAWLER_ENABLED = false;
+  public static final boolean DEFAULT_CRAWLER_ENABLED = false;
 
   /**
    * Set false to prevent the crawl starter from starting queued crawls. Allows queues to be built, which {@value
@@ -99,7 +99,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    */
   public static final String PARAM_CRAWL_STARTER_ENABLED =
       PREFIX + "starterEnabled";
-  static final boolean DEFAULT_CRAWL_STARTER_ENABLED = true;
+  public static final boolean DEFAULT_CRAWL_STARTER_ENABLED = true;
 
   /**
    * Use thread pool and queue if true, start threads directly if false. Only takes effect at startup.
@@ -302,7 +302,10 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   static final List DEFAULT_CONCURRENT_CRAWL_LIMIT_MAP = null;
 
   /**
-   * Regexp matching URLs we never want to collect.  Intended to stop runaway crawls by catching recursive URLS
+   * Regexp matching URLs we never want to collect.  Intended to stop
+   * runaway crawls by catching recursive URLS.  Maintained for
+   * compatibility; use
+   * <tt>org.lockss.config.globallyExcludedUrlPattern</tt> instead.
    */
   public static final String PARAM_EXCLUDE_URL_PATTERN =
       PREFIX + "globallyExcludedUrlPattern";
@@ -384,11 +387,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       DEFAULT_START_CRAWLS_INITIAL_DELAY;
   private long paramMinWindowOpenFor = DEFAULT_MIN_WINDOW_OPEN_FOR;
   private boolean paramRestartAfterCrash = DEFAULT_RESTART_AFTER_CRASH;
-
-  /**
-   * Note that these are Apache ORO Patterns, not Java Patterns
-   */
-  private Pattern globallyExcludedUrlPattern;
 
   private List<Pattern> globallyPermittedHostPatterns = Collections.EMPTY_LIST;
   private List<Pattern> allowedPluginPermittedHosts;
@@ -622,12 +620,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         }
       }
 
-      if (changedKeys.contains(PARAM_EXCLUDE_URL_PATTERN)) {
-        setExcludedUrlPattern(config.get(PARAM_EXCLUDE_URL_PATTERN,
-            DEFAULT_EXCLUDE_URL_PATTERN),
-            DEFAULT_EXCLUDE_URL_PATTERN);
-      }
-
       if (changedKeys.contains(PARAM_PERMITTED_HOSTS)) {
         setGloballyPermittedHostPatterns(config.getList(PARAM_PERMITTED_HOSTS,
             DEFAULT_PERMITTED_HOSTS));
@@ -667,40 +659,12 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     return crawlerEnabled;
   }
 
-  public boolean isGloballyExcludedUrl(ArchivalUnit au, String url) {
-    if (globallyExcludedUrlPattern == null) {
-      return false;
-    }
-    return RegexpUtil.getMatcher().contains(url, globallyExcludedUrlPattern);
+  public boolean isCrawlPlugins() {
+    return getDaemon().getCrawlMode().isCrawlPlugins();
   }
 
-  void setExcludedUrlPattern(String pat, String defaultPat) {
-    if (pat != null) {
-      int flags =
-          Perl5Compiler.READ_ONLY_MASK | Perl5Compiler.CASE_INSENSITIVE_MASK;
-      try {
-        globallyExcludedUrlPattern = RegexpUtil.getCompiler().compile(pat,
-            flags);
-        logger.info("Global exclude pattern: " + pat);
-        return;
-      } catch (MalformedPatternException e) {
-        logger.error("Illegal global exclude pattern: " + pat, e);
-        if (defaultPat != null && !defaultPat.equals(pat)) {
-          try {
-            globallyExcludedUrlPattern =
-                RegexpUtil.getCompiler().compile(defaultPat, flags);
-            logger.info("Using default global exclude pattern: " + defaultPat);
-            return;
-          } catch (MalformedPatternException e2) {
-            logger.error("Illegal default global exclude pattern: "
-                    + defaultPat,
-                e2);
-          }
-        }
-      }
-    }
-    globallyExcludedUrlPattern = null;
-    logger.debug("No global exclude pattern");
+  public boolean isCrawlNonPlugins() {
+    return getDaemon().getCrawlMode().isCrawlNonPlugins();
   }
 
   public boolean isGloballyPermittedHost(String host) {
@@ -715,7 +679,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   void setGloballyPermittedHostPatterns(List<String> pats) {
     if (pats == null) {
       globallyPermittedHostPatterns = Collections.EMPTY_LIST;
-      logger.debug("No global exclude patterns");
+      logger.debug("No globally permitted host patterns");
     } else {
       // not using RegexpUtil.compileRegexps() so one bad pattern doesn't
       // prevent others from taking effect
@@ -1220,6 +1184,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     if (!windowOkToStart(au.getCrawlWindow())) {
       throw new NotEligibleException("Crawl window is closed");
     }
+    if (pluginMgr.isRegistryAu(au)) {
+      if (!isCrawlPlugins()) {
+	throw new NotEligibleException("Configuration does not allowe plugin registry crawls");
+      }
+    } else {
+      if (!isCrawlNonPlugins()) {
+	throw new NotEligibleException("Configuration allows only plugin registry crawls");
+      }
+    }
     checkEligibleToQueueNewContentCrawl(au);
   }
 
@@ -1606,6 +1579,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
             startOneWait.expireIn(paramStartCrawlsInitialDelay);
             cmStatus.setNextCrawlStarter(startOneWait);
             startOneWait.sleep();
+	    // Can't do anything until repository is ready
+	    waitForRepo(Deadline.MAX);
           } else {
             logger.debug("Waiting until AUs started");
             waitUntilAusStarted();

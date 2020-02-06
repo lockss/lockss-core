@@ -70,6 +70,7 @@ public class HashCUS extends LockssServlet {
   static final String KEY_CHALLENGE = "challenge";
   static final String KEY_VERIFIER = "verifier";
   static final String KEY_HASH_TYPE = "hashtype";
+  static final String KEY_FILTER = "filter";
   static final String KEY_RECORD = "record";
   static final String KEY_BACKGROUND = "background";
   static final String KEY_EXCLUDE_SUSPECT = "excludeSuspect";
@@ -145,6 +146,7 @@ public class HashCUS extends LockssServlet {
 
     HasherParams params = new HasherParams(getMachineName(),
 	getParameter(KEY_BACKGROUND) != null);
+    params.setFiltered(true);
     SimpleHasher hasher = new SimpleHasher(null);
     HasherResult result = new HasherResult();
 
@@ -198,6 +200,7 @@ public class HashCUS extends LockssServlet {
       params.setUrl(getParameter(KEY_URL));
       params.setLower(getParameter(KEY_LOWER));
       params.setUpper(getParameter(KEY_UPPER));
+      params.setFiltered(getParameter(KEY_FILTER) != null);
       params.setRecordFilteredStream(getParameter(KEY_RECORD) != null);
       params
       .setExcludeSuspectVersions(getParameter(KEY_EXCLUDE_SUSPECT) != null);
@@ -224,6 +227,7 @@ public class HashCUS extends LockssServlet {
       params.setUrl(getParameter(KEY_URL));
       params.setLower(getParameter(KEY_LOWER));
       params.setUpper(getParameter(KEY_UPPER));
+      params.setFiltered(getParameter(KEY_FILTER) != null);
       params.setRecordFilteredStream(getParameter(KEY_RECORD) != null);
       params
       .setExcludeSuspectVersions(getParameter(KEY_EXCLUDE_SUSPECT) != null);
@@ -701,6 +705,9 @@ public class HashCUS extends LockssServlet {
     if (params.getUpper() != null) {
       p.setProperty(KEY_UPPER, params.getUpper());
     }
+    if (params.isFiltered()) {
+      p.setProperty(KEY_FILTER, "true");
+    }
     if (params.isRecordFilteredStream()) {
       p.setProperty(KEY_RECORD, "true");
     }
@@ -839,6 +846,12 @@ public class HashCUS extends LockssServlet {
     tbl.add(radioButton(HASH_STRING_V3_SNCUSS, HashType.V3File.toString(),
 			KEY_HASH_TYPE, hashType == HashType.V3File));
 
+    tbl.newRow();
+    tbl.newCell();
+    tbl.newCell();
+    tbl.add("&nbsp;&nbsp;");
+    tbl.add(checkBox("Filter", "true", KEY_FILTER,
+		     params.isFiltered()));
     tbl.newRow();
     tbl.newCell();
     tbl.newCell();
@@ -1057,7 +1070,8 @@ public class HashCUS extends LockssServlet {
     }
     addResultRow(tbl, "CUSS", result.getCus().getSpec().toString());
     addResultRow(tbl, "Files", Integer.toString(result.getFilesHashed()));
-    addResultRow(tbl, "Size", Long.toString(result.getBytesHashed()));
+    addResultRow(tbl, (params.isFiltered() ? "Filtered size" : "Size"),
+		 Long.toString(result.getBytesHashed()));
     addResultRow(tbl, "Time",
 	getElapsedString(result.getBytesHashed(), result.getElapsedTime()));
 

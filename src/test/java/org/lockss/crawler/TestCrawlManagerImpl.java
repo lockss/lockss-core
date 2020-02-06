@@ -823,61 +823,6 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       waitForCrawlToFinish(sem2);
     }
 
-    public void testIsGloballyExcludedUrl() {
-      assertFalse(crawlManager.isGloballyExcludedUrl(null, null));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "http://random.string/"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "http://http://http://"));
-
-      ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-          "(http:.*){3,}");
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "http://http://http://"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "http://http://https://"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "www.x.www.y.www.z"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "www.x.www.y.www.z.www."));
-
-      ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-          "((http:.*){3,})|((\\bwww\\..*){4,})");
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "http://http://http://"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "http://http://https://"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "www.x.www.y.www.z"));
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "www.x.www.y.www.z.www."));
-
-      ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-          "http:/[^/]");
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "http://example.com/foo/(http:/www.foo/bar.html"));
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "http://example.com/foo/http:/www.foo/bar.html"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "http://http://https://"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "www.x.www.y.www.z"));
-
-      ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
-          "(http:/[^/])|((reports/most-read/){2,})");
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "http://example.com/foo/(http:/www.foo/bar.html"));
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "http://example.com/foo/http:/www.foo/bar.html"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "http://http://https://"));
-      assertFalse(crawlManager.isGloballyExcludedUrl(null,
-          "www.x.www.y.www.z"));
-
-      assertTrue(crawlManager.isGloballyExcludedUrl(null,
-          "http://bjo.bmj.com/content/93/2/176.abstract/reports/most-read/reports/most-read/reports/most-read/reports/most-read/reply"));
-    }
-
     public void testGloballyPermittedHosts() {
       assertFalse(crawlManager.isGloballyPermittedHost("foo27.com"));
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_PERMITTED_HOSTS,

@@ -33,50 +33,37 @@ import javax.jms.*;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 
-public class Producer {
+public class JmsProducerImpl implements JmsProducer {
 
   private static final Logger log = Logger.getLogger();
 
+  protected JMSManager jmsMgr;
   private String clientId;
   private Session session;
   private MessageProducer messageProducer;
 
-  public static Producer createTopicProducer(String clientId,
-					     String topicName)
-      throws JMSException {
-    Producer res = new Producer();
-    res.createTopic(clientId, topicName, null);
-    return res;
+  JmsProducerImpl(JMSManager mgr) {
+    this.jmsMgr = mgr;
   }
 
-  public static Producer createTopicProducer(String clientId,
-					     String topicName,
-					     Connection connection)
-      throws JMSException {
-    Producer res = new Producer();
-    res.createTopic(clientId, topicName, connection);
-    return res;
-  }
-
-  private Producer createTopic(String clientId, String topicName,
-			       Connection connection)
+  JmsProducer createTopic(String clientId, String topicName,
+			  Connection connection)
       throws JMSException {
     this.clientId = clientId;
 
-    JMSManager mgr = LockssApp.getManagerByTypeStatic(JMSManager.class);
-
     log.debug("Creating producer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
-	      mgr.getConnectUri());
+	      jmsMgr.getConnectUri());
     // Get shared connection from JMSManager if none supplied
     if (connection == null) {
-      connection = mgr.getConnection();
+      connection = jmsMgr.getConnection();
     }
     // create a Session
     log.debug3("Creating session for topic: " + topicName +
 	       ", client: " + clientId + " at " +
-	       mgr.getConnectUri());
+	       jmsMgr.getConnectUri());
     session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
     // create the Topic to which messages will be sent
@@ -86,7 +73,7 @@ public class Producer {
     messageProducer = session.createProducer(topic);
     log.debug("Created producer for topic: " + topicName +
 	      ", client: " + clientId + " at " +
-	      mgr.getConnectUri());
+	      jmsMgr.getConnectUri());
     return this;
   }
 

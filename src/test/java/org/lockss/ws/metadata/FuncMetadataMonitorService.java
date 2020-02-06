@@ -33,6 +33,7 @@ import java.net.URL;
 import java.util.List;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.lockss.account.AccountManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.metadata.MetadataManager;
@@ -75,8 +76,8 @@ public class FuncMetadataMonitorService extends LockssTestCase {
 
     int port = TcpTestUtil.findUnboundTcpPort();
     ConfigurationUtil.addFromArgs(AdminServletManager.PARAM_PORT, "" + port,
-	ServletManager.PARAM_PLATFORM_USERNAME, USER_NAME,
-	ServletManager.PARAM_PLATFORM_PASSWORD, PASSWORD_SHA1);
+	AccountManager.PARAM_PLATFORM_USERNAME, USER_NAME,
+	AccountManager.PARAM_PLATFORM_PASSWORD, PASSWORD_SHA1);
 
     MockLockssDaemon theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();

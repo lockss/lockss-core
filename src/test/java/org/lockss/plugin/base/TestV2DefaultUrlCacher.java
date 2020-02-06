@@ -50,6 +50,7 @@ import org.lockss.util.urlconn.*;
 import org.lockss.repository.*;
 import org.lockss.crawler.*;
 import org.lockss.config.*;
+import org.lockss.laaws.rs.model.*;
 
 public class TestV2DefaultUrlCacher extends LockssTestCase {
 
@@ -151,6 +152,35 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     long finalChange = maus.getLastContentChange();
     assertTrue(cacher.wasStored);
     assertNotEquals(origChange, finalChange);
+  }
+
+  public void testCacheWithInputError() throws IOException {
+    InputStream ins =
+      new ThrowingInputStream(new StringInputStream("test stream"),
+			      new SocketException("Injected exception"),
+			      null);
+    ud = new UrlData(ins, new CIProperties(), TEST_URL);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    try {
+      cacher.storeContent();
+      fail("Should have thrown CacheException.RetryableNetworkException_3_30S");
+    } catch (CacheException.RetryableNetworkException_3_30S e) {
+    }
+  }
+
+  public void testCacheWithRepoError() throws IOException {
+    ud = new UrlData(new StringInputStream("test stream"),
+		     new CIProperties(), TEST_URL);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.setThrowOnAdd(new IOException("Could not add artifact"));
+    try {
+      cacher.storeContent();
+      fail("Should have thrown CacheException.RepositoryException");
+    } catch (CacheException.RepositoryException e) {
+      assertMatchesRE("Could not add artifact", e.getMessage());
+    }
   }
 
   public void testCacheRedirect() throws IOException {
@@ -911,8 +941,8 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     cacher = new MyDefaultUrlCacher(mau, ud);
     try {
       cacher.storeContent();
-      fail("Copy should have thrown");
-    } catch (IOException e) {
+      fail("Copy should have thrown CacheException");
+    } catch (CacheException e) {
       Throwable t = e.getCause();
       assertClass(IOException.class, t);
       assertEquals("java.io.IOException: Malformed chunk", t.toString());
@@ -929,12 +959,12 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     cacher = new MyDefaultUrlCacher(mau, ud);
     try {
       cacher.storeContent();
-      fail("Copy should have thrown");
-    } catch (IOException e) {
+      fail("Copy should have thrown CacheException");
+    } catch (CacheException e) {
       Throwable t = e.getCause();
       assertClass(IOException.class, t);
       assertEquals("java.io.IOException: CRLF expected at end of chunk: -1/-1",
-		   t.getMessage());
+		   t.toString());
     }
   }
 
@@ -981,6 +1011,7 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
   // DefaultUrlCacher that remembers that it stored
   private class MyDefaultUrlCacher extends DefaultUrlCacher {
     boolean wasStored = false;
+    IOException throwOnAdd = null;
 
     List inputList;
 
@@ -1001,6 +1032,19 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
         throws IOException {
       super.storeContentIn(url, input, headers, doValidate, redirUrls);
       wasStored = true;
+    }
+
+    @Override
+    protected Artifact addArtifact(ArtifactData ad) throws IOException {
+      if (throwOnAdd != null) {
+	logger.debug("Throwing: " + throwOnAdd);
+	throw throwOnAdd;
+      }
+      return super.addArtifact(ad);
+    }
+
+    void setThrowOnAdd(IOException ex) {
+      throwOnAdd = ex;
     }
   }
 

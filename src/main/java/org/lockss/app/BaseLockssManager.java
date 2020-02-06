@@ -29,13 +29,20 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.app;
 
 import java.util.*;
-import javax.jms.*;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.JMSException;
 
 import org.lockss.alert.*;
 import org.lockss.config.*;
+import org.lockss.daemon.*;
 import org.lockss.jms.*;
 import org.lockss.log.*;
+import org.lockss.app.*;
+import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.jms.*;
 
 /**
  * Base implementation of LockssManager
@@ -172,10 +179,56 @@ public abstract class BaseLockssManager implements LockssManager {
     }
   }
 
+  /** Wait forever for the repo service to be ready.
+   * @return true if the repo is ready, false if not or if the status can't
+   * be determined (no RestServicesManager, no binding for the repo svc, no
+   * status available)
+   */
+  protected boolean waitForRepo() {
+    return waitForRepo(Deadline.MAX);
+  }
+
+  /** Wait for the repo service to be ready.
+   * @param until time at which to give up waiting
+   * @return true if the repo is ready, false if not or if the status can't
+   * be determined (no RestServicesManager, no binding for the repo svc, no
+   * status available, timed out
+   */
+  protected boolean waitForRepo(Deadline until) {
+    RestServicesManager svcsMgr =
+      getApp().getManagerByType(RestServicesManager.class);
+    if (svcsMgr != null) {
+      RestServicesManager.ServiceStatus stat =
+	svcsMgr.waitServiceReady(ServiceDescr.SVC_REPO, until);
+      if (stat != null) {
+	return stat.isReady();
+      }
+    }
+    return false;
+  }
+
+  /** Return true if the repository on which the specified AU resides is
+   * ready
+   * @param auid
+   * @return true if the repo is ready, false if not
+   */
+  protected boolean isRepoReady(String auid) {
+    RepositoryManager repoMgr =
+      getApp().getManagerByType(RepositoryManager.class);
+    if (repoMgr == null) {
+      throw new IllegalStateException("No RepositoryManager");
+    }
+    return repoMgr.isRepoReady(auid);
+  }
+
   // JMS Producer and Consumer setup
 
-  protected Consumer jmsConsumer;
-  protected Producer jmsProducer;
+  protected JmsConsumer jmsConsumer;
+  protected JmsProducer jmsProducer;
+
+  protected JMSManager getJMSManager() {
+    return theApp.getManagerByType(JMSManager.class);
+  }
 
   /** Establish a JMS listener for the topic; store it in <tt>jmsConsumer</tt>
    * @param clientId
@@ -202,7 +255,8 @@ public abstract class BaseLockssManager implements LockssManager {
     log.debug("Creating consumer for " + getClassName());
     try {
       jmsConsumer =
-	Consumer.createTopicConsumer(clientId, topicName, noLocal, listener);
+	getJMSManager().getJmsFactory()
+	.createTopicConsumer(clientId, topicName, noLocal, listener);
     } catch (JMSException e) {
       log.fatal("Couldn't create jms consumer for " + getClassName(), e);
     }
@@ -215,7 +269,9 @@ public abstract class BaseLockssManager implements LockssManager {
   protected void setUpJmsSend(String clientId, String topicName) {
     log.debug("Creating producer for " + getClassName());
     try {
-      jmsProducer = Producer.createTopicProducer(clientId, topicName);
+      jmsProducer =
+	getJMSManager().getJmsFactory()
+	.createTopicProducer(clientId, topicName);
     } catch (JMSException e) {
       log.error("Couldn't create jms producer for " + getClassName(), e);
     }
@@ -223,7 +279,7 @@ public abstract class BaseLockssManager implements LockssManager {
 
   /** Cleanly stop the JMS producer and/or consumer */
   protected void stopJms() {
-    Producer p = jmsProducer;
+    JmsProducer p = jmsProducer;
     if (p != null) {
       try {
 	jmsProducer = null;
@@ -232,7 +288,7 @@ public abstract class BaseLockssManager implements LockssManager {
 	log.error("Couldn't stop jms producer for " + getClassName(), e);
       }
     }
-    Consumer c = jmsConsumer;
+    JmsConsumer c = jmsConsumer;
     if (c != null) {
       try {
 	jmsConsumer = null;
@@ -249,7 +305,7 @@ public abstract class BaseLockssManager implements LockssManager {
 
   /** A MessageListener suitable for receiving messages whose payload is a
    * map.  Dispatches received messages to {@link #receiveMessage(Map)} */
-  public class MapMessageListener extends Consumer.SubscriptionListener {
+  public class MapMessageListener extends JmsConsumerImpl.SubscriptionListener {
 
     public MapMessageListener(String listenerName) {
       super(listenerName);
@@ -258,7 +314,7 @@ public abstract class BaseLockssManager implements LockssManager {
     @Override
     public void onMessage(Message message) {
       try {
-        Object msgObject =  Consumer.convertMessage(message);
+        Object msgObject =  JmsUtil.convertMessage(message);
 	if (msgObject instanceof Map) {
 	  receiveMessage((Map)msgObject);
 	} else {

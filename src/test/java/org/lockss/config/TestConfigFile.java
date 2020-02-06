@@ -856,17 +856,20 @@ public class TestConfigFile {
       assertFalse(tmpFile.exists());
       mcm.setTempFile(url1, tmpFile);
       hcf.setConfigManager(mcm);
+      String last = TestConfigFileParent.dateString(TimeBase.nowMs());
+      hcf.setLastModified(last);
 
       Configuration config = hcf.getConfiguration();
       assertTrue(tmpFile.exists());
+      RemoteConfigFailoverInfo rcfi = mcm.getRcfi(url1);
       assertReaderMatchesString(xml1,
 				new InputStreamReader(new GZIPInputStream(new FileInputStream(tmpFile))));
       assertEquals("foo", config.get("prop.7"));
       assertEquals("bar", config.get("prop.8"));
       assertEquals("baz", config.get("prop.9"));
 
+      assertEquals(last, rcfi.getLastModified());
       // Check checksum
-      RemoteConfigFailoverInfo rcfi = mcm.getRcfi(url1);
       String alg =
 	ConfigManager.DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_ALGORITHM;
       assertEquals(hashGzippedString(xml1, alg).toString(), rcfi.chksum);
@@ -1032,6 +1035,10 @@ public class TestConfigFile {
       map.put(getFileUrl(), content);
     }
 
+    public void setLastModified(String time) {
+      lastModified = time;
+    }
+
     protected LockssUrlConnection openUrlConnection(String url)
 	throws IOException {
       MyMockLockssUrlConnection conn = new MyMockLockssUrlConnection();
@@ -1153,14 +1160,16 @@ public class TestConfigFile {
       this.tmpdir = tmpdir;
     }
 
-    public File getRemoteConfigFailoverTempFile(String url) {
-      RemoteConfigFailoverInfo rcfi = getRcfi(url);
-      return rcfi.tempfile;
+    @Override
+    public RemoteConfigFailoverInfo getRemoteConfigFailoverWithTempFile(String url) {
+      return getRcfi(url);
     }
+    @Override
     public File getRemoteConfigFailoverFile(String url) {
       RemoteConfigFailoverInfo rcfi = getRcfi(url);
       return new File(rcfi.filename);
     }
+    @Override
     public RemoteConfigFailoverInfo getRcfi(String url) {
       RemoteConfigFailoverInfo rcfi = rcfis.get(url);
       if (rcfi == null) {

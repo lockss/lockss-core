@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +32,7 @@ import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -61,9 +62,12 @@ import org.lockss.util.time.TimeUtil;
  * 
  * @author Fernando García-Loygorri
  */
-public class DbManager extends BaseLockssManager
+public abstract class DbManager extends BaseLockssManager
   implements ConfigurableManager {
   protected static final Logger log = Logger.getLogger();
+
+  // Prefix for the database manager configuration entries.
+  private static final String PREFIX = Configuration.PREFIX + "db.";
 
   /**
    * Derby log append option. Changes require daemon restart.
@@ -145,6 +149,23 @@ public class DbManager extends BaseLockssManager
    */
   public static final int DEFAULT_FETCH_SIZE = 5000;
 
+  /**
+   * Indication of whether the startup code should wait for the external setup
+   * of the database. Changes require daemon restart.
+   */
+  protected static final boolean DEFAULT_WAIT_FOR_EXTERNAL_SETUP = false;
+
+  /**
+   * The name of the configuration parameter for the prefix for database names.
+   */
+  public static final String PARAM_DATABASE_NAME_PREFIX =
+      PREFIX + "databaseNamePrefix";
+
+  /** 
+   * The default prefix for database names.
+   */
+  private static final String DEFAULT_DATABASE_NAME_PREFIX = "Lockss";
+
   // Derby SQL state of exception thrown on successful database shutdown.
   private static final String SHUTDOWN_SUCCESS_STATE_CODE = "08006";
 
@@ -168,6 +189,9 @@ public class DbManager extends BaseLockssManager
 
   // The data source password.
   protected String dataSourcePassword = null;
+
+  // The data source schema name.
+  protected String dataSourceSchemaName = null;
 
   // The network server control.
   protected NetworkServerControl networkServerControl = null;
@@ -217,6 +241,18 @@ public class DbManager extends BaseLockssManager
 
   // The database subsystem.
   private static final String DB_VERSION_SUBSYSTEM = "DbManager";
+
+  // The interval in milliseconds between consecutive checks while waiting for a
+  // database to be set up externally.
+  static final long waitForExternalSetupInterval = 15 * Constants.SECOND;
+
+  // The interval message used while waiting for a database to be set up
+  // externally.
+  static final String waitForExternalSetupMessage =
+      "Sleeping for 15 seconds...";
+
+  // The prefix for database names.
+  private String databaseNamePrefix = DEFAULT_DATABASE_NAME_PREFIX;
 
   /**
    * Default constructor.
@@ -291,6 +327,13 @@ public class DbManager extends BaseLockssManager
 			Configuration.Differences changedKeys) {
     final String DEBUG_HEADER = "setConfig(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    if (changedKeys.contains(PREFIX)) {
+      // Update the prefix for database names.
+      databaseNamePrefix =
+	  config.get(PARAM_DATABASE_NAME_PREFIX, DEFAULT_DATABASE_NAME_PREFIX);
+    }
+
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
@@ -461,15 +504,6 @@ public class DbManager extends BaseLockssManager
   public static String truncateVarchar(String original, int maxLength) {
     return DbManagerSql.truncateVarchar(original, maxLength);
   }
-
-  /**
-   * Provides the key used by the application to locate this manager.
-   * 
-   * @return a String with the manager key.
-   */
-//  public static String getManagerKey() {
-//    return "DbManager";
-//  }
 
   /**
    * Provides an indication of whether this object is ready to be used.
@@ -729,6 +763,15 @@ public class DbManager extends BaseLockssManager
   }
 
   /**
+   * Provides the data source schema name. To be used during initialization.
+   * 
+   * @return a String with the data source schema name.
+   */
+  public String getDataSourceSchemaNameBeforeReady() {
+    return dataSourceSchemaName;
+  }
+
+  /**
    * Creates a datasource using the specified class name.
    * 
    * @param dsClassName
@@ -808,20 +851,55 @@ public class DbManager extends BaseLockssManager
     // Initialize the datasource properties.
     initializeDataSourceProperties(dataSourceConfig, dataSource);
 
+    // Get the indication of whether the startup code should wait for the
+    // external setup of the database.
+    boolean waitForExternalSetup =
+	getWaitForExternalSetup(ConfigManager.getCurrentConfig());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "waitForExternalSetup = " + waitForExternalSetup);
+
+    // Get the name of the database from the configuration.
+    String databaseName = dataSourceConfig.get("databaseName");
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "databaseName = " + databaseName);
+
     // Check whether the Derby database is being used.
     if (dbManagerSql.isTypeDerby()) {
-      // Yes: Check whether the Derby NetworkServerControl for client
-      // connections needs to be started.
+      // Yes: Check whether it should wait for the database to be setup
+      // externally.
+      if (waitForExternalSetup) {
+	// Yes: Wait until the file tree used by the database is available.
+	waitForDerbyFileTree(databaseName);
+      }
+
+      // Check whether the Derby NetworkServerControl for client connections
+      // needs to be started.
       if (dataSource instanceof ClientDataSource) {
 	// Yes: Start it.
 	ClientDataSource cds = (ClientDataSource)dataSource;
 	startDerbyNetworkServerControl(cds);
 
-	// Set up the Derby authentication configuration, if necessary.
-	setUpDerbyAuthentication(dataSourceConfig, cds);
+	// Check whether no wait for the database to be setup externally is
+	// needed.
+	if (!waitForExternalSetup) {
+	  // Yes: Set up the Derby authentication configuration, if necessary.
+	  setUpDerbyAuthentication(dataSourceConfig, cds);
+	}
       } else {
 	// No: Remove the Derby authentication configuration, if necessary.
 	removeDerbyAuthentication(dataSourceConfig, dataSource);
+      }
+
+      // Check whether it should wait for the database to be setup externally.
+      if (waitForExternalSetup) {
+	// Yes: Wait for the ability to establish a connection to the database.
+	waitForConnection(databaseName);
+
+	// Wait until the database metadata is available.
+	waitForMetadata(databaseName);
+
+	// Wait until the database version table is available.
+	waitForDerbyVersionTable(databaseName);
       }
 
       // Remember that the Derby database has been booted.
@@ -829,15 +907,11 @@ public class DbManager extends BaseLockssManager
 
       // No: Check whether the PostgreSQL database is being used.
     } else if (dbManagerSql.isTypePostgresql()) {
-      // Yes: Get the name of the database from the configuration.
-      String databaseName = dataSourceConfig.get("databaseName");
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "databaseName = " + databaseName);
-
+      // Yes.
       try {
 	// Create the schema if it does not exist.
-	dbManagerSql.createPostgresqlSchemaIfMissing(dataSourceUser,
-	    dataSource);
+	dbManagerSql.createPostgresqlSchemaIfMissing(dataSourceSchemaName,
+	    dataSource, waitForExternalSetup);
       } catch (SQLException sqle) {
 	String msg = "Error creating PostgreSQL schema if missing";
 	log.error(msg, sqle);
@@ -921,6 +995,15 @@ public class DbManager extends BaseLockssManager
 
     dsConfig.put("databaseName", dataSourceDbName);
 
+    // Save the schema name, if not configured.
+    if (dbManagerSql.isTypePostgresql()) {
+      dataSourceSchemaName = getDataSourceSchemaName(currentConfig);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "dataSourceSchemaName = " + dataSourceSchemaName);
+
+      dsConfig.put("schemaName", dataSourceSchemaName);
+    }
+
     // Save the Derby credentials for later authentication.
     if (dbManagerSql.isTypeDerby()) {
       synchronized (this) {
@@ -983,10 +1066,40 @@ public class DbManager extends BaseLockssManager
     return DEFAULT_DATASOURCE_PASSWORD;
   }
 
-  protected String getDataSourceDatabaseName(Configuration config) {
-    if (dbManagerSql.isTypeDerby()) {
+  /**
+   * Provides the full name of the database to be used.
+   * 
+   * @param config
+   *          A Configuration that includes the simple name of the database.
+   * @return a String with the full name of the database.
+   */
+  protected abstract String getDataSourceDatabaseName(Configuration config);
+
+  /** Return the prefix + simple class name, to be used as the base for the
+   * database name.
+   */
+  protected String getSimpleDbName() {
+    return getDatabaseNamePrefix() + this.getClass().getSimpleName();
+  }
+
+  /**
+   * Provides the full name of the database to be used.
+   * 
+   * @param simpleDbName
+   *          A String with the simple name of the database.
+   * @return a String with the full name of the database.
+   */
+  protected String getFullDataSourceDatabaseName(String simpleDbName) {
+    final String DEBUG_HEADER = "getDataSourceDatabaseName(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER
+	+ "simpleDbName = " + simpleDbName);
+
+    // Check whether the Derby database is being used and a full path has not
+    // been passed.
+    if (dbManagerSql.isTypeDerby()
+	&& !simpleDbName.startsWith(File.separator)) {
       // Yes: Get the data source root directory.
-      String pathFromCache = "db/" + this.getClass().getSimpleName();
+      String pathFromCache = "db/" + simpleDbName;
       File datasourceDir = ConfigManager.getConfigManager()
 	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
 
@@ -994,8 +1107,18 @@ public class DbManager extends BaseLockssManager
       return FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
     }
 
-    return this.getClass().getSimpleName();
+    // No: The full name is just the simple name.
+    return simpleDbName;
   }
+
+  /**
+   * Provides the name of the database schema to be used.
+   * 
+   * @param config
+   *          A Configuration that includes the name of the database schema.
+   * @return a String with the name of the database schema.
+   */
+  protected abstract String getDataSourceSchemaName(Configuration config);
 
   /**
    * Sets the Derby database properties.
@@ -1062,6 +1185,8 @@ public class DbManager extends BaseLockssManager
   protected String getDerbyStreamErrorLogSeverityLevel(Configuration config) {
     return DEFAULT_DERBY_STREAM_ERROR_LOGSEVERITYLEVEL;
   }
+
+  protected abstract boolean getWaitForExternalSetup(Configuration config);
 
   /**
    * Initializes an external database, if it does not exist already.
@@ -1162,7 +1287,8 @@ public class DbManager extends BaseLockssManager
 
     // Create the database if it does not exist.
     try {
-      dbManagerSql.createPostgreSqlDbIfMissing(ds, databaseName);
+      dbManagerSql.createPostgreSqlDbIfMissing(ds, databaseName,
+	  getWaitForExternalSetup(ConfigManager.getCurrentConfig()));
     } catch (SQLException sqle) {
       String message = "Error creating PostgreSQL database '" + databaseName
 	  + "' if missing";
@@ -1256,7 +1382,8 @@ public class DbManager extends BaseLockssManager
       // being used.
     } else if (dbManagerSql.isTypePostgresql()
 	&& ("initialConnections".equals(name) || "maxConnections".equals(name)
-	    || "portNumber".equals(name) || "password".equals(name))) {
+	    || "portNumber".equals(name) || "password".equals(name)
+	    || "schemaName".equals(name))) {
       if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = true.");
       return true;
 
@@ -1305,7 +1432,8 @@ public class DbManager extends BaseLockssManager
 
     // Create the database if it does not exist.
     try {
-      dbManagerSql.createMySqlDbIfMissing(ds, databaseName);
+      dbManagerSql.createMySqlDbIfMissing(ds, databaseName,
+	  getWaitForExternalSetup(ConfigManager.getCurrentConfig()));
     } catch (SQLException sqle) {
       String message = "Error creating MySQL database '" + databaseName
 	  + "' if missing";
@@ -1318,6 +1446,39 @@ public class DbManager extends BaseLockssManager
       throw new DbException(message, re);
     }
 
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the file tree used by a Derby database is available.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForDerbyFileTree(String databaseName) {
+    final String DEBUG_HEADER = "waitForDerbyFileTree(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    // Get the location where the database files are stored.
+    File dbDir = new File(databaseName);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "dbDir = " + dbDir);
+
+    // Wait until the database files top directory exists.
+    while (!dbDir.exists()) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + "Database directory '"
+	  + dbDir + "' does not exist. " + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	    // Expected.
+      }
+    }
+
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database directory '"
+	  + dbDir + "' exists.");
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
@@ -1519,9 +1680,204 @@ public class DbManager extends BaseLockssManager
   }
 
   /**
+   * Waits until a database accepts a connection.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForConnection(String databaseName) {
+    final String DEBUG_HEADER = "waitForConnection(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    Connection conn = null;
+
+    // Wait until a connection to the database is acquired.
+    while (conn == null) {
+      try {
+	conn = JdbcBridge.getConnection(dataSource, maxRetryCount, retryDelay,
+	    false);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database '" + 
+	    databaseName + "' accepted a connection.");
+      } catch (SQLException sqle) {
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	    + databaseName + "' refuses connections. "
+	    + waitForExternalSetupMessage);
+
+	try {
+	  Thread.sleep(waitForExternalSetupInterval);
+	} catch (InterruptedException ie)
+	{
+	  // Expected.
+	}
+      } finally {
+	// Roll back the connection.
+	try {
+	  conn.rollback();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Connection rolled back.");
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+
+	// Close the connection.
+	try {
+	  if ((conn != null) && !conn.isClosed()) {
+	    conn.close();
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Connection closed.");
+	  }
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the metadata of a database is available.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForMetadata(String databaseName) {
+    final String DEBUG_HEADER = "waitForMetadata(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    DatabaseMetaData metadata = null;
+
+    // Wait until the database metadata is acquired.
+    while (metadata == null) {
+      Connection conn = null;
+
+      try {
+	// Get a connection to the database.
+	conn = JdbcBridge.getConnection(dataSource, maxRetryCount, retryDelay,
+	    false);
+
+	// Get the database metadata.
+	metadata = JdbcBridge.getMetadata(conn);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database '" + 
+	    databaseName + "' metadata is available.");
+      } catch (SQLException sqle) {
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database '"
+	    + databaseName + "' metadata is not available. "
+	    + waitForExternalSetupMessage);
+
+	try {
+	  Thread.sleep(waitForExternalSetupInterval);
+	} catch (InterruptedException ie)
+	{
+	  // Expected.
+	}
+      } finally {
+	// Roll back the connection.
+	try {
+	  conn.rollback();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Connection rolled back.");
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+
+	// Close the connection.
+	try {
+	  if ((conn != null) && !conn.isClosed()) {
+	    conn.close();
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Connection closed.");
+	  }
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the version table of a Derby database is available.
+   * 
+   * @param databaseName
+   *          A String with the name of the database.
+   */
+  private void waitForDerbyVersionTable(String databaseName) {
+    final String DEBUG_HEADER = "waitForDerbyVersionTable(): ";
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
+
+    ResultSet rs = null;
+
+    // Wait until the version table is available.
+    while (rs == null) {
+      Connection conn = null;
+
+      try {
+	// Get a connection to the database.
+	conn = JdbcBridge.getConnection(dataSource, maxRetryCount, retryDelay,
+	    false);
+
+	// Get the version table metadata.
+	rs = JdbcBridge.getStandardTables(conn, null, dataSourceUser,
+	    VERSION_TABLE.toUpperCase());
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database "
+				       + getSimpleDbName() + " table '" +
+				       VERSION_TABLE + "' is available.");
+      } catch (SQLException sqle) {
+	if (log.isDebug()) log.debug(DEBUG_HEADER + "Database "
+				     + getSimpleDbName() + " table '"
+				     + VERSION_TABLE + "' is not available. "
+				     + waitForExternalSetupMessage);
+
+	try {
+	  Thread.sleep(waitForExternalSetupInterval);
+	} catch (InterruptedException ie)
+	{
+	  // Expected.
+	}
+      } finally {
+	// Roll back the connection.
+	try {
+	  conn.rollback();
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Connection rolled back.");
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+
+	// Close the connection.
+	try {
+	  if ((conn != null) && !conn.isClosed()) {
+	    conn.close();
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Connection closed.");
+	  }
+	} catch (SQLException sqle) {
+	  // Ignore.
+	} catch (RuntimeException re) {
+	  // Ignore.
+	}
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
    * Updates the database to a given version, if necessary.
    * 
-   * @param targetDbCersion
+   * @param targetDbVersion
    *          An int with the database version that is the target of the update.
    * 
    * @throws DbException
@@ -1532,6 +1888,13 @@ public class DbManager extends BaseLockssManager
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "targetDbVersion = " + targetDbVersion);
 
+    // Get the indication of whether the startup code should wait for the
+    // external setup of the database.
+    boolean waitForExternalSetup =
+	getWaitForExternalSetup(ConfigManager.getCurrentConfig());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "waitForExternalSetup = " + waitForExternalSetup);
+
     Connection conn = null;
 
     try {
@@ -1539,18 +1902,25 @@ public class DbManager extends BaseLockssManager
 
       // Check whether the version table does not exist.
       if (!dbManagerSql.tableExists(conn, VERSION_TABLE)) {
-	// Yes.
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + VERSION_TABLE + " table does not exist.");
-	// Create the table (without the subsystem column).
-	dbManagerSql.createVersionTable(conn);
+	// Yes: Check whether it should wait for the table to be created
+	// externally.
+	if (waitForExternalSetup) {
+	  // Yes: Wait until the table is created externally.
+	  waitForVersionTable(conn);
+	} else {
+	  // No.
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + VERSION_TABLE + " table does not exist.");
+	  // Create the table (without the subsystem column).
+	  dbManagerSql.createVersionTable(conn);
 
-	// Add the subsystem column.
-	dbManagerSql.addVersionSubsystemColumn(conn);
+	  // Add the subsystem column.
+	  dbManagerSql.addVersionSubsystemColumn(conn);
 
-	// Record the DbManager subsystem version in the database.
-	int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	  // Record the DbManager subsystem version in the database.
+	  int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	}
       } else {
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + VERSION_TABLE + " table exists.");
@@ -1558,16 +1928,23 @@ public class DbManager extends BaseLockssManager
 
       // Check whether the subsystem column of the version table does not exist.
       if (!dbManagerSql.columnExists(conn, VERSION_TABLE, SUBSYSTEM_COLUMN)) {
-	// Yes.
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	// Yes: Check whether it should wait for the column to be created
+	// externally.
+	if (waitForExternalSetup) {
+	  // Yes: Wait until the column is created externally.
+	  waitForVersionSubsystemColumn(conn);
+	} else {
+	  // No.
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
 	    + " column in " + VERSION_TABLE + " table does not exist.");
 
-	// Add the subsystem column.
-	dbManagerSql.addVersionSubsystemColumn(conn);
+	  // Add the subsystem column.
+	  dbManagerSql.addVersionSubsystemColumn(conn);
 
-	// Record the DbManager subsystem version in the database.
-	int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	  // Record the DbManager subsystem version in the database.
+	  int count = recordDbVersion(conn, DB_VERSION_SUBSYSTEM, 1);
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+	}
       } else {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
 	    + " column in " + VERSION_TABLE + " table exists.");
@@ -1594,9 +1971,16 @@ public class DbManager extends BaseLockssManager
 	    + " for this daemon. Possibly caused by daemon downgrade.");
       }
 
-      // Check whether any previously started threaded database updates need to
-      // be checked for completion.
-      if (existingDbVersion >= 2) {
+      // Check whether it should wait for the database to be updated externally.
+      if (waitForExternalSetup) {
+	// Yes: Wait for the database to be updated externally.
+	existingDbVersion = waitForDatabaseUpdate(conn, subsystem,
+	    existingDbVersion, targetDbVersion);
+      }
+
+      // Check whether the database is not updated externally and any previously
+      // started threaded database updates need to be checked for completion.
+      if (!waitForExternalSetup && existingDbVersion >= 2) {
 	// Yes: Get all the version updates recorded in the database.
 	List<Integer> recordedVersions =
 	    dbManagerSql.getSortedDatabaseVersions(conn, subsystem);
@@ -1626,10 +2010,11 @@ public class DbManager extends BaseLockssManager
       // database version.
       if (targetDbVersion > existingDbVersion) {
 	// Yes.
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	    + "Database needs to be updated from existing version "
-	    + existingDbVersion + " to new version " + targetDbVersion);
-
+	if (log.isDebug3()) {
+	  log.debug3(DEBUG_HEADER + "Database " + getSimpleDbName()
+		     + " needs to be updated from existing version " + existingDbVersion
+		     + " to new version " + targetDbVersion);
+	}
 	// Update the database.
 	int lastRecordedVersion =
 	    updateDatabase(conn, existingDbVersion, targetDbVersion);
@@ -1642,18 +2027,21 @@ public class DbManager extends BaseLockssManager
 
 	if (pendingUpdates.size() > 0) {
 	  if (lastRecordedVersion > existingDbVersion) {
-	    log.info("Database has been updated to version "
-		+ lastRecordedVersion + ". Pending updates: " + pendingUpdates);
+	    log.info("Database " + getSimpleDbName()
+		     + " has been updated to version " + lastRecordedVersion
+		     + ". Pending updates: " + pendingUpdates);
 	  } else {
-	    log.info("Database remains at version " + lastRecordedVersion
-		+ ". Pending updates: " + pendingUpdates);
+	    log.info("Database " + getSimpleDbName()
+		     + " remains at version " + lastRecordedVersion
+		     + ". Pending updates: " + pendingUpdates);
 	  }
 	} else {
 	  if (lastRecordedVersion > existingDbVersion) {
-	    log.info("Database has been updated to version "
-	      + lastRecordedVersion);
+	    log.info("Database " + getSimpleDbName()
+		     + " has been updated to version " + lastRecordedVersion);
 	  } else {
-	    log.info("Database remains at version " + lastRecordedVersion);
+	    log.info("Database " + getSimpleDbName()
+		     + " remains at version " + lastRecordedVersion);
 	  }
 	}
       } else {
@@ -1663,10 +2051,12 @@ public class DbManager extends BaseLockssManager
 		+ pendingUpdates + "'");
 
 	if (pendingUpdates.size() > 0) {
-	  log.info("Database is up-to-date at version " + existingDbVersion
-	      + ". Pending updates: " + pendingUpdates);
+	  log.info("Database " + getSimpleDbName()
+		   + " is up-to-date at version " + existingDbVersion
+		   + ". Pending updates: " + pendingUpdates);
 	} else {
-	  log.info("Database is up-to-date at version " + existingDbVersion);
+	  log.info("Database " + getSimpleDbName()
+		   + " is up-to-date at version " + existingDbVersion);
 	}
       }
     } catch (SQLException sqle) {
@@ -1680,6 +2070,116 @@ public class DbManager extends BaseLockssManager
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the version table of a database exists.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  private void waitForVersionTable(Connection conn) throws SQLException {
+    final String DEBUG_HEADER = "waitForVersionTable(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    // Wait until the database version table exists.
+    while (!dbManagerSql.tableExists(conn, VERSION_TABLE)) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + "Table '" + VERSION_TABLE
+	  + "' does not exist. " + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	// Expected.
+      }
+    }
+
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + VERSION_TABLE + " table exists.");
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the subsystem column of the version table exists.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  private void waitForVersionSubsystemColumn(Connection conn)
+      throws SQLException {
+    final String DEBUG_HEADER = "waitForVersionSubsystemColumn(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    // Wait until the subsystem column of the version table exists.
+    while (!dbManagerSql.columnExists(conn, VERSION_TABLE, SUBSYSTEM_COLUMN)) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	  + " column in " + VERSION_TABLE + " table does not exist. "
+	  + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	// Expected.
+      }
+    }
+
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + SUBSYSTEM_COLUMN
+	+ " column in " + VERSION_TABLE + " table exists.");
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Waits until the database has been updated to the target version.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param subsystem
+   *          A String with the subsystem name to e used in the version table.
+   * @param currentDbVersion
+   *          An int with the existing database version.
+   * @param targetDbVersion
+   *          An int with the database version that is the target of the update.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  private int waitForDatabaseUpdate(Connection conn, String subsystem,
+      int currentDbVersion, int targetDbVersion) throws SQLException {
+    final String DEBUG_HEADER = "waitForDatabaseUpdate(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "subsystem = " + subsystem);
+      log.debug2(DEBUG_HEADER + "currentDbVersion = " + currentDbVersion);
+      log.debug2(DEBUG_HEADER + "targetDbVersion = " + targetDbVersion);
+    }
+
+    // Wait while the current version is smaller than the target version.
+    while (targetDbVersion > currentDbVersion) {
+      if (log.isDebug()) log.debug(DEBUG_HEADER + "targetDbVersion = "
+	  + targetDbVersion + " > currentDbVersion = " + currentDbVersion + ". "
+	  + waitForExternalSetupMessage);
+
+      try {
+	Thread.sleep(waitForExternalSetupInterval);
+      } catch (InterruptedException ie)
+      {
+	// Expected.
+      }
+
+      // Get the current version.
+      currentDbVersion =
+	  dbManagerSql.getHighestNumberedDatabaseVersion(conn, subsystem);
+    }
+
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "currentDbVersion = " + currentDbVersion);
+    return currentDbVersion;
   }
 
   /**
@@ -1729,7 +2229,8 @@ public class DbManager extends BaseLockssManager
 	  // dbVersion + 1.
 	  updateDatabase(conn, version, version + 1);
 	  if (log.isDebug3())
-	    log.debug3("Database has been updated to version " + (version + 1));
+	    log.debug3("Database " + getSimpleDbName()
+		       + " has been updated to version " + (version + 1));
 	}
       }
 
@@ -1802,14 +2303,16 @@ public class DbManager extends BaseLockssManager
 	      lastRecordedVersion = from + 1;
 	      recordDbVersion(conn, subsystem, lastRecordedVersion);
 	      if (log.isDebug())
-		log.debug("Database updated to version " + lastRecordedVersion);
+		log.debug("Database " + getSimpleDbName()
+			  + " updated to version " + lastRecordedVersion);
 	    }
 	  } else {
 	    // No: Record the current database version in the database.
 	    lastRecordedVersion = from + 1;
 	    recordDbVersion(conn, subsystem, lastRecordedVersion);
 	    if (log.isDebug())
-	      log.debug("Database updated to version " + lastRecordedVersion);
+	      log.debug("Database " + getSimpleDbName()
+			+ " updated to version " + lastRecordedVersion);
 
 	    // Commit this partial update.
 	    try {
@@ -2031,5 +2534,14 @@ public class DbManager extends BaseLockssManager
    */
   protected String getVersionSubsystemName() {
     return this.getClass().getSimpleName();
+  }
+
+  /**
+   * Provides the prefix for database names.
+   * 
+   * @return A String with the prefix for database names.
+   */
+  public String getDatabaseNamePrefix() {
+    return databaseNamePrefix;
   }
 }

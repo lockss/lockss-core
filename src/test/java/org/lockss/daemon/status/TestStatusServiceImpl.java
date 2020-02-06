@@ -40,6 +40,7 @@ import org.lockss.jms.*;
 import org.lockss.test.*;
 import org.lockss.log.*;
 import org.lockss.util.*;
+import org.lockss.util.jms.*;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.TimerUtil;
 
@@ -206,8 +207,8 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     statusService.registerStatusAccessor("table1", new MockStatusAccessor());
   }
 
-  Producer prod;
-  Consumer cons;
+  JmsProducer prod;
+  JmsConsumer cons;
 
   void setUpJms() throws JMSException {
     // Can't use the connection maintained by JMSManager (at least not for
@@ -216,9 +217,12 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     ConnectionFactory connectionFactory =
       new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
     Connection conn = connectionFactory.createConnection();
+    conn.start();
 
-    prod = Producer.createTopicProducer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
-    cons = Consumer.createTopicConsumer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, true, null, conn);
+    JmsFactory fact = jmsMgr.getJmsFactory();
+
+    prod = fact.createTopicProducer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
+    cons = fact.createTopicConsumer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, true, null, conn);
   }
 
   Map MSG_REQ = MapUtil.map("verb", "RequestTableRegistrations");
@@ -239,7 +243,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     // registrations to be sent
     getMockLockssDaemon().setMyServiceDescr(ServiceDescr.SVC_POLLER);
     ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
-				  "poller=:1234");
+				  "poller=:1233:1234");
 
     setUpJms();
     // This should cause a RequestTableRegistrations message to be sent
@@ -272,7 +276,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
   }
 
   // Read and return n messages, ensure there are no more waiting
-  List<Map> nMsgs(Consumer cons, int n) throws Exception {
+  List<Map> nMsgs(JmsConsumer cons, int n) throws Exception {
     List<Map> res = new ArrayList<>();
     while (res.size() != n) {
       res.add(cons.receiveMap(TIMEOUT_SHOULDNT));
@@ -827,7 +831,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     setUpJms();
     getMockLockssDaemon().setMyServiceDescr(ServiceDescr.SVC_POLLER);
     ConfigurationUtil.addFromArgs(LockssApp.PARAM_SERVICE_BINDINGS,
-				  "poller=:1238");
+				  "poller=:1237:1238");
     // This should cause a RequestTableRegistrations message to be sent
     statusService.startService();
     assertEquals(ListUtil.list(MSG_REQ), nMsgs(cons, 1));

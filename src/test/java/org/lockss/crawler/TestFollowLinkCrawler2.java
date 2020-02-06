@@ -110,7 +110,6 @@ public class TestFollowLinkCrawler2 extends LockssTestCase {
     Properties p = new Properties();
     p.setProperty(FollowLinkCrawler.PARAM_DEFAULT_RETRY_DELAY, "0");
     p.setProperty(FollowLinkCrawler.PARAM_MIN_RETRY_DELAY, "0");
-    p.setProperty("org.lockss.log.FollowLinkCrawler.level", "3");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     cf = crawler.getCrawlerFacade();
   }
@@ -1162,9 +1161,11 @@ public class TestFollowLinkCrawler2 extends LockssTestCase {
      * that is only called when a file is fetched
      */
     @Override
-    protected void updateCacheStats(FetchResult res, CrawlUrlData curl) {
+    protected void updateCacheStats(UrlFetcher uf,
+				    FetchResult res,
+				    CrawlUrlData curl) {
       fetchedUrls.add(curl.getUrl());
-      super.updateCacheStats(res, curl);
+      super.updateCacheStats(uf, res, curl);
     }
     
     @Override

@@ -47,7 +47,7 @@ import org.lockss.protocol.*;
 import org.lockss.state.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.repository.*;
-import org.lockss.rs.exception.LockssRestException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
@@ -556,8 +556,8 @@ public class RemoteApi
       Configuration platConfig =
 	ConfigManager.getPlatformConfig().getConfigTree(Configuration.PLATFORM).addPrefix(Configuration.PLATFORM);
       // remove password info
-      platConfig.remove(ServletManager.PARAM_PLATFORM_USERNAME);
-      platConfig.remove(ServletManager.PARAM_PLATFORM_PASSWORD);
+      platConfig.remove(AccountManager.PARAM_PLATFORM_USERNAME);
+      platConfig.remove(AccountManager.PARAM_PLATFORM_PASSWORD);
 
       platConfig.put(BACK_PROP_VERSION, "2");
       platConfig.put(BACK_PROP_VERSION, "2");
@@ -1237,15 +1237,15 @@ public class RemoteApi
 	log.warning("batchProcessOneAu: " + auid + ", " + auConfig);
 	stat.setStatus("Configuration Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(e.getMessage());
-      } catch (IOException e) {
-	stat.setStatus("I/O Error", STATUS_ORDER_ERROR);
-	stat.setExplanation(e.getMessage());
       } catch (DbException dbe) {
 	stat.setStatus("Database Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(dbe.getMessage());
       } catch (LockssRestException lre) {
 	stat.setStatus("REST service Error", STATUS_ORDER_ERROR);
 	stat.setExplanation(lre.getMessage());
+      } catch (IOException e) {
+	stat.setStatus("I/O Error", STATUS_ORDER_ERROR);
+	stat.setExplanation(e.getMessage());
       }
     }
     // If a restored AU config has no name, it's probably an old one.  Try

@@ -28,13 +28,12 @@
 package org.lockss.config;
 
 import static org.lockss.config.RestConfigClient.*;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.*;
 import java.util.*;
-import org.lockss.rs.multipart.MultipartResponse;
-import org.lockss.rs.multipart.MultipartResponse.Part;
+import org.lockss.util.rest.multipart.MultipartResponse;
+import org.lockss.util.rest.multipart.MultipartResponse.Part;
+import org.lockss.util.rest.exception.*;
 import org.lockss.util.*;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -151,11 +150,19 @@ public class RestConfigFile extends BaseConfigFile {
       response = serviceClient.callGetMultipartRequest(requestUrl,
 	  new HttpRequestPreconditions(null, ifModifiedSince, ifNoneMatchList,
 	      null));
-    } catch (IOException e) {
-      // The HTTP fetch failed.  First see if we already found a failover
-      // file.
+    } catch (LockssRestHttpException e) {
+      // The HTTP fetch failed.
+      // XXX Check for failover file here?
       log.info("Couldn't load remote config URL: " + m_fileUrl + ": "
 	  + e.toString());
+      m_loadError = e.getMessage();
+      if (404 == e.getHttpStatusCode()) {
+	throw new FileNotFoundException("REST file not found: " + m_fileUrl);
+      }
+      throw e;
+    } catch (IOException e) {
+      // Other error
+      // XXX Check for failover file here?
       m_loadError = e.getMessage();
       throw e;
     } catch (Exception e) {
@@ -168,6 +175,7 @@ public class RestConfigFile extends BaseConfigFile {
     InputStream in = null;
 
     HttpStatus statusCode = response.getStatusCode();
+    String statusMsg = response.getStatusMessage();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
 
     switch (statusCode) {
@@ -207,8 +215,28 @@ public class RestConfigFile extends BaseConfigFile {
       m_loadError = null;
       log.debug2("Rest Service content not changed, not reloading.");
       break;
+    case NOT_FOUND:
+      // Callers rely on 404 response being thrown as FileNotFoundException
+      throw new FileNotFoundException("REST file not found: " + m_fileUrl);
     default:
-      m_loadError = statusCode.toString();
+      // LockssRestException is encoded into MultipartResponse below here;
+      // undo that if reporting as exception, as the contrived HTTP status
+      // codes (e.g., 502 bad gateway for any network error) are confusing.
+      // (Said encoding should probably happen at a higher level, in the
+      // path back to Config Service.)
+      LockssRestException lre = response.getLockssRestException();
+      if (lre != null) {
+	throw lre;
+      }
+      StringBuilder sb = new StringBuilder();
+      sb.append(statusCode.toString());
+      sb.append(": ");
+      sb.append(statusCode.getReasonPhrase());
+      if (statusMsg != null) {
+	sb.append(": ");
+	sb.append(statusMsg);
+      }
+      m_loadError = sb.toString();
       throw new IOException(m_loadError);
     }
 

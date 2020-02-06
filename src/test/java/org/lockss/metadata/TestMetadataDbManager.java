@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,21 +33,28 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import org.junit.Test;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.db.DbManagerSql;
 import org.lockss.db.SqlConstants;
-import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.LockssTestCase;
-import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.*;
+import org.lockss.util.Logger;
 
-public class TestMetadataDbManager extends LockssTestCase {
+/**
+ * Test class for org.lockss.metadata.MetadataDbManager.
+ */
+public class TestMetadataDbManager extends LockssTestCase4 {
+  private static final Logger log = Logger.getLogger();
   private static String TABLE_CREATE_SQL =
       "create table testtable (id bigint NOT NULL, name varchar(512))";
 
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
   private MetadataDbManager metadataDbManager;
+  private String dbPort;
 
   @Override
   public void setUp() throws Exception {
@@ -58,45 +65,145 @@ public class TestMetadataDbManager extends LockssTestCase {
 
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
+    dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER,
+				  dbPort);
+  }
+
+  /**
+   * Tests PostgreSQL database creation with defaults.
+   */
+  @Test
+  public void testCreatePgsqlDb1() {
+    createPgsqlDb();
+
+    assertEquals("LockssMetadataDbManager", metadataDbManager
+	.getDataSourceDatabaseName(ConfigManager.getCurrentConfig()));
+
+    assertEquals("LOCKSS", metadataDbManager
+	.getDataSourceUser(ConfigManager.getCurrentConfig()));
+
+    assertEquals("LOCKSS", metadataDbManager
+	.getDataSourceSchemaName(ConfigManager.getCurrentConfig()));
+  }
+
+  /**
+   * Tests PostgreSQL database creation with database name and user.
+   */
+  @Test
+  public void testCreatePgsqlDb2() {
+    ConfigurationUtil.addFromArgs(
+	MetadataDbManager.PARAM_DATASOURCE_DATABASENAME, "TestDbManager",
+	MetadataDbManager.PARAM_DATASOURCE_USER, "otherUser");
+
+    createPgsqlDb();
+
+    assertEquals("TestDbManager", metadataDbManager
+	.getDataSourceDatabaseName(ConfigManager.getCurrentConfig()));
+
+    assertEquals("otherUser", metadataDbManager
+	.getDataSourceUser(ConfigManager.getCurrentConfig()));
+
+    assertEquals("otherUser", metadataDbManager
+	.getDataSourceSchemaName(ConfigManager.getCurrentConfig()));
+  }
+
+  /**
+   * Tests PostgreSQL database creation with schema name and user.
+   */
+  @Test
+  public void testCreatePgsqlDb3() {
+    ConfigurationUtil.addFromArgs(
+	DbManager.PARAM_DATABASE_NAME_PREFIX, "SomePrefix",
+	MetadataDbManager.PARAM_DATASOURCE_USER, "otherUser",
+	MetadataDbManager.PARAM_DATASOURCE_SCHEMA_NAME, "anotherSchema");
+
+    createPgsqlDb();
+
+    assertEquals("SomePrefixMetadataDbManager", metadataDbManager
+	.getDataSourceDatabaseName(ConfigManager.getCurrentConfig()));
+
+    assertEquals("otherUser", metadataDbManager
+	.getDataSourceUser(ConfigManager.getCurrentConfig()));
+
+    assertEquals("anotherSchema", metadataDbManager
+	.getDataSourceSchemaName(ConfigManager.getCurrentConfig()));
+  }
+
+  /**
+   * Creates a PostgreSQL database.
+   */
+  protected void createPgsqlDb() {
+    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
+	"org.postgresql.ds.PGSimpleDataSource",
+	MetadataDbManager.PARAM_MAX_RETRY_COUNT, "0",
+	MetadataDbManager.PARAM_RETRY_DELAY, "0");
+
+    metadataDbManager = new MetadataDbManager(true);
+    metadataDbManager.initService(getMockLockssDaemon());
+    metadataDbManager.startService();
   }
 
   /**
    * Tests table creation with a database name.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testCreateTable() throws Exception {
     ConfigurationUtil.addFromArgs(
 	MetadataDbManager.PARAM_DATASOURCE_DATABASENAME, "TestDbManager");
 
     createTable();
+
+    Configuration config = ConfigManager.getCurrentConfig();
+
+    assertMatchesRE("/locksstest.*\\.tmp/db/TestDbManager$",
+	metadataDbManager.getDataSourceDatabaseName(config));
+
+    assertEquals("LOCKSS", metadataDbManager.getDataSourceUser(config));
   }
 
   /**
    * Tests table creation with the client datasource.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testCreateTable2() throws Exception {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
-	"org.apache.derby.jdbc.ClientDataSource");
-    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_PASSWORD,
-	"somePassword");
+	"org.apache.derby.jdbc.ClientDataSource",
+	MetadataDbManager.PARAM_DATASOURCE_PASSWORD, "somePassword");
 
     createTable();
+
+    Configuration config = ConfigManager.getCurrentConfig();
+
+    assertMatchesRE("/locksstest.*\\.tmp/db/LockssMetadataDbManager$",
+	metadataDbManager.getDataSourceDatabaseName(config));
+
+    assertEquals("LOCKSS", metadataDbManager.getDataSourceUser(config));
   }
 
   /**
    * Tests that setting enabled param to false works.
-   * 
-   * @throws Exception
    */
-  public void testDisabled() throws Exception {
+  @Test
+  public void testDisabled() {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DBMANAGER_ENABLED,
 	"false");
     // Create the database manager.
     metadataDbManager = getTestDbManager(tempDirPath);
     assertFalse(metadataDbManager.isReady());
+
+    Configuration config = ConfigManager.getCurrentConfig();
+
+    assertMatchesRE("/locksstest.*\\.tmp/db/LockssMetadataDbManager$",
+	metadataDbManager.getDataSourceDatabaseName(config));
+
+    assertEquals("LOCKSS", metadataDbManager.getDataSourceUser(config));
 
     try {
       metadataDbManager.getConnection();
@@ -107,10 +214,9 @@ public class TestMetadataDbManager extends LockssTestCase {
 
   /**
    * Tests a misconfigured datasource.
-   * 
-   * @throws Exception
    */
-  public void testNotReady() throws Exception {
+  @Test
+  public void testNotReady() {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"java.lang.String");
     // Create the database manager.
@@ -135,6 +241,7 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Creates a table and verifies that it exists.
    * 
    * @throws Exception
+   *           if there are problems.
    */
   protected void createTable() throws Exception {
     // Create the database manager.
@@ -157,7 +264,9 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Tests an empty database before updating.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testEmptyDbSetup() throws Exception {
     initializeTestDbManager(0, 0);
     assertTrue(metadataDbManager.isReady());
@@ -173,7 +282,9 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Tests version 1 set up.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testV1Setup() throws Exception {
     initializeTestDbManager(1, 1);
     assertTrue(metadataDbManager.isReady());
@@ -194,7 +305,9 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Tests the update of the database from version 0 to version 1.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testV0ToV1Update() throws Exception {
     initializeTestDbManager(0, 1);
     assertTrue(metadataDbManager.isReady());
@@ -210,7 +323,9 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Tests the update of the database from version 0 to version 2.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testV0ToV2Update() throws Exception {
     initializeTestDbManager(0, 2);
     assertTrue(metadataDbManager.isReady());
@@ -226,7 +341,9 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Tests the update of the database from version 1 to version 2.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testV1ToV2Update() throws Exception {
     initializeTestDbManager(1, 2);
     assertTrue(metadataDbManager.isReady());
@@ -292,17 +409,17 @@ public class TestMetadataDbManager extends LockssTestCase {
 
   /**
    * Tests authentication with the embedded data source.
-   * 
-   * @throws Exception
    */
-  public void testAuthenticationEmbedded() throws Exception {
+  @Test
+  public void testAuthenticationEmbedded() {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.EmbeddedDataSource");
 
     metadataDbManager = getTestDbManager(tempDirPath);
 
-    String dbUrlRoot = "jdbc:derby://localhost:1527/" + tempDirPath
-	+ "/db/MetadataDbManager";
+    String dbUrlRoot =
+      String.format("jdbc:derby://localhost:%s/%s/db/MetadataDbManager",
+		    dbPort, tempDirPath);
 
     try {
       Class.forName("org.apache.derby.jdbc.ClientDriver").newInstance();
@@ -332,10 +449,9 @@ public class TestMetadataDbManager extends LockssTestCase {
 
   /**
    * Tests set up with missing credentials.
-   * 
-   * @throws Exception
    */
-  public void testMissingCredentialsSetUp() throws Exception {
+  @Test
+  public void testMissingCredentialsSetUp() {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource");
 
@@ -345,10 +461,9 @@ public class TestMetadataDbManager extends LockssTestCase {
 
   /**
    * Tests set up with missing user.
-   * 
-   * @throws Exception
    */
-  public void testMissingUserSetUp() throws Exception {
+  @Test
+  public void testMissingUserSetUp() {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_USER, "");
@@ -361,10 +476,9 @@ public class TestMetadataDbManager extends LockssTestCase {
 
   /**
    * Tests set up with missing password.
-   * 
-   * @throws Exception
    */
-  public void testMissingPasswordSetUp() throws Exception {
+  @Test
+  public void testMissingPasswordSetUp() {
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_USER,
@@ -380,7 +494,9 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Tests the provider functionality.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testProvider() throws Exception {
     metadataDbManager = getTestDbManager(tempDirPath);
     assertTrue(metadataDbManager.isReady());
@@ -432,7 +548,9 @@ public class TestMetadataDbManager extends LockssTestCase {
    * Tests the update of the database from version 0 to version 28.
    * 
    * @throws Exception
+   *           if there are problems.
    */
+  @Test
   public void testV0ToV28Update() throws Exception {
     initializeTestDbManager(0, 28);
     assertTrue(metadataDbManager.isReady());

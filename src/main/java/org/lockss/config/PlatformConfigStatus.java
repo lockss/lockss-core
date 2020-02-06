@@ -69,7 +69,9 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       ListUtil.list(new ColumnDescriptor("URL", "Config URL",
 					 ColumnDescriptor.TYPE_STRING),
 		    new ColumnDescriptor("LastModified", "Last Modified",
-					 ColumnDescriptor.TYPE_DATE));
+					 ColumnDescriptor.TYPE_DATE),
+		    new ColumnDescriptor("Failover", "",
+					 ColumnDescriptor.TYPE_STRING));
 
     private LockssDaemon daemon;
 
@@ -118,6 +120,9 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 	    // headers
 	    String last = DateTimeUtil.gmtDateOf(cf.getLastModified());
 	    row.put("LastModified", last);
+	    if (cf.isLoadedFromFailover()) {
+	    row.put("Failover", "Failover");
+	    }
 	  }
 	  rows.add(row);
 	}
@@ -181,7 +186,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       // The configuration may not be set in development environments
       PlatformVersion version = Configuration.getPlatformVersion();
       if (version != null) {
-	addSum(res, "Platform", version.getName());
+	addSum(res, "Platform", version.displayString());
       }
       
       addSum(res, "Cwd",

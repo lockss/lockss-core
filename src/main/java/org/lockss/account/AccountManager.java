@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.account;
 
 import java.io.*;
+import java.net.*;
 import java.util.*;
 import java.security.*;
 
@@ -45,7 +42,6 @@ import org.lockss.alert.*;
 import org.lockss.mail.*;
 
 import static org.lockss.servlet.BaseServletManager.SUFFIX_AUTH_TYPE;
-import static org.lockss.servlet.BaseServletManager.SUFFIX_ENABLE_DEBUG_USER;
 import static org.lockss.servlet.BaseServletManager.SUFFIX_USE_SSL;
 
 /** Manage user accounts
@@ -81,11 +77,37 @@ public class AccountManager
   public static final String DEFAULT_NEW_ACCOUNT_TYPE =
     "org.lockss.account.BasicUserAccount";
 
+  /** Enable the debug user on named server.  Daemon restart required. */
+  public static final String PARAM_ENABLE_DEBUG_USER =
+    PREFIX + "enableDebugUser";
+  public static final boolean DEFAULT_ENABLE_DEBUG_USER = true;
+
+  /** File holding debug user passwd */
+  public static final String DEBUG_USER_PROPERTY_FILE =
+          "/org/lockss/account/debuguser.props";
+
+  /** Username established during platform config.  Now used for REST auth
+   * as well as UI. */
+  public static final String PARAM_PLATFORM_USERNAME =
+    Configuration.PLATFORM + "ui.username";
+
+  /** Password established during platform config.  Now used for REST auth
+   * as well as UI. */
+  public static final String PARAM_PLATFORM_PASSWORD =
+    Configuration.PLATFORM + "ui.password";
+
   /** If true, platform user is enabled on startup only if there are no
    * other enabled users with ROLE_USER_ADMIN */
   public static final String PARAM_CONDITIONAL_PLATFORM_USER =
     PREFIX + "conditionalPlatformUser";
   public static final boolean DEFAULT_CONDITIONAL_PLATFORM_USER = false;
+
+  /** Static config user Username prop */
+  public static final String USER_PARAM_USER = "user";
+  /** Static config user Encrypted password prop */
+  public static final String USER_PARAM_PWD = "password";
+  /** Static config user List of roles (Debug, Admin) prop */
+  public static final String USER_PARAM_ROLES = "roles";
 
   /** If true, alerts for users who have no email address will be sent to
    * the admin email */
@@ -98,6 +120,12 @@ public class AccountManager
   public static final String PARAM_PASSWORD_CHECK_FREQ =
     PREFIX + "passwordCheck.frequency";
   public static final String DEFAULT_PASSWORD_CHECK_FREQ = "daily";
+
+  /** If true, login and logout events will be included in auditable event
+   * alerts */
+  public static final String PARAM_ALERT_ON_LOGIN_LOGOUT =
+    PREFIX + "alertOnLoginLogout";
+  public static final boolean DEFAULT_ALERT_ON_LOGIN_LOGOUT = false;
 
   /** Alertconfig set by AccountManager */
   public static final String PARAM_PASSWORD_REMINDER_ALERT_CONFIG =
@@ -144,11 +172,11 @@ public class AccountManager
     PARAM_CONDITIONAL_PLATFORM_USER, "true",
     PARAM_PASSWORD_REMINDER_ALERT_CONFIG, PASSWORD_REMINDER_ALERT_CONFIG,
     PARAM_MAIL_ENABLED, "true",
+    PARAM_ENABLE_DEBUG_USER, "false",
     MailService.PARAM_ENABLED, "true",
     AlertManager.PARAM_ALERTS_ENABLED, "true",
     AlertActionMail.PARAM_ENABLED, "true",
     UI_PREFIX + SUFFIX_AUTH_TYPE, "Form",
-    UI_PREFIX + SUFFIX_ENABLE_DEBUG_USER, "false",
     UI_PREFIX + SUFFIX_USE_SSL, "true",
   };
 
@@ -189,9 +217,11 @@ public class AccountManager
   };
 
   private boolean isEnabled = DEFAULT_ENABLED;
+  private boolean isEnableDebugUser = DEFAULT_ENABLE_DEBUG_USER;
   private boolean mailEnabled = DEFAULT_MAIL_ENABLED;
   private boolean mailAdminIfNoUserEmail = DEFAULT_MAIL_ADMIN_IF_NO_USER_EMAIL;
   private String adminEmail = null;
+  private boolean alertOnLoginLogout = DEFAULT_ALERT_ON_LOGIN_LOGOUT;
 
   private ConfigManager configMgr;
   private String acctRelDir;
@@ -206,6 +236,8 @@ public class AccountManager
     LockssDaemon daemon = getDaemon();
     configMgr = daemon.getConfigManager();
     resetConfig();
+    installDebugUser(DEBUG_USER_PROPERTY_FILE);
+    installPlatformUser();
     if (isEnabled) {
       ensureAcctDir();
       loadUsers();
@@ -235,6 +267,8 @@ public class AccountManager
 
     if (changedKeys.contains(PREFIX)) {
       isEnabled = config.getBoolean(PARAM_ENABLED, DEFAULT_ENABLED);
+      isEnableDebugUser = config.getBoolean(PARAM_ENABLE_DEBUG_USER,
+					    DEFAULT_ENABLE_DEBUG_USER);
       acctRelDir = config.get(PARAM_ACCT_DIR, DEFAULT_ACCT_DIR);
       acctType = config.get(PARAM_NEW_ACCOUNT_TYPE, DEFAULT_NEW_ACCOUNT_TYPE);
       acctFact = getUserFactory(acctType);
@@ -244,6 +278,8 @@ public class AccountManager
 	config.getBoolean(PARAM_MAIL_ADMIN_IF_NO_USER_EMAIL,
 			  DEFAULT_MAIL_ADMIN_IF_NO_USER_EMAIL);
       adminEmail = config.get(ConfigManager.PARAM_PLATFORM_ADMIN_EMAIL);
+      alertOnLoginLogout = config.getBoolean(PARAM_ALERT_ON_LOGIN_LOGOUT,
+					     DEFAULT_ALERT_ON_LOGIN_LOGOUT);
     }
   }
 
@@ -329,6 +365,17 @@ public class AccountManager
 
   /** Add platform user.  If {@link #PARAM_CONDITIONAL_PLATFORM_USER} is
    * true, the user is installed only if no other admin users exist */
+  public void installPlatformUser() {
+    // Use platform config in case real config hasn't been loaded yet (when
+    // used from TinyUI)
+    Configuration platConfig = ConfigManager.getPlatformConfig();
+    String platUser = platConfig.get(PARAM_PLATFORM_USERNAME);
+    String platPass = platConfig.get(PARAM_PLATFORM_PASSWORD);
+    installPlatformUser(platUser, platPass);
+  }
+
+  /** Add platform user.  If {@link #PARAM_CONDITIONAL_PLATFORM_USER} is
+   * true, the user is installed only if no other admin users exist */
   public void installPlatformUser(String platUser, String platPass) {
     if (!StringUtil.isNullString(platUser) &&
 	!StringUtil.isNullString(platPass)) {
@@ -353,6 +400,8 @@ public class AccountManager
 	  log.info("User " + acct.getName() + " " + msg);
 	  acct.auditableEvent(msg);
 	}
+      } catch (UserExistsException e) {
+	log.debug("Already installed platform user");
       } catch (NotAddedException e) {
 	log.error("Can't install platform user", e);
       }
@@ -371,6 +420,43 @@ public class AccountManager
       }
     }
     return true;
+  }
+
+  public void installDebugUser(String propResource) {
+    if (isEnableDebugUser) {
+      try {
+	log.debug("passwd props file: " + propResource);
+	URL propsUrl = this.getClass().getResource(propResource);
+	if (propsUrl != null) {
+	  log.debug("passwd props file: " + propsUrl);
+	  loadFromProps(propResource);
+	}
+      } catch (IOException e) {
+	log.warning("Error loading " + propResource, e);
+      }
+    }
+  }
+
+  public void installStaticConfigUsers(Configuration users) {
+    for (Iterator iter = users.nodeIterator(); iter.hasNext(); ) {
+      Configuration oneUser = users.getConfigTree((String)iter.next());
+      String user = oneUser.get(USER_PARAM_USER);
+      String pwd = oneUser.get(USER_PARAM_PWD);
+      String roles = oneUser.get(USER_PARAM_ROLES);
+      if (!StringUtil.isNullString(user) &&
+	  !StringUtil.isNullString(pwd)) {
+	try {
+	  UserAccount acct = addStaticUser(user, pwd);
+	  if (!StringUtil.isNullString(roles)) {
+	    acct.setRoles(roles);
+	  }
+	} catch (UserExistsException e) {
+	  log.debug("Already installed static user: " + user);
+	} catch (AccountManager.NotAddedException e) {
+	  log.error(e.getMessage());
+	}
+      }
+    }
   }
 
   /** Delete the user */
@@ -480,6 +566,8 @@ public class AccountManager
 	  if (!StringUtil.isNullString(roles)) {
 	    acct.setRoles(roles);
 	  }
+	} catch (UserExistsException e) {
+	  log.debug("Already installed user: " + username);
 	} catch (NotAddedException e) {
 	  log.error("Can't install user: " + e.getMessage());
 	}
@@ -564,6 +652,8 @@ public class AccountManager
       if (acct != null) {
 	try {
 	  internalAddUser(acct);
+	} catch (UserExistsException e) {
+	  log.debug("Already installed user: " + e.getMessage());
 	} catch (NotAddedException e) {
 	  log.error("Can't install user: " + e.getMessage());
 	}
@@ -639,6 +729,10 @@ public class AccountManager
       acct.reportEventBy(actor, "failed to delete");
     }
     return res;
+  }
+
+  public boolean isAlertOnLoginLogout() {
+    return alertOnLoginLogout;
   }
 
   public void auditableEvent(String msg) {
