@@ -738,6 +738,13 @@ public class UrlUtil {
   static Pattern NON_FILE_PAT = Pattern.compile("^\\w+:");
 
   /** Resolve possiblyRelativeUrl relative to baseUrl.
+   *
+   * If baseUrl is a real URL (starts with <tt><i>scheme</i>:</tt>),
+   * resolution is performed by the URL class.  Otherwise baseUrl is
+   * treated as a filesystem path (absolute or relative) and resolution is
+   * performed by {@link #resolvePath(String,String)}, whose behavior
+   * differs from URL class when baseUrl is relative.
+   *
    * @param baseUrl The base URL relative to which to resolve
    * @param possiblyRelativeUrl resolved relative to baseUrl
    * @return The URL formed by combining the two URLs
@@ -922,14 +929,23 @@ public class UrlUtil {
   }
 
   /** Resolve a possibly relative disk path against a base path.
-   * resolvePath("/a/b", "r/f") -> "/a/r/f"
-   * resolvePath("/a/b/", "r/f") -> "/a/r/f"  (arguably s.b. /a/b/r/f)
-   * resolvePath("a/b", "r/f") -> "a/r/f"
-   * resolvePath("a/b/", "r/f") -> "a/r/f"  (arguably s.b. a/b/r/f)
+   * <br>resolvePath("/a/b", "r/f") -> "/a/r/f"
+   * <br>resolvePath("/a/b/", "r/f") -> "/a/b/r/f"
+   * <br>resolvePath("a/b", "r/f") -> "a/r/f"
+   * <br>resolvePath("a/b/", "r/f") -> "a/b/r/f"
+   *
+   * <br>Note that if the first arg is a file: url, then resolution is
+   * performed by the URL constructor, which does <b>not</b> resolve a
+   * relative URL against a relative base URL.
    */
   public static String resolvePath(String basePath,
 				   String possiblyRelativePath) {
-    return Paths.get(basePath).resolveSibling(possiblyRelativePath).toString();
+    if (basePath.endsWith("/")) {
+      return Paths.get(basePath).resolve(possiblyRelativePath).toString();
+    } else {
+      return Paths.get(basePath).resolveSibling(possiblyRelativePath)
+	.toString();
+    }
   }
 
   public static String[] supportedJSFunctions =
