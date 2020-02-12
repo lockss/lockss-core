@@ -27,19 +27,14 @@
  */
 package org.lockss.ws.status;
 
-import java.util.Collection;
 import java.util.List;
 import javax.jws.WebMethod;
 import javax.jws.WebParam;
 import javax.jws.WebService;
 import org.lockss.ws.entities.CrawlWsResult;
-import org.lockss.ws.entities.IdNamePair;
 import org.lockss.ws.entities.LockssWebServicesFault;
-import org.lockss.ws.entities.PeerWsResult;
-import org.lockss.ws.entities.PollWsResult;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 import org.lockss.ws.entities.RepositoryWsResult;
-import org.lockss.ws.entities.VoteWsResult;
 
 /**
  * The DaemonStatus web service interface.
@@ -54,45 +49,6 @@ public interface DaemonStatusService {
    */
   @WebMethod
   boolean isDaemonReady() throws LockssWebServicesFault;
-
-  /**
-   * Provides a list of the identifier/name pairs of the archival units in the
-   * system.
-   * 
-   * @return a {@code List<IdNamePair>} with the identifier/name pairs of the archival
-   *         units in the system.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  Collection<IdNamePair> getAuIds() throws LockssWebServicesFault;
-
-  /**
-   * Provides the selected properties of selected peers in the system.
-   * 
-   * @param peerQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which peers.
-   * @return a {@code List<PeerWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<PeerWsResult> queryPeers(@WebParam(name = "peerQuery") String peerQuery)
-      throws LockssWebServicesFault;
-
-  /**
-   * Provides the selected properties of selected votes in the system.
-   * 
-   * @param voteQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which votes.
-   * @return a {@code List<VotelWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<VoteWsResult> queryVotes(@WebParam(name = "voteQuery") String voteQuery)
-      throws LockssWebServicesFault;
 
   /**
    * Provides the selected properties of selected repository spaces in the
@@ -141,33 +97,4 @@ public interface DaemonStatusService {
   List<CrawlWsResult> queryCrawls(
       @WebParam(name = "crawlQuery") String crawlQuery)
 	  throws LockssWebServicesFault;
-
-  /**
-   * Provides the selected properties of selected polls in the system.
-   * 
-   * @param pollQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which polls.
-   * @return a {@code List<PollWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<PollWsResult> queryPolls(@WebParam(name = "pollQuery") String pollQuery)
-      throws LockssWebServicesFault;
-
-  /**
-   * Provides the URLs in an archival unit.
-   * 
-   * @param auId
-   *          A String with the identifier of the archival unit.
-   * @param url
-   *          A String with the URL above which no results will be provided, or
-   *          <code>NULL</code> if all the URLS are to be provided.
-   * @return a {@code List<String>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<String> getAuUrls(@WebParam(name = "auId") String auId,
-      @WebParam(name = "url") String url) throws LockssWebServicesFault;
 }

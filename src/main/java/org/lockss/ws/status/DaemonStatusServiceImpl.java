@@ -27,7 +27,6 @@
  */
 package org.lockss.ws.status;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -38,25 +37,15 @@ import org.josql.QueryExecutionException;
 import org.josql.QueryParseException;
 import org.josql.QueryResults;
 import org.lockss.app.LockssDaemon;
-import org.lockss.daemon.RangeCachedUrlSetSpec;
 import org.lockss.db.DbException;
-import org.lockss.plugin.ArchivalUnit;
-import org.lockss.plugin.AuUtil;
-import org.lockss.plugin.CachedUrl;
-import org.lockss.plugin.CachedUrlSet;
-import org.lockss.plugin.CuIterator;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.*;
 import org.lockss.ws.entities.CrawlWsResult;
-import org.lockss.ws.entities.IdNamePair;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.ws.entities.LockssWebServicesFaultInfo;
-import org.lockss.ws.entities.PeerWsResult;
-import org.lockss.ws.entities.PollWsResult;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 import org.lockss.ws.entities.RepositoryWsResult;
-import org.lockss.ws.entities.VoteWsResult;
 import org.lockss.ws.status.DaemonStatusService;
 
 /**
@@ -87,156 +76,6 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
     } catch (Exception e) {
       throw new LockssWebServicesFault(e);
     }
-  }
-
-  /**
-   * Provides a list of the identifier/name pairs of the archival units in the
-   * system.
-   * 
-   * @return a {@code List<IdNamePair>} with the identifier/name pairs of the archival
-   *         units in the system.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public Collection<IdNamePair> getAuIds() throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "getAuIds(): ";
-
-    try {
-      log.debug2(DEBUG_HEADER + "Invoked.");
-      Collection<IdNamePair> result = new ArrayList<IdNamePair>();
-      PluginManager pluginMgr =
-	  (PluginManager) LockssDaemon.getManager(LockssDaemon.PLUGIN_MANAGER);
-
-      for (ArchivalUnit au : pluginMgr.getAllAus()) {
-	log.debug2(DEBUG_HEADER + "au = " + au);
-	result.add(new IdNamePair(au.getAuId(), au.getName()));
-      }
-
-      log.debug2(DEBUG_HEADER + "result.size() = " + result.size());
-      return result;
-    } catch (Exception e) {
-      throw new LockssWebServicesFault(e);
-    }
-  }
-
-  /**
-   * Provides the selected properties of selected peers in the system.
-   * 
-   * @param peerQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which peers.
-   * @return a {@code List<PeerWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public List<PeerWsResult> queryPeers(String peerQuery)
-      throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "queryPeers(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "peerQuery = " + peerQuery);
-
-    PeerHelper peerHelper = new PeerHelper();
-    List<PeerWsResult> results = null;
-
-    // Create the full query.
-    String fullQuery = createFullQuery(peerQuery, PeerHelper.SOURCE_FQCN,
-	PeerHelper.PROPERTY_NAMES, PeerHelper.RESULT_FQCN);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "fullQuery = " + fullQuery);
-
-    // Create a new JoSQL query.
-    Query q = new Query();
-
-    try {
-      // Parse the SQL-like query.
-      q.parse(fullQuery);
-
-      try {
-	// Execute the query.
-	QueryResults qr = q.execute(peerHelper.createUniverse());
-
-	// Get the query results.
-	results = (List<PeerWsResult>)qr.getResults();
-	if (log.isDebug3()) {
-	  log.debug3(DEBUG_HEADER + "results.size() = " + results.size());
-	  log.debug3(DEBUG_HEADER + "results = "
-	      + peerHelper.nonDefaultToString(results));
-	}
-      } catch (QueryExecutionException qee) {
-	log.error("Caught QueryExecuteException", qee);
-	log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qee,
-	    new LockssWebServicesFaultInfo("peerQuery = " + peerQuery));
-      }
-    } catch (QueryParseException qpe) {
-      log.error("Caught QueryParseException", qpe);
-      log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qpe,
-	    new LockssWebServicesFaultInfo("peerQuery = " + peerQuery));
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
-	+ peerHelper.nonDefaultToString(results));
-    return results;
-  }
-
-  /**
-   * Provides the selected properties of selected votes in the system.
-   * 
-   * @param voteQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which votes.
-   * @return a {@code List<VoteWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public List<VoteWsResult> queryVotes(String voteQuery)
-      throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "queryVotes(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "voteQuery = " + voteQuery);
-
-    VoteHelper voteHelper = new VoteHelper();
-    List<VoteWsResult> results = null;
-
-    // Create the full query.
-    String fullQuery = createFullQuery(voteQuery, VoteHelper.SOURCE_FQCN,
-	VoteHelper.PROPERTY_NAMES, VoteHelper.RESULT_FQCN);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "fullQuery = " + fullQuery);
-
-    // Create a new JoSQL query.
-    Query q = new Query();
-
-    try {
-      // Parse the SQL-like query.
-      q.parse(fullQuery);
-
-      try {
-	// Execute the query.
-	QueryResults qr = q.execute(voteHelper.createUniverse());
-
-	// Get the query results.
-	results = (List<VoteWsResult>)qr.getResults();
-	if (log.isDebug3()) {
-	  log.debug3(DEBUG_HEADER + "results.size() = " + results.size());
-	  log.debug3(DEBUG_HEADER + "results = "
-	      + voteHelper.nonDefaultToString(results));
-	}
-      } catch (QueryExecutionException qee) {
-	log.error("Caught QueryExecuteException", qee);
-	log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qee,
-	    new LockssWebServicesFaultInfo("voteQuery = " + voteQuery));
-      }
-    } catch (QueryParseException qpe) {
-      log.error("Caught QueryParseException", qpe);
-      log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qpe,
-	    new LockssWebServicesFaultInfo("voteQuery = " + voteQuery));
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
-	+ voteHelper.nonDefaultToString(results));
-    return results;
   }
 
   /**
@@ -455,66 +294,6 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
 	+ crawlHelper.nonDefaultToString(results));
-    return results;
-  }
-
-  /**
-   * Provides the selected properties of selected polls in the system.
-   * 
-   * @param pollQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which polls.
-   * @return a {@code List<PollWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public List<PollWsResult> queryPolls(String pollQuery)
-      throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "queryPolls(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "pollQuery = " + pollQuery);
-
-    PollHelper pollHelper = new PollHelper();
-    List<PollWsResult> results = null;
-
-    // Create the full query.
-    String fullQuery = createFullQuery(pollQuery, PollHelper.SOURCE_FQCN,
-	PollHelper.PROPERTY_NAMES, PollHelper.RESULT_FQCN);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "fullQuery = " + fullQuery);
-
-    // Create a new JoSQL query.
-    Query q = new Query();
-
-    try {
-      // Parse the SQL-like query.
-      q.parse(fullQuery);
-
-      try {
-	// Execute the query.
-	QueryResults qr = q.execute(pollHelper.createUniverse());
-
-	// Get the query results.
-	results = (List<PollWsResult>)qr.getResults();
-	if (log.isDebug3()) {
-	  log.debug3(DEBUG_HEADER + "results.size() = " + results.size());
-	  log.debug3(DEBUG_HEADER + "results = "
-	      + pollHelper.nonDefaultToString(results));
-	}
-      } catch (QueryExecutionException qee) {
-	log.error("Caught QueryExecuteException", qee);
-	log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qee,
-	    new LockssWebServicesFaultInfo("pollQuery = " + pollQuery));
-      }
-    } catch (QueryParseException qpe) {
-      log.error("Caught QueryParseException", qpe);
-      log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qpe,
-	    new LockssWebServicesFaultInfo("pollQuery = " + pollQuery));
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
-	+ pollHelper.nonDefaultToString(results));
     return results;
   }
 
@@ -801,73 +580,5 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "whereClause = " + whereClause);
     return whereClause;
-  }
-
-  /**
-   * Provides the URLs in an archival unit.
-   * 
-   * @param auId
-   *          A String with the identifier of the archival unit.
-   * @param url
-   *          A String with the URL above which no results will be provided, or
-   *          <code>NULL</code> if all the URLS are to be provided.
-   * @return a {@code List<String>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  public List<String> getAuUrls(String auId, String url)
-      throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "getAuUrls(): ";
-    if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "auId = " + auId);
-      log.debug2(DEBUG_HEADER + "url = " + url);
-    }
-
-    // Input validation.
-    if (StringUtil.isNullString(auId)) {
-      throw new LockssWebServicesFault(
-	  new IllegalArgumentException("Invalid Archival Unit identifier"),
-	  new LockssWebServicesFaultInfo("Archival Unit identifier = " + auId));
-    }
-
-    LockssDaemon theDaemon = LockssDaemon.getLockssDaemon();
-    PluginManager pluginMgr = theDaemon.getPluginManager();
-    ArchivalUnit au = pluginMgr.getAuFromId(auId);
-
-    if (au == null) {
-      throw new LockssWebServicesFault(
-	  "No Archival Unit with provided identifier",
-	  new LockssWebServicesFaultInfo("Archival Unit identifier = " + auId));
-    }
-
-    CachedUrlSet cuSet = null;
-
-    if (StringUtil.isNullString(url)) {
-      cuSet = au.getAuCachedUrlSet();
-    } else {
-      cuSet = au.makeCachedUrlSet(new RangeCachedUrlSetSpec(url));
-    }
-
-    CuIterator iterator = cuSet.getCuIterator();
-    CachedUrl cu = null;
-    List<String> results = new ArrayList<String>();
-
-    // Loop through all the cached URLs.
-    while (iterator.hasNext()) {
-      try {
-	// Get the next URL.
-	cu = iterator.next();
-
-	// Add it to the results.
-	results.add(cu.getUrl());
-      } finally {
-	AuUtil.safeRelease(cu);
-      }
-    }
-
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "results = " + results);
-
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "results.size() = " + results.size());
-    return results;
   }
 }

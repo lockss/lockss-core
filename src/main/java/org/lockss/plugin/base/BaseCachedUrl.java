@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,7 +40,6 @@ import org.lockss.plugin.definable.*;
 import org.lockss.truezip.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
-import org.lockss.ws.entities.ContentResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;

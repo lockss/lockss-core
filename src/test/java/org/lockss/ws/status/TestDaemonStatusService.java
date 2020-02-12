@@ -32,10 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.ws.status;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Properties;
 import org.lockss.config.ConfigManager;
 import org.lockss.crawler.*;
 import org.lockss.config.Configuration;
@@ -50,16 +48,9 @@ import org.lockss.plugin.simulated.SimulatedDefinablePlugin;
 import org.lockss.protocol.IdentityManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.ws.entities.AuWsResult;
 import org.lockss.ws.entities.CrawlWsResult;
-import org.lockss.ws.entities.IdNamePair;
-import org.lockss.ws.entities.PluginWsResult;
-import org.lockss.ws.entities.PlatformConfigurationWsResult;
 import org.lockss.ws.entities.RepositorySpaceWsResult;
 import org.lockss.ws.entities.RepositoryWsResult;
-import org.lockss.ws.entities.DaemonVersionWsResult;
-import org.lockss.ws.entities.JavaVersionWsResult;
-import org.lockss.ws.entities.PlatformWsResult;
 
 /**
  * Test class for org.lockss.ws.status.DaemonStatusService
@@ -121,16 +112,6 @@ public class TestDaemonStatusService extends LockssTestCase {
     assertTrue(service.isDaemonReady());
     theDaemon.setAusStarted(false);
     assertFalse(service.isDaemonReady());
-  }
-
-  /**
-   * Runs the test that gets the identifiers of all the AUs.
-   * 
-   * @throws Exception
-   */
-  public void testGetAuIds() throws Exception {
-    Collection<IdNamePair> auIds = service.getAuIds();
-    assertEquals(2, auIds.size());
   }
 
   /**
@@ -292,23 +273,6 @@ public class TestDaemonStatusService extends LockssTestCase {
     assertEquals(1232, (int)s1.getRefetchDepth());
     assertEquals(8, (int)s1.getPriority());
     assertEquals("Inactive", s1.getCrawlStatus());
-  }
-
-  /**
-   * Tests the operation that gets Archival Unit URL subtrees.
-   * 
-   * @throws Exception
-   */
-  public void testGetAuUrls() throws Exception {
-    List<String> urls = service.getAuUrls(sau0.getAuId(), null);
-    assertEquals(21, urls.size());
-    urls = service.getAuUrls(sau0.getAuId(), "http://www.example.com/branch1");
-    assertEquals(14, urls.size());
-    urls = service.getAuUrls(sau1.getAuId(), null);
-    assertEquals(21, urls.size());
-    urls = service.getAuUrls(sau1.getAuId(),
-	"http://www.example.com/branch1/branch1/");
-    assertEquals(7, urls.size());
   }
 
   private Configuration simAuConfig(String rootPath) {

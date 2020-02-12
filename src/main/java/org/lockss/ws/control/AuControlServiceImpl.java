@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2015-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,9 +40,6 @@ import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
-import org.lockss.poller.Poll;
-import org.lockss.poller.PollManager;
-import org.lockss.poller.PollSpec;
 import org.lockss.servlet.DebugPanel;
 import org.lockss.state.AuState;
 import org.lockss.state.SubstanceChecker;
@@ -54,7 +51,6 @@ import org.lockss.ws.entities.CheckSubstanceResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.ws.entities.RequestCrawlResult;
 import org.lockss.ws.entities.RequestDeepCrawlResult;
-import org.lockss.ws.entities.RequestAuControlResult;
 
 /**
  * The AU Control web service implementation.
@@ -335,100 +331,6 @@ public class AuControlServiceImpl implements AuControlService {
     for (String auId : auIds) {
       // Perform the request.
       results.add(requestDeepCrawlById(auId, refetchDepth, priority, force));
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = " + results);
-    return results;
-  }
-
-  /**
-   * Requests the polling of an archival unit.
-   * 
-   * @param auId
-   *          A String with the identifier (auid) of the archival unit.
-   * @return a RequestPollResult with the result of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public RequestAuControlResult requestPollById(String auId)
-      throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "requestPollById(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
-
-    // Add to the audit log a reference to this operation, if necessary.
-    audit(ACTION_START_V3_POLL, auId);
-
-    RequestAuControlResult result = null;
-
-    // Handle a missing auId.
-    if (StringUtil.isNullString(auId)) {
-      result =
-	  new RequestAuControlResult(auId, false, MISSING_AU_ID_ERROR_MESSAGE);
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-      return result;
-    }
-
-    LockssDaemon daemon = LockssDaemon.getLockssDaemon();
-
-    // Get the Archival Unit to be polled.
-    ArchivalUnit au = daemon.getPluginManager().getAuFromId(auId);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
-
-    // Handle a missing Archival Unit.
-    if (au == null) {
-      result =
-	  new RequestAuControlResult(auId, false, NO_SUCH_AU_ERROR_MESSAGE);
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-      return result;
-    }
-
-    // Perform the poll request.
-    try {
-      daemon.getPollManager().enqueueHighPriorityPoll(au,
-	  new PollSpec(au.getAuCachedUrlSet(), Poll.V3_POLL));
-    } catch (PollManager.NotEligibleException e) {
-      String errorMessage = "AU is not eligible for poll: ";
-      log.error(errorMessage + au, e);
-      result =
-	  new RequestAuControlResult(auId, false, errorMessage + e.toString());
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-      return result;
-    } catch (Exception e) {
-      String errorMessage = "Can't start AU poll: ";
-      log.error(errorMessage + au, e);
-      result =
-	  new RequestAuControlResult(auId, false, errorMessage + e.toString());
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-      return result;
-    }
-
-    result = new RequestAuControlResult(auId, true, null);
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-    return result;
-  }
-
-  /**
-   * Requests the polling of the archival units defined by a list with their
-   * identifiers.
-   * 
-   * @param auIds
-   *          A {@code List<String>} with the identifiers (auids) of the archival units.
-   * @return a {@code List<RequestPollResult>} with the results of the operation.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public List<RequestAuControlResult> requestPollByIdList(List<String> auIds)
-      throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "requestPollByIdList(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auIds = " + auIds);
-
-    List<RequestAuControlResult> results =
-	new ArrayList<RequestAuControlResult>(auIds.size());
-
-    // Loop through all the Archival Unit identifiers.
-    for (String auId : auIds) {
-      // Perform the request.
-      results.add(requestPollById(auId));
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = " + results);
