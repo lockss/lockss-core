@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,6 +39,7 @@ import org.lockss.db.DbManager;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.test.*;
+import org.lockss.util.Logger;
 
 /**
  * Test class for org.lockss.exporter.counter.CounterReportsRequestRecorder.
@@ -46,7 +47,9 @@ import org.lockss.test.*;
  * @author Fernando Garcia-Loygorri
  * @version 1.0
  */
-public class TestCounterReportsRequestRecorder extends LockssTestCase {
+public class TestCounterReportsRequestRecorder extends LockssTestCase4 {
+  private static final Logger log = Logger.getLogger();
+
   // A URL that exists in the URL metadata table.
   private static final String RECORDABLE_URL =
       "http://example.com/fulltext.url";
@@ -73,6 +76,8 @@ public class TestCounterReportsRequestRecorder extends LockssTestCase {
     super.setUp();
     String tempDirPath = setUpDiskSpace();
 
+    ConfigurationUtil.addFromArgs(
+	DbManager.PARAM_START_DERBY_NETWORK_SERVER_CONTROL, "true");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_PASSWORD,
@@ -177,7 +182,7 @@ public class TestCounterReportsRequestRecorder extends LockssTestCase {
   /**
    * Tests the recording of multiple requests.
    * 
-   * @throws Exception
+   * @throws Exception if there are problems running the test.
    */
   public void testRecordMultipleRequests() throws Exception {
 
