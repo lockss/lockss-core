@@ -737,20 +737,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>1.0.13</version>
     </dependency>
 
-    <!-- An old plugins jar is included as a convenience for downstream
-         projects, so plugins are available in dev environments.  But this
-         causes problems in plugin-building projects, as otherwise missing
-         files might erroneously be found in this jar.  So it's excluded
-         from those projects, currently lockss-plugin-compat and
-         lockss-plugins-template.  When this is removed, those exclusions
-         should be removed. -->
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>lockss-plugins</artifactId>
-      <version>${version.lockss.lockss-plugins}</version>
-      <scope>test</scope>
-    </dependency>
-
     <dependency>
       <groupId>org.lockss.laaws</groupId>
       <artifactId>laaws-repository-core</artifactId>
