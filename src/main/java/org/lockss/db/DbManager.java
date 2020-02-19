@@ -31,6 +31,7 @@ import static org.lockss.db.SqlConstants.*;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -179,6 +180,12 @@ public abstract class DbManager extends BaseLockssManager
   private static final boolean DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL =
       false;
 
+  /**
+   * Absolute or relative path to base dir to store Derby databases.  If
+   * not set defaults to "<cache-dir>/db"
+   */
+  public static final String PARAM_DERBY_DB_DIR = PREFIX + "derbyDbDir";
+
   // Derby SQL state of exception thrown on successful database shutdown.
   private static final String SHUTDOWN_SUCCESS_STATE_CODE = "08006";
 
@@ -270,6 +277,8 @@ public abstract class DbManager extends BaseLockssManager
   // The value for the option to start the Derby Network Server Control.
   private boolean shouldStartDerbyNetworkServerControl =
       DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL;
+
+  private String derbyDbBaseDir;
   /**
    * Default constructor.
    */
@@ -358,6 +367,8 @@ public abstract class DbManager extends BaseLockssManager
       if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	  + "shouldStartDerbyNetworkServerControl = "
 	  + shouldStartDerbyNetworkServerControl);
+
+      derbyDbBaseDir = config.get(PARAM_DERBY_DB_DIR);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -1116,20 +1127,25 @@ public abstract class DbManager extends BaseLockssManager
 
     // Check whether the Derby database is being used and a full path has not
     // been passed.
-    if (dbManagerSql.isTypeDerby()
-	&& !simpleDbName.startsWith(File.separator)) {
-      // Yes: Get the data source root directory.
-      String pathFromCache = "db/" + simpleDbName;
-      File datasourceDir = ConfigManager.getConfigManager()
-	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER
-		+ "datasourceDir = " + datasourceDir);
+    if (dbManagerSql.isTypeDerby()) {
+      if (simpleDbName.startsWith(File.separator)) {
+	return simpleDbName;
+      }
+      if (StringUtil.isNullString(derbyDbBaseDir)) {
+	// Param not set, resolve relative to configured cache dir:
+	String pathFromCache = "db/" + simpleDbName;
+	File datasourceDir = ConfigManager.getConfigManager()
+	  .findRelDataDir(pathFromCache, false);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+				       + "datasourceDir = " + datasourceDir);
 
-      // Return the data source root directory.
-      return datasourceDir.getPath();
+	// Return the data source root directory.
+	return datasourceDir.getPath();
+      }
+      // basedir param set, resolve relative to it.
+      return Paths.get(derbyDbBaseDir).resolve(simpleDbName).toString();
     }
-
-    // No: The full name is just the simple name.
+    // Not Derby, the full name is just the simple name.
     return simpleDbName;
   }
 
