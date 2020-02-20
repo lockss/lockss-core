@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -110,7 +110,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getAuName() throws DbException, LockssRestException {
+  public String getAuName() {
     if (!auNamePopulated) {
       if (auId != null) {
 	String name = null;
@@ -121,11 +121,15 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  name = "";
 
 	  if (!isOrphaned()) {
-	    Configuration config = getPluginManager()
-		.getStoredAuConfigurationAsConfiguration(auId);
+	    try {
+	      Configuration config = getPluginManager()
+		  .getStoredAuConfigurationAsConfiguration(auId);
 
-	    if (config != null && !config.isEmpty()) {
-	      name = config.get(PluginManager.AU_PARAM_DISPLAY_NAME);
+	      if (config != null && !config.isEmpty()) {
+		name = config.get(PluginManager.AU_PARAM_DISPLAY_NAME);
+	      }
+	    } catch (Exception e) {
+	      throw new RuntimeException(e);
 	    }
 	  }
 	}
@@ -154,7 +158,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public String getStatus() throws DbException, LockssRestException {
+  public String getStatus() {
     if (!statusPopulated) {
       if (auId == null) {
 	setStatus("No AUID");
@@ -165,17 +169,21 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  if (isOrphaned()) {
 	    setStatus("Orphaned");
 	  } else {
-	    Configuration config = getPluginManager()
-		.getStoredAuConfigurationAsConfiguration(auId);
+	    try {
+	      Configuration config = getPluginManager()
+		  .getStoredAuConfigurationAsConfiguration(auId);
 
-	    if (config == null || config.isEmpty()) {
-	      setStatus("Deleted");
-	    } else {
-	      if (config.getBoolean(PluginManager.AU_PARAM_DISABLED, false)) {
-		setStatus("Inactive");
-	      } else {
+	      if (config == null || config.isEmpty()) {
 		setStatus("Deleted");
-	      }	  
+	      } else {
+		if (config.getBoolean(PluginManager.AU_PARAM_DISABLED, false)) {
+		  setStatus("Inactive");
+		} else {
+		  setStatus("Deleted");
+		}	  
+	      }
+	    } catch (Exception e) {
+	      throw new RuntimeException(e);
 	    }
 	  }
 	}
@@ -225,8 +233,7 @@ public class RepositoryWsSource extends RepositoryWsResult {
   }
 
   @Override
-  public Map<String, String> getParams()
-      throws DbException, LockssRestException {
+  public Map<String, String> getParams() {
     if (!paramsPopulated) {
       if (auId != null) {
 	if (getArchivalUnit() != null) {
@@ -241,11 +248,15 @@ public class RepositoryWsSource extends RepositoryWsResult {
 	  }
 
 	  if (!isOrphaned()) {
-	    Configuration config = getPluginManager()
-		.getStoredAuConfigurationAsConfiguration(auId);
+	    try {
+	      Configuration config = getPluginManager()
+		  .getStoredAuConfigurationAsConfiguration(auId);
 
-	    if (config != null && !config.isEmpty()) {
-	      setParams(makeParams(config));
+	      if (config != null && !config.isEmpty()) {
+		setParams(makeParams(config));
+	      }
+	    } catch (Exception e) {
+	      throw new RuntimeException(e);
 	    }
 	  }
 	}
