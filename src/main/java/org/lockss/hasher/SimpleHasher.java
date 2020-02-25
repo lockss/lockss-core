@@ -174,7 +174,7 @@ public class SimpleHasher {
   private boolean isExcludeSuspectVersions = false;
   private boolean isBase64 = false;
 
-  private int nbytes = 1000;
+  private int nbytes = 100000;
   private long bytesHashed = 0;
   private int filesHashed = 0;
   private long elapsedTime;
@@ -466,8 +466,7 @@ public class SimpleHasher {
 	switch (result.getHashType()) {
 	case V3Tree:
 	case V3File:
-	  doV3(params.getMachineName(), params.isExcludeSuspectVersions(), params.isIncludeWeight(),
-	      result);
+	  doV3(params, result);
 	  break;
 	}
 	fillInResult(result, HasherStatus.Done, null);
@@ -880,12 +879,6 @@ public class SimpleHasher {
     return digest;
   }
 
-  void doV3(String machineName, boolean excludeSuspectVersions,
-      HasherResult result) throws IOException {
-    doV3(machineName, excludeSuspectVersions, false, result);
-  }
-  
-  
   /**
    * Performs a version 3 hashing operation.
    * 
@@ -897,8 +890,11 @@ public class SimpleHasher {
    *          A HasherResult where to store the result of the hashing operation.
    * @throws IOException
    */
-  void doV3(String machineName, boolean excludeSuspectVersions, boolean includeWeight,
-      HasherResult result) throws IOException {
+  void doV3(HasherParams params, HasherResult result) throws IOException {
+    String machineName = params.getMachineName();
+    boolean excludeSuspectVersions = params.isExcludeSuspectVersions();
+    boolean includeWeight = params.isIncludeWeight();
+
     final String DEBUG_HEADER = "doV3(): ";
     if (log.isDebug2()) {
       log.debug2(DEBUG_HEADER + "machineName = " + machineName);
@@ -926,10 +922,10 @@ public class SimpleHasher {
 	  + byteString(verifier, result.getResultEncoding()) + "\n");
     }
 
-    setFiltered(true);
     setExcludeSuspectVersions(excludeSuspectVersions);
     setIncludeWeight(includeWeight);
     setBase64Result(result.getResultEncoding() == ResultEncoding.Base64);
+    setFiltered(params.isFiltered());
     doV3Hash(result.getCus(), result.getBlockFile(), sb.toString(), "# end\n");
     result.setShowResult(true);
 

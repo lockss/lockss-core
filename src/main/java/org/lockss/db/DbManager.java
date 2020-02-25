@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2019 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,6 +31,7 @@ import static org.lockss.db.SqlConstants.*;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -166,6 +167,25 @@ public abstract class DbManager extends BaseLockssManager
    */
   private static final String DEFAULT_DATABASE_NAME_PREFIX = "Lockss";
 
+  /**
+   * The name of the configuration parameter for the option to start the Derby
+   * Network Server Control.
+   */
+  public static final String PARAM_START_DERBY_NETWORK_SERVER_CONTROL =
+      PREFIX + "startDerbyNetworkServerControl";
+
+  /** 
+   * The default value for the option to start the Derby Network Server Control.
+   */
+  private static final boolean DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL =
+      false;
+
+  /**
+   * Absolute or relative path to base dir to store Derby databases.  If
+   * not set defaults to "<cache-dir>/db"
+   */
+  public static final String PARAM_DERBY_DB_DIR = PREFIX + "derbyDbDir";
+
   // Derby SQL state of exception thrown on successful database shutdown.
   private static final String SHUTDOWN_SUCCESS_STATE_CODE = "08006";
 
@@ -254,6 +274,11 @@ public abstract class DbManager extends BaseLockssManager
   // The prefix for database names.
   private String databaseNamePrefix = DEFAULT_DATABASE_NAME_PREFIX;
 
+  // The value for the option to start the Derby Network Server Control.
+  private boolean shouldStartDerbyNetworkServerControl =
+      DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL;
+
+  private String derbyDbBaseDir;
   /**
    * Default constructor.
    */
@@ -332,6 +357,18 @@ public abstract class DbManager extends BaseLockssManager
       // Update the prefix for database names.
       databaseNamePrefix =
 	  config.get(PARAM_DATABASE_NAME_PREFIX, DEFAULT_DATABASE_NAME_PREFIX);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "databaseNamePrefix = "
+	  + databaseNamePrefix);
+
+      // Update the option to start the Derby Network Server Control.
+      shouldStartDerbyNetworkServerControl =
+	  config.getBoolean(PARAM_START_DERBY_NETWORK_SERVER_CONTROL,
+	      DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "shouldStartDerbyNetworkServerControl = "
+	  + shouldStartDerbyNetworkServerControl);
+
+      derbyDbBaseDir = config.get(PARAM_DERBY_DB_DIR);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -865,41 +902,35 @@ public abstract class DbManager extends BaseLockssManager
 
     // Check whether the Derby database is being used.
     if (dbManagerSql.isTypeDerby()) {
-      // Yes: Check whether it should wait for the database to be setup
-      // externally.
-      if (waitForExternalSetup) {
-	// Yes: Wait until the file tree used by the database is available.
-	waitForDerbyFileTree(databaseName);
-      }
-
-      // Check whether the Derby NetworkServerControl for client connections
-      // needs to be started.
+      // Yes: Check whether the Derby model to be used is the client/server
+      // model.
       if (dataSource instanceof ClientDataSource) {
-	// Yes: Start it.
-	ClientDataSource cds = (ClientDataSource)dataSource;
-	startDerbyNetworkServerControl(cds);
+	// Yes: Check whether the Derby NetworkServerControl for client
+	// connections needs to be started.
+	if (shouldStartDerbyNetworkServerControl) {
+	  // Yes: Start it.
+	  ClientDataSource cds = (ClientDataSource)dataSource;
+	  startDerbyNetworkServerControl(cds);
 
-	// Check whether no wait for the database to be setup externally is
-	// needed.
-	if (!waitForExternalSetup) {
-	  // Yes: Set up the Derby authentication configuration, if necessary.
+	  // Set up the Derby authentication configuration, if necessary.
 	  setUpDerbyAuthentication(dataSourceConfig, cds);
+	} else {
+	  // No.
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	      + "Not starting a Derby Network Server Control");
+
+	  // Wait for the ability to establish a connection to the database.
+	  waitForConnection(databaseName);
+
+	  // Wait until the database metadata is available.
+	  waitForMetadata(databaseName);
+
+	  // Wait until the database version table is available.
+	  waitForDerbyVersionTable(databaseName);
 	}
       } else {
 	// No: Remove the Derby authentication configuration, if necessary.
 	removeDerbyAuthentication(dataSourceConfig, dataSource);
-      }
-
-      // Check whether it should wait for the database to be setup externally.
-      if (waitForExternalSetup) {
-	// Yes: Wait for the ability to establish a connection to the database.
-	waitForConnection(databaseName);
-
-	// Wait until the database metadata is available.
-	waitForMetadata(databaseName);
-
-	// Wait until the database version table is available.
-	waitForDerbyVersionTable(databaseName);
       }
 
       // Remember that the Derby database has been booted.
@@ -1096,18 +1127,25 @@ public abstract class DbManager extends BaseLockssManager
 
     // Check whether the Derby database is being used and a full path has not
     // been passed.
-    if (dbManagerSql.isTypeDerby()
-	&& !simpleDbName.startsWith(File.separator)) {
-      // Yes: Get the data source root directory.
-      String pathFromCache = "db/" + simpleDbName;
-      File datasourceDir = ConfigManager.getConfigManager()
-	  .findConfiguredDataDir(pathFromCache, pathFromCache, false);
+    if (dbManagerSql.isTypeDerby()) {
+      if (simpleDbName.startsWith(File.separator)) {
+	return simpleDbName;
+      }
+      if (StringUtil.isNullString(derbyDbBaseDir)) {
+	// Param not set, resolve relative to configured cache dir:
+	String pathFromCache = "db/" + simpleDbName;
+	File datasourceDir = ConfigManager.getConfigManager()
+	  .findRelDataDir(pathFromCache, false);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+				       + "datasourceDir = " + datasourceDir);
 
-      // Return the data source root directory.
-      return FileUtil.getCanonicalOrAbsolutePath(datasourceDir);
+	// Return the data source root directory.
+	return datasourceDir.getPath();
+      }
+      // basedir param set, resolve relative to it.
+      return Paths.get(derbyDbBaseDir).resolve(simpleDbName).toString();
     }
-
-    // No: The full name is just the simple name.
+    // Not Derby, the full name is just the simple name.
     return simpleDbName;
   }
 
@@ -1450,39 +1488,6 @@ public abstract class DbManager extends BaseLockssManager
   }
 
   /**
-   * Waits until the file tree used by a Derby database is available.
-   * 
-   * @param databaseName
-   *          A String with the name of the database.
-   */
-  private void waitForDerbyFileTree(String databaseName) {
-    final String DEBUG_HEADER = "waitForDerbyFileTree(): ";
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "databaseName = " + databaseName);
-
-    // Get the location where the database files are stored.
-    File dbDir = new File(databaseName);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "dbDir = " + dbDir);
-
-    // Wait until the database files top directory exists.
-    while (!dbDir.exists()) {
-      if (log.isDebug()) log.debug(DEBUG_HEADER + "Database directory '"
-	  + dbDir + "' does not exist. " + waitForExternalSetupMessage);
-
-      try {
-	Thread.sleep(waitForExternalSetupInterval);
-      } catch (InterruptedException ie)
-      {
-	    // Expected.
-      }
-    }
-
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Database directory '"
-	  + dbDir + "' exists.");
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
-  }
-
-  /**
    * Starts the Derby NetworkServerControl and waits for it to be ready.
    * 
    * @param cds
@@ -1510,6 +1515,9 @@ public abstract class DbManager extends BaseLockssManager
       throw new DbException("Cannot determine the IP address of server '"
 	  + serverName + "'", uhe);
     }
+
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "inetAddr = " + inetAddr + ".");
 
     // Get the configured server port number.
     int serverPort = cds.getPortNumber();

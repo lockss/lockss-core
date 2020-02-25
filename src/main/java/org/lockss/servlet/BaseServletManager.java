@@ -210,7 +210,7 @@ public abstract class BaseServletManager
   public enum AuthType {Basic, Form}
 
   private static String textMimes[] = {
-    "out", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "log", "std", "out", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
   };
 
   private static String[][] mimeMap = {

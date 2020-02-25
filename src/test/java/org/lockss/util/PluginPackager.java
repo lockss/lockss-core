@@ -47,6 +47,7 @@ import static java.nio.file.FileVisitResult.CONTINUE;
 import org.lockss.log.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.lang.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.definable.*;
@@ -84,6 +85,10 @@ public class PluginPackager {
   static final Pattern EXCLUDE_FROM_EXPLODE_PAT =
     Pattern.compile("^META-INF/\\w+\\.(mf|sf|dsa|rsa)$?",
 		    Pattern.CASE_INSENSITIVE);
+
+  // Match keystore resource spec
+  static final Pattern RESOURCE_KEYSTORE_PAT =
+    Pattern.compile("resource:(.*)", Pattern.CASE_INSENSITIVE);
 
 
   MockLockssDaemon daemon;
@@ -269,16 +274,24 @@ public class PluginPackager {
       log.debug("Prepending classpath: {}", argClasspath);
     }
 
-
-    init();
-    for (PlugSpec ps : specs) {
-      JarBuilder it = new JarBuilder(ps);
-      try {
-	it.setClassLoader(getLoader());
-	it.makeJar();
-	results.add(new Result(it));
-      } catch (Exception e) {
-	results.add(new Result(it).setException(e));
+    try {
+      initPluginManager();
+      initKeystore();
+      for (PlugSpec ps : specs) {
+	JarBuilder it = new JarBuilder(ps);
+	try {
+	  it.setClassLoader(getLoader());
+	  it.makeJar();
+	  results.add(new Result(it)
+		      .setIsSigned(it.didSign));
+	} catch (Exception e) {
+	  results.add(new Result(it)
+		      .setException(e));
+	}
+      }
+    } finally {
+      if (tmpdir != null) {
+	FileUtil.delTree(tmpdir);
       }
     }
   }
@@ -311,7 +324,7 @@ public class PluginPackager {
   static String[] INFO_LOGS = {"PluginPackager"};
 
   // Necessary setup in order to invoke PluginManager to load plugins
-  private void init() throws Exception {
+  private void initPluginManager() throws Exception {
     ConfigManager.makeConfigManager().setNoNag();
     tmpdir = FileUtil.createTempDir("pluginpkg", "");
     Properties p = new Properties();
@@ -333,6 +346,27 @@ public class PluginPackager {
     pluginMgr.startService();
   }
 
+  /** If keystore is resource:<path>, copy resource to temp file, use that
+   * instead */
+  private void initKeystore() throws IOException {
+    if (StringUtil.isNullString(argKeystore)) {
+      return;
+    }
+    Matcher mat = RESOURCE_KEYSTORE_PAT.matcher(argKeystore);
+
+    if (mat.matches()) {
+      String resname = mat.group(1);
+      final File tempfile =
+	FileUtil.createTempFile("temp-signing", ".keystore");
+      tempfile.deleteOnExit();
+      try (final InputStream ins = this.getClass().getClassLoader().getResourceAsStream(resname);
+	   final OutputStream outs = new BufferedOutputStream(new FileOutputStream(tempfile))) {
+	IOUtils.copy(ins, outs);
+      }
+      argKeystore = tempfile.toString();
+    }
+  }
+
   /** Builds one plugin jar */
   class JarBuilder {
 
@@ -348,6 +382,7 @@ public class PluginPackager {
     Exception e = null;			// Exception thrown during processing
 
     boolean notModified = false;
+    boolean didSign;
 
     JarBuilder(PlugSpec ps) {
       this.spec = ps;
@@ -364,11 +399,6 @@ public class PluginPackager {
 
     boolean isNotModified() {
       return notModified;
-    }
-
-    JarBuilder setException(Exception e) {
-      this.e = e;
-      return this;
     }
 
     public void makeJar() throws Exception {
@@ -417,6 +447,7 @@ public class PluginPackager {
 	int exit = p.waitFor();
 	rdr.close();
 	if (exit == 0) {
+	  didSign = true;
 	  log.debug(s);
 	} else {
 	  throw new RuntimeException("jarsigner failed: " + s);
@@ -580,6 +611,10 @@ public class PluginPackager {
 	  // xxx check for not jar:file:
 	  if (url.getProtocol().equalsIgnoreCase("file")) {
 	    String path = url.getPath();
+	    if (path.equals(spec.getJarFile().toString())) {
+	      log.debug2("Skipping jar being built: {}", path);
+	      continue;
+	    }
 	    File f = new File(path);
 	    if (f.isDirectory()) continue; // ignore directories
 	    String relPath = pathOfPkg(fi.getPkg());
@@ -648,6 +683,7 @@ public class PluginPackager {
   public class Result {
     JarBuilder bldr;
     Exception e;
+    boolean isSigned;
 
     Result(JarBuilder bldr) {
       this.bldr = bldr;
@@ -655,6 +691,11 @@ public class PluginPackager {
 
     Result setException(Exception e) {
       this.e = e;
+      return this;
+    }
+
+    Result setIsSigned(boolean isSigned) {
+      this.isSigned = isSigned;
       return this;
     }
 
@@ -672,6 +713,10 @@ public class PluginPackager {
 
     public boolean isNotModified() {
       return bldr.isNotModified();
+    }
+
+    public boolean isSigned() {
+      return isSigned;
     }
   }
 
@@ -1058,7 +1103,8 @@ public class PluginPackager {
     "     -nolib            Don't include files in lib subdirs.\n" +
     "     -explodelib       Explode lib jars rather than copying to plugin jar.\n" +
     "     -cp <classpath>   Load plugins from specified colon-separated classpath.\n" +
-    "     -keystore <file>  Signing keystore.\n" +
+    "     -keystore <file>  Signing keystore. (\"resource:<path>\" loads\n" +
+    "                       keystore from resource on classpath.)\n" +
     "     -alias <alias>    Key alias (required if -keystore is used).\n" +
     "     -storepass <pass> Keystore password (def \"password\").\n" +
     "     -keypass <pass>   Key password (def \"password\").\n" +

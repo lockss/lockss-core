@@ -1916,7 +1916,6 @@ public class TestPluginManager extends LockssTestCase4 {
     ConfigurationUtil.addFromProps(p);
   }
 
-
   @Test
   public void testInitLoadablePluginRegistries() throws Exception {
     // Ensure plugin AUs get started even when startAllAus is false

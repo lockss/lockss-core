@@ -83,6 +83,7 @@ public class TestPluginPackager extends LockssTestCase5 {
   List<Result> runPackager(PlugSpec spec) throws Exception {
     pkgr.addSpec(spec);
     pkgr.build();
+    pkgr.reportResults(pkgr);
     return pkgr.getResults();
   }
 
@@ -94,6 +95,8 @@ public class TestPluginPackager extends LockssTestCase5 {
     assertEquals(1, rs.size());
     Result res = rs.get(0);
     assertFalse(res.isError());
+    assertFalse(res.isNotModified());
+    assertFalse(res.isSigned());
     JarFile jf = new JarFile(jar);
     List<String> names = Collections.list(jf.entries()).stream()
       .map(JarEntry::getName)
@@ -146,6 +149,45 @@ public class TestPluginPackager extends LockssTestCase5 {
     assertMarkedAsPlugin(man, ID_B);
     assertMarkedAsPlugin(man, ID_C);
     assertNotMarkedAsPlugin(man, ID_P);
+  }
+
+  @Test
+  public void testSignWithResourceKeystore() throws Exception {
+    pkgr.setKeystore("resource:org/lockss/test/goodguy.keystore");
+    pkgr.setAlias("goodguy");
+    pkgr.setKeyPass("f00bar");
+    pkgr.setStorePass("f00bar");
+    List<Result> rs = runPackager(new PlugSpec()
+				  .addPlug(ID_A)
+				  .setJar(jar.toString()));
+    assertEquals(1, rs.size());
+    Result res = rs.get(0);
+    assertFalse(res.isError());
+    assertFalse(res.isNotModified());
+    assertTrue(res.isSigned());
+    JarFile jf = new JarFile(jar);
+    List<String> names = Collections.list(jf.entries()).stream()
+      .map(JarEntry::getName)
+      .collect(Collectors.toList());
+
+    // All files in dir should be there, but not parent dir
+    assertThat(names, hasItems("META-INF/",
+			       "META-INF/MANIFEST.MF",
+			       "org/lockss/util/testplugin/child/",
+			       idToPath(ID_A),
+			       idToPath(ID_B),
+			       idToPath(ID_C)));
+    assertThat(names, not(hasItems(idToPath(ID_P))));
+    Manifest man = jf.getManifest();
+    Attributes main = man.getMainAttributes();
+    assertMarkedAsPlugin(man, ID_A);
+    assertNotMarkedAsPlugin(man, ID_B);
+    assertNotMarkedAsPlugin(man, ID_C);
+    assertNotMarkedAsPlugin(man, ID_P);
+    Attributes plug =
+      man.getAttributes("org/lockss/util/testplugin/child/APlug.xml");
+    assertNotNull(plug);
+    assertEquals("true", plug.getValue("Lockss-Plugin"));
   }
 
   @Test

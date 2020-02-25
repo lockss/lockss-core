@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -173,6 +173,8 @@ public class TestMetadataDbManager extends LockssTestCase4 {
    */
   @Test
   public void testCreateTable2() throws Exception {
+    ConfigurationUtil.addFromArgs(
+	DbManager.PARAM_START_DERBY_NETWORK_SERVER_CONTROL, "true");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource",
 	MetadataDbManager.PARAM_DATASOURCE_PASSWORD, "somePassword");
@@ -452,6 +454,8 @@ public class TestMetadataDbManager extends LockssTestCase4 {
    */
   @Test
   public void testMissingCredentialsSetUp() {
+    ConfigurationUtil.addFromArgs(
+	DbManager.PARAM_START_DERBY_NETWORK_SERVER_CONTROL, "true");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource");
 
@@ -464,6 +468,8 @@ public class TestMetadataDbManager extends LockssTestCase4 {
    */
   @Test
   public void testMissingUserSetUp() {
+    ConfigurationUtil.addFromArgs(
+	DbManager.PARAM_START_DERBY_NETWORK_SERVER_CONTROL, "true");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_USER, "");
@@ -479,6 +485,8 @@ public class TestMetadataDbManager extends LockssTestCase4 {
    */
   @Test
   public void testMissingPasswordSetUp() {
+    ConfigurationUtil.addFromArgs(
+	DbManager.PARAM_START_DERBY_NETWORK_SERVER_CONTROL, "true");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_CLASSNAME,
 	"org.apache.derby.jdbc.ClientDataSource");
     ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_USER,

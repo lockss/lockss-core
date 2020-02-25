@@ -35,6 +35,7 @@ import java.sql.Connection;
 import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
+import java.util.stream.*;
 import org.apache.commons.collections.map.*;
 import org.apache.commons.lang3.tuple.*;
 import org.lockss.alert.*;
@@ -121,11 +122,12 @@ public class PluginManager
     PREFIX + "useDefaultRegistries";
   public static final boolean DEFAULT_USE_DEFAULT_PLUGIN_REGISTRIES = true;
 
-  /** If true, default plugin signature keystore is used in addition to
-   * user-specified keystore */
-  public static final String PARAM_USE_DEFAULT_KEYSTORE =
-    PREFIX + "useDefaultKeystore";
-  public static final boolean DEFAULT_USE_DEFAULT_KEYSTORE = true;
+  // Not Implemented
+//   /** If true, default plugin signature keystore is used in addition to
+//    * user-specified keystore */
+//   public static final String PARAM_USE_DEFAULT_KEYSTORE =
+//     PREFIX + "useDefaultKeystore";
+//   public static final boolean DEFAULT_USE_DEFAULT_KEYSTORE = true;
 
   /** If true (the default), plugins that appear both in a loadable plugin
    * registry jar and on the local classpath will be loaded from the
@@ -141,7 +143,7 @@ public class PluginManager
   /** Common prefix of plugin keystore params */
   static final String KEYSTORE_PREFIX = PREFIX + "keystore.";
 
-  /** The location of a Java JKS keystore to use for verifying
+  /** The location of a Java keystore to use for verifying
       loadable plugins.  Defaults to the keystore packaged with the daemon. */
   static final String PARAM_KEYSTORE_LOCATION = KEYSTORE_PREFIX + "location";
   static final String DEFAULT_KEYSTORE_LOCATION =
@@ -3594,7 +3596,7 @@ public class PluginManager
 	getDaemon().getCrawlManager().isCrawlerEnabled() &&
 	getDaemon().getCrawlMode().isCrawlPlugins();
     } catch (IllegalArgumentException e) {
-      log.debug("Can't get CrawlManager", e);
+      log.debug("Can't get CrawlManager: " + e);
       return false;
     }
   }
@@ -3662,7 +3664,7 @@ public class PluginManager
       Pattern pat =
 	Pattern.compile(config.get(PARAM_PLUGIN_MEMBER_PATTERN,
 				   DEFAULT_PLUGIN_MEMBER_PATTERN));
-      for (String name : getClasspath()) {
+      for (String name : getPluginJarSearchPath()) {
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "name = " + name);
 	if (globMatch(jarPatList, name) ||
 	    globMatch(jarPatList, new File(name).getName())) {
@@ -3711,12 +3713,51 @@ public class PluginManager
     }
   }
 
-  private static List<String> getClasspath() {
-    String cp = System.getProperty("java.class.path");
-    if (cp == null) {
-      return Collections.EMPTY_LIST;
+  // The Spring Boot classloader returns URLs of the form
+  // file:/path/to/XxxPlugin.jar!/ for files,
+  // file:/path/to/uber.jar!/BOOT-INF/classes!/ for classes in jar, and
+  // file:/path/to/uber.jar!/BOOT-INF/lib/lib-jar.jar!/ for embeded
+  // dependency jars.  Include only files (as we don't yet know how to
+  // search the others for plugins), as simple filenames.
+
+  private static List<String> PLUGIN_JAR_SEACH_PATH;
+
+  final static Pattern SPRING_CLASSPATH_URL = Pattern.compile("file:(.*)!/");
+
+  /** Return the list of jars in which to search for plugin registry jars */
+  private static List<String> getPluginJarSearchPath() {
+    if (PLUGIN_JAR_SEACH_PATH == null) {
+      List<String> res = new ArrayList<>();
+      for (String url : clClassPath()) {
+	Matcher mat = SPRING_CLASSPATH_URL.matcher(url);
+	if (mat.matches()) {
+	  String jarfile = mat.group(1);
+	  if (jarfile.indexOf("!/") < 0) {
+	    res.add(jarfile);
+	  }
+	} else {
+	  res.add(url);
+	}
+      }
+      PLUGIN_JAR_SEACH_PATH = res;
     }
-    return StringUtil.breakAt(cp, File.pathSeparator);
+    return PLUGIN_JAR_SEACH_PATH;
+  }
+
+  /** Return the classpath from the ClassLoader, if possible, else the
+   * System property */
+  private static List<String> clClassPath() {
+    ClassLoader cl = Thread.currentThread().getContextClassLoader();
+    if (cl instanceof URLClassLoader) {
+      return Arrays.stream(((URLClassLoader)cl).getURLs())
+	.map(URL::getFile)
+	.collect(Collectors.toList());
+    }
+    String cp = System.getProperty("java.class.path");
+    if (cp != null) {
+      return StringUtil.breakAt(cp, File.pathSeparator);
+    }
+    return Collections.emptyList();
   }
 
   /**
@@ -3790,7 +3831,7 @@ public class PluginManager
 	  InputStream kin =
 	    getClass().getClassLoader().getResourceAsStream(keystoreLoc);
 	  if (kin == null) {
-	    throw new IOException("Keystore reousrce not found: " +
+	    throw new IOException("Keystore resource not found: " +
 				  keystoreLoc);
 	  }
 	  ks.load(kin, passchar);
