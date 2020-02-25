@@ -116,6 +116,7 @@ public class TestAuState extends LockssTestCase {
 		       -1, // numCurrentSuspectVersions
 		       0,
 		       null,
+		       true,
 		       stateMgr);
   }
 
@@ -666,7 +667,8 @@ public class TestAuState extends LockssTestCase {
     "auCreationTime",
     "metadataVersion",
     "substanceVersion",
-    "averageHashDuration"};;
+    "averageHashDuration",
+    "isMetadataExtractionEnabled"};
 
   String ignFields[] = {
     "lastPollAttempt",

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -136,6 +136,7 @@ public class AuState implements LockssSerializable {
 		 int numWillingRepairers,
 		 int numCurrentSuspectVersions,
 		 List<String> cdnStems,
+		 boolean isMetadataExtractionEnabled,
 		 StateManager stateMgr) {
     this(au, stateMgr);
     this.au = au;
@@ -174,6 +175,7 @@ public class AuState implements LockssSerializable {
     bean.numWillingRepairers = numWillingRepairers;
     bean.numCurrentSuspectVersions = numCurrentSuspectVersions;
     bean.cdnStems = cdnStems;
+    bean.isMetadataExtractionEnabled = isMetadataExtractionEnabled;
 
     if (cdnStems != null) {
       flushAuCaches();
@@ -870,6 +872,14 @@ public class AuState implements LockssSerializable {
     }
   }
 
+  public boolean isMetadataExtractionEnabled() {
+    return bean.isMetadataExtractionEnabled;
+  }
+
+  public void setMetadataExtractionEnabled(boolean isMetadataExtractionEnabled) {
+    bean.isMetadataExtractionEnabled = isMetadataExtractionEnabled;
+  }
+
   /**
    * Returns the auid
    * @return the auid
@@ -1026,6 +1036,9 @@ public class AuState implements LockssSerializable {
     sb.append(", ");
     sb.append("cdn=");
     sb.append(bean.cdnStems);
+    sb.append(", ");
+    sb.append("isMetadataExtractionEnabled=");
+    sb.append(bean.isMetadataExtractionEnabled);
     sb.append("]");
     return sb.toString();
   }
