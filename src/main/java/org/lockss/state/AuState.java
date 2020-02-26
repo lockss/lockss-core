@@ -876,8 +876,12 @@ public class AuState implements LockssSerializable {
     return bean.isMetadataExtractionEnabled;
   }
 
-  public void setMetadataExtractionEnabled(boolean isMetadataExtractionEnabled) {
-    bean.isMetadataExtractionEnabled = isMetadataExtractionEnabled;
+  public void setMetadataExtractionEnabled(boolean isMetadataExtractionEnabled)
+  {
+    if (bean.isMetadataExtractionEnabled != isMetadataExtractionEnabled) {
+      bean.isMetadataExtractionEnabled = isMetadataExtractionEnabled;
+      needSave("isMetadataExtractionEnabled");
+    }
   }
 
   /**
