@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -125,7 +125,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getActiveCount() throws DbException, LockssRestException {
+  public Integer getActiveCount() {
     if (!activeCountPopulated) {
       if (allActiveCount < 0) {
 	populateCounts();
@@ -139,7 +139,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getInactiveCount() throws DbException, LockssRestException {
+  public Integer getInactiveCount() {
     if (!inactiveCountPopulated) {
       if (allInactiveCount < 0) {
 	populateCounts();
@@ -153,7 +153,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getDeletedCount() throws DbException, LockssRestException {
+  public Integer getDeletedCount() {
     if (!deletedCountPopulated) {
       if (allDeletedCount < 0) {
 	populateCounts();
@@ -167,7 +167,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
   }
 
   @Override
-  public Integer getOrphanedCount() throws DbException, LockssRestException {
+  public Integer getOrphanedCount() {
     if (!orphanedCountPopulated) {
       if (allOrphanedCount < 0) {
 	populateCounts();
@@ -180,7 +180,7 @@ public class RepositorySpaceWsSource extends RepositorySpaceWsResult {
     return super.getOrphanedCount();
   }
 
-  private void populateCounts() throws DbException, LockssRestException {
+  private void populateCounts() /*throws DbException, LockssRestException*/ {
     // XXXREPO
 //     TreeSet<String> roots = new TreeSet<String>();
 //     Collection<String> specs = StringUtil.breakAt(getRepositorySpaceId(), ";");

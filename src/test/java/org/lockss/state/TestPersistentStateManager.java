@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -98,6 +98,7 @@ public class TestPersistentStateManager extends StateTestCase {
     AuStateBean ausb2 = stateMgr.newDefaultAuStateBean(key2);
     ausb2.setAuCreationTime(TimeBase.nowMs());
     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
+    ausb2.setMetadataExtractionEnabled(false);
     String json2 = ausb2.toJson();
 
     stateMgr.doStoreAuStateBean(key2, ausb2, null); // has existing creation time
@@ -120,8 +121,10 @@ public class TestPersistentStateManager extends StateTestCase {
   public void testFuncAuStateBean() throws Exception {
     // Store a bean in the db
     AuStateBean b1 = stateMgr.newDefaultAuStateBean(AUID1);
+    assertTrue(b1.isMetadataExtractionEnabled());
     b1.setLastCrawlAttempt(7777);
     b1.setCdnStems(CDN_STEMS);
+    b1.setMetadataExtractionEnabled(false);
     String json1 = b1.toJson();
 
     MyStateStore sstore = new MyStateStore();
@@ -131,24 +134,29 @@ public class TestPersistentStateManager extends StateTestCase {
     AuStateBean ausb1 = stateMgr.getAuStateBean(AUID1);
     assertEquals(7777, ausb1.getLastCrawlAttempt());
     assertEquals(CDN_STEMS, ausb1.getCdnStems());
+    assertFalse(ausb1.isMetadataExtractionEnabled());
 
     AuStateBean ausb2 = stateMgr.getAuStateBean(AUID2);
     assertEquals(-1, ausb2.getLastCrawlAttempt());
     assertNull(ausb2.getCdnStems());
+    assertTrue(ausb2.isMetadataExtractionEnabled());
 
     ausb1.setLastCrawlTime(32323);
     stateMgr.updateAuStateBean(AUID1, ausb1, SetUtil.set("lastCrawlTime"));
     String storedjson = sstore.getStoredAuState(AUID1);
     assertMatchesRE("\"lastCrawlTime\":32323", storedjson);
     assertMatchesRE("\"lastCrawlAttempt\":7777", storedjson);
+    assertMatchesRE("\"isMetadataExtractionEnabled\":false", storedjson);
   }
 
   @Test
   public void testFuncAuState() throws Exception {
     // Pre-store an AuState in the db
     AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(AUID1);
+    assertTrue(ausb1.isMetadataExtractionEnabled());
     ausb1.setLastCrawlAttempt(7777);
     ausb1.setCdnStems(CDN_STEMS);
+    ausb1.setMetadataExtractionEnabled(false);
     String json = ausb1.toJson();
 
     // Set up fake DB SQL layer
@@ -160,28 +168,35 @@ public class TestPersistentStateManager extends StateTestCase {
     AuState aus1 = stateMgr.getAuState(mau1);
     assertEquals(7777, aus1.getLastCrawlAttempt());
     assertEquals(CDN_STEMS, aus1.getCdnStems());
+    assertFalse(ausb1.isMetadataExtractionEnabled());
 
     // Fetch one with no data
     AuState aus2 = stateMgr.getAuState(mau2);
     assertEquals(-1, aus2.getLastCrawlAttempt());
     assertEmpty(aus2.getCdnStems());
-    
+    assertTrue(aus2.isMetadataExtractionEnabled());
+
     // Perform a json-only update from the service, ensure DB and
     // existing AuState instance get updated.
     AuStateBean ausb2 = stateMgr.newDefaultAuStateBean(AUID1);
     ausb2.setLastCrawlAttempt(7778);
     ausb2.setLastCrawlTime(7779);
+    ausb2.setMetadataExtractionEnabled(false);
     String json2 = ausb2.toJson(SetUtil.set("lastCrawlTime",
-					    "lastCrawlAttempt"));
+					    "lastCrawlAttempt",
+					    "isMetadataExtractionEnabled"));
     assertEquals(7777, aus1.getLastCrawlAttempt());
     assertEquals(-1, aus1.getLastCrawlTime());
+    assertFalse(aus1.isMetadataExtractionEnabled());
     stateMgr.updateAuStateFromJson(AUID1, json2, null);
     assertEquals(7778, aus1.getLastCrawlAttempt());
     assertEquals(7779, aus1.getLastCrawlTime());
+    assertFalse(aus1.isMetadataExtractionEnabled());
 
     String storedjson = sstore.getStoredAuState(AUID1);
     assertMatchesRE("\"lastCrawlAttempt\":7778", storedjson);
     assertMatchesRE("\"lastCrawlTime\":7779", storedjson);
+    assertMatchesRE("\"isMetadataExtractionEnabled\":false", storedjson);
   }
 
   @Test
@@ -190,6 +205,7 @@ public class TestPersistentStateManager extends StateTestCase {
     AuStateBean b1 = stateMgr.newDefaultAuStateBean(AUID1);
     b1.setLastCrawlAttempt(7777);
     b1.setCdnStems(CDN_STEMS);
+    b1.setMetadataExtractionEnabled(false);
     String json1 = b1.toJson();
 
     stateMgr.storeAuStateFromJson(AUID1, json1);

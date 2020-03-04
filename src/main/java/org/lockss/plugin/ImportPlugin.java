@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2015 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -49,9 +45,11 @@ import org.lockss.util.urlconn.HttpResultMap;
 public class ImportPlugin extends BasePlugin {
   private static final Logger log = Logger.getLogger();
 
-  public static final String PLUGIN_ID = "org.lockss.plugin.ImportPlugin";
-  public static final String PLUGIN_KEY = "org|lockss|plugin|ImportPlugin";
-  public static final String PREFIX = Configuration.PREFIX + "plugin.import.";
+  // The key of the plugin used to import files.
+  static final String PLUGIN_ID = "org.lockss.plugin.ImportPlugin";
+
+  // Configuration prefix.
+  private static final String PREFIX = Configuration.PREFIX + "plugin.import.";
 
   // List of defining properties (only base_url for Import plugins).
   private static final List<ConfigParamDescr> configDescrs =
@@ -60,6 +58,9 @@ public class ImportPlugin extends BasePlugin {
   private String pluginName = "Import";
   private String currentVersion = "1";
 
+  /**
+   * Default constructor.
+   */
   public ImportPlugin() {
   }
 

@@ -91,6 +91,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
     <dependency>
       <groupId>org.lockss</groupId>
+      <artifactId>lockss-util-entities</artifactId>
+      <version>${version.lockss.lockss-util-entities}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
       <artifactId>lockss-util-rest</artifactId>
       <version>${version.lockss.lockss-util-rest}</version>
     </dependency>
@@ -426,12 +432,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>com.lyncode</groupId>
       <artifactId>test-support</artifactId>
       <version>1.0.4</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>${version.group.httpclient}</version>
     </dependency>
 
     <dependency>

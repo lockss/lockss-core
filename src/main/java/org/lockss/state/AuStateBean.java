@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -84,6 +84,8 @@ public class AuStateBean {
   protected int numCurrentSuspectVersions = 0; // # URLs w/ current version suspect
   protected List<String> cdnStems = null; // URL stems of content on hosts
 					  // not predicted by permission URLs
+  // The indication of whether metadata extraction is enabled for this AU.
+  protected boolean isMetadataExtractionEnabled = true;
 
   protected String auId = null;
 
@@ -462,7 +464,20 @@ public class AuStateBean {
   public void setCdnStems(List<String> cdnStems) {
     this.cdnStems = cdnStems;
   }
-
+  /**
+   * @return the isMetadataExtractionEnabled
+   */
+  public boolean isMetadataExtractionEnabled() {
+    return isMetadataExtractionEnabled;
+  }
+  /**
+   * @param isMetadataExtractionEnabled the isMetadataExtractionEnabled to set
+   */
+  public void setMetadataExtractionEnabled(boolean isMetadataExtractionEnabled)
+  {
+    this.isMetadataExtractionEnabled = isMetadataExtractionEnabled;
+  }
+  
   /**
    * @return the AUID
    */
@@ -541,6 +556,7 @@ public class AuStateBean {
         .append("clockssSubscriptionStatus", clockssSubscriptionStatus)
         .append("hasSubstance", hasSubstance)
         .append("highestV3Agreement", highestV3Agreement)
+        .append("isMetadataExtractionEnabled", isMetadataExtractionEnabled)
         .append("lastContentChange", lastContentChange)
         .append("lastCrawlAttempt", lastCrawlAttempt)
         .append("lastCrawlResult", lastCrawlResult)

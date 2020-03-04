@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2015-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -55,7 +55,6 @@ import org.lockss.protocol.MockIdentityManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.servlet.AdminServletManager;
 import org.lockss.servlet.LockssServlet;
-import org.lockss.servlet.ServletManager;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockArchivalUnit;
@@ -68,7 +67,6 @@ import org.lockss.ws.cxf.AuthorizationInterceptor;
 import org.lockss.ws.entities.CheckSubstanceResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.ws.entities.RequestCrawlResult;
-import org.lockss.ws.entities.RequestAuControlResult;
 
 /**
  * Functional test class for org.lockss.ws.control.AuControlService.
@@ -518,143 +516,6 @@ public class FuncAuControlService extends LockssTestCase {
     assertEquals(auId1, result.getId());
     assertTrue(result.isSuccess());
     assertNull(result.getDelayReason());
-    assertNull(result.getErrorMessage());
-  }
-
-  /**
-   * Tests the polling request of an Archival Unit.
-   */
-  public void testRequestPollById() throws Exception {
-    UserAccount userAccount = accountManager.getUser(USER_NAME);
-
-    // User "userAdminRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_USER_ADMIN);
-
-    RequestAuControlResult result = proxy.requestPollById("");
-    assertEquals("", result.getId());
-    assertFalse(result.isSuccess());
-    assertEquals(MISSING_AU_ID_ERROR_MESSAGE, result.getErrorMessage());
-
-    result = proxy.requestPollById(mau.getAuId());
-    assertEquals(mau.getAuId(), result.getId());
-    assertFalse(result.isSuccess());
-    assertEquals(NO_SUCH_AU_ERROR_MESSAGE, result.getErrorMessage());
-
-    // User "contentAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ADMIN);
-    try {
-      result = proxy.requestPollById(mau.getAuId());
-      fail("Test should have failed for role "
-	  + LockssServlet.ROLE_CONTENT_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "auAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_AU_ADMIN);
-    try {
-      result = proxy.requestPollById(mau.getAuId());
-      fail("Test should have failed for role " + LockssServlet.ROLE_AU_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "accessContentRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ACCESS);
-    try {
-      result = proxy.requestPollById(mau.getAuId());
-      fail("Test should have failed for role "
-	  + LockssServlet.ROLE_CONTENT_ACCESS);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "debugRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_DEBUG);
-
-    result = proxy.requestPollById(auId0);
-    assertEquals(auId0, result.getId());
-    assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
-  }
-
-  /**
-   * Tests the polling request of Archival Units by a list of their identifiers.
-   */
-  public void testRequestPollByIdList() throws Exception {
-    UserAccount userAccount = accountManager.getUser(USER_NAME);
-
-    // User "userAdminRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_USER_ADMIN);
-
-    List<String> auIds = new ArrayList<String>();
-    auIds.add(auId0);
-    auIds.add(auId1);
-
-    List<RequestAuControlResult> results = proxy.requestPollByIdList(auIds);
-    RequestAuControlResult result = results.get(0);
-    assertEquals(auId0, result.getId());
-    assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
-
-    result = results.get(1);
-    assertEquals(auId1, result.getId());
-    assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
-
-    // User "contentAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ADMIN);
-    try {
-      results = proxy.requestPollByIdList(auIds);
-      fail("Test should have failed for role "
-	   + LockssServlet.ROLE_CONTENT_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "auAdminRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_AU_ADMIN);
-    try {
-      results = proxy.requestPollByIdList(auIds);
-      fail("Test should have failed for role " + LockssServlet.ROLE_AU_ADMIN);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "accessContentRole" should fail.
-    userAccount.setRoles(LockssServlet.ROLE_CONTENT_ACCESS);
-    try {
-      results = proxy.requestPollByIdList(auIds);
-      fail("Test should have failed for role "
-	  + LockssServlet.ROLE_CONTENT_ACCESS);
-    } catch (LockssWebServicesFault lwsf) {
-      // Expected authorization failure.
-      assertEquals(AuthorizationInterceptor.NO_REQUIRED_ROLE,
-	  lwsf.getMessage());
-    }
-
-    // User "debugRole" should succeed.
-    userAccount.setRoles(LockssServlet.ROLE_DEBUG);
-
-    results = proxy.requestPollByIdList(auIds);
-    result = results.get(0);
-    assertEquals(auId0, result.getId());
-    assertTrue(result.isSuccess());
-    assertNull(result.getErrorMessage());
-
-    result = results.get(1);
-    assertEquals(auId1, result.getId());
-    assertTrue(result.isSuccess());
     assertNull(result.getErrorMessage());
   }
 
