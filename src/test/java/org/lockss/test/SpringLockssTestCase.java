@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017-2018 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,6 +50,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.Logger;
 import org.lockss.util.MapUtil;
 import org.lockss.util.TemplateUtil;
+import org.lockss.util.rest.RestUtil;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -193,7 +194,7 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     boolean isServiceAvailable = false;
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = new RestTemplate();
+    RestTemplate restTemplate = RestUtil.getRestTemplate();
 
     // Initialize the request headers.
     HttpHeaders headers = new HttpHeaders();
@@ -442,8 +443,8 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     log.debug3("url = " + url);
 
     // Perform the call to the REST service.
-    ResponseEntity<String> successResponse =
-	new RestTemplate().exchange(url,HttpMethod.GET, null, String.class);
+    ResponseEntity<String> successResponse = RestUtil.getRestTemplate()
+	.exchange(url,HttpMethod.GET, null, String.class);
 
     // Check the status.
     HttpStatus statusCode = successResponse.getStatusCode();
