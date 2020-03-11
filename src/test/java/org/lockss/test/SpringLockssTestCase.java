@@ -194,7 +194,7 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     boolean isServiceAvailable = false;
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplate restTemplate = RestUtil.getSimpleFactoryRestTemplate(true);
 
     // Initialize the request headers.
     HttpHeaders headers = new HttpHeaders();
@@ -443,8 +443,9 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
     log.debug3("url = " + url);
 
     // Perform the call to the REST service.
-    ResponseEntity<String> successResponse = RestUtil.getRestTemplate()
-	.exchange(url,HttpMethod.GET, null, String.class);
+    ResponseEntity<String> successResponse =
+	RestUtil.getSimpleFactoryRestTemplate(true).exchange(url,
+	    HttpMethod.GET, null, String.class);
 
     // Check the status.
     HttpStatus statusCode = successResponse.getStatusCode();

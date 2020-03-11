@@ -210,7 +210,7 @@ public class RestMetadataExtractorClient {
 
     // Initialize the request to the REST service.
     RestTemplate restTemplate =
-	RestUtil.getRestTemplate(connectTimeout, readTimeout);
+	RestUtil.getSimpleFactoryRestTemplate(connectTimeout, readTimeout);
     log.debug2("restTemplate = {}", restTemplate);
     return restTemplate;
   }
