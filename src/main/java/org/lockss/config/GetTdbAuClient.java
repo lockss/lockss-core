@@ -98,8 +98,8 @@ public class GetTdbAuClient {
     }
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getSimpleFactoryRestTemplate(
-	serviceTimeout, serviceTimeout, true);
+    RestTemplate restTemplate =
+	RestUtil.getRestTemplate(serviceTimeout, serviceTimeout);
 
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);

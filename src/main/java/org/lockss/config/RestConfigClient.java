@@ -1322,6 +1322,6 @@ public class RestConfigClient {
    * @return a RestTemplate with the standard REST template.
    */
   private RestTemplate getRestTemplate() {
-    return RestUtil.getHttpFactoryRestTemplate();
+    return RestUtil.getRestTemplate();
   }
 }
