@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,6 +47,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.laaws.rs.core.*;
+import org.lockss.util.storage.StorageInfo;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -398,8 +399,16 @@ public class RepositoryManager
   }
 
   public PlatformUtil.DF getRepositoryDF(String repoName) {
-    // XXXREPO
-    return platInfo.getJavaDF(".");
+    try {
+      StorageInfo storageInfo =
+	  v2Repo.getRepository().getRepositoryInfo().getStoreInfo();
+      if (log.isDebug3()) log.debug3("storageInfo = " + storageInfo);
+
+      return PlatformUtil.DF.fromStorageInfo(storageInfo);
+    } catch (IOException ioe) {
+      log.warning("Exception caught getting repositoryDF: " + ioe.getMessage());
+      return new PlatformUtil.DF();
+    }
   }
 
   public Map<String,PlatformUtil.DF> getRepositoryMap() {
