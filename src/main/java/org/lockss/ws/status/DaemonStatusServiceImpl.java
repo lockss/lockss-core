@@ -37,15 +37,11 @@ import org.josql.QueryExecutionException;
 import org.josql.QueryParseException;
 import org.josql.QueryResults;
 import org.lockss.app.LockssDaemon;
-import org.lockss.db.DbException;
 import org.lockss.plugin.PluginManager;
-import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.*;
 import org.lockss.ws.entities.CrawlWsResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.ws.entities.LockssWebServicesFaultInfo;
-import org.lockss.ws.entities.RepositorySpaceWsResult;
-import org.lockss.ws.entities.RepositoryWsResult;
 import org.lockss.ws.status.DaemonStatusService;
 
 /**
@@ -76,165 +72,6 @@ public class DaemonStatusServiceImpl implements DaemonStatusService {
     } catch (Exception e) {
       throw new LockssWebServicesFault(e);
     }
-  }
-
-  /**
-   * Provides the selected properties of selected repository spaces in the
-   * system.
-   * 
-   * @param repositorySpaceQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which repository
-   *          spaces.
-   * @return a {@code List<RepositorySpaceWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public List<RepositorySpaceWsResult> queryRepositorySpaces(
-      String repositorySpaceQuery) throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "queryRepositorySpaces(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "repositorySpaceQuery = "
-	+ repositorySpaceQuery);
-
-    RepositorySpaceHelper repositorySpaceHelper = new RepositorySpaceHelper();
-    List<RepositorySpaceWsResult> results = null;
-
-    // Create the full query.
-    String fullQuery = createFullQuery(repositorySpaceQuery,
-	RepositorySpaceHelper.SOURCE_FQCN, RepositorySpaceHelper.PROPERTY_NAMES,
-	RepositorySpaceHelper.RESULT_FQCN);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "fullQuery = " + fullQuery);
-
-    // Create a new JoSQL query.
-    Query q = new Query();
-
-    try {
-      // Parse the SQL-like query.
-      q.parse(fullQuery);
-
-      try {
-	// Execute the query.
-	QueryResults qr = q.execute(repositorySpaceHelper.createUniverse());
-
-	// Get the query results.
-	results = (List<RepositorySpaceWsResult>)qr.getResults();
-	if (log.isDebug3()) {
-	  log.debug3(DEBUG_HEADER + "results.size() = " + results.size());
-	  log.debug3(DEBUG_HEADER + "results = "
-	      + repositorySpaceHelper.nonDefaultToString(results));
-	}
-
-	if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
-	    + repositorySpaceHelper.nonDefaultToString(results));
-      } catch (QueryExecutionException qee) {
-	log.error("Caught QueryExecuteException", qee);
-	log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qee,
-	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
-		+ repositorySpaceQuery));
-      } catch (DbException dbe) {
-	log.error("Caught DbException", dbe);
-	log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(dbe,
-	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
-		+ repositorySpaceQuery));
-      } catch (LockssRestException lre) {
-	log.error("Caught LockssRestException", lre);
-	log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(lre,
-	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
-		+ repositorySpaceQuery));
-      }
-    } catch (QueryParseException qpe) {
-      log.error("Caught QueryParseException", qpe);
-      log.error("fullQuery = '" + fullQuery + "'");
-	throw new LockssWebServicesFault(qpe,
-	    new LockssWebServicesFaultInfo("repositorySpaceQuery = "
-		+ repositorySpaceQuery));
-    }
-
-    return results;
-  }
-
-  /**
-   * Provides the selected properties of selected repositories in the system.
-   * 
-   * @param repositoryQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which
-   *          repositories.
-   * @return a {@code List<RepositoryWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  // XXXREPO
-  public List<RepositoryWsResult> queryRepositories(String repositoryQuery)
-      throws LockssWebServicesFault {
-    throw new UnsupportedOperationException("XXXREPO");
-//     final String DEBUG_HEADER = "queryRepositories(): ";
-//     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "repositoryQuery = "
-// 	+ repositoryQuery);
-
-//     RepositoryHelper repositoryHelper = new RepositoryHelper();
-//     List<RepositoryWsResult> results = null;
-
-//     // Create the full query.
-//     String fullQuery = createFullQuery(repositoryQuery,
-// 	RepositoryHelper.SOURCE_FQCN, RepositoryHelper.PROPERTY_NAMES,
-// 	RepositoryHelper.RESULT_FQCN);
-//     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "fullQuery = " + fullQuery);
-
-//     // Create a new JoSQL query.
-//     Query q = new Query();
-
-//     try {
-//       // Parse the SQL-like query.
-//       q.parse(fullQuery);
-
-//       try {
-// 	// Execute the query.
-// 	QueryResults qr = q.execute(repositoryHelper.createUniverse());
-
-// 	// Get the query results.
-// 	results = (List<RepositoryWsResult>)qr.getResults();
-// 	if (log.isDebug3()) {
-// 	  log.debug3(DEBUG_HEADER + "results.size() = " + results.size());
-// 	  log.debug3(DEBUG_HEADER + "results = "
-// 	      + repositoryHelper.nonDefaultToString(results));
-// 	}
-
-// 	if (log.isDebug2()) log.debug2(DEBUG_HEADER + "results = "
-// 	    + repositoryHelper.nonDefaultToString(results));
-//       } catch (QueryExecutionException qee) {
-// 	log.error("Caught QueryExecuteException", qee);
-// 	log.error("fullQuery = '" + fullQuery + "'");
-// 	throw new LockssWebServicesFault(qee,
-// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
-// 		+ repositoryQuery));
-//       } catch (DbException dbe) {
-// 	log.error("Caught DbException", dbe);
-// 	log.error("fullQuery = '" + fullQuery + "'");
-// 	throw new LockssWebServicesFault(dbe,
-// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
-// 		+ repositoryQuery));
-//       } catch (LockssRestException lre) {
-// 	log.error("Caught LockssRestException", lre);
-// 	log.error("fullQuery = '" + fullQuery + "'");
-// 	throw new LockssWebServicesFault(lre,
-// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
-// 		+ repositoryQuery));
-//       }
-//     } catch (QueryParseException qpe) {
-//       log.error("Caught QueryParseException", qpe);
-//       log.error("fullQuery = '" + fullQuery + "'");
-// 	throw new LockssWebServicesFault(qpe,
-// 	    new LockssWebServicesFaultInfo("repositoryQuery = "
-// 		+ repositoryQuery));
-//     }
-
-//     return results;
   }
 
   /**

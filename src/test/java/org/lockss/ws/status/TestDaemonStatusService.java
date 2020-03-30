@@ -49,8 +49,6 @@ import org.lockss.protocol.IdentityManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.ws.entities.CrawlWsResult;
-import org.lockss.ws.entities.RepositorySpaceWsResult;
-import org.lockss.ws.entities.RepositoryWsResult;
 
 /**
  * Test class for org.lockss.ws.status.DaemonStatusService
@@ -113,100 +111,6 @@ public class TestDaemonStatusService extends LockssTestCase {
     theDaemon.setAusStarted(false);
     assertFalse(service.isDaemonReady());
   }
-
-  /**
-   * Runs the test that queries repository spaces.
-   * 
-   * @throws Exception
-   */
-  // XXXREPO
-  public void disabledtestQueryRepositorySpaces() throws Exception {
-    String query = "select *";
-    List<RepositorySpaceWsResult> spaces = service.queryRepositorySpaces(query);
-    int spaceCount = spaces.size();
-    assertTrue(spaceCount > 0);
-
-    RepositorySpaceWsResult result = spaces.get(0);
-    assertEquals("local:" + tempDirPath, result.getRepositorySpaceId());
-    assertTrue(result.getSize() > 0);
-    assertTrue(result.getUsed() > 0);
-    assertTrue(result.getFree() > 0);
-    assertTrue(result.getPercentageFull() > 0);
-    assertTrue(result.getPercentageFull() <= 1);
-    assertEquals(2, result.getActiveCount().intValue());
-    assertEquals(0, result.getInactiveCount().intValue());
-    assertEquals(0, result.getDeletedCount().intValue());
-    assertEquals(0, result.getOrphanedCount().intValue());
-
-    query = "select * where size > 1";
-    spaces = service.queryRepositorySpaces(query);
-    assertEquals(spaceCount, spaces.size());
-
-    query = "select * where used < 1";
-    spaces = service.queryRepositorySpaces(query);
-    assertEquals(0, spaces.size());
-
-    query = "select * where activeCount = 2";
-    spaces = service.queryRepositorySpaces(query);
-    assertEquals(spaceCount, spaces.size());
-
-    query = "select * where orphanedCount = 1";
-    spaces = service.queryRepositorySpaces(query);
-    assertEquals(0, spaces.size());
-  }
-
-  /**
-   * Runs the test that queries repositories.
-   * 
-   * @throws Exception
-   */
-  // XXXREPO
-  public void disabledtestQueryRepositories() throws Exception {
-    String auNameStart = "Simulated Content: " + tempDirPath;
-    String pluginNameStart =
-	"org.lockss.ws.status.TestDaemonStatusService$MySimulatedPlugin";
-
-    String query = "select *";
-    List<RepositoryWsResult> repositories = service.queryRepositories(query);
-    assertEquals(2, repositories.size());
-
-    RepositoryWsResult result = repositories.get(0);
-    assertEquals("local:" + tempDirPath, result.getRepositorySpaceId());
-    assertTrue(result.getDirectoryName().startsWith(tempDirPath));
-    assertTrue(result.getAuName().startsWith(auNameStart));
-    assertFalse(result.getInternal());
-    assertEquals("Active", result.getStatus());
-    assertTrue(result.getDiskUsage() > 0);
-    assertTrue(result.getPluginName().startsWith(pluginNameStart));
-
-    result = repositories.get(1);
-    assertEquals("local:" + tempDirPath, result.getRepositorySpaceId());
-    assertTrue(result.getDirectoryName().startsWith(tempDirPath));
-    assertTrue(result.getAuName().startsWith(auNameStart));
-    assertFalse(result.getInternal());
-    assertEquals("Active", result.getStatus());
-    assertTrue(result.getDiskUsage() > 0);
-    assertTrue(result.getPluginName().startsWith(pluginNameStart));
-
-    String pluginName0 =
-	"org.lockss.ws.status.TestDaemonStatusService$MySimulatedPlugin0";
-    String pluginName1 =
-	"org.lockss.ws.status.TestDaemonStatusService$MySimulatedPlugin1";
-    query = "select * where status = 'Active' order by pluginName";
-    repositories = service.queryRepositories(query);
-    assertEquals(2, repositories.size());
-
-    result = repositories.get(0);
-    assertEquals(pluginName0, result.getPluginName());
-
-    result = repositories.get(1);
-    assertEquals(pluginName1, result.getPluginName());
-
-    query = "select * where internal = 'true'";
-    repositories = service.queryRepositories(query);
-    assertEquals(0, repositories.size());
-  }
-
 
   CrawlManager startCrawlManager() {
     CrawlManagerImpl mgr = new CrawlManagerImpl();

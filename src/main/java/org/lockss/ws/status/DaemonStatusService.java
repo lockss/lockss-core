@@ -33,8 +33,6 @@ import javax.jws.WebParam;
 import javax.jws.WebService;
 import org.lockss.ws.entities.CrawlWsResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
-import org.lockss.ws.entities.RepositorySpaceWsResult;
-import org.lockss.ws.entities.RepositoryWsResult;
 
 /**
  * The DaemonStatus web service interface.
@@ -49,39 +47,6 @@ public interface DaemonStatusService {
    */
   @WebMethod
   boolean isDaemonReady() throws LockssWebServicesFault;
-
-  /**
-   * Provides the selected properties of selected repository spaces in the
-   * system.
-   * 
-   * @param repositorySpaceQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which repository
-   *          spaces.
-   * @return a {@code List<RepositorySpaceWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<RepositorySpaceWsResult> queryRepositorySpaces(
-      @WebParam(name = "repositorySpaceQuery") String repositorySpaceQuery)
-	  throws LockssWebServicesFault;
-
-  /**
-   * Provides the selected properties of selected repositories in the system.
-   * 
-   * @param repositoryQuery
-   *          A String with the
-   *          <a href="package-summary.html#SQL-Like_Query">SQL-like query</a>
-   *          used to specify what properties to retrieve from which
-   *          repositories.
-   * @return a {@code List<RepositoryWsResult>} with the results.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  List<RepositoryWsResult> queryRepositories(
-      @WebParam(name = "repositoryQuery") String repositoryQuery)
-	  throws LockssWebServicesFault;
 
   /**
    * Provides the selected properties of selected crawls in the system.
