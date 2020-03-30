@@ -100,18 +100,6 @@ public class TestDaemonStatusService extends LockssTestCase {
 
   }
 
-  /**
-   * Runs the tests that verify whether the daemon is ready.
-   * 
-   * @throws Exception
-   */
-  public void testIsDaemonReady() throws Exception {
-    theDaemon.setAusStarted(true);
-    assertTrue(service.isDaemonReady());
-    theDaemon.setAusStarted(false);
-    assertFalse(service.isDaemonReady());
-  }
-
   CrawlManager startCrawlManager() {
     CrawlManagerImpl mgr = new CrawlManagerImpl();
     theDaemon.setCrawlManager(mgr);

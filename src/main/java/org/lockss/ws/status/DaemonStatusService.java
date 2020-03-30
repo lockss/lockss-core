@@ -40,15 +40,6 @@ import org.lockss.ws.entities.LockssWebServicesFault;
 @WebService
 public interface DaemonStatusService {
   /**
-   * Provides an indication of whether the daemon is ready.
-   * 
-   * @return a boolean with the indication.
-   * @throws LockssWebServicesFault
-   */
-  @WebMethod
-  boolean isDaemonReady() throws LockssWebServicesFault;
-
-  /**
    * Provides the selected properties of selected crawls in the system.
    * 
    * @param crawlQuery

@@ -36,8 +36,6 @@ import org.josql.Query;
 import org.josql.QueryExecutionException;
 import org.josql.QueryParseException;
 import org.josql.QueryResults;
-import org.lockss.app.LockssDaemon;
-import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
 import org.lockss.ws.entities.CrawlWsResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
@@ -50,29 +48,6 @@ import org.lockss.ws.status.DaemonStatusService;
 @WebService
 public class DaemonStatusServiceImpl implements DaemonStatusService {
   private static Logger log = Logger.getLogger();
-
-  /**
-   * Provides an indication of whether the daemon is ready.
-   * 
-   * @return a boolean with the indication.
-   * @throws LockssWebServicesFault
-   */
-  @Override
-  public boolean isDaemonReady() throws LockssWebServicesFault {
-    final String DEBUG_HEADER = "isDaemonReady(): ";
-
-    try {
-      log.debug2(DEBUG_HEADER + "Invoked.");
-      PluginManager pluginMgr =
-	  (PluginManager) LockssDaemon.getManager(LockssDaemon.PLUGIN_MANAGER);
-      boolean areAusStarted = pluginMgr.areAusStarted();
-      log.debug2(DEBUG_HEADER + "areAusStarted = " + areAusStarted);
-
-      return areAusStarted;
-    } catch (Exception e) {
-      throw new LockssWebServicesFault(e);
-    }
-  }
 
   /**
    * Provides the selected properties of selected crawls in the system.
