@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1205,12 +1205,12 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
   }
 
-  public void startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
+  public CrawlerStatus startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
                                    Object cookie) {
-    startNewContentCrawl(au, 0, cb, cookie);
+    return startNewContentCrawl(au, 0, cb, cookie);
   }
 
-  public void startNewContentCrawl(ArchivalUnit au, int priority,
+  public CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
                                    CrawlManager.Callback cb,
                                    Object cookie) {
     if (au == null) {
@@ -1219,7 +1219,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     if (!crawlerEnabled) {
       logger.warning("Crawler disabled, not crawling: " + au);
       callCallback(cb, cookie, false, null);
-      return;
+      return null;
     }
     CrawlReq req;
     try {
@@ -1228,29 +1228,54 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     } catch (RuntimeException e) {
       logger.error("Couldn't create CrawlReq: " + au, e);
       callCallback(cb, cookie, false, null);
-      return;
+      return null;
     }
-    startNewContentCrawl(req);
+    return startNewContentCrawl(req);
   }
 
+  /**
+   * Starts a new-content crawl, using the configured value of the use-on-demand
+   * parameter.
+   * 
+   * @param req A CrawlReq with the specification of the crawl to be started.
+   * @return a CrawlerStatus with status information regarding the crawler used
+   *         for the crawl.
+   */
+  public CrawlerStatus startNewContentCrawl(CrawlReq req) {
+    return startNewContentCrawl(req, paramOdc);
+  }
 
-  public void startNewContentCrawl(CrawlReq req) {
+  /**
+   * Starts a new-content crawl, using the configured value of the use-on-demand
+   * parameter.
+   * 
+   * @param req                A CrawlReq with the specification of the crawl to
+   *                           be started.
+   * @param overridingParamOdc A boolean with the value of the use-on-demand
+   *                           parameter, which will override the configured
+   *                           one.
+   * @return a CrawlerStatus with status information regarding the crawler used
+   *         for the crawl.
+   */
+  public CrawlerStatus startNewContentCrawl(CrawlReq req,
+      boolean overridingParamOdc) {
     if (req.getAu() == null) {
       throw new IllegalArgumentException("Called with null AU");
     }
     if (!crawlerEnabled) {
       logger.warning("Crawler disabled, not crawling: " + req.getAu());
       callCallback(req.getCb(), req.getCookie(), false, null);
-      return;
+      return null;
     }
-    if (paramOdc) {
+    if (overridingParamOdc) {
       enqueueHighPriorityCrawl(req);
+      return null;
     } else {
       if (!isEligibleForNewContentCrawl(req.getAu())) {
         callCallback(req.getCb(), req.getCookie(), false, null);
-        return;
+        return null;
       }
-      handReqToPool(req);
+      return handReqToPool(req);
     }
   }
 
@@ -1258,7 +1283,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   // 5335 still isn't fixed.
   long msgCounter = 0;
 
-  void handReqToPool(CrawlReq req) {
+  CrawlerStatus handReqToPool(CrawlReq req) {
     if (!req.isActive()) {
       if (msgCounter++ < 100) {
         logger.warning("Inactive req: " + req);
@@ -1266,7 +1291,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         logger.warning("Inactive req (rpt " + msgCounter + "): " + req);
       }
       removeAuFromQueues(req.getAuId()); // insurance
-      return;
+      return null;
     }
 
     ArchivalUnit au = req.getAu();
@@ -1289,13 +1314,13 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         // we're expecting this crawl to be accepted.
         cmStatus.addCrawlStatus(crawler.getCrawlerStatus());
         execute(runner);
-        return;
+        return crawler.getCrawlerStatus();
       } else {
         // Add to status only if successfully queued or started.  (No
         // race here; appearance in status might be delayed.)
         execute(runner);
         cmStatus.addCrawlStatus(crawler.getCrawlerStatus());
-        return;
+        return crawler.getCrawlerStatus();
       }
     } catch (InterruptedException e) {
       if (!isShuttingDown()) {
@@ -1315,7 +1340,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       }
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
-      return;
+      return null;
     } catch (RuntimeException e) {
       String crawlerRunner =
           (crawler == null ? "no crawler" : crawler.toString()) + " " +
@@ -1324,7 +1349,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
           " crawl" + " " + crawlerRunner, e);
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
-      return;
+      return null;
     }
   }
 
@@ -2147,9 +2172,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
 
-  void startCrawl(ArchivalUnit au) {
+  CrawlerStatus startCrawl(ArchivalUnit au) {
     CrawlManager.Callback rc = null;
-    startNewContentCrawl(au, rc, null);
+    return startNewContentCrawl(au, rc, null);
   }
 
   void startCrawl(CrawlReq req) {
