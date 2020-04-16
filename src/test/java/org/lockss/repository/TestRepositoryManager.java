@@ -1,9 +1,5 @@
 /*
- * $Id$
- */
-
-/*
- Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +25,7 @@ package org.lockss.repository;
 import java.io.*;
 import java.util.*;
 
+import org.junit.Test;
 import org.lockss.app.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -38,7 +35,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.laaws.rs.core.*;
 
-public class TestRepositoryManager extends LockssTestCase {
+public class TestRepositoryManager extends LockssTestCase4 {
   private MockArchivalUnit mau;
   private MyRepositoryManager mgr;
 
@@ -56,6 +53,7 @@ public class TestRepositoryManager extends LockssTestCase {
     super.tearDown();
   }
 
+  @Test
   public void testConfig() throws Exception {
     PlatformUtil.DF warn = mgr.getDiskWarnThreshold();
     PlatformUtil.DF full = mgr.getDiskFullThreshold();
@@ -78,6 +76,7 @@ public class TestRepositoryManager extends LockssTestCase {
     assertEquals(0.90, full.getPercent(), .00001);
   }
 
+  @Test
   public void testGetRepositoryList() throws Exception {
     assertEmpty(mgr.getRepositoryList());
     String tempDirPath = setUpDiskSpace();
@@ -90,11 +89,17 @@ public class TestRepositoryManager extends LockssTestCase {
 		 mgr.getRepositoryList());
   }
 
+  @Test
   public void testGetRepositoryDF () throws Exception {
+    String tmpdir = getTempDir().toString();
+    assertNull(mgr.getV2Repository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "local:coll_1:" + tmpdir);
     PlatformUtil.DF df = mgr.getRepositoryDF("local:.");
     assertNotNull(df);
   }
 
+  @Test
   public void testFindLeastFullRepository () throws Exception {
     Map repoMap = MapUtil.map("local:one", new MyDF("/one", 1000),
 			      "local:two",  new MyDF("/two", 3000),
@@ -104,6 +109,7 @@ public class TestRepositoryManager extends LockssTestCase {
     assertEquals("local:two", mgr.findLeastFullRepository());
   }
 
+  @Test
   public void testGetV2RepositoryIll () throws Exception {
     assertNull(mgr.getV2Repository());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
@@ -119,6 +125,7 @@ public class TestRepositoryManager extends LockssTestCase {
     assertNull(mgr.getV2Repository());
   }
 
+  @Test
   public void testGetV2RepositoryVolatile () throws Exception {
     assertNull(mgr.getV2Repository());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
@@ -127,6 +134,7 @@ public class TestRepositoryManager extends LockssTestCase {
     assertEquals("coll_1", mgr.getV2Repository().getCollection());
   }
 
+  @Test
   public void testGetV2RepositoryLocal () throws Exception {
     String tmpdir = getTempDir().toString();
     assertNull(mgr.getV2Repository());
@@ -138,6 +146,7 @@ public class TestRepositoryManager extends LockssTestCase {
     assertClass(LocalLockssRepository.class, repo);
   }
 
+  @Test
   public void testGetV2RepositoryRest () throws Exception {
     assertNull(mgr.getV2Repository());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,

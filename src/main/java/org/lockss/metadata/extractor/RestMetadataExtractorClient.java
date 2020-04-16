@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2019-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -40,10 +40,7 @@ import java.util.Objects;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -212,22 +209,8 @@ public class RestMetadataExtractorClient {
     log.debug2("Invoked");
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = new RestTemplate();
-
-    // Do not throw exceptions on non-success response status codes.
-    restTemplate.setErrorHandler(new DefaultResponseErrorHandler(){
-      protected boolean hasError(HttpStatus statusCode) {
-	return false;
-      }
-    });
-
-    // Specify the timeouts.
-    SimpleClientHttpRequestFactory requestFactory =
-	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
-
-    requestFactory.setConnectTimeout((int)connectTimeout);
-    requestFactory.setReadTimeout((int)readTimeout);
-
+    RestTemplate restTemplate =
+	RestUtil.getRestTemplate(connectTimeout, readTimeout);
     log.debug2("restTemplate = {}", restTemplate);
     return restTemplate;
   }

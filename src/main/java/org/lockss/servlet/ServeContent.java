@@ -784,7 +784,7 @@ public class ServeContent extends LockssServlet {
         logAccess("AU not present, 404");
         return;
       }
-      if (cu != null && useRedirectedBaseUrl) {
+      if (cu != null && cu.hasContent() && useRedirectedBaseUrl) {
 	baseUrl = PluginUtil.getBaseUrl(cu);
       } else {
 	baseUrl = url;

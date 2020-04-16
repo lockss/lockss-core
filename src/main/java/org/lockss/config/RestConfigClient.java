@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017-2019 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,10 +62,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
@@ -97,7 +95,7 @@ public class RestConfigClient {
   private String serviceLocation = null;
   private String serviceUser = null;
   private String servicePassword = null;
-  private int serviceTimeout = (int)(60 * Constants.SECOND);
+  private long serviceTimeout = 60 * Constants.SECOND;
 
   /**
    * Constructor.
@@ -1324,18 +1322,6 @@ public class RestConfigClient {
    * @return a RestTemplate with the standard REST template.
    */
   private RestTemplate getRestTemplate() {
-    // Specifying the factory is necessary to get Spring support for PATCH
-    // operations.
-    RestTemplate restTemplate =
-	new RestTemplate(new HttpComponentsClientHttpRequestFactory());
-
-    // Do not throw exceptions on non-success response status codes.
-    restTemplate.setErrorHandler(new DefaultResponseErrorHandler(){
-      protected boolean hasError(HttpStatus statusCode) {
-	return false;
-      }
-    });
-
-    return restTemplate;
+    return RestUtil.getRestTemplate();
   }
 }
