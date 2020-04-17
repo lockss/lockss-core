@@ -91,18 +91,18 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
 					    CrawlManager.Callback cb,
 					    Object cookie) {
     scheduleNewContentCrawl(au, cb, cookie);
-    return null;
+    return new CrawlerStatus(au, null, "mock");
   }
 
   public CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
 					    CrawlManager.Callback cb,
 	                                    Object cookie) {
     scheduleNewContentCrawl(au, cb, cookie);
-    return null;
+    return new CrawlerStatus(au, null, "mock");
   }
 
   public CrawlerStatus startNewContentCrawl(CrawlReq req) {
-    return null;
+    return new CrawlerStatus(req.getAu(), null, "mock");
   }
 
   public CrawlRateLimiter getCrawlRateLimiter(Crawler crawler) {

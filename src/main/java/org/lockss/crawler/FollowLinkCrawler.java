@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -155,9 +151,7 @@ public class FollowLinkCrawler extends BaseCrawler {
 
   public FollowLinkCrawler(ArchivalUnit au, AuState aus) {
     super(au, aus);
-    // Start URLs will be updated from CrawlSeed below
-    crawlStatus = new CrawlerStatus(au, au.getStartUrls(),
-        getTypeString());
+
     try {
       urlOrderComparator = au.getCrawlUrlComparator();
     } catch (PluginException e) {
@@ -933,7 +927,11 @@ public class FollowLinkCrawler extends BaseCrawler {
     }
     return facade;
   }
-  
+
+  protected void setCrawlerStatus(CrawlerStatus crawlerStatus) {
+    crawlStatus = crawlerStatus;
+  }
+
   public static class FollowLinkCrawlerFacade extends BaseCrawler.BaseCrawlerFacade {
     protected Set<String> failedUrls;
     protected Queue<CrawlUrlData> permissionProbeUrls;

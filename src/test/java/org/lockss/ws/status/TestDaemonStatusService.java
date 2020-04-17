@@ -125,12 +125,12 @@ public class TestDaemonStatusService extends LockssTestCase {
     ArchivalUnit sau2 =
       PluginTestUtil.createAndStartSimAu(MySimulatedPlugin1.class,
 					 simAuConfig(tempDirPath + "/2"));
-    CrawlReq req1 = new CrawlReq(sau1);
+    CrawlReq req1 = new CrawlReq(sau1, new CrawlerStatus(sau1, null, null));
     req1.setPriority(8);
     req1.setRefetchDepth(1232);
     crawlMgr.startNewContentCrawl(req1);
 
-    CrawlReq req2 = new CrawlReq(sau2);
+    CrawlReq req2 = new CrawlReq(sau2, new CrawlerStatus(sau2, null, null));
     req2.setPriority(9);
     req2.setRefetchDepth(1231);
     crawlMgr.startNewContentCrawl(req2);
