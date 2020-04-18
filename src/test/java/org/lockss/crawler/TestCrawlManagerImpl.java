@@ -864,7 +864,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_USE_ODC, "true");
       MockArchivalUnit mau1 = newMockArchivalUnit("foo1");
       PluginTestUtil.registerArchivalUnit(plugin, mau1);
-      CrawlReq req = new CrawlReq(mau1, new CrawlerStatus(mau1, null, null));
+      CrawlReq req = new CrawlReq(mau1, new CrawlerStatus(mau1,
+	  mau1.getStartUrls(), null));
       req.setPriority(8);
       req.setRefetchDepth(1232);
       crawlManager.enqueueHighPriorityCrawl(req);
@@ -1157,7 +1158,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       CrawlReq[] res = new CrawlReq[n];
       for (int ix = 0; ix < n; ix++) {
         MockArchivalUnit mau = newMockArchivalUnit(String.format("mau%2d", ix));
-        res[ix] = new CrawlReq(mau, new CrawlerStatus(mau, null, null));
+        res[ix] =
+            new CrawlReq(mau, new CrawlerStatus(mau, mau.getStartUrls(), null));
       }
       return res;
     }
@@ -1480,7 +1482,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
           "foo(4|5),3;bar,5;baz,-1");
       MockArchivalUnit mau1 = new MockArchivalUnit(new MockPlugin(theDaemon));
       mau1.setAuId("other");
-      CrawlReq req = new CrawlReq(mau1, new CrawlerStatus(mau1, null, null));
+      CrawlReq req = new CrawlReq(mau1, new CrawlerStatus(mau1,
+	  mau1.getStartUrls(), null));
       crawlManager.setReqPriority(req);
       assertEquals(0, req.getPriority());
       mau1.setAuId("foo4");
@@ -1539,9 +1542,12 @@ public class TestCrawlManagerImpl extends LockssTestCase {
           "[RE:isMatchRe(tdbAu/params/volume,'vol_1')],6;" +
               "[RE:isMatchRe(tdbAu/params/volume,'vol_(1|2)')],3;");
 
-      CrawlReq req1 = new CrawlReq(mau1, new CrawlerStatus(mau1, null, null));
-      CrawlReq req2 = new CrawlReq(mau2, new CrawlerStatus(mau2, null, null));
-      CrawlReq req3 = new CrawlReq(mau3, new CrawlerStatus(mau3, null, null));
+      CrawlReq req1 = new CrawlReq(mau1,
+	  new CrawlerStatus(mau1, mau1.getStartUrls(), null));
+      CrawlReq req2 = new CrawlReq(mau2,
+	  new CrawlerStatus(mau2, mau2.getStartUrls(), null));
+      CrawlReq req3 = new CrawlReq(mau3,
+	  new CrawlerStatus(mau3, mau3.getStartUrls(), null));
       crawlManager.setReqPriority(req1);
       crawlManager.setReqPriority(req2);
       crawlManager.setReqPriority(req3);

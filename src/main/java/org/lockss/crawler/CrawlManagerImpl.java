@@ -1949,7 +1949,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
             ausWantCrawl++;
             if (isEligibleForNewContentCrawl(au)) {
               if (req == null) {
-        	CrawlerStatus crawlerStatus = new CrawlerStatus(au, null, null);
+        	CrawlerStatus crawlerStatus =
+        	    new CrawlerStatus(au, au.getStartUrls(), null);
                 req = new CrawlReq(au, crawlerStatus);
                 setReqPriority(req);
               }

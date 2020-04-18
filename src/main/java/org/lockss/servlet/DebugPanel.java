@@ -349,7 +349,7 @@ public class DebugPanel extends LockssServlet {
 
     CrawlReq req;
     try {
-      req = new CrawlReq(au, new CrawlerStatus(au, null, null));
+      req = new CrawlReq(au, new CrawlerStatus(au, au.getStartUrls(), null));
       req.setPriority(pri);
       if (deep) {
 	int d = Integer.parseInt(formDepth);
