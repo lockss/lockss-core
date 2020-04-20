@@ -53,6 +53,10 @@ public class AuEvent {
     RestartDelete,
     /** AU recreated as part of a restart operation. */
     RestartCreate,
+    /** AU made present in this component. */
+    Present,
+    /** AU made not present in this component. */
+    Absent,
     /** AU config changed (non-def params only, doesn't happen in normal use).
      */
     Reconfig,

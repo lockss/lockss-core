@@ -120,6 +120,7 @@ public class BatchAuConfig extends LockssServlet {
 
   private PluginManager pluginMgr;
   private RemoteApi remoteApi;
+  private ConfigManager configMgr;
   private SubscriptionManager subManager;
 
   String action;			// action request by form
@@ -135,6 +136,7 @@ public class BatchAuConfig extends LockssServlet {
     super.init(config);
     pluginMgr = getLockssDaemon().getPluginManager();
     remoteApi = getLockssDaemon().getRemoteApi();
+    configMgr = getLockssDaemon().getConfigManager();
     subManager = getLockssDaemon().getSubscriptionManager();
   }
 
@@ -200,9 +202,24 @@ public class BatchAuConfig extends LockssServlet {
 
   private Iterator<LinkWithExplanation> getMenuDescriptors() {
     String ACTION = ACTION_TAG + "=";
-    // XXXONDEMAND getAllAus
-    int numActive = remoteApi.getAllAus().size();
-    boolean someInactive = remoteApi.countInactiveAus() > 0;
+    boolean anyActive = false;
+    boolean anyInactive = false;
+    try {
+      for (AuConfiguration auc :
+	     configMgr.retrieveAllArchivalUnitConfiguration()) {
+	if (auc.isActive()) {
+	  anyActive = true;
+	} else {
+	  anyInactive = true;
+	}
+	if (anyActive && anyInactive) {
+	  break;
+	}
+      }
+    } catch (IOException | org.lockss.db.DbException e) {
+      log.warning("Couldn't retrieve AU configurations", e);
+      anyActive = anyInactive = true;
+    }
     ServletDescr myDescr = myServletDescr();
     ArrayList<LinkWithExplanation> list =
 	new ArrayList<LinkWithExplanation>(10); // at most 10 entries
@@ -212,12 +229,12 @@ public class BatchAuConfig extends LockssServlet {
                                "Add AUs",
                                ACTION + ACTION_SELECT_SETS_TO_ADD,
                                "Add one or more groups of archival units"));
-    if (numActive > 0 || isDebugUser() ) {
+    if (anyActive || isDebugUser() ) {
       list.add(getMenuDescriptor(myDescr,
                                  "Remove AUs",
                                  ACTION + ACTION_SELECT_SETS_TO_DEL,
                                  "Remove selected archival units",
-                                 numActive > 0));
+                                 anyActive));
     }
 
     if (isDebugUser() ) {
@@ -226,12 +243,12 @@ public class BatchAuConfig extends LockssServlet {
                                  "Deactivate AUs",
                                  ACTION + ACTION_SELECT_SETS_TO_DEACT,
                                  "Deactivate selected archival units",
-                                 numActive > 0));
+                                 anyActive));
       list.add(getMenuDescriptor(myDescr,
                                  "Reactivate AUs",
                                  ACTION + ACTION_SELECT_SETS_TO_REACT,
                                  "Reactivate selected archival units",
-                                 someInactive));
+                                 anyInactive));
     }
 
     // Backup and restore
@@ -239,7 +256,7 @@ public class BatchAuConfig extends LockssServlet {
                                "Backup",
                                ACTION + ACTION_BACKUP,
                                "Backup cache config to a file on your workstation",
-                               numActive > 0 || someInactive));
+                               anyActive || anyInactive));
     list.add(getMenuDescriptor(myDescr,
                                "Restore",
                                ACTION + ACTION_RESTORE,

@@ -35,9 +35,9 @@ package org.lockss.daemon;
 import java.util.*;
 
 import org.lockss.util.*;
-import org.lockss.config.ConfigManager;
-import org.lockss.config.Configuration;
-import org.lockss.config.TdbAu;
+import org.lockss.config.*;
+import org.lockss.db.DbException;
+import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.plugin.*;
 
 /**
@@ -361,23 +361,16 @@ public class TitleConfig {
    * @param action the action that would be applied to the AU
    */
   public boolean isActionable(PluginManager pluginMgr, int action) {
-    try {
-      String auid = getAuId(pluginMgr);
-      // XXXONDEMAND
-      switch (action) {
-      case TitleSet.SET_ADDABLE:
-	// addable if doesn't exist and pub not down and not deactivated
-	return (!AuUtil.isPubDown(this)
-		&& !pluginMgr.hasStoredAuConfiguration(auid)
-		);
-      case TitleSet.SET_REACTABLE:
-	return pluginMgr.isInactiveAuId(auid);
-      case TitleSet.SET_DELABLE:
-	return pluginMgr.hasStoredAuConfiguration(auid);
-      }
-    } catch (RuntimeException e) {
-      log.error("TC: " + displayName, e);
-      return false;
+    String auid = getAuId(pluginMgr);
+    switch (action) {
+    case TitleSet.SET_ADDABLE:
+      // addable if doesn't exist and pub not down
+      return (!AuUtil.isPubDown(this)
+	      && !pluginMgr.hasStoredAuConfiguration(auid));
+    case TitleSet.SET_REACTABLE:
+      return pluginMgr.isInactiveAuId(auid);
+    case TitleSet.SET_DELABLE:
+      return pluginMgr.hasStoredAuConfiguration(auid);
     }
     return false;
   }

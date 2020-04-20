@@ -88,7 +88,7 @@ public class ImportPlugin extends BasePlugin {
 			   Configuration prevConfig,
 			   Configuration.Differences changedKeys) {
     if (changedKeys.contains(PREFIX)) {
-      for (Iterator<ArchivalUnit> iter = getAllAus().iterator(); iter.hasNext();
+      for (Iterator<ArchivalUnit> iter = getAllPresentAus().iterator(); iter.hasNext();
 	  ) {
 	//  They should all be ImportArchivalUnits, but just in case...
 	try {

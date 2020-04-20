@@ -1948,7 +1948,7 @@ public class ServeContent extends LockssServlet {
 
     switch (missingFileAction) {
       case AuIndex:
-        displayIndexPage(pluginMgr.getAllAus(),
+        displayIndexPage(pluginMgr.getAllPresentAus(),
             HttpResponse.__404_Not_Found,
             block,
             "The LOCKSS box has the following Archival Units");
@@ -2211,7 +2211,7 @@ public class ServeContent extends LockssServlet {
         }
         break;
       case AuIndex:
-        displayIndexPage(pluginMgr.getAllAus(),
+        displayIndexPage(pluginMgr.getAllPresentAus(),
             HttpResponse.__404_Not_Found,
             block,
             null);
@@ -2231,7 +2231,8 @@ public class ServeContent extends LockssServlet {
   }
 
   void displayIndexPage() throws IOException {
-    displayIndexPage(pluginMgr.getAllAus(), -1, (Element)null, (String)null);
+    displayIndexPage(pluginMgr.getAllPresentAus(), -1,
+		     (Element)null, (String)null);
   }
 
   void displayIndexPage(Collection<ArchivalUnit> auList,

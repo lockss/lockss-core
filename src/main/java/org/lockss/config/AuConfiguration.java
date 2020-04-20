@@ -40,6 +40,7 @@ import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.*;
 import org.lockss.util.*;
+import org.lockss.plugin.PluginManager;
 
 /**
  * The encapsulation of an Archival Unit configuration
@@ -190,6 +191,23 @@ public class AuConfiguration   {
     }
 
     return auConfig.get(key);
+  }
+
+  public boolean getBoolean(String key, boolean dfault) {
+    String val = get(key);
+    if (StringUtil.isNullString(val)) {
+      return dfault;
+    }
+    Boolean bool = Configuration.stringToBool(val);
+    if (bool != null) {
+      return bool.booleanValue();
+    }
+    return dfault;
+  }
+
+  /** Return true iff the AU config is not marked as deactivated */
+  public boolean isActive() {
+    return !getBoolean(PluginManager.AU_PARAM_DISABLED, false);
   }
 
   @Override

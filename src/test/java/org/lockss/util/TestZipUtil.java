@@ -193,7 +193,20 @@ public class TestZipUtil extends LockssTestCase {
     assertTrue(FileUtil.equalTrees(dir, todir));
   }
 
-
+  public void testAddStringToZip() throws IOException {
+    File zipFile = new File(getTempDir(), "testzip.zip");
+    OutputStream out = new BufferedOutputStream(new FileOutputStream(zipFile));
+    ZipOutputStream z = new ZipOutputStream(out);
+    String s1 = "ascii string xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    ZipUtil.addStringToZip(z, s1, "ascii");
+    String s2 = "ce n'est pas une chaîne"
+    ZipUtil.addStringToZip(z, s2, "accented");
+    z.close();
+    File todir = getTempDir();
+    ZipUtil.unzip(zipFile, todir);
+    assertFileMatchesString(s1, new File(todir, s1));
+    assertFileMatchesString(s2, new File(todir, s2));
+  }
 
   class MyBufferedInputStream extends BufferedInputStream {
     MyBufferedInputStream(InputStream in) {

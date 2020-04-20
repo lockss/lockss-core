@@ -633,7 +633,7 @@ public class MetadataUtil {
 	}
       };
 
-    for (ArchivalUnit au : pluginMgr.getAllAus()) {
+    for (ArchivalUnit au : pluginMgr.getAllPresentAus()) {
       if (pluginMgr.isInternalAu(au)) {
 	continue;
       }
@@ -735,7 +735,7 @@ public class MetadataUtil {
 	  }      
 	}
       };
-    for (ArchivalUnit au : pluginMgr.getAllAus()) {
+    for (ArchivalUnit au : pluginMgr.getAllPresentAus()) {
       if (pluginMgr.isInternalAu(au)) {
 	continue;
       }

@@ -76,10 +76,11 @@ public class RemoteApi
   static final String PREFIX = Configuration.PREFIX + "remoteApi.";
 
   /** Config backup file version: V1 is just AU config, V2 is zip including
-   * AU config and agreement history */
+   * AU config and agreement history.  V3 is laaws, agreement hist now
+   * json */
   static final String PARAM_BACKUP_FILE_VERSION =
     PREFIX + "backupFileVersion";
-  static final String DEFAULT_BACKUP_FILE_VERSION = "V2";
+  static final String DEFAULT_BACKUP_FILE_VERSION = "V3";
 
   /** Config backup file externsion, used in place of <code>.zip</code> */
   static final String PARAM_BACKUP_FILE_EXTENSION =
@@ -123,6 +124,7 @@ public class RemoteApi
 
   private PluginManager pluginMgr;
   private ConfigManager configMgr;
+  private StateManager stateMgr;
   private IdentityManager idMgr;
   private RepositoryManager repoMgr;
   private AccountManager acctMgr;
@@ -149,6 +151,8 @@ public class RemoteApi
     super.startService();
     pluginMgr = getDaemon().getPluginManager();
     configMgr = getDaemon().getConfigManager();
+    stateMgr = getDaemon().getManagerByType(StateManager.class);
+
     idMgr = getDaemon().getIdentityManager();
     repoMgr = getDaemon().getRepositoryManager();
     acctMgr = getDaemon().getAccountManager();
@@ -218,6 +222,23 @@ public class RemoteApi
       auProxies.put(au, aup);
       auProxies.put(au.getAuId(), aup);
     }
+    return aup;
+  }
+
+  /** Create or return an AuProxy for the AU
+   * @param au the AU
+   * @return an AuProxy for the AU, or null if the au is null
+   */
+  synchronized AuProxy findAuProxyAndAbsent(ArchivalUnit au) {
+    if (au == null) {
+      return null;
+    }
+    AuProxy aup = (AuProxy)auProxies.get(au);
+    if (aup == null) {
+      aup = AuProxy.forAuToAbsent(au, this);
+      auProxies.put(au.getAuId(), aup);
+    }
+    pluginMgr.makeAuAbsent(au);
     return aup;
   }
 
@@ -348,7 +369,11 @@ public class RemoteApi
       LockssRestException {
     Plugin plugin = pluginp.getPlugin();
     ArchivalUnit au = pluginMgr.createAndSaveAuConfiguration(plugin, auConf);
-    return findAuProxy(au);
+    if (pluginMgr.isStartAusOnCreation()) {
+      return findAuProxy(au);
+    } else {
+      return findAuProxyAndAbsent(au);
+    }
   }
 
   /**
@@ -362,12 +387,6 @@ public class RemoteApi
       throws ArchivalUnit.ConfigurationException, DbException,
       LockssRestException {
     pluginMgr.deleteAu(aup);
-//     if (aup.isActiveAu()) {
-//       ArchivalUnit au = aup.getAu();
-//       pluginMgr.deleteAu(au);
-//     } else {
-//       pluginMgr.deleteAuConfiguration(aup.getAuId());
-//     }
   }
 
   /**
@@ -405,18 +424,33 @@ public class RemoteApi
   }
 
   /**
-   * Return a list of AuProxies for all configured ArchivalUnits.
+   * Return a list of AuProxies for all present ArchivalUnits.
    * @return the List of AuProxies
    */
-  public List<AuProxy> getAllAus() {
-    return mapAusToProxies(pluginMgr.getAllAus());
+  public List<AuProxy> getAllPresentAuProxies() {
+    return mapAusToProxies(pluginMgr.getAllPresentAus());
   }
 
   public int countInactiveAus() {
     return pluginMgr.getInactiveAuIds().size();
   }
 
-  public List getInactiveAus() {
+  public List<AuProxy> getActiveAus() {
+    Collection<String> activeAuIds = pluginMgr.getActiveAuIds();
+    if (activeAuIds == null || activeAuIds.isEmpty()) {
+      return Collections.EMPTY_LIST;
+    }
+    List res = new ArrayList(activeAuIds.size());
+    for (String auid : activeAuIds) {
+      if (!pluginMgr.isInternalAu(pluginMgr.getAuFromIdIfExists(auid))) {
+	res.add(findAuProxy(auid));
+      }
+    }
+    Collections.sort(res, auProxyComparator);
+    return res;
+  }
+
+  public List<AuProxy> getInactiveAus() {
     Collection<String> inactiveAuIds = pluginMgr.getInactiveAuIds();
     if (inactiveAuIds == null || inactiveAuIds.isEmpty()) {
       return Collections.EMPTY_LIST;
@@ -630,10 +664,11 @@ public class RemoteApi
 	File acctDir = acctMgr.getAcctDir();
 	ZipUtil.addDirToZip(zip, acctDir, "accts");
       }
-      List aus = pluginMgr.getAllAus();
+      Collection<AuConfiguration> auConfigs =
+	configMgr.retrieveAllArchivalUnitConfiguration();
       // add a directory for each AU
-      if (aus != null) {
-	addAusToZip(zip, aus);
+      if (auConfigs != null) {
+	addAusToZip(zip, auConfigs);
       }
 
       // Add any configured subscriptions to the zip file.
@@ -670,38 +705,35 @@ public class RemoteApi
     }
   }
 
-  void addAusToZip(ZipOutputStream zip, List aus) throws IOException {
+  void addAusToZip(ZipOutputStream zip, Collection<AuConfiguration> auConfigss)
+      throws IOException {
     int dirn = 1;
-    for (Iterator iter = aus.iterator(); iter.hasNext(); ) {
-      ArchivalUnit au = (ArchivalUnit)iter.next();
-      log.debug2("au: "+ au);
-      if (pluginMgr.isInternalAu(au)) {
-	log.debug2("internal: "+ au);
+    for (AuConfiguration auc : auConfigss) {
+      String auid = auc.getAuId();;
+      log.debug3("auid: "+ auid);
+      if (pluginMgr.isInternalAu(auid)) {
+	log.debug3("internal: "+ auid);
 	continue;
       }
       String dir = Integer.toString(dirn) + "/";
       zip.putNextEntry(new ZipEntry(dir));
-      Configuration auConfig = au.getConfiguration();
       Properties auprops = new Properties();
-      auprops.setProperty(AU_BACK_PROP_AUID, au.getAuId());
+      auprops.setProperty(AU_BACK_PROP_AUID, auid);
 
       addPropsToZip(zip, auprops, dir + BACK_FILE_AU_PROPS,
-		    "AU " + au.getName());
-      if (idMgr.hasAgreeMap(au)) {
+		    "AUID " + auid);
+      // Write V3 agreements
+      AuAgreements agmnts = stateMgr.getAuAgreements(auid);
+      if (agmnts.haveAgreements()) {
 	zip.putNextEntry(new ZipEntry(dir + BACK_FILE_AGREE_MAP));
-	try {
-	  idMgr.writeIdentityAgreementTo(au, zip);
-	} catch (FileNotFoundException e) {}
+	ZipUtil.addStringToZip(zip, agmnts.toJson(), "v3Agreement");
 	zip.closeEntry();
       }
-      // XXXAUS need new mechanism
-//       File auStateFile = getAuStateFile(au);
-
-//       if (auStateFile.exists()) {
-// 	try {
-// 	  addCfgFileToZip(zip, auStateFile, dir + BACK_FILE_AUSTATE);
-// 	} catch (FileNotFoundException e) {}
-//       }
+      // Write AuState
+      AuStateBean ausb = stateMgr.getAuStateBean(auid);
+      zip.putNextEntry(new ZipEntry(dir + BACK_FILE_AUSTATE));
+      ZipUtil.addStringToZip(zip, ausb.toJson(), "AuState");
+      zip.closeEntry();
       dirn++;
     }
   }
@@ -2136,6 +2168,10 @@ public class RemoteApi
       statusEntry.setName(au.getName(), au.getPlugin());
       statusEntry.setExplanation("Created Archival Unit:\n" + au.getName());
       status.add(statusEntry);
+      if (!pluginMgr.isStartAusOnCreation()) {
+	pluginMgr.makeAuAbsent(au);
+	au = null;
+      }
     } catch (ArchivalUnit.ConfigurationException ce) {
       log.error("Couldn't create AU", ce);
       statusEntry.setName(auId);
@@ -2299,40 +2335,40 @@ public class RemoteApi
     return bas;
   }
 
-  /**
-   * Reactivates archival units.
-   * 
-   * @param auIds
-   *          A List<String> with the identifiers of the archival units.
-   * @return a BatchAuStatus object describing the results.
-   */
-  public BatchAuStatus reactivateAus(List<String> auIds)
-      throws DbException, LockssRestException {
-    final String DEBUG_HEADER = "reactivateAus(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auIds = " + auIds);
+//   /**
+//    * Reactivates archival units.
+//    *
+//    * @param auIds
+//    *          A List<String> with the identifiers of the archival units.
+//    * @return a BatchAuStatus object describing the results.
+//    */
+//   public BatchAuStatus reactivateAus(List<String> auIds)
+//       throws DbException, LockssRestException {
+//     final String DEBUG_HEADER = "reactivateAus(): ";
+//     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auIds = " + auIds);
 
-    Map<String, Configuration> auConfigs = new HashMap<String, Configuration>();
+//     Map<String, Configuration> auConfigs = new HashMap<String, Configuration>();
 
-    // Loop through all the identifiers of the archival units to be reactivated.
-    for (String auId : auIds) {
-      // Store the archival unit configuration in the map.
-      Configuration auConfig =
-	  pluginMgr.getStoredAuConfigurationAsConfiguration(auId);
+//     // Loop through all the identifiers of the archival units to be reactivated.
+//     for (String auId : auIds) {
+//       // Store the archival unit configuration in the map.
+//       Configuration auConfig =
+// 	  pluginMgr.getStoredAuConfigurationAsConfiguration(auId);
 
-      if (auConfig.isSealed()) {
-	auConfig = auConfig.copy();
-      }
+//       if (auConfig.isSealed()) {
+// 	auConfig = auConfig.copy();
+//       }
 
-      auConfig.put(PluginManager.AU_PARAM_DISABLED, "false");
-      auConfigs.put(auId, auConfig);
-    }
+//       auConfig.put(PluginManager.AU_PARAM_DISABLED, "false");
+//       auConfigs.put(auId, auConfig);
+//     }
 
-    // Reactivate the archival units.
-    BatchAuStatus bas = batchAddAus(BATCH_ADD_REACTIVATE,
-	auIds.toArray(new String[auIds.size()]), null, null, auConfigs,
-	new HashMap<String, String>(), null);
+//     // Reactivate the archival units.
+//     BatchAuStatus bas = batchAddAus(BATCH_ADD_REACTIVATE,
+// 	auIds.toArray(new String[auIds.size()]), null, null, auConfigs,
+// 	new HashMap<String, String>(), null);
 
-    if (log.isDebug2()) log.debug2("bas = " + bas);
-    return bas;
-  }
+//     if (log.isDebug2()) log.debug2("bas = " + bas);
+//     return bas;
+//   }
 }

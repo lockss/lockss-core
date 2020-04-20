@@ -163,11 +163,11 @@ public interface Plugin {
       throws ArchivalUnit.ConfigurationException;
 
   /**
-   * Return a collection of all {@link ArchivalUnit}s that exist within this
-   * plugin.
+   * Return a collection of all {@link ArchivalUnit}s that are present
+   * within this plugin.
    * @return a {@link Collection} of AUs
    */
-  public Collection<ArchivalUnit> getAllAus();
+  public Collection<ArchivalUnit> getAllPresentAus();
 
   /**
    * Return the LockssDaemon instance

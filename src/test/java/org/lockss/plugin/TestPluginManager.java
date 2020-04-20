@@ -2325,6 +2325,25 @@ public class TestPluginManager extends LockssTestCase4 {
     assertFalse(mgr.isInternalPlugin(internalPlugin));
   }
 
+  @Test
+  public void testIsInternalAuPlugin() throws Exception {
+    assertFalse(mgr.isInternalAuPlugin(mgr.getImportPlugin()));
+    assertTrue(mgr.isInternalAuPlugin(mgr.getRegistryPlugin()));
+    assertFalse(mgr.isInternalAuPlugin(mgr.getPlugin(mockPlugKey)));
+  }
+
+  @Test
+  public void testIsInternalAu() throws Exception {
+    mgr.startService();
+    doConfigAus();
+    ArchivalUnit au1 = mgr.getAuFromIdIfExists(mauauid1);
+    assertFalse(mgr.isInternalAu(au1));
+    assertFalse(mgr.isInternalAu(au1.getAuId()));
+    ArchivalUnit rau = createNewRegistryAu("http:/foo.bar/base/");
+    assertTrue(mgr.isInternalAu(rau));
+    assertTrue(mgr.isInternalAu(rau.getAuId()));
+  }
+
   /**
    * a mock Archival Unit used for testing loadable plugin loading.
    */

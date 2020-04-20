@@ -301,9 +301,9 @@ public class ArchivalUnitStatus
       List rowL = new ArrayList();
       Collection<ArchivalUnit> aus;
       if (onlyPlug != null) {
-        aus = onlyPlug.getAllAus();
+        aus = onlyPlug.getAllPresentAus();
       } else {
-        aus = pluginMgr.getAllAus();
+        aus = pluginMgr.getAllPresentAus();
       }
       for (ArchivalUnit au : aus) {
         if (!includeInternalAus && pluginMgr.isInternalAu(au)) {
@@ -515,7 +515,7 @@ public class ArchivalUnitStatus
       boolean includeInternalAus =
           table.getOptions().get(StatusTable.OPTION_DEBUG_USER);
       List rowL = new ArrayList();
-      for (Iterator iter = pluginMgr.getAllAus().iterator();
+      for (Iterator iter = pluginMgr.getAllPresentAus().iterator();
           iter.hasNext(); ) {
         ArchivalUnit au = (ArchivalUnit)iter.next();
         if (!includeInternalAus && pluginMgr.isInternalAu(au)) {
@@ -2101,7 +2101,7 @@ public class ArchivalUnitStatus
       int internal = 0;
       int neverCrawled = 0;
       int needsRecrawl = 0;
-      for (ArchivalUnit au : pluginMgr.getAllAus()) {
+      for (ArchivalUnit au : pluginMgr.getAllPresentAus()) {
         if (pluginMgr.isInternalAu(au)) {
           internal++;
           if (!isDebug) {

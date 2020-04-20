@@ -288,8 +288,9 @@ public abstract class BasePlugin
     pluginMgr.resetTitles();
   }
 
+  /** Notify present AUs that their tdb entry changed */
   protected void notifyAusTitleDbChanged() {
-    for (Iterator<ArchivalUnit> iter = getAllAus().iterator(); iter.hasNext(); ) {
+    for (Iterator<ArchivalUnit> iter = getAllPresentAus().iterator(); iter.hasNext(); ) {
       //  They should all be BaseArchivalUnits, but just in case...
       try {
 	BaseArchivalUnit au = (BaseArchivalUnit)iter.next();
@@ -363,8 +364,8 @@ public abstract class BasePlugin
     return this.getClass().getName();
   }
 
-  public Collection<ArchivalUnit> getAllAus() {
-    if (log.isDebug2()) log.debug2("getAllAus: aus: " + aus);
+  public Collection<ArchivalUnit> getAllPresentAus() {
+    if (log.isDebug2()) log.debug2("getAllPresentAus: aus: " + aus);
     synchronized (aus) {
       return new ArrayList<ArchivalUnit>(aus);
     }

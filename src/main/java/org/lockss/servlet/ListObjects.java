@@ -863,7 +863,7 @@ public class ListObjects extends LockssServlet {
 
     void doBody() throws IOException {
       boolean includeInternalAus = isDebugUser();
-      for (ArchivalUnit au : pluginMgr.getAllAus()) {
+      for (ArchivalUnit au : pluginMgr.getAllPresentAus()) {
 	if (includeInternalAus || !pluginMgr.isInternalAu(au)) {
 	  processAu(au);
 	  itemCnt++;

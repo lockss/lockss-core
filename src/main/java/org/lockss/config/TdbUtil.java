@@ -92,6 +92,7 @@ public class TdbUtil {
    * @param tdbau the TdbAu
    * @return the ArchivalUnit or <code>null</code> if no corresponding AU
    */
+  // XXXONDEMAND
   public static ArchivalUnit getAu(TdbAu tdbau) {
     PluginManager pluginMgr = LockssDaemon.getLockssDaemon().getPluginManager();
     String auid = tdbau.getAuId(pluginMgr);
@@ -402,8 +403,13 @@ public class TdbUtil {
    * 
    * @return a collection of ArchivalUnit objects
    */
+  // XXXONDEMAND *Lots* of things depend on this indirectly and must be
+  // fixed.  Too much work for this pass.
   public static Collection<ArchivalUnit> getConfiguredAus() {
-    return LockssDaemon.getLockssDaemon().getPluginManager().getAllAus();
+//     return LockssDaemon.getLockssDaemon().getPluginManager().getAllAus();
+    // XXX getAllPresentAus() is WRONG - should change to return TdbAus or
+    // something
+    return LockssDaemon.getLockssDaemon().getPluginManager().getAllPresentAus();
   }
 
   /**

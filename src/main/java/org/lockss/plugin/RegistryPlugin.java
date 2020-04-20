@@ -88,7 +88,7 @@ public class RegistryPlugin extends BasePlugin {
 			   Configuration prevConfig,
 			   Configuration.Differences changedKeys) {
     if (changedKeys.contains(PREFIX)) {
-      for (Iterator iter = getAllAus().iterator(); iter.hasNext(); ) {
+      for (Iterator iter = getAllPresentAus().iterator(); iter.hasNext(); ) {
 	//  They should all be RegistryArchivalUnits, but just in case...
 	try {
 	  RegistryArchivalUnit au = (RegistryArchivalUnit)iter.next();

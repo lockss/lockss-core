@@ -139,15 +139,15 @@ public class PluginProxy {
     return plugin.findAuConfigDescr(key);
   }
 
-  /**
-   * Return a collection of {@link AuProxy}s for the {@link ArchivalUnit}s
-   * that exist within this plugin.
-   * @return a Collection of {@link AuProxy}s
-   */
-  // XXXONDEMAND
-  public Collection getAllAus() {
-    return remoteApi.mapAusToProxies(plugin.getAllAus());
-  }
+//   /**
+//    * Return a collection of {@link AuProxy}s for the {@link ArchivalUnit}s
+//    * that exist within this plugin.
+//    * @return a Collection of {@link AuProxy}s
+//    */
+//   // XXXONDEMAND
+//   public Collection getAllAus() {
+//     return remoteApi.mapAusToProxies(plugin.getAllAus());
+//   }
 
   public static class NoSuchPlugin extends Exception {
     public NoSuchPlugin(String msg) {

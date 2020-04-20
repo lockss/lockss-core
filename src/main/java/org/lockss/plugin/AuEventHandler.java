@@ -94,6 +94,20 @@ public interface AuEventHandler {
 	log.debug2("Ignoring received auDeleted event for absent AU: " + auid);
       }
     }
+    public void auPresented(AuEvent event, String auid, ArchivalUnit au) {
+      if (au != null) {
+	auAbsented(event, au);
+      } else {
+	log.debug2("Ignoring received auPresented event for absent AU: " + auid);
+      }
+    }
+    public void auAbsented(AuEvent event, String auid, ArchivalUnit au) {
+      if (au != null) {
+	auAbsented(event, au);
+      } else {
+	log.debug2("Ignoring received auAbsented event for absent AU: " + auid);
+      }
+    }
     public void auReconfigured(AuEvent event, String auid, ArchivalUnit au,
 			       Configuration oldAuConf) {
       if (au != null) {
@@ -115,6 +129,8 @@ public interface AuEventHandler {
 
     public void auCreated(AuEvent event, ArchivalUnit au) {}
     public void auDeleted(AuEvent event, ArchivalUnit au) {}
+    public void auPresented(AuEvent event, ArchivalUnit au) {}
+    public void auAbsented(AuEvent event, ArchivalUnit au) {}
     public void auReconfigured(AuEvent event, ArchivalUnit au,
 			       Configuration oldAuConf) {}
     public void auContentChanged(AuEvent event, ArchivalUnit au,

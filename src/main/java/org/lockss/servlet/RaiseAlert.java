@@ -160,8 +160,7 @@ public class RaiseAlert extends LockssServlet {
     autbl.addHeading("Select AU");
     Select sel = new Select(KEY_AUID, false);
     sel.add("", auid == null, "");
-    for (Iterator iter = pluginMgr.getAllAus().iterator(); iter.hasNext(); ) {
-      ArchivalUnit au0 = (ArchivalUnit)iter.next();
+    for (ArchivalUnit au0 : pluginMgr.getAllPresentAus()) {
       String id = au0.getAuId();
       sel.add(au0.getName(), id.equals(auid), id);
     }

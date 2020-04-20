@@ -270,7 +270,7 @@ public class SystemMetrics
 		", Total: " + K(tot) +
 		", Max: " + K(max) +
 		( (pluginMgr == null) ? "" :
-		  (", " + pluginMgr.getAllAus().size() + " AUs")));
+		  (", " + pluginMgr.getAllPresentAus().size() + " present AUs")));
     if (logger.isDebug2()) {
       logger.debug2("String Pools:\n" + StringPool.allStats());
     }

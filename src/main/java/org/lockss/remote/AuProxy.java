@@ -46,6 +46,7 @@ public class AuProxy {
   private RemoteApi remoteApi;
   private ArchivalUnit au;
   private String auid;
+  private String auName;
   private Configuration config;
 
   AuProxy(ArchivalUnit au, RemoteApi remoteApi) {
@@ -75,9 +76,12 @@ public class AuProxy {
     }
   }
 
-//   AuProxy(RemoteApi remoteApi) {
-//     this.remoteApi = remoteApi;
-//   }
+  public static AuProxy forAuToAbsent(ArchivalUnit au, RemoteApi remoteApi) {
+    AuProxy aup = new AuProxy(au, remoteApi);
+    aup.au = null;
+    aup.auName = au.getName();
+    return aup;
+  }
 
   public ArchivalUnit getAu() {
     if (au != null) {
@@ -146,9 +150,15 @@ public class AuProxy {
   public String getName() {
     if (au != null) {
       return au.getName();
+    } else if (auName != null) {
+      return auName;
     } else {
-      return "Noname AU: " + auid;
+      return "Unknown name AU: " + auid;
     }
+  }
+
+  private void setName(String name) {
+    this.auName = name;
   }
 
   public static class NoSuchAU extends Exception {

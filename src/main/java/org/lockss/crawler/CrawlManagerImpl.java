@@ -1895,7 +1895,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       unsharedRateReqs.setMaxSize(paramUnsharedQueueMax);
       sharedRateReqs.clear();
       for (ArchivalUnit au : (areAusStarted()
-          ? pluginMgr.getAllAus()
+          ? pluginMgr.getAllPresentAus()
           : getHighPriorityAus())) {
         try {
           CrawlReq req;

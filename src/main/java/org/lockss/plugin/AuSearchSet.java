@@ -131,7 +131,7 @@ public class AuSearchSet implements Iterable<ArchivalUnit> {
 
   /** Return an unordered collection of the AUs in the set.  The collection
    * is concurrently iterable, and unmodifiable. */
-  public Collection<ArchivalUnit> getAllAus() {
+  public Collection<ArchivalUnit> getAllPresentAus() {
     return Collections.unmodifiableCollection(aus);
   }
 

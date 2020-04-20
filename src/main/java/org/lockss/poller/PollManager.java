@@ -2846,7 +2846,7 @@ public class PollManager
         if (availablePollCount > 0) {
           Map<ArchivalUnit, PollWeight> weightMap =
               new HashMap<ArchivalUnit, PollWeight>();
-          for (ArchivalUnit au : pluginMgr.getAllAus()) {
+          for (ArchivalUnit au : pluginMgr.getAllPresentAus()) {
             try {
               if (highPriorityAus.contains(au)) {
                 // already tried above; might or might not have been added.

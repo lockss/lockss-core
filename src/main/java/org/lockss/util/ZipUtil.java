@@ -144,6 +144,17 @@ public class ZipUtil {
     }
   }
 
+  public static void addStringToZip(ZipOutputStream z,
+				    String str,
+				    String entryName) throws IOException {
+    try {
+      z.putNextEntry(new ZipEntry(entryName));
+      StringUtil.toOutputStream(z, str);
+    } finally {
+      z.closeEntry();
+    }
+  }
+
   public static void addFileToZip(ZipOutputStream z,
 				  File file) throws IOException {
     addFileToZip(z, file, null);

@@ -191,7 +191,7 @@ public class AuConfig extends LockssServlet {
     }
 
     // Local variables
-    Collection allAus = remoteApi.getAllAus();
+    Collection allAus = remoteApi.getAllPresentAuProxies();
     Collection inactiveAus = remoteApi.getInactiveAus();
 
     Page page = newPage();

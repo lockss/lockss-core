@@ -1919,7 +1919,7 @@ public class ServletUtil {
     sel.add("", preselId == null, "");
 //     PluginManager pluginMgr = servlet.getLockssDaemon().getPluginManager();
     RemoteApi remoteApi = servlet.getLockssDaemon().getRemoteApi();
-    for (AuProxy aup : remoteApi.getAllAus()) {
+    for (AuProxy aup : remoteApi.getAllPresentAuProxies()) {
       String id = aup.getAuId();
       sel.add(encodeAttr(aup.getName()), id.equals(preselId), id);
     }
@@ -2064,7 +2064,7 @@ public class ServletUtil {
     sb.append("Volume Manifests on ");
     sb.append(hostname);
     sb.append(HEADER_HEADING_AFTER);
-    return manifestIndex(pluginMgr, pluginMgr.getAllAus(), sb.toString());
+    return manifestIndex(pluginMgr, pluginMgr.getAllPresentAus(), sb.toString());
   }
 
   /** Return an index of manifest pages for the given AUs. */

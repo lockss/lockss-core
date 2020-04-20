@@ -143,7 +143,7 @@ class Plugins extends PluginStatus implements StatusAccessor {
 	Map row = new HashMap();
 	row.put("plugin", makePlugRef(plugin.getPluginName(), plugin));
 
-	int numaus = plugin.getAllAus().size();
+	int numaus = plugin.getAllPresentAus().size();
 	if (numaus > 0) {
 	  StatusTable.Reference auslink = 
 	    new StatusTable.Reference(numaus,
@@ -277,7 +277,7 @@ class PluginDetail extends PluginStatus implements StatusAccessor {
 					ColumnDescriptor.TYPE_STRING,
 					mgr.getPluginType(plug)));
     StatusTable.Reference auslink = 
-      new StatusTable.Reference(plug.getAllAus().size(),
+      new StatusTable.Reference(plug.getAllPresentAus().size(),
 				ArchivalUnitStatus.SERVICE_STATUS_TABLE_NAME,
 				"plugin:" + plug.getPluginId());
     res.add(new StatusTable.SummaryInfo("# AUs",
