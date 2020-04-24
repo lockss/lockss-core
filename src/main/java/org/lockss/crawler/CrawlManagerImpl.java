@@ -1002,7 +1002,23 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       }
     }
   }
-  void auEventCreated(AuEvent event, ArchivalUnit au) {
+
+  /**
+   * Deletes all the crawls in the system.
+   */
+   public void deleteAllCrawls() {
+     removeAllAusFromQueues();
+
+     synchronized (runningCrawlersLock) {
+       for (PoolCrawlers pc : poolMap.values()) {
+         for (Crawler crawler : pc.getCrawlers()) {
+           crawler.abortCrawl();
+         }
+       }
+     }
+   }
+
+    void auEventCreated(AuEvent event, ArchivalUnit au) {
     // Check whether this AU was on the high priority queue when it was
     // deactivated.  (Should be necessary only for RestartCreate but cheap
     // to do always.)
@@ -1735,6 +1751,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
   private void forceQueueRebuild() {
     timeToRebuildCrawlQueue.expire();
+  }
+
+  // Force queues to be rebuilt. Overkill, but easy and this hardly
+  // ever happens
+  void removeAllAusFromQueues() {
+    synchronized (highPriorityCrawlRequests) {
+      highPriorityCrawlRequests.clear();
+    }
+    forceQueueRebuild();
   }
 
   CrawlReq nextReq() throws InterruptedException {
