@@ -180,7 +180,8 @@ public class FuncV2Repo extends LockssTestCase {
    * @param expected
    * @param actual
    */
-  private void assertArtifactCommitted(Artifact expected, Artifact actual) {
+  private void assertArtifactCommitted(Artifact expected, Artifact actual)
+      throws IOException {
     assertEquals(expected.getId(), actual.getId());
     assertEquals(expected.getCollection(), actual.getCollection());
     assertEquals(expected.getAuid(), actual.getAuid());
@@ -191,7 +192,20 @@ public class FuncV2Repo extends LockssTestCase {
     assertEquals(expected.getVersion(), actual.getVersion());
 
     assertNotEquals(expected.getCommitted(), actual.getCommitted());
-    // TODO: FIX assertNotEquals(expected.getStorageUrl(), actual.getStorageUrl());
+    // Ensure that the artifact eventually moves from temp to perm WARC
+    while (expected.getStorageUrl().equals(actual.getStorageUrl())) {
+      actual = repo.getArtifactVersion(actual.getCollection(),
+				       actual.getAuid(),
+				       actual.getUri(),
+				       actual.getVersion());
+      log.info("commArt.getStorageUrl(): " + actual.getStorageUrl());
+      try {
+	Thread.sleep(10);
+      } catch (InterruptedException e) {
+	throw new RuntimeException(e.toString());
+      }
+    }
+    assertNotEquals(expected.getStorageUrl(), actual.getStorageUrl());
   }
 
   Artifact storeArt(String url, String content,
@@ -213,7 +227,7 @@ public class FuncV2Repo extends LockssTestCase {
       ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
 
     assertEquals(url1, l0.get(0).getUri());
-    log.critical("testVersion all: " + l0);
+    log.info("testVersion all: " + l0);
     List l = ListUtil.fromIterator(repo.getArtifactsAllVersions(COLL, AUID,
 							        url1).iterator());
     assertEquals(1, l.size());
@@ -252,21 +266,21 @@ public class FuncV2Repo extends LockssTestCase {
     ArtifactData art1 = createArtifact(COLL, AUID, url1, "content 11111");
     art = repo.getArtifact(COLL, AUID, url1);
     assertNull(art);
-    log.critical("adding: " + art1);
+    log.info("adding: " + art1);
     Artifact newArt = repo.addArtifact(art1);
-    log.critical("added: " + newArt);
+    log.info("added: " + newArt);
     assertNotNull(newArt);
-    log.critical("new artData meta: " + repo.getArtifactData(newArt).getMetadata());
+    log.info("new artData meta: " + repo.getArtifactData(newArt).getMetadata());
     assertCompareIsEqualTo(art1.getIdentifier(), newArt.getIdentifier());
     List<Artifact> aids = 
       ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
-    log.critical("foo: " + aids);
+    log.info("foo: " + aids);
 
     Artifact committedArt = repo.commitArtifact(newArt);
-    log.critical("committedArt ver: " + committedArt.getVersion());
+    log.info("committedArt ver: " + committedArt.getVersion());
 
     aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
-    log.critical("foo: " + aids);
+    log.info("foo: " + aids);
     ArtifactData a1 = repo.getArtifactData(committedArt);
     assertInputStreamMatchesString("content 11111", a1.getInputStream());
     try {
@@ -281,7 +295,7 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact art2 = repo.addArtifact(ad2);
     Artifact datas = repo.commitArtifact(art2);
     aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
-    log.critical("foo: " + aids);
+    log.info("foo: " + aids);
 
 
 //     art = 
@@ -303,32 +317,32 @@ public class FuncV2Repo extends LockssTestCase {
     BasicStatusLine statusLine =
       new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
 
-    log.critical("Creating ArtData with metadata: " + metadata);
+    log.info("Creating ArtData with metadata: " + metadata);
     ArtifactData ad1 =
       new ArtifactData(id,
 		       metadata,
 		       new StringInputStream("bytes"),
 		       statusLine);
 
-    log.critical("ArtData has metadata: " + ad1.getMetadata());
+    log.info("ArtData has metadata: " + ad1.getMetadata());
     Artifact art1 = repo.addArtifact(ad1);
-    log.critical("art1 metadata: " +
+    log.info("art1 metadata: " +
 		 repo.getArtifactData(art1).getMetadata());
-    log.critical("committing: " + art1);
+    log.info("committing: " + art1);
     Artifact art2 = repo.commitArtifact(art1);
-    log.critical("committed: " + art2);
+    log.info("committed: " + art2);
 
     Artifact art3 = repo.getArtifact(coll, auid, url);
-    log.critical("found: " + art3);
+    log.info("found: " + art3);
 
-    log.critical("deleting: " + art1);
+    log.info("deleting: " + art1);
     repo.deleteArtifact(art1);
-    log.critical("deleted: " + art1);
+    log.info("deleted: " + art1);
     Artifact art4 = repo.getArtifact(coll, auid, url);
     if (art4 == null) {
-      log.critical("successfully deleted: " + art1);
+      log.info("successfully deleted: " + art1);
     } else {
-      log.critical("not deleted: " + art4);
+      log.info("not deleted: " + art4);
     }
 
     ArtifactIdentifier id2 = new ArtifactIdentifier(coll, auid, url + "xxx", null);
@@ -342,9 +356,9 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact artu = repo.addArtifact(ad2);
     //    assertTrue(artu.
     ArtifactData adu = repo.getArtifactData(artu);
-    log.critical("adu: " + adu);
+    log.info("adu: " + adu);
 
-    log.critical("deleting: " + artu);
+    log.info("deleting: " + artu);
     repo.deleteArtifact(artu);
 
 
