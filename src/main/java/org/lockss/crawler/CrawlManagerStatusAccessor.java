@@ -37,6 +37,7 @@ import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.util.*;
+import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -225,12 +226,15 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	if (key != null && !key.equals(crawlStat.getAuId())) {
 	  continue;
 	}
-	ArchivalUnit au = crawlStat.getAu();
-	if (!includeDeletedAus && au == null) {
-	  continue;
-	}
-	if (!includeInternalAus && au != null && pluginMgr.isInternalAu(au)) {
-	  continue;
+	ArchivalUnit au = null;
+	if (crawlStat.getCrawlerId().equals(CrawlDesc.LOCKSS_CRAWLER_ID)) {
+	  au = crawlStat.getAu();
+	  if (!includeDeletedAus && au == null) {
+	    continue;
+	  }
+	  if (!includeInternalAus && au != null && pluginMgr.isInternalAu(au)) {
+	    continue;
+	  }
 	}
 	rows.add(makeRow(crawlStat, ct, rowNum++));
       }
@@ -289,7 +293,10 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	    new StatusTable.Reference(status.getAuName(),
 				      ArchivalUnitStatus.AU_STATUS_TABLE_NAME,
 				      status.getAuId()));
-    ArchivalUnit au = status.getAu();
+    ArchivalUnit au = null;
+    if (status.getCrawlerId().equals(CrawlDesc.LOCKSS_CRAWLER_ID)) {
+      au = status.getAu();
+    }
     if (au != null) {
       row.put(PLUGIN, au.getPlugin().getPluginName());
     }

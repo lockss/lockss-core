@@ -45,6 +45,7 @@ import org.lockss.util.CollectionUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.StringPool;
 import org.lockss.util.StringUtil;
+import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.urlconn.CacheException;
 
@@ -201,7 +202,7 @@ public class CrawlerStatus {
 
   protected LockssDaemon daemon;
 
-  private String key;
+  protected String key;
   protected long startTime = -1;
   protected long endTime = -1;
   protected String statusMessage = null;
@@ -233,9 +234,16 @@ public class CrawlerStatus {
   protected UrlCount errors;
   protected ReferrerMap referrers;
   protected RecordReferrersMode recordRefMode;
+  protected String crawlerId = CrawlDesc.LOCKSS_CRAWLER_ID;
 
   // Maps mimetype to UrlCounter
   protected Map<String, UrlCount> mimeCounts = new HashMap<String, UrlCount>();
+
+  /**
+   * No-arguments constructor.
+   */
+  protected CrawlerStatus() {
+  }
 
   public CrawlerStatus(ArchivalUnit au, Collection startUrls, String type) {
     this.au = au;
@@ -259,7 +267,7 @@ public class CrawlerStatus {
    * those lists that are already maintained as sets by the crawler (so no
    * dups); SetCounters for others.
    */
-  void initCounters() {
+  protected void initCounters() {
     Configuration config = ConfigManager.getCurrentConfig();
 
     paramKeepOffHostExcludes = config.getInt(PARAM_KEEP_OFF_HOST_EXCLUDES,
@@ -339,7 +347,7 @@ public class CrawlerStatus {
     return res;
   }
 
-  private static synchronized String nextIdx() {
+  protected static synchronized String nextIdx() {
     return Integer.toString(++ctr);
   }
 
@@ -1545,7 +1553,11 @@ public class CrawlerStatus {
     }
   }
 
+  public String getCrawlerId() {
+    return crawlerId;
+  }
+
   public String toString() {
-    return "[CrawlerStatus " + key + "]";
+    return "[CrawlerStatus " + crawlerId + " " + key + "]";
   }
 }
