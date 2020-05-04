@@ -34,7 +34,7 @@ import org.lockss.state.AuState;
 
 public class CrawlReq {
 
-  String auid;
+  protected String auid;
   String auName;
   CrawlManager.Callback cb;
   Object cookie;
@@ -43,7 +43,13 @@ public class CrawlReq {
   int refetchDepth = -1;
   private ArchivalUnit au;
   private AuState aus = null;
-  private CrawlerStatus crawlerStatus = null;
+  protected CrawlerStatus crawlerStatus = null;
+
+  /**
+   * No-arguments constructor.
+   */
+  protected CrawlReq() {
+  }
 
   public CrawlReq(ArchivalUnit au, CrawlerStatus crawlerStatus) {
     this(au, null, null, crawlerStatus);
