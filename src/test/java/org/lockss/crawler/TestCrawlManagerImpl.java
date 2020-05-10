@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2020, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -554,8 +554,12 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
       TestCrawlCB cb = new TestCrawlCB(sem);
       ThrowingAU au = new ThrowingAU();
-      crawlManager.startNewContentCrawl(au, cb, null);
-      assertTrue(cb.wasTriggered());
+      try {
+	crawlManager.startNewContentCrawl(au, cb, null);
+	fail("Should have thrown ExpectedRuntimeException");
+      } catch (ExpectedRuntimeException ere) {
+	assertTrue(cb.wasTriggered());
+      }
     }
 
     public void testRepairCrawlFreesActivityLockWhenDone() {
@@ -860,7 +864,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       ConfigurationUtil.addFromArgs(CrawlManagerImpl.PARAM_USE_ODC, "true");
       MockArchivalUnit mau1 = newMockArchivalUnit("foo1");
       PluginTestUtil.registerArchivalUnit(plugin, mau1);
-      CrawlReq req = new CrawlReq(mau1);
+      CrawlReq req = new CrawlReq(mau1, new CrawlerStatus(mau1,
+	  mau1.getStartUrls(), null));
       req.setPriority(8);
       req.setRefetchDepth(1232);
       crawlManager.enqueueHighPriorityCrawl(req);
@@ -1153,7 +1158,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       CrawlReq[] res = new CrawlReq[n];
       for (int ix = 0; ix < n; ix++) {
         MockArchivalUnit mau = newMockArchivalUnit(String.format("mau%2d", ix));
-        res[ix] = new CrawlReq(mau);
+        res[ix] =
+            new CrawlReq(mau, new CrawlerStatus(mau, mau.getStartUrls(), null));
       }
       return res;
     }
@@ -1476,7 +1482,8 @@ public class TestCrawlManagerImpl extends LockssTestCase {
           "foo(4|5),3;bar,5;baz,-1");
       MockArchivalUnit mau1 = new MockArchivalUnit(new MockPlugin(theDaemon));
       mau1.setAuId("other");
-      CrawlReq req = new CrawlReq(mau1);
+      CrawlReq req = new CrawlReq(mau1, new CrawlerStatus(mau1,
+	  mau1.getStartUrls(), null));
       crawlManager.setReqPriority(req);
       assertEquals(0, req.getPriority());
       mau1.setAuId("foo4");
@@ -1535,9 +1542,12 @@ public class TestCrawlManagerImpl extends LockssTestCase {
           "[RE:isMatchRe(tdbAu/params/volume,'vol_1')],6;" +
               "[RE:isMatchRe(tdbAu/params/volume,'vol_(1|2)')],3;");
 
-      CrawlReq req1 = new CrawlReq(mau1);
-      CrawlReq req2 = new CrawlReq(mau2);
-      CrawlReq req3 = new CrawlReq(mau3);
+      CrawlReq req1 = new CrawlReq(mau1,
+	  new CrawlerStatus(mau1, mau1.getStartUrls(), null));
+      CrawlReq req2 = new CrawlReq(mau2,
+	  new CrawlerStatus(mau2, mau2.getStartUrls(), null));
+      CrawlReq req3 = new CrawlReq(mau3,
+	  new CrawlerStatus(mau3, mau3.getStartUrls(), null));
       crawlManager.setReqPriority(req1);
       crawlManager.setReqPriority(req2);
       crawlManager.setReqPriority(req3);
@@ -1816,13 +1826,17 @@ public class TestCrawlManagerImpl extends LockssTestCase {
       pluginMgr = pmgr;
     }
 
-    protected Crawler makeFollowLinkCrawler(ArchivalUnit au) {
+    protected Crawler makeFollowLinkCrawler(ArchivalUnit au,
+	      CrawlerStatus crawlerStatus) {
       MockCrawler crawler = getCrawler(au);
       crawler.setAu(au);
       crawler.setUrls(au.getStartUrls());
       crawler.setFollowLinks(true);
       crawler.setType(Crawler.Type.NEW_CONTENT);
       crawler.setIsWholeAU(true);
+      crawlerStatus.setStartUrls(au.getStartUrls());
+      crawlerStatus.setType(Crawler.Type.NEW_CONTENT.name());
+      crawler.setCrawlerStatus(crawlerStatus);
       return crawler;
     }
 

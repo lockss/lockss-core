@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -597,7 +597,10 @@ public class FuncArcExploder extends LockssTestCase {
   }
   public class TestableFollowLinkCrawler extends FollowLinkCrawler {
     public TestableFollowLinkCrawler(ArchivalUnit au, AuState aus) {
-      super(au, aus);    }
+      super(au, aus);
+      crawlStatus = new CrawlerStatus(au, au.getStartUrls(),
+          getTypeString());
+    }
 
     List<PermissionChecker> daemonPermissionCheckers;
     

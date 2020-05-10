@@ -1554,19 +1554,24 @@ public class ArchivalUnitStatus
         int endRow1 = startRow + numRows; // end row + 1
         int curRow = -1;
         for (CachedUrl cu : cuVersions) {
-          curRow++;
-          if (curRow < startRow) {
-            continue;
-          }
-          if (curRow >= endRow1) {
-            // add 'next'
-            rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId(), url));
-            break;
-          }
-          Map row = makeRow(au, cu, cu.getVersion());
-          row.put("sort", curRow);
-          rowL.add(row);
-        }
+	  try {
+	    curRow++;
+	    if (curRow < startRow) {
+	      continue;
+	    }
+	    if (curRow >= endRow1) {
+	      // add 'next'
+	      rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId(), url));
+	      break;
+	    }
+	    Map row = makeRow(au, cu, cu.getVersion());
+	    row.put("sort", curRow);
+	    rowL.add(row);
+
+	  } finally {
+	    AuUtil.safeRelease(cu);
+	  }
+	}
         return rowL;
       } finally {
         AuUtil.safeRelease(curCu);
@@ -1587,9 +1592,12 @@ public class ArchivalUnitStatus
       rowMap.put("Version", val);
       rowMap.put("Size", cu.getContentSize());
       Properties cuProps = cu.getProperties();
-      long collected =
+      try {
+	long collected =
           Long.parseLong(cuProps.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
-      rowMap.put("DateCollected", collected);
+	rowMap.put("DateCollected", collected);
+      } catch (NumberFormatException ignore) {
+      }
       return rowMap;
     }
 

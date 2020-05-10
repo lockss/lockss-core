@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1002,7 +1002,23 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       }
     }
   }
-  void auEventCreated(AuEvent event, ArchivalUnit au) {
+
+  /**
+   * Deletes all the crawls in the system.
+   */
+   public void deleteAllCrawls() {
+     removeAllAusFromQueues();
+
+     synchronized (runningCrawlersLock) {
+       for (PoolCrawlers pc : poolMap.values()) {
+         for (Crawler crawler : pc.getCrawlers()) {
+           crawler.abortCrawl();
+         }
+       }
+     }
+   }
+
+    void auEventCreated(AuEvent event, ArchivalUnit au) {
     // Check whether this AU was on the high priority queue when it was
     // deactivated.  (Should be necessary only for RestartCreate but cheap
     // to do always.)
@@ -1205,52 +1221,80 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
   }
 
-  public void startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
+  public CrawlerStatus startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
                                    Object cookie) {
-    startNewContentCrawl(au, 0, cb, cookie);
+    return startNewContentCrawl(au, 0, cb, cookie);
   }
 
-  public void startNewContentCrawl(ArchivalUnit au, int priority,
+  public CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
                                    CrawlManager.Callback cb,
                                    Object cookie) {
     if (au == null) {
       throw new IllegalArgumentException("Called with null AU");
     }
-    if (!crawlerEnabled) {
-      logger.warning("Crawler disabled, not crawling: " + au);
+
+    CrawlerStatus crawlerStatus = null;
+
+    try {
+      crawlerStatus = new CrawlerStatus(au, au.getStartUrls(), null);
+    } catch (RuntimeException e) {
+      String errorMessage = "Cannot create crawler status: " + au;
+      logger.warning(errorMessage, e);
       callCallback(cb, cookie, false, null);
-      return;
+      throw e;
     }
+
+    if (!crawlerEnabled) {
+      String errorMessage = "Crawler disabled, not crawling: " + au;
+      logger.warning(errorMessage);
+      callCallback(cb, cookie, false, null);
+      crawlerStatus.setCrawlStatus(Crawler.STATUS_DISABLED, errorMessage);
+      return crawlerStatus;
+    }
+
     CrawlReq req;
     try {
-      req = new CrawlReq(au, cb, cookie);
+      req = new CrawlReq(au, cb, cookie, crawlerStatus);
       req.setPriority(priority);
     } catch (RuntimeException e) {
       logger.error("Couldn't create CrawlReq: " + au, e);
       callCallback(cb, cookie, false, null);
-      return;
+      crawlerStatus.setCrawlStatus(Crawler.STATUS_ERROR, e.getMessage());
+      return crawlerStatus;
     }
-    startNewContentCrawl(req);
+    return startNewContentCrawl(req);
   }
 
-
-  public void startNewContentCrawl(CrawlReq req) {
+  /**
+   * Starts a new-content crawl, using the configured value of the use-on-demand
+   * parameter.
+   * 
+   * @param req A CrawlReq with the specification of the crawl to be started.
+   * @return a CrawlerStatus with status information regarding the crawler used
+   *         for the crawl.
+   */
+  public CrawlerStatus startNewContentCrawl(CrawlReq req) {
     if (req.getAu() == null) {
       throw new IllegalArgumentException("Called with null AU");
     }
     if (!crawlerEnabled) {
-      logger.warning("Crawler disabled, not crawling: " + req.getAu());
+      String errorMessage = "Crawler disabled, not crawling: " + req.getAu();
       callCallback(req.getCb(), req.getCookie(), false, null);
-      return;
+      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_DISABLED,
+	  errorMessage);
+      return req.getCrawlerStatus();
     }
     if (paramOdc) {
       enqueueHighPriorityCrawl(req);
+      return req.getCrawlerStatus();
     } else {
       if (!isEligibleForNewContentCrawl(req.getAu())) {
         callCallback(req.getCb(), req.getCookie(), false, null);
-        return;
+        req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_INELIGIBLE,
+  	  "Archival Unit is not eligible for a new-content crawl");
+        return req.getCrawlerStatus();
       }
-      handReqToPool(req);
+      return handReqToPool(req);
     }
   }
 
@@ -1258,7 +1302,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   // 5335 still isn't fixed.
   long msgCounter = 0;
 
-  void handReqToPool(CrawlReq req) {
+  CrawlerStatus handReqToPool(CrawlReq req) {
     if (!req.isActive()) {
       if (msgCounter++ < 100) {
         logger.warning("Inactive req: " + req);
@@ -1266,7 +1310,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         logger.warning("Inactive req (rpt " + msgCounter + "): " + req);
       }
       removeAuFromQueues(req.getAuId()); // insurance
-      return;
+      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_INACTIVE_REQUEST,
+	  "The Archival Unit does not exist");
+      return req.getCrawlerStatus();
     }
 
     ArchivalUnit au = req.getAu();
@@ -1276,7 +1322,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     Crawler crawler = null;
     CrawlRunner runner = null;
     try {
-      crawler = makeFollowLinkCrawler(au);
+      crawler = makeFollowLinkCrawler(au, req.getCrawlerStatus());
       crawler.setCrawlReq(req);
       runner = new CrawlRunner(crawler, cb, cookie,
           getNewContentRateLimiter(au),
@@ -1289,13 +1335,13 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         // we're expecting this crawl to be accepted.
         cmStatus.addCrawlStatus(crawler.getCrawlerStatus());
         execute(runner);
-        return;
+        return crawler.getCrawlerStatus();
       } else {
         // Add to status only if successfully queued or started.  (No
         // race here; appearance in status might be delayed.)
         execute(runner);
         cmStatus.addCrawlStatus(crawler.getCrawlerStatus());
-        return;
+        return crawler.getCrawlerStatus();
       }
     } catch (InterruptedException e) {
       if (!isShuttingDown()) {
@@ -1315,7 +1361,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       }
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
-      return;
+      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_INTERRUPTED,
+	  "The request could not be completed");
+      return req.getCrawlerStatus();
     } catch (RuntimeException e) {
       String crawlerRunner =
           (crawler == null ? "no crawler" : crawler.toString()) + " " +
@@ -1324,7 +1372,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
           " crawl" + " " + crawlerRunner, e);
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
-      return;
+      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_ERROR,
+	  "Unexpected error");
+      return req.getCrawlerStatus();
     }
   }
 
@@ -1340,11 +1390,16 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
   }
 
-  protected Crawler makeFollowLinkCrawler(ArchivalUnit au) {
-    logger.debug("Creating FollowLinkCrawler for " + au);
+  protected Crawler makeFollowLinkCrawler(ArchivalUnit au,
+      CrawlerStatus crawlerStatus) {
+    logger.debug("Creating FollowLinkCrawler for " + au + ", crawlerStatus "
+      + crawlerStatus);
     FollowLinkCrawler nc =
         new FollowLinkCrawler(au, AuUtil.getAuState(au));
+    crawlerStatus.setType(nc.getTypeString());
+    nc.setCrawlerStatus(crawlerStatus);
     nc.setCrawlManager(this);
+
     return nc;
   }
 
@@ -1698,6 +1753,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     timeToRebuildCrawlQueue.expire();
   }
 
+  // Force queues to be rebuilt. Overkill, but easy and this hardly
+  // ever happens
+  void removeAllAusFromQueues() {
+    synchronized (highPriorityCrawlRequests) {
+      highPriorityCrawlRequests.clear();
+    }
+    forceQueueRebuild();
+  }
+
   CrawlReq nextReq() throws InterruptedException {
     boolean rebuilt = false;
 
@@ -1910,7 +1974,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
             ausWantCrawl++;
             if (isEligibleForNewContentCrawl(au)) {
               if (req == null) {
-                req = new CrawlReq(au);
+        	CrawlerStatus crawlerStatus =
+        	    new CrawlerStatus(au, au.getStartUrls(), null);
+                req = new CrawlReq(au, crawlerStatus);
                 setReqPriority(req);
               }
               if (req.priority > MIN_CRAWL_PRIORITY) {
@@ -2147,9 +2213,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
 
-  void startCrawl(ArchivalUnit au) {
+  CrawlerStatus startCrawl(ArchivalUnit au) {
     CrawlManager.Callback rc = null;
-    startNewContentCrawl(au, rc, null);
+    return startNewContentCrawl(au, rc, null);
   }
 
   void startCrawl(CrawlReq req) {

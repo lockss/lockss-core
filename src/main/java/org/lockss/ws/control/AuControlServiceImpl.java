@@ -38,6 +38,7 @@ import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
+import org.lockss.crawler.CrawlerStatus;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.servlet.DebugPanel;
@@ -507,7 +508,7 @@ public class AuControlServiceImpl implements AuControlService {
     CrawlReq req;
 
     try {
-      req = new CrawlReq(au);
+      req = new CrawlReq(au, new CrawlerStatus(au, au.getStartUrls(), null));
       req.setPriority(priority);
 
       if (depth != null) {
