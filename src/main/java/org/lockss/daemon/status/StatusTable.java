@@ -1055,6 +1055,7 @@ public class StatusTable {
     private Object value;
     private String headerFootnote;
     private String valueFootnote;
+    private int indent = 0;
 
     /**
      * @param title title for this SummaryInfo
@@ -1087,16 +1088,27 @@ public class StatusTable {
       return this.headerFootnote;
     }
 
-    public void setHeaderFootnote(String footnote) {
+    public SummaryInfo setHeaderFootnote(String footnote) {
       this.headerFootnote = footnote;
+      return this;
     }
 
     public String getValueFootnote() {
       return this.valueFootnote;
     }
 
-    public void setValueFootnote(String footnote) {
+    public SummaryInfo setValueFootnote(String footnote) {
       this.valueFootnote = footnote;
+      return this;
+    }
+
+    public int getIndent() {
+      return indent;
+    }
+
+    public SummaryInfo setIndent(int indent) {
+      this.indent = indent;
+      return this;
     }
   }
 

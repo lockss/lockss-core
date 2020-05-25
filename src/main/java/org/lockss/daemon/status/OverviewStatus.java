@@ -85,6 +85,7 @@ public class OverviewStatus extends BaseLockssDaemonManager {
 
     static final String[] overviewTableNames = {
       org.lockss.state.ArchivalUnitStatus.SERVICE_STATUS_TABLE_NAME,
+      org.lockss.repository.LockssRepositoryStatus.SERVICE_STATUS_TABLE_NAME,
       org.lockss.crawler.CrawlManagerImpl.CRAWL_STATUS_TABLE_NAME,
       org.lockss.metadata.MetadataManager.METADATA_STATUS_TABLE_NAME,
       V3PollStatus.POLLER_STATUS_TABLE_NAME,

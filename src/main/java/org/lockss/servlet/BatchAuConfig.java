@@ -415,9 +415,9 @@ public class BatchAuConfig extends LockssServlet {
     frm.add(new Input(Input.Hidden, ACTION_TAG));
     frm.add(new Input(Input.Hidden, KEY_VERB, verb.valStr));
 
-    if (false && verb.isAdd) {
+    if (verb.isAdd) {
       // display df for Add even if only one repo
-      Map<String,PlatformUtil.DF> repoMap = remoteApi.getRepositoryMap();
+      Map<String,PlatformUtil.DF> repoMap = remoteApi.getRepositoryDFMap();
       frm.add(ServletUtil.makeRepoTable(this, remoteApi,
 					repoMap, KEY_DEFAULT_REPO));
       if (repoFlg) {

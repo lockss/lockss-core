@@ -314,7 +314,7 @@ public class AddContent extends LockssServlet {
         String defRepoId = getParameter(KEY_DEFAULT_REPO);
         if (StringUtil.isNullString(defRepoId)) {
             defaultRepo =
-                    remoteApi.findLeastFullRepository(remoteApi.getRepositoryMap());
+                    remoteApi.findLeastFullRepository(remoteApi.getRepositoryDFMap());
         } else if (repoMap != null) {
             try {
                 int n = Integer.parseInt(defRepoId);

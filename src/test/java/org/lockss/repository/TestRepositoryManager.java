@@ -27,6 +27,7 @@ import java.util.*;
 
 import org.junit.Test;
 import org.lockss.app.*;
+import org.lockss.log.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
@@ -36,6 +37,8 @@ import org.lockss.plugin.*;
 import org.lockss.laaws.rs.core.*;
 
 public class TestRepositoryManager extends LockssTestCase4 {
+  private static L4JLogger log = L4JLogger.getLogger();
+
   private MockArchivalUnit mau;
   private MyRepositoryManager mgr;
 
@@ -79,25 +82,37 @@ public class TestRepositoryManager extends LockssTestCase4 {
   @Test
   public void testGetRepositoryList() throws Exception {
     assertEmpty(mgr.getRepositoryList());
-    String tempDirPath = setUpDiskSpace();
-    assertEquals(ListUtil.list("local:" + tempDirPath),
-		 mgr.getRepositoryList());
-    String tempdir2 = getTempDir().getAbsolutePath() + File.separator;
-    ConfigurationUtil.setFromArgs("org.lockss.platform.diskSpacePaths",
-				  tempdir2 + ";" + tempDirPath);
-    assertEquals(ListUtil.list("local:" + tempdir2, "local:" + tempDirPath),
-		 mgr.getRepositoryList());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:coll42");
+    assertEquals(ListUtil.list("volatile:coll42"), mgr.getRepositoryList());
   }
 
   @Test
   public void testGetRepositoryDF () throws Exception {
     String tmpdir = getTempDir().toString();
     assertNull(mgr.getV2Repository());
-    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "local:coll_1:" + tmpdir);
-    PlatformUtil.DF df = mgr.getRepositoryDF("local:.");
+    String spec = "local:coll_1:" + tmpdir;
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY, spec);
+    assertNotNull(mgr.getV2Repository());
+    PlatformUtil.DF df = mgr.getRepositoryDF(spec);
     assertNotNull(df);
+    Map<String,PlatformUtil.DF> repoMap = mgr.getRepositoryDFMap();
+    PlatformUtil.DF mapDf = repoMap.get(spec);
+    assertTrue(equalsDF(df, mapDf));
+    assertTrue(df.getSize() > 0);
+    assertTrue(df.getUsed() > 0);
   }
+
+  boolean equalsDF(PlatformUtil.DF df1, PlatformUtil.DF df2) {
+    return Objects.equals(df1.getPath(), df2.getPath())
+      && Objects.equals(df1.getFs(), df2.getFs())
+      && Objects.equals(df1.getMnt(), df2.getMnt())
+      && df1.getSize() == df2.getSize()
+      && df1.getUsed() == df2.getUsed()
+      && df1.getAvail() == df2.getAvail()
+      && df1.getPercent() == df2.getPercent();
+  }
+
 
   @Test
   public void testFindLeastFullRepository () throws Exception {

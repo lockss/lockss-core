@@ -47,6 +47,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
 import org.lockss.util.storage.StorageInfo;
 
 /**
@@ -127,7 +128,6 @@ public class RepositoryManager
   static final double DEFAULT_DISK_FULL_FRRE_PERCENT = .01;
 
   private PlatformUtil platInfo = PlatformUtil.getInstance();
-  private List repoList = Collections.EMPTY_LIST;
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
   private long auidRepoMapAge = DEFAULT_AUID_REPO_MAP_AGE;
@@ -168,20 +168,6 @@ public class RepositoryManager
 
   public void setConfig(Configuration config, Configuration oldConfig,
       Configuration.Differences changedKeys) {
-    //  Build list of repositories from list of disk (fs) paths).  Needs to
-    //  be generalized if ever another repository implementation.
-    if (changedKeys.contains(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST)) {
-      List lst = new ArrayList();
-      String dspace =
-          config.get(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, "");
-      List paths = StringUtil.breakAt(dspace, ';');
-      if (paths != null) {
-        for (Iterator iter = paths.iterator(); iter.hasNext(); ) {
-          lst.add("local:" + (String)iter.next());
-        }
-      }
-      repoList = lst;
-    }
     if (changedKeys.contains(DISK_PREFIX)) {
       int minMB = config.getInt(PARAM_DISK_WARN_FRRE_MB,
           DEFAULT_DISK_WARN_FRRE_MB);
@@ -392,16 +378,34 @@ public class RepositoryManager
     }
   }
 
-  /** Return list of known repository names.  Needs a registration
-   * mechanism if ever another repository implementation. */
+  /** Return list of known repository URLs.  Currently there's just one. */
   public List<String> getRepositoryList() {
-    return repoList;
+    if (v2Repo == null) {
+      return Collections.emptyList();
+    }
+    return ListUtil.list(v2Repo.getSpec());
   }
 
-  public PlatformUtil.DF getRepositoryDF(String repoName) {
+  private LockssRepository getRepoRepo(String repoSpec) {
+    RepoSpec rspec = getV2Repository(repoSpec);
+    if (rspec == null) {
+      throw new IllegalArgumentException("Unknown repository: " + repoSpec);
+    }
+    return rspec.getRepository();
+  }
+
+  /** Return the DF for the given repo spec.  Currently hardwired for the
+   * sole confiured repo */
+  public RepositoryInfo getRepositoryInfo(String repoSpec)
+      throws IOException {
+    return getRepoRepo(repoSpec).getRepositoryInfo();
+  }
+
+  /** Return the DF for the given repo spec.  Currently hardwired for the
+   * sole confiured repo */
+  public PlatformUtil.DF getRepositoryDF(String repoSpec) {
     try {
-      StorageInfo storageInfo =
-	  v2Repo.getRepository().getRepositoryInfo().getStoreInfo();
+      StorageInfo storageInfo = getRepositoryInfo(repoSpec).getStoreInfo();
       if (log.isDebug3()) log.debug3("storageInfo = " + storageInfo);
 
       return PlatformUtil.DF.fromStorageInfo(storageInfo);
@@ -411,7 +415,7 @@ public class RepositoryManager
     }
   }
 
-  public Map<String,PlatformUtil.DF> getRepositoryMap() {
+  public Map<String,PlatformUtil.DF> getRepositoryDFMap() {
     Map<String,PlatformUtil.DF> repoMap = new LinkedMap();
     for (String repo : getRepositoryList()) {
       repoMap.put(repo, getRepositoryDF(repo));
@@ -420,7 +424,7 @@ public class RepositoryManager
   }
 
   public String findLeastFullRepository() {
-    return findLeastFullRepository(getRepositoryMap());
+    return findLeastFullRepository(getRepositoryDFMap());
   }
 
   public String findLeastFullRepository(Map<String,PlatformUtil.DF> repoMap) {
