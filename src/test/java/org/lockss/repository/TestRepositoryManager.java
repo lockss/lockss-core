@@ -108,9 +108,10 @@ public class TestRepositoryManager extends LockssTestCase4 {
       && Objects.equals(df1.getFs(), df2.getFs())
       && Objects.equals(df1.getMnt(), df2.getMnt())
       && df1.getSize() == df2.getSize()
-      && df1.getUsed() == df2.getUsed()
-      && df1.getAvail() == df2.getAvail()
-      && df1.getPercent() == df2.getPercent();
+//       && df1.getUsed() == df2.getUsed()
+//       && df1.getAvail() == df2.getAvail()
+//       && df1.getPercent() == df2.getPercent()
+      ;
   }
 
 
