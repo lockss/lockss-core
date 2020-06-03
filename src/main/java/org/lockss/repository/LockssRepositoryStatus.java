@@ -31,6 +31,7 @@ package org.lockss.repository;
 import java.io.*;
 import java.util.*;
 import org.apache.commons.collections4.*;
+import org.apache.commons.collections4.iterators.*;
 
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -138,13 +139,22 @@ public class LockssRepositoryStatus {
       return false;
     }
 
+    // This is awkward because RepoSpec is a {repo, collection} pair but
+    // we're showing both repo status and collection status.  Logicially it
+    // should be two different tables but that would be more trouble for
+    // users.
     private List getRows() {
       List rows = new ArrayList();
       for (RepoSpec rs : repoMgr.getV2RepositoryList()) {
 	LockssRepository repo = rs.getRepository();
 	PlatformUtil.DF repoDf = repoMgr.getRepositoryDF(rs.getSpec());
+	String NO_COLLS = " (none) ";
 	try {
-	  for (String coll : repo.getCollectionIds()) {
+	  Iterator<String> collsIter = repo.getCollectionIds().iterator();
+	  if (!collsIter.hasNext()) {
+	    collsIter = ListUtil.list(NO_COLLS).iterator();
+	  }
+	  for (String coll : new IteratorIterable<String>(collsIter)) {
 	    Map row = new HashMap();
 	    if (repoDf != null) {
 	      row.put("size", StringUtil.sizeKBToString(repoDf.getSize()));
@@ -160,17 +170,21 @@ public class LockssRepositoryStatus {
 					  rs.getSpec());
 	      row.put("path", path);
 	    }
-	    row.put("coll",
-		    new StatusTable.Reference(rs.getCollection(),
-					      AUIDS_STATUS_TABLE_NAME,
-					      rs.getSpec()));
-	    try {
-	      row.put("aus",
-		      new StatusTable.Reference(IterableUtils.size(repo.getAuIds(coll)),
+	    if (NO_COLLS.equals(coll)) {
+	      row.put("coll", coll);
+	    } else {
+	      row.put("coll",
+		      new StatusTable.Reference(coll,
 						AUIDS_STATUS_TABLE_NAME,
 						rs.getSpec()));
-	    } catch (IOException e) {
-	      log.warning("Couldn't get AU count", e);
+	      try {
+		row.put("aus",
+			new StatusTable.Reference(IterableUtils.size(repo.getAuIds(coll)),
+						  AUIDS_STATUS_TABLE_NAME,
+						  rs.getSpec()));
+	      } catch (IOException e) {
+		log.warning("Couldn't get AU count", e);
+	      }
 	    }
 	    rows.add(row);
 	  }
@@ -394,7 +408,7 @@ public class LockssRepositoryStatus {
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Collection",
 					  ColumnDescriptor.TYPE_STRING,
-					  rs.getSpec()));
+					  rs.getCollection()));
       return res;
     }
   }
@@ -494,7 +508,7 @@ public class LockssRepositoryStatus {
 					  auid));
       res.add(new StatusTable.SummaryInfo("Collection",
 					  ColumnDescriptor.TYPE_STRING,
-					  rs.getSpec()));
+					  rs.getCollection()));
       return res;
     }
   }
