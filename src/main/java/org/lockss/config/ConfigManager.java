@@ -1396,7 +1396,7 @@ public class ConfigManager implements LockssManager {
       // Check whether it is the same generation as the one to be added.
       if (url.equals(existingGen.getUrl())) {
 	// Yes: Do not add it.
-	log.info(DEBUG_HEADER + "Not adding to the list generation = " + gen
+	log.debug2(DEBUG_HEADER + "Not adding to the list generation = " + gen
 	    + " because is a duplicate of existing generation = "
 	    + existingGen);
 	return;
