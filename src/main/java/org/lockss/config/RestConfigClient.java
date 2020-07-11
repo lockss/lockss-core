@@ -337,12 +337,12 @@ public class RestConfigClient {
 
       output.setEtag(etag);
 
-      Map<String, String> partHeaders = configDataPart.getHeaders();
+      HttpHeaders partHeaders = configDataPart.getHeaders();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "partHeaders = " + partHeaders);
 
       // Get and populate the content type.
-      String contentType = partHeaders.get(HttpHeaders.CONTENT_TYPE);
+      String contentType = partHeaders.getFirst(HttpHeaders.CONTENT_TYPE);
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
       output.setContentType(contentType);
