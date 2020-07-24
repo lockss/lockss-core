@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -193,6 +189,12 @@ public interface CachedUrl extends CachedUrlSetNode {
    * Overrides config param only if explicitly set true or false
    */
   public void setOption(String option, String val);
+
+  /**
+   * Set expectation the CU's content will be accessed.  Causes content to
+   * be obtained when headers are requested, eliminating a round trip.
+   */
+  public void setNeedContent(boolean val);
 
   /**
   * Get an object from which the content of the url can be read

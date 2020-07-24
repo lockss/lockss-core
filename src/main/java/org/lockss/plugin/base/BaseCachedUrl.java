@@ -69,6 +69,7 @@ public class BaseCachedUrl implements CachedUrl {
   protected boolean inputStreamUsed = false;
   protected InputStream restInputStream;
   protected CIProperties restProps;
+  protected boolean needContent = false;
 
   // Cached here as might be used several times in quick succession
   // (esp. by archive members).  Don't want to store in AU.
@@ -264,6 +265,10 @@ public class BaseCachedUrl implements CachedUrl {
     return true;
   }
 
+  public void setNeedContent(boolean val) {
+    needContent = val;
+  }
+
   public InputStream getUnfilteredInputStream() {
     ensureArtifactData(true);
     inputStreamUsed = true;
@@ -374,7 +379,7 @@ public class BaseCachedUrl implements CachedUrl {
 
   public CIProperties getProperties() {
     if (restProps == null) {
-      ensureArtifactData(false);
+      ensureArtifactData(needContent);
       if (logger.isDebug3()) {
 	logger.debug2("getProperties: " + artifactUrl + ": " + restProps);
       }
@@ -494,6 +499,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   protected InputStream getFilteredStream(HashedInputStream.Hasher hasher) {
+    setNeedContent(true);
     String contentType = getContentType();
     // first look for a FilterFactory
     FilterFactory fact = au.getHashFilterFactory(contentType);
