@@ -157,8 +157,10 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
   // Instrumented BaseCachedUrl.  In order to do analogous for versioned
   // CU's, need to implement factory in BaseCachedUrl
   private static class InstrumentedBaseCachedUrl extends BaseCachedUrl {
-    private List<ArtifactData> releasedAds = new ArrayList<ArtifactData>();
-    private List<ArtifactData> obtainedAds = new ArrayList<ArtifactData>();
+    private List<ArtifactData> releasedAds = new ArrayList<>();
+    private List<ArtifactData> obtainedAds = new ArrayList<>();
+    private List<LockssRepository.IncludeContent> includeArgs =
+      new ArrayList<>();
 
     public InstrumentedBaseCachedUrl(ArchivalUnit au, String url) {
       super(au, url);
@@ -166,9 +168,10 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 
     @Override
     ArtifactData getArtifactData(LockssRepository repo, Artifact art,
-				 boolean needInputStream)
+				 LockssRepository.IncludeContent includeContent)
 	throws IOException {
-      ArtifactData res = super.getArtifactData(repo, art, needInputStream);
+      includeArgs.add(includeContent);
+      ArtifactData res = super.getArtifactData(repo, art, includeContent);
       obtainedAds.add(res);
       return res;
     }
@@ -186,6 +189,11 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
     public List<ArtifactData> getReleasedAds() {
       return releasedAds;
     }
+
+    public List<LockssRepository.IncludeContent> getIncludeArgs() {
+      return includeArgs;
+    }
+
   }
 
   // helper for above tests
@@ -372,6 +380,10 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       u1i2.close();	     // close one explcitly, should change behavior
       cu1.release();
       assertEquals(ibcu1.getObtainedAds(), ibcu1.getReleasedAds());
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS,
+				 LockssRepository.IncludeContent.ALWAYS,
+				 LockssRepository.IncludeContent.ALWAYS),
+		   ibcu1.getIncludeArgs());
       // XXX would be better to check that InputStreams get closed but no
       // good way to get ahold of them.
     }
@@ -1005,6 +1017,62 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
     public void testGetMultipleStreams() throws Exception {
       doTestGetMultipleStreams();
     }
+
+    /** Ensure that BaseCachedUrl handles setNeedContent() correctly.  This
+     * doesn't test the situation where the repo returns an ArtifactData
+     * without content (InputStream), as the LockssRepository
+     * implementation used in these tests ignores the includeContent arg,
+     * but it does test the case where the ArtifactData has no InputStream
+     * because it's been consumed, which is basically the same logic.
+     */
+    public void testNeedContent() throws Exception {
+      createLeaf(url1, "c1", null); createLeaf(url2, "c2", null);
+      createLeaf(url3, "c3", null);
+
+      // Default is NeedContent.UNSURE
+      InstrumentedBaseCachedUrl ibcu1 =
+	(InstrumentedBaseCachedUrl)getTestCu(url1);
+      assertEmpty(ibcu1.getIncludeArgs());
+      ibcu1.getProperties();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.IF_SMALL),
+		   ibcu1.getIncludeArgs());
+      ibcu1.getUnfilteredInputStream();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.IF_SMALL),
+		   ibcu1.getIncludeArgs());
+      ibcu1.getUnfilteredInputStream();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.IF_SMALL,
+				 LockssRepository.IncludeContent.ALWAYS),
+		   ibcu1.getIncludeArgs());
+
+      InstrumentedBaseCachedUrl ibcu2 =
+	(InstrumentedBaseCachedUrl)getTestCu(url2);
+      ibcu2.setNeedContent(CachedUrl.NeedContent.NO);
+      ibcu2.getProperties();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.NEVER),
+		   ibcu2.getIncludeArgs());
+      ibcu2.getUnfilteredInputStream();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.NEVER),
+		   ibcu2.getIncludeArgs());
+      ibcu2.getUnfilteredInputStream();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.NEVER,
+				 LockssRepository.IncludeContent.ALWAYS),
+		   ibcu2.getIncludeArgs());
+
+      InstrumentedBaseCachedUrl ibcu3 =
+	(InstrumentedBaseCachedUrl)getTestCu(url3);
+      ibcu3.setNeedContent(CachedUrl.NeedContent.YES);
+      ibcu3.getProperties();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS),
+		   ibcu3.getIncludeArgs());
+      ibcu3.getUnfilteredInputStream();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS),
+		   ibcu3.getIncludeArgs());
+      ibcu3.getUnfilteredInputStream();
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS,
+				 LockssRepository.IncludeContent.ALWAYS),
+		   ibcu3.getIncludeArgs());
+    }
+
   }
 
   /** Varient that performs the tests with version 2 of 3 versions */

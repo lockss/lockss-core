@@ -69,7 +69,7 @@ public class BaseCachedUrl implements CachedUrl {
   protected boolean inputStreamUsed = false;
   protected InputStream restInputStream;
   protected CIProperties restProps;
-  protected boolean needContent = false;
+  protected NeedContent needContent = NeedContent.UNSURE;
 
   // Cached here as might be used several times in quick succession
   // (esp. by archive members).  Don't want to store in AU.
@@ -97,6 +97,12 @@ public class BaseCachedUrl implements CachedUrl {
   public static final boolean DEFAULT_USE_RAW_CONTENT_TYPE = true;
 
   public static final String DEFAULT_METADATA_CONTENT_TYPE = "text/html";
+
+  private static final EnumMap<NeedContent, LockssRepository.IncludeContent>
+    NEED_INCLUDE_CONTENT_MAP =
+    new EnumMap<NeedContent, LockssRepository.IncludeContent>(MapUtil.map(NeedContent.YES, LockssRepository.IncludeContent.ALWAYS,
+			      NeedContent.NO, LockssRepository.IncludeContent.NEVER,
+			      NeedContent.UNSURE, LockssRepository.IncludeContent.IF_SMALL));
 
   public BaseCachedUrl(ArchivalUnit owner, String url) {
     final String DEBUG_HEADER = "BaseCachedUrl(): ";
@@ -265,12 +271,12 @@ public class BaseCachedUrl implements CachedUrl {
     return true;
   }
 
-  public void setNeedContent(boolean val) {
+  public void setNeedContent(NeedContent val) {
     needContent = val;
   }
 
   public InputStream getUnfilteredInputStream() {
-    ensureArtifactData(true);
+    ensureArtifactData(NeedContent.YES);
     inputStreamUsed = true;
     restInputStream = artData.getInputStream();
     return restInputStream;
@@ -467,16 +473,18 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   ArtifactData getArtifactData(LockssRepository repo, Artifact art,
-			       boolean needInputStream)
+			       LockssRepository.IncludeContent includeContent)
       throws IOException {
-    return repo.getArtifactData(art, needInputStream);
+    return repo.getArtifactData(art, includeContent);
   }
 
-  private void ensureArtifactData(boolean needInputStream) {
+  private void ensureArtifactData(NeedContent needContent) {
     if (hasContent()) {
-      if (artData == null || (needInputStream && !artData.hasContentInputStream()) ) {
+      if (artData == null || (needContent == NeedContent.YES
+			      && !artData.hasContentInputStream()) ) {
 	try {
-	  artData = getArtifactData(v2Repo, art, needInputStream);
+	  artData = getArtifactData(v2Repo, art,
+				    NEED_INCLUDE_CONTENT_MAP.get(needContent));
 	  restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
 	  String chk = art.getContentDigest();
 	  // tk - hash alg shouldn't be hardwired
@@ -499,7 +507,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   protected InputStream getFilteredStream(HashedInputStream.Hasher hasher) {
-    setNeedContent(true);
+    setNeedContent(NeedContent.YES);
     String contentType = getContentType();
     // first look for a FilterFactory
     FilterFactory fact = au.getHashFilterFactory(contentType);
