@@ -109,6 +109,9 @@ public class PTestPlugin {
       return 1;
     }
 
+    public void setNeedContent(NeedContent val) {
+    }
+
     public InputStream getUnfilteredInputStream() {
       return new StringInputStream(contents);
     }

@@ -204,6 +204,9 @@ public class MockCachedUrl implements CachedUrl {
     return new BufferedInputStream(new HashedInputStream(is, hasher));
   }
 
+  public void setNeedContent(NeedContent val) {
+  }
+
   public InputStream getUnfilteredInputStream(HashedInputStream.Hasher hasher) {
     log.debug3("MockCachedUrl.getUnfilteredInputStream with " +
 	       (hasher == null ? "no " : "") + "Hasher");

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -195,6 +191,15 @@ public interface CachedUrl extends CachedUrlSetNode {
   public void setOption(String option, String val);
 
   /**
+   * Set expectation that the CU's content will be accessed.  Used to
+   * reduce excess data transfar and excess round trips to repository.
+   * Note that setting NeedContent.NO doesn't preclude getting the content,
+   * just means that an extra round trip will likely be needed to obtain
+   * content from a REST service.
+   */
+  public void setNeedContent(NeedContent val);
+
+  /**
   * Get an object from which the content of the url can be read
   * from the cache.
   * @return a {@link InputStream} object from which the
@@ -337,6 +342,17 @@ public interface CachedUrl extends CachedUrlSetNode {
    * @return <code>true</code> if this CachedUrl is a member of an archive,
    *         <code>false</code> otherwise.
    */
-  boolean isArchiveMember();
+  public boolean isArchiveMember();
+
+  /** Indication of a priori expectation that the CU's content will be
+   * accessed. */
+  public enum NeedContent {
+    /** Content will be accessed. */
+    YES,
+    /** Content will not be accessed. */
+    NO,
+    /** Content may be accessed. */
+    UNSURE
+  }
 
 }
