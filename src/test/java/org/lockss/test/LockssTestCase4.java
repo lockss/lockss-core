@@ -711,10 +711,16 @@ public class LockssTestCase4 extends Assert {
   public void setUp() throws Exception {
     TimerQueue.setSingleton(new ErrorRecordingTimerQueue());
     javaIoTmpdir = System.getProperty("java.io.tmpdir");
-    ConfigManager.makeConfigManager();
+    makeConfigManager();
     Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
     disableThreadWatchdog();
+  }
+
+  /** Create a fresh config manager.  This is overridden in
+   * SpringLockssTestCase4 in lockss-spring-bundle */
+  protected void makeConfigManager() {
+    ConfigManager.makeConfigManager();
   }
 
   protected MockLockssDaemon newMockLockssDaemon() {

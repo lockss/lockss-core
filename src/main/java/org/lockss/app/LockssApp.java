@@ -53,6 +53,7 @@ import org.lockss.protocol.*;
 import org.lockss.truezip.*;
 import org.apache.commons.collections.map.LinkedMap;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.springframework.context.ApplicationContext;
 
 /**
  * Configuration and startup of LOCKSS applications.  Application
@@ -927,7 +928,8 @@ public class LockssApp {
   protected void initProperties() {
     ConfigManager configMgr =
       ConfigManager.makeConfigManager(bootstrapPropsUrls, restConfigServiceUrl,
-				      propUrls, groupNames);
+				      propUrls, groupNames,
+				      getAppSpec().getSpringApplicatonContext());
     configMgr.setClusterUrls(clusterUrls);
 
     configMgr.initService(this);
@@ -1574,6 +1576,7 @@ public class LockssApp {
     private boolean isKeepRunning = false;
     private JavaVersion minJavaVersion = JavaVersion.JAVA_1_8;
 //     private JavaVersion maxJavaVersion;
+    private ApplicationContext springAppCtx;
     private OneShotSemaphore startedSem;
 
     /** Set the name */
@@ -1709,6 +1712,19 @@ public class LockssApp {
 //       maxJavaVersion = max;
 //       return this;
 //     }
+
+    /** Set the Spring ApplicationContext.  If supplied, this is used to
+     * generate Spring events (e.g.,
+     * CnfigManager.ConfigManagerCreatedEvent) */
+    public AppSpec setSpringApplicatonContext(ApplicationContext appCtx) {
+      springAppCtx = appCtx;;
+      return this;
+    }
+
+    /** Return the Spring ApplicationContext or null */
+    public ApplicationContext getSpringApplicatonContext() {
+      return springAppCtx;
+    }
 
     /** Return the array of app-specific ManagerDescs */
     public ManagerDesc[] getAppManagers() {

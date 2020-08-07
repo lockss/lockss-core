@@ -41,6 +41,8 @@ import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.oro.text.regex.*;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationContext;
 import org.lockss.app.*;
 import org.lockss.account.*;
 import org.lockss.clockss.*;
@@ -880,26 +882,71 @@ public class ConfigManager implements LockssManager {
   protected static WaitableObject<ConfigManager> theMgr =
     new WaitableObject<>();
 
-  public static ConfigManager  makeConfigManager() {
-    return theMgr.setValue(new ConfigManager());
+  public static ConfigManager setConfigManager(ConfigManager mgr) {
+    return setConfigManager(mgr, null);
+  }
+
+  public static ConfigManager setConfigManager(ConfigManager mgr,
+					       ApplicationContext springAppCtx) {
+    theMgr.setValue(mgr);
+    mgr.signalConfigManagerCreatedEvent(springAppCtx);
+    return mgr;
+  }
+
+  /** If an ApplicationContext was supplied, signal an event when
+   *  ConfigManager is instantiated, so Spring code (which is running
+   *  asynchronously to lockss-core code) knows when it can register a
+   *  config callback */
+  public void signalConfigManagerCreatedEvent(ApplicationContext appCtx) {
+    if (appCtx != null) {
+      appCtx.publishEvent(new ConfigManagerCreatedEvent(this));
+    }
+  }
+
+  /** Spring event signalled when ConfigManager is instantiated.  This
+   * happens once at normal startup, and before every unit test */
+  public static class ConfigManagerCreatedEvent extends ApplicationEvent {
+    private ConfigManagerCreatedEvent(Object source) {
+      super(source);
+    }
+  }
+
+  public static ConfigManager makeConfigManager() {
+    return setConfigManager(new ConfigManager());
   }
 
   public static ConfigManager makeConfigManager(List urls) {
-    return theMgr.setValue(new ConfigManager(urls));
+    return setConfigManager(new ConfigManager(urls));
   }
 
   public static ConfigManager makeConfigManager(List urls, String groupNames) {
-    return theMgr.setValue(new ConfigManager(urls, groupNames));
+    return setConfigManager(new ConfigManager(urls, groupNames));
   }
 
   public static ConfigManager makeConfigManager(List<String> bootstrapPropsUrls,
 						String restConfigServiceUrl,
 						List<String> urls,
 						String groupNames) {
-    return theMgr.setValue(new ConfigManager(bootstrapPropsUrls,
+    return setConfigManager(new ConfigManager(bootstrapPropsUrls,
 					     restConfigServiceUrl,
 					     urls,
 					     groupNames));
+  }
+
+  public static ConfigManager makeConfigManager(List<String> bootstrapPropsUrls,
+						String restConfigServiceUrl,
+						List<String> urls,
+						String groupNames,
+						ApplicationContext springAppCtx) {
+    return setConfigManager(new ConfigManager(bootstrapPropsUrls,
+					      restConfigServiceUrl,
+					      urls,
+					      groupNames),
+			    springAppCtx);
+  }
+
+  public static ConfigManager makeConfigManager(ApplicationContext springAppCtx) {
+    return setConfigManager(new ConfigManager(), springAppCtx);
   }
 
   /**
