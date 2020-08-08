@@ -276,11 +276,13 @@ public class LockssRepositoryStatus {
 	log.error("Coudln't get RepositoryInfo for " + rs, e);
       }
 
+      int refetchedForContent = -1;
       if (repo instanceof RestLockssRepository) {
 	RestLockssRepository rrepo = (RestLockssRepository)repo;
 	ArtifactCache artCache = rrepo.getArtifactCache();
 	if (artCache.isEnabled()) {
 	  ArtifactCache.Stats stats = artCache.getStats();
+	  refetchedForContent = stats.getRefetchedForContent();
 	  String artStats =
 	    String.format("%d hits, %d iter hits, %d misses, %d stores, %d invalidates",
 			  stats.getCacheHits(),
@@ -324,16 +326,26 @@ public class LockssRepositoryStatus {
 					      "enabling (waiting for confirmation from repository service)"));
 	}
 	if (table.getOptions().get(StatusTable.OPTION_DEBUG_USER)) {
-	  ArtifactData.Stats stats = ArtifactData.getStats();
-	  String str =
-	    StringUtil.numberOfUnits(stats.getInputUsed(), "InputStream") +
-	    " used, " + stats.getInputUnused() + " unused";
-	  if (stats.getUnreleased() > 0) {
-	    str += ", " + stats.getUnreleased() + " unreleased";
+	  ArtifactData.Stats adStats = ArtifactData.getStats();
+	  StringBuilder sb = new StringBuilder();
+	  sb.append(adStats.getTotalAllocated());
+	  sb.append(" total, ");
+	  sb.append(adStats.getWithContent());
+	  sb.append(" w/ content, ");
+	  if (refetchedForContent >= 0) {
+	    sb.append(refetchedForContent);
+	    sb.append(" refetched for content, ");
+	  }
+	  sb.append(StringUtil.numberOfUnits(adStats.getInputUsed(), "InputStream"));
+	  sb.append(" used, ");
+	  sb.append(adStats.getInputUnused() + " unused");
+	  if (adStats.getUnreleased() > 0) {
+	    sb.append(", ");
+	    sb.append(adStats.getUnreleased() + " unreleased");
 	  }
 	  res.add(new StatusTable.SummaryInfo("ArtifactData",
 					      ColumnDescriptor.TYPE_STRING,
-					      str));
+					      sb.toString()));
 	}
       }
       return res;
