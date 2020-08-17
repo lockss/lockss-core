@@ -899,6 +899,7 @@ public class ConfigManager implements LockssManager {
    *  config callback */
   public void signalConfigManagerCreatedEvent(ApplicationContext appCtx) {
     if (appCtx != null) {
+      log.debug2("ConfigManager created, event sent: " + appCtx);
       appCtx.publishEvent(new ConfigManagerCreatedEvent(this));
     }
   }
