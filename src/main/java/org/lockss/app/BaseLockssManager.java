@@ -55,8 +55,9 @@ public abstract class BaseLockssManager implements LockssManager {
   protected LockssApp theApp = null;
   private Configuration.Callback configCallback;
   protected boolean isInited = false;
-  protected boolean isStarted = false;
   protected boolean shuttingDown = false;
+  protected OneShotSemaphore startedSem = new OneShotSemaphore();
+
 
   protected String getClassName() {
     return ClassUtil.getClassNameWithoutPackage(getClass());
@@ -86,7 +87,7 @@ public abstract class BaseLockssManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
-    isStarted = true;
+    setStarted();
     log.debug2("{}.startService()", getClassName());
   }
 
@@ -133,8 +134,39 @@ public abstract class BaseLockssManager implements LockssManager {
    * Return true iff this manager's startService() has been called.
    * @return true if the manager is started
    */
+  public void setStarted() {
+    startedSem.fill();
+  }
+
+  /** Wait until the service is started.
+   * @param timer limits the time to wait.  If null, returns immediately.
+   * @return true if started, false if timer expired.
+   */
+  public boolean waitStarted(Deadline timer) {
+    while (!startedSem.isFull() && !timer.expired()) {
+      try {
+	startedSem.waitFull(timer);
+      } catch (InterruptedException e) {
+	// no action - check timer
+      }
+    }
+    return startedSem.isFull();
+  }
+
+  /**
+   * Wait until the service has is started.  Return true if true iff this manager's startService() has been called.
+   * @return true if the manager is started
+   */
+  public boolean waitStarted() {
+    return startedSem.isFull();
+  }
+
+  /**
+   * Return true iff this manager's startService() has been called.
+   * @return true if the manager is started
+   */
   public boolean isStarted() {
-    return isStarted;
+    return startedSem.isFull();
   }
 
   public <T> T getManagerByType(Class<T> mgrType) {
