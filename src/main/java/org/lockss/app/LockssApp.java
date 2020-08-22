@@ -1087,49 +1087,110 @@ public class LockssApp {
       getServiceBinding(getMyServiceDescr());
   }
 
-  //  svc_abbrev=host:rest_port[:ui_port]
-  //  Any of host, rest_port, or ui_port may be empty
+  // Syntax:
+  //  svc_abbrev=rest_host:port,ui_host:port
+  //  Either host may be elided (= localhost), ",ui_host:port is" optional
   protected static final Pattern SERVICE_BINDING_PAT =
+    Pattern.compile("(.*)=([^:,]*):(\\d+)(?:,([^:]*):(\\d+))?");
+  //                  1     2         3        4        5
+
+  // Old syntax, still supported
+  //  svc_abbrev=host:rest_port[:ui_port]
+  //  host may be elided (= localhost, ":ui_port" is optional
+  protected static final Pattern SERVICE_BINDING_PAT_OLD =
     Pattern.compile("(.+)=([^:]*):(\\d+)?(?::(\\d+)?)?$");
+  //                  1     2        3          4
 
   void processServiceBindings(List<String> bindings) {
     if (bindings == null) {
       serviceBindings.clear();
     } else {
       for (String s : bindings) {
-	Matcher mat = SERVICE_BINDING_PAT.matcher(s);
-	if (mat.matches()) {
-	  String abbrev = mat.group(1);
-	  ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
-	  if (descr != null) {
-	    String g3 = mat.group(3);
-	    if (StringUtil.isNullString(g3)) {
-	      g3 = "0";
-	    }
-	    String g4 = mat.group(4);
-	    if (StringUtil.isNullString(g4)) {
-	      g4 = "0";
-	    }
-	    try {
-	      String host = mat.group(2);
-	      if (StringUtil.isNullString(host)) {
-		host = null;
-	      }
-	      ServiceBinding binding =
-		new ServiceBinding(host, Integer.parseInt(g3),
-				   Integer.parseInt(g4));
-	      serviceBindings.put(descr, binding);
-	    } catch (NumberFormatException e) {
-	      log.error("Malformed service binding: " + s, e);
-	    }
-	  }
-	} else {
+	if (! (parseServiceBinding(s) ||
+	       parseServiceBindingOld(s)))
 	  log.error("Malformed service binding: " + s);
-	}
       }
     }
     log.debug("Service bindings: " + serviceBindings);
   }
+
+  boolean parseServiceBinding(String s) {
+    Matcher mat = SERVICE_BINDING_PAT.matcher(s);
+    if (!mat.matches()) {
+      log.debug("new no match: " + s);
+      return false;
+    }
+    String abbrev = mat.group(1);
+    ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
+    if (descr == null) {
+      log.error("Malformed service binding, service " + abbrev + " not found");
+      return false;
+    }
+    String g3 = mat.group(3);
+    if (StringUtil.isNullString(g3)) {
+      g3 = "0";
+    }
+    String g5 = mat.group(5);
+    if (StringUtil.isNullString(g5)) {
+      g5 = "0";
+    }
+    try {
+      String restHost = mat.group(2);
+      if (StringUtil.isNullString(restHost)) {
+	restHost = null;
+      }
+      String uiHost = mat.group(4);
+      if (StringUtil.isNullString(uiHost)) {
+	uiHost = null;
+      }
+      ServiceBinding binding =
+	new ServiceBinding(restHost, Integer.parseInt(g3),
+			   uiHost, Integer.parseInt(g5));
+      serviceBindings.put(descr, binding);
+      return true;
+    } catch (NumberFormatException e) {
+      log.error("Malformed service binding: " + s, e);
+      return false;
+    }
+  }
+
+  boolean parseServiceBindingOld(String s) {
+    Matcher mat = SERVICE_BINDING_PAT_OLD.matcher(s);
+    if (!mat.matches()) {
+      log.debug("old no match: " + s);
+      return false;
+    }
+    String abbrev = mat.group(1);
+    ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
+    if (descr == null) {
+      log.error("Malformed service binding, service " + abbrev + " not found");
+      return false;
+    }
+    String g3 = mat.group(3);
+    if (StringUtil.isNullString(g3)) {
+      g3 = "0";
+    }
+    String g4 = mat.group(4);
+    if (StringUtil.isNullString(g4)) {
+      g4 = "0";
+    }
+    try {
+      String host = mat.group(2);
+      if (StringUtil.isNullString(host)) {
+	host = null;
+      }
+      ServiceBinding binding =
+	new ServiceBinding(host, Integer.parseInt(g3),
+			   Integer.parseInt(g4));
+      serviceBindings.put(descr, binding);
+      return true;
+    } catch (NumberFormatException e) {
+      log.error("Malformed service binding: " + s, e);
+      return false;
+    }
+  }
+
+
 
   // LockssApp framework startup
 
