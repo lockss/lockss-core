@@ -61,7 +61,7 @@ public class TestProxyAccessHandler extends LockssTestCase {
     mau.setPlugin(new MockPlugin());
 
     handler = new ProxyAccessHandler(theDaemon, "test");
-    handler.setAllowLocal(true);
+    handler.setAllowLocal(true, ListUtil.list("44.44.44.44/30"));
   }
 
   void setRepair(HttpRequest req) {
@@ -70,14 +70,24 @@ public class TestProxyAccessHandler extends LockssTestCase {
 
   public void testLocalOk() throws Exception {
      MockHttpRequest req = new MockHttpRequest();
+     {
+       req.setRemoteAddr("127.0.0.1");
 
-     req.setRemoteAddr("127.0.0.1");
+       MockHttpResponse res = new MockHttpResponse();
+       handler.handle("/blah/blah.html", "", req, res);
+       // handler should just return, not having handled request
+       assertEquals(-1, res.getError());
+       assertFalse(req.isHandled());
+     }
+     {
+       req.setRemoteAddr("44.44.44.45");
 
-     MockHttpResponse res = new MockHttpResponse();
-     handler.handle("/blah/blah.html", "", req, res);
-     // handler should just return, not having handled request
-     assertEquals(-1, res.getError());
-     assertFalse(req.isHandled());
+       MockHttpResponse res = new MockHttpResponse();
+       handler.handle("/blah/blah.html", "", req, res);
+       // handler should just return, not having handled request
+       assertEquals(-1, res.getError());
+       assertFalse(req.isHandled());
+     }
   }
 
   public void testNoAccess() throws Exception {

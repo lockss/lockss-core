@@ -312,6 +312,17 @@ public class ConfigManager implements LockssManager {
   public static final String PARAM_PLATFORM_SECOND_IP_ADDRESS =
     PLATFORM + "secondIP";
 
+  /** Subnet mask of subnet(s) tatht should be treated similarly to the
+   * loopback address, to allow local access to the UI and REST services.
+   * In a container environment the source IP of these connections is often
+   * not the loopback address, but a container-specfic address.
+   * @ParamCategory Platform
+   */
+  public static final String PARAM_PLATFORM_CONTAINER_SUBNETS = PLATFORM +
+    "containerSubnets";
+  public static List<String> DEFAULT_PLATFORM_CONTAINER_SUBNETS =
+    Collections.emptyList();
+
   /** LCAP V3 identity string.  Of the form
    * <code><i>proto</i>:[<i>ip-addr</i>:<i>port</i>]</code>; <i>eg</i>,
    * <code>TCP:[10.33.44.55:9729]</code> or
@@ -1093,6 +1104,11 @@ public class ConfigManager implements LockssManager {
 
   public static String getPlatformHostname() {
     return getPlatformConfig().get(PARAM_PLATFORM_FQDN);
+  }
+
+  public static List getPlatformContainerSubnets() {
+    return getPlatformConfig().getList(PARAM_PLATFORM_CONTAINER_SUBNETS,
+				       DEFAULT_PLATFORM_CONTAINER_SUBNETS);
   }
 
   public static String getPlatformProject() {
