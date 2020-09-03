@@ -51,7 +51,7 @@ public class IpAccessHandler extends AbstractHttpHandler {
   private static Logger log = Logger.getLogger();
 
   private static List<String> LOCAL_IP_FILTERS = ListUtil.list("127.0.0.0/8",
-							       ";::1");
+							       "::1");
 
   private IpFilter filter = new IpFilter();
   private String serverName;
