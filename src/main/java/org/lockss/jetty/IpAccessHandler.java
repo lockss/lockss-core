@@ -77,7 +77,7 @@ public class IpAccessHandler extends AbstractHttpHandler {
   }
 
   public void setAllowLocal(boolean allowLocal, List<String> containerSubnets) {
-    if (allowLocal && localFilter == null) {
+    if (allowLocal) {
       IpFilter filt = new IpFilter();
       try {
 	List<String> localSubnets = new ArrayList<>(LOCAL_IP_FILTERS);
