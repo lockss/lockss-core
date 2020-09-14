@@ -811,6 +811,12 @@ POSSIBILITY OF SUCH DAMAGE.
       </exclusions> 
     </dependency>
 
+    <dependency>
+      <groupId>org.marc4j</groupId>
+      <artifactId>marc4j</artifactId>
+      <version>${version.dependency.marc4j}</version>
+    </dependency>
+
   </dependencies>
 
   <build>
