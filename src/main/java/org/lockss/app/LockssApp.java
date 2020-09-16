@@ -251,6 +251,7 @@ public class LockssApp {
   // managers are started and stopped in the right order.  This does not
   // need to be synchronized.
   protected LinkedMap managerMap = new LinkedMap();
+  protected Map<String,OneShotSemaphore> managerSemMap = new HashMap<>();
 
   protected static WaitableObject<LockssApp> theApp = new WaitableObject<>();
 
@@ -526,7 +527,9 @@ public class LockssApp {
    * @return true if manager exists
    */
   public boolean hasManagerByKey(String managerKey) {
-    return managerMap.containsKey(managerKey);
+    synchronized (managerMap) {
+      return managerMap.containsKey(managerKey);
+    }
   }
 
   /**
@@ -537,11 +540,13 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LockssManager getManagerByKey(String managerKey) {
-    LockssManager mgr = (LockssManager) managerMap.get(managerKey);
-    if(mgr == null) {
-      throw new IllegalArgumentException("Unavailable manager:" + managerKey);
+    synchronized (managerMap) {
+      LockssManager mgr = (LockssManager) managerMap.get(managerKey);
+      if (mgr == null) {
+	throw new IllegalArgumentException("Unavailable manager:" + managerKey);
+      }
+      return mgr;
     }
-    return mgr;
   }
 
   /**
@@ -587,6 +592,46 @@ public class LockssApp {
    */
   public static <T> T getManagerByTypeStatic(Class<T> mgrType) {
     return getLockssApp().getManagerByType(mgrType);
+  }
+
+  /**
+   * Find a lockss manager by name, waiting until it's created.
+   * @param managerKey the name of the manager
+   * @param until Deadline after which to give up and return null
+   * @return the named lockss manager, or null if it isn't created by the
+   * deadline
+   */
+  public LockssManager waitManagerByKey(String managerKey, Deadline until) {
+    OneShotSemaphore mgrSem;
+    synchronized (managerMap) {
+      LockssManager mgr = (LockssManager)managerMap.get(managerKey);
+      if (mgr != null) return mgr;
+      mgrSem = managerSemMap.get(managerKey);
+      if (mgrSem == null) {
+	mgrSem = new OneShotSemaphore();
+	log.debug2("Creating managerSem for " + managerKey);
+	managerSemMap.put(managerKey, mgrSem);
+      }
+    }
+    try {
+      log.debug2("Waiting on managerSem for " + managerKey);
+      if (mgrSem.waitFull(until)) {
+	return getManagerByKey(managerKey);
+      } else {
+	return null;
+      }
+    } catch (InterruptedException e) {
+      log.warning("Interrupted while waiting for manager: " + managerKey);
+      return null;
+    }
+  }
+
+  /**
+   * Static version of {@link #waitManagerByKey(String,Deadline)}.
+   */
+  public static LockssManager waitManagerByKeyStatic(String managerKey,
+						     Deadline until) {
+    return getLockssApp().waitManagerByKey(managerKey, until);
   }
 
   // Standard manager accessors
@@ -769,7 +814,15 @@ public class LockssApp {
       if (!mgr.isInited()) {
 	mgr.initService(this);
       }
-      managerMap.put(desc.key, mgr);
+      synchronized (managerMap) {
+	log.debug2("managerMap.put(" + desc.key + ")");
+	managerMap.put(desc.key, mgr);
+	OneShotSemaphore mgrSem = managerSemMap.get(desc.key);
+	if (mgrSem != null) {
+	  log.debug2("managerSemMap.fill(" + desc.key + ")");
+	  mgrSem.fill();
+	}
+      }
       return mgr;
     } catch (Exception ex) {
       log.error("Unable to instantiate Lockss Manager "+ managerName, ex);

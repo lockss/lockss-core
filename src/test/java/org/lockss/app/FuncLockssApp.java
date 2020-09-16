@@ -71,12 +71,20 @@ public class FuncLockssApp extends LockssTestCase {
 			       "deftest2=file");
 
     final SimpleQueue appq = new SimpleQueue.Fifo();
+    final SimpleQueue mgrq = new SimpleQueue.Fifo();
     Thread th = new Thread() {
 	public void run() {
 	  appq.put(LockssApp.getLockssApp());
 	}};
     th.start();
+    Thread th2 = new Thread() {
+	public void run() {
+	  mgrq.put(LockssApp.waitManagerByKeyStatic(LockssApp.managerKey(org.lockss.alert.AlertManager.class),
+						    Deadline.in(20000)));
+	}};
+    th2.start();
     assertTrue(appq.isEmpty());
+    assertTrue(mgrq.isEmpty());
 
     String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
 
@@ -98,12 +106,15 @@ public class FuncLockssApp extends LockssTestCase {
     assertSame(app, appq.get(TIMEOUT_SHOULDNT));
 
     assertTrue(app.isAppRunning());
+
     Configuration config = ConfigManager.getCurrentConfig();
     assertEquals("w", config.get(ConfigManager.PARAM_DAEMON_GROUPS));
     assertClass(org.lockss.daemon.RandomManager.class,
 		app.getRandomManager());
     assertClass(org.lockss.alert.AlertManagerImpl.class,
 		app.getManagerByType(org.lockss.alert.AlertManager.class));
+    assertClass(org.lockss.alert.AlertManagerImpl.class,
+		mgrq.get(TIMEOUT_SHOULDNT));
     assertEquals("foo", config.get("org.lockss.app.nonesuch"));
     assertEquals("vvv3", config.get("o.l.p22"));
     assertEquals("app", config.get("deftest1"));

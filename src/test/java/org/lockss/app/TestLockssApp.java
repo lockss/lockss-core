@@ -362,7 +362,9 @@ public class TestLockssApp extends LockssTestCase {
     assertEquals(1, mgr1.inited);
     assertEquals(1, mgr1.started);
     assertEquals(0, mgr1.stopped);
-    MockLockssManager mgr3 = (MockLockssManager)LockssApp.getManager("mgr_3");
+    MockLockssManager mgr3 =
+      (MockLockssManager)LockssApp.waitManagerByKeyStatic("mgr_3",
+							  Deadline.in(10));
     assertTrue(mgr3 instanceof MockMgr3);
     assertEquals(1, mgr3.inited);
     assertEquals(1, mgr3.started);
@@ -372,6 +374,7 @@ public class TestLockssApp extends LockssTestCase {
       fail("mgr_2 shouldn't have been created");
     } catch (IllegalArgumentException e) {
     }
+    assertNull(LockssApp.waitManagerByKeyStatic("mgr_2", Deadline.in(10)));
 
     app.stop();
     assertEquals(1, mgr1.stopped);
