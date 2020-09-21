@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -231,6 +231,7 @@ public class LockssApp {
   protected List<String> bootstrapPropsUrls = null;
   protected String restConfigServiceUrl = null;
   protected String restClientCredentialsFilePath = null;
+  protected String restClientCredentialsAsString = null;
   protected List<String> restClientCredentials = null;
   protected boolean restClientCredentialsPopulated = false;
   protected List<String> propUrls = null;
@@ -327,6 +328,23 @@ public class LockssApp {
    *         specified.
    */
   public List<String> getRestClientCredentials() {
+    populateRestClientCredentials();
+    return restClientCredentials;
+  }
+
+  /**
+   * Provides the REST Client credentials as a single user:password string
+   *
+   * @return a String with the REST Client credentials, or
+   *         <code>null</code> if no REST Client credentials have been
+   *         specified.
+   */
+  public String getRestClientCredentialsAsString() {
+    populateRestClientCredentials();
+    return restClientCredentialsAsString;
+  }
+
+  private void populateRestClientCredentials() {
     if (log.isDebug3()) log.debug3("restClientCredentialsPopulated = "
 	+ restClientCredentialsPopulated);
 
@@ -341,13 +359,15 @@ public class LockssApp {
 	// Yes.
 	try {
 	  // Read the credentials from the file.
-	  String credentials =
+	  restClientCredentialsAsString =
 	      FileUtil.readPasswdFile(restClientCredentialsFilePath);
-	  if (log.isDebug3()) log.debug3("credentials = " + credentials);
+	  if (log.isDebug3()) log.debug3("credentials = " +
+					 restClientCredentialsAsString);
 
 	  // Parse the credentials.
-	  if (credentials != null && !credentials.isEmpty()) {
-	    restClientCredentials = StringUtil.breakAt(credentials, ":");
+	  if (!StringUtil.isNullString(restClientCredentialsAsString)) {
+	    restClientCredentials =
+	      StringUtil.breakAt(restClientCredentialsAsString, ":");
 	  }
 	} catch (IOException ioe) {
 	  log.warning("Exception caught getting REST client credentials", ioe);
@@ -360,7 +380,6 @@ public class LockssApp {
 
     if (log.isDebug2())
       log.debug2("restClientCredentials = " + restClientCredentials);
-    return restClientCredentials;
   }
 
   /** Return the current testing mode. */
@@ -1170,7 +1189,7 @@ public class LockssApp {
   boolean parseServiceBinding(String s) {
     Matcher mat = SERVICE_BINDING_PAT.matcher(s);
     if (!mat.matches()) {
-      log.debug("new no match: " + s);
+      log.debug2("new no match: " + s);
       return false;
     }
     String abbrev = mat.group(1);
@@ -1210,7 +1229,7 @@ public class LockssApp {
   boolean parseServiceBindingOld(String s) {
     Matcher mat = SERVICE_BINDING_PAT_OLD.matcher(s);
     if (!mat.matches()) {
-      log.debug("old no match: " + s);
+      log.debug2("old no match: " + s);
       return false;
     }
     String abbrev = mat.group(1);

@@ -36,7 +36,6 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -45,6 +44,7 @@ import java.util.Map;
 import java.util.Vector;
 import javax.mail.MessagingException;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
+import org.lockss.util.auth.*;
 import org.lockss.util.rest.HttpResponseStatusAndHeaders;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.exception.LockssRestException;
@@ -105,10 +105,38 @@ public class RestConfigClient {
    *          Configuration REST web service.
    */
   public RestConfigClient(String restConfigServiceUrl) {
+    this(restConfigServiceUrl, null);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param restConfigServiceUrl
+   *          A String with the information necessary to access the
+   *          Configuration REST web service.
+   * @param credentials A user:passwd string.  If supplied, this takes
+   *        precedence over any credentials in the service URL.
+   */
+  public RestConfigClient(String restConfigServiceUrl, String credentials) {
     this.restConfigServiceUrl = restConfigServiceUrl;
 
     // Save the individual components of the Configuration REST web service URL.
     parseRestConfigServiceUrl();
+    if (credentials != null) {
+      parseCredentials(credentials);
+    }
+  }
+
+  /**
+   * Set the user credentials for the REST client.
+   *
+   * @param credentials A user:passwd string.  If supplied, this takes
+   *        precedence over any credentials in the service URL.
+   */
+  public void setUserCredentials(String credentials) {
+    if (!StringUtil.isNullString(credentials)) {
+      parseCredentials(credentials);
+    }
   }
 
   /**
@@ -147,21 +175,7 @@ public class RestConfigClient {
 	serviceLocation = restConfigServiceUrl;
       } else {
 	// Yes: Parse them.
-	Vector<String> credentials =
-	    StringUtil.breakAt(credentialsAsString, ":");
-
-	if (credentials != null && credentials.size() > 0) {
-	  serviceUser = credentials.get(0);
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "serviceUser = " + serviceUser);
-
-	  if (credentials.size() > 1) {
-	    servicePassword = credentials.get(1);
-	    if (log.isDebug3())
-	      log.debug3(DEBUG_HEADER + "servicePassword = " + servicePassword);
-	  }
-	}
-
+	parseCredentials(credentialsAsString);
 	// Get the service location.
 	serviceLocation = new URL(url.getProtocol(), url.getHost(),
 	    url.getPort(), url.getFile()).toString();
@@ -176,6 +190,20 @@ public class RestConfigClient {
     }
 
     log.info("REST Configuration service location = " + serviceLocation);
+  }
+
+  private void parseCredentials(String credentialsAsString) {
+    final String DEBUG_HEADER = "parseCredentials(): ";
+    Vector<String> credentials = StringUtil.breakAt(credentialsAsString, ":");
+
+    if (credentials != null && credentials.size() == 2) {
+      serviceUser = credentials.get(0);
+      servicePassword = credentials.get(1);
+      if (log.isDebug3()) {
+	log.debug3(DEBUG_HEADER + "serviceUser : servicePassword = "
+		   + serviceUser + " : " + servicePassword);
+      }
+    }
   }
 
   /**
@@ -1309,9 +1337,8 @@ public class RestConfigClient {
    *          An HttpHeaders with the request headers.
    */
   private void setAuthenticationCredentials(HttpHeaders requestHeaders) {
-    String credentials = serviceUser + ":" + servicePassword;
-    String authHeaderValue = "Basic " + Base64.getEncoder()
-    .encodeToString(credentials.getBytes(StandardCharsets.US_ASCII));
+    String authHeaderValue = AuthUtil.basicAuthHeaderValue(serviceUser,
+							   servicePassword);
     requestHeaders.set("Authorization", authHeaderValue);
     if (log.isDebug3()) log.debug3("requestHeaders = " + requestHeaders);
   }

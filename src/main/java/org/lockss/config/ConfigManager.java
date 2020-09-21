@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -800,7 +800,14 @@ public class ConfigManager implements LockssManager {
 
     this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
+
+    // User credentials for rest client aren't available yet because the
+    // app instance ins't known until initService() is called, but the
+    // client must must be created here, not in initService(), as various
+    // tests and other utilities (e.g., PluginPackager) use ConfigManager
+    // without calling initService()
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
+
     // Check whether this is not happening in a REST Configuration service
     // environment.
     if (restConfigClient.isActive()) {
@@ -842,6 +849,8 @@ public class ConfigManager implements LockssManager {
   }
 
   public void initService(LockssApp app) throws LockssAppException {
+    String restCred = app.getRestClientCredentialsAsString();
+    restConfigClient.setUserCredentials(restCred);
     isInited = true;
     theApp = app;
   }
