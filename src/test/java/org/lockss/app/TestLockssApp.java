@@ -390,11 +390,18 @@ public class TestLockssApp extends LockssTestCase {
       isInited = true;
     }
 
+    @Override
     public void startService() {
     }
 
+    @Override
+    public void serviceStarted() {
+    }
+
+    @Override
     public void stopService() {
     }
+
     public LockssApp getApp() {
       throw new UnsupportedOperationException("Not implemented");
     }
@@ -471,10 +478,16 @@ public class TestLockssApp extends LockssTestCase {
       inited++;
     }
 
+    @Override
     public void startService() {
       started++;
     }
 
+    @Override
+    public void serviceStarted() {
+    }
+
+    @Override
     public void stopService() {
       stopped++;
     }

@@ -865,6 +865,9 @@ public class ConfigManager implements LockssManager {
     startHandler();
   }
 
+  public void serviceStarted() {
+  }
+
   /** Reset to unconfigured state.  See LockssTestCase.tearDown(), where
    * this is called.)
    */

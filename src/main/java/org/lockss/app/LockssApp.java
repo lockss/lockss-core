@@ -911,6 +911,7 @@ public class LockssApp {
       try {
 	log.debug3("startService: " + lm);
 	lm.startService();
+	lm.serviceStarted();
       } catch (Exception e) {
 	log.error("Couldn't start service " + lm, e);
 	// don't try to start remaining managers

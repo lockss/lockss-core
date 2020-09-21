@@ -55,6 +55,7 @@ public abstract class BaseLockssManager implements LockssManager {
   protected LockssApp theApp = null;
   private Configuration.Callback configCallback;
   protected boolean isInited = false;
+  protected boolean isStarted = false;
   protected boolean shuttingDown = false;
   protected OneShotSemaphore startedSem = new OneShotSemaphore();
 
@@ -87,8 +88,14 @@ public abstract class BaseLockssManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
-    setStarted();
+    isStarted = true;
     log.debug2("{}.startService()", getClassName());
+  }
+
+  /** Called by LockssApp after service is started.  (Here because Java
+   * doesn't have "around" methods) */
+  public void serviceStarted() {
+    startedSem.fill();
   }
 
   /** Called to stop a service.  Service should extend this to stop all
@@ -130,14 +137,6 @@ public abstract class BaseLockssManager implements LockssManager {
     return isInited;
   }
 
-  /**
-   * Return true iff this manager's startService() has been called.
-   * @return true if the manager is started
-   */
-  public void setStarted() {
-    startedSem.fill();
-  }
-
   /** Wait until the service is started.
    * @param timer limits the time to wait.  If null, returns immediately.
    * @return true if started, false if timer expired.
@@ -162,11 +161,13 @@ public abstract class BaseLockssManager implements LockssManager {
   }
 
   /**
-   * Return true iff this manager's startService() has been called.
+   * Return true iff this manager's startService() has been called.  Note
+   * this becomes true as soon as startService() is called, while
+   * waitStarted() doesn't return until startService() has completed
    * @return true if the manager is started
    */
   public boolean isStarted() {
-    return startedSem.isFull();
+    return isStarted;
   }
 
   public <T> T getManagerByType(Class<T> mgrType) {

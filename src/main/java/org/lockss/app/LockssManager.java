@@ -54,6 +54,11 @@ public interface LockssManager {
   public void startService();
 
   /**
+   * Called after {@link #startService()} returns.
+   */
+  public void serviceStarted();
+
+  /**
    * stop the manager
    */
   public void stopService();

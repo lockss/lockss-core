@@ -44,10 +44,16 @@ public class NullLockssManager implements LockssManager {
     throw new UnsupportedOperationException("Unsupported operation.");
   }
 
+  @Override
   public void startService() {
     throw new UnsupportedOperationException("Unsupported operation.");
   }
 
+  @Override
+  public void serviceStarted() {
+  }
+
+  @Override
   public void stopService() {
     throw new UnsupportedOperationException("Unsupported operation.");
   }
