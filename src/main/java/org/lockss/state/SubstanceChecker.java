@@ -126,6 +126,7 @@ public class SubstanceChecker {
   protected String enabledContexts = DEFAULT_DETECT_NO_SUBSTANCE_MODE;
 
   protected ArchivalUnit au;
+  protected LockssWatchdog wdog;
   protected SubstancePredicate substancePred;
   protected State hasSubstance = State.Unknown;
   protected int substanceCnt = 0;
@@ -167,6 +168,10 @@ public class SubstanceChecker {
       config.getEnum(NoSubstanceRedirectUrl.class,
 		     PARAM_DETECT_NO_SUBSTANCE_REDIRECT_URL,
 		     DEFAULT_DETECT_NO_SUBSTANCE_REDIRECT_URL);
+  }
+
+  public void setWatchdog(LockssWatchdog wdog) {
+    this.wdog = wdog;
   }
 
   public String getMode() {
@@ -270,6 +275,9 @@ public class SubstanceChecker {
       }
       if (isStateFullyDetermined()) {
 	break;
+      }
+      if (wdog != null) {
+	wdog.pokeWDog();
       }
     }
     log.debug("hasSubstance: " + hasSubstance);

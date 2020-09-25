@@ -253,6 +253,7 @@ public class FollowLinkCrawler extends BaseCrawler {
     subChecker = new SubstanceChecker(au);
     if (subChecker.isEnabledFor(SubstanceChecker.CONTEXT_CRAWL)) {
       log.debug2("Checking AU for substance during crawl");
+      subChecker.setWatchdog(wdog);
       int threshold = AuUtil.getSubstanceTestThreshold(au);
       if (threshold >= 0) {
         subChecker.setSubstanceMin(threshold);
