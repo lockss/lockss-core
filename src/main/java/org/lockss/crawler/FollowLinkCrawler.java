@@ -386,6 +386,7 @@ public class FollowLinkCrawler extends BaseCrawler {
           if(isAborted()) {
             return aborted();
           }
+	  pokeWDog();
           parseQueue.remove(parseCurl);
           parse(parseCurl);
           processedUrls.put(parseCurl.getUrl(), parseCurl);
@@ -655,7 +656,6 @@ public class FollowLinkCrawler extends BaseCrawler {
                 //IOException if the CU can't be read
 		InputStream in = null;
                 try {
-                  pokeWDog();
                   // Might be reparsing with new content (if depth reduced
                   // below refetch depth); clear any existing children
                   curl.clearChildren();
