@@ -854,31 +854,31 @@ public class FuncLockssHttpClient extends LockssTestCase {
     assertEquals(1, th.getNumConnects());
   }
 
-  public void testBindLocalAddress() throws Exception {
-    // OpenBSD does not allow binding arbitrary loopback addresses
-    // (12.7.x.x.x) that haven't explicitly been configured.  Use machine's
-    // real address to test local address binding
-    InetAddress lh = InetAddress.getLocalHost();
-    String local = lh.getHostAddress();
-    int port = TcpTestUtil.findUnboundTcpPort();
-    ServerSocket server = new ServerSocket(port);
-    ServerThread th = new ServerThread(server);
-    th.setResponses(resp(RESP_200));
-    th.setMaxReads(10);
-    th.start();
-    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
-				  localurl(port), connectionPool);
-    conn.setLocalAddress(IPAddr.getByName(local));
-    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
-    conn.execute();
-    aborter.cancel();
-    InetSocketAddress client = th.getClient(0);
-    log.debug("Connection from client: " + client.getAddress());
-    assertEquals(InetAddress.getByName(local), client.getAddress());
-    conn.release();
-    th.stopServer();
-    assertEquals(1, th.getNumConnects());
-  }
+//  public void testBindLocalAddress() throws Exception {
+//    // OpenBSD does not allow binding arbitrary loopback addresses
+//    // (12.7.x.x.x) that haven't explicitly been configured.  Use machine's
+//    // real address to test local address binding
+//    InetAddress lh = InetAddress.getLocalHost();
+//    String local = lh.getHostAddress();
+//    int port = TcpTestUtil.findUnboundTcpPort();
+//    ServerSocket server = new ServerSocket(port);
+//    ServerThread th = new ServerThread(server);
+//    th.setResponses(resp(RESP_200));
+//    th.setMaxReads(10);
+//    th.start();
+//    conn = UrlUtil.openConnection(LockssUrlConnection.METHOD_GET,
+//				  localurl(port), connectionPool);
+//    conn.setLocalAddress(IPAddr.getByName(local));
+//    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
+//    conn.execute();
+//    aborter.cancel();
+//    InetSocketAddress client = th.getClient(0);
+//    log.debug("Connection from client: " + client.getAddress());
+//    assertEquals(InetAddress.getByName(local), client.getAddress());
+//    conn.release();
+//    th.stopServer();
+//    assertEquals(1, th.getNumConnects());
+//  }
 
   // Test that the proxy method doesn't automatically add any request headers
   public void testProxy() throws Exception {
