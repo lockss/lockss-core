@@ -43,7 +43,7 @@ import org.apache.commons.io.output.NullOutputStream;
 import org.lockss.test.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 
 /**
  * This is the test class for org.lockss.util.StreamUtil

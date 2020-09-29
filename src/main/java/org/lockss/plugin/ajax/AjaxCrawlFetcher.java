@@ -40,15 +40,12 @@ import org.lockss.plugin.ajax.AjaxRequestResponse.Header;
 import org.lockss.plugin.ajax.AjaxRequestResponse.IndexEntry;
 import org.lockss.plugin.ajax.AjaxRequestResponse.Response;
 import org.lockss.daemon.Crawler;
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.CachedUrl;
 import org.lockss.plugin.FetchedUrlData;
 import org.lockss.plugin.base.BaseUrlFetcher;
-import org.lockss.util.CIProperties;
-import org.lockss.util.HeaderUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
 import org.lockss.util.urlconn.CacheException;
 
 import java.io.*;
