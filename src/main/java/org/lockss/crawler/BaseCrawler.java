@@ -787,6 +787,10 @@ public abstract class BaseCrawler implements Crawler {
       return crawler.getAu();
     }
 
+    public LockssWatchdog getWatchdog() {
+      return crawler.wdog;
+    }
+
     public UrlFetcher makeUrlFetcher(String url) {
       return crawler.makeUrlFetcher(url);
     }
