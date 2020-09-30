@@ -72,6 +72,8 @@ public class TestDaemonVersion extends LockssTestCase {
                                   "1.1.1",
                                   "1-test.1-test.1-test",
                                   "2.0",
+                                  "2.0-alpha9",
+                                  "2.0-alpha9-FOO",
                                   "2-test.0-test",
                                   "999.999")) {
       new DaemonVersion(v);

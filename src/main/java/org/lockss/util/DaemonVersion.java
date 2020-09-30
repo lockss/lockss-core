@@ -33,7 +33,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.util;
 
-import java.util.StringTokenizer;
 import java.util.regex.*;
 
 /**
@@ -42,7 +41,7 @@ import java.util.regex.*;
  */
 public class DaemonVersion implements Version, Comparable<DaemonVersion> {
 
-  public static final Pattern PATTERN = Pattern.compile("(?:([01])(?:-[0-9a-zA-Z]+)?\\.)?([0-9]{1,3})(?:-[0-9a-zA-Z]+)?\\.([0-9]{1,3})(?:-[0-9a-zA-Z]+)?");
+  public static final Pattern PATTERN = Pattern.compile("(?:([01])(?:-[-0-9a-zA-Z]+)?\\.)?([0-9]{1,3})(?:-[-0-9a-zA-Z]+)?\\.([0-9]{1,3})(?:-[-0-9a-zA-Z]+)?");
   
   private String m_verStr;
   private int m_versionMajor;
