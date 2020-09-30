@@ -514,7 +514,7 @@ public class LockssApp {
       ? BuildInfo.getBuildProperty(BuildInfo.BUILD_ARTIFACT) : getAppName();
     StringBuilder sb = new StringBuilder();
     String res =
-      BuildInfo.getBuildInfoString("LOCKSSS :" + BuildInfo.BUILD_RELEASENAME,
+      BuildInfo.getBuildInfoString("LOCKSS :" + BuildInfo.BUILD_RELEASENAME,
 				   app + ":",
 				   BuildInfo.BUILD_VERSION,
 				   BuildInfo.BUILD_TIMESTAMP,
