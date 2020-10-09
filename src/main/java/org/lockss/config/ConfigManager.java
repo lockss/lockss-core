@@ -2083,7 +2083,9 @@ public class ConfigManager implements LockssManager {
     if (!StringUtil.isNullString(tmpdir)) {
       File javaTmpDir = ensureDir(new File(tmpdir), "dtmp");
       if (javaTmpDir != null) {
-	log.debug("Setting system tmpdir to " + javaTmpDir.toString());
+	if (!javaTmpDir.equals(daemonTmpDir)) {
+	  log.debug("Setting system tmpdir to " + javaTmpDir.toString());
+	}
 	System.setProperty("java.io.tmpdir", javaTmpDir.toString());
 	daemonTmpDir = javaTmpDir;
       } else {
