@@ -421,3 +421,6 @@ lib/run-props
 /pom.xml.versionsBackup
 /test/frameworks/run_dev/remoteCopy
 /test/frameworks/run_dev/remote_config_failover_info.xml
+
+/pom.xml.bak
+/*/pom.xml.bak
