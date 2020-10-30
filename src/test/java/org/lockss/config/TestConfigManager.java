@@ -426,6 +426,12 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals("1.2.3.4", config.get("org.lockss.localIPAddress"));
     assertEquals("tcp:[1.2.3.4]:4321",
 		 config.get("org.lockss.localV3Identity"));
+
+    assertEmpty(ConfigManager.getPlatformContainerSubnets());
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_CONTAINER_SUBNETS,
+				  "10.4.3.0/24;1.2.3.4/30");
+    assertEquals(ListUtil.list("10.4.3.0/24", "1.2.3.4/30"),
+		 ConfigManager.getPlatformContainerSubnets());
   }
 
   @Test

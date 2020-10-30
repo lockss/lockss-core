@@ -38,6 +38,7 @@ import org.lockss.daemon.*;
 import org.lockss.crawler.*;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.time.Deadline;
+import org.lockss.util.LockssWatchdog;
 
 public class NullCrawler implements Crawler {
 

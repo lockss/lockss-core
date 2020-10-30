@@ -57,6 +57,8 @@ public abstract class BaseLockssManager implements LockssManager {
   protected boolean isInited = false;
   protected boolean isStarted = false;
   protected boolean shuttingDown = false;
+  protected OneShotSemaphore startedSem = new OneShotSemaphore();
+
 
   protected String getClassName() {
     return ClassUtil.getClassNameWithoutPackage(getClass());
@@ -88,6 +90,12 @@ public abstract class BaseLockssManager implements LockssManager {
   public void startService() {
     isStarted = true;
     log.debug2("{}.startService()", getClassName());
+  }
+
+  /** Called by LockssApp after service is started.  (Here because Java
+   * doesn't have "around" methods) */
+  public void serviceStarted() {
+    startedSem.fill();
   }
 
   /** Called to stop a service.  Service should extend this to stop all
@@ -129,8 +137,33 @@ public abstract class BaseLockssManager implements LockssManager {
     return isInited;
   }
 
+  /** Wait until the service is started.
+   * @param timer limits the time to wait.  If null, returns immediately.
+   * @return true if started, false if timer expired.
+   */
+  public boolean waitStarted(Deadline timer) {
+    while (!startedSem.isFull() && !timer.expired()) {
+      try {
+	startedSem.waitFull(timer);
+      } catch (InterruptedException e) {
+	// no action - check timer
+      }
+    }
+    return startedSem.isFull();
+  }
+
   /**
-   * Return true iff this manager's startService() has been called.
+   * Wait until the service has is started.  Return true if true iff this manager's startService() has been called.
+   * @return true if the manager is started
+   */
+  public boolean waitStarted() {
+    return startedSem.isFull();
+  }
+
+  /**
+   * Return true iff this manager's startService() has been called.  Note
+   * this becomes true as soon as startService() is called, while
+   * waitStarted() doesn't return until startService() has completed
    * @return true if the manager is started
    */
   public boolean isStarted() {

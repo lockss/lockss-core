@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +31,7 @@ package org.lockss.daemon;
 import org.lockss.util.urlconn.CacheException;
 import org.lockss.plugin.*;
 import org.lockss.crawler.*;
+import org.lockss.util.LockssWatchdog;
 
 /**
  * This interface is implemented by the generic LOCKSS daemon.
@@ -76,7 +73,11 @@ public interface Crawler {
   public static final int STATUS_EXTRACTOR_ERROR = 12;
   public static final int STATUS_CRAWL_TEST_SUCCESSFUL = 13;
   public static final int STATUS_CRAWL_TEST_FAIL = 14;
-  public static final int STATUS_LAST = 14;
+  public static final int STATUS_DISABLED = 15;
+  public static final int STATUS_INELIGIBLE = 16;
+  public static final int STATUS_INACTIVE_REQUEST = 17;
+  public static final int STATUS_INTERRUPTED = 18;
+  public static final int STATUS_LAST = 18;
 
   /**
    * Initiate a crawl starting with all the urls in urls

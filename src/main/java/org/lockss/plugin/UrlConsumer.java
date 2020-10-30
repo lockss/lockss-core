@@ -34,7 +34,7 @@ package org.lockss.plugin;
 
 import java.io.IOException;
 
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 
 public interface UrlConsumer {
   

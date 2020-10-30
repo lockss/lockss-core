@@ -77,6 +77,10 @@ public class MockIdentityManager implements IdentityManager {
   }
 
   @Override
+  public void serviceStarted() {
+  }
+
+  @Override
   public void stopService() {
 //     throw new UnsupportedOperationException("not implemented");
   }

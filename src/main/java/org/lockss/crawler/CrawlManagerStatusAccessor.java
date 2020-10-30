@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -335,6 +331,10 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	  case Crawler.STATUS_NO_PUB_PERMISSION:
 	  case Crawler.STATUS_PLUGIN_ERROR:
 	  case Crawler.STATUS_REPO_ERR:
+	  case Crawler.STATUS_DISABLED:
+	  case Crawler.STATUS_INELIGIBLE:
+	  case Crawler.STATUS_INACTIVE_REQUEST:
+	  case Crawler.STATUS_INTERRUPTED:
 	    statusColRef = makeRef(status.getCrawlStatusMsg(),
 				   CRAWL_URLS_STATUS_ACCESSOR, key + ".error");
 	  }

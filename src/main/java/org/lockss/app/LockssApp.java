@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -53,6 +53,7 @@ import org.lockss.protocol.*;
 import org.lockss.truezip.*;
 import org.apache.commons.collections.map.LinkedMap;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.springframework.context.ApplicationContext;
 
 /**
  * Configuration and startup of LOCKSS applications.  Application
@@ -230,6 +231,7 @@ public class LockssApp {
   protected List<String> bootstrapPropsUrls = null;
   protected String restConfigServiceUrl = null;
   protected String restClientCredentialsFilePath = null;
+  protected String restClientCredentialsAsString = null;
   protected List<String> restClientCredentials = null;
   protected boolean restClientCredentialsPopulated = false;
   protected List<String> propUrls = null;
@@ -250,6 +252,7 @@ public class LockssApp {
   // managers are started and stopped in the right order.  This does not
   // need to be synchronized.
   protected LinkedMap managerMap = new LinkedMap();
+  protected Map<String,OneShotSemaphore> managerSemMap = new HashMap<>();
 
   protected static WaitableObject<LockssApp> theApp = new WaitableObject<>();
 
@@ -325,6 +328,23 @@ public class LockssApp {
    *         specified.
    */
   public List<String> getRestClientCredentials() {
+    populateRestClientCredentials();
+    return restClientCredentials;
+  }
+
+  /**
+   * Provides the REST Client credentials as a single user:password string
+   *
+   * @return a String with the REST Client credentials, or
+   *         <code>null</code> if no REST Client credentials have been
+   *         specified.
+   */
+  public String getRestClientCredentialsAsString() {
+    populateRestClientCredentials();
+    return restClientCredentialsAsString;
+  }
+
+  private void populateRestClientCredentials() {
     if (log.isDebug3()) log.debug3("restClientCredentialsPopulated = "
 	+ restClientCredentialsPopulated);
 
@@ -339,13 +359,15 @@ public class LockssApp {
 	// Yes.
 	try {
 	  // Read the credentials from the file.
-	  String credentials =
+	  restClientCredentialsAsString =
 	      FileUtil.readPasswdFile(restClientCredentialsFilePath);
-	  if (log.isDebug3()) log.debug3("credentials = " + credentials);
+	  if (log.isDebug3()) log.debug3("credentials = " +
+					 restClientCredentialsAsString);
 
 	  // Parse the credentials.
-	  if (credentials != null && !credentials.isEmpty()) {
-	    restClientCredentials = StringUtil.breakAt(credentials, ":");
+	  if (!StringUtil.isNullString(restClientCredentialsAsString)) {
+	    restClientCredentials =
+	      StringUtil.breakAt(restClientCredentialsAsString, ":");
 	  }
 	} catch (IOException ioe) {
 	  log.warning("Exception caught getting REST client credentials", ioe);
@@ -358,7 +380,6 @@ public class LockssApp {
 
     if (log.isDebug2())
       log.debug2("restClientCredentials = " + restClientCredentials);
-    return restClientCredentials;
   }
 
   /** Return the current testing mode. */
@@ -493,7 +514,7 @@ public class LockssApp {
       ? BuildInfo.getBuildProperty(BuildInfo.BUILD_ARTIFACT) : getAppName();
     StringBuilder sb = new StringBuilder();
     String res =
-      BuildInfo.getBuildInfoString("LOCKSSS :" + BuildInfo.BUILD_RELEASENAME,
+      BuildInfo.getBuildInfoString("LOCKSS :" + BuildInfo.BUILD_RELEASENAME,
 				   app + ":",
 				   BuildInfo.BUILD_VERSION,
 				   BuildInfo.BUILD_TIMESTAMP,
@@ -525,7 +546,9 @@ public class LockssApp {
    * @return true if manager exists
    */
   public boolean hasManagerByKey(String managerKey) {
-    return managerMap.containsKey(managerKey);
+    synchronized (managerMap) {
+      return managerMap.containsKey(managerKey);
+    }
   }
 
   /**
@@ -536,11 +559,13 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    */
   public LockssManager getManagerByKey(String managerKey) {
-    LockssManager mgr = (LockssManager) managerMap.get(managerKey);
-    if(mgr == null) {
-      throw new IllegalArgumentException("Unavailable manager:" + managerKey);
+    synchronized (managerMap) {
+      LockssManager mgr = (LockssManager) managerMap.get(managerKey);
+      if (mgr == null) {
+	throw new IllegalArgumentException("Unavailable manager:" + managerKey);
+      }
+      return mgr;
     }
-    return mgr;
   }
 
   /**
@@ -586,6 +611,46 @@ public class LockssApp {
    */
   public static <T> T getManagerByTypeStatic(Class<T> mgrType) {
     return getLockssApp().getManagerByType(mgrType);
+  }
+
+  /**
+   * Find a lockss manager by name, waiting until it's created.
+   * @param managerKey the name of the manager
+   * @param until Deadline after which to give up and return null
+   * @return the named lockss manager, or null if it isn't created by the
+   * deadline
+   */
+  public LockssManager waitManagerByKey(String managerKey, Deadline until) {
+    OneShotSemaphore mgrSem;
+    synchronized (managerMap) {
+      LockssManager mgr = (LockssManager)managerMap.get(managerKey);
+      if (mgr != null) return mgr;
+      mgrSem = managerSemMap.get(managerKey);
+      if (mgrSem == null) {
+	mgrSem = new OneShotSemaphore();
+	log.debug2("Creating managerSem for " + managerKey);
+	managerSemMap.put(managerKey, mgrSem);
+      }
+    }
+    try {
+      log.debug2("Waiting on managerSem for " + managerKey);
+      if (mgrSem.waitFull(until)) {
+	return getManagerByKey(managerKey);
+      } else {
+	return null;
+      }
+    } catch (InterruptedException e) {
+      log.warning("Interrupted while waiting for manager: " + managerKey);
+      return null;
+    }
+  }
+
+  /**
+   * Static version of {@link #waitManagerByKey(String,Deadline)}.
+   */
+  public static LockssManager waitManagerByKeyStatic(String managerKey,
+						     Deadline until) {
+    return getLockssApp().waitManagerByKey(managerKey, until);
   }
 
   // Standard manager accessors
@@ -768,7 +833,15 @@ public class LockssApp {
       if (!mgr.isInited()) {
 	mgr.initService(this);
       }
-      managerMap.put(desc.key, mgr);
+      synchronized (managerMap) {
+	log.debug2("managerMap.put(" + desc.key + ")");
+	managerMap.put(desc.key, mgr);
+	OneShotSemaphore mgrSem = managerSemMap.get(desc.key);
+	if (mgrSem != null) {
+	  log.debug2("managerSemMap.fill(" + desc.key + ")");
+	  mgrSem.fill();
+	}
+      }
       return mgr;
     } catch (Exception ex) {
       log.error("Unable to instantiate Lockss Manager "+ managerName, ex);
@@ -838,6 +911,7 @@ public class LockssApp {
       try {
 	log.debug3("startService: " + lm);
 	lm.startService();
+	lm.serviceStarted();
       } catch (Exception e) {
 	log.error("Couldn't start service " + lm, e);
 	// don't try to start remaining managers
@@ -927,7 +1001,8 @@ public class LockssApp {
   protected void initProperties() {
     ConfigManager configMgr =
       ConfigManager.makeConfigManager(bootstrapPropsUrls, restConfigServiceUrl,
-				      propUrls, groupNames);
+				      propUrls, groupNames,
+				      getAppSpec().getSpringApplicatonContext());
     configMgr.setClusterUrls(clusterUrls);
 
     configMgr.initService(this);
@@ -1085,49 +1160,110 @@ public class LockssApp {
       getServiceBinding(getMyServiceDescr());
   }
 
-  //  svc_abbrev=host:rest_port[:ui_port]
-  //  Any of host, rest_port, or ui_port may be empty
+  // Syntax:
+  //  svc_abbrev=rest_host:port,ui_host:port
+  //  Either host may be elided (= localhost), ",ui_host:port is" optional
   protected static final Pattern SERVICE_BINDING_PAT =
+    Pattern.compile("(.*)=([^:,]*):(\\d+)(?:,([^:]*):(\\d+))?");
+  //                  1     2         3        4        5
+
+  // Old syntax, still supported
+  //  svc_abbrev=host:rest_port[:ui_port]
+  //  host may be elided (= localhost, ":ui_port" is optional
+  protected static final Pattern SERVICE_BINDING_PAT_OLD =
     Pattern.compile("(.+)=([^:]*):(\\d+)?(?::(\\d+)?)?$");
+  //                  1     2        3          4
 
   void processServiceBindings(List<String> bindings) {
     if (bindings == null) {
       serviceBindings.clear();
     } else {
       for (String s : bindings) {
-	Matcher mat = SERVICE_BINDING_PAT.matcher(s);
-	if (mat.matches()) {
-	  String abbrev = mat.group(1);
-	  ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
-	  if (descr != null) {
-	    String g3 = mat.group(3);
-	    if (StringUtil.isNullString(g3)) {
-	      g3 = "0";
-	    }
-	    String g4 = mat.group(4);
-	    if (StringUtil.isNullString(g4)) {
-	      g4 = "0";
-	    }
-	    try {
-	      String host = mat.group(2);
-	      if (StringUtil.isNullString(host)) {
-		host = null;
-	      }
-	      ServiceBinding binding =
-		new ServiceBinding(host, Integer.parseInt(g3),
-				   Integer.parseInt(g4));
-	      serviceBindings.put(descr, binding);
-	    } catch (NumberFormatException e) {
-	      log.error("Malformed service binding: " + s, e);
-	    }
-	  }
-	} else {
+	if (! (parseServiceBinding(s) ||
+	       parseServiceBindingOld(s)))
 	  log.error("Malformed service binding: " + s);
-	}
       }
     }
     log.debug("Service bindings: " + serviceBindings);
   }
+
+  boolean parseServiceBinding(String s) {
+    Matcher mat = SERVICE_BINDING_PAT.matcher(s);
+    if (!mat.matches()) {
+      log.debug2("new no match: " + s);
+      return false;
+    }
+    String abbrev = mat.group(1);
+    ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
+    if (descr == null) {
+      log.error("Malformed service binding, service " + abbrev + " not found");
+      return false;
+    }
+    String g3 = mat.group(3);
+    if (StringUtil.isNullString(g3)) {
+      g3 = "0";
+    }
+    String g5 = mat.group(5);
+    if (StringUtil.isNullString(g5)) {
+      g5 = "0";
+    }
+    try {
+      String restHost = mat.group(2);
+      if (StringUtil.isNullString(restHost)) {
+	restHost = null;
+      }
+      String uiHost = mat.group(4);
+      if (StringUtil.isNullString(uiHost)) {
+	uiHost = null;
+      }
+      ServiceBinding binding =
+	new ServiceBinding(restHost, Integer.parseInt(g3),
+			   uiHost, Integer.parseInt(g5));
+      serviceBindings.put(descr, binding);
+      return true;
+    } catch (NumberFormatException e) {
+      log.error("Malformed service binding: " + s, e);
+      return false;
+    }
+  }
+
+  boolean parseServiceBindingOld(String s) {
+    Matcher mat = SERVICE_BINDING_PAT_OLD.matcher(s);
+    if (!mat.matches()) {
+      log.debug2("old no match: " + s);
+      return false;
+    }
+    String abbrev = mat.group(1);
+    ServiceDescr descr = ServiceDescr.fromAbbrev(abbrev);
+    if (descr == null) {
+      log.error("Malformed service binding, service " + abbrev + " not found");
+      return false;
+    }
+    String g3 = mat.group(3);
+    if (StringUtil.isNullString(g3)) {
+      g3 = "0";
+    }
+    String g4 = mat.group(4);
+    if (StringUtil.isNullString(g4)) {
+      g4 = "0";
+    }
+    try {
+      String host = mat.group(2);
+      if (StringUtil.isNullString(host)) {
+	host = null;
+      }
+      ServiceBinding binding =
+	new ServiceBinding(host, Integer.parseInt(g3),
+			   Integer.parseInt(g4));
+      serviceBindings.put(descr, binding);
+      return true;
+    } catch (NumberFormatException e) {
+      log.error("Malformed service binding: " + s, e);
+      return false;
+    }
+  }
+
+
 
   // LockssApp framework startup
 
@@ -1574,6 +1710,7 @@ public class LockssApp {
     private boolean isKeepRunning = false;
     private JavaVersion minJavaVersion = JavaVersion.JAVA_1_8;
 //     private JavaVersion maxJavaVersion;
+    private ApplicationContext springAppCtx;
     private OneShotSemaphore startedSem;
 
     /** Set the name */
@@ -1709,6 +1846,19 @@ public class LockssApp {
 //       maxJavaVersion = max;
 //       return this;
 //     }
+
+    /** Set the Spring ApplicationContext.  If supplied, this is used to
+     * generate Spring events (e.g.,
+     * CnfigManager.ConfigManagerCreatedEvent) */
+    public AppSpec setSpringApplicatonContext(ApplicationContext appCtx) {
+      springAppCtx = appCtx;;
+      return this;
+    }
+
+    /** Return the Spring ApplicationContext or null */
+    public ApplicationContext getSpringApplicatonContext() {
+      return springAppCtx;
+    }
 
     /** Return the array of app-specific ManagerDescs */
     public ManagerDesc[] getAppManagers() {

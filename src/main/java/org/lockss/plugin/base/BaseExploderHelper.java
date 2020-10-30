@@ -32,7 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.base;
 
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 import org.lockss.plugin.ExploderHelper;
 
 public abstract class BaseExploderHelper implements ExploderHelper {

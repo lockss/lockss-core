@@ -38,18 +38,28 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  * Info about binding of listen sockets of known LOCKSS services
  */
 public class ServiceBinding {
-  private final String host;
+  private final String restHost;
+  private final String uiHost;
   private final int restPort;
   private final int uiPort;
 
   public ServiceBinding(String host, int restPort, int uiPort) {
-    this.host = host;
+    this.restHost = host;
     this.restPort = restPort;
+    this.uiHost = host;
     this.uiPort = uiPort;
   }
 
-  public String getHost() {
-    return host;
+  public ServiceBinding(String restHost, int restPort,
+			String uiHost, int uiPort) {
+    this.restHost = restHost;
+    this.restPort = restPort;
+    this.uiHost = uiHost;
+    this.uiPort = uiPort;
+  }
+
+  public String getRestHost() {
+    return restHost;
   }
 
   public int getRestPort() {
@@ -58,6 +68,10 @@ public class ServiceBinding {
 
   public boolean hasRestPort() {
     return restPort != 0;
+  }
+
+  public String getUiHost() {
+    return uiHost;
   }
 
   public int getUiPort() {
@@ -75,7 +89,7 @@ public class ServiceBinding {
     StringBuilder sb = new StringBuilder();
     sb.append("http");
     sb.append("://");
-    sb.append(getHost() != null ? getHost() : "localhost");
+    sb.append(getRestHost() != null ? getRestHost() : "localhost");
     sb.append(':');
     sb.append(getRestPort());
     return sb.toString();
@@ -89,7 +103,7 @@ public class ServiceBinding {
     StringBuilder sb = new StringBuilder();
     sb.append(proto);
     sb.append("://");
-    sb.append(getHost() != null ? getHost() : "localhost");
+    sb.append(getUiHost() != null ? getUiHost() : "localhost");
     sb.append(':');
     sb.append(getUiPort());
     return sb.toString();
@@ -99,7 +113,9 @@ public class ServiceBinding {
   public boolean equals(Object obj) {
     if (obj instanceof ServiceBinding) {
       ServiceBinding sb = (ServiceBinding)obj;
-      return ObjectUtils.equals(host, sb.getHost())
+      return
+	ObjectUtils.equals(restHost, sb.getRestHost())
+	&& ObjectUtils.equals(uiHost, sb.getUiHost())
 	&& ObjectUtils.equals(restPort, sb.getRestPort())
 	&& ObjectUtils.equals(uiPort, sb.getUiPort()) ;
     }
@@ -109,8 +125,9 @@ public class ServiceBinding {
   @Override
   public int hashCode() {
     HashCodeBuilder hcb = new HashCodeBuilder();
-    hcb.append(host);
+    hcb.append(restHost);
     hcb.append(restPort);
+    hcb.append(uiHost);
     hcb.append(uiPort);
     return hcb.toHashCode();
   }
@@ -119,11 +136,15 @@ public class ServiceBinding {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("[SB: ");
-    if (host != null) {
-      sb.append(host);
+    if (restHost != null) {
+      sb.append(restHost);
     }
     sb.append(":");
     sb.append(restPort);
+    sb.append(",");
+    if (uiHost != null) {
+      sb.append(uiHost);
+    }
     sb.append(":");
     sb.append(uiPort);
     sb.append("]");

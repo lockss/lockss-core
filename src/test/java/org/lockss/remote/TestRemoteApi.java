@@ -242,11 +242,6 @@ public class TestRemoteApi extends LockssTestCase {
     assertNull(rapi.getStoredAuConfiguration(aup));
   }
 
-  public void testGetRepositoryDF () throws Exception {
-    PlatformUtil.DF df = rapi.getRepositoryDF("local:.");
-    assertNotNull(df);
-  }
-
   void writeAuConfigFile(String s) throws IOException {
     writeCacheConfigFile(ConfigManager.CONFIG_FILE_AU_CONFIG, s);
   }

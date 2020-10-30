@@ -98,17 +98,19 @@ public class IpFilter {
   Mask[] parseMasks(List<String> masks, String msg, boolean malformedIsFatal)
       throws MalformedException {
     List<Mask> res = new ArrayList<Mask>();
-    for (String str : masks) {
-      if (str.startsWith("#")) {
-	continue;
-      }
-      try {
-	res.add(newMask(str));
-      } catch (MalformedException e) {
-	log.warning("Malformed IP filter in " + msg + " list, ignoring: " +
-		    e.getMalformedIp(), e);
-	if (malformedIsFatal) {
-	  throw e;
+    if (masks != null) {
+      for (String str : masks) {
+	if (str.startsWith("#")) {
+	  continue;
+	}
+	try {
+	  res.add(newMask(str));
+	} catch (MalformedException e) {
+	  log.warning("Malformed IP filter in " + msg + " list, ignoring: " +
+		      e.getMalformedIp(), e);
+	  if (malformedIsFatal) {
+	    throw e;
+	  }
 	}
       }
     }

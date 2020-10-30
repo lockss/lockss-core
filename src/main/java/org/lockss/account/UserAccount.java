@@ -264,7 +264,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   /** Return a collection of the user's roles  */
-  public Set getRoleSet() {
+  public Set<String> getRoleSet() {
     if (roleSet == null) {
       roleSet =
 	SetUtil.theSet(StringUtil.breakAt(getRoles(), ',', -1, true, true));

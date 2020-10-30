@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2007-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2007-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -463,6 +463,10 @@ public class FuncWarcExploder extends LockssTestCase {
     
     AuState maus = AuTestUtil.setUpMockAus(sau);
     FollowLinkCrawler crawler = new FollowLinkCrawler(sau, maus);
+    CrawlerStatus crawlerStatus =
+	new CrawlerStatus(sau, sau.getStartUrls(), null);
+    crawlerStatus.setType(crawler.getTypeString());
+    crawler.setCrawlerStatus(crawlerStatus);
     crawler.setCrawlManager(crawlMgr);
     boolean res = crawler.doCrawl();
     lastCrawlResult = maus.getLastCrawlResult();

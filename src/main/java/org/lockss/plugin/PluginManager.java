@@ -3434,7 +3434,7 @@ public class PluginManager
 	getDaemon().getCrawlManager().isCrawlerEnabled() &&
 	getDaemon().getCrawlMode().isCrawlPlugins();
     } catch (IllegalArgumentException e) {
-      log.debug("Can't get CrawlManager", e);
+      log.debug("Can't get CrawlManager: " + e);
       return false;
     }
   }

@@ -1,5 +1,9 @@
 # Release Notes
 
+## Major Changes Since 2.0.3.0
+
+*   (highlights go here)
+
 ## 2.0.3.0
 
 ### Features

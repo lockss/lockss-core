@@ -94,7 +94,7 @@ public class TinyUi extends BaseServletManager {
     setConfig(config, ConfigManager.EMPTY_CONFIGURATION,
 	      config.differences(null));  // all differences
     isInited = true;
-    isStarted = true;
+    serviceStarted();
     startServlets();
   }
 

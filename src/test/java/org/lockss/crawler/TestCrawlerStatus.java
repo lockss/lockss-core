@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2020, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -132,6 +132,14 @@ public class TestCrawlerStatus extends LockssTestCase {
 		 c1.getDefaultMessage(Crawler.STATUS_RUNNING_AT_CRASH));
     assertEquals("Link extractor error",
 		 c1.getDefaultMessage(Crawler.STATUS_EXTRACTOR_ERROR));
+    assertEquals("Crawler disabled",
+		 c1.getDefaultMessage(Crawler.STATUS_DISABLED));
+    assertEquals("AU ineligible",
+		 c1.getDefaultMessage(Crawler.STATUS_INELIGIBLE));
+    assertEquals("Inactive request",
+		 c1.getDefaultMessage(Crawler.STATUS_INACTIVE_REQUEST));
+    assertEquals("Crawl interrupted",
+		 c1.getDefaultMessage(Crawler.STATUS_INTERRUPTED));
   }
 
   public void testInternedStatusStrings() {

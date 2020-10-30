@@ -608,7 +608,7 @@ public class AuConfig extends LockssServlet {
     if (isNew) {
       String repo = getParameter(REPO_TAG);
       if (StringUtil.isNullString(repo)) {
-	Map repoMap = remoteApi.getRepositoryMap();
+	Map repoMap = remoteApi.getRepositoryDFMap();
 	repo = remoteApi.findLeastFullRepository(repoMap);
 	formConfig.put(PluginManager.AU_PARAM_REPOSITORY, repo);
       } else {

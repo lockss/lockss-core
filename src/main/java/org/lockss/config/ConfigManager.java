@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -41,6 +41,8 @@ import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.oro.text.regex.*;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationContext;
 import org.lockss.app.*;
 import org.lockss.account.*;
 import org.lockss.clockss.*;
@@ -309,6 +311,17 @@ public class ConfigManager implements LockssManager {
    */
   public static final String PARAM_PLATFORM_SECOND_IP_ADDRESS =
     PLATFORM + "secondIP";
+
+  /** Subnet mask of subnet(s) tatht should be treated similarly to the
+   * loopback address, to allow local access to the UI and REST services.
+   * In a container environment the source IP of these connections is often
+   * not the loopback address, but a container-specfic address.
+   * @ParamCategory Platform
+   */
+  public static final String PARAM_PLATFORM_CONTAINER_SUBNETS = PLATFORM +
+    "containerSubnets";
+  public static List<String> DEFAULT_PLATFORM_CONTAINER_SUBNETS =
+    Collections.emptyList();
 
   /** LCAP V3 identity string.  Of the form
    * <code><i>proto</i>:[<i>ip-addr</i>:<i>port</i>]</code>; <i>eg</i>,
@@ -787,7 +800,14 @@ public class ConfigManager implements LockssManager {
 
     this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
+
+    // User credentials for rest client aren't available yet because the
+    // app instance ins't known until initService() is called, but the
+    // client must must be created here, not in initService(), as various
+    // tests and other utilities (e.g., PluginPackager) use ConfigManager
+    // without calling initService()
     this.restConfigClient = new RestConfigClient(restConfigServiceUrl);
+
     // Check whether this is not happening in a REST Configuration service
     // environment.
     if (restConfigClient.isActive()) {
@@ -829,6 +849,8 @@ public class ConfigManager implements LockssManager {
   }
 
   public void initService(LockssApp app) throws LockssAppException {
+    String restCred = app.getRestClientCredentialsAsString();
+    restConfigClient.setUserCredentials(restCred);
     isInited = true;
     theApp = app;
   }
@@ -841,6 +863,9 @@ public class ConfigManager implements LockssManager {
     // Start the configuration handler that will periodically check the
     // configuration files.
     startHandler();
+  }
+
+  public void serviceStarted() {
   }
 
   /** Reset to unconfigured state.  See LockssTestCase.tearDown(), where
@@ -880,26 +905,72 @@ public class ConfigManager implements LockssManager {
   protected static WaitableObject<ConfigManager> theMgr =
     new WaitableObject<>();
 
-  public static ConfigManager  makeConfigManager() {
-    return theMgr.setValue(new ConfigManager());
+  public static ConfigManager setConfigManager(ConfigManager mgr) {
+    return setConfigManager(mgr, null);
+  }
+
+  public static ConfigManager setConfigManager(ConfigManager mgr,
+					       ApplicationContext springAppCtx) {
+    theMgr.setValue(mgr);
+    mgr.signalConfigManagerCreatedEvent(springAppCtx);
+    return mgr;
+  }
+
+  /** If an ApplicationContext was supplied, signal an event when
+   *  ConfigManager is instantiated, so Spring code (which is running
+   *  asynchronously to lockss-core code) knows when it can register a
+   *  config callback */
+  public void signalConfigManagerCreatedEvent(ApplicationContext appCtx) {
+    if (appCtx != null) {
+      log.debug2("ConfigManager created, event sent: " + appCtx);
+      appCtx.publishEvent(new ConfigManagerCreatedEvent(this));
+    }
+  }
+
+  /** Spring event signalled when ConfigManager is instantiated.  This
+   * happens once at normal startup, and before every unit test */
+  public static class ConfigManagerCreatedEvent extends ApplicationEvent {
+    private ConfigManagerCreatedEvent(Object source) {
+      super(source);
+    }
+  }
+
+  public static ConfigManager makeConfigManager() {
+    return setConfigManager(new ConfigManager());
   }
 
   public static ConfigManager makeConfigManager(List urls) {
-    return theMgr.setValue(new ConfigManager(urls));
+    return setConfigManager(new ConfigManager(urls));
   }
 
   public static ConfigManager makeConfigManager(List urls, String groupNames) {
-    return theMgr.setValue(new ConfigManager(urls, groupNames));
+    return setConfigManager(new ConfigManager(urls, groupNames));
   }
 
   public static ConfigManager makeConfigManager(List<String> bootstrapPropsUrls,
 						String restConfigServiceUrl,
 						List<String> urls,
 						String groupNames) {
-    return theMgr.setValue(new ConfigManager(bootstrapPropsUrls,
+    return setConfigManager(new ConfigManager(bootstrapPropsUrls,
 					     restConfigServiceUrl,
 					     urls,
 					     groupNames));
+  }
+
+  public static ConfigManager makeConfigManager(List<String> bootstrapPropsUrls,
+						String restConfigServiceUrl,
+						List<String> urls,
+						String groupNames,
+						ApplicationContext springAppCtx) {
+    return setConfigManager(new ConfigManager(bootstrapPropsUrls,
+					      restConfigServiceUrl,
+					      urls,
+					      groupNames),
+			    springAppCtx);
+  }
+
+  public static ConfigManager makeConfigManager(ApplicationContext springAppCtx) {
+    return setConfigManager(new ConfigManager(), springAppCtx);
   }
 
   /**
@@ -1045,6 +1116,11 @@ public class ConfigManager implements LockssManager {
 
   public static String getPlatformHostname() {
     return getPlatformConfig().get(PARAM_PLATFORM_FQDN);
+  }
+
+  public static List getPlatformContainerSubnets() {
+    return getPlatformConfig().getList(PARAM_PLATFORM_CONTAINER_SUBNETS,
+				       DEFAULT_PLATFORM_CONTAINER_SUBNETS);
   }
 
   public static String getPlatformProject() {
@@ -1396,7 +1472,7 @@ public class ConfigManager implements LockssManager {
       // Check whether it is the same generation as the one to be added.
       if (url.equals(existingGen.getUrl())) {
 	// Yes: Do not add it.
-	log.info(DEBUG_HEADER + "Not adding to the list generation = " + gen
+	log.debug2(DEBUG_HEADER + "Not adding to the list generation = " + gen
 	    + " because is a duplicate of existing generation = "
 	    + existingGen);
 	return;
@@ -2007,6 +2083,9 @@ public class ConfigManager implements LockssManager {
     if (!StringUtil.isNullString(tmpdir)) {
       File javaTmpDir = ensureDir(new File(tmpdir), "dtmp");
       if (javaTmpDir != null) {
+	if (!javaTmpDir.equals(daemonTmpDir)) {
+	  log.debug("Setting system tmpdir to " + javaTmpDir.toString());
+	}
 	System.setProperty("java.io.tmpdir", javaTmpDir.toString());
 	daemonTmpDir = javaTmpDir;
       } else {
@@ -2016,7 +2095,8 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  File getTmpDir() {
+  /** Return the configured or default temp dir */
+  public File getTmpDir() {
     return daemonTmpDir != null
       ? daemonTmpDir : new File(System.getProperty("java.io.tmpdir"));
   }

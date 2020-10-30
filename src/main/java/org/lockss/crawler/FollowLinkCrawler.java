@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -155,9 +151,7 @@ public class FollowLinkCrawler extends BaseCrawler {
 
   public FollowLinkCrawler(ArchivalUnit au, AuState aus) {
     super(au, aus);
-    // Start URLs will be updated from CrawlSeed below
-    crawlStatus = new CrawlerStatus(au, au.getStartUrls(),
-        getTypeString());
+
     try {
       urlOrderComparator = au.getCrawlUrlComparator();
     } catch (PluginException e) {
@@ -259,6 +253,7 @@ public class FollowLinkCrawler extends BaseCrawler {
     subChecker = new SubstanceChecker(au);
     if (subChecker.isEnabledFor(SubstanceChecker.CONTEXT_CRAWL)) {
       log.debug2("Checking AU for substance during crawl");
+      subChecker.setWatchdog(wdog);
       int threshold = AuUtil.getSubstanceTestThreshold(au);
       if (threshold >= 0) {
         subChecker.setSubstanceMin(threshold);
@@ -391,6 +386,7 @@ public class FollowLinkCrawler extends BaseCrawler {
           if(isAborted()) {
             return aborted();
           }
+	  pokeWDog();
           parseQueue.remove(parseCurl);
           parse(parseCurl);
           processedUrls.put(parseCurl.getUrl(), parseCurl);
@@ -660,7 +656,6 @@ public class FollowLinkCrawler extends BaseCrawler {
                 //IOException if the CU can't be read
 		InputStream in = null;
                 try {
-                  pokeWDog();
                   // Might be reparsing with new content (if depth reduced
                   // below refetch depth); clear any existing children
                   curl.clearChildren();
@@ -933,7 +928,11 @@ public class FollowLinkCrawler extends BaseCrawler {
     }
     return facade;
   }
-  
+
+  protected void setCrawlerStatus(CrawlerStatus crawlerStatus) {
+    crawlStatus = crawlerStatus;
+  }
+
   public static class FollowLinkCrawlerFacade extends BaseCrawler.BaseCrawlerFacade {
     protected Set<String> failedUrls;
     protected Queue<CrawlUrlData> permissionProbeUrls;

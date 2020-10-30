@@ -45,6 +45,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Paths;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -733,13 +734,37 @@ public class UrlUtil {
     }
   }
 
+  /** Match the scheme and host:port part of a URL */
+  static Pattern NON_FILE_PAT = Pattern.compile("^\\w+:");
+
   /** Resolve possiblyRelativeUrl relative to baseUrl.
+   *
+   * If baseUrl is a real URL (starts with <tt><i>scheme</i>:</tt>),
+   * resolution is performed by the URL class.  Otherwise baseUrl is
+   * treated as a filesystem path (absolute or relative) and resolution is
+   * performed by {@link #resolvePath(String,String)}, whose behavior
+   * differs from URL class when baseUrl is relative.
+   *
    * @param baseUrl The base URL relative to which to resolve
    * @param possiblyRelativeUrl resolved relative to baseUrl
    * @return The URL formed by combining the two URLs
    */
   public static String resolveUri(String baseUrl, String possiblyRelativeUrl)
       throws MalformedURLException {
+    Matcher m1 = NON_FILE_PAT.matcher(baseUrl);
+    if (!m1.find()) {
+      // baseUrl is a path, not a URL
+      Matcher m2 = NON_FILE_PAT.matcher(possiblyRelativeUrl);
+      if (!m2.find()) {
+	// possiblyRelativeUrl is also a path, resolve it against the base path
+	return resolvePath(baseUrl, possiblyRelativeUrl);
+      } else {
+	// If resolving a URL against a base path, return the URL.  (This
+	// happens, e.g., when a titleDb URL appears in a config file
+	// loaded from disk.
+	return possiblyRelativeUrl;
+      }
+    }
     return resolveUri(new URL(baseUrl), possiblyRelativeUrl, true);
   }
 
@@ -903,6 +928,25 @@ public class UrlUtil {
     }
   }
 
+  /** Resolve a possibly relative disk path against a base path.
+   * <br>resolvePath("/a/b", "r/f") -> "/a/r/f"
+   * <br>resolvePath("/a/b/", "r/f") -> "/a/b/r/f"
+   * <br>resolvePath("a/b", "r/f") -> "a/r/f"
+   * <br>resolvePath("a/b/", "r/f") -> "a/b/r/f"
+   *
+   * <br>Note that if the first arg is a file: url, then resolution is
+   * performed by the URL constructor, which does <b>not</b> resolve a
+   * relative URL against a relative base URL.
+   */
+  public static String resolvePath(String basePath,
+				   String possiblyRelativePath) {
+    if (basePath.endsWith("/")) {
+      return Paths.get(basePath).resolve(possiblyRelativePath).toString();
+    } else {
+      return Paths.get(basePath).resolveSibling(possiblyRelativePath)
+	.toString();
+    }
+  }
 
   public static String[] supportedJSFunctions =
       {

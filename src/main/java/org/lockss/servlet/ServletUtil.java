@@ -1038,7 +1038,7 @@ public class ServletUtil {
       tbl.add("Select Repository");
       tbl.add(servlet.addFootnote(repoFootnote));
     } else {
-      tbl.add("Disk Space");
+      tbl.add("Storage Space");
     }
     tbl.newRow();
     tbl.addHeading("Repository");
@@ -1046,7 +1046,7 @@ public class ServletUtil {
     tbl.addHeading("Free");
     tbl.addHeading("%Full");
 
-    Map repoMap = remoteApi.getRepositoryMap();
+    Map repoMap = remoteApi.getRepositoryDFMap();
     String mostFree = remoteApi.findLeastFullRepository(repoMap);
     for (Iterator iter = repoMap.entrySet().iterator(); iter.hasNext(); ) {
       Map.Entry entry = (Map.Entry)iter.next();
@@ -1267,7 +1267,7 @@ public class ServletUtil {
     tbl.newRow();
     tbl.addHeading(verb.cap + "?", ALIGN_RIGHT + " rowspan=\"2\"");
     if (repoFlg) {
-      tbl.addHeading("Disk", ALIGN_CENTER + " colspan=\"" + reposSize + "\"");
+      tbl.addHeading("Repo", ALIGN_CENTER + " colspan=\"" + reposSize + "\"");
       repoFootElement = tbl.cell();
     }
     tbl.addHeading("Archival Unit", ALIGN_CENTER + " rowspan=\"2\"");
@@ -1319,7 +1319,7 @@ public class ServletUtil {
           }
         }
         else if (firstRepo != null) {
-	  // The Select On Disk button looks for entries with a
+	  // The Select In Repo button looks for entries with a
 	  // defaultChecked radio button.  If no repo choice, add a hidden
 	  // button just for that.
 	  Block div = new Block(Block.Div, "style=\"display:none\"");
@@ -1459,14 +1459,14 @@ public class ServletUtil {
     if (isChoice) {
       tbl.addHeading("Available Disks", "colspan=\"6\"");
     } else {
-      tbl.addHeading("Disk Space", "colspan=\"4\"");
+      tbl.addHeading("Storage Space", "colspan=\"4\"");
     }
     tbl.newRow();
     if (isChoice) {
       tbl.addHeading("Use");
-      tbl.addHeading("Disk");
+      tbl.addHeading("Repo");
     }
-    tbl.addHeading("Location");
+    tbl.addHeading("Repository");
     tbl.addHeading("Size");
     tbl.addHeading("Free");
     tbl.addHeading("%Full");
@@ -1488,7 +1488,7 @@ public class ServletUtil {
 			      repo == mostFree);
         cb.attribute("onChange", "resetRepoSelections();");
 	tbl.add(cb);
-	tbl.newCell(ALIGN_RIGHT); // "Disk"
+	tbl.newCell(ALIGN_RIGHT); // "Repo"
 	tbl.add(Integer.toString(ix) + "." + SPACE);
       }
       tbl.newCell(ALIGN_LEFT); // "Location"
@@ -1908,7 +1908,7 @@ public class ServletUtil {
     if (includeOnDiskButton) {
 //       tbl.newRow();
 //       tbl.newCell(ALIGN_RIGHT);
-      tbl.add(javascriptButton(servlet, "On Disk", "selectAll(this.form, 'inRepo');"));
+      tbl.add(javascriptButton(servlet, "In Repo", "selectAll(this.form, 'inRepo');"));
     }
     return tbl;
   }

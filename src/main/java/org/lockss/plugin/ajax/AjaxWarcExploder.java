@@ -42,7 +42,7 @@ import org.lockss.crawler.WarcExploder;
 import org.lockss.daemon.ArchiveEntry;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.Crawler.CrawlerFacade;
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 import org.lockss.daemon.PluginException;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.BaseExploderHelper;

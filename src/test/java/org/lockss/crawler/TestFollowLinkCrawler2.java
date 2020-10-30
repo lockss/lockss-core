@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -132,7 +128,7 @@ public class TestFollowLinkCrawler2 extends LockssTestCase {
     FollowLinkCrawler ncc1 = new FollowLinkCrawler(mau, aus);
     assertEquals(1, ncc1.getRefetchDepth());
     FollowLinkCrawler ncc2 = new FollowLinkCrawler(mau, aus);
-    CrawlReq req = new CrawlReq(mau);
+    CrawlReq req = new CrawlReq(mau, new CrawlerStatus(mau, null, null));
     ncc2.setCrawlReq(req);
     assertEquals(1, ncc2.getRefetchDepth());
     req.setRefetchDepth(39);

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -59,8 +59,9 @@ public interface CrawlManager {
    * @param cb callback to be called when the crawler is done with the AU, if
    * not now
    * @param cookie cookie for the callback
+   * @return a CrawlerStatus with the status of the started crawler.
    */
-  void startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
+  CrawlerStatus startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
 			    Object cookie);
 
 
@@ -73,16 +74,18 @@ public interface CrawlManager {
    * @param cb callback to be called when the crawler is done with the AU, if
    * not now
    * @param cookie cookie for the callback
+   * @return a CrawlerStatus with the status of the started crawler.
    */
-  void startNewContentCrawl(ArchivalUnit au, int priority,
+  CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
 			    CrawlManager.Callback cb, Object cookie);
 
   /**
    * Starts a new content crawl specified by a CrawlReq
    *
    * @param req
+   * @return a CrawlerStatus with the status of the started crawler.
    */
-  void startNewContentCrawl(CrawlReq req);
+  CrawlerStatus startNewContentCrawl(CrawlReq req);
 
   /**
    * Return the CrawlRateLimiter assigned to the crawler.

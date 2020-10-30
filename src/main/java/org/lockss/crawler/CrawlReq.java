@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,12 +43,14 @@ public class CrawlReq {
   int refetchDepth = -1;
   private ArchivalUnit au;
   private AuState aus = null;
+  private CrawlerStatus crawlerStatus = null;
 
-  public CrawlReq(ArchivalUnit au) {
-    this(au, null, null);
+  public CrawlReq(ArchivalUnit au, CrawlerStatus crawlerStatus) {
+    this(au, null, null, crawlerStatus);
   }
 
-  public CrawlReq(ArchivalUnit au, CrawlManager.Callback cb, Object cookie) {
+  public CrawlReq(ArchivalUnit au, CrawlManager.Callback cb, Object cookie,
+      CrawlerStatus crawlerStatus) {
     this.au = au;
     this.auid = au.getAuId();
     this.auName = au.getName();
@@ -60,6 +58,7 @@ public class CrawlReq {
     this.cookie = cookie;
     this.aus = AuUtil.getAuState(au);
     this.rateKey = au.getFetchRateLimiterKey();
+    this.crawlerStatus = crawlerStatus;
   }
 
   public void auDeleted() {
@@ -128,6 +127,10 @@ public class CrawlReq {
     refetchDepth = val;
   }
 
+  public CrawlerStatus getCrawlerStatus() {
+    return crawlerStatus;
+  }
+
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("[CrawlReq");
@@ -152,6 +155,8 @@ public class CrawlReq {
       sb.append(", depth: ");
       sb.append(refetchDepth);
     }
+    sb.append(", crawlerStatus: ");
+    sb.append(crawlerStatus);
     sb.append("]");
     return sb.toString();
   }

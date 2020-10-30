@@ -38,6 +38,7 @@ import org.lockss.crawler.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.io.WatchdogUpdatingInputStream;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
@@ -251,6 +252,9 @@ public class BaseUrlFetcher implements UrlFetcher {
         } else if (headers == null) {
           return FetchResult.NOT_FETCHED;
         } else {
+	  if (wdog != null) {
+	    input = new WatchdogUpdatingInputStream(input, wdog);
+	  }
           FetchedUrlData fud = new FetchedUrlData(origUrl, fetchUrl,
               input, headers,
               redirectUrls, this);

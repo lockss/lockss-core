@@ -430,12 +430,8 @@ public class RemoteApi
     return repoMgr.findExistingRepositoriesFor(auid);
   }
 
-  public PlatformUtil.DF getRepositoryDF(String repoName) {
-    return repoMgr.getRepositoryDF(repoName);
-  }
-
-  public Map<String,PlatformUtil.DF> getRepositoryMap() {
-    return repoMgr.getRepositoryMap();
+  public Map<String,PlatformUtil.DF> getRepositoryDFMap() {
+    return repoMgr.getRepositoryDFMap();
   }
 
   public String findLeastFullRepository() {
@@ -2201,7 +2197,7 @@ public class RemoteApi
     // Check whether no default repository index was passed.
     if (StringUtil.isNullString(defaultRepoIndex)) {
       // Yes: Use the repository least full as the default one.
-      defaultRepo = findLeastFullRepository(getRepositoryMap());
+      defaultRepo = findLeastFullRepository(getRepositoryDFMap());
       // No: Check whether a repostory map was passed.
     } else if (repoMap != null) {
       // Yes: Get the default repository by the passed index.

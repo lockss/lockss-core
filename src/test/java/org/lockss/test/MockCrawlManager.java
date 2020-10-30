@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,7 +47,12 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
   private CrawlRateLimiter crl;
 
   public void initService(LockssApp app) throws LockssAppException { }
+  @Override
   public void startService() { }
+  @Override
+  public void serviceStarted() {}
+
+  @Override
   public void stopService() {
     scheduledRepairs = new HashMap();
     scheduledCrawls = new HashMap();
@@ -91,18 +92,22 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
 
   }
 
-  public void startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
-                                   Object cookie) {
+  public CrawlerStatus startNewContentCrawl(ArchivalUnit au,
+					    CrawlManager.Callback cb,
+					    Object cookie) {
     scheduleNewContentCrawl(au, cb, cookie);
+    return new CrawlerStatus(au, au.getStartUrls(), "mock");
   }
 
-  public void startNewContentCrawl(ArchivalUnit au, int priority,
-				   CrawlManager.Callback cb,
-                                   Object cookie) {
+  public CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
+					    CrawlManager.Callback cb,
+	                                    Object cookie) {
     scheduleNewContentCrawl(au, cb, cookie);
+    return new CrawlerStatus(au, au.getStartUrls(), "mock");
   }
 
-  public void startNewContentCrawl(CrawlReq req) {
+  public CrawlerStatus startNewContentCrawl(CrawlReq req) {
+    return new CrawlerStatus(req.getAu(), req.getAu().getStartUrls(), "mock");
   }
 
   public CrawlRateLimiter getCrawlRateLimiter(Crawler crawler) {

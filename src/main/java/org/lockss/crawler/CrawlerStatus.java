@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -189,6 +185,10 @@ public class CrawlerStatus {
         "Interrupted by daemon exit");
     DEFAULT_MESSAGES.put(Crawler.STATUS_EXTRACTOR_ERROR,
         "Link extractor error");
+    DEFAULT_MESSAGES.put(Crawler.STATUS_DISABLED, "Crawler disabled");
+    DEFAULT_MESSAGES.put(Crawler.STATUS_INELIGIBLE, "AU ineligible");
+    DEFAULT_MESSAGES.put(Crawler.STATUS_INACTIVE_REQUEST, "Inactive request");
+    DEFAULT_MESSAGES.put(Crawler.STATUS_INTERRUPTED, "Crawl interrupted");
 
     // Put all these strings in a sealed StringPool
     for (String s : DEFAULT_MESSAGES.values()) {
@@ -405,6 +405,10 @@ public class CrawlerStatus {
 
   public String getType() {
     return type;
+  }
+
+  public void setType(String type) {
+    this.type = type;
   }
 
   /**

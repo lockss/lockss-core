@@ -39,13 +39,13 @@ POSSIBILITY OF SUCH DAMAGE.
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.11.0</version>
+    <version>1.12.0</version>
     <relativePath />
   </parent>
 
   <groupId>org.lockss.laaws</groupId>
   <artifactId>lockss-core</artifactId>
-  <version>2.0.3.0</version>
+  <version>2.0.4.0</version>
   <packaging>jar</packaging>
   
   <name>lockss-core</name>
@@ -65,6 +65,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
     <dir.apidocs>${project.reporting.outputDirectory}/apidocs</dir.apidocs>
 
+    <!-- Log level for tool invocations (PluginPackager, EmptyDbCreator,
+         ParamDoc, etc.) -->
+    <loglevel.tool>${loglevel}</loglevel.tool>
+
   </properties>
 
   <dependencies>
@@ -83,6 +87,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.lockss.lockss-util-core}</version>
       <type>test-jar</type>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-util-entities</artifactId>
+      <version>${version.lockss.lockss-util-entities}</version>
     </dependency>
 
     <dependency>
@@ -138,7 +148,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>xerces</groupId>
       <artifactId>xercesImpl</artifactId>
-      <version>2.12.0</version>
+      <version>2.11.0</version>
     </dependency>
 
     <dependency>
@@ -422,12 +432,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>com.lyncode</groupId>
       <artifactId>test-support</artifactId>
       <version>1.0.4</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>${version.group.httpclient}</version>
     </dependency>
 
     <dependency>
@@ -733,20 +737,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>1.0.13</version>
     </dependency>
 
-    <!-- An old plugins jar is included as a convenience for downstream
-         projects, so plugins are available in dev environments.  But this
-         causes problems in plugin-building projects, as otherwise missing
-         files might erroneously be found in this jar.  So it's excluded
-         from those projects, currently lockss-plugin-compat and
-         lockss-plugins-template.  When this is removed, those exclusions
-         should be removed. -->
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>lockss-plugins</artifactId>
-      <version>${version.lockss.lockss-plugins}</version>
-      <scope>test</scope>
-    </dependency>
-
     <dependency>
       <groupId>org.lockss.laaws</groupId>
       <artifactId>laaws-repository-core</artifactId>
@@ -821,6 +811,12 @@ POSSIBILITY OF SUCH DAMAGE.
       </exclusions> 
     </dependency>
 
+    <dependency>
+      <groupId>org.marc4j</groupId>
+      <artifactId>marc4j</artifactId>
+      <version>${version.dependency.marc4j}</version>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -882,7 +878,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		       context for some reason - exclude it -->
 		  <arg line="-o ${dir.apidocs}/paramdoc.txt ${project.build.directory}/current.jar -x org.lockss.servlet.LockssOiosamlSpFilter" />
    		  <sysproperty key="org.lockss.defaultLogLevel"
-			       value="${loglevel}" />
+			       value="${loglevel.tool}" />
    		</java>
               </target>
             </configuration>
@@ -919,7 +915,7 @@ POSSIBILITY OF SUCH DAMAGE.
    		      <classpath refid="maven.test.classpath" />
 		      <arg line="-d ${empty.db.parent.dir}" />
 		      <sysproperty key="org.lockss.defaultLogLevel"
-				   value="${loglevel}" />
+				   value="${loglevel.tool}" />
 		    </java>
 		    <zip destfile="${empty.db.archive}"
 			 basedir="${empty.db.dir}" />
@@ -948,7 +944,7 @@ POSSIBILITY OF SUCH DAMAGE.
    		  <classpath refid="maven.test.classpath" />
    		  <arg line="-d ${empty.db.parent.dir}" />
    		  <sysproperty key="org.lockss.defaultLogLevel"
-			       value="${loglevel}" />
+			       value="${loglevel.tool}" />
    		</java>
 
 		<java classname="net.sourceforge.schemaspy.Main"
@@ -958,7 +954,7 @@ POSSIBILITY OF SUCH DAMAGE.
    		  <classpath refid="maven.test.classpath" />
 		  <arg line="-t derby -db LockssMetadataDbManager -dp derbynet-${version.group.derby}.jar -hq -noads -norows -u LOCKSS -o ${dir.apidocs}/schemadoc" />
 		  <sysproperty key="org.lockss.defaultLogLevel"
-			       value="${loglevel}"/>
+			       value="${loglevel.tool}"/>
 		</java>
 
               </target>
@@ -984,7 +980,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		<java classname="org.lockss.doclet.PsmToDot" fork="true">
    		  <classpath refid="maven.test.classpath" />
 		  <arg line="-m org.lockss.poller.v3.PollerStateMachineFactory -l Poller -a org.lockss.poller.v3.PollerActions -m org.lockss.poller.v3.VoterStateMachineFactory -l Voter -a org.lockss.poller.v3.VoterActions -o ${dir.states}/states.dot" />
-		  <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel}"/>
+		  <sysproperty key="org.lockss.defaultLogLevel" value="${loglevel.tool}"/>
 		</java>
 
 		<trycatch property="dotfail">
@@ -1106,7 +1102,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
-                <argument>-Dorg.lockss.defaultLogLevel=${loglevel}</argument>
+                <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
                 <argument>org.lockss.plugin.plugtest1.PlugTest1Plugin</argument>
@@ -1143,7 +1139,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
-                <argument>-Dorg.lockss.defaultLogLevel=${loglevel}</argument>
+                <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
                 <argument>org.lockss.plugin.plugtest1.PlugTest1Plugin</argument>

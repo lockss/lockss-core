@@ -41,7 +41,7 @@ import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.StringUtil;
 import org.lockss.util.urlconn.*;
-import org.lockss.config.Configuration;
+import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.jetty.*;
 import org.lockss.alert.AlertManager;
@@ -148,7 +148,8 @@ public abstract class BaseProxyManager extends JettyManager {
 	log.warning("Malformed IP filter, filters not changed", e);
       }
       accessHandler.setLogForbidden(logForbidden);
-      accessHandler.setAllowLocal(true);
+      accessHandler.setAllowLocal(true,
+				  ConfigManager.getPlatformContainerSubnets());
       accessHandler.set403Msg(_403Msg);
     }
   }

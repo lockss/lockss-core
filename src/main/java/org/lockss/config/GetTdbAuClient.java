@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2017-2020 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,17 +29,17 @@ package org.lockss.config;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
-import java.util.Base64;
 import java.util.Properties;
 import org.lockss.config.TdbAu;
 import org.lockss.util.Logger;
+import org.lockss.util.auth.*;
+import org.lockss.util.rest.RestUtil;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -52,7 +52,7 @@ public class GetTdbAuClient {
   private String serviceLocation = null;
   private String serviceUser = null;
   private String servicePassword = null;
-  private Integer serviceTimeout = null;
+  private Long serviceTimeout = null;
 
   /**
    * Constructor.
@@ -65,10 +65,10 @@ public class GetTdbAuClient {
    *          A String with the password of the user that performs the
    *          operation.
    * @param timeoutValue
-   *          An Integer with the connection and socket timeout, in mss.
+   *          A Long with the connection and socket timeout, in ms.
    */
   public GetTdbAuClient(String location, String userName, String password,
-      Integer timeoutValue) {
+      Long timeoutValue) {
     serviceLocation = location;
     serviceUser = userName;
     servicePassword = password;
@@ -79,9 +79,12 @@ public class GetTdbAuClient {
    * Retrieves from a Configuration REST web service the title database of an
    * Archival Unit.
    * 
-   * @param auId
-   *          A String with the Archival Unit identifier.
+   * @param auId A String with the Archival Unit identifier.
    * @return a TdbAu with the Archival Unit title database.
+   * @throws UnsupportedEncodingException if there are problems getting the
+   *                                      title database of the Archival Unit.
+   * @throws Exception                    if there are problems getting the
+   *                                      title database of the Archival Unit.
    */
   public TdbAu getTdbAu(String auId)
       throws UnsupportedEncodingException, Exception {
@@ -95,19 +98,14 @@ public class GetTdbAuClient {
     }
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = new RestTemplate();
-    SimpleClientHttpRequestFactory requestFactory =
-	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
-
-    requestFactory.setReadTimeout(serviceTimeout);
-    requestFactory.setConnectTimeout(serviceTimeout);
+    RestTemplate restTemplate =
+	RestUtil.getRestTemplate(serviceTimeout, serviceTimeout);
 
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
 
-    String credentials = serviceUser + ":" + servicePassword;
-    String authHeaderValue = "Basic " + Base64.getEncoder()
-    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+    String authHeaderValue = AuthUtil.basicAuthHeaderValue(serviceUser,
+							   servicePassword);
     headers.set("Authorization", authHeaderValue);
 
     // Make the request to the REST service and get its response.

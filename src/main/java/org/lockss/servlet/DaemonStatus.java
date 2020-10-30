@@ -34,6 +34,7 @@ import java.util.regex.*;
 
 import javax.servlet.*;
 
+import org.apache.commons.lang3.StringUtils;
 import org.mortbay.html.*;
 import org.w3c.dom.Document;
 
@@ -640,6 +641,9 @@ public class DaemonStatus extends BaseDaemonStatus {
 	if (!StringUtil.isNullString(stitle)) {
 	  sb = new StringBuilder();
 	  sb.append("<b>");
+	  if (sInfo.getIndent() > 0) {
+	    sb.append(StringUtils.repeat("&nbsp", sInfo.getIndent()));
+	  }
 	  sb.append(stitle);
 	  if (sInfo.getHeaderFootnote() != null) {
 	    sb.append(addFootnote(sInfo.getHeaderFootnote()));

@@ -778,16 +778,21 @@ public class TestUrlUtil extends LockssTestCase {
     assertEquals("http://test.com/prog.php?foo=bar",
 		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
 				    "?foo=bar"));
-    // With URL implementation this threw, URI version doesn't object.
-    // Don't think anyone should count on this behavior.
-    if (uri) {
-      assertEquals("bar", UrlUtil.resolveUri("foo", "bar"));
-    } else {
-      try {
-	UrlUtil.resolveUri("foo", "bar");
-	fail("Should throw MalformedURLException");
-      } catch (MalformedURLException e) {}
-    }
+
+    assertEquals("bar", UrlUtil.resolveUri("foo", "bar"));
+
+    // 2nd arg has scheme:
+
+    assertEquals("http://a.b/c.d",
+		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
+				    "http://a.b/c.d"));
+    assertEquals("http://test.com/a.b/c.d",
+		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
+				    "http:a.b/c.d"));
+    assertEquals("http://test.com/a.b/c.d",
+		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
+				    "http:/a.b/c.d"));
+
   }
 
   public void testResolveProtocolNeutralUrl() throws Exception {
@@ -823,6 +828,81 @@ public class TestUrlUtil extends LockssTestCase {
  		 UrlUtil.resolveUri("http://test.com/foo/bar/", "a.html\n "));
     assertEquals("http://test.com/foo/bar/a.html",
  		 UrlUtil.resolveUri("http://test.com/foo/bar/", "a.html\r "));
+  }
+
+  public void testResolvePath() throws Exception {
+    assertEquals("/abs/path/foo.bar",
+		 UrlUtil.resolveUri("/abs/path/", "foo.bar"));
+    assertEquals("/abs/path/foo.bar",
+		 UrlUtil.resolveUri("/abs/path/file", "foo.bar"));
+    assertEquals("/abs/path/rel/path/foo.bar",
+		 UrlUtil.resolveUri("/abs/path/file", "rel/path/foo.bar"));
+    assertEquals("rel/path/foo.bar",
+		 UrlUtil.resolveUri("rel/path/", "foo.bar"));
+    assertEquals("rel/path/foo.bar",
+		 UrlUtil.resolveUri("rel/path/file", "foo.bar"));
+    assertEquals("/abs/foo.bar",
+		 UrlUtil.resolveUri("rel/path/", "/abs/foo.bar"));
+    assertEquals("/abs/foo.bar",
+		 UrlUtil.resolveUri("/root/path/", "/abs/foo.bar"));
+
+    // Resolving a URL against a path should always return the URL
+    assertEquals("http://a.b/c",
+		 UrlUtil.resolveUri("rel/path/", "http://a.b/c"));
+    assertEquals("http://a.b/c",
+		 UrlUtil.resolveUri("/abs/path/", "http://a.b/c"));
+
+    // Paths with "file:"
+
+    // file:/abs , path
+    assertEquals("file:/abs/path/foo.bar",
+		 UrlUtil.resolveUri("file:/abs/path/", "foo.bar"));
+    assertEquals("file:/abs/path/foo.bar",
+		 UrlUtil.resolveUri("file:/abs/path/file", "foo.bar"));
+    assertEquals("file:/foo.bar",
+		 UrlUtil.resolveUri("file:/abs/path/", "/foo.bar"));
+
+    // file:/abs , file:
+    assertEquals("file:/abs/path/foo.bar",
+		 UrlUtil.resolveUri("file:/abs/path/", "file:foo.bar"));
+    assertEquals("file:/abs/path/foo.bar",
+		 UrlUtil.resolveUri("file:/abs/path/file", "file:foo.bar"));
+    assertEquals("file:/foo.bar",
+		 UrlUtil.resolveUri("file:/abs/path/", "file:/foo.bar"));
+
+    // file:rel , path
+    assertEquals("file:rel/path/foo.bar",
+		 UrlUtil.resolveUri("file:rel/path/", "foo.bar"));
+    assertEquals("file:rel/path/foo.bar",
+		 UrlUtil.resolveUri("file:rel/path/file", "foo.bar"));
+    assertEquals("file:/foo.bar",
+		 UrlUtil.resolveUri("file:rel/path/", "/foo.bar"));
+
+    // file:rel , file:
+    // Note behavior is inconsistent with rel/path , rel/path
+    assertEquals("file:foo.bar",
+		 UrlUtil.resolveUri("file:rel/path/", "file:foo.bar"));
+    assertEquals("file:foo.bar",
+		 UrlUtil.resolveUri("file:rel/path/file", "file:foo.bar"));
+    assertEquals("file:/foo.bar",
+		 UrlUtil.resolveUri("file:rel/path/", "file:/foo.bar"));
+
+    // path , file:  always returns 2nd arg
+
+    assertEquals("file:foo.bar",
+		 UrlUtil.resolveUri("/abs/path/", "file:foo.bar"));
+    assertEquals("file:foo.bar",
+		 UrlUtil.resolveUri("/abs/path/file", "file:foo.bar"));
+
+    assertEquals("file:foo.bar",
+		 UrlUtil.resolveUri("rel/path/", "file:foo.bar"));
+    assertEquals("file:foo.bar",
+		 UrlUtil.resolveUri("rel/path/file", "file:foo.bar"));
+    assertEquals("file:/foo.bar",
+		 UrlUtil.resolveUri("rel/path/", "file:/foo.bar"));
+    assertEquals("file:/foo.bar",
+		 UrlUtil.resolveUri("rel/path/file", "file:/foo.bar"));
+
   }
 
   String enc(int i, boolean upper) {
