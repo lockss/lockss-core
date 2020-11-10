@@ -1,34 +1,32 @@
 /*
- * $Id$
+ * Copyright (c) 2020 Board of Trustees of Leland Stanford Jr. University,
+ * all rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Except as contained in this notice, the name of Stanford University shall not
+ * be used in advertising or otherwise to promote the sale, use or other dealings
+ * in this Software without prior written authorization from Stanford University.
  */
 
 /*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
-
-*/
+ * $Id$
+ */
 
 package org.lockss.rewriter;
 
@@ -96,21 +94,21 @@ public class NodeFilterHtmlLinkRewriterFactory implements LinkRewriterFactory {
   private List<NodeFilter> preXforms = new ArrayList<NodeFilter>();
   private List<NodeFilter> postXforms = new ArrayList<NodeFilter>();;
 
-  // Legal start to non-server relative path in relative URL  
+  // Legal start to non-server relative path in relative URL
   static final String relChar = "[-a-zA-Z0-9$_@.&+!*\"\'(),%?#]";
-  
+
   // Matches protocol pattern (e.g. "http://")
   static final String protocolPat = "[^:/?#]+://+";
-  
+
   // Matches protocol prefix of a URL (e.g. "http://")
   static final String protocolPrefixPat = "^" + protocolPat;
-  
+
   // Matches protocol prefix of a URL (e.g. "http://") OR ref ("#...")
   // Used negated to find relative URLs, excluding those that are just a
   // #ref
   static final String protocolOrRefPrefixPat = "^(" + protocolPat + "|#)";
 
-  // Matches HTML refresh attribute 
+  // Matches HTML refresh attribute
   static final String refreshPat = ";[ \\t\\n\\f\\r\\x0b]*url=";
 
   // Matches HTML refresh attribute with a relative URL (no protocol pattern)
@@ -144,7 +142,7 @@ public class NodeFilterHtmlLinkRewriterFactory implements LinkRewriterFactory {
       throw new PluginException("No default URL stem for " + url);
     }
 
-    // Transform protocol-relative link URLs.  These are essentiall abs
+    // Transform protocol-relative link URLs.  These are essentially abs
     // links with no scheme.
     for (String urlStem : urlStems) {
       int colon = urlStem.indexOf("://");
@@ -237,22 +235,28 @@ public class NodeFilterHtmlLinkRewriterFactory implements LinkRewriterFactory {
 
     @SuppressWarnings("serial")
     RelRefreshRegexXform[] relRefreshXforms = {
-      // transforms site relative HTML refresh URLs
-      new RelRefreshRegexXform(relRefreshPat, 
-                               true, "(" + refreshPat + ")/") { 
-        /** Specify the "replace" property using the baseUrl param */
-        public void setBaseUrl(String baseUrl)
-            throws MalformedURLException {
-          setReplace("$1" + srvLink.rewrite(UrlUtil.getUrlPrefix(baseUrl)));
-        }},
+        // transforms site relative HTML refresh URLs
+        new RelRefreshRegexXform(relRefreshPat,
+            true, "(" + refreshPat + ")/") {
+          /**
+           * Specify the "replace" property using the baseUrl param
+           */
+          public void setBaseUrl(String baseUrl)
+              throws MalformedURLException {
+            setReplace("$1" + srvLink.rewrite(UrlUtil.getUrlPrefix(baseUrl)));
+          }
+        },
         // transforms path-relative HTML refresh URLs
-        new RelRefreshRegexXform(relRefreshPat, 
-                                 true, "("+refreshPat+")(" + relChar + ")") {
-        /** Specify the "replace" property using the baseUrl param */
-        public void setBaseUrl(String baseUrl)
-            throws MalformedURLException {
-          setReplace("$1"+srvLink.rewrite(UrlUtil.resolveUri(baseUrl, "$2")));
-        }},
+        new RelRefreshRegexXform(relRefreshPat,
+            true, "(" + refreshPat + ")(" + relChar + ")") {
+          /**
+           * Specify the "replace" property using the baseUrl param
+           */
+          public void setBaseUrl(String baseUrl)
+              throws MalformedURLException {
+            setReplace("$1" + srvLink.rewrite(UrlUtil.resolveUri(baseUrl, "$2")));
+          }
+        },
     };
     for (RelRefreshRegexXform xform : relRefreshXforms) {
       relXforms.add(xform);
@@ -292,20 +296,20 @@ public class NodeFilterHtmlLinkRewriterFactory implements LinkRewriterFactory {
       String inCharset = ((EncodedThing)in).getCharset();
       if (!StringUtil.isNullString(inCharset)) {
 	logger.debug2("InputStream encoded with " + inCharset +
-		      ", overriding " + encoding);
-	encoding = inCharset;
+      ", overriding " + encoding);
+        encoding = inCharset;
       }
     }
 
     InputStream result = new HtmlFilterInputStream(in,
-                                                   encoding,
-                                                   encoding,
-                                                   htmlXform);
+        encoding,
+        encoding,
+        htmlXform);
     return result;
   }
 
-  
- List<String> getAttrList() {
+
+  List<String> getAttrList() {
     if (attrList == null) {
       attrList = new ArrayList(Arrays.asList(DEFAULT_ATTRS));
     }
@@ -369,7 +373,7 @@ public class NodeFilterHtmlLinkRewriterFactory implements LinkRewriterFactory {
     return
       AuUtil.getPluginList(au,
 			   DefinablePlugin.KEY_PLUGIN_REWRITE_HTML_META_URLS);
-  }    
+  }
 
   public static class HtmlBaseProcessor extends TagNameFilter {
     private String origBaseUrl;

@@ -1,34 +1,32 @@
 /*
- * $Id$
+ * Copyright (c) 2020 Board of Trustees of Leland Stanford Jr. University,
+ * all rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Except as contained in this notice, the name of Stanford University shall not
+ * be used in advertising or otherwise to promote the sale, use or other dealings
+ * in this Software without prior written authorization from Stanford University.
  */
 
 /*
-
-Copyright (c) 2000-2010 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
-
-*/
+ * $Id$
+ */
 
 package org.lockss.extractor;
 
@@ -233,7 +231,7 @@ public class TestGoslingHtmlLinkExtractor extends LockssTestCase {
     singleTagShouldParse("http://www.example.com/web_link.css",
 			 "<link rel=\"stylesheet\" type=\"text/css\" media=\"screen\"  href=", "</link>");
   }
-  
+
   public void testStyleAttr() throws IOException {
     extractor = new GoslingHtmlLinkExtractor();
 
@@ -324,7 +322,7 @@ public class TestGoslingHtmlLinkExtractor extends LockssTestCase {
       " </body>\n" +
       "</html>\n";
 
-    
+
 
     assertEquals(SetUtil.set(expectedPrefix + url1,
                              expectedPrefix + url2,
@@ -728,36 +726,113 @@ public class TestGoslingHtmlLinkExtractor extends LockssTestCase {
     String url3= "http://www.example.com/link3.html";
 
     String source =
-      "<html><head><title>Test</title></head><body>"+
-      "<base href=http://www.example.com>"+
-      "<a href=link1.html>link1</a>"+
-      "Filler, with <b>bold</b> tags and<i>others</i>"+
-      "<base href=http://www.example2.com>"+
-      "<a href=link2.html>link2</a>"+
-      "<base href=http://www.example.com>"+
-      "<a href=link3.html>link3</a>";
+        "<html><head><title>Test</title></head><body>" +
+            "<base href=http://www.example.com>" +
+            "<a href=link1.html>link1</a>" +
+            "Filler, with <b>bold</b> tags and<i>others</i>" +
+            "<base href=http://www.example2.com>" +
+            "<a href=link2.html>link2</a>" +
+            "<base href=http://www.example.com>" +
+            "<a href=link3.html>link3</a>";
     assertEquals(SetUtil.set(url1, url2, url3), parseSingleSource(source));
+  }
+
+  public void testAlternateDocUrl() throws Exception {
+    String url1 = "http://www.example.com/x/y/link1.html";
+    String url2 = "http://www.example.com/x/y/link2.html";
+    String url3 = "http://www.example.com/x/y/link3.html";
+
+    String source = "<html><head><title>Test</title></head><body>"
+        + "<a href=link1.html>link1</a>"
+        + "Filler, with <b>bold</b> tags and<i>others</i>"
+        + "<a href=link2.html>link2</a>"
+        + "<a href=link3.html>link3</a>";
+    assertEquals(SetUtil.set(url1, url2, url3),
+        parseSingleSource("http://www.example.com/x/y/", source));
+  }
+
+  public void testAbsBaseTag() throws Exception {
+    String url0 = "http://www.example.com/link0.html";
+    String url1 = "http://www.example222.com/link1.html";
+    String url2 = "http://www.example222.com/link2.html";
+    String url3 = "http://www.example222.com/link3.html";
+
+    String source = "<html><head><title>Test</title></head><body>"
+        // <base> should appliy to whole document, including links before it
+        // documenting that GoslingHtmlLinkExtractor doesn't do this correctly
+        + "<a href=link0.html>link1</a>"
+        + "<base href=http://www.example222.com>"
+        + "<a href=link1.html>link1</a>"
+        + "Filler, with <b>bold</b> tags and<i>others</i>"
+        // only the first base tag should take effect
+        + "<base href=http://www.example2.com>"
+        + "<a href=link2.html>link2</a>"
+        + "<base href=http://www.example3.com>"
+        + "<a href=link3.html>link3</a>";
+    assertEquals(SetUtil.set(url0, url1, url2, url3),
+        parseSingleSource(source));
+  }
+
+  public void testRelBaseTag1() throws Exception {
+    String url0 = "http://www.example.com/link0.html";
+    String url1 = "http://www.example.com/foo/link1.html";
+    String url2 = "http://www.example.com/foo/link2.html";
+    String url3 = "http://www.example.com/foo/link3.html";
+
+    String source = "<html><head><title>Test</title></head><body>"
+        // <base> should appliy to whole document, including links before it
+        // documenting that GoslingHtmlLinkExtractor doesn't do this correctly
+        + "<a href=link0.html>link1</a>"
+        + "<base href=foo/>"
+        + "<a href=link1.html>link1</a>"
+        + "Filler, with <b>bold</b> tags and<i>others</i>"
+        // only the first base tag should take effect
+        + "<base href=http://www.example2.com>"
+        + "<a href=link2.html>link2</a>"
+        + "<base href=http://www.example3.com>"
+        + "<a href=link3.html>link3</a>";
+    assertEquals(SetUtil.set(url0, url1, url2, url3),
+        parseSingleSource(source));
+  }
+
+  public void testRelBaseTag2() throws Exception {
+    String url0 = "http://www.example.com/x/y/link0.html";
+    String url1 = "http://www.example.com/link1.html";
+    String url2 = "http://www.example.com/link2.html";
+    String url3 = "http://www.example.com/link3.html";
+
+    String source = "<html><head><title>Test</title></head><body>"
+        // <base> should appliy to whole document, including links before it
+        // documenting that GoslingHtmlLinkExtractor doesn't do this correctly
+        + "<a href=link0.html>link1</a>"
+        + "<base href=/>"
+        + "<a href=link1.html>link1</a>"
+        + "Filler, with <b>bold</b> tags and<i>others</i>"
+        + "<a href=link2.html>link2</a>"
+        + "<a href=link3.html>link3</a>";
+    assertEquals(SetUtil.set(url0, url1, url2, url3),
+        parseSingleSource("http://www.example.com/x/y/", source));
   }
 
   //Relative URLs before a malforned base tag should be extracted, as well
   //as any absolute URLs after the malformed base tag
   public void testInterpretsMalformedBaseTag() throws IOException {
-    String url1= "http://www.example.com/link1.html";
-    String url2= "http://www.example.com/link2.html";
-    String url3= "http://www.example2.com/link3.html";
-    String url4= "http://www.example.com/link3.html";
+    String url1 = "http://www.example.com/link1.html";
+    String url2 = "http://www.example.com/link2.html";
+    String url3 = "http://www.example2.com/link3.html";
+    String url4 = "http://www.example.com/link3.html";
 
     String source =
-      "<html><head><title>Test</title></head><body>"+
-      "<base href=http://www.example.com>"+
-      "<a href=link1.html>link1</a>"+
-      "Filler, with <b>bold</b> tags and<i>others</i>"+
-      "<base href=javascript:www.example2.com>"+
-      "<a href=link2.html>link2</a>"+
-      "<base href=www.example.com>"+
-      "<a href=http://www.example2.com/link3.html>link3</a>"+
-      "<base href=http://www.example3.com>"+
-      "<a href=link3.html>link4</a>";
+        "<html><head><title>Test</title></head><body>" +
+            "<base href=http://www.example.com>" +
+            "<a href=link1.html>link1</a>" +
+            "Filler, with <b>bold</b> tags and<i>others</i>" +
+            "<base href=javascript:www.example2.com>" +
+            "<a href=link2.html>link2</a>" +
+            "<base href=www.example.com>" +
+            "<a href=http://www.example2.com/link3.html>link3</a>" +
+            "<base href=http://www.example3.com>" +
+            "<a href=link3.html>link4</a>";
     assertEquals(SetUtil.set(url1, url2, url3,url4),
         parseSingleSource(source));
   }
@@ -1015,26 +1090,31 @@ public class TestGoslingHtmlLinkExtractor extends LockssTestCase {
   //tests that we are only parsing out the URL when the
   // http-equiv header is "refresh"
   public void testHttpEquiv2() throws IOException {
-    String url1= "http://example.com/blah.html";
+    String url1 = "http://example.com/blah.html";
     String source =
-      "<html><head>"+
-      "<meta http-equiv=\"blah\" "
-      +"content=\"0; url=http://example.com/blah.html\">"+
-      "</head></html>";
+        "<html><head>" +
+            "<meta http-equiv=\"blah\" "
+            + "content=\"0; url=http://example.com/blah.html\">" +
+            "</head></html>";
 
     assertEquals(SetUtil.set(), parseSingleSource(source));
   }
 
-  private Set parseSingleSource(String source) throws IOException {
+  private Set<String> parseSingleSource(String source) throws IOException {
+    return parseSingleSource("http://www.example.com", source);
+  }
+
+  private Set<String> parseSingleSource(String docPath, String source)
+      throws IOException {
     MockArchivalUnit mau = new MockArchivalUnit();
     LinkExtractor ue = new RegexpCssLinkExtractor();
     mau.setLinkExtractor("text/css", ue);
-    MockCachedUrl mcu = new MockCachedUrl("http://www.example.com", mau);
+    MockCachedUrl mcu = new MockCachedUrl(docPath, mau);
     mcu.setContent(source);
 
     cb.reset();
     extractor.extractUrls(mau, new StringInputStream(source), ENC,
-			  "http://www.example.com", cb);
+        docPath, cb);
     return cb.getFoundUrls();
   }
 
