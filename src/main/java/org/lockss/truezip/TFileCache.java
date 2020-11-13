@@ -187,7 +187,7 @@ public class TFileCache {
     File splitZipsTmpDir = FileUtil.createTempDir("splitzips", "", tmpDir);
 
     // Copy split zip files to the temporary directory
-    for (int i = 1; i < Math.pow(10, digits) - 1; i++) {
+    for (int i = 1; i < Math.pow(10, digits); i++) {
       String newUrl = replaceZipExtension(cu.getUrl(), digits, i);
       String newExt = FileUtil.getExtension(newUrl);
       CachedUrl splitZipCu = au.makeCachedUrl(newUrl);
