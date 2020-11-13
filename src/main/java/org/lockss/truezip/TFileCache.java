@@ -41,6 +41,7 @@ import org.apache.commons.collections.map.ReferenceMap;
 import de.schlichtherle.truezip.file.*;
 import de.schlichtherle.truezip.fs.*;
 
+import org.apache.commons.lang3.StringUtils;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
@@ -176,28 +177,172 @@ public class TFileCache {
 // 		  "Expires"
 		  );
 
-  void fillTFile(Entry ent, CachedUrl cu) {
+  void handleSplitZipArchive(TFile tf, CachedUrl cu, long digits) throws IOException {
+    String prefix = "zip.";
+
+    // Get the CU's archival unit
+    ArchivalUnit au = cu.getArchivalUnit();
+
+    // Create new temporary directory for split zip files
+    File splitZipsTmpDir = FileUtil.createTempDir("splitzips", "", tmpDir);
+
+    // Copy split zip files to the temporary directory
+    for (int i = 1; i < Math.pow(10, digits) - 1; i++) {
+      String newUrl = replaceZipExtension(cu.getUrl(), digits, i);
+      String newExt = FileUtil.getExtension(newUrl);
+      CachedUrl splitZipCu = au.makeCachedUrl(newUrl);
+
+      if (splitZipCu.hasContent()) {
+        // Split zip destination file
+        File outputFile = new File(splitZipsTmpDir, prefix + newExt);
+
+        // Copy split zip file to temporary directory
+        try (InputStream input = splitZipCu.getUnfilteredInputStream();
+             OutputStream output = new BufferedOutputStream(new FileOutputStream(outputFile))) {
+
+          StreamUtil.copy(input, output);
+        }
+      } else {
+        // Assume we're done copying files if there's a break in the sequence;
+        // allow any missing files to be detected by the zip utility
+        break;
+      }
+    }
+
+    // Copy zip file to temporary directory
+    File zipFile = new File(splitZipsTmpDir, prefix + "zip");
+    try (InputStream input = cu.getUnfilteredInputStream();
+         OutputStream output = new BufferedOutputStream(new FileOutputStream(zipFile))) {
+
+      StreamUtil.copy(input, output);
+    }
+
+    // Create a new temporary directory for the merged zip
+    File mergedZipTmpDir = FileUtil.createTempDir("mergedzip", "", tmpDir);
+
+    try {
+      // Merged zip file name and path destination
+      File mergedZip = new File(mergedZipTmpDir, "merged.zip");
+
+      // Command list to cause zip to merged the split zip files
+      List<String> command = new ArrayList<>();
+      command.add("zip");
+      command.add("-s-");
+      command.add(zipFile.toString());
+      command.add("-O");
+      command.add(mergedZip.toString());
+
+      // Invoke zip utility on split zip archive
+      ProcessBuilder builder = new ProcessBuilder(command);
+      builder.directory(splitZipsTmpDir);
+      Process process = builder.start();
+      int exitCode = process.waitFor();
+
+      // Remove no longer needed split zips temporary directory
+      FileUtil.delTree(splitZipsTmpDir);
+
+      if (exitCode != 0) {
+        // Read and log zip output for error message (note: zip logs error messages to STDOUT)
+        String error = StringUtil.fromInputStream(process.getInputStream());
+        log.error("Zip exited with non-zero exit code:\n" + error);
+        throw new IOException("Zip exited with non-zero exit code");
+      }
+
+      // Feed merged zip's input stream to TFile
+      try (InputStream input = new BufferedInputStream(new FileInputStream(mergedZip))) {
+        tf.input(input);
+      }
+
+    } catch (InterruptedException e) {
+      log.warning("Zip process was interrupted");
+      throw new IOException("Zip process was interrupted");
+
+    } finally {
+      // Clean-up temporary directories
+      FileUtil.delTree(splitZipsTmpDir);
+      FileUtil.delTree(mergedZipTmpDir);
+    }
+  }
+
+  String replaceZipExtension(String url, long digits, long i) {
+    String prefix = "z";
+
+    String index = String.valueOf(i);
+    String indexPadding = "";
+
+    if (digits - index.length() > 0) {
+      indexPadding = StringUtils.repeat("0", (int)digits - index.length());
+    }
+
+    return url.replaceAll("\\.zip$", "." + prefix + indexPadding + index);
+  }
+
+  // Maximum number of digits in split zip sequence (e.g. zXX has two digits
+  // and can address up to 10^2-1 split zip files assuming it begins with z01).
+  private static final long MAX_DIGITS = 10;
+
+  void fillTFile(Entry ent, CachedUrl cu) throws IOException {
     TFile tf = ent.ctf;
     log.debug2("filling " + tf + " from " + cu);
-    // XXXX
-    InputStream is = cu.getUnfilteredInputStream();
+
+    // Get the CacheUrl file extension
+    String url = cu.getUrl();
+    String ext = UrlUtil.getFileExtension(url).toLowerCase();
+
+    boolean splitZipDetected = false;
+
     try {
-      tf.input(is);
+      if (ext.equals("zip")) {
+        // Yes: Determine whether this is a split zip archive
+        ArchivalUnit au = cu.getArchivalUnit();
+
+        // Scan for first split zip file (e.g., z1, z01, z001, etc)
+        for (int digits = 1; digits < MAX_DIGITS; digits++) {
+
+          CachedUrl splitZipCu = au.makeCachedUrl(replaceZipExtension(url, digits, 1));
+
+          if (splitZipCu.hasContent()) {
+            // Yes: Process split zip archive
+            try {
+              splitZipDetected = true;
+              handleSplitZipArchive(tf, cu, digits);
+            } catch (IOException e) {
+              log.error("Error processing split zip archive");
+              throw e;
+            }
+
+            // Done - do not continue scanning for split zip files
+            break;
+          }
+        }
+      }
+
+      if (!splitZipDetected) {
+        // No: Process CU normally
+        try (InputStream is = cu.getUnfilteredInputStream()) {
+          tf.input(is);
+        } catch (Exception e) {
+          String msg = "Couldn't copy archive CU " + this + " to TFile " + tf;
+          log.error(msg, e);
+          throw new RuntimeException(msg, e);
+        }
+      }
+
+      // Set properties
       CIProperties cuProps = cu.getProperties();
       CIProperties arcProps = new CIProperties();
+
       for (String key : INHERIT_PROP_KEYS) {
-	if (cuProps.containsKey(key)) {
-	  arcProps.put(key, cuProps.get(key));
-	}
-	ent.arcCuProps = arcProps;
+        if (cuProps.containsKey(key)) {
+          arcProps.put(key, cuProps.get(key));
+        }
+
+        ent.arcCuProps = arcProps;
       }
+
       ent.valid = true;
-    } catch (Exception e) {
-      String msg = "Couldn't copy archive CU " + this + " to TFile " + tf;
-      log.error(msg, e);
-      throw new RuntimeException(msg, e);
+
     } finally {
-      IOUtil.safeClose(is);
       AuUtil.safeRelease(cu);
     }
   }
