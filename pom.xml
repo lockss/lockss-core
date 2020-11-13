@@ -176,6 +176,12 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-text</artifactId>
+      <version>${version.dependency.commons-text}</version>
+    </dependency>
+
+    <dependency>
       <groupId>commons-lang</groupId>
       <artifactId>commons-lang</artifactId>
       <version>${version.dependency.commons-lang}</version>
