@@ -278,16 +278,37 @@ public class TestArchiveMembers extends LockssTestCase {
 			aurl, "branch5/branch2/001file.bin");
   }
 
-  public void testSplitZip() throws Exception {
+  public void testSplitZips() throws Exception {
     PluginTestUtil.crawlSimAu(simau);
 
     String aurl = "http://www.example.com/splitzip/lockss-core-daemon.src.zip";
+    String burl = "http://www.example.com/splitzip2/FOO.ZIP?xyzzy=foo&wolf=woof";
 
-    assertArchiveMemberByHash("212FBD3A7965442ED3CCA401A0D9BD06", null, 4765, aurl, "daemon/ArchiveEntry.java");
-    assertArchiveMemberByHash("99EF7447C09A6DBED0D21054FE01CA91", null, 14165, aurl, "daemon/LockssThread.java");
-    assertArchiveMemberByHash("B8248EE9F450516DFB9B6D298712C9AD", "text/html", 119, aurl, "daemon/status/package.html");
+    assertArchiveMemberByHash("212FBD3A7965442ED3CCA401A0D9BD06", null,
+        4765, aurl, "daemon/ArchiveEntry.java");
+
+    assertArchiveMemberByHash("99EF7447C09A6DBED0D21054FE01CA91", null,
+        14165, aurl, "daemon/LockssThread.java");
+
+    assertArchiveMemberByHash("B8248EE9F450516DFB9B6D298712C9AD", "text/html",
+        119, aurl, "daemon/status/package.html");
+
+
+    assertArchiveMemberByHash("5DA12A97178F6A612FE0D3AEA7054C86", null,
+        32768, burl, "foo/d");
 
     assertNoArchiveMember(aurl, "none.html");
+  }
+
+  public void testReplaceZipExtension() throws Exception {
+    assertEquals("http://www.example.com/foo/zip1.z01",
+        TFileCache.replaceZipExtension("http://www.example.com/foo/zip1.zip", "z", 2, 1));
+
+    assertEquals("http://www.example.com/foo/zip1.Z01?",
+        TFileCache.replaceZipExtension("http://www.example.com/foo/zip1.zip?", "Z", 2, 1));
+
+    assertEquals("http://www.example.com/foo/zip1.z01?bar=xyzzy",
+        TFileCache.replaceZipExtension("http://www.example.com/foo/zip1.zip?bar=xyzzy", "z", 2, 1));
   }
 
   public void testInferContentType() throws Exception {
@@ -376,8 +397,6 @@ public class TestArchiveMembers extends LockssTestCase {
       CachedUrl cu = cuIter.next();
       String url = cu.getUrl();
       assertTrue(cu.hasContent());
-//      log.info("url = {}, next() = {}", url, urlIter.next()));
-//      log.info(urlIter.next());
       assertEquals(url, urlIter.next(), url);
       cnt++;
 

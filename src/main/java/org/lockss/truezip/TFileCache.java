@@ -35,6 +35,8 @@ package org.lockss.truezip;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.collections.map.LRUMap;
 import org.apache.commons.collections.map.ReferenceMap;
@@ -178,7 +180,7 @@ public class TFileCache {
 		  );
 
   void handleSplitZipArchive(TFile tf, CachedUrl cu, long digits) throws IOException {
-    String prefix = "zip.";
+    String prefix = "splitzip.";
 
     // Get the CU's archival unit
     ArchivalUnit au = cu.getArchivalUnit();
@@ -188,17 +190,20 @@ public class TFileCache {
 
     // Copy split zip files to the temporary directory
     for (int i = 1; i < Math.pow(10, digits); i++) {
-      String newUrl = replaceZipExtension(cu.getUrl(), digits, i);
-      String newExt = FileUtil.getExtension(newUrl);
-      CachedUrl splitZipCu = au.makeCachedUrl(newUrl);
+      CachedUrl splitZipCu = probeForSplitZip(cu, digits, i);
 
-      if (splitZipCu.hasContent()) {
+      if (splitZipCu != null) {
+        String newUrl = splitZipCu.getUrl();
+        String newExt = FileUtil.getExtension(new URL(newUrl).getPath()).toLowerCase();
+
         // Split zip destination file
-        File outputFile = new File(splitZipsTmpDir, prefix + newExt);
+        File splitZipFileDst = new File(splitZipsTmpDir, prefix + newExt);
+
+        log.debug2("splitZipFileDst = " + splitZipFileDst);
 
         // Copy split zip file to temporary directory
         try (InputStream input = splitZipCu.getUnfilteredInputStream();
-             OutputStream output = new BufferedOutputStream(new FileOutputStream(outputFile))) {
+             OutputStream output = new BufferedOutputStream(new FileOutputStream(splitZipFileDst))) {
 
           StreamUtil.copy(input, output);
         }
@@ -210,12 +215,14 @@ public class TFileCache {
     }
 
     // Copy zip file to temporary directory
-    File zipFile = new File(splitZipsTmpDir, prefix + "zip");
+    File zipFileDst = new File(splitZipsTmpDir, prefix + "zip");
     try (InputStream input = cu.getUnfilteredInputStream();
-         OutputStream output = new BufferedOutputStream(new FileOutputStream(zipFile))) {
+         OutputStream output = new BufferedOutputStream(new FileOutputStream(zipFileDst))) {
 
       StreamUtil.copy(input, output);
     }
+
+    log.debug2("zipFileDst = " + zipFileDst);
 
     // Create a new temporary directory for the merged zip
     File mergedZipTmpDir = FileUtil.createTempDir("mergedzip", "", tmpDir);
@@ -227,14 +234,16 @@ public class TFileCache {
       // Command list to cause zip to merged the split zip files
       List<String> command = new ArrayList<>();
       command.add("zip");
+      command.add("-q");
       command.add("-s-");
-      command.add(zipFile.toString());
+      command.add(zipFileDst.toString());
       command.add("-O");
       command.add(mergedZip.toString());
 
       // Invoke zip utility on split zip archive
       ProcessBuilder builder = new ProcessBuilder(command);
       builder.directory(splitZipsTmpDir);
+      builder.redirectErrorStream(true);
       Process process = builder.start();
       int exitCode = process.waitFor();
 
@@ -264,9 +273,10 @@ public class TFileCache {
     }
   }
 
-  String replaceZipExtension(String url, long digits, long i) {
-    String prefix = "z";
+  public static final Pattern ZIP_EXT_PATTERN =
+      Pattern.compile(".*(\\.zip)(\\?.*|$)", Pattern.CASE_INSENSITIVE);
 
+  public static String replaceZipExtension(String url, String prefix, long digits, long i) {
     String index = String.valueOf(i);
     String indexPadding = "";
 
@@ -274,12 +284,38 @@ public class TFileCache {
       indexPadding = StringUtils.repeat("0", (int)digits - index.length());
     }
 
-    return url.replaceAll("\\.zip$", "." + prefix + indexPadding + index);
+    Matcher m = ZIP_EXT_PATTERN.matcher(url);
+
+    if (m.matches()) {
+      return new StringBuilder(url)
+          .replace(m.start(1), m.end(1), "." + prefix + indexPadding + index).toString();
+    }
+
+    // This should not happen because we've checked for the .zip extension elsewhere
+    throw new ShouldNotHappenException();
   }
 
   // Maximum number of digits in split zip sequence (e.g. zXX has two digits
   // and can address up to 10^2-1 split zip files assuming it begins with z01).
   private static final long MAX_DIGITS = 10;
+
+  CachedUrl probeForSplitZip(CachedUrl cu, long digits, long i) {
+    ArchivalUnit au = cu.getArchivalUnit();
+
+    // List of split zip extension prefixes
+    List<String> prefixes = ListUtil.list("z", "Z");
+
+    for (String prefix : prefixes) {
+      CachedUrl splitZipCu =
+          au.makeCachedUrl(replaceZipExtension(cu.getUrl(), prefix, digits, i));
+
+      if (splitZipCu.hasContent()) {
+        return splitZipCu;
+      }
+    }
+
+    return null;
+  }
 
   void fillTFile(Entry ent, CachedUrl cu) throws IOException {
     TFile tf = ent.ctf;
@@ -287,21 +323,21 @@ public class TFileCache {
 
     // Get the CacheUrl file extension
     String url = cu.getUrl();
-    String ext = UrlUtil.getFileExtension(url).toLowerCase();
+    String ext = UrlUtil.getFileExtension(url);
 
     boolean splitZipDetected = false;
 
     try {
-      if (ext.equals("zip")) {
+      if (ext.equalsIgnoreCase("zip")) {
         // Yes: Determine whether this is a split zip archive
         ArchivalUnit au = cu.getArchivalUnit();
 
         // Scan for first split zip file (e.g., z1, z01, z001, etc)
-        for (int digits = 1; digits < MAX_DIGITS; digits++) {
+        for (int digits = 1; digits <= MAX_DIGITS; digits++) {
 
-          CachedUrl splitZipCu = au.makeCachedUrl(replaceZipExtension(url, digits, 1));
+          CachedUrl splitZipCu = probeForSplitZip(cu, digits, 1);
 
-          if (splitZipCu.hasContent()) {
+          if (splitZipCu != null) {
             // Yes: Process split zip archive
             try {
               splitZipDetected = true;

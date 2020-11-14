@@ -300,6 +300,13 @@ http://www.example.com/splitzip/lockss-core-daemon.src.zip!/daemon/status/Status
 http://www.example.com/splitzip/lockss-core-daemon.src.zip!/daemon/status/XmlStatusConstants.java
 http://www.example.com/splitzip/lockss-core-daemon.src.zip!/daemon/status/XmlStatusTable.java
 http://www.example.com/splitzip/lockss-core-daemon.src.zip!/daemon/status/package.html
+http://www.example.com/splitzip2/
+http://www.example.com/splitzip2/FOO.Z01?xyzzy=foo&wolf=woof
+http://www.example.com/splitzip2/FOO.Z02?xyzzy=foo&wolf=woof
+http://www.example.com/splitzip2/FOO.ZIP?xyzzy=foo&wolf=woof!/foo/a
+http://www.example.com/splitzip2/FOO.ZIP?xyzzy=foo&wolf=woof!/foo/b
+http://www.example.com/splitzip2/FOO.ZIP?xyzzy=foo&wolf=woof!/foo/c
+http://www.example.com/splitzip2/FOO.ZIP?xyzzy=foo&wolf=woof!/foo/d
 http://www.example.com/targz3.tar.gz!/001file.html
 http://www.example.com/targz3.tar.gz!/001file.xml
 http://www.example.com/targz3.tar.gz!/002file.html
