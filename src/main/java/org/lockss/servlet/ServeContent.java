@@ -40,6 +40,7 @@ import org.apache.commons.collections.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.alert.Alert;
 import org.lockss.app.LockssDaemon;
@@ -1170,8 +1171,10 @@ public class ServeContent extends LockssServlet {
     // If no Content-Disposition, set as inline content with name
     String cdisp = props.getProperty("Content-Disposition");
     if (cdisp == null) {
-      cdisp = "inline; filename=" +
-          ServletUtil.getContentOriginalFilename(cu, true);
+      String fname =
+        ObjectUtils.defaultIfNull(ServletUtil.getContentOriginalFilename(cu, true),
+                                  "UnnamedContent");
+      cdisp = "inline; filename=" + fname;
     }
     resp.setHeader("Content-Disposition", cdisp);
 
