@@ -422,8 +422,8 @@ public class RemoteApi
   }
 
   /** Return list of repository specs for all available repositories */
-  public List getRepositoryList() {
-    return repoMgr.getRepositoryList();
+  public List getRepositoryUrlList() {
+    return repoMgr.getRepositoryUrlList();
   }
 
   public List findExistingRepositoriesFor(String auid) {

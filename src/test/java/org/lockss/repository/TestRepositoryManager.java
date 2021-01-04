@@ -35,6 +35,7 @@ import org.lockss.util.time.TimerUtil;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
 
 public class TestRepositoryManager extends LockssTestCase4 {
   private static L4JLogger log = L4JLogger.getLogger();
@@ -80,11 +81,20 @@ public class TestRepositoryManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testGetRepositoryList() throws Exception {
-    assertEmpty(mgr.getRepositoryList());
+  public void testGetRepositoryUrlList() throws Exception {
+    assertEmpty(mgr.getRepositoryUrlList());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
 				  "volatile:coll42");
-    assertEquals(ListUtil.list("volatile:coll42"), mgr.getRepositoryList());
+    assertEquals(ListUtil.list("volatile:coll42"), mgr.getRepositoryUrlList());
+  }
+
+  @Test
+  public void testGetRepositoryList() throws Exception {
+    assertEmpty(mgr.getRepositoryUrlList());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:coll42");
+    assertEquals(ListUtil.list(mgr.getRepoRepo("volatile:coll42")),
+                 mgr.getRepositoryList());
   }
 
   @Test
@@ -99,8 +109,10 @@ public class TestRepositoryManager extends LockssTestCase4 {
     Map<String,PlatformUtil.DF> repoMap = mgr.getRepositoryDFMap();
     PlatformUtil.DF mapDf = repoMap.get(spec);
     assertTrue(equalsDF(df, mapDf));
-    assertTrue(df.getSize() > 0);
-    assertTrue(df.getUsed() > 0);
+    assertTrue(""+df.getSize(), df.getSize() > 0);
+    // Can't assume tmpdir has any space used as it may not be the same
+    // filesyste that local: uses
+    assertTrue(""+df.getUsed(), df.getUsed() >= 0);
   }
 
   boolean equalsDF(PlatformUtil.DF df1, PlatformUtil.DF df2) {
@@ -173,6 +185,36 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertClass(RestLockssRepository.class, repo);
   }
 
+  @Test
+  public void testFindArtifactsByUrl() throws Exception {
+    ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY,
+                                  "volatile:foo");
+    String url1 = "http://www.example.com/testDir/foo";
+    String url2 = "http://www.example.com/testDir/bar";
+    String url3 = "http://www.example.com/testDir/baz";
+
+    LockssRepository repo = mgr.getV2Repository().getRepository();
+    storeArt(repo, url1, "111", null);
+    storeArt(repo, url2, "222", null);
+    storeArt(repo, url3, "333", null);
+    TimerUtil.guaranteedSleep(1000);
+    List<Artifact> arts1 = mgr.findArtifactsByUrl(url1);
+    assertEquals(1, arts1.size());
+    assertEquals("", arts1.get(0).getUri());
+  }
+
+  protected Artifact storeArt(LockssRepository repo, String url, String content,
+			      CIProperties props) throws Exception {
+    return storeArt(repo, url, new StringInputStream(content), props);
+  }
+
+  protected Artifact storeArt(LockssRepository repo, String url, InputStream in,
+			      CIProperties props) throws Exception {
+    if (props == null) props = new CIProperties();
+    return V2RepoUtil.storeArt(repo, "foo", "auidauid42", url, in, props);
+  }
+
+
   class MyRepositoryManager extends RepositoryManager {
     List nodes = new ArrayList();
     SimpleBinarySemaphore sem;
@@ -185,9 +227,9 @@ public class TestRepositoryManager extends LockssTestCase4 {
     List getNodes() {
       return nodes;
     }
-    public List<String> getRepositoryList() {
+    public List<String> getRepositoryUrlList() {
       if (repos != null) return repos;
-      return super.getRepositoryList();
+      return super.getRepositoryUrlList();
     }
     public void setRepos(List repos) {
       this.repos = repos;

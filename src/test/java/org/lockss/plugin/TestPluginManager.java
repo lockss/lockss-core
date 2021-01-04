@@ -1243,6 +1243,7 @@ public class TestPluginManager extends LockssTestCase4 {
       return this;
     }
 
+    @Override
     protected CachedUrl findTheCachedUrl0(String url, CuContentReq contentReq) {
       SimpleQueue queue;
       synchronized (findUrlQueues) {
@@ -1444,7 +1445,22 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testFindCachedUrl() throws Exception {
+  public void testFindCachedUrlV2() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "true");
+    testFindCachedUrlCommon();
+  }
+
+  @Test
+  public void testFindCachedUrlV1() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "false");
+    testFindCachedUrlCommon();
+  }
+
+  private void testFindCachedUrlCommon() throws Exception {
+    ConfigurationUtil.addFromArgs("org.lockss.log.PluginManager.level", "debug3",
+                                  "org.lockss.log.AuSearchSet.level", "debug3");
     mgr.startService();
     String url1 = "http://foo.bar/baz";
     String url1a = "http://foo.bar:80/baz";

@@ -35,6 +35,7 @@ import java.util.regex.*;
 import org.apache.commons.collections.map.LinkedMap;
 import org.lockss.account.AccountManager;
 import org.lockss.app.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.util.jms.*;
 import org.lockss.jms.*;
@@ -57,7 +58,7 @@ import org.lockss.util.storage.StorageInfo;
 public class RepositoryManager
     extends BaseLockssDaemonManager implements ConfigurableManager {
 
-  private static Logger log = Logger.getLogger();
+  private static L4JLogger log = L4JLogger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "repository.";
 
@@ -207,7 +208,7 @@ public class RepositoryManager
 	  rs.setRepository(createLockssRepository(rs));
 	  setV2Repo(rs);
 	} catch (Exception e) {
-	  log.critical("Can't create V2 repo", e);
+	  log.fatal("Can't create V2 repo", e);
 	}
       }
     } else {
@@ -281,7 +282,7 @@ public class RepositoryManager
     case "local":
       return true;
     default:
-      log.warning("Unknown repository type: " + spec.getType());
+      log.warn("Unknown repository type: " + spec.getType());
       return true;
     }
   }
@@ -319,14 +320,13 @@ public class RepositoryManager
 	// Get the REST client credentials.
 	List<String> restClientCredentials =
 	    getDaemon().getRestClientCredentials();
-	if (log.isDebug3())
-	  log.debug3("restClientCredentials = " + restClientCredentials);
+        log.trace("restClientCredentials = {}", restClientCredentials);
 
 	// Check whether there is a user name.
 	if (restClientCredentials != null && restClientCredentials.size() > 0) {
 	  // Yes: Get the user name.
 	  serviceUser = restClientCredentials.get(0);
-	  if (log.isDebug3()) log.debug3("serviceUser = " + serviceUser);
+	  log.trace("serviceUser = {}", serviceUser);
 
 	  // Check whether there is a user password.
 	  if (restClientCredentials.size() > 1) {
@@ -379,19 +379,37 @@ public class RepositoryManager
   }
 
   /** Return list of known repository URLs.  Currently there's just one. */
-  public List<String> getRepositoryList() {
+  public List<String> getRepositoryUrlList() {
     if (v2Repo == null) {
       return Collections.emptyList();
     }
     return ListUtil.list(v2Repo.getSpec());
   }
 
-  private LockssRepository getRepoRepo(String repoSpec) {
+  /** Return list of known repository specs.  Currently there's just one. */
+  public List<RepoSpec> getRepositorySpecList() {
+    if (v2Repo == null) {
+      return Collections.emptyList();
+    }
+    return ListUtil.list(v2Repo);
+  }
+
+  public LockssRepository getRepoRepo(String repoSpec) {
     RepoSpec rspec = getV2Repository(repoSpec);
     if (rspec == null) {
       throw new IllegalArgumentException("Unknown repository: " + repoSpec);
     }
     return rspec.getRepository();
+  }
+
+  /** Return list of known LockssRepository.  Currently there's just
+   * one. */
+  public List<LockssRepository> getRepositoryList() {
+    List<LockssRepository> res = new ArrayList<>();
+    for (String spec : getRepositoryUrlList()) {
+      res.add(getRepoRepo(spec));
+    }
+    return res;
   }
 
   /** Return the DF for the given repo spec.  Currently hardwired for the
@@ -406,18 +424,18 @@ public class RepositoryManager
   public PlatformUtil.DF getRepositoryDF(String repoSpec) {
     try {
       StorageInfo storageInfo = getRepositoryInfo(repoSpec).getStoreInfo();
-      if (log.isDebug3()) log.debug3("storageInfo = " + storageInfo);
+      log.trace("storageInfo = {}", storageInfo);
 
       return PlatformUtil.DF.fromStorageInfo(storageInfo);
     } catch (IOException ioe) {
-      log.warning("Exception caught getting repositoryDF: " + ioe.getMessage());
+      log.warn("Exception caught getting repositoryDF: " + ioe.getMessage());
       return new PlatformUtil.DF();
     }
   }
 
   public Map<String,PlatformUtil.DF> getRepositoryDFMap() {
     Map<String,PlatformUtil.DF> repoMap = new LinkedMap();
-    for (String repo : getRepositoryList()) {
+    for (String repo : getRepositoryUrlList()) {
       repoMap.put(repo, getRepositoryDF(repo));
     }
     return repoMap;
@@ -454,7 +472,7 @@ public class RepositoryManager
   // expensive (esp. as the only way to do it currently is to enumerate the
   // known AUIDs, but would still be a huge number of roundtrips even if
   // there were a way to query by AUID).  Build a map of auid -> repsspec
-  // on first use, or if it it stale (PARAM_AUID_REPO_MAP_AGE), or if an
+  // on first use, or if it is stale (PARAM_AUID_REPO_MAP_AGE), or if an
   // auCreated() event has been seen.
 
   private Map<String,List<String>> auidToRepoSpec;
@@ -469,7 +487,7 @@ public class RepositoryManager
 	res.put(auid, Collections.singletonList(v2Repo.getSpec()));
       }
     } catch (IOException e) {
-      log.warning("Error getting list of AUID in repository collection");
+      log.warn("Error getting list of AUID in repository collection");
     }
     auidToRepoSpec = res;
     auidToRepoMapDate = TimeBase.nowMs();
@@ -500,6 +518,24 @@ public class RepositoryManager
   // XXXREPO
   public long getRepoDiskUsage(String repoAuPath, boolean calcIfUnknown) {
     return -1;
+  }
+
+  public List<Artifact> findArtifactsByUrl(String url) {
+    List<Artifact> res = new ArrayList<>();
+    for (RepoSpec spec : getRepositorySpecList()) {
+      LockssRepository repo = spec.getRepository();
+      log.debug2("Searching {} for {}", spec, url);
+      try {
+        for (Artifact art : repo.getArtifactsAllVersions(spec.getCollection(),
+                                                         url)) {
+          res.add(art);
+        }
+      } catch (IOException e) {
+        log.warn("Couldn't find repository: {} ({})",
+                 url, spec.getCollection());
+      }
+    }
+    return res;
   }
 
 }

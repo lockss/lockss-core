@@ -48,6 +48,10 @@ import org.lockss.db.DbManager;
 import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
+import org.lockss.repository.*;
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
+import org.lockss.laaws.rs.util.*;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
@@ -243,6 +247,11 @@ public class PluginManager
 
   static final String AU_SEARCH_SET_PREFIX = PREFIX + "auSearch.";
 
+  /** If true, use V2 repo index to search for cached URL */
+  public static final String PARAM_AU_SEARCH_USE_V2_REPO =
+    AU_SEARCH_SET_PREFIX + "searchUseV2Repo";
+  public static final boolean DEFAULT_AU_SEARCH_USE_V2_REPO = true;
+
   /** Step function returns the desired size of an AU search set, given the
    * number of AUs in the search set */
   public static final String PARAM_AU_SEARCH_CACHE_SIZE =
@@ -394,6 +403,7 @@ public class PluginManager
 
   private ConfigManager configMgr;
   private AlertManager alertMgr;
+  private RepositoryManager repoMgr;
 
   private File pluginDir = null;
   private AuOrderComparator auComparator = new AuOrderComparator();
@@ -448,6 +458,7 @@ public class PluginManager
   private boolean paramDisableURLConnectionCache =
     DEFAULT_DISABLE_URL_CONNECTION_CACHE;
   private boolean acceptExpiredCertificates = DEFAULT_ACCEPT_EXPIRED_CERTS;
+  private boolean paramAuSearchUseV2Repo = DEFAULT_AU_SEARCH_USE_V2_REPO;
   private IntStepFunction auSearchCacheSizeFunc = 
     new IntStepFunction(DEFAULT_AU_SEARCH_CACHE_SIZE);
   private IntStepFunction auSearch404CacheSizeFunc =
@@ -495,6 +506,7 @@ public class PluginManager
     configMgr.deferredConfigDbInit();
 
     alertMgr = getDaemon().getAlertManager();
+    repoMgr = getDaemon().getRepositoryManager();
     // Initialize the plugin directory.
     initPluginDir();
     configureDefaultTitleSets();
@@ -600,7 +612,6 @@ public class PluginManager
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
 
-
     if (changedKeys.contains(PREFIX)) {
       registryTimeout = config.getTimeInterval(PARAM_PLUGIN_LOAD_TIMEOUT,
 					       DEFAULT_PLUGIN_LOAD_TIMEOUT);
@@ -646,6 +657,9 @@ public class PluginManager
       }
 
       if (changedKeys.contains(AU_SEARCH_SET_PREFIX)) {
+        paramAuSearchUseV2Repo =
+          config.getBoolean(PARAM_AU_SEARCH_USE_V2_REPO,
+                            DEFAULT_AU_SEARCH_USE_V2_REPO);
 	String func = config.get(PARAM_AU_SEARCH_CACHE_SIZE,
 				 DEFAULT_AU_SEARCH_CACHE_SIZE);
 	auSearchCacheSizeFunc = new IntStepFunction(func);
@@ -2882,31 +2896,13 @@ public class PluginManager
     return findCachedUrls0(url, contentReq, false);
   }
 
-  /* Return either a list of all CUs with the given URL, or the best choice
-   * is bestOnly is true.
-   */
-  // XXX refactor into CU generator & two consumers.
-
   private List<CachedUrl> findCachedUrls0(String url, CuContentReq contentReq,
 					  boolean bestOnly) {
-    // We don't know what AU it might be in, so can't do plugin-dependent
-    // normalization yet.  But only need to do generic normalization once.
-    // XXX This is wrong, as plugin-specific normalization is normally done
-    // first.
-    //
-    // XXX There is a problem with this when used by *Exploder() classes.
-    // In the CLOCKSS case,  we expect huge numbers of AUs to share
-    // the same stem,  eg. http://www.elsevier.com/ and each archive
-    // that is exploded to include URLs for a large number of them.
-    // The optimization that returns the most recent one if it matches
-    // will help,  but perhaps not enough.  Ideally we want to search
-    // for AUs on the basis of their base_url,  which for
-    // ExplodedArchiveUnits is their sole definitional parameter,  so
-    // is known unique.
     String normUrl;
     String normStem;
-    boolean isTrace = log.isDebug3();
     List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
+    List<CachedUrl> cus = new ArrayList<>();
+
     try {
       normUrl = UrlUtil.normalizeUrl(url);
       normStem = UrlUtil.getUrlPrefix(normUrl);
@@ -2930,7 +2926,104 @@ public class PluginManager
       recent404Hits++;
       return Collections.EMPTY_LIST;
     }    
+    if (paramAuSearchUseV2Repo) {
+      res = findCachedUrlsV2(url, contentReq, bestOnly, searchSet, normUrl);
+      if (!res.isEmpty()) {
+        return res;
+      }
+    }
+    return findCachedUrlsV1(url, contentReq, bestOnly, searchSet, normUrl);
+  }     
 
+  /** Return either a list of all CUs with the given URL, or the best choice
+   * if bestOnly is true.
+   */
+  private List<CachedUrl> findCachedUrlsV2(String url,
+                                           CuContentReq contentReq,
+                                           boolean bestOnly,
+                                           AuSearchSet searchSet,
+                                           String normUrl) {
+    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
+    CachedUrl bestCu = null;
+    ArchivalUnit bestAu = null;
+    int bestScore = 8;
+    for (Artifact art : repoMgr.findArtifactsByUrl(url)) {
+      ArchivalUnit au = getAuFromIdIfExists(art.getAuid());
+      if (au != null) {
+        CachedUrl cu = au.makeCachedUrl(art.getUri());
+        if (bestOnly) {
+          int auScore = auScore(au, cu, contentReq, true);
+          switch (action(contentReq, true)) {
+          case Ignore:
+            break;
+          case RetCu:
+            makeFirstCandidate(searchSet, au);
+            if (log.isDebug3()) log.debug3("findCachedUrls: ret: " + cu);
+            res.add(cu);
+            return res;
+          case UpdateBest:
+            if (bestCu == null || auScore < bestScore) {
+              AuUtil.safeRelease(bestCu);
+              bestCu = cu;
+              bestAu = au;
+              bestScore = auScore;
+            } else {
+              AuUtil.safeRelease(cu);
+            }
+            break;
+          }
+        } else {
+          switch (action(contentReq, true)) {
+          case Ignore:
+            break;
+          case RetCu:
+          case UpdateBest:
+            res.add(cu);
+            break;
+          }
+        }
+      }
+    }
+    if (bestOnly) {
+      if (bestCu != null) {
+	res.add(bestCu);
+	makeFirstCandidate(searchSet, bestAu);
+	if (log.isDebug3()) {
+	  log.debug3("bestCu was " +
+		     (bestCu == null ? "null" : bestCu.toString()));
+	}
+      }
+    }
+    return res;
+  }
+
+  /* Return either a list of all CUs with the given URL, or the best choice
+   * if bestOnly is true.
+   */
+  // XXX refactor into CU generator & two consumers.
+
+  private List<CachedUrl> findCachedUrlsV1(String url,
+                                           CuContentReq contentReq,
+                                           boolean bestOnly,
+                                           AuSearchSet searchSet,
+                                           String normUrl) {
+    // We don't know what AU it might be in, so can't do plugin-dependent
+    // normalization yet.  But only need to do generic normalization once.
+    // XXX This is wrong, as plugin-specific normalization is normally done
+    // first.
+    //
+    // XXX There is a problem with this when used by *Exploder() classes.
+    // In the CLOCKSS case,  we expect huge numbers of AUs to share
+    // the same stem,  eg. http://www.elsevier.com/ and each archive
+    // that is exploded to include URLs for a large number of them.
+    // The optimization that returns the most recent one if it matches
+    // will help,  but perhaps not enough.  Ideally we want to search
+    // for AUs on the basis of their base_url,  which for
+    // ExplodedArchiveUnits is their sole definitional parameter,  so
+    // is known unique.
+
+    boolean isTrace = log.isDebug3();
+    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
     CachedUrl bestCu = null;
     ArchivalUnit bestAu = null;
     int bestScore = 8;

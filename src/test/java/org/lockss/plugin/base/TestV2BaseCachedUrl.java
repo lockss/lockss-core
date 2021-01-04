@@ -936,24 +936,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 
   protected Artifact storeArt(String url, InputStream in,
 			      CIProperties props) throws Exception {
-    ArtifactIdentifier id = new ArtifactIdentifier(v2Coll, mau.getAuId(),
-						   url, null);
-    CIProperties propsCopy  = CIProperties.fromProperties(props);
-    propsCopy.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
-    HttpHeaders metadata = V2RepoUtil.httpHeadersFromProps(propsCopy);
-
-    // tk
-    BasicStatusLine statusLine =
-      new BasicStatusLine(new ProtocolVersion("HTTP", 1,1), 200, "OK");
-
-    ArtifactData ad = new ArtifactData(id, metadata,
-				       new IgnoreCloseInputStream(in),
-				       statusLine);
-    if (logger.isDebug2()) {
-      logger.debug2("Creating artifact: " + ad);
-    }
-    Artifact uncommittedArt = v2Repo.addArtifact(ad);
-    return v2Repo.commitArtifact(uncommittedArt);
+    return V2RepoUtil.storeArt(v2Repo, v2Coll, mau.getAuId(), url, in, props);
   }
 
   /** Varient that performs the tests when there's only a single version */
