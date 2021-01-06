@@ -2896,6 +2896,10 @@ public class PluginManager
     return findCachedUrls0(url, contentReq, false);
   }
 
+  // instrumentation for tests
+  int findUrlV1cnt = 0;
+  int findUrlV2cnt = 0;
+
   private List<CachedUrl> findCachedUrls0(String url, CuContentReq contentReq,
 					  boolean bestOnly) {
     String normUrl;
@@ -2927,12 +2931,28 @@ public class PluginManager
       return Collections.EMPTY_LIST;
     }    
     if (paramAuSearchUseV2Repo) {
-      res = findCachedUrlsV2(url, contentReq, bestOnly, searchSet, normUrl);
+      // Search V2 repo index
+      res = findCachedUrlsV2(normUrl, contentReq, bestOnly, searchSet, normUrl);
       if (!res.isEmpty()) {
+        findUrlV1cnt++;
         return res;
+      } else {
+        // if none found and caller requires a CU with content, return none
+        switch (contentReq) {
+        case HasContent:
+          findUrlV1cnt++;
+          // not found.  Add it to 404 cache
+          if (log.isDebug2()) {
+            log.debug2("Adding to 404 cache: " + normUrl + ", " + searchSet);
+          }
+          searchSet.addRecent404(normUrl);
+          return Collections.emptyList();
+        }
+        // otherwise fall through to old method which can find CUs w/out content
       }
     }
-    return findCachedUrlsV1(url, contentReq, bestOnly, searchSet, normUrl);
+    findUrlV2cnt++;
+    return findCachedUrlsV1(normUrl, contentReq, bestOnly, searchSet, normUrl);
   }     
 
   /** Return either a list of all CUs with the given URL, or the best choice
@@ -2943,6 +2963,7 @@ public class PluginManager
                                            boolean bestOnly,
                                            AuSearchSet searchSet,
                                            String normUrl) {
+    log.critical("findCachedUrlsV2(" + url + ", " + contentReq + ")");
     List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
     CachedUrl bestCu = null;
     ArchivalUnit bestAu = null;
@@ -3022,6 +3043,7 @@ public class PluginManager
     // ExplodedArchiveUnits is their sole definitional parameter,  so
     // is known unique.
 
+    log.critical("findCachedUrlsV1(" + url + ", " + contentReq + ")");
     boolean isTrace = log.isDebug3();
     List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
     CachedUrl bestCu = null;

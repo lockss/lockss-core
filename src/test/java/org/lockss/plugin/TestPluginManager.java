@@ -1446,19 +1446,18 @@ public class TestPluginManager extends LockssTestCase4 {
 
   @Test
   public void testFindCachedUrlV2() throws Exception {
-    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
-				  "true");
-    testFindCachedUrlCommon();
+    testFindCachedUrlCommon(true);
   }
 
   @Test
   public void testFindCachedUrlV1() throws Exception {
-    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
-				  "false");
-    testFindCachedUrlCommon();
+    testFindCachedUrlCommon(false);
   }
 
-  private void testFindCachedUrlCommon() throws Exception {
+  private void testFindCachedUrlCommon(boolean isV2) throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  Boolean.toString(isV2));
+
     ConfigurationUtil.addFromArgs("org.lockss.log.PluginManager.level", "debug3",
                                   "org.lockss.log.AuSearchSet.level", "debug3");
     mgr.startService();

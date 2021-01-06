@@ -520,19 +520,23 @@ public class RepositoryManager
     return -1;
   }
 
-  public List<Artifact> findArtifactsByUrl(String url) {
+  /** Search all repositories for the URL, which must already be normalized.
+   * @param normUrl the normalized URL to search for
+   * @return List of Artifacts with that URL
+   */
+  public List<Artifact> findArtifactsByUrl(String normUrl) {
     List<Artifact> res = new ArrayList<>();
     for (RepoSpec spec : getRepositorySpecList()) {
       LockssRepository repo = spec.getRepository();
-      log.debug2("Searching {} for {}", spec, url);
+      log.debug2("Searching {} for {}", spec, normUrl);
       try {
-        for (Artifact art : repo.getArtifactsAllVersions(spec.getCollection(),
-                                                         url)) {
+        for (Artifact art : repo.getArtifactsAllVersionsAllAus(spec.getCollection(),
+                                                               normUrl)) {
           res.add(art);
         }
       } catch (IOException e) {
         log.warn("Couldn't find repository: {} ({})",
-                 url, spec.getCollection());
+                 normUrl, spec.getCollection());
       }
     }
     return res;

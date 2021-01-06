@@ -191,16 +191,19 @@ public class TestRepositoryManager extends LockssTestCase4 {
                                   "volatile:foo");
     String url1 = "http://www.example.com/testDir/foo";
     String url2 = "http://www.example.com/testDir/bar";
-    String url3 = "http://www.example.com/testDir/baz";
 
     LockssRepository repo = mgr.getV2Repository().getRepository();
     storeArt(repo, url1, "111", null);
     storeArt(repo, url2, "222", null);
-    storeArt(repo, url3, "333", null);
     TimerUtil.guaranteedSleep(1000);
     List<Artifact> arts1 = mgr.findArtifactsByUrl(url1);
     assertEquals(1, arts1.size());
-    assertEquals("", arts1.get(0).getUri());
+    assertEquals(url1, arts1.get(0).getUri());
+    List<Artifact> arts2 = mgr.findArtifactsByUrl(url2);
+    assertEquals(1, arts2.size());
+    assertEquals(url2, arts2.get(0).getUri());
+
+    assertEmpty(mgr.findArtifactsByUrl(url1 + "/notpresent"));
   }
 
   protected Artifact storeArt(LockssRepository repo, String url, String content,
