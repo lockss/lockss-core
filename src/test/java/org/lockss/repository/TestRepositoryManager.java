@@ -24,12 +24,14 @@ package org.lockss.repository;
 
 import java.io.*;
 import java.util.*;
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.Test;
 import org.lockss.app.*;
 import org.lockss.log.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.daemon.*;
@@ -90,6 +92,8 @@ public class TestRepositoryManager extends LockssTestCase4 {
   @Test
   public void testGetRepositoryDF () throws Exception {
     String tmpdir = getTempDir().toString();
+    // Ensure at least 1K in tmpdir so df.used > 0
+    FileTestUtil.writeTempFile("pad", StringUtils.repeat("0123456789", 103));
     assertNull(mgr.getV2Repository());
     String spec = "local:coll_1:" + tmpdir;
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY, spec);
