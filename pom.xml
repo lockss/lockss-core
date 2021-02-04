@@ -399,21 +399,15 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     
     <dependency>
-      <groupId>com.lyncode</groupId>
+      <groupId>org.dspace</groupId>
       <artifactId>xoai-common</artifactId>
-      <version>4.1.0</version>
+      <version>${version.group.xoai}</version>
     </dependency>
     
     <dependency>
       <groupId>org.lockss</groupId>
-      <artifactId>com-lyncode-xoai-service-provider</artifactId>
-      <version>4.1.0-p4</version>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>com-lyncode-xml-io</artifactId>
-      <version>1.0.3-p3</version>
+      <artifactId>org-dspace-xoai-service-provider</artifactId>
+      <version>${version.group.xoai}-p1</version>
     </dependency>
     
     <dependency>
