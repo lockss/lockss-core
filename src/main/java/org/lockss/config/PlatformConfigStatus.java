@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2007 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -73,6 +69,9 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 		    new ColumnDescriptor("Failover", "",
 					 ColumnDescriptor.TYPE_STRING));
 
+    private static final List sortRules =
+      ListUtil.list(new StatusTable.SortRule("IX", true));
+
     private LockssDaemon daemon;
 
     PCStatus(LockssDaemon daemon) {
@@ -89,7 +88,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 
     public void populateTable(StatusTable table) {
       Configuration config = ConfigManager.getCurrentConfig();
-      table.setDefaultSortRules(Collections.EMPTY_LIST);
+      table.setDefaultSortRules(sortRules);
       table.setColumnDescriptors(colDescs);
       table.setRows(getRows(table.getOptions()));
       table.setSummaryInfo(getSummaryInfo(config));
@@ -100,6 +99,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       List rows = new ArrayList();
       List<String> urls = mgr.getSpecUrlList();
       if (urls != null) {
+        int ix = 0;
 	for (String url : urls) {
 	  // This links to ListObjects to display the text of the file, but
 	  // doesn't quite work yet.
@@ -113,7 +113,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 				      ConfigStatus.CONFIG_FILE_STATUS_TABLE,
 				      "cf:" + url);
 
-	  Map row = MapUtil.map("URL", val);
+	  Map row = MapUtil.map("URL", val, "IX", ix++);
 	  ConfigFile cf = mgr.getConfigCache().get(url);
 	  if (cf != null) {
 	    // Compensate for FileConfigFile's numeric Last-Modified
