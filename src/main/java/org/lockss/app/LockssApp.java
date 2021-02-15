@@ -260,34 +260,35 @@ public class LockssApp {
   protected String testingMode;
 
   protected LockssApp() {
+    log.debug3("new LockssApp", new Throwable());
     setLockssApp(this);
   }
 
   protected LockssApp(AppSpec spec) {
+    this();
     appSpec = spec;
-    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls) {
+    this();
     this.propUrls = propUrls;
-    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls, String groupNames) {
+    this();
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    setLockssApp(this);
   }
 
   protected LockssApp(List<String> bootstrapPropsUrls,
 		      String restConfigServiceUrl,
 		      List<String> propUrls,
 		      String groupNames) {
+    this();
     this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    setLockssApp(this);
   }
 
   private static void setLockssApp(LockssApp app) {
