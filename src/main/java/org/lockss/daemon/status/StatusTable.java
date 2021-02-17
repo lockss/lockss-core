@@ -155,7 +155,7 @@ public class StatusTable {
 
   /**
    * Set the ordered list of footnotes for this table.  They will be added
-   * to the displaly in this order.  Needed in cases where the footnote
+   * to the display in this order.  Needed in cases where the footnote
    * order is important, because they would otherwise be created in
    * variable order depending on the current table sorting.
    * @param footnotes (a subset of) the footnotes for this table in the

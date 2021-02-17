@@ -182,12 +182,12 @@ public class ConfigStatus extends BaseLockssDaemonManager {
 	if (ConfigManager.shouldParamBeLogged(key)) {
           Object keyObj = key;
 	  Map row = new HashMap();
-          Collection<String> pUrls = paramSources.get(key);
-          if (pUrls != null) {
+          Collection<String> pSources = paramSources.get(key);
+          if (pSources != null) {
             // add footnotes for all sources of this param
             StatusTable.DisplayedValue dv = new StatusTable.DisplayedValue(key);
-            for (String url : pUrls) {
-              dv.addFootnote(url);
+            for (String source : pSources) {
+              dv.addFootnote(source);
             }
             keyObj = dv;
           }
