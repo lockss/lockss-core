@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -364,6 +364,11 @@ public class DaemonStatusNew extends BaseDaemonStatus {
 	  }
 	}
       }
+    }
+    // Create (but do not yet refer to) any footnotes that the table wants
+    // to be in a specific order
+    for (String orderedFoot : statTable.getOrderedFootnotes()) {
+      addFootnote(orderedFoot);
     }
     if (rowList != null) {
       // output rows
@@ -764,15 +769,17 @@ public class DaemonStatusNew extends BaseDaemonStatus {
 	? HtmlUtil.htmlEncode(aval.getDisplayString())
 	: getDisplayString1(aval.getValue(), type);
       String color = aval.getColor();
-      String footnote = aval.getFootnote();
+      java.util.List<String> footnotes = aval.getFootnotes();
       if (color != null) {
 	str = "<font color=" + color + ">" + str + "</font>";
       }
       if (aval.getBold()) {
 	str = "<b>" + str + "</b>";
       }
-      if (footnote != null) {
-	str = str + addFootnote(footnote);
+      boolean notFirst = false;
+      for (String foot : footnotes) {
+	str = str + addFootnote(foot, notFirst);
+        notFirst = true;
       }
       return str;
     } else {
