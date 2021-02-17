@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2009 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +30,8 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
+import org.apache.commons.collections4.MultiValuedMap;
+import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
 import org.lockss.app.*;
 import org.lockss.daemon.status.*;
 import org.lockss.daemon.status.StatusService.NoSuchTableException;
@@ -119,6 +117,10 @@ public class ConfigStatus extends BaseLockssDaemonManager {
 
   /** Global Configuration status table */
   class Status extends BaseStatus {
+    // Map param to sources (URLs) where it's set
+    private MultiValuedMap<String,String> paramSources =
+      new ArrayListValuedHashMap<String,String>();
+    private List<String> sourcesPresent = new ArrayList<>();
 
     public String getDisplayName() {
       return "Configuration";
@@ -131,8 +133,84 @@ public class ConfigStatus extends BaseLockssDaemonManager {
     public void populateTable(StatusTable table) {
       table.setColumnDescriptors(colDescs);
       table.setSummaryInfo(getSummaryInfo());
-      table.setRows(getRows(table.getOptions(),
-			    ConfigManager.getCurrentConfig()));
+      table.setRows(getRows(table.getOptions()));
+      // Set the list of sources so they'll be displayed in load order, not
+      // table display order
+      table.setOrderedFootnotes(sourcesPresent);
+    }
+
+    protected List getRows(BitSet options) {
+      Configuration config = ConfigManager.getCurrentConfig();
+
+      // Servlet instances may be reused - ensure these are reset
+      paramSources.clear();
+      sourcesPresent.clear();
+
+      // Record source(s) of each config param, in order loaded.
+      // AppSpec's boot defaults and app default are first.
+      LockssApp app = LockssApp.getLockssApp();
+      recordParamSources(app.getBootDefault(), "Builtin bootstrap default");
+      recordParamSources(app.getAppDefault(), "Builtin service default");
+
+      // ConfigFiles are next
+      List<String> urls = configMgr.getSpecUrlList();
+      if (urls == null || urls.isEmpty()) {
+        // fall back to un-annotated list if no config sources known
+        return getRows(options, config);
+      }
+      for (String url : urls) {
+	ConfigFile cf = configMgr.getConfigCache().get(url);
+	if (cf != null) {
+	  try {
+	    Configuration cfConfig = cf.getConfiguration();
+            recordParamSources(cfConfig, url);
+	  } catch (IOException e) {
+	    log.warning("Couldn't get config source: " + cf, e);
+	  }
+        }
+      }
+      // AppSpec app config is last.
+      recordParamSources(app.getAppConfig(), "Builtin service config");
+
+      // Build table rows, annotating each param with all its sources,
+      // displaying the value in the final config.
+      List rows = new ArrayList();
+      int maxLen = config.getInt(PARAM_MAX_DISPLAY_VAL_LEN,
+				 DEFAULT_MAX_DISPLAY_VAL_LEN);
+
+      for (String key : config.keySet()) {
+	if (ConfigManager.shouldParamBeLogged(key)) {
+          Object keyObj = key;
+	  Map row = new HashMap();
+          Collection<String> pUrls = paramSources.get(key);
+          if (pUrls != null) {
+            // add footnotes for all sources of this param
+            StatusTable.DisplayedValue dv = new StatusTable.DisplayedValue(key);
+            for (String url : pUrls) {
+              dv.addFootnote(url);
+            }
+            keyObj = dv;
+          }
+	  row.put("name", keyObj);
+	  row.put("value",
+		  StringUtil.elideMiddleToMaxLen(config.get(key), maxLen));
+	  rows.add(row);
+	}
+      }
+      return rows;
+    }
+
+    // Record the source (URL, app spec field) for each param in this
+    // section of the config
+    private void recordParamSources(Configuration config, String source)  {
+      if (config != null && !config.isEmpty()) {
+        sourcesPresent.add(source);
+        for (String key : config.keySet()) {
+          if (ConfigManager.shouldParamBeLogged(key)) {
+            paramSources.put(key, source);
+          }
+        }
+      }
     }
 
     protected List getSummaryInfo() {
