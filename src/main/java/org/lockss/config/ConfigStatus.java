@@ -204,11 +204,15 @@ public class ConfigStatus extends BaseLockssDaemonManager {
     // section of the config
     private void recordParamSources(Configuration config, String source)  {
       if (config != null && !config.isEmpty()) {
-        sourcesPresent.add(source);
+        boolean footnoteThisSource = false;
         for (String key : config.keySet()) {
           if (ConfigManager.shouldParamBeLogged(key)) {
             paramSources.put(key, source);
+            footnoteThisSource = true;
           }
+        }
+        if (footnoteThisSource) {
+          sourcesPresent.add(source);
         }
       }
     }
