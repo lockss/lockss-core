@@ -35,6 +35,7 @@ package org.lockss.plugin.simulated;
 import java.io.*;
 import java.util.Properties;
 
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.test.*;
@@ -153,7 +154,7 @@ public class TestSimulatedUrlFetcher extends LockssTestCase {
     String testStr = "http://www.example.com/branch1";
     SimulatedUrlFetcher suf = new SimulatedUrlFetcher(mcf, testStr, tempDirPath);
     InputStream is = suf.getUncachedInputStream();
-    ByteArrayOutputStream baos = new ByteArrayOutputStream(11);
+    UnsynchronizedByteArrayOutputStream baos = new UnsynchronizedByteArrayOutputStream(11);
     StreamUtil.copy(is, baos);
     is.close();
     assertEquals("test stream", baos.toString());

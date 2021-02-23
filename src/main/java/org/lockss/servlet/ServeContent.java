@@ -39,6 +39,7 @@ import org.apache.commons.collections.*;
 //HC3 import org.apache.commons.httpclient.util.DateParseException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -1652,8 +1653,8 @@ public class ServeContent extends LockssServlet {
         if (length >= 0 && length <= maxBufferedRewrite) {
           // if small file rewrite to temp buffer to find length before
           // sending.
-          ByteArrayOutputStream baos =
-              new ByteArrayOutputStream((int)(length * 1.1 + 100));
+          UnsynchronizedByteArrayOutputStream baos =
+              new UnsynchronizedByteArrayOutputStream((int)(length * 1.1 + 100));
           long bytes = StreamUtil.copy(rewritten, baos);
           setContentLength(bytes);
           outStr = resp.getOutputStream();

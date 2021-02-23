@@ -37,6 +37,7 @@ import java.security.*;
 import java.util.*;
 import java.util.regex.*;
 
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
@@ -492,7 +493,7 @@ public class FuncSimulatedContent extends LockssTestCase {
 
   private String getUrlContent(CachedUrl url) throws IOException {
     InputStream content = url.getUnfilteredInputStream();
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    UnsynchronizedByteArrayOutputStream baos = new UnsynchronizedByteArrayOutputStream();
     StreamUtil.copy(content, baos);
     content.close();
     String contentStr = new String(baos.toByteArray());
