@@ -113,6 +113,7 @@ public class DebugPanel extends LockssServlet {
 
   private LockssDaemon daemon;
   private PluginManager pluginMgr;
+  private RestServicesManager svcsMgr;
   private PollManager pollManager;
   private CrawlManager crawlMgr;
   private ConfigManager cfgMgr;
@@ -145,6 +146,7 @@ public class DebugPanel extends LockssServlet {
     super.init(config);
     daemon = getLockssDaemon();
     pluginMgr = daemon.getPluginManager();
+    svcsMgr = daemon.getManagerByType(RestServicesManager.class);
     try {
       pollManager = daemon.getPollManager();
     } catch (IllegalArgumentException e) {
@@ -165,7 +167,9 @@ public class DebugPanel extends LockssServlet {
       rmtApi = null;
     }
     mdxServiceBinding = daemon.getServiceBinding(ServiceDescr.SVC_MDX);
-    if (mdxServiceBinding == null) {
+    if (mdxServiceBinding == null ||
+        !svcsMgr.isServiceReady(mdxServiceBinding)) {
+      mdxServiceBinding = null;
       log.debug("No MDX Service binding, some functions nonfunctional");
     }
   }
@@ -342,6 +346,14 @@ public class DebugPanel extends LockssServlet {
     try {
       cmi.checkEligibleForNewContentCrawl(au);
     } catch (CrawlManagerImpl.NotEligibleException e) {
+      if (e.isWrongService()) {
+        errMsg = "Can't start that crawl in this service: " + e.getMessage();
+        return false;
+      }
+      if (!e.isTemporary()) {
+        errMsg = "Can't start that crawl: " + e.getMessage();
+        return false;
+      }
       delayMsg = ", Start delayed due to: " + e.getMessage();
     }
     Configuration config = ConfigManager.getCurrentConfig();
@@ -480,7 +492,10 @@ public class DebugPanel extends LockssServlet {
     ArchivalUnit au = getAu();
     if (au == null) return;
     String url = getParameter(KEY_URL);
-    if (url == null) return;
+    if (url == null) {
+      errMsg = "Enter a URL in the URL field";
+      return;
+    }
     try {
       deleteUrl(au, url);
     } catch (RuntimeException e) {
@@ -491,9 +506,9 @@ public class DebugPanel extends LockssServlet {
 
   private void deleteUrl(ArchivalUnit au, String url) {
     org.lockss.laaws.rs.core.LockssRepository v2Repo =
-      LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository().getRepository();
+      daemon.getRepositoryManager().getV2Repository().getRepository();
     String coll =
-      LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository().getCollection();
+      daemon.getRepositoryManager().getV2Repository().getCollection();
     if (v2Repo == null) {
       errMsg = "Can't delete, not using V2 repository";
       return;
@@ -565,6 +580,10 @@ public class DebugPanel extends LockssServlet {
   private boolean doFindUrl() throws IOException {
     
     String url = getParameter(KEY_URL);
+    if (StringUtil.isNullString(url)) {
+      errMsg = "Enter a URL in the URL field";
+      return true;
+    }
 
     String redir =
       srvURL(AdminServletManager.SERVLET_DAEMON_STATUS,
@@ -616,7 +635,11 @@ public class DebugPanel extends LockssServlet {
     frm.add(backup);
     frm.add(" ");
     Input crawlplug = new Input(Input.Submit, KEY_ACTION, ACTION_CRAWL_PLUGINS);
-    setTabOrder(crawlplug);
+    if (crawlMgr != null && daemon.getCrawlMode().isCrawlPlugins()) {
+      setTabOrder(crawlplug);
+    } else {
+      disableButton(crawlplug);
+    }
     frm.add(crawlplug);
     frm.add("</center>");
     ServletDescr d1 = AdminServletManager.SERVLET_HASH_CUS;
@@ -628,7 +651,15 @@ public class DebugPanel extends LockssServlet {
     findUrlText.setSize(50);
     setTabOrder(findUrl);
     setTabOrder(findUrlText);
-    frm.add("<br><center>"+findUrl+" " + findUrlText + "</center>");
+    frm.add("<br><center>URL:&nbsp;" + findUrlText + "</center>");
+    frm.add("<br><center>");
+    frm.add(findUrl);
+    if (CurrentConfig.getBooleanParam(PARAM_DELETE_ENABLED, DEFAULT_DELETE_ENABLED)) {
+      Input delUrl = new Input(Input.Submit, KEY_ACTION, ACTION_DELETE_URL);
+      frm.add(" ");
+      frm.add(delUrl);
+    }
+    frm.add("</center>");
 
     Input thrw = new Input(Input.Submit, KEY_ACTION, ACTION_THROW_IOEXCEPTION);
     Input thmsg = new Input(Input.Text, KEY_MSG);
@@ -645,10 +676,18 @@ public class DebugPanel extends LockssServlet {
 			     ( showForcePoll
 			       ? ACTION_FORCE_START_V3_POLL
 			       : ACTION_START_V3_POLL));
+    // Don't check whether poller is enabled as it's possible to start
+    // polls manually when it's disabled.
+    if (pollManager == null) {
+      disableButton(v3Poll);
+    }
     Input crawl = new Input(Input.Submit, KEY_ACTION,
 			    ( showForceCrawl
 			      ? ACTION_FORCE_START_CRAWL
 			      : ACTION_START_CRAWL));
+    if (crawlMgr == null || !crawlMgr.isCrawlerEnabled()) {
+      disableButton(crawl);
+    }
 
     frm.add("<br><center>");
     frm.add(v3Poll);
@@ -675,23 +714,24 @@ public class DebugPanel extends LockssServlet {
 				    ACTION_VALIDATE_FILES);
     frm.add(" ");
     frm.add(validateFiles);
-    if (mdxServiceBinding != null) {
-      Input reindex = new Input(Input.Submit, KEY_ACTION,
-                                ( showForceReindexMetadata
-                                  ? ACTION_FORCE_REINDEX_METADATA
-                                  : ACTION_REINDEX_METADATA));
-      frm.add(" ");
-      frm.add(reindex);
+    Input reindex = new Input(Input.Submit, KEY_ACTION,
+                              ( showForceReindexMetadata
+                                ? ACTION_FORCE_REINDEX_METADATA
+                                : ACTION_REINDEX_METADATA));
+    if (mdxServiceBinding == null) {
+      disableButton(reindex);
     }
-    if (CurrentConfig.getBooleanParam(PARAM_DELETE_ENABLED, DEFAULT_DELETE_ENABLED)) {
-      Input delUrl = new Input(Input.Submit, KEY_ACTION, ACTION_DELETE_URL);
-      frm.add(" ");
-      frm.add(delUrl);
-    }
+    frm.add(" ");
+    frm.add(reindex);
     frm.add("</center>");
 
     comp.add(frm);
     return comp;
+  }
+
+  private void disableButton(Input button) {
+    button.attribute("disabled", "true");
+    button.attribute("class", "disabled");
   }
 
 }

@@ -1166,11 +1166,37 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
   /**
-   * Used to convey to clients the reason an AU is ineligible to be crawled (for logging/display)
+   * Used to convey to clients the reason an AU is ineligible to be crawled
+   * (for logging/display)
    */
   public static class NotEligibleException extends Exception {
+    private boolean isTemporary;
+    private boolean isWrongService;
+
     public NotEligibleException(String msg) {
       super(msg);
+    }
+
+    /** Return true if the reason the AU is ineligible is expected to go
+     * away in the future */
+    public boolean isTemporary() {
+      return isTemporary;
+    }
+
+    /** Return true if this service isn't configured to crawl the selected
+     * AU.  (E.g., cfgmgr crawls only plugin AUs) */
+    public boolean isWrongService() {
+      return isWrongService;
+    }
+
+    public NotEligibleException setTemporary() {
+      isTemporary = true;
+      return this;
+    }
+
+    public NotEligibleException setWrongService() {
+      isWrongService = true;
+      return this;
     }
 
     public static class RateLimiter extends NotEligibleException {
@@ -1183,7 +1209,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   public void checkEligibleToQueueNewContentCrawl(ArchivalUnit au)
       throws NotEligibleException {
     if (isRunningNCCrawl(au)) {
-      throw new NotEligibleException("AU is crawling now.");
+      throw new NotEligibleException("AU is crawling now.").setTemporary();
     }
     if (au instanceof ExplodedArchivalUnit) {
       throw new NotEligibleException("Can't crawl ExplodedArchivalUnit");
@@ -1191,22 +1217,25 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     RateLimiter limiter = getNewContentRateLimiter(au);
     if (limiter != null && !limiter.isEventOk()) {
       throw new NotEligibleException.RateLimiter("Exceeds crawl-start rate: " +
-          limiter.getRate());
+          limiter.getRate())
+        .setTemporary();
     }
   }
 
   public void checkEligibleForNewContentCrawl(ArchivalUnit au)
       throws NotEligibleException {
     if (!windowOkToStart(au.getCrawlWindow())) {
-      throw new NotEligibleException("Crawl window is closed");
+      throw new NotEligibleException("Crawl window is closed").setTemporary();
     }
     if (pluginMgr.isRegistryAu(au)) {
       if (!isCrawlPlugins()) {
-	throw new NotEligibleException("Configuration does not allowe plugin registry crawls");
+	throw new NotEligibleException("Configuration does not allow plugin registry crawls")
+          .setWrongService();
       }
     } else {
       if (!isCrawlNonPlugins()) {
-	throw new NotEligibleException("Configuration allows only plugin registry crawls");
+	throw new NotEligibleException("Configuration allows only plugin registry crawls")
+          .setWrongService();
       }
     }
     checkEligibleToQueueNewContentCrawl(au);

@@ -1257,6 +1257,10 @@ public class PollManager
     }
   }
 
+  public boolean isV3PollerEnabled() {
+    return enableV3Poller;
+  }
+
   public boolean isV3PollPolicyEnabled() {
     return enablePoPPolls || enableLocalPolls;
   }
