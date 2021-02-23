@@ -3,6 +3,9 @@
 ## Changes Since 2.0.4.0
 
 *   Switched to a 3-part version numbering scheme.
+*   Configuration table displays source(s) of each parameter
+*   PlatformConfig lists component config files in load order
+*   Support multiple footnotes per item, ordered footnotes, citation styles
 
 ## 2.0.4.0
 
