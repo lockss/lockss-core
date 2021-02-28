@@ -86,6 +86,10 @@ public class FuncLockssApp extends LockssTestCase {
     assertTrue(appq.isEmpty());
     assertTrue(mgrq.isEmpty());
 
+    File touchFile = getTempFile("startfile", "");
+    touchFile.delete();
+    assertFalse(touchFile.exists());
+
     String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
@@ -98,14 +102,19 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppDefault("deftest3", "app3")
       .addBootDefault("o.l.plat.xxy", "zzz")
       .addAppConfig("org.lockss.app.serviceBindings",
-		    "cfg=:24620:24621;mdx=:1234");
+		    "cfg=:24620:24621;mdx=:1234")
+      .addAppConfig("org.lockss.app.touchWhenStarted",
+		    touchFile.toString())
       ;
 
     assertTrue(appq.isEmpty());
+    assertFalse(touchFile.exists());
+
     LockssApp app = LockssApp.startStatic(MyMockLockssApp.class, spec);
     assertSame(app, appq.get(TIMEOUT_SHOULDNT));
 
     assertTrue(app.isAppRunning());
+    assertTrue(touchFile.exists());
 
     Configuration config = ConfigManager.getCurrentConfig();
     assertEquals("w", config.get(ConfigManager.PARAM_DAEMON_GROUPS));

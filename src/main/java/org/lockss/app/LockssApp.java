@@ -52,6 +52,7 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.truezip.*;
 import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.springframework.context.ApplicationContext;
 
@@ -102,6 +103,14 @@ public class LockssApp {
     20 * Constants.WEEK;
 
   public static final JavaVersion MIN_JAVA_VERSION = JavaVersion.JAVA_1_8;
+
+  /** If set, this file will be created (touched) when startup is complete.
+   * Intended as a signal to the startup script that the service is fully
+   * started.  Must be set in the initial set of config params to have any
+   * effect. */
+  public static final String PARAM_TOUCH_WHEN_STARTED =
+    PREFIX + "touchWhenStarted";
+  public static final String DEFAULT_TOUCH_WHEN_STARTED = null;
 
   public static final String PARAM_APP_EXIT_IMM = PREFIX + "exitImmediately";
   public static final boolean DEFAULT_APP_EXIT_IMM = false;
@@ -917,6 +926,19 @@ public class LockssApp {
 	log.error("Couldn't start service " + lm, e);
 	// don't try to start remaining managers
 	throw e;
+      }
+    }
+
+    String touchWhenStarted =
+      ConfigManager.getCurrentConfig().get(PARAM_TOUCH_WHEN_STARTED,
+                                           DEFAULT_TOUCH_WHEN_STARTED);
+    if (!StringUtil.isNullString(touchWhenStarted)) {
+      log.debug("Startup complete, touching file: " + touchWhenStarted);
+      File touchFile = new File(touchWhenStarted);
+      try {
+        FileUtils.touch(touchFile);
+      } catch (IOException e) {
+        log.warning("Couldn't touch startup file: " + touchWhenStarted, e);
       }
     }
 
