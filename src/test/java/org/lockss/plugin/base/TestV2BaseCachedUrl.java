@@ -45,7 +45,7 @@ import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.repository.*;
-
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.apache.http.*;
 import org.apache.http.message.*;
 import org.springframework.http.HttpHeaders;
@@ -899,7 +899,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 						 InputStream in,
 						 String encoding) {
       in.mark(mark);
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      UnsynchronizedByteArrayOutputStream baos = new UnsynchronizedByteArrayOutputStream();
       try {
 	StreamUtil.copy(in, baos, resetAt);
 	in.reset();
