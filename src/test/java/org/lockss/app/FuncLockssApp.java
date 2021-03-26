@@ -90,7 +90,14 @@ public class FuncLockssApp extends LockssTestCase {
     touchFile.delete();
     assertFalse(touchFile.exists());
 
-    String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
+    File secret1File = FileTestUtil.writeTempFile("secret1", "user1:pass1");
+    File secret2File = FileTestUtil.writeTempFile("secret2", "2user2:2pass2");
+
+    String[] testArgs = new String[] {"-p", propurl, "-g", "w",
+                                      "-s", secret1File.toString(),
+                                      "-s", "solr:" + secret2File.toString(),
+                                      "-DXXXXX=YYYYY",
+    };
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
       .setService(ServiceDescr.SVC_CONFIG)
@@ -140,6 +147,20 @@ public class FuncLockssApp extends LockssTestCase {
     assertEquals("zzz",
 		 ConfigManager.getPlatformConfigOnly().get("o.l.plat.xxy"));
     assertEquals("zzz", config.get("o.l.plat.xxy"));
+
+    assertEquals("user1:pass1", app.getRestClientCredentialsAsString());
+    assertEquals("user1:pass1", app.getRestClientCredentialsAsString("rest"));
+    assertNull(app.getRestClientCredentialsAsString("nope"));
+    assertEquals(ListUtil.list("user1", "pass1"),
+                 app.getRestClientCredentials());
+    assertEquals(ListUtil.list("user1", "pass1"),
+                 app.getRestClientCredentials("rest"));
+    assertEquals("2user2:2pass2", app.getRestClientCredentialsAsString("solr"));
+    assertEquals(ListUtil.list("2user2", "2pass2"),
+                 app.getRestClientCredentials("solr"));
+    assertNull(app.getRestClientCredentials("nope"));
+
+    assertEquals("YYYYY", System.getProperty("XXXXX"));
   }
   
 
