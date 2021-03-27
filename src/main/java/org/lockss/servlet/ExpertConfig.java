@@ -39,6 +39,7 @@ import org.mortbay.html.*;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.plugin.*;
 import org.lockss.jetty.*;
 import org.lockss.account.*;

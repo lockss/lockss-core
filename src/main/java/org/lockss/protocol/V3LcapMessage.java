@@ -37,6 +37,7 @@ import org.lockss.plugin.*;
 import org.lockss.poller.*;
 import org.lockss.util.*;
 import org.lockss.util.StringUtil;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimeBase;
 

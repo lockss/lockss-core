@@ -38,6 +38,7 @@ import java.net.*;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.test.*;
 
 /**

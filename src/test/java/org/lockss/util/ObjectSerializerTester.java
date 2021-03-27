@@ -43,6 +43,7 @@ import org.lockss.config.CurrentConfig;
 import org.lockss.test.*;
 import org.lockss.util.SerializationException;
 import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.io.FileUtil;
 
 /**
  * <p>Tests the {@link org.lockss.util.ObjectSerializer} abstract

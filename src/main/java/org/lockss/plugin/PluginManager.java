@@ -51,6 +51,7 @@ import org.lockss.poller.PollSpec;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;

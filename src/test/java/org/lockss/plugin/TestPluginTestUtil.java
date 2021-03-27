@@ -39,6 +39,7 @@ import java.net.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.test.*;
 import org.lockss.test.*;
 

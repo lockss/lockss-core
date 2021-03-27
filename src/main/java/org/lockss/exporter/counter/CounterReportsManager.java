@@ -61,6 +61,7 @@ import org.lockss.db.DbException;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.TimeBase;
 
 /**
