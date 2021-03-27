@@ -38,6 +38,7 @@ import org.lockss.daemon.status.*;
 import org.lockss.config.*;
 import org.lockss.servlet.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.alert.*;
 import org.lockss.mail.*;
 

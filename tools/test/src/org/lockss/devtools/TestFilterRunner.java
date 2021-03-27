@@ -292,7 +292,7 @@ public class TestFilterRunner extends LockssTestCase {
 //     try {
 //       FilterRunner.filterSingleFile(null,
 // 				    new StringReader("blah"),
-// 				    new ByteArrayOutputStream());
+// 				    new UnsynchronizedByteArrayOutputStream());
 //       fail("Calling filterSingleFile with a null FilterFactory "
 // 	   +"should have thrown");
 //     } catch (IllegalArgumentException e) {
@@ -303,7 +303,7 @@ public class TestFilterRunner extends LockssTestCase {
 //     try {
 //       FilterRunner.filterSingleFile(new MockFilterFactory(),
 // 				    null,
-// 				    new ByteArrayOutputStream());
+// 				    new UnsynchronizedByteArrayOutputStream());
 //       fail("Calling filterSingleFile with a null Reader "
 // 	   +"should have thrown");
 //     } catch (IllegalArgumentException e) {

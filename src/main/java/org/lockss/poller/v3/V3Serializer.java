@@ -37,6 +37,7 @@ import java.io.*;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.poller.*;
 
 public abstract class V3Serializer {

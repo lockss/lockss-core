@@ -38,6 +38,7 @@ import org.apache.commons.lang3.*;
 import org.apache.commons.lang3.tuple.*;
 import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;

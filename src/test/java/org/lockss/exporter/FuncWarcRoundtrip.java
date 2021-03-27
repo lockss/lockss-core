@@ -45,6 +45,7 @@ import org.lockss.config.*;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.log.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.plugin.*;
 import org.lockss.plugin.simulated.*;
 import org.lockss.plugin.exploded.*;

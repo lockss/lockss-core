@@ -114,7 +114,7 @@ public class BuildPermKeyStores {
 		rand[i] += 32;
 	      }
 	    }
-	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	    UnsynchronizedByteArrayOutputStream baos = new UnsynchronizedByteArrayOutputStream();
 	    baos.write(rand, 0, rand.length);
 	    try {
 	        ret = baos.toString("ASCII");

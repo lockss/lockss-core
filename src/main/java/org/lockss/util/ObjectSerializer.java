@@ -40,6 +40,7 @@ import org.lockss.app.LockssApp;
 import org.lockss.config.*;
 import org.lockss.util.SerializationException;
 import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.xml.sax.SAXException;
 

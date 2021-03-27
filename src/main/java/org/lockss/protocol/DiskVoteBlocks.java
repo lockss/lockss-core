@@ -38,6 +38,7 @@ import java.nio.*;
 
 import org.lockss.app.LockssApp;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.config.*;
 
 /**

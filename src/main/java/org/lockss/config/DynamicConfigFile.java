@@ -30,6 +30,7 @@ package org.lockss.config;
 
 import java.io.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 
 /**
  * A ConfigFile whose content is generated dynamically.  Subclasses must

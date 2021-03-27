@@ -36,6 +36,7 @@ import org.apache.activemq.broker.BrokerService;
 import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.jms.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;

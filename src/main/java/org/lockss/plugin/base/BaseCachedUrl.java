@@ -40,6 +40,7 @@ import org.lockss.plugin.definable.*;
 import org.lockss.truezip.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;
