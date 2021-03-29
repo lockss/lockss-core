@@ -91,7 +91,7 @@ public class FuncLockssApp extends LockssTestCase {
     assertFalse(touchFile.exists());
 
     File secret1File = FileTestUtil.writeTempFile("secret1", "user1:pass1");
-    File secret2File = FileTestUtil.writeTempFile("secret2", "2user2:2pass2");
+    File secret2File = FileTestUtil.writeTempFile("secret2", "2user2:2pass2\n");
 
     String[] testArgs = new String[] {"-p", propurl, "-g", "w",
                                       "-s", secret1File.toString(),

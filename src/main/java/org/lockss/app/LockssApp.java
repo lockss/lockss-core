@@ -432,6 +432,7 @@ public class LockssApp {
       throws IOException {
     // Read the credentials from the file.
     String credString = FileUtil.readPasswdFile(filename);
+    credString = credString.trim();
     // Parse the credentials.
     List<String> credList = null;
     if (!StringUtil.isNullString(credString)) {
