@@ -427,7 +427,16 @@ public class LockssApp {
   }
 
   /** Read client credentials from a secrets file, and delete the file if
-   * possible. */
+   * possible.
+   *
+   * <p>Note that if this method is called other than indirectly via {@link
+   * #getRestClientCredentials()}, e.g., by a REST service (such as
+   * ArtifactIndexConfig in laaws-repository-service), a subsequent call
+   * may fail because the file is already deleted.  Thus, if the same
+   * credentials are ever needed by both code using {@link
+   * #getRestClientCredentials()} and code that must call this method
+   * directly, the mechanism will have to be enhanced.
+   */
   public static ClientCredentials readClientCredentials(String filename)
       throws IOException {
     // Read the credentials from the file.
