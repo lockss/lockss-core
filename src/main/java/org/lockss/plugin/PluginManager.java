@@ -3499,10 +3499,9 @@ public class PluginManager
   }
 
   ApiStatus getApiStatus(ServiceBinding binding) throws LockssRestException {
-    RestStatusClient client =
-      new RestStatusClient(binding.getRestStem(),
-			   60 * Constants.SECOND, 60 * Constants.SECOND);
-    return client.getStatus();
+    return new RestStatusClient(binding.getRestStem())
+      .setTimeouts(60 * Constants.SECOND, 60 * Constants.SECOND)
+      .getStatus();
   }
 
   /** Return true if any of the glob patterns in a list match the string */
