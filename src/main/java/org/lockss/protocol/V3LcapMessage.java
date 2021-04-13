@@ -30,13 +30,14 @@ import java.io.*;
 import java.util.*;
 
 import org.mortbay.util.*;
-
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.poller.*;
 import org.lockss.util.*;
 import org.lockss.util.StringUtil;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimeBase;
 
@@ -518,7 +519,7 @@ public class V3LcapMessage extends LcapMessage implements LockssSerializable {
         IOUtil.safeClose(out);
       } else {
         // Read Into Memory
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        UnsynchronizedByteArrayOutputStream out = new UnsynchronizedByteArrayOutputStream();
         long copied = StreamUtil.copy(dis, out, m_repairDataLen);
         m_repairDataByteArray = out.toByteArray();
         IOUtil.safeClose(out);
@@ -558,7 +559,7 @@ public class V3LcapMessage extends LcapMessage implements LockssSerializable {
     byte[] lcapPropBytes = m_props.encode();
     byte[] hashBytes = computeHash(lcapPropBytes);
 
-    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    UnsynchronizedByteArrayOutputStream bos = new UnsynchronizedByteArrayOutputStream();
     DataOutputStream dos = new DataOutputStream(bos);
     dos.write(signature);
     dos.writeByte(Poll.V3_POLL);

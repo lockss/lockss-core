@@ -44,6 +44,7 @@ import de.schlichtherle.truezip.fs.*;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.daemon.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.TimeBase;
 import org.lockss.plugin.*;
 

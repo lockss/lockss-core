@@ -48,6 +48,7 @@ import org.lockss.config.*;
 import org.lockss.account.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.jetty.*;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.springframework.web.context.ContextLoaderListener;

@@ -41,6 +41,7 @@ import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.config.*;
 
 /** Sets global TrueZip config, manages a TFileCache instance

@@ -37,6 +37,7 @@ import org.lockss.app.*;
 import org.lockss.protocol.*;
 import org.lockss.protocol.psm.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.ObjectSerializer.*;
 
 public class V3PollerSerializer extends V3Serializer {

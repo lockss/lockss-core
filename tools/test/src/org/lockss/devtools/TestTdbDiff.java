@@ -122,7 +122,7 @@ public class TestTdbDiff extends LockssTestCase {
     TdbDiff tdbDiff = new TdbDiff(pluginMgr, tdb1, tdb2);
     tdbDiff.showFields = true;
     tdbDiff.showAll = true;
-    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    UnsynchronizedByteArrayOutputStream bos = new UnsynchronizedByteArrayOutputStream();
     PrintStream ps = new PrintStream(bos);
     tdbDiff.printTdbDiffsByAu(ps);
     String output = bos.toString();

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -55,6 +55,7 @@ import org.lockss.laaws.rs.util.*;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -2506,7 +2507,26 @@ public class PluginManager
     }
     Plugin oldPlug = pluginMap.get(pluginKey);
     if (oldPlug != null) {
-      log.debug("Stopping old plugin " + oldPlug.getPluginName());
+      String oldName = oldPlug.getPluginName();
+      String name = plugin.getPluginName();
+      // Alert on new plugin version
+      StringBuilder sb = new StringBuilder();
+      sb.append("Plugin reloaded: ");
+      sb.append(name);
+      if (!StringUtil.equalStrings(oldName, name)) {
+        sb.append(" (was ");
+        sb.append(oldName);
+        sb.append(")");
+      }
+      sb.append("\nVersion: ");
+      sb.append(plugin.getVersion());
+      String feats = PluginManager.pluginFeatureVersionsString(plugin);
+      if (!StringUtil.isNullString(feats)) {
+        sb.append("\nFeature versions:\n");
+        sb.append(feats);
+      }
+      raiseAlert(Alert.cacheAlert(Alert.PLUGIN_RELOADED), sb.toString());
+      log.debug("Stopping old plugin " + oldName);
       oldPlug.stopPlugin();
     }
     pluginMap.put(pluginKey, plugin);
@@ -2517,6 +2537,23 @@ public class PluginManager
     log.debug("Removing plugin " + key);
     pluginMap.remove(key);
     pluginfoMap.remove(key);
+  }
+
+  /** Return a string describing the plugin feature versions */
+  public static String pluginFeatureVersionsString(Plugin plug) {
+    StringBuilder sb = new StringBuilder();
+    for (Plugin.Feature feat : Plugin.Feature.values()) {
+      String val = plug.getFeatureVersion(feat);
+      if (!StringUtil.isNullString(val)) {
+        if (sb.length() != 0) {
+          sb.append("\n");
+        }
+        sb.append(feat);
+        sb.append(": ");
+        sb.append(val);
+      }
+    }
+    return sb.toString();
   }
 
   /**
@@ -3577,10 +3614,9 @@ public class PluginManager
   }
 
   ApiStatus getApiStatus(ServiceBinding binding) throws LockssRestException {
-    RestStatusClient client =
-      new RestStatusClient(binding.getRestStem(),
-			   60 * Constants.SECOND, 60 * Constants.SECOND);
-    return client.getStatus();
+    return new RestStatusClient(binding.getRestStem())
+      .setTimeouts(60 * Constants.SECOND, 60 * Constants.SECOND)
+      .getStatus();
   }
 
   /** Return true if any of the glob patterns in a list match the string */
@@ -4036,12 +4072,18 @@ public class PluginManager
       try {
 	// Validate and bless the JAR file from the CU.
 	blessedJar = jarValidator.getBlessedJar(cu);
-	log.debug2("Plugin jar: " + cu.getUrl() + " -> " + blessedJar);
+	log.debug2("Plugin jar: " + url + " -> " + blessedJar);
       } catch (IOException ex) {
 	log.error("Error processing jar file: " + url, ex);
+        raiseAlert(Alert.cacheAlert(Alert.PLUGIN_JAR_NOT_VALIDATED),
+                   String.format("Error validating plugin jar: %s\n%s",
+                                 url, ex.getMessage()));
 	return;
       } catch (JarValidator.JarValidationException ex) {
-	log.error("CachedUrl did not validate: " + cu, ex);
+	log.error("Plugin jar did not validate: " + url, ex);
+        raiseAlert(Alert.cacheAlert(Alert.PLUGIN_JAR_NOT_VALIDATED),
+                   String.format("Plugin jar could not be validated: %s\n%s",
+                                 url, ex.getMessage()));
 	return;
       }
     }

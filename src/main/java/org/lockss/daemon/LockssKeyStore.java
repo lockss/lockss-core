@@ -36,6 +36,7 @@ import java.security.cert.*;
 import javax.net.ssl.*;
 
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.config.*;
 
 /** Wrapper around a keystore to manager passwords and loading and manager
