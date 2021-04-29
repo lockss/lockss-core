@@ -267,9 +267,9 @@ public class PluginManager
   public static final String DEFAULT_AU_SEARCH_404_CACHE_SIZE =
     "[10,10],[1000,100],[5000,200]";
 
-  /** If true, all failed findCachedUrl() searches (though non-empty AU
-   * sets) will be cached.  If false, only those that had to search on disk
-   * will be cached. */
+  /** If zero, all failed findCachedUrl() searches (though non-empty AU
+   * sets) will be cached.  If >0, only those that had to search on disk
+   * at least that many times will be cached. */
   public static final String PARAM_AU_SEARCH_MIN_DISK_SEARCHES_FOR_404_CACHE =
     AU_SEARCH_SET_PREFIX + "minDiskSearchesFor404Cache";
   public static final int DEFAULT_AU_SEARCH_MIN_DISK_SEARCHES_FOR_404_CACHE = 2;
@@ -2955,6 +2955,8 @@ public class PluginManager
     synchronized (hostAus) {
       searchSet = hostAus.get(normStem);
     }
+
+
     if (searchSet == null) {
       if (log.isDebug3() ) log.debug3("findCachedUrls: No AUs for " + normStem);
       return Collections.EMPTY_LIST;
@@ -2967,17 +2969,20 @@ public class PluginManager
       recent404Hits++;
       return Collections.EMPTY_LIST;
     }    
+
+
+
     if (paramAuSearchUseV2Repo) {
       // Search V2 repo index
       res = findCachedUrlsV2(normUrl, contentReq, bestOnly, searchSet, normUrl);
       if (!res.isEmpty()) {
-        findUrlV1cnt++;
+        findUrlV2cnt++;
         return res;
       } else {
         // if none found and caller requires a CU with content, return none
         switch (contentReq) {
         case HasContent:
-          findUrlV1cnt++;
+          findUrlV2cnt++;
           // not found.  Add it to 404 cache
           if (log.isDebug2()) {
             log.debug2("Adding to 404 cache: " + normUrl + ", " + searchSet);
@@ -2995,12 +3000,15 @@ public class PluginManager
   /** Return either a list of all CUs with the given URL, or the best choice
    * if bestOnly is true.
    */
-  private List<CachedUrl> findCachedUrlsV2(String url,
+
+  // XXX add archive member stuff
+
+  private List<CachedUrl> findCachedUrlsV2Quick(String url,
                                            CuContentReq contentReq,
                                            boolean bestOnly,
                                            AuSearchSet searchSet,
                                            String normUrl) {
-    log.critical("findCachedUrlsV2(" + url + ", " + contentReq + ")");
+    log.critical("findCachedUrlsV2Quick(" + url + ", " + contentReq + ")");
     List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
     CachedUrl bestCu = null;
     ArchivalUnit bestAu = null;
@@ -3055,6 +3063,155 @@ public class PluginManager
     return res;
   }
 
+  private List<CachedUrl> findCachedUrlsV2(String url,
+                                           CuContentReq contentReq,
+                                           boolean bestOnly,
+                                           AuSearchSet searchSet,
+                                           String normUrlGeneric) {
+    // We don't know what AU it might be in, so can't do plugin-dependent
+    // normalization yet.  But only need to do generic normalization once.
+    // XXX This is wrong, as plugin-specific normalization is normally done
+    // first.
+    //
+    // XXX There is a problem with this when used by *Exploder() classes.
+    // In the CLOCKSS case,  we expect huge numbers of AUs to share
+    // the same stem,  eg. http://www.elsevier.com/ and each archive
+    // that is exploded to include URLs for a large number of them.
+    // The optimization that returns the most recent one if it matches
+    // will help,  but perhaps not enough.  Ideally we want to search
+    // for AUs on the basis of their base_url,  which for
+    // ExplodedArchiveUnits is their sole definitional parameter,  so
+    // is known unique.
+
+    // Several potentially expensive(ish) operations could potentially be
+    // factored out of the loop(s): generic URL normalization, and
+    // ArchiveMemberSpec.fromUrl().
+
+    log.critical("findCachedUrlsV2(" + url + ", " + contentReq + ")");
+    boolean isTrace = log.isDebug3();
+    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
+    CachedUrl bestCu = null;
+    ArchivalUnit bestAu = null;
+    Map<String,List<ArchivalUnit>> urlAus = new HashMap<>();
+    int bestScore = 8;
+    int numContentChecks = 0;
+
+    // Parse out any member spec.
+    // Unit test for archive member lookup is in TestArchiveMembers
+//     ArchiveMemberSpec ams = ArchiveMemberSpec.fromUrl(normUrl);
+//     if (ams != null) {
+//       if (isTrace) log.debug2("Recognized archive member: " + ams);
+//       noMembUrl = ams.getUrl();
+//     }
+
+    // Must apply each possible AU's URL normalizer as they may produce
+    // different results
+    for (ArchivalUnit au : searchSet) {
+      if (!isActiveAu(au)) {
+	// This loop can run concurrently with other threads manipulating
+	// set of active AUs, so this AU might still disappear at any point.
+	continue;
+      }
+
+      try {
+	if (isTrace) {
+	  log.debug3("findCachedUrls: " + url + " check "
+		     + au.toString());
+	}
+// 	String siteUrl = au.siteNormalizeUrl(noMembUrl);
+        String normUrl = UrlUtil.normalizeUrl(url, au);
+	if (!normUrl.equals(url)) {
+	  if (isTrace) log.debug3("Normalized to: " + normUrl);
+	}
+        String noMembUrl = normUrl;
+        ArchiveMemberSpec ams = ArchiveMemberSpec.fromUrl(au, normUrl);
+        if (ams != null) {
+          if (isTrace) log.debug2("Recognized archive member: " + ams);
+          noMembUrl = ams.getUrl();
+        }
+
+        // Search for each distinct URL only once
+        List<ArchivalUnit> aus = urlAus.get(noMembUrl);
+        if (aus != null) {
+          // If we have already looked up this URL just associate this new
+          // AU with it
+          aus.add(au);
+          continue;
+        }
+        aus = new ArrayList<>();
+        aus.add(au);
+        urlAus.put(noMembUrl, aus);
+
+        for (Artifact art : repoMgr.findArtifactsByUrl(noMembUrl)) {
+          log.critical("Checking art: " + art.getUri());
+          ArchivalUnit artAu = getAuFromIdIfExists(art.getAuid());
+          if (artAu != null) {
+            CachedUrl cu = artAu.makeCachedUrl(art.getUri());;
+            if (ams != null) {
+              cu = cu.getArchiveMemberCu(ams);
+            }
+            if (bestOnly) {
+              int auScore = auScore(artAu, cu, contentReq, true);
+              switch (action(contentReq, true)) {
+              case Ignore:
+                break;
+              case RetCu:
+                makeFirstCandidate(searchSet, artAu);
+                if (log.isDebug3()) log.debug3("findCachedUrls: ret: " + cu);
+                res.add(cu);
+                return res;
+              case UpdateBest:
+                if (bestCu == null || auScore < bestScore) {
+                  AuUtil.safeRelease(bestCu);
+                  bestCu = cu;
+                  bestAu = artAu;
+                  bestScore = auScore;
+                } else {
+                  AuUtil.safeRelease(cu);
+                }
+                break;
+              }
+            } else {
+              switch (action(contentReq, true)) {
+              case Ignore:
+                break;
+              case RetCu:
+              case UpdateBest:
+                res.add(cu);
+                break;
+              }
+            }
+          }
+        }
+
+      } catch (MalformedURLException ignore) {
+	// ignored
+      } catch (PluginBehaviorException ignore) {
+	// ignored
+      } catch (RuntimeException ignore) {
+	// ignored
+      }
+    }
+    if (bestOnly) {
+      if (bestCu != null) {
+	res.add(bestCu);
+	makeFirstCandidate(searchSet, bestAu);
+	if (isTrace) {
+	  log.debug3("bestCu was " +
+		     (bestCu == null ? "null" : bestCu.toString()));
+	}
+      } else if (numContentChecks >= paramMinDiskSearchesFor404Cache) {
+	// not found.  Add it to 404 cache for all contentReq, as will only
+	// check for HasContent
+	if (log.isDebug2()) {
+	  log.debug2("Adding to 404 cache: " + normUrlGeneric + ", " + searchSet);
+	}
+	searchSet.addRecent404(normUrlGeneric);
+      }
+    }
+    return res;
+  }
+
   /* Return either a list of all CUs with the given URL, or the best choice
    * if bestOnly is true.
    */
@@ -3099,13 +3256,15 @@ public class PluginManager
 	  log.debug3("findCachedUrls: " + normUrl + " check "
 		     + au.toString());
 	}
-	// Unit test for archive member lookup is in TestArchiveMembers
-	String noMembUrl = normUrl;
-	ArchiveMemberSpec ams = ArchiveMemberSpec.fromUrl(au, normUrl);
-	if (ams != null) {
-	  if (isTrace) log.debug3("Recognized archive member: " + ams);
-	  noMembUrl = ams.getUrl();
-	}
+        // Unit test for archive member lookup is in TestArchiveMembers
+        String noMembUrl = normUrl;
+        ArchiveMemberSpec ams = ArchiveMemberSpec.fromUrl(au, normUrl);
+        if (ams != null) {
+          if (isTrace) log.debug3("Recognized archive member: " + ams);
+          noMembUrl = ams.getUrl();
+        }
+
+        // XXX move up
 	String siteUrl = UrlUtil.normalizeUrl(noMembUrl, au);
 	if (!siteUrl.equals(noMembUrl)) {
 	  if (isTrace) log.debug3("Site normalized to: " + siteUrl);

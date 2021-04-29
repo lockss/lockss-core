@@ -56,6 +56,9 @@ import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 import org.lockss.state.*;
 import org.lockss.jms.*;
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
+import org.lockss.laaws.rs.util.*;
 import static org.lockss.plugin.PluginManager.CuContentReq;
 
 /**
@@ -67,8 +70,12 @@ public class TestPluginManager extends LockssTestCase4 {
   static BrokerService broker;
   private MyMockLockssDaemon theDaemon;
 
+  static final String V2COLL = "coll";
+
   static String mockPlugKey =
     PluginManager.pluginKeyFromName(MyMockPlugin.class.getName());
+  static String simplePlugKey =
+    PluginManager.pluginKeyFromName("org.lockss.test.SimplePlugin");
   static Properties props1 = new Properties();
   static Properties props2 = new Properties();
   static Properties props3 = new Properties();
@@ -104,6 +111,7 @@ public class TestPluginManager extends LockssTestCase4 {
 
   MyPluginManager mgr;
   private MockAlertManager alertMgr;
+  RepositoryManager repoMgr;
 
   @Before
   public void setUp() throws Exception {
@@ -117,6 +125,8 @@ public class TestPluginManager extends LockssTestCase4 {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(PluginManager.PARAM_PLUGIN_LOCATION, "plugins");
     ConfigurationUtil.setCurrentConfigFromProps(p);
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:" + V2COLL);
 
     theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
 
@@ -132,7 +142,7 @@ public class TestPluginManager extends LockssTestCase4 {
     uMgr.initService(theDaemon);
     uMgr.startService();
 
-    RepositoryManager repoMgr = theDaemon.getRepositoryManager();
+    repoMgr = theDaemon.getRepositoryManager();
     repoMgr.startService();
 
     mgr.setLoadablePluginsReady(true);
@@ -1447,19 +1457,209 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(CuContentReq.DontCare.satisfies(CuContentReq.DontCare));
   }
 
+  Artifact storeArt(ArchivalUnit au, String url, String content,
+		    CIProperties props) throws IOException {
+    return storeArt(au, url, new StringInputStream(content), props);
+  }
+
+  Artifact storeArt(ArchivalUnit au, String url, InputStream in,
+		    CIProperties props) throws IOException {
+    if (props == null) props = new CIProperties();
+    return V2RepoUtil.storeArt(repo, V2COLL, au.getAuId(), url, in, props);
+  }
+
+  protected LockssRepository repo;
+
   @Test
   public void testFindCachedUrlV2() throws Exception {
-    testFindCachedUrlCommon(true);
-  }
-
-  @Test
-  public void testFindCachedUrlV1() throws Exception {
-    testFindCachedUrlCommon(false);
-  }
-
-  private void testFindCachedUrlCommon(boolean isV2) throws Exception {
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
-				  Boolean.toString(isV2));
+				  "true");
+
+    ConfigurationUtil.addFromArgs("org.lockss.log.PluginManager.level", "debug3",
+                                  "org.lockss.log.AuSearchSet.level", "debug3",
+                                  "org.lockss.log.BaseCachedUrl.level", "debug3");
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_404_CACHE_SIZE,
+				  "[1,2]");
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+
+    mgr.ensurePluginLoaded(simplePlugKey);
+    Plugin sp = mgr.getPlugin(simplePlugKey);
+    Configuration configuration =
+      ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                                 "volume_name", "42");
+    ArchivalUnit au1 =
+      mgr.createAu(sp, configuration, AuEvent.model(AuEvent.Type.Create));
+
+    String url1 = "http://foo.bar/42/baz";
+    String url1a = "http://foo.bar:80/42/baz";
+    String url1b = "http://FOO.BAR:80/42/baz";
+    String url2 = "http://foo.bar/42/222";
+    String url3 = "http://foo.bar/42/333";
+    String url4 = "http://foo.bar/42/444";
+    String url5 = "http://foo.bar/42/555";
+
+    assertEquals(0, mgr.getRecentCuMisses());
+    assertEquals(0, mgr.getRecentCuHits());
+    assertNull(mgr.findCachedUrl(url1));
+    assertNull(mgr.findCachedUrl(url2));
+    assertEquals(2, mgr.findUrlV2cnt);
+    assertEquals(2, mgr.getRecentCuMisses());
+    assertEquals(0, mgr.getRecentCuHits());
+    assertEquals(0, mgr.getRecent404Hits());
+    storeArt(au1, url1, "url1 content", null);
+    // Shouldn't be found yet because of 404 cache
+    assertNull(mgr.findCachedUrl(url1));
+    assertEquals(1, mgr.getRecent404Hits());
+    signalAuEvent(au1, AuEvent.ContentChangeInfo.Type.Crawl, 4);
+    CachedUrl cu1 = mgr.findCachedUrl(url1);
+    assertNotNull("Failed to find " + url1 + " after content-changed event",
+                  cu1);
+    assertEquals(url1, cu1.getUrl());
+    assertTrue(cu1.hasContent());
+    assertEquals(0, mgr.findUrlV1cnt);
+    assertEquals(3, mgr.findUrlV2cnt);
+    assertEquals(0, mgr.getRecentCuHits());
+    CachedUrl cupref = mgr.findCachedUrl(url1, CuContentReq.PreferContent);
+    assertEquals(url1, cupref.getUrl());
+    // cache hit, so no further invocations of findUrlV2
+    assertEquals(0, mgr.findUrlV1cnt);
+    assertEquals(3, mgr.findUrlV2cnt);
+    assertEquals(1, mgr.getRecentCuHits());
+
+    // check normalization.  Not found in cache.
+    cu1 = mgr.findCachedUrl(url1a);
+    assertEquals(url1, cu1.getUrl());
+    assertEquals(1, mgr.getRecentCuHits());
+    assertEquals(0, mgr.findUrlV1cnt);
+    assertEquals(4, mgr.findUrlV2cnt);
+
+    cu1 = mgr.findCachedUrl(url1, CuContentReq.DontCare);
+    assertEquals(url1, cu1.getUrl());
+    assertTrue(cu1.hasContent());
+
+    storeArt(au1, url2, "url2 content", null);
+    storeArt(au1, url3, "url3 content", null);
+
+//     CachedUrl cu1 = au1.addUrl(url1, false, true, null);
+//     CachedUrl cu2 = au2.addUrl(url2, true, true, null);
+//     CachedUrl cu31 = au1.addUrl(url3, false, true, null);
+//     CachedUrl cu32 = au2.addUrl(url3, true, true, null);
+//     assertNull(mgr.findCachedUrl(url1, CuContentReq.HasContent));
+//     CachedUrl cu = mgr.findCachedUrl(url1, CuContentReq.DontCare);
+//     assertEquals(url1, cu.getUrl());
+//     assertSame(au1, cu.getArchivalUnit());
+//     assertEquals(4, mgr.getRecentCuMisses());
+//     assertEquals(0, mgr.getRecentCuHits());
+//     CachedUrl cupref = mgr.findCachedUrl(url1, CuContentReq.PreferContent);
+//     assertEquals(url1, cupref.getUrl());
+//     assertSame(au1, cupref.getArchivalUnit());
+//     assertEquals(5, mgr.getRecentCuMisses());
+//     assertEquals(0, mgr.getRecentCuHits());
+
+//     assertEquals(1, mgr.getRecent404Hits());
+//     assertNull(mgr.findCachedUrl(url1, CuContentReq.HasContent));
+//     assertEquals(2, mgr.getRecent404Hits());
+//     ((MockCachedUrl)cu).setContent("abc");
+//     signalAuEvent(au1, AuEvent.ContentChangeInfo.Type.Crawl, 1);
+//     assertNull(mgr.findCachedUrl(url1));
+//     signalAuEvent(au1, AuEvent.ContentChangeInfo.Type.Crawl, 4);
+//     CachedUrl rcu1 = mgr.findCachedUrl(url1);
+//     assertEquals(url1, rcu1.getUrl());
+//     assertSame(au1, rcu1.getArchivalUnit());
+//     assertEquals(8, mgr.getRecentCuMisses());
+//     assertEquals(0, mgr.getRecentCuHits());
+
+//     CachedUrl rcu2 = mgr.findCachedUrl(url1a);
+//     assertEquals(url1, rcu2.getUrl());
+//     assertSame(au1, rcu2.getArchivalUnit());
+//     assertEquals(9, mgr.getRecentCuMisses());
+//     assertEquals(0, mgr.getRecentCuHits());
+
+//     CachedUrl rcu3 = mgr.findCachedUrl(url1b);
+//     assertEquals(url1, rcu3.getUrl());
+//     assertSame(au1, rcu3.getArchivalUnit());
+//     assertEquals(10, mgr.getRecentCuMisses());
+//     assertEquals(0, mgr.getRecentCuHits());
+
+//     CachedUrl rcu4 = mgr.findCachedUrl(url2);
+//     assertEquals(url2, rcu4.getUrl());
+//     assertSame(au2, rcu4.getArchivalUnit());
+//     assertEquals(11, mgr.getRecentCuMisses());
+//     assertEquals(0, mgr.getRecentCuHits());
+
+//     // url1 should be in cache
+//     CachedUrl rcu5 = mgr.findCachedUrl(url1);
+//     assertEquals(url1, rcu5.getUrl());
+//     assertSame(au1, rcu5.getArchivalUnit());
+//     assertEquals(11, mgr.getRecentCuMisses());
+//     assertEquals(1, mgr.getRecentCuHits());
+//     assertSame(cu, rcu5);
+
+//     // Test PreferContent
+//     CachedUrl rcu6 = mgr.findCachedUrl(url3, CuContentReq.PreferContent);
+//     assertEquals(url3, rcu6.getUrl());
+//     assertTrue(rcu6.hasContent());
+//     assertSame(au2, rcu6.getArchivalUnit());
+//     assertEquals(12, mgr.getRecentCuMisses());
+//     assertEquals(1, mgr.getRecentCuHits());
+
+//     // Test findCachedUrls() (returns list)
+//     assertEquals(ListUtil.list(cu1), mgr.findCachedUrls(url1));
+//     assertEquals(ListUtil.list(cu2), mgr.findCachedUrls(url2));
+//     assertSameElements(ListUtil.list(cu32),
+// 		       mgr.findCachedUrls(url3));
+//     assertSameElements(ListUtil.list(cu32),
+// 		       mgr.findCachedUrls(url3, CuContentReq.HasContent));
+//     assertSameElements(ListUtil.list(cu31, cu32),
+// 		       mgr.findCachedUrls(url3, CuContentReq.PreferContent));
+//     ((MockCachedUrl)cu31).setContent("cba");
+//     assertSameElements(ListUtil.list(cu31, cu32),
+// 		       mgr.findCachedUrls(url3, CuContentReq.HasContent));
+
+//     // url1 should still be in cache
+//     CachedUrl rcu7 = mgr.findCachedUrl(url1);
+//     assertEquals(url1, rcu7.getUrl());
+//     assertSame(au1, rcu7.getArchivalUnit());
+//     assertEquals(12, mgr.getRecentCuMisses());
+//     assertEquals(2, mgr.getRecentCuHits());
+//     Plugin plug1 = au1.getPlugin();
+//     Configuration au1conf = au1.getConfiguration();
+
+//     au1.addUrl(url5, true, true, null);
+
+//     // stop and start AU1
+//     mgr.stopAu(au1, AuEvent.forAu(au1, AuEvent.Type.Deactivate));
+
+//     // Ensure this one is in 404 cache
+//     assertEquals(null, mgr.findCachedUrl(url5, CuContentReq.HasContent));
+
+//     MockArchivalUnit xmau1 =
+//       (MockArchivalUnit)mgr.createAu(plug1, au1conf,
+//                                      AuEvent.model(AuEvent.Type.RestartCreate));
+//     // Ensure the 404 cache was flushed when AU created
+//     xmau1.addUrl(url5, true, true, null);
+//     CachedUrl cu555 = mgr.findCachedUrl(url5, CuContentReq.HasContent);
+//     assertEquals(xmau1, cu555.getArchivalUnit());
+
+//     CachedUrl xcu1 = xmau1.addUrl(url1, true, true, null);
+//     CachedUrl xcu31 = xmau1.addUrl(url3, true, true, null);
+
+//     // url1 cache entry should be detected as invalid and a new CU returned.
+//     CachedUrl rcu8 = mgr.findCachedUrl(url1);
+//     assertEquals(url1, rcu8.getUrl());
+//     assertSame(xmau1, rcu8.getArchivalUnit());
+//     assertEquals(15, mgr.getRecentCuMisses());
+//     assertEquals(2, mgr.getRecentCuHits());
+
+//     assertEquals(3, mgr.getRecent404Hits());
+
+//     assertEquals(0, mgr.getUrlSearchWaits());
+  }
+
+  private void testFindCachedUrlV1() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "false");
 
     ConfigurationUtil.addFromArgs("org.lockss.log.PluginManager.level", "debug3",
                                   "org.lockss.log.AuSearchSet.level", "debug3");
@@ -1641,7 +1841,9 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testFindCachedUrlClockss() throws Exception {
+  public void testFindCachedUrlClockssV1() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "false");
     mgr.startService();
     String url1 = "http://foo.bar/baz";
     String url1a = "http://foo.bar:80/baz";
@@ -1700,8 +1902,10 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testFindCachedUrlWithSiteNormalization()
+  public void testFindCachedUrlWithSiteNormalizationV1()
       throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "false");
     mgr.startService();
     final String prefix = "http://foo.bar/"; // pseudo crawl rule prefix
     String url0 = "http://foo.bar/xxx/baz"; // normal form of test url
