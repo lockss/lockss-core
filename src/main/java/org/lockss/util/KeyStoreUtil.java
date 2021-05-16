@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,9 +31,12 @@ package org.lockss.util;
 import java.util.*;
 import java.io.*;
 import java.security.*;
+import java.security.KeyPair;
 import java.security.cert.*;
 import java.lang.reflect.*;
 
+import org.bouncycastle.operator.*;
+import org.bouncycastle.asn1.x500.*;
 import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
@@ -71,7 +70,7 @@ public class KeyStoreUtil {
   public static final String PROP_SIG_ALGORITHM = "SigAlgorithm";
   /** X500Name.  Default 5 years */
   public static final String PROP_X500_NAME = "X500Name";
-  /** Default 1024 */
+  /** Default 2048 */
   public static final String PROP_KEY_BITS = "KeyBits";
   /** Seconds.  Default 5 years */
   public static final String PROP_EXPIRE_IN = "ExpireIn";
@@ -79,14 +78,15 @@ public class KeyStoreUtil {
 
   public static final String DEFAULT_KEYSTORE_TYPE = "JCEKS";
   public static final String DEFAULT_KEYSTORE_PROVIDER = "SunJCE";
+//   public static final String DEFAULT_KEYSTORE_PROVIDER = "SunJSSE";
 
   public static final String DEFAULT_KEY_ALIAS = "MyKey";
   public static final String DEFAULT_CERT_ALIAS = "MyCert";
   public static final String DEFAULT_KEY_ALGORITHM = "RSA";
   public static final String DEFAULT_SIG_ALGORITHM = "SHA256WithRSA";
   public static final String DEFAULT_X500_NAME = "CN=LOCKSS box";
-  public static final int DEFAULT_KEY_BITS = 1024;
-  public static final long DEFAULT_EXPIRE_IN = 5 * Constants.YEAR / 1000;
+  public static final int DEFAULT_KEY_BITS = 2048;
+  public static final long DEFAULT_EXPIRE_IN = 1000;
 
 
   public static String randomString(int len, SecureRandom rng) {
@@ -104,7 +104,8 @@ public class KeyStoreUtil {
   }
 
   public static KeyStore createKeyStore(Properties p)
-      throws CertificateException,
+      throws OperatorCreationException,
+             CertificateException,
 	     IOException,
 	     InvalidKeyException,
 	     KeyStoreException,
@@ -119,6 +120,9 @@ public class KeyStoreUtil {
       ks = KeyStore.getInstance(p.getProperty(PROP_KEYSTORE_TYPE,
 					      DEFAULT_KEYSTORE_TYPE));
     } else {	
+      log.critical("XXXXXX: kstype: " + p.getProperty(PROP_KEYSTORE_TYPE,
+					      DEFAULT_KEYSTORE_TYPE)
+                   + ", provider: " + provider);
       ks = KeyStore.getInstance(p.getProperty(PROP_KEYSTORE_TYPE,
 					      DEFAULT_KEYSTORE_TYPE),
 				provider);
@@ -162,48 +166,65 @@ public class KeyStoreUtil {
 
 
   private static void initializeKeyStore(KeyStore keyStore, Properties p)
-      throws CertificateException,
-	     IOException,
-	     InvalidKeyException,
-	     KeyStoreException,
+      throws OperatorCreationException,
 	     NoSuchAlgorithmException,
 	     NoSuchProviderException,
-	     SignatureException,
-	     UnrecoverableKeyException {
+ 	     KeyStoreException,
+             CertificateException,
+	     UnrecoverableKeyException,
+             IOException
+ {
     initializeKeyStore(keyStore, ConfigManager.fromProperties(p));
   }
 
   private static void initializeKeyStore(KeyStore keyStore,
 					 Configuration config)
-      throws CertificateException,
-	     IOException,
-	     InvalidKeyException,
-	     KeyStoreException,
-	     NoSuchAlgorithmException,
-	     NoSuchProviderException,
-	     SignatureException,
-	     UnrecoverableKeyException {
+      throws NoSuchAlgorithmException, OperatorCreationException,
+             CertificateException,
+
+             IOException,
+ 	     KeyStoreException,
+ 	     NoSuchProviderException,
+             UnrecoverableKeyException
+
+// 	     InvalidKeyException,
+
+// 	     SignatureException,
+  {
     String keyAlias = config.get(PROP_KEY_ALIAS, DEFAULT_KEY_ALIAS);
     String certAlias = config.get(PROP_CERT_ALIAS, DEFAULT_CERT_ALIAS);
     String keyAlgName = config.get(PROP_KEY_ALGORITHM, DEFAULT_KEY_ALGORITHM);
     String sigAlgName = config.get(PROP_SIG_ALGORITHM, DEFAULT_SIG_ALGORITHM);
     String keyStorePassword = config.get(PROP_KEYSTORE_PASSWORD);
     String keyPassword = config.get(PROP_KEY_PASSWORD);
+//     String provider = config.get(PROP_KEYSTORE_PROVIDER,
+//                                  DEFAULT_KEYSTORE_PROVIDER);
+    String provider = null;
     int keyBits = config.getInt(PROP_KEY_BITS, DEFAULT_KEY_BITS);
     long expireIn = config.getTimeInterval(PROP_EXPIRE_IN, DEFAULT_EXPIRE_IN);
     String x500String = config.get(PROP_X500_NAME, DEFAULT_X500_NAME);
 
-    CertAndKeyGen keypair = new CertAndKeyGen(keyAlgName, sigAlgName);
-    keypair.generate(keyBits);
+    KeyPairGenerator kpg;
+    if (StringUtil.isNullString(provider)) {
+      kpg = KeyPairGenerator.getInstance(keyAlgName);
+    } else {
+      kpg = KeyPairGenerator.getInstance(keyAlgName, provider);
+    }
+    kpg.initialize(keyBits);
+    KeyPair keypair = kpg.genKeyPair();
 
-    PrivateKey privKey = keypair.getPrivateKey();
+    PrivateKey privKey = keypair.getPrivate();
     log.debug3("PrivKey: " + privKey.getAlgorithm()
 	       + " " + privKey.getFormat());
 
     X509Certificate[] chain = new X509Certificate[1];
 
     X500Name x500Name = new X500Name(x500String);
-    chain[0] = keypair.getSelfCertificate(x500Name, expireIn);
+    chain[0] = SelfSignedCertGenerator.generate(keypair,
+                                                sigAlgName,
+                                                x500Name,
+                                                (int)expireIn);
+
     log.debug3("Certificate: " + chain[0].toString());
 
     keyStore.load(null, keyStorePassword.toCharArray());
@@ -388,7 +409,8 @@ public class KeyStoreUtil {
   private static String keyStoreSPI[]  = { "SunJCE", null };
 
   private static KeyStore createKeystore(String domainName, String password)
-      throws CertificateException,
+      throws OperatorCreationException,
+             CertificateException,
 	     IOException,
 	     InvalidKeyException,
 	     KeyStoreException,
@@ -443,7 +465,8 @@ public class KeyStoreUtil {
   private static String crtSuffix = ".crt";
   private static void initializeKeyStore(KeyStore keyStore,
 					 String domainName, String password)
-      throws IOException,
+      throws OperatorCreationException,
+             IOException,
 	     CertificateException,
 	     InvalidKeyException,
 	     SignatureException,
@@ -463,31 +486,37 @@ public class KeyStoreUtil {
     String keyAlgName = DEFAULT_KEY_ALGORITHM;
     String sigAlgName = DEFAULT_SIG_ALGORITHM;
     log.debug("About to create a CertAndKeyGen: " + keyAlgName + " " + sigAlgName);
-    CertAndKeyGen keypair;
-    try {
-      keypair = new CertAndKeyGen(keyAlgName, sigAlgName);
-    } catch (NoSuchAlgorithmException e) {
-      log.debug("new CertAndKeyGen(" + keyAlgName + "," + sigAlgName +
-	       ") threw " + e);
-      throw e;
-    }
-    log.debug("About to generate a key pair");
-    try {
-      keypair.generate(1024);
-    } catch (InvalidKeyException e) {
-      log.debug("keypair.generate(1024) threw " + e);
-      throw e;
-    }
+    KeyPairGenerator kpg = KeyPairGenerator.getInstance(keyAlgName);
+    kpg.initialize(DEFAULT_KEY_BITS);
+    KeyPair keypair = kpg.genKeyPair();
+
+//     try {
+//       keypair = new CertAndKeyGen(keyAlgName, sigAlgName);
+//     } catch (NoSuchAlgorithmException e) {
+//       log.debug("new CertAndKeyGen(" + keyAlgName + "," + sigAlgName +
+// 	       ") threw " + e);
+//       throw e;
+//     }
+//     log.debug("About to generate a key pair");
+//     try {
+//       keypair.generate(1024);
+//     } catch (InvalidKeyException e) {
+//       log.debug("keypair.generate(1024) threw " + e);
+//       throw e;
+//     }
     log.debug("About to get a PrivateKey");
-    PrivateKey privKey = keypair.getPrivateKey();
+    PrivateKey privKey = keypair.getPrivate();
     log.debug("MyKey: " + privKey.getAlgorithm() + " " +
 	      privKey.getFormat());
     log.debug("About to get a self-signed certificate");
     X509Certificate[] chain = new X509Certificate[1];
     X500Name x500Name = new X500Name("CN=" + domainName + ", " +
 				     "OU=LOCKSS Team, O=Stanford, " +
-				     "L=Stanford, S=California, C=US");
-    chain[0] = keypair.getSelfCertificate(x500Name, 365*24*60*60);
+				     "L=Stanford, ST=California, C=US");
+    chain[0] = SelfSignedCertGenerator.generate(keypair,
+                                                sigAlgName,
+                                                x500Name,
+                                                1000);
     log.debug("Certificate: " + chain[0].toString());
     log.debug("About to keyStore.load(null)");
     try {
@@ -783,164 +812,164 @@ public class KeyStoreUtil {
     return null;
   }
 
-  public static class CertAndKeyGen {
-    Object cakg;
+//   public static class CertAndKeyGen {
+//     Object cakg;
 
-    public CertAndKeyGen(String keyType, String sigAlg)
-	throws NoSuchAlgorithmException {
-      try {
-	Constructor constr = cakgClass.getConstructor(String.class,
-						      String.class);
-	cakg = constr.newInstance(keyType, sigAlg);
-      } catch (NoSuchMethodException |
-	       InstantiationException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen constructor", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (NoSuchAlgorithmException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
-    }
+//     public CertAndKeyGen(String keyType, String sigAlg)
+// 	throws NoSuchAlgorithmException {
+//       try {
+// 	Constructor constr = cakgClass.getConstructor(String.class,
+// 						      String.class);
+// 	cakg = constr.newInstance(keyType, sigAlg);
+//       } catch (NoSuchMethodException |
+// 	       InstantiationException |
+// 	       IllegalAccessException e) {
+// 	log.error("Couldn't invoke CertAndKeyGen constructor", e);
+// 	throw new IllegalStateException(e);
+//       } catch (InvocationTargetException e) {
+// 	Throwable cause = e.getCause();
+// 	try {
+// 	  throw cause;
+// 	} catch (NoSuchAlgorithmException cc) {
+// 	  throw cc;
+// 	} catch (RuntimeException cc) {
+// 	  throw cc;
+// 	} catch (Throwable cc) {
+// 	  throw new IllegalStateException(cc);
+// 	}
+//       }
+//     }
 
-    public void generate(int keyBits) throws InvalidKeyException {
-      try {
-	Method meth = cakgClass.getMethod("generate", int.class);
-	meth.invoke(cakg, keyBits);
-      } catch (NoSuchMethodException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen.generate()", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (InvalidKeyException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
-    }
+//     public void generate(int keyBits) throws InvalidKeyException {
+//       try {
+// 	Method meth = cakgClass.getMethod("generate", int.class);
+// 	meth.invoke(cakg, keyBits);
+//       } catch (NoSuchMethodException |
+// 	       IllegalAccessException e) {
+// 	log.error("Couldn't invoke CertAndKeyGen.generate()", e);
+// 	throw new IllegalStateException(e);
+//       } catch (InvocationTargetException e) {
+// 	Throwable cause = e.getCause();
+// 	try {
+// 	  throw cause;
+// 	} catch (InvalidKeyException cc) {
+// 	  throw cc;
+// 	} catch (RuntimeException cc) {
+// 	  throw cc;
+// 	} catch (Throwable cc) {
+// 	  throw new IllegalStateException(cc);
+// 	}
+//       }
+//     }
 
-    public PrivateKey getPrivateKey () {
-      try {
-	Method meth = cakgClass.getMethod("getPrivateKey");
-	return (PrivateKey)meth.invoke(cakg);
-      } catch (NoSuchMethodException |
-	       InvocationTargetException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen.getPrivateKey()", e);
-	throw new IllegalStateException(e);
-      }
-    }
+//     public PrivateKey getPrivateKey () {
+//       try {
+// 	Method meth = cakgClass.getMethod("getPrivateKey");
+// 	return (PrivateKey)meth.invoke(cakg);
+//       } catch (NoSuchMethodException |
+// 	       InvocationTargetException |
+// 	       IllegalAccessException e) {
+// 	log.error("Couldn't invoke CertAndKeyGen.getPrivateKey()", e);
+// 	throw new IllegalStateException(e);
+//       }
+//     }
 
-    public X509Certificate getSelfCertificate(X500Name myname, long validity)
-	throws CertificateException, InvalidKeyException, SignatureException,
-	       NoSuchAlgorithmException, NoSuchProviderException {
-      try {
-	Method meth = cakgClass.getMethod("getSelfCertificate",
-					  x500Class, long.class);
- 	return
-	  (X509Certificate)meth.invoke(cakg, myname.getX500Name(), validity);
-      } catch (NoSuchMethodException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen.getSelfCertificate()", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (CertificateException cc) {
-	  throw cc;
-	} catch (InvalidKeyException cc) {
-	  throw cc;
-	} catch (SignatureException cc) {
-	  throw cc;
-	} catch (NoSuchAlgorithmException cc) {
-	  throw cc;
-	} catch (NoSuchProviderException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
-    }
-  }
+//     public X509Certificate getSelfCertificate(X500Name myname, long validity)
+// 	throws CertificateException, InvalidKeyException, SignatureException,
+// 	       NoSuchAlgorithmException, NoSuchProviderException {
+//       try {
+// 	Method meth = cakgClass.getMethod("getSelfCertificate",
+// 					  x500Class, long.class);
+//  	return
+// 	  (X509Certificate)meth.invoke(cakg, myname.getX500Name(), validity);
+//       } catch (NoSuchMethodException |
+// 	       IllegalAccessException e) {
+// 	log.error("Couldn't invoke CertAndKeyGen.getSelfCertificate()", e);
+// 	throw new IllegalStateException(e);
+//       } catch (InvocationTargetException e) {
+// 	Throwable cause = e.getCause();
+// 	try {
+// 	  throw cause;
+// 	} catch (CertificateException cc) {
+// 	  throw cc;
+// 	} catch (InvalidKeyException cc) {
+// 	  throw cc;
+// 	} catch (SignatureException cc) {
+// 	  throw cc;
+// 	} catch (NoSuchAlgorithmException cc) {
+// 	  throw cc;
+// 	} catch (NoSuchProviderException cc) {
+// 	  throw cc;
+// 	} catch (RuntimeException cc) {
+// 	  throw cc;
+// 	} catch (Throwable cc) {
+// 	  throw new IllegalStateException(cc);
+// 	}
+//       }
+//     }
+//   }
 
-  public static class X500Name {
-    Object x5n;
+//   public static class X500Name {
+//     Object x5n;
 
-    public X500Name(String name) throws IOException {
-      try {
-	Constructor constr = x500Class.getConstructor(String.class);
-	x5n = constr.newInstance(name);
-      } catch (NoSuchMethodException |
-	       InstantiationException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke X500Name constructor", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (IOException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
-    }
+//     public X500Name(String name) throws IOException {
+//       try {
+// 	Constructor constr = x500Class.getConstructor(String.class);
+// 	x5n = constr.newInstance(name);
+//       } catch (NoSuchMethodException |
+// 	       InstantiationException |
+// 	       IllegalAccessException e) {
+// 	log.error("Couldn't invoke X500Name constructor", e);
+// 	throw new IllegalStateException(e);
+//       } catch (InvocationTargetException e) {
+// 	Throwable cause = e.getCause();
+// 	try {
+// 	  throw cause;
+// 	} catch (IOException cc) {
+// 	  throw cc;
+// 	} catch (RuntimeException cc) {
+// 	  throw cc;
+// 	} catch (Throwable cc) {
+// 	  throw new IllegalStateException(cc);
+// 	}
+//       }
+//     }
 
-    public X500Name(String commonName, String organizationUnit,
-                    String organizationName, String localityName,
-                    String stateName, String country)
-	throws IOException {
-      try {
-	Constructor constr = x500Class.getConstructor(String.class,
-						      String.class,
-						      String.class,
-						      String.class,
-						      String.class,
-						      String.class);
-	x5n = constr.newInstance(commonName, organizationUnit,
-				 organizationName, localityName,
-				 stateName, country);
-      } catch (NoSuchMethodException |
-	       InstantiationException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke X500Name constructor", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (IOException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
-    }
+//     public X500Name(String commonName, String organizationUnit,
+//                     String organizationName, String localityName,
+//                     String stateName, String country)
+// 	throws IOException {
+//       try {
+// 	Constructor constr = x500Class.getConstructor(String.class,
+// 						      String.class,
+// 						      String.class,
+// 						      String.class,
+// 						      String.class,
+// 						      String.class);
+// 	x5n = constr.newInstance(commonName, organizationUnit,
+// 				 organizationName, localityName,
+// 				 stateName, country);
+//       } catch (NoSuchMethodException |
+// 	       InstantiationException |
+// 	       IllegalAccessException e) {
+// 	log.error("Couldn't invoke X500Name constructor", e);
+// 	throw new IllegalStateException(e);
+//       } catch (InvocationTargetException e) {
+// 	Throwable cause = e.getCause();
+// 	try {
+// 	  throw cause;
+// 	} catch (IOException cc) {
+// 	  throw cc;
+// 	} catch (RuntimeException cc) {
+// 	  throw cc;
+// 	} catch (Throwable cc) {
+// 	  throw new IllegalStateException(cc);
+// 	}
+//       }
+//     }
 
-    Object getX500Name() {
-      return x5n;
-    }
-  }
+//     Object getX500Name() {
+//       return x5n;
+//     }
+//   }
 }

@@ -34,6 +34,7 @@ import java.util.*;
 import java.security.*;
 import java.security.cert.*;
 import javax.net.ssl.*;
+import org.bouncycastle.operator.*;
 
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
@@ -200,6 +201,7 @@ public class LockssKeyStore {
 	     NoSuchAlgorithmException,
 	     NoSuchProviderException,
 	     SignatureException,
+             OperatorCreationException,
 	     UnrecoverableKeyException {
     log.info("Creating keystore: " + location);
     if (StringUtil.isNullString(keyPassword)) {

@@ -39,9 +39,6 @@ import org.lockss.util.*;
 import java.security.*;
 import java.security.cert.*;
 
-import org.lockss.util.KeyStoreUtil.CertAndKeyGen;
-import org.lockss.util.KeyStoreUtil.X500Name;
-
 public class KeystoreTestUtils {
 
   private static Logger log = Logger.getLogger();
