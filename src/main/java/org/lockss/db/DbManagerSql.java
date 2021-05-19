@@ -37,7 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
+import com.mysql.cj.jdbc.MysqlDataSource;
 import org.apache.derby.jdbc.ClientConnectionPoolDataSource;
 import org.apache.derby.jdbc.ClientDataSource;
 import org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource;
@@ -1789,7 +1789,7 @@ public class DbManagerSql {
    *          A String with the name of the schema to create, if missing.
    * @param ds
    *          A DataSource with the data source to be used to get a connection.
-   * @param waitForExternalCreation
+   * @param waitForExternalSetup
    *          A boolean with <code>true</code> if the code must wait for the
    *          database to be setup externally, <code>false</code> otherwise.
    * @return <code>true</code> if the schema did not exist and it was created,
@@ -1934,7 +1934,7 @@ public class DbManagerSql {
    *          A DataSource with the datasource that provides the connection.
    * @param databaseName
    *          A String with the name of the database to create, if missing.
-   * @param waitForExternalCreation
+   * @param waitForExternalSetup
    *          A boolean with <code>true</code> if the code must wait for the
    *          database to be setup externally, <code>false</code> otherwise.
    * @return <code>true</code> if the database did not exist and it was created,
