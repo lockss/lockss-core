@@ -808,6 +808,10 @@ public class DaemonStatus extends BaseDaemonStatus {
 	str = str + addFootnote(foot, notFirst);
         notFirst = true;
       }
+      String hoverText = dval.getHoverText();
+      if (!StringUtil.isNullString(hoverText)) {
+        str = "<div title=\"" + hoverText + "\">" + str + "</div>";
+      }
       return str;
     } else {
       String str = getDisplayConverter().convertDisplayString(val, type);
