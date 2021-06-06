@@ -232,8 +232,9 @@ public class TestKeyStoreUtil extends LockssTestCase {
   public void testEnums() throws Exception {
     assertEquals(new byte[] {(byte)0xCE, (byte)0xCE, (byte)0xCE, (byte)0xCE},
                  KeyStoreUtil.KsType.JCEKS.getMagic());
-    log.critical("arr: " +
-                 Arrays.toString(KeyStoreUtil.KsType.JKS.getMagic()));
+    assertEquals(new byte[] {(byte)0xFE, (byte)0xED, (byte)0xFE, (byte)0xED},
+                 KeyStoreUtil.KsType.JCEKS.getMagic());
+    assertNull(KeyStoreUtil.KsType.PKCS12.getMagic());
   }
 
   void assertPubKs(String type, File file, String pass, List<String> hosts)

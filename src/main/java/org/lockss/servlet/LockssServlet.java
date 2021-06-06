@@ -1224,14 +1224,20 @@ public abstract class LockssServlet extends HttpServlet
 					 maxLen + " allowed");
     }
     MultiPartRequest multi = new MultiPartRequest(req);
-    if (log.isDebug2()) {
+    if (log.isDebug()) {
       String[] parts = multi.getPartNames();
       log.debug3("Multipart request, " + parts.length + " parts");
-      if (log.isDebug3()) {
+      if (log.isDebug()) {
 	for (int p = 0; p < parts.length; p++) {
-	  String name = parts[p];
-	  String cont = multi.getString(parts[p]);
-	  log.debug3(name + ": " + cont);
+          String name = parts[p];
+          String cont;
+          if (log.isDebug3() ||
+              StringUtil.isNullString(multi.getFilename(name))) {
+            cont = multi.getString(parts[p]);
+          } else {
+            cont = "(file upload: " + multi.getFilename(name) + ")";
+          }
+          log.debug(name + ": " + cont);
 	}
       }
     }

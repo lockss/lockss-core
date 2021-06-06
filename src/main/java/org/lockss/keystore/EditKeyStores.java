@@ -38,14 +38,17 @@ import javax.net.ssl.*;
 import org.lockss.util.*;
 
 /**
- * A tool to build key stores for V3 over SSL support in CLOCKSS
+ * A tool to build key stores for LCAP over SSL support in LOCKSS
  */
-
 public class EditKeyStores {
   protected static Logger log = Logger.getLogger();
-  
+
   private static SecureRandom testOnlySecureRandom = null;
 
+  /** Unit tests can stall waiting for the random number generator to
+   * collect enough entropy.  Test should use this to install a RNG that
+   * doesn't rely on system entropy. This is also used as a signal that
+   * main() shouldn't call System.exit() */
   static void setTestOnlySecureRandom(SecureRandom rng) {
     testOnlySecureRandom = rng;
   }
@@ -72,7 +75,7 @@ public class EditKeyStores {
     this.pubPass = b.pubPass;
     this.hosts = b.hosts;
   }
-    
+
   public String getResult() {
     return result;
   }
@@ -177,7 +180,7 @@ public class EditKeyStores {
     private String pubFile;
     private String pubPass;
     private List<String> hosts;
-    
+
     public EditKeyStores build() {
       return new EditKeyStores(this);
     }

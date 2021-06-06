@@ -3,26 +3,30 @@
 Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -36,13 +40,14 @@ import java.util.regex.*;
 
 import javax.servlet.*;
 
+import org.apache.commons.io.*;
 import org.mortbay.html.*;
 
 import org.lockss.config.*;
 import org.lockss.util.*;
+import org.lockss.util.net.*;
 import org.lockss.util.io.*;
 import org.lockss.keystore.*;
-import org.lockss.plugin.*;
 import org.lockss.jetty.*;
 
 /** Simple servlet to invoke EditKeyStores */
@@ -64,14 +69,16 @@ public class GenerateLcapKeys extends LockssServlet {
   private static final String KEY_OLD_KEYSTORE_FILE = "oldKeystore";
 
   private static final String PUB_KEYSTORE_NAME = "pubkeystore";
-  
+
   public static final String ACTION_GENERATE = "Generate Keystores";
   public static final String I18N_ACTION_GENERATE = i18n.tr("Generate Keystores");
 
   private static final String FILE_TYPES[] = {"zip", "tgz"};
 
-  private static final String foot1 =
+  private static final String FOOT_HOSTNAMES =
     "Fully-qualified hostname of each LOCKSS box for which to generate a keystore, space- or newline-separated.";
+  private static final String FOOT_OLD_KEYSTORE =
+    "Public keystore to which to add certificates for additional hosts.";
 
   // String read from form
   private String hostsStr;
@@ -95,9 +102,7 @@ public class GenerateLcapKeys extends LockssServlet {
   }
 
   protected void lockssHandleRequest() throws IOException {
-//     String action = req.getParameter("action");
-//     if (StringUtil.isNullString(action)) {
-    String action = null;
+    String action = getParameter("action");
     try {
       getMultiPartRequest();
       if (multiReq != null) {
@@ -116,7 +121,7 @@ public class GenerateLcapKeys extends LockssServlet {
     } else {
     }
 
-    if (ACTION_GENERATE.equals(action)) {
+    if (errMsg == null && ACTION_GENERATE.equals(action)) {
       doGenerate();
     } else {
       displayPage();
@@ -128,23 +133,53 @@ public class GenerateLcapKeys extends LockssServlet {
     ksType = getParameter(KEY_KSTYPE);
     fileType = getParameter(KEY_FILETYPE);
 //     shared = Boolean.valueOf(getParameter(KEY_SHARED));
-    hosts = StringUtil.breakAt(hostsStr.replaceAll("\\s+", " "), " ");
+    if (StringUtil.isNullString(hostsStr)) {
+      errMsg = "At least one hostname must be supplied";
+    } else {
+      String normHosts = hostsStr.replaceAll("\\s+", " ").trim();
+      hosts = StringUtil.breakAt(normHosts, " ");
+      log.debug("normHosts: " + normHosts);
+      log.debug(hosts.size() + " hosts: " + hosts);
+      if (hosts.isEmpty()) {
+        errMsg = "At least one hostname must be supplied";
+      }
+      for (String x : hosts) {
+        if (!HostnameUtil.isValidHostname(x)) {
+          errMsg = "Invalid hostname: " + x;
+          break;
+        }
+      }
+    }
   }
 
   protected void doGenerate() throws IOException {
-    File tmpdir = FileUtil.createTempDir("genkeys", null);
+    File tmpdir = null;
+    File outfile = null;
+    try {
+      tmpdir = FileUtil.createTempDir("genkeys", null);
 
-    String fname = multiReq.getFilename(KEY_OLD_KEYSTORE_FILE);
-    log.critical("fname: " + fname);
-    if (!StringUtil.isNullString(fname)) {
-      InputStream ins = multiReq.getInputStream(KEY_OLD_KEYSTORE_FILE);
-      
-    }
-    if (createKeystores(tmpdir)) {
-      File outFile = createOutputFile(tmpdir);
-      serveFile(outFile);
-    } else {
-      displayPage();
+      String oldStoreName = multiReq.getFilename(KEY_OLD_KEYSTORE_FILE);
+      if (!StringUtil.isNullString(oldStoreName)) {
+        File oldStoreFile = new File(tmpdir, oldStoreName);
+        try (InputStream ins = multiReq.getInputStream(KEY_OLD_KEYSTORE_FILE);
+             OutputStream outs = new FileOutputStream(oldStoreFile)) {
+          IOUtils.copy(ins, outs);
+          log.debug("Wrote old pub keystore to " + oldStoreFile);
+        }
+      }
+      if (createKeystores(tmpdir)) {
+        File outFile = null;
+        try {
+          outFile = createOutputFile(tmpdir);
+          serveFile(outFile);
+        } finally {
+          FileUtils.deleteQuietly(outFile);
+        }
+      } else {
+        displayPage();
+      }
+    } finally {
+      FileUtils.deleteQuietly(tmpdir);
     }
   }
 
@@ -188,7 +223,12 @@ public class GenerateLcapKeys extends LockssServlet {
     DirCompressor dc = DirCompressor.makeZipCompressor()
       .setSourceDir(keyDir)
       .setOutFile(zipFile);
-    dc.build();
+    try {
+      dc.build();
+    } catch (IOException e) {
+      zipFile.delete();
+      throw e;
+    }
     return zipFile;
   }
 
@@ -238,7 +278,7 @@ public class GenerateLcapKeys extends LockssServlet {
     table.newRow();
     table.newCell("align=center");
     table.add(makeTextArea(("Hostnames"
-			    + addFootnote(foot1)),
+			    + addFootnote(FOOT_HOSTNAMES)),
 			   KEY_HOSTS, hostsStr));
     table.newRow();
     table.newCell("align=center");
@@ -256,11 +296,11 @@ public class GenerateLcapKeys extends LockssServlet {
       table.add(ServletUtil.radioButton(this, KEY_FILETYPE, ft,
                                         "zip".equals(ft)));
     }
-    spaceRow(table);
     table.newRow();
     table.newCell("align=center");
+    table.add("<b>Existing public keystore:</b>" +
+              addFootnote(FOOT_OLD_KEYSTORE) + " ");
     table.add(new Input(Input.File, KEY_OLD_KEYSTORE_FILE));
-    spaceRow(table);
     table.newRow();
     table.newCell("align=center");
     ServletUtil.layoutSubmitButton(this, table, ACTION_GENERATE, I18N_ACTION_GENERATE);
@@ -340,7 +380,7 @@ public class GenerateLcapKeys extends LockssServlet {
     }
 
   }
-					       
+
   private static int minWidth;
   private static int maxWidth;
   private static int minHeight;

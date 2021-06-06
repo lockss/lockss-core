@@ -210,7 +210,7 @@ public class KeyStoreUtil {
     keyStore.setKeyEntry(keyAlias, privKey,
 			 keyPassword.toCharArray(), chain);
     Key myKey = keyStore.getKey(keyAlias, keyPassword.toCharArray());
-    log.debug("MyKey: " + myKey.getAlgorithm() + " " + myKey.getFormat());
+    log.debug2("MyKey: " + myKey.getAlgorithm() + " " + myKey.getFormat());
   }
 
 
@@ -326,9 +326,7 @@ public class KeyStoreUtil {
 					      SecureRandom rng)
       throws Exception {
 
-//     if (pubKeyStoreFile.
     KsType kst = ksTypeOrDefault(ksType);
-    log.critical("ksType: " + ksType + ", kst: " + kst);
     String[] hosts = (String[])hostlist.toArray(new String[0]);
     KeyStore[] ks = new KeyStore[hosts.length];
     String[] pwd = new String[hosts.length];
@@ -471,9 +469,9 @@ public class KeyStoreUtil {
     ins.mark(10 * 1024);
     IOException lastEx = null;
     for (KsType kst : KsType.values()) {
-      log.debug("Checking for " + kst);
+      log.debug2("Checking for " + kst);
       if (!kst.isKsType(ins)) {
-        log.debug("Isn't " + kst);
+        log.debug2("Isn't " + kst);
         continue;
       }
       log.debug("Trying to load as " + kst);
@@ -655,11 +653,11 @@ public class KeyStoreUtil {
   private static void writePasswordFile(File passwordFile,
 					String password) {
     try {
-      log.debug("Writing Password to " + passwordFile);
+      log.debug3("Writing Password to " + passwordFile);
       PrintWriter pw = new PrintWriter(new FileOutputStream(passwordFile));
       pw.print(password);
       pw.close();
-      log.debug("Done storing Password in " + passwordFile);
+      log.debug3("Done storing Password in " + passwordFile);
     } catch (Exception e) {
       log.debug("ks.store(" + passwordFile + ")", e);
     }
@@ -844,7 +842,7 @@ public class KeyStoreUtil {
           if (cert == null) {
             log.debug(alias + " null cert chain");
           } else {
-            log.debug("Cert for " + alias + " is " + cert.toString());
+            log.debug2("Cert for " + alias + " is " + cert.toString());
           }
         } else if (kss[i].isKeyEntry(alias)) {
 	  log.debug("About to getKey");

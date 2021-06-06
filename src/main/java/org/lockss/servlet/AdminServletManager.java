@@ -488,7 +488,7 @@ public class AdminServletManager extends BaseServletManager {
           new ServletDescr("GenerateLcapKeys",
           GenerateLcapKeys.class,
           "Generate LCAP keys");
-  
+
   protected static final ServletDescr SERVLET_LIST_HOLDINGS =
           new ServletDescr("TitleList",
           ListHoldings.class,
