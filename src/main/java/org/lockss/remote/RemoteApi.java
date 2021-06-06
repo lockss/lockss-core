@@ -51,7 +51,7 @@ import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
-import org.lockss.util.io.FileUtil;
+import org.lockss.util.io.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
 import org.lockss.mail.*;

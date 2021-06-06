@@ -646,6 +646,10 @@ public class DebugPanel extends LockssServlet {
     if (isServletRunnable(d1)) {
       frm.add("<br><center>"+srvLink(d1, d1.heading)+"</center>");
     }
+    ServletDescr d2 = AdminServletManager.SERVLET_GENERATE_LCAP_KEYS;
+    if (isServletRunnable(d2)) {
+      frm.add("<br><center>"+srvLink(d2, d2.heading)+"</center>");
+    }
     Input findUrl = new Input(Input.Submit, KEY_ACTION, ACTION_FIND_URL);
     Input findUrlText = new Input(Input.Text, KEY_URL);
     findUrlText.setSize(50);

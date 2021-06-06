@@ -54,6 +54,7 @@ public class MiscConfig {
 	  AuUtil.setConfig(config, oldConfig, diffs);
 	  ServletUtil.setConfig(config, oldConfig, diffs);
 	  ExpertConfig.setConfig(config, oldConfig, diffs);
+	  GenerateLcapKeys.setConfig(config, oldConfig, diffs);
 	  MimeTypeMap.setConfig(config, oldConfig, diffs);
 	  MetadataUtil.setConfig(config, oldConfig, diffs);
 	  Exporter.setConfig(config, oldConfig, diffs);

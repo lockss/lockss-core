@@ -48,7 +48,6 @@ public class LockssKeyStore {
 
   String name;
   String type;
-  String provider;
   String location;
   LocationType ltype;
   String password;
@@ -81,23 +80,6 @@ public class LockssKeyStore {
 
   void setType(String val) {
     type = val;
-  }
-
-  // Infer provider from known keystore types
-  String getProvider() {
-    if (provider == null) {
-      if ("JKS".equals(type)) {
-	return null;			// Can use default provider for JKS
-      }
-      if ("JCEKS".equals(type)) {
-	return "SunJCE";		// JCEKS requires explicit provider
-      }
-    }
-    return provider;
-  }
-
-  void setProvider(String val) {
-    provider = val;
   }
 
   String getLocation() {
@@ -221,8 +203,9 @@ public class LockssKeyStore {
     }
     Properties p = new Properties();
     p.put(KeyStoreUtil.PROP_KEYSTORE_FILE, getLocation());
-    p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, getType());
-    p.put(KeyStoreUtil.PROP_KEYSTORE_PROVIDER, getProvider());
+    if (getType() != null) {
+      p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, getType());
+    }
     p.put(KeyStoreUtil.PROP_KEY_ALIAS, fqdn + ".key");
     p.put(KeyStoreUtil.PROP_CERT_ALIAS, fqdn + ".cert");
     p.put(KeyStoreUtil.PROP_X500_NAME, makeX500Name(fqdn));
@@ -248,19 +231,16 @@ public class LockssKeyStore {
     if (!StringUtil.isNullString(password)) {
       passchar = password.toCharArray();
     }
-    InputStream ins = null;
-    try {
-      KeyStore ks;
-      if (getProvider() == null) {
-	ks = KeyStore.getInstance(getType());
+
+    try (InputStream ins = getInputStream()) {
+      if (getType() != null) {
+        KeyStore ks = KeyStore.getInstance(getType());
+        ks.load(ins, passchar);
+        keystore = ks;
       } else {
-	ks = KeyStore.getInstance(getType(), getProvider());
+        keystore = KeyStoreUtil.loadKeystoreOfUnknownType(getInputStream(),
+                                                          password);
       }
-      ins = getInputStream();
-      ks.load(ins, passchar);
-      keystore = ks;
-    } finally {
-      IOUtil.safeClose(ins);
     }
   }
 
@@ -341,7 +321,6 @@ public class LockssKeyStore {
     LockssKeyStore o = (LockssKeyStore)other;
     return name.equals(o.name)
       && StringUtil.equalStrings(type, o.type)
-      && StringUtil.equalStrings(provider, o.provider)
       && StringUtil.equalStrings(location, o.location)
       && ltype == o.ltype
       && mayCreate == o.mayCreate
