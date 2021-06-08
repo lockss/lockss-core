@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2001-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -54,6 +54,7 @@ public class MiscConfig {
 	  AuUtil.setConfig(config, oldConfig, diffs);
 	  ServletUtil.setConfig(config, oldConfig, diffs);
 	  ExpertConfig.setConfig(config, oldConfig, diffs);
+	  GenerateLcapKeys.setConfig(config, oldConfig, diffs);
 	  MimeTypeMap.setConfig(config, oldConfig, diffs);
 	  MetadataUtil.setConfig(config, oldConfig, diffs);
 	  Exporter.setConfig(config, oldConfig, diffs);
