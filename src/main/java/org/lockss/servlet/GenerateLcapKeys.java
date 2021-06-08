@@ -68,7 +68,7 @@ public class GenerateLcapKeys extends LockssServlet {
   private static final String KEY_SHARED = "shared";
   private static final String KEY_OLD_KEYSTORE_FILE = "oldKeystore";
 
-  private static final String PUB_KEYSTORE_NAME = "pubkeystore";
+  private static final String PUB_KEYSTORE_NAME = "pub-keystore";
 
   public static final String ACTION_GENERATE = "Generate Keystores";
   public static final String I18N_ACTION_GENERATE = i18n.tr("Generate Keystores");
@@ -155,6 +155,7 @@ public class GenerateLcapKeys extends LockssServlet {
   protected void doGenerate() throws IOException {
     File tmpdir = null;
     File outfile = null;
+    File pubStore = new File(tmpdir, PUB_KEYSTORE_NAME);
     try {
       tmpdir = FileUtil.createTempDir("genkeys", null);
 
@@ -165,9 +166,10 @@ public class GenerateLcapKeys extends LockssServlet {
              OutputStream outs = new FileOutputStream(oldStoreFile)) {
           IOUtils.copy(ins, outs);
           log.debug("Wrote old pub keystore to " + oldStoreFile);
+          pubStore = oldStoreFile;
         }
       }
-      if (createKeystores(tmpdir)) {
+      if (createKeystores(tmpdir, pubStore)) {
         File outFile = null;
         try {
           outFile = createOutputFile(tmpdir);
@@ -183,9 +185,9 @@ public class GenerateLcapKeys extends LockssServlet {
     }
   }
 
-  protected boolean createKeystores(File keyDir) throws IOException {
+  protected boolean createKeystores(File keyDir, File pubStore)
+      throws IOException {
     try {
-      File pubStore = new File(keyDir, PUB_KEYSTORE_NAME);
       EditKeyStores eks = EditKeyStores.newBuilder()
         .setHosts(hosts)
         .setKsType(ksType)
@@ -220,7 +222,7 @@ public class GenerateLcapKeys extends LockssServlet {
 
   private File createZipFile(File keyDir) throws IOException {
     File zipFile = FileUtil.createTempFile("keyzip", ".zip");
-    DirCompressor dc = DirCompressor.makeZipCompressor()
+    DirArchiver dc = DirArchiver.makeZipArchiver()
       .setSourceDir(keyDir)
       .setOutFile(zipFile);
     try {
@@ -234,7 +236,7 @@ public class GenerateLcapKeys extends LockssServlet {
 
   private File createTarFile(File keyDir) throws IOException {
     File tarFile = FileUtil.createTempFile("keytar", ".tgz");
-    DirCompressor dc = DirCompressor.makeTarCompressor()
+    DirArchiver dc = DirArchiver.makeTarArchiver()
       .setSourceDir(keyDir)
       .setOutFile(tarFile);
     dc.build();

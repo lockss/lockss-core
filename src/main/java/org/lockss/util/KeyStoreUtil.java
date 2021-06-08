@@ -347,6 +347,7 @@ public class KeyStoreUtil {
       pubKeyStoreFile = new File (pubKeyStoreFile + "." + kst.getExtension());
     }
     if (pubKeyStoreFile.exists()) {
+      log.debug("Loading old pub keystore: " + pubKeyStoreFile);
       pubStore = loadKeystore(pubKeyStoreFile, pubKeyStorePassword);
     } else {
       pubStore = makeNewKeystore(kst);
