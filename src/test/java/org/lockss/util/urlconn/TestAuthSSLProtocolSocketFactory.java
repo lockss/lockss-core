@@ -96,7 +96,7 @@ public class TestAuthSSLProtocolSocketFactory extends LockssTestCase {
 		 String pass, String keyPass) {
     String prefix = PARAM_KEYSTORE + "." + name + ".";
     p.put(prefix + KEYSTORE_PARAM_NAME, name);
-    p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
+//     p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
     p.put(prefix + KEYSTORE_PARAM_FILE, filename);
     if (pass != null) {
       p.put(prefix + KEYSTORE_PARAM_PASSWORD, pass);
@@ -104,25 +104,6 @@ public class TestAuthSSLProtocolSocketFactory extends LockssTestCase {
     p.put(prefix + KEYSTORE_PARAM_KEY_PASSWORD, keyPass);
   }
 
-
-  void setKeyStoreProps(Properties p, String id,
-			String ksname, String filename,
-			String kspasswd, String privatePassword,
-			String privatePasswordFile) {
-    String pref = LockssKeyStoreManager.PARAM_KEYSTORE + "." + id + ".";
-    p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_NAME, ksname);
-    p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_FILE, filename);
-    p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_TYPE, "JCEKS");
-    p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_PASSWORD, kspasswd);
-    if (privatePassword != null) {
-      p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_KEY_PASSWORD,
-	    privatePassword);
-    }
-    if (privatePasswordFile != null) {
-      p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_KEY_PASSWORD_FILE,
-	    privatePasswordFile);
-    }
-  }
 
   public void testMissingServerKeystore() throws Exception {
     startKeyManager();

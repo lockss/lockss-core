@@ -68,7 +68,7 @@ public class TestLockssKeyStoreManager extends LockssTestCase {
 		  String pass, String keyPass) {
     String prefix = ksprefix(name);
     p.put(prefix + KEYSTORE_PARAM_NAME, name);
-    p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
+//     p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
     p.put(prefix + KEYSTORE_PARAM_PASSWORD, pass);
     p.put(prefix + KEYSTORE_PARAM_KEY_PASSWORD, keyPass);
   }
@@ -78,7 +78,7 @@ public class TestLockssKeyStoreManager extends LockssTestCase {
 		 String pass, String keyPassFile) {
     String prefix = ksprefix(name);
     p.put(prefix + KEYSTORE_PARAM_NAME, name);
-    p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
+//     p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
     p.put(prefix + KEYSTORE_PARAM_PASSWORD, pass);
     p.put(prefix + KEYSTORE_PARAM_KEY_PASSWORD_FILE, keyPassFile);
   }

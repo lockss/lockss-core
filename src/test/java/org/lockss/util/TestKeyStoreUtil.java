@@ -233,7 +233,7 @@ public class TestKeyStoreUtil extends LockssTestCase {
     assertEquals(new byte[] {(byte)0xCE, (byte)0xCE, (byte)0xCE, (byte)0xCE},
                  KeyStoreUtil.KsType.JCEKS.getMagic());
     assertEquals(new byte[] {(byte)0xFE, (byte)0xED, (byte)0xFE, (byte)0xED},
-                 KeyStoreUtil.KsType.JCEKS.getMagic());
+                 KeyStoreUtil.KsType.JKS.getMagic());
     assertNull(KeyStoreUtil.KsType.PKCS12.getMagic());
   }
 
