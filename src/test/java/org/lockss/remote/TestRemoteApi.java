@@ -46,6 +46,7 @@ import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.os.PlatformUtil;
 
 /**
