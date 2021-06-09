@@ -35,6 +35,7 @@ import java.security.*;
 import java.security.cert.*;
 import javax.net.ssl.*;
 
+import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
 import org.lockss.config.*;
@@ -141,14 +142,26 @@ public class LockssKeyStore {
 
   /** Load the keystore from a file */
   synchronized void load() throws UnavailableKeyStoreException {
+    load(null);
+  }
+
+  synchronized void load(LockssApp lapp) throws UnavailableKeyStoreException {
     if (loaded) {
       return;
     }
     if (StringUtil.isNullString(location))
       throw new NullPointerException("location must be a non-null string");
+    if (lapp == null) {
+      lapp = LockssApp.getLockssApp();
+    }
     try {
       if (keyPassword == null && keyPasswordFile != null) {
-	keyPassword = FileUtil.readPasswdFile(keyPasswordFile);
+        if (keyPasswordFile.startsWith("secret:")) {
+          String sname = keyPasswordFile.substring("secret:".length());
+          keyPassword = lapp.getClientCredentialsAsString(sname);
+        } else {
+          keyPassword = FileUtil.readPasswdFile(keyPasswordFile);
+        }
       }
       if (mayCreate) {
 	File file = new File(location);

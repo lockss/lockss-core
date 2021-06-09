@@ -305,7 +305,7 @@ public class LockssKeyStoreManager
       new ArrayList<LockssKeyStore>(keystoreMap.values());
     for (LockssKeyStore lk : lst) {
       try {
-	lk.load();
+	lk.load(getApp());
       } catch (Exception e) {
 	log.error("Can't load keystore " + lk.getName(), e);
 	keystoreMap.remove(lk.getName());

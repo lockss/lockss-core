@@ -340,7 +340,7 @@ public class LockssApp {
     private String asString;
     private List<String> asList;
 
-    ClientCredentials(String str, List<String> lst) {
+    public ClientCredentials(String str, List<String> lst) {
       asString = str;
       asList = lst;
     }
@@ -363,7 +363,7 @@ public class LockssApp {
    * null if no REST Client credentials have been specified.
    */
   public List<String> getRestClientCredentials() {
-    return getRestClientCredentials(REST_CLIENT_SECRET);
+    return getClientCredentials(REST_CLIENT_SECRET);
   }
 
   /**
@@ -373,7 +373,7 @@ public class LockssApp {
    * no REST Client credentials have been specified.
    */
   public String getRestClientCredentialsAsString() {
-    return getRestClientCredentialsAsString(REST_CLIENT_SECRET);
+    return getClientCredentialsAsString(REST_CLIENT_SECRET);
   }
 
   /**
@@ -384,7 +384,7 @@ public class LockssApp {
    * named service, or null if no REST Client credentials have been
    * specified for that service.
    */
-  public List<String> getRestClientCredentials(String name) {
+  public List<String> getClientCredentials(String name) {
     populateRestClientCredentials(name);
     ClientCredentials cc = clientCredentials.get(name);
     return cc != null ? cc.getCredentialsAsList() : null;
@@ -398,7 +398,7 @@ public class LockssApp {
    * named service, or null if no REST Client credentials have been
    * specified for that service.
    */
-  public String getRestClientCredentialsAsString(String name) {
+  public String getClientCredentialsAsString(String name) {
     populateRestClientCredentials(name);
     ClientCredentials cc = clientCredentials.get(name);
     return cc != null ? cc.getCredentialsAsString() : null;
