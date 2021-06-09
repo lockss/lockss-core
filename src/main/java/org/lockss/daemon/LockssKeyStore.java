@@ -246,14 +246,17 @@ public class LockssKeyStore {
     }
 
     try (InputStream ins = getInputStream()) {
-      if (getType() != null) {
-        KeyStore ks = KeyStore.getInstance(getType());
-        ks.load(ins, passchar);
-        keystore = ks;
-      } else {
-        keystore = KeyStoreUtil.loadKeystoreOfUnknownType(getInputStream(),
-                                                          password);
-      }
+      // ignore specified type when loading
+      keystore = KeyStoreUtil.loadKeystoreOfUnknownType(getInputStream(),
+                                                        password);
+//       if (getType() != null) {
+//         KeyStore ks = KeyStore.getInstance(getType());
+//         ks.load(ins, passchar);
+//         keystore = ks;
+//       } else {
+//         keystore = KeyStoreUtil.loadKeystoreOfUnknownType(getInputStream(),
+//                                                           password);
+//       }
     }
   }
 
