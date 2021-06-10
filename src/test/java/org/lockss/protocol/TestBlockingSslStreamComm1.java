@@ -106,7 +106,7 @@ public class TestBlockingSslStreamComm1 extends TestBlockingStreamComm {
     String pref = LockssKeyStoreManager.PARAM_KEYSTORE + "." + id + ".";
     p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_NAME, ksname);
     p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_FILE, filename);
-    p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_TYPE, "JCEKS");
+    p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_TYPE, "PKCS12");
     p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_PASSWORD, kspasswd);
     if (privatePassword != null) {
       p.put(pref + LockssKeyStoreManager.KEYSTORE_PARAM_KEY_PASSWORD,
@@ -178,13 +178,13 @@ public class TestBlockingSslStreamComm1 extends TestBlockingStreamComm {
     createKeystores(keyStoreDir, ListUtil.list("host1", "host2"));
     createKeystores(keyStoreDir, ListUtil.list("bad1", "bad2"));
     setKeyStoreProps(cprops, "ii11", "cks1",
-		     new File(keyStoreDir, "host1.jceks").toString(), "host1",
+		     new File(keyStoreDir, "host1.pkcs12").toString(), "host1",
 		     null, new File(keyStoreDir, "host1.pass").toString());
     setKeyStoreProps(cprops, "ii22", "cks2",
-		     new File(keyStoreDir, "host2.jceks").toString(), "host2",
+		     new File(keyStoreDir, "host2.pkcs12").toString(), "host2",
 		     null, new File(keyStoreDir, "host2.pass").toString());
     setKeyStoreProps(cprops, "ii33", "cks3",
-		     new File(keyStoreDir, "bad1.jceks").toString(), "bad1",
+		     new File(keyStoreDir, "bad1.pkcs12").toString(), "bad1",
 		     null, new File(keyStoreDir, "bad1.pass").toString());
     cprops.setProperty(BlockingStreamComm.PARAM_MIN_FILE_MESSAGE_SIZE, "5000");
     ConfigurationUtil.addFromProps(cprops);
@@ -204,13 +204,13 @@ public class TestBlockingSslStreamComm1 extends TestBlockingStreamComm {
 				ListUtil.list("bad1"),
 				badPub);
     setKeyStoreProps(cprops, "ii11", "cks1",
-		     new File(keyStoreDir, "host1.jceks").toString(), "host1",
+		     new File(keyStoreDir, "host1.pkcs12").toString(), "host1",
 		     null, new File(keyStoreDir, "host1.pass").toString());
     setKeyStoreProps(cprops, "ii22", "cks2",
-		     new File(keyStoreDir, "host2.jceks").toString(), "host2",
+		     new File(keyStoreDir, "host2.pkcs12").toString(), "host2",
 		     null, new File(keyStoreDir, "host2.pass").toString());
     setKeyStoreProps(cprops, "ii33", "cks3",
-		     new File(keyStoreDir, "bad1.jceks").toString(), "bad1",
+		     new File(keyStoreDir, "bad1.pkcs12").toString(), "bad1",
 		     null, new File(keyStoreDir, "bad1.pass").toString());
     setKeyStoreProps(cprops, "ii44", "pubks1", pubFile.toString(), "pubpass",
 		     "pubpass", null);

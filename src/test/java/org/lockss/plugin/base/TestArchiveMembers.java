@@ -51,6 +51,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.truezip.*;
 import org.lockss.repository.*;

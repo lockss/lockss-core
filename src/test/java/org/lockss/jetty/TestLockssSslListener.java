@@ -76,7 +76,7 @@ public class TestLockssSslListener extends LockssTestCase {
 		 String pass, String keyPass) {
     String prefix = LockssKeyStoreManager.PARAM_KEYSTORE + "." + name + ".";
     p.put(prefix + LockssKeyStoreManager.KEYSTORE_PARAM_NAME, name);
-    p.put(prefix + LockssKeyStoreManager.KEYSTORE_PARAM_TYPE, "JCEKS");
+//     p.put(prefix + LockssKeyStoreManager.KEYSTORE_PARAM_TYPE, "JCEKS");
     p.put(prefix + LockssKeyStoreManager.KEYSTORE_PARAM_FILE, filename);
     if (pass != null) {
       p.put(prefix + LockssKeyStoreManager.KEYSTORE_PARAM_PASSWORD, pass);

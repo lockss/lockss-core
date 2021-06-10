@@ -149,16 +149,16 @@ public class FuncLockssApp extends LockssTestCase {
     assertEquals("zzz", config.get("o.l.plat.xxy"));
 
     assertEquals("user1:pass1", app.getRestClientCredentialsAsString());
-    assertEquals("user1:pass1", app.getRestClientCredentialsAsString("rest"));
-    assertNull(app.getRestClientCredentialsAsString("nope"));
+    assertEquals("user1:pass1", app.getClientCredentialsAsString("rest"));
+    assertNull(app.getClientCredentialsAsString("nope"));
     assertEquals(ListUtil.list("user1", "pass1"),
                  app.getRestClientCredentials());
     assertEquals(ListUtil.list("user1", "pass1"),
-                 app.getRestClientCredentials("rest"));
-    assertEquals("2user2:2pass2", app.getRestClientCredentialsAsString("solr"));
+                 app.getClientCredentials("rest"));
+    assertEquals("2user2:2pass2", app.getClientCredentialsAsString("solr"));
     assertEquals(ListUtil.list("2user2", "2pass2"),
-                 app.getRestClientCredentials("solr"));
-    assertNull(app.getRestClientCredentials("nope"));
+                 app.getClientCredentials("solr"));
+    assertNull(app.getClientCredentials("nope"));
 
     assertEquals("YYYYY", System.getProperty("XXXXX"));
   }
