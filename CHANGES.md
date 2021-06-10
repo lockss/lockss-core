@@ -6,6 +6,19 @@
 *   Configuration table displays source(s) of each parameter
 *   PlatformConfig lists component config files in load order
 *   Support multiple footnotes per item, ordered footnotes, citation styles
+*   Ensure ServeContent uses legal filename in Content-Disposition.
+*   updated xoai library
+*   Indicate source(s) of each param in Config table
+*   updated junit, zerces
+*   support for start script wait until started
+*   Added alerts: PluginReloaded, PluginJarNotValidated
+*   Refactor logic to HttpHttpsUrlHelper (to respect the non-AU-specific API of UrlNormalizer).
+*   Changed default lcap ssl proto to TLSv1.2
+*   updated mysql-connector
+*   Added plugin HTTP result map display
+*   Updated keystore generation infrastructure.
+*   Added ssl lcap key generation servlet
+
 
 ## 2.0.4.0
 
