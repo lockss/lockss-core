@@ -624,9 +624,10 @@ public class TestArchiveMembers extends LockssTestCase {
     cu = pluginMgr.findCachedUrl(arcUrl + "nofile!/no/such/member");
     assertNull(cu);
 
-    cu = pluginMgr.findCachedUrl(arcUrl + "nofile!/no/such/member",
-				 CuContentReq.DontCare);
+    String membUrl = arcUrl + "nofile!/no/such/member";
+    cu = pluginMgr.findCachedUrl(membUrl, CuContentReq.DontCare);
     assertFalse(cu.hasContent());
+    assertEquals(membUrl, cu.getUrl());
 
     // If AU has no archive file types, currently CU will still be a Member
     // but with no content.  Must use a different member name because of
@@ -635,8 +636,13 @@ public class TestArchiveMembers extends LockssTestCase {
     cu = pluginMgr.findCachedUrl(arcUrl + "!/002file.html");
     assertNull(cu);
 
-    cu = pluginMgr.findCachedUrl(arcUrl + "!/002file.html",
-				 CuContentReq.DontCare);
+    log.critical("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+    membUrl = arcUrl + "!/002file.html";
+    cu = pluginMgr.findCachedUrl(membUrl, CuContentReq.DontCare);
+    log.critical("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
+    log.critical("cu.url: " + cu.getUrl());
+    assertEquals(membUrl, cu.getUrl());
+
     assertNotClass(BaseCachedUrl.Member.class, cu);
     assertFalse(cu.hasContent());
   }    
