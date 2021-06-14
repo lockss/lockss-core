@@ -520,9 +520,10 @@ public class RepositoryManager
     return -1;
   }
 
-  /** Search all repositories for the URL, which must already be normalized.
+  /** Search all repositories and AUs for Artifacts with the given URL
    * @param normUrl the normalized URL to search for
-   * @return List of Artifacts with that URL
+   * @return List of Artifacts with that URL, includes only the highest
+   * version of each matching Artifact in each AU.
    */
   public List<Artifact> findArtifactsByUrl(String normUrl) {
     List<Artifact> res = new ArrayList<>();
