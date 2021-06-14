@@ -636,11 +636,8 @@ public class TestArchiveMembers extends LockssTestCase {
     cu = pluginMgr.findCachedUrl(arcUrl + "!/002file.html");
     assertNull(cu);
 
-    log.critical("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
     membUrl = arcUrl + "!/002file.html";
     cu = pluginMgr.findCachedUrl(membUrl, CuContentReq.DontCare);
-    log.critical("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
-    log.critical("cu.url: " + cu.getUrl());
     assertEquals(membUrl, cu.getUrl());
 
     assertNotClass(BaseCachedUrl.Member.class, cu);

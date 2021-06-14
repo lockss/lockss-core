@@ -530,9 +530,16 @@ public class RepositoryManager
       LockssRepository repo = spec.getRepository();
       log.debug2("Searching {} for {}", spec, normUrl);
       try {
+        String auid = null;
+        String url = null;
         for (Artifact art : repo.getArtifactsAllVersionsAllAus(spec.getCollection(),
                                                                normUrl)) {
+          if (art.getAuid().equals(auid) && art.getUri().equals(url)) {
+            continue;
+          }
           res.add(art);
+          auid = art.getAuid();
+          url = art.getUri();
         }
       } catch (IOException e) {
         log.warn("Couldn't find repository: {} ({})",
