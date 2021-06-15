@@ -74,9 +74,12 @@ public class V2RepoUtil {
 
   public static Artifact storeArt(LockssRepository repo, String coll,
 				  String auid, String url, InputStream in,
-				  CIProperties props) throws IOException {
+				  Properties props) throws IOException {
     ArtifactIdentifier id = new ArtifactIdentifier(coll, auid,
 						   url, null);
+    if (props == null) {
+      props = new Properties();
+    }
     CIProperties propsCopy  = CIProperties.fromProperties(props);
     propsCopy.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
     HttpHeaders metadata = httpHeadersFromProps(propsCopy);
