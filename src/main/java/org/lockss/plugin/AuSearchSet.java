@@ -189,6 +189,7 @@ public class AuSearchSet implements Iterable<ArchivalUnit> {
     LRUMap map = recent404s;
     if (map == null) {
       if (recent404Size <= 0) {
+        if (log.isDebug2()) log.debug2("addRecent404("+url+") suppressed");
 	return;
       }
 
@@ -198,6 +199,7 @@ public class AuSearchSet implements Iterable<ArchivalUnit> {
     synchronized (map) {
       map.put(url, "");
     }
+    if (log.isDebug2()) log.debug2("addRecent404("+url+")");
   }
 
   // Grow the 404 cache if necessary.  Never shrinks the cache; to avoid

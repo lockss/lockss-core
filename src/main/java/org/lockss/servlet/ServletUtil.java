@@ -1029,7 +1029,7 @@ public class ServletUtil {
       servlet.getLockssDaemon().getRepositoryManager();
 
     Table tbl = new Table(REPOCHOICE_TABLE_BORDER, REPOCHOICE_TABLE_ATTRIBUTES);
-    List repos = remoteApi.getRepositoryList();
+    List repos = remoteApi.getRepositoryUrlList();
     boolean isChoice = repos.size() > 1;
 
     tbl.newRow();
