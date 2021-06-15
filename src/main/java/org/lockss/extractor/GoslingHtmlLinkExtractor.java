@@ -31,7 +31,7 @@
 package org.lockss.extractor;
 
 import org.apache.commons.io.IOUtils;
-import org.htmlparser.util.Translate;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
 import org.lockss.plugin.ArchivalUnit;
@@ -726,7 +726,7 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
   protected String getAttributeValue(String attribute, String src) {
     if (StringUtil.indexOfIgnoreCase(src, attribute) >= 0) {
       String val = getEncodedAttributeValue(attribute, src);
-      return val == null ? null : Translate.decode(val);
+      return val == null ? null : StringEscapeUtils.unescapeHtml4(val);
     }
     return null;
   }
