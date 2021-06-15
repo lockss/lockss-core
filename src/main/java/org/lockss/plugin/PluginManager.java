@@ -838,7 +838,9 @@ public class PluginManager
 	if (curAu != null) {
 	  if (log.isDebug2()) log.debug2("Deactivating AU: " + auKey);
 	  deactivateAuOnly(curAu);
-	}
+	} else {
+          inactiveAuIds.add(auId);
+        }
 	return;
       }
 
