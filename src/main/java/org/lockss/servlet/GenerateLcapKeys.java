@@ -76,9 +76,9 @@ public class GenerateLcapKeys extends LockssServlet {
   private static final String FILE_TYPES[] = {"zip", "tgz"};
 
   private static final String FOOT_HOSTNAMES =
-    "Fully-qualified hostname of each LOCKSS box for which to generate a keystore, space- or newline-separated.";
+    "Fully-qualified hostname of each LOCKSS box for which to generate a keystore, separated by space or newline.";
   private static final String FOOT_OLD_KEYSTORE =
-    "Public keystore to which to add certificates for additional hosts.";
+    "If adding hosts to an existing network, supply the existing public keystore to which to add the new hosts' certificates.";
 
   // String read from form
   private String hostsStr;
