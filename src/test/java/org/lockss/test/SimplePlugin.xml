@@ -51,4 +51,8 @@
     <string>au_def_new_content_crawl</string>
     <long>1209600000</long>
   </entry>
+  <entry>
+    <string>au_url_normalizer</string>
+    <string>org.lockss.test.NormTestUrlNormalizer</string>
+  </entry>
 </map>

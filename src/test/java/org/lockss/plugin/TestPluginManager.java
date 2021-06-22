@@ -1470,6 +1470,10 @@ public class TestPluginManager extends LockssTestCase4 {
   protected LockssRepository repo;
 
   PluginManager.FindUrlStats getFUStats() {
+    return mgr.fUStats;
+  }
+
+  PluginManager.FindUrlStats getTotFUStats() {
     return mgr.totFUStats;
   }
 
@@ -1524,10 +1528,17 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(0, mgr.getRecentCuMisses());
     assertEquals(0, mgr.getRecentCuHits());
     assertNull(mgr.findCachedUrl(url1));
-    assertNull(mgr.findCachedUrl(url2));
-    assertEquals(2, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
     assertEquals(0, getFUStats().v2Results);
     assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(3, getFUStats().v2AusConsidered);
+    assertEquals(2, getFUStats().v2RedundantUrls);
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertNull(mgr.findCachedUrl(url2));
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(0, getFUStats().v2Results);
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
     assertEquals(2, mgr.getRecentCuMisses());
     assertEquals(0, mgr.getRecentCuHits());
     assertEquals(0, mgr.getRecent404Hits());
@@ -1545,8 +1556,34 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(url1, cu1.getUrl());
     assertTrue(cu1.hasContent());
     assertEquals(0, getFUStats().v1Invocations);
-    assertEquals(3, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
     assertEquals(1, getFUStats().v2Results);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    String url1un = url1 + Integer.toHexString(au1.hashCode());
+    CachedUrl cu1n = mgr.findCachedUrl(url1un);
+    assertNotNull("Failed to find unnormalized " + url1un, cu1n);
+    assertEquals(url1, cu1n.getUrl());
+    assertTrue(cu1n.hasContent());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Results);
+    assertEquals(1, getFUStats().v2AusConsidered);
+    assertEquals(0, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // In order to ensure repo lookup only once for each unique URL, must
+    // ask for all matching CUs.
+    List<CachedUrl> cu1lst1 = mgr.findCachedUrls(url1);
+    assertEquals(1, cu1lst1.size());
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertEquals(2, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // Similar.  AU-dependent normalization requires more lookups
+    List<CachedUrl> cu1lst2 = mgr.findCachedUrls(url1un);
+    assertEquals(2, getFUStats().v2AuUrlsConsidered);
+    assertEquals(1, getFUStats().v2RedundantUrls);
     assertEquals(0, mgr.getRecentCuHits());
 
     // PreferContent should find same CU
@@ -1554,7 +1591,7 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(cu1, cupref);
     // cache hit, so no further invocations of findUrlV2
     assertEquals(0, getFUStats().v1Invocations);
-    assertEquals(3, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
     assertEquals(1, mgr.getRecentCuHits());
 
     // Same url after normalization.  Won't be found in cache.
@@ -1563,7 +1600,7 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(cu1a.hasContent());
     assertEquals(1, mgr.getRecentCuHits());
     assertEquals(0, getFUStats().v1Invocations);
-    assertEquals(4, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
 
     // Same url after different normalization.  Won't be found in cache.
     CachedUrl cu1b = mgr.findCachedUrl(url1b);
@@ -1571,7 +1608,7 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(cu1b.hasContent());
     assertEquals(1, mgr.getRecentCuHits());
     assertEquals(0, getFUStats().v1Invocations);
-    assertEquals(5, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
 
     // url1 should be in cache
     CachedUrl cu3 = mgr.findCachedUrl(url1, CuContentReq.DontCare);
@@ -1584,7 +1621,7 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEqualCu(cu1, lst1.get(0));
     assertEquals(1, lst1.get(0).getVersion());
     assertEquals(0, getFUStats().v1Invocations);
-    assertEquals(6, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
 
     // Store a second version of the same url, ensure only the highest
     // version is found
@@ -1595,21 +1632,21 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEqualCu(cu1, lst2.get(0));
     assertEquals(2, lst2.get(0).getVersion());
     assertEquals(0, getFUStats().v1Invocations);
-    assertEquals(7, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
 
     // url2 has no content, should fall back to v1
     CachedUrl cunc = mgr.findCachedUrl(url2, CuContentReq.PreferContent);
     assertEquals(url2, cunc.getUrl());
     assertFalse(cunc.hasContent());
     assertEquals(1, getFUStats().v1Invocations);
-    assertEquals(8, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
     assertEquals(2, mgr.getRecentCuHits());
 
     lst1 = mgr.findCachedUrls(url2, CuContentReq.DontCare);
     assertEquals(1, lst1.size());
     assertEquals(url2, lst1.get(0).getUrl());
-    assertEquals(2, getFUStats().v1Invocations);
-    assertEquals(9, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
 
     storeArt(au2, url1, "url1 content in AU2", null);
     storeArt(au1, url2, "url2 content", null);
@@ -1619,31 +1656,31 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(2, lst1.size());
     assertNotSame(lst1.get(0).getArchivalUnit(),
                   lst1.get(1).getArchivalUnit());
-    assertEquals(2, getFUStats().v1Invocations);
-    assertEquals(10, getFUStats().v2Invocations);
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
 
     lst1 = mgr.findCachedUrls(url1, CuContentReq.DontCare);
     assertEquals(2, lst1.size());
     assertNotSame(lst1.get(0).getArchivalUnit(),
                   lst1.get(1).getArchivalUnit());
-    assertEquals(2, getFUStats().v1Invocations);
-    assertEquals(11, getFUStats().v2Invocations);
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
 
     CachedUrl cu2 = mgr.findCachedUrl(url2);
     assertEquals(url2, cu2.getUrl());
     assertSame(au1, cu2.getArchivalUnit());
-    assertEquals(2, getFUStats().v1Invocations);
-    assertEquals(12, getFUStats().v2Invocations);
-    assertEquals(8, mgr.getRecentCuMisses());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(9, mgr.getRecentCuMisses());
     assertEquals(2, mgr.getRecentCuHits());
 
     // Test PreferContent
     CachedUrl cu4 = mgr.findCachedUrl(url4, CuContentReq.PreferContent);
     assertEquals(url4, cu4.getUrl());
     assertFalse(cu4.hasContent());
-    assertEquals(3, getFUStats().v1Invocations);
-    assertEquals(13, getFUStats().v2Invocations);
-    assertEquals(9, mgr.getRecentCuMisses());
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(10, mgr.getRecentCuMisses());
     assertEquals(2, mgr.getRecentCuHits());
 
     mgr.logFindUrlStats(true);
@@ -1794,9 +1831,9 @@ public class TestPluginManager extends LockssTestCase4 {
 
     assertEquals(0, mgr.getUrlSearchWaits());
 
-    assertEquals(18, getFUStats().v1Invocations);
-    assertEquals(15, getFUStats().v1Results);
-    assertEquals(0, getFUStats().v2Invocations);
+    assertEquals(18, getTotFUStats().v1Invocations);
+    assertEquals(15, getTotFUStats().v1Results);
+    assertEquals(0, getTotFUStats().v2Invocations);
 
     mgr.logFindUrlStats(true);
   }

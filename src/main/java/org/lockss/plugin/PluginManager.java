@@ -2727,16 +2727,22 @@ public class PluginManager
   private int recentCuMisses = 0;
   private int recent404Hits = 0;
 
-  int getRecentCuHits() {
+  public int getRecentCuHits() {
     return recentCuHits;
   }
 
-  int getRecentCuMisses() {
+  public int getRecentCuMisses() {
     return recentCuMisses;
   }
 
-  int getRecent404Hits() {
+  public int getRecent404Hits() {
     return recent404Hits;
+  }
+
+  public void flushRecentCuCache() {
+    synchronized (recentCuMap) {
+      recentCuMap.clear();
+    }
   }
 
   /** Describes a search in progress and provides a way to wait for its
@@ -2943,6 +2949,7 @@ public class PluginManager
     int v2Results;
     int v2AusConsidered;
     int v2AuUrlsConsidered;
+    int v2RedundantUrls;
 
     void addFrom(FindUrlStats o) {
       v1Invocations += o.v1Invocations;
@@ -2951,10 +2958,11 @@ public class PluginManager
       v2Results += o.v2Results;
       v2AusConsidered += o.v2AusConsidered;
       v2AuUrlsConsidered += o.v2AuUrlsConsidered;
+      v2RedundantUrls += o.v2RedundantUrls;
     }
 
     public String toString() {
-      return "[FindUrlStats: v1Inv: " + v1Invocations + ", v1Res: " + v1Results + ", v2nv: " + v2Invocations + ", v2Res: " + v2Results + ", v2Aus: " + v2AusConsidered + ", v2Urls: " + v2AuUrlsConsidered;
+      return "[FindUrlStats: v1Inv: " + v1Invocations + ", v1Res: " + v1Results + ", v2nv: " + v2Invocations + ", v2Res: " + v2Results + ", v2Aus: " + v2AusConsidered + ", v2Urls: " + v2AuUrlsConsidered + ", v2Redundant: " + v2RedundantUrls;
     }
   }
 
@@ -3044,8 +3052,8 @@ public class PluginManager
                                            String normUrlGeneric) {
     // We don't know what AU it might be in, so can't do plugin-dependent
     // normalization yet.  But only need to do generic normalization once.
-    // XXX This is wrong, as plugin-specific normalization is normally done
-    // first.
+    // XXX This isn't quite right, as plugin-specific normalization is
+    // normally done first, but we don't think it ever actually matters
     //
     // XXX There is a problem with this when used by *Exploder() classes.
     // In the CLOCKSS case,  we expect huge numbers of AUs to share
@@ -3082,7 +3090,7 @@ public class PluginManager
 
       try {
 	if (isTrace) {
-	  log.debug3("findCachedUrls: " + url + " check "
+	  log.debug3("findCachedUrlsV2: " + url + " check "
 		     + au.toString());
 	}
         fUStats.v2AusConsidered++;
@@ -3107,6 +3115,10 @@ public class PluginManager
           // If we have already looked up this URL just associate this new
           // AU with it
           aus.add(au);
+          if (isTrace) {
+            log.debug3("Not reconsidering: " + noMembUrl);
+          }
+          fUStats.v2RedundantUrls++;
           continue;
         }
         aus = new ArrayList<>();
@@ -3115,27 +3127,36 @@ public class PluginManager
 
         fUStats.v2AuUrlsConsidered++;
         for (Artifact art : repoMgr.findArtifactsByUrl(noMembUrl)) {
-          log.debug3("Checking art: " + art.getUri());
           ArchivalUnit artAu = getAuFromIdIfExists(art.getAuid());
+          if (isTrace) {
+            log.debug3("Checking art: " + art.getUri() + ", au: " + artAu);
+          }
           if (artAu != null) {
             CachedUrl cu = artAu.makeCachedUrl(art.getUri());;
+            // Inclusion in findArtifactsByUrl() implies hasContent(),
+            // unless this is an archive member
             boolean hasCont = true;
+
+            // Must reget the ArchiveMemberSpec, if any, as this may be a
+            // different AU from the one we used above
             ArchiveMemberSpec ams2 = ArchiveMemberSpec.fromUrl(artAu, normUrl);
-            if (ams != null && ams2 == null) {
+
+            // Skip this AU if its handling of this URL as an archive
+            // member differs from the AU that the outer loop is
+            // processing.  (We'll get back to this Artifact when the outer
+            // loop gets to a different AU)
+            if ((ams == null) ^ (ams2 == null)) {
+              if (isTrace) {
+                log.debug3("Skipping because ams: " + ams + ", ams2: " + ams2);
+              }
               continue;
             }
             if (ams2 != null) {
-              // The Artifact's AU has archive file types.  Get the member
-              // CU (if it's a member), and check that the CU has content
-              // (as the fact that the Artifact was returned by
-              // findArtifactsByUrl() doesn't mean the member has content).
+              // This is an archive member.  Must now check for content.
+              // (This is *very* expensive - should skip if
+              // ContentReq.DontCare?)
               cu = cu.getArchiveMemberCu(ams2);
               hasCont = cu.hasContent();
-            } else if (noMembUrl != normUrl) {
-              // The URL specifies a member, and the search set AU we're
-              // looking at has archive file types, but this Artifact's AU
-              // has no archive file types
-              hasCont = false;
             }
             if (bestOnly) {
               int auScore = auScore(artAu, cu, contentReq, hasCont);
@@ -3278,8 +3299,8 @@ public class PluginManager
                                            String normUrl) {
     // We don't know what AU it might be in, so can't do plugin-dependent
     // normalization yet.  But only need to do generic normalization once.
-    // XXX This is wrong, as plugin-specific normalization is normally done
-    // first.
+    // XXX This isn't quite right, as plugin-specific normalization is
+    // normally done first, but we don't think it ever actually matters
     //
     // XXX There is a problem with this when used by *Exploder() classes.
     // In the CLOCKSS case,  we expect huge numbers of AUs to share

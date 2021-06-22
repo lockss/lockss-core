@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -584,35 +584,41 @@ public class TestArchiveMembers extends LockssTestCase {
   public void testFindCu() throws Exception {
     PluginTestUtil.crawlSimAu(simau);
 
-    // Generate a second sim AU that doesn't contains the URL we're looking
-    // for, to force PluginManager to search multiple AUs for the member,
-    // which tickles a former bug.
+    // Generate a second sim AU
     String tmp2 = getTempDir().getAbsolutePath() + File.separator;
     SimulatedArchivalUnit simau2 =
       PluginTestUtil.createAndStartSimAu(MySimulatedPlugin.class,
 					 simAuConfig2(tmp2));
-    log.debug("Real sim au: " + simau);
-    log.debug("2nd sim au: " + simau2);
-    simau2.generateContentTree();
     MySimulatedArchivalUnit msau2 = (MySimulatedArchivalUnit)simau2;
     msau2.setArchiveFileTypes(ArchiveFileTypes.DEFAULT);
-    // Ensure this one is first so PluginManager.findCachedUrls0() loop
-    // finds it first, which formerly caused the archive to be returned
-    // instead of the member
-    pluginMgr.promoteAuInSearchSets(msau2);
+    simau2.generateContentTree();
+    PluginTestUtil.crawlSimAu(simau2);
+
+    log.debug2("simau: " + simau);
+    log.debug2("simau2: " + simau2);
+    // Tests below rely on simau AUID sorting before simau2's AUID, in
+    // order to guarantee expected result order from
+    // getArtifact...AllAus().  (It should, because of counter in temdir
+    // name in AUID)
+    assertTrue(simau.getAuId().compareTo(simau2.getAuId()) < 0);
 
     CachedUrl cu;
-
     String arcUrl = "http://www.example.com/branch1/branch1/zip5.zip";
     
+    // Search for a member URL
     cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
     assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
 			  arcUrl + "!/001file.html", cu);
+    // Should be from 1st AU
+    assertSame(simau, cu.getArchivalUnit());
 
-    // The archive file itesle
+    // The archive file iteslf
     cu = pluginMgr.findCachedUrl(arcUrl);
     assertTrue(cu.hasContent());
     assertEquals(5392, cu.getContentSize());
+    assertSame(simau, cu.getArchivalUnit());
+    assertEquals(2, pluginMgr.getRecentCuMisses());
+    assertEquals(0, pluginMgr.getRecentCuHits());
 
     cu = pluginMgr.findCachedUrl(arcUrl + "!/no/such/member");
     assertNull(cu);
@@ -629,10 +635,40 @@ public class TestArchiveMembers extends LockssTestCase {
     assertFalse(cu.hasContent());
     assertEquals(membUrl, cu.getUrl());
 
-    // If AU has no archive file types, currently CU will still be a Member
-    // but with no content.  Must use a different member name because of
-    // PluginManager.recentCuMap
+    // Disable archive processing in 1st AU, ensure that member is found in
+    // 2nd AU.  Do this for both possible AuSearchSet orderings
     msau.setArchiveFileTypes(null);
+
+    pluginMgr.flushRecentCuCache();
+    pluginMgr.promoteAuInSearchSets(msau);
+    cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
+    assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
+			  arcUrl + "!/001file.html", cu);
+    assertSame(simau2, cu.getArchivalUnit());
+    assertEquals(7, pluginMgr.getRecentCuMisses());
+    assertEquals(0, pluginMgr.getRecentCuHits());
+
+    pluginMgr.flushRecentCuCache();
+    pluginMgr.promoteAuInSearchSets(msau2);
+    cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
+    assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
+			  arcUrl + "!/001file.html", cu);
+    assertSame(simau2, cu.getArchivalUnit());
+    assertEquals(8, pluginMgr.getRecentCuMisses());
+    assertEquals(0, pluginMgr.getRecentCuHits());
+
+    // Test recentCuMap cache
+    cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
+    assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
+			  arcUrl + "!/001file.html", cu);
+    assertSame(simau2, cu.getArchivalUnit());
+    assertEquals(8, pluginMgr.getRecentCuMisses());
+    assertEquals(1, pluginMgr.getRecentCuHits());
+
+    // If AU has no archive file types, currently CU will still be a Member
+    // but with no content.  This time use a different member name to evade
+    // recentCuMap cache.
+    msau2.setArchiveFileTypes(null);
     cu = pluginMgr.findCachedUrl(arcUrl + "!/002file.html");
     assertNull(cu);
 
