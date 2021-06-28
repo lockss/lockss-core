@@ -41,6 +41,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler.CrawlerFacade;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
 import org.lockss.extractor.*;

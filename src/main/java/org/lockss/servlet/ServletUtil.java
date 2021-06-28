@@ -1029,7 +1029,7 @@ public class ServletUtil {
       servlet.getLockssDaemon().getRepositoryManager();
 
     Table tbl = new Table(REPOCHOICE_TABLE_BORDER, REPOCHOICE_TABLE_ATTRIBUTES);
-    List repos = remoteApi.getRepositoryList();
+    List repos = remoteApi.getRepositoryUrlList();
     boolean isChoice = repos.size() > 1;
 
     tbl.newRow();
@@ -1671,20 +1671,11 @@ public class ServletUtil {
    * @return the original filename string
    */
   static String getContentOriginalFilename(CachedUrl cu, boolean quoted) {
-    String filename;
-    try {
-      // Get the filename path from the URL, without any query string
-      filename = new URL(cu.getUrl()).getPath();
-      // Remove path component
-      int n = filename.lastIndexOf("/");
-      filename = filename.substring(n<0?0:n+1);
-    } catch (MalformedURLException e) {
-      filename = "unknown";
-    }
-    if (quoted) {
-      return  "\"" + filename + "\"";
+    String basename = StringUtil.basename(cu.getUrl());
+    if (basename != null && quoted) {
+      return  "\"" + basename + "\"";
     } else {
-      return filename;
+      return basename;
     }
   }
 
@@ -1869,15 +1860,28 @@ public class ServletUtil {
     navTable.newRow();
     navTable.newCell("height=\"10\"");
     LockssDaemon daemon = servlet.getLockssDaemon();
+    RestServicesManager svcsMgr =
+      daemon.getManagerByType(RestServicesManager.class);
     for (ServiceDescr descr : daemon.getAllServiceDescrs()) {
       ServiceBinding binding = daemon.getServiceBinding(descr);
       if (binding.hasUiPort()) {
 	navTable.newRow();
 	navTable.newCell();
 	navTable.add("<font size=\"-1\">");
-	navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
-					AdminServletManager.SERVLET_DAEMON_STATUS,
-					descr.getName(), null));
+        // Make link iff service is actually running.  (Checking my service
+        // binding avoids slight awkwardness where own link doesn't display
+        // because service isn't fully up yet.)
+        if (binding == daemon.getMyServiceBinding() ||
+            svcsMgr.isServiceReady(binding)) {
+          navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
+                                          AdminServletManager.SERVLET_DAEMON_STATUS,
+                                          descr.getName(), null));
+        } else {
+          Block blk = new Block(Block.Div);
+          blk.attribute("class", "disabled");
+          blk.add(descr.getName());
+          navTable.add(blk);
+        }
 	navTable.add("</font>");
       }
     }
@@ -1893,6 +1897,7 @@ public class ServletUtil {
                    + "a.colhead, a.colhead:link, a.colhead:visited { text-decoration: none; font-weight: bold; color: blue; }\n"
                    + "td.colhead { font-weight: bold; background: #e0e0e0; }\n"
                    + "div.resize { resize: both; overflow: auto; }\n"
+                   + ".disabled { color: #999; }\n"
                    + "--> </style>");
   }
 

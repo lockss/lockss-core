@@ -351,7 +351,7 @@ public class AuConfig extends LockssServlet {
     exp.append("<br>");
     exp.append(getEditKeys().isEmpty() ? "Confirm" : "Edit");
     exp.append(" the parameters, ");
-    if (remoteApi.getRepositoryList().size() > 1) {
+    if (remoteApi.getRepositoryUrlList().size() > 1) {
       exp.append(" choose a repository, ");
     }
     exp.append("then click Create");
@@ -612,7 +612,7 @@ public class AuConfig extends LockssServlet {
 	repo = remoteApi.findLeastFullRepository(repoMap);
 	formConfig.put(PluginManager.AU_PARAM_REPOSITORY, repo);
       } else {
-	java.util.List repos = remoteApi.getRepositoryList();
+	java.util.List repos = remoteApi.getRepositoryUrlList();
 	if (!repos.contains(repo)) {
 	  errMsg = "Nonexistent repository: " + repo;
 	  displayAddAu();

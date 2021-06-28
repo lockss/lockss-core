@@ -51,6 +51,7 @@ import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
+import org.lockss.util.io.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
 import org.lockss.mail.*;
@@ -422,8 +423,8 @@ public class RemoteApi
   }
 
   /** Return list of repository specs for all available repositories */
-  public List getRepositoryList() {
-    return repoMgr.getRepositoryList();
+  public List getRepositoryUrlList() {
+    return repoMgr.getRepositoryUrlList();
   }
 
   public List findExistingRepositoriesFor(String auid) {

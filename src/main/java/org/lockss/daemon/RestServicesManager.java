@@ -290,10 +290,9 @@ public class RestServicesManager
   // Overridable for testing
   protected ApiStatus callClientStatus(ServiceBinding binding)
       throws LockssRestException {
-    RestStatusClient client =
-      new RestStatusClient(binding.getRestStem(),
-			   probeConnectTimeout, probeReadTimeout);
-    return client.getStatus();
+    return new RestStatusClient(binding.getRestStem())
+      .setTimeouts(probeConnectTimeout, probeReadTimeout)
+      .getStatus();
   }
 
   OneShotSemaphore getWaitSem(ServiceBinding binding) {

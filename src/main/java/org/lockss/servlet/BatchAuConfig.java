@@ -385,7 +385,7 @@ public class BatchAuConfig extends LockssServlet {
     session.setAttribute(SESSION_KEY_BACKUP_INFO, bas.getBackupInfo());
     Map auConfs = new HashMap();
     session.setAttribute(SESSION_KEY_AUID_MAP, auConfs);
-    List repos = remoteApi.getRepositoryList();
+    List repos = remoteApi.getRepositoryUrlList();
     boolean repoFlg = verb.isAdd && repos.size() > 1;
     String buttonText = verb.cap + " Selected AUs";
 

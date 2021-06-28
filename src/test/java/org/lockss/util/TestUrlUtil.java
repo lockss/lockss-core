@@ -1,34 +1,32 @@
 /*
- * $Id$
+ * Copyright (c) 2020 Board of Trustees of Leland Stanford Jr. University,
+ * all rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Except as contained in this notice, the name of Stanford University shall not
+ * be used in advertising or otherwise to promote the sale, use or other dealings
+ * in this Software without prior written authorization from Stanford University.
  */
 
 /*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
-
-*/
+ * $Id$
+ */
 
 package org.lockss.util;
 
@@ -708,56 +706,62 @@ public class TestUrlUtil extends LockssTestCase {
   public void testResolveUrl() throws Exception {
     // base ends with filename
     assertEquals("http://test.com/foo/bar/a.html",
-		 UrlUtil.resolveUri("ftp://gorp.org/xxx.jpg",
-				    "http://test.com/foo/bar/a.html"));
+        UrlUtil.resolveUri("ftp://gorp.org/xxx.jpg",
+            "http://test.com/foo/bar/a.html"));
     assertEquals("http://test.com/foo/bar/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/xxx.html",
-				    "a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/xxx.html",
+            "a.html"));
     assertEquals("http://test.com/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/xxx.html",
-				    "/a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/xxx.html",
+            "/a.html"));
     assertEquals("http://test.com/foo/bar/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/baz/xxx.html",
-				    "../a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/baz/xxx.html",
+            "../a.html"));
     assertEquals("http://test.com/foo/bar/baz/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/baz/xxx.html",
-				    "./a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/baz/xxx.html",
+            "./a.html"));
+
+    assertEquals("http://test.com/",
+        UrlUtil.resolveUri("http://test.com/foo/bar/baz/xxx.html",
+            "/"));
 
     // According to RFC 1808, Firefox, IE, Opera, last component of base
     // path (following final slash) is *not* removed if relative URL has
     // null path.  RFC 2396 disagrees, but we follow the browsers
     assertEquals("http://test.com/foo/bar/xxx.html?a=b",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/xxx.html",
-				    "?a=b"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/xxx.html",
+            "?a=b"));
 
     // base ends with slash
     assertEquals("http://test.com/foo/bar/a.html",
 		 UrlUtil.resolveUri("ftp://gorp.org/",
 				    "http://test.com/foo/bar/a.html"));
     assertEquals("http://test.com/foo/bar/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/",
-				    "a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/",
+            "a.html"));
     assertEquals("http://test.com/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/",
-				    "/a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/",
+            "/a.html"));
     assertEquals("http://test.com/foo/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/",
-				    "../a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/",
+            "../a.html"));
     assertEquals("http://test.com/foo/bar/a.html",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/",
-				    "./a.html"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/",
+            "./a.html"));
 
     assertEquals("http://test.com/foo/bar/?a=b",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/",
-				    "?a=b"));
-
+        UrlUtil.resolveUri("http://test.com/foo/bar/",
+            "?a=b"));
+    assertEquals("http://test.com/",
+        UrlUtil.resolveUri("http://test.com/foo/bar/",
+            "/"));
 
     // truncated base (no slash after hostname)
 
     // First, note how resolution relative to base with no path differs
     // between java.net.URL:
     assertEquals("http://test.com/a.html",
-		 new URL(new URL("http://test.com"), "a.html").toString());
+        new URL(new URL("http://test.com"), "a.html").toString());
     // and java.net.URI:
     URI u1 = new URI("http://test.com");
     URI u2 = u1.resolve("a.html");
@@ -765,33 +769,35 @@ public class TestUrlUtil extends LockssTestCase {
 
     // make sure we add the missing slash
     assertEquals("http://test.com/a.html",
-		 UrlUtil.resolveUri("http://test.com",
-				    "a.html"));
+        UrlUtil.resolveUri("http://test.com",
+            "a.html"));
     // ensure query string preserved
     assertEquals("http://test.com/foo/bar/a.html?foo=bar",
-		 UrlUtil.resolveUri("http://test.com/foo/bar/",
-				    "a.html?foo=bar"));
+        UrlUtil.resolveUri("http://test.com/foo/bar/",
+            "a.html?foo=bar"));
     // relative query string
     assertEquals("http://test.com/prog.php?foo=bar",
-		 UrlUtil.resolveUri("http://test.com/prog.php",
-				    "?foo=bar"));
+        UrlUtil.resolveUri("http://test.com/prog.php",
+            "?foo=bar"));
     assertEquals("http://test.com/prog.php?foo=bar",
-		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
-				    "?foo=bar"));
-
+        UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
+            "?foo=bar"));
+    assertEquals("http://test.com/",
+        UrlUtil.resolveUri("http://test.com",
+            "/"));
     assertEquals("bar", UrlUtil.resolveUri("foo", "bar"));
 
     // 2nd arg has scheme:
 
     assertEquals("http://a.b/c.d",
-		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
-				    "http://a.b/c.d"));
+        UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
+            "http://a.b/c.d"));
     assertEquals("http://test.com/a.b/c.d",
-		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
-				    "http:a.b/c.d"));
+        UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
+            "http:a.b/c.d"));
     assertEquals("http://test.com/a.b/c.d",
-		 UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
-				    "http:/a.b/c.d"));
+        UrlUtil.resolveUri("http://test.com/prog.php?fff=xxx",
+            "http:/a.b/c.d"));
 
   }
 

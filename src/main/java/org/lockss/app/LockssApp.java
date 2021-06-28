@@ -35,9 +35,10 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.*;
 import org.apache.commons.lang3.*;
-import gnu.getopt.Getopt;
+import org.apache.commons.lang3.tuple.*;
 import static org.lockss.app.ManagerDescs.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
@@ -52,6 +53,7 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.truezip.*;
 import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.springframework.context.ApplicationContext;
 
@@ -102,6 +104,14 @@ public class LockssApp {
     20 * Constants.WEEK;
 
   public static final JavaVersion MIN_JAVA_VERSION = JavaVersion.JAVA_1_8;
+
+  /** If set, this file will be created (touched) when startup is complete.
+   * Intended as a signal to the startup script that the service is fully
+   * started.  Must be set in the initial set of config params to have any
+   * effect. */
+  public static final String PARAM_TOUCH_WHEN_STARTED =
+    PREFIX + "touchWhenStarted";
+  public static final String DEFAULT_TOUCH_WHEN_STARTED = null;
 
   public static final String PARAM_APP_EXIT_IMM = PREFIX + "exitImmediately";
   public static final boolean DEFAULT_APP_EXIT_IMM = false;
@@ -227,13 +237,17 @@ public class LockssApp {
   };
 
 
+  public static final String REST_CLIENT_SECRET = "rest";
+
   protected AppSpec appSpec;
   protected List<String> bootstrapPropsUrls = null;
   protected String restConfigServiceUrl = null;
-  protected String restClientCredentialsFilePath = null;
-  protected String restClientCredentialsAsString = null;
-  protected List<String> restClientCredentials = null;
-  protected boolean restClientCredentialsPopulated = false;
+
+  // Default empty map prevents NPEs in tests, normally replaced after
+  // parsing args
+  protected Map<String,String> secretFiles = Collections.emptyMap();
+
+  protected Map<String,ClientCredentials> clientCredentials = new HashMap<>();
   protected List<String> propUrls = null;
   protected List<String> clusterUrls = null;
   protected String groupNames = null;
@@ -260,34 +274,35 @@ public class LockssApp {
   protected String testingMode;
 
   protected LockssApp() {
+    log.debug3("new LockssApp", new Throwable());
     setLockssApp(this);
   }
 
   protected LockssApp(AppSpec spec) {
+    this();
     appSpec = spec;
-    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls) {
+    this();
     this.propUrls = propUrls;
-    setLockssApp(this);
   }
 
   protected LockssApp(List<String> propUrls, String groupNames) {
+    this();
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    setLockssApp(this);
   }
 
   protected LockssApp(List<String> bootstrapPropsUrls,
 		      String restConfigServiceUrl,
 		      List<String> propUrls,
 		      String groupNames) {
+    this();
     this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.propUrls = propUrls;
     this.groupNames = groupNames;
-    setLockssApp(this);
   }
 
   private static void setLockssApp(LockssApp app) {
@@ -320,66 +335,120 @@ public class LockssApp {
     return restConfigServiceUrl != null;
   }
 
-  /**
-   * Provides the REST Client credentials.
-   * 
-   * @return a List<String> with the REST Client credentials, or
-   *         <code>null</code> if no REST Client credentials have been
-   *         specified.
-   */
-  public List<String> getRestClientCredentials() {
-    populateRestClientCredentials();
-    return restClientCredentials;
-  }
+  /** Holds a username and password */
+  public static class ClientCredentials {
+    private String asString;
+    private List<String> asList;
 
-  /**
-   * Provides the REST Client credentials as a single user:password string
-   *
-   * @return a String with the REST Client credentials, or
-   *         <code>null</code> if no REST Client credentials have been
-   *         specified.
-   */
-  public String getRestClientCredentialsAsString() {
-    populateRestClientCredentials();
-    return restClientCredentialsAsString;
-  }
-
-  private void populateRestClientCredentials() {
-    if (log.isDebug3()) log.debug3("restClientCredentialsPopulated = "
-	+ restClientCredentialsPopulated);
-
-    // Check whether the credentials need to be populated.
-    if (!restClientCredentialsPopulated) {
-      // Yes.
-      if (log.isDebug3()) log.debug3("restClientCredentialsFilePath = "
-	  + restClientCredentialsFilePath);
-
-      // Check whether a file path for the credentials has been specified.
-      if (restClientCredentialsFilePath != null) {
-	// Yes.
-	try {
-	  // Read the credentials from the file.
-	  restClientCredentialsAsString =
-	      FileUtil.readPasswdFile(restClientCredentialsFilePath);
-	  if (log.isDebug3()) log.debug3("credentials = " +
-					 restClientCredentialsAsString);
-
-	  // Parse the credentials.
-	  if (!StringUtil.isNullString(restClientCredentialsAsString)) {
-	    restClientCredentials =
-	      StringUtil.breakAt(restClientCredentialsAsString, ":");
-	  }
-	} catch (IOException ioe) {
-	  log.warning("Exception caught getting REST client credentials", ioe);
-	}
-      }
-
-      // Remember that the credentials have been populated.
-      restClientCredentialsPopulated = true;
+    public ClientCredentials(String str, List<String> lst) {
+      asString = str;
+      asList = lst;
     }
 
-    if (log.isDebug2())
-      log.debug2("restClientCredentials = " + restClientCredentials);
+    /** Return the credentials as a String: username:password */
+    public String getCredentialsAsString() {
+      return asString;
+    }
+
+    /** Return the credentials as a List: [username, password] */
+    public List<String> getCredentialsAsList() {
+      return asList;
+    }
+  }
+
+  /**
+   * Return the default REST Client credentials.
+   *
+   * @return a List with the default REST client username and password, or
+   * null if no REST Client credentials have been specified.
+   */
+  public List<String> getRestClientCredentials() {
+    return getClientCredentials(REST_CLIENT_SECRET);
+  }
+
+  /**
+   * Return the default REST Client credentials as a user:password string
+   *
+   * @return a String with the default REST Client credentials, or null if
+   * no REST Client credentials have been specified.
+   */
+  public String getRestClientCredentialsAsString() {
+    return getClientCredentialsAsString(REST_CLIENT_SECRET);
+  }
+
+  /**
+   * Return REST Client credentials.
+   * @param name the name of the service for which client credentials are
+   * needed.
+   * @return a List with the REST client username and password for the
+   * named service, or null if no REST Client credentials have been
+   * specified for that service.
+   */
+  public List<String> getClientCredentials(String name) {
+    populateRestClientCredentials(name);
+    ClientCredentials cc = clientCredentials.get(name);
+    return cc != null ? cc.getCredentialsAsList() : null;
+  }
+
+  /**
+   * Return the default REST Client credentials as a user:password string
+   * @param name the name of the service for which client credentials are
+   * needed.
+   * @return a String with the default REST Client credentials for the
+   * named service, or null if no REST Client credentials have been
+   * specified for that service.
+   */
+  public String getClientCredentialsAsString(String name) {
+    populateRestClientCredentials(name);
+    ClientCredentials cc = clientCredentials.get(name);
+    return cc != null ? cc.getCredentialsAsString() : null;
+  }
+
+  private void populateRestClientCredentials(String name) {
+    ClientCredentials cc = clientCredentials.get(name);
+    if (cc != null) {
+      return;
+    }
+    log.debug3("Populating " + name + " client credentials");
+
+    String filename = secretFiles.get(name);
+    if (StringUtil.isNullString(filename)) {
+      log.error("No secret file for: " + name);
+      clientCredentials.put(name, new ClientCredentials(null, null));
+      return;
+    }
+    try {
+      cc = LockssApp.readClientCredentials(filename);
+      clientCredentials.put(name, cc);
+    } catch (IOException ioe) {
+      log.error("Exception caught reading REST client credentials", ioe);
+      clientCredentials.put(name, new ClientCredentials(null, null));
+    }
+  }
+
+  /** Read client credentials from a secrets file, and delete the file if
+   * possible.
+   *
+   * <p>Note that if this method is called other than indirectly via {@link
+   * #getRestClientCredentials()}, e.g., by a REST service (such as
+   * ArtifactIndexConfig in laaws-repository-service), a subsequent call
+   * may fail because the file is already deleted.  Thus, if the same
+   * credentials are ever needed by both code using {@link
+   * #getRestClientCredentials()} and code that must call this method
+   * directly, the mechanism will have to be enhanced.
+   */
+  public static ClientCredentials readClientCredentials(String filename)
+      throws IOException {
+    // Read the credentials from the file.
+    String credString = FileUtil.readPasswdFile(filename);
+    credString = credString.trim();
+    // Parse the credentials.
+    List<String> credList = null;
+    if (!StringUtil.isNullString(credString)) {
+      credList = StringUtil.breakAt(credString, ":");
+    }
+    ClientCredentials cc = new ClientCredentials(credString, credList);
+    return cc;
   }
 
   /** Return the current testing mode. */
@@ -919,6 +988,19 @@ public class LockssApp {
       }
     }
 
+    String touchWhenStarted =
+      ConfigManager.getCurrentConfig().get(PARAM_TOUCH_WHEN_STARTED,
+                                           DEFAULT_TOUCH_WHEN_STARTED);
+    if (!StringUtil.isNullString(touchWhenStarted)) {
+      log.debug("Startup complete, touching file: " + touchWhenStarted);
+      File touchFile = new File(touchWhenStarted);
+      try {
+        FileUtils.touch(touchFile);
+      } catch (IOException e) {
+        log.warning("Couldn't touch startup file: " + touchWhenStarted, e);
+      }
+    }
+
     readyTime = TimeBase.nowMs();
     appRunning = true;
     appRunningSem.fill();
@@ -1334,12 +1416,21 @@ public class LockssApp {
 //     }
 
     StartupOptions opts = getStartupOptions(appSpec.getArgs());
-
+    // Set the builtin System properties
     setSystemProperties();
+
+    // Set the user-specified System properties
+    for (Pair<String,String> spair : opts.getSyspropsToSet()) {
+      System.setProperty(spair.getLeft(), spair.getRight());
+    }
+
+    if (opts.isLogCryptoProviders()) {
+      SslUtil.logCryptoProviders(true);
+    }
 
     bootstrapPropsUrls = opts.getBootstrapPropsUrls();
     restConfigServiceUrl = opts.getRestConfigServiceUrl();
-    restClientCredentialsFilePath = opts.getRestClientCredentialsFilePath();
+    secretFiles = opts.getSecretFiles();
     propUrls = opts.getPropUrls();
     clusterUrls = opts.getClusterUrls();
     groupNames = opts.getGroupNames();
@@ -1409,8 +1500,12 @@ public class LockssApp {
     return res;
   }
 
-  protected static StartupOptions getStartupOptions(String[] args) {
+  public static StartupOptions getStartupOptions(String[] args) {
     return new StartupOptions().parse(args);
+  }
+
+  public static StartupOptions getStartupOptions(List<String> args) {
+    return new StartupOptions().parse(args.toArray(new String[0]));
   }
 
   /** ImageIO gets invoked on user-supplied content (by (nyi) format
@@ -1514,44 +1609,51 @@ public class LockssApp {
   /**
    * Command line args startup options container.
    * Supports these arguments:<dl>
-   * <dt>-b url</dt>
-   *     <dd>Load bootstrap properties from url</dd>
-   * <dt>-c url</dt>
+   * <dt>-b <i>url</i></dt>
+   *     <dd>Load bootstrap properties from <i>url</i></dd>
+   * <dt>-p <i>url</i></dt>
+   *     <dd>Load properties from <i>url</i></dd>
+   * <dt>-p <i>url1</i> {@value OPTION_PROPURL} <i>url2</i>;<i>url3</i>;<i>url4</i></dt>
+   *     <dd>Load properties from <i>url1</i> AND from one of
+   *     (<i>url2</i> | <i>url3</i> | <i>url4</i>)</dd>
+   * <dt>-l <i>url</i></dt>
+   *     <dd>Load properties from <i>url</i>, add <i>url</i> to cluster-wide config</dd>
+   * <dt>-c <i>url</i></dt>
    *     <dd>The URL of a REST Configuration service</dd>
-   * <dt>-r filePath</dt>
-   *     <dd>The file path of the credentials for REST service clients</dd>
-   * <dt>-p url<i>n</i></dt>
-   *     <dd>Load properties from url<i>n</i></dd>
-   * <dt>-p url1 -p url2;url3;url4</dt>
-   *     <dd>Load properties from url1 AND from one of</dd>
-   *     <dt>(url2 | url3 | url4)</dt>
-   * <dd>-g group_name[;group_2;group_3]
-   *     Set the daemon groups.  Multiple groups separated by semicolon.</dd>
-   * <dt>-s</dt>
-   *     <dd>Log the security providers.</dd>
-   * <dt>-x dir</dt>
-   *     <dd>Load properties from XML files in directory dir.</dd>
+   * <dt>-g <i>group_name</i>[;<i>group_2</i>;<i>group_3</i>]</dt>
+   *     <dd>Set the daemon groups.  Multiple groups separated by semicolon.</dd>
+   * <dt>-s [<i>secret-name></i>&colon;]<i><secret-file></i></dt>
+   *     <dd>The name and filename of a secret file (e.g., credentials)</dd>
+   * <dt>-x <i>dir</i></dt>
+   *     <dd>Load properties from XML files in directory <i>dir</i>.</dd>
+   * <dt>-D<i>name</i>=<i>value</i></dt>
+   *     <dd>Set a system property.</dd>
+   * <dt>--log-crypto</dt>
+   *     <dd>Log the available security providers.</dd>
    * </dl>
    */
   public static class StartupOptions {
 
     public static final String OPTION_BOOTSTRAP_PROPURL = "-b";
     public static final String OPTION_REST_CONFIG_SERVICE_URL = "-c";
-    public static final String OPTION_REST_CLIENT_CREDENTIALS_FILE_PATH = "-r";
+    public static final String OPTION_SECRET = "-s";
     public static final String OPTION_PROPURL = "-p";
     public static final String OPTION_CLUSTERURL = "-l";
     public static final String OPTION_GROUP = "-g";
-    public static final String OPTION_LOG_CRYPTO_PROVIDERS = "-s";
+    public static final String OPTION_LOG_CRYPTO_PROVIDERS = "--log-crypto";
     public static final String OPTION_XML_PROP_DIR = "-x";
     public static final String OPTION_SYSPROP = "-D";
 
     private List<String> bootstrapPropsUrls = new ArrayList<>();
     private String restConfigServiceUrl;
-    private String restClientCredentialsFilePath = null;
+    private Map<String,String> secretFiles = new HashMap<>();
     private String groupNames;
     private List<String> propUrls = new ArrayList<String>();
     // clusterUrls is a subset of propUrls
     private List<String> clusterUrls = new ArrayList<String>();
+    private List<Pair<String,String>> syspropsToSet = new ArrayList<>();
+    private boolean isLogCryptoProviders;
+
 
     public StartupOptions() {
     }
@@ -1575,8 +1677,12 @@ public class LockssApp {
       return restConfigServiceUrl;
     }
 
-    public String getRestClientCredentialsFilePath() {
-      return restClientCredentialsFilePath;
+    public Map<String,String> getSecretFiles() {
+      return secretFiles;
+    }
+
+    public String getSecretFileFor(String name) {
+      return secretFiles.get(name);
     }
 
     public List<String> getPropUrls() {
@@ -1589,6 +1695,30 @@ public class LockssApp {
 
     public String getGroupNames() {
       return groupNames;
+    }
+
+    public boolean isLogCryptoProviders() {
+      return isLogCryptoProviders;
+    }
+
+    public List<Pair<String,String>> getSyspropsToSet() {
+      return syspropsToSet;
+    }
+
+    protected static final Pattern SECRET_PAT =
+      Pattern.compile("(?:(\\w*):)?(.*)");
+
+    public void setSecretArg(String secret) {
+      Matcher mat = SECRET_PAT.matcher(secret);
+      if (mat.matches()) {
+        String sname = mat.group(1);
+        String sfile = mat.group(2);
+        if (sname == null) {
+          sname = REST_CLIENT_SECRET;
+        }
+        log.debug2("Secret: " + sname + ": " + sfile);
+        secretFiles.put(sname, sfile);
+      }
     }
 
     public StartupOptions parse(String[] args) {
@@ -1610,7 +1740,7 @@ public class LockssApp {
 	  propUrls.add(clustUrl);
 	  clusterUrls.add(clustUrl);
 	} else if (args[i].equals(OPTION_LOG_CRYPTO_PROVIDERS)) {
-	  SslUtil.logCryptoProviders(true);
+          isLogCryptoProviders = true;
 	} else if (args[i].equals(OPTION_XML_PROP_DIR) && i < args.length - 1) {
 	  // Handle a directory with XML files.
 	  String optionXmlDir = args[++i];
@@ -1646,19 +1776,15 @@ public class LockssApp {
 	    log.debug3("getStartupOptions(): " +
 		       "restConfigServiceUrl: " + restConfigServiceUrl);
 	  }
-	} else if (args[i].equals(OPTION_REST_CLIENT_CREDENTIALS_FILE_PATH)
+	} else if (args[i].equals(OPTION_SECRET)
 		   && i < args.length - 1) {
 	  // Handle the REST credentials file path.
-	  restClientCredentialsFilePath = args[++i];
-	  if (log.isDebug3()) {
-	    log.debug3("getStartupOptions(): restClientCredentialsFilePath: " +
-		       restClientCredentialsFilePath);
-	  }
+          setSecretArg(args[++i]);
 	} else if (args[i].startsWith(OPTION_SYSPROP)) {
 	  // Set sysprop
 	  Matcher mat = SYSPROP_PAT.matcher(args[i]);
 	  if (mat.matches()) {
-	    System.setProperty(mat.group(1), mat.group(2));
+            syspropsToSet.add(new ImmutablePair<>(mat.group(1), mat.group(2)));
 	  } else {
 	    log.error("Malformed -D arg, should be -Dsysprop=val");
 	  }

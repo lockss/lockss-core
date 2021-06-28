@@ -46,6 +46,7 @@ import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.lang.LockssRandom;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.test.FileTestUtil;

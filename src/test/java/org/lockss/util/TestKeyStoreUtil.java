@@ -85,16 +85,15 @@ public class TestKeyStoreUtil extends LockssTestCase {
     assertIsomorphic(SetUtil.set("mykey", "mycert"), SetUtil.theSet(aliases));
     assertNotNull(ks.getCertificate("mycert"));
     assertNull(ks.getCertificate("foocert"));
-    assertEquals("JCEKS", ks.getType());
+    assertEquals("PKCS12", ks.getType());
   }
 
   public void testStoreJks() throws Exception {
     File dir = getTempDir();
-    File file = new File(dir, "test.ks");
+    File file = new File(dir, "test.pkcs12");
     Properties p = initProps();
     p.put(KeyStoreUtil.PROP_KEYSTORE_FILE, file.toString());
     p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, "JKS");
-    p.put(KeyStoreUtil.PROP_KEYSTORE_PROVIDER, "");
     assertFalse(file.exists());
     KeyStore ks = KeyStoreUtil.createKeyStore(p);
     assertTrue(file.exists());
@@ -110,7 +109,7 @@ public class TestKeyStoreUtil extends LockssTestCase {
 
   public void testStore() throws Exception {
     File dir = getTempDir();
-    File file = new File(dir, "test.ks");
+    File file = new File(dir, "test.pkcs12");
     Properties p = initProps();
     p.put(KeyStoreUtil.PROP_KEYSTORE_FILE, file.toString());
     assertFalse(file.exists());
@@ -123,16 +122,15 @@ public class TestKeyStoreUtil extends LockssTestCase {
     assertIsomorphic(SetUtil.set("mykey", "mycert"), SetUtil.theSet(aliases));
     assertNotNull(ks2.getCertificate("mycert"));
     assertNull(ks2.getCertificate("foocert"));
-    assertEquals("JCEKS", ks2.getType());
+    assertEquals("PKCS12", ks2.getType());
   }
 
   public void testCreateIllType() throws Exception {
     File dir = getTempDir();
-    File file = new File(dir, "test.ks");
+    File file = new File(dir, "test.pkcs12");
     Properties p = initProps();
     p.put(KeyStoreUtil.PROP_KEYSTORE_FILE, file.toString());
     p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, "foobar");
-    p.put(KeyStoreUtil.PROP_KEYSTORE_PROVIDER, "");
     assertFalse(file.exists());
     try {
       KeyStoreUtil.createKeyStore(p);
@@ -142,29 +140,12 @@ public class TestKeyStoreUtil extends LockssTestCase {
     assertFalse(file.exists());
   }
 
-  public void testCreateIllProv() throws Exception {
-    File dir = getTempDir();
-    File file = new File(dir, "test.ks");
-    Properties p = initProps();
-    p.put(KeyStoreUtil.PROP_KEYSTORE_FILE, file.toString());
-    p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, "JKS");
-    p.put(KeyStoreUtil.PROP_KEYSTORE_PROVIDER, "not_a_provider");
-    assertFalse(file.exists());
-    try {
-      KeyStoreUtil.createKeyStore(p);
-      fail("Illegal keystore type should throw");
-    } catch (NoSuchProviderException e) {
-    }
-    assertFalse(file.exists());
-  }
-
   public void testCreateIllAlg() throws Exception {
     File dir = getTempDir();
-    File file = new File(dir, "test.ks");
+    File file = new File(dir, "test.pkcs12");
     Properties p = initProps();
     p.put(KeyStoreUtil.PROP_KEYSTORE_FILE, file.toString());
     p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, "JKS");
-    p.put(KeyStoreUtil.PROP_KEYSTORE_PROVIDER, "");
     p.put(KeyStoreUtil.PROP_SIG_ALGORITHM, "sdflkjsdf");
 
     assertFalse(file.exists());
@@ -190,38 +171,50 @@ public class TestKeyStoreUtil extends LockssTestCase {
   }
 
   public void testCreateSharedPLNKeyStores() throws Exception {
+    testCreateSharedPLNKeyStores(null, "pkcs12");
+    testCreateSharedPLNKeyStores("pkcs12");
+    testCreateSharedPLNKeyStores("jceks");
+  }
+
+  public void testCreateSharedPLNKeyStores(String type) throws Exception {
+    testCreateSharedPLNKeyStores(type, type);
+  }
+
+  public void testCreateSharedPLNKeyStores(String type, String expType)
+      throws Exception {
+    String ext = "." + expType;
     List<String> hosts = ListUtil.list("host1", "host2.foo.bar", "host3");
     List<String> hosts2 = ListUtil.list("host3", "host4");
     File dir = getTempDir();
-    File pub = new File(dir, "pub.ks");
-    KeyStoreUtil.createSharedPLNKeyStores(dir, hosts, pub, "pubpass",
+    File pub = new File(dir, "pub" + ext);
+    KeyStoreUtil.createSharedPLNKeyStores(type, dir, hosts, pub, "pubpass",
 					  MiscTestUtil.getSecureRandom());
-    assertPubKs(pub, "pubpass", hosts);
+    assertPubKs(expType, pub, "pubpass", hosts);
     for (String host : hosts) {
-      assertPrivateKs(new File(dir, host + ".jceks"),
+      assertPrivateKs(expType, new File(dir, host + ext),
 		      StringUtil.fromFile(new File(dir, host + ".pass")),
 		      host);
     }
-    KeyStore pubks1 = loadKeyStore("jceks", new File(dir, "pub.ks"),
+    KeyStore pubks1 = loadKeyStore(expType, new File(dir, "pub" + ext),
 				   "pubpass");
 
     Certificate host1cert1 = pubks1.getCertificate("host1.crt");
     Certificate host3cert1 = pubks1.getCertificate("host3.crt");
 
-    String host1priv1 = StringUtil.fromFile(new File(dir, "host1.jceks"));
-    String host3priv1 = StringUtil.fromFile(new File(dir, "host3.jceks"));
+    String host1priv1 = StringUtil.fromFile(new File(dir, "host1" + ext));
+    String host3priv1 = StringUtil.fromFile(new File(dir, "host3" + ext));
 
     // Now add host4 and generate a new key for host3
-    KeyStoreUtil.createSharedPLNKeyStores(dir, hosts2, pub, "pubpass",
+    KeyStoreUtil.createSharedPLNKeyStores(type, dir, hosts2, pub, "pubpass",
 					  MiscTestUtil.getSecureRandom());
     List<String> both = ListUtils.sum(hosts, hosts2);
-    assertPubKs(pub, "pubpass", both);
+    assertPubKs(expType, pub, "pubpass", both);
     for (String host : both) {
-      assertPrivateKs(new File(dir, host + ".jceks"),
+      assertPrivateKs(expType, new File(dir, host + ext),
 		      StringUtil.fromFile(new File(dir, host + ".pass")),
 		      host);
     }
-    KeyStore pubks2 = loadKeyStore("jceks", new File(dir, "pub.ks"),
+    KeyStore pubks2 = loadKeyStore(expType, new File(dir, "pub" + ext),
 				   "pubpass");
     // host1 should have the same cert, host3 not
     Certificate host1cert2 = pubks2.getCertificate("host1.crt");
@@ -230,15 +223,23 @@ public class TestKeyStoreUtil extends LockssTestCase {
     assertNotEquals(host3cert1, host3cert2);
 
     // host1's private key file should be the same, host3's not
-    String host1priv2 = StringUtil.fromFile(new File(dir, "host1.jceks"));
-    String host3priv2 = StringUtil.fromFile(new File(dir, "host3.jceks"));
+    String host1priv2 = StringUtil.fromFile(new File(dir, "host1" + ext));
+    String host3priv2 = StringUtil.fromFile(new File(dir, "host3" + ext));
     assertEquals(host1priv1, host1priv2);
     assertNotEquals(host3priv1, host3priv2);
   }
 
-  void assertPubKs(File file, String pass, List<String> hosts)
+  public void testEnums() throws Exception {
+    assertEquals(new byte[] {(byte)0xCE, (byte)0xCE, (byte)0xCE, (byte)0xCE},
+                 KeyStoreUtil.KsType.JCEKS.getMagic());
+    assertEquals(new byte[] {(byte)0xFE, (byte)0xED, (byte)0xFE, (byte)0xED},
+                 KeyStoreUtil.KsType.JKS.getMagic());
+    assertNull(KeyStoreUtil.KsType.PKCS12.getMagic());
+  }
+
+  void assertPubKs(String type, File file, String pass, List<String> hosts)
       throws Exception {
-    KeyStore ks = loadKeyStore("jceks", file, pass);
+    KeyStore ks = loadKeyStore(type, file, pass);
     List aliases =
       ListUtil.fromIterator(new EnumerationIterator(ks.aliases()));
     assertEquals(hosts.size(), aliases.size());
@@ -250,8 +251,9 @@ public class TestKeyStoreUtil extends LockssTestCase {
     }
   }
 
-  void assertPrivateKs(File file, String pass, String alias) throws Exception {
-    KeyStore ks = loadKeyStore("jceks", file, alias);
+  void assertPrivateKs(String type, File file,
+                       String pass, String alias) throws Exception {
+    KeyStore ks = loadKeyStore(type, file, alias);
     List aliases =
       ListUtil.fromIterator(new EnumerationIterator(ks.aliases()));
     assertEquals(2, aliases.size());

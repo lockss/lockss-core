@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,7 +35,9 @@ import java.security.*;
 import java.security.cert.*;
 import javax.net.ssl.*;
 
+import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.config.*;
 
 /** Wrapper around a keystore to manager passwords and loading and manager
@@ -47,7 +49,6 @@ public class LockssKeyStore {
 
   String name;
   String type;
-  String provider;
   String location;
   LocationType ltype;
   String password;
@@ -80,23 +81,6 @@ public class LockssKeyStore {
 
   void setType(String val) {
     type = val;
-  }
-
-  // Infer provider from known keystore types
-  String getProvider() {
-    if (provider == null) {
-      if ("JKS".equals(type)) {
-	return null;			// Can use default provider for JKS
-      }
-      if ("JCEKS".equals(type)) {
-	return "SunJCE";		// JCEKS requires explicit provider
-      }
-    }
-    return provider;
-  }
-
-  void setProvider(String val) {
-    provider = val;
   }
 
   String getLocation() {
@@ -158,14 +142,26 @@ public class LockssKeyStore {
 
   /** Load the keystore from a file */
   synchronized void load() throws UnavailableKeyStoreException {
+    load(null);
+  }
+
+  synchronized void load(LockssApp lapp) throws UnavailableKeyStoreException {
     if (loaded) {
       return;
     }
     if (StringUtil.isNullString(location))
       throw new NullPointerException("location must be a non-null string");
+    if (lapp == null) {
+      lapp = LockssApp.getLockssApp();
+    }
     try {
       if (keyPassword == null && keyPasswordFile != null) {
-	keyPassword = FileUtil.readPasswdFile(keyPasswordFile);
+        if (keyPasswordFile.startsWith("secret:")) {
+          String sname = keyPasswordFile.substring("secret:".length());
+          keyPassword = lapp.getClientCredentialsAsString(sname);
+        } else {
+          keyPassword = FileUtil.readPasswdFile(keyPasswordFile);
+        }
       }
       if (mayCreate) {
 	File file = new File(location);
@@ -220,8 +216,9 @@ public class LockssKeyStore {
     }
     Properties p = new Properties();
     p.put(KeyStoreUtil.PROP_KEYSTORE_FILE, getLocation());
-    p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, getType());
-    p.put(KeyStoreUtil.PROP_KEYSTORE_PROVIDER, getProvider());
+    if (getType() != null) {
+      p.put(KeyStoreUtil.PROP_KEYSTORE_TYPE, getType());
+    }
     p.put(KeyStoreUtil.PROP_KEY_ALIAS, fqdn + ".key");
     p.put(KeyStoreUtil.PROP_CERT_ALIAS, fqdn + ".cert");
     p.put(KeyStoreUtil.PROP_X500_NAME, makeX500Name(fqdn));
@@ -247,19 +244,19 @@ public class LockssKeyStore {
     if (!StringUtil.isNullString(password)) {
       passchar = password.toCharArray();
     }
-    InputStream ins = null;
-    try {
-      KeyStore ks;
-      if (getProvider() == null) {
-	ks = KeyStore.getInstance(getType());
-      } else {
-	ks = KeyStore.getInstance(getType(), getProvider());
-      }
-      ins = getInputStream();
-      ks.load(ins, passchar);
-      keystore = ks;
-    } finally {
-      IOUtil.safeClose(ins);
+
+    try (InputStream ins = getInputStream()) {
+      // ignore specified type when loading
+      keystore = KeyStoreUtil.loadKeystoreOfUnknownType(getInputStream(),
+                                                        password);
+//       if (getType() != null) {
+//         KeyStore ks = KeyStore.getInstance(getType());
+//         ks.load(ins, passchar);
+//         keystore = ks;
+//       } else {
+//         keystore = KeyStoreUtil.loadKeystoreOfUnknownType(getInputStream(),
+//                                                           password);
+//       }
     }
   }
 
@@ -340,7 +337,6 @@ public class LockssKeyStore {
     LockssKeyStore o = (LockssKeyStore)other;
     return name.equals(o.name)
       && StringUtil.equalStrings(type, o.type)
-      && StringUtil.equalStrings(provider, o.provider)
       && StringUtil.equalStrings(location, o.location)
       && ltype == o.ltype
       && mayCreate == o.mayCreate

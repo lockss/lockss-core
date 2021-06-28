@@ -39,6 +39,7 @@ import org.lockss.util.urlconn.JavaHttpUrlConnection;
 import org.lockss.util.urlconn.JavaUrlConnection;
 import org.lockss.util.urlconn.LockssUrlConnection;
 import org.lockss.util.urlconn.LockssUrlConnectionPool;
+import org.lockss.util.io.FileUtil;
 import org.springframework.web.util.UriUtils;
 
 import java.io.File;

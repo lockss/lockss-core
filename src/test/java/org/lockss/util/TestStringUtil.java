@@ -36,6 +36,7 @@ import java.io.*;
 import java.util.*;
 import java.lang.reflect.*;
 
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.lockss.test.*;
 import org.lockss.util.os.PlatformUtil;
 
@@ -550,7 +551,7 @@ public class TestStringUtil extends LockssTestCase {
 
   public void testToOutputStream() throws Exception {
     String s = "asdfjsfd";
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    UnsynchronizedByteArrayOutputStream baos = new UnsynchronizedByteArrayOutputStream();
     StringUtil.toOutputStream(baos, s);
     assertEquals(s, baos.toString());
   }
@@ -746,6 +747,30 @@ public class TestStringUtil extends LockssTestCase {
     assertEquals("fooBAR", StringUtil.sanitizeToIdentifier("foo.BAR"));
     assertEquals("fooBar_",
 		 StringUtil.sanitizeToIdentifier(" +.!|,foo.Bar?<>_"));
+  }
+
+  public void testBasename() {
+    assertEquals(null, StringUtil.basename(""));
+    assertEquals(null, StringUtil.basename("/"));
+    assertEquals(null, StringUtil.basename("http://"));
+    assertEquals("http:", StringUtil.basename("http:/"));
+
+    assertEquals("foo", StringUtil.basename("foo"));
+    assertEquals("foo.bar", StringUtil.basename("foo.bar"));
+    assertEquals("bar", StringUtil.basename("foo/bar"));
+    assertEquals("bar.txt", StringUtil.basename("foo/bar.txt"));
+    assertEquals("article.pdf",
+                 StringUtil.basename("https://host.tld/foo/article.pdf"));
+    assertEquals("article.pdf",
+                 StringUtil.basename("https://host.tld/foo/article.pdf?a=b&ccc=dddd"));
+    assertEquals("article.pdf",
+                 StringUtil.basename("https://host.tld/foo/article.pdf?"));
+    assertEquals("download",
+                 StringUtil.basename("https://here.there/articles/10.18352/ts.327/galley/319/download/"));
+    assertEquals("download",
+                 StringUtil.basename("https://here.there/articles/10.18352/ts.327/galley/319/download/?foo=bar"));
+    assertEquals("download",
+                 StringUtil.basename("https://here.there/articles/10.18352/ts.327/galley/319/download/?"));
   }
 
   public void testStackTraceString() {

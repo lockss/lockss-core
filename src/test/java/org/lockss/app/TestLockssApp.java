@@ -30,6 +30,7 @@ package org.lockss.app;
 
 import java.io.*;
 import java.util.*;
+import org.apache.commons.lang3.tuple.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.daemon.*;
@@ -67,6 +68,13 @@ public class TestLockssApp extends LockssTestCase {
 		       "-p", "bar",
 		       "-l", "baz"};
 
+    String[] testConfigUrl = {"-c", "http://xx/yy/zz"};
+
+    String[] testSecret1 = {"-s", "/foo/s2"};
+    String[] testSecret2 = {"-s", "rest:/foo/s2"};
+    String[] testSecret3 = {"-s", "/foo/s1", "-s", "solr:/foo/s2"};
+
+    String[] testSysProp = {"-DUNUSEDPROP=VALVAL", "-DANOTHER=VAL"};
 
     // bad options (-p without argument, should be ignored)
     String[] test5 = {"-p", "foo",
@@ -158,6 +166,31 @@ public class TestLockssApp extends LockssTestCase {
       LockssDaemon.getStartupOptions(test2a);
     assertEquals(ListUtil.list("foo", "bar", "baz"), opt2a.getPropUrls());
     assertEquals(ListUtil.list("foo", "baz"), opt2a.getClusterUrls());
+
+
+
+    // Test secrets
+    LockssDaemon.StartupOptions opts =
+      LockssDaemon.getStartupOptions(testSecret1);
+    assertEquals(MapUtil.map("rest", "/foo/s2"), opts.getSecretFiles());
+
+    opts = LockssDaemon.getStartupOptions(testSecret2);
+    assertEquals(MapUtil.map("rest", "/foo/s2"), opts.getSecretFiles());
+
+    opts = LockssDaemon.getStartupOptions(testSecret3);
+    assertEquals(MapUtil.map("rest", "/foo/s1", "solr", "/foo/s2"),
+                 opts.getSecretFiles());
+
+    // -D
+    opts = LockssDaemon.getStartupOptions(testSysProp);
+    assertEquals(ListUtil.list(new ImmutablePair("UNUSEDPROP", "VALVAL"),
+                               new ImmutablePair("ANOTHER", "VAL")),
+                 opts.getSyspropsToSet());
+
+    // Config svc url
+    opts = LockssDaemon.getStartupOptions(testConfigUrl);
+    assertEquals("http://xx/yy/zz", opts.getRestConfigServiceUrl());
+
 
     // Test some bad options.  Second -p should be ignored.
     LockssDaemon.StartupOptions opt5 =

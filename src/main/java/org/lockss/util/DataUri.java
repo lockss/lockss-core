@@ -29,6 +29,7 @@ package org.lockss.util;
 
 import org.lockss.daemon.PluginException;
 import org.lockss.extractor.LinkExtractor;
+import org.lockss.util.io.FileUtil;
 import org.lockss.plugin.ArchivalUnit;
 
 import java.io.BufferedInputStream;

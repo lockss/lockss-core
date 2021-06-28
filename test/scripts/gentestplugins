@@ -1,23 +1,23 @@
 #!/bin/sh
 
 # Regenerate the loadable plugin jars used by TestPluginManager.
-# Should be run if the keystores are regenerated, or changes made to
-# test/src/org/lockss/test/MockConfigurablePlugin[V2].xml
+# There are three plugin project trees: test/testplugins/v{1,2,3} .
+# This must be run if the plugins are changed or the keystores regenerated.
 
-# good-plugin.jar contains MockConfigurablePlugin v1.
-test/scripts/genplugin --jar=good-plugin.jar --plugin=test/src/org/lockss/test/MockConfigurablePlugin.xml --plugin-root=./test/src --alias=goodguy --keystore test/src/org/lockss/test/goodguy.keystore --password f00bar "--titledb="
+proj_dir=`pwd`
+plugin_projs="v1 v2 v3"
 
-# good-plugin2.jar contains MockConfigurablePlugin v2, which must be (a
-# different version of) the same plugin above.  Its source is in
-# MockConfigurablePluginV2 so it's copied to a temp file with the correct
-# path and name before packaging.
-TEMP_PREFIX=/tmp/plug
-tmproot=`mktemp -t -d plug.XXXXXX`
-mkdir -p ${tmproot}/classes/org/lockss/test
-cp test/src/org/lockss/test/MockConfigurablePluginV2.xml ${tmproot}/classes/org/lockss/test/MockConfigurablePlugin.xml
+err_exit() {
+  echo "$*" >&2
+  exit 1
+}
 
-test/scripts/genplugin --jar=good-plugin2.jar --plugin=${tmproot}/classes/org/lockss/test/MockConfigurablePlugin.xml --plugin-root=${tmproot}/classes --alias=goodguy --keystore test/src/org/lockss/test/goodguy.keystore --password f00bar "--titledb="
+for x in ${plugin_projs}; do
+  echo $x
+  ( cd test/testplugins/${x}
+    echo `pwd` mvn $@
+    mvn  clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy.keystore" -Dkeystore.alias=goodguy -Dkeystore.password=f00bar  $@
+      cp target/pluginjars/*.jar "${proj_dir}/src/test/java/org/lockss/test/mock-plugin-${x}.jar"
+  ) || err_exit "Plugin packaging failure"
 
-cp plugins/jars/good-plugin.jar test/src/org/lockss/test
-cp plugins/jars/good-plugin2.jar test/src/org/lockss/test
-rm -rf ${tmproot}
+done

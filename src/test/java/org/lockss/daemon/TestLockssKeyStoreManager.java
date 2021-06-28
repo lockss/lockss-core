@@ -68,7 +68,7 @@ public class TestLockssKeyStoreManager extends LockssTestCase {
 		  String pass, String keyPass) {
     String prefix = ksprefix(name);
     p.put(prefix + KEYSTORE_PARAM_NAME, name);
-    p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
+//     p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
     p.put(prefix + KEYSTORE_PARAM_PASSWORD, pass);
     p.put(prefix + KEYSTORE_PARAM_KEY_PASSWORD, keyPass);
   }
@@ -78,7 +78,7 @@ public class TestLockssKeyStoreManager extends LockssTestCase {
 		 String pass, String keyPassFile) {
     String prefix = ksprefix(name);
     p.put(prefix + KEYSTORE_PARAM_NAME, name);
-    p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
+//     p.put(prefix + KEYSTORE_PARAM_TYPE, "JCEKS");
     p.put(prefix + KEYSTORE_PARAM_PASSWORD, pass);
     p.put(prefix + KEYSTORE_PARAM_KEY_PASSWORD_FILE, keyPassFile);
   }
@@ -137,7 +137,6 @@ public class TestLockssKeyStoreManager extends LockssTestCase {
     p.put(PREF3 + KEYSTORE_PARAM_NAME, "ksname333");
     p.put(PREF3 + KEYSTORE_PARAM_URL, URL);
     p.put(PREF3 + KEYSTORE_PARAM_TYPE, "kstype");
-    p.put(PREF3 + KEYSTORE_PARAM_PROVIDER, "ksprovider");
     p.put(PREF3 + KEYSTORE_PARAM_PASSWORD, "kspassword");
     p.put(PREF3 + KEYSTORE_PARAM_KEY_PASSWORD, "keyPassword");
     p.put(PREF3 + KEYSTORE_PARAM_KEY_PASSWORD_FILE, "pwf");
@@ -165,7 +164,6 @@ public class TestLockssKeyStoreManager extends LockssTestCase {
     assertEquals(LocationType.Url, lk3.getLocationType());
     assertEquals(URL, lk3.getLocation());
     assertEquals("kstype", lk3.getType());
-    assertEquals("ksprovider", lk3.getProvider());
     assertFalse(lk3.getMayCreate());
 
     LockssKeyStore lk4 = keystoreMgr.getLockssKeyStore("ksname4");

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2009 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -54,12 +50,7 @@ public class LockssKeyStoreManager
   /** Default type for newly created keystores.  */
   public static final String PARAM_DEFAULT_KEYSTORE_TYPE =
     PREFIX + "defaultKeyStoreType";
-  public static final String DEFAULT_DEFAULT_KEYSTORE_TYPE = "JCEKS";
-
-  /** Default keystore provider.  */
-  public static final String PARAM_DEFAULT_KEYSTORE_PROVIDER =
-    PREFIX + "defaultKeyStoreProvider";
-  public static final String DEFAULT_DEFAULT_KEYSTORE_PROVIDER = null;
+  public static final String DEFAULT_DEFAULT_KEYSTORE_TYPE = "PKCS12";
 
   /** Root of keystore definitions.  For each keystore, pick a unique
    * identifier and use it in place of &lt;id&gt; in the following */
@@ -80,8 +71,6 @@ public class LockssKeyStoreManager
   public static final String KEYSTORE_PARAM_URL = "url";
   /** keystore type */
   public static final String KEYSTORE_PARAM_TYPE = "type";
-  /** keystore provider */
-  public static final String KEYSTORE_PARAM_PROVIDER = "provider";
   /** keystore password */
   public static final String KEYSTORE_PARAM_PASSWORD = "password";
   /** private key password */
@@ -94,7 +83,6 @@ public class LockssKeyStoreManager
   public static final String KEYSTORE_PARAM_CREATE = "create";
 
   protected String defaultKeyStoreType = DEFAULT_DEFAULT_KEYSTORE_TYPE;
-  protected String defaultKeyStoreProvider = DEFAULT_DEFAULT_KEYSTORE_PROVIDER;
   protected boolean paramExitIfMissingKeyStore =
     DEFAULT_EXIT_IF_MISSING_KEYSTORE;
 
@@ -116,9 +104,6 @@ public class LockssKeyStoreManager
   /** Keystore type (JKS, JCEKS, etc.) */
   public static final String PARAM_KEYSTORE_TYPE =
     DOC_PREFIX + KEYSTORE_PARAM_TYPE;
-  /** Keystore provider (SunJCE, etc.) */
-  public static final String PARAM_KEYSTORE_PROVIDER =
-    DOC_PREFIX + KEYSTORE_PARAM_PROVIDER;
   /** Keystore password.  Default is machine's fqdn */
   public static final String PARAM_KEYSTORE_PASSWORD =
     DOC_PREFIX + KEYSTORE_PARAM_PASSWORD;
@@ -150,8 +135,6 @@ public class LockssKeyStoreManager
     if (changedKeys.contains(PREFIX)) {
       defaultKeyStoreType = config.get(PARAM_DEFAULT_KEYSTORE_TYPE,
 				       DEFAULT_DEFAULT_KEYSTORE_TYPE);
-      defaultKeyStoreProvider = config.get(PARAM_DEFAULT_KEYSTORE_PROVIDER,
-					   DEFAULT_DEFAULT_KEYSTORE_PROVIDER);
       paramExitIfMissingKeyStore =
 	config.getBoolean(PARAM_EXIT_IF_MISSING_KEYSTORE,
 			  DEFAULT_EXIT_IF_MISSING_KEYSTORE);
@@ -310,8 +293,6 @@ public class LockssKeyStoreManager
     }
 
     lk.setType(config.get(KEYSTORE_PARAM_TYPE, defaultKeyStoreType));
-    lk.setProvider(config.get(KEYSTORE_PARAM_PROVIDER,
-			      defaultKeyStoreProvider));
     lk.setPassword(config.get(KEYSTORE_PARAM_PASSWORD));
     lk.setKeyPassword(config.get(KEYSTORE_PARAM_KEY_PASSWORD));
     lk.setKeyPasswordFile(config.get(KEYSTORE_PARAM_KEY_PASSWORD_FILE));
@@ -324,7 +305,7 @@ public class LockssKeyStoreManager
       new ArrayList<LockssKeyStore>(keystoreMap.values());
     for (LockssKeyStore lk : lst) {
       try {
-	lk.load();
+	lk.load(getApp());
       } catch (Exception e) {
 	log.error("Can't load keystore " + lk.getName(), e);
 	keystoreMap.remove(lk.getName());

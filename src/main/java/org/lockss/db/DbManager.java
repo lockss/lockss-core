@@ -1023,6 +1023,7 @@ public abstract class DbManager extends BaseLockssManager
     dataSourceDbName = getDataSourceDatabaseName(currentConfig);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	+ "dataSourceDbName = '" + dataSourceDbName + "'.");
+    log.info(getVersionSubsystemName() + " using DB: " + dataSourceDbName);
 
     dsConfig.put("databaseName", dataSourceDbName);
 
