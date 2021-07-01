@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2009 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,7 +37,7 @@ public class TestEditKeyStores extends LockssTestCase {
   static String HOST1 = "host1.org";
   static String HOST2 = "host2.edu";
 
-  static String SUFF_KS = ".jceks";
+  static String SUFF_KS = ".pkcs12";
   static String SUFF_PASS = ".pass";
 
   // EditKeyStores uses some system utilities but doesn't run in a daemon
@@ -54,7 +50,6 @@ public class TestEditKeyStores extends LockssTestCase {
     EditKeyStores.setTestOnlySecureRandom(MiscTestUtil.getSecureRandom());
     String[] args = {"-i", indir.toString(),
 		     "-o", outdir.toString(),
-		     "-t",
 		     HOST1, HOST2};
     EditKeyStores.main(args);
     // Check that files were created.  Should try to load them.
@@ -66,12 +61,11 @@ public class TestEditKeyStores extends LockssTestCase {
   public void testEditKeyStoresShared() throws Exception {
     File tempDir = getTempDir();
     File outdir = new File(tempDir, "oot");
-    File pub = new File(tempDir, "pubkeys.jceks");
+    File pub = new File(tempDir, "pubkeys.pkcs12");
     EditKeyStores.setTestOnlySecureRandom(MiscTestUtil.getSecureRandom());
     String[] args = {"-s", pub.toString(),
 		     "-p", "pubpasstartout",
 		     "-o", outdir.toString(),
-		     "-t",
 		     HOST1, HOST2};
     EditKeyStores.main(args);
     // Check that files were created.  Should try to load them.
@@ -84,8 +78,8 @@ public class TestEditKeyStores extends LockssTestCase {
   void assertFiles(File dir, String host) {
     File ks = new File(dir, host + SUFF_KS);
     File pass = new File(dir, host + SUFF_PASS);
-    assertTrue("Keystore for " + host + " wasn't created", ks.exists());
-    assertTrue("Password for " + host + " wasn't created", pass.exists());
+    assertTrue("Keystore " + ks + " for " + host + " wasn't created", ks.exists());
+    assertTrue("Password " + pass + " for " + host + " wasn't created", pass.exists());
   }
 
 }

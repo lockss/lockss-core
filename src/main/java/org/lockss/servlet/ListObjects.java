@@ -325,6 +325,8 @@ public class ListObjects extends LockssServlet {
 			      : cu.getCuVersions(maxVersions));
 	for (CachedUrl cuVer : cuVers) {
 	  try {
+	    // Most lists don't access the content, so set that as default
+	    cu.setNeedContent(CachedUrl.NeedContent.NO);
 	    processCu(cuVer);
 	  } finally {
 	    AuUtil.safeRelease(cuVer);

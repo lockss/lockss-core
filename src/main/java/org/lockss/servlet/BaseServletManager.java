@@ -568,7 +568,7 @@ public abstract class BaseServletManager
       log.warning("Malformed IP filter, filters not changed", e);
     }
     ah.setLogForbidden(logForbidden);
-    ah.setAllowLocal(true);
+    ah.setAllowLocal(true, ConfigManager.getPlatformContainerSubnets());
     ah.set403Msg(_403Msg);
   }
 

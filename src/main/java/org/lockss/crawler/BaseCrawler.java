@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -101,6 +97,14 @@ public abstract class BaseCrawler implements Crawler {
       Configuration.PREFIX + "permissionBuf.max";
   public static final int DEFAULT_PERMISSION_BUF_MAX = 512 * 1024;
 
+  /** If true, an error fetching a permission page will cause the crawl to
+   * fail with No Permission, even if the plugin supplies alternate
+   * permission pages for that host.  If false, fetch errors will be soft
+   * and it will go on the the next permission page (if any). */
+  public static final String PARAM_FAIL_ON_PERMISSION_ERROR =
+      Configuration.PREFIX + "failOnPermissionError";
+  public static final boolean DEFAULT_FAIL_ON_PERMISSION_ERROR = false;
+
   /** The source address for crawler connections, or null to use the
    * machine's primary IP address.  Allows multiple daemons on a machine
    * with multiple IP addresses to crawl from those different addresses.
@@ -135,9 +139,7 @@ public abstract class BaseCrawler implements Crawler {
   public static final String ABORTED_BEFORE_START_MSG = "Crawl aborted before start";
   
   protected int streamResetMax = DEFAULT_PERMISSION_BUF_MAX;
-  protected int defaultRetries = DEFAULT_DEFAULT_RETRY_COUNT;
   protected int maxRetries = DEFAULT_MAX_RETRY_COUNT;
-  protected long defaultRetryDelay = DEFAULT_DEFAULT_RETRY_DELAY;
   protected long minRetryDelay = DEFAULT_MIN_RETRY_DELAY;
   protected boolean sendReferrer = DEFAULT_SEND_REFERRER;
   protected Set<String> origStems;
@@ -187,6 +189,8 @@ public abstract class BaseCrawler implements Crawler {
       DEFAULT_MIME_TYPE_PAUSE_AFTER_304;
   protected StorePermissionScheme paramStorePermissionScheme =
       DEFAULT_STORE_PERMISSION_SCHEME;
+  protected boolean paramFailOnPermissionError =
+      DEFAULT_FAIL_ON_PERMISSION_ERROR;
   protected boolean throwIfRateLimiterNotUsed =
       DEFAULT_THROW_IF_RATE_LIMITER_NOT_USED;
   
@@ -242,12 +246,8 @@ public abstract class BaseCrawler implements Crawler {
   }
   
   protected void setCrawlConfig(Configuration config) {
-    defaultRetries = config.getInt(PARAM_DEFAULT_RETRY_COUNT,
-        DEFAULT_DEFAULT_RETRY_COUNT);
     maxRetries = config.getInt(PARAM_MAX_RETRY_COUNT,
         DEFAULT_MAX_RETRY_COUNT);
-    defaultRetryDelay = config.getLong(PARAM_DEFAULT_RETRY_DELAY,
-        DEFAULT_DEFAULT_RETRY_DELAY);
     minRetryDelay = config.getLong(PARAM_MIN_RETRY_DELAY,
         DEFAULT_MIN_RETRY_DELAY);
     sendReferrer = config.getBoolean(PARAM_SEND_REFERRER,
@@ -271,6 +271,9 @@ public abstract class BaseCrawler implements Crawler {
 					    PARAM_STORE_PERMISSION_SCHEME,
 					    DEFAULT_STORE_PERMISSION_SCHEME);
 
+    paramFailOnPermissionError =
+      config.getBoolean(PARAM_FAIL_ON_PERMISSION_ERROR,
+                        DEFAULT_FAIL_ON_PERMISSION_ERROR);
 
     String crawlFrom = config.get(PARAM_CRAWL_FROM_ADDR);
     if (StringUtil.isNullString(crawlFrom)) {
@@ -519,6 +522,7 @@ public abstract class BaseCrawler implements Crawler {
         // XXX we currently just go on, should we do something else?
       }
     }
+    permissionMap.setFailOnPermissionError(paramFailOnPermissionError);
     return permissionMap.populate();
   }
   
@@ -787,6 +791,10 @@ public abstract class BaseCrawler implements Crawler {
       return crawler.getAu();
     }
 
+    public LockssWatchdog getWatchdog() {
+      return crawler.wdog;
+    }
+
     public UrlFetcher makeUrlFetcher(String url) {
       return crawler.makeUrlFetcher(url);
     }
@@ -834,17 +842,11 @@ public abstract class BaseCrawler implements Crawler {
 
     public long getRetryDelay(CacheException ce) {
       long delay = ce.getRetryDelay();
-      if (delay < 0) {
-        delay = crawler.defaultRetryDelay;
-      }
       return Math.max(delay, crawler.minRetryDelay);
     }
 
     public int getRetryCount(CacheException ce) {
       int res = ce.getRetryCount();
-      if (res < 0) {
-        res = crawler.defaultRetries;
-      }
       return Math.min(res, crawler.maxRetries);
     }
 

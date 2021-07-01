@@ -50,7 +50,8 @@ public class IpAccessHandler extends AbstractHttpHandler {
 
   private static Logger log = Logger.getLogger();
 
-  private static String LOCAL_IP_FILTERS = "127.0.0.0/8;::1";
+  private static List<String> LOCAL_IP_FILTERS = ListUtil.list("127.0.0.0/8",
+							       "::1");
 
   private IpFilter filter = new IpFilter();
   private String serverName;
@@ -75,13 +76,15 @@ public class IpAccessHandler extends AbstractHttpHandler {
     return logForbidden;
   }
 
-  public void setAllowLocal(boolean allowLocal) {
-    if (localFilter == null) {
+  public void setAllowLocal(boolean allowLocal, List<String> containerSubnets) {
+    if (allowLocal) {
       IpFilter filt = new IpFilter();
       try {
-	filt.setFilters(LOCAL_IP_FILTERS, null);
+	List<String> localSubnets = new ArrayList<>(LOCAL_IP_FILTERS);
+	localSubnets.addAll(containerSubnets);
+	filt.setFilters(localSubnets, null);
       } catch (IpFilter.MalformedException e) {
-	log.error("Failed to allow loopback addresses" , e);
+	log.error("Failed to allow local addresses" , e);
       }
       localFilter = filt;		// set atomically
       // tk - add local interfaces

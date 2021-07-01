@@ -33,6 +33,7 @@ package org.lockss.util;
 import java.util.*;
 import java.io.*;
 
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.lockss.util.os.PlatformUtil;
 import org.mortbay.util.B64Code;
 
@@ -125,7 +126,7 @@ public class EncodedProperty extends Properties {
    * @return a string containing the property table in the requested char set.
    */
   public byte[] encode(String charset) throws java.io.IOException {
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    UnsynchronizedByteArrayOutputStream out = new UnsynchronizedByteArrayOutputStream();
     store(out, null);
     return out.toString().getBytes(charset);
   }

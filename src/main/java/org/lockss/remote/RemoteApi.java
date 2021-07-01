@@ -51,6 +51,7 @@ import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
+import org.lockss.util.io.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
 import org.lockss.mail.*;
@@ -483,20 +484,16 @@ public class RemoteApi
   }
 
   /** Return list of repository specs for all available repositories */
-  public List getRepositoryList() {
-    return repoMgr.getRepositoryList();
+  public List getRepositoryUrlList() {
+    return repoMgr.getRepositoryUrlList();
   }
 
   public List findExistingRepositoriesFor(String auid) {
     return repoMgr.findExistingRepositoriesFor(auid);
   }
 
-  public PlatformUtil.DF getRepositoryDF(String repoName) {
-    return repoMgr.getRepositoryDF(repoName);
-  }
-
-  public Map<String,PlatformUtil.DF> getRepositoryMap() {
-    return repoMgr.getRepositoryMap();
+  public Map<String,PlatformUtil.DF> getRepositoryDFMap() {
+    return repoMgr.getRepositoryDFMap();
   }
 
   public String findLeastFullRepository() {
@@ -2258,7 +2255,7 @@ public class RemoteApi
     // Check whether no default repository index was passed.
     if (StringUtil.isNullString(defaultRepoIndex)) {
       // Yes: Use the repository least full as the default one.
-      defaultRepo = findLeastFullRepository(getRepositoryMap());
+      defaultRepo = findLeastFullRepository(getRepositoryDFMap());
       // No: Check whether a repostory map was passed.
     } else if (repoMap != null) {
       // Yes: Get the default repository by the passed index.

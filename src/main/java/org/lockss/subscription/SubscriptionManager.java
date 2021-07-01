@@ -3082,7 +3082,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
     // Check whether there is no list of weighted repositories.
     if (repositories == null) {
       // Yes: Populate the list of weighted repositories.
-      repositories = populateRepositories(remoteApi.getRepositoryMap());
+      repositories = populateRepositories(remoteApi.getRepositoryDFMap());
 
       // Use the first repository in the new list.
       repositoryIndex = 0;

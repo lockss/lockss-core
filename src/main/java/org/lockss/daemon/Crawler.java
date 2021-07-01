@@ -31,6 +31,7 @@ package org.lockss.daemon;
 import org.lockss.util.urlconn.CacheException;
 import org.lockss.plugin.*;
 import org.lockss.crawler.*;
+import org.lockss.util.LockssWatchdog;
 
 /**
  * This interface is implemented by the generic LOCKSS daemon.

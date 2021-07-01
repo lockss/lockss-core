@@ -159,7 +159,7 @@ public class MetadataDbManager extends DbManager
    * of the database. Changes require daemon restart.
    */
   public static final String PARAM_WAIT_FOR_EXTERNAL_SETUP = PREFIX
-      + ".waitForExternalSetup";
+      + "waitForExternalSetup";
 
   // The SQL code executor.
   private MetadataDbManagerSql mdDbManagerSql = new MetadataDbManagerSql(null,

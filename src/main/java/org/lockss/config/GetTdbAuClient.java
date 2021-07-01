@@ -29,10 +29,10 @@ package org.lockss.config;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
-import java.util.Base64;
 import java.util.Properties;
 import org.lockss.config.TdbAu;
 import org.lockss.util.Logger;
+import org.lockss.util.auth.*;
 import org.lockss.util.rest.RestUtil;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -104,9 +104,8 @@ public class GetTdbAuClient {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
 
-    String credentials = serviceUser + ":" + servicePassword;
-    String authHeaderValue = "Basic " + Base64.getEncoder()
-    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+    String authHeaderValue = AuthUtil.basicAuthHeaderValue(serviceUser,
+							   servicePassword);
     headers.set("Authorization", authHeaderValue);
 
     // Make the request to the REST service and get its response.

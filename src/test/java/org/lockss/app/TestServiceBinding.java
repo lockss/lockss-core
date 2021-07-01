@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +35,42 @@ public class TestServiceBinding extends LockssTestCase {
   private final static Logger log = Logger.getLogger();
 
   public void testEqualsHash() {
+    assertEquals(new ServiceBinding("foo", 12345, "bar", 0),
+		 new ServiceBinding("foo", 12345, "bar", 0));
+    assertEquals(new ServiceBinding("foo", 12345, "bar", 123),
+		 new ServiceBinding("foo", 12345, "bar", 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123),
+		    new ServiceBinding("bar", 12345, "bar", 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123),
+		    new ServiceBinding("foo", 12345, "bbb", 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123),
+		    new ServiceBinding("foo", 12346, "bar", 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123),
+		    new ServiceBinding("foo", 12345, "bar", 124));
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123),
+		    new ServiceBinding("foo", 0, "bar", 123));
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123),
+		    new ServiceBinding("foo", 12345, "bar", 0));
+
+    assertEquals(new ServiceBinding("foo", 12345, "bar", 0).hashCode(),
+		 new ServiceBinding("foo", 12345, "bar", 0).hashCode());
+    assertEquals(new ServiceBinding("foo", 12345, "bar", 123).hashCode(),
+		 new ServiceBinding("foo", 12345, "bar", 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123).hashCode(),
+		    new ServiceBinding("bar", 12345, "bar", 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123).hashCode(),
+		    new ServiceBinding("foo", 12345, "rab", 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123).hashCode(),
+		    new ServiceBinding("foo", 12346, "bar", 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123).hashCode(),
+		    new ServiceBinding("foo", 12345, "bar", 124).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123).hashCode(),
+		    new ServiceBinding("foo", 0, "bar", 123).hashCode());
+    assertNotEquals(new ServiceBinding("foo", 12345, "bar", 123).hashCode(),
+		    new ServiceBinding("foo", 12345, "bar", 0).hashCode());
+  }
+
+  public void testEqualsHashOld() {
     assertEquals(new ServiceBinding("foo", 12345, 0),
 		 new ServiceBinding("foo", 12345, 0));
     assertEquals(new ServiceBinding("foo", 12345, 123),
@@ -68,22 +104,30 @@ public class TestServiceBinding extends LockssTestCase {
 
   public void testGetRestStem() {
     assertEquals("http://foo.host:22222",
-		 new ServiceBinding("foo.host", 22222, 12345).getRestStem());
+		 new ServiceBinding("foo.host", 22222,
+				    "bar.host", 12345).getRestStem());
     assertEquals("http://localhost:666",
-		 new ServiceBinding(null, 666, 0).getRestStem());
-    assertEquals(666, new ServiceBinding(null, 666, 0).getRestPort());
-    assertTrue(new ServiceBinding(null, 666, 0).hasRestPort());
-    assertFalse(new ServiceBinding(null, 0, 666).hasRestPort());
+		 new ServiceBinding(null, 666, null, 0).getRestStem());
+    assertEquals(666, new ServiceBinding(null, 666, null, 0).getRestPort());
+    assertTrue(new ServiceBinding(null, 666, null, 0).hasRestPort());
+    assertFalse(new ServiceBinding(null, 0, null, 666).hasRestPort());
+    assertTrue(new ServiceBinding("foo.host", 666, null, 0).hasRestPort());
+    assertFalse(new ServiceBinding("foo.host", 0, null, 666).hasRestPort());
   }
 
   public void testGetUiStem() {
-    assertEquals("https://foo.host:12345",
-		 new ServiceBinding("foo.host", 0, 12345).getUiStem("https"));
+    assertEquals("https://bar.host:12345",
+		 new ServiceBinding("foo.host", 0,
+				    "bar.host", 12345).getUiStem("https"));
     assertEquals("http://localhost:666",
-		 new ServiceBinding(null, 123, 666).getUiStem("http"));
-    assertEquals(666, new ServiceBinding(null, 111, 666).getUiPort());
-    assertTrue(new ServiceBinding(null, 111, 666).hasUiPort());
-    assertFalse(new ServiceBinding(null, 111, 0).hasUiPort());
+		 new ServiceBinding("foo.hoar", 123,
+				    null, 666).getUiStem("http"));
+    assertEquals(666, new ServiceBinding(null, 111,
+					 "bar.host", 666).getUiPort());
+    assertTrue(new ServiceBinding(null, 111, "bar.host", 666).hasUiPort());
+    assertFalse(new ServiceBinding(null, 111, "bar.host", 0).hasUiPort());
+    assertTrue(new ServiceBinding(null, 111, null, 666).hasUiPort());
+    assertFalse(new ServiceBinding(null, 111, null, 0).hasUiPort());
   }
 }
 

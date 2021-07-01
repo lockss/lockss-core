@@ -24,18 +24,24 @@ package org.lockss.repository;
 
 import java.io.*;
 import java.util.*;
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.Test;
 import org.lockss.app.*;
+import org.lockss.log.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
 
 public class TestRepositoryManager extends LockssTestCase4 {
+  private static L4JLogger log = L4JLogger.getLogger();
+
   private MockArchivalUnit mau;
   private MyRepositoryManager mgr;
 
@@ -77,27 +83,53 @@ public class TestRepositoryManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testGetRepositoryUrlList() throws Exception {
+    assertEmpty(mgr.getRepositoryUrlList());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:coll42");
+    assertEquals(ListUtil.list("volatile:coll42"), mgr.getRepositoryUrlList());
+  }
+
+  @Test
   public void testGetRepositoryList() throws Exception {
-    assertEmpty(mgr.getRepositoryList());
-    String tempDirPath = setUpDiskSpace();
-    assertEquals(ListUtil.list("local:" + tempDirPath),
-		 mgr.getRepositoryList());
-    String tempdir2 = getTempDir().getAbsolutePath() + File.separator;
-    ConfigurationUtil.setFromArgs("org.lockss.platform.diskSpacePaths",
-				  tempdir2 + ";" + tempDirPath);
-    assertEquals(ListUtil.list("local:" + tempdir2, "local:" + tempDirPath),
-		 mgr.getRepositoryList());
+    assertEmpty(mgr.getRepositoryUrlList());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:coll42");
+    assertEquals(ListUtil.list(mgr.getRepoRepo("volatile:coll42")),
+                 mgr.getRepositoryList());
   }
 
   @Test
   public void testGetRepositoryDF () throws Exception {
     String tmpdir = getTempDir().toString();
+    // Ensure at least 1K in tmpdir so df.used > 0
+    FileTestUtil.writeTempFile("pad", StringUtils.repeat("0123456789", 103));
     assertNull(mgr.getV2Repository());
-    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "local:coll_1:" + tmpdir);
-    PlatformUtil.DF df = mgr.getRepositoryDF("local:.");
+    String spec = "local:coll_1:" + tmpdir;
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY, spec);
+    assertNotNull(mgr.getV2Repository());
+    PlatformUtil.DF df = mgr.getRepositoryDF(spec);
     assertNotNull(df);
+    Map<String,PlatformUtil.DF> repoMap = mgr.getRepositoryDFMap();
+    PlatformUtil.DF mapDf = repoMap.get(spec);
+    assertTrue(equalsDF(df, mapDf));
+    assertTrue(""+df.getSize(), df.getSize() > 0);
+    // Can't assume tmpdir has any space used as it may not be the same
+    // filesyste that local: uses
+    assertTrue(""+df.getUsed(), df.getUsed() >= 0);
   }
+
+  boolean equalsDF(PlatformUtil.DF df1, PlatformUtil.DF df2) {
+    return Objects.equals(df1.getPath(), df2.getPath())
+      && Objects.equals(df1.getFs(), df2.getFs())
+      && Objects.equals(df1.getMnt(), df2.getMnt())
+      && df1.getSize() == df2.getSize()
+//       && df1.getUsed() == df2.getUsed()
+//       && df1.getAvail() == df2.getAvail()
+//       && df1.getPercent() == df2.getPercent()
+      ;
+  }
+
 
   @Test
   public void testFindLeastFullRepository () throws Exception {
@@ -157,6 +189,53 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertClass(RestLockssRepository.class, repo);
   }
 
+  @Test
+  public void testFindArtifactsByUrl() throws Exception {
+    ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY,
+                                  "volatile:foo");
+    String url1 = "http://www.example.com/testDir/foo";
+    String url2 = "http://www.example.com/testDir/bar";
+
+    LockssRepository repo = mgr.getV2Repository().getRepository();
+    Artifact art;
+    storeArt(repo, url1, "111", null);
+    storeArt(repo, url2, "222", null);
+    TimerUtil.guaranteedSleep(1000);
+    List<Artifact> arts1 = mgr.findArtifactsByUrl(url1);
+    assertEquals(1, arts1.size());
+    art = arts1.get(0);
+    assertEquals(url1, art.getUri());
+    assertEquals(1, (long)art.getVersion());
+    List<Artifact> arts2 = mgr.findArtifactsByUrl(url2);
+    art = arts2.get(0);
+    assertEquals(1, arts2.size());
+    assertEquals(url2, art.getUri());
+    assertEquals(1, (long)art.getVersion());
+
+    storeArt(repo, url1, "xxxx", null);
+    storeArt(repo, url1, "yyyyyyy", null);
+    List<Artifact> arts3 = mgr.findArtifactsByUrl(url1);
+    assertEquals(1, arts1.size());
+    art = arts3.get(0);
+    assertEquals(url1, art.getUri());
+    assertEquals(3, (long)art.getVersion());
+
+
+    assertEmpty(mgr.findArtifactsByUrl(url1 + "/notpresent"));
+  }
+
+  protected Artifact storeArt(LockssRepository repo, String url, String content,
+			      CIProperties props) throws Exception {
+    return storeArt(repo, url, new StringInputStream(content), props);
+  }
+
+  protected Artifact storeArt(LockssRepository repo, String url, InputStream in,
+			      CIProperties props) throws Exception {
+    if (props == null) props = new CIProperties();
+    return V2RepoUtil.storeArt(repo, "foo", "auidauid42", url, in, props);
+  }
+
+
   class MyRepositoryManager extends RepositoryManager {
     List nodes = new ArrayList();
     SimpleBinarySemaphore sem;
@@ -169,9 +248,9 @@ public class TestRepositoryManager extends LockssTestCase4 {
     List getNodes() {
       return nodes;
     }
-    public List<String> getRepositoryList() {
+    public List<String> getRepositoryUrlList() {
       if (repos != null) return repos;
-      return super.getRepositoryList();
+      return super.getRepositoryUrlList();
     }
     public void setRepos(List repos) {
       this.repos = repos;

@@ -1,77 +1,37 @@
 /*
- * $Id$
+ * Copyright (c) 2020 Board of Trustees of Leland Stanford Jr. University,
+ * all rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Except as contained in this notice, the name of Stanford University shall not
+ * be used in advertising or otherwise to promote the sale, use or other dealings
+ * in this Software without prior written authorization from Stanford University.
  */
 
 /*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
-
-*/
-
-/*
- * Some portions of this code are:
- * Copyright (c) 2000-2003 Sun Microsystems. All Rights Reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- * - Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- *
- * - Redistribution in binary form must reproduct the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- *
- * Neither the name of Sun Microsystems or the names of contributors may
- * be used to endorse or promote products derived from this software
- * without specific prior written permission.
- *
- *   This software is provided "AS IS," without a warranty of any
- *   kind. ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND
- *   WARRANTIES, INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT, ARE HEREBY
- *   EXCLUDED. SUN MICROSYSTEMS AND ITS LICENSORS SHALL NOT BE LIABLE
- *   FOR ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING,
- *   MODIFYING OR DISTRIBUTING THE SOFTWARE OR ITS DERIVATIVES. IN NO
- *   EVENT WILL SUN MICROSYSTEMS OR ITS LICENSORS BE LIABLE FOR ANY
- *   LOST REVENUE, PROFIT OR DATA, OR FOR DIRECT, INDIRECT, SPECIAL,
- *   CONSEQUENTIAL, INCIDENTAL OR PUNITIVE DAMAGES, HOWEVER CAUSED AND
- *   REGARDLESS OF THE THEORY OF LIABILITY, ARISING OUT OF THE USE OF
- *   OR INABILITY TO USE SOFTWARE, EVEN IF SUN MICROSYSTEMS
- *   HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
- *
- * You acknowledge that Software is not designed, licensed or intended for
- * use in the design, construction, operation or maintenance of any
- * nuclear facility.
+ * $Id$
  */
 
 package org.lockss.extractor;
 
 import org.apache.commons.io.IOUtils;
-import org.htmlparser.util.Translate;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
 import org.lockss.plugin.ArchivalUnit;
@@ -105,7 +65,7 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
 
   public static final String PARAM_PARSE_JS = PREFIX + "parse_js";
   public static final boolean DEFAULT_PARSE_JS = false;
-  
+
   public static final String PARAM_PARSE_CSS = PREFIX + "parse_css";
   public static final boolean DEFAULT_PARSE_CSS = true;
 
@@ -131,7 +91,7 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
   protected static final String TDTAG = "td";
   protected static final String THTAG = "th";
   protected static final String VALUETAG = "value";
-  
+
   protected static final String SCRIPTTAGEND = "/script>";
 
   protected static final String BACKGROUNDSRC = "background";
@@ -150,7 +110,7 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
   protected static final String REFRESH = "refresh";
   protected static final String HTTP_EQUIV = "http-equiv";
   protected static final String HTTP_EQUIV_CONTENT = "content";
-  
+
   protected static final char NEWLINE_CHAR = '\n';
   protected static final char CARRIAGE_RETURN_CHAR = '\r';
 
@@ -250,10 +210,9 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
   /**
    * Keep calling skipLeadingWhiteSpace and refilling the char ring until there
    * is no more leading white space
-   * @param ring 
-   * CharRing to strip whitespace from
+   *
+   * @param ring CharRing to strip whitespace from
    * @param minKars minimum number of characters needed in the CharRing
-   * @throws IOException
    */
   private void skipWhiteSpace(CharRing ring, int minKars) throws IOException {
     do {
@@ -539,7 +498,7 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
 	  }
         }
         break;
-      case 't': // <table background=back.gif> or <td background=back.gif> or <th background=back.gif> 
+      case 't': // <table background=back.gif> or <td background=back.gif> or <th background=back.gif>
       case 'T': // See http://msdn.microsoft.com/workshop/author/dhtml/reference/properties/background_2.asp
         if (beginsWithTag(link, TABLETAG)
             || beginsWithTag(link, TDTAG)
@@ -557,18 +516,21 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
       return;
     }
     String newBase = getAttributeValue(HREF, link);
-    if (!UrlUtil.isAbsoluteUrl(newBase)) {
-      logger.siteWarning("Ignoring base tag with relative URL: " + link);
+    if (newBase == null) {
+      logger.debug3("Base tag w/ no href, ignoring: " + link);
       return;
     }
     logger.debug3("Base tag found, setting baseUrl to: " + newBase);
     try {
-      baseUrl = new URL(newBase);
+      baseUrl = new URL(resolveUri(baseUrl, newBase));
+      logger.debug3("Base tag found (" + newBase +
+          "), setting baseUrl to: " + baseUrl);
       malformedBaseUrl = false;
       hasBaseBeenSet = true;
-    } catch (MalformedURLException e) {
+    }
+    catch (MalformedURLException e) {
       malformedBaseUrl = true;
-      logger.siteWarning("Base tag has malformed URL: "+ newBase, e);
+      logger.siteWarning("Base tag has malformed URL: " + newBase, e);
       logger.siteWarning("Base is still: " + baseUrl);
     }
   }
@@ -576,24 +538,26 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
   protected void parseStyleContentsFromRing(ArchivalUnit au,
 					    LinkExtractor.Callback cb) {
     Reader cssReader = new Reader() {
-      
+
       boolean closed = false;
-      
+
       public void close() {
         closed = true;
       }
-      
+
       public int read(char[] cbuf, int off, int len) throws IOException {
         int ix = 0;
         while (ix < len) {
           int ret = read();
-          if (ret == -1) break; 
-          cbuf[off + ix] = (char)ret;
+          if (ret == -1) {
+            break;
+          }
+          cbuf[off + ix] = (char) ret;
           ++ix;
         }
         return ix == 0 ? -1 : ix;
       }
-      
+
       public int read() throws IOException {
         if (!refill("</style>".length()) && !closed) {
           logger.siteWarning("Unclosed <style> section in " + srcUrl);
@@ -762,7 +726,7 @@ public class GoslingHtmlLinkExtractor implements LinkExtractor {
   protected String getAttributeValue(String attribute, String src) {
     if (StringUtil.indexOfIgnoreCase(src, attribute) >= 0) {
       String val = getEncodedAttributeValue(attribute, src);
-      return val == null ? null : Translate.decode(val);
+      return val == null ? null : StringEscapeUtils.unescapeHtml4(val);
     }
     return null;
   }

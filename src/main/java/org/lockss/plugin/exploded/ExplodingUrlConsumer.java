@@ -41,7 +41,7 @@ import org.lockss.crawler.Exploder;
 import org.lockss.crawler.TarExploder;
 import org.lockss.crawler.WarcExploder;
 import org.lockss.crawler.ZipExploder;
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 import org.lockss.daemon.Crawler.CrawlerFacade;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.ExploderHelper;

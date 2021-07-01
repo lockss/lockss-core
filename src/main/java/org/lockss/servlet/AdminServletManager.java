@@ -48,6 +48,7 @@ import org.lockss.config.*;
 import org.lockss.account.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.jetty.*;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.springframework.web.context.ContextLoaderListener;
@@ -483,6 +484,11 @@ public class AdminServletManager extends BaseServletManager {
           ServletDescr.NEED_ROLE_DEBUG
           | ServletDescr.NEED_ROLE_CONTENT_ACCESS);
   
+  protected static final ServletDescr SERVLET_GENERATE_LCAP_KEYS =
+          new ServletDescr("GenerateLcapKeys",
+          GenerateLcapKeys.class,
+          "Generate LCAP SSL Keys");
+
   protected static final ServletDescr SERVLET_LIST_HOLDINGS =
           new ServletDescr("TitleList",
           ListHoldings.class,
@@ -700,6 +706,7 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_THREAD_DUMP,
     SERVLET_RAISE_ALERT,
     SERVLET_HASH_CUS,
+    SERVLET_GENERATE_LCAP_KEYS,
     LINK_CONTACT,
     SERVLET_EDIT_ACCOUNT,
     SERVLET_EDIT_ACCOUNTS,
@@ -748,6 +755,7 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_THREAD_DUMP,
     SERVLET_RAISE_ALERT,
     SERVLET_HASH_CUS,
+    SERVLET_GENERATE_LCAP_KEYS,
     LINK_CONTACT,
     SERVLET_EDIT_ACCOUNT,
     SERVLET_EDIT_ACCOUNTS,
@@ -795,6 +803,7 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_THREAD_DUMP,
     SERVLET_RAISE_ALERT,
     SERVLET_HASH_CUS,
+    SERVLET_GENERATE_LCAP_KEYS,
     LINK_CONTACT,
     SERVLET_EDIT_ACCOUNT,
     SERVLET_EDIT_ACCOUNTS,

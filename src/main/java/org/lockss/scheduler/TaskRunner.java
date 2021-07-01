@@ -89,10 +89,10 @@ class TaskRunner {
   static final String PRIORITY_PARAM_STEPPER = "TaskRunner";
   static final int PRIORITY_DEFAULT_STEPPER = Thread.NORM_PRIORITY - 1;
 
-  static final String PRIORITY_PARAM_NOTIFIER = "Notifier";
+  static final String PRIORITY_PARAM_NOTIFIER = "TaskNotifier";
   static final int PRIORITY_DEFAULT_NOTIFIER = Thread.NORM_PRIORITY + 1;
 
-  static final String WDOG_PARAM_NOTIFIER = "Notifier";
+  static final String WDOG_PARAM_NOTIFIER = "TaskNotifier";
   static final long WDOG_DEFAULT_NOTIFIER = Constants.HOUR;
 
   private static final Logger log = Logger.getLogger();

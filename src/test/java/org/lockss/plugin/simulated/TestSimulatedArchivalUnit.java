@@ -36,6 +36,7 @@ import java.io.*;
 
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.config.*;
 
 /**

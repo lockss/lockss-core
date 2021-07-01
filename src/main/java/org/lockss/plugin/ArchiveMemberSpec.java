@@ -55,7 +55,7 @@ public class ArchiveMemberSpec {
    * @param url
    * @return a ArchiveMemberSpec or null.
    */
-  private static ArchiveMemberSpec fromUrl(String url) {
+  public static ArchiveMemberSpec fromUrl(String url) {
     int pos = url.indexOf(URL_SEPARATOR);
     if (pos > 0) {
       return new ArchiveMemberSpec(url.substring(0, pos),

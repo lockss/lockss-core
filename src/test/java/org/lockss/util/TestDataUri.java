@@ -32,6 +32,7 @@ import org.lockss.extractor.JsoupHtmlLinkExtractor;
 import org.lockss.extractor.LinkExtractor;
 import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockArchivalUnit;
+import org.lockss.util.io.FileUtil;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;

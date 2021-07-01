@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -34,6 +34,8 @@ package org.lockss.plugin.base;
 
 import java.io.*;
 import java.net.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.regex.*;
 import java.math.BigInteger;
@@ -41,6 +43,7 @@ import junit.framework.*;
 
 import de.schlichtherle.truezip.file.*;
 
+import org.apache.commons.io.output.NullOutputStream;
 import org.lockss.plugin.*;
 import org.lockss.plugin.PluginManager.CuContentReq;
 import org.lockss.plugin.simulated.*;
@@ -48,6 +51,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.truezip.*;
 import org.lockss.repository.*;
@@ -162,6 +166,59 @@ public class TestArchiveMembers extends LockssTestCase {
 			  url + "!/" + memberName, cu);
   }
 
+  void assertArchiveMemberByHash(String expHash, String expMime, long expSize, String url,
+                                 String memberName) throws IOException, NoSuchAlgorithmException {
+
+    CachedUrl cu0 = simau.makeCachedUrl(url);
+    assertTrue("Archive file not found: " + url, cu0.hasContent());
+
+    CachedUrl cu = cu0.getArchiveMemberCu(ArchiveMemberSpec.fromCu(cu0, memberName));
+
+    assertArchiveMemberCuByHash(expHash, expMime, expSize, url + "!/" + memberName, cu, null);
+  }
+
+  void assertArchiveMemberCuByHash(String expHash, String expMime, long expSize, String expMembUrl,
+                                   CachedUrl cu, CachedUrl arcCu) throws IOException, NoSuchAlgorithmException {
+
+    assertClass(BaseCachedUrl.Member.class, cu);
+
+    assertTrue("Should have content: " + cu, cu.hasContent());
+    assertEquals(expMembUrl, cu.getUrl());
+    assertEquals(expSize, cu.getContentSize());
+
+    // Compute MD5 hash and assert it matches
+    try (InputStream is = cu.getUnfilteredInputStream()) {
+      assertNotNull("getUnfilteredInputStream was null: " + cu, is);
+      assertEquals(expHash, hashInputStream(is, "MD5"));
+    }
+
+    Properties props = cu.getProperties();
+    assertEquals(expSize, props.get("Length"));
+
+    assertEquals(expMembUrl, props.get(CachedUrl.PROPERTY_NODE_URL));
+    assertEquals(expMime, cu.getContentType());
+
+    if (arcCu != null) {
+      Properties arcProps = arcCu.getProperties();
+
+      // Last-Modified should be present and not the same as that of the
+      // archive (see BaseCachedUrl.synthesizeProperties() )
+      assertNotEquals(arcProps.get(CachedUrl.PROPERTY_LAST_MODIFIED), props.get(CachedUrl.PROPERTY_LAST_MODIFIED));
+    }
+
+    assertNotNull(props.get(CachedUrl.PROPERTY_LAST_MODIFIED));
+  }
+
+  String hashInputStream(InputStream is, String alg) throws IOException, NoSuchAlgorithmException {
+    MessageDigest dig = MessageDigest.getInstance(alg);
+    HashedInputStream.Hasher hasher = new HashedInputStream.Hasher(dig);
+    HashedInputStream his = new HashedInputStream(is, hasher);
+    StreamUtil.copy(his, NullOutputStream.NULL_OUTPUT_STREAM);
+    byte[] hashOfContent = hasher.getDigest().digest();
+
+    return ByteArray.toHexString(hashOfContent);
+  }
+
   void assertArchiveMemberCu(String expContentRe, String expMime, long expSize,
 			     String expMembUrl, CachedUrl cu)
       throws IOException {
@@ -220,6 +277,47 @@ public class TestArchiveMembers extends LockssTestCase {
     assertArchiveMember("this is bin",
 			null, 12,
 			aurl, "branch5/branch2/001file.bin");
+  }
+
+  public void testSplitZips() throws Exception {
+    PluginTestUtil.crawlSimAu(simau);
+
+    String aurl = "http://www.example.com/splitzip/lockss-core-daemon.src.zip";
+    String burl = "http://www.example.com/splitzip2/FOO.ZIP?xyzzy=foo&wolf=woof";
+    String curl = "http://www.example.com/single-part-split-zip.zip";
+
+    assertArchiveMemberByHash("212FBD3A7965442ED3CCA401A0D9BD06", null,
+        4765, aurl, "daemon/ArchiveEntry.java");
+
+    assertArchiveMemberByHash("99EF7447C09A6DBED0D21054FE01CA91", null,
+        14165, aurl, "daemon/LockssThread.java");
+
+    assertArchiveMemberByHash("B8248EE9F450516DFB9B6D298712C9AD", "text/html",
+        119, aurl, "daemon/status/package.html");
+
+
+    assertArchiveMemberByHash("5DA12A97178F6A612FE0D3AEA7054C86", null,
+        32768, burl, "foo/d");
+
+    assertNoArchiveMember(aurl, "none.html");
+
+    assertArchiveMember("<tag>text in tag</tag>",
+			"application/xml", 23,
+			curl, "dir1/bar.xml");
+    assertArchiveMember("This is foo.txt",
+			"text/plain", 16,
+			curl, "foo.txt");
+  }
+
+  public void testReplaceZipExtension() throws Exception {
+    assertEquals("http://www.example.com/foo/zip1.z01",
+        TFileCache.replaceZipExtension("http://www.example.com/foo/zip1.zip", "z", 2, 1));
+
+    assertEquals("http://www.example.com/foo/zip1.Z01?",
+        TFileCache.replaceZipExtension("http://www.example.com/foo/zip1.zip?", "Z", 2, 1));
+
+    assertEquals("http://www.example.com/foo/zip1.z01?bar=xyzzy",
+        TFileCache.replaceZipExtension("http://www.example.com/foo/zip1.zip?bar=xyzzy", "z", 2, 1));
   }
 
   public void testInferContentType() throws Exception {
@@ -299,17 +397,16 @@ public class TestArchiveMembers extends LockssTestCase {
     Iterator<CachedUrl> cuIter = cus.archiveMemberIterator();
     Iterator<String> urlIter = urls.iterator();
 
-    int cnt = 0;
     int htmlcnt = 0;
 
     boolean didCheckDelete = false;
 
+    List<String> cusFiles = new ArrayList<>();
     while (cuIter.hasNext()) {
       CachedUrl cu = cuIter.next();
       String url = cu.getUrl();
       assertTrue(cu.hasContent());
-      assertEquals(url, urlIter.next(), url);
-      cnt++;
+      cusFiles.add(url);
 
       // This won't work until we add the necessary logic to recreate
       // TFiles that have been umounted
@@ -356,7 +453,7 @@ public class TestArchiveMembers extends LockssTestCase {
 	assertMatchesRE(url, expContent, content);
       }
     }
-    assertEquals(urls.size(), cnt++);
+    assertEquals(urls,cusFiles);
     assertEquals(170, htmlcnt);
 
 //     assertTrue(didCheckDelete);
@@ -487,35 +584,41 @@ public class TestArchiveMembers extends LockssTestCase {
   public void testFindCu() throws Exception {
     PluginTestUtil.crawlSimAu(simau);
 
-    // Generate a second sim AU that doesn't contains the URL we're looking
-    // for, to force PluginManager to search multiple AUs for the member,
-    // which tickles a former bug.
+    // Generate a second sim AU
     String tmp2 = getTempDir().getAbsolutePath() + File.separator;
     SimulatedArchivalUnit simau2 =
       PluginTestUtil.createAndStartSimAu(MySimulatedPlugin.class,
 					 simAuConfig2(tmp2));
-    log.debug("Real sim au: " + simau);
-    log.debug("2nd sim au: " + simau2);
-    simau2.generateContentTree();
     MySimulatedArchivalUnit msau2 = (MySimulatedArchivalUnit)simau2;
     msau2.setArchiveFileTypes(ArchiveFileTypes.DEFAULT);
-    // Ensure this one is first so PluginManager.findCachedUrls0() loop
-    // finds it first, which formerly caused the archive to be returned
-    // instead of the member
-    pluginMgr.promoteAuInSearchSets(msau2);
+    simau2.generateContentTree();
+    PluginTestUtil.crawlSimAu(simau2);
+
+    log.debug2("simau: " + simau);
+    log.debug2("simau2: " + simau2);
+    // Tests below rely on simau AUID sorting before simau2's AUID, in
+    // order to guarantee expected result order from
+    // getArtifact...AllAus().  (It should, because of counter in temdir
+    // name in AUID)
+    assertTrue(simau.getAuId().compareTo(simau2.getAuId()) < 0);
 
     CachedUrl cu;
-
     String arcUrl = "http://www.example.com/branch1/branch1/zip5.zip";
     
+    // Search for a member URL
     cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
     assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
 			  arcUrl + "!/001file.html", cu);
+    // Should be from 1st AU
+    assertSame(simau, cu.getArchivalUnit());
 
-    // The archive file itesle
+    // The archive file iteslf
     cu = pluginMgr.findCachedUrl(arcUrl);
     assertTrue(cu.hasContent());
     assertEquals(5392, cu.getContentSize());
+    assertSame(simau, cu.getArchivalUnit());
+    assertEquals(2, pluginMgr.getRecentCuMisses());
+    assertEquals(0, pluginMgr.getRecentCuHits());
 
     cu = pluginMgr.findCachedUrl(arcUrl + "!/no/such/member");
     assertNull(cu);
@@ -527,19 +630,52 @@ public class TestArchiveMembers extends LockssTestCase {
     cu = pluginMgr.findCachedUrl(arcUrl + "nofile!/no/such/member");
     assertNull(cu);
 
-    cu = pluginMgr.findCachedUrl(arcUrl + "nofile!/no/such/member",
-				 CuContentReq.DontCare);
+    String membUrl = arcUrl + "nofile!/no/such/member";
+    cu = pluginMgr.findCachedUrl(membUrl, CuContentReq.DontCare);
     assertFalse(cu.hasContent());
+    assertEquals(membUrl, cu.getUrl());
+
+    // Disable archive processing in 1st AU, ensure that member is found in
+    // 2nd AU.  Do this for both possible AuSearchSet orderings
+    msau.setArchiveFileTypes(null);
+
+    pluginMgr.flushRecentCuCache();
+    pluginMgr.promoteAuInSearchSets(msau);
+    cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
+    assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
+			  arcUrl + "!/001file.html", cu);
+    assertSame(simau2, cu.getArchivalUnit());
+    assertEquals(7, pluginMgr.getRecentCuMisses());
+    assertEquals(0, pluginMgr.getRecentCuHits());
+
+    pluginMgr.flushRecentCuCache();
+    pluginMgr.promoteAuInSearchSets(msau2);
+    cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
+    assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
+			  arcUrl + "!/001file.html", cu);
+    assertSame(simau2, cu.getArchivalUnit());
+    assertEquals(8, pluginMgr.getRecentCuMisses());
+    assertEquals(0, pluginMgr.getRecentCuHits());
+
+    // Test recentCuMap cache
+    cu = pluginMgr.findCachedUrl(arcUrl + "!/001file.html");
+    assertArchiveMemberCu("file 1, depth 0, branch 0", "text/html", 226,
+			  arcUrl + "!/001file.html", cu);
+    assertSame(simau2, cu.getArchivalUnit());
+    assertEquals(8, pluginMgr.getRecentCuMisses());
+    assertEquals(1, pluginMgr.getRecentCuHits());
 
     // If AU has no archive file types, currently CU will still be a Member
-    // but with no content.  Must use a different member name because of
-    // PluginManager.recentCuMap
-    msau.setArchiveFileTypes(null);
+    // but with no content.  This time use a different member name to evade
+    // recentCuMap cache.
+    msau2.setArchiveFileTypes(null);
     cu = pluginMgr.findCachedUrl(arcUrl + "!/002file.html");
     assertNull(cu);
 
-    cu = pluginMgr.findCachedUrl(arcUrl + "!/002file.html",
-				 CuContentReq.DontCare);
+    membUrl = arcUrl + "!/002file.html";
+    cu = pluginMgr.findCachedUrl(membUrl, CuContentReq.DontCare);
+    assertEquals(membUrl, cu.getUrl());
+
     assertNotClass(BaseCachedUrl.Member.class, cu);
     assertFalse(cu.hasContent());
   }    

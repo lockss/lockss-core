@@ -36,7 +36,7 @@ import java.io.*;
 import java.util.zip.*;
 import java.security.MessageDigest;
 
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 import org.lockss.util.time.TimeBase;
 
 /**

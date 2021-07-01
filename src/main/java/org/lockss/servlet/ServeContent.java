@@ -1,30 +1,28 @@
 /*
-
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
-
-*/
+ * Copyright (c) 2020 Board of Trustees of Leland Stanford Jr. University,
+ * all rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Except as contained in this notice, the name of Stanford University shall not
+ * be used in advertising or otherwise to promote the sale, use or other dealings
+ * in this Software without prior written authorization from Stanford University.
+ */
 
 package org.lockss.servlet;
 
@@ -41,7 +39,9 @@ import org.apache.commons.collections.*;
 //HC3 import org.apache.commons.httpclient.util.DateParseException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.alert.Alert;
 import org.lockss.app.LockssDaemon;
@@ -74,7 +74,7 @@ import org.mortbay.http.*;
 
  * Links can be rewritten (i.e., original URLs can be embedded in
  * ServeContent URLs) in two ways:<ul>
- * 
+ *
  * <li>http://.../ServeContent?url=<i>url-encoded-original-url</i></li>
  * <li>http://.../ServeContent/<i>original-url</i></li>
  * </ul>
@@ -393,7 +393,7 @@ public class ServeContent extends LockssServlet {
           DEFAULT_NORMALIZE_URL_ARG);
       normalizeForwardedUrl = config.getBoolean(PARAM_NORMALIZE_FORWARDED_URL,
           DEFAULT_NORMALIZE_FORWARDED_URL);
-      
+
       minimallyEncodeUrl = config.getBoolean(PARAM_MINIMALLY_ENCODE_URLS,
           DEFAULT_MINIMALLY_ENCODE_URLS);
       useRedirectedBaseUrl =
@@ -764,8 +764,8 @@ public class ServeContent extends LockssServlet {
         // Find a CU with content if possible.  If none, find an AU where
         // it would fit so can rewrite content from publisher if necessary.
         cu = pluginMgr.findCachedUrl(url, CuContentReq.PreferContent);
-	// TK why is this necessary with new repo but not old?
-	if (!cu.hasContent()) cu = null;
+// 	// TK why is this necessary with new repo but not old?
+// 	if (cu != null && !cu.hasContent()) cu = null;
         if (cu != null) {
 	  cuUrl = cu.getUrl();
           au = cu.getArchivalUnit();
@@ -1162,15 +1162,22 @@ public class ServeContent extends LockssServlet {
     String mimeType = HeaderUtil.getMimeTypeFromContentType(ctype);
 
     if (log.isDebug3()) {
-      log.debug3( "Serving cached content for: " + url
-                  + " mime type=" + mimeType
-                  + " size=" + cu.getContentSize()
-                  + " cu=" + cu);
+      log.debug3("Serving cached content for: " + url
+          + " mime type=" + mimeType
+          + " size=" + cu.getContentSize()
+          + " cu=" + cu);
     }
     resp.setContentType(ctype);
-    // Set as inline content with name
-    resp.setHeader("Content-disposition", "inline; filename="+
-                                          ServletUtil.getContentOriginalFilename(cu, true));
+
+    // If no Content-Disposition, set as inline content with name
+    String cdisp = props.getProperty("Content-Disposition");
+    if (cdisp == null) {
+      String fname =
+        ObjectUtils.defaultIfNull(ServletUtil.getContentOriginalFilename(cu, true),
+                                  "UnnamedContent");
+      cdisp = "inline; filename=" + fname;
+    }
+    resp.setHeader("Content-Disposition", cdisp);
 
     if (cuLastModified != null) {
       resp.setHeader(HttpFields.__LastModified, cuLastModified);
@@ -1183,6 +1190,9 @@ public class ServeContent extends LockssServlet {
 
     // Add a header to the response to identify content from LOCKSS cache
     resp.setHeader(Constants.X_LOCKSS, Constants.X_LOCKSS_FROM_CACHE);
+
+    // Indicate the AU the content came from
+    resp.setHeader(Constants.X_LOCKSS_FROM_AUID, au.getAuId());
 
     // rewrite content from cache
     CharsetUtil.InputStreamAndCharset isc = CharsetUtil.getCharsetStream(cu);
@@ -1404,6 +1414,10 @@ public class ServeContent extends LockssServlet {
     if (contentEncoding != null) {
       resp.setHeader(HttpFields.__ContentEncoding, contentEncoding);
     }
+
+    // Indicate the AU the content was rewritten for, even though it isn't
+    // cached locally
+    resp.setHeader(Constants.X_LOCKSS_REWRITTEN_FOR_AUID, au.getAuId());
 
     String charset = HeaderUtil.getCharsetOrDefaultFromContentType(ctype);
     BufferedInputStream bufRespStrm = new BufferedInputStream(respStrm);
@@ -1639,8 +1653,8 @@ public class ServeContent extends LockssServlet {
         if (length >= 0 && length <= maxBufferedRewrite) {
           // if small file rewrite to temp buffer to find length before
           // sending.
-          ByteArrayOutputStream baos =
-              new ByteArrayOutputStream((int)(length * 1.1 + 100));
+          UnsynchronizedByteArrayOutputStream baos =
+              new UnsynchronizedByteArrayOutputStream((int)(length * 1.1 + 100));
           long bytes = StreamUtil.copy(rewritten, baos);
           setContentLength(bytes);
           outStr = resp.getOutputStream();
@@ -1684,7 +1698,7 @@ public class ServeContent extends LockssServlet {
       };
     }
   }
-      
+
 
   private void setContentLength(long length) {
     if (length >= 0) {

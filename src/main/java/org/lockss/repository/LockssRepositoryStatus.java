@@ -31,12 +31,15 @@ package org.lockss.repository;
 import java.io.*;
 import java.util.*;
 import org.apache.commons.collections4.*;
+import org.apache.commons.collections4.iterators.*;
 
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.daemon.status.*;
 import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.util.*;
+import org.lockss.util.os.*;
+import org.lockss.util.storage.*;
 import org.lockss.laaws.rs.core.*;
 import org.lockss.laaws.rs.model.*;
 
@@ -60,7 +63,7 @@ public class LockssRepositoryStatus {
   public static final String REPO_STATUS_TABLE_NAME = "RepositoryTable";
   public static final String AUIDS_STATUS_TABLE_NAME = "CollectionTable";
   public static final String ARTIFACTS_STATUS_TABLE_NAME = "ArtifactsTable";
-//   public static final String SPACE_TABLE_NAME = "RepositorySpace";
+  //  public static final String SPACE_TABLE_NAME = "RepositorySpace";
 
   public static final String AU_STATUS_TABLE_NAME =
     ArchivalUnitStatus.AU_STATUS_TABLE_NAME;
@@ -69,11 +72,14 @@ public class LockssRepositoryStatus {
     statusServ.registerStatusAccessor(SERVICE_STATUS_TABLE_NAME,
 				      new RepoCollsStatusAccessor(daemon));
     statusServ.registerStatusAccessor(REPO_STATUS_TABLE_NAME,
-				      new RepoStatusAccessor(daemon));
+				      new RepoDetailStatusAccessor(daemon));
     statusServ.registerStatusAccessor(AUIDS_STATUS_TABLE_NAME,
 				      new CollectionAuidsStatusAccessor(daemon));
     statusServ.registerStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME,
 				      new AuidArtifactsStatusAccessor(daemon));
+    statusServ.registerOverviewAccessor(SERVICE_STATUS_TABLE_NAME,
+					new Overview(daemon));
+
   }
 
   static void unregisterAccessors(StatusService statusServ) {
@@ -81,6 +87,7 @@ public class LockssRepositoryStatus {
     statusServ.unregisterStatusAccessor(REPO_STATUS_TABLE_NAME);
     statusServ.unregisterStatusAccessor(AUIDS_STATUS_TABLE_NAME);
     statusServ.unregisterStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME);
+    statusServ.unregisterOverviewAccessor(SERVICE_STATUS_TABLE_NAME);
   }
 
   // Base class
@@ -101,6 +108,9 @@ public class LockssRepositoryStatus {
       (
        new ColumnDescriptor("type", "Type", ColumnDescriptor.TYPE_STRING),
        new ColumnDescriptor("path", "URL / Path", ColumnDescriptor.TYPE_STRING),
+       new ColumnDescriptor("size", "Size", ColumnDescriptor.TYPE_STRING),
+       new ColumnDescriptor("free", "Free", ColumnDescriptor.TYPE_STRING),
+       new ColumnDescriptor("full", "%Full", ColumnDescriptor.TYPE_STRING),
        new ColumnDescriptor("coll", "Collection", ColumnDescriptor.TYPE_STRING),
        new ColumnDescriptor("aus", "AUs", ColumnDescriptor.TYPE_INT)
        );
@@ -129,13 +139,29 @@ public class LockssRepositoryStatus {
       return false;
     }
 
+    // This is awkward because RepoSpec is a {repo, collection} pair but
+    // we're showing both repo status and collection status.  Logicially it
+    // should be two different tables but that would be more trouble for
+    // users.
     private List getRows() {
       List rows = new ArrayList();
       for (RepoSpec rs : repoMgr.getV2RepositoryList()) {
 	LockssRepository repo = rs.getRepository();
+	PlatformUtil.DF repoDf = repoMgr.getRepositoryDF(rs.getSpec());
+	String NO_COLLS = " (none) ";
 	try {
-	  for (String coll : repo.getCollectionIds()) {
+	  Iterator<String> collsIter = repo.getCollectionIds().iterator();
+	  if (!collsIter.hasNext()) {
+	    collsIter = ListUtil.list(NO_COLLS).iterator();
+	  }
+	  for (String coll : new IteratorIterable<String>(collsIter)) {
 	    Map row = new HashMap();
+	    if (repoDf != null) {
+	      row.put("size", StringUtil.sizeKBToString(repoDf.getSize()));
+	      row.put("free", StringUtil.sizeKBToString(repoDf.getAvail()));
+	      row.put("full", repoDf.getPercentString());
+	      repoDf = null;
+	    }
 	    row.put("type", rs.getType());
 	    if (!StringUtil.isNullString(rs.getPath())) {
 	      StatusTable.Reference path =
@@ -144,17 +170,21 @@ public class LockssRepositoryStatus {
 					  rs.getSpec());
 	      row.put("path", path);
 	    }
-	    row.put("coll",
-		    new StatusTable.Reference(rs.getCollection(),
-					      AUIDS_STATUS_TABLE_NAME,
-					      rs.getSpec()));
-	    try {
-	      row.put("aus",
-		      new StatusTable.Reference(IterableUtils.size(repo.getAuIds(coll)),
+	    if (NO_COLLS.equals(coll)) {
+	      row.put("coll", coll);
+	    } else {
+	      row.put("coll",
+		      new StatusTable.Reference(coll,
 						AUIDS_STATUS_TABLE_NAME,
 						rs.getSpec()));
-	    } catch (IOException e) {
-	      log.warning("Couldn't get AU count", e);
+	      try {
+		row.put("aus",
+			new StatusTable.Reference(IterableUtils.size(repo.getAuIds(coll)),
+						  AUIDS_STATUS_TABLE_NAME,
+						  rs.getSpec()));
+	      } catch (IOException e) {
+		log.warning("Couldn't get AU count", e);
+	      }
 	    }
 	    rows.add(row);
 	  }
@@ -172,11 +202,11 @@ public class LockssRepositoryStatus {
   }
 
   /** Display scalar info about a LockssRepository */
-  static class RepoStatusAccessor extends AbstractRepoStatusAccessor {
+  static class RepoDetailStatusAccessor extends AbstractRepoStatusAccessor {
 
     private static final List columnDescriptors = Collections.EMPTY_LIST;
 
-    RepoStatusAccessor(LockssDaemon daemon) {
+    RepoDetailStatusAccessor(LockssDaemon daemon) {
       super(daemon);
     }
 
@@ -199,17 +229,60 @@ public class LockssRepositoryStatus {
     }
 
 
+    private String storageStats(StorageInfo si) {
+      StringBuilder sb = new StringBuilder();
+      sb.append(StringUtil.sizeToString(si.getSize()));
+      sb.append(", ");
+      sb.append(StringUtil.sizeToString(si.getAvail()));
+      sb.append(" free, ");
+      sb.append(StringUtil.sizeToString(si.getUsed()));
+      sb.append(" (");
+      sb.append(si.getPercentUsedString());
+      sb.append(")");
+      sb.append(" used");
+      if (!StringUtil.isNullString(si.getPath())) {
+	sb.append(", at ");
+	sb.append(si.getPath());
+      }
+      return sb.toString();
+    }
+
     private List getSummaryInfo(StatusTable table, RepoSpec rs) {
       List res = new ArrayList();
+      res.add(new StatusTable.SummaryInfo("Spec",
+					  ColumnDescriptor.TYPE_STRING,
+					  rs.getSpec()));
       LockssRepository repo = rs.getRepository();
+      try {
+	RepositoryInfo ri = repo.getRepositoryInfo();
+	StorageInfo dsi = ri.getStoreInfo();
+	res.add(new StatusTable.SummaryInfo("Datastore",
+					    ColumnDescriptor.TYPE_STRING,
+					    ( dsi.getType() + ": " +
+					      storageStats(dsi))));
+	if (dsi.getComponents() != null) {
+	  for (StorageInfo csi : dsi.getComponents()) {
+	    res.add(new StatusTable.SummaryInfo("Basedir",
+						ColumnDescriptor.TYPE_STRING,
+						storageStats(csi)).setIndent(2));
+	  }
+	}
+	StorageInfo isi = ri.getIndexInfo();
+	res.add(new StatusTable.SummaryInfo("Index",
+					    ColumnDescriptor.TYPE_STRING,
+					    ( isi.getType() + ": " +
+					      storageStats(isi))));
+      } catch (IOException e) {
+	log.error("Coudln't get RepositoryInfo for " + rs, e);
+      }
+
+      int refetchedForContent = -1;
       if (repo instanceof RestLockssRepository) {
 	RestLockssRepository rrepo = (RestLockssRepository)repo;
-	res.add(new StatusTable.SummaryInfo("Spec",
-					    ColumnDescriptor.TYPE_STRING,
-					    rs.getSpec()));
 	ArtifactCache artCache = rrepo.getArtifactCache();
 	if (artCache.isEnabled()) {
 	  ArtifactCache.Stats stats = artCache.getStats();
+	  refetchedForContent = stats.getRefetchedForContent();
 	  String artStats =
 	    String.format("%d hits, %d iter hits, %d misses, %d stores, %d invalidates",
 			  stats.getCacheHits(),
@@ -253,16 +326,26 @@ public class LockssRepositoryStatus {
 					      "enabling (waiting for confirmation from repository service)"));
 	}
 	if (table.getOptions().get(StatusTable.OPTION_DEBUG_USER)) {
-	  ArtifactData.Stats stats = ArtifactData.getStats();
-	  String str =
-	    StringUtil.numberOfUnits(stats.getInputUsed(), "InputStream") +
-	    " used, " + stats.getInputUnused() + " unused";
-	  if (stats.getUnreleased() > 0) {
-	    str += ", " + stats.getUnreleased() + " unreleased";
+	  ArtifactData.Stats adStats = ArtifactData.getStats();
+	  StringBuilder sb = new StringBuilder();
+	  sb.append(adStats.getTotalAllocated());
+	  sb.append(" total, ");
+	  sb.append(adStats.getWithContent());
+	  sb.append(" w/ content, ");
+	  if (refetchedForContent >= 0) {
+	    sb.append(refetchedForContent);
+	    sb.append(" refetched for content, ");
+	  }
+	  sb.append(StringUtil.numberOfUnits(adStats.getInputUsed(), "InputStream"));
+	  sb.append(" used, ");
+	  sb.append(adStats.getInputUnused() + " unused");
+	  if (adStats.getUnreleased() > 0) {
+	    sb.append(", ");
+	    sb.append(adStats.getUnreleased() + " unreleased");
 	  }
 	  res.add(new StatusTable.SummaryInfo("ArtifactData",
 					      ColumnDescriptor.TYPE_STRING,
-					      str));
+					      sb.toString()));
 	}
       }
       return res;
@@ -337,7 +420,7 @@ public class LockssRepositoryStatus {
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Collection",
 					  ColumnDescriptor.TYPE_STRING,
-					  rs.getSpec()));
+					  rs.getCollection()));
       return res;
     }
   }
@@ -437,9 +520,58 @@ public class LockssRepositoryStatus {
 					  auid));
       res.add(new StatusTable.SummaryInfo("Collection",
 					  ColumnDescriptor.TYPE_STRING,
-					  rs.getSpec()));
+					  rs.getCollection()));
       return res;
     }
   }
 
+  static class Overview implements OverviewAccessor {
+
+    private LockssDaemon daemon;
+    private RepositoryManager repoMgr;
+
+    public Overview(LockssDaemon daemon) {
+      this.daemon = daemon;
+      repoMgr = daemon.getRepositoryManager();
+    }
+
+    public Object getOverview(String tableName, BitSet options) {
+      Map<String,PlatformUtil.DF> repos = repoMgr.getRepositoryDFMap();
+      List res = new ArrayList();
+      if (repos.size() == 1) {
+	res.add("Repository: ");
+      } else {
+	res.add(repos.size() + " Repositories: ");
+      }
+      for (Iterator<Map.Entry<String,PlatformUtil.DF>> iter =
+	     repos.entrySet().iterator();
+	   iter.hasNext(); ) {
+	PlatformUtil.DF df = iter.next().getValue();
+	if (df != null) {
+	  StringBuilder sb = new StringBuilder();
+	  sb.append(StringUtil.sizeKBToString(df.getSize()));
+	  sb.append(" (");
+	  sb.append(df.getPercentString());
+	  sb.append(" full, ");
+	  sb.append(StringUtil.sizeKBToString(df.getAvail()));
+	  sb.append(" free)");
+	  Object s = sb.toString();
+ 	  if (df.isFullerThan(repoMgr.getDiskFullThreshold())) {
+	    s = new StatusTable.DisplayedValue(s)
+	      .setColor(Constants.COLOR_RED);
+	  } else if (df.isFullerThan(repoMgr.getDiskWarnThreshold())) {
+	    s = new StatusTable.DisplayedValue(s)
+	      .setColor(Constants.COLOR_ORANGE);
+	  }
+	  res.add(s);
+	} else {
+	  res.add("???");
+	}
+	if (iter.hasNext()) {
+	  res.add(", ");
+	}
+      }
+      return new StatusTable.Reference(res, SERVICE_STATUS_TABLE_NAME);
+    }
+  }
 }

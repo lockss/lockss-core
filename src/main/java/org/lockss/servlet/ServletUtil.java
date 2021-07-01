@@ -1029,7 +1029,7 @@ public class ServletUtil {
       servlet.getLockssDaemon().getRepositoryManager();
 
     Table tbl = new Table(REPOCHOICE_TABLE_BORDER, REPOCHOICE_TABLE_ATTRIBUTES);
-    List repos = remoteApi.getRepositoryList();
+    List repos = remoteApi.getRepositoryUrlList();
     boolean isChoice = repos.size() > 1;
 
     tbl.newRow();
@@ -1038,7 +1038,7 @@ public class ServletUtil {
       tbl.add("Select Repository");
       tbl.add(servlet.addFootnote(repoFootnote));
     } else {
-      tbl.add("Disk Space");
+      tbl.add("Storage Space");
     }
     tbl.newRow();
     tbl.addHeading("Repository");
@@ -1046,7 +1046,7 @@ public class ServletUtil {
     tbl.addHeading("Free");
     tbl.addHeading("%Full");
 
-    Map repoMap = remoteApi.getRepositoryMap();
+    Map repoMap = remoteApi.getRepositoryDFMap();
     String mostFree = remoteApi.findLeastFullRepository(repoMap);
     for (Iterator iter = repoMap.entrySet().iterator(); iter.hasNext(); ) {
       Map.Entry entry = (Map.Entry)iter.next();
@@ -1267,7 +1267,7 @@ public class ServletUtil {
     tbl.newRow();
     tbl.addHeading(verb.cap + "?", ALIGN_RIGHT + " rowspan=\"2\"");
     if (repoFlg) {
-      tbl.addHeading("Disk", ALIGN_CENTER + " colspan=\"" + reposSize + "\"");
+      tbl.addHeading("Repo", ALIGN_CENTER + " colspan=\"" + reposSize + "\"");
       repoFootElement = tbl.cell();
     }
     tbl.addHeading("Archival Unit", ALIGN_CENTER + " rowspan=\"2\"");
@@ -1319,7 +1319,7 @@ public class ServletUtil {
           }
         }
         else if (firstRepo != null) {
-	  // The Select On Disk button looks for entries with a
+	  // The Select In Repo button looks for entries with a
 	  // defaultChecked radio button.  If no repo choice, add a hidden
 	  // button just for that.
 	  Block div = new Block(Block.Div, "style=\"display:none\"");
@@ -1459,14 +1459,14 @@ public class ServletUtil {
     if (isChoice) {
       tbl.addHeading("Available Disks", "colspan=\"6\"");
     } else {
-      tbl.addHeading("Disk Space", "colspan=\"4\"");
+      tbl.addHeading("Storage Space", "colspan=\"4\"");
     }
     tbl.newRow();
     if (isChoice) {
       tbl.addHeading("Use");
-      tbl.addHeading("Disk");
+      tbl.addHeading("Repo");
     }
-    tbl.addHeading("Location");
+    tbl.addHeading("Repository");
     tbl.addHeading("Size");
     tbl.addHeading("Free");
     tbl.addHeading("%Full");
@@ -1488,7 +1488,7 @@ public class ServletUtil {
 			      repo == mostFree);
         cb.attribute("onChange", "resetRepoSelections();");
 	tbl.add(cb);
-	tbl.newCell(ALIGN_RIGHT); // "Disk"
+	tbl.newCell(ALIGN_RIGHT); // "Repo"
 	tbl.add(Integer.toString(ix) + "." + SPACE);
       }
       tbl.newCell(ALIGN_LEFT); // "Location"
@@ -1671,20 +1671,11 @@ public class ServletUtil {
    * @return the original filename string
    */
   static String getContentOriginalFilename(CachedUrl cu, boolean quoted) {
-    String filename;
-    try {
-      // Get the filename path from the URL, without any query string
-      filename = new URL(cu.getUrl()).getPath();
-      // Remove path component
-      int n = filename.lastIndexOf("/");
-      filename = filename.substring(n<0?0:n+1);
-    } catch (MalformedURLException e) {
-      filename = "unknown";
-    }
-    if (quoted) {
-      return  "\"" + filename + "\"";
+    String basename = StringUtil.basename(cu.getUrl());
+    if (basename != null && quoted) {
+      return  "\"" + basename + "\"";
     } else {
-      return filename;
+      return basename;
     }
   }
 
@@ -1869,15 +1860,28 @@ public class ServletUtil {
     navTable.newRow();
     navTable.newCell("height=\"10\"");
     LockssDaemon daemon = servlet.getLockssDaemon();
+    RestServicesManager svcsMgr =
+      daemon.getManagerByType(RestServicesManager.class);
     for (ServiceDescr descr : daemon.getAllServiceDescrs()) {
       ServiceBinding binding = daemon.getServiceBinding(descr);
       if (binding.hasUiPort()) {
 	navTable.newRow();
 	navTable.newCell();
 	navTable.add("<font size=\"-1\">");
-	navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
-					AdminServletManager.SERVLET_DAEMON_STATUS,
-					descr.getName(), null));
+        // Make link iff service is actually running.  (Checking my service
+        // binding avoids slight awkwardness where own link doesn't display
+        // because service isn't fully up yet.)
+        if (binding == daemon.getMyServiceBinding() ||
+            svcsMgr.isServiceReady(binding)) {
+          navTable.add(servlet.srvAbsLink(binding.getUiStem("http"),
+                                          AdminServletManager.SERVLET_DAEMON_STATUS,
+                                          descr.getName(), null));
+        } else {
+          Block blk = new Block(Block.Div);
+          blk.attribute("class", "disabled");
+          blk.add(descr.getName());
+          navTable.add(blk);
+        }
 	navTable.add("</font>");
       }
     }
@@ -1893,6 +1897,7 @@ public class ServletUtil {
                    + "a.colhead, a.colhead:link, a.colhead:visited { text-decoration: none; font-weight: bold; color: blue; }\n"
                    + "td.colhead { font-weight: bold; background: #e0e0e0; }\n"
                    + "div.resize { resize: both; overflow: auto; }\n"
+                   + ".disabled { color: #999; }\n"
                    + "--> </style>");
   }
 
@@ -1908,7 +1913,7 @@ public class ServletUtil {
     if (includeOnDiskButton) {
 //       tbl.newRow();
 //       tbl.newCell(ALIGN_RIGHT);
-      tbl.add(javascriptButton(servlet, "On Disk", "selectAll(this.form, 'inRepo');"));
+      tbl.add(javascriptButton(servlet, "In Repo", "selectAll(this.form, 'inRepo');"));
     }
     return tbl;
   }

@@ -34,6 +34,7 @@ package org.lockss.plugin.wrapper;
 import java.io.*;
 
 import org.lockss.daemon.*;
+import org.lockss.util.LockssWatchdog;
 import org.lockss.plugin.*;
 import org.lockss.plugin.ExploderHelper;
 

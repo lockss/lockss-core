@@ -30,6 +30,7 @@ package org.lockss.app;
 
 import java.io.*;
 import java.util.*;
+import org.apache.commons.lang3.tuple.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.daemon.*;
@@ -67,6 +68,13 @@ public class TestLockssApp extends LockssTestCase {
 		       "-p", "bar",
 		       "-l", "baz"};
 
+    String[] testConfigUrl = {"-c", "http://xx/yy/zz"};
+
+    String[] testSecret1 = {"-s", "/foo/s2"};
+    String[] testSecret2 = {"-s", "rest:/foo/s2"};
+    String[] testSecret3 = {"-s", "/foo/s1", "-s", "solr:/foo/s2"};
+
+    String[] testSysProp = {"-DUNUSEDPROP=VALVAL", "-DANOTHER=VAL"};
 
     // bad options (-p without argument, should be ignored)
     String[] test5 = {"-p", "foo",
@@ -159,6 +167,31 @@ public class TestLockssApp extends LockssTestCase {
     assertEquals(ListUtil.list("foo", "bar", "baz"), opt2a.getPropUrls());
     assertEquals(ListUtil.list("foo", "baz"), opt2a.getClusterUrls());
 
+
+
+    // Test secrets
+    LockssDaemon.StartupOptions opts =
+      LockssDaemon.getStartupOptions(testSecret1);
+    assertEquals(MapUtil.map("rest", "/foo/s2"), opts.getSecretFiles());
+
+    opts = LockssDaemon.getStartupOptions(testSecret2);
+    assertEquals(MapUtil.map("rest", "/foo/s2"), opts.getSecretFiles());
+
+    opts = LockssDaemon.getStartupOptions(testSecret3);
+    assertEquals(MapUtil.map("rest", "/foo/s1", "solr", "/foo/s2"),
+                 opts.getSecretFiles());
+
+    // -D
+    opts = LockssDaemon.getStartupOptions(testSysProp);
+    assertEquals(ListUtil.list(new ImmutablePair("UNUSEDPROP", "VALVAL"),
+                               new ImmutablePair("ANOTHER", "VAL")),
+                 opts.getSyspropsToSet());
+
+    // Config svc url
+    opts = LockssDaemon.getStartupOptions(testConfigUrl);
+    assertEquals("http://xx/yy/zz", opts.getRestConfigServiceUrl());
+
+
     // Test some bad options.  Second -p should be ignored.
     LockssDaemon.StartupOptions opt5 =
       LockssDaemon.getStartupOptions(test5);
@@ -241,6 +274,34 @@ public class TestLockssApp extends LockssTestCase {
   }
 
   public void testProcessServiceBindings() {
+    app.processServiceBindings(ListUtil.list("cfg=:24620:24621", // old syntax
+					     "mdx=:1230,:1234",
+					     "mdq=resthost:12377,:12378",
+					     "crawler=:1111,uihost:1112",
+					     "repo=:111", // no ui
+					     "poller=pollrest:4444,pollui:1"));
+    assertEquals(new ServiceBinding(null, 24620, 24621),
+		 app.getServiceBinding(ServiceDescr.SVC_CONFIG));
+    assertEquals(new ServiceBinding(null, 1230, null, 1234),
+		 app.getServiceBinding(ServiceDescr.SVC_MDX));
+    assertEquals(new ServiceBinding("resthost", 12377, null, 12378),
+		 app.getServiceBinding(ServiceDescr.SVC_MDQ));
+    assertEquals(new ServiceBinding(null, 111, null, 0),
+		 app.getServiceBinding(ServiceDescr.SVC_REPO));
+    assertEquals(new ServiceBinding("pollrest", 4444, "pollui", 1),
+		 app.getServiceBinding(ServiceDescr.SVC_POLLER));
+
+    assertSameElements(ListUtil.list(ServiceDescr.SVC_CONFIG,
+				     ServiceDescr.SVC_MDX,
+				     ServiceDescr.SVC_MDQ,
+				     ServiceDescr.SVC_CRAWLER,
+				     ServiceDescr.SVC_REPO,
+				     ServiceDescr.SVC_POLLER),
+
+		       app.getAllServiceDescrs());
+  }
+
+  public void testProcessServiceBindingsOld() {
     app.processServiceBindings(ListUtil.list("cfg=:24620:24621",
 					     "mdx=:1230:1234",
 					     "mdq=:12377:12378",
@@ -334,7 +395,9 @@ public class TestLockssApp extends LockssTestCase {
     assertEquals(1, mgr1.inited);
     assertEquals(1, mgr1.started);
     assertEquals(0, mgr1.stopped);
-    MockLockssManager mgr3 = (MockLockssManager)LockssApp.getManager("mgr_3");
+    MockLockssManager mgr3 =
+      (MockLockssManager)LockssApp.waitManagerByKeyStatic("mgr_3",
+							  Deadline.in(10));
     assertTrue(mgr3 instanceof MockMgr3);
     assertEquals(1, mgr3.inited);
     assertEquals(1, mgr3.started);
@@ -344,6 +407,7 @@ public class TestLockssApp extends LockssTestCase {
       fail("mgr_2 shouldn't have been created");
     } catch (IllegalArgumentException e) {
     }
+    assertNull(LockssApp.waitManagerByKeyStatic("mgr_2", Deadline.in(10)));
 
     app.stop();
     assertEquals(1, mgr1.stopped);
@@ -359,11 +423,18 @@ public class TestLockssApp extends LockssTestCase {
       isInited = true;
     }
 
+    @Override
     public void startService() {
     }
 
+    @Override
+    public void serviceStarted() {
+    }
+
+    @Override
     public void stopService() {
     }
+
     public LockssApp getApp() {
       throw new UnsupportedOperationException("Not implemented");
     }
@@ -440,10 +511,16 @@ public class TestLockssApp extends LockssTestCase {
       inited++;
     }
 
+    @Override
     public void startService() {
       started++;
     }
 
+    @Override
+    public void serviceStarted() {
+    }
+
+    @Override
     public void stopService() {
       stopped++;
     }

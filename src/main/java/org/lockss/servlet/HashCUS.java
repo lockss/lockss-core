@@ -36,6 +36,7 @@ import javax.servlet.http.HttpSession;
 import org.mortbay.html.*;
 import org.lockss.util.*;
 import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
+import org.lockss.util.io.FileUtil;
 import org.lockss.config.*;
 import org.lockss.hasher.*;
 import org.lockss.hasher.SimpleHasher.HasherStatus;

@@ -60,6 +60,7 @@ import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.PsmManager;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -1255,6 +1256,10 @@ public class PollManager
         pf[i].setConfig(newConfig, oldConfig, changedKeys);
       }
     }
+  }
+
+  public boolean isV3PollerEnabled() {
+    return enableV3Poller;
   }
 
   public boolean isV3PollPolicyEnabled() {

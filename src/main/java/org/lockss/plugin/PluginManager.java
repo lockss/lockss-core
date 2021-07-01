@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -49,9 +49,12 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.remote.*;
 import org.lockss.poller.PollSpec;
+import org.lockss.repository.*;
+import org.lockss.laaws.rs.model.*;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -245,6 +248,11 @@ public class PluginManager
 
   static final String AU_SEARCH_SET_PREFIX = PREFIX + "auSearch.";
 
+  /** If true, use V2 repo index to search for cached URL */
+  public static final String PARAM_AU_SEARCH_USE_V2_REPO =
+    AU_SEARCH_SET_PREFIX + "searchUseV2Repo";
+  public static final boolean DEFAULT_AU_SEARCH_USE_V2_REPO = true;
+
   /** Step function returns the desired size of an AU search set, given the
    * number of AUs in the search set */
   public static final String PARAM_AU_SEARCH_CACHE_SIZE =
@@ -259,9 +267,9 @@ public class PluginManager
   public static final String DEFAULT_AU_SEARCH_404_CACHE_SIZE =
     "[10,10],[1000,100],[5000,200]";
 
-  /** If true, all failed findCachedUrl() searches (though non-empty AU
-   * sets) will be cached.  If false, only those that had to search on disk
-   * will be cached. */
+  /** If zero, all failed findCachedUrl() searches (though non-empty AU
+   * sets) will be cached.  If >0, only those that had to search on disk
+   * at least that many times will be cached. */
   public static final String PARAM_AU_SEARCH_MIN_DISK_SEARCHES_FOR_404_CACHE =
     AU_SEARCH_SET_PREFIX + "minDiskSearchesFor404Cache";
   public static final int DEFAULT_AU_SEARCH_MIN_DISK_SEARCHES_FOR_404_CACHE = 2;
@@ -397,7 +405,7 @@ public class PluginManager
   private ConfigManager configMgr;
   private AlertManager alertMgr;
   private StateManager stateMgr;
-
+  private RepositoryManager repoMgr;
 
   private File pluginDir = null;
   private AuOrderComparator auComparator = new AuOrderComparator();
@@ -449,6 +457,7 @@ public class PluginManager
   private boolean paramDisableURLConnectionCache =
     DEFAULT_DISABLE_URL_CONNECTION_CACHE;
   private boolean acceptExpiredCertificates = DEFAULT_ACCEPT_EXPIRED_CERTS;
+  private boolean paramAuSearchUseV2Repo = DEFAULT_AU_SEARCH_USE_V2_REPO;
   private IntStepFunction auSearchCacheSizeFunc = 
     new IntStepFunction(DEFAULT_AU_SEARCH_CACHE_SIZE);
   private IntStepFunction auSearch404CacheSizeFunc =
@@ -504,6 +513,7 @@ public class PluginManager
 
     alertMgr = getDaemon().getAlertManager();
     stateMgr = getDaemon().getManagerByType(StateManager.class);
+    repoMgr = getDaemon().getRepositoryManager();
     // Initialize the plugin directory.
     initPluginDir();
     configureDefaultTitleSets();
@@ -609,7 +619,6 @@ public class PluginManager
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
 
-
     if (changedKeys.contains(PREFIX)) {
       registryTimeout = config.getTimeInterval(PARAM_PLUGIN_LOAD_TIMEOUT,
 					       DEFAULT_PLUGIN_LOAD_TIMEOUT);
@@ -655,6 +664,9 @@ public class PluginManager
       }
 
       if (changedKeys.contains(AU_SEARCH_SET_PREFIX)) {
+        paramAuSearchUseV2Repo =
+          config.getBoolean(PARAM_AU_SEARCH_USE_V2_REPO,
+                            DEFAULT_AU_SEARCH_USE_V2_REPO);
 	String func = config.get(PARAM_AU_SEARCH_CACHE_SIZE,
 				 DEFAULT_AU_SEARCH_CACHE_SIZE);
 	auSearchCacheSizeFunc = new IntStepFunction(func);
@@ -848,7 +860,9 @@ public class PluginManager
 	if (curAu != null) {
 	  if (log.isDebug2()) log.debug2("Deactivating AU: " + auKey);
 	  deactivateAuOnly(curAu);
-	}
+	} else {
+          inactiveAuIds.add(auId);
+        }
 	return;
       }
 
@@ -2394,8 +2408,8 @@ public class PluginManager
       PluginInfo info = loadPlugin(pluginKey, loader);
       Plugin newPlug = info.getPlugin();
 
-      log.info("Loaded plugin: version " + newPlug.getVersion() +
-	       " of " + newPlug.getPluginName());
+      log.debug2("Found plugin: version " + newPlug.getVersion() +
+                 " of " + newPlug.getPluginName());
       return info;
     } catch (PluginException.PluginNotFound e) {
       logAndAlert(pluginName, "Plugin not found", e);
@@ -2648,10 +2662,31 @@ public class PluginManager
     }
     Plugin oldPlug = pluginMap.get(pluginKey);
     if (oldPlug != null) {
-      log.debug("Stopping old plugin " + oldPlug.getPluginName());
+      String oldName = oldPlug.getPluginName();
+      String name = plugin.getPluginName();
+      // Alert on new plugin version
+      StringBuilder sb = new StringBuilder();
+      sb.append("Plugin reloaded: ");
+      sb.append(name);
+      if (!StringUtil.equalStrings(oldName, name)) {
+        sb.append(" (was ");
+        sb.append(oldName);
+        sb.append(")");
+      }
+      sb.append("\nVersion: ");
+      sb.append(plugin.getVersion());
+      String feats = PluginManager.pluginFeatureVersionsString(plugin);
+      if (!StringUtil.isNullString(feats)) {
+        sb.append("\nFeature versions:\n");
+        sb.append(feats);
+      }
+      raiseAlert(Alert.cacheAlert(Alert.PLUGIN_RELOADED), sb.toString());
+      log.debug("Stopping old plugin " + oldName);
       oldPlug.stopPlugin();
     }
     pluginMap.put(pluginKey, plugin);
+    log.info("Loaded plugin: version " + plugin.getVersion() +
+             " of " + plugin.getPluginName());
     resetTitles();
   }
 
@@ -2659,6 +2694,23 @@ public class PluginManager
     log.debug("Removing plugin " + key);
     pluginMap.remove(key);
     pluginfoMap.remove(key);
+  }
+
+  /** Return a string describing the plugin feature versions */
+  public static String pluginFeatureVersionsString(Plugin plug) {
+    StringBuilder sb = new StringBuilder();
+    for (Plugin.Feature feat : Plugin.Feature.values()) {
+      String val = plug.getFeatureVersion(feat);
+      if (!StringUtil.isNullString(val)) {
+        if (sb.length() != 0) {
+          sb.append("\n");
+        }
+        sb.append(feat);
+        sb.append(": ");
+        sb.append(val);
+      }
+    }
+    return sb.toString();
   }
 
   /**
@@ -2830,16 +2882,22 @@ public class PluginManager
   private int recentCuMisses = 0;
   private int recent404Hits = 0;
 
-  int getRecentCuHits() {
+  public int getRecentCuHits() {
     return recentCuHits;
   }
 
-  int getRecentCuMisses() {
+  public int getRecentCuMisses() {
     return recentCuMisses;
   }
 
-  int getRecent404Hits() {
+  public int getRecent404Hits() {
     return recent404Hits;
+  }
+
+  public void flushRecentCuCache() {
+    synchronized (recentCuMap) {
+      recentCuMap.clear();
+    }
   }
 
   /** Describes a search in progress and provides a way to wait for its
@@ -3038,31 +3096,57 @@ public class PluginManager
     return findCachedUrls0(url, contentReq, false);
   }
 
-  /* Return either a list of all CUs with the given URL, or the best choice
-   * is bestOnly is true.
-   */
-  // XXX refactor into CU generator & two consumers.
+  // instrumentation, mostly for tests
+  class FindUrlStats {
+    int v1Invocations;
+    int v1Results;
+    int v2Invocations;
+    int v2Results;
+    int v2AusConsidered;
+    int v2AuUrlsConsidered;
+    int v2RedundantUrls;
+
+    void addFrom(FindUrlStats o) {
+      v1Invocations += o.v1Invocations;
+      v1Results += o.v1Results;
+      v2Invocations += o.v2Invocations;
+      v2Results += o.v2Results;
+      v2AusConsidered += o.v2AusConsidered;
+      v2AuUrlsConsidered += o.v2AuUrlsConsidered;
+      v2RedundantUrls += o.v2RedundantUrls;
+    }
+
+    public String toString() {
+      return "[FindUrlStats: v1Inv: " + v1Invocations + ", v1Res: " + v1Results + ", v2nv: " + v2Invocations + ", v2Res: " + v2Results + ", v2Aus: " + v2AusConsidered + ", v2Urls: " + v2AuUrlsConsidered + ", v2Redundant: " + v2RedundantUrls;
+    }
+  }
+
+  FindUrlStats fUStats;
+  FindUrlStats totFUStats = new FindUrlStats();
+
+  public void logFindUrlStats(boolean total) {
+    if (total) {
+      log.debug("Total: " + totFUStats.toString());
+    } else {
+      log.debug("Last: " + fUStats.toString());
+    }
+  }
 
   private List<CachedUrl> findCachedUrls0(String url, CuContentReq contentReq,
 					  boolean bestOnly) {
-    // We don't know what AU it might be in, so can't do plugin-dependent
-    // normalization yet.  But only need to do generic normalization once.
-    // XXX This is wrong, as plugin-specific normalization is normally done
-    // first.
-    //
-    // XXX There is a problem with this when used by *Exploder() classes.
-    // In the CLOCKSS case,  we expect huge numbers of AUs to share
-    // the same stem,  eg. http://www.elsevier.com/ and each archive
-    // that is exploded to include URLs for a large number of them.
-    // The optimization that returns the most recent one if it matches
-    // will help,  but perhaps not enough.  Ideally we want to search
-    // for AUs on the basis of their base_url,  which for
-    // ExplodedArchiveUnits is their sole definitional parameter,  so
-    // is known unique.
+    fUStats = new FindUrlStats();
+    List<CachedUrl> res = findCachedUrls1(url, contentReq, bestOnly);
+    totFUStats.addFrom(fUStats);
+    return res;
+  }
+
+  private List<CachedUrl> findCachedUrls1(String url, CuContentReq contentReq,
+					  boolean bestOnly) {
     String normUrl;
     String normStem;
-    boolean isTrace = log.isDebug3();
     List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
+    List<CachedUrl> cus = new ArrayList<>();
+
     try {
       normUrl = UrlUtil.normalizeUrl(url);
       normStem = UrlUtil.getUrlPrefix(normUrl);
@@ -3087,6 +3171,307 @@ public class PluginManager
       return Collections.EMPTY_LIST;
     }    
 
+    if (paramAuSearchUseV2Repo) {
+      // Search V2 repo index
+      fUStats.v2Invocations++;
+      res = findCachedUrlsV2(normUrl, contentReq, bestOnly, searchSet, normUrl);
+      if (!res.isEmpty()) {
+        fUStats.v2Results++;
+        return res;
+      } else {
+        // if none found and caller requires a CU with content, return none
+        switch (contentReq) {
+        case HasContent:
+          // not found.  Add it to 404 cache
+          if (log.isDebug2()) {
+            log.debug2("Adding to 404 cache: " + normUrl + ", " + searchSet);
+          }
+          searchSet.addRecent404(normUrl);
+          return Collections.emptyList();
+        }
+        // otherwise fall through to old method which can find CUs w/out content
+      }
+    }
+    fUStats.v1Invocations++;
+    res = findCachedUrlsV1(normUrl, contentReq, bestOnly, searchSet, normUrl);
+    if (!res.isEmpty()) {
+      fUStats.v1Results++;
+    }
+    return res;
+  }
+
+  private List<CachedUrl> findCachedUrlsV2(String url,
+                                           CuContentReq contentReq,
+                                           boolean bestOnly,
+                                           AuSearchSet searchSet,
+                                           String normUrlGeneric) {
+    // We don't know what AU it might be in, so can't do plugin-dependent
+    // normalization yet.  But only need to do generic normalization once.
+    // XXX This isn't quite right, as plugin-specific normalization is
+    // normally done first, but we don't think it ever actually matters
+    //
+    // XXX There is a problem with this when used by *Exploder() classes.
+    // In the CLOCKSS case,  we expect huge numbers of AUs to share
+    // the same stem,  eg. http://www.elsevier.com/ and each archive
+    // that is exploded to include URLs for a large number of them.
+    // The optimization that returns the most recent one if it matches
+    // will help,  but perhaps not enough.  Ideally we want to search
+    // for AUs on the basis of their base_url,  which for
+    // ExplodedArchiveUnits is their sole definitional parameter,  so
+    // is known unique.
+
+    // Several potentially expensive(ish) operations could potentially be
+    // factored out of the loop(s): generic URL normalization, and
+    // ArchiveMemberSpec.fromUrl().
+    if (log.isDebug2()) {
+      log.debug2("findCachedUrlsV2(" + url + ", " + contentReq + ")");
+    }
+    boolean isTrace = log.isDebug3();
+    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
+    CachedUrl bestCu = null;
+    ArchivalUnit bestAu = null;
+    Map<String,List<ArchivalUnit>> urlAus = new HashMap<>();
+    int bestScore = 8;
+    int numContentChecks = 0;
+
+    // Must apply each possible AU's URL normalizer as they may produce
+    // different results
+    for (ArchivalUnit au : searchSet) {
+      if (!isActiveAu(au)) {
+	// This loop can run concurrently with other threads manipulating
+	// set of active AUs, so this AU might still disappear at any point.
+	continue;
+      }
+
+      try {
+	if (isTrace) {
+	  log.debug3("findCachedUrlsV2: " + url + " check "
+		     + au.toString());
+	}
+        fUStats.v2AusConsidered++;
+// 	String siteUrl = au.siteNormalizeUrl(noMembUrl);
+        String normUrl = UrlUtil.normalizeUrl(url, au);
+	if (!normUrl.equals(url)) {
+	  if (isTrace) log.debug3("Normalized to: " + normUrl);
+	}
+        String noMembUrl = normUrl;
+
+        // Parse out any member spec.
+        // Unit test for archive member lookup is in TestArchiveMembers
+        ArchiveMemberSpec ams = ArchiveMemberSpec.fromUrl(au, normUrl);
+        if (ams != null) {
+          if (isTrace) log.debug2("Recognized archive member: " + ams);
+          noMembUrl = ams.getUrl();
+        }
+
+        // Search for each distinct URL only once
+        List<ArchivalUnit> aus = urlAus.get(noMembUrl);
+        if (aus != null) {
+          // If we have already looked up this URL just associate this new
+          // AU with it
+          aus.add(au);
+          if (isTrace) {
+            log.debug3("Not reconsidering: " + noMembUrl);
+          }
+          fUStats.v2RedundantUrls++;
+          continue;
+        }
+        aus = new ArrayList<>();
+        aus.add(au);
+        urlAus.put(noMembUrl, aus);
+
+        fUStats.v2AuUrlsConsidered++;
+        for (Artifact art : repoMgr.findArtifactsByUrl(noMembUrl)) {
+          ArchivalUnit artAu = getAuFromIdIfExists(art.getAuid());
+          if (isTrace) {
+            log.debug3("Checking art: " + art.getUri() + ", au: " + artAu);
+          }
+          if (artAu != null) {
+            CachedUrl cu = artAu.makeCachedUrl(art.getUri());;
+            // Inclusion in findArtifactsByUrl() implies hasContent(),
+            // unless this is an archive member
+            boolean hasCont = true;
+
+            // Must reget the ArchiveMemberSpec, if any, as this may be a
+            // different AU from the one we used above
+            ArchiveMemberSpec ams2 = ArchiveMemberSpec.fromUrl(artAu, normUrl);
+
+            // Skip this AU if its handling of this URL as an archive
+            // member differs from the AU that the outer loop is
+            // processing.  (We'll get back to this Artifact when the outer
+            // loop gets to a different AU)
+            if ((ams == null) ^ (ams2 == null)) {
+              if (isTrace) {
+                log.debug3("Skipping because ams: " + ams + ", ams2: " + ams2);
+              }
+              continue;
+            }
+            if (ams2 != null) {
+              // This is an archive member.  Must now check for content.
+              // (This is *very* expensive - should skip if
+              // ContentReq.DontCare?)
+              cu = cu.getArchiveMemberCu(ams2);
+              hasCont = cu.hasContent();
+            }
+            if (bestOnly) {
+              int auScore = auScore(artAu, cu, contentReq, hasCont);
+              switch (action(contentReq, hasCont)) {
+              case Ignore:
+                break;
+              case RetCu:
+                makeFirstCandidate(searchSet, artAu);
+                if (log.isDebug3()) log.debug3("findCachedUrls: ret: " + cu);
+                res.add(cu);
+                if (log.isDebug2()) log.debug2("res: " + res);
+                return res;
+              case UpdateBest:
+                if (bestCu == null || auScore < bestScore) {
+                  AuUtil.safeRelease(bestCu);
+                  bestCu = cu;
+                  bestAu = artAu;
+                  bestScore = auScore;
+                } else {
+                  AuUtil.safeRelease(cu);
+                }
+                break;
+              }
+            } else {
+              switch (action(contentReq, hasCont)) {
+              case Ignore:
+                break;
+              case RetCu:
+              case UpdateBest:
+                res.add(cu);
+                break;
+              }
+            }
+          }
+        }
+
+      } catch (MalformedURLException ignore) {
+	// ignored
+      } catch (PluginBehaviorException ignore) {
+	// ignored
+      } catch (RuntimeException ignore) {
+	// ignored
+      }
+    }
+    if (bestOnly) {
+      if (bestCu != null) {
+	res.add(bestCu);
+	makeFirstCandidate(searchSet, bestAu);
+	if (isTrace) {
+	  log.debug3("bestCu was " +
+		     (bestCu == null ? "null" : bestCu.toString()));
+	}
+      } else if (numContentChecks >= paramMinDiskSearchesFor404Cache) {
+	// not found.  Add it to 404 cache for all contentReq, as will only
+	// check for HasContent
+	if (log.isDebug2()) {
+	  log.debug2("Adding to 404 cache: " + normUrlGeneric + ", " + searchSet);
+	}
+	searchSet.addRecent404(normUrlGeneric);
+      }
+    }
+    if (log.isDebug2()) log.debug2("res: " + res);
+    return res;
+  }
+
+  // A simple version which makes a single request to the repo for the URL.
+  // Doesn't properly handle per-AU normalization.
+  // Unused.
+  private List<CachedUrl> findCachedUrlsV2Quick(String url,
+                                           CuContentReq contentReq,
+                                           boolean bestOnly,
+                                           AuSearchSet searchSet,
+                                           String normUrl) {
+    if (log.isDebug2()) {
+      log.debug2("findCachedUrlsV2Quick(" + url + ", " + contentReq + ")");
+    }
+    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
+    CachedUrl bestCu = null;
+    ArchivalUnit bestAu = null;
+    int bestScore = 8;
+    for (Artifact art : repoMgr.findArtifactsByUrl(url)) {
+      ArchivalUnit au = getAuFromIdIfExists(art.getAuid());
+      if (au != null) {
+        CachedUrl cu = au.makeCachedUrl(art.getUri());
+        if (bestOnly) {
+          int auScore = auScore(au, cu, contentReq, true);
+          switch (action(contentReq, true)) {
+          case Ignore:
+            break;
+          case RetCu:
+            makeFirstCandidate(searchSet, au);
+            if (log.isDebug3()) log.debug3("findCachedUrls: ret: " + cu);
+            res.add(cu);
+            return res;
+          case UpdateBest:
+            if (bestCu == null || auScore < bestScore) {
+              AuUtil.safeRelease(bestCu);
+              bestCu = cu;
+              bestAu = au;
+              bestScore = auScore;
+            } else {
+              AuUtil.safeRelease(cu);
+            }
+            break;
+          }
+        } else {
+          switch (action(contentReq, true)) {
+          case Ignore:
+            break;
+          case RetCu:
+          case UpdateBest:
+            res.add(cu);
+            break;
+          }
+        }
+      }
+    }
+    if (bestOnly) {
+      if (bestCu != null) {
+	res.add(bestCu);
+	makeFirstCandidate(searchSet, bestAu);
+	if (log.isDebug3()) {
+	  log.debug3("bestCu was " +
+		     (bestCu == null ? "null" : bestCu.toString()));
+	}
+      }
+    }
+    return res;
+  }
+
+  /* Return either a list of all CUs with the given URL, or the best choice
+   * if bestOnly is true.
+   */
+  // XXX refactor into CU generator & two consumers.
+
+  private List<CachedUrl> findCachedUrlsV1(String url,
+                                           CuContentReq contentReq,
+                                           boolean bestOnly,
+                                           AuSearchSet searchSet,
+                                           String normUrl) {
+    // We don't know what AU it might be in, so can't do plugin-dependent
+    // normalization yet.  But only need to do generic normalization once.
+    // XXX This isn't quite right, as plugin-specific normalization is
+    // normally done first, but we don't think it ever actually matters
+    //
+    // XXX There is a problem with this when used by *Exploder() classes.
+    // In the CLOCKSS case,  we expect huge numbers of AUs to share
+    // the same stem,  eg. http://www.elsevier.com/ and each archive
+    // that is exploded to include URLs for a large number of them.
+    // The optimization that returns the most recent one if it matches
+    // will help,  but perhaps not enough.  Ideally we want to search
+    // for AUs on the basis of their base_url,  which for
+    // ExplodedArchiveUnits is their sole definitional parameter,  so
+    // is known unique.
+
+    if (log.isDebug2()) {
+      log.debug2("findCachedUrlsV1(" + url + ", " + contentReq + ")");
+    }
+    boolean isTrace = log.isDebug3();
+    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
     CachedUrl bestCu = null;
     ArchivalUnit bestAu = null;
     int bestScore = 8;
@@ -3103,13 +3488,15 @@ public class PluginManager
 	  log.debug3("findCachedUrls: " + normUrl + " check "
 		     + au.toString());
 	}
-	// Unit test for archive member lookup is in TestArchiveMembers
-	String noMembUrl = normUrl;
-	ArchiveMemberSpec ams = ArchiveMemberSpec.fromUrl(au, normUrl);
-	if (ams != null) {
-	  if (isTrace) log.debug3("Recognized archive member: " + ams);
-	  noMembUrl = ams.getUrl();
-	}
+        // Unit test for archive member lookup is in TestArchiveMembers
+        String noMembUrl = normUrl;
+        ArchiveMemberSpec ams = ArchiveMemberSpec.fromUrl(au, normUrl);
+        if (ams != null) {
+          if (isTrace) log.debug3("Recognized archive member: " + ams);
+          noMembUrl = ams.getUrl();
+        }
+
+        // XXX move up
 	String siteUrl = UrlUtil.normalizeUrl(noMembUrl, au);
 	if (!siteUrl.equals(noMembUrl)) {
 	  if (isTrace) log.debug3("Site normalized to: " + siteUrl);
@@ -3660,10 +4047,9 @@ public class PluginManager
   }
 
   ApiStatus getApiStatus(ServiceBinding binding) throws LockssRestException {
-    RestStatusClient client =
-      new RestStatusClient(binding.getRestStem(),
-			   60 * Constants.SECOND, 60 * Constants.SECOND);
-    return client.getStatus();
+    return new RestStatusClient(binding.getRestStem())
+      .setTimeouts(60 * Constants.SECOND, 60 * Constants.SECOND)
+      .getStatus();
   }
 
   /** Return true if any of the glob patterns in a list match the string */
@@ -4119,12 +4505,18 @@ public class PluginManager
       try {
 	// Validate and bless the JAR file from the CU.
 	blessedJar = jarValidator.getBlessedJar(cu);
-	log.debug2("Plugin jar: " + cu.getUrl() + " -> " + blessedJar);
+	log.debug2("Plugin jar: " + url + " -> " + blessedJar);
       } catch (IOException ex) {
 	log.error("Error processing jar file: " + url, ex);
+        raiseAlert(Alert.cacheAlert(Alert.PLUGIN_JAR_NOT_VALIDATED),
+                   String.format("Error validating plugin jar: %s\n%s",
+                                 url, ex.getMessage()));
 	return;
       } catch (JarValidator.JarValidationException ex) {
-	log.error("CachedUrl did not validate: " + cu, ex);
+	log.error("Plugin jar did not validate: " + url, ex);
+        raiseAlert(Alert.cacheAlert(Alert.PLUGIN_JAR_NOT_VALIDATED),
+                   String.format("Plugin jar could not be validated: %s\n%s",
+                                 url, ex.getMessage()));
 	return;
       }
     }
@@ -4193,93 +4585,95 @@ public class PluginManager
 	info = retrievePlugin(pluginName, pluginLoader);
 	if (info == null) {
 	  log.warning("Probable plugin packaging error: plugin " +
-			pluginName + " could not be loaded from " +
-			cu.getUrl());
-	    continue;
-	  } else {
-	    info.setCuUrl(url);
-	    info.setRegistryAu(au);
-	    List urls = info.getResourceUrls();
-	    if (urls != null && !urls.isEmpty()) {
-	      String jar = urls.get(0).toString();
-	      if (jar != null) {
-		// If the blessed jar path is a substring of the jar:
-		// url from which the actual plugin resource or class
-		// was loaded, then it is a loadable plugin.
-		boolean isLoadable =
-		  jar.indexOf(blessedUrl.getFile()) > 0;
-		info.setIsOnLoadablePath(isLoadable);
-	      }
-	    }
-	    plugin = info.getPlugin();
-	  }
-	} catch (Exception ex) {
-	  log.error(String.format("Unable to load plugin %s", pluginName), ex);
-	  continue;
-	}
+                      pluginName + " could not be loaded from " +
+                      cu.getUrl());
+          continue;
+        } else {
+          info.setCuUrl(url);
+          info.setRegistryAu(au);
+          List urls = info.getResourceUrls();
+          if (urls != null && !urls.isEmpty()) {
+            String jar = urls.get(0).toString();
+            if (jar != null) {
+              // If the blessed jar path is a substring of the jar:
+              // url from which the actual plugin resource or class
+              // was loaded, then it is a loadable plugin.
+              boolean isLoadable =
+                jar.indexOf(blessedUrl.getFile()) > 0;
+              info.setIsOnLoadablePath(isLoadable);
+            }
+          }
+          plugin = info.getPlugin();
+        }
+      } catch (Exception ex) {
+        log.error(String.format("Unable to load plugin %s", pluginName), ex);
+        continue;
+      }
 
-	PluginVersion version = null;
+      PluginVersion version = null;
 
-	try {
-	  version = new PluginVersion(plugin.getVersion());
-	  info.setVersion(version);
-	} catch (IllegalArgumentException ex) {
-	  // Don't let this runtime exception stop the daemon.  Skip the plugin.
-	  log.error(String.format("Skipping plugin %s: %s", pluginName, ex.getMessage()));
-	  // must stop plugin to enable it to be collected
-	  plugin.stopPlugin();
-	  return;
-	}
+      try {
+        version = new PluginVersion(plugin.getVersion());
+        info.setVersion(version);
+      } catch (IllegalArgumentException ex) {
+        // Don't let this runtime exception stop the daemon.  Skip the plugin.
+        log.error(String.format("Skipping plugin %s: %s", pluginName, ex.getMessage()));
+        // must stop plugin to enable it to be collected
+        plugin.stopPlugin();
+        return;
+      }
 
-	if (pluginMap.containsKey(key)) {
-	  // Plugin already exists in the global plugin map.
-	  // Replace it with a new version if one is available.
-	  log.debug2("Plugin " + key + " is already in global pluginMap.");
-	  Plugin otherPlugin = getPlugin(key);
-	  PluginVersion otherVer =
-	    new PluginVersion(otherPlugin.getVersion());
-	  if (version.toLong() > otherVer.toLong()) {
-	    if (log.isDebug2()) {
-	      log.debug2("Existing plugin " + plugin.getPluginId() +
-			 ": Newer version " + version + " found.");
-	    }
-	    tmpMap.put(key, info);
-	  } else {
-	    if (log.isDebug2()) {
-	      log.debug2("Existing plugin " + plugin.getPluginId() +
-			 ": No newer version found.");
-	    }
-	    // must stop plugin to enable it to be collected
-	    plugin.stopPlugin();
-	  }
-	} else if (!tmpMap.containsKey(key)) {
-	  // Plugin doesn't yet exist in the temporary map, add it.
-	  tmpMap.put(key, info);
+      if (tmpMap.containsKey(key)) {
+        // Plugin already exists in the temporary map, replace with
+        // this one if a greater version
+        PluginVersion otherVer = ((PluginInfo)tmpMap.get(key)).getVersion();
 
-	  if (log.isDebug2()) {
-	    log.debug2("Plugin " + plugin.getPluginId() +
-		       ": No previous version in temp map.");
-	  }
-	} else {
-	  // Plugin already exists in the temporary map, use whichever
-	  // version is higher.
-	  PluginVersion otherVer = ((PluginInfo)tmpMap.get(key)).getVersion();
+        if (version.toLong() > otherVer.toLong()) {
+          if (log.isDebug2()) {
+            log.debug2("Plugin " + plugin.getPluginId() + ": version " +
+                       version + " is newer than version " + otherVer +
+                       " already in temp map, replacing.");
+          }
+          // Overwrite old key in temp map
+          tmpMap.put(key, info);
+        } else {
+          // must stop plugin to enable it to be collected
+          plugin.stopPlugin();
+        }
+      } else if (pluginMap.containsKey(key)) {
+        // Plugin already exists in the global plugin map.
+        // Replace it with a new version if one is available.
+        log.debug2("Plugin " + key + " is already in global pluginMap.");
+        Plugin otherPlugin = getPlugin(key);
+        PluginVersion otherVer =
+          new PluginVersion(otherPlugin.getVersion());
+        if (version.toLong() > otherVer.toLong()) {
+          if (log.isDebug2()) {
+            log.debug2("Plugin " + plugin.getPluginId() +
+                       ": Newer version " + version +
+                       " loaded, will be installed.");
+          }
+          tmpMap.put(key, info);
+        } else {
+          if (log.isDebug2()) {
+            log.debug2("Plugin " + plugin.getPluginId() +
+                       ": Older version " + version +
+                       " loaded, will not be installed.");
+          }
+          // must stop plugin to enable it to be collected
+          plugin.stopPlugin();
+        }
+      } else {
+        // Plugin doesn't exist and isn't in the temporary map, add it.
+        tmpMap.put(key, info);
 
-	  if (version.toLong() > otherVer.toLong()) {
-	    if (log.isDebug2()) {
-	      log.debug2("Plugin " + plugin.getPluginId() + ": version " +
-			 version + " is newer than version " + otherVer +
-			 " already in temp map, overwriting.");
-	    }
-	    // Overwrite old key in temp map
-	    tmpMap.put(key, info);
-	  } else {
-	    // must stop plugin to enable it to be collected
-	    plugin.stopPlugin();
-	  }
-	}
+        if (log.isDebug2()) {
+          log.debug2("Plugin " + plugin.getPluginId() +
+                     ": No previous version in temp map.");
+        }
       }
     }
+  }
 
   /**
    * CrawlManager callback that is responsible for handling Registry

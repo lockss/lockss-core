@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2007 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.util.*;
+import java.io.*;
 
 import org.lockss.app.*;
 import org.lockss.daemon.status.*;
@@ -47,6 +44,7 @@ import static org.lockss.config.ConfigManager.*;
 public class PlatformConfigStatus extends BaseLockssDaemonManager {
   static Logger log = Logger.getLogger();
   final static String PLATFORM_STATUS_TABLE = "PlatformStatus";
+  final static String OS_RELEASE_TABLE = "OsRelease";
 
   public PlatformConfigStatus() {
   }
@@ -56,6 +54,11 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
     StatusService statusServ = getDaemon().getStatusService();
     statusServ.registerStatusAccessor(PLATFORM_STATUS_TABLE,
 				      new PCStatus(getDaemon()));
+    // Register OS release info table iff its file exists
+    PropFileStatusAccessor osrs = new OsReleaseStatus();
+    if (osrs.canRead()) {
+      statusServ.registerStatusAccessor(OS_RELEASE_TABLE, osrs);
+    }
   }
 
   public void stopService() {
@@ -73,6 +76,9 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 		    new ColumnDescriptor("Failover", "",
 					 ColumnDescriptor.TYPE_STRING));
 
+    private static final List sortRules =
+      ListUtil.list(new StatusTable.SortRule("IX", true));
+
     private LockssDaemon daemon;
 
     PCStatus(LockssDaemon daemon) {
@@ -89,7 +95,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 
     public void populateTable(StatusTable table) {
       Configuration config = ConfigManager.getCurrentConfig();
-      table.setDefaultSortRules(Collections.EMPTY_LIST);
+      table.setDefaultSortRules(sortRules);
       table.setColumnDescriptors(colDescs);
       table.setRows(getRows(table.getOptions()));
       table.setSummaryInfo(getSummaryInfo(config));
@@ -100,6 +106,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       List rows = new ArrayList();
       List<String> urls = mgr.getSpecUrlList();
       if (urls != null) {
+        int ix = 0;
 	for (String url : urls) {
 	  // This links to ListObjects to display the text of the file, but
 	  // doesn't quite work yet.
@@ -113,7 +120,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 				      ConfigStatus.CONFIG_FILE_STATUS_TABLE,
 				      "cf:" + url);
 
-	  Map row = MapUtil.map("URL", val);
+	  Map row = MapUtil.map("URL", val, "IX", ix++);
 	  ConfigFile cf = mgr.getConfigCache().get(url);
 	  if (cf != null) {
 	    // Compensate for FileConfigFile's numeric Last-Modified
@@ -208,5 +215,17 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       return res;
     }
     
+  }
+
+  static class OsReleaseStatus extends PropFileStatusAccessor {
+
+    OsReleaseStatus() {
+      super(new File("/etc/os-release"));
+      setStripQuotes(true);
+    }
+
+    public String getDisplayName() {
+      return "OS Release Info";
+    }
   }
 }

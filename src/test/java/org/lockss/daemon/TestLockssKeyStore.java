@@ -64,7 +64,10 @@ public class TestLockssKeyStore extends LockssTestCase {
 //     lk.setType(config.get(KEYSTORE_PARAM_TYPE, defaultKeyStoreType));
     lk.setPassword(pass);
     lk.setKeyPassword(keyPass);
-    lk.setType(LockssKeyStoreManager.DEFAULT_DEFAULT_KEYSTORE_TYPE);
+    KeyStoreUtil.KsType kst = KeyStoreUtil.getKsTypeFromFilename(file);
+    if (kst != null) {
+      lk.setType(kst.getType());
+    }
     return lk;
   }
 
@@ -94,7 +97,10 @@ public class TestLockssKeyStore extends LockssTestCase {
 //     lk.setType(config.get(KEYSTORE_PARAM_TYPE, defaultKeyStoreType));
     lk.setPassword(pass);
     lk.setKeyPasswordFile(keyPassFile);
-    lk.setType(LockssKeyStoreManager.DEFAULT_DEFAULT_KEYSTORE_TYPE);
+    KeyStoreUtil.KsType kst = KeyStoreUtil.getKsTypeFromFilename(location);
+    if (kst != null) {
+      lk.setType(kst.getType());
+    }
     return lk;
   }
 
@@ -194,6 +200,7 @@ public class TestLockssKeyStore extends LockssTestCase {
       lk.load();
       fail("Wrong password should fail");
     } catch (LockssKeyStore.UnavailableKeyStoreException e) {
+//       assertClass(IOException.class, e.getCause());
     }
     assertTrue(passfile.exists());
     LockssKeyStore lk = createFromFile("lkone", file.toString(),
@@ -320,6 +327,7 @@ public class TestLockssKeyStore extends LockssTestCase {
     } catch (IllegalStateException e) {
     }
     assertNotNull(lk.getTrustManagerFactory());
+    assertNotNull(lk.getKeyStore());
     Collection aliases =
       ListUtil.fromIterator(new EnumerationIterator(lk.getKeyStore().aliases()));
     assertSameElements(SetUtil.set("expired", "goodguy", "future", "good"),

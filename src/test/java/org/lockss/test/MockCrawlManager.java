@@ -47,7 +47,12 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
   private CrawlRateLimiter crl;
 
   public void initService(LockssApp app) throws LockssAppException { }
+  @Override
   public void startService() { }
+  @Override
+  public void serviceStarted() {}
+
+  @Override
   public void stopService() {
     scheduledRepairs = new HashMap();
     scheduledCrawls = new HashMap();

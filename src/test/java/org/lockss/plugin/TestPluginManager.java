@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2021, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -37,6 +37,7 @@ import java.net.*;
 import java.util.*;
 import java.security.KeyStore;
 import javax.jms.*;
+import org.lockss.alert.*;
 import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
@@ -55,6 +56,8 @@ import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 import org.lockss.state.*;
 import org.lockss.jms.*;
+import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.*;
 import static org.lockss.plugin.PluginManager.CuContentReq;
 
 /**
@@ -66,8 +69,12 @@ public class TestPluginManager extends LockssTestCase4 {
   static BrokerService broker;
   private MyMockLockssDaemon theDaemon;
 
+  static final String V2COLL = "coll";
+
   static String mockPlugKey =
     PluginManager.pluginKeyFromName(MyMockPlugin.class.getName());
+  static String simplePlugKey =
+    PluginManager.pluginKeyFromName("org.lockss.test.SimplePlugin");
   static Properties props1 = new Properties();
   static Properties props2 = new Properties();
   static Properties props3 = new Properties();
@@ -96,13 +103,14 @@ public class TestPluginManager extends LockssTestCase4 {
   static String p1a3param = p1param + mauauidKey3 + ".";
 
   private String pluginJar;
-  private String signAlias = "goodguy";
   private String pubKeystore = "org/lockss/test/public.keystore";
   private String password = "f00bar";
 
   private String tempDirPath;
 
   MyPluginManager mgr;
+  private MockAlertManager alertMgr;
+  RepositoryManager repoMgr;
 
   @Before
   public void setUp() throws Exception {
@@ -116,6 +124,8 @@ public class TestPluginManager extends LockssTestCase4 {
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);
     p.setProperty(PluginManager.PARAM_PLUGIN_LOCATION, "plugins");
     ConfigurationUtil.setCurrentConfigFromProps(p);
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "volatile:" + V2COLL);
 
     theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
 
@@ -124,12 +134,14 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr = new MyPluginManager();
     theDaemon.setPluginManager(mgr);
     theDaemon.setDaemonInited(true);
+    alertMgr = new MockAlertManager();
+    theDaemon.setAlertManager(alertMgr);
 
     UrlManager uMgr = new UrlManager();
     uMgr.initService(theDaemon);
     uMgr.startService();
 
-    RepositoryManager repoMgr = theDaemon.getRepositoryManager();
+    repoMgr = theDaemon.getRepositoryManager();
     repoMgr.startService();
 
     mgr.setLoadablePluginsReady(true);
@@ -1243,6 +1255,7 @@ public class TestPluginManager extends LockssTestCase4 {
       return this;
     }
 
+    @Override
     protected CachedUrl findTheCachedUrl0(String url, CuContentReq contentReq) {
       SimpleQueue queue;
       synchronized (findUrlQueues) {
@@ -1443,8 +1456,243 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(CuContentReq.DontCare.satisfies(CuContentReq.DontCare));
   }
 
+  Artifact storeArt(ArchivalUnit au, String url, String content,
+		    CIProperties props) throws IOException {
+    return storeArt(au, url, new StringInputStream(content), props);
+  }
+
+  Artifact storeArt(ArchivalUnit au, String url, InputStream in,
+		    CIProperties props) throws IOException {
+    if (props == null) props = new CIProperties();
+    return V2RepoUtil.storeArt(repo, V2COLL, au.getAuId(), url, in, props);
+  }
+
+  protected LockssRepository repo;
+
+  PluginManager.FindUrlStats getFUStats() {
+    return mgr.fUStats;
+  }
+
+  PluginManager.FindUrlStats getTotFUStats() {
+    return mgr.totFUStats;
+  }
+
+  void assertEqualCu(CachedUrl cu1, CachedUrl cu2) {
+    assertEquals(cu1.getUrl(), cu2.getUrl());
+    assertEquals(cu1.getArchivalUnit(), cu2.getArchivalUnit());
+  }
+
   @Test
-  public void testFindCachedUrl() throws Exception {
+  public void testFindCachedUrlV2() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "true");
+
+    ConfigurationUtil.addFromArgs("org.lockss.log.PluginManager.level", "debug3",
+                                  "org.lockss.log.AuSearchSet.level", "debug3",
+                                  "org.lockss.log.BaseCachedUrl.level", "debug3");
+    // Set all search sets cache size to 2, for predictable cache behavior
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_404_CACHE_SIZE,
+				  "[1,2]");
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+
+    mgr.ensurePluginLoaded(simplePlugKey);
+    Plugin sp = mgr.getPlugin(simplePlugKey);
+    ArchivalUnit au1 =
+      mgr.createAu(sp,
+                   ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                                              "volume_name", "42"),
+                   AuEvent.model(AuEvent.Type.Create));
+    // Create more AUs with the same stem to ensure they don't cause extra
+    // URL lookups
+    ArchivalUnit au2 =
+      mgr.createAu(sp,
+                   ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                                              "volume_name", "43"),
+                   AuEvent.model(AuEvent.Type.Create));
+    ArchivalUnit au3 =
+      mgr.createAu(sp,
+                   ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                                              "volume_name", "44"),
+                   AuEvent.model(AuEvent.Type.Create));
+
+    String url1 = "http://foo.bar/42/baz";
+    String url1a = "http://foo.bar:80/42/baz";
+    String url1b = "http://FOO.BAR:80/42/baz";
+    String url2 = "http://foo.bar/42/222";
+    String url3 = "http://foo.bar/42/333";
+    String url4 = "http://foo.bar/42/444";
+    String url5 = "http://foo.bar/42/555";
+
+    // Lookup a non-existent url
+    assertEquals(0, mgr.getRecentCuMisses());
+    assertEquals(0, mgr.getRecentCuHits());
+    assertNull(mgr.findCachedUrl(url1));
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(0, getFUStats().v2Results);
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(3, getFUStats().v2AusConsidered);
+    assertEquals(2, getFUStats().v2RedundantUrls);
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertNull(mgr.findCachedUrl(url2));
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(0, getFUStats().v2Results);
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertEquals(2, mgr.getRecentCuMisses());
+    assertEquals(0, mgr.getRecentCuHits());
+    assertEquals(0, mgr.getRecent404Hits());
+
+    // Store artifact w/ same url, check it's found only after 404 cache
+    // flush
+    storeArt(au1, url1, "url1 content", null);
+    // Shouldn't be found yet because of 404 cache
+    assertNull(mgr.findCachedUrl(url1));
+    assertEquals(1, mgr.getRecent404Hits());
+    signalAuEvent(au1, AuEvent.ContentChangeInfo.Type.Crawl, 4);
+    CachedUrl cu1 = mgr.findCachedUrl(url1);
+    assertNotNull("Failed to find " + url1 + " after content-changed event",
+                  cu1);
+    assertEquals(url1, cu1.getUrl());
+    assertTrue(cu1.hasContent());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Results);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    String url1un = url1 + Integer.toHexString(au1.hashCode());
+    CachedUrl cu1n = mgr.findCachedUrl(url1un);
+    assertNotNull("Failed to find unnormalized " + url1un, cu1n);
+    assertEquals(url1, cu1n.getUrl());
+    assertTrue(cu1n.hasContent());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Results);
+    assertEquals(1, getFUStats().v2AusConsidered);
+    assertEquals(0, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // In order to ensure repo lookup only once for each unique URL, must
+    // ask for all matching CUs.
+    List<CachedUrl> cu1lst1 = mgr.findCachedUrls(url1);
+    assertEquals(1, cu1lst1.size());
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertEquals(2, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // Similar.  AU-dependent normalization requires more lookups
+    List<CachedUrl> cu1lst2 = mgr.findCachedUrls(url1un);
+    assertEquals(2, getFUStats().v2AuUrlsConsidered);
+    assertEquals(1, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // PreferContent should find same CU
+    CachedUrl cupref = mgr.findCachedUrl(url1, CuContentReq.PreferContent);
+    assertEquals(cu1, cupref);
+    // cache hit, so no further invocations of findUrlV2
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(1, mgr.getRecentCuHits());
+
+    // Same url after normalization.  Won't be found in cache.
+    CachedUrl cu1a = mgr.findCachedUrl(url1a);
+    assertEqualCu(cu1, cu1a);
+    assertTrue(cu1a.hasContent());
+    assertEquals(1, mgr.getRecentCuHits());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // Same url after different normalization.  Won't be found in cache.
+    CachedUrl cu1b = mgr.findCachedUrl(url1b);
+    assertEqualCu(cu1, cu1b);
+    assertTrue(cu1b.hasContent());
+    assertEquals(1, mgr.getRecentCuHits());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // url1 should be in cache
+    CachedUrl cu3 = mgr.findCachedUrl(url1, CuContentReq.DontCare);
+    assertSame(cu1, cu3);
+    assertTrue(cu1.hasContent());
+    assertEquals(2, mgr.getRecentCuHits());
+
+    List<CachedUrl> lst1 = mgr.findCachedUrls(url1/*, CuContentReq.PreferContent*/);
+    assertEquals(1, lst1.size());
+    assertEqualCu(cu1, lst1.get(0));
+    assertEquals(1, lst1.get(0).getVersion());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // Store a second version of the same url, ensure only the highest
+    // version is found
+    TimerUtil.sleep(1000);
+    storeArt(au1, url1, "url1 content V2", null);
+    List<CachedUrl> lst2 = mgr.findCachedUrls(url1);
+    assertEquals(1, lst2.size());
+    assertEqualCu(cu1, lst2.get(0));
+    assertEquals(2, lst2.get(0).getVersion());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // url2 has no content, should fall back to v1
+    CachedUrl cunc = mgr.findCachedUrl(url2, CuContentReq.PreferContent);
+    assertEquals(url2, cunc.getUrl());
+    assertFalse(cunc.hasContent());
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(2, mgr.getRecentCuHits());
+
+    lst1 = mgr.findCachedUrls(url2, CuContentReq.DontCare);
+    assertEquals(1, lst1.size());
+    assertEquals(url2, lst1.get(0).getUrl());
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    storeArt(au2, url1, "url1 content in AU2", null);
+    storeArt(au1, url2, "url2 content", null);
+    storeArt(au1, url3, "url3 content", null);
+
+    lst1 = mgr.findCachedUrls(url1, CuContentReq.PreferContent);
+    assertEquals(2, lst1.size());
+    assertNotSame(lst1.get(0).getArchivalUnit(),
+                  lst1.get(1).getArchivalUnit());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    lst1 = mgr.findCachedUrls(url1, CuContentReq.DontCare);
+    assertEquals(2, lst1.size());
+    assertNotSame(lst1.get(0).getArchivalUnit(),
+                  lst1.get(1).getArchivalUnit());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    CachedUrl cu2 = mgr.findCachedUrl(url2);
+    assertEquals(url2, cu2.getUrl());
+    assertSame(au1, cu2.getArchivalUnit());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(9, mgr.getRecentCuMisses());
+    assertEquals(2, mgr.getRecentCuHits());
+
+    // Test PreferContent
+    CachedUrl cu4 = mgr.findCachedUrl(url4, CuContentReq.PreferContent);
+    assertEquals(url4, cu4.getUrl());
+    assertFalse(cu4.hasContent());
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(10, mgr.getRecentCuMisses());
+    assertEquals(2, mgr.getRecentCuHits());
+
+    mgr.logFindUrlStats(true);
+  }
+
+  @Test
+  public void testFindCachedUrlV1() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "false");
+
+    ConfigurationUtil.addFromArgs("org.lockss.log.PluginManager.level", "debug3",
+                                  "org.lockss.log.AuSearchSet.level", "debug3");
     mgr.startService();
     String url1 = "http://foo.bar/baz";
     String url1a = "http://foo.bar:80/baz";
@@ -1582,6 +1830,12 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(3, mgr.getRecent404Hits());
 
     assertEquals(0, mgr.getUrlSearchWaits());
+
+    assertEquals(18, getTotFUStats().v1Invocations);
+    assertEquals(15, getTotFUStats().v1Results);
+    assertEquals(0, getTotFUStats().v2Invocations);
+
+    mgr.logFindUrlStats(true);
   }
 
   /** Putter puts something onto a queue in a while */
@@ -1623,7 +1877,9 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testFindCachedUrlClockss() throws Exception {
+  public void testFindCachedUrlClockssV1() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "false");
     mgr.startService();
     String url1 = "http://foo.bar/baz";
     String url1a = "http://foo.bar:80/baz";
@@ -1682,8 +1938,10 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testFindCachedUrlWithSiteNormalization()
+  public void testFindCachedUrlWithSiteNormalizationV1()
       throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "false");
     mgr.startService();
     final String prefix = "http://foo.bar/"; // pseudo crawl rule prefix
     String url0 = "http://foo.bar/xxx/baz"; // normal form of test url
@@ -1903,7 +2161,7 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   private void prepareLoadablePluginTests(Properties p) throws Exception {
-    pluginJar = "org/lockss/test/good-plugin.jar";
+    pluginJar = "org/lockss/test/mock-plugin-v1.jar";
     if (p == null) {
       p = new Properties();
     }
@@ -2100,10 +2358,6 @@ public class TestPluginManager extends LockssTestCase4 {
       new MyMockRegistryArchivalUnit(ListUtil.list(badplug));
     MyMockRegistryArchivalUnit mmau2 =
       new MyMockRegistryArchivalUnit(ListUtil.list(badplug, pluginJar));
-    // Make processOneRegistryAu throw on the first au
-    mgr.processOneRegistryAuThrowIf(mmau1);
-    // Make processOneRegistryJar throw on the first jar in the second au
-    mgr.processOneRegistryJarThrowIf(mmau2.getNthUrl(1));
     assertNull(mgr.getPlugin(pluginKey));
     mgr.processRegistryAus(ListUtil.list(mmau1, mmau2));
     // ensure that the one plugin was still loaded
@@ -2114,6 +2368,15 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(mmau2.getNthUrl(2), info.getCuUrl());
     assertTrue(info.isOnLoadablePath());
     assertSame(mockPlugin, info.getPlugin());
+    assertEquals(2, alertMgr.getAlerts().size());
+    Alert alert1 = alertMgr.getAlerts().get(0);
+    assertEquals("PluginJarNotValidated", alert1.getAttribute(Alert.ATTR_NAME));
+    assertMatchesRE("Plugin jar could not be validated: http://foo.bar/test1.jar\n.*No issuer certificate",
+                    alert1.getAttribute(Alert.ATTR_TEXT).toString());
+    Alert alert2 = alertMgr.getAlerts().get(1);
+    assertEquals("PluginJarNotValidated", alert2.getAttribute(Alert.ATTR_NAME));
+    assertMatchesRE("Plugin jar could not be validated: http://foo.bar/test1.jar\n.*No issuer certificate",
+                    alert2.getAttribute(Alert.ATTR_TEXT).toString());
   }
 
   // This test loads two versions of the same plugin.  Because it doesn't
@@ -2153,13 +2416,13 @@ public class TestPluginManager extends LockssTestCase4 {
     String auid = au1.getAuId();
     assertNotNull(au1);
     assertSame(plugin1, au1.getPlugin());
-    assertEquals("http://example.com/a/, 1942", au1.getName());
+    assertEquals("V1: http://example.com/a/, 1942", au1.getName());
 
     // Create a second registry AU (because it also doesn't matter which AU
     // a plugin jar comes from).
     MyMockRegistryArchivalUnit mmau2 =
       new MyMockRegistryArchivalUnit(ListUtil.list(pluginJar,
-						   "org/lockss/test/good-plugin2.jar"));
+                                                   "org/lockss/test/mock-plugin-v2.jar"));
     assertSame(au1, mgr.getAuFromIdIfExists(auid));
     mgr.processRegistryAus(ListUtil.list(mmau2));
 
@@ -2173,6 +2436,81 @@ public class TestPluginManager extends LockssTestCase4 {
     assertSame(plugin2, au2.getPlugin());
     assertEquals("V2: http://example.com/a/, 1942", au2.getName());
     assertEquals(0, mgr.getNumFailedAuRestarts());
+
+    assertEquals(2, alertMgr.getAlerts().size());
+    Alert alert1 = alertMgr.getAlerts().get(0);
+    assertEquals("AuCreated", alert1.getAttribute(Alert.ATTR_NAME));
+    Alert alert2 = alertMgr.getAlerts().get(1);
+    assertEquals("PluginReloaded", alert2.getAttribute(Alert.ATTR_NAME));
+    assertEquals("Plugin reloaded: Absinthe Literary Review V2 (was Absinthe Literary Review V1)\nVersion: 2",
+                    alert2.getAttribute(Alert.ATTR_TEXT));
+  }
+
+  @Test
+  public void testUpdatePluginWithDup() throws Exception {
+    mgr.startService();
+    Properties p = new Properties();
+    p.setProperty(PluginManager.PARAM_PREFER_LOADABLE_PLUGIN, "true");
+    p.setProperty(PluginManager.PARAM_RESTART_AUS_WITH_NEW_PLUGIN, "true");
+    p.setProperty(PluginManager.PARAM_AU_RESTART_MAX_SLEEP, "10");
+    prepareLoadablePluginTests(p);
+    String pluginKey = "org|lockss|test|MockConfigurablePlugin";
+    // Set up a MyMockRegistryArchivalUnit with the right data.
+    MyMockRegistryArchivalUnit mmau1 =
+      new MyMockRegistryArchivalUnit(ListUtil.list(pluginJar));
+    assertNull(mgr.getPlugin(pluginKey));
+    mgr.processRegistryAus(ListUtil.list(mmau1));
+    Plugin plugin1 = mgr.getPlugin(pluginKey);
+    assertNotNull(plugin1);
+    assertTrue(mgr.isLoadablePlugin(plugin1));
+    assertFalse(mgr.isInternalPlugin(plugin1));
+    assertEquals("1", plugin1.getVersion());
+    PluginManager.PluginInfo info = mgr.getLoadablePluginInfo(plugin1);
+    assertEquals(mmau1.getNthUrl(1), info.getCuUrl());
+    assertSame(plugin1, info.getPlugin());
+
+    Configuration config = ConfigurationUtil.fromArgs("base_url",
+						      "http://example.com/a/"
+						      ,"year", "1942");
+//     theDaemon.setStartAuManagers(true);
+    ArchivalUnit au1 = mgr.createAu(plugin1, config,
+                                    AuEvent.model(AuEvent.Type.Create));
+    String auid = au1.getAuId();
+    assertNotNull(au1);
+    assertSame(plugin1, au1.getPlugin());
+    assertEquals("V1: http://example.com/a/, 1942", au1.getName());
+
+    // Create a second registry AU (because it also doesn't matter which AU
+    // a plugin jar comes from).
+
+    // Ensure that the jars have names different from those in the previous
+    // AU load, or they will not be processed (because CU version is faked)
+    MyMockRegistryArchivalUnit mmau2 =
+      new MyMockRegistryArchivalUnit(ListUtil.list(
+                                                   "org/lockss/test/mock-plugin-v3.jar",
+                                                   "org/lockss/test/mock-plugin-v2.jar"),
+                                     2);
+    assertSame(au1, mgr.getAuFromIdIfExists(auid));
+    mgr.processRegistryAus(ListUtil.list(mmau2));
+
+    // Ensure the new plugin was installed, the AU is now running as part
+    // of that plugin, and the AU's definition has changed appropriately
+    Plugin plugin2 = mgr.getPlugin(pluginKey);
+    assertNotSame(plugin1, plugin2);
+    assertEquals("3", plugin2.getVersion());
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(auid);
+    assertNotSame(au1, au2);
+    assertSame(plugin2, au2.getPlugin());
+    assertEquals("V3: http://example.com/a/, 1942", au2.getName());
+    assertEquals(0, mgr.getNumFailedAuRestarts());
+
+    assertEquals(2, alertMgr.getAlerts().size());
+    Alert alert1 = alertMgr.getAlerts().get(0);
+    assertEquals("AuCreated", alert1.getAttribute(Alert.ATTR_NAME));
+    Alert alert2 = alertMgr.getAlerts().get(1);
+    assertEquals("PluginReloaded", alert2.getAttribute(Alert.ATTR_NAME));
+    assertEquals("Plugin reloaded: Absinthe Literary Review V3 (was Absinthe Literary Review V1)\nVersion: 3",
+                    alert2.getAttribute(Alert.ATTR_TEXT));
   }
 
   @Test
@@ -2351,9 +2689,13 @@ public class TestPluginManager extends LockssTestCase4 {
     private MyMockRegistryCachedUrlSet cus;
 
     public MyMockRegistryArchivalUnit(List jarFiles) {
+      this(jarFiles, 0);
+    }
+
+    public MyMockRegistryArchivalUnit(List jarFiles, int start) {
       super((Plugin)null);
       cus = new MyMockRegistryCachedUrlSet();
-      int n = 0;
+      int n = start;
       for (Iterator iter = jarFiles.iterator(); iter.hasNext(); ) {
 	n++;
 	cus.addCu(new MockCachedUrl(getNthUrl(n),

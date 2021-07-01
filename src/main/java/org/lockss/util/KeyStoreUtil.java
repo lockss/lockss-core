@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,6 +33,8 @@ import java.io.*;
 import java.security.*;
 import java.security.cert.*;
 import java.lang.reflect.*;
+import org.apache.commons.io.*;
+import org.bouncycastle.asn1.ASN1InputStream;
 
 import org.lockss.app.*;
 import org.lockss.daemon.*;
@@ -49,14 +47,24 @@ public class KeyStoreUtil {
 
   private static final Logger log = Logger.getLogger();
 
+  // Workaround for Java bug ID 9070059.  See
+  // https://github.com/bcgit/bc-java/issues/941
+  static {
+    fixBug9070059();
+  }
+
+  @SuppressWarnings("sunapi")
+  private static void fixBug9070059() {
+    try {
+      sun.security.x509.AlgorithmId.get("PBEWithSHA1AndDESede");
+    } catch (NoSuchAlgorithmException e) {}
+  }
 
   // Large set of args passed in Properties or Configuration
   /** File to write keystore to */
   public static final String PROP_KEYSTORE_FILE = "File";
-  /** Optional, default is JCEKS */
+  /** Optional, default is PKCS12 */
   public static final String PROP_KEYSTORE_TYPE = "Type";
-  /** Optional, default is SunJCE */
-  public static final String PROP_KEYSTORE_PROVIDER = "Provider";
   /** KeyStore password */
   public static final String PROP_KEYSTORE_PASSWORD = "Password";
   /** Private key password */
@@ -77,15 +85,14 @@ public class KeyStoreUtil {
   public static final String PROP_EXPIRE_IN = "ExpireIn";
   
 
-  public static final String DEFAULT_KEYSTORE_TYPE = "JCEKS";
-  public static final String DEFAULT_KEYSTORE_PROVIDER = "SunJCE";
+  public static final String DEFAULT_KEYSTORE_TYPE = "PKCS12";
 
   public static final String DEFAULT_KEY_ALIAS = "MyKey";
   public static final String DEFAULT_CERT_ALIAS = "MyCert";
   public static final String DEFAULT_KEY_ALGORITHM = "RSA";
   public static final String DEFAULT_SIG_ALGORITHM = "SHA256WithRSA";
   public static final String DEFAULT_X500_NAME = "CN=LOCKSS box";
-  public static final int DEFAULT_KEY_BITS = 1024;
+  public static final int DEFAULT_KEY_BITS = 2048;
   public static final long DEFAULT_EXPIRE_IN = 5 * Constants.YEAR / 1000;
 
 
@@ -112,17 +119,8 @@ public class KeyStoreUtil {
 	     NoSuchProviderException,
 	     SignatureException,
 	     UnrecoverableKeyException {
-    KeyStore ks;
-    String provider = p.getProperty(PROP_KEYSTORE_PROVIDER,
-				    DEFAULT_KEYSTORE_PROVIDER);
-    if (StringUtil.isNullString(provider)) {
-      ks = KeyStore.getInstance(p.getProperty(PROP_KEYSTORE_TYPE,
-					      DEFAULT_KEYSTORE_TYPE));
-    } else {	
-      ks = KeyStore.getInstance(p.getProperty(PROP_KEYSTORE_TYPE,
-					      DEFAULT_KEYSTORE_TYPE),
-				provider);
-    }
+    KeyStore ks = KeyStore.getInstance(p.getProperty(PROP_KEYSTORE_TYPE,
+                                                     DEFAULT_KEYSTORE_TYPE));
     initializeKeyStore(ks, p);
     String keyStoreFileName = p.getProperty(PROP_KEYSTORE_FILE);
     if (!StringUtil.isNullString(keyStoreFileName)) { 
@@ -151,7 +149,8 @@ public class KeyStoreUtil {
 	     IOException {
     OutputStream outs = null;
     try {
-      log.debug3("Storing KeyStore in " + keyStoreFile);
+      log.debug("Storing " + keyStore.getType() +
+                " KeyStore in " + keyStoreFile);
       outs = new BufferedOutputStream(new FileOutputStream(keyStoreFile));
       keyStore.store(outs, keyStorePassword.toCharArray());
       outs.close();
@@ -211,7 +210,7 @@ public class KeyStoreUtil {
     keyStore.setKeyEntry(keyAlias, privKey,
 			 keyPassword.toCharArray(), chain);
     Key myKey = keyStore.getKey(keyAlias, keyPassword.toCharArray());
-    log.debug("MyKey: " + myKey.getAlgorithm() + " " + myKey.getFormat());
+    log.debug2("MyKey: " + myKey.getAlgorithm() + " " + myKey.getFormat());
   }
 
 
@@ -222,7 +221,17 @@ public class KeyStoreUtil {
 					List hostlist,
 					SecureRandom rng)
       throws Exception {
+    createPLNKeyStores(null, inDir, outDir, hostlist, rng);
+  }
 
+  public static void createPLNKeyStores(String ksTypeName,
+                                        File inDir,
+					File outDir,
+					List hostlist,
+					SecureRandom rng)
+      throws Exception {
+
+    KsType kst = ksTypeOrDefault(ksTypeName);
     String[] hosts = (String[])hostlist.toArray(new String[0]);
     KeyStore[] ks = new KeyStore[hosts.length];
     String[] pwd = new String[hosts.length];
@@ -260,7 +269,7 @@ public class KeyStoreUtil {
      */
     for (int i = 0; i <hosts.length; i++) {
       if (ks[i] == null) {
-	ks[i] = createKeystore(hosts[i], pwd[i]);
+	ks[i] = createKeystore(kst, hosts[i], pwd[i]);
       }
     }
     /*
@@ -305,7 +314,19 @@ public class KeyStoreUtil {
 					      String pubKeyStorePassword,
 					      SecureRandom rng)
       throws Exception {
+    createSharedPLNKeyStores(null, dir, hostlist,
+                             pubKeyStoreFile, pubKeyStorePassword, rng);
+  }
 
+  public static void createSharedPLNKeyStores(String ksType,
+                                              File dir,
+					      List hostlist,
+					      File pubKeyStoreFile,
+					      String pubKeyStorePassword,
+					      SecureRandom rng)
+      throws Exception {
+
+    KsType kst = ksTypeOrDefault(ksType);
     String[] hosts = (String[])hostlist.toArray(new String[0]);
     KeyStore[] ks = new KeyStore[hosts.length];
     String[] pwd = new String[hosts.length];
@@ -317,19 +338,19 @@ public class KeyStoreUtil {
     /*
      * Create or read the public keystore
      */
-    KeyStore pubStore = createKeystore0();
+    KeyStore pubStore;
+    File inPub;
+    // If the pub keystore doesn't exist and the name has no extension,
+    // append the appropriate extension
+    if (!pubKeyStoreFile.exists() &&
+        StringUtil.isNullString(FilenameUtils.getExtension(pubKeyStoreFile.toString()))) {
+      pubKeyStoreFile = new File (pubKeyStoreFile + "." + kst.getExtension());
+    }
     if (pubKeyStoreFile.exists()) {
-      FileInputStream fis = new FileInputStream(pubKeyStoreFile);
-      try {
-	log.debug("Trying to read PubStore from " + pubKeyStoreFile);
-	pubStore.load(fis, pubKeyStorePassword.toCharArray());
-      } catch (Exception e) {
-	log.debug("ks.load(" + pubKeyStoreFile + ")", e);
-	throw e;
-      } finally {
-	IOUtil.safeClose(fis);
-      }
+      log.debug("Loading old pub keystore: " + pubKeyStoreFile);
+      pubStore = loadKeystore(pubKeyStoreFile, pubKeyStorePassword);
     } else {
+      pubStore = makeNewKeystore(kst);
       pubStore.load(null, pubKeyStorePassword.toCharArray());
     }      
     /*
@@ -348,10 +369,12 @@ public class KeyStoreUtil {
       String host = hosts[i];
       String certAlias = host + crtSuffix;
       Properties p = new Properties();
+      p.put(PROP_KEYSTORE_TYPE, kst.toString());
       p.put(PROP_KEY_ALIAS, host + keySuffix);
       p.put(PROP_CERT_ALIAS, certAlias);
       p.put(PROP_KEY_PASSWORD, pwd[i]);
       p.put(PROP_KEYSTORE_PASSWORD, host);
+
       ks[i] = createKeyStore(p);
 
       /*
@@ -372,7 +395,9 @@ public class KeyStoreUtil {
      * Write out each keyStore and its password
      */
     for (int i = 0; i < hosts.length; i++) {
-      storeKeyStore(ks[i], new File(dir, hosts[i] + ".jceks"), hosts[i]);
+      storeKeyStore(ks[i], new File(dir, (hosts[i] + "." +
+                                          getKeystoreExtension(ks[i]))),
+                    hosts[i]);
       writePasswordFile(new File(dir, hosts[i] + ".pass"), pwd[i]);
     }
     storeKeyStore(pubStore, pubKeyStoreFile, pubKeyStorePassword);
@@ -384,10 +409,89 @@ public class KeyStoreUtil {
     }
   }
 
-  private static String keyStoreType[] = { "JCEKS", "JKS" };
-  private static String keyStoreSPI[]  = { "SunJCE", null };
+  private static KeyStore makeNewKeystore(KsType kst)
+      throws KeyStoreException, NoSuchProviderException {
+    try {
+      log.debug("Trying to create " + kst.toString() + " keystore");
+      KeyStore res = kst.newKeyStore();
+      if (res != null) return res;
+    } catch (KeyStoreException e) {
+      log.debug("KeyStore.getInstance(" + kst.getType() + ") threw " + e);
+      throw e;
+    } catch (NoSuchProviderException e) {
+      log.debug("KeyStore.getInstance(" + kst.getType() + ") threw " + e);
+      throw e;
+    }
+    return null;
+  }
 
-  private static KeyStore createKeystore(String domainName, String password)
+  private static KeyStore loadKeystore(File file, String pass)
+      throws KeyStoreException,
+             NoSuchAlgorithmException,
+             NoSuchProviderException,
+             CertificateException,
+             IOException {
+    KsType kst = getKsTypeFromFilename(file);
+    if (kst != null) {
+      KeyStore ks = kst.newKeyStore();
+      if (ks != null) {
+        log.debug("Trying to read KeyStore from " + file);
+        try (FileInputStream fis = new FileInputStream(file)) {
+          ks.load(fis, pass.toCharArray());
+          return ks;
+        }
+      }
+    } else {
+      return loadKeystoreOfUnknownType(file, pass);
+    }
+    return null;
+  }
+
+  public static KeyStore loadKeystoreOfUnknownType(File file, String pass)
+      throws KeyStoreException,
+             NoSuchAlgorithmException,
+             NoSuchProviderException,
+             CertificateException,
+             IOException {
+    try (InputStream ins = new FileInputStream(file)) {
+      return loadKeystoreOfUnknownType(ins, pass);
+    }
+  }
+
+  public static KeyStore loadKeystoreOfUnknownType(InputStream ins, String pass)
+      throws KeyStoreException,
+             NoSuchAlgorithmException,
+             NoSuchProviderException,
+             CertificateException,
+             IOException {
+    if (!ins.markSupported()) {
+      ins = new BufferedInputStream(ins);
+    }
+    ins.mark(10 * 1024);
+    IOException lastEx = null;
+    for (KsType kst : KsType.values()) {
+      log.debug2("Checking for " + kst);
+      if (!kst.isKsType(ins)) {
+        log.debug2("Isn't " + kst);
+        continue;
+      }
+      log.debug("Trying to load as " + kst);
+      KeyStore ks = kst.newKeyStore();
+      if (ks != null) {
+        ks.load(ins, StringUtil.isNullString(pass) ? null : pass.toCharArray());
+        return ks;
+      }
+      ins.reset();
+    }
+    if (lastEx != null) {
+      throw lastEx;
+    } else {
+      throw new IOException("Couldn't load unknown keystore type");
+    }
+  }
+
+  private static KeyStore createKeystore(KsType ksType,
+                                         String domainName, String password)
       throws CertificateException,
 	     IOException,
 	     InvalidKeyException,
@@ -396,7 +500,7 @@ public class KeyStoreUtil {
 	     NoSuchProviderException,
 	     SignatureException,
 	     UnrecoverableKeyException {
-    KeyStore ks = createKeystore0();
+    KeyStore ks = createKeystore0(ksType);
     if (ks == null) {
       log.error("No key store available");
       return null;  // will fail subsequently
@@ -405,7 +509,7 @@ public class KeyStoreUtil {
     return ks;
   }
 
-  private static KeyStore createKeystore0()
+  private static KeyStore createKeystore0(KsType ksType)
       throws CertificateException,
 	     IOException,
 	     InvalidKeyException,
@@ -415,26 +519,9 @@ public class KeyStoreUtil {
 	     SignatureException,
 	     UnrecoverableKeyException {
     //  No KeyStore - make one.
-    KeyStore ks = null;
-    //  Will probably not work if JCEKS is not available
-    for (int i = 0; i < keyStoreType.length; i++) {
-      try {
-	if (keyStoreSPI[i] == null) {
-	  ks = KeyStore.getInstance(keyStoreType[i]);
-	} else {
-	  ks = KeyStore.getInstance(keyStoreType[i], keyStoreSPI[i]);
-	}
-      } catch (KeyStoreException e) {
-	log.debug("KeyStore.getInstance(" + keyStoreType[i] + ") threw " + e);
-	throw e;
-      } catch (NoSuchProviderException e) {
-	log.debug("KeyStore.getInstance(" + keyStoreType[i] + ") threw " + e);
-	throw e;
-      }
-      if (ks != null) {
-	log.debug("Using key store type " + keyStoreType[i]);
-	break;
-      }
+    KeyStore ks = makeNewKeystore(ksType);
+    if (ks != null) {
+      log.debug("Using key store type " + ks.getType());
     }
     return ks;
   }
@@ -454,7 +541,7 @@ public class KeyStoreUtil {
     String keyAlias = domainName + keySuffix;
     String certAlias = domainName + crtSuffix;
     String keyStorePassword = domainName;
-    String keyStoreFileName = domainName + ".jceks";
+    String keyStoreFileName = domainName + "." + getKeystoreExtension(keyStore);
     File keyStoreFile = new File(keyStoreFileName);
     if (keyStoreFile.exists()) {
       log.debug("Key store file " + keyStoreFileName + " exists");
@@ -567,11 +654,11 @@ public class KeyStoreUtil {
   private static void writePasswordFile(File passwordFile,
 					String password) {
     try {
-      log.debug("Writing Password to " + passwordFile);
+      log.debug3("Writing Password to " + passwordFile);
       PrintWriter pw = new PrintWriter(new FileOutputStream(passwordFile));
       pw.print(password);
       pw.close();
-      log.debug("Done storing Password in " + passwordFile);
+      log.debug3("Done storing Password in " + passwordFile);
     } catch (Exception e) {
       log.debug("ks.store(" + passwordFile + ")", e);
     }
@@ -593,7 +680,8 @@ public class KeyStoreUtil {
       log.error("No directory " + outDir);
       throw new FileNotFoundException("No directory " + outDir);
     }
-    File keyStoreFile = new File(outDir, domainName + ".jceks");
+    File keyStoreFile = new File(outDir, domainName + "." +
+                                 getKeystoreExtension(ks));
     File passwordFile = new File(outDir, domainName + ".pass");
     String keyStorePassword = domainName;
     try {
@@ -612,12 +700,16 @@ public class KeyStoreUtil {
 				   KeyStore kss[],
 				   String passwords[],
 				   int i,
-				   File inDir) throws Exception {
+				   File inDir)
+      throws KeyStoreException,
+             NoSuchAlgorithmException,
+             NoSuchProviderException,
+             CertificateException,
+             IOException {
     String domainName = domainNames[i];
     if (domainName == null) {
       return;
     }
-    File keyStoreFile = new File(inDir, domainName + ".jceks");
     File passwordFile = new File(inDir, domainName + ".pass");
     String password = null;
     try {
@@ -639,14 +731,27 @@ public class KeyStoreUtil {
       throw e;
     }
     KeyStore ks = null;
-    try {
-      ks = KeyStore.getInstance(keyStoreType[0], keyStoreSPI[0]);
-      log.debug("Trying to read KeyStore from " + keyStoreFile);
-      FileInputStream fis = new FileInputStream(keyStoreFile);
-      ks.load(fis, domainName.toCharArray());
-    } catch (Exception e) {
-      log.debug("ks.load(" + keyStoreFile + ") threw " + e);
-      throw e;
+    File keyStoreFile;
+    for (KsType kst : KsType.values()) {
+      keyStoreFile = new File(inDir, domainName + "." + kst.getExtension());
+      if (keyStoreFile.exists()) {
+        try {
+          ks = kst.newKeyStore();
+          if (ks != null) {
+            log.debug("Trying to read KeyStore from " + keyStoreFile);
+            try (FileInputStream fis = new FileInputStream(keyStoreFile)) {
+              ks.load(fis, domainName.toCharArray());
+            }
+            break;
+          }
+        } catch (KeyStoreException e) {
+          log.debug("KeyStore.getInstance(" + kst.getType() + ") threw " + e);
+          throw e;
+        } catch (NoSuchProviderException e) {
+          log.debug("KeyStore.getInstance(" + kst.getType() + ") threw " + e);
+          throw e;
+        }
+      }
     }
     String keyStorePassword = domainName;
     passwords[i] = password;
@@ -738,7 +843,7 @@ public class KeyStoreUtil {
           if (cert == null) {
             log.debug(alias + " null cert chain");
           } else {
-            log.debug("Cert for " + alias + " is " + cert.toString());
+            log.debug2("Cert for " + alias + " is " + cert.toString());
           }
         } else if (kss[i].isKeyEntry(alias)) {
 	  log.debug("About to getKey");
@@ -782,6 +887,112 @@ public class KeyStoreUtil {
     }
     return null;
   }
+
+
+
+  /** Info about each supported KeyStore type - name, extension, keystore
+   * recognition predicate. */
+  public enum KsType {
+    PKCS12() {
+      @Override
+      public boolean isKsType(InputStream ins) throws IOException {
+        try {
+          ASN1InputStream asnin = new ASN1InputStream(ins);
+          asnin.readObject();
+          return true;
+        } catch (IOException e) {
+          log.debug2("Expected ASN.1 error: " + e.toString());
+        } finally {
+          ins.reset();
+        }
+        return false;
+      }
+    },
+
+    JCEKS(new byte[] {(byte)0xCE, (byte)0xCE, (byte)0xCE, (byte)0xCE}),
+    JKS(new byte[] {(byte)0xFE, (byte)0xED, (byte)0xFE, (byte)0xED});
+
+    private byte[] magic;
+
+    KsType() {
+    };
+
+    /** Create a KsType with a magic number */
+    KsType(byte[] magic) {
+      this.magic = magic;
+    };
+
+    public String getType() {
+      return toString();
+    }
+
+    byte[] getMagic() {
+      return magic;
+    }
+
+    public boolean isKsType(InputStream ins) throws IOException {
+      try {
+        if (magic == null) {
+          throw new UnsupportedOperationException("Can't check magic when there is none.");
+        }
+        int mlen = magic.length;
+        byte[] buf = new byte[mlen];
+        try {
+          if (StreamUtil.readBytes(ins, buf, mlen) != mlen) {
+            return false;
+          }
+          return Arrays.equals(magic, buf);
+        } catch (IOException e) {
+          log.debug2("Error checking magic number", e);
+          return false;
+        }
+      } finally {
+        ins.reset();
+      }
+    }
+
+    public String getExtension() {
+      return name().toLowerCase();
+    }
+
+    public KeyStore newKeyStore()
+        throws KeyStoreException, NoSuchProviderException {
+      return KeyStore.getInstance(getType());
+    }
+  }
+
+  static String getKeystoreExtension(KeyStore ks) {
+    return Enum.valueOf(KsType.class, ks.getType()).getExtension();
+  }
+
+  public static KsType getKsTypeFromFilename(File file) {
+    return getKsTypeFromFilename(file.toString());
+  }
+
+  public static KsType getKsTypeFromFilename(String name) {
+    String ext = FilenameUtils.getExtension(name);
+    for (KsType kst : KsType.values()) {
+      if (kst.getExtension().equalsIgnoreCase(ext)) {
+        return kst;
+      }
+    }
+    return null;
+  }
+
+  static KsType ksTypeOrDefault(String ksTypeName) {
+    if (ksTypeName != null) {
+      try {
+        return Enum.valueOf(KsType.class, ksTypeName.toUpperCase());
+      } catch (IllegalArgumentException e) {
+      }
+    }
+    for (KsType kst : KsType.values()) {
+      return kst;
+    }
+    throw new IllegalStateException("There are no Keystore types defined");
+  }
+
+
 
   public static class CertAndKeyGen {
     Object cakg;

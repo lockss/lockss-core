@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,36 +24,19 @@ Except as contained in this notice, the name of Stanford University shall not
 be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
-*/
+ */
 
 package org.lockss.test;
 
-import org.lockss.daemon.LockssWatchdog;
-import junit.framework.*;
+import org.lockss.plugin.*;
+import org.lockss.util.*;
 
-
-public class MockLockssWatchdog implements LockssWatchdog {
-  private int numTimesPoked = 0;
-
-  public void startWDog(long interval) {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
-  public void stopWDog() {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
-  public long getWDogInterval() {
-    throw new UnsupportedOperationException("not implemented");
-  }
-
-  public void pokeWDog() {
-    numTimesPoked++;
-  }
-
-  public void assertPoked(int numTimes) {
-    if (this.numTimesPoked != numTimes) {
-      Assert.fail("Expected watchdog to be poked " + numTimes + " times but was poked " + numTimesPoked + " times");
-    }
+/** Silly UrlNormalizer which removes the hex string representation of the
+ * AU's hashCode() from the URL, a simple way for tests to force
+ * AU-dependent normalization behavior. */
+public class NormTestUrlNormalizer implements UrlNormalizer {
+  public String normalizeUrl(String url, ArchivalUnit au) {
+    String find = Integer.toHexString(au.hashCode());
+    return StringUtil.replaceString(url, find, "");
   }
 }

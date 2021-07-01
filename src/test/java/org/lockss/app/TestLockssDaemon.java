@@ -178,13 +178,21 @@ public class TestLockssDaemon extends LockssTestCase4 {
     public void initService(LockssApp app) {
       events.add(new Event(this, "initService", app));
     }
+
+    @Override
     public void startService() {
       events.add(new Event(this, "startService"));
     }
 
+    @Override
+    public void serviceStarted() {
+    }
+
+    @Override
     public void stopService() {
       events.add(new Event(this, "stopService"));
     }
+
     public LockssApp getApp() {
       throw new UnsupportedOperationException("Not implemented");
     }

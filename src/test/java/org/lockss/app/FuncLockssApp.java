@@ -71,14 +71,33 @@ public class FuncLockssApp extends LockssTestCase {
 			       "deftest2=file");
 
     final SimpleQueue appq = new SimpleQueue.Fifo();
+    final SimpleQueue mgrq = new SimpleQueue.Fifo();
     Thread th = new Thread() {
 	public void run() {
 	  appq.put(LockssApp.getLockssApp());
 	}};
     th.start();
+    Thread th2 = new Thread() {
+	public void run() {
+	  mgrq.put(LockssApp.waitManagerByKeyStatic(LockssApp.managerKey(org.lockss.alert.AlertManager.class),
+						    Deadline.in(20000)));
+	}};
+    th2.start();
     assertTrue(appq.isEmpty());
+    assertTrue(mgrq.isEmpty());
 
-    String[] testArgs = new String[] {"-p", propurl, "-g", "w"};
+    File touchFile = getTempFile("startfile", "");
+    touchFile.delete();
+    assertFalse(touchFile.exists());
+
+    File secret1File = FileTestUtil.writeTempFile("secret1", "user1:pass1");
+    File secret2File = FileTestUtil.writeTempFile("secret2", "2user2:2pass2\n");
+
+    String[] testArgs = new String[] {"-p", propurl, "-g", "w",
+                                      "-s", secret1File.toString(),
+                                      "-s", "solr:" + secret2File.toString(),
+                                      "-DXXXXX=YYYYY",
+    };
 
     LockssApp.AppSpec spec = new LockssApp.AppSpec()
       .setService(ServiceDescr.SVC_CONFIG)
@@ -90,20 +109,28 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppDefault("deftest3", "app3")
       .addBootDefault("o.l.plat.xxy", "zzz")
       .addAppConfig("org.lockss.app.serviceBindings",
-		    "cfg=:24620:24621;mdx=:1234");
+		    "cfg=:24620:24621;mdx=:1234")
+      .addAppConfig("org.lockss.app.touchWhenStarted",
+		    touchFile.toString())
       ;
 
     assertTrue(appq.isEmpty());
+    assertFalse(touchFile.exists());
+
     LockssApp app = LockssApp.startStatic(MyMockLockssApp.class, spec);
     assertSame(app, appq.get(TIMEOUT_SHOULDNT));
 
     assertTrue(app.isAppRunning());
+    assertTrue(touchFile.exists());
+
     Configuration config = ConfigManager.getCurrentConfig();
     assertEquals("w", config.get(ConfigManager.PARAM_DAEMON_GROUPS));
     assertClass(org.lockss.daemon.RandomManager.class,
 		app.getRandomManager());
     assertClass(org.lockss.alert.AlertManagerImpl.class,
 		app.getManagerByType(org.lockss.alert.AlertManager.class));
+    assertClass(org.lockss.alert.AlertManagerImpl.class,
+		mgrq.get(TIMEOUT_SHOULDNT));
     assertEquals("foo", config.get("org.lockss.app.nonesuch"));
     assertEquals("vvv3", config.get("o.l.p22"));
     assertEquals("app", config.get("deftest1"));
@@ -120,6 +147,20 @@ public class FuncLockssApp extends LockssTestCase {
     assertEquals("zzz",
 		 ConfigManager.getPlatformConfigOnly().get("o.l.plat.xxy"));
     assertEquals("zzz", config.get("o.l.plat.xxy"));
+
+    assertEquals("user1:pass1", app.getRestClientCredentialsAsString());
+    assertEquals("user1:pass1", app.getClientCredentialsAsString("rest"));
+    assertNull(app.getClientCredentialsAsString("nope"));
+    assertEquals(ListUtil.list("user1", "pass1"),
+                 app.getRestClientCredentials());
+    assertEquals(ListUtil.list("user1", "pass1"),
+                 app.getClientCredentials("rest"));
+    assertEquals("2user2:2pass2", app.getClientCredentialsAsString("solr"));
+    assertEquals(ListUtil.list("2user2", "2pass2"),
+                 app.getClientCredentials("solr"));
+    assertNull(app.getClientCredentials("nope"));
+
+    assertEquals("YYYYY", System.getProperty("XXXXX"));
   }
   
 

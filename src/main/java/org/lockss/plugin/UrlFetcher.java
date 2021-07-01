@@ -39,7 +39,7 @@ import java.util.BitSet;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlRateLimiter;
 import org.lockss.crawler.CrawlUrl;
-import org.lockss.daemon.LockssWatchdog;
+import org.lockss.util.LockssWatchdog;
 import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.CacheException;

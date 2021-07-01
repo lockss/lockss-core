@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.plugin;
 
 import org.lockss.daemon.*;
+import org.lockss.util.*;
 
 /**
  * The interface to publisher-specific ExploderHelper classes.

@@ -34,7 +34,6 @@ package org.lockss.metadata.extractor;
 import static org.lockss.util.rest.MetadataExtractorConstants.*;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.http.HttpEntity;
@@ -47,6 +46,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.Constants;
+import org.lockss.util.auth.*;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestNetworkException;
 import org.lockss.util.rest.RestUtil;
@@ -192,9 +192,8 @@ public class RestMetadataExtractorClient {
    */
   private void setAuthenticationCredentials(HttpHeaders requestHeaders) {
     if (serviceUser != null && servicePassword != null) {
-      String credentials = serviceUser + ":" + servicePassword;
-      String authHeaderValue = "Basic " + Base64.getEncoder()
-      .encodeToString(credentials.getBytes(StandardCharsets.US_ASCII));
+      String authHeaderValue = AuthUtil.basicAuthHeaderValue(serviceUser,
+							     servicePassword);
       requestHeaders.set("Authorization", authHeaderValue);
       log.trace("requestHeaders = {}", requestHeaders);
     }

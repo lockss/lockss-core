@@ -44,6 +44,7 @@ import EDU.oswego.cs.dl.util.concurrent.*;
 
 import org.lockss.util.*;
 import org.lockss.util.Queue;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.Deadline;
@@ -99,7 +100,7 @@ public class BlockingStreamComm
    * included in <code>org.lockss.scomm.disableSslServerProtocols</code>
    * and <code>org.lockss.scomm.disableSslClientProtocols</code> */
   public static final String PARAM_SSL_PROTOCOL = PREFIX + "sslProtocol";
-  public static final String DEFAULT_SSL_PROTOCOL = "TLSv1";
+  public static final String DEFAULT_SSL_PROTOCOL = "TLSv1.2";
 
   /** SSL protocols to disable in server sockets. */
   public static final String PARAM_DISABLE_SSL_SERVER_PROTOCOLS =

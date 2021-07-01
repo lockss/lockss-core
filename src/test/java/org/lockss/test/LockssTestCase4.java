@@ -36,21 +36,28 @@ import java.io.*;
 import java.net.*;
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.function.*;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.oro.text.regex.Pattern;
 import org.junit.*;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.*;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.Parameterized.Parameter;
+import org.junit.jupiter.api.Assertions; // junit5 assertions
+import org.junit.jupiter.api.function.*; // junit5 lambda support
+import org.hamcrest.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
-import org.lockss.util.test.FileTestUtil;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.lang.LockssRandom;
 import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.test.FileTestUtil;
+import org.lockss.util.test.matcher.*;
 import org.lockss.util.time.TimerUtil;
 
 import junit.framework.TestCase;
@@ -64,6 +71,12 @@ import junit.framework.TestCase;
  * marked with the {@link Test} annotation (or if it bears various other
  * annotations), without inheriting from {@link TestCase}. However, by
  * convention, all our unit tests will inherit from this class.
+ * </p>
+ * <p>
+ * Some assertions from Junit 5 are used here, to support Spring test
+ * classes that were originally written for Junit 5 but have been converted
+ * to Junit 4 because the Spring test runner uses a Junit 4-style runner
+ * only (as of Spring 4.2).
  * </p>
  * <p>
  * Below is some information on converting from JUnit 3 and
@@ -535,9 +548,7 @@ public class LockssTestCase4 extends Assert {
 
   /**
    * Create and return the name of a temp dir.  The dir is created within
-   * the default temp file dir.
-   * It will be deleted following the test, by tearDown().  (So if you
-   * override tearDown(), be sure to call <code>super.tearDown()</code>.)
+   * the default temp file dir.  It will be deleted following the test
    * @return The newly created directory
    * @throws IOException
    */
@@ -550,50 +561,123 @@ public class LockssTestCase4 extends Assert {
     if (!isKeepTempFiles()
         && Boolean.getBoolean("org.lockss.test.idTempDirs")) {
       FileTestUtil.writeFile(new File(res, TEST_ID_FILE_NAME),
-                             StringUtil.shortName(this.getClass()));
+                             StringUtils.substringAfterLast(getClass().getName(), "."));
     }
     return res;
   }
 
   /**
    * Create and return the name of a temp dir.  The dir is created within
-   * the default temp file dir.
-   * It will be deleted following the test, by tearDown().  (So if you
-   * override tearDown(), be sure to call <code>super.tearDown()</code>.)
+   * the default temp file dir.  It will be deleted following the test.
    * @param prefix the prefix of the name of the directory
    * @return The newly created directory
    * @throws IOException
    */
   public File getTempDir(String prefix) throws IOException {
-    File tmpdir = FileUtil.createTempDir(prefix, null);
-    if (tmpdir != null) {
-      if (tmpDirs == null) {
-        tmpDirs = new LinkedList();
-      }
-      tmpDirs.add(tmpdir);
+    if (tmpDirs == null) {
+      tmpDirs = new LinkedList<File>();
     }
+    return getTempDir(tmpDirs, prefix);
+  }
+
+  /**
+   * Static method to create and return the name of a temp dir, for callers
+   * that must be static.  The dir is created within the default temp file
+   * dir. {@link #deleteTempFiles(List<File>)} should be called at the
+   * conclusion of the tests to delete the temp dirs..
+   * @param tmpList a list where the file will be recorded, to pass to
+   * {@link #deleteTempFiles(List<File>)}
+   * @return The newly created directory
+   * @throws IOException
+   */
+  public static File getTempDir(List<File> tmpList) throws IOException {
+    return getTempDir(tmpList, "locksstest");
+  }
+
+  /**
+   * Static method to create and return the name of a temp dir, for callers
+   * that must be static.  The dir is created within the default temp file
+   * dir. {@link #deleteTempFiles(List<File>)} should be called at the
+   * conclusion of the tests to delete the temp dirs.
+   * @param tmpList a list where the file will be recorded, to pass to
+   * {@link #deleteTmpFiles()}
+   * @param prefix the prefix of the name of the directory
+   * @return The newly created directory
+   * @throws IOException
+   */
+  public static File getTempDir(List<File> tmpList, String prefix)
+      throws IOException {
+    File tmpdir = FileUtil.createTempDir(prefix, null);
+    tmpList.add(tmpdir);
     return tmpdir;
   }
 
   /**
    * Create and return the name of a temp file.  The file is created within
    * the default temp dir.
-   * It will be deleted following the test, by tearDown().  (So if you
-   * override tearDown(), be sure to call <code>super.tearDown()</code>.)
+   * It will be deleted following the test.
    * @param prefix the prefix of the name of the file
-   * @param suffis the suffix of the name of the file
+   * @param suffix the suffix of the name of the file
    * @return The newly created file
    * @throws IOException
    */
-  public File getTempFile(String prefix, String suffis) throws IOException {
-    File tmpfile = FileUtil.createTempFile(prefix, suffis);
+  public File getTempFile(String prefix, String suffix) throws IOException {
+    if (tmpDirs == null) {
+      tmpDirs = new LinkedList<File>();
+    }
+    return getTempFile(tmpDirs, prefix, suffix);
+  }
+
+  /**
+   * Static method to create and return the name of a temp file.  The file
+   * is created within the default temp dir.  {@link
+   * #deleteTempFiles(List<File>)} should be called at the conclusion of
+   * the tests to delete the temp files.
+   * @param tmpList a list where the file will be recorded, to pass to
+   * {@link #deleteTempFiles(List<File>)}
+   * @param prefix the prefix of the name of the file
+   * @param suffix the suffix of the name of the file
+   * @return The newly created file
+   * @throws IOException
+   */
+  public static File getTempFile(List<File> tmpList,
+				 String prefix, String suffix)
+      throws IOException {
+    File tmpfile = FileUtil.createTempFile(prefix, suffix);
     if (tmpfile != null) {
-      if (tmpDirs == null) {
-        tmpDirs = new LinkedList();
-      }
-      tmpDirs.add(tmpfile);
+      tmpList.add(tmpfile);
     }
     return tmpfile;
+  }
+
+  /**
+   * Clean up temporary directories.
+   * @param tmpList list of temporary files and directories that was passed
+   * to getTempDir() and getTempFile()
+   *
+   * @throws Exception
+   *           if I/O exceptions occur in the process.
+   */
+  public static void deleteTempFiles(List<File> tmpList) throws Exception {
+    if (tmpList != null && !isKeepTempFiles()) {
+      for (Iterator<File> iter = tmpList.iterator() ; iter.hasNext() ; ) {
+        File dir = iter.next();
+        File idFile = new File(dir, TEST_ID_FILE_NAME);
+        String idContent = null;
+        if (idFile.exists()) {
+          idContent = IOUtils.toString(new FileReader(idFile));
+        }
+        if (FileUtil.delTree(dir)) {
+          log.debug3("deltree(" + dir + ") = true");
+          iter.remove();
+        } else {
+          log.debug3("deltree(" + dir + ") = false");
+          if (idContent != null) {
+            FileTestUtil.writeFile(idFile, idContent);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -628,6 +712,8 @@ public class LockssTestCase4 extends Assert {
   public void setUp() throws Exception {
     TimerQueue.setSingleton(new ErrorRecordingTimerQueue());
     javaIoTmpdir = System.getProperty("java.io.tmpdir");
+    makeConfigManager();
+    Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
     makeConfigManager();
     if (mockDaemon != null) {
@@ -635,6 +721,12 @@ public class LockssTestCase4 extends Assert {
     }
     Logger.resetLogs();
     disableThreadWatchdog();
+  }
+
+  /** Create a fresh config manager.  This is overridden in
+   * SpringLockssTestCase4 in lockss-spring-bundle */
+  protected void makeConfigManager() {
+    ConfigManager.makeConfigManager();
   }
 
   protected MockLockssDaemon newMockLockssDaemon() {
@@ -681,26 +773,6 @@ public class LockssTestCase4 extends Assert {
 
     TimerQueue.stopTimerQueue();
 
-    // delete temp dirs
-    if (tmpDirs != null && !isKeepTempFiles()) {
-      for (ListIterator iter = tmpDirs.listIterator(); iter.hasNext(); ) {
-        File dir = (File)iter.next();
-        File idFile = new File(dir, TEST_ID_FILE_NAME);
-        String idContent = null;
-        if (idFile.exists()) {
-          idContent = StringUtil.fromFile(idFile);
-        }
-        if (FileUtil.delTree(dir)) {
-          log.debug2("deltree(" + dir + ") = true");
-          iter.remove();
-        } else {
-          log.debug2("deltree(" + dir + ") = false");
-          if (idContent != null) {
-            FileTestUtil.writeFile(idFile, idContent);
-          }
-        }
-      }
-    }
     if (!StringUtil.isNullString(javaIoTmpdir)) {
       System.setProperty("java.io.tmpdir", javaIoTmpdir);
     }
@@ -709,6 +781,19 @@ public class LockssTestCase4 extends Assert {
     }
     // don't reenable the watchdog; some threads may not have exited yet
 //     enableThreadWatchdog();
+  }
+
+  /**
+   * <p>
+   * Cleans up temporary directories after each test.
+   * </p>
+   *
+   * @throws Exception
+   *           if I/O exceptions occur in the process.
+   */
+  @After
+  public final void afterEachTempDirs() throws Exception {
+    deleteTempFiles(tmpDirs);
   }
 
   public static boolean isKeepTempFiles() {
@@ -1519,6 +1604,18 @@ public class LockssTestCase4 extends Assert {
     }
   }
 
+  /** Assert that Iterable has no elements */
+  public void assertEmpty(Iterable iter) {
+    assertNotNull(iter);
+    assertFalse("Expected empty, wasn't", iter.iterator().hasNext());
+  }
+
+  /** Assert that Iterator has no elements */
+  public void assertEmpty(Iterator iter) {
+    assertNotNull(iter);
+    assertFalse(iter.hasNext());
+  }
+
   public static void assertNotEmpty(Collection coll) {
     assertNotEmpty(null, coll);
   }
@@ -1578,6 +1675,23 @@ public class LockssTestCase4 extends Assert {
     }
   }
 
+  public void assertIterableEquals(Iterable<?> expected, Iterable<?> actual) {
+
+    Assertions.assertIterableEquals(expected, actual);
+  }
+
+  public void assertIterableEquals(Iterable<?> expected, Iterable<?> actual,
+                                   String message) {
+
+    Assertions.assertIterableEquals(expected, actual, message);
+  }
+
+  public void assertIterableEquals(Iterable<?> expected, Iterable<?> actual,
+                                   Supplier<String> messageSupplier) {
+
+    Assertions.assertIterableEquals(expected, actual, messageSupplier);
+  }
+
   public static void assertClass(Class expClass, Object obj) {
     assertClass(null, expClass, obj);
   }
@@ -1617,6 +1731,62 @@ public class LockssTestCase4 extends Assert {
       sb.append(expClass);
       fail(sb.toString());
     }
+  }
+
+  public <T extends Throwable> T assertThrows(Class<T> expectedType,
+                                              Executable executable) {
+
+    return Assertions.assertThrows(expectedType, executable);
+  }
+
+  public <T extends Throwable> T assertThrows(Class<T> expectedType,
+                                              Executable executable,
+                                              String message) {
+
+    return Assertions.assertThrows(expectedType, executable, message);
+  }
+
+  public <T extends Throwable> T assertThrows(Class<T> expectedType,
+                                              Executable executable,
+                                              Supplier<String> messageSupplier) {
+
+    return Assertions.assertThrows(expectedType, executable, messageSupplier);
+  }
+
+  /** Assert that the Executable throws an instance of the expected class,
+   * and that the expected pattern is found in the Throwable's message . */
+  public <T extends Throwable> T assertThrowsMatch(Class<T> expectedType,
+                                                   String pattern,
+                                                   Executable executable) {
+    return assertThrowsMatch(expectedType, pattern, executable, null);
+  }
+
+  /** Assert that the Executable throws an instnace of the expected class,
+   * and that the expected pattern is found in the Throwable's message . */
+  public <T extends Throwable> T assertThrowsMatch(Class<T> expectedType,
+                                                   String pattern,
+                                                   Executable executable,
+                                                   String message) {
+    T th = assertThrows(expectedType, executable, message);
+    assertThat(message,
+               th.getMessage(), findPattern(pattern));
+    return th;
+  }
+
+  public Matcher<String> findPattern(java.util.regex.Pattern pattern) {
+    return FindPattern.findPattern(pattern);
+  }
+
+  public Matcher<String> findPattern(String regex) {
+    return FindPattern.findPattern(regex);
+  }
+
+  public Matcher<String> matchesPattern(java.util.regex.Pattern pattern) {
+    return MatchesPattern.matchesPattern(pattern);
+  }
+
+  public Matcher<String> matchesPattern(String regex) {
+    return MatchesPattern.matchesPattern(regex);
   }
 
   /** Fail, and output the stack trace of the Throwable */

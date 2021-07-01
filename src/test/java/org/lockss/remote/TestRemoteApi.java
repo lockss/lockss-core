@@ -46,6 +46,7 @@ import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.os.PlatformUtil;
 
 /**
@@ -294,11 +295,6 @@ public class TestRemoteApi extends LockssTestCase {
     AuProxy aup = rapi.findAuProxy(mau1);
     assertEquals(config, rapi.getStoredAuConfiguration(aup));
 //     assertEquals(config, aup.getConfiguration());
-  }
-
-  public void testGetRepositoryDF () throws Exception {
-    PlatformUtil.DF df = rapi.getRepositoryDF("local:.");
-    assertNotNull(df);
   }
 
   void writeAuConfigFile(String s) throws IOException {
