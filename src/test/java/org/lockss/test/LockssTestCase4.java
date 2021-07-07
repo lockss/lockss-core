@@ -712,8 +712,6 @@ public class LockssTestCase4 extends Assert {
   public void setUp() throws Exception {
     TimerQueue.setSingleton(new ErrorRecordingTimerQueue());
     javaIoTmpdir = System.getProperty("java.io.tmpdir");
-    makeConfigManager();
-    Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
     makeConfigManager();
     if (mockDaemon != null) {
