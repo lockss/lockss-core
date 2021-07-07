@@ -161,7 +161,7 @@ public class TestRemoteApi extends LockssTestCase {
     assertFalse(aup1.isActiveAu());
   }
 
-  public void testGetAllPresentAus() throws Exception {
+  public void testGetAllPresentAuProxiess() throws Exception {
     MockArchivalUnit mau1 = new MockArchivalUnit();
     MockArchivalUnit mau2 = new MockArchivalUnit();
     mpm.setAllAus(ListUtil.list(mau1, mau2));
@@ -782,7 +782,7 @@ public class TestRemoteApi extends LockssTestCase {
     }
 
     @Override
-    public List getAllAus() {
+    public List getAllPresentAus() {
       return allAus;
     }
 

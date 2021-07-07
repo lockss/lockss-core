@@ -53,7 +53,7 @@ public class TitleSetActiveAus extends BaseTitleSet {
   public Collection<TitleConfig> getTitles() {
     PluginManager pmgr = daemon.getPluginManager();
     // XXXONDEMAND
-    List<ArchivalUnit> aus = (List<ArchivalUnit>)null/*pmgr.getAllAus()*/;
+    List<ArchivalUnit> aus = (List<ArchivalUnit>)pmgr.getAllAus();
     ArrayList<TitleConfig> res = new ArrayList<TitleConfig>(aus.size());
     for (ArchivalUnit au : aus) {
       if (!pmgr.isInternalAu(au)) {
