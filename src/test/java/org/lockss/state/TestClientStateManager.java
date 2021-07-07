@@ -32,7 +32,6 @@ import java.io.*;
 import java.util.*;
 import javax.jms.*;
 import org.junit.*;
-import javax.jms.*;
 import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.ActiveMQConnectionFactory;
 

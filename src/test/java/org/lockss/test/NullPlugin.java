@@ -135,7 +135,13 @@ public class NullPlugin {
       return null;
     }
 
+    // XXXONDEMAND
     public Collection getAllAus() {
+      return null;
+    }
+
+    @Override
+    public Collection getAllPresentAus() {
       return null;
     }
 

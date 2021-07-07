@@ -45,7 +45,7 @@ public interface ConfigStore {
 
   /**
    * Adds to the database the configuration of an Archival Unit.
-   * 
+   *
    * @param pluginId
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
@@ -63,7 +63,7 @@ public interface ConfigStore {
 
   /**
    * Adds to the database the configuration of an Archival Unit.
-   * 
+   *
    * @param conn
    *          A Connection with the database connection to be used.
    * @param pluginId
@@ -88,7 +88,7 @@ public interface ConfigStore {
 
   /**
    * Provides all the Archival Unit configurations stored in the database.
-   * 
+   *
    * @return a Map<String, Map<String,String>> with all the Archival Unit
    *         configurations, keyed by each Archival Unit identifier.
    * @throws IOException
@@ -102,7 +102,7 @@ public interface ConfigStore {
   /**
    * Processes all the Archival Unit configurations stored in the database,
    * either returning them or writing them to an aoutput stream.
-   * 
+   *
    * @param outputStream
    *          An OutputStream where to write the configurations of all the
    *          Archival Units stored in the database, or <code>null</code> if the
@@ -121,7 +121,7 @@ public interface ConfigStore {
 
   /**
    * Provides the configuration of an Archival Unit stored in the database.
-   * 
+   *
    * @param pluginId
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
@@ -136,7 +136,7 @@ public interface ConfigStore {
 
   /**
    * Provides the configuration of an Archival Unit stored in the database.
-   * 
+   *
    * @param conn
    *          A Connection with the database connection to be used.
    * @param pluginId
@@ -155,7 +155,7 @@ public interface ConfigStore {
   /**
    * Provides the configuration creation time of an Archival Unit stored in the
    * database.
-   * 
+   *
    * @param pluginId
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
@@ -171,7 +171,7 @@ public interface ConfigStore {
   /**
    * Provides the configuration last update time of an Archival Unit stored in
    * the database.
-   * 
+   *
    * @param pluginId
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
@@ -186,7 +186,7 @@ public interface ConfigStore {
 
   /**
    * Removes from the database an Archival Unit.
-   * 
+   *
    * @param pluginId
    *          A String with the Archival Unit plugin identifier.
    * @param auKey
@@ -200,7 +200,7 @@ public interface ConfigStore {
 
   /**
    * Provides all the plugin identifiers stored in the database.
-   * 
+   *
    * @return a Collection<String> with all the plugin identifiers.
    * @throws DbException
    *           if any problem occurred accessing the database.
@@ -210,7 +210,7 @@ public interface ConfigStore {
   /**
    * Provides the Archival Unit configurations for a plugin that are stored in
    * the database.
-   * 
+   *
    * @param pluginId
    *          A String with the plugin identifier.
    * @return a Map<String, Map<String, String>> with the Archival Unit
@@ -230,5 +230,5 @@ public interface ConfigStore {
       throws DbException;
   public void commitOrRollback(Connection conn, Logger logger)
       throws DbException;
-  
+
 }

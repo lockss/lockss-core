@@ -67,7 +67,7 @@ public class InMemoryConfigStore implements ConfigStore {
   public void commitOrRollback(Connection conn, L4JLogger logger) { }
   @Override
   public void commitOrRollback(Connection conn, Logger logger) { }
-  
+
 
   public Long addArchivalUnitConfiguration(String auid,
 					   Map<String,String> auConfig)
@@ -75,7 +75,7 @@ public class InMemoryConfigStore implements ConfigStore {
     return addArchivalUnitConfiguration(PluginManager.pluginIdFromAuId(auid),
 					PluginManager.auKeyFromAuId(auid),
 					auConfig);
-  }					   
+  }
 
   @Override
   public Long addArchivalUnitConfiguration(String pluginId,

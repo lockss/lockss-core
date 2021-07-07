@@ -2677,7 +2677,7 @@ public class TestPluginManager extends LockssTestCase4 {
     ArchivalUnit au1 = mgr.getAuFromIdIfExists(mauauid1);
     assertFalse(mgr.isInternalAu(au1));
     assertFalse(mgr.isInternalAu(au1.getAuId()));
-    ArchivalUnit rau = createNewRegistryAu("http:/foo.bar/base/");
+    ArchivalUnit rau = mgr.createNewRegistryAu("http:/foo.bar/base/");
     assertTrue(mgr.isInternalAu(rau));
     assertTrue(mgr.isInternalAu(rau.getAuId()));
   }

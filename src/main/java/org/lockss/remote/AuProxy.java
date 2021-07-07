@@ -87,7 +87,7 @@ public class AuProxy {
     if (au != null) {
       return au;
     } else {
-      throw new IllegalStateException("Can't get AU from absent AU");
+      throw new IllegalStateException("Can't get absent AU from AuProxy");
     }
   }
 
@@ -153,7 +153,7 @@ public class AuProxy {
     } else if (auName != null) {
       return auName;
     } else {
-      return "Unknown name AU: " + auid;
+      return "Anon AU: " + auid;
     }
   }
 

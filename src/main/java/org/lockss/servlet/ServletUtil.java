@@ -1922,17 +1922,11 @@ public class ServletUtil {
 					 String preselId) {
     Select sel = new Select(key, false);
     sel.add("", preselId == null, "");
-//     PluginManager pluginMgr = servlet.getLockssDaemon().getPluginManager();
     RemoteApi remoteApi = servlet.getLockssDaemon().getRemoteApi();
     for (AuProxy aup : remoteApi.getAllPresentAuProxies()) {
       String id = aup.getAuId();
       sel.add(encodeAttr(aup.getName()), id.equals(preselId), id);
     }
-//     for (Iterator iter = pluginMgr.getAllAus().iterator(); iter.hasNext(); ) {
-//       ArchivalUnit au0 = (ArchivalUnit)iter.next();
-//       String id = au0.getAuId();
-//       sel.add(encodeAttr(au0.getName()), id.equals(preselId), id);
-//     }
     return sel;
   }
 

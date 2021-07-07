@@ -861,7 +861,8 @@ public class PluginManager
 	  if (log.isDebug2()) log.debug2("Deactivating AU: " + auKey);
 	  deactivateAuOnly(curAu);
 	} else {
-          inactiveAuIds.add(auId);
+          // XXXONDEMAND
+//           inactiveAuIds.add(auId);
         }
 	return;
       }
@@ -1915,44 +1916,17 @@ public class PluginManager
   }
 
 
-  /**
-   * Convenience method to provide an indication of whether an Archival Unit is
-   * not configured in the daemon and it's not inactive.
-   *
-   * @param auId
-   *          A String with the Archival Unit identifier.
-   * @return a boolean with <code>true</code> if the Archival Unit is not
-   *         configured in the daemon and it's not inactive, <code>false</code>
-   *         otherwise.
+  /** Throw if there's already an active configuration for the AU that
+   * would result from the plugin and auConf.
    */
-  public boolean isNotConfiguredAndNotInactive(String auId) {
-    try {
-      Configuration oldConfig = getStoredAuConfigurationAsConfiguration(auId);
-      return oldConfig == null;
-    } catch (DbException | LockssRestException e) {
-      log.warning("Error getting AU config", e);
-      return false;
-    }
-
-  }
-
-  public boolean isAuConfigured(String auId) {
-    try {
-      Configuration oldConfig = getStoredAuConfigurationAsConfiguration(auId);
-      return oldConfig != null;
-    } catch (DbException | LockssRestException e) {
-      log.warning("Error getting AU config", e);
-      return false;
-    }
-  }
-
-  void checkAuNotConfigured(Plugin plugin, Configuration auConf)
+  void checkNotConfiguredActive(Plugin plugin, Configuration auConf)
       throws ArchivalUnit.ConfigurationException, DbException,
 	     LockssRestException {
-    checkAuNotConfigured(generateAuId(plugin, auConf), auConf);
+    checkNotConfiguredActive(generateAuId(plugin, auConf), auConf);
   }
 
-  void checkAuNotConfigured(String auid, Configuration auConf)
+  /** Throw if there's already an active configuration for the auid */
+  void checkNotConfiguredActive(String auid, Configuration auConf)
       throws ArchivalUnit.ConfigurationException, DbException,
 	     LockssRestException {
     ArchivalUnit oldAu = getAuFromIdIfExists(auid);
@@ -1966,7 +1940,7 @@ public class PluginManager
 	name = auid;
       }
       if (oldConfig.getBoolean(AU_PARAM_DISABLED, false)) {
-	// Ok to create AU that's currently deactivated
+	// Do anything different if config is there but disabled?
 	return;
       }
       throw new ArchivalUnit.ConfigurationException("Cannot create that AU because it's already configured: " + name);
@@ -1993,8 +1967,8 @@ public class PluginManager
   }
 
   /**
-   * Create an AU and save its configuration in the database.  Need to find a
-   * better place for this.
+   * Create an AU and save its configuration in the database.  This is
+   * also used by RemoteApi to reactivate an AU.
    * @param plugin the Plugin in which to create the AU
    * @param auConf the new AU configuration, using simple prop keys (not
    * prefixed with org.lockss.au.<i>auid</i>)
@@ -2009,8 +1983,8 @@ public class PluginManager
       LockssRestException {
     synchronized (auAddDelLock) {
       String auId = generateAuId(plugin, auConf);
-      checkAuNotConfigured(auId, auConf);
-//       checkAuNotPresent(auId);
+      checkNotConfiguredActive(auId, auConf);
+//       checkNotPresent(auId);
       auConf.put(AU_PARAM_DISABLED, "false");
       ArchivalUnit au =
 	createAu(plugin, auConf, AuEvent.model(AuEvent.Type.Create));
@@ -2161,22 +2135,6 @@ public class PluginManager
       stopAu(au, AuEvent.forAu(au, AuEvent.Type.Deactivate));
     }
   }
-
-//   /**
-//    * Deactivate an AU
-//    * @param au the ArchivalUnit to be deactivated
-//    * @throws DbException
-//    * @throws LockssRestException
-//    */
-//   public void reactivateAu(AuProxy aup)
-//     throws DbException, LockssRestException {
-//     synchronized (auAddDelLock) {
-// //       if (isPresentAu(aup.getAuId())) {
-// // 	pluginMgr.deleteAu(aup.getAu());
-// //       } else {
-// // 	deleteAuConfiguration(aup.getAuId());
-//     }
-//   }
 
   // Stops and restarts a set of AUs so that they start using the current
   // version of their plugin.  Waits a little while between stopping and
@@ -2342,9 +2300,10 @@ public class PluginManager
   }
 
   /**
-   * Return the config tree for an AU id (from the database, not the au itself).
-   * @param auid the AU's id.
-   * @return the AU's Configuration, with unprefixed keys.
+   * Return true if there's a configuration present for the auid, even if
+   * the AU is deactivated
+   * @param auid
+   * @return true if a configuration exists in the database
    */
   public boolean hasStoredAuConfiguration(String auid) {
     try {
@@ -3671,6 +3630,11 @@ public class PluginManager
     }
   }
 
+  // XXXONDEMAND to make things compile while working on this
+  public List<ArchivalUnit> getAllAus() {
+    return getAllPresentAus();
+  }
+
   /**
    * Return a randomly ordered list of all AUs.
    */
@@ -3718,6 +3682,7 @@ public class PluginManager
     }
   }
 
+  // XXXONDEMAND PERF
   /** Return true if the AUID is that of an AU that has been explicitly
    * deactivated */
   public boolean isInactiveAuId(String auid) {

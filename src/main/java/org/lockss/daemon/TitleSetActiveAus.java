@@ -52,7 +52,8 @@ public class TitleSetActiveAus extends BaseTitleSet {
    * @return a collection of {@link TitleConfig} */
   public Collection<TitleConfig> getTitles() {
     PluginManager pmgr = daemon.getPluginManager();
-    List<ArchivalUnit> aus = pmgr.getAllAus();
+    // XXXONDEMAND
+    List<ArchivalUnit> aus = (List<ArchivalUnit>)null/*pmgr.getAllAus()*/;
     ArrayList<TitleConfig> res = new ArrayList<TitleConfig>(aus.size());
     for (ArchivalUnit au : aus) {
       if (!pmgr.isInternalAu(au)) {
@@ -70,7 +71,8 @@ public class TitleSetActiveAus extends BaseTitleSet {
     case TitleSet.SET_DELABLE:
       PluginManager pmgr = daemon.getPluginManager();
       int res = 0;
-      for (ArchivalUnit au : pmgr.getAllAus()) {
+    // XXXONDEMAND
+      for (ArchivalUnit au : (List<ArchivalUnit>)null/*pmgr.getAllAus()*/) {
 	if (!pmgr.isInternalAu(au)) {
 	  res++;
 	}

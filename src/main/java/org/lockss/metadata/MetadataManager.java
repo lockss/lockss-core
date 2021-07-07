@@ -2208,8 +2208,8 @@ public class MetadataManager extends BaseLockssManager {
    */
 
   // XXXONDEMAND Note that this is now likely a perfomance problem because
-  // pluginMgr.isNotConfiguredAndNotInactive() now requires a transaction
-  // with ConfigService
+  // pluginMgr.hasStoredAuConfiguration() requires a transaction with
+  // ConfigService
 
   public Collection<Map<String, Object>> getDbArchivalUnitsDeletedFromDaemon()
       throws DbException {
@@ -2235,7 +2235,7 @@ public class MetadataManager extends BaseLockssManager {
       // Check whether the daemon does not have this AU and this AU is not
       // restarting due to a plugin update and it has not been manually
       // deactivated.
-      if (pluginMgr.isNotConfiguredAndNotInactive(auId)) {
+      if (!pluginMgr.hasStoredAuConfiguration(auId)) {
 	// Yes: It is an AU that can be safely deleted.
 	deletedAus.add(auProperties);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Deleted");

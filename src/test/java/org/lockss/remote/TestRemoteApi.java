@@ -146,9 +146,6 @@ public class TestRemoteApi extends LockssTestCase {
     getConfigStore().addArchivalUnitConfiguration(id1, inact);
     getConfigStore().addArchivalUnitConfiguration(id2, act);
     getConfigStore().addArchivalUnitConfiguration(id3, inact);
-//     mpm.setStoredConfig(id1, ConfigManager.fromProperties(inact));
-//     mpm.setStoredConfig(id2, ConfigManager.EMPTY_CONFIGURATION);
-//     mpm.setStoredConfig(id3, ConfigManager.fromProperties(inact));
     assertEquals(ListUtil.list(rapi.findAuProxy(id1),
 			       rapi.findAuProxy(id3)),
 		 rapi.getInactiveAus());
@@ -164,12 +161,12 @@ public class TestRemoteApi extends LockssTestCase {
     assertFalse(aup1.isActiveAu());
   }
 
-  public void testGetAllAus() throws Exception {
+  public void testGetAllPresentAus() throws Exception {
     MockArchivalUnit mau1 = new MockArchivalUnit();
     MockArchivalUnit mau2 = new MockArchivalUnit();
     mpm.setAllAus(ListUtil.list(mau1, mau2));
     assertEquals(ListUtil.list(rapi.findAuProxy(mau1), rapi.findAuProxy(mau2)),
-		 rapi.getAllAus());
+		 rapi.getAllPresentAuProxies());
   }
 
   public void testMapAus() {
@@ -718,8 +715,6 @@ public class TestRemoteApi extends LockssTestCase {
     List actions = new ArrayList();
     List allAus;
 
-    Map storedConfigs = new HashMap();
-
     void mockInit() {
       MockPlugin mp1 = new MockPlugin();
       mp1.setPluginId(PID1);
@@ -728,10 +723,6 @@ public class TestRemoteApi extends LockssTestCase {
       mau1.setAuId(AUID1);
       putAuInMap(mau1);
     }
-
-//     void setStoredConfig(String auid, Configuration config) {
-//       storedConfigs.put(auid, config);
-//     }
 
     void setAllAus(List allAus) {
       this.allAus = allAus;
@@ -789,11 +780,6 @@ public class TestRemoteApi extends LockssTestCase {
       actions.add(new Pair("Deactivate", auid));
       super.deactivateAuConfiguration(auid);
     }
-
-//     @Override
-//     public Configuration getStoredAuConfigurationAsConfiguration(String auid) {
-//       return (Configuration)storedConfigs.get(auid);
-//     }
 
     @Override
     public List getAllAus() {

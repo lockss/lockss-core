@@ -79,7 +79,7 @@ public class TestAuSearchSet extends LockssTestCase {
     assertEquals(0, ss.size());
     assertFalse(ss.iterator().hasNext());
     assertEmpty(ListUtil.fromIterator(ss.iterator()));
-    assertEmpty(ss.getAllAus());
+    assertEmpty(ss.getAllPresentAus());
     assertEmpty(ss.getSortedAus());
     try {
       ss.iterator().next();
@@ -92,7 +92,7 @@ public class TestAuSearchSet extends LockssTestCase {
     assertFalse(ss.isEmpty());
     assertEquals(exp.size(), ss.size());
     assertEquals(exp, ListUtil.fromIterator(ss.iterator()));
-    assertSameElements(exp, ss.getAllAus());
+    assertSameElements(exp, ss.getAllPresentAus());
     assertIsomorphic(sortedAus(exp), ss.getSortedAus());
   }
 

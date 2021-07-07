@@ -725,18 +725,14 @@ public class LockssTestCase4 extends Assert {
 
   /** Create a fresh config manager.  This is overridden in
    * SpringLockssTestCase4 in lockss-spring-bundle */
-  protected void makeConfigManager() {
-    ConfigManager.makeConfigManager();
-  }
-
-  protected MockLockssDaemon newMockLockssDaemon() {
-    return new MockLockssDaemon();
-  }
-
   protected ConfigManager makeConfigManager() {
     ConfigManager mgr = ConfigManager.makeConfigManager();
     mgr.initService(mockDaemon);
     return mgr;
+  }
+
+  protected MockLockssDaemon newMockLockssDaemon() {
+    return new MockLockssDaemon();
   }
 
   /**
