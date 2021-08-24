@@ -1893,10 +1893,10 @@ public class PluginManager
     updateAuInDatabase(au.getAuId(), auConf);
   }
 
-  public void updateAuInDatabase(AuConfiguration auConfiguration)
+  public void updateAuConfigFromExternalSource(AuConfiguration auConfiguration)
       throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
-      configMgr.storeArchivalUnitConfiguration(auConfiguration);
+      configMgr.storeArchivalUnitConfiguration(auConfiguration, true);
     }
   }
 
