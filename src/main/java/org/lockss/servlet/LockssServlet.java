@@ -82,6 +82,11 @@ public abstract class LockssServlet extends HttpServlet
   // Constants
   static final String PARAM_LOCAL_IP = Configuration.PREFIX + "localIPAddress";
 
+  /** Response charset */
+  static final String PARAM_RESPONSE_CHARSET =
+    Configuration.PREFIX + "ui.responseCharset";
+  static final String DEFAULT_RESPONSE_CHARSET = "UTF-8";
+
   static final String PARAM_PLATFORM_VERSION =
     Configuration.PREFIX + "platform.version";
 
@@ -212,6 +217,8 @@ public abstract class LockssServlet extends HttpServlet
       if (log.isDebug()) {
 	logParams();
       }
+      resp.setCharacterEncoding(CurrentConfig.getParam(PARAM_RESPONSE_CHARSET,
+                                                       DEFAULT_RESPONSE_CHARSET));
       resp.setContentType("text/html");
 
       if (!mayPageBeCached()) {
@@ -895,8 +902,8 @@ public abstract class LockssServlet extends HttpServlet
 // It causes the doctype statement to appear in the middle,
 // after the <body> tag.
     page.add("<!doctype html public \"-//w3c//dtd html 4.0 transitional//en\">");
-    page.addHeader("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">");
-    page.addHeader("<meta http-equiv=\"content-type\" content=\"text/html;charset=ISO-8859-1\">");
+//     page.addHeader("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">");
+//     page.addHeader("<meta http-equiv=\"content-type\" content=\"text/html;charset=ISO-8859-1\">");
     page.addHeader("<link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\" />");
     return page;
   }
@@ -1200,7 +1207,6 @@ public abstract class LockssServlet extends HttpServlet
       log.debug3("X-Lockss-Result: " + (success ? "Ok" : "Fail"));
       resp.setHeader("X-Lockss-Result", success ? "Ok" : "Fail");
     }
-    resp.setContentType("text/html");
     PrintWriter wrtr = resp.getWriter();
     wrtr.println(DOCTYPE);
     page.write(wrtr);
