@@ -811,6 +811,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.dependency.marc4j}</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.tectonica</groupId>
+      <artifactId>jonix</artifactId>
+      <version>${version.group.jonix}</version>
+    </dependency>
+
   </dependencies>
 
   <build>
