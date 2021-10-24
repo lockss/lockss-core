@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -551,9 +551,6 @@ public class BaseUrlFetcher implements UrlFetcher {
       pauseBeforeFetch();
       customizeConnection(conn);
       executeConnection(conn);
-    } catch (MalformedURLException ex) {
-      log.debug2("openConnection", ex);
-      throw resultMap.getMalformedURLException(ex);
     } catch (IOException ex) {
       log.debug2("openConnection", ex);
       throw resultMap.mapException(au, conn, ex, null);
