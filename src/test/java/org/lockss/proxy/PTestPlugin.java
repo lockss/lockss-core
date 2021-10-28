@@ -141,6 +141,10 @@ public class PTestPlugin {
       throw new UnsupportedOperationException("Not implemented");
     }
 
+    public void delete() throws UnsupportedOperationException, IOException {
+      throw new UnsupportedOperationException("Not implemented");
+    }
+
     public LinkRewriterFactory getLinkRewriterFactory() {
       throw new UnsupportedOperationException("Not implemented");
     }

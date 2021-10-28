@@ -292,6 +292,9 @@ public class NullPlugin {
     public void release() {
     }
 
+    public void delete() throws UnsupportedOperationException, IOException {
+    }
+
     public CachedUrl getArchiveMemberCu(ArchiveMemberSpec ams) {
       return null;
     }

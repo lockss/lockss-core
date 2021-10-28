@@ -72,6 +72,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuEvent;
 import org.lockss.plugin.AuEventHandler;
 import org.lockss.plugin.AuUtil;
+import org.lockss.plugin.CachedUrl;
 import org.lockss.plugin.CachedUrlSet;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.PluginManager;
@@ -2305,12 +2306,11 @@ public class V3Poller implements Poll {
       if (AuUtil.isDeleteExtraFiles(getAu(),
           (deleteExtraFiles &&
               AuUtil.okDeleteExtraFiles(getAu())))) {
-        CachedUrlSetSpec cuss =
-            new SingleNodeCachedUrlSetSpec(url);
-        CachedUrlSet cus = getAu().makeCachedUrlSet(cuss);
+        CachedUrl cu = getAu().makeCachedUrl(url);
         log.debug("Marking block deleted: " + url);
+	// XXXREPO This should delete all versions!
+        cu.delete();
 	// XXXREPO
-//         theDaemon.getLockssRepository(getAu()).deleteNode(cus.getUrl());
 	if (false) throw new IOException("Satisfy compiler");
       } else {
         log.info("Asked to mark file " + url + " deleted in poll " +

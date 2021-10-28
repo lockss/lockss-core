@@ -963,7 +963,24 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
     public void testGetMultipleStreams() throws Exception {
       doTestGetMultipleStreams();
     }
-}
+
+    public void testDelete() throws Exception {
+      ConfigurationUtil.addFromArgs(CachedUrl.PARAM_ALLOW_DELETE, "true");
+      createLeaf(url1, content1, null);
+
+      CachedUrl cu = getTestCu(url1);
+      assertEquals(url1, cu.getUrl());
+      assertTrue(cu.hasContent());
+      cu.delete();
+      // In the single-version case, the CU will recognize that there
+      // is no longer content
+      assertFalse(cu.hasContent());
+      try {
+        cu.getUnfilteredInputStream();
+      } catch (UnsupportedOperationException e) {
+      }
+    }
+  }
 
   /** Variant that performs the tests with the current version when there's
    * a previous version */
@@ -1056,6 +1073,33 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 		   ibcu3.getIncludeArgs());
     }
 
+    public void testDelete() throws Exception {
+      ConfigurationUtil.addFromArgs(CachedUrl.PARAM_ALLOW_DELETE, "true");
+      createLeaf(url1, content1, null);
+
+      CachedUrl cu = getTestCu(url1);
+      assertEquals(url1, cu.getUrl());
+      assertTrue(cu.hasContent());
+      assertEquals(2, cu.getVersion());
+      assertFalse(cu instanceof BaseCachedUrl.Version);
+      CachedUrl[] all = cu.getCuVersions();
+      assertEquals(2, all.length);
+      CachedUrl verCu = all[0];
+      assertEquals(2, verCu.getVersion());
+      cu.delete();
+      // There's an older version, so the CU still has content
+      assertTrue(cu.hasContent());
+
+      // Even an existing versioned CU doesn't know that the artifact
+      // has been deleted.  It gets an error attempting to access the
+      // data.
+      assertTrue(verCu.hasContent());
+      try {
+        verCu.getUnfilteredInputStream();
+      } catch (LockssUncheckedIOException e) {
+        assertClass(LockssNoSuchArtifactIdException.class, e.getCause());
+      }
+    }
   }
 
   /** Varient that performs the tests with version 2 of 3 versions */
@@ -1130,7 +1174,25 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       assertEquals(2, all[1].getVersion());
     }
 
+    public void testDelete() throws Exception {
+      ConfigurationUtil.addFromArgs(CachedUrl.PARAM_ALLOW_DELETE, "true");
+      createLeaf(url1, content1, null);
 
+      CachedUrl cu = getTestCu(url1);
+      assertEquals(url1, cu.getUrl());
+      assertEquals(2, cu.getVersion());
+      assertTrue(cu.hasContent());
+      assertTrue(cu instanceof BaseCachedUrl.Version);
+      cu.delete();
+      assertFalse(cu.hasContent());
+      try {
+        cu.getUnfilteredInputStream();
+      } catch (UnsupportedOperationException e) {
+      }
+      // There's now one fewer
+      CachedUrl[] all = cu.getCuVersions();
+      assertEquals(2, all.length);
+    }
 
   }
 
