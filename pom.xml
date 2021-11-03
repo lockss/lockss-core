@@ -1093,6 +1093,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <goal>exec</goal>
             </goals>
             <configuration>
+              <skip>${skipBuildTdb}</skip>
               <executable>java</executable>
 	      <classpathScope>test</classpathScope>
 	      <!-- Workaround for exec-maven-plugin bug that causes error
@@ -1130,6 +1131,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <goal>exec</goal>
             </goals>
             <configuration>
+              <skip>${skipBuildTdb}</skip>
               <executable>java</executable>
 	      <classpathScope>test</classpathScope>
 	      <!-- Workaround for exec-maven-plugin bug that causes error
