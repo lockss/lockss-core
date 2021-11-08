@@ -39,6 +39,9 @@ import org.lockss.app.LockssApp.ManagerDesc;
  * - apps can construct their own ManagerDesc.
  */
 public class ManagerDescs {
+  public static ManagerDesc MISC_SETUP_MANAGER_DESC =
+    new ManagerDesc(LockssApp.MISC_SETUP_MANAGER,
+		    "org.lockss.daemon.MiscSetupManager");
   public static ManagerDesc MISC_PARAMS_MANAGER_DESC =
     new ManagerDesc(LockssApp.MISC_PARAMS,
 		    "org.lockss.config.MiscParams");

@@ -181,6 +181,8 @@ public class LockssApp {
   //   public static final String REMOTE_API = "RemoteApi";
   public static final String URL_MANAGER =
     managerKey(UrlManager.class);
+  public static final String MISC_SETUP_MANAGER =
+    managerKey(MiscSetupManager.class);
   public static final String CRON =
     managerKey(Cron.class);
   public static final String TRUEZIP_MANAGER =
@@ -197,6 +199,7 @@ public class LockssApp {
   // order, followed by the service-specific managers specified by
   // subclasses, followed by post managers below
   private final ManagerDesc[] stdPreManagers = {
+    MISC_SETUP_MANAGER_DESC,
     MISC_PARAMS_MANAGER_DESC,
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
