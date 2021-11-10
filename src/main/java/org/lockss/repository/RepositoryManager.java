@@ -544,9 +544,9 @@ public class RepositoryManager
       log.debug2("Searching {} for {}, {}", spec, normUrl, versions);
       try {
         Iterable<Artifact> riter =
-          repo.getArtifactsWithUrlPrefixFromAllAus(spec.getCollection(),
-                                                   normUrl,
-                                                   versions);
+          repo.getArtifactsWithUrlFromAllAus(spec.getCollection(),
+                                             normUrl,
+                                             versions);
         return IteratorUtils.toList(riter.iterator());
       } catch (IOException e) {
         log.warn("Couldn't find repository: {} ({})",

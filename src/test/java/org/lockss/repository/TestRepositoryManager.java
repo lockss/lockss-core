@@ -59,6 +59,17 @@ public class TestRepositoryManager extends LockssTestCase4 {
     super.tearDown();
   }
 
+  void assertArt(Artifact art, String expUrl, int expVer, String expContent)
+      throws IOException {
+    assertEquals(expUrl, art.getUri());
+    assertEquals(expVer, (long)art.getVersion());
+    if (expContent != null) {
+      LockssRepository repo = mgr.getV2Repository().getRepository();
+      ArtifactData ad = repo.getArtifactData(art);
+      assertEquals(expContent, StringUtil.fromInputStream(ad.getInputStream()));
+    }
+  }
+
   @Test
   public void testConfig() throws Exception {
     PlatformUtil.DF warn = mgr.getDiskWarnThreshold();
@@ -195,31 +206,33 @@ public class TestRepositoryManager extends LockssTestCase4 {
                                   "volatile:foo");
     String url1 = "http://www.example.com/testDir/foo";
     String url2 = "http://www.example.com/testDir/bar";
+    String url3 = "http://www.example.com/testDir/bar/1";
 
     LockssRepository repo = mgr.getV2Repository().getRepository();
     Artifact art;
     storeArt(repo, url1, "111", null);
     storeArt(repo, url2, "222", null);
+    storeArt(repo, url3, "333", null);
     TimerUtil.guaranteedSleep(1000);
     List<Artifact> arts1 = mgr.findArtifactsByUrl(url1);
     assertEquals(1, arts1.size());
-    art = arts1.get(0);
-    assertEquals(url1, art.getUri());
-    assertEquals(1, (long)art.getVersion());
+    assertArt(arts1.get(0), url1, 1, "111");
     List<Artifact> arts2 = mgr.findArtifactsByUrl(url2);
-    art = arts2.get(0);
     assertEquals(1, arts2.size());
-    assertEquals(url2, art.getUri());
-    assertEquals(1, (long)art.getVersion());
+    assertArt(arts2.get(0), url2, 1, "222");
 
     storeArt(repo, url1, "xxxx", null);
     storeArt(repo, url1, "yyyyyyy", null);
+
     List<Artifact> arts3 = mgr.findArtifactsByUrl(url1);
     assertEquals(1, arts3.size());
-    art = arts3.get(0);
-    assertEquals(url1, art.getUri());
-    assertEquals(3, (long)art.getVersion());
+    assertArt(arts3.get(0), url1, 3, "yyyyyyy");
 
+    List<Artifact> arts4 = mgr.findArtifactsByUrl(url1, ArtifactVersions.ALL);
+    assertEquals(3, arts4.size());
+    assertArt(arts4.get(0), url1, 3, "yyyyyyy");
+    assertArt(arts4.get(1), url1, 2, "xxxx");
+    assertArt(arts4.get(2), url1, 1, "111");
 
     assertEmpty(mgr.findArtifactsByUrl(url1 + "/notpresent"));
   }
