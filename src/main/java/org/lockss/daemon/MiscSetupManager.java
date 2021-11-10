@@ -49,7 +49,7 @@ import org.lockss.app.*;
  * 
  * @since 1.75.8
  */
-public class MiscSetupManager extends BaseLockssDaemonManager {
+public class MiscSetupManager extends BaseLockssManager {
 
   private static final Logger log = Logger.getLogger(MiscSetupManager.class);
 
