@@ -38,8 +38,8 @@ import java.net.*;
 
 import org.archive.io.*;
 import org.archive.io.warc.*;
-import org.apache.commons.collections4.Bag;
-import org.apache.commons.collections4.bag.*;
+import org.apache.commons.collections.Bag;
+import org.apache.commons.collections.bag.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
 import org.lockss.config.db.ConfigDbManager;

@@ -34,7 +34,7 @@ package org.lockss.exporter.kbart;
 
 import java.util.*;
 import java.util.concurrent.*;
-import org.apache.commons.collections4.comparators.ComparatorChain;
+import org.apache.commons.collections.comparators.ComparatorChain;
 import org.lockss.config.*;
 import org.lockss.exporter.biblio.*;
 import org.lockss.plugin.ArchivalUnit;

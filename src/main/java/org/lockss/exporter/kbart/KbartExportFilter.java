@@ -34,7 +34,7 @@ package org.lockss.exporter.kbart;
 
 import java.util.*;
 
-import org.apache.commons.collections4.comparators.ComparatorChain;
+import org.apache.commons.collections.comparators.ComparatorChain;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.config.TdbUtil.ContentScope;
 import org.lockss.exporter.kbart.KbartTitle.Field;

@@ -31,7 +31,7 @@ in this Software without prior written authorization from Stanford University.
 */
 package org.lockss.exporter.biblio;
 
-import org.apache.commons.collections4.comparators.ComparatorChain;
+import org.apache.commons.collections.comparators.ComparatorChain;
 import org.lockss.test.LockssTestCase;
 
 import java.util.Collections;

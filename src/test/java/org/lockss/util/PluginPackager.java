@@ -36,7 +36,7 @@ import java.util.regex.*;
 import java.util.stream.*;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
-import org.apache.commons.collections4.*;
+import org.apache.commons.collections.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.tuple.*;

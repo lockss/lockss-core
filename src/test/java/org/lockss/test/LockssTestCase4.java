@@ -1919,7 +1919,7 @@ public class LockssTestCase4 extends Assert {
   public static void assertSameElements(String message,
                                         Collection expected,
                                         Collection actual) {
-    if (org.apache.commons.collections4.
+    if (org.apache.commons.collections.
         CollectionUtils.isEqualCollection(expected, actual)) {
       return;
     }
@@ -1948,7 +1948,7 @@ public class LockssTestCase4 extends Assert {
                                         Object[] expected,
                                         Collection actual) {
 
-    if (org.apache.commons.collections4.
+    if (org.apache.commons.collections.
         CollectionUtils.isEqualCollection(ListUtil.fromArray(expected),
                                           actual)) {
       return;

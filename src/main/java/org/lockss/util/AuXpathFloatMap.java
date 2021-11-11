@@ -30,7 +30,7 @@ package org.lockss.util;
 
 import java.util.*;
 import java.text.*;
-import org.apache.commons.collections4.map.*;
+import org.apache.commons.collections.map.*;
 import org.apache.oro.text.regex.*;
 import org.lockss.plugin.*;
 

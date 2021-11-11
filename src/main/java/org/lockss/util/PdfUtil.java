@@ -31,7 +31,7 @@ package org.lockss.util;
 import java.io.*;
 import java.util.*;
 
-import org.apache.commons.collections4.iterators.*;
+import org.apache.commons.collections.iterators.*;
 import org.lockss.config.*;
 import org.lockss.filter.pdf.*;
 import org.lockss.plugin.*;
@@ -798,7 +798,7 @@ return success;
   }
 
   public static Iterator getPdf16Operators() {
-    return UnmodifiableIterator.unmodifiableIterator(new ObjectArrayIterator(PDF_1_6_OPERATORS));
+    return UnmodifiableIterator.decorate(new ObjectArrayIterator(PDF_1_6_OPERATORS));
   }
 
   /**

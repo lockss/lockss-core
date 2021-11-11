@@ -32,7 +32,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.protocol;
 
 import java.util.*;
-import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections.CollectionUtils;
 
 import org.lockss.daemon.status.*;
 import org.lockss.config.*;

@@ -33,7 +33,7 @@ import java.util.*;
 import java.util.List;
 import javax.servlet.*;
 import javax.servlet.http.HttpSession;
-import org.apache.commons.collections4.map.LinkedMap;
+import org.apache.commons.collections.map.LinkedMap;
 import org.apache.commons.lang3.mutable.*;
 import org.lockss.config.*;
 import org.lockss.daemon.TitleSet;

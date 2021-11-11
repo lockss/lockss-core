@@ -29,7 +29,7 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
-import org.apache.commons.collections4.map.Flat3Map;
+import org.apache.commons.collections.map.Flat3Map;
 import org.lockss.config.Tdb.TdbException;
 import org.lockss.exporter.biblio.BibliographicItem;
 import org.lockss.exporter.biblio.BibliographicUtil;

@@ -56,7 +56,7 @@ public class CollectionUtil {
 
   /** Return true iff the two Collections are disjoint */
   public static boolean isDisjoint(Collection a, Collection b) {
-    return !org.apache.commons.collections4.CollectionUtils.containsAny(a, b);
+    return !org.apache.commons.collections.CollectionUtils.containsAny(a, b);
   }
 
   /** Return true iff the two iterators enumerate collections of the same

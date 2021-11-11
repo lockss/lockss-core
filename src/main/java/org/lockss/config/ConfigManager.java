@@ -36,7 +36,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.net.*;
 import java.sql.Connection;
-import org.apache.commons.collections4.Predicate;
+import org.apache.commons.collections.Predicate;
 import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;

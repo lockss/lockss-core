@@ -41,7 +41,7 @@ import org.lockss.util.Queue;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
-import org.apache.commons.collections4.map.LRUMap;
+import org.apache.commons.collections.map.LRUMap;
 import org.lockss.app.*;
 import org.lockss.poller.*;
 import org.lockss.plugin.*;

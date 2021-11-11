@@ -32,7 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 
-import org.apache.commons.collections4.map.AbstractMapDecorator;
+import org.apache.commons.collections.map.AbstractMapDecorator;
 import java.util.*;
 
 /**

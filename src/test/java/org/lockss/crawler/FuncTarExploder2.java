@@ -30,10 +30,10 @@ package org.lockss.crawler;
 
 import java.io.*;
 import java.util.*;
-import org.apache.commons.collections4.MultiMap;
-import org.apache.commons.collections4.Bag;
-import org.apache.commons.collections4.bag.*;
-import org.apache.commons.collections4.map.*;
+import org.apache.commons.collections.MultiMap;
+import org.apache.commons.collections.Bag;
+import org.apache.commons.collections.bag.*;
+import org.apache.commons.collections.map.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;

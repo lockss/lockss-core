@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 
-import org.apache.commons.collections4.map.LRUMap;
-import org.apache.commons.collections4.map.MultiKeyMap;
+import org.apache.commons.collections.map.LRUMap;
+import org.apache.commons.collections.map.MultiKeyMap;
 
 import org.lockss.app.BaseLockssManager;
 import org.lockss.app.ConfigurableManager;
@@ -25,7 +25,7 @@ public class CachingEntitlementRegistryClient extends BaseLockssManager implemen
 
   protected CachingEntitlementRegistryClient(BaseEntitlementRegistryClient client, int size) {
       this.client = client;
-      this.cache = MultiKeyMap.multiKeyMap(new LRUMap(size));
+      this.cache = MultiKeyMap.decorate(new LRUMap(size));
   }
 
   public void setConfig(Configuration config, Configuration oldConfig, Configuration.Differences diffs) {

@@ -38,8 +38,8 @@ import java.security.*;
 import javax.net.ssl.*;
 import java.util.*;
 
-import org.apache.commons.collections4.*;
-import org.apache.commons.collections4.bag.TreeBag; // needed to disambiguate
+import org.apache.commons.collections.*;
+import org.apache.commons.collections.bag.TreeBag; // needed to disambiguate
 import EDU.oswego.cs.dl.util.concurrent.*;
 
 import org.lockss.util.*;

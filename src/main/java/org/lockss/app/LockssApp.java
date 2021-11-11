@@ -52,7 +52,7 @@ import org.lockss.daemon.status.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.truezip.*;
-import org.apache.commons.collections4.map.LinkedMap;
+import org.apache.commons.collections.map.LinkedMap;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.springframework.context.ApplicationContext;

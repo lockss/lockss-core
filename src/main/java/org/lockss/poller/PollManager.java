@@ -40,7 +40,7 @@ import static org.lockss.util.Constants.*;
 import java.io.*;
 import java.util.*;
 
-import org.apache.commons.collections4.map.*;
+import org.apache.commons.collections.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.mortbay.util.B64Code;
 

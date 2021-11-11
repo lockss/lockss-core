@@ -29,9 +29,9 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.crawler;
 
 import java.util.*;
-import org.apache.commons.collections4.iterators.IteratorChain;
-import org.apache.commons.collections4.map.LinkedMap;
-import org.apache.commons.collections4.set.ListOrderedSet;
+import org.apache.commons.collections.iterators.IteratorChain;
+import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.collections.set.ListOrderedSet;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;

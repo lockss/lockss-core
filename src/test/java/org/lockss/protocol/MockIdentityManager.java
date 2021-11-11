@@ -31,7 +31,7 @@ in this Software without prior written authorization from Stanford University.
 */
 package org.lockss.protocol;
 
-import org.apache.commons.collections4.Predicate;
+import org.apache.commons.collections.Predicate;
 
 import java.util.*;
 import java.io.*;

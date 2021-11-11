@@ -37,8 +37,8 @@ import java.io.*;
 import java.net.*;
 import java.net.HttpURLConnection;
 import java.util.*;
-import org.apache.commons.collections4.SetUtils;
-import org.apache.commons.collections4.map.LRUMap;
+import org.apache.commons.collections.SetUtils;
+import org.apache.commons.collections.map.LRUMap;
 //HC3 import org.apache.commons.httpclient.util.*;
 import org.apache.commons.logging.Log;
 import org.lockss.app.LockssDaemon;
@@ -376,10 +376,11 @@ public class ProxyHandler extends AbstractHttpHandler {
     if (HttpRequest.__POST.equals(request.getMethod()) &&
 	proxyMgr.isHandleFormPost()) {
       log.debug3("POST request found!");
-      // We don't have any way to know order from request headers
+      // We don't have any way to know order from request headers instead to
       // so we just sort the elements.
       MultiMap params = request.getParameters();
-      SortedSet<String> keys = new TreeSet<String>(params.keySet());
+      Set<String> unsortedKeys = SetUtils.typedSet(params.keySet(), String.class);
+      SortedSet<String> keys = new TreeSet<String>(unsortedKeys);
 
       FormUrlHelper helper = new FormUrlHelper(uri.toString());
 

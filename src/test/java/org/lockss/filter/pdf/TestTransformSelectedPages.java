@@ -35,7 +35,7 @@ package org.lockss.filter.pdf;
 import java.io.IOException;
 import java.util.*;
 
-import org.apache.commons.collections4.iterators.*;
+import org.apache.commons.collections.iterators.*;
 import org.lockss.filter.pdf.MockTransforms.RememberPagePageTransform;
 import org.lockss.test.*;
 import org.lockss.util.*;

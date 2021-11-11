@@ -36,7 +36,7 @@ import java.io.*;
 import java.net.UnknownHostException;
 import java.util.*;
 
-import org.apache.commons.collections4.*;
+import org.apache.commons.collections.*;
 
 import org.lockss.app.*;
 import org.lockss.config.*;

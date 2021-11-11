@@ -38,9 +38,9 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.collections4.*;
-import org.apache.commons.collections4.bidimap.*;
-import org.apache.commons.collections4.iterators.*;
+import org.apache.commons.collections.*;
+import org.apache.commons.collections.bidimap.*;
+import org.apache.commons.collections.iterators.*;
 import org.mortbay.html.*;
 import org.mortbay.http.*;
 import org.mortbay.servlet.MultiPartRequest;

@@ -29,7 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.test;
 
 import java.util.*;
-import org.apache.commons.collections4.map.LinkedMap;
+import org.apache.commons.collections.map.LinkedMap;
 import org.lockss.alert.AlertManager;
 import org.lockss.account.AccountManager;
 import org.lockss.app.*;

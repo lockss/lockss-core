@@ -36,7 +36,7 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.apache.commons.collections4.map.LRUMap;
+import org.apache.commons.collections.map.LRUMap;
 import org.lockss.config.*;
 import org.lockss.util.*;
 import org.lockss.plugin.PluginManager;

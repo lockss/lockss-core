@@ -35,7 +35,7 @@ import java.text.*;
 import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
-import org.apache.commons.collections4.*;
+import org.apache.commons.collections.*;
 import org.apache.commons.lang3.mutable.*;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.lockss.config.*;

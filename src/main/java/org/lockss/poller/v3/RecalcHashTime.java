@@ -37,7 +37,7 @@ import java.net.MalformedURLException;
 import java.security.*;
 import java.util.*;
 
-import org.apache.commons.collections4.*;
+import org.apache.commons.collections.*;
 
 import org.lockss.app.*;
 import org.lockss.config.*;

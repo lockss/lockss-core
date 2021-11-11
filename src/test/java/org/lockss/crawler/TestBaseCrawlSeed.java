@@ -34,8 +34,8 @@ package org.lockss.crawler;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Collections;
 
+import org.apache.commons.collections.ListUtils;
 import org.lockss.daemon.PluginException;
 import org.lockss.daemon.PluginException.InvalidDefinition;
 import org.lockss.plugin.*;
@@ -107,7 +107,7 @@ public class TestBaseCrawlSeed extends LockssTestCase {
       assertMatchesRE("non-null permission URL list", e.getMessage());
     }
     
-    mau.setStartUrls(Collections.emptyList());
+    mau.setStartUrls(ListUtils.EMPTY_LIST);
     try {
       bcs.getStartUrls();
       fail("empty start url list should have thrown");
@@ -115,7 +115,7 @@ public class TestBaseCrawlSeed extends LockssTestCase {
       assertMatchesRE("non-null start URL list", e.getMessage());
     }
     
-    mau.setPermissionUrls(Collections.emptyList());
+    mau.setPermissionUrls(ListUtils.EMPTY_LIST);
     try {
       bcs.getPermissionUrls();
       fail("empty permission url list should have thrown");
