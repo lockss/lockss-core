@@ -41,8 +41,8 @@ import java.util.TreeSet;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpSession;
-import org.apache.commons.collections.FactoryUtils;
-import org.apache.commons.collections.map.MultiValueMap;
+import org.apache.commons.collections4.FactoryUtils;
+import org.apache.commons.collections4.map.MultiValueMap;
 import org.lockss.config.Configuration;
 import org.lockss.config.TdbAu;
 import org.lockss.config.TdbPublisher;
@@ -855,7 +855,7 @@ public class SubscriptionManagement extends LockssServlet {
 
     // Initialize the resulting map.
     MultiValueMap publicationMap = MultiValueMap
-	.decorate(new TreeMap<String, TreeSet<SerialPublication>>(),
+	.multiValueMap(new TreeMap<String, TreeSet<SerialPublication>>(),
 	    FactoryUtils.prototypeFactory(new TreeSet<SerialPublication>(
 		subManager.getPublicationComparator())));
 
@@ -2278,7 +2278,7 @@ public class SubscriptionManagement extends LockssServlet {
 
     // Initialize the resulting map.
     MultiValueMap subscriptionMap = MultiValueMap
-	.decorate(new TreeMap<String, TreeSet<Subscription>>(),
+	.multiValueMap(new TreeMap<String, TreeSet<Subscription>>(),
 	    FactoryUtils.prototypeFactory(new TreeSet<Subscription>(
 		subManager.getSubscriptionByPublicationComparator())));
 

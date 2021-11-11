@@ -31,7 +31,7 @@ import java.util.*;
 import java.net.*;
 import java.io.*;
 
-import org.apache.commons.collections.set.ListOrderedSet;
+import org.apache.commons.collections4.set.ListOrderedSet;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.Crawler.CrawlerFacade;

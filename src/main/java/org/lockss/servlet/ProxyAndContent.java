@@ -39,7 +39,7 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import org.mortbay.html.*;
 
-import org.apache.commons.collections.iterators.ObjectArrayIterator;
+import org.apache.commons.collections4.iterators.ObjectArrayIterator;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.config.*;
 import org.lockss.daemon.ResourceManager;

@@ -29,7 +29,7 @@ package org.lockss.util;
 
 import java.util.Date;
 
-import org.apache.commons.collections.map.LRUMap;
+import org.apache.commons.collections4.map.LRUMap;
 //HC3 import org.apache.commons.httpclient.util.DateUtil;
 import org.apache.http.client.utils.DateUtils;
 import org.mortbay.util.*;

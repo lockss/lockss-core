@@ -33,8 +33,8 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
-import org.apache.commons.collections .*;
-import org.apache.commons.collections.iterators .*;
+import org.apache.commons.collections4 .*;
+import org.apache.commons.collections4.iterators .*;
 
 import org.lockss.util.*;
 
