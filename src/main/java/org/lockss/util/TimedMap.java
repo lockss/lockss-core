@@ -33,7 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util;
 
 import java.util.*;
-import org.apache.commons.collections.iterators.UnmodifiableIterator;
+import org.apache.commons.collections4.iterators.UnmodifiableIterator;
 
 /**
  * Map in which entries are automatically removed after some interval.
@@ -149,7 +149,7 @@ public abstract class TimedMap implements Map {
     }
     public Iterator iterator() {
       removeExpiredEntries();
-      return UnmodifiableIterator.decorate(set.iterator());
+      return UnmodifiableIterator.unmodifiableIterator(set.iterator());
     }
     public boolean isEmpty() {
       removeExpiredEntries();
@@ -184,7 +184,7 @@ public abstract class TimedMap implements Map {
     }
     public Iterator iterator() {
       removeExpiredEntries();
-      return UnmodifiableIterator.decorate(coll.iterator());
+      return UnmodifiableIterator.unmodifiableIterator(coll.iterator());
     }
     public boolean isEmpty() {
       removeExpiredEntries();

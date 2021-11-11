@@ -37,7 +37,7 @@ import java.net.*;
 import java.security.SecureRandom;
 import java.util.*;
 import junit.framework.*;
-import org.apache.commons.collections.iterators.ObjectArrayIterator;
+import org.apache.commons.collections4.iterators.ObjectArrayIterator;
 import org.apache.commons.io.IOUtils;
 import org.apache.oro.text.regex.Pattern;
 import org.junit.Ignore;
@@ -1394,7 +1394,7 @@ public class LockssTestCase extends TestCase {
   public static void assertSameElements(String message,
 					Collection expected,
 					Collection actual) {
-    if (org.apache.commons.collections.
+    if (org.apache.commons.collections4.
 	CollectionUtils.isEqualCollection(expected, actual)) {
       return;
     }
@@ -1423,7 +1423,7 @@ public class LockssTestCase extends TestCase {
 					Object[] expected,
 					Collection actual) {
 
-    if (org.apache.commons.collections.
+    if (org.apache.commons.collections4.
 	CollectionUtils.isEqualCollection(ListUtil.fromArray(expected),
 					  actual)) {
       return;

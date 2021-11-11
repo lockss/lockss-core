@@ -35,7 +35,7 @@ package org.lockss.protocol;
 import java.io.*;
 import java.util.*;
 
-import org.apache.commons.collections.Predicate;
+import org.apache.commons.collections4.Predicate;
 
 import org.lockss.app.*;
 import org.lockss.config.Configuration;
