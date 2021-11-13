@@ -32,8 +32,8 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.extractor;
 
-import org.apache.commons.collections.MultiMap;
-import org.apache.commons.collections.map.MultiValueMap;
+import org.apache.commons.collections4.MultiMap;
+import org.apache.commons.collections4.map.MultiValueMap;
 
 import java.io.*;
 import java.util.regex.*;
