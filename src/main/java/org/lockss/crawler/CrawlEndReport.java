@@ -37,7 +37,7 @@ import java.net.*;
 import java.text.*;
 import java.util.*;
 import java.security.*;
-import org.apache.commons.collections.map.LRUMap;
+import org.apache.commons.collections4.map.LRUMap;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.os.PlatformUtil;

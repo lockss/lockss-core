@@ -56,7 +56,7 @@ import java.util.zip.ZipOutputStream;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
-import org.apache.commons.collections.map.MultiValueMap;
+import org.apache.commons.collections4.map.MultiValueMap;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;

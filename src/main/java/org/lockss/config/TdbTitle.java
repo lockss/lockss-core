@@ -29,7 +29,7 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
-import org.apache.commons.collections.iterators .*;
+import org.apache.commons.collections4.iterators .*;
 
 import org.lockss.config.Tdb.TdbException;
 import org.lockss.util.*;

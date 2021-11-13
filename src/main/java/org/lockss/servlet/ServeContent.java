@@ -35,7 +35,7 @@ import java.util.regex.*;
 import javax.servlet.*;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.collections.*;
+import org.apache.commons.collections4.*;
 //HC3 import org.apache.commons.httpclient.util.DateParseException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;

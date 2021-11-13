@@ -36,7 +36,7 @@ import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
 import java.util.stream.*;
-import org.apache.commons.collections.map.*;
+import org.apache.commons.collections4.map.*;
 import org.apache.commons.lang3.tuple.*;
 import org.lockss.alert.*;
 import org.lockss.app.*;

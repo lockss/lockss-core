@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2009 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,8 +32,6 @@ import java.util.*;
 import java.io.*;
 import java.text.*;
 
-import org.apache.commons.collections.Buffer;
-import org.apache.commons.collections.buffer.*;
 import org.lockss.util.*;
 
 /**
@@ -51,7 +45,7 @@ import org.lockss.util.*;
 public class CrawlQueue {
   static Logger log = Logger.getLogger();
 
-  Buffer sorted;
+  java.util.Queue<CrawlUrlData> sorted;
   Map<String,CrawlUrlData> map;
 
   /** Create a CrawlQueue that sorts {@link CrawlUrlData} objects (viewed
@@ -63,9 +57,9 @@ public class CrawlQueue {
    */
   public CrawlQueue(Comparator<CrawlUrl> comparator) {
     if (comparator == null) {
-      sorted = new UnboundedFifoBuffer();
+      sorted = new LinkedList();
     } else {
-      sorted = new PriorityBuffer(comparator);
+      sorted = new java.util.PriorityQueue(comparator);
     }
     map = new HashMap<String,CrawlUrlData>();
   }
@@ -91,7 +85,7 @@ public class CrawlQueue {
 
   /** Return the first CrawlUrlData in the queue */
   public CrawlUrlData first() {
-    return (CrawlUrlData)sorted.get();
+    return sorted.peek();
   }
 
   /** For unit tests */

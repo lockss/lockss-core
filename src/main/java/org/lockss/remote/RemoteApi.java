@@ -56,8 +56,9 @@ import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
 import org.lockss.mail.*;
 import org.lockss.servlet.ServletUtil;
-import org.apache.commons.collections.map.LinkedMap;
-import org.apache.commons.collections.map.ReferenceMap;
+import org.apache.commons.collections4.map.LinkedMap;
+import org.apache.commons.collections4.map.ReferenceMap;
+import org.apache.commons.collections4.map.AbstractReferenceMap;
 
 /**
  * API for use by UIs and other remote agents.  Provides access to a
@@ -135,10 +136,10 @@ public class RemoteApi
   private boolean paramIncludeDownAus = DEFAULT_INCLUDE_DOWN_AUS;
 
   // cache for proxy objects
-  private ReferenceMap auProxies = new ReferenceMap(ReferenceMap.WEAK,
-						    ReferenceMap.WEAK);
-  private ReferenceMap pluginProxies = new ReferenceMap(ReferenceMap.WEAK,
-							ReferenceMap.WEAK);
+  private ReferenceMap auProxies = new ReferenceMap(AbstractReferenceMap.ReferenceStrength.WEAK,
+						    AbstractReferenceMap.ReferenceStrength.WEAK);
+  private ReferenceMap pluginProxies = new ReferenceMap(AbstractReferenceMap.ReferenceStrength.WEAK,
+							AbstractReferenceMap.ReferenceStrength.WEAK);
 
   // The name of the file used to back-up the AU configuration database.
   static final String BACK_FILE_AU_CONFIGURATION_DB = "auConfigurationDb.bak";

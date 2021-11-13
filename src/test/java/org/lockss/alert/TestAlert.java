@@ -32,6 +32,7 @@ import java.io.*;
 import java.util.*;
 import java.net.*;
 import java.text.*;
+import org.apache.commons.collections4.map.MultiValueMap;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
@@ -209,7 +210,7 @@ public class TestAlert extends LockssTestCase {
   }
 
   public void testGroupHash() {
-    Map map = new org.apache.commons.collections.map.MultiValueMap();
+    Map map = new MultiValueMap();
     Alert a1 = new Alert("Name1")
       .setAttribute(Alert.ATTR_IS_CONTENT, true)
       .setAttribute(Alert.ATTR_AUID, "AUID 1")

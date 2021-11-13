@@ -56,7 +56,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
-import org.apache.commons.collections.ListUtils;
+import org.apache.commons.collections4.ListUtils;
 import org.lockss.config.CurrentConfig;
 import org.lockss.daemon.status.ColumnDescriptor;
 import org.lockss.daemon.status.OverviewAccessor;

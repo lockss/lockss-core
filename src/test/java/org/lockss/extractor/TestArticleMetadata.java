@@ -34,8 +34,8 @@ package org.lockss.extractor;
 
 import java.util.*;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.collections.MultiMap;
-import org.apache.commons.collections.map.MultiValueMap;
+import org.apache.commons.collections4.MultiMap;
+import org.apache.commons.collections4.map.MultiValueMap;
 
 import org.lockss.test.*;
 import org.lockss.util.*;
@@ -510,6 +510,13 @@ public class TestArticleMetadata extends LockssTestCase {
     return res;
   }
 
+  org.apache.commons.collections.MultiMap multiMap3(Map map) {
+    org.apache.commons.collections.MultiMap res =
+      new org.apache.commons.collections.map.MultiValueMap();
+    res.putAll(map);
+    return res;
+  }
+
   public void testCook() throws MetadataException {
     am.putRaw("r1", "V1");
     am.putRaw("r2", "V2");
@@ -524,6 +531,28 @@ public class TestArticleMetadata extends LockssTestCase {
 			  "r4", FIELD_SPLIT);
     map.put("r5", FIELD_SPLIT_REVERSE);
     assertEmpty(am.cook(multiMap(map)));
+    assertEquals("V1", am.get(FIELD_VOLUME));
+    assertEquals("V2", am.get(FIELD_ARTICLE_TITLE));
+    assertEquals("V3", am.get(FIELD_AUTHOR));
+    assertEquals(ListUtil.list("V3", "V4"), am.getList(FIELD_AUTHOR));
+    assertEquals(ListUtil.list("s1", "s2", "s4","s3"), am.getList(FIELD_SPLIT));
+    assertEquals(ListUtil.list("cba", "fed"), am.getList(FIELD_SPLIT_REVERSE));
+  }
+
+  public void testCook3() throws MetadataException {
+    am.putRaw("r1", "V1");
+    am.putRaw("r2", "V2");
+    am.putRaw("r3", "V3");
+    am.putRaw("r3", "V4");
+    am.putRaw("r4", "s1,s2,s4");
+    am.putRaw("r4", "s3");
+    am.putRaw("r5", "abc;def");
+    Map map = MapUtil.map("r2", FIELD_ARTICLE_TITLE,
+			  "r1", FIELD_VOLUME,
+			  "r3", FIELD_AUTHOR,
+			  "r4", FIELD_SPLIT);
+    map.put("r5", FIELD_SPLIT_REVERSE);
+    assertEmpty(am.cook(multiMap3(map)));
     assertEquals("V1", am.get(FIELD_VOLUME));
     assertEquals("V2", am.get(FIELD_ARTICLE_TITLE));
     assertEquals("V3", am.get(FIELD_AUTHOR));

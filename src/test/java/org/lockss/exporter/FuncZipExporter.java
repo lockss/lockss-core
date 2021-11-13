@@ -35,7 +35,7 @@ package org.lockss.exporter;
 import java.io.*;
 import java.util.*;
 import java.util.zip.*;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 
 import org.lockss.daemon.*;
 import org.lockss.config.*;

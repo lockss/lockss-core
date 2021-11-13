@@ -33,8 +33,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.crawler;
 
 import java.util.*;
-import org.apache.commons.collections.map.*;
-import org.apache.commons.collections.OrderedMapIterator;
+import org.apache.commons.collections4.map.*;
+import org.apache.commons.collections4.OrderedMapIterator;
 
 import org.lockss.app.*;
 import org.lockss.util.*;
@@ -74,7 +74,7 @@ public class CrawlManagerStatus {
 
   public synchronized void setHistSize(int histMax) {
     LRUMap newmap = makeLRUMap(histMax);
-    for (OrderedMapIterator iter = statusMap.orderedMapIterator();
+    for (OrderedMapIterator iter = statusMap.mapIterator();
 	 iter.hasNext(); ) {
       newmap.put(iter.next(), iter.getValue());
     }
@@ -92,7 +92,7 @@ public class CrawlManagerStatus {
   /** Return a list of CrawlerStatus for each crawl in the history. */
   public synchronized List<CrawlerStatus> getCrawlerStatusList() {
     List res = new ArrayList(statusMap.size());
-    for (OrderedMapIterator iter = statusMap.orderedMapIterator();
+    for (OrderedMapIterator iter = statusMap.mapIterator();
 	 iter.hasNext(); ) {
       iter.next();
       res.add(iter.getValue());

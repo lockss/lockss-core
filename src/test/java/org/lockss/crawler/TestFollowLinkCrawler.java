@@ -35,7 +35,7 @@ package org.lockss.crawler;
 import java.util.*;
 import java.io.*;
 
-import org.apache.commons.collections.set.*;
+import org.apache.commons.collections4.set.*;
 import org.apache.oro.text.regex.*;
 import org.lockss.config.*;
 import org.lockss.daemon.Crawler.CrawlerFacade;

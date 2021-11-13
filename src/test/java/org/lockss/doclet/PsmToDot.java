@@ -31,8 +31,8 @@ package org.lockss.doclet;
 import java.io.*;
 import java.util.*;
 import java.lang.reflect.*;
-import org.apache.commons.collections.*;
-import org.apache.commons.collections.map.*;
+import org.apache.commons.collections4.*;
+import org.apache.commons.collections4.map.*;
 
 import org.lockss.util.*;
 import org.lockss.protocol.psm.*;

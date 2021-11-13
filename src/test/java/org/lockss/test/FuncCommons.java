@@ -35,8 +35,8 @@ package org.lockss.test;
 import java.io.*;
 import java.util.*;
 import junit.framework.TestCase;
-import org.apache.commons.collections.map.ReferenceMap;
-import org.apache.commons.collections.map.*;
+import org.apache.commons.collections4.map.ReferenceMap;
+import org.apache.commons.collections4.map.*;
 import org.lockss.util.*;
 
 /**
@@ -53,8 +53,8 @@ public class FuncCommons extends LockssTestCase {
    * several collections, and that others aren't.
    */
   public void testRefMapHW() {
-    ReferenceMap map = new ReferenceMap(ReferenceMap.HARD,
-					ReferenceMap.WEAK);
+    ReferenceMap map = new ReferenceMap(AbstractReferenceMap.ReferenceStrength.HARD,
+					AbstractReferenceMap.ReferenceStrength.WEAK);
     int drop = 5; /* 20 too big - PJG */// number of drops in map size needed
     int loop = 10000;			// inner loop repetitions
 
