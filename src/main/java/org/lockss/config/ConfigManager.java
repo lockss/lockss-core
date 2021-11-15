@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -234,6 +234,19 @@ public class ConfigManager implements LockssManager {
 
   public static final String PARAM_UNFILTERED_UDP_PORTS =
     Configuration.PLATFORM + "unfilteredUdpPorts";
+
+  /** Determines how disk space statistics (total, free, available)
+   * are obtained.  If <tt>Java</tt>, the builtin Java library methods
+   * are used, if <tt>DF</tt>, the <tt>df</tt> utility is run in a sub
+   * process.  The former is normally preferred but returns incorrect
+   * results on filesystems larger than 8192PB.  The latter currently
+   * works on filesystems up to 8192EB, but is slower and could
+   * conceivably fail. */
+  public static final String PARAM_DISK_SPACE_SOURCE =
+    PlatformUtil.SYSPROP_DISK_SPACE_SOURCE;
+
+  public static final PlatformUtil.DiskSpaceSource DEFAULT_DISK_SPACE_SOURCE =
+    PlatformUtil.DEFAULT_DISK_SPACE_SOURCE;
 
   /** Parameters whose values are more prop URLs */
   static final Map<String, Map<String, Object>> URL_PARAMS;
@@ -2145,6 +2158,11 @@ public class ConfigManager implements LockssManager {
     // Copy hostname for retrieval in PlatformUtil
     setSysProp(PlatformUtil.SYSPROP_PLATFORM_HOSTNAME,
                config.get(PARAM_PLATFORM_FQDN));
+
+    if (config.containsKey(PARAM_DISK_SPACE_SOURCE)) {
+      setSysProp(PlatformUtil.SYSPROP_DISK_SPACE_SOURCE,
+                 config.get(PARAM_DISK_SPACE_SOURCE));
+    }
   }
 
     

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,6 +38,7 @@ import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.jms.*;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
@@ -1014,6 +1015,21 @@ public class TestConfigManager extends LockssTestCase4 {
   public void testMiscTmpdir() throws Exception {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, "/tmp/unlikely");
     assertEquals("/tmp/unlikely/dtmp", System.getProperty("java.io.tmpdir"));
+  }
+
+  /** Ensure the config param {@value
+   * ConfigManager#PARAM_DISK_SPACE_SOURCE} is propagated to the
+   * corresponding System property and that PlatformUtil picks it
+   * up. */
+  @Test
+  public void testDiskSpaceSource() {
+    String javatmp = System.getProperty("java.io.tmpdir");
+    PlatformUtil info = PlatformUtil.getInstance();
+    assertEquals(PlatformUtil.DiskSpaceSource.Java,
+                 info.getDF(javatmp).getSource());
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_DISK_SPACE_SOURCE, "DF");
+    assertEquals(PlatformUtil.DiskSpaceSource.DF,
+                 info.getDF(javatmp).getSource());
   }
 
   @Test
