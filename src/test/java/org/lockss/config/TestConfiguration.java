@@ -546,6 +546,7 @@ public class TestConfiguration extends LockssTestCase4 {
     config.put("foo", "x");
     config.put("bar", "y");
     config.put("baz", "Y");
+    config.put("frob", "zz");
     assertSame(TestEnum.x, config.getEnum(TestEnum.class, "foo"));
     assertSame(TestEnum.Y, config.getEnum(TestEnum.class, "baz", TestEnum.x));
     assertSame(TestEnum.x, config.getEnum(TestEnum.class, "xxx", TestEnum.x));
@@ -554,6 +555,14 @@ public class TestConfiguration extends LockssTestCase4 {
       fail("Should have thrown IllegalArgumentException");
     } catch (Exception ex) {
     }
+
+    // Test case independent match
+    try {
+      config.getEnum(TestEnum.class, "frob");
+      fail("Should have thrown IllegalArgumentException");
+    } catch (Exception ex) {
+    }
+    assertSame(TestEnum.zZ, config.getEnumIgnoreCase(TestEnum.class, "frob"));
   }
 
   private static final String c3 =
