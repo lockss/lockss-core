@@ -399,6 +399,12 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     
     <dependency>
+      <groupId>org.owasp.esapi</groupId>
+      <artifactId>esapi</artifactId>
+      <version>2.1.0.1</version>
+    </dependency>
+    
+    <dependency>
       <groupId>org.dspace</groupId>
       <artifactId>xoai-common</artifactId>
       <version>${version.group.xoai}</version>
@@ -630,12 +636,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>commons-fileupload</groupId>
       <artifactId>commons-fileupload</artifactId>
       <version>${version.dependency.commons-fileupload}</version>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.owasp.esapi</groupId>
-      <artifactId>esapi</artifactId>
-      <version>2.1.0.1</version>
     </dependency>
     
     <dependency>
