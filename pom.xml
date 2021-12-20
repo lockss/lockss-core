@@ -645,12 +645,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     
     <dependency>
-      <groupId>ca.juliusdavies</groupId>
-      <artifactId>not-yet-commons-ssl</artifactId>
-      <version>0.3.11</version>
-    </dependency>
-    
-    <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>dk-digst-oiosaml-java</artifactId>
       <version>21188-p2</version>
