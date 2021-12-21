@@ -33,7 +33,7 @@ import java.net.MalformedURLException;
 import java.util.*;
 import java.util.Queue;
 
-import org.apache.commons.collections.map.LRUMap;
+import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.alert.Alert;
 import org.lockss.config.*;

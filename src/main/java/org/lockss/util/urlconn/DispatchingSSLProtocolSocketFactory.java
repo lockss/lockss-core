@@ -31,7 +31,7 @@ package org.lockss.util.urlconn;
 import java.io.IOException;
 import java.net.*;
 
-import org.apache.commons.collections.map.*;
+import org.apache.commons.collections4.map.*;
 //HC3 import org.apache.commons.httpclient.*;
 //HC3 import org.apache.commons.httpclient.params.HttpConnectionParams;
 //HC3 import org.apache.commons.httpclient.protocol.*;

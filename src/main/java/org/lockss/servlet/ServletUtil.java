@@ -35,7 +35,7 @@ import java.text.*;
 import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
-import org.apache.commons.collections.*;
+import org.apache.commons.collections4.*;
 import org.apache.commons.lang3.mutable.*;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.lockss.config.*;
@@ -1889,8 +1889,8 @@ public class ServletUtil {
   }
 
   private static void layoutPageHeaders(Page page) {
-    page.addHeader("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">");
-    page.addHeader("<meta http-equiv=\"content-type\" content=\"text/html;charset=ISO-8859-1\">");
+//     page.addHeader("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">");
+//     page.addHeader("<meta http-equiv=\"content-type\" content=\"text/html;charset=ISO-8859-1\">");
     page.addHeader("<link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\" />");
     page.addHeader(  "<style type=\"text/css\"> <!--\n"
                    + "sup {font-weight: normal; vertical-align: super; }\n"

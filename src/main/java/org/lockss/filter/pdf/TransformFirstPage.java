@@ -35,7 +35,7 @@ package org.lockss.filter.pdf;
 import java.io.IOException;
 import java.util.ListIterator;
 
-import org.apache.commons.collections.iterators.SingletonListIterator;
+import org.apache.commons.collections4.iterators.SingletonListIterator;
 import org.lockss.util.*;
 import org.lockss.util.PdfUtil.ResultPolicy;
 

@@ -437,10 +437,11 @@ public abstract class Configuration {
    * @throws Configuration.InvalidParam if the value is missing or
    * not parsable as an enum.
    */
-  public Enum getEnum(Class enumType, String key) throws InvalidParam {
+  public <T extends Enum> T getEnum(final Class<T> enumType, final String key)
+      throws InvalidParam {
     String name = get(key);
     try {
-      return Enum.valueOf(enumType, name);
+      return (T)Enum.valueOf(enumType, name);
     } catch (IllegalArgumentException e) {
       throw newInvalid("Not an enum of type: " + enumType, key, name);
     }
@@ -450,14 +451,60 @@ public abstract class Configuration {
    * default value.  If it's present but not parsable as an enum, log a
    * warning and return the default value
    */
-  public Enum getEnum(Class enumType, String key, Enum dfault) {
+  public <T extends Enum> T getEnum(final Class<T> enumType,
+                                    final String key, T dfault) {
     String name = get(key);
     if (name == null) {
       return dfault;
     }
     try {
-      return Enum.valueOf(enumType, name);
+      return (T)Enum.valueOf(enumType, name);
     } catch (IllegalArgumentException e) {
+      log.warning("getEnum(\'" + key + "\") illegal val: \"" + name + "\"");
+      return dfault;
+    }
+  }
+
+  /** Return the config value as an enum, matching case-independetly.
+   * @throws Configuration.InvalidParam if the value is missing or
+   * not parsable as an enum.
+   */
+  public <T extends Enum> T getEnumIgnoreCase(final Class<T> enumType,
+                                              final String key)
+      throws InvalidParam {
+    String name = get(key);
+    try {
+      return (T)Enum.valueOf(enumType, name);
+    } catch (IllegalArgumentException e) {
+      for (T c : enumType.getEnumConstants()) {
+        if (c.toString().equalsIgnoreCase(name)) {
+          return c;
+        }
+      }
+      throw newInvalid("Not an enum of type: " + enumType, key, name);
+    }
+  }
+
+  /** Return the config value as an enum, matching case-independetly.
+   * If it's missing, return the default value.  If it's present but
+   * not parsable as an enum, log a warning and return the default
+   * value
+   */
+  public <T extends Enum> T getEnumIgnoreCase(final Class<T> enumType,
+                                              final String key,
+                                              final T dfault) {
+    String name = get(key);
+    if (name == null) {
+      return dfault;
+    }
+    try {
+      return (T)Enum.valueOf(enumType, name);
+    } catch (IllegalArgumentException e) {
+      for (T c : enumType.getEnumConstants()) {
+        if (c.toString().equalsIgnoreCase(name)) {
+          return c;
+        }
+      }
       log.warning("getEnum(\'" + key + "\") illegal val: \"" + name + "\"");
       return dfault;
     }

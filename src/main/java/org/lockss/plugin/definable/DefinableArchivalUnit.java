@@ -35,7 +35,7 @@ import java.net.*;
 import java.util.*;
 import java.io.IOException;
 
-import org.apache.commons.collections.*;
+import org.apache.commons.collections4.*;
 import org.apache.oro.text.regex.*;
 import org.lockss.config.*;
 import org.lockss.crawler.*;

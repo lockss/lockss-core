@@ -120,6 +120,10 @@ public class MockLockssUrlConnection extends BaseLockssUrlConnection {
     return reqHeaders;
   }
 
+  public void setRequestEntity(String entity) {
+    throw new UnsupportedOperationException();
+  }
+
   public int getResponseCode() {
     return responseCode;
   }

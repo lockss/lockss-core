@@ -50,6 +50,7 @@ import org.apache.http.ConnectionClosedException;
 import org.apache.http.Consts;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.entity.*;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
@@ -975,7 +976,17 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
     }
   }
 
-    /** method for passing through the post content */
+  /** Set the body of a POST request */
+  @Override
+  public void setRequestEntity(String entity) {
+    try {
+      setRequestEntity(new StringEntity(entity));
+    } catch (UnsupportedEncodingException e) {
+      throw new RuntimeException("Default encoding not supported??");
+    }
+  }
+
+  /** Set the body of a POST request */
 //HC3   public void setRequestEntity(RequestEntity entity) {
   public void setRequestEntity(HttpEntity entity) {
     final String DEBUG_HEADER = "setRequestEntity(): ";

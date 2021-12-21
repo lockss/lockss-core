@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -36,7 +36,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.net.*;
 import java.sql.Connection;
-import org.apache.commons.collections.Predicate;
+import org.apache.commons.collections4.Predicate;
 import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
@@ -234,6 +234,19 @@ public class ConfigManager implements LockssManager {
 
   public static final String PARAM_UNFILTERED_UDP_PORTS =
     Configuration.PLATFORM + "unfilteredUdpPorts";
+
+  /** Determines how disk space statistics (total, free, available)
+   * are obtained.  If <tt>Java</tt>, the builtin Java library methods
+   * are used, if <tt>DF</tt>, the <tt>df</tt> utility is run in a sub
+   * process.  The former is normally preferred but returns incorrect
+   * results on filesystems larger than 8192PB.  The latter currently
+   * works on filesystems up to 8192EB, but is slower and could
+   * conceivably fail. */
+  public static final String PARAM_DISK_SPACE_SOURCE =
+    PlatformUtil.SYSPROP_DISK_SPACE_SOURCE;
+
+  public static final PlatformUtil.DiskSpaceSource DEFAULT_DISK_SPACE_SOURCE =
+    PlatformUtil.DEFAULT_DISK_SPACE_SOURCE;
 
   /** Parameters whose values are more prop URLs */
   static final Map<String, Map<String, Object>> URL_PARAMS;
@@ -2145,6 +2158,11 @@ public class ConfigManager implements LockssManager {
     // Copy hostname for retrieval in PlatformUtil
     setSysProp(PlatformUtil.SYSPROP_PLATFORM_HOSTNAME,
                config.get(PARAM_PLATFORM_FQDN));
+
+    if (config.containsKey(PARAM_DISK_SPACE_SOURCE)) {
+      setSysProp(PlatformUtil.SYSPROP_DISK_SPACE_SOURCE,
+                 config.get(PARAM_DISK_SPACE_SOURCE));
+    }
   }
 
     
@@ -3904,34 +3922,57 @@ public class ConfigManager implements LockssManager {
   //
   // Deactivate is treated as a config change ("store") here because that's
   // what it looks like to the DB store code.
+  //
+  // XXX In some cases, config changed notifications are processed
+  // locally, in others they aren't.  This is bad and will be fixed.
+  // Details: In addition to sending a JMS notification, ConfigManager
+  // runs the local GlobalConfigChanged callbacks when a changed
+  // config is loaded, so it doesn't want to receive
+  // GlobalConfigChanged notifications.  There's no analogous reload
+  // process for AU configs; the notification is sent at the time the
+  // changes are stored in the DB.  But that happens in two different
+  // contexts: PluginManager creating or deleting an AU, or a REST
+  // request.  Only in the second case should the callbacks be run
+  // locally (because PluginManager hasn't yet handled the change).
+  // Currently this is done with an explicit call to
+  // receiveConfigChangedNotification().  When ConfigOnDemand is
+  // implemented (and storing an AU config is decoupled from creating
+  // the AU in PluginManager), this kludge can be eliminated.
 
   public static final String CONFIG_NOTIFY_VERB = "verb";
   public static final String CONFIG_NOTIFY_AUID = "auid";
 
 
-  void notifyAuConfigChanged(String auid, AuConfiguration auConfig) {
+  void notifyAuConfigChanged(String auid, AuConfiguration auConfig,
+                             boolean localAlso) {
+    Map<String,Object> map = new HashMap<>();
+    map.put(CONFIG_NOTIFY_VERB, "AuConfigStored");
+    map.put(CONFIG_NOTIFY_AUID, auid);
     if (jmsProducer != null) {
-      Map<String,Object> map = new HashMap<>();
-      map.put(CONFIG_NOTIFY_VERB, "AuConfigStored");
-      map.put(CONFIG_NOTIFY_AUID, auid);
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
 	log.error("Couldn't send AuConfigStored notification", e);
       }
     }
+    if (localAlso) {
+      receiveConfigChangedNotification(map);
+    }
   }
 
-  void notifyAuConfigRemoved(String auid) {
+  void notifyAuConfigRemoved(String auid, boolean localAlso) {
+    Map<String,Object> map = new HashMap<>();
+    map.put(CONFIG_NOTIFY_VERB, "AuConfigRemoved");
+    map.put(CONFIG_NOTIFY_AUID, auid);
     if (jmsProducer != null) {
-      Map<String,Object> map = new HashMap<>();
-      map.put(CONFIG_NOTIFY_VERB, "AuConfigRemoved");
-      map.put(CONFIG_NOTIFY_AUID, auid);
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
 	log.error("Couldn't send AuConfigRemoved notification", e);
       }
+    }
+    if (localAlso) {
+      receiveConfigChangedNotification(map);
     }
   }
 
@@ -4168,6 +4209,29 @@ public class ConfigManager implements LockssManager {
    */
   public void storeArchivalUnitConfiguration(AuConfiguration auConfiguration)
       throws DbException, LockssRestException {
+    storeArchivalUnitConfiguration(auConfiguration, false);
+  }
+
+
+  /**
+   * Stores in the database the configuration of an Archival Unit.
+   *
+   * @param auConfiguration
+   *          An AuConfiguration with the Archival Unit configuration to be
+   *          stored.
+   * @param fromExternalSource
+   *          true if the AU config store was generated by an external
+   *          component (REST call), in which case the AuConfigStored
+   *          notification must be propagated internally as well as
+   *          sent out
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
+   */
+  public void storeArchivalUnitConfiguration(AuConfiguration auConfiguration,
+                                             boolean fromExternalSource)
+      throws DbException, LockssRestException {
     if (log.isDebug2()) log.debug2("auConfiguration = " + auConfiguration);
 
     // Validate the passed argument.
@@ -4202,7 +4266,7 @@ public class ConfigManager implements LockssManager {
     } else {
       getConfigManagerSql().addArchivalUnitConfiguration(pluginId, auKey,
 	  auConfig);
-      notifyAuConfigChanged(auid, auConfiguration);
+      notifyAuConfigChanged(auid, auConfiguration, fromExternalSource);
     }
   }
 
@@ -4406,7 +4470,28 @@ public class ConfigManager implements LockssManager {
    * @throws LockssRestException
    *           if any problem occurred accessing the REST service.
    */
-  public void removeArchivalUnitConfiguration(String auid)
+    public void removeArchivalUnitConfiguration(String auid)
+      throws DbException, LockssRestException {
+    removeArchivalUnitConfiguration(auid, false);
+  }
+
+  /**
+   * Removes from the database the configuration of an Archival Unit.
+   *
+   * @param auid
+   *          A String with the Archival Unit identifier.
+   * @param fromExternalSource
+   *          true if the AU config store was generated by an external
+   *          component (REST call), in which case the AuConfigStored
+   *          notification must be propagated internally as well as
+   *          sent out
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   * @throws LockssRestException
+   *           if any problem occurred accessing the REST service.
+   */
+  public void removeArchivalUnitConfiguration(String auid,
+                                              boolean fromExternalSource)
       throws DbException, LockssRestException {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
@@ -4429,7 +4514,7 @@ public class ConfigManager implements LockssManager {
       // Remove the Archival Unit configuration from the database.
       getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
 
-      notifyAuConfigRemoved(auid);
+      notifyAuConfigRemoved(auid, fromExternalSource);
     }
 
     if (log.isDebug2()) log.debug2("Done");

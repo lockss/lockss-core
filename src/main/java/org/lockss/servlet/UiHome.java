@@ -36,11 +36,11 @@ import javax.servlet.*;
 import java.io.*;
 import java.util.Iterator;
 
-import org.apache.commons.collections.Predicate;
-import org.apache.commons.collections.Transformer;
-import org.apache.commons.collections.iterators.FilterIterator;
-import org.apache.commons.collections.iterators.ObjectArrayIterator;
-import org.apache.commons.collections.iterators.TransformIterator;
+import org.apache.commons.collections4.Predicate;
+import org.apache.commons.collections4.Transformer;
+import org.apache.commons.collections4.iterators.FilterIterator;
+import org.apache.commons.collections4.iterators.ObjectArrayIterator;
+import org.apache.commons.collections4.iterators.TransformIterator;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.mortbay.html.*;
 

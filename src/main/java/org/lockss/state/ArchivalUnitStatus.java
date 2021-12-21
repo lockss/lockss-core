@@ -209,7 +209,7 @@ public class ArchivalUnitStatus
         new ColumnDescriptor("AuName", "Volume", ColumnDescriptor.TYPE_STRING),
 //       new ColumnDescriptor("AuNodeCount", "Nodes", ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("AuSize", "Content Size",
-            ColumnDescriptor.TYPE_INT, FOOT_SIZE),
+            ColumnDescriptor.TYPE_INT),
 //         new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
 //             ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
         new ColumnDescriptor("Peers", "Peers", ColumnDescriptor.TYPE_INT),

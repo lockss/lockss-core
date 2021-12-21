@@ -637,9 +637,11 @@ public class TestStringUtil extends LockssTestCase {
 			      "",
 			      "http://foo/a.b/c",
 			      "http://foo/a/b",
+			      "http://foo",
 			      "http://foo/a/",
 			      "http://foo/"));
     assertIsomorphic(ListUtil.list("",
+				   "http://foo",
 				   "http://foo/",
 				   "http://foo/a/",
 				   "http://foo/a/b",

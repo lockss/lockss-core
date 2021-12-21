@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -250,7 +250,10 @@ public class BaseUrlFetcher implements UrlFetcher {
           log.debug3("Not modified: " + fetchUrl);
           return FetchResult.FETCHED_NOT_MODIFIED;
         } else if (headers == null) {
-          return FetchResult.NOT_FETCHED;
+          // This is impossible
+          throw resultMap.mapException(au, conn,
+                                       new IllegalStateException("headers can't be empty"),
+                                       null);
         } else {
 	  if (wdog != null) {
 	    input = new WatchdogUpdatingInputStream(input, wdog);
@@ -260,7 +263,7 @@ public class BaseUrlFetcher implements UrlFetcher {
               redirectUrls, this);
           fud.setStoreRedirects(redirectScheme.isRedirectOption(RedirectScheme.REDIRECT_OPTION_STORE_ALL));
           fud.setFetchFlags(fetchFlags);
-          getUrlConsumerFactory().createUrlConsumer(crawlFacade, fud).consume();
+          consume(fud);
           return FetchResult.FETCHED;
         }
       } catch (CacheException e) {
@@ -304,6 +307,10 @@ public class BaseUrlFetcher implements UrlFetcher {
     }
   }
 
+  protected void consume(FetchedUrlData fud) throws IOException {
+    getUrlConsumerFactory().createUrlConsumer(crawlFacade, fud).consume();
+  }
+
   /** Return the Last-Modified of the existing CU, if any.  Return null if
    * no existing CU, it doesn't have a Last-Modified, or an error occurs */
   protected String getLastModified(){
@@ -324,7 +331,25 @@ public class BaseUrlFetcher implements UrlFetcher {
   }
 
   protected boolean forceRefetch(){
-    return fetchFlags.get(UrlCacher.REFETCH_FLAG);
+    return fetchFlags.get(UrlCacher.REFETCH_FLAG) ||
+      (isStateChangingMethod(getMethod()) && forceRefetchOnPost());
+  }
+
+  /** Override if state-changing requests (e.g.,POST) should check for
+   * and send If-Modified-Since */
+  protected boolean forceRefetchOnPost(){
+    return true;
+  }
+
+  protected boolean isStateChangingMethod(int method) {
+    switch (method) {
+    case LockssUrlConnection.METHOD_POST:
+//     case LockssUrlConnection.METHOD_PUT:
+//     case LockssUrlConnection.METHOD_DELETE:
+      return true;
+    default:
+      return false;
+    }
   }
 
   public void setConnectionPool(LockssUrlConnectionPool connectionPool) {
@@ -496,7 +521,7 @@ public class BaseUrlFetcher implements UrlFetcher {
       throw new IllegalStateException("Must call reset() before reusing UrlCacher");
     }
     try {
-      conn = makeConnection(fetchUrl, connectionPool);
+      conn = makeConnection(getRequestUrl(), connectionPool);
       if (proxyHost != null) {
         if (log.isDebug3()) log.debug3("Proxying through " + proxyHost
             + ":" + proxyPort);
@@ -551,9 +576,6 @@ public class BaseUrlFetcher implements UrlFetcher {
       pauseBeforeFetch();
       customizeConnection(conn);
       executeConnection(conn);
-    } catch (MalformedURLException ex) {
-      log.debug2("openConnection", ex);
-      throw resultMap.getMalformedURLException(ex);
     } catch (IOException ex) {
       log.debug2("openConnection", ex);
       throw resultMap.mapException(au, conn, ex, null);
@@ -565,7 +587,8 @@ public class BaseUrlFetcher implements UrlFetcher {
   }
 
   /** Override to change connection settings */
-  protected void customizeConnection(LockssUrlConnection conn) {
+  protected void customizeConnection(LockssUrlConnection conn)
+      throws IOException {
   }
 
   /** Override to modify/wrap conn.execute() */
@@ -656,7 +679,16 @@ public class BaseUrlFetcher implements UrlFetcher {
   protected LockssUrlConnection makeConnection0(String url,
       LockssUrlConnectionPool pool)
       throws IOException {
-    return UrlUtil.openConnection(url, pool);
+    return UrlUtil.openConnection(getMethod(), url, pool);
+  }
+
+  protected int getMethod() {
+    return LockssUrlConnection.METHOD_GET;
+  }
+
+  /** Return the URL to use in the HTTP request, normally fetchUrl */
+  protected String getRequestUrl() throws IOException {
+    return fetchUrl;
   }
 
   protected String getUserPass() {

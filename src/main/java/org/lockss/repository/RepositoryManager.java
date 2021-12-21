@@ -32,7 +32,8 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.regex.*;
-import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.collections4.map.LinkedMap;
+import org.apache.commons.collections4.*;
 import org.lockss.account.AccountManager;
 import org.lockss.app.*;
 import org.lockss.log.*;
@@ -434,7 +435,7 @@ public class RepositoryManager
   }
 
   public Map<String,PlatformUtil.DF> getRepositoryDFMap() {
-    Map<String,PlatformUtil.DF> repoMap = new LinkedMap();
+    Map<String,PlatformUtil.DF> repoMap = new LinkedMap<>();
     for (String repo : getRepositoryUrlList()) {
       repoMap.put(repo, getRepositoryDF(repo));
     }
@@ -525,26 +526,28 @@ public class RepositoryManager
    * @return List of Artifacts with that URL, includes only the highest
    * version of each matching Artifact in each AU.
    */
-  // Currently gets all versions of all matching Artifacts and filters out
-  // all but the highest.  Change if/when repo can search for
-  // highest-version only.
   public List<Artifact> findArtifactsByUrl(String normUrl) {
+    return findArtifactsByUrl(normUrl, ArtifactVersions.LATEST);
+  }
+
+  /** Search all repositories and AUs for Artifacts with the given URL
+   * @param normUrl the normalized URL to search for
+   * @param versions specify whether to return all versions of matching
+   * artifacts or only the latest of each
+   * @return List of Artifacts with that URL
+   */
+  public List<Artifact> findArtifactsByUrl(String normUrl,
+                                           ArtifactVersions versions) {
     List<Artifact> res = new ArrayList<>();
     for (RepoSpec spec : getRepositorySpecList()) {
       LockssRepository repo = spec.getRepository();
-      log.debug2("Searching {} for {}", spec, normUrl);
+      log.debug2("Searching {} for {}, {}", spec, normUrl, versions);
       try {
-        String auid = null;
-        String url = null;
-        for (Artifact art : repo.getArtifactsAllVersionsAllAus(spec.getCollection(),
-                                                               normUrl)) {
-          if (art.getAuid().equals(auid) && art.getUri().equals(url)) {
-            continue;
-          }
-          res.add(art);
-          auid = art.getAuid();
-          url = art.getUri();
-        }
+        Iterable<Artifact> riter =
+          repo.getArtifactsWithUrlFromAllAus(spec.getCollection(),
+                                             normUrl,
+                                             versions);
+        return IteratorUtils.toList(riter.iterator());
       } catch (IOException e) {
         log.warn("Couldn't find repository: {} ({})",
                  normUrl, spec.getCollection());

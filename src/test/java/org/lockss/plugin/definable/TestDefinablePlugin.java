@@ -289,7 +289,7 @@ public class TestDefinablePlugin extends LockssTestCase {
     assertEquals("Substance_farty-two",
 		 definablePlugin.getFeatureVersion(Plugin.Feature.Substance));
 
-    assertEquals("Poll: Poll_2\nMetadata: Metadata_7\nSubstance: Substance_farty-two",
+    assertEquals("  Poll: Poll_2\n  Metadata: Metadata_7\n  Substance: Substance_farty-two",
                  PluginManager.pluginFeatureVersionsString(definablePlugin));
   }
 
@@ -528,10 +528,10 @@ public class TestDefinablePlugin extends LockssTestCase {
     assertClass(CacheException.NoRetryDeadLinkException.class,
 		getHttpResultMap(plugin).mapException(null, "",
 						      404, null));
-    assertClass(CacheException.RetryableNetworkException_3_30S.class,
+    assertClass(CacheException.RetryableNetworkException.class,
 		getHttpResultMap(plugin).mapException(null, "",
 						      ioe1, null));
-    assertClass(CacheException.RetryableNetworkException_3_30S.class,
+    assertClass(CacheException.RetryableNetworkException.class,
 		getHttpResultMap(plugin).mapException(null, "",
 						      ioe2, null));
 

@@ -381,6 +381,15 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     public boolean isVisitArchiveMembers() {
       return isVisitArchiveMembers;
     }
+
+    public String toString() {
+      return "[SAISpec: " +
+        "mime: " + mimeType +
+        ", roots: " + (roots != null ? roots : rootTemplates) +
+        ", mat: " + matchPatSpec +
+        ", incl: " + includePatSpec +
+        ", excl: " + excludePatSpec + "]";
+    }
   }
 
   /** Encapsulates the various ways to specifiy a pattern (as a compiled
@@ -420,6 +429,12 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
 
     public int getPatternFlags() {
       return patFlags;
+    }
+
+    public String toString() {
+      return "[PatSpec: " +
+        (getPattern() != null ? getPattern().pattern() : getPatternTemplate()) +
+        "]";
     }
   }
 
@@ -509,9 +524,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   }
 
   protected Collection<CachedUrlSet> makeRoots() {
-    Collection<String> roots = null;
-
-    roots = makeRootUrls();
+    Collection<String> roots = makeRootUrls();
     log.debug2("rootUrls: " + roots);
     if (roots == null || roots.isEmpty()) {
       return ListUtil.list(makeCachedUrlSet(makeCuss(AuCachedUrlSetSpec.URL)));

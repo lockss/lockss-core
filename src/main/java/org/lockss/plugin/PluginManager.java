@@ -36,7 +36,7 @@ import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
 import java.util.stream.*;
-import org.apache.commons.collections.map.*;
+import org.apache.commons.collections4.map.*;
 import org.apache.commons.lang3.tuple.*;
 import org.lockss.alert.*;
 import org.lockss.app.*;
@@ -1893,10 +1893,10 @@ public class PluginManager
     updateAuInDatabase(au.getAuId(), auConf);
   }
 
-  public void updateAuInDatabase(AuConfiguration auConfiguration)
+  public void updateAuConfigFromExternalSource(AuConfiguration auConfiguration)
       throws DbException, LockssRestException {
     synchronized (auAddDelLock) {
-      configMgr.storeArchivalUnitConfiguration(auConfiguration);
+      configMgr.storeArchivalUnitConfiguration(auConfiguration, true);
     }
   }
 
@@ -2550,6 +2550,7 @@ public class PluginManager
         if (sb.length() != 0) {
           sb.append("\n");
         }
+        sb.append("  ");
         sb.append(feat);
         sb.append(": ");
         sb.append(val);

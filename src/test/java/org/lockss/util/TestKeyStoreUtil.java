@@ -39,7 +39,7 @@ import java.security.*;
 import java.security.cert.Certificate;
 import javax.net.ssl.*;
 
-import org.apache.commons.collections.ListUtils;
+import org.apache.commons.collections4.ListUtils;
 
 import org.lockss.test.*;
 import org.lockss.config.*;

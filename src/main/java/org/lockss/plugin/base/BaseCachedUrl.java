@@ -231,6 +231,17 @@ public class BaseCachedUrl implements CachedUrl {
     }
   }
 
+  public void delete() throws UnsupportedOperationException, IOException {
+    if (CurrentConfig.getBooleanParam(PARAM_ALLOW_DELETE,
+                                      DEFAULT_ALLOW_DELETE)) {
+      ensureArtifact();
+      v2Repo.deleteArtifact(art);
+      flushArtifact();
+    } else {
+      throw new UnsupportedOperationException("Delete not allowed unless explicitly confugured with " + PARAM_ALLOW_DELETE);
+    }
+  }
+
   public void setOption(String option, String val) {
     if (options == null) {
       options = new Properties();
@@ -471,6 +482,11 @@ public class BaseCachedUrl implements CachedUrl {
       }
     }
     artifactObtained = true;
+  }
+
+  private void flushArtifact() {
+    artifactObtained = false;
+    art = null;
   }
 
   ArtifactData getArtifactData(LockssRepository repo, Artifact art,
