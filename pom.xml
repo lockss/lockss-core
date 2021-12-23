@@ -447,24 +447,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>pdfbox</artifactId>
-      <version>${version.group.pdfbox}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>fontbox</artifactId>
-      <version>${version.group.pdfbox}</version>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>xmpbox</artifactId>
-      <version>${version.group.pdfbox}</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk15on</artifactId>
       <version>${version.group.bouncycastle}</version>
@@ -492,12 +474,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-localespi</artifactId>
       <version>${version.group.icu4j}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>pdfbox</artifactId>
-      <version>0.7.3-p1</version>
     </dependency>
 
     <dependency>
@@ -829,6 +805,36 @@ POSSIBILITY OF SUCH DAMAGE.
           <artifactId>json-smart</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analyzers-common</artifactId>
+      <version>8.9.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+      <version>${version.group.pdfbox}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>fontbox</artifactId>
+      <version>${version.group.pdfbox}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>xmpbox</artifactId>
+      <version>${version.group.pdfbox}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>pdfbox</artifactId>
+      <version>0.7.3-p1</version>
     </dependency>
 
   </dependencies>
