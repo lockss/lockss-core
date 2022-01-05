@@ -79,7 +79,6 @@ public class LockssTestCase extends TestCase {
 
   List<File> tmpDirs;
   List<DoLater> doLaters = null;
-  String javaIoTmpdir;
   TestResult result;
 
   public LockssTestCase(String msg) {
@@ -100,6 +99,15 @@ public class LockssTestCase extends TestCase {
    */
   public boolean isSkipNetworkTests() {
     return Boolean.getBoolean("org.lockss.test.skipNetworkTests");
+  }
+
+  /** Ensure that {@value PlatformUtil.SYSPROP_LOCKSS_TMPDIR} has been
+   * set to a temp created for tests. */
+  public void ensureTempTmpDir() throws IOException {
+    if (System.getProperty(PlatformUtil.SYSPROP_LOCKSS_TMPDIR) == null) {
+      File res = getTempDir();
+      System.setProperty(PlatformUtil.SYSPROP_LOCKSS_TMPDIR, res.toString());
+    }
   }
 
   /**
@@ -195,12 +203,34 @@ public class LockssTestCase extends TestCase {
   /** Create a fresh config manager, MockLockssDaemon */
   protected void setUp() throws Exception {
     TimerQueue.setSingleton(new ErrorRecordingTimerQueue());
-    javaIoTmpdir = System.getProperty("java.io.tmpdir");
+    // This cannot be done in subclasses because there's no way to
+    // ensure it happens before other @Before methods, which might
+    // use tmpdir
+    if (wantTempTmpDir()) {
+      try {
+        ensureTempTmpDir();
+      } catch (IOException e) {
+        log.warning("Couldn't create temporary system tmp dir, using " +
+                    System.getProperty(PlatformUtil.SYSPROP_JAVA_IO_TMPDIR), e);
+      }
+    }
     ConfigManager.makeConfigManager();
     Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
     super.setUp();
     disableThreadWatchdog();
+  }
+
+  /** Test classes should override this to return true if operations
+   * they invoke will create files or dirs using {@link
+   * org.lockss.util.io.FileUtil#createTempDir(String,String,File)} or
+   * {@link
+   * org.lockss.util.io.FileUtil#createTempFile(String,String,File)}
+   * or any of their variants.  This will cause those dirs and files
+   * to be created in a temp dir that will be deleted when the test
+   * completes, rather than be left in the system tmpdir. */
+  protected boolean wantTempTmpDir() {
+    return false;
   }
 
   protected MockLockssDaemon newMockLockssDaemon() {
@@ -241,27 +271,30 @@ public class LockssTestCase extends TestCase {
     TimerQueue.stopTimerQueue();
 
     // delete temp dirs
-    if (tmpDirs != null && !isKeepTempFiles()) {
-      for (ListIterator iter = tmpDirs.listIterator(); iter.hasNext(); ) {
-	File dir = (File)iter.next();
-	File idFile = new File(dir, TEST_ID_FILE_NAME);
-	String idContent = null;
-	if (idFile.exists()) {
-	  idContent = StringUtil.fromFile(idFile);
-	}
-	if (FileUtil.delTree(dir)) {
-	  log.debug2("deltree(" + dir + ") = true");
-	  iter.remove();
-	} else {
-	  log.debug2("deltree(" + dir + ") = false");
-	  if (idContent != null) {
-	    FileTestUtil.writeFile(idFile, idContent);
-	  }
-	}
+    if (!isKeepTempFiles()) {
+      if (System.getProperty(PlatformUtil.SYSPROP_LOCKSS_TMPDIR) != null) {
+        System.clearProperty(PlatformUtil.SYSPROP_LOCKSS_TMPDIR);
+        log.debug3("unset " + PlatformUtil.SYSPROP_LOCKSS_TMPDIR);
       }
-    }
-    if (!StringUtil.isNullString(javaIoTmpdir)) {
-      System.setProperty("java.io.tmpdir", javaIoTmpdir);
+      if (tmpDirs != null) {
+        for (ListIterator iter = tmpDirs.listIterator(); iter.hasNext(); ) {
+          File dir = (File)iter.next();
+          File idFile = new File(dir, TEST_ID_FILE_NAME);
+          String idContent = null;
+          if (idFile.exists()) {
+            idContent = StringUtil.fromFile(idFile);
+          }
+          if (FileUtil.delTree(dir)) {
+            log.debug2("deltree(" + dir + ") = true");
+            iter.remove();
+          } else {
+            log.debug2("deltree(" + dir + ") = false");
+            if (idContent != null) {
+              FileTestUtil.writeFile(idFile, idContent);
+            }
+          }
+        }
+      }
     }
     super.tearDown();
     if (Boolean.getBoolean("org.lockss.test.threadDump")) {

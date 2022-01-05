@@ -1014,7 +1014,7 @@ public class TestConfigManager extends LockssTestCase4 {
   @Test
   public void testMiscTmpdir() throws Exception {
     ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, "/tmp/unlikely");
-    assertEquals("/tmp/unlikely/dtmp", System.getProperty("java.io.tmpdir"));
+    assertEquals("/tmp/unlikely/dtmp", PlatformUtil.getSystemTempDir());
   }
 
   /** Ensure the config param {@value
@@ -1023,7 +1023,7 @@ public class TestConfigManager extends LockssTestCase4 {
    * up. */
   @Test
   public void testDiskSpaceSource() {
-    String javatmp = System.getProperty("java.io.tmpdir");
+    String javatmp = PlatformUtil.getSystemTempDir();
     PlatformUtil info = PlatformUtil.getInstance();
     assertEquals(PlatformUtil.DiskSpaceSource.Java,
                  info.getDF(javatmp).getSource());

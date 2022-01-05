@@ -2140,7 +2140,6 @@ public class TestV3Poller extends LockssTestCase {
 
     tempDir = getTempDir();
     tempDirPath = tempDir.getAbsolutePath();
-    System.setProperty("java.io.tmpdir", tempDirPath);
 
     Properties p = new Properties();
     p.setProperty(IdentityManagerImpl.PARAM_ENABLE_V1, "false");
