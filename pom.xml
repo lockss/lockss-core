@@ -791,7 +791,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>com.tectonica</groupId>
       <artifactId>jonix</artifactId>
-      <version>${version.group.jonix}</version>
+      <version>${version.dependency.jonix}</version>
     </dependency>
     
     <dependency>
