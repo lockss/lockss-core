@@ -236,13 +236,13 @@ public class TestXStreamSerializer extends ObjectSerializerTester {
 
     // For each variant action...
     for (int action = 0 ; action < actions.length ; ++action) {
-      logger.debug("Begin with action " + action);
+      logger.critical("Begin with action " + action);
 
       // For each serializer/deserializer pair...
       ObjectSerializer[] serializers = getObjectSerializers_ExtMapBean();
       ObjectSerializer[] deserializers = getObjectSerializers_ExtMapBean();
       for (int serializer = 0 ; serializer < serializers.length ; ++serializer) {
-        logger.debug("Begin with serializer/deserializer " + serializer);
+        logger.critical("Begin with serializer/deserializer " + serializer);
 
         // Perform variant action
         actions[action].doRoundTrip(serializers[serializer],

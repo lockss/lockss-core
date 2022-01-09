@@ -1,32 +1,33 @@
 /*
- * $Id$
- */
 
-/*
+Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
+All rights reserved.
 
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -36,22 +37,24 @@ import java.io.*;
 import java.lang.reflect.Method;
 import java.text.ParseException;
 import java.util.*;
+import java.util.regex.Pattern;
 
-import com.thoughtworks.xstream.alias.CannotResolveClassException;
 import org.lockss.app.LockssApp;
 import org.lockss.hasher.HashResult;
 import org.lockss.util.SerializationException;
 import org.lockss.util.io.LockssSerializable;
+import org.lockss.util.time.TimeZoneUtil;
 
-import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.alias.*;
+import com.thoughtworks.xstream.*;
 import com.thoughtworks.xstream.converters.*;
 import com.thoughtworks.xstream.converters.basic.*;
 import com.thoughtworks.xstream.converters.reflection.*;
 import com.thoughtworks.xstream.core.*;
+import com.thoughtworks.xstream.core.util.ThreadSafeSimpleDateFormat;
 import com.thoughtworks.xstream.io.*;
-import com.thoughtworks.xstream.io.xml.DomDriver;
+import com.thoughtworks.xstream.io.xml.*;
 import com.thoughtworks.xstream.mapper.*;
+import com.thoughtworks.xstream.security.AnyTypePermission;
 
 /**
  * <p>An implementation of {@link ObjectSerializer} based on
@@ -136,12 +139,16 @@ public class XStreamSerializer extends ObjectSerializer {
     }
 
     protected static final ThreadSafeSimpleDateFormat formatter = new ThreadSafeSimpleDateFormat("yyyy-MM-dd HH:mm:ss.S Z",
+                                                                                                 TimeZoneUtil.DEFAULT_TIMEZONE,
                                                                                                  4,
-                                                                                                 20);
+                                                                                                 20,
+                                                                                                 false);
 
     protected static final ThreadSafeSimpleDateFormat oldFormatter = new ThreadSafeSimpleDateFormat("yyyy-MM-dd HH:mm:ss.S z",
+                                                                                                    TimeZoneUtil.DEFAULT_TIMEZONE,
                                                                                                     4,
-                                                                                                    20);
+                                                                                                    20,
+                                                                                                    false);
 
   }
   /*
@@ -186,6 +193,32 @@ public class XStreamSerializer extends ObjectSerializer {
    * ==============================
    */
 
+  protected static class LockssNameCoder extends XmlFriendlyNameCoder {
+    
+    protected static final Pattern PAT = Pattern.compile("([^_])-");
+    
+    protected static final String REPL_NODE = "$1_-";
+    
+//    protected static final String REPL_ATTRIBUTE = "$1\\$";
+    
+    @Override
+    public String decodeNode(String elementName) {
+      switch (elementName) {
+        case "outer-class":
+        case "unserializable-parents":
+          return elementName;
+        default:
+          return super.decodeNode(PAT.matcher(elementName).replaceAll(REPL_NODE));
+      }
+    }
+    
+//    @Override
+//    public String decodeAttribute(String attributeName) {
+//      return super.decodeAttribute(PAT.matcher(attributeName).replaceAll(REPL_ATTRIBUTE));
+//    }
+    
+  }
+  
   /** These are the classes that should have their no-arg constructor run
    * before unmarshalling */
   private static final Class[] CLASSES_NEEDING_CONSTRUCTOR = new Class[] {
@@ -293,10 +326,10 @@ public class XStreamSerializer extends ObjectSerializer {
      * @param classMapper
      */
     public LockssReferenceByXPathMarshaller(HierarchicalStreamWriter writer,
-                                            DefaultConverterLookup converterLookup,
-                                            ClassMapper classMapper,
+                                            ConverterLookup converterLookup,
+                                            Mapper classMapper,
                                             String rootClassName) {
-      super(writer, converterLookup, classMapper);
+      super(writer, converterLookup, classMapper, ReferenceByXPathMarshallingStrategy.RELATIVE);
       this.rootClassName = rootClassName;
     }
 
@@ -361,42 +394,25 @@ public class XStreamSerializer extends ObjectSerializer {
      *                      unmarshaller).
      */
     public LockssReferenceByXPathMarshallingStrategy(LockssApp lockssContext) {
+      super(ReferenceByXPathMarshallingStrategy.RELATIVE);
       this.lockssContext = lockssContext;
     }
 
-    /**
-     * <p>Performs unmarshalling with a
-     * {@link LockssReferenceByXPathMarshaller} instance.</p>
-     * @see LockssReferenceByXPathMarshaller
-     */
-    public void marshal(HierarchicalStreamWriter writer,
-                        Object root,
-                        DefaultConverterLookup converterLookup,
-                        ClassMapper classMapper,
-                        DataHolder dataHolder) {
-      new LockssReferenceByXPathMarshaller(
-          writer,
-          converterLookup,
-          classMapper,
-          root.getClass().getName()
-      ).start(root, dataHolder);
+    @Override
+    protected TreeMarshaller createMarshallingContext(HierarchicalStreamWriter writer,
+                                                      ConverterLookup converterLookup,
+                                                      Mapper mapper) {
+      return new LockssReferenceByXPathMarshaller(writer, converterLookup, mapper, "<FIXME>"); // FIXME
     }
-
-    /**
-     * <p>Performs unmarshalling with a
-     * {@link LockssReferenceByXPathUnmarshaller} instance.</p>
-     * @see LockssReferenceByXPathUnmarshaller
-     */
-    public Object unmarshal(Object root,
-                            HierarchicalStreamReader reader,
-                            DataHolder dataHolder,
-                            DefaultConverterLookup converterLookup,
-                            ClassMapper classMapper) {
-      return new LockssReferenceByXPathUnmarshaller(
-          lockssContext, root, reader, converterLookup, classMapper).start(
-              dataHolder);
+    
+    @Override
+    protected TreeUnmarshaller createUnmarshallingContext(Object root,
+                                                          HierarchicalStreamReader reader,
+                                                          ConverterLookup converterLookup,
+                                                          Mapper mapper) {
+      return new LockssReferenceByXPathUnmarshaller(lockssContext, root, reader, converterLookup, mapper);
     }
-
+    
   }
   /*
    * end PRIVATE STATIC INNER CLASS
@@ -435,7 +451,7 @@ public class XStreamSerializer extends ObjectSerializer {
                                               Object root,
                                               HierarchicalStreamReader reader,
                                               ConverterLookup converterLookup,
-                                              ClassMapper classMapper) {
+                                              Mapper classMapper) {
       super(root, reader, converterLookup, classMapper);
       this.lockssContext = lockssContext;
     }
@@ -448,8 +464,8 @@ public class XStreamSerializer extends ObjectSerializer {
      * @param parent
      * @param type
      */
-    public Object convertAnother(Object parent, Class type) {
-      Object ret = super.convertAnother(parent, type);
+    public Object convertAnother(Object parent, Class type, Converter converter) {
+      Object ret = super.convertAnother(parent, type, converter);
       if (ret instanceof LockssSerializable) {
         Object[] parameters = new Object[] { lockssContext };
         invokeMethod(
@@ -695,11 +711,8 @@ public class XStreamSerializer extends ObjectSerializer {
       init(); // lazy instantiation
       return xs.fromXML(reader);
     }
-    catch (CannotResolveClassException crce) {
-      throw failDeserialize(crce);
-    }
-    catch (BaseException be) {
-      throw failDeserialize(be);
+    catch (XStreamException xse ) {
+      throw failDeserialize(xse);
     }
     catch (RuntimeException re) {
       throwIfInterrupted(re);
@@ -716,33 +729,22 @@ public class XStreamSerializer extends ObjectSerializer {
       throws SerializationException,
              InterruptedIOException {
     throwIfNull(obj);
-    String errorString = "Failed to serialize an object of type " + obj.getClass().getName();
 
     try {
       init(); // lazy instantiation
       xs.toXML(obj, writer);
     }
     catch (LockssNotSerializableException lnse) {
-      errorString = "Not Serializable or LockssSerializable";
+      String errorString = "Not Serializable or LockssSerializable";
       throw failSerialize(errorString,
                           lnse,
                           new SerializationException.NotSerializableOrLockssSerializable(errorString, lnse));
-
     }
-    catch (StreamException se) {
+    catch (XStreamException se) {
+      String errorString = "Failed to serialize an object of type " + obj.getClass().getName();
       throw failSerialize(errorString,
                           se,
                           new SerializationException(errorString, se));
-    }
-    catch (CannotResolveClassException crce) {
-      throw failSerialize(errorString,
-                          crce,
-                          new SerializationException(errorString, crce));
-    }
-    catch (BaseException be) {
-      throw failSerialize(errorString,
-                          be,
-                          new SerializationException(errorString, be));
     }
     catch (RuntimeException re) {
       throwIfInterrupted(re);
@@ -797,13 +799,14 @@ public class XStreamSerializer extends ObjectSerializer {
 //         reflectionProvider = new PureJavaReflectionProvider();
 	throw new UnsupportedOperationException("This JVM does not support native serialization");
       }
-      HierarchicalStreamDriver driver = new DomDriver();
+      HierarchicalStreamDriver driver = new DomDriver(Constants.DEFAULT_ENCODING, new LockssNameCoder());
       
       xs = new XStream(reflectionProvider, driver);
       xs.setMarshallingStrategy(new LockssReferenceByXPathMarshallingStrategy(lockssContext));
+      xs.addPermission(AnyTypePermission.ANY);
       xs.registerConverter(new LockssDateConverter());
       xs.registerConverter(new LockssHashResultConverter());
-      xs.registerConverter(new LockssConstructingConverter(xs.getClassMapper()));
+      xs.registerConverter(new LockssConstructingConverter(xs.getMapper()));
       initialized = true;
     }
   }
@@ -811,6 +814,6 @@ public class XStreamSerializer extends ObjectSerializer {
   /**
    * <p>A logger for use by this serializer.</p>
    */
-  private static Logger logger = Logger.getLogger();
+  private static final Logger logger = Logger.getLogger(XStreamSerializer.class);
 
 }
