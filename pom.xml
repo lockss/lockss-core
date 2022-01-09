@@ -691,7 +691,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>xmlunit</groupId>
       <artifactId>xmlunit</artifactId>
-      <version>1.5</version>
+      <version>${version.dependency.xmlunit}</version>
       <scope>test</scope>
     </dependency>
 
