@@ -446,30 +446,35 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.group.httpclient}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk15on</artifactId>
       <version>${version.group.bouncycastle}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcmail-jdk15on</artifactId>
       <version>${version.group.bouncycastle}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j</artifactId>
       <version>${version.group.icu4j}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-charset</artifactId>
       <version>${version.group.icu4j}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-localespi</artifactId>
