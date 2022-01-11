@@ -676,12 +676,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>org.antlr</groupId>
-      <artifactId>antlr4-runtime</artifactId>
-      <version>${version.group.antlr}</version>
-    </dependency>
-
-    <dependency>
       <groupId>httpunit</groupId>
       <artifactId>httpunit</artifactId>
       <version>1.7</version>
