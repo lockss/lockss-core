@@ -825,12 +825,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>xmpbox</artifactId>
-      <version>${version.group.pdfbox}</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>pdfbox</artifactId>
       <version>0.7.3-p1</version>
