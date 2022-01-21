@@ -837,6 +837,39 @@ POSSIBILITY OF SUCH DAMAGE.
         </dependencies>
         <executions>
         
+          <!-- Copy lockss-testing.keystore to lockss-testing.keystore
+               and add to it the cert for the "develop" key used to
+               sign plugins with the insecure built-in keystore -->
+
+          <execution>
+            <id>build-testing-keystore</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <copy file="${basedir}/src/main/java/org/lockss/plugin/lockss.keystore"
+                      tofile="${basedir}/target/classes/org/lockss/plugin/lockss-testing.keystore"
+                      overwrite="true"
+                      failonerror="true"/>
+                <exec executable="keytool" dir="${basedir}" failonerror="true" >
+                  <arg value="-importkeystore"/>
+                  <arg value="-srckeystore"/>
+                  <arg value="${basedir}/src/main/java/org/lockss/plugin/developcert.keystore"/>
+                  <arg value="-destkeystore"/>
+                  <arg value="${basedir}/target/classes/org/lockss/plugin/lockss-testing.keystore"/>
+                  <arg value="-srcalias"/>
+                  <arg value="develop"/>
+                  <arg value="-srcstorepass"/>
+                  <arg value="password"/>
+                  <arg value="-deststorepass"/>
+                  <arg value="password"/>
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+
           <execution>
             <id>paramDoclet</id>
             <phase>package</phase>
