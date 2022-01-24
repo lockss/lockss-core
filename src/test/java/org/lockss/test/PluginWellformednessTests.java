@@ -1,10 +1,6 @@
 /*
-n * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,8 +30,14 @@ package org.lockss.test;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.*;
+import java.nio.file.*;
+import java.nio.file.attribute.*;
+import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
+import static java.nio.file.FileVisitResult.CONTINUE;
 
 import org.apache.commons.lang3.tuple.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
@@ -57,7 +59,7 @@ import org.lockss.util.test.FileTestUtil;
  */
 
 public final class PluginWellformednessTests extends LockssTestCase {
-  static Logger log = Logger.getLogger();
+  static L4JLogger log = L4JLogger.getLogger();
 
   /** The System property under which this class expects to find a
    * semicolon-separated list of plugin names. */
@@ -70,6 +72,35 @@ public final class PluginWellformednessTests extends LockssTestCase {
   protected Plugin plugin;
   protected boolean jarLoaded = false;
 
+  public void run(List<String> pluginNames) throws Exception {
+    setUp();
+    List<Pair<String,String>> failed = new ArrayList<>();
+    for (String pluginName : pluginNames) {
+      try {
+ 	System.err.println("Testing plugin: " + pluginName);
+	resetAndTest(pluginName);
+      } catch (PluginFailedToLoadException e) {
+	log.error("Plugin " + pluginName + " failed");
+	failed.add(new ImmutablePair(pluginName, e.toString()));
+      } catch (Exception e) {
+	log.error("Plugin " + pluginName + " failed", e);
+	failed.add(new ImmutablePair(pluginName, e.getMessage()));
+      }
+    }
+    if (!failed.isEmpty()) {
+      StringBuilder sb = new StringBuilder();
+      sb.append(StringUtil.numberOfUnits(failed.size(), "plugin") + " failed:");
+      for (Pair<String,String> f : failed) {
+	sb.append("\n  ");
+	sb.append(f.getLeft());
+	sb.append("\n    ");
+	sb.append(f.getRight());
+      }
+      fail(sb.toString());
+    }
+  }
+
+
   public void setUp() throws Exception {
     super.setUp();
     setUpDiskSpace();
@@ -80,6 +111,8 @@ public final class PluginWellformednessTests extends LockssTestCase {
     daemon.setPluginManager(pluginMgr);
     pluginMgr.initService(daemon);
     pluginMgr.startService();
+    daemon.setAusStarted(true);
+    daemon.setAppRunning(true);
   }
 
   public void tearDown() throws Exception {
@@ -192,97 +225,91 @@ public final class PluginWellformednessTests extends LockssTestCase {
    * and the factories are loadable and runnable.
    */
   public void testWellFormed(String pluginName) throws Exception {
-    if (getPlugin() == null) {
+    Plugin plugin = getPlugin();
+    if (plugin == null) {
       throw new PluginFailedToLoadException();
     }
-    ArchivalUnit au = createAu();
+    PluginValidator pv = new PluginValidator(daemon, pluginName, plugin);
+    pv.validatePlugin();
+  }
 
-    assertSame(plugin, au.getPlugin());
-    assertEquals(plugin.getPluginId(), au.getPluginId());
+  public void validatePlugin(Plugin plugin) throws Exception {
+    PluginValidator pv = new PluginValidator(daemon, pluginName, plugin);
+    pv.validatePlugin();
+   }
 
-    if (plugin instanceof DefinablePlugin) {
-      DefinablePlugin dplug = (DefinablePlugin)(plugin);
-      TypedEntryMap plugDef = dplug.getDefinitionMap();
-      if (!pluginName.equals(plugDef.getString(DefinablePlugin.KEY_PLUGIN_IDENTIFIER))) {
-	log.warning("Wrong plugin_id: " +
-		    plugDef.getString(DefinablePlugin.KEY_PLUGIN_IDENTIFIER) +
-		    " should be " + pluginName);
+  static List<String> findPluginsInTree(String plugRoot) {
+    Path dirPath = Paths.get(plugRoot);
+
+    List<String> res = new ArrayList<>();
+    FileVisitor visitor =
+      new FileVisitor(res, dirPath)
+//       .setExclusions(argExcludePats);
+      ;
+    try {
+      log.debug("starting tree walk ...");
+      Files.walkFileTree(dirPath, EnumSet.of(FOLLOW_LINKS), 100, visitor);
+//       excluded = visitor.getExcluded();
+    } catch (IOException e) {
+      throw new RuntimeException("unable to walk source tree.", e);
+    }
+    return res;
+  }
+
+  /** Visitor for Files.walkFileTree(), makes a PlugSpec for each plugin in
+   * tree */
+  static class FileVisitor extends SimpleFileVisitor<Path> {
+    List<String> res;
+    Path root;
+    PathMatcher matcher;
+    List<Pattern> excludePats;
+    List<String> excluded = new ArrayList<>();
+
+    FileVisitor(List<String> res, Path root) {
+      this.res = res;
+      this.root = root;
+      matcher = FileSystems.getDefault().getPathMatcher("glob:" + "*.xml");
+    }
+
+    static Pattern PLUG_PAT =
+      Pattern.compile("(\\w+)\\.xml$", Pattern.CASE_INSENSITIVE);
+
+    FileVisitor setExclusions(List<Pattern> excludePats) {
+      this.excludePats = excludePats;
+      return this;
+    }
+
+    boolean isExcluded(String id) {
+      if (excludePats == null) return false;
+      for (Pattern pat : excludePats) {
+	if (pat.matcher(id).matches()) return true;
       }
-      if (dplug.getPluginId().endsWith("SourcePlugin")) {
-	if (plugDef.containsKey(DefinablePlugin.KEY_PLUGIN_BULK_CONTENT)) {
-	  if (!plugDef.getBoolean(DefinablePlugin.KEY_PLUGIN_BULK_CONTENT)) {
-	    log.warning("Plugin name " + pluginName + " suggests it's a source plugin, but it has " + DefinablePlugin.KEY_PLUGIN_BULK_CONTENT + " explicitly set false");
-	  }
+      return false;
+    }
+
+    List<String> getExcluded() {
+      return excluded;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+	throws IOException {
+
+      Matcher mat = PLUG_PAT.matcher(file.getFileName().toString());
+      if (mat.matches()) {
+	String fname = mat.group(1);
+	Path rel = root.relativize(file).getParent();
+	String pkg = rel.toString().replace("/", ".");
+ 	log.debug2("file: {}, fname: {}, rel: {}, pkg: {}", file, fname, rel, pkg);
+	String fqPlug = pkg + "." + fname;
+	if (isExcluded(fqPlug)) {
+	  excluded.add(fqPlug);
 	} else {
-	  fail("Plugin " + pluginName + " is treated as a source/bulk plugin becuase of its name - it should have " + DefinablePlugin.KEY_PLUGIN_BULK_CONTENT + " set to true");
+	  res.add(fqPlug);
 	}
       }
-
-      // assertEquals("Wrong plugin_id", pluginName,
-      // 		   plugDef.getString(DefinablePlugin.KEY_PLUGIN_IDENTIFIER));
+      return CONTINUE;
     }
-
-    assertEquals(getSampleAuConfig(), au.getConfiguration());
-
-    au.getAuId();
-    assertNotNull(au.getName());
-
-    au.getAuCachedUrlSet();
-
-    au.shouldBeCached(URL1);
-    au.isLoginPageUrl(URL1);
-    au.makeCachedUrl(URL1);
-    au.makeUrlCacher(
-        new UrlData(new StringInputStream(""), new CIProperties(), URL1));
-    assertNotNull(au.siteNormalizeUrl(URL1));
-
-    au.getUrlStems();
-    au.getTitleConfig();
-
-    for (String mime : getSupportedMimeTypes()) {
-      au.getLinkExtractor(mime);
-      au.getLinkRewriterFactory(mime);
-      au.getFilterRule(mime);
-      au.getHashFilterFactory(mime);
-      au.getCrawlFilterFactory(mime);
-      au.getFileMetadataExtractor(new MetadataTarget(), mime);
-    }
-    au.getArticleIterator();
-
-    RateLimiterInfo rli = au.getRateLimiterInfo();
-    new RateLimiter(rli.getDefaultRate());
-    au.getFetchRateLimiterKey();
-    au.getPermissionUrls();
-    au.getStartUrls();
-    au.getAccessUrls();
-    au.getPerHostPermissionPath();
-    au.makeExcludeUrlsFromPollsPatterns();
-    au.makeUrlPollResultWeightMap();
-    au.makeNonSubstanceUrlPatterns();
-    au.makeSubstanceUrlPatterns();
-    au.makeSubstancePredicate();
-    au.makePermittedHostPatterns();
-    au.makeRepairFromPeerIfMissingUrlPatterns();
-    au.getCrawlUrlComparator();
-
-    au.getCrawlWindow();
-    au.makePermissionCheckers();
-    au.getLoginPageChecker();
-    au.getCookiePolicy();
-
-    au.siteNormalizeUrl("http://exmaple.com/path/");
-
-    AuUtil.getConfigUserMessage(au);
-    AuUtil.getProtocolVersion(au);
-    AuUtil.getPollVersion(au);
-    AuUtil.isDeleteExtraFiles(au, false);
-    AuUtil.isDeleteExtraFiles(au, true);
-
-    AuUtil.isRepairFromPublisherWhenTooClose(au, true);
-    AuUtil.isRepairFromPublisherWhenTooClose(au, false);
-    AuUtil.minReplicasForNoQuorumPeerRepair(au, 2);
-    
-    au.getUrlConsumerFactory();
   }
 
   private class MyPluginManager extends PluginManager {
@@ -312,33 +339,32 @@ public final class PluginWellformednessTests extends LockssTestCase {
   public static class PluginFailedToLoadException extends Exception {
   }
 
-  public static void main(String[] argv) {
+  public static void main(String[] argv) throws Exception {
+    List<String> pluginNames = new ArrayList<>();
+
     if (argv.length > 0) {
       int ix = 0;
       try {
 	for (ix = 0; ix < argv.length; ix++) {
 	  String arg = argv[ix];
-	  if (!arg.startsWith("-")) {
-	    break;
-	  }
-	  if (arg.equals("-pj")) {
-	    String jarName = argv[++ix];
-	    System.setProperty(PLUGIN_JAR_PROP, jarName);
-	  } else {
-	    usage();
+          if (arg.equals("-p")) {
+            pluginNames.add(argv[++ix]);
+          } else if (arg.equals("-pd")) {
+            String plugTree = argv[++ix];
+            pluginNames.addAll(findPluginsInTree(plugTree));
+          } else {
+            usage();
 	  }
 	}
       } catch (ArrayIndexOutOfBoundsException e) {
 	usage();
       }
-      String pluginNames =
-	StringUtil.separatedString(Arrays.copyOfRange(argv, ix, argv.length-1),
-				   ";");
-      System.setProperty(PLUGIN_NAME_PROP, pluginNames);
-
+      if (pluginNames.isEmpty()) {
+        usage();
+      }
+      new PluginWellformednessTests().run(pluginNames);
     }
-    junit.textui.TestRunner.main(new String[] {
-	PluginWellformednessTests.class.getName() });
+
   }
 
   private static void usage() {
