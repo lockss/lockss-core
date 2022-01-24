@@ -4,6 +4,13 @@
 # There are three plugin project trees: test/testplugins/v{1,2,3} .
 # This must be run if the plugins are changed or the keystores regenerated.
 
+usage() {
+  echo "Usage: $0 [-o]"
+  echo "Regenerate the loadable plugin jars used by TestPluginManager."
+  echo "  -o  Run Maven in offline mode"
+  exit 1
+}
+
 proj_dir=`pwd`
 plugin_projs="v1 v2 v3"
 
@@ -12,12 +19,27 @@ err_exit() {
   exit 1
 }
 
+offline=
+
+while true ; do
+  case "$1" in
+    "-o" )
+      offline="-o"
+      shift; continue;;
+    "-*" )
+      usage;;
+    "*" )
+      break;;
+  esac
+  break;
+done
+
 for x in ${plugin_projs}; do
-  echo $x
+  echo "Building test/testplugins/${x}"
   ( cd test/testplugins/${x}
     echo `pwd` mvn $@
-    mvn  clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy.keystore" -Dkeystore.alias=goodguy -Dkeystore.password=f00bar  $@
-      cp target/pluginjars/*.jar "${proj_dir}/src/test/java/org/lockss/test/mock-plugin-${x}.jar"
+    mvn $offline clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy.keystore" -Dkeystore.alias=goodguy -Dkeystore.password=f00bar  $@
+    cp target/pluginjars/*.jar "${proj_dir}/src/test/java/org/lockss/test/mock-plugin-${x}.jar"
   ) || err_exit "Plugin packaging failure"
 
 done
