@@ -212,6 +212,50 @@ public class TestPersistentStateManager extends StateTestCase {
   }
 
 
+  MockPeerIdentity randomPid() {
+    MockPeerIdentity pid =
+      new MockPeerIdentity("tcp:[" +
+                           randomInt(0,127) + "." + randomInt(0,127) + "." +
+                           randomInt(0,127) + "." + randomInt(0,127) +
+                           "]:1231");
+    idMgr.addPeerIdentity(pid.getIdString(), pid);
+    return pid;
+  }
+
+  int randomInt(int min, int max) {
+    return min + (int)(Math.random() * ((max - min) + 1));
+  }
+
+  @Test
+  public void testStoreAndLoadAuAgreements() throws Exception {
+    // Test roundtrip of AuAgreements that doesn't get compressed
+    AuAgreements aua0out = stateMgr.newDefaultAuAgreements(AUID1);
+    aua0out.signalPartialAgreement(pid1, POR, .8f, 400);
+    aua0out.signalPartialAgreement(pid1, POP, .6f, 400);
+    assertTrue(aua0out.toJson().length() < DbStateManagerSql.JSON_COMPRESSION_THRESHOLD);
+    stateMgr.doStoreAuAgreementsUpdate(AUID1, aua0out, null);
+    AuAgreements aua0in = stateMgr.doLoadAuAgreements(AUID1);
+    assertEquals(aua0out, aua0in);
+
+    // Test roundtrip of AuAgreements that does get compressed
+    AuAgreements aua1out = stateMgr.newDefaultAuAgreements(AUID2);
+    aua1out.signalPartialAgreement(pid1, POR, .8f, 400);
+    aua1out.signalPartialAgreement(pid1, POP, .6f, 400);
+    for (int i=1; i<50; i++) {
+      aua1out.signalPartialAgreement(randomPid(), POR, (float)Math.random(),
+                                  (int)(Math.random() * ((1000000000))));
+      aua1out.signalPartialAgreement(randomPid(), W_POR, (float)Math.random(),
+                                  (int)(Math.random() * ((1000000000))));
+      aua1out.signalPartialAgreement(randomPid(), POR_HINT, (float)Math.random(),
+                                  (int)(Math.random() * ((1000000000))));
+    }
+    assertTrue(aua1out.toJson().length() >= DbStateManagerSql.JSON_COMPRESSION_THRESHOLD);
+    stateMgr.doStoreAuAgreementsUpdate(AUID2, aua1out, null);
+
+    AuAgreements aua1in = stateMgr.doLoadAuAgreements(AUID2);
+    assertEquals(aua1out, aua1in);
+  }
+
   @Test
   public void testFuncAuAgreements() throws Exception {
     // Pre-store an AuAgreements in the db

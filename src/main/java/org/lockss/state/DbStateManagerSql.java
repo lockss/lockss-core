@@ -37,6 +37,9 @@ import static org.lockss.config.db.SqlConstants.*;
 import java.io.IOException;
 import java.sql.*;
 import java.util.*;
+import java.util.zip.*;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.output.*;
 import org.lockss.app.*;
 import org.lockss.config.db.*;
 import org.lockss.db.*;
@@ -46,6 +49,7 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.protocol.*;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.util.time.TimeBase;
+import org.lockss.util.io.*;
 
 /**
  * The DbStateManager SQL code executor.
@@ -152,6 +156,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
       + "," + NO_AU_PEER_SET_STRING_COLUMN
       + ") values (?,?)";
+
+  public static final int JSON_COMPRESSION_THRESHOLD = 500;
 
   /**
    * Constructor.
@@ -588,7 +594,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
 
-    String result = null;
     PreparedStatement getAuAgreements = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot get AU poll agreements";
@@ -607,9 +612,21 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
 
       // Get the single result, if any.
       if (resultSet.next()) {
-	result = resultSet.getString(AGREEMENTS_STRING_COLUMN);
+	String result = resultSet.getString(AGREEMENTS_STRING_COLUMN);
+        if (!result.startsWith("{\"")) {
+          UnsynchronizedByteArrayOutputStream baos1 =
+            new UnsynchronizedByteArrayOutputStream();
+          UnsynchronizedByteArrayOutputStream baos2 =
+            new UnsynchronizedByteArrayOutputStream();
+          Base91.decode(IOUtils.toInputStream(result, "UTF-8"), baos1);
+
+          result = IOUtils.toString(new GZIPInputStream(baos1.toInputStream()));
+        }
+        log.debug2("result = {}", result);
+        return result;
       }
-    } catch (SQLException sqle) {
+      return null;
+    } catch (SQLException | IOException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", GET_AU_AGREEMENTS_QUERY);
       log.error("pluginId = {}", pluginId);
@@ -625,9 +642,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(getAuAgreements);
     }
-
-    log.debug2("result = {}", result);
-    return result;
   }
 
   /**
@@ -800,14 +814,28 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     try {
       // Convert to JSON
       String json = aua.toJson();
+      String storedString = json;
+      log.trace("storing json: {}", json);
+      if (json.length() >= JSON_COMPRESSION_THRESHOLD) {
       
+        // compress and base91 encode the JSON
+        UnsynchronizedByteArrayOutputStream baos =
+          new UnsynchronizedByteArrayOutputStream();
+
+        Base91.encode(new GZIPpedInputStream(json), baos);
+        storedString = IOUtils.toString(baos.toInputStream());
+        log.trace("storing json: {}", json);
+        log.trace("storing string: {}", storedString);
+      }
+      log.debug2("json len: {}, compressed len: {}", json.length(),
+                 storedString.length());
       // Prepare the query.
       addAgreements =
 	  configDbManager.prepareStatement(conn, ADD_AU_AGREEMENTS_QUERY);
 
       // Populate the query.
       addAgreements.setLong(1, auSeq);
-      addAgreements.setString(2, json);
+      addAgreements.setString(2, storedString);
 
       // Execute the query
       int count = configDbManager.executeUpdate(addAgreements);
