@@ -64,6 +64,8 @@ public class TestAuAgreements extends LockssTestCase {
 
   public void testEquals() throws Exception {
     AuAgreements aua1 = makeAua();
+    AuAgreements auaOtherAu = AuAgreements.make("differentAuId", idMgr);
+    assertNotEquals(aua1, auaOtherAu);
     signalPartialAgreements(aua1, AgreementType.POR,
 			    50.0f, 100);
     signalPartialAgreements(aua1, AgreementType.POR,

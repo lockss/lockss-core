@@ -352,14 +352,14 @@ public class AuAgreements implements LockssSerializable {
   public boolean equals(Object o) {
     if (o instanceof AuAgreements) {
       AuAgreements other = (AuAgreements)o;
-      return map.equals(other.map);
+      return auid.equals(other.getAuid()) && map.equals(other.map);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return map.hashCode();
+    return auid.hashCode() * 3 + map.hashCode();
   }
 
 }
