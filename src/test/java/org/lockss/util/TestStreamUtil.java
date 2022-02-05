@@ -43,6 +43,7 @@ import org.lockss.test.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.util.LockssWatchdog;
+import org.lockss.util.io.*;
 
 /**
  * This is the test class for org.lockss.util.StreamUtil

@@ -42,6 +42,7 @@ import org.lockss.test.*;
 import org.lockss.test.MockCrawler.MockCrawlerFacade;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 
 // Tests are in two variant subclass trees: UncompressedTests and
 // CompressedTests.  The latter has a subclass per compression scheme,

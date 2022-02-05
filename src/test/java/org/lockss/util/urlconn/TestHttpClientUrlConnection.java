@@ -53,6 +53,7 @@ import org.apache.http.message.BasicStatusLine;
 //import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 //HC3 import org.apache.commons.httpclient.*;
 //HC3 import org.apache.commons.httpclient.cookie.CookiePolicy;
 //HC3 import org.apache.commons.httpclient.params.*;

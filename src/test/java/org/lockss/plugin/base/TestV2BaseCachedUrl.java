@@ -43,6 +43,7 @@ import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.repository.*;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
