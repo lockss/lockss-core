@@ -243,13 +243,22 @@ public class MockCachedUrlSet implements CachedUrlSet {
 
   private long hashEstimate = 0;
   private long contentSize = 0;
+  private long contentSizeAllVersions = 0;
 
   public long getContentSize() {
     return contentSize;
   }
 
+  public long getContentSizeAllVersions() {
+    return contentSizeAllVersions;
+  }
+
   public void setContentSize(long val) {
     contentSize = val;
+  }
+
+  public void setContentSizeAllVersions(long val) {
+    contentSizeAllVersions = val;
   }
 
   public long estimatedHashDuration() {

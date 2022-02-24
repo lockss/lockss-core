@@ -363,7 +363,8 @@ public class LockssRepositoryStatus {
 
     private static final List columnDescriptors = ListUtil.list
       (new ColumnDescriptor("auid", "AUID", ColumnDescriptor.TYPE_STRING),
-       new ColumnDescriptor("size", "Size", ColumnDescriptor.TYPE_INT)
+       new ColumnDescriptor("size", "Size", ColumnDescriptor.TYPE_INT),
+       new ColumnDescriptor("sizeall", "All Versions", ColumnDescriptor.TYPE_INT)
        );
 
     private static final List sortRules =
@@ -404,7 +405,9 @@ public class LockssRepositoryStatus {
 	    .setProperty("auid", auid);
 	  row.put("auid", auidRef);
 	  try {
-	    row.put("size", repo.auSize(rs.getCollection(), auid));
+            AuSize aus = repo.auSize(rs.getCollection(), auid);
+	    row.put("size", aus.getTotalLatestVersions());
+	    row.put("sizeall", aus.getTotalAllVersions());
 	  } catch (IOException e) {
 	    log.warning("Couldn't get AU size", e);
 	  }

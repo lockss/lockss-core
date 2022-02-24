@@ -441,13 +441,24 @@ public class AuUtil {
   }
 
   /**
-   * Return the size of the AU, calculating it if necessary.
+   * Return the total content size of the AU, including only the most
+   * recent version of each artifact
    * @param au the AU
-   * @return the AU's total content size.
+   * @return the AU's total.
    */
   public static long getAuContentSize(ArchivalUnit au,
 				      boolean calcIfUnknown) {
     return au.getAuCachedUrlSet().getContentSize();
+  }
+
+  /**
+   * Return the total content size of the AU, including all versions
+   * of each artifact
+   * @param au the AU
+   * @return the AU's total content size.
+   */
+  public static long getAuContentSizeAllVersions(ArchivalUnit au) {
+    return au.getAuCachedUrlSet().getContentSizeAllVersions();
   }
 
   public static long calculateCusContentSize(Iterable<CachedUrl> coll) {

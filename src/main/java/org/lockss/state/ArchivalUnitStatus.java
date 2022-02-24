@@ -928,6 +928,7 @@ public class ArchivalUnitStatus
       }
 
       long contentSize = AuUtil.getAuContentSize(au, false);
+      long contentSizeAllVers = AuUtil.getAuContentSizeAllVersions(au);
       long du = AuUtil.getAuDiskUsage(au, false);
 
       List res = new ArrayList();
@@ -949,11 +950,11 @@ public class ArchivalUnitStatus
         res.add(new StatusTable.SummaryInfo("Content Size",
             ColumnDescriptor.TYPE_INT,
             new Long(contentSize)));
-      } else {
-	// XXX DISKUSAGE
-//         res.add(new StatusTable.SummaryInfo("Content Size",
-//             ColumnDescriptor.TYPE_STRING,
-//             "Awaiting recalc"));
+      }
+      if (contentSizeAllVers != -1) {
+        res.add(new StatusTable.SummaryInfo("All Versions Size",
+            ColumnDescriptor.TYPE_INT,
+            new Long(contentSizeAllVers)));
       }
       if (du != -1) {
         res.add(new StatusTable.SummaryInfo("Disk Usage (MB)",

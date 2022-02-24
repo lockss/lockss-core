@@ -389,6 +389,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
                "test stream", null);
     createLeaf("http://www.example.com/testDir/branch2/leaf3",
                "test streamB", null);
+    createLeaf("http://www.example.com/testDir/leaf4", "first ver", null);
     createLeaf("http://www.example.com/testDir/leaf4", "test streamC", null);
 
     CachedUrlSetSpec rSpec =
@@ -398,6 +399,8 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     assertEquals(48, fileSet.getContentSize());
     assertEquals(48, AuUtil.getAuContentSize(mau, true));
     assertEquals(48, mau.getAuCachedUrlSet().getContentSize());
+    assertEquals(57, mau.getAuCachedUrlSet().getContentSizeAllVersions());
+    assertEquals(57, AuUtil.getAuContentSizeAllVersions(mau));
 
     CachedUrlSetSpec spec2 =
         new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1");

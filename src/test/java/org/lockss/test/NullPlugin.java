@@ -491,6 +491,10 @@ public class NullPlugin {
       return 0;
     }
 
+    public long getContentSizeAllVersions() {
+      return 0;
+    }
+
     public long estimatedHashDuration() {
       return 1000;
     }
