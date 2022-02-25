@@ -39,6 +39,7 @@ import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
+import org.lockss.laaws.rs.model.*;
 
 /**
  * This is a mock version of <code>CachedUrlSet</code> used for testing
@@ -242,8 +243,13 @@ public class MockCachedUrlSet implements CachedUrlSet {
   }
 
   private long hashEstimate = 0;
+  private AuSize auSize = null;
   private long contentSize = 0;
   private long contentSizeAllVersions = 0;
+
+  public AuSize getAuSize() {
+    return auSize;
+  }
 
   public long getContentSize() {
     return contentSize;
@@ -251,6 +257,10 @@ public class MockCachedUrlSet implements CachedUrlSet {
 
   public long getContentSizeAllVersions() {
     return contentSizeAllVersions;
+  }
+
+  public void setAuSize(AuSize val) {
+    auSize = val;
   }
 
   public void setContentSize(long val) {

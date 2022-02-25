@@ -441,6 +441,15 @@ public class AuUtil {
   }
 
   /**
+   * Return the AuSize object holding various size statistics for the AU
+   * @param au the AU
+   * @return AuSize
+   */
+  public static AuSize getAuSize(ArchivalUnit au) {
+    return au.getAuCachedUrlSet().getAuSize();
+  }
+
+  /**
    * Return the total content size of the AU, including only the most
    * recent version of each artifact
    * @param au the AU

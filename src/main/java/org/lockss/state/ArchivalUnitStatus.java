@@ -48,6 +48,7 @@ import org.lockss.repository.*;
 import org.lockss.servlet.*;
 
 import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.AuSize;
 
 /**
  * Collect and report the status of the ArchivalUnits
@@ -210,11 +211,13 @@ public class ArchivalUnitStatus
 //       new ColumnDescriptor("AuNodeCount", "Nodes", ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("AuSize", "Content Size",
             ColumnDescriptor.TYPE_INT),
-//         new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
-//             ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
-        new ColumnDescriptor("Peers", "Peers", ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("AuPolls", "Recent Polls",
+        new ColumnDescriptor("AllVers", "All Versions",
             ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
+            ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
+//         new ColumnDescriptor("Peers", "Peers", ColumnDescriptor.TYPE_INT),
+//         new ColumnDescriptor("AuPolls", "Recent Polls",
+//             ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("Damaged", "Status",
             ColumnDescriptor.TYPE_STRING,
             FOOT_STATUS),
@@ -325,14 +328,17 @@ public class ArchivalUnitStatus
       HashMap rowMap = new HashMap();
       rowMap.put("AuName",
 		 AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
-      if (inclCols.contains("AuSize")) {
-        long contentSize = AuUtil.getAuContentSize(au, false);
+      if (inclCols.contains("AuSize") || inclCols.contains("AuSizeAllVers") || inclCols.contains("DiskUsage")) {
+        AuSize ausize = AuUtil.getAuSize(au);
+        long contentSize = ausize.getTotalLatestVersions();
         if (contentSize != -1) {
           rowMap.put("AuSize", new Long(contentSize));
         }
-      }
-      if (inclCols.contains("DiskUsage")) {
-        long du = AuUtil.getAuDiskUsage(au, false);
+        long allvers = ausize.getTotalAllVersions();
+        if (allvers != -1) {
+          rowMap.put("AllVers", new Long(allvers));
+        }
+        long du = ausize.getTotalWarcSize();
         if (du != -1) {
           rowMap.put("DiskUsage", new Double(((double)du) / (1024*1024)));
         }
@@ -367,15 +373,15 @@ public class ArchivalUnitStatus
       rowMap.put("AuLastPoll", new Long(auState.getLastTimePollCompleted()));
 
       Object stat;
-      try {
-	PollManager.V3PollStatusAccessor v3status =
-	  theDaemon.getPollManager().getV3Status();
-	int numPolls = v3status.getNumPolls(au.getAuId());
-	rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
-      } catch (RuntimeException e) {
-	logger.warning("Can't get poll status for " + au.getName() + ": " +
-		       e.getMessage());
-      }
+//       try {
+// 	PollManager.V3PollStatusAccessor v3status =
+// 	  theDaemon.getPollManager().getV3Status();
+// 	int numPolls = v3status.getNumPolls(au.getAuId());
+// 	rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
+//       } catch (RuntimeException e) {
+// 	logger.warning("Can't get poll status for " + au.getName() + ": " +
+// 		       e.getMessage());
+//       }
       // Percent damaged.  It's scary to see '0% Agreement' if there's no
       // history, so we just show a friendlier message.
       //
@@ -927,9 +933,10 @@ public class ArchivalUnitStatus
         stat = hasDamage ? DAMAGE_STATE_DAMAGED : DAMAGE_STATE_OK;
       }
 
-      long contentSize = AuUtil.getAuContentSize(au, false);
-      long contentSizeAllVers = AuUtil.getAuContentSizeAllVersions(au);
-      long du = AuUtil.getAuDiskUsage(au, false);
+      AuSize aus = AuUtil.getAuSize(au);
+      long contentSize = aus.getTotalLatestVersions();
+      long contentSizeAllVers = aus.getTotalAllVersions();
+      long du = aus.getTotalWarcSize();
 
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Volume",

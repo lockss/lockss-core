@@ -51,6 +51,7 @@ import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 import org.lockss.extractor.*;
+import org.lockss.laaws.rs.model.*;
 
 /**
  * Base class for test plugins that don't want to implement all the
@@ -485,6 +486,10 @@ public class NullPlugin {
     public org.lockss.daemon.CachedUrlSetHasher
       getNameHasher(MessageDigest digest) {
       return new CachedUrlSetHasher();
+    }
+
+    public AuSize getAuSize() {
+      return null;
     }
 
     public long getContentSize() {

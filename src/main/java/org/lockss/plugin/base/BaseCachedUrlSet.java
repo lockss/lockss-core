@@ -296,16 +296,23 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     stateMgr.getAuState(au).setLastHashDuration(newEst);
   }
 
-  public long getContentSize() {
+  public AuSize getAuSize() {
     if (spec.isAu()) {
       try {
-        AuSize aus = v2Repo.auSize(v2Coll, au.getAuId());
-        return aus.getTotalLatestVersions();
+        return v2Repo.auSize(v2Coll, au.getAuId());
       } catch (IOException e) {
 	logger.error("getContentSize", e);
 	// TK what to do here
 	throw new LockssUncheckedIOException(e);
       }
+    }
+    throw new UnsupportedOperationException("AuSize not available for partial");
+  }
+
+  public long getContentSize() {
+    if (spec.isAu()) {
+      AuSize aus = getAuSize();
+      return aus.getTotalLatestVersions();
     } else {
       return AuUtil.calculateCusContentSize(getCuIterable());
     }
@@ -313,14 +320,8 @@ public class BaseCachedUrlSet implements CachedUrlSet {
 
   public long getContentSizeAllVersions() {
     if (spec.isAu()) {
-      try {
-        AuSize aus = v2Repo.auSize(v2Coll, au.getAuId());
-        return aus.getTotalAllVersions();
-      } catch (IOException e) {
-	logger.error("getContentSize", e);
-	// TK what to do here
-	throw new LockssUncheckedIOException(e);
-      }
+      AuSize aus = getAuSize();
+      return aus.getTotalAllVersions();
     } else {
       throw new UnsupportedOperationException("All versions size of partial AU not implemented");
     }
