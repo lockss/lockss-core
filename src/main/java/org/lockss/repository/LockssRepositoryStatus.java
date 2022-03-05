@@ -409,7 +409,9 @@ public class LockssRepositoryStatus {
             AuSize aus = repo.auSize(rs.getCollection(), auid);
 	    row.put("size", aus.getTotalLatestVersions());
 	    row.put("sizeall", aus.getTotalAllVersions());
-	    row.put("ondisk", aus.getTotalWarcSize());
+            if (aus.getTotalWarcSize() != null) {
+              row.put("ondisk", aus.getTotalWarcSize());
+            }
 	  } catch (IOException e) {
 	    log.warning("Couldn't get AU size", e);
 	  }

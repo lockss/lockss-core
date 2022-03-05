@@ -196,7 +196,7 @@ public class ArchivalUnitStatus
 
   /** By default the AuSummary table omits the size columns.  Specify
    * columns=* to include them */
-//   static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;DiskUsage";
+//   static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;AllVersSize;DiskUsage";
 
   static class AuSummary implements StatusAccessor {
     static final String TABLE_TITLE = "Archival Units";
@@ -211,7 +211,7 @@ public class ArchivalUnitStatus
 //       new ColumnDescriptor("AuNodeCount", "Nodes", ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("AuSize", "Content Size",
             ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("AllVers", "All Versions",
+        new ColumnDescriptor("AllVersSize", "All Versions",
             ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
             ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
@@ -328,7 +328,7 @@ public class ArchivalUnitStatus
       HashMap rowMap = new HashMap();
       rowMap.put("AuName",
 		 AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
-      if (inclCols.contains("AuSize") || inclCols.contains("AuSizeAllVers") || inclCols.contains("DiskUsage")) {
+      if (inclCols.contains("AuSize") || inclCols.contains("AllVersSize") || inclCols.contains("DiskUsage")) {
         AuSize ausize = AuUtil.getAuSize(au);
         long contentSize = ausize.getTotalLatestVersions();
         if (contentSize != -1) {
@@ -336,11 +336,12 @@ public class ArchivalUnitStatus
         }
         long allvers = ausize.getTotalAllVersions();
         if (allvers != -1) {
-          rowMap.put("AllVers", new Long(allvers));
+          rowMap.put("AllVersSize", new Long(allvers));
         }
-        long du = ausize.getTotalWarcSize();
-        if (du != -1) {
-          rowMap.put("DiskUsage", new Double(((double)du) / (1024*1024)));
+        if (ausize.getTotalWarcSize() != null) {
+          rowMap.put("DiskUsage",
+                     new Double(((double)ausize.getTotalWarcSize()) /
+                                (1024*1024)));
         }
       }
       long lastCrawl = auState.getLastCrawlTime();
@@ -936,7 +937,6 @@ public class ArchivalUnitStatus
       AuSize aus = AuUtil.getAuSize(au);
       long contentSize = aus.getTotalLatestVersions();
       long contentSizeAllVers = aus.getTotalAllVersions();
-      long du = aus.getTotalWarcSize();
 
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Volume",
@@ -963,10 +963,10 @@ public class ArchivalUnitStatus
             ColumnDescriptor.TYPE_INT,
             new Long(contentSizeAllVers)));
       }
-      if (du != -1) {
-        res.add(new StatusTable.SummaryInfo("Disk Usage (MB)",
-            ColumnDescriptor.TYPE_FLOAT,
-            new Float(du / (float)(1024 * 1024))));
+      if (aus.getTotalWarcSize() != null) {
+        res.add(new StatusTable.SummaryInfo("Disk Usage",
+            ColumnDescriptor.TYPE_STRING,
+            StringUtil.sizeToString(aus.getTotalWarcSize())));
       } else {
 	// XXX DISKUSAGE
 //         res.add(new StatusTable.SummaryInfo("Disk Usage",
