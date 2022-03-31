@@ -241,12 +241,14 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       getAuState.setString(1, pluginId);
       getAuState.setString(2, auKey);
 
-      // Get the configuration of the Archival Unit.
+      // Get the AuState json
       resultSet = configDbManager.executeQuery(getAuState);
 
       // Get the single result, if any.
       if (resultSet.next()) {
         String dbJson = resultSet.getString(STATE_STRING_COLUMN);
+        dbJson = uncompressJson(dbJson, "AuState");
+
         Map<String, Object> dbMap = AuUtil.jsonToMap(dbJson);
         dbMap.put("auCreationTime", new Long(resultSet.getLong(CREATION_TIME_COLUMN)));
 	result = AuUtil.mapToJson(dbMap);
@@ -353,12 +355,13 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Convert to JSON
       String json = ausb.toJsonExcept(auId_auCreationTime);
       
+      String storedString = compressJson(json, "AuState");
       // Prepare the query.
       addState = configDbManager.prepareStatement(conn, ADD_AU_STATE_QUERY);
 
       // Populate the query.
       addState.setLong(1, auSeq);
-      addState.setString(2, json);
+      addState.setString(2, storedString);
 
       // Execute the query
       int count = configDbManager.executeUpdate(addState);
@@ -613,16 +616,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Get the single result, if any.
       if (resultSet.next()) {
 	String result = resultSet.getString(AGREEMENTS_STRING_COLUMN);
-        if (!result.startsWith("{\"")) {
-          UnsynchronizedByteArrayOutputStream baos1 =
-            new UnsynchronizedByteArrayOutputStream();
-          UnsynchronizedByteArrayOutputStream baos2 =
-            new UnsynchronizedByteArrayOutputStream();
-          Base91.decode(IOUtils.toInputStream(result, "UTF-8"), baos1);
-
-          result = IOUtils.toString(new GZIPInputStream(baos1.toInputStream()));
-        }
-        log.debug2("result = {}", result);
+        result = uncompressJson(result, "AuAgreements");
         return result;
       }
       return null;
@@ -814,21 +808,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     try {
       // Convert to JSON
       String json = aua.toJson();
-      String storedString = json;
-      log.trace("storing json: {}", json);
-      if (json.length() >= JSON_COMPRESSION_THRESHOLD) {
       
-        // compress and base91 encode the JSON
-        UnsynchronizedByteArrayOutputStream baos =
-          new UnsynchronizedByteArrayOutputStream();
-
-        Base91.encode(new GZIPpedInputStream(json), baos);
-        storedString = IOUtils.toString(baos.toInputStream());
-        log.trace("storing json: {}", json);
-        log.trace("storing string: {}", storedString);
-      }
-      log.debug2("json len: {}, compressed len: {}", json.length(),
-                 storedString.length());
+      String storedString = compressJson(aua.toJson(), "AuAgreements");
       // Prepare the query.
       addAgreements =
 	  configDbManager.prepareStatement(conn, ADD_AU_AGREEMENTS_QUERY);
@@ -1574,5 +1555,36 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     } finally {
       ConfigDbManager.safeCloseStatement(addNoAuPeerSet);
     }
+  }
+
+  private String compressJson(String json, String objname) throws IOException {
+    String res = json;
+    log.trace("storing {} json: {}", objname, json);
+    if (json.length() >= JSON_COMPRESSION_THRESHOLD) {
+
+      // compress and base91 encode the JSON
+      UnsynchronizedByteArrayOutputStream baos =
+        new UnsynchronizedByteArrayOutputStream();
+
+      Base91.encode(new GZIPpedInputStream(json), baos);
+      res = IOUtils.toString(baos.toInputStream());
+      log.trace("storing () string: {}", objname, res);
+    }
+    log.debug2("{} json len: {}, compressed len: {}", objname,
+               json.length(), res.length());
+    return res;
+  }
+
+  private String uncompressJson(String storedString, String objname)
+    throws IOException {
+    String res = storedString;
+    if (!storedString.startsWith("{\"")) {
+      UnsynchronizedByteArrayOutputStream baos1 =
+        new UnsynchronizedByteArrayOutputStream();
+      Base91.decode(IOUtils.toInputStream(storedString, "UTF-8"), baos1);
+      res = IOUtils.toString(new GZIPInputStream(baos1.toInputStream()));
+    }
+    log.debug2("{} result = {}", objname, res);
+    return res;
   }
 }

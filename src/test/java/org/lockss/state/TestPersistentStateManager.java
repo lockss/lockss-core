@@ -100,16 +100,22 @@ public class TestPersistentStateManager extends StateTestCase {
     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
     ausb2.setMetadataExtractionEnabled(false);
     String json2 = ausb2.toJson();
-
     stateMgr.doStoreAuStateBean(key2, ausb2, null); // has existing creation time
 
     AuStateBean ausb2b = stateMgr.doLoadAuStateBean(key2);
     String json2b = ausb2b.toJson();
     assertEquals(AuUtil.jsonToMap(json2), AuUtil.jsonToMap(json2b));
 
-    // Update a record
+    // make some changes
     ausb2.setAverageHashDuration(1234L);
+    List<String> cdn = new ArrayList<>();
+    for (int x = 1; x <= 15; x++) {
+      cdn.add("http://abcabc" + x + ".com");
+    }
+    ausb2.setCdnStems(cdn);
     json2 = ausb2.toJson();
+    log.debug("Large AuState json len: {}", json2.length());
+    assertTrue(json2.length() >= DbStateManagerSql.JSON_COMPRESSION_THRESHOLD);
     stateMgr.doStoreAuStateBean(key2, ausb2,
 	SetUtil.set("averageHashDuration"));
     AuStateBean ausb2c = stateMgr.doLoadAuStateBean(key2);
