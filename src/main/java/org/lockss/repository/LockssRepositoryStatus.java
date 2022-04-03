@@ -68,6 +68,8 @@ public class LockssRepositoryStatus {
   public static final String AU_STATUS_TABLE_NAME =
     ArchivalUnitStatus.AU_STATUS_TABLE_NAME;
 
+  public static final String PROP_ALL_VERSIONS = "allVersions";
+
   static void registerAccessors(LockssDaemon daemon, StatusService statusServ) {
     statusServ.registerStatusAccessor(SERVICE_STATUS_TABLE_NAME,
 				      new RepoCollsStatusAccessor(daemon));
@@ -462,7 +464,7 @@ public class LockssRepositoryStatus {
       table.setColumnDescriptors(columnDescriptors);
       table.setDefaultSortRules(sortRules);
       table.setRows(getRows(table, rs, auid));
-      table.setSummaryInfo(getSummaryInfo(rs, auid));
+      table.setSummaryInfo(getSummaryInfo(table, rs, auid));
     }
 
     public boolean requiresKey() {
@@ -489,7 +491,11 @@ public class LockssRepositoryStatus {
 
       Iterator<Artifact> artIter;
       try {
-	artIter = repo.getArtifacts(rs.getCollection(), auid).iterator();
+        if (StringUtil.isNullString(table.getProperty(PROP_ALL_VERSIONS))) {
+          artIter = repo.getArtifacts(rs.getCollection(), auid).iterator();
+        } else {
+          artIter = repo.getArtifactsAllVersions(rs.getCollection(), auid).iterator();
+        }
       } catch (IOException e) {
 	throw new RuntimeException("Error getting Artifact Iterator", e);
       }
@@ -520,7 +526,7 @@ public class LockssRepositoryStatus {
       return row;
     }
 
-    private List getSummaryInfo(RepoSpec rs, String auid) {
+    private List getSummaryInfo(StatusTable table, RepoSpec rs, String auid) {
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("AUID",
 					  ColumnDescriptor.TYPE_STRING,
@@ -528,6 +534,27 @@ public class LockssRepositoryStatus {
       res.add(new StatusTable.SummaryInfo("Collection",
 					  ColumnDescriptor.TYPE_STRING,
 					  rs.getCollection()));
+
+      if (StringUtil.isNullString(table.getProperty(PROP_ALL_VERSIONS))) {
+	StatusTable.Reference allVers =
+	  new StatusTable.Reference("Show All Versions",
+				    ARTIFACTS_STATUS_TABLE_NAME,
+				    table.getKey())
+          .setProperty(PROP_ALL_VERSIONS, "1")
+          .setProperty("auid", auid);
+	res.add(new StatusTable.SummaryInfo(null,
+					    ColumnDescriptor.TYPE_STRING,
+					    allVers));
+      } else {
+	StatusTable.Reference latestVer =
+	  new StatusTable.Reference("Show Latest Version",
+				    ARTIFACTS_STATUS_TABLE_NAME,
+				    table.getKey())
+          .setProperty("auid", auid);
+	res.add(new StatusTable.SummaryInfo(null,
+					    ColumnDescriptor.TYPE_STRING,
+					    latestVer));
+      }
       return res;
     }
   }
