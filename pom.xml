@@ -2,7 +2,6 @@
 <!--
 
 Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
-All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -789,6 +788,14 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.dependency.jonix}</version>
     </dependency>
     
+    <!-- Lists jackson-annotations as a dependency of scope 'provided' -->
+    <!-- which is already an explicit dependency of jackson-databind -->
+    <dependency>
+      <groupId>org.jbibtex</groupId>
+      <artifactId>jbibtex</artifactId>
+      <version>${version.dependency.jbibtex}</version>
+    </dependency>
+
     <dependency>
       <groupId>com.jayway.jsonpath</groupId>
       <artifactId>json-path</artifactId>
