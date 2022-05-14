@@ -1056,6 +1056,7 @@ public class LockssApp {
       log.info("Build: " +
 	       bi.getBuildInfoStringInst(BuildInfo.BUILD_ARTIFACT,
 					 BuildInfo.BUILD_VERSION,
+					 BuildInfo.BUILD_GIT_BRANCH,
 					 BuildInfo.BUILD_TIMESTAMP,
 					 BuildInfo.BUILD_HOST));
     }
