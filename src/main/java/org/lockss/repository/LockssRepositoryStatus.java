@@ -233,11 +233,11 @@ public class LockssRepositoryStatus {
 
     private String storageStats(StorageInfo si) {
       StringBuilder sb = new StringBuilder();
-      sb.append(StringUtil.sizeToString(si.getSize()));
+      sb.append(StringUtil.sizeKBToString(si.getSizeKB()));
       sb.append(", ");
-      sb.append(StringUtil.sizeToString(si.getAvail()));
+      sb.append(StringUtil.sizeKBToString(si.getAvailKB()));
       sb.append(" free, ");
-      sb.append(StringUtil.sizeToString(si.getUsed()));
+      sb.append(StringUtil.sizeKBToString(si.getUsedKB()));
       sb.append(" (");
       sb.append(si.getPercentUsedString());
       sb.append(")");

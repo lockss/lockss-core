@@ -1025,7 +1025,7 @@ public class TestConfigManager extends LockssTestCase4 {
   public void testDiskSpaceSource() {
     String javatmp = PlatformUtil.getSystemTempDir();
     PlatformUtil info = PlatformUtil.getInstance();
-    assertEquals(PlatformUtil.DiskSpaceSource.Java,
+    assertEquals(PlatformUtil.DiskSpaceSource.DF,
                  info.getDF(javatmp).getSource());
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_DISK_SPACE_SOURCE, "DF");
     assertEquals(PlatformUtil.DiskSpaceSource.DF,
