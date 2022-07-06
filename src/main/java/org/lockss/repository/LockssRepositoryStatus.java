@@ -387,15 +387,16 @@ public class LockssRepositoryStatus {
       RepoSpec rs = repoMgr.getV2Repository(key);
       table.setColumnDescriptors(columnDescriptors);
       table.setDefaultSortRules(sortRules);
-      table.setRows(getRows(table, rs));
-      table.setSummaryInfo(getSummaryInfo(rs));
+      SizeStats stats = new SizeStats();
+      table.setRows(getRows(table, rs, stats));
+      table.setSummaryInfo(getSummaryInfo(rs, stats));
     }
 
     public boolean requiresKey() {
       return true;
     }
 
-    private List getRows(StatusTable table, RepoSpec rs) {
+    private List getRows(StatusTable table, RepoSpec rs, SizeStats stats) {
       LockssRepository repo = rs.getRepository();
       List rows = new ArrayList();
       try {
@@ -410,9 +411,12 @@ public class LockssRepositoryStatus {
 	  try {
             AuSize aus = repo.auSize(rs.getCollection(), auid);
 	    row.put("size", aus.getTotalLatestVersions());
+            stats.size += aus.getTotalLatestVersions();
 	    row.put("sizeall", aus.getTotalAllVersions());
+            stats.allVer += aus.getTotalAllVersions();
             if (aus.getTotalWarcSize() != null) {
               row.put("ondisk", aus.getTotalWarcSize());
+              stats.onDisk += aus.getTotalWarcSize();
             }
 	  } catch (IOException e) {
 	    log.warning("Couldn't get AU size", e);
@@ -425,13 +429,28 @@ public class LockssRepositoryStatus {
       return rows;
     }
 
-    private List getSummaryInfo(RepoSpec rs) {
+    private List getSummaryInfo(RepoSpec rs, SizeStats stats) {
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Collection",
 					  ColumnDescriptor.TYPE_STRING,
 					  rs.getCollection()));
+      res.add(new StatusTable.SummaryInfo("Total content size",
+					  ColumnDescriptor.TYPE_STRING,
+					  StringUtil.sizeToString(stats.size)));
+      res.add(new StatusTable.SummaryInfo("All versions",
+					  ColumnDescriptor.TYPE_STRING,
+					  StringUtil.sizeToString(stats.allVer)));
+      res.add(new StatusTable.SummaryInfo("On disk",
+					  ColumnDescriptor.TYPE_STRING,
+					  StringUtil.sizeToString(stats.onDisk)));
       return res;
     }
+  }
+
+  private static class SizeStats {
+    long size;
+    long allVer;
+    long onDisk;
   }
 
   /** Display list of Artifacts in a an AUID (in a Collection) */
@@ -455,7 +474,7 @@ public class LockssRepositoryStatus {
       return "Artifacts in AU";
     }
 
- public void populateTable(StatusTable table)
+    public void populateTable(StatusTable table)
         throws StatusService.NoSuchTableException {
       String key = table.getKey();
       RepoSpec rs = repoMgr.getV2Repository(key);
