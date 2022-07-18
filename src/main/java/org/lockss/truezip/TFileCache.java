@@ -31,6 +31,7 @@ package org.lockss.truezip;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -75,7 +76,7 @@ public class TFileCache {
   private long maxFiles;
   private long curSize;
 
-  private Map<String,Entry> cmap = new HashMap<String,Entry>();
+  private Map<String,Entry> cmap = new HashMap<>();
 
   // for stats & tests
   private int cacheHits = 0;
@@ -119,8 +120,8 @@ public class TFileCache {
   /** Return a {@link de.schlichtherle.truezip.file.TFile} pointing to a
    * temp file with a copy of the CU's contents.  If not already present, a
    * new temp file will be created and the CU content copied into it.
-   * @param cu the CU to open as a TFile.  Distinct CUs with the same URL
-   * reference the same TFile.
+   * @param cu the CU to open as a TFile.  Distinct CUs with the same
+   * AU and URL reference the same TFile.
    * @return a TFile or null if one cannot be created (e.g., because the cu
    * has no content, or isn't a known archive type)
    */
@@ -135,8 +136,8 @@ public class TFileCache {
   /** Return the {@link TFileCache.Entry} corresponding to the temp file
    * with a copy of the CU's contents.  If not already present, a new temp
    * file will be created and the CU content copied into it.
-   * @param cu the CU to open as a TFile.  Distinct CUs with the same URL
-   * reference the same TFile.
+   * @param cu the CU to open as a TFile.  Distinct CUs with the same
+   * AU and URL reference the same TFile.
    * @return a TFileCache.Entry or null if one cannot be created (e.g.,
    * because the cu has no content, or isn't a known archive type)
    * @throws IOException if one occurs while creating and filling the temp
@@ -144,29 +145,51 @@ public class TFileCache {
    */
   public Entry getCachedTFileEntry(CachedUrl cu) throws IOException {
     String key = getKey(cu);
+    Entry ent;
     synchronized (cmap) {
-      Entry ent = getEnt(key);
+      ent = getEnt(key);
       if (ent != null) {
-	return ent;
+        try {
+          if (ent.fut.get()) {
+            cacheHits++;
+            ent.used();
+            return ent;
+          } else {
+            log.warning("TFile Entry completed false: " + cu);
+            return null;
+          }
+        } catch (InterruptedException | ExecutionException e) {
+          log.warning("Interrupted waiting for TFileCache.Entry Future: " + cu,
+                      e);
+          return null;
+        }
       }
       cacheMisses++;
       ent = createEnt(key, cu);
-
       if (ent == null) {
 	return null;
       }
-      ensureSpace(ent);
-      fillTFile(ent, cu);
-      if (ent.valid) {
-	curSize += ent.size;
-      } else {
-	// TFile wasn't fully created, delete temp file and remove from map
-	log.warning("Incompletely created TFile for: " + cu);
-	flushEntry(ent);
-	return null;
-      }
-      return ent;
+      cmap.put(key, ent);
     }
+    ensureSpace(ent);
+    try {
+      fillTFile(ent, cu);
+    } catch (IOException e) {
+      log.warning("Error filling TFile Entry: " + cu, e);
+      ent.fut.complete(false);
+      flushEntry(ent);
+      throw e;
+    }
+    if (ent.valid) {
+      curSize += ent.size;
+    } else {
+      // TFile wasn't fully created, delete temp file and remove from map
+      log.warning("Incompletely created TFile for: " + cu);
+      ent.fut.complete(false);
+      flushEntry(ent);
+      return null;
+    }
+    return ent;
   }    
 
   /** Properties of an archive file CU that should be inherited by its
@@ -419,6 +442,7 @@ public class TFileCache {
       }
 
       ent.valid = true;
+      ent.fut.complete(true);
 
     } finally {
       AuUtil.safeRelease(cu);
@@ -432,10 +456,6 @@ public class TFileCache {
 
   private Entry getEnt(String key) {
     Entry ent = cmap.get(key);
-    if (ent != null) {
-      cacheHits++;
-      ent.used();
-    }
     return ent;
   }
 
@@ -455,7 +475,6 @@ public class TFileCache {
     Entry ent = newEntry(key, ext, size, cu.getUrl());
     ent.ctf = new TFile(FileUtil.createTempFile("ctmp", ext, tmpDir));
     ent.ctf.delete();
-    cmap.put(key, ent);
     return ent;
   }
 
@@ -512,6 +531,9 @@ public class TFileCache {
 	    log.debug2("flushing " + sizeToString(ent.size) + " in " + ent.url
 		       + ", " + ent.ctf.getName());
 	  }
+          if (!ent.fut.complete(false)) {
+            log.warning("Entry's Future already complete in ensureSpace()");
+          }
 	  flushEntry(ent);
 	  curFiles--;
 	  committed -= ent.size;
@@ -708,6 +730,7 @@ public class TFileCache {
     long ctr;
     int refCnt = 0;
     boolean valid = false;
+    CompletableFuture<Boolean> fut = new CompletableFuture<>();
     String url;
     String key;
     CIProperties arcCuProps;
