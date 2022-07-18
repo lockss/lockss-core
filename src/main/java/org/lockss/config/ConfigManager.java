@@ -67,6 +67,7 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.jms.*;
 import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.rest.exception.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -1718,7 +1719,8 @@ public class ConfigManager implements LockssManager {
     List gens;
     try {
       gens = getStandardConfigGenerations(urls, reload);
-    } catch (SocketException | UnknownHostException | FileNotFoundException e) {
+    } catch (SocketException | UnknownHostException |
+             FileNotFoundException | LockssRestNetworkException e) {
       log.error("Error loading config: " + e.toString());
 //       recentLoadError = e.toString();
       return false;
