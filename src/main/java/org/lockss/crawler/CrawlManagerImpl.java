@@ -925,6 +925,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
           startOneWait.expire();
         }
       }
+      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
     }
   }
 
@@ -975,6 +976,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         for (Crawler crawler : pc.getCrawlers()) {
           if (au == crawler.getAu()) {
             crawler.abortCrawl();
+            // If it hadn't actually started yet, ensure status removed
+            cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
           }
         }
       }
@@ -1154,6 +1157,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       new Thread(runner).start();
     } catch (RuntimeException re) {
       logger.error("Couldn't start repair crawl thread", re);
+      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
       throw re;
@@ -1399,6 +1403,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
               (runner == null ? "no runner" : runner.toString());
       logger.error("Unexpected error attempting to start/schedule " + au +
           " crawl" + " " + crawlerRunner, e);
+      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
       req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_ERROR,
