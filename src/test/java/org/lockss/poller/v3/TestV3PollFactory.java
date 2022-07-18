@@ -133,6 +133,26 @@ public class TestV3PollFactory extends LockssTestCase {
     return msg;
   }
 
+  public V3LcapMessage makeVersionMismatchPollMsg(int opcode) {
+    long msgDeadline = TimeBase.nowMs() + 500000;
+    long voteDuration = 1000;
+    V3LcapMessage msg =
+      new V3LcapMessage(testAu.getAuId(), "key", "3",
+                        ByteArray.makeRandomBytes(20),
+                        ByteArray.makeRandomBytes(20),
+                        opcode,
+                        10000, testId, tempDir, theDaemon) {
+        public int getSupportedProtocolRev() {
+          return -47;
+        }
+      };
+    msg.setVoteDuration(voteDuration);
+    msg.setEffortProof(ByteArray.makeRandomBytes(20));
+    return msg;
+  }
+
+
+
   private MockArchivalUnit setupAu() {
     MockArchivalUnit mau = new MyMockArchivalUnit();
     mau.setAuId("mock");
@@ -222,6 +242,20 @@ public class TestV3PollFactory extends LockssTestCase {
 
   }
    
+  public void testProtocolMismatch() throws Exception {
+    // makePollMsg() puts plugin version 3 in message.  MockPlugin has
+    // version "MockVersion"
+    testMsg = makeVersionMismatchPollMsg(V3LcapMessage.MSG_POLL);
+
+    PollSpec pspec = new PollSpec(testMsg);
+    Poll p = thePollFactory.createPoll(pspec, theDaemon, testId, 1000,
+                                       "SHA1", testMsg);
+    assertNull(p);
+    assertEquals(ListUtil.list(ListUtil.list(PollNak.NAK_VERSION_MISMATCH,
+					     testAu.getAuId())),
+		 thePollFactory.naks);
+  }
+
   // Same mismatch as above, but in a Nak message.  Ensure that receiving a
   // Nak doesn't cause a Nak to be sent.
   public void testNoResponseToPluginVersionMismatchNak() throws Exception {
