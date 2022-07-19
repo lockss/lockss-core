@@ -468,11 +468,14 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
+      long auCreationTime = ausb.getAuCreationTime();
+      if (auCreationTime <= 0) {
+        // The current time.
+        auCreationTime = TimeBase.nowMs();
+      }
+      log.fatal("Setting creation date: {}", new java.util.Date(auCreationTime));
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, auCreationTime);
 
       // Delete any existing state of the Archival Unit.
       int deletedCount = deleteArchivalUnitState(conn, auSeq);
@@ -711,11 +714,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey);
 
       // Delete any existing poll agreements of the Archival Unit.
       int deletedCount = deleteArchivalUnitAgreements(conn, auSeq);
@@ -1072,11 +1072,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey);
 
       // Delete any existing suspect URL versions of the Archival Unit.
       int deletedCount = deleteArchivalUnitSuspectUrlVersions(conn, auSeq);
@@ -1424,11 +1421,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey);
 
       // Delete any existing NoAuPeerSet of the Archival Unit.
       int deletedCount = deleteArchivalUnitNoAuPeerSet(conn, auSeq);

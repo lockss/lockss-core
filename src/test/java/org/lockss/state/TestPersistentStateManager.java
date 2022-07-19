@@ -81,7 +81,8 @@ public class TestPersistentStateManager extends StateTestCase {
     TimeBase.setSimulated(100L);
 
     String key1 = AUID1;
-    AuStateBean ausb1 = stateMgr.newDefaultAuStateBean(key1);
+    AuStateBean ausb1 = stateMgr.getAuStateBean(key1);
+    assertEquals(-1, ausb1.getAuCreationTime());
     String json1 = ausb1.toJsonExcept("auCreationTime");
 
     stateMgr.doStoreAuStateBean(key1, ausb1, null); // gets new creation time
@@ -95,8 +96,8 @@ public class TestPersistentStateManager extends StateTestCase {
     TimeBase.setSimulated(200L);
     
     String key2 = stateMgr.auKey(mau2);
-    AuStateBean ausb2 = stateMgr.newDefaultAuStateBean(key2);
-    ausb2.setAuCreationTime(TimeBase.nowMs());
+    AuStateBean ausb2 = stateMgr.getAuStateBean(key2);
+    ausb2.setAuCreationTime(123454);
     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
     ausb2.setMetadataExtractionEnabled(false);
     String json2 = ausb2.toJson();
@@ -105,6 +106,7 @@ public class TestPersistentStateManager extends StateTestCase {
     AuStateBean ausb2b = stateMgr.doLoadAuStateBean(key2);
     String json2b = ausb2b.toJson();
     assertEquals(AuUtil.jsonToMap(json2), AuUtil.jsonToMap(json2b));
+    assertEquals(123454, ausb2b.getAuCreationTime());
 
     // make some changes
     ausb2.setAverageHashDuration(1234L);
@@ -113,12 +115,18 @@ public class TestPersistentStateManager extends StateTestCase {
       cdn.add("http://abcabc" + x + ".com");
     }
     ausb2.setCdnStems(cdn);
+    // This should not be stored bacause the AU already has a creation time
+    ausb2.setAuCreationTime(8888888);
     json2 = ausb2.toJson();
     log.debug("Large AuState json len: {}", json2.length());
     assertTrue(json2.length() >= DbStateManagerSql.JSON_COMPRESSION_THRESHOLD);
     stateMgr.doStoreAuStateBean(key2, ausb2,
 	SetUtil.set("averageHashDuration"));
     AuStateBean ausb2c = stateMgr.doLoadAuStateBean(key2);
+    // should have original creation time
+    assertEquals(123454, ausb2c.getAuCreationTime());
+    // Remove known difference for following assert
+    ausb2c.setAuCreationTime(8888888);
     String json2c = ausb2c.toJson();
     assertEquals(AuUtil.jsonToMap(json2), AuUtil.jsonToMap(json2c));
   }
@@ -206,17 +214,36 @@ public class TestPersistentStateManager extends StateTestCase {
   }
 
   @Test
-  public void testStoreAuStateBean() throws Exception {
+  public void testAuCreationDate() throws Exception {
     // Store a bean in the db
     AuStateBean b1 = stateMgr.newDefaultAuStateBean(AUID1);
+    assertTrue(b1.isMetadataExtractionEnabled());
     b1.setLastCrawlAttempt(7777);
     b1.setCdnStems(CDN_STEMS);
     b1.setMetadataExtractionEnabled(false);
     String json1 = b1.toJson();
 
-    stateMgr.storeAuStateFromJson(AUID1, json1);
-  }
+    MyStateStore sstore = new MyStateStore();
+    myStateMgr.setStateStore(sstore);
+    sstore.setStoredAuState(AUID1, json1);
 
+    AuStateBean ausb1 = stateMgr.getAuStateBean(AUID1);
+    assertEquals(7777, ausb1.getLastCrawlAttempt());
+    assertEquals(CDN_STEMS, ausb1.getCdnStems());
+    assertFalse(ausb1.isMetadataExtractionEnabled());
+
+    AuStateBean ausb2 = stateMgr.getAuStateBean(AUID2);
+    assertEquals(-1, ausb2.getLastCrawlAttempt());
+    assertNull(ausb2.getCdnStems());
+    assertTrue(ausb2.isMetadataExtractionEnabled());
+
+    ausb1.setLastCrawlTime(32323);
+    stateMgr.updateAuStateBean(AUID1, ausb1, SetUtil.set("lastCrawlTime"));
+    String storedjson = sstore.getStoredAuState(AUID1);
+    assertMatchesRE("\"lastCrawlTime\":32323", storedjson);
+    assertMatchesRE("\"lastCrawlAttempt\":7777", storedjson);
+    assertMatchesRE("\"isMetadataExtractionEnabled\":false", storedjson);
+  }
 
   MockPeerIdentity randomPid() {
     MockPeerIdentity pid =
