@@ -877,6 +877,20 @@ public class LockssTestCase4 extends Assert {
     return res;
   }
 
+  /** Convenience method for test classes to obtain the content of a
+   * test file.
+   * @param name name of file in same directory as <tt>this</tt> (the code
+   * making this call), or a modified package name (dots replaced by
+   * slashes), interpreted as absolute if starts with shash, else relative
+   * to the package containing <tt>this</tt>.
+   * @return The file content
+   */
+  protected String getResourceContent(String name) throws IOException {
+    try (InputStream in = getResourceAsStream(name)) {
+      return StringUtil.fromInputStream(in);
+    }
+  }
+
   // assertSuccessRate harness
   double successRate;
   int successMaxRepetitions;

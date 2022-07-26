@@ -105,6 +105,11 @@ public class TestLockssTestCase extends LockssTestCase {
     System.out.println("Make sure " + tmp.getPath() + " is gone.");
   }
 
+  public void testGetResourceContent() throws Exception {
+    assertEquals("test resource content 17",
+                 getResourceContent("test-resource.txt").trim());
+  }
+
   static String UNLIKELY = "very|unlikely";
 
   public void testAssertNotEqualsLong() {
