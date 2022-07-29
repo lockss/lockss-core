@@ -62,7 +62,7 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
   public static final ServiceDescr SVC_REPO =
     register(new ServiceDescr("Repository Service", "repo"));
   public static final ServiceDescr SVC_SOAP =
-    register(new ServiceDescr("Soapsitory Service", "soap"));
+    register(new ServiceDescr("SOAP Service", "soap"));
 
   public ServiceDescr(String name, String abbrev) {
     if (name == null) {
