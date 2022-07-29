@@ -1132,8 +1132,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
 
-  public void startRepair(ArchivalUnit au, Collection urls,
-                          CrawlManager.Callback cb, Object cookie) {
+  public CrawlerStatus startRepair(ArchivalUnit au, Collection urls,
+                                   CrawlManager.Callback cb, Object cookie) {
     //XXX check to make sure no other crawls are running and queue if they are
     if (au == null) {
       throw new IllegalArgumentException("Called with null AU");
@@ -1143,18 +1143,23 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
     RateLimiter limiter = repairRateLimiters.getRateLimiter(au);
     if (!limiter.isEventOk()) {
-      logger.debug("Repair aborted due to rate limiter.");
+      String errMsg = "Repair aborted due to rate limiter.";
+      logger.debug(errMsg);
       callCallback(cb, cookie, false, null);
-      return;
+      CrawlerStatus crawlerStatus = new CrawlerStatus(au, urls, null);
+      crawlerStatus.setCrawlStatus(Crawler.STATUS_INELIGIBLE, errMsg);
+      return crawlerStatus;
     }
     Crawler crawler = null;
     try {
       crawler = makeRepairCrawler(au, urls);
       CrawlRunner runner =
           new CrawlRunner(crawler, cb, cookie, limiter);
-      cmStatus.addCrawlStatus(crawler.getCrawlerStatus());
+      CrawlerStatus cstat = crawler.getCrawlerStatus();
+      cmStatus.addCrawlStatus(cstat);
       addToRunningCrawls(au, crawler);
       new Thread(runner).start();
+      return cstat;
     } catch (RuntimeException re) {
       logger.error("Couldn't start repair crawl thread", re);
       cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
