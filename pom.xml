@@ -949,10 +949,11 @@ POSSIBILITY OF SUCH DAMAGE.
 		  <isset property="archive.db.is.up.to.date" />
 		  <else>
 		    <echo message="Generating empty DB for tests" />
-		    <property name="empty.db.parent.dir" value="${tmpdir}" />
+                    <tempfile property="empty.db.parent.dir"
+                              destDir="${tmpdir}"
+                              prefix="testtmp"/>
 		    <property name="empty.db.dir"
 			      value="${empty.db.parent.dir}/db" />
-		    <delete dir="${empty.db.dir}" quiet="true" />
 		    <java classname="org.lockss.metadata.EmptyDbCreator"
 			  fork="true">
    		      <classpath refid="maven.test.classpath" />
