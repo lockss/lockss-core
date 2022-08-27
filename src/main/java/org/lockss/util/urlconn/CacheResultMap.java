@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -70,4 +70,10 @@ public interface CacheResultMap {
       String url,
       int responseCode,
       String message);
+
+  public CacheException triggerAction(ArchivalUnit au,
+                                      String url,
+                                      CacheEvent evt,
+                                      ResultAction ra,
+                                      String message);
 }

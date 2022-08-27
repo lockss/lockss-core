@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -806,11 +806,7 @@ public class BaseUrlFetcher implements UrlFetcher {
       }
       // Check redirect to login page *before* crawl spec, else plugins
       // would have to include login page URLs in crawl spec
-      if (au.isLoginPageUrl(newUrlString)) {
-        String msg = "Redirected to login page: " + newUrlString;
-        throw new CacheException.PermissionException(msg)
-	  .setShortMessage(CrawlerStatus.getDefaultMessage(Crawler.STATUS_NO_PUB_PERMISSION));
-      }
+      checkRedirectAction(newUrlString);
       if (redirectScheme.isRedirectOption(RedirectScheme.REDIRECT_OPTION_IF_CRAWL_SPEC)) {
         if (!au.shouldBeCached(newUrlString)) {
           String msg = "Redirected to excluded URL: " + newUrlString;
@@ -852,6 +848,15 @@ public class BaseUrlFetcher implements UrlFetcher {
       log.siteWarning("Redirected location '" + location +
           "' is malformed", e);
       return false;
+    }
+  }
+
+  protected void checkRedirectAction(String url) throws CacheException {
+    CacheException ex =
+      crawlFacade.getAuCacheResultMap().mapRedirUrl(au, conn, origUrl, url,
+                                                    "Redirect from " + origUrl);
+    if (ex != null && !(ex instanceof CacheSuccess)) {
+      throw ex;
     }
   }
 

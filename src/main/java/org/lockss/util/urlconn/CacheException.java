@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2010 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -658,6 +654,26 @@ public class CacheException
       super.setAttributes();
       attributeBits.set(ATTRIBUTE_FATAL);
     }
+  }
+
+  public static class RedirectToLoginPageException extends PermissionException {
+    public RedirectToLoginPageException() {
+      super();
+    }
+
+    public RedirectToLoginPageException(String message) {
+      super(message);
+    }
+
+    protected void setAttributes() {
+      super.setAttributes();
+      attributeBits.set(ATTRIBUTE_FATAL);
+    }
+
+    public String getMessage() {
+      return "Redirect to login page: " + message;
+    }
+
   }
 
   /** An error esploding a archive file during a crawl */
