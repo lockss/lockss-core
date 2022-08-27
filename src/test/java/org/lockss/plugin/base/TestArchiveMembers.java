@@ -320,7 +320,7 @@ public class TestArchiveMembers extends LockssTestCase {
     PluginTestUtil.crawlSimAu(simau);
     String aurl = "http://www.example.com/branch1/branch1/zip5.zip";
 
-    msau.setUrlMimeTypeMap(new PatternStringMap("\\.bin$,application/beans"));
+    msau.setUrlMimeTypeMap(PatternStringMap.fromSpec("\\.bin$,application/beans"));
 
     assertArchiveMember("file 1, depth 0, branch 0", "text/html", 226,
 			aurl, "001file.html");

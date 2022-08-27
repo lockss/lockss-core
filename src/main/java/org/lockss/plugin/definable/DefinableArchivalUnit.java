@@ -411,7 +411,7 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 	  lst.add(mp.getRegexp() + "," + weight);
 	}
       }
-      return new PatternFloatMap(lst);
+      return PatternFloatMap.fromSpec(lst);
     } else {
       return null;
     }
@@ -453,7 +453,7 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 	  lst.add(mp.getRegexp() + "," + val);
 	}
       }
-      return new PatternStringMap(lst);
+      return PatternStringMap.fromSpec(lst);
     } else {
       return PatternStringMap.EMPTY;
     }

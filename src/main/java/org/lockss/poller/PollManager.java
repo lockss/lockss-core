@@ -1318,7 +1318,7 @@ public class PollManager
       pollPriorityAuidMap = PatternFloatMap.EMPTY;
     } else {
       try {
-        pollPriorityAuidMap = new PatternFloatMap(patternPairs);
+        pollPriorityAuidMap = PatternFloatMap.fromSpec(patternPairs);
         theLog.debug("Installing poll priority auid map: " +
             pollPriorityAuidMap);
       } catch (IllegalArgumentException e) {
