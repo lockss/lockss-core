@@ -44,6 +44,7 @@ import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.util.LockssWatchdog;
 import org.lockss.util.io.*;
+import org.lockss.util.test.*;
 
 /**
  * This is the test class for org.lockss.util.StreamUtil
@@ -385,6 +386,16 @@ public class TestStreamUtil extends LockssTestCase {
 				   new StringInputStream(s1)));
     assertFalse(StreamUtil.compare(new StringInputStream("foo"),
 				   new StringInputStream("bar")));
+  }
+
+  public void testgetResettableInputStream() throws IOException {
+    InputStream ins = new StringInputStream("foo");
+    assertTrue(ins.markSupported());
+    assertSame(ins, StreamUtil.getResettableInputStream(ins));
+    File f = FileTestUtil.writeTempFile("foo", ".x", "these are the contents");
+    ins = new FileInputStream(f);
+    assertFalse(ins.markSupported());
+    assertTrue(StreamUtil.getResettableInputStream(ins).markSupported());
   }
 
   public void testGetUncompressedInputStreamGzip() throws IOException {
