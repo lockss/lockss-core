@@ -887,7 +887,7 @@ public abstract class BaseCrawler implements Crawler {
       return Math.min(res, crawler.maxRetries);
     }
 
-    public int permissonStreamResetMax() {
+    public int permissionStreamResetMax() {
       return crawler.streamResetMax;
     }
   

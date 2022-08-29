@@ -192,7 +192,7 @@ public interface Crawler {
     
     public int getRetryCount(CacheException ce);
     
-    public int permissonStreamResetMax();
+    public int permissionStreamResetMax();
     
     public boolean isGloballyPermittedHost(String host);
 
