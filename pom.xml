@@ -334,7 +334,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
-      <version>1.15.3</version>
+      <version>1.14.3</version>
     </dependency>
     
     <dependency>
@@ -401,7 +401,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.owasp.esapi</groupId>
       <artifactId>esapi</artifactId>
-      <version>2.3.0.0</version>
+      <version>2.1.0.1</version>
     </dependency>
     
     <dependency>
@@ -569,7 +569,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>mysql</groupId>
       <artifactId>mysql-connector-java</artifactId>
-      <version>8.0.28</version>
+      <version>8.0.24</version>
     </dependency>
 
     <dependency>
@@ -659,7 +659,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.santuario</groupId>
       <artifactId>xmlsec</artifactId>
-      <version>2.1.7</version>
+      <version>1.5.8</version>
     </dependency>
     
     <dependency>
