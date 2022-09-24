@@ -344,6 +344,8 @@ public class RepositoryManager
 	String msg = "Illegal V2 repository URL: " + spec.getPath() +
 	  ": " + e.getMessage();
 	throw new IllegalArgumentException(msg);
+      } catch (IOException e) {
+        throw new IllegalStateException("Could not create REST client", e);
       }
     default:
       throw new IllegalStateException("Unknown type: " + spec.getType());
