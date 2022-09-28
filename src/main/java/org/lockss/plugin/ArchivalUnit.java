@@ -39,6 +39,7 @@ import org.lockss.state.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.AuCacheResultMap;
 import org.lockss.plugin.base.*;
+import org.lockss.plugin.definable.*;
 import org.lockss.rewriter.*;
 
 
@@ -410,6 +411,13 @@ public interface ArchivalUnit {
   public boolean isBulkContent();
 
   /**
+   * True if this AU is defined by fiat (a unique handle), not
+   * with definitional config params which describe/define the
+   * content.
+   */
+  public boolean isNamedArchivalUnit();
+
+  /**
    * Return the {@link ArchiveFileTypes} describing which archive (zip,
    * etc.) files should have their members exposed as pseudo-CachedUrls.
    * @return an {@link ArchiveFileTypes} or null if none
@@ -528,5 +536,15 @@ public interface ArchivalUnit {
     public ConfigurationException(String msg, Throwable cause) {
       super(msg, cause);
     }
+  }
+
+  /** Factory to create an ArchivalUnit.  Currently used only by
+   * DefinablePlugin, which allows the plugin XML to specify an
+   * alternate DefinableArchivalUnit factory. */
+  public interface Factory {
+    /** Create a DefinableArchivalUnit (or subclass) from the map read
+     * from a DefinablePlugin xml */
+    public DefinableArchivalUnit createDefinableArchivalUnit(DefinablePlugin plugin,
+                                                             ExternalizableMap defMap);
   }
 }

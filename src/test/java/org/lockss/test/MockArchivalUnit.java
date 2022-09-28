@@ -770,6 +770,10 @@ public class MockArchivalUnit implements ArchivalUnit {
     return isBulkContent;
   }
 
+  public boolean isNamedArchivalUnit() {
+    return false;
+  }
+
   public void setBulkContent(boolean val) {
     isBulkContent = val;
   }

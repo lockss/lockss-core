@@ -1,0 +1,51 @@
+<map>
+  <entry>
+    <string>plugin_au_factory</string>
+    <string>org.lockss.plugin.NamedArchivalUnitFactory</string>
+  </entry>
+  <entry>
+    <string>plugin_identifier</string>
+    <string>org.lockss.plugin.NamedPlugin</string>
+  </entry>
+  <entry>
+    <string>plugin_name</string>
+    <string>Named Plugin</string>
+  </entry>
+  <entry>
+    <string>au_name</string>
+    <string>&quot;Named AU: %s&quot;, handle</string>
+  </entry>
+  <!-- Start url shouldn't be used, make it empty just in case -->
+  <entry>
+    <string>au_start_url</string>
+    <list>
+    </list>
+  </entry>
+  <entry>
+    <string>plugin_config_props</string>
+    <list>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>handle</key>
+        <displayName>Unique handle</displayName>
+        <description>Unique handle (string) for a NamedArchivalUnit</description>
+        <type>1</type>
+        <size>30</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+    </list>
+  </entry>
+  <entry>
+    <string>plugin_version</string>
+    <string>1</string>
+  </entry>
+  <entry>
+    <string>plugin_feature_version_map</string>
+    <map>
+      <entry>
+        <string>Poll</string>
+        <string>1</string>
+      </entry>
+    </map>
+  </entry>
+</map>

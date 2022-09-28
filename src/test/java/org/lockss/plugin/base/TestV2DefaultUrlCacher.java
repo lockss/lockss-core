@@ -154,6 +154,25 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
     assertNotEquals(origChange, finalChange);
   }
 
+  public void testCacheNonUrl() throws IOException {
+    String name = "not a URL";
+    String cont = "test stream";
+    ud = new UrlData(new StringInputStream(cont),
+        new CIProperties(), name);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    // should cache
+    cacher.storeContent();
+    long finalChange = maus.getLastContentChange();
+    assertTrue(cacher.wasStored);
+    assertNotEquals(origChange, finalChange);
+    CachedUrl cu = mau.makeCachedUrl(name);
+    assertTrue(cu.hasContent());
+    assertEquals(name, cu.getUrl());
+    assertInputStreamMatchesString(cont,
+                                   cu.getUnfilteredInputStream());
+  }
+
   public void testCacheWithInputError() throws IOException {
     InputStream ins =
       new ThrowingInputStream(new StringInputStream("test stream"),

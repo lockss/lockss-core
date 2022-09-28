@@ -441,19 +441,20 @@ public class SimulatedArchivalUnit extends BaseArchivalUnit
     super.setConfiguration(config);
   }
 
-  protected void setBaseAuParams(Configuration config)
+  protected void setCrawlRelatedParams(Configuration config)
       throws ConfigurationException {
-    super.setBaseAuParams(config);
+    super.setCrawlRelatedParams(config);
     String baseurl = paramMap.getUrl(KEY_AU_BASE_URL).toString();
     baseUrlNoSlash = StringUtil.upToFinal(baseurl, "/");
 
     newContentCrawlIntv = config.getTimeInterval(KEY_NEW_CONTENT_CRAWL_INTERVAL,
                                                  defaultContentCrawlIntv);
     paramMap.putLong(KEY_AU_NEW_CONTENT_CRAWL_INTERVAL, newContentCrawlIntv);
+  }
+
+  protected void setAdditionalParams(Configuration config) {
     auName = makeName();
     paramMap.putString(KEY_AU_TITLE, auName);
-
-    titleDbChanged();
   }
 
   protected CrawlRule makeRule() throws ConfigurationException {

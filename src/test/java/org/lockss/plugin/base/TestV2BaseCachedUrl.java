@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -285,6 +285,15 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 
       CachedUrl cu = getTestCu(urlslash);
       assertEquals(urlslash, cu.getUrl());
+    }
+
+    public void testGetUrlNonUrl() throws Exception {
+      String url = "not.a.url";
+
+      createLeaf(url, content1, null);
+
+      CachedUrl cu = getTestCu(url);
+      assertEquals(url, cu.getUrl());
     }
 
     public void testIsLeaf() throws Exception {

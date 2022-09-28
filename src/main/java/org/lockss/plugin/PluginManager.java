@@ -2986,28 +2986,55 @@ public class PluginManager
     return res;
   }
 
+  private List<CachedUrl> fastFind(String name,boolean bestOnly) {
+    List<CachedUrl> res = new ArrayList<>(bestOnly ? 1 : 15);
+    for (Artifact art : repoMgr.findArtifactsByUrl(name)) {
+      ArchivalUnit artAu = getAuFromIdIfExists(art.getAuid());
+      if (artAu != null) {
+        res.add(artAu.makeCachedUrl(art.getUri()));
+        if (bestOnly) {
+          return res;
+        }
+      }
+    }
+    return res;
+  }
+
   private List<CachedUrl> findCachedUrls1(String url, CuContentReq contentReq,
 					  boolean bestOnly) {
     String normUrl;
     String normStem;
-    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
-    List<CachedUrl> cus = new ArrayList<>();
+    List<CachedUrl> res;
+    boolean isUrl = UrlUtil.isUrl(url);
 
+    // If not a URL, lookup directly in repo.
+    if (!UrlUtil.isUrl(url)) {
+      return fastFind(url, bestOnly);
+    }
+    // Else try to normalize it
     try {
       normUrl = UrlUtil.normalizeUrl(url);
       normStem = UrlUtil.getUrlPrefix(normUrl);
     } catch (MalformedURLException e) {
-      log.warning("findCachedUrls(" + url + ")", e);
-      return Collections.EMPTY_LIST;
+      log.warning("findCachedUrls(" + url +
+                  ") (Not an error if this isn't really a URL",
+                  e);
+      // If that fails, lookup directly in repo.
+      return fastFind(url, bestOnly);
     }
     AuSearchSet searchSet;
     synchronized (hostAus) {
       searchSet = hostAus.get(normStem);
     }
-    if (searchSet == null) {
+    // If there are no AUs w/ matching stem, lookup directly in repo.
+    if (searchSet == null || searchSet.isEmpty()) {
       if (log.isDebug3() ) log.debug3("findCachedUrls: No AUs for " + normStem);
-      return Collections.EMPTY_LIST;
+      return fastFind(url, bestOnly);
     }
+
+    // Even though it's a URL with a stem that matches one or more
+    // definitional AUs, it still might be in a NamedArchivalUnit, so
+    // can't rely just on the searchSet.
 
     if (contentReq.needsContent() && searchSet.isRecent404(normUrl)) {
       if (log.isDebug2()) {

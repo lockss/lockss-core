@@ -28,6 +28,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.definable;
 
+import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -75,6 +76,7 @@ public class DefinablePlugin extends BasePlugin {
   public static final String KEY_PLUGIN_IDENTIFIER = "plugin_identifier";
   public static final String KEY_PLUGIN_NAME = "plugin_name";
   public static final String KEY_PLUGIN_VERSION = "plugin_version";
+  public static final String KEY_PLUGIN_AU_FACTORY = "plugin_au_factory";
   public static final String KEY_PLUGIN_FEATURE_VERSION_MAP =
     "plugin_feature_version_map";
   public static final String KEY_REQUIRED_DAEMON_VERSION =
@@ -619,8 +621,17 @@ public class DefinablePlugin extends BasePlugin {
 
   protected ArchivalUnit createAu0(Configuration auConfig)
       throws ArchivalUnit.ConfigurationException {
-    DefinableArchivalUnit au =
-      new DefinableArchivalUnit(this, definitionMap);
+    DefinableArchivalUnit au;
+    String auFactName = definitionMap.getString(KEY_PLUGIN_AU_FACTORY,
+                                                DefinableArchivalUnit.Factory.class.getName());
+    try {
+      ArchivalUnit.Factory auFact =
+        newAuxClass(auFactName, ArchivalUnit.Factory.class);
+      au = auFact.createDefinableArchivalUnit(this, definitionMap);
+    } catch (Exception e) {
+      throw new PluginException.InvalidDefinition(mapName + " specifies invalid AU factory: " + auFactName,
+                                                  e);
+    }
     au.setConfiguration(auConfig);
     return au;
   }

@@ -1838,6 +1838,248 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.logFindUrlStats(true);
   }
 
+  // Ensure PluginManager.findCachedUrl() can find names (esp. non-URL
+  // names) in AUs that have no stems
+  @Test
+  public void testNoParamPlugin() throws Exception {
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+    String plugKey =
+      PluginManager.pluginKeyFromName(NoParamPlugin.class.getName());
+    mgr.ensurePluginLoaded(plugKey);
+    Plugin npplug = mgr.getPlugin(plugKey);
+    ArchivalUnit npau =
+      mgr.createAu(npplug,
+                   ConfigManager.EMPTY_CONFIGURATION,
+                   AuEvent.model(AuEvent.Type.Create));
+
+    String[] names = { "http://foo.bar/baz", "nonURL.1",
+                       "nonURL.2", "worse URL", "nonURL.2" };
+    for (String name : names) {
+      String cont = "Content of " + name;
+      UrlData ud = new UrlData(new StringInputStream(cont),
+                               new CIProperties(), name);
+      UrlCacher uc = new DefaultUrlCacher(npau, ud);
+      uc.storeContent();
+      CachedUrl cu = npau.makeCachedUrl(name);
+      assertTrue(cu.hasContent());
+      assertEquals(name, cu.getUrl());
+      assertInputStreamMatchesString(cont,
+                                   cu.getUnfilteredInputStream());
+    }
+    for (String name : names) {
+      String cont = "Content of " + name;
+      CachedUrl cu = mgr.findCachedUrl(name);
+      assertEquals(name, cu.getUrl());
+      assertTrue(cu.hasContent());
+      assertInputStreamMatchesString(cont, cu.getUnfilteredInputStream());
+    }
+  }
+
+  @Test
+  public void testFindCachedNonUrl() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+				  "true");
+
+    ConfigurationUtil.addFromArgs("org.lockss.log.PluginManager.level", "debug3",
+                                  "org.lockss.log.AuSearchSet.level", "debug3",
+                                  "org.lockss.log.BaseCachedUrl.level", "debug3");
+    // Set all search sets cache size to 2, for predictable cache behavior
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_404_CACHE_SIZE,
+				  "[1,2]");
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+
+    mgr.ensurePluginLoaded(simplePlugKey);
+    Plugin sp = mgr.getPlugin(simplePlugKey);
+    ArchivalUnit au1 =
+      mgr.createAu(sp,
+                   ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                                              "volume_name", "42"),
+                   AuEvent.model(AuEvent.Type.Create));
+    // Create more AUs with the same stem to ensure they don't cause extra
+    // URL lookups
+    ArchivalUnit au2 =
+      mgr.createAu(sp,
+                   ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                                              "volume_name", "43"),
+                   AuEvent.model(AuEvent.Type.Create));
+    ArchivalUnit au3 =
+      mgr.createAu(sp,
+                   ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                                              "volume_name", "44"),
+                   AuEvent.model(AuEvent.Type.Create));
+
+    String url1 = "http://foo.bar/42/baz";
+    String url1a = "http://foo.bar:80/42/baz";
+    String url1b = "http://FOO.BAR:80/42/baz";
+    String url2 = "http://foo.bar/42/222";
+    String url3 = "http://foo.bar/42/333";
+    String url4 = "http://foo.bar/42/444";
+    String url5 = "http://foo.bar/42/555";
+
+    // Lookup a non-existent url
+    assertEquals(0, mgr.getRecentCuMisses());
+    assertEquals(0, mgr.getRecentCuHits());
+    assertNull(mgr.findCachedUrl(url1));
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(0, getFUStats().v2Results);
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(3, getFUStats().v2AusConsidered);
+    assertEquals(2, getFUStats().v2RedundantUrls);
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertNull(mgr.findCachedUrl(url2));
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(0, getFUStats().v2Results);
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertEquals(2, mgr.getRecentCuMisses());
+    assertEquals(0, mgr.getRecentCuHits());
+    assertEquals(0, mgr.getRecent404Hits());
+
+    // Store artifact w/ same url, check it's found only after 404 cache
+    // flush
+    storeArt(au1, url1, "url1 content", null);
+    // Shouldn't be found yet because of 404 cache
+    assertNull(mgr.findCachedUrl(url1));
+    assertEquals(1, mgr.getRecent404Hits());
+    signalAuEvent(au1, AuEvent.ContentChangeInfo.Type.Crawl, 4);
+    CachedUrl cu1 = mgr.findCachedUrl(url1);
+    assertNotNull("Failed to find " + url1 + " after content-changed event",
+                  cu1);
+    assertEquals(url1, cu1.getUrl());
+    assertTrue(cu1.hasContent());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Results);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    String url1un = url1 + Integer.toHexString(au1.hashCode());
+    CachedUrl cu1n = mgr.findCachedUrl(url1un);
+    assertNotNull("Failed to find unnormalized " + url1un, cu1n);
+    assertEquals(url1, cu1n.getUrl());
+    assertTrue(cu1n.hasContent());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(1, getFUStats().v2Results);
+    assertEquals(1, getFUStats().v2AusConsidered);
+    assertEquals(0, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // In order to ensure repo lookup only once for each unique URL, must
+    // ask for all matching CUs.
+    List<CachedUrl> cu1lst1 = mgr.findCachedUrls(url1);
+    assertEquals(1, cu1lst1.size());
+    assertEquals(1, getFUStats().v2AuUrlsConsidered);
+    assertEquals(2, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // Similar.  AU-dependent normalization requires more lookups
+    List<CachedUrl> cu1lst2 = mgr.findCachedUrls(url1un);
+    assertEquals(2, getFUStats().v2AuUrlsConsidered);
+    assertEquals(1, getFUStats().v2RedundantUrls);
+    assertEquals(0, mgr.getRecentCuHits());
+
+    // PreferContent should find same CU
+    CachedUrl cupref = mgr.findCachedUrl(url1, CuContentReq.PreferContent);
+    assertEquals(cu1, cupref);
+    // cache hit, so no further invocations of findUrlV2
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(1, mgr.getRecentCuHits());
+
+    // Same url after normalization.  Won't be found in cache.
+    CachedUrl cu1a = mgr.findCachedUrl(url1a);
+    assertEqualCu(cu1, cu1a);
+    assertTrue(cu1a.hasContent());
+    assertEquals(1, mgr.getRecentCuHits());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // Same url after different normalization.  Won't be found in cache.
+    CachedUrl cu1b = mgr.findCachedUrl(url1b);
+    assertEqualCu(cu1, cu1b);
+    assertTrue(cu1b.hasContent());
+    assertEquals(1, mgr.getRecentCuHits());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // url1 should be in cache
+    CachedUrl cu3 = mgr.findCachedUrl(url1, CuContentReq.DontCare);
+    assertSame(cu1, cu3);
+    assertTrue(cu1.hasContent());
+    assertEquals(2, mgr.getRecentCuHits());
+
+    List<CachedUrl> lst1 = mgr.findCachedUrls(url1/*, CuContentReq.PreferContent*/);
+    assertEquals(1, lst1.size());
+    assertEqualCu(cu1, lst1.get(0));
+    assertEquals(1, lst1.get(0).getVersion());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // Store a second version of the same url, ensure only the highest
+    // version is found
+    TimerUtil.sleep(1000);
+    storeArt(au1, url1, "url1 content V2", null);
+    List<CachedUrl> lst2 = mgr.findCachedUrls(url1);
+    assertEquals(1, lst2.size());
+    assertEqualCu(cu1, lst2.get(0));
+    assertEquals(2, lst2.get(0).getVersion());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    // url2 has no content, should fall back to v1
+    CachedUrl cunc = mgr.findCachedUrl(url2, CuContentReq.PreferContent);
+    assertEquals(url2, cunc.getUrl());
+    assertFalse(cunc.hasContent());
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(2, mgr.getRecentCuHits());
+
+    lst1 = mgr.findCachedUrls(url2, CuContentReq.DontCare);
+    assertEquals(1, lst1.size());
+    assertEquals(url2, lst1.get(0).getUrl());
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    storeArt(au2, url1, "url1 content in AU2", null);
+    storeArt(au1, url2, "url2 content", null);
+    storeArt(au1, url3, "url3 content", null);
+
+    lst1 = mgr.findCachedUrls(url1, CuContentReq.PreferContent);
+    assertEquals(2, lst1.size());
+    assertNotSame(lst1.get(0).getArchivalUnit(),
+                  lst1.get(1).getArchivalUnit());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    lst1 = mgr.findCachedUrls(url1, CuContentReq.DontCare);
+    assertEquals(2, lst1.size());
+    assertNotSame(lst1.get(0).getArchivalUnit(),
+                  lst1.get(1).getArchivalUnit());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+
+    CachedUrl cu2 = mgr.findCachedUrl(url2);
+    assertEquals(url2, cu2.getUrl());
+    assertSame(au1, cu2.getArchivalUnit());
+    assertEquals(0, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(9, mgr.getRecentCuMisses());
+    assertEquals(2, mgr.getRecentCuHits());
+
+    // Test PreferContent
+    CachedUrl cu4 = mgr.findCachedUrl(url4, CuContentReq.PreferContent);
+    assertEquals(url4, cu4.getUrl());
+    assertFalse(cu4.hasContent());
+    assertEquals(1, getFUStats().v1Invocations);
+    assertEquals(1, getFUStats().v2Invocations);
+    assertEquals(10, mgr.getRecentCuMisses());
+    assertEquals(2, mgr.getRecentCuHits());
+
+    mgr.logFindUrlStats(true);
+  }
+
   /** Putter puts something onto a queue in a while */
   class Putter extends DoLater {
     SimpleQueue.Fifo queue;
@@ -2742,5 +2984,83 @@ public class TestPluginManager extends LockssTestCase4 {
     public CuIterator getCuIterator() {
       return new MockCuIterator(cuList);
     }
+  }
+
+  public static class NoParamPlugin extends BasePlugin {
+
+    public NoParamPlugin() {
+    }
+
+    public List<ConfigParamDescr> getAuConfigDescrs() {
+      return Collections.emptyList();
+    }
+
+    protected ArchivalUnit createAu0(Configuration auConfig)
+        throws ArchivalUnit.ConfigurationException {
+      // create a new archival unit
+      NoParamAU au = new NoParamAU(this);
+      return au;
+    }
+
+    /**
+     * Overridden to force no implementation.
+     */
+    protected void setTitleConfigFromConfig(Configuration allTitles) {
+      // No implementation.
+    }
+
+    public String getVersion() {
+      return "1";
+    }
+
+    public String getPluginName() {
+      return "No Param Plugin";
+    }
+
+    /**
+     * We only have one defining attribute, a base URL.
+     */
+    public List<ConfigParamDescr> getLocalAuConfigDescrs() {
+      return Collections.emptyList();
+    }
+  }
+  public static class NoParamAU extends BaseArchivalUnit {
+
+    public NoParamAU(NoParamPlugin plugin) {
+      super(plugin);
+    }
+
+    @Override
+    protected String makeName() {
+      return "NoParamAU";
+    }
+
+    @Override
+    protected CrawlRule makeRule() {
+      return null;
+    }
+
+    @Override
+    public String getCookiePolicy() {
+      return null;
+    }
+
+    @Override
+    public LoginPageChecker getLoginPageChecker() {
+      return null;
+    }
+
+    @Override
+    public int getRefetchDepth() {
+      return 0;
+    }
+
+    public Collection<String> getStartUrls() {
+      return Collections.emptyList();
+    }
+    public List<PermissionChecker> makePermissionCheckers() {
+      return null;
+    }
+
   }
 }

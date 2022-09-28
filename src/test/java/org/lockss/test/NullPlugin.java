@@ -726,6 +726,10 @@ public class NullPlugin {
       return false;
     }
 
+    public boolean isNamedArchivalUnit() {
+      return false;
+    }
+
     public ArchiveFileTypes getArchiveFileTypes() {
       return null;
     }

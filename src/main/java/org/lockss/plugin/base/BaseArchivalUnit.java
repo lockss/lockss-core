@@ -166,8 +166,9 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
       auConfig = config.copy();
       loadAuConfigDescrs(config);
       addImpliedConfigParams();
-      setBaseAuParams(config);
-      fetchRateLimiter = recomputeFetchRateLimiter(fetchRateLimiter);
+      setCrawlRelatedParams(config);
+      setAdditionalParams(config);
+      titleDbChanged();
     }
     urlStems = null;
   }
@@ -251,6 +252,10 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
     }
   }
 
+  protected void setAdditionalParams(Configuration config)
+      throws ConfigurationException {
+  }
+
   // This pattern
   //   T value =
   //     (config.containsKey(CONFIG_KEY)
@@ -262,7 +267,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   //  - value already in paramMap (presumably stored by loadAuConfigDescrs)
   //  - default value
 
-  protected void setBaseAuParams(Configuration config)
+  protected void setCrawlRelatedParams(Configuration config)
       throws ConfigurationException {
 
     // get the base url
@@ -297,6 +302,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
         DEFAULT_SHOULD_REFETCH_ON_SET_COOKIE);
     window = makeCrawlWindow();
     
+    fetchRateLimiter = recomputeFetchRateLimiter(fetchRateLimiter);
     titleDbChanged();
   }
 
@@ -831,6 +837,10 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
 
   public boolean isBulkContent() {
     return plugin.isBulkContent();
+  }
+
+  public boolean isNamedArchivalUnit() {
+    return false;
   }
 
   public ArchiveFileTypes getArchiveFileTypes() {

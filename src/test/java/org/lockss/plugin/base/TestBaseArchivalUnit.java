@@ -704,7 +704,7 @@ public class TestBaseArchivalUnit extends LockssTestCase {
 	       instanceof MyMockCrawlWindow);
   }
 
-  // Check that setBaseAuParams() doesn't overwrite values already set in
+  // Check that setCrawlRelatedParams() doesn't overwrite values already set in
   // param map with default config values.
   public void testSetBaseAuParamsWithOverride()
       throws ArchivalUnit.ConfigurationException {
