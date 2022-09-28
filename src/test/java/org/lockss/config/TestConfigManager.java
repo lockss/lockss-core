@@ -1013,8 +1013,10 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testMiscTmpdir() throws Exception {
-    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, "/tmp/unlikely");
-    assertEquals("/tmp/unlikely/dtmp", PlatformUtil.getSystemTempDir());
+    String dirname = "/tmp/tmpdir" +
+      org.apache.commons.lang3.RandomStringUtils.random(12, true, true);
+    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, dirname);
+    assertEquals(dirname + "/dtmp", PlatformUtil.getSystemTempDir());
   }
 
   /** Ensure the config param {@value
