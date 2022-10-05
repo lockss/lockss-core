@@ -41,7 +41,7 @@ import java.util.regex.*;
  */
 public class DaemonVersion implements Version, Comparable<DaemonVersion> {
 
-  public static final Pattern PATTERN = Pattern.compile("(?:([01])(?:-[-0-9a-zA-Z]+)?\\.)?([0-9]{1,3})(?:-[-0-9a-zA-Z]+)?\\.([0-9]{1,3})(?:-[-0-9a-zA-Z]+)?");
+  public static final Pattern PATTERN = Pattern.compile("([0-9]{1,3})(?:-[-0-9a-zA-Z]+)?\\.([0-9]{1,3})(?:-[-0-9a-zA-Z]+)?\\.([0-9]{1,3})(?:-[-0-9a-zA-Z]+)?");
   
   private String m_verStr;
   private int m_versionMajor;
@@ -71,12 +71,7 @@ public class DaemonVersion implements Version, Comparable<DaemonVersion> {
 
     try {
       if (StringUtil.isNullString(mat.group(1))) {
-        m_versionMajor = Integer.parseInt(mat.group(2));
-        if (m_versionMajor < 2) {
-          throw new IllegalArgumentException("Illegal format for Daemon Version: " + ver);
-        }
-        m_versionMinor = Integer.parseInt(mat.group(3));
-        m_versionBuild = 0;
+        throw new IllegalArgumentException("Illegal format for Daemon Version: " + ver);
       }
       else {
         m_versionMajor = Integer.parseInt(mat.group(1));

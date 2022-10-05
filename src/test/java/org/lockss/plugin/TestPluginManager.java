@@ -310,7 +310,7 @@ public class TestPluginManager extends LockssTestCase4 {
     // plugin requiring 1.10.0 should not load
     assertFalse(mgr.ensurePluginLoaded(key));
     // with sufficient daemon version,
-    setDaemonVersion("11.1");
+    setDaemonVersion("11.1.1");
     // it should load.
     assertTrue(mgr.ensurePluginLoaded(key));
   }
@@ -409,7 +409,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String key = PluginManager.pluginKeyFromId(pname);
     assertFalse(mgr.ensurePluginLoaded(key));
     // with sufficient daemon version,
-    setDaemonVersion("11.1");
+    setDaemonVersion("11.1.1");
     // it should load.
     assertTrue(mgr.ensurePluginLoaded(key));
   }
