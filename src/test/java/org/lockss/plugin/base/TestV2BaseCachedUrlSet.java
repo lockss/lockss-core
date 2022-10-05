@@ -152,34 +152,35 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
   }
 
   public void testHashIterator() throws Exception {
-    String lurl1 = "http://www.example.com/testDir/branch1/leaf1";
-    String lurl2 = "http://www.example.com/testDir/branch1/leaf2";
-    String lurl3 = "http://www.example.com/testDir/branch2/leaf3";
-    String lurl4 = "http://www.example.com/testDir/leaf4";
+    String[] urls = {
+      "http://www.example.com/testDir/branch1/leaf1",
+      "http://www.example.com/testDir/branch1/leaf2",
+      "http://www.example.com/testDir/branch2/leaf3",
+      "http://www.example.com/testDir/leaf4",
+      "http://www.example.com/testDir/\u00C1rv\u00EDzt\u0171r\u0151 t\u00FCk\u00F6rf\u00FAr\u00F3g\u00E9p", // Árvíztűrő tükörfúrógép (Hungarian)
+      "http://www.example.com/testDir/\u03BA\u1F79\u03C3\u03BC\u03B5", // κόσμε
+    };
 
-    createLeaf(lurl3, "test stream", null);
-    createLeaf(lurl2, "test stream", null);
-    createLeaf(lurl1, "test stream", null);
-    createLeaf(lurl4, "test stream", null);
+    for (String s : urls) {
+      createLeaf(s, "test stream: " + s, null);
+    }
 
     CachedUrlSetSpec rSpec =
         new RangeCachedUrlSetSpec("http://www.example.com/testDir");
     CachedUrlSet fileSet = mau.makeCachedUrlSet(rSpec);
-    assertIsomorphic(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
-		     PluginTestUtil.urlsOf(fileSet.contentHashIterator()));
+    assertIsomorphic(urls, PluginTestUtil.urlsOf(fileSet.contentHashIterator()));
 
     CachedUrlSet cus = mau.getAuCachedUrlSet();
-    assertIsomorphic(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
-		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
+    assertIsomorphic(urls, PluginTestUtil.urlsOf(cus.contentHashIterator()));
 
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1");
     cus = mau.makeCachedUrlSet(rSpec);
-    assertIsomorphic(ListUtil.list(lurl1, lurl2),
+    assertIsomorphic(ListUtil.list(urls[0], urls[1]),
 		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
 
     rSpec = new RangeCachedUrlSetSpec("http://www.example.com/testDir/branch1/");
     cus = mau.makeCachedUrlSet(rSpec);
-    assertIsomorphic(ListUtil.list(lurl1, lurl2),
+    assertIsomorphic(ListUtil.list(urls[0], urls[1]),
 		     PluginTestUtil.urlsOf(cus.contentHashIterator()));
 
     // Prefix must be a whole path component
@@ -189,8 +190,8 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
 
 
     // test getCuIterator and getCuIterable
-    assertEquals(ListUtil.list(lurl1, lurl2, lurl3, lurl4),
-		 PluginTestUtil.urlsOf(ListUtil.fromIterator(fileSet.getCuIterator())));
+    assertIsomorphic(urls,
+                     PluginTestUtil.urlsOf(ListUtil.fromIterator(fileSet.getCuIterator())));
     assertEquals(PluginTestUtil.urlsOf(ListUtil.fromIterator(fileSet.getCuIterator())),
 		 PluginTestUtil.urlsOf(ListUtil.fromIterable(fileSet.getCuIterable())));
 
@@ -250,48 +251,32 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
   }
 
   String expMultSchemeHostPort[] = {
-//     "lockssau:",
-//     "http://aa",
     "http://aa/leaf",
-//     "http://aa.com",
     "http://aa.com/leaf",
-//     "http://aa.com:7000",
     "http://aa.com:7000/leaf",
-//     "http://aa.com:8000",
     "http://aa.com:8000/leaf",
-//     "http://aa.comx",
     "http://aa.comx/leaf",
-//     "http://aa:7000",
     "http://aa:7000/leaf",
-//     "http://aa:8000",
     "http://aa:8000/leaf",
-//     "http://bb",
     "http://bb/leaf",
-//     "http://bb:7000",
     "http://bb:7000/leaf",
-//     "http://bb:8000",
     "http://bb:8000/leaf",
-//     "https://aa",
     "https://aa/leaf",
-//     "https://aa:7000",
     "https://aa:7000/leaf",
-//     "https://aa:8000",
     "https://aa:8000/leaf",
-//     "https://bb",
     "https://bb/leaf",
-//     "https://bb:7000",
     "https://bb:7000/leaf",
-//     "https://bb:8000",
     "https://bb:8000/leaf",
+    // Some unicode names
+    "\u00C1rv\u00EDzt\u0171r\u0151 t\u00FCk\u00F6rf\u00FAr\u00F3g\u00E9p", // Árvíztűrő tükörfúrógép (Hungarian)
+    "\u03BA\u1F79\u03C3\u03BC\u03B5", // κόσμε
   };
 
   public void testHashIteratorMultipleSchemeHostPort() throws Exception {
-    Set preOrderHasContent = new TreeSet(StringUtil.PRE_ORDER_COMPARATOR);
+    Set preOrderHasContent = new TreeSet(PreOrderComparator.INSTANCE);
     for (String s : expMultSchemeHostPort) {
-      if (s.endsWith("leaf")) {
-	createLeaf(s, "test stream", null);
-	preOrderHasContent.add(s);
-      }
+      createLeaf(s, "test stream", null);
+      preOrderHasContent.add(s);
     }
 
     CachedUrlSet fileSet = mau.getAuCachedUrlSet();

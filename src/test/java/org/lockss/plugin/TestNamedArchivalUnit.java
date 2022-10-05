@@ -41,10 +41,10 @@ import org.lockss.state.*;
  * Test class for NamedArchivalUnit
  */
 public class TestNamedArchivalUnit extends LockssTestCase {
-	
+
   private static final Logger log = Logger.getLogger();
   private static final String plugName = "org.lockss.plugin.NamedPlugin";
-  
+
   private Plugin plugin;
   private MockLockssDaemon daemon;
   private PluginManager mgr;

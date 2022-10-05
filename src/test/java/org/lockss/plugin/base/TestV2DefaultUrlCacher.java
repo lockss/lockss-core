@@ -173,6 +173,25 @@ public class TestV2DefaultUrlCacher extends LockssTestCase {
                                    cu.getUnfilteredInputStream());
   }
 
+  public void testCacheUnicodeNonUrl() throws IOException {
+    String name = "\u00C1rv\u00EDzt\u0171r\u0151 t\u00FCk\u00F6rf\u00FAr\u00F3g\u00E9p"; // Árvíztűrő tükörfúrógép (Hungarian)
+    String cont = "a different test stream";
+    ud = new UrlData(new StringInputStream(cont),
+        new CIProperties(), name);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    // should cache
+    cacher.storeContent();
+    long finalChange = maus.getLastContentChange();
+    assertTrue(cacher.wasStored);
+    assertNotEquals(origChange, finalChange);
+    CachedUrl cu = mau.makeCachedUrl(name);
+    assertTrue(cu.hasContent());
+    assertEquals(name, cu.getUrl());
+    assertInputStreamMatchesString(cont,
+                                   cu.getUnfilteredInputStream());
+  }
+
   public void testCacheWithInputError() throws IOException {
     InputStream ins =
       new ThrowingInputStream(new StringInputStream("test stream"),

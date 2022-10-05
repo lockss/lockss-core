@@ -296,6 +296,15 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       assertEquals(url, cu.getUrl());
     }
 
+    public void testUnicodeName() throws Exception {
+      String url = "\u03BA\u1F79\u03C3\u03BC\u03B5"; // κόσμε
+
+      createLeaf(url, content1, null);
+
+      CachedUrl cu = getTestCu(url);
+      assertEquals(url, cu.getUrl());
+    }
+
     public void testIsLeaf() throws Exception {
       createLeaf(url1, content1, null);
       createLeaf(url2, (String)null, null);
