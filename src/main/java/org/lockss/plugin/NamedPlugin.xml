@@ -15,19 +15,13 @@
     <string>au_name</string>
     <string>&quot;Named AU: %s&quot;, handle</string>
   </entry>
-  <!-- Start url shouldn't be used, make it empty just in case -->
-  <entry>
-    <string>au_start_url</string>
-    <list>
-    </list>
-  </entry>
   <entry>
     <string>plugin_config_props</string>
     <list>
       <org.lockss.daemon.ConfigParamDescr>
         <key>handle</key>
         <displayName>Unique handle</displayName>
-        <description>Unique handle (string) for a NamedArchivalUnit</description>
+        <description>Unique handle for a NamedArchivalUnit</description>
         <type>1</type>
         <size>30</size>
         <definitional>true</definitional>

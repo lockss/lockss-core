@@ -47,12 +47,10 @@ import org.lockss.util.*;
 import org.lockss.util.time.TimeUtil;
 
 /**
- * <p>PluginArchivalUnit: The Archival Unit Class for PluginPlugin.
- * This archival unit uses a base url to define an archival unit.
- * @author Seth Morabito
- * @version 1.0
+ * A NamedArchivalUnit is defined solely by a user-supplied identifier
+ * (handle), not by definitional params (eg., base_url), which
+ * determine its contents and allow it to be crawled.
  */
-
 public class NamedArchivalUnit extends DefinableArchivalUnit {
   private static final Logger log = Logger.getLogger();
 
@@ -65,63 +63,29 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
     super(myPlugin, definitionMap);
   }
 
-  // Called by NamedPlugin iff any config below NamedPlugin.PREFIX
-  // has changed
-//   protected void setConfig(Configuration config,
-// 			   Configuration prevConfig,
-// 			   Configuration.Differences changedKeys) {
-//   }
-
-
   public boolean isNamedArchivalUnit() {
     return true;
   }
 
+  /** Suppress all crawl-related params */
   protected void setCrawlRelatedParams(Configuration config) {
   }
 
-  /**
-   * return a string that points to the plugin registry page.
-   * @return a string that points to the plugin registry page for
-   * this registry.  This is just the base URL.
-   */
+  /** Empty */
   @Override
   public Collection<String> getStartUrls() {
     return Collections.emptyList();
   }
 
+  /** Empty */
   @Override
   public Collection<String> getPermissionUrls() {
     return Collections.emptyList();
   }
 
+  /** Never crawl */
   @Override
   public boolean shouldCrawlForNewContent(AuState aus) {
     return false;
-  }
-
-  @Override
-  protected CrawlRule makeRule() {
-    return null;
-  }
-
-  @Override
-  public String getCookiePolicy() {
-    return null;
-  }
-
-  @Override
-  public LoginPageChecker getLoginPageChecker() {
-    return null;
-  }
-
-  @Override
-  public int getRefetchDepth() {
-    return 0;
-  }
-
-  @Override
-  public List<PermissionChecker> makePermissionCheckers() {
-    return null;
   }
 }

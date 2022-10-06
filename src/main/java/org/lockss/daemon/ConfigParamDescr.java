@@ -101,7 +101,7 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
   public static final ConfigParamDescr HANDLE =
     new ConfigParamDescr()
     .setKey("handle")
-    .setDisplayName("Identifier")
+    .setDisplayName("Unique handle")
     .setType(TYPE_STRING)
     .setSize(30)
     .setDescription("Unique handle for a NamedArchivalUnit");

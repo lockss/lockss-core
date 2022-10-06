@@ -28,7 +28,6 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.definable;
 
-import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

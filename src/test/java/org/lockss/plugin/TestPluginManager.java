@@ -1853,7 +1853,11 @@ public class TestPluginManager extends LockssTestCase4 {
     ArchivalUnit au =
       mgr.createAu(plug, auConfig, AuEvent.model(AuEvent.Type.Create));
     String[] names = { "http://foo.bar/baz", "nonURL.1",
-                       "nonURL.2", "worse URL", "nonURL.2" };
+                       "nonURL.2", "worse URL", "nonURL.2",
+                       // Malformed URL (fails normalize()) that
+                       // satisfies UrlUtil.isUrl()
+                       "xxxyyy:/::://::???",
+    };
     for (String name : names) {
       String cont = "Content of " + name;
       UrlData ud = new UrlData(new StringInputStream(cont),
