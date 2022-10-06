@@ -1838,6 +1838,47 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.logFindUrlStats(true);
   }
 
+  private static final String NamedPluginName = "org.lockss.plugin.NamedPlugin";
+
+  // Ensure PluginManager.findCachedUrl() can find names (esp. non-URL
+  // names) in AUs that have no stems
+  @Test
+  public void testNonUrls() throws Exception {
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+    String plugKey = PluginManager.pluginKeyFromName(NamedPluginName);
+    mgr.ensurePluginLoaded(plugKey);
+    Plugin plug = mgr.getPlugin(plugKey);
+    Configuration auConfig = ConfigurationUtil.fromArgs("handle", "foo");
+    ArchivalUnit au =
+      mgr.createAu(plug, auConfig, AuEvent.model(AuEvent.Type.Create));
+    String[] names = { "http://foo.bar/baz", "nonURL.1",
+                       "nonURL.2", "worse URL", "nonURL.2",
+                       // Malformed URL (fails normalize()) that
+                       // satisfies UrlUtil.isUrl()
+                       "xxxyyy:/::://::???",
+    };
+    for (String name : names) {
+      String cont = "Content of " + name;
+      UrlData ud = new UrlData(new StringInputStream(cont),
+                               new CIProperties(), name);
+      UrlCacher uc = new DefaultUrlCacher(au, ud);
+      uc.storeContent();
+      CachedUrl cu = au.makeCachedUrl(name);
+      assertTrue(cu.hasContent());
+      assertEquals(name, cu.getUrl());
+      assertInputStreamMatchesString(cont,
+                                   cu.getUnfilteredInputStream());
+    }
+    for (String name : names) {
+      String cont = "Content of " + name;
+      CachedUrl cu = mgr.findCachedUrl(name);
+      assertEquals(name, cu.getUrl());
+      assertTrue(cu.hasContent());
+      assertInputStreamMatchesString(cont, cu.getUnfilteredInputStream());
+    }
+  }
+
   /** Putter puts something onto a queue in a while */
   class Putter extends DoLater {
     SimpleQueue.Fifo queue;

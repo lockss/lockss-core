@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -101,6 +97,14 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
    * expanded into multiple set elements.  */
   public static final String SET_RANGE_OPEN = "{";
   public static final String SET_RANGE_CLOSE = "}";
+
+  public static final ConfigParamDescr HANDLE =
+    new ConfigParamDescr()
+    .setKey("handle")
+    .setDisplayName("Unique handle")
+    .setType(TYPE_STRING)
+    .setSize(30)
+    .setDescription("Unique handle for a NamedArchivalUnit");
 
   public static final ConfigParamDescr VOLUME_NUMBER =
     new ConfigParamDescr()
@@ -310,6 +314,7 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
 		    + "successful abbreviated crawl test.");
 
   public static final ConfigParamDescr[] DEFAULT_DESCR_ARRAY = {
+      HANDLE,
       BASE_URL, VOLUME_NUMBER, VOLUME_NAME, YEAR, JOURNAL_ID, JOURNAL_ISSN,
       PUBLISHER_NAME, ISSUE_RANGE, NUM_ISSUE_RANGE, ISSUE_SET, OAI_REQUEST_URL,
       OAI_SPEC, BASE_URL2, USER_CREDENTIALS, COLLECTION, CRAWL_INTERVAL,

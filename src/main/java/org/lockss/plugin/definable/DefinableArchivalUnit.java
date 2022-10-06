@@ -961,4 +961,10 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 	throws PluginException;
   }
 
+  public static class Factory implements ArchivalUnit.Factory {
+    public DefinableArchivalUnit createDefinableArchivalUnit(DefinablePlugin plugin,
+                                                             ExternalizableMap defMap) {
+      return new DefinableArchivalUnit(plugin, defMap);
+    }
+  }
 }
