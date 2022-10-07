@@ -41,6 +41,7 @@ import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.ShouldNotHappenException;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.DefaultUrlCacher;
+import org.lockss.plugin.definable.*;
 import org.lockss.protocol.*;
 import org.lockss.util.*;
 import org.lockss.util.test.PrivilegedAccessor;
@@ -1548,6 +1549,57 @@ public class TestV3Poller extends LockssTestCase {
         peerRepairUrls(v3Poller));
   }
 
+  public void testRequestRepairNamedAU() throws Exception {
+    String plugKey =
+      PluginManager.pluginKeyFromName(NamedArchivalUnit.NAMED_PLUGIN_NAME);
+    pluginMgr.ensurePluginLoaded(plugKey);
+    Plugin plug = pluginMgr.getPlugin(plugKey);
+    ArchivalUnit au =
+      PluginTestUtil.createAu(plug, ConfigurationUtil.fromArgs("handle", "foo"));
+    MyV3Poller v3Poller;
+
+    // 0% repair from cache: the repair goes to the publisher
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_V3_REPAIR_FROM_CACHE_PERCENT,
+        "0");
+    v3Poller = makeInittedV3Poller(au, "foo");
+    v3Poller.requestRepair("http://example.com",
+        theParticipants(v3Poller).values());
+
+    assertSameElements(Arrays.asList("http://example.com"),
+        peerRepairUrls(v3Poller));
+    assertEmpty(publisherRepairUrls(v3Poller));
+
+    // 100% repair from cache: the repair goes to a peer
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_V3_REPAIR_FROM_CACHE_PERCENT,
+        "100");
+    v3Poller = makeInittedV3Poller(au, "foo");
+    v3Poller.requestRepair("http://example.com",
+        theParticipants(v3Poller).values());
+
+    assertEmpty(publisherRepairUrls(v3Poller));
+    assertSameElements(Arrays.asList("http://example.com"),
+        peerRepairUrls(v3Poller));
+
+    // 0% repair from cache, and no repairers: no repair is possible
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_V3_REPAIR_FROM_CACHE_PERCENT,
+        "0");
+    v3Poller = makeInittedV3Poller(au, "foo");
+    v3Poller.requestRepair("http://example.com", Collections.EMPTY_LIST);
+
+    assertEmpty(peerRepairUrls(v3Poller));
+    assertEmpty(publisherRepairUrls(v3Poller));
+
+    // 100% repair from cache, BUT no repairers: no repair possible
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_V3_REPAIR_FROM_CACHE_PERCENT,
+        "100");
+    v3Poller = makeInittedV3Poller(au, "foo");
+    v3Poller.requestRepair("http://example.com",
+        Collections.EMPTY_LIST);
+
+    assertEmpty(publisherRepairUrls(v3Poller));
+    assertEmpty(peerRepairUrls(v3Poller));
+  }
+
   public void testBlockCompare() throws Exception {
 //
 //    V3Poller v3Poller = makeV3Poller("testing poll key");
@@ -2021,16 +2073,27 @@ public class TestV3Poller extends LockssTestCase {
   }
 
   private MyV3Poller makeInittedV3Poller(String key) throws Exception {
-    return makeInittedV3Poller(key, 6, voters.length);
+    return makeInittedV3Poller(testau, key);
+  }
+
+  private MyV3Poller makeInittedV3Poller(ArchivalUnit au, String key)
+      throws Exception {
+    return makeInittedV3Poller(au, key, 6, voters.length);
   }
 
   private MyV3Poller makeInittedV3Poller(String key,
       int numSym) throws Exception {
     return makeInittedV3Poller(key, numSym, voters.length);
   }
+
   private MyV3Poller makeInittedV3Poller(String key, int numSym,
       int numVoters) throws Exception {
-    PollSpec ps = new MockPollSpec(testau.getAuCachedUrlSet(), null, null,
+    return makeInittedV3Poller(testau, key, numSym, numVoters);
+  }
+
+  private MyV3Poller makeInittedV3Poller(ArchivalUnit au, String key, int numSym,
+      int numVoters) throws Exception {
+    PollSpec ps = new MockPollSpec(au.getAuCachedUrlSet(), null, null,
         Poll.V3_POLL);
     MyV3Poller p = new MyV3Poller(ps, theDaemon, pollerId, key, 20000,
         "SHA-1");

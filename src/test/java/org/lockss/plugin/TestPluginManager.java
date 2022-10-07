@@ -1838,15 +1838,14 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.logFindUrlStats(true);
   }
 
-  private static final String NamedPluginName = "org.lockss.plugin.NamedPlugin";
-
   // Ensure PluginManager.findCachedUrl() can find names (esp. non-URL
   // names) in AUs that have no stems
   @Test
   public void testNonUrls() throws Exception {
     mgr.startService();
     repo = repoMgr.getV2Repository().getRepository();
-    String plugKey = PluginManager.pluginKeyFromName(NamedPluginName);
+    String plugKey =
+      PluginManager.pluginKeyFromName(NamedArchivalUnit.NAMED_PLUGIN_NAME);
     mgr.ensurePluginLoaded(plugKey);
     Plugin plug = mgr.getPlugin(plugKey);
     Configuration auConfig = ConfigurationUtil.fromArgs("handle", "foo");

@@ -54,6 +54,10 @@ import org.lockss.util.time.TimeUtil;
 public class NamedArchivalUnit extends DefinableArchivalUnit {
   private static final Logger log = Logger.getLogger();
 
+  /** The name of the standard NamedPlugin. */
+  // In there a better place for this?
+  public static final String NAMED_PLUGIN_NAME = "org.lockss.plugin.NamedPlugin";
+
   public NamedArchivalUnit(Plugin plugin) {
     super(plugin);
   }

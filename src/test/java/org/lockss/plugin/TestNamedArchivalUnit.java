@@ -34,6 +34,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.plugin.base.*;
+import org.lockss.plugin.definable.*;
 import org.lockss.util.*;
 import org.lockss.state.*;
 
@@ -43,7 +44,7 @@ import org.lockss.state.*;
 public class TestNamedArchivalUnit extends LockssTestCase {
 
   private static final Logger log = Logger.getLogger();
-  private static final String plugName = "org.lockss.plugin.NamedPlugin";
+  private static final String plugName = NamedArchivalUnit.NAMED_PLUGIN_NAME;
 
   private Plugin plugin;
   private MockLockssDaemon daemon;
