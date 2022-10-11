@@ -183,7 +183,7 @@ public class FuncV2Repo extends LockssTestCase {
   private void assertArtifactCommitted(Artifact expected, Artifact actual)
       throws IOException {
     assertEquals(expected.getId(), actual.getId());
-    assertEquals(expected.getCollection(), actual.getCollection());
+    assertEquals(expected.getNamespace(), actual.getNamespace());
     assertEquals(expected.getAuid(), actual.getAuid());
     assertEquals(expected.getUri(), actual.getUri());
     assertEquals(expected.getContentLength(), actual.getContentLength());
@@ -194,7 +194,7 @@ public class FuncV2Repo extends LockssTestCase {
     assertNotEquals(expected.getCommitted(), actual.getCommitted());
     // Ensure that the artifact eventually moves from temp to perm WARC
     while (expected.getStorageUrl().equals(actual.getStorageUrl())) {
-      actual = repo.getArtifactVersion(actual.getCollection(),
+      actual = repo.getArtifactVersion(actual.getNamespace(),
 				       actual.getAuid(),
 				       actual.getUri(),
 				       actual.getVersion());

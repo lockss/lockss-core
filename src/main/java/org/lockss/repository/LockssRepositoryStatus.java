@@ -152,7 +152,7 @@ public class LockssRepositoryStatus {
 	PlatformUtil.DF repoDf = repoMgr.getRepositoryDF(rs.getSpec());
 	String NO_COLLS = " (none) ";
 	try {
-	  Iterator<String> collsIter = repo.getCollectionIds().iterator();
+	  Iterator<String> collsIter = repo.getNamespaces().iterator();
 	  if (!collsIter.hasNext()) {
 	    collsIter = ListUtil.list(NO_COLLS).iterator();
 	  }
