@@ -63,7 +63,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
   private SystemMetrics metrics;
 
   protected LockssRepository v2Repo;
-  protected String v2Coll;
+  protected String v2Ns;
 
   static final int HASH_SPEED = 100;
 
@@ -93,7 +93,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     RepositoryManager repomgr =
       LockssDaemon.getLockssDaemon().getRepositoryManager();
     v2Repo = repomgr.getV2Repository().getRepository();
-    v2Coll = repomgr.getV2Repository().getCollection();
+    v2Ns = repomgr.getV2Repository().getNamespace();
 
     // don't require all tests to set up mau crawl rules
     ConfigurationUtil.addFromArgs(BaseCachedUrl.PARAM_INCLUDED_ONLY, "false");
@@ -570,7 +570,7 @@ public class TestV2BaseCachedUrlSet extends LockssTestCase {
     InputStream in = null;
     if (content != null) in = new StringInputStream(content);
     if (in == null) in = new StringInputStream("foo");
-    V2RepoUtil.storeArt(v2Repo, v2Coll, mau.getAuId(), url, in, props);
+    V2RepoUtil.storeArt(v2Repo, v2Ns, mau.getAuId(), url, in, props);
   }
   
 

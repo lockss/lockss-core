@@ -69,7 +69,7 @@ public class TestPluginManager extends LockssTestCase4 {
   static BrokerService broker;
   private MyMockLockssDaemon theDaemon;
 
-  static final String V2COLL = "coll";
+  static final String V2NS = "ns";
 
   static String mockPlugKey =
     PluginManager.pluginKeyFromName(MyMockPlugin.class.getName());
@@ -125,7 +125,7 @@ public class TestPluginManager extends LockssTestCase4 {
     p.setProperty(PluginManager.PARAM_PLUGIN_LOCATION, "plugins");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "volatile:" + V2COLL);
+				  "volatile:" + V2NS);
 
     theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
 
@@ -1464,7 +1464,7 @@ public class TestPluginManager extends LockssTestCase4 {
   Artifact storeArt(ArchivalUnit au, String url, InputStream in,
 		    CIProperties props) throws IOException {
     if (props == null) props = new CIProperties();
-    return V2RepoUtil.storeArt(repo, V2COLL, au.getAuId(), url, in, props);
+    return V2RepoUtil.storeArt(repo, V2NS, au.getAuId(), url, in, props);
   }
 
   protected LockssRepository repo;

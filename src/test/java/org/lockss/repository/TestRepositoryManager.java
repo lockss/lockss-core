@@ -97,16 +97,16 @@ public class TestRepositoryManager extends LockssTestCase4 {
   public void testGetRepositoryUrlList() throws Exception {
     assertEmpty(mgr.getRepositoryUrlList());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "volatile:coll42");
-    assertEquals(ListUtil.list("volatile:coll42"), mgr.getRepositoryUrlList());
+				  "volatile:ns42");
+    assertEquals(ListUtil.list("volatile:ns42"), mgr.getRepositoryUrlList());
   }
 
   @Test
   public void testGetRepositoryList() throws Exception {
     assertEmpty(mgr.getRepositoryUrlList());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "volatile:coll42");
-    assertEquals(ListUtil.list(mgr.getRepoRepo("volatile:coll42")),
+				  "volatile:ns42");
+    assertEquals(ListUtil.list(mgr.getRepoRepo("volatile:ns42")),
                  mgr.getRepositoryList());
   }
 
@@ -116,7 +116,7 @@ public class TestRepositoryManager extends LockssTestCase4 {
     // Ensure at least 1K in tmpdir so df.used > 0
     FileTestUtil.writeTempFile("pad", StringUtils.repeat("0123456789", 103));
     assertNull(mgr.getV2Repository());
-    String spec = "local:coll_1:" + tmpdir;
+    String spec = "local:ns_1:" + tmpdir;
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY, spec);
     assertNotNull(mgr.getV2Repository());
     PlatformUtil.DF df = mgr.getRepositoryDF(spec);
@@ -160,11 +160,11 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertNull(mgr.getV2Repository());
 
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "local:coll");
+				  "local:ns");
     assertNull(mgr.getV2Repository());
 
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "rest:coll:illscheme:url");
+				  "rest:ns:illscheme:url");
     assertNull(mgr.getV2Repository());
   }
 
@@ -172,9 +172,9 @@ public class TestRepositoryManager extends LockssTestCase4 {
   public void testGetV2RepositoryVolatile () throws Exception {
     assertNull(mgr.getV2Repository());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "volatile:coll_1");
+				  "volatile:ns_1");
     assertNotNull(mgr.getV2Repository());
-    assertEquals("coll_1", mgr.getV2Repository().getCollection());
+    assertEquals("ns_1", mgr.getV2Repository().getNamespace());
   }
 
   @Test
@@ -182,9 +182,9 @@ public class TestRepositoryManager extends LockssTestCase4 {
     String tmpdir = getTempDir().toString();
     assertNull(mgr.getV2Repository());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "local:coll_1:" + tmpdir);
+				  "local:ns_1:" + tmpdir);
     assertNotNull(mgr.getV2Repository());
-    assertEquals("coll_1", mgr.getV2Repository().getCollection());
+    assertEquals("ns_1", mgr.getV2Repository().getNamespace());
     LockssRepository repo = mgr.getV2Repository().getRepository();
     assertClass(LocalLockssRepository.class, repo);
   }
@@ -193,9 +193,9 @@ public class TestRepositoryManager extends LockssTestCase4 {
   public void testGetV2RepositoryRest () throws Exception {
     assertNull(mgr.getV2Repository());
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "rest:coll_1:http://foo.bar/endpoint");
+				  "rest:ns_1:http://foo.bar/endpoint");
     assertNotNull(mgr.getV2Repository());
-    assertEquals("coll_1", mgr.getV2Repository().getCollection());
+    assertEquals("ns_1", mgr.getV2Repository().getNamespace());
     LockssRepository repo = mgr.getV2Repository().getRepository();
     assertClass(RestLockssRepository.class, repo);
   }

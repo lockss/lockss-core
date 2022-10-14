@@ -62,7 +62,7 @@ public class FuncV2Repo extends LockssTestCase {
   protected MockLockssDaemon theDaemon;
   protected MockPlugin plugin;
 
-  String COLL = "Collection 6A";
+  String NS = "Namespace 6A";
   String AUID = "AUID17";
 
   String url1 = "http://www.example.com/testDir/leaf7";
@@ -81,11 +81,11 @@ public class FuncV2Repo extends LockssTestCase {
 //     repo = LockssRepositoryFactory.createLocalRepository(getTempDir());
   }
 
-  private ArtifactData createArtifact(String collection, String auid,
+  private ArtifactData createArtifact(String namespace, String auid,
 				      String url, String content) {
 
     ArtifactIdentifier id =
-      new ArtifactIdentifier(collection, auid, url, null);
+      new ArtifactIdentifier(namespace, auid, url, null);
 
     HttpHeaders metadata = new HttpHeaders();
     metadata.set("key1", "val1");
@@ -99,77 +99,77 @@ public class FuncV2Repo extends LockssTestCase {
   }
 
   public void testVersion() throws IOException {
-    ArtifactData ad1 = createArtifact(COLL, AUID, url1, "content 11111");
+    ArtifactData ad1 = createArtifact(NS, AUID, url1, "content 11111");
     Artifact art1 = repo.addArtifact(ad1);
-    assertNull(repo.getArtifactVersion(COLL, AUID, url1, 1));
-    assertNull(repo.getArtifactVersion(COLL, AUID, url1, 1, false));
-    Artifact uncArt = repo.getArtifactVersion(COLL, AUID, url1, 1, true);
+    assertNull(repo.getArtifactVersion(NS, AUID, url1, 1));
+    assertNull(repo.getArtifactVersion(NS, AUID, url1, 1, false));
+    Artifact uncArt = repo.getArtifactVersion(NS, AUID, url1, 1, true);
     assertEquals(art1.getId(), uncArt.getId());
 
     repo.commitArtifact(art1);
-    Artifact r1 = repo.getArtifact(COLL, AUID, url1);
+    Artifact r1 = repo.getArtifact(NS, AUID, url1);
 
     assertArtifactCommitted(art1, r1);
 
     assertEquals(1, (int)r1.getVersion());
-    Artifact aa = repo.getArtifactVersion(COLL, AUID, url1, 1);
+    Artifact aa = repo.getArtifactVersion(NS, AUID, url1, 1);
 
     assertArtifactCommitted(art1, aa);
 
     assertEquals(r1, aa);
 
-    aa = repo.getArtifactVersion(COLL, AUID, url1, 1, false);
+    aa = repo.getArtifactVersion(NS, AUID, url1, 1, false);
 
     assertArtifactCommitted(art1, aa);
     assertEquals(r1, aa);
 
-    Artifact aa2 = repo.getArtifactVersion(COLL, AUID, url1, 1, true);
+    Artifact aa2 = repo.getArtifactVersion(NS, AUID, url1, 1, true);
 
     assertArtifactCommitted(art1, aa2);
 
     assertEquals(r1, aa2);
 
-    ArtifactData ad2 = createArtifact(COLL, AUID, url1, "content 22222");
+    ArtifactData ad2 = createArtifact(NS, AUID, url1, "content 22222");
     Artifact art2 = repo.addArtifact(ad2);
     repo.commitArtifact(art2);
-    aa = repo.getArtifact(COLL, AUID, url1);
+    aa = repo.getArtifact(NS, AUID, url1);
 
     assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
 
-    aa = repo.getArtifactVersion(COLL, AUID, url1, 2);
+    aa = repo.getArtifactVersion(NS, AUID, url1, 2);
 
     assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
 
-    aa = repo.getArtifactVersion(COLL, AUID, url1, 2, false);
+    aa = repo.getArtifactVersion(NS, AUID, url1, 2, false);
 
     assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
 
-    aa = repo.getArtifactVersion(COLL, AUID, url1, 2, true);
+    aa = repo.getArtifactVersion(NS, AUID, url1, 2, true);
 
     assertArtifactCommitted(art2, aa);
     assertEquals(2, (int)aa.getVersion());
 
-    ArtifactData ad3 = createArtifact(COLL, AUID, url1, "content 33333");
+    ArtifactData ad3 = createArtifact(NS, AUID, url1, "content 33333");
     Artifact art3 = repo.addArtifact(ad3);
     assertEquals(3, (int)art3.getVersion());
     repo.deleteArtifact(art3);
-    ArtifactData ad4 = createArtifact(COLL, AUID, url1, "content 44444");
+    ArtifactData ad4 = createArtifact(NS, AUID, url1, "content 44444");
     Artifact art4 = repo.addArtifact(ad4);
     assertEquals(3, (int)art4.getVersion());
 
-    ArtifactData ad5 = createArtifact(COLL, AUID, url1, "content 55555");
+    ArtifactData ad5 = createArtifact(NS, AUID, url1, "content 55555");
     Artifact art5 = repo.addArtifact(ad5);
     assertEquals(4, (int)art5.getVersion());
 
     ArtifactData ad4a = repo.getArtifactData(art4);
     assertInputStreamMatchesString("content 44444", ad4a.getInputStream());
-    uncArt = repo.getArtifactVersion(COLL, AUID, url1, 3);
+    uncArt = repo.getArtifactVersion(NS, AUID, url1, 3);
     assertNull(uncArt);
     repo.commitArtifact(art4);
-    uncArt = repo.getArtifactVersion(COLL, AUID, url1, 3);
+    uncArt = repo.getArtifactVersion(NS, AUID, url1, 3);
     assertNotNull(uncArt);
 
   }
@@ -216,19 +216,19 @@ public class FuncV2Repo extends LockssTestCase {
   Artifact storeArt(String url, InputStream in,
 		    CIProperties props) throws IOException {
     if (props == null) props = new CIProperties();
-    return V2RepoUtil.storeArt(repo, COLL, AUID, url, in, props);
+    return V2RepoUtil.storeArt(repo, NS, AUID, url, in, props);
   }
 
   public void testGetVersions() throws IOException {
-    ArtifactData ad1 = createArtifact(COLL, AUID, url1, "content 11111");
+    ArtifactData ad1 = createArtifact(NS, AUID, url1, "content 11111");
     Artifact art1 = repo.addArtifact(ad1);
     repo.commitArtifact(art1);
     List<Artifact> l0 =
-      ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
+      ListUtil.fromIterator(repo.getArtifacts(NS, AUID).iterator());
 
     assertEquals(url1, l0.get(0).getUri());
     log.info("testVersion all: " + l0);
-    List l = ListUtil.fromIterator(repo.getArtifactsAllVersions(COLL, AUID,
+    List l = ListUtil.fromIterator(repo.getArtifactsAllVersions(NS, AUID,
 							        url1).iterator());
     assertEquals(1, l.size());
   }
@@ -243,17 +243,17 @@ public class FuncV2Repo extends LockssTestCase {
     assertEquals(url1, a1.getUri());
     assertEquals(1, (int)a1.getVersion());
 
-    tst = repo.getArtifact(COLL, AUID, uslash);
+    tst = repo.getArtifact(NS, AUID, uslash);
     assertNull(tst);
 
     Artifact a2 = storeArt(uslash, "content 222", null);
     assertEquals(uslash, a2.getUri());
-    tst = repo.getArtifact(COLL, AUID, uslash);
+    tst = repo.getArtifact(NS, AUID, uslash);
     assertNotNull(tst);
     ad = repo.getArtifactData(tst);
     assertInputStreamMatchesString("content 222", ad.getInputStream());
 
-    tst = repo.getArtifact(COLL, AUID, url1);
+    tst = repo.getArtifact(NS, AUID, url1);
     assertNotNull(tst);
     ad = repo.getArtifactData(tst);
     assertInputStreamMatchesString("content 11111", ad.getInputStream());
@@ -261,10 +261,10 @@ public class FuncV2Repo extends LockssTestCase {
 
 
   public void testRepo() throws IOException {
-    Artifact art = repo.getArtifact(COLL, AUID, url1);
+    Artifact art = repo.getArtifact(NS, AUID, url1);
     assertNull(art);
-    ArtifactData art1 = createArtifact(COLL, AUID, url1, "content 11111");
-    art = repo.getArtifact(COLL, AUID, url1);
+    ArtifactData art1 = createArtifact(NS, AUID, url1, "content 11111");
+    art = repo.getArtifact(NS, AUID, url1);
     assertNull(art);
     log.info("adding: " + art1);
     Artifact newArt = repo.addArtifact(art1);
@@ -273,13 +273,13 @@ public class FuncV2Repo extends LockssTestCase {
     log.info("new artData meta: " + repo.getArtifactData(newArt).getMetadata());
     assertCompareIsEqualTo(art1.getIdentifier(), newArt.getIdentifier());
     List<Artifact> aids = 
-      ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
+      ListUtil.fromIterator(repo.getArtifacts(NS, AUID).iterator());
     log.info("foo: " + aids);
 
     Artifact committedArt = repo.commitArtifact(newArt);
     log.info("committedArt ver: " + committedArt.getVersion());
 
-    aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
+    aids = ListUtil.fromIterator(repo.getArtifacts(NS, AUID).iterator());
     log.info("foo: " + aids);
     ArtifactData a1 = repo.getArtifactData(committedArt);
     assertInputStreamMatchesString("content 11111", a1.getInputStream());
@@ -291,10 +291,10 @@ public class FuncV2Repo extends LockssTestCase {
 
 //     assertInputStreamMatchesString("content 2222", a1.getInputStream());
 
-    ArtifactData ad2 = createArtifact(COLL, AUID, url2, "content xxxxx");
+    ArtifactData ad2 = createArtifact(NS, AUID, url2, "content xxxxx");
     Artifact art2 = repo.addArtifact(ad2);
     Artifact datas = repo.commitArtifact(art2);
-    aids = ListUtil.fromIterator(repo.getArtifacts(COLL, AUID).iterator());
+    aids = ListUtil.fromIterator(repo.getArtifacts(NS, AUID).iterator());
     log.info("foo: " + aids);
 
 
@@ -304,11 +304,11 @@ public class FuncV2Repo extends LockssTestCase {
   }
 
   public void testFoo() throws IOException {
-    String coll = "COLL";
+    String ns = "NS";
     String auid = "AUID";
     String url = "http://foo/bar";
 
-    ArtifactIdentifier id = new ArtifactIdentifier(coll, auid, url, null);
+    ArtifactIdentifier id = new ArtifactIdentifier(ns, auid, url, null);
 
     HttpHeaders metadata = new HttpHeaders();
     metadata.set("key1", "val1");
@@ -332,20 +332,20 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact art2 = repo.commitArtifact(art1);
     log.info("committed: " + art2);
 
-    Artifact art3 = repo.getArtifact(coll, auid, url);
+    Artifact art3 = repo.getArtifact(ns, auid, url);
     log.info("found: " + art3);
 
     log.info("deleting: " + art1);
     repo.deleteArtifact(art1);
     log.info("deleted: " + art1);
-    Artifact art4 = repo.getArtifact(coll, auid, url);
+    Artifact art4 = repo.getArtifact(ns, auid, url);
     if (art4 == null) {
       log.info("successfully deleted: " + art1);
     } else {
       log.info("not deleted: " + art4);
     }
 
-    ArtifactIdentifier id2 = new ArtifactIdentifier(coll, auid, url + "xxx", null);
+    ArtifactIdentifier id2 = new ArtifactIdentifier(ns, auid, url + "xxx", null);
 
     ArtifactData ad2 =
       new ArtifactData(id2,

@@ -37,21 +37,21 @@ public class TestRepoSpec extends LockssTestCase4 {
 
   @Test
   public void testParse() {
-    RepoSpec rs1 = RepoSpec.fromSpec("volatile:coll1");
+    RepoSpec rs1 = RepoSpec.fromSpec("volatile:ns1");
     log.info("rs1: {}", rs1);
     assertEquals("volatile", rs1.getType());
-    assertEquals("coll1", rs1.getCollection());
+    assertEquals("ns1", rs1.getNamespace());
 
-    RepoSpec rs2 = RepoSpec.fromSpec("local:coll_2:/path/to/it");
+    RepoSpec rs2 = RepoSpec.fromSpec("local:ns_2:/path/to/it");
     log.info("rs2: {}", rs2);
     assertEquals("local", rs2.getType());
-    assertEquals("coll_2", rs2.getCollection());
+    assertEquals("ns_2", rs2.getNamespace());
     assertEquals("/path/to/it", rs2.getPath());
 
     RepoSpec rs3 = RepoSpec.fromSpec("rest:lockss:http://lockss-repository-service:24610");
     log.info("rs3: {}", rs3);
     assertEquals("rest", rs3.getType());
-    assertEquals("lockss", rs3.getCollection());
+    assertEquals("lockss", rs3.getNamespace());
     assertEquals("http://lockss-repository-service:24610", rs3.getUrl());
   }
 
@@ -64,7 +64,7 @@ public class TestRepoSpec extends LockssTestCase4 {
     }
 
     try {
-      RepoSpec.fromSpec("notype:coll");
+      RepoSpec.fromSpec("notype:ns");
     } catch (IllegalArgumentException e) {
       assertMatchesRE("unknown type", e.getMessage());
     }

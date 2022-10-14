@@ -74,10 +74,10 @@ public class RepositoryManager
       CheckUnnormalizedMode.Log;
 
   /** Temporary specification of (new) LockssRepository for all AU storage.
-   * <ul><li>volatile:<i>collection</i> - use a volatile LockssRepository</li>
-   * <li>local:<i>collection</i>:<i>path</i> - use a local LockssRepository
+   * <ul><li>volatile:<i>namespace</i> - use a volatile LockssRepository</li>
+   * <li>local:<i>namespace</i>:<i>path</i> - use a local LockssRepository
    * at <i>path</i></li>
-   * <li>rest:<i>collection</i>:<i>url</i> - use a remote LockssRepository
+   * <li>rest:<i>namespace</i>:<i>url</i> - use a remote LockssRepository
    * at <i>url</i></li></ul>
    */
   public static final String PARAM_V2_REPOSITORY =
@@ -486,11 +486,11 @@ public class RepositoryManager
     Map<String,List<String>> res = new HashMap<>();
     LockssRepository repo = v2Repo.getRepository();
     try {
-      for (String auid : repo.getAuIds(v2Repo.getCollection())) {
+      for (String auid : repo.getAuIds(v2Repo.getNamespace())) {
 	res.put(auid, Collections.singletonList(v2Repo.getSpec()));
       }
     } catch (IOException e) {
-      log.warn("Error getting list of AUID in repository collection");
+      log.warn("Error getting list of AUID in repository namespace");
     }
     auidToRepoSpec = res;
     auidToRepoMapDate = TimeBase.nowMs();
@@ -546,13 +546,13 @@ public class RepositoryManager
       log.debug2("Searching {} for {}, {}", spec, normUrl, versions);
       try {
         Iterable<Artifact> riter =
-          repo.getArtifactsWithUrlFromAllAus(spec.getCollection(),
+          repo.getArtifactsWithUrlFromAllAus(spec.getNamespace(),
                                              normUrl,
                                              versions);
         return IteratorUtils.toList(riter.iterator());
       } catch (IOException e) {
         log.warn("Couldn't find repository: {} ({})",
-                 normUrl, spec.getCollection());
+                 normUrl, spec.getNamespace());
       }
     }
     return res;

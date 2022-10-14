@@ -38,7 +38,7 @@ import org.lockss.laaws.rs.core.*;
  * components, and the LockssRepository instance itself.
  *
  * The spec is of the form
- * <tt><i>type</i>:<i>collection</i>[:<i>path-or-url</i>]</tt>, where
+ * <tt><i>type</i>:<i>namespace</i>[:<i>path-or-url</i>]</tt>, where
  * <i>type</i> is one of <tt>volatile</tt>, <tt>local</tt>, or
  * <tt>rest</tt>.  <tt>local</tt> requires a <i>path</i>; <tt>rest</tt>
  * requires a <i>url</i>.
@@ -50,25 +50,25 @@ public class RepoSpec {
   private String spec;			// Canonical version of orig string
   private String type;			// local, volatile, rest
   private String path;			// URL or local path
-  private String collection;		// collection name
+  private String namespace;		// namespace
 
   private LockssRepository repo;
 
   private RepoSpec(String spec,
 		   String type,
-		   String collection) {
+		   String namespace) {
     this.spec = spec;
     this.type = type;
-    this.collection = collection;
+    this.namespace = namespace;
   }
 
   private RepoSpec(String spec,
 		   String type,
-		   String collection,
+		   String namespace,
 		   String path) {
     this.spec = spec;
     this.type = type;
-    this.collection = collection;
+    this.namespace = namespace;
     this.path = path;
   }
 
@@ -92,9 +92,17 @@ public class RepoSpec {
     return path;
   }
 
-  /** Return the collection name */
+  /** Return the namespace */
+  public String getNamespace() {
+    return namespace;
+  }
+
+  /** Return the namespace
+   * @deprecated use getNamespace()
+   */
+  @Deprecated
   public String getCollection() {
-    return collection;
+    return namespace;
   }
 
   public String toString() {
@@ -109,26 +117,26 @@ public class RepoSpec {
   public static RepoSpec fromSpec(String spec) {
     Matcher m1 = REPO_SPEC_PATTERN.matcher(spec);
     if (m1.matches()) {
-      String coll = m1.group(2);
-      if (StringUtil.isNullString(coll)) {
-	throw new IllegalArgumentException("Illegal V2 repository spec; no collection: " + spec);
+      String ns = m1.group(2);
+      if (StringUtil.isNullString(ns)) {
+	throw new IllegalArgumentException("Illegal V2 repository spec; no namespace: " + spec);
       } else {
 	String type = m1.group(1);
 	switch (type) {
 	case "volatile":
-	  return new RepoSpec(spec, type, coll);
+	  return new RepoSpec(spec, type, ns);
 	case "local":
 	  String path = m1.group(3);
 	  if (StringUtil.isNullString(path)) {
 	    throw new IllegalArgumentException("Illegal V2 repository spec; no path: " + spec);
 	  }
-	  return new RepoSpec(spec, type, coll, path);
+	  return new RepoSpec(spec, type, ns, path);
 	case "rest":
 	  String url = m1.group(3);
 	  if (StringUtil.isNullString(url)) {
 	    throw new IllegalArgumentException("Illegal V2 repository spec; no URL: " + spec);
 	  }
-	  return new RepoSpec(spec, type, coll, url);
+	  return new RepoSpec(spec, type, ns, url);
 	default:
 	  throw new IllegalArgumentException("Illegal V2 repository spec; unknown type: " + spec);
 	}
