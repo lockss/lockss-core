@@ -691,11 +691,12 @@ public class RestConfigClient {
    * @param pluginId
    * @param handle
    * @param auConfig
-   * @return AUID.
-   * @throws LockssRestException if there are problems calculating the AUID.
+   * @return a Map containing (at least) the AUID under the key "auid"
+   * @throws LockssRestException if there are problems calculating the AUID
+   * @throws IOException if the result can't be parsed
    */
-  public String calculateAuid(String pluginId, String handle,
-                              Map<String,String> auConfig)
+  public Map<String,Object> calculateAuid(String pluginId, String handle,
+                                          Map<String,String> auConfig)
       throws LockssRestException, IOException {
     if (log.isDebug2()) {
       log.debug2("pluginId = " + pluginId);
@@ -705,7 +706,7 @@ public class RestConfigClient {
 
     // Get the URL template.
     UriComponents uriComponents =
-      UriComponentsBuilder.fromUriString(serviceLocation + "/aus/auid").build();
+      UriComponentsBuilder.fromUriString(serviceLocation + "/auids").build();
     URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
 	.build().encode().toUri();
 
@@ -743,7 +744,7 @@ public class RestConfigClient {
 
     String result = response.getBody();
     log.debug2("result: " + result);
-    return result;
+    return AuUtil.jsonToMap(result);
   }
 
   /**
