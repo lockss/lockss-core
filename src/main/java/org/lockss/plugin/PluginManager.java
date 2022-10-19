@@ -1103,7 +1103,7 @@ public class PluginManager
 	String key = descr.getKey();
 	String val = auConfigProps.get(key);
 	if (val == null) {
-	  throw new NullPointerException(key + " is null in: " + auConfigProps);
+	  throw new IllegalArgumentException(key + " is null in: " + auConfigProps);
 	}
 	res.setProperty(key, val);
       }
@@ -1119,7 +1119,7 @@ public class PluginManager
 	String key = descr.getKey();
 	String val = auConfig.get(key);
 	if (val == null) {
-	  throw new NullPointerException(key + " is null in: " + auConfig);
+	  throw new IllegalArgumentException(key + " is null in: " + auConfig);
 	}
 	res.setProperty(key, val);
       }

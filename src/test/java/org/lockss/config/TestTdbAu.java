@@ -733,7 +733,7 @@ public class TestTdbAu extends LockssTestCase {
     try {
       au3.getAuId(pmgr);
       fail("getAuId() with missing config param should throw");
-    } catch (NullPointerException e) {
+    } catch (IllegalArgumentException e) {
     }
   }
 
