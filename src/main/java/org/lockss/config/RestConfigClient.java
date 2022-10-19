@@ -35,15 +35,10 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 import javax.mail.MessagingException;
 import org.lockss.laaws.rs.util.NamedInputStreamResource;
+import org.lockss.plugin.AuUtil;
 import org.lockss.util.auth.*;
 import org.lockss.util.rest.HttpResponseStatusAndHeaders;
 import org.lockss.util.rest.RestUtil;
@@ -62,6 +57,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
@@ -683,6 +679,72 @@ public class RestConfigClient {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     return response;
+  }
+
+  /**
+   * Calculate the AUID of a hypothetical AU.  Either a pluginId and
+   * anConfig may be supplied, or a handle and an optional pluginId.
+   * The former computes an AUID for a normal plugin, the latter is
+   * for NamedPlugin, but an optional pluginId may be supplied in case
+   * of extending NamedPlugin.
+   *
+   * @param pluginId
+   * @param handle
+   * @param auConfig
+   * @return a Map containing (at least) the AUID under the key "auid"
+   * @throws LockssRestException if there are problems calculating the AUID
+   * @throws IOException if the result can't be parsed
+   */
+  public Map<String,Object> calculateAuid(String pluginId, String handle,
+                                          Map<String,String> auConfig)
+      throws LockssRestException, IOException {
+    if (log.isDebug2()) {
+      log.debug2("pluginId = " + pluginId);
+      log.debug2("handle = " + handle);
+      log.debug2("auConfig = " + auConfig);
+    }
+
+    // Get the URL template.
+    UriComponents uriComponents =
+      UriComponentsBuilder.fromUriString(serviceLocation + "/auids").build();
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+	.build().encode().toUri();
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+    requestHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+    requestHeaders.setAccept(Arrays.asList(MediaType.APPLICATION_JSON,
+                                           MediaType.TEXT_PLAIN));
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    MultiValueMap<String,String> params = new LinkedMultiValueMap<String,String>();
+    if (pluginId != null) params.add("pluginId", pluginId);
+    if (handle != null) params.add("handle", handle);
+    if (auConfig != null) params.add("auConfig", AuUtil.mapToJson(auConfig));
+
+    // Create the request entity.
+    HttpEntity<Map> requestEntity = new HttpEntity<>(params, requestHeaders);
+
+    RestTemplate restTemplate =
+      RestUtil.getRestTemplate(/*connectTimeout, readTimeout*/);
+
+    List<HttpMessageConverter<?>> messageConverters =
+	restTemplate.getMessageConverters();
+
+    // Add the form-urlencoded converter.
+    messageConverters.add(new FormHttpMessageConverter());
+
+    // Make the request and get the response.
+    ResponseEntity<String> response =
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.POST,
+	    requestEntity, String.class,
+	    "Cannot get AUID");
+
+    String result = response.getBody();
+    log.debug2("result: " + result);
+    return AuUtil.jsonToMap(result);
   }
 
   /**
