@@ -522,9 +522,10 @@ public class DefinablePlugin extends BasePlugin {
     return featureVersion.get(feat);
   }
 
-  public String getRequiredDaemonVersion() {
-    return definitionMap.getString(KEY_REQUIRED_DAEMON_VERSION,
-				   DEFAULT_REQUIRED_DAEMON_VERSION);
+  public List<String> getRequiredDaemonVersion() {
+    List<String> vers =
+      coerceToList(definitionMap.getMapElement(KEY_REQUIRED_DAEMON_VERSION));
+    return vers == null ? Collections.emptyList() : vers;
   }
 
   public String getPublishingPlatform() {
