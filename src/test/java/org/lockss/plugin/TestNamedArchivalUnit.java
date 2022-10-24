@@ -29,14 +29,17 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.plugin;
 
 import java.util.*;
+import org.apache.commons.collections4.*;
 
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.plugin.base.*;
 import org.lockss.plugin.definable.*;
+import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.state.*;
+import org.lockss.laaws.rs.core.*;
 
 /**
  * Test class for NamedArchivalUnit
@@ -50,6 +53,8 @@ public class TestNamedArchivalUnit extends LockssTestCase {
   private MockLockssDaemon daemon;
   private PluginManager mgr;
   private Plugin plug;
+  private LockssRepository v2Repo;
+  private String v2Coll;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -60,6 +65,10 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     String plugKey = PluginManager.pluginKeyFromName(plugName);
     mgr.ensurePluginLoaded(plugKey);
     plug = mgr.getPlugin(plugKey);
+    useV2Repo();
+    RepositoryManager repomgr = daemon.getRepositoryManager();
+    v2Repo = repomgr.getV2Repository().getRepository();
+    v2Coll = repomgr.getV2Repository().getCollection();
   }
 
   public void tearDown() throws Exception {
@@ -101,6 +110,42 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     }
     CachedUrl cu = au.makeCachedUrl(names[2]);
     assertEquals(2, cu.getVersion());
+  }
+
+  // Test unicode handle
+  public void testUnicodeNamedAu() throws  Exception {
+    String uniHandle = "\u092A\u0936\u0941\u092A\u0924\u093F\u0930\u092A\u093F \u0924\u093E\u0928\u094D\u092F\u0939\u093E\u0928\u093F \u0915\u0943\u091A\u094D\u091B\u094D\u0930\u093E\u0926\u094D"; // पशुपतिरपि तान्यहानि कृच्छ्राद् (from the Sanskrit poem Kumāra-saṃbhava)
+    Configuration auConfig = ConfigurationUtil.fromArgs("handle", uniHandle);
+    ArchivalUnit au =
+      mgr.createAu(plug, auConfig, AuEvent.model(AuEvent.Type.Create));
+    assertTrue(au.isNamedArchivalUnit());
+    assertEquals(ConfigurationUtil.fromArgs("handle", uniHandle),
+                 au.getConfiguration());
+    assertEquals("Named AU: " + uniHandle, au.getName());
+
+    String[] names = { "http://foo.bar/baz", "nonURL.1",
+                       "nonURL.2", "worse URL", "nonURL.2" };
+    for (String name : names) {
+      // Ensure unique content so 2nd version gets created for
+      // repeated name
+      String cont = "Content of " + name + "\n" + randomString(8);
+      UrlData ud = new UrlData(new StringInputStream(cont),
+                               new CIProperties(), name);
+      UrlCacher uc = new DefaultUrlCacher(au, ud);
+      uc.storeContent();
+      CachedUrl cu = au.makeCachedUrl(name);
+      assertTrue(cu.hasContent());
+      assertEquals(name, cu.getUrl());
+      assertInputStreamMatchesString(cont,
+                                   cu.getUnfilteredInputStream());
+    }
+    CachedUrl cu = au.makeCachedUrl(names[2]);
+    assertEquals(2, cu.getVersion());
+
+    assertIsomorphic(ListUtil.list(v2Coll),
+                     IterableUtils.toList(v2Repo.getCollectionIds()));
+    assertIsomorphic(ListUtil.list(PluginManager.generateAuId(plug, auConfig)),
+                     IterableUtils.toList(v2Repo.getAuIds(v2Coll)));
   }
 
 }

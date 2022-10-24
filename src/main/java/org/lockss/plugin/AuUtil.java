@@ -236,7 +236,7 @@ public class AuUtil {
    * @throws IOException
    *           if any problem occurred.
    */
-  public static String mapToJson(Map<String,Object> map) throws IOException {
+  public static String mapToJson(Map<String,? extends Object> map) throws IOException {
     return new ObjectMapper().writeValueAsString(map);
   }
 
