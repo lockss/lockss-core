@@ -143,7 +143,7 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     assertEquals(2, cu.getVersion());
 
     assertIsomorphic(ListUtil.list(v2Coll),
-                     IterableUtils.toList(v2Repo.getCollectionIds()));
+                     IterableUtils.toList(v2Repo.getNamespaces()));
     assertIsomorphic(ListUtil.list(PluginManager.generateAuId(plug, auConfig)),
                      IterableUtils.toList(v2Repo.getAuIds(v2Coll)));
   }
