@@ -62,7 +62,7 @@ public class FuncV2Repo extends LockssTestCase {
   protected MockLockssDaemon theDaemon;
   protected MockPlugin plugin;
 
-  String NS = "Namespace 6A";
+  String NS = "Namespace-6A";
   String AUID = "AUID17";
 
   String url1 = "http://www.example.com/testDir/leaf7";
