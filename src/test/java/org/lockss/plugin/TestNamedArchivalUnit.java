@@ -91,6 +91,10 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     assertEmpty(au.getStartUrls());
     AuState aus = AuUtil.getAuState(au);
     assertFalse(au.shouldCrawlForNewContent(aus));
+    assertTrue(au.shouldBeCached(""));
+    assertTrue(au.shouldBeCached("asdfsd"));
+    assertTrue(au.shouldBeCached("http://nor.mal/url"));
+    assertTrue(au.shouldBeCached("\u092A\u0936"));
 
     String[] names = { "http://foo.bar/baz", "nonURL.1",
                        "nonURL.2", "worse URL", "nonURL.2" };
