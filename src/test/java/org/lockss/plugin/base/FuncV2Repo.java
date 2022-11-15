@@ -270,7 +270,7 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact newArt = repo.addArtifact(art1);
     log.info("added: " + newArt);
     assertNotNull(newArt);
-    log.info("new artData meta: " + repo.getArtifactData(newArt).getMetadata());
+    log.info("new artData meta: " + repo.getArtifactData(newArt).getHttpHeaders());
     assertCompareIsEqualTo(art1.getIdentifier(), newArt.getIdentifier());
     List<Artifact> aids = 
       ListUtil.fromIterator(repo.getArtifacts(NS, AUID).iterator());
@@ -324,10 +324,10 @@ public class FuncV2Repo extends LockssTestCase {
 		       new StringInputStream("bytes"),
 		       statusLine);
 
-    log.info("ArtData has metadata: " + ad1.getMetadata());
+    log.info("ArtData has metadata: " + ad1.getHttpHeaders());
     Artifact art1 = repo.addArtifact(ad1);
     log.info("art1 metadata: " +
-		 repo.getArtifactData(art1).getMetadata());
+		 repo.getArtifactData(art1).getHttpHeaders());
     log.info("committing: " + art1);
     Artifact art2 = repo.commitArtifact(art1);
     log.info("committed: " + art2);

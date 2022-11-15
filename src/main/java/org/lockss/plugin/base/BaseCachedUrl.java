@@ -502,7 +502,7 @@ public class BaseCachedUrl implements CachedUrl {
 	try {
 	  artData = getArtifactData(v2Repo, art,
 				    NEED_INCLUDE_CONTENT_MAP.get(needContent));
-	  restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
+	  restProps = V2RepoUtil.propsFromHttpHeaders(artData.getHttpHeaders());
 	  String chk = art.getContentDigest();
 	  // tk - hash alg shouldn't be hardwired
 	  if (!StringUtil.isNullString(chk)) {
