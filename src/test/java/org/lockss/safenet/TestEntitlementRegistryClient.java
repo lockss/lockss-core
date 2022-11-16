@@ -92,7 +92,8 @@ public class TestEntitlementRegistryClient extends LockssTestCase {
       fail("Expected exception not thrown");
     }
     catch(IOException e) {
-      assertTrue(e.getMessage().startsWith("Unrecognized token 'isn': was expecting ('true', 'false' or 'null')"));
+      assertMatchesRE("Unrecognized token 'isn': was expecting",
+                      e.getMessage());
     }
     Mockito.verify(client).openConnection(url);
   }

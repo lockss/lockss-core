@@ -770,8 +770,8 @@ public class TestAuUtil extends LockssTestCase {
   public void testJsonToMap() throws Exception {
     try {
       AuUtil.jsonToMap(null);
-      fail("jsonToMap(null) is expected to throw NullPointerException");
-    } catch (NullPointerException e) {
+      fail("jsonToMap(null) is expected to throw IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
     }
     try {
       AuUtil.jsonToMap("");
