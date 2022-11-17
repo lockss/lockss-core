@@ -104,7 +104,7 @@ public class FuncV2Repo extends LockssTestCase {
     assertNull(repo.getArtifactVersion(NS, AUID, url1, 1));
     assertNull(repo.getArtifactVersion(NS, AUID, url1, 1, false));
     Artifact uncArt = repo.getArtifactVersion(NS, AUID, url1, 1, true);
-    assertEquals(art1.getId(), uncArt.getId());
+    assertEquals(art1.getUuid(), uncArt.getUuid());
 
     repo.commitArtifact(art1);
     Artifact r1 = repo.getArtifact(NS, AUID, url1);
@@ -182,7 +182,7 @@ public class FuncV2Repo extends LockssTestCase {
    */
   private void assertArtifactCommitted(Artifact expected, Artifact actual)
       throws IOException {
-    assertEquals(expected.getId(), actual.getId());
+    assertEquals(expected.getUuid(), actual.getUuid());
     assertEquals(expected.getNamespace(), actual.getNamespace());
     assertEquals(expected.getAuid(), actual.getAuid());
     assertEquals(expected.getUri(), actual.getUri());

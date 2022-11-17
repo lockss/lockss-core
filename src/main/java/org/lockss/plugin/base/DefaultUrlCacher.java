@@ -460,8 +460,8 @@ public class DefaultUrlCacher implements UrlCacher {
     // Fetch the latest committed version, if any
     Artifact prev = v2Repo.getArtifact(v2Ns, au.getAuId(), art.getUri());
     if (prev == null) return false;
-    if (art.getId().equals(prev.getId())) {
-      logger.error("Uncommitted artifact has same ID as supposedly committed most recent version: " + art);
+    if (art.getUuid().equals(prev.getUuid())) {
+      logger.error("Uncommitted artifact has same UUID as supposedly committed most recent version: " + art);
       // throw?
       return false;
     }
