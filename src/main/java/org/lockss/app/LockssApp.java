@@ -598,11 +598,12 @@ public class LockssApp {
       ? BuildInfo.getBuildProperty(BuildInfo.BUILD_ARTIFACT) : getAppName();
     StringBuilder sb = new StringBuilder();
     String res =
-      BuildInfo.getBuildInfoString("LOCKSS :" + BuildInfo.BUILD_RELEASENAME,
-				   app + ":",
-				   BuildInfo.BUILD_VERSION,
-				   BuildInfo.BUILD_TIMESTAMP,
-				   BuildInfo.BUILD_HOST);
+      BuildInfo.getBuildInfoString("LOCKSS :" + BuildInfo.BUILD_RELEASENAME
+                                   , app + ":"
+//                                    , BuildInfo.BUILD_VERSION
+                                   , BuildInfo.BUILD_TIMESTAMP
+//                                    , BuildInfo.BUILD_HOST
+                                   );
     PlatformVersion plat = Configuration.getPlatformVersion();
     if (plat != null) {
       res = res + ", " + plat.displayString();
