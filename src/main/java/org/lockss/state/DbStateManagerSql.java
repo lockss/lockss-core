@@ -473,7 +473,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
         // The current time.
         auCreationTime = TimeBase.nowMs();
       }
-      log.fatal("Setting creation date: {}", new java.util.Date(auCreationTime));
+      log.debug2("Setting creation date: {}", new java.util.Date(auCreationTime));
       // Find the Archival Unit, adding it if necessary.
       auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, auCreationTime);
 
