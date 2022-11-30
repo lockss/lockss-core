@@ -1856,7 +1856,13 @@ public class ConfigManager implements LockssManager {
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "platConfig = " + platConfig);
 	} catch (IOException e) {
-	  log.warning("Couldn't preload platform file " + cf.getFileUrl(), e);
+          if (e instanceof FileNotFoundException &&
+              StringUtil.endsWithIgnoreCase(cf.getFileUrl(), ".opt")) {
+            log.debug2("Not preloading nonexistent optional platform file: "
+                       + cf.getFileUrl());
+          } else {
+            log.warning("Couldn't preload platform file " + cf.getFileUrl(), e);
+          }
 	}
       }
     }
