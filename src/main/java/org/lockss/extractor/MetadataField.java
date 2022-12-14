@@ -325,7 +325,7 @@ public class MetadataField {
       KEY_SERIES_TITLE, Cardinality.Single, seriestitlevalid);
 
   public static final String KEY_PROPRIETARY_SERIES_IDENTIFIER =
-      "propietary_series_identifier";
+      "proprietary_series_identifier";
   public static final MetadataField FIELD_PROPRIETARY_SERIES_IDENTIFIER =
       new MetadataField(KEY_PROPRIETARY_SERIES_IDENTIFIER, Cardinality.Single);
 
