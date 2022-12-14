@@ -37,6 +37,7 @@ import java.util.*;
 import org.lockss.util.*;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -78,6 +79,9 @@ public class MetadataField {
         throws MetadataException.ValidationException {
       // normalize and check validity
       try {
+        if (val == null) {
+          throw new IllegalArgumentException("null DOI");
+        }
         return MetadataUtil.sanitizeDoi(val);
       } catch (IllegalArgumentException e) {
         throw new MetadataException.ValidationException(e.getMessage());
@@ -867,6 +871,16 @@ public class MetadataField {
 
   public boolean hasExtractor() {
     return extractor != null;
+  }
+
+  public String toString() {
+    return new ToStringBuilder(this)
+      .append("key", key)
+      .append("cardinality", cardinality)
+      .append("validator", validator)
+      .append("splitter", splitter)
+      .append("extractor", extractor)
+      .toString();
   }
 
   /** Cardinality of a MetadataField: single-valued or multi-valued */
