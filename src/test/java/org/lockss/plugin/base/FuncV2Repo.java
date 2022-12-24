@@ -35,6 +35,7 @@ package org.lockss.plugin.base;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.util.*;
+import java.util.regex.*;
 import java.security.MessageDigest;
 import junit.framework.*;
 import org.lockss.plugin.*;
@@ -191,9 +192,9 @@ public class FuncV2Repo extends LockssTestCase {
 
     assertEquals(expected.getVersion(), actual.getVersion());
 
-    assertNotEquals(expected.getCommitted(), actual.getCommitted());
+    assertTrue(actual.getCommitted());
     // Ensure that the artifact eventually moves from temp to perm WARC
-    while (expected.getStorageUrl().equals(actual.getStorageUrl())) {
+    while (!isInPermanentWarc(actual)) {
       actual = repo.getArtifactVersion(actual.getNamespace(),
 				       actual.getAuid(),
 				       actual.getUri(),
@@ -205,7 +206,14 @@ public class FuncV2Repo extends LockssTestCase {
 	throw new RuntimeException(e.toString());
       }
     }
-    assertNotEquals(expected.getStorageUrl(), actual.getStorageUrl());
+    assertTrue(isInPermanentWarc(actual));
+  }
+
+  Pattern PERM_PAT = Pattern.compile(".*/au-.*");
+
+  boolean isInPermanentWarc(Artifact art) {
+    Matcher m = PERM_PAT.matcher(art.getStorageUrl());
+    return m.matches();
   }
 
   Artifact storeArt(String url, String content,
