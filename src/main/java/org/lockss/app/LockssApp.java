@@ -222,6 +222,7 @@ public class LockssApp {
     // JOB_MANAGER_DESC,
 //     // Start the job database manager.
     // JOB_DB_MANAGER_DESC,
+    CLOCKSS_PARAMS_MANAGER_DESC,
     BUILD_INFO_STATUS_DESC,
   };
 
@@ -231,12 +232,6 @@ public class LockssApp {
     // watchdog last
     new ManagerDesc(WATCHDOG_SERVICE, "org.lockss.daemon.WatchdogService"),
 
-    // unused
-//     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
-//       public boolean shouldStart(LockssApp app) {
-//         return isClockss();
-//       }},
-    
   };
 
 
