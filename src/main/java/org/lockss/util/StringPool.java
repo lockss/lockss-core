@@ -52,17 +52,75 @@ public class StringPool {
 
   /** Pool for AU config property names. */
   public static StringPool AU_CONFIG_PROPS =
-    new StringPool("AU config props").setMapKeys(ListUtil.list("year"));
+    new StringPool("AU config props").setMapKeys(ListUtil.list(
+                                                               "publisher",
+                                                               "provider",
+                                                               "issn",
+                                                               "journal_issn",
+                                                               "issn1",
+                                                               "journal_issn1",
+                                                               "eissn",
+                                                               "journal_eissn",
+                                                               "base_url",
+                                                               "au_base_url",
+                                                               "api_url",
+                                                               "graphics_url",
+                                                               "download_url",
+                                                               "resolver_url",
+                                                               "year",
+                                                               "journal_abbr",
+                                                               "journal_id",
+                                                               "volume",
+                                                               "volume_name",
+                                                               "reserved.repository",
+                                                               "reserved.disabled"
+                                                               ));
   /** Pool for TdbAu props. */
   public static StringPool TDBAU_PROPS =
-    new StringPool("TdbAu props").setMapKeys(ListUtil.list("type", "issn",
-							   "issn1", "eissn"));
+    new StringPool("TdbAu props").setMapKeys(ListUtil.list("type",
+                                                           "publisher",
+                                                           "provider",
+                                                           "issn",
+                                                           "journal_issn",
+							   "issn1",
+							   "journal_issn1",
+                                                           "eissn",
+                                                           "journal_eissn",
+                                                           "base_url",
+                                                           "api_url",
+                                                           "graphics_url",
+                                                           "download_url",
+                                                           "resolver_url",
+                                                           "year",
+                                                           "journal_abbr",
+                                                           "journal_id",
+                                                           "volume",
+                                                           "volume_name"
+                                                           ));
   /** Pool for TdbAu attrs. */
   public static StringPool TDBAU_ATTRS =
     new StringPool("TdbAu attrs").setMapKeys(ListUtil.list("publisher",
+                                                           "provider",
+                                                           "issn",
+                                                           "journal_issn",
+							   "issn1",
+							   "journal_issn1",
+                                                           "eissn",
+                                                           "journal_eissn",
 							   "au_feature_key",
+                                                           "base_url",
+                                                           "api_url",
+                                                           "graphics_url",
+                                                           "download_url",
+                                                           "resolver_url",
 							   "year",
-							   "rights"));
+                                                           "journal_abbr",
+                                                           "journal_id",
+                                                           "volume",
+                                                           "volume_name",
+							   "rights",
+                                                           "au_config_user_msg",
+                                                           "hint_applicaton/pdf_filter_factory"));
   /** Pool for URL stems. */
   public static StringPool URL_STEMS = new StringPool("URL stems");
   /** Pool for HTTP header names. */
@@ -71,6 +129,8 @@ public class StringPool {
   public static StringPool PLUGIN_IDS = new StringPool("Plugin IDs");
   /** Pool for AUIDs. */
   public static StringPool AUIDS = new StringPool("AU IDs");
+  /** Pool for publisher names. */
+  public static StringPool PUBLISHERS = new StringPool("Publishers");
 
   /** Pool for feature version strings. */
   public static StringPool FEATURE_VERSIONS = new StringPool("Feature versions");
@@ -164,6 +224,14 @@ public class StringPool {
     ArrayList<String> res = new ArrayList(strs.size());
     for (String str : strs) {
       res.add(intern(str));
+    }
+    return res;
+  }
+
+  public Set<String> internSet(Set<String> set) {
+    Set<String> res = new HashSet<>();
+    for (String val : set) {
+      res.add(intern(val));
     }
     return res;
   }

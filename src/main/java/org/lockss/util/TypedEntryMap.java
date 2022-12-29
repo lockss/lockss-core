@@ -300,19 +300,19 @@ public class TypedEntryMap {
   }
 
   public void putDouble(String key, double value) {
-    setMapElement(key, new Double(value));
+    setMapElement(key, Double.valueOf(value));
   }
 
   public void putFloat(String key, float value) {
-    setMapElement(key, new Float(value));
+    setMapElement(key, Float.valueOf(value));
   }
 
   public void putInt(String key, int value) {
-    setMapElement(key, new Integer(value));
+    setMapElement(key, Integer.valueOf(value));
   }
 
   public void putLong(String key, long value) {
-    setMapElement(key, new Long(value));
+    setMapElement(key, Long.valueOf(value));
   }
 
   public void putUrl(String key, URL url) {

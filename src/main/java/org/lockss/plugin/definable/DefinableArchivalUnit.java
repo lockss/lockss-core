@@ -295,6 +295,7 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
   @Override
   protected Collection<String> getAdditionalUrlStems()
       throws MalformedURLException {
+
     List<String> res = convertUrlListList(KEY_AU_ADDITIONAL_URL_STEMS);
     log.debug2("Setting additional urlStems " + res);
     if(res == null) {
@@ -333,7 +334,8 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
       definitionMap.getString(DefinablePlugin.KEY_PLUGIN_AU_CONFIG_USER_MSG,
 			      null);
     if (umsg != null) {
-      paramMap.putString(KEY_AU_CONFIG_USER_MSG, makeConfigUserMsg(umsg));
+      paramMap.putString(KEY_AU_CONFIG_USER_MSG,
+                         StringPool.AU_CONFIG_PROPS.intern(makeConfigUserMsg(umsg)));
     }
   }
 
@@ -670,7 +672,7 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
     if (perms != null) {
       for (String url : perms) {
 	if (rule.match(url) != CrawlRule.INCLUDE) {
-	  expUrls.add(url);
+	  expUrls.add(StringPool.AU_CONFIG_PROPS.intern(url));
 	}
       }
     }

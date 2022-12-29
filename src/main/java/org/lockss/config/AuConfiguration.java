@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.*;
+import org.lockss.util.StringPool;
 
 /**
  * The encapsulation of an Archival Unit configuration
@@ -86,6 +87,18 @@ public class AuConfiguration   {
 
     this.auId = auId;
     this.auConfig = auConfig;
+    intern();
+  }
+
+  public AuConfiguration intern() {
+    Map<String,String> res = new HashMap<>();
+    for (Map.Entry<String,String> ent : auConfig.entrySet()) {
+      res.put(StringPool.TDBAU_PROPS.intern(ent.getKey()),
+              StringPool.TDBAU_PROPS.internMapValue(ent.getKey(),
+                                                    ent.getValue()));
+    }
+    auConfig = res;
+    return this;
   }
 
   public AuConfiguration auId(String auId) {
@@ -144,7 +157,8 @@ public class AuConfiguration   {
   }
 
   public AuConfiguration putAuConfigItem(String key, String auConfigItem) {
-    this.auConfig.put(key, auConfigItem);
+    this.auConfig.put(StringPool.AU_CONFIG_PROPS.intern(key),
+                      StringPool.AU_CONFIG_PROPS.intern(auConfigItem));
     return this;
   }
 

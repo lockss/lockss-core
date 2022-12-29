@@ -575,6 +575,8 @@ public class TdbAu implements BibliographicItem, Comparable<TdbAu> {
     }
     attrs.put(StringPool.TDBAU_ATTRS.intern(name),
 	      StringPool.TDBAU_ATTRS.internMapValue(name, value));
+//     attrs.put(StringPool.TDBAU_ATTRS.intern(name),
+// 	      StringPool.TDBAU_ATTRS.intern(value));
   }
   
   /**
