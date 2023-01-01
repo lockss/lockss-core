@@ -48,6 +48,7 @@ import org.lockss.util.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.util.urlconn.*;
 import org.lockss.util.io.*;
+import org.lockss.util.lang.*;
 import org.lockss.daemon.*;
 
 import org.lockss.rewriter.*;
@@ -436,6 +437,12 @@ public class DefaultUrlCacher implements UrlCacher {
       abandonNewVersion(uncommittedArt);
       throw ex;
     } catch (IOException ex) {
+      InputIOException inputEx =
+        ExceptionUtil.getNestedExceptionOfType(ex, InputIOException.class);
+      if (inputEx != null) {
+        abandonNewVersion(uncommittedArt);
+        throw resultMap.mapException(au, url, inputEx.getIOCause(), null);
+      }
       // any other error is theoretically a repository error
       logger.error("Can't store artifact: repository error", ex);
       abandonNewVersion(uncommittedArt);
