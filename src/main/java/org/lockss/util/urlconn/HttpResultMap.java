@@ -31,6 +31,7 @@ package org.lockss.util.urlconn;
 import java.lang.reflect.Constructor;
 import java.util.*;
 import java.net.*;
+import java.io.*;
 
 import org.lockss.util.*;
 import org.lockss.daemon.PluginException;
@@ -195,6 +196,7 @@ public class HttpResultMap implements CacheResultMap {
                    SocketException.class,
                    javax.net.ssl.SSLException.class,
                    ProtocolException.class,
+                   EOFException.class,  // thrown by ZLIB if input truncated
                    java.nio.channels.ClosedChannelException.class),
                  CacheException.RetryableNetworkException.class
                  ),
