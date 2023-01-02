@@ -47,6 +47,7 @@ import org.lockss.util.StringPool;
 @ApiModel(description = "The encapsulation of an Archival Unit configuration")
 
 public class AuConfiguration   {
+
   @JsonProperty("auId")
   private String auId = null;
 
@@ -85,7 +86,7 @@ public class AuConfiguration   {
 	  + "'");
     }
 
-    this.auId = auId;
+    setAuId(auId);
     this.auConfig = auConfig;
     intern();
   }
@@ -93,9 +94,9 @@ public class AuConfiguration   {
   public AuConfiguration intern() {
     Map<String,String> res = new HashMap<>();
     for (Map.Entry<String,String> ent : auConfig.entrySet()) {
-      res.put(StringPool.TDBAU_PROPS.intern(ent.getKey()),
-              StringPool.TDBAU_PROPS.internMapValue(ent.getKey(),
-                                                    ent.getValue()));
+      res.put(StringPool.AU_CONFIG_PROPS.intern(ent.getKey()),
+              StringPool.AU_CONFIG_PROPS.internMapValue(ent.getKey(),
+                                                        ent.getValue()));
     }
     auConfig = res;
     return this;
@@ -108,7 +109,7 @@ public class AuConfiguration   {
 	  + auId + "'");
     }
 
-    this.auId = auId;
+    this.auId = StringPool.AUIDS.intern(auId);
     return this;
   }
 
@@ -136,13 +137,7 @@ public class AuConfiguration   {
   }
 
   public void setAuId(String auId) {
-    // Validation.
-    if (auId == null || auId.trim().isEmpty()) {
-      throw new IllegalArgumentException("Invalid Archival Unit identifier: '"
-	  + auId + "'");
-    }
-
-    this.auId = auId;
+    auId(auId);
   }
 
   public AuConfiguration auConfig(Map<String, String> auConfig) {

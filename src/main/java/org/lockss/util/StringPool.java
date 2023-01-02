@@ -32,7 +32,9 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 import java.util.*;
+import java.util.regex.*;
 import org.lockss.config.*;
+import org.lockss.plugin.definable.*;
 
 /**
  * Named intern() pools for Strings.  Similer to String.intern(), but use
@@ -49,11 +51,17 @@ public class StringPool {
   static final String PARAM_MAP_KEYS = PREFIX + "<poolname>.mapKeys";
   static final String SUFFIX_MAP_KEYS = "mapKeys";
 
+  public static Set SPECIAL_STRINGS = SetUtil.set("true", "TRUE", "True",
+                                                  "false", "FALSE", "False",
+                                                  "");
+
+
 
   /** Pool for AU config property names. */
   public static StringPool AU_CONFIG_PROPS =
     new StringPool("AU config props").setMapKeys(ListUtil.list(
                                                                "publisher",
+                                                               "publisher_id",
                                                                "provider",
                                                                "issn",
                                                                "journal_issn",
@@ -65,6 +73,8 @@ public class StringPool {
                                                                "base_url2",
                                                                "au_base_url",
                                                                "api_url",
+                                                               "script_url",
+                                                               "scripts_url",
                                                                "graphics_url",
                                                                "download_url",
                                                                "resolver_url",
@@ -80,6 +90,7 @@ public class StringPool {
   public static StringPool TDBAU_PROPS =
     new StringPool("TdbAu props").setMapKeys(ListUtil.list("type",
                                                            "publisher",
+                                                           "publisher_id",
                                                            "provider",
                                                            "issn",
                                                            "journal_issn",
@@ -91,6 +102,8 @@ public class StringPool {
                                                            "base_url2",
                                                            "api_url",
                                                            "graphics_url",
+                                                           "script_url",
+                                                           "scripts_url",
                                                            "download_url",
                                                            "resolver_url",
                                                            "year",
@@ -101,29 +114,32 @@ public class StringPool {
                                                            ));
   /** Pool for TdbAu attrs. */
   public static StringPool TDBAU_ATTRS =
-    new StringPool("TdbAu attrs").setMapKeys(ListUtil.list("publisher",
-                                                           "provider",
-                                                           "issn",
-                                                           "journal_issn",
-							   "issn1",
-							   "journal_issn1",
-                                                           "eissn",
-                                                           "journal_eissn",
-							   "au_feature_key",
-                                                           "base_url",
-                                                           "base_url2",
-                                                           "api_url",
-                                                           "graphics_url",
-                                                           "download_url",
-                                                           "resolver_url",
-							   "year",
-                                                           "journal_abbr",
-                                                           "journal_id",
-                                                           "volume",
-                                                           "volume_name",
-							   "rights",
-                                                           "au_config_user_msg",
-                                                           "hint_applicaton/pdf_filter_factory"));
+    new StringPool("TdbAu attrs")
+    .setKeyPattern(".*" + DefinableArchivalUnit.SUFFIX_HASH_FILTER_FACTORY + "$")
+    .setMapKeys(ListUtil.list("publisher",
+                              "provider",
+                              "issn",
+                              "journal_issn",
+                              "issn1",
+                              "journal_issn1",
+                              "eissn",
+                              "journal_eissn",
+                              "au_feature_key",
+                              "base_url",
+                              "base_url2",
+                              "api_url",
+                              "graphics_url",
+                              "download_url",
+                              "resolver_url",
+                              "year",
+                              "journal_abbr",
+                              "journal_id",
+                              "volume",
+                              "volume_name",
+                              "rights",
+                              "au_config_user_msg",
+                              "hint_applicaton/pdf_filter_factory"));
+
   /** Pool for URL stems. */
   public static StringPool URL_STEMS = new StringPool("URL stems");
   /** Pool for HTTP header names. */
@@ -146,6 +162,7 @@ public class StringPool {
   private Map<String,String> map;
   private boolean sealed = false;
   private Set mapKeys = Collections.EMPTY_SET;
+  private Pattern keyPat;
   private int hits = 0;
 
   public StringPool(String name) {
@@ -204,6 +221,22 @@ public class StringPool {
     return this;
   }
 
+  StringPool setKeyPattern(String keyPattern) {
+    this.keyPat = Pattern.compile(keyPattern);
+    return this;
+  }
+
+  private String lookup(String str) {
+    if (str == null) {
+      return str;
+    }
+    String res = map.get(str);
+    if (res != null) {
+      hits++;
+    }
+    return res;
+  }
+
   /** Return the instance of the string already in the pool, if any, else
    * add this instance and return it.
    * @param str the String to be interned.  If null, null is returned. */
@@ -211,9 +244,8 @@ public class StringPool {
     if (str == null) {
       return str;
     }
-    String res = map.get(str);
+    String res = lookup(str);
     if (res != null) {
-      hits++;
       return res;
     }
     if (sealed) {
@@ -223,7 +255,7 @@ public class StringPool {
     return str;
   }
 
-  public ArrayList<String> internList(List<String> strs) {
+  public synchronized ArrayList<String> internList(List<String> strs) {
     ArrayList<String> res = new ArrayList(strs.size());
     for (String str : strs) {
       res.add(intern(str));
@@ -231,7 +263,7 @@ public class StringPool {
     return res;
   }
 
-  public Set<String> internSet(Set<String> set) {
+  public synchronized Set<String> internSet(Set<String> set) {
     Set<String> res = new HashSet<>();
     for (String val : set) {
       res.add(intern(val));
@@ -247,11 +279,26 @@ public class StringPool {
    * keys whose values should be interned, else the original value.
    */
   public synchronized String internMapValue(String key, String val) {
-    if (mapKeys.contains(key)) {
+    String res = lookup(val);
+    if (res != null) {
+      return res;
+    }
+    if (isInternable(key, val)) {
       return intern(val);
     } else {
       return val;
     }
+  }
+
+  private boolean isInternable(String key, String val) {
+    if (mapKeys.contains(key)) {
+      return true;
+    } else if (SPECIAL_STRINGS.contains(key)) {
+      return true;
+    } else if (keyPat != null && keyPat.matcher(key).matches()) {
+      return true;
+    }
+    return false;
   }
 
   /** Seal the pool, so that no new additions will be made.  If {@link

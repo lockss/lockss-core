@@ -280,10 +280,10 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
 
     // get the base url
     URL baseUrl = loadConfigUrl(ConfigParamDescr.BASE_URL, config);
-//     paramMap.putString(KEY_AU_BASE_URL,
-//                        StringPool.AU_CONFIG_PROPS.intern(baseUrl.toString()));
     paramMap.putString(KEY_AU_BASE_URL,
-                       StringPool.AU_CONFIG_PROPS.intern(config.get(ConfigParamDescr.BASE_URL.getKey())));
+                       StringPool.AU_CONFIG_PROPS.intern(baseUrl.toString()));
+//     paramMap.putString(KEY_AU_BASE_URL,
+//                        StringPool.AU_CONFIG_PROPS.intern(config.get(ConfigParamDescr.BASE_URL.getKey())));
 
     // get the fetch delay
     long minFetchDelay = CurrentConfig.getLongParam(PARAM_MIN_FETCH_DELAY,
