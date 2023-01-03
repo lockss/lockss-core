@@ -269,6 +269,28 @@ public class TestConfiguration extends LockssTestCase4 {
     assertNotSame(tdb1, tdb2);
   }
 
+  String ns(String s) {
+    return new String(s);
+  }
+
+  @Test
+  public void testCopyIntern() throws TdbException {
+    Configuration c1 = newConfiguration();
+    Configuration c2 = newConfiguration();
+    String k1 = "base_url";
+    String k2 = "weoiuweoi";
+    String v1 = "1230498712304";
+    String v2 = "!@#$)(!&@#$)";
+    c1.put(k1, v1);
+    c1.put(k2, v2);
+    c2.put(ns(k1), ns(v1));
+    c2.put(ns(k2), ns(v2));
+    Configuration cc1 = c1.copyIntern(StringPool.AU_CONFIG_PROPS);
+    Configuration cc2 = c2.copyIntern(StringPool.AU_CONFIG_PROPS);
+    assertSame(cc1.get(k1), cc2.get(k1));
+    assertNotSame(cc1.get(k2), cc2.get(k2));
+  }
+
   @Test
   public void testCopyFromEvent() throws TdbException {
     Configuration c1 = newConfiguration();

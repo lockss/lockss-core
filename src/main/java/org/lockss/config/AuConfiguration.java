@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.*;
+import org.lockss.util.StringPool;
 
 /**
  * The encapsulation of an Archival Unit configuration
@@ -46,6 +47,7 @@ import javax.validation.constraints.*;
 @ApiModel(description = "The encapsulation of an Archival Unit configuration")
 
 public class AuConfiguration   {
+
   @JsonProperty("auId")
   private String auId = null;
 
@@ -84,8 +86,20 @@ public class AuConfiguration   {
 	  + "'");
     }
 
-    this.auId = auId;
+    setAuId(auId);
     this.auConfig = auConfig;
+    intern();
+  }
+
+  public AuConfiguration intern() {
+    Map<String,String> res = new HashMap<>();
+    for (Map.Entry<String,String> ent : auConfig.entrySet()) {
+      res.put(StringPool.AU_CONFIG_PROPS.intern(ent.getKey()),
+              StringPool.AU_CONFIG_PROPS.internMapValue(ent.getKey(),
+                                                        ent.getValue()));
+    }
+    auConfig = res;
+    return this;
   }
 
   public AuConfiguration auId(String auId) {
@@ -95,7 +109,7 @@ public class AuConfiguration   {
 	  + auId + "'");
     }
 
-    this.auId = auId;
+    this.auId = StringPool.AUIDS.intern(auId);
     return this;
   }
 
@@ -123,13 +137,7 @@ public class AuConfiguration   {
   }
 
   public void setAuId(String auId) {
-    // Validation.
-    if (auId == null || auId.trim().isEmpty()) {
-      throw new IllegalArgumentException("Invalid Archival Unit identifier: '"
-	  + auId + "'");
-    }
-
-    this.auId = auId;
+    auId(auId);
   }
 
   public AuConfiguration auConfig(Map<String, String> auConfig) {
@@ -144,7 +152,8 @@ public class AuConfiguration   {
   }
 
   public AuConfiguration putAuConfigItem(String key, String auConfigItem) {
-    this.auConfig.put(key, auConfigItem);
+    this.auConfig.put(StringPool.AU_CONFIG_PROPS.intern(key),
+                      StringPool.AU_CONFIG_PROPS.intern(auConfigItem));
     return this;
   }
 

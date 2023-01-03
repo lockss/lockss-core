@@ -188,7 +188,13 @@ public abstract class Configuration {
    */
   public Configuration copy() {
     Configuration copy = ConfigManager.newConfiguration();
-    copy.copyFrom(this);
+    copy.copyFrom(this, null, null);
+    return copy;
+  }
+
+  public Configuration copyIntern(StringPool pool) {
+    Configuration copy = ConfigManager.newConfiguration();
+    copy.copyFrom(this, null, pool);
     return copy;
   }
 
@@ -210,10 +216,18 @@ public abstract class Configuration {
    * @pse null, or an event to be called for every param copied
    */
   public void copyFrom(Configuration other, ParamCopyEvent pse) {
+    copyFrom(other, pse, null);
+  }
+
+  public void copyFrom(Configuration other, ParamCopyEvent pse, StringPool pool) {
     // merge other config tree into this one
     for (Iterator iter = other.keyIterator(); iter.hasNext(); ) {
       String key = (String)iter.next();
       String val = other.get(key);
+      if (pool != null) {
+        key = pool.intern(key);
+        val = pool.internMapValue(key, val);
+      }
       if (pse != null) {
 	pse.paramCopied(key, val);
       }

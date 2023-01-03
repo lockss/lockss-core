@@ -791,6 +791,9 @@ public class RestConfigClient {
       log.error("Cannot get body of response", e);
     }
 
+    for (AuConfiguration auc : result) {
+      auc.intern();
+    }
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -837,6 +840,9 @@ public class RestConfigClient {
 	    "Cannot get AU configuration");
 
     AuConfiguration result = response.getBody();
+    if (result != null) {
+      result.intern();
+    }
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -882,6 +888,9 @@ public class RestConfigClient {
 	    "Cannot delete AU configuration");
 
     AuConfiguration result = response.getBody();
+    if (result != null) {
+      result.intern();
+    }
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
