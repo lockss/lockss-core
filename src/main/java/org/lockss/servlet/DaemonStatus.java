@@ -61,6 +61,8 @@ public class DaemonStatus extends BaseDaemonStatus {
   protected void resetLocals() {
     super.resetLocals();
     rules = null;
+    statTable = null;
+    rules = null;
   }
 
   public void init(ServletConfig config) throws ServletException {
