@@ -293,7 +293,7 @@ public class StringPool {
   private boolean isInternable(String key, String val) {
     if (mapKeys.contains(key)) {
       return true;
-    } else if (SPECIAL_STRINGS.contains(key)) {
+    } else if (SPECIAL_STRINGS.contains(val)) {
       return true;
     } else if (keyPat != null && keyPat.matcher(key).matches()) {
       return true;

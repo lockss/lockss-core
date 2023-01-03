@@ -108,6 +108,9 @@ public class TestStringPool extends LockssTestCase {
     assertSame(v4, pool.internMapValue("text/pdf_floober_foundry", v4));
     assertNotSame(v4, pool.internMapValue("text/pdf_floober_foundry",
                                           new String(v4)));
+    String t1 = "true";
+    assertSame(t1, pool.internMapValue("uncommon_key", t1));
+    assertSame(t1, pool.internMapValue("uncommon_key", new String(t1)));
   }
 
   public void testPredefined() {
