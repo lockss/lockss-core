@@ -82,23 +82,23 @@ public class TestAlertPatterns extends LockssTestCase {
 
   public void testPred() {
     assertMatch(AlertPatterns.EQ(ATTR1, "test text"));
-    assertMatch(AlertPatterns.EQ(ATTR2, new Integer(7)));
+    assertMatch(AlertPatterns.EQ(ATTR2, Integer.valueOf(7)));
     assertNoMatch(AlertPatterns.NE(ATTR1, "test text"));
-    assertNoMatch(AlertPatterns.NE(ATTR2, new Integer(7)));
+    assertNoMatch(AlertPatterns.NE(ATTR2, Integer.valueOf(7)));
 
-    assertMatch(AlertPatterns.GT(ATTR2, new Integer(6)));
-    assertNoMatch(AlertPatterns.GT(ATTR2, new Integer(7)));
-    assertNoMatch(AlertPatterns.GT(ATTR2, new Integer(8)));
-    assertMatch(AlertPatterns.GE(ATTR2, new Integer(6)));
-    assertMatch(AlertPatterns.GE(ATTR2, new Integer(7)));
-    assertNoMatch(AlertPatterns.GE(ATTR2, new Integer(8)));
+    assertMatch(AlertPatterns.GT(ATTR2, Integer.valueOf(6)));
+    assertNoMatch(AlertPatterns.GT(ATTR2, Integer.valueOf(7)));
+    assertNoMatch(AlertPatterns.GT(ATTR2, Integer.valueOf(8)));
+    assertMatch(AlertPatterns.GE(ATTR2, Integer.valueOf(6)));
+    assertMatch(AlertPatterns.GE(ATTR2, Integer.valueOf(7)));
+    assertNoMatch(AlertPatterns.GE(ATTR2, Integer.valueOf(8)));
 
-    assertNoMatch(AlertPatterns.LT(ATTR2, new Integer(6)));
-    assertNoMatch(AlertPatterns.LT(ATTR2, new Integer(7)));
-    assertMatch(AlertPatterns.LT(ATTR2, new Integer(8)));
-    assertNoMatch(AlertPatterns.LE(ATTR2, new Integer(6)));
-    assertMatch(AlertPatterns.LE(ATTR2, new Integer(7)));
-    assertMatch(AlertPatterns.LE(ATTR2, new Integer(8)));
+    assertNoMatch(AlertPatterns.LT(ATTR2, Integer.valueOf(6)));
+    assertNoMatch(AlertPatterns.LT(ATTR2, Integer.valueOf(7)));
+    assertMatch(AlertPatterns.LT(ATTR2, Integer.valueOf(8)));
+    assertNoMatch(AlertPatterns.LE(ATTR2, Integer.valueOf(6)));
+    assertMatch(AlertPatterns.LE(ATTR2, Integer.valueOf(7)));
+    assertMatch(AlertPatterns.LE(ATTR2, Integer.valueOf(8)));
 
     assertMatch(AlertPatterns.CONTAINS(ATTR1, ListUtil.list("four",
 							    "test text")));
@@ -119,8 +119,8 @@ public class TestAlertPatterns extends LockssTestCase {
   public void testBool() {
     AlertPattern t1 = AlertPatterns.EQ(ATTR1, "test text");
     AlertPattern f1 = AlertPatterns.EQ(ATTR1, "foo bar");
-    AlertPattern t2 = AlertPatterns.GT(ATTR2, new Integer(4));
-    AlertPattern f2 = AlertPatterns.LT(ATTR2, new Integer(4));
+    AlertPattern t2 = AlertPatterns.GT(ATTR2, Integer.valueOf(4));
+    AlertPattern f2 = AlertPatterns.LT(ATTR2, Integer.valueOf(4));
 
     assertMatch(AlertPatterns.Not(f1));
     assertNoMatch(AlertPatterns.Not(t1));

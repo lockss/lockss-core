@@ -52,7 +52,7 @@ public class OrderedObject implements Comparable {
   /** Create an OrderedObject with the specified value and order
    */
   public OrderedObject(Object value, int order) {
-    this(value, new Integer(order));
+    this(value, Integer.valueOf(order));
   }
 
   /** Create an OrderedObject with the same value and order

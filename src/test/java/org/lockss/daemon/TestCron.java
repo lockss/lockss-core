@@ -120,21 +120,21 @@ public class TestCron extends LockssTestCase {
     if (!sem.take(TIMEOUT_SHOULDNT)) {
       fail("Task didn't finish");
     }
-    assertEquals(ListUtil.list(new Long(1010)), task.getTrace());
+    assertEquals(ListUtil.list(Long.valueOf(1010)), task.getTrace());
     assertEquals(1010, cron.getState().getLastTime("TestTask"));
     TimeBase.step(10);
-    assertEquals(ListUtil.list(new Long(1010)), task.getTrace());
+    assertEquals(ListUtil.list(Long.valueOf(1010)), task.getTrace());
     TimeBase.step(10);
-    assertEquals(ListUtil.list(new Long(1010)), task.getTrace());
+    assertEquals(ListUtil.list(Long.valueOf(1010)), task.getTrace());
     TimeBase.step(70);
-    assertEquals(ListUtil.list(new Long(1010)), task.getTrace());
+    assertEquals(ListUtil.list(Long.valueOf(1010)), task.getTrace());
     task.setRet(false);
     TimeBase.step(20);
     // task should have run again, but not updated next run time
     if (!sem.take(TIMEOUT_SHOULDNT)) {
       fail("Task didn't finish");
     }
-    assertEquals(ListUtil.list(new Long(1010), new Long(1120)),
+    assertEquals(ListUtil.list(Long.valueOf(1010), Long.valueOf(1120)),
 		 task.getTrace());
     assertEquals(1010, cron.getState().getLastTime("TestTask"));
     task.setRet(true);
@@ -144,7 +144,7 @@ public class TestCron extends LockssTestCase {
       fail("Task didn't finish");
     }
     assertEquals(1130, cron.getState().getLastTime("TestTask"));
-    assertEquals(ListUtil.list(new Long(1010), new Long(1120), new Long(1130)),
+    assertEquals(ListUtil.list(Long.valueOf(1010), Long.valueOf(1120), Long.valueOf(1130)),
 		 task.getTrace());
   }
 
@@ -166,18 +166,18 @@ public class TestCron extends LockssTestCase {
     assertNotNull("Task didn't start", start1);
     assertEquals(Long.valueOf(1010), start1);
 
-    assertEquals(ListUtil.list(new Long(1010)), task.getTrace());
+    assertEquals(ListUtil.list(Long.valueOf(1010)), task.getTrace());
     // Task is waiting, shouldn't have updated its last run time
     assertEquals(0, cron.getState().getLastTime("TestTask"));
     TimeBase.step(10);
     assertEquals("Task should have run exactly once",
 		 1, task.getTrace().size());
     assertEquals("Task should have run exactly once",
-		 ListUtil.list(new Long(1010)), task.getTrace());
+		 ListUtil.list(Long.valueOf(1010)), task.getTrace());
     TimeBase.step(10);
-    assertEquals(ListUtil.list(new Long(1010)), task.getTrace());
+    assertEquals(ListUtil.list(Long.valueOf(1010)), task.getTrace());
     TimeBase.step(70);
-    assertEquals(ListUtil.list(new Long(1010)), task.getTrace());
+    assertEquals(ListUtil.list(Long.valueOf(1010)), task.getTrace());
     TimeBase.step(20);
     // task should not run again while still running
     Long start2 = task.waitStart(TIMEOUT_SHOULD);
@@ -196,7 +196,7 @@ public class TestCron extends LockssTestCase {
     task.endWait();
     assertTrue("Second task didn't finish", sem.take(TIMEOUT_SHOULDNT));
     assertEquals(1220, cron.getState().getLastTime("TestTask"));
-    assertEquals(ListUtil.list(new Long(1010), new Long(1220)),
+    assertEquals(ListUtil.list(Long.valueOf(1010), Long.valueOf(1220)),
 		 task.getTrace());
   }
 
@@ -343,7 +343,7 @@ public class TestCron extends LockssTestCase {
     }
 
     public boolean execute() {
-      trace.add(new Long(TimeBase.nowMs()));
+      trace.add(Long.valueOf(TimeBase.nowMs()));
       startTimes.put(TimeBase.nowMs());
       if (endSem != null) {
 	endSem.take();

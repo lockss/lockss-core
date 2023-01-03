@@ -1522,7 +1522,7 @@ public class ProxyHandler extends AbstractHttpHandler {
                      Collection<ArchivalUnit> candidateAus)
       throws HttpException, IOException {
     response.setStatus(code);
-    Integer codeInt = new Integer(code);
+    Integer codeInt = Integer.valueOf(code);
     String respMsg = (String)HttpResponse.__statusMsg.get(codeInt);
     if (respMsg != null) {
       response.setReason(respMsg);

@@ -121,7 +121,7 @@ public class TestAuHealthMetric extends LockssTestCase {
     Map map = new HashMap();
     for (int ix = 0; ix < 3; ix++) {
       MockPeerIdentity id = new MockPeerIdentity("127.0.0."+ix);
-      map.put(id, new Long(10+ix));
+      map.put(id, Long.valueOf(10+ix));
     }
     idm.setAgeedForAu(au, map);
   }

@@ -46,7 +46,7 @@ public class StatusTable {
   public static final int OPTION_NO_ROWS = 1;
   public static final int OPTION_DEBUG_USER = 2;
   public static final OrderedObject NO_VALUE =
-    new OrderedObject("-", new Long(-1));
+    new OrderedObject("-", Long.valueOf(-1));
 
   public static final String PROP_COLUMNS = "columns";
 
@@ -261,7 +261,8 @@ public class StatusTable {
     link.setProperty("skiprows", Integer.toString(startRow));
     link.setProperty("numrows", Integer.toString(numRows));
     rowMap.put(column, link);
-    rowMap.put("sort", new Integer(isNext ? Integer.MAX_VALUE : -1));
+    rowMap.put("sort", (isNext ? Integer.MAX_VALUE : Integer.valueOf(-1)));
+
     return rowMap;
   }
 
@@ -1116,7 +1117,7 @@ public class StatusTable {
     }
 
     public SummaryInfo(String title, int type, int value) {
-      this(title, type, new Integer(value));
+      this(title, type, Integer.valueOf(value));
     }
 
     public String getTitle() {

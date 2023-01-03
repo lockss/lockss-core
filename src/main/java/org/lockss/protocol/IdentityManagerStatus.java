@@ -184,23 +184,23 @@ public class IdentityManagerStatus
   private Map makeRow(PeerIdentity pid, PeerIdentityStatus status) {
     Map row = new HashMap();
     row.put("ip", pid.getIdString());
-    row.put("lastMessage", new Long(status.getLastMessageTime()));
+    row.put("lastMessage", Long.valueOf(status.getLastMessageTime()));
     row.put("lastOp", getMessageType(status.getLastMessageOpCode()));
-    row.put("origTot", new Long(status.getTotalMessages()));
+    row.put("origTot", Long.valueOf(status.getTotalMessages()));
     row.put("origPoller",
-            new Long(status.getTotalPollerPolls()));
+            Long.valueOf(status.getTotalPollerPolls()));
     row.put("origLastPoller",
-            new Long(status.getLastPollerTime()));
+            Long.valueOf(status.getLastPollerTime()));
     row.put("origVoter",
-            new Long(status.getTotalVoterPolls()));
+            Long.valueOf(status.getTotalVoterPolls()));
     row.put("origLastVoter",
-            new Long(status.getLastVoterTime()));
+            Long.valueOf(status.getLastVoterTime()));
     row.put("origLastInvitation",
-            new Long(status.getLastPollInvitationTime()));
+            Long.valueOf(status.getLastPollInvitationTime()));
     row.put("origTotalInvitations",
-            new Long(status.getTotalPollInvitatioins()));
+            Long.valueOf(status.getTotalPollInvitatioins()));
     row.put("pollsRejected",
-            new Long(status.getTotalRejectedPolls()));
+            Long.valueOf(status.getTotalRejectedPolls()));
     row.put("pollNak",
             status.getLastPollNak());
     row.put("groups",

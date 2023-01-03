@@ -73,14 +73,14 @@ public class TestPrivilegedAccessor extends LockssTestCase {
   public void testChild() throws Exception {
     MyMockChild child = new MyMockChild("Charlie", 8);
     assertEquals("Charlie", PrivilegedAccessor.getValue(child, "m_name"));
-    assertEquals(new Integer(8),
+    assertEquals(Integer.valueOf(8),
 		 PrivilegedAccessor.getValue(child, "m_number"));
 
     PrivilegedAccessor.invokeMethod(child, "setName", "Timmah!");
-    PrivilegedAccessor.invokeMethod(child, "setNumber", new Integer(3));
+    PrivilegedAccessor.invokeMethod(child, "setNumber", Integer.valueOf(3));
 
     assertEquals("Timmah!", PrivilegedAccessor.getValue(child,"m_name"));
-    assertEquals(new Integer(3),
+    assertEquals(Integer.valueOf(3),
 		 PrivilegedAccessor.getValue(child, "m_number"));
   }
 
@@ -93,14 +93,14 @@ public class TestPrivilegedAccessor extends LockssTestCase {
   public void testChildWithParentReference() throws Exception {
     MyMockParent parent = new MyMockChild("Charlie", 8);
     assertEquals("Charlie", PrivilegedAccessor.getValue(parent, "m_name"));
-    assertEquals(new Integer(8),
+    assertEquals(Integer.valueOf(8),
 		 PrivilegedAccessor.getValue(parent, "m_number"));
 
-    Object args[] = {"Timmah!", new Integer(3)};
+    Object args[] = {"Timmah!", Integer.valueOf(3)};
     PrivilegedAccessor.invokeMethod(parent, "setData", args);
 
     assertEquals("Timmah!", PrivilegedAccessor.getValue(parent,"m_name"));
-    assertEquals(new Integer(3),
+    assertEquals(Integer.valueOf(3),
 		 PrivilegedAccessor.getValue(parent, "m_number"));
 
     PrivilegedAccessor.invokeMethod(parent, "setName", "prashant");
@@ -160,7 +160,7 @@ public class TestPrivilegedAccessor extends LockssTestCase {
   @Deprecated
   public void testInstanceParam() throws Exception {
     try {
-      new PrivilegedAccessor.Instance(String.class, new Float(5));
+      new PrivilegedAccessor.Instance(String.class, Float.valueOf(5));
       fail("PrivilegedAccessor.Instance should have thrown ClassCastException");
     } catch (ClassCastException e) {
     }
@@ -214,24 +214,23 @@ public class TestPrivilegedAccessor extends LockssTestCase {
   public void testUnambiguousArg() throws Exception {
     MyMockParent parent = new MyMockParent();
     MyMockChild child = new MyMockChild("Charlie", 8);
-    Object[] args1 = {new Integer(1), new Float(2)};
-    Object[] args2 = {new Float(1), new Integer(2)};
-    Object[] args3 = {new Float(1), new PrivilegedAccessor.Instance(Number.class, new Float(2.0))};
+    Object[] args1 = {Integer.valueOf(1), Float.valueOf(2)};
+    Object[] args2 = {Float.valueOf(1), Integer.valueOf(2)};
+    Object[] args3 = {Float.valueOf(1), new PrivilegedAccessor.Instance(Number.class, Float.valueOf(2.0F))};
     assertEquals("parent.string",
 		 PrivilegedAccessor.invokeMethod(parent, "over", "foo"));
     assertEquals("child.string",
 		 PrivilegedAccessor.invokeMethod(child, "over", "foo"));
     assertEquals("child.number",
 		 PrivilegedAccessor.invokeMethod(child, "over",
-						 new Integer(1)));
+						 Integer.valueOf(1)));
     assertEquals("child.float",
-		 PrivilegedAccessor.invokeMethod(child, "over",
-						 new Float(1.2)));
+		 PrivilegedAccessor.invokeMethod(child, "over", Float.valueOf(1.2F)));
     assertEquals("child.number",
 		 PrivilegedAccessor.invokeMethod(child, "over",
 						 new PrivilegedAccessor.
 						   Instance(Number.class,
-							    new Float(1.2))));
+							    Float.valueOf(1.2F))));
 
     assertEquals("child.number.float",
 		 PrivilegedAccessor.invokeMethod(child, "over", args1));
@@ -249,7 +248,7 @@ public class TestPrivilegedAccessor extends LockssTestCase {
   @Deprecated
   public void testAmbiguousArg() throws Exception {
     MyMockChild child = new MyMockChild("Charlie", 8);
-    Object[] args1 = {new Float(1), new Float(2)};
+    Object[] args1 = {Float.valueOf(1), Float.valueOf(2)};
     try {
       PrivilegedAccessor.invokeMethod(child, "over", args1);
       fail("invokeMethod should have thrown an AmbiguousMethodException");
@@ -299,7 +298,7 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     ClassWithPrivateConstructor c =
       (ClassWithPrivateConstructor)
       PrivilegedAccessor.invokeConstructor(ClassWithPrivateConstructor.class,
-					   new Integer(7));
+					   Integer.valueOf(7));
     assertEquals(1, c.getN());
   }
 
@@ -310,9 +309,9 @@ public class TestPrivilegedAccessor extends LockssTestCase {
    */
   @Deprecated
   public void testUnambiguousConstructor() throws Exception {
-    Object[] args1 = {new Integer(7),
+    Object[] args1 = {Integer.valueOf(7),
 		      new ClassWithPrivateConstructor.Sub()};
-    Object[] args2 = {new Integer(7),
+    Object[] args2 = {Integer.valueOf(7),
 		      new ClassWithPrivateConstructor.Super()};
 
     ClassWithPrivateConstructor c1 =
@@ -350,7 +349,7 @@ public class TestPrivilegedAccessor extends LockssTestCase {
     ClassWithPrivateConstructor c =
       (ClassWithPrivateConstructor)
       PrivilegedAccessor.invokeConstructor("org.lockss.test.ClassWithPrivateConstructor",
-					   new Integer(7));
+					   Integer.valueOf(7));
     assertEquals(1, c.getN());
   }
 
@@ -361,9 +360,9 @@ public class TestPrivilegedAccessor extends LockssTestCase {
    */
   @Deprecated
   public void testUnambiguousConstructorByName() throws Exception {
-    Object[] args1 = {new Integer(7),
+    Object[] args1 = {Integer.valueOf(7),
 		      new ClassWithPrivateConstructor.Sub()};
-    Object[] args2 = {new Integer(7),
+    Object[] args2 = {Integer.valueOf(7),
 		      new ClassWithPrivateConstructor.Super()};
 
     ClassWithPrivateConstructor c1 =

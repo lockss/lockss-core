@@ -79,7 +79,7 @@ public class PsmMsgEvent extends PsmEvent {
    */
   public static PsmMsgEvent fromMessage(V3LcapMessage msg, Map opcodeMap) {
     PsmMsgEvent inst =
-      (PsmMsgEvent)opcodeMap.get(new Integer(msg.getOpcode()));
+      (PsmMsgEvent)opcodeMap.get(Integer.valueOf(msg.getOpcode()));
     if (inst == null) {
       return new PsmMsgEvent(msg);
     }

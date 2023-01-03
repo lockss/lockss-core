@@ -855,7 +855,7 @@ public class TestBaseArchivalUnit extends LockssTestCase {
     assertEquals(10000, pmap.getLong(key));
     // now add the param handler and check the return
     MyParamHandler handler = new MyParamHandler();
-    handler.addParamAndValue(key, new Long(30000));
+    handler.addParamAndValue(key, Long.valueOf(30000));
     pmap.addParamHandler(key, handler);
     assertEquals(30000, pmap.getLong(key));
     // now check remove works

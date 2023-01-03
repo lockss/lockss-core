@@ -358,10 +358,10 @@ public abstract class LockssServlet extends HttpServlet
     synchronized (session) {
       Integer id = (Integer)getSession().getAttribute(SESSION_KEY_OBJECT_ID);
       if (id == null) {
-	id = new Integer(1);
+	id = Integer.valueOf(1);
       }
       session.setAttribute(SESSION_KEY_OBJECT_ID,
-			   new Integer(id.intValue() + 1));
+			   Integer.valueOf(id.intValue() + 1));
       return id.toString();
     }
   }    

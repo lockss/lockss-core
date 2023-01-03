@@ -494,7 +494,7 @@ public class ParamDoclet {
       fld.setAccessible(true);
       Class cls = fld.getType();
       if (int.class == cls) {
-	defaultVal = (new Integer(fld.getInt(null))).toString();
+	defaultVal = (Integer.valueOf(fld.getInt(null))).toString();
       } else if (long.class == cls) {
 	long timeVal = fld.getLong(null);
 	if (timeVal > 0) {
@@ -504,7 +504,7 @@ public class ParamDoclet {
 	  defaultVal = Long.toString(timeVal);
 	}
       } else if (boolean.class == cls) {
-	defaultVal = (new Boolean(fld.getBoolean(null))).toString();
+	defaultVal = (Boolean.valueOf(fld.getBoolean(null))).toString();
       } else {
 	try {
 	  // This will throw NPE if the field isn't static; don't know how

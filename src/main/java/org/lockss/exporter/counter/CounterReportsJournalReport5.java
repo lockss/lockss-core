@@ -226,24 +226,24 @@ public class CounterReportsJournalReport5 extends CounterReportsJournalReport {
     List<Integer> yops = new ArrayList<Integer>();
 
     // The first group is for the articles in press (YOP in the future).
-    yops.add(new Integer(0));
+    yops.add(Integer.valueOf(0));
 
     // Loop through all the years after the first one in this decade.
     while (year % 10 != 0) {
-      yops.add(new Integer(year--));
+      yops.add(Integer.valueOf(year--));
     }
 
     // Loop through the first year in this decade and all the years in the
     // previous decade.
     for (int i = 0; i < 11; i++) {
-      yops.add(new Integer(year--));
+      yops.add(Integer.valueOf(year--));
     }
 
     // The group for the prior years.
-    yops.add(new Integer(0));
+    yops.add(Integer.valueOf(0));
 
     // The group for the unknown publication years.
-    yops.add(new Integer(0));
+    yops.add(Integer.valueOf(0));
 
     pubYears = ArrayUtils.toPrimitive(yops.toArray(new Integer[yops.size()]));
     

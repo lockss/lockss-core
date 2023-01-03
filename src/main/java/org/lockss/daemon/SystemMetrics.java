@@ -181,8 +181,8 @@ public class SystemMetrics
     Integer estimate = (Integer)estimateTable.get(digest.getAlgorithm());
     if (estimate==null) {
       // don't calculate; use default instead
-      estimate = new Integer(defaultSpeed);
-      //      estimate = new Integer(measureHashSpeed(hasher, digest));
+      estimate = Integer.valueOf(defaultSpeed);
+      //      estimate = Integer.valueOf(measureHashSpeed(hasher, digest));
       estimateTable.put(digest.getAlgorithm(), estimate);
     }
     return estimate.intValue();

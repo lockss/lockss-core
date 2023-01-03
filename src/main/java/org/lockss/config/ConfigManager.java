@@ -1269,7 +1269,7 @@ public class ConfigManager implements LockssManager {
   }
 
   void setGeneration(String url, int gen) {
-    generationMap.put(url, new Integer(gen));
+    generationMap.put(url, Integer.valueOf(gen));
   }
 
   /**

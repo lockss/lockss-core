@@ -275,11 +275,11 @@ public class ParamDoc {
 	  fld.setAccessible(true);
 	  Class cls = fld.getType();
 	  if (int.class == cls) {
-	    defaultVal = new Integer(fld.getInt(null));
+	    defaultVal = Integer.valueOf(fld.getInt(null));
 	  } else if (long.class == cls) {
-	    defaultVal = new Long(fld.getLong(null));
+	    defaultVal = Long.valueOf(fld.getLong(null));
 	  } else if (boolean.class == cls) {
-	    defaultVal = new Boolean(fld.getBoolean(null));
+	    defaultVal = Boolean.valueOf(fld.getBoolean(null));
 	  } else {
 	    defaultVal = fld.get(null);
 	  }

@@ -104,8 +104,8 @@ public class TestFileBackedList extends LockssTestCase {
         assertEquals((i % 6 == 0) ? -((Integer)giantListGet(i + 6)).intValue() : giantListGet(i + 6), list.get(i));
       }
       // Other operations
-      assertTrue(list.contains(new Float(2.1234f)));
-      assertEquals(7, list.indexOf(new Float(2.1234f)));
+      assertTrue(list.contains(Float.valueOf(2.1234f)));
+      assertEquals(7, list.indexOf(Float.valueOf(2.1234f)));
     }
   }
   
@@ -115,12 +115,12 @@ public class TestFileBackedList extends LockssTestCase {
     int num = listIndex / 6;
     int typ = listIndex % 6;
     switch (typ) {
-      case 0: return new Integer(num);
-      case 1: return new Float(0.1234f + num);
-      case 2: return new Long(num);
-      case 3: return new Double(0.1234 + num);
+      case 0: return Integer.valueOf(num);
+      case 1: return Float.valueOf(0.1234f + num);
+      case 2: return Long.valueOf(num);
+      case 3: return Double.valueOf(0.1234 + num);
       case 4: return Integer.toString(num);
-      case 5: return Arrays.asList(new Integer(num), new Float(0.1234f + num), Integer.toString(num));
+      case 5: return Arrays.asList(Integer.valueOf(num), Float.valueOf(0.1234f + num), Integer.toString(num));
     }
     fail(String.format("Should never happen; listIndex=%d, num=%d, typ=%d", listIndex, num, typ));
     return null;

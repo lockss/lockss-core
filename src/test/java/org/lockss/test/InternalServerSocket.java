@@ -98,7 +98,7 @@ public class InternalServerSocket extends ServerSocket {
   public static int findUnboundPort(int above) {
     synchronized (bindings) {
       for (int port = above; port <= 65535; port++) {
-	if (!bindings.containsKey(new Integer(port))) {
+	if (!bindings.containsKey(Integer.valueOf(port))) {
 	  return port;
 	}
       }
@@ -119,7 +119,7 @@ public class InternalServerSocket extends ServerSocket {
     try {
       synchronized (bindings) {
 	if (port != 0) {
-	  if (bindings.containsKey(new Integer(port))) {
+	  if (bindings.containsKey(Integer.valueOf(port))) {
 	    throw new BindException("Internal port " + port +
 				    " already in use");
 	  }
@@ -130,7 +130,7 @@ public class InternalServerSocket extends ServerSocket {
 	    // try to fit into the 2-byte range
 	    if (i<4) port = port & 0x3FFF;
 	    else if (i<8) port = port & 0xFFFF;
-	    if (port > 1024 && !bindings.containsKey(new Integer(port))) {
+	    if (port > 1024 && !bindings.containsKey(Integer.valueOf(port))) {
 	      ok = true;
 	      break;
 	    }
@@ -142,7 +142,7 @@ public class InternalServerSocket extends ServerSocket {
 	}
 
 	// at this point, we have established an available port number
-	bindings.put(new Integer(port), this);
+	bindings.put(Integer.valueOf(port), this);
       }
       log.debug("Binding port " + port);
       localPort = port;
@@ -226,7 +226,7 @@ public class InternalServerSocket extends ServerSocket {
     connectionQueue.put(TERMINATOR);
     if (isBound()) {
       synchronized (bindings) {
-	bindings.remove(new Integer(localPort));
+	bindings.remove(Integer.valueOf(localPort));
       }
     }
   }
@@ -265,7 +265,7 @@ public class InternalServerSocket extends ServerSocket {
       throws IOException {
     InternalServerSocket srvsock;
     synchronized (bindings) {
-      srvsock = (InternalServerSocket)bindings.get(new Integer(port));
+      srvsock = (InternalServerSocket)bindings.get(Integer.valueOf(port));
     }
     if (srvsock == null) {
       throw new IOException("Connection refused (server not listening)");

@@ -50,7 +50,7 @@ public class TestSimpleQueue extends LockssTestCase {
   };
 
   String O1 = "foo";
-  Integer O2 = new Integer(42);
+  Integer O2 = Integer.valueOf(42);
 
   public TestSimpleQueue(String msg) {
     super(msg);

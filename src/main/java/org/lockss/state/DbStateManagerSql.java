@@ -250,7 +250,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
         dbJson = uncompressJson(dbJson, "AuState");
 
         Map<String, Object> dbMap = AuUtil.jsonToMap(dbJson);
-        dbMap.put("auCreationTime", new Long(resultSet.getLong(CREATION_TIME_COLUMN)));
+        dbMap.put("auCreationTime", Long.valueOf(resultSet.getLong(CREATION_TIME_COLUMN)));
 	result = AuUtil.mapToJson(dbMap);
       }
     } catch (SQLException sqle) {

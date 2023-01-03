@@ -56,7 +56,7 @@ public class TestLockssTestCase extends LockssTestCase {
   public void testIso() {
     Vector v1 = new Vector();
     String a0[] = {};
-    Object a1[] = {"12", new Integer(42)};
+    Object a1[] = {"12", Integer.valueOf(42)};
     assertIsomorphic(a0, v1);
 
     boolean exceptionThrown = false;

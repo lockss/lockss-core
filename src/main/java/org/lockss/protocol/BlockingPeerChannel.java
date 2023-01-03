@@ -1203,7 +1203,7 @@ class BlockingPeerChannel implements PeerChannel {
 
     public void setTimeout(long timeout) {
       timerReq = TimerQueue.schedule(Deadline.in(timeout), closer,
-				     new Long(timeout));
+				     Long.valueOf(timeout));
     }
 
     String getRunnerName() {

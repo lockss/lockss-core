@@ -525,7 +525,7 @@ public class LockssRepositoryStatus {
           continue;
         }
 	Map row = makeRow(rs, art);
-	row.put("sort", new Integer(curRow));
+	row.put("sort", Integer.valueOf(curRow));
 	rows.add(row);
       }
       if (artIter.hasNext()) {

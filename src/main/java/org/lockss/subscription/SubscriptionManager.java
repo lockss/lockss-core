@@ -3284,8 +3284,8 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
     public int compare(Entry<String, PlatformUtil.DF> o1,
 	Entry<String, PlatformUtil.DF> o2) {
       // Sort by available space.
-      return ((new Long(o1.getValue().getAvail()))
-	  .compareTo(new Long(o2.getValue().getAvail())));
+      return ((Long.valueOf(o1.getValue().getAvail()))
+	  .compareTo(Long.valueOf(o2.getValue().getAvail())));
     }
   };
 

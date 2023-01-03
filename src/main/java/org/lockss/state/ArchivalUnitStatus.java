@@ -332,16 +332,15 @@ public class ArchivalUnitStatus
         AuSize ausize = AuUtil.getAuSize(au);
         long contentSize = ausize.getTotalLatestVersions();
         if (contentSize != -1) {
-          rowMap.put("AuSize", new Long(contentSize));
+          rowMap.put("AuSize", contentSize);
         }
         long allvers = ausize.getTotalAllVersions();
         if (allvers != -1) {
-          rowMap.put("AllVersSize", new Long(allvers));
+          rowMap.put("AllVersSize", allvers);
         }
         if (ausize.getTotalWarcSize() != null) {
           rowMap.put("DiskUsage",
-                     new Double(((double)ausize.getTotalWarcSize()) /
-                                (1024*1024)));
+                     (double)ausize.getTotalWarcSize() / (1024*1024));
         }
       }
       long lastCrawl = auState.getLastCrawlTime();
@@ -349,7 +348,7 @@ public class ArchivalUnitStatus
       int lastResultCode = auState.getLastCrawlResult();
       String lastResult = auState.getLastCrawlResultMsg();
 
-      rowMap.put("AuLastCrawl", new Long(lastCrawl));
+      rowMap.put("AuLastCrawl", lastCrawl);
       // AuState files that show a successful crawl but no lastAttempt just
       // have uninitialized lastXxx fields.  Display time and status of
       // last successful instead
@@ -358,7 +357,7 @@ public class ArchivalUnitStatus
         lastResultCode = Crawler.STATUS_SUCCESSFUL;
         lastResult = "Successful";
       }
-      rowMap.put("AuLastCrawlAttempt", new Long(lastAttempt));
+      rowMap.put("AuLastCrawlAttempt", lastAttempt);
       Object lastCrawlStatus =
           lastCrawlStatus(au, lastCrawl, lastResultCode, lastResult);
       if (lastCrawlStatus != null) {
@@ -371,14 +370,14 @@ public class ArchivalUnitStatus
       }
 
       rowMap.put("Peers", PeerRepair.makeAuRef("peers", au.getAuId()));
-      rowMap.put("AuLastPoll", new Long(auState.getLastTimePollCompleted()));
+      rowMap.put("AuLastPoll", auState.getLastTimePollCompleted());
 
       Object stat;
 //       try {
 // 	PollManager.V3PollStatusAccessor v3status =
 // 	  theDaemon.getPollManager().getV3Status();
 // 	int numPolls = v3status.getNumPolls(au.getAuId());
-// 	rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
+// 	rowMap.put("AuPolls", pollsRef(numPolls, au));
 //       } catch (RuntimeException e) {
 // 	logger.warning("Can't get poll status for " + au.getName() + ": " +
 // 		       e.getMessage());
@@ -663,7 +662,7 @@ public class ArchivalUnitStatus
         rowMap.put("Size", val);
 
         int version = cu.getVersion();
-        Object versionObj = new Long(version);
+        Object versionObj = Long.valueOf(version);
         if (version > 1) {
           CachedUrl[] cuVersions = cu.getCuVersions(2);
           if (cuVersions.length > 1) {
@@ -823,7 +822,7 @@ public class ArchivalUnitStatus
 //             normUrl = normUrl.substring(0, normUrl.length() - 1);
 //           }
           Map row = makeRow(au, cu, startUrls);
-          row.put("sort", new Integer(curRow));
+          row.put("sort", curRow);
           rowL.add(row);
         } finally {
           AuUtil.safeRelease(cu);
@@ -885,7 +884,7 @@ public class ArchivalUnitStatus
       Object sizeObj = StatusTable.NO_VALUE;
       if (hasContent) {
         int version = cu.getVersion();
-        versionObj = new OrderedObject(new Long(version));
+        versionObj = new OrderedObject(Long.valueOf(version));
         if (version > 1) {
           CachedUrl[] cuVersions = cu.getCuVersions(2);
           if (cuVersions.length > 1) {
@@ -896,7 +895,7 @@ public class ArchivalUnitStatus
             versionObj = verLink;
           }
         }
-        sizeObj = new OrderedObject(new Long(cu.getContentSize()));
+        sizeObj = new OrderedObject(Long.valueOf(cu.getContentSize()));
       }
       rowMap.put("NodeHasContent", (hasContent ? "yes" : "no"));
       rowMap.put("NodeVersion", versionObj);
@@ -956,12 +955,12 @@ public class ArchivalUnitStatus
       if (contentSize != -1) {
         res.add(new StatusTable.SummaryInfo("Content Size",
             ColumnDescriptor.TYPE_INT,
-            new Long(contentSize)));
+            Long.valueOf(contentSize)));
       }
       if (contentSizeAllVers != -1) {
         res.add(new StatusTable.SummaryInfo("All Versions Size",
             ColumnDescriptor.TYPE_INT,
-            new Long(contentSizeAllVers)));
+            Long.valueOf(contentSizeAllVers)));
       }
       if (aus.getTotalWarcSize() != null) {
         res.add(new StatusTable.SummaryInfo("Disk Usage",
@@ -1021,11 +1020,11 @@ public class ArchivalUnitStatus
 // 						 ? "Yes" : "No")));
 // 	    res.add(new StatusTable.SummaryInfo("Polling Protocol Version",
 // 						ColumnDescriptor.TYPE_INT,
-// 						new Integer(AuUtil.getProtocolVersion(au))));
+// 						AuUtil.getProtocolVersion(au)));
 
       res.add(new StatusTable.SummaryInfo("Created",
           ColumnDescriptor.TYPE_DATE,
-          new Long(state.getAuCreationTime())));
+          Long.valueOf(state.getAuCreationTime())));
 
       AuUtil.AuProxyInfo aupinfo = AuUtil.getAuProxyInfo(au);
       if (aupinfo.isInvalidAuOverride()) {
@@ -1085,12 +1084,12 @@ public class ArchivalUnitStatus
       }
       res.add(new StatusTable.SummaryInfo("Last Completed Crawl",
           ColumnDescriptor.TYPE_DATE,
-          new Long(state.getLastCrawlTime())));
+          Long.valueOf(state.getLastCrawlTime())));
       long lastCrawlAttempt = state.getLastCrawlAttempt();
       if (lastCrawlAttempt > 0) {
         res.add(new StatusTable.SummaryInfo("Last Crawl",
             ColumnDescriptor.TYPE_DATE,
-            new Long(lastCrawlAttempt)));
+            Long.valueOf(lastCrawlAttempt)));
         res.add(new StatusTable.SummaryInfo("Last Crawl Result",
             ColumnDescriptor.TYPE_STRING,
             state.getLastCrawlResultMsg()));
@@ -1098,10 +1097,10 @@ public class ArchivalUnitStatus
 	if (lastDeepCrawlAttempt > 0) {
 	  res.add(new StatusTable.SummaryInfo("Last Completed Deep Crawl",
 					      ColumnDescriptor.TYPE_DATE,
-					      new Long(state.getLastDeepCrawlTime())));
+					      Long.valueOf(state.getLastDeepCrawlTime())));
 	  res.add(new StatusTable.SummaryInfo("Last Deep Crawl",
 					      ColumnDescriptor.TYPE_DATE,
-					      new Long(lastDeepCrawlAttempt)));
+					      Long.valueOf(lastDeepCrawlAttempt)));
 	  res.add(new StatusTable.SummaryInfo("Last Deep Crawl Result",
 					      ColumnDescriptor.TYPE_STRING,
 					      state.getLastDeepCrawlResultMsg()));
@@ -1113,11 +1112,11 @@ public class ArchivalUnitStatus
       long lastPollStart = state.getLastPollStart();
       res.add(new StatusTable.SummaryInfo("Last Completed Poll",
           ColumnDescriptor.TYPE_DATE,
-          new Long(state.getLastTopLevelPollTime())));
+          Long.valueOf(state.getLastTopLevelPollTime())));
       if (lastPollStart > 0) {
         res.add(new StatusTable.SummaryInfo("Last Poll",
             ColumnDescriptor.TYPE_DATE,
-            new Long(lastPollStart)));
+            Long.valueOf(lastPollStart)));
         String pollResult = state.getLastPollResultMsg();
         if (!StringUtil.isNullString(pollResult)) {
           res.add(new StatusTable.SummaryInfo("Last Poll Result",
@@ -1129,7 +1128,7 @@ public class ArchivalUnitStatus
       if (!StringUtil.isNullString(lastPoPMsg)) {
         res.add(new StatusTable.SummaryInfo("Last PoP Poll",
             ColumnDescriptor.TYPE_DATE,
-            new Long(state.getLastPoPPoll())));
+            Long.valueOf(state.getLastPoPPoll())));
         res.add(new StatusTable.SummaryInfo("Last PoP Poll Result",
             ColumnDescriptor.TYPE_STRING,
             lastPoPMsg));
@@ -1138,13 +1137,13 @@ public class ArchivalUnitStatus
       if (lastLocal > 0) {
         res.add(new StatusTable.SummaryInfo("Last Local Hash Scan",
             ColumnDescriptor.TYPE_DATE,
-            new Long(lastLocal)));
+            Long.valueOf(lastLocal)));
       }
       long lastIndex = state.getLastMetadataIndex();
       if (lastIndex > 0) {
         res.add(new StatusTable.SummaryInfo("Last Metadata Indexing",
             ColumnDescriptor.TYPE_DATE,
-            new Long(lastIndex)));
+            Long.valueOf(lastIndex)));
       }
       boolean isCrawling = cmStatus != null && cmStatus.isRunningNCCrawl(au);
       boolean isPolling = false;
@@ -1619,7 +1618,7 @@ public class ArchivalUnitStatus
       link.setProperty("numrows", Integer.toString(defaultNumRows));
       link.setProperty("url", url);
       rowMap.put("Version", link);
-      rowMap.put("sort", new Integer(isNext ? Integer.MAX_VALUE : -1));
+      rowMap.put("sort", Integer.valueOf(isNext ? Integer.MAX_VALUE : -1));
       return rowMap;
     }
 
@@ -1934,24 +1933,17 @@ public class ArchivalUnitStatus
     protected Map makeRow(CacheStats stats) {
       Map rowMap = super.makeRow(stats);
       if (stats.highestAgreement >= 0.0f) {
-        rowMap.put("LastPercentAgreement",
-            new Float(stats.lastAgreement));
-        rowMap.put("LastPercentAgreementDate",
-            new Long(stats.lastAgreementTime));
-        rowMap.put("HighestPercentAgreement",
-            new Float(stats.highestAgreement));
-        rowMap.put("HighestPercentAgreementDate",
-            new Long(stats.highestAgreementTime));
+        rowMap.put("LastPercentAgreement", stats.lastAgreement);
+        rowMap.put("LastPercentAgreementDate", stats.lastAgreementTime);
+        rowMap.put("HighestPercentAgreement", stats.highestAgreement);
+        rowMap.put("HighestPercentAgreementDate", stats.highestAgreementTime);
       }
       if (stats.highestAgreementHint >= 0.0f) {
-        rowMap.put("LastPercentAgreementHint",
-            new Float(stats.lastAgreementHint));
-        rowMap.put("LastPercentAgreementHintDate",
-            new Long(stats.lastAgreementHintTime));
-        rowMap.put("HighestPercentAgreementHint",
-            new Float(stats.highestAgreementHint));
+        rowMap.put("LastPercentAgreementHint", stats.lastAgreementHint);
+        rowMap.put("LastPercentAgreementHintDate", stats.lastAgreementHintTime);
+        rowMap.put("HighestPercentAgreementHint", stats.highestAgreementHint);
         rowMap.put("HighestPercentAgreementHintDate",
-            new Long(stats.highestAgreementHintTime));
+                   stats.highestAgreementHintTime);
       }
       return rowMap;
     }
@@ -1961,7 +1953,7 @@ public class ArchivalUnitStatus
       List summaryList =  ListUtil.list(
           new StatusTable.SummaryInfo("Peers holding AU",
               ColumnDescriptor.TYPE_INT,
-              new Integer(totalPeers)));
+              Integer.valueOf(totalPeers)));
       return summaryList;
     }
 
@@ -2072,22 +2064,22 @@ public class ArchivalUnitStatus
       row.put("Type", type.toString());
       if (pa != null) {
         if (pa.getPercentAgreement() >= 0.0) {
-          row.put("Last", new Float(pa.getPercentAgreement()));
+          row.put("Last", Float.valueOf(pa.getPercentAgreement()));
           row.put("LastDate", pa.getPercentAgreementTime());
         }
         if (pa.getHighestPercentAgreement() >= 0.0) {
-          row.put("Highest", new Float(pa.getHighestPercentAgreement()));
+          row.put("Highest", Float.valueOf(pa.getHighestPercentAgreement()));
           row.put("HighestDate", pa.getHighestPercentAgreementTime());
         }
       }
       if (pahint != null) {
         if (pahint.getPercentAgreement() >= 0.0) {
-          row.put("LastHint", new Float(pahint.getPercentAgreement()));
+          row.put("LastHint", Float.valueOf(pahint.getPercentAgreement()));
           row.put("LastHintDate", pahint.getPercentAgreementTime());
         }
         if (pahint.getHighestPercentAgreement() >= 0.0) {
           row.put("HighestHint",
-              new Float(pahint.getHighestPercentAgreement()));
+              Float.valueOf(pahint.getHighestPercentAgreement()));
           row.put("HighestHintDate",
               pahint.getHighestPercentAgreementTime());
         }

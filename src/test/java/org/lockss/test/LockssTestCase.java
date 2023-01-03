@@ -1080,7 +1080,7 @@ public class LockssTestCase extends TestCase {
 
   public static void assertNotEquals(String message,
 				     long expected, long actual) {
-    assertNotEquals(message, new Long(expected), new Long(actual));
+    assertNotEquals(message, Long.valueOf(expected), Long.valueOf(actual));
   }
 
   public static void assertNotEquals(int expected, int actual) {
@@ -1089,7 +1089,7 @@ public class LockssTestCase extends TestCase {
 
   public static void assertNotEquals(String message,
 				     int expected, int actual) {
-    assertNotEquals(message, new Integer(expected), new Integer(actual));
+    assertNotEquals(message, Integer.valueOf(expected), Integer.valueOf(actual));
   }
 
   public static void assertNotEquals(short expected, short actual) {
@@ -1125,7 +1125,7 @@ public class LockssTestCase extends TestCase {
 
   public static void assertNotEquals(String message,
 				     boolean expected, boolean actual) {
-    assertNotEquals(message, new Boolean(expected), new Boolean(actual));
+    assertNotEquals(message, Boolean.valueOf(expected), Boolean.valueOf(actual));
   }
 
   public static void assertNotEquals(double expected, double actual,
@@ -1139,11 +1139,11 @@ public class LockssTestCase extends TestCase {
     //values gives NaN and the the following test fails
     if (Double.isInfinite(expected)) {
       if (expected == actual){
-	failEquals(message, new Double(expected), new Double(actual));
+	failEquals(message, Double.valueOf(expected), Double.valueOf(actual));
       }
     } else if ((Math.abs(expected-actual) <= delta)) {
     // Because comparison with NaN always returns false
-      failEquals(message, new Double(expected), new Double(actual));
+      failEquals(message, Double.valueOf(expected), Double.valueOf(actual));
     }
   }
 
@@ -1158,11 +1158,11 @@ public class LockssTestCase extends TestCase {
     //values gives NaN and the the following test fails
     if (Double.isInfinite(expected)) {
       if (expected == actual){
-	failEquals(message, new Float(expected), new Float(actual));
+	failEquals(message, Float.valueOf(expected), Float.valueOf(actual));
       }
     } else if ((Math.abs(expected-actual) <= delta)) {
     // Because comparison with NaN always returns false
-      failEquals(message, new Float(expected), new Float(actual));
+      failEquals(message, Float.valueOf(expected), Float.valueOf(actual));
     }
   }
 
@@ -1346,7 +1346,7 @@ public class LockssTestCase extends TestCase {
   static protected Object[] objArray(int[] a) {
     Object[] o = new Object[a.length];
     for (int ix = 0; ix < a.length; ix++) {
-      o[ix] = new Integer(a[ix]);
+      o[ix] = Integer.valueOf(a[ix]);
     }
     return o;
   }
@@ -1367,7 +1367,7 @@ public class LockssTestCase extends TestCase {
   static protected Object[] objArray(long[] a) {
     Object[] o = new Object[a.length];
     for (int ix = 0; ix < a.length; ix++) {
-      o[ix] = new Long(a[ix]);
+      o[ix] = Long.valueOf(a[ix]);
     }
     return o;
   }
@@ -1390,7 +1390,7 @@ public class LockssTestCase extends TestCase {
   static protected Object[] objArray(byte[] a) {
     Object[] o = new Object[a.length];
     for (int ix = 0; ix < a.length; ix++) {
-      o[ix] = new Integer(a[ix]);
+      o[ix] = Integer.valueOf(a[ix]);
     }
     return o;
   }

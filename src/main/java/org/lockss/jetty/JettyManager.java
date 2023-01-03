@@ -123,9 +123,9 @@ public abstract class JettyManager
 
       // Override some default error status strings with messages that are
       // more user-friendly
-      HttpResponse.__statusMsg.put(new Integer(HttpResponse.__401_Unauthorized),
+      HttpResponse.__statusMsg.put(Integer.valueOf(HttpResponse.__401_Unauthorized),
 				   "Invalid Username or Password");
-      HttpResponse.__statusMsg.put(new Integer(HttpResponse.__502_Bad_Gateway),
+      HttpResponse.__statusMsg.put(Integer.valueOf(HttpResponse.__502_Bad_Gateway),
 				   "Upstream Error");
       isJettyInited = true;
     }

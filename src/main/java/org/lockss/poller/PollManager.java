@@ -2658,7 +2658,7 @@ public class PollManager
     }
 
     Double value() {
-      return new Double(value);
+      return Double.valueOf(value);
     }
   }
 

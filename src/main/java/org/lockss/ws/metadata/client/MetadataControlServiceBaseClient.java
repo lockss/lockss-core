@@ -69,7 +69,7 @@ public abstract class MetadataControlServiceBaseClient extends
 
     // Set the client connection timeout.
     ((javax.xml.ws.BindingProvider) port).getRequestContext().put(TIMEOUT_KEY,
-	new Integer(TIMEOUT_VALUE*1000));
+	Integer.valueOf(TIMEOUT_VALUE*1000));
 
     return port;
   }
