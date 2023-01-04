@@ -358,6 +358,9 @@ public class NullPlugin {
       return null;
     }
 
+    public void pokeWatchdog() {
+    }
+
     public void setPreviousContentType(String previousContentType) {
     }
 

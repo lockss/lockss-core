@@ -169,6 +169,10 @@ public class DefaultUrlCacher implements UrlCacher {
     return wdog;
   }
   
+  public void pokeWatchdog() {
+    getWatchdog().pokeWDog();
+    }
+
   public void setRedirectUrls(List<String> redirectUrls) {
     this.redirectUrls = redirectUrls;
     if(fetchUrl == null) {
