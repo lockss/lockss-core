@@ -423,10 +423,10 @@ public class CrawlRuleTester extends Thread {
     for (int depth = 1; depth <= m_crawlDepth; depth++) {
       PrintfFormat pf = new PrintfFormat("%5d  %7d  %6d  %8d");
       Integer[] args = new Integer[]{
-	new Integer(depth),
-	new Integer(depth_fetched[depth - 1]),
-	new Integer(depth_parsed[depth - 1]),
-	new Integer(depth_incl[depth - 1]),
+	Integer.valueOf(depth),
+	Integer.valueOf(depth_fetched[depth - 1]),
+	Integer.valueOf(depth_parsed[depth - 1]),
+	Integer.valueOf(depth_incl[depth - 1]),
       };
       String s = pf.sprintf(args);
       outputMessage(s, PLAIN_MESSAGE);

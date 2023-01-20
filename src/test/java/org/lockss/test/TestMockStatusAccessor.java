@@ -49,8 +49,8 @@ public class TestMockStatusAccessor extends LockssTestCase {
 		    new ColumnDescriptor("blah2", "Blah2", 0));
 
     Object[][] cols = {
-      {"blah", "Blah", new Integer(0)},
-      {"blah2", "Blah2", new Integer(0)}
+      {"blah", "Blah", Integer.valueOf(0)},
+      {"blah2", "Blah2", Integer.valueOf(0)}
     };
     List actualColumns = MockStatusAccessor.makeColumnDescriptorsFrom(cols);
     assertColumnDescriptorsEqual(expectedColumns, actualColumns);
@@ -59,8 +59,8 @@ public class TestMockStatusAccessor extends LockssTestCase {
   //see comment for testMakeColumnDescriptorsFrom
   public void testMakeRowsFrom() {
     Object[][] cols = {
-      {"col1", "Column the first", new Integer(0)},
-      {"col2", "Column the second", new Integer(0)}
+      {"col1", "Column the first", Integer.valueOf(0)},
+      {"col2", "Column the second", Integer.valueOf(0)}
     };
     List columns = MockStatusAccessor.makeColumnDescriptorsFrom(cols);
 

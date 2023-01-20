@@ -49,8 +49,8 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
   private static L4JLogger log = L4JLogger.getLogger();
 
   private static final Object[][] colArray1 = {
-    {"name", "Name", new Integer(ColumnDescriptor.TYPE_STRING), "Foot note"},
-    {"rank", "Rank", new Integer(ColumnDescriptor.TYPE_INT)}
+    {"name", "Name", Integer.valueOf(ColumnDescriptor.TYPE_STRING), "Foot note"},
+    {"rank", "Rank", Integer.valueOf(ColumnDescriptor.TYPE_INT)}
   };
 
   private static final Object[][] rowArray1 = {
@@ -64,7 +64,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     ListUtil.list(new StatusTable.SortRule("name", true));
 
   private static final Object[][] colArray2 = {
-    {"cache", "Box", new Integer(ColumnDescriptor.TYPE_STRING)},
+    {"cache", "Box", Integer.valueOf(ColumnDescriptor.TYPE_STRING)},
   };
 
   private static final Object[][] rowArray2 = {
@@ -81,28 +81,28 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     ListUtil.list(new StatusTable.SortRule("cache", true));
 
   private static final Object[][] colArray3 = {
-    {"name", "Name", new Integer(ColumnDescriptor.TYPE_STRING)},
-    {"rank", "Rank", new Integer(ColumnDescriptor.TYPE_INT)},
+    {"name", "Name", Integer.valueOf(ColumnDescriptor.TYPE_STRING)},
+    {"rank", "Rank", Integer.valueOf(ColumnDescriptor.TYPE_INT)},
   };
 
   private static final Object[][] rowArray3 = {
-    {"Cache B", new Integer(1)},
-    {"Cache A", new Integer(2)},
-    {"Cache C", new Integer(0)}
+    {"Cache B", Integer.valueOf(1)},
+    {"Cache A", Integer.valueOf(2)},
+    {"Cache C", Integer.valueOf(0)}
   };
 
   private static final Object[][] colArray4 = {
-    {"name", "Name", new Integer(ColumnDescriptor.TYPE_STRING)},
-    {"rank", "Rank", new Integer(ColumnDescriptor.TYPE_INT)},
-    {"secondRank", "SecondRank", new Integer(ColumnDescriptor.TYPE_INT)},
+    {"name", "Name", Integer.valueOf(ColumnDescriptor.TYPE_STRING)},
+    {"rank", "Rank", Integer.valueOf(ColumnDescriptor.TYPE_INT)},
+    {"secondRank", "SecondRank", Integer.valueOf(ColumnDescriptor.TYPE_INT)},
   };
 
   private static final Object[][] rowArray4 = {
-    {"AName", new Integer(0), new Integer(400)},
-    {"BName", new Integer(2), new Integer(450)},
-    {"BName", new Integer(4), new Integer(0)},
-    {"BName", new Integer(4), new Integer(2)},
-    {"CName", new Integer(1), new Integer(-1)}
+    {"AName", Integer.valueOf(0), Integer.valueOf(400)},
+    {"BName", Integer.valueOf(2), Integer.valueOf(450)},
+    {"BName", Integer.valueOf(4), Integer.valueOf(0)},
+    {"BName", Integer.valueOf(4), Integer.valueOf(2)},
+    {"CName", Integer.valueOf(1), Integer.valueOf(-1)}
   };
 
   private static BrokerService broker;
@@ -334,9 +334,9 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
   }
 
   static final Object[][] summaryInfo = {
-    {"SummaryInfo1", new Integer(ColumnDescriptor.TYPE_STRING), "SummaryInfo value one"},
-    {"SummaryInfo2", new Integer(ColumnDescriptor.TYPE_INT), new Integer(2)},
-    {"SummaryInfo3", new Integer(ColumnDescriptor.TYPE_STRING), "SummaryInfo value 3"}
+    {"SummaryInfo1", Integer.valueOf(ColumnDescriptor.TYPE_STRING), "SummaryInfo value one"},
+    {"SummaryInfo2", Integer.valueOf(ColumnDescriptor.TYPE_INT), Integer.valueOf(2)},
+    {"SummaryInfo3", Integer.valueOf(ColumnDescriptor.TYPE_STRING), "SummaryInfo value 3"}
   };
 
   @Test
@@ -578,7 +578,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
   static Object[][] allTablesExpectedColArray =
   {
     {"table_name", "Available Tables",
-     new Integer(ColumnDescriptor.TYPE_STRING)}
+     Integer.valueOf(ColumnDescriptor.TYPE_STRING)}
   };
 
   static Object[][] allTablesExpectedRowArray =
@@ -739,8 +739,8 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
   }
 
   private static final Object[][] inetAddrColArray = {
-    {"address", "Address", new Integer(ColumnDescriptor.TYPE_IP_ADDRESS)},
-    {"name", "Name", new Integer(ColumnDescriptor.TYPE_STRING)}
+    {"address", "Address", Integer.valueOf(ColumnDescriptor.TYPE_IP_ADDRESS)},
+    {"name", "Name", Integer.valueOf(ColumnDescriptor.TYPE_STRING)}
   };
 
   @Test
@@ -907,7 +907,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     statusService.registerObjectReferenceAccessor("table1", C2.class,
 						  refAcc);
     assertNull(statusService.getReference("table2", new C2()));
-    assertNull(statusService.getReference("table1", new Integer(42)));
+    assertNull(statusService.getReference("table1", Integer.valueOf(42)));
     assertNull(statusService.getReference("table1", new C1()));
     StatusTable.Reference ref = statusService.getReference("table1", new C2());
     assertNotNull(ref);

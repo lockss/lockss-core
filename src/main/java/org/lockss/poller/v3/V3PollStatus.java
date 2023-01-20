@@ -333,23 +333,23 @@ public class V3PollStatus {
       if (poller.isLocalPoll()) {
         LocalHashResult lhr = poller.getLocalHashResult();
         if (lhr != null) {
-          row.put("talliedUrls", new Integer(lhr.getTotalUrls()));
+          row.put("talliedUrls", Integer.valueOf(lhr.getTotalUrls()));
         }
       } else {
-        row.put("participants", new Integer(poller.getPollSize()));
-        row.put("talliedUrls", new Integer(poller.getTalliedUrls().size()));
+        row.put("participants", Integer.valueOf(poller.getPollSize()));
+        row.put("talliedUrls", Integer.valueOf(poller.getTalliedUrls().size()));
         if (poller.getErrorUrls() != null) {
-          row.put("hashErrors", new Integer(poller.getErrorUrls().size()));
+          row.put("hashErrors", Integer.valueOf(poller.getErrorUrls().size()));
         } else {
           row.put("hashErrors", "--");
         }
-        row.put("completedRepairs", new Integer(poller.getCompletedRepairs().size()));
+        row.put("completedRepairs", Integer.valueOf(poller.getCompletedRepairs().size()));
         Object agmt = (poller.getStatus() == V3Poller.POLLER_STATUS_COMPLETE)
             ? poller.getPercentAgreement()
             : new StatusTable.DisplayedValue(StatusTable.NO_VALUE, "--");
         row.put("agreement", agmt);
       }
-      row.put("start", new Long(poller.getCreateTime()));
+      row.put("start", Long.valueOf(poller.getCreateTime()));
       row.put("deadline", poller.getDeadline());
       if (poller.isPollActive()) {
         row.put(SORT_KEY1, SORT_BASE_ACTIVE);
@@ -866,21 +866,21 @@ public class V3PollStatus {
       }
       summary.add(new SummaryInfo("Start Time",
           ColumnDescriptor.TYPE_DATE,
-          new Long(poll.getCreateTime())));
+          Long.valueOf(poll.getCreateTime())));
       if (!poll.isLocalPoll()) {
         summary.add(new SummaryInfo("Vote Deadline",
             ColumnDescriptor.TYPE_DATE,
-            new Long(poll.getVoteDeadline())));
+            Long.valueOf(poll.getVoteDeadline())));
       }
       summary.add(new SummaryInfo("Duration",
           ColumnDescriptor.TYPE_TIME_INTERVAL,
-          new Long(poll.getDuration())));
+          Long.valueOf(poll.getDuration())));
       if (poll.isPollActive()) {
         long remain = TimeBase.msUntil(poll.getDeadline().getExpirationTime());
         if (remain >= 0) {
           summary.add(new SummaryInfo("Remaining",
               ColumnDescriptor.TYPE_TIME_INTERVAL,
-              new Long(remain)));
+              Long.valueOf(remain)));
         }
       } else if (!poll.getDeadline().equals(poll.getEndTime())) {
         summary.add(new SummaryInfo("Actual End",
@@ -890,7 +890,7 @@ public class V3PollStatus {
       if (poll.getErrorUrls() != null && poll.getErrorUrls().size() > 0) {
         summary.add(new SummaryInfo("URLs with Hash errors",
             ColumnDescriptor.TYPE_STRING,
-            new StatusTable.Reference(new Integer(poll.getErrorUrls().size()),
+            new StatusTable.Reference(Integer.valueOf(poll.getErrorUrls().size()),
                 ERROR_TABLE_NAME,
                 poll.getKey())));
       }
@@ -913,39 +913,39 @@ public class V3PollStatus {
 
         summary.add(new SummaryInfo("Total URLs In Vote",
             ColumnDescriptor.TYPE_INT,
-            new Integer(talliedUrls)));
+            Integer.valueOf(talliedUrls)));
         if (agreeUrls > 0) {
           summary.add(new SummaryInfo("Agreeing URLs",
               ColumnDescriptor.TYPE_INT,
-              new StatusTable.Reference(new Integer(agreeUrls),
+              new StatusTable.Reference(Integer.valueOf(agreeUrls),
                   AGREE_TABLE_NAME,
                   poll.getKey())));
         }
         if (disagreeUrls > 0) {
           summary.add(new SummaryInfo("Disagreeing URLs",
               ColumnDescriptor.TYPE_INT,
-              new StatusTable.Reference(new Integer(disagreeUrls),
+              new StatusTable.Reference(Integer.valueOf(disagreeUrls),
                   DISAGREE_TABLE_NAME,
                   poll.getKey())));
         }
         if (noQuorumUrls > 0) {
           summary.add(new SummaryInfo("No Quorum URLs",
               ColumnDescriptor.TYPE_INT,
-              new StatusTable.Reference(new Integer(noQuorumUrls),
+              new StatusTable.Reference(Integer.valueOf(noQuorumUrls),
                   NO_QUORUM_TABLE_NAME,
                   poll.getKey())));
         }
         if (tooCloseUrls > 0) {
           summary.add(new SummaryInfo("Too Close URLs",
               ColumnDescriptor.TYPE_INT,
-              new StatusTable.Reference(new Integer(tooCloseUrls),
+              new StatusTable.Reference(Integer.valueOf(tooCloseUrls),
                   TOO_CLOSE_TABLE_NAME,
                   poll.getKey())));
         }
         if (completedRepairs > 0) {
           summary.add(new SummaryInfo("Completed Repairs",
               ColumnDescriptor.TYPE_INT,
-              new StatusTable.Reference(new Integer(completedRepairs),
+              new StatusTable.Reference(Integer.valueOf(completedRepairs),
                   COMPLETED_REPAIRS_TABLE_NAME,
                   poll.getKey())));
         }
@@ -953,7 +953,7 @@ public class V3PollStatus {
           String message = poll.isPollActive() ? "Queued Repairs" : "Incomplete Repairs";
           summary.add(new SummaryInfo("Queued Repairs",
               ColumnDescriptor.TYPE_INT,
-              new StatusTable.Reference(new Integer(activeRepairs),
+              new StatusTable.Reference(Integer.valueOf(activeRepairs),
                   ACTIVE_REPAIRS_TABLE_NAME,
                   poll.getKey())));
 
@@ -967,26 +967,26 @@ public class V3PollStatus {
         int skippedUrls = lhr.getSkippedUrls();
         summary.add(new SummaryInfo("LocalHash Checked URLs",
             ColumnDescriptor.TYPE_INT,
-            new Integer(lhr.getTotalUrls())));
+            Integer.valueOf(lhr.getTotalUrls())));
         if (matchingUrls > 0) {
           summary.add(new SummaryInfo("LocalHash Matching URLs",
               ColumnDescriptor.TYPE_INT,
-              new Integer(matchingUrls)));
+              Integer.valueOf(matchingUrls)));
         }
         if (newlySuspectUrls > 0) {
           summary.add(new SummaryInfo("LocalHash Newly Suspect URLs",
               ColumnDescriptor.TYPE_INT,
-              new Integer(newlySuspectUrls)));
+              Integer.valueOf(newlySuspectUrls)));
         }
         if (newlyHashedUrls > 0) {
           summary.add(new SummaryInfo("LocalHash Newly Hashed URLs",
               ColumnDescriptor.TYPE_INT,
-              new Integer(newlyHashedUrls)));
+              Integer.valueOf(newlyHashedUrls)));
         }
         if (skippedUrls > 0) {
           summary.add(new SummaryInfo("LocalHash Already Suspect URLs",
               ColumnDescriptor.TYPE_INT,
-              new Integer(skippedUrls)));
+              Integer.valueOf(skippedUrls)));
         }
       }
       if (poll.isEnableHashStats()) {
@@ -1483,18 +1483,18 @@ public class V3PollStatus {
           caller));
       summary.add(new SummaryInfo("Start Time",
           ColumnDescriptor.TYPE_DATE,
-          new Long(voter.getCreateTime())));
+          Long.valueOf(voter.getCreateTime())));
       summary.add(new SummaryInfo("Vote Deadline",
           ColumnDescriptor.TYPE_DATE,
           voter.getVoteDeadline()));
       summary.add(new SummaryInfo("Duration",
           ColumnDescriptor.TYPE_TIME_INTERVAL,
-          new Long(voter.getDuration())));
+          Long.valueOf(voter.getDuration())));
       long remain = TimeBase.msUntil(voter.getDeadline().getExpirationTime());
       if (remain >= 0) {
         summary.add(new SummaryInfo("Remaining",
             ColumnDescriptor.TYPE_TIME_INTERVAL,
-            new Long(remain)));
+            Long.valueOf(remain)));
       }
       if (voter.getStatus() == STATUS_COMPLETE) {
         if (userData.hasReceivedHint()) {

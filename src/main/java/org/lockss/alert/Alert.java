@@ -334,13 +334,13 @@ public class Alert {
 
   /** Set a attribute to an int value */
   public Alert setAttribute(String attr, int val) {
-    attributes.put(attr, new Integer(val));
+    attributes.put(attr, Integer.valueOf(val));
     return this;
   }
 
   /** Set a attribute to a long value */
   public Alert setAttribute(String attr, long val) {
-    attributes.put(attr, new Long(val));
+    attributes.put(attr, Long.valueOf(val));
     return this;
   }
 

@@ -304,9 +304,9 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
     row.put(CRAWL_PRIORITY, status.getPriority());
     row.put(CRAWL_DEPTH, status.getRefetchDepth());
     if (status.getStartTime() > 0) {
-      row.put(START_TIME_COL_NAME, new Long(status.getStartTime()));
+      row.put(START_TIME_COL_NAME, Long.valueOf(status.getStartTime()));
       row.put(CONTENT_BYTES_FETCHED,
-	      new Long(status.getContentBytesFetched()));
+	      Long.valueOf(status.getContentBytesFetched()));
       row.put(NUM_URLS_FETCHED,
 	      makeRefIfColl(status.getFetchedCtr(), key, "fetched"));
       row.put(NUM_URLS_WITH_ERRORS,
@@ -325,7 +325,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	      makeRef(status.getNumOfMimeTypes(),
 		      SINGLE_CRAWL_STATUS_ACCESSOR, key));
       if (status.getEndTime() > 0) {
-	row.put(DURATION_COL_NAME, new Long(status.getEndTime() -
+	row.put(DURATION_COL_NAME, Long.valueOf(status.getEndTime() -
 					    status.getStartTime()));
 	row.put(SORT_KEY1, SORT_BASE_DONE);
 	row.put(SORT_KEY2, status.getEndTime());
@@ -347,7 +347,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	  }
 	}
       } else {
-	row.put(DURATION_COL_NAME, new Long(TimeBase.nowMs() -
+	row.put(DURATION_COL_NAME, Long.valueOf(TimeBase.nowMs() -
 					    status.getStartTime()));
 	row.put(SORT_KEY1, SORT_BASE_ACTIVE);
 	row.put(SORT_KEY2, status.getStartTime());
@@ -389,14 +389,14 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
       return makeRef(ctr.getCount(),
 		     CRAWL_URLS_STATUS_ACCESSOR, crawlKey + "." + subkey);
     }
-    return new Long(ctr.getCount());
+    return Long.valueOf(ctr.getCount());
   }
 
   /**
    * Return a reference object to the table, displaying the value
    */
   private Object makeRef(long value, String tableName, String key) {
-    return new StatusTable.Reference(new Long(value), tableName, key);
+    return new StatusTable.Reference(Long.valueOf(value), tableName, key);
   }
 
   /**
@@ -476,7 +476,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
     if (val != 0) {
       res.add(new StatusTable.SummaryInfo(head,
 					  ColumnDescriptor.TYPE_INT,
-					  new Long(val)));
+					  Long.valueOf(val)));
     }
   }
 

@@ -70,14 +70,14 @@ public class TestDaemonStatus extends LockssServletTestCase {
     assertEquals("", format(testObj, ColumnDescriptor.TYPE_STRING));
 
     // test standard numbers
-    testObj = new Integer(123);
+    testObj = Integer.valueOf(123);
     assertEquals("123", format(testObj, ColumnDescriptor.TYPE_INT));
-    testObj = new Float(123321);
+    testObj = Float.valueOf(123321);
     assertEquals(testObj.toString(),
                  format(testObj, ColumnDescriptor.TYPE_FLOAT));
 
     // check proper 'big int' formatting
-    testObj = new Long(12345678);
+    testObj = Long.valueOf(12345678);
     assertEquals("12,345,678", format(testObj, ColumnDescriptor.TYPE_INT));
 
     // test string
@@ -94,13 +94,13 @@ public class TestDaemonStatus extends LockssServletTestCase {
                  res);
 
     // test percentage
-    testObj = new Double(.453);
+    testObj = Double.valueOf(.453);
     assertEquals("45%", format(testObj, ColumnDescriptor.TYPE_PERCENT));
 
     // test agreement
-    testObj = new Double(.453);
+    testObj = Double.valueOf(.453);
     assertEquals("45.30%", format(testObj, ColumnDescriptor.TYPE_AGREEMENT));
-    testObj = new Double(.999999);
+    testObj = Double.valueOf(.999999);
     assertEquals("99.99%", format(testObj, ColumnDescriptor.TYPE_AGREEMENT));
 
     // test date
@@ -121,7 +121,7 @@ public class TestDaemonStatus extends LockssServletTestCase {
 
     // test time interval
     long timeInt = Constants.HOUR + Constants.MINUTE;
-    testObj = new Long(timeInt);
+    testObj = Long.valueOf(timeInt);
     assertEquals(TimeUtil.timeIntervalToString(timeInt),
                  format(testObj, ColumnDescriptor.TYPE_TIME_INTERVAL));
 
@@ -187,13 +187,13 @@ public class TestDaemonStatus extends LockssServletTestCase {
   static final int NUM_HEADER_LINES = 3;
 
   private static final Object[][] colArray1 = {
-    {"name", "Name", new Integer(ColumnDescriptor.TYPE_STRING), "Foot note"},
-    {"rank", "Rank", new Integer(ColumnDescriptor.TYPE_INT)}
+    {"name", "Name", Integer.valueOf(ColumnDescriptor.TYPE_STRING), "Foot note"},
+    {"rank", "Rank", Integer.valueOf(ColumnDescriptor.TYPE_INT)}
   };
 
   private static final Object[][] colArrayWithNonString = {
-    {StatusTable.ROW_SEPARATOR, "Foo", new Integer(ColumnDescriptor.TYPE_STRING)},
-    {"rank", "Rank", new Integer(ColumnDescriptor.TYPE_INT)}
+    {StatusTable.ROW_SEPARATOR, "Foo", Integer.valueOf(ColumnDescriptor.TYPE_STRING)},
+    {"rank", "Rank", Integer.valueOf(ColumnDescriptor.TYPE_INT)}
   };
 
   private static final Object[][] rowArray1 = {

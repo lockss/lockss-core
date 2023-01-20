@@ -78,8 +78,8 @@ public class TestPsmMsgEvent extends LockssTestCase {
 
   public void testFromMessage() {
     Map msgEvents = new HashMap();
-    msgEvents.put(new Integer(10), new MsgEventInvitation());
-    msgEvents.put(new Integer(11), new MsgEventEngravedInvitation());
+    msgEvents.put(Integer.valueOf(10), new MsgEventInvitation());
+    msgEvents.put(Integer.valueOf(11), new MsgEventEngravedInvitation());
     V3LcapMessage msg1 = makeMsg(10);
     PsmMsgEvent e1 = PsmMsgEvent.fromMessage(msg1, msgEvents);
     assertEquals(MsgEventInvitation.class, e1.getClass());

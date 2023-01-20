@@ -51,7 +51,7 @@ public class TestFifoQueue extends LockssTestCase {
   };
 
   String O1 = "foo";
-  Integer O2 = new Integer(42);
+  Integer O2 = Integer.valueOf(42);
 
   public TestFifoQueue(String msg) {
     super(msg);

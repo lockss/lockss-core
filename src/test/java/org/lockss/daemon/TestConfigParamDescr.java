@@ -341,16 +341,16 @@ public class TestConfigParamDescr extends LockssTestCase {
     assertTrue(ret instanceof Vector);
     vec = (Vector)ret;
     assertEquals(2, vec.size());
-    assertEquals(new Long(1), vec.get(0));
-    assertEquals(new Long(99), vec.get(1));
+    assertEquals(Long.valueOf(1), vec.get(0));
+    assertEquals(Long.valueOf(99), vec.get(1));
     
     // Trivial range
     ret = range.getValueOfType("1-1");
     assertTrue(ret instanceof Vector);
     vec = (Vector)ret;
     assertEquals(2, vec.size());
-    assertEquals(new Long(1), vec.get(0));
-    assertEquals(new Long(1), vec.get(1));
+    assertEquals(Long.valueOf(1), vec.get(0));
+    assertEquals(Long.valueOf(1), vec.get(1));
     
     // Invalid range
     try {
@@ -462,11 +462,11 @@ public class TestConfigParamDescr extends LockssTestCase {
   
   public void testYear() throws Exception {
     // Four-digit years are okay
-    assertEquals(new Integer(1000), ConfigParamDescr.YEAR.getValueOfType("1000"));
-    assertEquals(new Integer(9999), ConfigParamDescr.YEAR.getValueOfType("9999"));
+    assertEquals(Integer.valueOf(1000), ConfigParamDescr.YEAR.getValueOfType("1000"));
+    assertEquals(Integer.valueOf(9999), ConfigParamDescr.YEAR.getValueOfType("9999"));
     
     // Currently, the special value "0" is allowed
-    assertEquals(new Integer(0), ConfigParamDescr.YEAR.getValueOfType("0"));
+    assertEquals(Integer.valueOf(0), ConfigParamDescr.YEAR.getValueOfType("0"));
 
     // Other lengths are not allowed 
     try {

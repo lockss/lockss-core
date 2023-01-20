@@ -156,8 +156,8 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
     Vector vec = new Vector(2);
     String rkey = ConfigParamDescr.NUM_ISSUE_RANGE.getKey();
     String vkey = ConfigParamDescr.VOLUME_NAME.getKey();
-    vec.add(0, new Long(10));
-    vec.add(1, new Long(20));
+    vec.add(0, Long.valueOf(10));
+    vec.add(1, Long.valueOf(20));
     additionalAuConfig.setMapElement(rkey, vec);
     additionalAuConfig.setMapElement(vkey, "a volume");
     configProps.add(ConfigParamDescr.NUM_ISSUE_RANGE);
@@ -174,8 +174,8 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
     Vector vec = new Vector(2);
     String rkey = ConfigParamDescr.NUM_ISSUE_RANGE.getKey();
     String vkey = ConfigParamDescr.VOLUME_NAME.getKey();
-    vec.add(0, new Long(10));
-    vec.add(1, new Long(20));
+    vec.add(0, Long.valueOf(10));
+    vec.add(1, Long.valueOf(20));
     additionalAuConfig.setMapElement(rkey, vec);
     additionalAuConfig.setMapElement(vkey, "a volume");
     configProps.add(ConfigParamDescr.NUM_ISSUE_RANGE);
@@ -193,8 +193,8 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
     Vector vec = new Vector(2);
     String rkey = ConfigParamDescr.NUM_ISSUE_RANGE.getKey();
     String vkey = ConfigParamDescr.VOLUME_NAME.getKey();
-    vec.add(0, new Long(10));
-    vec.add(1, new Long(20));
+    vec.add(0, Long.valueOf(10));
+    vec.add(1, Long.valueOf(20));
     additionalAuConfig.setMapElement(rkey, vec);
     additionalAuConfig.setMapElement(vkey, "a(parenthesized)volume");
     configProps.add(ConfigParamDescr.NUM_ISSUE_RANGE);
@@ -214,8 +214,8 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
     configProps.add(ConfigParamDescr.NUM_ISSUE_RANGE);
     Vector vec = new Vector(2);
     String key = ConfigParamDescr.NUM_ISSUE_RANGE.getKey();
-    vec.add(0, new Long(10));
-    vec.add(1, new Long(20));
+    vec.add(0, Long.valueOf(10));
+    vec.add(1, Long.valueOf(20));
     additionalAuConfig.setMapElement(key, vec);
     setupAu(additionalAuConfig);
     String[] exp = {
@@ -504,8 +504,8 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
   public void testConvertNumRangeRule() throws LockssRegexpException {
     Vector vec = new Vector(2);
     String key = ConfigParamDescr.NUM_ISSUE_RANGE.getKey();
-    vec.add(0, new Long(10));
-    vec.add(1, new Long(20));
+    vec.add(0, Long.valueOf(10));
+    vec.add(1, Long.valueOf(20));
     additionalAuConfig.setMapElement(key, vec);
 
     configProps.add(ConfigParamDescr.NUM_ISSUE_RANGE);

@@ -415,8 +415,8 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     TimeBase.step();
     idmgr.signalAgreed(peer2, mau);
     Map expected = new HashMap();
-    expected.put(peer1, new Long(10));
-    expected.put(peer2, new Long(11));
+    expected.put(peer1, Long.valueOf(10));
+    expected.put(peer2, Long.valueOf(11));
     assertEquals(expected, idmgr.getAgreed(mau));
   }
   
@@ -485,11 +485,11 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     assertEquals(2, aus.getNumWillingRepairers());
 
     Map expectedDisagree = new HashMap();
-    expectedDisagree.put(peer1, new Long(10));
+    expectedDisagree.put(peer1, Long.valueOf(10));
     
     Map expectedAgree = new HashMap();
-    expectedAgree.put(peer2, new Long(11));
-    expectedAgree.put(peer3, new Long(12));
+    expectedAgree.put(peer2, Long.valueOf(11));
+    expectedAgree.put(peer3, Long.valueOf(12));
 
     assertFalse(idmgr.hasAgreed(peer1, mau));
     assertTrue(idmgr.hasAgreed(peer2, mau));
@@ -550,8 +550,8 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     TimeBase.step();
     idmgr.signalAgreed(peer2, mau);
     Map expected = new HashMap();
-    expected.put(peer1, new Long(10));
-    expected.put(peer2, new Long(11));
+    expected.put(peer1, Long.valueOf(10));
+    expected.put(peer2, Long.valueOf(11));
     assertEquals(expected, idmgr.getAgreed(mau));
     MockArchivalUnit mau2 = newMockArchivalUnit();
     // simulate desctivating and reactivating an AU, which creates a new AU
@@ -570,8 +570,8 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     idmgr.signalDisagreed(peer1, mau);
 
     Map expected = new HashMap();
-    expected.put(peer1, new Long(10));
-    expected.put(peer2, new Long(10));
+    expected.put(peer1, Long.valueOf(10));
+    expected.put(peer2, Long.valueOf(10));
 
     assertEquals(expected, idmgr.getAgreed(mau));
   }
@@ -640,7 +640,7 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     idmgr.signalAgreed(peer1, mau);
 
     Map expected = new HashMap();
-    expected.put(peer1, new Long(25));
+    expected.put(peer1, Long.valueOf(25));
 
     assertEquals(expected, idmgr.getAgreed(mau));
   }
@@ -663,12 +663,12 @@ public abstract class TestIdentityManagerImpl extends LockssTestCase {
     idmgr.signalDisagreed(peer1, mau2);
 
     Map expected = new HashMap();
-    expected.put(peer2, new Long(10));
+    expected.put(peer2, Long.valueOf(10));
 
     assertEquals(expected, idmgr.getAgreed(mau2));
 
     expected = new HashMap();
-    expected.put(peer1, new Long(10));
+    expected.put(peer1, Long.valueOf(10));
     assertEquals(expected, idmgr.getAgreed(mau1));
   }
 

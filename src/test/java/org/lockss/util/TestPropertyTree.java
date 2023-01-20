@@ -115,7 +115,7 @@ public class TestPropertyTree extends LockssTestCase {
 	"*","*.b.c","a.*.c","a.b.*","*.b.*","a.*","*.b","*.B","a.b.c","a.*.b","a.*.B"
       };
     for (int i=0;i<init.length;i++)
-      props.put(init[i],new Integer(i));
+      props.put(init[i],Integer.valueOf(i));
 
     sub=props.getTree("a.b");
 
@@ -128,7 +128,7 @@ public class TestPropertyTree extends LockssTestCase {
 
     sub=props.getTree("a");
 
-    assertEquals(new Integer(9), sub.get("*.b"));
+    assertEquals(Integer.valueOf(9), sub.get("*.b"));
 
     sub=sub.getTree("b");
     assertEquals("{b=9, *=3, c=8, B=10}".length(), sub.toString().length());
@@ -198,7 +198,7 @@ public class TestPropertyTree extends LockssTestCase {
 	"*","*.A","*.C","a.*.A","a.*.B","a.b.A","a.*"
       };
     for (int i=0;i<init2.length;i++)
-      props.put(init2[i],new Integer(i));
+      props.put(init2[i],Integer.valueOf(i));
     sub=props.getTree("a.*");
     String subs=sub.toString();
     log.debug(subs);
@@ -206,8 +206,8 @@ public class TestPropertyTree extends LockssTestCase {
     checkContains(subs,"A=3","wild tree A=3");
     checkContains(subs,"B=4","wild tree B=4");
 
-    sub.put("*.C",new Integer(7));
-    sub.put("*",new Integer(8));
+    sub.put("*.C",Integer.valueOf(7));
+    sub.put("*",Integer.valueOf(8));
     checkContains(sub.toString(),"*.C=7","mod wild tree *.C=7");
     checkContains(sub.toString(),"*=8","mod wild tree *=8");
 

@@ -59,8 +59,8 @@ public class Interval {
    * @param ub the upper bound
    */
   public Interval(int lb, int ub) {
-    this.lb = new Integer(lb);
-    this.ub = new Integer(ub);
+    this.lb = Integer.valueOf(lb);
+    this.ub = Integer.valueOf(ub);
   }
 
   /** Return the lower bound. */

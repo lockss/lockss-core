@@ -63,7 +63,7 @@ public class TestPdfUtil extends LockssTestCase {
   public void testPdfInteger() throws Exception {
     assertFalse(PdfUtil.isPdfInteger(new COSFloat(1.0f)));
     assertFalse(PdfUtil.isPdfInteger(new COSString("foo")));
-    assertFalse(PdfUtil.isPdfInteger(new Integer(1)));
+    assertFalse(PdfUtil.isPdfInteger(Integer.valueOf(1)));
     COSInteger cosInteger = new COSInteger(123);
     assertTrue(PdfUtil.isPdfInteger(cosInteger));
     assertEquals(cosInteger.intValue(), PdfUtil.getPdfInteger(cosInteger));
@@ -72,7 +72,7 @@ public class TestPdfUtil extends LockssTestCase {
   public void testPdfFloat() throws Exception {
     assertFalse(PdfUtil.isPdfFloat(new COSInteger(1)));
     assertFalse(PdfUtil.isPdfFloat(new COSString("foo")));
-    assertFalse(PdfUtil.isPdfFloat(new Float(1.0f)));
+    assertFalse(PdfUtil.isPdfFloat(Float.valueOf(1.0f)));
     COSFloat cosFloat = new COSFloat(12.34f);
     assertTrue(PdfUtil.isPdfFloat(cosFloat));
     assertEquals(cosFloat.floatValue(), PdfUtil.getPdfFloat(cosFloat), 0.0f);

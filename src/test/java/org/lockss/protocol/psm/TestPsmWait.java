@@ -80,7 +80,7 @@ public class TestPsmWait extends LockssTestCase {
       super(stateMachine, userData);
     }
     void setCurrentStateTimeout(long duration) {
-      durs.add(new Long(duration));
+      durs.add(Long.valueOf(duration));
     }
   }
 }

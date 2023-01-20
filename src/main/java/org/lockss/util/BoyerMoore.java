@@ -213,7 +213,7 @@ public class BoyerMoore {
 
     while ((pos = search(text, pos, end)) >= 0) {
       if (pos >= 0) {
-	results.addElement(new Integer(pos));
+	results.addElement(Integer.valueOf(pos));
 	pos += patLen;
       }
     }

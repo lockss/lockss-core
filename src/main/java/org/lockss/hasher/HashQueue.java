@@ -616,23 +616,23 @@ class HashQueue {
 
     private Map makeRow(Request req, boolean done, int qpos) {
       Map row = new HashMap();
-      row.put("sort", new Integer(done ? -req.finish : qpos));
-      row.put("sched", new Integer(req.sched));
-//       row.put("finish", new Integer(req.finish));
+      row.put("sort", Integer.valueOf(done ? -req.finish : qpos));
+      row.put("sched", Integer.valueOf(req.sched));
+//       row.put("finish", Integer.valueOf(req.finish));
       row.put("state", getState(req, done));
       row.put("au", req.urlset.getArchivalUnit().getName());
       row.put("cus", req.urlset.getSpec());
       row.put("type", req.typeString());
       row.put("deadline", req.deadline.getExpiration());
-      row.put("estimate", new Long(req.origEst));
-      Object used = new Long(req.timeUsed);
+      row.put("estimate", Long.valueOf(req.origEst));
+      Object used = Long.valueOf(req.timeUsed);
       if (req.overrun()) {
 	StatusTable.DisplayedValue val = new StatusTable.DisplayedValue(used);
 	val.setColor("red");
 	used = val;
       }
       row.put("timeused", used);
-      row.put("bytesHashed", new Long(req.bytesHashed));
+      row.put("bytesHashed", Long.valueOf(req.bytesHashed));
       return row;
     }
 
@@ -656,19 +656,19 @@ class HashQueue {
 					  totalBytesHashed));
       res.add(new StatusTable.SummaryInfo("Total hash time",
 					  ColumnDescriptor.TYPE_TIME_INTERVAL,
-					  new Long(totalTime)));
+					  Long.valueOf(totalTime)));
       if (totalTime != 0) {
 	long bpms =
 	  totalBytesHashed.divide(BigInteger.valueOf(totalTime)).intValue();
 	if (bpms < (100 * Constants.SECOND)) {
 	  res.add(new StatusTable.SummaryInfo("Bytes/ms",
 					      ColumnDescriptor.TYPE_INT,
-					      new Long(bpms)));
+					      Long.valueOf(bpms)));
 	} else {
 	  res.add(new
 		  StatusTable.SummaryInfo("Bytes/sec",
 					  ColumnDescriptor.TYPE_INT,
-					  new Long(bpms / Constants.SECOND)));
+					  Long.valueOf(bpms / Constants.SECOND)));
 	}
       }
       return res;
