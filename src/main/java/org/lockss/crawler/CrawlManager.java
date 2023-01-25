@@ -29,6 +29,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.crawler;
 
 import java.util.Collection;
+import java.util.List;
+
 import org.lockss.app.LockssDaemon;
 import org.lockss.daemon.Crawler;
 import org.lockss.plugin.ArchivalUnit;

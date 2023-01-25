@@ -35,6 +35,7 @@ package org.lockss.poller;
 import static org.lockss.poller.v3.V3PollFactory.*;
 import static org.lockss.poller.v3.V3Poller.*;
 import static org.lockss.poller.v3.V3Voter.*;
+import static org.lockss.state.BaseStateManager.JMS_MAP_NAME;
 import static org.lockss.util.Constants.*;
 
 import java.io.*;
@@ -42,6 +43,10 @@ import java.util.*;
 
 import org.apache.commons.collections4.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.lockss.crawler.CrawlEvent;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.RestCrawlerClient;
 import org.mortbay.util.B64Code;
 
 import org.lockss.alert.*;
@@ -64,7 +69,6 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
-import org.lockss.repository.*;
 
 /**
  * <p>Class that manages the polling process.</p>
@@ -308,6 +312,35 @@ public class PollManager
   public static final String PARAM_REPAIRER_THRESHOLD =
       V3PREFIX + "repairerThreshold";
   public static final int DEFAULT_REPAIRER_THRESHOLD = 3;
+//  JMS Support
+  // JMS notification support
+
+  public static final String JMS_PREFIX = PREFIX + "jms.";
+
+  /** The jms topic at which AuEvent notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
+    JMS_PREFIX + "enable";
+  public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = false;
+
+  /** The jms topic at which CrawlEvent notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_NOTIFICATION_TOPIC =
+    JMS_PREFIX + "topic";
+  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC = "CrawlEventTopic";
+
+  /** The jms clientid of the config manager.
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
+  public static final String DEFAULT_JMS_CLIENT_ID = null;
+
+  private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
+  private boolean enableJmsNotifications = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
+  private String clientId = DEFAULT_JMS_CLIENT_ID;
+
   private static EntryManager entryManager = new EntryManager();
 
   public static class AuPeersMap extends HashMap<String,Set<PeerIdentity>> {}
@@ -332,6 +365,7 @@ public class PollManager
   private static HashService theHashService;
   private static LcapRouter theRouter = null;
   private static SystemMetrics theSystemMetrics = null;
+
   // our configuration variables
   protected long m_recentPollExpireTime = DEFAULT_RECENT_EXPIRATION;
   /**
@@ -356,6 +390,10 @@ public class PollManager
   private AlertManager theAlertManager = null;
   private PluginManager pluginMgr = null;
   private AuEventHandler auEventHandler;
+  // svc binding support
+  private RestServicesManager svcsMgr;
+  private ServiceBinding crawlerServiceBinding = null;
+
   // CR: serializedPollers and serializedVoters s.b. updated as new
   // polls/votes are created, in case AU is deactivated & reactivated
   private HashMap serializedPollers;
@@ -564,8 +602,23 @@ public class PollManager
     v3Status = new V3PollStatusAccessor();
 
     theRepairPolicy = new RepairPolicy(theDaemon);
+    // setup service binding to send crawl request
+    svcsMgr = theDaemon.getManagerByType(RestServicesManager.class);
+    crawlerServiceBinding = theDaemon.getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    if (crawlerServiceBinding == null ||
+      !svcsMgr.isServiceReady(crawlerServiceBinding)) {
+      crawlerServiceBinding = null;
+      log.debug("No Crawler Service binding, repair functions nonfunctional");
+    }
+    enableJmsNotifications = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
+      DEFAULT_ENABLE_JMS_NOTIFICATIONS);
+    notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
+      DEFAULT_JMS_NOTIFICATION_TOPIC);
+    clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
+    if (enableJmsNotifications) {
+      startJms();
+    }
 
-    // One time load of an in-memory map of AU IDs to directories.
     preloadStoredPolls();
 
     // Enable the poll starter.
@@ -708,8 +761,7 @@ public class PollManager
    *
    * @param au the AU
    */
-  public
-  void cancelAuPolls(ArchivalUnit au) {
+  public void cancelAuPolls(ArchivalUnit au) {
     // first remove from queues, so none will run.
     pollQueue.cancelAuPolls(au);
     // collect PollManagerEntries related to this au
@@ -776,6 +828,57 @@ public class PollManager
    */
   public boolean isPollRunning(ArchivalUnit au) {
     return entryManager.isPollRunning(au);
+  }
+
+  public boolean sendRepairRequest(ArchivalUnit au,
+                                   List<String> pendingPublisherRepairs,
+                                   String key) {
+    if (crawlerServiceBinding == null) {
+      log.error("Repair Crawl  is not accessible.");
+      return false;
+    }
+    if (au != null) {
+      try {
+        // Schedule the repair crawl.
+        RestCrawlerClient client =
+          new RestCrawlerClient(crawlerServiceBinding.getRestStem());
+        CrawlDesc desc = new CrawlDesc()
+          .auId(au.getAuId())
+          .crawlList(pendingPublisherRepairs)
+          .crawlKind(CrawlDesc.CrawlKindEnum.REPAIR)
+          .putExtraCrawlerDataItem("pollID", key);
+        CrawlJob result = client.callCrawl(desc);
+        log.debug2("result = " + result);
+        //todo - add better error handling
+        return true;
+      } catch (Exception e) {
+        log.error("Cannot schedule repair crawl for " + au.getName(), e);
+      }
+    }
+    return false;
+  }
+  void startJms() {
+    if (jmsConsumer == null) {
+      setUpJmsReceive(clientId, notificationTopic,
+        new MapMessageListener("CrawlEvent Listener"));
+    }
+  }
+
+  /** Incoming CrawlEvent message */
+  @Override
+  protected void receiveMessage(Map map) {
+    String mapName = (String) map.get(JMS_MAP_NAME);
+    if(mapName.equals(CrawlEvent.Type.CrawlAttemptComplete.name())); {
+      CrawlEvent event = CrawlEvent.fromMap(map);
+      log.debug("Received notification: " + event);
+      Map<String, Object> extraData = event.getExtraData();
+      if(extraData != null) {
+        String pollId = (String)extraData.get("pollID");
+        V3Poller poll= (V3Poller) getPoll(pollId);
+        if(poll != null)
+          poll.handleRepairResponse(event.isSuccessful(), event.getUrlsFetched());
+      }
+    }
   }
 
   /**
