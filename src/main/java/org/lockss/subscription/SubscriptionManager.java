@@ -104,7 +104,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
    * <p>
    * <code>false</code> to disable, <code>true</code> to enable.
    */
-  public static final boolean DEFAULT_SUBSCRIPTION_ENABLED = false;
+  public static final boolean DEFAULT_SUBSCRIPTION_ENABLED = true;
 
   /**
    * Repository available space threshold.
