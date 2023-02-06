@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,6 +46,7 @@ import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
+import org.lockss.util.urlconn.*;
 
 /**
  * Abstract base class for ArchivalUnits.
@@ -108,7 +105,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   protected static final long DEFAULT_AU_MAX_SIZE = 0;
   protected static final long DEFAULT_AU_MAX_FILE_SIZE = 0;
 
-  protected BasePlugin plugin;
+  protected final BasePlugin plugin;
   protected boolean shouldRefetchOnCookies;
   protected long defaultFetchDelay = DEFAULT_FETCH_DELAY;
   protected List<String> urlStems;
@@ -166,11 +163,12 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
     } else {
       if (log.isDebug3()) log.debug3("setConfiguration: " + config);
       checkLegalConfigChange(config);
-      auConfig = config.copy();
+      auConfig = config.copyIntern(StringPool.AU_CONFIG_PROPS);
       loadAuConfigDescrs(config);
       addImpliedConfigParams();
-      setBaseAuParams(config);
-      fetchRateLimiter = recomputeFetchRateLimiter(fetchRateLimiter);
+      setCrawlRelatedParams(config);
+      setAdditionalParams(config);
+      titleDbChanged();
     }
     urlStems = null;
   }
@@ -246,12 +244,24 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
       if (config.containsKey(key)) {
         try {
           Object val = descr.getValueOfType(config.get(key));
-          paramMap.setMapElement(key, val);
+          if (val instanceof String) {
+            paramMap.putString(StringPool.AU_CONFIG_PROPS.intern(key),
+                               StringPool.AU_CONFIG_PROPS.internMapValue(key, (String)val));
+          } else if (val instanceof URL) {
+            paramMap.putString(StringPool.AU_CONFIG_PROPS.intern(key),
+                               StringPool.AU_CONFIG_PROPS.internMapValue(key, val.toString()));
+          } else {
+            paramMap.setMapElement(StringPool.AU_CONFIG_PROPS.intern(key), val);
+          }
         } catch (Exception ex) {
           throw new ConfigurationException("Error configuring: " + key, ex);
         }
       }
     }
+  }
+
+  protected void setAdditionalParams(Configuration config)
+      throws ConfigurationException {
   }
 
   // This pattern
@@ -265,12 +275,13 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   //  - value already in paramMap (presumably stored by loadAuConfigDescrs)
   //  - default value
 
-  protected void setBaseAuParams(Configuration config)
+  protected void setCrawlRelatedParams(Configuration config)
       throws ConfigurationException {
 
     // get the base url
     URL baseUrl = loadConfigUrl(ConfigParamDescr.BASE_URL, config);
-    paramMap.putUrl(KEY_AU_BASE_URL, baseUrl);
+    paramMap.putString(KEY_AU_BASE_URL,
+                       StringPool.AU_CONFIG_PROPS.intern(baseUrl.toString()));
 
     // get the fetch delay
     long minFetchDelay = CurrentConfig.getLongParam(PARAM_MIN_FETCH_DELAY,
@@ -300,6 +311,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
         DEFAULT_SHOULD_REFETCH_ON_SET_COOKIE);
     window = makeCrawlWindow();
     
+    fetchRateLimiter = recomputeFetchRateLimiter(fetchRateLimiter);
     titleDbChanged();
   }
 
@@ -326,9 +338,9 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
             URL url = (URL)val;
             if(url != null) {
               paramMap.putString(pool.intern(key + SUFFIX_AU_HOST),
-                                 url.getHost());
+                                 pool.intern(url.getHost()));
               paramMap.putString(pool.intern(key + SUFFIX_AU_PATH),
-                                 url.getPath());
+                                 pool.intern(url.getPath()));
               if (log.isDebug3()) {
                 log.debug3("Inferred " + key + SUFFIX_AU_HOST +
                               " = " + url.getHost());
@@ -468,7 +480,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
         set.addAll(cdnStems);
         set.addAll(getAdditionalUrlStems());
         res.addAll(set);
-        urlStems = res;
+        urlStems = StringPool.URL_STEMS.internList(res);
       } catch (MalformedURLException e) {
         log.error("getUrlStems(" + getName() + ")", e);
         // XXX should throw
@@ -509,6 +521,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
     return shouldRefetchOnCookies;
   }
   
+  @Deprecated
   public boolean isLoginPageUrl(String url) {
     return false;
   }
@@ -654,6 +667,12 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   public List<Pattern> makeExcludeUrlsFromPollsPatterns()
       throws ArchivalUnit.ConfigurationException {
     return null;
+  }
+
+  public AuCacheResultMap makeAuCacheResultMap()
+      throws ArchivalUnit.ConfigurationException {
+    return new AuHttpResultMap(plugin.getCacheResultMap(),
+                               PatternMap.EMPTY);
   }
 
   public PatternStringMap makeUrlMimeTypeMap() {
@@ -827,6 +846,10 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
 
   public boolean isBulkContent() {
     return plugin.isBulkContent();
+  }
+
+  public boolean isNamedArchivalUnit() {
+    return false;
   }
 
   public ArchiveFileTypes getArchiveFileTypes() {

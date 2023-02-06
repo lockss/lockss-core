@@ -37,6 +37,7 @@ import java.util.*;
 import org.lockss.util.*;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -76,12 +77,15 @@ public class MetadataField {
     @Override
     public String validate(ArticleMetadata am, String val)
         throws MetadataException.ValidationException {
-      // normalize away leading "doi:" before checking vaEND_PAGElidity
-      String doi = StringUtils.removeStartIgnoreCase(val, PROTOCOL_DOI);
-      if (!MetadataUtil.isDoi(doi)) {
-        throw new MetadataException.ValidationException("Illegal DOI: " + val);
+      // normalize and check validity
+      try {
+        if (val == null) {
+          throw new IllegalArgumentException("null DOI");
+        }
+        return MetadataUtil.sanitizeDoi(val);
+      } catch (IllegalArgumentException e) {
+        throw new MetadataException.ValidationException(e.getMessage());
       }
-      return doi;
     }
   };
 
@@ -325,7 +329,7 @@ public class MetadataField {
       KEY_SERIES_TITLE, Cardinality.Single, seriestitlevalid);
 
   public static final String KEY_PROPRIETARY_SERIES_IDENTIFIER =
-      "propietary_series_identifier";
+      "proprietary_series_identifier";
   public static final MetadataField FIELD_PROPRIETARY_SERIES_IDENTIFIER =
       new MetadataField(KEY_PROPRIETARY_SERIES_IDENTIFIER, Cardinality.Single);
 
@@ -867,6 +871,16 @@ public class MetadataField {
 
   public boolean hasExtractor() {
     return extractor != null;
+  }
+
+  public String toString() {
+    return new ToStringBuilder(this)
+      .append("key", key)
+      .append("cardinality", cardinality)
+      .append("validator", validator)
+      .append("splitter", splitter)
+      .append("extractor", extractor)
+      .toString();
   }
 
   /** Cardinality of a MetadataField: single-valued or multi-valued */

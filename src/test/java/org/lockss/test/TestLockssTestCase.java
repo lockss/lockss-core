@@ -105,15 +105,12 @@ public class TestLockssTestCase extends LockssTestCase {
     System.out.println("Make sure " + tmp.getPath() + " is gone.");
   }
 
+  public void testGetResourceContent() throws Exception {
+    assertEquals("test resource content 17",
+                 getResourceContent("test-resource.txt").trim());
+  }
+
   static String UNLIKELY = "very|unlikely";
-
-  public void testRestoreJavaIoTmpdir1() throws Exception {
-    System.setProperty("java.io.tmpdir", UNLIKELY);
-  }
-
-  public void testRestoreJavaIoTmpdir2() throws Exception {
-    assertNotEquals(UNLIKELY, System.getProperty("java.io.tmpdir"));
-  }
 
   public void testAssertNotEqualsLong() {
     assertNotEquals((long)17, (long)15);

@@ -44,7 +44,7 @@ import org.lockss.laaws.rs.core.*;
 import org.lockss.laaws.rs.model.*;
 
 /**
- * Status tables for V2 LockssRepository: collections, auids, artifacts
+ * Status tables for V2 LockssRepository: namespaces, auids, artifacts
  */
 public class LockssRepositoryStatus {
   private static Logger log = Logger.getLogger("RepositoryStatus");
@@ -61,20 +61,22 @@ public class LockssRepositoryStatus {
 
   public static final String SERVICE_STATUS_TABLE_NAME = "RepositoriesTable";
   public static final String REPO_STATUS_TABLE_NAME = "RepositoryTable";
-  public static final String AUIDS_STATUS_TABLE_NAME = "CollectionTable";
+  public static final String AUIDS_STATUS_TABLE_NAME = "NamespaceTable";
   public static final String ARTIFACTS_STATUS_TABLE_NAME = "ArtifactsTable";
   //  public static final String SPACE_TABLE_NAME = "RepositorySpace";
 
   public static final String AU_STATUS_TABLE_NAME =
     ArchivalUnitStatus.AU_STATUS_TABLE_NAME;
 
+  public static final String PROP_ALL_VERSIONS = "allVersions";
+
   static void registerAccessors(LockssDaemon daemon, StatusService statusServ) {
     statusServ.registerStatusAccessor(SERVICE_STATUS_TABLE_NAME,
-				      new RepoCollsStatusAccessor(daemon));
+				      new RepoNamespacesStatusAccessor(daemon));
     statusServ.registerStatusAccessor(REPO_STATUS_TABLE_NAME,
 				      new RepoDetailStatusAccessor(daemon));
     statusServ.registerStatusAccessor(AUIDS_STATUS_TABLE_NAME,
-				      new CollectionAuidsStatusAccessor(daemon));
+				      new NamespaceAuidsStatusAccessor(daemon));
     statusServ.registerStatusAccessor(ARTIFACTS_STATUS_TABLE_NAME,
 				      new AuidArtifactsStatusAccessor(daemon));
     statusServ.registerOverviewAccessor(SERVICE_STATUS_TABLE_NAME,
@@ -101,8 +103,8 @@ public class LockssRepositoryStatus {
     }
   }
 
-  /** Display list of all Collections on all known repositories */
-  static class RepoCollsStatusAccessor extends AbstractRepoStatusAccessor {
+  /** Display list of all Namespaces on all known repositories */
+  static class RepoNamespacesStatusAccessor extends AbstractRepoStatusAccessor {
 
     private static final List columnDescriptors = ListUtil.list
       (
@@ -111,21 +113,21 @@ public class LockssRepositoryStatus {
        new ColumnDescriptor("size", "Size", ColumnDescriptor.TYPE_STRING),
        new ColumnDescriptor("free", "Free", ColumnDescriptor.TYPE_STRING),
        new ColumnDescriptor("full", "%Full", ColumnDescriptor.TYPE_STRING),
-       new ColumnDescriptor("coll", "Collection", ColumnDescriptor.TYPE_STRING),
+       new ColumnDescriptor("ns", "Namespace", ColumnDescriptor.TYPE_STRING),
        new ColumnDescriptor("aus", "AUs", ColumnDescriptor.TYPE_INT)
        );
 
     private static final List sortRules =
       ListUtil.list(new StatusTable.SortRule("type", true),
 		    new StatusTable.SortRule("path", true),
-		    new StatusTable.SortRule("coll", true));
+		    new StatusTable.SortRule("ns", true));
 
-    RepoCollsStatusAccessor(LockssDaemon daemon) {
+    RepoNamespacesStatusAccessor(LockssDaemon daemon) {
       super(daemon);
     }
 
     public String getDisplayName() {
-      return "Repositories and Collections";
+      return "Repositories and Namespaces";
     }
 
     public void populateTable(StatusTable table)
@@ -139,8 +141,8 @@ public class LockssRepositoryStatus {
       return false;
     }
 
-    // This is awkward because RepoSpec is a {repo, collection} pair but
-    // we're showing both repo status and collection status.  Logicially it
+    // This is awkward because RepoSpec is a {repo, namespace} pair but
+    // we're showing both repo status and namespace status.  Logicially it
     // should be two different tables but that would be more trouble for
     // users.
     private List getRows() {
@@ -148,13 +150,13 @@ public class LockssRepositoryStatus {
       for (RepoSpec rs : repoMgr.getV2RepositoryList()) {
 	LockssRepository repo = rs.getRepository();
 	PlatformUtil.DF repoDf = repoMgr.getRepositoryDF(rs.getSpec());
-	String NO_COLLS = " (none) ";
+	String NO_NAMESPACES = " (none) ";
 	try {
-	  Iterator<String> collsIter = repo.getCollectionIds().iterator();
-	  if (!collsIter.hasNext()) {
-	    collsIter = ListUtil.list(NO_COLLS).iterator();
+	  Iterator<String> nsIter = repo.getNamespaces().iterator();
+	  if (!nsIter.hasNext()) {
+	    nsIter = ListUtil.list(NO_NAMESPACES).iterator();
 	  }
-	  for (String coll : new IteratorIterable<String>(collsIter)) {
+	  for (String ns : new IteratorIterable<String>(nsIter)) {
 	    Map row = new HashMap();
 	    if (repoDf != null) {
 	      row.put("size", StringUtil.sizeKBToString(repoDf.getSize()));
@@ -170,16 +172,16 @@ public class LockssRepositoryStatus {
 					  rs.getSpec());
 	      row.put("path", path);
 	    }
-	    if (NO_COLLS.equals(coll)) {
-	      row.put("coll", coll);
+	    if (NO_NAMESPACES.equals(ns)) {
+	      row.put("ns", ns);
 	    } else {
-	      row.put("coll",
-		      new StatusTable.Reference(coll,
+	      row.put("ns",
+		      new StatusTable.Reference(ns,
 						AUIDS_STATUS_TABLE_NAME,
 						rs.getSpec()));
 	      try {
 		row.put("aus",
-			new StatusTable.Reference(IterableUtils.size(repo.getAuIds(coll)),
+			new StatusTable.Reference(IterableUtils.size(repo.getAuIds(ns)),
 						  AUIDS_STATUS_TABLE_NAME,
 						  rs.getSpec()));
 	      } catch (IOException e) {
@@ -189,7 +191,7 @@ public class LockssRepositoryStatus {
 	    rows.add(row);
 	  }
 	} catch (IOException e) {
-	  log.warning("Couldn't get collection IDs from: " + rs.getSpec(),
+	  log.warning("Couldn't get namespace IDs from: " + rs.getSpec(),
 		      e);
 	}
       }
@@ -197,7 +199,7 @@ public class LockssRepositoryStatus {
     }
 
     protected String getTitle(String key) {
-      return "Repository Collections";
+      return "Repository Namespaces";
     }
   }
 
@@ -231,11 +233,11 @@ public class LockssRepositoryStatus {
 
     private String storageStats(StorageInfo si) {
       StringBuilder sb = new StringBuilder();
-      sb.append(StringUtil.sizeToString(si.getSize()));
+      sb.append(StringUtil.sizeKBToString(si.getSizeKB()));
       sb.append(", ");
-      sb.append(StringUtil.sizeToString(si.getAvail()));
+      sb.append(StringUtil.sizeKBToString(si.getAvailKB()));
       sb.append(" free, ");
-      sb.append(StringUtil.sizeToString(si.getUsed()));
+      sb.append(StringUtil.sizeKBToString(si.getUsedKB()));
       sb.append(" (");
       sb.append(si.getPercentUsedString());
       sb.append(")");
@@ -357,24 +359,26 @@ public class LockssRepositoryStatus {
 			 StringUtil.separatedString(hist, ", "));
   }
 
-  /** Display list of AUIDs in a Collection */
-  static class CollectionAuidsStatusAccessor
+  /** Display list of AUIDs in a Namespace */
+  static class NamespaceAuidsStatusAccessor
     extends AbstractRepoStatusAccessor {
 
     private static final List columnDescriptors = ListUtil.list
       (new ColumnDescriptor("auid", "AUID", ColumnDescriptor.TYPE_STRING),
-       new ColumnDescriptor("size", "Size", ColumnDescriptor.TYPE_INT)
+       new ColumnDescriptor("size", "Size", ColumnDescriptor.TYPE_INT),
+       new ColumnDescriptor("sizeall", "All Versions", ColumnDescriptor.TYPE_INT),
+       new ColumnDescriptor("ondisk", "On Disk", ColumnDescriptor.TYPE_INT)
        );
 
     private static final List sortRules =
       ListUtil.list(new StatusTable.SortRule("auid", true));
 
-    CollectionAuidsStatusAccessor(LockssDaemon daemon) {
+    NamespaceAuidsStatusAccessor(LockssDaemon daemon) {
       super(daemon);
     }
 
     public String getDisplayName() {
-      return "AUIDs in Collection";
+      return "AUIDs in Namespace";
     }
 
     public void populateTable(StatusTable table)
@@ -383,19 +387,20 @@ public class LockssRepositoryStatus {
       RepoSpec rs = repoMgr.getV2Repository(key);
       table.setColumnDescriptors(columnDescriptors);
       table.setDefaultSortRules(sortRules);
-      table.setRows(getRows(table, rs));
-      table.setSummaryInfo(getSummaryInfo(rs));
+      SizeStats stats = new SizeStats();
+      table.setRows(getRows(table, rs, stats));
+      table.setSummaryInfo(getSummaryInfo(rs, stats));
     }
 
     public boolean requiresKey() {
       return true;
     }
 
-    private List getRows(StatusTable table, RepoSpec rs) {
+    private List getRows(StatusTable table, RepoSpec rs, SizeStats stats) {
       LockssRepository repo = rs.getRepository();
       List rows = new ArrayList();
       try {
-	for (String auid : repo.getAuIds(rs.getCollection())) {
+	for (String auid : repo.getAuIds(rs.getNamespace())) {
 	  Map row = new HashMap();
 	  StatusTable.Reference auidRef =
 	    new StatusTable.Reference(auid,
@@ -404,28 +409,51 @@ public class LockssRepositoryStatus {
 	    .setProperty("auid", auid);
 	  row.put("auid", auidRef);
 	  try {
-	    row.put("size", repo.auSize(rs.getCollection(), auid));
+            AuSize aus = repo.auSize(rs.getNamespace(), auid);
+	    row.put("size", aus.getTotalLatestVersions());
+            stats.size += aus.getTotalLatestVersions();
+	    row.put("sizeall", aus.getTotalAllVersions());
+            stats.allVer += aus.getTotalAllVersions();
+            if (aus.getTotalWarcSize() != null) {
+              row.put("ondisk", aus.getTotalWarcSize());
+              stats.onDisk += aus.getTotalWarcSize();
+            }
 	  } catch (IOException e) {
 	    log.warning("Couldn't get AU size", e);
 	  }
 	  rows.add(row);
 	}
       } catch (IOException e) {
-	log.warning("Couldn't get AU list for collection: " + rs.getSpec(), e);
+	log.warning("Couldn't get AU list for namespace: " + rs.getSpec(), e);
       }	
       return rows;
     }
 
-    private List getSummaryInfo(RepoSpec rs) {
+    private List getSummaryInfo(RepoSpec rs, SizeStats stats) {
       List res = new ArrayList();
-      res.add(new StatusTable.SummaryInfo("Collection",
+      res.add(new StatusTable.SummaryInfo("Namespace",
 					  ColumnDescriptor.TYPE_STRING,
-					  rs.getCollection()));
+					  rs.getNamespace()));
+      res.add(new StatusTable.SummaryInfo("Total content size",
+					  ColumnDescriptor.TYPE_STRING,
+					  StringUtil.sizeToString(stats.size)));
+      res.add(new StatusTable.SummaryInfo("All versions",
+					  ColumnDescriptor.TYPE_STRING,
+					  StringUtil.sizeToString(stats.allVer)));
+      res.add(new StatusTable.SummaryInfo("On disk",
+					  ColumnDescriptor.TYPE_STRING,
+					  StringUtil.sizeToString(stats.onDisk)));
       return res;
     }
   }
 
-  /** Display list of Artifacts in a an AUID (in a Collection) */
+  private static class SizeStats {
+    long size;
+    long allVer;
+    long onDisk;
+  }
+
+  /** Display list of Artifacts in a an AUID (in a Namespace) */
   static class AuidArtifactsStatusAccessor extends AbstractRepoStatusAccessor {
     private static final List columnDescriptors = ListUtil.list
       (new ColumnDescriptor("url", "URL", ColumnDescriptor.TYPE_STRING),
@@ -446,7 +474,7 @@ public class LockssRepositoryStatus {
       return "Artifacts in AU";
     }
 
- public void populateTable(StatusTable table)
+    public void populateTable(StatusTable table)
         throws StatusService.NoSuchTableException {
       String key = table.getKey();
       RepoSpec rs = repoMgr.getV2Repository(key);
@@ -455,7 +483,7 @@ public class LockssRepositoryStatus {
       table.setColumnDescriptors(columnDescriptors);
       table.setDefaultSortRules(sortRules);
       table.setRows(getRows(table, rs, auid));
-      table.setSummaryInfo(getSummaryInfo(rs, auid));
+      table.setSummaryInfo(getSummaryInfo(table, rs, auid));
     }
 
     public boolean requiresKey() {
@@ -482,7 +510,11 @@ public class LockssRepositoryStatus {
 
       Iterator<Artifact> artIter;
       try {
-	artIter = repo.getArtifacts(rs.getCollection(), auid).iterator();
+        if (StringUtil.isNullString(table.getProperty(PROP_ALL_VERSIONS))) {
+          artIter = repo.getArtifacts(rs.getNamespace(), auid).iterator();
+        } else {
+          artIter = repo.getArtifactsAllVersions(rs.getNamespace(), auid).iterator();
+        }
       } catch (IOException e) {
 	throw new RuntimeException("Error getting Artifact Iterator", e);
       }
@@ -513,14 +545,35 @@ public class LockssRepositoryStatus {
       return row;
     }
 
-    private List getSummaryInfo(RepoSpec rs, String auid) {
+    private List getSummaryInfo(StatusTable table, RepoSpec rs, String auid) {
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("AUID",
 					  ColumnDescriptor.TYPE_STRING,
 					  auid));
-      res.add(new StatusTable.SummaryInfo("Collection",
+      res.add(new StatusTable.SummaryInfo("Namespace",
 					  ColumnDescriptor.TYPE_STRING,
-					  rs.getCollection()));
+					  rs.getNamespace()));
+
+      if (StringUtil.isNullString(table.getProperty(PROP_ALL_VERSIONS))) {
+	StatusTable.Reference allVers =
+	  new StatusTable.Reference("Show All Versions",
+				    ARTIFACTS_STATUS_TABLE_NAME,
+				    table.getKey())
+          .setProperty(PROP_ALL_VERSIONS, "1")
+          .setProperty("auid", auid);
+	res.add(new StatusTable.SummaryInfo(null,
+					    ColumnDescriptor.TYPE_STRING,
+					    allVers));
+      } else {
+	StatusTable.Reference latestVer =
+	  new StatusTable.Reference("Show Latest Version",
+				    ARTIFACTS_STATUS_TABLE_NAME,
+				    table.getKey())
+          .setProperty("auid", auid);
+	res.add(new StatusTable.SummaryInfo(null,
+					    ColumnDescriptor.TYPE_STRING,
+					    latestVer));
+      }
       return res;
     }
   }

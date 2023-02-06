@@ -69,7 +69,7 @@ public class TestPluginManager extends LockssTestCase4 {
   static BrokerService broker;
   private MyMockLockssDaemon theDaemon;
 
-  static final String V2COLL = "coll";
+  static final String V2NS = "ns";
 
   static String mockPlugKey =
     PluginManager.pluginKeyFromName(MyMockPlugin.class.getName());
@@ -125,7 +125,7 @@ public class TestPluginManager extends LockssTestCase4 {
     p.setProperty(PluginManager.PARAM_PLUGIN_LOCATION, "plugins");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
-				  "volatile:" + V2COLL);
+				  "volatile:" + V2NS);
 
     theDaemon = (MyMockLockssDaemon)getMockLockssDaemon();
 
@@ -304,15 +304,49 @@ public class TestPluginManager extends LockssTestCase4 {
   public void testEnsurePluginLoadedCheckDaemonVersion()
       throws Exception {
     mgr.startService();
-    String key = PluginManager.pluginKeyFromName(VerPlugin.class.getName());
+    String key = PluginManager.pluginKeyFromName(VerPlugin1_10_0.class.getName());
     // with insufficient daemon version,
     setDaemonVersion("1.1.1");
     // plugin requiring 1.10.0 should not load
     assertFalse(mgr.ensurePluginLoaded(key));
     // with sufficient daemon version,
-    setDaemonVersion("11.1");
+    setDaemonVersion("11.1.1");
     // it should load.
     assertTrue(mgr.ensurePluginLoaded(key));
+  }
+
+  @Test
+  public void testEnsurePluginLoadedCheckDaemonVersionList()
+      throws Exception {
+    mgr.startService();
+    // A plugin that wants either 1.10.0 or 2.7.3
+    String key =
+      PluginManager.pluginKeyFromName(VerPlugin1_10_0or2_7_3.class.getName());
+    // with insufficient daemon version,
+    setDaemonVersion("1.9.1");
+    // plugin requiring 1.10.0 or 2.7.3 should not load
+    assertFalse(mgr.ensurePluginLoaded(key));
+    mgr.removePlugin(key);
+    // with sufficient daemon version,
+    setDaemonVersion("1.11.1");
+    // it should load.
+    assertTrue(mgr.ensurePluginLoaded(key));
+    mgr.removePlugin(key);
+    // with insufficient 2.x daemon version,
+    setDaemonVersion("2.7.2");
+    // it should not load.
+    assertFalse(mgr.ensurePluginLoaded(key));
+    mgr.removePlugin(key);
+    // with sufficient 2.x daemon version,
+    setDaemonVersion("2.7.3");
+    // it should load.
+    assertTrue(mgr.ensurePluginLoaded(key));
+    mgr.removePlugin(key);
+    // with 3.x version,
+    setDaemonVersion("3.1.3");
+    // it should not load.
+    assertFalse(mgr.ensurePluginLoaded(key));
+    mgr.removePlugin(key);
   }
 
   static class APlugin extends MockPlugin {
@@ -409,7 +443,7 @@ public class TestPluginManager extends LockssTestCase4 {
     String key = PluginManager.pluginKeyFromId(pname);
     assertFalse(mgr.ensurePluginLoaded(key));
     // with sufficient daemon version,
-    setDaemonVersion("11.1");
+    setDaemonVersion("11.1.1");
     // it should load.
     assertTrue(mgr.ensurePluginLoaded(key));
   }
@@ -1464,7 +1498,7 @@ public class TestPluginManager extends LockssTestCase4 {
   Artifact storeArt(ArchivalUnit au, String url, InputStream in,
 		    CIProperties props) throws IOException {
     if (props == null) props = new CIProperties();
-    return V2RepoUtil.storeArt(repo, V2COLL, au.getAuId(), url, in, props);
+    return V2RepoUtil.storeArt(repo, V2NS, au.getAuId(), url, in, props);
   }
 
   protected LockssRepository repo;
@@ -1836,6 +1870,46 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(0, getTotFUStats().v2Invocations);
 
     mgr.logFindUrlStats(true);
+  }
+
+  // Ensure PluginManager.findCachedUrl() can find names (esp. non-URL
+  // names) in AUs that have no stems
+  @Test
+  public void testNonUrls() throws Exception {
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+    String plugKey =
+      PluginManager.pluginKeyFromName(NamedArchivalUnit.NAMED_PLUGIN_NAME);
+    mgr.ensurePluginLoaded(plugKey);
+    Plugin plug = mgr.getPlugin(plugKey);
+    Configuration auConfig = ConfigurationUtil.fromArgs("handle", "foo");
+    ArchivalUnit au =
+      mgr.createAu(plug, auConfig, AuEvent.model(AuEvent.Type.Create));
+    String[] names = { "http://foo.bar/baz", "nonURL.1",
+                       "nonURL.2", "worse URL", "nonURL.2",
+                       // Malformed URL (fails normalize()) that
+                       // satisfies UrlUtil.isUrl()
+                       "xxxyyy:/::://::???",
+    };
+    for (String name : names) {
+      String cont = "Content of " + name;
+      UrlData ud = new UrlData(new StringInputStream(cont),
+                               new CIProperties(), name);
+      UrlCacher uc = new DefaultUrlCacher(au, ud);
+      uc.storeContent();
+      CachedUrl cu = au.makeCachedUrl(name);
+      assertTrue(cu.hasContent());
+      assertEquals(name, cu.getUrl());
+      assertInputStreamMatchesString(cont,
+                                   cu.getUnfilteredInputStream());
+    }
+    for (String name : names) {
+      String cont = "Content of " + name;
+      CachedUrl cu = mgr.findCachedUrl(name);
+      assertEquals(name, cu.getUrl());
+      assertTrue(cu.hasContent());
+      assertInputStreamMatchesString(cont, cu.getUnfilteredInputStream());
+    }
   }
 
   /** Putter puts something onto a queue in a while */
@@ -2709,13 +2783,23 @@ public class TestPluginManager extends LockssTestCase4 {
     }
   }
 
-  private static class VerPlugin extends MockPlugin {
-    public VerPlugin(){
+  private static class VerPlugin1_10_0 extends MockPlugin {
+    public VerPlugin1_10_0(){
       super();
     }
 
-    public String getRequiredDaemonVersion() {
-      return "1.10.0";
+    public List<String> getRequiredDaemonVersion() {
+      return ListUtil.list("1.10.0");
+    }
+  }
+
+  private static class VerPlugin1_10_0or2_7_3 extends MockPlugin {
+    public VerPlugin1_10_0or2_7_3(){
+      super();
+    }
+
+    public List<String> getRequiredDaemonVersion() {
+      return ListUtil.list("1.10.0", "2.7.3");
     }
   }
 

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +35,8 @@ import org.lockss.daemon.Crawler;
 import org.lockss.plugin.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.urlconn.CacheException;
+import org.lockss.util.PatternMap;
+import org.lockss.util.urlconn.*;
 
 public class MockCrawler extends NullCrawler {
   ArchivalUnit au;
@@ -184,12 +186,13 @@ public class MockCrawler extends NullCrawler {
     private PermissionMap permissionMap;
     private List<String> globallyPermittedHosts = Collections.emptyList();
     private List<String> allowedPluginPermittedHost = Collections.emptyList();
+    private AuHttpResultMap auResMap;
 
     public MockCrawlerFacade() {
       au = new MockArchivalUnit();
     }
     
-    public MockCrawlerFacade(MockArchivalUnit mau) {
+    public MockCrawlerFacade(ArchivalUnit mau) {
       au = mau;
     }
     
@@ -210,6 +213,18 @@ public class MockCrawler extends NullCrawler {
         cs = new MockCrawlStatus();
       }
       return cs;
+    }
+
+    @Override
+    public AuCacheResultMap getAuCacheResultMap() {
+      if (auResMap != null) {
+        return auResMap;
+      }
+      return AuHttpResultMap.DEFAULT;
+    }
+
+    public void setAuCacheResultMap(AuHttpResultMap map) {
+      auResMap = map;
     }
 
     @Override
@@ -298,7 +313,7 @@ public class MockCrawler extends NullCrawler {
     }
 
     @Override
-    public int permissonStreamResetMax() {
+    public int permissionStreamResetMax() {
       return BaseCrawler.DEFAULT_PERMISSION_BUF_MAX;
     }
 

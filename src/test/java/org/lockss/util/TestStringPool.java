@@ -97,6 +97,32 @@ public class TestStringPool extends LockssTestCase {
     assertNotSame(v1, pool.internMapValue("keyxyz", new String(v1)));
     assertSame(v2, pool.internMapValue("key2", v2));
     assertSame(v2, pool.internMapValue("key2", new String(v2)));
+
+    // Test key pattern
+    pool.setKeyPattern("^.*_floober_factory$");
+    String v3 = "FactName";
+    String v4 = "FactName2";
+    assertSame(v3, pool.internMapValue("text/pdf_floober_factory", v3));
+    assertSame(v3, pool.internMapValue("text/pdf_floober_factory",
+                                       new String(v3)));
+    assertSame(v4, pool.internMapValue("text/pdf_floober_foundry", v4));
+    assertNotSame(v4, pool.internMapValue("text/pdf_floober_foundry",
+                                          new String(v4)));
+    String t1 = "true";
+    assertSame(t1, pool.internMapValue("uncommon_key", t1));
+    assertSame(t1, pool.internMapValue("uncommon_key", new String(t1)));
+  }
+
+  public void testPredefined() {
+    StringPool pool = StringPool.TDBAU_ATTRS;
+    String v1 = "val1";
+    String v2 = "val2";
+    assertSame(v1, pool.internMapValue("text/pdf_filter_factory", v1));
+    assertSame(v1, pool.internMapValue("text/pdf_filter_factory",
+                                       new String(v1)));
+    assertSame(v2, pool.internMapValue("text/pdf_toy_factory", v2));
+    assertNotSame(v2, pool.internMapValue("text/pdf_toy_factory",
+                                                 new String(v2)));
   }
 
   // Same but create pool after config set, which is a different code path
@@ -125,6 +151,5 @@ public class TestStringPool extends LockssTestCase {
     ConfigurationUtil.setFromArgs("org.lockss.stringPool.TdbAu props.mapKeys",
 				  "key1;key2");
     assertSame(v2, pool.internMapValue("type", v2));
-    assertNotSame(v2, pool.internMapValue("type", new String(v2)));
   }
 }

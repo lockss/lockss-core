@@ -97,8 +97,9 @@ public class AuConfigurationUtils {
       auConfig.put(key, newConf.get(key));
     }
 
-    return new AuConfiguration(PluginManager
-	.auIdFromConfigPrefixAndKey(auPropKey), auConfig);
+    return new AuConfiguration(PluginManager.auIdFromConfigPrefixAndKey(auPropKey),
+                               auConfig)
+      .intern();
   }
 
   /**
@@ -149,7 +150,7 @@ public class AuConfigurationUtils {
       props.put(tokens.get(index), tokens.get(index + 1));
     }
 
-    return new AuConfiguration(auId, props);
+    return new AuConfiguration(auId, props).intern();
   }
 
   /**

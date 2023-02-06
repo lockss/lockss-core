@@ -88,7 +88,6 @@ public class FuncV3Voter extends LockssTestCase {
     msgDeadline = TimeBase.nowMs() + 100000;
     tempDir = getTempDir();
     tempDirPath = tempDir.getAbsolutePath();
-    System.setProperty("java.io.tmpdir", tempDirPath);
     startDaemon();
     getMockLockssDaemon().getPsmManager().startService();
   }

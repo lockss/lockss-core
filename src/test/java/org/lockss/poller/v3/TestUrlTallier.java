@@ -487,7 +487,6 @@ public class TestUrlTallier extends LockssTestCase {
   private void initRequiredServices() throws Exception {
     tempDir = getTempDir();
     tempDirPath = tempDir.getAbsolutePath();
-    System.setProperty("java.io.tmpdir", tempDirPath);
 
     Properties p = new Properties();
     p.setProperty(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tempDirPath);

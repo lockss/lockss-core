@@ -271,8 +271,7 @@ public abstract class CachingStateManager extends BaseStateManager {
    * @param json the serialized AuStateBean
    * @throws IOException if json conversion throws
    */
-  @Override
-  public void storeAuStateFromJson(String auid, String json)
+  protected void storeAuStateFromJson(String auid, String json)
       throws IOException {
     AuStateBean ausb = newDefaultAuStateBean(auid);
     ausb.updateFromJson(json, daemon);
@@ -335,7 +334,6 @@ public abstract class CachingStateManager extends BaseStateManager {
     AuState aus = newDefaultAuState(au);
     putAuState(key, aus);
     log.debug2("handleAuStateCacheMiss: new bean for {}", key);
-    doStoreAuStateBean(key, aus.getBean(), null);
     return aus;
   }
 
@@ -350,7 +348,6 @@ public abstract class CachingStateManager extends BaseStateManager {
       ausb = newDefaultAuStateBean(key);
       auStateBeans.put(key, ausb);
       log.debug2("handleAuStateBeanCacheMiss: new bean for {}", key);
-      doStoreAuStateBean(key, ausb, null);
     }
     return ausb;
   }
@@ -423,8 +420,6 @@ public abstract class CachingStateManager extends BaseStateManager {
       } else if (isStoreOfMissingAuAgreementsAllowed(peers)) {
 	// XXX log?
 	agmnts.put(key, aua);
-	String json = aua.toJson(peers);
-	doStoreAuAgreementsNew(key, aua);
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to AuAgreements not in cache: " + key);
       }
@@ -472,13 +467,6 @@ public abstract class CachingStateManager extends BaseStateManager {
     } else {
       aua = newDefaultAuAgreements(key);
       agmnts.put(key, aua);
-      try {
-	String json = aua.toJson();
-	doStoreAuAgreementsNew(key, aua);
-      } catch (IOException e) {
-	log.error("Couldn't serialize AuAgreements: {}", aua, e);
-	throw new StateLoadStoreException("Couldn't serialize AuAgreements: " + aua);
-      }
     }
     return aua;
   }
@@ -563,8 +551,6 @@ public abstract class CachingStateManager extends BaseStateManager {
       } else if (isStoreOfMissingAuSuspectUrlVersionsAllowed(versions)) {
 	// XXX log?
  	suspectVers.put(key, asuv);
- 	String json = asuv.toJson(versions);
- 	doStoreAuSuspectUrlVersionsNew(key, asuv);
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to AuSuspectUrlVersions not in cache: " + key);
       }
@@ -614,13 +600,6 @@ public abstract class CachingStateManager extends BaseStateManager {
     } else {
       asuv = newDefaultAuSuspectUrlVersions(key);
       suspectVers.put(key, asuv);
-      try {
-	String json = asuv.toJson();
- 	doStoreAuSuspectUrlVersionsNew(key, asuv);
-      } catch (IOException e) {
- 	log.error("Couldn't serialize AuSuspectUrlVersions: {}", asuv, e);
- 	throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " + asuv);
-      }
     }
     return asuv;
   }
@@ -698,8 +677,6 @@ public abstract class CachingStateManager extends BaseStateManager {
       } else if (isStoreOfMissingNoAuPeerSetAllowed(peers)) {
 	// XXX log?
 	noAuPeerSets.put(key, naps);
-	String json = naps.toJson(peers);
-	doStoreNoAuPeerSetNew(key, naps);
       } else {
 	throw new IllegalStateException("Attempt to apply partial update to NoAuPeerSet not in cache: " + key);
       }
@@ -746,13 +723,6 @@ public abstract class CachingStateManager extends BaseStateManager {
     } else {
       naps = newDefaultNoAuPeerSet(key);
       noAuPeerSets.put(key, naps);
-      try {
- 	String json = naps.toJson();
- 	doStoreNoAuPeerSetNew(key, naps);
-      } catch (IOException e) {
- 	log.error("Couldn't serialize NoAuPeerSet: {}", naps, e);
- 	throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " + naps);
-      }
     }
     return naps;
   }

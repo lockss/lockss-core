@@ -67,6 +67,7 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.jms.*;
 import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.rest.exception.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -1718,7 +1719,8 @@ public class ConfigManager implements LockssManager {
     List gens;
     try {
       gens = getStandardConfigGenerations(urls, reload);
-    } catch (SocketException | UnknownHostException | FileNotFoundException e) {
+    } catch (SocketException | UnknownHostException |
+             FileNotFoundException | LockssRestNetworkException e) {
       log.error("Error loading config: " + e.toString());
 //       recentLoadError = e.toString();
       return false;
@@ -1854,7 +1856,13 @@ public class ConfigManager implements LockssManager {
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "platConfig = " + platConfig);
 	} catch (IOException e) {
-	  log.warning("Couldn't preload platform file " + cf.getFileUrl(), e);
+          if (e instanceof FileNotFoundException &&
+              StringUtil.endsWithIgnoreCase(cf.getFileUrl(), ".opt")) {
+            log.debug2("Not preloading nonexistent optional platform file: "
+                       + cf.getFileUrl());
+          } else {
+            log.warning("Couldn't preload platform file " + cf.getFileUrl(), e);
+          }
 	}
       }
     }
@@ -2090,7 +2098,7 @@ public class ConfigManager implements LockssManager {
   private void setUpTmp(Configuration config) {
     // If we were given a temp dir, create a subdir and use that.  This
     // makes it possible to quickly "delete" on restart by renaming, and
-    // avoids potentially huge "*" expansion in rundaemon that might't
+    // avoids potentially huge "*" expansion in rundaemon that might
     // exceed the maximum command length.
 
     String tmpdir = config.get(PARAM_TMPDIR);
@@ -2100,10 +2108,23 @@ public class ConfigManager implements LockssManager {
 	if (!javaTmpDir.equals(daemonTmpDir)) {
 	  log.debug("Setting system tmpdir to " + javaTmpDir.toString());
 	}
-	System.setProperty("java.io.tmpdir", javaTmpDir.toString());
+        // Setting java.io.tmpdir may or may not have any effect, as
+        // Java caches it the first time File.createTempFile() is
+        // called (why?).  In a Spring environment where lots of code
+        // runs before the LOCKSS main it's even more likely that
+        // createTempFile() will have been called before this runs.
+        // Neverthelss, we hope it does take effect, so any non-LOCKSS
+        // components, which don't know to use
+        // FileUtil.createTempDir() or FileUtil.createTempFile(), will
+        // create their temp files in the desired location.
+	System.setProperty(PlatformUtil.SYSPROP_JAVA_IO_TMPDIR,
+                           javaTmpDir.toString());
+	System.setProperty(PlatformUtil.SYSPROP_LOCKSS_TMPDIR,
+                           javaTmpDir.toString());
 	daemonTmpDir = javaTmpDir;
       } else {
-	daemonTmpDir = new File(System.getProperty("java.io.tmpdir"));
+	daemonTmpDir =
+          new File(System.getProperty(PlatformUtil.SYSPROP_JAVA_IO_TMPDIR));
 	log.warning("Using default tmpdir: " + daemonTmpDir);
       }
     }
@@ -2112,7 +2133,7 @@ public class ConfigManager implements LockssManager {
   /** Return the configured or default temp dir */
   public File getTmpDir() {
     return daemonTmpDir != null
-      ? daemonTmpDir : new File(System.getProperty("java.io.tmpdir"));
+      ? daemonTmpDir : new File(PlatformUtil.getSystemTempDir());
   }
 
   public static final String PARAM_HASH_SVC = LockssApp.MANAGER_PREFIX +

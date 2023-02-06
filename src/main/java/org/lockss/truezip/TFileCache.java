@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +31,7 @@ package org.lockss.truezip;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -79,7 +76,7 @@ public class TFileCache {
   private long maxFiles;
   private long curSize;
 
-  private Map<String,Entry> cmap = new HashMap<String,Entry>();
+  private Map<String,Entry> cmap = new HashMap<>();
 
   // for stats & tests
   private int cacheHits = 0;
@@ -123,8 +120,8 @@ public class TFileCache {
   /** Return a {@link de.schlichtherle.truezip.file.TFile} pointing to a
    * temp file with a copy of the CU's contents.  If not already present, a
    * new temp file will be created and the CU content copied into it.
-   * @param cu the CU to open as a TFile.  Distinct CUs with the same URL
-   * reference the same TFile.
+   * @param cu the CU to open as a TFile.  Distinct CUs with the same
+   * AU and URL reference the same TFile.
    * @return a TFile or null if one cannot be created (e.g., because the cu
    * has no content, or isn't a known archive type)
    */
@@ -139,8 +136,8 @@ public class TFileCache {
   /** Return the {@link TFileCache.Entry} corresponding to the temp file
    * with a copy of the CU's contents.  If not already present, a new temp
    * file will be created and the CU content copied into it.
-   * @param cu the CU to open as a TFile.  Distinct CUs with the same URL
-   * reference the same TFile.
+   * @param cu the CU to open as a TFile.  Distinct CUs with the same
+   * AU and URL reference the same TFile.
    * @return a TFileCache.Entry or null if one cannot be created (e.g.,
    * because the cu has no content, or isn't a known archive type)
    * @throws IOException if one occurs while creating and filling the temp
@@ -148,29 +145,51 @@ public class TFileCache {
    */
   public Entry getCachedTFileEntry(CachedUrl cu) throws IOException {
     String key = getKey(cu);
+    Entry ent;
     synchronized (cmap) {
-      Entry ent = getEnt(key);
+      ent = getEnt(key);
       if (ent != null) {
-	return ent;
+        try {
+          if (ent.fut.get()) {
+            cacheHits++;
+            ent.used();
+            return ent;
+          } else {
+            log.warning("TFile Entry completed false: " + cu);
+            return null;
+          }
+        } catch (InterruptedException | ExecutionException e) {
+          log.warning("Interrupted waiting for TFileCache.Entry Future: " + cu,
+                      e);
+          return null;
+        }
       }
       cacheMisses++;
       ent = createEnt(key, cu);
-
       if (ent == null) {
 	return null;
       }
-      ensureSpace(ent);
-      fillTFile(ent, cu);
-      if (ent.valid) {
-	curSize += ent.size;
-      } else {
-	// TFile wasn't fully created, delete temp file and remove from map
-	log.warning("Incompletely created TFile for: " + cu);
-	flushEntry(ent);
-	return null;
-      }
-      return ent;
+      cmap.put(key, ent);
     }
+    ensureSpace(ent);
+    try {
+      fillTFile(ent, cu);
+    } catch (IOException e) {
+      log.warning("Error filling TFile Entry: " + cu, e);
+      ent.fut.complete(false);
+      flushEntry(ent);
+      throw e;
+    }
+    if (ent.valid) {
+      curSize += ent.size;
+    } else {
+      // TFile wasn't fully created, delete temp file and remove from map
+      log.warning("Incompletely created TFile for: " + cu);
+      ent.fut.complete(false);
+      flushEntry(ent);
+      return null;
+    }
+    return ent;
   }    
 
   /** Properties of an archive file CU that should be inherited by its
@@ -184,7 +203,7 @@ public class TFileCache {
 		  );
 
   void handleSplitZipArchive(TFile tf, CachedUrl cu, InputStream zipIs,
-                             long digits) throws IOException {
+                             int digits) throws IOException {
     String prefix = "splitzip.";
 
     // Get the CU's archival unit
@@ -193,30 +212,7 @@ public class TFileCache {
     // Create new temporary directory for split zip files
     File splitZipsTmpDir = FileUtil.createTempDir("splitzips", "", tmpDir);
 
-    // Copy split zip files to the temporary directory
-    for (int i = 1; i < Math.pow(10, digits); i++) {
-      CachedUrl splitZipCu = probeForSplitZip(cu, digits, i);
-
-      if (splitZipCu != null) {
-        String newUrl = splitZipCu.getUrl();
-        String newExt = FileUtil.getExtension(new URL(newUrl).getPath()).toLowerCase();
-
-        // Split zip destination file
-        File splitZipFileDst = new File(splitZipsTmpDir, prefix + newExt);
-
-        log.debug2("splitZipFileDst = " + splitZipFileDst);
-
-        // Copy split zip file to temporary directory
-        try (InputStream input = splitZipCu.getUnfilteredInputStream();
-             OutputStream output = new BufferedOutputStream(new FileOutputStream(splitZipFileDst))) {
-          StreamUtil.copy(input, output);
-        }
-      } else {
-        // Assume we're done copying files if there's a break in the sequence;
-        // allow any missing files to be detected by the zip utility
-        break;
-      }
-    }
+    copyParts(cu, digits, prefix, splitZipsTmpDir);
 
     // Copy zip file to temporary directory
     File zipFileDst = new File(splitZipsTmpDir, prefix + "zip");
@@ -290,10 +286,47 @@ public class TFileCache {
     }
   }
 
+  /** Copy split zip files to the temporary directory. */
+  void copyParts(CachedUrl cu, int digits, String prefix, File splitZipsTmpDir)
+      throws IOException {
+    for (int i = 1; i < Integer.MAX_VALUE; i++) {
+
+      // Check whether it's time to increase the number of digits
+      if (i >= NumberUtil.intPow(10, digits)) {
+        digits++;
+      }
+
+      CachedUrl splitZipCu = probeForSplitZip(cu, digits, i);
+
+      if (splitZipCu != null) {
+        String newUrl = splitZipCu.getUrl();
+        String newExt =
+          FileUtil.getExtension(new URL(newUrl).getPath()).toLowerCase();
+
+        // Split zip destination file
+        File splitZipFileDst = new File(splitZipsTmpDir, prefix + newExt);
+
+        log.debug2("splitZipFileDst = " + splitZipFileDst);
+
+        // Copy split zip file to temporary directory
+        try (InputStream input = splitZipCu.getUnfilteredInputStream();
+             OutputStream output =
+             new BufferedOutputStream(new FileOutputStream(splitZipFileDst))) {
+          StreamUtil.copy(input, output);
+        }
+      } else {
+        // Assume we're done copying files if there's a break in the sequence;
+        // allow any missing files to be detected by the zip utility
+        break;
+      }
+    }
+  }
+
+
   public static final Pattern ZIP_EXT_PATTERN =
       Pattern.compile(".*(\\.zip)(\\?.*|$)", Pattern.CASE_INSENSITIVE);
 
-  public static String replaceZipExtension(String url, String prefix, long digits, long i) {
+  public static String replaceZipExtension(String url, String prefix, int digits, long i) {
     String index = String.valueOf(i);
     String indexPadding = "";
 
@@ -313,10 +346,9 @@ public class TFileCache {
   }
 
   // Maximum number of digits in split zip sequence (e.g. zXX has two digits
-  // and can address up to 10^2-1 split zip files assuming it begins with z01).
   private static final long MAX_DIGITS = 10;
 
-  CachedUrl probeForSplitZip(CachedUrl cu, long digits, long i) {
+  CachedUrl probeForSplitZip(CachedUrl cu, int digits, long i) {
     ArchivalUnit au = cu.getArchivalUnit();
 
     // List of split zip extension prefixes
@@ -410,6 +442,7 @@ public class TFileCache {
       }
 
       ent.valid = true;
+      ent.fut.complete(true);
 
     } finally {
       AuUtil.safeRelease(cu);
@@ -423,10 +456,6 @@ public class TFileCache {
 
   private Entry getEnt(String key) {
     Entry ent = cmap.get(key);
-    if (ent != null) {
-      cacheHits++;
-      ent.used();
-    }
     return ent;
   }
 
@@ -446,7 +475,6 @@ public class TFileCache {
     Entry ent = newEntry(key, ext, size, cu.getUrl());
     ent.ctf = new TFile(FileUtil.createTempFile("ctmp", ext, tmpDir));
     ent.ctf.delete();
-    cmap.put(key, ent);
     return ent;
   }
 
@@ -503,6 +531,9 @@ public class TFileCache {
 	    log.debug2("flushing " + sizeToString(ent.size) + " in " + ent.url
 		       + ", " + ent.ctf.getName());
 	  }
+          if (!ent.fut.complete(false)) {
+            log.warning("Entry's Future already complete in ensureSpace()");
+          }
 	  flushEntry(ent);
 	  curFiles--;
 	  committed -= ent.size;
@@ -699,6 +730,7 @@ public class TFileCache {
     long ctr;
     int refCnt = 0;
     boolean valid = false;
+    CompletableFuture<Boolean> fut = new CompletableFuture<>();
     String url;
     String key;
     CIProperties arcCuProps;

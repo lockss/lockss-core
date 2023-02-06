@@ -70,7 +70,8 @@ public class PersistentStateManager extends CachingStateManager {
 	getStateStore().updateArchivalUnitState(key, ausb, fields);
       log.trace("auSeq = {}", auSeq);
     } catch (StoreException se) {
-      String message = "Exception caught persisting new AuState";
+      String message = "Exception caught persisting new AuState: " +
+        se.toString();
       log.error("key = {}", key);
       log.error("ausb = {}", ausb);
       log.error("fields = {}", fields);

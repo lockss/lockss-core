@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-Copyright (c) 2000-2021, Board of Trustees of Leland Stanford Jr. University
-All rights reserved.
+Copyright (c) 2000-2023, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -39,13 +38,13 @@ POSSIBILITY OF SUCH DAMAGE.
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.14.0</version>
+    <version>1.15.0</version>
     <relativePath />
   </parent>
 
   <groupId>org.lockss.laaws</groupId>
   <artifactId>lockss-core</artifactId>
-  <version>2.6.0</version>
+  <version>2.7.0</version>
   <packaging>jar</packaging>
   
   <name>lockss-core</name>
@@ -148,7 +147,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>xerces</groupId>
       <artifactId>xercesImpl</artifactId>
-      <version>2.12.1</version>
+      <version>2.12.2</version>
     </dependency>
 
     <dependency>
@@ -334,7 +333,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
-      <version>1.14.3</version>
+      <version>1.15.3</version>
     </dependency>
     
     <dependency>
@@ -374,12 +373,14 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>2.2.11</version>
     </dependency>
     
+
+    <!-- https://mvnrepository.com/artifact/com.github.ziplet/ziplet -->
     <dependency>
-      <groupId>net.sourceforge.pjl-comp-filter</groupId>
-      <artifactId>pjl-comp-filter</artifactId>
-      <version>1.7</version>
+      <groupId>com.github.ziplet</groupId>
+      <artifactId>ziplet</artifactId>
+      <version>2.4.1</version>
     </dependency>
-    
+
     <dependency>
       <groupId>net.sourceforge.nekohtml</groupId>
       <artifactId>nekohtml</artifactId>
@@ -389,7 +390,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.2.5</version>
+      <version>${version.dependency.postgresql}</version>
     </dependency>
     
     <dependency>
@@ -401,7 +402,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.owasp.esapi</groupId>
       <artifactId>esapi</artifactId>
-      <version>2.1.0.1</version>
+      <version>2.3.0.0</version>
     </dependency>
     
     <dependency>
@@ -446,64 +447,39 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.group.httpclient}</version>
     </dependency>
 
-    <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>pdfbox</artifactId>
-      <version>${version.group.pdfbox}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>fontbox</artifactId>
-      <version>${version.group.pdfbox}</version>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.apache.pdfbox</groupId>
-      <artifactId>xmpbox</artifactId>
-      <version>${version.group.pdfbox}</version>
-    </dependency>
-
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk15on</artifactId>
+      <artifactId>bcprov-${version.group.bouncycastle.variant}</artifactId>
       <version>${version.group.bouncycastle}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcmail-jdk15on</artifactId>
+      <artifactId>bcmail-${version.group.bouncycastle.variant}</artifactId>
       <version>${version.group.bouncycastle}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j</artifactId>
       <version>${version.group.icu4j}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-charset</artifactId>
       <version>${version.group.icu4j}</version>
     </dependency>
 
+    <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-localespi</artifactId>
       <version>${version.group.icu4j}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>pdfbox</artifactId>
-      <version>0.7.3-p1</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.fontbox</groupId>
-      <artifactId>fontbox</artifactId>
-      <version>0.1.0</version>
     </dependency>
 
     <dependency>
@@ -567,9 +543,9 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>mysql</groupId>
-      <artifactId>mysql-connector-java</artifactId>
-      <version>8.0.24</version>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>8.0.31</version>
     </dependency>
 
     <dependency>
@@ -645,12 +621,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     
     <dependency>
-      <groupId>ca.juliusdavies</groupId>
-      <artifactId>not-yet-commons-ssl</artifactId>
-      <version>0.3.11</version>
-    </dependency>
-    
-    <dependency>
       <groupId>org.lockss.legacy</groupId>
       <artifactId>dk-digst-oiosaml-java</artifactId>
       <version>21188-p2</version>
@@ -659,12 +629,12 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.santuario</groupId>
       <artifactId>xmlsec</artifactId>
-      <version>1.5.8</version>
+      <version>2.1.7</version>
     </dependency>
     
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-jdk15on</artifactId>
+      <artifactId>bcpkix-${version.group.bouncycastle.variant}</artifactId>
       <version>${version.group.bouncycastle}</version>
     </dependency>
 
@@ -706,12 +676,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>org.antlr</groupId>
-      <artifactId>antlr4-runtime</artifactId>
-      <version>${version.group.antlr}</version>
-    </dependency>
-
-    <dependency>
       <groupId>httpunit</groupId>
       <artifactId>httpunit</artifactId>
       <version>1.7</version>
@@ -721,7 +685,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>xmlunit</groupId>
       <artifactId>xmlunit</artifactId>
-      <version>1.5</version>
+      <version>${version.dependency.xmlunit}</version>
       <scope>test</scope>
     </dependency>
 
@@ -787,15 +751,22 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>org.yaml</groupId>
-      <artifactId>snakeyaml</artifactId>
-      <version>1.24</version>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${version.dependency.jackson-databind}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <version>${version.group.jackson}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.skyscreamer</groupId>
       <artifactId>jsonassert</artifactId>
-      <version>1.4.0</version>
+      <version>${version.dependency.jsonassert}</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -814,9 +785,17 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>com.tectonica</groupId>
       <artifactId>jonix</artifactId>
-      <version>${version.group.jonix}</version>
+      <version>${version.dependency.jonix}</version>
     </dependency>
     
+    <!-- Lists jackson-annotations as a dependency of scope 'provided' -->
+    <!-- which is already an explicit dependency of jackson-databind -->
+    <dependency>
+      <groupId>org.jbibtex</groupId>
+      <artifactId>jbibtex</artifactId>
+      <version>${version.dependency.jbibtex}</version>
+    </dependency>
+
     <dependency>
       <groupId>com.jayway.jsonpath</groupId>
       <artifactId>json-path</artifactId>
@@ -828,6 +807,24 @@ POSSIBILITY OF SUCH DAMAGE.
           <artifactId>json-smart</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analyzers-common</artifactId>
+      <version>8.9.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+      <version>${version.group.pdfbox}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>pdfbox</artifactId>
+      <version>0.7.3-p1</version>
     </dependency>
 
   </dependencies>
@@ -849,6 +846,39 @@ POSSIBILITY OF SUCH DAMAGE.
         </dependencies>
         <executions>
         
+          <!-- Copy lockss-testing.keystore to lockss-testing.keystore
+               and add to it the cert for the "develop" key used to
+               sign plugins with the insecure built-in keystore -->
+
+          <execution>
+            <id>build-testing-keystore</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <copy file="${basedir}/src/main/java/org/lockss/plugin/lockss.keystore"
+                      tofile="${basedir}/target/classes/org/lockss/plugin/lockss-testing.keystore"
+                      overwrite="true"
+                      failonerror="true"/>
+                <exec executable="keytool" dir="${basedir}" failonerror="true" >
+                  <arg value="-importkeystore"/>
+                  <arg value="-srckeystore"/>
+                  <arg value="${basedir}/src/main/java/org/lockss/plugin/developcert.keystore"/>
+                  <arg value="-destkeystore"/>
+                  <arg value="${basedir}/target/classes/org/lockss/plugin/lockss-testing.keystore"/>
+                  <arg value="-srcalias"/>
+                  <arg value="develop"/>
+                  <arg value="-srcstorepass"/>
+                  <arg value="password"/>
+                  <arg value="-deststorepass"/>
+                  <arg value="password"/>
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+
           <execution>
             <id>paramDoclet</id>
             <phase>package</phase>
@@ -919,10 +949,11 @@ POSSIBILITY OF SUCH DAMAGE.
 		  <isset property="archive.db.is.up.to.date" />
 		  <else>
 		    <echo message="Generating empty DB for tests" />
-		    <property name="empty.db.parent.dir" value="${tmpdir}" />
+                    <tempfile property="empty.db.parent.dir"
+                              destDir="${tmpdir}"
+                              prefix="testtmp"/>
 		    <property name="empty.db.dir"
 			      value="${empty.db.parent.dir}/db" />
-		    <delete dir="${empty.db.dir}" quiet="true" />
 		    <java classname="org.lockss.metadata.EmptyDbCreator"
 			  fork="true">
    		      <classpath refid="maven.test.classpath" />

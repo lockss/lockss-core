@@ -61,6 +61,8 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
     register(new ServiceDescr("Crawler Service", "crawler"));
   public static final ServiceDescr SVC_REPO =
     register(new ServiceDescr("Repository Service", "repo"));
+  public static final ServiceDescr SVC_SOAP =
+    register(new ServiceDescr("SOAP Service", "soap"));
 
   public ServiceDescr(String name, String abbrev) {
     if (name == null) {

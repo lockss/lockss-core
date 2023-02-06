@@ -279,11 +279,8 @@ public class ConfigManagerSql {
       // Find the Archival Unit plugin, adding it if necessary.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey);
 
       // Delete the configuration of the Archival Unit, if it exists.
       removeArchivalUnitConfiguration(conn, auSeq);
@@ -292,7 +289,7 @@ public class ConfigManagerSql {
       addArchivalUnitConfiguration(conn, auSeq, auConfig);
 
       // Update the Archival Unit last update timestamp.
-      updateArchivalUnitLastUpdateTimestamp(conn, auSeq, now);
+      updateArchivalUnitLastUpdateTimestamp(conn, auSeq, TimeBase.nowMs());
 
       if (commitAfterAdd) {
 	// Commit the transaction.
@@ -979,8 +976,29 @@ public class ConfigManagerSql {
   }
   
   /**
-   * Provides the identifier of an Archival Unit if existing or after creating
-   * it otherwise.
+   * Provides the identifier of an Archival Unit if existing or after
+   * creating it otherwise.  The creation time will be set to now iff
+   * the AU record previously did not exist.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @param pluginSeq
+   *          A Long with the identifier of the plugin.
+   * @param auKey
+   *          A String with the Archival Unit key.
+   * @return a Long with the database identifier of the Archival Unit.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  protected Long findOrCreateArchivalUnit(Connection conn, Long pluginSeq,
+      String auKey) throws DbException {
+    return findOrCreateArchivalUnit(conn, pluginSeq, auKey, TimeBase.nowMs());
+  }
+
+  /**
+   * Provides the identifier of an Archival Unit if existing or after
+   * creating it otherwise.  The creation time will be set iff the AU
+   * record previously did not exist.
    * 
    * @param conn
    *          A Connection with the database connection to be used.

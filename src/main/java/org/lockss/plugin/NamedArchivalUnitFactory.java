@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,48 +26,13 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.test;
+package org.lockss.plugin;
+import org.lockss.util.*;
+import org.lockss.plugin.definable.*;
 
-import java.io.*;
-import java.util.zip.*;
-//import java.io.ByteArrayInputStream;
-
-import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
-
-/**
- * InputStream that supplies a gzipped version of what it reads.  Currently
- * source must be a string. InputStream source requires a piped copy.
- */
-public class GZIPpedInputStream extends InputStream {
-  private ByteArrayInputStream bais;
-  private byte[] bytes;
-
-  public GZIPpedInputStream(String srcStr) throws IOException {
-    UnsynchronizedByteArrayOutputStream baos = new UnsynchronizedByteArrayOutputStream();
-    OutputStream os = baos;
-    os = new GZIPOutputStream(os);
-    os.write(srcStr.getBytes());
-    os.flush();
-    os.close();
-    bais = new ByteArrayInputStream(baos.toByteArray());
-  }
-
-  public int read() {
-    return bais.read();
-  }
-
-  /**
-   * Returns the string the stream represents.
-   * @return the source String
-   */
-  public String toString() {
-    StringBuffer sb = new StringBuffer();
-    sb.append("[GZIPpedInputStream");
-    sb.append("]");
-    return sb.toString();
-  }
-
-  public boolean markSupported() {
-    return false;
+public class NamedArchivalUnitFactory implements ArchivalUnit.Factory {
+  public DefinableArchivalUnit createDefinableArchivalUnit(DefinablePlugin plugin,
+                                                           ExternalizableMap defMap) {
+    return new NamedArchivalUnit(plugin, defMap);
   }
 }

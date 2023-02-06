@@ -2215,7 +2215,7 @@ public class V3Poller implements Poll {
 
   private boolean
   publisherAvailableForRepair() {
-    return !AuUtil.isPubDown(getAu());
+    return !getAu().isNamedArchivalUnit() && !AuUtil.isPubDown(getAu());
   }
 
   /**

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -165,7 +165,8 @@ public abstract class BaseCrawler implements Crawler {
   protected boolean sendReferrer = DEFAULT_SEND_REFERRER;
   protected Set<String> origStems;
   protected Set<String> cdnStems;
-  
+  protected AuCacheResultMap auResultMap;
+
   public enum StorePermissionScheme {Legacy, StoreAllInSpec};
 
   /**  the crawl queues are sorted.  <code>CrawlDate</code>:
@@ -791,6 +792,20 @@ public abstract class BaseCrawler implements Crawler {
     return crawlSeed;
   }
   
+  /** Return the AU's redirect response map */
+  protected AuCacheResultMap getAuCacheResultMap() {
+    if (auResultMap == null) {
+      try {
+        auResultMap = au.makeAuCacheResultMap();
+      } catch (ArchivalUnit.ConfigurationException e) {
+        logger.error("Error making redirect response map", e);
+        auResultMap =  new AuHttpResultMap(au.getPlugin().getCacheResultMap(),
+                                           PatternMap.EMPTY);
+      }
+    }
+    return auResultMap;
+  }
+
   protected CrawlerFacade getCrawlerFacade() {
     if(facade == null) {
       facade = new BaseCrawlerFacade(this);
@@ -872,7 +887,7 @@ public abstract class BaseCrawler implements Crawler {
       return Math.min(res, crawler.maxRetries);
     }
 
-    public int permissonStreamResetMax() {
+    public int permissionStreamResetMax() {
       return crawler.streamResetMax;
     }
   
@@ -912,6 +927,11 @@ public abstract class BaseCrawler implements Crawler {
     @Override
     public Object getStateObj(String key) {
       return crawler.clientState.get(key);
+    }
+
+    @Override
+    public AuCacheResultMap getAuCacheResultMap() {
+      return crawler.getAuCacheResultMap();
     }
   }
 }

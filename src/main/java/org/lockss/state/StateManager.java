@@ -92,16 +92,6 @@ public interface StateManager extends LockssManager {
     throw new UnsupportedOperationException("updateAuStateFromJson() available only in Server implementation");
   }
 
-  /** Entry point from state service to store an AuState.
-   * @param key the auid
-   * @param json the serialized AuStateBean
-   * @throws IOException if json conversion throws
-   */
-  default public void storeAuStateFromJson(String auid, String json)
-      throws IOException {
-    throw new UnsupportedOperationException("storeAuStateFromJson() available only in Server implementation");
-  }
-
   /** Return true if an AuState(Bean) exists for the given auid
    * @param key the auid
    */

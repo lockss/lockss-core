@@ -262,15 +262,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   // Hooks to be implemented by subclasses
 
-  /** Hook for subclass to store a new AuAgreements in persistent storage.
-   * Any of the three data sources may be used.
-   * @param key AUID or other key for AU
-   * @param aua AuAgreements data source
-   */
-  protected void doStoreAuAgreementsNew(String key, AuAgreements aua) {
-    doStoreAuAgreementsUpdate(key, aua, null);
-  }
-
   /** Hook for subclass to update an existing AuAgreements in persistent
    * storage.  Any of the three data sources may be used.  Only those
    * fields present in the Map or the json string should be saved.
@@ -332,16 +323,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   // Hooks to be implemented by subclasses
 
-  /** Hook for subclass to store a new AuSuspectUrlVersions in persistent storage.
-   * Any of the three data sources may be used.
-   * @param key AUID or other key for AU
-   * @param ausuv AuSuspectUrlVersions data source
-   */
-  protected void doStoreAuSuspectUrlVersionsNew(String key,
-						AuSuspectUrlVersions ausuv) {
-    doStoreAuSuspectUrlVersionsUpdate(key, ausuv, null);
-  }
-
   /** Hook for subclass to update an existing AuSuspectUrlVersions in persistent
    * storage.  Any of the three data sources may be used.  Only those
    * fields present in the Map or the json string should be saved.
@@ -402,14 +383,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   }
 
   // Hooks to be implemented by subclasses
-
-  /** Hook for subclass to store a new NoAuPeerSet in persistent storage.
-   * Any of the three data sources may be used.
-   * @param key AUID or other key for AU
-   * @param dpis NoAuPeerSet data source
-   */
-  protected void doStoreNoAuPeerSetNew(String key, DatedPeerIdSet dpis) {
-  }
 
   /** Hook for subclass to update an existing NoAuPeerSet in persistent
    * storage.  Any of the three data sources may be used.  Only those

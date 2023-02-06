@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -42,6 +38,7 @@ import org.lockss.config.*;
 import org.lockss.crawler.*;
 import org.lockss.test.MockCrawler.MockCrawlerFacade;
 import org.lockss.util.*;
+import org.lockss.util.urlconn.*;
 import org.lockss.state.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.SimpleUrlConsumerFactory;
@@ -207,6 +204,11 @@ public class MockArchivalUnit implements ArchivalUnit {
 
   public PatternStringMap makeUrlMimeValidationMap() {
     return PatternStringMap.EMPTY;
+  }
+
+  public AuCacheResultMap makeAuCacheResultMap()
+      throws ArchivalUnit.ConfigurationException {
+    return AuHttpResultMap.DEFAULT;
   }
 
   public PatternFloatMap makeUrlPollResultWeightMap()
@@ -766,6 +768,10 @@ public class MockArchivalUnit implements ArchivalUnit {
 
   public boolean isBulkContent() {
     return isBulkContent;
+  }
+
+  public boolean isNamedArchivalUnit() {
+    return false;
   }
 
   public void setBulkContent(boolean val) {

@@ -181,4 +181,11 @@ public class ManagerDescs {
       public boolean shouldStart(LockssApp app) {
         return !app.isConfigClient();
       }};
+
+  public static ManagerDesc CLOCKSS_PARAMS_MANAGER_DESC =
+    new ManagerDesc(LockssDaemon.CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
+      public boolean shouldStart(LockssApp app) {
+        return app instanceof LockssDaemon && ((LockssDaemon)app).isClockss();
+      }};
+
 }

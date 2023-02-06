@@ -1013,8 +1013,10 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testMiscTmpdir() throws Exception {
-    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, "/tmp/unlikely");
-    assertEquals("/tmp/unlikely/dtmp", System.getProperty("java.io.tmpdir"));
+    String dirname = "/tmp/tmpdir" +
+      org.apache.commons.lang3.RandomStringUtils.random(12, true, true);
+    ConfigurationUtil.setFromArgs(ConfigManager.PARAM_TMPDIR, dirname);
+    assertEquals(dirname + "/dtmp", PlatformUtil.getSystemTempDir());
   }
 
   /** Ensure the config param {@value
@@ -1023,9 +1025,9 @@ public class TestConfigManager extends LockssTestCase4 {
    * up. */
   @Test
   public void testDiskSpaceSource() {
-    String javatmp = System.getProperty("java.io.tmpdir");
+    String javatmp = PlatformUtil.getSystemTempDir();
     PlatformUtil info = PlatformUtil.getInstance();
-    assertEquals(PlatformUtil.DiskSpaceSource.Java,
+    assertEquals(PlatformUtil.DiskSpaceSource.DF,
                  info.getDF(javatmp).getSource());
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_DISK_SPACE_SOURCE, "DF");
     assertEquals(PlatformUtil.DiskSpaceSource.DF,
@@ -2071,9 +2073,10 @@ public class TestConfigManager extends LockssTestCase4 {
 	new AuConfiguration(auid1, configuration1);
 
     // Store the configuration of the first AU.
+    TimeBase.setSimulated(1000);
     long beforeAdding1 = TimeBase.nowMs();
     mgr.storeArchivalUnitConfiguration(auConfiguration1);
-    long afterAdding1 = TimeBase.nowMs();
+    TimeBase.step(100);
 
     // Define the configuration of the second AU.
     String auid2 = pluginId1 + "&some_key_2";
@@ -2087,7 +2090,7 @@ public class TestConfigManager extends LockssTestCase4 {
     // Store the configuration of the second AU.
     long beforeAdding2 = TimeBase.nowMs();
     mgr.storeArchivalUnitConfiguration(auConfiguration2);
-    long afterAdding2 = TimeBase.nowMs();
+    TimeBase.step(100);
 
     // Retrieve all the AU configurations.
     Collection<AuConfiguration> auConfigs =
@@ -2111,8 +2114,7 @@ public class TestConfigManager extends LockssTestCase4 {
     // Retrieve the configuration creation time of the first AU.
     long creationTime1 =
 	mgr.retrieveArchivalUnitConfigurationCreationTime(auid1).longValue();
-    assertTrue(creationTime1 >= beforeAdding1);
-    assertTrue(creationTime1 <= afterAdding1);
+    assertEquals(beforeAdding1, creationTime1);
 
     // Retrieve the configuration last update time of the first AU.
     long lastUpdateTime1 =
@@ -2122,8 +2124,7 @@ public class TestConfigManager extends LockssTestCase4 {
     // Retrieve the configuration creation time of the second AU.
     long creationTime2 =
 	mgr.retrieveArchivalUnitConfigurationCreationTime(auid2).longValue();
-    assertTrue(creationTime2 >= beforeAdding2);
-    assertTrue(creationTime2 <= afterAdding2);
+    assertEquals(beforeAdding2, creationTime2);
 
     // Retrieve the configuration last update time of the second AU.
     long lastUpdateTime2 =
@@ -2141,7 +2142,7 @@ public class TestConfigManager extends LockssTestCase4 {
     // Store the updated configuration of the second AU.
     long beforeAdding2new = TimeBase.nowMs();
     mgr.storeArchivalUnitConfiguration(auConfiguration2new);
-    long afterAdding2new = TimeBase.nowMs();
+    TimeBase.step(100);
 
     // Retrieve all the AU configurations.
     auConfigs = mgr.retrieveAllArchivalUnitConfiguration();
@@ -2162,9 +2163,8 @@ public class TestConfigManager extends LockssTestCase4 {
     // Retrieve the configuration last update time of the second AU.
     long lastUpdateTime2new =
 	mgr.retrieveArchivalUnitConfigurationLastUpdateTime(auid2).longValue();
-    assertTrue(lastUpdateTime2new > creationTime2);
-    assertTrue(lastUpdateTime2new >= beforeAdding2new);
-    assertTrue(lastUpdateTime2new <= afterAdding2new);
+    assertEquals(beforeAdding2, creationTime2);
+    assertEquals(beforeAdding2new, lastUpdateTime2new);
 
     String pluginId2 = "org|lockss|plugin|SomePlugin2";
     String auid3 = pluginId2 + "&some_key_2";
@@ -2179,7 +2179,7 @@ public class TestConfigManager extends LockssTestCase4 {
     // Store the configuration of the third AU.
     long beforeAdding3 = TimeBase.nowMs();
     mgr.storeArchivalUnitConfiguration(auConfiguration3);
-    long afterAdding3 = TimeBase.nowMs();
+    TimeBase.step(100);
 
     Collection<String> pluginKeys = ListUtil.list(pluginId1, pluginId2);
 	

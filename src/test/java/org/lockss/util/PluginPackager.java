@@ -527,6 +527,7 @@ public class PluginPackager {
 	manifest.getEntries().put(secName, new Attributes());
 	Attributes plugAttr = manifest.getAttributes(secName);
 	plugAttr.put(new Attributes.Name("Lockss-Plugin"), "true");
+// 	plugAttr.put(new Attributes.Name("Lockss-MinVers"), );
       }
 
       JarEntry e = new JarEntry(MANIFEST_DIR);
@@ -563,8 +564,8 @@ public class PluginPackager {
       return allFiles;
     }
 
-    // return true if the jar exists and is as recent as the most input
-    // file
+    // return true if the jar exists and is as recent as the most
+    // recent input file
     boolean isJarUpToDate() throws Exception {
       if (argForceRebuild || !spec.getJarFile().exists()) {
 	return false;

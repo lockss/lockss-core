@@ -48,6 +48,7 @@ import org.lockss.util.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.util.urlconn.*;
 import org.lockss.util.io.*;
+import org.lockss.util.lang.*;
 import org.lockss.daemon.*;
 
 import org.lockss.rewriter.*;
@@ -86,7 +87,7 @@ public class DefaultUrlCacher implements UrlCacher {
   private boolean markLastContentChanged = true;
   private boolean alreadyHasContent;
   private LockssRepository v2Repo;
-  private String v2Coll;
+  private String v2Ns;
   private Crawler.CrawlerFacade facade;
   
   /**
@@ -109,7 +110,7 @@ public class DefaultUrlCacher implements UrlCacher {
       LockssDaemon.getLockssDaemon().getRepositoryManager();
     if (repomgr != null && repomgr.getV2Repository() != null) {
       v2Repo = repomgr.getV2Repository().getRepository();
-      v2Coll = repomgr.getV2Repository().getCollection();
+      v2Ns = repomgr.getV2Repository().getNamespace();
     }
     Plugin plugin = au.getPlugin();
     resultMap = plugin.getCacheResultMap();
@@ -168,6 +169,10 @@ public class DefaultUrlCacher implements UrlCacher {
     return wdog;
   }
   
+  public void pokeWatchdog() {
+    getWatchdog().pokeWDog();
+    }
+
   public void setRedirectUrls(List<String> redirectUrls) {
     this.redirectUrls = redirectUrls;
     if(fetchUrl == null) {
@@ -303,7 +308,7 @@ public class DefaultUrlCacher implements UrlCacher {
     Artifact uncommittedArt = null;
     try {
       alreadyHasContent =
-	v2Repo.getArtifact(v2Coll, au.getAuId(), url) != null;
+	v2Repo.getArtifact(v2Ns, au.getAuId(), url) != null;
     } catch (IOException ex) {
       logger.warning("Repository error checking for existing content: " + url,
 		     ex);
@@ -325,7 +330,7 @@ public class DefaultUrlCacher implements UrlCacher {
 	}
       }
       // TK shouldn't supply version number
-      ArtifactIdentifier id = new ArtifactIdentifier(v2Coll, au.getAuId(),
+      ArtifactIdentifier id = new ArtifactIdentifier(v2Ns, au.getAuId(),
 						     url, null);
 
       headers.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
@@ -436,6 +441,12 @@ public class DefaultUrlCacher implements UrlCacher {
       abandonNewVersion(uncommittedArt);
       throw ex;
     } catch (IOException ex) {
+      InputIOException inputEx =
+        ExceptionUtil.getNestedExceptionOfType(ex, InputIOException.class);
+      if (inputEx != null) {
+        abandonNewVersion(uncommittedArt);
+        throw resultMap.mapException(au, url, inputEx.getIOCause(), null);
+      }
       // any other error is theoretically a repository error
       logger.error("Can't store artifact: repository error", ex);
       abandonNewVersion(uncommittedArt);
@@ -458,10 +469,10 @@ public class DefaultUrlCacher implements UrlCacher {
     String artHash = art.getContentDigest();
     if (artHash == null) return false;
     // Fetch the latest committed version, if any
-    Artifact prev = v2Repo.getArtifact(v2Coll, au.getAuId(), art.getUri());
+    Artifact prev = v2Repo.getArtifact(v2Ns, au.getAuId(), art.getUri());
     if (prev == null) return false;
-    if (art.getId().equals(prev.getId())) {
-      logger.error("Uncommitted artifact has same ID as supposedly committed most recent version: " + art);
+    if (art.getUuid().equals(prev.getUuid())) {
+      logger.error("Uncommitted artifact has same UUID as supposedly committed most recent version: " + art);
       // throw?
       return false;
     }

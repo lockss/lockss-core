@@ -74,7 +74,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
   protected long excludeFilesUnchangedAfter = 0;
 
   protected LockssRepository v2Repo;
-  protected String v2Coll;
+  protected String v2Ns;
 
   /**
    * Must invoke this constructor in plugin subclass.
@@ -92,7 +92,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
       theDaemon.getRepositoryManager();
     if (repomgr != null && repomgr.getV2Repository() != null) {
       v2Repo = repomgr.getV2Repository().getRepository();
-      v2Coll = repomgr.getV2Repository().getCollection();
+      v2Ns = repomgr.getV2Repository().getNamespace();
     }
     if (logger.isDebug3()) {
       logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
@@ -296,17 +296,34 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     stateMgr.getAuState(au).setLastHashDuration(newEst);
   }
 
-  public long getContentSize() {
+  public AuSize getAuSize() {
     if (spec.isAu()) {
       try {
-	return v2Repo.auSize(v2Coll, au.getAuId());
+        return v2Repo.auSize(v2Ns, au.getAuId());
       } catch (IOException e) {
 	logger.error("getContentSize", e);
 	// TK what to do here
 	throw new LockssUncheckedIOException(e);
       }
+    }
+    throw new UnsupportedOperationException("AuSize not available for partial");
+  }
+
+  public long getContentSize() {
+    if (spec.isAu()) {
+      AuSize aus = getAuSize();
+      return aus.getTotalLatestVersions();
     } else {
       return AuUtil.calculateCusContentSize(getCuIterable());
+    }
+  }
+
+  public long getContentSizeAllVersions() {
+    if (spec.isAu()) {
+      AuSize aus = getAuSize();
+      return aus.getTotalAllVersions();
+    } else {
+      throw new UnsupportedOperationException("All versions size of partial AU not implemented");
     }
   }
 
@@ -491,14 +508,14 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     Iterator<Artifact> artIter;
     try {
       if (spec.isAu()) {
-	artIter = v2Repo.getArtifacts(v2Coll, au.getAuId()).iterator();
+	artIter = v2Repo.getArtifacts(v2Ns, au.getAuId()).iterator();
       } else if (spec.isSingleNode()) {
 	artIter =
-	  new SingletonIterator<Artifact>(v2Repo.getArtifact(v2Coll,
+	  new SingletonIterator<Artifact>(v2Repo.getArtifact(v2Ns,
 							     au.getAuId(),
 							     spec.getUrl()));
       } else {
-	artIter = v2Repo.getArtifactsWithPrefix(v2Coll, au.getAuId(),
+	artIter = v2Repo.getArtifactsWithPrefix(v2Ns, au.getAuId(),
 						getUrl()).iterator();
       }
     } catch (IOException e) {

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,.
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -65,10 +65,6 @@ public class TestArchiveMembers extends LockssTestCase {
   private String tempDirPath;
   private SimulatedArchivalUnit simau;
   MySimulatedArchivalUnit msau;
-
-  String url1 = "http://www.example.com/testDir/leaf1";
-  String url2 = "http://www.example.com/testDir/leaf2";
-  String url3 = "http://www.example.com/testDir/leaf3";
 
   public void setUp() throws Exception {
     super.setUp();
@@ -324,7 +320,7 @@ public class TestArchiveMembers extends LockssTestCase {
     PluginTestUtil.crawlSimAu(simau);
     String aurl = "http://www.example.com/branch1/branch1/zip5.zip";
 
-    msau.setUrlMimeTypeMap(new PatternStringMap("\\.bin$,application/beans"));
+    msau.setUrlMimeTypeMap(PatternStringMap.fromSpec("\\.bin$,application/beans"));
 
     assertArchiveMember("file 1, depth 0, branch 0", "text/html", 226,
 			aurl, "001file.html");
@@ -679,8 +675,6 @@ public class TestArchiveMembers extends LockssTestCase {
     assertNotClass(BaseCachedUrl.Member.class, cu);
     assertFalse(cu.hasContent());
   }    
-
-
 
   String stringFromCu(CachedUrl cu) throws IOException {
     InputStream is = cu.getUnfilteredInputStream();

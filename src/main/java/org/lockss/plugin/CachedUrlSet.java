@@ -35,6 +35,7 @@ package org.lockss.plugin;
 import java.util.Iterator;
 import java.security.MessageDigest;
 import org.lockss.daemon.*;
+import org.lockss.laaws.rs.model.AuSize;
 
 /**
  * This interface is implemented by plug-ins for the LOCKSS daemons.  The
@@ -147,11 +148,25 @@ public interface CachedUrlSet extends CachedUrlSetNode {
   public void setExcludeFilesUnchangedAfter(long date);
 
   /**
+   * Return the AuSize object holding various size statistics for the AU
+   * Legal only on AuCachedUrlSet
+   * @return AuSize
+   */
+  public AuSize getAuSize();
+
+  /**
    * Return the total size of content in the latest version of all files in
    * this CachedUrlSet.
    * @return number of bytes of content
    */
   public long getContentSize();
+
+  /**
+   * Return the total size of content in all version of all files in
+   * this CachedUrlSet.
+   * @return number of bytes of content
+   */
+  public long getContentSizeAllVersions();
 
   /**
    * Return an estimate of the time required to hash the content.

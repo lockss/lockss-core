@@ -464,9 +464,7 @@ public class KeyStoreUtil {
              NoSuchProviderException,
              CertificateException,
              IOException {
-    if (!ins.markSupported()) {
-      ins = new BufferedInputStream(ins);
-    }
+    ins = StreamUtil.getResettableInputStream(ins);
     ins.mark(10 * 1024);
     IOException lastEx = null;
     for (KsType kst : KsType.values()) {

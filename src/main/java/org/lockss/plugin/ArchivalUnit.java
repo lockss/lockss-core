@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,7 +37,9 @@ import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler.CrawlerFacade;
 import org.lockss.state.*;
 import org.lockss.util.*;
+import org.lockss.util.urlconn.AuCacheResultMap;
 import org.lockss.plugin.base.*;
+import org.lockss.plugin.definable.*;
 import org.lockss.rewriter.*;
 
 
@@ -161,7 +159,12 @@ public interface ArchivalUnit {
    * Return true if the URL is that of a login page.
    * @param url the url to test
    * @return true if login page URL
+   * @deprecated This method is now expensive.  In a crawl context,
+   * consult the AuCacheResultMap obtained from {@link
+   * org.lockss.crawler.Crawler.CrawlerFacade}.  See, e.g., {@link
+   * org.lockss.plugin.base.BaseUrlFetcher#checkRedirectAction(String)}
    */
+  @Deprecated
   public boolean isLoginPageUrl(String url);
 
   /**
@@ -257,6 +260,13 @@ public interface ArchivalUnit {
    * should insist on.
    */
   public PatternStringMap makeUrlMimeValidationMap();
+
+  /**
+   * Construct a PatternMap mapping redirect URLs to a
+   * CacheException or CacheResultHandler
+   */
+  public AuCacheResultMap makeAuCacheResultMap()
+      throws ArchivalUnit.ConfigurationException;
 
   /**
    * Construct a list of Patterns of URLs that should be excluded from
@@ -401,6 +411,13 @@ public interface ArchivalUnit {
   public boolean isBulkContent();
 
   /**
+   * True if this AU is defined by fiat (a unique handle), not
+   * with definitional config params which describe/define the
+   * content.
+   */
+  public boolean isNamedArchivalUnit();
+
+  /**
    * Return the {@link ArchiveFileTypes} describing which archive (zip,
    * etc.) files should have their members exposed as pseudo-CachedUrls.
    * @return an {@link ArchiveFileTypes} or null if none
@@ -519,5 +536,15 @@ public interface ArchivalUnit {
     public ConfigurationException(String msg, Throwable cause) {
       super(msg, cause);
     }
+  }
+
+  /** Factory to create an ArchivalUnit.  Currently used only by
+   * DefinablePlugin, which allows the plugin XML to specify an
+   * alternate DefinableArchivalUnit factory. */
+  public interface Factory {
+    /** Create a DefinableArchivalUnit (or subclass) from the map read
+     * from a DefinablePlugin xml */
+    public DefinableArchivalUnit createDefinableArchivalUnit(DefinablePlugin plugin,
+                                                             ExternalizableMap defMap);
   }
 }

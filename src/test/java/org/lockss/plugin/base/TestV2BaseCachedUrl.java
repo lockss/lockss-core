@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000, Board of Trustees of Leland Stanford Jr. University.
+Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -43,6 +43,7 @@ import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.io.*;
 import org.lockss.util.StreamUtil.IgnoreCloseInputStream;
 import org.lockss.repository.*;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
@@ -66,7 +67,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
   protected MockPlugin plugin;
 
   protected LockssRepository v2Repo;
-  protected String v2Coll;
+  protected String v2Ns;
 
   String url1 = "http://www.example.com/testDir/leaf1";
   String url2 = "http://www.example.com/testDir/leaf2";
@@ -92,7 +93,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
     RepositoryManager repomgr =
       LockssDaemon.getLockssDaemon().getRepositoryManager();
     v2Repo = repomgr.getV2Repository().getRepository();
-    v2Coll = repomgr.getV2Repository().getCollection();
+    v2Ns = repomgr.getV2Repository().getNamespace();
 
     // don't require all tests to set up mau crawl rules
     ConfigurationUtil.addFromArgs(BaseCachedUrl.PARAM_INCLUDED_ONLY, "false");
@@ -284,6 +285,24 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 
       CachedUrl cu = getTestCu(urlslash);
       assertEquals(urlslash, cu.getUrl());
+    }
+
+    public void testGetUrlNonUrl() throws Exception {
+      String url = "not.a.url";
+
+      createLeaf(url, content1, null);
+
+      CachedUrl cu = getTestCu(url);
+      assertEquals(url, cu.getUrl());
+    }
+
+    public void testUnicodeName() throws Exception {
+      String url = "\u03BA\u1F79\u03C3\u03BC\u03B5"; // κόσμε
+
+      createLeaf(url, content1, null);
+
+      CachedUrl cu = getTestCu(url);
+      assertEquals(url, cu.getUrl());
     }
 
     public void testIsLeaf() throws Exception {
@@ -936,7 +955,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 
   protected Artifact storeArt(String url, InputStream in,
 			      CIProperties props) throws Exception {
-    return V2RepoUtil.storeArt(v2Repo, v2Coll, mau.getAuId(), url, in, props);
+    return V2RepoUtil.storeArt(v2Repo, v2Ns, mau.getAuId(), url, in, props);
   }
 
   /** Varient that performs the tests when there's only a single version */

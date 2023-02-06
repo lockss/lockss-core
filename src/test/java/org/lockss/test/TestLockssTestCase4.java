@@ -85,4 +85,10 @@ public class TestLockssTestCase4 extends LockssTestCase4 {
     }
   }
   
+  @Test
+  public void testGetResourceContent() throws Exception {
+    assertEquals("test resource content 17",
+                 getResourceContent("test-resource.txt").trim());
+  }
+
 }

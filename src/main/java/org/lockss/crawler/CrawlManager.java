@@ -49,7 +49,7 @@ public interface CrawlManager {
    * @param cookie object that the callback needs to understand which repair
    * we're referring to.
    */
-  void startRepair(ArchivalUnit au, Collection urls,
+  CrawlerStatus startRepair(ArchivalUnit au, Collection urls,
       CrawlManager.Callback cb, Object cookie);
 
   /**

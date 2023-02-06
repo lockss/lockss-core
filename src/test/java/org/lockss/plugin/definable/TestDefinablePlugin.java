@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,6 +25,7 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
+
 package org.lockss.plugin.definable;
 
 import java.io.*;
@@ -273,6 +274,16 @@ public class TestDefinablePlugin extends LockssTestCase {
     actualReturn = definablePlugin.getVersion();
     assertEquals("return value", expectedReturn, actualReturn);
 
+  }
+
+  public void testRequiredDaemonVersion() throws Exception {
+    definablePlugin.initPlugin(daemon, "org.lockss.plugin.definable.GoodPlugin");
+    assertNotNull(definablePlugin.getRequiredDaemonVersion());
+    assertEmpty(definablePlugin.getRequiredDaemonVersion());
+    definablePlugin = new MyDefinablePlugin();
+    definablePlugin.initPlugin(daemon, "org.lockss.plugin.definable.LargeTestPlugin");
+    assertEquals(ListUtil.list("1.1.1"),
+                 definablePlugin.getRequiredDaemonVersion());
   }
 
   public void testGetFeatureVersion() throws Exception {
@@ -598,6 +609,17 @@ public class TestDefinablePlugin extends LockssTestCase {
       fail("Ill http response should throw");
     } catch (PluginException.InvalidDefinition e) {
     }
+  }
+
+  public void testParseResultAction() {
+    assertEquals(ResultAction.remap(404),
+                 definablePlugin.parseResultAction("404"));
+    assertEquals(ResultAction.remap(UnknownHostException.class),
+                 definablePlugin.parseResultAction(UnknownHostException.class.getName()));
+    assertEquals(ResultAction.exClass(CacheException.PermissionException.class),
+                 definablePlugin.parseResultAction(CacheException.PermissionException.class.getName()));
+    assertEquals(ResultAction.handler(new MyHttpResultHandler()),
+                 definablePlugin.parseResultAction(MyHttpResultHandler.class.getName()));
   }
 
   public void testSiteNormalizeUrlNull() {

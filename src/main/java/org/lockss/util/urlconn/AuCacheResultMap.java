@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,16 +26,22 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.test;
+package org.lockss.util.urlconn;
 
-import java.io.*;
-import java.util.zip.*;
+import org.lockss.plugin.ArchivalUnit;
 
-public class TestGZIPpedInputStream extends LockssTestCase {
+/**
+ * Like {@CacheResultMap} but associated with an AU instead of a
+ * plugin; contains AU-specific values.  Currently supports mapping a
+ * URL to an action.
+ */
+public interface AuCacheResultMap {
 
-  public void testReadString() throws Exception {
-    GZIPpedInputStream gzi = new GZIPpedInputStream("test");
-    assertReaderMatchesString("test",
-			      new InputStreamReader(new GZIPInputStream(gzi)));
-  }
+  /** Match a redirected-to URL against a set of patterns, return the
+   * corresponding action */
+  public CacheException mapRedirUrl(ArchivalUnit au,
+                                      LockssUrlConnection connection,
+                                      String origUrl,
+                                      String toUrl,
+                                      String message);
 }

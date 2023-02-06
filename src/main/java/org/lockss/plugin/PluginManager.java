@@ -1103,7 +1103,7 @@ public class PluginManager
 	String key = descr.getKey();
 	String val = auConfigProps.get(key);
 	if (val == null) {
-	  throw new NullPointerException(key + " is null in: " + auConfigProps);
+	  throw new IllegalArgumentException(key + " is null in: " + auConfigProps);
 	}
 	res.setProperty(key, val);
       }
@@ -1119,7 +1119,7 @@ public class PluginManager
 	String key = descr.getKey();
 	String val = auConfig.get(key);
 	if (val == null) {
-	  throw new NullPointerException(key + " is null in: " + auConfig);
+	  throw new IllegalArgumentException(key + " is null in: " + auConfig);
 	}
 	res.setProperty(key, val);
       }
@@ -2353,18 +2353,50 @@ public class PluginManager
     }
   }
 
+  /**
+   * If the plugin lists a single required version, return true iff
+   * the daemon version is >= that.  If it lists multipl required
+   * version, return true iff one of them matches the daemon version's
+   * major version and the daemon version is <= it.
+   */
   protected boolean isCompatible(Plugin plug) {
-    boolean res;
+    List<DaemonVersion> reqVers = getPluginRequiredVersions(plug);
     DaemonVersion dver = getDaemonVersion();
+    boolean res = false;
     if (dver == null) {
       res = true; // don't break things during testing
     } else {
-      DaemonVersion preq = new DaemonVersion(plug.getRequiredDaemonVersion());
-      res = dver.compareTo(preq) >= 0;
+      switch (reqVers.size()) {
+      case 0:                // plugin has no required daemon version
+        res = true;
+        break;
+      case 1:                // plugin has one required daemon version
+        res = dver.compareTo(reqVers.get(0)) >= 0;
+        break;
+      default:
+        // plugin has required daemon version for multiple major versions.
+        // Find the one corresponding to this daemon's major version.
+        for (DaemonVersion ver : reqVers) {
+          if (dver.getMajorVersion() == ver.getMajorVersion()) {
+            res = dver.compareTo(ver) >= 0;
+            break;
+          }
+        }
+        break;
+      }
     }
     if (log.isDebug3())
-      log.debug3("Plugin is " + (res ? "" : "not ") +
+      log.debug3("Plugin " + plug.getPluginName() +
+                 " (req: " + reqVers + ") is " + (res ? "" : "not ") +
 		 "compatible with daemon " + dver);
+    return res;
+  }
+
+  List<DaemonVersion> getPluginRequiredVersions(Plugin plug) {
+    List<DaemonVersion> res = new ArrayList<>();
+    for (String reqVer : plug.getRequiredDaemonVersion()) {
+      res.add(new DaemonVersion(reqVer));
+    }
     return res;
   }
 
@@ -2986,28 +3018,59 @@ public class PluginManager
     return res;
   }
 
+  /** Lookup a name directly in the repo, skipping search sets and
+   * site normaliztion.  Used to lookup names(which may be URLs,
+   * malformed URLs, or non-URLs) in NamedAUs, which have no stems.
+   */
+  private List<CachedUrl> fastFind(String name,boolean bestOnly) {
+    List<CachedUrl> res = new ArrayList<>(bestOnly ? 1 : 15);
+    for (Artifact art : repoMgr.findArtifactsByUrl(name)) {
+      ArchivalUnit artAu = getAuFromIdIfExists(art.getAuid());
+      if (artAu != null) {
+        res.add(artAu.makeCachedUrl(art.getUri()));
+        if (bestOnly) {
+          return res;
+        }
+      }
+    }
+    return res;
+  }
+
   private List<CachedUrl> findCachedUrls1(String url, CuContentReq contentReq,
 					  boolean bestOnly) {
     String normUrl;
     String normStem;
-    List<CachedUrl> res = new ArrayList<CachedUrl>(bestOnly ? 1 : 15);
-    List<CachedUrl> cus = new ArrayList<>();
+    List<CachedUrl> res;
+    boolean isUrl = UrlUtil.isUrl(url);
 
+    // If not a URL, lookup directly in repo.
+    if (!UrlUtil.isUrl(url)) {
+      return fastFind(url, bestOnly);
+    }
+    // Else try to normalize it
     try {
       normUrl = UrlUtil.normalizeUrl(url);
       normStem = UrlUtil.getUrlPrefix(normUrl);
     } catch (MalformedURLException e) {
-      log.warning("findCachedUrls(" + url + ")", e);
-      return Collections.EMPTY_LIST;
+      log.warning("findCachedUrls(" + url +
+                  ") (Not an error if this isn't really a URL",
+                  e);
+      // If that fails, lookup directly in repo.
+      return fastFind(url, bestOnly);
     }
     AuSearchSet searchSet;
     synchronized (hostAus) {
       searchSet = hostAus.get(normStem);
     }
-    if (searchSet == null) {
+    // If there are no AUs w/ matching stem, lookup directly in repo.
+    if (searchSet == null || searchSet.isEmpty()) {
       if (log.isDebug3() ) log.debug3("findCachedUrls: No AUs for " + normStem);
-      return Collections.EMPTY_LIST;
+      return fastFind(url, bestOnly);
     }
+
+    // Even though it's a URL with a stem that matches one or more
+    // definitional AUs, it still might be in a NamedArchivalUnit, so
+    // can't rely just on the searchSet.
 
     if (contentReq.needsContent() && searchSet.isRecent404(normUrl)) {
       if (log.isDebug2()) {

@@ -62,7 +62,7 @@ public class BaseCachedUrl implements CachedUrl {
   protected Properties options;
 
   protected LockssRepository v2Repo;
-  protected String v2Coll;
+  protected String v2Ns;
   protected Artifact art;
   protected ArtifactData artData;
   protected List<ArtifactData> allArtData = new ArrayList<ArtifactData>(2);
@@ -113,7 +113,7 @@ public class BaseCachedUrl implements CachedUrl {
     RepositoryManager repomgr = getDaemon().getRepositoryManager();
     if (repomgr != null && repomgr.getV2Repository() != null) {
       v2Repo = repomgr.getV2Repository().getRepository();
-      v2Coll = repomgr.getV2Repository().getCollection();
+      v2Ns = repomgr.getV2Repository().getNamespace();
     }
     if (logger.isDebug3())
       logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
@@ -131,7 +131,7 @@ public class BaseCachedUrl implements CachedUrl {
     RepositoryManager repomgr = getDaemon().getRepositoryManager();
     if (repomgr != null) {
       v2Repo = repomgr.getV2Repository().getRepository();
-      v2Coll = repomgr.getV2Repository().getCollection();
+      v2Ns = repomgr.getV2Repository().getNamespace();
     }
     if (logger.isDebug3())
       logger.debug3(DEBUG_HEADER + "v2Repo = " + v2Repo);
@@ -169,7 +169,7 @@ public class BaseCachedUrl implements CachedUrl {
     Artifact verArt = null;
     try {
       verArt =
-	v2Repo.getArtifactVersion(v2Coll, au.getAuId(), artifactUrl, version);
+	v2Repo.getArtifactVersion(v2Ns, au.getAuId(), artifactUrl, version);
     } catch (IOException e) {
       logger.error("Error getting Artifact version: " + artifactUrl, e);
     }
@@ -183,7 +183,7 @@ public class BaseCachedUrl implements CachedUrl {
   public CachedUrl[] getCuVersions(int maxVersions) {
     List<CachedUrl> cuVers = new ArrayList<CachedUrl>();
     try {
-      for (Artifact art : v2Repo.getArtifactsAllVersions(v2Coll,
+      for (Artifact art : v2Repo.getArtifactsAllVersions(v2Ns,
 							 au.getAuId(),
 							 artifactUrl)) {
 	if (art.getCommitted()) {
@@ -467,7 +467,7 @@ public class BaseCachedUrl implements CachedUrl {
   protected Artifact getArtifact() throws IOException {
     // Note artifactUrl not getUrl(); always want actual Artifact URL, not
     // archive member
-    return v2Repo.getArtifact(v2Coll, au.getAuId(), artifactUrl);
+    return v2Repo.getArtifact(v2Ns, au.getAuId(), artifactUrl);
   }
 
   private void ensureArtifact() {
@@ -502,7 +502,7 @@ public class BaseCachedUrl implements CachedUrl {
 	try {
 	  artData = getArtifactData(v2Repo, art,
 				    NEED_INCLUDE_CONTENT_MAP.get(needContent));
-	  restProps = V2RepoUtil.propsFromHttpHeaders(artData.getMetadata());
+	  restProps = V2RepoUtil.propsFromHttpHeaders(artData.getHttpHeaders());
 	  String chk = art.getContentDigest();
 	  // tk - hash alg shouldn't be hardwired
 	  if (!StringUtil.isNullString(chk)) {
@@ -594,7 +594,7 @@ public class BaseCachedUrl implements CachedUrl {
     }
 
     protected Artifact getArtifact() throws IOException {
-      return v2Repo.getArtifactVersion(v2Coll, au.getAuId(),
+      return v2Repo.getArtifactVersion(v2Ns, au.getAuId(),
 				       artifactUrl, specVersion);
     }
 

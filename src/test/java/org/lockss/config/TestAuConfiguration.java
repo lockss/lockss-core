@@ -31,9 +31,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.config;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import org.junit.Test;
+import org.lockss.util.*;
 import org.lockss.util.test.LockssTestCase5;
 
 /**
@@ -102,5 +102,34 @@ public class TestAuConfiguration extends LockssTestCase5 {
     auc = new AuConfiguration(auid, configuration);
     assertEquals(auid, auc.getAuId());
     assertEquals(configuration, auc.getAuConfig());
+  }
+
+  String ns(String s) {
+    return new String(s);
+  }
+
+  @Test
+  public void testIntern() {
+    String auid = "au|id|1";
+    String k1 = "foo";
+    String v1 = "oof";
+    String k2 = "bar";
+    String v2 = "rab";
+    Map m1 = MapUtil.map(k1, v1, k2, v2);
+    Map m2 = MapUtil.map(ns(k1), ns(v1), ns(k2), ns(v2));
+    AuConfiguration auc1 = new AuConfiguration(auid, m1);
+    AuConfiguration auc2 = new AuConfiguration(ns(auid), m2);
+    assertSame(auc1.getAuId(), auc2.getAuId());
+    Map<String,String> om1 = auc1.getAuConfig();
+    Map<String,String> om2 = auc2.getAuConfig();
+    assertNotSame(om1, om2);
+    assertEquals(om1, om2);
+    assertSame(om1.get("k1"), om2.get("k1"));
+    assertSame(om1.get("k2"), om2.get("k2"));
+    List<String> om1ks = new ArrayList(om1.keySet());
+    // check that keys are interned
+    for (String key : om2.keySet()) {
+      assertTrue(key == om1ks.get(0) || key == om1ks.get(1));
+    }
   }
 }

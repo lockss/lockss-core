@@ -37,6 +37,9 @@ import static org.lockss.config.db.SqlConstants.*;
 import java.io.IOException;
 import java.sql.*;
 import java.util.*;
+import java.util.zip.*;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.output.*;
 import org.lockss.app.*;
 import org.lockss.config.db.*;
 import org.lockss.db.*;
@@ -46,6 +49,7 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.protocol.*;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 import org.lockss.util.time.TimeBase;
+import org.lockss.util.io.*;
 
 /**
  * The DbStateManager SQL code executor.
@@ -153,6 +157,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       + "," + NO_AU_PEER_SET_STRING_COLUMN
       + ") values (?,?)";
 
+  public static final int JSON_COMPRESSION_THRESHOLD = 500;
+
   /**
    * Constructor.
    * 
@@ -235,12 +241,14 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       getAuState.setString(1, pluginId);
       getAuState.setString(2, auKey);
 
-      // Get the configuration of the Archival Unit.
+      // Get the AuState json
       resultSet = configDbManager.executeQuery(getAuState);
 
       // Get the single result, if any.
       if (resultSet.next()) {
         String dbJson = resultSet.getString(STATE_STRING_COLUMN);
+        dbJson = uncompressJson(dbJson, "AuState");
+
         Map<String, Object> dbMap = AuUtil.jsonToMap(dbJson);
         dbMap.put("auCreationTime", new Long(resultSet.getLong(CREATION_TIME_COLUMN)));
 	result = AuUtil.mapToJson(dbMap);
@@ -347,12 +355,13 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Convert to JSON
       String json = ausb.toJsonExcept(auId_auCreationTime);
       
+      String storedString = compressJson(json, "AuState");
       // Prepare the query.
       addState = configDbManager.prepareStatement(conn, ADD_AU_STATE_QUERY);
 
       // Populate the query.
       addState.setLong(1, auSeq);
-      addState.setString(2, json);
+      addState.setString(2, storedString);
 
       // Execute the query
       int count = configDbManager.executeUpdate(addState);
@@ -459,11 +468,14 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
+      long auCreationTime = ausb.getAuCreationTime();
+      if (auCreationTime <= 0) {
+        // The current time.
+        auCreationTime = TimeBase.nowMs();
+      }
+      log.debug2("Setting creation date: {}", new java.util.Date(auCreationTime));
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, auCreationTime);
 
       // Delete any existing state of the Archival Unit.
       int deletedCount = deleteArchivalUnitState(conn, auSeq);
@@ -588,7 +600,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     log.debug2("pluginId = {}", pluginId);
     log.debug2("auKey = {}", auKey);
 
-    String result = null;
     PreparedStatement getAuAgreements = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot get AU poll agreements";
@@ -607,9 +618,12 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
 
       // Get the single result, if any.
       if (resultSet.next()) {
-	result = resultSet.getString(AGREEMENTS_STRING_COLUMN);
+	String result = resultSet.getString(AGREEMENTS_STRING_COLUMN);
+        result = uncompressJson(result, "AuAgreements");
+        return result;
       }
-    } catch (SQLException sqle) {
+      return null;
+    } catch (SQLException | IOException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", GET_AU_AGREEMENTS_QUERY);
       log.error("pluginId = {}", pluginId);
@@ -625,9 +639,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(getAuAgreements);
     }
-
-    log.debug2("result = {}", result);
-    return result;
   }
 
   /**
@@ -703,11 +714,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey);
 
       // Delete any existing poll agreements of the Archival Unit.
       int deletedCount = deleteArchivalUnitAgreements(conn, auSeq);
@@ -801,13 +809,14 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Convert to JSON
       String json = aua.toJson();
       
+      String storedString = compressJson(aua.toJson(), "AuAgreements");
       // Prepare the query.
       addAgreements =
 	  configDbManager.prepareStatement(conn, ADD_AU_AGREEMENTS_QUERY);
 
       // Populate the query.
       addAgreements.setLong(1, auSeq);
-      addAgreements.setString(2, json);
+      addAgreements.setString(2, storedString);
 
       // Execute the query
       int count = configDbManager.executeUpdate(addAgreements);
@@ -1063,11 +1072,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey);
 
       // Delete any existing suspect URL versions of the Archival Unit.
       int deletedCount = deleteArchivalUnitSuspectUrlVersions(conn, auSeq);
@@ -1415,11 +1421,8 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
       // Find the Archival Unit plugin.
       Long pluginSeq = findOrCreatePlugin(conn, pluginId);
 
-      // The current time.
-      long now = TimeBase.nowMs();
-
       // Find the Archival Unit, adding it if necessary.
-      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey, now);
+      auSeq = findOrCreateArchivalUnit(conn, pluginSeq, auKey);
 
       // Delete any existing NoAuPeerSet of the Archival Unit.
       int deletedCount = deleteArchivalUnitNoAuPeerSet(conn, auSeq);
@@ -1546,5 +1549,36 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     } finally {
       ConfigDbManager.safeCloseStatement(addNoAuPeerSet);
     }
+  }
+
+  private String compressJson(String json, String objname) throws IOException {
+    String res = json;
+    log.trace("storing {} json: {}", objname, json);
+    if (json.length() >= JSON_COMPRESSION_THRESHOLD) {
+
+      // compress and base91 encode the JSON
+      UnsynchronizedByteArrayOutputStream baos =
+        new UnsynchronizedByteArrayOutputStream();
+
+      Base91.encode(new GZIPpedInputStream(json), baos);
+      res = IOUtils.toString(baos.toInputStream());
+      log.trace("storing () string: {}", objname, res);
+    }
+    log.debug2("{} json len: {}, compressed len: {}", objname,
+               json.length(), res.length());
+    return res;
+  }
+
+  private String uncompressJson(String storedString, String objname)
+    throws IOException {
+    String res = storedString;
+    if (!storedString.startsWith("{\"")) {
+      UnsynchronizedByteArrayOutputStream baos1 =
+        new UnsynchronizedByteArrayOutputStream();
+      Base91.decode(IOUtils.toInputStream(storedString, "UTF-8"), baos1);
+      res = IOUtils.toString(new GZIPInputStream(baos1.toInputStream()));
+    }
+    log.debug2("{} result = {}", objname, res);
+    return res;
   }
 }

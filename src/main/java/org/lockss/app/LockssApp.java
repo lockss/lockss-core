@@ -222,6 +222,7 @@ public class LockssApp {
     // JOB_MANAGER_DESC,
 //     // Start the job database manager.
     // JOB_DB_MANAGER_DESC,
+    CLOCKSS_PARAMS_MANAGER_DESC,
     BUILD_INFO_STATUS_DESC,
   };
 
@@ -231,12 +232,6 @@ public class LockssApp {
     // watchdog last
     new ManagerDesc(WATCHDOG_SERVICE, "org.lockss.daemon.WatchdogService"),
 
-    // unused
-//     new ManagerDesc(CLOCKSS_PARAMS, "org.lockss.clockss.ClockssParams") {
-//       public boolean shouldStart(LockssApp app) {
-//         return isClockss();
-//       }},
-    
   };
 
 
@@ -272,12 +267,24 @@ public class LockssApp {
   protected Map<String,OneShotSemaphore> managerSemMap = new HashMap<>();
 
   protected static WaitableObject<LockssApp> theApp = new WaitableObject<>();
+  private static Throwable firstCreateStack = null;
 
 //   private boolean isClockss;
   protected String testingMode;
 
   protected LockssApp() {
-    log.debug3("new LockssApp", new Throwable());
+    log.debug3("new LockssApp: " + this, new Throwable());
+    LockssApp oldApp = theApp.getValue();
+    if (false) {
+      if (oldApp != null) {
+        log.warning("More than one LockssApp created.  This is probably bad.");
+        log.warning("This one was called from",
+                    new Throwable("Additional LockssApp create"));
+        log.warning("The first one called from ", firstCreateStack);
+      }
+      firstCreateStack = new Throwable("First LockssApp create");
+      log.critical("new LockssApp: " + this, firstCreateStack);
+    }
     setLockssApp(this);
   }
 
@@ -586,11 +593,12 @@ public class LockssApp {
       ? BuildInfo.getBuildProperty(BuildInfo.BUILD_ARTIFACT) : getAppName();
     StringBuilder sb = new StringBuilder();
     String res =
-      BuildInfo.getBuildInfoString("LOCKSS :" + BuildInfo.BUILD_RELEASENAME,
-				   app + ":",
-				   BuildInfo.BUILD_VERSION,
-				   BuildInfo.BUILD_TIMESTAMP,
-				   BuildInfo.BUILD_HOST);
+      BuildInfo.getBuildInfoString("LOCKSS :" + BuildInfo.BUILD_RELEASENAME
+                                   , app + ":"
+//                                    , BuildInfo.BUILD_VERSION
+                                   , BuildInfo.BUILD_TIMESTAMP
+//                                    , BuildInfo.BUILD_HOST
+                                   );
     PlatformVersion plat = Configuration.getPlatformVersion();
     if (plat != null) {
       res = res + ", " + plat.displayString();
@@ -1056,6 +1064,7 @@ public class LockssApp {
       log.info("Build: " +
 	       bi.getBuildInfoStringInst(BuildInfo.BUILD_ARTIFACT,
 					 BuildInfo.BUILD_VERSION,
+					 BuildInfo.BUILD_GIT_BRANCH,
 					 BuildInfo.BUILD_TIMESTAMP,
 					 BuildInfo.BUILD_HOST));
     }
@@ -1135,6 +1144,7 @@ public class LockssApp {
 
   protected void setConfig(Configuration config, Configuration prevConfig,
 			   Configuration.Differences changedKeys) {
+    log.debug3("setConfig: " + this + ": " + config, new Throwable());
 
     // temporary while debugging jvm DNS problem
     if (changedKeys.contains(PARAM_EXERCISE_DNS)) {
@@ -1235,6 +1245,9 @@ public class LockssApp {
     if (sd == null) {
       return null;
     }
+    if (serviceBindings == null) {
+      throw new IllegalStateException("No service bindings have been configured");
+    }
     return serviceBindings.get(sd);
   }
 
@@ -1273,6 +1286,7 @@ public class LockssApp {
   }
 
   boolean parseServiceBinding(String s) {
+    log.debug3("parseServiceBinding lockssdaemon: " + this);
     Matcher mat = SERVICE_BINDING_PAT.matcher(s);
     if (!mat.matches()) {
       log.debug2("new no match: " + s);
@@ -1375,6 +1389,19 @@ public class LockssApp {
     LockssApp app;
     try {
       app = appClass.newInstance();
+
+//       LockssApp oldApp = theApp.getValue();
+//       if (oldApp == null) {
+//         app = appClass.newInstance();
+//       } else if (appClass.isAssignableFrom(oldApp.getClass())) {
+//         log.warning("Already created a compatible instance of " + appClass +
+//                     " (" + oldApp + "), using it");
+//         app = oldApp;
+//       } else {
+//         log.error("Already created an incompatible instance of " + appClass +
+//                   " (" + oldApp + "), aborting");
+//         throw new IllegalStateException("Can't create incompatible LockssApps");
+//       }
     } catch (Exception e) {
       throw new RuntimeException("Couldn't instantiate " + appClass, e);
     }

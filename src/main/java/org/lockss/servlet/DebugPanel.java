@@ -507,26 +507,26 @@ public class DebugPanel extends LockssServlet {
   private void deleteUrl(ArchivalUnit au, String url) {
     org.lockss.laaws.rs.core.LockssRepository v2Repo =
       daemon.getRepositoryManager().getV2Repository().getRepository();
-    String coll =
-      daemon.getRepositoryManager().getV2Repository().getCollection();
+    String ns =
+      daemon.getRepositoryManager().getV2Repository().getNamespace();
     if (v2Repo == null) {
       errMsg = "Can't delete, not using V2 repository";
       return;
     }
     try {
-      if (v2Repo.getArtifact(coll, au.getAuId(), url) == null) {
+      if (v2Repo.getArtifact(ns, au.getAuId(), url) == null) {
 	errMsg = "No such file: " + url + " in " + au.getName();
 	return;
       }
       int cnt = 0;
       for (org.lockss.laaws.rs.model.Artifact art :
-	     v2Repo.getArtifactsAllVersions(coll, au.getAuId(), url)) {
+	     v2Repo.getArtifactsAllVersions(ns, au.getAuId(), url)) {
 	log.debug2("deleting: " + art);
 	v2Repo.deleteArtifact(art);
 	cnt++;
       }
       org.lockss.laaws.rs.model.Artifact delArt =
-	v2Repo.getArtifact(coll, au.getAuId(), url);
+	v2Repo.getArtifact(ns, au.getAuId(), url);
       if (delArt == null) {
 	statusMsg ="Deleted " + StringUtil.numberOfUnits(cnt, "version") +
 	  " of " + url;

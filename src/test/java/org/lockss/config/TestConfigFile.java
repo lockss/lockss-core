@@ -44,7 +44,7 @@ import org.lockss.hasher.*;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.util.io.FileUtil;
+import org.lockss.util.io.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.util.urlconn.*;

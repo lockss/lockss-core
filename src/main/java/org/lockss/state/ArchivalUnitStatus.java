@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -48,6 +48,7 @@ import org.lockss.repository.*;
 import org.lockss.servlet.*;
 
 import org.lockss.laaws.rs.core.*;
+import org.lockss.laaws.rs.model.AuSize;
 
 /**
  * Collect and report the status of the ArchivalUnits
@@ -62,7 +63,7 @@ public class ArchivalUnitStatus
    */
   public static final String PARAM_MAX_NODES_TO_DISPLAY =
       PREFIX + "nodesPerPage";
-  static final int DEFAULT_MAX_NODES_TO_DISPLAY = 100;
+  static final int DEFAULT_MAX_NODES_TO_DISPLAY = 1000;
 
   /**
    * Node URLs are links to cached content page if true
@@ -195,7 +196,7 @@ public class ArchivalUnitStatus
 
   /** By default the AuSummary table omits the size columns.  Specify
    * columns=* to include them */
-//   static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;DiskUsage";
+//   static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;AllVersSize;DiskUsage";
 
   static class AuSummary implements StatusAccessor {
     static final String TABLE_TITLE = "Archival Units";
@@ -210,11 +211,13 @@ public class ArchivalUnitStatus
 //       new ColumnDescriptor("AuNodeCount", "Nodes", ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("AuSize", "Content Size",
             ColumnDescriptor.TYPE_INT),
-//         new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
-//             ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
-        new ColumnDescriptor("Peers", "Peers", ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("AuPolls", "Recent Polls",
+        new ColumnDescriptor("AllVersSize", "All Versions",
             ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
+            ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
+//         new ColumnDescriptor("Peers", "Peers", ColumnDescriptor.TYPE_INT),
+//         new ColumnDescriptor("AuPolls", "Recent Polls",
+//             ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("Damaged", "Status",
             ColumnDescriptor.TYPE_STRING,
             FOOT_STATUS),
@@ -325,16 +328,20 @@ public class ArchivalUnitStatus
       HashMap rowMap = new HashMap();
       rowMap.put("AuName",
 		 AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
-      if (inclCols.contains("AuSize")) {
-        long contentSize = AuUtil.getAuContentSize(au, false);
+      if (inclCols.contains("AuSize") || inclCols.contains("AllVersSize") || inclCols.contains("DiskUsage")) {
+        AuSize ausize = AuUtil.getAuSize(au);
+        long contentSize = ausize.getTotalLatestVersions();
         if (contentSize != -1) {
           rowMap.put("AuSize", new Long(contentSize));
         }
-      }
-      if (inclCols.contains("DiskUsage")) {
-        long du = AuUtil.getAuDiskUsage(au, false);
-        if (du != -1) {
-          rowMap.put("DiskUsage", new Double(((double)du) / (1024*1024)));
+        long allvers = ausize.getTotalAllVersions();
+        if (allvers != -1) {
+          rowMap.put("AllVersSize", new Long(allvers));
+        }
+        if (ausize.getTotalWarcSize() != null) {
+          rowMap.put("DiskUsage",
+                     new Double(((double)ausize.getTotalWarcSize()) /
+                                (1024*1024)));
         }
       }
       long lastCrawl = auState.getLastCrawlTime();
@@ -367,15 +374,15 @@ public class ArchivalUnitStatus
       rowMap.put("AuLastPoll", new Long(auState.getLastTimePollCompleted()));
 
       Object stat;
-      try {
-	PollManager.V3PollStatusAccessor v3status =
-	  theDaemon.getPollManager().getV3Status();
-	int numPolls = v3status.getNumPolls(au.getAuId());
-	rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
-      } catch (RuntimeException e) {
-	logger.warning("Can't get poll status for " + au.getName() + ": " +
-		       e.getMessage());
-      }
+//       try {
+// 	PollManager.V3PollStatusAccessor v3status =
+// 	  theDaemon.getPollManager().getV3Status();
+// 	int numPolls = v3status.getNumPolls(au.getAuId());
+// 	rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
+//       } catch (RuntimeException e) {
+// 	logger.warning("Can't get poll status for " + au.getName() + ": " +
+// 		       e.getMessage());
+//       }
       // Percent damaged.  It's scary to see '0% Agreement' if there's no
       // history, so we just show a friendlier message.
       //
@@ -927,8 +934,9 @@ public class ArchivalUnitStatus
         stat = hasDamage ? DAMAGE_STATE_DAMAGED : DAMAGE_STATE_OK;
       }
 
-      long contentSize = AuUtil.getAuContentSize(au, false);
-      long du = AuUtil.getAuDiskUsage(au, false);
+      AuSize aus = AuUtil.getAuSize(au);
+      long contentSize = aus.getTotalLatestVersions();
+      long contentSizeAllVers = aus.getTotalAllVersions();
 
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Volume",
@@ -949,16 +957,16 @@ public class ArchivalUnitStatus
         res.add(new StatusTable.SummaryInfo("Content Size",
             ColumnDescriptor.TYPE_INT,
             new Long(contentSize)));
-      } else {
-	// XXX DISKUSAGE
-//         res.add(new StatusTable.SummaryInfo("Content Size",
-//             ColumnDescriptor.TYPE_STRING,
-//             "Awaiting recalc"));
       }
-      if (du != -1) {
-        res.add(new StatusTable.SummaryInfo("Disk Usage (MB)",
-            ColumnDescriptor.TYPE_FLOAT,
-            new Float(du / (float)(1024 * 1024))));
+      if (contentSizeAllVers != -1) {
+        res.add(new StatusTable.SummaryInfo("All Versions Size",
+            ColumnDescriptor.TYPE_INT,
+            new Long(contentSizeAllVers)));
+      }
+      if (aus.getTotalWarcSize() != null) {
+        res.add(new StatusTable.SummaryInfo("Disk Usage",
+            ColumnDescriptor.TYPE_STRING,
+            StringUtil.sizeToString(aus.getTotalWarcSize())));
       } else {
 	// XXX DISKUSAGE
 //         res.add(new StatusTable.SummaryInfo("Disk Usage",

@@ -1,9 +1,5 @@
 /*
- * $Id$
- */
-
-/*
- Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +30,7 @@ package org.lockss.plugin.definable;
 import java.net.*;
 import java.util.*;
 import java.io.IOException;
+import org.apache.commons.lang3.tuple.*;
 
 import org.apache.commons.collections4.*;
 import org.apache.oro.text.regex.*;
@@ -45,6 +42,7 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
 import org.lockss.util.*;
 import org.lockss.util.Constants.RegexpContext;
+import org.lockss.util.urlconn.*;
 import org.lockss.plugin.exploded.ExplodingUrlConsumerFactory;
 import org.lockss.state.AuState;
 
@@ -83,7 +81,6 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
     "au_crawlrules_ignore_case";
   public static final String KEY_AU_CRAWL_WINDOW = "au_crawlwindow";
   public static final String KEY_AU_CRAWL_WINDOW_SER = "au_crawlwindow_ser";
-  public static final String KEY_AU_EXPECTED_BASE_PATH = "au_expected_base_path";
   public static final String KEY_AU_REFETCH_DEPTH = "au_refetch_depth";
   public static final int DEFAULT_AU_REFETCH_DEPTH = 1;
   // The old name of au_refetch_depth
@@ -336,13 +333,8 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
       definitionMap.getString(DefinablePlugin.KEY_PLUGIN_AU_CONFIG_USER_MSG,
 			      null);
     if (umsg != null) {
-      paramMap.putString(KEY_AU_CONFIG_USER_MSG, makeConfigUserMsg(umsg));
-    }
-    String urlPat =
-      (String)definitionMap.getMapElement(KEY_AU_REDIRECT_TO_LOGIN_URL_PATTERN);
-    if (urlPat != null) {
-      paramMap.setMapElement(KEY_AU_REDIRECT_TO_LOGIN_URL_PATTERN,
-			     makeLoginUrlPattern(urlPat));
+      paramMap.putString(KEY_AU_CONFIG_USER_MSG,
+                         StringPool.AU_CONFIG_PROPS.intern(makeConfigUserMsg(umsg)));
     }
   }
 
@@ -350,26 +342,6 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
     String res = convertNameString(fmt);
     if (fmt.equals(res)) return fmt;
     return res;
-  }
-
-  protected Pattern makeLoginUrlPattern(String val)
-      throws ArchivalUnit.ConfigurationException {
-
-    String patStr =
-      convertVariableRegexpString(val, RegexpContext.Url).getRegexp();
-    if (patStr == null) {
-      String msg = "Missing regexp args: " + val;
-      log.error(msg);
-      throw new ConfigurationException(msg);
-    }
-    try {
-      return
-	RegexpUtil.getCompiler().compile(patStr, Perl5Compiler.READ_ONLY_MASK);
-    } catch (MalformedPatternException e) {
-      String msg = "Can't compile URL pattern: " + patStr;
-      log.error(msg + ": " + e.toString());
-      throw new ArchivalUnit.ConfigurationException(msg, e);
-    }
   }
 
   public List<Pattern> makeExcludeUrlsFromPollsPatterns()
@@ -391,7 +363,7 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 	// Find the last occurrence of comma to avoid regexp quoting
 	int pos = pair.lastIndexOf(',');
 	if (pos < 0) {
-	  throw new IllegalArgumentException("Malformed pattern,flost pair; no comma: "
+	  throw new IllegalArgumentException("Malformed pattern,float pair; no comma: "
 					     + pair);
 	}
 	String printf = pair.substring(0, pos);
@@ -411,9 +383,51 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 	  lst.add(mp.getRegexp() + "," + weight);
 	}
       }
-      return new PatternFloatMap(lst);
+      return PatternFloatMap.fromSpec(lst);
     } else {
       return null;
+    }
+  }
+
+  public AuCacheResultMap makeAuCacheResultMap()
+      throws ArchivalUnit.ConfigurationException {
+    // Union the entries in the plugin's plugin_cache_result_list with
+    // the au_redirect_to_login_url_pattern, if any
+    List<Pair<String,String>> redirList =
+      new ArrayList<>(getDefinablePlugin().getResultMapEntries());
+    // the list
+    String redirToLoginPat =
+      (String)definitionMap.getMapElement(KEY_AU_REDIRECT_TO_LOGIN_URL_PATTERN);
+    if (!StringUtil.isNullString(redirToLoginPat)) {
+      redirList.add(Pair.of("redirto:" + redirToLoginPat,
+                            "org.lockss.util.urlconn.CacheException$RedirectToLoginPageException"));
+    }
+
+    // Now process all the "redirto:" entries into a PatternMap
+    List<Pair<String,ResultAction>> actionPats = new ArrayList<>();
+    for (Pair<String,String> pair : redirList) {
+      // Process only redirto: patterns
+      java.util.regex.Matcher m = DefinablePlugin.RESULT_MAP_REDIR_PAT.matcher(pair.getLeft());
+      if (m.matches()) {
+        ResultAction act =
+          getDefinablePlugin().parseResultAction(pair.getRight());
+
+        String patStr =
+          convertVariableRegexpString(m.group(1),
+                                      RegexpContext.Url).getRegexp();
+        actionPats.add(Pair.of(patStr, act));
+      }
+    }
+    // And make an AuHttpResultMap from that and the plugin's HttpResultMap.
+    return new AuHttpResultMap(plugin.getCacheResultMap(),
+                               PatternMap.fromPairs(actionPats));
+  }
+
+  private Object parseRedirPatRhs(String rhs) {
+    try {
+      return getDefinablePlugin().parseResultMapRhs(rhs);
+    } catch (PluginException.InvalidDefinition e) {
+      throw new IllegalArgumentException("Illegal redir action: " + rhs);
     }
   }
 
@@ -453,7 +467,7 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 	  lst.add(mp.getRegexp() + "," + val);
 	}
       }
-      return new PatternStringMap(lst);
+      return PatternStringMap.fromSpec(lst);
     } else {
       return PatternStringMap.EMPTY;
     }
@@ -609,14 +623,22 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
     return res;
   }
 
+  /** Return true if the URL matches the plugin's login page URL
+   * pattern.  (Actually, if it matches a pattern the plugin has
+   * mapped to RedirectToLoginPageException.
+   * @deprecated
+   */
+  @Deprecated
   public boolean isLoginPageUrl(String url) {
-    Pattern urlPat =
-      (Pattern)paramMap.getMapElement(KEY_AU_REDIRECT_TO_LOGIN_URL_PATTERN);
-    if (urlPat == null) {
+    try {
+      Object rhs = makeAuCacheResultMap().mapRedirUrl(this, null,
+                                                      "Unknown", url,
+                                                      "Login page");
+      return rhs instanceof CacheException.RedirectToLoginPageException;
+    } catch (ConfigurationException e) {
+      log.warning("Error checking for login URL: " + url, e);
       return false;
     }
-    Perl5Matcher matcher = RegexpUtil.getMatcher();
-    return  matcher.contains(url, urlPat);
   }    
 
   protected String makeName() {
@@ -649,7 +671,7 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
     if (perms != null) {
       for (String url : perms) {
 	if (rule.match(url) != CrawlRule.INCLUDE) {
-	  expUrls.add(url);
+	  expUrls.add(StringPool.AU_CONFIG_PROPS.intern(url));
 	}
       }
     }
@@ -939,4 +961,10 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 	throws PluginException;
   }
 
+  public static class Factory implements ArchivalUnit.Factory {
+    public DefinableArchivalUnit createDefinableArchivalUnit(DefinablePlugin plugin,
+                                                             ExternalizableMap defMap) {
+      return new DefinableArchivalUnit(plugin, defMap);
+    }
+  }
 }

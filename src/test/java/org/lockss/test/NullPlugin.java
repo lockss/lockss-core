@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,6 +47,7 @@ import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 import org.lockss.extractor.*;
+import org.lockss.laaws.rs.model.*;
 
 /**
  * Base class for test plugins that don't want to implement all the
@@ -84,8 +81,8 @@ public class NullPlugin {
       return "NullVersion";
     }
 
-    public String getRequiredDaemonVersion() {
-      return "0.0.0";
+    public List<String> getRequiredDaemonVersion() {
+      return ListUtil.list("0.0.0");
     }
 
     public String getFeatureVersion(Plugin.Feature feat) {
@@ -361,6 +358,9 @@ public class NullPlugin {
       return null;
     }
 
+    public void pokeWatchdog() {
+    }
+
     public void setPreviousContentType(String previousContentType) {
     }
 
@@ -487,7 +487,15 @@ public class NullPlugin {
       return new CachedUrlSetHasher();
     }
 
+    public AuSize getAuSize() {
+      return null;
+    }
+
     public long getContentSize() {
+      return 0;
+    }
+
+    public long getContentSizeAllVersions() {
       return 0;
     }
 
@@ -553,6 +561,11 @@ public class NullPlugin {
 
     public PatternStringMap makeUrlMimeValidationMap() {
       return PatternStringMap.EMPTY;
+    }
+
+    public AuCacheResultMap makeAuCacheResultMap()
+        throws ArchivalUnit.ConfigurationException {
+      return AuHttpResultMap.DEFAULT;
     }
 
     public PatternFloatMap makeUrlPollResultWeightMap() {
@@ -713,6 +726,10 @@ public class NullPlugin {
     }
 
     public boolean isBulkContent() {
+      return false;
+    }
+
+    public boolean isNamedArchivalUnit() {
       return false;
     }
 

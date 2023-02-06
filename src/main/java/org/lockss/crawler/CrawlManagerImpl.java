@@ -925,6 +925,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
           startOneWait.expire();
         }
       }
+      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
     }
   }
 
@@ -975,6 +976,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         for (Crawler crawler : pc.getCrawlers()) {
           if (au == crawler.getAu()) {
             crawler.abortCrawl();
+            // If it hadn't actually started yet, ensure status removed
+            cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
           }
         }
       }
@@ -1075,7 +1078,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       crawlPriorityAuidMap = PatternIntMap.EMPTY;
     } else {
       try {
-        crawlPriorityAuidMap = new PatternIntMap(patternPairs);
+        crawlPriorityAuidMap = PatternIntMap.fromSpec(patternPairs);
         logger.debug("Installing crawl priority map: " + crawlPriorityAuidMap);
       } catch (IllegalArgumentException e) {
         logger.error("Illegal crawl priority map, ignoring", e);
@@ -1129,8 +1132,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
 
-  public void startRepair(ArchivalUnit au, Collection urls,
-                          CrawlManager.Callback cb, Object cookie) {
+  public CrawlerStatus startRepair(ArchivalUnit au, Collection urls,
+                                   CrawlManager.Callback cb, Object cookie) {
     //XXX check to make sure no other crawls are running and queue if they are
     if (au == null) {
       throw new IllegalArgumentException("Called with null AU");
@@ -1140,20 +1143,26 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
     RateLimiter limiter = repairRateLimiters.getRateLimiter(au);
     if (!limiter.isEventOk()) {
-      logger.debug("Repair aborted due to rate limiter.");
+      String errMsg = "Repair aborted due to rate limiter.";
+      logger.debug(errMsg);
       callCallback(cb, cookie, false, null);
-      return;
+      CrawlerStatus crawlerStatus = new CrawlerStatus(au, urls, null);
+      crawlerStatus.setCrawlStatus(Crawler.STATUS_INELIGIBLE, errMsg);
+      return crawlerStatus;
     }
     Crawler crawler = null;
     try {
       crawler = makeRepairCrawler(au, urls);
       CrawlRunner runner =
           new CrawlRunner(crawler, cb, cookie, limiter);
-      cmStatus.addCrawlStatus(crawler.getCrawlerStatus());
+      CrawlerStatus cstat = crawler.getCrawlerStatus();
+      cmStatus.addCrawlStatus(cstat);
       addToRunningCrawls(au, crawler);
       new Thread(runner).start();
+      return cstat;
     } catch (RuntimeException re) {
       logger.error("Couldn't start repair crawl thread", re);
+      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
       throw re;
@@ -1399,6 +1408,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
               (runner == null ? "no runner" : runner.toString());
       logger.error("Unexpected error attempting to start/schedule " + au +
           " crawl" + " " + crawlerRunner, e);
+      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
       removeFromRunningCrawls(crawler);
       callCallback(cb, cookie, false, null);
       req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_ERROR,

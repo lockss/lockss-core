@@ -71,7 +71,7 @@ public class TdbPublisher {
     if (name == null) {
       throw new IllegalArgumentException("name cannot be null");
     }
-    this.name = name;
+    this.name = StringPool.PUBLISHERS.intern(name);
   }
   
   /**

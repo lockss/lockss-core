@@ -236,7 +236,7 @@ public class AuUtil {
    * @throws IOException
    *           if any problem occurred.
    */
-  public static String mapToJson(Map<String,Object> map) throws IOException {
+  public static String mapToJson(Map<String,? extends Object> map) throws IOException {
     return new ObjectMapper().writeValueAsString(map);
   }
 
@@ -441,13 +441,33 @@ public class AuUtil {
   }
 
   /**
-   * Return the size of the AU, calculating it if necessary.
+   * Return the AuSize object holding various size statistics for the AU
    * @param au the AU
-   * @return the AU's total content size.
+   * @return AuSize
+   */
+  public static AuSize getAuSize(ArchivalUnit au) {
+    return au.getAuCachedUrlSet().getAuSize();
+  }
+
+  /**
+   * Return the total content size of the AU, including only the most
+   * recent version of each artifact
+   * @param au the AU
+   * @return the AU's total.
    */
   public static long getAuContentSize(ArchivalUnit au,
 				      boolean calcIfUnknown) {
     return au.getAuCachedUrlSet().getContentSize();
+  }
+
+  /**
+   * Return the total content size of the AU, including all versions
+   * of each artifact
+   * @param au the AU
+   * @return the AU's total content size.
+   */
+  public static long getAuContentSizeAllVersions(ArchivalUnit au) {
+    return au.getAuCachedUrlSet().getContentSizeAllVersions();
   }
 
   public static long calculateCusContentSize(Iterable<CachedUrl> coll) {
