@@ -189,6 +189,8 @@ public class ServeContent extends LockssServlet {
     PathInfo,
   }
 
+  public static final String HEADER_REWRITE_FOR = "X-Lockss-RewriteFor";
+
   /** Determines how original URLs are represented in ServeContent URLs.
    * Can be set to one of:
    *  <ul>
@@ -1680,17 +1682,21 @@ public class ServeContent extends LockssServlet {
   }
 
   ServletUtil.LinkTransform makeLinkTransform() {
+    // Use "migrating from" stem to rewrite links if specified in the request
+    String rewriteForStem = req.getHeader(HEADER_REWRITE_FOR);
+    boolean useRewriteForStem = !StringUtil.isNullString(rewriteForStem);
+
     switch (rewriteStyle) {
     case QueryArg:
     default:
       return new ServletUtil.LinkTransform() {
 	public String rewrite(String url) {
 	  if (absoluteLinks) {
-	    return srvAbsURL(myServletDescr(),
-			     "url=" + url);
+	    return useRewriteForStem ?
+                srvURLFromStem(rewriteForStem, myServletDescr(), "url=" + url) :
+                srvAbsURL(myServletDescr(), "url=" + url);
 	  } else {
-	    return srvURL(myServletDescr(),
-			  "url=" + url);
+	    return srvURL(myServletDescr(), "url=" + url);
 	  }
 	}
       };
@@ -1698,7 +1704,9 @@ public class ServeContent extends LockssServlet {
       return new ServletUtil.LinkTransform() {
 	public String rewrite(String url) {
 	  if (absoluteLinks) {
-	    return srvAbsURL(myServletDescr()) + "/" + url;
+	    return useRewriteForStem ?
+                srvURLFromStem(rewriteForStem, myServletDescr(), "url=" + url) :
+                srvAbsURL(myServletDescr()) + "/" + url;
 	  } else {
 	    return srvURL(myServletDescr()) + "/" + url;
 	  }
