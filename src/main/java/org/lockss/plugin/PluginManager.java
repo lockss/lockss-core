@@ -1420,7 +1420,7 @@ public class PluginManager
    * @ParamRelevance Rare
    */
   public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
-  public static final String DEFAULT_JMS_CLIENT_ID = null;
+  public static final String DEFAULT_JMS_CLIENT_ID = "PluginMgr";
 
 
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;

@@ -79,7 +79,7 @@ public class StatusServiceImpl
    * @ParamRelevance Rare
    */
   public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
-  public static final String DEFAULT_JMS_CLIENT_ID = null;
+  public static final String DEFAULT_JMS_CLIENT_ID = "StatusSvc";
 
   /** The amount of time to wait for responses to RequestOverviews
    * @ParamRelevance Rare
