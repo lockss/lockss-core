@@ -50,8 +50,9 @@ import org.lockss.util.time.TimeUtil;
 import org.lockss.state.*;
 import org.lockss.truezip.*;
 
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.AuSize;
 
 /**
  * Base class for CachedUrlSets.  Utilizes the LockssRepository.

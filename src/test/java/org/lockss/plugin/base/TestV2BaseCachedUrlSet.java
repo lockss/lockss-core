@@ -49,9 +49,7 @@ import org.lockss.util.*;
 import org.apache.http.*;
 import org.apache.http.message.*;
 import org.springframework.http.HttpHeaders;
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
-import org.lockss.laaws.rs.util.*;
+import org.lockss.util.rest.repo.LockssRepository;
 
 public class TestV2BaseCachedUrlSet extends LockssTestCase {
   static Logger log = Logger.getLogger();

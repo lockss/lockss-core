@@ -37,7 +37,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import javax.mail.MessagingException;
-import org.lockss.laaws.rs.util.NamedInputStreamResource;
+import org.lockss.util.rest.repo.util.NamedInputStreamResource;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.auth.*;
 import org.lockss.util.rest.HttpResponseStatusAndHeaders;

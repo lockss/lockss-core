@@ -32,7 +32,7 @@ import java.util.regex.*;
 
 import org.lockss.log.*;
 import org.lockss.util.*;
-import org.lockss.laaws.rs.core.*;
+import org.lockss.util.rest.repo.LockssRepository;
 
 /** Information about a V2 LOCKSS repository: the spec string, parsed into
  * components, and the LockssRepository instance itself.

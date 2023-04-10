@@ -102,6 +102,14 @@ POSSIBILITY OF SUCH DAMAGE.
 
     <dependency>
       <groupId>org.lockss</groupId>
+      <artifactId>lockss-util-rest</artifactId>
+      <version>${version.lockss.lockss-util-rest}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
       <artifactId>lockss-junit4-bundle</artifactId>
       <version>${version.lockss.lockss-junit4-bundle}</version>
       <type>pom</type>
@@ -571,7 +579,109 @@ POSSIBILITY OF SUCH DAMAGE.
       <artifactId>velocity</artifactId>
       <version>1.7</version>
     </dependency>
-    
+
+    <dependency>
+      <groupId>org.netpreserve.commons</groupId>
+      <artifactId>webarchive-commons</artifactId>
+      <version>${version.dependency.webarchive-commons}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-core</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jwat</groupId>
+      <artifactId>jwat-warc</artifactId>
+      <version>1.0.0</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-csv</artifactId>
+      <version>1.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.solr</groupId>
+      <artifactId>solr-solrj</artifactId>
+      <version>${version.group.solr}</version>
+    </dependency>
+
+    <!-- Dependency of solr-test-framework -->
+    <dependency>
+      <groupId>org.apache.solr</groupId>
+      <artifactId>solr-core</artifactId>
+      <version>${version.group.solr}</version>
+      <exclusions>
+        <exclusion>
+          <artifactId>javax.servlet</artifactId>
+          <groupId>org.eclipse.jetty.orbit</groupId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-server</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-webapp</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Needed for Solr testing -->
+    <dependency>
+      <groupId>org.apache.solr</groupId>
+      <artifactId>solr-test-framework</artifactId>
+      <version>${version.group.solr}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>javax.servlet</artifactId>
+          <groupId>org.eclipse.jetty.orbit</groupId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-server</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-webapp</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mapdb</groupId>
+      <artifactId>mapdb</artifactId>
+      <version>3.0.8</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>9.4.49.v20220914</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-io</artifactId>
+      <version>9.4.49.v20220914</version>
+    </dependency>
+
+    <dependency>
+    <groupId>org.eclipse.jetty</groupId>
+    <artifactId>jetty-http</artifactId>
+    <version>9.4.49.v20220914</version>
+    </dependency>
+
     <dependency>
       <groupId>wsdl4j</groupId>
       <artifactId>wsdl4j</artifactId>
@@ -693,23 +803,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>it.unimi.dsi</groupId>
       <artifactId>fastutil</artifactId>
       <version>6.3</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.lockss.laaws</groupId>
-      <artifactId>laaws-repository-core</artifactId>
-      <version>${version.lockss.lockss-repository-core}</version>
-      <exclusions>
-        <!-- brings sealed Jetty 6 but we have Jetty 5 -->
-        <exclusion>
-          <groupId>org.mortbay.jetty</groupId>
-          <artifactId>jetty</artifactId>  
-        </exclusion>
-        <exclusion>
-          <groupId>org.mortbay.jetty</groupId>
-          <artifactId>jetty-util</artifactId>  
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -1207,6 +1300,27 @@ POSSIBILITY OF SUCH DAMAGE.
 
           <!-- END step package-test-plugins -->
 
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>${version.plugin.exec-maven-plugin}</version>
+
+        <executions>
+          <execution>
+            <id>generatePrebakedSolrHomeFilelist</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <!-- Working directory set to the source copy of the Solr home base directory used for tests -->
+              <workingDirectory>${project.basedir}/src/test/resources/solr</workingDirectory>
+              <executable>${project.basedir}/scripts/generateFilelist.sh</executable>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
 

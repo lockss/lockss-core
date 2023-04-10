@@ -44,9 +44,11 @@ import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
-import org.lockss.laaws.rs.util.*;
+import org.lockss.rs.LockssRepositoryFactory;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
+import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.apache.http.*;
 import org.apache.http.message.*;
 import org.springframework.http.HttpHeaders;

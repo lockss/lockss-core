@@ -40,8 +40,13 @@ import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.util.*;
 import org.lockss.util.os.*;
 import org.lockss.util.storage.*;
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.util.ArtifactCache;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
+import org.lockss.util.rest.repo.model.AuSize;
+import org.lockss.util.rest.repo.model.RepositoryInfo;
+import org.lockss.util.rest.repo.RestLockssRepository;
 
 /**
  * Status tables for V2 LockssRepository: namespaces, auids, artifacts

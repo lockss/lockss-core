@@ -57,8 +57,7 @@ import org.lockss.plugin.base.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.plugin.exploded.*;
 
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.model.AuSize;
 
 /**
  * Static AU- and plugin-related utility methods.  These might logically

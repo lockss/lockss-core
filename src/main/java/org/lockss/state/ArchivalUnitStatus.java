@@ -47,8 +47,7 @@ import org.lockss.protocol.*;
 import org.lockss.repository.*;
 import org.lockss.servlet.*;
 
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.AuSize;
+import org.lockss.util.rest.repo.model.AuSize;
 
 /**
  * Collect and report the status of the ArchivalUnits

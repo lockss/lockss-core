@@ -49,7 +49,7 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
 import org.lockss.repository.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
 import org.lockss.util.*;

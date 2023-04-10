@@ -50,7 +50,8 @@ import org.lockss.util.urlconn.*;
 import org.lockss.repository.*;
 import org.lockss.crawler.*;
 import org.lockss.config.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
 
 public class TestV2DefaultUrlCacher extends LockssTestCase {
 

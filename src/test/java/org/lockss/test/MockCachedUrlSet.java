@@ -39,7 +39,7 @@ import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.model.AuSize;
 
 /**
  * This is a mock version of <code>CachedUrlSet</code> used for testing

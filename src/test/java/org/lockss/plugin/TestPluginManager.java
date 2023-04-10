@@ -56,8 +56,8 @@ import org.lockss.util.time.TimerUtil;
 import org.lockss.test.*;
 import org.lockss.state.*;
 import org.lockss.jms.*;
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
 import static org.lockss.plugin.PluginManager.CuContentReq;
 
 /**

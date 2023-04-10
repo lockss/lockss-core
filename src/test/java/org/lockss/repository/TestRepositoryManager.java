@@ -36,8 +36,12 @@ import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimerUtil;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.rs.LocalLockssRepository;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.RestLockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
+import org.lockss.util.rest.repo.model.ArtifactVersions;
 
 public class TestRepositoryManager extends LockssTestCase4 {
   private static L4JLogger log = L4JLogger.getLogger();

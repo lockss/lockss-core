@@ -31,6 +31,9 @@ package org.lockss.servlet;
 import javax.servlet.*;
 import java.io.*;
 import java.util.*;
+
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
 import org.mortbay.html.*;
 import org.lockss.app.*;
 import org.lockss.daemon.RestServicesManager;
@@ -505,7 +508,7 @@ public class DebugPanel extends LockssServlet {
   }
 
   private void deleteUrl(ArchivalUnit au, String url) {
-    org.lockss.laaws.rs.core.LockssRepository v2Repo =
+    LockssRepository v2Repo =
       daemon.getRepositoryManager().getV2Repository().getRepository();
     String ns =
       daemon.getRepositoryManager().getV2Repository().getNamespace();
@@ -519,13 +522,13 @@ public class DebugPanel extends LockssServlet {
 	return;
       }
       int cnt = 0;
-      for (org.lockss.laaws.rs.model.Artifact art :
+      for (Artifact art :
 	     v2Repo.getArtifactsAllVersions(ns, au.getAuId(), url)) {
 	log.debug2("deleting: " + art);
 	v2Repo.deleteArtifact(art);
 	cnt++;
       }
-      org.lockss.laaws.rs.model.Artifact delArt =
+      Artifact delArt =
 	v2Repo.getArtifact(ns, au.getAuId(), url);
       if (delArt == null) {
 	statusMsg ="Deleted " + StringUtil.numberOfUnits(cnt, "version") +

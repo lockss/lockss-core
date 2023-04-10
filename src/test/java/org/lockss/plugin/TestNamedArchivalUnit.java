@@ -39,7 +39,7 @@ import org.lockss.plugin.definable.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.state.*;
-import org.lockss.laaws.rs.core.*;
+import org.lockss.util.rest.repo.LockssRepository;
 
 /**
  * Test class for NamedArchivalUnit

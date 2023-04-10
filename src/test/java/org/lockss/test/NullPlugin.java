@@ -47,7 +47,7 @@ import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;
 import org.lockss.util.urlconn.*;
 import org.lockss.extractor.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.model.AuSize;
 
 /**
  * Base class for test plugins that don't want to implement all the
