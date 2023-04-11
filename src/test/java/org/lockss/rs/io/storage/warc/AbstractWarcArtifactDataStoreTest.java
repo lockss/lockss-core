@@ -55,14 +55,14 @@ import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.index.VolatileArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.util.ListUtil;
-import org.lockss.util.rest.repo.util.SemaphoreMap;
-import org.lockss.util.rest.repo.util.ArtifactConstants;
-import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.lockss.util.rest.repo.model.NamespacedAuid;
+import org.lockss.util.rest.repo.util.ArtifactConstants;
+import org.lockss.util.rest.repo.util.ArtifactSpec;
+import org.lockss.util.rest.repo.util.SemaphoreMap;
 import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.test.VariantTest;
 import org.lockss.util.time.TimeBase;
@@ -84,7 +84,10 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPOutputStream;
@@ -2608,6 +2611,8 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Instances of artifact index
     ArtifactIndex index1 = new VolatileArtifactIndex();
     ArtifactIndex index2 = new VolatileArtifactIndex();
+    index1.start();
+    index2.start();
 
     // Create data store with first index
     store = makeWarcArtifactDataStore(index1);
