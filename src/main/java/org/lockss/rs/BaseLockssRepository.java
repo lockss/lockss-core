@@ -48,6 +48,7 @@ import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactData;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactStateEntry;
+import org.lockss.util.BuildInfo;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.jms.JmsFactory;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
@@ -86,7 +87,13 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   protected ArtifactIndex index;
   protected JmsFactory jmsFact;
 
-  protected ScheduledExecutorService scheduledExecutor;
+  protected ScheduledExecutorService scheduledExecutor =
+      Executors.newSingleThreadScheduledExecutor();
+
+  private static BuildInfo BUILD_INFO = BuildInfo.getBuildInfoFor("laaws-repository-core")
+      .orElseThrow(() -> new IllegalStateException("Could not determine LOCKSS repository version"));
+
+  public static String REPOSITORY_VERSION = BUILD_INFO.getBuildPropertyInst("build.version");
 
   /**
    * Create a LOCKSS repository with the provided artifact index and storage layers.
@@ -198,19 +205,30 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   public void initRepository() throws IOException {
     log.info("Initializing repository");
 
-    // Start executor
-    this.scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
-
-    // Initialize the index and data store
+    // Initialize and start the index
     index.init();
-    store.init();
-
     index.start();
+
+    // Initialize the data store
+    store.init();
 
     // Re-index artifacts in the data store if needed
     reindexArtifactsIfNeeded();
 
+    // Start the data store
     store.start();
+  }
+
+  /**
+   * Returns a boolean indicating whether this repository is ready.
+   * <p>
+   * Delegates to readiness of internal artifact index and data store components.
+   *
+   * @return
+   */
+  @Override
+  public boolean isReady() {
+    return store.isReady() && index.isReady();
   }
 
   @Override
@@ -766,18 +784,6 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     auSize.setTotalWarcSize(totalWarcSize);
 
     return auSize;
-  }
-
-  /**
-   * Returns a boolean indicating whether this repository is ready.
-   * <p>
-   * Delegates to readiness of internal artifact index and data store components.
-   *
-   * @return
-   */
-  @Override
-  public boolean isReady() {
-    return store.isReady() && index.isReady();
   }
 
   public void setArtifactIndex(ArtifactIndex index) {

@@ -53,16 +53,17 @@ import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.util.NamedList;
 import org.lockss.log.L4JLogger;
+import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
 import org.lockss.util.rest.repo.util.SemaphoreMap;
-import org.lockss.util.io.FileUtil;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -121,6 +122,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * Name of the Solr collection to use.
    */
   private String solrCollection = DEFAULT_COLLECTION_NAME;
+  private RepositoryManagerSql repositoryManagerSql = null;
 
   /**
    * This boolean is used to indicate whether a HttpSolrClient was created internally
@@ -288,6 +290,9 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
       // Ensure Solr update journal directory exists
       FileUtil.ensureDirExists(getSolrJournalDirectory().toFile());
+
+      // Replay journal of Solr index updates if it exists
+      replayUpdateJournal();
 
       setState(ArtifactIndexState.INITIALIZED);
     }
@@ -660,8 +665,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    */
   @Override
   public boolean isReady() {
-    return getState() == ArtifactIndexState.RUNNING
-        || getState() == ArtifactIndexState.INITIALIZED && checkAlive();
+    return getState() == ArtifactIndexState.RUNNING && checkAlive();
   }
 
   @Override
@@ -1711,4 +1715,66 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       throw new IOException(String.format("Caught SolrServerException attempting to execute Solr query: %s", q));
     }
   }
+
+//  /**
+//   * Provides a connection to the database.
+//   *
+//   * @return a Connection with the connection to the database.
+//   * @throws DbException
+//   *           if any problem occurred accessing the database.
+//   */
+//  public Connection getConnection() throws DbException {
+//    return getRepositoryManagerSql().getConnection();
+//  }
+//
+//  /**
+//   * Provides the repository manager SQL executor.
+//   *
+//   * @return a RepositoryManagerSql with the repository manager SQL executor.
+//   * @throws DbException
+//   *           if any problem occurred accessing the database.
+//   */
+//  private RepositoryManagerSql getRepositoryManagerSql() throws DbException {
+//    if (repositoryManagerSql == null) {
+//      if (theApp == null) {
+//        repositoryManagerSql = new RepositoryManagerSql(
+//            LockssApp.getManagerByTypeStatic(RepositoryDbManager.class));
+//      } else {
+//        repositoryManagerSql = new RepositoryManagerSql(
+//            theApp.getManagerByType(RepositoryDbManager.class));
+//      }
+//    }
+//
+//    return repositoryManagerSql;
+//  }
+//
+//  /**
+//   * Provides the AuSize associated with the AUID.
+//   *
+//   * @param auid
+//   *          A String with the AUID under which the AuSize is stored.
+//   * @return a AuSize, or null if not present in the store.
+//   * @throws DbException
+//   *           if any problem occurred accessing the data.
+//   * @throws IOException
+//   *           if any problem occurred accessing the data.
+//   */
+//  public AuSize findAuSize(String auid) throws DbException {
+//    return getRepositoryManagerSql().findAuSize(auid);
+//  }
+//
+//  /**
+//   * Update the AuSize associated with the AUID.
+//   *
+//   * @param auid
+//   *          A String with the AUID under which the AuSize is stored.
+//   * @param auSize
+//   *          A AuSize containing sizes statistics for the AU.
+//   * @return The internal AUID sequence number of the AUID.
+//   * @throws DbException
+//   *           if any problem occurred accessing the data.
+//   */
+//  public Long updateAuSize(String auid, AuSize auSize) throws DbException {
+//    return getRepositoryManagerSql().updateAuSize(auid, auSize);
+//  }
 }

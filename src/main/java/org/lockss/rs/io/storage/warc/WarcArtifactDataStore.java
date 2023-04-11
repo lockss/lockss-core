@@ -2181,6 +2181,16 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     // if the state file exists
     if (!reindexStateFile.exists()) return;
 
+    log.info("Waiting for artifact index to become ready...");
+    while (!index.isReady()) {
+      try {
+        Thread.sleep(5000);
+      } catch (InterruptedException e) {
+        log.error("Interrupted while waiting for artifact index to become ready");
+        throw new IllegalStateException();
+      }
+    }
+
     // Enable usage of MapDB for large structures
     enableRepoDB();
 
@@ -3349,6 +3359,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     if (!StringUtils.isEmpty(record.getMimetype())) {
       sb.append(CONTENT_TYPE).append(COLON_SPACE).append(record.getMimetype()).append(CRLF);
     }
+
+    // Add LOCKSS repository version header
+    sb.append(ArtifactConstants.X_LOCKSS_REPOSITORY_VER)
+        .append(COLON_SPACE)
+        .append(BaseLockssRepository.REPOSITORY_VERSION)
+        .append(CRLF);
 
     // Extra WARC record headers
     if (record.getExtraHeaders() != null) {

@@ -32,13 +32,11 @@ package org.lockss.rs.io.storage.warc;
 
 import org.apache.commons.io.FileUtils;
 import org.archive.format.warc.WARCConstants;
-import org.lockss.rs.io.storage.ArtifactDataStore;
-import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
-import org.lockss.rs.io.storage.warc.WarcFilePool;
-import org.lockss.util.rest.repo.model.NamespacedAuid;
 import org.lockss.log.L4JLogger;
+import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.rest.repo.model.NamespacedAuid;
 import org.lockss.util.storage.StorageInfo;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -237,7 +235,7 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
    */
   @Override
   public boolean isReady() {
-    return dataStoreState != DataStoreState.STOPPED;
+    return dataStoreState == DataStoreState.RUNNING;
   }
 
   /**
