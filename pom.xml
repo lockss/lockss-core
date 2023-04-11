@@ -1300,15 +1300,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
           <!-- END step package-test-plugins -->
 
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>${version.plugin.exec-maven-plugin}</version>
-
-        <executions>
           <execution>
             <id>generatePrebakedSolrHomeFilelist</id>
             <phase>generate-test-resources</phase>
@@ -1325,7 +1316,6 @@ POSSIBILITY OF SUCH DAMAGE.
       </plugin>
 
       <!-- END plugin exec-maven-plugin -->
-      
     </plugins>
 
     <resources>
