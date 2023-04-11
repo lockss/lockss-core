@@ -3,14 +3,13 @@ package org.lockss.repository;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
-import org.lockss.laaws.rs.model.AuSize;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.time.TimeBase;
 
 import java.sql.*;
 
 import static org.lockss.config.db.SqlConstants.*;
-import static org.lockss.config.db.SqlConstants.AU_DISK_SIZE_COLUMN;
 
 public class RepositoryManagerSql {
   private static L4JLogger log = L4JLogger.getLogger();

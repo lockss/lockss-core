@@ -30,11 +30,13 @@ package org.lockss.repository;
 
 import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.map.LinkedMap;
-import org.lockss.app.*;
+import org.lockss.app.BaseLockssDaemonManager;
+import org.lockss.app.ConfigurableManager;
+import org.lockss.app.LockssDaemon;
+import org.lockss.app.ServiceDescr;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.RestServicesManager;
-import org.lockss.db.DbException;
 import org.lockss.jms.JMSManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
@@ -53,6 +55,13 @@ import org.lockss.util.rest.repo.model.RepositoryInfo;
 import org.lockss.util.rest.repo.util.ArtifactCache;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -146,8 +155,6 @@ public class RepositoryManager
   PlatformUtil.DF paramDFFull =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_FULL_FRRE_MB,
           DEFAULT_DISK_FULL_FRRE_PERCENT);
-
-  private RepositoryManagerSql repositoryManagerSql = null;
 
   public void startService() {
     super.startService();
@@ -525,68 +532,6 @@ public class RepositoryManager
   // XXXREPO
   public long getRepoDiskUsage(String repoAuPath, boolean calcIfUnknown) {
     return -1;
-  }
-
-  /**
-   * Provides a connection to the database.
-   *
-   * @return a Connection with the connection to the database.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
-   */
-  public Connection getConnection() throws DbException {
-    return getRepositoryManagerSql().getConnection();
-  }
-
-  /**
-   * Provides the repository manager SQL executor.
-   *
-   * @return a RepositoryManagerSql with the repository manager SQL executor.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
-   */
-  private RepositoryManagerSql getRepositoryManagerSql() throws DbException {
-    if (repositoryManagerSql == null) {
-      if (theApp == null) {
-        repositoryManagerSql = new RepositoryManagerSql(
-            LockssApp.getManagerByTypeStatic(RepositoryDbManager.class));
-      } else {
-        repositoryManagerSql = new RepositoryManagerSql(
-            theApp.getManagerByType(RepositoryDbManager.class));
-      }
-    }
-
-    return repositoryManagerSql;
-  }
-
-  /**
-   * Provides the AuSize associated with the AUID.
-   *
-   * @param auid
-   *          A String with the AUID under which the AuSize is stored.
-   * @return a AuSize, or null if not present in the store.
-   * @throws DbException
-   *           if any problem occurred accessing the data.
-   * @throws IOException
-   *           if any problem occurred accessing the data.
-   */
-  public AuSize findAuSize(String auid) throws DbException {
-    return getRepositoryManagerSql().findAuSize(auid);
-  }
-
-  /**
-   * Update the AuSize associated with the AUID.
-   *
-   * @param auid
-   *          A String with the AUID under which the AuSize is stored.
-   * @param auSize
-   *          A AuSize containing sizes statistics for the AU.
-   * @return The internal AUID sequence number of the AUID.
-   * @throws DbException
-   *           if any problem occurred accessing the data.
-   */
-  public Long updateAuSize(String auid, AuSize auSize) throws DbException {
-    return getRepositoryManagerSql().updateAuSize(auid, auSize);
   }
 
   /** Search all repositories and AUs for Artifacts with the given URL

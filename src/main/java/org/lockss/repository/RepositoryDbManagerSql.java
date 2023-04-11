@@ -4,8 +4,8 @@ import org.lockss.db.DbManagerSql;
 import org.lockss.log.L4JLogger;
 
 import javax.sql.DataSource;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -18,7 +18,7 @@ public class RepositoryDbManagerSql extends DbManagerSql {
   private static final String
       CREATE_AUID_TABLE_QUERY = "create table "
       + AUID_TABLE + " ("
-      + AUID_SEQ_COLUMN + " bigint not null references "
+      + AUID_SEQ_COLUMN + " --BigintSerialPk--,"
       + AUID_COLUMN + " varchar(" + MAX_AUID_COLUMN + ") not null)";
 
   // Query to create the table for tracking AU size statistics.
