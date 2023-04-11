@@ -65,6 +65,13 @@ public class SqlConstants {
   public static final String ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE =
       "archival_unit_no_au_peer_set";
 
+  /** Name of the archival unit statistics table. */
+  public static final String ARCHIVAL_UNIT_SIZE_TABLE =
+      "archival_unit_size";
+
+  /** Name of the archival unit statistics table. */
+  public static final String AUID_TABLE = "auids";
+
   //
   // Database table column names.
   //
@@ -79,6 +86,12 @@ public class SqlConstants {
 
   /** Name of archival unit_key column. */
   public static final String ARCHIVAL_UNIT_KEY_COLUMN = "archival_unit_key";
+
+  /** AUID sequential identifier column. */
+  public static final String AUID_SEQ_COLUMN = "auid_seq";
+
+  /** Name of AUID column. */
+  public static final String AUID_COLUMN = "auid";
 
   /** Archival Unit creation time column. */
   public static final String CREATION_TIME_COLUMN = "creation_time";
@@ -106,6 +119,18 @@ public class SqlConstants {
   public static final String NO_AU_PEER_SET_STRING_COLUMN =
       "no_au_peer_set_string";
 
+  /** Name of the archival unit size on disk column */
+  public static final String AU_DISK_SIZE_COLUMN =
+      "disk_size";
+
+  /** Name of the archival unit all versions size column */
+  public static final String AU_ALL_VERSIONS_SIZE_COLUMN =
+      "all_versions_size";
+
+  /** Name of the archival unit latest versions size column */
+  public static final String AU_LATEST_VERSIONS_SIZE_COLUMN =
+      "latest_versions_size";
+
   //
   // Maximum lengths of variable text length database columns.
   //
@@ -114,6 +139,10 @@ public class SqlConstants {
 
   /** Length of the archival unit key column. */
   public static final int MAX_ARCHIVAL_UNIT_KEY_COLUMN = 512;
+
+  /** Length of the AUID column */
+  public static final int MAX_AUID_COLUMN =
+      MAX_PLUGIN_ID_COLUMN + MAX_ARCHIVAL_UNIT_KEY_COLUMN;
 
   /** Length of the archival unit configuration key column. */
   public static final int MAX_CONFIG_KEY_COLUMN = 128;
