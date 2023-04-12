@@ -52,7 +52,10 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.util.NamedList;
+import org.lockss.app.LockssApp;
+import org.lockss.db.DbException;
 import org.lockss.log.L4JLogger;
+import org.lockss.repository.RepositoryDbManager;
 import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
@@ -74,6 +77,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -750,8 +754,23 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       log.debug("No artifacts in AU to index");
       return;
     }
+
+    boolean isFirstArtifact = true;
+
     while (ai.hasNext()) {
       Artifact artifact = ai.next();
+
+      // This is ugly but we need the namespace and AUID of this batch of artifacts
+      if (isFirstArtifact) {
+        try {
+          invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
+        } catch (DbException e) {
+          // TODO
+          log.warn("Could not invalidate AU size", e);
+        }
+        isFirstArtifact = false;
+      }
+
       req.add(objBinder.toSolrInputDocument(ArtifactSolrDocument.fromArtifact(artifact)));
       docsAdded++;
 
@@ -926,7 +945,14 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     }
 
     // Return updated Artifact
-    return getArtifact(artifactUuid);
+    Artifact result = getArtifact(artifactUuid);
+    try {
+      invalidateAuSize(result.getNamespace(), result.getAuid());
+    } catch (DbException e) {
+      throw new IOException("Could not invalidate AU size", e);
+    }
+
+    return result;
   }
 
   public enum SolrCommitStrategy {
@@ -1000,7 +1026,14 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       throw new IllegalArgumentException("Null or empty UUID");
     }
 
-    if (artifactExists(artifactUuid)) {
+    Artifact artifact = getArtifact(artifactUuid);
+    try {
+      invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
+    } catch (DbException e) {
+      throw new IOException("Could not invalidate AU size", e);
+    }
+
+    if (artifact != null) {
       try {
         // Create an Solr update request
         UpdateRequest request = new UpdateRequest();
@@ -1646,6 +1679,21 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   //  the results of the query and performing the collapse filter?
   @Override
   public AuSize auSize(String namespace, String auid) throws IOException {
+    try {
+      AuSize result = findAuSize(namespace, auid);
+
+      if (result == null) {
+        result = computeAuSize(namespace, auid);
+        updateAuSize(namespace, auid, result);
+      }
+
+      return result;
+    } catch (DbException e) {
+      throw new IOException("Could not query AU size", e);
+    }
+  }
+
+  private AuSize computeAuSize(String namespace, String auid) throws IOException {
     // Create Solr query
     SolrQuery q = new SolrQuery();
     q.setQuery("*:*");
@@ -1665,6 +1713,12 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       result.setTotalWarcSize(0L);
       return result;
     }
+
+    // Disk size calculation
+    long totalWarcSize = repository.getArtifactDataStore()
+        .auWarcSize(namespace, auid);
+
+    result.setTotalWarcSize(totalWarcSize);
 
     // Setup the collapse filter query
     q.setGetFieldStatistics(true);
@@ -1716,65 +1770,69 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     }
   }
 
-//  /**
-//   * Provides a connection to the database.
-//   *
-//   * @return a Connection with the connection to the database.
-//   * @throws DbException
-//   *           if any problem occurred accessing the database.
-//   */
-//  public Connection getConnection() throws DbException {
-//    return getRepositoryManagerSql().getConnection();
-//  }
-//
-//  /**
-//   * Provides the repository manager SQL executor.
-//   *
-//   * @return a RepositoryManagerSql with the repository manager SQL executor.
-//   * @throws DbException
-//   *           if any problem occurred accessing the database.
-//   */
-//  private RepositoryManagerSql getRepositoryManagerSql() throws DbException {
-//    if (repositoryManagerSql == null) {
+  /**
+   * Provides a connection to the database.
+   *
+   * @return a Connection with the connection to the database.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  public Connection getConnection() throws DbException {
+    return getRepositoryManagerSql().getConnection();
+  }
+
+  /**
+   * Provides the repository manager SQL executor.
+   *
+   * @return a RepositoryManagerSql with the repository manager SQL executor.
+   * @throws DbException
+   *           if any problem occurred accessing the database.
+   */
+  private RepositoryManagerSql getRepositoryManagerSql() throws DbException {
+    if (repositoryManagerSql == null) {
 //      if (theApp == null) {
-//        repositoryManagerSql = new RepositoryManagerSql(
-//            LockssApp.getManagerByTypeStatic(RepositoryDbManager.class));
+        repositoryManagerSql = new RepositoryManagerSql(
+            LockssApp.getManagerByTypeStatic(RepositoryDbManager.class));
 //      } else {
 //        repositoryManagerSql = new RepositoryManagerSql(
 //            theApp.getManagerByType(RepositoryDbManager.class));
 //      }
-//    }
-//
-//    return repositoryManagerSql;
-//  }
-//
-//  /**
-//   * Provides the AuSize associated with the AUID.
-//   *
-//   * @param auid
-//   *          A String with the AUID under which the AuSize is stored.
-//   * @return a AuSize, or null if not present in the store.
-//   * @throws DbException
-//   *           if any problem occurred accessing the data.
-//   * @throws IOException
-//   *           if any problem occurred accessing the data.
-//   */
-//  public AuSize findAuSize(String auid) throws DbException {
-//    return getRepositoryManagerSql().findAuSize(auid);
-//  }
-//
-//  /**
-//   * Update the AuSize associated with the AUID.
-//   *
-//   * @param auid
-//   *          A String with the AUID under which the AuSize is stored.
-//   * @param auSize
-//   *          A AuSize containing sizes statistics for the AU.
-//   * @return The internal AUID sequence number of the AUID.
-//   * @throws DbException
-//   *           if any problem occurred accessing the data.
-//   */
-//  public Long updateAuSize(String auid, AuSize auSize) throws DbException {
-//    return getRepositoryManagerSql().updateAuSize(auid, auSize);
-//  }
+    }
+
+    return repositoryManagerSql;
+  }
+
+  /**
+   * Provides the AuSize associated with the AUID.
+   *
+   * @param auid
+   *          A String with the AUID under which the AuSize is stored.
+   * @return a AuSize, or null if not present in the store.
+   * @throws DbException
+   *           if any problem occurred accessing the data.
+   * @throws IOException
+   *           if any problem occurred accessing the data.
+   */
+  public AuSize findAuSize(String namespace, String auid) throws DbException {
+    return getRepositoryManagerSql().findAuSize(namespace + "|" + auid);
+  }
+
+  /**
+   * Update the AuSize associated with the AUID.
+   *
+   * @param auid
+   *          A String with the AUID under which the AuSize is stored.
+   * @param auSize
+   *          A AuSize containing sizes statistics for the AU.
+   * @return The internal AUID sequence number of the AUID.
+   * @throws DbException
+   *           if any problem occurred accessing the data.
+   */
+  public Long updateAuSize(String namespace, String auid, AuSize auSize) throws DbException {
+    return getRepositoryManagerSql().updateAuSize(namespace + "|" + auid, auSize);
+  }
+
+  public void invalidateAuSize(String namespace, String auid) throws DbException {
+    getRepositoryManagerSql().deleteAuSize(namespace + "|" + auid);
+  }
 }

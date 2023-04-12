@@ -773,16 +773,6 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
     // Get AU size from index query
     AuSize auSize = index.auSize(namespace, auid);
-
-//    long allVersionSize = index.auSize(namespace, auid, true);
-//    auSize.setTotalAllVersions();
-
-//    long latestVersionsSize = index.auSize(namespace, auid, false);
-//    auSize.setTotalLatestVersions();
-
-    long totalWarcSize = getArtifactDataStore().auWarcSize(namespace, auid);
-    auSize.setTotalWarcSize(totalWarcSize);
-
     return auSize;
   }
 

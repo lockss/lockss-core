@@ -187,7 +187,7 @@ public class RepositoryManagerSql {
     return auidSeq;
   }
 
-  protected AuSize findAuSize(String auid) throws DbException {
+  public AuSize findAuSize(String auid) throws DbException {
     log.debug2("auid = {}", auid);
 
     Connection conn = null;
@@ -210,7 +210,7 @@ public class RepositoryManagerSql {
   private AuSize findAuSize(Connection conn, String auid) throws DbException {
     log.debug2("auid = {}", auid);
 
-    AuSize result = new AuSize();
+    AuSize result = null;
     PreparedStatement getAuSize = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot get AU size";
@@ -227,6 +227,8 @@ public class RepositoryManagerSql {
 
       // Get the single result, if any
       if (resultSet.next()) {
+        result = new AuSize();
+
         // Populate the AuSize
         result.setTotalLatestVersions(
             resultSet.getLong(AU_LATEST_VERSIONS_SIZE_COLUMN));
@@ -250,7 +252,7 @@ public class RepositoryManagerSql {
     return result;
   }
 
-  protected Long updateAuSize(String auid, AuSize auSize)
+  public Long updateAuSize(String auid, AuSize auSize)
       throws DbException {
 
     log.debug2("auid = {}", auid);
@@ -274,6 +276,25 @@ public class RepositoryManagerSql {
 
     log.debug2("result = {}", result);
     return result;
+  }
+
+  public void deleteAuSize(String auid) throws DbException {
+    log.debug2("auid = {}", auid);
+
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database
+      conn = repoDbManager.getConnection();
+
+      // Update the AU size
+      deleteAuSize(conn, auid);
+
+      // Commit the transaction.
+      ConfigDbManager.commitOrRollback(conn, log);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
   }
 
   private Long updateAuSize(Connection conn, String auid, AuSize auSize)
@@ -302,6 +323,30 @@ public class RepositoryManagerSql {
       log.error(message, e);
       log.error("auid = {}", auid);
       log.error("auSize = {}", auSize);
+      throw e;
+    }
+
+    log.debug2("auidSeq = {}", auidSeq);
+    return auidSeq;
+  }
+
+  private long deleteAuSize(Connection conn, String auid)
+      throws DbException {
+    log.debug2("auid = {}", auid);
+
+    Long auidSeq = null;
+
+    try {
+      // Find the AUID sequence number, or add an entry for it
+      auidSeq = findOrCreateAuidSeq(conn, auid);
+
+      // Delete any existing AuSize of the AU associated with this AUID
+      int deletedCount = deleteAuSize(conn, auidSeq);
+      log.trace("deletedCount = {}", deletedCount);
+    } catch (DbException e) {
+      String message = "Cannot update AU size";
+      log.error(message, e);
+      log.error("auid = {}", auid);
       throw e;
     }
 

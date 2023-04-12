@@ -666,7 +666,7 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
      * @return A {@link AuSize} with byte size statistics of the specified AU.
      */
     @Override
-    public AuSize auSize(String namespace, String auid) {
+    public AuSize auSize(String namespace, String auid) throws IOException {
       AuSize auSize = new AuSize();
 
       auSize.setTotalAllVersions(0L);
@@ -686,6 +686,11 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
         auSize.setTotalWarcSize(0L);
         return auSize;
       }
+
+      // Disk size calculation
+      long totalWarcSize = repository.getArtifactDataStore()
+          .auWarcSize(namespace, auid);
+      auSize.setTotalWarcSize(totalWarcSize);
 
       auSize.setTotalAllVersions(
           index.values()
