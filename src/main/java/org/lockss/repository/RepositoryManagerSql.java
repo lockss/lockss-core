@@ -44,10 +44,10 @@ public class RepositoryManagerSql {
   // Query to delete AU sizes of an AU associated with an AUID
   private static final String DELETE_AU_SIZE_QUERY =
       "delete from " + ARCHIVAL_UNIT_SIZE_TABLE
-          + "where " + AUID_SEQ_COLUMN + " = ?";
+          + " where " + AUID_SEQ_COLUMN + " = ?";
 
   // Query to add AU sizes of an AU
-  private static final String ADD_AU_SIZE_QUERY = "insert into"
+  private static final String ADD_AU_SIZE_QUERY = "insert into "
       + ARCHIVAL_UNIT_SIZE_TABLE
       + "(" + AUID_SEQ_COLUMN
       + "," + AU_LATEST_VERSIONS_SIZE_COLUMN
