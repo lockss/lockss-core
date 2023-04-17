@@ -259,15 +259,11 @@ public class VariantState {
   public AuSize auSize(String namespace, String auid) {
     AuSize auSize = new AuSize();
 
-    auSize.setTotalAllVersions(0L);
-    auSize.setTotalLatestVersions(0L);
-
     boolean isAuEmpty = !committedSpecStream()
         .filter(s -> s.getNamespace().equals(namespace))
         .anyMatch(s -> s.getAuid().equals(auid));
 
     if (isAuEmpty) {
-      auSize.setTotalWarcSize(0L);
       return auSize;
     }
 

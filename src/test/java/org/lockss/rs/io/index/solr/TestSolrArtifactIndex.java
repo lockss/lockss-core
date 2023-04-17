@@ -36,8 +36,12 @@ import org.apache.solr.core.CoreContainer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.lockss.rs.io.index.AbstractArtifactIndexTest;
 import org.lockss.log.L4JLogger;
+import org.lockss.repository.RepositoryDbManager;
+import org.lockss.rs.io.index.AbstractArtifactIndexTest;
+import org.lockss.test.ConfigurationUtil;
+import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.TcpTestUtil;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.storage.StorageInfo;
 
@@ -53,6 +57,10 @@ public class TestSolrArtifactIndex extends AbstractArtifactIndexTest<SolrArtifac
 
   private static EmbeddedSolrServer client;
   private static File tmpSolrHome;
+  private MockLockssDaemon theDaemon;
+  private String tempDirPath;
+  private RepositoryDbManager repositoryDbManager;
+  private String dbPort;
 
   // *******************************************************************************************************************
   // * JUNIT LIFECYCLE
@@ -90,7 +98,49 @@ public class TestSolrArtifactIndex extends AbstractArtifactIndexTest<SolrArtifac
     cc.load();
     cc.waitForLoadingCore(TEST_SOLR_CORE_NAME, 1000);
 
-    return new SolrArtifactIndex(client, TEST_SOLR_CORE_NAME);
+    // Construct mock LOCKSS daemon
+    theDaemon = getMockLockssDaemon();
+    theDaemon.setDaemonInited(true);
+
+    // Get the temporary directory used during the test
+    tempDirPath = setUpDiskSpace();
+
+    dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
+    ConfigurationUtil.addFromArgs(RepositoryDbManager.PARAM_DATASOURCE_PORTNUMBER,
+        dbPort);
+
+    initializeTestDbManager(0, 1);
+
+    SolrArtifactIndex index = new SolrArtifactIndex(client, TEST_SOLR_CORE_NAME);
+    index.setLockssApp(theDaemon);
+
+    return index;
+  }
+
+
+  /**
+   * Initializes a database manager with a database with an initial version
+   * updated to a target version.
+   *
+   * @param initialVersion
+   *          An int with the initial version.
+   * @param targetVersion
+   *          An Int with the target database.
+   */
+  private void initializeTestDbManager(int initialVersion, int targetVersion) {
+    // Set the database log.
+    System.setProperty("derby.stream.error.file",
+        new File(tempDirPath, "derby.log").getAbsolutePath());
+
+    // Create the database manager.
+    repositoryDbManager = new RepositoryDbManager();
+    repositoryDbManager.initService(theDaemon);
+
+    assertTrue(repositoryDbManager.setUpDatabase(initialVersion));
+    repositoryDbManager.setTargetDatabaseVersion(targetVersion);
+    repositoryDbManager.startService();
+
+    theDaemon.setRepositoryDbManager(repositoryDbManager);
   }
 
   private static void copyResourcesForTests(String filelistRes, Path dstPath) throws IOException {

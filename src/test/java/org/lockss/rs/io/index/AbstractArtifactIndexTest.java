@@ -42,12 +42,16 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.VariantState;
+import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
 import org.lockss.rs.io.storage.warc.WarcArtifactState;
+import org.lockss.test.LockssCoreTestCase5;
 import org.lockss.util.ListUtil;
+import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
+import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
-import org.lockss.util.test.LockssTestCase5;
+import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.test.VariantTest;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
@@ -61,20 +65,17 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.lockss.util.rest.repo.util.ArtifactSpec;
-import org.lockss.util.rest.repo.model.Artifact;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
-
-public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extends LockssTestCase5 {
+public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extends LockssCoreTestCase5 {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   /**
    * Handle to a {@link BaseLockssRepository} for testing.
    */
-  private static BaseLockssRepository repository;
+  protected BaseLockssRepository repository;
 
   protected AI index;
 
@@ -93,19 +94,23 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @BeforeEach
   public void setupCommon() throws Exception {
-    // Create an artifact index instance to test
-    index = makeArtifactIndex();
-
+    ArtifactDataStore ds = mock(ArtifactDataStore.class);
     repository = mock(BaseLockssRepository.class);
+
+    when(ds.auWarcSize(anyString(), anyString()))
+        .thenAnswer(args -> variantState.auSize(args.getArgument(0), args.getArgument(1)).getTotalWarcSize());
+    when(repository.getArtifactDataStore()).thenReturn(ds);
+
+    index = makeArtifactIndex();
+    index.setLockssRepository(repository);
+
     ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
     when(repository.getRepositoryStateDir()).thenReturn(getTempDir());
     when(repository.getScheduledExecutorService()).thenReturn(ses);
 
-    index.setLockssRepository(repository);
     index.init();
     index.start();
 
-    // Invoke before variant steps
     beforeVariant();
   }
 
@@ -976,10 +981,6 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
   @EnumSource(TestIndexScenarios.class)
   public void testAuSize() throws Exception {
     AuSize zero = new AuSize();
-
-    zero.setTotalAllVersions(0L);
-    zero.setTotalLatestVersions(0L);
-    zero.setTotalWarcSize(0L);
 
     // Check AU size of non-existent AUs
     assertEquals(zero, index.auSize(null, null));

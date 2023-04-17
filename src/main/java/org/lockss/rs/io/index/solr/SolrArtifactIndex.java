@@ -35,6 +35,7 @@ package org.lockss.rs.io.index.solr;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections4.IterableUtils;
 import org.apache.commons.collections4.IteratorUtils;
+import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.io.filefilter.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.solr.client.solrj.SolrClient;
@@ -61,10 +62,7 @@ import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.util.io.FileUtil;
-import org.lockss.util.rest.repo.model.Artifact;
-import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
-import org.lockss.util.rest.repo.model.AuSize;
+import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
 import org.lockss.util.rest.repo.util.SemaphoreMap;
 import org.lockss.util.storage.StorageInfo;
@@ -82,7 +80,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -111,6 +109,14 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
   // TODO: Currently only used for getStorageInfo()
   private static final Pattern SOLR_COLLECTION_ENDPOINT_PATTERN = Pattern.compile("/solr(/(?<collection>[^/]+)?)?$");
+
+  protected LockssApp theApp = null;
+
+  private Map<String, CompletableFuture<AuSize>> auSizeFutures =
+      new ConcurrentHashMap<>();
+
+  private Map<String, Boolean> invalidatedAuSizes =
+      Collections.synchronizedMap(new LRUMap<>(100));
 
   /**
    * The Solr client implementation to use to talk to a Solr server.
@@ -1027,14 +1033,12 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     }
 
     Artifact artifact = getArtifact(artifactUuid);
-    try {
-      invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
-    } catch (DbException e) {
-      throw new IOException("Could not invalidate AU size", e);
-    }
 
     if (artifact != null) {
       try {
+        // Invalidate AU size cache
+        invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
+
         // Create an Solr update request
         UpdateRequest request = new UpdateRequest();
         request.deleteById(artifactUuid);
@@ -1052,6 +1056,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
         // Return true to indicate success
         return true;
+      } catch (DbException e) {
+        throw new IOException("Could not invalidate AU size", e);
       } catch (SolrResponseErrorException | SolrServerException e) {
         log.error("Could not remove artifact from Solr index [uuid: {}]", artifactUuid, e);
         throw new IOException(
@@ -1683,17 +1689,54 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       AuSize result = findAuSize(namespace, auid);
 
       if (result == null) {
-        result = computeAuSize(namespace, auid);
-        updateAuSize(namespace, auid, result);
+        Future<AuSize> ausFuture = getAuSizeFuture(namespace, auid);
+        result = ausFuture.get();
       }
 
       return result;
     } catch (DbException e) {
-      throw new IOException("Could not query AU size", e);
+      throw new IOException("Could not query AU size from database", e);
+    } catch (ExecutionException e) {
+      log.error("Could not recompute AU size", e.getCause());
+      throw (IOException) e.getCause();
+    } catch (InterruptedException e) {
+      log.error("Interrupted while waiting for AU size recalculation", e);
+      throw new IOException("AU size recalculation was interrupted", e);
     }
   }
 
+  private Future<AuSize> getAuSizeFuture(String namespace, String auid) {
+    String nsAuid = NamespacedAuid.key(namespace, auid);
+    CompletableFuture<AuSize> ausFuture;
+
+    synchronized (auSizeFutures) {
+      ausFuture = auSizeFutures.get(nsAuid);
+      if (ausFuture != null) {
+        return ausFuture;
+      } else {
+        ausFuture = new CompletableFuture<>();
+        auSizeFutures.put(nsAuid, ausFuture);
+      }
+    }
+
+    try {
+      AuSize result = computeAuSize(namespace, auid);
+      updateAuSize(namespace, auid, result);
+      ausFuture.complete(result);
+    } catch (DbException e) {
+      log.error("Couldn't update AU size in database", e);
+      ausFuture.completeExceptionally(new IOException("Couldn't update AU size in database", e));
+    } catch (IOException e) {
+      log.error("Couldn't compute AU size", e);
+      ausFuture.completeExceptionally(e);
+    }
+
+    return ausFuture;
+  }
+
   private AuSize computeAuSize(String namespace, String auid) throws IOException {
+    log.debug("Starting AU size recalculation [ns: {}, auid: {}]", namespace, auid);
+
     // Create Solr query
     SolrQuery q = new SolrQuery();
     q.setQuery("*:*");
@@ -1751,6 +1794,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       throw new IOException("Solr request error", e);
     }
 
+    log.debug("Finished AU size recalculation [ns: {}, auid: {}]", namespace, auid);
     return result;
   }
 
@@ -1790,16 +1834,20 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    */
   private RepositoryManagerSql getRepositoryManagerSql() throws DbException {
     if (repositoryManagerSql == null) {
-//      if (theApp == null) {
+      if (theApp == null) {
         repositoryManagerSql = new RepositoryManagerSql(
             LockssApp.getManagerByTypeStatic(RepositoryDbManager.class));
-//      } else {
-//        repositoryManagerSql = new RepositoryManagerSql(
-//            theApp.getManagerByType(RepositoryDbManager.class));
-//      }
+      } else {
+        repositoryManagerSql = new RepositoryManagerSql(
+            theApp.getManagerByType(RepositoryDbManager.class));
+      }
     }
 
     return repositoryManagerSql;
+  }
+
+  void setLockssApp(LockssApp lockssApp) {
+    this.theApp = lockssApp;
   }
 
   /**
@@ -1814,7 +1862,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    *           if any problem occurred accessing the data.
    */
   public AuSize findAuSize(String namespace, String auid) throws DbException {
-    return getRepositoryManagerSql().findAuSize(namespace + "|" + auid);
+    return getRepositoryManagerSql()
+        .findAuSize(NamespacedAuid.key(namespace, auid));
   }
 
   /**
@@ -1829,10 +1878,21 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    *           if any problem occurred accessing the data.
    */
   public Long updateAuSize(String namespace, String auid, AuSize auSize) throws DbException {
-    return getRepositoryManagerSql().updateAuSize(namespace + "|" + auid, auSize);
+    String nsAuid = NamespacedAuid.key(namespace, auid);
+
+    Long result = getRepositoryManagerSql().updateAuSize(nsAuid, auSize);
+    invalidatedAuSizes.remove(nsAuid);
+    return result;
   }
 
+
   public void invalidateAuSize(String namespace, String auid) throws DbException {
-    getRepositoryManagerSql().deleteAuSize(namespace + "|" + auid);
+    String nsAuid = NamespacedAuid.key(namespace, auid);
+
+    if (!invalidatedAuSizes.getOrDefault(nsAuid, false)) {
+      invalidatedAuSizes.put(nsAuid, true);
+      log.debug2("Invalidating AU size [ns: {}, auid: {}]", namespace, auid);
+      getRepositoryManagerSql().deleteAuSize(nsAuid);
+    }
   }
 }
