@@ -1731,6 +1731,10 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       ausFuture.completeExceptionally(e);
     }
 
+    synchronized (auSizeFutures) {
+      auSizeFutures.remove(nsAuid);
+    }
+
     return ausFuture;
   }
 
