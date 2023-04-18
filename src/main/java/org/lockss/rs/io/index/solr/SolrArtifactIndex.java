@@ -1729,10 +1729,10 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     } catch (IOException e) {
       log.error("Couldn't compute AU size", e);
       ausFuture.completeExceptionally(e);
-    }
-
-    synchronized (auSizeFutures) {
-      auSizeFutures.remove(nsAuid);
+    } finally {
+      synchronized (auSizeFutures) {
+        auSizeFutures.remove(nsAuid);
+      }
     }
 
     return ausFuture;
