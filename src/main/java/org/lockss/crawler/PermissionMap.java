@@ -417,7 +417,7 @@ public class PermissionMap {
             CrawlerStatus.UNABLE_TO_FETCH_PERM_ERR_MSG);
     } catch (CacheException ex) {
       logger.siteError("CacheException reading permission page", ex);
-      logger.critical("rec.status: " + rec.getStatus());
+      logger.debug2("rec.status: " + rec.getStatus());
 
       rec.setStatus(PermissionStatus.PERMISSION_FETCH_FAILED);
       crawlStatus.signalErrorForUrl(pUrl, ex.getMessage(),
