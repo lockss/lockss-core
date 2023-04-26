@@ -407,8 +407,7 @@ public class BaseCachedUrlSet implements CachedUrlSet {
     if (excludeFilesUnchangedAfter <= 0) {
       return false;
     }
-    Properties props = cu.getProperties();
-    String fetched = props.getProperty(CachedUrl.PROPERTY_FETCH_TIME);
+    String fetched = AuUtil.getFetchTimeString(cu);
     if (StringUtil.isNullString(fetched)) {
       return false;
     }

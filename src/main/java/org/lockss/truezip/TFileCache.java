@@ -196,6 +196,7 @@ public class TFileCache {
    * members. */
   static List<String> INHERIT_PROP_KEYS =
     ListUtil.list(CachedUrl.PROPERTY_FETCH_TIME,
+                  CachedUrl.PROPERTY_FETCH_TIME_OBSOLETE,
 		  CachedUrl.PROPERTY_LAST_MODIFIED,
 		  "Date"
 // 		  "Server",

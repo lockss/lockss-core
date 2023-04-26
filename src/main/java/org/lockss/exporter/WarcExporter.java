@@ -117,8 +117,7 @@ public class WarcExporter extends Exporter {
       }
     }
 
-    long fetchTime =
-      Long.parseLong(props.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
+    long fetchTime = Long.parseLong(AuUtil.getFetchTimeString(props));
     String timestamp = ArchiveUtils.getLog14Date(fetchTime);
     InputStream contentIn = cu.getUnfilteredInputStream();
     try {

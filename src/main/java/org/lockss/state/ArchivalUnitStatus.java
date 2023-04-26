@@ -674,10 +674,8 @@ public class ArchivalUnitStatus
           }
         }
         rowMap.put("Versions", versionObj);
-        Properties props = cu.getProperties();
         try {
-          long cdate =
-              Long.parseLong(props.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
+          long cdate = Long.parseLong(AuUtil.getFetchTimeString(cu));
           rowMap.put("CollectedDate",
               ServletUtil.headerDf.format(new Date(cdate)));
         } catch (NumberFormatException ignore) {
@@ -1598,10 +1596,8 @@ public class ArchivalUnitStatus
               args);
       rowMap.put("Version", val);
       rowMap.put("Size", cu.getContentSize());
-      Properties cuProps = cu.getProperties();
       try {
-	long collected =
-          Long.parseLong(cuProps.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
+	long collected = Long.parseLong(AuUtil.getFetchTimeString(cu));
 	rowMap.put("DateCollected", collected);
       } catch (NumberFormatException ignore) {
       }

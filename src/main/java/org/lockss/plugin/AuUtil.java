@@ -1177,6 +1177,15 @@ public class AuUtil {
     return fetchTime;
   }
 
+  public static String getFetchTimeString(CachedUrl cu) {
+    return getFetchTimeString(cu.getProperties());
+  }
+
+  public static String getFetchTimeString(CIProperties props) {
+    return props.findString(CachedUrl.PROPERTY_FETCH_TIME,
+                            CachedUrl.PROPERTY_FETCH_TIME_OBSOLETE);
+  }
+
   /**
    * Provides the fetch time of a URL.
    * 
@@ -1222,8 +1231,11 @@ public class AuUtil {
 
       // Try to get the best fetch time.
       String origFetchTimeAsString =
-	  cuProperties.getProperty(CuResourceHandler.ORIG_HEADER_PREFIX
-	      + CachedUrl.PROPERTY_FETCH_TIME);
+        cuProperties.findString((CuResourceHandler.ORIG_HEADER_PREFIX
+                                 + CachedUrl.PROPERTY_FETCH_TIME),
+                                (CuResourceHandler.ORIG_HEADER_PREFIX
+                                 + CachedUrl.PROPERTY_FETCH_TIME_OBSOLETE));
+
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "origFetchTimeAsString = "
 	  + origFetchTimeAsString);
 
@@ -1244,7 +1256,8 @@ public class AuUtil {
       if (fetchTime == 0) {
 	// Yes: Try to use the fetch time property.
 	String fetchTimeAsString =
-	    cuProperties.getProperty(CachedUrl.PROPERTY_FETCH_TIME);
+          cuProperties.findString(CachedUrl.PROPERTY_FETCH_TIME,
+                                  CachedUrl.PROPERTY_FETCH_TIME_OBSOLETE);
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "fetchTimeAsString = " + fetchTimeAsString);
 

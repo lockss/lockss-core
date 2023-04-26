@@ -732,8 +732,8 @@ public class ServeContent extends LockssServlet {
 
             // Add the optional Memento-Datetime header.
             CIProperties props = cu.getProperties();
-            String lastMod   = props.getProperty(cu.PROPERTY_LAST_MODIFIED);
-            String fetchTime = props.getProperty(cu.PROPERTY_FETCH_TIME);
+            String lastMod = props.getProperty(cu.PROPERTY_LAST_MODIFIED);
+            String fetchTime = AuUtil.getFetchTimeString(cu);
             resp.setHeader("Memento-Datetime",
                 (StringUtil.isNullString(lastMod)) ? fetchTime
                                                    : lastMod);

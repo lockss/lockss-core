@@ -259,8 +259,7 @@ public class ViewContent extends LockssServlet {
       log.warning("Can't get cu version: " + cu.getUrl(), e);
     }
     try {
-      long sdate =
-	Long.parseLong(props.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
+      long sdate = Long.parseLong(AuUtil.getFetchTimeString(props));
       addPropRow(tbl, "Collected at", ServletUtil.headerDf.format(new Date(sdate)));
     } catch (NumberFormatException ignore) {
     }

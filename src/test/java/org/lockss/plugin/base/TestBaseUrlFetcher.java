@@ -338,9 +338,9 @@ public class TestBaseUrlFetcher extends LockssTestCase {
     muf.addConnection(mconn);
     muf.getUncachedInputStream();
     assertEquals("oatmeal-raisin", mconn.getCookiePolicy());
-    Properties props = muf.getUncachedProperties();
+    CIProperties props = muf.getUncachedProperties();
     assertEquals("", props.get(CachedUrl.PROPERTY_CONTENT_TYPE));
-    assertEquals("555666", props.get(CachedUrl.PROPERTY_FETCH_TIME));
+    assertEquals("555666", AuUtil.getFetchTimeString(props));
   }
 
   public void testPluginCookies() throws IOException {
@@ -425,9 +425,9 @@ public class TestBaseUrlFetcher extends LockssTestCase {
     MyMockLockssUrlConnection mconn = makeConn(200, "", null, "foo");
     muf.addConnection(mconn);
     muf.getUncachedInputStream();
-    Properties props = muf.getUncachedProperties();
+    CIProperties props = muf.getUncachedProperties();
     assertEquals("", props.get(CachedUrl.PROPERTY_CONTENT_TYPE));
-    assertEquals("555666", props.get(CachedUrl.PROPERTY_FETCH_TIME));
+    assertEquals("555666", AuUtil.getFetchTimeString(props));
   }
 
   public void testGetUncachedPropertiesNull() throws IOException {
@@ -438,9 +438,9 @@ public class TestBaseUrlFetcher extends LockssTestCase {
     mconn.setResponseContentType(null);
     muf.addConnection(mconn);
     muf.getUncachedInputStream();
-    Properties props = muf.getUncachedProperties();
+    CIProperties props = muf.getUncachedProperties();
     assertEquals(null, props.get(CachedUrl.PROPERTY_CONTENT_TYPE));
-    assertEquals("555666", props.get(CachedUrl.PROPERTY_FETCH_TIME));
+    assertEquals("555666", AuUtil.getFetchTimeString(props));
   }
 
   public void testReferrer() throws IOException {
