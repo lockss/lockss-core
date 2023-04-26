@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +28,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.*;
 import org.lockss.config.*;
 import org.lockss.plugin.definable.*;
@@ -156,6 +153,9 @@ public class StringPool {
   /** Pool for PropertyTree keys and subkeys. */
   public static StringPool PROPERTY_TREE = new StringPool("Property trees");
 
+  /** Pool for CIProperties keys. */
+  public static StringPool CI_PROPERTIES = new StringPool("Property trees");
+
   private static Map<String,StringPool> pools;
 
   private String name;
@@ -253,6 +253,35 @@ public class StringPool {
     }
     map.put(str, str);
     return str;
+  }
+
+  /** Return the normalized instance of the string already in the
+   * pool, if any, else add the normalized value and associate it with
+   * both the unnormalized and normalized value.
+   * @param str the String to be interned.  If null, null is returned. */
+  public synchronized String internNormalized(String str,
+                                              Function<String,String> fn) {
+    if (str == null) {
+      return str;
+    }
+    String res = lookup(str);
+    if (res != null) {
+      return res;
+    }
+    String norm = fn.apply(str);
+    res = lookup(norm);
+    if (res != null) {
+      map.put(str, res);
+      return res;
+    }
+    if (sealed) {
+      return norm;
+    }
+    map.put(str, norm);
+    if (!str.equals(norm)) {
+      map.put(norm, norm);
+    }
+    return norm;
   }
 
   public synchronized ArrayList<String> internList(List<String> strs) {

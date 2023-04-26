@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -52,6 +48,20 @@ public class TestStringPool extends LockssTestCase {
 
     assertNotSame(exp, s2);
     assertSame(exp, pool.intern(s2));
+  }
+
+  public void testInternNormalized() {
+    StringPool pool = new StringPool("name");
+    assertNull(pool.internNormalized(null, x -> x.toLowerCase()));
+    String s1 = new String("foo");
+    String s2 = new String("foo");
+    assertNotSame(s1, s2);
+    String exp = pool.internNormalized(s1, x -> x.toLowerCase());
+    assertSame(s1, exp);
+    assertNotSame(exp, s2);
+    assertSame(exp, pool.internNormalized(s2, x -> x.toLowerCase()));
+    assertSame(exp, pool.internNormalized("Foo", x -> x.toLowerCase()));
+    assertSame(exp, pool.internNormalized("FOO", x -> x.toLowerCase()));
   }
 
   public void testInternList() {

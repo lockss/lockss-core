@@ -620,6 +620,23 @@ public class TestAuUtil extends LockssTestCase {
     assertFalse(AuUtil.okDeleteExtraFiles(new ExplodedArchivalUnit(new ExplodedPlugin(), null)));
   }
 
+  public void testGetFetchTimeString() {
+    String url = "http://foo/";
+    MockArchivalUnit mau = new MockArchivalUnit();
+    MockCachedUrl mcu = new MockCachedUrl(url, mau);
+    CIProperties props = new CIProperties();
+    assertNull(AuUtil.getFetchTimeString(mcu));
+    props.put(CachedUrl.PROPERTY_FETCH_TIME, "1234");
+    mcu.setProperties(props);
+    assertEquals("1234", AuUtil.getFetchTimeString(mcu));
+    props.put(CachedUrl.PROPERTY_FETCH_TIME_OBSOLETE, "4321");
+    mcu.setProperties(props);
+    assertEquals("1234", AuUtil.getFetchTimeString(mcu));
+    props.remove(CachedUrl.PROPERTY_FETCH_TIME);
+    mcu.setProperties(props);
+    assertEquals("4321", AuUtil.getFetchTimeString(mcu));
+  }
+
   public void testGetCu() {
     String url = "http://foo/";
     MockArchivalUnit mau = new MockArchivalUnit();

@@ -32,8 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.servlet;
 
-import org.lockss.plugin.CachedUrl;
-import org.lockss.plugin.PluginManager;
+import org.lockss.plugin.*;
 import org.lockss.servlet.CuTimeMap.CuMemento;
 import org.lockss.util.CIProperties;
 import org.lockss.util.DateTimeUtil;
@@ -137,8 +136,8 @@ public abstract class TimeServlet extends LockssServlet {
     }
     // if we don't have last-modified, check 'fetch-time'
     if (result == null) {
-      if (props.containsKey(CachedUrl.PROPERTY_FETCH_TIME)) {
-        String fetch_time = props.getProperty(CachedUrl.PROPERTY_FETCH_TIME);
+      String fetch_time = AuUtil.getFetchTimeString(props);
+      if (fetch_time != null) {
         if (CuTimeMap.log.isDebug2()) {
           CuTimeMap.log.debug2("cuTime parsing CU value 'fetch-time'="
                                + fetch_time);
