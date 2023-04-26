@@ -27,27 +27,24 @@
  */
 package org.lockss.db;
 
-import static org.lockss.db.SqlConstants.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import javax.sql.DataSource;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import org.apache.derby.jdbc.ClientConnectionPoolDataSource;
 import org.apache.derby.jdbc.ClientDataSource;
 import org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource;
 import org.apache.derby.jdbc.EmbeddedDataSource;
 import org.lockss.log.L4JLogger;
-import org.lockss.util.Constants;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.postgresql.ds.PGPoolingDataSource;
 import org.postgresql.ds.PGSimpleDataSource;
+
+import javax.sql.DataSource;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import static org.lockss.db.SqlConstants.*;
 
 /**
  * The generic database manager SQL code executor.
@@ -156,6 +153,7 @@ public class DbManagerSql {
 
   // The data source class name.
   protected String dataSourceClassName = null;
+  protected boolean isDbcpEnabled = false;
 
   // The data source user.
   protected String dataSourceUser = null;
@@ -213,6 +211,10 @@ public class DbManagerSql {
 
   void setDataSourceClassName(String dataSourceClassName) {
     this.dataSourceClassName = dataSourceClassName;
+  }
+
+  void setIsDbcpEnabled(boolean isDbcpEnabled) {
+    this.isDbcpEnabled = isDbcpEnabled;
   }
 
   protected String getDataSourceUser() {
@@ -383,6 +385,10 @@ public class DbManagerSql {
    */
   public static boolean isTruncatedVarchar(String text) {
     return text.endsWith(TRUNCATION_INDICATOR);
+  }
+
+  public boolean isDbcpEnabled() {
+    return isDbcpEnabled;
   }
 
   /**

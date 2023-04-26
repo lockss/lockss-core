@@ -27,24 +27,8 @@
  */
 package org.lockss.db;
 
-import static org.lockss.db.SqlConstants.*;
-import java.io.File;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javax.sql.DataSource;
 import org.apache.commons.beanutils.BeanUtils;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.derby.drda.NetworkServerControl;
 import org.apache.derby.jdbc.ClientDataSource;
 import org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource;
@@ -54,9 +38,23 @@ import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
-import org.lockss.util.*;
+import org.lockss.util.Constants;
+import org.lockss.util.Logger;
+import org.lockss.util.StringUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
+
+import javax.sql.DataSource;
+import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.nio.file.Paths;
+import java.sql.*;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static org.lockss.db.SqlConstants.SUBSYSTEM_COLUMN;
+import static org.lockss.db.SqlConstants.VERSION_TABLE;
 
 /**
  * Generic database manager.
@@ -956,7 +954,84 @@ public abstract class DbManager extends BaseLockssManager
       }
     }
 
+    // Commons DBCP properties
+    Configuration dbcpProps = ConfigManager.newConfiguration();
+
+    // Populate with .dbcp subtree
+    dbcpProps.copyFrom(dataSourceConfig.getConfigTree("dbcp"));
+
+    // Determine whether we should use DBCP
+    String dbcpEnabled = dbcpProps.get("enabled");
+    boolean isDbcpEnabled = !StringUtil.isNullString(dbcpEnabled) &&
+        dbcpEnabled.equalsIgnoreCase("true");
+
+    log.debug(DEBUG_HEADER + "isDbcpEnabled = " + isDbcpEnabled);
+
+    // Setup DBCP-base connection pooling if enabled
+    if (isDbcpEnabled) {
+      // Set className to DBCP
+      dbcpProps.put("className", BasicDataSource.class.getCanonicalName());
+
+      // Set username and password
+      dbcpProps.put("username", dataSourceConfig.get("user"));
+      dbcpProps.put("password", dataSourceConfig.get("password"));
+
+      // Determine JDBC URL from existing DataSource if not explicitly set
+      if (StringUtil.isNullString(dbcpProps.get("url"))) {
+        try {
+          Connection conn = dbManagerSql.getConnection(dataSource, maxRetryCount,
+              retryDelay, false, true);
+
+          DatabaseMetaData md = conn.getMetaData();
+          dbcpProps.put("url", md.getURL());
+        } catch (SQLException e) {
+          log.error("Could not get connection metadata", e);
+          throw new IllegalStateException("Could not bootstrap DBCP", e);
+        }
+      }
+
+      // Log the driverClassName if explicitly specified
+      String driverClassName = dbcpProps.get("driverClassName");
+      log.debug(DEBUG_HEADER + "driverClassName = " + driverClassName);
+
+      // Connection properties sent to the JDBC driver by DBCP
+      Configuration connProps = ConfigManager.newConfiguration();
+      connProps.copyFrom(dbcpProps.getConfigTree("connectionProperties"));
+
+      // Format and set connectionProperties if subtree is present
+      if (!connProps.isEmpty()) {
+        dbcpProps.removeConfigTree("connectionProperties");
+        dbcpProps.put("connectionProperties", formatConnectionProperties(connProps));
+      }
+
+      log.debug(DEBUG_HEADER + "connectionProperties = " + dbcpProps.get("connectionProperties"));
+
+      // Switch to using dbcpProps
+      dataSourceConfig = dbcpProps;
+      dataSourceClassName = dataSourceConfig.get("className");
+
+      // Create DBCP data source
+      dataSource = createDataSource(dataSourceClassName);
+
+      // Set DBCP data source in dbManagerSql
+      dbManagerSql.setDataSource(dataSource);
+      dbManagerSql.setIsDbcpEnabled(true);
+
+      // Set DBCP configuration properties - conceptually, this ought to be done before
+      // setting the data source in dbManagerSql but that's not how the existing code is
+      // currently structured
+      initializeDataSourceProperties(dataSourceConfig, dataSource);
+    }
+
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  private String formatConnectionProperties(Configuration connProps) {
+    List<String> kvs = connProps.keySet().stream()
+        .map(k -> k + "=" + connProps.get(k))
+        .collect(Collectors.toList());
+
+    return StringUtil.separatedString(kvs, ";");
   }
 
   /**
@@ -1411,7 +1486,65 @@ public abstract class DbManager extends BaseLockssManager
 
     // Handle the names of properties applicable to the Derby database being
     // used.
-    if (dbManagerSql.isTypeDerby()
+    if (dbManagerSql.isDbcpEnabled()) {
+      // https://commons.apache.org/proper/commons-dbcp/configuration.html
+      switch (name) {
+        case "username":
+        case "password":
+        case "url":
+        case "driverClassName":
+        case "connectionProperties":
+
+        case "defaultAutoCommit":
+        case "defaultReadOnly":
+        case "defaultTransactionIsolation":
+        case "defaultCatalog":
+        case "cacheState":
+        case "defaultQueryTimeout":
+        case "enableAutoCommitOnReturn":
+        case "rollbackOnReturn":
+
+        case "initialSize":
+        case "maxTotal":
+        case "maxIdle":
+        case "minIdle":
+        case "maxWaitMillis":
+
+        case "validationQuery":
+        case "validationQueryTimeout":
+        case "testOnCreate":
+        case "testOnBorrow":
+        case "testOnReturn":
+        case "testWhileIdle":
+        case "timeBetweenEvictionRunsMillis":
+        case "numTestsPerEvictionRun":
+        case "minEvictableIdleTimeMillis":
+        case "softMinEvictableIdleTimeMillis":
+        case "maxConnLifetimeMillis":
+        case "logExpiredConnections":
+        case "connectionInitSqls":
+        case "lifo":
+
+        case "poolPreparedStatements":
+        case "maxOpenPreparedStatements":
+
+        case "accessToUnderlyingConnectionAllowed":
+
+        case "removeAbandonedOnMaintenance":
+        case "removeAbandonedOnBorrow":
+        case "removeAbandonedTimeout":
+        case "logAbandoned":
+        case "abandonedUsageTracking":
+
+        case "fastFailValidation":
+        case "disconnectionSqlCodes":
+        case "jmxName":
+          return true;
+
+        default:
+          // Fallthrough...
+      }
+    } else if (dbManagerSql.isTypeDerby()
 	&& ("createDatabase".equals(name) || "shutdownDatabase".equals(name)
 	    || "portNumber".equals(name) || "password".equals(name))) {
       if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = true.");

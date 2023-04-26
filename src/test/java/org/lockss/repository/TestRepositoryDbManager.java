@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.repository;
 
 import org.junit.Test;
+import org.lockss.db.DbManager;
 import org.lockss.db.SqlConstants;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.test.ConfigurationUtil;
@@ -164,5 +165,67 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
         SqlConstants.VERSION_TABLE));
 
     assertEquals(2, countVersions(conn));
+  }
+
+  @Test
+  public void testDbcp2() throws Exception {
+    ConfigurationUtil.addFromArgs(
+        DbManager.PARAM_START_DERBY_NETWORK_SERVER_CONTROL, "true");
+
+    ConfigurationUtil.addFromArgs(
+        RepositoryDbManager.PARAM_DATASOURCE_CLASSNAME, "org.apache.derby.jdbc.ClientDataSource",
+        RepositoryDbManager.PARAM_DATASOURCE_PASSWORD, "somePassword");
+
+//    ConfigurationUtil.addFromArgs(
+//        RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true");
+
+    ConfigurationUtil.addFromArgs(
+        RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.driverClassName", "org.apache.derby.jdbc.EmbeddedDriver");
+
+//    ConfigurationUtil.addFromArgs(
+//        RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.connectionProperties.XXXX", "YYYY");
+
+//    ConfigurationUtil.addFromArgs(
+//        RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.connectionProperties", "XXXX=YYYY;FOO=BAR");
+
+//    org.lockss.RepositoryDbManager.className=ClientDataSource;
+//    org.lockss.RepositoryDbManager.password=...
+//    org.lockss.RepositoryDbManager.user=...
+//    org.lockss.RepositoryDbManager.portNumber=...
+//    ...
+//
+//    org.lockss.RepositoryDbManager.dbcp.enabled=true
+//    org.lockss.RepositoryDbManager.dbcp.url=...
+//    org.lockss.RepositoryDbManager.dbcp.driverClassName=....
+//    org.lockss.RepositoryDbManager.dbcp.connectionProperties=....
+
+    initializeTestDbManager(0, 1);
+  }
+
+  @Test
+  public void testPgsqlDb() throws Exception {
+    ConfigurationUtil.addFromArgs(
+        RepositoryDbManager.PARAM_DATASOURCE_USER, "LOCKSS",
+        RepositoryDbManager.PARAM_DATASOURCE_PASSWORD, "goodPassword");
+
+    ConfigurationUtil.addFromArgs(
+        RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true",
+        RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.initialSize", "2");
+
+    createPgsqlDb();
+  }
+
+  /**
+   * Creates a PostgreSQL database.
+   */
+  protected void createPgsqlDb() {
+    ConfigurationUtil.addFromArgs(RepositoryDbManager.PARAM_DATASOURCE_CLASSNAME,
+        "org.postgresql.ds.PGSimpleDataSource",
+        RepositoryDbManager.PARAM_MAX_RETRY_COUNT, "0",
+        RepositoryDbManager.PARAM_RETRY_DELAY, "0");
+
+    repositoryDbManager = new RepositoryDbManager();
+    repositoryDbManager.initService(getMockLockssDaemon());
+    repositoryDbManager.startService();
   }
 }
