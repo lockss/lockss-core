@@ -227,7 +227,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 	  continue;
 	}
 	ArchivalUnit au = null;
-	if (crawlStat.getCrawlerId().equals(CrawlDesc.LOCKSS_CRAWLER_ID)) {
+	if (crawlStat.getCrawlerId().equals(CrawlDesc.CLASSIC_CRAWLER_ID)) {
 	  au = crawlStat.getAu();
 	  if (!includeDeletedAus && au == null) {
 	    continue;
@@ -294,7 +294,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
 				      ArchivalUnitStatus.AU_STATUS_TABLE_NAME,
 				      status.getAuId()));
     ArchivalUnit au = null;
-    if (status.getCrawlerId().equals(CrawlDesc.LOCKSS_CRAWLER_ID)) {
+    if (status.getCrawlerId().equals(CrawlDesc.CLASSIC_CRAWLER_ID)) {
       au = status.getAu();
     }
     if (au != null) {

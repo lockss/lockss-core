@@ -44,6 +44,7 @@ import java.util.*;
 import org.apache.commons.collections4.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.lockss.crawler.CrawlEvent;
+import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.RestCrawlerClient;
@@ -329,7 +330,8 @@ public class PollManager
    */
   public static final String PARAM_JMS_NOTIFICATION_TOPIC =
     JMS_PREFIX + "topic";
-  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC = "CrawlEventTopic";
+  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC
+    = CrawlManagerImpl.DEFAULT_JMS_NOTIFICATION_TOPIC;
 
   /** The jms clientid of the config manager.
    * @ParamRelevance Rare
@@ -602,22 +604,6 @@ public class PollManager
     v3Status = new V3PollStatusAccessor();
 
     theRepairPolicy = new RepairPolicy(theDaemon);
-    // setup service binding to send crawl request
-    svcsMgr = theDaemon.getManagerByType(RestServicesManager.class);
-    crawlerServiceBinding = theDaemon.getServiceBinding(ServiceDescr.SVC_CRAWLER);
-    if (crawlerServiceBinding == null ||
-      !svcsMgr.isServiceReady(crawlerServiceBinding)) {
-      crawlerServiceBinding = null;
-      log.debug("No Crawler Service binding, repair functions nonfunctional");
-    }
-    enableJmsNotifications = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
-      DEFAULT_ENABLE_JMS_NOTIFICATIONS);
-    notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
-      DEFAULT_JMS_NOTIFICATION_TOPIC);
-    clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
-    if (enableJmsNotifications) {
-      startJms();
-    }
 
     preloadStoredPolls();
 
@@ -1358,6 +1344,22 @@ public class PollManager
       if (pf[i] != null) {
         pf[i].setConfig(newConfig, oldConfig, changedKeys);
       }
+    }
+    // setup service binding to send crawl request
+    svcsMgr = getDaemon().getManagerByType(RestServicesManager.class);
+    crawlerServiceBinding = getDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    if (crawlerServiceBinding == null ||
+      !svcsMgr.isServiceReady(crawlerServiceBinding)) {
+      crawlerServiceBinding = null;
+      log.debug("No Crawler Service binding, repair functions nonfunctional");
+    }
+    enableJmsNotifications = newConfig.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
+      DEFAULT_ENABLE_JMS_NOTIFICATIONS);
+    notificationTopic = newConfig.get(PARAM_JMS_NOTIFICATION_TOPIC,
+      DEFAULT_JMS_NOTIFICATION_TOPIC);
+    clientId = newConfig.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
+    if (enableJmsNotifications) {
+      startJms();
     }
   }
 

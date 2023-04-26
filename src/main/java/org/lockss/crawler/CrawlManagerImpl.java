@@ -181,7 +181,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   public static final String DEFAULT_JMS_CLIENT_ID = null;
 
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
-  private boolean enableJmsNotifications = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
+  private boolean paramJmsEnable = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
   private String clientId = DEFAULT_JMS_CLIENT_ID;
 
 
@@ -503,9 +503,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     if (paramOdc || paramStartCrawlsInterval > 0) {
       enableCrawlStarter();
     }
-    if (enableJmsNotifications) {
-      startJms();
-    }
   }
 
   /**
@@ -610,12 +607,14 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
           config.getTimeInterval(PARAM_START_CRAWLS_INITIAL_DELAY,
               DEFAULT_START_CRAWLS_INITIAL_DELAY);
       // JMS support
-      enableJmsNotifications = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
+      paramJmsEnable = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
         DEFAULT_ENABLE_JMS_NOTIFICATIONS);
       notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
         DEFAULT_JMS_NOTIFICATION_TOPIC);
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
-
+      if (paramJmsEnable) {
+        startJms();
+      }
       boolean processAborts = false;
       if (changedKeys.contains(PARAM_CRAWL_PRIORITY_AUID_MAP)) {
         installCrawlPriorityAuidMap(config.getList(PARAM_CRAWL_PRIORITY_AUID_MAP,
