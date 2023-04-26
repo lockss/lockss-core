@@ -1,8 +1,4 @@
 /*
- * $Id$
- */
-
-/*
 
 Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -32,16 +28,6 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 import java.util.*;
-
-import org.mortbay.util.StringMap;
-
-import java.io.Externalizable;
-// import java.util.AbstractMap;
-// import java.util.Collections;
-// import java.util.HashMap;
-// import java.util.HashSet;
-// import java.util.Map;
-// import java.util.Set;
 
 /** Properties with case-independent string keys. Canonicalizes all keys
  * by lowercasing them.
@@ -93,11 +79,11 @@ public class CIProperties extends Properties {
   }
 
   private String keyObj(Object obj) {
-    return obj.toString().toLowerCase();
+    return keyObj(obj.toString());
   }
 
   private String keyObj(String obj) {
-    return obj.toLowerCase();
+    return StringPool.CI_PROPERTIES.internNormalized(obj, x -> x.toLowerCase());
   }
 
   public Object put(Object key, Object value) {
@@ -132,4 +118,28 @@ public class CIProperties extends Properties {
     return super.containsKey(keyObj(key));
   }
 
+  /**
+   * Return the value of the first key that has a non-null value
+   */
+  public Object findValue(String... keys) {
+    for (String key : keys) {
+      Object val = get(key);
+      if (val != null) {
+        return val;
+      }
+    }
+    return null;
+  }
+  /**
+   * Return the value of the first key that has a non-null string value
+   */
+  public String findString(String... keys) {
+    for (String key : keys) {
+      String val = getProperty(key);
+      if (val != null) {
+        return val;
+      }
+    }
+    return null;
+  }
 }
