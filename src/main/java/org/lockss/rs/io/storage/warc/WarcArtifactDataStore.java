@@ -1057,10 +1057,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
         isWarcFileRemovable &= isRecordRemovable;
       }
     } catch (IOException e) {
-      if (e instanceof EOFException && isWarcFileRemovable) {
+      log.error("Could not reload temporary WARC [tmpWarc: {}]", tmpWarc);
+      throw e;
+    } catch (RuntimeException e) {
+      if (e.getCause() instanceof EOFException && isWarcFileRemovable) {
         log.warn("About to remove temporary WARC with unreadable record");
       } else {
-        log.error("Could not reload temporary WARC [tmpWarc: {}]", tmpWarc);
+        // Rethrow
         throw e;
       }
     }
