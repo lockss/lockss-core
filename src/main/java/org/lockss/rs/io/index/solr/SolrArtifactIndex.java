@@ -303,9 +303,6 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       // Ensure Solr update journal directory exists
       FileUtil.ensureDirExists(getSolrJournalDirectory().toFile());
 
-      // Replay journal of Solr index updates if it exists
-      replayUpdateJournal();
-
       setState(ArtifactIndexState.INITIALIZED);
     }
   }
