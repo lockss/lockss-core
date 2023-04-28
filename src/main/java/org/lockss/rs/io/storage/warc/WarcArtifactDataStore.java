@@ -1057,8 +1057,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
         isWarcFileRemovable &= isRecordRemovable;
       }
     } catch (IOException e) {
-      log.error("Could not reload temporary WARC [tmpWarc: {}]", tmpWarc);
-      throw e;
+      if (e instanceof EOFException && isWarcFileRemovable) {
+        log.warn("Abbout to remove temporary WARC with unreadable record");
+      } else {
+        log.error("Could not reload temporary WARC [tmpWarc: {}]", tmpWarc);
+        throw e;
+      }
     }
 
     // Protect against a reader still/already reading from temporary WARC even if WARC is now removable
