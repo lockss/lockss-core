@@ -303,10 +303,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
    * @param state The new {@link DataStoreState} state of this data store.
    */
   protected void setDataStoreState(DataStoreState state) {
+    log.debug("Changing data store state {} -> {}", this.dataStoreState, state);
     this.dataStoreState = state;
   }
 
   protected void reloadDataStoreState() {
+    log.debug("Scheduling data store reload");
     stripedExecutor.submit(new ReloadDataStoreStateTask());
   }
 

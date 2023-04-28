@@ -30,9 +30,12 @@
 
 package org.lockss.rs.io.index;
 
+import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 
 public abstract class AbstractArtifactIndex implements ArtifactIndex {
+  private final static L4JLogger log = L4JLogger.getLogger();
+
   protected BaseLockssRepository repository;
 
   protected ArtifactIndexState indexState = ArtifactIndexState.STOPPED;
@@ -48,6 +51,7 @@ public abstract class AbstractArtifactIndex implements ArtifactIndex {
   }
 
   public void setState(ArtifactIndexState indexState) {
+    log.debug("Changing index state {} -> {}", this.indexState, indexState);
     this.indexState = indexState;
   }
 

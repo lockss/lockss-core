@@ -69,11 +69,13 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
 
     @Override
     public void init() {
+      log.debug("Initializing volatile artifact index");
       setState(ArtifactIndexState.INITIALIZED);
     }
 
   @Override
   public void start() {
+    log.debug("Starting volatile artifact index");
     setState(ArtifactIndexState.RUNNING);
   }
 

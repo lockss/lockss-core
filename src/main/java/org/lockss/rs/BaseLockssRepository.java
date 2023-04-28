@@ -174,6 +174,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     File reindexStateFile = reindexStatePath.toFile();
 
     if (reindexStateFile.exists()) {
+      log.info("Reindexing artifacts");
+
       // Reindex artifacts in this data store to the index
       long start = TimeBase.nowMs();
       store.reindexArtifacts(index);

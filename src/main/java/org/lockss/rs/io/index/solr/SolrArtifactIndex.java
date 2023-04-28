@@ -271,6 +271,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    */
   @Override
   public synchronized void init() {
+    log.debug("Initializing Solr artifact index");
+
     if (getState() == ArtifactIndexState.STOPPED) {
       try {
         // Check if Solr core is available
@@ -319,6 +321,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    */
   @Override
   public synchronized void start() {
+    log.debug("Starting Solr artifact index");
+
     // Replay journal of Solr index updates if it exists
     replayUpdateJournal();
 
@@ -336,6 +340,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * Replays all Solr update journal files found under the Solr journal directory.
    */
   public void replayUpdateJournal() {
+    log.debug("Starting Solr update journal replay");
+
     File journalDir = getSolrJournalDirectory().toFile();
 
     File[] journalFiles = journalDir
@@ -382,6 +388,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    */
   public synchronized void startUpdateJournal() {
     if (solrJournalWriter == null) {
+      log.debug("Creating new Solr journal");
+
       try {
         // Get journal directory and ensure it exists
         FileUtil.ensureDirExists(getSolrJournalDirectory().toFile());
@@ -429,7 +437,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   private void scheduleHardCommitter() {
     ((BaseLockssRepository) repository).getScheduledExecutorService()
       .schedule(new SolrHardCommitTask(), hardCommitInterval, TimeUnit.MILLISECONDS);
-    log.debug2("Scheduled Solr hard commit in {}",
+    log.debug("Scheduled Solr hard commit in {}",
                TimeUtil.timeIntervalToString(hardCommitInterval));
   }
 
