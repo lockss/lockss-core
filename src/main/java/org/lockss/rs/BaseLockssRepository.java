@@ -42,6 +42,7 @@ import org.archive.format.warc.WARCConstants;
 import org.archive.io.ArchiveReader;
 import org.archive.io.ArchiveRecord;
 import org.archive.io.ArchiveRecordHeader;
+import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
@@ -205,20 +206,25 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
   @Override
   public void initRepository() throws IOException {
-    log.info("Initializing repository");
+    try {
+      log.info("Initializing repository");
+      LockssDaemon.getLockssDaemon().waitUntilAppRunning();
 
-    // Initialize and start the index
-    index.init();
-    index.start();
+      // Initialize and start the index
+      index.init();
+      index.start();
 
-    // Initialize the data store
-    store.init();
+      // Initialize the data store
+      store.init();
 
-    // Re-index artifacts in the data store if needed
-    reindexArtifactsIfNeeded();
+      // Re-index artifacts in the data store if needed
+      reindexArtifactsIfNeeded();
 
-    // Start the data store
-    store.start();
+      // Start the data store
+      store.start();
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Interrupted while waiting for LOCKSS daemon", e);
+    }
   }
 
   /**
