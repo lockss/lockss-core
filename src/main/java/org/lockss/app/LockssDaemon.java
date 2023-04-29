@@ -309,6 +309,13 @@ public class LockssDaemon extends LockssApp {
     return isAppRunning();
   }
 
+  static LockssDaemon MOCK_LOCKSS_DAEMON;
+  /** Allows test code to cause the static
+   * LockssDaemon.getLockssDaemon() to return a MockLockssDaemon */
+  public static void setLockssDaemon(LockssDaemon mockLockssDaemon) {
+    MOCK_LOCKSS_DAEMON = mockLockssDaemon;
+  }
+
   /**
    * static accessor for the LockssDaemon instance.  In support of Spring and
    * other inverted start-order frameworks, this method will wait a short
@@ -317,6 +324,9 @@ public class LockssDaemon extends LockssApp {
    * @return the LockssDaemon instance
    */
   public static LockssDaemon getLockssDaemon() {
+    if (MOCK_LOCKSS_DAEMON != null) {
+      return MOCK_LOCKSS_DAEMON;
+    }
     // cast is ugly but safe; avoids a redundant WaitableObject in this class
     return (LockssDaemon)getLockssApp();
   }

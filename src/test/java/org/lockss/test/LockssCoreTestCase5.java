@@ -1,5 +1,6 @@
 package org.lockss.test;
 
+import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.CurrentConfig;
 import org.lockss.util.StringUtil;
@@ -30,6 +31,7 @@ public class LockssCoreTestCase5 extends LockssTestCase5 {
       ensureTempTmpDir();
       makeConfigManager();
       mockDaemon = newMockLockssDaemon();
+      LockssDaemon.setLockssDaemon(mockDaemon);
     }
 
     return mockDaemon;

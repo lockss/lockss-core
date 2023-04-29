@@ -53,6 +53,7 @@ import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.test.VariantTest;
 import org.lockss.util.time.TimeBase;
+import org.lockss.test.LockssCoreTestCase5;
 import org.springframework.http.HttpHeaders;
 
 import java.io.IOException;
@@ -76,7 +77,7 @@ import java.util.stream.StreamSupport;
 // - test persistence (shut down repo, recreate)
 
 /** Test harness for LockssRepository implementations */
-public abstract class AbstractLockssRepositoryTest extends LockssTestCase5 {
+public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
   /** Concrete subclasses must implement to create an instance of the
    * appropriate repository type */
@@ -251,6 +252,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssTestCase5 {
   @BeforeEach
   public void beforeEach() throws Exception {
     log.debug("Running beforeEach()");
+    getMockLockssDaemon().setAppRunning(true);
     TimeBase.setSimulated();
     setUpRepo();
     beforeVariant();
