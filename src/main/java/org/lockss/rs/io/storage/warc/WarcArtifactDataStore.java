@@ -113,6 +113,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipException;
 
 /**
  * This abstract class aims to capture operations that are common to all {@link ArtifactDataStore} implementations that
@@ -1060,7 +1061,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
       log.error("Could not reload temporary WARC [tmpWarc: {}]", tmpWarc);
       throw e;
     } catch (RuntimeException e) {
-      if (e.getCause() instanceof EOFException && isWarcFileRemovable) {
+      Throwable cause = e.getCause();
+      if ((cause instanceof EOFException || cause instanceof ZipException) && isWarcFileRemovable) {
         log.warn("About to remove temporary WARC with unreadable record");
       } else {
         // Rethrow
