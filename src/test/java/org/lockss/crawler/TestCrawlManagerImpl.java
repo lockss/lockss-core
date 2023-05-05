@@ -35,7 +35,16 @@ package org.lockss.crawler;
 import java.util.*;
 import junit.framework.Test;
 
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.activemq.broker.BrokerService;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.lockss.app.BaseLockssManager;
+import org.lockss.daemon.status.StatusServiceImpl;
+import org.lockss.jms.JMSManager;
 import org.lockss.util.*;
+import org.lockss.util.jms.JmsFactory;
+import org.lockss.util.jms.JmsProducer;
 import org.lockss.util.lang.LockssRandom;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.*;
@@ -48,6 +57,10 @@ import org.lockss.plugin.exploded.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
 import org.lockss.alert.*;
+
+import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 
 /**
  * Test class for CrawlManagerImpl.
@@ -66,6 +79,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
   protected Plugin plugin;
   protected Properties cprops = new Properties();
   protected List semsToGive;
+  static BrokerService broker;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -87,9 +101,7 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     crawlManager = new TestableCrawlManagerImpl(pluginMgr);
     theDaemon.setCrawlManager(crawlManager);
     statusSource = (CrawlManager.StatusSource)crawlManager;
-
     crawlManager.initService(theDaemon);
-
   }
 
   void setUpMockAu() {
@@ -118,6 +130,19 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     crawlManager.stopService();
     theDaemon.stopDaemon();
     super.tearDown();
+  }
+
+  @BeforeClass
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      TimerUtil.sleep(1000);
+      broker.stop();
+    }
   }
 
   MockArchivalUnit newMockArchivalUnit(String auid) {
@@ -702,6 +727,19 @@ public class TestCrawlManagerImpl extends LockssTestCase {
 
       waitForCrawlToFinish(sem);
       assertEquals(cookie, (String)cb.getCookie());
+    }
+
+    public void testNewContentSendsCrawlEvent()
+    {
+      SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
+      String cookie = null;
+
+      TestCrawlCB cb = new TestCrawlCB(sem);
+      crawlManager.startNewContentCrawl(mau, cb, cookie);
+
+      waitForCrawlToFinish(sem);
+      assertEquals(cookie, (String)cb.getCookie());
+
     }
 
     public void testKicksOffNewThread() {
