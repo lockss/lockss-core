@@ -126,6 +126,10 @@ public interface CrawlManager {
    */
   boolean isAllowedPluginPermittedHost(String host);
 
+  default void registerCrawlEventHandler(CrawlEventHandler handler) {}
+
+  default void unregisterCrawlEventHandler(CrawlEventHandler handler) {}
+
   interface Callback {
 
     /**

@@ -55,8 +55,6 @@ import org.lockss.plugin.AuEvent;
 
 import javax.jms.JMSException;
 
-import static org.lockss.state.BaseStateManager.*;
-
 /**
  * Manages crawl queues, starts crawls.
  *
@@ -166,22 +164,36 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   // JMS Notification support
   public static final String JMS_PREFIX = PREFIX + "jms.";
 
-  public static final String PARAM_ENABLE_JMS_NOTIFICATIONS =
-    JMS_PREFIX + "enable";
-  public static final boolean DEFAULT_ENABLE_JMS_NOTIFICATIONS = false;
+  /** If true, CrawlManager will send notifications of config-changed
+   * events
+   */
+  public static final String PARAM_ENABLE_JMS_SEND = JMS_PREFIX + "enableSend";
+  public static final boolean DEFAULT_ENABLE_JMS_SEND = false;
 
-  /** The jms topic at which Crawl notifications are sent
+  /** If true, CrawlManager will register to receive crawl events
+   * (if it's runnning in a client of a config service).
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_ENABLE_JMS_RECEIVE =
+      JMS_PREFIX + "enableReceive";
+  public static final boolean DEFAULT_ENABLE_JMS_RECEIVE = true;
+
+  /** The jms topic at which crawl event notifications are sent
+   * @ParamRelevance Rare
    */
   public static final String PARAM_JMS_NOTIFICATION_TOPIC =
-    JMS_PREFIX + "topic";
-  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC = "CrawlEventTopic";
+      JMS_PREFIX + "topic";
+  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC =
+      "CrawlEventTopic";
 
-  /** The jms clientid of the crawl manager.
+  /** The jms clientid of the config manager.
+   * @ParamRelevance Rare
    */
+  public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
   public static final String DEFAULT_JMS_CLIENT_ID = null;
-
-  private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
-  private boolean paramJmsEnable = DEFAULT_ENABLE_JMS_NOTIFICATIONS;
+ private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
+  private boolean enableJmsSend = DEFAULT_ENABLE_JMS_SEND;
+  private boolean enableJmsReceive = DEFAULT_ENABLE_JMS_RECEIVE;
   private String clientId = DEFAULT_JMS_CLIENT_ID;
 
 
@@ -436,6 +448,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
   private AuEventHandler auCreateDestroyHandler;
 
+  private List<CrawlEventHandler> crawlEventHandlers= new ArrayList<>();
+
+
   PooledExecutor pool;
   BoundedPriorityQueue poolQueue;
 
@@ -478,7 +493,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       }
     };
     pluginMgr.registerAuEventHandler(auCreateDestroyHandler);
-
     if (!paramOdc && paramQueueEnabled) {
       poolQueue = new BoundedPriorityQueue(paramPoolQueueSize,
           new CrawlQueueComparator());
@@ -528,6 +542,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       statusServ.unregisterStatusAccessor(CRAWL_URLS_STATUS_TABLE);
       statusServ.unregisterStatusAccessor(SINGLE_CRAWL_STATUS_TABLE);
     }
+    crawlEventHandlers = new ArrayList<CrawlEventHandler>();
     super.stopService();
   }
 
@@ -607,12 +622,14 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
           config.getTimeInterval(PARAM_START_CRAWLS_INITIAL_DELAY,
               DEFAULT_START_CRAWLS_INITIAL_DELAY);
       // JMS support
-      paramJmsEnable = config.getBoolean(PARAM_ENABLE_JMS_NOTIFICATIONS,
-        DEFAULT_ENABLE_JMS_NOTIFICATIONS);
+      enableJmsSend = config.getBoolean(PARAM_ENABLE_JMS_SEND,
+          DEFAULT_ENABLE_JMS_SEND);
+      enableJmsReceive = config.getBoolean(PARAM_ENABLE_JMS_RECEIVE,
+          DEFAULT_ENABLE_JMS_RECEIVE);
       notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
         DEFAULT_JMS_NOTIFICATION_TOPIC);
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
-      if (paramJmsEnable) {
+      if (enableJmsReceive || enableJmsSend) {
         startJms();
       }
       boolean processAborts = false;
@@ -689,9 +706,65 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
   void startJms() {
-    if (jmsProducer == null) {
+    if (enableJmsReceive && jmsConsumer == null) {
+      setUpJmsReceive(clientId, notificationTopic,
+          new MapMessageListener("CrawlEvent Listener"));
+    }
+    if (enableJmsSend && jmsProducer == null) {
       setUpJmsSend(clientId, notificationTopic);
     }
+  }
+  /** Incoming CrawlEvent message */
+  @Override
+  protected void receiveMessage(Map map) {
+    CrawlEvent event = CrawlEvent.fromMap(map);
+    // make a copy of the list in case it changes during execution.
+    ArrayList<CrawlEventHandler> handlers = new ArrayList<CrawlEventHandler>(crawlEventHandlers);
+    switch (event.getEvtType()) {
+      case CrawlStarted:
+        for(CrawlEventHandler hand : handlers) {
+          hand.crawlStarted(event);
+        }
+        break;
+      case RepairCrawlStarted:
+        for(CrawlEventHandler hand : handlers) {
+          hand.repairStarted(event);
+        }
+        break;
+      case CrawlAttemptComplete:
+        for(CrawlEventHandler hand : handlers) {
+          hand.crawlCompleted(event);
+        }
+        break;
+      case RepairCrawlComplete:
+        for(CrawlEventHandler hand : handlers) {
+          hand.repairCompleted(event);
+        }
+        break;
+      default:
+        logger.warning("Received an unknown CrawlEvent type: "+ event.getEvtType());
+    }
+  }
+
+  /**
+   * Register a handler for Crawl events: start and stop.  May be
+   * called after this manager's initService() (before startService()).
+   * @param hand CrawlEventHandler to add
+   */
+  public void registerCrawlEventHandler(CrawlEventHandler hand) {
+    logger.debug2("registering CrawlEventHandler " + hand);
+    if (!crawlEventHandlers.contains(hand)) {
+      crawlEventHandlers.add(hand);
+    }
+  }
+
+  /**
+   * Unregister an CrawlEventHandler
+   * @param hand CrawlEventHandler to remove
+   */
+  public void unregisterCrawlEventHandler(CrawlEventHandler hand) {
+    logger.debug3("unregistering " + hand);
+    crawlEventHandlers.remove(hand);
   }
 
   public boolean isCrawlerEnabled() {
@@ -1475,9 +1548,16 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         logger.error("Crawl callback threw", e);
       }
     }
-    CrawlEvent event = new CrawlEvent(CrawlEvent.Type.CrawlAttemptComplete,cookie, successful, status);
-    if (logger.isDebug2()) logger.debug2("CrawlEvent " + event);
-    sendCrawlEvent(event);
+    if (jmsProducer != null) {
+      CrawlEvent event;
+      if (Objects.equals(status.type, Crawler.Type.NEW_CONTENT.name())) {
+        event = new CrawlEvent(CrawlEvent.Type.CrawlAttemptComplete, cookie, successful, status);
+      } else {
+        event = new CrawlEvent(CrawlEvent.Type.RepairCrawlComplete, cookie, successful, status);
+      }
+      if (logger.isDebug2()) logger.debug2("CrawlEvent " + event);
+      sendCrawlEvent(event);
+    }
   }
 
   protected Crawler makeFollowLinkCrawler(ArchivalUnit au,
@@ -1655,6 +1735,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     if (jmsProducer != null) {
       switch (event.getEvtType()) {
         case CrawlAttemptComplete:
+        case RepairCrawlComplete:
           try {
             jmsProducer.sendMap(event.toMap());
           } catch (JMSException e) {
