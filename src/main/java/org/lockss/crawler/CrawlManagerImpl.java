@@ -1549,15 +1549,14 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         logger.error("Crawl callback threw", e);
       }
     }
-    if (jmsProducer != null) {
+    if (enableJmsSend && jmsProducer != null) {
       CrawlEvent event;
-      if (Objects.equals(status.type, Crawler.Type.NEW_CONTENT.name())) {
-        event = new CrawlEvent(CrawlEvent.Type.CrawlAttemptComplete, cookie, successful, status);
-      } else {
+      // For now we restrict to repair calls complete.
+      if (Objects.equals(status.type, Crawler.Type.REPAIR.name())) {
         event = new CrawlEvent(CrawlEvent.Type.RepairCrawlComplete, cookie, successful, status);
+        if (logger.isDebug2()) logger.debug2("CrawlEvent " + event);
+        sendCrawlEvent(event);
       }
-      if (logger.isDebug2()) logger.debug2("CrawlEvent " + event);
-      sendCrawlEvent(event);
     }
   }
 
