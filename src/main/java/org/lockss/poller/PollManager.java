@@ -591,6 +591,7 @@ public class PollManager
 
     theRepairPolicy = new RepairPolicy(theDaemon);
 
+    // One time load of an in-memory map of AU IDs to directories.
     preloadStoredPolls();
 
     // Enable the poll starter.

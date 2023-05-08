@@ -55,7 +55,7 @@ public class CrawlEvent {
       this.crawlerId = cs.getCrawlerId() == null ? CrawlDesc.CLASSIC_CRAWLER_ID : cs.getCrawlerId();
       this.status = cs.getCrawlStatus();
       this.statusMsg = cs.getCrawlStatusMsg();
-      if (successful && evtType != Type.CrawlStarted) {
+      if (successful) {
         this.urlsFetched = cs.getUrlsFetched();
         this.numFetched = cs.getNumFetched();
       }

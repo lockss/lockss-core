@@ -63,6 +63,7 @@ import javax.jms.JMSException;
  */
 public class CrawlManagerImpl extends BaseLockssDaemonManager
     implements CrawlManager, CrawlManager.StatusSource, ConfigurableManager {
+
   private static final Logger logger = Logger.getLogger();
 
   public static final String PREFIX = Configuration.PREFIX + "crawler.";
