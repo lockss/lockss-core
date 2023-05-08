@@ -51,6 +51,9 @@ public class TestPluginPackager extends LockssTestCase5 {
   static String ID_C = "org.lockss.util.testplugin.child.CPlug";
   static String ID_P = "org.lockss.util.testplugin.PPlug";
   static String ID_PL = "org.lockss.util.testpluginwithlib.Plug";
+  static String ID_AUX = "org.lockss.util.testplugin.PlugWithAux";
+  static String ID_AUX_WITH_PARENT = "org.lockss.util.testplugin.PlugWithParentAux";
+  static String ID_PARENT_AUX = "org.lockss.util.testplugin.ParentAux";
 
   PluginPackager pkgr;
   File tmpdir;
@@ -65,7 +68,7 @@ public class TestPluginPackager extends LockssTestCase5 {
 
   public void assertMarkedAsPlugin(Manifest man, String id) {
     Attributes attrs = man.getAttributes(idToPath(id));
-    assertNotNull(attrs);
+    assertNotNull(attrs, "Member attributes");
     assertEquals("true", attrs.getValue("Lockss-Plugin"));
   }
 
@@ -148,6 +151,73 @@ public class TestPluginPackager extends LockssTestCase5 {
     assertNotMarkedAsPlugin(man, ID_A);
     assertMarkedAsPlugin(man, ID_B);
     assertMarkedAsPlugin(man, ID_C);
+    assertNotMarkedAsPlugin(man, ID_P);
+  }
+
+  @Test
+  public void testPackageWithAuxPackages() throws Exception {
+    List<Result> rs = runPackager(new PlugSpec()
+				  .addPlug(ID_AUX)
+				  .setJar(jar.toString()));
+    assertEquals(1, rs.size());
+    Result res = rs.get(0);
+    assertFalse(res.isError());
+    JarFile jf = new JarFile(jar);
+    List<String> names = Collections.list(jf.entries()).stream()
+      .map(JarEntry::getName)
+      .collect(Collectors.toList());
+
+    assertEquals(SetUtil.set("META-INF/",
+                             "META-INF/MANIFEST.MF",
+                             "org/lockss/util/testplugin/",
+                             idToPath(ID_AUX),
+                             idToPath(ID_AUX_WITH_PARENT),
+                             idToPath(ID_PARENT_AUX),
+                             "org/lockss/util/testplugin/auxpackage/",
+                             "org/lockss/util/testplugin/auxpackage/FooFilterFactory.class",
+                             "org/lockss/util/testplugin/PPlug.xml"),
+                 SetUtil.theSet(names));
+    Manifest man = jf.getManifest();
+    Attributes main = man.getMainAttributes();
+    assertNotMarkedAsPlugin(man, ID_A);
+    assertMarkedAsPlugin(man, ID_AUX);
+    assertNotMarkedAsPlugin(man, ID_AUX_WITH_PARENT);
+    assertNotMarkedAsPlugin(man, ID_PARENT_AUX);
+    assertNotMarkedAsPlugin(man, ID_P);
+  }
+
+  @Test
+  public void testPackageWithParentAuxPackages() throws Exception {
+    List<Result> rs = runPackager(new PlugSpec()
+				  .addPlug(ID_AUX_WITH_PARENT)
+				  .setJar(jar.toString()));
+    assertEquals(1, rs.size());
+    Result res = rs.get(0);
+    assertFalse(res.isError());
+    JarFile jf = new JarFile(jar);
+    List<String> names = Collections.list(jf.entries()).stream()
+      .map(JarEntry::getName)
+      .collect(Collectors.toList());
+
+    assertEquals(SetUtil.set("META-INF/",
+                             "META-INF/MANIFEST.MF",
+                             "org/lockss/util/testplugin/",
+                             idToPath(ID_AUX),
+                             idToPath(ID_AUX_WITH_PARENT),
+                             idToPath(ID_PARENT_AUX),
+                             "org/lockss/util/testplugin/auxpackage/",
+                             "org/lockss/util/testplugin/auxpackage/FooFilterFactory.class",
+                             "org/lockss/util/testplugin/auxpackage2/",
+                             "org/lockss/util/testplugin/auxpackage2/FooLinkExtractorFactory$FooLinkExtractor.class",
+                             "org/lockss/util/testplugin/auxpackage2/FooLinkExtractorFactory.class",
+                             "org/lockss/util/testplugin/PPlug.xml"),
+                 SetUtil.theSet(names));
+    Manifest man = jf.getManifest();
+    Attributes main = man.getMainAttributes();
+    assertNotMarkedAsPlugin(man, ID_A);
+    assertNotMarkedAsPlugin(man, ID_AUX);
+    assertMarkedAsPlugin(man, ID_AUX_WITH_PARENT);
+    assertNotMarkedAsPlugin(man, ID_PARENT_AUX);
     assertNotMarkedAsPlugin(man, ID_P);
   }
 

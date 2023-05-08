@@ -4262,7 +4262,7 @@ public class PluginManager
     jarValidator.allowExpired(acceptExpiredCertificates);
 
     // Create temporary plugin and classloader maps
-    HashMap<String,PluginInfo> tmpMap = new HashMap<String,PluginInfo>();
+    HashMap<String,PluginInfo> tmpMap = new HashMap<>();
 
     for (Iterator iter = registryAus.iterator(); iter.hasNext(); ) {
       ArchivalUnit au = (ArchivalUnit)iter.next();
@@ -4328,7 +4328,8 @@ public class PluginManager
     }
   }
 
-  protected void processOneRegistryAu(ArchivalUnit au, Map tmpMap) {
+  protected void processOneRegistryAu(ArchivalUnit au,
+                                      Map<String,PluginInfo> tmpMap) {
     log.debug2("processOneRegistryAu: " + au.getName());
     CachedUrlSet cus = au.getAuCachedUrlSet();
 
@@ -4348,7 +4349,8 @@ public class PluginManager
   }
 
   protected void processOneRegistryJar(CachedUrl cu, String url,
-				       ArchivalUnit au, Map tmpMap) {
+				       ArchivalUnit au,
+                                       Map<String,PluginInfo> tmpMap) {
     Integer curVersion = Integer.valueOf(cu.getVersion());
 
     if (cuNodeVersionMap.get(url) == null) {
@@ -4396,9 +4398,10 @@ public class PluginManager
     }
   }
 
-  protected void loadPluginsFromJar(File jarFile, String url,
-				    ArchivalUnit au, CachedUrl cu,
-				    Map tmpMap) {
+  protected Collection<PluginInfo>
+    loadPluginsFromJar(File jarFile, String url,
+                       ArchivalUnit au, CachedUrl cu,
+                       Map<String,PluginInfo> tmpMap) {
     // Get the list of plugins to load from this jar.
     List<String> loadPlugins;
     List<String> libJars;
@@ -4409,7 +4412,7 @@ public class PluginManager
     } catch (IOException ex) {
       log.error("Error while getting list of plugins for " +
 		jarFile);
-      return; // skip this CU.
+      return Collections.emptyList(); // skip this CU.
 
     }
     log.debug2("Blessed jar: " + jarFile + ", plugins: " + loadPlugins);
@@ -4418,7 +4421,7 @@ public class PluginManager
     if (loadPlugins.size() == 0) {
       log.warning("Jar " + jarFile +
 		  " does not contain any plugins.  Skipping...");
-      return; // skip this CU.
+      return Collections.emptyList(); // skip this CU.
     }
 
     // Load the plugin classes
@@ -4440,7 +4443,7 @@ public class PluginManager
     } catch (MalformedURLException ex) {
       log.error("Malformed URL exception attempting to create " +
 		"classloader for plugin JAR " + jarFile);
-      return; // skip this CU.
+      return Collections.emptyList(); // skip this CU.
     }
 
     for (String pluginName : loadPlugins) {
@@ -4487,7 +4490,7 @@ public class PluginManager
         log.error(String.format("Skipping plugin %s: %s", pluginName, ex.getMessage()));
         // must stop plugin to enable it to be collected
         plugin.stopPlugin();
-        return;
+        return Collections.emptyList();
       }
 
       if (tmpMap.containsKey(key)) {
@@ -4540,6 +4543,7 @@ public class PluginManager
         }
       }
     }
+    return tmpMap.values();
   }
 
   /**

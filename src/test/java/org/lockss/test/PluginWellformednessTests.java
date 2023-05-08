@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,12 +47,13 @@ import org.lockss.plugin.definable.*;
 import org.lockss.state.*;
 import org.lockss.extractor.*;
 import org.lockss.util.test.FileTestUtil;
+import org.lockss.plugin.PluginManager.PluginInfo;
 
 /** Performs basic well-formedness tests on one or more plugins.  The list
  * of plugins may be supplied as a semicolon-separated list in the System
  * property org.lockss.test.TestPluginNames or, if invoked directly (i.e.,
  * not as a junit test), on the command line.  If a plugin jar name is
- * supplied (with org.lockss.test.TestPluginNames or -pj on the command
+ * supplied (with org.lockss.test.TestPluginJars or -pj on the command
  * line) it is loaded as a normal packaged plugin jar and the plugins are
  * assumed to be contained in it.
 
@@ -72,7 +73,7 @@ public final class PluginWellformednessTests extends LockssTestCase {
   protected Plugin plugin;
   protected boolean jarLoaded = false;
 
-  public void run(List<String> pluginNames) throws Exception {
+  public void testPlugins(List<String> pluginNames) throws Exception {
     setUp();
     List<Pair<String,String>> failed = new ArrayList<>();
     for (String pluginName : pluginNames) {
@@ -80,10 +81,41 @@ public final class PluginWellformednessTests extends LockssTestCase {
  	System.err.println("Testing plugin: " + pluginName);
 	resetAndTest(pluginName);
       } catch (PluginFailedToLoadException e) {
-	log.error("Plugin " + pluginName + " failed");
+	log.error("Plugin " + pluginName + " couldn't be loaded");
 	failed.add(new ImmutablePair(pluginName, e.toString()));
       } catch (Exception e) {
 	log.error("Plugin " + pluginName + " failed", e);
+	failed.add(new ImmutablePair(pluginName, e.getMessage()));
+      }
+    }
+    if (!failed.isEmpty()) {
+      StringBuilder sb = new StringBuilder();
+      sb.append(StringUtil.numberOfUnits(failed.size(), "plugin") + " failed:");
+      for (Pair<String,String> f : failed) {
+	sb.append("\n  ");
+	sb.append(f.getLeft());
+	sb.append("\n    ");
+	sb.append(f.getRight());
+      }
+      fail(sb.toString());
+    }
+  }
+
+  public void testJars(List<String> jarPaths) throws Exception {
+    setUp();
+    List<Pair<String,String>> failed = new ArrayList<>();
+    for (String jarPath : jarPaths) {
+      try {
+ 	System.err.println("Testing jar: " + jarPaths);
+        Collection<PluginInfo> pInfos = loadJar(jarPath);
+        for (PluginInfo pi : pInfos) {
+          log.fatal("pi: {}", pi);
+        }
+//       } catch (PluginFailedToLoadException e) {
+// 	log.error("Plugin " + pluginName + " couldn't be loaded");
+// 	failed.add(new ImmutablePair(pluginName, e.toString()));
+      } catch (Exception e) {
+	log.error("Jar " + failed + " jarPath", e);
 	failed.add(new ImmutablePair(pluginName, e.getMessage()));
       }
     }
@@ -146,14 +178,17 @@ public final class PluginWellformednessTests extends LockssTestCase {
     return plugin;
   }
 
-  protected void loadJar(String jarName) throws IOException {
-    Map infoMap = new HashMap();
+  protected Collection<PluginInfo> loadJar(String jarName) throws IOException {
+    Map<String,PluginInfo> infoMap = new HashMap<>();
     File jarFile = new File(jarName);
     String jarUrl = FileTestUtil.urlOfFile(jarName);
     MockCachedUrl mcu = new MockCachedUrl(jarUrl, jarName, false);
     MockArchivalUnit mau = new MockArchivalUnit();
-    pluginMgr.loadPluginsFromJar(jarFile, jarUrl, mau, mcu, infoMap);
+    Collection<PluginInfo> pInfos =
+      pluginMgr.loadPluginsFromJar(jarFile, jarUrl, mau, mcu, infoMap);
     pluginMgr.installPlugins(infoMap);
+    log.fatal("pInfos: {}", pInfos);
+    return pInfos;
   }
 
   protected Configuration getSampleAuConfig() throws IOException {
@@ -220,6 +255,12 @@ public final class PluginWellformednessTests extends LockssTestCase {
     testWellFormed(pluginName);
   }
 
+  void resetAndTestJar(String pluginName) throws Exception {
+    this.pluginName = pluginName;
+    plugin = null;
+    testWellFormed(pluginName);
+  }
+
   /** Load the named plugin, create an AU using sample parameters and
    * access all of its elements to ensure all the patterns are well formed
    * and the factories are loadable and runnable.
@@ -242,14 +283,30 @@ public final class PluginWellformednessTests extends LockssTestCase {
     Path dirPath = Paths.get(plugRoot);
 
     List<String> res = new ArrayList<>();
-    FileVisitor visitor =
-      new FileVisitor(res, dirPath)
+    PluginFileVisitor visitor =
+      new PluginFileVisitor(res, dirPath)
 //       .setExclusions(argExcludePats);
       ;
     try {
       log.debug("starting tree walk ...");
       Files.walkFileTree(dirPath, EnumSet.of(FOLLOW_LINKS), 100, visitor);
-//       excluded = visitor.getExcluded();
+    } catch (IOException e) {
+      throw new RuntimeException("unable to walk source tree.", e);
+    }
+    return res;
+  }
+
+  static List<String> findPluginJarsInTree(String root) {
+    Path dirPath = Paths.get(root);
+
+    List<String> res = new ArrayList<>();
+    JarFileVisitor visitor =
+      new JarFileVisitor(res, dirPath)
+//       .setExclusions(argExcludePats);
+      ;
+    try {
+      log.debug("starting tree walk ...");
+      Files.walkFileTree(dirPath, EnumSet.of(FOLLOW_LINKS), 100, visitor);
     } catch (IOException e) {
       throw new RuntimeException("unable to walk source tree.", e);
     }
@@ -258,14 +315,54 @@ public final class PluginWellformednessTests extends LockssTestCase {
 
   /** Visitor for Files.walkFileTree(), makes a PlugSpec for each plugin in
    * tree */
-  static class FileVisitor extends SimpleFileVisitor<Path> {
+  static class PluginFileVisitor extends SimpleFileVisitor<Path> {
     List<String> res;
     Path root;
     PathMatcher matcher;
     List<Pattern> excludePats;
     List<String> excluded = new ArrayList<>();
 
-    FileVisitor(List<String> res, Path root) {
+    PluginFileVisitor(List<String> res, Path root) {
+      this.res = res;
+      this.root = root;
+      matcher = FileSystems.getDefault().getPathMatcher("glob:" + "*.jar");
+    }
+
+    static Pattern PLUG_PAT =
+      Pattern.compile("(\\w+)\\.xml$", Pattern.CASE_INSENSITIVE);
+
+    PluginFileVisitor setExclusions(List<Pattern> excludePats) {
+      this.excludePats = excludePats;
+      return this;
+    }
+
+//     boolean isExcluded(String id) {
+//       if (excludePats == null) return false;
+//       for (Pattern pat : excludePats) {
+// 	if (pat.matcher(id).matches()) return true;
+//       }
+//       return false;
+//     }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+	throws IOException {
+
+      res.add(file.toString());
+      return CONTINUE;
+    }
+  }
+
+  /** Visitor for Files.walkFileTree(), makes a PlugSpec for each plugin in
+   * tree */
+  static class JarFileVisitor extends SimpleFileVisitor<Path> {
+    List<String> res;
+    Path root;
+    PathMatcher matcher;
+    List<Pattern> excludePats;
+    List<String> excluded = new ArrayList<>();
+
+    JarFileVisitor(List<String> res, Path root) {
       this.res = res;
       this.root = root;
       matcher = FileSystems.getDefault().getPathMatcher("glob:" + "*.xml");
@@ -274,7 +371,7 @@ public final class PluginWellformednessTests extends LockssTestCase {
     static Pattern PLUG_PAT =
       Pattern.compile("(\\w+)\\.xml$", Pattern.CASE_INSENSITIVE);
 
-    FileVisitor setExclusions(List<Pattern> excludePats) {
+    JarFileVisitor setExclusions(List<Pattern> excludePats) {
       this.excludePats = excludePats;
       return this;
     }
@@ -285,10 +382,6 @@ public final class PluginWellformednessTests extends LockssTestCase {
 	if (pat.matcher(id).matches()) return true;
       }
       return false;
-    }
-
-    List<String> getExcluded() {
-      return excluded;
     }
 
     @Override
@@ -319,10 +412,11 @@ public final class PluginWellformednessTests extends LockssTestCase {
       super.processOneRegistryJar(cu, url, au, tmpMap);
     }
 
-    protected void loadPluginsFromJar(File jarFile, String url,
-				      ArchivalUnit au, CachedUrl cu,
-				      Map tmpMap) {
-      super.loadPluginsFromJar(jarFile, url, au, cu, tmpMap);
+    protected Collection<PluginInfo>
+      loadPluginsFromJar(File jarFile, String url,
+                         ArchivalUnit au, CachedUrl cu,
+                         Map<String,PluginInfo> tmpMap) {
+      return super.loadPluginsFromJar(jarFile, url, au, cu, tmpMap);
     }
     
     void installPlugins(Map<String,PluginInfo> map) {
@@ -341,6 +435,7 @@ public final class PluginWellformednessTests extends LockssTestCase {
 
   public static void main(String[] argv) throws Exception {
     List<String> pluginNames = new ArrayList<>();
+    List<String> pluginJars = new ArrayList<>();
 
     if (argv.length > 0) {
       int ix = 0;
@@ -352,26 +447,52 @@ public final class PluginWellformednessTests extends LockssTestCase {
           } else if (arg.equals("-pd")) {
             String plugTree = argv[++ix];
             pluginNames.addAll(findPluginsInTree(plugTree));
+          } else if (arg.equals("-pjd")) {
+            String plugJarTree = argv[++ix];
+            pluginJars.addAll(findPluginJarsInTree(plugJarTree));
+          } else if (arg.equals("-pj")) {
+            pluginJars.add(argv[++ix]);
           } else {
+            log.fatal("Illegal command line: {}", ListUtil.list(argv));
             usage();
 	  }
 	}
       } catch (ArrayIndexOutOfBoundsException e) {
+        log.fatal("Illegal command line: {}", ListUtil.list(argv), e);
 	usage();
       }
-      if (pluginNames.isEmpty()) {
-        usage();
+      if (!pluginNames.isEmpty() && !pluginJars.isEmpty()) {
+        usage("Error: Can't specify both plugin names and plugin jars");
       }
-      new PluginWellformednessTests().run(pluginNames);
+      if (!pluginNames.isEmpty() && !pluginJars.isEmpty()) {
+        new PluginWellformednessTests().testPlugins(pluginNames);
+      } else if (!pluginJars.isEmpty()) {
+        new PluginWellformednessTests().testJars(pluginNames);
+      } else {
+        log.warn("No plugins specified, exiting.");
+      }
     }
 
   }
 
   private static void usage() {
+    usage(null);
+  }
+
+  private static void usage(String msg) {
     PrintStream o = System.out;
-    o.println("Usage: java PluginWellformednessTests " +
-	      " [-pj plugin_jar] plugin_id_1 plugin_id_2 ...");
-    o.println("   -pj plugin_jar     packaged plugin jar");
+    if (msg != null) {
+      o.println(msg);
+    }
+    o.println("Usage: java PluginWellformednessTests" +
+	      " [-pd <plugin_dir>]" +
+	      " [-pj <plugin_jar>]" +
+              " [-pjd <plugin_jar_dir>]" +
+	      " <plugin_id_1> <plugin_id_2> ...");
+    o.println("  -pd <plugin_dir>     root of tree of compiled plugins (e.g., target/classes)");
+    o.println("  -pj plugin_jar       packaged plugin jar");
+    o.println("  -pjd plugin_jar_dir  root of tree of packaged plugin jars");
+    o.println("  <plugin_id_n>        id of plugin(s) on classpath");
     System.exit(2);
   }
 }

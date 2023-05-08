@@ -102,7 +102,12 @@ public class TestPluginManager extends LockssTestCase4 {
   static String p1a2param = p1param + mauauidKey2 + ".";
   static String p1a3param = p1param + mauauidKey3 + ".";
 
-  private String pluginJar;
+  static String badplug = "org/lockss/test/plugins/unknown-sig.jar";
+
+  private String pluginJar = "org/lockss/test/plugins/good-plugin.jar";
+  private String pluginJarV2 = "org/lockss/test/plugins/good-plugin2.jar";
+  private String pluginJarV3 = "org/lockss/test/plugins/good-plugin3.jar";
+;
   private String pubKeystore = "org/lockss/test/public.keystore";
   private String password = "f00bar";
 
@@ -2234,8 +2239,10 @@ public class TestPluginManager extends LockssTestCase4 {
     assertTrue(bs.take(Deadline.in(0)));
   }
 
+  final static String TEST_PLUGINS_DIR = "org/lockss/test/plugins";
+
   private void prepareLoadablePluginTests(Properties p) throws Exception {
-    pluginJar = "org/lockss/test/mock-plugin-v1.jar";
+    pluginJar = TEST_PLUGINS_DIR + "/mock-plugin-v1.jar";
     if (p == null) {
       p = new Properties();
     }
@@ -2422,7 +2429,6 @@ public class TestPluginManager extends LockssTestCase4 {
 // XXX  @Test
   public void testErrorProcessingRegistryAu() throws Exception {
     mgr.startService();
-    String badplug = "org/lockss/test/bad-plugin.jar";
     Properties p = new Properties();
     p.setProperty(PluginManager.PARAM_PREFER_LOADABLE_PLUGIN, "true");
     prepareLoadablePluginTests(p);
@@ -2496,7 +2502,7 @@ public class TestPluginManager extends LockssTestCase4 {
     // a plugin jar comes from).
     MyMockRegistryArchivalUnit mmau2 =
       new MyMockRegistryArchivalUnit(ListUtil.list(pluginJar,
-                                                   "org/lockss/test/mock-plugin-v2.jar"));
+                                                   TEST_PLUGINS_DIR + "/mock-plugin-v2.jar"));
     assertSame(au1, mgr.getAuFromIdIfExists(auid));
     mgr.processRegistryAus(ListUtil.list(mmau2));
 
@@ -2561,8 +2567,8 @@ public class TestPluginManager extends LockssTestCase4 {
     // AU load, or they will not be processed (because CU version is faked)
     MyMockRegistryArchivalUnit mmau2 =
       new MyMockRegistryArchivalUnit(ListUtil.list(
-                                                   "org/lockss/test/mock-plugin-v3.jar",
-                                                   "org/lockss/test/mock-plugin-v2.jar"),
+                                                   TEST_PLUGINS_DIR + "/mock-plugin-v3.jar",
+                                                   TEST_PLUGINS_DIR + "/mock-plugin-v2.jar"),
                                      2);
     assertSame(au1, mgr.getAuFromIdIfExists(auid));
     mgr.processRegistryAus(ListUtil.list(mmau2));
