@@ -32,6 +32,10 @@ import javax.servlet.*;
 import java.io.*;
 import java.util.*;
 
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.rest.crawler.RestCrawlerClient;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.mortbay.html.*;
@@ -117,6 +121,7 @@ public class DebugPanel extends LockssServlet {
   private LockssDaemon daemon;
   private PluginManager pluginMgr;
   private RestServicesManager svcsMgr;
+  private ServiceBinding crawlerServiceBinding = null;
   private PollManager pollManager;
   private CrawlManager crawlMgr;
   private ConfigManager cfgMgr;
@@ -162,6 +167,10 @@ public class DebugPanel extends LockssServlet {
       log.debug("No crawl manager, some functions nonfunctional");
       crawlMgr = null;
     }
+    crawlerServiceBinding = daemon.getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    if (crawlerServiceBinding == null) {
+      log.debug("No Crawler Service binding, some functions nonfunctional");
+    }
     cfgMgr = daemon.getConfigManager();
     try {
       rmtApi = daemon.getRemoteApi();
@@ -175,6 +184,7 @@ public class DebugPanel extends LockssServlet {
       mdxServiceBinding = null;
       log.debug("No MDX Service binding, some functions nonfunctional");
     }
+
   }
 
   public void lockssHandleRequest() throws IOException {
@@ -306,7 +316,7 @@ public class DebugPanel extends LockssServlet {
     ArchivalUnit au = getAu();
     if (au == null) return;
     try {
-      startCrawl(au, force, deep);
+      startCrawl(au, force, deep, daemon.getCrawlMode().isCrawlNonPlugins());
     } catch (CrawlManagerImpl.NotEligibleException.RateLimiter e) {
       errMsg = "AU has crawled recently (" + e.getMessage()
 	+ ").  Click again to override.";
@@ -323,7 +333,7 @@ public class DebugPanel extends LockssServlet {
       sb.append(au.getName());
       sb.append(": ");
       try {
-	startCrawl(au, true, false);
+        startCrawl(au, true, false, daemon.getCrawlMode().isCrawlPlugins());
 	sb.append("Queued.");
       } catch (CrawlManagerImpl.NotEligibleException e) {
 	sb.append("Failed: ");
@@ -334,7 +344,7 @@ public class DebugPanel extends LockssServlet {
     statusMsg = sb.toString();
   }
 
-  private boolean startCrawl(ArchivalUnit au, boolean force, boolean deep)
+  private boolean startCrawl(ArchivalUnit au, boolean force, boolean deep, boolean isLocal)
       throws CrawlManagerImpl.NotEligibleException {
     CrawlManagerImpl cmi = (CrawlManagerImpl)crawlMgr;
     if (force) {
@@ -384,9 +394,54 @@ public class DebugPanel extends LockssServlet {
       errMsg = "Couldn't create CrawlReq: " + e.toString();
       return false;
     }
-    cmi.startNewContentCrawl(req);
+    if(isLocal) {
+      cmi.startNewContentCrawl(req);
+    }
+    else {
+      sendCrawlRequest(req);
+    }
     statusMsg = deepMsg + "Crawl requested for " + au.getName() + delayMsg;
     return true;
+  }
+
+  public boolean sendCrawlRequest(CrawlReq req) {
+    if (crawlerServiceBinding == null || !svcsMgr.isServiceReady(crawlerServiceBinding)) {
+      log.error("Unable to Crawl. Crawl Service is inaccessible");
+      return false;
+    }
+    if (req.getAu() != null) {
+      try {
+        // Schedule the repair crawl with the crawler service rest client
+        RestCrawlerClient client =
+            new RestCrawlerClient(crawlerServiceBinding.getRestStem());
+        CrawlDesc desc = new CrawlDesc()
+            .auId(req.getAuId())
+            .refetchDepth(req.getRefetchDepth())
+            .priority(req.getPriority())
+            .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        CrawlJob crawlJob = client.callCrawl(desc);
+
+        if (crawlJob == null || crawlJob.getJobStatus() == null) {
+          log.error("Attempt to send crawl for " + req.getAuName() + " failed. null result.");
+          return false;
+        }
+        JobStatus.StatusCodeEnum statusCode = crawlJob.getJobStatus().getStatusCode();
+        switch( statusCode) {
+          case QUEUED:
+          case SUCCESSFUL:
+          case ACTIVE:
+            log.debug2("Repair crawl request for "+ req.getAuName()+ " successfully submitted.");
+            break;
+          default:
+            log.error("Repair crawl request for " + req.getAuName() + " failed: " + statusCode);
+            return false;
+        }
+        return true;
+      } catch (Exception e) {
+        log.error("Cannot schedule repair crawl for " +req.getAuName(), e);
+      }
+    }
+    return false;
   }
 
   private void doCheckSubstance() {

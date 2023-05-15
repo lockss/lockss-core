@@ -35,7 +35,14 @@ public interface CrawlEventHandler {
    *
    * @param event The description of the crawl event.
    */
-  void crawlStarted(CrawlEvent event);
+  void newContentStarted(CrawlEvent event);
+
+  /**
+   * Called when a crawl has completed.
+   *
+   * @param event The description of the crawl event.
+   */
+  void newContentCompleted(CrawlEvent event);
 
   /**
    * Called when a repair crawl has started.
@@ -45,38 +52,32 @@ public interface CrawlEventHandler {
   void repairStarted(CrawlEvent event);
 
   /**
-   * Called when a crawl has completed.
-   *
-   * @param event The description of the crawl event.
-   */
-  void crawlCompleted(CrawlEvent event);
-
-  /**
    * Called when a repair crawl has completed.
    *
    * @param event The description of the crawl event.
    */
   void repairCompleted(CrawlEvent event);
 
+
   class Base implements CrawlEventHandler {
     private static final L4JLogger log = L4JLogger.getLogger();
 
     @Override
-    public void crawlStarted(CrawlEvent event) {
+    public void newContentStarted(CrawlEvent event) {
       log.debug("Received crawl started event.");
-      handleCrawlStarted(event);
+      handleNewContentStarted(event);
+    }
+
+    @Override
+    public void newContentCompleted(CrawlEvent event) {
+      log.debug("Received crawl completed event.");
+      handleNewContentCompleted(event);
     }
 
     @Override
     public void repairStarted(CrawlEvent event) {
       log.debug("Received repair crawl started event.");
       handleRepairStarted(event);
-    }
-
-    @Override
-    public void crawlCompleted(CrawlEvent event) {
-      log.debug("Received crawl completed event.");
-      handleCrawlCompleted(event);
     }
 
     @Override
@@ -94,13 +95,13 @@ public interface CrawlEventHandler {
      *
      * @param event The description of the crawl event.
      */
-    protected void handleCrawlStarted(CrawlEvent event) {}
+    protected void handleNewContentStarted(CrawlEvent event) {}
     /**
      * handler for a crawl which has completed.
      *
      * @param event The description of the crawl event.
      */
-    protected void handleCrawlCompleted(CrawlEvent event) {}
+    protected void handleNewContentCompleted(CrawlEvent event) {}
     /**
      * handler for a repair crawl which has started.
      *

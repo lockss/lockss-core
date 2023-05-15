@@ -12,13 +12,14 @@ public class CrawlEvent {
 
   public enum Type {
     /** A Crawl attempt has started. */
-    CrawlStarted,
+    NewContentCrawlStarted,
     /** The Crawl Attempt has completed. */
-    CrawlAttemptComplete,
+    NewContentCrawlComplete,
     /** A Repair crawl has started. */
     RepairCrawlStarted,
     /** A Repoir Crawl Attempt was completed. */
-    RepairCrawlComplete
+    RepairCrawlComplete,
+    /** A registry Au Crawl Attempt was started. */
   }
 
   /** Key - boolean succeed true, failed false */
@@ -36,6 +37,8 @@ public class CrawlEvent {
   /** Any extra data related to the crawl request. */
   public static final String KEY_CRAWL_EXTRA_DATA = "extraData";
 
+  public static final String KEY_COOKIE = "cookie";
+
   private Type evtType;
   private String crawlerId;
   private boolean successful;
@@ -45,10 +48,15 @@ public class CrawlEvent {
   private int status;
   private Map<String, Object> extraData;
 
-  public CrawlEvent(Type evtType, Object extraData, boolean successful, CrawlerStatus cs) {
+
+  public CrawlEvent(Type evtType, Object cookie, boolean successful, CrawlerStatus cs) {
     this.evtType = evtType;
-    if (extraData != null && extraData instanceof Map) {
-      this.extraData = (Map<String, Object>) extraData;
+    if (extraData instanceof Map) {
+      this.extraData = (Map<String, Object>) cookie;
+    }
+    else {
+      this.extraData = new HashMap<>();
+      this.extraData.put(KEY_COOKIE, cookie);
     }
     this.successful = successful;
     if (cs != null) {

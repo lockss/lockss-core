@@ -35,7 +35,6 @@ package org.lockss.poller;
 import static org.lockss.poller.v3.V3PollFactory.*;
 import static org.lockss.poller.v3.V3Poller.*;
 import static org.lockss.poller.v3.V3Voter.*;
-import static org.lockss.state.BaseStateManager.JMS_MAP_NAME;
 import static org.lockss.util.Constants.*;
 
 import java.io.*;
@@ -806,7 +805,7 @@ public class PollManager
   public boolean sendRepairRequest(ArchivalUnit au,
                                    List<String> pendingPublisherRepairs,
                                    String key) {
-    if (crawlerServiceBinding == null) {
+    if (crawlerServiceBinding == null || !svcsMgr.isServiceReady(crawlerServiceBinding)) {
       log.error("Repair Crawl  is not accessible.");
       return false;
     }
@@ -852,6 +851,9 @@ public class PollManager
       V3Poller poll= (V3Poller) getPoll(pollId);
       if(poll != null) {
         poll.handleRepairResponse(event.isSuccessful(), event.getUrlsFetched());
+      }
+      else {
+        log.debug("Received a repair crawl complete for unknown pollId " + pollId);
       }
     }
   }
@@ -1337,10 +1339,8 @@ public class PollManager
     // setup service binding to send crawl request
     svcsMgr = getDaemon().getManagerByType(RestServicesManager.class);
     crawlerServiceBinding = getDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER);
-    if (crawlerServiceBinding == null ||
-      !svcsMgr.isServiceReady(crawlerServiceBinding)) {
-      crawlerServiceBinding = null;
-      log.debug("No Crawler Service binding, repair functions nonfunctional");
+    if (crawlerServiceBinding == null) {
+      log.warning("No Crawler Service binding, repair functions nonfunctional");
     }
     if(changedKeys.contains(PARAM_ENABLE_CRAWL_NOTIFICATIONS))
       enableCrawlNotifications = newConfig.getBoolean(PARAM_ENABLE_CRAWL_NOTIFICATIONS,
