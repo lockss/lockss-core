@@ -31,6 +31,7 @@ package org.lockss.plugin.definable;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.stream.*;
 
 import org.apache.commons.lang3.tuple.*;
 import org.lockss.app.LockssDaemon;
@@ -466,13 +467,23 @@ public class TestDefinablePlugin extends LockssTestCase {
     // jar:file:...  I offer no specific solution, but I hope I've
     // done you a service by pointing out the source of the problem.
 
-    assertEquals(SetUtil.set(Pair.of("org.lockss.plugin.exploded",
-                                     new URL("file:/home/tal/laaws/lockss-core/target/classes/org/lockss/plugin/exploded/")),
-                             Pair.of("org.lockss.plugin.definable",
-                                     new URL("file:/home/tal/laaws/lockss-core/target/test-classes/org/lockss/plugin/definable/")),
-                             Pair.of("org.lockss.plugin.base",
-                                     new URL("file:/home/tal/laaws/lockss-core/target/test-classes/org/lockss/plugin/base/"))),
-                 definablePlugin.getAuxPkgUrls());
+    Set<Pair> exp =
+      ListUtil.list("org.lockss.plugin.exploded",
+                    "org.lockss.plugin.definable",
+                    "org.lockss.plugin.base").stream()
+      .map(x -> Pair.of(x,
+                        getResource("/" + StringUtil.replaceString(x.toString(),
+                                                                   ".", "/") +"/")))
+      .collect(Collectors.toSet());
+    assertEquals(exp, definablePlugin.getAuxPkgUrls());
+  }
+
+  private URL newURL(String s) {
+    try {
+      return new URL(s);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public void testCorrectParentVersion() throws Exception {
