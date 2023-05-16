@@ -20,7 +20,7 @@ err_exit() {
   exit 1
 }
 
-mvn_args="-DskipEtags -DskipBuildInfo -DskipClasspathFiles -DskipGenAntlr -DskipMainSources -DskipTestSources"
+mvn_args="-DXXloglevel=debug2 -DskipWellFormednessTests -DskipEtags -DskipBuildInfo -DskipClasspathFiles -DskipGenAntlr -DskipMainSources -DskipTestSources"
 
 while true ; do
   case "$1" in
@@ -52,7 +52,6 @@ cpj() {
   ( cd test/testplugins/misctest
     echo `pwd` mvn $@
     mvn ${mvn_args} clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy.keystore" -Dkeystore.alias=goodguy -Dkeystore.password=f00bar  $@
-set -x
     cpj org.lockss.testxml.XmlPlugin.jar good-xml.jar
 #    cpj org.lockss.testjava.JavaPlugin.jar good-java.jar
     cpj org.lockss.testaux.PluginWithAux.jar good-with-aux.jar
@@ -68,6 +67,8 @@ set -x
     cpj org.lockss.testparent.ChildPlugin.jar good-with-missing-parent.jar
     zip -d "${test_plugins_dir}/good-with-missing-parent.jar" org/lockss/parent/ParentPlugin.xml
 
+    cpj org.lockss.failvalidate.FailValidatePlugin.jar failvalidate.jar
+
     echo "tampered/partially signed plugins"
 
     cpj org.lockss.testxml.XmlPlugin.jar partially-signed.jar
@@ -82,7 +83,6 @@ set -x
 
   ) || err_exit "Plugin packaging failure"
 
-set -x
   echo "Building unsigned plugins"
   ( cd test/testplugins/misctest
     echo `pwd` mvn $@

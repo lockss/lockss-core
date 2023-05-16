@@ -72,9 +72,9 @@ public class TestPluginManager extends LockssTestCase4 {
   static final String V2NS = "ns";
 
   static String mockPlugKey =
-    PluginManager.pluginKeyFromName(MyMockPlugin.class.getName());
+    PluginManager.pluginKeyFromId(MyMockPlugin.class.getName());
   static String simplePlugKey =
-    PluginManager.pluginKeyFromName("org.lockss.test.SimplePlugin");
+    PluginManager.pluginKeyFromId("org.lockss.test.SimplePlugin");
   static Properties props1 = new Properties();
   static Properties props2 = new Properties();
   static Properties props3 = new Properties();
@@ -237,13 +237,8 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testNameFromKey() {
-    assertEquals("org.lockss.Foo", PluginManager.pluginNameFromKey("org|lockss|Foo"));
-  }
-
-  @Test
-  public void testKeyFromName() {
-    assertEquals("org|lockss|Foo", PluginManager.pluginKeyFromName("org.lockss.Foo"));
+  public void testIdFromKey() {
+    assertEquals("org.lockss.Foo", PluginManager.pluginIdFromKey("org|lockss|Foo"));
   }
 
   @Test
@@ -309,7 +304,7 @@ public class TestPluginManager extends LockssTestCase4 {
   public void testEnsurePluginLoadedCheckDaemonVersion()
       throws Exception {
     mgr.startService();
-    String key = PluginManager.pluginKeyFromName(VerPlugin1_10_0.class.getName());
+    String key = PluginManager.pluginKeyFromId(VerPlugin1_10_0.class.getName());
     // with insufficient daemon version,
     setDaemonVersion("1.1.1");
     // plugin requiring 1.10.0 should not load
@@ -326,7 +321,7 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.startService();
     // A plugin that wants either 1.10.0 or 2.7.3
     String key =
-      PluginManager.pluginKeyFromName(VerPlugin1_10_0or2_7_3.class.getName());
+      PluginManager.pluginKeyFromId(VerPlugin1_10_0or2_7_3.class.getName());
     // with insufficient daemon version,
     setDaemonVersion("1.9.1");
     // plugin requiring 1.10.0 or 2.7.3 should not load
@@ -389,10 +384,10 @@ public class TestPluginManager extends LockssTestCase4 {
     Properties p = new Properties();
     p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRY, n1 + ";" + n2);
     ConfigurationUtil.addFromProps(p);
-    Plugin p1 = mgr.getPlugin(PluginManager.pluginKeyFromName(n1));
+    Plugin p1 = mgr.getPlugin(PluginManager.pluginKeyFromId(n1));
     assertNotNull(p1);
     assertTrue(p1.toString(), p1 instanceof MockPlugin);
-    Plugin p2 = mgr.getPlugin(PluginManager.pluginKeyFromName(n2));
+    Plugin p2 = mgr.getPlugin(PluginManager.pluginKeyFromId(n2));
     assertNotNull(p2);
     assertTrue(p2.toString(), p2 instanceof ThrowingMockPlugin);
     assertEquals(SetUtil.set(p1, p2),
@@ -410,12 +405,12 @@ public class TestPluginManager extends LockssTestCase4 {
     ConfigurationUtil.addFromProps(p);
     assertEquals(SetUtil.set(p1),
 		 SetUtil.theSet(mgr.getRegisteredPlugins()));
-    assertNull(mgr.getPlugin(PluginManager.pluginKeyFromName(n2)));
-    assertSame(p1, mgr.getPlugin(PluginManager.pluginKeyFromName(n1)));
+    assertNull(mgr.getPlugin(PluginManager.pluginKeyFromId(n2)));
+    assertSame(p1, mgr.getPlugin(PluginManager.pluginKeyFromId(n1)));
     p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRY, n1 + ";" + n2);
     p.setProperty(PluginManager.PARAM_PLUGIN_RETRACT, "");
     ConfigurationUtil.addFromProps(p);
-    p2 = mgr.getPlugin(PluginManager.pluginKeyFromName(n2));
+    p2 = mgr.getPlugin(PluginManager.pluginKeyFromId(n2));
     assertNotNull(p2);
     assertTrue(p2.toString(), p2 instanceof ThrowingMockPlugin);
   }
@@ -1884,7 +1879,7 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.startService();
     repo = repoMgr.getV2Repository().getRepository();
     String plugKey =
-      PluginManager.pluginKeyFromName(NamedArchivalUnit.NAMED_PLUGIN_NAME);
+      PluginManager.pluginKeyFromId(NamedArchivalUnit.NAMED_PLUGIN_NAME);
     mgr.ensurePluginLoaded(plugKey);
     Plugin plug = mgr.getPlugin(plugKey);
     Configuration auConfig = ConfigurationUtil.fromArgs("handle", "foo");

@@ -482,7 +482,7 @@ public class PluginPackager {
 
     Plugin loadPlugin(String pluginId, ClassLoader loader) throws Exception {
       try {
-	String key = pluginMgr.pluginKeyFromName(pluginId);
+	String key = pluginMgr.pluginKeyFromId(pluginId);
 	PluginManager.PluginInfo pinfo = pluginMgr.loadPlugin(key, loader);
 	return pinfo.getPlugin();
       } catch (Exception e) {

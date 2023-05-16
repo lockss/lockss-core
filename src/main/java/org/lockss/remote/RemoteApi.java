@@ -457,7 +457,7 @@ public class RemoteApi
   }
 
   String pluginIdFromAuId(String auid) {
-    return PluginManager.pluginNameFromAuId(auid);
+    return PluginManager.pluginIdFromAuId(auid);
   }
 
   public InputStream openCacheConfigFile(String cacheConfigFileName)
@@ -1107,7 +1107,7 @@ public class RemoteApi
     if (pluginp == null) {
       stat.setStatus("Error", STATUS_ORDER_ERROR);
       stat.setExplanation("Plugin not found: " +
-			  PluginManager.pluginNameFromAuId(auid));
+			  PluginManager.pluginIdFromAuId(auid));
       if (log.isDebug2()) log.debug2(DEBUG_HEADER + "stat = " + stat);
       return stat;
     }

@@ -140,14 +140,14 @@ public class TdbUtil {
     final String DEBUG_HEADER = "getTdbAu(): ";
     if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "auid = " + auid);
 
-    String pluginId = PluginManager.pluginNameFromAuId(auid);
+    String pluginId = PluginManager.pluginIdFromAuId(auid);
     if (logger.isDebug3())
       logger.debug3(DEBUG_HEADER + "pluginId = " + pluginId);
 
     if (plugin == null) {
       PluginManager pluginMgr =
 	  LockssDaemon.getLockssDaemon().getPluginManager();
-      plugin = pluginMgr.getPlugin(PluginManager.pluginKeyFromName(pluginId));
+      plugin = pluginMgr.getPlugin(PluginManager.pluginKeyFromId(pluginId));
       if (logger.isDebug3()) logger.debug3(DEBUG_HEADER + "plugin = " + plugin);
     }
 

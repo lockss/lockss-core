@@ -261,7 +261,7 @@ public class TestTitleSetXpath extends LockssTestCase {
 
   public void testSample() throws Exception {
     pluginMgr.startService();  // deactivateAu() below requires service runnning
-    pluginMgr.ensurePluginLoaded(pluginMgr.pluginKeyFromName(pname));
+    pluginMgr.ensurePluginLoaded(pluginMgr.pluginKeyFromId(pname));
     final Plugin plug = pluginMgr.getPluginFromId(pname);
 
     ConfigurationUtil.addFromUrl(getResource("sample1.xml"));

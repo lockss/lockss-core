@@ -439,7 +439,8 @@ public class PluginManager
   // Plugin registry processing
   private Map cuNodeVersionMap = Collections.synchronizedMap(new HashMap());
   // Map of plugin key to PluginInfo
-  private Map pluginfoMap = Collections.synchronizedMap(new HashMap());
+  private Map<String,PluginInfo> pluginfoMap =
+    Collections.synchronizedMap(new HashMap<>());
   private Map<String, Plugin> internalPlugins = new HashMap<String, Plugin>();
   private boolean prevCrawlOnce = false;
 
@@ -827,7 +828,7 @@ public class PluginManager
   private void startOrReconfigureAu(AuConfiguration auConfiguration,
 				    SkipConfigCondition scc) {
     String auId = auConfiguration.getAuId();
-    String pluginKey = pluginIdFromAuId(auId);
+    String pluginKey = pluginKeyFromAuId(auId);
 
     synchronized (auAddDelLock) {
       // Check whether the load of the plugin of this Archival Unit has not
@@ -1016,33 +1017,26 @@ public class PluginManager
   }
 
   /**
-   * Convert plugin property key to plugin class name.
+   * Convert plugin property key to plugin ID.
    * @param key the key
-   * @return the plugin name
+   * @return the plugin ID
    */
-  public static String pluginNameFromKey(String key) {
+  public static String pluginIdFromKey(String key) {
     return StringUtil.replaceString(key, "|", ".");
   }
 
-  /**
-   * Convert plugin class name to key suitable for property file.
-   * @param className the class name
-   * @return the plugin key
-   */
-  public static String pluginKeyFromName(String className) {
-    return StringUtil.replaceString(className, ".", "|");
+  @Deprecated
+  public static String pluginNameFromKey(String key) {
+    return pluginIdFromKey(key);
   }
 
   /**
-   * Convert plugin id to key suitable for property file.  Plugin id is
-   * currently the same as plugin class name, but that may change.
+   * Convert plugin id to key suitable for property file.
    * @param id the plugin id
-   * @return String the plugin key
+   * @return the plugin key
    */
-  public static String pluginKeyFromId(String id) {
-    // tk - needs to do real mapping from IDs obtained from all available
-    // plugins.
-    return StringUtil.replaceString(id, ".", "|");
+  public static String pluginKeyFromId(String className) {
+    return StringUtil.replaceString(className, ".", "|");
   }
 
   /**
@@ -1135,7 +1129,7 @@ public class PluginManager
     return auid.substring(pos + 1);
   }
 
-  public static String pluginIdFromAuId(String auid) {
+  public static String pluginKeyFromAuId(String auid) {
     int pos = auid.indexOf("&");
     if (pos < 0) {
       throw new IllegalArgumentException("Illegal AuId: " + auid);
@@ -1143,8 +1137,13 @@ public class PluginManager
     return auid.substring(0, pos);
   }
 
+  public static String pluginIdFromAuId(String auid) {
+    return pluginIdFromKey(pluginKeyFromAuId(auid));
+  }
+
+  @Deprecated
   public static String pluginNameFromAuId(String auid) {
-    return pluginNameFromKey(pluginIdFromAuId(auid));
+    return pluginIdFromAuId(auid);
   }
 
   public static String configKeyFromAuId(String auid) {
@@ -2095,7 +2094,7 @@ public class PluginManager
 	for (Map.Entry<String,Configuration> ent : configMap.entrySet()) {
 	  String auid = ent.getKey();
 	  Configuration auConf = ent.getValue();
-	  String pkey = pluginKeyFromId(pluginIdFromAuId(auid));
+	  String pkey = pluginKeyFromId(pluginKeyFromAuId(auid));
 	  Plugin plug = getPlugin(pkey);
 
 	  // To find the last AU.
@@ -2170,8 +2169,8 @@ public class PluginManager
    * Return true if the specified Plugin is a Loadable plugin
    */
   public boolean isLoadablePlugin(Plugin plugin) {
-    PluginInfo info = (PluginInfo)pluginfoMap.get(getPluginKey(plugin));
-    if (info == null) {
+    PluginInfo info = pluginfoMap.get(getPluginKey(plugin));
+    if (info.isError()) {
       return false;
     }
     return info.isOnLoadablePath();
@@ -2232,15 +2231,15 @@ public class PluginManager
   PluginInfo retrievePlugin(String pluginKey, ClassLoader loader)
       throws Exception {
     if (pluginfoMap.containsKey(pluginKey)) {
-      return (PluginInfo)pluginfoMap.get(pluginKey);
+      return pluginfoMap.get(pluginKey);
     }
     if (pluginMap.containsKey(pluginKey)) {
       return new PluginInfo(pluginMap.get(pluginKey), loader, null);
     }
-    String pluginName = pluginNameFromKey(pluginKey);
+    String pluginId = pluginIdFromKey(pluginKey);
     if (retract != null && !retract.isEmpty()) {
-      if (retract.contains(pluginName)) {
-	log.debug3("Not loading " + pluginName +
+      if (retract.contains(pluginId)) {
+	log.debug3("Not loading " + pluginId +
 		   " because it's on the retract list");
 	return null;
       }
@@ -2257,36 +2256,40 @@ public class PluginManager
                  " of " + newPlug.getPluginName());
       return info;
     } catch (PluginException.PluginNotFound e) {
-      logAndAlert(pluginName, "Plugin not found", e);
+      logAndAlert(pluginId, "Plugin not found", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (PluginException.LinkageError e) {
-      logAndAlertStack(pluginName, "Can't load plugin", e);
+      logAndAlertStack(pluginId, "Can't load plugin", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (PluginException.IncompatibleDaemonVersion e) {
-      logAndAlert(pluginName, "Incompatible Plugin", e);
+      logAndAlert(pluginId, "Incompatible Plugin", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (PluginException.InvalidDefinition e) {
-      logAndAlert(pluginName, "Error in plugin", e);
+      logAndAlert(pluginId, "Error in plugin", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (Exception e) {
-      logAndAlertStack(pluginName, "Can't load plugin", e);
+      logAndAlertStack(pluginId, "Can't load plugin", e);
+      return PluginInfo.forError(pluginId, e);
     }
-    return null;
   }
 
-  void logAndAlertStack(String pluginName, String msg, Exception e) {
-    log.error(msg + ": " + pluginName, e);
-    alert0(pluginName, msg, e.getMessage());
+  void logAndAlertStack(String pluginId, String msg, Exception e) {
+    log.error(msg + ": " + pluginId, e);
+    alert0(pluginId, msg, e.getMessage());
   }
 
-  void logAndAlert(String pluginName, String msg, Exception e) {
-    logAndAlert(pluginName, msg, e.getMessage());
+  void logAndAlert(String pluginId, String msg, Exception e) {
+    logAndAlert(pluginId, msg, e.getMessage());
   }
 
-  void logAndAlert(String pluginName, String msg, String emsg) {
-    log.error(msg + ": " + pluginName + ": " + emsg);
-    alert0(pluginName, msg, emsg);
+  void logAndAlert(String pluginId, String msg, String emsg) {
+    log.error(msg + ": " + pluginId + ": " + emsg);
+    alert0(pluginId, msg, emsg);
   }
 
-  void alert0(String pluginName, String msg, String emsg) {
+  void alert0(String pluginId, String msg, String emsg) {
     raiseAlert(Alert.cacheAlert(Alert.PLUGIN_NOT_LOADED), 
-	       String.format("%s: %s\n%s", msg, pluginName, emsg));
+	       String.format("%s: %s\n%s", msg, pluginId, emsg));
   }
 
   /**
@@ -2296,19 +2299,19 @@ public class PluginManager
    */
   public PluginInfo loadPlugin(String pluginKey, ClassLoader loader)
       throws Exception {
-    String pluginName = pluginNameFromKey(pluginKey);
+    String pluginId = pluginIdFromKey(pluginKey);
     if (loader == null) {
       loader = this.getClass().getClassLoader();
     }
 
     // First look for a loadable plugin definition.
     try {
-      log.debug3(pluginName + ": Looking for XML definition.");
-      Class c = Class.forName(getConfigurablePluginName(pluginName),
+      log.debug3(pluginId + ": Looking for XML definition.");
+      Class c = Class.forName(getConfigurablePluginName(pluginId),
 			      true, loader);
       log.debug3("Class is " + c.getName());
       DefinablePlugin xmlPlugin = (DefinablePlugin)c.newInstance();
-      xmlPlugin.initPlugin(getDaemon(), pluginName, loader);
+      xmlPlugin.initPlugin(getDaemon(), pluginId, loader);
       if (isCompatible(xmlPlugin)) {
 	// found a compatible plugin, return it
 	List<String> urls = xmlPlugin.getLoadedFromUrlStrings();
@@ -2316,23 +2319,23 @@ public class PluginManager
 	return info;
       } else {
 	xmlPlugin.stopPlugin();
-	log.warning("Plugin " + pluginName +
+	log.warning("Plugin " + pluginId +
 		    " not started because it requires daemon version " +
 		    xmlPlugin.getRequiredDaemonVersion());
       }
     } catch (FileNotFoundException ex) {
-      log.debug2("No XML plugin: " + pluginName + ": " + ex);
+      log.debug2("No XML plugin: " + pluginId + ": " + ex);
     }
     // throw any other exception
 
     // If didn't find an XML plugin look for a Plugin class.
     try {
-      log.debug3(pluginName + ": Looking for class.");
-      Class c = Class.forName(pluginName, true, loader);
+      log.debug3(pluginId + ": Looking for class.");
+      Class c = Class.forName(pluginId, true, loader);
       Plugin classPlugin = (Plugin)c.newInstance();
       classPlugin.initPlugin(getDaemon());
       if (isCompatible(classPlugin)) {
-	String path = pluginName.replace('.', '/').concat(".class");
+	String path = pluginId.replace('.', '/').concat(".class");
 	URL url = loader.getResource(path);
 	PluginInfo info = new PluginInfo(classPlugin, loader,
 					 ListUtil.list(url.toString()));
@@ -2342,13 +2345,13 @@ public class PluginManager
 	String req = " requires daemon version "
 	  + classPlugin.getRequiredDaemonVersion();
 	throw new PluginException.IncompatibleDaemonVersion("Plugin " +
-							    pluginName + req);
+							    pluginId + req);
       }
     } catch (ClassNotFoundException ex) {
-      throw new PluginException.PluginNotFound("Plugin " + pluginName
-					       + " could not be found");
+      throw new PluginException.PluginNotFound("Plugin " + pluginId
+					       + " could not be found", ex);
     } catch (LinkageError e) {
-      throw new PluginException.LinkageError("Plugin " + pluginName
+      throw new PluginException.LinkageError("Plugin " + pluginId
 					       + " could not be loaded", e);
     }
   }
@@ -2445,21 +2448,21 @@ public class PluginManager
       return true;
     }
 
-    PluginInfo info = (PluginInfo)pluginfoMap.get(pluginKey);
+    PluginInfo info = pluginfoMap.get(pluginKey);
     // if no ClassLoader supplied, see if we have info for a loadable plugin
-    if (loader == null && info != null) {
+    if (loader == null && info != null && !info.isError()) {
       loader = info.getClassLoader();
     }
     if (loader == null) {
       loader = this.getClass().getClassLoader();
     }
 
-    String pluginName = "";
+    String pluginId = "Shouldn't happen";
     try {
-      pluginName = pluginNameFromKey(pluginKey);
+      pluginId = pluginIdFromKey(pluginKey);
       log.debug3("Trying to retrieve "+pluginKey);
       info = retrievePlugin(pluginKey, loader);
-      if (info != null) {
+      if (!info.isError()) {
 	setPlugin(pluginKey, info.getPlugin());
 	pluginfoMap.put(pluginKey, info);
 	return true;
@@ -2468,7 +2471,7 @@ public class PluginManager
 	return false;
       }
     } catch (Exception e) {
-      log.error("Error instantiating " + pluginName, e);
+      log.error("Error instantiating " + pluginId, e);
       return false;
     }
   }
@@ -2478,7 +2481,7 @@ public class PluginManager
   }
 
   protected Plugin loadBuiltinPlugin(String pluginClassName) {
-    String pluginKey = pluginKeyFromName(pluginClassName);
+    String pluginKey = pluginKeyFromId(pluginClassName);
     if (ensurePluginLoaded(pluginKey)) {
       return pluginMap.get(pluginKey);
     }
@@ -2509,7 +2512,7 @@ public class PluginManager
     final String DEBUG_HEADER = "getPluginFromAuId(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auid = " + auid);
 
-    String pluginKey = pluginIdFromAuId(auid);
+    String pluginKey = pluginKeyFromAuId(auid);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey = " + pluginKey);
 
     Plugin plugin = getPlugin(pluginKeyFromId(pluginKey));
@@ -2524,7 +2527,7 @@ public class PluginManager
 	plugin = getPlugin(pluginKeyFromId(pluginKey));
       } catch (Exception e) {
         String message = "Error instantiating plugin "
-            + pluginNameFromKey(pluginIdFromAuId(auid));
+            + pluginIdFromKey(pluginKeyFromAuId(auid));
         log.error(message, e);
       }
     }
@@ -2594,16 +2597,16 @@ public class PluginManager
   /**
    * Return the class name (of possibly a subclass) of DefinablePlugin
    * that can be configured by an XML file.
-   * @param pluginName -  the class name of the plugin wanted
+   * @param pluginId -  the class name of the plugin wanted
    * @return - the class name of the configurable class that will implement
    * the named plugin
    */
-  protected String getConfigurablePluginName(String pluginName) {
+  protected String getConfigurablePluginName(String pluginId) {
     String ret = DEFAULT_CONFIGURABLE_PLUGIN_NAME;
     for (Iterator it = configurablePluginNameMap.keySet().iterator();
 	 it.hasNext(); ) {
       String regex = (String)it.next();
-      if (pluginName.matches(regex)) {
+      if (pluginId.matches(regex)) {
 	ret = configurablePluginNameMap.get(regex);
 	break;
       }
@@ -3742,7 +3745,7 @@ public class PluginManager
 
   /** @return loadable PluginInfo for plugin, or null */
   public PluginInfo getLoadablePluginInfo(Plugin plugin) {
-    return (PluginInfo)pluginfoMap.get(getPluginKey(plugin));
+    return pluginfoMap.get(getPluginKey(plugin));
   }
 
   /**
@@ -3844,7 +3847,7 @@ public class PluginManager
 	throw new IllegalArgumentException("Unknown internal plugin id: " + id);
       }
 
-      String pluginKey = pluginKeyFromName(id);
+      String pluginKey = pluginKeyFromId(id);
       internalPlugin.initPlugin(getDaemon());
       setPlugin(pluginKey, internalPlugin);
       internalPlugins.put(id, internalPlugin);
@@ -3937,7 +3940,7 @@ public class PluginManager
     List<String> nameList = config.getList(PARAM_PLUGIN_REGISTRY);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "nameList = " + nameList);
     for (String name : nameList) {
-      String key = pluginKeyFromName(name);
+      String key = pluginKeyFromId(name);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "key = " + key);
       ensurePluginLoaded(key);
     }
@@ -3969,7 +3972,7 @@ public class PluginManager
       if (retract != null) {
 	for (Iterator iter = retract.iterator(); iter.hasNext(); ) {
 	  String name = (String)iter.next();
-	  String key = pluginKeyFromName(name);
+	  String key = pluginKeyFromId(name);
 	  Plugin plug = getPlugin(key);
 	  if (plug != null && !isInternalPlugin(plug)) {
 	    Collection<ArchivalUnit> aus = plug.getAllAus();
@@ -3993,7 +3996,7 @@ public class PluginManager
 	if (mat.matches()) {
 	  String membname = mat.group(1);
 	  String plugname = membname.replace('/', '.');
-	  String plugkey = pluginKeyFromName(plugname);
+	  String plugkey = pluginKeyFromId(plugname);
 	  ensurePluginLoaded(plugkey);
 	}
       }
@@ -4177,9 +4180,12 @@ public class PluginManager
    * classpath.
    */
   private Pair<List<String>,List<String>> processJarPlugin(File blessedJar)
-      throws IOException {
+      throws IOException, PluginException {
     JarFile jar = new JarFile(blessedJar);
     Manifest manifest = jar.getManifest();
+    if (manifest == null) {
+      throw new PluginException("Plugin jar has no manifest: " + blessedJar);
+    }
     Map entries = manifest.getEntries();
     List<String> plugins = new ArrayList<>();
     List<String> libjars = new ArrayList<>();
@@ -4193,16 +4199,16 @@ public class PluginManager
       if (attrs.containsKey(LOADABLE_PLUGIN_ATTR)) {
 	String s = StringUtil.replaceString(key, "/", ".");
 
-	String pluginName = null;
+	String pluginId = null;
 
 	if (StringUtil.endsWithIgnoreCase(key, ".class")) {
-	  pluginName = StringUtil.replaceString(s, ".class", "");
-	  log.debug2("Adding '" + pluginName + "' to plugin load list.");
-	  plugins.add(pluginName);
+	  pluginId = StringUtil.replaceString(s, ".class", "");
+	  log.debug2("Adding '" + pluginId + "' to plugin load list.");
+	  plugins.add(pluginId);
 	} else if (StringUtil.endsWithIgnoreCase(key, ".xml")) {
-	  pluginName = StringUtil.replaceString(s, ".xml", "");
-	  log.debug2("Adding '" + pluginName + "' to plugin load list.");
-	  plugins.add(pluginName);
+	  pluginId = StringUtil.replaceString(s, ".xml", "");
+	  log.debug2("Adding '" + pluginId + "' to plugin load list.");
+	  plugins.add(pluginId);
 	}
       }
 
@@ -4409,11 +4415,10 @@ public class PluginManager
       Pair<List<String>,List<String>> p = processJarPlugin(jarFile);
       loadPlugins = p.getLeft();
       libJars = p.getRight();
-    } catch (IOException ex) {
-      log.error("Error while getting list of plugins for " +
-		jarFile);
-      return Collections.emptyList(); // skip this CU.
-
+    } catch (IOException | PluginException ex) {
+      log.error("Error while getting list of plugins for " + jarFile, ex);
+      return ListUtil.list(PluginInfo.forError("", ex));
+//       Collections.emptyList(); // skip this CU.
     }
     log.debug2("Blessed jar: " + jarFile + ", plugins: " + loadPlugins);
 
@@ -4446,17 +4451,18 @@ public class PluginManager
       return Collections.emptyList(); // skip this CU.
     }
 
-    for (String pluginName : loadPlugins) {
-      String key = pluginKeyFromName(pluginName);
+    for (String pluginId : loadPlugins) {
+      String key = pluginKeyFromId(pluginId);
 
       Plugin plugin;
       PluginInfo info;
       try {
-	info = retrievePlugin(pluginName, pluginLoader);
-	if (info == null) {
+	info = retrievePlugin(pluginId, pluginLoader);
+	if (info.isError()) {
 	  log.warning("Probable plugin packaging error: plugin " +
-                      pluginName + " could not be loaded from " +
+                      pluginId + " could not be loaded from " +
                       cu.getUrl());
+          tmpMap.put(key, info);
           continue;
         } else {
           info.setCuUrl(url);
@@ -4476,7 +4482,7 @@ public class PluginManager
           plugin = info.getPlugin();
         }
       } catch (Exception ex) {
-        log.error(String.format("Unable to load plugin %s", pluginName), ex);
+        log.error(String.format("Unable to load plugin %s", pluginId), ex);
         continue;
       }
 
@@ -4487,7 +4493,7 @@ public class PluginManager
         info.setVersion(version);
       } catch (IllegalArgumentException ex) {
         // Don't let this runtime exception stop the daemon.  Skip the plugin.
-        log.error(String.format("Skipping plugin %s: %s", pluginName, ex.getMessage()));
+        log.error(String.format("Skipping plugin %s: %s", pluginId, ex.getMessage()));
         // must stop plugin to enable it to be collected
         plugin.stopPlugin();
         return Collections.emptyList();
@@ -4652,9 +4658,10 @@ public class PluginManager
     private PluginVersion version;
     private ClassLoader classLoader;
     private String cuUrl;
-    private URL jarUrl;
     private List<String> resourceUrls;
     private boolean isOnLoadablePath = false;
+    private Exception ex;
+    private String pluginId;
 
     public PluginInfo(Plugin plugin, ClassLoader classLoader,
 		      List<String> resourceUrls) {
@@ -4663,20 +4670,51 @@ public class PluginManager
       this.resourceUrls = resourceUrls;
     }
 
+    public PluginInfo(String pluginId, Exception ex) {
+      this.pluginId = pluginId;
+      this.ex = ex;
+    }
+
+    public static PluginInfo forPlugin(Plugin plugin, ClassLoader classLoader,
+                                       List<String> resourceUrls) {
+      return new PluginInfo(plugin, classLoader, resourceUrls);
+    }
+
+    public static PluginInfo forError(String pluginId, Exception ex) {
+      return new PluginInfo(pluginId, ex);
+    }
+
     public String toString() {
       StringBuilder sb = new StringBuilder();
-      sb.append("[PI: ");
-      sb.append(plugin.getPluginName());
-      sb.append(", ");
-      sb.append(cuUrl);
-      sb.append(", ");
-      sb.append(jarUrl);
-      sb.append(", ");
-      sb.append(resourceUrls);
-      sb.append(", ");
-      sb.append(isOnLoadablePath);
-      sb.append("]");
+      if (isError()) {
+        sb.append("[PI ERROR: ");
+        sb.append(pluginId);
+        sb.append(", ");
+        sb.append(ex);
+      } else {
+        sb.append("[PI: ");
+        sb.append(plugin.getPluginName());
+        sb.append(", ");
+        sb.append(cuUrl);
+        sb.append(", ");
+        sb.append(resourceUrls);
+        sb.append(", ");
+        sb.append(isOnLoadablePath);
+        sb.append("]");
+      }
       return sb.toString();
+    }
+
+    public boolean isError() {
+      return ex != null;
+    }
+
+    public Exception getError() {
+      return ex;
+    }
+
+    public String getId() {
+      return isError() ? pluginId : plugin.getPluginId();
     }
 
     public Plugin getPlugin() {
@@ -4701,14 +4739,6 @@ public class PluginManager
 
     public void setCuUrl(String cuUrl) {
       this.cuUrl = cuUrl;
-    }
-
-    public URL getJarUrl() {
-      return jarUrl;
-    }
-
-    public void setJarUrl(URL jarUrl) {
-      this.jarUrl = jarUrl;
     }
 
     public List<String> getResourceUrls() {

@@ -62,7 +62,7 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     // make and init a real Pluginmgr
     mgr = daemon.getPluginManager();
     daemon.setDaemonInited(true);
-    String plugKey = PluginManager.pluginKeyFromName(plugName);
+    String plugKey = PluginManager.pluginKeyFromId(plugName);
     mgr.ensurePluginLoaded(plugKey);
     plug = mgr.getPlugin(plugKey);
     useV2Repo();

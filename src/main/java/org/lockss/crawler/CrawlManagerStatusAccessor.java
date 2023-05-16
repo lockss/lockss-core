@@ -270,7 +270,7 @@ public class CrawlManagerStatusAccessor implements StatusAccessor {
       if (plug != null) {
 	row.put(PLUGIN, plug.getPluginName());
       } else {
-	row.put(PLUGIN, PluginManager.pluginNameFromAuId(auid));
+	row.put(PLUGIN, PluginManager.pluginIdFromAuId(auid));
       }
       row.put(CRAWL_STATUS, "Inactive");
     }

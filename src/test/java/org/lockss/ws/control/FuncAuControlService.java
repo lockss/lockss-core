@@ -126,7 +126,7 @@ public class FuncAuControlService extends LockssTestCase {
     pluginMgr.startService();
 
     String key =
-      PluginManager.pluginKeyFromName(MyMockPlugin.class.getName());
+      PluginManager.pluginKeyFromId(MyMockPlugin.class.getName());
     pluginMgr.ensurePluginLoaded(key);
     plugin = (MockPlugin)pluginMgr.getPlugin(key);
 

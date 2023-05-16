@@ -1551,7 +1551,7 @@ public class TestV3Poller extends LockssTestCase {
 
   public void testRequestRepairNamedAU() throws Exception {
     String plugKey =
-      PluginManager.pluginKeyFromName(NamedArchivalUnit.NAMED_PLUGIN_NAME);
+      PluginManager.pluginKeyFromId(NamedArchivalUnit.NAMED_PLUGIN_NAME);
     pluginMgr.ensurePluginLoaded(plugKey);
     Plugin plug = pluginMgr.getPlugin(plugKey);
     ArchivalUnit au =

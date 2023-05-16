@@ -1,0 +1,18 @@
+<map>
+  <entry>
+    <string>plugin_identifier</string>
+    <string>org.lockss.util.testplugin.PluginWithParentAux</string>
+  </entry>
+  <entry>
+    <string>plugin_name</string>
+    <string>Plugin with aux and parent aux</string>
+  </entry>
+  <entry>
+    <string>plugin_parent</string>
+    <string>org.lockss.util.testplugin.ParentAux</string>
+  </entry>
+  <entry>
+    <string>plugin_aux_packages</string>
+    <string>org.lockss.util.testplugin.auxpackage</string>
+  </entry>
+</map>
