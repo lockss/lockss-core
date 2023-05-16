@@ -1769,11 +1769,11 @@ public class LockssTestCase4 extends Assert {
     }
   }
 
-  public <T extends Throwable> T assertThrows(Class<T> expectedType,
-                                              Executable executable) {
+//   public <T extends Throwable> T assertThrows(Class<T> expectedType,
+//                                               Executable executable) {
 
-    return Assertions.assertThrows(expectedType, executable);
-  }
+//     return Assertions.assertThrows(expectedType, executable);
+//   }
 
   public <T extends Throwable> T assertThrows(Class<T> expectedType,
                                               Executable executable,
