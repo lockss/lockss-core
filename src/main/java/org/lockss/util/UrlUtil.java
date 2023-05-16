@@ -712,6 +712,9 @@ public class UrlUtil {
   }
 
   /** URLencode a string */
+  // XXX this is wrong.  URLEncoder is misnamed - it does form
+  // encoding, not URL encoding.  But changing it is difficult because
+  // it would invalidate many already-stored CUs
   public static String encodeUrl(String url) {
     try {
       return URLEncoder.encode(url, Constants.ENCODING_UTF_8);
