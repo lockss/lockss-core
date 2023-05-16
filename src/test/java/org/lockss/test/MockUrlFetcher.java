@@ -53,9 +53,9 @@ import org.lockss.daemon.Crawler.CrawlerFacade;
 public class MockUrlFetcher implements UrlFetcher {
   private static Logger logger = Logger.getLogger();
 
-  private MockArchivalUnit au = null;
-  private MockCachedUrlSet cus = null;
-  private MockCachedUrl cu;
+  private ArchivalUnit au = null;
+  private CachedUrlSet cus = null;
+  private CachedUrl cu;
   private String url;
   private InputStream uncachedIS;
   private CIProperties uncachedProp;
@@ -80,8 +80,8 @@ public class MockUrlFetcher implements UrlFetcher {
 
   public MockUrlFetcher(CrawlerFacade cf, String url){
     this.url = url;
-    this.au = (MockArchivalUnit) cf.getAu();
-    this.cus = (MockCachedUrlSet)au.getAuCachedUrlSet();
+    this.au = cf.getAu();
+    this.cus = au.getAuCachedUrlSet();
     this.cf = cf;
     this.ucf = new SimpleUrlConsumerFactory();
   }
