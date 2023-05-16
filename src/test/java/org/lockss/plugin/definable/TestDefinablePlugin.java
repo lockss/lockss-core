@@ -31,6 +31,7 @@ package org.lockss.plugin.definable;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.stream.*;
 
 import org.apache.commons.lang3.tuple.*;
 import org.lockss.app.LockssDaemon;
@@ -312,11 +313,16 @@ public class TestDefinablePlugin extends LockssTestCase {
     List<String> strs = definablePlugin.getLoadedFromUrlStrings();
     assertMatchesRE("/org/lockss/test/MockConfigurablePlugin.xml$",
 		    strs.get(0));
+
+    // Check the (pluginid, url) pairs
     List<Pair<String,URL>> idus = definablePlugin.getIdsUrls();
     assertEquals("org.lockss.test.MockConfigurablePlugin",
 		 idus.get(0).getLeft());
     assertMatchesRE("/org/lockss/test/MockConfigurablePlugin.xml$",
 		    idus.get(0).getRight().toString());
+    assertEquals(1, idus.size());
+    // No aux plackages
+    assertEmpty(definablePlugin.getAuxPkgUrls());
   }
 
   public void testGetPublishingPlatform() throws Exception {
@@ -435,6 +441,49 @@ public class TestDefinablePlugin extends LockssTestCase {
     assertEquals("child_val", map.getString("parent_cancel"));
     assertEquals("bar", map.getString("foo"));
     assertFalse(map.containsKey("child_cancel"));
+
+    // Check the (pluginid, url) pairs
+    List<Pair<String,URL>> idus = definablePlugin.getIdsUrls();
+    assertEquals("org.lockss.plugin.definable.ChildPlugin",
+		 idus.get(0).getLeft());
+    assertMatchesRE("/org/lockss/plugin/definable/ChildPlugin\\.xml$",
+		    idus.get(0).getRight().toString());
+    assertEquals("org.lockss.plugin.definable.GoodPlugin",
+		 idus.get(1).getLeft());
+    assertMatchesRE("/org/lockss/plugin/definable/GoodPlugin\\.xml$",
+		    idus.get(1).getRight().toString());
+    assertEquals(2, idus.size());
+
+    // Check aux packages
+
+    // This runs w/ test classpath, so the aux packages that exist in
+    // test hierarchy are found there.  Thus it's important that in
+    // normal use the plugin packager be invoked with normal run
+    // classpath, not test classpath.
+
+    // It's possible that the URLs will be different in some test
+    // environments, e.g. if tests are run against maven artifact jars
+    // instead of the classes tree, these URLs may look like
+    // jar:file:...  I offer no specific solution, but I hope I've
+    // done you a service by pointing out the source of the problem.
+
+    Set<Pair> exp =
+      ListUtil.list("org.lockss.plugin.exploded",
+                    "org.lockss.plugin.definable",
+                    "org.lockss.plugin.base").stream()
+      .map(x -> Pair.of(x,
+                        getResource("/" + StringUtil.replaceString(x.toString(),
+                                                                   ".", "/") +"/")))
+      .collect(Collectors.toSet());
+    assertEquals(exp, definablePlugin.getAuxPkgUrls());
+  }
+
+  private URL newURL(String s) {
+    try {
+      return new URL(s);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public void testCorrectParentVersion() throws Exception {

@@ -105,7 +105,7 @@ public class TestSubscriptionManager extends LockssTestCase {
     theDaemon.setDaemonInited(true);
     pluginManager.startService();
 
-    String key = PluginManager.pluginKeyFromName(MockPlugin.class.getName());
+    String key = PluginManager.pluginKeyFromId(MockPlugin.class.getName());
     pluginManager.ensurePluginLoaded(key);
     plugin = (MockPlugin)pluginManager.getPlugin(key);
 

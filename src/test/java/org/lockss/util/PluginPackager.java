@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -267,7 +267,7 @@ public class PluginPackager {
     } else if (argPlugDir != null) {
       throw new IllegalArgumentException("Can't specify both a list of plugins and a plugins-dir");
     }
-    if (argKeystore != null && argAlias == null) {
+    if (!isNone(argKeystore) && isNone(argAlias)) {
       throw new IllegalArgumentException("keystore but no alias supplied");
     }
     if (argClasspath != null && !argClasspath.isEmpty()) {
@@ -294,6 +294,10 @@ public class PluginPackager {
 	FileUtil.delTree(tmpdir);
       }
     }
+  }
+
+  private boolean isNone(String keyArg) {
+    return keyArg == null || keyArg.equalsIgnoreCase("none");
   }
 
   // Daemon uses new ClassLoader for each plugin but I don't think there's
@@ -349,7 +353,7 @@ public class PluginPackager {
   /** If keystore is resource:<path>, copy resource to temp file, use that
    * instead */
   private void initKeystore() throws IOException {
-    if (StringUtil.isNullString(argKeystore)) {
+    if (isNone(argKeystore)) {
       return;
     }
     Matcher mat = RESOURCE_KEYSTORE_PAT.matcher(argKeystore);
@@ -405,7 +409,7 @@ public class PluginPackager {
       try {
 	findPlugins();
 	// check file dates against jar date, exit if jar is up-to-date
-	if (isJarUpToDate() && (argKeystore == null || isJarSigned())) {
+	if (isJarUpToDate() && (isNone(argKeystore) || isJarSigned())) {
 	  notModified = true;
 	  return;
 	}
@@ -413,7 +417,7 @@ public class PluginPackager {
 	writeManifest();
 	writeFiles();
 	jarOut.close();
-	if (argKeystore != null) {
+	if (!isNone(argKeystore)) {
 	  signJar();
 	  log.info("Wrote and signed {}", spec.getJar());
 	} else {
@@ -478,7 +482,7 @@ public class PluginPackager {
 
     Plugin loadPlugin(String pluginId, ClassLoader loader) throws Exception {
       try {
-	String key = pluginMgr.pluginKeyFromName(pluginId);
+	String key = pluginMgr.pluginKeyFromId(pluginId);
 	PluginManager.PluginInfo pinfo = pluginMgr.loadPlugin(key, loader);
 	return pinfo.getPlugin();
       } catch (Exception e) {
@@ -491,8 +495,13 @@ public class PluginPackager {
       ArrayList<FileInfo> res = new ArrayList<>();
       if (plug instanceof DefinablePlugin) {
 	DefinablePlugin dplug = (DefinablePlugin)plug;
+        // Add plugin files
 	for (Pair<String,URL> pair : dplug.getIdsUrls()) {
 	  res.add(FileInfo.forFile(pair.getRight(), packageOf(pair.getLeft())));
+	}
+        // Add explicitly named packages
+	for (Pair<String,URL> pair : dplug.getAuxPkgUrls()) {
+	  res.add(FileInfo.forFile(pair.getRight(), pair.getLeft()));
 	}
       } else {
 	res.add(FileInfo.forFile(findJavaPluginUrl(plug), pkg));
@@ -620,7 +629,9 @@ public class PluginPackager {
 	    if (f.isDirectory()) continue; // ignore directories
 	    String relPath = pathOfPkg(fi.getPkg());
 	    String dir = f.getParent();
-	    if (dirsAdded.add(dir)) {
+            // Must use relPath for dup detection, not dir, in case
+            // adding files from both main and test trees (happens in tests)
+	    if (dirsAdded.add(relPath)) {
 	      log.debug2("Adding dir {}", relPath);
 	      String entPath = relPath + "/";
 	      JarEntry entry = new JarEntry(entPath);
@@ -868,6 +879,9 @@ public class PluginPackager {
       }
     }
 
+    public String toString() {
+      return "[PD: " + pluginId + ", " + fis + ", " + file + "]";
+    }
   }
 
   /** Visitor for Files.walkFileTree(), makes a PlugSpec for each plugin in
@@ -958,10 +972,12 @@ public class PluginPackager {
     URI uri = new URI(url.toString());
     // XXX if path is relative (e.g., file:target/classes), URI.getPath()
     // returns null.
-//     log.debug3("url.getPath: {}", url.getPath());
-//     log.debug3("getPath: {}", uri.getPath());
-    URI parent = uri.getPath().endsWith("/")
-      ? uri.resolve("..") : uri.resolve(".");
+    URI parent = uri.resolve(".");
+    // Was there a reason this used to resolve dir names to the parent dir?
+    // Now that we support inclusion of packages in addition to files, dir
+    // names must resolve to themselvas
+//     URI parent = uri.getPath().endsWith("/")
+//       ? uri.resolve("..") : uri.resolve(".");
     URL res = new URL(parent.toString());
     log.debug2("dirOfUrl: {} -> {}", url, res);
     return res;
@@ -1176,8 +1192,10 @@ public class PluginPackager {
 	  pkgr.setExplodeLib(BooleanUtils.toBoolean(arg.substring("-explodelib=".length())));
 	} else if (arg.equals("-keystore")) {
 	  pkgr.setKeystore(argv[++ix]);
+//           log.fatal("packager keystore: " + pkgr.argKeystore);
 	} else if (arg.equals("-alias")) {
 	  pkgr.setAlias(argv[++ix]);
+//           log.fatal("packager alias: " + pkgr.argAlias);
 	} else if (arg.equals("-keypass")) {
 	  pkgr.setKeyPass(argv[++ix]);
 	} else if (arg.equals("-storepass")) {

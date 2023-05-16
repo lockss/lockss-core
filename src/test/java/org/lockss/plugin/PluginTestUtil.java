@@ -161,9 +161,26 @@ public class PluginTestUtil {
 
   public static Plugin findPlugin(String pluginName, ClassLoader loader) {
     PluginManager pluginMgr = getPluginManager();
-    String key = pluginMgr.pluginKeyFromName(pluginName);
+    String key = pluginMgr.pluginKeyFromId(pluginName);
     pluginMgr.ensurePluginLoaded(key, loader);
     return pluginMgr.getPlugin(key);
+  }
+
+  public static PluginManager.PluginInfo findPluginOrThrow(String pluginId,
+                                                           ClassLoader loader)
+      throws Exception {
+    PluginManager pluginMgr = getPluginManager();
+    String key = pluginMgr.pluginKeyFromId(pluginId);
+    log.debug3("Trying to retrieve " + pluginId);
+    PluginManager.PluginInfo info =
+      pluginMgr.retrievePlugin(key, loader);
+    if (info.isError()) {
+      throw info.getError();
+    }
+    pluginMgr.setPlugin(key, info.getPlugin());
+//     pluginMgr.pluginfoMap.put(key, info);
+
+    return info;
   }
 
   public static Plugin findPlugin(Class pluginClass) {

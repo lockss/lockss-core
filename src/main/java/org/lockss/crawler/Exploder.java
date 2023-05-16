@@ -240,7 +240,7 @@ public abstract class Exploder {
     String pluginName = CurrentConfig.getParam(PARAM_EXPLODED_PLUGIN_NAME,
 					       DEFAULT_EXPLODED_PLUGIN_NAME);
     logger.debug2("Creating AU: " + pluginName + " " + props);
-    String key = PluginManager.pluginKeyFromName(pluginName);
+    String key = PluginManager.pluginKeyFromId(pluginName);
     logger.debug3(pluginName + " has key: " + key);
     pluginMgr.ensurePluginLoaded(key);
     Plugin plugin = pluginMgr.getPlugin(key);

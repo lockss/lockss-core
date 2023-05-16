@@ -149,7 +149,7 @@ public class FuncTarExploder extends LockssTestCase {
     theDaemon.setDaemonInited(true);
     pluginMgr.startService();
     pluginMgr.startLoadablePlugins();
-    String explodedPluginKey = pluginMgr.pluginKeyFromName(explodedPluginName);
+    String explodedPluginKey = pluginMgr.pluginKeyFromId(explodedPluginName);
     pluginMgr.ensurePluginLoaded(explodedPluginKey);
 
     sau = PluginTestUtil.createAndStartSimAu(MySimulatedPlugin.class,
