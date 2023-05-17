@@ -67,7 +67,7 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
   }
 
   public CrawlerStatus startRepair(ArchivalUnit au, Collection urls,
-			  CrawlManager.Callback cb, Object cookie) {
+			   Object cookie) {
     Iterator urlIt = urls.iterator();
     while (urlIt.hasNext()) {
       scheduledRepairs.put(urlIt.next(), SCHEDULED);
@@ -79,14 +79,13 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
    * Currently returns false if last crawl time > 0, schedules new content
    * crawl and returns true otherwise.
    * @param au the ArchivalUnit
-   * @param cb the Callback
    * @param cookie the cookie
    * @return true if a crawl is running on this AU
    */
   public boolean isCrawlingAu(ArchivalUnit au,
-			      CrawlManager.Callback cb, Object cookie) {
+			       Object cookie) {
     if (shouldCrawlNewContent) {
-      scheduleNewContentCrawl(au, cb, cookie);
+      scheduleNewContentCrawl(au, cookie);
       return true;
     }
     return false;
@@ -94,16 +93,16 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
   }
 
   public CrawlerStatus startNewContentCrawl(ArchivalUnit au,
-					    CrawlManager.Callback cb,
+					    
 					    Object cookie) {
-    scheduleNewContentCrawl(au, cb, cookie);
+    scheduleNewContentCrawl(au, cookie);
     return new CrawlerStatus(au, au.getStartUrls(), "mock");
   }
 
   public CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
-					    CrawlManager.Callback cb,
+					    
 	                                    Object cookie) {
-    scheduleNewContentCrawl(au, cb, cookie);
+    scheduleNewContentCrawl(au, cookie);
     return new CrawlerStatus(au, au.getStartUrls(), "mock");
   }
 
@@ -165,7 +164,7 @@ public class MockCrawlManager implements CrawlManager, LockssManager {
   }
 
   private void scheduleNewContentCrawl(ArchivalUnit au,
-				       CrawlManager.Callback cb,
+				       
 				       Object cookie) {
     scheduledCrawls.put(au, SCHEDULED);
   } 

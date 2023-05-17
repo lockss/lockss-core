@@ -45,7 +45,7 @@ public class MockCrawler extends NullCrawler {
   boolean doCrawlCalled = false;
   Deadline deadline = null;
   boolean crawlSuccessful = true;
-  Crawler.Type type = null;
+  Crawler.Type type;
   boolean isWholeAU = false;
   long startTime = -1;
   long endTime = -1;
