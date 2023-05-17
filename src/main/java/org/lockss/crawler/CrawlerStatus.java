@@ -234,7 +234,7 @@ public class CrawlerStatus {
   protected UrlCount errors;
   protected ReferrerMap referrers;
   protected RecordReferrersMode recordRefMode;
-  protected String crawlerId = CrawlDesc.LOCKSS_CRAWLER_ID;
+  protected String crawlerId = CrawlDesc.CLASSIC_CRAWLER_ID;
 
   // Maps mimetype to UrlCounter
   protected Map<String, UrlCount> mimeCounts = new HashMap<String, UrlCount>();
@@ -496,6 +496,10 @@ public class CrawlerStatus {
   public void setCrawlStatus(int status, String message) {
     this.status = status;
     this.statusMessage = message;
+  }
+
+  public void setCrawlerId(String crawlerId) {
+    this.crawlerId = crawlerId;
   }
 
   /**

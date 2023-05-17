@@ -28,15 +28,17 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.crawler;
 
+import java.util.Map;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
+
+import java.util.HashMap;
 
 public class CrawlReq {
 
   protected String auid;
   String auName;
-  CrawlManager.Callback cb;
   Object cookie;
   String rateKey;
   int priority = 0;
@@ -52,15 +54,13 @@ public class CrawlReq {
   }
 
   public CrawlReq(ArchivalUnit au, CrawlerStatus crawlerStatus) {
-    this(au, null, null, crawlerStatus);
+    this(au, null, crawlerStatus);
   }
 
-  public CrawlReq(ArchivalUnit au, CrawlManager.Callback cb, Object cookie,
-      CrawlerStatus crawlerStatus) {
+  public CrawlReq(ArchivalUnit au, Object cookie, CrawlerStatus crawlerStatus) {
     this.au = au;
     this.auid = au.getAuId();
     this.auName = au.getName();
-    this.cb = cb;
     this.cookie = cookie;
     this.aus = AuUtil.getAuState(au);
     this.rateKey = au.getFetchRateLimiterKey();
@@ -91,14 +91,6 @@ public class CrawlReq {
 
   public ArchivalUnit getAu() {
     return au;
-  }
-
-  public CrawlManager.Callback getCb() {
-    return cb;
-  }
-
-  public void setCb(CrawlManager.Callback cb) {
-    this.cb = cb;
   }
 
   public Object getCookie() {
@@ -155,8 +147,6 @@ public class CrawlReq {
     }
     sb.append(", pri: ");
     sb.append(priority);
-    sb.append(", cb: ");
-    sb.append(cb);
     if (refetchDepth >= 0) {
       sb.append(", depth: ");
       sb.append(refetchDepth);
@@ -165,5 +155,15 @@ public class CrawlReq {
     sb.append(crawlerStatus);
     sb.append("]");
     return sb.toString();
+  }
+
+  public Map<String, Object> toMap() {
+    HashMap<String, Object> retMap = new HashMap<>();
+    retMap.put("AuId", auid);
+    retMap.put("Cookie", cookie);
+    retMap.put("RateKey",rateKey);
+    retMap.put("Priority", priority);
+    retMap.put("Depth", refetchDepth);
+    return retMap;
   }
 }

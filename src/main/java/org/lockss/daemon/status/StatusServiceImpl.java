@@ -190,7 +190,7 @@ public class StatusServiceImpl
     new GlobalTableAssociation(org.lockss.plugin.PluginStatus.ALL_TITLE_AUIDS,
 			       ServiceDescr.SVC_CONFIG).setGlobalOnly(),
     new GlobalTableAssociation(org.lockss.crawler.CrawlManagerImpl.CRAWL_STATUS_TABLE_NAME,
-			       ServiceDescr.SVC_POLLER),
+			       ServiceDescr.SVC_CRAWLER),
     new GlobalTableAssociation(org.lockss.hasher.HashSvcSchedImpl.HASH_STATUS_TABLE,
 			       ServiceDescr.SVC_POLLER),
     new GlobalTableAssociation(org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME,

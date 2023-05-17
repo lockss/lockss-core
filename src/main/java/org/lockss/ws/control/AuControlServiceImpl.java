@@ -34,11 +34,14 @@ import javax.jws.WebService;
 import org.apache.cxf.phase.PhaseInterceptorChain;
 import org.lockss.account.UserAccount;
 import org.lockss.app.LockssDaemon;
+import org.lockss.app.ServiceBinding;
+import org.lockss.app.ServiceDescr;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
+import org.lockss.daemon.RestServicesManager;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.servlet.DebugPanel;
@@ -47,6 +50,10 @@ import org.lockss.state.SubstanceChecker;
 import org.lockss.util.Logger;
 import org.lockss.util.RateLimiter;
 import org.lockss.util.StringUtil;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.rest.crawler.RestCrawlerClient;
 import org.lockss.ws.cxf.AuthorizationInterceptor;
 import org.lockss.ws.entities.CheckSubstanceResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
@@ -525,11 +532,60 @@ public class AuControlServiceImpl implements AuControlService {
     }
 
     // Perform the crawl request.
-    cmi.startNewContentCrawl(req);
-
+    if (cmi.useLocalCrawler()) {
+      cmi.startNewContentCrawl(req);
+    }
+    else {
+      String errStr = sendCrawlRequest(req);
+      if(errStr != null) {
+        result = new RequestDeepCrawlResult(auId,
+            depth == null ? -1 : depth.intValue(), false, null, errStr);
+        if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+        return result;
+      }
+    }
     result = new RequestDeepCrawlResult(auId,
 	depth == null ? -1 : depth.intValue(), true, delayReason, null);
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    if (log.isDebug()) log.debug(DEBUG_HEADER + "result = " + result);
     return result;
   }
+  private String sendCrawlRequest(CrawlReq req) {
+    LockssDaemon daemon = LockssDaemon.getLockssDaemon();
+    RestServicesManager svcsMgr = daemon.getManagerByType(RestServicesManager.class);
+    ServiceBinding crawlerServiceBinding = daemon.getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    if (req.getAu() != null) {
+      try {
+        // Schedule the repair crawl with the crawler service rest client
+        RestCrawlerClient client =
+            new RestCrawlerClient(crawlerServiceBinding.getRestStem());
+        CrawlDesc desc = new CrawlDesc()
+            .auId(req.getAuId())
+            .refetchDepth(req.getRefetchDepth())
+            .priority(req.getPriority())
+            .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        CrawlJob crawlJob = client.callCrawl(desc);
+
+        if (crawlJob.getJobStatus() == null) {
+          String msg = "Remote crawl request for " + req.getAuName() + " failed. NULL result.";
+          return(msg);
+        }
+        JobStatus.StatusCodeEnum statusCode = crawlJob.getJobStatus().getStatusCode();
+        switch( statusCode) {
+          case QUEUED:
+          case SUCCESSFUL:
+          case ACTIVE:
+            log.debug2("Repair crawl request for "+ req.getAuName()+ " successfully submitted.");
+            break;
+          default:
+            return("Remote crawl request for " + req.getAuName() + " failed: " + statusCode);
+        }
+        return null;
+      } catch (Exception ex) {
+        log.error("Remote crawl request for " + req.getAuName() + " failed", ex);
+        return ("Remote crawl request for " + req.getAuName() + " failed: " + ex.getMessage());
+      }
+    }
+    return null;
+  }
+
 }

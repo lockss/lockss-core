@@ -53,6 +53,9 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.exploded.*;
 import org.lockss.plugin.AuEvent;
 
+import javax.jms.JMSException;
+
+
 /**
  * Manages crawl queues, starts crawls.
  *
@@ -160,6 +163,41 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       PREFIX + "startCrawlsInitialDelay";
   static final long DEFAULT_START_CRAWLS_INITIAL_DELAY = 2 * Constants.MINUTE;
 
+  // JMS Notification support
+  public static final String JMS_PREFIX = PREFIX + "jms.";
+
+  /** If true, CrawlManager will send notifications of crawl events
+   * (If it is running inside of the CrawlService)
+   */
+  public static final String PARAM_ENABLE_JMS_SEND = JMS_PREFIX + "enableSend";
+  public static final boolean DEFAULT_ENABLE_JMS_SEND = false;
+
+  /** If true, CrawlManager will register to receive crawl events
+   * (if it's runnning outside of the CrawlService).
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_ENABLE_JMS_RECEIVE =
+      JMS_PREFIX + "enableReceive";
+  public static final boolean DEFAULT_ENABLE_JMS_RECEIVE = true;
+
+  /** The jms topic at which crawl event notifications are sent
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_NOTIFICATION_TOPIC =
+      JMS_PREFIX + "topic";
+  public static final String DEFAULT_JMS_NOTIFICATION_TOPIC =
+      "CrawlEventTopic";
+
+  /** The jms clientid of the config manager.
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
+  public static final String DEFAULT_JMS_CLIENT_ID = "CrawlManager";
+  private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
+  private boolean enableJmsSend = DEFAULT_ENABLE_JMS_SEND;
+  private boolean enableJmsReceive = DEFAULT_ENABLE_JMS_RECEIVE;
+  private String clientId = DEFAULT_JMS_CLIENT_ID;
+
   // ODC params
 
   static final String ODC_PREFIX = PREFIX + "odc.";
@@ -206,6 +244,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   public static final String PARAM_FAVOR_UNSHARED_RATE_THREADS =
       ODC_PREFIX + "favorUnsharedRateThreads";
   static final int DEFAULT_FAVOR_UNSHARED_RATE_THREADS = 1;
+
 
   enum CrawlOrder {CrawlDate, CreationDate}
 
@@ -411,6 +450,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
   private AuEventHandler auCreateDestroyHandler;
 
+  private List<CrawlEventHandler> crawlEventHandlers= new ArrayList<>();
+
+
   PooledExecutor pool;
   BoundedPriorityQueue poolQueue;
 
@@ -453,6 +495,10 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       }
     };
     pluginMgr.registerAuEventHandler(auCreateDestroyHandler);
+    // start jms
+    if (enableJmsReceive || enableJmsSend) {
+      startJms();
+    }
 
     if (!paramOdc && paramQueueEnabled) {
       poolQueue = new BoundedPriorityQueue(paramPoolQueueSize,
@@ -503,6 +549,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       statusServ.unregisterStatusAccessor(CRAWL_URLS_STATUS_TABLE);
       statusServ.unregisterStatusAccessor(SINGLE_CRAWL_STATUS_TABLE);
     }
+    crawlEventHandlers = new ArrayList<CrawlEventHandler>();
     super.stopService();
   }
 
@@ -581,7 +628,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       paramStartCrawlsInitialDelay =
           config.getTimeInterval(PARAM_START_CRAWLS_INITIAL_DELAY,
               DEFAULT_START_CRAWLS_INITIAL_DELAY);
+      // JMS support
+      enableJmsSend = config.getBoolean(PARAM_ENABLE_JMS_SEND,
+          DEFAULT_ENABLE_JMS_SEND);
 
+      enableJmsReceive = config.getBoolean(PARAM_ENABLE_JMS_RECEIVE,
+          DEFAULT_ENABLE_JMS_RECEIVE);
+      notificationTopic = config.get(PARAM_JMS_NOTIFICATION_TOPIC,
+        DEFAULT_JMS_NOTIFICATION_TOPIC);
+      clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
       boolean processAborts = false;
       if (changedKeys.contains(PARAM_CRAWL_PRIORITY_AUID_MAP)) {
         installCrawlPriorityAuidMap(config.getList(PARAM_CRAWL_PRIORITY_AUID_MAP,
@@ -655,6 +710,69 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
   }
 
+  void startJms() {
+    if (enableJmsReceive && jmsConsumer == null) {
+      setUpJmsReceive(clientId, notificationTopic,
+          new MapMessageListener("CrawlEvent Listener"));
+    }
+    if (enableJmsSend && jmsProducer == null) {
+      setUpJmsSend(clientId, notificationTopic);
+    }
+  }
+
+  /** Incoming CrawlEvent message */
+  @Override
+  protected void receiveMessage(Map map) {
+    CrawlEvent event = CrawlEvent.fromMap(map);
+    // make a copy of the list in case it changes during execution.
+    ArrayList<CrawlEventHandler> handlers = new ArrayList<CrawlEventHandler>(crawlEventHandlers);
+    switch (event.getEvtType()) {
+      case NewContentCrawlStarted:
+        for(CrawlEventHandler hand : handlers) {
+          hand.newContentStarted(event);
+        }
+        break;
+      case RepairCrawlStarted:
+        for(CrawlEventHandler hand : handlers) {
+          hand.repairStarted(event);
+        }
+        break;
+      case NewContentCrawlComplete:
+        for(CrawlEventHandler hand : handlers) {
+          hand.newContentCompleted(event);
+        }
+        break;
+      case RepairCrawlComplete:
+        for(CrawlEventHandler hand : handlers) {
+          hand.repairCompleted(event);
+        }
+        break;
+      default:
+        logger.warning("Received an unknown CrawlEvent type: "+ event.getEvtType());
+    }
+  }
+
+  /**
+   * Register a handler for Crawl events: start and stop.  May be
+   * called after this manager's initService() (before startService()).
+   * @param hand CrawlEventHandler to add
+   */
+  public void registerCrawlEventHandler(CrawlEventHandler hand) {
+    logger.debug2("registering CrawlEventHandler " + hand);
+    if (!crawlEventHandlers.contains(hand)) {
+      crawlEventHandlers.add(hand);
+    }
+  }
+
+  /**
+   * Unregister an CrawlEventHandler
+   * @param hand CrawlEventHandler to remove
+   */
+  public void unregisterCrawlEventHandler(CrawlEventHandler hand) {
+    logger.debug3("unregistering " + hand);
+    crawlEventHandlers.remove(hand);
+  }
+
   public boolean isCrawlerEnabled() {
     return crawlerEnabled;
   }
@@ -666,6 +784,16 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   public boolean isCrawlNonPlugins() {
     return getDaemon().getCrawlMode().isCrawlNonPlugins();
   }
+
+  public boolean useLocalCrawler() {
+    try {
+      return isCrawlerEnabled() && isCrawlNonPlugins();
+    } catch (IllegalArgumentException e) {
+      logger.debug("Can't get CrawlManager: " + e);
+      return false;
+    }
+  }
+
 
   public boolean isGloballyPermittedHost(String host) {
     for (Pattern pat : globallyPermittedHostPatterns) {
@@ -1133,7 +1261,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
 
   public CrawlerStatus startRepair(ArchivalUnit au, Collection urls,
-                                   CrawlManager.Callback cb, Object cookie) {
+                                    Object cookie) {
     //XXX check to make sure no other crawls are running and queue if they are
     if (au == null) {
       throw new IllegalArgumentException("Called with null AU");
@@ -1145,16 +1273,16 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     if (!limiter.isEventOk()) {
       String errMsg = "Repair aborted due to rate limiter.";
       logger.debug(errMsg);
-      callCallback(cb, cookie, false, null);
       CrawlerStatus crawlerStatus = new CrawlerStatus(au, urls, null);
       crawlerStatus.setCrawlStatus(Crawler.STATUS_INELIGIBLE, errMsg);
+      notifyCrawlFailed(cookie, crawlerStatus, Crawler.Type.REPAIR);
       return crawlerStatus;
     }
     Crawler crawler = null;
     try {
       crawler = makeRepairCrawler(au, urls);
       CrawlRunner runner =
-          new CrawlRunner(crawler, cb, cookie, limiter);
+          new CrawlRunner(crawler, cookie, limiter);
       CrawlerStatus cstat = crawler.getCrawlerStatus();
       cmStatus.addCrawlStatus(cstat);
       addToRunningCrawls(au, crawler);
@@ -1162,9 +1290,11 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       return cstat;
     } catch (RuntimeException re) {
       logger.error("Couldn't start repair crawl thread", re);
-      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
+      CrawlerStatus cs = crawler.getCrawlerStatus();
+      cmStatus.removeCrawlerStatusIfPending(cs);
       removeFromRunningCrawls(crawler);
-      callCallback(cb, cookie, false, null);
+      cs.setCrawlStatus(Crawler.STATUS_ERROR,"Couldn't start repair crawl thread.");
+      notifyCrawlFailed(cookie, cs, Crawler.Type.REPAIR);
       throw re;
     }
   }
@@ -1259,13 +1389,11 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
   }
 
-  public CrawlerStatus startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
-                                   Object cookie) {
-    return startNewContentCrawl(au, 0, cb, cookie);
+  public CrawlerStatus startNewContentCrawl(ArchivalUnit au, Object cookie) {
+    return startNewContentCrawl(au, 0, cookie);
   }
 
   public CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
-                                   CrawlManager.Callback cb,
                                    Object cookie) {
     if (au == null) {
       throw new IllegalArgumentException("Called with null AU");
@@ -1278,29 +1406,33 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     } catch (RuntimeException e) {
       String errorMessage = "Cannot create crawler status: " + au;
       logger.warning(errorMessage, e);
-      callCallback(cb, cookie, false, null);
+      notifyCrawlFailed(cookie, null, Crawler.Type.NEW_CONTENT);
       throw e;
     }
 
     if (!crawlerEnabled) {
       String errorMessage = "Crawler disabled, not crawling: " + au;
       logger.warning(errorMessage);
-      callCallback(cb, cookie, false, null);
       crawlerStatus.setCrawlStatus(Crawler.STATUS_DISABLED, errorMessage);
+      notifyCrawlFailed(cookie, crawlerStatus , Crawler.Type.NEW_CONTENT);
       return crawlerStatus;
     }
 
     CrawlReq req;
     try {
-      req = new CrawlReq(au, cb, cookie, crawlerStatus);
+      req = new CrawlReq(au, cookie, crawlerStatus);
       req.setPriority(priority);
     } catch (RuntimeException e) {
       logger.error("Couldn't create CrawlReq: " + au, e);
-      callCallback(cb, cookie, false, null);
       crawlerStatus.setCrawlStatus(Crawler.STATUS_ERROR, e.getMessage());
+      notifyCrawlFailed(cookie, crawlerStatus, Crawler.Type.NEW_CONTENT);
       return crawlerStatus;
     }
     return startNewContentCrawl(req);
+  }
+
+  void notifyCrawlFailed(Object cookie, CrawlerStatus status, Crawler.Type type) {
+    signalCrawlComplete(cookie, false, status, type);
   }
 
   /**
@@ -1317,20 +1449,21 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
     if (!crawlerEnabled) {
       String errorMessage = "Crawler disabled, not crawling: " + req.getAu();
-      callCallback(req.getCb(), req.getCookie(), false, null);
-      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_DISABLED,
-	  errorMessage);
-      return req.getCrawlerStatus();
+      CrawlerStatus cs = req.getCrawlerStatus();
+      cs.setCrawlStatus(Crawler.STATUS_DISABLED,errorMessage);
+      notifyCrawlFailed(req.getCookie(), cs, Crawler.Type.NEW_CONTENT);
+      return cs;
     }
     if (paramOdc) {
       enqueueHighPriorityCrawl(req);
       return req.getCrawlerStatus();
     } else {
       if (!isEligibleForNewContentCrawl(req.getAu())) {
-        callCallback(req.getCb(), req.getCookie(), false, null);
-        req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_INELIGIBLE,
-  	  "Archival Unit is not eligible for a new-content crawl");
-        return req.getCrawlerStatus();
+        CrawlerStatus cs = req.getCrawlerStatus();
+        cs.setCrawlStatus(Crawler.STATUS_INELIGIBLE,
+          "Archival Unit is not eligible for a new-content crawl");
+        notifyCrawlFailed(req.getCookie(), cs, Crawler.Type.NEW_CONTENT);
+        return cs;
       }
       return handReqToPool(req);
     }
@@ -1354,7 +1487,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
 
     ArchivalUnit au = req.getAu();
-    CrawlManager.Callback cb = req.cb;
     Object cookie = req.cookie;
 
     Crawler crawler = null;
@@ -1362,7 +1494,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     try {
       crawler = makeFollowLinkCrawler(au, req.getCrawlerStatus());
       crawler.setCrawlReq(req);
-      runner = new CrawlRunner(crawler, cb, cookie,
+      runner = new CrawlRunner(crawler, cookie,
           getNewContentRateLimiter(au),
           newContentStartRateLimiter);
       // To avoid race, must add to running crawls before starting
@@ -1398,33 +1530,79 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         }
       }
       removeFromRunningCrawls(crawler);
-      callCallback(cb, cookie, false, null);
-      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_INTERRUPTED,
-	  "The request could not be completed");
-      return req.getCrawlerStatus();
+      CrawlerStatus cs = req.getCrawlerStatus();
+      cs.setCrawlStatus(Crawler.STATUS_INTERRUPTED,
+        "The request could not be completed");
+      notifyCrawlFailed(req.getCookie(), cs, crawler.getType() );
+      return cs;
     } catch (RuntimeException e) {
       String crawlerRunner =
           (crawler == null ? "no crawler" : crawler.toString()) + " " +
               (runner == null ? "no runner" : runner.toString());
-      logger.error("Unexpected error attempting to start/schedule " + au +
-          " crawl" + " " + crawlerRunner, e);
-      cmStatus.removeCrawlerStatusIfPending(crawler.getCrawlerStatus());
+      String msg = "Unexpected error attempting to start/schedule " + au +
+        " crawl" + " " + crawlerRunner;
+      logger.error(msg, e);
+      CrawlerStatus cs = crawler.getCrawlerStatus();
+      cmStatus.removeCrawlerStatusIfPending(cs);
       removeFromRunningCrawls(crawler);
-      callCallback(cb, cookie, false, null);
-      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_ERROR,
-	  "Unexpected error");
+      cs.setCrawlStatus(Crawler.STATUS_ERROR,
+        "Unexpected error");
+      notifyCrawlFailed(req.getCookie(), cs, crawler.getType() );
       return req.getCrawlerStatus();
+
+    }
+  }
+  /** Signal an CrawlEvent has been received to all listeners and the JMS notification channel */
+  private void signalCrawlComplete(Object cookie, boolean successful, CrawlerStatus status, Crawler.Type type) {
+    CrawlEvent event;
+    switch (type) {
+      case REPAIR:
+        event = new CrawlEvent(CrawlEvent.Type.RepairCrawlComplete, cookie, successful, status);
+        if (logger.isDebug2()) logger.debug2("CrawlEvent " + event);
+        signalCrawlEvent(event);
+        break;
+      case NEW_CONTENT:
+        event = new CrawlEvent(CrawlEvent.Type.NewContentCrawlComplete, cookie, successful, status);
+        if (logger.isDebug2()) logger.debug2("CrawlEvent " + event);
+        signalCrawlEvent(event);
+        break;
+      default:
+        logger.warning("Received a request to signal unknown crawl event complete: " + status.type);
     }
   }
 
-  //method that calls the callback and catches any exception
-  private static void callCallback(CrawlManager.Callback cb, Object cookie,
-                                   boolean successful, CrawlerStatus status) {
-    if (cb != null) {
+  public void signalCrawlEvent(final CrawlEvent event) {
+    if (logger.isDebug2()) logger.debug2("CrawlEvent " + event);
+    // send the crawl event through the jms channel.
+    if(enableJmsSend && jmsProducer != null) {
       try {
-        cb.signalCrawlAttemptCompleted(successful, cookie, status);
-      } catch (Exception e) {
-        logger.error("Crawl callback threw", e);
+        jmsProducer.sendMap(event.toMap());
+      } catch (JMSException jms_ex) {
+        logger.error("Attempt to seng jms event", jms_ex);
+      }
+    }
+    // braodcast the crawl event to local CrawlEvent Handlers.
+    signalCrawlEventInternal(event);
+  }
+
+  /** Signal an AuEvent to all local listeners */
+  void signalCrawlEventInternal(final CrawlEvent event) {
+    for (CrawlEventHandler hand: crawlEventHandlers) {
+      switch (event.getEvtType()) {
+        case NewContentCrawlStarted:
+          hand.newContentStarted(event);
+          break;
+        case NewContentCrawlComplete:
+          hand.newContentCompleted(event);
+          break;
+        case RepairCrawlStarted:
+          hand.repairStarted(event);
+          break;
+        case RepairCrawlComplete:
+          hand.repairCompleted(event);
+          break;
+        default:
+          logger.debug("Unknown crawl event.");
       }
     }
   }
@@ -1464,25 +1642,23 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   public class CrawlRunner extends LockssRunnable {
     private Object cookie;
     private Crawler crawler;
-    private CrawlManager.Callback cb;
     private RateLimiter auRateLimiter;
     private RateLimiter startRateLimiter;
     private int sortOrder;
 
     private CrawlRunner(Crawler crawler,
-                        CrawlManager.Callback cb,
+                        
                         Object cookie,
                         RateLimiter auRateLimiter) {
-      this(crawler, cb, cookie, auRateLimiter, null);
+      this(crawler, cookie, auRateLimiter, null);
     }
 
     private CrawlRunner(Crawler crawler,
-                        CrawlManager.Callback cb,
+                        
                         Object cookie,
                         RateLimiter auRateLimiter,
                         RateLimiter startRateLimiter) {
       super(makeThreadName(crawler));
-      this.cb = cb;
       this.cookie = cookie;
       this.crawler = crawler;
       this.auRateLimiter = auRateLimiter;
@@ -1565,7 +1741,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         signalAuEvent(crawler, cs);
         // must call callback before sealing counters.  V3Poller relies
         // on fetched URL list
-        callCallback(cb, cookie, crawlSuccessful, cs);
+        signalCrawlComplete(cookie, crawlSuccessful, cs, crawler.getType());
         if (cs != null) {
           cs.sealCounters();
         }
@@ -1597,6 +1773,23 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     AuEvent event =
         AuEvent.forAu(au, AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
     pluginMgr.signalAuEvent(au, event);
+  }
+
+
+  private  void sendCrawlEvent(CrawlEvent event) {
+    if (jmsProducer != null) {
+      switch (event.getEvtType()) {
+        case NewContentCrawlComplete:
+        case RepairCrawlComplete:
+          try {
+            jmsProducer.sendMap(event.toMap());
+          } catch (JMSException e) {
+            logger.error("Couldn't send CrawlAttemptComplete notification", e);
+          }
+        default:
+          // do nothing
+      }
+    }
   }
 
   // For testing only.  See TestCrawlManagerImpl
@@ -2253,8 +2446,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
 
   CrawlerStatus startCrawl(ArchivalUnit au) {
-    CrawlManager.Callback rc = null;
-    return startNewContentCrawl(au, rc, null);
+    return startNewContentCrawl(au, null);
   }
 
   void startCrawl(CrawlReq req) {
@@ -2282,20 +2474,20 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     return false;
   }
 
-  private static class FailingCallbackWrapper
-      implements CrawlManager.Callback {
-    CrawlManager.Callback cb;
-
-    public FailingCallbackWrapper(CrawlManager.Callback cb) {
-      this.cb = cb;
-    }
-
-    public void signalCrawlAttemptCompleted(boolean success,
-                                            Object cookie,
-                                            CrawlerStatus status) {
-      callCallback(cb, cookie, false, null);
-    }
-  }
+//  private static class FailingCallbackWrapper
+//      implements CrawlManager.Callback {
+//    CrawlManager.Callback cb;
+//
+//    public FailingCallbackWrapper(CrawlManager.Callback cb) {
+//      this.cb = cb;
+//    }
+//
+//    public void signalCrawlAttemptCompleted(boolean success,
+//                                            Object cookie,
+//                                            CrawlerStatus status) {
+//      callCallback(cb, cookie, false, null);
+//    }
+//  }
 
   /**
    * Return the StatusSource
