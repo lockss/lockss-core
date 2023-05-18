@@ -2362,14 +2362,14 @@ public class MetadataManager extends BaseLockssManager {
    * 
    * @param conn
    *          A Connection with the database connection to be used.
-   * @param pluginId
-   *          A String with the plugin identifier.
+   * @param pluginKey
+   *          A String with the plugin key.
    * @return a Long with the identifier of the plugin.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  public Long findPlugin(Connection conn, String pluginId) throws DbException {
-    return mdManagerSql.findPlugin(conn, pluginId);
+  public Long findPlugin(Connection conn, String pluginKey) throws DbException {
+    return mdManagerSql.findPlugin(conn, pluginKey);
   }
 
   /**

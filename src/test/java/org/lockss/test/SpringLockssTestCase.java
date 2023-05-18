@@ -511,10 +511,10 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
       log.error("Couldn't infer AU config in order to create it: " + auId);
       return;
     }
-    String pluginId = PluginManager.pluginIdFromAuId(auId);
-    pmgr.ensurePluginLoaded(pluginId);
+    String pluginKey = PluginManager.pluginKeyFromAuId(auId);
+    pmgr.ensurePluginLoaded(pluginKey);
     try {
-      pmgr.createAndSaveAuConfiguration(pmgr.getPlugin(pluginId), auConfig);
+      pmgr.createAndSaveAuConfiguration(pmgr.getPlugin(pluginKey), auConfig);
     } catch (org.lockss.plugin.ArchivalUnit.ConfigurationException |
 	     org.lockss.db.DbException |
 	     org.lockss.util.rest.exception.LockssRestException e) {
