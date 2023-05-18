@@ -551,7 +551,7 @@ public class LockssApp {
    */
   public static LockssApp getLockssApp() {
     try {
-      return theApp.waitValue(15 * Constants.SECOND);
+      return theApp.waitValue(60 * Constants.SECOND);
     } catch (IllegalStateException e) {
       throw new IllegalStateException("LockssApp was not instantiated");
     }
