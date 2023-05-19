@@ -2170,7 +2170,7 @@ public class PluginManager
    */
   public boolean isLoadablePlugin(Plugin plugin) {
     PluginInfo info = pluginfoMap.get(getPluginKey(plugin));
-    if (info.isError()) {
+    if (info == null || info.isError()) {
       return false;
     }
     return info.isOnLoadablePath();
@@ -2462,7 +2462,7 @@ public class PluginManager
       pluginId = pluginIdFromKey(pluginKey);
       log.debug3("Trying to retrieve "+pluginKey);
       info = retrievePlugin(pluginKey, loader);
-      if (!info.isError()) {
+      if (info != null && !info.isError()) {
 	setPlugin(pluginKey, info.getPlugin());
 	pluginfoMap.put(pluginKey, info);
 	return true;
@@ -4418,7 +4418,6 @@ public class PluginManager
     } catch (IOException | PluginException ex) {
       log.error("Error while getting list of plugins for " + jarFile, ex);
       return ListUtil.list(PluginInfo.forError("", ex));
-//       Collections.emptyList(); // skip this CU.
     }
     log.debug2("Blessed jar: " + jarFile + ", plugins: " + loadPlugins);
 
@@ -4458,7 +4457,7 @@ public class PluginManager
       PluginInfo info;
       try {
 	info = retrievePlugin(pluginId, pluginLoader);
-	if (info.isError()) {
+	if (info == null || info.isError()) {
 	  log.warning("Probable plugin packaging error: plugin " +
                       pluginId + " could not be loaded from " +
                       cu.getUrl());
