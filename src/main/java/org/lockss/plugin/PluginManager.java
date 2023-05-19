@@ -3621,17 +3621,17 @@ public class PluginManager
   private void queuePluginRegistryCrawls() {
     if (isCrawlPlugins()) {
         for (ArchivalUnit au : getAllRegistryAus()) {
-          if(useLocalCrawler()) {
+//          if(useLocalCrawler()) {
             getDaemon().getCrawlManager().startNewContentCrawl(au, null);
-          }
-          else {
-            CrawlDesc desc = new CrawlDesc()
-              .auId(au.getAuId())
-              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
-              .extraCrawlerData(null);
-            CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
-            crawlMgr.sendCrawlRequest(au, desc);
-          }
+//          }
+//          else {
+//            CrawlDesc desc = new CrawlDesc()
+//              .auId(au.getAuId())
+//              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+//              .extraCrawlerData(null);
+//            CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
+//            crawlMgr.sendCrawlRequest(au, desc);
+//          }
         }
     }
   }
@@ -3895,19 +3895,19 @@ public class PluginManager
           CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
           extraData.put(KEY_URL, url);
           extraData.put(KEY_CALLER_ID, cb.callerId);
-          if(useLocalCrawler()) {
+//          if(useLocalCrawler()) {
             log.debug2("Calling crawl with internal crawl manager.");
             crawlMgr.startNewContentCrawl(registryAu,
                     extraData);
-          }
-          else {
-            log.debug2("Calling crawl with external crawl manager.");
-            CrawlDesc desc = new CrawlDesc()
-              .auId(registryAu.getAuId())
-              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
-              .extraCrawlerData(extraData);
-            crawlMgr.sendCrawlRequest(registryAu, desc);
-          }
+//          }
+//          else {
+//            log.debug2("Calling crawl with external crawl manager.");
+//            CrawlDesc desc = new CrawlDesc()
+//              .auId(registryAu.getAuId())
+//              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+//              .extraCrawlerData(extraData);
+//            crawlMgr.sendCrawlRequest(registryAu, desc);
+//          }
       } else {
 	if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
 
@@ -3918,7 +3918,8 @@ public class PluginManager
   }
 
   private boolean isCrawlPlugins() {
-        return getDaemon().getCrawlMode().isCrawlPlugins();
+        return getDaemon().getCrawlMode().isCrawlPlugins() &&
+            getDaemon().getCrawlManager().isCrawlerEnabled();
     }
 
     private boolean useLocalCrawler() {
