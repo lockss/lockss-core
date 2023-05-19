@@ -44,6 +44,10 @@ import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.rest.crawler.RestCrawlerClient;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.app.*;
@@ -197,6 +201,10 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   private boolean enableJmsSend = DEFAULT_ENABLE_JMS_SEND;
   private boolean enableJmsReceive = DEFAULT_ENABLE_JMS_RECEIVE;
   private String clientId = DEFAULT_JMS_CLIENT_ID;
+  private String serviceUser;
+  private String servicePassword;
+  private RestServicesManager svcsMgr;
+  private ServiceBinding crawlerServiceBinding;
 
   // ODC params
 
@@ -499,7 +507,10 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     if (enableJmsReceive || enableJmsSend) {
       startJms();
     }
-
+    // setup service binding to send crawl request
+    svcsMgr = getDaemon().getManagerByType(RestServicesManager.class);
+    crawlerServiceBinding = getDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    initRestClientCredentials();
     if (!paramOdc && paramQueueEnabled) {
       poolQueue = new BoundedPriorityQueue(paramPoolQueueSize,
           new CrawlQueueComparator());
@@ -1389,6 +1400,57 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
   }
 
+  public boolean sendCrawlRequest(ArchivalUnit au, CrawlDesc desc) {
+    if (crawlerServiceBinding == null || !svcsMgr.isServiceReady(crawlerServiceBinding)) {
+      logger.error("Crawl Service is not accessible.");
+      return false;
+    }
+    if (au != null) {
+      try {
+        // Schedule the plugin crawl with the crawler service rest client
+        RestCrawlerClient client =
+          new RestCrawlerClient(crawlerServiceBinding.getRestStem(),serviceUser,servicePassword);
+        CrawlJob crawlJob = client.callCrawl(desc);
+        if (crawlJob == null || crawlJob.getJobStatus() == null) {
+          logger.error("Attempt to schedule plugin crawl for " + au.getName() + " failed. null result.");
+          return false;
+        }
+        JobStatus.StatusCodeEnum statusCode = crawlJob.getJobStatus().getStatusCode();
+        switch( statusCode) {
+          case QUEUED:
+          case SUCCESSFUL:
+          case ACTIVE:
+            logger.debug2("Registry Au crawl request for "+ au.getName() + " successfully submitted.");
+            break;
+          default:
+            logger.error("Registry Au crawl request for " + au.getName() + " failed: " + statusCode);
+            return false;
+        }
+        return true;
+      } catch (Exception e) {
+        logger.error("Cannot schedule plugin registries crawl for " + au.getName(), e);
+      }
+    }
+    return false;
+  }
+
+  private void initRestClientCredentials() {
+    // Get the REST client credentials.
+    List<String> restClientCredentials =
+      getDaemon().getRestClientCredentials();
+
+    // Check whether there is a user name.
+    if (restClientCredentials != null && restClientCredentials.size() > 0) {
+      // Yes: Get the user name.
+      serviceUser = restClientCredentials.get(0);
+      // Check whether there is a user password.
+      if (restClientCredentials.size() > 1) {
+        // Yes: Get the user password.
+        servicePassword = restClientCredentials.get(1);
+      }
+    }
+  }
+
   public CrawlerStatus startNewContentCrawl(ArchivalUnit au, Object cookie) {
     return startNewContentCrawl(au, 0, cookie);
   }
@@ -1552,6 +1614,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
     }
   }
+
   /** Signal an CrawlEvent has been received to all listeners and the JMS notification channel */
   private void signalCrawlComplete(Object cookie, boolean successful, CrawlerStatus status, Crawler.Type type) {
     CrawlEvent event;

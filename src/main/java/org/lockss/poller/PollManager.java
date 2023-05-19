@@ -46,9 +46,6 @@ import org.lockss.crawler.CrawlEvent;
 import org.lockss.crawler.CrawlEventHandler;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.crawler.CrawlJob;
-import org.lockss.util.rest.crawler.JobStatus;
-import org.lockss.util.rest.crawler.RestCrawlerClient;
 import org.mortbay.util.B64Code;
 
 import org.lockss.alert.*;
@@ -597,6 +594,7 @@ public class PollManager
     enablePollStarter();
   }
 
+
   private void enablePollStarter() {
     theLog.info("Starting PollStarter");
     if (pollStarter != null) {
@@ -678,7 +676,7 @@ public class PollManager
   /**
    * REST Service entry point for stopping a previously requested poll
    * @param au the au
-   * @return a the stopped poll
+   * @return the stopped poll
    */
   public Poll stopPoll(ArchivalUnit au)
   {
@@ -805,43 +803,14 @@ public class PollManager
   public boolean sendRepairRequest(ArchivalUnit au,
                                    List<String> pendingPublisherRepairs,
                                    String key) {
-    if (crawlerServiceBinding == null || !svcsMgr.isServiceReady(crawlerServiceBinding)) {
-      log.error("Repair Crawl  is not accessible.");
-      return false;
-    }
-    if (au != null) {
-      try {
-        // Schedule the repair crawl with the crawler service rest client
-        RestCrawlerClient client =
-          new RestCrawlerClient(crawlerServiceBinding.getRestStem());
-        CrawlDesc desc = new CrawlDesc()
-          .auId(au.getAuId())
-          .crawlList(pendingPublisherRepairs)
-          .crawlKind(CrawlDesc.CrawlKindEnum.REPAIR)
-          .putExtraCrawlerDataItem(POLL_ID_KEY, key);
-        CrawlJob crawlJob = client.callCrawl(desc);
-        if (crawlJob == null || crawlJob.getJobStatus() == null) {
-          log.error("Attempt to schedule repair crawl for " + au.getName() + " failed. null result.");
-          return false;
-        }
-        JobStatus.StatusCodeEnum statusCode = crawlJob.getJobStatus().getStatusCode();
-        switch( statusCode) {
-          case QUEUED:
-          case SUCCESSFUL:
-          case ACTIVE:
-            log.debug2("Repair crawl request for "+ au.getName() + " successfully submitted.");
-            break;
-          default:
-            log.error("Repair crawl request for " + au.getName() + " failed: " + statusCode);
-            return false;
-        }
-        return true;
-      } catch (Exception e) {
-        log.error("Cannot schedule repair crawl for " + au.getName(), e);
-      }
-    }
-    return false;
+    CrawlDesc desc = new CrawlDesc()
+      .auId(au.getAuId())
+      .crawlList(pendingPublisherRepairs)
+      .crawlKind(CrawlDesc.CrawlKindEnum.REPAIR)
+      .putExtraCrawlerDataItem(POLL_ID_KEY, key);
+    return ((CrawlManagerImpl)getDaemon().getCrawlManager()).sendCrawlRequest(au, desc);
   }
+
   /** Incoming CrawlEvent handler */
   protected void receiveRepairComplete(CrawlEvent event) {
     log.debug("Received notification: " + event);
