@@ -49,6 +49,7 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
 import org.lockss.repository.*;
+  import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuState;
@@ -60,6 +61,9 @@ import org.lockss.util.time.TimeUtil;
 import org.lockss.util.rest.status.*;
 import javax.jms.*;
 import org.lockss.jms.*;
+
+  import static java.util.UUID.randomUUID;
+  import static org.lockss.crawler.CrawlEvent.KEY_COOKIE;
 
 /**
  * Plugin global functionality
@@ -459,7 +463,7 @@ public class PluginManager
     DEFAULT_DISABLE_URL_CONNECTION_CACHE;
   private boolean acceptExpiredCertificates = DEFAULT_ACCEPT_EXPIRED_CERTS;
   private boolean paramAuSearchUseV2Repo = DEFAULT_AU_SEARCH_USE_V2_REPO;
-  private IntStepFunction auSearchCacheSizeFunc = 
+  private IntStepFunction auSearchCacheSizeFunc =
     new IntStepFunction(DEFAULT_AU_SEARCH_CACHE_SIZE);
   private IntStepFunction auSearch404CacheSizeFunc =
     new IntStepFunction(DEFAULT_AU_SEARCH_404_CACHE_SIZE);
@@ -489,6 +493,11 @@ public class PluginManager
   }
   public static final int PREFER_XML_PLUGIN = 0;
   public static final int PREFER_CLASS_PLUGIN = 1;
+
+  public static final String KEY_URL= "url";
+  public static final String KEY_CALLER_ID= "callerId";
+  //support for remote call to crawl service for plugin registry
+  private Map<String,InitialRegistryCallback> registryCallbacks;
 
   public PluginManager() {
   }
@@ -1032,7 +1041,7 @@ public class PluginManager
 
   /**
    * Convert plugin id to key suitable for property file.
-   * @param id the plugin id
+   * @param className the plugin id
    * @return the plugin key
    */
   public static String pluginKeyFromId(String className) {
@@ -1382,7 +1391,7 @@ public class PluginManager
    * @param aueh AuEventHandler to add
    */
   public void registerAuEventHandler(AuEventHandler aueh) {
-    log.debug2("registering AuEventHandler " + aueh);
+      log.debug2("registering AuEventHandler " + aueh);
     if (!auEventHandlers.contains(aueh)) {
       auEventHandlers.add(aueh);
     }
@@ -1573,7 +1582,7 @@ public class PluginManager
       log.error("Unhandled AuEvent: " + event);
     }
   }
-      
+
   /** Closure applied to each AuEventHandler by {@link
    * #applyAuEvent(AuEventClosure) */
   private interface AuEventClosure {
@@ -1631,7 +1640,7 @@ public class PluginManager
   /**
    * Provides an Archival Unit given its identifier, starting it if
    * necessary.
-   * 
+   *
    * @param auId
    *          A String with the Archival Unit identifier.
    * @return an ArchivalUnit with the requested Archival Unit, if either
@@ -2090,7 +2099,7 @@ public class PluginManager
 
 	AuEvent auEvent = null;
 	ArchivalUnit newAu = null;
-	    
+
 	for (Map.Entry<String,Configuration> ent : configMap.entrySet()) {
 	  String auid = ent.getKey();
 	  Configuration auConf = ent.getValue();
@@ -2288,7 +2297,7 @@ public class PluginManager
   }
 
   void alert0(String pluginId, String msg, String emsg) {
-    raiseAlert(Alert.cacheAlert(Alert.PLUGIN_NOT_LOADED), 
+    raiseAlert(Alert.cacheAlert(Alert.PLUGIN_NOT_LOADED),
 	       String.format("%s: %s\n%s", msg, pluginId, emsg));
   }
 
@@ -2503,8 +2512,8 @@ public class PluginManager
 
   /**
    * Provides the plugin of an Archival Unit.
-   * 
-   * @param auId
+   *
+   * @param auid
    *          A String with the Archival Unit identifier.
    * @return a Plugin with the Archival Unit plugin.
    */
@@ -2658,7 +2667,7 @@ public class PluginManager
    * url, sorted in AU title order.  */
   //  XXX Should do something about the redundant normalization involved in
   // calling more than one of these methods
-  public Collection<ArchivalUnit> getCandidateAus(String url) 
+  public Collection<ArchivalUnit> getCandidateAus(String url)
       throws MalformedURLException {
     String normStem = UrlUtil.getUrlPrefix(UrlUtil.normalizeUrl(url));
     return getCandidateAusFromStem(normStem);
@@ -2672,7 +2681,7 @@ public class PluginManager
       }
       return Collections.EMPTY_LIST;
     }
-  }  
+  }
 
   /** Return a collection of all AUs that have content on the host of this
    * url, sorted in AU title order.  */
@@ -2687,7 +2696,7 @@ public class PluginManager
   }
 
   // Return  list of candiate AUs, used only for testing
-  List<ArchivalUnit> getRawCandidateAus(String url) 
+  List<ArchivalUnit> getRawCandidateAus(String url)
       throws MalformedURLException {
     String normStem = UrlUtil.getUrlPrefix(UrlUtil.normalizeUrl(url));
     synchronized (hostAus) {
@@ -2876,7 +2885,7 @@ public class PluginManager
     return findTheCachedUrl(url, contentReq);
   }
 
-  /** Find a CachedUrl for the URL.  
+  /** Find a CachedUrl for the URL.
    */
   private CachedUrl findTheCachedUrl(String url, CuContentReq contentReq) {
     // Maintain a small cache of URL -> CU.  When ICP is in use, each URL
@@ -2961,7 +2970,7 @@ public class PluginManager
 
   // overridable for testing only
   protected CachedUrl findTheCachedUrl0(String url, CuContentReq contentReq) {
-    List<CachedUrl> lst = findCachedUrls0(url, contentReq, true);    
+    List<CachedUrl> lst = findCachedUrls0(url, contentReq, true);
     if (!lst.isEmpty()) {
       return lst.get(0);
     } else {
@@ -3081,7 +3090,7 @@ public class PluginManager
       }
       recent404Hits++;
       return Collections.EMPTY_LIST;
-    }    
+    }
 
     if (paramAuSearchUseV2Repo) {
       // Search V2 repo index
@@ -3611,10 +3620,19 @@ public class PluginManager
 
   private void queuePluginRegistryCrawls() {
     if (isCrawlPlugins()) {
-      CrawlManager crawlMgr = getDaemon().getCrawlManager();
-      for (ArchivalUnit au : getAllRegistryAus()) {
-	crawlMgr.startNewContentCrawl(au, null, null);
-      }
+        for (ArchivalUnit au : getAllRegistryAus()) {
+          if(useLocalCrawler()) {
+            getDaemon().getCrawlManager().startNewContentCrawl(au, null);
+          }
+          else {
+            CrawlDesc desc = new CrawlDesc()
+              .auId(au.getAuId())
+              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+              .extraCrawlerData(null);
+            CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
+            crawlMgr.sendCrawlRequest(au, desc);
+          }
+        }
     }
   }
 
@@ -3627,7 +3645,7 @@ public class PluginManager
   /** Start a thread to fetch the title list (after AUs are started),
    * causing the keys to be computed and an initial sort */
   void triggerTitleSort() {
-    LockssRunnable run = 
+    LockssRunnable run =
 	new LockssRunnable("Title Sorter") {
 	  public void lockssRun() {
 	    try {
@@ -3635,7 +3653,7 @@ public class PluginManager
 	      findAllTitles();
 	    } catch (InterruptedException e) {
 	      // just exit
-	    }	      
+	    }
 	  }
 	};
     Thread th = new Thread(run);
@@ -3762,10 +3780,9 @@ public class PluginManager
     }
 
     BinarySemaphore bs = new BinarySemaphore();
-
-    InitialRegistryCallback regCallback =
-      new InitialRegistryCallback(urls, bs);
-
+    // The life-span of this callback was until it has exhausted all the urls.
+    InitialRegistryCallback regCallback = new InitialRegistryCallback(urls, bs);
+    getDaemon().getCrawlManager().registerCrawlEventHandler(regCallback);
     List loadAus = new ArrayList();
 
     for (Iterator iter = urls.iterator(); iter.hasNext(); ) {
@@ -3818,7 +3835,9 @@ public class PluginManager
 		  "Remaining registry URL list: " +
 		  regCallback.getRegistryUrls());
     }
-
+    finally {
+      getDaemon().getCrawlManager().unregisterCrawlEventHandler(regCallback);
+    }
     processRegistryAus(loadAus);
   }
 
@@ -3828,7 +3847,7 @@ public class PluginManager
 
   /**
    * Provides an internal plugin by its identifier, creating it if necessary.
-   * 
+   *
    * @param id
    *          A String with the plugin identifier.
    * @return a Plugin with the requested internal plugin.
@@ -3858,7 +3877,7 @@ public class PluginManager
 
   /**
    * Provides the plugin used to import files into archival units.
-   * 
+   *
    * @return an ImportPlugin with the requested plugin.
    */
   public ImportPlugin getImportPlugin() {
@@ -3872,8 +3891,23 @@ public class PluginManager
     if (isCrawlPlugins()) {
       if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
 	if (log.isDebug2()) log.debug2("Starting new crawl: " + registryAu);
-	getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
-							   url);
+          Map<String, Object> extraData = new HashMap<>();
+          CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
+          extraData.put(KEY_URL, url);
+          extraData.put(KEY_CALLER_ID, cb.callerId);
+          if(useLocalCrawler()) {
+            log.debug2("Calling crawl with internal crawl manager.");
+            crawlMgr.startNewContentCrawl(registryAu,
+                    extraData);
+          }
+          else {
+            log.debug2("Calling crawl with external crawl manager.");
+            CrawlDesc desc = new CrawlDesc()
+              .auId(registryAu.getAuId())
+              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+              .extraCrawlerData(extraData);
+            crawlMgr.sendCrawlRequest(registryAu, desc);
+          }
       } else {
 	if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
 
@@ -3884,10 +3918,13 @@ public class PluginManager
   }
 
   private boolean isCrawlPlugins() {
+        return getDaemon().getCrawlMode().isCrawlPlugins();
+    }
+
+    private boolean useLocalCrawler() {
     try {
-      return
-	getDaemon().getCrawlManager().isCrawlerEnabled() &&
-	getDaemon().getCrawlMode().isCrawlPlugins();
+        return getDaemon().getCrawlManager().isCrawlerEnabled() &&
+          getDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER) == null;
     } catch (IllegalArgumentException e) {
       log.debug("Can't get CrawlManager: " + e);
       return false;
@@ -4554,7 +4591,7 @@ public class PluginManager
   /**
    * Convenience method to provide an indication of whether an Archival Unit is
    * not configured in the daemon and it's not inactive.
-   * 
+   *
    * @param auId
    *          A String with the Archival Unit identifier.
    * @return a boolean with <code>true</code> if the Archival Unit is not
@@ -4573,10 +4610,10 @@ public class PluginManager
    * CrawlManager callback that is responsible for handling Registry
    * AUs when they're finished with their initial crawls.
    */
-  static class InitialRegistryCallback implements CrawlManager.Callback {
-    private BinarySemaphore bs;
-
+  static class InitialRegistryCallback extends CrawlEventHandler.Base  {
     List registryUrls;
+    String callerId = randomUUID().toString();
+    private BinarySemaphore bs;
 
     /*
      * Set the initial size of the list of registry URLs to process.
@@ -4590,14 +4627,6 @@ public class PluginManager
       if (registryUrls.isEmpty()) {
 	bs.give();
       }
-    }
-
-    public void signalCrawlAttemptCompleted(boolean success,
-					    Object cookie,
-					    CrawlerStatus status) {
-      String url = (String)cookie;
-
-      crawlCompleted(url);
     }
 
     public void crawlCompleted(String url) {
@@ -4622,13 +4651,24 @@ public class PluginManager
     public List getRegistryUrls() {
       return registryUrls;
     }
+
+    @Override
+    protected void handleNewContentCompleted(CrawlEvent event) {
+      Map<String, Object> extraData = event.getExtraData();
+      if (extraData != null && extraData.containsKey(KEY_CALLER_ID)) {
+        if (callerId.equals(extraData.get(KEY_CALLER_ID))) {
+          String url = (String) extraData.get(KEY_COOKIE);
+          crawlCompleted(url);
+        }
+      }
+    }
   }
 
   /*
    * Provides the indication of whether the URLs (and their content) of an
    * archival unit should be obtained from a web service instead of the
    * repository.
-   * 
+   *
    * @return a boolean with <code>true</code> if the URLs (and their content) of
    * an archival unit should be obtained from a web service, <code>false</code>
    * otherwise.

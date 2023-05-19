@@ -2281,6 +2281,9 @@ public class TestPluginManager extends LockssTestCase4 {
     theDaemon.setCrawlManager(mcm);
     ConfigurationUtil.addFromArgs(org.lockss.crawler.CrawlManagerImpl.PARAM_CRAWLER_ENABLED,
 				  "true");
+    ConfigurationUtil.addFromArgs(LockssDaemon.PARAM_CRAWL_MODE,
+      "Plugins");
+
     Properties p = new Properties();
     prepareLoadablePluginTests(p);
     List urls = ListUtil.list("http://plug1.example.com/blueplugs/",

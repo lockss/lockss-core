@@ -100,25 +100,25 @@ public class TestCrawlManagerImpl extends LockssTestCase {
     testHandler = new CrawlEventHandler.Base() {
       @Override
       protected void handleNewContentCompleted(CrawlEvent event) {
-        log.info(" new content completed was called");
+        log.debug2(" new content completed was called");
         Map<String, Object> extraData = event.getExtraData();
         if (extraData != null && extraData.containsKey(KEY_COOKIE)) {
           Object cookie = extraData.get(KEY_COOKIE);
           TestCrawlCB cb = callbacks.remove(cookie);
           if(cb != null) {
-            log.info("Found callback for cookie: " + cookie);
+            log.debug2("Found callback for cookie: " + cookie);
             cb.signalCrawlAttemptCompleted(event.isSuccessful(),cookie, null);
           }
 
         }
       }   @Override
       protected void handleRepairCompleted(CrawlEvent event) {
-        log.info(" repair completed was called");
+        log.debug2(" repair completed was called");
         Map<String, Object> extraData = event.getExtraData();
         if (extraData != null && extraData.containsKey(KEY_COOKIE)) {
           Object cookie = extraData.get(KEY_COOKIE);
           TestCrawlCB cb = callbacks.get(cookie);
-          log.info("Found callback for cookie: " + cookie);
+          log.debug2("Found callback for cookie: " + cookie);
           if(cb != null) {
             cb.signalCrawlAttemptCompleted(event.isSuccessful(),cookie, null);
           }
