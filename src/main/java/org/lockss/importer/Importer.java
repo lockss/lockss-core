@@ -392,23 +392,23 @@ public class Importer {
     ArchivalUnit au = null;
 
     // Get the plugin identifier.
-    String pluginId = null;
+    String pluginKey = null;
 
     try {
-      pluginId = PluginManager.pluginIdFromAuId(auId);
-      log.trace("pluginId = {}", pluginId);
+      pluginKey = PluginManager.pluginKeyFromAuId(auId);
+      log.trace("pluginKey = {}", pluginKey);
     } catch (Exception e) {
       throw new RuntimeException("Error getting the plugin identifier: ", e);
     }
 
     Plugin plugin = null;
 
-    if (PLUGIN_KEY.equals(pluginId)) {
+    if (PLUGIN_KEY.equals(pluginKey)) {
       // Get the plugin.
       plugin = pluginMgr.getImportPlugin();
 
       if (plugin == null) {
-	throw new RuntimeException("Invalid pluginId '" + pluginId + "'");
+	throw new RuntimeException("Invalid pluginKey '" + pluginKey + "'");
       }
 
       // Now that the Import plugin has been loaded, get the archival unit
@@ -422,18 +422,18 @@ public class Importer {
       }
     } else {
       // Get the plugin.
-      plugin = pluginMgr.getPlugin(pluginId);
+      plugin = pluginMgr.getPlugin(pluginKey);
 
       if (plugin == null) {
-	boolean pluginLoaded = pluginMgr.ensurePluginLoaded(pluginId);
+	boolean pluginLoaded = pluginMgr.ensurePluginLoaded(pluginKey);
 	log.trace("pluginLoaded = {}", pluginLoaded);
 
 	if (pluginLoaded) {
-	  plugin = pluginMgr.getPlugin(pluginId);
+	  plugin = pluginMgr.getPlugin(pluginKey);
 	}
 
 	if (plugin == null) {
-	  throw new RuntimeException("Invalid pluginId '" + pluginId + "'");
+	  throw new RuntimeException("Invalid pluginKey '" + pluginKey + "'");
 	}
       }
     }

@@ -4261,7 +4261,7 @@ public class ConfigManager implements LockssManager {
 
     // Get and parse the Archival Unit identifier.
     String auid = auConfiguration.getAuId();
-    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String pluginKey = PluginManager.pluginKeyFromAuId(auid);
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Get the configuration to be stored.
@@ -4284,7 +4284,7 @@ public class ConfigManager implements LockssManager {
 	    + auConfiguration + "'", lrhe);
       }
     } else {
-      getConfigManagerSql().addArchivalUnitConfiguration(pluginId, auKey,
+      getConfigManagerSql().addArchivalUnitConfiguration(pluginKey, auKey,
 	  auConfig);
       notifyAuConfigChanged(auid, auConfiguration, fromExternalSource);
     }
@@ -4406,12 +4406,12 @@ public class ConfigManager implements LockssManager {
     AuConfiguration result = null;
 
     // Parse the Archival Unit identifier.
-    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String pluginKey = PluginManager.pluginKeyFromAuId(auid);
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Retrieve the Archival Unit configuration stored in the database.
     Map<String, String> auConfig = getConfigManagerSql()
-	.findArchivalUnitConfiguration(conn, pluginId, auKey);
+	.findArchivalUnitConfiguration(conn, pluginKey, auKey);
 
     // Check whether a configuration was found.
     if (!auConfig.isEmpty()) {
@@ -4439,13 +4439,13 @@ public class ConfigManager implements LockssManager {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
     // Parse the Archival Unit identifier.
-    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String pluginKey = PluginManager.pluginKeyFromAuId(auid);
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Retrieve the Archival Unit configuration creation time stored in the
     // database.
     Long creationTime =
-	getConfigManagerSql().findArchivalUnitCreationTime(pluginId, auKey);
+	getConfigManagerSql().findArchivalUnitCreationTime(pluginKey, auKey);
 
     if (log.isDebug2()) log.debug2("creationTime = " + creationTime);
     return creationTime;
@@ -4467,13 +4467,13 @@ public class ConfigManager implements LockssManager {
     if (log.isDebug2()) log.debug2("auid = " + auid);
 
     // Parse the Archival Unit identifier.
-    String pluginId = PluginManager.pluginIdFromAuId(auid);
+    String pluginKey = PluginManager.pluginKeyFromAuId(auid);
     String auKey = PluginManager.auKeyFromAuId(auid);
 
     // Retrieve the Archival Unit configuration last update time stored in the
     // database.
     Long lastUpdateTime =
-	getConfigManagerSql().findArchivalUnitLastUpdateTime(pluginId, auKey);
+	getConfigManagerSql().findArchivalUnitLastUpdateTime(pluginKey, auKey);
 
     if (log.isDebug2()) log.debug2("creationTime = " + lastUpdateTime);
     return lastUpdateTime;
@@ -4528,11 +4528,11 @@ public class ConfigManager implements LockssManager {
       }
     } else {
       // Parse the Archival Unit identifier.
-      String pluginId = PluginManager.pluginIdFromAuId(auid);
+      String pluginKey = PluginManager.pluginKeyFromAuId(auid);
       String auKey = PluginManager.auKeyFromAuId(auid);
 
       // Remove the Archival Unit configuration from the database.
-      getConfigManagerSql().removeArchivalUnit(pluginId, auKey);
+      getConfigManagerSql().removeArchivalUnit(pluginKey, auKey);
 
       notifyAuConfigRemoved(auid, fromExternalSource);
     }

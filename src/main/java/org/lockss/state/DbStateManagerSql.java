@@ -500,48 +500,48 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   // StateStore interface adapter
 
   @Override
-  public AuStateBean findArchivalUnitState(String key)
+  public AuStateBean findArchivalUnitState(String auid)
       throws DbException, IOException {
-    String json = findArchivalUnitState(PluginManager.pluginIdFromAuId(key),
-					PluginManager.auKeyFromAuId(key));
+    String json = findArchivalUnitState(PluginManager.pluginKeyFromAuId(auid),
+					PluginManager.auKeyFromAuId(auid));
     AuStateBean res = null;
     if (json != null) {
-      res = AuStateBean.fromJson(key, json, LockssDaemon.getLockssDaemon());
+      res = AuStateBean.fromJson(auid, json, LockssDaemon.getLockssDaemon());
     }
     return res;
   }
 
   @Override
-  public Long updateArchivalUnitState(String key,
+  public Long updateArchivalUnitState(String auid,
 				      AuStateBean ausb,
 				      Set<String> fields)
       throws DbException {
-    return updateArchivalUnitState(PluginManager.pluginIdFromAuId(key),
-				   PluginManager.auKeyFromAuId(key),
+    return updateArchivalUnitState(PluginManager.pluginKeyFromAuId(auid),
+				   PluginManager.auKeyFromAuId(auid),
 				   ausb);
   }
 
   @Override
-  public AuAgreements findAuAgreements(String key)
+  public AuAgreements findAuAgreements(String auid)
       throws DbException, IOException {
     String json = findArchivalUnitAgreements(
-	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
+	PluginManager.pluginKeyFromAuId(auid), PluginManager.auKeyFromAuId(auid));
 
     AuAgreements res = null;
 
     if (json != null) {
-      res = AuAgreements.fromJson(key, json, LockssDaemon.getLockssDaemon());
+      res = AuAgreements.fromJson(auid, json, LockssDaemon.getLockssDaemon());
     }
 
     return res;
   }
 
   @Override
-  public Long updateAuAgreements(String key,
+  public Long updateAuAgreements(String auid,
 				 AuAgreements aua,
 				 Set<PeerIdentity> peers) throws DbException {
-    return updateArchivalUnitAgreements(PluginManager.pluginIdFromAuId(key),
-	PluginManager.auKeyFromAuId(key), aua);
+    return updateArchivalUnitAgreements(PluginManager.pluginKeyFromAuId(auid),
+	PluginManager.auKeyFromAuId(auid), aua);
   }
 
   protected static final Set<String> auId_auCreationTime =
@@ -848,7 +848,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   /**
    * Provides the AuSuspectUrlVersions associated with the key (an AUID).
    * 
-   * @param key
+   * @param auid
    *          A String with the key under which the AuSuspectUrlVersions is
    *          stored.
    * @return an AuSuspectUrlVersions, or null if not present in the store.
@@ -858,15 +858,15 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    *           if any problem occurred accessing the data.
    */
   @Override
-  public AuSuspectUrlVersions findAuSuspectUrlVersions(String key)
+  public AuSuspectUrlVersions findAuSuspectUrlVersions(String auid)
       throws DbException, IOException {
     String json = findArchivalUnitSuspectUrlVersions(
-	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
+	PluginManager.pluginKeyFromAuId(auid), PluginManager.auKeyFromAuId(auid));
 
     AuSuspectUrlVersions res = null;
 
     if (json != null) {
-      res = AuSuspectUrlVersions.fromJson(key, json,
+      res = AuSuspectUrlVersions.fromJson(auid, json,
 	  LockssDaemon.getLockssDaemon());
     }
 
@@ -879,7 +879,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * must be stored, but it it permissible to ignore <code>ausuv</code> and
    * store the entire object.
    * 
-   * @param key
+   * @param auid
    *          A String with the key under which the AuSuspectUrlVersions is
    *          stored.
    * @param ausuv
@@ -891,13 +891,13 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    *           if any problem occurred accessing the data.
    */
   @Override
-  public Long updateAuSuspectUrlVersions(String key,
+  public Long updateAuSuspectUrlVersions(String auid,
 					 AuSuspectUrlVersions ausuv,
 					 Set<SuspectUrlVersion> versions)
 					     throws DbException {
     return updateArchivalUnitSuspectUrlVersions(
-	PluginManager.pluginIdFromAuId(key),
-	PluginManager.auKeyFromAuId(key), ausuv);
+	PluginManager.pluginKeyFromAuId(auid),
+	PluginManager.auKeyFromAuId(auid), ausuv);
   }
 
   /**
@@ -1205,7 +1205,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   /**
    * Provides the NoAuPeerSet associated with the key (an AUID).
    * 
-   * @param key
+   * @param auid
    *          A String with the key under which the NoAuPeerSet is stored.
    * @return a DatedPeerIdSet, or null if not present in the store.
    * @throws DbException
@@ -1214,15 +1214,15 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    *           if any problem occurred accessing the data.
    */
   @Override
-  public DatedPeerIdSet findNoAuPeerSet(String key)
+  public DatedPeerIdSet findNoAuPeerSet(String auid)
       throws DbException, IOException {
     String json = findArchivalUnitNoAuPeerSet(
-	PluginManager.pluginIdFromAuId(key), PluginManager.auKeyFromAuId(key));
+	PluginManager.pluginKeyFromAuId(auid), PluginManager.auKeyFromAuId(auid));
 
     DatedPeerIdSet res = null;
 
     if (json != null) {
-      res = DatedPeerIdSetImpl.fromJson(key, json, LockssDaemon.getLockssDaemon());
+      res = DatedPeerIdSetImpl.fromJson(auid, json, LockssDaemon.getLockssDaemon());
     }
 
     return res;
@@ -1234,7 +1234,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    * stored, but it it permissible to ignore <code>peers</code> and store the
    * entire object.
    * 
-   * @param key
+   * @param auid
    *          A String with the key under which the NoAuPeerSet is stored.
    * @param dpis
    *          A DatedPeerIdSet with the object to be updated.
@@ -1245,12 +1245,12 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
    *           if any problem occurred accessing the data.
    */
   @Override
-  public Long updateNoAuPeerSet(String key,
+  public Long updateNoAuPeerSet(String auid,
 				     DatedPeerIdSet dpis,
 				     Set<PeerIdentity> peers)
 					 throws DbException {
-    return updateArchivalUnitNoAuPeerSet(PluginManager.pluginIdFromAuId(key),
-	PluginManager.auKeyFromAuId(key), dpis);
+    return updateArchivalUnitNoAuPeerSet(PluginManager.pluginKeyFromAuId(auid),
+	PluginManager.auKeyFromAuId(auid), dpis);
   }
 
   /**
