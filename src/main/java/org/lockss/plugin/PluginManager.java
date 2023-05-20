@@ -2103,7 +2103,7 @@ public class PluginManager
 	for (Map.Entry<String,Configuration> ent : configMap.entrySet()) {
 	  String auid = ent.getKey();
 	  Configuration auConf = ent.getValue();
-	  String pkey = pluginKeyFromId(pluginKeyFromAuId(auid));
+	  String pkey = pluginKeyFromAuId(auid);
 	  Plugin plug = getPlugin(pkey);
 
 	  // To find the last AU.
