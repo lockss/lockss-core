@@ -79,7 +79,7 @@ public class KeyStoreUtil {
   public static final String PROP_SIG_ALGORITHM = "SigAlgorithm";
   /** X500Name.  Default 5 years */
   public static final String PROP_X500_NAME = "X500Name";
-  /** Default 1024 */
+  /** Default 2048 */
   public static final String PROP_KEY_BITS = "KeyBits";
   /** Seconds.  Default 5 years */
   public static final String PROP_EXPIRE_IN = "ExpireIn";
