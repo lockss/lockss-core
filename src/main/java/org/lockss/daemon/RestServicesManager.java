@@ -58,7 +58,7 @@ public class RestServicesManager
   
   /** Interval at which each service is probed until it becomes ready. */
   public static final String PARAM_PROBE_INTERVAL = PREFIX + "probeInterval";
-  public static final long DEFAULT_PROBE_INTERVAL = 10 * Constants.SECOND;
+  public static final long DEFAULT_PROBE_INTERVAL = 60 * Constants.SECOND;
 
   /** Connect timeout for REST call to service's status endpoint. */
   public static final String PARAM_CONNECT_TIMEOUT = PREFIX + "connectTimeout";
@@ -152,7 +152,8 @@ public class RestServicesManager
 	}
       
 	try {
-	  long sleep = probeInterval - (TimeBase.nowMs() - start);
+	  long sleep = Long.max(probeInterval - (TimeBase.nowMs() - start),
+                                10 * Constants.SECOND);
 	  Thread.sleep(sleep);
 	} catch (InterruptedException ignore) {}
       }
