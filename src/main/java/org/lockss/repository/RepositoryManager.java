@@ -433,6 +433,11 @@ public class RepositoryManager
     return getRepoRepo(repoSpec).getRepositoryInfo();
   }
 
+  public StorageInfo getStorageInfo(String repoSpec)
+      throws IOException {
+    return getRepoRepo(repoSpec).getStorageInfo();
+  }
+
   /** Return the DF for the given repo spec.  Currently hardwired for the
    * sole confiured repo */
   public PlatformUtil.DF getRepositoryDF(String repoSpec) {

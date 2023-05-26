@@ -291,6 +291,16 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     return new RepositoryInfo(sto, ind);
   }
 
+  @Override
+  public StorageInfo getStorageInfo() throws IOException {
+    try {
+      return store.getStorageInfo();
+    } catch (Exception e) {
+      log.error("Couldn't get artifact data store space", e);
+      throw new IOException("Could not get artifact data store space", e);
+    }
+  }
+
   /**
    * Adds an artifact to this LOCKSS repository.
    *
