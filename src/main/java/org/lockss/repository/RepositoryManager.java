@@ -442,7 +442,7 @@ public class RepositoryManager
    * sole confiured repo */
   public PlatformUtil.DF getRepositoryDF(String repoSpec) {
     try {
-      StorageInfo storageInfo = getRepositoryInfo(repoSpec).getStoreInfo();
+      StorageInfo storageInfo = getStorageInfo(repoSpec);
       log.trace("storageInfo = {}", storageInfo);
 
       return PlatformUtil.DF.fromStorageInfo(storageInfo);
