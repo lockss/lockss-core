@@ -127,10 +127,9 @@ public class CompoundLinearSlope {
 				Perl5Compiler.READ_ONLY_MASK);
 
 
-  /** Parse a string of the form [x1,y1},[x2,y2},...,[xN,yN} into a list of
-   * Points, where each xN is either an integer number of milliseconds or a
-   * time interval string (see {@link StringUtil#parseTimeInterval()]) and
-   * each yN is an integer */
+  /** Parse a string of the form [x1,y1},[x2,y2],...,[xN,yN] into a list of
+   * Points, where each xN and yN may be either integer or a
+   * time interval string (see {@link StringUtil#parseTimeInterval()]) */
   public static List<Point> parseString(String str)
       throws NumberFormatException {
     if (StringUtil.isNullString(str)) {
