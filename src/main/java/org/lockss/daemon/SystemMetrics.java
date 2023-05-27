@@ -50,7 +50,7 @@ import org.lockss.util.time.TimeBase;
  * as hash speed estimates.
  */
 public class SystemMetrics
-  extends BaseLockssDaemonManager implements ConfigurableManager {
+  extends BaseLockssManager implements ConfigurableManager {
   static final String PREFIX = Configuration.PREFIX + "metrics.";
 
   /**
@@ -93,16 +93,24 @@ public class SystemMetrics
 
   Hashtable estimateTable = new Hashtable();
   MessageDigest defaultDigest = LcapMessage.getDefaultMessageDigest();
-  HashService hashService;
-  private PluginManager pluginMgr;
+  private HashService hashService = null;
+  private PluginManager pluginMgr = null;
   int defaultSpeed = DEFAULT_DEFAULT_HASH_SPEED;
   private TimerQueue.Request req;
   private long memLogInterval = DEFAULT_MEM_LOG_INTERVAL;
 
   public void startService() {
     super.startService();
-    hashService = getDaemon().getHashService();
-    pluginMgr = getDaemon().getPluginManager();
+    try {
+      hashService = getApp().getManagerByType(HashService.class);
+    } catch (IllegalArgumentException e) {
+      // ignore
+    }
+    try {
+      pluginMgr = getApp().getManagerByType(PluginManager.class);
+    } catch (IllegalArgumentException e) {
+      // ignore
+    }
     resetConfig();
   }
 
