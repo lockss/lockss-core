@@ -56,9 +56,20 @@ public class RestServicesManager
 
   public static final String PREFIX = Configuration.PREFIX + "services.";
   
-  /** Interval at which each service is probed until it becomes ready. */
-  public static final String PARAM_PROBE_INTERVAL = PREFIX + "probeInterval";
-  public static final long DEFAULT_PROBE_INTERVAL = 60 * Constants.SECOND;
+  /** Probe interval as a function of how long we've been probing.
+   * Idea is to probe frequently at start so it doesn't take long to
+   * detect services coming up, but not cause excessive traffic
+   * probing services that don't start.
+   */
+  public static final String PARAM_PROBE_INTERVAL_CURVE =
+      PREFIX + "probeDownIntervalCurve";
+  public static final String DEFAULT_PROBE_INTERVAL_CURVE =
+      "[0,10s],[5m,10s],[5m,2m]";
+
+  /** Minimum inter-probe sleep. */
+  public static final String PARAM_MIN_PROBE_SLEEP =
+    PREFIX + "minProbeSleep";
+  public static final long DEFAULT_MIN_PROBE_SLEEP = 10 * Constants.SECOND;
 
   /** Connect timeout for REST call to service's status endpoint. */
   public static final String PARAM_CONNECT_TIMEOUT = PREFIX + "connectTimeout";
@@ -68,13 +79,16 @@ public class RestServicesManager
   public static final String PARAM_READ_TIMEOUT = PREFIX + "readTimeout";
   public static final long DEFAULT_READ_TIMEOUT = 30 + Constants.SECOND;
 
+
 //   public static final String PARAM_PREREQUISITES = Configuration.PREFIX +
 //     "prerequisites";
 //   public static final List DEFAULT_PREREQUISITES = null;
 
-  private long probeInterval = DEFAULT_PROBE_INTERVAL;;
+  private long minProbeSleep = DEFAULT_MIN_PROBE_SLEEP;;
   private long probeConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
   private long probeReadTimeout = DEFAULT_READ_TIMEOUT;
+  private CompoundLinearSlope probeIntervals =
+    new CompoundLinearSlope(DEFAULT_PROBE_INTERVAL_CURVE);
 
 
   /** Maps service binding to status.  When the status changes, the
@@ -97,12 +111,22 @@ public class RestServicesManager
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
     if (changedKeys.contains(PREFIX)) {
-      probeInterval = config.getTimeInterval(PARAM_PROBE_INTERVAL,
-					     DEFAULT_PROBE_INTERVAL);
+      minProbeSleep = config.getTimeInterval(PARAM_MIN_PROBE_SLEEP,
+					     DEFAULT_MIN_PROBE_SLEEP);
       probeConnectTimeout = config.getTimeInterval(PARAM_CONNECT_TIMEOUT,
 						   DEFAULT_CONNECT_TIMEOUT);
       probeReadTimeout = config.getTimeInterval(PARAM_READ_TIMEOUT,
 						   DEFAULT_READ_TIMEOUT);
+      String probeCurve = config.get(PARAM_PROBE_INTERVAL_CURVE,
+                                     DEFAULT_PROBE_INTERVAL_CURVE);
+      try {
+        probeIntervals = new CompoundLinearSlope(probeCurve);
+      } catch (Exception e) {
+        log.warn("Malformed {}: {}, using default: {}",
+                 PARAM_PROBE_INTERVAL_CURVE, probeCurve,
+                 DEFAULT_PROBE_INTERVAL_CURVE);
+        probeIntervals = new CompoundLinearSlope(DEFAULT_PROBE_INTERVAL_CURVE);
+      }
     }
   }
 
@@ -136,9 +160,10 @@ public class RestServicesManager
   /** Probe a service until it becumes ready. */
   void probeService(ServiceDescr descr, ServiceBinding binding) {
     log.debug2("Probing {}: {}", descr.getAbbrev(), binding);
+    long start = TimeBase.nowMs();
     try {
       while (true) {
-	long start = TimeBase.nowMs();
+	long probeStart = TimeBase.nowMs();
 	probeOnce(descr, binding);
 	ServiceStatus stat = getServiceStatus(binding);
 	if (stat != null) {
@@ -152,8 +177,11 @@ public class RestServicesManager
 	}
       
 	try {
-	  long sleep = Long.max(probeInterval - (TimeBase.nowMs() - start),
-                                10 * Constants.SECOND);
+	  long interval = (long)probeIntervals.getY(TimeBase.nowMs() - start);
+	  long sleep = Long.max(interval - (TimeBase.nowMs() - probeStart),
+                                minProbeSleep);
+          log.debug2("svc: {}, interval: {}, sleep: {}",
+                     descr.getAbbrev(),interval, sleep);
 	  Thread.sleep(sleep);
 	} catch (InterruptedException ignore) {}
       }
