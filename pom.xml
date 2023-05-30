@@ -1047,7 +1047,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		<if>
 		  <isset property="archive.db.is.up.to.date" />
 		  <else>
-		    <echo message="Generating empty DB for tests" />
+		    <echo level="info" message="Generating empty DB for tests" />
                     <tempfile property="empty.db.parent.dir"
                               destDir="${tmpdir}"
                               prefix="testtmp"/>
