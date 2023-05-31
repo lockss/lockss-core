@@ -867,8 +867,10 @@ public class MockLockssDaemon extends LockssDaemon {
   public void setAusStarted(boolean val) {
     if (val) {
       ausStarted.fill();
+      getPluginManager().setAusStarted(true);
     } else {
       ausStarted = new OneShotSemaphore();
+      getPluginManager().setAusStarted(false);
     }
   }
 

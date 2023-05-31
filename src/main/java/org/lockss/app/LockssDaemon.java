@@ -69,6 +69,7 @@ import org.lockss.util.ListUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.OneShotSemaphore;
 import org.lockss.util.time.Deadline;
+import org.lockss.util.rest.status.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -810,14 +811,24 @@ public class LockssDaemon extends LockssApp {
     return ausStarted.isFull();
   }
 
-  /** Return true if the loadable plugin registry AUs are ready to be
-   * loaded */
+  @Deprecated
   public boolean areLoadablePluginsReady() {
+    return getStartupStatus().areAusStarted();
+  }
+
+//   /** Shorthand for getStartupStatus().areAusStarted() */
+//   public boolean areAusStarted() {
+//     return getStartupStatus().areAusStarted();
+//   }
+
+  /** Return the status of startup activities (crawling, loading
+   * plugins, starting AUs */
+  public ApiStatus.StartupStatus getStartupStatus() {
     try {
-      return getPluginManager().getLoadablePluginsReady();
+      return getPluginManager().getStartupStatus();
     } catch (IllegalArgumentException e) {
-      // No PluginManager means we didn't crawl plugin registries
-      return false;
+      // No PluginManager means no StartupStatus
+      return ApiStatus.StartupStatus.NONE;
     }
   }
 
