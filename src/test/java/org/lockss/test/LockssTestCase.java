@@ -41,6 +41,7 @@ import org.apache.commons.collections4.iterators.ObjectArrayIterator;
 import org.apache.commons.io.IOUtils;
 import org.apache.oro.text.regex.Pattern;
 import org.junit.Ignore;
+import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
@@ -217,6 +218,7 @@ public class LockssTestCase extends TestCase {
     ConfigManager.makeConfigManager();
     Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
+    LockssDaemon.setLockssDaemon(mockDaemon);
     super.setUp();
     disableThreadWatchdog();
   }
