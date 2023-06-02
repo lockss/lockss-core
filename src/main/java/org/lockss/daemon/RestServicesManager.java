@@ -64,7 +64,7 @@ public class RestServicesManager
   public static final String PARAM_PROBE_INTERVAL_CURVE =
       PREFIX + "probeDownIntervalCurve";
   public static final String DEFAULT_PROBE_INTERVAL_CURVE =
-      "[0,10s],[5m,10s],[5m,2m]";
+      "[0,10s],[15m,10s],[15m,2m],[30m,2m],[30m,10m]";
 
   /** Minimum inter-probe sleep. */
   public static final String PARAM_MIN_PROBE_SLEEP =
