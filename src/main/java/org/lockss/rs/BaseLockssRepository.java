@@ -391,6 +391,15 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             status.setOffset(header.getOffset());
             status.url(header.getUrl());
 
+            // Read WARC record type from record headers
+            WARCConstants.WARCRecordType recordType =
+                WARCConstants.WARCRecordType.valueOf((String) header.getHeaderValue(WARCConstants.HEADER_KEY_TYPE));
+
+            if (!(recordType == WARCConstants.WARCRecordType.response ||
+                recordType == WARCConstants.WARCRecordType.resource)) {
+              continue;
+            }
+
             // Transform WARC record to ArtifactData
             ArtifactData ad = WarcArtifactData.fromArchiveRecord(record);
             assert ad != null;
