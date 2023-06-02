@@ -1592,6 +1592,35 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testExcludedTitleDb() throws IOException {
+    String props =
+      "org.lockss.title.title1.title=Air & Space volume 3\n" +
+      "org.lockss.title.title1.plugin=org.lockss.testplugin1\n" +
+      "org.lockss.title.title1.pluginVersion=4\n" +
+      "org.lockss.title.title1.issn=0003-0031\n" +
+      "org.lockss.title.title1.journal.link.1.type=continuedBy\n" +
+      "org.lockss.title.title1.journal.link.1.journalId=0003-0031\n" +
+      "org.lockss.title.title1.param.1.key=volume\n" +
+      "org.lockss.title.title1.param.1.value=3\n" +
+      "org.lockss.title.title1.param.2.key=year\n" +
+      "org.lockss.title.title1.param.2.value=1999\n" +
+      "org.lockss.title.title1.attributes.publisher=The Smithsonian Institution";
+    String u2 = FileTestUtil.urlOfString(props);
+    String u1 = FileTestUtil.urlOfString("a=1\norg.lockss.titleDbs="+u2+"\norg.lockss.config.loadTdbs=false");
+    FileConfigFile cf1 = new FileConfigFile(u1,null);
+    cf1.setPlatformFile(true);
+    assertFalse(mgr.waitConfig(Deadline.EXPIRED));
+    assertTrue(mgr.updateConfig(ListUtil.list(cf1)));
+    assertTrue(mgr.waitConfig(Deadline.EXPIRED));
+
+    Configuration config = mgr.getCurrentConfig();
+    assertEquals("1", config.get("a"));
+
+    Tdb tdb = config.getTdb();
+    assertNull(tdb);
+  }
+
+  @Test
   public void testLoadAuxProps() throws IOException {
     String xml = "<lockss-config>\n" +
       "<property name=\"org.lockss\">\n" +
