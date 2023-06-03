@@ -52,7 +52,7 @@ public class TestLocalLockssRepositoryPersist extends AbstractLockssRepositoryTe
     private File repoBaseDir = null;
 
     @Override
-    public LockssRepository makeLockssRepository() throws Exception {
+    public LockssRepository getLockssRepository() throws Exception {
       repoStateDir = getTempDir();
       repoBaseDir = getTempDir();
       return new LocalLockssRepository(repoStateDir, repoBaseDir, "persist.ser");

@@ -45,17 +45,21 @@ import java.io.File;
 /**
  * Test class for {@link LocalLockssRepository}
  */
-public class TestLocalLockssRepository extends AbstractLockssRepositoryTest {
+public class TestLocalLockssRepository extends AbstractBaseLockssRepositoryTest {
     private final static L4JLogger log = L4JLogger.getLogger();
 
   File repoStateDir;
   File repoBaseDir;
 
   @Override
-  public LockssRepository makeLockssRepository() throws Exception {
-    repoStateDir = getTempDir();
-    repoBaseDir = getTempDir();
-    return new LocalLockssRepository(repoStateDir, repoBaseDir, null);
+  public BaseLockssRepository getLockssRepository() throws Exception {
+    if (repository == null) {
+      repoStateDir = getTempDir();
+      repoBaseDir = getTempDir();
+      repository = new LocalLockssRepository(repoStateDir, repoBaseDir, null);
+    }
+
+    return (BaseLockssRepository) repository;
   }
 
     /**
@@ -84,5 +88,10 @@ public class TestLocalLockssRepository extends AbstractLockssRepositoryTest {
 		 sto.getType());
     assertTrue(sto.getSizeKB() > 0);
     assertFalse(sto.isSameDevice(ind));
+  }
+
+  @Test
+  public void testGetStorageInfo() throws Exception {
+      getLockssRepository().getArtifactDataStore().getStorageInfo();
   }
 }
