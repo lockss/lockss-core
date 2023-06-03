@@ -65,10 +65,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
-import com.sun.net.ssl.TrustManagerFactory;
-import com.sun.net.ssl.TrustManager;
-import com.sun.net.ssl.X509TrustManager;
-import org.apache.commons.logging.Log; 
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 /**
@@ -115,16 +115,18 @@ public class EasyX509TrustManager implements X509TrustManager
     }
 
     /**
-     * @see com.sun.net.ssl.X509TrustManager#isClientTrusted(X509Certificate[])
+     * @see javax.net.ssl.X509TrustManager#checkClientTrusted(X509Certificate[], String s)
      */
-    public boolean isClientTrusted(X509Certificate[] certificates) {
-        return this.standardTrustManager.isClientTrusted(certificates);
+    @Override
+    public void checkClientTrusted(X509Certificate[] certificates, String s) throws CertificateException {
+        this.standardTrustManager.checkClientTrusted(certificates, s);
     }
 
     /**
-     * @see com.sun.net.ssl.X509TrustManager#isServerTrusted(X509Certificate[])
+     * @see javax.net.ssl.X509TrustManager#checkServerTrusted(X509Certificate[], String s)
      */
-    public boolean isServerTrusted(X509Certificate[] certificates) {
+    @Override
+    public void checkServerTrusted(X509Certificate[] certificates, String s) throws CertificateException {
         if ((certificates != null) && LOG.isDebugEnabled()) {
             LOG.debug("Server certificate chain:");
             for (int i = 0; i < certificates.length; i++) {
@@ -133,21 +135,14 @@ public class EasyX509TrustManager implements X509TrustManager
         }
         if ((certificates != null) && (certificates.length == 1)) {
             X509Certificate certificate = certificates[0];
-            try {
-                certificate.checkValidity(); 
-            }
-            catch (CertificateException e) {
-                LOG.error(e.toString());
-                return false;
-            }
-            return true;
+            certificate.checkValidity();
         } else {
-            return this.standardTrustManager.isServerTrusted(certificates);
+            this.standardTrustManager.checkServerTrusted(certificates, s);
         }
     }
 
     /**
-     * @see com.sun.net.ssl.X509TrustManager#getAcceptedIssuers()
+     * @see javax.net.ssl.X509TrustManager#getAcceptedIssuers()
      */
     public X509Certificate[] getAcceptedIssuers() {
         return this.standardTrustManager.getAcceptedIssuers();

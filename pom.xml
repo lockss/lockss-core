@@ -367,26 +367,63 @@ POSSIBILITY OF SUCH DAMAGE.
       <artifactId>edu-stanford-db-rdf-api</artifactId>
       <version>2001-01-19-p1</version>
     </dependency>
-    
+
     <dependency>
-      <groupId>xstream</groupId>
+      <groupId>com.thoughtworks.xstream</groupId>
       <artifactId>xstream</artifactId>
-      <version>1.1.3</version>
+      <version>1.3.1</version>
+<!--      <version>1.4.13</version>-->
     </dependency>
-    
+
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>javax.servlet-api</artifactId>
-      <version>4.0.0</version>
+      <version>4.0.1</version>
       <scope>provided</scope>
     </dependency>
     
+<!--    <dependency>-->
+<!--      <groupId>javax.xml.ws</groupId>-->
+<!--      <artifactId>jaxws-api</artifactId>-->
+<!--      <version>2.3.1</version>-->
+<!--    </dependency>-->
+
+    <!-- https://openjdk.org/jeps/320 -->
+<!--    <dependency>-->
+<!--      <groupId>com.sun.xml.ws</groupId>-->
+<!--      <artifactId>jaxws-ri</artifactId>-->
+<!--      <version>2.3.3</version>-->
+<!--      <type>pom</type>-->
+<!--    </dependency>-->
+
+<!--    <dependency>-->
+<!--      <groupId>com.sun.xml.ws</groupId>-->
+<!--      <artifactId>jaxws-rt</artifactId>-->
+<!--      <version>2.3.3</version>-->
+<!--      <type>pom</type>-->
+<!--    </dependency>-->
+
+
     <dependency>
-      <groupId>javax.xml.ws</groupId>
-      <artifactId>jaxws-api</artifactId>
-      <version>2.2.11</version>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-frontend-jaxws</artifactId>
+      <version>3.3.5</version>
     </dependency>
-    
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-transports-http</artifactId>
+      <version>3.3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-transports-http-jetty</artifactId>
+      <version>3.3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-frontend-jaxrs</artifactId>
+      <version>3.3.5</version>
+    </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.github.ziplet/ziplet -->
     <dependency>
@@ -514,11 +551,11 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>3.3.1</version>
     </dependency>
     
-    <dependency>
-      <groupId>org.apache.cxf</groupId>
-      <artifactId>cxf-bundle</artifactId>
-      <version>2.7.18</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.cxf</groupId>-->
+<!--      <artifactId>cxf-bundle</artifactId>-->
+<!--      <version>2.7.18</version>-->
+<!--    </dependency>-->
 
     <dependency>
       <groupId>com.sun.xml.fastinfoset</groupId>
@@ -526,17 +563,17 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>1.2.13</version>
     </dependency>
 
-    <dependency>
-      <groupId>org.glassfish.jaxb</groupId>
-      <artifactId>jaxb-core</artifactId>
-      <version>2.2.11</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.glassfish.jaxb</groupId>-->
+<!--      <artifactId>jaxb-core</artifactId>-->
+<!--      <version>2.2.11</version>-->
+<!--    </dependency>-->
 
-    <dependency>
-      <groupId>org.glassfish.jaxb</groupId>
-      <artifactId>jaxb-runtime</artifactId>
-      <version>2.2.11</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.glassfish.jaxb</groupId>-->
+<!--      <artifactId>jaxb-runtime</artifactId>-->
+<!--      <version>2.2.11</version>-->
+<!--    </dependency>-->
 
     <dependency>
       <groupId>org.jvnet.mimepull</groupId>
@@ -547,7 +584,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>2.7.22</version>
+      <version>2.22.0</version>
     </dependency>
 
     <dependency>

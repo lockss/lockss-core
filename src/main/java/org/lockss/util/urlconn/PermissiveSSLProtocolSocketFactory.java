@@ -72,8 +72,8 @@ import org.apache.http.HttpHost;
 import org.apache.http.conn.socket.LayeredConnectionSocketFactory;
 import org.apache.http.protocol.HttpContext;
 
-import com.sun.net.ssl.SSLContext;
-import com.sun.net.ssl.TrustManager;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 
 import org.lockss.app.*;
 import org.lockss.daemon.*;

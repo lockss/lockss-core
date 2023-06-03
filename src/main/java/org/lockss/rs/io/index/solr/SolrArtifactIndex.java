@@ -66,6 +66,7 @@ import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
 import org.lockss.util.rest.repo.util.SemaphoreMap;
 import org.lockss.util.storage.StorageInfo;
+import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
 
@@ -81,6 +82,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -680,7 +682,31 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    */
   @Override
   public boolean isReady() {
-    return getState() == ArtifactIndexState.RUNNING && checkAlive();
+    return getState() == ArtifactIndexState.RUNNING;
+  }
+
+  @Override
+  public void waitReady(Deadline deadline) throws TimeoutException {
+    while (!isReady() || !checkAlive()) {
+      if (deadline.expired()) {
+        throw new TimeoutException("Deadline for artifact index to become ready expired");
+      }
+
+      long remainingTime = deadline.getRemainingTime();
+      long sleepTime = Math.min(deadline.getSleepTime(), DEFAULT_WAITREADY);
+
+      log.debug(
+          "Waiting for artifact index to become ready (retrying in {} ms; deadline in {} ms)",
+          sleepTime,
+          remainingTime
+      );
+
+      try {
+        Thread.sleep(sleepTime);
+      } catch (InterruptedException e) {
+        throw new RuntimeException("Interrupted while waiting for artifact index to become ready");
+      }
+    }
   }
 
   @Override
