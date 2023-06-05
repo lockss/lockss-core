@@ -49,7 +49,6 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.jupiter.api.Assertions; // junit5 assertions
 import org.junit.jupiter.api.function.*; // junit5 lambda support
 import org.hamcrest.*;
-import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
@@ -740,7 +739,6 @@ public class LockssTestCase4 extends Assert {
     makeConfigManager();
     Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
-    LockssDaemon.setLockssDaemon(mockDaemon);
     disableThreadWatchdog();
   }
 
