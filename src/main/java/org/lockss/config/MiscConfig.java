@@ -49,7 +49,7 @@ public class MiscConfig {
 	  Logger.setConfig(config, oldConfig, diffs);
 	  HttpClientUrlConnection.setConfig(config, oldConfig, diffs);
 	  UrlUtil.setConfig(config, oldConfig, diffs);
-	  StringPool.setConfig(config, oldConfig, diffs);
+	  StringPoolConfig.setConfig(config, oldConfig, diffs);
 	  PluginUtil.setConfig(config, oldConfig, diffs);
 	  AuUtil.setConfig(config, oldConfig, diffs);
 	  ServletUtil.setConfig(config, oldConfig, diffs);
