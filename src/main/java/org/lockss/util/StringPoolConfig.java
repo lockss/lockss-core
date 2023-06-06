@@ -84,9 +84,8 @@ public class StringPoolConfig {
         String poolName = iter.next();
         Configuration poolTree = poolsTree.getConfigTree(poolName);
         StringPool.PoolConfig poolConfig = new StringPool.PoolConfig()
-          .setMapKeys(poolTree.getList(SUFFIX_MAP_KEYS,
-                                       Collections.emptyList()))
-          .setKeyPattern(poolTree.get(SUFFIX_KEY_PATTERN));
+          .setMapKeys(poolTree.getList(SUFFIX_MAP_KEYS, null)) // null is needed
+          .setKeyPattern(poolTree.get(SUFFIX_KEY_PATTERN, null));
         StringPool.setPoolConfig(poolName, poolConfig);
       }
     }
