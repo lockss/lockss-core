@@ -2503,8 +2503,10 @@ public class ConfigManager implements LockssManager {
     log.debug2("registering " + c);
     if (!configChangedCallbacks.contains(c)) {
       configChangedCallbacks.add(c);
-      runCallback(c, currentConfig, ConfigManager.EMPTY_CONFIGURATION,
-                  currentConfig.differences(null));  // all differences
+      if (!currentConfig.isEmpty()) {
+        runCallback(c, currentConfig, ConfigManager.EMPTY_CONFIGURATION,
+                    currentConfig.differences(null));  // all differences
+      }
     }
   }
 
