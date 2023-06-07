@@ -60,12 +60,22 @@ public class StringPoolConfig {
   static final String SUFFIX_MAP_KEYS = "mapKeys";
   static final String SUFFIX_KEY_PATTERN = "keyPattern";
 
+  private static String FILTER_FACT_PAT =
+    ".*" + DefinableArchivalUnit.SUFFIX_HASH_FILTER_FACTORY + "$";
+  // XXX The config callback below happens *after* the initial config
+  // load, so all the TBDs get greated before the key pattern is set
+  // on StringPool.TDBAU_ATTRS.  Hardwire that for now while
+  // considering a better way
+  static {
+    StringPool.TDBAU_ATTRS.setKeyPattern(FILTER_FACT_PAT);
+  }
+
   // Somewhat awkward mechanism to set default for various keys in the
   // subtree below org.lockss.stringPool
   static Configuration defaultPoolsTree = ConfigManager.newConfiguration();
   static {
     defaultPoolsTree.put(StringPool.TDBAU_ATTRS.getName() + "." + SUFFIX_KEY_PATTERN,
-                         ".*" + DefinableArchivalUnit.SUFFIX_HASH_FILTER_FACTORY + "$");
+                         FILTER_FACT_PAT);
   }
 
   private StringPoolConfig() {
@@ -84,9 +94,8 @@ public class StringPoolConfig {
         String poolName = iter.next();
         Configuration poolTree = poolsTree.getConfigTree(poolName);
         StringPool.PoolConfig poolConfig = new StringPool.PoolConfig()
-          .setMapKeys(poolTree.getList(SUFFIX_MAP_KEYS,
-                                       Collections.emptyList()))
-          .setKeyPattern(poolTree.get(SUFFIX_KEY_PATTERN));
+          .setMapKeys(poolTree.getList(SUFFIX_MAP_KEYS, null)) // null is needed
+          .setKeyPattern(poolTree.get(SUFFIX_KEY_PATTERN, null));
         StringPool.setPoolConfig(poolName, poolConfig);
       }
     }

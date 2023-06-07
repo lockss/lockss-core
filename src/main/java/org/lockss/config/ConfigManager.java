@@ -2495,17 +2495,17 @@ public class ConfigManager implements LockssManager {
 
   /**
    * Register a {@link Configuration.Callback}, which will be called
-   * whenever the current configuration has changed.  If a configuration is
-   * present when a callback is registered, the callback will be called
-   * immediately.
+   * whenever the current configuration has changed, and immiediately
+   * upon registration (even if there is no config yet, as some need
+   * to process defaults early, before the config is loaded
    * @param c <code>Configuration.Callback</code> to add.  */
   public void registerConfigurationCallback(Configuration.Callback c) {
     log.debug2("registering " + c);
     if (!configChangedCallbacks.contains(c)) {
       configChangedCallbacks.add(c);
       if (!currentConfig.isEmpty()) {
-	runCallback(c, currentConfig, ConfigManager.EMPTY_CONFIGURATION,
-		    currentConfig.differences(null));  // all differences
+        runCallback(c, currentConfig, ConfigManager.EMPTY_CONFIGURATION,
+                    currentConfig.differences(null));  // all differences
       }
     }
   }
