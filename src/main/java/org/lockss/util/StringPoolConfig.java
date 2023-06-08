@@ -62,13 +62,11 @@ public class StringPoolConfig {
 
   private static String FILTER_FACT_PAT =
     ".*" + DefinableArchivalUnit.SUFFIX_HASH_FILTER_FACTORY + "$";
-  // XXX The config callback below happens *after* the initial config
-  // load, so all the TBDs get greated before the key pattern is set
-  // on StringPool.TDBAU_ATTRS.  Hardwire that for now while
-  // considering a better way
-  static {
-    StringPool.TDBAU_ATTRS.setKeyPattern(FILTER_FACT_PAT);
-  }
+//   static {
+//     log.fatal("Calling setKeyPattern({}, {})",
+//               StringPool.TDBAU_ATTRS.getName(), FILTER_FACT_PAT);
+//     StringPool.TDBAU_ATTRS.setKeyPattern(FILTER_FACT_PAT);
+//   }
 
   // Somewhat awkward mechanism to set default for various keys in the
   // subtree below org.lockss.stringPool
@@ -83,6 +81,9 @@ public class StringPoolConfig {
 
   /** Called by org.lockss.config.MiscConfig
    */
+  // XXX It's nice that StringPool keys can be configured, but some of
+  // the StringPool have their greates effect during config loading.
+  // Possibly change this to look in bootstrap config?
   public static void setConfig(Configuration config,
                                Configuration oldConfig,
                                Configuration.Differences diffs) {

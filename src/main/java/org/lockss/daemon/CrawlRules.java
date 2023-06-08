@@ -62,10 +62,10 @@ public class CrawlRules {
       CrawlRules.RE reRule = (CrawlRules.RE)rule;
       CrawlRule res = RE_CACHE.get(reRule);
       if (res != null) {
-        logger.critical("hit: " + rule);
+        logger.debug2("hit: " + rule);
         return res;
       }
-      logger.critical("miss: " + rule);
+      logger.debug2("miss: " + rule);
       RE_CACHE.put(reRule, reRule);
       return reRule;
     } else {
