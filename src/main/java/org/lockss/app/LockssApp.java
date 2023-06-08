@@ -1100,6 +1100,12 @@ public class LockssApp {
 				      getAppSpec().getSpringApplicatonContext());
     configMgr.setClusterUrls(clusterUrls);
 
+    // XXX Arrange for StringPoolConfig to apply its default config
+    // before config is loaded, as config load generates many strings
+    // that need to be interned
+    Configuration empty = ConfigManager.newConfiguration();
+    StringPoolConfig.setConfig(empty, empty, Configuration.Differences.ALL);
+
     configMgr.initService(this);
     configMgr.startService();
 
