@@ -679,7 +679,7 @@ public class TestConfigFile {
       JarConfigFile jcf;
 
       jcf = new JarConfigFile("jar:file:///file/not/found!/who.cares",null);
-      doTestCantRead(jcf, "(ZipException|FileNotFoundException)");
+      doTestCantRead(jcf, "(ZipException|FileNotFoundException|NoSuchFileException)");
 
       String jarName = getTempDir().getAbsolutePath() +
 	File.separator + "test.jar";
