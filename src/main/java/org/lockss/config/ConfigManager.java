@@ -834,7 +834,7 @@ public class ConfigManager implements LockssManager {
     // Check whether this is not happening in a REST Configuration service
     // environment.
     if (restConfigClient.isActive()) {
-      // Yes: Try to reload the configuration much more often.
+      // Yes: Try the initial config load much more often.
       reloadInterval = 15 * Constants.SECOND;
     }
     if (urls != null) {
