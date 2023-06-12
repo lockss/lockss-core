@@ -201,6 +201,12 @@ public class ConfigManager implements LockssManager {
   /** Prefix of TitleDB definitions.  */
   public static final String PREFIX_TITLE_DB = PARAM_TITLE_DB + ".";
 
+  /** Set false in bootstrap config to skip loading TDBs
+   * @ParamRelevance Rare
+   */
+  public static final String PARAM_LOAD_TDBS = MYPREFIX + "loadTdbs";
+  public static final boolean DEFAULT_LOAD_TDBS = true;
+
   /** List of URLs of title DBs configured locally using UI.  Do not set
    * manually
    * @ParamRelevance Never
@@ -261,10 +267,12 @@ public class ConfigManager implements LockssManager {
 
     Map<String, Object> userTitleDbMap = new HashMap<String, Object>();
     userTitleDbMap.put("message", "user title DBs");
+    userTitleDbMap.put("isTdb", "true");
     URL_PARAMS.put(PARAM_USER_TITLE_DB_URLS, userTitleDbMap);
 
     Map<String, Object> globalTitleDbMap = new HashMap<String, Object>();
     globalTitleDbMap.put("message", "global titledb");
+    globalTitleDbMap.put("isTdb", "true");
     URL_PARAMS.put(PARAM_TITLE_DB_URLS, globalTitleDbMap);
   }
 
@@ -826,7 +834,7 @@ public class ConfigManager implements LockssManager {
     // Check whether this is not happening in a REST Configuration service
     // environment.
     if (restConfigClient.isActive()) {
-      // Yes: Try to reload the configuration much more often.
+      // Yes: Try the initial config load much more often.
       reloadInterval = 15 * Constants.SECOND;
     }
     if (urls != null) {
@@ -1568,6 +1576,7 @@ public class ConfigManager implements LockssManager {
     for (String includingKey : URL_PARAMS.keySet()) {
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "includingKey = " + includingKey);
+      Map<String,Object> keyParams = URL_PARAMS.get(includingKey);
 
       // Check whether the configuration with potential references contains this
       // option.
@@ -1577,6 +1586,13 @@ public class ConfigManager implements LockssManager {
 	// Get the configuration values under this key. 
 	List<String> urls = config.getList(includingKey);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "urls = " + urls);
+
+        // If o.l.config.loadTdbs is false, don't load referenced TDB files
+        if (keyParams.containsKey("isTdb") &&
+            !getPlatformConfig().getBoolean(PARAM_LOAD_TDBS, DEFAULT_LOAD_TDBS)) {
+          log.debug("Not loading TDBs: " + urls);
+          continue;
+        }
 
 	// Ignore an empty value.
 	if (urls.isEmpty()) {
@@ -1597,7 +1613,6 @@ public class ConfigManager implements LockssManager {
 	  parentConfigFile.put(resolvedUrl, configCache.find(base));
 	}
 
-	Map<String,Object> keyParams = URL_PARAMS.get(includingKey);
 	// Add the generations of the resolved URLs to the list, if not there
 	// already.
 	String message = (String)(keyParams.get("message"));
@@ -2480,17 +2495,17 @@ public class ConfigManager implements LockssManager {
 
   /**
    * Register a {@link Configuration.Callback}, which will be called
-   * whenever the current configuration has changed.  If a configuration is
-   * present when a callback is registered, the callback will be called
-   * immediately.
+   * whenever the current configuration has changed, and immiediately
+   * upon registration (even if there is no config yet, as some need
+   * to process defaults early, before the config is loaded
    * @param c <code>Configuration.Callback</code> to add.  */
   public void registerConfigurationCallback(Configuration.Callback c) {
     log.debug2("registering " + c);
     if (!configChangedCallbacks.contains(c)) {
       configChangedCallbacks.add(c);
       if (!currentConfig.isEmpty()) {
-	runCallback(c, currentConfig, ConfigManager.EMPTY_CONFIGURATION,
-		    currentConfig.differences(null));  // all differences
+        runCallback(c, currentConfig, ConfigManager.EMPTY_CONFIGURATION,
+                    currentConfig.differences(null));  // all differences
       }
     }
   }

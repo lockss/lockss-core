@@ -87,8 +87,9 @@ public class TestRestServicesManager extends LockssTestCase4 {
     getMockLockssDaemon().registerTestManager(RestServicesManager.class,
 					      MyRestServicesManager.class);
 
-    ConfigurationUtil.addFromArgs(RestServicesManager.PARAM_PROBE_INTERVAL,
-				  "1s");
+    ConfigurationUtil.addFromArgs(RestServicesManager.PARAM_PROBE_INTERVAL_CURVE,
+                                  "[0,2s],[5m,2s],[5m,2m]",
+                                  RestServicesManager.PARAM_MIN_PROBE_SLEEP, "0");
 
 //     ConfigurationUtil.addFromArgs(JMSManager.PARAM_START_BROKER, "true");
     getMockLockssDaemon().startManagers(/*JMSManager.class,*/
@@ -277,7 +278,7 @@ public class TestRestServicesManager extends LockssTestCase4 {
 	List<TimeResp> lst = probeMap.get(binding);
 	if (lst != null) {
 	  if (lst.isEmpty()) {
-	    throw new RuntimeException("Exit probe thread");
+	    throw new RuntimeException("Exit probe thread (expected)");
 	  }
 	  TimeResp tr = lst.remove(0);
 	  TimerUtil.guaranteedSleep(tr.getTime());

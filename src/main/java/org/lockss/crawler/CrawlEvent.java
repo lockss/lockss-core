@@ -51,7 +51,7 @@ public class CrawlEvent {
 
   public CrawlEvent(Type evtType, Object cookie, boolean successful, CrawlerStatus cs) {
     this.evtType = evtType;
-    if (extraData instanceof Map) {
+    if (cookie instanceof Map) {
       this.extraData = (Map<String, Object>) cookie;
     }
     else {

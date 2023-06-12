@@ -86,7 +86,9 @@ public class TestCrawlRules extends LockssTestCase {
     CrawlRule cr3 = new CrawlRules.RE("blahblah.*",
 				      CrawlRules.RE.MATCH_EXCLUDE);
     assertTrue(cr1.equals(cr1));
+    assertEquals(cr1.hashCode(), cr1.hashCode());
     assertTrue(cr1.equals(cr1a));
+    assertEquals(cr1.hashCode(), cr1a.hashCode());
     assertTrue(cr1a.equals(cr1));
 
     assertFalse(cr1.equals(cr2));

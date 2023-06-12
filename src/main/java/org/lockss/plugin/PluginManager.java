@@ -49,9 +49,11 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
 import org.lockss.repository.*;
-  import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.exception.LockssRestException;
+import org.lockss.util.rest.status.ApiStatus;
+import static org.lockss.util.rest.status.ApiStatus.StartupStatus;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
@@ -62,8 +64,7 @@ import org.lockss.util.rest.status.*;
 import javax.jms.*;
 import org.lockss.jms.*;
 
-  import static java.util.UUID.randomUUID;
-  import static org.lockss.crawler.CrawlEvent.KEY_COOKIE;
+import static java.util.UUID.randomUUID;
 
 /**
  * Plugin global functionality
@@ -176,13 +177,12 @@ public class PluginManager
     PREFIX + "acceptExpiredCertificates";
   static final boolean DEFAULT_ACCEPT_EXPIRED_CERTS = true;
 
-  /** The amount of time to wait when processing loadable plugins.
-      This process delays the start of AUs, so the timeout should not
-      be too long. */
-  public static final String PARAM_PLUGIN_LOAD_TIMEOUT =
-    PREFIX + "load.timeout";
-  public static final long DEFAULT_PLUGIN_LOAD_TIMEOUT =
-    Constants.MINUTE;
+  /** The amount of time to wait for loadable plugin registries to
+   * finish crawling at startup, before giving up and going on anyway. */
+  public static final String PARAM_PLUGIN_CRAWL_TIMEOUT =
+    PREFIX + "crawl.timeout";
+  public static final long DEFAULT_PLUGIN_CRAWL_TIMEOUT =
+    15 * Constants.MINUTE;
 
   /** Disable the automatic caching in URLConnection.  Setting this true
    * will prevent open file descriptors from piling up each time a new
@@ -452,8 +452,9 @@ public class PluginManager
   private JarValidator jarValidator;
   private boolean keystoreInited = false;
   private boolean loadablePluginsReady = false;
+  private StartupStatus startStatus = StartupStatus.NONE;
   private boolean preferLoadablePlugin = DEFAULT_PREFER_LOADABLE_PLUGIN;
-  private long registryTimeout = DEFAULT_PLUGIN_LOAD_TIMEOUT;
+  private long registryCrawlTimeout = DEFAULT_PLUGIN_CRAWL_TIMEOUT;
   private boolean paramRestartAus = DEFAULT_RESTART_AUS_WITH_NEW_PLUGIN;
   private static boolean paramUseAuidPool = DEFAULT_USE_AUID_POOL;
   private boolean paramAllowGlobalAuConfig = DEFAULT_ALLOW_GLOBAL_AU_CONFIG;
@@ -569,8 +570,10 @@ public class PluginManager
    */
   public void startLoadablePlugins() throws DbException {
     if (log.isDebug3())
-      log.debug3("loadablePluginsReady = " + loadablePluginsReady);
-    if (loadablePluginsReady) {
+      log.debug3("startLoadablePlugins() StartupStatus: " + getStartupStatus());
+    if (getStartupStatus() != StartupStatus.NONE) {
+      // Shouldn't happen
+      log.warning("Redundant call to startLoadablePlugins()", new Throwable());
       return;
     }
 
@@ -584,17 +587,35 @@ public class PluginManager
     if (log.isDebug3())
       log.debug3("Calling configureAllArchivalUnitsAndLoadTheirPlugins()");
     configureAllArchivalUnits();
-    loadablePluginsReady = true;
-    if (log.isDebug3())
-      log.debug3("loadablePluginsReady = " + loadablePluginsReady);
+    // XXX Shouldn't be necessary as it's set at the end of
+    // initLoadablePluginRegistries(), but some tests exercise a
+    // different code path and hang without this, and it's harmless for now.
+    setStartupStatus(StartupStatus.AUS_STARTED);
   }
 
+  /** Temporary compatibility for {@link #setAusStarted(boolean)} */
   public void setLoadablePluginsReady(boolean val) {
-    loadablePluginsReady = val;
+    setAusStarted(val);
+//     loadablePluginsReady = val;
   }
 
+  /** Provided for tests to force the daemon into "fully running" state. */
+  public void setAusStarted(boolean val) {
+    setStartupStatus(val ? StartupStatus.AUS_STARTED : StartupStatus.NONE);
+  }
+
+  public void setStartupStatus(StartupStatus startStatus) {
+    log.info("Startup status: " + this.startStatus + " => " + startStatus);
+    this.startStatus = startStatus;
+  }
+
+  /** Temporary compatibility for {@link #areAusStarted()} */
   public boolean getLoadablePluginsReady() {
-    return loadablePluginsReady;
+    return getStartupStatus().areAusStarted();
+  }
+
+  public StartupStatus getStartupStatus() {
+    return startStatus;
   }
 
   List getPluginRegistryUrls(Configuration config) {
@@ -610,7 +631,7 @@ public class PluginManager
   }
 
   public boolean areAusStarted() {
-    return getDaemon().areAusStarted();
+    return getStartupStatus().areAusStarted();
   }
 
   public boolean areAusStartedOrStartOnDemand() {
@@ -622,8 +643,9 @@ public class PluginManager
 			Configuration.Differences changedKeys) {
 
     if (changedKeys.contains(PREFIX)) {
-      registryTimeout = config.getTimeInterval(PARAM_PLUGIN_LOAD_TIMEOUT,
-					       DEFAULT_PLUGIN_LOAD_TIMEOUT);
+      registryCrawlTimeout =
+        config.getTimeInterval(PARAM_PLUGIN_CRAWL_TIMEOUT,
+                               DEFAULT_PLUGIN_CRAWL_TIMEOUT);
 
       paramAllowGlobalAuConfig =
 	config.getBoolean(PARAM_ALLOW_GLOBAL_AU_CONFIG,
@@ -715,7 +737,7 @@ public class PluginManager
     }
 
     // Don't load or start other plugins until the daemon is running.
-    if (loadablePluginsReady) {
+    if (getLoadablePluginsReady()) {
       boolean crawlOnce = config.getBoolean(PARAM_CRAWL_PLUGINS_ONCE,
 					    DEFAULT_CRAWL_PLUGINS_ONCE);
       if (!prevCrawlOnce && crawlOnce) {
@@ -1482,7 +1504,7 @@ public class PluginManager
   class PlugMgrAuEventHandler extends AuEventHandler.Base {
     @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
 					   AuEvent.ContentChangeInfo info) {
-      if (loadablePluginsReady && isRegistryAu(au)) {
+      if (areAusStarted() && isRegistryAu(au)) {
 	processRegistryAus(ListUtil.list(au), paramStartAllAus);
       }
       if (shouldFlush404Cache(au, info)) {
@@ -1633,7 +1655,7 @@ public class PluginManager
    */
   public ArchivalUnit getAuFromIdIfExists(String auId) {
     final String DEBUG_HEADER = "getAuFromIdIfExists(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
     return (ArchivalUnit)auMap.get(auId);
   }
 
@@ -3817,16 +3839,16 @@ public class PluginManager
 
     // If another component is crawling plugins, wait for it to finish
     ServiceBinding pCrawler = getDaemon().getPluginsCrawler();
-    if (pCrawler != null) {
+    if (pCrawler != null && pCrawler != getDaemon().getMyServiceBinding()) {
       new Thread(() -> {waitRegistriesReady(pCrawler, bs);}).start();
     }
 
     // Wait for a while for the AU crawls to complete, then process all the
     // registries in the load list.
-    log.debug("Waiting for loadable plugins to finish loading...");
+    log.info("Waiting for loadable plugins to finish crawling...");
     try {
-      if (!bs.take(Deadline.in(registryTimeout))) {
-	log.warning("Timed out waiting for registries to finish loading. " +
+      if (!bs.take(Deadline.in(registryCrawlTimeout))) {
+	log.warning("Timed out waiting for registries to finish crawling. " +
 		    "Remaining registry URLs: " +
 		    regCallback.getRegistryUrls());
       }
@@ -3838,7 +3860,9 @@ public class PluginManager
     finally {
       getDaemon().getCrawlManager().unregisterCrawlEventHandler(regCallback);
     }
-    processRegistryAus(loadAus);
+    setStartupStatus(StartupStatus.PLUGINS_LOADING);
+    processRegistryAus(loadAus, paramStartAllAus);
+    setStartupStatus(StartupStatus.AUS_STARTED);
   }
 
   RegistryPlugin getRegistryPlugin() {
@@ -3890,6 +3914,9 @@ public class PluginManager
 					      InitialRegistryCallback cb) {
     if (isCrawlPlugins()) {
       if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
+        if (startStatus == StartupStatus.NONE) {
+          setStartupStatus(StartupStatus.PLUGINS_CRAWLING);
+        }
 	if (log.isDebug2()) log.debug2("Starting new crawl: " + registryAu);
           Map<String, Object> extraData = new HashMap<>();
           CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
@@ -3897,8 +3924,8 @@ public class PluginManager
           extraData.put(KEY_CALLER_ID, cb.callerId);
 //          if(useLocalCrawler()) {
             log.debug2("Calling crawl with internal crawl manager.");
-            crawlMgr.startNewContentCrawl(registryAu,
-                    extraData);
+            // XXX Pass extraData as cookie
+            crawlMgr.startNewContentCrawl(registryAu, extraData);
 //          }
 //          else {
 //            log.debug2("Calling crawl with external crawl manager.");
@@ -3934,12 +3961,12 @@ public class PluginManager
 
   private void waitRegistriesReady(ServiceBinding pCrawler,
 				   BinarySemaphore sem) {
-    log.debug("Waiting until " + pCrawler +
+    log.info("Waiting until " + pCrawler +
 	      " reports plugin registries are ready");
     while (true) {
       try {
-	if (getApiStatus(pCrawler).getPluginsReady()) {
-	  log.debug(pCrawler + " reports plugin registries are now ready");
+	if (getApiStatus(pCrawler).getStartupStatus().arePluginsCollected()) {
+	  log.info(pCrawler + " reports plugin registries are now ready");
 	  sem.give();
 	  return;
 	} else {
@@ -4146,7 +4173,7 @@ public class PluginManager
 	}
 	log.debug("Loading keystore: " + keystoreLoc);
         ks = KeyStore.getInstance("JKS", "SUN");
-    if (new File(keystoreLoc).exists()) {
+        if (new File(keystoreLoc).exists()) {
 	  InputStream kin = new FileInputStream(new File(keystoreLoc));
 	  try {
  	    ks.load(kin, passchar);
@@ -4368,6 +4395,9 @@ public class PluginManager
       // Try to start any AUs configured for changed plugins, that didn't
       // previously start (either because the plugin didn't exist, or the
       // AU didn't successfully start with the old definition)
+      if (!startStatus.areAusStarted()) {
+        setStartupStatus(StartupStatus.AUS_STARTING);
+      }
       configurePlugins(changedPluginKeys);
     }
   }
@@ -4656,9 +4686,11 @@ public class PluginManager
     @Override
     protected void handleNewContentCompleted(CrawlEvent event) {
       Map<String, Object> extraData = event.getExtraData();
+      log.debug2("New content crawl completed, callerId: " + callerId + ", "
+                 +  extraData);
       if (extraData != null && extraData.containsKey(KEY_CALLER_ID)) {
         if (callerId.equals(extraData.get(KEY_CALLER_ID))) {
-          String url = (String) extraData.get(KEY_COOKIE);
+          String url = (String) extraData.get(KEY_URL);
           crawlCompleted(url);
         }
       }

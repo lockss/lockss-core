@@ -212,7 +212,7 @@ public class RepositoryManager
     if (!StringUtil.isNullString(System.getProperty("oldrepo"))) {
       return;
     }
-    if (spec != null) {
+    if (!StringUtil.isNullString(spec)) {
       // currently set this only once
       if (!repoSpecMap.containsKey(spec)) {
 	try {
@@ -225,6 +225,7 @@ public class RepositoryManager
       }
     } else {
       repoSpecMap.remove(spec);
+      v2Repo = null;
     }
   }
 

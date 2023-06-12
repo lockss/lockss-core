@@ -32,10 +32,20 @@ import junit.framework.TestCase;
 import java.io.*;
 import java.util.*;
 import java.lang.reflect.*;
+import org.lockss.config.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.test.*;
 
-public class TestStringPool extends LockssTestCase {
+public class TestStringPoolConfig extends LockssTestCase {
+  static L4JLogger log = L4JLogger.getLogger();
+
+  public void setUp() throws Exception {
+    super.setUp();
+    StringPoolConfig.setConfig(ConfigManager.newConfiguration(),
+                               ConfigManager.newConfiguration(),
+                               Configuration.Differences.ALL);
+  }
 
   public void testIntern() {
     StringPool pool = new StringPool("name");
@@ -99,7 +109,7 @@ public class TestStringPool extends LockssTestCase {
 
   public void testMapKeys1() {
     StringPool pool = new StringPool("gene");
-    ConfigurationUtil.setFromArgs("org.lockss.stringPool.gene.mapKeys",
+    ConfigurationUtil.addFromArgs("org.lockss.stringPool.gene.mapKeys",
 				  "key1;key2");
     String v1 = "val1";
     String v2 = "val2";
@@ -138,7 +148,7 @@ public class TestStringPool extends LockssTestCase {
   // Same but create pool after config set, which is a different code path
   // in StringPool
   public void testMapKeys2() {
-    ConfigurationUtil.setFromArgs("org.lockss.stringPool.kiddie.mapKeys",
+    ConfigurationUtil.addFromArgs("org.lockss.stringPool.kiddie.mapKeys",
 				  "key1;key2");
     StringPool pool = new StringPool("kiddie");
     String v1 = "val1";
@@ -158,7 +168,7 @@ public class TestStringPool extends LockssTestCase {
     assertSame(v2, pool.internMapValue("type", v2));
     assertSame(v2, pool.internMapValue("type", new String(v2)));
 
-    ConfigurationUtil.setFromArgs("org.lockss.stringPool.TdbAu props.mapKeys",
+    ConfigurationUtil.addFromArgs("org.lockss.stringPool.TdbAu props.mapKeys",
 				  "key1;key2");
     assertSame(v2, pool.internMapValue("type", v2));
   }

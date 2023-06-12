@@ -966,6 +966,9 @@ public abstract class Configuration {
    * configurationChanged().
    */
   static public class Differences  {
+    public static Differences ALL =
+      new Differences(ConfigManager.newConfiguration(), null);
+
     private final boolean containsAllKeys;
     private final Set<String> diffKeys;
     private final Tdb.Differences tdbDiffs;

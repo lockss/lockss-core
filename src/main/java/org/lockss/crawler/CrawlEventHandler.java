@@ -60,7 +60,8 @@ public interface CrawlEventHandler {
 
 
   class Base implements CrawlEventHandler {
-    private static final L4JLogger log = L4JLogger.getLogger();
+    private static final L4JLogger log =
+      L4JLogger.getLogger("CrawlEventHandler.Base");
 
     @Override
     public void newContentStarted(CrawlEvent event) {
