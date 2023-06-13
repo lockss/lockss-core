@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,7 +26,7 @@ in this Software without prior written authorization from Stanford University.
 
 */
 
-package org.lockss.plugin;
+package org.lockss.plugin.definable;
 
 import java.util.*;
 import org.apache.commons.collections4.*;
@@ -35,7 +35,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.plugin.base.*;
-import org.lockss.plugin.definable.*;
+import org.lockss.plugin.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.state.*;
@@ -81,8 +81,7 @@ public class TestNamedArchivalUnit extends LockssTestCase {
 
   public void testNamedAu() throws  Exception {
     Configuration auConfig = ConfigurationUtil.fromArgs("handle", "foo");
-    ArchivalUnit au =
-      mgr.createAu(plug, auConfig, AuEvent.model(AuEvent.Type.Create));
+    ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
     assertTrue(au.isNamedArchivalUnit());
 //     assertTrue(au.getPlugin().isNamedPlugin());
     assertEquals(ConfigurationUtil.fromArgs("handle", "foo"),
@@ -116,12 +115,48 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     assertEquals(2, cu.getVersion());
   }
 
+  public void testFeatureCrawled() throws  Exception {
+    Configuration auConfig =
+      ConfigurationUtil.fromArgs("handle", "foo", "features", "walked;crawled");
+    ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
+    assertTrue(au.isNamedArchivalUnit());
+    assertEquals(ConfigurationUtil.fromArgs("handle", "foo",
+                                            "features", "walked;crawled"),
+                 au.getConfiguration());
+    assertEquals("Named AU: foo", au.getName());
+    assertEmpty(au.getStartUrls());
+    AuState aus = AuUtil.getAuState(au);
+    assertTrue(au.shouldCrawlForNewContent(aus));
+    assertTrue(au.shouldBeCached(""));
+    assertTrue(au.shouldBeCached("asdfsd"));
+    assertTrue(au.shouldBeCached("http://nor.mal/url"));
+    assertTrue(au.shouldBeCached("\u092A\u0936"));
+
+    String[] names = { "http://foo.bar/baz", "nonURL.1",
+                       "nonURL.2", "worse URL", "nonURL.2" };
+    for (String name : names) {
+      // Ensure unique content so 2nd version gets created for
+      // repeated name
+      String cont = "Content of " + name + "\n" + randomString(8);
+      UrlData ud = new UrlData(new StringInputStream(cont),
+                               new CIProperties(), name);
+      UrlCacher uc = new DefaultUrlCacher(au, ud);
+      uc.storeContent();
+      CachedUrl cu = au.makeCachedUrl(name);
+      assertTrue(cu.hasContent());
+      assertEquals(name, cu.getUrl());
+      assertInputStreamMatchesString(cont,
+                                   cu.getUnfilteredInputStream());
+    }
+    CachedUrl cu = au.makeCachedUrl(names[2]);
+    assertEquals(2, cu.getVersion());
+  }
+
   // Test unicode handle
   public void testUnicodeNamedAu() throws  Exception {
     String uniHandle = "\u092A\u0936\u0941\u092A\u0924\u093F\u0930\u092A\u093F \u0924\u093E\u0928\u094D\u092F\u0939\u093E\u0928\u093F \u0915\u0943\u091A\u094D\u091B\u094D\u0930\u093E\u0926\u094D"; // पशुपतिरपि तान्यहानि कृच्छ्राद् (from the Sanskrit poem Kumāra-saṃbhava)
     Configuration auConfig = ConfigurationUtil.fromArgs("handle", uniHandle);
-    ArchivalUnit au =
-      mgr.createAu(plug, auConfig, AuEvent.model(AuEvent.Type.Create));
+    ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
     assertTrue(au.isNamedArchivalUnit());
     assertEquals(ConfigurationUtil.fromArgs("handle", uniHandle),
                  au.getConfiguration());

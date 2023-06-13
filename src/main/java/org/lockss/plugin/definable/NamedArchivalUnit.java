@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,6 +43,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.BaseArchivalUnit;
 import org.lockss.state.*;
+import org.lockss.log.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeUtil;
 
@@ -52,7 +53,9 @@ import org.lockss.util.time.TimeUtil;
  * determine its contents and allow it to be crawled.
  */
 public class NamedArchivalUnit extends DefinableArchivalUnit {
-  private static final Logger log = Logger.getLogger();
+  private static final L4JLogger log = L4JLogger.getLogger();
+
+  private boolean isCrawled = false;
 
   /** The name of the standard NamedPlugin. */
   // In there a better place for this?
@@ -69,6 +72,12 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
 
   public boolean isNamedArchivalUnit() {
     return true;
+  }
+
+  protected void setAdditionalParams(Configuration config)
+      throws ConfigurationException {
+    List<String> features = config.getList("features");
+    isCrawled = features.contains("crawled");
   }
 
   /** Suppress all crawl-related params */
@@ -90,6 +99,10 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
   /** Never crawl */
   @Override
   public boolean shouldCrawlForNewContent(AuState aus) {
-    return false;
+    if (isCrawled) {
+      return super.shouldCrawlForNewContent(aus);
+    } else {
+      return false;
+    }
   }
 }
