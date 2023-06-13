@@ -2265,7 +2265,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
               continue;
             }
           }
-          if ((req != null || shouldCrawlForNewContent(au))) {
+          if (!au.isNamedArchivalUnit() &&
+              (req != null || shouldCrawlForNewContent(au))) {
             ausWantCrawl++;
             if (isEligibleForNewContentCrawl(au)) {
               if (req == null) {
