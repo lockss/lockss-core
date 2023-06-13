@@ -81,7 +81,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
   /** Concrete subclasses must implement to create an instance of the
    * appropriate repository type */
-  public abstract LockssRepository makeLockssRepository() throws Exception;
+  public abstract LockssRepository getLockssRepository() throws Exception;
 
   private final static L4JLogger log = L4JLogger.getLogger();
 
@@ -260,7 +260,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
   void setUpRepo() throws Exception {
     log.debug("Running setUpRepo()");
-    this.repository = makeLockssRepository();
+    this.repository = getLockssRepository();
     this.repository.initRepository();
   }
 

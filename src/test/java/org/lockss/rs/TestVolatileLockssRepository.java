@@ -46,7 +46,7 @@ public class TestVolatileLockssRepository extends AbstractLockssRepositoryTest {
     private final static L4JLogger log = L4JLogger.getLogger();
 
     @Override
-    public LockssRepository makeLockssRepository() throws IOException {
+    public LockssRepository getLockssRepository() throws IOException {
       return new VolatileLockssRepository();
     }
 
