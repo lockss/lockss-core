@@ -61,6 +61,9 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
   // In there a better place for this?
   public static final String NAMED_PLUGIN_NAME = "org.lockss.plugin.NamedPlugin";
 
+  public static final String AU_PARAM_FEATURES = "features";
+  public static final String FEATURE_CRAWLED = "crawled";
+
   public NamedArchivalUnit(Plugin plugin) {
     super(plugin);
   }
@@ -76,8 +79,8 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
 
   protected void setAdditionalParams(Configuration config)
       throws ConfigurationException {
-    List<String> features = config.getList("features");
-    isCrawled = features.contains("crawled");
+    List<String> features = config.getList(AU_PARAM_FEATURES);
+    isCrawled = features.contains(FEATURE_CRAWLED);
   }
 
   /** Suppress all crawl-related params */
