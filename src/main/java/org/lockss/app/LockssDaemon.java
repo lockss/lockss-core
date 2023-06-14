@@ -115,6 +115,7 @@ public class LockssDaemon extends LockssApp {
     }
     public boolean isCrawlPlugins() { return isCrawlPlugins; }
     public boolean isCrawlNonPlugins() { return isCrawlNonPlugins; }
+    public boolean isCrawlNothing() { return !(isCrawlPlugins || isCrawlNonPlugins); }
   }
 
   /** Crawl <b><tt>Plugins</tt></b> only,

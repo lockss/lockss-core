@@ -27,6 +27,15 @@
         <definitional>true</definitional>
         <defaultOnly>false</defaultOnly>
       </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>features</key>
+        <displayName>Features</displayName>
+        <description>A semicolon-separated list of features to enable in the NamedArchivalUnit</description>
+        <type>1</type>
+        <size>30</size>
+        <definitional>false</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
     </list>
   </entry>
 

@@ -481,15 +481,17 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     cmStatus = new CrawlManagerStatus(histSize);
     cmStatus.setOdc(paramOdc);
 
-    StatusService statusServ = daemon.getStatusService();
-    statusServ.registerStatusAccessor(CRAWL_STATUS_TABLE_NAME,
-        new CrawlManagerStatusAccessor(this));
-    statusServ.registerOverviewAccessor(CRAWL_STATUS_TABLE_NAME,
-        new CrawlManagerStatusAccessor.CrawlOverview(this));
-    statusServ.registerStatusAccessor(CRAWL_URLS_STATUS_TABLE,
-        new CrawlUrlsStatusAccessor(this));
-    statusServ.registerStatusAccessor(SINGLE_CRAWL_STATUS_TABLE,
-        new SingleCrawlStatusAccessor(this));
+    if (!daemon.getCrawlMode().isCrawlNothing()) {
+      StatusService statusServ = daemon.getStatusService();
+      statusServ.registerStatusAccessor(CRAWL_STATUS_TABLE_NAME,
+                                        new CrawlManagerStatusAccessor(this));
+      statusServ.registerOverviewAccessor(CRAWL_STATUS_TABLE_NAME,
+                                          new CrawlManagerStatusAccessor.CrawlOverview(this));
+      statusServ.registerStatusAccessor(CRAWL_URLS_STATUS_TABLE,
+                                        new CrawlUrlsStatusAccessor(this));
+      statusServ.registerStatusAccessor(SINGLE_CRAWL_STATUS_TABLE,
+                                        new SingleCrawlStatusAccessor(this));
+    }
     // register our AU event handler
     auCreateDestroyHandler = new AuEventHandler.Base() {
       @Override
@@ -2246,6 +2248,10 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
   void rebuildCrawlQueue0() {
+    if (getDaemon().getCrawlMode() == LockssDaemon.CrawlMode.None) {
+      logger.debug2("CrawlMode == None, not rebuilding crawl queue");
+      return;
+    }
     int ausWantCrawl = 0;
     int ausEligibleCrawl = 0;
     synchronized (queueLock) {
@@ -2265,7 +2271,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
               continue;
             }
           }
-          if ((req != null || shouldCrawlForNewContent(au))) {
+          if (!au.isNamedArchivalUnit() &&
+              (req != null || shouldCrawlForNewContent(au))) {
             ausWantCrawl++;
             if (isEligibleForNewContentCrawl(au)) {
               if (req == null) {
