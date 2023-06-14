@@ -481,15 +481,17 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     cmStatus = new CrawlManagerStatus(histSize);
     cmStatus.setOdc(paramOdc);
 
-    StatusService statusServ = daemon.getStatusService();
-    statusServ.registerStatusAccessor(CRAWL_STATUS_TABLE_NAME,
-        new CrawlManagerStatusAccessor(this));
-    statusServ.registerOverviewAccessor(CRAWL_STATUS_TABLE_NAME,
-        new CrawlManagerStatusAccessor.CrawlOverview(this));
-    statusServ.registerStatusAccessor(CRAWL_URLS_STATUS_TABLE,
-        new CrawlUrlsStatusAccessor(this));
-    statusServ.registerStatusAccessor(SINGLE_CRAWL_STATUS_TABLE,
-        new SingleCrawlStatusAccessor(this));
+    if (!daemon.getCrawlMode().isCrawlNothing()) {
+      StatusService statusServ = daemon.getStatusService();
+      statusServ.registerStatusAccessor(CRAWL_STATUS_TABLE_NAME,
+                                        new CrawlManagerStatusAccessor(this));
+      statusServ.registerOverviewAccessor(CRAWL_STATUS_TABLE_NAME,
+                                          new CrawlManagerStatusAccessor.CrawlOverview(this));
+      statusServ.registerStatusAccessor(CRAWL_URLS_STATUS_TABLE,
+                                        new CrawlUrlsStatusAccessor(this));
+      statusServ.registerStatusAccessor(SINGLE_CRAWL_STATUS_TABLE,
+                                        new SingleCrawlStatusAccessor(this));
+    }
     // register our AU event handler
     auCreateDestroyHandler = new AuEventHandler.Base() {
       @Override
