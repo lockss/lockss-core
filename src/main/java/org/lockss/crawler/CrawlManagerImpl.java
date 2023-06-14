@@ -2248,6 +2248,10 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   }
 
   void rebuildCrawlQueue0() {
+    if (getDaemon().getCrawlMode() == LockssDaemon.CrawlMode.None) {
+      logger.debug2("CrawlMode == None, not rebuilding crawl queue");
+      return;
+    }
     int ausWantCrawl = 0;
     int ausEligibleCrawl = 0;
     synchronized (queueLock) {
