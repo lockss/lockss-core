@@ -115,13 +115,13 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     assertEquals(2, cu.getVersion());
   }
 
-  public void testFeatureCrawled() throws  Exception {
+  public void testFeatureCrawledAu() throws  Exception {
     Configuration auConfig =
-      ConfigurationUtil.fromArgs("handle", "foo", "features", "walked;crawled");
+      ConfigurationUtil.fromArgs("handle", "foo", "features", "walked;crawledAu");
     ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
     assertTrue(au.isNamedArchivalUnit());
     assertEquals(ConfigurationUtil.fromArgs("handle", "foo",
-                                            "features", "walked;crawled"),
+                                            "features", "walked;crawledAu"),
                  au.getConfiguration());
     assertEquals("Named AU: foo", au.getName());
     assertEmpty(au.getStartUrls());

@@ -1174,9 +1174,11 @@ public class V3Voter implements Poll {
 	  default:
 	}
 	if (hasher instanceof BlockHasher && !isSampledPoll()) {
-	  LocalHashResult lhr = ((BlockHasher)hasher).getLocalHashResult();
-	  log.debug2("Recording local hash result: " + lhr);
-	  idManager.signalLocalHashComplete(lhr);
+          if (isPollActive()) {
+            LocalHashResult lhr = ((BlockHasher)hasher).getLocalHashResult();
+            log.debug2("Recording local hash result: " + lhr);
+            idManager.signalLocalHashComplete(lhr);
+          }
 	}
 	hashComplete();
       } else {

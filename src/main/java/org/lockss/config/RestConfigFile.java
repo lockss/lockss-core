@@ -85,8 +85,8 @@ public class RestConfigFile extends BaseConfigFile {
 	  log.debug2(DEBUG_HEADER
 		     + "Setting request if-modified-since to: " +
 		     m_lastModified);
-	ifModifiedSince = m_lastModified;
 	}
+        ifModifiedSince = m_lastModified;
       }
       if (eTag != null) {
 	if (log.isDebug2()) {

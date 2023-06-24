@@ -42,9 +42,7 @@ import java.util.*;
 
 import org.apache.commons.collections4.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
-import org.lockss.crawler.CrawlEvent;
-import org.lockss.crawler.CrawlEventHandler;
-import org.lockss.crawler.CrawlManagerImpl;
+import org.lockss.crawler.*;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.mortbay.util.B64Code;
 
@@ -365,6 +363,7 @@ public class PollManager
   private RepairPolicy theRepairPolicy = null;
   private V3ReusableRepairer theReusableRepairer = null;
   private AlertManager theAlertManager = null;
+  private CrawlManager theCrawlManager = null;
   private PluginManager pluginMgr = null;
   private AuEventHandler auEventHandler;
   // svc binding support
@@ -504,6 +503,7 @@ public class PollManager
     theIDManager = theDaemon.getIdentityManager();
     theHashService = theDaemon.getHashService();
     theAlertManager = theDaemon.getAlertManager();
+    theCrawlManager = theDaemon.getCrawlManager();
     pluginMgr = theDaemon.getPluginManager();
 
     Configuration config = ConfigManager.getCurrentConfig();
@@ -514,11 +514,6 @@ public class PollManager
     }
 
     reputationTransfers = new ReputationTransfers(theIDManager);
-
-    // register a message handler with the router
-    theRouter = theDaemon.getRouterManager();
-    m_msgHandler = new RouterMessageHandler();
-    theRouter.registerMessageHandler(m_msgHandler);
 
     // get System Metrics
     theSystemMetrics = theDaemon.getSystemMetrics();
@@ -560,6 +555,11 @@ public class PollManager
     statusServ.registerStatusAccessor(V3PollStatus.PEER_VOTER_ONLY_URLS_TABLE_NAME,
         new V3PollStatus.V3PeerVoterOnlyURLs(this));
 
+    // register a message handler with the router
+    theRouter = theDaemon.getRouterManager();
+    m_msgHandler = new RouterMessageHandler();
+    theRouter.registerMessageHandler(m_msgHandler);
+
     // register our AU event handler
     auEventHandler = new AuEventHandler.Base() {
       @Override
@@ -574,12 +574,17 @@ public class PollManager
     };
     pluginMgr.registerAuEventHandler(auEventHandler);
 
+    // register our CrawlEventHandler
     crawlEventHandler = new CrawlEventHandler.Base() {
       @Override
       protected void handleRepairCompleted(CrawlEvent event) {
         receiveRepairComplete(event);
       }
     };
+    if (config.getBoolean(PARAM_ENABLE_CRAWL_NOTIFICATIONS,
+                          DEFAULT_ENABLE_CRAWL_NOTIFICATIONS)) {
+      theCrawlManager.registerCrawlEventHandler(crawlEventHandler);
+    }
 
     // Maintain the state of V3 polls, since these do not use the V1 per-node
     // history mechanism.
@@ -1309,17 +1314,8 @@ public class PollManager
     svcsMgr = getDaemon().getManagerByType(RestServicesManager.class);
     crawlerServiceBinding = getDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER);
     if (crawlerServiceBinding == null) {
-      log.warning("No Crawler Service binding, repair functions nonfunctional");
+      log.warning("No Crawler Service binding, repair from publisher disabled");
     }
-    if(changedKeys.contains(PARAM_ENABLE_CRAWL_NOTIFICATIONS))
-      enableCrawlNotifications = newConfig.getBoolean(PARAM_ENABLE_CRAWL_NOTIFICATIONS,
-        DEFAULT_ENABLE_CRAWL_NOTIFICATIONS);
-      if (enableCrawlNotifications) {
-        getDaemon().getCrawlManager().registerCrawlEventHandler(crawlEventHandler);
-      }
-      else {
-        getDaemon().getCrawlManager().unregisterCrawlEventHandler(crawlEventHandler);
-      }
   }
 
   public boolean isV3PollerEnabled() {

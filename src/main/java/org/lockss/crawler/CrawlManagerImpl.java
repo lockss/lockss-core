@@ -562,7 +562,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       statusServ.unregisterStatusAccessor(CRAWL_URLS_STATUS_TABLE);
       statusServ.unregisterStatusAccessor(SINGLE_CRAWL_STATUS_TABLE);
     }
-    crawlEventHandlers = new ArrayList<CrawlEventHandler>();
+    crawlEventHandlers = new ArrayList<>();
     super.stopService();
   }
 
@@ -738,7 +738,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   protected void receiveMessage(Map map) {
     CrawlEvent event = CrawlEvent.fromMap(map);
     // make a copy of the list in case it changes during execution.
-    ArrayList<CrawlEventHandler> handlers = new ArrayList<CrawlEventHandler>(crawlEventHandlers);
+    ArrayList<CrawlEventHandler> handlers = new ArrayList<>(crawlEventHandlers);
     switch (event.getEvtType()) {
       case NewContentCrawlStarted:
         for(CrawlEventHandler hand : handlers) {
@@ -771,6 +771,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    * @param hand CrawlEventHandler to add
    */
   public void registerCrawlEventHandler(CrawlEventHandler hand) {
+    if (hand == null) {
+      throw new IllegalArgumentException("null handler");
+    }
     logger.debug2("registering CrawlEventHandler " + hand);
     if (!crawlEventHandlers.contains(hand)) {
       crawlEventHandlers.add(hand);

@@ -62,7 +62,7 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
   public static final String NAMED_PLUGIN_NAME = "org.lockss.plugin.NamedPlugin";
 
   public static final String AU_PARAM_FEATURES = "features";
-  public static final String FEATURE_CRAWLED = "crawled";
+  public static final String FEATURE_CRAWLED = "crawledAu";
 
   public NamedArchivalUnit(Plugin plugin) {
     super(plugin);

@@ -881,7 +881,7 @@ public class DisplayContentTab extends LockssServlet {
         if ("Unknown code -1".equals(crawlMessage)) {
             crawlMessage = "Never crawled";
         }
-        if (crawlResult == 3) {
+        if (crawlResult == Crawler.STATUS_SUCCESSFUL) {
             image = "<img class='dot' title='" + HtmlUtil.encode(crawlMessage, HtmlUtil.ENCODE_TEXT) + "' src='" + GREEN_DOT_ICON + "'/>";
         } else {
             image = "<img class='dot' title='" + HtmlUtil.encode(crawlMessage, HtmlUtil.ENCODE_TEXT) + "' src='" + RED_DOT_ICON + "'/>";

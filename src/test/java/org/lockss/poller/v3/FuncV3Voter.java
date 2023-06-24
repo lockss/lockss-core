@@ -41,6 +41,7 @@ import org.lockss.plugin.*;
 import org.lockss.poller.*;
 import org.lockss.poller.v3.V3Serializer.*;
 import org.lockss.protocol.*;
+import org.lockss.protocol.psm.*;
 import org.lockss.state.*;
 import org.lockss.repository.*;
 import org.lockss.test.*;
@@ -269,8 +270,12 @@ public class FuncV3Voter extends LockssTestCase {
 
       msgReceipt.setAgreementHint(0.75);
       msgReceipt.setWeightedAgreementHint(0.80);
+      // The voter shuts down and releases resources once it receives
+      // the receipt, so grab the PsmInterp first.  (XXX This fixes an
+      // intermittent failure but is tres hackish)
+      PsmInterp psi = voter.getPsmInterp();
       voter.receiveMessage(msgReceipt);
-      voter.getPsmInterp().waitIdle(TIMEOUT_SHOULDNT);
+      psi.waitIdle(TIMEOUT_SHOULDNT);
       assertEquals(0.75f,
 		   idmgr.getPercentAgreement(pollerId, mau,
 					     AgreementType.POR_HINT),
