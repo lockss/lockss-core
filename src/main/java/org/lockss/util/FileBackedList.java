@@ -45,6 +45,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.lockss.log.*;
+import org.lockss.util.io.FileUtil;
 
 /**
  * <p>
@@ -784,7 +785,7 @@ public class FileBackedList<E>
   protected static final int OFFSETS = 500_000;
   
   protected static File createTempFile() throws IOException {
-    File tempFile = File.createTempFile(FileBackedList.class.getSimpleName(), ".bin");
+    File tempFile = FileUtil.createTempFile(FileBackedList.class.getSimpleName(), ".bin");
     return tempFile;
   }
   
