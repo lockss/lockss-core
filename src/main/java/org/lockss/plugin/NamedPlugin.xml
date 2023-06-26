@@ -36,6 +36,24 @@
         <definitional>false</definitional>
         <defaultOnly>false</defaultOnly>
       </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>start_urls</key>
+        <displayName>Start URLs</displayName>
+        <description>A semicolon-separated list of URLs from which to begin browsing the AU</description>
+        <type>1</type>
+        <size>30</size>
+        <definitional>false</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>url_stems</key>
+        <displayName>URL stems</displayName>
+        <description>A semicolon-separated set of stems of URLs with this AU's content</description>
+        <type>1</type>
+        <size>30</size>
+        <definitional>false</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
     </list>
   </entry>
 

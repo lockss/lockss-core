@@ -88,6 +88,7 @@ public class TestNamedArchivalUnit extends LockssTestCase {
                  au.getConfiguration());
     assertEquals("Named AU: foo", au.getName());
     assertEmpty(au.getStartUrls());
+    assertEmpty(au.getUrlStems());
     AuState aus = AuUtil.getAuState(au);
     assertFalse(au.shouldCrawlForNewContent(aus));
     assertTrue(au.shouldBeCached(""));
@@ -150,6 +151,22 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     }
     CachedUrl cu = au.makeCachedUrl(names[2]);
     assertEquals(2, cu.getVersion());
+  }
+
+  // Test the non-def params that make the AU browseable
+  public void testBrowseable() throws  Exception {
+    Configuration auConfig =
+      ConfigurationUtil.fromArgs("handle", "foo",
+                                 "start_urls", "http://foo.com/one;http://foo.com/two",
+                                 "url_stems", "http://other.host/");
+    ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
+    assertTrue(au.isNamedArchivalUnit());
+    assertEquals(auConfig, au.getConfiguration());
+    assertEquals("Named AU: foo", au.getName());
+    assertEquals(ListUtil.list("http://foo.com/one", "http://foo.com/two"),
+                 au.getStartUrls());
+    assertEquals(SetUtil.set("http://foo.com/", "http://other.host/"),
+                 au.getUrlStems());
   }
 
   // Test unicode handle
