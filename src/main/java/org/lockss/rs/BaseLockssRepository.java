@@ -396,10 +396,11 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
           try {
             ArchiveRecordHeader header = record.getHeader();
+            String realUri = realRecordUri(header.getUrl());
 
             status.setWarcId((String) header.getHeaderValue(WARCConstants.HEADER_KEY_ID));
             status.setOffset(header.getOffset());
-            status.url(header.getUrl());
+            status.url(realUri);
 
             // Read WARC record type from record headers
             WARCConstants.WARCRecordType recordType =
@@ -417,7 +418,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             ArtifactIdentifier aid = ad.getIdentifier();
             aid.setNamespace(namespace);
             aid.setAuid(auId);
-            aid.setUri(header.getUrl());
+            aid.setUri(realUri);
 
             // TODO: Write to permanent storage directly
             Artifact artifact = addArtifact(ad);
@@ -447,6 +448,15 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       log.error("Error importing archive", e);
       throw e;
     }
+  }
+
+  /** WARC 1.0 spec has URI enclosed in "< ... >".  Remove them if
+   * present. */
+  String realRecordUri(String recordUri) {
+    if (recordUri.startsWith("<") && recordUri.endsWith(">")) {
+      return recordUri.substring(1, recordUri.length() - 1);
+    }
+    return recordUri;
   }
 
   /**

@@ -63,6 +63,8 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
 
   public static final String AU_PARAM_FEATURES = "features";
   public static final String FEATURE_CRAWLED = "crawledAu";
+  public static final String AU_PARAM_START_URLS = "start_urls";
+  public static final String AU_PARAM_URL_STEMS = "url_stems";
 
   public NamedArchivalUnit(Plugin plugin) {
     super(plugin);
@@ -87,10 +89,33 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
   protected void setCrawlRelatedParams(Configuration config) {
   }
 
-  /** Empty */
+  /** Return non-def param with start URLs, or empty */
   @Override
   public Collection<String> getStartUrls() {
-    return Collections.emptyList();
+    Configuration config = getConfiguration();
+    return config.getList(AU_PARAM_START_URLS, Collections.emptyList());
+  }
+
+  /** Return URL stems derived from start URLs and non-def url_stems,
+   * or empty */
+  @Override
+  public Collection<String> getUrlStems() {
+    Configuration config = getConfiguration();
+    Set<String> res = new HashSet<>();
+    try {
+      for (String url : getStartUrls()) {
+        res.add(UrlUtil.getUrlPrefix(url));
+      }
+      for (String url : (List<String>)config.getList(AU_PARAM_URL_STEMS,
+                                                     Collections.emptyList())) {
+        res.add(url);
+      }
+      return res;
+    } catch (MalformedURLException e) {
+      log.error("getUrlStems(" + getName() + ")", e);
+      // XXX should throw
+      return Collections.emptyList();
+    }
   }
 
   /** Empty */

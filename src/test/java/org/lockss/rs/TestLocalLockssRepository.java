@@ -93,4 +93,14 @@ public class TestLocalLockssRepository extends AbstractBaseLockssRepositoryTest 
   public void testGetStorageInfo() throws Exception {
       getLockssRepository().getArtifactDataStore().getStorageInfo();
   }
+
+  @Test
+  public void testRealRecordUri() {
+    BaseLockssRepository repo = (BaseLockssRepository)repository;
+    assertEquals("foo", repo.realRecordUri("foo"));
+    assertEquals("foo", repo.realRecordUri("<foo>"));
+    assertEquals("<foo", repo.realRecordUri("<foo"));
+    assertEquals("foo>", repo.realRecordUri("foo>"));
+    assertEquals("http://foo.bar/path", repo.realRecordUri("<http://foo.bar/path>"));
+  }
 }
