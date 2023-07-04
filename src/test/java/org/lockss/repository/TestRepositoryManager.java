@@ -84,10 +84,10 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertEquals(0.99, full.getPercent(), .00001);
 
     Properties p = new Properties();
-    p.put(RepositoryManager.PARAM_DISK_WARN_FRRE_MB, "17");
-    p.put(RepositoryManager.PARAM_DISK_WARN_FRRE_PERCENT, "20");
-    p.put(RepositoryManager.PARAM_DISK_FULL_FRRE_MB, "7");
-    p.put(RepositoryManager.PARAM_DISK_FULL_FRRE_PERCENT, "10");
+    p.put(RepositoryManager.PARAM_DISK_WARN_FREE_MB, "17");
+    p.put(RepositoryManager.PARAM_DISK_WARN_FREE_PERCENT, "20");
+    p.put(RepositoryManager.PARAM_DISK_FULL_FREE_MB, "7");
+    p.put(RepositoryManager.PARAM_DISK_FULL_FREE_PERCENT, "10");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     warn = mgr.getDiskWarnThreshold();
     full = mgr.getDiskFullThreshold();

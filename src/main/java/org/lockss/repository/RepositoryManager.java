@@ -129,16 +129,16 @@ public class RepositoryManager
 
   static final String DISK_PREFIX = PREFIX + "diskSpace.";
 
-  static final String PARAM_DISK_WARN_FRRE_MB = DISK_PREFIX + "warn.freeMB";
+  static final String PARAM_DISK_WARN_FREE_MB = DISK_PREFIX + "warn.freeMB";
   static final int DEFAULT_DISK_WARN_FRRE_MB = 5000;
-  static final String PARAM_DISK_FULL_FRRE_MB = DISK_PREFIX + "full.freeMB";
+  static final String PARAM_DISK_FULL_FREE_MB = DISK_PREFIX + "full.freeMB";
   static final int DEFAULT_DISK_FULL_FRRE_MB = 100;
-  static final String PARAM_DISK_WARN_FRRE_PERCENT =
+  static final String PARAM_DISK_WARN_FREE_PERCENT =
       DISK_PREFIX + "warn.freePercent";
-  static final double DEFAULT_DISK_WARN_FRRE_PERCENT = .02;
-  static final String PARAM_DISK_FULL_FRRE_PERCENT =
+  static final double DEFAULT_DISK_WARN_FREE_PERCENT = .02;
+  static final String PARAM_DISK_FULL_FREE_PERCENT =
       DISK_PREFIX + "full.freePercent";
-  static final double DEFAULT_DISK_FULL_FRRE_PERCENT = .01;
+  static final double DEFAULT_DISK_FULL_FREE_PERCENT = .01;
 
   private PlatformUtil platInfo = PlatformUtil.getInstance();
   private static CheckUnnormalizedMode checkUnnormalized =
@@ -151,10 +151,10 @@ public class RepositoryManager
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
-          DEFAULT_DISK_WARN_FRRE_PERCENT);
+          DEFAULT_DISK_WARN_FREE_PERCENT);
   PlatformUtil.DF paramDFFull =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_FULL_FRRE_MB,
-          DEFAULT_DISK_FULL_FRRE_PERCENT);
+          DEFAULT_DISK_FULL_FREE_PERCENT);
 
   public void startService() {
     super.startService();
@@ -182,15 +182,15 @@ public class RepositoryManager
   public void setConfig(Configuration config, Configuration oldConfig,
       Configuration.Differences changedKeys) {
     if (changedKeys.contains(DISK_PREFIX)) {
-      int minMB = config.getInt(PARAM_DISK_WARN_FRRE_MB,
+      int minMB = config.getInt(PARAM_DISK_WARN_FREE_MB,
           DEFAULT_DISK_WARN_FRRE_MB);
-      double minPer = config.getPercentage(PARAM_DISK_WARN_FRRE_PERCENT,
-          DEFAULT_DISK_WARN_FRRE_PERCENT);
+      double minPer = config.getPercentage(PARAM_DISK_WARN_FREE_PERCENT,
+          DEFAULT_DISK_WARN_FREE_PERCENT);
       paramDFWarn = PlatformUtil.DF.makeThreshold(minMB, minPer);
-      minMB = config.getInt(PARAM_DISK_FULL_FRRE_MB,
+      minMB = config.getInt(PARAM_DISK_FULL_FREE_MB,
           DEFAULT_DISK_FULL_FRRE_MB);
-      minPer = config.getPercentage(PARAM_DISK_FULL_FRRE_PERCENT,
-          DEFAULT_DISK_FULL_FRRE_PERCENT);
+      minPer = config.getPercentage(PARAM_DISK_FULL_FREE_PERCENT,
+          DEFAULT_DISK_FULL_FREE_PERCENT);
       paramDFFull = PlatformUtil.DF.makeThreshold(minMB, minPer);
     }
     if (changedKeys.contains(PREFIX)) {
