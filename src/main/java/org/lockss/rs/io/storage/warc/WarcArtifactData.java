@@ -8,6 +8,11 @@ import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
 import org.archive.format.warc.WARCConstants;
 import org.archive.format.warc.WARCConstants.WARCRecordType;
+import org.archive.io.ArchiveRecord;
+import org.archive.io.ArchiveRecordHeader;
+import org.jwat.common.HeaderLine;
+import org.jwat.common.HttpHeader;
+import org.jwat.warc.WarcRecord;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.ArtifactData;
@@ -26,11 +31,6 @@ import java.time.temporal.TemporalAccessor;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.jwat.common.HeaderLine;
-import org.jwat.common.HttpHeader;
-import org.jwat.warc.WarcRecord;
-import org.archive.io.ArchiveRecord;
-import org.archive.io.ArchiveRecordHeader;
 
 import static org.lockss.rs.io.storage.warc.WarcArtifactDataUtil.buildArtifactIdentifier;
 
@@ -190,9 +190,11 @@ public class WarcArtifactData extends ArtifactData {
           throw new IllegalStateException("Invalid MIME type: " + mimeType);
         }
 
-        // Parse the ArchiveRecord into an ArtifactData
-        ad = ArtifactDataUtil.fromHttpResponseStream(record);
-        ad.setIdentifier(artifactId);
+        // Attach WARC record block (HTTP response) stream without parsing it
+        ad = new ArtifactData()
+            .setResponseInputStream(record)
+            .setIdentifier(artifactId);
+
         break;
 
       case resource:

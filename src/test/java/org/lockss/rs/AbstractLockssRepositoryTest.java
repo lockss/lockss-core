@@ -45,15 +45,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.lockss.log.L4JLogger;
+import org.lockss.test.LockssCoreTestCase5;
 import org.lockss.util.PreOrderComparator;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
-import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.test.VariantTest;
 import org.lockss.util.time.TimeBase;
-import org.lockss.test.LockssCoreTestCase5;
 import org.springframework.http.HttpHeaders;
 
 import java.io.IOException;
@@ -307,7 +306,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
   public void testArtifactSize(int size) throws IOException {
     ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1 + size)
-      .toCommit(true).setContentLength(size);
+        .toCommit(true).setContentLength(size);
     Artifact newArt = addUncommitted(spec);
     Artifact commArt = commit(spec, newArt);
     spec.assertArtifact(repository, commArt);
@@ -458,25 +457,27 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
   public void testGetArtifactData() throws IOException {
     // Illegal args
     assertThrowsMatch(IllegalArgumentException.class,
-		      "Invalid namespace",
-		      () -> {repository.getArtifactData((String)null, (String)null);});
-    assertThrowsMatch(IllegalArgumentException.class,
-		      "Invalid namespace",
-		      () -> {repository.getArtifactData(null, ARTID1);});
-    assertThrowsMatch(IllegalArgumentException.class,
-		      "Null",
-		      () -> {repository.getArtifactData(NS1, null);});
+		      "Null artifact",
+		      () -> repository.getArtifactData(null));
 
     // Artifact not found
     // XXX should this throw?
+    // FIXME: This is ugly - need any Artifact to trigger the mock error response
+    ArtifactSpec missingSpec = new ArtifactSpec()
+        .setNamespace("ns1")
+        .setArtifactUuid("artifactid1")
+        .setUrl("test")
+        .setContentLength(1)
+        .setContentDigest("test")
+        .setCollectionDate(0);
+
     assertThrowsMatch(LockssNoSuchArtifactIdException.class,
 		      "Non-existent artifact",
-		      () -> {repository.getArtifactData(NS1, NO_ARTID);});
+		      () -> repository.getArtifactData(missingSpec.getArtifact()));
 
     ArtifactSpec cspec = variantState.anyCommittedSpec();
     if (cspec != null) {
-      ArtifactData ad = repository.getArtifactData(cspec.getNamespace(),
-						   cspec.getArtifactUuid());
+      ArtifactData ad = repository.getArtifactData(cspec.getArtifact());
       cspec.assertArtifactData(ad);
       // should be in TestArtifactData
       assertFalse(ad.hasContentInputStream());
@@ -486,8 +487,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
     }
     ArtifactSpec uspec = variantState.anyUncommittedSpec();
     if (uspec != null) {
-      ArtifactData ad = repository.getArtifactData(uspec.getNamespace(),
-						   uspec.getArtifactUuid());
+      ArtifactData ad = repository.getArtifactData(uspec.getArtifact());
       uspec.assertArtifactData(ad);
     }
   }
@@ -696,16 +696,14 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
         AuSize auSize1 = repository.auSize(spec.getNamespace(), spec.getAuid());
 
-        assertNotNull(repository.getArtifactData(spec.getNamespace(), spec.getArtifactUuid()));
+        assertNotNull(repository.getArtifactData(spec.getArtifact()));
 	assertNotNull(getArtifact(repository, spec, false));
 	assertNotNull(getArtifact(repository, spec, true));
 	log.info("Deleting not highest: " + spec);
 	repository.deleteArtifact(spec.getNamespace(), spec.getArtifactUuid());
 
-        assertThrows(
-                     LockssNoSuchArtifactIdException.class,
-                     () -> repository.getArtifactData(spec.getNamespace(), spec.getArtifactUuid())
-                     );
+        assertThrows(LockssNoSuchArtifactIdException.class,
+            () -> repository.getArtifactData(spec.getArtifact()));
 
         assertNull(getArtifact(repository, spec, false));
 	assertNull(getArtifact(repository, spec, true));
@@ -735,16 +733,14 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
         AuSize auSize1 = repository.auSize(spec.getNamespace(), spec.getAuid());
 
 	long artsize = spec.getContentLength();
-        assertNotNull(repository.getArtifactData(spec.getNamespace(), spec.getArtifactUuid()));
+        assertNotNull(repository.getArtifactData(spec.getArtifact()));
 	assertNotNull(getArtifact(repository, spec, false));
 	assertNotNull(getArtifact(repository, spec, true));
 	log.info("Deleting highest: " + spec);
 	repository.deleteArtifact(spec.getNamespace(), spec.getArtifactUuid());
 
-        assertThrows(
-                     LockssNoSuchArtifactIdException.class,
-                     () -> repository.getArtifactData(spec.getNamespace(), spec.getArtifactUuid())
-                     );
+        assertThrows(LockssNoSuchArtifactIdException.class,
+                     () -> repository.getArtifactData(spec.getArtifact()));
 
 	assertNull(getArtifact(repository, spec, false));
 	assertNull(getArtifact(repository, spec, true));
@@ -781,16 +777,14 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
       if (uspec != null) {
         AuSize auSize1 = repository.auSize(uspec.getNamespace(), uspec.getAuid());
 
-        assertNotNull(repository.getArtifactData(uspec.getNamespace(), uspec.getArtifactUuid()));
+        assertNotNull(repository.getArtifactData(uspec.getArtifact()));
 	assertNull(getArtifact(repository, uspec, false));
 	assertNotNull(getArtifact(repository, uspec, true));
 	log.info("Deleting uncommitted: " + uspec);
 	repository.deleteArtifact(uspec.getNamespace(), uspec.getArtifactUuid());
 
-        assertThrows(
-                     LockssNoSuchArtifactIdException.class,
-                     () -> repository.getArtifactData(uspec.getNamespace(), uspec.getArtifactUuid())
-                     );
+        assertThrows(LockssNoSuchArtifactIdException.class,
+                     () -> repository.getArtifactData(uspec.getArtifact()));
 
 	assertNull(getArtifact(repository, uspec, false));
 	assertNull(getArtifact(repository, uspec, true));
@@ -820,28 +814,22 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
     while (iter.hasNext()) {
       // Get the next artifact.
       ArtifactSpec spec = iter.next();
-      String ns = spec.getNamespace();
-      String id = spec.getArtifactUuid();
-      assertNotNull(repository.getArtifactData(ns, id));
+      Artifact artifact = spec.getArtifact();
+      assertNotNull(repository.getArtifactData(artifact));
       // Delete the artifact.
-      repository.deleteArtifact(ns, id);
+      repository.deleteArtifact(artifact);
 
-      assertThrows(
-          LockssNoSuchArtifactIdException.class,
-          () -> repository.getArtifactData(ns, id)
-      );
+      assertThrows(LockssNoSuchArtifactIdException.class,
+          () -> repository.getArtifactData(artifact));
 
       // Delete it again.
       try {
-	repository.deleteArtifact(ns, id);
+	repository.deleteArtifact(artifact);
 	fail("Should have thrown LockssNoSuchArtifactIdException");
       } catch (LockssNoSuchArtifactIdException iae) {}
 
-      assertThrows(
-          LockssNoSuchArtifactIdException.class,
-          () -> repository.getArtifactData(ns, id)
-      );
-
+      assertThrows(LockssNoSuchArtifactIdException.class,
+          () -> repository.getArtifactData(artifact));
     }
 
     // There are no namespaces now.
@@ -1388,13 +1376,14 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
     }
 
     String newArtUuid = newArt.getUuid();
+    spec.setArtifactUuid(newArtUuid);
     assertNotNull(newArtUuid);
 //    assertFalse(repository.isArtifactCommitted(spec.getNamespace(),
 //					       newArtUuid));
     assertFalse(newArt.isCommitted());
     assertFalse(newArt.getCommitted());
 
-    try (ArtifactData artifact = repository.getArtifactData(spec.getNamespace(), newArtUuid)) {
+    try (ArtifactData artifact = repository.getArtifactData(spec.getArtifact())) {
       assertNotNull(artifact);
     }
 
@@ -1457,7 +1446,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 //					      newArt.getUuid()));
     assertTrue(newArt.isCommitted());
     assertTrue(newArt.getCommitted());
-    assertNotNull(repository.getArtifactData(spec.getNamespace(), newArt.getUuid()));
+    assertNotNull(repository.getArtifactData(spec.getArtifact()));
     // Get the same artifact when uncommitted may be included.
     newArt = getArtifact(repository, spec, true);
     assertNotNull(newArt);

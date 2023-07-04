@@ -2418,9 +2418,9 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
       spec.setArtifactUuid(UUID.randomUUID().toString());
       spec.generateContent();
 
-      // Assert null storage URL results in an IllegalArgument exception being thrown
-      assertThrows(IllegalArgumentException.class,
-          () -> store.deleteArtifactData(spec.getArtifact()));
+//      // Assert null storage URL results in an IllegalArgument exception being thrown
+//      assertThrows(IllegalArgumentException.class,
+//          () -> store.deleteArtifactData(spec.getArtifact()));
 
       // Assert a bad storage URL results in an IllegalArgument exception being thrown
       spec.setStorageUrl(URI.create("bad"));

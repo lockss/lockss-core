@@ -60,7 +60,6 @@ import org.lockss.util.rest.repo.util.JmsFactorySource;
 import org.lockss.util.rest.repo.util.LockssRepositoryUtil;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
-import org.springframework.http.HttpHeaders;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -470,6 +469,15 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     return index.getArtifact(artifactUuid);
   }
 
+  @Override
+  public ArtifactData getArtifactData(Artifact artifact, IncludeContent includeContent) throws IOException {
+    if (artifact == null) {
+      throw new IllegalArgumentException("Null artifact");
+    }
+
+    return getArtifactData(artifact.getNamespace(), artifact.getUuid());
+  }
+
   /**
    * Retrieves an artifact from this LOCKSS repository.
    *
@@ -477,7 +485,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    * @return The {@code ArtifactData} referenced by this artifact ID.
    * @throws IOException
    */
-  @Override
+  @Deprecated
   public ArtifactData getArtifactData(String namespace, String artifactUuid) throws IOException {
     validateNamespace(namespace);
 
@@ -494,13 +502,6 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
     // Fetch and return artifact from data store
     return store.getArtifactData(artifactRef);
-  }
-
-  @Override
-  public HttpHeaders getArtifactHeaders(String namespace, String artifactUuid) throws IOException {
-    try (ArtifactData ad = store.getArtifactData(index.getArtifact(artifactUuid))) {
-      return ad.getHttpHeaders();
-    }
   }
 
   /**
