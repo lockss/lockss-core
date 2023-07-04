@@ -76,7 +76,7 @@ import java.util.stream.StreamSupport;
 // - different headers
 // - test persistence (shut down repo, recreate)
 
-/** Test harness for LockssRepository implementations */
+/** Common tests for all implementations of {@link LockssRepository} **/
 public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
   /** Concrete subclasses must implement to create an instance of the
