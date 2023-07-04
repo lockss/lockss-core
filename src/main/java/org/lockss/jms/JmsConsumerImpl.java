@@ -83,27 +83,22 @@ public class JmsConsumerImpl implements JmsConsumer {
     return this;
   }
 
-  public void close() throws JMSException {
+  public synchronized void close() throws JMSException {
     if (messageConsumer != null) {
-      synchronized (messageConsumer) {
 	messageConsumer.close();
-      }
+        messageConsumer = null;
     }
   }
 
-  public void setListener(MessageListener listener) throws JMSException {
+  public synchronized void setListener(MessageListener listener) throws JMSException {
     if (messageConsumer != null) {
-      synchronized (messageConsumer) {
-	messageConsumer.setMessageListener(listener);
-      }
+      messageConsumer.setMessageListener(listener);
     }
   }
 
-  public Object receive(int timeout) throws JMSException {
+  public synchronized Object receive(int timeout) throws JMSException {
     Message message = null;
-    synchronized (messageConsumer) {
-      message = messageConsumer.receive(timeout);
-    }
+    message = messageConsumer.receive(timeout);
     if (message != null) {
       return JmsUtil.convertMessage(message);
     }
