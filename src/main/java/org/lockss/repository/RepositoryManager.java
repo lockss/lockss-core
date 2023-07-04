@@ -106,6 +106,12 @@ public class RepositoryManager
     PREFIX + "artifactCache.maxSize";
   public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
 
+  /** Toggles whether to use the multipart endpoint for artifact data */
+  public static final String PARAM_USE_MULTIPART_ENDPOINT =
+      PREFIX + "useMultipartEndpoint";
+  public static final boolean DEFAULT_USE_MULTIPART_ENDPOINT =
+      RestLockssRepository.DEFAULT_USE_MULTIPART_ENDPOINT;
+
   /** Maximum size of ArtifactData cache */
   public static final String PARAM_ARTIFACT_DATA_CACHE_MAX =
     PREFIX + "artifactDataCache.maxSize";
@@ -144,6 +150,7 @@ public class RepositoryManager
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
   private long auidRepoMapAge = DEFAULT_AUID_REPO_MAP_AGE;
+  private boolean useMultipartEndpoint = DEFAULT_USE_MULTIPART_ENDPOINT;
 
   private RepoSpec v2Repo = null;
 
@@ -200,6 +207,8 @@ public class RepositoryManager
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
       auidRepoMapAge = config.getTimeInterval(PARAM_AUID_REPO_MAP_AGE,
 					      DEFAULT_AUID_REPO_MAP_AGE);
+      useMultipartEndpoint = config.getBoolean(PARAM_USE_MULTIPART_ENDPOINT,
+          DEFAULT_USE_MULTIPART_ENDPOINT);
       processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
       reconfigureRepos(config);
     }
@@ -350,6 +359,7 @@ public class RepositoryManager
 
 	RestLockssRepository repo = LockssRepositoryFactory
 	    .createRestLockssRepository(url, serviceUser, servicePassword);
+        repo.setUseMultipartEndpoint(useMultipartEndpoint);
 	configureArtifactCache(repo, config);
 	return repo;
       } catch (MalformedURLException e) {
