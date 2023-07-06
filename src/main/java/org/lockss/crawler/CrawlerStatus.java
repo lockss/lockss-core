@@ -560,14 +560,7 @@ public class CrawlerStatus {
    * "Active" even if an error has occurred
    */
   public String getCrawlStatusMsg() {
-    if (startTime != -1 && endTime == -1) {
-      return getDefaultMessage(Crawler.STATUS_ACTIVE);
-//     } else if (startTime == -1 && status != null) {
-//       return getDefaultMessage(Crawler.STATUS_QUEUED);
-    }
-    else {
-      return getCrawlErrorMsg();
-    }
+    return getCrawlErrorMsg();
   }
 
   /**

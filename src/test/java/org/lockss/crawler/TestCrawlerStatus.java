@@ -192,7 +192,7 @@ public class TestCrawlerStatus extends LockssTestCase {
     assertFalse(c1.isCrawlWaiting());
     assertTrue(c1.isCrawlActive());
     assertTrue(c1.isCrawlError());
-    assertEquals("Active", c1.getCrawlStatusMsg());
+    assertEquals("No permission from publisher", c1.getCrawlStatusMsg());
     assertEquals("No permission from publisher", c1.getCrawlErrorMsg());
     c1.signalCrawlEnded();
     assertFalse(c1.isCrawlWaiting());
