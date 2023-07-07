@@ -58,6 +58,7 @@ import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
+import org.lockss.util.rest.repo.util.*;
 
 /**
  * Basic, fully functional UrlCacher.  Utilizes the LockssRepository for
@@ -389,7 +390,9 @@ public class DefaultUrlCacher implements UrlCacher {
 	  }
 	}
       }
-      if (doStore && isIdenticalToPreviousVersion(uncommittedArt)) {
+      if (doStore &&
+          LockssRepositoryUtil.isIdenticalToPreviousVersion(v2Repo,
+                                                            uncommittedArt)) {
 	abandonNewVersion(uncommittedArt);
 	uncommittedArt = null;
 	doStore = false;
@@ -425,7 +428,7 @@ public class DefaultUrlCacher implements UrlCacher {
 	  aus.contentChanged();
 	}
 	// TK
-	if (alreadyHasContent /*&& !isIdenticalToPreviousVersion(committedArt)*/) {
+	if (alreadyHasContent /*&& !V2RepoUtil.isIdenticalToPreviousVersion(committedArt)*/) {
 	  Alert alert = Alert.auAlert(Alert.NEW_FILE_VERSION, au);
 	  alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
 	  String msg = "Collected an additional version: " + getFetchUrl();
@@ -458,28 +461,6 @@ public class DefaultUrlCacher implements UrlCacher {
   // Overridable for testing
   protected Artifact addArtifact(ArtifactData ad) throws IOException {
     return v2Repo.addArtifact(ad);
-  }
-
-  protected boolean isIdenticalToPreviousVersion(Artifact art)
-      throws IOException {
-    if (art.getCommitted()) {
-      throw new IllegalStateException("Can't perform identical check after artifact if committed");
-    }
-    int ver = art.getVersion();
-    if (ver < 2) return false;
-    String artHash = art.getContentDigest();
-    if (artHash == null) return false;
-    // Fetch the latest committed version, if any
-    Artifact prev = v2Repo.getArtifact(v2Ns, au.getAuId(), art.getUri());
-    if (prev == null) return false;
-    if (art.getUuid().equals(prev.getUuid())) {
-      logger.error("Uncommitted artifact has same UUID as supposedly committed most recent version: " + art);
-      // throw?
-      return false;
-    }
-    boolean res = artHash.equals(prev.getContentDigest());
-    if (res) logger.debug2("New version identical to old: " + art.getUri());
-    return res;
   }
 
   void abandonNewVersion(Artifact art) {
