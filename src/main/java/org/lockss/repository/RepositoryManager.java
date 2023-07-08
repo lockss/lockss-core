@@ -377,8 +377,9 @@ public class RepositoryManager
   private void reconfigureRepos(Configuration config) {
     for (RepoSpec rs : getV2RepositoryList()) {
       if (rs.getRepository() instanceof RestLockssRepository) {
-	configureArtifactCache((RestLockssRepository)rs.getRepository(),
-			       config);
+        RestLockssRepository repoClient = (RestLockssRepository) rs.getRepository();
+	configureArtifactCache(repoClient, config);
+        repoClient.setUseMultipartEndpoint(useMultipartEndpoint);
       }
     }
   }
