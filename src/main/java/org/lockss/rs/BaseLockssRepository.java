@@ -365,7 +365,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    */
   @Override
   public ImportStatusIterable addArtifacts(String namespace, String auId, InputStream inputStream,
-                                           ArchiveType type, boolean isCompressed) throws IOException {
+                                           ArchiveType type, boolean isCompressed, boolean storeDuplicate) throws IOException {
 
     validateNamespace(namespace);
 
@@ -420,18 +420,34 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             aid.setUri(realUri);
 
             // TODO: Write to permanent storage directly
+            // (But that conflicts with dup detection)
             Artifact artifact = addArtifact(ad);
-            commitArtifact(artifact);
+            Artifact dup = null;
+            if (!storeDuplicate) {
+              dup = LockssRepositoryUtil.getIdenticalPreviousVersion(this, artifact);
+            }
+            if (dup != null) {
+              try {
+                deleteArtifact(artifact);
+                status.setArtifactUuid(dup.getUuid());
+                status.setDigest(dup.getContentDigest());
+                status.setVersion(dup.getVersion());
+                status.setStatus(ImportStatus.StatusEnum.DUPLICATE);
+              } catch (Exception e) {
+                log.error("Error deleting duplicate artifact: {}", artifact, e);
+              }
+            } else {
+              commitArtifact(artifact);
 
-            status.setArtifactUuid(artifact.getUuid());
-            status.setDigest(artifact.getContentDigest());
-            status.setVersion(artifact.getVersion());
-            status.setStatus(ImportStatus.StatusEnum.OK);
+              status.setArtifactUuid(artifact.getUuid());
+              status.setDigest(artifact.getContentDigest());
+              status.setVersion(artifact.getVersion());
+              status.setStatus(ImportStatus.StatusEnum.OK);
+            }
           } catch (Exception e) {
             log.error("Could not import artifact from archive", e);
             status.setStatus(ImportStatus.StatusEnum.ERROR);
           }
-
           objWriter.writeValue(out, status);
         }
 

@@ -156,17 +156,37 @@ public class TestNamedArchivalUnit extends LockssTestCase {
   // Test the non-def params that make the AU browseable
   public void testBrowseable() throws  Exception {
     Configuration auConfig =
-      ConfigurationUtil.fromArgs("handle", "foo",
-                                 "start_urls", "http://foo.com/one;http://foo.com/two",
-                                 "url_stems", "http://other.host/");
+      ConfigurationUtil.fromArgs("handle", "foo");
     ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
     assertTrue(au.isNamedArchivalUnit());
     assertEquals(auConfig, au.getConfiguration());
     assertEquals("Named AU: foo", au.getName());
+    assertEmpty(au.getStartUrls());
+    assertEmpty(au.getUrlStems());
+    TypedEntryMap tem = au.getProperties();
+    assertEquals(2, tem.size());
+    assertEquals("Named AU: foo", tem.getString("au_title", null));
+    assertEquals("foo", tem.getString("handle", null));
+
+    // Reconfigure AU, ensure everything changes correctly
+    Configuration auConfig2 =
+      ConfigurationUtil.fromArgs("handle", "foo",
+                                 "start_urls", "http://foo.com/one;http://foo.com/two",
+                                 "url_stems", "http://other.host/");
+
+    au.setConfiguration(auConfig2);
     assertEquals(ListUtil.list("http://foo.com/one", "http://foo.com/two"),
                  au.getStartUrls());
     assertEquals(SetUtil.set("http://foo.com/", "http://other.host/"),
                  au.getUrlStems());
+
+    TypedEntryMap tem2 = au.getProperties();
+    assertEquals(4, tem2.size());
+    assertEquals("Named AU: foo", tem2.getString("au_title", null));
+    assertEquals("http://foo.com/one;http://foo.com/two",
+                 tem2.getString("start_urls", null));
+    assertEquals("http://other.host/",
+                 tem2.getString("url_stems", null));
   }
 
   // Test unicode handle

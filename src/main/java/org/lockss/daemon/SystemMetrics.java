@@ -98,6 +98,7 @@ public class SystemMetrics
   int defaultSpeed = DEFAULT_DEFAULT_HASH_SPEED;
   private TimerQueue.Request req;
   private long memLogInterval = DEFAULT_MEM_LOG_INTERVAL;
+  private String lastStringPoolStats;
 
   public void startService() {
     super.startService();
@@ -280,7 +281,12 @@ public class SystemMetrics
 		( (pluginMgr == null) ? "" :
 		  (", " + pluginMgr.getAllAus().size() + " AUs")));
     if (logger.isDebug2()) {
-      logger.debug2("String Pools:\n" + StringPool.allStats());
+      String spStats = StringPool.allStats();
+      // Log StringPool stats iff they have changed
+      if (spStats != null && !spStats.equals(lastStringPoolStats)) {
+        logger.debug2("String Pools:\n" + spStats);
+        lastStringPoolStats = spStats;
+      }
     }
     schedMemLog();
   }
