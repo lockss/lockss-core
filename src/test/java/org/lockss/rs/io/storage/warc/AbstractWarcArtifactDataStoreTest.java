@@ -2416,6 +2416,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Attempt to delete an artifact that does not exist
     for (ArtifactSpec spec : neverFoundArtifactSpecs) { // FIXME
       spec.setArtifactUuid(UUID.randomUUID().toString());
+      spec.setStorageUrl(URI.create("test"));
       spec.generateContent();
 
       // Assert null storage URL results in an IllegalArgument exception being thrown
