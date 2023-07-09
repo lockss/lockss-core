@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -136,8 +132,8 @@ public class PdfBoxDocumentFactory implements PdfDocumentFactory {
 
   void documentClosed(PdfBoxDocument pbdoc) {
     activePdfBoxDocs.remove(pbdoc);
-    log.debug("documentClosed: {}, interim: {}, remaining: {}",
-              pbdoc, kludgeyInterimParserCounter, activePdfBoxDocs);
+    log.debug2("documentClosed: {}, interim: {}, remaining: {}",
+               pbdoc, kludgeyInterimParserCounter, activePdfBoxDocs);
     if (kludgeyInterimParserCounter < 0) {
       log.warn("Oh dear, kludgeyInterimParserCounter is negative: {}",
                kludgeyInterimParserCounter);
