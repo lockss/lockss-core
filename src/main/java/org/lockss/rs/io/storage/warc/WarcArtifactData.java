@@ -219,26 +219,26 @@ public class WarcArtifactData extends ArtifactData {
 
     String artifactContentLength = (String) recordHeader.getHeaderValue(ArtifactConstants.ARTIFACT_LENGTH_KEY);
     log.trace("artifactContentLength = {}", artifactContentLength);
-    if (artifactContentLength != null && !artifactContentLength.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactContentLength)) {
       ad.setContentLength(Long.parseLong(artifactContentLength));
     }
 
     String artifactDigest = (String) recordHeader.getHeaderValue(ArtifactConstants.ARTIFACT_DIGEST_KEY);
     log.trace("artifactDigest = {}", artifactDigest);
-    if (artifactDigest != null && !artifactDigest.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactDigest)) {
       ad.setContentDigest(artifactDigest);
     }
 
     String artifactStoredDate = (String) recordHeader.getHeaderValue(ArtifactConstants.ARTIFACT_STORED_DATE);
     log.trace("artifactStoredDate = {}", artifactStoredDate);
-    if (artifactStoredDate != null && !artifactStoredDate.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactStoredDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoredDate);
       ad.setStoredDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
 
     String artifactCollectionDate = (String) recordHeader.getHeaderValue(WARCConstants.HEADER_KEY_DATE);
     log.trace("artifactCollectionDate = {}", artifactCollectionDate);
-    if (artifactCollectionDate != null && !artifactCollectionDate.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactCollectionDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactCollectionDate);
       ad.setCollectionDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
