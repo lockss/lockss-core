@@ -41,9 +41,9 @@ public class WarcArtifactData extends ArtifactData {
     // Get WARC record header
     List<HeaderLine> headersList = record.getHeaderList();
 
-    Map<String, String> headers = new HashMap<>();
+    Map<String, String> recordHeaders = new HashMap<>();
     for (HeaderLine hl: record.getHeaderList()) {
-      headers.put(hl.name, hl.value);
+      recordHeaders.put(hl.name, hl.value);
     }
 
     ArtifactData ad;
@@ -53,17 +53,17 @@ public class WarcArtifactData extends ArtifactData {
 
     // Read WARC record type from record headers
     WARCRecordType recordType =
-        WARCRecordType.valueOf(headers.get(WARCConstants.HEADER_KEY_TYPE));
+        WARCRecordType.valueOf(recordHeaders.get(WARCConstants.HEADER_KEY_TYPE));
 
-    String mimeType = headers.get(WARCConstants.CONTENT_TYPE);
+    String mimetype = recordHeaders.get(WARCConstants.CONTENT_TYPE);
 
     // Artifacts can only be read out of WARC response and resource type records
     switch (recordType) {
       case response:
         // Sanity check
-        if (mimeType == null || !mimeType.startsWith("application/http")) {
-          log.warn("Unexpected content MIME type WARC response record: {}", mimeType);
-          throw new IllegalStateException("Invalid MIME type: " + mimeType);
+        if (mimetype == null || !mimetype.startsWith("application/http")) {
+          log.warn("Unexpected content MIME type WARC response record: {}", mimetype);
+          throw new IllegalStateException("Invalid MIME type: " + mimetype);
         }
 
         // Parse the ArchiveRecord into an ArtifactData
@@ -76,48 +76,51 @@ public class WarcArtifactData extends ArtifactData {
         // Parse the ArchiveRecord into an ArtifactData
         ad = fromResource(record.getPayloadContent());
         ad.setIdentifier(artifactId);
+        HttpHeaders artifactHeaders = ad.getHttpHeaders();
 
         // Set the ArtifactData content-type to that of the WARC record block if present
-        if (!StringUtil.isNullString(mimeType)) {
-          ad.getHttpHeaders().set(HttpHeaders.CONTENT_TYPE, mimeType);
+        if (!StringUtil.isNullString(mimetype)) {
+          artifactHeaders.set(HttpHeaders.CONTENT_TYPE, mimetype);
         }
+
+        // Set Content-Length from WARC record (mandatory field)
+        artifactHeaders.setContentLength(Long.parseLong(recordHeaders.get("Content-Length")));
+
         break;
 
       default:
         log.warn("Unexpected WARC record type [WARC-Record-ID: {}, WARC-Type: {}]",
-            headers.get(WARCConstants.HEADER_KEY_ID), recordType);
+            recordHeaders.get(WARCConstants.HEADER_KEY_ID), recordType);
 
         // Could not return an artifact elsewhere
         return null;
     }
 
-    String artifactContentLength = headers.get(ArtifactConstants.ARTIFACT_LENGTH_KEY);
+    String artifactContentLength = recordHeaders.get(ArtifactConstants.ARTIFACT_LENGTH_KEY);
     log.trace("artifactContentLength = {}", artifactContentLength);
-    if (artifactContentLength != null && !artifactContentLength.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactContentLength)) {
       ad.setContentLength(Long.parseLong(artifactContentLength));
     }
 
-    String artifactDigest = headers.get(ArtifactConstants.ARTIFACT_DIGEST_KEY);
+    String artifactDigest = recordHeaders.get(ArtifactConstants.ARTIFACT_DIGEST_KEY);
     log.trace("artifactDigest = {}", artifactDigest);
-    if (artifactDigest != null && !artifactDigest.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactDigest)) {
       ad.setContentDigest(artifactDigest);
     }
 
-    String artifactStoredDate = headers.get(ArtifactConstants.ARTIFACT_STORED_DATE);
+    String artifactStoredDate = recordHeaders.get(ArtifactConstants.ARTIFACT_STORED_DATE);
     log.trace("artifactStoredDate = {}", artifactStoredDate);
-    if (artifactStoredDate != null && !artifactStoredDate.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactStoredDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoredDate);
       ad.setStoredDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
 
-    String artifactCollectionDate = headers.get(WARCConstants.HEADER_KEY_DATE);
+    String artifactCollectionDate = recordHeaders.get(WARCConstants.HEADER_KEY_DATE);
     log.trace("artifactCollectionDate = {}", artifactCollectionDate);
-    if (artifactCollectionDate != null && !artifactCollectionDate.trim().isEmpty()) {
+    if (!StringUtil.isNullString(artifactCollectionDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactCollectionDate);
       ad.setCollectionDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
-
-    log.trace("ad = {}", ad);
 
     return ad;
   }
@@ -169,22 +172,22 @@ public class WarcArtifactData extends ArtifactData {
    */
   public static ArtifactData fromArchiveRecord(ArchiveRecord record) throws IOException {
     // Get WARC record header
-    ArchiveRecordHeader recordHeader = record.getHeader();
+    ArchiveRecordHeader recordHeaders = record.getHeader();
 
     ArtifactData ad;
 
     // Read ArtifactIdentifier from the WARC record headers
-    ArtifactIdentifier artifactId = buildArtifactIdentifier(recordHeader);
+    ArtifactIdentifier artifactId = buildArtifactIdentifier(recordHeaders);
 
     // Read WARC record type from record headers
     WARCRecordType recordType =
-        WARCRecordType.valueOf((String) recordHeader.getHeaderValue(WARCConstants.HEADER_KEY_TYPE));
+        WARCRecordType.valueOf((String) recordHeaders.getHeaderValue(WARCConstants.HEADER_KEY_TYPE));
 
     // Artifacts can only be read out of WARC response and resource type records
     switch (recordType) {
       case response:
         // Sanity check
-        String mimeType = recordHeader.getMimetype();
+        String mimeType = recordHeaders.getMimetype();
         if (!mimeType.startsWith("application/http")) {
           log.warn("Unexpected content MIME type WARC response record: {}", mimeType);
           throw new IllegalStateException("Invalid MIME type: " + mimeType);
@@ -201,49 +204,51 @@ public class WarcArtifactData extends ArtifactData {
         // Parse the ArchiveRecord into an ArtifactData
         ad = WarcArtifactData.fromResource(record);
         ad.setIdentifier(artifactId);
+        HttpHeaders artifactHeaders = ad.getHttpHeaders();
 
         // Set the ArtifactData content-type to that of the WARC record block if present
-        String typeVal = recordHeader.getMimetype();
-        if (!StringUtil.isNullString(typeVal)) {
-          ad.getHttpHeaders().set(HttpHeaders.CONTENT_TYPE, typeVal);
+        String mimetype = recordHeaders.getMimetype();
+        if (!StringUtil.isNullString(mimetype)) {
+          artifactHeaders.set(HttpHeaders.CONTENT_TYPE, mimetype);
         }
+
+        // Set Content-Length from WARC record (mandatory field)
+        artifactHeaders.setContentLength(recordHeaders.getContentLength());
         break;
 
       default:
         log.warn("Unexpected WARC record type [WARC-Record-ID: {}, WARC-Type: {}]",
-            recordHeader.getHeaderValue(WARCConstants.HEADER_KEY_ID), recordType);
+            recordHeaders.getHeaderValue(WARCConstants.HEADER_KEY_ID), recordType);
 
         // Could not return an artifact elsewhere
         return null;
     }
 
-    String artifactContentLength = (String) recordHeader.getHeaderValue(ArtifactConstants.ARTIFACT_LENGTH_KEY);
+    String artifactContentLength = (String) recordHeaders.getHeaderValue(ArtifactConstants.ARTIFACT_LENGTH_KEY);
     log.trace("artifactContentLength = {}", artifactContentLength);
     if (!StringUtil.isNullString(artifactContentLength)) {
       ad.setContentLength(Long.parseLong(artifactContentLength));
     }
 
-    String artifactDigest = (String) recordHeader.getHeaderValue(ArtifactConstants.ARTIFACT_DIGEST_KEY);
+    String artifactDigest = (String) recordHeaders.getHeaderValue(ArtifactConstants.ARTIFACT_DIGEST_KEY);
     log.trace("artifactDigest = {}", artifactDigest);
     if (!StringUtil.isNullString(artifactDigest)) {
       ad.setContentDigest(artifactDigest);
     }
 
-    String artifactStoredDate = (String) recordHeader.getHeaderValue(ArtifactConstants.ARTIFACT_STORED_DATE);
+    String artifactStoredDate = (String) recordHeaders.getHeaderValue(ArtifactConstants.ARTIFACT_STORED_DATE);
     log.trace("artifactStoredDate = {}", artifactStoredDate);
     if (!StringUtil.isNullString(artifactStoredDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoredDate);
       ad.setStoredDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
 
-    String artifactCollectionDate = (String) recordHeader.getHeaderValue(WARCConstants.HEADER_KEY_DATE);
+    String artifactCollectionDate = (String) recordHeaders.getHeaderValue(WARCConstants.HEADER_KEY_DATE);
     log.trace("artifactCollectionDate = {}", artifactCollectionDate);
     if (!StringUtil.isNullString(artifactCollectionDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactCollectionDate);
       ad.setCollectionDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
-
-    log.trace("ad = {}", ad);
 
     return ad;
   }
