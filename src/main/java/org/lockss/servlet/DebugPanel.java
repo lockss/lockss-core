@@ -52,6 +52,7 @@ import org.lockss.config.*;
 import org.lockss.remote.*;
 import org.lockss.plugin.*;
 import org.lockss.account.*;
+import org.lockss.repository.RepositoryManager;
 
 /** UI to invoke various daemon actions
  */
@@ -107,6 +108,7 @@ public class DebugPanel extends LockssServlet {
   public static final String ACTION_DELETE_URL = "Delete File";
   static final String ACTION_CRAWL_PLUGINS = "Crawl Plugins";
   static final String ACTION_RELOAD_CONFIG = "Reload Config";
+  static final String ACTION_FLUSH_ARTIFACT_CACHES = "Flush Artifact Caches";
   static final String ACTION_SLEEP = "Sleep";
 
   /** Set of actions for which audit alerts shouldn't be generated */
@@ -245,6 +247,9 @@ public class DebugPanel extends LockssServlet {
     }
     if (ACTION_CRAWL_PLUGINS.equals(action)) {
       crawlPluginRegistries();
+    }
+    if (ACTION_FLUSH_ARTIFACT_CACHES.equals(action)) {
+      flushArtifactCaches();
     }
     if (ACTION_FIND_URL.equals(action)) {
       showForm = doFindUrl();
@@ -599,6 +604,11 @@ public class DebugPanel extends LockssServlet {
     }
   }
 
+  private void flushArtifactCaches() {
+    RepositoryManager repoMgr = daemon.getRepositoryManager();
+    repoMgr.flushArtifactCaches();
+  }
+
   private void doV3Poll() {
     ArchivalUnit au = getAu();
     if (au == null) return;
@@ -700,6 +710,14 @@ public class DebugPanel extends LockssServlet {
     }
     frm.add(crawlplug);
     frm.add("</center>");
+
+    frm.add("<br><center>");
+    Input flush = new Input(Input.Submit, KEY_ACTION,
+                            ACTION_FLUSH_ARTIFACT_CACHES);
+    setTabOrder(flush);
+    frm.add(flush);
+    frm.add("</center>");
+
     ServletDescr d1 = AdminServletManager.SERVLET_HASH_CUS;
     if (isServletRunnable(d1)) {
       frm.add("<br><center>"+srvLink(d1, d1.heading)+"</center>");

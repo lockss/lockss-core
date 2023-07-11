@@ -62,6 +62,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.regex.Pattern;
+import javax.jms.JMSException;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -175,6 +176,8 @@ public class RepositoryManager
       }
     };
     getDaemon().getPluginManager().registerAuEventHandler(auEventHandler);
+    setUpJmsSend(RestLockssRepository.REST_ARTIFACT_CACHE_ID,
+                 RestLockssRepository.REST_ARTIFACT_CACHE_TOPIC);
   }
 
   public void stopService() {
@@ -496,6 +499,21 @@ public class RepositoryManager
 
   public PlatformUtil.DF getDiskFullThreshold() {
     return paramDFFull;
+  }
+
+  /** Flush the Artifact cache in all services.  Useful when
+   * benchmarking performance. */
+  public void flushArtifactCaches() {
+    if (jmsProducer != null) {
+      Map<String, Object> map = new HashMap<>();
+      map.put(RestLockssRepository.REST_ARTIFACT_CACHE_MSG_ACTION,
+          RestLockssRepository.REST_ARTIFACT_CACHE_MSG_ACTION_FLUSH);
+      try {
+        jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+        log.error("Couldn't send cache flush notification", e);
+      }
+    }
   }
 
   // BatchAuConfig (via RemoteApi) asks for existing repo info for large
