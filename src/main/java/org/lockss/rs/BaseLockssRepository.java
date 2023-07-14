@@ -70,6 +70,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -362,11 +364,13 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    * @param inputStream  The {@link InputStream} of the archive.
    * @param type         A {@link ArchiveType} indicating the type of archive.
    * @param isCompressed A {@code boolean} indicating whether the archive is GZIP compressed.
+   * @param storeDuplicate A {@code boolean} indicating whether new versions of artifacets whose content would be identical to the previous version should be stored
+   * @param excludeStatusPattern    A {@link String} containing a regexp.  WARC records whose HTTP response status code matches will not be added to the repository
    * @return
    */
   @Override
   public ImportStatusIterable addArtifacts(String namespace, String auId, InputStream inputStream,
-                                           ArchiveType type, boolean isCompressed, boolean storeDuplicate) throws IOException {
+                                           ArchiveType type, boolean isCompressed, boolean storeDuplicate, String excludeStatusPattern) throws IOException {
 
     validateNamespace(namespace);
 
@@ -389,6 +393,9 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
         ObjectMapper objMapper = new ObjectMapper();
         objMapper.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
         ObjectWriter objWriter = objMapper.writerFor(ImportStatus.class);
+
+        Pattern excludePat =
+          StringUtils.isEmpty(excludeStatusPattern) ? null : Pattern.compile(excludeStatusPattern);
 
         // ArchiveReader is an iterable over ArchiveRecord objects
         for (ArchiveRecord record : archiveReader) {
@@ -414,6 +421,15 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             // Transform WARC record to ArtifactData
             ArtifactData ad = WarcArtifactData.fromArchiveRecord(record);
             assert ad != null;
+
+            if (excludePat != null)  {
+              String statusCode = Integer.toString(ad.getHttpStatus().getStatusCode());
+              if (excludePat.matcher(statusCode).matches()) {
+                status.setStatus(ImportStatus.StatusEnum.EXCLUDED);
+                objWriter.writeValue(out, status);
+                continue;
+              }
+            }
 
             ArtifactIdentifier aid = ad.getIdentifier();
             aid.setNamespace(namespace);
