@@ -485,6 +485,9 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   /** WARC 1.0 spec has URI enclosed in "< ... >".  Remove them if
    * present. */
   String realRecordUri(String recordUri) {
+    if (recordUri == null) {
+      return null;
+    }
     if (recordUri.startsWith("<") && recordUri.endsWith(">")) {
       return recordUri.substring(1, recordUri.length() - 1);
     }
