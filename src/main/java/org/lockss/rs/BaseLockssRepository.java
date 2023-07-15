@@ -422,7 +422,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             ArtifactData ad = WarcArtifactData.fromArchiveRecord(record);
             assert ad != null;
 
-            if (excludePat != null)  {
+            if (excludePat != null && ad.getHttpStatus() != null)  {
               String statusCode = Integer.toString(ad.getHttpStatus().getStatusCode());
               if (excludePat.matcher(statusCode).matches()) {
                 status.setStatus(ImportStatus.StatusEnum.EXCLUDED);
