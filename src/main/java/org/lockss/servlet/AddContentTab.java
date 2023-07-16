@@ -569,8 +569,14 @@ public class AddContentTab extends LockssServlet {
      * @return Returns sanitised string
      */
     public static String cleanName(String name) {
-        return Normalizer.normalize(HtmlUtil.encode(name.replace(" ", "_").replace("&", "").replace("(", "")
-                .replace(")", "").replace(",", "").replace("+", "_"), HtmlUtil.ENCODE_TEXT), Normalizer.Form.NFC);
+      return HtmlUtil.encode(Normalizer.normalize(name, Normalizer.Form.NFC)
+                             .replace(" ", "_")
+                             .replace("&", "")
+                             .replace("(", "")
+                             .replace(")", "")
+                             .replace(",", "")
+                             .replace("+", "_"),
+                             HtmlUtil.ENCODE_TEXT);
     }
 
     public static String cleanAuName(String auName) {
