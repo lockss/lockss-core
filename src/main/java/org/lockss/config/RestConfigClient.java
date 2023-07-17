@@ -682,7 +682,9 @@ public class RestConfigClient {
 
     // Make the request and obtain the response.
     HttpResponseStatusAndHeaders response = new MultipartConnector(uri,
-	requestHeaders, parts).requestPut(serviceTimeout, serviceTimeout);
+	requestHeaders, parts)
+      .setRestTemplate(restTemplate)
+      .requestPut(serviceTimeout, serviceTimeout);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     return response;

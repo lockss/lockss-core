@@ -421,7 +421,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             ArtifactData ad = WarcArtifactData.fromArchiveRecord(record);
             assert ad != null;
 
-            if (excludePat != null)  {
+            if (excludePat != null && ad.getHttpStatus() != null)  {
               String statusCode = Integer.toString(ad.getHttpStatus().getStatusCode());
               if (excludePat.matcher(statusCode).matches()) {
                 status.setStatus(ImportStatus.StatusEnum.EXCLUDED);
@@ -484,6 +484,9 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   /** WARC 1.0 spec has URI enclosed in "< ... >".  Remove them if
    * present. */
   String realRecordUri(String recordUri) {
+    if (recordUri == null) {
+      return null;
+    }
     if (recordUri.startsWith("<") && recordUri.endsWith(">")) {
       return recordUri.substring(1, recordUri.length() - 1);
     }
