@@ -22,26 +22,24 @@
 
 package org.lockss.repository;
 
-import java.io.*;
-import java.util.*;
 import org.apache.commons.lang3.StringUtils;
-
 import org.junit.Test;
-import org.lockss.app.*;
-import org.lockss.log.*;
+import org.lockss.log.L4JLogger;
+import org.lockss.rs.LocalLockssRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
-import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.os.PlatformUtil;
-import org.lockss.util.time.TimerUtil;
-import org.lockss.daemon.*;
-import org.lockss.plugin.*;
-import org.lockss.rs.LocalLockssRepository;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.RestLockssRepository;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.ArtifactVersions;
+import org.lockss.util.test.FileTestUtil;
+import org.lockss.util.time.TimerUtil;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.*;
 
 public class TestRepositoryManager extends LockssTestCase4 {
   private static L4JLogger log = L4JLogger.getLogger();
@@ -84,10 +82,10 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertEquals(0.99, full.getPercent(), .00001);
 
     Properties p = new Properties();
-    p.put(RepositoryManager.PARAM_DISK_WARN_FRRE_MB, "17");
-    p.put(RepositoryManager.PARAM_DISK_WARN_FRRE_PERCENT, "20");
-    p.put(RepositoryManager.PARAM_DISK_FULL_FRRE_MB, "7");
-    p.put(RepositoryManager.PARAM_DISK_FULL_FRRE_PERCENT, "10");
+    p.put(RepositoryManager.PARAM_DISK_WARN_FREE_MB, "17");
+    p.put(RepositoryManager.PARAM_DISK_WARN_FREE_PERCENT, "20");
+    p.put(RepositoryManager.PARAM_DISK_FULL_FREE_MB, "7");
+    p.put(RepositoryManager.PARAM_DISK_FULL_FREE_PERCENT, "10");
     ConfigurationUtil.setCurrentConfigFromProps(p);
     warn = mgr.getDiskWarnThreshold();
     full = mgr.getDiskFullThreshold();

@@ -89,6 +89,15 @@ public class TestRegistryArchivalUnit extends LockssTestCase {
     assertEquals("org|lockss|plugin|TestRegistryArchivalUnit$MyRegistryPlugin&base_url~http%3A%2F%2Ffoo%2Ecom%2Fbar", au.getAuId());
   }
 
+  public void testCrawlRules() throws Exception {
+    Configuration auConfig =
+      ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(), baseUrl);
+    ArchivalUnit au = regPlugin.createAu(auConfig);
+    assertTrue(au.shouldBeCached(baseUrl));
+    assertFalse(au.shouldBeCached(baseUrl + "/path"));
+    assertTrue(au.shouldBeCached(baseUrl + "/path.jar"));
+  }
+
   public void testCrawlProxy()
       throws ArchivalUnit.ConfigurationException {
     Configuration auConfig =

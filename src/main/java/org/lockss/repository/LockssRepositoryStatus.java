@@ -327,6 +327,9 @@ public class LockssRepositoryStatus {
 						ColumnDescriptor.TYPE_STRING,
 						hist));
 	  }
+          res.add(new StatusTable.SummaryInfo("Cache Flushes",
+                                              ColumnDescriptor.TYPE_INT,
+                                              stats.getCacheFlushes()));
 	} else if (rrepo.isArtifactCacheEnabled()) {
 	  res.add(new StatusTable.SummaryInfo("Artifact cache",
 					      ColumnDescriptor.TYPE_STRING,

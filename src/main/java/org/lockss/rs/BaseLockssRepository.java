@@ -60,7 +60,6 @@ import org.lockss.util.rest.repo.util.JmsFactorySource;
 import org.lockss.util.rest.repo.util.LockssRepositoryUtil;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
-import org.springframework.http.HttpHeaders;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -70,6 +69,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -362,11 +363,13 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    * @param inputStream  The {@link InputStream} of the archive.
    * @param type         A {@link ArchiveType} indicating the type of archive.
    * @param isCompressed A {@code boolean} indicating whether the archive is GZIP compressed.
+   * @param storeDuplicate A {@code boolean} indicating whether new versions of artifacets whose content would be identical to the previous version should be stored
+   * @param excludeStatusPattern    A {@link String} containing a regexp.  WARC records whose HTTP response status code matches will not be added to the repository
    * @return
    */
   @Override
   public ImportStatusIterable addArtifacts(String namespace, String auId, InputStream inputStream,
-                                           ArchiveType type, boolean isCompressed) throws IOException {
+                                           ArchiveType type, boolean isCompressed, boolean storeDuplicate, String excludeStatusPattern) throws IOException {
 
     validateNamespace(namespace);
 
@@ -389,6 +392,9 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
         ObjectMapper objMapper = new ObjectMapper();
         objMapper.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
         ObjectWriter objWriter = objMapper.writerFor(ImportStatus.class);
+
+        Pattern excludePat =
+          StringUtils.isEmpty(excludeStatusPattern) ? null : Pattern.compile(excludeStatusPattern);
 
         // ArchiveReader is an iterable over ArchiveRecord objects
         for (ArchiveRecord record : archiveReader) {
@@ -415,24 +421,49 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             ArtifactData ad = WarcArtifactData.fromArchiveRecord(record);
             assert ad != null;
 
+            if (excludePat != null && ad.getHttpStatus() != null)  {
+              String statusCode = Integer.toString(ad.getHttpStatus().getStatusCode());
+              if (excludePat.matcher(statusCode).matches()) {
+                status.setStatus(ImportStatus.StatusEnum.EXCLUDED);
+                objWriter.writeValue(out, status);
+                continue;
+              }
+            }
+
             ArtifactIdentifier aid = ad.getIdentifier();
             aid.setNamespace(namespace);
             aid.setAuid(auId);
             aid.setUri(realUri);
 
             // TODO: Write to permanent storage directly
+            // (But that conflicts with dup detection)
             Artifact artifact = addArtifact(ad);
-            commitArtifact(artifact);
+            Artifact dup = null;
+            if (!storeDuplicate) {
+              dup = LockssRepositoryUtil.getIdenticalPreviousVersion(this, artifact);
+            }
+            if (dup != null) {
+              try {
+                deleteArtifact(artifact);
+                status.setArtifactUuid(dup.getUuid());
+                status.setDigest(dup.getContentDigest());
+                status.setVersion(dup.getVersion());
+                status.setStatus(ImportStatus.StatusEnum.DUPLICATE);
+              } catch (Exception e) {
+                log.error("Error deleting duplicate artifact: {}", artifact, e);
+              }
+            } else {
+              commitArtifact(artifact);
 
-            status.setArtifactUuid(artifact.getUuid());
-            status.setDigest(artifact.getContentDigest());
-            status.setVersion(artifact.getVersion());
-            status.setStatus(ImportStatus.StatusEnum.OK);
+              status.setArtifactUuid(artifact.getUuid());
+              status.setDigest(artifact.getContentDigest());
+              status.setVersion(artifact.getVersion());
+              status.setStatus(ImportStatus.StatusEnum.OK);
+            }
           } catch (Exception e) {
             log.error("Could not import artifact from archive", e);
             status.setStatus(ImportStatus.StatusEnum.ERROR);
           }
-
           objWriter.writeValue(out, status);
         }
 
@@ -453,6 +484,9 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   /** WARC 1.0 spec has URI enclosed in "< ... >".  Remove them if
    * present. */
   String realRecordUri(String recordUri) {
+    if (recordUri == null) {
+      return null;
+    }
     if (recordUri.startsWith("<") && recordUri.endsWith(">")) {
       return recordUri.substring(1, recordUri.length() - 1);
     }
@@ -470,6 +504,15 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     return index.getArtifact(artifactUuid);
   }
 
+  @Override
+  public ArtifactData getArtifactData(Artifact artifact, IncludeContent includeContent) throws IOException {
+    if (artifact == null) {
+      throw new IllegalArgumentException("Null artifact");
+    }
+
+    return getArtifactData(artifact.getNamespace(), artifact.getUuid());
+  }
+
   /**
    * Retrieves an artifact from this LOCKSS repository.
    *
@@ -477,7 +520,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    * @return The {@code ArtifactData} referenced by this artifact ID.
    * @throws IOException
    */
-  @Override
+  @Deprecated
   public ArtifactData getArtifactData(String namespace, String artifactUuid) throws IOException {
     validateNamespace(namespace);
 
@@ -493,14 +536,10 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     }
 
     // Fetch and return artifact from data store
+    // Q: Should ArtifactData properties be populated from Artifact here instead
+    //  of within the data store? That would make it more consistent with the
+    //  RestLockssRepository implementation.
     return store.getArtifactData(artifactRef);
-  }
-
-  @Override
-  public HttpHeaders getArtifactHeaders(String namespace, String artifactUuid) throws IOException {
-    try (ArtifactData ad = store.getArtifactData(index.getArtifact(artifactUuid))) {
-      return ad.getHttpHeaders();
-    }
   }
 
   /**

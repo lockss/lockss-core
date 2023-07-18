@@ -3756,74 +3756,75 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  /**
-   * Provides the configuration of an archival unit given its identifier.
-   * 
-   * @param auId
-   *          A String with the identifier of the archival unit.
-   * @return a Configuration with the configuration of the archival unit.
-   */
-  public Configuration getAuConfig(String auId, Plugin plugin) {
-    final String DEBUG_HEADER = "getAuConfig(): ";
-    if (log.isDebug2()) {
-      log.debug2(DEBUG_HEADER + "auId = " + auId);
-      log.debug2(DEBUG_HEADER + "plugin = " + plugin);
-    }
+  // XXX Not sure what this is for, but it's confusing and has no callers.
+//   /**
+//    * Provides the configuration of an archival unit given its identifier.
+//    * 
+//    * @param auId
+//    *          A String with the identifier of the archival unit.
+//    * @return a Configuration with the configuration of the archival unit.
+//    */
+//   public Configuration getAuConfig(String auId, Plugin plugin) {
+//     final String DEBUG_HEADER = "getAuConfig(): ";
+//     if (log.isDebug2()) {
+//       log.debug2(DEBUG_HEADER + "auId = " + auId);
+//       log.debug2(DEBUG_HEADER + "plugin = " + plugin);
+//     }
 
-    Configuration auConfig = null;
+//     Configuration auConfig = null;
 
-    // Get the Archival Unit title database.
-    TdbAu tdbAu = getTdbAu(auId, plugin);
+//     // Get the Archival Unit title database.
+//     TdbAu tdbAu = getTdbAu(auId, plugin);
 
-    // Get the Archival Unit configuration, if possible.
-    if (tdbAu != null) {
-      tdbAu.prettyLog(2);
-      Properties properties = new Properties();
-      properties.putAll(tdbAu.getParams());
+//     // Get the Archival Unit configuration, if possible.
+//     if (tdbAu != null) {
+//       tdbAu.prettyLog(2);
+//       Properties properties = new Properties();
+//       properties.putAll(tdbAu.getParams());
 
-      auConfig = ConfigManager.fromPropertiesUnsealed(properties);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-    }
+//       auConfig = ConfigManager.fromPropertiesUnsealed(properties);
+//       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+//     }
 
-    // Check whether no Archival Unit configuration was found.
-    if (auConfig == null) {
-      // Yes: Try to get it from the REST Configuration service.
-      if (restConfigClient.isActive()) {
-	try {
-	  AuConfiguration auConfiguration = null;
+//     // Check whether no Archival Unit configuration was found.
+//     if (auConfig == null) {
+//       // Yes: Try to get it from the REST Configuration service.
+//       if (restConfigClient.isActive()) {
+// 	try {
+// 	  AuConfiguration auConfiguration = null;
 
-	  try {
-	    auConfiguration =
-		restConfigClient.getArchivalUnitConfiguration(auId);
-	  } catch (LockssRestHttpException lrhe) {
-	    // Do nothing: Continue with a null object.
-	    log.error("Exception caught getting the configuration of Archival "
-		+ "Unit " + auId, lrhe);
-	  }
+// 	  try {
+// 	    auConfiguration =
+// 		restConfigClient.getArchivalUnitConfiguration(auId);
+// 	  } catch (LockssRestHttpException lrhe) {
+// 	    // Do nothing: Continue with a null object.
+// 	    log.error("Exception caught getting the configuration of Archival "
+// 		+ "Unit " + auId, lrhe);
+// 	  }
 
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "auConfiguration = " + auConfiguration);
-	  auConfig =
-	      AuConfigurationUtils.toAuidPrefixedConfiguration(auConfiguration);
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-	} catch (LockssRestException lre) {
-	  log.error("Exception caught getting the configuration of Archival "
-	      + "Unit " + auId, lre);
-	}
-      }
+// 	  if (log.isDebug3())
+// 	    log.debug3(DEBUG_HEADER + "auConfiguration = " + auConfiguration);
+// 	  auConfig =
+// 	      AuConfigurationUtils.toAuidPrefixedConfiguration(auConfiguration);
+// 	  if (log.isDebug3())
+// 	    log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+// 	} catch (LockssRestException lre) {
+// 	  log.error("Exception caught getting the configuration of Archival "
+// 	      + "Unit " + auId, lre);
+// 	}
+//       }
 
-      // Check whether no Archival Unit configuration was found.
-      if (auConfig == null) {
-        // Yes: Create an empty Archival Unit configuration.
-        auConfig = ConfigManager.EMPTY_CONFIGURATION;
-        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
-      }
-    }
+//       // Check whether no Archival Unit configuration was found.
+//       if (auConfig == null) {
+//         // Yes: Create an empty Archival Unit configuration.
+//         auConfig = ConfigManager.EMPTY_CONFIGURATION;
+//         if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+//       }
+//     }
 
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConfig = " + auConfig);
-    return auConfig;
-  }
+//     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConfig = " + auConfig);
+//     return auConfig;
+//   }
 
   /**
    * Provides the configuration file of the parent URL of another URL.
