@@ -86,6 +86,8 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
   static boolean AVOID_STREAM_CLOSED_BUG = false;
 
+  static long SIM_TIME = 222222;
+
   protected static int MAX_RANDOM_FILE = 50000;
   protected static int MAX_INCR_FILE = 20000;
   static {
@@ -252,7 +254,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
   public void beforeEach() throws Exception {
     log.debug("Running beforeEach()");
     getMockLockssDaemon().setAppRunning(true);
-    TimeBase.setSimulated();
+    TimeBase.setSimulated(SIM_TIME);
     setUpRepo();
     beforeVariant();
   }
@@ -484,6 +486,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
       assertThrowsMatch(IllegalStateException.class,
 			"Attempt to get InputStream from ArtifactData whose InputStream has been used",
 			() -> ad.getInputStream());
+      assertEquals(SIM_TIME, ad.getStoredDate());
     }
     ArtifactSpec uspec = variantState.anyUncommittedSpec();
     if (uspec != null) {
