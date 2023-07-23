@@ -1523,6 +1523,10 @@ public class PollManager
       long auAge = TimeBase.msSince(state.getAuCreationTime());
       long threshold = (long) Math.round(v3NoAuResetIntervalCurve.getY(auAge));
       if (TimeBase.msSince(lastTimestamp) >= threshold) {
+        int s = noAuSet.size();
+        log.debug2("Clearing NoAuSet (" + noAuSet.size() + " entries) for: "
+                   + au.getAuId() + " with age " +
+                   StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
         noAuSet.clear();
         noAuSet.store();
       }

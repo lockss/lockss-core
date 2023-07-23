@@ -2882,16 +2882,7 @@ public class V3Poller implements Poll {
       // load list of peers who have recently said they don't have the AU
       DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
       synchronized (noAuSet) {
-	try {
-	  int s = noAuSet.size();
-	  pollManager.ageNoAuSet(getAu(), noAuSet);
-	  log.debug2("NoAuSet: " + s + " aged-> " + noAuSet.size()
-		     + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
-	  noAuSet.store();
-	} catch (IOException e) {
-	  log.error("Failed to age no AU set", e);
-	  noAuSet = null;
-	}
+        pollManager.ageNoAuSet(getAu(), noAuSet);
 	// first build list of eligible peers
 	if (enableDiscovery) {
 	  allPeers =
