@@ -698,7 +698,7 @@ public abstract class CachingStateManager extends BaseStateManager {
       throws IOException {
     DatedPeerIdSet naps = getNoAuPeerSet(auid);
     Set<PeerIdentity> changedPids = naps.updateFromJson(json, daemon);
-    updateNoAuPeerSet(auid, naps, changedPids);
+    updateNoAuPeerSet(auid, naps, changedPids, cookie);
   }
 
   /** Store an NoAuPeerSet not obtained from StateManager.  Useful in tests.
