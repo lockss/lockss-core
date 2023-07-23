@@ -179,7 +179,10 @@ public class DatedPeerIdSetImpl extends PersistentPeerIdSetImpl implements
    */
   @Override
   public void store() {
-    getStateMgr().updateNoAuPeerSet(auid, this);
+    if (m_changed) {
+      getStateMgr().updateNoAuPeerSet(auid, this);
+      m_changed = false;
+    }
   }
 
   @Override
