@@ -776,6 +776,8 @@ public class ConfigManager implements LockssManager {
   // The configuration manager SQL executor.
   private ConfigManagerSql configManagerSql = null;
 
+  private StateManager stateMgr;
+
   private boolean noNag = false;
 
   /** How often to commit when adding Archival Unit configurations to the
@@ -4337,6 +4339,16 @@ public class ConfigManager implements LockssManager {
     } else {
       getConfigManagerSql().addArchivalUnitConfiguration(pluginKey, auKey,
 	  auConfig);
+      StateManager stateMgr = getStateManager();
+      if (stateMgr != null) {
+        AuStateBean ausb = stateMgr.getAuStateBean(auid);
+        // If the AU doesn't already have a creation time, set it
+        if (ausb.getAuCreationTime() < 0) {
+          ausb.setAuCreationTime(TimeBase.nowMs());
+          stateMgr.updateAuStateBean(auid, ausb,
+                                     Collections.singleton("auCreationTime"));
+        }
+      }
       notifyAuConfigChanged(auid, auConfiguration, fromExternalSource);
     }
   }
@@ -4603,6 +4615,13 @@ public class ConfigManager implements LockssManager {
     if (!restConfigClient.isActive()) {
       loadAuTxtFileIntoDb();
     }
+  }
+
+  private StateManager getStateManager() {
+    if (stateMgr == null) {
+      stateMgr = theApp.getManagerByType(StateManager.class);
+    }
+    return stateMgr;
   }
 
   /**
