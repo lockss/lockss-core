@@ -29,7 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.state;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.activemq.broker.BrokerService;
 import org.junit.*;
@@ -185,6 +185,38 @@ public class TestServerStateManager extends StateTestCase {
     assertEquals(555, aus.getLastCrawlAttempt());
 
     assertTrue(myStateMgr.isInAuStateMap(key));
+  }
+
+  @Test
+  // Test that local updates of NoAuPeerSet objects cause notifications to be
+  // sent, and that updates from service cause local NoAuPeerSet to be updated
+  public void testNoAuPeerSet() throws Exception {
+    String auid1 = mau1.getAuId();
+    DatedPeerIdSetImpl naps1 = (DatedPeerIdSetImpl)AuUtil.getNoAuPeerSet(mau1);
+    DatedPeerIdSetImpl naps2 = (DatedPeerIdSetImpl)AuUtil.getNoAuPeerSet(mau2);
+    assertNotSame(naps1, naps2);
+    assertSame(naps1, AuUtil.getNoAuPeerSet(mau1));
+    assertSame(naps2, AuUtil.getNoAuPeerSet(mau2));
+    assertTrue(naps1.isEmpty());
+    naps1.add(pid1);
+    naps1.add(pid2);
+    assertTrue(naps1.contains(pid2));
+    TimeBase.setSimulated(333444);
+    stateMgr.updateNoAuPeerSetFromJson(mau1.getAuId(), naps1.toJson(null),
+                                       "mint milano");
+    Map m = cons.receiveMap(TIMEOUT_SHOULDNT);
+    String json = (String)m.remove("json");
+    assertEquals(MapUtil.map("auid", "plug&aaa1",
+                             "cookie", "mint milano",
+                             "name", "NoAuPeerSet"),
+                 m);
+    Map jmap = AuUtil.jsonToMap(json);
+    assertEquals(auid1, jmap.get("auid"));
+    assertEquals(-1, jmap.get("date"));
+    assertSameElements(ListUtil.list("TCP:[127.0.0.2]:1231",
+                                     "TCP:[127.0.0.1]:1231"),
+                       (List)jmap.get("rawSet"));
+
   }
 
   @Test

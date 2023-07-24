@@ -1376,6 +1376,11 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals("222", auConfig.get("bar"));
     assertEquals("333", auConfig.get("baz"));
 
+    // Dispose of global config change msg which happens first
+    assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB,
+                             "GlobalConfigChanged"),
+		 cons.receiveMap(TIMEOUT_SHOULDNT));
+    // Ensure AuConfigStored msg was received
     assertEquals(MapUtil.map(ConfigManager.CONFIG_NOTIFY_VERB, "AuConfigStored",
 			     ConfigManager.CONFIG_NOTIFY_AUID, "foo&auid"),
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
