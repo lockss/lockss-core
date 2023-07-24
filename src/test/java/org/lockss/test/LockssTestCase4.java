@@ -736,9 +736,12 @@ public class LockssTestCase4 extends Assert {
                     System.getProperty(PlatformUtil.SYSPROP_JAVA_IO_TMPDIR), e);
       }
     }
-    makeConfigManager();
+    ConfigManager cfgMgr = makeConfigManager();
     Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
+    if (mockDaemon != null) {
+      cfgMgr.initService(mockDaemon);
+    }
     disableThreadWatchdog();
   }
 
@@ -756,8 +759,8 @@ public class LockssTestCase4 extends Assert {
 
   /** Create a fresh config manager.  This is overridden in
    * SpringLockssTestCase4 in lockss-spring-bundle */
-  protected void makeConfigManager() {
-    ConfigManager.makeConfigManager();
+  protected ConfigManager makeConfigManager() {
+    return ConfigManager.makeConfigManager();
   }
 
   protected MockLockssDaemon newMockLockssDaemon() {

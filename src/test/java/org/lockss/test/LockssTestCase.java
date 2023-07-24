@@ -214,9 +214,12 @@ public class LockssTestCase extends TestCase {
                     System.getProperty(PlatformUtil.SYSPROP_JAVA_IO_TMPDIR), e);
       }
     }
-    ConfigManager.makeConfigManager();
+    ConfigManager cfgMgr = ConfigManager.makeConfigManager();
     Logger.resetLogs();
     mockDaemon = newMockLockssDaemon();
+    if (mockDaemon != null) {
+      cfgMgr.initService(mockDaemon);
+    }
     super.setUp();
     disableThreadWatchdog();
   }
