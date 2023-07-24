@@ -108,7 +108,7 @@ public class WarcArtifactData extends ArtifactData {
       ad.setContentDigest(artifactDigest);
     }
 
-    String artifactStoreDate = recordHeaders.get(ArtifactConstants.ARTIFACT_STORE_DATE);
+    String artifactStoreDate = recordHeaders.get(ArtifactConstants.ARTIFACT_STORE_DATE_KEY);
     log.trace("artifactStoreDate = {}", artifactStoreDate);
     if (!StringUtil.isNullString(artifactStoreDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoreDate);
@@ -236,7 +236,7 @@ public class WarcArtifactData extends ArtifactData {
       ad.setContentDigest(artifactDigest);
     }
 
-    String artifactStoreDate = (String) recordHeaders.getHeaderValue(ArtifactConstants.ARTIFACT_STORE_DATE);
+    String artifactStoreDate = (String) recordHeaders.getHeaderValue(ArtifactConstants.ARTIFACT_STORE_DATE_KEY);
     log.trace("artifactStoreDate = {}", artifactStoreDate);
     if (!StringUtil.isNullString(artifactStoreDate)) {
       TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoreDate);

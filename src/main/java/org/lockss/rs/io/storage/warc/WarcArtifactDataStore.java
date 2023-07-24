@@ -3031,7 +3031,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     record.addExtraHeader(ArtifactConstants.ARTIFACT_VERSION_KEY, String.valueOf(artifactId.getVersion()));
 
     record.addExtraHeader(
-        ArtifactConstants.ARTIFACT_STORE_DATE,
+        ArtifactConstants.ARTIFACT_STORE_DATE_KEY,
         DateTimeFormatter.ISO_INSTANT.format(
             // Inherit stored date if set (e.g., in the temporary WARC record)
             artifactData.getStoreDate() > 0 ?
