@@ -472,7 +472,9 @@ public class ConfigManager implements LockssManager {
     "remote_config_failover_info.xml";
 
   /** URL of the dynamic cluster config "file" */
-  public static final String CLUSTER_URL = "dyn:cluster.xml";
+  public static final String SECTION_URL_CLUSTER = "dyn:cluster.xml";
+  /** URL of the dynamic local config files "file" */
+  public static final String SECTION_URL_LOCAL_CONFIG = "dyn:local-config.xml";
 
   /** Name of ClientCacheSpec used by HTTPConfigFile */
   public static final String HTTP_CACHE_NAME = "HTTPConfigFile";
@@ -1693,7 +1695,7 @@ public class ConfigManager implements LockssManager {
       if (!haveConfig.isFull()) {
 	schedSetUpJmsNotifications();
       }
-      invalidateClusterFile();
+      invalidateLocalConfigSectionrFile();
       haveConfig.fill();
     }
     connPool.closeIdleConnections(0);
@@ -2961,7 +2963,7 @@ public class ConfigManager implements LockssManager {
     // If this is the first time this file was written, the cluster file
     // may need to be regenerated.  Doing it every time a local file is
     // written is overkill, but negligible extra work
-    invalidateClusterFile();
+    invalidateLocalConfigSectionrFile();
 
     log.debug2("Wrote cache config file: " + cfile);
     LocalFileDescr descr = getLocalFileDescr(cacheConfigFileName);
@@ -3562,7 +3564,7 @@ public class ConfigManager implements LockssManager {
    * files should be added here. */
   public DynamicConfigFile newDynamicConfigFile(String url) {
     switch (url) {
-    case CLUSTER_URL:
+    case SECTION_URL_CLUSTER:
       return new DynamicConfigFile(url, this) {
 	@Override
 	protected void generateFileContent(File file,
@@ -3571,15 +3573,18 @@ public class ConfigManager implements LockssManager {
 	  generateClusterFile(file);
 	}
       };
+    case SECTION_URL_LOCAL_CONFIG:
+      return new DynamicConfigFile(url, this) {
+	@Override
+	protected void generateFileContent(File file,
+					   ConfigManager cfgMgr)
+	    throws IOException {
+	  generateLocalConfigFile(file);
+	}
+      };
     default:
       throw new IllegalArgumentException("Unknown dynamic config file: " + url);
     }
-  }
-
-  void appendClusterUrl(StringBuilder sb, String url) {
-    sb.append("      <value>");
-    sb.append(StringEscapeUtils.escapeXml(url));
-    sb.append("</value>\n");
   }
 
   void generateClusterFile(File file) throws IOException {
@@ -3591,6 +3596,17 @@ public class ConfigManager implements LockssManager {
       appendClusterUrl(sbCluster, url);
     }
 
+    log.debug2("Dyn cluster urls: " + sbCluster.toString());
+    Map<String,String> valMap =
+      MapUtil.map("PreUrls", sbCluster.toString(),
+		  "PostUrls", "");
+    try (Writer wrtr = new BufferedWriter(new FileWriter(file))) {
+      TemplateUtil.expandTemplate("org/lockss/config/ClusterTemplate.xml",
+	  wrtr, valMap);
+    }
+  }
+
+  void generateLocalConfigFile(File file) throws IOException {
     StringBuilder sbLocal = new StringBuilder();
     if (true || hasLocalCacheConfig()) {
       for (LocalFileDescr lfd : getLocalFileDescrs()) {
@@ -3605,20 +3621,25 @@ public class ConfigManager implements LockssManager {
       }
     }
 
-    log.debug2("Dyn PreUrls: " + sbCluster.toString());
-    log.debug2("Dyn PostUrls: " + sbLocal.toString());
+    log.debug2("Dyn local config urls: " + sbLocal.toString());
     Map<String,String> valMap =
-      MapUtil.map("PreUrls", sbCluster.toString(),
-		  "PostUrls", sbLocal.toString());
+      MapUtil.map("PreUrls", sbLocal.toString(),
+		  "PostUrls", "");
     try (Writer wrtr = new BufferedWriter(new FileWriter(file))) {
       TemplateUtil.expandTemplate("org/lockss/config/ClusterTemplate.xml",
 	  wrtr, valMap);
     }
   }
 
+  void appendClusterUrl(StringBuilder sb, String url) {
+    sb.append("      <value>");
+    sb.append(StringEscapeUtils.escapeXml(url));
+    sb.append("</value>\n");
+  }
+
   /** Cause the cluster file to be regenerated */
-  void invalidateClusterFile() {
-    ConfigFile cf = configCache.find(CLUSTER_URL);
+  void invalidateLocalConfigSectionrFile() {
+    ConfigFile cf = configCache.find(SECTION_URL_LOCAL_CONFIG);
     if (cf instanceof DynamicConfigFile) {
       log.debug2("Invalidating: " + cf);
       ((DynamicConfigFile)cf).invalidate();

@@ -460,6 +460,7 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   static final String CLUST_URL = "dyn:cluster.xml";
+  static final String LOCAL_URL = "dyn:local-config.xml";
 
   String expClust =
     "  <property name=\"org.lockss.auxPropUrls\">\\n" +
@@ -473,15 +474,21 @@ public class TestConfigManager extends LockssTestCase4 {
     "    </list>\\n" +
     "  </property>\\n";
 
-  String expClust2 =
+  String emptyLocal =
     "  <property name=\"org.lockss.auxPropUrls\">\\n" +
     "    <list append=\"false\">\\n" +
-    "      <value>http://host/lockss.xml</value>\\n" +
-    "      <value>./cluster.txt</value>\\n" +
-    "      <value>encode&lt;me&gt;</value>\\n" +
     "\\n" +
     "      <!-- Put static URLs here -->\\n" +
+    "\\n" +
+    "    </list>\\n" +
+    "  </property>\\n";
+
+  String expLocal =
+    "  <property name=\"org.lockss.auxPropUrls\">\\n" +
+    "    <list append=\"false\">\\n" +
     "      <value>.*/config/expert_config\\.txt</value>\\n" +
+    "\\n" +
+    "      <!-- Put static URLs here -->\\n" +
     "\\n" +
     "    </list>\\n" +
     "  </property>\\n";
@@ -494,10 +501,15 @@ public class TestConfigManager extends LockssTestCase4 {
     List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
 			     "encode<me>");
     mgr.setClusterUrls(exp);
-    File tmpFile = getTempFile("configtmp", "");
-    mgr.generateClusterFile(tmpFile);
-    String clust = StringUtil.fromFile(tmpFile);
+    File tmpFilec = getTempFile("cluster", "");
+    File tmpFilel = getTempFile("localcontif", "");
+    mgr.generateClusterFile(tmpFilec);
+    String clust = StringUtil.fromFile(tmpFilec);
     assertMatchesRE(expClust, clust);
+
+    mgr.generateLocalConfigFile(tmpFilel);
+    assertMatchesRE(emptyLocal, StringUtil.fromFile(tmpFilel));
+
 
     // Store a local cache config file (expert_config.txt), ensure it
     // shows up in the cluster file
@@ -513,9 +525,11 @@ public class TestConfigManager extends LockssTestCase4 {
 			 PropUtil.fromArgs("xx", "yy"));
 
     assertEquals("v", econfig.get("k"));
-    mgr.generateClusterFile(tmpFile);
-    String clust2 = StringUtil.fromFile(tmpFile);
-    assertMatchesRE(expClust2, clust2);
+
+    mgr.generateClusterFile(tmpFilec);
+    mgr.generateLocalConfigFile(tmpFilel);
+    assertMatchesRE(expClust, StringUtil.fromFile(tmpFilec));
+    assertMatchesRE(expLocal, StringUtil.fromFile(tmpFilel));
   }
 
   Configuration writeCacheConfigFile(String filename, Properties props)
@@ -534,24 +548,67 @@ public class TestConfigManager extends LockssTestCase4 {
     List exp = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
 			     "encode<me>");
     mgr.setClusterUrls(exp);
-    ConfigFile cf = mgr.getConfigCache().find(CLUST_URL);
+    ConfigFile cf1 = mgr.getConfigCache().find(CLUST_URL);
+    Configuration config1 = cf1.getConfiguration();
+    assertEquals(exp, config1.getList("org.lockss.auxPropUrls"));
+
+    ConfigFile cf2 = mgr.getConfigCache().find(LOCAL_URL);
+    assertEmpty(cf2.getConfiguration().getList("org.lockss.auxPropUrls"));
+
+    String last = cf1.getLastModified();
+    // ensure file isn't regenerated each time
+    assertSame(config1, cf1.getConfiguration());
+    assertEquals(last, cf1.getLastModified());
+
+    TimerUtil.guaranteedSleep(1);
+    // These should have no effect on the cluster file
+    mgr.writeCacheConfigFile(PropUtil.fromArgs("exp.foo", "valfoo"),
+			     ConfigManager.CONFIG_FILE_EXPERT_CLUSTER,
+                             "header");
+    mgr.writeCacheConfigFile(PropUtil.fromArgs("o.l proxima", "cantauri"),
+			     ConfigManager.CONFIG_FILE_CRAWL_PROXY,
+                             "header");
+    // This one doesn't get invalidated/regenerated
+    Configuration config2 = cf1.getConfiguration();
+    assertSame(config1, config2);
+    assertEquals(last, cf1.getLastModified());
+    assertEquals(exp, config2.getList("org.lockss.auxPropUrls"));
+  }
+
+  @Test
+  public void testDynLocalConfig() throws Exception {
+    String tempDirPath = setUpDiskSpace();
+    // This shouldn't have any effect on local-config section
+    List clust = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+                               "encode<me>");
+    mgr.setClusterUrls(clust);
+
+    List exp1 = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
+			     "encode<me>");
+    List exp = ListUtil.list("config/expert_config.txt");
+
+    ConfigFile cf = mgr.getConfigCache().find(LOCAL_URL);
     Configuration config = cf.getConfiguration();
-    assertEquals(exp, config.getList("org.lockss.auxPropUrls"));
+    assertEmpty(config.getList("org.lockss.auxPropUrls"));
+
     String last = cf.getLastModified();
     // ensure file isn't regenerated each time
     assertSame(config, cf.getConfiguration());
     assertEquals(last, cf.getLastModified());
 
     TimerUtil.guaranteedSleep(1);
-    String fname = ConfigManager.CONFIG_FILE_EXPERT_CLUSTER;
     mgr.writeCacheConfigFile(PropUtil.fromArgs("exp.foo", "valfoo"),
-			     fname, "header");
+			     ConfigManager.CONFIG_FILE_EXPERT_CLUSTER,
+                             "header");
+    mgr.writeCacheConfigFile(PropUtil.fromArgs("o.l proxima", "cantauri"),
+			     ConfigManager.CONFIG_FILE_CRAWL_PROXY,
+                             "header");
     Configuration config2 = cf.getConfiguration();
     assertNotSame(config, config2);
     assertNotEquals(last, cf.getLastModified());
-    exp.add(new File(tempDirPath, "config/expert_config.txt").toString());
-    assertEquals(exp, config2.getList("org.lockss.auxPropUrls"));
-
+    List<String> aux = config2.getList("org.lockss.auxPropUrls");
+    assertMatchesRE("config/crawl_proxy\\.txt", aux.get(0));
+    assertMatchesRE("config/expert_config\\.txt", aux.get(1));
   }
 
   @Test
