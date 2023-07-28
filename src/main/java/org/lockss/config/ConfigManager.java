@@ -172,7 +172,7 @@ public class ConfigManager implements LockssManager {
     MYPREFIX + "maxLogValLen";
   static final int DEFAULT_MAX_LOG_VAL_LEN = 2000;
 
-  /** Config param written to local config files to indicate file version.
+  /** Config param written to user config files to indicate file version.
    * Not intended to be set manually.
    * @ParamRelevance Rare
    */
@@ -473,8 +473,8 @@ public class ConfigManager implements LockssManager {
 
   /** URL of the dynamic cluster config "file" */
   public static final String SECTION_URL_CLUSTER = "dyn:cluster.xml";
-  /** URL of the dynamic local config files "file" */
-  public static final String SECTION_URL_LOCAL_CONFIG = "dyn:local-config.xml";
+  /** URL of the dynamic user config "file" */
+  public static final String SECTION_URL_USER_CONFIG = "dyn:user-config.xml";
 
   /** Name of ClientCacheSpec used by HTTPConfigFile */
   public static final String HTTP_CACHE_NAME = "HTTPConfigFile";
@@ -1673,7 +1673,7 @@ public class ConfigManager implements LockssManager {
     List<ConfigFile.Generation> localGens = getConfigGenerations(
 	getLocalFileDescrs(), false, reload, "cache config");
     if (!localGens.isEmpty()) {
-      hasLocalCacheConfig = true;
+      hasUserCacheConfig = true;
     }
     return localGens;
   }
@@ -1695,7 +1695,7 @@ public class ConfigManager implements LockssManager {
       if (!haveConfig.isFull()) {
 	schedSetUpJmsNotifications();
       }
-      invalidateLocalConfigSectionrFile();
+      invalidateUserConfigSectionFile();
       haveConfig.fill();
     }
     connPool.closeIdleConnections(0);
@@ -2412,7 +2412,7 @@ public class ConfigManager implements LockssManager {
   }
 
   // If the current platform access (subnet) value is different from the
-  // value it had the last time the local config file was written, add it
+  // value it had the last time the user config file was written, add it
   // to the access list.
   private void appendPlatformAccess(Configuration config, String accessParam,
 				    String oldPlatformAccessParam,
@@ -2560,7 +2560,7 @@ public class ConfigManager implements LockssManager {
 
   boolean cacheConfigInited = false;
   File cacheConfigDir = null;
-  boolean hasLocalCacheConfig = false;
+  boolean hasUserCacheConfig = false;
 
   boolean isUnitTesting() {
     return Boolean.getBoolean("org.lockss.unitTesting");
@@ -2825,8 +2825,8 @@ public class ConfigManager implements LockssManager {
   }
 
   /** Return true if any daemon config has been done on this machine */
-  public boolean hasLocalCacheConfig() {
-    return hasLocalCacheConfig;
+  public boolean hasUserCacheConfig() {
+    return hasUserCacheConfig;
   }
 
   /**
@@ -2963,7 +2963,7 @@ public class ConfigManager implements LockssManager {
     // If this is the first time this file was written, the cluster file
     // may need to be regenerated.  Doing it every time a local file is
     // written is overkill, but negligible extra work
-    invalidateLocalConfigSectionrFile();
+    invalidateUserConfigSectionFile();
 
     log.debug2("Wrote cache config file: " + cfile);
     LocalFileDescr descr = getLocalFileDescr(cacheConfigFileName);
@@ -3573,13 +3573,13 @@ public class ConfigManager implements LockssManager {
 	  generateClusterFile(file);
 	}
       };
-    case SECTION_URL_LOCAL_CONFIG:
+    case SECTION_URL_USER_CONFIG:
       return new DynamicConfigFile(url, this) {
 	@Override
 	protected void generateFileContent(File file,
 					   ConfigManager cfgMgr)
 	    throws IOException {
-	  generateLocalConfigFile(file);
+	  generateUserConfigFile(file);
 	}
       };
     default:
@@ -3606,9 +3606,9 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  void generateLocalConfigFile(File file) throws IOException {
+  void generateUserConfigFile(File file) throws IOException {
     StringBuilder sbLocal = new StringBuilder();
-    if (true || hasLocalCacheConfig()) {
+    if (true || hasUserCacheConfig()) {
       for (LocalFileDescr lfd : getLocalFileDescrs()) {
 	if (!lfd.isIncludeInCluster()) {
 	  continue;
@@ -3621,7 +3621,7 @@ public class ConfigManager implements LockssManager {
       }
     }
 
-    log.debug2("Dyn local config urls: " + sbLocal.toString());
+    log.debug2("Dyn user config urls: " + sbLocal.toString());
     Map<String,String> valMap =
       MapUtil.map("PreUrls", sbLocal.toString(),
 		  "PostUrls", "");
@@ -3638,8 +3638,8 @@ public class ConfigManager implements LockssManager {
   }
 
   /** Cause the cluster file to be regenerated */
-  void invalidateLocalConfigSectionrFile() {
-    ConfigFile cf = configCache.find(SECTION_URL_LOCAL_CONFIG);
+  void invalidateUserConfigSectionFile() {
+    ConfigFile cf = configCache.find(SECTION_URL_USER_CONFIG);
     if (cf instanceof DynamicConfigFile) {
       log.debug2("Invalidating: " + cf);
       ((DynamicConfigFile)cf).invalidate();

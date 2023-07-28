@@ -460,7 +460,7 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   static final String CLUST_URL = "dyn:cluster.xml";
-  static final String LOCAL_URL = "dyn:local-config.xml";
+  static final String LOCAL_URL = "dyn:user-config.xml";
 
   String expClust =
     "  <property name=\"org.lockss.auxPropUrls\">\\n" +
@@ -507,7 +507,7 @@ public class TestConfigManager extends LockssTestCase4 {
     String clust = StringUtil.fromFile(tmpFilec);
     assertMatchesRE(expClust, clust);
 
-    mgr.generateLocalConfigFile(tmpFilel);
+    mgr.generateUserConfigFile(tmpFilel);
     assertMatchesRE(emptyLocal, StringUtil.fromFile(tmpFilel));
 
 
@@ -527,7 +527,7 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals("v", econfig.get("k"));
 
     mgr.generateClusterFile(tmpFilec);
-    mgr.generateLocalConfigFile(tmpFilel);
+    mgr.generateUserConfigFile(tmpFilel);
     assertMatchesRE(expClust, StringUtil.fromFile(tmpFilec));
     assertMatchesRE(expLocal, StringUtil.fromFile(tmpFilel));
   }
@@ -576,9 +576,9 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testDynLocalConfig() throws Exception {
+  public void testDynUserConfig() throws Exception {
     String tempDirPath = setUpDiskSpace();
-    // This shouldn't have any effect on local-config section
+    // This shouldn't have any effect on user-config section
     List clust = ListUtil.list("http://host/lockss.xml", "./cluster.txt",
                                "encode<me>");
     mgr.setClusterUrls(clust);
@@ -1849,8 +1849,8 @@ public class TestConfigManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testHasLocalCacheConfig() throws Exception {
-    assertFalse(mgr.hasLocalCacheConfig());
+  public void testHasUserCacheConfig() throws Exception {
+    assertFalse(mgr.hasUserCacheConfig());
     // set up local config dir
     String tmpdir = getTempDir().toString();
     Properties props = new Properties();
@@ -1862,22 +1862,22 @@ public class TestConfigManager extends LockssTestCase4 {
     File cdir = new File(tmpdir, relConfigPath);
     assertTrue(cdir.exists());
 
-    assertFalse(mgr.hasLocalCacheConfig());
+    assertFalse(mgr.hasUserCacheConfig());
 
     // loading local shouldn't set flag because no files
     mgr.getCacheConfigGenerations(true);
-    assertFalse(mgr.hasLocalCacheConfig());
+    assertFalse(mgr.hasUserCacheConfig());
 
-    // write a local config file
+    // write a user config file
     mgr.writeCacheConfigFile(props, ConfigManager.CONFIG_FILE_EXPERT_CLUSTER,
 			     "this is a header");
 
-    assertFalse(mgr.hasLocalCacheConfig());
+    assertFalse(mgr.hasUserCacheConfig());
 
     // load it to set flag
     mgr.getCacheConfigGenerations(true);
 
-    assertTrue(mgr.hasLocalCacheConfig());
+    assertTrue(mgr.hasUserCacheConfig());
   }
 
   @Test
@@ -1895,7 +1895,7 @@ public class TestConfigManager extends LockssTestCase4 {
   public void testRemoteConfigFailoverDisabled() throws Exception {
     String url1 = "http://one/xxx.xml";
 
-    assertFalse(mgr.hasLocalCacheConfig());
+    assertFalse(mgr.hasUserCacheConfig());
     // set up local config dir
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -1915,7 +1915,7 @@ public class TestConfigManager extends LockssTestCase4 {
   public void testRemoteConfigFailoverNotExist() throws Exception {
     String url1 = "http://one/xxx.xml";
 
-    assertFalse(mgr.hasLocalCacheConfig());
+    assertFalse(mgr.hasUserCacheConfig());
     // set up local config dir
     String tmpdir = getTempDir().toString();
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
@@ -1942,7 +1942,7 @@ public class TestConfigManager extends LockssTestCase4 {
     String url1 = "http://one/xxx.xml";
     String url2 = "http://one/yyy.txt";
 
-    assertFalse(mgr.hasLocalCacheConfig());
+    assertFalse(mgr.hasUserCacheConfig());
     // set up local config dir
     String tmpdir = getTempDir().toString();
     Properties props = new Properties();
