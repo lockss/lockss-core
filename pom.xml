@@ -1062,7 +1062,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		    </java>
 		    <zip destfile="${empty.db.archive}"
 			 basedir="${empty.db.dir}" />
-		    <delete dir="${empty.db.dir}" quiet="true" />
+		    <delete dir="${empty.db.parent.dir}" quiet="true" />
 		  </else>
 		</if>
 	      </target>
@@ -1078,7 +1078,9 @@ POSSIBILITY OF SUCH DAMAGE.
             <configuration>
               <skip>${build.java.jarMainJavadoc.skip}</skip>
               <target>
-		<property name="empty.db.parent.dir" value="${tmpdir}" />
+                <tempfile property="empty.db.parent.dir"
+                          destDir="${tmpdir}"
+                          prefix="schematmp"/>
 		<property name="empty.db.dir"
 			  value="${empty.db.parent.dir}/db" />
                 <mkdir dir="${dir.apidocs}/schemadoc" />
@@ -1099,7 +1101,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		  <sysproperty key="org.lockss.defaultLogLevel"
 			       value="${loglevel.tool}"/>
 		</java>
-
+		<delete dir="${empty.db.parent.dir}" quiet="true" />
               </target>
             </configuration>
           </execution>
