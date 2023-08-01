@@ -108,11 +108,11 @@ public class WarcArtifactData extends ArtifactData {
       ad.setContentDigest(artifactDigest);
     }
 
-    String artifactStoredDate = recordHeaders.get(ArtifactConstants.ARTIFACT_STORED_DATE);
-    log.trace("artifactStoredDate = {}", artifactStoredDate);
-    if (!StringUtil.isNullString(artifactStoredDate)) {
-      TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoredDate);
-      ad.setStoredDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
+    String artifactStoreDate = recordHeaders.get(ArtifactConstants.ARTIFACT_STORE_DATE_KEY);
+    log.trace("artifactStoreDate = {}", artifactStoreDate);
+    if (!StringUtil.isNullString(artifactStoreDate)) {
+      TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoreDate);
+      ad.setStoreDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
 
     String artifactCollectionDate = recordHeaders.get(WARCConstants.HEADER_KEY_DATE);
@@ -236,11 +236,11 @@ public class WarcArtifactData extends ArtifactData {
       ad.setContentDigest(artifactDigest);
     }
 
-    String artifactStoredDate = (String) recordHeaders.getHeaderValue(ArtifactConstants.ARTIFACT_STORED_DATE);
-    log.trace("artifactStoredDate = {}", artifactStoredDate);
-    if (!StringUtil.isNullString(artifactStoredDate)) {
-      TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoredDate);
-      ad.setStoredDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
+    String artifactStoreDate = (String) recordHeaders.getHeaderValue(ArtifactConstants.ARTIFACT_STORE_DATE_KEY);
+    log.trace("artifactStoreDate = {}", artifactStoreDate);
+    if (!StringUtil.isNullString(artifactStoreDate)) {
+      TemporalAccessor t = DateTimeFormatter.ISO_INSTANT.parse(artifactStoreDate);
+      ad.setStoreDate(ZonedDateTime.ofInstant(Instant.from(t), ZoneOffset.UTC).toInstant().toEpochMilli());
     }
 
     String artifactCollectionDate = (String) recordHeaders.getHeaderValue(WARCConstants.HEADER_KEY_DATE);

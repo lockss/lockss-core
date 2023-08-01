@@ -486,7 +486,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
       assertThrowsMatch(IllegalStateException.class,
 			"Attempt to get InputStream from ArtifactData whose InputStream has been used",
 			() -> ad.getInputStream());
-      assertEquals(SIM_TIME, ad.getStoredDate());
+      assertEquals(SIM_TIME, ad.getStoreDate());
     }
     ArtifactSpec uspec = variantState.anyUncommittedSpec();
     if (uspec != null) {
