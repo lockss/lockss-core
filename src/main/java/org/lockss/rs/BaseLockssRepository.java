@@ -51,6 +51,7 @@ import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactStateEntry;
 import org.lockss.util.BuildInfo;
 import org.lockss.util.ByteArray;
+import org.lockss.util.StreamUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.jms.JmsFactory;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
@@ -388,7 +389,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       // Read two bytes and compare to GZIP Member ID to determine isCompressed
       input.mark(GZIP_MEMBER_ID.length);
       byte[] buf = new byte[GZIP_MEMBER_ID.length];
-      if (input.read(buf) != GZIP_MEMBER_ID.length)
+      if (StreamUtil.readBytes(input, buf, GZIP_MEMBER_ID.length) != GZIP_MEMBER_ID.length)
         throw new IOException("Could not read magic number");
       boolean isCompressed = Arrays.equals(GZIP_MEMBER_ID, buf);
       input.reset();
