@@ -50,6 +50,8 @@ import org.lockss.rs.io.storage.warc.WarcArtifactData;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactStateEntry;
 import org.lockss.util.BuildInfo;
+import org.lockss.util.ByteArray;
+import org.lockss.util.StreamUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.jms.JmsFactory;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
@@ -69,12 +71,12 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * Base implementation of the LOCKSS Repository service.
@@ -82,6 +84,7 @@ import java.util.concurrent.TimeUnit;
 public class BaseLockssRepository implements LockssRepository, JmsFactorySource {
 
   private final static L4JLogger log = L4JLogger.getLogger();
+  private static final byte[] GZIP_MEMBER_ID = ByteArray.fromHexString("1F8B");
 
   private File repoStateDir;
 
@@ -362,14 +365,13 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    * @param auId         A {@link String} containing the AUID of the artifacts.
    * @param inputStream  The {@link InputStream} of the archive.
    * @param type         A {@link ArchiveType} indicating the type of archive.
-   * @param isCompressed A {@code boolean} indicating whether the archive is GZIP compressed.
    * @param storeDuplicate A {@code boolean} indicating whether new versions of artifacets whose content would be identical to the previous version should be stored
    * @param excludeStatusPattern    A {@link String} containing a regexp.  WARC records whose HTTP response status code matches will not be added to the repository
    * @return
    */
   @Override
   public ImportStatusIterable addArtifacts(String namespace, String auId, InputStream inputStream,
-                                           ArchiveType type, boolean isCompressed, boolean storeDuplicate, String excludeStatusPattern) throws IOException {
+                                           ArchiveType type, boolean storeDuplicate, String excludeStatusPattern) throws IOException {
 
     validateNamespace(namespace);
 
@@ -378,7 +380,20 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     }
 
     try {
+      // This doesn't work because it appears to consume the first byte?
+      // PeekableInputStream input = new PeekableInputStream(inputStream, GZIP_MEMBER_ID.length);
+      // boolean isCompressed = input.peek(GZIP_MEMBER_ID);
+
       BufferedInputStream input = new BufferedInputStream(inputStream);
+
+      // Read two bytes and compare to GZIP Member ID to determine isCompressed
+      input.mark(GZIP_MEMBER_ID.length);
+      byte[] buf = new byte[GZIP_MEMBER_ID.length];
+      if (StreamUtil.readBytes(input, buf, GZIP_MEMBER_ID.length) != GZIP_MEMBER_ID.length)
+        throw new IOException("Could not read magic number");
+      boolean isCompressed = Arrays.equals(GZIP_MEMBER_ID, buf);
+      input.reset();
+
       ArchiveReader archiveReader = isCompressed ?
           new WarcArtifactDataStore.CompressedWARCReader("archive.warc.gz", input) :
           new WarcArtifactDataStore.UncompressedWARCReader("archive.warc", input);
