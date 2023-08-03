@@ -379,7 +379,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     }
 
     try {
-      // PeekableInputStream input = new PeekableInputStream(inputStream, 2);
+      // This doesn't work because it appears to consume the first byte?
+      // PeekableInputStream input = new PeekableInputStream(inputStream, GZIP_MEMBER_ID.length);
       // boolean isCompressed = input.peek(GZIP_MEMBER_ID);
 
       BufferedInputStream input = new BufferedInputStream(inputStream);
