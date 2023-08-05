@@ -38,11 +38,9 @@ import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.io.filefilter.*;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrQuery;
-import org.apache.solr.client.solrj.SolrRequest;
-import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.*;
 import org.apache.solr.client.solrj.beans.DocumentObjectBinder;
+import org.apache.solr.client.solrj.impl.BaseHttpSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.QueryRequest;
@@ -95,6 +93,9 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
   private final static String DEFAULT_COLLECTION_NAME = "lockss-repo";
   public final static long DEFAULT_SOLR_HARDCOMMIT_INTERVAL = 15000;
+
+  private static final int SOLR_RETRY_DELAY = 1000; // ms
+  private static final int SOLR_RETRY_MAX = 5;
 
   private static final SolrQuery.SortClause SORTURI_ASC = new SolrQuery.SortClause("sortUri", SolrQuery.ORDER.asc);
   private static final SolrQuery.SortClause VERSION_DESC = new SolrQuery.SortClause("version", SolrQuery.ORDER.desc);
@@ -275,20 +276,11 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
     if (getState() == ArtifactIndexState.STOPPED) {
       try {
-        // Check if Solr core is available
-        CoreAdminRequest req = new CoreAdminRequest();
-        req.setCoreName(getSolrCollection());
-        req.setAction(CoreAdminParams.CoreAdminAction.STATUS);
-        addSolrCredentials(req);
-        CoreAdminResponse response = req.process(solrClient);
-
-        if (response.getCoreStatus(getSolrCollection()).size() <= 0) {
-          log.error("Solr core or collection not found: {}",
-                    getSolrCollection());
-          throw new IllegalStateException("Solr core missing");
-        }
-      } catch (IOException | SolrServerException e) {
-        log.error("Could not fetch Solr core status", e);
+        // Wait for Solr to become ready
+        waitForSolrReady();
+      } catch (InterruptedException e) {
+        log.error("Interrupted while waiting for Solr to become ready");
+        throw new RuntimeException(e);
       }
 
       // Path to artifact index state directory
@@ -304,6 +296,72 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       FileUtil.ensureDirExists(getSolrJournalDirectory().toFile());
 
       setState(ArtifactIndexState.INITIALIZED);
+    }
+  }
+
+  private void waitForSolrReady() throws InterruptedException {
+    // Ping the Solr server until it is responding
+    log.debug2("Waiting for Solr ping response");
+    while (true) {
+      try {
+        SolrPing pingReq = new SolrPing();
+        addSolrCredentials(pingReq);
+        pingReq.process(solrClient, solrCollection);
+        break;
+      } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
+        // Socket or connection timeouts, Solr server error, etc or intermittent IOException while
+        // writing the Solr request to the network - retry after some delay...
+        log.debug2("Solr ping failed; retrying", e);
+        Thread.sleep(SOLR_RETRY_DELAY);
+      }
+    }
+
+    // Check that the Solr core exists
+    int retries = 0;
+    log.debug2("Checking if Solr core exists");
+    while (true) {
+      try {
+        CoreAdminRequest req = new CoreAdminRequest();
+        req.setCoreName(getSolrCollection());
+        req.setAction(CoreAdminParams.CoreAdminAction.STATUS);
+        addSolrCredentials(req);
+        CoreAdminResponse response = req.process(solrClient);
+
+        if (response.getCoreStatus(getSolrCollection()) == null) {
+          // No status for core; perhaps it's still loading - retry:
+          if (SOLR_RETRY_MAX < ++retries) {
+            log.error("Solr core missing: {}", getSolrCollection());
+            throw new IllegalStateException("Solr core missing");
+          }
+
+          // Retry after some delay
+          Thread.sleep(SOLR_RETRY_DELAY);
+          continue;
+        }
+
+        // Success
+        break;
+      } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
+        Thread.sleep(SOLR_RETRY_DELAY);
+      }
+    }
+
+    // Query the Solr core to check that it's loaded
+    log.debug2("Checking if Solr core is ready");
+    while (true) {
+      try {
+        SolrQuery q = new SolrQuery();
+        q.setQuery("*:*");
+        q.setRows(0);
+
+        QueryRequest request = new QueryRequest(q);
+        addSolrCredentials(request);
+        request.process(solrClient, solrCollection);
+        break;
+      } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
+        log.debug2("Could not query Solr core; retrying", e);
+        Thread.sleep(SOLR_RETRY_DELAY);
+      }
     }
   }
 
@@ -612,7 +670,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    *                                    non-zero status.
    */
   static <T extends SolrResponseBase> T handleSolrResponse(T solrResponse,
-                                                           String errorMessage) throws SolrResponseErrorException {
+                                                       String errorMessage) throws SolrResponseErrorException {
 
     log.debug2("solrResponse = {}", solrResponse);
 
