@@ -418,6 +418,12 @@ public interface ArchivalUnit {
   public boolean isNamedArchivalUnit();
 
   /**
+   * True if this AU's content can be collected by the daemon (as
+   * opposed to only direct deposit).
+   */
+  public boolean isCrawlable();
+
+  /**
    * Return the {@link ArchiveFileTypes} describing which archive (zip,
    * etc.) files should have their members exposed as pseudo-CachedUrls.
    * @return an {@link ArchiveFileTypes} or null if none

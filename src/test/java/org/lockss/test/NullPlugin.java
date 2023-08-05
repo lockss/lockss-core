@@ -733,6 +733,10 @@ public class NullPlugin {
       return false;
     }
 
+    public boolean isCrawlable() {
+      return true;
+    }
+
     public ArchiveFileTypes getArchiveFileTypes() {
       return null;
     }

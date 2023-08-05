@@ -79,6 +79,10 @@ public class NamedArchivalUnit extends DefinableArchivalUnit {
     return true;
   }
 
+  public boolean isCrawlable() {
+    return isCrawled;
+  }
+
   protected void setAdditionalParams(Configuration config)
       throws ConfigurationException {
     List<String> features = config.getList(AU_PARAM_FEATURES);
