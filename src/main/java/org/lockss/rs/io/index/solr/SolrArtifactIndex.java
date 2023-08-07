@@ -95,7 +95,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   public final static long DEFAULT_SOLR_HARDCOMMIT_INTERVAL = 15000;
 
   private static final int SOLR_RETRY_DELAY = 1000; // ms
-  private static final int SOLR_RETRY_MAX = 5;
+  private static final int SOLR_RETRY_SHORT = 5;
+  private static final int SOLR_RETRY_LONG = 3600;
 
   private static final SolrQuery.SortClause SORTURI_ASC = new SolrQuery.SortClause("sortUri", SolrQuery.ORDER.asc);
   private static final SolrQuery.SortClause VERSION_DESC = new SolrQuery.SortClause("version", SolrQuery.ORDER.desc);
@@ -300,66 +301,31 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   }
 
   private void waitForSolrReady() throws InterruptedException {
-    // Ping the Solr server until it is responding
-    log.debug2("Waiting for Solr ping response");
-    while (true) {
-      try {
-        SolrPing pingReq = new SolrPing();
-        addSolrCredentials(pingReq);
-        pingReq.process(solrClient, solrCollection);
-        break;
-      } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
-        // Socket or connection timeouts, Solr server error, etc or intermittent IOException while
-        // writing the Solr request to the network - retry after some delay...
-        log.debug2("Solr ping failed; retrying", e);
-        Thread.sleep(SOLR_RETRY_DELAY);
-      }
-    }
-
-    // Check that the Solr core exists
     int retries = 0;
-    log.debug2("Checking if Solr core exists");
-    while (true) {
-      try {
-        CoreAdminRequest req = new CoreAdminRequest();
-        req.setCoreName(getSolrCollection());
-        req.setAction(CoreAdminParams.CoreAdminAction.STATUS);
-        addSolrCredentials(req);
-        CoreAdminResponse response = req.process(solrClient);
-
-        if (response.getCoreStatus(getSolrCollection()) == null) {
-          // No status for core; perhaps it's still loading - retry:
-          if (SOLR_RETRY_MAX < ++retries) {
-            log.error("Solr core missing: {}", getSolrCollection());
-            throw new IllegalStateException("Solr core missing");
-          }
-
-          // Retry after some delay
-          Thread.sleep(SOLR_RETRY_DELAY);
-          continue;
-        }
-
-        // Success
-        break;
-      } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
-        Thread.sleep(SOLR_RETRY_DELAY);
-      }
-    }
-
-    // Query the Solr core to check that it's loaded
-    log.debug2("Checking if Solr core is ready");
+    boolean notified = false;
+    log.info("Checking if Solr is ready");
     while (true) {
       try {
         SolrQuery q = new SolrQuery();
         q.setQuery("*:*");
-        q.setRows(0);
+        q.setRows(1);
 
         QueryRequest request = new QueryRequest(q);
         addSolrCredentials(request);
-        request.process(solrClient, solrCollection);
+        request.process(solrClient, "XXX");
+
+        log.info("Solr is ready");
         break;
       } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
-        log.debug2("Could not query Solr core; retrying", e);
+        if (SOLR_RETRY_SHORT < ++retries) {
+          if (!notified) {
+            log.warn("Still waiting for Solr...");
+            log.debug("Could not query Solr core", e);
+            notified = true;
+          } else if (notified && (retries % SOLR_RETRY_LONG == 0)) {
+            log.warn("Still waiting for Solr...");
+          }
+        }
         Thread.sleep(SOLR_RETRY_DELAY);
       }
     }
