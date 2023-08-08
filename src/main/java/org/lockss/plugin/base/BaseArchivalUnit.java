@@ -852,6 +852,10 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
     return false;
   }
 
+  public boolean isCrawlable() {
+    return true;
+  }
+
   public ArchiveFileTypes getArchiveFileTypes() {
     return plugin.getArchiveFileTypes();
   }

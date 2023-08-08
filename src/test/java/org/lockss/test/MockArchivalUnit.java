@@ -774,6 +774,10 @@ public class MockArchivalUnit implements ArchivalUnit {
     return false;
   }
 
+  public boolean isCrawlable() {
+    return true;
+  }
+
   public void setBulkContent(boolean val) {
     isBulkContent = val;
   }
