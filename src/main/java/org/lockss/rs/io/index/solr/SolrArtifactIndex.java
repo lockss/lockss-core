@@ -303,7 +303,9 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   private void waitForSolrReady() throws InterruptedException {
     int retries = 0;
     boolean notified = false;
-    log.info("Checking if Solr is ready");
+
+    log.info("Waiting for Solr to become ready...");
+
     while (true) {
       try {
         SolrQuery q = new SolrQuery();
@@ -312,18 +314,16 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
         QueryRequest request = new QueryRequest(q);
         addSolrCredentials(request);
-        request.process(solrClient, "XXX");
+        request.process(solrClient, getSolrCollection());
 
         log.info("Solr is ready");
         break;
       } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
         if (SOLR_RETRY_SHORT < ++retries) {
-          if (!notified) {
-            log.warn("Still waiting for Solr...");
-            log.debug("Could not query Solr core", e);
+          if (!notified || (notified && (retries % SOLR_RETRY_LONG == 0))) {
+            log.debug2("Could not query Solr core", e);
+            log.warn("Still waiting for Solr to become ready...");
             notified = true;
-          } else if (notified && (retries % SOLR_RETRY_LONG == 0)) {
-            log.warn("Still waiting for Solr...");
           }
         }
         Thread.sleep(SOLR_RETRY_DELAY);
