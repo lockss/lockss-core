@@ -83,6 +83,8 @@ public class TestNamedArchivalUnit extends LockssTestCase {
     Configuration auConfig = ConfigurationUtil.fromArgs("handle", "foo");
     ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
     assertTrue(au.isNamedArchivalUnit());
+    assertFalse(au.isCrawlable());
+    assertFalse(AuUtil.isPubDown(au));
 //     assertTrue(au.getPlugin().isNamedPlugin());
     assertEquals(ConfigurationUtil.fromArgs("handle", "foo"),
                  au.getConfiguration());
@@ -121,6 +123,8 @@ public class TestNamedArchivalUnit extends LockssTestCase {
       ConfigurationUtil.fromArgs("handle", "foo", "features", "walked;crawledAu");
     ArchivalUnit au = PluginTestUtil.createAu(plug, auConfig);
     assertTrue(au.isNamedArchivalUnit());
+    assertTrue(au.isCrawlable());
+    assertFalse(AuUtil.isPubDown(au));
     assertEquals(ConfigurationUtil.fromArgs("handle", "foo",
                                             "features", "walked;crawledAu"),
                  au.getConfiguration());
