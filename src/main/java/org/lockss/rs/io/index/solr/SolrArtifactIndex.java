@@ -59,6 +59,7 @@ import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.util.StringUtil;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
@@ -94,9 +95,10 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   private final static String DEFAULT_COLLECTION_NAME = "lockss-repo";
   public final static long DEFAULT_SOLR_HARDCOMMIT_INTERVAL = 15000;
 
-  private static final int SOLR_RETRY_DELAY = 1000; // ms
+  public static final int SOLR_RETRY_DELAY = 1000; // ms
   private static final int SOLR_RETRY_SHORT = 5;
   private static final int SOLR_RETRY_LONG = 3600;
+  public static final int SOLR_MAX_RETRIES = 5;
 
   private static final SolrQuery.SortClause SORTURI_ASC = new SolrQuery.SortClause("sortUri", SolrQuery.ORDER.asc);
   private static final SolrQuery.SortClause VERSION_DESC = new SolrQuery.SortClause("version", SolrQuery.ORDER.desc);
@@ -306,21 +308,22 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
     log.info("Waiting for Solr to become ready...");
 
+    SolrQuery q = new SolrQuery();
+    q.setQuery("*:*");
+    q.setRows(1);
+
+    QueryRequest request = new QueryRequest(q);
+    addSolrCredentials(request);
+
     while (true) {
       try {
-        SolrQuery q = new SolrQuery();
-        q.setQuery("*:*");
-        q.setRows(1);
-
-        QueryRequest request = new QueryRequest(q);
-        addSolrCredentials(request);
         request.process(solrClient, getSolrCollection());
 
         log.info("Solr is ready");
         break;
       } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException | IOException e) {
         if (SOLR_RETRY_SHORT < ++retries) {
-          if (!notified || (notified && (retries % SOLR_RETRY_LONG == 0))) {
+          if (!notified || retries % SOLR_RETRY_LONG == 0) {
             log.debug2("Could not query Solr core", e);
             log.warn("Still waiting for Solr to become ready...");
             notified = true;
@@ -660,6 +663,34 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     throw snzse;
   }
 
+  private <T extends SolrResponseBase> T processSolrRequest(
+      SolrRequest<T> req, int maxRetries, int delayMs) throws IOException, SolrServerException {
+    return processSolrRequest(solrClient, solrCollection, req, maxRetries, delayMs);
+  }
+
+  public static <T extends SolrResponseBase> T processSolrRequest(
+      SolrClient solrClient, String solrCollection,
+      SolrRequest<T> req, int maxRetries, int delayMs) throws IOException, SolrServerException {
+    try {
+      int retries = 0;
+      while (true) {
+        try {
+          return req.process(solrClient, solrCollection);
+        } catch (BaseHttpSolrClient.RemoteSolrException | SolrServerException e) {
+          if (maxRetries < ++retries) {
+            log.error("Could not process Solr request after {} ",
+                StringUtil.numberOfUnits(maxRetries, "retry", "retries"), e);
+            throw e;
+          }
+          log.trace("Could not process Solr request; retrying ({}/{})...", retries, maxRetries, e);
+          Thread.sleep(delayMs);
+        }
+      }
+    } catch (InterruptedException e) {
+      throw new IOException("Interrupted while waiting to retry Solr request");
+    }
+  }
+
   @Override
   public void stop() {
     try {
@@ -676,21 +707,20 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   }
 
   /**
-   * Checks whether the Solr cluster is alive by calling {@code SolrClient#ping()}.
+   * Checks whether the Solr cluster is alive by calling {@link SolrClient#ping()}.
    *
    * @return
    */
   private boolean checkAlive() {
     try {
       // Create new SolrPing request and process it
-      SolrPing ping = new SolrPing();
-      addSolrCredentials(ping);
-      SolrPingResponse response = ping.process(solrClient, solrCollection);
+      SolrPing req = new SolrPing();
+      addSolrCredentials(req);
+      SolrPingResponse response = req.process(solrClient, solrCollection);
 
       // Check response for success
       handleSolrResponse(response, "Problem pinging Solr");
       return true;
-
     } catch (Exception e) {
       log.warn("Could not ping Solr", e);
       return false;
@@ -741,29 +771,30 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       throw new IllegalArgumentException("Artifact has null identifier");
     }
 
-    // Add the Artifact to Solr as a bean
+    DocumentObjectBinder objBinder = solrClient.getBinder();
+    ObjectMapper objMap = new ObjectMapper();
+
+    logSolrUpdate(SolrCommitJournal.SolrOperation.ADD,
+            artifact.getUuid(), objMap.writeValueAsString(artifact));
+
+    // Convert Artifact to SolrInputDocument using the SolrClient's DocumentObjectBinder
+    SolrInputDocument doc = objBinder.toSolrInputDocument(ArtifactSolrDocument.fromArtifact(artifact));
+
+    // Create an UpdateRequest to add the Solr input document
+    UpdateRequest req = new UpdateRequest();
+    req.add(doc);
+
+    // Add credentials to the Solr request
+    addSolrCredentials(req);
+
     try {
-      // Convert Artifact to SolrInputDocument using the SolrClient's DocumentObjectBinder
-      SolrInputDocument doc = solrClient.getBinder()
-          .toSolrInputDocument(ArtifactSolrDocument.fromArtifact(artifact));
+      handleSolrResponse(processSolrRequest(req, SOLR_MAX_RETRIES, SOLR_RETRY_DELAY),
+          "Could not add artifact '" + artifact + "' to Solr");
 
-      // Create an UpdateRequest to add the Solr input document
-      UpdateRequest req = new UpdateRequest();
-      req.add(doc);
-      addSolrCredentials(req);
-
-      handleSolrResponse(req.process(solrClient, solrCollection),
-          "Problem adding artifact '" + artifact + "' to Solr");
-
-      ObjectMapper objMap = new ObjectMapper();
-      logSolrUpdate(SolrCommitJournal.SolrOperation.ADD,
-          artifact.getUuid(), objMap.writeValueAsString(artifact));
-
-      handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT), "Problem committing addition of "
-          + "artifact '" + artifact + "' to Solr");
-
-    } catch (SolrResponseErrorException | SolrServerException e) {
-      throw new IOException(e);
+      handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT),
+          "Could not commit changes to Solr");
+    } catch (BaseHttpSolrClient.RemoteSolrException | SolrResponseErrorException | SolrServerException e) {
+      throw new IOException("Could not process Solr request", e);
     }
 
     // Return the Artifact added to the Solr collection
@@ -777,7 +808,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    */
   private final static long BATCH_SIZE = 1000;
   @Override
-  public void indexArtifacts(Iterable<Artifact> artifacts) {
+  public void indexArtifacts(Iterable<Artifact> artifacts) throws IOException {
     DocumentObjectBinder objBinder = solrClient.getBinder();
 
     UpdateRequest req = new UpdateRequest();
@@ -810,15 +841,18 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       docsAdded++;
 
       if (docsAdded % BATCH_SIZE == 0 || !ai.hasNext()) {
-        // Process UpdateRequest batch
+        // Process the UpdateRequest for this batch of artifacts
+        log.debug("Indexing artifacts in batch");
         try {
-          log.debug("Storing batch");
-          handleSolrResponse(req.process(solrClient, solrCollection), "Failed to add artifacts");
+          handleSolrResponse(processSolrRequest(req, SOLR_MAX_RETRIES, SOLR_RETRY_DELAY),
+              "Could not add artifacts");
 
           if (ai.hasNext()) {
-            log.debug("Soft committing batch");
-            handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT_ONLY), "Failed to perform soft commit");
+            handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT_ONLY),
+                "Could not commit changes to Solr");
           }
+//        } catch (BaseHttpSolrClient.RemoteSolrException | SolrResponseErrorException | SolrServerException e) {
+//          throw new IOException("Could not process Solr request", e);
         } catch (Exception e) {
           // TODO
           log.error("Failed to perform UpdateRequest", e);
@@ -840,6 +874,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
     log.debug("Total documents added = {}", docsAdded);
   }
+
 
   private void logSolrUpdate(SolrCommitJournal.SolrOperation op, String artifactUuid, String data) {
     for (int i = 0; i < 3; i++) {
@@ -867,14 +902,11 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * @throws SolrServerException
    */
   private QueryResponse handleSolrQuery(SolrQuery q) throws IOException, SolrServerException {
-    // Create a QueryRequest from the SolrQuery
-    QueryRequest request = new QueryRequest(q);
+    // Create Solr QueryRequest from SolrQuery
+    QueryRequest req = new QueryRequest(q);
+    addSolrCredentials(req);
 
-    // Add Solr BasicAuth credentials if present
-    addSolrCredentials(request);
-
-    // Perform the query and return the response
-    return request.process(solrClient, solrCollection);
+    return processSolrRequest(req, SOLR_MAX_RETRIES, SOLR_RETRY_DELAY);
   }
 
   /**
@@ -951,6 +983,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       return null;
     }
 
+    logSolrUpdate(SolrCommitJournal.SolrOperation.UPDATE_COMMITTED, artifactUuid, null);
+
     // Partial document to perform Solr document update
     SolrInputDocument document = new SolrInputDocument();
     document.addField("id", artifactUuid);
@@ -961,22 +995,19 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     fieldModifier.put("set", true);
     document.addField("committed", fieldModifier);
 
+    // Create an UpdateRequest from this SolrInputDocument
+    UpdateRequest req = new UpdateRequest();
+    req.add(document);
+    addSolrCredentials(req);
+
     try {
-      // Create an update request for this document
-      UpdateRequest request = new UpdateRequest();
-      request.add(document);
-      addSolrCredentials(request);
+      handleSolrResponse(processSolrRequest(req, SOLR_MAX_RETRIES, SOLR_RETRY_DELAY),
+          "Problem adding document '" + document + "' to Solr");
 
-      // Update the artifact.
-      handleSolrResponse(request.process(solrClient, solrCollection), "Problem adding document '"
-          + document + "' to Solr");
-
-      logSolrUpdate(SolrCommitJournal.SolrOperation.UPDATE_COMMITTED, artifactUuid, null);
-
-      // Commit changes
-      handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT), "Problem committing Solr changes");
-    } catch (SolrResponseErrorException | SolrServerException e) {
-      throw new IOException("Solr error", e);
+      handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT),
+          "Problem committing Solr changes");
+    } catch (BaseHttpSolrClient.RemoteSolrException | SolrResponseErrorException | SolrServerException e) {
+      throw new IOException("Could not process Solr request", e);
     }
 
     // Return updated Artifact
@@ -1031,7 +1062,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     addSolrCredentials(req);
 
     // Perform commit and return response
-    return req.process(solrClient, solrCollection);
+    return processSolrRequest(req, SOLR_MAX_RETRIES, SOLR_RETRY_DELAY);
   }
 
   /**
@@ -1063,40 +1094,38 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
     Artifact artifact = getArtifact(artifactUuid);
 
-    if (artifact != null) {
-      try {
-        // Invalidate AU size cache
-        invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
-
-        // Create an Solr update request
-        UpdateRequest request = new UpdateRequest();
-        request.deleteById(artifactUuid);
-        addSolrCredentials(request);
-
-        // Remove Solr document for this artifact
-        handleSolrResponse(request.process(solrClient, solrCollection), "Problem deleting "
-            + "artifact '" + artifactUuid + "' from Solr");
-
-        logSolrUpdate(SolrCommitJournal.SolrOperation.DELETE, artifactUuid, null);
-
-        // Commit changes
-        handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT), "Problem committing deletion of "
-            + "artifact '" + artifactUuid + "' from Solr");
-
-        // Return true to indicate success
-        return true;
-      } catch (DbException e) {
-        throw new IOException("Could not invalidate AU size", e);
-      } catch (SolrResponseErrorException | SolrServerException e) {
-        log.error("Could not remove artifact from Solr index [uuid: {}]", artifactUuid, e);
-        throw new IOException(
-            String.format("Could not remove artifact from Solr index [uuid: %s]", artifactUuid), e
-        );
-      }
-    } else {
-      // Artifact not found in index; nothing deleted
+    if (artifact == null) {
       log.debug("Artifact not found [uuid: {}]", artifactUuid);
       return false;
+    }
+
+    try {
+      // Invalidate AU size cache
+      invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
+    } catch (DbException e) {
+      throw new IOException("Could not invalidate AU size", e);
+    }
+
+    logSolrUpdate(SolrCommitJournal.SolrOperation.DELETE, artifactUuid, null);
+
+    // Create an Solr update request
+    UpdateRequest req = new UpdateRequest();
+    req.deleteById(artifactUuid);
+    addSolrCredentials(req);
+
+    try {
+      // Remove Solr document for this artifact
+      handleSolrResponse(processSolrRequest(req, SOLR_MAX_RETRIES, SOLR_RETRY_DELAY),
+          "Problem deleting artifact '" + artifactUuid + "' from Solr");
+
+      // Commit changes
+      handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT),
+          "Problem committing deletion of artifact '" + artifactUuid + "' from Solr");
+
+      // Return true to indicate success
+      return true;
+    } catch (BaseHttpSolrClient.RemoteSolrException | SolrResponseErrorException | SolrServerException e) {
+      throw new IOException("Could not process Solr request", e);
     }
   }
 
@@ -1139,6 +1168,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       throw new IllegalArgumentException("Invalid storage URL: Must not be null or empty");
     }
 
+    logSolrUpdate(SolrCommitJournal.SolrOperation.UPDATE_STORAGEURL, artifactUuid, storageUrl);
+
     // Perform a partial update of an existing Solr document
     SolrInputDocument document = new SolrInputDocument();
     document.addField("id", artifactUuid);
@@ -1148,26 +1179,22 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     fieldModifier.put("set", storageUrl);
     document.addField("storageUrl", fieldModifier);
 
+    // Create an update request for this document
+    UpdateRequest req = new UpdateRequest();
+    req.add(document);
+    addSolrCredentials(req);
+
     try {
-      // Create an update request for this document
-      UpdateRequest request = new UpdateRequest();
-      request.add(document);
-      addSolrCredentials(request);
+      handleSolrResponse(processSolrRequest(req, SOLR_MAX_RETRIES, SOLR_RETRY_DELAY),
+          "Could not update storage URL for '" + document);
 
-      // Update the field
-      handleSolrResponse(request.process(solrClient, solrCollection), "Problem adding document '"
-          + document + "' to Solr");
+      handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT),
+          "Could not commit change to Solr document '" + document);
 
-      logSolrUpdate(SolrCommitJournal.SolrOperation.UPDATE_STORAGEURL, artifactUuid, storageUrl);
-
-      handleSolrResponse(handleSolrCommit(SolrCommitStrategy.SOFT), "Problem committing addition of "
-          + "document '" + document + "' to Solr");
+      return getArtifact(artifactUuid);
     } catch (SolrException | SolrResponseErrorException | SolrServerException e) {
-      throw new IOException(e);
+      throw new IOException("Could not process Solr request", e);
     }
-
-    // Return updated Artifact
-    return getArtifact(artifactUuid);
   }
 
   /**

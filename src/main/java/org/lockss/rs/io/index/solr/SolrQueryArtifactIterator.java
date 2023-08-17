@@ -208,7 +208,9 @@ public class SolrQueryArtifactIterator implements Iterator<Artifact> {
 
     // Make the query to Solr.
     QueryResponse response = SolrArtifactIndex.handleSolrResponse(
-        request.process(solrClient, solrCollection),
+        SolrArtifactIndex.processSolrRequest(
+            solrClient, solrCollection,
+            request, SolrArtifactIndex.SOLR_MAX_RETRIES, SolrArtifactIndex.SOLR_RETRY_DELAY),
         "Problem performing Solr query");
 
     // Get the position for the next query.

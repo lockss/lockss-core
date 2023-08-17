@@ -244,16 +244,6 @@ public class SolrCommitJournal {
         }
       }
     }
-
-    static private void processUpdateRequest(SolrArtifactIndex index, UpdateRequest req) throws SolrServerException, IOException, SolrResponseErrorException {
-      index.addSolrCredentials(req);
-
-      index.handleSolrResponse(
-          req.process(index.getSolrClient(), index.getSolrCollection()), "Error with UpdateRequest");
-
-      index.handleSolrResponse(
-          index.handleSolrCommit(SolrArtifactIndex.SolrCommitStrategy.SOFT), "Error with Commit request");
-    }
   }
 
   /**
