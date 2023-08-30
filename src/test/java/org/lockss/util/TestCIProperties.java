@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -57,7 +53,7 @@ public class TestCIProperties extends LockssTestCase {
     assertTrue(p.isEmpty());
   }
 
-  public void testIgn() {
+  public void testNorm1() {
     p.put("foo", "bar");
     assertEquals("bar", p.get("foo"));
     assertEquals("bar", p.get("FOO"));
@@ -69,7 +65,7 @@ public class TestCIProperties extends LockssTestCase {
     assertTrue(p.isEmpty());
   }
 
-  public void testIgn2() {
+  public void testNorm2() {
     p.setProperty("foo", "bar");
     assertEquals("bar", p.getProperty("foo"));
     assertEquals("bar", p.getProperty("FOO"));
@@ -79,6 +75,24 @@ public class TestCIProperties extends LockssTestCase {
     assertEquals("123", p.getProperty("FOO"));
     p.remove("fOo");
     assertTrue(p.isEmpty());
+  }
+
+  public void testFindValue() {
+    p.put("One", "111");
+    p.put("Two", "222");
+    assertEquals("111", p.findValue("One"));
+    assertEquals("111", p.findValue("one"));
+    assertEquals("111", p.findValue("none", "ONE"));
+    assertEquals(null, p.findValue("none", "ONEtwo"));
+  }
+
+  public void testFindString() {
+    p.put("One", "111");
+    p.put("Two", "222");
+    assertEquals("111", p.findString("One"));
+    assertEquals("111", p.findString("one"));
+    assertEquals("111", p.findString("none", "ONE"));
+    assertEquals(null, p.findString("none", "ONEtwo"));
   }
 
   public void testFromProps() {

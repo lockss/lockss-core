@@ -109,6 +109,25 @@ public class TestLockssDaemon extends LockssTestCase4 {
 		 SetUtil.theSet(daemon.getAuManagersOfType("MgrKey2")));
   }
 
+  @Test
+  public void testCrawlMode() throws Exception {
+    assertTrue(LockssDaemon.CrawlMode.All.isCrawlPlugins());
+    assertTrue(LockssDaemon.CrawlMode.All.isCrawlNonPlugins());
+    assertFalse(LockssDaemon.CrawlMode.All.isCrawlNothing());
+
+    assertFalse(LockssDaemon.CrawlMode.None.isCrawlPlugins());
+    assertFalse(LockssDaemon.CrawlMode.None.isCrawlNonPlugins());
+    assertTrue(LockssDaemon.CrawlMode.None.isCrawlNothing());
+
+    assertTrue(LockssDaemon.CrawlMode.Plugins.isCrawlPlugins());
+    assertFalse(LockssDaemon.CrawlMode.Plugins.isCrawlNonPlugins());
+    assertFalse(LockssDaemon.CrawlMode.Plugins.isCrawlNothing());
+
+    assertFalse(LockssDaemon.CrawlMode.NonPlugins.isCrawlPlugins());
+    assertTrue(LockssDaemon.CrawlMode.NonPlugins.isCrawlNonPlugins());
+    assertFalse(LockssDaemon.CrawlMode.NonPlugins.isCrawlNothing());
+  }
+
   static class Event {
     Object caller;
     String event;

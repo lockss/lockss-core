@@ -490,7 +490,7 @@ public class ParamDoclet {
       fld.setAccessible(true);
       Class cls = fld.getType();
       if (int.class == cls) {
-	defaultVal = (new Integer(fld.getInt(null))).toString();
+	defaultVal = (Integer.valueOf(fld.getInt(null))).toString();
       } else if (long.class == cls) {
 	long timeVal = fld.getLong(null);
 	if (timeVal > 0) {

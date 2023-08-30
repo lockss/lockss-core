@@ -322,7 +322,7 @@ public class TestStatusTable extends LockssTestCase {
   }
 
   public void testEmbeddedValue() {
-    Integer val = new Integer(3);
+    Integer val = Integer.valueOf(3);
     StatusTable.DisplayedValue dval = new StatusTable.DisplayedValue(val);
     assertEmpty(dval.getFootnotes());
     dval.addFootnote("f1");
@@ -374,7 +374,7 @@ public class TestStatusTable extends LockssTestCase {
   }
 
   public void testReferenceGetActualValue() {
-    Integer val = new Integer(3);
+    Integer val = Integer.valueOf(3);
     StatusTable.DisplayedValue dval = new StatusTable.DisplayedValue(val);
     StatusTable.Reference rval = new StatusTable.Reference(val, "foo", "bar");
     StatusTable.Reference rdval = new StatusTable.Reference(dval,
@@ -423,7 +423,7 @@ public class TestStatusTable extends LockssTestCase {
   }
 
   public void testSrvLinkGetActualValue() {
-    Integer val = new Integer(3);
+    Integer val = Integer.valueOf(3);
     StatusTable.DisplayedValue dval = new StatusTable.DisplayedValue(val);
     StatusTable.SrvLink lval = new StatusTable.SrvLink(val, srvDescr, args);
     StatusTable.SrvLink ldval = new StatusTable.SrvLink(dval, srvDescr, args);
@@ -462,6 +462,6 @@ public class TestStatusTable extends LockssTestCase {
     si = new StatusTable.SummaryInfo("bar", ColumnDescriptor.TYPE_INT, 23);
     assertEquals("bar", si.getTitle());
     assertEquals(ColumnDescriptor.TYPE_INT, si.getType());
-    assertEquals(new Integer(23), si.getValue());
+    assertEquals(Integer.valueOf(23), si.getValue());
   }
 }

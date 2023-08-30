@@ -115,7 +115,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * @ParamRelevance Rare
    */
   public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
-  public static final String DEFAULT_JMS_CLIENT_ID = null;
+  public static final String DEFAULT_JMS_CLIENT_ID = "StateMgr";
 
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
   private String clientId = DEFAULT_JMS_CLIENT_ID;

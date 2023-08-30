@@ -82,7 +82,7 @@ public class LockssErrorHandler extends AbstractHttpHandler {
   protected void writeErrorPage(HttpRequest request, Writer writer,
 				int code, String message)
       throws IOException {
-    Integer codeInt = new Integer(code);
+    Integer codeInt = Integer.valueOf(code);
     String respMsg = (String)HttpResponse.__statusMsg.get(codeInt);
     if (message != null) {
       message = URLDecoder.decode(message,"UTF-8");

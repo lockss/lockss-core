@@ -118,7 +118,7 @@ public class SingleCrawlStatusAccessor implements StatusAccessor {
    * Return a reference object to the table, displaying the value
    */
   private Object makeRef(long value, String tableName, String key) {
-    return new StatusTable.Reference(new Long(value), tableName, key);
+    return new StatusTable.Reference(Long.valueOf(value), tableName, key);
   }
 
   /**
@@ -131,7 +131,7 @@ public class SingleCrawlStatusAccessor implements StatusAccessor {
       return makeRef(ctr.getCount(),
 		     CRAWL_URLS_STATUS_ACCESSOR, crawlKey + "." + subkey);
     }
-    return new Long(ctr.getCount());
+    return Long.valueOf(ctr.getCount());
   }
 
   public String getDisplayName() {
@@ -193,7 +193,7 @@ public class SingleCrawlStatusAccessor implements StatusAccessor {
     if (val != 0) {
       res.add(new StatusTable.SummaryInfo(head,
 					  ColumnDescriptor.TYPE_INT,
-					  new Long(val)));
+					  Long.valueOf(val)));
     }
   }
 }

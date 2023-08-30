@@ -162,6 +162,11 @@ public class DefinablePlugin extends BasePlugin {
   public static final String DEFAULT_PLUGIN_VERSION = "1";
   public static final String DEFAULT_REQUIRED_DAEMON_VERSION = "0.0.0";
 
+  /** List of packages containing classes or resources needed by this
+   * plugih, which should therefor be included in the packaged
+   * plugin */
+  public static final String KEY_PLUGIN_AUX_PKGS = "plugin_aux_packages";
+
   public static final String MAP_SUFFIX = ".xml";
 
   public static final String CRAWL_TYPE_HTML_LINKS = "HTML Links";
@@ -178,8 +183,16 @@ public class DefinablePlugin extends BasePlugin {
 
   protected ExternalizableMap definitionMap = new ExternalizableMap();
   protected CacheResultHandler resultHandler = null;
-  protected List<URL> loadedFromUrls;
+
+  // Record where parts of the plugin were loaded from.  URL will be
+  // jar: if plugins was loaded from a packaged plugin jar, else file:
+
+  // (PluginId, URL) of plugin and parents
   protected List<Pair<String,URL>> idsUrls;
+
+  // (package, URL) of union of KEY_PLUGIN_AUX_PKGS from plugin and parents
+  protected Set<Pair<String,URL>> auxPkgUrls;
+
   protected CrawlWindow crawlWindow;
   protected Map<Plugin.Feature,String> featureVersion;
   protected ArchiveFileTypes archiveFileSpec;
@@ -217,6 +230,11 @@ public class DefinablePlugin extends BasePlugin {
     validate();
   }
 
+  String pkgToDir(String pkg) {
+    String dir = pkg.replace('.', '/');
+    return dir.endsWith("/") ? dir : (dir + "/");
+  }
+
   private ExternalizableMap loadMap(String extMapName, ClassLoader loader)
       throws FileNotFoundException {
     Configuration config = ConfigManager.getCurrentConfig();
@@ -229,7 +247,7 @@ public class DefinablePlugin extends BasePlugin {
     String next = extMapName;
     String nextParentVer = null;
     List<URL> urls = new ArrayList<>();
-    List<Pair<String,URL>> ids = new ArrayList<>();
+    ArrayList<Pair<String,URL>> ids = new ArrayList<>();
     ExternalizableMap res = null;
     while (next != null) {
       // convert the plugin class name to an xml file name
@@ -250,6 +268,18 @@ public class DefinablePlugin extends BasePlugin {
 						    " not found: " + next);
 	}
 	throw e;
+      }
+      // Process aux list of required aux packages into collection of
+      // (pkg, URL) of dirs to include in plugin
+      if (oneMap.containsKey(KEY_PLUGIN_AUX_PKGS)) {
+        for (String auxPkg : getElementList(oneMap, KEY_PLUGIN_AUX_PKGS)) {
+          URL pkgUrl = loader.getResource(pkgToDir(auxPkg));
+          if (pkgUrl == null) continue;
+          if (auxPkgUrls == null) {
+            auxPkgUrls = new HashSet();
+          }
+          auxPkgUrls.add(Pair.of(auxPkg, pkgUrl));
+        }
       }
       if (nextParentVer != null) {
 
@@ -274,7 +304,7 @@ public class DefinablePlugin extends BasePlugin {
 	}
       }
       urls.add(url);
-      ids.add(new ImmutablePair(next, url));
+      ids.add(Pair.of(next, url));
       // apply overrides one plugin at a time in inheritance chain
       processOverrides(oneMap);
       if (res == null) {
@@ -296,7 +326,7 @@ public class DefinablePlugin extends BasePlugin {
       }
     }
     processDefault(res);
-    loadedFromUrls = urls;
+    ids.trimToSize();
     idsUrls = ids;
     return res;
   }
@@ -490,11 +520,19 @@ public class DefinablePlugin extends BasePlugin {
     return idsUrls;
   }
 
-    LinkedList<Pair<String,Exception>> validationFailures =
-      new LinkedList<Pair<String,Exception>>();
+  public Set<Pair<String,URL>> getAuxPkgUrls() {
+    if (auxPkgUrls == null) {
+      return Collections.emptySet();
+    }
+    return auxPkgUrls;
+  }
+
+  LinkedList<Pair<String,Exception>> validationFailures =
+    new LinkedList<Pair<String,Exception>>();
 
   public List<String> getLoadedFromUrlStrings() {
-    return loadedFromUrls.stream()
+    return idsUrls.stream()
+      .map(Pair::getRight)
       .map(URL::toString)
       .collect(Collectors.toList());
   }
@@ -560,7 +598,11 @@ public class DefinablePlugin extends BasePlugin {
   }
 
   public List<String> getElementList(String key) {
-    return coerceToList(definitionMap.getMapElement(key));
+    return getElementList(definitionMap, key);
+  }
+
+  public List<String> getElementList(ExternalizableMap defMap, String key) {
+    return coerceToList(defMap.getMapElement(key));
   }
 
   public List<String> getElementList(String key, String mapkey) {

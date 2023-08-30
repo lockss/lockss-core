@@ -12,6 +12,7 @@ usage() {
 }
 
 proj_dir=`pwd`
+test_plugins_dir=${proj_dir}/src/test/java/org/lockss/test/plugins
 plugin_projs="v1 v2 v3"
 
 err_exit() {
@@ -19,12 +20,12 @@ err_exit() {
   exit 1
 }
 
-offline=
+mvn_args="-DXXloglevel=debug2 -DskipWellFormednessTests -DskipEtags -DskipBuildInfo -DskipClasspathFiles -DskipGenAntlr -DskipMainSources -DskipTestSources"
 
 while true ; do
   case "$1" in
     "-o" )
-      offline="-o"
+      mvn_args="${mvn_args} -o"
       shift; continue;;
     "-*" )
       usage;;
@@ -38,8 +39,82 @@ for x in ${plugin_projs}; do
   echo "Building test/testplugins/${x}"
   ( cd test/testplugins/${x}
     echo `pwd` mvn $@
-    mvn $offline clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy.keystore" -Dkeystore.alias=goodguy -Dkeystore.password=f00bar  $@
-    cp target/pluginjars/*.jar "${proj_dir}/src/test/java/org/lockss/test/mock-plugin-${x}.jar"
+    mvn ${mvn_args} clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy.keystore" -Dkeystore.alias=goodguy -Dkeystore.password=f00bar  $@
+    cp target/pluginjars/*.jar "${test_plugins_dir}/mock-plugin-${x}.jar"
+  ) || err_exit "Plugin packaging failure"
+done
+
+cpj() {
+  cp "target/pluginjars/$1" "${test_plugins_dir}/$2"
+}
+
+  echo "Building good plugins"
+  ( cd test/testplugins/misctest
+    echo `pwd` mvn $@
+    mvn ${mvn_args} clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy.keystore" -Dkeystore.alias=goodguy -Dkeystore.password=f00bar  $@
+    cpj org.lockss.testxml.XmlPlugin.jar good-xml.jar
+#    cpj org.lockss.testjava.JavaPlugin.jar good-java.jar
+    cpj org.lockss.testaux.PluginWithAux.jar good-with-aux.jar
+    cpj org.lockss.testaux.PluginWithAux.jar good-with-missing-aux.jar
+    zip -d "${test_plugins_dir}/good-with-missing-aux.jar" org/lockss/testaux/MockHtmlLinkExtractorFactory.class
+    cpj org.lockss.testextaux.PluginWithExtAux.jar good-with-ext-aux.jar
+    cpj org.lockss.testextaux.PluginWithExtAux.jar good-with-missing-ext-aux.jar
+    zip -d "${test_plugins_dir}/good-with-missing-ext-aux.jar" org/lockss/extaux/MockHtmlLinkExtractorFactory.class
+    cpj org.lockss.testparent.ChildPlugin.jar good-with-parent.jar
+    cpj org.lockss.testxml.XmlPlugin.jar nomanifest.jar
+    zip -d "${test_plugins_dir}/nomanifest.jar" META-INF/MANIFEST.MF
+
+    cpj org.lockss.testparent.ChildPlugin.jar good-with-missing-parent.jar
+    zip -d "${test_plugins_dir}/good-with-missing-parent.jar" org/lockss/parent/ParentPlugin.xml
+
+    cpj org.lockss.failvalidate.FailValidatePlugin.jar failvalidate.jar
+
+    echo "tampered/partially signed plugins"
+
+    cpj org.lockss.testxml.XmlPlugin.jar partially-signed.jar
+    jar uf "${test_plugins_dir}/partially-signed.jar" -C target/classes org/lockss/extaux/MockHtmlLinkExtractorFactory.class
+
+    cpj org.lockss.testaux.PluginWithAux.jar tampered.jar
+    tmproot=`mktemp -t -d plug.XXXXXX`
+    mkdir -p ${tmproot}/org/lockss/testaux
+    cp target/classes/org/lockss/extaux/MockHtmlLinkExtractorFactory.class ${tmproot}/org/lockss/testaux
+    zip -d "${test_plugins_dir}/tampered.jar" org/lockss/testaux/MockHtmlLinkExtractorFactory.class
+    jar uf "${test_plugins_dir}/tampered.jar" -C ${tmproot} org/lockss/testaux/MockHtmlLinkExtractorFactory.class
+
   ) || err_exit "Plugin packaging failure"
 
-done
+  echo "Building unsigned plugins"
+  ( cd test/testplugins/misctest
+    echo `pwd` mvn $@
+    mvn -DskipSignPlugin ${mvn_args} clean package $@
+    cpj org.lockss.testxml.XmlPlugin.jar unsigned.jar
+  ) || err_exit "Plugin packaging failure"
+
+  echo "Building unknown sig plugins"
+  ( cd test/testplugins/misctest
+    echo `pwd` mvn $@
+    mvn ${mvn_args} clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/badguy.keystore" -Dkeystore.alias=badguy -Dkeystore.password=f00bar  $@
+    cpj org.lockss.testxml.XmlPlugin.jar unknown-sig.jar
+  ) || err_exit "Plugin packaging failure"
+
+  echo "Building wrong sig plugins"
+  ( cd test/testplugins/misctest
+    echo `pwd` mvn $@
+    mvn ${mvn_args} clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/wrongguy.keystore" -Dkeystore.alias=wrongguy -Dkeystore.password=f00bar  $@
+    cpj org.lockss.testxml.XmlPlugin.jar wrong-sig.jar
+  ) || err_exit "Plugin packaging failure"
+
+  echo "Building expired sig plugins"
+  ( cd test/testplugins/misctest
+    echo `pwd` mvn $@
+    mvn ${mvn_args} clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy-expired.keystore" -Dkeystore.alias=goodguy-expired -Dkeystore.password=f00bar  $@
+    cpj org.lockss.testxml.XmlPlugin.jar expired-sig.jar
+  ) || err_exit "Plugin packaging failure"
+
+  echo "Building future sig plugins"
+  ( cd test/testplugins/misctest
+    echo `pwd` mvn $@
+    mvn ${mvn_args} clean package -Dkeystore.file="${proj_dir}/src/test/java/org/lockss/test/goodguy-future.keystore" -Dkeystore.alias=goodguy-future -Dkeystore.password=f00bar  $@
+    cpj org.lockss.testxml.XmlPlugin.jar future-sig.jar
+  ) || err_exit "Plugin packaging failure"
+

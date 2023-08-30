@@ -1,0 +1,51 @@
+<map>
+  <entry>
+    <string>plugin_identifier</string>
+    <string>org.lockss.testxml.XmlPlugin</string>
+  </entry>
+  <entry>
+    <string>plugin_name</string>
+    <string>Test XML Plugin</string>
+  </entry>
+  <entry>
+    <string>plugin_version</string>
+    <string>1</string>
+  </entry>
+  <entry>
+    <string>au_name</string>
+    <string>"AU: %s, %02d", base_url, year</string>
+  </entry>
+  <entry>
+    <string>au_start_url</string>
+    <string>"%slockss/%02d.html", base_url, year</string>
+  </entry>
+  <entry>
+    <string>au_crawlrules</string>
+    <list>
+      <string>4,"^%s", base_url</string>
+      <string>1,"%s%02d", base_url, year</string>
+    </list>
+  </entry>
+  <entry>
+    <string>plugin_config_props</string>
+    <list>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>base_url</key>
+        <displayName>Base URL</displayName>
+        <description>Usually of the form http://&lt;journal-name&gt;.com/</description>
+        <type>3</type>
+        <size>40</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+      <org.lockss.daemon.ConfigParamDescr>
+        <key>year</key>
+        <displayName>Year</displayName>
+        <type>2</type>
+        <size>4</size>
+        <definitional>true</definitional>
+        <defaultOnly>false</defaultOnly>
+      </org.lockss.daemon.ConfigParamDescr>
+    </list>
+  </entry>
+</map>

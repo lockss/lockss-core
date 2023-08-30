@@ -29,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.daemon.status;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.jms.*;
 
 import org.apache.oro.text.regex.*;
@@ -79,7 +80,7 @@ public class StatusServiceImpl
    * @ParamRelevance Rare
    */
   public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
-  public static final String DEFAULT_JMS_CLIENT_ID = null;
+  public static final String DEFAULT_JMS_CLIENT_ID = "StatusSvc";
 
   /** The amount of time to wait for responses to RequestOverviews
    * @ParamRelevance Rare
@@ -114,7 +115,8 @@ public class StatusServiceImpl
 
   // Maps overview name to ForeignOverview describing service that has
   // globally registered the overview
-  private Map<String,ForeignOverview> foreignOverviewBindings = new HashMap<>();
+  private Map<String,ForeignOverview> foreignOverviewBindings =
+    new ConcurrentHashMap<>();
 
   // Table names whose registrations we have broadcast to others
   private Set<String> globallyRegisteredTables =
@@ -190,7 +192,7 @@ public class StatusServiceImpl
     new GlobalTableAssociation(org.lockss.plugin.PluginStatus.ALL_TITLE_AUIDS,
 			       ServiceDescr.SVC_CONFIG).setGlobalOnly(),
     new GlobalTableAssociation(org.lockss.crawler.CrawlManagerImpl.CRAWL_STATUS_TABLE_NAME,
-			       ServiceDescr.SVC_POLLER),
+			       ServiceDescr.SVC_CRAWLER),
     new GlobalTableAssociation(org.lockss.hasher.HashSvcSchedImpl.HASH_STATUS_TABLE,
 			       ServiceDescr.SVC_POLLER),
     new GlobalTableAssociation(org.lockss.poller.v3.V3PollStatus.POLLER_STATUS_TABLE_NAME,
@@ -328,17 +330,15 @@ public class StatusServiceImpl
   }
 
   public ForeignOverview getForeignOverview(String table) {
-    synchronized (foreignOverviewBindings) {
-      ForeignOverview fo = foreignOverviewBindings.get(table);
-      if (fo == null) {
-	return null;
-      }
-      if (fo.getValueTimestamp() < TimeBase.nowMs() - overviewStale) {
-	logger.debug2("Omitting stale overview for {}", table);
-	return null;
-      }
-      return fo;
+    ForeignOverview fo = foreignOverviewBindings.get(table);
+    if (fo == null) {
+      return null;
     }
+    if (fo.getValueTimestamp() < TimeBase.nowMs() - overviewStale) {
+      logger.debug2("Omitting stale overview for {}", table);
+      return null;
+    }
+    return fo;
   }
 
   static Pattern badTablePat =
@@ -798,41 +798,37 @@ public class StatusServiceImpl
       logger.warn("Received message from me, shouldn't happen: {}", map);
       return;
     }
-    synchronized (foreignOverviewBindings) {
-      ForeignOverview curFo = foreignOverviewBindings.get(table);
-      String title = (String)map.get(JMS_TABLE_TITLE);
-      String stem = (String)map.get(JMS_URL_STEM);
-      String serviceName = (String)map.get(JMS_SERVICE_NAME);
-      ForeignOverview fo = new ForeignOverview(table, serviceName, stem);
-      if (curFo == null) {
-	logger.debug("Registering foreign overview {}", fo);
-	foreignOverviewBindings.put(table, fo);
-      } else if (!curFo.getStem().equals(stem)) {
-	// XXX Can't rely on services to unregister overviews when they crash,
-	// so this will be normal.  Will have to change to handle multiple
-	// service instances.
-	logger.warn("Replacing global registration for overview {} with {} was {}",
-		    table, stem, curFo.getStem());
-	foreignOverviewBindings.put(table, fo);
-      }
+    ForeignOverview curFo = foreignOverviewBindings.get(table);
+    String title = (String)map.get(JMS_TABLE_TITLE);
+    String stem = (String)map.get(JMS_URL_STEM);
+    String serviceName = (String)map.get(JMS_SERVICE_NAME);
+    ForeignOverview fo = new ForeignOverview(table, serviceName, stem);
+    if (curFo == null) {
+      logger.debug("Registering foreign overview {}", fo);
+      foreignOverviewBindings.put(table, fo);
+    } else if (!curFo.getStem().equals(stem)) {
+      // XXX Can't rely on services to unregister overviews when they crash,
+      // so this will be normal.  Will have to change to handle multiple
+      // service instances.
+      logger.warn("Replacing global registration for overview {} with {} was {}",
+                  table, stem, curFo.getStem());
+      foreignOverviewBindings.put(table, fo);
     }
   }
 
   /** UnregisterOverview */
   void processIncomingOverviewUnreg(Map map, String table) {
     String stem = (String)map.get(JMS_URL_STEM);
-    synchronized (foreignOverviewBindings) {
-      ForeignOverview fo = foreignOverviewBindings.get(table);
-      if (fo == null) {
-	logger.warn("Ignored global unregistration for unregistered overview {}",
-		    table);
-      } else if (stem.equals(fo.getStem())) {
-	logger.debug("Unregistering foreign overview {}", fo);
-	foreignOverviewBindings.remove(table);
-      } else {
-	logger.warn("Ignored global unregistration for overview {} from {}; is bound to {}",
-		    table, stem, fo.getStem());
-      }
+    ForeignOverview fo = foreignOverviewBindings.get(table);
+    if (fo == null) {
+      logger.warn("Ignored global unregistration for unregistered overview {}",
+                  table);
+    } else if (stem.equals(fo.getStem())) {
+      logger.debug("Unregistering foreign overview {}", fo);
+      foreignOverviewBindings.remove(table);
+    } else {
+      logger.warn("Ignored global unregistration for overview {} from {}; is bound to {}",
+                  table, stem, fo.getStem());
     }
   }
 
@@ -848,16 +844,14 @@ public class StatusServiceImpl
     String key = table + ":" + stem;
     StatusTable.Reference ref =
       new StatusTable.Reference(content, table).setServiceStem(stem);
-    synchronized (foreignOverviewBindings) {
-      ForeignOverview fo = foreignOverviewBindings.get(table);
-      if (fo == null) {
-	logger.error("Received Overview for table with no known ForeignOverview binding: {}", table);
-	return;
-      }
-      fo.setValue(ref);
-      synchronized(waitMonitor) {
-	waitMonitor.notifyAll();
-      }
+    ForeignOverview fo = foreignOverviewBindings.get(table);
+    if (fo == null) {
+      logger.error("Received Overview for table with no known ForeignOverview binding: {}", table);
+      return;
+    }
+    fo.setValue(ref);
+    synchronized(waitMonitor) {
+      waitMonitor.notifyAll();
     }
   }
 
@@ -866,20 +860,18 @@ public class StatusServiceImpl
   // expected sources
   boolean areOverviewsRecent() {
     long now = TimeBase.nowMs();
-    synchronized (foreignOverviewBindings) {
-      for (ForeignOverview fo : foreignOverviewBindings.values()) {
-	if (fo.getStem() == null) {
-	  // Shouldn't happen currently - ForeignOverview created only when
-	  // receive msg w/ stem
-	  continue;
-	}
-	if (fo.getValueTimestamp() >= now - overviewTimeout) {
-	  // If this value is recent enough, keep checking
-	  continue;
-	}
-	// Found one that's not recent
-	return false;
+    for (ForeignOverview fo : foreignOverviewBindings.values()) {
+      if (fo.getStem() == null) {
+        // Shouldn't happen currently - ForeignOverview created only when
+        // receive msg w/ stem
+        continue;
       }
+      if (fo.getValueTimestamp() >= now - overviewTimeout) {
+        // If this value is recent enough, keep checking
+        continue;
+      }
+      // Found one that's not recent
+      return false;
     }
     return true;
   }

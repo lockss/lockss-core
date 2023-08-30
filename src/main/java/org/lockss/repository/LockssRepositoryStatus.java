@@ -40,8 +40,13 @@ import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.util.*;
 import org.lockss.util.os.*;
 import org.lockss.util.storage.*;
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.util.ArtifactCache;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
+import org.lockss.util.rest.repo.model.AuSize;
+import org.lockss.util.rest.repo.model.RepositoryInfo;
+import org.lockss.util.rest.repo.RestLockssRepository;
 
 /**
  * Status tables for V2 LockssRepository: namespaces, auids, artifacts
@@ -322,6 +327,9 @@ public class LockssRepositoryStatus {
 						ColumnDescriptor.TYPE_STRING,
 						hist));
 	  }
+          res.add(new StatusTable.SummaryInfo("Cache Flushes",
+                                              ColumnDescriptor.TYPE_INT,
+                                              stats.getCacheFlushes()));
 	} else if (rrepo.isArtifactCacheEnabled()) {
 	  res.add(new StatusTable.SummaryInfo("Artifact cache",
 					      ColumnDescriptor.TYPE_STRING,
@@ -525,7 +533,7 @@ public class LockssRepositoryStatus {
           continue;
         }
 	Map row = makeRow(rs, art);
-	row.put("sort", new Integer(curRow));
+	row.put("sort", Integer.valueOf(curRow));
 	rows.add(row);
       }
       if (artIter.hasNext()) {

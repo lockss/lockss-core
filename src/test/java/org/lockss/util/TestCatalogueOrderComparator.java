@@ -216,7 +216,7 @@ public class TestCatalogueOrderComparator extends LockssTestCase {
   public void testIllType() {
     try {
       // Intentionally pass a list with the wrong types
-      sort((List<String>)(List)ListUtil.list("foo", new Integer(1)));
+      sort((List<String>)(List)ListUtil.list("foo", Integer.valueOf(1)));
       fail("Should have thrown ClassCastException");
     } catch (ClassCastException e) {
     }

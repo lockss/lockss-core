@@ -37,7 +37,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import javax.mail.MessagingException;
-import org.lockss.laaws.rs.util.NamedInputStreamResource;
+import org.lockss.util.rest.repo.util.NamedInputStreamResource;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.auth.*;
 import org.lockss.util.rest.HttpResponseStatusAndHeaders;
@@ -79,6 +79,8 @@ public class RestConfigClient {
 
   private static Logger log = Logger.getLogger();
 
+  private RestTemplate restTemplate;
+
   // The REST configuration service URL.
   private String restConfigServiceUrl;
 
@@ -116,6 +118,10 @@ public class RestConfigClient {
     if (credentials != null) {
       parseCredentials(credentials);
     }
+    // Make a RestTemplate to use for all requests.
+    restTemplate = RestUtil.getRestTemplate();
+    RestUtil.addMultipartConverter(restTemplate);
+    RestUtil.addFormConverter(restTemplate);
   }
 
   /**
@@ -459,7 +465,8 @@ public class RestConfigClient {
 
     // Make the request and obtain the response.
     MultipartResponse response = new MultipartConnector(uri, requestHeaders)
-	.requestGet(serviceTimeout, serviceTimeout);
+      .setRestTemplate(restTemplate)
+      .requestGet(serviceTimeout, serviceTimeout);
 
     return response;
   }
@@ -675,7 +682,9 @@ public class RestConfigClient {
 
     // Make the request and obtain the response.
     HttpResponseStatusAndHeaders response = new MultipartConnector(uri,
-	requestHeaders, parts).requestPut(serviceTimeout, serviceTimeout);
+	requestHeaders, parts)
+      .setRestTemplate(restTemplate)
+      .requestPut(serviceTimeout, serviceTimeout);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "response = " + response);
 
     return response;
@@ -727,15 +736,6 @@ public class RestConfigClient {
     // Create the request entity.
     HttpEntity<Map> requestEntity = new HttpEntity<>(params, requestHeaders);
 
-    RestTemplate restTemplate =
-      RestUtil.getRestTemplate(/*connectTimeout, readTimeout*/);
-
-    List<HttpMessageConverter<?>> messageConverters =
-	restTemplate.getMessageConverters();
-
-    // Add the form-urlencoded converter.
-    messageConverters.add(new FormHttpMessageConverter());
-
     // Make the request and get the response.
     ResponseEntity<String> response =
 	RestUtil.callRestService(restTemplate, uri, HttpMethod.POST,
@@ -778,7 +778,7 @@ public class RestConfigClient {
 
     // Make the request and get the response. 
     ResponseEntity<String> response =
-	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get all AU configurations");
 
     Collection<AuConfiguration> result = Collections.emptyList();
@@ -835,7 +835,7 @@ public class RestConfigClient {
 
     // Make the request and get the response. 
     ResponseEntity<AuConfiguration> response =
-	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, AuConfiguration.class,
 	    "Cannot get AU configuration");
 
@@ -883,7 +883,7 @@ public class RestConfigClient {
 
     // Make the request and get the response. 
     ResponseEntity<AuConfiguration> response =
-	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.DELETE,
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.DELETE,
 	    requestEntity, AuConfiguration.class,
 	    "Cannot delete AU configuration");
 
@@ -930,7 +930,7 @@ public class RestConfigClient {
 	new HttpEntity<AuConfiguration>(auConfiguration, requestHeaders);
 
     // Make the request. 
-    RestUtil.callRestService(getRestTemplate(),	uri, HttpMethod.PUT,
+    RestUtil.callRestService(restTemplate,	uri, HttpMethod.PUT,
 	requestEntity, Void.class, "Cannot update AU configuration");
   }
 
@@ -970,7 +970,7 @@ public class RestConfigClient {
 
     // Make the request and get the response. 
     ResponseEntity<String> response =
-	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU state");
 
     String result = response.getBody();
@@ -1028,7 +1028,7 @@ public class RestConfigClient {
 	new HttpEntity<String>(auState, requestHeaders);
 
     // Make the request and get the response. 
-    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+    RestUtil.callRestService(restTemplate, uri, HttpMethod.PATCH,
 	requestEntity, String.class, "Cannot update AU state");
   }
 
@@ -1069,7 +1069,7 @@ public class RestConfigClient {
 
     // Make the request and get the response. 
     ResponseEntity<String> response =
-	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU poll agreements");
 
     String result = response.getBody();
@@ -1127,7 +1127,7 @@ public class RestConfigClient {
 	new HttpEntity<String>(auAgreements, requestHeaders);
 
     // Make the request and get the response.
-    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PATCH,
+    RestUtil.callRestService(restTemplate, uri, HttpMethod.PATCH,
 	requestEntity, String.class, "Cannot update AU poll agreements");
   }
 
@@ -1169,7 +1169,7 @@ public class RestConfigClient {
 
     // Make the request and get the response. 
     ResponseEntity<String> response =
-	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU suspect URL versions");
 
     String result = response.getBody();
@@ -1230,7 +1230,7 @@ public class RestConfigClient {
 	new HttpEntity<String>(auSuspectUrlVersions, requestHeaders);
 
     // Make the request and get the response.
-    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PUT,
+    RestUtil.callRestService(restTemplate, uri, HttpMethod.PUT,
 	requestEntity, String.class, "Cannot update AU suspect URL versions");
   }
 
@@ -1271,7 +1271,7 @@ public class RestConfigClient {
 
     // Make the request and get the response. 
     ResponseEntity<String> response =
-	RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.GET,
+	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU NoAuPeerSet object");
 
     String result = response.getBody();
@@ -1330,7 +1330,7 @@ public class RestConfigClient {
 	new HttpEntity<String>(noAuPeerSet, requestHeaders);
 
     // Make the request and get the response.
-    RestUtil.callRestService(getRestTemplate(), uri, HttpMethod.PUT,
+    RestUtil.callRestService(restTemplate, uri, HttpMethod.PUT,
 	requestEntity, String.class, "Cannot update AU NoAuPeerSet object");
   }
 
@@ -1407,14 +1407,5 @@ public class RestConfigClient {
 							   servicePassword);
     requestHeaders.set("Authorization", authHeaderValue);
     if (log.isDebug3()) log.debug3("requestHeaders = " + requestHeaders);
-  }
-
-  /**
-   * Provides a standard REST template.
-   * 
-   * @return a RestTemplate with the standard REST template.
-   */
-  private RestTemplate getRestTemplate() {
-    return RestUtil.getRestTemplate();
   }
 }

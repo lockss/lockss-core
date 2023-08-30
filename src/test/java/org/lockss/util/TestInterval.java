@@ -69,10 +69,10 @@ public class TestInterval extends LockssTestCase {
     assertFalse(int01.subsumes(int24));
   }
   public void testContains() {
-    assertFalse(int13.contains(new Integer(0)));
-    assertTrue(int13.contains(new Integer(1)));
-    assertTrue(int13.contains(new Integer(2)));
-    assertFalse(int13.contains(new Integer(3)));
+    assertFalse(int13.contains(Integer.valueOf(0)));
+    assertTrue(int13.contains(Integer.valueOf(1)));
+    assertTrue(int13.contains(Integer.valueOf(2)));
+    assertFalse(int13.contains(Integer.valueOf(3)));
   }
 
   public void testEquals() {

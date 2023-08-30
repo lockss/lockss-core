@@ -270,7 +270,7 @@ public class TestCachingComparator extends LockssTestCase {
     List homogList = ListUtil.list("foo", "noo");
     // Create a heterogeneous list
     List heteroList = ListUtil.list(new CustomObject("foo"), "noo");
-    List heteroList2 = ListUtil.list("foo", new Integer(1));
+    List heteroList2 = ListUtil.list("foo", Integer.valueOf(1));
     
     // Attempt to sort a string list using an unparameterized comparator
     try {

@@ -218,7 +218,7 @@ public class ThreadDump extends LockssServlet {
       long[] deadlocked = tmxb.findMonitorDeadlockedThreads();
       if (deadlocked != null) {
 	for (int ix = 0; ix < deadlocked.length; ix++) {
-	  deadIds.add(new Long(deadlocked[ix]));
+	  deadIds.add(Long.valueOf(deadlocked[ix]));
 	}
       }
     }
@@ -234,7 +234,7 @@ public class ThreadDump extends LockssServlet {
       } else {
 	tName = "??? (no thread info)";
       }
-      tbl.newRow(deadIds.contains(new Long(ix))
+      tbl.newRow(deadIds.contains(Long.valueOf(ix))
 		 ? " style='color: #ff0000'" : "");
       tbl.newCell();
       tbl.add(tName);
@@ -253,7 +253,7 @@ public class ThreadDump extends LockssServlet {
 	tInfo.isSuspended() ? " Suspended " : "" + 
 	tInfo.getThreadState() +
 	(tId == curId ? " Current" : "") +
-	(deadIds.contains(new Long(tId)) ? " Deadlocked" : "");
+	(deadIds.contains(Long.valueOf(tId)) ? " Deadlocked" : "");
       String tLock = tInfo.getLockName();
       String tOwner = tInfo.getLockOwnerName();
       if (tLock != null || tOwner != null) {

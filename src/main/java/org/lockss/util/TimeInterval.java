@@ -38,11 +38,11 @@ import java.util.*;
 /** A time interval, storing two longs. */
 public class TimeInterval extends Interval {
   public TimeInterval(long start, long end) {
-    super(new Long(start), new Long(end));
+    super(Long.valueOf(start), Long.valueOf(end));
   }
 
   public TimeInterval(Date start, Date end) {
-    super(new Long(start.getTime()), new Long(end.getTime()));
+    super(Long.valueOf(start.getTime()), Long.valueOf(end.getTime()));
   }
 
   public long getBeginTime() {

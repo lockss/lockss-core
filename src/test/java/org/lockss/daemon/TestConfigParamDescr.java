@@ -254,7 +254,8 @@ public class TestConfigParamDescr extends LockssTestCase {
 
   public void testDerived() {
     ConfigParamDescr d = ConfigParamDescr.BASE_URL;
-    ConfigParamDescr d1 = d.getDerivedDescr("base_url_host");
+    ConfigParamDescr d1 =
+      ConfigParamDescr.intern(d.getDerivedDescr("base_url_host"));
     assertFalse(d.isDerived());
     assertTrue(d1.isDerived());
     assertNotEquals(d1, d);
@@ -262,10 +263,15 @@ public class TestConfigParamDescr extends LockssTestCase {
     assertFalse(d1.isDefinitional());
     assertEquals("base_url_host (derived from Base URL)", d1.getDisplayName());
     // Should always get same one back
-    ConfigParamDescr d2 = d.getDerivedDescr("base_url_host");
-    assertSame(d2, d1);
+
+    ConfigParamDescr d2 =
+      ConfigParamDescr.intern(d.getDerivedDescr(new String("base_url_host")));
+    assertEquals(d1, d2);
+    assertSame(d1, d2);
     // this one is different
-    ConfigParamDescr d3 = d.getDerivedDescr("base_url2_host");
+    ConfigParamDescr d3 =
+      ConfigParamDescr.intern(d.getDerivedDescr("base_url2_host"));
+    assertNotEquals(d2, d3);
     assertNotSame(d2, d3);
     assertNotEquals(d2, d3);
   }
@@ -341,16 +347,16 @@ public class TestConfigParamDescr extends LockssTestCase {
     assertTrue(ret instanceof Vector);
     vec = (Vector)ret;
     assertEquals(2, vec.size());
-    assertEquals(new Long(1), vec.get(0));
-    assertEquals(new Long(99), vec.get(1));
+    assertEquals(Long.valueOf(1), vec.get(0));
+    assertEquals(Long.valueOf(99), vec.get(1));
     
     // Trivial range
     ret = range.getValueOfType("1-1");
     assertTrue(ret instanceof Vector);
     vec = (Vector)ret;
     assertEquals(2, vec.size());
-    assertEquals(new Long(1), vec.get(0));
-    assertEquals(new Long(1), vec.get(1));
+    assertEquals(Long.valueOf(1), vec.get(0));
+    assertEquals(Long.valueOf(1), vec.get(1));
     
     // Invalid range
     try {
@@ -462,11 +468,11 @@ public class TestConfigParamDescr extends LockssTestCase {
   
   public void testYear() throws Exception {
     // Four-digit years are okay
-    assertEquals(new Integer(1000), ConfigParamDescr.YEAR.getValueOfType("1000"));
-    assertEquals(new Integer(9999), ConfigParamDescr.YEAR.getValueOfType("9999"));
+    assertEquals(Integer.valueOf(1000), ConfigParamDescr.YEAR.getValueOfType("1000"));
+    assertEquals(Integer.valueOf(9999), ConfigParamDescr.YEAR.getValueOfType("9999"));
     
     // Currently, the special value "0" is allowed
-    assertEquals(new Integer(0), ConfigParamDescr.YEAR.getValueOfType("0"));
+    assertEquals(Integer.valueOf(0), ConfigParamDescr.YEAR.getValueOfType("0"));
 
     // Other lengths are not allowed 
     try {

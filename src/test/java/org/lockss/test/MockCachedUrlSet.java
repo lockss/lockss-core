@@ -39,7 +39,7 @@ import org.lockss.daemon.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.plugin.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.model.AuSize;
 
 /**
  * This is a mock version of <code>CachedUrlSet</code> used for testing
@@ -328,9 +328,9 @@ public class MockCachedUrlSet implements CachedUrlSet {
   public void signalCacheAttempt(String url) {
     Integer numTimesCached = (Integer) cacheAttempts.get(url);
     if (numTimesCached == null) {
-      cacheAttempts.put(url, new Integer(1));
+      cacheAttempts.put(url, Integer.valueOf(1));
     } else {
-      cacheAttempts.put(url, new Integer(numTimesCached.intValue()+1));
+      cacheAttempts.put(url, Integer.valueOf(numTimesCached.intValue()+1));
     }
   }
   public int getNumCacheAttempts(String url) {

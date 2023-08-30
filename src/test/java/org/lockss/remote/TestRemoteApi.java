@@ -40,6 +40,7 @@ import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.db.DbException;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.mail.MimeMessage;
+import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.*;
 import org.lockss.protocol.MockIdentityManager;
 import org.lockss.util.rest.exception.LockssRestException;
@@ -74,10 +75,16 @@ public class TestRemoteApi extends LockssTestCase {
     ConfigurationUtil.setCurrentConfigFromProps(p);
 
     daemon = getMockLockssDaemon();
+    daemon.setUpStateManager();
+
+    MetadataManager metadataManager = new MetadataManager();
+    daemon.setMetadataManager(metadataManager);
+    metadataManager.initService(daemon);
 
     daemon.setUpAuConfig();
 
     mpm = new MyMockPluginManager();
+
     mpm.mockInit();
     daemon.setPluginManager(mpm);
     rapi = new RemoteApi();

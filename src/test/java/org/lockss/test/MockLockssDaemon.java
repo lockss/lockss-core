@@ -28,12 +28,13 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.test;
 
-import java.util.*;
 import org.apache.commons.collections4.map.LinkedMap;
-import org.lockss.alert.AlertManager;
 import org.lockss.account.AccountManager;
+import org.lockss.alert.AlertManager;
 import org.lockss.app.*;
-import org.lockss.config.*;
+import org.lockss.clockss.ClockssParams;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.daemon.*;
@@ -43,22 +44,34 @@ import org.lockss.hasher.HashService;
 import org.lockss.mail.MailService;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
-import org.lockss.plugin.*;
-import org.lockss.truezip.*;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.PluginManager;
 import org.lockss.poller.PollManager;
-import org.lockss.protocol.*;
-import org.lockss.protocol.psm.*;
+import org.lockss.protocol.IdentityManager;
+import org.lockss.protocol.LcapRouter;
+import org.lockss.protocol.LcapStreamComm;
+import org.lockss.protocol.PeerIdentity;
+import org.lockss.protocol.psm.PsmManager;
 import org.lockss.proxy.ProxyManager;
 import org.lockss.proxy.icp.IcpManager;
 import org.lockss.remote.RemoteApi;
-import org.lockss.repository.*;
+import org.lockss.repository.RepositoryDbManager;
+import org.lockss.repository.RepositoryManager;
+import org.lockss.safenet.EntitlementRegistryClient;
 import org.lockss.scheduler.SchedService;
-import org.lockss.servlet.*;
-import org.lockss.state.*;
+import org.lockss.servlet.AdminServletManager;
+import org.lockss.servlet.ServletManager;
+import org.lockss.state.InMemoryStateManager;
+import org.lockss.state.StateManager;
 import org.lockss.subscription.SubscriptionManager;
-import org.lockss.util.*;
-import org.lockss.clockss.*;
-import org.lockss.safenet.*;
+import org.lockss.truezip.TrueZipManager;
+import org.lockss.util.ListUtil;
+import org.lockss.util.Logger;
+import org.lockss.util.OneShotSemaphore;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 public class MockLockssDaemon extends LockssDaemon {
   private static Logger log = Logger.getLogger();
@@ -537,6 +550,13 @@ public class MockLockssDaemon extends LockssDaemon {
     managerMap.put(LockssDaemon.REPOSITORY_MANAGER, repositoryMan);
   }
 
+  /**
+   * Set the RepositoryDbManager
+   * @param repositoryDbMan the new manager
+   */
+  public void setRepositoryDbManager(RepositoryDbManager repositoryDbMan) {
+    managerMap.put(LockssDaemon.REPOSITORY_DB_MANAGER, repositoryDbMan);
+  }
 
   /**
    * Set the WatchdogService
@@ -847,8 +867,10 @@ public class MockLockssDaemon extends LockssDaemon {
   public void setAusStarted(boolean val) {
     if (val) {
       ausStarted.fill();
+      getPluginManager().setAusStarted(true);
     } else {
       ausStarted = new OneShotSemaphore();
+      getPluginManager().setAusStarted(false);
     }
   }
 

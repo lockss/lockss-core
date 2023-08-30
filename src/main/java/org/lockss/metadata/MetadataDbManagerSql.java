@@ -3986,7 +3986,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
     PreparedStatement statement = null;
     String auKey = null;
-    String pluginId = null;
+    String pluginKey = null;
     String sql = getUpdateAuActiveFlagSql();
     if (log.isDebug3())	log.debug3(DEBUG_HEADER + "SQL = '" + sql + "'.");
 
@@ -3999,11 +3999,11 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
       statement.setString(2, auKey);
 
-      pluginId = PluginManager.pluginIdFromAuId(auId);
+      pluginKey = PluginManager.pluginKeyFromAuId(auId);
       if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "pluginId = '" + pluginId + "'");
+	log.debug3(DEBUG_HEADER + "pluginKey = '" + pluginKey + "'");
 
-      statement.setString(3, pluginId);
+      statement.setString(3, pluginKey);
 
       int count = executeUpdate(statement);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count + ".");
@@ -4013,7 +4013,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
       log.error("isActive = " + isActive);
       log.error("auId = '" + auId + "'.");
       log.error("auKey = '" + auKey + "'.");
-      log.error("pluginId = '" + pluginId + "'.");
+      log.error("pluginKey = '" + pluginKey + "'.");
       log.error("SQL = '" + sql + "'.");
       throw sqle;
     } catch (RuntimeException re) {
@@ -4022,7 +4022,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
       log.error("isActive = '" + isActive);
       log.error("auId = '" + auId + "'.");
       log.error("auKey = '" + auKey + "'.");
-      log.error("pluginId = '" + pluginId + "'.");
+      log.error("pluginKey = '" + pluginKey + "'.");
       log.error("SQL = '" + sql + "'.");
       throw re;
     } finally {

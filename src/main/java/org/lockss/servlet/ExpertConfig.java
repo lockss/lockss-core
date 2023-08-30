@@ -270,6 +270,8 @@ public abstract class ExpertConfig extends LockssServlet {
       String origText;
       try {
 	origText = readExpertConfigFile();
+      } catch (FileNotFoundException e) {
+	origText = null;
       } catch (IOException e) {
 	log.error("Error reading expert config file", e);
 	origText = null;

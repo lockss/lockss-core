@@ -86,9 +86,7 @@ public class ArcExporter extends Exporter {
   protected void writeCu(CachedUrl cu) throws IOException {
     String url = cu.getUrl();
     long contentSize = cu.getContentSize();
-    CIProperties props = cu.getProperties();
-    long fetchTime =
-      Long.parseLong(props.getProperty(CachedUrl.PROPERTY_FETCH_TIME));
+    long fetchTime = Long.parseLong(AuUtil.getFetchTimeString(cu));
     InputStream contentIn = cu.getUnfilteredInputStream();
     try {
       if (isResponse) {

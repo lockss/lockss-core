@@ -320,7 +320,7 @@ public class TestWrapperGenerator extends LockssTestCase {
       pw.println("    }");
       pw.println("  }\n");
       pw.println("  private " + prefix + "childTestClass(double hoe) {");
-      pw.println("    WrapperLogger.record_call(\"childTestClass\", \"childTestClass\", ListUtil.list(new Double(hoe)));");
+      pw.println("    WrapperLogger.record_call(\"childTestClass\", \"childTestClass\", ListUtil.list(Double.valueOf(hoe)));");
       pw.println("    try {");
       pw.println("      innerchildTestClass = new childTestClass(hoe);");
       pw.println("    } catch (Throwable throwable) {");
@@ -382,7 +382,7 @@ public class TestWrapperGenerator extends LockssTestCase {
       pw.println("  }\n");
       pw.println("  public synchronized float testFloat(float x, int k) {");
       pw.println("    float returnValue;");
-      pw.println("    WrapperLogger.record_call(\"childTestClass\", \"testFloat\", ListUtil.list(new Float(x), new Integer(k)));");
+      pw.println("    WrapperLogger.record_call(\"childTestClass\", \"testFloat\", ListUtil.list(Float.valueOf(x), Integer.valueOf(k)));");
       pw.println("    try {");
       pw.println(
           "      returnValue = innerchildTestClass.testFloat(x, k);");

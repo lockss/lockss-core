@@ -422,7 +422,7 @@ public class ProxyManager extends BaseProxyManager {
 	for (Iterator iter = lst.iterator(); iter.hasNext(); ) {
 	  String str = (String)iter.next();
 	  try {
-	    noManIndSet.add(new Integer(str));
+	    noManIndSet.add(Integer.valueOf(str));
 	  } catch (NumberFormatException e) {
 	    log.warning("Invalid response code in " +
 			PARAM_NO_MANIFEST_INDEX_RESPONSES +
@@ -692,7 +692,7 @@ public class ProxyManager extends BaseProxyManager {
   }
 
   public boolean showManifestIndexForResponse(int status) {
-    return ! noManifestIndexResponses.contains(new Integer(status));
+    return ! noManifestIndexResponses.contains(Integer.valueOf(status));
   }
 
   public boolean isMethodAllowed(String method) {

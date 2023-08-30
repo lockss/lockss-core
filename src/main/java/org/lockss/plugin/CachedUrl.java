@@ -91,11 +91,17 @@ public interface CachedUrl extends CachedUrlSetNode {
    * redirects.  Not predictable; don't use. */
   public static final String PROPERTY_ORIG_URL = "X-Lockss-orig-url";
 
-  /** Local time when file collected.  *Not* derived from the Date: header
-   * from the server, which is stored separately if present.  Poorly named
-   * but cannot be changed. */
+  /** Local time when file collected.  *Not* derived from the Date:
+   * header from the server, which is stored separately if present.
+   * Note this used to be {@value #PROPERTY_FETCH_TIME_OBSOLETE}; code
+   * should check that name also.  See {@link
+   * AuUtil#getFetchTimeString(CachedUrl)}. */
   public static final String PROPERTY_FETCH_TIME =
     Constants.X_LOCKSS_FETCH_TIME;
+
+  /** Previous name for @{value #PROPERTY_FETCH_TIME}. */
+  public static final String PROPERTY_FETCH_TIME_OBSOLETE =
+    Constants.X_LOCKSS_FETCH_TIME_OBSOLETE;
 
   /** Referer header that was sent with the request for this URL, if any.
       Used by the repair crawler */
@@ -149,6 +155,7 @@ public interface CachedUrl extends CachedUrlSetNode {
     HttpFields.__Date,
     HttpFields.__Server,
     PROPERTY_FETCH_TIME,
+    PROPERTY_FETCH_TIME_OBSOLETE,
   };
 
   /** If true, CachedURLs outside the crawl spec will appear to have no

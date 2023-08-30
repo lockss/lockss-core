@@ -715,10 +715,18 @@ public class DisplayContentTab extends LockssServlet {
      * @param name
      * @return Returns sanitised string
      */
+    // XXX Should move to utility class, but we have several
+    // sanitize/clean methods in use in different places so need to
+    // rationalize them and come up with a meaningful naming scheme.
     public static String cleanName(String name) {
-        return java.text.Normalizer.normalize(HtmlUtil.encode(name.replace(" ", "_").replace("&", "").replace("(", "")
-                .replace(")", "").replace(",", "").replace("+", "_").replace(".", "_"), HtmlUtil.ENCODE_TEXT),
-                Normalizer.Form.NFC);
+      return HtmlUtil.encode(Normalizer.normalize(name, Normalizer.Form.NFC)
+                             .replace(" ", "_")
+                             .replace("&", "")
+                             .replace("(", "")
+                             .replace(")", "")
+                             .replace(",", "")
+                             .replace("+", "_"),
+                             HtmlUtil.ENCODE_TEXT);
     }
 
     public static String cleanAuName(String auName) {
@@ -881,7 +889,7 @@ public class DisplayContentTab extends LockssServlet {
         if ("Unknown code -1".equals(crawlMessage)) {
             crawlMessage = "Never crawled";
         }
-        if (crawlResult == 3) {
+        if (crawlResult == Crawler.STATUS_SUCCESSFUL) {
             image = "<img class='dot' title='" + HtmlUtil.encode(crawlMessage, HtmlUtil.ENCODE_TEXT) + "' src='" + GREEN_DOT_ICON + "'/>";
         } else {
             image = "<img class='dot' title='" + HtmlUtil.encode(crawlMessage, HtmlUtil.ENCODE_TEXT) + "' src='" + RED_DOT_ICON + "'/>";

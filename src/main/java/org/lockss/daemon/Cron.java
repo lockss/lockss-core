@@ -393,7 +393,7 @@ public class Cron
     }
 
     synchronized void setLastTime(String id, long time) {
-      times.put(id, new Long(time));
+      times.put(id, Long.valueOf(time));
     }
 
     synchronized void store(File file)

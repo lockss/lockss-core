@@ -49,8 +49,11 @@ import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.plugin.base.*;
 import org.lockss.poller.PollSpec;
 import org.lockss.repository.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.exception.LockssRestException;
+import org.lockss.util.rest.status.ApiStatus;
+import static org.lockss.util.rest.status.ApiStatus.StartupStatus;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
@@ -60,6 +63,8 @@ import org.lockss.util.time.TimeUtil;
 import org.lockss.util.rest.status.*;
 import javax.jms.*;
 import org.lockss.jms.*;
+
+import static java.util.UUID.randomUUID;
 
 /**
  * Plugin global functionality
@@ -172,13 +177,12 @@ public class PluginManager
     PREFIX + "acceptExpiredCertificates";
   static final boolean DEFAULT_ACCEPT_EXPIRED_CERTS = true;
 
-  /** The amount of time to wait when processing loadable plugins.
-      This process delays the start of AUs, so the timeout should not
-      be too long. */
-  public static final String PARAM_PLUGIN_LOAD_TIMEOUT =
-    PREFIX + "load.timeout";
-  public static final long DEFAULT_PLUGIN_LOAD_TIMEOUT =
-    Constants.MINUTE;
+  /** The amount of time to wait for loadable plugin registries to
+   * finish crawling at startup, before giving up and going on anyway. */
+  public static final String PARAM_PLUGIN_CRAWL_TIMEOUT =
+    PREFIX + "crawl.timeout";
+  public static final long DEFAULT_PLUGIN_CRAWL_TIMEOUT =
+    15 * Constants.MINUTE;
 
   /** Disable the automatic caching in URLConnection.  Setting this true
    * will prevent open file descriptors from piling up each time a new
@@ -439,7 +443,8 @@ public class PluginManager
   // Plugin registry processing
   private Map cuNodeVersionMap = Collections.synchronizedMap(new HashMap());
   // Map of plugin key to PluginInfo
-  private Map pluginfoMap = Collections.synchronizedMap(new HashMap());
+  private Map<String,PluginInfo> pluginfoMap =
+    Collections.synchronizedMap(new HashMap<>());
   private Map<String, Plugin> internalPlugins = new HashMap<String, Plugin>();
   private boolean prevCrawlOnce = false;
 
@@ -447,8 +452,9 @@ public class PluginManager
   private JarValidator jarValidator;
   private boolean keystoreInited = false;
   private boolean loadablePluginsReady = false;
+  private StartupStatus startStatus = StartupStatus.NONE;
   private boolean preferLoadablePlugin = DEFAULT_PREFER_LOADABLE_PLUGIN;
-  private long registryTimeout = DEFAULT_PLUGIN_LOAD_TIMEOUT;
+  private long registryCrawlTimeout = DEFAULT_PLUGIN_CRAWL_TIMEOUT;
   private boolean paramRestartAus = DEFAULT_RESTART_AUS_WITH_NEW_PLUGIN;
   private static boolean paramUseAuidPool = DEFAULT_USE_AUID_POOL;
   private boolean paramAllowGlobalAuConfig = DEFAULT_ALLOW_GLOBAL_AU_CONFIG;
@@ -458,7 +464,7 @@ public class PluginManager
     DEFAULT_DISABLE_URL_CONNECTION_CACHE;
   private boolean acceptExpiredCertificates = DEFAULT_ACCEPT_EXPIRED_CERTS;
   private boolean paramAuSearchUseV2Repo = DEFAULT_AU_SEARCH_USE_V2_REPO;
-  private IntStepFunction auSearchCacheSizeFunc = 
+  private IntStepFunction auSearchCacheSizeFunc =
     new IntStepFunction(DEFAULT_AU_SEARCH_CACHE_SIZE);
   private IntStepFunction auSearch404CacheSizeFunc =
     new IntStepFunction(DEFAULT_AU_SEARCH_404_CACHE_SIZE);
@@ -488,6 +494,11 @@ public class PluginManager
   }
   public static final int PREFER_XML_PLUGIN = 0;
   public static final int PREFER_CLASS_PLUGIN = 1;
+
+  public static final String KEY_URL= "url";
+  public static final String KEY_CALLER_ID= "callerId";
+  //support for remote call to crawl service for plugin registry
+  private Map<String,InitialRegistryCallback> registryCallbacks;
 
   public PluginManager() {
   }
@@ -559,8 +570,10 @@ public class PluginManager
    */
   public void startLoadablePlugins() throws DbException {
     if (log.isDebug3())
-      log.debug3("loadablePluginsReady = " + loadablePluginsReady);
-    if (loadablePluginsReady) {
+      log.debug3("startLoadablePlugins() StartupStatus: " + getStartupStatus());
+    if (getStartupStatus() != StartupStatus.NONE) {
+      // Shouldn't happen
+      log.warning("Redundant call to startLoadablePlugins()", new Throwable());
       return;
     }
 
@@ -574,17 +587,35 @@ public class PluginManager
     if (log.isDebug3())
       log.debug3("Calling configureAllArchivalUnitsAndLoadTheirPlugins()");
     configureAllArchivalUnits();
-    loadablePluginsReady = true;
-    if (log.isDebug3())
-      log.debug3("loadablePluginsReady = " + loadablePluginsReady);
+    // XXX Shouldn't be necessary as it's set at the end of
+    // initLoadablePluginRegistries(), but some tests exercise a
+    // different code path and hang without this, and it's harmless for now.
+    setStartupStatus(StartupStatus.AUS_STARTED);
   }
 
+  /** Temporary compatibility for {@link #setAusStarted(boolean)} */
   public void setLoadablePluginsReady(boolean val) {
-    loadablePluginsReady = val;
+    setAusStarted(val);
+//     loadablePluginsReady = val;
   }
 
+  /** Provided for tests to force the daemon into "fully running" state. */
+  public void setAusStarted(boolean val) {
+    setStartupStatus(val ? StartupStatus.AUS_STARTED : StartupStatus.NONE);
+  }
+
+  public void setStartupStatus(StartupStatus startStatus) {
+    log.info("Startup status: " + this.startStatus + " => " + startStatus);
+    this.startStatus = startStatus;
+  }
+
+  /** Temporary compatibility for {@link #areAusStarted()} */
   public boolean getLoadablePluginsReady() {
-    return loadablePluginsReady;
+    return getStartupStatus().areAusStarted();
+  }
+
+  public StartupStatus getStartupStatus() {
+    return startStatus;
   }
 
   List getPluginRegistryUrls(Configuration config) {
@@ -600,7 +631,7 @@ public class PluginManager
   }
 
   public boolean areAusStarted() {
-    return getDaemon().areAusStarted();
+    return getStartupStatus().areAusStarted();
   }
 
   public boolean areAusStartedOrStartOnDemand() {
@@ -612,8 +643,9 @@ public class PluginManager
 			Configuration.Differences changedKeys) {
 
     if (changedKeys.contains(PREFIX)) {
-      registryTimeout = config.getTimeInterval(PARAM_PLUGIN_LOAD_TIMEOUT,
-					       DEFAULT_PLUGIN_LOAD_TIMEOUT);
+      registryCrawlTimeout =
+        config.getTimeInterval(PARAM_PLUGIN_CRAWL_TIMEOUT,
+                               DEFAULT_PLUGIN_CRAWL_TIMEOUT);
 
       paramAllowGlobalAuConfig =
 	config.getBoolean(PARAM_ALLOW_GLOBAL_AU_CONFIG,
@@ -705,7 +737,7 @@ public class PluginManager
     }
 
     // Don't load or start other plugins until the daemon is running.
-    if (loadablePluginsReady) {
+    if (getLoadablePluginsReady()) {
       boolean crawlOnce = config.getBoolean(PARAM_CRAWL_PLUGINS_ONCE,
 					    DEFAULT_CRAWL_PLUGINS_ONCE);
       if (!prevCrawlOnce && crawlOnce) {
@@ -827,7 +859,7 @@ public class PluginManager
   private void startOrReconfigureAu(AuConfiguration auConfiguration,
 				    SkipConfigCondition scc) {
     String auId = auConfiguration.getAuId();
-    String pluginKey = pluginIdFromAuId(auId);
+    String pluginKey = pluginKeyFromAuId(auId);
 
     synchronized (auAddDelLock) {
       // Check whether the load of the plugin of this Archival Unit has not
@@ -1016,33 +1048,26 @@ public class PluginManager
   }
 
   /**
-   * Convert plugin property key to plugin class name.
+   * Convert plugin property key to plugin ID.
    * @param key the key
-   * @return the plugin name
+   * @return the plugin ID
    */
-  public static String pluginNameFromKey(String key) {
+  public static String pluginIdFromKey(String key) {
     return StringUtil.replaceString(key, "|", ".");
   }
 
-  /**
-   * Convert plugin class name to key suitable for property file.
-   * @param className the class name
-   * @return the plugin key
-   */
-  public static String pluginKeyFromName(String className) {
-    return StringUtil.replaceString(className, ".", "|");
+  @Deprecated
+  public static String pluginNameFromKey(String key) {
+    return pluginIdFromKey(key);
   }
 
   /**
-   * Convert plugin id to key suitable for property file.  Plugin id is
-   * currently the same as plugin class name, but that may change.
-   * @param id the plugin id
-   * @return String the plugin key
+   * Convert plugin id to key suitable for property file.
+   * @param className the plugin id
+   * @return the plugin key
    */
-  public static String pluginKeyFromId(String id) {
-    // tk - needs to do real mapping from IDs obtained from all available
-    // plugins.
-    return StringUtil.replaceString(id, ".", "|");
+  public static String pluginKeyFromId(String className) {
+    return StringUtil.replaceString(className, ".", "|");
   }
 
   /**
@@ -1135,7 +1160,7 @@ public class PluginManager
     return auid.substring(pos + 1);
   }
 
-  public static String pluginIdFromAuId(String auid) {
+  public static String pluginKeyFromAuId(String auid) {
     int pos = auid.indexOf("&");
     if (pos < 0) {
       throw new IllegalArgumentException("Illegal AuId: " + auid);
@@ -1143,8 +1168,13 @@ public class PluginManager
     return auid.substring(0, pos);
   }
 
+  public static String pluginIdFromAuId(String auid) {
+    return pluginIdFromKey(pluginKeyFromAuId(auid));
+  }
+
+  @Deprecated
   public static String pluginNameFromAuId(String auid) {
-    return pluginNameFromKey(pluginIdFromAuId(auid));
+    return pluginIdFromAuId(auid);
   }
 
   public static String configKeyFromAuId(String auid) {
@@ -1383,7 +1413,7 @@ public class PluginManager
    * @param aueh AuEventHandler to add
    */
   public void registerAuEventHandler(AuEventHandler aueh) {
-    log.debug2("registering AuEventHandler " + aueh);
+      log.debug2("registering AuEventHandler " + aueh);
     if (!auEventHandlers.contains(aueh)) {
       auEventHandlers.add(aueh);
     }
@@ -1420,7 +1450,7 @@ public class PluginManager
    * @ParamRelevance Rare
    */
   public static final String PARAM_JMS_CLIENT_ID = JMS_PREFIX + "clientId";
-  public static final String DEFAULT_JMS_CLIENT_ID = null;
+  public static final String DEFAULT_JMS_CLIENT_ID = "PluginMgr";
 
 
   private String notificationTopic = DEFAULT_JMS_NOTIFICATION_TOPIC;
@@ -1474,7 +1504,7 @@ public class PluginManager
   class PlugMgrAuEventHandler extends AuEventHandler.Base {
     @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
 					   AuEvent.ContentChangeInfo info) {
-      if (loadablePluginsReady && isRegistryAu(au)) {
+      if (areAusStarted() && isRegistryAu(au)) {
 	processRegistryAus(ListUtil.list(au), paramStartAllAus);
       }
       if (shouldFlush404Cache(au, info)) {
@@ -1574,7 +1604,7 @@ public class PluginManager
       log.error("Unhandled AuEvent: " + event);
     }
   }
-      
+
   /** Closure applied to each AuEventHandler by {@link
    * #applyAuEvent(AuEventClosure) */
   private interface AuEventClosure {
@@ -1625,14 +1655,14 @@ public class PluginManager
    */
   public ArchivalUnit getAuFromIdIfExists(String auId) {
     final String DEBUG_HEADER = "getAuFromIdIfExists(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
     return (ArchivalUnit)auMap.get(auId);
   }
 
   /**
    * Provides an Archival Unit given its identifier, starting it if
    * necessary.
-   * 
+   *
    * @param auId
    *          A String with the Archival Unit identifier.
    * @return an ArchivalUnit with the requested Archival Unit, if either
@@ -2091,11 +2121,11 @@ public class PluginManager
 
 	AuEvent auEvent = null;
 	ArchivalUnit newAu = null;
-	    
+
 	for (Map.Entry<String,Configuration> ent : configMap.entrySet()) {
 	  String auid = ent.getKey();
 	  Configuration auConf = ent.getValue();
-	  String pkey = pluginKeyFromId(pluginIdFromAuId(auid));
+	  String pkey = pluginKeyFromAuId(auid);
 	  Plugin plug = getPlugin(pkey);
 
 	  // To find the last AU.
@@ -2170,8 +2200,8 @@ public class PluginManager
    * Return true if the specified Plugin is a Loadable plugin
    */
   public boolean isLoadablePlugin(Plugin plugin) {
-    PluginInfo info = (PluginInfo)pluginfoMap.get(getPluginKey(plugin));
-    if (info == null) {
+    PluginInfo info = pluginfoMap.get(getPluginKey(plugin));
+    if (info == null || info.isError()) {
       return false;
     }
     return info.isOnLoadablePath();
@@ -2232,15 +2262,15 @@ public class PluginManager
   PluginInfo retrievePlugin(String pluginKey, ClassLoader loader)
       throws Exception {
     if (pluginfoMap.containsKey(pluginKey)) {
-      return (PluginInfo)pluginfoMap.get(pluginKey);
+      return pluginfoMap.get(pluginKey);
     }
     if (pluginMap.containsKey(pluginKey)) {
       return new PluginInfo(pluginMap.get(pluginKey), loader, null);
     }
-    String pluginName = pluginNameFromKey(pluginKey);
+    String pluginId = pluginIdFromKey(pluginKey);
     if (retract != null && !retract.isEmpty()) {
-      if (retract.contains(pluginName)) {
-	log.debug3("Not loading " + pluginName +
+      if (retract.contains(pluginId)) {
+	log.debug3("Not loading " + pluginId +
 		   " because it's on the retract list");
 	return null;
       }
@@ -2257,36 +2287,40 @@ public class PluginManager
                  " of " + newPlug.getPluginName());
       return info;
     } catch (PluginException.PluginNotFound e) {
-      logAndAlert(pluginName, "Plugin not found", e);
+      logAndAlert(pluginId, "Plugin not found", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (PluginException.LinkageError e) {
-      logAndAlertStack(pluginName, "Can't load plugin", e);
+      logAndAlertStack(pluginId, "Can't load plugin", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (PluginException.IncompatibleDaemonVersion e) {
-      logAndAlert(pluginName, "Incompatible Plugin", e);
+      logAndAlert(pluginId, "Incompatible Plugin", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (PluginException.InvalidDefinition e) {
-      logAndAlert(pluginName, "Error in plugin", e);
+      logAndAlert(pluginId, "Error in plugin", e);
+      return PluginInfo.forError(pluginId, e);
     } catch (Exception e) {
-      logAndAlertStack(pluginName, "Can't load plugin", e);
+      logAndAlertStack(pluginId, "Can't load plugin", e);
+      return PluginInfo.forError(pluginId, e);
     }
-    return null;
   }
 
-  void logAndAlertStack(String pluginName, String msg, Exception e) {
-    log.error(msg + ": " + pluginName, e);
-    alert0(pluginName, msg, e.getMessage());
+  void logAndAlertStack(String pluginId, String msg, Exception e) {
+    log.error(msg + ": " + pluginId, e);
+    alert0(pluginId, msg, e.getMessage());
   }
 
-  void logAndAlert(String pluginName, String msg, Exception e) {
-    logAndAlert(pluginName, msg, e.getMessage());
+  void logAndAlert(String pluginId, String msg, Exception e) {
+    logAndAlert(pluginId, msg, e.getMessage());
   }
 
-  void logAndAlert(String pluginName, String msg, String emsg) {
-    log.error(msg + ": " + pluginName + ": " + emsg);
-    alert0(pluginName, msg, emsg);
+  void logAndAlert(String pluginId, String msg, String emsg) {
+    log.error(msg + ": " + pluginId + ": " + emsg);
+    alert0(pluginId, msg, emsg);
   }
 
-  void alert0(String pluginName, String msg, String emsg) {
-    raiseAlert(Alert.cacheAlert(Alert.PLUGIN_NOT_LOADED), 
-	       String.format("%s: %s\n%s", msg, pluginName, emsg));
+  void alert0(String pluginId, String msg, String emsg) {
+    raiseAlert(Alert.cacheAlert(Alert.PLUGIN_NOT_LOADED),
+	       String.format("%s: %s\n%s", msg, pluginId, emsg));
   }
 
   /**
@@ -2296,19 +2330,19 @@ public class PluginManager
    */
   public PluginInfo loadPlugin(String pluginKey, ClassLoader loader)
       throws Exception {
-    String pluginName = pluginNameFromKey(pluginKey);
+    String pluginId = pluginIdFromKey(pluginKey);
     if (loader == null) {
       loader = this.getClass().getClassLoader();
     }
 
     // First look for a loadable plugin definition.
     try {
-      log.debug3(pluginName + ": Looking for XML definition.");
-      Class c = Class.forName(getConfigurablePluginName(pluginName),
+      log.debug3(pluginId + ": Looking for XML definition.");
+      Class c = Class.forName(getConfigurablePluginName(pluginId),
 			      true, loader);
       log.debug3("Class is " + c.getName());
       DefinablePlugin xmlPlugin = (DefinablePlugin)c.newInstance();
-      xmlPlugin.initPlugin(getDaemon(), pluginName, loader);
+      xmlPlugin.initPlugin(getDaemon(), pluginId, loader);
       if (isCompatible(xmlPlugin)) {
 	// found a compatible plugin, return it
 	List<String> urls = xmlPlugin.getLoadedFromUrlStrings();
@@ -2316,23 +2350,23 @@ public class PluginManager
 	return info;
       } else {
 	xmlPlugin.stopPlugin();
-	log.warning("Plugin " + pluginName +
+	log.warning("Plugin " + pluginId +
 		    " not started because it requires daemon version " +
 		    xmlPlugin.getRequiredDaemonVersion());
       }
     } catch (FileNotFoundException ex) {
-      log.debug2("No XML plugin: " + pluginName + ": " + ex);
+      log.debug2("No XML plugin: " + pluginId + ": " + ex);
     }
     // throw any other exception
 
     // If didn't find an XML plugin look for a Plugin class.
     try {
-      log.debug3(pluginName + ": Looking for class.");
-      Class c = Class.forName(pluginName, true, loader);
+      log.debug3(pluginId + ": Looking for class.");
+      Class c = Class.forName(pluginId, true, loader);
       Plugin classPlugin = (Plugin)c.newInstance();
       classPlugin.initPlugin(getDaemon());
       if (isCompatible(classPlugin)) {
-	String path = pluginName.replace('.', '/').concat(".class");
+	String path = pluginId.replace('.', '/').concat(".class");
 	URL url = loader.getResource(path);
 	PluginInfo info = new PluginInfo(classPlugin, loader,
 					 ListUtil.list(url.toString()));
@@ -2342,13 +2376,13 @@ public class PluginManager
 	String req = " requires daemon version "
 	  + classPlugin.getRequiredDaemonVersion();
 	throw new PluginException.IncompatibleDaemonVersion("Plugin " +
-							    pluginName + req);
+							    pluginId + req);
       }
     } catch (ClassNotFoundException ex) {
-      throw new PluginException.PluginNotFound("Plugin " + pluginName
-					       + " could not be found");
+      throw new PluginException.PluginNotFound("Plugin " + pluginId
+					       + " could not be found", ex);
     } catch (LinkageError e) {
-      throw new PluginException.LinkageError("Plugin " + pluginName
+      throw new PluginException.LinkageError("Plugin " + pluginId
 					       + " could not be loaded", e);
     }
   }
@@ -2445,21 +2479,21 @@ public class PluginManager
       return true;
     }
 
-    PluginInfo info = (PluginInfo)pluginfoMap.get(pluginKey);
+    PluginInfo info = pluginfoMap.get(pluginKey);
     // if no ClassLoader supplied, see if we have info for a loadable plugin
-    if (loader == null && info != null) {
+    if (loader == null && info != null && !info.isError()) {
       loader = info.getClassLoader();
     }
     if (loader == null) {
       loader = this.getClass().getClassLoader();
     }
 
-    String pluginName = "";
+    String pluginId = "Shouldn't happen";
     try {
-      pluginName = pluginNameFromKey(pluginKey);
+      pluginId = pluginIdFromKey(pluginKey);
       log.debug3("Trying to retrieve "+pluginKey);
       info = retrievePlugin(pluginKey, loader);
-      if (info != null) {
+      if (info != null && !info.isError()) {
 	setPlugin(pluginKey, info.getPlugin());
 	pluginfoMap.put(pluginKey, info);
 	return true;
@@ -2468,7 +2502,7 @@ public class PluginManager
 	return false;
       }
     } catch (Exception e) {
-      log.error("Error instantiating " + pluginName, e);
+      log.error("Error instantiating " + pluginId, e);
       return false;
     }
   }
@@ -2478,7 +2512,7 @@ public class PluginManager
   }
 
   protected Plugin loadBuiltinPlugin(String pluginClassName) {
-    String pluginKey = pluginKeyFromName(pluginClassName);
+    String pluginKey = pluginKeyFromId(pluginClassName);
     if (ensurePluginLoaded(pluginKey)) {
       return pluginMap.get(pluginKey);
     }
@@ -2500,8 +2534,8 @@ public class PluginManager
 
   /**
    * Provides the plugin of an Archival Unit.
-   * 
-   * @param auId
+   *
+   * @param auid
    *          A String with the Archival Unit identifier.
    * @return a Plugin with the Archival Unit plugin.
    */
@@ -2509,7 +2543,7 @@ public class PluginManager
     final String DEBUG_HEADER = "getPluginFromAuId(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auid = " + auid);
 
-    String pluginKey = pluginIdFromAuId(auid);
+    String pluginKey = pluginKeyFromAuId(auid);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey = " + pluginKey);
 
     Plugin plugin = getPlugin(pluginKeyFromId(pluginKey));
@@ -2524,7 +2558,7 @@ public class PluginManager
 	plugin = getPlugin(pluginKeyFromId(pluginKey));
       } catch (Exception e) {
         String message = "Error instantiating plugin "
-            + pluginNameFromKey(pluginIdFromAuId(auid));
+            + pluginIdFromKey(pluginKeyFromAuId(auid));
         log.error(message, e);
       }
     }
@@ -2594,16 +2628,16 @@ public class PluginManager
   /**
    * Return the class name (of possibly a subclass) of DefinablePlugin
    * that can be configured by an XML file.
-   * @param pluginName -  the class name of the plugin wanted
+   * @param pluginId -  the class name of the plugin wanted
    * @return - the class name of the configurable class that will implement
    * the named plugin
    */
-  protected String getConfigurablePluginName(String pluginName) {
+  protected String getConfigurablePluginName(String pluginId) {
     String ret = DEFAULT_CONFIGURABLE_PLUGIN_NAME;
     for (Iterator it = configurablePluginNameMap.keySet().iterator();
 	 it.hasNext(); ) {
       String regex = (String)it.next();
-      if (pluginName.matches(regex)) {
+      if (pluginId.matches(regex)) {
 	ret = configurablePluginNameMap.get(regex);
 	break;
       }
@@ -2655,7 +2689,7 @@ public class PluginManager
    * url, sorted in AU title order.  */
   //  XXX Should do something about the redundant normalization involved in
   // calling more than one of these methods
-  public Collection<ArchivalUnit> getCandidateAus(String url) 
+  public Collection<ArchivalUnit> getCandidateAus(String url)
       throws MalformedURLException {
     String normStem = UrlUtil.getUrlPrefix(UrlUtil.normalizeUrl(url));
     return getCandidateAusFromStem(normStem);
@@ -2669,7 +2703,7 @@ public class PluginManager
       }
       return Collections.EMPTY_LIST;
     }
-  }  
+  }
 
   /** Return a collection of all AUs that have content on the host of this
    * url, sorted in AU title order.  */
@@ -2684,7 +2718,7 @@ public class PluginManager
   }
 
   // Return  list of candiate AUs, used only for testing
-  List<ArchivalUnit> getRawCandidateAus(String url) 
+  List<ArchivalUnit> getRawCandidateAus(String url)
       throws MalformedURLException {
     String normStem = UrlUtil.getUrlPrefix(UrlUtil.normalizeUrl(url));
     synchronized (hostAus) {
@@ -2873,7 +2907,7 @@ public class PluginManager
     return findTheCachedUrl(url, contentReq);
   }
 
-  /** Find a CachedUrl for the URL.  
+  /** Find a CachedUrl for the URL.
    */
   private CachedUrl findTheCachedUrl(String url, CuContentReq contentReq) {
     // Maintain a small cache of URL -> CU.  When ICP is in use, each URL
@@ -2958,7 +2992,7 @@ public class PluginManager
 
   // overridable for testing only
   protected CachedUrl findTheCachedUrl0(String url, CuContentReq contentReq) {
-    List<CachedUrl> lst = findCachedUrls0(url, contentReq, true);    
+    List<CachedUrl> lst = findCachedUrls0(url, contentReq, true);
     if (!lst.isEmpty()) {
       return lst.get(0);
     } else {
@@ -3078,7 +3112,7 @@ public class PluginManager
       }
       recent404Hits++;
       return Collections.EMPTY_LIST;
-    }    
+    }
 
     if (paramAuSearchUseV2Repo) {
       // Search V2 repo index
@@ -3608,10 +3642,19 @@ public class PluginManager
 
   private void queuePluginRegistryCrawls() {
     if (isCrawlPlugins()) {
-      CrawlManager crawlMgr = getDaemon().getCrawlManager();
-      for (ArchivalUnit au : getAllRegistryAus()) {
-	crawlMgr.startNewContentCrawl(au, null, null);
-      }
+        for (ArchivalUnit au : getAllRegistryAus()) {
+//          if(useLocalCrawler()) {
+            getDaemon().getCrawlManager().startNewContentCrawl(au, null);
+//          }
+//          else {
+//            CrawlDesc desc = new CrawlDesc()
+//              .auId(au.getAuId())
+//              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+//              .extraCrawlerData(null);
+//            CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
+//            crawlMgr.sendCrawlRequest(au, desc);
+//          }
+        }
     }
   }
 
@@ -3624,7 +3667,7 @@ public class PluginManager
   /** Start a thread to fetch the title list (after AUs are started),
    * causing the keys to be computed and an initial sort */
   void triggerTitleSort() {
-    LockssRunnable run = 
+    LockssRunnable run =
 	new LockssRunnable("Title Sorter") {
 	  public void lockssRun() {
 	    try {
@@ -3632,7 +3675,7 @@ public class PluginManager
 	      findAllTitles();
 	    } catch (InterruptedException e) {
 	      // just exit
-	    }	      
+	    }
 	  }
 	};
     Thread th = new Thread(run);
@@ -3742,7 +3785,7 @@ public class PluginManager
 
   /** @return loadable PluginInfo for plugin, or null */
   public PluginInfo getLoadablePluginInfo(Plugin plugin) {
-    return (PluginInfo)pluginfoMap.get(getPluginKey(plugin));
+    return pluginfoMap.get(getPluginKey(plugin));
   }
 
   /**
@@ -3759,10 +3802,9 @@ public class PluginManager
     }
 
     BinarySemaphore bs = new BinarySemaphore();
-
-    InitialRegistryCallback regCallback =
-      new InitialRegistryCallback(urls, bs);
-
+    // The life-span of this callback was until it has exhausted all the urls.
+    InitialRegistryCallback regCallback = new InitialRegistryCallback(urls, bs);
+    getDaemon().getCrawlManager().registerCrawlEventHandler(regCallback);
     List loadAus = new ArrayList();
 
     for (Iterator iter = urls.iterator(); iter.hasNext(); ) {
@@ -3797,16 +3839,16 @@ public class PluginManager
 
     // If another component is crawling plugins, wait for it to finish
     ServiceBinding pCrawler = getDaemon().getPluginsCrawler();
-    if (pCrawler != null) {
+    if (pCrawler != null && pCrawler != getDaemon().getMyServiceBinding()) {
       new Thread(() -> {waitRegistriesReady(pCrawler, bs);}).start();
     }
 
     // Wait for a while for the AU crawls to complete, then process all the
     // registries in the load list.
-    log.debug("Waiting for loadable plugins to finish loading...");
+    log.info("Waiting for loadable plugins to finish crawling...");
     try {
-      if (!bs.take(Deadline.in(registryTimeout))) {
-	log.warning("Timed out waiting for registries to finish loading. " +
+      if (!bs.take(Deadline.in(registryCrawlTimeout))) {
+	log.warning("Timed out waiting for registries to finish crawling. " +
 		    "Remaining registry URLs: " +
 		    regCallback.getRegistryUrls());
       }
@@ -3815,8 +3857,12 @@ public class PluginManager
 		  "Remaining registry URL list: " +
 		  regCallback.getRegistryUrls());
     }
-
-    processRegistryAus(loadAus);
+    finally {
+      getDaemon().getCrawlManager().unregisterCrawlEventHandler(regCallback);
+    }
+    setStartupStatus(StartupStatus.PLUGINS_LOADING);
+    processRegistryAus(loadAus, paramStartAllAus);
+    setStartupStatus(StartupStatus.AUS_STARTED);
   }
 
   RegistryPlugin getRegistryPlugin() {
@@ -3825,7 +3871,7 @@ public class PluginManager
 
   /**
    * Provides an internal plugin by its identifier, creating it if necessary.
-   * 
+   *
    * @param id
    *          A String with the plugin identifier.
    * @return a Plugin with the requested internal plugin.
@@ -3844,7 +3890,7 @@ public class PluginManager
 	throw new IllegalArgumentException("Unknown internal plugin id: " + id);
       }
 
-      String pluginKey = pluginKeyFromName(id);
+      String pluginKey = pluginKeyFromId(id);
       internalPlugin.initPlugin(getDaemon());
       setPlugin(pluginKey, internalPlugin);
       internalPlugins.put(id, internalPlugin);
@@ -3855,7 +3901,7 @@ public class PluginManager
 
   /**
    * Provides the plugin used to import files into archival units.
-   * 
+   *
    * @return an ImportPlugin with the requested plugin.
    */
   public ImportPlugin getImportPlugin() {
@@ -3868,9 +3914,27 @@ public class PluginManager
 					      InitialRegistryCallback cb) {
     if (isCrawlPlugins()) {
       if (registryAu.shouldCrawlForNewContent(AuUtil.getAuState(registryAu))) {
+        if (startStatus == StartupStatus.NONE) {
+          setStartupStatus(StartupStatus.PLUGINS_CRAWLING);
+        }
 	if (log.isDebug2()) log.debug2("Starting new crawl: " + registryAu);
-	getDaemon().getCrawlManager().startNewContentCrawl(registryAu, cb,
-							   url);
+          Map<String, Object> extraData = new HashMap<>();
+          CrawlManagerImpl crawlMgr = (CrawlManagerImpl) getDaemon().getCrawlManager();
+          extraData.put(KEY_URL, url);
+          extraData.put(KEY_CALLER_ID, cb.callerId);
+//          if(useLocalCrawler()) {
+            log.debug2("Calling crawl with internal crawl manager.");
+            // XXX Pass extraData as cookie
+            crawlMgr.startNewContentCrawl(registryAu, extraData);
+//          }
+//          else {
+//            log.debug2("Calling crawl with external crawl manager.");
+//            CrawlDesc desc = new CrawlDesc()
+//              .auId(registryAu.getAuId())
+//              .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+//              .extraCrawlerData(extraData);
+//            crawlMgr.sendCrawlRequest(registryAu, desc);
+//          }
       } else {
 	if (log.isDebug2()) log.debug2("No crawl needed: " + registryAu);
 
@@ -3881,10 +3945,14 @@ public class PluginManager
   }
 
   private boolean isCrawlPlugins() {
+        return getDaemon().getCrawlMode().isCrawlPlugins() &&
+            getDaemon().getCrawlManager().isCrawlerEnabled();
+    }
+
+    private boolean useLocalCrawler() {
     try {
-      return
-	getDaemon().getCrawlManager().isCrawlerEnabled() &&
-	getDaemon().getCrawlMode().isCrawlPlugins();
+        return getDaemon().getCrawlManager().isCrawlerEnabled() &&
+          getDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER) == null;
     } catch (IllegalArgumentException e) {
       log.debug("Can't get CrawlManager: " + e);
       return false;
@@ -3893,12 +3961,12 @@ public class PluginManager
 
   private void waitRegistriesReady(ServiceBinding pCrawler,
 				   BinarySemaphore sem) {
-    log.debug("Waiting until " + pCrawler +
+    log.info("Waiting until " + pCrawler +
 	      " reports plugin registries are ready");
     while (true) {
       try {
-	if (getApiStatus(pCrawler).getPluginsReady()) {
-	  log.debug(pCrawler + " reports plugin registries are now ready");
+	if (getApiStatus(pCrawler).getStartupStatus().arePluginsCollected()) {
+	  log.info(pCrawler + " reports plugin registries are now ready");
 	  sem.give();
 	  return;
 	} else {
@@ -3937,7 +4005,7 @@ public class PluginManager
     List<String> nameList = config.getList(PARAM_PLUGIN_REGISTRY);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "nameList = " + nameList);
     for (String name : nameList) {
-      String key = pluginKeyFromName(name);
+      String key = pluginKeyFromId(name);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "key = " + key);
       ensurePluginLoaded(key);
     }
@@ -3969,7 +4037,7 @@ public class PluginManager
       if (retract != null) {
 	for (Iterator iter = retract.iterator(); iter.hasNext(); ) {
 	  String name = (String)iter.next();
-	  String key = pluginKeyFromName(name);
+	  String key = pluginKeyFromId(name);
 	  Plugin plug = getPlugin(key);
 	  if (plug != null && !isInternalPlugin(plug)) {
 	    Collection<ArchivalUnit> aus = plug.getAllAus();
@@ -3993,7 +4061,7 @@ public class PluginManager
 	if (mat.matches()) {
 	  String membname = mat.group(1);
 	  String plugname = membname.replace('/', '.');
-	  String plugkey = pluginKeyFromName(plugname);
+	  String plugkey = pluginKeyFromId(plugname);
 	  ensurePluginLoaded(plugkey);
 	}
       }
@@ -4105,7 +4173,7 @@ public class PluginManager
 	}
 	log.debug("Loading keystore: " + keystoreLoc);
         ks = KeyStore.getInstance("JKS", "SUN");
-    if (new File(keystoreLoc).exists()) {
+        if (new File(keystoreLoc).exists()) {
 	  InputStream kin = new FileInputStream(new File(keystoreLoc));
 	  try {
  	    ks.load(kin, passchar);
@@ -4177,9 +4245,12 @@ public class PluginManager
    * classpath.
    */
   private Pair<List<String>,List<String>> processJarPlugin(File blessedJar)
-      throws IOException {
+      throws IOException, PluginException {
     JarFile jar = new JarFile(blessedJar);
     Manifest manifest = jar.getManifest();
+    if (manifest == null) {
+      throw new PluginException("Plugin jar has no manifest: " + blessedJar);
+    }
     Map entries = manifest.getEntries();
     List<String> plugins = new ArrayList<>();
     List<String> libjars = new ArrayList<>();
@@ -4193,16 +4264,16 @@ public class PluginManager
       if (attrs.containsKey(LOADABLE_PLUGIN_ATTR)) {
 	String s = StringUtil.replaceString(key, "/", ".");
 
-	String pluginName = null;
+	String pluginId = null;
 
 	if (StringUtil.endsWithIgnoreCase(key, ".class")) {
-	  pluginName = StringUtil.replaceString(s, ".class", "");
-	  log.debug2("Adding '" + pluginName + "' to plugin load list.");
-	  plugins.add(pluginName);
+	  pluginId = StringUtil.replaceString(s, ".class", "");
+	  log.debug2("Adding '" + pluginId + "' to plugin load list.");
+	  plugins.add(pluginId);
 	} else if (StringUtil.endsWithIgnoreCase(key, ".xml")) {
-	  pluginName = StringUtil.replaceString(s, ".xml", "");
-	  log.debug2("Adding '" + pluginName + "' to plugin load list.");
-	  plugins.add(pluginName);
+	  pluginId = StringUtil.replaceString(s, ".xml", "");
+	  log.debug2("Adding '" + pluginId + "' to plugin load list.");
+	  plugins.add(pluginId);
 	}
       }
 
@@ -4262,7 +4333,7 @@ public class PluginManager
     jarValidator.allowExpired(acceptExpiredCertificates);
 
     // Create temporary plugin and classloader maps
-    HashMap<String,PluginInfo> tmpMap = new HashMap<String,PluginInfo>();
+    HashMap<String,PluginInfo> tmpMap = new HashMap<>();
 
     for (Iterator iter = registryAus.iterator(); iter.hasNext(); ) {
       ArchivalUnit au = (ArchivalUnit)iter.next();
@@ -4324,11 +4395,15 @@ public class PluginManager
       // Try to start any AUs configured for changed plugins, that didn't
       // previously start (either because the plugin didn't exist, or the
       // AU didn't successfully start with the old definition)
+      if (!startStatus.areAusStarted()) {
+        setStartupStatus(StartupStatus.AUS_STARTING);
+      }
       configurePlugins(changedPluginKeys);
     }
   }
 
-  protected void processOneRegistryAu(ArchivalUnit au, Map tmpMap) {
+  protected void processOneRegistryAu(ArchivalUnit au,
+                                      Map<String,PluginInfo> tmpMap) {
     log.debug2("processOneRegistryAu: " + au.getName());
     CachedUrlSet cus = au.getAuCachedUrlSet();
 
@@ -4348,7 +4423,8 @@ public class PluginManager
   }
 
   protected void processOneRegistryJar(CachedUrl cu, String url,
-				       ArchivalUnit au, Map tmpMap) {
+				       ArchivalUnit au,
+                                       Map<String,PluginInfo> tmpMap) {
     Integer curVersion = Integer.valueOf(cu.getVersion());
 
     if (cuNodeVersionMap.get(url) == null) {
@@ -4396,9 +4472,10 @@ public class PluginManager
     }
   }
 
-  protected void loadPluginsFromJar(File jarFile, String url,
-				    ArchivalUnit au, CachedUrl cu,
-				    Map tmpMap) {
+  protected Collection<PluginInfo>
+    loadPluginsFromJar(File jarFile, String url,
+                       ArchivalUnit au, CachedUrl cu,
+                       Map<String,PluginInfo> tmpMap) {
     // Get the list of plugins to load from this jar.
     List<String> loadPlugins;
     List<String> libJars;
@@ -4406,11 +4483,9 @@ public class PluginManager
       Pair<List<String>,List<String>> p = processJarPlugin(jarFile);
       loadPlugins = p.getLeft();
       libJars = p.getRight();
-    } catch (IOException ex) {
-      log.error("Error while getting list of plugins for " +
-		jarFile);
-      return; // skip this CU.
-
+    } catch (IOException | PluginException ex) {
+      log.error("Error while getting list of plugins for " + jarFile, ex);
+      return ListUtil.list(PluginInfo.forError("", ex));
     }
     log.debug2("Blessed jar: " + jarFile + ", plugins: " + loadPlugins);
 
@@ -4418,7 +4493,7 @@ public class PluginManager
     if (loadPlugins.size() == 0) {
       log.warning("Jar " + jarFile +
 		  " does not contain any plugins.  Skipping...");
-      return; // skip this CU.
+      return Collections.emptyList(); // skip this CU.
     }
 
     // Load the plugin classes
@@ -4440,20 +4515,21 @@ public class PluginManager
     } catch (MalformedURLException ex) {
       log.error("Malformed URL exception attempting to create " +
 		"classloader for plugin JAR " + jarFile);
-      return; // skip this CU.
+      return Collections.emptyList(); // skip this CU.
     }
 
-    for (String pluginName : loadPlugins) {
-      String key = pluginKeyFromName(pluginName);
+    for (String pluginId : loadPlugins) {
+      String key = pluginKeyFromId(pluginId);
 
       Plugin plugin;
       PluginInfo info;
       try {
-	info = retrievePlugin(pluginName, pluginLoader);
-	if (info == null) {
+	info = retrievePlugin(pluginId, pluginLoader);
+	if (info == null || info.isError()) {
 	  log.warning("Probable plugin packaging error: plugin " +
-                      pluginName + " could not be loaded from " +
+                      pluginId + " could not be loaded from " +
                       cu.getUrl());
+          tmpMap.put(key, info);
           continue;
         } else {
           info.setCuUrl(url);
@@ -4473,7 +4549,7 @@ public class PluginManager
           plugin = info.getPlugin();
         }
       } catch (Exception ex) {
-        log.error(String.format("Unable to load plugin %s", pluginName), ex);
+        log.error(String.format("Unable to load plugin %s", pluginId), ex);
         continue;
       }
 
@@ -4484,10 +4560,10 @@ public class PluginManager
         info.setVersion(version);
       } catch (IllegalArgumentException ex) {
         // Don't let this runtime exception stop the daemon.  Skip the plugin.
-        log.error(String.format("Skipping plugin %s: %s", pluginName, ex.getMessage()));
+        log.error(String.format("Skipping plugin %s: %s", pluginId, ex.getMessage()));
         // must stop plugin to enable it to be collected
         plugin.stopPlugin();
-        return;
+        return Collections.emptyList();
       }
 
       if (tmpMap.containsKey(key)) {
@@ -4540,12 +4616,13 @@ public class PluginManager
         }
       }
     }
+    return tmpMap.values();
   }
 
   /**
    * Convenience method to provide an indication of whether an Archival Unit is
    * not configured in the daemon and it's not inactive.
-   * 
+   *
    * @param auId
    *          A String with the Archival Unit identifier.
    * @return a boolean with <code>true</code> if the Archival Unit is not
@@ -4564,10 +4641,10 @@ public class PluginManager
    * CrawlManager callback that is responsible for handling Registry
    * AUs when they're finished with their initial crawls.
    */
-  static class InitialRegistryCallback implements CrawlManager.Callback {
-    private BinarySemaphore bs;
-
+  static class InitialRegistryCallback extends CrawlEventHandler.Base  {
     List registryUrls;
+    String callerId = randomUUID().toString();
+    private BinarySemaphore bs;
 
     /*
      * Set the initial size of the list of registry URLs to process.
@@ -4581,14 +4658,6 @@ public class PluginManager
       if (registryUrls.isEmpty()) {
 	bs.give();
       }
-    }
-
-    public void signalCrawlAttemptCompleted(boolean success,
-					    Object cookie,
-					    CrawlerStatus status) {
-      String url = (String)cookie;
-
-      crawlCompleted(url);
     }
 
     public void crawlCompleted(String url) {
@@ -4613,13 +4682,26 @@ public class PluginManager
     public List getRegistryUrls() {
       return registryUrls;
     }
+
+    @Override
+    protected void handleNewContentCompleted(CrawlEvent event) {
+      Map<String, Object> extraData = event.getExtraData();
+      log.debug2("New content crawl completed, callerId: " + callerId + ", "
+                 +  extraData);
+      if (extraData != null && extraData.containsKey(KEY_CALLER_ID)) {
+        if (callerId.equals(extraData.get(KEY_CALLER_ID))) {
+          String url = (String) extraData.get(KEY_URL);
+          crawlCompleted(url);
+        }
+      }
+    }
   }
 
   /*
    * Provides the indication of whether the URLs (and their content) of an
    * archival unit should be obtained from a web service instead of the
    * repository.
-   * 
+   *
    * @return a boolean with <code>true</code> if the URLs (and their content) of
    * an archival unit should be obtained from a web service, <code>false</code>
    * otherwise.
@@ -4648,9 +4730,10 @@ public class PluginManager
     private PluginVersion version;
     private ClassLoader classLoader;
     private String cuUrl;
-    private URL jarUrl;
     private List<String> resourceUrls;
     private boolean isOnLoadablePath = false;
+    private Exception ex;
+    private String pluginId;
 
     public PluginInfo(Plugin plugin, ClassLoader classLoader,
 		      List<String> resourceUrls) {
@@ -4659,20 +4742,51 @@ public class PluginManager
       this.resourceUrls = resourceUrls;
     }
 
+    public PluginInfo(String pluginId, Exception ex) {
+      this.pluginId = pluginId;
+      this.ex = ex;
+    }
+
+    public static PluginInfo forPlugin(Plugin plugin, ClassLoader classLoader,
+                                       List<String> resourceUrls) {
+      return new PluginInfo(plugin, classLoader, resourceUrls);
+    }
+
+    public static PluginInfo forError(String pluginId, Exception ex) {
+      return new PluginInfo(pluginId, ex);
+    }
+
     public String toString() {
       StringBuilder sb = new StringBuilder();
-      sb.append("[PI: ");
-      sb.append(plugin.getPluginName());
-      sb.append(", ");
-      sb.append(cuUrl);
-      sb.append(", ");
-      sb.append(jarUrl);
-      sb.append(", ");
-      sb.append(resourceUrls);
-      sb.append(", ");
-      sb.append(isOnLoadablePath);
-      sb.append("]");
+      if (isError()) {
+        sb.append("[PI ERROR: ");
+        sb.append(pluginId);
+        sb.append(", ");
+        sb.append(ex);
+      } else {
+        sb.append("[PI: ");
+        sb.append(plugin.getPluginName());
+        sb.append(", ");
+        sb.append(cuUrl);
+        sb.append(", ");
+        sb.append(resourceUrls);
+        sb.append(", ");
+        sb.append(isOnLoadablePath);
+        sb.append("]");
+      }
       return sb.toString();
+    }
+
+    public boolean isError() {
+      return ex != null;
+    }
+
+    public Exception getError() {
+      return ex;
+    }
+
+    public String getId() {
+      return isError() ? pluginId : plugin.getPluginId();
     }
 
     public Plugin getPlugin() {
@@ -4697,14 +4811,6 @@ public class PluginManager
 
     public void setCuUrl(String cuUrl) {
       this.cuUrl = cuUrl;
-    }
-
-    public URL getJarUrl() {
-      return jarUrl;
-    }
-
-    public void setJarUrl(URL jarUrl) {
-      this.jarUrl = jarUrl;
     }
 
     public List<String> getResourceUrls() {

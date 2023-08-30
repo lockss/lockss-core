@@ -28,29 +28,41 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.repository;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.regex.*;
+import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.map.LinkedMap;
-import org.apache.commons.collections4.*;
-import org.lockss.account.AccountManager;
-import org.lockss.app.*;
-import org.lockss.log.*;
-import org.lockss.util.*;
-import org.lockss.util.jms.*;
-import org.lockss.jms.*;
+import org.lockss.app.BaseLockssDaemonManager;
+import org.lockss.app.ConfigurableManager;
+import org.lockss.app.LockssDaemon;
+import org.lockss.app.ServiceDescr;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
+import org.lockss.daemon.RestServicesManager;
+import org.lockss.jms.JMSManager;
+import org.lockss.log.L4JLogger;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.AuEvent;
+import org.lockss.plugin.AuEventHandler;
+import org.lockss.rs.LockssRepositoryFactory;
+import org.lockss.util.Constants;
+import org.lockss.util.ListUtil;
+import org.lockss.util.StringUtil;
 import org.lockss.util.os.PlatformUtil;
-import org.lockss.util.time.Deadline;
-import org.lockss.util.time.TimeBase;
-import org.lockss.util.time.TimeUtil;
-import org.lockss.plugin.*;
-import org.lockss.config.*;
-import org.lockss.daemon.*;
-import org.lockss.daemon.status.*;
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.RestLockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactVersions;
+import org.lockss.util.rest.repo.model.RepositoryInfo;
+import org.lockss.util.rest.repo.util.ArtifactCache;
 import org.lockss.util.storage.StorageInfo;
+import org.lockss.util.time.TimeBase;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.*;
+import java.util.regex.Pattern;
+import javax.jms.JMSException;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -95,6 +107,12 @@ public class RepositoryManager
     PREFIX + "artifactCache.maxSize";
   public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
 
+  /** Toggles whether to use the multipart endpoint for artifact data */
+  public static final String PARAM_USE_MULTIPART_ENDPOINT =
+      PREFIX + "useMultipartEndpoint";
+  public static final boolean DEFAULT_USE_MULTIPART_ENDPOINT =
+      RestLockssRepository.DEFAULT_USE_MULTIPART_ENDPOINT;
+
   /** Maximum size of ArtifactData cache */
   public static final String PARAM_ARTIFACT_DATA_CACHE_MAX =
     PREFIX + "artifactDataCache.maxSize";
@@ -118,21 +136,22 @@ public class RepositoryManager
 
   static final String DISK_PREFIX = PREFIX + "diskSpace.";
 
-  static final String PARAM_DISK_WARN_FRRE_MB = DISK_PREFIX + "warn.freeMB";
+  static final String PARAM_DISK_WARN_FREE_MB = DISK_PREFIX + "warn.freeMB";
   static final int DEFAULT_DISK_WARN_FRRE_MB = 5000;
-  static final String PARAM_DISK_FULL_FRRE_MB = DISK_PREFIX + "full.freeMB";
+  static final String PARAM_DISK_FULL_FREE_MB = DISK_PREFIX + "full.freeMB";
   static final int DEFAULT_DISK_FULL_FRRE_MB = 100;
-  static final String PARAM_DISK_WARN_FRRE_PERCENT =
+  static final String PARAM_DISK_WARN_FREE_PERCENT =
       DISK_PREFIX + "warn.freePercent";
-  static final double DEFAULT_DISK_WARN_FRRE_PERCENT = .02;
-  static final String PARAM_DISK_FULL_FRRE_PERCENT =
+  static final double DEFAULT_DISK_WARN_FREE_PERCENT = .02;
+  static final String PARAM_DISK_FULL_FREE_PERCENT =
       DISK_PREFIX + "full.freePercent";
-  static final double DEFAULT_DISK_FULL_FRRE_PERCENT = .01;
+  static final double DEFAULT_DISK_FULL_FREE_PERCENT = .01;
 
   private PlatformUtil platInfo = PlatformUtil.getInstance();
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
   private long auidRepoMapAge = DEFAULT_AUID_REPO_MAP_AGE;
+  private boolean useMultipartEndpoint = DEFAULT_USE_MULTIPART_ENDPOINT;
 
   private RepoSpec v2Repo = null;
 
@@ -140,10 +159,10 @@ public class RepositoryManager
 
   PlatformUtil.DF paramDFWarn =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_WARN_FRRE_MB,
-          DEFAULT_DISK_WARN_FRRE_PERCENT);
+          DEFAULT_DISK_WARN_FREE_PERCENT);
   PlatformUtil.DF paramDFFull =
       PlatformUtil.DF.makeThreshold(DEFAULT_DISK_FULL_FRRE_MB,
-          DEFAULT_DISK_FULL_FRRE_PERCENT);
+          DEFAULT_DISK_FULL_FREE_PERCENT);
 
   public void startService() {
     super.startService();
@@ -157,6 +176,8 @@ public class RepositoryManager
       }
     };
     getDaemon().getPluginManager().registerAuEventHandler(auEventHandler);
+    setUpJmsSend(RestLockssRepository.REST_ARTIFACT_CACHE_ID,
+                 RestLockssRepository.REST_ARTIFACT_CACHE_TOPIC);
   }
 
   public void stopService() {
@@ -171,15 +192,15 @@ public class RepositoryManager
   public void setConfig(Configuration config, Configuration oldConfig,
       Configuration.Differences changedKeys) {
     if (changedKeys.contains(DISK_PREFIX)) {
-      int minMB = config.getInt(PARAM_DISK_WARN_FRRE_MB,
+      int minMB = config.getInt(PARAM_DISK_WARN_FREE_MB,
           DEFAULT_DISK_WARN_FRRE_MB);
-      double minPer = config.getPercentage(PARAM_DISK_WARN_FRRE_PERCENT,
-          DEFAULT_DISK_WARN_FRRE_PERCENT);
+      double minPer = config.getPercentage(PARAM_DISK_WARN_FREE_PERCENT,
+          DEFAULT_DISK_WARN_FREE_PERCENT);
       paramDFWarn = PlatformUtil.DF.makeThreshold(minMB, minPer);
-      minMB = config.getInt(PARAM_DISK_FULL_FRRE_MB,
+      minMB = config.getInt(PARAM_DISK_FULL_FREE_MB,
           DEFAULT_DISK_FULL_FRRE_MB);
-      minPer = config.getPercentage(PARAM_DISK_FULL_FRRE_PERCENT,
-          DEFAULT_DISK_FULL_FRRE_PERCENT);
+      minPer = config.getPercentage(PARAM_DISK_FULL_FREE_PERCENT,
+          DEFAULT_DISK_FULL_FREE_PERCENT);
       paramDFFull = PlatformUtil.DF.makeThreshold(minMB, minPer);
     }
     if (changedKeys.contains(PREFIX)) {
@@ -189,6 +210,8 @@ public class RepositoryManager
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
       auidRepoMapAge = config.getTimeInterval(PARAM_AUID_REPO_MAP_AGE,
 					      DEFAULT_AUID_REPO_MAP_AGE);
+      useMultipartEndpoint = config.getBoolean(PARAM_USE_MULTIPART_ENDPOINT,
+          DEFAULT_USE_MULTIPART_ENDPOINT);
       processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
       reconfigureRepos(config);
     }
@@ -201,7 +224,7 @@ public class RepositoryManager
     if (!StringUtil.isNullString(System.getProperty("oldrepo"))) {
       return;
     }
-    if (spec != null) {
+    if (!StringUtil.isNullString(spec)) {
       // currently set this only once
       if (!repoSpecMap.containsKey(spec)) {
 	try {
@@ -214,6 +237,7 @@ public class RepositoryManager
       }
     } else {
       repoSpecMap.remove(spec);
+      v2Repo = null;
     }
   }
 
@@ -338,6 +362,7 @@ public class RepositoryManager
 
 	RestLockssRepository repo = LockssRepositoryFactory
 	    .createRestLockssRepository(url, serviceUser, servicePassword);
+        repo.setUseMultipartEndpoint(useMultipartEndpoint);
 	configureArtifactCache(repo, config);
 	return repo;
       } catch (MalformedURLException e) {
@@ -355,8 +380,9 @@ public class RepositoryManager
   private void reconfigureRepos(Configuration config) {
     for (RepoSpec rs : getV2RepositoryList()) {
       if (rs.getRepository() instanceof RestLockssRepository) {
-	configureArtifactCache((RestLockssRepository)rs.getRepository(),
-			       config);
+        RestLockssRepository repoClient = (RestLockssRepository) rs.getRepository();
+	configureArtifactCache(repoClient, config);
+        repoClient.setUseMultipartEndpoint(useMultipartEndpoint);
       }
     }
   }
@@ -422,11 +448,16 @@ public class RepositoryManager
     return getRepoRepo(repoSpec).getRepositoryInfo();
   }
 
+  public StorageInfo getStorageInfo(String repoSpec)
+      throws IOException {
+    return getRepoRepo(repoSpec).getStorageInfo();
+  }
+
   /** Return the DF for the given repo spec.  Currently hardwired for the
    * sole confiured repo */
   public PlatformUtil.DF getRepositoryDF(String repoSpec) {
     try {
-      StorageInfo storageInfo = getRepositoryInfo(repoSpec).getStoreInfo();
+      StorageInfo storageInfo = getStorageInfo(repoSpec);
       log.trace("storageInfo = {}", storageInfo);
 
       return PlatformUtil.DF.fromStorageInfo(storageInfo);
@@ -468,6 +499,21 @@ public class RepositoryManager
 
   public PlatformUtil.DF getDiskFullThreshold() {
     return paramDFFull;
+  }
+
+  /** Flush the Artifact cache in all services.  Useful when
+   * benchmarking performance. */
+  public void flushArtifactCaches() {
+    if (jmsProducer != null) {
+      Map<String, Object> map = new HashMap<>();
+      map.put(RestLockssRepository.REST_ARTIFACT_CACHE_MSG_ACTION,
+          RestLockssRepository.REST_ARTIFACT_CACHE_MSG_ACTION_FLUSH);
+      try {
+        jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+        log.error("Couldn't send cache flush notification", e);
+      }
+    }
   }
 
   // BatchAuConfig (via RemoteApi) asks for existing repo info for large

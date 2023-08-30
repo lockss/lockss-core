@@ -126,7 +126,7 @@ public class FuncAuControlService extends LockssTestCase {
     pluginMgr.startService();
 
     String key =
-      PluginManager.pluginKeyFromName(MyMockPlugin.class.getName());
+      PluginManager.pluginKeyFromId(MyMockPlugin.class.getName());
     pluginMgr.ensurePluginLoaded(key);
     plugin = (MockPlugin)pluginMgr.getPlugin(key);
 
@@ -389,7 +389,7 @@ public class FuncAuControlService extends LockssTestCase {
     assertNull(result.getDelayReason());
     assertEquals(MISSING_AU_ID_ERROR_MESSAGE, result.getErrorMessage());
 
-    result = proxy.requestCrawlById(mau.getAuId(), new Integer(10), true);
+    result = proxy.requestCrawlById(mau.getAuId(), Integer.valueOf(10), true);
     assertEquals(mau.getAuId(), result.getId());
     assertFalse(result.isSuccess());
     assertNull(result.getDelayReason());
@@ -410,7 +410,7 @@ public class FuncAuControlService extends LockssTestCase {
     // User "auAdminRole" should fail.
     userAccount.setRoles(LockssServlet.ROLE_AU_ADMIN);
     try {
-      result = proxy.requestCrawlById(mau.getAuId(), new Integer(10), true);
+      result = proxy.requestCrawlById(mau.getAuId(), Integer.valueOf(10), true);
       fail("Test should have failed for role " + LockssServlet.ROLE_AU_ADMIN);
     } catch (LockssWebServicesFault lwsf) {
       // Expected authorization failure.
@@ -433,7 +433,7 @@ public class FuncAuControlService extends LockssTestCase {
     // User "debugRole" should succeed.
     userAccount.setRoles(LockssServlet.ROLE_DEBUG);
 
-    result = proxy.requestCrawlById(auId0, new Integer(10), true);
+    result = proxy.requestCrawlById(auId0, Integer.valueOf(10), true);
     assertEquals(auId0, result.getId());
     assertTrue(result.isSuccess());
     assertNull(result.getDelayReason());

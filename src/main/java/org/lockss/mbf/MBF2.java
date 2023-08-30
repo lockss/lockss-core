@@ -304,7 +304,7 @@ public class MBF2 extends MemoryBoundFunction {
     // Remember the final value - XXX actually the next value that
     // would have been fetched if the path had continued
     boolean proofFailed = false;
-    signatureArrayList.add(new Integer(wordAt(T, c)));
+    signatureArrayList.add(Integer.valueOf(wordAt(T, c)));
     if (proof == null) {
       logger.debug("numPath " + numPath + " max " + maxPath +
 		   " proof null ");
@@ -349,7 +349,7 @@ public class MBF2 extends MemoryBoundFunction {
       // We are generating - accumulate matches
       if (match()) {
 	// Its a match.
-	ret.add(new Integer(k));
+	ret.add(Integer.valueOf(k));
       }
       if (k >= e) {
 	finished = true;

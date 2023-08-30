@@ -8,6 +8,13 @@
     <string>Good Plugin</string>
   </entry>
   <entry>
+    <string>plugin_aux_packages</string>
+    <list>
+      <string>org.lockss.plugin.definable</string>
+      <string>org.lockss.plugin.base</string>
+    </list>
+  </entry>
+  <entry>
     <string>au_name</string>
     <string>&quot;Good Plugin AU %s&quot;, base_url</string>
   </entry>

@@ -82,11 +82,11 @@ public class MockArchiveReader extends ArchiveReader {
   public void addArchiveRecord(String url, String content,
 			       Map headers) throws IOException {
     long futureOffset = nextPutOffset + content.length();
-    Long key = new Long(nextPutOffset);
+    Long key = Long.valueOf(nextPutOffset);
     ArchiveRecord rec = new MyMockArchiveRecord(url, content, headers,
 						myInputStream);
     records.put(key, rec);
-    offsets.put(key, new Long(futureOffset));
+    offsets.put(key, Long.valueOf(futureOffset));
     nextPutOffset = futureOffset;
   }
 
@@ -111,7 +111,7 @@ public class MockArchiveReader extends ArchiveReader {
 
   public ArchiveRecord get(long offset) {
     ArchiveRecord ret = null;
-    Long currentOffset = new Long(offset);
+    Long currentOffset = Long.valueOf(offset);
     Long newOffset = (Long)offsets.get(currentOffset);
     if (newOffset != null) {
       nextGetOffset = newOffset.longValue();

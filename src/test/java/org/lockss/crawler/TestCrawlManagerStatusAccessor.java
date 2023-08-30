@@ -207,11 +207,11 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     assertEquals(expectedElements, rows.size());
 
 //     Map map = (Map)rows.get(0);
-//     assertEquals(new Long(0), map.get(NUM_URLS_FETCHED));
-//     assertEquals(new Long(0), map.get(NUM_URLS_PARSED));
-//     assertEquals(new Long(0), map.get(NUM_URLS_NOT_MODIFIED));
-//     assertEquals(new Long(0), map.get(NUM_URLS_UNCHANGED));
-//     assertEquals(new Long(0), map.get(NUM_URLS_WITH_ERRORS));
+//     assertEquals(Long.valueOf(0), map.get(NUM_URLS_FETCHED));
+//     assertEquals(Long.valueOf(0), map.get(NUM_URLS_PARSED));
+//     assertEquals(Long.valueOf(0), map.get(NUM_URLS_NOT_MODIFIED));
+//     assertEquals(Long.valueOf(0), map.get(NUM_URLS_UNCHANGED));
+//     assertEquals(Long.valueOf(0), map.get(NUM_URLS_WITH_ERRORS));
   }
 
   public void testPopulateTableWithKey() {
@@ -244,16 +244,16 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     assertEquals(expectedElements, rows.size());
 
     Map map = (Map)rows.get(0);
-    assertEquals(new Long(1), map.get(START_TIME_COL_NAME));
-//     assertEquals(new Long(2), map.get(END_TIME_COL_NAME));
-    assertEquals(new Long(1), map.get(DURATION_COL_NAME));
+    assertEquals(Long.valueOf(1), map.get(START_TIME_COL_NAME));
+//     assertEquals(Long.valueOf(2), map.get(END_TIME_COL_NAME));
+    assertEquals(Long.valueOf(1), map.get(DURATION_COL_NAME));
 
     StatusTable.Reference ref  =
       (StatusTable.Reference)map.get(NUM_URLS_FETCHED);
-    assertEquals(new Long(3), ref.getValue());
+    assertEquals(Long.valueOf(3), ref.getValue());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_EXCLUDED);
-    assertEquals(new Long(5), ref.getValue());
+    assertEquals(Long.valueOf(5), ref.getValue());
 
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
   }
@@ -292,55 +292,55 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     assertEquals(expectedElements, rows.size());
 
     Map map = (Map)rows.get(1);
-    assertEquals(new Long(1), map.get(START_TIME_COL_NAME));
-//     assertEquals(new Long(2), map.get(END_TIME_COL_NAME));
-    assertEquals(new Long(1), map.get(DURATION_COL_NAME));
+    assertEquals(Long.valueOf(1), map.get(START_TIME_COL_NAME));
+//     assertEquals(Long.valueOf(2), map.get(END_TIME_COL_NAME));
+    assertEquals(Long.valueOf(1), map.get(DURATION_COL_NAME));
 
     StatusTable.Reference ref  =
       (StatusTable.Reference)map.get(NUM_URLS_FETCHED);
-    assertEquals(new Long(3), ref.getValue());
+    assertEquals(Long.valueOf(3), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".fetched", ref.getKey());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_PARSED);
-    assertEquals(new Long(4), ref.getValue());
+    assertEquals(Long.valueOf(4), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".parsed", ref.getKey());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_PENDING);
-    assertEquals(new Long(4), ref.getValue());
+    assertEquals(Long.valueOf(4), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".pending", ref.getKey());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_WITH_ERRORS);
-    assertEquals(new Long(5), ref.getValue());
+    assertEquals(Long.valueOf(5), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".error", ref.getKey());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_NOT_MODIFIED);
-    assertEquals(new Long(6), ref.getValue());
+    assertEquals(Long.valueOf(6), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".not-modified", ref.getKey());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_UNCHANGED);
-    assertEquals(new Long(2), ref.getValue());
+    assertEquals(Long.valueOf(2), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".unchanged", ref.getKey());
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_EXCLUDED);
-    assertEquals(new Long(7), ref.getValue());
+    assertEquals(Long.valueOf(7), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
     assertEquals(status.getKey()+".excluded", ref.getKey());
 
 
 
     map = (Map)rows.get(0);
-    assertEquals(new Long(7), map.get(START_TIME_COL_NAME));
-//     assertEquals(new Long(8), map.get(END_TIME_COL_NAME));
-    assertEquals(new Long(1), map.get(DURATION_COL_NAME));
+    assertEquals(Long.valueOf(7), map.get(START_TIME_COL_NAME));
+//     assertEquals(Long.valueOf(8), map.get(END_TIME_COL_NAME));
+    assertEquals(Long.valueOf(1), map.get(DURATION_COL_NAME));
 
     ref = (StatusTable.Reference)map.get(NUM_URLS_FETCHED);
-    assertEquals(new Long(9), ref.getValue());
+    assertEquals(Long.valueOf(9), ref.getValue());
     assertEquals(CRAWL_URLS_TABLE, ref.getTableName());
   }
 
@@ -444,19 +444,19 @@ public class TestCrawlManagerStatusAccessor extends LockssTestCase {
     assertEquals(expectedElements, rows.size());
 
     Map map = (Map)rows.get(0);
-    assertEquals(new Long(2), map.get(START_TIME_COL_NAME));
-//     assertEquals(new Long(4), map.get(END_TIME_COL_NAME));
-    assertEquals(new Long(2), map.get(DURATION_COL_NAME));
+    assertEquals(Long.valueOf(2), map.get(START_TIME_COL_NAME));
+//     assertEquals(Long.valueOf(4), map.get(END_TIME_COL_NAME));
+    assertEquals(Long.valueOf(2), map.get(DURATION_COL_NAME));
 
     map = (Map)rows.get(1);
-    assertEquals(new Long(1), map.get(START_TIME_COL_NAME));
-//     assertEquals(new Long(2), map.get(END_TIME_COL_NAME));
-    assertEquals(new Long(1), map.get(DURATION_COL_NAME));
+    assertEquals(Long.valueOf(1), map.get(START_TIME_COL_NAME));
+//     assertEquals(Long.valueOf(2), map.get(END_TIME_COL_NAME));
+    assertEquals(Long.valueOf(1), map.get(DURATION_COL_NAME));
 
     map = (Map)rows.get(2);
-    assertEquals(new Long(2), map.get(START_TIME_COL_NAME));
-//     assertEquals(new Long(2), map.get(END_TIME_COL_NAME));
-    assertEquals(new Long(0), map.get(DURATION_COL_NAME));
+    assertEquals(Long.valueOf(2), map.get(START_TIME_COL_NAME));
+//     assertEquals(Long.valueOf(2), map.get(END_TIME_COL_NAME));
+    assertEquals(Long.valueOf(0), map.get(DURATION_COL_NAME));
   }
 
 

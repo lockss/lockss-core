@@ -123,7 +123,7 @@ public class KbartTitle implements Comparable<KbartTitle>, Cloneable {
   private final SortedMap<Field, String> fields = 
       new TreeMap<Field, String>(new Comparator<Field>() {
         public int compare(Field f1, Field f2) {
-          return new Integer(f1.ordinal()).compareTo(f2.ordinal());
+          return Integer.valueOf(f1.ordinal()).compareTo(f2.ordinal());
         }
       });
     

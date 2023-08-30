@@ -42,6 +42,8 @@ import java.util.*;
 
 import org.apache.commons.collections4.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.lockss.crawler.*;
+import org.lockss.util.rest.crawler.CrawlDesc;
 import org.mortbay.util.B64Code;
 
 import org.lockss.alert.*;
@@ -64,7 +66,6 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
-import org.lockss.repository.*;
 
 /**
  * <p>Class that manages the polling process.</p>
@@ -199,6 +200,7 @@ public class PollManager
    */
   public static final String PARAM_ENABLE_POLL_STARTER_THROTTLE =
       PREFIX + "enablePollStarterThrottle";
+  public static final String POLL_ID_KEY = "pollID";
   public static boolean DEFAULT_ENABLE_POLL_STARTER_THROTTLE = true;
 
   /** Interval after which we'll try inviting peers that we think are not
@@ -308,6 +310,12 @@ public class PollManager
   public static final String PARAM_REPAIRER_THRESHOLD =
       V3PREFIX + "repairerThreshold";
   public static final int DEFAULT_REPAIRER_THRESHOLD = 3;
+  public static final String PARAM_ENABLE_CRAWL_NOTIFICATIONS =
+      CrawlManagerImpl.PARAM_ENABLE_JMS_RECEIVE;
+  public static final boolean DEFAULT_ENABLE_CRAWL_NOTIFICATIONS = false;
+  private boolean enableCrawlNotifications = DEFAULT_ENABLE_CRAWL_NOTIFICATIONS;
+  private CrawlEventHandler.Base crawlEventHandler;
+
   private static EntryManager entryManager = new EntryManager();
 
   public static class AuPeersMap extends HashMap<String,Set<PeerIdentity>> {}
@@ -332,6 +340,7 @@ public class PollManager
   private static HashService theHashService;
   private static LcapRouter theRouter = null;
   private static SystemMetrics theSystemMetrics = null;
+
   // our configuration variables
   protected long m_recentPollExpireTime = DEFAULT_RECENT_EXPIRATION;
   /**
@@ -354,8 +363,13 @@ public class PollManager
   private RepairPolicy theRepairPolicy = null;
   private V3ReusableRepairer theReusableRepairer = null;
   private AlertManager theAlertManager = null;
+  private CrawlManager theCrawlManager = null;
   private PluginManager pluginMgr = null;
   private AuEventHandler auEventHandler;
+  // svc binding support
+  private RestServicesManager svcsMgr;
+  private ServiceBinding crawlerServiceBinding = null;
+
   // CR: serializedPollers and serializedVoters s.b. updated as new
   // polls/votes are created, in case AU is deactivated & reactivated
   private HashMap serializedPollers;
@@ -489,6 +503,7 @@ public class PollManager
     theIDManager = theDaemon.getIdentityManager();
     theHashService = theDaemon.getHashService();
     theAlertManager = theDaemon.getAlertManager();
+    theCrawlManager = theDaemon.getCrawlManager();
     pluginMgr = theDaemon.getPluginManager();
 
     Configuration config = ConfigManager.getCurrentConfig();
@@ -499,11 +514,6 @@ public class PollManager
     }
 
     reputationTransfers = new ReputationTransfers(theIDManager);
-
-    // register a message handler with the router
-    theRouter = theDaemon.getRouterManager();
-    m_msgHandler = new RouterMessageHandler();
-    theRouter.registerMessageHandler(m_msgHandler);
 
     // get System Metrics
     theSystemMetrics = theDaemon.getSystemMetrics();
@@ -545,6 +555,11 @@ public class PollManager
     statusServ.registerStatusAccessor(V3PollStatus.PEER_VOTER_ONLY_URLS_TABLE_NAME,
         new V3PollStatus.V3PeerVoterOnlyURLs(this));
 
+    // register a message handler with the router
+    theRouter = theDaemon.getRouterManager();
+    m_msgHandler = new RouterMessageHandler();
+    theRouter.registerMessageHandler(m_msgHandler);
+
     // register our AU event handler
     auEventHandler = new AuEventHandler.Base() {
       @Override
@@ -559,6 +574,18 @@ public class PollManager
     };
     pluginMgr.registerAuEventHandler(auEventHandler);
 
+    // register our CrawlEventHandler
+    crawlEventHandler = new CrawlEventHandler.Base() {
+      @Override
+      protected void handleRepairCompleted(CrawlEvent event) {
+        receiveRepairComplete(event);
+      }
+    };
+    if (config.getBoolean(PARAM_ENABLE_CRAWL_NOTIFICATIONS,
+                          DEFAULT_ENABLE_CRAWL_NOTIFICATIONS)) {
+      theCrawlManager.registerCrawlEventHandler(crawlEventHandler);
+    }
+
     // Maintain the state of V3 polls, since these do not use the V1 per-node
     // history mechanism.
     v3Status = new V3PollStatusAccessor();
@@ -571,6 +598,7 @@ public class PollManager
     // Enable the poll starter.
     enablePollStarter();
   }
+
 
   private void enablePollStarter() {
     theLog.info("Starting PollStarter");
@@ -653,7 +681,7 @@ public class PollManager
   /**
    * REST Service entry point for stopping a previously requested poll
    * @param au the au
-   * @return a the stopped poll
+   * @return the stopped poll
    */
   public Poll stopPoll(ArchivalUnit au)
   {
@@ -708,8 +736,7 @@ public class PollManager
    *
    * @param au the AU
    */
-  public
-  void cancelAuPolls(ArchivalUnit au) {
+  public void cancelAuPolls(ArchivalUnit au) {
     // first remove from queues, so none will run.
     pollQueue.cancelAuPolls(au);
     // collect PollManagerEntries related to this au
@@ -776,6 +803,33 @@ public class PollManager
    */
   public boolean isPollRunning(ArchivalUnit au) {
     return entryManager.isPollRunning(au);
+  }
+
+  public boolean sendRepairRequest(ArchivalUnit au,
+                                   List<String> pendingPublisherRepairs,
+                                   String key) {
+    CrawlDesc desc = new CrawlDesc()
+      .auId(au.getAuId())
+      .crawlList(pendingPublisherRepairs)
+      .crawlKind(CrawlDesc.CrawlKindEnum.REPAIR)
+      .putExtraCrawlerDataItem(POLL_ID_KEY, key);
+    return ((CrawlManagerImpl)getDaemon().getCrawlManager()).sendCrawlRequest(au, desc);
+  }
+
+  /** Incoming CrawlEvent handler */
+  protected void receiveRepairComplete(CrawlEvent event) {
+    log.debug("Received notification: " + event);
+    Map<String, Object> extraData = event.getExtraData();
+    if(extraData != null) {
+      String pollId = (String)extraData.get(POLL_ID_KEY);
+      V3Poller poll= (V3Poller) getPoll(pollId);
+      if(poll != null) {
+        poll.handleRepairResponse(event.isSuccessful(), event.getUrlsFetched());
+      }
+      else {
+        log.debug("Received a repair crawl complete for unknown pollId " + pollId);
+      }
+    }
   }
 
   /**
@@ -1256,6 +1310,12 @@ public class PollManager
         pf[i].setConfig(newConfig, oldConfig, changedKeys);
       }
     }
+    // setup service binding to send crawl request
+    svcsMgr = getDaemon().getManagerByType(RestServicesManager.class);
+    crawlerServiceBinding = getDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    if (crawlerServiceBinding == null) {
+      log.warning("No Crawler Service binding, repair from publisher disabled");
+    }
   }
 
   public boolean isV3PollerEnabled() {
@@ -1463,6 +1523,10 @@ public class PollManager
       long auAge = TimeBase.msSince(state.getAuCreationTime());
       long threshold = (long) Math.round(v3NoAuResetIntervalCurve.getY(auAge));
       if (TimeBase.msSince(lastTimestamp) >= threshold) {
+        int s = noAuSet.size();
+        log.debug2("Clearing NoAuSet (" + noAuSet.size() + " entries) for: "
+                   + au.getAuId() + " with age " +
+                   StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
         noAuSet.clear();
         noAuSet.store();
       }
@@ -2658,7 +2722,7 @@ public class PollManager
     }
 
     Double value() {
-      return new Double(value);
+      return Double.valueOf(value);
     }
   }
 

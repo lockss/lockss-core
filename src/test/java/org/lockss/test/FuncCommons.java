@@ -65,8 +65,8 @@ public class FuncCommons extends LockssTestCase {
     // Repeat until we have seen enough drops in size
     for (int ii = 0; drop > 0; ii++) {
       for (int jj = 0; jj < loop; jj++) {
-	Integer key = new Integer(ii*loop+jj); // make a unique key
-	Integer val = new Integer(jj);
+	Integer key = Integer.valueOf(ii*loop+jj); // make a unique key
+	Integer val = Integer.valueOf(jj);
 	map.put(key, val);
 
 	if (key.intValue() == 143) {	// hold on to key 143
@@ -87,16 +87,16 @@ public class FuncCommons extends LockssTestCase {
     }
     // Because the value for key 243 still exists, that entry should still
     // be in the map, and should be the same as the one we put in
-    assertTrue(map.containsKey(new Integer(243)));
-    assertSame(aVal, (Integer)map.get(new Integer(243)));
+    assertTrue(map.containsKey(Integer.valueOf(243)));
+    assertSame(aVal, (Integer)map.get(Integer.valueOf(243)));
 
     // This key's value has been collected by now (we hope), so it shouldn't
     // be in the map
-    assertFalse(map.containsKey(new Integer(221)));
+    assertFalse(map.containsKey(Integer.valueOf(221)));
 
     // Holding on to a key shouldn't have any effect.  This one shouldn't
     // be in the map either.
-    assertFalse(map.containsKey(new Integer(143)));
+    assertFalse(map.containsKey(Integer.valueOf(143)));
     assertFalse(map.containsKey(aKey));
   }
 

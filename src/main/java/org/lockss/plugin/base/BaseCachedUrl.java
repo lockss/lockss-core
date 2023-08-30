@@ -45,9 +45,9 @@ import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;
 
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
-import org.lockss.laaws.rs.util.*;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
 
 /** Base class for CachedUrls.  Expects the LockssRepository for storage.
  * Plugins may extend this to get some common CachedUrl functionality.

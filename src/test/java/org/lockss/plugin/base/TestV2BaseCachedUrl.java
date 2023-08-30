@@ -50,9 +50,10 @@ import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.apache.http.*;
 import org.apache.http.message.*;
 import org.springframework.http.HttpHeaders;
-import org.lockss.laaws.rs.core.*;
-import org.lockss.laaws.rs.model.*;
-import org.lockss.laaws.rs.util.*;
+import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
 
 /** Variants test "current" BaseCachedUrl and version-specific
  * BaseCachedUrl instances */

@@ -1275,7 +1275,7 @@ public class TestPsmInterp extends LockssTestCase {
       events.add(new ER(curState, event, action, newState));
       if (newState != null) {
 	states.add(newState.getName());
-	stateTimes.add(new Long(TimeBase.nowMs()));
+	stateTimes.add(Long.valueOf(TimeBase.nowMs()));
       }
     }
 

@@ -51,7 +51,7 @@ public class TestTimerQueue extends LockssTestCase {
   };
 
   String O1 = "foo";
-  Integer O2 = new Integer(42);
+  Integer O2 = Integer.valueOf(42);
 
   public TestTimerQueue(String msg) {
     super(msg);
@@ -93,15 +93,15 @@ public class TestTimerQueue extends LockssTestCase {
       TimerQueue.schedule(Deadline.in(500), 1000, cb, null);
     assertTrue(q.isEmpty());
     TimeBase.step(501);
-    assertEquals(new Long(501), q.get(500));
+    assertEquals(Long.valueOf(501), q.get(500));
     assertTrue(q.isEmpty());
     TimeBase.step(501);
     assertTrue(q.isEmpty());
     TimeBase.step(501);
-    assertEquals(new Long(1503), q.get(500));
+    assertEquals(Long.valueOf(1503), q.get(500));
     assertTrue(q.isEmpty());
     TimeBase.step(1001);
-    assertEquals(new Long(2504), q.get(500));
+    assertEquals(Long.valueOf(2504), q.get(500));
     assertTrue(q.isEmpty());
     TimerQueue.cancel(req);
     TimeBase.step(1001);

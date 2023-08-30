@@ -64,7 +64,7 @@ public class TestCacheResultHandlerWrapper extends LockssTestCase {
     String url = "foourl";
     wrapper.handleResult(null, url, 5);
     MockCacheResultHandler mn = (MockCacheResultHandler)obj;
-    assertEquals(ListUtil.list(new Integer(5), url), mn.args);
+    assertEquals(ListUtil.list(Integer.valueOf(5), url), mn.args);
   }
 
   public void testLinkageErrorInit() throws IOException {
@@ -119,7 +119,7 @@ public class TestCacheResultHandlerWrapper extends LockssTestCase {
     public CacheException handleResult(ArchivalUnit au,
 				       String url,
 				       int code) {
-      args = ListUtil.list(new Integer(code), url);
+      args = ListUtil.list(Integer.valueOf(code), url);
       if (error != null) {
 	throw error;
       }

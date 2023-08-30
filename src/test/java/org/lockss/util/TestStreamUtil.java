@@ -513,7 +513,7 @@ public class TestStreamUtil extends LockssTestCase {
     public void startWDog(long interval) {}
     public void stopWDog() {}
     public void pokeWDog() {
-      times.add(new Long(TimeBase.nowMs()));
+      times.add(Long.valueOf(TimeBase.nowMs()));
     }
     public long getWDogInterval() {
       return intr;

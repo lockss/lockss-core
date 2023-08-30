@@ -57,13 +57,13 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   private static final Logger log = Logger.getLogger();
 
   public static final long
-    DEFAULT_FETCH_DELAY = 6 * Constants.SECOND;
+    DEFAULT_FETCH_DELAY = 3 * Constants.SECOND;
 
   /** Minimum fetch delay.  Plugin-specified fetch delay may be used only
    * to increase the delay. */
   public static final String PARAM_MIN_FETCH_DELAY =
     Configuration.PREFIX+"baseau.minFetchDelay";
-  public static final long DEFAULT_MIN_FETCH_DELAY = 6 * Constants.SECOND;;
+  public static final long DEFAULT_MIN_FETCH_DELAY = 3 * Constants.SECOND;;
 
   /** Default fetch rate limiter source for plugins that don't specify
    * au_fetch_rate_limiter_source.  Can be "au" or "plugin"; default is
@@ -602,7 +602,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
     }
     
     if (key == null && log.isDebug()) {
-      log.warning("Rate limiter source (" + limiterSource + ") is null, using AU");
+      log.debug3("Rate limiter source (" + limiterSource + ") is null, using AU");
     }
     if (log.isDebug3()) {
       log.debug3("Final rate limiter source is " + key);
@@ -852,6 +852,10 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
     return false;
   }
 
+  public boolean isCrawlable() {
+    return true;
+  }
+
   public ArchiveFileTypes getArchiveFileTypes() {
     return plugin.getArchiveFileTypes();
   }
@@ -982,27 +986,35 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   }
 
   protected static class ParamHandlerMap extends TypedEntryMap {
-    HashMap<String,ParamHandler> handlerMap = new HashMap<String,ParamHandler>();
+    HashMap<String,ParamHandler> handlerMap;
 
     protected ParamHandlerMap() {
       super();
     }
 
-    protected void addParamHandler(String paramKey, ParamHandler handler) {
-      handlerMap.put(paramKey, handler);
+    private HashMap<String,ParamHandler> getHandlerMap() {
+      if (handlerMap == null) {
+        handlerMap = new HashMap<>();
+      }
+      return handlerMap;
     }
 
-    protected ParamHandler removeParamHandler(String paramKey) {
-      synchronized (handlerMap) {
-        return (ParamHandler) handlerMap.remove(paramKey);
-      }
+    protected synchronized void addParamHandler(String paramKey,
+                                                ParamHandler handler) {
+      getHandlerMap().put(paramKey, handler);
+    }
+
+    protected synchronized ParamHandler removeParamHandler(String paramKey) {
+      return (ParamHandler) getHandlerMap().remove(paramKey);
     }
 
     public Object getMapElement(String paramKey) {
-      synchronized (handlerMap) {
-        ParamHandler handler = (ParamHandler)handlerMap.get(paramKey);
-        if(handler != null) {
-          return handler.getParamValue(paramKey);
+      if (handlerMap != null) {
+        synchronized (this) {
+          ParamHandler handler = (ParamHandler)handlerMap.get(paramKey);
+          if(handler != null) {
+            return handler.getParamValue(paramKey);
+          }
         }
       }
       return super.getMapElement(paramKey);

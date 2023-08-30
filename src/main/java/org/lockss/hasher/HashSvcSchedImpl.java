@@ -55,8 +55,8 @@ public class HashSvcSchedImpl
   public static final String HASH_STATUS_TABLE = "HashQ";
 
   private SchedService sched = null;
-  private long estPadConstant = 0;
-  private long estPadPercent = 0;
+  private long estPadConstant = DEFAULT_ESTIMATE_PAD_CONSTANT;
+  private long estPadPercent = DEFAULT_ESTIMATE_PAD_PERCENT;
   private List queue = new LinkedList();
   private HistoryList completed = new HistoryList(DEFAULT_COMPLETED_MAX);
   // lock object for both queue and completed
@@ -94,8 +94,8 @@ public class HashSvcSchedImpl
 
   public void setConfig(Configuration config, Configuration prevConfig,
 			Configuration.Differences changedKeys) {
-    estPadConstant = config.getLong(PARAM_ESTIMATE_PAD_CONSTANT,
-				    DEFAULT_ESTIMATE_PAD_CONSTANT);
+    estPadConstant = config.getTimeInterval(PARAM_ESTIMATE_PAD_CONSTANT,
+                                            DEFAULT_ESTIMATE_PAD_CONSTANT);
     estPadPercent = config.getLong(PARAM_ESTIMATE_PAD_PERCENT,
 				   DEFAULT_ESTIMATE_PAD_PERCENT);
     hashStepBytes = config.getInt(PARAM_STEP_BYTES, DEFAULT_STEP_BYTES);
@@ -452,25 +452,25 @@ public class HashSvcSchedImpl
     private Map makeRow(HashTask task, boolean done, int qpos) {
       Map row = new HashMap();
       row.put("sort",
-	      new Long((done ? -task.getFinishDate().getTime() :
+	      Long.valueOf((done ? -task.getFinishDate().getTime() :
 			task.getLatestFinish().getExpiration().getTime())));
-      row.put("sort2", new Long(task.hashReqSeq));
-      row.put("sched", new Integer(task.hashReqSeq));
+      row.put("sort2", Long.valueOf(task.hashReqSeq));
+      row.put("sched", Integer.valueOf(task.hashReqSeq));
       row.put("state", task.getState(done));
       row.put("au", task.urlset.getArchivalUnit().getName());
       row.put("cus", task.urlset.getSpec());
       row.put("type", task.typeString());
       row.put("deadline", task.getLatestFinish());
-      row.put("estimate", new Long(task.getOrigEst()));
+      row.put("estimate", Long.valueOf(task.getOrigEst()));
       long timeUsed = task.getTimeUsed();
-      Object used = new Long(timeUsed);
+      Object used = Long.valueOf(timeUsed);
       if (task.hasOverrun()) {
 	StatusTable.DisplayedValue val = new StatusTable.DisplayedValue(used);
 	val.setColor("red");
 	used = val;
       }
       row.put("timeused", used);
-      row.put("bytesHashed", new Long(task.bytesHashed));
+      row.put("bytesHashed", Long.valueOf(task.bytesHashed));
       if (timeUsed > 0 && task.bytesHashed > 0) {
 	row.put("rate", hashRate(BigInteger.valueOf(task.bytesHashed),
 				 timeUsed));
@@ -485,7 +485,7 @@ public class HashSvcSchedImpl
 					  totalBytesHashed));
       res.add(new StatusTable.SummaryInfo("Total hash time",
 					  ColumnDescriptor.TYPE_TIME_INTERVAL,
-					  new Long(totalTime)));
+					  Long.valueOf(totalTime)));
       if (totalTime != 0) {
 	res.add(new StatusTable.SummaryInfo("Bytes/ms",
 					    ColumnDescriptor.TYPE_STRING,

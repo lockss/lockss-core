@@ -35,7 +35,7 @@ package org.lockss.plugin;
 import java.util.Iterator;
 import java.security.MessageDigest;
 import org.lockss.daemon.*;
-import org.lockss.laaws.rs.model.AuSize;
+import org.lockss.util.rest.repo.model.AuSize;
 
 /**
  * This interface is implemented by plug-ins for the LOCKSS daemons.  The

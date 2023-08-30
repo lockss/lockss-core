@@ -50,7 +50,7 @@ import org.lockss.util.time.TimeBase;
  * as hash speed estimates.
  */
 public class SystemMetrics
-  extends BaseLockssDaemonManager implements ConfigurableManager {
+  extends BaseLockssManager implements ConfigurableManager {
   static final String PREFIX = Configuration.PREFIX + "metrics.";
 
   /**
@@ -93,16 +93,25 @@ public class SystemMetrics
 
   Hashtable estimateTable = new Hashtable();
   MessageDigest defaultDigest = LcapMessage.getDefaultMessageDigest();
-  HashService hashService;
-  private PluginManager pluginMgr;
+  private HashService hashService = null;
+  private PluginManager pluginMgr = null;
   int defaultSpeed = DEFAULT_DEFAULT_HASH_SPEED;
   private TimerQueue.Request req;
   private long memLogInterval = DEFAULT_MEM_LOG_INTERVAL;
+  private String lastStringPoolStats;
 
   public void startService() {
     super.startService();
-    hashService = getDaemon().getHashService();
-    pluginMgr = getDaemon().getPluginManager();
+    try {
+      hashService = getApp().getManagerByType(HashService.class);
+    } catch (IllegalArgumentException e) {
+      // ignore
+    }
+    try {
+      pluginMgr = getApp().getManagerByType(PluginManager.class);
+    } catch (IllegalArgumentException e) {
+      // ignore
+    }
     resetConfig();
   }
 
@@ -181,8 +190,8 @@ public class SystemMetrics
     Integer estimate = (Integer)estimateTable.get(digest.getAlgorithm());
     if (estimate==null) {
       // don't calculate; use default instead
-      estimate = new Integer(defaultSpeed);
-      //      estimate = new Integer(measureHashSpeed(hasher, digest));
+      estimate = Integer.valueOf(defaultSpeed);
+      //      estimate = Integer.valueOf(measureHashSpeed(hasher, digest));
       estimateTable.put(digest.getAlgorithm(), estimate);
     }
     return estimate.intValue();
@@ -272,7 +281,12 @@ public class SystemMetrics
 		( (pluginMgr == null) ? "" :
 		  (", " + pluginMgr.getAllAus().size() + " AUs")));
     if (logger.isDebug2()) {
-      logger.debug2("String Pools:\n" + StringPool.allStats());
+      String spStats = StringPool.allStats();
+      // Log StringPool stats iff they have changed
+      if (spStats != null && !spStats.equals(lastStringPoolStats)) {
+        logger.debug2("String Pools:\n" + spStats);
+        lastStringPoolStats = spStats;
+      }
     }
     schedMemLog();
   }

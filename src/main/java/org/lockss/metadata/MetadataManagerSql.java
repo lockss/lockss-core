@@ -1388,15 +1388,15 @@ public class MetadataManagerSql {
    * 
    * @param conn
    *          A Connection with the database connection to be used.
-   * @param pluginId
-   *          A String with the plugin identifier.
+   * @param pluginKey
+   *          A String with the plugin key.
    * @return a Long with the identifier of the plugin.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  Long findPlugin(Connection conn, String pluginId) throws DbException {
+  Long findPlugin(Connection conn, String pluginKey) throws DbException {
     final String DEBUG_HEADER = "findPlugin(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "pluginId = " + pluginId);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "pluginKey = " + pluginKey);
     Long pluginSeq = null;
     ResultSet resultSet = null;
 
@@ -1404,7 +1404,7 @@ public class MetadataManagerSql {
 	dbManager.prepareStatement(conn, FIND_PLUGIN_QUERY);
 
     try {
-      findPlugin.setString(1, pluginId);
+      findPlugin.setString(1, pluginKey);
 
       resultSet = dbManager.executeQuery(findPlugin);
       if (resultSet.next()) {
@@ -1414,7 +1414,7 @@ public class MetadataManagerSql {
       String message = "Cannot find plugin";
       log.error(message, sqle);
       log.error("SQL = '" + FIND_PLUGIN_QUERY + "'.");
-      log.error("pluginId = " + pluginId);
+      log.error("pluginKey = " + pluginKey);
       throw new DbException(message, sqle);
     } finally {
       DbManager.safeCloseResultSet(resultSet);
@@ -2878,19 +2878,19 @@ public class MetadataManagerSql {
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
     PreparedStatement insertUnconfiguredAu = null;
-    String pluginId = null;
+    String pluginKey = null;
     String auKey = null;
 
     try {
       insertUnconfiguredAu =
 	  dbManager.prepareStatement(conn, INSERT_UNCONFIGURED_AU_QUERY);
 
-      pluginId = PluginManager.pluginIdFromAuId(auId);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginId = " + pluginId);
+      pluginKey = PluginManager.pluginKeyFromAuId(auId);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey = " + pluginKey);
       auKey = PluginManager.auKeyFromAuId(auId);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auKey = " + auKey);
 
-      insertUnconfiguredAu.setString(1, pluginId);
+      insertUnconfiguredAu.setString(1, pluginKey);
       insertUnconfiguredAu.setString(2, auKey);
       int count = dbManager.executeUpdate(insertUnconfiguredAu);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
@@ -2899,7 +2899,7 @@ public class MetadataManagerSql {
       log.error(message, sqle);
       log.error("auId = " + auId);
       log.error("SQL = '" + INSERT_UNCONFIGURED_AU_QUERY + "'.");
-      log.error("pluginId = " + pluginId);
+      log.error("pluginKey = " + pluginKey);
       log.error("auKey = " + auKey);
       throw new DbException(message, sqle);
     } catch (DbException dbe) {
@@ -2907,7 +2907,7 @@ public class MetadataManagerSql {
       log.error(message, dbe);
       log.error("auId = " + auId);
       log.error("SQL = '" + INSERT_UNCONFIGURED_AU_QUERY + "'.");
-      log.error("pluginId = " + pluginId);
+      log.error("pluginKey = " + pluginKey);
       log.error("auKey = " + auKey);
       throw dbe;
     } finally {
@@ -2973,7 +2973,7 @@ public class MetadataManagerSql {
     final String DEBUG_HEADER = "isAuInUnconfiguredAuTable(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
-    String pluginId = null;
+    String pluginKey = null;
     String auKey = null;
     long rowCount = -1;
     ResultSet results = null;
@@ -2981,12 +2981,12 @@ public class MetadataManagerSql {
 	dbManager.prepareStatement(conn, FIND_UNCONFIGURED_AU_COUNT_QUERY);
 
     try {
-      pluginId = PluginManager.pluginIdFromAuId(auId);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginId = " + pluginId);
+      pluginKey = PluginManager.pluginKeyFromAuId(auId);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey = " + pluginKey);
       auKey = PluginManager.auKeyFromAuId(auId);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auKey = " + auKey);
 
-      unconfiguredAu.setString(1, pluginId);
+      unconfiguredAu.setString(1, pluginKey);
       unconfiguredAu.setString(2, auKey);
 
       // Find the archival unit in the table.
@@ -2999,7 +2999,7 @@ public class MetadataManagerSql {
       log.error(message, sqle);
       log.error("auId = " + auId);
       log.error("SQL = '" + FIND_UNCONFIGURED_AU_COUNT_QUERY + "'.");
-      log.error("pluginId = " + pluginId);
+      log.error("pluginKey = " + pluginKey);
       log.error("auKey = " + auKey);
       throw new DbException(message, sqle);
     } finally {
@@ -4971,7 +4971,7 @@ public class MetadataManagerSql {
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
     Map<String, Object> result = null;
-    String pluginId = null;
+    String pluginKey = null;
     String auKey = null;
 
     PreparedStatement getAuMetadata =
@@ -4980,13 +4980,13 @@ public class MetadataManagerSql {
     ResultSet resultSet = null;
 
     try {
-      pluginId = PluginManager.pluginIdFromAuId(auId);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginId() = " + pluginId);
+      pluginKey = PluginManager.pluginKeyFromAuId(auId);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey() = " + pluginKey);
 
       auKey = PluginManager.auKeyFromAuId(auId);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auKey = " + auKey);
 
-      getAuMetadata.setString(1, pluginId);
+      getAuMetadata.setString(1, pluginKey);
       getAuMetadata.setString(2, auKey);
       resultSet = dbManager.executeQuery(getAuMetadata);
 
@@ -5044,7 +5044,7 @@ public class MetadataManagerSql {
       log.error(message, sqle);
       log.error("auId = '" + auId + "'.");
       log.error("SQL = '" + GET_AU_MD_QUERY + "'.");
-      log.error("pluginId = '" + pluginId + "'.");
+      log.error("pluginKey = '" + pluginKey + "'.");
       log.error("auKey = '" + auKey + "'.");
       throw new DbException(message, sqle);
     } finally {

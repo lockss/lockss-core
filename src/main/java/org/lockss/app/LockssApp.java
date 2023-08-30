@@ -203,6 +203,7 @@ public class LockssApp {
     MISC_PARAMS_MANAGER_DESC,
     RANDOM_MANAGER_DESC,
     RESOURCE_MANAGER_DESC,
+    SYSTEM_METRICS_DESC,
     JMS_MANAGER_DESC,
     MAIL_SERVICE_DESC,
     ALERT_MANAGER_DESC,
@@ -551,7 +552,7 @@ public class LockssApp {
    */
   public static LockssApp getLockssApp() {
     try {
-      return theApp.waitValue(15 * Constants.SECOND);
+      return theApp.waitValue(60 * Constants.SECOND);
     } catch (IllegalStateException e) {
       throw new IllegalStateException("LockssApp was not instantiated");
     }
@@ -1098,6 +1099,12 @@ public class LockssApp {
 				      propUrls, groupNames,
 				      getAppSpec().getSpringApplicatonContext());
     configMgr.setClusterUrls(clusterUrls);
+
+    // XXX Arrange for StringPoolConfig to apply its default config
+    // before config is loaded, as config load generates many strings
+    // that need to be interned
+    Configuration empty = ConfigManager.newConfiguration();
+    StringPoolConfig.setConfig(empty, empty, Configuration.Differences.ALL);
 
     configMgr.initService(this);
     configMgr.startService();

@@ -1175,14 +1175,14 @@ class TaskRunner {
       if (isSepr(scheme, ix, !iter.hasNext(), isHist)) {
 	row.put(StatusTable.ROW_SEPARATOR, "");
       }
-      row.put("sort", new Integer(sortOrder(scheme, ix, isHist)));
+      row.put("sort", Integer.valueOf(sortOrder(scheme, ix, isHist)));
       if (event.isBackgroundEvent()) {
 	Schedule.BackgroundEvent be = (Schedule.BackgroundEvent)event;
 	BackgroundTask bt = be.getTask();
 	row.put("type", "  Back");
-// 	row.put("tasknum", new Integer(bt.schedSeq));
+// 	row.put("tasknum", Integer.valueOf(bt.schedSeq));
 	row.put("task", bt.schedSeq + ":" + bt.getShortText());
-	row.put("load", new Double(bt.getLoadFactor()));
+	row.put("load", Double.valueOf(bt.getLoadFactor()));
 	if (be instanceof CombinedBackgroundEvent) {
 	  CombinedBackgroundEvent cbe = (CombinedBackgroundEvent)be;
 	  row.put("in", timeDelta(nowMs, cbe.getStart().getExpirationTime()));
@@ -1200,9 +1200,9 @@ class TaskRunner {
 	Schedule.Chunk chunk = (Schedule.Chunk)event;
 	StepTask st = chunk.getTask();
 	row.put("type", (chunk == runningChunk) ? "*Fore" : "Fore");
-// 	row.put("tasknum", new Integer(st.schedSeq));
+// 	row.put("tasknum", Integer.valueOf(st.schedSeq));
 	row.put("task", st.schedSeq + ":" + st.getShortText());
-	row.put("load", new Double(chunk.getLoadFactor()));
+	row.put("load", Double.valueOf(chunk.getLoadFactor()));
 	row.put("in", timeDelta(nowMs, chunk.getStart().getExpirationTime()));
 	row.put("dur", timeDelta(chunk.getStart().getExpirationTime(),
 				 chunk.getFinish().getExpirationTime()));
@@ -1301,7 +1301,7 @@ class TaskRunner {
       List res = new ArrayList();
       res.add(new StatusTable.SummaryInfo("Foreground time",
 					  ColumnDescriptor.TYPE_TIME_INTERVAL,
-					  new Long(totalTime)));
+					  Long.valueOf(totalTime)));
       res.add(new StatusTable.SummaryInfo("Foreground Tasks",
 					  ColumnDescriptor.TYPE_STRING,
 					  taskStatsString(foregroundStats)));

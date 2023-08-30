@@ -29,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.crawler;
 
 import java.util.Collection;
+
 import org.lockss.app.LockssDaemon;
 import org.lockss.daemon.Crawler;
 import org.lockss.plugin.ArchivalUnit;
@@ -45,23 +46,21 @@ public interface CrawlManager {
    *
    * @param au ArchivalUnit that the crawl manager should check
    * @param urls url Strings that need to be repaired
-   * @param cb callback to talk to when repair attempt is done
    * @param cookie object that the callback needs to understand which repair
    * we're referring to.
    */
   CrawlerStatus startRepair(ArchivalUnit au, Collection urls,
-      CrawlManager.Callback cb, Object cookie);
+       Object cookie);
 
   /**
    * Starts a new content crawl.
    *
    * @param au ArchivalUnit that the crawl manager should check
-   * @param cb callback to be called when the crawler is done with the AU, if
    * not now
    * @param cookie cookie for the callback
    * @return a CrawlerStatus with the status of the started crawler.
    */
-  CrawlerStatus startNewContentCrawl(ArchivalUnit au, CrawlManager.Callback cb,
+  CrawlerStatus startNewContentCrawl(ArchivalUnit au,
 			    Object cookie);
 
 
@@ -71,13 +70,12 @@ public interface CrawlManager {
    * @param au ArchivalUnit that the crawl manager should check
    * @param priority If greater then zero, this crawl will have start-order
    * priority over those with lower priority
-   * @param cb callback to be called when the crawler is done with the AU, if
    * not now
    * @param cookie cookie for the callback
    * @return a CrawlerStatus with the status of the started crawler.
    */
   CrawlerStatus startNewContentCrawl(ArchivalUnit au, int priority,
-			    CrawlManager.Callback cb, Object cookie);
+			     Object cookie);
 
   /**
    * Starts a new content crawl specified by a CrawlReq
@@ -124,19 +122,9 @@ public interface CrawlManager {
    */
   boolean isAllowedPluginPermittedHost(String host);
 
-  interface Callback {
+  default void registerCrawlEventHandler(CrawlEventHandler handler) {}
 
-    /**
-     * Called when the crawl is completed
-     *
-     * @param success whether the crawl was successful or not
-     * @param cookie object used by callback to designate which crawl attempt
-     * this is
-     */
-    void signalCrawlAttemptCompleted(boolean success,
-        Object cookie,
-        CrawlerStatus status);
-  }
+  default void unregisterCrawlEventHandler(CrawlEventHandler handler) {}
 
   interface StatusSource {
 

@@ -234,7 +234,7 @@ public class CrawlerStatus {
   protected UrlCount errors;
   protected ReferrerMap referrers;
   protected RecordReferrersMode recordRefMode;
-  protected String crawlerId = CrawlDesc.LOCKSS_CRAWLER_ID;
+  protected String crawlerId = CrawlDesc.CLASSIC_CRAWLER_ID;
 
   // Maps mimetype to UrlCounter
   protected Map<String, UrlCount> mimeCounts = new HashMap<String, UrlCount>();
@@ -498,6 +498,10 @@ public class CrawlerStatus {
     this.statusMessage = message;
   }
 
+  public void setCrawlerId(String crawlerId) {
+    this.crawlerId = crawlerId;
+  }
+
   /**
    * Return true if crawl hasn't started yet
    */
@@ -556,14 +560,7 @@ public class CrawlerStatus {
    * "Active" even if an error has occurred
    */
   public String getCrawlStatusMsg() {
-    if (startTime != -1 && endTime == -1) {
-      return getDefaultMessage(Crawler.STATUS_ACTIVE);
-//     } else if (startTime == -1 && status != null) {
-//       return getDefaultMessage(Crawler.STATUS_QUEUED);
-    }
-    else {
-      return getCrawlErrorMsg();
-    }
+    return getCrawlErrorMsg();
   }
 
   /**

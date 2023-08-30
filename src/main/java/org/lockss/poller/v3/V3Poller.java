@@ -2215,7 +2215,7 @@ public class V3Poller implements Poll {
 
   private boolean
   publisherAvailableForRepair() {
-    return !getAu().isNamedArchivalUnit() && !AuUtil.isPubDown(getAu());
+    return getAu().isCrawlable() && !AuUtil.isPubDown(getAu());
   }
 
   /**
@@ -2356,31 +2356,9 @@ public class V3Poller implements Poll {
     if (!pendingPublisherRepairs.isEmpty()) {
       log.debug("Starting publisher repair crawl for " +
           pendingPublisherRepairs.size() + " urls.");
-      CrawlManager cm = theDaemon.getCrawlManager();
-      CrawlManager.Callback cb = new CrawlManager.Callback() {
-        public void signalCrawlAttemptCompleted(boolean success,
-            Object cookie,
-            CrawlerStatus status) {
-          log.debug3("Repair crawl complete: " + success + ", fetched: "
-              + status.getUrlsFetched());
-          if (success) {
-            // Check the repairs.
-            // XXX: It would be nice to be able to re-hash the repaired
-            // URLs as a single set, but we don't have a notion of
-            // a disjoint CachedUrlSetSpec that represents a collection of
-            // unrelated nodes.
-            Collection<String> urlsFetched =
-                (Collection<String>) status.getUrlsFetched();
-            for (String url : urlsFetched) {
-              receivedRepair(url);
-            }
-          }
-        }
-      };
 
       queue.markActive(pendingPublisherRepairs);
-      cm.startRepair(getAu(), pendingPublisherRepairs,
-          cb, null /*cookie*/);
+      pollManager.sendRepairRequest(getAu(), pendingPublisherRepairs, getKey());
     }
 
     // If we have decided to repair from any caches, iterate over the list
@@ -2392,6 +2370,21 @@ public class V3Poller implements Poll {
       for (PollerStateBean.Repair r : pendingPeerRepairs) {
         requestRepairFromPeer(r.getUrl(), r.getRepairFrom());
         queue.markActive(r.getUrl());
+      }
+    }
+  }
+
+  public void handleRepairResponse(boolean success, Collection<String> urlsFetched) {
+    log.debug3("Repair crawl complete: " + success +
+      ", fetched: " + urlsFetched);
+    if(success) {
+      // Check the repairs.
+      // XXX: It would be nice to be able to re-hash the repaired
+      // URLs as a single set, but we don't have a notion of
+      // a disjoint CachedUrlSetSpec that represents a collection of
+      // unrelated nodes.
+      for (String url : urlsFetched) {
+        receivedRepair(url);
       }
     }
   }
@@ -2889,16 +2882,7 @@ public class V3Poller implements Poll {
       // load list of peers who have recently said they don't have the AU
       DatedPeerIdSet noAuSet = pollManager.getNoAuPeerSet(getAu());
       synchronized (noAuSet) {
-	try {
-	  int s = noAuSet.size();
-	  pollManager.ageNoAuSet(getAu(), noAuSet);
-	  log.debug2("NoAuSet: " + s + " aged-> " + noAuSet.size()
-		     + ", " + StringUtil.timeIntervalToString(TimeBase.msSince(noAuSet.getDate())));
-	  noAuSet.store();
-	} catch (IOException e) {
-	  log.error("Failed to age no AU set", e);
-	  noAuSet = null;
-	}
+        pollManager.ageNoAuSet(getAu(), noAuSet);
 	// first build list of eligible peers
 	if (enableDiscovery) {
 	  allPeers =

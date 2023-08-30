@@ -103,14 +103,14 @@ public class SimulatedStatusAccessor {
       default:
 	return "xyzzy_" + row;
       case ColumnDescriptor.TYPE_INT:
-	return new Integer(row);
+	return Integer.valueOf(row);
       case ColumnDescriptor.TYPE_PERCENT:
-	return new Float(1.0 / row);
+	return 1.0F / row;
       case ColumnDescriptor.TYPE_TIME_INTERVAL:
-	return new Long(Math.round(Math.pow(59, row)) * Constants.SECOND);
-// 	return new Integer((59 << row) * Constants.SECOND);
+	return Long.valueOf(Math.round(Math.pow(59, row)) * Constants.SECOND);
+// 	return Integer.valueOf((59 << row) * Constants.SECOND);
       case ColumnDescriptor.TYPE_FLOAT:
-	return new Float(1.0 / row);
+	return 1.0 / row;
       case ColumnDescriptor.TYPE_IP_ADDRESS:
 	try {
 	  return IPAddr.getByName("10.1.0.42");

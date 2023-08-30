@@ -102,12 +102,12 @@ public class TestCastor extends LockssTestCase {
 
   public void testBasicTypes() throws Exception {
     //broken in 0.9.4.1
-//     assertMarshalUnmarshalGivesEqualObj(new Integer(5));
-//     assertMarshalUnmarshalGivesEqualObj(new Boolean(false));
-//     assertMarshalUnmarshalGivesEqualObj(new Boolean(true));
-//     assertMarshalUnmarshalGivesEqualObj(new Long(5));
-//     assertMarshalUnmarshalGivesEqualObj(new Float(5.0));
-//     assertMarshalUnmarshalGivesEqualObj(new Double(5.0));
+//     assertMarshalUnmarshalGivesEqualObj(Integer.valueOf(5));
+//     assertMarshalUnmarshalGivesEqualObj(Boolean.valueOf(false));
+//     assertMarshalUnmarshalGivesEqualObj(Boolean.valueOf(true));
+//     assertMarshalUnmarshalGivesEqualObj(Long.valueOf(5));
+//     assertMarshalUnmarshalGivesEqualObj(Float.valueOf(5.0));
+//     assertMarshalUnmarshalGivesEqualObj(Double.valueOf(5.0));
     //broken in 0.9.5.4
 //     assertMarshalUnmarshalGivesEqualObj("Test string");
   }
@@ -123,7 +123,7 @@ public class TestCastor extends LockssTestCase {
 //   public void testArrayListHetero() throws Exception {
 //     ArrayList list = new ArrayList();
 //     list.add("Blah");
-//     list.add(new Integer(2));
+//     list.add(Integer.valueOf(2));
 //     assertMarshalUnmarshalGivesEqualObj(list);
 //   }
 

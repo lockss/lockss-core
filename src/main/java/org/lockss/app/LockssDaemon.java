@@ -31,40 +31,52 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.app;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
-import org.apache.commons.lang3.*;
-import static org.lockss.app.ManagerDescs.*;
-import org.lockss.util.*;
-import org.lockss.util.time.Deadline;
-import org.lockss.alert.*;
-import org.lockss.daemon.*;
-import org.lockss.daemon.status.*;
-import org.lockss.exporter.FetchTimeExportManager;
-import org.lockss.exporter.counter.CounterReportsManager;
-import org.lockss.account.*;
-import org.lockss.hasher.*;
-import org.lockss.scheduler.*;
-import org.lockss.metadata.MetadataDbManager;
-import org.lockss.metadata.MetadataManager;
-import org.lockss.plugin.*;
-import org.lockss.truezip.*;
-import org.lockss.poller.*;
-import org.lockss.protocol.*;
-import org.lockss.protocol.psm.*;
-import org.lockss.repository.*;
-import org.lockss.state.*;
-import org.lockss.subscription.SubscriptionManager;
-import org.lockss.proxy.*;
-import org.lockss.proxy.icp.IcpManager;
+import org.apache.commons.collections4.map.LinkedMap;
+import org.lockss.alert.Alert;
+import org.lockss.alert.AlertManager;
+import org.lockss.clockss.ClockssParams;
 import org.lockss.config.*;
 import org.lockss.config.db.ConfigDbManager;
-import org.lockss.crawler.*;
-import org.lockss.remote.*;
-import org.lockss.clockss.*;
-import org.lockss.safenet.*;
-import org.apache.commons.collections4.map.LinkedMap;
+import org.lockss.crawler.CrawlManager;
+import org.lockss.daemon.status.OverviewStatus;
+import org.lockss.daemon.status.StatusService;
+import org.lockss.exporter.FetchTimeExportManager;
+import org.lockss.exporter.counter.CounterReportsManager;
+import org.lockss.hasher.HashService;
+import org.lockss.metadata.MetadataDbManager;
+import org.lockss.metadata.MetadataManager;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.PluginManager;
+import org.lockss.poller.PollManager;
+import org.lockss.protocol.LcapRouter;
+import org.lockss.protocol.LcapStreamComm;
+import org.lockss.protocol.psm.PsmManager;
+import org.lockss.proxy.AuditProxyManager;
+import org.lockss.proxy.FailOverProxyManager;
+import org.lockss.proxy.ProxyManager;
+import org.lockss.proxy.icp.IcpManager;
+import org.lockss.remote.RemoteApi;
+import org.lockss.repository.RepositoryDbManager;
+import org.lockss.repository.RepositoryManager;
+import org.lockss.safenet.CachingEntitlementRegistryClient;
+import org.lockss.safenet.EntitlementRegistryClient;
+import org.lockss.scheduler.SchedService;
+import org.lockss.state.ArchivalUnitStatus;
+import org.lockss.state.StateManager;
+import org.lockss.subscription.SubscriptionManager;
+import org.lockss.util.CollectionUtil;
+import org.lockss.util.ListUtil;
+import org.lockss.util.Logger;
+import org.lockss.util.OneShotSemaphore;
+import org.lockss.util.time.Deadline;
+import org.lockss.util.rest.status.*;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.lockss.app.ManagerDescs.*;
 
 /**
  * The legacy LOCKSS daemon application
@@ -103,6 +115,7 @@ public class LockssDaemon extends LockssApp {
     }
     public boolean isCrawlPlugins() { return isCrawlPlugins; }
     public boolean isCrawlNonPlugins() { return isCrawlNonPlugins; }
+    public boolean isCrawlNothing() { return !(isCrawlPlugins || isCrawlNonPlugins); }
   }
 
   /** Crawl <b><tt>Plugins</tt></b> only,
@@ -138,6 +151,8 @@ public class LockssDaemon extends LockssApp {
     managerKey(PsmManager.class);
   public static final String REPOSITORY_MANAGER =
     managerKey(RepositoryManager.class);
+  public static final String REPOSITORY_DB_MANAGER =
+      managerKey(RepositoryDbManager.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
@@ -296,6 +311,13 @@ public class LockssDaemon extends LockssApp {
     return isAppRunning();
   }
 
+  static LockssDaemon MOCK_LOCKSS_DAEMON;
+  /** Allows test code to cause the static
+   * LockssDaemon.getLockssDaemon() to return a MockLockssDaemon */
+  public static void setLockssDaemon(LockssDaemon mockLockssDaemon) {
+    MOCK_LOCKSS_DAEMON = mockLockssDaemon;
+  }
+
   /**
    * static accessor for the LockssDaemon instance.  In support of Spring and
    * other inverted start-order frameworks, this method will wait a short
@@ -304,6 +326,9 @@ public class LockssDaemon extends LockssApp {
    * @return the LockssDaemon instance
    */
   public static LockssDaemon getLockssDaemon() {
+    if (MOCK_LOCKSS_DAEMON != null) {
+      return MOCK_LOCKSS_DAEMON;
+    }
     // cast is ugly but safe; avoids a redundant WaitableObject in this class
     return (LockssDaemon)getLockssApp();
   }
@@ -787,14 +812,24 @@ public class LockssDaemon extends LockssApp {
     return ausStarted.isFull();
   }
 
-  /** Return true if the loadable plugin registry AUs are ready to be
-   * loaded */
+  @Deprecated
   public boolean areLoadablePluginsReady() {
+    return getStartupStatus().areAusStarted();
+  }
+
+//   /** Shorthand for getStartupStatus().areAusStarted() */
+//   public boolean areAusStarted() {
+//     return getStartupStatus().areAusStarted();
+//   }
+
+  /** Return the status of startup activities (crawling, loading
+   * plugins, starting AUs */
+  public ApiStatus.StartupStatus getStartupStatus() {
     try {
-      return getPluginManager().getLoadablePluginsReady();
+      return getPluginManager().getStartupStatus();
     } catch (IllegalArgumentException e) {
-      // No PluginManager means we didn't crawl plugin registries
-      return false;
+      // No PluginManager means no StartupStatus
+      return ApiStatus.StartupStatus.NONE;
     }
   }
 

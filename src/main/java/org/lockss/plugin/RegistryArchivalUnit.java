@@ -219,7 +219,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
    * @return CrawlRule
    */
   protected CrawlRule makeRule() {
-    return new RegistryRule();
+    return new RegistryRule(m_registryUrl);
   }
 
   // Might need to recompute name if refetch start page
@@ -257,9 +257,15 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
   }
 
   // Registry AU crawl rule implementation
-  private class RegistryRule implements CrawlRule {
+  private static class RegistryRule implements CrawlRule {
+    private String registryUrl;
+
+    RegistryRule(String registryUrl) {
+      this.registryUrl = registryUrl;
+    }
+
     public int match(String url) {
-      if (StringUtil.equalStringsIgnoreCase(url, m_registryUrl) ||
+      if (StringUtil.equalStringsIgnoreCase(url, registryUrl) ||
 	  StringUtil.endsWithIgnoreCase(url, ".jar")) {
 	return CrawlRule.INCLUDE;
       } else {

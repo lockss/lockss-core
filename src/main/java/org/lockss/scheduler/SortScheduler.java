@@ -394,7 +394,7 @@ public class SortScheduler implements Scheduler {
   static protected Object[] objArray(long[] a) {
     Object[] o = new Object[a.length];
     for (int ix = 0; ix < a.length; ix++) {
-      o[ix] = new Long(a[ix]);
+      o[ix] = Long.valueOf(a[ix]);
     }
     return o;
   }
@@ -402,7 +402,7 @@ public class SortScheduler implements Scheduler {
   static protected Object[] objArray(int[] a) {
     Object[] o = new Object[a.length];
     for (int ix = 0; ix < a.length; ix++) {
-      o[ix] = new Integer(a[ix]);
+      o[ix] = Integer.valueOf(a[ix]);
     }
     return o;
   }

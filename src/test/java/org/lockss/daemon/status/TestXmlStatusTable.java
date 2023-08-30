@@ -75,7 +75,7 @@ public class TestXmlStatusTable extends LockssTestCase {
     accessor.setColumnDescriptors(colList, "key");
 
     StatusTable.DisplayedValue dispValue =
-        new StatusTable.DisplayedValue(new Integer(456));
+        new StatusTable.DisplayedValue(Integer.valueOf(456));
     dispValue.setColor("color1");
     dispValue.setBold(true);
     StatusTable.Reference refValue1 =
@@ -89,16 +89,16 @@ public class TestXmlStatusTable extends LockssTestCase {
     refValue2.setProperty("prop8", "no");
 
     Object[][] rowObj = {
-      {new Integer(123), "row1 string"},
+      {Integer.valueOf(123), "row1 string"},
       {dispValue, refValue1},
       {dispValue, refValue2, new Date(30000000)},
-      {new Integer(99960), Collections.EMPTY_LIST},
-      {new Integer(99970)},		// sparse row
+      {Integer.valueOf(99960), Collections.EMPTY_LIST},
+      {Integer.valueOf(99970)},		// sparse row
       {StatusTable.NO_VALUE, "missing value row"}, // elem w/ no value, sorts first
-      {new Integer(99980), new StatusTable.DisplayedValue("raw value", "disp value")},
-      {new StatusTable.SrvLink(new Integer(99990), srvDescr, null),
+      {Integer.valueOf(99980), new StatusTable.DisplayedValue("raw value", "disp value")},
+      {new StatusTable.SrvLink(Integer.valueOf(99990), srvDescr, null),
        ListUtil.list("cc", new StatusTable.Reference("x1", "tt", "k42"))},
-      {new Integer(99990),
+      {Integer.valueOf(99990),
        new StatusTable.DisplayedValue(ListUtil.list("int1", "out2")).setLayout(StatusTable.DisplayedValue.Layout.Column)},
     };
 
@@ -111,11 +111,11 @@ public class TestXmlStatusTable extends LockssTestCase {
     StatusTable.DisplayedValue dv2 = new StatusTable.DisplayedValue("v1");
     dv2.setColor("blue");
     Object[][] sumObj = {
-      {"summary", new Integer(ColumnDescriptor.TYPE_STRING), "sum value",
+      {"summary", Integer.valueOf(ColumnDescriptor.TYPE_STRING), "sum value",
        "s1foot"},
-      {"s2", new Integer(ColumnDescriptor.TYPE_STRING),
+      {"s2", Integer.valueOf(ColumnDescriptor.TYPE_STRING),
        ListUtil.list(dv2, new StatusTable.Reference("v2", "t2", null))},
-      {"Empty List", new Integer(ColumnDescriptor.TYPE_STRING),
+      {"Empty List", Integer.valueOf(ColumnDescriptor.TYPE_STRING),
        Collections.EMPTY_LIST},
     };
 

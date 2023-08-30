@@ -98,15 +98,15 @@ public class V3Events {
   // Mapping of message opcode to event class (prototype)
   private static final Map msgEvents = new HashMap();
   static {
-    msgEvents.put(new Integer(V3LcapMessage.MSG_POLL), msgPoll);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_POLL_ACK), msgPollAck);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_POLL_PROOF), msgPollProof);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_NOMINATE), msgNominate);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_VOTE_REQ), msgVoteRequest);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_VOTE), msgVote);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_REPAIR_REQ), msgRepairRequest);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_REPAIR_REP), msgRepair);
-    msgEvents.put(new Integer(V3LcapMessage.MSG_EVALUATION_RECEIPT), msgReceipt);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_POLL), msgPoll);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_POLL_ACK), msgPollAck);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_POLL_PROOF), msgPollProof);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_NOMINATE), msgNominate);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_VOTE_REQ), msgVoteRequest);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_VOTE), msgVote);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_REPAIR_REQ), msgRepairRequest);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_REPAIR_REP), msgRepair);
+    msgEvents.put(Integer.valueOf(V3LcapMessage.MSG_EVALUATION_RECEIPT), msgReceipt);
   }
 
   /** Return an opcode-specific message event, with the message as its

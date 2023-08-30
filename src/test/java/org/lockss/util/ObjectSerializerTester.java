@@ -982,7 +982,7 @@ public abstract class ObjectSerializerTester extends XMLTestCase {
         ListUtil.list("E", "F", "G", "H"));
     tmap.putCollection(
         "collection.list.heterogeneous",
-        ListUtil.list(new Float(1.0), "two", new Long(3)));
+        ListUtil.list(1.0F, "two", Long.valueOf(3)));
     return tmap;
   }
 

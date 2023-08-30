@@ -426,3 +426,5 @@ lib/run-props
 /*/pom.xml.bak
 /.surefire-*
 *.rej
+# intellij
+/.idea/

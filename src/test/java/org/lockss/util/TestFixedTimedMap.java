@@ -62,8 +62,8 @@ public class TestFixedTimedMap extends LockssTestCase {
 
   static int timeout = 60000;
 
-  Object keys[] = { new Integer(3),"foo",new Double(4.0) };
-  Object values[] = { "three","bar",new Integer(4) };
+  Object keys[] = { Integer.valueOf(3),"foo",Double.valueOf(4.0) };
+  Object values[] = { "three","bar",Integer.valueOf(4) };
 
   FixedTimedMap makeGeneric() {
     FixedTimedMap map = new FixedTimedMap(timeout);
@@ -154,14 +154,14 @@ public class TestFixedTimedMap extends LockssTestCase {
     FixedTimedMap map = makeGeneric();
     Map t = new HashMap();
     t.put("hack","burn");
-    t.put(new Integer(18),"eighteen");
-    Integer eight = new Integer(8);
-    t.put(new Float(8.8),eight);
+    t.put(Integer.valueOf(18),"eighteen");
+    Integer eight = Integer.valueOf(8);
+    t.put(8.8F,eight);
     map.putAll(t);
     t = null;
     assertEquals("burn", map.get("hack"));
     assertEquals(keys.length+3, map.size());
-    assertSame(eight, map.get(new Float(8.8)));
+    assertSame(eight, map.get(8.8F));
   }
 
   void checkCollection(Collection coll,Object[] objs) {
