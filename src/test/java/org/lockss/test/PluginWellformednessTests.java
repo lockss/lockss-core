@@ -460,7 +460,11 @@ public final class PluginWellformednessTests extends LockssTestCase {
         } else {
           log.warn("No plugins specified, exiting.");
         }
+        System.exit(0);
       } catch (MalformedPluginException e) {
+        System.exit(1);
+      } catch (Throwable e) {
+        log.fatal("Unexpected error, exiting.", e);
         System.exit(1);
       }
     }
