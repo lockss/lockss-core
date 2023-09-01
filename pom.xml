@@ -68,10 +68,6 @@ POSSIBILITY OF SUCH DAMAGE.
          ParamDoc, etc.) -->
     <loglevel.tool>${loglevel}</loglevel.tool>
 
-    <!-- Ensure mapdb depends on a fixed version of org.eclipse.collections.
-         (Their pom has only a minimum version.) -->
-    <ec.version>7.0.0</ec.version>
-
   </properties>
 
   <dependencies>
@@ -668,54 +664,10 @@ POSSIBILITY OF SUCH DAMAGE.
       </exclusions>
     </dependency>
 
-    <!-- Explicity depend on mapdb's org.eclipse.collections
-         dependencies in order to use a fixed version, and exclude
-         their dependencies which use an open-ended minimum
-         version. -->
-    <dependency>
-      <groupId>org.eclipse.collections</groupId>
-      <artifactId>eclipse-collections-api</artifactId>
-      <version>${ec.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.collections</groupId>
-      <artifactId>eclipse-collections</artifactId>
-      <version>${ec.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.collections</groupId>
-      <artifactId>eclipse-collections-forkjoin</artifactId>
-      <version>${ec.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.collections</groupId>
-      <artifactId>eclipse-collections-testutils</artifactId>
-      <version>${ec.version}</version>
-      <scope>test</scope>
-    </dependency>
-
     <dependency>
       <groupId>org.mapdb</groupId>
       <artifactId>mapdb</artifactId>
       <version>3.0.8</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.eclipse.collections</groupId>
-          <artifactId>eclipse-collections-api</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.collections</groupId>
-          <artifactId>eclipse-collections</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.collections</groupId>
-          <artifactId>eclipse-collections-forkjoin</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.collections</groupId>
-          <artifactId>eclipse-collections-testutils</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
