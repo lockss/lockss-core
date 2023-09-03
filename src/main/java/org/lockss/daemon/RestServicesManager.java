@@ -372,6 +372,10 @@ public class RestServicesManager
       return descr;
     }
 
+    public ApiStatus getApiStatus() {
+      return apiStat;
+    }
+
     public boolean isReady() {
       return apiStat != null && apiStat.isReady();
     }
