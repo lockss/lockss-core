@@ -293,6 +293,14 @@ public class TestLockssThread extends LockssTestCase {
     assertEquals("Thread exited with OutOfMemoryError", daemonExitMsg);
   }
 
+  public void testOfRunnable() throws Exception {
+    final SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
+    LockssThread.of("name", () -> {
+        sem.give();
+      }).start();
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+  }
+
   SimpleBinarySemaphore startSem;
   SimpleBinarySemaphore stopSem;
   SimpleBinarySemaphore runSem;

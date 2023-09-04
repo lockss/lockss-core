@@ -86,6 +86,22 @@ public abstract class LockssThread extends Thread implements LockssWatchdog {
       }
     };
 
+  /** Return a LockssThread that will run the specified Runnable, making
+   * it possible to directly use a lambda with LockssThread in the same
+   * way as with Thread (e.g., <tt>LockssThread.of("name", () -> { ... });</tt>).
+   * Does not start.
+   * @param name name of the new thread
+   * @param targer the Runnable that will be run when start() is called
+   */
+
+  public static LockssThread of(String name, Runnable target) {
+    return new LockssThread(name) {
+      protected void lockssRun() {
+        target.run();
+      }
+    };
+  }
+
   protected LockssThread(String name) {
     super(name);
   }
