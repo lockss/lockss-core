@@ -35,6 +35,8 @@ import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
 import org.lockss.daemon.status.StatusService.NoSuchTableException;
 import org.lockss.util.*;
+import org.lockss.util.time.TimeUtil;
+import org.lockss.util.rest.status.ApiStatus;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 
@@ -71,24 +73,28 @@ public class RestServiceStatus {
     }
 
     protected final List colDescs =
-      ListUtil.list(new ColumnDescriptor("name", "Component",
+      ListUtil.list(new ColumnDescriptor("name", "Service",
+					 ColumnDescriptor.TYPE_STRING),
+		    new ColumnDescriptor("status", "Status",
+					 ColumnDescriptor.TYPE_STRING),
+		    new ColumnDescriptor("reason", "Reason",
+					 ColumnDescriptor.TYPE_STRING),
+		    new ColumnDescriptor("up", "Up",
+					 ColumnDescriptor.TYPE_DATE),
+		    new ColumnDescriptor("version", "Version",
+					 ColumnDescriptor.TYPE_STRING),
+		    new ColumnDescriptor("release", "Release",
 					 ColumnDescriptor.TYPE_STRING),
 		    new ColumnDescriptor("resturl", "REST Url",
 					 ColumnDescriptor.TYPE_STRING),
 		    new ColumnDescriptor("adminurl", "Admin Url",
-					 ColumnDescriptor.TYPE_STRING),
-		    new ColumnDescriptor("status", "Status",
-					 ColumnDescriptor.TYPE_STRING),
-		    new ColumnDescriptor("since", "Since",
-					 ColumnDescriptor.TYPE_DATE),
+					 ColumnDescriptor.TYPE_STRING)
 // 		    new ColumnDescriptor("lasttrans", "Noticed at",
 // 					 ColumnDescriptor.TYPE_DATE),
-		    new ColumnDescriptor("reason", "Reason",
-					 ColumnDescriptor.TYPE_STRING)
 		    );
 
     public String getDisplayName() {
-      return "Component Status";
+      return "Service Status";
     }
 
     public boolean requiresKey() {
@@ -120,11 +126,17 @@ public class RestServiceStatus {
 	if (stat != null) {
 	  row.put("status", stat.isReady() ? "Ready" : "Not Ready");
 	  row.put("reason", stat.getReason());
+          ApiStatus apiStat = stat.getApiStatus();
+          if (apiStat != null) {
+            row.put("version", apiStat.getComponentVersion());
+            row.put("release", apiStat.getLockssVersion());
+          }
 	  if (stat.getLastTransition() > 0) {
 	    row.put("lasttrans", stat.getLastTransition());
 	  }
 	  if (stat.getReadyTime() > 0) {
-	    row.put("since", stat.getReadyTime());
+	    row.put("up",
+                    TimeUtil.timeIntervalToString(TimeBase.msSince(stat.getReadyTime())));
 	  }
 	}
 	rows.add(row);
