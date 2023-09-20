@@ -55,6 +55,15 @@ import org.lockss.servlet.*;
 
 /** User account data.
  */
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.PROPERTY,
+    property = "type")
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = BasicUserAccount.class, name = BasicUserAccount.USER_ACCOUNT_TYPE),
+    @JsonSubTypes.Type(value = LCUserAccount.class, name = LCUserAccount.USER_ACCOUNT_TYPE),
+    @JsonSubTypes.Type(value = NobodyAccount.class, name = NobodyAccount.USER_ACCOUNT_TYPE),
+    @JsonSubTypes.Type(value = StaticUserAccount.class, name = StaticUserAccount.USER_ACCOUNT_TYPE)})
 public abstract class UserAccount implements LockssSerializable, Comparable {
   
   private static final Logger log = Logger.getLogger();
