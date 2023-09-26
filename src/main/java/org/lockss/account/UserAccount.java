@@ -634,7 +634,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     if (failedAttemptHistory != null) {
       shiftArrayUp(failedAttemptHistory);
       failedAttemptHistory[0] = TimeBase.nowMs();
-      storeUser();
+      updateUserAccount("failedAttemptHistory");
     }
   }
 
@@ -642,7 +642,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
    * to record the last login time */
   protected void handleSuccessfulLoginAttempt() {
     lastLogin = TimeBase.nowMs();
-    storeUser();
+    updateUserAccount("lastLogin");
   }
 
   private void clearCaches() {
@@ -717,6 +717,11 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     acctMgr.alertUser(this, alert, msg);
     lastPasswordReminderTime = TimeBase.nowMs();
     storeUser();
+  }
+
+  public void updateUserAccount(String... fields) {
+    // Q: Does this need a cookie?
+    stateMgr.updateUserAccount(this, SetUtil.set(fields));
   }
 
   /** Should be called whenever a change has been made to the account, in a
