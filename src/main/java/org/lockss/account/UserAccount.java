@@ -155,6 +155,14 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     return userName;
   }
 
+  public int getVersion() {
+    return version;
+  }
+
+  public void setVersion(int version) {
+    this.version = version;
+  }
+
   /** Set the email address */
   public void setEmail(String val) {
     if (!StringUtil.equalStrings(email, val)) {
