@@ -232,7 +232,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * storage.  If <code>fields</code> is a non-empty set, Only those fields
    * named in it should be updated.
    * @param key AUID or other key for AU
-   * @param aus AuStateBean data source
+   * @param ausb AuStateBean data source
    * @param fields The fields to store, or null to store all fields
    */
   protected void doStoreAuStateBean(String key,
@@ -293,9 +293,8 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * storage.  Any of the three data sources may be used.  Only those
    * fields present in the Map or the json string should be saved.
    * @param key AUID or other key for AU
-   * @param aus AuAgreements data source
-   * @param aus json data source
-   * @param aus Map data source
+   * @param aua AuAgreements data source
+   * @param peers Set of peer identities
    */
   protected void doStoreAuAgreementsUpdate(String key, AuAgreements aua,
 					   Set<PeerIdentity> peers) {

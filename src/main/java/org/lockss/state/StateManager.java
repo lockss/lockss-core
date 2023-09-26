@@ -77,7 +77,7 @@ public interface StateManager extends LockssManager {
   public void storeAuStateBean(String key, AuStateBean ausb);
 
   /** Entry point from state service to store changes to an AuState.
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
    * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
@@ -114,7 +114,7 @@ public interface StateManager extends LockssManager {
   public void storeAuAgreements(String key, AuAgreements aua);
 
   /** Entry point from state service to store changes to an AuAgreements.
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
    * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
@@ -144,7 +144,7 @@ public interface StateManager extends LockssManager {
   /** Update the stored AuSuspectUrlVersions.  This is a complete
    * replacement - there's currently no support for incremental update (But
    * see {@link CachingStateManager#updateAuSuspectUrlVersions(String,
-   * AuSuspectUrlVersions, Set<SuspectUrlVersion>)})
+   * AuSuspectUrlVersions, Set<AuSuspectUrlVersions.SuspectUrlVersion>)})
    */
   public void updateAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv);
 

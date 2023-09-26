@@ -208,7 +208,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   /** Update the stored AuState with the values of the listed fields.
-   * @param aus The source of the new values.
+   * @param ausb The source of the new values.
    */
   @Override
   public synchronized void updateAuStateBean(String key,
@@ -266,7 +266,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   /** Store an AuState from a json string
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized AuStateBean
    * @throws IOException if json conversion throws
    */
@@ -562,9 +562,9 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Entry point from state service to store changes to an AuSuspectUrlVersions.  Write
    * to DB, call hook to notify clients if appropriate
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
-   * @param map Map representation of change fields.
+   * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
    */
   public void updateAuSuspectUrlVersionsFromJson(String auid, String json,
@@ -688,9 +688,9 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Entry point from state service to store changes to an NoAuPeerSet.  Write
    * to DB, call hook to notify clients if appropriate
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
-   * @param map Map representation of change fields.
+   * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
    */
   public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)

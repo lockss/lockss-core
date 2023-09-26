@@ -53,9 +53,8 @@ public class PersistentStateManager extends CachingStateManager {
 
   /** Hook to store the changes to the AuState in the DB.
    * @param key the auid
-   * @param aus the AuState object, may be null
-   * @param json the serialized set of changes
-   * @param map Map representation of change fields.
+   * @param ausb the AuState object, may be null
+   * @param fields The fields to store, or null to store all fields
    */
   @Override
   protected void doStoreAuStateBean(String key,
@@ -83,7 +82,7 @@ public class PersistentStateManager extends CachingStateManager {
   }
 
   /** Hook to load an AuState from the DB.
-   * @param au the AU
+   * @param key the AU
    * @return the AuState reflecting the current contents of the DB, or null
    * if there's no AuState for the AU in the DB.
    */
@@ -126,7 +125,7 @@ public class PersistentStateManager extends CachingStateManager {
   // /////////////////////////////////////////////////////////////////
 
   /** Hook to load an AuAgreements from the DB.
-   * @param au the AU
+   * @param key the AU
    * @return the AuAgreements reflecting the current contents of the DB, or null
    * if there's no AuAgreements for the AU in the DB.
    */
