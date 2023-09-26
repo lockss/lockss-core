@@ -119,7 +119,7 @@ public class AuUtil {
     return mgr.getAuState(au);
   }
 
-  static ObjectMapper setFieldsOnly(ObjectMapper mapper) {
+  public static ObjectMapper setFieldsOnly(ObjectMapper mapper) {
     mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
 				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
 				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
