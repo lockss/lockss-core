@@ -182,12 +182,12 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   /** Set the filename */
-  void setFilename(String val) {
+  public void setFilename(String val) {
     fileName = val;
   }
 
   /** Get the filename */
-  String getFilename() {
+  public String getFilename() {
     return fileName;
   }
 
