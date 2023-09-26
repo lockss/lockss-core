@@ -141,6 +141,7 @@ public class AdminEditAccounts extends EditAccountBase {
       }
       acct = acctMgr.createUser(name);
     } else if (action.equals(ACTION_ADMIN_UPDATE)) {
+      // Get existing UserAccount to update
       acct = acctMgr.getUserOrNull(name);
       if (acct == null) {
 	errMsg = "User " + name + " disappeared abruptly!";
@@ -173,6 +174,7 @@ public class AdminEditAccounts extends EditAccountBase {
 	return;
       }
     }
+
     if (action.equals(ACTION_ADMIN_ADD)) {
       try {
 	acctMgr.userAddUser(getUserAccount(), acct);
@@ -190,6 +192,7 @@ public class AdminEditAccounts extends EditAccountBase {
 	return;
       }
     } else if (action.equals(ACTION_ADMIN_UPDATE)) {
+      // Perform existing user update
       try {
 	acctMgr.userStoreUser(getUserAccount(), acct);
       } catch (AccountManager.NotStoredException e) {
@@ -198,6 +201,7 @@ public class AdminEditAccounts extends EditAccountBase {
 	return;
       }
     }
+
     statusMsg = "Update successful";
     displayAdminSummary();
   }
