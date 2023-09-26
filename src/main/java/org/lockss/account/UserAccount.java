@@ -822,6 +822,12 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     }
   }
 
+  public enum UserAccountChange {
+    ADD,
+    UPDATE,
+    DELETE,
+  }
+
   public static interface UserAccountChangedCallback {
     public void execute(String username, UserAccountChange op, UserAccount acct);
   }
