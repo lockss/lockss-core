@@ -694,10 +694,6 @@ public class AccountManager
     }
   }
 
-  private ObjectSerializer makeObjectSerializer() {
-    return new XStreamSerializer();
-  }
-
   public class NotAddedException extends Exception {
     public NotAddedException(String msg) {
       super(msg);
