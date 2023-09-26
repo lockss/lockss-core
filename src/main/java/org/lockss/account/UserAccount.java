@@ -776,6 +776,37 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     return getName().compareTo(other.getName());
   }
 
+  // Q: Does this work for subclasses and their fields?
+  public UserAccount updateFromJson(String json) throws IOException {
+    ObjectMapper objMapper = new ObjectMapper();
+    //setFieldsOnly(objMapper);
+    // Ignore unknown properties on deserialization
+    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    ObjectReader objReader = objMapper.readerForUpdating(this);
+    objReader.readValue(json);
+    return this;
+  }
+
+  public static String jsonFromUserAccount(UserAccount acct, Set<String> fields)
+          throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(mapper);
+    SimpleBeanPropertyFilter propFilter;
+    if (fields == null || fields.isEmpty()) {
+      propFilter = SimpleBeanPropertyFilter.serializeAll();
+    } else {
+      propFilter = SimpleBeanPropertyFilter.filterOutAllExcept(fields);
+    }
+    FilterProvider filters =
+            new SimpleFilterProvider().addFilter("userAccountFilter", propFilter);
+    return mapper.writer(filters).writeValueAsString(acct);
+  }
+
+  public String toJson() throws IOException {
+    return jsonFromUserAccount(this, null);
+  }
+
   public class NullCredential extends Credential {
     public boolean check(Object credentials) {
       return false;
