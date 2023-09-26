@@ -501,7 +501,13 @@ public class AccountManager
     return deleteUser(acct);
   }
 
-  static String DELETED_REASON = "Deleted";
+  public static String DELETED_REASON = "Deleted";
+
+  synchronized UserAccount internalDeleteUser(UserAccount acct) {
+    acct.disable(DELETED_REASON);
+    return accountMap.remove(acct.getName());
+  }
+
 
   /** Delete the user */
   public synchronized boolean deleteUser(UserAccount acct) {
