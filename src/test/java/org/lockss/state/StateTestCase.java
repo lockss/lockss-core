@@ -37,6 +37,7 @@ import java.util.*;
 import java.util.stream.*;
 import org.junit.*;
 
+import org.lockss.account.UserAccount;
 import org.lockss.app.StoreException;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.db.ConfigDbManager;
@@ -313,6 +314,35 @@ public abstract class StateTestCase extends LockssTestCase4 {
 				     Set<PeerIdentity> peers) {
       putNoAuPeerSet(key, dpis);
       return 1L;
+    }
+
+    // /////////////////////////////////////////////////////////////////
+    // UserAccount
+    // /////////////////////////////////////////////////////////////////
+
+    @Override
+    public Iterable<String> findUserAccountNames() throws StoreException, IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Iterable<UserAccount> findUserAccounts() throws StoreException, IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public UserAccount findUserAccount(String key) throws StoreException, IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void updateUserAccount(String key, UserAccount acct, Set<String> fields) throws StoreException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void removeUserAccount(UserAccount acct) {
+      throw new UnsupportedOperationException();
     }
 
     void putNoAuPeerSet(String key, DatedPeerIdSet dpis) {

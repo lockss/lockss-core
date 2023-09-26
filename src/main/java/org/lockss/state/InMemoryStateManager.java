@@ -30,14 +30,10 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
+import java.util.concurrent.ConcurrentHashMap;
 
-import org.lockss.app.*;
-import org.lockss.daemon.*;
+import org.lockss.account.UserAccount;
 import org.lockss.log.*;
-import org.lockss.util.*;
-import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 
@@ -58,8 +54,11 @@ public class InMemoryStateManager extends CachingStateManager {
   protected Map<String,String> deletedAuSuspectUrlVersionses = new HashMap<>();
   protected Map<String,String> deletedNoAuPeerSets = new HashMap<>();
 
+  protected Map<String,UserAccount> deletedUserAccounts = new ConcurrentHashMap<>();
+
   /** When AU deleted, backup any existing AuState to the deletedAuStates
    * map and delete from cache */
+  @Override
   protected synchronized void handleAuDeleted(ArchivalUnit au) {
     // Serialize the AU's AuState to "backing" store so it can be restored
     // if the AU is reactivated.
@@ -227,4 +226,11 @@ public class InMemoryStateManager extends CachingStateManager {
     }
   }
 
+  @Override
+  public Iterable<String> doLoadUserAccountNames() {
+    Set<String> usernames = new HashSet<>();
+    usernames.addAll(userAccounts.keySet());
+    usernames.addAll(deletedUserAccounts.keySet());
+    return  usernames;
+  }
 }

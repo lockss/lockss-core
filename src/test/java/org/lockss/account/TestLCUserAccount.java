@@ -40,6 +40,8 @@ import java.io.*;
 import java.util.*;
 import java.lang.reflect.*;
 
+import org.lockss.state.InMemoryStateManager;
+import org.lockss.state.StateManager;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
@@ -55,14 +57,27 @@ public class TestLCUserAccount extends LockssTestCase {
 
   LCUserAccount acct1;
   MyAccountManager acctMgr;
+  StateManager stateMgr;
 
   public void setUp() throws Exception {
     super.setUp();
+
+//    acctMgr = new MyAccountManager();
+//    getMockLockssDaemon().setAccountManager(acctMgr);
+//    acctMgr.initService(getMockLockssDaemon());
+//    acctMgr.startService();
+
     acctMgr = new MyAccountManager();
+    stateMgr = new InMemoryStateManager();
     getMockLockssDaemon().setAccountManager(acctMgr);
+    getMockLockssDaemon().setStateManager(stateMgr);
+
     acctMgr.initService(getMockLockssDaemon());
+    stateMgr.initService(getMockLockssDaemon());
     acctMgr.startService();
-    acct1 = (LCUserAccount)new LCUserAccount.Factory().newUser(NAME1, acctMgr);
+    stateMgr.startService();
+
+    acct1 = (LCUserAccount)new LCUserAccount.Factory().newUser(NAME1, acctMgr, stateMgr);
   }
   
   public void tearDown() throws Exception {
@@ -329,9 +344,14 @@ public class TestLCUserAccount extends LockssTestCase {
   public void testCheck() throws Exception {
     TimeBase.setSimulated(Constants.DAY);
     acct1.setPassword(PWD1);
+    acctMgr.addUser(acct1);
+    stateMgr.storeUserAccount(acct1);
+    acctMgr.loadUsers();
+
     // test good and bad passwd
     assertNotEquals(TimeBase.nowMs(), acct1.getLastLogin());
     assertTrue(acct1.check(PWD1));
+
     assertEquals(TimeBase.nowMs(), acct1.getLastLogin());
     TimeBase.step(Constants.WEEK);
     assertFalse(acct1.check(PWD2));
