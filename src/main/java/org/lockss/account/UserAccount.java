@@ -816,4 +816,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       }
     }
   }
+
+  public static interface UserAccountChangedCallback {
+    public void execute(String username, UserAccountChange op, UserAccount acct);
+  }
 }

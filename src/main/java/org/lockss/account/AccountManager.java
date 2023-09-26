@@ -227,6 +227,40 @@ public class AccountManager
   // Maps account name to UserAccount
   Map<String,UserAccount> accountMap = new HashMap<String,UserAccount>();
 
+  UserAccount.UserAccountChangedCallback userChangedCallback =
+      (username, op, userAccount) -> {
+    // FIXME: We're trusting all changes without verifying / authenticating
+    switch (op) {
+      case ADD:
+        try {
+          internalAddUser(userAccount);
+        } catch (NotAddedException e) {
+          // This shouldn't happen; caller should have satisfied checks already
+          log.warning("User account not added", e);
+        }
+        break;
+      case UPDATE:
+        // Updates should already have applied to the UserAccount object. If it
+        // does not exist in the map, issue a warning and put into map:
+        if (!accountMap.containsKey(username)) {
+          try {
+            log.warning("Expected to update an existing user account but it does not exist");
+            internalAddUser(userAccount);
+          } catch (NotAddedException e) {
+            log.warning("Could not add missing user account", e);
+          }
+        }
+        break;
+      case DELETE:
+        internalDeleteUser(userAccount);
+        break;
+      default:
+        log.error("Unknown UserAccount operation: " + op);
+        throw new IllegalArgumentException("Unknown UserAccount operation");
+    }
+  };
+
+  @Override
   public void startService() {
     super.startService();
     LockssDaemon daemon = getDaemon();

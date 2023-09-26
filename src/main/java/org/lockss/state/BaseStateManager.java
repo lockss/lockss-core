@@ -52,6 +52,8 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   protected ConfigManager configMgr;
   protected PluginManager pluginMgr;
 
+  private final Set<UserAccount.UserAccountChangedCallback> userAccountChangedCallbacks = new HashSet<>();
+
   @Override
   public void initService(LockssDaemon daemon) throws LockssAppException {
     super.initService(daemon);
@@ -170,6 +172,19 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     } catch (ClassCastException e) {
       log.error("Wrong type field in message: {}", map, e);
     }
+  }
+
+  @Override
+  public void registerUserAccountChangedCallback(UserAccount.UserAccountChangedCallback callback) {
+    userAccountChangedCallbacks.add(callback);
+  }
+
+  /** Invokes all the registered callbacks **/
+  public void doUserAccountChangedCallbacks(UserAccount.UserAccountChange op,
+                                            String username,
+                                            UserAccount userAccount) {
+    userAccountChangedCallbacks.forEach(callback
+        -> callback.execute(username, op, userAccount));
   }
 
   // /////////////////////////////////////////////////////////////////
