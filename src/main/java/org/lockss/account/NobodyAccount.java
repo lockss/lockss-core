@@ -47,8 +47,10 @@ public class NobodyAccount extends UserAccount {
   }
 
   public String getType() {
-    return "Nobody";
+    return USER_ACCOUNT_TYPE;
   }
+
+  public static final String USER_ACCOUNT_TYPE = "Nobody";
 
   @Override
   public boolean isEnabled() {

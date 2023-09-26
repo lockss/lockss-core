@@ -97,8 +97,10 @@ public class BasicUserAccount extends UserAccount {
   }
 
   public String getType() {
-    return "Basic";
+    return USER_ACCOUNT_TYPE;
   }
+
+  public static final String USER_ACCOUNT_TYPE = "Basic";
 
   protected Configuration getConfig() {
     return CurrentConfig.getCurrentConfig();

@@ -84,8 +84,10 @@ public class LCUserAccount extends UserAccount {
   }
 
   public String getType() {
-    return "LC";
+    return USER_ACCOUNT_TYPE;
   }
+
+  public static final String USER_ACCOUNT_TYPE = "LC";
 
   protected int getHistorySize() {
     return HISTORY_SIZE;
