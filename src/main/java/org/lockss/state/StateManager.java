@@ -30,13 +30,9 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
 
+import org.lockss.account.UserAccount;
 import org.lockss.app.*;
-import org.lockss.daemon.*;
-import org.lockss.log.*;
-import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
@@ -191,6 +187,37 @@ public interface StateManager extends LockssManager {
    */
   public boolean hasNoAuPeerSet(String key);
 
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  public Iterable<String> getUserAccountNames();
+  public Iterable<UserAccount> getUserAccounts();
+
+  /**
+   * Return the named UserAccount, or null if none exists.
+   */
+  public UserAccount getUserAccount(String name);
+
+  public void storeUserAccount(UserAccount acct) throws IOException;
+
+  public void removeUserAccount(UserAccount acct);
+
+  /**
+   * Update the stored UserAccount
+   */
+  public UserAccount updateUserAccount(UserAccount userAccount, Set<String> fields);
+
+  public UserAccount updateUserAccountFromJson(String username, String json, String cookie) throws IOException;
+
+  /**
+   * Return true if an UserAccount exists for the given userName
+   *
+   * @param userName the userName
+   */
+  public boolean hasUserAccount(String userName);
+
+  void registerUserAccountChangedCallback(UserAccount.UserAccountChangedCallback callback);
 
   /** Load/store exception.  Clients of AuState aren't prepared for checked
    * exceptions; this is used to turn them into RuntimeExceptions */

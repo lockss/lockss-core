@@ -30,14 +30,12 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.lockss.account.UserAccount;
 import org.lockss.app.*;
-import org.lockss.daemon.*;
 import org.lockss.log.*;
 import org.lockss.util.*;
-import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
@@ -86,6 +84,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     agmnts = newAuAgreementsMap();
     suspectVers = newAuSuspectUrlVersionsMap();
     noAuPeerSets = newNoAuPeerSetMap();
+    userAccounts = newUserAccountsMap();
   }
 
   public void startService() {
@@ -754,4 +753,157 @@ public abstract class CachingStateManager extends BaseStateManager {
     return peers == null || peers.isEmpty();
   }
 
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  protected Map<String, UserAccount> userAccounts;
+
+  protected Map<String,UserAccount> newUserAccountsMap() {
+    return new ConcurrentHashMap<>();
+  }
+
+  @Override
+  public Iterable<String> getUserAccountNames() {
+    return doLoadUserAccountNames();
+  }
+
+  @Override
+  public Iterable<UserAccount> getUserAccounts() {
+    return doLoadUserAccounts();
+  }
+
+  @Override
+  public UserAccount getUserAccount(String name) {
+    UserAccount acct = userAccounts.get(name);
+    if (acct == null) {
+      acct = handleUserAccountCacheMiss(name);
+    }
+    return acct;
+  }
+
+  protected UserAccount handleUserAccountCacheMiss(String name) {
+    UserAccount acct = doLoadUserAccount(name);
+    if (acct != null) {
+      userAccounts.put(name, acct);
+    }
+    return acct;
+  }
+
+  @Override
+  public void storeUserAccount(UserAccount acct) throws IOException {
+    String name = acct.getName();
+    userAccounts.put(name, acct);
+
+    /*
+    ClientA:
+    storeUserAccount -> Store UserAccount to clientA's StateManager
+    doStoreUserAccount -> send POST to REST server
+                       -> (server) storeUserAccount
+                       -> (server) doStoreUserAccount: Add UserAccount to server's StateManager
+                       -> (server) doUserAccountChangedCallbacks: Add UserAccount to server's AccountManager
+                       -> (server) doNotifyUserAccountChanged: Notify clients of new UserAccount
+                       -> (clientB) receives JMS message
+                       -> (clientB) doReceiveUserAccountChanged: Add to clientB's StateManager and AccountManager
+
+    doUserAccountChangedCallbacks -> update clientA's AccountManager
+    doNotifyUserAccountChanged -> no-op
+     */
+
+    doStoreUserAccount(name, acct, null);
+    doUserAccountChangedCallbacks(UserAccount.UserAccountChange.ADD, name, acct);
+    doNotifyUserAccountChanged(UserAccount.UserAccountChange.ADD, name, acct.toJson(), null);
+  }
+
+  @Override
+  public UserAccount updateUserAccountFromJson(String username, String json, String cookie)
+      throws IOException {
+    UserAccount userAccount = getUserAccount(username);
+    userAccount.updateFromJson(json);
+    updateUserAccount(userAccount, AuUtil.jsonToMap(json).keySet(), cookie);
+    return userAccount;
+  }
+
+  @Override
+  public UserAccount updateUserAccount(UserAccount acct, Set<String> fields) {
+    return updateUserAccount(acct, fields, null);
+  }
+
+  /** Update UserAccount in cache */
+  public UserAccount updateUserAccount(UserAccount acct, Set<String> fields, String cookie) {
+    String username = acct.getName();
+    log.debug2("Updating user account: {}", username);
+    UserAccount curAcct = getUserAccount(username);
+    try {
+      if (curAcct != null) {
+        if (curAcct != acct) {
+          throw new IllegalStateException("Attempted to update a different UserAccount instance");
+        }
+        String json = UserAccount.jsonFromUserAccount(acct, fields);
+
+        /*
+        ClientA:
+        doStoreUserAccount -> (clientA) send UserAccount to REST server
+                           -> (server) REST server calls updateUserAccountFromJson
+                           -> (server) -> updateUserAccount (this method)
+                           -> (server) send JMS notifications to client
+                           -> (clientB) receives JMS notification
+                           -> (clientB) calls doReceiveUserAccountChanged
+                           -> (clientB) updates its AccountManager and StateManager
+        doUserAccountChangedCallbacks
+                           -> (clientA) update client's AccountManager
+        doNotifyUserAccountChanged
+                           -> (clientA) do nothing
+         */
+
+        doStoreUserAccount(username, acct, fields);
+        doUserAccountChangedCallbacks(UserAccount.UserAccountChange.UPDATE, username, acct);
+        doNotifyUserAccountChanged(UserAccount.UserAccountChange.UPDATE, username, json, cookie);
+      }
+      else if (isStoreOfMissingUserAccountAllowed(fields)) {
+        userAccounts.put(username, acct);
+        doStoreUserAccount(username, acct, fields);
+      } else {
+        throw new IllegalStateException("Attempted to update a missing user account: " + username);
+      }
+      return acct;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private boolean isStoreOfMissingUserAccountAllowed(Set<String> fields) {
+    return fields == null || fields.isEmpty();
+  }
+
+  @Override
+  public void removeUserAccount(UserAccount acct) {
+    String username = acct.getName();
+    userAccounts.remove(username);
+    /*
+    ClientA:
+    doRemoveUserAccount -> send DELETE to REST server
+                        -> (server) removeUserAccount
+                        -> (server) doRemoveUserAccount: Remove UserAccount from server's StateStore
+                        -> (server) doUserAccountChangedCallbacks: Remove UserAccount from server's AccountManager
+                        -> (server) doNotifyUserAccountChanged: Notify clients of UserAccount removal
+                        -> (clientB) receives JMS message
+                        -> (clientB) doReceiveUserAccountChanged
+     */
+    doRemoveUserAccount(acct);
+    doUserAccountChangedCallbacks(UserAccount.UserAccountChange.DELETE, username, acct);
+    doNotifyUserAccountChanged(UserAccount.UserAccountChange.DELETE, username, null, null);
+  }
+
+  @Override
+  public boolean hasUserAccount(String name) {
+    // Match first in Iterable
+    for (String currentName : doLoadUserAccountNames()) {
+      if (currentName.equals(name)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 }

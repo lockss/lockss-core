@@ -30,10 +30,11 @@ package org.lockss.state;
 
 import java.io.IOException;
 import java.util.*;
+
+import org.lockss.account.UserAccount;
 import org.lockss.app.*;
 import org.lockss.log.*;
 import org.lockss.config.db.ConfigDbManager;
-import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
@@ -323,10 +324,101 @@ public class PersistentStateManager extends CachingStateManager {
    */
   protected StateStore getStateStore() throws StoreException {
     if (stateStore == null) {
-      stateStore = new DbStateManagerSql(
-	    theApp.getManagerByType(ConfigDbManager.class));
+      ConfigDbManager cfgDbMgr = theApp.getManagerByType(ConfigDbManager.class);
+      assert cfgDbMgr.isReady();
+      stateStore = new PersistentStateManagerStateStore(cfgDbMgr);
     }
 
     return stateStore;
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  @Override
+  protected Iterable<String> doLoadUserAccountNames()
+      throws StateLoadStoreException {
+    Iterable<String> res = null;
+
+    try {
+      res = getStateStore().findUserAccountNames();
+    } catch (IOException ioe) {
+      String message = "Exception caught loading usernames";
+      throw new StateLoadStoreException(message, ioe);
+    } catch (StoreException se) {
+      String message = "Exception caught finding usernames";
+      throw new StateLoadStoreException(message, se);
+    }
+
+    log.debug2("res = {}", res);
+    return res;
+  }
+
+  @Override
+  protected Iterable<UserAccount> doLoadUserAccounts()
+      throws StateLoadStoreException {
+    Iterable<UserAccount> res = null;
+
+    try {
+      res = getStateStore().findUserAccounts();
+    } catch (IOException ioe) {
+      String message = "Exception caught loading user accounts";
+      throw new StateLoadStoreException(message, ioe);
+    } catch (StoreException se) {
+      String message = "Exception caught finding user accounts";
+      throw new StateLoadStoreException(message, se);
+    }
+
+    log.debug2("res = {}", res);
+    return res;
+  }
+
+  /** Hook to load a {@link UserAccount} from the DB.
+   * @param key the name of the user account.
+   * @return the {@link UserAccount} reflecting the current contents of the DB, or null
+   * if there's no {@link UserAccount} by that name in the DB.
+   */
+  @Override
+  protected UserAccount doLoadUserAccount(String key)
+      throws StateLoadStoreException {
+    UserAccount res = null;
+
+    try {
+      res = getStateStore().findUserAccount(key);
+    } catch (IOException ioe) {
+      String message = "Exception caught loading user account";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, ioe);
+    } catch (StoreException se) {
+      String message = "Exception caught finding user account";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, se);
+    }
+
+    log.debug2("res = {}", res);
+    return res;
+  }
+
+  @Override
+  protected void doStoreUserAccount(String key, UserAccount acct, Set<String> fields) {
+    try {
+      getStateStore().updateUserAccount(key, acct, fields);
+    } catch (StoreException e) {
+      String message = "Exception caught persisting UserAccount";
+      log.error("key = {}", key);
+      throw new StateLoadStoreException(message, e);
+    }
+  }
+
+  @Override
+  protected void doRemoveUserAccount(UserAccount acct) {
+    try {
+      getStateStore().removeUserAccount(acct);
+    } catch (StoreException e) {
+      String message = "Exception caught removing user account";
+      log.error("userName = {}", acct.getName());
+      throw new StateLoadStoreException(message, e);
+    }
   }
 }

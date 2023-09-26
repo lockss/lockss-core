@@ -30,13 +30,10 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
 
-import org.lockss.app.*;
-import org.lockss.daemon.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.lockss.account.UserAccount;
 import org.lockss.log.*;
-import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
@@ -419,4 +416,119 @@ public class ClientStateManager extends CachingStateManager {
     return res;
   }
 
+  @Override
+  public void doReceiveUserAccountChanged(UserAccount.UserAccountChange op,
+                                          String username, String json,
+                                          String cookie) {
+    try {
+      boolean applyChange = false;
+      UserAccount cur;
+
+      synchronized (this) {
+        cur = userAccounts.get(username);
+        if (cur == null && op == UserAccount.UserAccountChange.UPDATE) {
+          log.debug2("Ignoring partial update for UserAccount we don't have: {}", username);
+          return;
+        }
+        if (isMyUpdate(cookie, json)) {
+          log.debug2("Ignoring my UserAccount change: {}: {}", cookie, json);
+        } else {
+          applyChange = true;
+        }
+      }
+
+      if (applyChange) {
+        // Handle change in this client's CachingStateManager
+        switch (op) {
+          case ADD:
+            log.debug2("Adding: {} from {}", username, json);
+
+            ObjectMapper objMapper = new ObjectMapper();
+            UserAccount acct = objMapper
+                .readerFor(UserAccount.class)
+                .readValue(json);
+
+            userAccounts.put(username, acct);
+            break;
+          case UPDATE:
+            log.debug2("Updating: {} from {}", cur, json);
+            cur.updateFromJson(json);
+            break;
+          case DELETE:
+            log.debug2("Removing: {}", username);
+            userAccounts.remove(username);
+            break;
+          default:
+            log.error("Unknown operation on UserAccount: {}", op);
+            throw new IllegalArgumentException("Unknown operation on UserAccount");
+        }
+
+        // Handle change in this client's AccountManager
+        doUserAccountChangedCallbacks(op, username, cur);
+      }
+    } catch (IOException e) {
+      log.error("Couldn't deserialize AuState: {}", json, e);
+    }
+  }
+
+  @Override
+  protected Iterable<String> doLoadUserAccountNames() {
+    try {
+      return configMgr.getRestConfigClient().getUserAccountNames();
+    } catch (LockssRestException lre) {
+      log.error("Could not get user account names", lre);
+      return null;
+    }
+  }
+
+  @Override
+  protected Iterable<UserAccount> doLoadUserAccounts() {
+    try {
+      return configMgr.getRestConfigClient().getUserAccounts();
+    } catch (LockssRestException lre) {
+      log.error("Could not get user accounts", lre);
+      return null;
+    }
+  }
+
+  @Override
+  protected UserAccount doLoadUserAccount(String name) {
+    try {
+      return configMgr.getRestConfigClient().getUserAccount(name);
+    } catch (LockssRestException e) {
+      log.error("Could not get user account", e);
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  protected void doStoreUserAccount(String username, UserAccount acct, Set<String> fields) {
+    try {
+      RestConfigClient cfgSvcClient = configMgr.getRestConfigClient();
+      if (fields == null || fields.isEmpty()) {
+        cfgSvcClient.postUserAccount(acct);
+      } else {
+        String json = UserAccount.jsonFromUserAccount(acct, fields);
+        String cookie = makeCookie();
+        recordMyUpdate(cookie, json);
+        cfgSvcClient.patchUserAccount(username, json, cookie);
+      }
+    } catch (LockssRestException e) {
+      log.error("Could not store user account", e);
+      throw new RuntimeException(e);
+    } catch (IOException e) {
+      log.error("Error serializing to JSON", e);
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  protected void doRemoveUserAccount(UserAccount acct) {
+    try {
+      configMgr.getRestConfigClient().deleteUserAccount(acct.getName());
+    } catch (LockssRestException e) {
+      log.error("Could not remove user account", e);
+      throw new RuntimeException(e);
+    }
+  }
 }
