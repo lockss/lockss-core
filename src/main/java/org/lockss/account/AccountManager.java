@@ -347,7 +347,7 @@ public class AccountManager
   /** Create a new UserAccount of the configured type.  The account must be
    * added before becoming active. */
   public UserAccount createUser(String name) {
-    return acctFact.newUser(name, this);
+    return acctFact.newUser(name, this, stateMgr);
   }
 
   /** Add the user account, if doesn't conflict with an existing user and
@@ -383,7 +383,7 @@ public class AccountManager
    * platform-generated and old manually configured accounts.. */
   public UserAccount addStaticUser(String name, String credentials)
       throws NotAddedException {
-    UserAccount acct = new StaticUserAccount.Factory().newUser(name, this);
+    UserAccount acct = new StaticUserAccount.Factory().newUser(name, this, stateMgr);
     try {
       acct.setCredential(credentials);
     } catch (NoSuchAlgorithmException e) {

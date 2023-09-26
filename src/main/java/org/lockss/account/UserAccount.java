@@ -107,6 +107,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   protected static final long ALERTER_INTERVAL = Constants.MINUTE;
 
   protected transient AccountManager acctMgr;
+  protected transient StateManager stateMgr;
   protected transient String fileName;
 
   protected transient Set roleSet = null;
@@ -119,8 +120,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   /** Setup configuration before first use.  Called by factory. */
-  protected void init(AccountManager acctMgr, Configuration config) {
-    commonInit(acctMgr, config);
+  protected void init(AccountManager acctMgr, StateManager stateMgr, Configuration config) {
+    commonInit(acctMgr, stateMgr, config);
     init(acctMgr);
   }
 
@@ -142,23 +143,14 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
    * If not already version 2, update to version 2 and add
    * LockssServlet#ROLE_CONTENT_ACCESS} if necessary.
    */
-  protected void postLoadInit(AccountManager acctMgr, Configuration config) {
-    commonInit(acctMgr, config);
-    if (version < 2) {
-      Set r = new HashSet(getRoleSet());
-      if (r.add(LockssServlet.ROLE_CONTENT_ACCESS)) {
-	log.debug("Adding accessContentRole to " + getName());
-	setRoles(r);
-      }
-      log.debug("Updating " + getName() + " to version 2");
-      version = 2;
-      storeUser(true);
-    }
+  public void postLoadInit(AccountManager acctMgr, Configuration config) {
+    commonInit(acctMgr, stateMgr, config);
   }
 
   /** Setup configuration before first use.  Called by factory. */
-  protected void commonInit(AccountManager acctMgr, Configuration config) {
+  protected void commonInit(AccountManager acctMgr, StateManager stateMgr, Configuration config) {
     this.acctMgr = acctMgr;
+    this.stateMgr = stateMgr;
   }
 
   /** Return the username */
@@ -804,10 +796,10 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   public static abstract class Factory {
     public abstract UserAccount newUser(String name,
-					AccountManager acctMgr,
-					Configuration config);
-    public UserAccount newUser(String name, AccountManager acctMgr) {
-      return newUser(name, acctMgr, ConfigManager.getCurrentConfig());
+                                        AccountManager acctMgr,
+                                        StateManager stateMgr, Configuration config);
+    public UserAccount newUser(String name, AccountManager acctMgr, StateManager stateMgr) {
+      return newUser(name, acctMgr, stateMgr, ConfigManager.getCurrentConfig());
     }
   }
 

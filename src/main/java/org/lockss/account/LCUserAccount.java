@@ -35,6 +35,7 @@ package org.lockss.account;
 import org.apache.oro.text.regex.*;
 
 import org.lockss.config.*;
+import org.lockss.state.StateManager;
 import org.lockss.util.*;
 
 /** Library of Congress password rules:
@@ -166,10 +167,10 @@ public class LCUserAccount extends UserAccount {
 
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name,
-			       AccountManager acctMgr,
-			       Configuration config) {
+                               AccountManager acctMgr,
+                               StateManager stateMgr, Configuration config) {
       UserAccount acct = new LCUserAccount(name);
-      acct.init(acctMgr, config);
+      acct.init(acctMgr, stateMgr, config);
       return acct;
     }
   }

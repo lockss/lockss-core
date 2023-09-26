@@ -33,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.account;
 
 import org.lockss.config.*;
+import org.lockss.state.StateManager;
 
 /** User account data with parameters for standard rules set from config
  */
@@ -92,8 +93,8 @@ public class BasicUserAccount extends UserAccount {
     super(name);
   }
 
-  protected void commonInit(AccountManager acctMgr, Configuration config) {
-    super.commonInit(acctMgr, config);
+  protected void commonInit(AccountManager acctMgr, StateManager stateMgr, Configuration config) {
+    super.commonInit(acctMgr, stateMgr, config);
   }
 
   public String getType() {
@@ -158,12 +159,12 @@ public class BasicUserAccount extends UserAccount {
 
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name, AccountManager acctMgr,
-			       Configuration config) {
+                               StateManager stateMgr, Configuration config) {
       if (config == null) {
 	throw new NullPointerException();
       }
       BasicUserAccount acct = new BasicUserAccount(name);
-      acct.init(acctMgr, config);
+      acct.init(acctMgr, stateMgr, config);
       return acct;
     }
   }

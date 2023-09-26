@@ -33,7 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.account;
 
 import org.lockss.config.*;
-import org.lockss.util.*;
+import org.lockss.state.StateManager;
 import org.lockss.util.time.TimeBase;
 
 /** Static user account for non-editable accounts
@@ -93,12 +93,12 @@ public class StaticUserAccount extends BasicUserAccount {
 
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name, AccountManager acctMgr,
-			       Configuration config) {
+                               StateManager stateMgr, Configuration config) {
       if (config == null) {
 	throw new NullPointerException();
       }
       StaticUserAccount acct = new StaticUserAccount(name);
-      acct.init(acctMgr, config);
+      acct.init(acctMgr, stateMgr, config);
       return acct;
     }
   }
