@@ -40,6 +40,7 @@ import java.util.*;
 import java.util.zip.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.*;
+import org.lockss.account.UserAccount;
 import org.lockss.app.*;
 import org.lockss.config.db.*;
 import org.lockss.db.*;
@@ -1549,6 +1550,35 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     } finally {
       ConfigDbManager.safeCloseStatement(addNoAuPeerSet);
     }
+  }
+
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  @Override
+  public Iterable<String> findUserAccountNames() throws StoreException, IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Iterable<UserAccount> findUserAccounts() throws StoreException, IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public UserAccount findUserAccount(String key) throws StoreException, IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void updateUserAccount(String key, UserAccount acct, Set<String> fields) throws StoreException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void removeUserAccount(UserAccount acct) {
+    throw new UnsupportedOperationException();
   }
 
   private String compressJson(String json, String objname) throws IOException {
