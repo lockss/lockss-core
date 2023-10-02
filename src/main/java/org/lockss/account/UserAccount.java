@@ -107,7 +107,6 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   protected static final long ALERTER_INTERVAL = Constants.MINUTE;
 
   protected transient AccountManager acctMgr;
-  protected transient StateManager stateMgr;
   protected transient String fileName;
 
   protected transient Set roleSet = null;
@@ -120,8 +119,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   /** Setup configuration before first use.  Called by factory. */
-  protected void init(AccountManager acctMgr, StateManager stateMgr, Configuration config) {
-    commonInit(acctMgr, stateMgr, config);
+  protected void init(AccountManager acctMgr, Configuration config) {
+    commonInit(acctMgr, config);
     init(acctMgr);
   }
 
@@ -144,13 +143,12 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
    * LockssServlet#ROLE_CONTENT_ACCESS} if necessary.
    */
   public void postLoadInit(AccountManager acctMgr, Configuration config) {
-    commonInit(acctMgr, stateMgr, config);
+    commonInit(acctMgr, config);
   }
 
   /** Setup configuration before first use.  Called by factory. */
-  protected void commonInit(AccountManager acctMgr, StateManager stateMgr, Configuration config) {
+  protected void commonInit(AccountManager acctMgr, Configuration config) {
     this.acctMgr = acctMgr;
-    this.stateMgr = stateMgr;
   }
 
   /** Return the username */
@@ -727,18 +725,11 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   void alertAndUpdate(Alert alert, String msg) {
     acctMgr.alertUser(this, alert, msg);
     lastPasswordReminderTime = TimeBase.nowMs();
-    storeUser();
+    updateUserAccount("lastPasswordReminderTime");
   }
 
   public void updateUserAccount(String... fields) {
-    // Q: Does this need a cookie?
-    stateMgr.updateUserAccount(this, SetUtil.set(fields));
-  }
-
-  /** Should be called whenever a change has been made to the account, in a
-   * context where AccountManager doesn't otherwise know to save it */
-  public void storeUser() {
-    storeUser(false);
+    acctMgr.updateUserAccount(this, SetUtil.set(fields));
   }
 
   /** Should be called whenever a change has been made to the account, in a
@@ -828,9 +819,9 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   public static abstract class Factory {
     public abstract UserAccount newUser(String name,
                                         AccountManager acctMgr,
-                                        StateManager stateMgr, Configuration config);
-    public UserAccount newUser(String name, AccountManager acctMgr, StateManager stateMgr) {
-      return newUser(name, acctMgr, stateMgr, ConfigManager.getCurrentConfig());
+                                        Configuration config);
+    public UserAccount newUser(String name, AccountManager acctMgr) {
+      return newUser(name, acctMgr, ConfigManager.getCurrentConfig());
     }
   }
 

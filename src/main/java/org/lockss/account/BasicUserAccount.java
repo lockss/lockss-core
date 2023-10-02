@@ -93,8 +93,8 @@ public class BasicUserAccount extends UserAccount {
     super(name);
   }
 
-  protected void commonInit(AccountManager acctMgr, StateManager stateMgr, Configuration config) {
-    super.commonInit(acctMgr, stateMgr, config);
+  protected void commonInit(AccountManager acctMgr, Configuration config) {
+    super.commonInit(acctMgr, config);
   }
 
   public String getType() {
@@ -159,12 +159,12 @@ public class BasicUserAccount extends UserAccount {
 
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name, AccountManager acctMgr,
-                               StateManager stateMgr, Configuration config) {
+                               Configuration config) {
       if (config == null) {
 	throw new NullPointerException();
       }
       BasicUserAccount acct = new BasicUserAccount(name);
-      acct.init(acctMgr, stateMgr, config);
+      acct.init(acctMgr, config);
       return acct;
     }
   }

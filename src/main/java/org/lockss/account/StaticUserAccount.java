@@ -93,12 +93,12 @@ public class StaticUserAccount extends BasicUserAccount {
 
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name, AccountManager acctMgr,
-                               StateManager stateMgr, Configuration config) {
+                               Configuration config) {
       if (config == null) {
 	throw new NullPointerException();
       }
       StaticUserAccount acct = new StaticUserAccount(name);
-      acct.init(acctMgr, stateMgr, config);
+      acct.init(acctMgr, config);
       return acct;
     }
   }

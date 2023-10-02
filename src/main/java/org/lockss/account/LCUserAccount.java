@@ -168,9 +168,9 @@ public class LCUserAccount extends UserAccount {
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name,
                                AccountManager acctMgr,
-                               StateManager stateMgr, Configuration config) {
+                               Configuration config) {
       UserAccount acct = new LCUserAccount(name);
-      acct.init(acctMgr, stateMgr, config);
+      acct.init(acctMgr, config);
       return acct;
     }
   }

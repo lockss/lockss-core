@@ -347,7 +347,7 @@ public class AccountManager
   /** Create a new UserAccount of the configured type.  The account must be
    * added before becoming active. */
   public UserAccount createUser(String name) {
-    return acctFact.newUser(name, this, stateMgr);
+    return acctFact.newUser(name, this);
   }
 
   /** Add the user account, if doesn't conflict with an existing user and
@@ -383,7 +383,7 @@ public class AccountManager
    * platform-generated and old manually configured accounts.. */
   public UserAccount addStaticUser(String name, String credentials)
       throws NotAddedException {
-    UserAccount acct = new StaticUserAccount.Factory().newUser(name, this, stateMgr);
+    UserAccount acct = new StaticUserAccount.Factory().newUser(name, this);
     try {
       acct.setCredential(credentials);
     } catch (NoSuchAlgorithmException e) {
@@ -692,6 +692,11 @@ public class AccountManager
     } catch (Exception e) {
       // ignored, expected during testing
     }
+  }
+
+  public void updateUserAccount(UserAccount userAccount, Set<String> fields) {
+    // Q: Does this need a cookie?
+    stateMgr.updateUserAccount(userAccount, fields);
   }
 
   public class NotAddedException extends Exception {
