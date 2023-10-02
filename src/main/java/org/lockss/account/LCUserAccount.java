@@ -32,6 +32,8 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.oro.text.regex.*;
 
 import org.lockss.config.*;
@@ -80,7 +82,8 @@ public class LCUserAccount extends UserAccount {
 
   static final String HASH_ALGORITHM = "SHA-256";
 
-  public LCUserAccount(String name) {
+  @JsonCreator
+  public LCUserAccount(@JsonProperty("name") String name) {
     super(name);
   }
 

@@ -32,6 +32,8 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.lockss.config.*;
 import org.lockss.state.StateManager;
 import org.lockss.util.time.TimeBase;
@@ -40,7 +42,8 @@ import org.lockss.util.time.TimeBase;
  */
 public class StaticUserAccount extends BasicUserAccount {
 
-  public StaticUserAccount(String name) {
+  @JsonCreator
+  public StaticUserAccount(@JsonProperty("name") String name) {
     super(name);
   }
 

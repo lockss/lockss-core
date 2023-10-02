@@ -36,6 +36,8 @@ import java.io.*;
 import java.util.*;
 import java.security.*;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -114,7 +116,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   protected transient boolean isChanged = false;
   protected transient StringBuilder eventsToReport;
 
-  public UserAccount(String name) {
+  @JsonCreator
+  public UserAccount(@JsonProperty("name") String name) {
     this.userName = name;
   }
 
@@ -210,6 +213,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   // Must be implemented by subclasses
 
   /** Return the account type */
+  @JsonProperty
   abstract public String getType();
 
   /** Return the minimum password length */

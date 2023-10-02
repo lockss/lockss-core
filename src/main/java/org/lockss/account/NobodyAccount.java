@@ -32,6 +32,9 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.*;
 
 /** Least privileged user
@@ -42,7 +45,8 @@ public class NobodyAccount extends UserAccount {
     this("Nobody");
   }
 
-  public NobodyAccount(String name) {
+  @JsonCreator
+  public NobodyAccount(@JsonProperty("name") String name) {
     super(name);
   }
 
