@@ -48,7 +48,10 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.lockss.account.AccountManager.DELETED_REASON;
 
@@ -83,18 +86,26 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
 
   @Override
   public Iterable<String> findUserAccountNames() {
-    findUserFiles();
-    return new ArrayList<>();
+    return Stream.of(findUserFiles())
+        .map(this::loadUser)
+        .map(UserAccount::getName)
+        .collect(Collectors.toList());
   }
 
   @Override
   public Iterable<UserAccount> findUserAccounts() throws StoreException, IOException {
-    return null;
+    return Stream.of(findUserFiles())
+        .map(this::loadUser)
+        .collect(Collectors.toList());
   }
 
   @Override
   public UserAccount findUserAccount(String key) {
-    return null;
+    return Stream.of(findUserFiles())
+        .map(this::loadUser)
+        .filter(acct -> acct.getName().equals(key))
+        .findFirst()
+        .orElse(null);
   }
 
   @Override
