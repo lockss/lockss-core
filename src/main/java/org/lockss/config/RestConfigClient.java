@@ -27,6 +27,7 @@
  */
 package org.lockss.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.lockss.account.UserAccount;
@@ -1425,9 +1426,23 @@ public class RestConfigClient {
     // Set the authentication credentials.
     setAuthenticationCredentials(requestHeaders);
 
+    // Q: Should we setFieldsOnly generally on the RestTemplate used by this
+    //  RestConfigClient? It would be cleaner because we should be able to
+    //  simply pass a HttpEntity<List<UserAccount>> but might affect other
+    //  REST calls.
+    ObjectMapper objMapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(objMapper);
+
+    String json = null;
+    try {
+      json = objMapper.writeValueAsString(userAccounts);
+    } catch (JsonProcessingException e) {
+      throw new LockssRestException("Error serializing user accounts", e);
+    }
+
     // Create the request entity.
-    HttpEntity<List<UserAccount>> requestEntity =
-        new HttpEntity<>(userAccounts, requestHeaders);
+    HttpEntity<String> requestEntity =
+        new HttpEntity<>(json, requestHeaders);
 
     // Make the request and get the response.
     RestUtil.callRestService(restTemplate, uri, HttpMethod.POST,
