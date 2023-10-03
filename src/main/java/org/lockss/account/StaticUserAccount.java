@@ -43,7 +43,7 @@ import org.lockss.util.time.TimeBase;
 public class StaticUserAccount extends BasicUserAccount {
 
   @JsonCreator
-  public StaticUserAccount(@JsonProperty("name") String name) {
+  public StaticUserAccount(@JsonProperty("userName") String name) {
     super(name);
   }
 

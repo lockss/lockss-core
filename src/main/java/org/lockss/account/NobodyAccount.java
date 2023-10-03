@@ -46,7 +46,7 @@ public class NobodyAccount extends UserAccount {
   }
 
   @JsonCreator
-  public NobodyAccount(@JsonProperty("name") String name) {
+  public NobodyAccount(@JsonProperty("userName") String name) {
     super(name);
   }
 

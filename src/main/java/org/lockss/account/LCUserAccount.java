@@ -83,7 +83,7 @@ public class LCUserAccount extends UserAccount {
   static final String HASH_ALGORITHM = "SHA-256";
 
   @JsonCreator
-  public LCUserAccount(@JsonProperty("name") String name) {
+  public LCUserAccount(@JsonProperty("userName") String name) {
     super(name);
   }
 

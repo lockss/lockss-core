@@ -117,7 +117,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   protected transient StringBuilder eventsToReport;
 
   @JsonCreator
-  public UserAccount(@JsonProperty("name") String name) {
+  public UserAccount(@JsonProperty("userName") String name) {
     this.userName = name;
   }
 
@@ -858,6 +858,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       }
     }
   }
+
 
   public enum UserAccountChange {
     ADD,

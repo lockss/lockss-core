@@ -92,7 +92,7 @@ public class BasicUserAccount extends UserAccount {
   static final long DEFAULT_FAILED_ATTEMPT_RESET_INTERVAL = -1;
 
   @JsonCreator
-  public BasicUserAccount(@JsonProperty("name") String name) {
+  public BasicUserAccount(@JsonProperty("userName")  String name) {
     super(name);
   }
 
