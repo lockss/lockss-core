@@ -482,16 +482,6 @@ public class ClientStateManager extends CachingStateManager {
   }
 
   @Override
-  protected Iterable<UserAccount> doLoadUserAccounts() {
-    try {
-      return configMgr.getRestConfigClient().getUserAccounts();
-    } catch (LockssRestException lre) {
-      log.error("Could not get user accounts", lre);
-      return null;
-    }
-  }
-
-  @Override
   protected UserAccount doLoadUserAccount(String name) {
     try {
       return configMgr.getRestConfigClient().getUserAccount(name);

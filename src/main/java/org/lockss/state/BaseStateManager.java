@@ -477,12 +477,6 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     return null;
   }
 
-  /** Hook for subclass to read the set of {@link UserAccount}s from
-   * persistent storage. */
-  protected Iterable<UserAccount> doLoadUserAccounts() {
-    return null;
-  }
-
   /** Hook for subclass to read a {@link UserAccount} from persistent
    * storage. */
   protected UserAccount doLoadUserAccount(String name) {

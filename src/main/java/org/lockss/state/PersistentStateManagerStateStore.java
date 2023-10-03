@@ -93,13 +93,6 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
   }
 
   @Override
-  public Iterable<UserAccount> findUserAccounts() throws StoreException, IOException {
-    return Stream.of(findUserFiles())
-        .map(this::loadUser)
-        .collect(Collectors.toList());
-  }
-
-  @Override
   public UserAccount findUserAccount(String key) {
     return Stream.of(findUserFiles())
         .map(this::loadUser)

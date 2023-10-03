@@ -769,11 +769,6 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public Iterable<UserAccount> getUserAccounts() {
-    return doLoadUserAccounts();
-  }
-
-  @Override
   public UserAccount getUserAccount(String name) {
     UserAccount acct = userAccounts.get(name);
     if (acct == null) {

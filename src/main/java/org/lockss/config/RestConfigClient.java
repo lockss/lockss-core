@@ -1362,39 +1362,6 @@ public class RestConfigClient {
     return result;
   }
 
-  public Iterable<UserAccount> getUserAccounts() throws LockssRestException {
-    // Get the URL template.
-    String template = getUserAccountsRequestUrl();
-
-    // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-        .build();
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-        .build().encode().toUri();
-    if (log.isDebug3()) log.debug3("uri = " + uri);
-
-    // Initialize the request headers.
-    HttpHeaders requestHeaders = new HttpHeaders();
-
-    // Set the authentication credentials.
-    setAuthenticationCredentials(requestHeaders);
-
-    // Create the request entity.
-    HttpEntity<String> requestEntity =
-        new HttpEntity<String>(null, requestHeaders);
-
-    // Make the request and get the response.
-    ResponseEntity<UserAccount[]> response =
-        RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
-            requestEntity, UserAccount[].class, "Cannot get user accounts");
-
-    UserAccount[] result = response.getBody();
-
-    if (log.isDebug2()) log.debug2("result = " + result);
-    return Arrays.asList(result);
-  }
-
   public UserAccount getUserAccount(String username) throws LockssRestException {
     if (log.isDebug2()) log.debug2("username = " + username);
 

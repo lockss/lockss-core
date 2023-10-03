@@ -1562,11 +1562,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
   }
 
   @Override
-  public Iterable<UserAccount> findUserAccounts() throws StoreException, IOException {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public UserAccount findUserAccount(String key) throws StoreException, IOException {
     throw new UnsupportedOperationException();
   }

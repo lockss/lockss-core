@@ -157,8 +157,6 @@ public interface StateStore {
 
   Iterable<String> findUserAccountNames() throws StoreException, IOException;
 
-  Iterable<UserAccount> findUserAccounts() throws StoreException, IOException;
-
   UserAccount findUserAccount(String key) throws StoreException, IOException;
 
   void updateUserAccount(String key, UserAccount acct, Set<String> fields) throws StoreException;

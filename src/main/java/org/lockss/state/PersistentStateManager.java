@@ -354,25 +354,6 @@ public class PersistentStateManager extends CachingStateManager {
     return res;
   }
 
-  @Override
-  protected Iterable<UserAccount> doLoadUserAccounts()
-      throws StateLoadStoreException {
-    Iterable<UserAccount> res = null;
-
-    try {
-      res = getStateStore().findUserAccounts();
-    } catch (IOException ioe) {
-      String message = "Exception caught loading user accounts";
-      throw new StateLoadStoreException(message, ioe);
-    } catch (StoreException se) {
-      String message = "Exception caught finding user accounts";
-      throw new StateLoadStoreException(message, se);
-    }
-
-    log.debug2("res = {}", res);
-    return res;
-  }
-
   /** Hook to load a {@link UserAccount} from the DB.
    * @param key the name of the user account.
    * @return the {@link UserAccount} reflecting the current contents of the DB, or null

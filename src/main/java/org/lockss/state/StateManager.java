@@ -192,7 +192,6 @@ public interface StateManager extends LockssManager {
   // /////////////////////////////////////////////////////////////////
 
   public Iterable<String> getUserAccountNames();
-  public Iterable<UserAccount> getUserAccounts();
 
   /**
    * Return the named UserAccount, or null if none exists.
