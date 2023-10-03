@@ -213,7 +213,6 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   // Must be implemented by subclasses
 
   /** Return the account type */
-  @JsonProperty
   abstract public String getType();
 
   /** Return the minimum password length */
