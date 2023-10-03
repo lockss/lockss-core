@@ -448,7 +448,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
       Map<String,Object> map = new HashMap<>();
       map.put(JMS_MAP_NAME, "UserAccount");
       map.put(JMS_MAP_USERNAME, key);
-      map.put(JMS_MAP_USERACCOUNT_CHANGE, op);
+      map.put(JMS_MAP_USERACCOUNT_CHANGE, op.toString());
       map.put(JMS_MAP_JSON, json);
       putNotNull(map, JMS_MAP_COOKIE, cookie);
       try {
