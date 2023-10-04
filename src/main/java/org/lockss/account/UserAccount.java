@@ -77,6 +77,7 @@ import org.lockss.servlet.*;
     @JsonSubTypes.Type(value = LCUserAccount.class, name = LCUserAccount.USER_ACCOUNT_TYPE),
     @JsonSubTypes.Type(value = NobodyAccount.class, name = NobodyAccount.USER_ACCOUNT_TYPE),
     @JsonSubTypes.Type(value = StaticUserAccount.class, name = StaticUserAccount.USER_ACCOUNT_TYPE)})
+@JsonFilter("userAccountFilter")
 public abstract class UserAccount implements LockssSerializable, Comparable {
   
   private static final Logger log = Logger.getLogger();
@@ -783,7 +784,15 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   public static String jsonFromUserAccount(UserAccount acct, Set<String> fields)
-          throws IOException {
+      throws JsonProcessingException {
+    return getUserAccountObjectWriter(fields).writeValueAsString(acct);
+  }
+
+  public static ObjectWriter getUserAccountObjectWriter() {
+    return getUserAccountObjectWriter(null);
+  }
+
+  private static ObjectWriter getUserAccountObjectWriter(Set<String> fields) {
     ObjectMapper mapper = new ObjectMapper();
     AuUtil.setFieldsOnly(mapper);
     SimpleBeanPropertyFilter propFilter;
@@ -793,11 +802,11 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       propFilter = SimpleBeanPropertyFilter.filterOutAllExcept(fields);
     }
     FilterProvider filters =
-            new SimpleFilterProvider().addFilter("userAccountFilter", propFilter);
-    return mapper.writer(filters).writeValueAsString(acct);
+        new SimpleFilterProvider().addFilter("userAccountFilter", propFilter);
+    return mapper.writer(filters);
   }
 
-  public String toJson() throws IOException {
+  public String toJson() throws JsonProcessingException {
     return jsonFromUserAccount(this, null);
   }
 

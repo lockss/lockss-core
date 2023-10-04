@@ -1426,16 +1426,10 @@ public class RestConfigClient {
     // Set the authentication credentials.
     setAuthenticationCredentials(requestHeaders);
 
-    // Q: Should we setFieldsOnly generally on the RestTemplate used by this
-    //  RestConfigClient? It would be cleaner because we should be able to
-    //  simply pass a HttpEntity<List<UserAccount>> but might affect other
-    //  REST calls.
-    ObjectMapper objMapper = new ObjectMapper();
-    AuUtil.setFieldsOnly(objMapper);
-
     String json = null;
     try {
-      json = objMapper.writeValueAsString(userAccounts);
+      json = UserAccount.getUserAccountObjectWriter()
+          .writeValueAsString(userAccounts);
     } catch (JsonProcessingException e) {
       throw new LockssRestException("Error serializing user accounts", e);
     }
