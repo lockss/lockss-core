@@ -773,9 +773,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   // Q: Does this work for subclasses and their fields?
   public UserAccount updateFromJson(String json) throws IOException {
-    ObjectMapper objMapper = new ObjectMapper();
-    //setFieldsOnly(objMapper);
     // Ignore unknown properties on deserialization
+    ObjectMapper objMapper = new ObjectMapper();
     objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     ObjectReader objReader = objMapper.readerForUpdating(this);
