@@ -814,9 +814,15 @@ public abstract class CachingStateManager extends BaseStateManager {
   public UserAccount updateUserAccountFromJson(String username, String json, String cookie)
       throws IOException {
     UserAccount userAccount = getUserAccount(username);
-    userAccount.updateFromJson(json);
-    updateUserAccount(userAccount, AuUtil.jsonToMap(json).keySet(), cookie);
-    return userAccount;
+    if (userAccount != null) {
+      userAccount.updateFromJson(json);
+      updateUserAccount(userAccount, AuUtil.jsonToMap(json).keySet(), cookie);
+      return userAccount;
+    } else {
+      // Q: Should this throw?
+      log.debug("Attempted to update non-existent UserAccount");
+      return null;
+    }
   }
 
   @Override
