@@ -32,6 +32,7 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.lockss.account.AccountManager;
 import org.lockss.account.UserAccount;
 import org.lockss.app.*;
 import org.lockss.log.*;
@@ -879,6 +880,12 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   @Override
   public void removeUserAccount(UserAccount acct) {
+    if (acct == null) {
+      // Q: Should this throw?
+      log.debug("Attempted to remove null UserAccount");
+      return;
+    }
+
     String username = acct.getName();
     userAccounts.remove(username);
     /*
