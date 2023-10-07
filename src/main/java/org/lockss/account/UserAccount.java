@@ -36,13 +36,12 @@ import java.io.*;
 import java.util.*;
 import java.security.*;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.ser.FilterProvider;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
@@ -70,7 +69,7 @@ import org.lockss.servlet.*;
  */
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
-    include = JsonTypeInfo.As.PROPERTY,
+    include = JsonTypeInfo.As.EXISTING_PROPERTY,
     property = "type")
 @JsonSubTypes({
     @JsonSubTypes.Type(value = BasicUserAccount.class, name = BasicUserAccount.USER_ACCOUNT_TYPE),
@@ -214,6 +213,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   // Must be implemented by subclasses
 
   /** Return the account type */
+  @JsonProperty
   abstract public String getType();
 
   /** Return the minimum password length */
