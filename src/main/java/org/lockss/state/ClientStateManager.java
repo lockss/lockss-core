@@ -442,7 +442,6 @@ public class ClientStateManager extends CachingStateManager {
         switch (op) {
           case ADD:
             log.debug2("Adding: {} from {}", username, json);
-
             ObjectMapper objMapper = new ObjectMapper();
             UserAccount acct = objMapper
                 .readerFor(UserAccount.class)
@@ -450,14 +449,17 @@ public class ClientStateManager extends CachingStateManager {
 
             userAccounts.put(username, acct);
             break;
+
           case UPDATE:
             log.debug2("Updating: {} from {}", cur, json);
             cur.updateFromJson(json);
             break;
+
           case DELETE:
             log.debug2("Removing: {}", username);
             userAccounts.remove(username);
             break;
+
           default:
             log.error("Unknown operation on UserAccount: {}", op);
             throw new IllegalArgumentException("Unknown operation on UserAccount");
