@@ -789,6 +789,13 @@ public abstract class CachingStateManager extends BaseStateManager {
   @Override
   public void storeUserAccount(UserAccount acct) throws IOException {
     String name = acct.getName();
+
+    // Check whether the UserAccount already exists in this cache (if loaded
+    // or added already) or the user exists in the StateStore:
+    if (userAccounts.containsKey(name) || hasUserAccount(name)) {
+      throw new IllegalStateException("Storing 2nd UserAccount: " + name);
+    }
+
     userAccounts.put(name, acct);
 
     /*
@@ -863,8 +870,11 @@ public abstract class CachingStateManager extends BaseStateManager {
         doNotifyUserAccountChanged(UserAccount.UserAccountChange.UPDATE, username, json, cookie);
       }
       else if (isStoreOfMissingUserAccountAllowed(fields)) {
-        userAccounts.put(username, acct);
-        doStoreUserAccount(username, acct, fields);
+        storeUserAccount(acct);
+//        userAccounts.put(username, acct);
+//        doStoreUserAccount(username, acct, fields);
+//        doUserAccountChangedCallbacks(UserAccount.UserAccountChange.ADD, username, acct);
+//        doNotifyUserAccountChanged(UserAccount.UserAccountChange.ADD, username, acct.toJson(), cookie);
       } else {
         throw new IllegalStateException("Attempted to update a missing user account: " + username);
       }
@@ -882,7 +892,12 @@ public abstract class CachingStateManager extends BaseStateManager {
   public void removeUserAccount(UserAccount acct) {
     if (acct == null) {
       // Q: Should this throw?
-      log.debug("Attempted to remove null UserAccount");
+      // This may occur under normal operation because DELETE messages are
+      // sent without a cookie. I.e., the originating client may call this
+      // method twice; second time with null.
+      if (!(this instanceof ClientStateManager)) {
+        log.warn("Attempted to remove null UserAccount from a non-client StateManager");
+      }
       return;
     }
 

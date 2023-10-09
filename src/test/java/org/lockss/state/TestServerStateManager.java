@@ -33,6 +33,8 @@ import java.util.*;
 
 import org.apache.activemq.broker.BrokerService;
 import org.junit.*;
+import org.lockss.account.BasicUserAccount;
+import org.lockss.account.UserAccount;
 import org.lockss.jms.*;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.*;
@@ -116,6 +118,27 @@ public class TestServerStateManager extends StateTestCase {
     return MapUtil.map("name", "AuSuspectUrlVersions",
 		       "auid", auid,
 		       "json", json);
+  }
+
+  Map<String,Object> userAccountUpdateMap(String username,
+                                          String json,
+                                          String op,
+                                          String cookie) throws IOException {
+
+    Map<String,Object> map = MapUtil.map("name", "UserAccount",
+        "username", username,
+        "userAccountChange", op,
+        "json", json);
+
+    putNotNull(map, "cookie", cookie);
+
+    return map;
+  }
+
+  protected void putNotNull(Map map, String key, String val) {
+    if (val != null) {
+      map.put(key, val);
+    }
   }
 
   @Test
@@ -293,6 +316,60 @@ public class TestServerStateManager extends StateTestCase {
 		 cons.receiveMap(TIMEOUT_SHOULDNT));
   }
 
+  UserAccount makeUser(String name) {
+    UserAccount acct = new BasicUserAccount.Factory().newUser(name, null);
+    return acct;
+  }
+
+  @Test
+  public void testUserAccount() throws Exception {
+    UserAccount acct1 = makeUser("User1");
+    UserAccount acct2 = makeUser("User2");
+
+    assertNull(stateMgr.getUserAccount(acct1.getName()));
+    assertNull(stateMgr.getUserAccount(acct2.getName()));
+
+    // Test JMS message on store user account
+    stateMgr.storeUserAccount(acct1);
+    assertNotNull(stateMgr.getUserAccount(acct1.getName()));
+
+    assertEquals(
+        userAccountUpdateMap(acct1.getName(), acct1.toJson(), "ADD", null),
+        cons.receiveMap(TIMEOUT_SHOULDNT));
+
+    String json1 = "{\"lastLogin\":\"123\"}";
+    String json2 = "{\"lastLogin\":\"456\"}";
+    Set<String> fields = SetUtil.set("lastLogin");
+
+    // Test partial user account update without a cookie
+    stateMgr.updateUserAccountFromJson(acct1.getName(), json1, null);
+    assertEquals(123, acct1.getLastLogin());
+
+    assertEquals(
+        userAccountUpdateMap(acct1.getName(), UserAccount.jsonFromUserAccount(acct1, fields), "UPDATE", null),
+        cons.receiveMap(TIMEOUT_SHOULDNT));
+
+    // Test partial user account update with a cookie
+    stateMgr.updateUserAccountFromJson(acct1.getName(), json2, "xyzzy");
+    assertEquals(456, acct1.getLastLogin());
+
+    assertEquals(
+        userAccountUpdateMap(acct1.getName(), UserAccount.jsonFromUserAccount(acct1, fields), "UPDATE", "xyzzy"),
+        cons.receiveMap(TIMEOUT_SHOULDNT));
+
+    // Test update call with fields set null or empty (results in a store)
+    stateMgr.updateUserAccount(acct2, null);
+    assertEquals(
+        userAccountUpdateMap(acct2.getName(), acct2.toJson(), "ADD", null),
+        cons.receiveMap(TIMEOUT_SHOULDNT));
+
+    // Test JMS message on delete user account
+    stateMgr.removeUserAccount(acct1);
+    assertNull(stateMgr.getUserAccount(acct1.getName()));
+    assertEquals(
+        userAccountUpdateMap(acct1.getName(), null, "DELETE", null),
+        cons.receiveMap(TIMEOUT_SHOULDNT));
+  }
 
   static class MyServerStateManager extends ServerStateManager {
     private SimpleBinarySemaphore rcvSem;

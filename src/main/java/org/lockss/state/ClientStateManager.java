@@ -129,7 +129,7 @@ public class ClientStateManager extends CachingStateManager {
     return false;
   }
 
-  private synchronized void recordMyUpdate(String cookie, String json)
+  protected synchronized void recordMyUpdate(String cookie, String json)
       throws IOException {
     log.debug2("mychanges.add: {}", cookie);
     myChanges.put(cookie, AuUtil.jsonToMap(json));
@@ -443,6 +443,7 @@ public class ClientStateManager extends CachingStateManager {
           case ADD:
             log.debug2("Adding: {} from {}", username, json);
             ObjectMapper objMapper = new ObjectMapper();
+            AuUtil.setFieldsOnly(objMapper);
             UserAccount acct = objMapper
                 .readerFor(UserAccount.class)
                 .readValue(json);
