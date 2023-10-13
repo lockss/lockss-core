@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,8 +46,8 @@ import org.lockss.util.urlconn.*;
 public class RegistryPlugin extends BasePlugin {
   protected static final Logger log = Logger.getLogger();
 
-  private static String PLUGIN_NAME = "Registry";
-  private static String CURRENT_VERSION = "1";
+  private static String PLUGIN_NAME = "Plugin Registry Plugin";
+  private static String CURRENT_VERSION = "2";
 
   public static final String PLUGIN_ID = "org.lockss.plugin.RegistryPlugin";
   public static final String PREFIX =
