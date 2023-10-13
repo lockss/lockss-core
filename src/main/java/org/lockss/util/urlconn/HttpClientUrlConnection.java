@@ -1236,6 +1236,12 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
   }
 
   public String getActualUrl() {
+    List<java.net.URI> redirs = context.getRedirectLocations();
+    if (redirs != null && !redirs.isEmpty()) {
+      return redirs.get(redirs.size() - 1).toString();
+    } else {
+    return reqBuilder.build().getRequestLine().getUri();
+    }
 //HC3     try {
 //HC3       String path = method.getPath();
 //HC3       String query = method.getQueryString();
@@ -1248,7 +1254,6 @@ public class HttpClientUrlConnection extends BaseLockssUrlConnection {
 //HC3       log.warning("getActualUrl(): ", e);
 //HC3       return urlString;
 //HC3     }
-    return reqBuilder.build().getRequestLine().getUri();
   }
 
   /** Mimic Java 1.3 HttpURLConnection default request header behavior */
