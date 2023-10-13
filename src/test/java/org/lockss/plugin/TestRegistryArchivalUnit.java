@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2023 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -91,11 +91,41 @@ public class TestRegistryArchivalUnit extends LockssTestCase {
 
   public void testCrawlRules() throws Exception {
     Configuration auConfig =
-      ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(), baseUrl);
+      ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(),
+                                 "http://foo.com/bar");
     ArchivalUnit au = regPlugin.createAu(auConfig);
-    assertTrue(au.shouldBeCached(baseUrl));
-    assertFalse(au.shouldBeCached(baseUrl + "/path"));
-    assertTrue(au.shouldBeCached(baseUrl + "/path.jar"));
+    assertTrue(au.shouldBeCached("http://foo.com/bar"));
+    assertTrue(au.shouldBeCached("HTTP://foo.com/bar"));
+    assertTrue(au.shouldBeCached("https://foo.com/bar"));
+    assertTrue(au.shouldBeCached("HTTPS://foo.com/bar"));
+    assertTrue(au.shouldBeCached("http://foo.com/bar/"));
+    assertTrue(au.shouldBeCached("HTTP://foo.com/bar/"));
+    assertTrue(au.shouldBeCached("https://foo.com/bar/"));
+    assertTrue(au.shouldBeCached("HTTPS://foo.com/bar/"));
+    assertFalse(au.shouldBeCached("http://foo.com/bar/file"));
+    assertFalse(au.shouldBeCached("https://foo.com/bar/file"));
+    assertTrue(au.shouldBeCached("http://foo.com/bar/file.jar"));
+    assertTrue(au.shouldBeCached("https://foo.com/bar/file.jar"));
+    assertFalse(au.shouldBeCached("https://foo.com/bar/file.jar.baz"));
+
+    auConfig =
+      ConfigurationUtil.fromArgs(ConfigParamDescr.BASE_URL.getKey(),
+                                 "https://foo.com/bar");
+    au = regPlugin.createAu(auConfig);
+    assertFalse(au.shouldBeCached("http://foo.com/bar"));
+    assertFalse(au.shouldBeCached("HTTP://foo.com/bar"));
+    assertTrue(au.shouldBeCached("https://foo.com/bar"));
+    assertTrue(au.shouldBeCached("HTTPS://foo.com/bar"));
+    assertFalse(au.shouldBeCached("http://foo.com/bar/"));
+    assertFalse(au.shouldBeCached("HTTP://foo.com/bar/"));
+    assertTrue(au.shouldBeCached("https://foo.com/bar/"));
+    assertTrue(au.shouldBeCached("HTTPS://foo.com/bar/"));
+    assertFalse(au.shouldBeCached("http://foo.com/bar/file"));
+    assertFalse(au.shouldBeCached("https://foo.com/bar/file"));
+    assertTrue(au.shouldBeCached("http://foo.com/bar/file.jar"));
+    assertTrue(au.shouldBeCached("https://foo.com/bar/file.jar"));
+    assertFalse(au.shouldBeCached("http://foo.com/bar/file.jar.baz"));
+    assertFalse(au.shouldBeCached("https://foo.com/bar/file.jar.baz"));
   }
 
   public void testCrawlProxy()
