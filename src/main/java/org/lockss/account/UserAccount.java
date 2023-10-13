@@ -147,6 +147,19 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
    */
   public void postLoadInit(AccountManager acctMgr, Configuration config) {
     commonInit(acctMgr, config);
+//    if (version < 2) {
+//      Set r = new HashSet(getRoleSet());
+//      if (r.add(LockssServlet.ROLE_CONTENT_ACCESS)) {
+//	log.debug("Adding accessContentRole to " + getName());
+//	setRoles(r);
+//      }
+//      log.debug("Updating " + getName() + " to version 2");
+//      version = 2;
+//      setChanged("version");
+//
+//      changedFields = null;
+//      storeUser();
+//    }
   }
 
   /** Setup configuration before first use.  Called by factory. */
