@@ -788,6 +788,10 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   @Override
   public void storeUserAccount(UserAccount acct) throws IOException {
+    if (acct == null) {
+      throw new IllegalArgumentException("Cannot store null UserAccount");
+    }
+
     String name = acct.getName();
 
     // Check whether the UserAccount already exists in this cache (if loaded
