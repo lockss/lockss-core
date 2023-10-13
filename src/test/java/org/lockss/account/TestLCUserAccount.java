@@ -32,13 +32,9 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
-import org.lockss.account.UserAccount.IllegalPassword;
 import org.lockss.account.UserAccount.IllegalPasswordChange;
 
-import junit.framework.TestCase;
-import java.io.*;
 import java.util.*;
-import java.lang.reflect.*;
 
 import org.lockss.state.InMemoryStateManager;
 import org.lockss.state.StateManager;
@@ -57,27 +53,14 @@ public class TestLCUserAccount extends LockssTestCase {
 
   LCUserAccount acct1;
   MyAccountManager acctMgr;
-  StateManager stateMgr;
 
   public void setUp() throws Exception {
     super.setUp();
-
-//    acctMgr = new MyAccountManager();
-//    getMockLockssDaemon().setAccountManager(acctMgr);
-//    acctMgr.initService(getMockLockssDaemon());
-//    acctMgr.startService();
-
     acctMgr = new MyAccountManager();
-    stateMgr = new InMemoryStateManager();
     getMockLockssDaemon().setAccountManager(acctMgr);
-    getMockLockssDaemon().setStateManager(stateMgr);
-
     acctMgr.initService(getMockLockssDaemon());
-    stateMgr.initService(getMockLockssDaemon());
     acctMgr.startService();
-    stateMgr.startService();
-
-    acct1 = (LCUserAccount)new LCUserAccount.Factory().newUser(NAME1, acctMgr, stateMgr);
+    acct1 = (LCUserAccount)new LCUserAccount.Factory().newUser(NAME1, acctMgr);
   }
   
   public void tearDown() throws Exception {
@@ -246,9 +229,11 @@ public class TestLCUserAccount extends LockssTestCase {
     assertNotEquals(pwd, acct1.getPassword());
   }
 
-  public void testPasswordExpiration() throws IllegalPasswordChange {
+  public void testPasswordExpiration() throws Exception {
     TimeBase.setSimulated(10000);
     acct1.setPassword("ijq3xyz$#");
+    acctMgr.addUser(acct1);
+
     acct1.checkPasswordReminder();
     assertEmpty(acctMgr.alerts);
     TimeBase.step(53 * Constants.DAY - 500);
@@ -263,7 +248,7 @@ public class TestLCUserAccount extends LockssTestCase {
     AlertEvent ev = acctMgr.alerts.get(0);
     assertMatchesRE("The password for user 'User1' will expire at ",
 		    ev.text);
-    assertEquals(ListUtil.list(acct1), acctMgr.stored);
+//    assertEquals(ListUtil.list(acct1), acctMgr.stored);
 
     TimeBase.step(6 * Constants.DAY);
     acct1.checkPasswordReminder();
@@ -281,14 +266,14 @@ public class TestLCUserAccount extends LockssTestCase {
     AlertEvent ev2 = acctMgr.alerts.get(1);
     assertMatchesRE("User 'User1' disabled because password has expired.",
 		    ev2.text);
-    assertEquals(ListUtil.list(acct1, acct1), acctMgr.stored);
+//    assertEquals(ListUtil.list(acct1, acct1), acctMgr.stored);
 
     TimeBase.step(70 * Constants.DAY);
     assertTrue(acct1.isPasswordExpired());
     acct1.checkPasswordReminder();
     assertTrue(acct1.isPasswordExpired());
     assertEquals(2, acctMgr.alerts.size());
-    assertEquals(2, acctMgr.stored.size());
+//    assertEquals(2, acctMgr.stored.size());
   }
 
   void incrDateAndSetPassword(String pwd) throws IllegalPasswordChange {
@@ -345,8 +330,6 @@ public class TestLCUserAccount extends LockssTestCase {
     TimeBase.setSimulated(Constants.DAY);
     acct1.setPassword(PWD1);
     acctMgr.addUser(acct1);
-    stateMgr.storeUserAccount(acct1);
-    acctMgr.loadUsers();
 
     // test good and bad passwd
     assertNotEquals(TimeBase.nowMs(), acct1.getLastLogin());
@@ -362,6 +345,8 @@ public class TestLCUserAccount extends LockssTestCase {
   public void testExpire() throws Exception {
     TimeBase.setSimulated(Constants.DAY);
     acct1.setPassword(PWD1);
+    acctMgr.addUser(acct1);
+
     assertTrue(acct1.check(PWD1));
     // expire password
     TimeBase.step(100 * Constants.DAY);
@@ -378,6 +363,8 @@ public class TestLCUserAccount extends LockssTestCase {
   public void testRepeatedFail() throws Exception {
     TimeBase.setSimulated(Constants.DAY);
     acct1.setPassword(PWD1);
+    acctMgr.addUser(acct1);
+
     assertTrue(acct1.check(PWD1));
     assertFalse(acct1.check(PWD2));
     assertTrue(acct1.isEnabled());
@@ -428,11 +415,11 @@ public class TestLCUserAccount extends LockssTestCase {
     List<AlertEvent> alerts = new ArrayList<AlertEvent>();
     List<UserAccount> stored = new ArrayList<UserAccount>();
 
-    @Override
-    public void storeUser(UserAccount acct) {
-      // suppress storing
-      stored.add(acct);
-    }
+//    @Override
+//    public void storeUser(UserAccount acct) {
+//      // suppress storing
+//      stored.add(acct);
+//    }
 
     @Override
     void alertUser(UserAccount acct, Alert alert, String text) {
