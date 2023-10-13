@@ -602,7 +602,6 @@ public class AccountManager
   }
 
   void loadUsers() {
-    // Q: Use stateMgr.getUserAccounts()?
     for (String name : stateMgr.getUserAccountNames()) {
       UserAccount acct = stateMgr.getUserAccount(name);
       if (acct != null) {
@@ -695,7 +694,6 @@ public class AccountManager
   }
 
   public void updateUserAccount(UserAccount userAccount, Set<String> fields) {
-    // Q: Does this need a cookie?
     stateMgr.updateUserAccount(userAccount, fields);
   }
 
