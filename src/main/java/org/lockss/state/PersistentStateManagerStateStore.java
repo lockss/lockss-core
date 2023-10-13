@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.state;
 
+import com.fasterxml.jackson.databind.*;
 import org.lockss.account.AccountManager;
 import org.lockss.account.UserAccount;
 import org.lockss.app.StoreException;
@@ -39,16 +40,11 @@ import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.db.DbException;
-import org.lockss.servlet.LockssServlet;
+import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
 
-import java.io.File;
-import java.io.FileFilter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import java.io.*;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -67,6 +63,7 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
   static final String PARAM_ACCT_DIR = PREFIX + "acctDir";
   public static final String DEFAULT_ACCT_DIR = "accts";
   private static String acctRelDir = DEFAULT_ACCT_DIR;
+  private final ObjectMapper objMapper;
 
   private ConfigManager configMgr;
   private AccountManager acctMgr;
@@ -81,6 +78,12 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
     super(configDbManager);
     configMgr = configDbManager.getConfigManager();
     acctMgr = configMgr.getApp().getManagerByType(AccountManager.class);
+
+    // Create and configure a JSON ObjectMapper for serialization and deserialization
+    objMapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(objMapper);
+    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
     ensureAcctDir();
   }
 
@@ -104,14 +107,14 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
   @Override
   public void updateUserAccount(String key, UserAccount acct, Set<String> fields) throws StoreException {
     // FIXME: Last successful login / failed logins will be overwritten
-    // Allow update if the object doens't exist
+    // Allow update if the object doesn't exist
     String filename = acct.getFilename();
     if (filename == null) {
       filename = generateFilename(acct);
     }
     File file =  new File(getAcctDir(), filename);
     try {
-      storeUserInternal(acct, file);
+      storeUser(acct, file);
     } catch (SerializationException | IOException e) {
       throw new StoreException("Error storing user in database", e);
     }
@@ -121,11 +124,6 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
 
   @Override
   public void removeUserAccount(UserAccount acct) {
-    deleteUser(acct);
-  }
-
-  /** Delete the user */
-  public synchronized boolean deleteUser(UserAccount acct) {
     boolean res = true;
     String filename = acct.getFilename();
     if (filename != null) {
@@ -138,17 +136,24 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
     if (res) {
       acct.disable(DELETED_REASON);
     }
-    return res;
+  }
+
+  void storeUser(UserAccount acct, File file)
+      throws IOException, SerializationException {
+    if (log.isDebug2()) log.debug2("Storing account in " + file);
+    ObjectWriter writer = UserAccount.getUserAccountObjectWriter()
+        .withFeatures(SerializationFeature.INDENT_OUTPUT);
+    writer.writeValue(file, acct);
+    FileUtil.setOwnerRW(file);
   }
 
   UserAccount loadUser(File file) {
     try {
-      UserAccount acct = (UserAccount)makeObjectSerializer().deserialize(file);
+      ObjectReader reader = objMapper.readerFor(UserAccount.class);
+      UserAccount acct = reader.readValue(file);
+
       acct.setFilename(file.getName());
       acct.postLoadInit(acctMgr, configMgr.getCurrentConfig());
-
-      postInitLoad(acct);
-
       log.debug2("Loaded user " + acct.getName() + " from " + file);
       return acct;
     } catch (Exception e) {
@@ -157,24 +162,7 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
     }
   }
 
-  private void postInitLoad(UserAccount acct) {
-    if (acct.getVersion() < 2) {
-      Set<String> r = new HashSet<>(acct.getRoleSet());
-      if (r.add(LockssServlet.ROLE_CONTENT_ACCESS)) {
-        log.debug("Adding accessContentRole to " + acct.getName());
-        acct.setRoles(r);
-      }
-      log.debug("Updating " + acct.getName() + " to version 2");
-      acct.setVersion(2);
-      acct.storeUser(true);
-    }
-  }
-
-  private ObjectSerializer makeObjectSerializer() {
-    return new XStreamSerializer();
-  }
-
-  public static String generateFilename(UserAccount acct) {
+  static String generateFilename(UserAccount acct) {
     String name = StringUtil.sanitizeToIdentifier(acct.getName()).toLowerCase();
     File dir = getAcctDir();
     if (!new File(dir, name).exists()) {
@@ -191,13 +179,13 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
   }
 
   /** Return parent dir of all user account files */
-  public static File getAcctDir() {
+  static File getAcctDir() {
     ConfigManager cfgMgr = ConfigManager.getConfigManager();
     return new File(cfgMgr.getCacheConfigDir(),
         PersistentStateManagerStateStore.DEFAULT_ACCT_DIR);
   }
 
-  File ensureAcctDir() {
+  private File ensureAcctDir() {
     File acctDir = getAcctDir();
     if (!acctDir.exists()) {
       if (!acctDir.mkdir()) {
@@ -215,13 +203,12 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
     return acctDir;
   }
 
-  File[] findUserFiles() {
+  protected  File[] findUserFiles() {
     File acctDir = getAcctDir();
-    File files[] = acctDir.listFiles(new UserAccountFileFilter());
-    return files;
+    return acctDir.listFiles(new UserAccountFileFilter());
   }
 
-  // accept regular files with names that could have been generated by
+  // Accept regular files with names that could have been generated by
   // sanitizeName().  This avoids trying to load, e.g., renamed failed
   // deserialization files (*.deser.old)
   private static final class UserAccountFileFilter implements FileFilter {
@@ -237,16 +224,6 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
         }
       }
       return true;
-    }
-  }
-
-  void storeUserInternal(UserAccount acct, File file)
-      throws IOException, SerializationException {
-    if (acct.isChanged()) {
-      if (log.isDebug2()) log.debug2("Storing account in " + file);
-      makeObjectSerializer().serialize(file, acct);
-      FileUtil.setOwnerRW(file);
-      acct.notChanged();
     }
   }
 }
