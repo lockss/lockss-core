@@ -1,0 +1,17 @@
+{
+  "userName" : "User1",
+  "version" : 2,
+  "email" : null,
+  "currentPassword" : "1AE747DD5F5D58CAAA60952C0F85FA95649AF40F83152E8950E68F52270014AA",
+  "passwordHistory" : null,
+  "failedAttemptHistory" : null,
+  "hashAlg" : "SHA-256",
+  "roles" : null,
+  "lastLogin" : 0,
+  "lastPasswordChange" : 1697150268867,
+  "lastUserPasswordChange" : 1697150268867,
+  "lastPasswordReminderTime" : 0,
+  "isDisabled" : false,
+  "disableReason" : null,
+  "type" : "Basic"
+}
