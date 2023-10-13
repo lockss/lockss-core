@@ -371,10 +371,12 @@ public class AccountManager
   /** Add the user account, if doesn't conflict with an existing user and
    * it has a password. */
   public UserAccount addUser(UserAccount acct)
-      throws NotAddedException, NotStoredException {
+      throws NotAddedException, IOException {
     internalAddUser(acct);
     if (acct.isEditable()) {
-      storeUser(acct);
+      if (!stateMgr.hasUserAccount(acct.getName())) {
+        stateMgr.storeUserAccount(acct);
+      }
     }
     return acct;
   }
@@ -525,16 +527,7 @@ public class AccountManager
       throw new IllegalArgumentException("Can't store uninstalled account: "
 					 + acct);
     }
-    storeUserInternal(acct);
-  }
-
-  /** Store the current state of the user account on disk */
-  public void storeUserInternal(UserAccount acct) throws NotStoredException {
-    try {
-      stateMgr.storeUserAccount(acct);
-    } catch (IOException e) {
-      throw new NotStoredException("Could not store user");
-    }
+    acct.storeUser();
   }
 
   /** Load realm users from properties file.
@@ -633,7 +626,7 @@ public class AccountManager
   /** Add the user account, if doesn't conflict with an existing user and
    * it has a password. */
   public UserAccount userAddUser(UserAccount actor, UserAccount acct)
-      throws NotAddedException, NotStoredException {
+      throws NotAddedException, NotStoredException, IOException {
     UserAccount res = addUser(acct);
     acct.reportCreateEventBy(actor);
     return res;
