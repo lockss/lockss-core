@@ -113,7 +113,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   protected transient Set roleSet = null;
   protected transient Credential credential = null;
-  protected transient boolean isChanged = false;
+  private transient List<String> changedFields;
   protected transient StringBuilder eventsToReport;
 
   @JsonCreator
@@ -171,8 +171,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   public void setEmail(String val) {
     if (!StringUtil.equalStrings(email, val)) {
       addAuditableEvent("Changed email from: " + none(email) +
-			" to: " + none(val)); 
-      setChanged(true);
+			" to: " + none(val));
+      setChanged("email");
       email = val;
     }
   }
@@ -253,7 +253,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     if (!StringUtil.equalStrings(roles, val)) {
       addAuditableEvent("Changed roles from: " + none(roles) +
 			" to: " + none(val));
-      setChanged(true);
+      setChanged("roles");
       roles = val;
       roleSet = null;
     }
@@ -269,7 +269,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     if (!roleSet.equals(getRoleSet())) {
       addAuditableEvent("Changed roles from: " + getRoleSet() +
 			" to: " + roleSet);
-      setChanged(true);
+      setChanged("roles");
       this.roles = StringUtil.separatedString(roleSet, ",");
       this.roleSet = roleSet;
     }
@@ -331,6 +331,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     if (currentPassword != null && passwordHistory != null) {
       shiftArrayUp(passwordHistory);
       passwordHistory[0] = currentPassword;
+      setChanged("passwordHistory");
     }
     boolean isChange = (currentPassword != null
 			&& !currentPassword.equals(hash));
@@ -344,9 +345,9 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     }
     boolean isReenable = isDisabled;
     enable();
-    setChanged(true);
     clearCaches();
     if (isChange) {
+      setChanged("currentPassword", "lastPasswordChange");
       addAuditableEvent("Changed password" +
 			(isReenable ? " and reenabled" : ""));
     }
@@ -589,11 +590,10 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       throw new UnsupportedOperationException("Can't reset credential");
     }
     credential = MDCredential.makeCredential(cred);
-    setChanged(true);
   }
 
   /** Return the credential string (ALG:encrypted_pwd) */
-  String getCredentialString() {
+  public String getCredentialString() {
     if (currentPassword == null) {
       return null;
     }
@@ -663,19 +663,25 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   public void enable() {
-    setChanged(isDisabled);
-    isDisabled = false;
-    disableReason = null;
+    if (isDisabled) {
+      setChanged("isDisabled", "disableReason");
+      isDisabled = false;
+      disableReason = null;
+    }
   }
 
+
+
   public void disable(String reason) {
-    setChanged(!isDisabled || !StringUtil.equalStrings(disableReason, reason));
-    log.debug("Disabled account " + getName() + ": " + reason);
-    if (!AccountManager.DELETED_REASON.equals(reason)) {
-      auditableEvent("account disabled because: " + reason);
+    if (!isDisabled || !StringUtil.equalStrings(disableReason, reason)) {
+      log.debug("Disabled account " + getName() + ": " + reason);
+      if (!AccountManager.DELETED_REASON.equals(reason)) {
+        auditableEvent("account disabled because: " + reason);
+      }
+      setChanged("isDisabled", "disableReason");
+      isDisabled = true;
+      disableReason = reason;
     }
-    isDisabled = true;
-    disableReason = reason;
   }
 
   public boolean isEnabled() {
@@ -738,29 +744,25 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   /** Should be called whenever a change has been made to the account, in a
    * context where AccountManager doesn't otherwise know to save it */
-  public void storeUser(boolean internal) {
-    setChanged(true);
-    try {
-      if (internal) {
-	acctMgr.storeUserInternal(this);
-      } else {
-	acctMgr.storeUser(this);
-      }
-    } catch (AccountManager.NotStoredException e) {
-      log.error("Failed to store account: " + getName(), e);
-    }
+  public void storeUser() {
+    Set<String> fields = isChanged() ? SetUtil.fromList(changedFields) : null;
+    acctMgr.updateUserAccount(this, fields);
+    changedFields = null;
   }
 
   public boolean isChanged() {
-    return isChanged;
+    return changedFields != null && !changedFields.isEmpty();
   }
 
   public void notChanged() {
-    isChanged = false;
+    changedFields = null;
   }
 
-  void setChanged(boolean changed) {
-    isChanged |= changed;
+  protected synchronized void setChanged(String ... fields) {
+    if (changedFields == null) {
+      changedFields = new ArrayList<>(5);
+    }
+    changedFields.addAll(Arrays.asList(fields));
   }
 
   public int compareTo(Object o) {
