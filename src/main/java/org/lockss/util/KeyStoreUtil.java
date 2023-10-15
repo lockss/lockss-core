@@ -47,18 +47,22 @@ public class KeyStoreUtil {
 
   private static final Logger log = Logger.getLogger();
 
-  // Workaround for Java bug ID 9070059.  See
-  // https://github.com/bcgit/bc-java/issues/941
-  static {
-    fixBug9070059();
-  }
+  // The Oracle JDK bug pages linked from the github issue suggest
+  // this has been fixed.  I'm leaving the workaround here for now,
+  // commented out, as reference in case we see it again.
 
-  @SuppressWarnings("sunapi")
-  private static void fixBug9070059() {
-    try {
-      sun.security.x509.AlgorithmId.get("PBEWithSHA1AndDESede");
-    } catch (NoSuchAlgorithmException e) {}
-  }
+//   // Workaround for Java bug ID 9070059.  See
+//   // https://github.com/bcgit/bc-java/issues/941
+//   static {
+//     fixBug9070059();
+//   }
+
+//   @SuppressWarnings("sunapi")
+//   private static void fixBug9070059() {
+//     try {
+//       sun.security.x509.AlgorithmId.get("PBEWithSHA1AndDESede");
+//     } catch (NoSuchAlgorithmException e) {}
+//   }
 
   // Large set of args passed in Properties or Configuration
   /** File to write keystore to */
