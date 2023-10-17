@@ -585,6 +585,9 @@ public class AccountManager
   /** Return named UserAccount or null */
   public UserAccount getUserOrNull(String username) {
     UserAccount res = accountMap.get(username);
+    if (res == null) {
+      res = loadUser(username);
+    }
     log.debug2("getUser("+username + "): " + res);
     return res;
   }
@@ -597,8 +600,13 @@ public class AccountManager
 
   void loadUsers() {
     for (String name : stateMgr.getUserAccountNames()) {
-      UserAccount acct = stateMgr.getUserAccount(name);
-      if (acct != null) {
+      loadUser(name);
+    }
+  }
+  
+  UserAccount loadUser(String username) {
+    UserAccount acct = stateMgr.getUserAccount(username);
+    if (acct != null) {
       try {
         internalAddUser(acct);
         acct.init(this, ConfigManager.getCurrentConfig());
@@ -606,9 +614,9 @@ public class AccountManager
         log.debug("Already installed user: " + e.getMessage());
       } catch (NotAddedException e) {
         log.error("Can't install user: " + e.getMessage());
-	}
       }
     }
+    return acct;
   }
 
   /** Called by {@link org.lockss.daemon.Cron.SendPasswordReminder} */
