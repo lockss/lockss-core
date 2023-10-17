@@ -444,11 +444,11 @@ public class ClientStateManager extends CachingStateManager {
             log.debug2("Adding: {} from {}", username, json);
             ObjectMapper objMapper = new ObjectMapper();
             AuUtil.setFieldsOnly(objMapper);
-            UserAccount acct = objMapper
+            cur = objMapper
                 .readerFor(UserAccount.class)
                 .readValue(json);
 
-            userAccounts.put(username, acct);
+            userAccounts.put(username, cur);
             break;
 
           case UPDATE:
