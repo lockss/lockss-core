@@ -234,6 +234,7 @@ public class AccountManager
       case ADD:
         try {
           internalAddUser(userAccount);
+          userAccount.init(this, ConfigManager.getCurrentConfig());
         } catch (NotAddedException e) {
           // This shouldn't happen; caller should have satisfied checks already
           log.warning("User account not added", e);
@@ -600,6 +601,7 @@ public class AccountManager
       if (acct != null) {
       try {
         internalAddUser(acct);
+        acct.init(this, ConfigManager.getCurrentConfig());
       } catch (UserExistsException e) {
         log.debug("Already installed user: " + e.getMessage());
       } catch (NotAddedException e) {
