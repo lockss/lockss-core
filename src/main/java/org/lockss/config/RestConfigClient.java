@@ -30,6 +30,7 @@ package org.lockss.config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import org.lockss.account.UserAccount;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
@@ -1388,11 +1389,21 @@ public class RestConfigClient {
         new HttpEntity<String>(null, requestHeaders);
 
     // Make the request and get the response.
-    ResponseEntity<UserAccount> response =
+    ResponseEntity<String> response =
         RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
-            requestEntity, UserAccount.class, "Cannot get UserAccount object");
+            requestEntity, String.class, "Cannot get UserAccount object");
 
-    UserAccount result = response.getBody();
+    ObjectMapper objMapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(objMapper);
+    ObjectReader objectReader = objMapper.readerFor(UserAccount.class);
+    UserAccount result = null;
+
+    try {
+      result = objectReader.readValue(response.getBody());
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
