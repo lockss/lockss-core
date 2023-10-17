@@ -59,7 +59,13 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     super.initService(daemon);
     this.daemon = daemon;
     configMgr = daemon.getConfigManager();
-    pluginMgr = daemon.getPluginManager();
+
+    try {
+      pluginMgr = daemon.getPluginManager();
+    } catch (IllegalArgumentException e) {
+      log.warn("Could not get a Plugin Manager; continuing without one");
+    }
+
     // Don't prefetch IdentityManager here as it uses StateManager
   }
 
