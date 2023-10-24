@@ -470,7 +470,7 @@ public class ClientStateManager extends CachingStateManager {
         doUserAccountChangedCallbacks(op, username, cur);
       }
     } catch (IOException e) {
-      log.error("Couldn't deserialize AuState: {}", json, e);
+      log.error("Couldn't deserialize UserAccount: {}", json, e);
     }
   }
 
