@@ -770,7 +770,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public UserAccount getUserAccount(String name) {
+  public synchronized UserAccount getUserAccount(String name) {
     UserAccount acct = userAccounts.get(name);
     if (acct == null) {
       acct = handleUserAccountCacheMiss(name);
@@ -787,7 +787,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public void storeUserAccount(UserAccount acct) throws IOException {
+  public synchronized void storeUserAccount(UserAccount acct) throws IOException {
     if (acct == null) {
       throw new IllegalArgumentException("Cannot store null UserAccount");
     }
@@ -823,7 +823,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public UserAccount updateUserAccountFromJson(String username, String json, String cookie)
+  public synchronized UserAccount updateUserAccountFromJson(String username, String json, String cookie)
       throws IOException {
     UserAccount userAccount = getUserAccount(username);
     if (userAccount != null) {
@@ -831,19 +831,18 @@ public abstract class CachingStateManager extends BaseStateManager {
       updateUserAccount(userAccount, AuUtil.jsonToMap(json).keySet(), cookie);
       return userAccount;
     } else {
-      // Q: Should this throw?
       log.debug("Attempted to update non-existent UserAccount");
       return null;
     }
   }
 
   @Override
-  public UserAccount updateUserAccount(UserAccount acct, Set<String> fields) {
+  public synchronized UserAccount updateUserAccount(UserAccount acct, Set<String> fields) {
     return updateUserAccount(acct, fields, null);
   }
 
   /** Update UserAccount in cache */
-  public UserAccount updateUserAccount(UserAccount acct, Set<String> fields, String cookie) {
+  public synchronized UserAccount updateUserAccount(UserAccount acct, Set<String> fields, String cookie) {
     String username = acct.getName();
     log.debug2("Updating user account: {}", username);
     UserAccount curAcct = getUserAccount(username);
@@ -893,9 +892,8 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public void removeUserAccount(UserAccount acct) {
+  public synchronized void removeUserAccount(UserAccount acct) {
     if (acct == null) {
-      // Q: Should this throw?
       // This may occur under normal operation because DELETE messages are
       // sent without a cookie. I.e., the originating client may call this
       // method twice; second time with null.
