@@ -421,39 +421,37 @@ public class ClientStateManager extends CachingStateManager {
                                           String username, String json,
                                           String cookie) {
     try {
-      boolean applyChange = false;
-      UserAccount cur;
+      UserAccount acct;
 
       synchronized (this) {
-        cur = userAccounts.get(username);
-        if (cur == null && op == UserAccount.UserAccountChange.UPDATE) {
+        acct = userAccounts.get(username);
+
+        if (acct == null && op == UserAccount.UserAccountChange.UPDATE) {
           log.debug2("Ignoring partial update for UserAccount we don't have: {}", username);
           return;
         }
+
         if (isMyUpdate(cookie, json)) {
           log.debug2("Ignoring my UserAccount change: {}: {}", cookie, json);
-        } else {
-          applyChange = true;
+          return;
         }
-      }
 
-      if (applyChange) {
         // Handle change in this client's CachingStateManager
         switch (op) {
           case ADD:
             log.debug2("Adding: {} from {}", username, json);
             ObjectMapper objMapper = new ObjectMapper();
             AuUtil.setFieldsOnly(objMapper);
-            cur = objMapper
+            acct = objMapper
                 .readerFor(UserAccount.class)
                 .readValue(json);
 
-            userAccounts.put(username, cur);
+            userAccounts.put(username, acct);
             break;
 
           case UPDATE:
-            log.debug2("Updating: {} from {}", cur, json);
-            cur.updateFromJson(json);
+            log.debug2("Updating: {} from {}", acct, json);
+            acct.updateFromJson(json);
             break;
 
           case DELETE:
@@ -465,10 +463,10 @@ public class ClientStateManager extends CachingStateManager {
             log.error("Unknown operation on UserAccount: {}", op);
             throw new IllegalArgumentException("Unknown operation on UserAccount");
         }
-
-        // Handle change in this client's AccountManager
-        doUserAccountChangedCallbacks(op, username, cur);
       }
+
+      // Handle change in this client's AccountManager
+      doUserAccountChangedCallbacks(op, username, acct);
     } catch (IOException e) {
       log.error("Couldn't deserialize UserAccount: {}", json, e);
     }
