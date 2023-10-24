@@ -507,6 +507,7 @@ public class AccountManager
   public static String DELETED_REASON = "Deleted";
 
   synchronized UserAccount internalDeleteUser(UserAccount acct) {
+    // paranoia, in case someone holds onto object.
     acct.disable(DELETED_REASON);
     return accountMap.remove(acct.getName());
   }
