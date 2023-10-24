@@ -154,12 +154,23 @@ public interface StateStore {
 				Set<PeerIdentity> peers)
       throws StoreException;
 
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
 
-  Iterable<String> findUserAccountNames() throws StoreException, IOException;
+  default Iterable<String> findUserAccountNames() throws StoreException, IOException {
+    throw new UnsupportedOperationException();
+  }
 
-  UserAccount findUserAccount(String key) throws StoreException, IOException;
+  default UserAccount findUserAccount(String key) throws StoreException, IOException {
+    throw new UnsupportedOperationException();
+  }
 
-  void updateUserAccount(String key, UserAccount acct, Set<String> fields) throws StoreException;
+  default void updateUserAccount(String key, UserAccount acct, Set<String> fields) throws StoreException {
+    throw new UnsupportedOperationException();
+  }
 
-  void removeUserAccount(UserAccount acct);
+  default void removeUserAccount(UserAccount acct) {
+    throw new UnsupportedOperationException();
+  }
 }
