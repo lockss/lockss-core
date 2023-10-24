@@ -341,13 +341,17 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       throws IllegalPasswordChange {
     String hash = hashPassword(newPwd);
     checkLegalPassword(newPwd, hash, isAdmin);
-    if (currentPassword != null && passwordHistory != null) {
+
+    if (!(currentPassword != null && !currentPassword.equals(hash))) {
+      log.debug("No change to password");
+      return;
+    }
+
+    if (passwordHistory != null) {
       shiftArrayUp(passwordHistory);
       passwordHistory[0] = currentPassword;
       setChanged("passwordHistory");
     }
-    boolean isChange = (currentPassword != null
-			&& !currentPassword.equals(hash));
 
     currentPassword = hash;
     lastPasswordChange = TimeBase.nowMs();
@@ -359,11 +363,9 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     boolean isReenable = isDisabled;
     enable();
     clearCaches();
-    if (isChange) {
-      setChanged("currentPassword", "lastPasswordChange");
-      addAuditableEvent("Changed password" +
-			(isReenable ? " and reenabled" : ""));
-    }
+    setChanged("currentPassword", "lastPasswordChange");
+    addAuditableEvent("Changed password" +
+        (isReenable ? " and reenabled" : ""));
   }
 
   /** Account has logged in */
@@ -791,7 +793,6 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     return getName().compareTo(other.getName());
   }
 
-  // Q: Does this work for subclasses and their fields?
   public UserAccount updateFromJson(String json) throws IOException {
     // Ignore unknown properties on deserialization
     ObjectMapper objMapper = new ObjectMapper();
