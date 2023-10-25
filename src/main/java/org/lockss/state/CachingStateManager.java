@@ -765,12 +765,12 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public Iterable<String> getUserAccountNames() {
+  public Iterable<String> getUserAccountNames() throws IOException {
     return doLoadUserAccountNames();
   }
 
   @Override
-  public synchronized UserAccount getUserAccount(String name) {
+  public synchronized UserAccount getUserAccount(String name) throws IOException {
     UserAccount acct = userAccounts.get(name);
     if (acct == null) {
       acct = handleUserAccountCacheMiss(name);
@@ -778,7 +778,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     return acct;
   }
 
-  protected UserAccount handleUserAccountCacheMiss(String name) {
+  protected UserAccount handleUserAccountCacheMiss(String name) throws IOException {
     UserAccount acct = doLoadUserAccount(name);
     if (acct != null) {
       userAccounts.put(name, acct);
@@ -837,12 +837,15 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public synchronized UserAccount updateUserAccount(UserAccount acct, Set<String> fields) {
+  public synchronized UserAccount updateUserAccount(UserAccount acct,
+                                                    Set<String> fields) throws IOException {
     return updateUserAccount(acct, fields, null);
   }
 
   /** Update UserAccount in cache */
-  public synchronized UserAccount updateUserAccount(UserAccount acct, Set<String> fields, String cookie) {
+  public synchronized UserAccount updateUserAccount(UserAccount acct,
+                                                    Set<String> fields,
+                                                    String cookie) throws IOException {
     String username = acct.getName();
     log.debug2("Updating user account: {}", username);
     UserAccount curAcct = getUserAccount(username);
@@ -883,7 +886,8 @@ public abstract class CachingStateManager extends BaseStateManager {
       }
       return acct;
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      log.error("Could not update user account", e);
+      throw e;
     }
   }
 
@@ -921,7 +925,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public boolean hasUserAccount(String name) {
+  public boolean hasUserAccount(String name) throws IOException {
     // Match first in Iterable
     for (String currentName : doLoadUserAccountNames()) {
       if (currentName.equals(name)) {

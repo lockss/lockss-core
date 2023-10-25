@@ -529,7 +529,11 @@ public class AccountManager
       throw new IllegalArgumentException("Can't store uninstalled account: "
 					 + acct);
     }
-    acct.storeUser();
+    try {
+      acct.storeUser();
+    } catch (IOException e) {
+      throw new NotStoredException("Could not store user account", e);
+    }
   }
 
   /** Load realm users from properties file.
@@ -600,24 +604,32 @@ public class AccountManager
   }
 
   void loadUsers() {
-    for (String name : stateMgr.getUserAccountNames()) {
-      loadUser(name);
+    try {
+      for (String name : stateMgr.getUserAccountNames()) {
+        UserAccount acct = loadUser(name);
+        if (acct != null) {
+          try {
+            internalAddUser(acct);
+            acct.init(this, ConfigManager.getCurrentConfig());
+          } catch (UserExistsException e) {
+            log.debug("Already installed user: " + e.getMessage());
+          } catch (NotAddedException e) {
+            log.error("Can't install user: " + e.getMessage());
+          }
+        }
+      }
+    } catch (IOException e) {
+      log.error("Could not load user accounts", e);
     }
   }
   
   UserAccount loadUser(String username) {
-    UserAccount acct = stateMgr.getUserAccount(username);
-    if (acct != null) {
-      try {
-        internalAddUser(acct);
-        acct.init(this, ConfigManager.getCurrentConfig());
-      } catch (UserExistsException e) {
-        log.debug("Already installed user: " + e.getMessage());
-      } catch (NotAddedException e) {
-        log.error("Can't install user: " + e.getMessage());
-      }
+    try {
+      return stateMgr.getUserAccount(username);
+    } catch (Exception e) {
+      log.error("Could not load user account", e);
+      return null;
     }
-    return acct;
   }
 
   /** Called by {@link org.lockss.daemon.Cron.SendPasswordReminder} */
@@ -697,7 +709,7 @@ public class AccountManager
     }
   }
 
-  public void updateUserAccount(UserAccount userAccount, Set<String> fields) {
+  public void updateUserAccount(UserAccount userAccount, Set<String> fields) throws IOException {
     stateMgr.updateUserAccount(userAccount, fields);
   }
 

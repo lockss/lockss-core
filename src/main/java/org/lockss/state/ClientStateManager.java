@@ -473,27 +473,28 @@ public class ClientStateManager extends CachingStateManager {
   }
 
   @Override
-  protected Iterable<String> doLoadUserAccountNames() {
+  protected Iterable<String> doLoadUserAccountNames() throws IOException {
     try {
       return configMgr.getRestConfigClient().getUserAccountNames();
     } catch (LockssRestException lre) {
       log.error("Could not get user account names", lre);
-      return null;
+      throw new IOException("Could not get user account names", lre);
     }
   }
 
   @Override
-  protected UserAccount doLoadUserAccount(String name) {
+  protected UserAccount doLoadUserAccount(String name) throws IOException {
     try {
       return configMgr.getRestConfigClient().getUserAccount(name);
     } catch (LockssRestException e) {
       log.error("Could not get user account", e);
-      throw new RuntimeException(e);
+      throw new IOException("Could not get user account", e);
     }
   }
 
   @Override
-  protected void doStoreUserAccount(String username, UserAccount acct, Set<String> fields) {
+  protected void doStoreUserAccount(String username, UserAccount acct,
+                                    Set<String> fields) throws IOException {
     try {
       RestConfigClient cfgSvcClient = configMgr.getRestConfigClient();
       if (fields == null || fields.isEmpty()) {
@@ -506,10 +507,10 @@ public class ClientStateManager extends CachingStateManager {
       }
     } catch (LockssRestException e) {
       log.error("Could not store user account", e);
-      throw new RuntimeException(e);
+      throw new IOException("Could not store user account", e);
     } catch (IOException e) {
       log.error("Error serializing to JSON", e);
-      throw new RuntimeException(e);
+      throw new IOException("Could not store user account", e);
     }
   }
 

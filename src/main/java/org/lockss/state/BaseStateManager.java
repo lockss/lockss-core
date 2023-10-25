@@ -28,6 +28,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
+import java.io.IOException;
 import java.util.*;
 import javax.jms.*;
 
@@ -479,13 +480,13 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 
   /** Hook for subclass to read the set of {@link UserAccount} names
    * from persistent storage. */
-  protected Iterable<String> doLoadUserAccountNames() {
+  protected Iterable<String> doLoadUserAccountNames() throws IOException {
     return null;
   }
 
   /** Hook for subclass to read a {@link UserAccount} from persistent
    * storage. */
-  protected UserAccount doLoadUserAccount(String name) {
+  protected UserAccount doLoadUserAccount(String name) throws IOException {
     return null;
   }
 
@@ -496,7 +497,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    */
   protected void doStoreUserAccount(String key,
                                     UserAccount acct,
-                                    Set<String> fields) {
+                                    Set<String> fields) throws IOException {
     // Intentionally left blank
   }
 

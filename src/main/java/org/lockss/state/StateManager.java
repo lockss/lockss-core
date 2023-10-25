@@ -191,12 +191,12 @@ public interface StateManager extends LockssManager {
   // UserAccount
   // /////////////////////////////////////////////////////////////////
 
-  public Iterable<String> getUserAccountNames();
+  public Iterable<String> getUserAccountNames() throws IOException;
 
   /**
    * Return the named UserAccount, or null if none exists.
    */
-  public UserAccount getUserAccount(String name);
+  public UserAccount getUserAccount(String name) throws IOException;
 
   public void storeUserAccount(UserAccount acct) throws IOException;
 
@@ -205,7 +205,7 @@ public interface StateManager extends LockssManager {
   /**
    * Update the stored UserAccount
    */
-  public UserAccount updateUserAccount(UserAccount userAccount, Set<String> fields);
+  public UserAccount updateUserAccount(UserAccount userAccount, Set<String> fields) throws IOException;
 
   public UserAccount updateUserAccountFromJson(String username, String json, String cookie) throws IOException;
 
@@ -214,7 +214,7 @@ public interface StateManager extends LockssManager {
    *
    * @param userName the userName
    */
-  public boolean hasUserAccount(String userName);
+  public boolean hasUserAccount(String userName) throws IOException;
 
   void registerUserAccountChangedCallback(UserAccount.UserAccountChangedCallback callback);
 

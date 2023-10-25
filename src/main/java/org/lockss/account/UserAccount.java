@@ -759,12 +759,16 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   public void updateUserAccount(String... fields) {
-    acctMgr.updateUserAccount(this, SetUtil.set(fields));
+    try {
+      acctMgr.updateUserAccount(this, SetUtil.set(fields));
+    } catch (IOException e) {
+      log.error("Could not update user account fields", e);
+    }
   }
 
   /** Should be called whenever a change has been made to the account, in a
    * context where AccountManager doesn't otherwise know to save it */
-  public void storeUser() {
+  public void storeUser() throws IOException {
     Set<String> fields = isChanged() ? SetUtil.fromList(changedFields) : null;
     acctMgr.updateUserAccount(this, fields);
     changedFields = null;
