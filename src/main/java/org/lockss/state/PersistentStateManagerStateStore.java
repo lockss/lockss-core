@@ -45,6 +45,7 @@ import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
 
 import java.io.*;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -91,14 +92,17 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
   public Iterable<String> findUserAccountNames() {
     return Stream.of(findUserFiles())
         .map(this::loadUser)
+        .filter(Objects::nonNull)
         .map(UserAccount::getName)
         .collect(Collectors.toList());
   }
 
   @Override
+  // FIXME: O(n^2) while loading users; replace ASAP...
   public UserAccount findUserAccount(String key) {
     return Stream.of(findUserFiles())
         .map(this::loadUser)
+        .filter(Objects::nonNull)
         .filter(acct -> acct.getName().equals(key))
         .findFirst()
         .orElse(null);
