@@ -252,6 +252,7 @@ public class AccountManager
             try {
               log.warning("Expected to update an existing user account but it does not exist");
               internalAddUser(userAccount);
+              userAccount.init(this, ConfigManager.getCurrentConfig());
             } catch (NotAddedException e) {
               log.warning("Could not add missing user account", e);
             }
