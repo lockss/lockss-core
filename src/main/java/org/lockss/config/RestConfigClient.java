@@ -1364,7 +1364,7 @@ public class RestConfigClient {
     return result;
   }
 
-  public UserAccount getUserAccount(String username) throws LockssRestException {
+  public UserAccount getUserAccount(String username) throws IOException {
     if (log.isDebug2()) log.debug2("username = " + username);
 
     // Get the URL template.
@@ -1393,17 +1393,8 @@ public class RestConfigClient {
         RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
             requestEntity, String.class, "Cannot get UserAccount object");
 
-    ObjectMapper objMapper = new ObjectMapper();
-    AuUtil.setFieldsOnly(objMapper);
-    ObjectReader objectReader = objMapper.readerFor(UserAccount.class);
-    UserAccount result = null;
-
-    try {
-      result = objectReader.readValue(response.getBody());
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
-
+    ObjectReader objReader = UserAccount.getUserAccountObjectReader();
+    UserAccount result = objReader.readValue(response.getBody());
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
@@ -1458,7 +1449,7 @@ public class RestConfigClient {
   }
 
   public UserAccount patchUserAccount(String username, String userAccountJson, String cookie)
-      throws LockssRestException {
+      throws IOException {
 
     if (log.isDebug2()) {
       log.debug2("username = " + username);
@@ -1495,14 +1486,15 @@ public class RestConfigClient {
         new HttpEntity<>(userAccountJson, requestHeaders);
 
     // Make the request and get the response.
-    ResponseEntity<UserAccount> response = RestUtil.callRestService(restTemplate, uri, HttpMethod.PATCH,
-        requestEntity, UserAccount.class, "Cannot update user account");
+    ResponseEntity<String> response = RestUtil.callRestService(restTemplate, uri, HttpMethod.PATCH,
+        requestEntity, String.class, "Cannot update user account");
 
-    return response.getBody();
+    ObjectReader objReader = UserAccount.getUserAccountObjectReader();
+    return objReader.readValue(response.getBody());
   }
 
   public UserAccount deleteUserAccount(String username)
-      throws LockssRestException {
+      throws IOException {
     if (log.isDebug2()) log.debug2("username = " + username);
 
     // Get the URL template.
@@ -1527,12 +1519,13 @@ public class RestConfigClient {
         new HttpEntity<UserAccount>(null, requestHeaders);
 
     // Make the request and get the response.
-    ResponseEntity<UserAccount> response =
+    ResponseEntity<String> response =
         RestUtil.callRestService(restTemplate, uri, HttpMethod.DELETE,
-            requestEntity, UserAccount.class,
+            requestEntity, String.class,
             "Cannot delete user account");
 
-    UserAccount result = response.getBody();
+    ObjectReader objReader = UserAccount.getUserAccountObjectReader();
+    UserAccount result = objReader.readValue(response.getBody());
     if (log.isDebug2()) log.debug2("result = " + result);
     return result;
   }
