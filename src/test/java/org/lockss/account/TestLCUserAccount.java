@@ -248,7 +248,6 @@ public class TestLCUserAccount extends LockssTestCase {
     AlertEvent ev = acctMgr.alerts.get(0);
     assertMatchesRE("The password for user 'User1' will expire at ",
 		    ev.text);
-//    assertEquals(ListUtil.list(acct1), acctMgr.stored);
 
     TimeBase.step(6 * Constants.DAY);
     acct1.checkPasswordReminder();
@@ -266,14 +265,12 @@ public class TestLCUserAccount extends LockssTestCase {
     AlertEvent ev2 = acctMgr.alerts.get(1);
     assertMatchesRE("User 'User1' disabled because password has expired.",
 		    ev2.text);
-//    assertEquals(ListUtil.list(acct1, acct1), acctMgr.stored);
 
     TimeBase.step(70 * Constants.DAY);
     assertTrue(acct1.isPasswordExpired());
     acct1.checkPasswordReminder();
     assertTrue(acct1.isPasswordExpired());
     assertEquals(2, acctMgr.alerts.size());
-//    assertEquals(2, acctMgr.stored.size());
   }
 
   void incrDateAndSetPassword(String pwd) throws IllegalPasswordChange {
@@ -414,12 +411,6 @@ public class TestLCUserAccount extends LockssTestCase {
   static class MyAccountManager extends AccountManager {
     List<AlertEvent> alerts = new ArrayList<AlertEvent>();
     List<UserAccount> stored = new ArrayList<UserAccount>();
-
-//    @Override
-//    public void storeUser(UserAccount acct) {
-//      // suppress storing
-//      stored.add(acct);
-//    }
 
     @Override
     void alertUser(UserAccount acct, Alert alert, String text) {
