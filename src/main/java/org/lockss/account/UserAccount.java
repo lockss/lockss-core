@@ -342,7 +342,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     String hash = hashPassword(newPwd);
     checkLegalPassword(newPwd, hash, isAdmin);
 
-    if (!(currentPassword != null && !currentPassword.equals(hash))) {
+    if (currentPassword != null && currentPassword.equals(hash)) {
       log.debug("No change to password");
       return;
     }
