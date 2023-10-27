@@ -32,6 +32,7 @@ import java.io.*;
 import java.util.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import org.lockss.account.UserAccount;
 import org.lockss.log.*;
 import org.lockss.config.*;
@@ -440,11 +441,8 @@ public class ClientStateManager extends CachingStateManager {
         switch (op) {
           case ADD:
             log.debug2("Adding: {} from {}", username, json);
-            ObjectMapper objMapper = new ObjectMapper();
-            AuUtil.setFieldsOnly(objMapper);
-            acct = objMapper
-                .readerFor(UserAccount.class)
-                .readValue(json);
+            ObjectReader objReader = UserAccount.getUserAccountObjectReader();
+            acct = objReader.readValue(json);
 
             userAccounts.put(username, acct);
             break;

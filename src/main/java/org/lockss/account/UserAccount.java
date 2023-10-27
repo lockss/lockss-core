@@ -812,6 +812,13 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     return getUserAccountObjectWriter(fields).writeValueAsString(acct);
   }
 
+  public static ObjectReader getUserAccountObjectReader() {
+    ObjectMapper objMapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(objMapper);
+    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    return objMapper.readerFor(UserAccount.class);
+  }
+
   public static ObjectWriter getUserAccountObjectWriter() {
     return getUserAccountObjectWriter(null);
   }

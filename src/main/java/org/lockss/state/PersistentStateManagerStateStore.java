@@ -40,7 +40,6 @@ import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.db.DbException;
-import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
 
@@ -64,7 +63,7 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
   static final String PARAM_ACCT_DIR = PREFIX + "acctDir";
   public static final String DEFAULT_ACCT_DIR = "accts";
   private static String acctRelDir = DEFAULT_ACCT_DIR;
-  private final ObjectMapper objMapper;
+  private final ObjectReader userAccountReader;
 
   private ConfigManager configMgr;
   private AccountManager acctMgr;
@@ -81,9 +80,7 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
     acctMgr = configMgr.getApp().getManagerByType(AccountManager.class);
 
     // Create and configure a JSON ObjectMapper for serialization and deserialization
-    objMapper = new ObjectMapper();
-    AuUtil.setFieldsOnly(objMapper);
-    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    userAccountReader = UserAccount.getUserAccountObjectReader();
 
     ensureAcctDir();
   }
@@ -153,8 +150,7 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
 
   UserAccount loadUser(File file) {
     try {
-      ObjectReader reader = objMapper.readerFor(UserAccount.class);
-      UserAccount acct = reader.readValue(file);
+      UserAccount acct = userAccountReader.readValue(file);
 
       acct.setFilename(file.getName());
       acct.postLoadInit(acctMgr, configMgr.getCurrentConfig());
