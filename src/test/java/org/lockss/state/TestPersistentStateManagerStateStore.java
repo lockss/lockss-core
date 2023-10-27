@@ -95,10 +95,8 @@ public class TestPersistentStateManagerStateStore extends LockssTestCase4 {
   public void testFindUserAccountNames() throws Exception {
     assertEmpty(sstore.findUserAccountNames());
 
-    File acctfile = new File(getAcctDir(), "user1");
-    InputStream is = getResourceAsStream("user1.json");
-    String orig = StringUtil.fromInputStream(is);
-    FileTestUtil.writeFile(acctfile, orig);
+    // Write user account file from resource
+    installUser1FromResource();
 
     List<String> usernames = new ArrayList<>();
     usernames.add("User1");
@@ -115,14 +113,17 @@ public class TestPersistentStateManagerStateStore extends LockssTestCase4 {
     assertNull(sstore.findUserAccount(EMPTY_STRING));
     assertNull(sstore.findUserAccount("missing"));
 
-    File acctfile = new File(getAcctDir(), "user1");
-    InputStream is = getResourceAsStream("user1.json");
-    String orig = StringUtil.fromInputStream(is);
-    FileTestUtil.writeFile(acctfile, orig);
+    // Write user account file from resource
+    installUser1FromResource();
 
     UserAccount acct = sstore.findUserAccount("User1");
+
+    // Assert some fields unique to user1.json
     assertNotNull(acct);
     assertEquals("User1", acct.getName());
+    assertEquals(1697150268867L, acct.getLastPasswordChange());
+    assertEquals("1AE747DD5F5D58CAAA60952C0F85FA95649AF40F83152E8950E68F52270014AA",
+        acct.getPassword());
   }
 
   /**
@@ -202,14 +203,16 @@ public class TestPersistentStateManagerStateStore extends LockssTestCase4 {
     assertNull(sstore.loadUser(acctfile));
 
     // Write user account file from resource
-    InputStream is = getResourceAsStream("user1.json");
-    String orig = StringUtil.fromInputStream(is);
-    FileTestUtil.writeFile(acctfile, orig);
+    installUser1FromResource();
 
     // Load user account and assert result
     UserAccount acct = sstore.loadUser(acctfile);
+
     assertNotNull(acct);
     assertEquals("User1", acct.getName());
+    assertEquals(1697150268867L, acct.getLastPasswordChange());
+    assertEquals("1AE747DD5F5D58CAAA60952C0F85FA95649AF40F83152E8950E68F52270014AA",
+        acct.getPassword());
   }
 
   /**
@@ -244,14 +247,13 @@ public class TestPersistentStateManagerStateStore extends LockssTestCase4 {
    */
   @Test
   public void testUserAccountFileFilter() throws Exception {
-    File f1 = new File(getAcctDir(), "user1");
-    InputStream is = getResourceAsStream("user1.json");
-    String orig = StringUtil.fromInputStream(is);
-    FileTestUtil.writeFile(f1, orig);
+    // Write user account file from resource
+    installUser1FromResource();
 
     assertEquals(1, sstore.findUserFiles().length);
 
     // Rename acct1 file to a name that shouldn't pass the filter
+    File f1 = new File(getAcctDir(), "user1");
     File illFile = new File(f1.getParent(), "lu.ser");
     assertEquals(f1.getParent(), illFile.getParent());
     f1.renameTo(illFile);
@@ -267,6 +269,13 @@ public class TestPersistentStateManagerStateStore extends LockssTestCase4 {
 
   private UserAccount makeUser(String name) {
     return new BasicUserAccount.Factory().newUser(name, acctMgr);
+  }
+
+  private void installUser1FromResource() throws IOException {
+    File acctfile = new File(getAcctDir(), "user1");
+    InputStream is = getResourceAsStream("user1.json");
+    String orig = StringUtil.fromInputStream(is);
+    FileTestUtil.writeFile(acctfile, orig);
   }
 
   private void assertEqualAccts(UserAccount a1, UserAccount a2) {
