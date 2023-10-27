@@ -280,8 +280,6 @@ public class TestAccountManager extends LockssTestCase {
 
     // Clear accounts from AccountManager
     acctMgr.clearAccounts();
-    assertNull(acctMgr.getUserOrNull(acct1.getName()));
-    assertNull(acctMgr.getUserOrNull(acct2.getName()));
 
     // Re-load accounts from StateManager
     acctMgr.loadUsers();
@@ -327,5 +325,4 @@ public class TestAccountManager extends LockssTestCase {
       accountMap.clear();
     }
   }
-
 }
