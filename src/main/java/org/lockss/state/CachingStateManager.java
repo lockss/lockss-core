@@ -896,7 +896,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public synchronized void removeUserAccount(UserAccount acct) {
+  public synchronized void removeUserAccount(UserAccount acct) throws IOException {
     if (acct == null) {
       // This may occur under normal operation because DELETE messages are
       // sent without a cookie. I.e., the originating client may call this

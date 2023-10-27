@@ -494,7 +494,7 @@ public class AccountManager
   }
 
   /** Delete the user */
-  public boolean deleteUser(String name) {
+  public boolean deleteUser(String name) throws IOException {
     UserAccount acct = getUser(name);
     if (acct.isStaticUser()) {
       throw new IllegalArgumentException("Can't delete static account: "
@@ -516,7 +516,7 @@ public class AccountManager
 
 
   /** Delete the user */
-  public synchronized boolean deleteUser(UserAccount acct) {
+  public synchronized boolean deleteUser(UserAccount acct) throws IOException {
     stateMgr.removeUserAccount(acct);
     internalDeleteUser(acct);
     return true;
@@ -665,7 +665,7 @@ public class AccountManager
   }
 
   /** Delete the user */
-  public  boolean userDeleteUser(UserAccount actor, UserAccount acct) {
+  public  boolean userDeleteUser(UserAccount actor, UserAccount acct) throws IOException {
     boolean res = deleteUser(acct);
     if (res) {
       acct.reportEventBy(actor, "deleted");

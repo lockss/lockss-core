@@ -515,12 +515,12 @@ public class ClientStateManager extends CachingStateManager {
   }
 
   @Override
-  protected void doRemoveUserAccount(UserAccount acct) {
+  protected void doRemoveUserAccount(UserAccount acct) throws IOException {
     try {
       configMgr.getRestConfigClient().deleteUserAccount(acct.getName());
     } catch (LockssRestException e) {
       log.error("Could not remove user account", e);
-      throw new RuntimeException(e);
+      throw e;
     }
   }
 }

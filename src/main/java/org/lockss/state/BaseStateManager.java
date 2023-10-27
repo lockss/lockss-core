@@ -505,7 +505,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * storage.
    * @param acct
    */
-  protected void doRemoveUserAccount(UserAccount acct) {
+  protected void doRemoveUserAccount(UserAccount acct) throws IOException {
     // Intentionally left blank
   }
 }

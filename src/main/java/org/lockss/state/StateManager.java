@@ -200,7 +200,7 @@ public interface StateManager extends LockssManager {
 
   public void storeUserAccount(UserAccount acct) throws IOException;
 
-  public void removeUserAccount(UserAccount acct);
+  public void removeUserAccount(UserAccount acct) throws IOException;
 
   /**
    * Update the stored UserAccount
