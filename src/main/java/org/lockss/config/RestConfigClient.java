@@ -1493,7 +1493,7 @@ public class RestConfigClient {
     return objReader.readValue(response.getBody());
   }
 
-  public UserAccount deleteUserAccount(String username)
+  public void deleteUserAccount(String username)
       throws IOException {
     if (log.isDebug2()) log.debug2("username = " + username);
 
@@ -1519,15 +1519,8 @@ public class RestConfigClient {
         new HttpEntity<UserAccount>(null, requestHeaders);
 
     // Make the request and get the response.
-    ResponseEntity<String> response =
-        RestUtil.callRestService(restTemplate, uri, HttpMethod.DELETE,
-            requestEntity, String.class,
-            "Cannot delete user account");
-
-    ObjectReader objReader = UserAccount.getUserAccountObjectReader();
-    UserAccount result = objReader.readValue(response.getBody());
-    if (log.isDebug2()) log.debug2("result = " + result);
-    return result;
+    RestUtil.callRestService(restTemplate, uri, HttpMethod.DELETE,
+        requestEntity, Void.class, "Cannot delete user account");
   }
 
   /**
