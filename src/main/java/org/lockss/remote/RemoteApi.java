@@ -598,7 +598,9 @@ public class RemoteApi
       }
       zip.closeEntry();
       if (acctMgr.isEnabled()) {
-	File acctDir = acctMgr.getAcctDir();
+        // Q: Refactor into ConfigMgr?
+        File acctDir = new File(configMgr.getCacheConfigDir(),
+            PersistentStateManagerStateStore.DEFAULT_ACCT_DIR);
 	ZipUtil.addDirToZip(zip, acctDir, "accts");
       }
       List aus = pluginMgr.getAllAus();

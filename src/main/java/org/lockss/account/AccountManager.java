@@ -37,8 +37,8 @@ import org.lockss.app.*;
 import org.lockss.daemon.status.*;
 import org.lockss.config.*;
 import org.lockss.servlet.*;
+import org.lockss.state.StateManager;
 import org.lockss.util.*;
-import org.lockss.util.io.FileUtil;
 import org.lockss.alert.*;
 import org.lockss.mail.*;
 
@@ -68,10 +68,6 @@ public class AccountManager
    * BASIC  */
   public static final String PARAM_POLICY = PREFIX + "policy";
   public static final String DEFAULT_POLICY = null;
-
-  /** Config subdir holding account info */
-  static final String PARAM_ACCT_DIR = PREFIX + "acctDir";
-  static final String DEFAULT_ACCT_DIR = "accts";
 
   /** Type of account to create for new users */
   public static final String PARAM_NEW_ACCOUNT_TYPE = PREFIX + "newUserType";
@@ -224,23 +220,64 @@ public class AccountManager
   private String adminEmail = null;
   private boolean alertOnLoginLogout = DEFAULT_ALERT_ON_LOGIN_LOGOUT;
 
-  private ConfigManager configMgr;
-  private String acctRelDir;
+  private StateManager stateMgr;
   private UserAccount.Factory acctFact;
   private String acctType;
 
   // Maps account name to UserAccount
   Map<String,UserAccount> accountMap = new HashMap<String,UserAccount>();
 
+  UserAccount.UserAccountChangedCallback userChangedCallback =
+      (username, op, userAccount) -> {
+    // FIXME: We're trusting all changes without verifying / authenticating
+    switch (op) {
+      case ADD:
+        synchronized (this) {
+          try {
+              if (!accountMap.containsKey(username)) {
+                internalAddUser(userAccount);
+                userAccount.init(this, ConfigManager.getCurrentConfig());
+              }
+          } catch (NotAddedException e) {
+            // This shouldn't happen; caller should have satisfied checks already
+            log.warning("User account not added", e);
+          }
+        }
+        break;
+      case UPDATE:
+        // Updates should already have applied to the UserAccount object. If it
+        // does not exist in the map, issue a warning and put into map:
+        synchronized (this) {
+          if (!accountMap.containsKey(username)) {
+            try {
+              log.warning("Expected to update an existing user account but it does not exist");
+              internalAddUser(userAccount);
+              userAccount.init(this, ConfigManager.getCurrentConfig());
+            } catch (NotAddedException e) {
+              log.warning("Could not add missing user account", e);
+            }
+          }
+        }
+        break;
+      case DELETE:
+        internalDeleteUser(userAccount);
+        break;
+      default:
+        log.error("Unknown UserAccount operation: " + op);
+        throw new IllegalArgumentException("Unknown UserAccount operation");
+    }
+  };
+
+  @Override
   public void startService() {
     super.startService();
     LockssDaemon daemon = getDaemon();
-    configMgr = daemon.getConfigManager();
+    stateMgr = daemon.getManagerByType(StateManager.class);
+    stateMgr.registerUserAccountChangedCallback(userChangedCallback);
     resetConfig();
     installDebugUser(DEBUG_USER_PROPERTY_FILE);
     installPlatformUser();
     if (isEnabled) {
-      ensureAcctDir();
       loadUsers();
       try {
 	AdminServletManager adminMgr = 
@@ -270,7 +307,6 @@ public class AccountManager
       isEnabled = config.getBoolean(PARAM_ENABLED, DEFAULT_ENABLED);
       isEnableDebugUser = config.getBoolean(PARAM_ENABLE_DEBUG_USER,
 					    DEFAULT_ENABLE_DEBUG_USER);
-      acctRelDir = config.get(PARAM_ACCT_DIR, DEFAULT_ACCT_DIR);
       acctType = config.get(PARAM_NEW_ACCOUNT_TYPE, DEFAULT_NEW_ACCOUNT_TYPE);
       acctFact = getUserFactory(acctType);
 
@@ -343,10 +379,13 @@ public class AccountManager
   /** Add the user account, if doesn't conflict with an existing user and
    * it has a password. */
   public UserAccount addUser(UserAccount acct)
-      throws NotAddedException, NotStoredException {
+      throws NotAddedException, IOException {
     internalAddUser(acct);
     if (acct.isEditable()) {
-      storeUser(acct);
+      if (!stateMgr.hasUserAccount(acct.getName())) {
+        stateMgr.storeUserAccount(acct);
+        acct.notChanged();
+      }
     }
     return acct;
   }
@@ -461,7 +500,7 @@ public class AccountManager
   }
 
   /** Delete the user */
-  public boolean deleteUser(String name) {
+  public boolean deleteUser(String name) throws IOException {
     UserAccount acct = getUser(name);
     if (acct.isStaticUser()) {
       throw new IllegalArgumentException("Can't delete static account: "
@@ -473,25 +512,20 @@ public class AccountManager
     return deleteUser(acct);
   }
 
-  static String DELETED_REASON = "Deleted";
+  public static String DELETED_REASON = "Deleted";
+
+  synchronized UserAccount internalDeleteUser(UserAccount acct) {
+    // paranoia, in case someone holds onto object.
+    acct.disable(DELETED_REASON);
+    return accountMap.remove(acct.getName());
+  }
+
 
   /** Delete the user */
-  public synchronized boolean deleteUser(UserAccount acct) {
-    boolean res = true;
-    String filename = acct.getFilename();
-    if (filename != null) {
-      File file = new File(getAcctDir(), filename);
-      // done this way so will return true if file is gone, whether we
-      // deleted it or not
-      file.delete();
-      res = !file.exists();
-    }
-    if (res) {
-      acct.disable(DELETED_REASON);	// paranoia, in case someone holds
-					// onto object.
-      accountMap.remove(acct.getName());
-    }
-    return res;
+  public synchronized boolean deleteUser(UserAccount acct) throws IOException {
+    stateMgr.removeUserAccount(acct);
+    internalDeleteUser(acct);
+    return true;
   }
 
   /** Store the current state of the user account on disk */
@@ -503,35 +537,10 @@ public class AccountManager
       throw new IllegalArgumentException("Can't store uninstalled account: "
 					 + acct);
     }
-    storeUserInternal(acct);
-  }
-
-  /** Store the current state of the user account on disk */
-  public void storeUserInternal(UserAccount acct) throws NotStoredException {
-    String filename = acct.getFilename();
-    if (filename == null) {
-      filename = generateFilename(acct);
-    }
-    File file =  new File(getAcctDir(), filename);
     try {
-      storeUserInternal(acct, file);
-    } catch (SerializationException e) {
-      throw new NotStoredException("Error storing user in database", e);
+      acct.storeUser();
     } catch (IOException e) {
-      throw new NotStoredException("Error storing user in database", e);
-    }
-
-    acct.setFilename(file.getName());
-  }
-
-  void storeUserInternal(UserAccount acct, File file)
-      throws IOException, SerializationException {
-    if (acct.isChanged()) {
-      if (log.isDebug2()) log.debug2("Storing account in " + file);
-      makeObjectSerializer().serialize(file, acct);
-      FileUtil.setOwnerRW(file);
-      acct.notChanged();
-      return;
+      throw new NotStoredException("Could not store user account", e);
     }
   }
 
@@ -577,18 +586,21 @@ public class AccountManager
   }
 
   /** Return collection of all user accounts */
-  public Collection<UserAccount> getUsers() {
+  public synchronized Collection<UserAccount> getUsers() {
     return accountMap.values();
   }
 
   /** Return true if named user exists */
-  public boolean hasUser(String username) {
+  public synchronized boolean hasUser(String username) {
     return accountMap.containsKey(username);
   }
 
   /** Return named UserAccount or null */
-  public UserAccount getUserOrNull(String username) {
+  public synchronized UserAccount getUserOrNull(String username) {
     UserAccount res = accountMap.get(username);
+    if (res == null) {
+      res = loadUser(username);
+    }
     log.debug2("getUser("+username + "): " + res);
     return res;
   }
@@ -599,96 +611,33 @@ public class AccountManager
     return res != null ? res : NOBODY_ACCOUNT;
   }
 
-  /** Return parent dir of all user account files */
-  public File getAcctDir() {
-    return new File(configMgr.getCacheConfigDir(), acctRelDir);
+  void loadUsers() {
+    try {
+      for (String name : stateMgr.getUserAccountNames()) {
+        UserAccount acct = loadUser(name);
+        if (acct != null) {
+          try {
+            internalAddUser(acct);
+            acct.init(this, ConfigManager.getCurrentConfig());
+          } catch (UserExistsException e) {
+            log.debug("Already installed user: " + e.getMessage());
+          } catch (NotAddedException e) {
+            log.error("Can't install user: " + e.getMessage());
+          }
+        }
+      }
+    } catch (IOException e) {
+      log.error("Could not load user accounts", e);
+    }
   }
   
-  File ensureAcctDir() {
-    File acctDir = getAcctDir();
-    if (!acctDir.exists()) {
-      if (!acctDir.mkdir()) {
-	throw new IllegalArgumentException("Account data directory " +
-					   acctDir + " cannot be created.");
-      }
-      FileUtil.setOwnerRWX(acctDir);
-    }
-    if (!acctDir.canWrite()) {
-	throw new IllegalArgumentException("Account data directory " +
-					   acctDir + " is not writable.");
-    }
-    
-    log.debug2("Account dir: " + acctDir);
-    return acctDir;
-  }
-
-  File[] findUserFiles() {
-    File acctDir = getAcctDir();
-    File files[] = acctDir.listFiles(new UserAccountFileFilter());
-    return files;
-  }
-
-  // accept regular files with names that could have been generated by
-  // sanitizeName().  This avoids trying to load, e.g., renamed failed
-  // deserialization files (*.deser.old)
-  private static final class UserAccountFileFilter implements FileFilter {
-    public boolean accept(File file) {
-      if (!file.isFile()) {
-	return false;
-      }
-      String name = file.getName();
-      for (int ix = name.length() - 1; ix >= 0; --ix) {
-	char ch = name.charAt(ix);
-	if (!Character.isJavaIdentifierPart(ch)) {
-	  return false;
-	}
-      }
-      return true;
-    }
-  }
-
-  void loadUsers() {
-    for (File file : findUserFiles()) {
-      UserAccount acct = loadUser(file);
-      if (acct != null) {
-	try {
-	  internalAddUser(acct);
-	} catch (UserExistsException e) {
-	  log.debug("Already installed user: " + e.getMessage());
-	} catch (NotAddedException e) {
-	  log.error("Can't install user: " + e.getMessage());
-	}
-      }
-    }
-  }
-
-  UserAccount loadUser(File file) {
+  UserAccount loadUser(String username) {
     try {
-      UserAccount acct = (UserAccount)makeObjectSerializer().deserialize(file);
-      acct.setFilename(file.getName());
-      acct.postLoadInit(this, configMgr.getCurrentConfig());
-      log.debug2("Loaded user " + acct.getName() + " from " + file);
-      return acct;
+      return stateMgr.getUserAccount(username);
     } catch (Exception e) {
-      log.error("Unable to load account data from " + file, e);
+      log.error("Could not load user account", e);
       return null;
     }
-  }
-
-  String generateFilename(UserAccount acct) {
-    String name = StringUtil.sanitizeToIdentifier(acct.getName()).toLowerCase();
-    File dir = getAcctDir();
-    if (!new File(dir, name).exists()) {
-      return name;
-    }
-    for (int ix = 1; ix < 10000; ix++) {
-      String s = name + "_" + ix;
-      if (!new File(dir, s).exists()) {
-	return s;
-      }
-    }
-    throw new RuntimeException("Can't generate unique file to store account: "
-			       + acct.getName());
   }
 
   /** Called by {@link org.lockss.daemon.Cron.SendPasswordReminder} */
@@ -708,7 +657,7 @@ public class AccountManager
   /** Add the user account, if doesn't conflict with an existing user and
    * it has a password. */
   public UserAccount userAddUser(UserAccount actor, UserAccount acct)
-      throws NotAddedException, NotStoredException {
+      throws NotAddedException, NotStoredException, IOException {
     UserAccount res = addUser(acct);
     acct.reportCreateEventBy(actor);
     return res;
@@ -722,7 +671,7 @@ public class AccountManager
   }
 
   /** Delete the user */
-  public  boolean userDeleteUser(UserAccount actor, UserAccount acct) {
+  public  boolean userDeleteUser(UserAccount actor, UserAccount acct) throws IOException {
     boolean res = deleteUser(acct);
     if (res) {
       acct.reportEventBy(actor, "deleted");
@@ -768,8 +717,8 @@ public class AccountManager
     }
   }
 
-  private ObjectSerializer makeObjectSerializer() {
-    return new XStreamSerializer();
+  public void updateUserAccount(UserAccount userAccount, Set<String> fields) throws IOException {
+    stateMgr.updateUserAccount(userAccount, fields);
   }
 
   public class NotAddedException extends Exception {

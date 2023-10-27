@@ -32,14 +32,12 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
-import org.lockss.account.UserAccount.IllegalPassword;
 import org.lockss.account.UserAccount.IllegalPasswordChange;
 
-import junit.framework.TestCase;
-import java.io.*;
 import java.util.*;
-import java.lang.reflect.*;
 
+import org.lockss.state.InMemoryStateManager;
+import org.lockss.state.StateManager;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
@@ -231,9 +229,11 @@ public class TestLCUserAccount extends LockssTestCase {
     assertNotEquals(pwd, acct1.getPassword());
   }
 
-  public void testPasswordExpiration() throws IllegalPasswordChange {
+  public void testPasswordExpiration() throws Exception {
     TimeBase.setSimulated(10000);
     acct1.setPassword("ijq3xyz$#");
+    acctMgr.addUser(acct1);
+
     acct1.checkPasswordReminder();
     assertEmpty(acctMgr.alerts);
     TimeBase.step(53 * Constants.DAY - 500);
@@ -248,7 +248,6 @@ public class TestLCUserAccount extends LockssTestCase {
     AlertEvent ev = acctMgr.alerts.get(0);
     assertMatchesRE("The password for user 'User1' will expire at ",
 		    ev.text);
-    assertEquals(ListUtil.list(acct1), acctMgr.stored);
 
     TimeBase.step(6 * Constants.DAY);
     acct1.checkPasswordReminder();
@@ -266,14 +265,12 @@ public class TestLCUserAccount extends LockssTestCase {
     AlertEvent ev2 = acctMgr.alerts.get(1);
     assertMatchesRE("User 'User1' disabled because password has expired.",
 		    ev2.text);
-    assertEquals(ListUtil.list(acct1, acct1), acctMgr.stored);
 
     TimeBase.step(70 * Constants.DAY);
     assertTrue(acct1.isPasswordExpired());
     acct1.checkPasswordReminder();
     assertTrue(acct1.isPasswordExpired());
     assertEquals(2, acctMgr.alerts.size());
-    assertEquals(2, acctMgr.stored.size());
   }
 
   void incrDateAndSetPassword(String pwd) throws IllegalPasswordChange {
@@ -329,9 +326,12 @@ public class TestLCUserAccount extends LockssTestCase {
   public void testCheck() throws Exception {
     TimeBase.setSimulated(Constants.DAY);
     acct1.setPassword(PWD1);
+    acctMgr.addUser(acct1);
+
     // test good and bad passwd
     assertNotEquals(TimeBase.nowMs(), acct1.getLastLogin());
     assertTrue(acct1.check(PWD1));
+
     assertEquals(TimeBase.nowMs(), acct1.getLastLogin());
     TimeBase.step(Constants.WEEK);
     assertFalse(acct1.check(PWD2));
@@ -342,6 +342,8 @@ public class TestLCUserAccount extends LockssTestCase {
   public void testExpire() throws Exception {
     TimeBase.setSimulated(Constants.DAY);
     acct1.setPassword(PWD1);
+    acctMgr.addUser(acct1);
+
     assertTrue(acct1.check(PWD1));
     // expire password
     TimeBase.step(100 * Constants.DAY);
@@ -358,6 +360,8 @@ public class TestLCUserAccount extends LockssTestCase {
   public void testRepeatedFail() throws Exception {
     TimeBase.setSimulated(Constants.DAY);
     acct1.setPassword(PWD1);
+    acctMgr.addUser(acct1);
+
     assertTrue(acct1.check(PWD1));
     assertFalse(acct1.check(PWD2));
     assertTrue(acct1.isEnabled());
@@ -407,12 +411,6 @@ public class TestLCUserAccount extends LockssTestCase {
   static class MyAccountManager extends AccountManager {
     List<AlertEvent> alerts = new ArrayList<AlertEvent>();
     List<UserAccount> stored = new ArrayList<UserAccount>();
-
-    @Override
-    public void storeUser(UserAccount acct) {
-      // suppress storing
-      stored.add(acct);
-    }
 
     @Override
     void alertUser(UserAccount acct, Alert alert, String text) {

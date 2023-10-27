@@ -206,6 +206,7 @@ public class HTTPConfigFile extends BaseConfigFile {
     case HttpURLConnection.HTTP_OK:
       log.debug2("New file, or file changed.  Loading file from " +
 		 "remote connection:" + url);
+      m_loadedUrl = conn.getActualUrl(); // remember possibly-redirected URL
       in = conn.getUncompressedResponseInputStream();
       break;
     case HttpURLConnection.HTTP_NOT_MODIFIED:
@@ -476,7 +477,6 @@ public class HTTPConfigFile extends BaseConfigFile {
     m_IOException = null;
     InputStream in = getUrlInputStream(conn);
     if (in != null) {
-      m_loadedUrl = null; // we're no longer loaded from failover, if we were.
       RemoteConfigFailoverInfo rcfi;
       // If so configured, save the contents of the remote file in a local
       // failover copy.

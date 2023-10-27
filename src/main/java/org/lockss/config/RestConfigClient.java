@@ -27,43 +27,37 @@
  */
 package org.lockss.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import javax.mail.MessagingException;
-import org.lockss.util.rest.repo.util.NamedInputStreamResource;
+import com.fasterxml.jackson.databind.ObjectReader;
+import org.lockss.account.UserAccount;
 import org.lockss.plugin.AuUtil;
-import org.lockss.util.auth.*;
+import org.lockss.util.*;
+import org.lockss.util.auth.AuthUtil;
 import org.lockss.util.rest.HttpResponseStatusAndHeaders;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.multipart.MultipartConnector;
 import org.lockss.util.rest.multipart.MultipartResponse;
 import org.lockss.util.rest.multipart.MultipartResponse.Part;
-import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
-import org.lockss.util.UrlUtil;
-import org.lockss.util.Constants;
+import org.lockss.util.rest.repo.util.NamedInputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.*;
+import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import javax.mail.MessagingException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.util.*;
 
 /**
  * A client representation of the Configuration REST web service.
@@ -1334,6 +1328,201 @@ public class RestConfigClient {
 	requestEntity, String.class, "Cannot update AU NoAuPeerSet object");
   }
 
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  public Iterable<String> getUserAccountNames() throws LockssRestException {
+    // Get the URL template.
+    String template = getUserAccountNamesRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+        .build();
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+        .build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+        new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response.
+    ResponseEntity<String[]> response =
+        RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+            requestEntity, String[].class, "Cannot get usernames");
+
+    List<String> result = Arrays.asList(response.getBody());
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  public UserAccount getUserAccount(String username) throws IOException {
+    if (log.isDebug2()) log.debug2("username = " + username);
+
+    // Get the URL template.
+    String template = getUserAccountRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+        .build().expand(Collections.singletonMap("username", username));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+        .build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+        new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response.
+    ResponseEntity<String> response =
+        RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+            requestEntity, String.class, "Cannot get UserAccount object");
+
+    ObjectReader objReader = UserAccount.getUserAccountObjectReader();
+    UserAccount result = objReader.readValue(response.getBody());
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
+  public void postUserAccount(UserAccount userAccount) throws LockssRestException {
+    if (log.isDebug2()) {
+      log.debug2("userAccount.getName() = " + userAccount.getName());
+    }
+
+    postUserAccounts(ListUtil.list(userAccount));
+  }
+
+  public void postUserAccounts(List<UserAccount> userAccounts) throws LockssRestException {
+    // Get the URL template.
+    String template = getUserAccountsRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+        .build();
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+        .build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    String json = null;
+    try {
+      json = UserAccount.getUserAccountObjectWriter()
+          .writeValueAsString(userAccounts);
+    } catch (JsonProcessingException e) {
+      throw new LockssRestException("Error serializing user accounts", e);
+    }
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+        new HttpEntity<>(json, requestHeaders);
+
+    // Make the request and get the response.
+    RestUtil.callRestService(restTemplate, uri, HttpMethod.POST,
+        requestEntity, String.class, "Cannot create user account");
+
+    // TODO: Check response body for UserAccounts successfully added
+    //    Q: What to do if any are missing?
+  }
+
+  public UserAccount patchUserAccount(String username, String userAccountJson, String cookie)
+      throws IOException {
+
+    if (log.isDebug2()) {
+      log.debug2("username = " + username);
+      log.debug2("userAccountJson = " + userAccountJson);
+    }
+
+    // Get the URL template.
+    String template = getUserAccountRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+        .build().expand(Collections.singletonMap("username", username));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+        .build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the content type.
+    requestHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Set the request cookie, if passed.
+    if (cookie != null) {
+      requestHeaders.set(X_LOCKSS_REQUEST_COOKIE_NAME, cookie);
+    }
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+        new HttpEntity<>(userAccountJson, requestHeaders);
+
+    // Make the request and get the response.
+    ResponseEntity<String> response = RestUtil.callRestService(restTemplate, uri, HttpMethod.PATCH,
+        requestEntity, String.class, "Cannot update user account");
+
+    ObjectReader objReader = UserAccount.getUserAccountObjectReader();
+    return objReader.readValue(response.getBody());
+  }
+
+  public void deleteUserAccount(String username)
+      throws IOException {
+    if (log.isDebug2()) log.debug2("username = " + username);
+
+    // Get the URL template.
+    String template = getUserAccountRequestUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
+        .build().expand(Collections.singletonMap("username", username));
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+        .build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<UserAccount> requestEntity =
+        new HttpEntity<UserAccount>(null, requestHeaders);
+
+    // Make the request and get the response.
+    RestUtil.callRestService(restTemplate, uri, HttpMethod.DELETE,
+        requestEntity, Void.class, "Cannot delete user account");
+  }
+
   /**
    * Provides the URL needed to read from, or write to, the REST Configuration
    * Service the configuration of a section.
@@ -1394,6 +1583,18 @@ public class RestConfigClient {
    */
   private String getNoAuPeersRequestUrl() {
     return serviceLocation + "/noaupeers/{auid}";
+  }
+
+  private String getUserAccountNamesRequestUrl() {
+    return serviceLocation + "/usernames";
+  }
+
+  private String getUserAccountsRequestUrl() {
+    return serviceLocation + "/users";
+  }
+
+  private String getUserAccountRequestUrl() {
+    return serviceLocation + "/users/{username}";
   }
 
   /**

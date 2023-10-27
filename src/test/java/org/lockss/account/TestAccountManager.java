@@ -28,23 +28,17 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
-import org.lockss.account.UserAccount.IllegalPassword;
-import org.lockss.account.UserAccount.IllegalPasswordChange;
-
-import junit.framework.TestCase;
-import java.io.*;
-import java.nio.file.*;
-import java.nio.file.attribute.*;
-import java.util.*;
-import java.lang.reflect.*;
-import org.lockss.log.*;
-import org.lockss.util.*;
-import org.lockss.config.*;
+import org.lockss.config.ConfigManager;
+import org.lockss.log.L4JLogger;
+import org.lockss.state.InMemoryStateManager;
+import org.lockss.state.StateManager;
+import org.lockss.test.ConfigurationUtil;
+import org.lockss.test.LockssTestCase;
+import org.lockss.util.PropUtil;
+import org.lockss.util.SetUtil;
 import org.lockss.util.test.FileTestUtil;
-import org.lockss.servlet.*;
-import org.lockss.test.*;
+
 import static org.lockss.servlet.LockssServlet.ROLE_USER_ADMIN;
-import static org.lockss.servlet.LockssServlet.ROLE_DEBUG;
 
 /**
  * Test class for org.lockss.account.AccountManager
@@ -54,6 +48,7 @@ public class TestAccountManager extends LockssTestCase {
   L4JLogger log = L4JLogger.getLogger();
 
   MyAccountManager acctMgr;
+  StateManager stateMgr;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -61,10 +56,16 @@ public class TestAccountManager extends LockssTestCase {
 				  AccountManager.PARAM_ENABLE_DEBUG_USER, "false",
 				  ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
 				  getTempDir("accttest").toString());
+
     acctMgr = new MyAccountManager();
+    stateMgr = new InMemoryStateManager();
     getMockLockssDaemon().setAccountManager(acctMgr);
+    getMockLockssDaemon().setStateManager(stateMgr);
+
     acctMgr.initService(getMockLockssDaemon());
+    stateMgr.initService(getMockLockssDaemon());
     acctMgr.startService();
+    stateMgr.startService();
   }
   
   public void tearDown() throws Exception {
@@ -85,16 +86,6 @@ public class TestAccountManager extends LockssTestCase {
 		 a2.getLastUserPasswordChange());
 
     assertEquals(a1.isEnabled(), a2.isEnabled());
-  }
-
-  public void testAcctDir() throws IOException {
-    File f1 = acctMgr.getAcctDir();
-    assertTrue(f1.exists());
-    assertEquals("File: " + f1,
-		 EnumSet.of(PosixFilePermission.OWNER_READ,
-			    PosixFilePermission.OWNER_WRITE,
-			    PosixFilePermission.OWNER_EXECUTE),
-		 Files.getPosixFilePermissions(f1.toPath()));
   }
 
   public void testGetUserFactory() {
@@ -164,8 +155,7 @@ public class TestAccountManager extends LockssTestCase {
     UserAccount acct2 = acctMgr.getUser(user);
     assertSame(acct1, acct2);
     assertTrue(acct1.isStaticUser());
-    File f1 = new File(acctMgr.getAcctDir(), "user");
-    assertFalse(f1.exists());
+    assertNull(stateMgr.getUserAccount(user));
   }
 
   public void testInstallDebugUser() throws Exception {
@@ -198,8 +188,7 @@ public class TestAccountManager extends LockssTestCase {
     assertEquals(user, acct1.getName());
     assertEquals(ROLE_USER_ADMIN, acct1.getRoles());
     assertTrue(acct1.isStaticUser());
-    File f1 = new File(acctMgr.getAcctDir(), "user");
-    assertFalse(f1.exists());
+    assertNull(stateMgr.getUserAccount(user));
   }
 
   public void testInstallPlatformUser1() throws Exception {
@@ -244,15 +233,6 @@ public class TestAccountManager extends LockssTestCase {
     return acct;
   }
 
-  public void testGenerateFilename() {
-    assertEquals("john_smith",
-		 acctMgr.generateFilename(makeUser("John_Smith")));
-    assertEquals("foo",
-		 acctMgr.generateFilename(makeUser("foo!")));
-    assertEquals("foobar_",
-		 acctMgr.generateFilename(makeUser(" +.!|,foo.bar?<>_")));
-  }
-
   static String PWD1 = "123Sb!@#";
   static String PWD2 = "223Sb!@#";
 
@@ -260,61 +240,52 @@ public class TestAccountManager extends LockssTestCase {
   public void testStoreUser() throws Exception {
     UserAccount acct1 = makeUser("lu@ser");
     acct1.setPassword(PWD1, true);
+
+    // Assert storing an account that hasn't been added to the AccountManager
+    // will result in a throw:
     try {
       acctMgr.storeUser(acct1);
       fail("Shouldn't be able to store un-added account");
     } catch (IllegalArgumentException e) {
     }
+
+    // Assert the presence of the account in the StateManager prior to and
+    // after adding the account to the AccountManager:
+    assertNull(stateMgr.getUserAccount(acct1.getName()));
     acctMgr.addUser(acct1);
-    File f1 = new File(acctMgr.getAcctDir(), "luser");
-    assertTrue(f1.exists());
-    assertEquals("File: " + f1,
-		 EnumSet.of(PosixFilePermission.OWNER_READ,
-			    PosixFilePermission.OWNER_WRITE),
-		 Files.getPosixFilePermissions(f1.toPath()));
+    assertSame(acct1, stateMgr.getUserAccount(acct1.getName()));
+
+    // Add a second account
     UserAccount acct2 = makeUser("luser!");
     acct2.setPassword(PWD2, true);
     acctMgr.addUser(acct2);
-    File f2 = new File(acctMgr.getAcctDir(), "luser_1");
-    assertTrue(f2.exists());
-    f1.delete();
-    assertFalse(f1.exists());
+
+    // Assert a UserAccount with no changes DOES NOT result in a store
+    assertFalse(acct1.isChanged());
     acctMgr.storeUser(acct1);
-    assertFalse(f1.exists());
+    // TODO
+
+    // Make a change to the first user and assert it results in an update
     acct1.setEmail("her@there");
+    assertTrue(acct1.isChanged());
     acctMgr.storeUser(acct1);
-    assertTrue(f1.exists());
-    
+    assertFalse(acct1.isChanged());
+    assertEqualAccts(acct1, stateMgr.getUserAccount(acct1.getName()));
+
+    assertSame(acct1, stateMgr.getUserAccount(acct1.getName()));
+    assertSame(acct2, stateMgr.getUserAccount(acct2.getName()));
+
     assertSame(acct1, acctMgr.getUser(acct1.getName()));
     assertSame(acct2, acctMgr.getUser(acct2.getName()));
-    acctMgr.clearAccounts();
-    assertNull(acctMgr.getUserOrNull(acct2.getName()));
 
+    // Clear accounts from AccountManager
+    acctMgr.clearAccounts();
+
+    // Re-load accounts from StateManager
     acctMgr.loadUsers();
     assertEqualAccts(acct1, acctMgr.getUser(acct1.getName()));
     assertEqualAccts(acct2, acctMgr.getUser(acct2.getName()));
     assertEquals(2, acctMgr.getUsers().size());
-
-    // Now test loadUsers' file filtering
-
-    acctMgr.clearAccounts();
-    assertEquals(0, acctMgr.getUsers().size());
-
-    // Rename acct1 file to a name that shouldn't pass the filter
-    File illFile = new File(f1.getParent(), "lu.ser");
-    assertEquals(f1.getParent(), illFile.getParent());
-    f1.renameTo(illFile);
-
-    // Create a subdir that shouldn't pass the filter.  It doesn't hurt
-    // anything even if AccountManager tries to process the subdir, and the
-    // test won't fail, but the error will appear in the test log.
-    File subdir = new File(f1.getParent(), "adir");
-    subdir.mkdir();
-
-    acctMgr.loadUsers();
-    assertEquals(1, acctMgr.getUsers().size());
-    assertNull(acctMgr.getUserOrNull(acct1.getName()));
-    assertEqualAccts(acct2, acctMgr.getUser(acct2.getName()));
   }
 
   public void testStoreWrongUser() throws Exception {
@@ -331,34 +302,19 @@ public class TestAccountManager extends LockssTestCase {
     }
   }
 
-  public void testUpdateV0Acct() throws Exception {
-    File acctfile = new File(acctMgr.getAcctDir(), "v0acct");
-    InputStream is = getResourceAsStream("v0acct.xml");
-    String orig = StringUtil.fromInputStream(is);
-    FileTestUtil.writeFile(acctfile, orig);
-    UserAccount acct = acctMgr.loadUser(acctfile);
-    assertTrue(acct.isUserInRole(LockssServlet.ROLE_CONTENT_ACCESS));
-    String updated = StringUtil.fromFile(acctfile);
-    assertNotEquals(orig, updated);
-    assertNotMatchesRE("version", orig);
-    assertMatchesRE("version", updated);
-    assertNotMatchesRE("accessContentRole", orig);
-    assertMatchesRE("accessContentRole", updated);
-  }
-
-
   public void testDeleteUser() throws Exception {
     String name = "lu@ser";
     UserAccount acct1 = makeUser(name);
     acct1.setPassword(PWD1, true);
+
     acctMgr.addUser(acct1);
-    File f1 = new File(acctMgr.getAcctDir(), "luser");
-    assertTrue(f1.exists());
+    assertSame(acct1, stateMgr.getUserAccount(name));
     assertSame(acct1, acctMgr.getUser(name));
     assertTrue(acct1.isEnabled());
+
     assertTrue(acctMgr.deleteUser(name));
     assertFalse(acct1.isEnabled());
-    assertFalse(f1.exists());
+    assertNull(stateMgr.getUserAccount(name));
     assertNull(acctMgr.getUserOrNull(name));
 
     assertTrue(acctMgr.deleteUser("notthere"));
@@ -369,5 +325,4 @@ public class TestAccountManager extends LockssTestCase {
       accountMap.clear();
     }
   }
-
 }

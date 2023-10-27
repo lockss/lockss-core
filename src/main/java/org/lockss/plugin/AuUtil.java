@@ -119,7 +119,7 @@ public class AuUtil {
     return mgr.getAuState(au);
   }
 
-  static ObjectMapper setFieldsOnly(ObjectMapper mapper) {
+  public static ObjectMapper setFieldsOnly(ObjectMapper mapper) {
     mapper.setVisibilityChecker(mapper.getSerializationConfig().getDefaultVisibilityChecker()
 				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
 				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
@@ -291,7 +291,7 @@ public class AuUtil {
     return mgr.hasAuSuspectUrlVersions(au.getAuId());
   }
 
-  /** Convenience method forwards to {@link org.lockss.conflg.MiscParams#isGloballyExcludedUrl(ArchivalUnit,String)}
+  /** Convenience method forwards to {@link org.lockss.config.MiscParams#isGloballyExcludedUrl(ArchivalUnit,String)}
    */
   public static boolean isGloballyExcludedUrl(ArchivalUnit au, String url) {
     MiscParams mgr = getDaemon(au).getManagerByType(MiscParams.class);

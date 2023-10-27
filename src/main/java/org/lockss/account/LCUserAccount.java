@@ -32,9 +32,12 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.oro.text.regex.*;
 
 import org.lockss.config.*;
+import org.lockss.state.StateManager;
 import org.lockss.util.*;
 
 /** Library of Congress password rules:
@@ -79,13 +82,16 @@ public class LCUserAccount extends UserAccount {
 
   static final String HASH_ALGORITHM = "SHA-256";
 
-  public LCUserAccount(String name) {
+  @JsonCreator
+  public LCUserAccount(@JsonProperty("userName") String name) {
     super(name);
   }
 
   public String getType() {
-    return "LC";
+    return USER_ACCOUNT_TYPE;
   }
+
+  public static final String USER_ACCOUNT_TYPE = "LC";
 
   protected int getHistorySize() {
     return HISTORY_SIZE;
@@ -164,8 +170,8 @@ public class LCUserAccount extends UserAccount {
 
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name,
-			       AccountManager acctMgr,
-			       Configuration config) {
+                               AccountManager acctMgr,
+                               Configuration config) {
       UserAccount acct = new LCUserAccount(name);
       acct.init(acctMgr, config);
       return acct;

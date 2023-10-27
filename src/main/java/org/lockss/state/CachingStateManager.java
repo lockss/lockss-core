@@ -30,14 +30,13 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.lockss.account.AccountManager;
+import org.lockss.account.UserAccount;
 import org.lockss.app.*;
-import org.lockss.daemon.*;
 import org.lockss.log.*;
 import org.lockss.util.*;
-import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
@@ -86,6 +85,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     agmnts = newAuAgreementsMap();
     suspectVers = newAuSuspectUrlVersionsMap();
     noAuPeerSets = newNoAuPeerSetMap();
+    userAccounts = newUserAccountsMap();
   }
 
   public void startService() {
@@ -209,7 +209,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   /** Update the stored AuState with the values of the listed fields.
-   * @param aus The source of the new values.
+   * @param ausb The source of the new values.
    */
   @Override
   public synchronized void updateAuStateBean(String key,
@@ -267,7 +267,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   /** Store an AuState from a json string
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized AuStateBean
    * @throws IOException if json conversion throws
    */
@@ -563,9 +563,9 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Entry point from state service to store changes to an AuSuspectUrlVersions.  Write
    * to DB, call hook to notify clients if appropriate
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
-   * @param map Map representation of change fields.
+   * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
    */
   public void updateAuSuspectUrlVersionsFromJson(String auid, String json,
@@ -689,9 +689,9 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Entry point from state service to store changes to an NoAuPeerSet.  Write
    * to DB, call hook to notify clients if appropriate
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
-   * @param map Map representation of change fields.
+   * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
    */
   public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
@@ -754,4 +754,185 @@ public abstract class CachingStateManager extends BaseStateManager {
     return peers == null || peers.isEmpty();
   }
 
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  protected Map<String, UserAccount> userAccounts;
+
+  protected Map<String,UserAccount> newUserAccountsMap() {
+    return new ConcurrentHashMap<>();
+  }
+
+  @Override
+  public Iterable<String> getUserAccountNames() throws IOException {
+    return doLoadUserAccountNames();
+  }
+
+  @Override
+  public synchronized UserAccount getUserAccount(String name) throws IOException {
+    UserAccount acct = userAccounts.get(name);
+    if (acct == null) {
+      acct = handleUserAccountCacheMiss(name);
+    }
+    return acct;
+  }
+
+  protected UserAccount handleUserAccountCacheMiss(String name) throws IOException {
+    UserAccount acct = doLoadUserAccount(name);
+    if (acct != null) {
+      userAccounts.put(name, acct);
+    }
+    return acct;
+  }
+
+  @Override
+  public synchronized void storeUserAccount(UserAccount acct) throws IOException {
+    if (acct == null) {
+      throw new IllegalArgumentException("Cannot store null UserAccount");
+    }
+
+    String name = acct.getName();
+
+    // Check whether the UserAccount already exists in this cache (if loaded
+    // or added already) or the user exists in the StateStore:
+    if (userAccounts.containsKey(name) || hasUserAccount(name)) {
+      throw new IllegalStateException("Storing 2nd UserAccount: " + name);
+    }
+
+    userAccounts.put(name, acct);
+
+    /*
+    ClientA:
+    storeUserAccount -> Store UserAccount to clientA's StateManager
+    doStoreUserAccount -> send POST to REST server
+                       -> (server) storeUserAccount
+                       -> (server) doStoreUserAccount: Add UserAccount to server's StateManager
+                       -> (server) doUserAccountChangedCallbacks: Add UserAccount to server's AccountManager
+                       -> (server) doNotifyUserAccountChanged: Notify clients of new UserAccount
+                       -> (clientB) receives JMS message
+                       -> (clientB) doReceiveUserAccountChanged: Add to clientB's StateManager and AccountManager
+
+    doUserAccountChangedCallbacks -> update clientA's AccountManager
+    doNotifyUserAccountChanged -> no-op
+     */
+
+    doStoreUserAccount(name, acct, null);
+    doUserAccountChangedCallbacks(UserAccount.UserAccountChange.ADD, name, acct);
+    doNotifyUserAccountChanged(UserAccount.UserAccountChange.ADD, name, acct.toJson(), null);
+  }
+
+  @Override
+  public synchronized UserAccount updateUserAccountFromJson(String username, String json, String cookie)
+      throws IOException {
+    UserAccount userAccount = getUserAccount(username);
+    if (userAccount != null) {
+      userAccount.updateFromJson(json);
+      updateUserAccount(userAccount, AuUtil.jsonToMap(json).keySet(), cookie);
+      return userAccount;
+    } else {
+      log.debug("Attempted to update non-existent UserAccount");
+      return null;
+    }
+  }
+
+  @Override
+  public synchronized UserAccount updateUserAccount(UserAccount acct,
+                                                    Set<String> fields) throws IOException {
+    return updateUserAccount(acct, fields, null);
+  }
+
+  /** Update UserAccount in cache */
+  public synchronized UserAccount updateUserAccount(UserAccount acct,
+                                                    Set<String> fields,
+                                                    String cookie) throws IOException {
+    String username = acct.getName();
+    log.debug2("Updating user account: {}", username);
+    UserAccount curAcct = getUserAccount(username);
+    try {
+      if (curAcct != null) {
+        if (curAcct != acct) {
+          throw new IllegalStateException("Attempted to update a different UserAccount instance");
+        }
+        String json = UserAccount.jsonFromUserAccount(acct, fields);
+
+        /*
+        ClientA:
+        doStoreUserAccount -> (clientA) send UserAccount to REST server
+                           -> (server) REST server calls updateUserAccountFromJson
+                           -> (server) -> updateUserAccount (this method)
+                           -> (server) send JMS notifications to client
+                           -> (clientB) receives JMS notification
+                           -> (clientB) calls doReceiveUserAccountChanged
+                           -> (clientB) updates its AccountManager and StateManager
+        doUserAccountChangedCallbacks
+                           -> (clientA) update client's AccountManager
+        doNotifyUserAccountChanged
+                           -> (clientA) do nothing
+         */
+
+        doStoreUserAccount(username, acct, fields);
+        doUserAccountChangedCallbacks(UserAccount.UserAccountChange.UPDATE, username, acct);
+        doNotifyUserAccountChanged(UserAccount.UserAccountChange.UPDATE, username, json, cookie);
+      }
+      else if (isStoreOfMissingUserAccountAllowed(fields)) {
+        storeUserAccount(acct);
+//        userAccounts.put(username, acct);
+//        doStoreUserAccount(username, acct, fields);
+//        doUserAccountChangedCallbacks(UserAccount.UserAccountChange.ADD, username, acct);
+//        doNotifyUserAccountChanged(UserAccount.UserAccountChange.ADD, username, acct.toJson(), cookie);
+      } else {
+        throw new IllegalStateException("Attempted to update a missing user account: " + username);
+      }
+      return acct;
+    } catch (IOException e) {
+      log.error("Could not update user account", e);
+      throw e;
+    }
+  }
+
+  private boolean isStoreOfMissingUserAccountAllowed(Set<String> fields) {
+    return fields == null || fields.isEmpty();
+  }
+
+  @Override
+  public synchronized void removeUserAccount(UserAccount acct) throws IOException {
+    if (acct == null) {
+      // This may occur under normal operation because DELETE messages are
+      // sent without a cookie. I.e., the originating client may call this
+      // method twice; second time with null.
+      if (!(this instanceof ClientStateManager)) {
+        log.warn("Attempted to remove null UserAccount from a non-client StateManager");
+      }
+      return;
+    }
+
+    String username = acct.getName();
+    userAccounts.remove(username);
+    /*
+    ClientA:
+    doRemoveUserAccount -> send DELETE to REST server
+                        -> (server) removeUserAccount
+                        -> (server) doRemoveUserAccount: Remove UserAccount from server's StateStore
+                        -> (server) doUserAccountChangedCallbacks: Remove UserAccount from server's AccountManager
+                        -> (server) doNotifyUserAccountChanged: Notify clients of UserAccount removal
+                        -> (clientB) receives JMS message
+                        -> (clientB) doReceiveUserAccountChanged
+     */
+    doRemoveUserAccount(acct);
+    doUserAccountChangedCallbacks(UserAccount.UserAccountChange.DELETE, username, acct);
+    doNotifyUserAccountChanged(UserAccount.UserAccountChange.DELETE, username, null, null);
+  }
+
+  @Override
+  public boolean hasUserAccount(String name) throws IOException {
+    // Match first in Iterable
+    for (String currentName : doLoadUserAccountNames()) {
+      if (currentName.equals(name)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 }

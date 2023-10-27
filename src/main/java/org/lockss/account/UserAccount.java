@@ -35,9 +35,21 @@ package org.lockss.account;
 import java.io.*;
 import java.util.*;
 import java.security.*;
+
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.ser.FilterProvider;
+import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
+import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import org.apache.oro.text.regex.*;
 import org.apache.commons.lang3.*;
 import org.apache.commons.lang3.time.*;
+import org.lockss.plugin.AuUtil;
+import org.lockss.state.StateManager;
 import org.mortbay.util.Credential;
 
 import javax.servlet.http.*;
@@ -55,6 +67,16 @@ import org.lockss.servlet.*;
 
 /** User account data.
  */
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.EXISTING_PROPERTY,
+    property = "type")
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = BasicUserAccount.class, name = BasicUserAccount.USER_ACCOUNT_TYPE),
+    @JsonSubTypes.Type(value = LCUserAccount.class, name = LCUserAccount.USER_ACCOUNT_TYPE),
+    @JsonSubTypes.Type(value = NobodyAccount.class, name = NobodyAccount.USER_ACCOUNT_TYPE),
+    @JsonSubTypes.Type(value = StaticUserAccount.class, name = StaticUserAccount.USER_ACCOUNT_TYPE)})
+@JsonFilter("userAccountFilter")
 public abstract class UserAccount implements LockssSerializable, Comparable {
   
   private static final Logger log = Logger.getLogger();
@@ -91,10 +113,11 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   protected transient Set roleSet = null;
   protected transient Credential credential = null;
-  protected transient boolean isChanged = false;
+  private transient List<String> changedFields;
   protected transient StringBuilder eventsToReport;
 
-  public UserAccount(String name) {
+  @JsonCreator
+  public UserAccount(@JsonProperty("userName") String name) {
     this.userName = name;
   }
 
@@ -122,18 +145,21 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
    * If not already version 2, update to version 2 and add
    * LockssServlet#ROLE_CONTENT_ACCESS} if necessary.
    */
-  protected void postLoadInit(AccountManager acctMgr, Configuration config) {
+  public void postLoadInit(AccountManager acctMgr, Configuration config) {
     commonInit(acctMgr, config);
-    if (version < 2) {
-      Set r = new HashSet(getRoleSet());
-      if (r.add(LockssServlet.ROLE_CONTENT_ACCESS)) {
-	log.debug("Adding accessContentRole to " + getName());
-	setRoles(r);
-      }
-      log.debug("Updating " + getName() + " to version 2");
-      version = 2;
-      storeUser(true);
-    }
+//    if (version < 2) {
+//      Set r = new HashSet(getRoleSet());
+//      if (r.add(LockssServlet.ROLE_CONTENT_ACCESS)) {
+//	log.debug("Adding accessContentRole to " + getName());
+//	setRoles(r);
+//      }
+//      log.debug("Updating " + getName() + " to version 2");
+//      version = 2;
+//      setChanged("version");
+//
+//      changedFields = null;
+//      storeUser();
+//    }
   }
 
   /** Setup configuration before first use.  Called by factory. */
@@ -146,12 +172,20 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     return userName;
   }
 
+  public int getVersion() {
+    return version;
+  }
+
+  public void setVersion(int version) {
+    this.version = version;
+  }
+
   /** Set the email address */
   public void setEmail(String val) {
     if (!StringUtil.equalStrings(email, val)) {
       addAuditableEvent("Changed email from: " + none(email) +
-			" to: " + none(val)); 
-      setChanged(true);
+			" to: " + none(val));
+      setChanged("email");
       email = val;
     }
   }
@@ -162,12 +196,12 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   /** Set the filename */
-  void setFilename(String val) {
+  public void setFilename(String val) {
     fileName = val;
   }
 
   /** Get the filename */
-  String getFilename() {
+  public String getFilename() {
     return fileName;
   }
 
@@ -192,6 +226,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   // Must be implemented by subclasses
 
   /** Return the account type */
+  @JsonProperty
   abstract public String getType();
 
   /** Return the minimum password length */
@@ -231,7 +266,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     if (!StringUtil.equalStrings(roles, val)) {
       addAuditableEvent("Changed roles from: " + none(roles) +
 			" to: " + none(val));
-      setChanged(true);
+      setChanged("roles");
       roles = val;
       roleSet = null;
     }
@@ -247,7 +282,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     if (!roleSet.equals(getRoleSet())) {
       addAuditableEvent("Changed roles from: " + getRoleSet() +
 			" to: " + roleSet);
-      setChanged(true);
+      setChanged("roles");
       this.roles = StringUtil.separatedString(roleSet, ",");
       this.roleSet = roleSet;
     }
@@ -306,12 +341,17 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       throws IllegalPasswordChange {
     String hash = hashPassword(newPwd);
     checkLegalPassword(newPwd, hash, isAdmin);
-    if (currentPassword != null && passwordHistory != null) {
+
+    if (currentPassword != null && currentPassword.equals(hash)) {
+      log.debug("No change to password");
+      return;
+    }
+
+    if (passwordHistory != null) {
       shiftArrayUp(passwordHistory);
       passwordHistory[0] = currentPassword;
+      setChanged("passwordHistory");
     }
-    boolean isChange = (currentPassword != null
-			&& !currentPassword.equals(hash));
 
     currentPassword = hash;
     lastPasswordChange = TimeBase.nowMs();
@@ -322,12 +362,10 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     }
     boolean isReenable = isDisabled;
     enable();
-    setChanged(true);
     clearCaches();
-    if (isChange) {
-      addAuditableEvent("Changed password" +
-			(isReenable ? " and reenabled" : ""));
-    }
+    setChanged("currentPassword", "lastPasswordChange");
+    addAuditableEvent("Changed password" +
+        (isReenable ? " and reenabled" : ""));
   }
 
   /** Account has logged in */
@@ -567,11 +605,10 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       throw new UnsupportedOperationException("Can't reset credential");
     }
     credential = MDCredential.makeCredential(cred);
-    setChanged(true);
   }
 
   /** Return the credential string (ALG:encrypted_pwd) */
-  String getCredentialString() {
+  public String getCredentialString() {
     if (currentPassword == null) {
       return null;
     }
@@ -625,15 +662,20 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     if (failedAttemptHistory != null) {
       shiftArrayUp(failedAttemptHistory);
       failedAttemptHistory[0] = TimeBase.nowMs();
-      storeUser();
+      updateUserAccount("failedAttemptHistory");
     }
   }
 
   /** Respond appropriately to successful login attempt.  Default action is
    * to record the last login time */
   protected void handleSuccessfulLoginAttempt() {
-    lastLogin = TimeBase.nowMs();
-    storeUser();
+    // Frequent AJAX requests cause significant time to be spent in
+    // storeUser().  Hard to discern request context at this level so
+    // just avoid too-frequent updates.
+    if (TimeBase.msSince(lastLogin) > 10 * Constants.MINUTE) {
+      lastLogin = TimeBase.nowMs();
+      updateUserAccount("lastLogin");
+    }
   }
 
   private void clearCaches() {
@@ -641,19 +683,25 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   public void enable() {
-    setChanged(isDisabled);
-    isDisabled = false;
-    disableReason = null;
+    if (isDisabled) {
+      setChanged("isDisabled", "disableReason");
+      isDisabled = false;
+      disableReason = null;
+    }
   }
 
+
+
   public void disable(String reason) {
-    setChanged(!isDisabled || !StringUtil.equalStrings(disableReason, reason));
-    log.debug("Disabled account " + getName() + ": " + reason);
-    if (!AccountManager.DELETED_REASON.equals(reason)) {
-      auditableEvent("account disabled because: " + reason);
+    if (!isDisabled || !StringUtil.equalStrings(disableReason, reason)) {
+      log.debug("Disabled account " + getName() + ": " + reason);
+      if (!AccountManager.DELETED_REASON.equals(reason)) {
+        auditableEvent("account disabled because: " + reason);
+      }
+      setChanged("isDisabled", "disableReason");
+      isDisabled = true;
+      disableReason = reason;
     }
-    isDisabled = true;
-    disableReason = reason;
   }
 
   public boolean isEnabled() {
@@ -707,40 +755,38 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   void alertAndUpdate(Alert alert, String msg) {
     acctMgr.alertUser(this, alert, msg);
     lastPasswordReminderTime = TimeBase.nowMs();
-    storeUser();
+    updateUserAccount("lastPasswordReminderTime");
   }
 
-  /** Should be called whenever a change has been made to the account, in a
-   * context where AccountManager doesn't otherwise know to save it */
-  public void storeUser() {
-    storeUser(false);
-  }
-
-  /** Should be called whenever a change has been made to the account, in a
-   * context where AccountManager doesn't otherwise know to save it */
-  public void storeUser(boolean internal) {
-    setChanged(true);
+  public void updateUserAccount(String... fields) {
     try {
-      if (internal) {
-	acctMgr.storeUserInternal(this);
-      } else {
-	acctMgr.storeUser(this);
-      }
-    } catch (AccountManager.NotStoredException e) {
-      log.error("Failed to store account: " + getName(), e);
+      acctMgr.updateUserAccount(this, SetUtil.set(fields));
+    } catch (IOException e) {
+      log.error("Could not update user account fields", e);
     }
   }
 
+  /** Should be called whenever a change has been made to the account, in a
+   * context where AccountManager doesn't otherwise know to save it */
+  public void storeUser() throws IOException {
+    Set<String> fields = isChanged() ? SetUtil.fromList(changedFields) : null;
+    acctMgr.updateUserAccount(this, fields);
+    changedFields = null;
+  }
+
   public boolean isChanged() {
-    return isChanged;
+    return changedFields != null && !changedFields.isEmpty();
   }
 
   public void notChanged() {
-    isChanged = false;
+    changedFields = null;
   }
 
-  void setChanged(boolean changed) {
-    isChanged |= changed;
+  protected synchronized void setChanged(String ... fields) {
+    if (changedFields == null) {
+      changedFields = new ArrayList<>(5);
+    }
+    changedFields.addAll(Arrays.asList(fields));
   }
 
   public int compareTo(Object o) {
@@ -749,6 +795,50 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   public int compareTo(UserAccount other) {
     return getName().compareTo(other.getName());
+  }
+
+  public UserAccount updateFromJson(String json) throws IOException {
+    // Ignore unknown properties on deserialization
+    ObjectMapper objMapper = new ObjectMapper();
+    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    ObjectReader objReader = objMapper.readerForUpdating(this);
+    objReader.readValue(json);
+    return this;
+  }
+
+  public static String jsonFromUserAccount(UserAccount acct, Set<String> fields)
+      throws JsonProcessingException {
+    return getUserAccountObjectWriter(fields).writeValueAsString(acct);
+  }
+
+  public static ObjectReader getUserAccountObjectReader() {
+    ObjectMapper objMapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(objMapper);
+    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    return objMapper.readerFor(UserAccount.class);
+  }
+
+  public static ObjectWriter getUserAccountObjectWriter() {
+    return getUserAccountObjectWriter(null);
+  }
+
+  private static ObjectWriter getUserAccountObjectWriter(Set<String> fields) {
+    ObjectMapper mapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(mapper);
+    SimpleBeanPropertyFilter propFilter;
+    if (fields == null || fields.isEmpty()) {
+      propFilter = SimpleBeanPropertyFilter.serializeAll();
+    } else {
+      propFilter = SimpleBeanPropertyFilter.filterOutAllExcept(fields);
+    }
+    FilterProvider filters =
+        new SimpleFilterProvider().addFilter("userAccountFilter", propFilter);
+    return mapper.writer(filters);
+  }
+
+  public String toJson() throws JsonProcessingException {
+    return jsonFromUserAccount(this, null);
   }
 
   public class NullCredential extends Credential {
@@ -771,8 +861,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   public static abstract class Factory {
     public abstract UserAccount newUser(String name,
-					AccountManager acctMgr,
-					Configuration config);
+                                        AccountManager acctMgr,
+                                        Configuration config);
     public UserAccount newUser(String name, AccountManager acctMgr) {
       return newUser(name, acctMgr, ConfigManager.getCurrentConfig());
     }
@@ -806,5 +896,16 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 	}
       }
     }
+  }
+
+
+  public enum UserAccountChange {
+    ADD,
+    UPDATE,
+    DELETE,
+  }
+
+  public static interface UserAccountChangedCallback {
+    public void execute(String username, UserAccountChange op, UserAccount acct);
   }
 }
