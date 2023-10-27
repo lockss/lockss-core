@@ -478,7 +478,7 @@ public class ClientStateManager extends CachingStateManager {
       return configMgr.getRestConfigClient().getUserAccountNames();
     } catch (LockssRestException lre) {
       log.error("Could not get user account names", lre);
-      throw new IOException("Could not get user account names", lre);
+      throw lre;
     }
   }
 
@@ -488,7 +488,7 @@ public class ClientStateManager extends CachingStateManager {
       return configMgr.getRestConfigClient().getUserAccount(name);
     } catch (LockssRestException e) {
       log.error("Could not get user account", e);
-      throw new IOException("Could not get user account", e);
+      throw e;
     }
   }
 
@@ -507,10 +507,10 @@ public class ClientStateManager extends CachingStateManager {
       }
     } catch (LockssRestException e) {
       log.error("Could not store user account", e);
-      throw new IOException("Could not store user account", e);
+      throw e;
     } catch (IOException e) {
       log.error("Error serializing to JSON", e);
-      throw new IOException("Could not store user account", e);
+      throw e;
     }
   }
 
