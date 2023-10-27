@@ -243,12 +243,14 @@ public class AccountManager
       case UPDATE:
         // Updates should already have applied to the UserAccount object. If it
         // does not exist in the map, issue a warning and put into map:
-        if (!accountMap.containsKey(username)) {
-          try {
-            log.warning("Expected to update an existing user account but it does not exist");
-            internalAddUser(userAccount);
-          } catch (NotAddedException e) {
-            log.warning("Could not add missing user account", e);
+        synchronized (this) {
+          if (!accountMap.containsKey(username)) {
+            try {
+              log.warning("Expected to update an existing user account but it does not exist");
+              internalAddUser(userAccount);
+            } catch (NotAddedException e) {
+              log.warning("Could not add missing user account", e);
+            }
           }
         }
         break;
@@ -578,17 +580,17 @@ public class AccountManager
   }
 
   /** Return collection of all user accounts */
-  public Collection<UserAccount> getUsers() {
+  public synchronized Collection<UserAccount> getUsers() {
     return accountMap.values();
   }
 
   /** Return true if named user exists */
-  public boolean hasUser(String username) {
+  public synchronized boolean hasUser(String username) {
     return accountMap.containsKey(username);
   }
 
   /** Return named UserAccount or null */
-  public UserAccount getUserOrNull(String username) {
+  public synchronized UserAccount getUserOrNull(String username) {
     UserAccount res = accountMap.get(username);
     if (res == null) {
       res = loadUser(username);
