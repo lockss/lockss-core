@@ -232,12 +232,16 @@ public class AccountManager
     // FIXME: We're trusting all changes without verifying / authenticating
     switch (op) {
       case ADD:
-        try {
-          internalAddUser(userAccount);
-          userAccount.init(this, ConfigManager.getCurrentConfig());
-        } catch (NotAddedException e) {
-          // This shouldn't happen; caller should have satisfied checks already
-          log.warning("User account not added", e);
+        synchronized (this) {
+          try {
+              if (!accountMap.containsKey(username)) {
+                internalAddUser(userAccount);
+                userAccount.init(this, ConfigManager.getCurrentConfig());
+              }
+          } catch (NotAddedException e) {
+            // This shouldn't happen; caller should have satisfied checks already
+            log.warning("User account not added", e);
+          }
         }
         break;
       case UPDATE:
