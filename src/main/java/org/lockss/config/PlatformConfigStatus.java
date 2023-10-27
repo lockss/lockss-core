@@ -68,13 +68,15 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 
   static class PCStatus implements StatusAccessor {
 
-    private final List colDescs =
-      ListUtil.list(new ColumnDescriptor("URL", "Config URL",
-					 ColumnDescriptor.TYPE_STRING),
-		    new ColumnDescriptor("LastModified", "Last Modified",
-					 ColumnDescriptor.TYPE_DATE),
-		    new ColumnDescriptor("Failover", "",
-					 ColumnDescriptor.TYPE_STRING));
+    private final ColumnDescriptor COL_DESC_URL =
+      new ColumnDescriptor("URL", "Config URL",
+                           ColumnDescriptor.TYPE_STRING);
+    private final ColumnDescriptor COL_DESC_LAST =
+      new ColumnDescriptor("LastModified", "Last Modified",
+                           ColumnDescriptor.TYPE_DATE);
+    private final ColumnDescriptor COL_DESC_LOADED =
+      new ColumnDescriptor("ActualUrl", "Loaded From",
+                           ColumnDescriptor.TYPE_STRING);
 
     private static final List sortRules =
       ListUtil.list(new StatusTable.SortRule("IX", true));
@@ -94,9 +96,15 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
     }
 
     public void populateTable(StatusTable table) {
+      ConfigManager mgr = ConfigManager.getConfigManager();
       Configuration config = ConfigManager.getCurrentConfig();
       table.setDefaultSortRules(sortRules);
-      table.setColumnDescriptors(colDescs);
+      if (mgr.getSpecUrlList().equals(mgr.getLoadedUrlList())) {
+        table.setColumnDescriptors(ListUtil.list(COL_DESC_URL, COL_DESC_LAST));
+      } else {
+        table.setColumnDescriptors(ListUtil.list(COL_DESC_URL, COL_DESC_LAST,
+                                                 COL_DESC_LOADED));
+      }
       table.setRows(getRows(table.getOptions()));
       table.setSummaryInfo(getSummaryInfo(config));
     }
@@ -104,10 +112,12 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
     public List getRows(BitSet options) {
       ConfigManager mgr = ConfigManager.getConfigManager();
       List rows = new ArrayList();
-      List<String> urls = mgr.getSpecUrlList();
-      if (urls != null) {
-        int ix = 0;
-	for (String url : urls) {
+      List<String> specUrls = mgr.getSpecUrlList();
+      List<String> loadedUrls = mgr.getLoadedUrlList();
+      if (specUrls != null) {
+        for (int ix = 0; ix < specUrls.size(); ix++) {
+          String url = specUrls.get(ix);
+          String lUrl = ix < loadedUrls.size() ? loadedUrls.get(ix) : null;
 	  // This links to ListObjects to display the text of the file, but
 	  // doesn't quite work yet.
 // 	  Object val =
@@ -120,7 +130,10 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 				      ConfigStatus.CONFIG_FILE_STATUS_TABLE,
 				      "cf:" + url);
 
-	  Map row = MapUtil.map("URL", val, "IX", ix++);
+	  Map row = MapUtil.map("URL", val, "IX", ix);
+          if (!url.equals(lUrl)) {
+            row.put("ActualUrl", lUrl);
+          }
 	  ConfigFile cf = mgr.getConfigCache().get(url);
 	  if (cf != null) {
 	    // Compensate for FileConfigFile's numeric Last-Modified
@@ -128,7 +141,7 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
 	    String last = DateTimeUtil.gmtDateOf(cf.getLastModified());
 	    row.put("LastModified", last);
 	    if (cf.isLoadedFromFailover()) {
-	    row.put("Failover", "Failover");
+              row.put("ActualUrl", "Failover");
 	    }
 	  }
 	  rows.add(row);
