@@ -384,6 +384,7 @@ public class AccountManager
     if (acct.isEditable()) {
       if (!stateMgr.hasUserAccount(acct.getName())) {
         stateMgr.storeUserAccount(acct);
+        acct.notChanged();
       }
     }
     return acct;
