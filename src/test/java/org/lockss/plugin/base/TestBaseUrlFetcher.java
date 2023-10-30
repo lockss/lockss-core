@@ -1151,7 +1151,10 @@ public class TestBaseUrlFetcher extends LockssTestCase {
     assertNull(muf.redirectUrls);
   }
 
-  public void testDirRedirect() throws Exception {
+  // V1 doesn't store foo -> foo/ redirection under the 2nd URL
+  public void testDirRedirectV1() throws Exception {
+    ConfigurationUtil.addFromArgs(BaseUrlFetcher.PARAM_STORE_DIRECTORY_REDIRECTION,
+                                  "false");
     MockPermissionMap map = new MockPermissionMap();
     String content = "oft redirected content";
     mau.returnRealCachedUrl = true;
@@ -1182,6 +1185,44 @@ public class TestBaseUrlFetcher extends LockssTestCase {
     assertEquals(redTo2, muf.fetchUrl);
     assertEquals(url, muf.origUrl);
     assertCuProperty(muf, redTo1, CachedUrl.PROPERTY_REDIRECTED_TO);
+  }
+
+  // V2 stores foo -> foo/ redirection under both URLs (like any other redir)
+  public void testDirRedirectV2() throws Exception {
+    ConfigurationUtil.addFromArgs(BaseUrlFetcher.PARAM_STORE_DIRECTORY_REDIRECTION,
+                                  "true");
+    MockPermissionMap map = new MockPermissionMap();
+    String content = "oft redirected content";
+    mau.returnRealCachedUrl = true;
+    String url = "http://a.b/bar";
+    String redTo1 = "http://somewhere.else/foo";
+    String redTo2 = "http://somewhere.else/foo/";
+    MockConnectionBaseUrlFetcher muf =
+      new MockConnectionBaseUrlFetcher(mcf, url);
+    map.putStatus(url, PermissionStatus.PERMISSION_OK);
+    map.putStatus(redTo1, PermissionStatus.PERMISSION_OK);
+    mcf.setPermissionMap(map);
+    muf.addConnection(makeConn(301, "Moved to Spain", redTo1));
+    muf.addConnection(makeConn(301, "Moved to Spain", redTo2));
+    muf.addConnection(makeConn(200, "Ok", null, content));
+    muf.setRedirectScheme(UrlFetcher.REDIRECT_SCHEME_STORE_ALL_IN_SPEC);
+    mau.addUrlToBeCached(redTo1);
+    mau.addUrlToBeCached(redTo2);
+    mau.addUrlToBeCached(url);
+    muf.fetch();
+    CIProperties p = muf.getUncachedProperties();
+    assertNull(p.getProperty("location"));
+    assertEquals(redTo1, p.getProperty(CachedUrl.PROPERTY_REDIRECTED_TO));
+
+    // verify all have the correct contents, and all but the last have
+    // redirected-to and content-url headers
+    assertFetchContents(muf, content);
+    assertEquals(ListUtil.list(redTo1, redTo2), muf.redirectUrls);
+    assertEquals(redTo2, muf.fetchUrl);
+    assertEquals(url, muf.origUrl);
+    assertCuProperty(muf, redTo1, CachedUrl.PROPERTY_REDIRECTED_TO);
+    assertCuProperty(muf, url, CachedUrl.PROPERTY_ORIG_URL);
+    assertCuProperty(muf, redTo2, CachedUrl.PROPERTY_CONTENT_URL);
   }
 
   public void testCacheLPC() throws IOException {
