@@ -1359,7 +1359,7 @@ public class V3PollStatus {
     private final List colDescs =
         ListUtil.list(new ColumnDescriptor("url", "URL",
                 ColumnDescriptor.TYPE_STRING),
-            new ColumnDescriptor("erorr", "Error",
+            new ColumnDescriptor("error", "Error",
                 ColumnDescriptor.TYPE_STRING));
 
     public V3ErrorURLs(PollManager manager) {
