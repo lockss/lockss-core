@@ -797,10 +797,16 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
     return getName().compareTo(other.getName());
   }
 
+  public static ObjectMapper getUserAccountObjectMapper() {
+    ObjectMapper objMapper = new ObjectMapper();
+    AuUtil.setFieldsOnly(objMapper);
+    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    return objMapper;
+  }
+
   public UserAccount updateFromJson(String json) throws IOException {
     // Ignore unknown properties on deserialization
-    ObjectMapper objMapper = new ObjectMapper();
-    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    ObjectMapper objMapper = getUserAccountObjectMapper();
 
     ObjectReader objReader = objMapper.readerForUpdating(this);
     objReader.readValue(json);
@@ -813,9 +819,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   public static ObjectReader getUserAccountObjectReader() {
-    ObjectMapper objMapper = new ObjectMapper();
-    AuUtil.setFieldsOnly(objMapper);
-    objMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    ObjectMapper objMapper = getUserAccountObjectMapper();
     return objMapper.readerFor(UserAccount.class);
   }
 
@@ -824,8 +828,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
   }
 
   private static ObjectWriter getUserAccountObjectWriter(Set<String> fields) {
-    ObjectMapper mapper = new ObjectMapper();
-    AuUtil.setFieldsOnly(mapper);
+    ObjectMapper mapper = getUserAccountObjectMapper();
     SimpleBeanPropertyFilter propFilter;
     if (fields == null || fields.isEmpty()) {
       propFilter = SimpleBeanPropertyFilter.serializeAll();
