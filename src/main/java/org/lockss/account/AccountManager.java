@@ -363,7 +363,7 @@ public class AccountManager
   synchronized UserAccount internalAddUser(UserAccount acct)
       throws NotAddedException {
     if (!acct.hasPassword()) {
-      throw new NotAddedException("Can't add user without a password");
+      throw new NotAddedException("Can't add user without a password: " + acct.getName());
     }
     UserAccount old = accountMap.get(acct.getName());
     if (old != null && old != acct) {
