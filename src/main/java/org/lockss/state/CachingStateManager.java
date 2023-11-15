@@ -817,8 +817,8 @@ public abstract class CachingStateManager extends BaseStateManager {
     doNotifyUserAccountChanged -> no-op
      */
 
-    doStoreUserAccount(name, acct, null);
     doUserAccountChangedCallbacks(UserAccount.UserAccountChange.ADD, name, acct);
+    doStoreUserAccount(name, acct, null);
     doNotifyUserAccountChanged(UserAccount.UserAccountChange.ADD, name, acct.toJson(), null);
   }
 
@@ -871,8 +871,8 @@ public abstract class CachingStateManager extends BaseStateManager {
                            -> (clientA) do nothing
          */
 
-        doStoreUserAccount(username, acct, fields);
         doUserAccountChangedCallbacks(UserAccount.UserAccountChange.UPDATE, username, acct);
+        doStoreUserAccount(username, acct, fields);
         doNotifyUserAccountChanged(UserAccount.UserAccountChange.UPDATE, username, json, cookie);
       }
       else if (isStoreOfMissingUserAccountAllowed(fields)) {
