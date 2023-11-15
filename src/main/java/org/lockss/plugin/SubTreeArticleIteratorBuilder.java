@@ -1,7 +1,6 @@
 /*
 
-Copyright (c) 2000-2020, Board of Trustees of Leland Stanford Jr. University
-All rights reserved.
+Copyright (c) 2000-2023, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -496,7 +495,7 @@ public class SubTreeArticleIteratorBuilder {
             for (int cj = ci + 1; cj < aspects.size(); ++cj) {
               Aspect lowerAspect = aspects.get(cj);
               CachedUrl lowerCu = lowerAspect.findCuByPatternReplacement(matcher);
-              log.debug3("Aspect: " + lowerAspect + ", cu: " + lowerCu);
+              logger.debug3("Aspect: " + lowerAspect + ", cu: " + lowerCu);
               if (lowerCu != null) {
                 lowerAspect.processRoles(af, lowerCu);
               }
