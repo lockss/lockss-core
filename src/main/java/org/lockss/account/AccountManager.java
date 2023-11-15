@@ -241,6 +241,7 @@ public class AccountManager
           } catch (NotAddedException e) {
             // This shouldn't happen; caller should have satisfied checks already
             log.warning("User account not added", e);
+            throw new IllegalArgumentException("User account not added", e);
           }
         }
         break;
@@ -248,14 +249,12 @@ public class AccountManager
         // Updates should already have applied to the UserAccount object. If it
         // does not exist in the map, issue a warning and put into map:
         synchronized (this) {
-          if (!accountMap.containsKey(username)) {
-            try {
-              log.warning("Expected to update an existing user account but it does not exist");
-              internalAddUser(userAccount);
-              userAccount.init(this, ConfigManager.getCurrentConfig());
-            } catch (NotAddedException e) {
-              log.warning("Could not add missing user account", e);
-            }
+          UserAccount existingAcct = accountMap.get(username);
+          if (existingAcct == null) {
+            log.warning("Expected to update an existing user account but it does not exist");
+            throw new IllegalArgumentException("User doesn't exist");
+          } else if (existingAcct.isStaticUser()) {
+            throw new IllegalArgumentException("Cannot update static user");
           }
         }
         break;
