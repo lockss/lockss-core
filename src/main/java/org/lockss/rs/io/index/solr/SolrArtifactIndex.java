@@ -460,7 +460,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   private void scheduleHardCommitter() {
     ((BaseLockssRepository) repository).getScheduledExecutorService()
       .schedule(new SolrHardCommitTask(), hardCommitInterval, TimeUnit.MILLISECONDS);
-    log.debug("Scheduled Solr hard commit in {}",
+    log.debug2("Scheduled Solr hard commit in {}",
                TimeUtil.timeIntervalToString(hardCommitInterval));
   }
 
