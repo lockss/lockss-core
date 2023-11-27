@@ -42,7 +42,7 @@ import org.lockss.test.*;
 /** Runs all the tests in org.lockss.log.TestLockssLogger (in lockss-util)
     against org.lockss.util.Logger, using LOCKSS config params to change
     the log levels.  The static references to the LockssLogger class must
-    be repeated here to get the corrent class */
+    be repeated here to get the correct class */
 public class TestLogger extends org.lockss.log.TestLockssLogger {
 
   @BeforeEach
