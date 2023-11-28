@@ -41,14 +41,13 @@ import java.util.regex.*;
 import javax.servlet.*;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections4.*;
 //HC3 import org.apache.commons.httpclient.util.DateParseException;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.alert.Alert;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
@@ -66,7 +65,6 @@ import org.lockss.proxy.ProxyManager;
 import org.lockss.rewriter.LinkRewriterFactory;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
-import org.lockss.util.CloseCallbackInputStream.DeleteFileOnCloseInputStream;
 import org.lockss.util.time.TimeUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.urlconn.*;
@@ -194,6 +192,8 @@ public class ServeContent extends LockssServlet {
     /** Append the original URL to the ServeContent URL as extra path info. */
     PathInfo,
   }
+
+  public static final String HEADER_REWRITE_FOR = "X-Lockss-RewriteFor";
 
   /** Determines how original URLs are represented in ServeContent URLs.
    * Can be set to one of:
@@ -554,11 +554,14 @@ public class ServeContent extends LockssServlet {
       // that can appear as links embedded in HTML pages
       url = StringEscapeUtils.unescapeHtml4(url);
       requestType = AccessLogType.Url;
+
       //this is a partial replicate of proxy_handler post logic here
       // TODO check mime type and use that to determine what should be sent ctg
       if (HttpRequest.__POST.equals(req.getMethod()) && processForms) {
         log.debug2("POST request found!");
+
         FormUrlHelper helper = new FormUrlHelper(url.toString());
+
         Enumeration en = req.getParameterNames();
         while (en.hasMoreElements()) {
           String name = (String)en.nextElement();
@@ -572,9 +575,11 @@ public class ServeContent extends LockssServlet {
             }
           }
         }
+
         helper.sortKeyValues();
         org.mortbay.util.URI postUri =
             new org.mortbay.util.URI(helper.toEncodedString());
+
 	log.debug2("POST URL: " + postUri);
         // We only want to override the post request by proxy if we cached it during crawling.
         CachedUrl cu = pluginMgr.findCachedUrl(postUri.toString());
@@ -583,6 +588,7 @@ public class ServeContent extends LockssServlet {
           if (log.isDebug2()) log.debug2("Setting url to:" + url);
         }
       }
+
       if (minimallyEncodeUrl) {
         String unencUrl = url;
         url = UrlUtil.minimallyEncodeUrl(url);
@@ -590,6 +596,7 @@ public class ServeContent extends LockssServlet {
           log.debug2("Encoded " + unencUrl + " to " + url);
         }
       }
+
       if (normalizeUrl) {
         String normUrl;
         if (au != null) {
@@ -607,7 +614,55 @@ public class ServeContent extends LockssServlet {
           url = normUrl;
         }
       }
+
       handleUrlRequest();
+      return;
+    } else if (HttpRequest.__POST.equals(req.getMethod())) {
+      // TODO: Add query arg parameter and check to indicate this is a CandidateAuRequest
+
+      // Handle as a CandidateAusRequest and respond with JSON containing only the
+      // information necessary to generate an index page of candidate AUs matching
+      // either a BibliographicItem or URL.
+      //
+      // Note: We assume that the two machines have been set up with the same
+      // relevant configuration (e.g., plugin exclusions, TDB, etc)!
+
+      // Parse request body into a CandidateAusRequest
+      ObjectMapper objMapper = new ObjectMapper();
+      CandidateAusRequest causReq =
+          objMapper.readValue(req.getInputStream(), new TypeReference<CandidateAusRequest>() {});
+
+      // Get candidate AUs from this "migrating to" machine
+      Collection<ArchivalUnit> candidateAus = Collections.emptyList();
+      switch (causReq.getRequestType()) {
+        case BIBLIOGRAPHIC_ITEM:
+          candidateAus = getCandidateAus(causReq.getBibliographicItem());
+          break;
+        case MISSING_URL:
+          candidateAus = pluginMgr.getCandidateAus(causReq.getUrl());
+          break;
+        case ALL_AUS:
+          candidateAus = pluginMgr.getAllAus();
+          break;
+        default:
+          log.warning("Unknown candidate AUs request");
+          // Fallthrough and return empty result
+      }
+
+      // Apply filters to candidate AUs
+      Predicate pred = allAusPred;
+
+      CandidateAusResponse rsp = new CandidateAusResponse();
+      rsp.setAusStarted(pluginMgr.areAusStarted());
+
+      // Transform candidate AUs to access URLs
+      rsp.setAccessUrls(transformAuList(candidateAus, pred));
+
+      // Respond to "migrating from" machine with serialized access URLs result
+      resp.setStatus(HttpResponse.__200_OK);
+      resp.setContentType("application/json");
+      objMapper.writeValue(resp.getOutputStream(), rsp);
+
       return;
     }
 
@@ -680,12 +735,175 @@ public class ServeContent extends LockssServlet {
     } catch (RuntimeException ex) {
       log.warning("Couldn't handle unknown request", ex);
     }
+
     // Maybe should display a message here if URL is unknown format.  But
     // this is also the default case for the bare ServeContent URL, which
     // should generate an index with no message.
     displayIndexPage();
     requestType = AccessLogType.None;
     logAccess("200 index page");
+  }
+
+  /** Transforms a collection of AUs to a map from AUID to {@link AccessUrlRow} which
+   * can be used to generate an index. */
+  private Map<String, AccessUrlRow> transformAuList(
+      Collection<ArchivalUnit> auList, Predicate pred) {
+
+    Map<String, AccessUrlRow> rows = new HashMap<>();
+
+    // Add "migrating from" index table data
+    for (ArchivalUnit au : auList) {
+      if (pred != null && !pred.evaluate(au)) {
+        continue;
+      }
+
+      AccessUrlRow row =
+          new AccessUrlRow(encodeText(au.getName()), AuUtil.hasCrawled(au));
+
+      try {
+        row.setAuId(au.getAuId());
+        row.setAccessUrls(au.getAccessUrls());
+        rows.put(au.getAuId(), row);
+      } catch (RuntimeException e) {
+        log.warning("Plugin error; couldn't get access URLs for AUID: " + au.getAuId(), e);
+      }
+    }
+
+    return rows;
+  }
+
+  /** Represents a row in the access URL table */
+  public static class AccessUrlRow implements Comparable<AccessUrlRow> {
+    private String auId;
+    private String name;
+    private boolean isFullyCollected;
+    private Collection<String> accessUrls = new ArrayList<>();
+
+    public AccessUrlRow() {
+      // Intentionally left blank for JSON deserialization
+    }
+
+    @Override
+    public int compareTo(AccessUrlRow o) {
+      return CatalogueOrderComparator.getSingleton()
+          .compare(getName(), o.getName());
+    }
+
+    public AccessUrlRow(String name, boolean isFullyCollected) {
+      this.name = name;
+      this.isFullyCollected = isFullyCollected;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public void setName(String name) {
+      this.name = name;
+    }
+
+    public boolean isFullyCollected() {
+      return isFullyCollected;
+    }
+
+    public Collection<String> getAccessUrls() {
+      return accessUrls;
+    }
+
+    public void setAccessUrls(Collection<String> accessUrls) {
+      this.accessUrls = accessUrls;
+    }
+
+    public String getAuId() {
+      return auId;
+    }
+
+    public void setAuId(String auId) {
+      this.auId = auId;
+    }
+  }
+
+  public static class CandidateAusResponse {
+    Map<String, ServeContent.AccessUrlRow> accessUrls;
+    boolean ausStarted;
+
+    public static final CandidateAusResponse EMPTY_RESPONSE = new CandidateAusResponse();
+    static {
+      EMPTY_RESPONSE.setAusStarted(true);
+      EMPTY_RESPONSE.setAccessUrls(Collections.emptyMap());
+    }
+
+    public Map<String, ServeContent.AccessUrlRow> getAccessUrls() {
+      return accessUrls;
+    }
+
+    public void setAccessUrls(Map<String, ServeContent.AccessUrlRow> accessUrls) {
+      this.accessUrls = accessUrls;
+    }
+
+    public boolean isAusStarted() {
+      return ausStarted;
+    }
+
+    public void setAusStarted(boolean ausStarted) {
+      this.ausStarted = ausStarted;
+    }
+  }
+
+  public static class CandidateAusRequest {
+    public enum RequestType {
+      BIBLIOGRAPHIC_ITEM,
+      MISSING_URL,
+      ALL_AUS
+    }
+
+    RequestType requestType;
+    String url;
+    BibliographicItem bibliographicItem;
+
+    public static CandidateAusRequest forAllAus() {
+      CandidateAusRequest req = new CandidateAusRequest();
+      req.setRequestType(RequestType.ALL_AUS);
+      return req;
+    }
+
+    public static CandidateAusRequest fromBibliographicItem(BibliographicItem bibliographicItem) {
+      CandidateAusRequest req = new CandidateAusRequest();
+      req.setRequestType(RequestType.BIBLIOGRAPHIC_ITEM);
+      req.setBibliographicItem(bibliographicItem);
+      return req;
+    }
+
+    public static CandidateAusRequest fromMissingUrl(String missingUrl) {
+      CandidateAusRequest req = new CandidateAusRequest();
+      req.setRequestType(RequestType.MISSING_URL);
+      req.setUrl(missingUrl);
+      return req;
+    }
+
+    public RequestType getRequestType() {
+      return requestType;
+    }
+
+    public void setRequestType(RequestType requestType) {
+      this.requestType = requestType;
+    }
+
+    public String getUrl() {
+      return url;
+    }
+
+    public void setUrl(String url) {
+      this.url = url;
+    }
+
+    public BibliographicItem getBibliographicItem() {
+      return bibliographicItem;
+    }
+
+    public void setBibliographicItem(BibliographicItem bibliographicItem) {
+      this.bibliographicItem = bibliographicItem;
+    }
   }
 
   boolean serveFromAuid(String auid) throws IOException {
@@ -1686,17 +1904,21 @@ public class ServeContent extends LockssServlet {
   }
 
   ServletUtil.LinkTransform makeLinkTransform() {
+    // Use "migrating from" stem to rewrite links if specified in the request
+    String rewriteForStem = req.getHeader(HEADER_REWRITE_FOR);
+    boolean useRewriteForStem = !StringUtil.isNullString(rewriteForStem);
+
     switch (rewriteStyle) {
     case QueryArg:
     default:
       return new ServletUtil.LinkTransform() {
 	public String rewrite(String url) {
 	  if (absoluteLinks) {
-	    return srvAbsURL(myServletDescr(),
-			     "url=" + url);
+	    return useRewriteForStem ?
+                srvURLFromStem(rewriteForStem, myServletDescr(), "url=" + url) :
+                srvAbsURL(myServletDescr(), "url=" + url);
 	  } else {
-	    return srvURL(myServletDescr(),
-			  "url=" + url);
+	    return srvURL(myServletDescr(), "url=" + url);
 	  }
 	}
       };
@@ -1704,7 +1926,9 @@ public class ServeContent extends LockssServlet {
       return new ServletUtil.LinkTransform() {
 	public String rewrite(String url) {
 	  if (absoluteLinks) {
-	    return srvAbsURL(myServletDescr()) + "/" + url;
+	    return useRewriteForStem ?
+                srvURLFromStem(rewriteForStem, myServletDescr(), "url=" + url) :
+                srvAbsURL(myServletDescr()) + "/" + url;
 	  } else {
 	    return srvURL(myServletDescr()) + "/" + url;
 	  }
@@ -2260,13 +2484,6 @@ public class ServeContent extends LockssServlet {
 
   void displayIndexPage() throws IOException {
     displayIndexPage(pluginMgr.getAllAus(), -1, (Element)null, (String)null);
-  }
-
-  void displayIndexPage(Collection<ArchivalUnit> auList,
-                        int result,
-                        String headerText)
-      throws IOException {
-    displayIndexPage(auList, result, (Element)null, headerText);
   }
 
   void displayIndexPage(Collection<ArchivalUnit> auList,
