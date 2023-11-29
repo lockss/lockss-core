@@ -35,9 +35,11 @@ package org.lockss.util;
 import java.util.*;
 import org.junit.jupiter.api.*;
 import org.apache.commons.collections4.MapUtils;
-import org.lockss.util.test.LockssTestCase5;
 import org.lockss.config.*;
 import org.lockss.test.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /** Runs all the tests in org.lockss.log.TestLockssLogger (in lockss-util)
     against org.lockss.util.Logger, using LOCKSS config params to change

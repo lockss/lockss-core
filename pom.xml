@@ -74,18 +74,17 @@ POSSIBILITY OF SUCH DAMAGE.
 
     <!-- lockss-util should be first to ensure that its choice of logging
 	 providers and its log4j2.xml config file take precedence. -->
+
     <dependency>
       <groupId>org.lockss</groupId>
-      <artifactId>lockss-util-core</artifactId>
-      <version>${version.lockss.lockss-util-core}</version>
+      <artifactId>lockss-util-base</artifactId>
+      <version>${version.lockss.lockss-util}</version>
     </dependency>
 
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-util-core</artifactId>
-      <version>${version.lockss.lockss-util-core}</version>
-      <type>test-jar</type>
-      <scope>test</scope>
+      <version>${version.lockss.lockss-util}</version>
     </dependency>
 
     <dependency>
@@ -960,6 +959,22 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.lockss</groupId>
       <artifactId>pdfbox</artifactId>
       <version>0.7.3-p1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-util-base</artifactId>
+      <version>${version.lockss.lockss-util}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-util-core</artifactId>
+      <version>${version.lockss.lockss-util}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
