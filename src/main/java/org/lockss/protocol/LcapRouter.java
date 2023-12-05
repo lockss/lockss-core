@@ -60,7 +60,11 @@ public class LcapRouter
     PREFIX + "v3LcapMessageDataDir";
   private static final String DEFAULT_V3_LCAP_MESSAGE_DATA_DIR =
     "System tmpdir";
-  
+
+  public static final String PARAM_MIGRATE_FROM =
+      PREFIX + "migrateFrom";
+  public static final String DEFAULT_MIGRATE_FROM = null;
+
   static Logger log = Logger.getLogger();
 
   private IdentityManager idMgr;
@@ -68,6 +72,7 @@ public class LcapRouter
 
   private List messageHandlers = new ArrayList();
   private File dataDir = null;
+  private PeerIdentity migrateFrom = null;
 
   public void startService() {
     super.startService();
@@ -96,7 +101,7 @@ public class LcapRouter
 
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
-    if (changedKeys.contains(PARAM_V3_LCAP_MESSAGE_DATA_DIR)) {
+    if (changedKeys.contains(PREFIX)) {
       String paramDataDir = config.get(PARAM_V3_LCAP_MESSAGE_DATA_DIR,
 				       PlatformUtil.getSystemTempDir());
       File dir = new File(paramDataDir);
@@ -106,6 +111,20 @@ public class LcapRouter
       } else {
 	log.warning("No V3LcapMessage data dir: " + dir);
 	dataDir = null;
+      }
+
+      String migrateFromVal =
+          config.get(PARAM_MIGRATE_FROM, DEFAULT_MIGRATE_FROM);
+      if (!StringUtil.isNullString(migrateFromVal)) {
+        try {
+          migrateFrom = idMgr.findPeerIdentity(migrateFromVal);
+        } catch (IdentityManager.MalformedIdentityKeyException e) {
+          log.error("Malformed migrateFrom peer identity: " +
+              migrateFromVal);
+          migrateFrom = null;
+        }
+      } else {
+        migrateFrom = null;
       }
     }
   }
@@ -118,7 +137,12 @@ public class LcapRouter
   public void sendTo(V3LcapMessage msg, PeerIdentity id)
       throws IOException {
     PeerMessage pm = makePeerMessage(msg);
-    scomm.sendTo(pm, id);
+    if (migrateFrom == null) {
+      scomm.sendTo(pm, id);
+    } else {
+      // Route outbound messages through the migrateFrom machine
+      scomm.sendTo(pm, migrateFrom);
+    }
   }
 
   /** Encode a V3LcapMessage into a PeerMessage */
