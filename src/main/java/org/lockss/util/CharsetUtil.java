@@ -74,6 +74,8 @@ public class CharsetUtil {
   private static final String UTF1 = "UTF-1";
   private static final String ISO_8859_1 = "ISO-8859-1";
 
+  public static final Charset CHARSET_UTF8 = Charset.forName(UTF8);
+
   private static boolean inferCharset = DEFAULT_INFER_CHARSET;
   private static int inferCharsetBufSize = DEFAULT_INFER_CHARSET_BUFSIZE;
 

@@ -483,7 +483,7 @@ public class BlockHasher extends GenericHasher {
 	return 0;
       }
       if (includeUrl) {
-	byte [] nameBytes = curCu.getUrl().getBytes();
+	byte [] nameBytes = curCu.getUrl().getBytes(Constants.CHARSET_UTF_8);
 	int hashed = updateDigests(nameBytes, nameBytes.length);
 	bytesHashed += hashed;
       }
