@@ -35,6 +35,7 @@ package org.lockss.hasher;
 import java.io.InputStream;
 import java.security.*;
 import java.util.*;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.oro.text.regex.*;
@@ -483,7 +484,7 @@ public class BlockHasher extends GenericHasher {
 	return 0;
       }
       if (includeUrl) {
-	byte [] nameBytes = curCu.getUrl().getBytes(Constants.CHARSET_UTF_8);
+	byte [] nameBytes = curVer.getUrl().getBytes(StandardCharsets.UTF_8);
 	int hashed = updateDigests(nameBytes, nameBytes.length);
 	bytesHashed += hashed;
       }
