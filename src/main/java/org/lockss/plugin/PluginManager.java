@@ -38,6 +38,7 @@ import java.util.jar.*;
 import java.util.regex.*;
 import java.util.stream.*;
 import org.apache.commons.collections4.map.*;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.*;
 import org.lockss.alert.*;
 import org.lockss.app.*;
@@ -2573,32 +2574,67 @@ public class PluginManager
     }
     Plugin oldPlug = pluginMap.get(pluginKey);
     if (oldPlug != null) {
-      String oldName = oldPlug.getPluginName();
-      String name = plugin.getPluginName();
-      // Alert on new plugin version
-      StringBuilder sb = new StringBuilder();
-      sb.append("Plugin reloaded: ");
-      sb.append(name);
-      if (!StringUtil.equalStrings(oldName, name)) {
-        sb.append(" (was ");
-        sb.append(oldName);
-        sb.append(")");
-      }
-      sb.append("\nVersion: ");
-      sb.append(plugin.getVersion());
-      String feats = PluginManager.pluginFeatureVersionsString(plugin);
-      if (!StringUtil.isNullString(feats)) {
-        sb.append("\nFeature versions:\n");
-        sb.append(feats);
-      }
-      raiseAlert(Alert.cacheAlert(Alert.PLUGIN_RELOADED), sb.toString());
-      log.debug("Stopping old plugin " + oldName);
+      raisePluginReloadedAlert(plugin, oldPlug.getPluginName());
+      log.debug("Stopping old plugin " + oldPlug.getPluginName());
       oldPlug.stopPlugin();
     }
     pluginMap.put(pluginKey, plugin);
     log.info("Loaded plugin: version " + plugin.getVersion() +
              " of " + plugin.getPluginName());
     resetTitles();
+  }
+
+  void raisePluginReloadedAlert(Plugin plugin, String oldName) {
+    raiseAlert(Alert.cacheAlert(Alert.PLUGIN_RELOADED),
+               pluginReloadedAlertText(plugin, oldName));
+  }
+
+  public String pluginReloadedAlertText(Plugin plugin, String oldName) {
+    String name = plugin.getPluginName();
+    // Alert on new plugin version
+    StringBuilder sb = new StringBuilder();
+    sb.append("Plugin reloaded: ");
+    sb.append(name);
+    if (!StringUtil.equalStrings(oldName, name)) {
+      sb.append(" [renamed from ");
+      sb.append(oldName);
+      sb.append("]");
+    }
+    sb.append("\nID: ");
+    sb.append(plugin.getPluginId());
+    sb.append("\nVersion: ");
+    sb.append(plugin.getVersion());
+    if (plugin instanceof DefinablePlugin) {
+      DefinablePlugin dplug = (DefinablePlugin)plugin;
+      List<DefinablePlugin.DefPlugInfo> dpis = dplug.getPlugInfoList();
+      if (dpis.size() > 1) {
+        sb.append("\nParents:");
+        String parentVer = null;
+        for (DefinablePlugin.DefPlugInfo dpi : dpis) {
+          if (dpi != dpis.get(0)) {
+            sb.append("\n  ");
+            sb.append(dpi.getName());
+            sb.append("  ID: ");
+            sb.append(dpi.getId());
+            sb.append("  ");
+            sb.append("Ver: ");
+            sb.append(dpi.getVersion());
+            if (!StringUtil.equalStrings(dpi.getVersion(), parentVer)) {
+              sb.append(" (expected ");
+              sb.append(parentVer);
+              sb.append(")");
+            }
+          }
+          parentVer = dpi.getParentVersion();
+        }
+      }
+    }
+    String feats = PluginManager.pluginFeatureVersionsString(plugin);
+    if (!StringUtil.isNullString(feats)) {
+      sb.append("\nFeature versions:\n");
+      sb.append(feats);
+    }
+    return sb.toString();
   }
 
   void removePlugin(String key) {

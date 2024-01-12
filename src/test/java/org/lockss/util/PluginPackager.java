@@ -496,8 +496,8 @@ public class PluginPackager {
       if (plug instanceof DefinablePlugin) {
 	DefinablePlugin dplug = (DefinablePlugin)plug;
         // Add plugin files
-	for (Pair<String,URL> pair : dplug.getIdsUrls()) {
-	  res.add(FileInfo.forFile(pair.getRight(), packageOf(pair.getLeft())));
+	for (DefinablePlugin.DefPlugInfo dpi : dplug.getPlugInfoList()) {
+	  res.add(FileInfo.forFile(dpi.getUrl(), packageOf(dpi.getId())));
 	}
         // Add explicitly named packages
 	for (Pair<String,URL> pair : dplug.getAuxPkgUrls()) {

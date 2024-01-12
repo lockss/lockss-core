@@ -315,12 +315,15 @@ public class TestDefinablePlugin extends LockssTestCase {
 		    strs.get(0));
 
     // Check the (pluginid, url) pairs
-    List<Pair<String,URL>> idus = definablePlugin.getIdsUrls();
-    assertEquals("org.lockss.test.MockConfigurablePlugin",
-		 idus.get(0).getLeft());
+    List<DefinablePlugin.DefPlugInfo> dpis = definablePlugin.getPlugInfoList();
+    assertEquals(1, dpis.size());
+    DefinablePlugin.DefPlugInfo dpi = dpis.get(0);
+    assertEquals("org.lockss.test.MockConfigurablePlugin", dpi.getId());
+    assertEquals("Absinthe Literary Review", dpi.getName());
+    assertEquals("1", dpi.getVersion());
     assertMatchesRE("/org/lockss/test/MockConfigurablePlugin.xml$",
-		    idus.get(0).getRight().toString());
-    assertEquals(1, idus.size());
+		    dpi.getUrl().toString());
+    assertNull(dpi.getParentId());
     // No aux plackages
     assertEmpty(definablePlugin.getAuxPkgUrls());
   }
@@ -443,16 +446,24 @@ public class TestDefinablePlugin extends LockssTestCase {
     assertFalse(map.containsKey("child_cancel"));
 
     // Check the (pluginid, url) pairs
-    List<Pair<String,URL>> idus = definablePlugin.getIdsUrls();
-    assertEquals("org.lockss.plugin.definable.ChildPlugin",
-		 idus.get(0).getLeft());
+    List<DefinablePlugin.DefPlugInfo> dpis = definablePlugin.getPlugInfoList();
+    assertEquals(2, dpis.size());
+    DefinablePlugin.DefPlugInfo dpi1 = dpis.get(0);
+    assertEquals("org.lockss.plugin.definable.ChildPlugin", dpi1.getId());
+    assertEquals("Child Plugin", dpi1.getName());
+    assertEquals("1", dpi1.getVersion());
     assertMatchesRE("/org/lockss/plugin/definable/ChildPlugin\\.xml$",
-		    idus.get(0).getRight().toString());
-    assertEquals("org.lockss.plugin.definable.GoodPlugin",
-		 idus.get(1).getLeft());
+		    dpi1.getUrl().toString());
+    assertEquals("org.lockss.plugin.definable.GoodPlugin", dpi1.getParentId());
+    assertEquals("17", dpi1.getParentVersion());
+
+    DefinablePlugin.DefPlugInfo dpi2 = dpis.get(1);
+    assertEquals("org.lockss.plugin.definable.GoodPlugin", dpi2.getId());
+    assertEquals("Good Plugin", dpi2.getName());
+    assertEquals("17", dpi2.getVersion());
     assertMatchesRE("/org/lockss/plugin/definable/GoodPlugin\\.xml$",
-		    idus.get(1).getRight().toString());
-    assertEquals(2, idus.size());
+		    dpi2.getUrl().toString());
+    assertNull(dpi2.getParentId());
 
     // Check aux packages
 
@@ -532,6 +543,20 @@ public class TestDefinablePlugin extends LockssTestCase {
     assertEquals("pval", map.getString("parent_only"));
     assertFalse(map.containsKey("parent_cancel"));
     assertEquals("barprime", map.getString("foo"));
+
+    log.critical("PlugInfo: " + definablePlugin.getPlugInfoList());
+
+    PluginManager pmgr = daemon.getPluginManager();
+    assertEquals("Plugin reloaded: Child Plugin(test) [renamed from foo]" +
+                 "\nID: org.lockss.plugin.definable.ChildPlugin" +
+                 "\nVersion: 17" +
+                 "\nParents:" +
+                 "\n  Good Plugin  ID: org.lockss.plugin.definable.GoodPlugin  Ver: 17" +
+                 "\nFeature versions:" +
+                 "\n  Poll: Poll_2" +
+                 "\n  Metadata: Metadata_7" +
+                 "\n  Substance: Substance_farty-two",
+                 pmgr.pluginReloadedAlertText(definablePlugin, "foo"));
   }
 
   public void testIllInherit() throws Exception {
