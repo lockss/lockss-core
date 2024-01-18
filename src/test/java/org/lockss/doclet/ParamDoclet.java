@@ -247,7 +247,6 @@ public class ParamDoclet implements Doclet {
         Set<String> cats = scanner.getCategories();
         if (!cats.isEmpty()) {
           defaultCategory = cats.iterator().next();
-          out.println("default:" + defaultCategory);
         }
       }
 
