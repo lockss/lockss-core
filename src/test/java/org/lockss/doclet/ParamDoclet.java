@@ -46,6 +46,7 @@ import javax.lang.model.element.*;
 import jdk.javadoc.doclet.DocletEnvironment; // RootDoc
 import jdk.javadoc.doclet.Reporter; // DocErrorReporter
 
+import javax.lang.model.element.Modifier;
 import javax.lang.model.util.ElementScanner9;
 import javax.tools.Diagnostic;
 import javax.lang.model.SourceVersion;
@@ -233,7 +234,9 @@ public class ParamDoclet implements Doclet {
     public Void visitVariable(VariableElement e, String defaultCategory) {
       Name varName = e.getSimpleName();
       if (e.getKind() == ElementKind.FIELD && isParam(varName.toString())) {
-        addParam(e, defaultCategory);
+        if (e.getModifiers().contains(Modifier.PUBLIC)) {
+          addParam(e, defaultCategory);
+        }
       }
 
       return super.visitVariable(e, null);
@@ -339,7 +342,7 @@ public class ParamDoclet implements Doclet {
 
   void addParam(VariableElement field, String classParamCategory) {
     Element parent = field.getEnclosingElement();
-    String className = parent.getSimpleName().toString();
+    String className = parent.asType().toString();
 
     String fieldName = field.getSimpleName().toString();
     String key = getParamKey(parent, fieldName);
