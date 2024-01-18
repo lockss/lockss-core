@@ -369,8 +369,16 @@ public class ParamDoclet implements Doclet {
         // This is the first occurrence we've encountered.
         String paramName = (String) value;
         info.paramName = paramName;
-        TreePath fieldPath = treeUtils.getPath(field);
-// FIXME        info.setComment(treeUtils.getDocComment(fieldPath));
+
+        DocCommentTree dct = treeUtils.getDocCommentTree(field);
+        if (dct != null) {
+          String comment = dct.getFullBody()
+              .stream()
+              .map(Object::toString)
+              .collect(Collectors.joining());
+          info.setComment(comment);
+        }
+
         info.addDefinedIn(className);
         // Add to the sorted map we'll use for printing.
         sortedParams.put(paramName, info);
@@ -817,7 +825,9 @@ public class ParamDoclet implements Doclet {
     }
 
     ParamInfo setComment(String comment) {
-      this.comment = comment.trim();
+      if (!StringUtil.isNullString(comment)) {
+        this.comment = comment.trim();
+      }
       return this;
     }
 
