@@ -55,70 +55,70 @@ public class UrlManager extends BaseLockssManager {
 
   /** Install the URLStreamHandlerFactory */
   public void startService() {
-    setOrAddUrlFactory();
+//    setOrAddUrlFactory();
   }
 
   public void stopService() {
   }
 
-  private void setOrAddUrlFactory() {
-    try {
-      Field field = URL.class.getDeclaredField("factory");
-      field.setAccessible(true);
-      final URLStreamHandlerFactory currentFactory =
-	(URLStreamHandlerFactory)field.get(null);
-      if (currentFactory != null) {
-	log.debug("old fact: " + currentFactory);
-	if (currentFactory instanceof LockssUrlFactory) {
-	  return;
-	}
-	field.set(null, null);
-      }
+//  private void setOrAddUrlFactory() {
+//    try {
+//      Field field = URL.class.getDeclaredField("factory");
+//      field.setAccessible(true);
+//      final URLStreamHandlerFactory currentFactory =
+//	(URLStreamHandlerFactory)field.get(null);
+//      if (currentFactory != null) {
+//	log.debug("old fact: " + currentFactory);
+//	if (currentFactory instanceof LockssUrlFactory) {
+//	  return;
+//	}
+//	field.set(null, null);
+//      }
+//
+//      URLStreamHandlerFactory fact = new LockssUrlFactory(currentFactory);
+//      URL.setURLStreamHandlerFactory(fact);
+//    } catch (NoSuchFieldException | IllegalAccessException e) {
+//      log.error("Setting URLStreamHandlerFactory", e);
+//    }
+//  }
 
-      URLStreamHandlerFactory fact = new LockssUrlFactory(currentFactory);
-      URL.setURLStreamHandlerFactory(fact);
-    } catch (NoSuchFieldException | IllegalAccessException e) {
-      log.error("Setting URLStreamHandlerFactory", e);
-    }
-  }
-
-  /** A URLStreamHandlerFactory that returns URLStreamHandlers for
-      locksscu: and lockssau: protocols. */
-  private static class LockssUrlFactory implements URLStreamHandlerFactory {
-    private URLStreamHandlerFactory wrapFact;
-
-    public LockssUrlFactory(URLStreamHandlerFactory wrapFact) {
-      this.wrapFact = wrapFact;
-    }
-
-    public URLStreamHandler createURLStreamHandler(String protocol) {
-      if (PROTOCOL_CU.equalsIgnoreCase(protocol)) {
-	// locksscu: gets a CuUrlConnection
-	return new URLStreamHandler() {
-	    protected URLConnection openConnection(URL u) throws IOException {
-	      // passing pluginManager runs into problems with class loaders
-	      // when running unit tests
-// 	      return new CuUrl.CuUrlConnection(u, pluginManager);
-	      return new CuUrl.CuUrlConnection(u);
-	    }};
-      }
-      if (PROTOCOL_AU.equalsIgnoreCase(protocol)) {
-	// AuUrls are never opened.
-	return new URLStreamHandler() {
-	    protected URLConnection openConnection(URL u) throws IOException {
-	      return null;
-	    }};
-      }
-      if (PROTOCOL_RESOURCE.equalsIgnoreCase(protocol)) {
-	return new URLStreamHandler() {
-	    protected URLConnection openConnection(URL u) throws IOException {
-	      return new ResourceURLConnection(u);
-	    }};
-      }
-      if (wrapFact != null) {
-	return wrapFact.createURLStreamHandler(protocol);
-      }
-      return null;	 // use default stream handlers for other protocols
-    }
-  }
+//  /** A URLStreamHandlerFactory that returns URLStreamHandlers for
+//      locksscu: and lockssau: protocols. */
+//  private static class LockssUrlFactory implements URLStreamHandlerFactory {
+//    private URLStreamHandlerFactory wrapFact;
+//
+//    public LockssUrlFactory(URLStreamHandlerFactory wrapFact) {
+//      this.wrapFact = wrapFact;
+//    }
+//
+//    public URLStreamHandler createURLStreamHandler(String protocol) {
+//      if (PROTOCOL_CU.equalsIgnoreCase(protocol)) {
+//	// locksscu: gets a CuUrlConnection
+//	return new URLStreamHandler() {
+//	    protected URLConnection openConnection(URL u) throws IOException {
+//	      // passing pluginManager runs into problems with class loaders
+//	      // when running unit tests
+//// 	      return new CuUrl.CuUrlConnection(u, pluginManager);
+//	      return new CuUrl.CuUrlConnection(u);
+//	    }};
+//      }
+//      if (PROTOCOL_AU.equalsIgnoreCase(protocol)) {
+//	// AuUrls are never opened.
+//	return new URLStreamHandler() {
+//	    protected URLConnection openConnection(URL u) throws IOException {
+//	      return null;
+//	    }};
+//      }
+//      if (PROTOCOL_RESOURCE.equalsIgnoreCase(protocol)) {
+//	return new URLStreamHandler() {
+//	    protected URLConnection openConnection(URL u) throws IOException {
+//	      return new ResourceURLConnection(u);
+//	    }};
+//      }
+//      if (wrapFact != null) {
+//	return wrapFact.createURLStreamHandler(protocol);
+//      }
+//      return null;	 // use default stream handlers for other protocols
+//    }
+//  }
 }
