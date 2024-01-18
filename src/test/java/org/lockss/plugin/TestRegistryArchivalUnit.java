@@ -54,12 +54,7 @@ public class TestRegistryArchivalUnit extends LockssTestCase {
     // make and init a real Pluginmgr
     pluginMgr = daemon.getPluginManager();
 
-    // Make and start a UrlManager to set up the URLStreamHandlerFactory.
-    // This is all so the cuurl created below can be opened by the parser
-    UrlManager uMgr = new UrlManager();
-    uMgr.initService(daemon);
     daemon.setDaemonInited(true);
-    uMgr.startService();
     regPlugin = new MyRegistryPlugin();
     regPlugin.initPlugin(daemon);
   }

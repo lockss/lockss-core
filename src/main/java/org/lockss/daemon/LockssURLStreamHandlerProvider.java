@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.daemon;
 
+import org.lockss.plugin.AuUrl;
 import org.lockss.util.ResourceURLConnection;
 
 import java.io.IOException;
@@ -40,11 +41,11 @@ import java.net.URLConnection;
 import java.net.URLStreamHandler;
 import java.net.spi.URLStreamHandlerProvider;
 
-import static org.lockss.daemon.UrlManager.PROTOCOL_AU;
-import static org.lockss.daemon.UrlManager.PROTOCOL_CU;
-import static org.lockss.daemon.UrlManager.PROTOCOL_RESOURCE;
-
 public class LockssURLStreamHandlerProvider extends URLStreamHandlerProvider {
+  private static final String PROTOCOL_CU = CuUrl.PROTOCOL;
+  private static final String PROTOCOL_AU = AuUrl.PROTOCOL;
+  private static final String PROTOCOL_RESOURCE = "resource";
+
   @Override
   public URLStreamHandler createURLStreamHandler(String protocol) {
     if (PROTOCOL_CU.equalsIgnoreCase(protocol)) {

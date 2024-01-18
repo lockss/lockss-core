@@ -142,10 +142,6 @@ public class TestPluginManager extends LockssTestCase4 {
     alertMgr = new MockAlertManager();
     theDaemon.setAlertManager(alertMgr);
 
-    UrlManager uMgr = new UrlManager();
-    uMgr.initService(theDaemon);
-    uMgr.startService();
-
     repoMgr = theDaemon.getRepositoryManager();
     repoMgr.startService();
 

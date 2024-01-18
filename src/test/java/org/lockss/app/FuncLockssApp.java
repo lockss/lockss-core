@@ -179,7 +179,6 @@ public class FuncLockssApp extends LockssTestCase {
     STATUS_SERVICE_DESC,
     REST_SERVICES_MANAGER_DESC,
     TRUEZIP_MANAGER_DESC,
-    URL_MANAGER_DESC,
     TIMER_SERVICE_DESC,
     // keystore manager must be started before any others that need to
     // access managed keystores
