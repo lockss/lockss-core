@@ -31,16 +31,33 @@ package org.lockss.doclet;
 import java.util.*;
 import java.io.*;
 import java.lang.reflect.*;
-import com.sun.javadoc.*;
+import java.util.stream.Collectors;
+
+import com.sun.source.doctree.*;
+import com.sun.source.util.DocTrees;
+import com.sun.source.util.SimpleDocTreeVisitor;
+import com.sun.source.util.TreePath;
 import org.apache.commons.collections4.SetValuedMap;
 import org.apache.commons.collections4.multimap.HashSetValuedHashMap;
+
+// https://docs.oracle.com/en/java/javase/11/docs/api/jdk.javadoc/jdk/javadoc/doclet/package-summary.html#migration
+import javax.lang.model.element.*;
+
+import jdk.javadoc.doclet.DocletEnvironment; // RootDoc
+import jdk.javadoc.doclet.Reporter; // DocErrorReporter
+
+import javax.lang.model.util.ElementScanner9;
+import javax.tools.Diagnostic;
+import javax.lang.model.SourceVersion;
+
+import jdk.javadoc.doclet.Doclet;
 
 import org.lockss.util.*;
 import org.lockss.util.time.TimeUtil;
 
 /**
  * A JavaDoc doclet that prints configuration parameter information.
- *
+ * <p>
  * static String variables with the prefix <bold><tt>PARAM_</tt></bold>
  * designate configuration parameters.  The value of the variable is the
  * name of the parameter.  The default value of the parameter is the value
@@ -52,185 +69,350 @@ import org.lockss.util.time.TimeUtil;
  * the class, in which case it establishes the default category for all
  * param definitions in the class.  &#064;ParamCategoryDoc <i>name</i>
  * <i>string</i> provides an explanation of the category.
- *
+ * <p>
  * The &#064;ParamRelevance tag specifies the relevance/importance of the
  * parameter.  It should be one of:<ul>
  * <li>Required - Must be set in order for daemon to run; there is no
- *   sensible default value.</li>
+ * sensible default value.</li>
  * <li>Common - Commonly used.</li>
  * <li>LessCommon - Less commonly used.</li>
  * <li>Unknown - Relevance of parameter not specified.  This is the default
- *   if no relevance is specified.</li>
+ * if no relevance is specified.</li>
  * <li>Testing - Primarily used by unit tests to disable some default
- *   behavior that's undesirable when runnning tests, such as connecting to
- *   a JMS broker.</li>
+ * behavior that's undesirable when runnning tests, such as connecting to
+ * a JMS broker.</li>
  * <li>Rare - Rarely used.</li>
  * <li>BackwardCompatibility - Used to restore some aspect of the daemon's
- *   behavior to what is was before some change or new feature was
- *   implemented.  Included primarily as a failsafe in case of unforseen
- *   consequences of the change.</li>
+ * behavior to what is was before some change or new feature was
+ * implemented.  Included primarily as a failsafe in case of unforseen
+ * consequences of the change.</li>
  * <li>Obsolescent - Enables or controls a feature that is no longer used.</li>
  * <li>Never - Included for some internal purpose, should never be set by
- *   users.</li>
+ * users.</li>
  * </ul>
- *
+ * <p>
  * Invoke the doclet with <tt>-f Category</tt> to have the parameters
  * grouped by Category, with <tt>-f Relevance</tt> to have the parameters
  * grouped by Relevance.
  */
-public class ParamDoclet {
+public class ParamDoclet implements Doclet {
 
+  private Reporter reporter;
+  private static File outDir = null;
   private static PrintStream out = null;
   private static boolean closeOut = false;
   private String releaseHeader = null;
 
-  RootDoc root;
-  String classParamCategory;	 // category of class being processed
   // Maps category name to set of (ParamInfo of) params belonging to it
-  SetValuedMap<String,ParamInfo> categoryMap =
-    new HashSetValuedHashMap<String,ParamInfo>();
+  SetValuedMap<String, ParamInfo> categoryMap =
+      new HashSetValuedHashMap<String, ParamInfo>();
+
   // Maps category name to its doc string
-  Map<String,String> catDocMap = new HashMap<String,String>();
+  Map<String, String> catDocMap = new HashMap<String, String>();
 
   // One of alpha, category, relevance
   String fmt = "alpha";
 
   // Maps (key derived from) symbol name (PARAM_XXX) to ParamInfo
-  Map<String,ParamInfo> params = new HashMap<String,ParamInfo>();
+  Map<String, ParamInfo> params = new HashMap<String, ParamInfo>();
+
   // Maps param name to ParamInfo
-  TreeMap<String,ParamInfo> sortedParams = new TreeMap<String,ParamInfo>();
+  TreeMap<String, ParamInfo> sortedParams = new TreeMap<String, ParamInfo>();
 
-  public static boolean start(RootDoc root) {
-    return new ParamDoclet(root).doStart();
+  private static final boolean OK = true;
+  private static final boolean FAILURE = false;
+
+  private final Set<Option> options = Set.of(
+      new Option("-o", true, "Output file", "<string>") {
+        @Override
+        public boolean process(String opt, List<String> args) {
+          String outFile = args.get(0);
+          try {
+            File f = null;
+            if (outDir != null) {
+              f = new File(outDir, outFile);
+            } else {
+              f = new File(outFile);
+            }
+            if (out == null) {
+              out = new PrintStream(new BufferedOutputStream(new FileOutputStream(f)));
+              closeOut = true;
+            } else {
+              reporter.print(Diagnostic.Kind.ERROR, "Output stream is already open");
+              return FAILURE;
+            }
+          } catch (IOException ex) {
+            reporter.print(Diagnostic.Kind.ERROR, "Unable to open output file: " + outFile);
+            return FAILURE;
+          }
+
+          return OK;
+        }
+      },
+      new Option("-d", true, "Output directory", "<string>") {
+        @Override
+        public boolean process(String opt, List<String> args) {
+          outDir = new File(args.get(0));
+          return OK;
+        }
+      },
+      new Option("-h", true, "Release header", "<string>") {
+        @Override
+        public boolean process(String opt, List<String> args) {
+          releaseHeader = args.get(0);
+          return OK;
+        }
+      },
+      new Option("-f", true, "Group parameters by", "<string>") {
+        @Override
+        public boolean process(String opt, List<String> args) {
+          fmt = args.get(0);
+          if (StringUtil.isNullString(fmt)) {
+            fmt = "Alpha";
+          }
+          fmt = fmt.toLowerCase().trim();
+          return OK;
+        }
+      }
+  );
+
+  @Override
+  public void init(Locale locale, Reporter reporter) {
+    this.reporter = reporter;
   }
 
-  ParamDoclet(RootDoc root) {
-    this.root = root;
+  @Override
+  public String getName() {
+    return getClass().getSimpleName();
   }
 
-  boolean doStart() {
-    handleOptions();
+  @Override
+  public Set<? extends Option> getSupportedOptions() {
+    return options;
+  }
 
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latest();
+  }
+
+  @Override
+  public boolean run(DocletEnvironment docletEnv) {
     if (out == null) {
       out = System.out;
     }
 
-    processClassDocs();
+    treeUtils = docletEnv.getDocTrees();
+    ProcessClassDocs pt = new ProcessClassDocs(out);
+    pt.show(docletEnv.getSpecifiedElements());
 
+//    processTypeElements();
     printDoc();
 
     if (closeOut) {
       out.close();
     }
 
-    return true;
+    return OK;
   }
 
-  void processClassDocs() {
-    for (ClassDoc classDoc : root.classes()) {
-      classParamCategory = null;
-      for (Tag tag : classDoc.tags()) {
-	switch (tag.name()) {
-	case "@ParamCategory":
-	  classParamCategory = tag.text().trim();
-	  break;
-	case "@ParamCategoryDoc":
-	  processCategoryDoc(tag);
-	  break;
-	}
+  private DocTrees treeUtils;
+
+  class ProcessClassDocs extends ElementScanner9<Void, String> {
+    final PrintStream out;
+
+    public ProcessClassDocs(PrintStream out) {
+      this.out = out;
+    }
+
+    void show(Set<? extends Element> elements) {
+      scan(elements, null);
+    }
+
+    @Override
+    public Void visitVariable(VariableElement e, String defaultCategory) {
+      Name varName = e.getSimpleName();
+      if (e.getKind() == ElementKind.FIELD && isParam(varName.toString())) {
+        addParam(e, defaultCategory);
       }
-      for (FieldDoc field : classDoc.fields()) {
-	String name = field.name();
 
-	if (isParam(name)) {
+      return super.visitVariable(e, null);
+    }
 
-// 	  for (AnnotationDesc ad : field.annotations()) {
-// 	    root.printNotice(field.position(), "annotation: " + ad);
-// 	  }
-
-	  addParam(root, classDoc, field);
-	}
+    @Override
+    public Void visitType(TypeElement e, String defaultCategory) {
+      if (e.getKind() == ElementKind.CLASS) {
+        TagScanner scanner = new TagScanner(e);
+        scanner.process();
+        Set<String> cats = scanner.getCategories();
+        if (!cats.isEmpty()) {
+          defaultCategory = cats.iterator().next();
+          out.println("default:" + defaultCategory);
+        }
       }
+
+      // Continue scanning enclosed elements
+      return super.visitType(e, defaultCategory);
+    }
+
+    @Override
+    public Void scan(Element e, String s) {
+      return super.scan(e, s);
     }
   }
 
-  void addParam(RootDoc root, ClassDoc classDoc, FieldDoc field) {
-    String className = classDoc.qualifiedName();
-    String name = field.name();
-    String key = getParamKey(classDoc, name);
+  class TagScanner extends SimpleDocTreeVisitor<Void, Void> {
+    private final Element e;
+    public Set<String> categories = new HashSet<String>(2);
+    public Relevance rel = Relevance.Unknown;
+
+    TagScanner(Element e) {
+      this.e = e;
+    }
+
+    public void process() {
+      DocCommentTree dct = treeUtils.getDocCommentTree(e);
+      if (dct != null) {
+        visit(dct, null);
+      }
+    }
+
+    @Override
+    public Void visitDocComment(DocCommentTree node, Void unused) {
+      return visit(node.getBlockTags(), null);
+    }
+
+    @Override
+    public Void visitUnknownBlockTag(UnknownBlockTagTree node, Void unused) {
+      String name = node.getTagName();
+      String text = node.getContent()
+          .stream()
+          .map(Object::toString)
+          .collect(Collectors.joining());
+
+      switch (name) {
+        case "ParamCategoryDoc":
+          processCategoryDoc(text);
+          break;
+        case "ParamCategory":
+          categories.addAll(StringUtil.breakAt(text, ",", -1, true, true));
+          break;
+        case "ParamRelevance":
+          setRelevance(text);
+          break;
+        default:
+          reporter.print(Diagnostic.Kind.WARNING, "Unknown tag: " + name);
+      }
+
+      return null;
+    }
+
+    public Set<String> getCategories() {
+      return categories;
+    }
+
+    public Relevance getRelevance() {
+      return rel;
+    }
+
+    public void setRelevance(String relevance) {
+      try {
+        rel = Relevance.valueOf(relevance);
+      } catch (IllegalArgumentException ex) {
+        reporter.print(Diagnostic.Kind.ERROR, e,
+            "@ParamRelevance value must be a Relevance");
+      }
+    }
+
+    public List<? extends DocTree> getKnownTags() {
+      DocCommentTree dct = treeUtils.getDocCommentTree(e);
+      if (dct != null) {
+        return dct.getBlockTags()
+            .stream()
+            .filter(tag -> tag.getKind() != DocTree.Kind.UNKNOWN_BLOCK_TAG)
+            .collect(Collectors.toList());
+      }
+
+      return Collections.emptyList();
+    }
+  }
+
+  void addParam(VariableElement field, String classParamCategory) {
+    Element parent = field.getEnclosingElement();
+    String className = parent.getSimpleName().toString();
+
+    String fieldName = field.getSimpleName().toString();
+    String key = getParamKey(parent, fieldName);
+
     ParamInfo info = params.get(key);
     if (info == null) {
       info = new ParamInfo();
       params.put(key, info);
     }
 
-    if (name.startsWith("PARAM_")) {
-      // This is a PARAM, not a DEFAULT
-      Object value = field.constantValue();
+    if (fieldName.startsWith("PARAM_")) {
+      Object value = field.getConstantValue();
 
+      // Fields beginning with PARAM_ define LOCKSS configuration parameter names
+      // as String constants (e.g., org.lockss.config.XXX). We enforce that here:
       if (!(value instanceof String)) {
-	root.printWarning(field.position(), "Non-string value for " + name);
-	root.printWarning("value: " + value);
-	if (value != null) {
-	  root.printWarning("value class: " + value.getClass());
-	}
-	return;
+        reporter.print(Diagnostic.Kind.WARNING, field, "Non-string value for " + fieldName);
+        reporter.print(Diagnostic.Kind.WARNING, field, "value: " + value);
+        if (value != null) {
+          reporter.print(Diagnostic.Kind.WARNING, field, "value class: " + value.getClass());
+        }
+        return;
       }
 
-      if (info.definedIn.size() == 0) {
-	// This is the first occurance we've encountered.
-	  String paramName = (String)value;
-	  info.paramName = paramName;
-	  info.setComment(field.commentText());
-	  info.addDefinedIn(className);
-	  // Add to the sorted map we'll use for printing.
-	  sortedParams.put(paramName, info);
+      if (info.definedIn.isEmpty()) {
+        // This is the first occurrence we've encountered.
+        String paramName = (String) value;
+        info.paramName = paramName;
+        TreePath fieldPath = treeUtils.getPath(field);
+// FIXME        info.setComment(treeUtils.getDocComment(fieldPath));
+        info.addDefinedIn(className);
+        // Add to the sorted map we'll use for printing.
+        sortedParams.put(paramName, info);
 
-	  boolean hasCat = false;
-	  for (Tag tag : field.tags()) {
-	    switch (tag.name()) {
-	    case "@ParamCategory":
-	      for (String cat :
-		     StringUtil.breakAt(tag.text(), ",", -1, true, true)) {
-		info.addCategory(cat);
-		hasCat = true;
-	      }
+        // Get this fields tags using the TagScanner
+        TagScanner scanner = new TagScanner(field);
+        scanner.process();
 
-	      break;
-	    case "@ParamCategoryDoc":
-	      processCategoryDoc(tag);
-	      break;
-	    case "@ParamRelevance":
-	      info.setRelevance(field, tag.text().trim());
-	      break;
-	    default: info.addTag(tag);
-	    }
-// 	    root.printNotice("tag: " + tag);
-// 	    root.printNotice("kind: " + tag.kind());
-// 	    root.printNotice("name: " + tag.name());
-// 	    root.printNotice("text: " + tag.text());
-// 	    root.printNotice(tag.position(), "pos: " + tag.position());
-	  }
-	  if (!hasCat && classParamCategory != null) {
-	    info.addCategory(classParamCategory);
-	  }
+        // Set categories
+        Set<String> categories = scanner.getCategories();
+        boolean hasCat = !categories.isEmpty();
+        for (String cat : categories) {
+          info.addCategory(cat);
+        }
+
+        if (!hasCat && classParamCategory != null) {
+          info.addCategory(classParamCategory);
+        }
+
+        // Set relevance
+        info.setRelevance(field, scanner.getRelevance());
+
+        // Set known tags
+        for (DocTree dt : scanner.getKnownTags()) {
+          info.addTag(dt);
+        }
 
       } else {
-	// We've already visited this parameter before, this is
-	// just another definer.
-	info.addDefinedIn(className);
+        // We've already visited this parameter before, this is
+        // just another definer.
+        info.addDefinedIn(className);
       }
-    } else if (name.startsWith("DEFAULT_")) {
-      info.defaultValue = getDefaultValue(field, root);
+    } else if (fieldName.startsWith("DEFAULT_")) {
+      //info.defaultValue = getDefaultValue(field);
+      info.defaultValue = String.valueOf(field.getConstantValue());
     }
   }
 
-  void processCategoryDoc(Tag tag) {
-    String[] sa = divideAtWhite(tag.text());
+  void processCategoryDoc(String catDoc) {
+    String[] sa = divideAtWhite(catDoc);
     String cat = sa[0];
     if (catDocMap.containsKey(cat)) {
-      root.printWarning(tag.position(),
-			"Duplicate Category doc for " + cat);
+      reporter.print(Diagnostic.Kind.WARNING, "Duplicate Category doc for " + cat);
     } else {
       catDocMap.put(cat, sa[1]);
     }
@@ -242,15 +424,15 @@ public class ParamDoclet {
     out.println("<h3>" + sortedParams.size() + " total parameters</h3>");
 
     switch (fmt) {
-    case "alpha":
-      printDocV1();
-      break;
-    case "category":
-      printDocByCat();
-      break;
-    case "relevance":
-      printDocByRel();
-      break;
+      case "alpha":
+        printDocV1();
+        break;
+      case "category":
+        printDocByCat();
+        break;
+      case "relevance":
+        printDocByRel();
+        break;
     }
     printDocFooter();
   }
@@ -284,13 +466,13 @@ public class ParamDoclet {
     out.println("<div align=\"center\">");
     out.println("<h1>LOCKSS Configuration Parameters</h1>");
     switch (fmt) {
-    case "category":
-      out.println("<h2>by Category</h2>");
-      break;
-    case "relevance":
-      out.println("<h2>by Relevance</h2>");
-      break;
-    default:
+      case "category":
+        out.println("<h2>by Category</h2>");
+        break;
+      case "relevance":
+        out.println("<h2>by Relevance</h2>");
+        break;
+      default:
     }
     if (!StringUtil.isNullString(releaseHeader)) {
       out.println("<h2>");
@@ -309,14 +491,13 @@ public class ParamDoclet {
     out.flush();
   }
 
-
   private void printDocV1() {
     for (ParamInfo info : sortedParams.values()) {
       printParamInfo(info);
     }
   }
 
-  private  void printDocByCat() {
+  private void printDocByCat() {
     Set<ParamInfo> done = new HashSet<ParamInfo>();
 //     System.err.println("all cat: " +
 // 		       CollectionUtil.asSortedList(categoryMap.keySet()));
@@ -324,38 +505,38 @@ public class ParamDoclet {
     for (String cat : CollectionUtil.asSortedList(categoryMap.keySet())) {
       printCategoryHeader(cat);
       for (Relevance rel : Relevance.values()) {
-	Set<ParamInfo> catSet = categoryMap.get(cat);
-	for (ParamInfo info :
-	       CollectionUtil.asSortedList(catSet)) {
-	  if (info.getRelevance() == rel) {
-	    printParamInfo(info);
-	    done.add(info);
-	  }
-	}
+        Set<ParamInfo> catSet = categoryMap.get(cat);
+        for (ParamInfo info :
+            CollectionUtil.asSortedList(catSet)) {
+          if (info.getRelevance() == rel) {
+            printParamInfo(info);
+            done.add(info);
+          }
+        }
       }
     }
 
     printCategoryHeader("None");
     for (Relevance rel : Relevance.values()) {
       for (ParamInfo info : sortedParams.values()) {
-	if (info.getRelevance() == rel && !done.contains(info)) {
-	  printParamInfo(info);
-	  done.add(info);
-	}
+        if (info.getRelevance() == rel && !done.contains(info)) {
+          printParamInfo(info);
+          done.add(info);
+        }
       }
     }
   }
 
-  private  void printDocByRel() {
+  private void printDocByRel() {
 //     System.err.println("all cat: " +
 // 		       CollectionUtil.asSortedList(categoryMap.keySet()));
 
     for (Relevance rel : Relevance.values()) {
       printRelevanceHeader(rel);
       for (ParamInfo info : sortedParams.values()) {
-	if (info.getRelevance() == rel) {
-	  printParamInfo(info);
-	}
+        if (info.getRelevance() == rel) {
+          printParamInfo(info);
+        }
       }
     }
   }
@@ -363,7 +544,7 @@ public class ParamDoclet {
   private void printCategoryHeader(String cat) {
     out.println("<tr>\n  <td colspan=\"2\" class=\"sectionHeader\">");
     out.print("    <span class=\"sectionName\" id=\"" + cat + "\">" +
-	      "Category: " + cat + "</span></td>");
+        "Category: " + cat + "</span></td>");
     out.println("</tr>");
     if (catDocMap.containsKey(cat)) {
       out.println("<tr>\n  <td colspan=\"2\" class=\"categoryComment\">");
@@ -376,7 +557,7 @@ public class ParamDoclet {
   private void printRelevanceHeader(Relevance rel) {
     out.println("<tr>\n  <td colspan=\"2\" class=\"sectionHeader\">");
     out.print("    <span class=\"sectionName\" id=\"" + rel + "\">" +
-	      "Relevance: " + rel + "</span></td>");
+        "Relevance: " + rel + "</span></td>");
     out.println("</tr>");
     if (true) {
       out.println("<tr>\n  <td colspan=\"2\" class=\"categoryComment\">");
@@ -400,10 +581,10 @@ public class ParamDoclet {
 
     out.println("<tr>\n  <td colspan=\"2\" class=\"paramHeader\">");
     out.print("    <span class=\"paramName\" id=\"" + pnameId + "\">" +
-	      pname + "</span> &nbsp; ");
+        pname + "</span> &nbsp; ");
     out.print("<span class=\"defaultValue\">[");
     out.print(info.defaultValue == null ?
-	      "" : HtmlUtil.htmlEncode(info.defaultValue));
+        "" : HtmlUtil.htmlEncode(info.defaultValue));
     out.println("]</span>\n  </td>");
     out.println("</tr>");
 
@@ -415,11 +596,11 @@ public class ParamDoclet {
     } else {
       out.print(info.comment.trim());
     }
-    for (Tag tag : info.tags) {
+    for (BlockTagTree tag : info.tags) {
       out.print("<br>");
-      out.print(tag.name());
+      out.print(tag.getTagName());
       out.print(" ");
-      out.print(tag.text());
+      out.print(tag);
     }
     out.println("</td>");
     out.println("</tr>");
@@ -429,7 +610,7 @@ public class ParamDoclet {
       out.println("  <td class=\"header\" valign=\"top\">Categories:</td>");
       out.print("  <td class=\"categories\">");
       for (String cat : info.getCategories()) {
-	out.println( cat + "<br/>");
+        out.println(cat + "<br/>");
       }
       out.println("</td>");
       out.println("</tr>");
@@ -449,7 +630,7 @@ public class ParamDoclet {
     out.println("  <td class=\"header\" valign=\"top\">Defined in:</td>");
     out.println("  <td class=\"definedIn\">");
     for (String def : info.getDefinedIn()) {
-      out.println( def + "<br/>");
+      out.println(def + "<br/>");
     }
     out.println("  </td>");
     out.println("</tr>");
@@ -469,14 +650,14 @@ public class ParamDoclet {
    * Given a parameter or default name, return the key used to look up
    * its info object in the unsorted hashmap.
    */
-  private static String getParamKey(ClassDoc doc, String s) {
-    StringBuffer sb = new StringBuffer(doc.qualifiedName() + ".");
-    if (s.startsWith("DEFAULT_")) {
-      sb.append(s.replaceFirst("DEFAULT_", ""));
-    } else if (s.startsWith("PARAM_")) {
-      sb.append(s.replaceFirst("PARAM_", ""));
+  private static String getParamKey(Element parent, String fieldName) {
+    StringBuffer sb = new StringBuffer(parent.getSimpleName() + ".");
+    if (fieldName.startsWith("DEFAULT_")) {
+      sb.append(fieldName.replaceFirst("DEFAULT_", ""));
+    } else if (fieldName.startsWith("PARAM_")) {
+      sb.append(fieldName.replaceFirst("PARAM_", ""));
     } else {
-      sb.append(s);
+      sb.append(fieldName);
     }
     return sb.toString();
   }
@@ -484,122 +665,98 @@ public class ParamDoclet {
   /**
    * Cheesily use reflection to obtain the default value.
    */
-  public static String getDefaultValue(FieldDoc field, RootDoc root) {
+  public String getDefaultValue(VariableElement field) {
     String defaultVal = null;
     try {
-      ClassDoc classDoc = field.containingClass();
+      Element classDoc = field.getEnclosingElement();
 
-      Class c = Class.forName(getClassName(classDoc));
-      Field fld = c.getDeclaredField(field.name());
+      Class c = classDoc.getClass();
+      Field fld = c.getDeclaredField(field.getSimpleName().toString());
       fld.setAccessible(true);
       Class cls = fld.getType();
       if (int.class == cls) {
-	defaultVal = (Integer.valueOf(fld.getInt(null))).toString();
+        defaultVal = (Integer.valueOf(fld.getInt(null))).toString();
       } else if (long.class == cls) {
-	long timeVal = fld.getLong(null);
-	if (timeVal > 0) {
-	  defaultVal = timeVal + " (" +
-	    TimeUtil.timeIntervalToString(timeVal) + ")";
-	} else {
-	  defaultVal = Long.toString(timeVal);
-	}
+        long timeVal = fld.getLong(null);
+        if (timeVal > 0) {
+          defaultVal = timeVal + " (" +
+              TimeUtil.timeIntervalToString(timeVal) + ")";
+        } else {
+          defaultVal = Long.toString(timeVal);
+        }
       } else if (boolean.class == cls) {
-	defaultVal = (Boolean.valueOf(fld.getBoolean(null))).toString();
+        defaultVal = (Boolean.valueOf(fld.getBoolean(null))).toString();
       } else {
-	try {
-	  // This will throw NPE if the field isn't static; don't know how
-	  // to get initial value in that case
-	  Object dval = fld.get(null);
-	  defaultVal = (dval != null) ? dval.toString() : "(null)";
-	} catch (NullPointerException e) {
-	  defaultVal = "(unknown: non-static default)";
-	}
+        try {
+          // This will throw NPE if the field isn't static; don't know how
+          // to get initial value in that case
+          Object dval = fld.get(null);
+          defaultVal = (dval != null) ? dval.toString() : "(null)";
+        } catch (NullPointerException e) {
+          defaultVal = "(unknown: non-static default)";
+        }
       }
     } catch (Exception e) {
-      root.printError(field.position(), field.name() + ": " + e);
-      root.printError(StringUtil.stackTraceString(e));
+      reporter.print(Diagnostic.Kind.ERROR, field, field.getSimpleName() + ": " + e);
+      reporter.print(Diagnostic.Kind.ERROR, StringUtil.stackTraceString(e));
     }
 
     return defaultVal;
   }
 
-  /** Convert the package-qualified name of a (possibly) nested class into
+  /**
+   * Convert the package-qualified name of a (possibly) nested class into
    * the actual class name.  I.e., replace dots separating a nested class
-   * from its parent with $ */
-  static String getClassName(ClassDoc classDoc) {
-    String cname = classDoc.qualifiedName();
-    ClassDoc parentDoc;
-    while ((parentDoc = classDoc.containingClass()) != null) {
+   * from its parent with $
+   */
+  static String getClassName(Element classDoc) {
+    String cname = classDoc.getSimpleName().toString();
+    Element parentDoc;
+    while ((parentDoc = classDoc.getEnclosingElement()) != null) {
       cname = StringUtil.replaceLast(cname, ".", "$");
       classDoc = parentDoc;
     }
     return cname;
   }
 
-  /**
-   * Required for Doclet options.
-   */
-  public static int optionLength(String option) {
-    switch (option) {
-    case "-o": return 2;
-    case "-d": return 2;
-    case "-h": return 2;
-    case "-f": return 2;
-    default: return 0;
+  abstract class Option implements Doclet.Option {
+    private final String name;
+    private final boolean hasArg;
+    private final String description;
+    private final String parameters;
+
+    Option(String name, boolean hasArg,
+           String description, String parameters) {
+      this.name = name;
+      this.hasArg = hasArg;
+      this.description = description;
+      this.parameters = parameters;
     }
-  }
 
-  public static boolean validOptions(String[][] options,
-				     DocErrorReporter reporter) {
-    return true;
-  }
-
-  private boolean handleOptions() {
-    boolean ok = false;
-    String outDir = null;
-
-    String[][] options = root.options();
-
-    for (int i = 0 ; i < options.length; i++) {
-      String opt = options[i][0];
-      String val = null;
-      if (optionLength(opt) >= 2) {
-	val = options[i][1];
-      }
-      switch (opt) {
-      case "-o":
-	String outFile = val;
-	try {
-	  File f = null;
-	  if (outDir != null) {
-	    f = new File(outDir, outFile);
-	  } else {
-	    f = new File(outFile);
-	  }
-	  out =
-	    new PrintStream(new BufferedOutputStream(new FileOutputStream(f)));
-	  closeOut = true;
-	  ok = true;
-	} catch (IOException ex) {
-	  root.printError("Unable to open output file: " + outFile);
-	}
-	break;
-      case "-d":
-	outDir = val;
-	break;
-      case "-h":
-	releaseHeader = val;
-	break;
-      case "-f":
-	fmt = val.toLowerCase().trim();
-	if (StringUtil.isNullString(fmt)) {
-	  fmt = "Alpha";
-	}
-	break;
-      default:
-      }
+    @Override
+    public int getArgumentCount() {
+      return hasArg ? 1 : 0;
     }
-    return ok;
+
+    @Override
+    public String getDescription() {
+      return description;
+    }
+
+    @Override
+    public Kind getKind() {
+      return Kind.STANDARD;
+    }
+
+    @Override
+    public List<String> getNames() {
+      return List.of(name);
+    }
+
+    @Override
+    public String getParameters() {
+      return hasArg ? parameters : "";
+    }
   }
 
   /**
@@ -614,15 +771,15 @@ public class ParamDoclet {
     for (int inx = 0; inx < len; ++inx) {
       char ch = text.charAt(inx);
       if (Character.isWhitespace(ch)) {
-	sa[0] = text.substring(0, inx);
-	for (; inx < len; ++inx) {
-	  ch = text.charAt(inx);
-	  if (!Character.isWhitespace(ch)) {
-	    sa[1] = text.substring(inx, len);
-	    break;
-	  }
-	}
-	break;
+        sa[0] = text.substring(0, inx);
+        for (; inx < len; ++inx) {
+          ch = text.charAt(inx);
+          if (!Character.isWhitespace(ch)) {
+            sa[1] = text.substring(inx, len);
+            break;
+          }
+        }
+        break;
       }
     }
     return sa;
@@ -641,13 +798,16 @@ public class ParamDoclet {
     ;
 
     private String expl;
+
     Relevance(String exp) {
       this.expl = exp;
     }
+
     String getExplanation() {
       return expl;
     }
   }
+
   /**
    * Simple wrapper class to hold information about a parameter.
    */
@@ -656,7 +816,7 @@ public class ParamDoclet {
     public String defaultValue = null;
     public boolean isDeprecated;
     public String comment = "";
-    public List<Tag> tags = new ArrayList(5);
+    public List<BlockTagTree> tags = new ArrayList(5);
     public Set<String> categories = new HashSet<String>(2);
     public Relevance rel = Relevance.Unknown;
     // Sorted list of uses.
@@ -676,19 +836,13 @@ public class ParamDoclet {
       return this;
     }
 
-
     ParamInfo setDefaultValue(String val) {
       this.defaultValue = val;
       return this;
     }
 
-    ParamInfo setRelevance(FieldDoc field, String relName) {
-      try {
-	this.rel = Relevance.valueOf(relName);
-      } catch (IllegalArgumentException e) {
-	root.printError(field.position(),
-			"@ParamRelevance value must be a Relevance");
-      }
+    ParamInfo setRelevance(VariableElement field, Relevance relevance) {
+      this.rel = relevance;
       return this;
     }
 
@@ -705,8 +859,8 @@ public class ParamDoclet {
       return definedIn;
     }
 
-    ParamInfo addTag(Tag tag) {
-      tags.add(tag);
+    ParamInfo addTag(DocTree tag) {
+      tags.add((BlockTagTree) tag);
       return this;
     }
 
@@ -719,9 +873,7 @@ public class ParamDoclet {
     Set<String> getCategories() {
       return categories;
     }
-
   }
-
 
   /*
    * Common paramdoc strings
@@ -738,5 +890,4 @@ public class ParamDoclet {
    * @ParamCategory
 
    */
-
 }
