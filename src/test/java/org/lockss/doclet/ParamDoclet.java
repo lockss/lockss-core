@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 import com.sun.source.doctree.*;
 import com.sun.source.util.DocTrees;
 import com.sun.source.util.SimpleDocTreeVisitor;
-import com.sun.source.util.TreePath;
 import org.apache.commons.collections4.SetValuedMap;
 import org.apache.commons.collections4.multimap.HashSetValuedHashMap;
 
@@ -99,6 +98,7 @@ import org.lockss.util.time.TimeUtil;
 public class ParamDoclet implements Doclet {
 
   private Reporter reporter;
+  private DocTrees treeUtils;
   private static File outDir = null;
   private static PrintStream out = null;
   private static boolean closeOut = false;
@@ -204,10 +204,10 @@ public class ParamDoclet implements Doclet {
     }
 
     treeUtils = docletEnv.getDocTrees();
-    ProcessClassDocs pt = new ProcessClassDocs(out);
-    pt.show(docletEnv.getSpecifiedElements());
 
-//    processTypeElements();
+    ClassParameterScanner paramScanner = new ClassParameterScanner();
+    paramScanner.scan(docletEnv.getSpecifiedElements(), null);
+
     printDoc();
 
     if (closeOut) {
@@ -217,19 +217,7 @@ public class ParamDoclet implements Doclet {
     return OK;
   }
 
-  private DocTrees treeUtils;
-
-  class ProcessClassDocs extends ElementScanner9<Void, String> {
-    final PrintStream out;
-
-    public ProcessClassDocs(PrintStream out) {
-      this.out = out;
-    }
-
-    void show(Set<? extends Element> elements) {
-      scan(elements, null);
-    }
-
+  class ClassParameterScanner extends ElementScanner9<Void, String> {
     @Override
     public Void visitVariable(VariableElement e, String defaultCategory) {
       Name varName = e.getSimpleName();
@@ -239,15 +227,16 @@ public class ParamDoclet implements Doclet {
         }
       }
 
+      // Q: Do we really expect variables to have enclosing elements?
       return super.visitVariable(e, null);
     }
 
     @Override
     public Void visitType(TypeElement e, String defaultCategory) {
       if (e.getKind() == ElementKind.CLASS) {
-        TagScanner scanner = new TagScanner(e);
-        scanner.process();
-        Set<String> cats = scanner.getCategories();
+        ElementTagVisitor visitor = new ElementTagVisitor(e);
+        visitor.process();
+        Set<String> cats = visitor.getCategories();
         if (!cats.isEmpty()) {
           defaultCategory = cats.iterator().next();
         }
@@ -256,25 +245,19 @@ public class ParamDoclet implements Doclet {
       // Continue scanning enclosed elements
       return super.visitType(e, defaultCategory);
     }
-
-    @Override
-    public Void scan(Element e, String s) {
-      return super.scan(e, s);
-    }
   }
 
-  class TagScanner extends SimpleDocTreeVisitor<Void, Void> {
+  class ElementTagVisitor extends SimpleDocTreeVisitor<Void, Void> {
     private final Element e;
     public Set<String> categories = new HashSet<String>(2);
     public Relevance rel = Relevance.Unknown;
 
-    TagScanner(Element e) {
+    ElementTagVisitor(Element e) {
       this.e = e;
     }
 
     public void process() {
       DocCommentTree dct = treeUtils.getDocCommentTree(e);
-
       if (dct != null) {
         visit(dct, null);
       }
@@ -386,11 +369,11 @@ public class ParamDoclet implements Doclet {
         sortedParams.put(paramName, info);
 
         // Get this fields tags using the TagScanner
-        TagScanner scanner = new TagScanner(field);
-        scanner.process();
+        ElementTagVisitor visitor = new ElementTagVisitor(field);
+        visitor.process();
 
         // Set categories
-        Set<String> categories = scanner.getCategories();
+        Set<String> categories = visitor.getCategories();
         boolean hasCat = !categories.isEmpty();
         for (String cat : categories) {
           info.addCategory(cat);
@@ -401,10 +384,10 @@ public class ParamDoclet implements Doclet {
         }
 
         // Set relevance
-        info.setRelevance(field, scanner.getRelevance());
+        info.setRelevance(field, visitor.getRelevance());
 
         // Set known tags
-        for (DocTree dt : scanner.getKnownTags()) {
+        for (DocTree dt : visitor.getKnownTags()) {
           info.addTag(dt);
         }
 
