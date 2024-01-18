@@ -272,6 +272,7 @@ public class ParamDoclet implements Doclet {
 
     public void process() {
       DocCommentTree dct = treeUtils.getDocCommentTree(e);
+
       if (dct != null) {
         visit(dct, null);
       }
@@ -403,8 +404,7 @@ public class ParamDoclet implements Doclet {
         info.addDefinedIn(className);
       }
     } else if (fieldName.startsWith("DEFAULT_")) {
-      //info.defaultValue = getDefaultValue(field);
-      info.defaultValue = String.valueOf(field.getConstantValue());
+      info.defaultValue = getDefaultValue(field);
     }
   }
 
@@ -670,7 +670,7 @@ public class ParamDoclet implements Doclet {
     try {
       Element classDoc = field.getEnclosingElement();
 
-      Class c = classDoc.getClass();
+      Class c = Class.forName(classDoc.asType().toString());
       Field fld = c.getDeclaredField(field.getSimpleName().toString());
       fld.setAccessible(true);
       Class cls = fld.getType();
@@ -702,21 +702,6 @@ public class ParamDoclet implements Doclet {
     }
 
     return defaultVal;
-  }
-
-  /**
-   * Convert the package-qualified name of a (possibly) nested class into
-   * the actual class name.  I.e., replace dots separating a nested class
-   * from its parent with $
-   */
-  static String getClassName(Element classDoc) {
-    String cname = classDoc.getSimpleName().toString();
-    Element parentDoc;
-    while ((parentDoc = classDoc.getEnclosingElement()) != null) {
-      cname = StringUtil.replaceLast(cname, ".", "$");
-      classDoc = parentDoc;
-    }
-    return cname;
   }
 
   abstract class Option implements Doclet.Option {
