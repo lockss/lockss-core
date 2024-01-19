@@ -68,6 +68,7 @@ POSSIBILITY OF SUCH DAMAGE.
          ParamDoc, etc.) -->
     <loglevel.tool>${loglevel}</loglevel.tool>
 
+    <graalvm.version>23.1.0</graalvm.version>
   </properties>
 
   <dependencies>
@@ -548,6 +549,39 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j-localespi</artifactId>
       <version>${version.group.icu4j}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>polyglot</artifactId>
+      <version>${graalvm.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.graalvm.js</groupId>
+      <artifactId>js-scriptengine</artifactId>
+      <version>${graalvm.version}</version>
+    </dependency>
+    <!-- runtime -->
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>js-community</artifactId>
+      <version>${graalvm.version}</version>
+      <type>pom</type>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>profiler-community</artifactId>
+      <version>${graalvm.version}</version>
+      <type>pom</type>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>inspect-community</artifactId>
+      <version>${graalvm.version}</version>
+      <type>pom</type>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>

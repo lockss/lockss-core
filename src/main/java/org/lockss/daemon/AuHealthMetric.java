@@ -35,6 +35,8 @@ package org.lockss.daemon;
 import java.util.*;
 import javax.script.*;
 
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Value;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
@@ -60,7 +62,7 @@ public class AuHealthMetric {
 
   /** Script language. */
   public static final String PARAM_SCRIPT_LANGUAGE = PREFIX + "scriptLanguage";
-  public static final String DEFAULT_SCRIPT_LANGUAGE = "JavaScript";
+  public static final String DEFAULT_SCRIPT_LANGUAGE = "Graal.js";
 
   /** Threshold for inclusion of AUs as "healthy". */
   public static final String PARAM_INCLUSION_THRESHOLD =
@@ -330,6 +332,7 @@ public class AuHealthMetric {
   private AuHealthMetric(ArchivalUnit au) {
     this.au = au;
     this.aus = AuUtil.getAuState(au);
+
   }
 
   /** Return the AU's SubstanceState */
@@ -392,6 +395,7 @@ public class AuHealthMetric {
     return bindings;
   }
 
+
   ScriptEngineManager getManager() {
     if (sem == null) {
       sem = new ScriptEngineManager();
@@ -445,6 +449,7 @@ public class AuHealthMetric {
       if (isCompilable) {
         return compiledScript.eval(getBindings());
       } else {
+
         return engine.eval(healthExpr, getBindings());
       }
     } catch (ScriptException e) {
