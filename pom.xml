@@ -306,6 +306,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-driver-zip</artifactId>
       <version>${version.group.truezip}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.bouncycastle</groupId>
+          <artifactId>bcprov-jdk15on</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     
     <dependency>
@@ -504,6 +510,18 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.group.bouncycastle}</version>
     </dependency>
 
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcutil-${version.group.bouncycastle.variant}</artifactId>
+      <version>${version.group.bouncycastle}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-${version.group.bouncycastle.variant}</artifactId>
+      <version>${version.group.bouncycastle}</version>
+    </dependency>
+
     <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
@@ -590,6 +608,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.mock-server</groupId>
       <artifactId>mockserver-netty</artifactId>
       <version>5.6.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.bouncycastle</groupId>
+          <artifactId>bcpkix-jdk15on</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -960,6 +984,16 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.lockss</groupId>
       <artifactId>pdfbox</artifactId>
       <version>0.7.3-p1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>bouncycastle</groupId>
+          <artifactId>bcprov-jdk14</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>bouncycastle</groupId>
+          <artifactId>bcmail-jdk14</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
   </dependencies>

@@ -32,15 +32,14 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.test;
 
-import java.util.*;
 import java.io.*;
-import java.util.jar.*;
+
+import org.bouncycastle.operator.OperatorCreationException;
 import org.lockss.util.*;
 import java.security.*;
 import java.security.cert.*;
 
-import org.lockss.util.KeyStoreUtil.CertAndKeyGen;
-import org.lockss.util.KeyStoreUtil.X500Name;
+import org.bouncycastle.asn1.x500.X500Name;
 
 public class KeystoreTestUtils {
 
@@ -61,8 +60,8 @@ public class KeystoreTestUtils {
 				     String password, String alias,
 				     String name)
       throws IOException, CertificateException, KeyStoreException,
-	     InvalidKeyException, NoSuchAlgorithmException,
-	     SignatureException, NoSuchProviderException {
+      InvalidKeyException, NoSuchAlgorithmException,
+      SignatureException, NoSuchProviderException, InvalidAlgorithmParameterException, OperatorCreationException {
     KeystoreTestUtils.createKeystores(pub, priv, password, password, alias,
 				      name, "LOCKSS", "Stanford University",
 				      "Palo Alto", "California",
@@ -93,8 +92,8 @@ public class KeystoreTestUtils {
 				     String o, String l, String s, String c,
 				     int days, int len)
       throws IOException, CertificateException, KeyStoreException,
-	     InvalidKeyException, NoSuchAlgorithmException,
-	     SignatureException, NoSuchProviderException {
+      InvalidKeyException, NoSuchAlgorithmException,
+      SignatureException, NoSuchProviderException, InvalidAlgorithmParameterException, OperatorCreationException {
 
     if (keyPwd == null) {
       throw new IllegalArgumentException("Key Password must not be null.");
@@ -129,8 +128,13 @@ public class KeystoreTestUtils {
 
     // Generate a <i>len</i>-bit Digital Signature Algorithm (DSA) key pair
     // and certificate
-    CertAndKeyGen keypair = new CertAndKeyGen("DSA", "SHA1WithDSA");
-    X500Name dn = new X500Name(cn, ou, o, l, s, c);
+    KeyStoreUtil.CertAndKeyGen keypair =
+        new KeyStoreUtil.CertAndKeyGen("DSA", "SHA1WithDSA");
+
+//    X500Name dn = new X500Name(cn, ou, o, l, s, c);
+    X500Name dn = new X500Name("CN=" + cn + ", " +
+        "OU=" + ou + ", O=" + o + ", " +
+        "L=" + l + ", ST=" + s + ", C=" + c);
 
     keypair.generate(len);
     PrivateKey privKey = keypair.getPrivateKey();

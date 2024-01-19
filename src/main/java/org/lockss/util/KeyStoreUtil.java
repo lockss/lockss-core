@@ -28,17 +28,35 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.*;
 import java.io.*;
 import java.security.*;
 import java.security.cert.*;
-import java.lang.reflect.*;
+
 import org.apache.commons.io.*;
 import org.bouncycastle.asn1.ASN1InputStream;
 
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v1CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.crypto.util.PrivateKeyFactory;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.lockss.app.*;
 import org.lockss.daemon.*;
 import org.lockss.config.*;
+import org.lockss.util.time.TimeBase;
 
 /**
  * Utilities for creating keystores
@@ -116,13 +134,13 @@ public class KeyStoreUtil {
 
   public static KeyStore createKeyStore(Properties p)
       throws CertificateException,
-	     IOException,
-	     InvalidKeyException,
-	     KeyStoreException,
-	     NoSuchAlgorithmException,
-	     NoSuchProviderException,
-	     SignatureException,
-	     UnrecoverableKeyException {
+      IOException,
+      InvalidKeyException,
+      KeyStoreException,
+      NoSuchAlgorithmException,
+      NoSuchProviderException,
+      SignatureException,
+      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
     KeyStore ks = KeyStore.getInstance(p.getProperty(PROP_KEYSTORE_TYPE,
                                                      DEFAULT_KEYSTORE_TYPE));
     initializeKeyStore(ks, p);
@@ -166,26 +184,26 @@ public class KeyStoreUtil {
 
   private static void initializeKeyStore(KeyStore keyStore, Properties p)
       throws CertificateException,
-	     IOException,
-	     InvalidKeyException,
-	     KeyStoreException,
-	     NoSuchAlgorithmException,
-	     NoSuchProviderException,
-	     SignatureException,
-	     UnrecoverableKeyException {
+      IOException,
+      InvalidKeyException,
+      KeyStoreException,
+      NoSuchAlgorithmException,
+      NoSuchProviderException,
+      SignatureException,
+      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
     initializeKeyStore(keyStore, ConfigManager.fromProperties(p));
   }
 
   private static void initializeKeyStore(KeyStore keyStore,
 					 Configuration config)
       throws CertificateException,
-	     IOException,
-	     InvalidKeyException,
-	     KeyStoreException,
-	     NoSuchAlgorithmException,
-	     NoSuchProviderException,
-	     SignatureException,
-	     UnrecoverableKeyException {
+      IOException,
+      InvalidKeyException,
+      KeyStoreException,
+      NoSuchAlgorithmException,
+      NoSuchProviderException,
+      SignatureException,
+      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
     String keyAlias = config.get(PROP_KEY_ALIAS, DEFAULT_KEY_ALIAS);
     String certAlias = config.get(PROP_CERT_ALIAS, DEFAULT_CERT_ALIAS);
     String keyAlgName = config.get(PROP_KEY_ALGORITHM, DEFAULT_KEY_ALGORITHM);
@@ -495,13 +513,13 @@ public class KeyStoreUtil {
   private static KeyStore createKeystore(KsType ksType,
                                          String domainName, String password)
       throws CertificateException,
-	     IOException,
-	     InvalidKeyException,
-	     KeyStoreException,
-	     NoSuchAlgorithmException,
-	     NoSuchProviderException,
-	     SignatureException,
-	     UnrecoverableKeyException {
+      IOException,
+      InvalidKeyException,
+      KeyStoreException,
+      NoSuchAlgorithmException,
+      NoSuchProviderException,
+      SignatureException,
+      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
     KeyStore ks = createKeystore0(ksType);
     if (ks == null) {
       log.error("No key store available");
@@ -533,13 +551,13 @@ public class KeyStoreUtil {
   private static void initializeKeyStore(KeyStore keyStore,
 					 String domainName, String password)
       throws IOException,
-	     CertificateException,
-	     InvalidKeyException,
-	     SignatureException,
-	     NoSuchAlgorithmException,
-	     NoSuchProviderException,
-	     KeyStoreException,
-	     UnrecoverableKeyException {
+      CertificateException,
+      InvalidKeyException,
+      SignatureException,
+      NoSuchAlgorithmException,
+      NoSuchProviderException,
+      KeyStoreException,
+      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
     String keyAlias = domainName + keySuffix;
     String certAlias = domainName + crtSuffix;
     String keyStorePassword = domainName;
@@ -553,16 +571,14 @@ public class KeyStoreUtil {
     String sigAlgName = DEFAULT_SIG_ALGORITHM;
     log.debug("About to create a CertAndKeyGen: " + keyAlgName + " " + sigAlgName);
     CertAndKeyGen keypair;
-    try {
-      keypair = new CertAndKeyGen(keyAlgName, sigAlgName);
-    } catch (NoSuchAlgorithmException e) {
-      log.debug("new CertAndKeyGen(" + keyAlgName + "," + sigAlgName +
-	       ") threw " + e);
-      throw e;
-    }
+    keypair = new CertAndKeyGen(keyAlgName, sigAlgName);
     log.debug("About to generate a key pair");
     try {
       keypair.generate(1024);
+    } catch (InvalidAlgorithmParameterException | NoSuchAlgorithmException e) {
+      log.debug("new CertAndKeyGen(" + keyAlgName + "," + sigAlgName +
+          ") threw " + e);
+      throw e;
     } catch (InvalidKeyException e) {
       log.debug("keypair.generate(1024) threw " + e);
       throw e;
@@ -575,7 +591,7 @@ public class KeyStoreUtil {
     X509Certificate[] chain = new X509Certificate[1];
     X500Name x500Name = new X500Name("CN=" + domainName + ", " +
 				     "OU=LOCKSS Team, O=Stanford, " +
-				     "L=Stanford, S=California, C=US");
+				     "L=Stanford, ST=California, C=US");
     chain[0] = keypair.getSelfCertificate(x500Name, 365*24*60*60);
     log.debug("Certificate: " + chain[0].toString());
     log.debug("About to keyStore.load(null)");
@@ -862,36 +878,6 @@ public class KeyStoreUtil {
     }
   }
 
-  // Quick fix for Java 1.7.0_111.  Wrappers for CertAndKeyGen and X500Name
-  // which dispatch to whichever of sun.security.x509 or
-  // sun.security.tools.keytool exists at runtime.
-
-  static final String PKG_NAME_1 = "sun.security.x509.";
-  static final String PKG_NAME_2 = "sun.security.tools.keytool.";
-  static final String CertAndKeyGenName = "CertAndKeyGen";
-  static final String X500NameName = "X500Name";
-
-  static Class cakgClass;
-  static Class x500Class;
-  static {
-    cakgClass = firstClass(new String[] {PKG_NAME_1 + CertAndKeyGenName,
-					 PKG_NAME_2 + CertAndKeyGenName});
-    x500Class = firstClass(new String[] {PKG_NAME_1 + X500NameName,
-					 PKG_NAME_2 + X500NameName});
-  }
-
-  static Class firstClass(String[] names) {
-    for (String name : names) {
-      try {
-	return Class.forName(name);
-      } catch (ClassNotFoundException e) {
-      }
-    }
-    return null;
-  }
-
-
-
   /** Info about each supported KeyStore type - name, extension, keystore
    * recognition predicate. */
   public enum KsType {
@@ -994,166 +980,79 @@ public class KeyStoreUtil {
     throw new IllegalStateException("There are no Keystore types defined");
   }
 
-
-
   public static class CertAndKeyGen {
-    Object cakg;
+    String keyType;
+    String sigAlg;
+    KeyPair keyPair;
 
-    public CertAndKeyGen(String keyType, String sigAlg)
-	throws NoSuchAlgorithmException {
-      try {
-	Constructor constr = cakgClass.getConstructor(String.class,
-						      String.class);
-	cakg = constr.newInstance(keyType, sigAlg);
-      } catch (NoSuchMethodException |
-	       InstantiationException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen constructor", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (NoSuchAlgorithmException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
+    static {
+      Security.addProvider(new BouncyCastleProvider());
     }
 
-    public void generate(int keyBits) throws InvalidKeyException {
-      try {
-	Method meth = cakgClass.getMethod("generate", int.class);
-	meth.invoke(cakg, keyBits);
-      } catch (NoSuchMethodException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen.generate()", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (InvalidKeyException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
+    public CertAndKeyGen(String keyType, String sigAlg) {
+      this.keyType = keyType;
+      this.sigAlg = sigAlg;
     }
 
-    public PrivateKey getPrivateKey () {
-      try {
-	Method meth = cakgClass.getMethod("getPrivateKey");
-	return (PrivateKey)meth.invoke(cakg);
-      } catch (NoSuchMethodException |
-	       InvocationTargetException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen.getPrivateKey()", e);
-	throw new IllegalStateException(e);
+    private AlgorithmParameterSpec getAlgorithmParamSpec(int keyBits) {
+      switch (keyType) {
+        case "RSA":
+          return new RSAKeyGenParameterSpec(keyBits, RSAKeyGenParameterSpec.F4);
+        default:
+          log.warning("No default AlgorithmParamSpec for algorithm: " + keyType);
       }
+
+      return null;
+    }
+
+    public void generate(int keyBits)
+        throws InvalidKeyException, NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
+      KeyPairGenerator kpGen =
+          KeyPairGenerator.getInstance(keyType, "BC");
+      kpGen.initialize(getAlgorithmParamSpec(keyBits));
+      keyPair = kpGen.generateKeyPair();
+    }
+
+    public PrivateKey getPrivateKey() {
+      if (keyPair == null) {
+        throw new IllegalStateException("Must generate keypair first");
+      }
+      return keyPair.getPrivate();
     }
 
     public X509Certificate getSelfCertificate(X500Name myname, long validity)
-	throws CertificateException, InvalidKeyException, SignatureException,
-	       NoSuchAlgorithmException, NoSuchProviderException {
+        throws CertificateException, InvalidKeyException, SignatureException,
+        NoSuchAlgorithmException, NoSuchProviderException, IOException, OperatorCreationException {
+
+      SubjectPublicKeyInfo subPubKeyInfo =
+          SubjectPublicKeyInfo.getInstance(keyPair.getPublic().getEncoded());
+
+      Date notBefore = TimeBase.nowDate();
+      Date notAfter  = new Date(notBefore.toInstant().plusSeconds(validity).toEpochMilli());
+
+      X509v1CertificateBuilder builder =
+          new X509v1CertificateBuilder(myname,
+              new BigInteger("0"),
+              notBefore, notAfter, myname, subPubKeyInfo);
+
+      AlgorithmIdentifier sigAlgId;
       try {
-	Method meth = cakgClass.getMethod("getSelfCertificate",
-					  x500Class, long.class);
- 	return
-	  (X509Certificate)meth.invoke(cakg, myname.getX500Name(), validity);
-      } catch (NoSuchMethodException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke CertAndKeyGen.getSelfCertificate()", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (CertificateException cc) {
-	  throw cc;
-	} catch (InvalidKeyException cc) {
-	  throw cc;
-	} catch (SignatureException cc) {
-	  throw cc;
-	} catch (NoSuchAlgorithmException cc) {
-	  throw cc;
-	} catch (NoSuchProviderException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
+        sigAlgId =
+            new DefaultSignatureAlgorithmIdentifierFinder().find(sigAlg);
+      } catch (IllegalArgumentException e) {
+        throw new NoSuchAlgorithmException(e);
       }
-    }
-  }
 
-  public static class X500Name {
-    Object x5n;
+      AlgorithmIdentifier digAlgId =
+          new DefaultDigestAlgorithmIdentifierFinder().find(sigAlgId);
 
-    public X500Name(String name) throws IOException {
-      try {
-	Constructor constr = x500Class.getConstructor(String.class);
-	x5n = constr.newInstance(name);
-      } catch (NoSuchMethodException |
-	       InstantiationException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke X500Name constructor", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (IOException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
-    }
+      ContentSigner contentSigner =
+          new BcRSAContentSignerBuilder(sigAlgId, digAlgId)
+              .build(PrivateKeyFactory.createKey(keyPair.getPrivate().getEncoded()));
 
-    public X500Name(String commonName, String organizationUnit,
-                    String organizationName, String localityName,
-                    String stateName, String country)
-	throws IOException {
-      try {
-	Constructor constr = x500Class.getConstructor(String.class,
-						      String.class,
-						      String.class,
-						      String.class,
-						      String.class,
-						      String.class);
-	x5n = constr.newInstance(commonName, organizationUnit,
-				 organizationName, localityName,
-				 stateName, country);
-      } catch (NoSuchMethodException |
-	       InstantiationException |
-	       IllegalAccessException e) {
-	log.error("Couldn't invoke X500Name constructor", e);
-	throw new IllegalStateException(e);
-      } catch (InvocationTargetException e) {
-	Throwable cause = e.getCause();
-	try {
-	  throw cause;
-	} catch (IOException cc) {
-	  throw cc;
-	} catch (RuntimeException cc) {
-	  throw cc;
-	} catch (Throwable cc) {
-	  throw new IllegalStateException(cc);
-	}
-      }
-    }
+      X509CertificateHolder holder = builder.build(contentSigner);
 
-    Object getX500Name() {
-      return x5n;
+      return new JcaX509CertificateConverter().getCertificate(holder);
     }
   }
 }
