@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2011-2012 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2011-2024 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -412,7 +408,7 @@ public class TestUrlTallier extends LockssTestCase {
     byte[] pollerNonce = ByteArray.makeRandomBytes(NONCE_LENGTH);
     ParticipantUserData ud = new ParticipantUserData(id, poller, tempDir);
     ud.setPollerNonce(pollerNonce);
-    VoteBlocks vb = new DiskVoteBlocks(tempDir);
+    VoteBlocks vb = new DiskVoteBlocks(tempDir, false);
     for (int i = 0; i < votes.length; i++) {
       vb.addVoteBlock(votes[i]);
     }

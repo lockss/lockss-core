@@ -2528,8 +2528,10 @@ public class ConfigManager implements LockssManager {
   public CountDownLatch requestReload() {
     // Increment the counter of configuration reload requests.
     configReloadRequestCounter++;
-    requestReloadIn(0);
-    return reloadedLatch;
+//     synchronized (xxx) {
+      requestReloadIn(0);
+      return reloadedLatch;
+//     }
    }
  
   public void requestReloadIn(long millis) {
@@ -4887,9 +4889,11 @@ public class ConfigManager implements LockssManager {
 	  log.debug2(nextReload.toString());
 	  running = false;
 	  if (goOn && !goAgain) {
-            reloadedLatch.countDown();    // let waiting thread proceed
-            reloadedLatch = new CountDownLatch(1); // and cause newly waiting
+//             synchronized (xxx) {
+              reloadedLatch.countDown();    // let waiting thread proceed
+              reloadedLatch = new CountDownLatch(1); // and cause newly waiting
                                                    // threads to wait
+//             }
 	    try {
 	      nextReload.sleep();
 	    } catch (InterruptedException e) {

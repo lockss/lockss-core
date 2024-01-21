@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -196,11 +192,12 @@ public class TestV3Serializer extends LockssTestCase {
   }
 
   private VoteBlocks makeVoteBlocks(int n) throws IOException {
-    VoteBlocks blocks = new DiskVoteBlocks(tempDir);
+    VoteBlocks blocks = new DiskVoteBlocks(tempDir, true);
     for (int i = 0; i < n; i++) {
       String url = "http://www.example.com/file"+i+".html";
       blocks.addVoteBlock(V3TestUtils.makeVoteBlock(url));
     }
+    blocks.close();
     return blocks;
   }
 

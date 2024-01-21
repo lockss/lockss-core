@@ -3109,7 +3109,8 @@ public class V3Poller implements Poll {
           log.debug2("Voter " + ud.getVoterId() + " has nonce2");
           VoteBlocks blocks;
           try {
-            blocks = new DiskVoteBlocks(getStateDir());
+            blocks = new DiskVoteBlocks(getStateDir(),
+                                        pollManager.isKeepDiskBlocksOpen());
           } catch (IOException ex) {
             log.error("Creating VoteBlocks failed for voter " +
                 ud.getVoterId() +
@@ -3828,6 +3829,14 @@ public class V3Poller implements Poll {
      */
     public void hashingFinished(CachedUrlSet cus, long timeUsed, Object cookie,
         CachedUrlSetHasher hasher, Exception e) {
+      // Close all the DiskVoteBlocks
+      synchronized (theParticipants) {
+        for (ParticipantUserData ud : theParticipants.values()) {
+          PollUtil.closeVoteBlocks(ud.getVoteBlocks());
+          PollUtil.closeVoteBlocks(ud.getSymmetricVoteBlocks());
+        }
+      }
+
       if (e != null) {
         log.warning("Poll hash failed", e);
         // CR: too extreme.  what if pending repairs?

@@ -612,7 +612,7 @@ public class TestV3Poller extends LockssTestCase {
     byte[] pollerNonce = ByteArray.makeRandomBytes(20);
     ParticipantUserData ud = new ParticipantUserData(id, poller, tempDir);
     ud.setPollerNonce(pollerNonce);
-    VoteBlocks vb = new DiskVoteBlocks(tempDir);
+    VoteBlocks vb = new DiskVoteBlocks(tempDir, false);
     for (int i = 0; i < votes.length; i++) {
       vb.addVoteBlock(votes[i]);
     }
@@ -2038,6 +2038,7 @@ public class TestV3Poller extends LockssTestCase {
     v3Poller.recordSymmetricHashes(hashblocks[0]);
     b0 = parts.get(0).getSymmetricVoteBlocks();
     assertEquals(1, b0.size());
+    b0.close();
     VoteBlock vb = b0.iterator().next();
     assertEquals(3, vb.size());
 
@@ -2047,6 +2048,7 @@ public class TestV3Poller extends LockssTestCase {
 
     b0 = parts.get(0).getSymmetricVoteBlocks();
     assertEquals(4, b0.size());
+    b0.close();
 
     List<VoteBlock> vbs = new ArrayList<VoteBlock>();
     for (VoteBlocksIterator iter = b0.iterator(); iter.hasNext();) {

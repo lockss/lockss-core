@@ -1141,6 +1141,10 @@ public class V3Voter implements Poll {
      */
     public void hashingFinished(CachedUrlSet cus, long timeUsed, Object cookie,
                                 CachedUrlSetHasher hasher, Exception e) {
+
+      PollUtil.closeVoteBlocks(voterUserData.getVoteBlocks());
+      PollUtil.closeVoteBlocks(voterUserData.getSymmetricVoteBlocks());
+
       if (!isPollActive()) {
 	log.warning("Hash finished after poll closed: " + getKey());
 	return;
