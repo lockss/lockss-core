@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -104,7 +100,7 @@ public class PollManager
   /** If true, discard saved poll state at startup (i.e., don't restore
    * polls that were running before exit).  */
   static final String PARAM_DISCARD_SAVED_POLLS = PREFIX + "discardSavedPolls";
-  static final boolean DEFAULT_DISCARD_SAVED_POLLS = false;
+  static final boolean DEFAULT_DISCARD_SAVED_POLLS = true;
 
   // todo(bhayes): Is PREFIX right? Should this be a "v3" param, not a
   // "poll" param?
@@ -312,7 +308,8 @@ public class PollManager
   public static final int DEFAULT_REPAIRER_THRESHOLD = 3;
   public static final String PARAM_ENABLE_CRAWL_NOTIFICATIONS =
       CrawlManagerImpl.PARAM_ENABLE_JMS_RECEIVE;
-  public static final boolean DEFAULT_ENABLE_CRAWL_NOTIFICATIONS = false;
+  public static final boolean DEFAULT_ENABLE_CRAWL_NOTIFICATIONS =
+      CrawlManagerImpl.DEFAULT_ENABLE_JMS_RECEIVE;
   private boolean enableCrawlNotifications = DEFAULT_ENABLE_CRAWL_NOTIFICATIONS;
   private CrawlEventHandler.Base crawlEventHandler;
 

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -386,8 +386,8 @@ public class ConfigManager implements LockssManager {
    */
   public static final String PARAM_PLATFORM_ADMIN_EMAIL =
     PLATFORM + "sysadminemail";
-  static final String PARAM_PLATFORM_LOG_DIR = PLATFORM + "logdirectory";
-  static final String PARAM_PLATFORM_LOG_FILE = PLATFORM + "logfile";
+  public static final String PARAM_PLATFORM_LOG_DIR = PLATFORM + "logdirectory";
+  public static final String PARAM_PLATFORM_LOG_FILE = PLATFORM + "logfile";
 
   /** SMTP relay host that will accept mail from this host.
    * @ParamCategory Platform

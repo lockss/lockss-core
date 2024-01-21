@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -138,7 +138,7 @@ public class TestLockssUrlConnectionPool extends LockssTestCase {
     PoolingHttpClientConnectionManager mtm = null;
     try {
       mtm = (PoolingHttpClientConnectionManager)mgr;
-      assertEquals(1, mtm.getMaxTotal());
+      assertEquals(12, mtm.getMaxTotal());
       assertEquals(1, mtm.getDefaultMaxPerRoute());
     } finally {
       mtm.close();
@@ -183,7 +183,7 @@ public class TestLockssUrlConnectionPool extends LockssTestCase {
 
     try {
       mtm = (PoolingHttpClientConnectionManager)mgr;
-      assertEquals(1, mtm.getMaxTotal());
+      assertEquals(12, mtm.getMaxTotal());
       assertEquals(1, mtm.getDefaultMaxPerRoute());
     } finally {
       mtm.close();

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -91,7 +91,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
   public static final String PARAM_REPAIR_FROM_CACHE_PERCENT =
       PREFIX + "repair.repair_from_cache_percent";
-  public static final float DEFAULT_REPAIR_FROM_CACHE_PERCENT = 0;
+  public static final float DEFAULT_REPAIR_FROM_CACHE_PERCENT = 0.25F;
 
   /**
    * Set false to prevent all crawl activity
@@ -121,7 +121,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    */
   public static final String PARAM_CRAWLER_THREAD_POOL_MAX =
       PREFIX + "threadPool.max";
-  static final int DEFAULT_CRAWLER_THREAD_POOL_MAX = 15;
+  static final int DEFAULT_CRAWLER_THREAD_POOL_MAX = 5;
 
   /**
    * Thread pool on-demand choice mode.  If true, crawl starter thread blocks in execute until a thread is ready, then

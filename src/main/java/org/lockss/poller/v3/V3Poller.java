@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -165,7 +161,7 @@ public class V3Poller implements Poll {
       };
   public static final int DEFAULT_QUORUM = 5;
   public static final int DEFAULT_TARGET_OUTER_CIRCLE_SIZE = 10;
-  public static final int DEFAULT_MAX_SIMULTANEOUS_V3_POLLERS = 10;
+  public static final int DEFAULT_MAX_SIMULTANEOUS_V3_POLLERS = 5;
   public static final boolean DEFAULT_DROP_EMPTY_NOMINATIONS = false;
   public static final boolean DEFAULT_ENABLE_INVITATIONS = true;
   public static final boolean DEFAULT_V3_ENABLE_POP_POLLS = false;
@@ -189,11 +185,11 @@ public class V3Poller implements Poll {
       2 * Constants.MINUTE;
   public static final double DEFAULT_TARGET_SIZE_QUORUM_MULTIPLIER = 1.25f;
   public static final double DEFAULT_INVITATION_SIZE_TARGET_MULTIPLIER = 1.5f;
-  public static final boolean DEFAULT_ENABLE_DISCOVERY = true;
+  public static final boolean DEFAULT_ENABLE_DISCOVERY = false;
   public static final boolean DEFAULT_DELETE_EXTRA_FILES = false;
   public static final String DEFAULT_REL_STATE_PATH =
       "v3state";
-  public static final int DEFAULT_VOTE_DURATION_MULTIPLIER = 4;
+  public static final int DEFAULT_VOTE_DURATION_MULTIPLIER = 5;
   public static final long DEFAULT_VOTE_DURATION_PADDING =
       5 * Constants.MINUTE;
   public static final int DEFAULT_TALLY_DURATION_MULTIPLIER = 5;
@@ -201,7 +197,7 @@ public class V3Poller implements Poll {
       5 * Constants.MINUTE;
   public static final boolean DEFAULT_USE_POLL_RESULT_WEIGHTS = true;
   public static final long DEFAULT_RECEIPT_PADDING =
-      5 * Constants.MINUTE;
+      10 * Constants.MINUTE;
   public static final double DEFAULT_POLL_EXTEND_MULTIPLIER = 2.0;
   public static final int DEFAULT_MAX_POLL_EXTEND_MULTIPLIER = 10;
   public static final int DEFAULT_V3_TRUSTED_WEIGHT =
