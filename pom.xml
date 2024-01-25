@@ -962,6 +962,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>${version.group.jackson}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>${version.dependency.jackson-databind}</version>
     </dependency>
