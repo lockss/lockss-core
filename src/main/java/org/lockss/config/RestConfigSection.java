@@ -41,7 +41,7 @@ public class RestConfigSection {
   private String lastModified = null;
   private String etag = null;
   private MultipartResponse response = null;
-  private HttpStatus statusCode = null;
+  private HttpStatus status = null;
   private String errorMessage = null;
   private String contentType = null;
   private long contentLength = 0;
@@ -107,12 +107,12 @@ public class RestConfigSection {
     return this;
   }
 
-  public HttpStatus getStatusCode() {
-    return statusCode;
+  public HttpStatus getStatus() {
+    return status;
   }
 
-  public RestConfigSection setStatusCode(HttpStatus statusCode) {
-    this.statusCode = statusCode;
+  public RestConfigSection setStatus(HttpStatus status) {
+    this.status = status;
     return this;
   }
 
@@ -148,7 +148,7 @@ public class RestConfigSection {
     return "[RestConfigSection sectionName=" + sectionName
 	+ ", preconditions=" + preconditions + ", lastModified=" + lastModified
 	+ ", etag=" + etag + ", response=" + response
-	+ ", statusCode=" + statusCode + ", errorMessage=" + errorMessage
+	+ ", status=" + status + ", errorMessage=" + errorMessage
 	+ ", contentType=" + contentType + ", contentLength=" + contentLength
 	+ "]";
   }

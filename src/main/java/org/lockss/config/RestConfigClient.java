@@ -316,23 +316,25 @@ public class RestConfigClient {
       log.error(errorMessage, hcee);
       log.error("hcee.getStatusCode() = " + hcee.getStatusCode());
       output.setErrorMessage(errorMessage);
-      output.setStatusCode(hcee.getStatusCode());
+      HttpStatusCode statusCode = hcee.getStatusCode();
+      output.setStatus(HttpStatus.valueOf(statusCode.value()));
       return output;
     } catch (IOException | MessagingException e) {
       String errorMessage = "Couldn't load config section '" + sectionName
 	  + "' from URL '" + requestUrl + "': " + e.toString();
       log.error(errorMessage, e);
       output.setErrorMessage(errorMessage);
-      output.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+      output.setStatus(HttpStatus.SERVICE_UNAVAILABLE);
       return output;
     }
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
-    output.setStatusCode(statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "status = " + status);
+    output.setStatus(status);
 
-    switch (statusCode) {
+    switch (status) {
     case OK:
       // Get the parts returned in the response.
       LinkedHashMap<String, Part> parts = response.getParts();
@@ -542,7 +544,7 @@ public class RestConfigClient {
 	  input.getContentLength());
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
 
-      output.setStatusCode(HttpStatus.valueOf(result.getCode()));
+      output.setStatus(HttpStatus.valueOf(result.getStatusCode()));
       output.setErrorMessage(result.getMessage());
 
       // Get and populate the configuration data last modified header.
@@ -563,7 +565,8 @@ public class RestConfigClient {
 	  + "' from URL '" + requestUrl + "': " + hcee.toString();
       log.error(errorMessage, hcee);
       log.error("hcee.getStatusCode() = " + hcee.getStatusCode());
-      output.setStatusCode(hcee.getStatusCode());
+      HttpStatusCode statusCode = hcee.getStatusCode();
+      output.setStatus(HttpStatus.valueOf(statusCode.value()));
       output.setErrorMessage(errorMessage);
     }
 
