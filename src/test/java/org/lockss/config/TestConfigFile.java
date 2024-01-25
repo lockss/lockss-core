@@ -994,8 +994,6 @@ public class TestConfigFile {
       RemoteConfigFailoverInfo rcfi = mcm.getRcfi(url1);
       String alg =
 	ConfigManager.DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_ALGORITHM;
-      MessageDigest md = MessageDigest.getInstance(alg);
-      md.update(xml1.getBytes(Constants.DEFAULT_ENCODING));
       rcfi.setChksum(hashGzippedString(xml1, alg).toString());
       hcf.setConfigManager(mcm);
       hcf.setResponseCode(404);
