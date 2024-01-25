@@ -426,7 +426,7 @@ public class TestConfigFile {
       File tmpFile = getTempFile("config", ext + ".gz");
       OutputStream out =
         new BufferedOutputStream(new FileOutputStream(tmpFile));
-      out = new GZIPOutputStream(out, true);
+      out = new GZIPOutputStream(out, false);
       Writer wrtr = new OutputStreamWriter(out, Constants.DEFAULT_ENCODING);
       wrtr.write(content);
       wrtr.close();
@@ -881,8 +881,8 @@ public class TestConfigFile {
       MessageDigest md = MessageDigest.getInstance(alg);
       OutputStream out = new org.apache.commons.io.output.NullOutputStream();
       HashedOutputStream hos = new HashedOutputStream(out, md);
-      out = new GZIPOutputStream(hos);
-      Writer wrtr = new OutputStreamWriter(out);
+      out = new GZIPOutputStream(hos, false);
+      Writer wrtr = new OutputStreamWriter(out, Constants.DEFAULT_ENCODING);
       wrtr.write(str);
       wrtr.close();
       return HashResult.make(md.digest(), alg);

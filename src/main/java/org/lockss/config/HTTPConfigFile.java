@@ -496,7 +496,7 @@ public class HTTPConfigFile extends BaseConfigFile {
 	    OutputStream out =
 	      new BufferedOutputStream(new FileOutputStream(tmpFailoverFile));
 	    out = makeHashedOutputStream(out);
-	    out = new GZIPOutputStream(out, true);
+	    out = new GZIPOutputStream(out, false);
 	    InputStream wrapped = new TeeInputStream(in, out, true);
 	    return wrapped;
 	  } catch (IOException e) {
