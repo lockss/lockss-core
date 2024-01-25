@@ -285,7 +285,8 @@ public class TestAuHealthMetric extends LockssTestCase {
     "      // consider poll results only if at least one has finished\n" +
     "      val = val * PollAgreement;\n" +
     "    }\n" +
-    "    Logger.info(\"Script returning \" + val + \" for AU \" + AuName);\n" +
+// FIXME
+//    "    Logger.info(\"Script returning \" + val + \" for AU \" + AuName);\n" +
     "    return val;\n" +
     "  }\n" +
     "  health1();\n";
