@@ -216,12 +216,7 @@ public class V3Poller implements Poll {
   public static final int DEFAULT_MAX_BLOCK_ERROR_COUNT = 10;
   public static final long DEFAULT_V3_EXTRA_POLL_TIME =
       20 * Constants.MINUTE;
-  /**
-   * In the absence of other advice, set the probability to match the repair
-   * crawler's default probability.
-   */
-  public static final double DEFAULT_V3_REPAIR_FROM_CACHE_PERCENT =
-      CrawlManagerImpl.DEFAULT_REPAIR_FROM_CACHE_PERCENT;
+  public static final double DEFAULT_V3_REPAIR_FROM_CACHE_PERCENT = 0.25F;
   public static final boolean DEFAULT_V3_ENABLE_REPAIR_FROM_CACHE = true;
   public static final boolean DEFAULT_USE_VERSION_COUNTS = false;
   public static final boolean DEFAULT_V3_REPAIR_FROM_PUBLISHER_WHEN_TOO_CLOSE =
