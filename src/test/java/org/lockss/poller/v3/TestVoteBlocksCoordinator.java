@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2024 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -413,10 +409,10 @@ public class TestVoteBlocksCoordinator extends LockssTestCase {
     final class IOExceptionDiskVoteBlocks extends DiskVoteBlocks {
       final String failAt;
 
-      IOExceptionDiskVoteBlocks(File toDir,
+      IOExceptionDiskVoteBlocks(File toDir, boolean keepOpen,
 				VoteBlock[] voteBlocks, String failAt)
 	  throws IOException {
-	super(toDir);
+	super(toDir, keepOpen);
 	for (int i = 0; i < voteBlocks.length; i++) {
 	  addVoteBlock(voteBlocks[i]);
 	}
@@ -445,7 +441,7 @@ public class TestVoteBlocksCoordinator extends LockssTestCase {
     iterators = makeIterators(voteBlocks);
     // Add a throwing iterator to the collection
     IOExceptionDiskVoteBlocks ioeVoteBlocks = 
-      new IOExceptionDiskVoteBlocks(tempDir,
+      new IOExceptionDiskVoteBlocks(tempDir, false,
 				    voteBlocks[0], "http://test.com/foo2");
     IOExceptionVoteBlocksIterator ioeIterator = ioeVoteBlocks.iterator();
     iterators.add(ioeIterator);
@@ -516,7 +512,7 @@ public class TestVoteBlocksCoordinator extends LockssTestCase {
   
   private DiskVoteBlocks makeDiskVoteBlocks(VoteBlock [] votes)
       throws Exception {
-    DiskVoteBlocks vb = new DiskVoteBlocks(tempDir);
+    DiskVoteBlocks vb = new DiskVoteBlocks(tempDir, false);
     for (int i = 0; i < votes.length; i++) {
       vb.addVoteBlock(votes[i]);
     }

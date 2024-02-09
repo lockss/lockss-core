@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -386,8 +386,8 @@ public class ConfigManager implements LockssManager {
    */
   public static final String PARAM_PLATFORM_ADMIN_EMAIL =
     PLATFORM + "sysadminemail";
-  static final String PARAM_PLATFORM_LOG_DIR = PLATFORM + "logdirectory";
-  static final String PARAM_PLATFORM_LOG_FILE = PLATFORM + "logfile";
+  public static final String PARAM_PLATFORM_LOG_DIR = PLATFORM + "logdirectory";
+  public static final String PARAM_PLATFORM_LOG_FILE = PLATFORM + "logfile";
 
   /** SMTP relay host that will accept mail from this host.
    * @ParamCategory Platform
@@ -742,7 +742,7 @@ public class ConfigManager implements LockssManager {
   private OneShotSemaphore haveConfig = new OneShotSemaphore();
 
   private HandlerThread handlerThread; // reload handler thread
-  private CountDownLatch reloadedLatch = new CountDownLatch(1);
+  private volatile CountDownLatch reloadedLatch = new CountDownLatch(1);
 
   private File daemonTmpDir = null;
 
@@ -2528,9 +2528,12 @@ public class ConfigManager implements LockssManager {
   public CountDownLatch requestReload() {
     // Increment the counter of configuration reload requests.
     configReloadRequestCounter++;
-    requestReloadIn(0);
-    return reloadedLatch;
-   }
+    // See comment at latch handling in HandlerThread.lockssRun
+    synchronized (this) {
+      requestReloadIn(0);
+      return reloadedLatch;
+    }
+  }
  
   public void requestReloadIn(long millis) {
     if (handlerThread != null) {
@@ -4885,16 +4888,30 @@ public class ConfigManager implements LockssManager {
 	  nextReload = Deadline.inRandomRange(reloadInterval - reloadRange,
 					      reloadInterval + reloadRange);
 	  log.debug2(nextReload.toString());
-	  running = false;
-	  if (goOn && !goAgain) {
-            reloadedLatch.countDown();    // let waiting thread proceed
-            reloadedLatch = new CountDownLatch(1); // and cause newly waiting
-                                                   // threads to wait
-	    try {
-	      nextReload.sleep();
-	    } catch (InterruptedException e) {
-	      // just wakeup and check for exit
-	    }
+          if (!goOn) {
+            running = false;
+            // Wake up any waiting threads when exiting
+            reloadedLatch.countDown();
+            break;
+          }
+          // Synchronize access to goAgain and reloadedLatch with
+          // requestReload() to ensure requestReload() gets a latch
+          // that hasn't already been replaced, and won't be triggered
+          // by an already in-progress reload
+          synchronized (ConfigManager.this) {
+            if (goAgain) {
+              goAgain = false;
+              continue;
+            } else {
+              reloadedLatch.countDown();
+              reloadedLatch = new CountDownLatch(1);
+              running = false;
+            }
+          }
+          try {
+            nextReload.sleep();
+          } catch (InterruptedException e) {
+            // just wakeup and check for exit
 	  }
 	} catch (AbortConfigLoadException e) {
 	  log.warning("Config reload thread aborted");
@@ -4911,8 +4928,8 @@ public class ConfigManager implements LockssManager {
 
     void forceReloadIn(long millis) {
       if (running) {
-	// can be called from reload thread, in which case an immediate
-	// repeat is necessary
+	// can be called while reload is happening, in which case an
+	// immediate repeat may be necessary
 	goAgain = true;
       }
       if (nextReload != null) {

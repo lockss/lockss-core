@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -89,10 +89,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   private static final long DEFAULT_REPAIR_CRAWL_EXPIRATION =
       5 * Constants.DAY;
 
-  public static final String PARAM_REPAIR_FROM_CACHE_PERCENT =
-      PREFIX + "repair.repair_from_cache_percent";
-  public static final float DEFAULT_REPAIR_FROM_CACHE_PERCENT = 0;
-
   /**
    * Set false to prevent all crawl activity
    */
@@ -121,7 +117,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
    */
   public static final String PARAM_CRAWLER_THREAD_POOL_MAX =
       PREFIX + "threadPool.max";
-  static final int DEFAULT_CRAWLER_THREAD_POOL_MAX = 15;
+  static final int DEFAULT_CRAWLER_THREAD_POOL_MAX = 5;
 
   /**
    * Thread pool on-demand choice mode.  If true, crawl starter thread blocks in execute until a thread is ready, then
@@ -419,7 +415,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
 
   private long contentCrawlExpiration;
   private long repairCrawlExpiration;
-  private float percentRepairFromCache;
   private boolean crawlerEnabled = DEFAULT_CRAWLER_ENABLED;
   private boolean crawlStarterEnabled = DEFAULT_CRAWL_STARTER_ENABLED;
   private boolean paramQueueEnabled = DEFAULT_CRAWLER_QUEUE_ENABLED;
@@ -577,9 +572,6 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
           config.getTimeInterval(PARAM_REPAIR_CRAWL_EXPIRATION,
               DEFAULT_REPAIR_CRAWL_EXPIRATION);
 
-      percentRepairFromCache =
-          config.getPercentage(PARAM_REPAIR_FROM_CACHE_PERCENT,
-              DEFAULT_REPAIR_FROM_CACHE_PERCENT);
       crawlerEnabled =
           config.getBoolean(PARAM_CRAWLER_ENABLED,
               DEFAULT_CRAWLER_ENABLED);

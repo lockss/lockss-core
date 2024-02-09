@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -104,7 +100,7 @@ public class PollManager
   /** If true, discard saved poll state at startup (i.e., don't restore
    * polls that were running before exit).  */
   static final String PARAM_DISCARD_SAVED_POLLS = PREFIX + "discardSavedPolls";
-  static final boolean DEFAULT_DISCARD_SAVED_POLLS = false;
+  static final boolean DEFAULT_DISCARD_SAVED_POLLS = true;
 
   // todo(bhayes): Is PREFIX right? Should this be a "v3" param, not a
   // "poll" param?
@@ -202,6 +198,15 @@ public class PollManager
       PREFIX + "enablePollStarterThrottle";
   public static final String POLL_ID_KEY = "pollID";
   public static boolean DEFAULT_ENABLE_POLL_STARTER_THROTTLE = true;
+
+  /**
+   * If true, the file backing DiskVoteBlocks will be held open and
+   * repeatedly appended to.  If false (the old behvaior), the file
+   * will be opned and closed each time a VoteBlock is added.
+   */
+  public static final String PARAM_KEEP_DISK_BLOCKS_OPEN =
+      PREFIX + "keepDiskBlocksOpen";
+  public static boolean DEFAULT_KEEP_DISK_BLOCKS_OPEN = true;
 
   /** Interval after which we'll try inviting peers that we think are not
    * in our polling group
@@ -312,7 +317,8 @@ public class PollManager
   public static final int DEFAULT_REPAIRER_THRESHOLD = 3;
   public static final String PARAM_ENABLE_CRAWL_NOTIFICATIONS =
       CrawlManagerImpl.PARAM_ENABLE_JMS_RECEIVE;
-  public static final boolean DEFAULT_ENABLE_CRAWL_NOTIFICATIONS = false;
+  public static final boolean DEFAULT_ENABLE_CRAWL_NOTIFICATIONS =
+      CrawlManagerImpl.DEFAULT_ENABLE_JMS_RECEIVE;
   private boolean enableCrawlNotifications = DEFAULT_ENABLE_CRAWL_NOTIFICATIONS;
   private CrawlEventHandler.Base crawlEventHandler;
 
@@ -343,6 +349,7 @@ public class PollManager
 
   // our configuration variables
   protected long m_recentPollExpireTime = DEFAULT_RECENT_EXPIRATION;
+  protected boolean isKeepDiskBlocksOpen = DEFAULT_KEEP_DISK_BLOCKS_OPEN;
   /**
    * The poll queue for ordering poll requests.
    */
@@ -1139,6 +1146,9 @@ public class PollManager
       enablePollStarterThrottle =
           newConfig.getBoolean(PARAM_ENABLE_POLL_STARTER_THROTTLE,
               DEFAULT_ENABLE_POLL_STARTER_THROTTLE);
+      isKeepDiskBlocksOpen =
+          newConfig.getBoolean(PARAM_KEEP_DISK_BLOCKS_OPEN,
+              DEFAULT_KEEP_DISK_BLOCKS_OPEN);
       wrongGroupRetryTime =
           newConfig.getTimeInterval(PARAM_WRONG_GROUP_RETRY_TIME,
               DEFAULT_WRONG_GROUP_RETRY_TIME);
@@ -1324,6 +1334,10 @@ public class PollManager
 
   public boolean isV3PollPolicyEnabled() {
     return enablePoPPolls || enableLocalPolls;
+  }
+
+  public boolean isKeepDiskBlocksOpen() {
+    return isKeepDiskBlocksOpen;
   }
 
   AuPeersMap makeAuPeersMap(Collection<String> auPeersList,

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -616,7 +612,7 @@ public class TestV3Poller extends LockssTestCase {
     byte[] pollerNonce = ByteArray.makeRandomBytes(20);
     ParticipantUserData ud = new ParticipantUserData(id, poller, tempDir);
     ud.setPollerNonce(pollerNonce);
-    VoteBlocks vb = new DiskVoteBlocks(tempDir);
+    VoteBlocks vb = new DiskVoteBlocks(tempDir, false);
     for (int i = 0; i < votes.length; i++) {
       vb.addVoteBlock(votes[i]);
     }
@@ -865,7 +861,8 @@ public class TestV3Poller extends LockssTestCase {
     return v3Poller.getAvailablePeers().keySet();
   }
 
-  public void testGetAvailablePeers() throws Exception {
+  public void testGetAvailablePeersWithDiscovery() throws Exception {
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_ENABLE_DISCOVERY, "true");
     PeerIdentity p1 = findPeerIdentity("TCP:[10.1.0.100]:9729");
     PeerIdentity p2 = findPeerIdentity("TCP:[10.1.0.101]:9729");
 
@@ -891,7 +888,6 @@ public class TestV3Poller extends LockssTestCase {
   }
 
   public void testGetAvailablePeersInitialPeersOnly() throws Exception {
-    ConfigurationUtil.addFromArgs(V3Poller.PARAM_ENABLE_DISCOVERY, "false");
     findPeerIdentity("TCP:[10.1.0.100]:9729");
     findPeerIdentity("TCP:[10.1.0.101]:9729");
     V3Poller v3Poller = makeV3Poller("testing poll key");
@@ -985,18 +981,23 @@ public class TestV3Poller extends LockssTestCase {
   }
 
   public void testFindMore1() throws Exception {
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_ENABLE_DISCOVERY, "true");
     assertEquals(2, findMorePeersToInvite(2, 1).size());
   }
   public void testFindMore2() throws Exception {
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_ENABLE_DISCOVERY, "true");
     assertEquals(4, findMorePeersToInvite(2, 2).size());
   }
   public void testFindMore3() throws Exception {
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_ENABLE_DISCOVERY, "true");
     assertEquals(6, findMorePeersToInvite(3, 2).size());
   }
   public void testFindMore4() throws Exception {
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_ENABLE_DISCOVERY, "true");
     assertEquals(10, findMorePeersToInvite(10, 1).size());
   }
   public void testFindMore5() throws Exception {
+    ConfigurationUtil.addFromArgs(V3Poller.PARAM_ENABLE_DISCOVERY, "true");
     assertEquals(13, findMorePeersToInvite(10, 2).size());
   }
 
@@ -2037,6 +2038,7 @@ public class TestV3Poller extends LockssTestCase {
     v3Poller.recordSymmetricHashes(hashblocks[0]);
     b0 = parts.get(0).getSymmetricVoteBlocks();
     assertEquals(1, b0.size());
+    b0.close();
     VoteBlock vb = b0.iterator().next();
     assertEquals(3, vb.size());
 
@@ -2046,6 +2048,7 @@ public class TestV3Poller extends LockssTestCase {
 
     b0 = parts.get(0).getSymmetricVoteBlocks();
     assertEquals(4, b0.size());
+    b0.close();
 
     List<VoteBlock> vbs = new ArrayList<VoteBlock>();
     for (VoteBlocksIterator iter = b0.iterator(); iter.hasNext();) {

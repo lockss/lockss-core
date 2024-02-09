@@ -1,9 +1,5 @@
 /*
- * $Id$
- */
-
-/*
- Copyright (c) 2000-2008 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -885,7 +881,7 @@ public class V3LcapMessage extends LcapMessage implements LockssSerializable {
       File stateDir =
         ((LockssDaemon)m_daemon).getPollManager().getStateDir(m_key);
       if (stateDir != null) {
-	m_voteBlocks = new DiskVoteBlocks(stateDir);
+	m_voteBlocks = new DiskVoteBlocks(stateDir, false);
       } else if (!Boolean.getBoolean("org.lockss.unitTesting")) {
 	// This happens in testing, shouldn't happen in a real poll
 	log.warning("No state dir, key: " + m_key);
