@@ -423,7 +423,8 @@ public class DbManagerSql {
     boolean result = PGSimpleDataSource.class.getCanonicalName()
 	.equals(dataSourceClassName)
 	|| PGPoolingDataSource.class.getCanonicalName()
-	.equals(dataSourceClassName);
+	.equals(dataSourceClassName)
+      || dbMgr.testingDataSource != null;
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
     return result;
   }

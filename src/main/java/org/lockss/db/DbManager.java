@@ -193,6 +193,9 @@ public abstract class DbManager extends BaseLockssManager
   // The database data source.
   protected DataSource dataSource = null;
 
+  // DataSource injected by LockssTestCaseN for unit tests
+  public DataSource testingDataSource = null;
+
   // The data source configuration.
   protected Configuration dataSourceConfig = null;
 
@@ -806,6 +809,14 @@ public abstract class DbManager extends BaseLockssManager
     return dataSourceSchemaName;
   }
 
+  public void setTestingDataSource(DataSource tds) {
+    if (testingDataSource != null) {
+      throw new IllegalStateException("Testing DataSource already installed: "
+                                      + testingDataSource);
+    }
+    testingDataSource = tds;
+  }
+
   /**
    * Creates a datasource using the specified class name.
    * 
@@ -817,6 +828,12 @@ public abstract class DbManager extends BaseLockssManager
    */
   protected DataSource createDataSource(String dsClassName) throws DbException {
     final String DEBUG_HEADER = "createDataSource(): ";
+    if (testingDataSource != null) {
+      if (log.isDebug2())
+        log.debug2(DEBUG_HEADER +
+                   " using testing DataSource: " + testingDataSource);
+      return testingDataSource;
+    }
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "dsClassName = '" + dsClassName + "'.");
 
@@ -1431,6 +1448,9 @@ public abstract class DbManager extends BaseLockssManager
    */
   private void initializeDataSourceProperties(Configuration dsConfig,
       DataSource ds) throws DbException {
+    if (testingDataSource != null) {
+      return;
+    }
     final String DEBUG_HEADER = "initializeDataSourceProperties(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
 
