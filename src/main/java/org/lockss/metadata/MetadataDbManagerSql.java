@@ -40,8 +40,7 @@ import java.util.Map;
 import javax.sql.DataSource;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.TdbAu;
-import org.lockss.db.DbException;
-import org.lockss.db.DbManagerSql;
+import org.lockss.db.*;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.PluginManager;
@@ -2287,10 +2286,10 @@ public class MetadataDbManagerSql extends DbManagerSql {
    * @param fetchSize
    *          An int with the SQL statement fetch size.
    */
-  MetadataDbManagerSql(DataSource dataSource, String dataSourceClassName,
+  MetadataDbManagerSql(DbManager dbMgr, DataSource dataSource, String dataSourceClassName,
       String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize)
       {
-    super(dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
+        super(dbMgr, dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
 	retryDelay, fetchSize);
   }
 

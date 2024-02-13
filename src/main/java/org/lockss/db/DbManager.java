@@ -253,9 +253,9 @@ public abstract class DbManager extends BaseLockssManager
   protected List<Thread> threads = new ArrayList<Thread>();
 
   // The SQL code executor.
-  protected DbManagerSql dbManagerSql = new DbManagerSql(null,
-      DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
-      DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
+  protected DbManagerSql dbManagerSql = new DbManagerSql(this, null,
+                                                         DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
+                                                         DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
 
   private static Map<String, DbCredentials> dbCredentialsMap =
       new HashMap<String, DbCredentials>();

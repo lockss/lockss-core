@@ -162,7 +162,7 @@ public class MetadataDbManager extends DbManager
       + "waitForExternalSetup";
 
   // The SQL code executor.
-  private MetadataDbManagerSql mdDbManagerSql = new MetadataDbManagerSql(null,
+  private MetadataDbManagerSql mdDbManagerSql = new MetadataDbManagerSql(this, null,
       DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
       DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
 

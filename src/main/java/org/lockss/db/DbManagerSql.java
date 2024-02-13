@@ -148,6 +148,8 @@ public class DbManagerSql {
       + "index idx2_" + VERSION_TABLE + " on " + VERSION_TABLE + "("
       + SYSTEM_COLUMN + "," + SUBSYSTEM_COLUMN + "," + VERSION_COLUMN + ")";
 
+  protected DbManager dbMgr;
+
   // The database data source.
   protected DataSource dataSource = null;
 
@@ -186,9 +188,11 @@ public class DbManagerSql {
    * @param fetchSize
    *          An int with the SQL statement fetch size.
    */
-  protected DbManagerSql(DataSource dataSource, String dataSourceClassName,
-      String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize)
-      {
+  protected DbManagerSql(DbManager dbMgr,
+                         DataSource dataSource, String dataSourceClassName,
+                         String dataSourceUser,
+                         int maxRetryCount, long retryDelay, int fetchSize) {
+    this.dbMgr = dbMgr;
     this.dataSource = dataSource;
     this.dataSourceClassName = dataSourceClassName;
     this.dataSourceUser = dataSourceUser;

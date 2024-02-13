@@ -37,7 +37,7 @@ import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.sql.DataSource;
-import org.lockss.db.DbManagerSql;
+import org.lockss.db.*;
 import org.lockss.log.L4JLogger;
 
 /**
@@ -222,10 +222,12 @@ public class ConfigDbManagerSql extends DbManagerSql {
    * @param fetchSize
    *          An int with the SQL statement fetch size.
    */
-  ConfigDbManagerSql(DataSource dataSource, String dataSourceClassName,
-      String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize)
+  ConfigDbManagerSql(DbManager dbMgr,
+                     DataSource dataSource, String dataSourceClassName,
+                     String dataSourceUser,
+                     int maxRetryCount, long retryDelay, int fetchSize)
       {
-    super(dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
+        super(dbMgr, dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
 	retryDelay, fetchSize);
   }
 

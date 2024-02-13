@@ -162,7 +162,7 @@ public class RepositoryDbManager extends DbManager implements ConfigurableManage
       + "waitForExternalSetup";
 
   private RepositoryDbManagerSql repoDbManagerSql =
-      new RepositoryDbManagerSql(null,
+    new RepositoryDbManagerSql(this, null,
           DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
           DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
 

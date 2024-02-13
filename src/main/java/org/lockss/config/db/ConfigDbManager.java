@@ -163,7 +163,8 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
       + "waitForExternalSetup";
 
   // The SQL code executor.
-  private ConfigDbManagerSql configDbManagerSql = new ConfigDbManagerSql(null,
+  private ConfigDbManagerSql configDbManagerSql = new ConfigDbManagerSql(this,
+                                                                         null,
       DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
       DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
 
