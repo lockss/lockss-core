@@ -38,6 +38,9 @@ import java.security.SecureRandom;
 import java.util.*;
 import java.util.function.*;
 
+import javax.sql.DataSource;
+import io.zonky.test.db.postgres.embedded.*;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.oro.text.regex.Pattern;
@@ -49,6 +52,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.jupiter.api.Assertions; // junit5 assertions
 import org.junit.jupiter.api.function.*; // junit5 lambda support
 import org.hamcrest.*;
+import org.lockss.db.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.metadata.MetadataDbManager;
@@ -2703,6 +2707,31 @@ public class LockssTestCase4 extends Assert {
     dbManager.startService();
 
     return dbManager;
+  }
+
+  EmbeddedPostgres embeddedPg;
+
+  // If this cuases "Permission denied" trying to start PostgreSQL,
+  // ensure tha the tmp directory in use isn't mounted noexec, or set
+  // the maven property dir.executableTemp, or the System property
+  // org.lockss.executableTempDir to one from which programs can be
+  // execed.
+  protected void startEmbeddedPgDbManager(DbManager mgr) throws DbException {
+    try {
+      if (embeddedPg == null) {
+        EmbeddedPostgres.Builder builder = EmbeddedPostgres.builder();
+        String extemp = System.getProperty("org.lockss.executableTempDir");
+        if (!StringUtil.isNullString(extemp)) {
+          builder.setOverrideWorkingDirectory(new File(extemp));
+        }
+        embeddedPg = builder.start();
+      }
+      String dbName = mgr.getDatabaseNamePrefix()
+        + mgr.getClass().getSimpleName();
+      mgr.setTestingDataSource(embeddedPg.getDatabase("postgres", dbName));
+    } catch (IOException e) {
+      throw new DbException("Can't start embedded PostgreSQL", e);
+    }
   }
 
   // ---------------------------------------------------------------------------
