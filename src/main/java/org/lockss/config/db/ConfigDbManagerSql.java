@@ -327,4 +327,56 @@ public class ConfigDbManagerSql extends DbManagerSql {
 
     log.debug2("Done.");
   }
+
+  private String[] convertColumnToTextQueries(String tableName,
+                                              String columnName) {
+    return new String[] {
+      "alter table " + tableName
+      + " alter column " + columnName
+      + " TYPE TEXT USING " + columnName + " :: TEXT"};
+    }
+
+  private String[] convertColumnToLongVarcharQueries(String tableName,
+                                                     String columnName) {
+    return new String[] {
+      "alter table " + tableName
+      + " alter column " + columnName
+      + " SET DATA TYPE VARCHAR(32000)"};
+    }
+
+
+  /**
+   * Updates the database from version 4 to version 5.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom4To5(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    String[] query;
+    if (dbMgr.isTypePostgresql()) {
+      query = null;
+      query = convertColumnToTextQueries(ARCHIVAL_UNIT_STATE_TABLE,
+                                         STATE_STRING_COLUMN);
+    } else if (dbMgr.isTypeDerby()) {
+      query = convertColumnToLongVarcharQueries(ARCHIVAL_UNIT_STATE_TABLE,
+                                                STATE_STRING_COLUMN);
+    } else if (dbMgr.isTypeMysql()) {
+      query = convertColumnToTextQueries(ARCHIVAL_UNIT_STATE_TABLE,
+                                         STATE_STRING_COLUMN);
+    } else {
+      throw new IllegalStateException("Don't know db type");
+    }
+
+    executeDdlQueries(conn, query);
+
+    log.debug2("Done.");
+  }
 }
