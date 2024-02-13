@@ -357,17 +357,17 @@ public abstract class DbManager extends BaseLockssManager
     if (changedKeys.contains(PREFIX)) {
       // Update the prefix for database names.
       databaseNamePrefix =
-	  config.get(PARAM_DATABASE_NAME_PREFIX, DEFAULT_DATABASE_NAME_PREFIX);
+         config.get(PARAM_DATABASE_NAME_PREFIX, DEFAULT_DATABASE_NAME_PREFIX);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "databaseNamePrefix = "
-	  + databaseNamePrefix);
+         + databaseNamePrefix);
 
       // Update the option to start the Derby Network Server Control.
       shouldStartDerbyNetworkServerControl =
-	  config.getBoolean(PARAM_START_DERBY_NETWORK_SERVER_CONTROL,
-	      DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL);
+        config.getBoolean(PARAM_START_DERBY_NETWORK_SERVER_CONTROL,
+                          DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	  + "shouldStartDerbyNetworkServerControl = "
-	  + shouldStartDerbyNetworkServerControl);
+                                     + "shouldStartDerbyNetworkServerControl = "
+                                     + shouldStartDerbyNetworkServerControl);
 
       derbyDbBaseDir = config.get(PARAM_DERBY_DB_DIR);
     }
@@ -600,7 +600,7 @@ public abstract class DbManager extends BaseLockssManager
 
     try {
       return dbManagerSql.getConnection(dataSource, maxRetryCount,
-	  retryDelay, false, true);
+                                        retryDelay, false, true);
     } catch (SQLException sqle) {
       throw new DbException("Cannot get a connection to the database", sqle);
     } catch (RuntimeException re) {
@@ -628,7 +628,7 @@ public abstract class DbManager extends BaseLockssManager
 
     try {
       return dbManagerSql.prepareStatement(conn, sql, maxRetryCount,
-	retryDelay);
+                                           retryDelay);
     } catch (SQLException sqle) {
       String message = "Cannot prepare statement";
       log.error(message, sqle);
@@ -662,14 +662,15 @@ public abstract class DbManager extends BaseLockssManager
    *           if any problem occurred preparing the statement.
    */
   public PreparedStatement prepareStatement(Connection conn, String sql,
-      int returnGeneratedKeys) throws DbException {
+                                            int returnGeneratedKeys)
+      throws DbException {
     if (!ready) {
       throw new DbException("DbManager has not been initialized.");
     }
 
     try {
       return dbManagerSql.prepareStatement(conn, sql, returnGeneratedKeys,
-	  maxRetryCount, retryDelay);
+                                           maxRetryCount, retryDelay);
     } catch (SQLException sqle) {
       String message = "Cannot prepare statement";
       log.error(message, sqle);
