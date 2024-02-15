@@ -161,4 +161,6 @@ public class SqlConstants {
 
   /** Length of the archival unit no AU peer set string column */
   public static final int MAX_NO_AU_PEER_SET_STRING_COLUMN = 8192;
+
+  public static final int MAX_VARCHAR = 32000;
 }

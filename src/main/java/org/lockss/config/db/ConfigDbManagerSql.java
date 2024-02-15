@@ -34,8 +34,7 @@ package org.lockss.config.db;
 import static org.lockss.config.db.SqlConstants.*;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import javax.sql.DataSource;
 import org.lockss.db.*;
 import org.lockss.log.L4JLogger;
@@ -328,22 +327,17 @@ public class ConfigDbManagerSql extends DbManagerSql {
     log.debug2("Done.");
   }
 
-  private String[] convertColumnToTextQueries(String tableName,
-                                              String columnName) {
-    return new String[] {
-      "alter table " + tableName
-      + " alter column " + columnName
-      + " TYPE TEXT USING " + columnName + " :: TEXT"};
-    }
-
-  private String[] convertColumnToLongVarcharQueries(String tableName,
-                                                     String columnName) {
-    return new String[] {
-      "alter table " + tableName
-      + " alter column " + columnName
-      + " SET DATA TYPE VARCHAR(32000)"};
-    }
-
+  private String widenColumnQuery(String tableName, String columnName) {
+    if (dbMgr.isTypeDerby()) {
+      return "alter table " + tableName
+        + " alter column " + columnName
+        + " SET DATA TYPE VARCHAR(" + MAX_VARCHAR + ")";
+    } else if (dbMgr.isTypePostgresql() || dbMgr.isTypeMysql()) {
+      return "alter table " + tableName
+        + " alter column " + columnName
+        + " SET DATA TYPE TEXT USING " + columnName + " :: TEXT";
+    } else throw new IllegalStateException("Unknown DB type");
+  }
 
   /**
    * Updates the database from version 4 to version 5.
@@ -360,22 +354,16 @@ public class ConfigDbManagerSql extends DbManagerSql {
       throw new IllegalArgumentException("Null connection");
     }
 
-    String[] query;
-    if (dbMgr.isTypePostgresql()) {
-      query = null;
-      query = convertColumnToTextQueries(ARCHIVAL_UNIT_STATE_TABLE,
-                                         STATE_STRING_COLUMN);
-    } else if (dbMgr.isTypeDerby()) {
-      query = convertColumnToLongVarcharQueries(ARCHIVAL_UNIT_STATE_TABLE,
-                                                STATE_STRING_COLUMN);
-    } else if (dbMgr.isTypeMysql()) {
-      query = convertColumnToTextQueries(ARCHIVAL_UNIT_STATE_TABLE,
-                                         STATE_STRING_COLUMN);
-    } else {
-      throw new IllegalStateException("Don't know db type");
-    }
+    String[] queries = {
+      widenColumnQuery(ARCHIVAL_UNIT_STATE_TABLE,
+                       STATE_STRING_COLUMN),
+      widenColumnQuery(ARCHIVAL_UNIT_AGREEMENTS_TABLE,
+                       AGREEMENTS_STRING_COLUMN),
+      widenColumnQuery(ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE,
+                       SUSPECT_URL_VERSIONS_STRING_COLUMN),
+    };
 
-    executeDdlQueries(conn, query);
+    executeDdlQueries(conn, queries);
 
     log.debug2("Done.");
   }
