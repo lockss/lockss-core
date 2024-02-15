@@ -207,6 +207,7 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     statusService.registerStatusAccessor("table1", new MockStatusAccessor());
   }
 
+  Connection conn;
   JmsProducer prod;
   JmsConsumer cons;
 
@@ -216,13 +217,25 @@ public class TestStatusServiceImpl extends LockssTestCase4 {
     // messages
     ConnectionFactory connectionFactory =
       new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
-    Connection conn = connectionFactory.createConnection();
+    conn = connectionFactory.createConnection();
     conn.start();
 
     JmsFactory fact = jmsMgr.getJmsFactory();
 
     prod = fact.createTopicProducer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
     cons = fact.createTopicConsumer(null, StatusServiceImpl.DEFAULT_JMS_NOTIFICATION_TOPIC, true, null, conn);
+  }
+
+  @After
+  public void closeJms() {
+    if (conn != null) {
+      try {
+        conn.close();
+        conn = null;
+      } catch (JMSException e) {
+        log.warn("Error closing JMS connection", e);
+      }
+    }
   }
 
   Map MSG_REQ = MapUtil.map("verb", "RequestTableRegistrations");

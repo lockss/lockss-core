@@ -31,6 +31,7 @@ package org.lockss.state;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.broker.BrokerService;
 import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -67,6 +68,7 @@ public class TestClientStateManager extends StateTestCase {
 
   MockPlugin mplug;
   JmsProducer prod;
+  Connection conn;
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
@@ -96,9 +98,17 @@ public class TestClientStateManager extends StateTestCase {
     JMSManager jmsMgr = daemon.getManagerByType(JMSManager.class);
     ConnectionFactory connectionFactory =
       new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
-    Connection conn = connectionFactory.createConnection();
+    conn = connectionFactory.createConnection();
     conn.start();
     prod = jmsMgr.getJmsFactory().createTopicProducer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    super.tearDown();
+    if (conn != null) {
+      conn.close();
+    }
   }
 
   @Override
