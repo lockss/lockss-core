@@ -36,7 +36,6 @@ import java.util.*;
 import junit.framework.Test;
 
 import org.apache.activemq.broker.BrokerService;
-import org.lockss.jms.JMSManager;
 import org.lockss.util.*;
 import org.lockss.util.lang.LockssRandom;
 import org.lockss.util.os.PlatformUtil;
