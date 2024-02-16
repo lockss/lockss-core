@@ -116,6 +116,7 @@ public class TestPluginManager extends LockssTestCase4 {
   MyPluginManager mgr;
   private MockAlertManager alertMgr;
   RepositoryManager repoMgr;
+  Connection conn;
 
   @Before
   public void setUp() throws Exception {
@@ -571,6 +572,18 @@ public class TestPluginManager extends LockssTestCase4 {
     }
   }
 
+  @After
+  public void closeJms() {
+    if (conn != null) {
+      try {
+        conn.close();
+        conn = null;
+      } catch (JMSException e) {
+        log.warning("Error closing JMS connection", e);
+      }
+    }
+  }
+
   @Test
   public void testAbsentAuEvent() throws Exception {
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
@@ -583,7 +596,7 @@ public class TestPluginManager extends LockssTestCase4 {
       getMockLockssDaemon().getManagerByType(JMSManager.class);
     ConnectionFactory connectionFactory =
       new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
-    Connection conn = connectionFactory.createConnection();
+    conn = connectionFactory.createConnection();
     conn.start();
     JmsFactory fact = jmsMgr.getJmsFactory();
     JmsProducer prod =
