@@ -361,6 +361,8 @@ public class ConfigDbManagerSql extends DbManagerSql {
                        AGREEMENTS_STRING_COLUMN),
       widenColumnQuery(ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE,
                        SUSPECT_URL_VERSIONS_STRING_COLUMN),
+      widenColumnQuery(ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE,
+                       NO_AU_PEER_SET_STRING_COLUMN),
     };
 
     executeDdlQueries(conn, queries);
