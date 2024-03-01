@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2019 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2024 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -148,6 +148,8 @@ public class DbManagerSql {
       + "index idx2_" + VERSION_TABLE + " on " + VERSION_TABLE + "("
       + SYSTEM_COLUMN + "," + SUBSYSTEM_COLUMN + "," + VERSION_COLUMN + ")";
 
+  protected DbManager dbMgr;
+
   // The database data source.
   protected DataSource dataSource = null;
 
@@ -186,9 +188,11 @@ public class DbManagerSql {
    * @param fetchSize
    *          An int with the SQL statement fetch size.
    */
-  protected DbManagerSql(DataSource dataSource, String dataSourceClassName,
-      String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize)
-      {
+  protected DbManagerSql(DbManager dbMgr,
+                         DataSource dataSource, String dataSourceClassName,
+                         String dataSourceUser,
+                         int maxRetryCount, long retryDelay, int fetchSize) {
+    this.dbMgr = dbMgr;
     this.dataSource = dataSource;
     this.dataSourceClassName = dataSourceClassName;
     this.dataSourceUser = dataSourceUser;
@@ -423,7 +427,8 @@ public class DbManagerSql {
     boolean result = PGSimpleDataSource.class.getCanonicalName()
 	.equals(dataSourceClassName)
 	|| PGPoolingDataSource.class.getCanonicalName()
-	.equals(dataSourceClassName);
+	.equals(dataSourceClassName)
+      || dbMgr.testingDataSource != null;
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
     return result;
   }

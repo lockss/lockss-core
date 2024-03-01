@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,6 +33,7 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.mockito.Mockito;
 import org.junit.Before;
 import org.junit.Test;
@@ -101,6 +102,65 @@ public class TestPersistentStateManager extends StateTestCase {
     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
     ausb2.setMetadataExtractionEnabled(false);
     String json2 = ausb2.toJson();
+    stateMgr.doStoreAuStateBean(key2, ausb2, null); // has existing creation time
+
+    AuStateBean ausb2b = stateMgr.doLoadAuStateBean(key2);
+    String json2b = ausb2b.toJson();
+    assertEquals(AuUtil.jsonToMap(json2), AuUtil.jsonToMap(json2b));
+    assertEquals(123454, ausb2b.getAuCreationTime());
+
+    // make some changes
+    ausb2.setAverageHashDuration(1234L);
+    List<String> cdn = new ArrayList<>();
+    for (int x = 1; x <= 15; x++) {
+      cdn.add("http://abcabc" + x + ".com");
+    }
+    ausb2.setCdnStems(cdn);
+    // This should not be stored bacause the AU already has a creation time
+    ausb2.setAuCreationTime(8888888);
+    json2 = ausb2.toJson();
+    log.debug("Large AuState json len: {}", json2.length());
+    assertTrue(json2.length() >= DbStateManagerSql.JSON_COMPRESSION_THRESHOLD);
+    stateMgr.doStoreAuStateBean(key2, ausb2,
+	SetUtil.set("averageHashDuration"));
+    AuStateBean ausb2c = stateMgr.doLoadAuStateBean(key2);
+    // should have original creation time
+    assertEquals(123454, ausb2c.getAuCreationTime());
+    // Remove known difference for following assert
+    ausb2c.setAuCreationTime(8888888);
+    String json2c = ausb2c.toJson();
+    assertEquals(AuUtil.jsonToMap(json2), AuUtil.jsonToMap(json2c));
+  }
+
+  @Test
+  public void testStoreAndLoadLargeAuState() throws Exception {
+    // First AU with default state properties.
+    TimeBase.setSimulated(100L);
+
+    String key1 = AUID1;
+    AuStateBean ausb1 = stateMgr.getAuStateBean(key1);
+    assertEquals(-1, ausb1.getAuCreationTime());
+    String json1 = ausb1.toJsonExcept("auCreationTime");
+
+    stateMgr.doStoreAuStateBean(key1, ausb1, null); // gets new creation time
+
+    AuStateBean ausb1b = stateMgr.doLoadAuStateBean(key1);
+    assertEquals(100L, ausb1b.getAuCreationTime());
+    String json1b = ausb1b.toJsonExcept("auCreationTime");
+    assertEquals(AuUtil.jsonToMap(json1), AuUtil.jsonToMap(json1b));
+
+    // Second AU with modified state properties.
+    TimeBase.setSimulated(200L);
+
+    String key2 = stateMgr.auKey(mau2);
+    AuStateBean ausb2 = stateMgr.getAuStateBean(key2);
+    ausb2.setAuCreationTime(123454);
+//     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
+    ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org" +
+                                    RandomStringUtils.randomAlphabetic(20000)));
+    ausb2.setMetadataExtractionEnabled(false);
+    String json2 = ausb2.toJson();
+    log.debug("ausb2 json len: {}", json2.length());
     stateMgr.doStoreAuStateBean(key2, ausb2, null); // has existing creation time
 
     AuStateBean ausb2b = stateMgr.doLoadAuStateBean(key2);

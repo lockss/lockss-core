@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -34,10 +34,9 @@ package org.lockss.config.db;
 import static org.lockss.config.db.SqlConstants.*;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import javax.sql.DataSource;
-import org.lockss.db.DbManagerSql;
+import org.lockss.db.*;
 import org.lockss.log.L4JLogger;
 
 /**
@@ -222,10 +221,12 @@ public class ConfigDbManagerSql extends DbManagerSql {
    * @param fetchSize
    *          An int with the SQL statement fetch size.
    */
-  ConfigDbManagerSql(DataSource dataSource, String dataSourceClassName,
-      String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize)
+  ConfigDbManagerSql(DbManager dbMgr,
+                     DataSource dataSource, String dataSourceClassName,
+                     String dataSourceUser,
+                     int maxRetryCount, long retryDelay, int fetchSize)
       {
-    super(dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
+        super(dbMgr, dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
 	retryDelay, fetchSize);
   }
 
@@ -322,6 +323,49 @@ public class ConfigDbManagerSql extends DbManagerSql {
 
     // Create the necessary indices.
     executeDdlQueries(conn, VERSION_4_INDEX_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
+  private String widenColumnQuery(String tableName, String columnName) {
+    if (dbMgr.isTypeDerby()) {
+      return "alter table " + tableName
+        + " alter column " + columnName
+        + " SET DATA TYPE VARCHAR(" + MAX_VARCHAR + ")";
+    } else if (dbMgr.isTypePostgresql() || dbMgr.isTypeMysql()) {
+      return "alter table " + tableName
+        + " alter column " + columnName
+        + " SET DATA TYPE TEXT USING " + columnName + " :: TEXT";
+    } else throw new IllegalStateException("Unknown DB type");
+  }
+
+  /**
+   * Updates the database from version 4 to version 5.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom4To5(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    String[] queries = {
+      widenColumnQuery(ARCHIVAL_UNIT_STATE_TABLE,
+                       STATE_STRING_COLUMN),
+      widenColumnQuery(ARCHIVAL_UNIT_AGREEMENTS_TABLE,
+                       AGREEMENTS_STRING_COLUMN),
+      widenColumnQuery(ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE,
+                       SUSPECT_URL_VERSIONS_STRING_COLUMN),
+      widenColumnQuery(ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE,
+                       NO_AU_PEER_SET_STRING_COLUMN),
+    };
+
+    executeDdlQueries(conn, queries);
 
     log.debug2("Done.");
   }
