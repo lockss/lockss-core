@@ -48,6 +48,8 @@ public class LockssURLStreamHandlerProvider extends URLStreamHandlerProvider {
 
   @Override
   public URLStreamHandler createURLStreamHandler(String protocol) {
+    //    org.lockss.log.L4JLogger.getLogger().fatal("LockssURLStreamHandlerProvider: " + protocol, new Throwable());
+    System.out.println("LockssURLStreamHandlerProvider: " + protocol);
     if (PROTOCOL_CU.equalsIgnoreCase(protocol)) {
       // locksscu: gets a CuUrlConnection
       return new URLStreamHandler() {

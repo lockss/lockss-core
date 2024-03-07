@@ -78,11 +78,36 @@ import java.util.Map;
 
 import static org.lockss.app.ManagerDescs.*;
 
+import java.util.stream.*;
+import java.util.Arrays;
+import java.net.*;
+
 /**
  * The legacy LOCKSS daemon application
  */
 public class LockssDaemon extends LockssApp {
   
+  static {
+    System.setProperty("java.protocol.handler.pkgs", "org.lockss.protocol.handlers");
+    java.net.URL.setURLStreamHandlerFactory(null);
+//     try {
+//       System.out.println(ClassLoader.getSystemClassLoader().loadClass("org.lockss.app.LockssApp"));
+//       System.out.println("found LockssApp");
+//     } catch (Exception e) {
+//       System.out.println("Didn't find LockssApp: " + e);
+//     }      
+//     System.out.println(classPathOf(ClassLoader.getSystemClassLoader()));
+  }
+
+
+//   private static List<String> classPathOf(ClassLoader cl) {
+//     return Arrays.stream(((URLClassLoader)cl).getURLs())
+//       .map(URL::getFile)
+//       .collect(Collectors.toList());
+//   }
+
+
+
   private static final Logger log = Logger.getLogger();
 
   private static final String PREFIX = Configuration.PREFIX + "daemon.";

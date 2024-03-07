@@ -92,7 +92,7 @@ public class CuUrl {
   }
 
   /** A URLConnection to a CachedUrl */
-  static class CuUrlConnection extends URLConnection {
+  public static class CuUrlConnection extends URLConnection {
 
     private String urlString;		// string representation of our URL
 
