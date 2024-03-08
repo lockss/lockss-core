@@ -45,12 +45,19 @@ import org.lockss.util.*;
 public class TestCuUrlResource extends LockssTestCase {
   static Logger log = Logger.getLogger();
   private MockLockssDaemon theDaemon;
+  private UrlManager uMgr;
   private StaticContentPlugin.SAU au;
 
   public void setUp() throws Exception {
     super.setUp();
     setUpDiskSpace();
     theDaemon = getMockLockssDaemon();
+
+    // make and start a UrlManager to set up the URLStreamHandlerFactory
+    uMgr = new UrlManager();
+    uMgr.initService(theDaemon);
+    theDaemon.setDaemonInited(true);
+    uMgr.startService();
 
     // create an AU with some static content
     StaticContentPlugin spl = new StaticContentPlugin();
@@ -61,6 +68,7 @@ public class TestCuUrlResource extends LockssTestCase {
   }
 
   public void tearDown() throws Exception {
+    uMgr.stopService();
     super.tearDown();
   }
 

@@ -43,13 +43,21 @@ import org.lockss.util.*;
  */
 public class TestResourceURLConnection extends LockssTestCase {
   private MockLockssDaemon daemon;
+  private UrlManager uMgr;
 
   public void setUp() throws Exception {
     super.setUp();
     daemon = getMockLockssDaemon();
+
+    // make and start a UrlManager to set up the URLStreamHandlerFactory
+    uMgr = new UrlManager();
+    uMgr.initService(daemon);
+    daemon.setDaemonInited(true);
+    uMgr.startService();
   }
 
   public void tearDown() throws Exception {
+    uMgr.stopService();
     super.tearDown();
   }
 

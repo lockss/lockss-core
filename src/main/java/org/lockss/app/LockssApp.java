@@ -179,6 +179,8 @@ public class LockssApp {
   public static final String SYSTEM_METRICS =
     managerKey(SystemMetrics.class);
   //   public static final String REMOTE_API = "RemoteApi";
+  public static final String URL_MANAGER =
+    managerKey(UrlManager.class);
   public static final String MISC_SETUP_MANAGER =
     managerKey(MiscSetupManager.class);
   public static final String CRON =
@@ -208,6 +210,7 @@ public class LockssApp {
     STATUS_SERVICE_DESC,
     REST_SERVICES_MANAGER_DESC,
     TRUEZIP_MANAGER_DESC,
+    URL_MANAGER_DESC,
     TIMER_SERVICE_DESC,
     // keystore manager must be started before any others that need to
     // access managed keystores
@@ -288,7 +291,7 @@ public class LockssApp {
 
   protected LockssApp(AppSpec spec) {
     this();
-    appSpec = spec;
+    setAppSpec(spec);
   }
 
   protected LockssApp(List<String> propUrls) {
@@ -329,6 +332,11 @@ public class LockssApp {
 
   public AppSpec getAppSpec() {
     return appSpec;
+  }
+
+  /** Return true if running as a Spring service */
+  public boolean isSpring() {
+    return appSpec.getSpringApplicatonContext() != null;
   }
 
   /** Return the LOCKSS user-agent string.

@@ -47,6 +47,7 @@ import org.lockss.test.*;
 public class TestAuUrl extends LockssTestCase {
   private MockLockssDaemon theDaemon;
   private PluginManager pluginMgr;
+  private UrlManager uMgr;
 
   public void setUp() throws Exception {
     super.setUp();
@@ -58,10 +59,14 @@ public class TestAuUrl extends LockssTestCase {
 
 //     theDaemon = getMockLockssDaemon();
 //     pluginMgr = theDaemon.getPluginManager();
+//     uMgr = new UrlManager();
+//     uMgr.initService(theDaemon);
 //     theDaemon.setDaemonInited(true);
+//     uMgr.startService();
   }
 
   public void tearDown() throws Exception {
+//     uMgr.stopService();
 //     theDaemon.stopDaemon();
     super.tearDown();
   }

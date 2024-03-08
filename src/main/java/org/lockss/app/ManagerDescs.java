@@ -69,6 +69,9 @@ public class ManagerDescs {
   public static ManagerDesc TRUEZIP_MANAGER_DESC =
     new ManagerDesc(LockssApp.TRUEZIP_MANAGER,
 		    "org.lockss.truezip.TrueZipManager");
+  public static ManagerDesc URL_MANAGER_DESC =
+    new ManagerDesc(LockssApp.URL_MANAGER,
+		    "org.lockss.daemon.UrlManager");
   public static ManagerDesc TIMER_SERVICE_DESC =
     new ManagerDesc(LockssApp.TIMER_SERVICE,
 		    "org.lockss.util.TimerQueue$Manager");

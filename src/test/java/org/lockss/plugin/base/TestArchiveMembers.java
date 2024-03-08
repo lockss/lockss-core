@@ -79,6 +79,12 @@ public class TestArchiveMembers extends LockssTestCase {
     daemon.getAlertManager();
     daemon.getCrawlManager();
 
+//     // make and start a UrlManager to set up the URLStreamHandlerFactory
+//     UrlManager uMgr = new UrlManager();
+//     uMgr.initService(daemon);
+//     daemon.setDaemonInited(true);
+//     uMgr.startService();
+
     TConfig config = TConfig.get();
     config.setLenient(false);
 
