@@ -854,12 +854,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     
     <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-${version.group.bouncycastle.variant}</artifactId>
-      <version>${version.group.bouncycastle}</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.fishwife</groupId>
       <artifactId>jrugged-core</artifactId>
       <version>3.2.2</version>
