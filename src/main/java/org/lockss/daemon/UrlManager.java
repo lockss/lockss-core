@@ -60,7 +60,6 @@ public class UrlManager extends BaseLockssManager {
   static boolean isFactoryInstalled;
 
   private void maybeInstallFactory() {
-    log.critical("appspec: " + LockssApp.getLockssApp().getAppSpec());
     if (!isFactoryInstalled && !LockssApp.getLockssApp().isSpring()) {
       URL.setURLStreamHandlerFactory(new LockssUrlFactory());
       isFactoryInstalled = true;
