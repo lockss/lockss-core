@@ -107,6 +107,12 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
   public static final boolean DEFAULT_SUBSCRIPTION_ENABLED = true;
 
   /**
+   * If true, SubscriptionManager won't create AUs, even if it's enabled.
+   */
+  public static final String PARAM_SUBSCRIPTION_DEFERRED = PREFIX + "deferred";
+  public static final boolean DEFAULT_SUBSCRIPTION_DEFERRED = false;
+
+  /**
    * Repository available space threshold.
    * <p>
    * Defaults to 0.
@@ -236,6 +242,8 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 
   // An indication of whether this object is ready to be used.
   private boolean ready = false;
+
+  private boolean subscriptionsDeferred = DEFAULT_SUBSCRIPTION_DEFERRED;
 
   // The list of repositories to use when configuring AUs.
   private List<String> repositories = null;
@@ -464,6 +472,8 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       ready = false;
       return;
     }
+    subscriptionsDeferred = newConfig.getBoolean(PARAM_SUBSCRIPTION_DEFERRED,
+                                                 DEFAULT_SUBSCRIPTION_DEFERRED);
 
     // Force a re-calculation of the relative weights of the repositories.
     repositories = null;
@@ -2619,6 +2629,12 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	  + publication.getPublicationName() + "'.";
       log.error(message);
       throw new SubscriptionException(message);
+    }
+
+    if (subscriptionsDeferred) {
+      log.debug("Not creating subscribed AUs because "
+                + PARAM_SUBSCRIPTION_DEFERRED + " is set");
+      return null;
     }
 
     // Configure the archival units.

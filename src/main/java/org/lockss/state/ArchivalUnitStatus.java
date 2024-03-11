@@ -1,28 +1,32 @@
 /*
 
-Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
+Copyright (c) 2000-2023, Board of Trustees of Leland Stanford Jr. University
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -193,12 +197,27 @@ public class ArchivalUnitStatus
   }
 
 
-  /** By default the AuSummary table omits the size columns.  Specify
-   * columns=* to include them */
-//   static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;AllVersSize;DiskUsage";
-
   static class AuSummary implements StatusAccessor {
     static final String TABLE_TITLE = "Archival Units";
+    static final String COL_AU_NAME = "AuName";
+    static final String COL_AU_SIZE = "AuSize";
+    static final String COL_DISK_USAGE = "DiskUsage";
+    static final String COL_ALL_VERS_SIZE = "AllVersSize";
+    static final String COL_PEERS = "Peers";
+    static final String COL_AU_POLLS = "AuPolls";
+    static final String COL_DAMAGED = "Damaged";
+    static final String COL_AU_LAST_POLL = "AuLastPoll";
+    static final String COL_AU_LAST_CRAWL_ATTEMPT = "AuLastCrawlAttempt";
+    static final String COL_AU_LAST_CRAWL_RESULT_MSG = "AuLastCrawlResultMsg";
+    static final String COL_AU_LAST_CRAWL = "AuLastCrawl";
+    static final String COL_SUBSCRIBED = "Subscribed";
+
+    /** By default the AuSummary table omits the size columns.  Specify
+     * columns=* to include them */
+    static final String DEFAULT_AU_SUMMARY_COLUMNS =
+        String.format("-%s;%s",
+                      COL_AU_SIZE,
+                      COL_DISK_USAGE);
 
     static final String FOOT_STATUS = "Flags may follow status: C means the AU is complete, D means that the AU is no longer available from the publisher, NS means the AU has no files containing substantial content.";
 
@@ -206,33 +225,33 @@ public class ArchivalUnitStatus
 
 
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("AuName", "Volume", ColumnDescriptor.TYPE_STRING),
+        new ColumnDescriptor(COL_AU_NAME, "AU", ColumnDescriptor.TYPE_STRING),
 //       new ColumnDescriptor("AuNodeCount", "Nodes", ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("AuSize", "Content Size",
+        new ColumnDescriptor(COL_AU_SIZE, "Content Size",
             ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor("AllVersSize", "All Versions",
             ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("DiskUsage", "Disk Usage (MB)",
+        new ColumnDescriptor(COL_DISK_USAGE, "Disk Usage (MB)",
             ColumnDescriptor.TYPE_FLOAT, FOOT_SIZE),
-//         new ColumnDescriptor("Peers", "Peers", ColumnDescriptor.TYPE_INT),
-//         new ColumnDescriptor("AuPolls", "Recent Polls",
+//         new ColumnDescriptor(COL_PEERS, "Peers", ColumnDescriptor.TYPE_INT),
+//         new ColumnDescriptor(COL_AU_POLLS, "Recent Polls",
 //             ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("Damaged", "Status",
+        new ColumnDescriptor(COL_DAMAGED, "Status",
             ColumnDescriptor.TYPE_STRING,
             FOOT_STATUS),
-        new ColumnDescriptor("AuLastPoll", "Last Poll",
+        new ColumnDescriptor(COL_AU_LAST_POLL, "Last Poll",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("AuLastCrawlAttempt", "Last Crawl Start",
+        new ColumnDescriptor(COL_AU_LAST_CRAWL_ATTEMPT, "Last Crawl Start",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("AuLastCrawlResultMsg", "Last Crawl Result",
+        new ColumnDescriptor(COL_AU_LAST_CRAWL_RESULT_MSG, "Last Crawl Result",
             ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("AuLastCrawl", "Last Successful Crawl",
+        new ColumnDescriptor(COL_AU_LAST_CRAWL, "Last Successful Crawl",
             ColumnDescriptor.TYPE_DATE)
     );
 
     private static final List sortRules =
         ListUtil.list(new
-            StatusTable.SortRule("AuName",
+            StatusTable.SortRule(COL_AU_NAME,
             CatalogueOrderComparator.SINGLETON));
 
     private LockssDaemon theDaemon;
@@ -259,7 +278,7 @@ public class ArchivalUnitStatus
       if (theDaemon.isDetectClockssSubscription()) {
         cols = new ArrayList(cols);
         cols.remove(cols.size() - 1);
-        cols.add(new ColumnDescriptor("Subscribed", "Subscribed",
+        cols.add(new ColumnDescriptor(COL_SUBSCRIBED, "Subscribed",
             ColumnDescriptor.TYPE_STRING));
       }
       table.setColumnDescriptors(cols);
@@ -325,20 +344,20 @@ public class ArchivalUnitStatus
     private Map makeRow(ArchivalUnit au, Set inclCols) {
       AuState auState = AuUtil.getAuState(au);
       HashMap rowMap = new HashMap();
-      rowMap.put("AuName",
+      rowMap.put(COL_AU_NAME,
 		 AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
-      if (inclCols.contains("AuSize") || inclCols.contains("AllVersSize") || inclCols.contains("DiskUsage")) {
+      if (inclCols.contains(COL_AU_SIZE) || inclCols.contains(COL_ALL_VERS_SIZE) || inclCols.contains(COL_DISK_USAGE)) {
         AuSize ausize = AuUtil.getAuSize(au);
         long contentSize = ausize.getTotalLatestVersions();
         if (contentSize != -1) {
-          rowMap.put("AuSize", contentSize);
+          rowMap.put(COL_AU_SIZE, contentSize);
         }
         long allvers = ausize.getTotalAllVersions();
         if (allvers != -1) {
-          rowMap.put("AllVersSize", allvers);
+          rowMap.put(COL_ALL_VERS_SIZE, allvers);
         }
         if (ausize.getTotalWarcSize() != null) {
-          rowMap.put("DiskUsage",
+          rowMap.put(COL_DISK_USAGE,
                      (double)ausize.getTotalWarcSize() / (1024*1024));
         }
       }
@@ -347,7 +366,7 @@ public class ArchivalUnitStatus
       int lastResultCode = auState.getLastCrawlResult();
       String lastResult = auState.getLastCrawlResultMsg();
 
-      rowMap.put("AuLastCrawl", lastCrawl);
+      rowMap.put(COL_AU_LAST_CRAWL, lastCrawl);
       // AuState files that show a successful crawl but no lastAttempt just
       // have uninitialized lastXxx fields.  Display time and status of
       // last successful instead
@@ -356,7 +375,7 @@ public class ArchivalUnitStatus
         lastResultCode = Crawler.STATUS_SUCCESSFUL;
         lastResult = "Successful";
       }
-      rowMap.put("AuLastCrawlAttempt", lastAttempt);
+      rowMap.put(COL_AU_LAST_CRAWL_ATTEMPT, lastAttempt);
       Object lastCrawlStatus =
           lastCrawlStatus(au, lastCrawl, lastResultCode, lastResult);
       if (lastCrawlStatus != null) {
@@ -365,11 +384,11 @@ public class ArchivalUnitStatus
           lastCrawlStatus =
               new StatusTable.DisplayedValue(lastCrawlStatus).addFootnote(SingleCrawlStatusAccessor.FOOT_NO_SUBSTANCE_CRAWL_STATUS);
         }
-        rowMap.put("AuLastCrawlResultMsg", lastCrawlStatus);
+        rowMap.put(COL_AU_LAST_CRAWL_RESULT_MSG, lastCrawlStatus);
       }
 
-      rowMap.put("Peers", PeerRepair.makeAuRef("peers", au.getAuId()));
-      rowMap.put("AuLastPoll", auState.getLastTimePollCompleted());
+      rowMap.put(COL_PEERS, PeerRepair.makeAuRef("peers", au.getAuId()));
+      rowMap.put(COL_AU_LAST_POLL, auState.getLastTimePollCompleted());
 
       Object stat;
 //       try {
@@ -420,10 +439,10 @@ public class ArchivalUnitStatus
         stat = ListUtil.list(stat, flagStr);
       }
 
-      rowMap.put("Damaged", stat);
+      rowMap.put(COL_DAMAGED, stat);
 
       if (theDaemon.isDetectClockssSubscription()) {
-        rowMap.put("Subscribed",
+        rowMap.put(COL_SUBSCRIBED,
             AuUtil.getAuState(au).getClockssSubscriptionStatusString());
       }
 
@@ -470,24 +489,29 @@ public class ArchivalUnitStatus
   }
 
   static class AuIds implements StatusAccessor {
-    static final String TABLE_TITLE = "AU Ids";
+    static final String TABLE_TITLE = "AU Ids"; // FIXME
+    static final String COL_AU_NAME = "AuName";
+    static final String COL_AUID = "AuId";
+    static final String COL_CRAWL_POOL = "CrawlPool";
+    static final String COL_PUBLISHER = "Publisher";
+    static final String COL_YEAR = "Year";
 
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("AuName", "Volume", ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("AuId", "AU Id", ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("CrawlPool", "Crawl Pool",
+        new ColumnDescriptor(COL_AU_NAME, "AU", ColumnDescriptor.TYPE_STRING),
+        new ColumnDescriptor(COL_AUID, "AUID", ColumnDescriptor.TYPE_STRING),
+        new ColumnDescriptor(COL_CRAWL_POOL, "Crawl Pool",
             ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("Publisher", "Publisher",
+        new ColumnDescriptor(COL_PUBLISHER, "Publisher",
             ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("Year", "Year", ColumnDescriptor.TYPE_STRING)
+        new ColumnDescriptor(COL_YEAR, "Year", ColumnDescriptor.TYPE_STRING)
     );
 
     private static final List<String> defaultCols =
-        ListUtil.list("AuName", "AuId");
+        ListUtil.list(COL_AU_NAME, COL_AUID);
 
     private static final List sortRules =
         ListUtil.list(new
-            StatusTable.SortRule("AuName",
+            StatusTable.SortRule(COL_AU_NAME,
             CatalogueOrderComparator.SINGLETON));
 
     private LockssDaemon theDaemon;
@@ -540,23 +564,23 @@ public class ArchivalUnitStatus
     private Map makeRow(StatusTable table,
         ArchivalUnit au) {
       HashMap rowMap = new HashMap();
-      rowMap.put("AuId", au.getAuId());
-      rowMap.put("AuName",
+      rowMap.put(COL_AUID, au.getAuId());
+      rowMap.put(COL_AU_NAME,
 		 AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
-      if (table.isIncludeColumn("CrawlPool")) {
+      if (table.isIncludeColumn(COL_CRAWL_POOL)) {
         String rateKey = au.getFetchRateLimiterKey();
-        rowMap.put("CrawlPool", rateKey != null ? rateKey : au.getAuId());
+        rowMap.put(COL_CRAWL_POOL, rateKey != null ? rateKey : au.getAuId());
       }
-      if (table.isIncludeColumn("Publisher")) {
+      if (table.isIncludeColumn(COL_PUBLISHER)) {
         String pub = AuUtil.getTitleAttribute(au, "publisher");
         if (!StringUtil.isNullString(pub)) {
-          rowMap.put("Publisher", pub);
+          rowMap.put(COL_PUBLISHER, pub);
         }
       }
-      if (table.isIncludeColumn("Year")) {
+      if (table.isIncludeColumn(COL_YEAR)) {
         String year = AuUtil.getTitleAttribute(au, "year");
         if (!StringUtil.isNullString(year)) {
-          rowMap.put("Year", year);
+          rowMap.put(COL_YEAR, year);
         }
       }
       return rowMap;
@@ -579,19 +603,24 @@ public class ArchivalUnitStatus
   }
 
   static class AusWithUrl implements StatusAccessor {
+
     static final String TABLE_TITLE = "AUs containing URL";
+    static final String COL_AU_NAME = "AuName";
+    static final String COL_SIZE = "Size";
+    static final String COL_COLLECTED_DATE = "CollectedDate";
+    static final String COL_VERSIONS = "Versions";
 
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("AuName", "AU", ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("Size", "Size", ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("CollectedDate", "Date Collected",
+        new ColumnDescriptor(COL_AU_NAME, "AU", ColumnDescriptor.TYPE_STRING),
+        new ColumnDescriptor(COL_SIZE, "Size", ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor(COL_COLLECTED_DATE, "Date Collected",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("Versions", "Versions", ColumnDescriptor.TYPE_INT)
+        new ColumnDescriptor(COL_VERSIONS, "Versions", ColumnDescriptor.TYPE_INT)
     );
 
     private static final List sortRules =
         ListUtil.list(new
-            StatusTable.SortRule("AuName",
+            StatusTable.SortRule(COL_AU_NAME,
             CatalogueOrderComparator.SINGLETON));
 
     private LockssDaemon theDaemon;
@@ -649,7 +678,7 @@ public class ArchivalUnitStatus
       try {
         HashMap rowMap = new HashMap();
         ArchivalUnit au = cu.getArchivalUnit();
-        rowMap.put("AuName",
+        rowMap.put(COL_AU_NAME,
 		   AuStatus.makeAuRef(au.getName(), au.getAuId(), true));
 
         long size = cu.getContentSize();
@@ -658,7 +687,7 @@ public class ArchivalUnitStatus
                 AdminServletManager.SERVLET_DISPLAY_CONTENT,
                 PropUtil.fromArgs("auid", au.getAuId(),
                     "url", cu.getUrl()));
-        rowMap.put("Size", val);
+        rowMap.put(COL_SIZE, val);
 
         int version = cu.getVersion();
         Object versionObj = Long.valueOf(version);
@@ -672,10 +701,10 @@ public class ArchivalUnitStatus
             versionObj = verLink;
           }
         }
-        rowMap.put("Versions", versionObj);
+        rowMap.put(COL_VERSIONS, versionObj);
         try {
           long cdate = Long.parseLong(AuUtil.getFetchTimeString(cu));
-          rowMap.put("CollectedDate",
+          rowMap.put(COL_COLLECTED_DATE,
               ServletUtil.headerDf.format(new Date(cdate)));
         } catch (NumberFormatException ignore) {
         }
@@ -746,16 +775,26 @@ public class ArchivalUnitStatus
 
   static class AuStatus extends PerAuTable {
 
+    static final String COL_NODE_NAME = "NodeName";
+
+    static final String COL_NODE_VERSION = "NodeVersion";
+
+    static final String COL_NODE_CONTENT_SIZE = "NodeContentSize";
+
+    static final String COL_NODE_TREE_SIZE = "NodeTreeSize";
+
+    static final String COL_NODE_CHILD_COUNT = "NodeChildCount";
+
     static final String FOOT_SERVE_AU_VS_CONTENT = "Serve AU serves this AU.  Serve Content constructs an OpenURL query from the bibliographic information for this AU in the title database, which may result in a choice of AUs if the content is available from more than one source.";
 
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("NodeName", "Node Url",
+        new ColumnDescriptor(COL_NODE_NAME, "URL",
             ColumnDescriptor.TYPE_STRING),
 //       new ColumnDescriptor("NodeHasContent", "Content",
 //                            ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("NodeVersion", "Version",
+        new ColumnDescriptor(COL_NODE_VERSION, "Version",
             ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("NodeContentSize", "Size",
+        new ColumnDescriptor(COL_NODE_CONTENT_SIZE, "Size",
             ColumnDescriptor.TYPE_INT)
     );
 
@@ -864,7 +903,7 @@ public class ArchivalUnitStatus
       } else {
         val = url;
       }
-      rowMap.put("NodeName", val);
+      rowMap.put(COL_NODE_NAME, val);
 
 //       String status = null;
 //       if (node.isDeleted()) {
@@ -895,8 +934,8 @@ public class ArchivalUnitStatus
         sizeObj = new OrderedObject(Long.valueOf(cu.getContentSize()));
       }
       rowMap.put("NodeHasContent", (hasContent ? "yes" : "no"));
-      rowMap.put("NodeVersion", versionObj);
-      rowMap.put("NodeContentSize", sizeObj);
+      rowMap.put(COL_NODE_VERSION, versionObj);
+      rowMap.put(COL_NODE_CONTENT_SIZE, sizeObj);
       return rowMap;
     }
 
@@ -935,7 +974,7 @@ public class ArchivalUnitStatus
       long contentSizeAllVers = aus.getTotalAllVersions();
 
       List res = new ArrayList();
-      res.add(new StatusTable.SummaryInfo("Volume",
+      res.add(new StatusTable.SummaryInfo("AU",
           ColumnDescriptor.TYPE_STRING,
           au.getName()));
       res.add(new StatusTable.SummaryInfo("AUID",
@@ -1369,20 +1408,24 @@ public class ArchivalUnitStatus
       extends PerAuTable
       implements StatusAccessor.DebugOnly {
 
+    static final String COL_TYPE = "type";
+    static final String COL_KEY = "key";
+    static final String COL_VAL = "val";
+
     static final String FOOT_PARAM_TYPE = "Def: definitional config params, determine identity of AU.  NonDef: other config params, may affect AU behavior.  Attr: values and objects computed from plugin definition and AU configuration.";
 
     private final List sortRules =
         ListUtil.list(new StatusTable.SortRule("sort", true),
-            new StatusTable.SortRule("key", true));
+            new StatusTable.SortRule(COL_KEY, true));
 
     private final List colDescs =
         ListUtil.list(
-            new ColumnDescriptor("type", "Type",
+            new ColumnDescriptor(COL_TYPE, "Type",
                 ColumnDescriptor.TYPE_STRING,
                 FOOT_PARAM_TYPE),
-            new ColumnDescriptor("key", "Key",
+            new ColumnDescriptor(COL_KEY, "Key",
                 ColumnDescriptor.TYPE_STRING),
-            new ColumnDescriptor("val", "Val",
+            new ColumnDescriptor(COL_VAL, "Val",
                 ColumnDescriptor.TYPE_STRING)
         );
 
@@ -1423,8 +1466,8 @@ public class ArchivalUnitStatus
         Object val = entry.getValue();
 	ConfigParamDescr descr = plug.findAuConfigDescr(key);
         Map row = new HashMap();
-        row.put("key", key);
-	row.put("val", valString(val, descr));
+        row.put(COL_KEY, key);
+	row.put(COL_VAL, valString(val, descr));
 	putTypeSort(row, key, au, descr);
         rows.add(row);
       }
@@ -1469,9 +1512,9 @@ public class ArchivalUnitStatus
         String key = ent.getKey();
         String val = ent.getValue();
         Map row = new HashMap();
-        row.put("key", key);
-        row.put("val", val);
-        row.put("type", type);
+        row.put(COL_KEY, key);
+        row.put(COL_VAL, val);
+        row.put(COL_TYPE, type);
         row.put("sort", sort);
         rows.add(row);
       }
@@ -1482,13 +1525,13 @@ public class ArchivalUnitStatus
       // keys not in au config are computed, others are definitional or not
       // according to their ConfigParamDescr.
       if (descr == null || !au.getConfiguration().containsKey(key)) {
-        row.put("type", "Attr");
+        row.put(COL_TYPE, "Attr");
         row.put("sort", 3);
       } else if (descr.isDefinitional()) {
-        row.put("type", "Def");
+        row.put(COL_TYPE, "Def");
         row.put("sort", 1);
       } else {
-        row.put("type", "NonDef");
+        row.put(COL_TYPE, "NonDef");
         row.put("sort", 2);
       }
     }
@@ -1508,10 +1551,14 @@ public class ArchivalUnitStatus
 
   static class FileVersions extends PerAuTable {
 
+    static final String COL_VERSION = "Version";
+    static final String COL_SIZE = "Size";
+    static final String COL_DATE_COLLECTED = "DateCollected";
+
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("Version", "Version", ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("Size", "Size", ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("DateCollected", "Date Collected",
+        new ColumnDescriptor(COL_VERSION, "Version", ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor(COL_SIZE, "Size", ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor(COL_DATE_COLLECTED, "Date Collected",
             ColumnDescriptor.TYPE_DATE)
     );
 
@@ -1596,11 +1643,11 @@ public class ArchivalUnitStatus
           new StatusTable.SrvLink(Integer.toString(ver),
               AdminServletManager.SERVLET_DISPLAY_CONTENT,
               args);
-      rowMap.put("Version", val);
-      rowMap.put("Size", cu.getContentSize());
+      rowMap.put(COL_VERSION, val);
+      rowMap.put(COL_SIZE, cu.getContentSize());
       try {
 	long collected = Long.parseLong(AuUtil.getFetchTimeString(cu));
-	rowMap.put("DateCollected", collected);
+	rowMap.put(COL_DATE_COLLECTED, collected);
       } catch (NumberFormatException ignore) {
       }
       return rowMap;
@@ -1615,7 +1662,7 @@ public class ArchivalUnitStatus
       link.setProperty("skiprows", Integer.toString(startRow));
       link.setProperty("numrows", Integer.toString(defaultNumRows));
       link.setProperty("url", url);
-      rowMap.put("Version", link);
+      rowMap.put(COL_VERSION, link);
       rowMap.put("sort", Integer.valueOf(isNext ? Integer.MAX_VALUE : -1));
       return rowMap;
     }
@@ -1624,19 +1671,25 @@ public class ArchivalUnitStatus
 
   static class SuspectVersions extends PerAuTable {
 
+    static final String COL_URL = "Url";
+    static final String COL_VERSION = "Version";
+    static final String COL_DISCOVERED = "Discovered";
+    static final String COL_COMPUTED = "Computed";
+    static final String COL_STORED = "Stored";
+
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("Url", "Url", ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("Version", "Version", ColumnDescriptor.TYPE_INT),
-        new ColumnDescriptor("Discovered", "Discovered",
+        new ColumnDescriptor(COL_URL, "URL", ColumnDescriptor.TYPE_STRING),
+        new ColumnDescriptor(COL_VERSION, "Version", ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor(COL_DISCOVERED, "Discovered",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("Computed", "Computed Hash",
+        new ColumnDescriptor(COL_COMPUTED, "Computed Hash",
             ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("Stored", "Stored Hash",
+        new ColumnDescriptor(COL_STORED, "Stored Hash",
             ColumnDescriptor.TYPE_STRING)
     );
 
     private static final List sortRules =
-        ListUtil.list(new StatusTable.SortRule("Url", true));
+        ListUtil.list(new StatusTable.SortRule(COL_URL, true));
 
     SuspectVersions(LockssDaemon theDaemon) {
       super(theDaemon);
@@ -1660,11 +1713,11 @@ public class ArchivalUnitStatus
       List rowL = new ArrayList();
       for (AuSuspectUrlVersions.SuspectUrlVersion suv : asuv.getSuspectList()) {
         Map row = new HashMap();
-        row.put("Url", suv.getUrl());
-        row.put("Version", suv.getVersion());
-        row.put("Discovered", suv.getCreated());
-        row.put("Computed", suv.getComputedHash().toString());
-        row.put("Stored", suv.getStoredHash().toString());
+        row.put(COL_URL, suv.getUrl());
+        row.put(COL_VERSION, suv.getVersion());
+        row.put(COL_DISCOVERED, suv.getCreated());
+        row.put(COL_COMPUTED, suv.getComputedHash().toString());
+        row.put(COL_STORED, suv.getStoredHash().toString());
         rowL.add(row);
       }
       return rowL;
@@ -1675,8 +1728,10 @@ public class ArchivalUnitStatus
    * stf */
   static class NoAuPeers extends PerAuTable {
 
+    static final String COL_PEER = "Peer";
+
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("Peer", "Peer", ColumnDescriptor.TYPE_STRING)
+        new ColumnDescriptor(COL_PEER, "Peer", ColumnDescriptor.TYPE_STRING)
     );
 
     NoAuPeers(LockssDaemon theDaemon) {
@@ -1703,7 +1758,7 @@ public class ArchivalUnitStatus
 	for (PeerIdentity pid : noAuSet) {
 	  logger.info("pid: " + pid);
 	  Map row = new HashMap();
-	  row.put("Peer", pid.getIdString());
+	  row.put(COL_PEER, pid.getIdString());
 	  rows.add(row);
 	}
       }
@@ -1719,8 +1774,10 @@ public class ArchivalUnitStatus
   }
 
   abstract static class BaseAgreementTable extends PerAuTable {
+    static final String COL_BOX = "Box";
+
     protected static final List sortRules =
-        ListUtil.list(new StatusTable.SortRule("Box", true));
+        ListUtil.list(new StatusTable.SortRule(COL_BOX, true));
 
     BaseAgreementTable(LockssDaemon theDaemon) {
       super(theDaemon);
@@ -1736,7 +1793,7 @@ public class ArchivalUnitStatus
         val.setBold(true);
         str = val;
       }
-      rowMap.put("Box", str);
+      rowMap.put(COL_BOX, str);
       return rowMap;
     }
 
@@ -1780,30 +1837,39 @@ public class ArchivalUnitStatus
 
   static class PeerRepair extends BaseAgreementTable {
 
+    static final String COL_HIGHEST_PERCENT_AGREEMENT = "HighestPercentAgreement";
+    static final String COL_HIGHEST_PERCENT_AGREEMENT_DATE = "HighestPercentAgreementDate";
+    static final String COL_LAST_PERCENT_AGREEMENT = "LastPercentAgreement";
+    static final String COL_LAST_PERCENT_AGREEMENT_DATE = "LastPercentAgreementDate";
+    static final String COL_HIGHEST_PERCENT_AGREEMENT_HINT = "HighestPercentAgreementHint";
+    static final String COL_HIGHEST_PERCENT_AGREEMENT_HINT_DATE = "HighestPercentAgreementHintDate";
+    static final String COL_LAST_PERCENT_AGREEMENT_HINT = "LastPercentAgreementHint";
+    static final String COL_LAST_PERCENT_AGREEMENT_HINT_DATE = "LastPercentAgreementHintDate";
+
     /** query arg specifies poll type: {pop, por, symmetric_por,
      * symmetric_pop}.  If unspecified or other, table includes all poll
      * types */
     public static final String POLL_TYPE = "polltype";
 
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("Box", "Box",
+        new ColumnDescriptor(BaseAgreementTable.COL_BOX, "Peer",
             ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("HighestPercentAgreement", "Highest Agreement",
+        new ColumnDescriptor(COL_HIGHEST_PERCENT_AGREEMENT, "Highest Agreement",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("HighestPercentAgreementDate", "When",
+        new ColumnDescriptor(COL_HIGHEST_PERCENT_AGREEMENT_DATE, "When",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("LastPercentAgreement", "Last Agreement",
+        new ColumnDescriptor(COL_LAST_PERCENT_AGREEMENT, "Last Agreement",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("LastPercentAgreementDate", "When",
+        new ColumnDescriptor(COL_LAST_PERCENT_AGREEMENT_DATE, "When",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("HighestPercentAgreementHint",
+        new ColumnDescriptor(COL_HIGHEST_PERCENT_AGREEMENT_HINT,
             "Highest Agreement Hint",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("HighestPercentAgreementHintDate", "When",
+        new ColumnDescriptor(COL_HIGHEST_PERCENT_AGREEMENT_HINT_DATE, "When",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("LastPercentAgreementHint", "Last Agreement Hint",
+        new ColumnDescriptor(COL_LAST_PERCENT_AGREEMENT_HINT, "Last Agreement Hint",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("LastPercentAgreementHintDate", "When",
+        new ColumnDescriptor(COL_LAST_PERCENT_AGREEMENT_HINT_DATE, "When",
             ColumnDescriptor.TYPE_DATE)
     );
 
@@ -1931,16 +1997,16 @@ public class ArchivalUnitStatus
     protected Map makeRow(CacheStats stats) {
       Map rowMap = super.makeRow(stats);
       if (stats.highestAgreement >= 0.0f) {
-        rowMap.put("LastPercentAgreement", stats.lastAgreement);
-        rowMap.put("LastPercentAgreementDate", stats.lastAgreementTime);
-        rowMap.put("HighestPercentAgreement", stats.highestAgreement);
-        rowMap.put("HighestPercentAgreementDate", stats.highestAgreementTime);
+        rowMap.put(COL_LAST_PERCENT_AGREEMENT, stats.lastAgreement);
+        rowMap.put(COL_LAST_PERCENT_AGREEMENT_DATE, stats.lastAgreementTime);
+        rowMap.put(COL_HIGHEST_PERCENT_AGREEMENT, stats.highestAgreement);
+        rowMap.put(COL_HIGHEST_PERCENT_AGREEMENT_DATE, stats.highestAgreementTime);
       }
       if (stats.highestAgreementHint >= 0.0f) {
-        rowMap.put("LastPercentAgreementHint", stats.lastAgreementHint);
-        rowMap.put("LastPercentAgreementHintDate", stats.lastAgreementHintTime);
-        rowMap.put("HighestPercentAgreementHint", stats.highestAgreementHint);
-        rowMap.put("HighestPercentAgreementHintDate",
+        rowMap.put(COL_LAST_PERCENT_AGREEMENT_HINT, stats.lastAgreementHint);
+        rowMap.put(COL_LAST_PERCENT_AGREEMENT_HINT_DATE, stats.lastAgreementHintTime);
+        rowMap.put(COL_HIGHEST_PERCENT_AGREEMENT_HINT, stats.highestAgreementHint);
+        rowMap.put(COL_HIGHEST_PERCENT_AGREEMENT_HINT_DATE,
                    stats.highestAgreementHintTime);
       }
       return rowMap;
@@ -1964,24 +2030,35 @@ public class ArchivalUnitStatus
   }
 
   static class RawPeerAgreement extends BaseAgreementTable {
+
+    static final String COL_TYPE = "Type";
+    static final String COL_LAST = "Last";
+    static final String COL_LAST_DATE = "LastDate";
+    static final String COL_HIGHEST = "Highest";
+    static final String COL_HIGHEST_DATE = "HighestDate";
+    static final String COL_LAST_HINT = "LastHint";
+    static final String COL_LAST_HINT_DATE = "LastHintDate";
+    static final String COL_HIGHEST_HINT = "HighestHint";
+    static final String COL_HIGHEST_HINT_DATE = "HighestHintDate";
+
     private static final List columnDescriptors = ListUtil.list(
-        new ColumnDescriptor("Box", "Peer", ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("Type", "Type", ColumnDescriptor.TYPE_STRING),
-        new ColumnDescriptor("Last", "Last",
+        new ColumnDescriptor(BaseAgreementTable.COL_BOX, "Peer", ColumnDescriptor.TYPE_STRING),
+        new ColumnDescriptor(COL_TYPE, "Type", ColumnDescriptor.TYPE_STRING),
+        new ColumnDescriptor(COL_LAST, "Last",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("LastDate", "Last Date",
+        new ColumnDescriptor(COL_LAST_DATE, "Last Date",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("Highest", "Highest",
+        new ColumnDescriptor(COL_HIGHEST, "Highest",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("HighestDate", "Highest Date",
+        new ColumnDescriptor(COL_HIGHEST_DATE, "Highest Date",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("LastHint", "Last Hint",
+        new ColumnDescriptor(COL_LAST_HINT, "Last Hint",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("LastHintDate", "Last Hint Date",
+        new ColumnDescriptor(COL_LAST_HINT_DATE, "Last Hint Date",
             ColumnDescriptor.TYPE_DATE),
-        new ColumnDescriptor("HighestHint", "Highest Hint",
+        new ColumnDescriptor(COL_HIGHEST_HINT, "Highest Hint",
             ColumnDescriptor.TYPE_AGREEMENT),
-        new ColumnDescriptor("HighestHintDate", "Highest Hint Date",
+        new ColumnDescriptor(COL_HIGHEST_HINT_DATE, "Highest Hint Date",
             ColumnDescriptor.TYPE_DATE)
     );
 
@@ -2000,9 +2077,9 @@ public class ArchivalUnitStatus
       int totalPeers = 0;
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
         table.setColumnDescriptors(columnDescriptors);
-        table.setDefaultSortRules(ListUtil.list(new StatusTable.SortRule("Box",
+        table.setDefaultSortRules(ListUtil.list(new StatusTable.SortRule(BaseAgreementTable.COL_BOX,
                 true),
-            new StatusTable.SortRule("Type",
+            new StatusTable.SortRule(COL_TYPE,
                 true)));
         List rowL = new ArrayList();
         for (Map.Entry<PeerIdentity,Map<AgreementType,PeerAgreement>> ent :
@@ -2059,26 +2136,26 @@ public class ArchivalUnitStatus
     public Map makeRow(PeerIdentity peerId, AgreementType type,
         PeerAgreement pa, PeerAgreement pahint) {
       Map row = super.makeRow(peerId);
-      row.put("Type", type.toString());
+      row.put(COL_TYPE, type.toString());
       if (pa != null) {
         if (pa.getPercentAgreement() >= 0.0) {
-          row.put("Last", Float.valueOf(pa.getPercentAgreement()));
-          row.put("LastDate", pa.getPercentAgreementTime());
+          row.put(COL_LAST, Float.valueOf(pa.getPercentAgreement()));
+          row.put(COL_LAST_DATE, pa.getPercentAgreementTime());
         }
         if (pa.getHighestPercentAgreement() >= 0.0) {
-          row.put("Highest", Float.valueOf(pa.getHighestPercentAgreement()));
-          row.put("HighestDate", pa.getHighestPercentAgreementTime());
+          row.put(COL_HIGHEST, Float.valueOf(pa.getHighestPercentAgreement()));
+          row.put(COL_HIGHEST_DATE, pa.getHighestPercentAgreementTime());
         }
       }
       if (pahint != null) {
         if (pahint.getPercentAgreement() >= 0.0) {
-          row.put("LastHint", Float.valueOf(pahint.getPercentAgreement()));
-          row.put("LastHintDate", pahint.getPercentAgreementTime());
+          row.put(COL_LAST_HINT, Float.valueOf(pahint.getPercentAgreement()));
+          row.put(COL_LAST_HINT_DATE, pahint.getPercentAgreementTime());
         }
         if (pahint.getHighestPercentAgreement() >= 0.0) {
-          row.put("HighestHint",
+          row.put(COL_HIGHEST_HINT,
               Float.valueOf(pahint.getHighestPercentAgreement()));
-          row.put("HighestHintDate",
+          row.put(COL_HIGHEST_HINT_DATE,
               pahint.getHighestPercentAgreementTime());
         }
       }
