@@ -68,7 +68,7 @@ POSSIBILITY OF SUCH DAMAGE.
          ParamDoc, etc.) -->
     <loglevel.tool>${loglevel}</loglevel.tool>
 
-    <graalvm.version>23.1.0</graalvm.version>
+    <graalvm.version>23.1.2</graalvm.version>
   </properties>
 
   <dependencies>
@@ -1376,6 +1376,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
+                <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
@@ -1414,7 +1415,9 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
+                <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
+                <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
                 <argument>org.lockss.plugin.plugtest1.PlugTest1Plugin</argument>
