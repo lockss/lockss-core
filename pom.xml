@@ -1415,7 +1415,6 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
-                <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
