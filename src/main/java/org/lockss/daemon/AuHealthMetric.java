@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2011 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2011-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -59,6 +55,10 @@ public class AuHealthMetric {
   private static final Logger log = Logger.getLogger();
 
   static final String PREFIX = Configuration.PREFIX + "auHealth.";
+
+  /** Set true to enable AuHealthMetric. */
+  public static final String PARAM_ENABLED = PREFIX + "enabled";
+  public static final boolean DEFAULT_ENABLED = false;
 
   /** Script language. */
   public static final String PARAM_SCRIPT_LANGUAGE = PREFIX + "scriptLanguage";
@@ -129,6 +129,7 @@ public class AuHealthMetric {
 //     ExpectedSizeAgreement;
   }
 
+  private static boolean enabled = false;
   private static String scriptLanguage = DEFAULT_SCRIPT_LANGUAGE;
   private static String healthExpr = DEFAULT_HEALTH_EXPR;
   private static double inclusionThreshold = DEFAULT_INCLUSION_THRESHOLD;
@@ -156,11 +157,12 @@ public class AuHealthMetric {
    * thread-safe, or is incapable of compiling the script, this will be null.
    */
   private static CompiledScript compiledScript = null;
+
   /**
    * Set flags describing the capabilities of the script engine, and compile
    * the script if possible.
    */
-  static {
+  private static void createEngine() {
     if (!isSupported() || !setEngineProperties()) {
       // Reset everything if scripting is not supported
       isCompilable = false;
@@ -302,7 +304,8 @@ public class AuHealthMetric {
    * Return true if health metrics are supported.
    */
   public static boolean isSupported() {
-    return PlatformUtil.getInstance().hasScriptingSupport();
+    return CurrentConfig.getBooleanParam(PARAM_ENABLED, DEFAULT_ENABLED) &&
+      PlatformUtil.getInstance().hasScriptingSupport();
   }
 
   /** Called by org.lockss.config.MiscConfig
@@ -323,9 +326,10 @@ public class AuHealthMetric {
 	healthExpr = newExpr;
 	outOfRangeValueSeen = false;
       }
-      // TODO: I'm not clear whether this is the right place to run this? (NM)
-      // Note that it is run in a static initialiser too
-      setEngineProperties();
+      if (!enabled && config.getBoolean(PARAM_ENABLED, DEFAULT_ENABLED)) {
+        createEngine();
+        enabled = true;
+      }
     }
   }
 
