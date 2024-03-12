@@ -336,7 +336,7 @@ public class LockssApp {
 
   /** Return true if running as a Spring service */
   public boolean isSpring() {
-    return appSpec.getSpringApplicatonContext() != null;
+    return appSpec != null && appSpec.getSpringApplicatonContext() != null;
   }
 
   /** Return the LOCKSS user-agent string.
