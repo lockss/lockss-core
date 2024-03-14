@@ -140,7 +140,9 @@ public class KeyStoreUtil {
       NoSuchAlgorithmException,
       NoSuchProviderException,
       SignatureException,
-      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
+      UnrecoverableKeyException,
+      InvalidAlgorithmParameterException,
+      OperatorCreationException {
     KeyStore ks = KeyStore.getInstance(p.getProperty(PROP_KEYSTORE_TYPE,
                                                      DEFAULT_KEYSTORE_TYPE));
     initializeKeyStore(ks, p);
@@ -190,7 +192,9 @@ public class KeyStoreUtil {
       NoSuchAlgorithmException,
       NoSuchProviderException,
       SignatureException,
-      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
+      UnrecoverableKeyException,
+      InvalidAlgorithmParameterException,
+      OperatorCreationException {
     initializeKeyStore(keyStore, ConfigManager.fromProperties(p));
   }
 
@@ -203,7 +207,9 @@ public class KeyStoreUtil {
       NoSuchAlgorithmException,
       NoSuchProviderException,
       SignatureException,
-      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
+      UnrecoverableKeyException,
+      InvalidAlgorithmParameterException,
+      OperatorCreationException {
     String keyAlias = config.get(PROP_KEY_ALIAS, DEFAULT_KEY_ALIAS);
     String certAlias = config.get(PROP_CERT_ALIAS, DEFAULT_CERT_ALIAS);
     String keyAlgName = config.get(PROP_KEY_ALGORITHM, DEFAULT_KEY_ALGORITHM);
@@ -519,7 +525,9 @@ public class KeyStoreUtil {
       NoSuchAlgorithmException,
       NoSuchProviderException,
       SignatureException,
-      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
+      UnrecoverableKeyException,
+      InvalidAlgorithmParameterException,
+      OperatorCreationException {
     KeyStore ks = createKeystore0(ksType);
     if (ks == null) {
       log.error("No key store available");
@@ -557,7 +565,9 @@ public class KeyStoreUtil {
       NoSuchAlgorithmException,
       NoSuchProviderException,
       KeyStoreException,
-      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
+      UnrecoverableKeyException,
+      InvalidAlgorithmParameterException,
+      OperatorCreationException {
     String keyAlias = domainName + keySuffix;
     String certAlias = domainName + crtSuffix;
     String keyStorePassword = domainName;

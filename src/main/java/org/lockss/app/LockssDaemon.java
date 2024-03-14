@@ -78,10 +78,6 @@ import java.util.Map;
 
 import static org.lockss.app.ManagerDescs.*;
 
-import java.util.stream.*;
-import java.util.Arrays;
-import java.net.*;
-
 /**
  * The legacy LOCKSS daemon application
  */

@@ -196,7 +196,9 @@ public class LockssKeyStore {
       NoSuchAlgorithmException,
       NoSuchProviderException,
       SignatureException,
-      UnrecoverableKeyException, InvalidAlgorithmParameterException, OperatorCreationException {
+      UnrecoverableKeyException,
+      InvalidAlgorithmParameterException,
+      OperatorCreationException {
     log.info("Creating keystore: " + location);
     if (StringUtil.isNullString(keyPassword)) {
       throw new NullPointerException("keyPassword must be non-null string");

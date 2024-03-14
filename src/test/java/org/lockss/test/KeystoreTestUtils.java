@@ -131,7 +131,6 @@ public class KeystoreTestUtils {
     KeyStoreUtil.CertAndKeyGen keypair =
         new KeyStoreUtil.CertAndKeyGen("DSA", "SHA1WithDSA");
 
-//    X500Name dn = new X500Name(cn, ou, o, l, s, c);
     X500Name dn = new X500Name("CN=" + cn + ", " +
         "OU=" + ou + ", O=" + o + ", " +
         "L=" + l + ", ST=" + s + ", C=" + c);
