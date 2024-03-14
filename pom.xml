@@ -382,6 +382,13 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>javax.servlet-api</artifactId>
+      <version>4.0.1</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
       <groupId>jakarta.servlet</groupId>
       <artifactId>jakarta.servlet-api</artifactId>
       <version>6.0.0</version>
@@ -733,8 +740,8 @@ POSSIBILITY OF SUCH DAMAGE.
           <groupId>org.eclipse.jetty.orbit</groupId>
         </exclusion>
         <exclusion>
-          <artifactId>javax.servlet</artifactId>
-          <groupId>javax.servlet-api</groupId>
+          <groupId>javax.servlet</groupId>
+          <artifactId>javax.servlet-api</artifactId>
         </exclusion>
         <exclusion>
           <groupId>org.eclipse.jetty</groupId>
@@ -896,10 +903,10 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>1.7.3</version>
       <scope>test</scope>
       <exclusions>
-      <exclusion>
-        <artifactId>javax.servlet</artifactId>
-        <groupId>javax.servlet-api</groupId>
-      </exclusion>
+        <exclusion>
+          <groupId>javax.servlet</groupId>
+          <artifactId>javax.servlet-api</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
 
