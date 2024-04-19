@@ -43,10 +43,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpSession;
 import org.apache.commons.collections4.FactoryUtils;
 import org.apache.commons.collections4.map.MultiValueMap;
-import org.lockss.config.Configuration;
-import org.lockss.config.TdbAu;
-import org.lockss.config.TdbPublisher;
-import org.lockss.config.TdbUtil;
+import org.lockss.config.*;
 import org.lockss.db.DbException;
 import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi.BatchAuStatus.Entry;
@@ -81,6 +78,8 @@ import org.mortbay.html.Table;
 public class SubscriptionManagement extends LockssServlet {
   private static final Logger log = Logger
       .getLogger(SubscriptionManagement.class);
+
+  static String MIGRATION_WARNING = "Migration is in progress.  If subscriptions are added they will be recorded but won't take effect (AUs won't be created) until migration is complete.";
 
   // Prefix for the subscription configuration entries.
   private static final String PREFIX = Configuration.PREFIX + "subscription.";
@@ -295,6 +294,13 @@ public class SubscriptionManagement extends LockssServlet {
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
+  private void addMigrationWarning(Page page) {
+    boolean isMigrating =
+      ConfigManager.getCurrentConfig().getBoolean(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED,
+                                                  SubscriptionManager.DEFAULT_SUBSCRIPTION_DEFERRED);
+    addMigrationWarning(page, isMigrating, MIGRATION_WARNING);
+  }
+
   /**
    * Displays the page used to add new subscription decisions.
    * 
@@ -312,6 +318,7 @@ public class SubscriptionManagement extends LockssServlet {
     addJavaScript(page);
     addCssLocations(page);
     addJQueryLocations(page);
+    addMigrationWarning(page);
 
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginMgr.areAusStarted() = "
 	+ pluginManager.areAusStarted());
@@ -2013,6 +2020,7 @@ public class SubscriptionManagement extends LockssServlet {
     addJavaScript(page);
     addCssLocations(page);
     addJQueryLocations(page);
+    addMigrationWarning(page);
 
     ServletUtil.layoutExplanationBlock(page,
 	"Update existing subscription options for serial titles");
@@ -3148,6 +3156,7 @@ public class SubscriptionManagement extends LockssServlet {
     ServletUtil.layoutErrorBlock(page,
 	"If you are sure that you want to continue, press the 'Confirm' button below.",
 	null);
+    addMigrationWarning(page);
 
     // Create the layout form for the 'Cancel' button.
     page.add("<br><center><table><tr><td>");

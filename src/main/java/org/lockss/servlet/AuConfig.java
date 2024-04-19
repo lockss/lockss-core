@@ -41,6 +41,7 @@ import org.lockss.remote.*;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.*;
+import static org.lockss.servlet.BatchAuConfig.MIGRATION_WARNING;
 import org.mortbay.html.*;
 
 /** Create and update AU configuration.
@@ -200,6 +201,7 @@ public class AuConfig extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     ServletUtil.layoutExplanationBlock(page,
           "Add a new Archival Unit"
         + (allAus.isEmpty() ? "." : ", or edit an existing one."));
@@ -232,6 +234,7 @@ public class AuConfig extends LockssServlet {
     fetchAuConfig(au);
 
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     ServletUtil.layoutExplanationBlock(page,
         "Editing configuration of: " + encodedAuName(au));
 
@@ -251,6 +254,7 @@ public class AuConfig extends LockssServlet {
     fetchAuConfig(au);
 
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     ServletUtil.layoutExplanationBlock(page,
         "Restoring configuration of: " + encodedAuName(au));
 
@@ -267,6 +271,7 @@ public class AuConfig extends LockssServlet {
       throws IOException, DbException, LockssRestException {
     Page page = newPage();
     addJavaScript(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     fetchAuConfig(au);
     if (plugin == null) {
       errMsg = "Unknown plugin: " + au.getPluginId() +
@@ -339,6 +344,7 @@ public class AuConfig extends LockssServlet {
     }
     Page page = newPage();
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
 
     StringBuffer exp = new StringBuffer();
     exp.append("Creating new Archival Unit");
@@ -370,6 +376,7 @@ public class AuConfig extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     String addExp = "Adding new Archival Unit" +
       "<br>First, select a title or a publisher plugin." +
       addFootnote("Configuring an AU requires choosing a publisher-dependent"
@@ -738,6 +745,7 @@ public class AuConfig extends LockssServlet {
     fetchAuConfig(au);
 
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     ServletUtil.layoutExplanationBlock(page, "Are you sure you want to delete" +
 	addFootnote(deleteFoot) + ": " + encodedAuName(au));
 
@@ -786,6 +794,7 @@ public class AuConfig extends LockssServlet {
     fetchAuConfig(au);
 
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     ServletUtil.layoutExplanationBlock(page, "Are you sure you want to deactivate" +
         addFootnote(deactivateFoot) + ": " + encodedAuName(au));
 

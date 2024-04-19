@@ -1163,6 +1163,24 @@ public abstract class LockssServlet extends HttpServlet
     return jstext;
   }
 
+  protected void addMigrationWarning(Composite comp, String msg) {
+    addMigrationWarning(comp,
+                        getLockssDaemon().getConfigManager().inMigrationMode(),
+                        msg);
+  }
+
+  protected void addMigrationWarning(Composite comp, boolean include,
+                                     String msg) {
+    if (include) {
+      Composite blk = new Block(Block.Center);
+      blk.add("<font color=\"dark orange\">");
+      blk.add(msg);
+      blk.add("</font>");
+      blk.add("<br><br>");
+      comp.add(blk);
+    }
+  }
+
   /** Display a message in lieu of the normal page
    */
   protected void displayMsgInLieuOfPage(String msg) throws IOException {
