@@ -1556,6 +1556,7 @@ public class TestConfigManager extends LockssTestCase4 {
 		    CONFIG_FILE_CONTENT_SERVERS,
 		    CONFIG_FILE_ACCESS_GROUPS,
 		    CONFIG_FILE_CRAWL_PROXY,
+                    CONFIG_FILE_MIGRATION,
 		    CONFIG_FILE_EXPERT_CLUSTER,
 		    CONFIG_FILE_EXPERT_LOCAL);
 
