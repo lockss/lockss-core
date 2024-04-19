@@ -447,6 +447,10 @@ public class ConfigManager implements LockssManager {
   public static final boolean DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED =
     true;
 
+  /** Various warnings are issued when in migration mode. */
+  public static final String PARAM_IS_IN_MIGRATION_MODE =
+    PREFIX + "inMigrationMode";
+  public static final boolean DEFAULT_IS_IN_MIGRATION_MODE = false;
 
   public static final String CONFIG_FILE_UI_IP_ACCESS = "ui_ip_access.txt";
   public static final String CONFIG_FILE_PROXY_IP_ACCESS =
@@ -462,6 +466,7 @@ public class ConfigManager implements LockssManager {
   public static final String CONFIG_FILE_EXPERT_CLUSTER = "expert_config.txt";
   public static final String CONFIG_FILE_EXPERT_LOCAL =
     "expert_config_local.txt";
+  public static final String CONFIG_FILE_MIGRATION = "v2_migration_config.txt";
 
   /** Obsolescent - replaced by CONFIG_FILE_CONTENT_SERVERS */
   public static final String CONFIG_FILE_ICP_SERVER = "icp_server_config.txt";
@@ -690,6 +695,7 @@ public class ConfigManager implements LockssManager {
     new LocalFileDescr(CONFIG_FILE_CONTENT_SERVERS),
     new LocalFileDescr(CONFIG_FILE_ACCESS_GROUPS), // not yet in use
     new LocalFileDescr(CONFIG_FILE_CRAWL_PROXY),
+    new LocalFileDescr(CONFIG_FILE_MIGRATION),
     new LocalFileDescr(CONFIG_FILE_EXPERT_CLUSTER)
     .setKeyPredicate(expertConfigKeyPredicate)
     .setIncludePredicate(expertConfigIncludePredicate),
@@ -710,6 +716,7 @@ public class ConfigManager implements LockssManager {
   protected LockssApp theApp = null;
   protected boolean isInited = false;
   protected boolean isStarted = false;
+  protected boolean inMigrationMode = DEFAULT_IS_IN_MIGRATION_MODE;
 
   private List configChangedCallbacks = new ArrayList();
 
@@ -925,6 +932,10 @@ public class ConfigManager implements LockssManager {
    */
   public boolean isStarted() {
     return isStarted;
+  }
+
+  public boolean inMigrationMode() {
+    return inMigrationMode;
   }
 
   public LockssApp getApp() {
@@ -2040,6 +2051,8 @@ public class ConfigManager implements LockssManager {
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
       auInsertCommitCount = config.getInt(PARAM_AU_INSERT_COMMIT_COUNT,
 	  				  DEFAULT_AU_INSERT_COMMIT_COUNT);
+      inMigrationMode = config.getBoolean(PARAM_IS_IN_MIGRATION_MODE,
+                                          DEFAULT_IS_IN_MIGRATION_MODE);
     }
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
