@@ -28,7 +28,6 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util.urlconn;
 
-import java.lang.reflect.Constructor;
 import java.util.*;
 import java.net.*;
 import java.io.*;

@@ -33,7 +33,6 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util;
 import java.util.*;
 import java.io.*;
-import java.lang.reflect.*;
 
 /**
  * An iterator over arrays of permutations of integers.  Each call to

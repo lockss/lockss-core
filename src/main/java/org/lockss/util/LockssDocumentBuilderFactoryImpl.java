@@ -29,7 +29,6 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.util;
 
 import java.util.*;
-import java.lang.reflect.*;
 import javax.xml.parsers.*;
 import javax.xml.validation.Schema;
 import org.xml.sax.*;
