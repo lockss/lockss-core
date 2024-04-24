@@ -398,7 +398,7 @@ public class TestDefinablePlugin extends LockssTestCase {
   }
 
   public void testGoodPluginWithOverride() throws Exception {
-    ConfigurationUtil.addFromArgs("org.lockss.app.testingMode",
+    ConfigurationUtil.addFromArgs("org.lockss.daemon.testingMode",
 				  "content-testing");
     String prefix = "org.lockss.plugin.definable.";
     String extMapName = prefix + "GoodPlugin";
@@ -519,7 +519,7 @@ public class TestDefinablePlugin extends LockssTestCase {
   }
 
   public void testInheritWithOverride() throws Exception {
-    ConfigurationUtil.addFromArgs("org.lockss.app.testingMode",
+    ConfigurationUtil.addFromArgs("org.lockss.daemon.testingMode",
 				  "content-testing");
     String prefix = "org.lockss.plugin.definable.";
     String extMapName = prefix + "ChildPlugin";

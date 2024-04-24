@@ -87,7 +87,8 @@ public class LockssApp {
 
   private static final String PREFIX = Configuration.PREFIX + "app.";
 
-  public static final String PARAM_TESTING_MODE = PREFIX + "testingMode";
+  public static final String PARAM_TESTING_MODE = Configuration.PREFIX +
+    "daemon." + "testingMode";
 
   static final String PARAM_IS_LAAWS = PREFIX + "isLaaws";
   static final boolean DEFAULT_IS_LAAWS = false;
