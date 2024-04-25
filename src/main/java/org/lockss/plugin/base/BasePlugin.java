@@ -28,6 +28,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.base;
 
+import java.io.*;
 import java.util.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
@@ -121,11 +122,11 @@ public abstract class BasePlugin
       return;
     }
     theDaemon.getConfigManager().unregisterConfigurationCallback(configCb);
-    if (classLoader instanceof LoadablePluginClassLoader) {
-      LoadablePluginClassLoader lploader =
-	(LoadablePluginClassLoader)classLoader;
-      if (lploader != null) {
-	lploader.close();
+    if (classLoader instanceof LoadablePluginClassLoader lpcl) {
+      try {
+        lpcl.close();
+      } catch (IOException e) {
+        log.warning("Couldn't close plugin ClassLoader", e);
       }
     }
     classLoader = null;
@@ -717,7 +718,7 @@ public abstract class BasePlugin
 
   /** Retuen the ClassLoader that was used to load the plugin, or null if
    * not a loadable plugin or loaded from system classpath */
-  ClassLoader getClassLoader() {
+  public ClassLoader getClassLoader() {
     return classLoader;
   }
 

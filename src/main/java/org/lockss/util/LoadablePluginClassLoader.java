@@ -32,6 +32,7 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 
+import java.io.*;
 import java.net.*;
 
 /**
@@ -43,12 +44,17 @@ import java.net.*;
 public class LoadablePluginClassLoader extends URLClassLoader {
   static Logger log = Logger.getLogger();
 
+  // For test only
+  private boolean isOpen = false;
+
   public LoadablePluginClassLoader(URL[] urls) {
     super(urls);
+    isOpen = true;
   }
 
   public LoadablePluginClassLoader(URL[] urls, ClassLoader parent) {
     super(urls, parent);
+    isOpen = true;
   }
 
   /**
@@ -101,40 +107,14 @@ public class LoadablePluginClassLoader extends URLClassLoader {
     return url;
   }
 
-  public void close() {
-    try {
-      log.debug2("Attempting close");
-      Class clazz = java.net.URLClassLoader.class;
-      java.lang.reflect.Field ucp = clazz.getDeclaredField("ucp");
-      ucp.setAccessible(true);
-      Object sun_misc_URLClassPath = ucp.get(this);
-      java.lang.reflect.Field loaders = 
-	sun_misc_URLClassPath.getClass().getDeclaredField("loaders");
-      loaders.setAccessible(true);
-      Object java_util_Collection = loaders.get(sun_misc_URLClassPath);
-      java.util.Collection coll = (java.util.Collection) java_util_Collection;
-      log.debug2("Found " + coll.size() + " loaders");
-      for (Object sun_misc_URLClassPath_JarLoader :
-	     ((java.util.Collection) java_util_Collection).toArray()) {
-	try {
-	  java.lang.reflect.Field loader = 
-            sun_misc_URLClassPath_JarLoader.getClass().getDeclaredField("jar");
-	  loader.setAccessible(true);
-	  Object java_util_jar_JarFile = 
-            loader.get(sun_misc_URLClassPath_JarLoader);
-	  ((java.util.jar.JarFile) java_util_jar_JarFile).close();
-	  log.debug2("Closed " + java_util_jar_JarFile);
-	} catch (Throwable t) {
-	  log.warning("JarFile.close()", t);
-	  // if we got this far, this is probably not a JAR loader so skip it
-	}
-      }
-    } catch (Throwable t) {
-      // probably not a SUN VM
-      log.warning("close()", t);
-    }
-    return;
+  public void close() throws IOException {
+    super.close();
+    isOpen = false;
   }
 
+  /** For test only */
+  public boolean isOpen() {
+    return isOpen;
+  }
 
 }

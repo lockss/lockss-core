@@ -2419,6 +2419,17 @@ public class TestPluginManager extends LockssTestCase4 {
     log.debug("isLoadable: " + info.isOnLoadablePath());
     assertEquals(preferLoadable, info.isOnLoadablePath());
     assertSame(mockPlugin, info.getPlugin());
+
+    BasePlugin bplug = (BasePlugin)mockPlugin;
+    if (bplug.getClassLoader() instanceof LoadablePluginClassLoader lpcl) {
+      assertTrue(lpcl.isOpen());
+      bplug.stopPlugin();
+      assertFalse(lpcl.isOpen());
+    } else {
+      assertFalse("Loadable plugins's ClassLoader isn't a LoadablePluginClassLoader: "
+                  + bplug.getClassLoader().getClass(),
+                  preferLoadable);
+    }
   }
 
   /** Load a loadable plugin, preferring the loadable version. */
