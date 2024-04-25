@@ -144,6 +144,12 @@ public abstract class BaseCrawler implements Crawler {
     PREFIX + "proxy.enabled";
   public static final boolean DEFAULT_PROXY_ENABLED = false;
 
+  /** If true, global proxy setting overrides per-au setting.  Useful
+   * for testing CLOCKSS source content through proxy. */
+  public static final String PARAM_PROXY_PREFER_GLOBAL =
+    PREFIX + "proxy.preferGlobal";
+  public static final boolean DEFAULT_PROXY_PREFER_GLOBAL = false;
+
   /** Proxy host for crawls */
   public static final String PARAM_PROXY_HOST =
     PREFIX + "proxy.host";

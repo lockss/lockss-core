@@ -829,6 +829,10 @@ public class AuUtil {
 	global.host = null;
 	global.port = 0;
       }
+      if (config.getBoolean(BaseCrawler.PARAM_PROXY_PREFER_GLOBAL,
+                            BaseCrawler.DEFAULT_PROXY_PREFER_GLOBAL)) {
+        return global;
+      }
     }
 
     if (!StringUtil.isNullString(auProxySpec)) {
