@@ -59,6 +59,7 @@ import org.lockss.protocol.*;
 import org.lockss.proxy.*;
 import org.lockss.remote.*;
 import org.lockss.repository.*;
+import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestHttpException;
 import org.lockss.servlet.*;
@@ -447,10 +448,24 @@ public class ConfigManager implements LockssManager {
   public static final boolean DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED =
     true;
 
+  // Migration params
+
   /** Various warnings are issued when in migration mode. */
-  public static final String PARAM_IS_IN_MIGRATION_MODE =
-    PREFIX + "inMigrationMode";
-  public static final boolean DEFAULT_IS_IN_MIGRATION_MODE = false;
+  public static final String PARAM_IS_CONFIGURED_FOR_MIGRATION =
+    MYPREFIX + "isConfiguredForMigration";
+  public static final boolean DEFAULT_IS_CONFIGURED_FOR_MIGRATION = false;
+
+  public static final String PARAM_SAME_HOST_MIGRATION =
+    MYPREFIX + "sameHostMigration";
+  public static final boolean DEFAULT_SAME_HOST_MIGRATION = false;
+
+  public static final String PARAM_MIGRATION_V1_ADDR =
+    MYPREFIX + "localV1Ip";
+
+  public static final String PARAM_MIGRATION_LCAP_PORT =
+    MYPREFIX + "migrationLcapPort";
+  public static final String DEFAULT_MIGRATION_LCAP_PORT = null;
+
 
   public static final String CONFIG_FILE_UI_IP_ACCESS = "ui_ip_access.txt";
   public static final String CONFIG_FILE_PROXY_IP_ACCESS =
@@ -716,7 +731,7 @@ public class ConfigManager implements LockssManager {
   protected LockssApp theApp = null;
   protected boolean isInited = false;
   protected boolean isStarted = false;
-  protected boolean inMigrationMode = DEFAULT_IS_IN_MIGRATION_MODE;
+  protected boolean inMigrationMode = DEFAULT_IS_CONFIGURED_FOR_MIGRATION;
 
   private List configChangedCallbacks = new ArrayList();
 
@@ -1985,6 +2000,7 @@ public class ConfigManager implements LockssManager {
     inferMiscParams(newConfig);
     setConfigMacros(newConfig);
     setCompatibilityParams(newConfig);
+    setMigrationParams(newConfig);
     newConfig.seal();
     Configuration oldConfig = currentConfig;
     if (!oldConfig.isEmpty() && newConfig.equals(oldConfig)) {
@@ -2051,8 +2067,8 @@ public class ConfigManager implements LockssManager {
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
       auInsertCommitCount = config.getInt(PARAM_AU_INSERT_COMMIT_COUNT,
 	  				  DEFAULT_AU_INSERT_COMMIT_COUNT);
-      inMigrationMode = config.getBoolean(PARAM_IS_IN_MIGRATION_MODE,
-                                          DEFAULT_IS_IN_MIGRATION_MODE);
+      inMigrationMode = config.getBoolean(PARAM_IS_CONFIGURED_FOR_MIGRATION,
+                                          DEFAULT_IS_CONFIGURED_FOR_MIGRATION);
     }
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
@@ -2238,6 +2254,40 @@ public class ConfigManager implements LockssManager {
     org.lockss.poller.PollManager.processConfigMacros(config);
   }
   
+  // If configured for migration, tell other subsystems to behave
+  // differently
+  private void setMigrationParams(Configuration config) {
+    if (config.getBoolean(PARAM_IS_CONFIGURED_FOR_MIGRATION,
+                          DEFAULT_IS_CONFIGURED_FOR_MIGRATION)) {
+      log.info("Setting up for migration from V1");
+
+      // Extract port from LCAP identity, combine it with V1 routable
+      // IP to get the PeerId to which to forward LCAP traffic
+      String migratingFromIdentity =
+        config.get(PARAM_PLATFORM_LOCAL_V3_IDENTITY);
+      PeerAddress pad;
+      try {
+        pad = PeerAddress.makePeerAddress(migratingFromIdentity);
+        if (pad instanceof PeerAddress.Tcp padv3) {
+          String sendToV1Id =
+            IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR),
+                               padv3.getPort());
+          log.info("Configuring to forward LCAP to: " + sendToV1Id);
+          config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
+        } else {
+          log.critical("LCAP identity is malformed, can't set up for migration: "
+                       + migratingFromIdentity);
+        }
+      } catch (IdentityManager.MalformedIdentityKeyException e) {
+        log.critical("LCAP identity is malformed, can't set up for migration: "
+                     + migratingFromIdentity);
+      }
+
+      // Tell SubscriptionManager to defer instantiating subscriptions
+      config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");
+    }
+  }
+
   private void copyToSysProps(Configuration config) {
     // Copy unfiltered port lists for retrieval in PlatformUtil
     setSysProp(PlatformUtil.SYSPROP_UNFILTERED_TCP_PORTS,

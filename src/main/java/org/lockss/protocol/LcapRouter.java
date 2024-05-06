@@ -118,6 +118,7 @@ public class LcapRouter
       if (!StringUtil.isNullString(migrateFromVal)) {
         try {
           migrateFrom = idMgr.findPeerIdentity(migrateFromVal);
+          log.info("Forwading outgoing LCAP traffic to: " + migrateFrom);
         } catch (IdentityManager.MalformedIdentityKeyException e) {
           log.error("Malformed migrateFrom peer identity: " +
               migrateFromVal);

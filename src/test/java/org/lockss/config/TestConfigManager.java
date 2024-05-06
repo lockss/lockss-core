@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,6 +51,7 @@ import org.lockss.config.Tdb;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.servlet.*;
 import org.lockss.jms.*;
+import org.lockss.subscription.*;
 import org.lockss.util.test.FileTestUtil;
 
 import static org.lockss.config.ConfigManager.*;
@@ -2400,6 +2401,29 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(0, auConfigs.size());
 
     log.debug2("Done");
+  }
+
+  /**
+   * Test migration setup
+   */
+  @Test
+  public void testMigrationSetup() throws Exception {
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_LOCAL_V3_IDENTITY,
+				  "tcp:[111.32.14.5]:9876",
+                                  ConfigManager.PARAM_MIGRATION_V1_ADDR, "7.6.8.0");
+    assertFalse(mgr.inMigrationMode());
+    Configuration cfg = ConfigManager.getCurrentConfig();
+    assertFalse(cfg.getBoolean(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED,
+                               SubscriptionManager.DEFAULT_SUBSCRIPTION_DEFERRED));
+    assertNull(cfg.get(LcapRouter.PARAM_MIGRATE_FROM));
+
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_IS_CONFIGURED_FOR_MIGRATION,
+                                  "true");
+    cfg = ConfigManager.getCurrentConfig();
+    assertTrue(mgr.inMigrationMode());
+    assertTrue(cfg.getBoolean(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED,
+                              SubscriptionManager.DEFAULT_SUBSCRIPTION_DEFERRED));
+    assertEquals("TCP:[7.6.8.0]:9876", cfg.get(LcapRouter.PARAM_MIGRATE_FROM));
   }
 
   private Configuration newConfiguration() {
