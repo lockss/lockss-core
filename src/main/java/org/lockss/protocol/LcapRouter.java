@@ -137,6 +137,11 @@ public class LcapRouter
    */
   public void sendTo(V3LcapMessage msg, PeerIdentity id)
       throws IOException {
+    // If no destination was specified in the message, set it to the
+    // destination ID specified in this call
+    if (msg.getDestinationId() == null) {
+      msg.setDestinationId(id);
+    }
     PeerMessage pm = makePeerMessage(msg);
     if (migrateFrom == null) {
       scomm.sendTo(pm, id);
@@ -193,6 +198,12 @@ public class LcapRouter
   void handleIncomingPeerMessage(PeerMessage pmsg) {
     try {
       LcapMessage lmsg = makeV3LcapMessage(pmsg);
+      if (lmsg.getDestinationId() !=
+          idMgr.getLocalPeerIdentity(Poll.V3_PROTOCOL)) {
+        log.warning("Received message address to " + lmsg.getDestinationId() +
+                    ", which is not us");
+        return;
+      }
       runHandlers(lmsg);
     } catch (Exception e) {
       log.warning("Exception while processing incoming " + pmsg, e);
