@@ -1010,6 +1010,9 @@ public class RepositoryManagerSql {
     try {
       conn = repoDbManager.getConnection();
       commitArtifact(conn, uuid);
+
+      // Commit the transaction.
+      DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
@@ -1137,6 +1140,9 @@ public class RepositoryManagerSql {
     try {
       conn = repoDbManager.getConnection();
       addArtifact(conn, artifact);
+
+      // Commit the transaction.
+      DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
