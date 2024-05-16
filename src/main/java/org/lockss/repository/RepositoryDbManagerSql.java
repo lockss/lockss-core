@@ -45,12 +45,44 @@ import static org.lockss.config.db.SqlConstants.*;
 public class RepositoryDbManagerSql extends DbManagerSql {
   private static L4JLogger log = L4JLogger.getLogger();
 
+  private static final String
+      CREATE_NAMESPACE_TABLE_QUERY = "CREATE TABLE "
+      + NAMESPACE_TABLE + " ("
+      + NAMESPACE_SEQ_COLUMN + " --BigintSerialPk--,"
+      + NAMESPACE_COLUMN + " VARCHAR(" + MAX_NAMESPACE_COLUMN + ") NOT NULL)";
+
   // Query to create the table for AUIDs and their internal sequence number.
   private static final String
       CREATE_AUID_TABLE_QUERY = "create table "
       + AUID_TABLE + " ("
       + AUID_SEQ_COLUMN + " --BigintSerialPk--,"
       + AUID_COLUMN + " varchar(" + MAX_AUID_COLUMN + ") not null)";
+
+  private static final String CREATE_URL_TABLE_QUERY = "CREATE TABLE "
+      + URL_TABLE + " ("
+      + URL_SEQ_COLUMN + " --BigintSerialPk--,"
+//      + URL_COLUMN + " VARCHAR NOT NULL)";
+      + URL_COLUMN + " --PreferUnboundedTextType--)";
+
+
+  private static final String
+      CREATE_ARTIFACT_TABLE_QUERY = "CREATE TABLE "
+      + ARTIFACT_TABLE + " ("
+//      + ARTIFACT_UUID_COLUMN + " uuid DEFAULT gen_random_uuid(),"
+      + ARTIFACT_UUID_COLUMN + " CHAR(128) NOT NULL,"
+      + NAMESPACE_SEQ_COLUMN + " BIGINT NOT NULL"
+      + " REFERENCES " + NAMESPACE_TABLE + " (" + NAMESPACE_SEQ_COLUMN + ") ON DELETE CASCADE,"
+      + AUID_SEQ_COLUMN + " BIGINT NOT NULL"
+          + " REFERENCES " + AUID_TABLE + " (" + AUID_SEQ_COLUMN + ") ON DELETE CASCADE,"
+      + URL_SEQ_COLUMN + " BIGINT NOT NULL"
+      + " REFERENCES " + URL_TABLE + " (" + URL_SEQ_COLUMN + ") ON DELETE CASCADE,"
+      + ARTIFACT_VERSION_COLUMN + " INTEGER NOT NULL,"
+      + ARTIFACT_COMMITTED_COLUMN + " BOOLEAN,"
+      + ARTIFACT_STORAGE_URL_COLUMN + " VARCHAR(" + MAX_ARTIFACT_STORAGE_URL_COLUMN + ") NOT NULL,"
+      + ARTIFACT_LENGTH_COLUMN + " BIGINT NOT NULL,"
+      + ARTIFACT_DIGEST_COLUMN + " VARCHAR(" + MAX_ARTIFACT_DIGEST_COLUMN + ") NOT NULL,"
+      + ARTIFACT_CRAWL_TIME_COLUMN + " BIGINT NOT NULL"
+      + ")";
 
   // Query to create the table for tracking AU size statistics.
   private static final String
@@ -65,19 +97,28 @@ public class RepositoryDbManagerSql extends DbManagerSql {
       + LAST_UPDATE_TIME_COLUMN + " bigint not null"
       + ")";
 
-  // SQL statements that create the necessary version 5 indices.
+  // SQL statements that create the necessary version 1 indices.
   private static final String[] VERSION_1_INDEX_CREATE_QUERIES = new String[]{
       "create unique index idx1_" + AUID_TABLE
           + " on " + AUID_TABLE + "("
           + AUID_SEQ_COLUMN + ")"
   };
 
-  // The SQL code used to create the necessary version 5 database tables.
+  // The SQL code used to create the necessary version 1 database tables.
   @SuppressWarnings("serial")
   private static final Map<String, String> VERSION_1_TABLE_CREATE_QUERIES =
       new LinkedHashMap<String, String>() {{
         put(AUID_TABLE, CREATE_AUID_TABLE_QUERY);
         put(ARCHIVAL_UNIT_SIZE_TABLE, CREATE_ARCHIVAL_UNIT_SIZE_TABLE_QUERY);
+      }};
+
+  // The SQL code used to create the necessary version 2 database tables.
+  @SuppressWarnings("serial")
+  private static final Map<String, String> VERSION_2_TABLE_CREATE_QUERIES =
+      new LinkedHashMap<String, String>() {{
+        put(NAMESPACE_TABLE, CREATE_NAMESPACE_TABLE_QUERY);
+        put(URL_TABLE, CREATE_URL_TABLE_QUERY);
+        put(ARTIFACT_TABLE, CREATE_ARTIFACT_TABLE_QUERY);
       }};
 
   /**
@@ -117,6 +158,27 @@ public class RepositoryDbManagerSql extends DbManagerSql {
 
     // Create the necessary indices.
     executeDdlQueries(conn, VERSION_1_INDEX_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Updates the database from version 1 to version 2.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom1To2(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Create the necessary tables if they do not exist.
+    createTablesIfMissing(conn, VERSION_2_TABLE_CREATE_QUERIES);
 
     log.debug2("Done.");
   }

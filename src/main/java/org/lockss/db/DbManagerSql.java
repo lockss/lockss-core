@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.lockss.config.db.SqlConstants.DERBY_MAX_VARCHAR;
 import static org.lockss.db.SqlConstants.*;
 
 /**
@@ -69,12 +70,18 @@ public class DbManagerSql {
 
   // PostgreSQL definition of a big integer primary key column with a value
   // automatically generated from a sequence.
-  private static final String BIGINT_SERIAL_PK_PG = "bigserial primary key";
+  private static final String BIGINT_SERIAL_PK_PGSQL = "bigserial primary key";
 
   // MySQL definition of a big integer primary key column with a value
   // automatically generated from a sequence.
   private static final String BIGINT_SERIAL_PK_MYSQL =
       "bigint auto_increment primary key";
+
+  private static final String MAX_VARCHAR_TYPE_DERBY =
+      "VARCHAR(" + DERBY_MAX_VARCHAR + ")";
+
+  private static final String MAX_VARCHAR_TYPE_PGSQL =
+      "TEXT";
 
   // Database metadata keys.
   private static final String COLUMN_NAME = "COLUMN_NAME";
@@ -1190,8 +1197,10 @@ public class DbManagerSql {
    * @return a String with the localized table creation query.
    */
   private String localizeCreateQueryForDerby(String query) {
-    return StringUtil.replaceString(query, "--BigintSerialPk--",
-	BIGINT_SERIAL_PK_DERBY);
+    String result = StringUtil.replaceString(query, "--BigintSerialPk--",
+        BIGINT_SERIAL_PK_DERBY);
+    return StringUtil.replaceString(result, "--PreferUnboundedTextType--",
+	MAX_VARCHAR_TYPE_DERBY);
   }
 
   /**
@@ -1203,8 +1212,10 @@ public class DbManagerSql {
    * @return a String with the localized table creation query.
    */
   private String localizeCreateQueryForPostgresql(String query) {
-    return StringUtil.replaceString(query, "--BigintSerialPk--",
-	BIGINT_SERIAL_PK_PG);
+    String result = StringUtil.replaceString(query, "--BigintSerialPk--",
+        BIGINT_SERIAL_PK_PGSQL);
+    return StringUtil.replaceString(result, "--PreferUnboundedTextType--",
+        MAX_VARCHAR_TYPE_PGSQL);
   }
 
   /**

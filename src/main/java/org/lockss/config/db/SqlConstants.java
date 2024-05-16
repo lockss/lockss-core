@@ -69,8 +69,17 @@ public class SqlConstants {
   public static final String ARCHIVAL_UNIT_SIZE_TABLE =
       "archival_unit_size";
 
-  /** Name of the archival unit statistics table. */
+  /** Name of the table for namespaces */
+  public static final String NAMESPACE_TABLE = "namespaces";
+
+  /** Name of the Archival Unit ID table. */
   public static final String AUID_TABLE = "auids";
+
+  /** Name of the artifact URLs table. */
+  public static final String URL_TABLE = "urls";
+
+  /** Name of the table for artifacts */
+  public static final String ARTIFACT_TABLE = "artifacts";
 
   //
   // Database table column names.
@@ -87,8 +96,42 @@ public class SqlConstants {
   /** Name of archival unit_key column. */
   public static final String ARCHIVAL_UNIT_KEY_COLUMN = "archival_unit_key";
 
+  /** Namespace sequential identifier column. */
+  public static final String NAMESPACE_SEQ_COLUMN = "namespace_seq";
+
   /** AUID sequential identifier column. */
   public static final String AUID_SEQ_COLUMN = "auid_seq";
+
+  /** URL sequential identifier column. */
+  public static final String URL_SEQ_COLUMN = "url_seq";
+
+
+  /** Name of namespace column. */
+  public static final String NAMESPACE_COLUMN = "namespace";
+
+  /** Artifact UUID column */
+  public static final String ARTIFACT_UUID_COLUMN = "uuid";
+
+  /** Artifact URL column */
+  public static final String URL_COLUMN = "url";
+
+  /** Artifact version column */
+  public static final String ARTIFACT_VERSION_COLUMN = "version";
+
+  /** Artifact committed status column */
+  public static final String ARTIFACT_COMMITTED_COLUMN = "committed";
+
+  /** Artifact storage URL column */
+  public static final String ARTIFACT_STORAGE_URL_COLUMN = "storage_url";
+
+  /** Artifact length column */
+  public static final String ARTIFACT_LENGTH_COLUMN = "length";
+
+  /** Artifact digest column */
+  public static final String ARTIFACT_DIGEST_COLUMN = "digest";
+
+  /** Artifact crawl time column */
+  public static final String ARTIFACT_CRAWL_TIME_COLUMN = "crawl_time";
 
   /** Name of AUID column. */
   public static final String AUID_COLUMN = "auid";
@@ -144,6 +187,15 @@ public class SqlConstants {
   public static final int MAX_AUID_COLUMN =
       MAX_PLUGIN_ID_COLUMN + MAX_ARCHIVAL_UNIT_KEY_COLUMN;
 
+  /** Maximum length of the namespace column */
+  public static final int MAX_NAMESPACE_COLUMN = 256;
+
+  /** Maximum length of the artifact storage URL column */
+  public static final int MAX_ARTIFACT_STORAGE_URL_COLUMN = 1024;
+
+  /** Maximum length of the artifact digest column */
+  public static final int MAX_ARTIFACT_DIGEST_COLUMN = 1024;
+
   /** Length of the archival unit configuration key column. */
   public static final int MAX_CONFIG_KEY_COLUMN = 128;
 
@@ -162,5 +214,5 @@ public class SqlConstants {
   /** Length of the archival unit no AU peer set string column */
   public static final int MAX_NO_AU_PEER_SET_STRING_COLUMN = 8192;
 
-  public static final int MAX_VARCHAR = 32000;
+  public static final int DERBY_MAX_VARCHAR = 32000;
 }

@@ -31,21 +31,55 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.repository;
 
-import org.lockss.config.db.ConfigDbManager;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.time.TimeBase;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.lockss.config.db.SqlConstants.*;
 
+/**
+ * SQL queries and operations in support of {@link RepositoryManager}.
+ */
 public class RepositoryManagerSql {
   private static L4JLogger log = L4JLogger.getLogger();
 
   protected final RepositoryDbManager repoDbManager;
+
+  private static final String FIND_URL_SEQ_QUERY = "SELECT "
+      + URL_SEQ_COLUMN
+      + " FROM " + URL_TABLE
+      + " WHERE " + URL_COLUMN + " = ?";
+
+  private static final String INSERT_URL_QUERY = "INSERT INTO "
+      + URL_TABLE
+      + "(" + URL_SEQ_COLUMN
+      + "," + URL_COLUMN
+      + ") VALUES (default,?)";
+
+  private static final String GET_URLS_QUERY = "SELECT "
+      + URL_COLUMN + " FROM " + URL_TABLE;
+
+  private static final String FIND_NAMESPACE_SEQ_QUERY = "SELECT "
+      + NAMESPACE_SEQ_COLUMN
+      + " FROM " + NAMESPACE_TABLE
+      + " WHERE " + NAMESPACE_COLUMN + " = ?";
+
+  private static final String INSERT_NAMESPACE_QUERY = "INSERT INTO "
+      + NAMESPACE_TABLE
+      + "(" + NAMESPACE_SEQ_COLUMN
+      + "," + NAMESPACE_COLUMN
+      + ") VALUES (default,?)";
+
+  private static final String GET_NAMESPACES_QUERY = "SELECT "
+      + NAMESPACE_COLUMN + " FROM " + NAMESPACE_TABLE;
 
   // Query to find an AUID's internal AUID sequence number
   private static final String FIND_AUID_SEQ_QUERY = "select "
@@ -72,6 +106,150 @@ public class RepositoryManagerSql {
       + " and a." + AUID_SEQ_COLUMN + " = s."
       + AUID_SEQ_COLUMN;
 
+  private static final String GET_ARTIFACT_BY_UUID_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", au." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " au"
+      + "," + URL_TABLE + " u"
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = au." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND a." + ARTIFACT_UUID_COLUMN + " = ?";
+
+  private static final String GET_LATEST_ARTIFACT_VERSION_QUERY = "SELECT "
+      + " MAX(a." + ARTIFACT_VERSION_COLUMN + ")"
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " = ?";
+
+  private static final String GET_LATEST_ARTIFACT_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " = ?"
+      + " AND a." + ARTIFACT_VERSION_COLUMN + " = (" + GET_LATEST_ARTIFACT_VERSION_QUERY + ")";
+
+  private static final String ARTIFACT_COMMITTED_STATUS_CONDITION =
+      " AND a." + ARTIFACT_COMMITTED_COLUMN + " = ?";
+
+  private static final String GET_ARTIFACT_WITH_VERSION_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " = ?"
+      + " AND a." + ARTIFACT_VERSION_COLUMN + " = ?";
+
+  private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?";
+
+  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?";
+
+  private static final String GET_AUIDS_BY_NAMESPACE = "SELECT DISTINCT "
+      + "auid." + AUID_COLUMN
+      + " FROM " + AUID_TABLE + " auid"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + ARTIFACT_TABLE + " a"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?";
+
+  private static final String UPDATE_ARTIFACT_COMMITTED_QUERY = "UPDATE " + ARTIFACT_TABLE
+      + " SET " + ARTIFACT_COMMITTED_COLUMN + " = ?"
+      + " WHERE " + ARTIFACT_UUID_COLUMN + " = ?";
+
+  private static final String UPDATE_ARTIFACT_STORAGE_URL_QUERY = "UPDATE " + ARTIFACT_TABLE
+      + " SET " + ARTIFACT_STORAGE_URL_COLUMN + " = ?"
+      + " WHERE " + ARTIFACT_UUID_COLUMN + " = ?";
+
+  private static final String DELETE_ARTIFACT_QUERY = "DELETE FROM " + ARTIFACT_TABLE
+      + " WHERE " + ARTIFACT_UUID_COLUMN + " = ?";
+
   // Query to delete AU sizes of an AU associated with an AUID
   private static final String DELETE_AU_SIZE_QUERY =
       "delete from " + ARCHIVAL_UNIT_SIZE_TABLE
@@ -86,6 +264,20 @@ public class RepositoryManagerSql {
       + "," + AU_DISK_SIZE_COLUMN
       + "," + LAST_UPDATE_TIME_COLUMN
       + ") values (?,?,?,?,?)";
+
+  private static final String INSERT_ARTIFACT_QUERY = "INSERT INTO "
+      + ARTIFACT_TABLE
+      + "(" + ARTIFACT_UUID_COLUMN
+      + "," + NAMESPACE_SEQ_COLUMN
+      + "," + AUID_SEQ_COLUMN
+      + "," + URL_SEQ_COLUMN
+      + "," + ARTIFACT_VERSION_COLUMN
+      + "," + ARTIFACT_COMMITTED_COLUMN
+      + "," + ARTIFACT_STORAGE_URL_COLUMN
+      + "," + ARTIFACT_LENGTH_COLUMN
+      + "," + ARTIFACT_DIGEST_COLUMN
+      + "," + ARTIFACT_CRAWL_TIME_COLUMN
+      + " ) VALUES (?,?,?,?,?,?,?,?,?,?)";
 
   /**
    * Constructor.
@@ -106,6 +298,306 @@ public class RepositoryManagerSql {
    */
   public Connection getConnection() throws DbException {
     return repoDbManager.getConnection();
+  }
+
+  protected Long findOrCreateUrlSeq(Connection conn, String url)
+      throws DbException {
+
+    log.debug2("url = {}", url);
+
+    // Find the URL in the database
+    Long urlSeq = findUrlSeq(conn, url);
+    log.trace("urlSeq = {}", urlSeq);
+
+    if (urlSeq == null) {
+      // Add the URL to the database
+      urlSeq = addUrl(conn, url);
+      log.trace("new urlSeq = {}", urlSeq);
+    }
+
+    log.debug2("urlSeq = {}", urlSeq);
+    return urlSeq;
+  }
+
+  protected Long findUrlSeq(Connection conn, String url)
+      throws DbException {
+
+    log.debug2("url = {}", url);
+
+    Long urlSeq = null;
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot find url";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, FIND_URL_SEQ_QUERY);
+
+      // Populate the query
+      ps.setString(1, url);
+
+      // Get the URL row
+      resultSet = repoDbManager.executeQuery(ps);
+
+      // Check whether a result was obtained.
+      if (resultSet.next()) {
+        // Yes: Get the URL sequence
+        urlSeq = resultSet.getLong(NAMESPACE_SEQ_COLUMN);
+        log.trace("Found urlSeq = {}", urlSeq);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", FIND_URL_SEQ_QUERY);
+      log.error("url = {}", url);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    log.debug2("urlSeq = {}", urlSeq);
+    return urlSeq;
+  }
+
+  private Long addUrl(Connection conn, String url) throws DbException {
+    log.debug2("url = {}", url);
+
+    Long urlSeq = null;
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot add url";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn,
+          INSERT_URL_QUERY, Statement.RETURN_GENERATED_KEYS);
+
+      // Populate the query
+      ps.setString(1, url);
+
+      // Add the URL
+      repoDbManager.executeUpdate(ps);
+      resultSet = ps.getGeneratedKeys();
+
+      // Check whether a result was not obtained.
+      if (!resultSet.next()) {
+        // Yes: Report the problem.
+        String message =
+            "Unable to create row in url table for url = " + url;
+        log.error(message);
+        throw new DbException(message);
+      }
+
+      // No: Get the url database identifier.
+      urlSeq = resultSet.getLong(1);
+      log.trace("Added urlSeq = {}", urlSeq);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", INSERT_URL_QUERY);
+      log.error("url = {}", url);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", INSERT_URL_QUERY);
+      log.error("url = {}", url);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    log.debug2("urlSeq = {}", urlSeq);
+    return urlSeq;
+  }
+
+  protected Long findOrCreateNamespaceSeq(Connection conn, String namespace)
+      throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+
+    // Find the namespace in the database
+    Long namespaceSeq = findNamespaceSeq(conn, namespace);
+    log.trace("namespaceSeq = {}", namespaceSeq);
+
+    if (namespaceSeq == null) {
+      // Add the namespace to the database
+      namespaceSeq = addNamespace(conn, namespace);
+      log.trace("new namespaceSeq = {}", namespaceSeq);
+    }
+
+    log.debug2("namespaceSeq = {}", namespaceSeq);
+    return namespaceSeq;
+  }
+
+  protected Long findNamespaceSeq(Connection conn, String namespace)
+      throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+
+    Long namespaceSeq = null;
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot find namespace";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, FIND_NAMESPACE_SEQ_QUERY);
+
+      // Populate the query
+      ps.setString(1, namespace);
+
+      // Get the namespace row
+      resultSet = repoDbManager.executeQuery(ps);
+
+      // Check whether a result was obtained.
+      if (resultSet.next()) {
+        // Yes: Get the namespace sequence
+        namespaceSeq = resultSet.getLong(NAMESPACE_SEQ_COLUMN);
+        log.trace("Found namespaceSeq = {}", namespaceSeq);
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", FIND_NAMESPACE_SEQ_QUERY);
+      log.error("namespace = {}", namespace);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    log.debug2("namespaceSeq = {}", namespaceSeq);
+    return namespaceSeq;
+  }
+
+  private Long addNamespace(Connection conn, String namespace) throws DbException {
+    log.debug2("namespace = {}", namespace);
+
+    Long namespaceSeq = null;
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot add namespace";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn,
+          INSERT_NAMESPACE_QUERY, Statement.RETURN_GENERATED_KEYS);
+
+      // Populate the query
+      ps.setString(1, namespace);
+
+      // Add the namespace
+      repoDbManager.executeUpdate(ps);
+      resultSet = ps.getGeneratedKeys();
+
+      // Check whether a result was not obtained.
+      if (!resultSet.next()) {
+        // Yes: Report the problem.
+        String message =
+            "Unable to create row in namespace table for namespace = " + namespace;
+        log.error(message);
+        throw new DbException(message);
+      }
+
+      // No: Get the namespace database identifier.
+      namespaceSeq = resultSet.getLong(1);
+      log.trace("Added namespaceSeq = {}", namespaceSeq);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", INSERT_NAMESPACE_QUERY);
+      log.error("namespace = {}", namespace);
+      throw new DbException(errorMessage, sqle);
+    } catch (DbException dbe) {
+      log.error(errorMessage, dbe);
+      log.error("SQL = '{}'.", INSERT_NAMESPACE_QUERY);
+      log.error("namespace = {}", namespace);
+      throw dbe;
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    log.debug2("namespaceSeq = {}", namespaceSeq);
+    return namespaceSeq;
+  }
+
+  public List<String> getNamespaces() throws DbException {
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return getNamespaces(conn);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<String> getNamespaces(Connection conn) throws DbException {
+    List<String> result = new ArrayList<>();
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get namespaces";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_NAMESPACES_QUERY);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      while (resultSet.next()) {
+        result.add(resultSet.getString(NAMESPACE_COLUMN));
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_NAMESPACES_QUERY);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
+  }
+
+  public Iterable<String> findAuids(String namespace) throws DbException {
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findAuids(conn, namespace);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private Iterable<String> findAuids(Connection conn, String namespace) throws DbException {
+    List<String> result = new ArrayList<>();
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get AUIDs in namespace";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_AUIDS_BY_NAMESPACE);
+      ps.setString(1, namespace);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      while (resultSet.next()) {
+        result.add(resultSet.getString(AUID_COLUMN));
+      }
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", GET_AUIDS_BY_NAMESPACE);
+      log.error("namespace = {}", namespace);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    log.debug2("result = {}", result);
+    return result;
   }
 
   protected Long findOrCreateAuidSeq(Connection conn, String auid)
@@ -218,6 +710,334 @@ public class RepositoryManagerSql {
     return auidSeq;
   }
 
+  public Artifact getArtifact(String uuid) throws DbException {
+    log.debug2("artifactId = {}", uuid);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return getArtifact(conn, uuid);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private Artifact getArtifact(Connection conn, String uuid) throws DbException {
+    log.debug2("artifactId = {}", uuid);
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifact";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACT_BY_UUID_QUERY);
+
+      // Populate the query
+      ps.setString(1, uuid);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      Artifact result = getArtifactFromResultSet(resultSet);
+      log.debug2("result = {}", result);
+      return result;
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_ARTIFACT_BY_UUID_QUERY);
+      log.error("artifactId = {}", uuid);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public Artifact getArtifact(String namespace, String auid, String url, int version) throws DbException {
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("url = {}", url);
+    log.debug2("version = {}", version);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return getArtifact(conn, namespace, auid, url, version);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private Artifact getArtifact(Connection conn, String namespace, String auid, String url, int version)
+      throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifact";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACT_WITH_VERSION_QUERY);
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, auid);
+      ps.setString(3, url);
+      ps.setInt(4, version);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      Artifact result = getArtifactFromResultSet(resultSet);
+      log.debug2("result = {}", result);
+      return result;
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_ARTIFACT_WITH_VERSION_QUERY);
+      log.error("namespace = {}", namespace);
+      log.error("auid = {}", auid);
+      log.error("url = {}", url);
+      log.error("version = {}", version);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public List<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
+      String namespace, String auid, boolean includeUncommitted) throws DbException {
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("includeUncommitted = {}", includeUncommitted);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
+      Connection conn, String namespace, String auid, boolean includeUncommitted) throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifacts";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, auid);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      return getArtifactsFromResultSet(resultSet);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+      log.error("namespace = {}", namespace);
+      log.error("auid = {}", auid);
+      log.error("includeUncommitted = {}", includeUncommitted);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public List<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(String namespace, String auid, boolean includeUncommitted) throws DbException {
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("includeUncommitted = {}", includeUncommitted);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(Connection conn, String namespace, String auid, boolean includeUncommitted)
+      throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifacts";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, auid);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      return getArtifactsFromResultSet(resultSet);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+      log.error("namespace = {}", namespace);
+      log.error("auid = {}", auid);
+      log.error("includeUncommitted = {}", includeUncommitted);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  private List<Artifact> getArtifactsFromResultSet(ResultSet resultSet) throws SQLException {
+    List<Artifact> result = new ArrayList<>();
+
+    // FIXME: Is there a better way to do this?
+    while (resultSet.next()) {
+      result.add(getArtifactFromCurrentRow(resultSet));
+    }
+
+    return result;
+  }
+
+  private Artifact getArtifactFromResultSet(ResultSet resultSet) throws SQLException {
+    // Get the single result, if any
+    if (resultSet.next()) {
+      return getArtifactFromCurrentRow(resultSet);
+    }
+
+    return null;
+  }
+
+  private Artifact getArtifactFromCurrentRow(ResultSet resultSet) throws SQLException {
+    Artifact result = new Artifact();
+
+    result.setUuid(resultSet.getString(ARTIFACT_UUID_COLUMN));
+    result.setNamespace(resultSet.getString(NAMESPACE_COLUMN));
+    result.setAuid(resultSet.getString(AUID_COLUMN));
+    result.setUri(resultSet.getString(URL_COLUMN));
+    result.setVersion(resultSet.getInt(ARTIFACT_VERSION_COLUMN));
+    result.setCommitted(resultSet.getBoolean(ARTIFACT_COMMITTED_COLUMN));
+    result.setStorageUrl(resultSet.getString(ARTIFACT_STORAGE_URL_COLUMN));
+    result.setContentLength(resultSet.getLong(ARTIFACT_LENGTH_COLUMN));
+    result.setContentDigest(resultSet.getString(ARTIFACT_DIGEST_COLUMN));
+    result.setCollectionDate(resultSet.getLong(ARTIFACT_CRAWL_TIME_COLUMN));
+
+    return result;
+  }
+
+  public Artifact getLatestArtifact(String namespace, String auid, String url, boolean includeUncommitted)
+      throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("url = {}", url);
+    log.debug2("includeUncommitted = {}", includeUncommitted);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return getLatestArtifact(conn, namespace, auid, url, includeUncommitted);
+    } finally {
+      DbManager.safeCloseConnection(conn);
+    }
+  }
+
+  private Artifact getLatestArtifact(Connection conn,
+                                     String namespace, String auid, String url, boolean includeUncommitted)
+      throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifact";
+
+    try {
+      String sqlQuery = GET_LATEST_ARTIFACT_QUERY;
+
+      if (!includeUncommitted) {
+        sqlQuery += ARTIFACT_COMMITTED_STATUS_CONDITION;
+      }
+
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, sqlQuery);
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, auid);
+      ps.setString(3, url);
+      ps.setString(4, namespace);
+      ps.setString(5, auid);
+      ps.setString(6, url);
+
+      if (!includeUncommitted) {
+        ps.setBoolean(5, true);
+      }
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      Artifact result = getArtifactFromResultSet(resultSet);
+      log.debug2("result = {}", result);
+      return result;
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_LATEST_ARTIFACT_QUERY);
+      log.error("namespace = {}", namespace);
+      log.error("auid = {}", auid);
+      log.error("url = {}", url);
+      log.error("includeUncommitted = {}", includeUncommitted);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public void commitArtifact(String uuid) throws DbException {
+    log.debug2("artifactId = {}", uuid);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      commitArtifact(conn, uuid);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private void commitArtifact(Connection conn, String uuid) throws DbException {
+    PreparedStatement ps = null;
+    String errorMessage = "Cannot update committed status for artifact";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, UPDATE_ARTIFACT_COMMITTED_QUERY);
+
+      // Populate the query
+      ps.setBoolean(1, true);
+      ps.setString(2, uuid);
+
+      repoDbManager.executeQuery(ps);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", UPDATE_ARTIFACT_COMMITTED_QUERY);
+      log.error("uuid = {}", uuid);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
   public AuSize findAuSize(String auid) throws DbException {
     log.debug2("auid = {}", auid);
 
@@ -300,13 +1120,148 @@ public class RepositoryManagerSql {
       result = updateAuSize(conn, auid, auSize);
 
       // Commit the transaction.
-      ConfigDbManager.commitOrRollback(conn, log);
+      DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2("result = {}", result);
     return result;
+  }
+
+  public void addArtifact(Artifact artifact) throws DbException {
+    log.debug2("artifact = {}", artifact);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      addArtifact(conn, artifact);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private void addArtifact(Connection conn, Artifact artifact) throws DbException {
+    long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
+    long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
+    long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+    addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+  }
+
+  private void addArtifact(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact)
+      throws DbException {
+
+    PreparedStatement ps = repoDbManager.prepareStatement(conn, INSERT_ARTIFACT_QUERY);
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
+
+    try {
+      ps.setString(1, artifactId.getUuid());
+      ps.setLong(2, namespaceSeq);
+      ps.setLong(3, auidSeq);
+      ps.setLong(4, urlSeq);
+      ps.setInt(5, artifactId.getVersion());
+      ps.setBoolean(6, artifact.isCommitted());
+      ps.setString(7, artifact.getStorageUrl());
+      ps.setLong(8, artifact.getContentLength());
+      ps.setString(9, artifact.getContentDigest());
+      ps.setLong(10, artifact.getCollectionDate());
+
+      repoDbManager.executeUpdate(ps);
+    } catch (SQLException e) {
+      log.error("Error preparing SQL statement", e);
+      throw new DbException("Error preparing SQL statement", e);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public void updateStorageUrl(String uuid, String storageUrl) throws DbException {
+    log.debug2("uuid = {}", uuid);
+    log.debug2("storageUrl = {}", storageUrl);
+
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database
+      conn = repoDbManager.getConnection();
+
+      // Update the storage URL
+      updateStorageUrl(conn, uuid, storageUrl);
+
+      // Commit the transaction.
+      DbManager.commitOrRollback(conn, log);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private int updateStorageUrl(Connection conn, String uuid, String storageUrl) throws DbException {
+    log.debug2("artifactId = {}", uuid);
+    log.debug2("storageUrl = {}", storageUrl);
+
+    PreparedStatement ps = null;
+    String errorMessage = "Cannot update storage URL";
+
+    try {
+      // Prepare the query.
+      ps = repoDbManager.prepareStatement(conn, UPDATE_ARTIFACT_STORAGE_URL_QUERY);
+      ps.setString(1, storageUrl);
+      ps.setString(2, uuid);
+
+      // Execute the query
+      return repoDbManager.executeUpdate(ps);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", UPDATE_ARTIFACT_STORAGE_URL_QUERY);
+      log.error("artifactId = {}", uuid);
+      log.error("storageUrl = {}", storageUrl);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public void deleteArtifact(String uuid) throws DbException {
+    log.debug2("uuid = {}", uuid);
+
+    Connection conn = null;
+
+    try {
+      // Get a connection to the database
+      conn = repoDbManager.getConnection();
+
+      // Delete the artifact
+      deleteArtifact(conn, uuid);
+
+      // Commit the transaction.
+      DbManager.commitOrRollback(conn, log);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private int deleteArtifact(Connection conn, String uuid) throws DbException {
+    log.debug2("artifactId = {}", uuid);
+
+    PreparedStatement ps = null;
+    String errorMessage = "Cannot delete artifact";
+
+    try {
+      // Prepare the query.
+      ps = repoDbManager.prepareStatement(conn, DELETE_ARTIFACT_QUERY);
+      ps.setString(1, uuid);
+
+      // Execute the query
+      return repoDbManager.executeUpdate(ps);
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", DELETE_ARTIFACT_QUERY);
+      log.error("artifactId = {}", uuid);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
   }
 
   public void deleteAuSize(String auid) throws DbException {
@@ -322,7 +1277,7 @@ public class RepositoryManagerSql {
       deleteAuSize(conn, auid);
 
       // Commit the transaction.
-      ConfigDbManager.commitOrRollback(conn, log);
+      DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
@@ -419,7 +1374,7 @@ public class RepositoryManagerSql {
       log.error("auidSeq = {}", auidSeq);
       throw new DbException(errorMessage, sqle);
     } finally {
-      ConfigDbManager.safeCloseStatement(deleteAuSize);
+      DbManager.safeCloseStatement(deleteAuSize);
     }
 
     log.debug2("result = {}", result);
@@ -469,7 +1424,7 @@ public class RepositoryManagerSql {
       log.error("auSize = {}", auSize);
       throw new DbException(errorMessage, sqle);
     } finally {
-      ConfigDbManager.safeCloseStatement(addAuSize);
+      DbManager.safeCloseStatement(addAuSize);
     }
   }
 }
