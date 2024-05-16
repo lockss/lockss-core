@@ -81,6 +81,7 @@ public class RepositoryManagerSql {
   private static final String GET_NAMESPACES_QUERY = "SELECT "
       + NAMESPACE_COLUMN + " FROM " + NAMESPACE_TABLE;
 
+
   // Query to find an AUID's internal AUID sequence number
   private static final String FIND_AUID_SEQ_QUERY = "select "
       + AUID_SEQ_COLUMN
@@ -949,7 +950,7 @@ public class RepositoryManagerSql {
       conn = repoDbManager.getConnection();
       return getLatestArtifact(conn, namespace, auid, url, includeUncommitted);
     } finally {
-      DbManager.safeCloseConnection(conn);
+      DbManager.safeRollbackAndClose(conn);
     }
   }
 
@@ -1030,7 +1031,7 @@ public class RepositoryManagerSql {
       ps.setBoolean(1, true);
       ps.setString(2, uuid);
 
-      repoDbManager.executeQuery(ps);
+      repoDbManager.executeUpdate(ps);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", UPDATE_ARTIFACT_COMMITTED_QUERY);
