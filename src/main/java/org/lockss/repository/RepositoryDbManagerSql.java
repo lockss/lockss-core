@@ -69,7 +69,7 @@ public class RepositoryDbManagerSql extends DbManagerSql {
       CREATE_ARTIFACT_TABLE_QUERY = "CREATE TABLE "
       + ARTIFACT_TABLE + " ("
 //      + ARTIFACT_UUID_COLUMN + " uuid DEFAULT gen_random_uuid(),"
-      + ARTIFACT_UUID_COLUMN + " CHAR(128) NOT NULL,"
+      + ARTIFACT_UUID_COLUMN + " CHAR(36) NOT NULL,"
       + NAMESPACE_SEQ_COLUMN + " BIGINT NOT NULL"
       + " REFERENCES " + NAMESPACE_TABLE + " (" + NAMESPACE_SEQ_COLUMN + ") ON DELETE CASCADE,"
       + AUID_SEQ_COLUMN + " BIGINT NOT NULL"
