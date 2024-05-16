@@ -342,7 +342,7 @@ public class RepositoryManagerSql {
       // Check whether a result was obtained.
       if (resultSet.next()) {
         // Yes: Get the URL sequence
-        urlSeq = resultSet.getLong(NAMESPACE_SEQ_COLUMN);
+        urlSeq = resultSet.getLong(URL_SEQ_COLUMN);
         log.trace("Found urlSeq = {}", urlSeq);
       }
     } catch (SQLException sqle) {
@@ -980,7 +980,7 @@ public class RepositoryManagerSql {
       ps.setString(6, url);
 
       if (!includeUncommitted) {
-        ps.setBoolean(5, true);
+        ps.setBoolean(7, true);
       }
 
       resultSet = repoDbManager.executeQuery(ps);
