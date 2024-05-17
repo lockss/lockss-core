@@ -155,13 +155,13 @@ public class RepositoryManagerSql {
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND a." + ARTIFACT_VERSION_COLUMN + " = (" + GET_LATEST_ARTIFACT_VERSION_QUERY + ")";
+      + " AND u." + URL_COLUMN + " = ?";
+//      + " AND a." + ARTIFACT_VERSION_COLUMN + " = (" + GET_LATEST_ARTIFACT_VERSION_QUERY + ")";
 
   private static final String ARTIFACT_COMMITTED_STATUS_CONDITION =
       " AND a." + ARTIFACT_COMMITTED_COLUMN + " = ?";
@@ -964,10 +964,13 @@ public class RepositoryManagerSql {
 
     try {
       String sqlQuery = GET_LATEST_ARTIFACT_QUERY;
+      String latestVersionQuery = GET_LATEST_ARTIFACT_VERSION_QUERY;
 
       if (!includeUncommitted) {
-        sqlQuery += ARTIFACT_COMMITTED_STATUS_CONDITION;
+        latestVersionQuery += ARTIFACT_COMMITTED_STATUS_CONDITION;
       }
+
+      sqlQuery += " AND a." + ARTIFACT_VERSION_COLUMN + " = (" + latestVersionQuery + ")";
 
       // Prepare the query
       ps = repoDbManager.prepareStatement(conn, sqlQuery);
