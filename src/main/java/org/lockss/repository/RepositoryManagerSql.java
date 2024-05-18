@@ -914,12 +914,22 @@ public class RepositoryManagerSql {
     String errorMessage = "Cannot get artifacts";
 
     try {
+      String sqlQuery = GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID;
+
+      if (!includeUncommitted) {
+        sqlQuery += ARTIFACT_COMMITTED_STATUS_CONDITION;
+      }
+
       // Prepare the query
-      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+      ps = repoDbManager.prepareStatement(conn, sqlQuery);
 
       // Populate the query
       ps.setString(1, namespace);
       ps.setString(2, auid);
+
+      if (!includeUncommitted) {
+        ps.setBoolean(3, true);
+      }
 
       resultSet = repoDbManager.executeQuery(ps);
 
