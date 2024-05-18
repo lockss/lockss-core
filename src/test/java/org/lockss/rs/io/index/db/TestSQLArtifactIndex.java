@@ -444,4 +444,49 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
       assertIterableEquals(expected, result);
     }
   }
+
+  @Test
+  public void testFindArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid() throws Exception {
+    initializeDatabase();
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
+
+    String ns = "ns1";
+    String auid = "a1";
+    String url = "url1";
+
+    // Sanity check
+    assertEmpty(repodb.findAuids(ns));
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec("ns1", "a1", "url1", 1),
+        makeArtifactSpec("ns1", "a1", "url1", 2),
+        makeArtifactSpec("ns1", "a1", "url2", 1),
+        makeArtifactSpec("ns1", "a1", "url1", 3),
+        makeArtifactSpec("ns1", "a2", "url1", 1),
+        makeArtifactSpec("ns2", "a1", "url1", 1),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      repodb.addArtifact(spec.getArtifact());
+    }
+
+    // Assert empty result (no committed artifacts)
+    assertEmpty(repodb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url));
+
+    // Commit artifacts
+    repodb.commitArtifact(specs[0].getArtifactUuid());
+    repodb.commitArtifact(specs[3].getArtifactUuid());
+    repodb.commitArtifact(specs[4].getArtifactUuid());
+    specs[0].setCommitted(true);
+    specs[3].setCommitted(true);
+    specs[4].setCommitted(true);
+
+    // Assert we get back the correct committed artifacts for the namespace and AUID
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+      List<Artifact> result = repodb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url);
+      assertIterableEquals(expected, result);
+    }
+  }
 }

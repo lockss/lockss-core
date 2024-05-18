@@ -252,6 +252,29 @@ public class RepositoryManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?";
 
+  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " = ?"
+      + ARTIFACT_COMMITTED_STATUS_CONDITION;
+
   private static final String GET_AUIDS_BY_NAMESPACE = "SELECT DISTINCT "
       + "auid." + AUID_COLUMN
       + " FROM " + AUID_TABLE + " auid"
@@ -940,6 +963,56 @@ public class RepositoryManagerSql {
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("includeUncommitted = {}", includeUncommitted);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public List<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(String namespace, String auid, String url)
+      throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("url = {}", url);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(conn, namespace, auid, url);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(
+      Connection conn, String namespace, String auid, String url) throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifacts";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL);
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, auid);
+      ps.setString(3, url);
+      ps.setBoolean(4, true);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      return getArtifactsFromResultSet(resultSet);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL);
+      log.error("namespace = {}", namespace);
+      log.error("auid = {}", auid);
+      log.error("url = {}", url);
       throw new DbException(errorMessage, e);
     } finally {
       DbManager.safeCloseResultSet(resultSet);

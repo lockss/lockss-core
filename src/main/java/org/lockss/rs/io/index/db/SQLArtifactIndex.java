@@ -205,8 +205,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   public Iterable<Artifact> getArtifactsAllVersions(String namespace, String auid, String url)
       throws IOException {
     try {
-      // FIXME: return repodb.findArtifactsAllVersionsOfUrlWithNamespaceAndAuid(namespace, auid, url);
-      throw new DbException();
+       return repodb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(namespace, auid, url);
     } catch (DbException e) {
       throw new IOException("Database error fetching artifacts", e);
     }
