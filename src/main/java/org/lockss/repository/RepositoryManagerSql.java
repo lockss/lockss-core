@@ -53,6 +53,8 @@ public class RepositoryManagerSql {
 
   protected final RepositoryDbManager repoDbManager;
 
+  private static final String EMPTY_STRING = "";
+
   private static final String FIND_URL_SEQ_QUERY = "SELECT "
       + URL_SEQ_COLUMN
       + " FROM " + URL_TABLE
@@ -189,6 +191,22 @@ public class RepositoryManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + " AND a." + ARTIFACT_VERSION_COLUMN + " = ?";
 
+  public static final String MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
+      + URL_SEQ_COLUMN + ","
+      + "MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " --CommittedStatusCondition-- "
+      + " GROUP BY "
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN;
+
   private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
@@ -200,10 +218,13 @@ public class RepositoryManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " INNER JOIN ( --MaxVersionAllUrlsWithNamespaceAndAuid-- ) m ON"
+      + " m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
+      + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
@@ -283,8 +304,7 @@ public class RepositoryManagerSql {
   /**
    * Constructor.
    *
-   * @param repoDbManager
-   *          A RepositoryDbManager with the database manager.
+   * @param repoDbManager A RepositoryDbManager with the database manager.
    */
   public RepositoryManagerSql(RepositoryDbManager repoDbManager) throws DbException {
     this.repoDbManager = repoDbManager;
@@ -294,8 +314,7 @@ public class RepositoryManagerSql {
    * Provides a connection to the database.
    *
    * @return a Connection with the connection to the database.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
+   * @throws DbException if any problem occurred accessing the database.
    */
   public Connection getConnection() throws DbException {
     return repoDbManager.getConnection();
@@ -830,12 +849,31 @@ public class RepositoryManagerSql {
     String errorMessage = "Cannot get artifacts";
 
     try {
+      String sqlQuery = GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID;
+      String latestVersionsQuery = MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY;
+
+      // FIXME: These string replacements are pretty damn ugly and fragile
+      latestVersionsQuery = latestVersionsQuery.replace("--CommittedStatusCondition--",
+          !includeUncommitted ? ARTIFACT_COMMITTED_STATUS_CONDITION : EMPTY_STRING);
+
+      sqlQuery = sqlQuery.replace("--MaxVersionAllUrlsWithNamespaceAndAuid--", latestVersionsQuery);
+
+      log.info("sqlQuery = " + sqlQuery);
+
       // Prepare the query
-      ps = repoDbManager.prepareStatement(conn, GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+      ps = repoDbManager.prepareStatement(conn, sqlQuery);
 
       // Populate the query
       ps.setString(1, namespace);
       ps.setString(2, auid);
+      if (!includeUncommitted) {
+        ps.setBoolean(3, true);
+        ps.setString(4, namespace);
+        ps.setString(5, auid);
+      } else {
+        ps.setString(3, namespace);
+        ps.setString(4, auid);
+      }
 
       resultSet = repoDbManager.executeQuery(ps);
 
@@ -910,7 +948,7 @@ public class RepositoryManagerSql {
     return result;
   }
 
-  private Artifact getArtifactFromResultSet(ResultSet resultSet) throws SQLException {
+  public static Artifact getArtifactFromResultSet(ResultSet resultSet) throws SQLException {
     // Get the single result, if any
     if (resultSet.next()) {
       return getArtifactFromCurrentRow(resultSet);
@@ -919,7 +957,7 @@ public class RepositoryManagerSql {
     return null;
   }
 
-  private Artifact getArtifactFromCurrentRow(ResultSet resultSet) throws SQLException {
+  private static Artifact getArtifactFromCurrentRow(ResultSet resultSet) throws SQLException {
     Artifact result = new Artifact();
 
     result.setUuid(resultSet.getString(ARTIFACT_UUID_COLUMN));
@@ -1353,13 +1391,10 @@ public class RepositoryManagerSql {
   /**
    * Deletes from the database the AU sizes of an AU.
    *
-   * @param conn
-   *          A Connection with the database connection to be used.
-   * @param auidSeq
-   *          A Long with the database identifier of the AUID.
+   * @param conn    A Connection with the database connection to be used.
+   * @param auidSeq A Long with the database identifier of the AUID.
    * @return an int with the count of database rows deleted.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
+   * @throws DbException if any problem occurred accessing the database.
    */
   private int deleteAuSize(Connection conn, Long auidSeq) throws DbException {
     log.debug2("auidSeq = {}", auidSeq);
@@ -1394,15 +1429,11 @@ public class RepositoryManagerSql {
   /**
    * Adds to the database the sizes of an AU.
    *
-   * @param conn
-   *          A Connection with the database connection to be used.
-   * @param auidSeq
-   *          A Long with the database identifier of the AUID.
-   * @param auSize
-   *          An {@link AuSize} with the AU's content sizes.
+   * @param conn    A Connection with the database connection to be used.
+   * @param auidSeq A Long with the database identifier of the AUID.
+   * @param auSize  An {@link AuSize} with the AU's content sizes.
    * @return an int with the count of database rows added.
-   * @throws DbException
-   *           if any problem occurred accessing the database.
+   * @throws DbException if any problem occurred accessing the database.
    */
   private int addAuSize(Connection conn, Long auidSeq, AuSize auSize)
       throws DbException {

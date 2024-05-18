@@ -10,18 +10,20 @@ import org.lockss.test.TcpTestUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
+import org.lockss.util.time.TimeBase;
 
 import java.io.File;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 public class TestSQLArtifactIndex extends LockssTestCase4 {
   private static final Logger log = Logger.getLogger();
 
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
-  private RepositoryDbManager repositoryDbManager;
+  private RepositoryDbManager repoDbManager;
   private String dbPort;
 
   @Override
@@ -40,8 +42,8 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
 
   @Override
   public void tearDown() throws Exception {
-    if (repositoryDbManager != null)
-      repositoryDbManager.stopService();
+    if (repoDbManager != null)
+      repoDbManager.stopService();
 
     theDaemon.stopDaemon();
     super.tearDown();
@@ -53,17 +55,17 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
         new File(tempDirPath, "derby.log").getAbsolutePath());
 
     // Create the database manager.
-    repositoryDbManager = new RepositoryDbManager();
-    repositoryDbManager.initService(theDaemon);
-    repositoryDbManager.startService();
+    repoDbManager = new RepositoryDbManager();
+    repoDbManager.initService(theDaemon);
+    repoDbManager.startService();
 
-    theDaemon.setRepositoryDbManager(repositoryDbManager);
+    theDaemon.setRepositoryDbManager(repoDbManager);
   }
 
   @Test
   public void testAddArtifact() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
@@ -83,7 +85,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   @Test
   public void testGetArtifact() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
@@ -110,7 +112,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   @Test
   public void testGetLatestArtifact() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     String ns = "test_namespace";
     String auid = "test_auid";
@@ -170,7 +172,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   @Test
   public void testCommitArtifact() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
@@ -198,7 +200,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   @Test
   public void testUpdateStorageUrl() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
@@ -226,7 +228,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   @Test
   public void testDeleteArtifact() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
@@ -256,7 +258,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   @Test
   public void testGetNamespaces() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     String ns = "test_namespace";
 
@@ -281,7 +283,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   @Test
   public void testFindAuids() throws Exception {
     initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
 
     String ns = "test_namespace";
     String auid = "test_auid";
@@ -305,32 +307,83 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
     assertIterableEquals(List.of(auid), repodb.findAuids(ns));
   }
 
-  @Test
-  public void testFindLatestArtifactsOfAllUrlsWithNamespaceAndAuid() throws Exception {
-    initializeDatabase();
-    RepositoryManagerSql repodb = new RepositoryManagerSql(repositoryDbManager);
 
-    String ns = "test_namespace";
-    String auid = "test_auid";
-
+  private ArtifactSpec makeArtifactSpec(String ns, String auid, String url, int version) {
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
         .setNamespace(ns)
         .setAuid(auid)
-        .setUrl("url")
+        .setUrl(url)
+        .setVersion(version)
         .setStorageUrl(URI.create("storage_url"))
         .setContentLength(1)
         .setContentDigest("digest")
-        .setCollectionDate(2);
+        .setCollectionDate(TimeBase.nowMs());
+
+    log.debug2("spec = " + spec);
+    return spec;
+  }
+
+  private List<Artifact> getArtifactsFromSpecs(ArtifactSpec... specs) {
+    List<Artifact> expected = Stream.of(specs)
+        .map(ArtifactSpec::getArtifact)
+        .toList();
+
+    return expected;
+  }
+
+  @Test
+  public void testFindLatestArtifactsOfAllUrlsWithNamespaceAndAuid() throws Exception {
+    initializeDatabase();
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
+
+    String ns = "ns1";
+    String auid = "a1";
 
     // Sanity check
     assertEmpty(repodb.findAuids(ns));
 
-    // Add artifact to database
-    repodb.addArtifact(spec.getArtifact());
+    ArtifactSpec[] specs = {
+        makeArtifactSpec("ns1", "a1", "url1", 1),
+        makeArtifactSpec("ns1", "a1", "url1", 2),
+        makeArtifactSpec("ns1", "a1", "url2", 1),
+        makeArtifactSpec("ns1", "a2", "url1", 1),
+        makeArtifactSpec("ns2", "a1", "url1", 1),
+    };
 
-    assertNull(repodb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
-    List<Artifact> result = repodb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
-    log.info("result = " + result);
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      repodb.addArtifact(spec.getArtifact());
+    }
+
+    // Assert empty result (no committed artifacts)
+    assertEmpty(repodb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    // Assert results match expected when including uncommitted artifacts
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[2]);
+      List<Artifact> result = repodb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    repodb.commitArtifact(specs[0].getArtifactUuid());
+    repodb.commitArtifact(specs[2].getArtifactUuid());
+    specs[0].setCommitted(true);
+    specs[2].setCommitted(true);
+
+    // Assert results match expected when excluding uncommitted artifacts
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[2]);
+      List<Artifact> result = repodb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results match expected when including uncommitted artifacts
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[2]);
+      List<Artifact> result = repodb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
+      assertIterableEquals(expected, result);
+    }
   }
 }
