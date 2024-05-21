@@ -1,5 +1,6 @@
 package org.lockss.rs.io.index.db;
 
+import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.app.LockssApp;
 import org.lockss.db.DbException;
@@ -7,10 +8,18 @@ import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.repo.model.*;
+import org.lockss.util.rest.repo.util.SemaphoreMap;
 import org.lockss.util.storage.StorageInfo;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class SQLArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
@@ -18,6 +27,13 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   public static String ARTIFACT_INDEX_TYPE = "SQL";
 
   private SQLArtifactIndexManagerSql idxdb = null;
+
+  private SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
+
+  private Map<String, CompletableFuture<AuSize>> auSizeFutures =
+      new ConcurrentHashMap<>();
+  private Map<String, Boolean> invalidatedAuSizes =
+      Collections.synchronizedMap(new LRUMap<>(100));
 
   @Override
   public void init() {
@@ -51,12 +67,18 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public void acquireVersionLock(ArtifactIdentifier.ArtifactStem stem) throws IOException {
-    throw new UnsupportedOperationException();
+    // Acquire the lock for this artifact stem
+    try {
+      versionLock.getLock(stem);
+    } catch (InterruptedException e) {
+      throw new InterruptedIOException("Interrupted while waiting to acquire artifact version lock");
+    }
   }
 
   @Override
   public void releaseVersionLock(ArtifactIdentifier.ArtifactStem stem) {
-    throw new UnsupportedOperationException();
+    // Release the lock for the artifact stem
+    versionLock.releaseLock(stem);
   }
 
   @Override
@@ -75,7 +97,23 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   @Override
   public void indexArtifacts(Iterable<Artifact> artifacts) throws IOException {
     try {
-      idxdb.addArtifacts(artifacts);
+//      idxdb.addArtifacts(artifacts);
+
+      boolean isFirstArtifact = true;
+
+      for (Artifact artifact : artifacts) {
+        if (isFirstArtifact) {
+          try {
+            invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
+          } catch (DbException e) {
+            log.warn("Could not invalidate AU size", e);
+            throw e;
+          }
+          isFirstArtifact = false;
+        }
+
+        idxdb.addArtifact(artifact);
+      }
     } catch (DbException e) {
       throw new IOException("Could not add artifact to database", e);
     }
@@ -135,8 +173,17 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
     try {
       idxdb.commitArtifact(uuid);
+
+      Artifact result = getArtifact(uuid);
+
+      try {
+        invalidateAuSize(result.getNamespace(), result.getAuid());
+      } catch (DbException e) {
+        throw new IOException("Could not invalidate AU size", e);
+      }
+
       // Q: Remove Artifact return from method signature?
-      return getArtifact(uuid);
+      return result;
     } catch (DbException e) {
       throw new IOException("Could not mark artifact as committed in database", e);
     }
@@ -159,6 +206,13 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     }
 
     try {
+      try {
+        Artifact result = getArtifact(uuid);
+        invalidateAuSize(result.getNamespace(), result.getAuid());
+      } catch (DbException e) {
+        throw new IOException("Could not invalidate AU size", e);
+      }
+
       if (idxdb.deleteArtifact(uuid) == 0) {
         return false;
       }
@@ -315,7 +369,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     }
   }
 
-  private AuSize findOrComputeAuSize(String namespace, String auid) throws DbException, IOException {
+  private AuSize computeAuSize(String namespace, String auid) throws DbException, IOException {
     AuSize result = new AuSize();
 
     long totalWarcSize = repository.getArtifactDataStore()
@@ -328,12 +382,80 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     return result;
   }
 
+  public AuSize findAuSize(String namespace, String auid) throws DbException {
+    return idxdb.findAuSize(NamespacedAuid.key(namespace, auid));
+  }
+
   @Override
   public AuSize auSize(String namespace, String auid) throws IOException {
     try {
-      return findOrComputeAuSize(namespace, auid);
+      AuSize result = findAuSize(namespace, auid);
+
+      if (result == null) {
+        Future<AuSize> ausFuture = getAuSizeFuture(namespace, auid);
+        result = ausFuture.get();
+      }
+
+      return result;
     } catch (DbException e) {
       throw new IOException("Could not query AU size from database", e);
+    } catch (ExecutionException e) {
+      log.error("Could not recompute AU size", e.getCause());
+      throw (IOException) e.getCause();
+    } catch (InterruptedException e) {
+      log.error("Interrupted while waiting for AU size recalculation", e);
+      throw new IOException("AU size recalculation was interrupted", e);
+    }
+  }
+
+  private Future<AuSize> getAuSizeFuture(String namespace, String auid) {
+    String nsAuid = NamespacedAuid.key(namespace, auid);
+    CompletableFuture<AuSize> ausFuture;
+
+    synchronized (auSizeFutures) {
+      ausFuture = auSizeFutures.get(nsAuid);
+      if (ausFuture != null) {
+        return ausFuture;
+      } else {
+        ausFuture = new CompletableFuture<>();
+        auSizeFutures.put(nsAuid, ausFuture);
+      }
+    }
+
+    try {
+      AuSize result = computeAuSize(namespace, auid);
+      updateAuSize(namespace, auid, result);
+      ausFuture.complete(result);
+    } catch (DbException e) {
+      log.error("Couldn't update AU size in database", e);
+      ausFuture.completeExceptionally(new IOException("Couldn't update AU size in database", e));
+    } catch (IOException e) {
+      log.error("Couldn't compute AU size", e);
+      ausFuture.completeExceptionally(e);
+    } finally {
+      synchronized (auSizeFutures) {
+        auSizeFutures.remove(nsAuid);
+      }
+    }
+
+    return ausFuture;
+  }
+
+  public Long updateAuSize(String namespace, String auid, AuSize auSize) throws DbException {
+    String nsAuid = NamespacedAuid.key(namespace, auid);
+
+    Long result = idxdb.updateAuSize(nsAuid, auSize);
+    invalidatedAuSizes.remove(nsAuid);
+    return result;
+  }
+
+  public void invalidateAuSize(String namespace, String auid) throws DbException {
+    String nsAuid = NamespacedAuid.key(namespace, auid);
+
+    if (!invalidatedAuSizes.getOrDefault(nsAuid, false)) {
+      invalidatedAuSizes.put(nsAuid, true);
+      log.debug2("Invalidating AU size [ns: {}, auid: {}]", namespace, auid);
+      idxdb.deleteAuSize(nsAuid);
     }
   }
 }
