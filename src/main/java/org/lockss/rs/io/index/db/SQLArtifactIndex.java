@@ -84,7 +84,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
-  // FIXME: Get rid of method from API?
+  // Q: Get rid of method from API?
   public Artifact getArtifact(UUID uuid) throws IOException {
     return getArtifact(uuid.toString());
   }
@@ -104,7 +104,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
       throws IOException {
 
     try {
-      // FIXME: Of what use is includeUncommitted here? The tuple (ns, auid, url, ver)
+      // Q: Of what use is includeUncommitted here? The tuple (ns, auid, url, ver)
       //  uniquely identifies an artifact and we either have it or we don't
       return repodb.getArtifact(namespace, auid, url, version);
     } catch (DbException e) {
@@ -116,7 +116,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   public Artifact commitArtifact(String uuid) throws IOException {
     try {
       repodb.commitArtifact(uuid);
-      // FIXME: Remove Artifact return from method signature?
+      // Q: Remove Artifact return from method signature?
       return getArtifact(uuid);
     } catch (DbException e) {
       throw new IOException("Could not mark artifact as committed in database", e);
@@ -124,7 +124,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
-  // FIXME: Get rid of method from API?
+  // Q: Get rid of method from API?
   public Artifact commitArtifact(UUID uuid) throws IOException {
     return commitArtifact(uuid.toString());
   }
@@ -133,7 +133,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   public boolean deleteArtifact(String uuid) throws IOException {
     try {
       repodb.deleteArtifact(uuid);
-      // FIXME: Remove boolean return from method signature?
+      // Q: Remove boolean return from method signature?
       return true;
     } catch (DbException e) {
       throw new IOException("Could not remove artifact from database", e);
@@ -141,7 +141,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
-  // FIXME: Get rid of method from API?
+  // Q: Get rid of method from API?
   public boolean deleteArtifact(UUID uuid) throws IOException {
     return deleteArtifact(uuid.toString());
   }
@@ -155,7 +155,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   public Artifact updateStorageUrl(String uuid, String storageUrl) throws IOException {
     try {
       repodb.updateStorageUrl(uuid, storageUrl);
-      // FIXME: Remove Artifact return from method signature?
+      // Q: Remove Artifact return from method signature?
       return getArtifact(uuid);
     } catch (DbException e) {
       throw new IOException("Database error trying to update storage URL", e);
