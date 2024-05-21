@@ -325,6 +325,22 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     return spec;
   }
 
+  private static ArtifactSpec makeArtifactSpecWithSize(String ns, String auid, String url, int version, int size) {
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setAuid(auid)
+        .setUrl(url)
+        .setVersion(version)
+        .setStorageUrl(URI.create("storage_url"))
+        .setContentLength(size)
+        .setContentDigest("digest")
+        .setCollectionDate(TimeBase.nowMs());
+
+    log.debug2("spec = " + spec);
+    return spec;
+  }
+
   private List<Artifact> getArtifactsFromSpecs(ArtifactSpec... specs) {
     List<Artifact> expected = Stream.of(specs)
         .map(ArtifactSpec::getArtifact)
@@ -604,6 +620,13 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     }
   }
 
+  private static void deleteSpecs(SQLArtifactIndexManagerSql idxdb, ArtifactSpec specs[], int... idx) throws DbException {
+    for (int i : idx) {
+      idxdb.deleteArtifact(specs[i].getArtifactUuid());
+      specs[i].setDeleted(true);
+    }
+  }
+
   @Test
   public void testFindArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid() throws Exception {
     initializeDatabase();
@@ -717,5 +740,42 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
           idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url1);
       assertIterableEquals(expected, result);
     }
+  }
+
+  @Test
+  public void testGetSizeOfArtifacts() throws Exception {
+    initializeDatabase();
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "ns1";
+    String auid1 = "auid1";
+    String url1 = "url1";
+    String url2 = "url2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpecWithSize(ns1, auid1, url1, 1, 1),
+        makeArtifactSpecWithSize(ns1, auid1, url1, 2, 1),
+        makeArtifactSpecWithSize(ns1, auid1, url2, 1, 1),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      idxdb.addArtifact(spec.getArtifact());
+    }
+
+    assertEquals(0, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
+    assertEquals(0, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
+
+    commitSpecs(idxdb, specs, 0, 2);
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
+
+    commitSpecs(idxdb, specs, 1);
+    assertEquals(3, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
+
+    deleteSpecs(idxdb, specs, 0);
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
   }
 }
