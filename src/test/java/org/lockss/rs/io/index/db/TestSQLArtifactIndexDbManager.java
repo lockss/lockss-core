@@ -12,8 +12,10 @@ import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
+import org.postgresql.ds.PGSimpleDataSource;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -50,7 +52,34 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     super.tearDown();
   }
 
-  private void initializeDatabase() throws Exception {
+  protected void initializePostgreSQL() throws Exception {
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_USER, "postgres",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgresx");
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true",
+        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.initialSize", "2");
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0",
+        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0");
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME,  PGSimpleDataSource.class.getCanonicalName(),
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
+
+    idxDbManager = new SQLArtifactIndexDbManager();
+    startEmbeddedPgDbManager(idxDbManager);
+    idxDbManager.initService(getMockLockssDaemon());
+
+    idxDbManager.setTargetDatabaseVersion(2);
+    idxDbManager.startService();
+
+    theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
+  }
+
+  private void initializeDerby() throws IOException {
     // Set the database log.
     System.setProperty("derby.stream.error.file",
         new File(tempDirPath, "derby.log").getAbsolutePath());
@@ -58,9 +87,15 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Create the database manager.
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
+
+    idxDbManager.setTargetDatabaseVersion(2);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
+  }
+
+  private void initializeDatabase() throws Exception {
+    initializePostgreSQL();
   }
 
   @Test
@@ -434,7 +469,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
 
     // Assert all versions of all URLs for the namespace and AUID
     {
-      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[1], specs[2], specs[3]);
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[1], specs[0], specs[2]);
       List<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
       assertIterableEquals(expected, result);
     }
@@ -449,14 +484,14 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
 
     // Assert we get back the correct committed artifacts for the namespace and AUID
     {
-      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
       List<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
       assertIterableEquals(expected, result);
     }
 
     // Assert all versions of all URLs for the namespace and AUID
     {
-      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[1], specs[2], specs[3]);
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[1], specs[0], specs[2]);
       List<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
       assertIterableEquals(expected, result);
     }
@@ -660,7 +695,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     specs[3].setCommitted(true);
 
     // Assert we get back the correct committed artifacts for the namespace and AUID
-    List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+    List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
     List<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, url);
     assertIterableEquals(expected, result);
   }

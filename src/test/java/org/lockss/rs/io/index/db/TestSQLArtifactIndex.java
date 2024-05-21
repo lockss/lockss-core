@@ -1,9 +1,12 @@
 package org.lockss.rs.io.index.db;
 
 import org.lockss.rs.io.index.AbstractArtifactIndexTest;
+import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
+import org.postgresql.ds.PGSimpleDataSource;
 
 import java.io.File;
+import java.io.IOException;
 
 public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactIndex> {
 
@@ -20,12 +23,40 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
     // Get the temporary directory used during the test
     tempDirPath = setUpDiskSpace();
 
-    initializeTestDbManager(0, 2);
+//    initializeDerby();
+    initializePostgreSQL();
 
     return new SQLArtifactIndex();
   }
 
-  private void initializeTestDbManager(int initialVersion, int targetVersion) {
+  protected void initializePostgreSQL() throws Exception {
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_USER, "postgres",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgresx");
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true",
+        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.initialSize", "2");
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0",
+        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0");
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, PGSimpleDataSource.class.getCanonicalName(),
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
+
+    idxDbManager = new SQLArtifactIndexDbManager();
+    startEmbeddedPgDbManager(idxDbManager);
+    idxDbManager.initService(getMockLockssDaemon());
+
+    idxDbManager.setTargetDatabaseVersion(2);
+    idxDbManager.startService();
+
+    theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
+  }
+
+  private void initializeDerby() throws IOException {
     // Set the database log.
     System.setProperty("derby.stream.error.file",
         new File(tempDirPath, "derby.log").getAbsolutePath());
@@ -34,8 +65,7 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
 
-//    assertTrue(repositoryDbManager.setUpDatabase(initialVersion));
-    idxDbManager.setTargetDatabaseVersion(targetVersion);
+    idxDbManager.setTargetDatabaseVersion(2);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);

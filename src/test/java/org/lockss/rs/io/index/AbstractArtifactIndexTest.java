@@ -116,7 +116,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @AfterEach
   public void stopArtifactIndex() {
-    index.stop();
+    if (index != null) index.stop();
   }
 
   // *******************************************************************************************************************

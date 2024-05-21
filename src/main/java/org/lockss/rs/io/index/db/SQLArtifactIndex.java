@@ -177,7 +177,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
       Artifact result = getArtifact(uuid);
 
       try {
-        invalidateAuSize(result.getNamespace(), result.getAuid());
+        if (result != null) invalidateAuSize(result.getNamespace(), result.getAuid());
       } catch (DbException e) {
         throw new IOException("Could not invalidate AU size", e);
       }
@@ -208,7 +208,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     try {
       try {
         Artifact result = getArtifact(uuid);
-        invalidateAuSize(result.getNamespace(), result.getAuid());
+        if (result != null) invalidateAuSize(result.getNamespace(), result.getAuid());
       } catch (DbException e) {
         throw new IOException("Could not invalidate AU size", e);
       }
