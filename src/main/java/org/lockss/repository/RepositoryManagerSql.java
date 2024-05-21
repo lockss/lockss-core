@@ -1676,6 +1676,23 @@ public class RepositoryManagerSql {
     }
   }
 
+  public void addArtifacts(Iterable<Artifact> artifacts) throws DbException {
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+
+      for (Artifact artifact : artifacts) {
+        addArtifact(conn, artifact);
+      }
+
+      // Commit the transaction.
+      DbManager.commitOrRollback(conn, log);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
   private void addArtifact(Connection conn, Artifact artifact) throws DbException {
     long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
     long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());

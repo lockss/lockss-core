@@ -67,9 +67,10 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public void indexArtifacts(Iterable<Artifact> artifacts) throws IOException {
-    // FIXME: Implement as a batch insert
-    for (Artifact artifact : artifacts) {
-      indexArtifact(artifact);
+    try {
+      repodb.addArtifacts(artifacts);
+    } catch (DbException e) {
+      throw new IOException("Could not add artifact to database", e);
     }
   }
 
