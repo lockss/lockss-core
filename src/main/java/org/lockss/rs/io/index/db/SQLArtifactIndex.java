@@ -6,6 +6,7 @@ import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepositoryDbManager;
 import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.storage.StorageInfo;
 
@@ -14,6 +15,8 @@ import java.util.UUID;
 
 public class SQLArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
+
+  public static String ARTIFACT_INDEX_TYPE = "SQL";
 
   private RepositoryManagerSql repodb = null;
 
@@ -43,7 +46,8 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public StorageInfo getStorageInfo() {
-    return null;
+    // FIXME: Use correct Derby / PostgreSQL data path
+    return StorageInfo.fromDF(ARTIFACT_INDEX_TYPE, PlatformUtil.getInstance().getDF("/"));
   }
 
   @Override
