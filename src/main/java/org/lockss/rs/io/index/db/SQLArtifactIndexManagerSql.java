@@ -262,7 +262,10 @@ public class SQLArtifactIndexManagerSql {
       + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " ORDER BY "
+      + "u." + URL_COLUMN + " ASC,"
+      + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
@@ -283,7 +286,11 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?";
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " --CommittedStatusCondition-- "
+      + " ORDER BY "
+      + "u." + URL_COLUMN + " ASC,"
+      + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
@@ -309,8 +316,7 @@ public class SQLArtifactIndexManagerSql {
       + ARTIFACT_COMMITTED_STATUS_CONDITION
       + " ORDER BY "
       + "u." + URL_COLUMN + " ASC,"
-      + ARTIFACT_VERSION_COLUMN + " DESC"
-      ;
+      + ARTIFACT_VERSION_COLUMN + " DESC";
 
   // Latest version artifact for each AUID, for a given namespace and URL
   public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
@@ -480,7 +486,10 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " LIKE ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION;
+      + ARTIFACT_COMMITTED_STATUS_CONDITION
+      + " ORDER BY "
+          + "u." + URL_COLUMN + " ASC,"
+      + ARTIFACT_VERSION_COLUMN + " DESC";
 
   public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -525,7 +534,10 @@ public class SQLArtifactIndexManagerSql {
       + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " ORDER BY "
+      + "u." + URL_COLUMN + " ASC,"
+      + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_AUIDS_BY_NAMESPACE_QUERY = "SELECT DISTINCT "
       + "auid." + AUID_COLUMN
@@ -1217,9 +1229,8 @@ public class SQLArtifactIndexManagerSql {
     try {
       String sqlQuery = GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY;
 
-      if (!includeUncommitted) {
-        sqlQuery += ARTIFACT_COMMITTED_STATUS_CONDITION;
-      }
+      sqlQuery = sqlQuery.replace("--CommittedStatusCondition--",
+          !includeUncommitted ? ARTIFACT_COMMITTED_STATUS_CONDITION : EMPTY_STRING);
 
       // Prepare the query
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
