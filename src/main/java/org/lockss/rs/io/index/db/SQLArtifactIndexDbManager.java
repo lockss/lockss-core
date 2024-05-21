@@ -161,7 +161,7 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
   public static final String PARAM_WAIT_FOR_EXTERNAL_SETUP = PREFIX
       + "waitForExternalSetup";
 
-  private SQLArtifactIndexDbManagerSql repoDbManagerSql =
+  private SQLArtifactIndexDbManagerSql idxDbManagerSql =
     new SQLArtifactIndexDbManagerSql(this, null,
           DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
           DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
@@ -186,7 +186,7 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
   public void startService() {
     log.debug2("Invoked");
 
-    setDbManagerSql(repoDbManagerSql);
+    setDbManagerSql(idxDbManagerSql);
     super.startService();
   }
 
@@ -230,7 +230,7 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
       conn = dbManagerSql.getConnection();
 
       // Set up the database to version 1.
-      repoDbManagerSql.setUpDatabaseVersion1(conn);
+      idxDbManagerSql.setUpDatabaseVersion1(conn);
 
       // Update the database to the final version.
       int lastRecordedVersion = updateDatabase(conn, 1, finalVersion);
@@ -274,9 +274,9 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
 
     // Perform the appropriate update for this version.
     if (databaseVersion == 1) {
-      repoDbManagerSql.setUpDatabaseVersion1(conn);
+      idxDbManagerSql.setUpDatabaseVersion1(conn);
     } else if (databaseVersion == 2) {
-      repoDbManagerSql.updateDatabaseFrom1To2(conn);
+      idxDbManagerSql.updateDatabaseFrom1To2(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
           + "to version " + databaseVersion + ".");
