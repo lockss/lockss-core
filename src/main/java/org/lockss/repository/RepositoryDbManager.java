@@ -178,8 +178,7 @@ public class RepositoryDbManager extends DbManager implements ConfigurableManage
    * Sets up update versions.
    */
   private void setUpVersions() {
-    targetDatabaseVersion = 2;
-    asynchronousUpdates = new int[] {};
+    targetDatabaseVersion = 1;
   }
 
   @Override
@@ -275,8 +274,6 @@ public class RepositoryDbManager extends DbManager implements ConfigurableManage
     // Perform the appropriate update for this version.
     if (databaseVersion == 1) {
       repoDbManagerSql.setUpDatabaseVersion1(conn);
-    } else if (databaseVersion == 2) {
-      repoDbManagerSql.updateDatabaseFrom1To2(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
           + "to version " + databaseVersion + ".");
