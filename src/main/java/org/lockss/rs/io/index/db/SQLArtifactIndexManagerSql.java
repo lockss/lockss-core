@@ -93,7 +93,9 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE "
       + " a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " GROUP BY "
-      + " ns." + NAMESPACE_COLUMN;
+      + " ns." + NAMESPACE_COLUMN
+      + " ORDER BY "
+      + NAMESPACE_COLUMN + " ASC";
 
   // Query to find an AUID's internal AUID sequence number
   private static final String FIND_AUID_SEQ_QUERY = "select "
@@ -251,6 +253,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -264,7 +267,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " ORDER BY "
-      + "u." + URL_COLUMN + " ASC,"
+//      + "u." + URL_COLUMN + " COLLATE \"C\","
+      + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
@@ -278,6 +282,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -289,7 +294,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND auid." + AUID_COLUMN + " = ?"
       + " --CommittedStatusCondition-- "
       + " ORDER BY "
-      + "u." + URL_COLUMN + " ASC,"
+//      + "u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY = "SELECT "
@@ -303,6 +309,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -315,7 +322,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION
       + " ORDER BY "
-      + "u." + URL_COLUMN + " ASC,"
+//      + "u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
   // Latest version artifact for each AUID, for a given namespace and URL
@@ -367,6 +375,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -378,7 +387,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " ORDER BY "
-      + " u." + URL_COLUMN + " ASC,"
+//      + " u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -394,6 +404,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -405,7 +416,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " ORDER BY "
-          + " u." + URL_COLUMN + " ASC,"
+//          + " u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -420,6 +432,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -433,7 +446,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " ORDER BY "
-          + " u." + URL_COLUMN + " ASC,"
+//          + " u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -448,6 +462,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -461,7 +476,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " ORDER BY "
-          + " u." + URL_COLUMN + " ASC,"
+//          + " u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -476,6 +492,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -488,7 +505,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION
       + " ORDER BY "
-          + "u." + URL_COLUMN + " ASC,"
+//          + "u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
   public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_QUERY = "SELECT "
@@ -523,6 +541,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -536,7 +555,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " ORDER BY "
-      + "u." + URL_COLUMN + " ASC,"
+//      + "u." + URL_COLUMN + " ASC,"
+      + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_AUIDS_BY_NAMESPACE_QUERY = "SELECT DISTINCT "
