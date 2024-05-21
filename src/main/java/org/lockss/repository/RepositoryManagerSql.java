@@ -36,6 +36,7 @@ import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
+import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.time.TimeBase;
 
@@ -163,10 +164,12 @@ public class RepositoryManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " = ?";
-//      + " AND a." + ARTIFACT_VERSION_COLUMN + " = (" + GET_LATEST_ARTIFACT_VERSION_QUERY + ")";
 
   private static final String ARTIFACT_COMMITTED_STATUS_CONDITION =
       " AND a." + ARTIFACT_COMMITTED_COLUMN + " = ?";
+
+  private static final String ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE =
+      " AND a." + ARTIFACT_COMMITTED_COLUMN + " = true";
 
   private static final String GET_ARTIFACT_WITH_VERSION_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
@@ -192,8 +195,10 @@ public class RepositoryManagerSql {
       + " AND a." + ARTIFACT_VERSION_COLUMN + " = ?";
 
   public static final String MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
-      + URL_SEQ_COLUMN + ","
-      + "MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN + ","
+      + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -207,7 +212,7 @@ public class RepositoryManagerSql {
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN;
 
-  private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID = "SELECT "
+  private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
@@ -223,15 +228,15 @@ public class RepositoryManagerSql {
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
       + " INNER JOIN ( --MaxVersionAllUrlsWithNamespaceAndAuid-- ) m ON"
-      + " m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
+      + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
+      + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
+      + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?";
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
 
-  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID = "SELECT "
+  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
@@ -252,7 +257,7 @@ public class RepositoryManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?";
 
-  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL = "SELECT "
+  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
@@ -275,7 +280,205 @@ public class RepositoryManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION;
 
-  private static final String GET_AUIDS_BY_NAMESPACE = "SELECT DISTINCT "
+  // Latest version artifact for each AUID, for a given namespace and URL
+  public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN + ","
+      + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + URL_TABLE + " u"
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " = ?"
+      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " GROUP BY "
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN;
+
+  // Latest version artifact for each AUID, for a given namespace and URL prefix
+  public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN + ","
+      + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + URL_TABLE + " u"
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " LIKE ?"
+      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " GROUP BY "
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN;
+
+  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " = ?"
+      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE;
+
+  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " LIKE ?"
+      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE;
+
+  private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY + ") m ON"
+      + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
+      + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
+      + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
+      + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
+
+  private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY + ") m ON"
+      + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
+      + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
+      + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
+      + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
+
+  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " LIKE ?"
+      + ARTIFACT_COMMITTED_STATUS_CONDITION;
+
+  public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_QUERY = "SELECT "
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN + ","
+      + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
+      + " FROM " + ARTIFACT_TABLE + " a"
+      + "," + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + " AND auid." + AUID_COLUMN + " = ?"
+      + " AND u." + URL_COLUMN + " LIKE ?"
+      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " GROUP BY "
+      + " a." + NAMESPACE_SEQ_COLUMN + ","
+      + " a." + AUID_SEQ_COLUMN + ","
+      + " a." + URL_SEQ_COLUMN;
+
+  private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY = "SELECT "
+      + "a." + ARTIFACT_UUID_COLUMN
+      + ", ns." + NAMESPACE_COLUMN
+      + ", auid." + AUID_COLUMN
+      + ", u." + URL_COLUMN
+      + ", a." + ARTIFACT_VERSION_COLUMN
+      + ", a." + ARTIFACT_COMMITTED_COLUMN
+      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", a." + ARTIFACT_LENGTH_COLUMN
+      + ", a." + ARTIFACT_DIGEST_COLUMN
+      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " FROM " + NAMESPACE_TABLE + " ns"
+      + "," + AUID_TABLE + " auid"
+      + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_QUERY + ") m ON"
+      + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
+      + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
+      + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
+      + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
+      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
+
+  private static final String GET_AUIDS_BY_NAMESPACE_QUERY = "SELECT DISTINCT "
       + "auid." + AUID_COLUMN
       + " FROM " + AUID_TABLE + " auid"
       + "," + NAMESPACE_TABLE + " ns"
@@ -621,7 +824,7 @@ public class RepositoryManagerSql {
 
     try {
       // Prepare the query
-      ps = repoDbManager.prepareStatement(conn, GET_AUIDS_BY_NAMESPACE);
+      ps = repoDbManager.prepareStatement(conn, GET_AUIDS_BY_NAMESPACE_QUERY);
       ps.setString(1, namespace);
 
       resultSet = repoDbManager.executeQuery(ps);
@@ -631,7 +834,7 @@ public class RepositoryManagerSql {
       }
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", GET_AUIDS_BY_NAMESPACE);
+      log.error("SQL = '{}'.", GET_AUIDS_BY_NAMESPACE_QUERY);
       log.error("namespace = {}", namespace);
       throw new DbException(errorMessage, sqle);
     } finally {
@@ -872,7 +1075,7 @@ public class RepositoryManagerSql {
     String errorMessage = "Cannot get artifacts";
 
     try {
-      String sqlQuery = GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID;
+      String sqlQuery = GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY;
       String latestVersionsQuery = MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY;
 
       // FIXME: These string replacements are pretty damn ugly and fragile
@@ -891,11 +1094,6 @@ public class RepositoryManagerSql {
       ps.setString(2, auid);
       if (!includeUncommitted) {
         ps.setBoolean(3, true);
-        ps.setString(4, namespace);
-        ps.setString(5, auid);
-      } else {
-        ps.setString(3, namespace);
-        ps.setString(4, auid);
       }
 
       resultSet = repoDbManager.executeQuery(ps);
@@ -903,7 +1101,7 @@ public class RepositoryManagerSql {
       return getArtifactsFromResultSet(resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
-      log.error("SQL = '{}'.", GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+      log.error("SQL = '{}'.", GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("includeUncommitted = {}", includeUncommitted);
@@ -937,7 +1135,7 @@ public class RepositoryManagerSql {
     String errorMessage = "Cannot get artifacts";
 
     try {
-      String sqlQuery = GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID;
+      String sqlQuery = GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY;
 
       if (!includeUncommitted) {
         sqlQuery += ARTIFACT_COMMITTED_STATUS_CONDITION;
@@ -959,7 +1157,7 @@ public class RepositoryManagerSql {
       return getArtifactsFromResultSet(resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
-      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID);
+      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("includeUncommitted = {}", includeUncommitted);
@@ -996,7 +1194,7 @@ public class RepositoryManagerSql {
 
     try {
       // Prepare the query
-      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL);
+      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY);
 
       // Populate the query
       ps.setString(1, namespace);
@@ -1009,10 +1207,215 @@ public class RepositoryManagerSql {
       return getArtifactsFromResultSet(resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
-      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL);
+      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("url = {}", url);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public List<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+      String namespace, String url, ArtifactVersions versions) throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("url = {}", url);
+    log.debug2("versions = {}", versions);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(conn, namespace, url, versions);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+      Connection conn, String namespace, String url, ArtifactVersions versions) throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifacts";
+
+    String sqlQuery = versions == ArtifactVersions.LATEST ?
+        GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY :
+        GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY;
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, sqlQuery);
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, url);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      return getArtifactsFromResultSet(resultSet);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", sqlQuery); // FIXME
+      log.error("namespace = {}", namespace);
+      log.error("url = {}", url);
+      log.error("versions = {}", versions);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public List<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+      String namespace, String prefix, ArtifactVersions versions) throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("prefix = {}", prefix);
+    log.debug2("versions = {}", versions);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(conn, namespace, prefix, versions);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+      Connection conn, String namespace, String prefix, ArtifactVersions versions) throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifacts";
+
+    String sqlQuery = versions == ArtifactVersions.LATEST ?
+        GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY :
+        GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY;
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, sqlQuery);
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, prefix);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      return getArtifactsFromResultSet(resultSet);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", sqlQuery); // FIXME
+      log.error("namespace = {}", namespace);
+      log.error("prefix = {}", prefix);
+      log.error("versions = {}", versions);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public List<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+      String namespace, String auid, String urlPrefix) throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("urlPrefix = {}", urlPrefix);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+      Connection conn, String namespace, String auid, String urlPrefix) throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifacts";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY);
+      String pattern = urlPrefix + "%";
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, auid);
+      ps.setString(3, pattern);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      return getArtifactsFromResultSet(resultSet);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY);
+      log.error("namespace = {}", namespace);
+      log.error("auid = {}", auid);
+      log.error("urlPrefix = {}", urlPrefix);
+      throw new DbException(errorMessage, e);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public List<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+      String namespace, String auid, String urlPrefix) throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("urlPrefix = {}", urlPrefix);
+
+    Connection conn = null;
+
+    try {
+      conn = repoDbManager.getConnection();
+      return findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private List<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+      Connection conn, String namespace, String auid, String urlPrefix) throws DbException {
+
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot get artifacts";
+
+    try {
+      // Prepare the query
+      ps = repoDbManager.prepareStatement(conn, GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY);
+      String pattern = urlPrefix + "%";
+
+      // Populate the query
+      ps.setString(1, namespace);
+      ps.setString(2, auid);
+      ps.setString(3, pattern);
+      ps.setBoolean(4, true);
+
+      resultSet = repoDbManager.executeQuery(ps);
+
+      return getArtifactsFromResultSet(resultSet);
+    } catch (SQLException e) {
+      log.error(errorMessage, e);
+      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY);
+      log.error("namespace = {}", namespace);
+      log.error("auid = {}", auid);
+      log.error("urlPrefix = {}", urlPrefix);
       throw new DbException(errorMessage, e);
     } finally {
       DbManager.safeCloseResultSet(resultSet);

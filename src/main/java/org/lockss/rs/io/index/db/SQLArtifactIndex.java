@@ -4,7 +4,6 @@ import org.lockss.app.LockssApp;
 import org.lockss.db.DbException;
 import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepositoryDbManager;
-import org.lockss.repository.RepositoryManager;
 import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.util.rest.repo.model.*;
@@ -17,7 +16,6 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   private RepositoryManagerSql repodb = null;
-  private RepositoryManager repoMan = null;
 
   @Override
   public void init() {
@@ -205,7 +203,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   public Iterable<Artifact> getArtifactsAllVersions(String namespace, String auid, String url)
       throws IOException {
     try {
-       return repodb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(namespace, auid, url);
+      return repodb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(namespace, auid, url);
     } catch (DbException e) {
       throw new IOException("Database error fetching artifacts", e);
     }
@@ -215,8 +213,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, ArtifactVersions versions)
       throws IOException {
     try {
-      // FIXME: return repodb.findArtifactsAllVersionsOfUrlFromAllAuids(namespace, url);
-      throw new DbException();
+      return repodb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(namespace, url, versions);
     } catch (DbException e) {
       throw new IOException("Database error fetching artifacts", e);
     }
@@ -225,22 +222,31 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   @Override
   public Iterable<Artifact> getArtifactsWithPrefix(String namespace, String auid, String prefix)
       throws IOException {
-    // TODO
-    return null;
+    try {
+      return repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(namespace, auid, prefix);
+    } catch (DbException e) {
+      throw new IOException("Database error fetching artifacts", e);
+    }
   }
 
   @Override
   public Iterable<Artifact> getArtifactsWithPrefixAllVersions(String namespace, String auid, String prefix)
       throws IOException {
-    // TODO
-    return null;
+    try {
+      return repodb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(namespace, auid, prefix);
+    } catch (DbException e) {
+      throw new IOException("Database error fetching artifacts", e);
+    }
   }
 
   @Override
   public Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace, String prefix, ArtifactVersions versions)
       throws IOException {
-    // TODO
-    return null;
+    try {
+      return repodb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(namespace, prefix, versions);
+    } catch (DbException e) {
+      throw new IOException("Database error fetching artifacts", e);
+    }
   }
 
   @Override

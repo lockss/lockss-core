@@ -1,6 +1,7 @@
 package org.lockss.rs.io.index.db;
 
 import org.junit.Test;
+import org.lockss.db.DbException;
 import org.lockss.repository.RepositoryDbManager;
 import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.test.ConfigurationUtil;
@@ -9,6 +10,7 @@ import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.TcpTestUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 
@@ -308,7 +310,7 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
   }
 
 
-  private ArtifactSpec makeArtifactSpec(String ns, String auid, String url, int version) {
+  private static ArtifactSpec makeArtifactSpec(String ns, String auid, String url, int version) {
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
         .setNamespace(ns)
@@ -486,6 +488,234 @@ public class TestSQLArtifactIndex extends LockssTestCase4 {
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
       List<Artifact> result = repodb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testFindArtifactsAllCommittedVersionsOfUrlFromAllAuids() throws Exception {
+    initializeDatabase();
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
+
+    String ns1 = "ns1";
+    String ns2 = "ns2";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+    String url1 = "url1";
+    String url2 = "url2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, auid1, url1, 1),
+        makeArtifactSpec(ns1, auid1, url1, 2),
+        makeArtifactSpec(ns1, auid1, url1, 3),
+        makeArtifactSpec(ns1, auid2, url1, 4),
+        makeArtifactSpec(ns2, auid1, url1, 5),
+        makeArtifactSpec(ns1, auid1, url2, 6),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      repodb.addArtifact(spec.getArtifact());
+    }
+
+    // Assert empty results (no committed artifacts)
+    assertEmpty(repodb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL));
+    assertEmpty(repodb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST));
+
+    // Commit artifacts
+    commitSpecs(repodb, specs, 0, 3, 4, 5);
+
+    // Assert with ALL
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+      List<Artifact> result =
+          repodb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(repodb, specs, 1);
+
+    // Assert with LATEST
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
+      List<Artifact> result =
+          repodb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testFindArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace() throws Exception {
+    initializeDatabase();
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
+
+    String ns1 = "ns1";
+    String ns2 = "ns2";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+    String url1 = "url1";
+    String url2 = "url2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, auid1, url1, 1),
+        makeArtifactSpec(ns1, auid1, url1, 2),
+        makeArtifactSpec(ns1, auid1, url1, 3),
+        makeArtifactSpec(ns1, auid2, url1, 4),
+        makeArtifactSpec(ns2, auid1, url1, 5),
+        makeArtifactSpec(ns1, auid1, url2, 6),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      repodb.addArtifact(spec.getArtifact());
+    }
+
+    // Assert empty results (no committed artifacts)
+    assertEmpty(repodb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL));
+    assertEmpty(repodb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST));
+
+    // Commit artifacts
+    commitSpecs(repodb, specs, 0, 3, 4, 5);
+
+    // Assert with ALL
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+      List<Artifact> result =
+          repodb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(repodb, specs, 1);
+
+    // Assert with LATEST
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
+      List<Artifact> result =
+          repodb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  private static void commitSpecs(RepositoryManagerSql repodb, ArtifactSpec specs[], int... idx) throws DbException {
+    for (int i : idx) {
+      repodb.commitArtifact(specs[i].getArtifactUuid());
+      specs[i].setCommitted(true);
+    }
+  }
+
+  @Test
+  public void testFindArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid() throws Exception {
+    initializeDatabase();
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
+
+    String ns = "ns1";
+    String auid = "a1";
+    String url = "url";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec("ns1", "a1", "url1", 1),
+        makeArtifactSpec("ns1", "a1", "url1", 2),
+        makeArtifactSpec("ns1", "a1", "url2", 1),
+        makeArtifactSpec("ns1", "a1", "url1", 3),
+        makeArtifactSpec("ns1", "a2", "url1", 1),
+        makeArtifactSpec("ns2", "a1", "url1", 1),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      repodb.addArtifact(spec.getArtifact());
+    }
+
+    // Assert empty result (no committed artifacts)
+    assertEmpty(repodb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, url));
+
+    // Commit artifacts
+    repodb.commitArtifact(specs[0].getArtifactUuid());
+    repodb.commitArtifact(specs[3].getArtifactUuid());
+    specs[0].setCommitted(true);
+    specs[3].setCommitted(true);
+
+    // Assert we get back the correct committed artifacts for the namespace and AUID
+    List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+    List<Artifact> result = repodb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, url);
+    assertIterableEquals(expected, result);
+  }
+
+  @Test
+  public void testFindArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid() throws Exception {
+    initializeDatabase();
+    RepositoryManagerSql repodb = new RepositoryManagerSql(repoDbManager);
+
+    String ns1 = "ns1";
+    String ns2 = "ns2";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+    String url1 = "url1";
+    String url2 = "url2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, auid1, url1, 1), //0
+        makeArtifactSpec(ns1, auid1, url1, 2),
+        makeArtifactSpec(ns1, auid1, url1, 3),
+        makeArtifactSpec(ns1, auid2, url1, 4), // 3
+        makeArtifactSpec(ns2, auid1, url1, 5), // 4
+        makeArtifactSpec(ns1, auid1, url2, 6), // 5
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      repodb.addArtifact(spec.getArtifact());
+    }
+
+    // Assert empty results (no committed artifacts)
+    assertEmpty(repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url1));
+    assertEmpty(repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url1));
+
+    // Commit artifacts
+    commitSpecs(repodb, specs, 0, 3, 4, 5);
+
+    // Assert results with (ns1, auid1, url1)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0]);
+      List<Artifact> result =
+          repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url1);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results with (ns1, auid2, url1)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3]);
+      List<Artifact> result =
+          repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid2, url1);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results with (ns2, auid1, url1)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[4]);
+      List<Artifact> result =
+          repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns2, auid1, url1);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results with (ns1, auid1, url2)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[5]);
+      List<Artifact> result =
+          repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url2);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(repodb, specs, 1);
+
+    // Assert result with second set of commits
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1]);
+      List<Artifact> result =
+          repodb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url1);
       assertIterableEquals(expected, result);
     }
   }
