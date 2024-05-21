@@ -58,6 +58,7 @@ import org.lockss.proxy.icp.IcpManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.repository.RepositoryDbManager;
 import org.lockss.repository.RepositoryManager;
+import org.lockss.rs.io.index.db.SQLArtifactIndexDbManager;
 import org.lockss.safenet.CachingEntitlementRegistryClient;
 import org.lockss.safenet.EntitlementRegistryClient;
 import org.lockss.scheduler.SchedService;
@@ -153,6 +154,8 @@ public class LockssDaemon extends LockssApp {
     managerKey(RepositoryManager.class);
   public static final String REPOSITORY_DB_MANAGER =
       managerKey(RepositoryDbManager.class);
+  public static final String SQLARTIFACTINDEX_DB_MANAGER =
+      managerKey(SQLArtifactIndexDbManager.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
