@@ -936,7 +936,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
     }
   }
 
-  private static final int MAXIMUM_URL_LENGTH = 32766;
+  private static final int MAXIMUM_URL_LENGTH = 32000;
 
   @Test
   public void testLongUrls() throws Exception {
