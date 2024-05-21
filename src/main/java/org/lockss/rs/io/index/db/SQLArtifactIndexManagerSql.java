@@ -1166,8 +1166,6 @@ public class SQLArtifactIndexManagerSql {
 
       sqlQuery = sqlQuery.replace("--MaxVersionAllUrlsWithNamespaceAndAuid--", latestVersionsQuery);
 
-      log.info("sqlQuery = " + sqlQuery);
-
       // Prepare the query
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
 
