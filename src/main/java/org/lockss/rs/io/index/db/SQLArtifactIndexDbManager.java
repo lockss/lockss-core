@@ -84,7 +84,7 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
       DERBY_ROOT + ".streamErrorLogseveritylevel";
 
   // Prefix for the datasource configuration entries.
-  protected static final String DATASOURCE_ROOT = PREFIX + "datasource";
+  public static final String DATASOURCE_ROOT = PREFIX + "datasource";
 
   /**
    * Name of the database datasource class. Changes require daemon restart.
