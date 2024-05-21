@@ -485,7 +485,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
 
     // Assert we get back the correct committed artifacts for the namespace and AUID
     {
-      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
       List<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url);
       assertIterableEquals(expected, result);
     }
