@@ -599,7 +599,8 @@ public class SQLArtifactIndexManagerSql {
       + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN;
+      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
 
   /**
    * Constructor.
