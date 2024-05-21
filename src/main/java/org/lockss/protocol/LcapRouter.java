@@ -198,9 +198,10 @@ public class LcapRouter
   void handleIncomingPeerMessage(PeerMessage pmsg) {
     try {
       LcapMessage lmsg = makeV3LcapMessage(pmsg);
-      if (lmsg.getDestinationId() !=
-          idMgr.getLocalPeerIdentity(Poll.V3_PROTOCOL)) {
-        log.warning("Received message address to " + lmsg.getDestinationId() +
+      if (lmsg.getDestinationId() == null) {
+        log.warning("Received message has null destination ID, processing anyway");
+      } else if (lmsg.getDestinationId() != idMgr.getLocalPeerIdentity(Poll.V3_PROTOCOL)) {
+        log.warning("Received message addressed to " + lmsg.getDestinationId() +
                     ", which is not us");
         return;
       }
