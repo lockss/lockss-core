@@ -607,6 +607,13 @@ public class V3LcapMessage extends LcapMessage implements LockssSerializable {
     } catch (NullPointerException npe) {
       throw new ProtocolException("encode - null origin host address.");
     }
+    try {
+      // PeerIdentity.getIdString() returns an IP:Port string.
+      m_props.put("destId", m_destinationID.getIdString());
+    } catch (NullPointerException npe) {
+      throw new ProtocolException("encode - null destination host address.");
+    }
+
     if (m_opcode == MSG_NO_OP) {
       m_props.putInt("opcode", m_opcode);
       if (m_pollerNonce != null) {
