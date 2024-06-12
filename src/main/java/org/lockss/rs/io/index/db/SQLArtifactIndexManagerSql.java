@@ -649,7 +649,7 @@ public class SQLArtifactIndexManagerSql {
    * @return a Connection with the connection to the database.
    * @throws DbException if any problem occurred accessing the database.
    */
-  public Connection getConnection() throws DbException {
+  private Connection getConnection() throws DbException {
     return idxDbManager.getConnection();
   }
 
@@ -877,7 +877,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return getNamespaces(conn);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -916,7 +916,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findAuids(conn, namespace);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1069,7 +1069,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return getArtifact(conn, uuid);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1116,7 +1116,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return getArtifact(conn, namespace, auid, url, version, includeUncommitted);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1174,7 +1174,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1232,7 +1232,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1289,7 +1289,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(conn, namespace, auid, url);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1339,7 +1339,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(conn, namespace, url, versions);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1391,7 +1391,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(conn, namespace, prefix, versions);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1449,7 +1449,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1499,7 +1499,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1551,7 +1551,7 @@ public class SQLArtifactIndexManagerSql {
     return result;
   }
 
-  public static Artifact getArtifactFromResultSet(ResultSet resultSet) throws SQLException {
+  private static Artifact getArtifactFromResultSet(ResultSet resultSet) throws SQLException {
     // Get the single result, if any
     if (resultSet.next()) {
       return getArtifactFromCurrentRow(resultSet);
@@ -1588,7 +1588,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return getLatestArtifact(conn, namespace, auid, url, includeUncommitted);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -1653,7 +1653,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       commitArtifact(conn, uuid);
 
       // Commit the transaction.
@@ -1693,7 +1693,7 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Get a connection to the database
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
 
       return findAuSize(conn, auid);
     } catch (DbException dbe) {
@@ -1762,7 +1762,7 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Get a connection to the database
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
 
       // Update the AU size
       result = updateAuSize(conn, auid, auSize);
@@ -1783,7 +1783,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       addArtifact(conn, artifact);
 
       // Commit the transaction.
@@ -1797,7 +1797,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
 
       for (Artifact artifact : artifacts) {
         addArtifact(conn, artifact);
@@ -1853,7 +1853,7 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Get a connection to the database
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
 
       // Update the storage URL
       rowsUpdated = updateStorageUrl(conn, uuid, storageUrl);
@@ -1900,7 +1900,7 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Get a connection to the database
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
 
       // Delete the artifact
       rowsDeleted = deleteArtifact(conn, uuid);
@@ -1943,7 +1943,7 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Get a connection to the database
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
 
       // Update the AU size
       deleteAuSize(conn, auid);
@@ -2103,7 +2103,7 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
 
     try {
-      conn = idxDbManager.getConnection();
+      conn = getConnection();
       return getSizeOfArtifacts(conn, namespace, auid, versions);
     } finally {
       DbManager.safeRollbackAndClose(conn);
