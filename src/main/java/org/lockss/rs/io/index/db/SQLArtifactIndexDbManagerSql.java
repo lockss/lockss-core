@@ -73,7 +73,7 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       + NAMESPACE_SEQ_COLUMN + " BIGINT NOT NULL"
       + " REFERENCES " + NAMESPACE_TABLE + " (" + NAMESPACE_SEQ_COLUMN + ") ON DELETE CASCADE,"
       + AUID_SEQ_COLUMN + " BIGINT NOT NULL"
-          + " REFERENCES " + AUID_TABLE + " (" + AUID_SEQ_COLUMN + ") ON DELETE CASCADE,"
+      + " REFERENCES " + AUID_TABLE + " (" + AUID_SEQ_COLUMN + ") ON DELETE CASCADE,"
       + URL_SEQ_COLUMN + " BIGINT NOT NULL"
       + " REFERENCES " + URL_TABLE + " (" + URL_SEQ_COLUMN + ") ON DELETE CASCADE,"
       + ARTIFACT_VERSION_COLUMN + " INTEGER NOT NULL,"
@@ -121,6 +121,54 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
         put(ARTIFACT_TABLE, CREATE_ARTIFACT_TABLE_QUERY);
       }};
 
+  private static final String NAMESPACE_INDEX_QUERY =
+      "CREATE UNIQUE INDEX idx1_" + NAMESPACE_TABLE + " ON " + NAMESPACE_TABLE + "(" + NAMESPACE_COLUMN + ")";
+
+  private static final String NAMESPACE_SEQ_INDEX_NAMESPACE_TABLE_QUERY =
+      "CREATE UNIQUE INDEX idx2_" + NAMESPACE_TABLE + " ON " + NAMESPACE_TABLE + "(" + NAMESPACE_SEQ_COLUMN + ")";
+
+  private static final String NAMESPACE_SEQ_INDEX_ARTIFACT_TABLE_QUERY =
+      "CREATE INDEX idx1_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "(" + NAMESPACE_SEQ_COLUMN + ")";
+
+  private static final String AUID_INDEX_QUERY =
+      "CREATE UNIQUE INDEX idx2_" + AUID_TABLE + " ON " + AUID_TABLE + "(" + AUID_COLUMN + ")";
+
+  // Not used: Created as part of version 2
+  private static final String AUID_SEQ_INDEX_AUID_TABLE_QUERY =
+      "CREATE UNIQUE INDEX idx2_" + AUID_TABLE + " ON " + AUID_TABLE + "(" + AUID_SEQ_COLUMN + ")";
+
+  private static final String AUID_SEQ_INDEX_ARTIFACT_TABLE_QUERY =
+      "CREATE INDEX idx2_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "(" + AUID_SEQ_COLUMN + ")";
+
+  private static final String URL_INDEX_QUERY =
+      "CREATE UNIQUE INDEX idx1_" + URL_TABLE + " ON " + URL_TABLE + "(" + URL_COLUMN + ")";
+
+  private static final String URL_SEQ_INDEX_URL_TABLE_QUERY =
+      "CREATE UNIQUE INDEX idx2_" + URL_TABLE + " ON " + URL_TABLE + "(" + URL_SEQ_COLUMN + ")";
+
+  private static final String URL_SEQ_INDEX_ARTIFACT_TABLE_QUERY =
+      "CREATE INDEX idx3_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "(" + URL_SEQ_COLUMN + ")";
+
+  private static final String ARTIFACT_UUID_INDEX_QUERY =
+      "CREATE UNIQUE INDEX idx4_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "(" + ARTIFACT_UUID_COLUMN + ")";
+
+  private static final String ARTIFACT_VERSION_INDEX_QUERY =
+      "CREATE INDEX idx5_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "(" + ARTIFACT_VERSION_COLUMN + ")";
+
+  private static final String[] VERSION_3_INDEX_CREATE_QUERIES = new String[]{
+      NAMESPACE_INDEX_QUERY,
+      NAMESPACE_SEQ_INDEX_NAMESPACE_TABLE_QUERY,
+      NAMESPACE_SEQ_INDEX_ARTIFACT_TABLE_QUERY,
+      AUID_INDEX_QUERY,
+      // AUID_SEQ_INDEX_AUID_TABLE_QUERY,
+      AUID_SEQ_INDEX_ARTIFACT_TABLE_QUERY,
+      URL_INDEX_QUERY,
+      URL_SEQ_INDEX_URL_TABLE_QUERY,
+      URL_SEQ_INDEX_ARTIFACT_TABLE_QUERY,
+      ARTIFACT_UUID_INDEX_QUERY,
+      ARTIFACT_VERSION_INDEX_QUERY,
+  };
+
   /**
    * Constructor.
    *
@@ -133,7 +181,7 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
    * @param fetchSize           An int with the SQL statement fetch size.
    */
   protected SQLArtifactIndexDbManagerSql(DbManager dbMgr, DataSource dataSource, String dataSourceClassName,
-                                   String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize) {
+                                         String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize) {
     super(dbMgr, dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
         retryDelay, fetchSize);
   }
@@ -179,6 +227,25 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
 
     // Create the necessary tables if they do not exist.
     createTablesIfMissing(conn, VERSION_2_TABLE_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Updates the database from version 2 to version 3.
+   *
+   * @param conn A Connection with the database connection to be used.
+   * @throws SQLException if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom2To3(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Create the necessary indices.
+    executeDdlQueries(conn, VERSION_3_INDEX_CREATE_QUERIES);
 
     log.debug2("Done.");
   }

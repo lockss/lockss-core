@@ -73,7 +73,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     startEmbeddedPgDbManager(idxDbManager);
     idxDbManager.initService(getMockLockssDaemon());
 
-    idxDbManager.setTargetDatabaseVersion(2);
+    idxDbManager.setTargetDatabaseVersion(3);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
@@ -88,7 +88,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
 
-    idxDbManager.setTargetDatabaseVersion(2);
+    idxDbManager.setTargetDatabaseVersion(3);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
