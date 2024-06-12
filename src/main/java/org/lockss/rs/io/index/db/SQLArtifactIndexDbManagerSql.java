@@ -189,10 +189,8 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
   /**
    * Sets up the database to version 1.
    *
-   * @param conn
-   *          A Connection with the database connection to be used.
-   * @throws SQLException
-   *           if any problem occurred updating the database.
+   * @param conn A Connection with the database connection to be used.
+   * @throws SQLException if any problem occurred updating the database.
    */
   void setUpDatabaseVersion1(Connection conn) throws SQLException {
     log.debug2("Invoked");
@@ -213,10 +211,8 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
   /**
    * Updates the database from version 1 to version 2.
    *
-   * @param conn
-   *          A Connection with the database connection to be used.
-   * @throws SQLException
-   *           if any problem occurred updating the database.
+   * @param conn A Connection with the database connection to be used.
+   * @throws SQLException if any problem occurred updating the database.
    */
   void updateDatabaseFrom1To2(Connection conn) throws SQLException {
     log.debug2("Invoked");
