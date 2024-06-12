@@ -60,7 +60,8 @@ public class SQLArtifactIndexManagerSql {
   private static final String FIND_URL_SEQ_QUERY = "SELECT "
       + URL_SEQ_COLUMN
       + " FROM " + URL_TABLE
-      + " WHERE " + URL_COLUMN + " = ?";
+      + " WHERE " + URL_COLUMN + " = ?"
+      + " LIMIT 1";
 
   private static final String INSERT_URL_QUERY = "INSERT INTO "
       + URL_TABLE
@@ -74,7 +75,8 @@ public class SQLArtifactIndexManagerSql {
   private static final String FIND_NAMESPACE_SEQ_QUERY = "SELECT "
       + NAMESPACE_SEQ_COLUMN
       + " FROM " + NAMESPACE_TABLE
-      + " WHERE " + NAMESPACE_COLUMN + " = ?";
+      + " WHERE " + NAMESPACE_COLUMN + " = ?"
+      + " LIMIT 1";
 
   private static final String INSERT_NAMESPACE_QUERY = "INSERT INTO "
       + NAMESPACE_TABLE
@@ -82,26 +84,15 @@ public class SQLArtifactIndexManagerSql {
       + "," + NAMESPACE_COLUMN
       + ") VALUES (default,?)";
 
-//  private static final String GET_NAMESPACES_QUERY = "SELECT "
-//      + NAMESPACE_COLUMN + " FROM " + NAMESPACE_TABLE;
-
   private static final String GET_NAMESPACES_QUERY = "SELECT "
-      + NAMESPACE_COLUMN
-      + " FROM "
-      + ARTIFACT_TABLE + " a,"
-      + NAMESPACE_TABLE + " ns"
-      + " WHERE "
-      + " a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " GROUP BY "
-      + " ns." + NAMESPACE_COLUMN
-      + " ORDER BY "
-      + NAMESPACE_COLUMN + " ASC";
+      + NAMESPACE_COLUMN + " FROM " + NAMESPACE_TABLE;
 
   // Query to find an AUID's internal AUID sequence number
   private static final String FIND_AUID_SEQ_QUERY = "select "
       + AUID_SEQ_COLUMN
       + " from " + AUID_TABLE
-      + " where " + AUID_COLUMN + " = ?";
+      + " where " + AUID_COLUMN + " = ?"
+      + " LIMIT 1";
 
   // Query to add an entry to the AUID table
   private static final String INSERT_AUID_QUERY = "insert into "
@@ -181,7 +172,7 @@ public class SQLArtifactIndexManagerSql {
       " AND a." + ARTIFACT_COMMITTED_COLUMN + " = ?";
 
   private static final String ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE =
-      " AND a." + ARTIFACT_COMMITTED_COLUMN + " = true";
+      " AND a." + ARTIFACT_COMMITTED_COLUMN + " IS TRUE";
 
   private static final String GET_ARTIFACT_WITH_VERSION_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
@@ -298,7 +289,7 @@ public class SQLArtifactIndexManagerSql {
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
-  private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY = "SELECT "
+  private static final String GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
@@ -320,7 +311,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " = ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION
+      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -562,11 +553,13 @@ public class SQLArtifactIndexManagerSql {
   private static final String GET_AUIDS_BY_NAMESPACE_QUERY = "SELECT DISTINCT "
       + "auid." + AUID_COLUMN
       + " FROM " + AUID_TABLE + " auid"
-      + "," + NAMESPACE_TABLE + " ns"
-      + "," + ARTIFACT_TABLE + " a"
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?";
+      + " WHERE EXISTS ( SELECT FROM "
+      + ARTIFACT_TABLE + " a,"
+      + NAMESPACE_TABLE + " ns"
+      + " WHERE a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
+      + " AND a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?"
+      + ")";
 
   private static final String UPDATE_ARTIFACT_COMMITTED_QUERY = "UPDATE " + ARTIFACT_TABLE
       + " SET " + ARTIFACT_COMMITTED_COLUMN + " = ?"
@@ -578,6 +571,16 @@ public class SQLArtifactIndexManagerSql {
 
   private static final String DELETE_ARTIFACT_QUERY = "DELETE FROM " + ARTIFACT_TABLE
       + " WHERE " + ARTIFACT_UUID_COLUMN + " = ?";
+
+  private static final String DELETE_ORPHANED_NAMESPACE_QUERY = "DELETE FROM " + NAMESPACE_TABLE + " ns"
+      + " WHERE NOT EXISTS ( SELECT FROM " + ARTIFACT_TABLE + " a WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN + " )";
+
+  private static final String DELETE_ORPHANED_AUID_QUERY = "DELETE FROM " + AUID_TABLE + " auid"
+      + " WHERE NOT EXISTS ( SELECT FROM " + ARTIFACT_TABLE + " a WHERE a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN + " )";
+
+  private static final String DELETE_ORPHANED_URL_QUERY = "DELETE FROM " + URL_TABLE + " u"
+      + " WHERE NOT EXISTS ( SELECT FROM " + ARTIFACT_TABLE + " a WHERE a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN + " )";
+
 
   // Query to delete AU sizes of an AU associated with an AUID
   private static final String DELETE_AU_SIZE_QUERY =
@@ -1137,6 +1140,8 @@ public class SQLArtifactIndexManagerSql {
         sqlQuery += ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE;
       }
 
+      sqlQuery += " LIMIT 1";
+
       // Prepare the query
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
 
@@ -1250,7 +1255,7 @@ public class SQLArtifactIndexManagerSql {
       String sqlQuery = GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY;
 
       sqlQuery = sqlQuery.replace("--CommittedStatusCondition--",
-          !includeUncommitted ? ARTIFACT_COMMITTED_STATUS_CONDITION : EMPTY_STRING);
+          !includeUncommitted ? ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE : EMPTY_STRING);
 
       // Prepare the query
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
@@ -1258,10 +1263,6 @@ public class SQLArtifactIndexManagerSql {
       // Populate the query
       ps.setString(1, namespace);
       ps.setString(2, auid);
-
-      if (!includeUncommitted) {
-        ps.setBoolean(3, true);
-      }
 
       resultSet = idxDbManager.executeQuery(ps);
 
@@ -1305,20 +1306,19 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY);
+      ps = idxDbManager.prepareStatement(conn, GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY);
 
       // Populate the query
       ps.setString(1, namespace);
       ps.setString(2, auid);
       ps.setString(3, url);
-      ps.setBoolean(4, true);
 
       resultSet = idxDbManager.executeQuery(ps);
 
       return getArtifactsFromResultSet(resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
-      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY);
+      log.error("SQL = '{}'.", GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("url = {}", url);
@@ -1612,6 +1612,7 @@ public class SQLArtifactIndexManagerSql {
       }
 
       sqlQuery += " AND a." + ARTIFACT_VERSION_COLUMN + " = (" + latestVersionQuery + ")";
+      sqlQuery += " LIMIT 1";
 
       // Prepare the query
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
@@ -1924,8 +1925,19 @@ public class SQLArtifactIndexManagerSql {
       ps = idxDbManager.prepareStatement(conn, DELETE_ARTIFACT_QUERY);
       ps.setString(1, uuid);
 
+
       // Execute the query
-      return idxDbManager.executeUpdate(ps);
+      int rows = idxDbManager.executeUpdate(ps);
+      if (rows > 0) {
+        ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_NAMESPACE_QUERY);
+        idxDbManager.executeUpdate(ps);
+        ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_AUID_QUERY);
+        idxDbManager.executeUpdate(ps);
+        ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_URL_QUERY);
+        idxDbManager.executeUpdate(ps);
+      }
+
+      return rows;
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", DELETE_ARTIFACT_QUERY);
@@ -2118,7 +2130,7 @@ public class SQLArtifactIndexManagerSql {
     String errorMessage = "Cannot get artifacts";
 
     String sqlQuery = versions == ArtifactVersions.LATEST ?
-        GET_SIZE_OF_LATEST_ARTIFACTS_QUERY:
+        GET_SIZE_OF_LATEST_ARTIFACTS_QUERY :
         GET_SIZE_OF_ARTIFACTS_QUERY;
 
     try {
