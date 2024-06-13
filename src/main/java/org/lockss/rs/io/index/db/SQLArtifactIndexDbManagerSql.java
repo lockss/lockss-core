@@ -155,6 +155,19 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
   private static final String ARTIFACT_VERSION_INDEX_QUERY =
       "CREATE INDEX idx5_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "(" + ARTIFACT_VERSION_COLUMN + ")";
 
+  private static final String ARTIFACT_STEM_INDEX_QUERY =
+      "CREATE INDEX idx6_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "("
+          + NAMESPACE_SEQ_COLUMN + ", "
+          + AUID_SEQ_COLUMN + ", "
+          + URL_SEQ_COLUMN + ")";
+
+  private static final String ARTIFACT_TUPLE_INDEX_QUERY =
+      "CREATE INDEX idx7_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "("
+          + NAMESPACE_SEQ_COLUMN + ", "
+          + AUID_SEQ_COLUMN + ", "
+          + URL_SEQ_COLUMN  + ", "
+          + ARTIFACT_VERSION_COLUMN + ")";
+
   private static final String[] VERSION_3_INDEX_CREATE_QUERIES = new String[]{
       NAMESPACE_INDEX_QUERY,
       NAMESPACE_SEQ_INDEX_NAMESPACE_TABLE_QUERY,
@@ -167,6 +180,8 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       URL_SEQ_INDEX_ARTIFACT_TABLE_QUERY,
       ARTIFACT_UUID_INDEX_QUERY,
       ARTIFACT_VERSION_INDEX_QUERY,
+      ARTIFACT_STEM_INDEX_QUERY,
+      ARTIFACT_TUPLE_INDEX_QUERY
   };
 
   /**
