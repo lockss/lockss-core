@@ -572,15 +572,14 @@ public class SQLArtifactIndexManagerSql {
   private static final String DELETE_ARTIFACT_QUERY = "DELETE FROM " + ARTIFACT_TABLE
       + " WHERE " + ARTIFACT_UUID_COLUMN + " = ?";
 
-  private static final String DELETE_ORPHANED_NAMESPACE_QUERY = "DELETE FROM " + NAMESPACE_TABLE + " ns"
-      + " WHERE NOT EXISTS ( SELECT FROM " + ARTIFACT_TABLE + " a WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN + " )";
+  private static final String DELETE_ORPHANED_NAMESPACE_QUERY = "DELETE FROM " + NAMESPACE_TABLE
+        + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + NAMESPACE_SEQ_COLUMN + ") " + NAMESPACE_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
 
-  private static final String DELETE_ORPHANED_AUID_QUERY = "DELETE FROM " + AUID_TABLE + " auid"
-      + " WHERE NOT EXISTS ( SELECT FROM " + ARTIFACT_TABLE + " a WHERE a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN + " )";
+  private static final String DELETE_ORPHANED_AUID_QUERY = "DELETE FROM " + AUID_TABLE
+        + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + AUID_SEQ_COLUMN + ") " + AUID_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
 
-  private static final String DELETE_ORPHANED_URL_QUERY = "DELETE FROM " + URL_TABLE + " u"
-      + " WHERE NOT EXISTS ( SELECT FROM " + ARTIFACT_TABLE + " a WHERE a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN + " )";
-
+  private static final String DELETE_ORPHANED_URL_QUERY = "DELETE FROM " + URL_TABLE
+        + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + URL_SEQ_COLUMN + ") " + URL_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
 
   // Query to delete AU sizes of an AU associated with an AUID
   private static final String DELETE_AU_SIZE_QUERY =
