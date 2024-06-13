@@ -105,7 +105,7 @@ public class TestLcapRouter extends LockssTestCase {
 
   public void testMakePeerMessage() throws Exception {
     V3LcapMessage lmsg =
-      LcapMessageTestUtil.makeTestVoteMessage(pid1, tempDir, daemon);
+      LcapMessageTestUtil.makeTestVoteMessage(pid1, pid2, tempDir, daemon);
     PeerMessage pmsg = rtr.makePeerMessage(lmsg);
     assertNull(pmsg.getSender());
     pmsg.setSender(pid1);
@@ -116,7 +116,7 @@ public class TestLcapRouter extends LockssTestCase {
   public void testNoRateLimiter() throws Exception {
     TimeBase.setSimulated(1000);
     V3LcapMessage lmsg =
-      LcapMessageTestUtil.makeTestVoteMessage(pid1, tempDir, daemon);
+      LcapMessageTestUtil.makeTestVoteMessage(pid1, pid2, tempDir, daemon);
 
     rtr.sendTo(lmsg, pid1);
     assertEquals(1, scomm.sentMsgs.size());
@@ -132,7 +132,7 @@ public class TestLcapRouter extends LockssTestCase {
   public void testSendTo() throws Exception {
     // Make a test message originating from myself
     V3LcapMessage lmsg =
-        LcapMessageTestUtil.makeTestVoteMessage(myPeerId, tempDir, daemon);
+      LcapMessageTestUtil.makeTestVoteMessage(myPeerId, pid2, tempDir, daemon);
     PeerMessage pm = rtr.makePeerMessage(lmsg);
 
     // PARAM_MIGRATE_FROM is *not* set: Message should go to the peer
@@ -158,7 +158,7 @@ public class TestLcapRouter extends LockssTestCase {
           ArgumentCaptor.forClass(PeerIdentity.class);
       verify(scomm, times(1))
           .sendTo(eq(pm), peerIdCaptor.capture());
-      assertEquals(pid2.getKey(), peerIdCaptor.getValue().getKey());
+      assertEquals(pid1.getKey(), peerIdCaptor.getValue().getKey());
     }
   }
 

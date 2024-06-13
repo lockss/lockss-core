@@ -293,6 +293,10 @@ public class VoterUserData
     this.pollerId = pollerId;
   }
 
+  public PeerIdentity getMyId() {
+    return getVoter().getMyPeerId();
+  }
+
   public byte[] getPollerNonce() {
     return pollerNonce;
   }
@@ -577,7 +581,7 @@ public class VoterUserData
     return new V3LcapMessage(getAuId(), getPollKey(), getPluginVersion(),
                              getPollerNonce(), getVoterNonce(), getVoterNonce2(),
 			     opcode, getModulus(), getSampleNonce(),
-                             getDeadline(), getPollerId(), messageDir,
+                             getDeadline(), getMyId(), messageDir,
                              voter.getLockssDaemon());
   }
 

@@ -779,8 +779,7 @@ public class PollManager
       long duration = pollFact.calcDuration(pollspec, this);
       if (duration > 0) {
         try {
-          PeerIdentity orig =
-              theIDManager.getLocalPeerIdentity(pollspec.getProtocolVersion());
+          PeerIdentity orig = getMyPeerId(pollspec.getProtocolVersion());
           Poll thePoll =
               makePoller(pollspec, duration, orig);
           if (thePoll != null) {
@@ -2260,6 +2259,10 @@ public class PollManager
    */
   public boolean isRecalcAu(ArchivalUnit au) {
     return recalcingAus.contains(au);
+  }
+
+  public PeerIdentity getMyPeerId(int pollVersion) {
+    return theIDManager.getLocalPeerIdentity(pollVersion);
   }
 
   public void countEvent(EventCtr c) {

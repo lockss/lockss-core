@@ -74,6 +74,11 @@ public class LcapRouter
   private File dataDir = null;
   private PeerIdentity migrateFrom = null;
 
+  public void initService(LockssDaemon daemon) {
+    super.initService(daemon);
+    idMgr = daemon.getIdentityManager();
+  }
+
   public void startService() {
     super.startService();
     LockssDaemon daemon = getDaemon();
@@ -89,7 +94,7 @@ public class LcapRouter
       log.warning("No stream comm");
       scomm = null;
     }
-    idMgr = daemon.getIdentityManager();
+    resetConfig();
   }
 
   public void stopService() {
@@ -113,19 +118,22 @@ public class LcapRouter
 	dataDir = null;
       }
 
-      String migrateFromVal =
+      // idMgr not set when this runs first runs
+      if (isDaemonInited()) {
+        String migrateFromVal =
           config.get(PARAM_MIGRATE_FROM, DEFAULT_MIGRATE_FROM);
-      if (!StringUtil.isNullString(migrateFromVal)) {
-        try {
-          migrateFrom = idMgr.findPeerIdentity(migrateFromVal);
-          log.info("Forwading outgoing LCAP traffic to: " + migrateFrom);
-        } catch (IdentityManager.MalformedIdentityKeyException e) {
-          log.error("Malformed migrateFrom peer identity: " +
-              migrateFromVal);
+        if (!StringUtil.isNullString(migrateFromVal)) {
+          try {
+            migrateFrom = idMgr.findPeerIdentity(migrateFromVal);
+            log.info("Forwading outgoing LCAP traffic to: " + migrateFrom);
+          } catch (IdentityManager.MalformedIdentityKeyException e) {
+            log.error("Malformed migrateFrom peer identity: " +
+                      migrateFromVal);
+            migrateFrom = null;
+          }
+        } else {
           migrateFrom = null;
         }
-      } else {
-        migrateFrom = null;
       }
     }
   }
