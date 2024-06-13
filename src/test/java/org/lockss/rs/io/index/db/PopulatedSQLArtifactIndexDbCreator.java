@@ -83,9 +83,9 @@ public class PopulatedSQLArtifactIndexDbCreator {
   private static void populateDatabase(SQLArtifactIndexDbManager idxDbManager) throws DbException {
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    int ns = 1;
-    int auids = 1000;
-    int urls = 100000;
+    int ns = 10;
+    int auids = 100;
+    int urls = 100;
 
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(ns, auids, urls);
