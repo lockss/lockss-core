@@ -14,6 +14,7 @@ import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.io.ZipUtil;
 import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -206,87 +207,24 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
   }
 
   @Test
-  @Disabled
-  public void testNamespace() throws Exception {
+  public void runAddArtifactMetric() throws Exception {
     initializePostgreSQL(false);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    String ns = "ns0";
-    String auid = "auid0";
-    String url = "url0";
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 100, 100);
 
-    ArtifactSpec spec = new ArtifactSpec()
-        .setArtifactUuid(UUID.randomUUID().toString())
-        .setNamespace(ns)
-        .setAuid(auid)
-        .setUrl(url)
-        .setVersion(1)
-        .setStorageUrl(URI.create("test"))
-        .setContentLength(1024)
-        .setContentDigest("My Digest")
-        .setCollectionDate(1234L);
-
-    idxdb.addArtifact(spec.getArtifact());
-    log.info("ns = " + idxdb.getNamespaces());
-    idxdb.deleteArtifact(spec.getArtifactUuid());
-    log.info("ns = " + idxdb.getNamespaces());
+    runMetric(specs, "addArtifact()", (spec) ->
+        idxdb.addArtifact(spec.getArtifact()));
   }
 
   @Test
-  public void runNonDestructiveMetrics() throws Exception {
-    initializePostgreSQL(true);
-
-    ArtifactSpecGenerator specs1 =
-        new ArtifactSpecGenerator(1, 10, 100);
-
-    getArtifactByUuidMetric(specs1);
-    getArtifactByTupleMetric(specs1);
-    getLatestArtifactMetric(specs1);
-    getNamespacesMetric(specs1);
-
-    findAuidsMetric(specs1);
-    findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuidMetric(specs1);
-    findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuidMetric(specs1);
-  }
-
-  @Test
-  public void runDestructiveMetrics() throws Exception {
+  public void runAddArtifactsMetric() throws Exception {
     initializePostgreSQL(false);
-
-    ArtifactSpecGenerator specs1 =
-        new ArtifactSpecGenerator(10, 100, 100);
-
-    ArtifactSpecGenerator specs2 =
-        new ArtifactSpecGenerator(10, 100, 100);
-
-    addArtifactMetric(specs1);
-    commitArtifactMetric(specs1);
-    updateStorageUrlMetrics(specs1);
-    deleteArtifactMetric(specs1);
-
-    addArtifactsMetric(specs2);
-  }
-
-  private void addArtifactMetric(Iterable<ArtifactSpec> specs) throws Exception {
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
-
-    for (ArtifactSpec spec : specs) {
-      idxdb.addArtifact(spec.getArtifact());
-      count++;
-    }
-
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("addArtifacts(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
-  }
-
-  private void addArtifactsMetric(Iterable<ArtifactSpec> specs) throws Exception {
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 100, 100);
 
     long count = 0;
     long start = TimeBase.nowMs();
@@ -310,190 +248,236 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
     log.info("addArtifacts(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
   }
 
-  private void commitArtifactMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runCommitArtifactMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    for (ArtifactSpec spec : specs) {
-      idxdb.commitArtifact(spec.getArtifactUuid());
-      count++;
-    }
-
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("commitArtifact(uuid): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
+    runMetric(specs, "commitArtifact()", (spec) ->
+        idxdb.commitArtifact(spec.getArtifactUuid()));
   }
 
-  private void deleteArtifactMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runDeleteArtifactMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs1 =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    for (ArtifactSpec spec : specs) {
-      idxdb.deleteArtifact(spec.getArtifactUuid());
-      count++;
-    }
-
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("deleteArtifact(uuid): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
+    runMetric(specs1, "deleteArtifact()", (spec) ->
+        idxdb.deleteArtifact(spec.getArtifactUuid()));
   }
 
-  private void getArtifactByUuidMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runUpdateStorageUrlMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs1 =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    for (ArtifactSpec spec : specs) {
-      idxdb.getArtifact(spec.getArtifactUuid());
-      count++;
-    }
-
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("getArtifact(uuid): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
+    runMetric(specs1, "updateStorageUrl()", (spec) ->
+        idxdb.updateStorageUrl(spec.getArtifactUuid(), "XXX"));
   }
 
-  private void getArtifactByTupleMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runFindLatestArtifactsOfAllUrlsWithNamespaceAndAuidMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs1 =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    for (ArtifactSpec spec : specs) {
-      idxdb.getArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), spec.getVersion(), true);
-      count++;
-    }
+    runMetric(specs1, "findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(false)", (spec) ->
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), false));
 
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("getArtifact(tuple): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
+    runMetric(specs1, "findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(true)", (spec) ->
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), true));
   }
 
-  private void getLatestArtifactMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runGetArtifactByUuidMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    for (ArtifactSpec spec : specs) {
-      idxdb.getLatestArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), true);
-      count++;
-    }
-
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("getLatestArtifact(tuple): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
+    runMetric(specs, "getArtifactByUuid()", (spec) ->
+      idxdb.getArtifact(spec.getArtifactUuid()));
   }
 
-  private void getNamespacesMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runGetArtifactByTupleMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    for (int i = 0; i < 1000; i++) {
-      idxdb.getNamespaces();
-      count++;
-    }
+    runMetric(specs, "getArtifactByTuple(false)", (spec) ->
+      idxdb.getArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), spec.getVersion(), false));
 
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("getNamespaces(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
+    runMetric(specs, "getArtifactByTuple(true)", (spec) ->
+        idxdb.getArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), spec.getVersion(), true));
   }
 
-  private void updateStorageUrlMetrics(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runGetLatestArtifactMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    for (ArtifactSpec spec : specs) {
-      idxdb.updateStorageUrl(spec.getArtifactUuid(), "XXX");
-      count++;
-    }
+    runMetric(specs, "getLatestArtifact(false)", (spec) ->
+        idxdb.getLatestArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), false));
 
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-
-    log.info("updateStorageUrl(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
+    runMetric(specs, "getLatestArtifact(true)", (spec) ->
+      idxdb.getLatestArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), true));
   }
 
-  private void findAuidsMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  @Test
+  public void runGetNamespacesMetric() throws Exception {
+    initializePostgreSQL(true);
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long count = 0;
-    long start = TimeBase.nowMs();
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    Iterator<ArtifactSpec> specIterator = specs.iterator();
+    runMetric(specs, "getNamespaces()", (spec) ->
+      idxdb.getNamespaces());
+  }
 
-    for (int i = 0; i < 1000; i++) {
-      idxdb.findAuids(specIterator.next().getNamespace());
-      count++;
-    }
+  @Test
+  public void runFindAuidsMetric() throws Exception {
+    initializePostgreSQL(true);
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    long end = TimeBase.nowMs();
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
 
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-    float msPerCall = ((float) (end - start)) / (float) count;
+    runMetric(specs, "findAuids()", (spec) ->
+      idxdb.findAuids(spec.getNamespace()));
+  }
 
-    log.info("findAuids(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec; " + msPerCall + " ms/call");
+  @Test
+  public void runFindArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuidMetric() throws Exception {
+    initializePostgreSQL(true);
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
+
+    runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid()", (spec) ->
+      idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), spec.getUrl()));
+  }
+
+  @Test
+  public void runFindArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuidMetric() throws Exception {
+    initializePostgreSQL(true);
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
+
+    runMetric(specs, "findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid()", (spec) ->
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), spec.getUrl()));
+  }
+
+  @Test
+  public void runFindArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace() throws Exception {
+    initializePostgreSQL(true);
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
+
+    runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ALL)", (spec) ->
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.ALL));
+
+    runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(LATEST)", (spec) ->
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.LATEST));
+  }
+
+  @Test
+  public void runFindArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace() throws Exception {
+
+
+    initializePostgreSQL(true);
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
+
+    runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ALL)", (spec) ->
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.ALL));
+
+    runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(LATEST)", (spec) ->
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.LATEST));
+  }
+
+  @Test
+  public void runFindArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuidMetric() throws Exception {
+    initializePostgreSQL(true);
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
+
+    runMetric(specs, "findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid()", (spec) ->
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), spec.getUrl()));
+  }
+
+  @Test
+  public void runFindArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuidMetric() throws Exception {
+    initializePostgreSQL(true);
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(10, 10, 100);
+
+    runMetric(specs, "findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(false)", (spec) ->
+          idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), false));
+
+    runMetric(specs, "findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(true)", (spec) ->
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), true));
   }
 
 
-  private void findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuidMetric(Iterable<ArtifactSpec> specs) throws Exception {
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
-    long count = 0;
-    long start = TimeBase.nowMs();
-
-    for (ArtifactSpec spec : specs) {
-      idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), spec.getUrl());
-      count++;
-    }
-
-    long end = TimeBase.nowMs();
-
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-    float msPerCall = ((float) (end - start)) / (float) count;
-
-    log.info("findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec; " + msPerCall + " ms/call");
+  interface ArtifactSpecRunnable {
+    void run(ArtifactSpec spec) throws Exception;
   }
 
-  private void findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuidMetric(Iterable<ArtifactSpec> specs) throws Exception {
+  private void runMetric(Iterable<ArtifactSpec> args, String funcSig, ArtifactSpecRunnable runnable) throws Exception {
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
     long count = 0;
     long start = TimeBase.nowMs();
 
-    for (ArtifactSpec spec : specs) {
-      List<Artifact> result =
-          idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), false);
-      count++;
+    for (ArtifactSpec spec : args) {
+      runnable.run(spec);
+
+      if (count++ % 1000 == 999) {
+        long end = TimeBase.nowMs();
+        float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
+        float msPerCall = ((float) (end - start)) / (float) count;
+
+        log.info(funcSig + ": " + count + " iterations in " + (end - start) + " ms; " + artifactsPerSecond + " iters/sec; " + msPerCall + " ms/iter");
+      }
     }
 
-    long end = TimeBase.nowMs();
+    // Display latest metrics if not previously displayed
+    if (!((count - 1) % 1000 == 999)) {
+      long end = TimeBase.nowMs();
+      float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
+      float msPerCall = ((float) (end - start)) / (float) count;
 
-    float artifactsPerSecond = (float) count / ((float) (end - start) / 1000);
-    float msPerCall = ((float) (end - start)) / (float) count;
-
-    log.info("findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec; " + msPerCall + " ms/call");
+      log.info(funcSig + ": " + count + " iterations in " + (end - start) + " ms; " + artifactsPerSecond + " iters/sec; " + msPerCall + " ms/iter");
+    }
   }
 }
