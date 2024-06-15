@@ -392,52 +392,55 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       return;
     }
 
-    // Check whether the Total Subscription feature is enabled.
-    if (isTotalSubscriptionEnabled) {
-      // Yes: Determine the Total Subscription setting.
-      boolean success = false;
+    boolean success = false;
 
-      try {
-	isTotalSubscription = findTotalSubscription(conn);
-	success = true;
-      } catch (DbException dbe) {
-	String errorMessage = "Cannot find the Total Subscription setting";
-	log.error(errorMessage, dbe);
-      } finally {
-	if (success) {
-	  try {
-	    conn.commit();
-	    MetadataDbManager.safeCloseConnection(conn);
-	  } catch (SQLException sqle) {
-	    log.error("Exception caught committing the connection", sqle);
-	    MetadataDbManager.safeRollbackAndClose(conn);
-	    success = false;
-	  }
-	} else {
-	  MetadataDbManager.safeRollbackAndClose(conn);
-	}
+    try {
+      // Check whether the Total Subscription feature is enabled.
+      if (isTotalSubscriptionEnabled) {
+        // Yes: Determine the Total Subscription setting.
+
+        try {
+          isTotalSubscription = findTotalSubscription(conn);
+          success = true;
+        } catch (DbException dbe) {
+          String errorMessage = "Cannot find the Total Subscription setting";
+          log.error(errorMessage, dbe);
+        }
+
+        if (!success) {
+          return;
+        }
+      } else {
+        // No: Remove any old setting from the database.
+        try {
+          Long publisherSeq = mdManager.findPublisher(conn, ALL_PUBLISHERS_NAME);
+          if (log.isDebug3())
+            log.debug3(DEBUG_HEADER + "publisherSeq = " + publisherSeq);
+
+          if (publisherSeq != null) {
+            int deletedCount =
+                subManagerSql.deletePublisherSubscription(conn, publisherSeq);
+            if (log.isDebug3())
+              log.debug3(DEBUG_HEADER + "deletedCount = " + deletedCount);
+
+            success = true;
+            MetadataDbManager.commitOrRollback(conn, log);
+          }
+        } catch (DbException dbe) {
+          log.error(CANNOT_DELETE_TOTAL_SUBSCRIPTION_ERROR_MESSAGE, dbe);
+        }
       }
-
-      if (!success) {
-        return;
-      }
-    } else {
-      // No: Remove any old setting from the database.
-      try {
-	Long publisherSeq = mdManager.findPublisher(conn, ALL_PUBLISHERS_NAME);
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "publisherSeq = " + publisherSeq);
-
-	if (publisherSeq != null) {
-	  int deletedCount =
-	      subManagerSql.deletePublisherSubscription(conn, publisherSeq);
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "deletedCount = " + deletedCount);
-
-	  MetadataDbManager.commitOrRollback(conn, log);
-	}
-      } catch (DbException dbe) {
-	log.error(CANNOT_DELETE_TOTAL_SUBSCRIPTION_ERROR_MESSAGE, dbe);
+    } finally {
+      if (success) {
+        try {
+          conn.commit();
+          MetadataDbManager.safeCloseConnection(conn);
+        } catch (SQLException sqle) {
+          log.error("Exception caught committing the connection", sqle);
+          MetadataDbManager.safeRollbackAndClose(conn);
+        }
+      } else {
+        MetadataDbManager.safeRollbackAndClose(conn);
       }
     }
 
@@ -2261,13 +2264,13 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       return;
     }
 
-    if (isTotalSubscriptionEnabled && totalSubscriptionChanged) {
-      updateTotalSubscription(conn, updatedTotalSubscriptionSetting, status);
-    }
-
-    BatchAuStatus bas;
-
     try {
+      if (isTotalSubscriptionEnabled && totalSubscriptionChanged) {
+        updateTotalSubscription(conn, updatedTotalSubscriptionSetting, status);
+      }
+
+      BatchAuStatus bas;
+
       // Loop through all the publisher subscriptions.
       for (PublisherSubscription publisherSubscription
 	  : publisherSubscriptions) {
@@ -2853,13 +2856,13 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       return;
     }
 
-    if (isTotalSubscriptionEnabled && totalSubscriptionChanged) {
-      updateTotalSubscription(conn, updatedTotalSubscriptionSetting, status);
-    }
-
-    BatchAuStatus bas;
-
     try {
+      if (isTotalSubscriptionEnabled && totalSubscriptionChanged) {
+        updateTotalSubscription(conn, updatedTotalSubscriptionSetting, status);
+      }
+
+      BatchAuStatus bas;
+
       // Loop through all the publisher subscriptions.
       for (PublisherSubscription publisherSubscription
 	  : publisherSubscriptions) {
@@ -4100,6 +4103,8 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       log.error(CANNOT_CONNECT_TO_DB_ERROR_MESSAGE, dbe);
       status.createTotalSubscriptionStatusEntry(false, dbe.getMessage(),
 	  totalSubscriptionSetting);
+    } finally {
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
   }
 

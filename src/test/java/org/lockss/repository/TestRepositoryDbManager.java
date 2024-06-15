@@ -145,6 +145,7 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
         SqlConstants.VERSION_TABLE));
 
     assertEquals(1, countVersions(conn));
+    repositoryDbManager.safeRollbackAndClose(conn);
   }
 
   /**
@@ -164,6 +165,7 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
         SqlConstants.VERSION_TABLE));
 
     assertEquals(2, countVersions(conn));
+    repositoryDbManager.safeRollbackAndClose(conn);
   }
 
   @Test
