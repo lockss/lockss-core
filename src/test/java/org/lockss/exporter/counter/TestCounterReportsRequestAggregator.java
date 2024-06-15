@@ -218,6 +218,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expected, count);
@@ -250,6 +251,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expected, count);
@@ -283,6 +285,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expected, count);
@@ -486,6 +489,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expected, count);
@@ -530,6 +534,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expected, count);
@@ -580,6 +585,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expectedFull, fullCount);
@@ -740,6 +746,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expected, count);
@@ -795,6 +802,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expectedHtml, htmlCount);
@@ -849,6 +857,7 @@ public class TestCounterReportsRequestAggregator extends LockssTestCase {
     } finally {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(statement);
+      DbManager.safeCloseConnection(conn);
     }
 
     assertEquals(expectedPublicationYear, pubYear);
