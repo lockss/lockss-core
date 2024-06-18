@@ -69,7 +69,9 @@ import org.lockss.config.TdbUtil;
 import org.lockss.db.DbException;
 import org.lockss.extractor.MetadataField;
 import org.lockss.metadata.MetadataDbManager;
+import org.lockss.metadata.MetadataDbManagerSql;
 import org.lockss.metadata.MetadataManager;
+import org.lockss.metadata.MetadataManagerSql;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuEvent;
 import org.lockss.plugin.AuEventHandler;
@@ -392,22 +394,15 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       return;
     }
 
-    boolean success = false;
-
     try {
       // Check whether the Total Subscription feature is enabled.
       if (isTotalSubscriptionEnabled) {
         // Yes: Determine the Total Subscription setting.
-
         try {
           isTotalSubscription = findTotalSubscription(conn);
-          success = true;
         } catch (DbException dbe) {
           String errorMessage = "Cannot find the Total Subscription setting";
           log.error(errorMessage, dbe);
-        }
-
-        if (!success) {
           return;
         }
       } else {
@@ -423,7 +418,6 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
             if (log.isDebug3())
               log.debug3(DEBUG_HEADER + "deletedCount = " + deletedCount);
 
-            success = true;
             MetadataDbManager.commitOrRollback(conn, log);
           }
         } catch (DbException dbe) {
@@ -431,17 +425,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
         }
       }
     } finally {
-      if (success) {
-        try {
-          conn.commit();
-          MetadataDbManager.safeCloseConnection(conn);
-        } catch (SQLException sqle) {
-          log.error("Exception caught committing the connection", sqle);
-          MetadataDbManager.safeRollbackAndClose(conn);
-        }
-      } else {
-        MetadataDbManager.safeRollbackAndClose(conn);
-      }
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     pluginManager.registerAuEventHandler(auEventHandler);
@@ -4052,6 +4036,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 
     Long publisherSeq =
 	mdManager.findOrCreatePublisher(conn, ALL_PUBLISHERS_NAME);
+    MetadataDbManager.commitOrRollback(conn, log);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "publisherSeq = " + publisherSeq);
 
