@@ -345,7 +345,6 @@ public class BlockingStreamComm
   private boolean paramDissociateOnNoSend = DEFAULT_DISSOCIATE_ON_NO_SEND;
   private boolean paramDissociateOnEveryStop =
     DEFAULT_DISSOCIATE_ON_EVERY_STOP;
-  private int paramListenPort = -1; // Set only in same-host migration mode
 
   private boolean enabled = DEFAULT_ENABLED;
   private boolean running = false;
@@ -960,14 +959,6 @@ public class BlockingStreamComm
       if (configShot.once()) {
 	configure(config, prevConfig, changedKeys);
       }
-      if (cfgMgr.inMigrationMode()) {
-        int port = config.getInt(ConfigManager.PARAM_MIGRATION_LCAP_PORT, -1);
-        if (port > 0) {
-          paramListenPort = port;
-        } else {
-          paramListenPort = -1;
-        }
-      }
       // the following params can be changed on the fly
       if (changedKeys.contains(PREFIX)) {
 	if (enabled && isRunning() &&
@@ -1413,7 +1404,8 @@ public class BlockingStreamComm
 
     rcvQueue = new FifoQueue();
     try {
-      int port = paramListenPort > 0 ? paramListenPort : myPeerAddr.getPort();
+      int port = cfgMgr.inMigrationMode()
+        ? cfgMgr.getV3LcapListenPort() : myPeerAddr.getPort();
       if (!getDaemon().getResourceManager().reserveTcpPort(port,
 							   SERVER_NAME)) {
 	throw new IOException("TCP port " + port + " unavailable");
