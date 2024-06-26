@@ -403,7 +403,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       archiveReader.setStrict(true);
 
       try (DeferredTempFileOutputStream out =
-               new DeferredTempFileOutputStream((int) (16 * FileUtils.ONE_MB), null)) {
+               new DeferredTempFileOutputStream((int) (16 * FileUtils.ONE_MB), (String) null)) {
 
         ObjectMapper objMapper = new ObjectMapper();
         objMapper.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
