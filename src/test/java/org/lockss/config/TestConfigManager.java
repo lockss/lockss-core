@@ -2417,7 +2417,7 @@ public class TestConfigManager extends LockssTestCase4 {
                                SubscriptionManager.DEFAULT_SUBSCRIPTION_DEFERRED));
     assertNull(cfg.get(LcapRouter.PARAM_MIGRATE_FROM));
 
-    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_IS_CONFIGURED_FOR_MIGRATION,
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_IN_MIGRATION_MODE,
                                   "true");
     cfg = ConfigManager.getCurrentConfig();
     assertTrue(mgr.inMigrationMode());

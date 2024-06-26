@@ -448,12 +448,18 @@ public class ConfigManager implements LockssManager {
   public static final boolean DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED =
     true;
 
+  /** Set internally because the port isn't passed in directly but is
+   * now needed by both BlockingStreamComm and migration.  Easier to
+   * compute it once here and put in config for V1 MigrateSettings */
+  public static final String PARAM_ACTUAL_V3_LCAP_PORT =
+    MYPREFIX + "actualV3LcapPort";
+
   // Migration params
 
   /** Various warnings are issued when in migration mode. */
-  public static final String PARAM_IS_CONFIGURED_FOR_MIGRATION =
-    MYPREFIX + "isConfiguredForMigration";
-  public static final boolean DEFAULT_IS_CONFIGURED_FOR_MIGRATION = false;
+  public static final String PARAM_IN_MIGRATION_MODE =
+    MYPREFIX + "inMigrationMode";
+  public static final boolean DEFAULT_IN_MIGRATION_MODE = false;
 
   public static final String PARAM_SAME_HOST_MIGRATION =
     MYPREFIX + "sameHostMigration";
@@ -731,7 +737,8 @@ public class ConfigManager implements LockssManager {
   protected LockssApp theApp = null;
   protected boolean isInited = false;
   protected boolean isStarted = false;
-  protected boolean inMigrationMode = DEFAULT_IS_CONFIGURED_FOR_MIGRATION;
+  protected boolean inMigrationMode = DEFAULT_IN_MIGRATION_MODE;
+  private int paramActualV3LcapPort = -1;
 
   private List configChangedCallbacks = new ArrayList();
 
@@ -2067,8 +2074,8 @@ public class ConfigManager implements LockssManager {
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
       auInsertCommitCount = config.getInt(PARAM_AU_INSERT_COMMIT_COUNT,
 	  				  DEFAULT_AU_INSERT_COMMIT_COUNT);
-      inMigrationMode = config.getBoolean(PARAM_IS_CONFIGURED_FOR_MIGRATION,
-                                          DEFAULT_IS_CONFIGURED_FOR_MIGRATION);
+      inMigrationMode = config.getBoolean(PARAM_IN_MIGRATION_MODE,
+                                          DEFAULT_IN_MIGRATION_MODE);
     }
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
@@ -2252,36 +2259,67 @@ public class ConfigManager implements LockssManager {
 //     setIfNotSet(config, fromParam, IcpManager.PARAM_ICP_BIND_ADDRS);
 
     org.lockss.poller.PollManager.processConfigMacros(config);
+
+    // Extract actual listen port from LCAP ID and copy to config as
+    // it's needed by both BlockingStreamComm and V1 migration
+    int lcapListenPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, -1);
+    if (lcapListenPort < 0) {
+      String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
+      try {
+        lcapListenPort = IDUtil.extractPortFromV3Identity(lcapId);
+      } catch (IllegalArgumentException e) {
+        log.error("Couldn't parse LCAP V3 identity " + lcapId);
+      }
+    }
+    paramActualV3LcapPort = lcapListenPort;
+    // Put in config for easy access by V1 MigrateSettings
+    config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(lcapListenPort));
   }
   
+  public int getV3LcapListenPort() {
+    return paramActualV3LcapPort;
+  }
+
   // If configured for migration, tell other subsystems to behave
   // differently
   private void setMigrationParams(Configuration config) {
-    if (config.getBoolean(PARAM_IS_CONFIGURED_FOR_MIGRATION,
-                          DEFAULT_IS_CONFIGURED_FOR_MIGRATION)) {
+    if (config.getBoolean(PARAM_IN_MIGRATION_MODE,
+                          DEFAULT_IN_MIGRATION_MODE)) {
       log.info("Setting up for migration from V1");
 
       // Extract port from LCAP identity, combine it with V1 routable
       // IP to get the PeerId to which to forward LCAP traffic
-      String migratingFromIdentity =
-        config.get(PARAM_PLATFORM_LOCAL_V3_IDENTITY);
-      PeerAddress pad;
+      String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
       try {
-        pad = PeerAddress.makePeerAddress(migratingFromIdentity);
-        if (pad instanceof PeerAddress.Tcp padv3) {
-          String sendToV1Id =
-            IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR),
-                               padv3.getPort());
-          log.info("Configuring to forward LCAP to: " + sendToV1Id);
-          config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
-        } else {
-          log.critical("LCAP identity is malformed, can't set up for migration: "
-                       + migratingFromIdentity);
-        }
-      } catch (IdentityManager.MalformedIdentityKeyException e) {
-        log.critical("LCAP identity is malformed, can't set up for migration: "
-                     + migratingFromIdentity);
+        int lcapListenPort = IDUtil.extractPortFromV3Identity(lcapId);
+        String sendToV1Id =
+          IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR),
+                             lcapListenPort);
+        log.info("Configuring to forward LCAP to: " + sendToV1Id);
+        config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
+      } catch (IllegalArgumentException e) {
+        log.error("Couldn't parse LCAP V3 identity " + lcapId);
       }
+
+
+//       String migratingFromIdentity =
+//         config.get(PARAM_PLATFORM_LOCAL_V3_IDENTITY);
+//       try {
+//         PeerAddress pad = PeerAddress.makePeerAddress(migratingFromIdentity);
+//         if (pad instanceof PeerAddress.Tcp padv3) {
+//           String sendToV1Id =
+//             IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR),
+//                                padv3.getPort());
+//           log.info("Configuring to forward LCAP to: " + sendToV1Id);
+//           config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
+//         } else {
+//           log.critical("LCAP identity is malformed, can't set up for migration: "
+//                        + migratingFromIdentity);
+//         }
+//       } catch (IdentityManager.MalformedIdentityKeyException e) {
+//         log.critical("LCAP identity is malformed, can't set up for migration: "
+//                      + migratingFromIdentity);
+//       }
 
       // Tell SubscriptionManager to defer instantiating subscriptions
       config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");

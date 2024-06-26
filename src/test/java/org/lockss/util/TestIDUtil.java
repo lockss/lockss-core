@@ -310,6 +310,13 @@ public class TestIDUtil extends LockssTestCase {
       ; // Expected
     }
   }
-  
-  
+
+  public void testExtractPortFromV3Identity() throws Exception {
+    assertEquals(123, IDUtil.extractPortFromV3Identity("TCP:[127.0.0.1]:123"));
+    try {
+      assertEquals(123, IDUtil.extractPortFromV3Identity("TCP:[127,...]:123"));
+      fail("Unpargesable IP addr should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+    }
+  }
 }
