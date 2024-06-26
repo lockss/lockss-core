@@ -30,6 +30,7 @@ package org.lockss.repository;
 
 import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.map.LinkedMap;
+import org.apache.commons.io.FileUtils;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.app.LockssDaemon;
@@ -47,6 +48,7 @@ import org.lockss.util.Constants;
 import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.RestLockssRepository;
 import org.lockss.util.rest.repo.model.Artifact;
@@ -56,13 +58,13 @@ import org.lockss.util.rest.repo.util.ArtifactCache;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 
+import javax.jms.JMSException;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.regex.Pattern;
-import javax.jms.JMSException;
 
 /**
  * RepositoryManager is the center of the per AU repositories.  It manages
@@ -107,11 +109,29 @@ public class RepositoryManager
     PREFIX + "artifactCache.maxSize";
   public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
 
+  public static final String REPOSITORY_CLIENT_PREFIX = PREFIX + "client.";
+
   /** Toggles whether to use the multipart endpoint for artifact data */
   public static final String PARAM_USE_MULTIPART_ENDPOINT =
-      PREFIX + "useMultipartEndpoint";
+      REPOSITORY_CLIENT_PREFIX + "useMultipartEndpoint";
   public static final boolean DEFAULT_USE_MULTIPART_ENDPOINT =
       RestLockssRepository.DEFAULT_USE_MULTIPART_ENDPOINT;
+
+  public static final String PARAM_CONNECT_TIMEOUT =
+      REPOSITORY_CLIENT_PREFIX + "connectTimeout";
+  public static final long DEFAULT_CONNECT_TIMEOUT = 30 * Constants.SECOND;
+
+  public static final String PARAM_READ_TIMEOUT =
+      REPOSITORY_CLIENT_PREFIX + "readTimeout";
+  public static final long DEFAULT_READ_TIMEOUT = 30 * Constants.SECOND;
+
+  public static final String PARAM_RESPONSE_SIZE_THRESHOLD =
+      REPOSITORY_CLIENT_PREFIX + "sizeThreshold";
+  public static final long DEFAULT_RESPONSE_SIZE_THRESHOLD = 16 * FileUtils.ONE_MB;
+
+  public static final String PARAM_RESPONSE_TMP_DIR =
+      REPOSITORY_CLIENT_PREFIX + "tmpDir";
+  public static final File DEFAULT_RESPONSE_TMP_DIR = null;
 
   /** Maximum size of ArtifactData cache */
   public static final String PARAM_ARTIFACT_DATA_CACHE_MAX =
@@ -151,7 +171,12 @@ public class RepositoryManager
   private static CheckUnnormalizedMode checkUnnormalized =
       DEFAULT_CHECK_UNNORMALIZED;
   private long auidRepoMapAge = DEFAULT_AUID_REPO_MAP_AGE;
+
   private boolean useMultipartEndpoint = DEFAULT_USE_MULTIPART_ENDPOINT;
+  private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+  private long readTimeout = DEFAULT_READ_TIMEOUT;
+  private long sizeThreshold = DEFAULT_RESPONSE_SIZE_THRESHOLD;
+  private File tmpDir = DEFAULT_RESPONSE_TMP_DIR;
 
   private RepoSpec v2Repo = null;
 
@@ -210,8 +235,17 @@ public class RepositoryManager
                   PARAM_CHECK_UNNORMALIZED, DEFAULT_CHECK_UNNORMALIZED);
       auidRepoMapAge = config.getTimeInterval(PARAM_AUID_REPO_MAP_AGE,
 					      DEFAULT_AUID_REPO_MAP_AGE);
+
       useMultipartEndpoint = config.getBoolean(PARAM_USE_MULTIPART_ENDPOINT,
           DEFAULT_USE_MULTIPART_ENDPOINT);
+
+      connectTimeout = config.getLong(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
+      readTimeout = config.getLong(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
+      sizeThreshold = config.getSize(PARAM_RESPONSE_SIZE_THRESHOLD, DEFAULT_RESPONSE_SIZE_THRESHOLD);
+
+      tmpDir = (config.containsKey(PARAM_RESPONSE_TMP_DIR)) ?
+          new File(config.get(PARAM_RESPONSE_TMP_DIR)) : DEFAULT_RESPONSE_TMP_DIR;
+
       processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
       reconfigureRepos(config);
     }
@@ -360,8 +394,11 @@ public class RepositoryManager
 	  }
 	}
 
-	RestLockssRepository repo = LockssRepositoryFactory
-	    .createRestLockssRepository(url, serviceUser, servicePassword);
+        RestLockssRepository repo = new RestLockssRepository(url,
+            RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir),
+            serviceUser,
+            servicePassword);
+
         repo.setUseMultipartEndpoint(useMultipartEndpoint);
 	configureArtifactCache(repo, config);
 	return repo;
