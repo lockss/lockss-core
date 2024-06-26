@@ -356,6 +356,7 @@ public class BlockingStreamComm
   private PeerIdentity myPeerId;
   private PeerAddress.Tcp myPeerAddr;
 
+  private ConfigManager cfgMgr;
   private IdentityManager idMgr;
   protected LockssKeyStoreManager keystoreMgr;
 
@@ -894,6 +895,7 @@ public class BlockingStreamComm
   public void startService() {
     super.startService();
     LockssDaemon daemon = getDaemon();
+    cfgMgr = daemon.getConfigManager();
     idMgr = daemon.getIdentityManager();
     keystoreMgr = daemon.getKeystoreManager();
     resetConfig();
@@ -1402,7 +1404,8 @@ public class BlockingStreamComm
 
     rcvQueue = new FifoQueue();
     try {
-      int port = myPeerAddr.getPort();
+      int port = cfgMgr.inMigrationMode()
+        ? cfgMgr.getV3LcapListenPort() : myPeerAddr.getPort();
       if (!getDaemon().getResourceManager().reserveTcpPort(port,
 							   SERVER_NAME)) {
 	throw new IOException("TCP port " + port + " unavailable");

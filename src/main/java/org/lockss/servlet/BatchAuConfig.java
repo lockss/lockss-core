@@ -55,7 +55,7 @@ public class BatchAuConfig extends LockssServlet {
 
   private static final int LONG_TABLE_AT_LEAST = 10;
 
-  static String MIGRATION_WARNING = "Migration is in progress.  Please do not add or delete any AUs that will be migrated from V1.";
+  static String MIGRATION_WARNING = "Migration is in progress.  Please do not add or delete any AUs that will be or have been migrated from LOCKSS 1.x.";
 
   /** Controls the appearance (in select lists) of TitleSets that contain
    * no actionable AUs.  If included, they are greyed. <ul><li><b>All</b>
