@@ -1,17 +1,17 @@
 package org.lockss.rs.io.index.db;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
-import org.jetbrains.annotations.NotNull;
-import org.junit.Test;
-import org.junit.jupiter.api.Disabled;
+import org.apache.commons.io.FileUtils;
 import org.lockss.db.DbException;
+import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepositoryDbManager;
 import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.LockssTestCase4;
+import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.TcpTestUtil;
-import org.lockss.util.Logger;
+import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.io.ZipUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactVersions;
@@ -19,28 +19,150 @@ import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.postgresql.ds.PGSimpleDataSource;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
 
-public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
-  private static final Logger log = Logger.getLogger();
+public class SQLArtifactIndexMetrics extends LockssTestCase {
+  private static L4JLogger log = L4JLogger.getLogger();
+
+  private static final File DEFAULT_SRC_DATA_DIR =
+      new File("metricsdb.zip");
+
+  private File srcDataDir = DEFAULT_SRC_DATA_DIR;
+  private String tmpDirPath;
+  private String dbPort;
 
   private MockLockssDaemon theDaemon;
-  private String tempDirPath;
   private SQLArtifactIndexDbManager idxDbManager;
-  private String dbPort;
+  private SQLArtifactIndexManagerSql idxdb;
+  private EmbeddedPostgres embeddedPg;
+
+  public static void main(String[] argv) throws Exception {
+    SQLArtifactIndexMetrics metricsRunner = new SQLArtifactIndexMetrics();
+
+    int ix = 0;
+    String metricName = null;
+    try {
+      // Parse arguments
+      for (ix = 0; ix < argv.length; ix++) {
+        String arg = argv[ix];
+        if (arg.equals("-d") || arg.equals("--data")) {
+          metricsRunner.setSourceDataDir(argv[++ix]);
+          ++ix;
+        } else if (arg.equals("-m") || arg.equals("--metric")) {
+          metricName = argv[++ix];
+        } else {
+          log.fatal("Illegal command line: {}", ListUtil.list(argv));
+          usage();
+        }
+      }
+
+      // Run metrics
+      if (StringUtil.isNullString(metricName)) {
+        metricsRunner.runAllMetrics();
+      } else {
+        metricsRunner.runMetric(metricName);
+      }
+
+      System.exit(0);
+    } catch (Exception e) {
+      log.fatal("Unexpected error, exiting.", e);
+      System.exit(1);
+    }
+  }
+
+  private void setSourceDataDir(String srcDataDir) {
+    this.srcDataDir = new File(srcDataDir);
+  }
+
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.METHOD)
+  private static @interface Metric {
+    public String value() default "";
+    public boolean usePopulatedDb() default true;
+  }
+
+  private Map<Metric, Method> getMetricMethodMap() {
+    Class<?> clazz = this.getClass();
+    Map<Metric, Method> metricMethodMap = new HashMap<>();
+
+    for (Method method : clazz.getMethods()) {
+      if (method.isAnnotationPresent(Metric.class)) {
+        Metric metricAnnotation = method.getAnnotation(Metric.class);
+        metricMethodMap.put(metricAnnotation, method);
+      }
+    }
+
+    return metricMethodMap;
+  }
+
+  private void runAllMetrics() throws Exception {
+    for (Map.Entry<Metric, Method> entry : getMetricMethodMap().entrySet()) {
+      runDatabaseMetric(entry.getKey(), entry.getValue());
+    }
+  }
+
+  private void runMetric(String name) throws Exception {
+    Map<Metric, Method> mmm = getMetricMethodMap();
+
+    Metric m = mmm.keySet()
+        .stream()
+        .filter(metric -> metric.value().equals(name))
+        .findFirst()
+        .orElse(null);
+
+    Method mm = mmm.get(m);
+
+    runDatabaseMetric(m, mm);
+ }
+
+  private void runDatabaseMetric(Metric m, Method mm) throws Exception {
+    if (mm == null) {
+      throw new MetricMethodNotFoundException();
+    }
+
+    setUp();
+    initializePostgreSQL(m.usePopulatedDb());
+    idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+    mm.invoke(this);
+    tearDown();
+  }
+
+  private static void usage() {
+    usage(null);
+  }
+
+  private static void usage(String msg) {
+    PrintStream o = System.out;
+    if (msg != null) {
+      o.println(msg);
+    }
+    o.println("Usage: java SQLArtifactIndexMetrics" +
+        " [-d|--data <path>]" +
+        " [-m|--metric <path>] ...");
+    o.println("  -d, --data <path>    Source PostgreSQL data directory (or zip file of one)");
+    o.println("  -m, --metric <name>  Name of metric to run");
+    System.exit(2);
+  }
+
+  private class MetricMethodNotFoundException extends Exception {
+    // Intentionally left blank
+  }
 
   @Override
   public void setUp() throws Exception {
     super.setUp();
 
     // Get the temporary directory used during the test.
-    tempDirPath = setUpDiskSpace();
+    tmpDirPath = setUpDiskSpace();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
@@ -51,14 +173,21 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
 
   @Override
   public void tearDown() throws Exception {
+    // Temporary directories are cleaned up in tearDown() but this gives
+    // the embedded PostgreSQL framework an opportunity to shutdown and
+    // clean up gracefully:
+    if (embeddedPg != null)
+      embeddedPg.close();
+
     if (idxDbManager != null)
       idxDbManager.stopService();
 
     theDaemon.stopDaemon();
+
     super.tearDown();
   }
 
-  protected void initializePostgreSQL(boolean usePopulatedDb) throws Exception {
+  private void initializePostgreSQL(boolean usePopulatedDb) throws Exception {
     int port = startEmbeddedPostgreSQL(usePopulatedDb);
 
     ConfigurationUtil.addFromArgs(
@@ -89,7 +218,7 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
   }
 
-  protected int startEmbeddedPostgreSQL(boolean usePopulatedDb) throws DbException {
+  private int startEmbeddedPostgreSQL(boolean usePopulatedDb) throws DbException {
     try {
       EmbeddedPostgres.Builder builder = EmbeddedPostgres.builder();
 
@@ -99,55 +228,50 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
       }
 
       if (usePopulatedDb) {
-        File dataDir = unzipTestDatabase(tempDirPath);
-        if (dataDir != null) {
-          builder.setDataDirectory(dataDir);
+        if (srcDataDir.exists()) {
+          log.debug("Copying PostgreSQL data directory");
+          File dstDataDir = FileUtil.createTempDir("pgsqldb", null, new File(tmpDirPath));
+
+          if (srcDataDir.isDirectory()) {
+            FileUtils.copyDirectory(srcDataDir, dstDataDir);
+          } else if (srcDataDir.isFile()) {
+            unzipTestDatabase(srcDataDir, dstDataDir);
+          }
+
+          builder.setDataDirectory(dstDataDir);
           builder.setCleanDataDirectory(false);
+        } else {
+          log.warn("Could not find PostgreSQL data ({}); using empty DB!", srcDataDir);
+          // Throw?
         }
       }
 
       log.debug("Starting embedded PostgreSQL");
-      EmbeddedPostgres embeddedPg = builder.start();
+      embeddedPg = builder.start();
       return embeddedPg.getPort();
-
     } catch (IOException e) {
       throw new DbException("Can't start embedded PostgreSQL", e);
     }
   }
 
-  private static final String TEST_DB_FILE_SPEC = "/org/lockss/db/test-sqlindex-db.zip";
+  private static void unzipTestDatabase(File srcDataDirZipFile, File dstDataDir) throws IOException {
+    // Extract the database from the zip file
+    try (InputStream dbzip = new BufferedInputStream(new FileInputStream(srcDataDirZipFile))) {
+      log.info("Unzipping pre-built database files from " + srcDataDirZipFile);
 
-  protected File unzipTestDatabase(String tempDirPath) {
-    try {
-      // Extract the database from the zip file, if it exists.
-      InputStream dbzip = getResourceAsStream(TEST_DB_FILE_SPEC, false);
-      if (dbzip != null) {
-        log.info("Unzipping pre-built database files from " +
-            TEST_DB_FILE_SPEC);
-        File dstDir = new File(tempDirPath, "db");
-        ZipUtil.unzip(dbzip, dstDir);
+      // Fix permissions u=rwx (0700)
+      Set<PosixFilePermission> perms = new HashSet<>();
+      perms.add(PosixFilePermission.OWNER_READ);
+      perms.add(PosixFilePermission.OWNER_WRITE);
+      perms.add(PosixFilePermission.OWNER_EXECUTE);
+      Files.setPosixFilePermissions(dstDataDir.toPath(), perms);
 
-        // Fix permissions u=rwx (0700)
-        Set<PosixFilePermission> perms = new HashSet<>();
-        perms.add(PosixFilePermission.OWNER_READ);
-        perms.add(PosixFilePermission.OWNER_WRITE);
-        perms.add(PosixFilePermission.OWNER_EXECUTE);
-        Files.setPosixFilePermissions(dstDir.toPath(), perms);
-
-        return dstDir;
-      }
+      ZipUtil.unzip(dbzip, dstDataDir);
     } catch (Exception e) {
-      log.debug("Unable to unzip database files from file " + TEST_DB_FILE_SPEC,
-          e);
+      log.debug("Unable to unzip database files from file: " + srcDataDirZipFile, e);
+      throw new IOException("Unable to unzip database", e);
     }
-    return null;
   }
-
-
-  public static class ArtifactSpecGeneratorBuilder {
-
-  }
-
 
   public static class ArtifactSpecGenerator implements Iterable<ArtifactSpec> {
     int maxNamespaces;
@@ -160,7 +284,6 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
       this.maxUrls = urls;
     }
 
-    @NotNull
     @Override
     public Iterator<ArtifactSpec> iterator() {
       return new Iterator<ArtifactSpec>() {
@@ -206,11 +329,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
     }
   }
 
-  @Test
+  @Metric(value = "addArtifact", usePopulatedDb = false)
   public void runAddArtifactMetric() throws Exception {
-    initializePostgreSQL(false);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 100, 100);
 
@@ -218,11 +338,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.addArtifact(spec.getArtifact()));
   }
 
-  @Test
+  @Metric(value = "addArtifacts", usePopulatedDb = false)
   public void runAddArtifactsMetric() throws Exception {
-    initializePostgreSQL(false);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 100, 100);
 
@@ -248,11 +365,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
     log.info("addArtifacts(): " + count + " calls in " + (end - start) + " ms; " + artifactsPerSecond + " calls/sec");
   }
 
-  @Test
+  @Metric("commitArtifact")
   public void runCommitArtifactMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -260,11 +374,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.commitArtifact(spec.getArtifactUuid()));
   }
 
-  @Test
+  @Metric("deleteArtifact")
   public void runDeleteArtifactMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs1 =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -272,11 +383,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.deleteArtifact(spec.getArtifactUuid()));
   }
 
-  @Test
+  @Metric("updateStorageUrl")
   public void runUpdateStorageUrlMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs1 =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -284,11 +392,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.updateStorageUrl(spec.getArtifactUuid(), "XXX"));
   }
 
-  @Test
+  @Metric("findLatestArtifactsOfAllUrlsWithNamespaceAndAuid")
   public void runFindLatestArtifactsOfAllUrlsWithNamespaceAndAuidMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs1 =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -299,11 +404,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), true));
   }
 
-  @Test
+  @Metric("getArtifactByUuid")
   public void runGetArtifactByUuidMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -311,11 +413,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
       idxdb.getArtifact(spec.getArtifactUuid()));
   }
 
-  @Test
+  @Metric("getArtifactByTuple")
   public void runGetArtifactByTupleMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -326,11 +425,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.getArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), spec.getVersion(), true));
   }
 
-  @Test
+  @Metric("getLatestArtifact")
   public void runGetLatestArtifactMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -341,11 +437,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
       idxdb.getLatestArtifact(spec.getNamespace(), spec.getAuid(), spec.getUrl(), true));
   }
 
-  @Test
+  @Metric("getNamespaces")
   public void runGetNamespacesMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -353,11 +446,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
       idxdb.getNamespaces());
   }
 
-  @Test
+  @Metric("findAuids")
   public void runFindAuidsMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -365,11 +455,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
       idxdb.findAuids(spec.getNamespace()));
   }
 
-  @Test
+  @Metric("findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid")
   public void runFindArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuidMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -377,11 +464,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
       idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), spec.getUrl()));
   }
 
-  @Test
+  @Metric("findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid")
   public void runFindArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuidMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -389,11 +473,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), spec.getUrl()));
   }
 
-  @Test
-  public void runFindArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
+  @Metric("findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace")
+  public void runFindArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespaceMetric() throws Exception {
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -404,13 +485,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.LATEST));
   }
 
-  @Test
-  public void runFindArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace() throws Exception {
-
-
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
+  @Metric("findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace")
+  public void runFindArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespaceMetric() throws Exception {
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -421,11 +497,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.LATEST));
   }
 
-  @Test
+  @Metric("findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid")
   public void runFindArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuidMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -433,11 +506,8 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
         idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(spec.getNamespace(), spec.getAuid(), spec.getUrl()));
   }
 
-  @Test
+  @Metric("findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid")
   public void runFindArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuidMetric() throws Exception {
-    initializePostgreSQL(true);
-    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(10, 10, 100);
 
@@ -449,7 +519,7 @@ public class TestSQLArtifactIndexMetrics extends LockssTestCase4 {
   }
 
 
-  interface ArtifactSpecRunnable {
+  private static interface ArtifactSpecRunnable {
     void run(ArtifactSpec spec) throws Exception;
   }
 
