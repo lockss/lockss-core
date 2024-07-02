@@ -145,24 +145,4 @@ public class LockssRepositoryFactory {
     public static LockssRepository createLocalRepository(File[] basePaths, ArtifactIndex index) throws IOException {
         return new LocalLockssRepository(getRepositoryStateDir(basePaths[0]), index, basePaths);
     }
-
-    /**
-     * Instantiates a LOCKSS repository proxy to a remote LOCKSS Repository
-     * Service over REST.
-     *
-     * @param repositoryServiceUrl Base {@code URL} of the remote LOCKSS
-     *                             Repository service.
-     * @param userName             A String with the name of the user used to
-     *                             access the remote LOCKSS Repository service.
-     * @param password             A String with the password of the user used
-     *                             to access the remote LOCKSS Repository
-     *                             service.
-     * @return A {@code RestLockssRepository}.
-     */
-    public static RestLockssRepository createRestLockssRepository(
-	URL repositoryServiceUrl, String userName, String password) throws IOException {
-        return new RestLockssRepository(repositoryServiceUrl, userName,
-            password);
-    }
-
 }
