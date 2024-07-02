@@ -3,7 +3,7 @@ package org.lockss.rs.io.index.db;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.lockss.config.ConfigManager;
 import org.lockss.db.DbException;
-import org.lockss.rs.io.index.db.TestSQLArtifactIndexMetrics.ArtifactSpecGenerator;
+import org.lockss.rs.io.index.db.SQLArtifactIndexMetrics.ArtifactSpecGenerator;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.util.Logger;
