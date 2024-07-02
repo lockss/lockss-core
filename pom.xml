@@ -1205,45 +1205,6 @@ POSSIBILITY OF SUCH DAMAGE.
           </execution>
 
           <execution>
-            <id>createTestSqlArtifactIndexDatabase</id>
-            <phase>process-test-classes</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <taskdef resource="net/sf/antcontrib/antcontrib.properties" />
-                <property name="populated.db.archive"
-                          value="${project.build.outputDirectory}/org/lockss/db/test-sqlindex-db.zip" />
-                <uptodate property="test.sqlindex.db.is.up.to.date"
-                          srcfile="${project.build.outputDirectory}/org/lockss/rs/io/index/db/SQLArtifactIndexDbManagerSql.class"
-                          targetfile="${populated.db.archive}" />
-                <if>
-                  <isset property="test.sqlindex.db.is.up.to.date" />
-                  <else>
-                    <echo level="info" message="Generating a populated DB for SQLArtifactIndex tests" />
-                    <tempfile property="populated.db.parent.dir"
-                              destDir="${tmpdir}"
-                              prefix="testtmp"/>
-                    <property name="populated.db.dir"
-                              value="${populated.db.parent.dir}/db" />
-                    <java classname="org.lockss.rs.io.index.db.PopulatedSQLArtifactIndexDbCreator"
-                          fork="true">
-                      <classpath refid="maven.test.classpath" />
-                      <arg line="-d ${populated.db.parent.dir}" />
-                      <sysproperty key="org.lockss.defaultLogLevel"
-                                   value="${loglevel.tool}" />
-                    </java>
-                    <zip destfile="${populated.db.archive}"
-                         basedir="${populated.db.dir}" />
-                    <delete dir="${populated.db.parent.dir}" quiet="true" />
-                  </else>
-                </if>
-              </target>
-            </configuration>
-          </execution>
-
-          <execution>
             <id>dbSchema</id>
             <phase>package</phase>
             <goals>
