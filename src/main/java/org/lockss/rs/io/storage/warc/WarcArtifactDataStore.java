@@ -1601,8 +1601,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
       }
 
       if (isTmpStorage) {
-        // Wrap the stream with a CloseCallbackInputStream with a callback that will mark the end of the use of this file
-        // when close() is called.
+        // Wrap the stream with a CloseCallbackInputStream with a callback that will
+        // mark the end of the use of this file when close() is called
         warcStream = new CloseCallbackInputStream(
             warcStream,
             closingWarcFilePath -> {
@@ -1619,9 +1619,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
       // Convert the WARCRecord object to an ArtifactData
       // FIXME: Move to ArtifactDataUtil or ArtifactData
       ArtifactData artifactData = WarcArtifactData.fromArchiveRecord(warcRecord);
-
-      // Save the underlying input stream so that it can be closed when needed.
-      artifactData.setClosableInputStream(warcStream);
 
       // Set ArtifactData properties
       ArtifactIdentifier indexedArtifactId = indexedArtifact.getIdentifier();

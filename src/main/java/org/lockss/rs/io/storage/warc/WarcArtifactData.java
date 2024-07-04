@@ -194,9 +194,8 @@ public class WarcArtifactData extends ArtifactData {
         }
 
         // Attach WARC record block (HTTP response) stream without parsing it
-        ad = new ArtifactData()
-            .setResponseInputStream(record)
-            .setIdentifier(artifactId);
+        ad = ArtifactDataUtil.fromHttpResponseStream(record);
+        ad.setIdentifier(artifactId);
 
         break;
 
