@@ -167,8 +167,9 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact art5 = repo.addArtifact(ad5);
     assertEquals(4, (int)art5.getVersion());
 
-    ArtifactData ad4a = repo.getArtifactData(art4);
-    assertInputStreamMatchesString("content 44444", ad4a.getInputStream());
+    try (ArtifactData ad4a = repo.getArtifactData(art4)) {
+      assertInputStreamMatchesString("content 44444", ad4a.getInputStream());
+    }
     uncArt = repo.getArtifactVersion(NS, AUID, url1, 3);
     assertNull(uncArt);
     repo.commitArtifact(art4);
@@ -251,7 +252,7 @@ public class FuncV2Repo extends LockssTestCase {
 
     Artifact a1 = storeArt(url1, "content 11111", null);
     assertEquals(url1, a1.getUri());
-    assertEquals(1, (int)a1.getVersion());
+    assertEquals(1, (int) a1.getVersion());
 
     tst = repo.getArtifact(NS, AUID, uslash);
     assertNull(tst);
@@ -260,13 +261,15 @@ public class FuncV2Repo extends LockssTestCase {
     assertEquals(uslash, a2.getUri());
     tst = repo.getArtifact(NS, AUID, uslash);
     assertNotNull(tst);
-    ad = repo.getArtifactData(tst);
-    assertInputStreamMatchesString("content 222", ad.getInputStream());
+    try (ArtifactData tstAd = repo.getArtifactData(tst)) {
+      assertInputStreamMatchesString("content 222", tstAd.getInputStream());
+    }
 
     tst = repo.getArtifact(NS, AUID, url1);
     assertNotNull(tst);
-    ad = repo.getArtifactData(tst);
-    assertInputStreamMatchesString("content 11111", ad.getInputStream());
+    try (ArtifactData tstAd = repo.getArtifactData(tst)) {
+      assertInputStreamMatchesString("content 11111", tstAd.getInputStream());
+    }
 }
 
 
@@ -280,7 +283,9 @@ public class FuncV2Repo extends LockssTestCase {
     Artifact newArt = repo.addArtifact(art1);
     log.info("added: " + newArt);
     assertNotNull(newArt);
-    log.info("new artData meta: " + repo.getArtifactData(newArt).getHttpHeaders());
+    try (ArtifactData newArtAd = repo.getArtifactData(newArt)) {
+      log.info("new artData meta: " + newArtAd.getHttpHeaders());
+    }
     assertCompareIsEqualTo(art1.getIdentifier(), newArt.getIdentifier());
     List<Artifact> aids = 
       ListUtil.fromIterator(repo.getArtifacts(NS, AUID).iterator());
@@ -291,12 +296,13 @@ public class FuncV2Repo extends LockssTestCase {
 
     aids = ListUtil.fromIterator(repo.getArtifacts(NS, AUID).iterator());
     log.info("foo: " + aids);
-    ArtifactData a1 = repo.getArtifactData(committedArt);
-    assertInputStreamMatchesString("content 11111", a1.getInputStream());
-    try {
-      a1.getInputStream();
-      fail("Attempt to call getInputStream() twice should throw");
-    } catch (IllegalStateException e) {
+    try (ArtifactData a1 = repo.getArtifactData(committedArt)) {
+      assertInputStreamMatchesString("content 11111", a1.getInputStream());
+      try {
+        a1.getInputStream();
+        fail("Attempt to call getInputStream() twice should throw");
+      } catch (IllegalStateException e) {
+      }
     }
 
 //     assertInputStreamMatchesString("content 2222", a1.getInputStream());
@@ -336,8 +342,9 @@ public class FuncV2Repo extends LockssTestCase {
 
     log.info("ArtData has metadata: " + ad1.getHttpHeaders());
     Artifact art1 = repo.addArtifact(ad1);
-    log.info("art1 metadata: " +
-		 repo.getArtifactData(art1).getHttpHeaders());
+    try (ArtifactData art1Ad = repo.getArtifactData(art1)) {
+      log.info("art1 metadata: " + art1Ad.getHttpHeaders());
+    }
     log.info("committing: " + art1);
     Artifact art2 = repo.commitArtifact(art1);
     log.info("committed: " + art2);
@@ -365,8 +372,9 @@ public class FuncV2Repo extends LockssTestCase {
 
     Artifact artu = repo.addArtifact(ad2);
     //    assertTrue(artu.
-    ArtifactData adu = repo.getArtifactData(artu);
-    log.info("adu: " + adu);
+    try (ArtifactData adu = repo.getArtifactData(artu)) {
+      log.info("adu: " + adu);
+    }
 
     log.info("deleting: " + artu);
     repo.deleteArtifact(artu);

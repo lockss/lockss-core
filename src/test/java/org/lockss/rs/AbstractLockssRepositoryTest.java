@@ -479,19 +479,21 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
     ArtifactSpec cspec = variantState.anyCommittedSpec();
     if (cspec != null) {
-      ArtifactData ad = repository.getArtifactData(cspec.getArtifact());
-      cspec.assertArtifactData(ad);
-      // should be in TestArtifactData
-      assertFalse(ad.hasContentInputStream());
-      assertThrowsMatch(IllegalStateException.class,
-			"Attempt to get InputStream from ArtifactData whose InputStream has been used",
-			() -> ad.getInputStream());
-      assertEquals(SIM_TIME, ad.getStoreDate());
+      try (ArtifactData ad = repository.getArtifactData(cspec.getArtifact())) {
+        cspec.assertArtifactData(ad);
+        // should be in TestArtifactData
+        assertFalse(ad.hasContentInputStream());
+        assertThrowsMatch(IllegalStateException.class,
+            "Attempt to get InputStream from ArtifactData whose InputStream has been used",
+            () -> ad.getInputStream());
+        assertEquals(SIM_TIME, ad.getStoreDate());
+      }
     }
     ArtifactSpec uspec = variantState.anyUncommittedSpec();
     if (uspec != null) {
-      ArtifactData ad = repository.getArtifactData(uspec.getArtifact());
-      uspec.assertArtifactData(ad);
+      try (ArtifactData ad = repository.getArtifactData(uspec.getArtifact())) {
+        uspec.assertArtifactData(ad);
+      }
     }
   }
 
@@ -699,7 +701,9 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
         AuSize auSize1 = repository.auSize(spec.getNamespace(), spec.getAuid());
 
-        assertNotNull(repository.getArtifactData(spec.getArtifact()));
+        try (ArtifactData ad = repository.getArtifactData(spec.getArtifact())) {
+          assertNotNull(ad);
+        }
 	assertNotNull(getArtifact(repository, spec, false));
 	assertNotNull(getArtifact(repository, spec, true));
 	log.info("Deleting not highest: " + spec);
@@ -736,7 +740,9 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
         AuSize auSize1 = repository.auSize(spec.getNamespace(), spec.getAuid());
 
 	long artsize = spec.getContentLength();
-        assertNotNull(repository.getArtifactData(spec.getArtifact()));
+        try (ArtifactData ad = repository.getArtifactData(spec.getArtifact())) {
+          assertNotNull(ad);
+        }
 	assertNotNull(getArtifact(repository, spec, false));
 	assertNotNull(getArtifact(repository, spec, true));
 	log.info("Deleting highest: " + spec);
@@ -780,7 +786,9 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
       if (uspec != null) {
         AuSize auSize1 = repository.auSize(uspec.getNamespace(), uspec.getAuid());
 
-        assertNotNull(repository.getArtifactData(uspec.getArtifact()));
+        try (ArtifactData ad = repository.getArtifactData(uspec.getArtifact())) {
+          assertNotNull(ad);
+        }
 	assertNull(getArtifact(repository, uspec, false));
 	assertNotNull(getArtifact(repository, uspec, true));
 	log.info("Deleting uncommitted: " + uspec);
@@ -818,7 +826,9 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
       // Get the next artifact.
       ArtifactSpec spec = iter.next();
       Artifact artifact = spec.getArtifact();
-      assertNotNull(repository.getArtifactData(artifact));
+      try (ArtifactData ad = repository.getArtifactData(artifact)) {
+        assertNotNull(ad);
+      }
       // Delete the artifact.
       repository.deleteArtifact(artifact);
 
@@ -1449,7 +1459,9 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 //					      newArt.getUuid()));
     assertTrue(newArt.isCommitted());
     assertTrue(newArt.getCommitted());
-    assertNotNull(repository.getArtifactData(spec.getArtifact()));
+    try (ArtifactData ad = repository.getArtifactData(spec.getArtifact())) {
+      assertNotNull(ad);
+    }
     // Get the same artifact when uncommitted may be included.
     newArt = getArtifact(repository, spec, true);
     assertNotNull(newArt);

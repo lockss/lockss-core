@@ -67,8 +67,9 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertEquals(expVer, (long)art.getVersion());
     if (expContent != null) {
       LockssRepository repo = mgr.getV2Repository().getRepository();
-      ArtifactData ad = repo.getArtifactData(art);
-      assertEquals(expContent, StringUtil.fromInputStream(ad.getInputStream()));
+      try (ArtifactData ad = repo.getArtifactData(art)) {
+        assertEquals(expContent, StringUtil.fromInputStream(ad.getInputStream()));
+      }
     }
   }
 
