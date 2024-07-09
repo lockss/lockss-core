@@ -465,13 +465,19 @@ public class ConfigManager implements LockssManager {
     MYPREFIX + "sameHostMigration";
   public static final boolean DEFAULT_SAME_HOST_MIGRATION = false;
 
-  public static final String PARAM_MIGRATION_V1_ADDR =
-    MYPREFIX + "localV1Ip";
-
+  // Local port to use for LCAP during migration, not nec. the same as
+  // that in the LCAP ID
   public static final String PARAM_MIGRATION_LCAP_PORT =
     MYPREFIX + "migrationLcapPort";
   public static final String DEFAULT_MIGRATION_LCAP_PORT = null;
 
+  // The IP used for V1's identity, not necessarily routble from here
+  public static final String PARAM_V1_IDENTITY_IP =
+    MYPREFIX + "v1IdentityIp";
+
+  // Routable from here IP of V1
+  public static final String PARAM_MIGRATION_V1_ADDR =
+    MYPREFIX + "localV1Ip";
 
   public static final String CONFIG_FILE_UI_IP_ACCESS = "ui_ip_access.txt";
   public static final String CONFIG_FILE_PROXY_IP_ACCESS =
@@ -2004,10 +2010,10 @@ public class ConfigManager implements LockssManager {
       return false;
     }
     copyPlatformParams(newConfig);
+    setMigrationParams(newConfig);
     inferMiscParams(newConfig);
     setConfigMacros(newConfig);
     setCompatibilityParams(newConfig);
-    setMigrationParams(newConfig);
     newConfig.seal();
     Configuration oldConfig = currentConfig;
     if (!oldConfig.isEmpty() && newConfig.equals(oldConfig)) {
@@ -2259,21 +2265,6 @@ public class ConfigManager implements LockssManager {
 //     setIfNotSet(config, fromParam, IcpManager.PARAM_ICP_BIND_ADDRS);
 
     org.lockss.poller.PollManager.processConfigMacros(config);
-
-    // Extract actual listen port from LCAP ID and copy to config as
-    // it's needed by both BlockingStreamComm and V1 migration
-    int lcapListenPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, -1);
-    if (lcapListenPort < 0) {
-      String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
-      try {
-        lcapListenPort = IDUtil.extractPortFromV3Identity(lcapId);
-      } catch (IllegalArgumentException e) {
-        log.error("Couldn't parse LCAP V3 identity " + lcapId);
-      }
-    }
-    paramActualV3LcapPort = lcapListenPort;
-    // Put in config for easy access by V1 MigrateSettings
-    config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(lcapListenPort));
   }
   
   public int getV3LcapListenPort() {
@@ -2283,43 +2274,47 @@ public class ConfigManager implements LockssManager {
   // If configured for migration, tell other subsystems to behave
   // differently
   private void setMigrationParams(Configuration config) {
+    // Extract V1's LCAP port from its LCAP ID
+    // PARAM_LOCAL_V3_IDENTITY may get changed below; we're just
+    // getting the port here
+    String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
+    int v1IdPort;
+    String v1IdPortStr;
+    try {
+      v1IdPort = IDUtil.extractPortFromV3Identity(lcapId);
+      v1IdPortStr = Integer.toString(v1IdPort);
+    } catch (IllegalArgumentException e) {
+      log.error("Couldn't parse LCAP V3 identity " + lcapId);
+      return;  // IdentityManager will fail shortly if ID is malformed
+    }
+    // find the actual listen port and copy to config as
+    // it's needed by both BlockingStreamComm and V1 migration
+    int lcapListenPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, v1IdPort);
+    paramActualV3LcapPort = lcapListenPort;
+
     if (config.getBoolean(PARAM_IN_MIGRATION_MODE,
                           DEFAULT_IN_MIGRATION_MODE)) {
       log.info("Setting up for migration from V1");
 
-      // Extract port from LCAP identity, combine it with V1 routable
-      // IP to get the PeerId to which to forward LCAP traffic
-      String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
-      try {
-        int lcapListenPort = IDUtil.extractPortFromV3Identity(lcapId);
-        String sendToV1Id =
-          IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR),
-                             lcapListenPort);
-        log.info("Configuring to forward LCAP to: " + sendToV1Id);
-        config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
-      } catch (IllegalArgumentException e) {
-        log.error("Couldn't parse LCAP V3 identity " + lcapId);
-      }
+      // Put in config for easy access by V1 MigrateSettings
+      config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(lcapListenPort));
 
+      // Set LcapRouter.PARAM_MIGRATE_FROM to
+      // an ID made from PARAM_MIGRATION_V1_ADDR (the routable V1 IP)
+      // and the port from PARAM_LOCAL_V3_IDENTITY
+      String sendToV1Id =
+        IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR), v1IdPortStr);
+      log.info("Configuring to forward LCAP to: " + sendToV1Id);
+      config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
 
-//       String migratingFromIdentity =
-//         config.get(PARAM_PLATFORM_LOCAL_V3_IDENTITY);
-//       try {
-//         PeerAddress pad = PeerAddress.makePeerAddress(migratingFromIdentity);
-//         if (pad instanceof PeerAddress.Tcp padv3) {
-//           String sendToV1Id =
-//             IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR),
-//                                padv3.getPort());
-//           log.info("Configuring to forward LCAP to: " + sendToV1Id);
-//           config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
-//         } else {
-//           log.critical("LCAP identity is malformed, can't set up for migration: "
-//                        + migratingFromIdentity);
-//         }
-//       } catch (IdentityManager.MalformedIdentityKeyException e) {
-//         log.critical("LCAP identity is malformed, can't set up for migration: "
-//                      + migratingFromIdentity);
-//       }
+      // Set IdentityManager.PARAM_LOCAL_V3_IDENTITY and
+      // PARAM_PLATFORM_LOCAL_V3_IDENTITY to the LCAP ID of the daemon
+      // we're migrating from.
+
+      String myLcapId =
+        IDUtil.ipAddrToKey(config.get(PARAM_V1_IDENTITY_IP), v1IdPortStr);
+      config.put(PARAM_PLATFORM_LOCAL_V3_IDENTITY, myLcapId);
+      config.put(IdentityManager.PARAM_LOCAL_V3_IDENTITY, myLcapId);
 
       // Tell SubscriptionManager to defer instantiating subscriptions
       config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");
