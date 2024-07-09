@@ -3063,12 +3063,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
 
         artifactData.setComputeDigestOnRead(true);
 
-        InputStream content = artifactData.isHttpResponse()  ?
+        try (InputStream content = artifactData.isHttpResponse()  ?
             ArtifactDataUtil.getHttpResponseStreamFromHttpResponse(
                 ArtifactDataUtil.getHttpResponseFromArtifactData(artifactData)) :
-            artifactData.getInputStream();
+            artifactData.getInputStream()) {
 
-        IOUtils.copyLarge(content, dfos);
+          IOUtils.copyLarge(content, dfos);
+        }
 
         // WARC block length and stream
         record.setContentLength(dfos.getByteCount());
