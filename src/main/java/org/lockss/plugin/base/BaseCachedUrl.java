@@ -444,7 +444,7 @@ public class BaseCachedUrl implements CachedUrl {
     // when items age out, which isn't perfect because it delays the
     // freeing of resources.  This should be fixed when ArtifactData is
     // refactored to make the InputStream optional.
-//     ad.release();
+     ad.release();
   }
 
   public void release() {
