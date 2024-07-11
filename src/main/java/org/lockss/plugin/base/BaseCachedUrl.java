@@ -403,7 +403,7 @@ public class BaseCachedUrl implements CachedUrl {
 
   public CIProperties getProperties() {
     if (restProps == null) {
-      ensureArtifactData(needContent);
+      ensureArtifactData(NeedContent.NO);
       if (logger.isDebug3()) {
 	logger.debug2("getProperties: " + artifactUrl + ": " + restProps);
       }
