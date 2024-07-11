@@ -291,6 +291,12 @@ public class BaseCachedUrl implements CachedUrl {
     ensureArtifactData(NeedContent.YES);
     inputStreamUsed = true;
     restInputStream = artData.getInputStream();
+
+    if (CurrentConfig.getBooleanParam(LockssApp.PARAM_MONITOR_INPUT_STREAMS,
+        LockssApp.DEFAULT_MONITOR_INPUT_STREAMS)) {
+      restInputStream = new MonitoringInputStream(restInputStream, this.toString());
+    }
+
     return restInputStream;
   }
 
