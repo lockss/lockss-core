@@ -129,6 +129,10 @@ public class RepositoryManager
       REPOSITORY_CLIENT_PREFIX + "sizeThreshold";
   public static final long DEFAULT_RESPONSE_SIZE_THRESHOLD = 16 * FileUtils.ONE_MB;
 
+  public static final String PARAM_USE_DTFOS =
+      REPOSITORY_CLIENT_PREFIX + "useDTFOS";
+  public static final boolean DEFAULT_USE_DTFOS = true;
+
   public static final String PARAM_RESPONSE_TMP_DIR =
       REPOSITORY_CLIENT_PREFIX + "tmpDir";
   public static final File DEFAULT_RESPONSE_TMP_DIR = null;
@@ -176,6 +180,7 @@ public class RepositoryManager
   private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
   private long readTimeout = DEFAULT_READ_TIMEOUT;
   private long sizeThreshold = DEFAULT_RESPONSE_SIZE_THRESHOLD;
+  private boolean useDTFOS = DEFAULT_USE_DTFOS;
   private File tmpDir = DEFAULT_RESPONSE_TMP_DIR;
 
   private RepoSpec v2Repo = null;
@@ -241,6 +246,7 @@ public class RepositoryManager
 
       connectTimeout = config.getLong(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
       readTimeout = config.getLong(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
+      useDTFOS = config.getBoolean(PARAM_USE_DTFOS, DEFAULT_USE_DTFOS);
       sizeThreshold = config.getSize(PARAM_RESPONSE_SIZE_THRESHOLD, DEFAULT_RESPONSE_SIZE_THRESHOLD);
 
       tmpDir = (config.containsKey(PARAM_RESPONSE_TMP_DIR)) ?
@@ -398,6 +404,10 @@ public class RepositoryManager
             RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir),
             serviceUser,
             servicePassword);
+
+        repo.setUseDTFOS(useDTFOS);
+        repo.setSizeThreshold(sizeThreshold);
+        repo.setTmpDir(tmpDir);
 
         repo.setUseMultipartEndpoint(useMultipartEndpoint);
 	configureArtifactCache(repo, config);
