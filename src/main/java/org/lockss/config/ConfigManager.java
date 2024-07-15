@@ -744,7 +744,8 @@ public class ConfigManager implements LockssManager {
   protected boolean isInited = false;
   protected boolean isStarted = false;
   protected boolean inMigrationMode = DEFAULT_IN_MIGRATION_MODE;
-  private int paramActualV3LcapPort = -1;
+  private int actualV3LcapPort = -1;
+  private String transportPeerKey = null;
 
   private List configChangedCallbacks = new ArrayList();
 
@@ -2268,7 +2269,11 @@ public class ConfigManager implements LockssManager {
   }
   
   public int getV3LcapListenPort() {
-    return paramActualV3LcapPort;
+    return actualV3LcapPort;
+  }
+
+  public String getTransportPeerKey() {
+    return transportPeerKey;
   }
 
   // If configured for migration, tell other subsystems to behave
@@ -2290,8 +2295,19 @@ public class ConfigManager implements LockssManager {
     // find the actual listen port and copy to config as
     // it's needed by both BlockingStreamComm and V1 migration
     int lcapListenPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, v1IdPort);
-    paramActualV3LcapPort = lcapListenPort;
+    actualV3LcapPort = lcapListenPort;
 
+    // Set transportPeerKey to the PeerAddress string that reflects
+    // our actual IP addr and LCAP port (for BlockingStreamComm)
+
+    String transportIp;
+    if (config.getBoolean(PARAM_SAME_HOST_MIGRATION,
+                          DEFAULT_SAME_HOST_MIGRATION)) {
+      transportIp = "127.0.0.1";
+    } else {
+      transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
+    }
+    transportPeerKey = IDUtil.ipAddrToKey(transportIp, lcapListenPort);
     if (config.getBoolean(PARAM_IN_MIGRATION_MODE,
                           DEFAULT_IN_MIGRATION_MODE)) {
       log.info("Setting up for migration from V1");
