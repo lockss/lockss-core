@@ -476,8 +476,8 @@ public class ConfigManager implements LockssManager {
     MYPREFIX + "v1IdentityIp";
 
   // Routable from here IP of V1
-  public static final String PARAM_MIGRATION_V1_ADDR =
-    MYPREFIX + "localV1Ip";
+  public static final String PARAM_V1_ROUTABLE_ADDR =
+    MYPREFIX + "v1RoutableIp";
 
   public static final String CONFIG_FILE_UI_IP_ACCESS = "ui_ip_access.txt";
   public static final String CONFIG_FILE_PROXY_IP_ACCESS =
@@ -2279,7 +2279,8 @@ public class ConfigManager implements LockssManager {
   // If configured for migration, tell other subsystems to behave
   // differently
   private void setMigrationParams(Configuration config) {
-    // Extract V1's LCAP port from its LCAP ID
+    // Extract our LCAP port from the LCAP ID.  If in migration mode, the
+    // configured port must be the same as V1's port
     // PARAM_LOCAL_V3_IDENTITY may get changed below; we're just
     // getting the port here
     String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
@@ -2305,6 +2306,8 @@ public class ConfigManager implements LockssManager {
                           DEFAULT_SAME_HOST_MIGRATION)) {
       transportIp = "127.0.0.1";
     } else {
+      // XXX BUG.  If NATted, this is the internal addr, which might
+      // not be the right address for V1 to reach us at, if it's
       transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
     }
     transportPeerKey = IDUtil.ipAddrToKey(transportIp, lcapListenPort);
@@ -2316,10 +2319,10 @@ public class ConfigManager implements LockssManager {
       config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(lcapListenPort));
 
       // Set LcapRouter.PARAM_MIGRATE_FROM to
-      // an ID made from PARAM_MIGRATION_V1_ADDR (the routable V1 IP)
+      // an ID made from PARAM_V1_ROUTABLE_ADDR (the routable V1 IP)
       // and the port from PARAM_LOCAL_V3_IDENTITY
       String sendToV1Id =
-        IDUtil.ipAddrToKey(config.get(PARAM_MIGRATION_V1_ADDR), v1IdPortStr);
+        IDUtil.ipAddrToKey(config.get(PARAM_V1_ROUTABLE_ADDR), v1IdPortStr);
       log.info("Configuring to forward LCAP to: " + sendToV1Id);
       config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
 
