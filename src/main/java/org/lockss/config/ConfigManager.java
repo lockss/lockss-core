@@ -2304,7 +2304,7 @@ public class ConfigManager implements LockssManager {
     String transportIp;
     if (config.getBoolean(PARAM_SAME_HOST_MIGRATION,
                           DEFAULT_SAME_HOST_MIGRATION)) {
-      transportIp = "127.0.0.1";
+      transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
     } else {
       // XXX BUG.  If NATted, this is the internal addr, which might
       // not be the right address for V1 to reach us at, if it's
