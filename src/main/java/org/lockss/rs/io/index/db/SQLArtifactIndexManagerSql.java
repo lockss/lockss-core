@@ -57,10 +57,22 @@ public class SQLArtifactIndexManagerSql {
 
   private static final String EMPTY_STRING = "";
 
+  private static final int LONG_URL_THRESHOLD = 2048;
+
   private static final String FIND_URL_SEQ_QUERY = "SELECT "
       + URL_SEQ_COLUMN
       + " FROM " + URL_TABLE
       + " WHERE " + URL_COLUMN + " = ?"
+      + " LIMIT 1";
+
+  private static final String FIND_LONG_URL_SEQ_QUERY = "SELECT "
+      + "u." + URL_SEQ_COLUMN
+      + " FROM " + URL_TABLE + " u,"
+      + LONG_URL_TABLE + " lu"
+      + " WHERE u." + URL_SEQ_COLUMN + " = lu." + URL_SEQ_COLUMN
+//      + " AND u." + URL_COLUMN + " = ?"
+//      + " AND lu." + LONG_URL_COLUMN + " = ?"
+      + " AND concat(u." + URL_SEQ_COLUMN + ", lu." + LONG_URL_COLUMN + ") = ?"
       + " LIMIT 1";
 
   private static final String INSERT_URL_QUERY = "INSERT INTO "
@@ -69,8 +81,17 @@ public class SQLArtifactIndexManagerSql {
       + "," + URL_COLUMN
       + ") VALUES (default,?)";
 
-  private static final String GET_URLS_QUERY = "SELECT "
-      + URL_COLUMN + " FROM " + URL_TABLE;
+  private static final String INSERT_LONG_URL_QUERY = "INSERT INTO "
+      + LONG_URL_TABLE
+      + "(" + URL_SEQ_COLUMN
+      + "," + LONG_URL_COLUMN
+      + ") VALUES (?,?)";
+
+  private static final String GET_LONG_URL_QUERY = "SELECT "
+      + LONG_URL_COLUMN
+      + " FROM " + LONG_URL_TABLE
+      + " WHERE " + URL_SEQ_COLUMN + " = ?"
+      + " LIMIT 1";
 
   private static final String FIND_NAMESPACE_SEQ_QUERY = "SELECT "
       + NAMESPACE_SEQ_COLUMN
@@ -117,17 +138,21 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", au." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " au"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = au." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
@@ -135,38 +160,43 @@ public class SQLArtifactIndexManagerSql {
 
   private static final String GET_LATEST_ARTIFACT_VERSION_QUERY = "SELECT "
       + " MAX(a." + ARTIFACT_VERSION_COLUMN + ")"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?";
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") = ?";
 
   private static final String GET_LATEST_ARTIFACT_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?";
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") = ?";
 
   private static final String ARTIFACT_COMMITTED_STATUS_CONDITION =
       " AND a." + ARTIFACT_COMMITTED_COLUMN + " = ?";
@@ -178,26 +208,30 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") = ?"
       + " AND a." + ARTIFACT_VERSION_COLUMN + " = ?";
 
-  public static final String MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
+  private static final String MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN + ","
@@ -215,7 +249,7 @@ public class SQLArtifactIndexManagerSql {
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN;
 
-  public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
+  private static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN + ","
@@ -237,18 +271,22 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " INNER JOIN ( --MaxVersionAllUrlsWithNamespaceAndAuid-- ) m ON"
       + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
       + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
@@ -266,18 +304,22 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE+ " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
@@ -293,24 +335,28 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " ASC,"
@@ -318,18 +364,19 @@ public class SQLArtifactIndexManagerSql {
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
   // Latest version artifact for each AUID, for a given namespace and URL
-  public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
+  private static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN + ","
       + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " GROUP BY "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -337,18 +384,19 @@ public class SQLArtifactIndexManagerSql {
       + " a." + URL_SEQ_COLUMN;
 
   // Latest version artifact for each AUID, for a given namespace and URL prefix
-  public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
+  private static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN + ","
       + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " GROUP BY "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -359,23 +407,27 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " ORDER BY "
 //      + " u." + URL_COLUMN + " ASC,"
@@ -388,26 +440,29 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " ORDER BY "
-//          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -416,18 +471,22 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY + ") m ON"
       + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
       + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
@@ -446,18 +505,22 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY + ") m ON"
       + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
       + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
@@ -467,7 +530,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " ORDER BY "
-//          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -476,45 +538,49 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
+      + " AND concat(u." + URL_COLUMN+ ", lu." + LONG_URL_COLUMN + ") LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION
       + " ORDER BY "
-//          + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
-  public static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_QUERY = "SELECT "
+  private static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN + ","
       + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
-      + " FROM " + ARTIFACT_TABLE + " a"
-      + "," + NAMESPACE_TABLE + " ns"
+      + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
+      + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
+      + " AND concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " GROUP BY "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -525,18 +591,22 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", u." + URL_COLUMN
+//      + ", u." + URL_COLUMN
+//      + ", u." + URL_SEQ_COLUMN
+//      + ", u." + IS_LONG_URL_COLUMN
+      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
+      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_QUERY + ") m ON"
       + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
       + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
@@ -573,13 +643,13 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE " + ARTIFACT_UUID_COLUMN + " = ?";
 
   private static final String DELETE_ORPHANED_NAMESPACE_QUERY = "DELETE FROM " + NAMESPACE_TABLE
-        + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + NAMESPACE_SEQ_COLUMN + ") " + NAMESPACE_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
+      + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + NAMESPACE_SEQ_COLUMN + ") " + NAMESPACE_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
 
   private static final String DELETE_ORPHANED_AUID_QUERY = "DELETE FROM " + AUID_TABLE
-        + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + AUID_SEQ_COLUMN + ") " + AUID_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
+      + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + AUID_SEQ_COLUMN + ") " + AUID_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
 
   private static final String DELETE_ORPHANED_URL_QUERY = "DELETE FROM " + URL_TABLE
-        + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + URL_SEQ_COLUMN + ") " + URL_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
+      + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + URL_SEQ_COLUMN + ") " + URL_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
 
   // Query to delete AU sizes of an AU associated with an AUID
   private static final String DELETE_AU_SIZE_QUERY =
@@ -685,8 +755,11 @@ public class SQLArtifactIndexManagerSql {
     String errorMessage = "Cannot find url";
 
     try {
+      boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
+      String sqlQuery = isLongUrl ? FIND_LONG_URL_SEQ_QUERY : FIND_URL_SEQ_QUERY;
+
       // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, FIND_URL_SEQ_QUERY);
+      ps = idxDbManager.prepareStatement(conn, sqlQuery);
 
       // Populate the query
       ps.setString(1, url);
@@ -723,12 +796,19 @@ public class SQLArtifactIndexManagerSql {
     String errorMessage = "Cannot add url";
 
     try {
+      boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
+      String urlm = url;
+
+      if (isLongUrl) {
+        urlm = url.substring(0, Math.min(url.length(), LONG_URL_THRESHOLD));
+      }
+
       // Prepare the query
       ps = idxDbManager.prepareStatement(conn,
           INSERT_URL_QUERY, Statement.RETURN_GENERATED_KEYS);
 
       // Populate the query
-      ps.setString(1, url);
+      ps.setString(1, urlm);
 
       // Add the URL
       idxDbManager.executeUpdate(ps);
@@ -745,7 +825,20 @@ public class SQLArtifactIndexManagerSql {
 
       // No: Get the url database identifier.
       urlSeq = resultSet.getLong(1);
-      log.trace("Added urlSeq = {}", urlSeq);
+      log.debug2("urlSeq = {}", urlSeq);
+
+      if (isLongUrl) {
+        String urle = url.substring(LONG_URL_THRESHOLD);
+
+        ps = idxDbManager.prepareStatement(conn, INSERT_LONG_URL_QUERY);
+
+        ps.setLong(1, urlSeq);
+        ps.setString(2, urle);
+
+        idxDbManager.executeUpdate(ps);
+      }
+
+      return urlSeq;
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", INSERT_URL_QUERY);
@@ -760,9 +853,6 @@ public class SQLArtifactIndexManagerSql {
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
     }
-
-    log.debug2("urlSeq = {}", urlSeq);
-    return urlSeq;
   }
 
   protected Long findOrCreateNamespaceSeq(Connection conn, String namespace)
@@ -1572,6 +1662,15 @@ public class SQLArtifactIndexManagerSql {
     result.setContentLength(resultSet.getLong(ARTIFACT_LENGTH_COLUMN));
     result.setContentDigest(resultSet.getString(ARTIFACT_DIGEST_COLUMN));
     result.setCollectionDate(resultSet.getLong(ARTIFACT_CRAWL_TIME_COLUMN));
+
+//    if (resultSet.getBoolean(IS_LONG_URL_COLUMN)) {
+//      PreparedStatement ps = idxDbManager.prepareStatement(conn, GET_LONG_URL_QUERY);
+//      ps.setLong(1, resultSet.getLong(URL_SEQ_COLUMN));
+//      ResultSet longUrlResult = idxDbManager.executeQuery(ps);
+//      if (longUrlResult.next()) {
+//        result.setUri(resultSet.getString(URL_COLUMN) + longUrlResult.getString(LONG_URL_COLUMN));
+//      }
+//    }
 
     return result;
   }

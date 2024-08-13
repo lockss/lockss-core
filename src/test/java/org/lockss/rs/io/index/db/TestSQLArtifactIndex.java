@@ -50,7 +50,7 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
     startEmbeddedPgDbManager(idxDbManager);
     idxDbManager.initService(getMockLockssDaemon());
 
-    idxDbManager.setTargetDatabaseVersion(3);
+    idxDbManager.setTargetDatabaseVersion(4);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
@@ -65,7 +65,7 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
 
-    idxDbManager.setTargetDatabaseVersion(3);
+    idxDbManager.setTargetDatabaseVersion(4);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);

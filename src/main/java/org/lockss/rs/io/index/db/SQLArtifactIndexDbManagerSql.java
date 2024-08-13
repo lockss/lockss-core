@@ -64,6 +64,12 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
 //      + URL_COLUMN + " VARCHAR NOT NULL)";
       + URL_COLUMN + " --PreferUnboundedTextType--)";
 
+  private static final String CREATE_LONG_URL_TABLE_QUERY = "CREATE TABLE "
+      + LONG_URL_TABLE + " ("
+      + URL_SEQ_COLUMN + " BIGINT NOT NULL"
+      + " REFERENCES " + URL_TABLE + " (" + URL_SEQ_COLUMN + ") ON DELETE CASCADE,"
+      + LONG_URL_COLUMN + " TEXT NOT NULL"
+      + ")";
 
   private static final String
       CREATE_ARTIFACT_TABLE_QUERY = "CREATE TABLE "
@@ -140,7 +146,7 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
   private static final String AUID_SEQ_INDEX_ARTIFACT_TABLE_QUERY =
       "CREATE INDEX idx2_" + ARTIFACT_TABLE + " ON " + ARTIFACT_TABLE + "(" + AUID_SEQ_COLUMN + ")";
 
-  private static final String URL_INDEX_QUERY =
+  private static final String UNIQUE_URL_INDEX_QUERY =
       "CREATE UNIQUE INDEX idx1_" + URL_TABLE + " ON " + URL_TABLE + "(" + URL_COLUMN + ")";
 
   private static final String URL_SEQ_INDEX_URL_TABLE_QUERY =
@@ -175,13 +181,42 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       AUID_INDEX_QUERY,
       // AUID_SEQ_INDEX_AUID_TABLE_QUERY,
       AUID_SEQ_INDEX_ARTIFACT_TABLE_QUERY,
-      URL_INDEX_QUERY,
+      UNIQUE_URL_INDEX_QUERY,
       URL_SEQ_INDEX_URL_TABLE_QUERY,
       URL_SEQ_INDEX_ARTIFACT_TABLE_QUERY,
       ARTIFACT_UUID_INDEX_QUERY,
       ARTIFACT_VERSION_INDEX_QUERY,
       ARTIFACT_STEM_INDEX_QUERY,
       ARTIFACT_TUPLE_INDEX_QUERY
+  };
+
+//  private static final String ADD_URL_HASH_COLUMN_QUERY = "ALTER TABLE " + URL_TABLE
+//      + " ADD COLUMN " + URL_HASH_COLUMN + " --PreferUnboundedTextType--)";
+//
+//  private static final String ADD_IS_LONG_URL_COLUMN_QUERY = "ALTER TABLE " + URL_TABLE
+//      + " ADD COLUMN " + IS_LONG_URL_COLUMN + " BOOLEAN";
+
+  private static final String DROP_URL_INDEX_QUERY =
+      "DROP INDEX idx1_" + URL_TABLE;
+
+  private static final String URL_INDEX_QUERY =
+      "CREATE INDEX idx1_" + URL_TABLE + " ON " + URL_TABLE + "(" + URL_COLUMN + ")";
+
+  private static final String LONG_URL_INDEX_QUERY =
+      "CREATE INDEX idx1_" + LONG_URL_TABLE + " ON " + LONG_URL_TABLE + "(" + LONG_URL_COLUMN + ")";
+
+  private static final Map<String, String> VERSION_4_TABLE_CREATE_QUERIES =
+      new LinkedHashMap<String, String>() {{
+        put(LONG_URL_TABLE, CREATE_LONG_URL_TABLE_QUERY);
+      }};
+
+  private static final String[] VERSION_4_ALTER_TABLE_QUERIES = new String[]{
+      DROP_URL_INDEX_QUERY,
+      URL_INDEX_QUERY,
+//      LONG_URL_INDEX_QUERY,
+//      DROP_ARTIFACT_TUPLE_INDEX_QUERY,
+//      ADD_URL_HASH_COLUMN_QUERY,
+//      ADD_IS_LONG_URL_COLUMN_QUERY,
   };
 
   /**
@@ -257,6 +292,28 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
 
     // Create the necessary indices.
     executeDdlQueries(conn, VERSION_3_INDEX_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Updates the database from version 3 to version 4.
+   *
+   * @param conn A Connection with the database connection to be used.
+   * @throws SQLException if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom3To4(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Create the necessary tables if they do not exist.
+    createTablesIfMissing(conn, VERSION_4_TABLE_CREATE_QUERIES);
+
+    // Queries to alter tables and indicies
+    executeDdlQueries(conn, VERSION_4_ALTER_TABLE_QUERIES);
 
     log.debug2("Done.");
   }

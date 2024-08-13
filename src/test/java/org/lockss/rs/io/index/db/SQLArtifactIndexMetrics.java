@@ -212,7 +212,7 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(getMockLockssDaemon());
 
-    idxDbManager.setTargetDatabaseVersion(3);
+    idxDbManager.setTargetDatabaseVersion(4);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);

@@ -178,7 +178,7 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
    * Sets up update versions.
    */
   private void setUpVersions() {
-    targetDatabaseVersion = 3;
+    targetDatabaseVersion = 4;
     asynchronousUpdates = new int[] {};
   }
 
@@ -279,6 +279,8 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
       idxDbManagerSql.updateDatabaseFrom1To2(conn);
     } else if (databaseVersion == 3) {
       idxDbManagerSql.updateDatabaseFrom2To3(conn);
+    } else if (databaseVersion == 4) {
+      idxDbManagerSql.updateDatabaseFrom3To4(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
           + "to version " + databaseVersion + ".");

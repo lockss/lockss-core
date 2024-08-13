@@ -78,6 +78,9 @@ public class SqlConstants {
   /** Name of the artifact URLs table. */
   public static final String URL_TABLE = "urls";
 
+  /** Name of the long URLs table. */
+  public static final String LONG_URL_TABLE = "long_urls";
+
   /** Name of the table for artifacts */
   public static final String ARTIFACT_TABLE = "artifacts";
 
@@ -114,6 +117,9 @@ public class SqlConstants {
 
   /** Artifact URL column */
   public static final String URL_COLUMN = "url";
+
+  /** Artifact long URL column */
+  public static final String LONG_URL_COLUMN = "long_url";
 
   /** Artifact version column */
   public static final String ARTIFACT_VERSION_COLUMN = "version";
