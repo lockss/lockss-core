@@ -2410,7 +2410,7 @@ public class TestConfigManager extends LockssTestCase4 {
   public void testMigrationSetup() throws Exception {
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_LOCAL_V3_IDENTITY,
 				  "tcp:[111.32.14.5]:9876",
-                                  ConfigManager.PARAM_MIGRATION_V1_ADDR, "7.6.8.0");
+                                  ConfigManager.PARAM_V1_ROUTABLE_ADDR, "7.6.8.0");
     assertFalse(mgr.inMigrationMode());
     Configuration cfg = ConfigManager.getCurrentConfig();
     assertFalse(cfg.getBoolean(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED,

@@ -353,8 +353,8 @@ public class BlockingStreamComm
   private boolean sendFromBindAddr;
   private SocketFactory sockFact;
   private ServerSocket listenSock;
-  private PeerIdentity myPeerId;
-  private PeerAddress.Tcp myPeerAddr;
+  private PeerIdentity myTransportPeerId;
+  private PeerAddress.Tcp myTransportPeerAddr;
 
   private ConfigManager cfgMgr;
   private IdentityManager idMgr;
@@ -900,20 +900,21 @@ public class BlockingStreamComm
     keystoreMgr = daemon.getKeystoreManager();
     resetConfig();
     anyRateLimited = false;
+    log.debug("Local V3 peer: " + myTransportPeerId);
+    String padKey = getTransportPeerKey();
     try {
-      myPeerId = getLocalPeerIdentity();
+      PeerAddress pad = PeerAddress.makePeerAddress(padKey);
+      if (pad instanceof PeerAddress.Tcp) {
+        myTransportPeerAddr = (PeerAddress.Tcp)pad;
+        myTransportPeerId = findPeerIdentity(padKey);
+      } else {
+        log.error("Disabling stream comm; no local TCP peer address: " + pad);
+        enabled = false;
+      }
     } catch (Exception e) {
       log.critical("No V3 identity, not starting stream comm", e);
       enabled = false;
       return;
-    }
-    log.debug("Local V3 peer: " + myPeerId);
-    PeerAddress pad = myPeerId.getPeerAddress();
-    if (pad instanceof PeerAddress.Tcp) {
-      myPeerAddr = (PeerAddress.Tcp)pad;
-    } else {
-      log.error("Disabling stream comm; no local TCP peer address: " + pad);
-      enabled = false;
     }
     if (enabled) {
       start();
@@ -1214,8 +1215,8 @@ public class BlockingStreamComm
   }
 
   // overridable for testing
-  protected PeerIdentity getLocalPeerIdentity() {
-    return idMgr.getLocalPeerIdentity(Poll.V3_PROTOCOL);
+  protected String getTransportPeerKey() {
+    return cfgMgr.getTransportPeerKey();
   }
 
   PeerIdentity findPeerIdentity(String idkey)
@@ -1223,8 +1224,8 @@ public class BlockingStreamComm
     return idMgr.findPeerIdentity(idkey);
   }
 
-  PeerIdentity getMyPeerId() {
-    return myPeerId;
+  PeerIdentity getMyTransportPeerId() {
+    return myTransportPeerId;
   }
 
   Queue getReceiveQueue() {
@@ -1404,8 +1405,7 @@ public class BlockingStreamComm
 
     rcvQueue = new FifoQueue();
     try {
-      int port = cfgMgr.inMigrationMode()
-        ? cfgMgr.getV3LcapListenPort() : myPeerAddr.getPort();
+      int port = myTransportPeerAddr.getPort();
       if (!getDaemon().getResourceManager().reserveTcpPort(port,
 							   SERVER_NAME)) {
 	throw new IOException("TCP port " + port + " unavailable");
@@ -1680,7 +1680,7 @@ public class BlockingStreamComm
       if (rcvThread == null) {
 	log.info("Starting receive thread");
 	rcvThread = new ReceiveThread("SCommRcv: " +
-				      myPeerId.getIdString());
+				      myTransportPeerId.getIdString());
 	rcvThread.start();
 	rcvThread.waitRunning();
       }
@@ -1692,7 +1692,7 @@ public class BlockingStreamComm
       if (listenThread == null) {
 	log.info("Starting listen thread");
 	listenThread = new ListenThread("SCommListen: " +
-					myPeerId.getIdString());
+					myTransportPeerId.getIdString());
 	listenThread.start();
 	listenThread.waitRunning();
       }
@@ -1704,7 +1704,7 @@ public class BlockingStreamComm
       if (retryThread == null) {
 	log.info("Starting retry thread");
 	retryThread = new RetryThread("SCommRetry: " +
-				      myPeerId.getIdString());
+				      myTransportPeerId.getIdString());
 	retryThread.start();
 	retryThread.waitRunning();
       }

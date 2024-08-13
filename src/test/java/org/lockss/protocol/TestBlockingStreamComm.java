@@ -1797,8 +1797,9 @@ public class TestBlockingStreamComm extends LockssTestCase {
       return sockFact;
     }
 
-    protected PeerIdentity getLocalPeerIdentity() {
-      return localId;
+    @Override
+    protected String getTransportPeerKey() {
+      return localId.getIdString();
     }
 
     @Override
