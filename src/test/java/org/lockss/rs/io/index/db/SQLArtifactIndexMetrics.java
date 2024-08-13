@@ -36,7 +36,7 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
   private static final File DEFAULT_SRC_DATA_DIR =
       new File("metricsdb.zip");
 
-  private File srcDataDir = DEFAULT_SRC_DATA_DIR;
+  private File srcBaseDir = DEFAULT_SRC_DATA_DIR;
   private String tmpDirPath;
   private String dbPort;
 
@@ -55,8 +55,7 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
       for (ix = 0; ix < argv.length; ix++) {
         String arg = argv[ix];
         if (arg.equals("-d") || arg.equals("--data")) {
-          metricsRunner.setSourceDataDir(argv[++ix]);
-          ++ix;
+          metricsRunner.setSrcBaseDir(argv[++ix]);
         } else if (arg.equals("-m") || arg.equals("--metric")) {
           metricName = argv[++ix];
         } else {
@@ -79,8 +78,8 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
     }
   }
 
-  private void setSourceDataDir(String srcDataDir) {
-    this.srcDataDir = new File(srcDataDir);
+  private void setSrcBaseDir(String srcBaseDir) {
+    this.srcBaseDir = new File(srcBaseDir);
   }
 
   @Retention(RetentionPolicy.RUNTIME)
@@ -228,20 +227,25 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
       }
 
       if (usePopulatedDb) {
-        if (srcDataDir.exists()) {
-          log.debug("Copying PostgreSQL data directory");
-          File dstDataDir = FileUtil.createTempDir("pgsqldb", null, new File(tmpDirPath));
+        if (srcBaseDir.exists()) {
+          log.debug("Copying PostgreSQL data");
 
-          if (srcDataDir.isDirectory()) {
-            FileUtils.copyDirectory(srcDataDir, dstDataDir);
-          } else if (srcDataDir.isFile()) {
-            unzipTestDatabase(srcDataDir, dstDataDir);
+          File dstBaseDir = FileUtil.createTempDir("pgsqldb", null, new File(tmpDirPath));
+          File dstDataDir = new File(dstBaseDir, "db");
+
+          if (srcBaseDir.isDirectory()) {
+            FileUtils.copyDirectory(srcBaseDir, dstBaseDir);
+          } else if (srcBaseDir.isFile()) {
+            unzipTestDatabase(srcBaseDir, dstBaseDir);
           }
 
+          fixDataDirectoryPermissions(dstDataDir);
+
+          builder.setOverrideWorkingDirectory(dstBaseDir);
           builder.setDataDirectory(dstDataDir);
           builder.setCleanDataDirectory(false);
         } else {
-          log.warn("Could not find PostgreSQL data ({}); using empty DB!", srcDataDir);
+          log.warn("Could not find PostgreSQL data ({}); using empty DB!", srcBaseDir);
           // Throw?
         }
       }
@@ -254,18 +258,19 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
     }
   }
 
+  // Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+  private static void fixDataDirectoryPermissions(File dataDir) throws IOException {
+    Set<PosixFilePermission> perms = new HashSet<>();
+    perms.add(PosixFilePermission.OWNER_READ);
+    perms.add(PosixFilePermission.OWNER_WRITE);
+    perms.add(PosixFilePermission.OWNER_EXECUTE);
+    Files.setPosixFilePermissions(dataDir.toPath(), perms);
+  }
+
   private static void unzipTestDatabase(File srcDataDirZipFile, File dstDataDir) throws IOException {
     // Extract the database from the zip file
     try (InputStream dbzip = new BufferedInputStream(new FileInputStream(srcDataDirZipFile))) {
       log.info("Unzipping pre-built database files from " + srcDataDirZipFile);
-
-      // Fix permissions u=rwx (0700)
-      Set<PosixFilePermission> perms = new HashSet<>();
-      perms.add(PosixFilePermission.OWNER_READ);
-      perms.add(PosixFilePermission.OWNER_WRITE);
-      perms.add(PosixFilePermission.OWNER_EXECUTE);
-      Files.setPosixFilePermissions(dstDataDir.toPath(), perms);
-
       ZipUtil.unzip(dbzip, dstDataDir);
     } catch (Exception e) {
       log.debug("Unable to unzip database files from file: " + srcDataDirZipFile, e);
