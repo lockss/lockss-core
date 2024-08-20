@@ -64,6 +64,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -390,7 +391,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testGetArtifact() throws Exception {
+  public void testGetArtifact_variants() throws Exception {
     // Assert retrieving an artifact with a null artifact ID (String or UUID) throws IllegalArgumentException
     assertThrowsMatch(IllegalArgumentException.class, "Null or empty artifact UUID",
         () -> index.getArtifact((String) null));
@@ -519,7 +520,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testGetArtifacts() throws Exception {
+  public void testGetArtifacts_variants() throws Exception {
     List<Artifact> expected;
 
     // Assert variant state
@@ -685,7 +686,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testGetArtifactsWithPrefix() throws Exception {
+  public void testGetArtifactsWithPrefix_variants() throws Exception {
     List<ArtifactSpec> specs = new ArrayList<>();
 
     specs.add(createArtifactSpec("d", "a", "u", 1, true));
@@ -899,7 +900,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testUpdateStorageUrl() throws Exception {
+  public void testUpdateStorageUrl_variants() throws Exception {
     // Attempt to update the storage URL of a null artifact ID
     assertThrowsMatch(IllegalArgumentException.class, "Invalid artifact UUID", () -> index.updateStorageUrl(null,
         "xxx"));
@@ -1003,7 +1004,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testCommitArtifact() throws Exception {
+  public void testCommitArtifact_variants() throws Exception {
     // Assert committing an artifact with a null artifact ID (String or UUID) throws IllegalArgumentException
     assertThrowsMatch(IllegalArgumentException.class, "Null or empty artifact UUID",
         () -> index.commitArtifact((String) null));
@@ -1061,7 +1062,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testDeleteArtifact() throws Exception {
+  public void testDeleteArtifact_variants() throws Exception {
     // Assert deleting an artifact with null artifact ID (String or UUID) throws IllegalArgumentException
     assertThrowsMatch(IllegalArgumentException.class, "Null or empty UUID",
         () -> index.deleteArtifact((String) null));
@@ -1152,7 +1153,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testGetNamespaces() throws Exception {
+  public void testGetNamespaces_variants() throws Exception {
     // Assert that the namespaces from the index matches the variant scenario state
     assertIterableEquals(variantState.activeNamespaces(), index.getNamespaces());
 
@@ -1186,7 +1187,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
   @VariantTest
   @EnumSource(TestIndexScenarios.class)
-  public void testGetAuIds() throws Exception {
+  public void testGetAuIds_variants() throws Exception {
     // Assert calling getAuIds() with a null or unknown namespace returns an empty set
     assertTrue(IterableUtils.isEmpty(index.getAuIds(null)));
     assertTrue(IterableUtils.isEmpty(index.getAuIds("unknown")));
@@ -1339,6 +1340,815 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
       result = IterableUtils.toList(index.getArtifactsAllVersions(spec.getNamespace(), spec.getAuid(), false));
       assertTrue(result.contains(spec.getArtifact()));
     }
+  }
+
+  // *******************************************************************************************************************
+  // * LONG URL TESTS
+  // *******************************************************************************************************************
+
+  private static final int LONG_URL_THRESHOLD = 2500;
+  private static final String BASE_URL = "http://www.lockss.org/";
+  private static final int SHORT_URL_LENGTH = BASE_URL.length();
+  private static final int EXACT_THRESHOLD_LENGTH = LONG_URL_THRESHOLD - BASE_URL.length();
+  private static final int REALLY_LONG_URL_LENGTH = 32764 - BASE_URL.length(); // Max that still works with Solr
+
+  private static ArtifactSpec makeArtifactSpec(String ns, String auid, String url, int version) {
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setAuid(auid)
+        .setUrl(url)
+        .setVersion(version)
+        .setStorageUrl(URI.create("storage_url"))
+        .setContentLength(1)
+        .setContentDigest("digest")
+        .setCollectionDate(TimeBase.nowMs());
+
+    log.debug2("spec = " + spec);
+    return spec;
+  }
+
+  private static List<Artifact> getArtifactsFromSpecs(ArtifactSpec... specs) {
+    List<Artifact> expected = Stream.of(specs)
+        .map(ArtifactSpec::getArtifact)
+        .toList();
+
+    return expected;
+  }
+
+  private static void commitSpecs(ArtifactIndex index, ArtifactSpec specs[], int... idx) throws IOException {
+    for (int i : idx) {
+      index.commitArtifact(specs[i].getArtifactUuid());
+      specs[i].setCommitted(true);
+    }
+  }
+
+  @Test
+  public void testAddArtifact() throws Exception {
+    runTestAddArtifact(SHORT_URL_LENGTH);
+    runTestAddArtifact(EXACT_THRESHOLD_LENGTH);
+    runTestAddArtifact(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestAddArtifact(int len) throws Exception {
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl(longUrl)
+        .setStorageUrl(URI.create("test"))
+        .setContentLength(1024)
+        .setContentDigest("My Digest")
+        .setCollectionDate(1234L);
+
+    index.indexArtifact(spec.getArtifact());
+
+    // Assert against artifact specs
+    Artifact artifact = index.getArtifact(spec.getArtifactUuid());
+    assertNotNull(artifact);
+    spec.assertArtifactCommon(artifact);
+  }
+
+  @Test
+  public void testCommitArtifact() throws Exception {
+    runTestCommitArtifact(SHORT_URL_LENGTH);
+    runTestCommitArtifact(EXACT_THRESHOLD_LENGTH);
+    runTestCommitArtifact(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestCommitArtifact(int len) throws Exception {
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    ArtifactSpec reallyLong = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl(longUrl)
+        .setStorageUrl(URI.create("test"))
+        .setContentLength(1024)
+        .setContentDigest("My Digest")
+        .setCollectionDate(1234L);
+
+    // Add artifact to database
+    index.indexArtifact(reallyLong.getArtifact());
+
+    // Assert artifact not committed
+    Artifact pre = index.getArtifact(reallyLong.getArtifactUuid());
+    assertFalse(pre.isCommitted());
+
+    // Commit artifact
+    index.commitArtifact(reallyLong.getArtifactUuid());
+    reallyLong.setCommitted(true);
+
+    // Assert artifact now committed
+    Artifact post = index.getArtifact(reallyLong.getArtifactUuid());
+    assertTrue(post.isCommitted());
+    reallyLong.assertArtifactCommon(post);
+  }
+
+  @Test
+  public void testDeleteArtifact() throws Exception {
+    runTestDeleteArtifact(SHORT_URL_LENGTH);
+    runTestDeleteArtifact(EXACT_THRESHOLD_LENGTH);
+    runTestDeleteArtifact(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestDeleteArtifact(int len) throws Exception {
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl(longUrl)
+        .setStorageUrl(URI.create("test"))
+        .setContentLength(1024)
+        .setContentDigest("My Digest")
+        .setCollectionDate(1234L);
+
+    // Sanity check
+    assertNull(index.getArtifact(spec.getArtifactUuid()));
+
+    // Add artifact to database
+    index.indexArtifact(spec.getArtifact());
+
+    // Assert artifact pre-delete
+    Artifact pre = index.getArtifact(spec.getArtifactUuid());
+    spec.assertArtifactCommon(pre);
+
+    // Delete artifact
+    index.deleteArtifact(spec.getArtifactUuid());
+
+    // Assert null post-delete
+    assertNull(index.getArtifact(spec.getArtifactUuid()));
+  }
+
+  @Test
+  public void testGetArtifactsWithPrefixAllVersions() throws Exception {
+    runTestGetArtifactsWithPrefixAllVersions(SHORT_URL_LENGTH);
+    runTestGetArtifactsWithPrefixAllVersions(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifactsWithPrefixAllVersions(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifactsWithPrefixAllVersions(int len) throws Exception {
+    String ns = "ns1";
+    String auid = "a1";
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec("ns1", "a1", url1, 1),
+        makeArtifactSpec("ns1", "a1", url1, 2),
+        makeArtifactSpec("ns1", "a1", url2, 1),
+        makeArtifactSpec("ns1", "a1", url1, 3),
+        makeArtifactSpec("ns1", "a2", url1, 1),
+        makeArtifactSpec("ns2", "a1", url1, 1),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      index.indexArtifact(spec.getArtifact());
+    }
+
+    // Assert empty result (no committed artifacts)
+    assertEmpty(index.getArtifactsWithPrefixAllVersions(ns, auid, longUrl));
+
+    // Commit artifacts
+    commitSpecs(index, specs, 0, 3);
+
+    // Assert we get back the correct committed artifacts for the namespace and AUID
+    List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
+    Iterable<Artifact> result = index.getArtifactsWithPrefixAllVersions(ns, auid, longUrl);
+    assertIterableEquals(expected, result);
+  }
+
+  @Test
+  public void testGetArtifactsWithUrlPrefixFromAllAus() throws Exception {
+    runTestGetArtifactsWithUrlPrefixFromAllAus(SHORT_URL_LENGTH);
+    runTestGetArtifactsWithUrlPrefixFromAllAus(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifactsWithUrlPrefixFromAllAus(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifactsWithUrlPrefixFromAllAus(int len) throws Exception {
+    String ns1 = "ns1";
+    String ns2 = "ns2";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, auid1, url1, 1),
+        makeArtifactSpec(ns1, auid1, url1, 2),
+        makeArtifactSpec(ns1, auid1, url1, 3),
+        makeArtifactSpec(ns1, auid2, url1, 4),
+        makeArtifactSpec(ns2, auid1, url1, 5),
+        makeArtifactSpec(ns1, auid1, url2, 6),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      index.indexArtifact(spec.getArtifact());
+    }
+
+    // Assert empty results (no committed artifacts)
+    assertEmpty(index.getArtifactsWithUrlPrefixFromAllAus(ns1, url1, ArtifactVersions.ALL));
+    assertEmpty(index.getArtifactsWithUrlPrefixFromAllAus(ns1, url1, ArtifactVersions.LATEST));
+
+    // Commit artifacts
+    commitSpecs(index, specs, 0, 3, 4, 5);
+
+    // Assert with ALL
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithUrlPrefixFromAllAus(ns1, url1, ArtifactVersions.ALL);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(index, specs, 1);
+
+    // Assert with LATEST
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithUrlPrefixFromAllAus(ns1, url1, ArtifactVersions.LATEST);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testGetArtifactsWithUrlFromAllAus() throws Exception {
+    runTestGetArtifactsWithUrlFromAllAus(SHORT_URL_LENGTH);
+    runTestGetArtifactsWithUrlFromAllAus(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifactsWithUrlFromAllAus(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifactsWithUrlFromAllAus(int len) throws Exception {
+    String ns1 = "ns1";
+    String ns2 = "ns2";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, auid1, url1, 1),
+        makeArtifactSpec(ns1, auid1, url1, 2),
+        makeArtifactSpec(ns1, auid1, url1, 3),
+        makeArtifactSpec(ns1, auid2, url1, 4),
+        makeArtifactSpec(ns2, auid1, url1, 5),
+        makeArtifactSpec(ns1, auid1, url2, 6),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      index.indexArtifact(spec.getArtifact());
+    }
+
+    // Assert empty results (no committed artifacts)
+    assertEmpty(index.getArtifactsWithUrlFromAllAus(ns1, url1, ArtifactVersions.ALL));
+    assertEmpty(index.getArtifactsWithUrlFromAllAus(ns1, url1, ArtifactVersions.LATEST));
+
+    // Commit artifacts
+    commitSpecs(index, specs, 0, 3, 4, 5);
+
+    // Assert with ALL
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithUrlFromAllAus(ns1, url1, ArtifactVersions.ALL);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(index, specs, 1);
+
+    // Assert with LATEST
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithUrlFromAllAus(ns1, url1, ArtifactVersions.LATEST);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testGetArtifactsAllVersions() throws Exception {
+    runTestGetArtifactsAllVersions(SHORT_URL_LENGTH);
+    runTestGetArtifactsAllVersions(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifactsAllVersions(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifactsAllVersions(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+    String url = url1;
+
+    // Sanity check
+    assertEmpty(index.getAuIds(ns));
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, a1, url1, 1),
+        makeArtifactSpec(ns1, a1, url1, 2),
+        makeArtifactSpec(ns1, a1, url2, 1),
+        makeArtifactSpec(ns1, a1, url1, 3),
+        makeArtifactSpec(ns1, a2, url1, 1),
+        makeArtifactSpec(ns2, a1, url1, 1),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      index.indexArtifact(spec.getArtifact());
+    }
+
+    // Assert empty result (no committed artifacts)
+    assertEmpty(index.getArtifactsAllVersions(ns, auid, url));
+
+    // Commit artifacts
+    commitSpecs(index, specs, 0, 3, 4);
+
+    // Assert we get back the correct committed artifacts for the namespace and AUID
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
+      Iterable<Artifact> result = index.getArtifactsAllVersions(ns, auid, url);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testGetArtifactsAllVersions2_longUrl() throws Exception {
+    runTestGetArtifactsAllVersions2_longUrl(SHORT_URL_LENGTH);
+    runTestGetArtifactsAllVersions2_longUrl(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifactsAllVersions2_longUrl(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifactsAllVersions2_longUrl(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    // Sanity check
+    assertEmpty(index.getAuIds(ns));
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, a1, url1, 1),
+        makeArtifactSpec(ns1, a1, url1, 2),
+        makeArtifactSpec(ns1, a1, url2, 1),
+        makeArtifactSpec(ns1, a1, url1, 3),
+        makeArtifactSpec(ns1, a2, url1, 1),
+        makeArtifactSpec(ns2, a1, url1, 1),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      index.indexArtifact(spec.getArtifact());
+    }
+
+    // Assert empty result (no committed artifacts)
+    assertEmpty(index.getArtifactsAllVersions(ns, auid, false));
+
+    // Assert all versions of all URLs for the namespace and AUID
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[1], specs[0], specs[2]);
+      Iterable<Artifact> result = index.getArtifactsAllVersions(ns, auid, true);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(index, specs, 0, 3, 4);
+
+    // Assert we get back the correct committed artifacts for the namespace and AUID
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
+      Iterable<Artifact> result = index.getArtifactsAllVersions(ns, auid, false);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert all versions of all URLs for the namespace and AUID
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[1], specs[0], specs[2]);
+      Iterable<Artifact> result = index.getArtifactsAllVersions(ns, auid, true);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testGetArtifactsWithPrefix() throws Exception {
+    runTestGetArtifactsWithPrefix(SHORT_URL_LENGTH);
+    runTestGetArtifactsWithPrefix(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifactsWithPrefix(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifactsWithPrefix(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, a1, url1, 1), //0
+        makeArtifactSpec(ns1, a1, url1, 2),
+        makeArtifactSpec(ns1, a1, url1, 3),
+        makeArtifactSpec(ns1, a2, url1, 4), // 3
+        makeArtifactSpec(ns2, a1, url1, 5), // 4
+        makeArtifactSpec(ns1, a1, url2, 6), // 5
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      index.indexArtifact(spec.getArtifact());
+    }
+
+    // Assert empty results (no committed artifacts)
+    assertEmpty(index.getArtifactsWithPrefix(ns1, a1, url1));
+    assertEmpty(index.getArtifactsWithPrefix(ns1, a1, url1));
+
+    // Commit artifacts
+    commitSpecs(index, specs, 0, 3, 4, 5);
+
+    // Assert results with (ns1, auid1, url1)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithPrefix(ns1, a1, url1);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results with (ns1, auid2, url1)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[3]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithPrefix(ns1, a2, url1);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results with (ns2, auid1, url1)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[4]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithPrefix(ns2, a1, url1);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results with (ns1, auid1, url2)
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[5]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithPrefix(ns1, a1, url2);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(index, specs, 1);
+
+    // Assert result with second set of commits
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1]);
+      Iterable<Artifact> result =
+          index.getArtifactsWithPrefix(ns1, a1, url1);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testGetAuIds() throws Exception {
+    runTestGetAuIds(SHORT_URL_LENGTH);
+    runTestGetAuIds(EXACT_THRESHOLD_LENGTH);
+    runTestGetAuIds(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetAuIds(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setAuid(auid)
+        .setUrl(url1)
+        .setStorageUrl(URI.create("storage_url"))
+        .setContentLength(1)
+        .setContentDigest("digest")
+        .setCollectionDate(2);
+
+    // Sanity check
+    assertEmpty(index.getAuIds(ns));
+
+    // Add artifact to database
+    index.indexArtifact(spec.getArtifact());
+
+    assertIterableEquals(List.of(auid), index.getAuIds(ns));
+  }
+
+  @Test
+  public void testGetArtifacts() throws Exception {
+    runTestGetArtifacts(SHORT_URL_LENGTH);
+    runTestGetArtifacts(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifacts(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifacts(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    // Sanity check
+    assertEmpty(index.getAuIds(ns));
+
+    ArtifactSpec[] specs = {
+        makeArtifactSpec(ns1, a1, url1, 1),
+        makeArtifactSpec(ns1, a1, url1, 2),
+        makeArtifactSpec(ns1, a1, url2, 1),
+        makeArtifactSpec(ns1, a2, url1, 1),
+        makeArtifactSpec(ns2, a1, url1, 1),
+    };
+
+    // Add artifacts to database
+    for (ArtifactSpec spec : specs) {
+      index.indexArtifact(spec.getArtifact());
+    }
+
+    // Assert empty result (no committed artifacts)
+    assertEmpty(index.getArtifacts(ns, auid, false));
+
+    // Assert results match expected when including uncommitted artifacts
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[2]);
+      Iterable<Artifact> result = index.getArtifacts(ns, auid, true);
+      assertIterableEquals(expected, result);
+    }
+
+    // Commit artifacts
+    commitSpecs(index, specs, 0, 2);
+
+    // Assert results match expected when excluding uncommitted artifacts
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[2]);
+      Iterable<Artifact> result = index.getArtifacts(ns, auid, false);
+      assertIterableEquals(expected, result);
+    }
+
+    // Assert results match expected when including uncommitted artifacts
+    {
+      List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[2]);
+      Iterable<Artifact> result = index.getArtifacts(ns, auid, true);
+      assertIterableEquals(expected, result);
+    }
+  }
+
+  @Test
+  public void testGetArtifact() throws Exception {
+    runTestGetArtifact(SHORT_URL_LENGTH);
+    runTestGetArtifact(EXACT_THRESHOLD_LENGTH);
+    runTestGetArtifact(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetArtifact(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl(url1)
+        .setStorageUrl(URI.create("test"))
+        .setContentLength(1024)
+        .setContentDigest("My Digest")
+        .setCollectionDate(1234L)
+        .setVersion(1);
+
+    // Sanity check / enforce contract
+    assertNull(index.getArtifact(spec.getArtifactUuid()));
+    assertNull(index.getArtifactVersion(spec.getNamespace(), spec.getAuid(), spec.getUrl(), spec.getVersion(), true));
+
+    // Add artifact to database
+    index.indexArtifact(spec.getArtifact());
+
+    Artifact byUuid = index.getArtifact(spec.getArtifactUuid());
+    Artifact byTuple = index.getArtifactVersion(spec.getNamespace(), spec.getAuid(), spec.getUrl(), spec.getVersion(), true);
+
+    spec.assertArtifactCommon(byUuid);
+    spec.assertArtifactCommon(byTuple);
+  }
+
+  @Test
+  public void testGetLatestArtifact() throws Exception {
+    runTestGetLatestArtifact(SHORT_URL_LENGTH);
+    runTestGetLatestArtifact(EXACT_THRESHOLD_LENGTH);
+    runTestGetLatestArtifact(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetLatestArtifact(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec spec1 = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setAuid(auid)
+        .setUrl(url1)
+        .setVersion(1)
+        .setStorageUrl(URI.create("test"))
+        .setContentLength(1024)
+        .setContentDigest("My Digest")
+        .setCollectionDate(1234L);
+
+    ArtifactSpec spec2 = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setAuid(auid)
+        .setUrl(url1)
+        .setVersion(2)
+        .setStorageUrl(URI.create("test"))
+        .setContentLength(1024)
+        .setContentDigest("My Digest")
+        .setCollectionDate(1234L);
+
+    // Sanity check / enforce contract
+    assertNull(index.getArtifact(ns, auid, url1, false));
+    assertNull(index.getArtifact(ns, auid, url1, true));
+
+    // Add artifacts to database
+    index.indexArtifact(spec1.getArtifact());
+    index.indexArtifact(spec2.getArtifact());
+
+    // Assert no max committed artifact but max uncommitted is v2
+    assertNull(index.getArtifact(ns, auid, url1, false));
+    spec2.assertArtifactCommon(index.getArtifact(ns, auid, url1, true));
+
+    // Commit v1 artifact
+    index.commitArtifact(spec1.getArtifactUuid());
+    spec1.setCommitted(true);
+
+    // Assert latest committed is v1 and latest uncommitted remains v2
+    spec1.assertArtifactCommon(index.getArtifact(ns, auid, url1, false));
+    spec2.assertArtifactCommon(index.getArtifact(ns, auid, url1, true));
+
+    // Commit v2 artifact
+    index.commitArtifact(spec2.getArtifactUuid());
+    spec2.setCommitted(true);
+
+    // Assert latest committed and latest uncommitted is v2
+    spec2.assertArtifactCommon(index.getArtifact(ns, auid, url1, false));
+    spec2.assertArtifactCommon(index.getArtifact(ns, auid, url1, true));
+  }
+
+  @Test
+  public void testGetNamespaces() throws Exception {
+    runTestGetNamespaces(SHORT_URL_LENGTH);
+    runTestGetNamespaces(EXACT_THRESHOLD_LENGTH);
+    runTestGetNamespaces(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestGetNamespaces(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setUrl(url1)
+        .setStorageUrl(URI.create("storage_url"))
+        .setContentLength(1)
+        .setContentDigest("digest")
+        .setCollectionDate(2);
+
+    // Sanity check
+    assertEmpty(index.getNamespaces());
+
+    // Add artifact to database
+    index.indexArtifact(spec.getArtifact());
+
+    assertIterableEquals(List.of(ns), index.getNamespaces());
+
+    // Remove artifact for next call to this method
+    index.deleteArtifact(spec.getArtifactUuid());
+  }
+
+  @Test
+  public void testUpdateStorageUrl() throws Exception {
+    runTestUpdateStorageUrl(SHORT_URL_LENGTH);
+    runTestUpdateStorageUrl(EXACT_THRESHOLD_LENGTH);
+    runTestUpdateStorageUrl(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestUpdateStorageUrl(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl(url1)
+        .setStorageUrl(URI.create("storage_url_1"))
+        .setContentLength(1)
+        .setContentDigest("digest")
+        .setCollectionDate(2);
+
+    // Add artifact to database
+    index.indexArtifact(spec.getArtifact());
+
+    // Assert URL pre-update
+    Artifact pre = index.getArtifact(spec.getArtifactUuid());
+    assertEquals("storage_url_1", pre.getStorageUrl());
+
+    // Update URL
+    index.updateStorageUrl(spec.getArtifactUuid(), "storage_url_2");
+
+    // Assert URL pre-update
+    Artifact post = index.getArtifact(spec.getArtifactUuid());
+    assertEquals("storage_url_2", post.getStorageUrl());
   }
 
   // *******************************************************************************************************************
