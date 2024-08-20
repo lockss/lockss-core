@@ -66,7 +66,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
         SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0");
 
     ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME,  PGSimpleDataSource.class.getCanonicalName(),
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, PGSimpleDataSource.class.getCanonicalName(),
         SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
 
     idxDbManager = new SQLArtifactIndexDbManager();
