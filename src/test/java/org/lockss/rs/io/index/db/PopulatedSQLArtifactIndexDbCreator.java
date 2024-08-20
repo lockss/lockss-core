@@ -87,6 +87,9 @@ public class PopulatedSQLArtifactIndexDbCreator {
     int auids = 100;
     int urls = 100;
 
+    int total = ns * auids * urls;
+    int onePercent = total / 100;
+
     ArtifactSpecGenerator specs =
         new ArtifactSpecGenerator(ns, auids, urls);
 
@@ -97,7 +100,7 @@ public class PopulatedSQLArtifactIndexDbCreator {
     for (ArtifactSpec spec : specs) {
       artifacts.add(spec.getArtifact());
       count++;
-      if (count % 1000 == 999) {
+      if (count % onePercent == onePercent - 1) {
         float progess = (float) (count + 1) / (ns * auids * urls) * 100;
         log.info("Adding artifacts (%.2f%%)".formatted(progess));
         idxdb.addArtifacts(artifacts);
