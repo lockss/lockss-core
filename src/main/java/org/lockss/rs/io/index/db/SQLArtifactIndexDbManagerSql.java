@@ -190,20 +190,14 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       ARTIFACT_TUPLE_INDEX_QUERY
   };
 
-//  private static final String ADD_URL_HASH_COLUMN_QUERY = "ALTER TABLE " + URL_TABLE
-//      + " ADD COLUMN " + URL_HASH_COLUMN + " --PreferUnboundedTextType--)";
-//
-//  private static final String ADD_IS_LONG_URL_COLUMN_QUERY = "ALTER TABLE " + URL_TABLE
-//      + " ADD COLUMN " + IS_LONG_URL_COLUMN + " BOOLEAN";
-
-  private static final String DROP_URL_INDEX_QUERY =
+  private static final String DROP_UNIQUE_URL_INDEX_QUERY =
       "DROP INDEX idx1_" + URL_TABLE;
 
   private static final String URL_INDEX_QUERY =
       "CREATE INDEX idx1_" + URL_TABLE + " ON " + URL_TABLE + "(" + URL_COLUMN + ")";
 
-  private static final String LONG_URL_INDEX_QUERY =
-      "CREATE INDEX idx1_" + LONG_URL_TABLE + " ON " + LONG_URL_TABLE + "(" + LONG_URL_COLUMN + ")";
+  private static final String LONG_URL_HASH_INDEX_QUERY =
+      "CREATE INDEX idx1_" + LONG_URL_TABLE + " ON " + LONG_URL_TABLE + " USING HASH (" + LONG_URL_COLUMN + ")";
 
   private static final Map<String, String> VERSION_4_TABLE_CREATE_QUERIES =
       new LinkedHashMap<String, String>() {{
@@ -211,12 +205,9 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       }};
 
   private static final String[] VERSION_4_ALTER_TABLE_QUERIES = new String[]{
-      DROP_URL_INDEX_QUERY,
+      DROP_UNIQUE_URL_INDEX_QUERY,
       URL_INDEX_QUERY,
-//      LONG_URL_INDEX_QUERY,
-//      DROP_ARTIFACT_TUPLE_INDEX_QUERY,
-//      ADD_URL_HASH_COLUMN_QUERY,
-//      ADD_IS_LONG_URL_COLUMN_QUERY,
+      LONG_URL_HASH_INDEX_QUERY,
   };
 
   /**
