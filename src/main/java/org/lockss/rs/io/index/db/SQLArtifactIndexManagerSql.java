@@ -99,8 +99,13 @@ public class SQLArtifactIndexManagerSql {
       + "," + NAMESPACE_COLUMN
       + ") VALUES (default,?)";
 
-  private static final String GET_NAMESPACES_QUERY = "SELECT "
-      + NAMESPACE_COLUMN + " FROM " + NAMESPACE_TABLE;
+  private static final String GET_NAMESPACES_QUERY = "SELECT DISTINCT "
+      + "ns." + NAMESPACE_COLUMN
+      + " FROM " + NAMESPACE_TABLE + " ns"
+      + " WHERE EXISTS ( SELECT FROM "
+      + ARTIFACT_TABLE + " a,"
+      + NAMESPACE_TABLE + " ns"
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN + ")";
 
   // Query to find an AUID's internal AUID sequence number
   private static final String FIND_AUID_SEQ_QUERY = "select "
@@ -1092,6 +1097,7 @@ public class SQLArtifactIndexManagerSql {
       boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
       String urlm = url;
 
+      // FIXME: If there was an exception inserting into either table, we need to rollback the changes
       if (isLongUrl) {
         urlm = url.substring(0, LONG_URL_THRESHOLD);
       }
