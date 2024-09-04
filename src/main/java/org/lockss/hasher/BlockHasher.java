@@ -507,6 +507,7 @@ public class BlockHasher extends GenericHasher {
 	  // end of file
 	  if (isTrace) log.debug3("done hashing version ix "+ vix +
 				  ", bytesHashed: " + bytesHashed);
+          log.critical("closing: " + is.getClass());
 	  is.close();
 	  is = null;
 	  hbVersion = endVersion(null);

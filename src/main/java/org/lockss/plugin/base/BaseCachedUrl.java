@@ -291,6 +291,7 @@ public class BaseCachedUrl implements CachedUrl {
     ensureArtifactData(NeedContent.YES);
     inputStreamUsed = true;
     restInputStream = artData.getInputStream();
+    logger.critical("restInputStream: " + restInputStream.getClass());
     return restInputStream;
   }
 
