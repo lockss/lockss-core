@@ -1477,8 +1477,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
       // ******************
 
       // Get Artifact from ArtifactData
-      artifactData.setStorageUrl(storageUrl);
       Artifact artifact = WarcArtifactDataUtil.getArtifact(artifactData);
+      artifact.setStorageUrl(storageUrl.toString());
 
       // Add artifact to index
       getArtifactIndex().indexArtifact(artifact);
