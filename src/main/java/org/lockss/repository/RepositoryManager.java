@@ -439,9 +439,7 @@ public class RepositoryManager
     if (config.getBoolean(PARAM_ENABLE_ARTIFACT_CACHE,
 			  DEFAULT_ENABLE_ARTIFACT_CACHE)) {
 
-      repo.setMaxCacheSizes(
-          config.getInt(PARAM_ARTIFACT_CACHE_MAX, DEFAULT_ARTIFACT_CACHE_MAX),
-          config.getInt(PARAM_ARTIFACT_DATA_CACHE_MAX, DEFAULT_ARTIFACT_DATA_CACHE_MAX));
+      repo.setConnectionPoolSizes();
 
       boolean instrument =
 	config.getBoolean(PARAM_ARTIFACT_CACHE_INSTRUMENT,
