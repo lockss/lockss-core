@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2006 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,28 +30,47 @@ package org.lockss.protocol;
 
 import java.io.*;
 import java.util.*;
+import org.junit.*;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+import org.junit.runners.Parameterized.Parameter;
 
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
-import org.lockss.test.LockssTestCase;
+import org.lockss.test.LockssTestCase4;
+import org.lockss.log.*;
 import org.lockss.util.*;
 
 
-public class TestDiskVoteBlocks extends LockssTestCase {
+@RunWith(Parameterized.class)
+public class TestDiskVoteBlocks extends LockssTestCase4 {
+  L4JLogger log = L4JLogger.getLogger();
+
+  @Parameters
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] { {true}, {false} });
+  }
+
+  @Parameter
+  public boolean keepOpen;
 
   File tempDir;
   
-  protected void setUp() throws Exception {
+  @Override
+  public void setUp() throws Exception {
     super.setUp();
     tempDir = this.getTempDir();
   }
 
-  protected void tearDown() throws Exception {
+  @Override
+  public void tearDown() throws Exception {
     super.tearDown();
   }
 
   /*
    * Test method for 'org.lockss.protocol.DiskVoteBlocks.DiskVoteBlocks(int, InputStream, File)'
    */
+  @Test
   public void testDiskVoteBlocks() throws Exception {
 //  Construct a byte array in memory to read in.
     int blockCount = 20;
@@ -78,13 +93,11 @@ public class TestDiskVoteBlocks extends LockssTestCase {
     assertEquals(dvb.size(), blockCount);
   }
   
-  /*
-   * Test method for 'org.lockss.protocol.DiskVoteBlocks.addVoteBlock(VoteBlock)'
-   */
+  @Test
   public void testAddVoteBlock() throws Exception {
     VoteBlocksIterator iter;
 
-    DiskVoteBlocks dvb = new MyDiskVoteBlocks(tempDir);
+    DiskVoteBlocks dvb = new MyDiskVoteBlocks(tempDir, keepOpen);
     assertEquals(0, dvb.size());
 
     List voteBlockList = V3TestUtils.makeVoteBlockList(3);
@@ -98,6 +111,7 @@ public class TestDiskVoteBlocks extends LockssTestCase {
     dvb.addVoteBlock((VoteBlock)voteBlockList.get(2));
     assertEquals(3, dvb.size());
     
+    dvb.close();
     // Compare the iterator against the vote block.
     iter = dvb.iterator();
     assertEquals((VoteBlock) voteBlockList.get(0), iter.next());
@@ -105,9 +119,33 @@ public class TestDiskVoteBlocks extends LockssTestCase {
     assertEquals((VoteBlock) voteBlockList.get(2), iter.next());
   }
 
+  @Test
+  public void testAddVoteBlocksBenchmark() throws Exception {
+    // Set high to benchmark
+//     int n = 1000000;
+    int n = 1;
+    VoteBlocksIterator iter;
+
+    DiskVoteBlocks dvb = new MyDiskVoteBlocks(tempDir, keepOpen);
+    assertEquals(0, dvb.size());
+
+    List voteBlockList = V3TestUtils.makeVoteBlockList(3);
+    long start = TimeBase.nowMs();
+
+    for (int x = 0; x < n; x++) {
+      dvb.addVoteBlock((VoteBlock)voteBlockList.get(0));
+    }
+    dvb.close();
+    log.info("Adding {} VoteBlocks {}reopening each time took {}",
+             n, keepOpen ? "without " : "",
+             StringUtil.timeIntervalToString(TimeBase.msSince(start)));
+    assertEquals(n, dvb.size());
+  }
+
   /*
    * Test method for 'org.lockss.protocol.DiskVoteBlocks.iterator()'
    */
+  @Test
   public void testIterator() throws Exception {
     
     List<VoteBlock> voteBlockList = V3TestUtils.makeVoteBlockList(3);
@@ -157,6 +195,7 @@ public class TestDiskVoteBlocks extends LockssTestCase {
   /*
    * Second, more intensive test method for DiskVoteBlocks.Iterator 
    */
+  @Test
   public void testIterator2() throws Exception {
     DiskVoteBlocks dvb;
     int iCountLength;
@@ -198,6 +237,7 @@ public class TestDiskVoteBlocks extends LockssTestCase {
    * Third test: Verify that peek() and next() will throw "NoSuchElementException"
    * when no elements are left.
    */
+  @Test
   public void testIterator3() throws Exception {
     DiskVoteBlocks dvb;
     int iLength;
@@ -234,6 +274,7 @@ public class TestDiskVoteBlocks extends LockssTestCase {
   /*
    * Test method for 'org.lockss.protocol.DiskVoteBlocks.size()'
    */
+  @Test
   public void testSize() throws Exception {
     List voteBlockList = V3TestUtils.makeVoteBlockList(10);
     DiskVoteBlocks dvb = makeDiskVoteBlocks(voteBlockList);
@@ -243,6 +284,7 @@ public class TestDiskVoteBlocks extends LockssTestCase {
   /*
    * Test method for 'org.lockss.protocol.DiskVoteBlocks.delete()'
    */
+  @Test
   public void testDelete() {
     // XXX:  To do.
   }
@@ -250,6 +292,7 @@ public class TestDiskVoteBlocks extends LockssTestCase {
   /*
    * Test method for 'org.lockss.protocol.DiskVoteBlocks.getInputStream()'
    */
+  @Test
   public void testGetInputStream() throws Exception {
     List voteBlockList = V3TestUtils.makeVoteBlockList(10);
     DiskVoteBlocks dvb = makeDiskVoteBlocks(voteBlockList);
@@ -261,22 +304,25 @@ public class TestDiskVoteBlocks extends LockssTestCase {
   
   private DiskVoteBlocks makeDiskVoteBlocks(List voteBlockList)
       throws Exception {
-    DiskVoteBlocks dvb = new MyDiskVoteBlocks(tempDir);
+    DiskVoteBlocks dvb = new MyDiskVoteBlocks(tempDir, false);
     for (Iterator iter = voteBlockList.iterator(); iter.hasNext(); ) {
       VoteBlock vb = (VoteBlock)iter.next();
       dvb.addVoteBlock(vb);
     }
+    dvb.close();
     return dvb;
   }
 
+  @Test
   public void testToString() throws Exception {
-    DiskVoteBlocks dvb = new MyDiskVoteBlocks(tempDir);
+    DiskVoteBlocks dvb = new MyDiskVoteBlocks(tempDir, false);
 
     List voteBlockList = V3TestUtils.makeVoteBlockList(3);
     
     dvb.addVoteBlock((VoteBlock)voteBlockList.get(0));
     dvb.addVoteBlock((VoteBlock)voteBlockList.get(1));
     dvb.addVoteBlock((VoteBlock)voteBlockList.get(2));
+    dvb.close();
     String str = dvb.toString();
     assertMatchesRE("VoteBlock: Content, /test-0\\.html, 1 version\\(s\\)",
 		    str);
@@ -291,8 +337,8 @@ public class TestDiskVoteBlocks extends LockssTestCase {
       super(blocksToRead, from, toDir);
     }
 
-    public MyDiskVoteBlocks(File toDir) throws IOException {
-      super(toDir);
+    public MyDiskVoteBlocks(File toDir, boolean keepOpen) throws IOException {
+      super(toDir, keepOpen);
     }
 
     public VoteBlocksIterator iterator() throws FileNotFoundException {
@@ -316,4 +362,5 @@ public class TestDiskVoteBlocks extends LockssTestCase {
       }
     }
   }
+
 }

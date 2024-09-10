@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -137,7 +133,8 @@ public class VoterUserData
     this.introEffortProof = introEffortProof;
     this.createTime = TimeBase.nowMs();
     this.messageDir = messageDir;
-    this.voteBlocks = new DiskVoteBlocks(voter.getStateDir());
+    this.voteBlocks = new DiskVoteBlocks(voter.getStateDir(),
+                                         voter.getPollManager().isKeepDiskBlocksOpen());
   }
 
   public void setPollMessage(LcapMessage msg) {
@@ -296,6 +293,10 @@ public class VoterUserData
     this.pollerId = pollerId;
   }
 
+  public PeerIdentity getMyId() {
+    return getVoter().getMyPeerId();
+  }
+
   public byte[] getPollerNonce() {
     return pollerNonce;
   }
@@ -371,7 +372,8 @@ public class VoterUserData
    */
   public void enableSymmetricPoll(byte[] symmetricNonce) throws IOException {
     byte[] voterNonce2 = symmetricNonce;
-    VoteBlocks symmetricVoteBlocks = new DiskVoteBlocks(voter.getStateDir());
+    VoteBlocks symmetricVoteBlocks = new DiskVoteBlocks(voter.getStateDir(),
+                                                        voter.getPollManager().isKeepDiskBlocksOpen());
     setVoterNonce2AndBlocks(voterNonce2, symmetricVoteBlocks);
   }
 
@@ -579,7 +581,7 @@ public class VoterUserData
     return new V3LcapMessage(getAuId(), getPollKey(), getPluginVersion(),
                              getPollerNonce(), getVoterNonce(), getVoterNonce2(),
 			     opcode, getModulus(), getSampleNonce(),
-                             getDeadline(), getPollerId(), messageDir,
+                             getDeadline(), getMyId(), messageDir,
                              voter.getLockssDaemon());
   }
 

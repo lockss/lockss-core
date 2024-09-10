@@ -62,6 +62,7 @@ import org.lockss.util.rest.repo.util.JmsFactorySource;
 import org.lockss.util.rest.repo.util.LockssRepositoryUtil;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
+import org.lockss.util.time.TimeUtil;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -184,8 +185,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       // Reindex artifacts in this data store to the index
       long start = TimeBase.nowMs();
       store.reindexArtifacts(index);
-      long end = TimeBase.nowMs();
-      log.info("Finished reindex in {} ms", end - start);
+      log.info("Finished reindex in {}",
+               TimeUtil.timeIntervalToString(TimeBase.msSince(start)));
 
       // Disable future reindexing by renaming reindex state file if there were no errors
       // (i.e., successfully processed all WARCs under this base directory). Old reindex
@@ -402,7 +403,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       archiveReader.setStrict(true);
 
       try (DeferredTempFileOutputStream out =
-               new DeferredTempFileOutputStream((int) (16 * FileUtils.ONE_MB), null)) {
+               new DeferredTempFileOutputStream((int) (16 * FileUtils.ONE_MB), (String) null)) {
 
         ObjectMapper objMapper = new ObjectMapper();
         objMapper.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);

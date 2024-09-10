@@ -27,20 +27,14 @@
  */
 package org.lockss.config;
 
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
-import java.util.Properties;
-import org.lockss.config.TdbAu;
 import org.lockss.util.Logger;
-import org.lockss.util.auth.*;
+import org.lockss.util.auth.AuthUtil;
 import org.lockss.util.rest.RestUtil;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
+
+import java.io.UnsupportedEncodingException;
+import java.util.Properties;
 
 /**
  * A client for the Configuration REST web service operation that provides the
@@ -114,8 +108,9 @@ public class GetTdbAuClient {
 	    HttpMethod.GET, new HttpEntity<String>(null, headers),
 	    Properties.class);
 
-    HttpStatus statusCode = response.getStatusCode();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "status = " + status);
 
     Properties properties = response.getBody();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "properties = " + properties);

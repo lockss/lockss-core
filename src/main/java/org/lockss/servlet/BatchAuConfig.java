@@ -55,6 +55,8 @@ public class BatchAuConfig extends LockssServlet {
 
   private static final int LONG_TABLE_AT_LEAST = 10;
 
+  static String MIGRATION_WARNING = "Migration is in progress.  Please do not add or delete any AUs that will be or have been migrated from LOCKSS 1.x.";
+
   /** Controls the appearance (in select lists) of TitleSets that contain
    * no actionable AUs.  If included, they are greyed. <ul><li><b>All</b>
    * &mdash; they are always included,<li><b>Add</b> &mdash; they are
@@ -294,6 +296,7 @@ public class BatchAuConfig extends LockssServlet {
   private void displayMenu() throws IOException {
     Page page = newPage();
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     ServletUtil.layoutMenu(page, getMenuDescriptors());
     endPage(page);
   }
@@ -306,6 +309,7 @@ public class BatchAuConfig extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
 
     // Prepare sets
     Collection titleSets = pluginMgr.getTitleSets();
@@ -393,6 +397,7 @@ public class BatchAuConfig extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
 
     // Explanation block
     String expl;
@@ -583,6 +588,7 @@ public class BatchAuConfig extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     MutableInt buttonNumber = new MutableInt(submitButtonNumber);
     ServletUtil.layoutRestore(this, page, ACTION_TAG, KEY_VERB,
         VERB_RESTORE, "AuConfigBackupContents", buttonNumber,

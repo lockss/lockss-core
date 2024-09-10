@@ -39,11 +39,18 @@ import java.net.*;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
+import org.lockss.poller.Poll;
 import org.lockss.util.*;
 import org.lockss.util.Queue;
 import org.lockss.util.test.PrivilegedAccessor;
 import org.lockss.util.time.TimeBase;
 import org.lockss.test.*;
+import org.mockito.ArgumentCaptor;
+
+import static org.lockss.protocol.LcapRouter.PARAM_MIGRATE_FROM;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
 
 /**
  * This is the test class for org.lockss.protocol.LcapRouter
@@ -58,7 +65,9 @@ public class TestLcapRouter extends LockssTestCase {
   private MockLockssDaemon daemon;
   MyLcapRouter rtr;
   MyBlockingStreamComm scomm;
+  IdentityManager idMgr;
 
+  PeerIdentity myPeerId;
   PeerIdentity pid1;
   PeerIdentity pid2;
   File tempDir;
@@ -67,16 +76,21 @@ public class TestLcapRouter extends LockssTestCase {
     super.setUp();
     tempDir = getTempDir();
     ConfigurationUtil.setFromArgs(IdentityManager.PARAM_LOCAL_IP, "127.0.0.1");
+    ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
+        "TCP:[127.0.0.1]:1234");
     daemon = getMockLockssDaemon();
-    // V3LcapMessage.decode needs idmgr
-    daemon.getIdentityManager().startService();
-    scomm = new MyBlockingStreamComm();
+    scomm = spy(new MyBlockingStreamComm());
     scomm.initService(daemon);
     daemon.setStreamCommManager(scomm);
     rtr = new MyLcapRouter();
     rtr.initService(daemon);
+    // V3LcapMessage.decode needs idmgr
+    idMgr = daemon.getIdentityManager();
+    idMgr.startService();
     daemon.setRouterManager(rtr);
     rtr.startService();
+    myPeerId = daemon.getIdentityManager()
+        .getLocalPeerIdentity(Poll.V3_PROTOCOL);
     pid1 = newPI(IDUtil.ipAddrToKey("129.3.3.3", "4321"));
     pid2 = newPI(IDUtil.ipAddrToKey("129.3.3.33", "1234"));
   }
@@ -86,17 +100,15 @@ public class TestLcapRouter extends LockssTestCase {
   }
 
   private PeerIdentity newPI(String key) throws Exception {
-    return (PeerIdentity)PrivilegedAccessor.
-      invokeConstructor(PeerIdentity.class.getName(), key);
+    return idMgr.findPeerIdentity(key);
   }
 
 
   public void testMakePeerMessage() throws Exception {
     V3LcapMessage lmsg =
-      LcapMessageTestUtil.makeTestVoteMessage(pid1, tempDir, daemon);
+      LcapMessageTestUtil.makeTestVoteMessage(pid1, pid2, tempDir, daemon);
     PeerMessage pmsg = rtr.makePeerMessage(lmsg);
     assertNull(pmsg.getSender());
-    pmsg.setSender(pid1);
     V3LcapMessage msg2 = rtr.makeV3LcapMessage(pmsg);
     assertEqualMessages(lmsg, msg2);
   }
@@ -104,7 +116,7 @@ public class TestLcapRouter extends LockssTestCase {
   public void testNoRateLimiter() throws Exception {
     TimeBase.setSimulated(1000);
     V3LcapMessage lmsg =
-      LcapMessageTestUtil.makeTestVoteMessage(pid1, tempDir, daemon);
+      LcapMessageTestUtil.makeTestVoteMessage(pid1, pid2, tempDir, daemon);
 
     rtr.sendTo(lmsg, pid1);
     assertEquals(1, scomm.sentMsgs.size());
@@ -114,9 +126,45 @@ public class TestLcapRouter extends LockssTestCase {
     assertEquals(101, scomm.sentMsgs.size());
   }
 
+  /**
+   * Test for {@link LcapRouter#sendTo(V3LcapMessage, PeerIdentity)}.
+   */
+  public void testSendTo() throws Exception {
+    // Make a test message originating from myself
+    V3LcapMessage lmsg =
+      LcapMessageTestUtil.makeTestVoteMessage(myPeerId, pid2, tempDir, daemon);
+    PeerMessage pm = rtr.makePeerMessage(lmsg);
+
+    // PARAM_MIGRATE_FROM is *not* set: Message should go to the peer
+    // identity (pid1) specified in the call:
+    {
+      reset(scomm);
+      rtr.sendTo(lmsg, pid1);
+      verify(scomm, times(1)).sendTo(pm, pid1);
+    }
+
+    // Set the PARAM_MIGRATE_FROM parameter to pid2
+    ConfigurationUtil.addFromArgs(PARAM_MIGRATE_FROM, pid2.getKey());
+
+    // PARAM_MIGRATE_FROM *is* set: Message should go to the peer
+    // identity specified by the parameter (migrateFromId) despite
+    // being called with pid1:
+    {
+      reset(scomm);
+      rtr.sendTo(lmsg, pid1);
+      // FIXME: Can't do verify(scomm, times(1)).sendTo(pm, pid2) because
+      // PeerIdentity does not implement an equals()
+      ArgumentCaptor<PeerIdentity> peerIdCaptor =
+          ArgumentCaptor.forClass(PeerIdentity.class);
+      verify(scomm, times(1))
+          .sendTo(eq(pm), peerIdCaptor.capture());
+      assertEquals(pid1.getKey(), peerIdCaptor.getValue().getKey());
+    }
+  }
+
   private void assertEqualMessages(V3LcapMessage a, V3LcapMessage b)
       throws Exception {
-    assertTrue(a.getOriginatorId() == b.getOriginatorId());
+    assertSame(a.getOriginatorId(), b.getOriginatorId());
     assertEquals(a.getOpcode(), b.getOpcode());
     assertEquals(a.getTargetUrl(), b.getTargetUrl());
     assertEquals(a.getArchivalId(), b.getArchivalId());

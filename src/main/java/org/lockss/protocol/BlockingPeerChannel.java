@@ -76,7 +76,7 @@ class BlockingPeerChannel implements PeerChannel {
 
   volatile private PeerIdentity peer = null;
   volatile private PeerAddress pad;
-  private PeerIdentity localPeer;
+  private PeerIdentity myTransportPeerId;
   private BlockingStreamComm scomm;
   private Socket sock;
   private Queue rcvQueue;
@@ -111,7 +111,7 @@ class BlockingPeerChannel implements PeerChannel {
    */
   private BlockingPeerChannel(BlockingStreamComm scomm) {
     this.scomm = scomm;
-    localPeer = scomm.getMyPeerId();
+    myTransportPeerId = scomm.getMyTransportPeerId();
     rcvQueue = scomm.getReceiveQueue();
     // This queue may be replaced if this channel becomes primary for a
     // peer that has queued messages
@@ -967,7 +967,7 @@ class BlockingPeerChannel implements PeerChannel {
   /** send peerid msg
    */
   void writePeerId() throws IOException{
-    String key = localPeer.getIdString();
+    String key = myTransportPeerId.getIdString();
     if (log.isDebug3()) log.debug3("Sending peerid: " + key);
     writeHeader(OP_PEERID, key.length(), 0);
     outs.write(key.getBytes());

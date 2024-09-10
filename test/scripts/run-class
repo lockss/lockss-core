@@ -28,9 +28,20 @@ while true ; do
       fi
       [ -z "$quiet" ] && echo "CLASSPATH=$CLASSPATH"
       shift; shift; continue;;
-    "-1.7" )
+    "-11" )
+      if [ -z "$JAVA_11_HOME" ] ; then
+	echo "-11 option requires JAVA_11_HOME to point to jave 11 install dir" >&2
+	exit 1;
+      fi
+      JAVA_HOME="${JAVA_11_HOME}"
+      export JAVA_HOME
+      PATH="$JAVA_HOME/bin:$PATH"
+      export PATH
+      [ -z "$quiet" ] && echo JAVA_HOME="$JAVA_HOME"
+      shift; continue;;
+    "-17" )
       if [ -z "$JAVA_17_HOME" ] ; then
-	echo "-1.7 option requires JAVA_17_HOME to point to 1.7 install dir" >&2
+	echo "-17 option requires JAVA_17_HOME to point to 17 install dir" >&2
 	exit 1;
       fi
       JAVA_HOME="${JAVA_17_HOME}"
@@ -39,12 +50,12 @@ while true ; do
       export PATH
       [ -z "$quiet" ] && echo JAVA_HOME="$JAVA_HOME"
       shift; continue;;
-    "-1.8" )
-      if [ -z "$JAVA_18_HOME" ] ; then
-	echo "-1.8 option requires JAVA_18_HOME to point to 1.8 install dir" >&2
+    "-8" )
+      if [ -z "$JAVA_8_HOME" ] ; then
+	echo "-8 option requires JAVA_8_HOME to point to 8 install dir" >&2
 	exit 1;
       fi
-      JAVA_HOME="${JAVA_18_HOME}"
+      JAVA_HOME="${JAVA_8_HOME}"
       export JAVA_HOME
       PATH="$JAVA_HOME/bin:$PATH"
       export PATH

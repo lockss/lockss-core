@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -162,7 +162,7 @@ public class RepositoryDbManager extends DbManager implements ConfigurableManage
       + "waitForExternalSetup";
 
   private RepositoryDbManagerSql repoDbManagerSql =
-      new RepositoryDbManagerSql(null,
+    new RepositoryDbManagerSql(this, null,
           DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
           DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
 

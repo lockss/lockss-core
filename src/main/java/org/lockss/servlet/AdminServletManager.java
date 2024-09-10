@@ -1,30 +1,34 @@
 /*
 
- Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
- all rights reserved.
+Copyright (c) 2000-2023, Board of Trustees of Leland Stanford Jr. University
 
- Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to deal
- in the Software without restriction, including without limitation the rights
- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
- The above copyright notice and this permission notice shall be included in
- all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
- IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
- Except as contained in this notice, the name of Stanford University shall not
- be used in advertising or otherwise to promote the sale, use or other dealings
- in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
 
- */
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+*/
 
 package org.lockss.servlet;
 
@@ -125,10 +129,6 @@ public class AdminServletManager extends BaseServletManager {
   public static final String DEFAULT_403_MSG =
           "Access to the admin UI is not allowed from this IP address (%IP%)";
 
-  /** Path to directory holding daemon logs */
-  public static final String PARAM_LOGDIR =
-    Configuration.PREFIX +  "platform.logdirectory";
-
   /** Admin UI requires user auth */
   public static final boolean DO_USER_AUTH = true;
 
@@ -157,7 +157,7 @@ public class AdminServletManager extends BaseServletManager {
 
   public static final String PARAM_HELP_URL = PREFIX + "helpUrl";
   static final String DEFAULT_HELP_URL =
-    "https://lockss.github.io/software/manual/using";
+    "https://docs.lockss.org/projects/manual/en/latest/";
 
   /** If set, fetches of the UI root (http://cache:8081/) will be
    * redirected to this path (on same host and port) instead of serving the
@@ -315,10 +315,10 @@ public class AdminServletManager extends BaseServletManager {
   protected static final ServletDescr SERVLET_BATCH_AU_CONFIG =
     new ServletDescr("BatchAuConfig",
 		     BatchAuConfig.class,
-		     "Journal Configuration",
+		     "AU Configuration",
 		     (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
 		      | ServletDescr.NEED_ROLE_AU_ADMIN),
-		     "Add or remove titles from this LOCKSS box")
+		     "Manage archival units in this LOCKSS box")
     .setService(SVC_CONFIG);
 
   // XXXUI Development version
@@ -333,7 +333,7 @@ public class AdminServletManager extends BaseServletManager {
   protected static final ServletDescr SERVLET_AU_CONFIG =
     new ServletDescr("AuConfig",
 		     AuConfig.class,
-		     "Manual Journal Configuration",
+		     "Manual AU Configuration",
 		     (ServletDescr.IN_UIHOME | ServletDescr.NEED_ROLE_AU_ADMIN),
 		     "Manually edit single AU configuration")
     .setService(SVC_CONFIG);
@@ -359,7 +359,7 @@ public class AdminServletManager extends BaseServletManager {
           "Content Access Options",
           (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
           | ServletDescr.NEED_ROLE_CONTENT_ADMIN),
-          "Configure the audit proxy and the ICP server")
+          "Configure content servers and proxies")
     .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_PROXY_INFO =
           new ServletDescr("ProxyConfig",
@@ -857,7 +857,7 @@ public class AdminServletManager extends BaseServletManager {
     final String DEBUG_HEADER = "setConfig(): ";
     super.setConfig(config, prevConfig, changedKeys);
     isodir = config.get(PARAM_ISODIR);
-    logdir = config.get(PARAM_LOGDIR);
+    logdir = config.get(ConfigManager.PARAM_PLATFORM_LOG_DIR);
     if (changedKeys.contains(ExportContent.PREFIX)) {
       String path = config.get(ExportContent.PARAM_EXPORT_PATH);
       if (StringUtil.isNullString(path)) {

@@ -32,26 +32,37 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 
-import java.io.*;
-import java.lang.reflect.Method;
-import java.text.ParseException;
-import java.util.*;
-
-import com.thoughtworks.xstream.alias.CannotResolveClassException;
+import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.converters.*;
+import com.thoughtworks.xstream.converters.reflection.PureJavaReflectionProvider;
+import com.thoughtworks.xstream.converters.reflection.ReflectionConverter;
+import com.thoughtworks.xstream.converters.reflection.ReflectionProvider;
+import com.thoughtworks.xstream.core.*;
+import com.thoughtworks.xstream.core.util.ThreadSafeSimpleDateFormat;
+import com.thoughtworks.xstream.io.HierarchicalStreamDriver;
+import com.thoughtworks.xstream.io.HierarchicalStreamReader;
+import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
+import com.thoughtworks.xstream.io.StreamException;
+import com.thoughtworks.xstream.io.xml.DomDriver;
+import com.thoughtworks.xstream.io.xml.XmlFriendlyNameCoder;
+import com.thoughtworks.xstream.mapper.CannotResolveClassException;
+import com.thoughtworks.xstream.mapper.Mapper;
+import com.thoughtworks.xstream.security.AnyTypePermission;
 import org.lockss.app.LockssApp;
 import org.lockss.hasher.HashResult;
-import org.lockss.util.SerializationException;
 import org.lockss.util.io.LockssSerializable;
 
-import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.alias.*;
-import com.thoughtworks.xstream.converters.*;
-import com.thoughtworks.xstream.converters.basic.*;
-import com.thoughtworks.xstream.converters.reflection.*;
-import com.thoughtworks.xstream.core.*;
-import com.thoughtworks.xstream.io.*;
-import com.thoughtworks.xstream.io.xml.DomDriver;
-import com.thoughtworks.xstream.mapper.*;
+import java.io.InterruptedIOException;
+import java.io.Reader;
+import java.io.Serializable;
+import java.io.Writer;
+import java.lang.reflect.Method;
+import java.text.ParseException;
+import java.time.ZoneOffset;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 /**
  * <p>An implementation of {@link ObjectSerializer} based on
@@ -103,7 +114,7 @@ public class XStreamSerializer extends ObjectSerializer {
    * subject of Java Bug Report #709654.</p>
    * @author Thib Guicherd-Callin
    * @see com.thoughtworks.xstream.converters.basic.DateConverter
-   * @see com.thoughtworks.xstream.converters.basic.ThreadSafeSimpleDateFormat
+   * @see ThreadSafeSimpleDateFormat
    */
   private static class LockssDateConverter implements Converter {
 
@@ -136,12 +147,14 @@ public class XStreamSerializer extends ObjectSerializer {
     }
 
     protected static final ThreadSafeSimpleDateFormat formatter = new ThreadSafeSimpleDateFormat("yyyy-MM-dd HH:mm:ss.S Z",
+        TimeZone.getDefault(),
                                                                                                  4,
-                                                                                                 20);
+                                                                                                 20, true);
 
     protected static final ThreadSafeSimpleDateFormat oldFormatter = new ThreadSafeSimpleDateFormat("yyyy-MM-dd HH:mm:ss.S z",
+        TimeZone.getDefault(),
                                                                                                     4,
-                                                                                                    20);
+                                                                                                    20, true);
 
   }
   /*
@@ -185,6 +198,38 @@ public class XStreamSerializer extends ObjectSerializer {
    * end PRIVATE STATIC INNER CLASS
    * ==============================
    */
+
+  protected static class LockssNameCoder extends XmlFriendlyNameCoder {
+
+    protected static final Pattern PAT = Pattern.compile("([^_])-");
+
+    protected static final String REPL_NODE = "$1_-";
+
+    protected static final String REPL_ATTRIBUTE = "$1\\$";
+
+    @Override
+    public String decodeNode(String elementName) {
+      switch (elementName) {
+        case "outer-class":
+        case "unserializable-parents":
+          return elementName;
+        default:
+          return super.decodeNode(PAT.matcher(elementName).replaceAll(REPL_NODE));
+      }
+    }
+
+    @Override
+    public String decodeAttribute(String attributeName) {
+
+      String result = super.decodeAttribute(PAT.matcher(attributeName).replaceAll(REPL_ATTRIBUTE));
+
+      logger.critical("attributeName = " + attributeName);
+      logger.critical("result = " + result);
+
+      return result;
+    }
+
+  }
 
   /** These are the classes that should have their no-arg constructor run
    * before unmarshalling */
@@ -293,10 +338,11 @@ public class XStreamSerializer extends ObjectSerializer {
      * @param classMapper
      */
     public LockssReferenceByXPathMarshaller(HierarchicalStreamWriter writer,
-                                            DefaultConverterLookup converterLookup,
-                                            ClassMapper classMapper,
+                                            ConverterLookup converterLookup,
+                                            Mapper classMapper,
                                             String rootClassName) {
-      super(writer, converterLookup, classMapper);
+      super(writer, converterLookup, classMapper,
+          ReferenceByXPathMarshallingStrategy.ABSOLUTE);
       this.rootClassName = rootClassName;
     }
 
@@ -312,6 +358,7 @@ public class XStreamSerializer extends ObjectSerializer {
      *                                        {@link LockssSerializable}.
      *  @see ReferenceByXPathMarshaller#convertAnother
      */
+    @Override
     public void convertAnother(Object parent) {
       if ( !( parent instanceof Serializable ||
               parent instanceof LockssSerializable) ) {
@@ -361,40 +408,23 @@ public class XStreamSerializer extends ObjectSerializer {
      *                      unmarshaller).
      */
     public LockssReferenceByXPathMarshallingStrategy(LockssApp lockssContext) {
+      super(ReferenceByXPathMarshallingStrategy.ABSOLUTE);
       this.lockssContext = lockssContext;
     }
 
-    /**
-     * <p>Performs unmarshalling with a
-     * {@link LockssReferenceByXPathMarshaller} instance.</p>
-     * @see LockssReferenceByXPathMarshaller
-     */
-    public void marshal(HierarchicalStreamWriter writer,
-                        Object root,
-                        DefaultConverterLookup converterLookup,
-                        ClassMapper classMapper,
-                        DataHolder dataHolder) {
-      new LockssReferenceByXPathMarshaller(
-          writer,
-          converterLookup,
-          classMapper,
-          root.getClass().getName()
-      ).start(root, dataHolder);
+    @Override
+    protected TreeMarshaller createMarshallingContext(HierarchicalStreamWriter writer,
+                                                      ConverterLookup converterLookup,
+                                                      Mapper mapper) {
+      return new LockssReferenceByXPathMarshaller(writer, converterLookup, mapper, "<FIXME>"); // FIXME
     }
 
-    /**
-     * <p>Performs unmarshalling with a
-     * {@link LockssReferenceByXPathUnmarshaller} instance.</p>
-     * @see LockssReferenceByXPathUnmarshaller
-     */
-    public Object unmarshal(Object root,
+    @Override
+    protected TreeUnmarshaller createUnmarshallingContext(Object root,
                             HierarchicalStreamReader reader,
-                            DataHolder dataHolder,
-                            DefaultConverterLookup converterLookup,
-                            ClassMapper classMapper) {
-      return new LockssReferenceByXPathUnmarshaller(
-          lockssContext, root, reader, converterLookup, classMapper).start(
-              dataHolder);
+                                                          ConverterLookup converterLookup,
+                                                          Mapper mapper) {
+      return new LockssReferenceByXPathUnmarshaller(lockssContext, root, reader, converterLookup, mapper);
     }
 
   }
@@ -435,7 +465,7 @@ public class XStreamSerializer extends ObjectSerializer {
                                               Object root,
                                               HierarchicalStreamReader reader,
                                               ConverterLookup converterLookup,
-                                              ClassMapper classMapper) {
+                                              Mapper classMapper) {
       super(root, reader, converterLookup, classMapper);
       this.lockssContext = lockssContext;
     }
@@ -448,8 +478,8 @@ public class XStreamSerializer extends ObjectSerializer {
      * @param parent
      * @param type
      */
-    public Object convertAnother(Object parent, Class type) {
-      Object ret = super.convertAnother(parent, type);
+    public Object convertAnother(Object parent, Class type, Converter converter) {
+      Object ret = super.convertAnother(parent, type, converter);
       if (ret instanceof LockssSerializable) {
         Object[] parameters = new Object[] { lockssContext };
         invokeMethod(
@@ -797,13 +827,20 @@ public class XStreamSerializer extends ObjectSerializer {
 //         reflectionProvider = new PureJavaReflectionProvider();
 	throw new UnsupportedOperationException("This JVM does not support native serialization");
       }
-      HierarchicalStreamDriver driver = new DomDriver();
+      HierarchicalStreamDriver driver = new DomDriver(Constants.DEFAULT_ENCODING, new LockssNameCoder());
       
-      xs = new XStream(reflectionProvider, driver);
+      xs = new XStream(reflectionProvider, driver) {
+        @Override
+        protected boolean useXStream11XmlFriendlyMapper() {
+          return true;
+        }
+      };
+
       xs.setMarshallingStrategy(new LockssReferenceByXPathMarshallingStrategy(lockssContext));
+      xs.addPermission(AnyTypePermission.ANY);
       xs.registerConverter(new LockssDateConverter());
       xs.registerConverter(new LockssHashResultConverter());
-      xs.registerConverter(new LockssConstructingConverter(xs.getClassMapper()));
+      xs.registerConverter(new LockssConstructingConverter(xs.getMapper()));
       initialized = true;
     }
   }

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,6 +51,7 @@ import org.lockss.config.Tdb;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.servlet.*;
 import org.lockss.jms.*;
+import org.lockss.subscription.*;
 import org.lockss.util.test.FileTestUtil;
 
 import static org.lockss.config.ConfigManager.*;
@@ -1084,7 +1085,7 @@ public class TestConfigManager extends LockssTestCase4 {
   public void testDiskSpaceSource() {
     String javatmp = PlatformUtil.getSystemTempDir();
     PlatformUtil info = PlatformUtil.getInstance();
-    assertEquals(PlatformUtil.DiskSpaceSource.DF,
+    assertEquals(PlatformUtil.DiskSpaceSource.Java,
                  info.getDF(javatmp).getSource());
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_DISK_SPACE_SOURCE, "DF");
     assertEquals(PlatformUtil.DiskSpaceSource.DF,
@@ -1379,6 +1380,45 @@ public class TestConfigManager extends LockssTestCase4 {
     assertFalse(mgr.isLegalExpertConfigKey("org.lockss.config.expert.allow"));
   }
 
+  @Test
+  public void testReloadWait() throws Exception {
+    String tmpdir = getTempDir().toString();
+    // Make a config file, start service
+    File cfgFile = new File(tmpdir, "cfg.txt");
+    FileTestUtil.writeFile(cfgFile, "a=b");
+    mgr = ConfigManager.makeConfigManager(ListUtil.list(cfgFile.toURL().toString()), "");
+    // Force the reload to take 1/2 second to ensure that the wait
+    // really waits
+    mgr.registerConfigurationCallback(new Configuration.Callback() {
+	public void configurationChanged(Configuration newConfig,
+					 Configuration oldConfig,
+					 Configuration.Differences changedKeys) {
+          TimerUtil.guaranteedSleep(500);
+	}});
+    mgr.startService();
+
+    // Change file, request reload, ensure it happens
+    FileTestUtil.writeFile(cfgFile, "a=b\nfoo.bar=xxx");
+
+    Configuration config = ConfigManager.getCurrentConfig();
+    assertNull(config.get("foo.bar"));
+    assertTrue(mgr.reloadAndWait(Deadline.in(TIMEOUT_SHOULDNT)));
+    config = ConfigManager.getCurrentConfig();
+    assertEquals("xxx", config.get("foo.bar"));
+
+    // Make sure it words a second time
+    FileTestUtil.writeFile(cfgFile, "a=b\nfoo.bar=xxx\nbb=cc");
+    assertTrue(mgr.reloadAndWait(Deadline.in(TIMEOUT_SHOULDNT)));
+    config = ConfigManager.getCurrentConfig();
+    assertEquals("cc", config.get("bb"));
+
+    // Make sure timeout returns false
+    FileTestUtil.writeFile(cfgFile, "a=b\nfoo.bar=xxx\nbb=cc\nx=1");
+    assertFalse(mgr.reloadAndWait(Deadline.in(1)));
+    assertTrue(mgr.reloadAndWait(Deadline.in(TIMEOUT_SHOULDNT)));
+    mgr.stopService();
+  }
+
   void assertWriteArgs(Configuration expConfig, String expCacheConfigFileName,
 		       String expHeader, boolean expSuppressReload, List args) {
     if (expConfig != null) assertEquals(expConfig, args.get(0));
@@ -1517,6 +1557,7 @@ public class TestConfigManager extends LockssTestCase4 {
 		    CONFIG_FILE_CONTENT_SERVERS,
 		    CONFIG_FILE_ACCESS_GROUPS,
 		    CONFIG_FILE_CRAWL_PROXY,
+                    CONFIG_FILE_MIGRATION,
 		    CONFIG_FILE_EXPERT_CLUSTER,
 		    CONFIG_FILE_EXPERT_LOCAL);
 
@@ -1826,26 +1867,30 @@ public class TestConfigManager extends LockssTestCase4 {
 
   @Test
   public void testXLockssInfo() throws IOException {
-    TimeBase.setSimulated(1000);
-    String u1 = FileTestUtil.urlOfString("org.lockss.foo=bar");
-    assertTrue(mgr.updateConfig(ListUtil.list(u1)));
-    BaseConfigFile cf = (BaseConfigFile)mgr.getConfigCache().find(u1);
-    String info = (String)cf.m_props.get("X-Lockss-Info");
-    log.error("info = " + info);
-    assertMatchesRE("groups=nogroup", info);
-    // official build will set daemon, unofficial will set built_on
-    assertMatchesRE("daemon=|built_on=", info);
-    cf.setNeedsReload();
-    assertFalse(mgr.updateConfig(ListUtil.list(u1)));
-    info = (String)cf.m_props.get("X-Lockss-Info");
-    assertEquals(null, info);
-    TimeBase.step(ConfigManager.DEFAULT_SEND_VERSION_EVERY + 1);
-    cf.setNeedsReload();
-    assertFalse(mgr.updateConfig(ListUtil.list(u1)));
-    info = (String)cf.m_props.get("X-Lockss-Info");
-    assertMatchesRE("groups=nogroup", info);
-    // official build will set daemon, unofficial will set built_on
-    assertMatchesRE("daemon=|built_on=", info);
+    try {
+      TimeBase.setSimulated(1000);
+      String u1 = FileTestUtil.urlOfString("org.lockss.foo=bar");
+      assertTrue(mgr.updateConfig(ListUtil.list(u1)));
+      BaseConfigFile cf = (BaseConfigFile)mgr.getConfigCache().find(u1);
+      String info = (String)cf.m_props.get("X-Lockss-Info");
+      log.error("info = " + info);
+      assertMatchesRE("groups=nogroup", info);
+      // official build will set daemon, unofficial will set built_on
+      assertMatchesRE("daemon=|built_on=", info);
+      cf.setNeedsReload();
+      assertFalse(mgr.updateConfig(ListUtil.list(u1)));
+      info = (String)cf.m_props.get("X-Lockss-Info");
+      assertEquals(null, info);
+      TimeBase.step(ConfigManager.DEFAULT_SEND_VERSION_EVERY + 1);
+      cf.setNeedsReload();
+      assertFalse(mgr.updateConfig(ListUtil.list(u1)));
+      info = (String)cf.m_props.get("X-Lockss-Info");
+      assertMatchesRE("groups=nogroup", info);
+      // official build will set daemon, unofficial will set built_on
+      assertMatchesRE("daemon=|built_on=", info);
+    } finally {
+      TimeBase.setReal();
+    }
   }
 
   @Test
@@ -2356,6 +2401,29 @@ public class TestConfigManager extends LockssTestCase4 {
     assertEquals(0, auConfigs.size());
 
     log.debug2("Done");
+  }
+
+  /**
+   * Test migration setup
+   */
+  @Test
+  public void testMigrationSetup() throws Exception {
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_LOCAL_V3_IDENTITY,
+				  "tcp:[111.32.14.5]:9876",
+                                  ConfigManager.PARAM_V1_ROUTABLE_ADDR, "7.6.8.0");
+    assertFalse(mgr.inMigrationMode());
+    Configuration cfg = ConfigManager.getCurrentConfig();
+    assertFalse(cfg.getBoolean(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED,
+                               SubscriptionManager.DEFAULT_SUBSCRIPTION_DEFERRED));
+    assertNull(cfg.get(LcapRouter.PARAM_MIGRATE_FROM));
+
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_IN_MIGRATION_MODE,
+                                  "true");
+    cfg = ConfigManager.getCurrentConfig();
+    assertTrue(mgr.inMigrationMode());
+    assertTrue(cfg.getBoolean(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED,
+                              SubscriptionManager.DEFAULT_SUBSCRIPTION_DEFERRED));
+    assertEquals("TCP:[7.6.8.0]:9876", cfg.get(LcapRouter.PARAM_MIGRATE_FROM));
   }
 
   private Configuration newConfiguration() {

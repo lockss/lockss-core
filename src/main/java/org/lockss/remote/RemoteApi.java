@@ -598,7 +598,9 @@ public class RemoteApi
       }
       zip.closeEntry();
       if (acctMgr.isEnabled()) {
-	File acctDir = acctMgr.getAcctDir();
+        // Q: Refactor into ConfigMgr?
+        File acctDir = new File(configMgr.getCacheConfigDir(),
+            PersistentStateManagerStateStore.DEFAULT_ACCT_DIR);
 	ZipUtil.addDirToZip(zip, acctDir, "accts");
       }
       List aus = pluginMgr.getAllAus();
@@ -763,28 +765,30 @@ public class RemoteApi
 	subMgr.loadSubscriptionsFromBackup(dir);
       }
 
+      File auDbFile = new File(dir, BACK_FILE_AU_CONFIGURATION_DB);
+      if (auDbFile.exists()) {
+        if (log.isDebug3()) log.debug3("auDbFile exists: " + auDbFile);
+        BatchAuStatus bas = processSavedDbConfig(auDbFile);
+        bas.setBackupInfo(buildBackupInfo(dir));
+        if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
+        return bas;
+      }
       File autxt = new File(dir, ConfigManager.CONFIG_FILE_AU_CONFIG);
-      if (!autxt.exists()) {
-	File auDbFile = new File(dir, BACK_FILE_AU_CONFIGURATION_DB);
-	if (log.isDebug3()) log.debug3("auDbFile = " + auDbFile);
-	if (!auDbFile.exists()) {
-	  throw new InvalidAuConfigBackupFile("Uploaded file does not appear to be a saved AU configuration: no AUs found");
-	}
-	BatchAuStatus bas = processSavedDbConfig(auDbFile);
-	bas.setBackupInfo(buildBackupInfo(dir));
-	if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
-	return bas;
-      }
-      BufferedInputStream auin =
+      if (autxt.exists()) {
+        if (log.isDebug3()) log.debug3("au.txt exists: " + autxt);
+        BufferedInputStream auin =
 	  new BufferedInputStream(new FileInputStream(autxt));
-      try {
-	BatchAuStatus bas = processSavedConfigProps(auin);
-	bas.setBackupInfo(buildBackupInfo(dir));
-	if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
-	return bas;
-      } finally {
-	IOUtil.safeClose(auin);
+        try {
+          BatchAuStatus bas = processSavedConfigProps(auin);
+          bas.setBackupInfo(buildBackupInfo(dir));
+          if (log.isDebug3()) log.debug3("processSavedConfigZip: " + bas);
+          return bas;
+        } finally {
+          IOUtil.safeClose(auin);
+        }
       }
+      return new BatchAuStatus();
+//       throw new InvalidAuConfigBackupFile("Uploaded file does not appear to be a saved AU configuration.  Neither " + ConfigManager.CONFIG_FILE_AU_CONFIG + " nor " + BACK_FILE_AU_CONFIGURATION_DB + " found");
     } catch (ZipException e) {
       FileUtil.delTree(dir);
       throw new InvalidAuConfigBackupFile("Uploaded file does not appear to be a saved AU configuration: " + e.toString());

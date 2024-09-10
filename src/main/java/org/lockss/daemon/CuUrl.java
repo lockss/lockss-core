@@ -46,7 +46,7 @@ import org.lockss.plugin.*;
 public class CuUrl {
   private static Logger log = Logger.getLogger();
 
-  public static final String PROTOCOL = UrlManager.PROTOCOL_CU;
+  public static final String PROTOCOL = "locksscu";
   public static final String PROTOCOL_COLON = PROTOCOL + ":";
   static final int cmp_len = PROTOCOL_COLON.length();
 
@@ -92,7 +92,7 @@ public class CuUrl {
   }
 
   /** A URLConnection to a CachedUrl */
-  static class CuUrlConnection extends URLConnection {
+  public static class CuUrlConnection extends URLConnection {
 
     private String urlString;		// string representation of our URL
 

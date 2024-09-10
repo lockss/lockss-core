@@ -287,4 +287,16 @@ public class IDUtil {
 
     return Integer.toString(val);
   }
+
+  public static int extractPortFromV3Identity(String idStr)
+      throws IllegalArgumentException {
+    try {
+      PeerAddress pad = PeerAddress.makePeerAddress(idStr);
+      if (pad instanceof PeerAddress.Tcp padv3) {
+        return padv3.getPort();
+      }
+    } catch (IdentityManager.MalformedIdentityKeyException e) {
+    }
+    throw new IllegalArgumentException("Not an LCAP V3 identity: " + idStr);
+  }
 }

@@ -35,6 +35,7 @@ import java.security.*;
 import java.security.cert.*;
 import javax.net.ssl.*;
 
+import org.bouncycastle.operator.OperatorCreationException;
 import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
@@ -189,13 +190,15 @@ public class LockssKeyStore {
   /** Create a keystore with a self-signed certificate */
   void createKeyStore()
       throws CertificateException,
-	     IOException,
-	     InvalidKeyException,
-	     KeyStoreException,
-	     NoSuchAlgorithmException,
-	     NoSuchProviderException,
-	     SignatureException,
-	     UnrecoverableKeyException {
+      IOException,
+      InvalidKeyException,
+      KeyStoreException,
+      NoSuchAlgorithmException,
+      NoSuchProviderException,
+      SignatureException,
+      UnrecoverableKeyException,
+      InvalidAlgorithmParameterException,
+      OperatorCreationException {
     log.info("Creating keystore: " + location);
     if (StringUtil.isNullString(keyPassword)) {
       throw new NullPointerException("keyPassword must be non-null string");

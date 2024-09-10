@@ -233,6 +233,7 @@ public abstract class LockssServlet extends HttpServlet
       if (!isServletAllowed(myServletDescr())) {
 	displayWarningInLieuOfPage("You are not authorized to use " +
 				   myServletDescr().heading);
+        resp.setStatus(HttpResponse.__403_Forbidden);
 	return;
       }
 
@@ -241,6 +242,7 @@ public abstract class LockssServlet extends HttpServlet
 	ServletUtil.servletDisabledReason(myServletDescr().getServletName());
       if (reason != null) {
 	displayWarningInLieuOfPage("This function is disabled. " + reason);
+        resp.setStatus(HttpResponse.__503_Service_Unavailable);
 	return;
       }
       if (session != null) {
@@ -1161,6 +1163,24 @@ public abstract class LockssServlet extends HttpServlet
     return jstext;
   }
 
+  protected void addMigrationWarning(Composite comp, String msg) {
+    addMigrationWarning(comp,
+                        getLockssDaemon().getConfigManager().inMigrationMode(),
+                        msg);
+  }
+
+  protected void addMigrationWarning(Composite comp, boolean include,
+                                     String msg) {
+    if (include) {
+      Composite blk = new Block(Block.Center);
+      blk.add("<font color=\"dark orange\">");
+      blk.add(msg);
+      blk.add("</font>");
+      blk.add("<br><br>");
+      comp.add(blk);
+    }
+  }
+
   /** Display a message in lieu of the normal page
    */
   protected void displayMsgInLieuOfPage(String msg) throws IOException {
@@ -1188,6 +1208,7 @@ public abstract class LockssServlet extends HttpServlet
 			       + srvLink(myServletDescr(), "try again",
 					 getParamsAsProps())
 			       + " in a moment.");
+    resp.setStatus(HttpResponse.__503_Service_Unavailable);
   }
 
   protected void endPage(Page page) throws IOException {

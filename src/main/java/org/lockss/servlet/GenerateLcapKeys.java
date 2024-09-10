@@ -155,9 +155,9 @@ public class GenerateLcapKeys extends LockssServlet {
   protected void doGenerate() throws IOException {
     File tmpdir = null;
     File outfile = null;
-    File pubStore = new File(tmpdir, PUB_KEYSTORE_NAME);
     try {
       tmpdir = FileUtil.createTempDir("genkeys", null);
+      File pubStore = new File(tmpdir, PUB_KEYSTORE_NAME);
 
       String oldStoreName = multiReq.getFilename(KEY_OLD_KEYSTORE_FILE);
       if (!StringUtil.isNullString(oldStoreName)) {

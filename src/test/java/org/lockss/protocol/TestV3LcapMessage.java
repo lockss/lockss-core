@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -58,6 +54,7 @@ public class TestV3LcapMessage extends LockssTestCase {
 
   private String m_archivalID = "TestAU_1.0";
   private PeerIdentity m_testID;
+  private PeerIdentity m_testDestID;
   private V3LcapMessage m_testMsg;
   private List m_testVoteBlocks;
   private MockPollManager mPollMgr;
@@ -92,8 +89,9 @@ public class TestV3LcapMessage extends LockssTestCase {
     theDaemon.setPollManager(mPollMgr);
     try {
       m_testID = idmgr.stringToPeerIdentity("127.0.0.1");
-    } catch (IOException ex) {
-      fail("can't open test host 127.0.0.1: " + ex);
+      m_testDestID = idmgr.stringToPeerIdentity("127.0.0.1");
+    } catch (IdentityManager.MalformedIdentityKeyException e) {
+      fail("Error parsing test peer identity");
     }
     m_repairProps = new CIProperties();
     m_repairProps.setProperty("key1", "val1");
@@ -168,7 +166,7 @@ public class TestV3LcapMessage extends LockssTestCase {
       "Key:key " +
       "PN:AQIDBAUGBwgJAAECAwQFBgcICQA= " +
       "VN:AQIDBAUGBwgJAAECAwQFBgcICQA= " +
-      "B:10 ver 3 rev 5]";
+      "B:10 ver 3 rev 6]";
     assertEquals(expectedResult, m_testMsg.toString());
   }
   
@@ -192,6 +190,8 @@ public class TestV3LcapMessage extends LockssTestCase {
                                                       m_testBytes,
                                                       m_testBytes,
                                                       theDaemon);
+
+    noopMsg.setDestinationId(m_testDestID);
     InputStream fromMsg = noopMsg.getInputStream();
     V3LcapMessage msg = new V3LcapMessage(fromMsg, tempDir, theDaemon);
     // now test to see if we got back what we started with
@@ -423,6 +423,8 @@ public class TestV3LcapMessage extends LockssTestCase {
                                           TimeBase.nowMs() + duration,
 					  m_testID, tempDir,
                                           theDaemon);
+
+    msg.setDestinationId(m_testDestID);
     return msg;
   }
   
@@ -436,7 +438,8 @@ public class TestV3LcapMessage extends LockssTestCase {
     if (nak != null) {
       msg.setNak(nak);
     }
-    
+
+    msg.setDestinationId(m_testDestID);
     return msg;
   }
   
@@ -447,6 +450,8 @@ public class TestV3LcapMessage extends LockssTestCase {
                                           V3LcapMessage.MSG_REPAIR_REP,
                                           987654321, m_testID, tempDir,
                                           theDaemon);
+
+    msg.setDestinationId(m_testDestID);
     msg.setHashAlgorithm(LcapMessage.getDefaultHashAlgorithm());
     msg.setTargetUrl(m_url);
     msg.setArchivalId(m_archivalID);
@@ -467,6 +472,8 @@ public class TestV3LcapMessage extends LockssTestCase {
                                           987654321, m_testID, tempDir,
                                           theDaemon);
 
+    msg.setDestinationId(m_testDestID);
+
     // Set msg vote blocks.
     for (Iterator ix = voteBlocks.iterator(); ix.hasNext(); ) {
       msg.addVoteBlock((VoteBlock)ix.next());
@@ -485,6 +492,8 @@ public class TestV3LcapMessage extends LockssTestCase {
 					  V3LcapMessage.MSG_EVALUATION_RECEIPT,
 					  987654321, m_testID, tempDir,
 					  theDaemon);
+
+    msg.setDestinationId(m_testDestID);
     return msg;
   }
 

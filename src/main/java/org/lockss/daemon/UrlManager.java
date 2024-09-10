@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2005 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,10 +30,10 @@ package org.lockss.daemon;
 
 import java.io.*;
 import java.net.*;
-import java.lang.reflect.Field;
 
 import org.lockss.util.*;
 import org.lockss.app.*;
+import org.lockss.plugin.*;
 
 /**
  * UrlManager does one-time-only URLStreamHandlerFactory initialization.
@@ -47,48 +43,35 @@ import org.lockss.app.*;
  */
 
 public class UrlManager extends BaseLockssManager {
-  public static final String PROTOCOL_CU = "locksscu";
-  public static final String PROTOCOL_AU = "lockssau";
-  public static final String PROTOCOL_RESOURCE = "resource";
+  private static final String PROTOCOL_CU = CuUrl.PROTOCOL;
+  private static final String PROTOCOL_AU = AuUrl.PROTOCOL;
+  private static final String PROTOCOL_RESOURCE = "resource";
 
   private static Logger log = Logger.getLogger();
 
   /** Install the URLStreamHandlerFactory */
   public void startService() {
-    setOrAddUrlFactory();
+    maybeInstallFactory();
   }
 
   public void stopService() {
   }
 
-  private void setOrAddUrlFactory() {
-    try {
-      Field field = URL.class.getDeclaredField("factory");
-      field.setAccessible(true);
-      final URLStreamHandlerFactory currentFactory =
-	(URLStreamHandlerFactory)field.get(null);
-      if (currentFactory != null) {
-	log.debug("old fact: " + currentFactory);
-	if (currentFactory instanceof LockssUrlFactory) {
-	  return;
-	}
-	field.set(null, null);
-      }
+  static boolean isFactoryInstalled;
 
-      URLStreamHandlerFactory fact = new LockssUrlFactory(currentFactory);
-      URL.setURLStreamHandlerFactory(fact);
-    } catch (NoSuchFieldException | IllegalAccessException e) {
-      log.error("Setting URLStreamHandlerFactory", e);
+  private void maybeInstallFactory() {
+    if (!isFactoryInstalled && !LockssApp.getLockssApp().isSpring()) {
+      URL.setURLStreamHandlerFactory(new LockssUrlFactory());
+      isFactoryInstalled = true;
     }
   }
 
   /** A URLStreamHandlerFactory that returns URLStreamHandlers for
       locksscu: and lockssau: protocols. */
-  private static class LockssUrlFactory implements URLStreamHandlerFactory {
+  public static class LockssUrlFactory implements URLStreamHandlerFactory {
     private URLStreamHandlerFactory wrapFact;
 
-    public LockssUrlFactory(URLStreamHandlerFactory wrapFact) {
-      this.wrapFact = wrapFact;
+    public LockssUrlFactory() {
     }
 
     public URLStreamHandler createURLStreamHandler(String protocol) {
@@ -114,9 +97,6 @@ public class UrlManager extends BaseLockssManager {
 	    protected URLConnection openConnection(URL u) throws IOException {
 	      return new ResourceURLConnection(u);
 	    }};
-      }
-      if (wrapFact != null) {
-	return wrapFact.createURLStreamHandler(protocol);
       }
       return null;	 // use default stream handlers for other protocols
     }

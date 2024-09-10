@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2020 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2024 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,7 +45,7 @@ import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
 
 import javax.sql.DataSource;
-import java.io.File;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Paths;
@@ -193,6 +193,9 @@ public abstract class DbManager extends BaseLockssManager
   // The database data source.
   protected DataSource dataSource = null;
 
+  // DataSource injected by LockssTestCaseN for unit tests
+  public DataSource testingDataSource = null;
+
   // The data source configuration.
   protected Configuration dataSourceConfig = null;
 
@@ -250,9 +253,9 @@ public abstract class DbManager extends BaseLockssManager
   protected List<Thread> threads = new ArrayList<Thread>();
 
   // The SQL code executor.
-  protected DbManagerSql dbManagerSql = new DbManagerSql(null,
-      DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
-      DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
+  protected DbManagerSql dbManagerSql = new DbManagerSql(this, null,
+                                                         DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
+                                                         DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
 
   private static Map<String, DbCredentials> dbCredentialsMap =
       new HashMap<String, DbCredentials>();
@@ -354,17 +357,17 @@ public abstract class DbManager extends BaseLockssManager
     if (changedKeys.contains(PREFIX)) {
       // Update the prefix for database names.
       databaseNamePrefix =
-	  config.get(PARAM_DATABASE_NAME_PREFIX, DEFAULT_DATABASE_NAME_PREFIX);
+         config.get(PARAM_DATABASE_NAME_PREFIX, DEFAULT_DATABASE_NAME_PREFIX);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "databaseNamePrefix = "
-	  + databaseNamePrefix);
+         + databaseNamePrefix);
 
       // Update the option to start the Derby Network Server Control.
       shouldStartDerbyNetworkServerControl =
-	  config.getBoolean(PARAM_START_DERBY_NETWORK_SERVER_CONTROL,
-	      DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL);
+        config.getBoolean(PARAM_START_DERBY_NETWORK_SERVER_CONTROL,
+                          DEFAULT_START_DERBY_NETWORK_SERVER_CONTROL);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	  + "shouldStartDerbyNetworkServerControl = "
-	  + shouldStartDerbyNetworkServerControl);
+                                     + "shouldStartDerbyNetworkServerControl = "
+                                     + shouldStartDerbyNetworkServerControl);
 
       derbyDbBaseDir = config.get(PARAM_DERBY_DB_DIR);
     }
@@ -597,7 +600,7 @@ public abstract class DbManager extends BaseLockssManager
 
     try {
       return dbManagerSql.getConnection(dataSource, maxRetryCount,
-	  retryDelay, false, true);
+                                        retryDelay, false, true);
     } catch (SQLException sqle) {
       throw new DbException("Cannot get a connection to the database", sqle);
     } catch (RuntimeException re) {
@@ -625,7 +628,7 @@ public abstract class DbManager extends BaseLockssManager
 
     try {
       return dbManagerSql.prepareStatement(conn, sql, maxRetryCount,
-	retryDelay);
+                                           retryDelay);
     } catch (SQLException sqle) {
       String message = "Cannot prepare statement";
       log.error(message, sqle);
@@ -659,14 +662,15 @@ public abstract class DbManager extends BaseLockssManager
    *           if any problem occurred preparing the statement.
    */
   public PreparedStatement prepareStatement(Connection conn, String sql,
-      int returnGeneratedKeys) throws DbException {
+                                            int returnGeneratedKeys)
+      throws DbException {
     if (!ready) {
       throw new DbException("DbManager has not been initialized.");
     }
 
     try {
       return dbManagerSql.prepareStatement(conn, sql, returnGeneratedKeys,
-	  maxRetryCount, retryDelay);
+                                           maxRetryCount, retryDelay);
     } catch (SQLException sqle) {
       String message = "Cannot prepare statement";
       log.error(message, sqle);
@@ -806,6 +810,14 @@ public abstract class DbManager extends BaseLockssManager
     return dataSourceSchemaName;
   }
 
+  public void setTestingDataSource(DataSource tds) {
+    if (testingDataSource != null) {
+      throw new IllegalStateException("Testing DataSource already installed: "
+                                      + testingDataSource);
+    }
+    testingDataSource = tds;
+  }
+
   /**
    * Creates a datasource using the specified class name.
    * 
@@ -817,6 +829,12 @@ public abstract class DbManager extends BaseLockssManager
    */
   protected DataSource createDataSource(String dsClassName) throws DbException {
     final String DEBUG_HEADER = "createDataSource(): ";
+    if (testingDataSource != null) {
+      if (log.isDebug2())
+        log.debug2(DEBUG_HEADER +
+                   " using testing DataSource: " + testingDataSource);
+      return testingDataSource;
+    }
     if (log.isDebug2())
       log.debug2(DEBUG_HEADER + "dsClassName = '" + dsClassName + "'.");
 
@@ -1431,6 +1449,9 @@ public abstract class DbManager extends BaseLockssManager
    */
   private void initializeDataSourceProperties(Configuration dsConfig,
       DataSource ds) throws DbException {
+    if (testingDataSource != null) {
+      return;
+    }
     final String DEBUG_HEADER = "initializeDataSourceProperties(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
 

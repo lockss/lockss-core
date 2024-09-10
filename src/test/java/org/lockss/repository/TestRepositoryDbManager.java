@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,6 @@ package org.lockss.repository;
 import org.junit.Test;
 import org.lockss.db.DbManager;
 import org.lockss.db.SqlConstants;
-import org.lockss.metadata.MetadataDbManager;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.test.MockLockssDaemon;
@@ -64,7 +63,7 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
     dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
-    ConfigurationUtil.addFromArgs(MetadataDbManager.PARAM_DATASOURCE_PORTNUMBER,
+    ConfigurationUtil.addFromArgs(RepositoryDbManager.PARAM_DATASOURCE_PORTNUMBER,
         dbPort);
   }
 
@@ -146,6 +145,7 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
         SqlConstants.VERSION_TABLE));
 
     assertEquals(1, countVersions(conn));
+    repositoryDbManager.safeRollbackAndClose(conn);
   }
 
   /**
@@ -165,6 +165,7 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
         SqlConstants.VERSION_TABLE));
 
     assertEquals(2, countVersions(conn));
+    repositoryDbManager.safeRollbackAndClose(conn);
   }
 
   @Test
@@ -174,7 +175,7 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
 
     ConfigurationUtil.addFromArgs(
         RepositoryDbManager.PARAM_DATASOURCE_CLASSNAME, "org.apache.derby.jdbc.ClientDataSource",
-        RepositoryDbManager.PARAM_DATASOURCE_PASSWORD, "somePassword");
+        RepositoryDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
 
 //    ConfigurationUtil.addFromArgs(
 //        RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true");
@@ -205,8 +206,8 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
   @Test
   public void testPgsqlDb() throws Exception {
     ConfigurationUtil.addFromArgs(
-        RepositoryDbManager.PARAM_DATASOURCE_USER, "LOCKSS",
-        RepositoryDbManager.PARAM_DATASOURCE_PASSWORD, "goodPassword");
+        RepositoryDbManager.PARAM_DATASOURCE_USER, "postgres",
+        RepositoryDbManager.PARAM_DATASOURCE_PASSWORD, "postgresx");
 
     ConfigurationUtil.addFromArgs(
         RepositoryDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true",
@@ -218,13 +219,13 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
   /**
    * Creates a PostgreSQL database.
    */
-  protected void createPgsqlDb() {
-    ConfigurationUtil.addFromArgs(RepositoryDbManager.PARAM_DATASOURCE_CLASSNAME,
-        "org.postgresql.ds.PGSimpleDataSource",
+  protected void createPgsqlDb() throws Exception {
+    ConfigurationUtil.addFromArgs(
         RepositoryDbManager.PARAM_MAX_RETRY_COUNT, "0",
         RepositoryDbManager.PARAM_RETRY_DELAY, "0");
 
     repositoryDbManager = new RepositoryDbManager();
+    startEmbeddedPgDbManager(repositoryDbManager);
     repositoryDbManager.initService(getMockLockssDaemon());
     repositoryDbManager.startService();
   }

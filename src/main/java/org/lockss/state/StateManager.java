@@ -30,13 +30,9 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
 
+import org.lockss.account.UserAccount;
 import org.lockss.app.*;
-import org.lockss.daemon.*;
-import org.lockss.log.*;
-import org.lockss.util.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
@@ -81,7 +77,7 @@ public interface StateManager extends LockssManager {
   public void storeAuStateBean(String key, AuStateBean ausb);
 
   /** Entry point from state service to store changes to an AuState.
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
    * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
@@ -118,7 +114,7 @@ public interface StateManager extends LockssManager {
   public void storeAuAgreements(String key, AuAgreements aua);
 
   /** Entry point from state service to store changes to an AuAgreements.
-   * @param key the auid
+   * @param auid the auid
    * @param json the serialized set of changes
    * @param cookie propagated to JMS change notifications (if non-null)
    * @throws IOException if json conversion throws
@@ -148,7 +144,7 @@ public interface StateManager extends LockssManager {
   /** Update the stored AuSuspectUrlVersions.  This is a complete
    * replacement - there's currently no support for incremental update (But
    * see {@link CachingStateManager#updateAuSuspectUrlVersions(String,
-   * AuSuspectUrlVersions, Set<SuspectUrlVersion>)})
+   * AuSuspectUrlVersions, Set<AuSuspectUrlVersions.SuspectUrlVersion>)})
    */
   public void updateAuSuspectUrlVersions(String key, AuSuspectUrlVersions asuv);
 
@@ -191,6 +187,36 @@ public interface StateManager extends LockssManager {
    */
   public boolean hasNoAuPeerSet(String key);
 
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  public Iterable<String> getUserAccountNames() throws IOException;
+
+  /**
+   * Return the named UserAccount, or null if none exists.
+   */
+  public UserAccount getUserAccount(String name) throws IOException;
+
+  public void storeUserAccount(UserAccount acct) throws IOException;
+
+  public void removeUserAccount(UserAccount acct) throws IOException;
+
+  /**
+   * Update the stored UserAccount
+   */
+  public UserAccount updateUserAccount(UserAccount userAccount, Set<String> fields) throws IOException;
+
+  public UserAccount updateUserAccountFromJson(String username, String json, String cookie) throws IOException;
+
+  /**
+   * Return true if an UserAccount exists for the given userName
+   *
+   * @param userName the userName
+   */
+  public boolean hasUserAccount(String userName) throws IOException;
+
+  void registerUserAccountChangedCallback(UserAccount.UserAccountChangedCallback callback);
 
   /** Load/store exception.  Clients of AuState aren't prepared for checked
    * exceptions; this is used to turn them into RuntimeExceptions */

@@ -36,6 +36,7 @@ import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.util.io.FileUtil;
 
 import java.io.IOException;
+import java.io.File;
 
 /**
  * Volatile ("in-memory") implementation of the LOCKSS Repository API.
@@ -62,6 +63,8 @@ public class VolatileLockssRepository extends BaseLockssRepository {
     ((WarcArtifactDataStore)store).setUseWarcCompression(useWarcCompression);
 
     // Create a temporary repository state directory
-    setRepositoryStateDir(FileUtil.createTempDir("state", null));
+    File stateDir = FileUtil.createTempDir("repostate", null);
+    setRepositoryStateDir(stateDir);
+    stateDir.deleteOnExit();
   }
 }

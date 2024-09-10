@@ -116,6 +116,7 @@ public class TestPluginManager extends LockssTestCase4 {
   MyPluginManager mgr;
   private MockAlertManager alertMgr;
   RepositoryManager repoMgr;
+  Connection conn;
 
   @Before
   public void setUp() throws Exception {
@@ -575,6 +576,18 @@ public class TestPluginManager extends LockssTestCase4 {
     }
   }
 
+  @After
+  public void closeJms() {
+    if (conn != null) {
+      try {
+        conn.close();
+        conn = null;
+      } catch (JMSException e) {
+        log.warning("Error closing JMS connection", e);
+      }
+    }
+  }
+
   @Test
   public void testAbsentAuEvent() throws Exception {
     ConfigurationUtil.addFromArgs(PluginManager.PARAM_ENABLE_JMS_NOTIFICATIONS,
@@ -587,7 +600,7 @@ public class TestPluginManager extends LockssTestCase4 {
       getMockLockssDaemon().getManagerByType(JMSManager.class);
     ConnectionFactory connectionFactory =
       new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
-    Connection conn = connectionFactory.createConnection();
+    conn = connectionFactory.createConnection();
     conn.start();
     JmsFactory fact = jmsMgr.getJmsFactory();
     JmsProducer prod =
@@ -1112,6 +1125,8 @@ public class TestPluginManager extends LockssTestCase4 {
 
   @Test
   public void testTitleSets() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ADD_STANDARD_TITLESETS,
+                                  "false");
     mgr.startService();
     String ts1p = PluginManager.PARAM_TITLE_SETS + ".s1.";
     String ts2p = PluginManager.PARAM_TITLE_SETS + ".s2.";
@@ -1137,6 +1152,8 @@ public class TestPluginManager extends LockssTestCase4 {
 
   @Test
   public void testTitleSetOrder() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ADD_STANDARD_TITLESETS,
+                                  "false");
     mgr.startService();
     String ts1p = PluginManager.PARAM_TITLE_SETS + ".s1.";
     String ts2p = PluginManager.PARAM_TITLE_SETS + ".s2.";
@@ -1165,6 +1182,8 @@ public class TestPluginManager extends LockssTestCase4 {
 
   @Test
   public void testIllTitleSets() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ADD_STANDARD_TITLESETS,
+                                  "false");
     mgr.startService();
     String ts1p = PluginManager.PARAM_TITLE_SETS + ".s1.";
     String ts2p = PluginManager.PARAM_TITLE_SETS + ".s2.";
@@ -1185,6 +1204,59 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(1, map.size());
     assertEquals(TitleSetXpath.create(theDaemon, title2, path2),
 		 map.get(title2));
+  }
+
+  @Test
+  public void testStandardTitleSetsOnly() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ADD_STANDARD_TITLESETS,
+                                  "true");
+    mgr.startService();
+    Map map = mgr.getTitleSetMap();
+    assertEquals(3, map.size());
+    assertEquals(new TitleSetAllAus(theDaemon), map.get("All AUs"));
+    assertEquals(new TitleSetActiveAus(theDaemon), map.get("All active AUs"));
+    assertEquals(new TitleSetInactiveAus(theDaemon), map.get("All inactive AUs"));
+  }
+
+  @Test
+  public void testStandardTitleSets() throws Exception {
+    // Ensure that both explicitly defining the standard TitleSets and
+    // allowing the default mechanism to create them doesn't result in
+    // two copies
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_ADD_STANDARD_TITLESETS,
+                                  "true");
+    mgr.startService();
+    String ts1p = PluginManager.PARAM_TITLE_SETS + ".s1.";
+    String ts2p = PluginManager.PARAM_TITLE_SETS + ".s2.";
+    String dtsall = PluginManager.PARAM_TITLE_SETS + ".allaus.";
+    String dtsact = PluginManager.PARAM_TITLE_SETS + ".activeaus.";
+    String title1 = "Title Set 1";
+    String title2 = "Set of Titles";
+    String path1 = "[journalTitle='Dog Journal']";
+    String path2 = "[journalTitle=\"Dog Journal\" or pluginName=\"plug2\"]";
+    Properties p = new Properties();
+    p.setProperty(ts1p+"class", "xpath");
+    p.setProperty(ts1p+"name", title1);
+    p.setProperty(ts1p+"xpath", path1);
+    p.setProperty(ts2p+"class", "xpath");
+    p.setProperty(ts2p+"name", title2);
+    p.setProperty(ts2p+"xpath", path2);
+    p.setProperty(dtsall+"class", "allaus");
+    p.setProperty(dtsact+"class", "activeaus");
+
+    ConfigurationUtil.addFromProps(p);
+    Map map = mgr.getTitleSetMap();
+    assertEquals(5, map.size());
+    assertEquals(map.get("All AUs"), new TitleSetAllAus(theDaemon));
+    assertEquals(map.get("All active AUs"), new TitleSetActiveAus(theDaemon));
+    assertEquals(map.get("All inactive AUs"), new TitleSetInactiveAus(theDaemon));
+    assertEquals(TitleSetXpath.create(theDaemon, title1, path1),
+		 map.get(title1));
+    assertEquals(TitleSetXpath.create(theDaemon, title2, path2),
+		 map.get(title2));
+    assertEquals(new TitleSetAllAus(theDaemon), map.get("All AUs"));
+    assertEquals(new TitleSetActiveAus(theDaemon), map.get("All active AUs"));
+    assertEquals(new TitleSetInactiveAus(theDaemon), map.get("All inactive AUs"));
   }
 
   static class MyMockLockssDaemon extends MockLockssDaemon {
@@ -2347,6 +2419,17 @@ public class TestPluginManager extends LockssTestCase4 {
     log.debug("isLoadable: " + info.isOnLoadablePath());
     assertEquals(preferLoadable, info.isOnLoadablePath());
     assertSame(mockPlugin, info.getPlugin());
+
+    BasePlugin bplug = (BasePlugin)mockPlugin;
+    if (bplug.getClassLoader() instanceof LoadablePluginClassLoader lpcl) {
+      assertTrue(lpcl.isOpen());
+      bplug.stopPlugin();
+      assertFalse(lpcl.isOpen());
+    } else {
+      assertFalse("Loadable plugins's ClassLoader isn't a LoadablePluginClassLoader: "
+                  + bplug.getClassLoader().getClass(),
+                  preferLoadable);
+    }
   }
 
   /** Load a loadable plugin, preferring the loadable version. */
@@ -2520,7 +2603,7 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals("AuCreated", alert1.getAttribute(Alert.ATTR_NAME));
     Alert alert2 = alertMgr.getAlerts().get(1);
     assertEquals("PluginReloaded", alert2.getAttribute(Alert.ATTR_NAME));
-    assertEquals("Plugin reloaded: Absinthe Literary Review V2 (was Absinthe Literary Review V1)\nVersion: 2",
+    assertEquals("Plugin reloaded: Absinthe Literary Review V2 [renamed from Absinthe Literary Review V1]\nID: org.lockss.test.MockConfigurablePlugin\nVersion: 2",
                     alert2.getAttribute(Alert.ATTR_TEXT));
   }
 
@@ -2587,7 +2670,7 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals("AuCreated", alert1.getAttribute(Alert.ATTR_NAME));
     Alert alert2 = alertMgr.getAlerts().get(1);
     assertEquals("PluginReloaded", alert2.getAttribute(Alert.ATTR_NAME));
-    assertEquals("Plugin reloaded: Absinthe Literary Review V3 (was Absinthe Literary Review V1)\nVersion: 3",
+    assertEquals("Plugin reloaded: Absinthe Literary Review V3 [renamed from Absinthe Literary Review V1]\nID: org.lockss.test.MockConfigurablePlugin\nVersion: 3",
                     alert2.getAttribute(Alert.ATTR_TEXT));
   }
 

@@ -97,6 +97,13 @@ public class BaseUrlFetcher implements UrlFetcher {
       Configuration.PREFIX + "baseuc.stopWatchdogDuringPause";
   public static final boolean DEFAULT_STOP_WATCHDOG_DURING_PAUSE = false;
 
+  /** If true, treat directory redirection (foo -> foo/) like any
+   * other redirection, storing both artifacts.  If false, act like V1
+   * and don't store foo/ */
+  public static final String PARAM_STORE_DIRECTORY_REDIRECTION =
+      Configuration.PREFIX + "baseuc.recordDirectoryRedirection";
+  public static final boolean DEFAULT_STORE_DIRECTORY_REDIRECTION = true;
+
 
   protected final String origUrl;	// URL with which I was created
   protected String fetchUrl;		// possibly affected by redirects
@@ -831,7 +838,7 @@ public class BaseUrlFetcher implements UrlFetcher {
       // (Still. sigh.)  The node should be written only once, so don't add
       // another entry for the slash redirection.
 
-      if (!UrlUtil.isDirectoryRedirection(fetchUrl, newUrlString)) {
+      if (!isElidedDirectoryRedirection(fetchUrl, newUrlString)) {
         if (redirectUrls == null) {
           redirectUrls = new ArrayList();
         }
@@ -846,6 +853,14 @@ public class BaseUrlFetcher implements UrlFetcher {
       return false;
     }
   }
+
+  protected boolean isElidedDirectoryRedirection(String fetchUrl,
+                                                  String toUrl) {
+    return UrlUtil.isDirectoryRedirection(fetchUrl, toUrl) &&
+      !CurrentConfig.getBooleanParam(PARAM_STORE_DIRECTORY_REDIRECTION,
+                                     DEFAULT_STORE_DIRECTORY_REDIRECTION);
+  }
+
 
   protected void checkRedirectAction(String url) throws CacheException {
     CacheException ex =
@@ -872,7 +887,7 @@ public class BaseUrlFetcher implements UrlFetcher {
       props.setProperty(CachedUrl.PROPERTY_FETCH_TIME,
           Long.toString(TimeBase.nowMs()));
       if (origUrl != fetchUrl &&
-          !UrlUtil.isDirectoryRedirection(origUrl, fetchUrl)) {
+          !isElidedDirectoryRedirection(origUrl, fetchUrl)) {
         // XXX this property does not have consistent semantics.  It will be
         // set to the first url in a chain of redirects that led to content,
         // which could be different depending on fetch order.

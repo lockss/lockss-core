@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -163,7 +163,8 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
       + "waitForExternalSetup";
 
   // The SQL code executor.
-  private ConfigDbManagerSql configDbManagerSql = new ConfigDbManagerSql(null,
+  private ConfigDbManagerSql configDbManagerSql = new ConfigDbManagerSql(this,
+                                                                         null,
       DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
       DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);
 
@@ -179,7 +180,7 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
    * Sets up update versions.
    */
   private void setUpVersions() {
-    targetDatabaseVersion = 4;
+    targetDatabaseVersion = 5;
     asynchronousUpdates = new int[] {};
   }
 
@@ -420,6 +421,8 @@ public class ConfigDbManager extends DbManager implements ConfigurableManager {
       configDbManagerSql.updateDatabaseFrom2To3(conn);
     } else if (databaseVersion == 4) {
       configDbManagerSql.updateDatabaseFrom3To4(conn);
+    } else if (databaseVersion == 5) {
+      configDbManagerSql.updateDatabaseFrom4To5(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
 	  + "to version " + databaseVersion + ".");

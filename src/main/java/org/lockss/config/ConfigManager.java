@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,6 +33,7 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.net.*;
 import java.sql.Connection;
@@ -58,6 +59,7 @@ import org.lockss.protocol.*;
 import org.lockss.proxy.*;
 import org.lockss.remote.*;
 import org.lockss.repository.*;
+import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestHttpException;
 import org.lockss.servlet.*;
@@ -385,8 +387,8 @@ public class ConfigManager implements LockssManager {
    */
   public static final String PARAM_PLATFORM_ADMIN_EMAIL =
     PLATFORM + "sysadminemail";
-  static final String PARAM_PLATFORM_LOG_DIR = PLATFORM + "logdirectory";
-  static final String PARAM_PLATFORM_LOG_FILE = PLATFORM + "logfile";
+  public static final String PARAM_PLATFORM_LOG_DIR = PLATFORM + "logdirectory";
+  public static final String PARAM_PLATFORM_LOG_FILE = PLATFORM + "logfile";
 
   /** SMTP relay host that will accept mail from this host.
    * @ParamCategory Platform
@@ -446,6 +448,36 @@ public class ConfigManager implements LockssManager {
   public static final boolean DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_REQUIRED =
     true;
 
+  /** Set internally because the port isn't passed in directly but is
+   * now needed by both BlockingStreamComm and migration.  Easier to
+   * compute it once here and put in config for V1 MigrateSettings */
+  public static final String PARAM_ACTUAL_V3_LCAP_PORT =
+    MYPREFIX + "actualV3LcapPort";
+
+  // Migration params
+
+  /** Various warnings are issued when in migration mode. */
+  public static final String PARAM_IN_MIGRATION_MODE =
+    MYPREFIX + "inMigrationMode";
+  public static final boolean DEFAULT_IN_MIGRATION_MODE = false;
+
+  public static final String PARAM_SAME_HOST_MIGRATION =
+    MYPREFIX + "sameHostMigration";
+  public static final boolean DEFAULT_SAME_HOST_MIGRATION = false;
+
+  // Local port to use for LCAP during migration, not nec. the same as
+  // that in the LCAP ID
+  public static final String PARAM_MIGRATION_LCAP_PORT =
+    MYPREFIX + "migrationLcapPort";
+  public static final String DEFAULT_MIGRATION_LCAP_PORT = null;
+
+  // The IP used for V1's identity, not necessarily routble from here
+  public static final String PARAM_V1_IDENTITY_IP =
+    MYPREFIX + "v1IdentityIp";
+
+  // Routable from here IP of V1
+  public static final String PARAM_V1_ROUTABLE_ADDR =
+    MYPREFIX + "v1RoutableIp";
 
   public static final String CONFIG_FILE_UI_IP_ACCESS = "ui_ip_access.txt";
   public static final String CONFIG_FILE_PROXY_IP_ACCESS =
@@ -461,6 +493,7 @@ public class ConfigManager implements LockssManager {
   public static final String CONFIG_FILE_EXPERT_CLUSTER = "expert_config.txt";
   public static final String CONFIG_FILE_EXPERT_LOCAL =
     "expert_config_local.txt";
+  public static final String CONFIG_FILE_MIGRATION = "v2_migration_config.txt";
 
   /** Obsolescent - replaced by CONFIG_FILE_CONTENT_SERVERS */
   public static final String CONFIG_FILE_ICP_SERVER = "icp_server_config.txt";
@@ -689,6 +722,7 @@ public class ConfigManager implements LockssManager {
     new LocalFileDescr(CONFIG_FILE_CONTENT_SERVERS),
     new LocalFileDescr(CONFIG_FILE_ACCESS_GROUPS), // not yet in use
     new LocalFileDescr(CONFIG_FILE_CRAWL_PROXY),
+    new LocalFileDescr(CONFIG_FILE_MIGRATION),
     new LocalFileDescr(CONFIG_FILE_EXPERT_CLUSTER)
     .setKeyPredicate(expertConfigKeyPredicate)
     .setIncludePredicate(expertConfigIncludePredicate),
@@ -709,6 +743,9 @@ public class ConfigManager implements LockssManager {
   protected LockssApp theApp = null;
   protected boolean isInited = false;
   protected boolean isStarted = false;
+  protected boolean inMigrationMode = DEFAULT_IN_MIGRATION_MODE;
+  private int actualV3LcapPort = -1;
+  private String transportPeerKey = null;
 
   private List configChangedCallbacks = new ArrayList();
 
@@ -741,6 +778,7 @@ public class ConfigManager implements LockssManager {
   private OneShotSemaphore haveConfig = new OneShotSemaphore();
 
   private HandlerThread handlerThread; // reload handler thread
+  private volatile CountDownLatch reloadedLatch = new CountDownLatch(1);
 
   private File daemonTmpDir = null;
 
@@ -923,6 +961,10 @@ public class ConfigManager implements LockssManager {
    */
   public boolean isStarted() {
     return isStarted;
+  }
+
+  public boolean inMigrationMode() {
+    return inMigrationMode;
   }
 
   public LockssApp getApp() {
@@ -1171,15 +1213,15 @@ public class ConfigManager implements LockssManager {
     return haveConfig.isFull();
   }
 
-  /** Return true if the first config load has completed. */
-  public boolean haveConfig() {
-    return haveConfig.isFull();
-  }
-
   /** Wait until the system is configured.  (<i>Ie</i>, until the first
    * time a configuration has been loaded.) */
   public boolean waitConfig() {
     return waitConfig(Deadline.MAX);
+  }
+
+  /** Return true if the first config load has completed. */
+  public boolean haveConfig() {
+    return haveConfig.isFull();
   }
 
   /** Run a config changed callback.  Used only in config-reload context,
@@ -1969,6 +2011,7 @@ public class ConfigManager implements LockssManager {
       return false;
     }
     copyPlatformParams(newConfig);
+    setMigrationParams(newConfig);
     inferMiscParams(newConfig);
     setConfigMacros(newConfig);
     setCompatibilityParams(newConfig);
@@ -2038,6 +2081,8 @@ public class ConfigManager implements LockssManager {
       clientId = config.get(PARAM_JMS_CLIENT_ID, DEFAULT_JMS_CLIENT_ID);
       auInsertCommitCount = config.getInt(PARAM_AU_INSERT_COMMIT_COUNT,
 	  				  DEFAULT_AU_INSERT_COMMIT_COUNT);
+      inMigrationMode = config.getBoolean(PARAM_IN_MIGRATION_MODE,
+                                          DEFAULT_IN_MIGRATION_MODE);
     }
 
     if (changedKeys.contains(PARAM_PLATFORM_VERSION)) {
@@ -2223,6 +2268,78 @@ public class ConfigManager implements LockssManager {
     org.lockss.poller.PollManager.processConfigMacros(config);
   }
   
+  public int getV3LcapListenPort() {
+    return actualV3LcapPort;
+  }
+
+  public String getTransportPeerKey() {
+    return transportPeerKey;
+  }
+
+  // If configured for migration, tell other subsystems to behave
+  // differently
+  private void setMigrationParams(Configuration config) {
+    // Extract our LCAP port from the LCAP ID.  If in migration mode, the
+    // configured port must be the same as V1's port
+    // PARAM_LOCAL_V3_IDENTITY may get changed below; we're just
+    // getting the port here
+    String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
+    int v1IdPort;
+    String v1IdPortStr;
+    try {
+      v1IdPort = IDUtil.extractPortFromV3Identity(lcapId);
+      v1IdPortStr = Integer.toString(v1IdPort);
+    } catch (IllegalArgumentException e) {
+      log.error("Couldn't parse LCAP V3 identity " + lcapId);
+      return;  // IdentityManager will fail shortly if ID is malformed
+    }
+    // find the actual listen port and copy to config as
+    // it's needed by both BlockingStreamComm and V1 migration
+    int lcapListenPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, v1IdPort);
+    actualV3LcapPort = lcapListenPort;
+
+    // Set transportPeerKey to the PeerAddress string that reflects
+    // our actual IP addr and LCAP port (for BlockingStreamComm)
+
+    String transportIp;
+    if (config.getBoolean(PARAM_SAME_HOST_MIGRATION,
+                          DEFAULT_SAME_HOST_MIGRATION)) {
+      transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
+    } else {
+      // XXX BUG.  If NATted, this is the internal addr, which might
+      // not be the right address for V1 to reach us at, if it's
+      transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
+    }
+    transportPeerKey = IDUtil.ipAddrToKey(transportIp, lcapListenPort);
+    if (config.getBoolean(PARAM_IN_MIGRATION_MODE,
+                          DEFAULT_IN_MIGRATION_MODE)) {
+      log.info("Setting up for migration from V1");
+
+      // Put in config for easy access by V1 MigrateSettings
+      config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(lcapListenPort));
+
+      // Set LcapRouter.PARAM_MIGRATE_FROM to
+      // an ID made from PARAM_V1_ROUTABLE_ADDR (the routable V1 IP)
+      // and the port from PARAM_LOCAL_V3_IDENTITY
+      String sendToV1Id =
+        IDUtil.ipAddrToKey(config.get(PARAM_V1_ROUTABLE_ADDR), v1IdPortStr);
+      log.info("Configuring to forward LCAP to: " + sendToV1Id);
+      config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
+
+      // Set IdentityManager.PARAM_LOCAL_V3_IDENTITY and
+      // PARAM_PLATFORM_LOCAL_V3_IDENTITY to the LCAP ID of the daemon
+      // we're migrating from.
+
+      String myLcapId =
+        IDUtil.ipAddrToKey(config.get(PARAM_V1_IDENTITY_IP), v1IdPortStr);
+      config.put(PARAM_PLATFORM_LOCAL_V3_IDENTITY, myLcapId);
+      config.put(IdentityManager.PARAM_LOCAL_V3_IDENTITY, myLcapId);
+
+      // Tell SubscriptionManager to defer instantiating subscriptions
+      config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");
+    }
+  }
+
   private void copyToSysProps(Configuration config) {
     // Copy unfiltered port lists for retrieval in PlatformUtil
     setSysProp(PlatformUtil.SYSPROP_UNFILTERED_TCP_PORTS,
@@ -2520,15 +2637,46 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  public void requestReload() {
+  /** Request a config reload
+   * @return a latch on which one can wait for the reload to complete
+   */
+  public CountDownLatch requestReload() {
     // Increment the counter of configuration reload requests.
     configReloadRequestCounter++;
-    requestReloadIn(0);
+    // See comment at latch handling in HandlerThread.lockssRun
+    synchronized (this) {
+      requestReloadIn(0);
+      return reloadedLatch;
+    }
   }
-
+ 
   public void requestReloadIn(long millis) {
     if (handlerThread != null) {
       handlerThread.forceReloadIn(millis);
+    }
+  }
+
+  /** Reload the config and wait until it has been reloaded
+   * @return true if/when config reloaded, false if interrupted
+   */
+  public boolean reloadAndWait() {
+    try {
+      requestReload().await();
+      return true;
+    } catch (InterruptedException e) {
+      return false;
+    }
+  }
+
+  /** Reload the config and wait until it has been reloaded or the Deadline
+   * is reached.
+   * @return true if/when config reloaded, false if timeout or interrupted
+   */
+  public boolean reloadAndWait(Deadline until) {
+    try {
+      return requestReload().await(until.getSleepTime(), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      return false;
     }
   }
 
@@ -4855,13 +5003,30 @@ public class ConfigManager implements LockssManager {
 	  nextReload = Deadline.inRandomRange(reloadInterval - reloadRange,
 					      reloadInterval + reloadRange);
 	  log.debug2(nextReload.toString());
-	  running = false;
-	  if (goOn && !goAgain) {
-	    try {
-	      nextReload.sleep();
-	    } catch (InterruptedException e) {
-	      // just wakeup and check for exit
-	    }
+          if (!goOn) {
+            running = false;
+            // Wake up any waiting threads when exiting
+            reloadedLatch.countDown();
+            break;
+          }
+          // Synchronize access to goAgain and reloadedLatch with
+          // requestReload() to ensure requestReload() gets a latch
+          // that hasn't already been replaced, and won't be triggered
+          // by an already in-progress reload
+          synchronized (ConfigManager.this) {
+            if (goAgain) {
+              goAgain = false;
+              continue;
+            } else {
+              reloadedLatch.countDown();
+              reloadedLatch = new CountDownLatch(1);
+              running = false;
+            }
+          }
+          try {
+            nextReload.sleep();
+          } catch (InterruptedException e) {
+            // just wakeup and check for exit
 	  }
 	} catch (AbortConfigLoadException e) {
 	  log.warning("Config reload thread aborted");
@@ -4878,8 +5043,8 @@ public class ConfigManager implements LockssManager {
 
     void forceReloadIn(long millis) {
       if (running) {
-	// can be called from reload thread, in which case an immediate
-	// repeat is necessary
+	// can be called while reload is happening, in which case an
+	// immediate repeat may be necessary
 	goAgain = true;
       }
       if (nextReload != null) {

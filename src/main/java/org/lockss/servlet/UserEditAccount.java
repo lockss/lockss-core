@@ -100,6 +100,8 @@ public class UserEditAccount extends EditAccountBase {
     HttpSession session = getSession();
 
     String name = req.getUserPrincipal().toString();
+
+    // Get existing UserAccount
     UserAccount acct = acctMgr.getUserOrNull(name);
     if (acct == null) {
       displayWarningInLieuOfPage("Error: User " + name + " does not exist");
@@ -118,6 +120,7 @@ public class UserEditAccount extends EditAccountBase {
       displayUserEdit();
       return;
     }
+
     // validate all input first
     if (!acct.check(oldPwd)) {
       errMsg = "Incorrect password";
@@ -132,6 +135,7 @@ public class UserEditAccount extends EditAccountBase {
 	return;
       }
     }
+
     if (!StringUtil.isNullString(email)) {
       try {
 	new javax.mail.internet.InternetAddress(email, true);
@@ -152,19 +156,22 @@ public class UserEditAccount extends EditAccountBase {
 	return;
       }
     }
+
     if (!StringUtil.isNullString(email)) {
       acct.setEmail(email);
     }
-      try {
-	acctMgr.userStoreUser(acct, acct);
-	acct.reportEditEventBy(getUserAccount());
-      } catch (AccountManager.NotStoredException e) {
-	errMsg = "Error: " + e.getMessage();
-	displayUserEdit();
-	return;
-      }
+
+    try {
+      // Perform existing user update
+      acctMgr.userStoreUser(acct, acct);
+      acct.reportEditEventBy(getUserAccount());
+    } catch (AccountManager.NotStoredException e) {
+      errMsg = "Error: " + e.getMessage();
+      displayUserEdit();
+      return;
+    }
+
     statusMsg = "Update successful";
     displayUserEdit();
   }
-
 }

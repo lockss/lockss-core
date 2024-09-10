@@ -60,7 +60,11 @@ public class LcapRouter
     PREFIX + "v3LcapMessageDataDir";
   private static final String DEFAULT_V3_LCAP_MESSAGE_DATA_DIR =
     "System tmpdir";
-  
+
+  public static final String PARAM_MIGRATE_FROM =
+      PREFIX + "migrateFrom";
+  public static final String DEFAULT_MIGRATE_FROM = null;
+
   static Logger log = Logger.getLogger();
 
   private IdentityManager idMgr;
@@ -68,6 +72,12 @@ public class LcapRouter
 
   private List messageHandlers = new ArrayList();
   private File dataDir = null;
+  private PeerIdentity migrateFrom = null;
+
+  public void initService(LockssDaemon daemon) {
+    super.initService(daemon);
+    idMgr = daemon.getIdentityManager();
+  }
 
   public void startService() {
     super.startService();
@@ -84,7 +94,7 @@ public class LcapRouter
       log.warning("No stream comm");
       scomm = null;
     }
-    idMgr = daemon.getIdentityManager();
+    resetConfig();
   }
 
   public void stopService() {
@@ -96,7 +106,7 @@ public class LcapRouter
 
   public void setConfig(Configuration config, Configuration oldConfig,
 			Configuration.Differences changedKeys) {
-    if (changedKeys.contains(PARAM_V3_LCAP_MESSAGE_DATA_DIR)) {
+    if (changedKeys.contains(PREFIX)) {
       String paramDataDir = config.get(PARAM_V3_LCAP_MESSAGE_DATA_DIR,
 				       PlatformUtil.getSystemTempDir());
       File dir = new File(paramDataDir);
@@ -106,6 +116,24 @@ public class LcapRouter
       } else {
 	log.warning("No V3LcapMessage data dir: " + dir);
 	dataDir = null;
+      }
+
+      // idMgr not set when this runs first runs
+      if (isDaemonInited()) {
+        String migrateFromVal =
+          config.get(PARAM_MIGRATE_FROM, DEFAULT_MIGRATE_FROM);
+        if (!StringUtil.isNullString(migrateFromVal)) {
+          try {
+            migrateFrom = idMgr.findPeerIdentity(migrateFromVal);
+            log.info("Forwading outgoing LCAP traffic to: " + migrateFrom);
+          } catch (IdentityManager.MalformedIdentityKeyException e) {
+            log.error("Malformed migrateFrom peer identity: " +
+                      migrateFromVal);
+            migrateFrom = null;
+          }
+        } else {
+          migrateFrom = null;
+        }
       }
     }
   }
@@ -117,8 +145,18 @@ public class LcapRouter
    */
   public void sendTo(V3LcapMessage msg, PeerIdentity id)
       throws IOException {
+    // If no destination was specified in the message, set it to the
+    // destination ID specified in this call
+    if (msg.getDestinationId() == null) {
+      msg.setDestinationId(id);
+    }
     PeerMessage pm = makePeerMessage(msg);
-    scomm.sendTo(pm, id);
+    if (migrateFrom == null) {
+      scomm.sendTo(pm, id);
+    } else {
+      // Route outbound messages through the migrateFrom machine
+      scomm.sendTo(pm, migrateFrom);
+    }
   }
 
   /** Encode a V3LcapMessage into a PeerMessage */
@@ -153,7 +191,10 @@ public class LcapRouter
     try {
       in = pmsg.getInputStream();
       V3LcapMessage lmsg = new V3LcapMessage(in, dataDir, getDaemon());
-      lmsg.setOriginatorId(pmsg.getSender());
+      if (lmsg.getOriginatorId() == null) {
+        log.warning("Incoming LcapMessage has no originator, setting it to PeerMessge sender");
+        lmsg.setOriginatorId(pmsg.getSender());
+      }
       return lmsg;
     } finally {
       IOUtil.safeClose(in);
@@ -168,6 +209,13 @@ public class LcapRouter
   void handleIncomingPeerMessage(PeerMessage pmsg) {
     try {
       LcapMessage lmsg = makeV3LcapMessage(pmsg);
+      if (lmsg.getDestinationId() == null) {
+        log.warning("Received message has null destination ID, processing anyway");
+      } else if (lmsg.getDestinationId() != idMgr.getLocalPeerIdentity(Poll.V3_PROTOCOL)) {
+        log.warning("Received message addressed to " + lmsg.getDestinationId() +
+                    ", which is not us");
+        return;
+      }
       runHandlers(lmsg);
     } catch (Exception e) {
       log.warning("Exception while processing incoming " + pmsg, e);

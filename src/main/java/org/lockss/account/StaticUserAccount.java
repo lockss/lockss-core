@@ -32,21 +32,26 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.account;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.lockss.config.*;
-import org.lockss.util.*;
+import org.lockss.state.StateManager;
 import org.lockss.util.time.TimeBase;
 
 /** Static user account for non-editable accounts
  */
 public class StaticUserAccount extends BasicUserAccount {
 
-  public StaticUserAccount(String name) {
+  @JsonCreator
+  public StaticUserAccount(@JsonProperty("userName") String name) {
     super(name);
   }
 
   public String getType() {
-    return "Static";
+    return USER_ACCOUNT_TYPE;
   }
+
+  public static final String USER_ACCOUNT_TYPE = "Static";
 
   @Override
   public boolean isStaticUser() {
@@ -91,7 +96,7 @@ public class StaticUserAccount extends BasicUserAccount {
 
   public static class Factory extends UserAccount.Factory {
     public UserAccount newUser(String name, AccountManager acctMgr,
-			       Configuration config) {
+                               Configuration config) {
       if (config == null) {
 	throw new NullPointerException();
       }

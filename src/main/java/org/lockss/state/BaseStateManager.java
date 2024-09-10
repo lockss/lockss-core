@@ -28,13 +28,13 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
-import java.io.*;
+import java.io.IOException;
 import java.util.*;
 import javax.jms.*;
 
+import org.lockss.account.UserAccount;
 import org.lockss.app.*;
 import org.lockss.log.*;
-import org.lockss.jms.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
@@ -53,12 +53,20 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   protected ConfigManager configMgr;
   protected PluginManager pluginMgr;
 
+  private final Set<UserAccount.UserAccountChangedCallback> userAccountChangedCallbacks = new HashSet<>();
+
   @Override
   public void initService(LockssDaemon daemon) throws LockssAppException {
     super.initService(daemon);
     this.daemon = daemon;
     configMgr = daemon.getConfigManager();
-    pluginMgr = daemon.getPluginManager();
+
+    try {
+      pluginMgr = daemon.getPluginManager();
+    } catch (IllegalArgumentException e) {
+      log.warn("Could not get a Plugin Manager; continuing without one");
+    }
+
     // Don't prefetch IdentityManager here as it uses StateManager
   }
 
@@ -93,10 +101,14 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   // Notification message is a map:
   // name - Name of state class (e.g., AuState)
   // auid - if object is per-AU
+  // username - if object is UserAccount
+  // userAccountChange - type of change to the user account
   // json - serialized json of whole object or diffs
 
   public static final String JMS_MAP_NAME = "name";
   public static final String JMS_MAP_AUID = "auid";
+  public static final String JMS_MAP_USERNAME = "username";
+  public static final String JMS_MAP_USERACCOUNT_CHANGE = "userAccountChange";
   public static final String JMS_MAP_JSON = "json";
   public static final String JMS_MAP_COOKIE = "cookie";
   
@@ -136,9 +148,12 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
     log.debug2("Received notification: " + map);
     try {
       String name = (String)map.get(JMS_MAP_NAME);
-      String auid = (String)map.get(JMS_MAP_AUID);
       String json = (String)map.get(JMS_MAP_JSON);
       String cookie = (String)map.get(JMS_MAP_COOKIE);
+
+      // AUID may be null if we're handling a non-AU message:
+      String auid = (String)map.get(JMS_MAP_AUID);
+
       switch (name) {
       case "AuState":
 	doReceiveAuStateChanged(auid, json, cookie);
@@ -152,12 +167,31 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
       case "NoAuPeerSet":
 	doReceiveNoAuPeerSetChanged(auid, json, cookie);
 	break;
+      case "UserAccount":
+        String username = (String)map.get(JMS_MAP_USERNAME);
+        String userAccountChange = (String)map.get(JMS_MAP_USERACCOUNT_CHANGE);
+        doReceiveUserAccountChanged(UserAccount.UserAccountChange.valueOf(userAccountChange), username, json,
+            cookie);
+        break;
       default:
 	log.warn("Receive state update for unknown object: {}", name);
       }
     } catch (ClassCastException e) {
       log.error("Wrong type field in message: {}", map, e);
     }
+  }
+
+  @Override
+  public void registerUserAccountChangedCallback(UserAccount.UserAccountChangedCallback callback) {
+    userAccountChangedCallbacks.add(callback);
+  }
+
+  /** Invokes all the registered callbacks **/
+  public void doUserAccountChangedCallbacks(UserAccount.UserAccountChange op,
+                                            String username,
+                                            UserAccount userAccount) {
+    userAccountChangedCallbacks.forEach(callback
+        -> callback.execute(username, op, userAccount));
   }
 
   // /////////////////////////////////////////////////////////////////
@@ -205,7 +239,7 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * storage.  If <code>fields</code> is a non-empty set, Only those fields
    * named in it should be updated.
    * @param key AUID or other key for AU
-   * @param aus AuStateBean data source
+   * @param ausb AuStateBean data source
    * @param fields The fields to store, or null to store all fields
    */
   protected void doStoreAuStateBean(String key,
@@ -266,9 +300,8 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
    * storage.  Any of the three data sources may be used.  Only those
    * fields present in the Map or the json string should be saved.
    * @param key AUID or other key for AU
-   * @param aus AuAgreements data source
-   * @param aus json data source
-   * @param aus Map data source
+   * @param aua AuAgreements data source
+   * @param peers Set of peer identities
    */
   protected void doStoreAuAgreementsUpdate(String key, AuAgreements aua,
 					   Set<PeerIdentity> peers) {
@@ -411,4 +444,68 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
 					     String cookie) {
   }
 
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  protected void sendUserAccountChangedEvent(String key, String json,
+                                         UserAccount.UserAccountChange op,
+                                         String cookie) {
+    if (jmsProducer != null) {
+      Map<String,Object> map = new HashMap<>();
+      map.put(JMS_MAP_NAME, "UserAccount");
+      map.put(JMS_MAP_USERNAME, key);
+      map.put(JMS_MAP_USERACCOUNT_CHANGE, op.toString());
+      map.put(JMS_MAP_JSON, json);
+      putNotNull(map, JMS_MAP_COOKIE, cookie);
+      try {
+        jmsProducer.sendMap(map);
+      } catch (JMSException e) {
+        log.error("Couldn't send StateChanged notification", e);
+      }
+    }
+  }
+
+  /** Hook for subclass to send UserAccount changed notifications */
+  protected void doNotifyUserAccountChanged(UserAccount.UserAccountChange op, String username, String json,
+                                            String cookie) {
+    // Intentionally left blank
+  }
+
+  /** Hook for subclass to receive UserAccount changed notifications */
+  protected void doReceiveUserAccountChanged(UserAccount.UserAccountChange op, String username, String json,
+                                             String cookie) {
+    // Intentionally left blank
+  }
+
+  /** Hook for subclass to read the set of {@link UserAccount} names
+   * from persistent storage. */
+  protected Iterable<String> doLoadUserAccountNames() throws IOException {
+    return null;
+  }
+
+  /** Hook for subclass to read a {@link UserAccount} from persistent
+   * storage. */
+  protected UserAccount doLoadUserAccount(String name) throws IOException {
+    return null;
+  }
+
+  /** Hook for subclass to store or update a {@link UserAccount} in
+   * persistent storage.
+   * @param key
+   * @param acct
+   */
+  protected void doStoreUserAccount(String key,
+                                    UserAccount acct,
+                                    Set<String> fields) throws IOException {
+    // Intentionally left blank
+  }
+
+  /** Hook for subclass to remove a {@link UserAccount} from persistent
+   * storage.
+   * @param acct
+   */
+  protected void doRemoveUserAccount(UserAccount acct) throws IOException {
+    // Intentionally left blank
+  }
 }

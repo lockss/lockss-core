@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,8 +30,7 @@ package org.lockss.plugin;
 
 import java.io.FileNotFoundException;
 import java.net.*;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.htmlparser.*;
@@ -65,7 +60,7 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
       registry AUs.  Changes take effect only when AU is started. */
   static final String PARAM_REGISTRY_CRAWL_INTERVAL =
     RegistryPlugin.PREFIX + "crawlInterval";
-  static final long DEFAULT_REGISTRY_CRAWL_INTERVAL = Constants.DAY;
+  static final long DEFAULT_REGISTRY_CRAWL_INTERVAL = 12 * Constants.HOUR;
 
   /** The proxy to use for registry crawls, or <tt>DIRECT</tt> or
    * <tt>NONE</tt> to override a global crawl proxy.  Changes take effect
@@ -258,14 +253,24 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
 
   // Registry AU crawl rule implementation
   private static class RegistryRule implements CrawlRule {
-    private String registryUrl;
+    private List<String> registryUrls = new ArrayList<>(4);
 
     RegistryRule(String registryUrl) {
-      this.registryUrl = registryUrl;
+      registryUrls.add(registryUrl);
+      if (!registryUrl.endsWith("/")) {
+        registryUrls.add(registryUrl + "/");
+      }
+      if (UrlUtil.isHttpUrl(registryUrl)) {
+        String httpsUrl = UrlUtil.replaceScheme(registryUrl, "http", "https");
+        registryUrls.add(httpsUrl);
+        if (!httpsUrl.endsWith("/")) {
+          registryUrls.add(httpsUrl + "/");
+        }
+      }
     }
 
     public int match(String url) {
-      if (StringUtil.equalStringsIgnoreCase(url, registryUrl) ||
+      if (registryUrls.stream().anyMatch(url::equalsIgnoreCase) ||
 	  StringUtil.endsWithIgnoreCase(url, ".jar")) {
 	return CrawlRule.INCLUDE;
       } else {

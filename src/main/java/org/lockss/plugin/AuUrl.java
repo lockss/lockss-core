@@ -42,7 +42,7 @@ import org.lockss.util.*;
  */
 public class AuUrl {
 
-  public static final String PROTOCOL = UrlManager.PROTOCOL_AU;
+  public static final String PROTOCOL = "lockssau";
   public static final String PROTOCOL_COLON = PROTOCOL + ":";
   static final int cmp_len = PROTOCOL_COLON.length();
 

@@ -704,11 +704,7 @@ public class UrlUtil {
    * @return  the unencoded string
    */
   public static String decodeUri(String url, String enc) {
-    try {
-      return UriUtils.decode(url, enc);
-    } catch (UnsupportedEncodingException e) {
-      throw new RuntimeException("Encoding (" + enc + ") unsupported", e);
-    }
+    return UriUtils.decode(url, enc);
   }
 
   /** URLencode a string */

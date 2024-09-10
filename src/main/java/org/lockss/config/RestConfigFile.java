@@ -37,6 +37,7 @@ import org.lockss.util.rest.exception.*;
 import org.lockss.util.*;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.util.*;
 import org.springframework.util.MultiValueMap;
@@ -174,11 +175,12 @@ public class RestConfigFile extends BaseConfigFile {
 
     InputStream in = null;
 
-    HttpStatus statusCode = response.getStatusCode();
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
     String statusMsg = response.getStatusMessage();
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "status = " + status);
 
-    switch (statusCode) {
+    switch (status) {
     case OK:
       m_loadError = null;
 
@@ -229,9 +231,9 @@ public class RestConfigFile extends BaseConfigFile {
 	throw lre;
       }
       StringBuilder sb = new StringBuilder();
-      sb.append(statusCode.toString());
+      sb.append(status.toString());
       sb.append(": ");
-      sb.append(statusCode.getReasonPhrase());
+      sb.append(status.getReasonPhrase());
       if (statusMsg != null) {
 	sb.append(": ");
 	sb.append(statusMsg);

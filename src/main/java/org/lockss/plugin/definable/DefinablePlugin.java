@@ -187,8 +187,8 @@ public class DefinablePlugin extends BasePlugin {
   // Record where parts of the plugin were loaded from.  URL will be
   // jar: if plugins was loaded from a packaged plugin jar, else file:
 
-  // (PluginId, URL) of plugin and parents
-  protected List<Pair<String,URL>> idsUrls;
+  // Records ID, names, URLs, versions of plugin and parents
+  protected List<DefPlugInfo> plugInfos;
 
   // (package, URL) of union of KEY_PLUGIN_AUX_PKGS from plugin and parents
   protected Set<Pair<String,URL>> auxPkgUrls;
@@ -247,7 +247,7 @@ public class DefinablePlugin extends BasePlugin {
     String next = extMapName;
     String nextParentVer = null;
     List<URL> urls = new ArrayList<>();
-    ArrayList<Pair<String,URL>> ids = new ArrayList<>();
+    ArrayList<DefPlugInfo> infos = new ArrayList<>();
     ExternalizableMap res = null;
     while (next != null) {
       // convert the plugin class name to an xml file name
@@ -304,7 +304,15 @@ public class DefinablePlugin extends BasePlugin {
 	}
       }
       urls.add(url);
-      ids.add(Pair.of(next, url));
+      DefPlugInfo dpi = new DefPlugInfo()
+        .setId(next)
+        .setVersion(oneMap.getString(KEY_PLUGIN_VERSION,
+                                     DEFAULT_PLUGIN_VERSION))
+        .setUrl(url)
+        .setName(oneMap.containsKey(KEY_PLUGIN_NAME)
+                 ? oneMap.getString(KEY_PLUGIN_NAME)
+                 : StringUtil.shortName(next));
+
       // apply overrides one plugin at a time in inheritance chain
       processOverrides(oneMap);
       if (res == null) {
@@ -321,13 +329,15 @@ public class DefinablePlugin extends BasePlugin {
       if (oneMap.containsKey(KEY_PLUGIN_PARENT)) {
 	next = oneMap.getString(KEY_PLUGIN_PARENT);
 	nextParentVer = oneMap.getString(KEY_PLUGIN_PARENT_VERSION, null);
+        dpi.setParentId(next);
+        dpi.setParentVersion(nextParentVer);
       } else {
 	next = null;
       }
+      infos.add(dpi);
     }
     processDefault(res);
-    ids.trimToSize();
-    idsUrls = ids;
+    plugInfos = infos;
     return res;
   }
 
@@ -516,8 +526,8 @@ public class DefinablePlugin extends BasePlugin {
     }
   }
 
-  public List<Pair<String,URL>> getIdsUrls() {
-    return idsUrls;
+  public List<DefPlugInfo> getPlugInfoList() {
+    return plugInfos;
   }
 
   public Set<Pair<String,URL>> getAuxPkgUrls() {
@@ -531,8 +541,8 @@ public class DefinablePlugin extends BasePlugin {
     new LinkedList<Pair<String,Exception>>();
 
   public List<String> getLoadedFromUrlStrings() {
-    return idsUrls.stream()
-      .map(Pair::getRight)
+    return plugInfos.stream()
+      .map(DefPlugInfo::getUrl)
       .map(URL::toString)
       .collect(Collectors.toList());
   }
@@ -1365,4 +1375,72 @@ public class DefinablePlugin extends BasePlugin {
     }
     return className;
   }
+
+  public static class DefPlugInfo {
+    private String id;
+    private String name;
+    private String version;
+    private URL url;
+    private String parentId;
+    private String parentVersion;
+
+    public String getId() {
+      return id;
+    }
+
+    private DefPlugInfo setId(String id) {
+      this.id = id;
+      return this;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    private DefPlugInfo setName(String name) {
+      this.name = name;
+      return this;
+    }
+
+    public String getVersion() {
+      return version;
+    }
+
+    private DefPlugInfo setVersion(String version) {
+      this.version = version;
+      return this;
+    }
+
+    public URL getUrl() {
+      return url;
+    }
+
+    private DefPlugInfo setUrl(URL url) {
+      this.url = url;
+      return this;
+    }
+
+    public String getParentId() {
+      return parentId;
+    }
+
+    private DefPlugInfo setParentId(String parentId) {
+      this.parentId = parentId;
+      return this;
+    }
+
+    public String getParentVersion() {
+      return parentVersion;
+    }
+
+    private DefPlugInfo setParentVersion(String parentVersion) {
+      this.parentVersion = parentVersion;
+      return this;
+    }
+
+    public String toString() {
+      return "[DPI: " + getName() + ", " + getId() + ", ver: " + getVersion() + ", parent: " + getParentId() + ", parentVer: " + getParentVersion() + "]";
+    }
+  }
+
 }

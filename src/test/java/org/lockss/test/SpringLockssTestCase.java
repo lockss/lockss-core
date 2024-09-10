@@ -57,12 +57,7 @@ import org.lockss.util.TemplateUtil;
 import org.lockss.util.auth.*;
 import org.lockss.util.rest.RestUtil;
 import org.skyscreamer.jsonassert.JSONAssert;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.util.FileSystemUtils;
 import org.springframework.web.client.RestTemplate;
@@ -454,8 +449,9 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
 	.exchange(url, HttpMethod.GET, null, String.class);
 
     // Check the status.
-    HttpStatus statusCode = successResponse.getStatusCode();
-    assertEquals(HttpStatus.OK, statusCode);
+    HttpStatusCode statusCode = successResponse.getStatusCode();
+    HttpStatus status = HttpStatus.resolve(statusCode.value());
+    assertEquals(HttpStatus.OK, status);
 
     // Read the Swagger YAML configuration file.
     try (InputStream is = Thread.currentThread().getContextClassLoader()

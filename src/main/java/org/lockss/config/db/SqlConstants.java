@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2018-2019 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2018-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -161,4 +161,6 @@ public class SqlConstants {
 
   /** Length of the archival unit no AU peer set string column */
   public static final int MAX_NO_AU_PEER_SET_STRING_COLUMN = 8192;
+
+  public static final int MAX_VARCHAR = 32000;
 }

@@ -38,13 +38,13 @@ POSSIBILITY OF SUCH DAMAGE.
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.16.1</version>
+    <version>1.17.0</version>
     <relativePath />
   </parent>
 
   <groupId>org.lockss.laaws</groupId>
   <artifactId>lockss-core</artifactId>
-  <version>2.8.1</version>
+  <version>2.9.0</version>
   <packaging>jar</packaging>
   
   <name>lockss-core</name>
@@ -68,6 +68,7 @@ POSSIBILITY OF SUCH DAMAGE.
          ParamDoc, etc.) -->
     <loglevel.tool>${loglevel}</loglevel.tool>
 
+    <graalvm.version>23.1.2</graalvm.version>
   </properties>
 
   <dependencies>
@@ -119,7 +120,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.mozilla</groupId>
       <artifactId>rhino</artifactId>
-      <version>1.7.7</version>
+      <version>1.7.14</version>
     </dependency>
     
     <dependency>
@@ -167,13 +168,13 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>xalan</groupId>
       <artifactId>xalan</artifactId>
-      <version>2.7.2</version>
+      <version>2.7.3</version>
     </dependency>
 
     <dependency>
       <groupId>xalan</groupId>
       <artifactId>serializer</artifactId>
-      <version>2.7.2</version>
+      <version>2.7.3</version>
     </dependency>
 
     <dependency>
@@ -185,7 +186,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-dbcp2</artifactId>
-      <version>2.9.0</version>
+      <version>${version.dependency.commons-dbcp2}</version>
     </dependency>
 
     <dependency>
@@ -306,6 +307,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>de.schlichtherle.truezip</groupId>
       <artifactId>truezip-driver-zip</artifactId>
       <version>${version.group.truezip}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.bouncycastle</groupId>
+          <artifactId>bcprov-jdk15on</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     
     <dependency>
@@ -347,7 +354,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
-      <version>1.16.1</version>
+      <version>${version.dependency.jsoup}</version>
     </dependency>
     
     <dependency>
@@ -367,26 +374,69 @@ POSSIBILITY OF SUCH DAMAGE.
       <artifactId>edu-stanford-db-rdf-api</artifactId>
       <version>2001-01-19-p1</version>
     </dependency>
-    
+
     <dependency>
-      <groupId>xstream</groupId>
+      <groupId>com.thoughtworks.xstream</groupId>
       <artifactId>xstream</artifactId>
-      <version>1.1.3</version>
+       <version>1.4.20</version>
     </dependency>
-    
+
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>javax.servlet-api</artifactId>
-      <version>4.0.0</version>
+      <version>4.0.1</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>6.0.0</version>
       <scope>provided</scope>
     </dependency>
     
+<!--    <dependency>-->
+<!--      <groupId>javax.xml.ws</groupId>-->
+<!--      <artifactId>jaxws-api</artifactId>-->
+<!--      <version>2.3.1</version>-->
+<!--    </dependency>-->
+
+    <!-- https://openjdk.org/jeps/320 -->
+<!--    <dependency>-->
+<!--      <groupId>com.sun.xml.ws</groupId>-->
+<!--      <artifactId>jaxws-ri</artifactId>-->
+<!--      <version>2.3.3</version>-->
+<!--      <type>pom</type>-->
+<!--    </dependency>-->
+
+<!--    <dependency>-->
+<!--      <groupId>com.sun.xml.ws</groupId>-->
+<!--      <artifactId>jaxws-rt</artifactId>-->
+<!--      <version>2.3.3</version>-->
+<!--      <type>pom</type>-->
+<!--    </dependency>-->
+
+
     <dependency>
-      <groupId>javax.xml.ws</groupId>
-      <artifactId>jaxws-api</artifactId>
-      <version>2.2.11</version>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-frontend-jaxws</artifactId>
+      <version>3.3.5</version>
     </dependency>
-    
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-transports-http</artifactId>
+      <version>3.3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-transports-http-jetty</artifactId>
+      <version>3.3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-frontend-jaxrs</artifactId>
+      <version>3.3.5</version>
+    </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.github.ziplet/ziplet -->
     <dependency>
@@ -468,6 +518,18 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.group.bouncycastle}</version>
     </dependency>
 
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcutil-${version.group.bouncycastle.variant}</artifactId>
+      <version>${version.group.bouncycastle}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-${version.group.bouncycastle.variant}</artifactId>
+      <version>${version.group.bouncycastle}</version>
+    </dependency>
+
     <!-- Optional dependency of PDFBox 1.8 -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
@@ -497,6 +559,39 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>polyglot</artifactId>
+      <version>${graalvm.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.graalvm.js</groupId>
+      <artifactId>js-scriptengine</artifactId>
+      <version>${graalvm.version}</version>
+    </dependency>
+    <!-- runtime -->
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>js-community</artifactId>
+      <version>${graalvm.version}</version>
+      <type>pom</type>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>profiler-community</artifactId>
+      <version>${graalvm.version}</version>
+      <type>pom</type>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>inspect-community</artifactId>
+      <version>${graalvm.version}</version>
+      <type>pom</type>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
       <groupId>aopalliance</groupId>
       <artifactId>aopalliance</artifactId>
       <version>1.0</version>
@@ -514,11 +609,11 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>3.3.1</version>
     </dependency>
     
-    <dependency>
-      <groupId>org.apache.cxf</groupId>
-      <artifactId>cxf-bundle</artifactId>
-      <version>2.7.18</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.cxf</groupId>-->
+<!--      <artifactId>cxf-bundle</artifactId>-->
+<!--      <version>2.7.18</version>-->
+<!--    </dependency>-->
 
     <dependency>
       <groupId>com.sun.xml.fastinfoset</groupId>
@@ -526,17 +621,17 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>1.2.13</version>
     </dependency>
 
-    <dependency>
-      <groupId>org.glassfish.jaxb</groupId>
-      <artifactId>jaxb-core</artifactId>
-      <version>2.2.11</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.glassfish.jaxb</groupId>-->
+<!--      <artifactId>jaxb-core</artifactId>-->
+<!--      <version>2.2.11</version>-->
+<!--    </dependency>-->
 
-    <dependency>
-      <groupId>org.glassfish.jaxb</groupId>
-      <artifactId>jaxb-runtime</artifactId>
-      <version>2.2.11</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.glassfish.jaxb</groupId>-->
+<!--      <artifactId>jaxb-runtime</artifactId>-->
+<!--      <version>2.2.11</version>-->
+<!--    </dependency>-->
 
     <dependency>
       <groupId>org.jvnet.mimepull</groupId>
@@ -547,13 +642,26 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>2.7.22</version>
+      <version>2.22.0</version>
     </dependency>
 
     <dependency>
       <groupId>org.mock-server</groupId>
       <artifactId>mockserver-netty</artifactId>
-      <version>5.6.1</version>
+      <version>${version.group.mockserver}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.bouncycastle</groupId>
+          <artifactId>bcpkix-jdk15on</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mock-server</groupId>
+      <artifactId>mockserver-junit-rule</artifactId>
+      <version>${version.group.mockserver}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -612,7 +720,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-csv</artifactId>
-      <version>1.4</version>
+      <version>${version.dependency.commons-csv}</version>
     </dependency>
 
     <dependency>
@@ -630,6 +738,10 @@ POSSIBILITY OF SUCH DAMAGE.
         <exclusion>
           <artifactId>javax.servlet</artifactId>
           <groupId>org.eclipse.jetty.orbit</groupId>
+        </exclusion>
+        <exclusion>
+          <groupId>javax.servlet</groupId>
+          <artifactId>javax.servlet-api</artifactId>
         </exclusion>
         <exclusion>
           <groupId>org.eclipse.jetty</groupId>
@@ -685,7 +797,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
     <groupId>org.eclipse.jetty</groupId>
     <artifactId>jetty-http</artifactId>
-    <version>9.4.49.v20220914</version>
+    <version>9.4.52.v20230823</version>
     </dependency>
 
     <dependency>
@@ -749,12 +861,6 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
     
     <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-${version.group.bouncycastle.variant}</artifactId>
-      <version>${version.group.bouncycastle}</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.fishwife</groupId>
       <artifactId>jrugged-core</artifactId>
       <version>3.2.2</version>
@@ -792,10 +898,16 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
-      <groupId>httpunit</groupId>
+      <groupId>org.httpunit</groupId>
       <artifactId>httpunit</artifactId>
-      <version>1.7</version>
+      <version>1.7.3</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>javax.servlet</groupId>
+          <artifactId>javax.servlet-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -847,6 +959,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>net.sourceforge.schemaspy</groupId>
       <artifactId>schemaspy</artifactId>
       <version>5.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>${version.group.jackson}</version>
     </dependency>
 
     <dependency>
@@ -924,6 +1042,23 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.lockss</groupId>
       <artifactId>pdfbox</artifactId>
       <version>0.7.3-p1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>bouncycastle</groupId>
+          <artifactId>bcprov-jdk14</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>bouncycastle</groupId>
+          <artifactId>bcmail-jdk14</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>io.zonky.test</groupId>
+      <artifactId>embedded-postgres</artifactId>
+      <version>2.0.6</version>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
@@ -1248,6 +1383,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
+                <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
@@ -1287,6 +1423,7 @@ POSSIBILITY OF SUCH DAMAGE.
 		<argument>-classpath</argument>
 		<classpath/>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
+                <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
                 <argument>-p</argument>
                 <argument>org.lockss.plugin.plugtest1.PlugTest1Plugin</argument>

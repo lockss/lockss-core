@@ -786,7 +786,7 @@ public class TestUrlUtil extends LockssTestCase {
     // and java.net.URI:
     URI u1 = new URI("http://test.com");
     URI u2 = u1.resolve("a.html");
-    assertEquals("http://test.coma.html", u2.toString());
+    assertEquals("http://test.com/a.html", u2.toString());
 
     // make sure we add the missing slash
     assertEquals("http://test.com/a.html",

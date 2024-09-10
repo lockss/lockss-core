@@ -28,18 +28,15 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
-import java.io.*;
-import java.util.*;
-import org.apache.activemq.broker.*;
-import org.apache.activemq.store.*;
-
-import org.lockss.app.*;
-import org.lockss.daemon.*;
-import org.lockss.db.*;
-import org.lockss.log.*;
-import org.lockss.protocol.*;
+import org.lockss.account.UserAccount;
+import org.lockss.app.StoreException;
+import org.lockss.protocol.AuAgreements;
+import org.lockss.protocol.DatedPeerIdSet;
+import org.lockss.protocol.PeerIdentity;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
-import org.lockss.util.*;
+
+import java.io.IOException;
+import java.util.Set;
 
 /** interface between StateManager and persistent state store
  * implementations.
@@ -156,4 +153,24 @@ public interface StateStore {
   public Long updateNoAuPeerSet(String key, DatedPeerIdSet dpis,
 				Set<PeerIdentity> peers)
       throws StoreException;
+
+  // /////////////////////////////////////////////////////////////////
+  // UserAccount
+  // /////////////////////////////////////////////////////////////////
+
+  default Iterable<String> findUserAccountNames() throws StoreException, IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  default UserAccount findUserAccount(String key) throws StoreException, IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  default void updateUserAccount(String key, UserAccount acct, Set<String> fields) throws StoreException {
+    throw new UnsupportedOperationException();
+  }
+
+  default void removeUserAccount(UserAccount acct) {
+    throw new UnsupportedOperationException();
+  }
 }

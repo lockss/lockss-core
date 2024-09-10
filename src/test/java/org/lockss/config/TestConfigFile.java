@@ -426,7 +426,7 @@ public class TestConfigFile {
       File tmpFile = getTempFile("config", ext + ".gz");
       OutputStream out =
         new BufferedOutputStream(new FileOutputStream(tmpFile));
-      out = new GZIPOutputStream(out, true);
+      out = new GZIPOutputStream(out, false);
       Writer wrtr = new OutputStreamWriter(out, Constants.DEFAULT_ENCODING);
       wrtr.write(content);
       wrtr.close();
@@ -679,7 +679,7 @@ public class TestConfigFile {
       JarConfigFile jcf;
 
       jcf = new JarConfigFile("jar:file:///file/not/found!/who.cares",null);
-      doTestCantRead(jcf, "(ZipException|FileNotFoundException)");
+      doTestCantRead(jcf, "(ZipException|FileNotFoundException|NoSuchFileException)");
 
       String jarName = getTempDir().getAbsolutePath() +
 	File.separator + "test.jar";
@@ -881,8 +881,8 @@ public class TestConfigFile {
       MessageDigest md = MessageDigest.getInstance(alg);
       OutputStream out = new org.apache.commons.io.output.NullOutputStream();
       HashedOutputStream hos = new HashedOutputStream(out, md);
-      out = new GZIPOutputStream(hos);
-      Writer wrtr = new OutputStreamWriter(out);
+      out = new GZIPOutputStream(hos, false);
+      Writer wrtr = new OutputStreamWriter(out, Constants.DEFAULT_ENCODING);
       wrtr.write(str);
       wrtr.close();
       return HashResult.make(md.digest(), alg);
@@ -994,8 +994,6 @@ public class TestConfigFile {
       RemoteConfigFailoverInfo rcfi = mcm.getRcfi(url1);
       String alg =
 	ConfigManager.DEFAULT_REMOTE_CONFIG_FAILOVER_CHECKSUM_ALGORITHM;
-      MessageDigest md = MessageDigest.getInstance(alg);
-      md.update(xml1.getBytes(Constants.DEFAULT_ENCODING));
       rcfi.setChksum(hashGzippedString(xml1, alg).toString());
       hcf.setConfigManager(mcm);
       hcf.setResponseCode(404);

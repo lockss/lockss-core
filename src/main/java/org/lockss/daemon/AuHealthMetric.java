@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2011 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2011-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +31,8 @@ package org.lockss.daemon;
 import java.util.*;
 import javax.script.*;
 
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Value;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.time.TimeBase;
@@ -58,9 +56,13 @@ public class AuHealthMetric {
 
   static final String PREFIX = Configuration.PREFIX + "auHealth.";
 
+  /** Set true to enable AuHealthMetric. */
+  public static final String PARAM_ENABLED = PREFIX + "enabled";
+  public static final boolean DEFAULT_ENABLED = false;
+
   /** Script language. */
   public static final String PARAM_SCRIPT_LANGUAGE = PREFIX + "scriptLanguage";
-  public static final String DEFAULT_SCRIPT_LANGUAGE = "JavaScript";
+  public static final String DEFAULT_SCRIPT_LANGUAGE = "Graal.js";
 
   /** Threshold for inclusion of AUs as "healthy". */
   public static final String PARAM_INCLUSION_THRESHOLD =
@@ -127,6 +129,7 @@ public class AuHealthMetric {
 //     ExpectedSizeAgreement;
   }
 
+  private static boolean enabled = false;
   private static String scriptLanguage = DEFAULT_SCRIPT_LANGUAGE;
   private static String healthExpr = DEFAULT_HEALTH_EXPR;
   private static double inclusionThreshold = DEFAULT_INCLUSION_THRESHOLD;
@@ -154,11 +157,12 @@ public class AuHealthMetric {
    * thread-safe, or is incapable of compiling the script, this will be null.
    */
   private static CompiledScript compiledScript = null;
+
   /**
    * Set flags describing the capabilities of the script engine, and compile
    * the script if possible.
    */
-  static {
+  private static void createEngine() {
     if (!isSupported() || !setEngineProperties()) {
       // Reset everything if scripting is not supported
       isCompilable = false;
@@ -300,7 +304,8 @@ public class AuHealthMetric {
    * Return true if health metrics are supported.
    */
   public static boolean isSupported() {
-    return PlatformUtil.getInstance().hasScriptingSupport();
+    return CurrentConfig.getBooleanParam(PARAM_ENABLED, DEFAULT_ENABLED) &&
+      PlatformUtil.getInstance().hasScriptingSupport();
   }
 
   /** Called by org.lockss.config.MiscConfig
@@ -321,15 +326,17 @@ public class AuHealthMetric {
 	healthExpr = newExpr;
 	outOfRangeValueSeen = false;
       }
-      // TODO: I'm not clear whether this is the right place to run this? (NM)
-      // Note that it is run in a static initialiser too
-      setEngineProperties();
+      if (!enabled && config.getBoolean(PARAM_ENABLED, DEFAULT_ENABLED)) {
+        createEngine();
+        enabled = true;
+      }
     }
   }
 
   private AuHealthMetric(ArchivalUnit au) {
     this.au = au;
     this.aus = AuUtil.getAuState(au);
+
   }
 
   /** Return the AU's SubstanceState */
@@ -392,6 +399,7 @@ public class AuHealthMetric {
     return bindings;
   }
 
+
   ScriptEngineManager getManager() {
     if (sem == null) {
       sem = new ScriptEngineManager();
@@ -445,6 +453,7 @@ public class AuHealthMetric {
       if (isCompilable) {
         return compiledScript.eval(getBindings());
       } else {
+
         return engine.eval(healthExpr, getBindings());
       }
     } catch (ScriptException e) {

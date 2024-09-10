@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2008 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2024 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -53,6 +49,19 @@ public class DiskVoteBlocks implements VoteBlocks {
   private String m_filePath;
   private transient File m_file;
   private int m_size = 0;
+  private boolean keepOpen = false;
+  private boolean monitorStreams = LockssApp.DEFAULT_MONITOR_INPUT_STREAMS;
+  private DataOutputStream m_dos;
+
+  public DiskVoteBlocks(boolean keepOpen) {
+    Configuration config = ConfigManager.getCurrentConfig();
+    monitorStreams =
+      config.getBoolean(LockssApp.PARAM_MONITOR_INPUT_STREAMS,
+                        LockssApp.DEFAULT_MONITOR_INPUT_STREAMS);
+    this.keepOpen = keepOpen;
+  }
+
+
 
   /**
    * <p>
@@ -71,7 +80,7 @@ public class DiskVoteBlocks implements VoteBlocks {
    */
   public DiskVoteBlocks(int blocksToRead, InputStream from, File toDir)
       throws IOException {
-    this(toDir);
+    this(toDir, false);
     
     OutputStream os = new BufferedOutputStream(new FileOutputStream(m_file));
     try {
@@ -92,7 +101,8 @@ public class DiskVoteBlocks implements VoteBlocks {
    * @param toDir  Directory to use as temporary storage.
    * @throws IOException
    */
-  public DiskVoteBlocks(File toDir) throws IOException {
+  public DiskVoteBlocks(File toDir, boolean keepOpen) throws IOException {
+    this(keepOpen);
     m_file = FileUtil.createTempFile("voteblocks-", ".bin", toDir);
     m_filePath = m_file.getAbsolutePath();
   }
@@ -107,15 +117,25 @@ public class DiskVoteBlocks implements VoteBlocks {
   /* Inherit documentation */
   public synchronized void addVoteBlock(VoteBlock b) throws IOException {
     // Append to the end of the file.
-    FileOutputStream fos = new FileOutputStream(m_file, true);
-    DataOutputStream dos = new DataOutputStream(fos);
+    DataOutputStream dos;
+    if (m_dos != null) {
+      dos = m_dos;
+    } else {
+      FileOutputStream fos = new FileOutputStream(m_file, true);
+      dos = new DataOutputStream(new BufferedOutputStream(fos));
+    }
     try {
       byte[] encodedBlock = b.getEncoded();
       dos.writeShort(encodedBlock.length);
       dos.write(encodedBlock);
       this.m_size++;
     } finally {
-      dos.close();
+      if (keepOpen) {
+        m_dos = dos;
+      } else {
+        dos.close();
+        m_dos = null;
+      }
     }
   }
   
@@ -160,6 +180,14 @@ public class DiskVoteBlocks implements VoteBlocks {
     return m_file.length();
   }
 
+  @Override
+  public void close() {
+    if (keepOpen) {
+      IOUtil.safeClose(m_dos);
+      m_dos = null;
+    }
+  }
+
   public synchronized void release() {
     // The poller should have already cleaned up our directory by now,
     // but just in case, we'll run some cleanup code.
@@ -171,8 +199,7 @@ public class DiskVoteBlocks implements VoteBlocks {
 
   public synchronized InputStream getInputStream() throws IOException {
     InputStream is = new BufferedInputStream(new FileInputStream(m_file));
-    if (CurrentConfig.getBooleanParam(LockssApp.PARAM_MONITOR_INPUT_STREAMS,
-				      LockssApp.DEFAULT_MONITOR_INPUT_STREAMS)) {
+    if (monitorStreams) {
       is = new MonitoringInputStream(is, "dvb getInputStream()");
     }
     return is;
@@ -199,7 +226,7 @@ public class DiskVoteBlocks implements VoteBlocks {
       if (iter != null) iter.release();
     }
     return sb.toString();
-}
+  }
 
   class Iterator implements VoteBlocksIterator {
     private RandomAccessFile m_raf;
@@ -213,6 +240,7 @@ public class DiskVoteBlocks implements VoteBlocks {
     }
     
     /* Inherit documentation */
+    @Override
     public void release() {
       if (log.isDebug2()) {
 	log.debug2("Release raf: " + m_file);

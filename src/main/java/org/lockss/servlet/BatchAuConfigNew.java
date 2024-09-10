@@ -46,6 +46,7 @@ import org.lockss.servlet.ServletUtil.LinkWithExplanation;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
+import static org.lockss.servlet.BatchAuConfig.MIGRATION_WARNING;
 import org.mortbay.html.*;
 
 /** Create and update AU configuration.
@@ -294,6 +295,7 @@ public class BatchAuConfigNew extends LockssServlet {
   private void displayMenu() throws IOException {
     Page page = newPage();
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     ServletUtil.layoutMenu(page, getMenuDescriptors());
     endPage(page);
   }
@@ -306,6 +308,7 @@ public class BatchAuConfigNew extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
 
     // Prepare sets
     Collection titleSets = pluginMgr.getTitleSets();
@@ -393,6 +396,7 @@ public class BatchAuConfigNew extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
 
     // Explanation block
     String expl;
@@ -583,6 +587,7 @@ public class BatchAuConfigNew extends LockssServlet {
     Page page = newPage();
     addJavaScript(page);
     layoutErrorBlock(page);
+    addMigrationWarning(page, MIGRATION_WARNING);
     MutableInt buttonNumber = new MutableInt(submitButtonNumber);
     ServletUtil.layoutRestore(this, page, ACTION_TAG, KEY_VERB,
         VERB_RESTORE, "AuConfigBackupContents", buttonNumber,

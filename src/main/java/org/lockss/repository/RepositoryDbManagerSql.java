@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.repository;
 
-import org.lockss.db.DbManagerSql;
+import org.lockss.db.*;
 import org.lockss.log.L4JLogger;
 
 import javax.sql.DataSource;
@@ -91,9 +91,9 @@ public class RepositoryDbManagerSql extends DbManagerSql {
    *                            retries.
    * @param fetchSize           An int with the SQL statement fetch size.
    */
-  protected RepositoryDbManagerSql(DataSource dataSource, String dataSourceClassName,
+  protected RepositoryDbManagerSql(DbManager dbMgr, DataSource dataSource, String dataSourceClassName,
                                    String dataSourceUser, int maxRetryCount, long retryDelay, int fetchSize) {
-    super(dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
+    super(dbMgr, dataSource, dataSourceClassName, dataSourceUser, maxRetryCount,
         retryDelay, fetchSize);
   }
 

@@ -28,28 +28,36 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
-import java.io.*;
-import java.util.*;
-import javax.jms.*;
-import org.junit.*;
-import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.ActiveMQConnectionFactory;
-
-import org.lockss.app.*;
-import org.lockss.daemon.Crawler;
-import org.lockss.plugin.*;
-import org.lockss.poller.v3.V3Poller;
-import org.lockss.poller.v3.V3Poller.PollVariant;
-import org.lockss.protocol.*;
-import static org.lockss.protocol.AgreementType.*;
-import org.lockss.test.*;
-import org.lockss.log.*;
-import org.lockss.jms.*;
-import org.lockss.util.*;
-import org.lockss.util.jms.*;
-import org.lockss.util.io.LockssSerializable;
-import org.lockss.util.time.TimerUtil;
+import org.apache.activemq.broker.BrokerService;
+import org.junit.AfterClass;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.lockss.account.BasicUserAccount;
+import org.lockss.account.UserAccount;
+import org.lockss.jms.JMSManager;
+import org.lockss.log.L4JLogger;
+import org.lockss.plugin.AuUtil;
+import org.lockss.protocol.AuAgreements;
+import org.lockss.protocol.PeerIdentity;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
+import org.lockss.test.MockPlugin;
+import org.lockss.test.SimpleBinarySemaphore;
+import org.lockss.util.MapUtil;
+import org.lockss.util.SetUtil;
+import org.lockss.util.jms.JmsProducer;
+import org.lockss.util.time.TimerUtil;
+
+import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
+import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
+
+import static org.lockss.protocol.AgreementType.POP;
+import static org.lockss.protocol.AgreementType.POR;
 
 public class TestClientStateManager extends StateTestCase {
   L4JLogger log = L4JLogger.getLogger();
@@ -60,6 +68,7 @@ public class TestClientStateManager extends StateTestCase {
 
   MockPlugin mplug;
   JmsProducer prod;
+  Connection conn;
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
@@ -89,9 +98,17 @@ public class TestClientStateManager extends StateTestCase {
     JMSManager jmsMgr = daemon.getManagerByType(JMSManager.class);
     ConnectionFactory connectionFactory =
       new ActiveMQConnectionFactory(jmsMgr.getConnectUri());
-    Connection conn = connectionFactory.createConnection();
+    conn = connectionFactory.createConnection();
     conn.start();
     prod = jmsMgr.getJmsFactory().createTopicProducer(null, BaseStateManager.DEFAULT_JMS_NOTIFICATION_TOPIC, conn);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    super.tearDown();
+    if (conn != null) {
+      conn.close();
+    }
   }
 
   @Override
@@ -122,6 +139,27 @@ public class TestClientStateManager extends StateTestCase {
     return MapUtil.map("name", "AuSuspectUrlVersions",
 		       "auid", auid,
 		       "json", json);
+  }
+
+  Map<String,Object> userAccountUpdateMap(String username,
+                                          String json,
+                                          String op,
+                                          String cookie) throws IOException {
+
+    Map<String,Object> map = MapUtil.map("name", "UserAccount",
+        "username", username,
+        "userAccountChange", op,
+        "json", json);
+
+    putNotNull(map, "cookie", cookie);
+
+    return map;
+  }
+
+  protected void putNotNull(Map map, String key, String val) {
+    if (val != null) {
+      map.put(key, val);
+    }
   }
 
   @Test
@@ -243,6 +281,75 @@ public class TestClientStateManager extends StateTestCase {
 
   }
 
+  private UserAccount makeUser(String name) {
+    UserAccount acct = new BasicUserAccount.Factory().newUser(name, null);
+    return acct;
+  }
+
+  @Test
+  public void testReceiveUserAccountNotification() throws Exception {
+    SimpleBinarySemaphore sem = new SimpleBinarySemaphore();
+    myStateMgr.setRcvSem(sem);
+
+    UserAccount acct1 = makeUser("User1");
+    UserAccount acct2 = makeUser("User2");
+
+    assertNull(stateMgr.getUserAccount(acct1.getName()));
+    assertNull(stateMgr.getUserAccount(acct2.getName()));
+
+    // Test JMS message handling for store user account event
+    stateMgr.storeUserAccount(acct1);
+    assertFalse(sem.take(TIMEOUT_SHOULD));
+    assertNotNull(stateMgr.getUserAccount(acct1.getName()));
+
+    prod.sendMap(userAccountUpdateMap(acct2.getName(), acct2.toJson(), "ADD", null));
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+    assertNotNull(stateMgr.getUserAccount(acct2.getName()));
+
+    String json1 = "{\"lastLogin\":\"123\"}";
+    String json2 = "{\"lastLogin\":\"456\"}";
+    String cookie = "myCookie";
+    Set<String> fields = SetUtil.set("lastLogin");
+
+    // Test JMS message handling for partial user account update event (without a cookie)
+    assertEquals(0, acct1.getLastLogin());
+    stateMgr.updateUserAccountFromJson(acct1.getName(), json1, null);
+    assertFalse(sem.take(TIMEOUT_SHOULD));
+    assertEquals(123, acct1.getLastLogin());
+
+    prod.sendMap(userAccountUpdateMap(acct1.getName(), json2, "UPDATE", null));
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+    assertEquals(456, acct1.getLastLogin());
+
+    // Test JMS message handling for partial user account update (but it is NOT my update)
+    stateMgr.updateUserAccountFromJson(acct1.getName(), json1, cookie);
+    assertFalse(sem.take(TIMEOUT_SHOULD));
+    assertEquals(123, acct1.getLastLogin());
+
+    prod.sendMap(userAccountUpdateMap(acct1.getName(), json2, "UPDATE", cookie));
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+    assertEquals(456, acct1.getLastLogin());
+
+    // Test JMS message handling for partial user account update (but it IS my update)
+    myStateMgr.recordMyUpdate(cookie, json1);
+
+    stateMgr.updateUserAccountFromJson(acct2.getName(), json1, cookie);
+    assertFalse(sem.take(TIMEOUT_SHOULD));
+    assertNotEquals(123, acct2.getLastLogin());
+
+    prod.sendMap(userAccountUpdateMap(acct2.getName(), json1, "UPDATE", cookie));
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+    assertNotEquals(123, acct2.getLastLogin());
+
+    // Test JMS message handling for delete user account event
+    stateMgr.removeUserAccount(acct1);
+    assertFalse(sem.take(TIMEOUT_SHOULD));
+    assertNull(stateMgr.getUserAccount(acct1.getName()));
+
+    prod.sendMap(userAccountUpdateMap(acct2.getName(), null, "DELETE", null));
+    assertTrue(sem.take(TIMEOUT_SHOULDNT));
+    assertNull(stateMgr.getUserAccount(acct2.getName()));
+  }
 
   static class MyClientStateManager extends ClientStateManager {
     private SimpleBinarySemaphore rcvSem;
@@ -321,6 +428,34 @@ public class TestClientStateManager extends StateTestCase {
       if (rcvSem != null) rcvSem.give();
     }
 
+    // /////////////////////////////////////////////////////////////////
+    // UserAccount
+    // /////////////////////////////////////////////////////////////////
+
+    @Override
+    protected UserAccount doLoadUserAccount(String username) {
+      log.debug2("MyClientStateManager.doLoadUserName");
+      return null;
+    }
+
+    @Override
+    public boolean hasUserAccount(String name) {
+      return false;
+    }
+
+    @Override
+    protected void doStoreUserAccount(String username, UserAccount acct, Set<String> fields) {
+    }
+
+    @Override
+    protected void doRemoveUserAccount(UserAccount acct) {
+    }
+
+    @Override
+    public void doReceiveUserAccountChanged(UserAccount.UserAccountChange op, String username, String json, String cookie) {
+      super.doReceiveUserAccountChanged(op, username, json, cookie);
+      if (rcvSem != null) rcvSem.give();
+    }
   }
 
 }

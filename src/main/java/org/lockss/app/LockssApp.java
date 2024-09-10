@@ -87,7 +87,8 @@ public class LockssApp {
 
   private static final String PREFIX = Configuration.PREFIX + "app.";
 
-  public static final String PARAM_TESTING_MODE = PREFIX + "testingMode";
+  public static final String PARAM_TESTING_MODE = Configuration.PREFIX +
+    "daemon." + "testingMode";
 
   static final String PARAM_IS_LAAWS = PREFIX + "isLaaws";
   static final boolean DEFAULT_IS_LAAWS = false;
@@ -291,7 +292,7 @@ public class LockssApp {
 
   protected LockssApp(AppSpec spec) {
     this();
-    appSpec = spec;
+    setAppSpec(spec);
   }
 
   protected LockssApp(List<String> propUrls) {
@@ -332,6 +333,11 @@ public class LockssApp {
 
   public AppSpec getAppSpec() {
     return appSpec;
+  }
+
+  /** Return true if running as a Spring service */
+  public boolean isSpring() {
+    return appSpec != null && appSpec.getSpringApplicatonContext() != null;
   }
 
   /** Return the LOCKSS user-agent string.

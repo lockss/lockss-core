@@ -29,6 +29,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.state;
 
 
+import org.lockss.account.UserAccount;
 import org.lockss.log.*;
 
 /** PersistentStateManager that also sends JMS state changed notifications */
@@ -76,5 +77,12 @@ public class ServerStateManager extends PersistentStateManager {
     log.debug("Sending NoAuPeerSet changed notification for {}: {}",
 	      key, json);
     sendNoAuPeerSetChangedEvent(key, json, cookie);
+  }
+
+  @Override
+  protected void doNotifyUserAccountChanged(UserAccount.UserAccountChange op, String username, String json,
+                                            String cookie) {
+    log.debug("Sending UserAccount changed notification for {}: {}", username, json);
+    sendUserAccountChangedEvent(username, json, op, cookie);
   }
 }

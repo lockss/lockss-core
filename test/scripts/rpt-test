@@ -35,6 +35,17 @@ while true ; do
       export PATH
       echo JAVA_HOME="$JAVA_HOME"
       shift; continue;;
+    "-11" )
+      if [ -z "$JAVA_11_HOME" ] ; then
+	echo "-11 option requires JAVA_11_HOME to point to 11 install dir"
+	exit 1;
+      fi
+      JAVA_HOME="${JAVA_11_HOME}"
+      export JAVA_HOME
+      PATH="$JAVA_HOME/bin:$PATH"
+      export PATH
+      echo JAVA_HOME="$JAVA_HOME"
+      shift; continue;;
     -* )
       if [ -z "$jvmargs" ] ; then
 	jvmargs="$1"

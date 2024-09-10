@@ -28,7 +28,7 @@
 package org.lockss.subscription;
 
 import static org.lockss.metadata.SqlConstants.*;
-import java.io.IOException;
+import java.io.*;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,6 +68,7 @@ import org.lockss.test.MockArchivalUnit;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.MockPlugin;
 import org.lockss.util.ListUtil;
+import org.lockss.util.PropUtil;
 import org.lockss.util.os.PlatformUtil;
 
 /**
@@ -84,6 +85,7 @@ public class TestSubscriptionManager extends LockssTestCase {
   private SubscriptionManagerSql subManagerSql;
   private DbManager dbManager;
   private MetadataManager metadataManager;
+  RemoteApi remoteApi;
   private MockPlugin plugin;
   private MockLockssDaemon theDaemon = null;
 
@@ -112,7 +114,7 @@ public class TestSubscriptionManager extends LockssTestCase {
     MockIdentityManager idm = new MockIdentityManager();
     theDaemon.setIdentityManager(idm);
 
-    RemoteApi remoteApi = theDaemon.getRemoteApi();
+    remoteApi = theDaemon.getRemoteApi();
     remoteApi.startService();
 
     dbManager = getTestDbManager(tempDirPath);
@@ -1311,8 +1313,7 @@ public class TestSubscriptionManager extends LockssTestCase {
     String auId = tc.getAuId(pluginManager);
 
     // Add the archival unit.
-    BatchAuStatus status =
-	LockssDaemon.getLockssDaemon().getRemoteApi().addByAuId(auId);
+    BatchAuStatus status = remoteApi.addByAuId(auId);
     assertEquals(0, status.getOkCnt());
 
     MockArchivalUnit au = (MockArchivalUnit)pluginManager.getAuFromId(auId);
@@ -1623,6 +1624,7 @@ public class TestSubscriptionManager extends LockssTestCase {
     assertEquals("1954", unsubscribedRanges.get(0).toDisplayableString());
     assertTrue(subManagerSql.hasSubscriptionRanges(conn));
     assertFalse(subManagerSql.hasPublisherSubscriptions(conn));
+    dbManager.safeRollbackAndClose(conn);
   }
 
   private TitleConfig makeTitleConfig(String vol) {
@@ -1730,4 +1732,44 @@ public class TestSubscriptionManager extends LockssTestCase {
     assertEquals("false", config.get(paramPrefix + "pub_down"));
     assertEquals("param4value", config.get(paramPrefix + "param4key"));
   }
+
+  public void testRestoreSubscriptions() throws Exception {
+    Properties props1 =    
+      PropUtil.fromArgs("title", "MyTitle",
+                        "journalTitle", "MyJournalTitle",
+                        "plugin", "org.lockss.plugin.simulated.SimulatedPlugin",
+                        "attributes.publisher", "MyPublisher",
+                        "attributes.year", "1954",
+                        "param.1.key", "root",
+                        "param.1.value", tempDirPath + "/0",
+                        "param.2.key", "base_url",
+                        "param.2.value", "http://www.title3.org/");
+    Properties props2 =    
+      PropUtil.fromArgs("title", "Title II",
+                        "journalTitle", "MyJournalTitle II",
+                        "plugin", "org.lockss.plugin.simulated.SimulatedPlugin",
+                        "attributes.publisher", "MyPublisher II",
+                        "attributes.year", "2004",
+                        "param.1.key", "root",
+                        "param.1.value", tempDirPath + "/2",
+                        "param.2.key", "base_url",
+                        "param.2.value", "http://www.title3.org/");
+
+    Tdb tdb = new Tdb();
+    tdb.addTdbAu(createTdbAu(props1));
+    tdb.addTdbAu(createTdbAu(props2));
+    ConfigurationUtil.setTdb(tdb);
+
+    Connection conn = dbManager.getConnection();
+    assertFalse(subManagerSql.hasSubscriptionRanges(conn));
+    assertFalse(subManagerSql.hasPublisherSubscriptions(conn));
+
+    InputStream backzip = getResourceAsStream("subscription_back.zip", true);
+    remoteApi.processSavedConfigZip(backzip);
+
+    assertTrue(subManagerSql.hasSubscriptionRanges(conn));
+    assertTrue(subManagerSql.hasPublisherSubscriptions(conn));
+    dbManager.safeRollbackAndClose(conn);
+  }
+
 }
