@@ -106,7 +106,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
     index.setLockssRepository(repository);
 
     ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
-    when(repository.getRepositoryStateDir()).thenReturn(getTempDir());
+    when(repository.getRepositoryStateDirPath()).thenReturn(getTempDir().toPath());
     when(repository.getScheduledExecutorService()).thenReturn(ses);
 
     index.init();
@@ -270,7 +270,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 
     repository = mock(BaseLockssRepository.class);
     ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
-    when(repository.getRepositoryStateDir()).thenReturn(getTempDir());
+    when(repository.getRepositoryStateDirPath()).thenReturn(getTempDir().toPath());
     when(repository.getScheduledExecutorService()).thenReturn(ses);
 
     index.setLockssRepository(repository);

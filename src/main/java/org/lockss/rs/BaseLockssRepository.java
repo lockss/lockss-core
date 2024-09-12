@@ -145,10 +145,10 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   /**
    * Getter for the repository state directory.
    *
-   * @return A {@link File} containing the path to the repository state directory.
+   * @return A {@link Path} containing the path to the repository state directory.
    */
-  public File getRepositoryStateDir() {
-    return repoStateDir;
+  public Path getRepositoryStateDirPath() {
+    return repoStateDir.toPath();
   }
 
   /**

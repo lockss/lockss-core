@@ -287,10 +287,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       }
 
       // Path to artifact index state directory
-      Path indexStateDir =
-          ((BaseLockssRepository)repository).getRepositoryStateDir()
-              .toPath()
-              .resolve("index"); // TODO: Parameterize
+      Path indexStateDir = repository.getRepositoryStateDirPath()
+          .resolve("index"); // TODO: Parameterize
 
       // Ensure index state directory exists
       FileUtil.ensureDirExists(indexStateDir.toFile());
@@ -400,9 +398,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * @return A {@link Path} containing the path of the journal.
    */
   private Path getSolrJournalDirectory() {
-    return ((BaseLockssRepository) repository)
-        .getRepositoryStateDir()
-        .toPath()
+    return repository.getRepositoryStateDirPath()
         .resolve("index/solr");
   }
 
