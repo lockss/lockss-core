@@ -69,9 +69,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -170,38 +167,14 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    * @throws IOException
    */
   public void reindexArtifactsIfNeeded() throws IOException {
-    if (repoStateDir == null) {
-      log.warn("Repository state directory has not been set");
-      throw new IllegalStateException("Repository state directory has not been set");
-    }
-
-    // Path to reindex state file
-    Path reindexStatePath = repoStateDir.toPath().resolve("index/reindex");
-    File reindexStateFile = reindexStatePath.toFile();
-
-    if (reindexStateFile.exists()) {
+    if (needsReindex()) {
       log.info("Reindexing artifacts");
 
-      // Reindex artifacts in this data store to the index
-      long start = TimeBase.nowMs();
+      // Reindex artifacts in the data store to index
+      long reindexStart = TimeBase.nowMs();
       store.reindexArtifacts(index);
       log.info("Finished reindex in {}",
-               TimeUtil.timeIntervalToString(TimeBase.msSince(start)));
-
-      // Disable future reindexing by renaming reindex state file if there were no errors
-      // (i.e., successfully processed all WARCs under this base directory). Old reindex
-      // state files are kept to aid debugging / auditing.
-      DateTimeFormatter formatter = DateTimeFormatter.BASIC_ISO_DATE
-          .withZone(ZoneOffset.UTC);
-
-      Path withSuffix = reindexStatePath
-          .resolveSibling(reindexStatePath.getFileName() + "." + formatter.format(Instant.now()));
-
-      // Remove by renaming with the suffix compute above
-      if (!reindexStateFile.renameTo(withSuffix.toFile())) {
-        log.error("Could not remove reindex state file");
-        throw new IllegalStateException("Could not remove reindex state file");
-      }
+               TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
     }
   }
 
@@ -884,5 +857,17 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
   public ArtifactDataStore getArtifactDataStore() {
     return store;
+  }
+
+  /**
+   * Returns a signal indicating whether a reindex should be started or resumed at
+   * repository initialization. Defaults to {@code false}. Override this method to
+   * customize its behavior.
+   *
+   * @return A {@code boolean} indicating whether a reindex is needed. Defaults to
+   * {@code false}.
+   */
+  protected boolean needsReindex() {
+    return false;
   }
 }
