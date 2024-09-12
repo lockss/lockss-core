@@ -285,7 +285,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
 
       log.info("Finished shutdown of data store");
     } else {
-      log.info("Data store is already stopped");
+      log.debug("Data store is already stopped");
     }
   }
 
@@ -1688,8 +1688,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
           WarcFile tmpWarcFile = tmpWarcPool.getWarcFile(tmpWarcPath);
 
           if (tmpWarcFile == null) {
-            log.error(
-                "Too late to commit - artifact's temporary WARC has already been deleted [uuid: {}, warc: {}]",
+            log.error("Too late to commit artifact: Temporary WARC was deleted [uuid: {}, warc: {}]",
                 artifact.getUuid(), tmpWarcPath);
             // TODO : Revisit whether to return null or throw
             return null;
@@ -1697,7 +1696,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
 
           synchronized (tmpWarcFile) {
             if (tmpWarcFile.isMarkedForGC()) {
-              // Fail - too late to commit; we've already committed to GCing this WARC
+              log.error("Too late to commit artifact: Temporary WARC marked for GC [uuid: {}, warc: {}]",
+                  artifact.getUuid(), tmpWarcPath);
               // TODO: Revisit whether to return null or throw
               return null;
             }
