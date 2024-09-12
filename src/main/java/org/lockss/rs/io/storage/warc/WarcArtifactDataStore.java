@@ -1018,7 +1018,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
         // Acquire artifact lock: Operations below alter artifact state
         try (SemaphoreLock lock = lockArtifact(aid)) {
           Artifact artifact = index.getArtifact(aid);
-          WarcArtifactState state = getArtifactState(artifact, isArtifactExpired(record.getHeader()));
+          WarcArtifactState state = getWarcArtifactState(artifact, isArtifactExpired(record.getHeader()));
 
           switch (state) {
             case UNCOMMITTED:
@@ -1143,7 +1143,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
         // Lock artifact
         try (SemaphoreLock lock = lockArtifact(aid)) {
           Artifact indexed = getArtifactIndex().getArtifact(aid);
-          WarcArtifactState state = getArtifactState(indexed, isArtifactExpired(record.getHeader()));
+          WarcArtifactState state = getWarcArtifactState(indexed, isArtifactExpired(record.getHeader()));
 
           switch (state) {
             case NOT_INDEXED:
@@ -1179,7 +1179,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
   /**
    * Returns the {@link WarcArtifactState} of an artifact in this data store. Not thread-safe!
    */
-  protected WarcArtifactState getArtifactState(Artifact artifact, boolean isExpired) throws IOException {
+  protected WarcArtifactState getWarcArtifactState(Artifact artifact, boolean isExpired) throws IOException {
     // ********************************
     // Determine if artifact is deleted
     // ********************************
@@ -1677,9 +1677,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
       // Determine what action to take based on the state of the artifact. Hardwired isExpired
       // parameter to false. The effect is expired artifacts will still be committed.
       Artifact indexed = getArtifactIndex().getArtifact(artifactId);
-      WarcArtifactState state = getArtifactState(indexed, false);
+      WarcArtifactState currentState = getWarcArtifactState(indexed, false);
 
-      switch (state) {
+      switch (currentState) {
         case UNCOMMITTED:
           // Mark the artifact as committed in the index
           getArtifactIndex().commitArtifact(artifact.getUuid());
@@ -1737,8 +1737,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
           return new CompletedFuture<>(indexed);
 
         case DELETED:
-          log.warn("Cannot commit non-existent artifact [uuid: {}, state: {}]",
-              artifact.getUuid(), state.toString());
+          log.warn("Cannot commit deleted artifact [uuid: {}, state: {}]",
+              artifact.getUuid(), currentState.toString());
 
           // No Future to return
           return null;
@@ -1748,7 +1748,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
         case UNKNOWN:
         default:
           log.error("Unexpected artifact state; cannot commit [uuid: {}, state: {}]", artifact.getUuid(),
-              state.toString());
+              currentState.toString());
 
           // No Future to return
           return null;
@@ -2041,7 +2041,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
           state);
 
       //// Update temporary WARC file stats if UNCOMMITTED
-      if (getArtifactState(artifact, false) == WarcArtifactState.UNCOMMITTED) {
+      if (getWarcArtifactState(artifact, false) == WarcArtifactState.UNCOMMITTED) {
         WarcFile tmpWarcFile =
             tmpWarcPool.getWarcFile(getPathFromStorageUrl(new URI(artifact.getStorageUrl())));
 

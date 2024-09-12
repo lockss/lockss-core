@@ -1583,7 +1583,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     Collection<Path> tmpWarcs = reloadedStore.findWarcs(tmpWarcBasePath);
 
     // Determine the current artifact state
-    WarcArtifactState artifactState = reloadedStore.getArtifactState(indexedRef, expire);
+    WarcArtifactState artifactState = reloadedStore.getWarcArtifactState(indexedRef, expire);
 
     log.debug("commit: {}, expire: {}, delete: {}, state: {}", commit, expire, delete, artifactState);
 
@@ -1758,7 +1758,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
       when(header.getHeaderValue(WARCConstants.HEADER_KEY_TYPE)).thenReturn(type.toString());
 
       for (WarcArtifactState state : WarcArtifactState.values()) {
-        when(ds.getArtifactState(ArgumentMatchers.any(Artifact.class), ArgumentMatchers.anyBoolean()))
+        when(ds.getWarcArtifactState(ArgumentMatchers.any(Artifact.class), ArgumentMatchers.anyBoolean()))
           .thenReturn(state);
 
         // Assert expected return based on artifact state
@@ -1784,17 +1784,17 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   // ******************************************************************************************************************
 
   /**
-   * Test for {@link WarcArtifactDataStore#getArtifactState(Artifact, boolean)}.
+   * Test for {@link WarcArtifactDataStore#getWarcArtifactState(Artifact, boolean)}.
    *
    * @throws Exception
    */
   @Test
-  public void testGetArtifactState() throws Exception {
+  public void testGetWarcArtifactState() throws Exception {
     // Do not use provided data store
     teardownDataStore();
 
     for (WarcArtifactState state : WarcArtifactState.values()) {
-      runTestGetArtifactState(state);
+      runTestGetWarcArtifactState(state);
     }
   }
 
@@ -1803,7 +1803,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
    *
    * @throws Exception
    */
-  private void runTestGetArtifactState(WarcArtifactState expectedState) throws Exception {
+  private void runTestGetWarcArtifactState(WarcArtifactState expectedState) throws Exception {
     log.debug("Running test for artifact state: {}", expectedState);
 
     // Configure WARC artifact data store with new volatile index
@@ -1872,7 +1872,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Get artifact state and assert it matches the expected state
     // ***********************************************************
 
-    WarcArtifactState artifactState = store.getArtifactState(artifact, isExpired);
+    WarcArtifactState artifactState = store.getWarcArtifactState(artifact, isExpired);
     assertEquals(expectedState, artifactState);
   }
 
