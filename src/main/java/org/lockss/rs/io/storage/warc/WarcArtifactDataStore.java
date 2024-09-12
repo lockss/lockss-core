@@ -1410,6 +1410,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     log.debug2("Adding artifact [artifactId: {}]", artifactId);
 
     try {
+      // TODO: Determine output WARC file from ad.isCommitted() to allow writing to temporary
+      //  files (as done currently) or writing directly into permanent files
+
       // ********************************
       // Write artifact to temporary WARC
       // ********************************
@@ -1679,9 +1682,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
 
       switch (state) {
         case UNCOMMITTED:
+          // Mark the artifact as committed in the index
           getArtifactIndex().commitArtifact(artifact.getUuid());
 
-          // Update temporary WARC file stats
           Path tmpWarcPath = getPathFromStorageUrl(new URI(indexed.getStorageUrl()));
           WarcFile tmpWarcFile = tmpWarcPool.getWarcFile(tmpWarcPath);
 
@@ -1700,6 +1703,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
               return null;
             }
 
+            // Updates temporary WARC stats
             ArtifactContainerStats tmpWarcStats = tmpWarcFile.getStats();
             tmpWarcStats.decArtifactsUncommitted();
             tmpWarcStats.incArtifactsCommitted();
@@ -2381,6 +2385,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
 
       List<Artifact> batch = new ArrayList<>(1000);
 
+      // Main loop over artifacts of the WARC file
       while (recordIter.hasNext()) {
         long startOffset = reader.getStartOffset();
         WarcRecord record = recordIter.next();
@@ -3261,7 +3266,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     record.setCreate14DigitDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now().atZone(ZoneOffset.UTC)));
     record.setType(WARCRecordType.metadata);
     record.setContentLength(jsonBytes.length);
-    record.setMimetype("application/json"); // FIXME
+    record.setMimetype("application/json");
 
     // Set the WARC-Refers-To field to the WARC-Record-ID of the artifact
     record.addExtraHeader(WARCConstants.HEADER_KEY_REFERS_TO, refersTo);
