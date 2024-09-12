@@ -2163,7 +2163,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
   // * INDEX REBUILD FROM DATA STORE
   // *******************************************************************************************************************
 
-  final static String REINDEX_STATE_FILE = "index/reindex";
+  public final static String REINDEXING_STATE_FILE = "index/reindexing";
+  public final static String REINDEXED_WARCS_STATE_FILE = "index/reindexed-warcs";
 
   /**
    * Rebuilds the provided index from WARCs within this WARC artifact data store.
@@ -2176,69 +2177,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
    */
   @Override
   public void reindexArtifacts(ArtifactIndex index) throws IOException {
-    // Path to reindex state file
-    Path reindexStatePath = repo.getRepositoryStateDir()
-        .toPath()
-        .resolve(REINDEX_STATE_FILE);
-
-    File reindexStateFile = reindexStatePath.toFile();
-
-    // Invoke index rebuild from WARCs in this WARC data store
-    // if the state file exists
-    if (!reindexStateFile.exists()) return;
-
-    log.info("Waiting for artifact index to become ready...");
-    while (!index.isReady()) {
-      try {
-        Thread.sleep(5000);
-      } catch (InterruptedException e) {
-        log.error("Interrupted while waiting for artifact index to become ready");
-        throw new IllegalStateException();
-      }
-    }
-
-    // Enable usage of MapDB for large structures
-    enableRepoDB();
-
-    // Q: Make this multithreaded? Note: Writes to state file would need to be synchronized
-    for (Path basePath : getBasePaths()) {
-      indexArtifactsFromWarcs(index, basePath);
-    }
-
-    // Disable MapDB
-    disableRepoDB();
-  }
-
-  String[] REINDEX_STATE_HEADERS = {"start", "end", "indexed", "warc"};
-
-  /**
-   * Rebuilds an artifact index from WARCs within this WARC artifact data store.
-   *
-   * @param index    The {@link ArtifactIndex} to index artifacts into.
-   * @param basePath {@link Path} containing a data store base path
-   * @throws IOException
-   */
-  protected void indexArtifactsFromWarcs(ArtifactIndex index, Path basePath) throws IOException {
-    if (dataStoreState == DataStoreState.RUNNING) {
-      throw new IllegalStateException("Index rebuild only allowed while the data store is stopped");
-    }
-
-    log.debug("Reindexing WARCs under data store directory [path: {}]", basePath);
-
     // List of WARCs that have already been indexed
     List<Path> indexedWarcs = new ArrayList<>();
 
-    // Path to reindex state file
-    Path reindexStatePath = repo.getRepositoryStateDir()
-        .toPath()
-        .resolve(REINDEX_STATE_FILE);
+    Path reindexedWarcsPath = repo.getRepositoryStateDirPath()
+        .resolve(REINDEXED_WARCS_STATE_FILE);
 
-    File reindexStateFile = reindexStatePath.toFile();
+    File reindexedWarcsFile = reindexedWarcsPath.toFile();
 
-    // Read reindex state file as CSV
-    try (FileReader reader = new FileReader(reindexStateFile)) {
+    // Read set of WARCs have already been reindexed
+    try (FileReader reader = new FileReader(reindexedWarcsFile)) {
       Iterable<CSVRecord> records = CSVFormat.DEFAULT
-          .withHeader(REINDEX_STATE_HEADERS)
+          .withHeader(REINDEXED_WARCS_CSV_HEADER)
           .withSkipHeaderRecord()
           .parse(reader);
 
@@ -2247,108 +2197,61 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
           indexedWarcs.add(Paths.get(record.get("warc"))));
     }
 
-    // Search under data store base path for WARCs
-    Collection<Path> warcPaths = findWarcs(basePath);
+    try (BufferedWriter reindexedWarcsOutputStream =
+             Files.newBufferedWriter(reindexedWarcsPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE)) {
+      try (CSVPrinter printer = new CSVPrinter(reindexedWarcsOutputStream, CSVFormat.DEFAULT
+          .withHeader(REINDEXED_WARCS_CSV_HEADER)
+          .withSkipHeaderRecord(!indexedWarcs.isEmpty()))) {
 
-    // Find WARCs in permanent storage (exclude journal files, temp WARCs, and processed WARCs)
-    Stream<Path> permanentWarcs = warcPaths
-        .stream()
-        .filter(path -> !isTmpStorage(path))
-        .filter(path -> !path.endsWith("lockss-repo" + WARCConstants.DOT_WARC_FILE_EXTENSION))
-        .filter(path -> !path.endsWith(WarcArtifactStateEntry.LOCKSS_JOURNAL_ID + WARCConstants.DOT_WARC_FILE_EXTENSION))
-        .filter(path -> !indexedWarcs.contains(path));
+        for (Path basePath : getBasePaths()) {
+          log.debug("Reindexing WARCs from {}", basePath);
 
-    // Find WARCS in temporary storage
-    Stream<Path> temporaryWarcs = warcPaths
-        .stream()
-        .filter(this::isTmpStorage)
-        .filter(path -> !indexedWarcs.contains(path));
+          // Search under data store base path for WARCs
+          Collection<Path> warcPaths = findWarcs(basePath);
 
-    //// Reindex artifacts
+          // Find WARCs in permanent storage (exclude journal files, temp WARCs, and processed WARCs)
+          Stream<Path> permanentWarcs = warcPaths
+              .stream()
+              .filter(path -> !isTmpStorage(path))
+              .filter(path -> !path.endsWith("lockss-repo" + WARCConstants.DOT_WARC_FILE_EXTENSION))
+              .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
+              .filter(path -> !indexedWarcs.contains(path));
 
-    // Process WARCs in permanent storage before WARCs in temporary storage
-    permanentWarcs.forEach((warcPath) -> {
-          try {
-            // Reindex artifacts in WARC file
-            long start = Instant.now().getEpochSecond();
-            long artifactsIndexed = indexArtifactsFromPermanentWarc(index, warcPath);
-            long end = Instant.now().getEpochSecond();
+          // Find WARCS in temporary storage
+          Stream<Path> temporaryWarcs = warcPaths
+              .stream()
+              .filter(this::isTmpStorage)
+              .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
+              .filter(path -> !indexedWarcs.contains(path));
 
-            // WARC index successful - append record to state file
-            // Open writer to state file in append mode
-            try (BufferedWriter out = Files.newBufferedWriter(
-                reindexStatePath,
-                StandardOpenOption.APPEND,
-                StandardOpenOption.CREATE)) {
+          Stream.concat(permanentWarcs, temporaryWarcs).forEach((warcPath) -> {
+            log.info("Reindexing artifacts from {}", warcPath);
+            try {
+              long start = Instant.now().getEpochSecond();
+              long numIndexed = indexArtifactsFromWarc(index, warcPath);
+              long end = Instant.now().getEpochSecond();
 
-              // Write CSV record
-              try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                  .withHeader(REINDEX_STATE_HEADERS)
-                  .withSkipHeaderRecord(!indexedWarcs.isEmpty()))) {
-
-                printer.printRecord(start, end, artifactsIndexed, warcPath);
-              }
-            } catch (IOException e) {
-              log.warn("Could not append record of having indexed WARC file [warc: {}]", warcPath, e);
-              // Q: Do something else? The worst that will happen if restarted is reindexArtifactsFromWarc will
-              //    be invoked again and iterate over WARC records / artifacts, but it won't index any that are
-              //    already indexed.
-              //    NOTE: The number of artifacts that were indexed may be lower than the number of artifacts in
-              //    the WARC file, if processing of that WARC file was previously interrupted. This does not
-              //    necessarily indicate an error.
+              // Add WARC to set of WARCs succcessfully reindexed
+              indexedWarcs.add(warcPath);
+              printer.printRecord(start, end, numIndexed, warcPath);
+            } catch (Exception e) {
+              log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, e);
             }
-          } catch (Exception e) {
-            log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, e);
-          }
-        });
-
-    // Process WARCs in permanent storage before WARCs in temporary storage
-    temporaryWarcs.forEach((warcPath) -> {
-          try {
-            // Reindex artifacts in WARC file
-            long start = Instant.now().getEpochSecond();
-            long artifactsIndexed = indexArtifactsFromWarc(index, warcPath);
-            long end = Instant.now().getEpochSecond();
-
-            // WARC index successful - append record to state file
-            // Open writer to state file in append mode
-            try (BufferedWriter out = Files.newBufferedWriter(
-                reindexStatePath,
-                StandardOpenOption.APPEND,
-                StandardOpenOption.CREATE)) {
-
-              // Write CSV record
-              try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                  .withHeader(REINDEX_STATE_HEADERS)
-                  .withSkipHeaderRecord(!indexedWarcs.isEmpty()))) {
-
-                printer.printRecord(start, end, artifactsIndexed, warcPath);
-              }
-            } catch (IOException e) {
-              log.warn("Could not append record of having indexed WARC file [warc: {}]", warcPath, e);
-              // Q: Do something else? The worst that will happen if restarted is reindexArtifactsFromWarc will
-              //    be invoked again and iterate over WARC records / artifacts, but it won't index any that are
-              //    already indexed.
-              //    NOTE: The number of artifacts that were indexed may be lower than the number of artifacts in
-              //    the WARC file, if processing of that WARC file was previously interrupted. This does not
-              //    necessarily indicate an error.
-            }
-          } catch (Exception e) {
-            log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, e);
-          }
-        });
-
-      // Paths to journals containing repository state
-      Collection<Path> repositoryStateJournals = warcPaths
-          .stream()
-          .filter(file -> file.endsWith("lockss-repo" + WARCConstants.DOT_WARC_FILE_EXTENSION))
-          .collect(Collectors.toList());
-
-      // Replay repository state journal
-      for (Path journalPath : repositoryStateJournals) {
-        replayArtifactRepositoryStateJournal(index, journalPath);
+          });
+        }
       }
+    }
+
+    // Exit reindexing state
+    Path reindexingStateFile = repo.getRepositoryStateDirPath()
+        .resolve(REINDEXING_STATE_FILE);
+    FileUtil.safeDeleteFile(reindexingStateFile.toFile());
+
+    // TODO: Move redindexed-warcs file somewhere? Generate a report?
   }
+
+  private static String[] REINDEXED_WARCS_CSV_HEADER = {"start", "end", "num_indexed", "warc_file"};
+  private static int BATCH_SIZE = 1000;
   private static String HEADER_KEY_JOURNAL_TYPE = "X-Lockss-Repository-Journal-Type";
   private static final String DOT_METADATA_WARC_FILE_EXTENSION = ".metadata" + DOT_WARC_FILE_EXTENSION;
 
@@ -2361,27 +2264,35 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
    * artifacts contained in the file WARC file if artifacts were previously indexed or were marked as deleted.
    * @throws IOException
    */
-  static int BATCH_SIZE = 1000;
-  public long indexArtifactsFromPermanentWarc(ArtifactIndex index, Path warcFile) throws IOException {
+  public long indexArtifactsFromWarc(ArtifactIndex index, Path warcFile) throws IOException {
+    boolean isWarcInTemp = isTmpStorage(warcFile);
     boolean isCompressed = isCompressedWarcFile(warcFile);
 
     long artifactsIndexed = 0;
 
-    try (InputStream warcStream = getInputStreamAndSeek(warcFile, 0)) {
-      InputStream buf = new BufferedInputStream(warcStream);
+    try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(warcFile, 0))) {
+      // Read WARC's metadata file
+      Map<String, WarcArtifactStateEntry> journal =
+          getJournalForWarc(warcFile, WarcArtifactStateEntry.class);
 
       WarcReader reader = isCompressed ?
-          WarcReaderFactory.getReaderCompressed(buf) :
-          WarcReaderFactory.getReaderUncompressed(buf);
+          WarcReaderFactory.getReaderCompressed(warcStream) :
+          WarcReaderFactory.getReaderUncompressed(warcStream);
 
       Iterator<WarcRecord> recordIter = reader.iterator();
 
-      List<Artifact> batch = new ArrayList<>(1000);
+      List<Artifact> batch = new ArrayList<>(BATCH_SIZE);
 
       // Main loop over artifacts of the WARC file
       while (recordIter.hasNext()) {
         long startOffset = reader.getStartOffset();
         WarcRecord record = recordIter.next();
+
+        long recordLength = recordIter.hasNext() ?
+            reader.getStartOffset() - startOffset :
+            getWarcLength(warcFile) - startOffset; // FIXME: Probably not correct to assume this
+
+        URI storageUrl = makeWarcRecordStorageUrl(warcFile, startOffset, recordLength);
 
         log.debug2("Re-indexing artifact from WARC {} record {} from {}",
             record.getHeader(WARCConstants.HEADER_KEY_TYPE),
@@ -2395,55 +2306,57 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
           // Could happen due to unknown record types
           if (ad == null) continue;
 
-          if (artifactData != null) {
-            // Default artifact repository state
-//            artifactData.setArtifactState(ArtifactState.COPIED);
+          ArtifactIdentifier id = ad.getIdentifier();
+          Artifact indexedArtifact = index.getArtifact(id.getUuid());
 
-            try {
-              // Determine whether this artifact is recorded as deleted in the journal
-              WarcArtifactStateEntry stateEntry = getArtifactStateEntryFromJournal(artifactData.getIdentifier());
+          if (indexedArtifact != null) {
+            log.debug2("Artifact is already indexed [uuid: {}]", id.getUuid());
 
-              // Do not reindex artifact if it is marked as deleted
-              if (stateEntry != null && stateEntry.isDeleted()) {
-                continue;
-              }
-            } catch (IOException e) {
-              log.warn("Could not determine whether the artifact is deleted [uuid: {}]",
-                  artifactData.getIdentifier().getUuid());
+            Path indexedStorageUrlPath =
+                getPathFromStorageUrl(URI.create(indexedArtifact.getStorageUrl()));
+
+            // If this WARC record is from temporary storage, and it's already indexed, we're either
+            // re-reindexing this record or it was indexed from a permanent WARC. In either case, no
+            // update is needed. However, if this WARC record is from a permanent WARC, and it's
+            // already indexed, we must update its storage URL if the storage URL in the index still
+            // references a WARC record in temporary storage:
+            if (!isWarcInTemp && isTmpStorage(indexedStorageUrlPath)) {
+              index.updateStorageUrl(id.getUuid(), storageUrl.toString());
             }
 
-            //// Generate storage URL
-            long recordLength = 0;
-
-            if (!recordIter.hasNext()) {
-              // Use EOF
-              recordLength = getWarcLength(warcFile) - startOffset;
-            } else {
-              recordLength = reader.getStartOffset() - startOffset;
-            }
-
-            URI storageUrl = makeWarcRecordStorageUrl(warcFile, startOffset, recordLength);
-
-            assert storageUrl != null;
-
-            //// Convert ArtifactData to Artifact
-            artifactData.setStorageUrl(storageUrl); // FIXME
-            Artifact artifact = WarcArtifactDataUtil.getArtifact(artifactData);
-//            artifact.setStorageUrl(storageUrl.toString());
-
-            artifact.setCommitted(true);
-
-            //// Add artifacts to the index
-            artifactsIndexed++;
-            batch.add(artifact);
-
-            // Index batch if size equals batch size
-            if (batch.size() == BATCH_SIZE) {
-              index.indexArtifacts(batch);
-              batch.clear();
-            }
+            continue;
           }
 
+          WarcArtifactStateEntry artifactState = journal.get(ad.getIdentifier().getUuid());
+          boolean isTmpWarcAndCopied = isWarcInTemp && (artifactState != null && artifactState.isCopied());
+          boolean isDeleted = artifactState != null && artifactState.isDeleted();
+
+          // Avoid reindexing this artifact if it is deleted or this record is from a temporary
+          // WARC and has been copied to a permanent WARC file (in which case, we should wait
+          // to index the copy). We won't have an opportunity to recover the artifact if the
+          // copy was lost somehow, but I doubt that's a useful feature.
+          if (isDeleted || isTmpWarcAndCopied) {
+            continue;
+          }
+
+          // Construct Artifact to index from its ArtifactData
+          Artifact artifact = WarcArtifactDataUtil.getArtifact(ad);
+          artifact.setStorageUrl(storageUrl.toString());
+
+          // Set artifact committed state if known
+          if (artifactState != null) {
+            artifact.setCommitted(artifactState.isCommitted());
+          }
+
+          // Add to batch of artifacts to index
+          batch.add(artifact);
+
+          // Index artifacts in batch if we've reached the batch size
+          if (batch.size() == BATCH_SIZE) {
+            index.indexArtifacts(batch);
+            artifactsIndexed += BATCH_SIZE;
+            batch.clear();
+          }
         } catch (IOException e) {
           log.error("Could not index artifact from WARC record [WARC-Record-ID: {}, warcFile: {}]",
               record.getHeader(WARCConstants.HEADER_KEY_ID),
@@ -2453,9 +2366,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
         }
       }
 
-      // Index whatever is left in the buffer
-      if (batch.size() > 0) {
+      // Index any remaining artifacts (is a no-op if empty)
+      if (!batch.isEmpty()) {
         index.indexArtifacts(batch);
+        artifactsIndexed += batch.size();
         batch.clear();
       }
     } catch (IOException e) {
