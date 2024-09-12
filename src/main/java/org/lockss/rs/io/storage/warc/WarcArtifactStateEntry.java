@@ -34,7 +34,6 @@ package org.lockss.rs.io.storage.warc;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.util.rest.repo.model.AuJournalEntry;
 import org.lockss.util.time.TimeBase;
 
 import java.util.Objects;
@@ -43,9 +42,7 @@ import java.util.Objects;
  * Encapsulates the LOCKSS repository -specific metadata of an artifact. E.g., whether an artifact is committed.
  */
 @JsonAutoDetect(isGetterVisibility = JsonAutoDetect.Visibility.NONE)
-public class WarcArtifactStateEntry implements AuJournalEntry {
-  public static String LOCKSS_JOURNAL_ID = "artifact_state";
-
+public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
   private String artifactUuid;
   private long entryDate;
   private WarcArtifactState state;
@@ -70,15 +67,6 @@ public class WarcArtifactStateEntry implements AuJournalEntry {
   }
 
   /**
-   * Returns the metadata ID for this class of metadata.
-   *
-   * @return A {@code String} containing the metadata ID.
-   */
-  public static String getJournalId() {
-    return LOCKSS_JOURNAL_ID;
-  }
-
-  /**
    * Returns the artifact ID this metadata belongs to.
    *
    * @return ArtifactData ID
@@ -96,6 +84,11 @@ public class WarcArtifactStateEntry implements AuJournalEntry {
   @Override
   public long getEntryDate() {
     return this.entryDate;
+  }
+
+  @Override
+  public WarcArtifactState getEntry() {
+    return this.state;
   }
 
   /**

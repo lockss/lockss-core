@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -29,28 +29,14 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 */
-
 package org.lockss.rs.io.storage.warc;
 
-import org.lockss.util.rest.repo.model.Artifact;
+import java.util.HashMap;
 
-/**
- * States of {@link Artifact} objects within a {@link WarcArtifactDataStore}.
-  */
-public enum WarcArtifactState {
-  UNKNOWN,
-  NOT_INDEXED,
-  UNCOMMITTED,
-  PENDING_COPY,
-  COPIED,
-  EXPIRED,
-  DELETED;
-
-  public boolean isCommitted() {
-    return this == PENDING_COPY || this == COPIED;
-  }
-
-  public boolean isDeleted() {
-    return this == DELETED;
+public class WarcJournal<T> extends HashMap<String, T> {
+  public static interface WarcJournalEntry<T> {
+      String getArtifactUuid();
+      long getEntryDate();
+      T getEntry();
   }
 }
