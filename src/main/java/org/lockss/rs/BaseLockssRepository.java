@@ -46,8 +46,8 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
-import org.lockss.rs.io.storage.warc.WarcArtifactData;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
+import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
 import org.lockss.rs.io.storage.warc.WarcArtifactStateEntry;
 import org.lockss.util.BuildInfo;
 import org.lockss.util.ByteArray;
@@ -434,7 +434,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             }
 
             // Transform WARC record to ArtifactData
-            ArtifactData ad = WarcArtifactData.fromArchiveRecord(record);
+            ArtifactData ad = WarcArtifactDataUtil.fromArchiveRecord(record);
             assert ad != null;
 
             if (excludePat != null && ad.getHttpStatus() != null)  {

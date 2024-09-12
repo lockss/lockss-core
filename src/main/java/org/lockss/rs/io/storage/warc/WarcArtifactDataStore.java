@@ -1620,8 +1620,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
       WARCRecord warcRecord = new WARCRecord(warcStream, getClass().getSimpleName(), 0L, false, false);
 
       // Convert the WARCRecord object to an ArtifactData
-      // FIXME: Move to ArtifactDataUtil or ArtifactData
-      ArtifactData artifactData = WarcArtifactData.fromArchiveRecord(warcRecord);
+      ArtifactData artifactData = WarcArtifactDataUtil.fromArchiveRecord(warcRecord);
 
       // Save the underlying input stream so that it can be closed when needed.
       artifactData.setClosableInputStream(warcStream);
@@ -2397,7 +2396,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
 
         try {
           // Transform ArchiveRecord to ArtifactData
-          ArtifactData artifactData = WarcArtifactData.fromWarcRecord(record);
+          ArtifactData ad = WarcArtifactDataUtil.fromWarcRecord(record);
+
+          // Could happen due to unknown record types
+          if (ad == null) continue;
 
           if (artifactData != null) {
             // Default artifact repository state
