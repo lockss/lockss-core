@@ -1539,7 +1539,14 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     // Assert one temporary WARC file has been created
     log.trace("tmpWarcBasePath = {}", tmpWarcBasePath);
-    assertEquals(1, store.findWarcs(tmpWarcBasePath).size());
+
+    // Filter out WARC metadata files
+    List<Path> foundTmpWarcs = store.findWarcs(tmpWarcBasePath)
+        .stream()
+        .filter(path -> !path.getFileName().toString().endsWith(".metadata.warc"))
+        .toList();
+
+    assertEquals(1, foundTmpWarcs.size());
 
     log.debug2("Finished commit stage");
 
