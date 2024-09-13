@@ -2023,10 +2023,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
       //// Delete artifact reference from the index
       getArtifactIndex().deleteArtifact(artifact.getUuid());
 
-      //// Mark the artifact as deleted in the artifact state journal
-      WarcArtifactStateEntry state =
-          new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.DELETED);
-
       //// Mark the artifact as deleted in the journal
       writeJournalEntryForArtifact(artifact,
           new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.DELETED));
