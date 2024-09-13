@@ -32,7 +32,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.rs.io.storage.warc;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.IterableUtils;
 import org.apache.commons.collections4.IteratorUtils;
@@ -44,7 +43,6 @@ import org.archive.io.ArchiveRecord;
 import org.archive.io.ArchiveRecordHeader;
 import org.archive.io.warc.WARCRecord;
 import org.archive.io.warc.WARCRecordInfo;
-import org.json.JSONObject;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -62,7 +60,6 @@ import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.lockss.util.rest.repo.model.NamespacedAuid;
 import org.lockss.util.rest.repo.util.ArtifactConstants;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
-import org.lockss.util.rest.repo.util.SemaphoreMap;
 import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.test.VariantTest;
 import org.lockss.util.time.TimeBase;
@@ -2407,9 +2404,6 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   @VariantTest
   @EnumSource(TestRepoScenarios.class)
   public void testDeleteArtifactData() throws Exception {
-    // Enable MapDB for the duration of this test
-    store.enableRepoDB();
-
     // Attempt to delete with a null artifact; assert we get back an IllegalArgumentException
     assertThrows(IllegalArgumentException.class, () -> store.deleteArtifactData(null));
 
@@ -2471,9 +2465,6 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Verify that the repository metadata journal and index reflect the artifact is deleted
     assertTrue(store.isArtifactDeleted(spec.getArtifactIdentifier()));
     assertNull(store.getArtifactIndex().getArtifact(artifact.getUuid()));
-
-    // Disable MapDB
-    store.disableRepoDB();
   }
 
   /**
@@ -2667,12 +2658,8 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
       // Assert set of artifacts is the same in all AUs
       for (String auid : auids1) {
-        List<Artifact> artifacts1 =
-            IteratorUtils.toList(expected.getArtifacts(ns, auid, true).iterator());
-
-        List<Artifact> artifacts2 =
-            IteratorUtils.toList(actual.getArtifacts(ns, auid, true).iterator());
-
+        Iterable<Artifact> artifacts1 = expected.getArtifacts(ns, auid, true);
+        Iterable<Artifact> artifacts2 = actual.getArtifacts(ns, auid, true);
         assertIterableEquals(artifacts1, artifacts2);
       }
     }
