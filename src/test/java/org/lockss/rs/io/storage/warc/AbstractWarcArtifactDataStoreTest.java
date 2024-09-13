@@ -2512,19 +2512,18 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   // *******************************************************************************************************************
 
   /**
-   * Test for {@link WarcArtifactDataStore#indexArtifactsFromWarcs(ArtifactIndex, Path)}.
-   * @throws Exception
+   * Test for {@link WarcArtifactDataStore#reindexArtifacts(ArtifactIndex)}.
    */
   @Test
-  public void testRebuildIndex() throws Exception {
-    runTestRebuildIndex(true, index -> {
+  public void testReindexArtifacts() throws Exception {
+    runTestReindexArtifacts(true, index -> {
       // Add first artifact to the repository - don't commit
       ArtifactData ad1 = generateTestArtifactData(NS1, AUID1, "uri1", 1, 1024);
       Artifact a1 = store.addArtifactData(ad1);
       assertNotNull(a1);
     });
 
-    runTestRebuildIndex(true, index -> {
+    runTestReindexArtifacts(true, index -> {
       // Add first artifact to the repository - don't commit
       ArtifactData ad1 = generateTestArtifactData(NS1, AUID1, "uri1", 1, 1024);
       Artifact a1 = store.addArtifactData(ad1);
@@ -2603,7 +2602,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         throws IOException, InterruptedException, ExecutionException, TimeoutException;
   }
 
-  public void runTestRebuildIndex(boolean useCompression, Scenario scenario) throws Exception {
+  public void runTestReindexArtifacts(boolean useCompression, Scenario scenario) throws Exception {
     // Don't use provided data store, which provides an volatile index set
     teardownDataStore();
 
@@ -2620,12 +2619,12 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Setup mock BaseLockssRepository to pass repository state directory
     File repoStateDir = getTempDir();
     BaseLockssRepository repo = mock(BaseLockssRepository.class);
-    when(repo.getRepositoryStateDir()).thenReturn(repoStateDir);
+    when(repo.getRepositoryStateDirPath()).thenReturn(repoStateDir.toPath());
 
     // Touch reindex state file
     Path indexStateDir = repoStateDir.toPath().resolve("index");
     indexStateDir.toFile().mkdir();
-    indexStateDir.resolve("reindex").toFile().createNewFile();
+    indexStateDir.resolve("reindexed-warcs").toFile().createNewFile();
 
     // Setup scenario
     scenario.setup(index1);
@@ -2633,7 +2632,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Shutdown the data store
     store.stop();
 
-    log.info("Rebuilding index");
+    log.debug("Starting test reindex");
 
     //// Reindex into new artifact index
     store = makeWarcArtifactDataStore(index2, store);
