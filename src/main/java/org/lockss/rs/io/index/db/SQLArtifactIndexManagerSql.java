@@ -1004,7 +1004,7 @@ public class SQLArtifactIndexManagerSql {
    *
    * @param idxDbManager A SQLArtifactIndexDbManager with the database manager.
    */
-  public SQLArtifactIndexManagerSql(SQLArtifactIndexDbManager idxDbManager) throws DbException {
+  public SQLArtifactIndexManagerSql(SQLArtifactIndexDbManager idxDbManager) {
     this.idxDbManager = idxDbManager;
   }
 

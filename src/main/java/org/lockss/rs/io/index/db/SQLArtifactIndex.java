@@ -63,16 +63,21 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   private Map<String, CompletableFuture<AuSize>> auSizeFutures =
       new ConcurrentHashMap<>();
+
   private Map<String, Boolean> invalidatedAuSizes =
       Collections.synchronizedMap(new LRUMap<>(100));
 
+  public SQLArtifactIndex() {
+      this(new SQLArtifactIndexManagerSql(LockssApp.getManagerByTypeStatic(SQLArtifactIndexDbManager.class)));
+  }
+
+  public SQLArtifactIndex(SQLArtifactIndexManagerSql idxdb) {
+    this.idxdb = idxdb;
+  }
+
   @Override
   public void init() {
-    try {
-      idxdb = new SQLArtifactIndexManagerSql(LockssApp.getManagerByTypeStatic(SQLArtifactIndexDbManager.class));
-    } catch (DbException e) {
-      throw new IllegalStateException("No database", e);
-    }
+    // Intentionally left blank
   }
 
   @Override
