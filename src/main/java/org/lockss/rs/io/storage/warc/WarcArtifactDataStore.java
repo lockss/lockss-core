@@ -660,18 +660,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
   }
 
   /**
-   * Returns the path of a journal of an AU on the given base path.
-   *
-   * @param basePath    A {@link Path} containing a repository base path.
-   * @param journalName A {@link String} containing the name of the journal.
-   * @return A {@link Path} containing the path to the journal.
-   */
-  protected Path getAuJournalPath(Path basePath, String namespace, String auid, String journalName) {
-    validateNamespace(namespace);
-    return getAuPath(basePath, namespace, auid).resolve(journalName + WARCConstants.DOT_WARC_FILE_EXTENSION);
-  }
-
-  /**
    * Returns the preferred WARC file extension based on whether compression is in use.
    *
    * @return A {@link String} containing the preferred file extension.
@@ -691,19 +679,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
   public boolean isCompressedWarcFile(Path warcFile) {
     return warcFile.getFileName().toString()
         .endsWith(WARCReaderFactory.DOT_COMPRESSED_WARC_FILE_EXTENSION);
-  }
-
-  /**
-   * Returns the path to a journal of an AU across all the configured data store base paths.
-   *
-   * @param journalName A {@link String} containing the name of the journal.
-   * @return A {@link Path[]} containing the paths to the journal on across all the configured data store base paths.
-   */
-  protected Path[] getAuJournalPaths(String namespace, String auid, String journalName) throws IOException {
-    validateNamespace(namespace);
-    return getAuPaths(namespace, auid).stream()
-        .map(auPath -> auPath.resolve(journalName + WARCConstants.DOT_WARC_FILE_EXTENSION))
-        .toArray(Path[]::new);
   }
 
   // *******************************************************************************************************************
