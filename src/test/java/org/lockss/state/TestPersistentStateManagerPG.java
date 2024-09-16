@@ -33,7 +33,6 @@ package org.lockss.state;
 
 import java.io.*;
 import java.util.*;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.mockito.Mockito;
 import org.junit.Before;
 import org.junit.Test;
@@ -107,7 +106,7 @@ public class TestPersistentStateManagerPG extends StateTestCase {
     ausb2.setAuCreationTime(123454);
 //     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org"));
     ausb2.setCdnStems(ListUtil.list("http://abc.com", "https://xyz.org" +
-                                    RandomStringUtils.randomAlphabetic(20000)));
+                                    RandomUtil.randomAlphabetic(20000)));
     ausb2.setMetadataExtractionEnabled(false);
     String json2 = ausb2.toJson();
     log.debug("ausb2 json len: {}", json2.length());

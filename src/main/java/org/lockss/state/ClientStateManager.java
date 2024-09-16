@@ -38,6 +38,7 @@ import org.lockss.log.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.protocol.*;
+import org.lockss.util.*;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
 
@@ -49,8 +50,7 @@ public class ClientStateManager extends CachingStateManager {
   protected static L4JLogger log = L4JLogger.getLogger();
 
   // Unique client identifier
-  private String cliendId =
-    org.apache.commons.lang3.RandomStringUtils.randomAlphabetic(8);
+  private String cliendId = RandomUtil.randomAlphabetic(8);
 
   // Request counter
   private long reqId = 0;
