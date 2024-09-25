@@ -37,6 +37,7 @@ import org.lockss.app.LockssApp;
 import org.lockss.db.DbException;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
+import org.lockss.rs.io.index.ArtifactIndexVersion;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.SemaphoreMap;
@@ -54,6 +55,13 @@ import java.util.concurrent.Future;
 
 public class SQLArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
+  public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+    return new ArtifactIndexVersion()
+        .setIndexType(SQLArtifactIndex.class.getSimpleName())
+        .setIndexVersion(1);
+  }
 
   public static String ARTIFACT_INDEX_TYPE = "SQL";
 

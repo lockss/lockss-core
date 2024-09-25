@@ -59,6 +59,7 @@ import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.rs.io.index.ArtifactIndexVersion;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
@@ -80,7 +81,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -92,6 +92,13 @@ import java.util.stream.StreamSupport;
  */
 public class SolrArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
+  public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+    return new ArtifactIndexVersion()
+        .setIndexType(SolrArtifactIndex.class.getSimpleName())
+        .setIndexVersion(1);
+  }
 
   private final static String DEFAULT_COLLECTION_NAME = "lockss-repo";
   public final static long DEFAULT_SOLR_HARDCOMMIT_INTERVAL = 15000;

@@ -49,6 +49,13 @@ import org.lockss.log.L4JLogger;
 public class LocalArtifactIndex extends VolatileArtifactIndex {
     private final static L4JLogger log = L4JLogger.getLogger();
 
+    @Override
+    public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+        return new ArtifactIndexVersion()
+            .setIndexType(LocalArtifactIndex.class.getSimpleName())
+            .setIndexVersion(1);
+    }
+
     /** Label to describe type of LocalArtifactIndex */
     public static String ARTIFACT_INDEX_TYPE = "Java-persist";
 

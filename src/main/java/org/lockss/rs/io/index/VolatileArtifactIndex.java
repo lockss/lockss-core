@@ -56,6 +56,13 @@ import java.util.stream.Stream;
 public class VolatileArtifactIndex extends AbstractArtifactIndex {
     private final static L4JLogger log = L4JLogger.getLogger();
 
+    @Override
+    public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+      return new ArtifactIndexVersion()
+          .setIndexType(VolatileArtifactIndex.class.getSimpleName())
+          .setIndexVersion(1);
+    }
+
     /** Label to describe type of VolatileArtifactIndex */
     public static String ARTIFACT_INDEX_TYPE = "In-memory";
 
