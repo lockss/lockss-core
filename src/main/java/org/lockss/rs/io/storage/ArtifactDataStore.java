@@ -64,6 +64,10 @@ import java.util.concurrent.TimeoutException;
 public interface ArtifactDataStore<ID extends ArtifactIdentifier, AD extends ArtifactData, MD extends WarcArtifactStateEntry>
     extends LockssRepositorySubsystem, StorageInfoSource, Ready {
 
+    default ArtifactDataStoreVersion getDataStoreTargetVersion() {
+        return ArtifactDataStoreVersion.UNKNOWN;
+    }
+
     /**
      * Initializes a namespace storage structure in an artifact data store implementation.
      *

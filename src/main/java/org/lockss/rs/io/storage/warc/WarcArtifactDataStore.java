@@ -64,6 +64,7 @@ import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.ArtifactContainerStats;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
+import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
 import org.lockss.util.CloseCallbackInputStream;
 import org.lockss.util.Constants;
 import org.lockss.util.concurrent.stripedexecutor.StripedCallable;
@@ -119,6 +120,13 @@ import java.util.zip.ZipException;
 public abstract class WarcArtifactDataStore implements ArtifactDataStore<ArtifactIdentifier, ArtifactData, WarcArtifactStateEntry>, WARCConstants {
 
   private final static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
+  public ArtifactDataStoreVersion getDataStoreTargetVersion() {
+    return new ArtifactDataStoreVersion()
+        .setDatastoreType(this.getClass().getSimpleName())
+        .setDatastoreVersion(1);
+  }
 
   // DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS") does not parse in Java 8: https://bugs.openjdk.java.net/browse/JDK-8031085
   protected static final DateTimeFormatter FMT_TIMESTAMP =
