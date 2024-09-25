@@ -434,9 +434,15 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
     long DEFAULT_WAITREADY = 5000;
 
-    @Override
     default void waitReady(Deadline deadline) throws TimeoutException {
         final L4JLogger log = L4JLogger.getLogger();
+
+        // Throw immediately if the deadline is expired:
+        // (Proceeding and possibly signaling that the index is ready now,
+        // after the deadline, would be incorrect.)
+        if (deadline.expired()) {
+            throw new TimeoutException("Deadline for artifact index to become ready expired");
+        }
 
         while (!isReady()) {
             if (deadline.expired()) {
