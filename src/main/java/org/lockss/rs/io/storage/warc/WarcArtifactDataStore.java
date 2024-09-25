@@ -56,6 +56,7 @@ import org.archive.io.warc.WARCRecord;
 import org.archive.io.warc.WARCRecordInfo;
 import org.archive.util.anvl.Element;
 import org.archive.util.zip.GZIPMembersInputStream;
+import org.jwat.common.HeaderLine;
 import org.jwat.warc.WarcReader;
 import org.jwat.warc.WarcReaderFactory;
 import org.jwat.warc.WarcRecord;
@@ -2360,7 +2361,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     return artifactsIndexed;
   }
 
-  private <T> void writeJournalEntryForArtifact(Artifact artifact, T journalEntry) throws IOException {
+  // *******************************************************************************************************************
+  // * JOURNAL OPERATIONS
+  // *******************************************************************************************************************
+
+  protected <T> void writeJournalEntryForArtifact(Artifact artifact, T journalEntry) throws IOException {
     Path journalFile = getJournalPath(getPathFromStorageUrl(URI.create(artifact.getStorageUrl())));
     ArchivalUnitStem auStem = new ArchivalUnitStem(artifact.getNamespace(), artifact.getAuid());
 
@@ -2370,7 +2375,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
 
       // Create and append a WARC metadata record to the journal
       try (OutputStream output = initWarcAndGetAppendableOutputStream(journalFile)) {
-        WARCRecordInfo journalRecord = createWarcMetadataRecord(artifact.getUuid(), journalEntry);
+        WARCRecordInfo journalRecord = createJsonWarcMetadataRecord(artifact.getUuid(), journalEntry);
         writeWarcRecord(journalRecord, output);
       }
     } catch (InterruptedException e) {
@@ -2380,8 +2385,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     }
   }
 
-  private <T> Map<String, T> getJournalForWarc(Path warcFile, Class<T> journalEntryClass) throws IOException {
+  /**
+   * Builds a map from artifact ID to the latest entry for the requested type. If the map
+   * does not contain an entry for an artifact ID, no entries of that type were present
+   * in the journal.
+   */
+  @Deprecated
+  protected <T> Map<String, T> getJournalForWarc(Path warcFile, Class<T> journalEntryClass) throws IOException {
     Path journalFile = getJournalPath(warcFile);
+    return readJournalFromWarc(journalFile, journalEntryClass);
+  }
+
+  protected <T> Map<String, T> readJournalFromWarc(Path journalFile, Class<T> journalEntryClass) throws IOException {
     String journalType = journalEntryClass.getSimpleName();
     Map<String, T> result = new HashMap<>();
 
@@ -2416,20 +2431,20 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
     return result;
   }
 
-  private Path getJournalPath(Path warcFile) {
+  public static Path getJournalPath(Path warcFile) {
     String warcFileName = warcFile.getFileName().toString();
     // String journalFileName = FileUtil.getButExtension(warcFileName) + ".metadata.warc";
-    int index = Math.max(warcFileName.indexOf('.'), warcFileName.length());
-    String journalFileName = warcFileName.substring(0, index) +
-        DOT_METADATA_WARC_FILE_EXTENSION;
-    return warcFile.getParent().resolve(journalFileName);
+
+    int index = warcFileName.indexOf('.');
+    String journalFileName = index < 0 ?
+        warcFileName + DOT_METADATA_WARC_FILE_EXTENSION :
+        warcFileName.substring(0, index) + DOT_METADATA_WARC_FILE_EXTENSION;
+
+    return warcFile.resolveSibling(journalFileName);
   }
 
-  // *******************************************************************************************************************
-  // * JOURNAL OPERATIONS
-  // *******************************************************************************************************************
-
-  protected SemaphoreMap<ArchivalUnitStem> auLocks = new SemaphoreMap<>();
+  // FIXME: This is used only to protect journal writes - make more granular?
+  private SemaphoreMap<ArchivalUnitStem> auLocks = new SemaphoreMap<>();
 
   // TODO: What is the difference between this and NamespacedAuid?
   private static class ArchivalUnitStem {
@@ -2472,30 +2487,284 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
   /**
    * Truncates a journal by replacing it with only its most recent entry per artifact ID.
    *
+   * This is done by iterating over the artifacts in a WARC file and building a map from
+   * an artifact's ID to that artifact's map of latest journal entries.
+   *
    * @param journalPath A {@link Path} containing the path to the data store journal to truncate.
    * @throws IOException
    */
-  protected void truncateAuJournalFile(Path journalPath) throws IOException {
-    // TODO: Must generalize this so we get the latest entry for all journals in the journal file
+  protected void compactJournalFile(Path journalPath) throws IOException {
+    // FIXME: Move this to constructor
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-//    // Get latest entry per artifact ID
-//    Map<String, WarcArtifactStateEntry> journalEntries =
-//        getJournalForWarc(journalPath, WarcArtifactStateEntry.class);
-//
-//    // Replace the journal with a new file
-//    removeWarc(journalPath); // FIXME
-//    initWarc(journalPath);
-//
-//    // Write journal with only latest entries
-//    try (OutputStream output = getAppendableOutputStream(journalPath)) {
-//      for (Map.Entry<String, WarcArtifactStateEntry> journalEntry : journalEntries.entrySet()) {
-//        WARCRecordInfo metadataRecord =
-//            createWarcMetadataRecord(journalEntry.getKey(), journalEntry.getValue());
-//
-//        // Append WARC metadata record to the new journal
-//        writeWarcRecord(metadataRecord, output);
-//      }
-//    }
+    // Map from an artifact's ID to that artifact's map of (the storage URLs of) the latest journal entries
+    Map<String, Map<String, URI>> journal = new HashMap<>();
+
+    // Build map of storage URLs
+    try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(journalPath, 0))) {
+      WarcReader reader = WarcReaderFactory.getReaderUncompressed(warcStream);
+      Iterator<WarcRecord> recordIter = reader.iterator();
+
+      while (recordIter.hasNext()) {
+        long startOffset = reader.getStartOffset();
+        WarcRecord record = recordIter.next();
+
+        long recordLength = recordIter.hasNext() ?
+            reader.getStartOffset() - startOffset :
+            getWarcLength(journalPath) - startOffset;
+
+        WARCRecordType recordType =
+            WARCRecordType.valueOf(record.getHeader(WARCConstants.HEADER_KEY_TYPE).value);
+
+        switch (recordType) {
+          case metadata:
+            String artifactId = record.getHeader(HEADER_KEY_REFERS_TO).value;
+            String journalType = record.getHeader(HEADER_KEY_JOURNAL_TYPE).value;
+
+            Map<String, URI> latestForType =
+                journal.computeIfAbsent(artifactId, k -> new HashMap<>());
+
+            latestForType.put(journalType,
+                makeWarcRecordStorageUrl(journalPath, startOffset, recordLength));
+
+          default:
+            log.debug2("Skipped unexpected WARC record type: {}", recordType);
+        }
+      }
+
+      List<WarcRecordLocation> latestEntries = new ArrayList<>(journal.size());
+
+      for (String artifactId : journal.keySet()) {
+          Map<String, URI> latestForType = journal.get(artifactId);
+        for (String type : latestForType.keySet()) {
+          WarcRecordLocation loc = WarcRecordLocation.fromStorageUrl(latestForType.get(type));
+          latestEntries.add(loc);
+        }
+      }
+
+      latestEntries.sort(Comparator.comparingLong(WarcRecordLocation::getOffset));
+
+      File tmpFile = FileUtil.createTempFile("journal", null);
+
+      // Output journal to temporary file
+      try (OutputStream tmpOut = new BufferedOutputStream(new FileOutputStream(tmpFile))) {
+        try (InputStream is = getInputStreamAndSeek(journalPath, 0)) {
+          long start = 0;
+
+          for (WarcRecordLocation loc : latestEntries) {
+            if (start < loc.getOffset()) {
+              is.skip(loc.getOffset() - start);
+            }
+
+            long bytesCopied =
+                StreamUtils.copyRange(is, tmpOut, start, loc.getLength() - 1);
+
+            start += bytesCopied;
+          }
+        }
+      }
+
+      // Replace journal file
+      File journalFile = journalPath.toFile();
+
+      if (!journalFile.delete()) {
+        throw new IOException("Error deleting journal file: " + journalFile.getAbsolutePath());
+      };
+
+      FileUtils.moveFile(tmpFile, journalFile);
+    }
+  }
+
+
+
+  protected void createWarcLocalJournals() throws IOException {
+    Map<String, Map<String, List<Path>>> result = new HashMap<>();
+
+    // Build sets of AU directories (for each AU in a namespace)
+    for (Path basePath : getBasePaths()) {
+      File nsBaseDir = basePath.resolve(NAMESPACE_BASE_DIR).toFile();
+
+      if (nsBaseDir.isDirectory()) {
+        File[] nsDirs = nsBaseDir.listFiles((file, s) -> file.isDirectory());
+
+        for (File nsDir : nsDirs) {
+          String ns = nsDir.getName();
+          Map<String, List<Path>> nsAuDirs = result.computeIfAbsent(ns, (k) -> new HashMap<>());
+
+          File[] auDirs = nsDir.listFiles(
+              (file, name) -> file.isDirectory() && name.startsWith(AU_DIR_PREFIX));
+
+          for (File auDir : auDirs) {
+            // Add this AU directory to the AU's list of AU directories
+            String auDirName = auDir.getName();
+            List<Path> auDirPaths = nsAuDirs.computeIfAbsent(auDirName, (k) -> new ArrayList<>());
+            auDirPaths.add(auDir.toPath());
+          }
+        }
+      }
+    }
+
+    Map<Path, List<String>> tmpWarcToArtifactIdsMap =
+        readWarcFileToArtifactIdsMap(List.of(getTmpWarcBasePaths()));
+
+    // Process sets of AU directories at a time
+    for (String ns : result.keySet()) {
+      Map<String, List<Path>> auDirsMap = result.get(ns);
+      for (List<Path> auDirs : auDirsMap.values()) {
+        createWarcLocalJournalsForAU(auDirs, tmpWarcToArtifactIdsMap);
+      }
+    }
+  }
+
+  /**
+   * Reads the WARCs under a set of directories and builds a map from WARC file to set of artifact IDs.
+   */
+  private Map<Path, List<String>> readWarcFileToArtifactIdsMap(List<Path> warcBaseDirs) throws IOException {
+    Map<Path, List<String>> result = new HashMap<>();
+
+    for (Path warcBaseDir : warcBaseDirs) {
+      Collection<Path> warcPaths = findWarcs(warcBaseDir);
+
+      // Find all artifact containing WARCs (exclude journal files):
+      List<Path> warcsContainingArtifacts = warcPaths.stream()
+          .filter(path -> !path.getFileName().startsWith("artifact_state" + getWarcFileExtension()))
+          .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
+          .toList();
+
+      for (Path warcPath : warcsContainingArtifacts) {
+        log.debug("Reading: {}", warcPath);
+        // Build list of journal entries referring to artifacts in this WARC file
+        try (InputStream fin = getInputStreamAndSeek(warcPath, 0)) {
+          WarcReader reader = WarcReaderFactory.getReader(fin);
+          Iterator<WarcRecord> recordIter = reader.iterator();
+
+          // Iterate through the artifacts
+          while (recordIter.hasNext()) {
+            // Get artifact ID from the WARC record header
+            WarcRecord record = recordIter.next();
+            HeaderLine recordId = record.getHeader(WARCConstants.HEADER_KEY_ID);
+            String uuid = WarcArtifactDataUtil.parseWarcRecordIdForUUID(recordId.value);
+
+            result.computeIfAbsent(warcPath, k -> new ArrayList<>()).add(uuid);
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Reads existing "AU-local" journals and moves entries to "WARC-local" journals.
+   */
+  protected void createWarcLocalJournalsForAU(List<Path> auDirs,
+                                              Map<Path, List<String>> tmpWarcToArtifactIdsMap) throws IOException {
+
+    // We cannot use a map of storage URLs here (as in truncateJournal()) because we
+    // need to know the entryDate to merge across multiple journal files.
+    // FIXME: This map could grow very large for an AU with lots of artifacts
+    Map<String, WarcArtifactStateEntry> auJournal = new HashMap<>();
+    List<Path> auJournalFiles = new ArrayList<>();
+
+    // Read and merge journals of this AU into one large map
+    for (Path auDir : auDirs) {
+      // FIXME: Compressed journal support
+      Path auJournalFile = auDir.resolve("artifact_state" + DOT_WARC_FILE_EXTENSION);
+
+      log.debug2("auJournalFile = {}", auJournalFile);
+
+      try {
+        // We only expect to read WarcArtifactStateEntry objects from the AU journal file
+        // Note: We cannot use readJournalFromWarc(auJournalFile, WarcArtifactStateEntry.class)
+        // here because that method expects the X-Lockss-Repository-Journal-Type header
+        Map<String, WarcArtifactStateEntry> journalEntries = new HashMap<>();
+        try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(auJournalFile, 0))) {
+          WarcReader warcReader = WarcReaderFactory.getReaderUncompressed(warcStream);
+          Iterator<WarcRecord> recordIterator = warcReader.iterator();
+
+          while (recordIterator.hasNext()) {
+            WarcRecord record = recordIterator.next();
+            WARCRecordType recordType =
+                WARCRecordType.valueOf(record.getHeader(WARCConstants.HEADER_KEY_TYPE).value);
+
+            switch (recordType) {
+              case metadata:
+                WarcArtifactStateEntry journalEntry =
+                    mapper.readValue(record.getPayloadContent(), WarcArtifactStateEntry.class);
+                String artifactId = record.getHeader(HEADER_KEY_REFERS_TO).value;
+                journalEntries.put(artifactId, journalEntry);
+              default:
+                log.debug2("Skipped unexpected WARC record type: {}", recordType);
+            }
+          }
+        }
+
+        // Merge the journal entries into the result
+        for (WarcArtifactStateEntry entry : journalEntries.values()) {
+          WarcArtifactStateEntry existingEntry = auJournal.get(entry.getArtifactUuid());
+          if (existingEntry == null || existingEntry.getEntryDate() < entry.getEntryDate()) {
+            auJournal.put(entry.getArtifactUuid(), entry);
+          } else if (existingEntry.getEntryDate() == entry.getEntryDate()) {
+            // Property entryDate has ms precision so on a fast enough machine, we may have written
+            // updates with the same entryDate. Check state machine order (the default enum ordinal
+            // happens to work here):
+            if (existingEntry.getArtifactState().compareTo(entry.getArtifactState()) < 0) {
+              auJournal.put(entry.getArtifactUuid(), entry);
+            }
+          }
+        }
+
+        // Keep track of the AU journal files, so we can remove them later:
+        auJournalFiles.add(auJournalFile);
+      } catch (FileNotFoundException e) {
+        // Not all AU directories will have a journal file. That's normal, but
+        // log in case we were expecting one but the journal was lost somehow:
+        log.debug2("auJournalFile.exists() = false");
+      }
+    }
+
+    log.debug2("auJournal.size() = {}", auJournal.size());
+    log.debug2("auJournalFiles.size() = {}", auJournalFiles.size());
+
+    if (!auJournal.isEmpty()) {
+      // Update permanent WARC journals for WARCs in this AU
+      Map<Path, List<String>> permWarcToArtifactIdsMap = readWarcFileToArtifactIdsMap(auDirs);
+      writeJournalEntriesToWarcJournalFiles(permWarcToArtifactIdsMap, auJournal);
+
+      // Update temporary WARC journals
+      writeJournalEntriesToWarcJournalFiles(tmpWarcToArtifactIdsMap, auJournal);
+    }
+
+    // Clean-up old journal files
+    for (Path oldJournalFile : auJournalFiles) {
+      removeWarc(oldJournalFile);
+    }
+  }
+
+  private void writeJournalEntriesToWarcJournalFiles(Map<Path, List<String>> warcFileToArtifactIdsMap,
+                                                     Map<String, WarcArtifactStateEntry> auJournal) throws IOException {
+    for (Path warcFile : warcFileToArtifactIdsMap.keySet()) {
+      // Build a list of entries belonging to this WARC's journal from the AU journal
+      List<WarcArtifactStateEntry> warcJournalEntries = new ArrayList<>();
+      for (String artifactId : warcFileToArtifactIdsMap.get(warcFile)) {
+        if (auJournal.containsKey(artifactId)) {
+          warcJournalEntries.add(auJournal.get(artifactId));
+        }
+      }
+
+      // Write journal if there were entries for any of the artifacts in this WARC
+      if (!warcJournalEntries.isEmpty()) {
+        Path warcJournalFile = getJournalPath(warcFile);
+        try (OutputStream output = initWarcAndGetAppendableOutputStream(warcJournalFile)) {
+          for (WarcArtifactStateEntry entry : warcJournalEntries) {
+            WARCRecordInfo journalRecord =
+                createJsonWarcMetadataRecord(entry.getArtifactUuid(), entry);
+            writeWarcRecord(journalRecord, output);
+          }
+        }
+      }
+    }
   }
 
   // *******************************************************************************************************************
@@ -2797,7 +3066,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
    * @param <T>
    * @throws IOException
    */
-  public static <T> WARCRecordInfo createWarcMetadataRecord(String refersTo, T journalEntry) throws IOException {
+  public static <T> WARCRecordInfo createJsonWarcMetadataRecord(String refersTo, T journalEntry) throws IOException {
     // Create a WARC record object
     WARCRecordInfo record = new WARCRecordInfo();
 

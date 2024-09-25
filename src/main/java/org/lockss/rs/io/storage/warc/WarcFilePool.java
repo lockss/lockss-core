@@ -281,8 +281,9 @@ public class WarcFilePool {
             }
           }
 
-          // Remove WARC file from the data store
+          // Remove WARC file and journal from the data store
           store.removeWarc(warc.getPath());
+          store.removeWarc(getJournalPath(warc.getPath()));
         } catch (IOException e) {
           // Log error and leave to reload
           log.error("Could not remove WARC file " + warc.getPath(), e);
