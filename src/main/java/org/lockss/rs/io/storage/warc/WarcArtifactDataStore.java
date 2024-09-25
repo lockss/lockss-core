@@ -136,7 +136,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected static final String AU_DIR_PREFIX = "au-";
 
-  protected static final String NAMESPACE_DIR = "ns";
+  protected static final String NAMESPACE_BASE_DIR = "ns";
   protected static final String TMP_WARCS_DIR = "tmp/warcs";
 
   protected static final String WARCID_SCHEME = "urn:uuid";
@@ -413,7 +413,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @return A {@link Path} containing the namespaces base path, under the given data store base path.
    */
   public Path getNamespacesBasePath(Path basePath) {
-    return basePath.resolve(NAMESPACE_DIR);
+    return basePath.resolve(NAMESPACE_BASE_DIR);
   }
 
   /**
@@ -2165,14 +2165,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     // Read set of WARCs have already been reindexed
     try (FileReader reader = new FileReader(reindexedWarcsFile)) {
-      Iterable<CSVRecord> records = CSVFormat.DEFAULT
+      Iterable<CSVRecord> csvRecords = CSVFormat.DEFAULT
           .withHeader(REINDEXED_WARCS_CSV_HEADER)
           .withSkipHeaderRecord()
           .parse(reader);
 
       // Add indexed WARC path to list
-      records.forEach(record ->
-          indexedWarcs.add(Paths.get(record.get("warc"))));
+      csvRecords.forEach(record ->
+          indexedWarcs.add(Paths.get(record.get("warc_file")))); // REINDEXED_WARCS_CSV_HEADER[3]
     }
 
     try (BufferedWriter reindexedWarcsOutputStream =

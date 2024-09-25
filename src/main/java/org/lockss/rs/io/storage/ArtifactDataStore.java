@@ -83,14 +83,14 @@ public interface ArtifactDataStore
      * Records an ArtifactData exactly as it has been received but does change its state. In particular, this method
      * will exhaust the ArtifactData's InputStream, computes the length, digest of its stream, and sets a storage URL.
      *
-     * @param artifactData
+     * @param ad
      *          An {@code ArtifactData} to add to this artifact store.
      * @return Returns the {@code ArtifactData} as it is now recorded in this artifact store.
      * @throws NullPointerException
      *          if the given {@link ArtifactData} instance is null
      * @throws IOException
      */
-    Artifact addArtifactData(AD artifactData) throws IOException;
+    Artifact addArtifactData(ArtifactData ad) throws IOException;
 
     /**
      * Retrieves an artifact from this artifact data store.
