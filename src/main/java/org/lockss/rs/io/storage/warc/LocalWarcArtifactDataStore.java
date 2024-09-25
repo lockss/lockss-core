@@ -343,7 +343,7 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
 
   @Override
   public boolean removeWarc(Path filePath) {
-    return filePath.toFile().delete();
+    return filePath == null || FileUtil.safeDeleteFile(filePath.toFile());
   }
 
   /**
