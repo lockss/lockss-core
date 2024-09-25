@@ -117,9 +117,7 @@ import java.util.zip.ZipException;
  * This abstract class aims to capture operations that are common to all {@link ArtifactDataStore} implementations that
  * serialize {@link ArtifactData} as WARC records in a WARC file.
  */
-// TODO Get rid of generics
-public abstract class WarcArtifactDataStore implements ArtifactDataStore<ArtifactIdentifier, ArtifactData, WarcArtifactStateEntry>, WARCConstants {
-
+public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCConstants {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   @Override

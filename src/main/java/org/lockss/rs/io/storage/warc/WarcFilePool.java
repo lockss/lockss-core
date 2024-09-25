@@ -51,6 +51,8 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static org.lockss.rs.io.storage.warc.WarcArtifactDataStore.getJournalPath;
+
 public class WarcFilePool {
   private static final L4JLogger log = L4JLogger.getLogger();
 
