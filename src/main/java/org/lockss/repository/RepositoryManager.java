@@ -109,6 +109,12 @@ public class RepositoryManager
     PREFIX + "artifactCache.maxSize";
   public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
 
+  /** Initial progression of Artifact page sizes to request for an iterator */
+  public static final String PARAM_ARTIFACT_ITER_PAGE_SIZES =
+    PREFIX + "artifactIterator.pageSizes";
+  public static final List<Integer> DEFAULT_ARTIFACT_ITER_PAGE_SIZES =
+    ListUtil.list(10,30,100,500,1000);
+
   public static final String REPOSITORY_CLIENT_PREFIX = PREFIX + "client.";
 
   /** Toggles whether to use the multipart endpoint for artifact data */
@@ -400,6 +406,8 @@ public class RepositoryManager
             servicePassword);
 
         repo.setUseMultipartEndpoint(useMultipartEndpoint);
+        repo.setArtifactIteratorPageSizes(config.getList(PARAM_ARTIFACT_ITER_PAGE_SIZES,
+                                                         DEFAULT_ARTIFACT_ITER_PAGE_SIZES));
 	configureArtifactCache(repo, config);
 	return repo;
       } catch (MalformedURLException e) {
