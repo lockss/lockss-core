@@ -120,6 +120,11 @@ import java.util.zip.ZipException;
 public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCConstants {
   private final static L4JLogger log = L4JLogger.getLogger();
 
+  private final static ObjectMapper mapper = new ObjectMapper()
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+  private static final String DATASTORE_VERSION_FILE = "store/version";
+
   @Override
   public ArtifactDataStoreVersion getDataStoreTargetVersion() {
     return new ArtifactDataStoreVersion()
@@ -182,6 +187,51 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected FutureRecordingStripedExecutorService stripedExecutor;
 
+  public void upgradeDatastoreToVersion(int existingVersion, int targetVersion) throws IOException {
+    log.info("Updating from version " + existingVersion + " to " + targetVersion + "...");
+
+    for (int from = existingVersion; from < targetVersion; from++) {
+      boolean success = false;
+      try {
+        updateDatastoreToVersion(from + 1);
+        success = true;
+      } finally {
+        if (success) {
+          ArtifactDataStoreVersion lastRecordedVersion = new ArtifactDataStoreVersion()
+              .setDatastoreType(this.getClass().getSimpleName())
+              .setDatastoreVersion(from + 1);
+
+          Path versionFilePath = repo.getRepositoryStateDirPath().resolve(DATASTORE_VERSION_FILE);
+          File versionFile = versionFilePath.toFile();
+          recordArtifactDataStoreVersion(versionFile, lastRecordedVersion);
+          log.debug("Database " + lastRecordedVersion.getDatastoreType()
+              + " updated to version " + lastRecordedVersion);
+        }
+        else break;
+      }
+    }
+  }
+
+  private static void recordArtifactDataStoreVersion(File versionFile, ArtifactDataStoreVersion version) throws IOException {
+    FileUtils.touch(versionFile);
+    try (BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(versionFile))) {
+      mapper.writeValue(fos, version);
+    }
+  }
+
+  protected void updateDatastoreToVersion(int targetVersion) {
+    if (targetVersion == 1) {
+      updateDatastoreFrom0To1();
+    }
+  }
+
+  public void updateDatastoreFrom0To1() {
+    try {
+      createWarcLocalJournals();
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to upgrade data store from version 0 to 1", e);
+    }
+  }
 
   public enum DataStoreState {
     INITIALIZED,
@@ -257,6 +307,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public void init() {
     log.debug("Initializing data store");
     setDataStoreState(DataStoreState.INITIALIZED);
+
+    updateDatastoreToVersion(getDataStoreTargetVersion().getDatastoreVersion());
   }
 
   @Override
@@ -2398,17 +2450,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     String journalType = journalEntryClass.getSimpleName();
     Map<String, T> result = new HashMap<>();
 
-    // FIXME: Move this to constructor
-    ObjectMapper mapper = new ObjectMapper();
-    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
     try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(journalFile, 0))) {
       WarcReader warcReader = WarcReaderFactory.getReaderUncompressed(warcStream);
       Iterator<WarcRecord> recordIterator = warcReader.iterator();
 
       while (recordIterator.hasNext()) {
         WarcRecord record = recordIterator.next();
-
         WARCRecordType recordType =
             WARCRecordType.valueOf(record.getHeader(WARCConstants.HEADER_KEY_TYPE).value);
 
@@ -2492,10 +2539,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @throws IOException
    */
   protected void compactJournalFile(Path journalPath) throws IOException {
-    // FIXME: Move this to constructor
-    ObjectMapper mapper = new ObjectMapper();
-    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
     // Map from an artifact's ID to that artifact's map of (the storage URLs of) the latest journal entries
     Map<String, Map<String, URI>> journal = new HashMap<>();
 
@@ -3069,7 +3112,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     WARCRecordInfo record = new WARCRecordInfo();
 
     // Set record content stream
-    ObjectMapper mapper = new ObjectMapper();
     byte[] jsonBytes = mapper.writeValueAsBytes(journalEntry);
     record.setContentStream(new ByteArrayInputStream(jsonBytes));
 
