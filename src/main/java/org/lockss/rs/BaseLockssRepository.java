@@ -53,6 +53,7 @@ import org.lockss.util.BuildInfo;
 import org.lockss.util.ByteArray;
 import org.lockss.util.StreamUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.jms.JmsFactory;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.LockssRepository;
@@ -69,6 +70,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -86,7 +90,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
   private File repoStateDir;
 
-  protected ArtifactDataStore<ArtifactIdentifier, ArtifactData, WarcArtifactStateEntry> store;
+  protected ArtifactDataStore store;
   protected ArtifactIndex index;
   protected JmsFactory jmsFact;
 
@@ -170,11 +174,43 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     if (needsReindex()) {
       log.info("Reindexing artifacts");
 
+      // Enter reindexing state
+      Path reindexingStateFilePath = getRepositoryStateDirPath()
+          .resolve(WarcArtifactDataStore.REINDEXING_STATE_FILE);
+
+      File reindexingStateFile = reindexingStateFilePath.toFile();
+      FileUtils.touch(reindexingStateFile);
+
       // Reindex artifacts in the data store to index
       long reindexStart = TimeBase.nowMs();
       store.reindexArtifacts(index);
       log.info("Finished reindex in {}",
-               TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
+          TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
+
+      // Exit reindexing state
+      FileUtil.safeDeleteFile(reindexingStateFile);
+
+      Path reindexedWarcsFilePath = getRepositoryStateDirPath()
+          .resolve(WarcArtifactDataStore.REINDEXED_WARCS_STATE_FILE);
+
+      // Rename reindexed-warcs file
+      addDateSuffix(reindexedWarcsFilePath);
+    }
+  }
+
+  private static final DateTimeFormatter DATE_SUFFIX =
+      DateTimeFormatter.BASIC_ISO_DATE.withZone(ZoneOffset.UTC);
+
+  /**
+   * Adds a date suffix to a file path.
+   */
+  // Q: Move to FileUtil?
+  private static void addDateSuffix(Path filePath) throws IOException {
+    String withDateSuffix = filePath.getFileName() + "." + DATE_SUFFIX.format(Instant.now());
+    Path withDateSuffixPath = filePath.resolveSibling(withDateSuffix);
+
+    if (!filePath.toFile().renameTo(withDateSuffixPath.toFile())) {
+      throw new IOException("Error renaming file " + filePath + " to " + withDateSuffixPath);
     }
   }
 

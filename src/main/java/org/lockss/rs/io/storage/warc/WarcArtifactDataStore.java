@@ -2225,6 +2225,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // Add indexed WARC path to list
       csvRecords.forEach(record ->
           indexedWarcs.add(Paths.get(record.get("warc_file")))); // REINDEXED_WARCS_CSV_HEADER[3]
+    } catch (FileNotFoundException e) {
+      log.debug("Reindexed WARC files not found; starting new file");
+      FileUtils.touch(reindexedWarcsFile);
     }
 
     try (BufferedWriter reindexedWarcsOutputStream =
@@ -2244,6 +2247,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
               .stream()
               .filter(path -> !isTmpStorage(path))
               .filter(path -> !path.endsWith("lockss-repo" + WARCConstants.DOT_WARC_FILE_EXTENSION))
+              .filter(path -> !path.getFileName().toString().startsWith("artifact_state.warc"))
               .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
               .filter(path -> !indexedWarcs.contains(path));
 
@@ -2264,6 +2268,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
               // Add WARC to set of WARCs succcessfully reindexed
               indexedWarcs.add(warcPath);
               printer.printRecord(start, end, numIndexed, warcPath);
+              printer.flush();
             } catch (Exception e) {
               log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, e);
             }
@@ -2271,13 +2276,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         }
       }
     }
-
-    // Exit reindexing state
-    Path reindexingStateFile = repo.getRepositoryStateDirPath()
-        .resolve(REINDEXING_STATE_FILE);
-    FileUtil.safeDeleteFile(reindexingStateFile.toFile());
-
-    // TODO: Move redindexed-warcs file somewhere? Generate a report?
   }
 
   private static String[] REINDEXED_WARCS_CSV_HEADER = {"start", "end", "num_indexed", "warc_file"};
@@ -2298,7 +2296,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     boolean isWarcInTemp = isTmpStorage(warcFile);
     boolean isCompressed = isCompressedWarcFile(warcFile);
 
-    long artifactsIndexed = 0;
+    int artifactsIndexed = 0;
 
     try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(warcFile, 0))) {
       // Read WARC's metadata file
@@ -2358,14 +2356,20 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           }
 
           WarcArtifactStateEntry artifactState = journal.get(ad.getIdentifier().getUuid());
-          boolean isTmpWarcAndCopied = isWarcInTemp && (artifactState != null && artifactState.isCopied());
+          boolean isCopied = artifactState != null && artifactState.isCopied();
           boolean isDeleted = artifactState != null && artifactState.isDeleted();
+
+          // Q: Override isArtifactExpired()?
+          String dateVal = record.getHeader(WARCConstants.HEADER_KEY_DATE).value;
+          Instant created = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateVal));
+          Instant expiration = created.plus(getUncommittedArtifactExpiration(), ChronoUnit.MILLIS);
+          boolean isExpired = Instant.ofEpochMilli(TimeBase.nowMs()).isAfter(expiration);
 
           // Avoid reindexing this artifact if it is deleted or this record is from a temporary
           // WARC and has been copied to a permanent WARC file (in which case, we should wait
           // to index the copy). We won't have an opportunity to recover the artifact if the
           // copy was lost somehow, but I doubt that's a useful feature.
-          if (isDeleted || isTmpWarcAndCopied) {
+          if (isDeleted || (isWarcInTemp && (isCopied || isExpired))) {
             continue;
           }
 
@@ -2520,7 +2524,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Returns an appendable {@link OutputStream} or initializes the WARC first if a {@link FileNotFoundException}
    * is thrown trying to open it.
    */
-  private OutputStream initWarcAndGetAppendableOutputStream(Path warcPath) throws IOException {
+  protected OutputStream initWarcAndGetAppendableOutputStream(Path warcPath) throws IOException {
     try {
       return getAppendableOutputStream(warcPath);
     } catch (FileNotFoundException e) {
@@ -3218,13 +3222,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     // WARC record mandatory headers
     sb.append(HEADER_KEY_ID).append(COLON_SPACE).append(formatWarcRecordId(record.getRecordId().toString())).append(CRLF);
 //    sb.append(HEADER_KEY_ID).append(COLON_SPACE).append(record.getRecordId().toString()).append(CRLF);
-    sb.append(CONTENT_LENGTH).append(COLON_SPACE).append(record.getContentLength()).append(CRLF);
     sb.append(HEADER_KEY_DATE).append(COLON_SPACE).append(record.getCreate14DigitDate()).append(CRLF);
     sb.append(HEADER_KEY_TYPE).append(COLON_SPACE).append(record.getType()).append(CRLF);
 
     // Optional WARC-Target-URI
     if (!StringUtils.isEmpty(record.getUrl()))
       sb.append(HEADER_KEY_URI).append(COLON_SPACE).append(record.getUrl()).append(CRLF);
+
+    sb.append(CONTENT_LENGTH).append(COLON_SPACE).append(record.getContentLength()).append(CRLF);
 
     // Optional Content-Type of WARC record payload
     if (!StringUtils.isEmpty(record.getMimetype())) {
