@@ -33,7 +33,6 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index;
 
 import org.apache.commons.collections4.IterableUtils;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +46,7 @@ import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
 import org.lockss.rs.io.storage.warc.WarcArtifactState;
 import org.lockss.test.LockssCoreTestCase5;
 import org.lockss.util.ListUtil;
+import org.lockss.util.RandomUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.ArtifactVersions;
@@ -943,11 +943,11 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
   public void testLongUrls() throws Exception {
     // Build successively longer URLs (not really necessary but good for debugging)
     List<String> urls = IntStream.range(1, 14)
-        .mapToObj(i -> RandomStringUtils.randomAlphanumeric((int) Math.pow(2, i)))
+        .mapToObj(i -> RandomUtil.randomAlphanumeric((int) Math.pow(2, i)))
         .collect(Collectors.toList());
 
     // Add URL with maximum length
-    urls.add(RandomStringUtils.randomAlphanumeric(MAXIMUM_URL_LENGTH));
+    urls.add(RandomUtil.randomAlphanumeric(MAXIMUM_URL_LENGTH));
 
     // Create and index artifact specs for each URL
     for (String url : urls) {
@@ -964,7 +964,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
     /*
     try {
       // Create a URL one byte longer than the maximum length
-      String url = RandomStringUtils.randomAscii(MAXIMUM_URL_LENGTH + 1);
+      String url = RandomUtil.randomAscii(MAXIMUM_URL_LENGTH + 1);
 
       // Attempt to index the artifact - should throw
       ArtifactSpec spec = createArtifactSpec("c", "a", url, 1, false);

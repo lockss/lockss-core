@@ -222,6 +222,11 @@ public class LockssTestCase extends TestCase {
     }
     super.setUp();
     disableThreadWatchdog();
+    if (mockDaemon != null) {
+      RandomManager rmgr = new TestingRandomManager();
+      rmgr.initService(mockDaemon);
+      mockDaemon.setRandomManager(rmgr);
+    }
   }
 
   /** Test classes should override this to return true if operations

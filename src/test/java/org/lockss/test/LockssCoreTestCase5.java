@@ -1,9 +1,12 @@
 package org.lockss.test;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.CurrentConfig;
+import org.lockss.daemon.RandomManager;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.util.StringUtil;
@@ -38,6 +41,17 @@ public class LockssCoreTestCase5 extends LockssTestCase5 {
     }
 
     return mockDaemon;
+  }
+
+  /** Always install RandomManager */
+  @BeforeEach
+  public void beforeEachRandom(TestInfo info) throws IOException {
+    MockLockssDaemon mockDaemon = getMockLockssDaemon();
+    if (mockDaemon != null) {
+      RandomManager rmgr = new LockssTestCase4.TestingRandomManager();
+      rmgr.initService(mockDaemon);
+      mockDaemon.setRandomManager(rmgr);
+    }
   }
 
   public String setUpDiskSpace() throws IOException {
