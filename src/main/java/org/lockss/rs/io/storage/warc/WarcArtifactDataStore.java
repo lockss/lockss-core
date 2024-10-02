@@ -226,6 +226,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   public void updateDatastoreFrom0To1() {
+    log.debug("Running upgrade from version 0 to 1");
+
     try {
       createWarcLocalJournals();
     } catch (IOException e) {
@@ -307,8 +309,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public void init() {
     log.debug("Initializing data store");
     setDataStoreState(DataStoreState.INITIALIZED);
-
-    updateDatastoreToVersion(getDataStoreTargetVersion().getDatastoreVersion());
   }
 
   @Override

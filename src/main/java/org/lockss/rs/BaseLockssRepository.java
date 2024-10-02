@@ -221,8 +221,10 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   @Override
   public void initRepository() throws IOException {
     try {
-      log.info("Initializing repository");
+      log.debug("Waiting for LockssApp to become ready");
       LockssDaemon.getLockssDaemon().waitUntilAppRunning();
+
+      log.info("Initializing LOCKSS repository");
 
       // Initialize and start the index
       index.init();
@@ -230,6 +232,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
       // Initialize the data store
       store.init();
+
+      updateDatastoreIfNeeded();
 
       // Re-index artifacts in the data store if needed
       reindexArtifactsIfNeeded();
@@ -239,6 +243,28 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     } catch (InterruptedException e) {
       throw new IllegalStateException("Interrupted while waiting for LOCKSS daemon", e);
     }
+  }
+
+  private void updateDatastoreIfNeeded() throws IOException {
+    ArtifactDataStoreVersion onDiskVersion = getArtifactDataStoreVersion();
+    ArtifactDataStoreVersion targetVersion = store.getDataStoreTargetVersion();
+
+    if (!onDiskVersion.equals(targetVersion)) {
+      if (onDiskVersion == ArtifactDataStoreVersion.UNKNOWN) {
+        log.debug("Initializing data store for the first time");
+        ((WarcArtifactDataStore)store).upgradeDatastoreToVersion(0, targetVersion.getDatastoreVersion());
+      } else if (!onDiskVersion.getDatastoreType().equals(targetVersion.getDatastoreType())) {
+        throw new UnsupportedOperationException("Switching data stores is not supported");
+      } else if (onDiskVersion.getDatastoreVersion() < targetVersion.getDatastoreVersion()) {
+        ((WarcArtifactDataStore) store).upgradeDatastoreToVersion(
+            onDiskVersion.getDatastoreVersion(),
+            targetVersion.getDatastoreVersion());
+      }
+    }
+  }
+
+  protected ArtifactDataStoreVersion getArtifactDataStoreVersion() {
+    return new ArtifactDataStoreVersion();
   }
 
   /**
