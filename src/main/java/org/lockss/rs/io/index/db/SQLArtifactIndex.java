@@ -75,13 +75,11 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   private Map<String, Boolean> invalidatedAuSizes =
       Collections.synchronizedMap(new LRUMap<>(100));
 
-  public SQLArtifactIndex(SQLArtifactIndexManagerSql idxdb) {
-    this.idxdb = idxdb;
-  }
-
   @Override
   public void init() {
-    // Intentionally left blank
+    log.info("Initializing SQLArtifactIndex");
+    idxdb = new SQLArtifactIndexManagerSql(
+        LockssApp.getManagerByTypeStatic(SQLArtifactIndexDbManager.class));
   }
 
   @Override
