@@ -1380,6 +1380,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     thresholdArtifacts = artifacts;
   }
 
+  @Override
   public void setLockssRepository(BaseLockssRepository repository) {
     this.repo = repository;
   }
@@ -1625,7 +1626,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       log.debug2("uuid: {}, storageUrl: {}", artifactUuid, storageUrl);
 
       // Open an InputStream from the WARC file and get the WARC record representing this artifact data
-      warcStream = getInputStreamFromStorageUrl(storageUrl);
+      warcStream = new BufferedInputStream(getInputStreamFromStorageUrl(storageUrl));
 
       // Wrap uncompressed stream in GZIPInputStream if the file is compressed
       if (isCompressedWarcFile(warcFilePath)) {
@@ -2673,14 +2674,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       // Find all artifact containing WARCs (exclude journal files):
       List<Path> warcsContainingArtifacts = warcPaths.stream()
-          .filter(path -> !path.getFileName().startsWith("artifact_state" + getWarcFileExtension()))
+          .filter(path -> !path.getFileName().startsWith("artifact_state" + DOT_WARC_FILE_EXTENSION))
           .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
           .toList();
 
       for (Path warcPath : warcsContainingArtifacts) {
         log.debug("Reading: {}", warcPath);
         // Build list of journal entries referring to artifacts in this WARC file
-        try (InputStream fin = getInputStreamAndSeek(warcPath, 0)) {
+        try (InputStream fin = new BufferedInputStream(getInputStreamAndSeek(warcPath, 0))) {
           WarcReader reader = WarcReaderFactory.getReader(fin);
           Iterator<WarcRecord> recordIter = reader.iterator();
 
