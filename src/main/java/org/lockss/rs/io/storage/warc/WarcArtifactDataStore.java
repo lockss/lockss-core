@@ -204,7 +204,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           Path versionFilePath = repo.getRepositoryStateDirPath().resolve(DATASTORE_VERSION_FILE);
           File versionFile = versionFilePath.toFile();
           recordArtifactDataStoreVersion(versionFile, lastRecordedVersion);
-          log.debug("Database " + lastRecordedVersion.getDatastoreType()
+          log.debug("Datastore " + lastRecordedVersion.getDatastoreType()
               + " updated to version " + lastRecordedVersion);
         }
         else break;
@@ -2231,6 +2231,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       FileUtils.touch(reindexedWarcsFile);
     }
 
+    // Reindex all WARCs under the configured base paths; keep track of WARCs
+    // we have successfully reindexed:
     try (BufferedWriter reindexedWarcsOutputStream =
              Files.newBufferedWriter(reindexedWarcsPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE)) {
       try (CSVPrinter printer = new CSVPrinter(reindexedWarcsOutputStream, CSVFormat.DEFAULT
