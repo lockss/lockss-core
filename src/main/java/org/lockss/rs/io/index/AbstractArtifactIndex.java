@@ -30,15 +30,69 @@
 
 package org.lockss.rs.io.index;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.io.FileUtils;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
+
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Path;
 
 public abstract class AbstractArtifactIndex implements ArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
 
+  public final static String INDEX_STATE_DIR = "index";
+  public final static String INDEX_VERSION_FILE = INDEX_STATE_DIR + "/version";
+
+  private final static ObjectMapper mapper = new ObjectMapper()
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
   protected BaseLockssRepository repository;
 
   protected ArtifactIndexState indexState = ArtifactIndexState.STOPPED;
+
+  public void updateIndexToVersion(int existingVersion, int targetVersion) throws IOException {
+    log.info("Updating from version " + existingVersion + " to " + targetVersion + "...");
+
+    for (int from = existingVersion; from < targetVersion; from++) {
+      boolean success = false;
+      try {
+        updateIndexToVersion(from + 1);
+        success = true;
+      } finally {
+        if (success) {
+          ArtifactIndexVersion lastRecordedVersion = new ArtifactIndexVersion()
+              .setIndexType(this.getClass().getSimpleName())
+              .setIndexVersion(from + 1);
+
+          Path stateDirPath = repository.getRepositoryStateDirPath();
+          Path versionFilePath = stateDirPath.resolve(INDEX_VERSION_FILE);
+          File versionFile = versionFilePath.toFile();
+          recordArtifactIndexVersion(versionFile, lastRecordedVersion);
+          log.debug("Index " + lastRecordedVersion.getIndexType()
+              + " updated to version " + lastRecordedVersion.getIndexVersion());
+        }
+        else break;
+      }
+    }
+  }
+
+  public static void recordArtifactIndexVersion(File versionFile, ArtifactIndexVersion version) throws IOException {
+    FileUtils.touch(versionFile);
+    try (BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(versionFile))) {
+      mapper.writeValue(fos, version);
+    }
+  }
+
+  protected void updateIndexToVersion(int targetVersion) {
+    if (targetVersion == 1) {
+      // NOP
+    }
+  }
 
   public enum ArtifactIndexState {
     INITIALIZED,
@@ -67,7 +121,7 @@ public abstract class AbstractArtifactIndex implements ArtifactIndex {
 
   @Override
   public void finishBulkStore(String namespace, String auid,
-                              int copyBatchSize) {
+                              int copyBatchSize) throws IOException {
     throw new UnsupportedOperationException("Bulk Store not supported in this ArtifactIndex");
   }
 }

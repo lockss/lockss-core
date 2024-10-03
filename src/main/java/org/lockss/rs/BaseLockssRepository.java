@@ -44,11 +44,13 @@ import org.archive.io.ArchiveRecord;
 import org.archive.io.ArchiveRecordHeader;
 import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
+import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.rs.io.index.ArtifactIndexVersion;
 import org.lockss.rs.io.storage.ArtifactDataStore;
+import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
-import org.lockss.rs.io.storage.warc.WarcArtifactStateEntry;
 import org.lockss.util.BuildInfo;
 import org.lockss.util.ByteArray;
 import org.lockss.util.StreamUtil;
@@ -65,14 +67,8 @@ import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -164,28 +160,23 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     repoStateDir = dir;
   }
 
-  /**
-   * Triggers a re-index of all artifacts in the data store into the index if the
-   * reindex state file is present.
-   *
-   * @throws IOException
-   */
-  public void reindexArtifactsIfNeeded() throws IOException {
-    if (needsReindex()) {
-      log.info("Reindexing artifacts");
+  public final static String REINDEXING_STATE_FILE = "index/reindexing";
 
-      // Enter reindexing state
-      Path reindexingStateFilePath = getRepositoryStateDirPath()
-          .resolve(WarcArtifactDataStore.REINDEXING_STATE_FILE);
+  public void reindexArtifacts() throws IOException {
+    log.info("Reindexing artifacts");
 
-      File reindexingStateFile = reindexingStateFilePath.toFile();
-      FileUtils.touch(reindexingStateFile);
+    // (Re)enter reindexing state
+    Path reindexingStateFilePath = getRepositoryStateDirPath()
+        .resolve(REINDEXING_STATE_FILE);
 
-      // Reindex artifacts in the data store to index
-      long reindexStart = TimeBase.nowMs();
-      store.reindexArtifacts(index);
-      log.info("Finished reindex in {}",
-          TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
+    File reindexingStateFile = reindexingStateFilePath.toFile();
+    FileUtils.touch(reindexingStateFile);
+
+    // Reindex artifacts in the data store to index
+    long reindexStart = TimeBase.nowMs();
+    store.reindexArtifacts(index);
+    log.info("Finished reindex in {}",
+        TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
 
     // Exit reindexing state
     FileUtil.safeDeleteFile(reindexingStateFile);
@@ -203,19 +194,15 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
       log.info("Initializing LOCKSS repository");
 
-      // Initialize and start the index
+      // Initialize the components
       index.init();
-      index.start();
-
-      // Initialize the data store
       store.init();
 
+      updateIndexIfNeeded();
       updateDatastoreIfNeeded();
 
-      // Re-index artifacts in the data store if needed
-      reindexArtifactsIfNeeded();
-
-      // Start the data store
+      // Start the components
+      index.start();
       store.start();
     } catch (InterruptedException e) {
       throw new IllegalStateException("Interrupted while waiting for LOCKSS daemon", e);
@@ -223,25 +210,90 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   }
 
   private void updateDatastoreIfNeeded() throws IOException {
-    ArtifactDataStoreVersion onDiskVersion = getArtifactDataStoreVersion();
+    ArtifactDataStoreVersion onDiskVersion = getLastRecordedArtifactDataStoreVersion();
     ArtifactDataStoreVersion targetVersion = store.getDataStoreTargetVersion();
 
     if (!onDiskVersion.equals(targetVersion)) {
       if (onDiskVersion == ArtifactDataStoreVersion.UNKNOWN) {
         log.debug("Initializing data store for the first time");
-        ((WarcArtifactDataStore)store).upgradeDatastoreToVersion(0, targetVersion.getDatastoreVersion());
+        ((WarcArtifactDataStore)store).updateDatastoreToVersion(0, targetVersion.getDatastoreVersion());
       } else if (!onDiskVersion.getDatastoreType().equals(targetVersion.getDatastoreType())) {
         throw new UnsupportedOperationException("Switching data stores is not supported");
       } else if (onDiskVersion.getDatastoreVersion() < targetVersion.getDatastoreVersion()) {
-        ((WarcArtifactDataStore) store).upgradeDatastoreToVersion(
+        ((WarcArtifactDataStore) store).updateDatastoreToVersion(
             onDiskVersion.getDatastoreVersion(),
             targetVersion.getDatastoreVersion());
       }
     }
   }
 
-  protected ArtifactDataStoreVersion getArtifactDataStoreVersion() {
-    return new ArtifactDataStoreVersion();
+  protected ArtifactDataStoreVersion getLastRecordedArtifactDataStoreVersion() {
+    return ArtifactDataStoreVersion.UNKNOWN;
+  }
+
+  private void updateIndexIfNeeded() throws IOException {
+    ArtifactIndexVersion onDiskVersion = getLastRecordedArtifactIndexVersion();
+    ArtifactIndexVersion targetVersion = index.getArtifactIndexTargetVersion();
+
+    if (log.isDebug2Enabled()) {
+      log.debug2("index = {}", index);
+      log.debug2("index.onDiskVersion = {}", onDiskVersion);
+      log.debug2("index.targetVersion = {}", targetVersion);
+    }
+
+    boolean indexChanged = false;
+
+    if (!onDiskVersion.equals(targetVersion)) {
+      // Either type changed, version changed, or both changed:
+      // (type changed, version changed)
+      // t t --- sync index
+      // t f --- sync index
+      // f t --- sync index if previousVersion < currentVersion
+      // f f --- nothing to do
+
+      if (onDiskVersion == ArtifactIndexVersion.UNKNOWN) {
+        log.debug("Initializing index for the first time");
+        ((AbstractArtifactIndex)index).updateIndexToVersion(0, targetVersion.getIndexVersion());
+        indexChanged = true;
+      } else if (!onDiskVersion.getIndexType().equals(targetVersion.getIndexType())) {
+        log.debug("Switching index: {} -> {}",
+            onDiskVersion.getIndexType(), targetVersion.getIndexType());
+        // Q: Is this right?
+        ((AbstractArtifactIndex)index).updateIndexToVersion(0, targetVersion.getIndexVersion());
+        indexChanged = true;
+      } else if (onDiskVersion.getIndexVersion() < targetVersion.getIndexVersion()) {
+        ((AbstractArtifactIndex) index).updateIndexToVersion(
+            onDiskVersion.getIndexVersion(),
+            targetVersion.getIndexVersion());
+        indexChanged = true;
+      }
+    }
+
+    if (indexChanged || shouldStartOrResumeReindex() || isReindexWanted()) {
+      reindexArtifacts();
+    }
+  }
+
+  protected boolean isReindexWanted() {
+    return false;
+  }
+
+  public boolean shouldStartOrResumeReindex() {
+    if (getRepositoryStateDirPath() == null) {
+      throw new IllegalStateException("Missing repository state directory");
+    }
+
+    // Path to reindex state file
+    Path reindexingStateFilePath = getRepositoryStateDirPath()
+        .resolve(REINDEXING_STATE_FILE);
+
+    File reindexingStateFile = reindexingStateFilePath.toFile();
+
+    return reindexingStateFile.exists();
+  }
+
+  protected ArtifactIndexVersion getLastRecordedArtifactIndexVersion() {
+    return ArtifactIndexVersion.UNKNOWN;
   }
 
   /**
@@ -898,15 +950,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     return store;
   }
 
-  /**
-   * Returns a signal indicating whether a reindex should be started or resumed at
-   * repository initialization. Defaults to {@code false}. Override this method to
-   * customize its behavior.
-   *
-   * @return A {@code boolean} indicating whether a reindex is needed. Defaults to
-   * {@code false}.
-   */
-  protected boolean needsReindex() {
-    return false;
-  }
+
+
+
 }

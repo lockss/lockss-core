@@ -50,15 +50,19 @@ import java.util.UUID;
  * Artifacts in a VolatileArtifactIndex, then transferring them into
  * the SolrArtifactIndex in a batch.
  */
-public class DispatchingArtifactIndex implements ArtifactIndex {
+public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   private ArtifactIndex masterIndex;
   private Map<String,ArtifactIndex> tempIndexMap = new CopyOnWriteMap<>();
-  private BaseLockssRepository repository;
 
   public DispatchingArtifactIndex(ArtifactIndex master) {
     this.masterIndex = master;
+  }
+
+  @Override
+  public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+    return masterIndex.getArtifactIndexTargetVersion();
   }
 
   /** Return true if this {namespace,auid} is currently in the temp index */

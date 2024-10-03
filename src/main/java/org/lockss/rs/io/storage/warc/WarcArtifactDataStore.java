@@ -123,7 +123,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   private final static ObjectMapper mapper = new ObjectMapper()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-  private static final String DATASTORE_VERSION_FILE = "store/version";
+  public final static String DATASTORE_STATE_DIR = "store";
+  public final static String DATASTORE_VERSION_FILE = DATASTORE_STATE_DIR + "/version";
+  public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
 
   @Override
   public ArtifactDataStoreVersion getDataStoreTargetVersion() {
@@ -187,7 +189,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected FutureRecordingStripedExecutorService stripedExecutor;
 
-  public void upgradeDatastoreToVersion(int existingVersion, int targetVersion) throws IOException {
+  public void updateDatastoreToVersion(int existingVersion, int targetVersion) throws IOException {
     log.info("Updating from version " + existingVersion + " to " + targetVersion + "...");
 
     for (int from = existingVersion; from < targetVersion; from++) {
@@ -205,7 +207,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           File versionFile = versionFilePath.toFile();
           recordArtifactDataStoreVersion(versionFile, lastRecordedVersion);
           log.debug("Datastore " + lastRecordedVersion.getDatastoreType()
-              + " updated to version " + lastRecordedVersion);
+              + " updated to version " + lastRecordedVersion.getDatastoreVersion());
         }
         else break;
       }
@@ -2058,6 +2060,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       //// Delete artifact reference from the index
       getArtifactIndex().deleteArtifact(artifact.getUuid());
 
+//      if (artifact.getStorageUrl() == null) {
+//        throw new IllegalArgumentException("Artifact is missing a storage URL");
+//      }
+
       //// Mark the artifact as deleted in the journal
       writeJournalEntryForArtifact(artifact,
           new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.DELETED));
@@ -2194,9 +2200,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   // * INDEX REBUILD FROM DATA STORE
   // *******************************************************************************************************************
 
-  public final static String REINDEXING_STATE_FILE = "index/reindexing";
-  public final static String REINDEXED_WARCS_STATE_FILE = "index/reindexed-warcs";
-
   /**
    * Rebuilds the provided index from WARCs within this WARC artifact data store.
    * <p>
@@ -2212,7 +2215,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     List<Path> indexedWarcs = new ArrayList<>();
 
     Path reindexedWarcsPath = repo.getRepositoryStateDirPath()
-        .resolve(REINDEXED_WARCS_STATE_FILE);
+        .resolve(REINDEXED_WARCS_FILE);
 
     File reindexedWarcsFile = reindexedWarcsPath.toFile();
 

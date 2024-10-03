@@ -78,4 +78,12 @@ public class ArtifactIndexVersion {
     result = 31 * result + indexVersion;
     return result;
   }
+
+  @Override
+  public String toString() {
+    return "ArtifactIndexVersion{" +
+        "indexType='" + indexType + '\'' +
+        ", indexVersion=" + indexVersion +
+        '}';
+  }
 }
