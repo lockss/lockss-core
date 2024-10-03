@@ -187,31 +187,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       log.info("Finished reindex in {}",
           TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
 
-      // Exit reindexing state
-      FileUtil.safeDeleteFile(reindexingStateFile);
-
-      Path reindexedWarcsFilePath = getRepositoryStateDirPath()
-          .resolve(WarcArtifactDataStore.REINDEXED_WARCS_STATE_FILE);
-
-      // Rename reindexed-warcs file
-      addDateSuffix(reindexedWarcsFilePath);
-    }
-  }
-
-  private static final DateTimeFormatter DATE_SUFFIX =
-      DateTimeFormatter.BASIC_ISO_DATE.withZone(ZoneOffset.UTC);
-
-  /**
-   * Adds a date suffix to a file path.
-   */
-  // Q: Move to FileUtil?
-  private static void addDateSuffix(Path filePath) throws IOException {
-    String withDateSuffix = filePath.getFileName() + "." + DATE_SUFFIX.format(Instant.now());
-    Path withDateSuffixPath = filePath.resolveSibling(withDateSuffix);
-
-    if (!filePath.toFile().renameTo(withDateSuffixPath.toFile())) {
-      throw new IOException("Error renaming file " + filePath + " to " + withDateSuffixPath);
-    }
+    // Exit reindexing state
+    FileUtil.safeDeleteFile(reindexingStateFile);
   }
 
   public ScheduledExecutorService getScheduledExecutorService() {
