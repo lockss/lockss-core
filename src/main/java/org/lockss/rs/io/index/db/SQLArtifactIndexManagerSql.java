@@ -31,19 +31,23 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.io.index.db;
 
-import org.lockss.util.StringUtil;
+import org.apache.commons.collections4.IteratorUtils;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.time.TimeBase;
 
+import java.lang.ref.Cleaner;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static org.lockss.config.db.SqlConstants.*;
 
@@ -1573,23 +1577,17 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  public List<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
+  public Iterable<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
       String namespace, String auid, boolean includeUncommitted) throws DbException {
     log.debug2("namespace = {}", namespace);
     log.debug2("auid = {}", auid);
     log.debug2("includeUncommitted = {}", includeUncommitted);
 
-    Connection conn = null;
-
-    try {
-      conn = getConnection();
-      return findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
+    Connection conn = getConnection();
+    return IteratorUtils.asIterable(findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted));
   }
 
-  private List<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
+  private Iterator<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
       Connection conn, String namespace, String auid, boolean includeUncommitted) throws DbException {
 
     PreparedStatement ps = null;
@@ -1618,36 +1616,32 @@ public class SQLArtifactIndexManagerSql {
 
       resultSet = idxDbManager.executeQuery(ps);
 
-      return getArtifactsFromResultSet(resultSet);
+      return new ArtifactResultSetIterator(conn, resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("includeUncommitted = {}", includeUncommitted);
-      throw new DbException(errorMessage, e);
-    } finally {
+
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+
+      throw new DbException(errorMessage, e);
     }
   }
 
-  public List<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(String namespace, String auid, boolean includeUncommitted) throws DbException {
+  public Iterable<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(String namespace, String auid, boolean includeUncommitted) throws DbException {
     log.debug2("namespace = {}", namespace);
     log.debug2("auid = {}", auid);
     log.debug2("includeUncommitted = {}", includeUncommitted);
 
-    Connection conn = null;
-
-    try {
-      conn = getConnection();
-      return findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
+    Connection conn = getConnection();
+    return IteratorUtils.asIterable(findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted));
   }
 
-  private List<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(Connection conn, String namespace, String auid, boolean includeUncommitted)
+  private Iterator<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(Connection conn, String namespace, String auid, boolean includeUncommitted)
       throws DbException {
 
     PreparedStatement ps = null;
@@ -1669,38 +1663,34 @@ public class SQLArtifactIndexManagerSql {
 
       resultSet = idxDbManager.executeQuery(ps);
 
-      return getArtifactsFromResultSet(resultSet);
+      return new ArtifactResultSetIterator(conn, resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("includeUncommitted = {}", includeUncommitted);
-      throw new DbException(errorMessage, e);
-    } finally {
+
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+
+      throw new DbException(errorMessage, e);
     }
   }
 
-  public List<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(String namespace, String auid, String url)
+  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(String namespace, String auid, String url)
       throws DbException {
 
     log.debug2("namespace = {}", namespace);
     log.debug2("auid = {}", auid);
     log.debug2("url = {}", url);
 
-    Connection conn = null;
-
-    try {
-      conn = getConnection();
-      return findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(conn, namespace, auid, url);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
+    Connection conn = getConnection();
+    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(conn, namespace, auid, url));
   }
 
-  private List<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(
+  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(
       Connection conn, String namespace, String auid, String url) throws DbException {
 
     PreparedStatement ps = null;
@@ -1729,38 +1719,34 @@ public class SQLArtifactIndexManagerSql {
 
       resultSet = idxDbManager.executeQuery(ps);
 
-      return getArtifactsFromResultSet(resultSet);
+      return new ArtifactResultSetIterator(conn, resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", sqlQuery);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("url = {}", url);
-      throw new DbException(errorMessage, e);
-    } finally {
+
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+
+      throw new DbException(errorMessage, e);
     }
   }
 
-  public List<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
       String namespace, String url, ArtifactVersions versions) throws DbException {
 
     log.debug2("namespace = {}", namespace);
     log.debug2("url = {}", url);
     log.debug2("versions = {}", versions);
 
-    Connection conn = null;
-
-    try {
-      conn = getConnection();
-      return findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(conn, namespace, url, versions);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
+    Connection conn = getConnection();
+    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(conn, namespace, url, versions));
   }
 
-  private List<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
       Connection conn, String namespace, String url, ArtifactVersions versions) throws DbException {
 
     PreparedStatement ps = null;
@@ -1795,38 +1781,34 @@ public class SQLArtifactIndexManagerSql {
 
       resultSet = idxDbManager.executeQuery(ps);
 
-      return getArtifactsFromResultSet(resultSet);
+      return new ArtifactResultSetIterator(conn, resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", sqlQuery);
       log.error("namespace = {}", namespace);
       log.error("url = {}", url);
       log.error("versions = {}", versions);
-      throw new DbException(errorMessage, e);
-    } finally {
+
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+
+      throw new DbException(errorMessage, e);
     }
   }
 
-  public List<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
       String namespace, String prefix, ArtifactVersions versions) throws DbException {
 
     log.debug2("namespace = {}", namespace);
     log.debug2("prefix = {}", prefix);
     log.debug2("versions = {}", versions);
 
-    Connection conn = null;
-
-    try {
-      conn = getConnection();
-      return findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(conn, namespace, prefix, versions);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
+    Connection conn = getConnection();
+    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(conn, namespace, prefix, versions));
   }
 
-  private List<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
       Connection conn, String namespace, String prefix, ArtifactVersions versions) throws DbException {
 
     PreparedStatement ps = null;
@@ -1868,38 +1850,34 @@ public class SQLArtifactIndexManagerSql {
 
       resultSet = idxDbManager.executeQuery(ps);
 
-      return getArtifactsFromResultSet(resultSet);
+      return new ArtifactResultSetIterator(conn, resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", sqlQuery);
       log.error("namespace = {}", namespace);
       log.error("prefix = {}", prefix);
       log.error("versions = {}", versions);
-      throw new DbException(errorMessage, e);
-    } finally {
+
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+
+      throw new DbException(errorMessage, e);
     }
   }
 
-  public List<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+  public Iterable<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
       String namespace, String auid, String urlPrefix) throws DbException {
 
     log.debug2("namespace = {}", namespace);
     log.debug2("auid = {}", auid);
     log.debug2("urlPrefix = {}", urlPrefix);
 
-    Connection conn = null;
-
-    try {
-      conn = getConnection();
-      return findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
+    Connection conn = getConnection();
+    return IteratorUtils.asIterable(findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix));
   }
 
-  private List<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+  private Iterator<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
       Connection conn, String namespace, String auid, String urlPrefix) throws DbException {
 
     PreparedStatement ps = null;
@@ -1935,38 +1913,34 @@ public class SQLArtifactIndexManagerSql {
 
       resultSet = idxDbManager.executeQuery(ps);
 
-      return getArtifactsFromResultSet(resultSet);
+      return new ArtifactResultSetIterator(conn, resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", sqlQuery);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("urlPrefix = {}", urlPrefix);
-      throw new DbException(errorMessage, e);
-    } finally {
+
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+
+      throw new DbException(errorMessage, e);
     }
   }
 
-  public List<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
       String namespace, String auid, String urlPrefix) throws DbException {
 
     log.debug2("namespace = {}", namespace);
     log.debug2("auid = {}", auid);
     log.debug2("urlPrefix = {}", urlPrefix);
 
-    Connection conn = null;
-
-    try {
-      conn = getConnection();
-      return findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
-    }
+    Connection conn = getConnection();
+    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix));
   }
 
-  private List<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
       Connection conn, String namespace, String auid, String urlPrefix) throws DbException {
 
     PreparedStatement ps = null;
@@ -2004,29 +1978,90 @@ public class SQLArtifactIndexManagerSql {
 
       resultSet = idxDbManager.executeQuery(ps);
 
-      return getArtifactsFromResultSet(resultSet);
+      return new ArtifactResultSetIterator(conn, resultSet);
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", sqlQuery);
       log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("urlPrefix = {}", urlPrefix);
-      throw new DbException(errorMessage, e);
-    } finally {
+
       DbManager.safeCloseResultSet(resultSet);
       DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+
+      throw new DbException(errorMessage, e);
     }
   }
 
-  private List<Artifact> getArtifactsFromResultSet(ResultSet resultSet) throws SQLException {
-    List<Artifact> result = new ArrayList<>();
+  private static class ArtifactIteratorCleaner implements Runnable {
+    private Connection conn;
 
-    // FIXME: Is there a better way to do this?
-    while (resultSet.next()) {
-      result.add(getArtifactFromCurrentRow(resultSet));
+    private ArtifactIteratorCleaner(Connection conn) {
+      this.conn = conn;
     }
 
-    return result;
+    public void run() {
+      DbManager.safeCloseConnection(conn);
+    }
+  }
+
+  private static class ArtifactResultSetIterator implements Iterator<Artifact> {
+    Connection conn;
+    ResultSet rs;
+    Artifact lastArtifact;
+    boolean isDone;
+
+    // Infrastructure to invoke Cleaner
+    private static final Cleaner cleaner = Cleaner.create();
+    private Cleaner.Cleanable cleanable = null;
+    private ArtifactIteratorCleaner aic;
+
+    ArtifactResultSetIterator(Connection conn, ResultSet rs) {
+      this.conn = conn;
+      this.rs = rs;
+      this.lastArtifact = null;
+
+      aic = new ArtifactIteratorCleaner(conn);
+      cleanable = cleaner.register(this, aic);
+    }
+
+    public void release() {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseConnection(conn);
+    }
+
+    @Override
+    public boolean hasNext() {
+      if (isDone) return false;
+
+      try {
+        if (lastArtifact == null) {
+          if (rs.next()) {
+            lastArtifact = getArtifactFromCurrentRow(rs);
+          } else {
+            release();
+            cleanable.clean();
+            isDone = true;
+          }
+        }
+      } catch (SQLException e) {
+        throw new IllegalStateException("Cannot get artifact from result set", e);
+      }
+
+      return lastArtifact != null;
+    }
+
+    @Override
+    public Artifact next() {
+      if (hasNext()) {
+        Artifact result = lastArtifact;
+        lastArtifact = null;
+        return result;
+      }
+
+      throw new NoSuchElementException();
+    }
   }
 
   private static Artifact getArtifactFromResultSet(ResultSet resultSet) throws SQLException {

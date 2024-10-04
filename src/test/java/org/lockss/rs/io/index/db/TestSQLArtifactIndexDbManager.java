@@ -445,7 +445,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert results match expected when including uncommitted artifacts
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[2]);
-      List<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
+      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
       assertIterableEquals(expected, result);
     }
 
@@ -458,14 +458,14 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert results match expected when excluding uncommitted artifacts
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[2]);
-      List<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
+      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
       assertIterableEquals(expected, result);
     }
 
     // Assert results match expected when including uncommitted artifacts
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[2]);
-      List<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
+      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
       assertIterableEquals(expected, result);
     }
   }
@@ -501,7 +501,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert all versions of all URLs for the namespace and AUID
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[1], specs[0], specs[2]);
-      List<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
+      Iterable<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
       assertIterableEquals(expected, result);
     }
 
@@ -516,14 +516,14 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert we get back the correct committed artifacts for the namespace and AUID
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
-      List<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
+      Iterable<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
       assertIterableEquals(expected, result);
     }
 
     // Assert all versions of all URLs for the namespace and AUID
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[1], specs[0], specs[2]);
-      List<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
+      Iterable<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
       assertIterableEquals(expected, result);
     }
   }
@@ -568,7 +568,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert we get back the correct committed artifacts for the namespace and AUID
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
-      List<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url);
+      Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url);
       assertIterableEquals(expected, result);
     }
   }
@@ -609,7 +609,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert with ALL
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL);
       assertIterableEquals(expected, result);
     }
@@ -620,7 +620,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert with LATEST
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST);
       assertIterableEquals(expected, result);
     }
@@ -662,7 +662,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert with ALL
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL);
       assertIterableEquals(expected, result);
     }
@@ -673,7 +673,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert with LATEST
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST);
       assertIterableEquals(expected, result);
     }
@@ -727,7 +727,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
 
     // Assert we get back the correct committed artifacts for the namespace and AUID
     List<Artifact> expected = getArtifactsFromSpecs(specs[3], specs[0]);
-    List<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, url);
+    Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, url);
     assertIterableEquals(expected, result);
   }
 
@@ -767,7 +767,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert results with (ns1, auid1, url1)
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[0]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url1);
       assertIterableEquals(expected, result);
     }
@@ -775,7 +775,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert results with (ns1, auid2, url1)
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[3]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid2, url1);
       assertIterableEquals(expected, result);
     }
@@ -783,7 +783,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert results with (ns2, auid1, url1)
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[4]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns2, auid1, url1);
       assertIterableEquals(expected, result);
     }
@@ -791,7 +791,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert results with (ns1, auid1, url2)
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[5]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url2);
       assertIterableEquals(expected, result);
     }
@@ -802,7 +802,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Assert result with second set of commits
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[1]);
-      List<Artifact> result =
+      Iterable<Artifact> result =
           idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid1, url1);
       assertIterableEquals(expected, result);
     }
