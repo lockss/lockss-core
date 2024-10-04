@@ -2,7 +2,6 @@ package org.lockss.rs.io.index.solr;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.solr.client.solrj.beans.Field;
-import org.apache.solr.common.SolrDocument;
 import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
@@ -52,7 +51,7 @@ public class ArtifactSolrDocument {
     doc.setNamespace(artifact.getNamespace());
     doc.setAuid(artifact.getAuid());
     doc.setUri(artifact.getUri());
-    doc.setSortUri(artifact.getSortUri());
+    doc.setSortUri(makeSortUri(artifact.getUri()));
     doc.setVersion(artifact.getVersion());
     doc.setCommitted(artifact.getCommitted());
     doc.setStorageUrl(artifact.getStorageUrl());
@@ -68,7 +67,6 @@ public class ArtifactSolrDocument {
     artifact.setNamespace(getNamespace());
     artifact.setAuid(getAuid());
     artifact.setUri(getUri());
-    artifact.setSortUri(getSortUri());
     artifact.setVersion(getVersion());
     artifact.setCommitted(getCommitted());
     artifact.setStorageUrl(getStorageUrl());
@@ -76,6 +74,10 @@ public class ArtifactSolrDocument {
     artifact.setContentDigest(getContentDigest());
     artifact.setCollectionDate(getCollectionDate());
     return artifact;
+  }
+
+  public static String makeSortUri(String uri) {
+    return uri.replaceAll("/", "\u0000");
   }
 
   /**
@@ -183,12 +185,12 @@ public class ArtifactSolrDocument {
       throw new IllegalArgumentException("Cannot set null or empty URI");
     }
     this.uri = uri;
-    this.setSortUri(uri.replaceAll("/", "\u0000"));
+    this.setSortUri(makeSortUri(uri));
   }
 
   public String getSortUri() {
     if ((sortUri == null) && (uri != null)) {
-      this.setSortUri(uri.replaceAll("/", "\u0000"));
+      this.setSortUri(makeSortUri(uri));
     }
     return sortUri;
   }
