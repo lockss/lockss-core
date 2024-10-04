@@ -63,6 +63,7 @@ import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ImportStatusIterable;
 import org.lockss.util.rest.repo.util.JmsFactorySource;
 import org.lockss.util.rest.repo.util.LockssRepositoryUtil;
+import org.lockss.util.storage.RepositoryStatistics;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -85,6 +86,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   private static final byte[] GZIP_MEMBER_ID = ByteArray.fromHexString("1F8B");
 
   private File repoStateDir;
+
+  private long timeSpentReiterating = 0;
 
   protected ArtifactDataStore store;
   protected ArtifactIndex index;
@@ -357,7 +360,12 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     } catch (Exception e) {
       log.warn("Couldn't get store space", e);
     }
-    return new RepositoryInfo(sto, ind);
+
+    RepositoryStatistics repoStats = new RepositoryStatistics()
+        .setTimeSpentReiteratingIterators(timeSpentReiterating);
+
+    return new RepositoryInfo(sto, ind)
+        .setRepositoryStatistics(repoStats);
   }
 
   @Override
@@ -951,6 +959,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   }
 
 
-
-
+  public synchronized void incTimeSpentReiterating(long msAmount) {
+    timeSpentReiterating += msAmount;
+  }
 }
