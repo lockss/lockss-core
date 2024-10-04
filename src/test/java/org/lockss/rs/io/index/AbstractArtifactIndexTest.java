@@ -33,6 +33,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index;
 
 import org.apache.commons.collections4.IterableUtils;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
