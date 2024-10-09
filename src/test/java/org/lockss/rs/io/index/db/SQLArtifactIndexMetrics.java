@@ -62,6 +62,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
+import org.junit.Test;
 
 public class SQLArtifactIndexMetrics extends LockssTestCase {
   private static L4JLogger log = L4JLogger.getLogger();
@@ -79,6 +80,13 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
   private SQLArtifactIndexDbManager idxDbManager;
   private SQLArtifactIndexManagerSql idxdb;
   private EmbeddedPostgres embeddedPg;
+
+  // FIXME: IntelliJ scans this class for tests (because it extends LockssTestCase?)
+  //  and complains loudly when it doesn't find one. Avoid that with a no-op for now:
+  @Test
+  public void testNothing() throws Exception {
+    // Intentionally left blank
+  }
 
   public static void main(String[] argv) throws Exception {
     SQLArtifactIndexMetrics metricsRunner = new SQLArtifactIndexMetrics();
