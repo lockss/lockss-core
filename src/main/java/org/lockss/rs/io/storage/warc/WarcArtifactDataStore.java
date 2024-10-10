@@ -221,19 +221,58 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
   }
 
-  protected void updateDatastoreToVersion(int targetVersion) {
+  private void updateDatastoreToVersion(int targetVersion) {
     if (targetVersion == 1) {
       updateDatastoreFrom0To1();
     }
   }
 
-  public void updateDatastoreFrom0To1() {
+  private void updateDatastoreFrom0To1() {
     log.debug("Running upgrade from version 0 to 1");
 
     try {
       createWarcLocalJournals();
     } catch (IOException e) {
       throw new IllegalStateException("Failed to upgrade data store from version 0 to 1", e);
+    }
+  }
+
+  private void createWarcLocalJournals() throws IOException {
+    Map<String, Map<String, List<Path>>> result = new HashMap<>();
+
+    // Build sets of AU directories (for each AU in a namespace)
+    for (Path basePath : getBasePaths()) {
+      File nsBaseDir = basePath.resolve(NAMESPACE_BASE_DIR).toFile();
+
+      if (nsBaseDir.isDirectory()) {
+        File[] nsDirs = nsBaseDir.listFiles((file, s) -> file.isDirectory());
+
+        for (File nsDir : nsDirs) {
+          String ns = nsDir.getName();
+          Map<String, List<Path>> nsAuDirs = result.computeIfAbsent(ns, (k) -> new HashMap<>());
+
+          File[] auDirs = nsDir.listFiles(
+              (file, name) -> file.isDirectory() && name.startsWith(AU_DIR_PREFIX));
+
+          for (File auDir : auDirs) {
+            // Add this AU directory to the AU's list of AU directories
+            String auDirName = auDir.getName();
+            List<Path> auDirPaths = nsAuDirs.computeIfAbsent(auDirName, (k) -> new ArrayList<>());
+            auDirPaths.add(auDir.toPath());
+          }
+        }
+      }
+    }
+
+    Map<Path, List<String>> tmpWarcToArtifactIdsMap =
+        readWarcFileToArtifactIdsMap(List.of(getTmpWarcBasePaths()));
+
+    // Process sets of AU directories at a time
+    for (String ns : result.keySet()) {
+      Map<String, List<Path>> auDirsMap = result.get(ns);
+      for (List<Path> auDirs : auDirsMap.values()) {
+        createWarcLocalJournalsForAU(auDirs, tmpWarcToArtifactIdsMap);
+      }
     }
   }
 
@@ -2060,10 +2099,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       //// Delete artifact reference from the index
       getArtifactIndex().deleteArtifact(artifact.getUuid());
 
-//      if (artifact.getStorageUrl() == null) {
-//        throw new IllegalArgumentException("Artifact is missing a storage URL");
-//      }
-
       //// Mark the artifact as deleted in the journal
       writeJournalEntryForArtifact(artifact,
           new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.DELETED));
@@ -2643,47 +2678,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       };
 
       FileUtils.moveFile(tmpFile, journalFile);
-    }
-  }
-
-
-
-  protected void createWarcLocalJournals() throws IOException {
-    Map<String, Map<String, List<Path>>> result = new HashMap<>();
-
-    // Build sets of AU directories (for each AU in a namespace)
-    for (Path basePath : getBasePaths()) {
-      File nsBaseDir = basePath.resolve(NAMESPACE_BASE_DIR).toFile();
-
-      if (nsBaseDir.isDirectory()) {
-        File[] nsDirs = nsBaseDir.listFiles((file, s) -> file.isDirectory());
-
-        for (File nsDir : nsDirs) {
-          String ns = nsDir.getName();
-          Map<String, List<Path>> nsAuDirs = result.computeIfAbsent(ns, (k) -> new HashMap<>());
-
-          File[] auDirs = nsDir.listFiles(
-              (file, name) -> file.isDirectory() && name.startsWith(AU_DIR_PREFIX));
-
-          for (File auDir : auDirs) {
-            // Add this AU directory to the AU's list of AU directories
-            String auDirName = auDir.getName();
-            List<Path> auDirPaths = nsAuDirs.computeIfAbsent(auDirName, (k) -> new ArrayList<>());
-            auDirPaths.add(auDir.toPath());
-          }
-        }
-      }
-    }
-
-    Map<Path, List<String>> tmpWarcToArtifactIdsMap =
-        readWarcFileToArtifactIdsMap(List.of(getTmpWarcBasePaths()));
-
-    // Process sets of AU directories at a time
-    for (String ns : result.keySet()) {
-      Map<String, List<Path>> auDirsMap = result.get(ns);
-      for (List<Path> auDirs : auDirsMap.values()) {
-        createWarcLocalJournalsForAU(auDirs, tmpWarcToArtifactIdsMap);
-      }
     }
   }
 
