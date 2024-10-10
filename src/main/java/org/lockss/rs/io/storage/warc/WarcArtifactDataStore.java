@@ -68,6 +68,7 @@ import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
 import org.lockss.util.CloseCallbackInputStream;
 import org.lockss.util.Constants;
+import org.lockss.util.StringUtil;
 import org.lockss.util.concurrent.stripedexecutor.StripedCallable;
 import org.lockss.util.concurrent.stripedexecutor.StripedExecutorService;
 import org.lockss.util.io.DeferredTempFileOutputStream;
@@ -2099,6 +2100,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       //// Delete artifact reference from the index
       getArtifactIndex().deleteArtifact(artifact.getUuid());
 
+      if (artifact.getStorageUrl() == null) {
+        throw new IllegalArgumentException("Artifact is missing a storage URL");
+      }
+
       //// Mark the artifact as deleted in the journal
       writeJournalEntryForArtifact(artifact,
           new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.DELETED));
@@ -2542,7 +2547,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   public static Path getJournalPath(Path warcFile) {
     String warcFileName = warcFile.getFileName().toString();
-    // String journalFileName = FileUtil.getButExtension(warcFileName) + ".metadata.warc";
+
+    if (StringUtil.isNullString(warcFileName)) {
+      throw new IllegalArgumentException("Called with null or empty WARC filename");
+    }
 
     int index = warcFileName.indexOf('.');
     String journalFileName = index < 0 ?
@@ -3153,31 +3161,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
-   * Writes a WARC info-type record to an {@link OutputStream}.
-   *
-   * @param output
-   * @throws IOException
-   */
-  public void writeWarcInfoRecord(OutputStream output) throws IOException {
-    // Create a WARC record object
-    WARCRecordInfo record = new WARCRecordInfo();
-
-    // Mandatory WARC record headers
-    record.setRecordId(URI.create(UUID.randomUUID().toString()));
-    record.setCreate14DigitDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now().atZone(ZoneOffset.UTC)));
-    record.setType(WARCRecordType.response);
-
-    // TODO: Need to discuss with team what kind of information we wish to write and finish this
-
-    // Write WARC info record to WARC file
-    /*
-    try (OutputStream output = getAppendableOutputStream(warcPath)) {
-      writeWarcRecord(record, output);
-    }
-    */
-  }
-
-  /**
    * Writes a WARC record to a given OutputStream.
    *
    * @param record An instance of WARCRecordInfo to write to the OutputStream.
@@ -3207,7 +3190,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     out.flush();
   }
 
-  public static void writeWarcRecordHeader(WARCRecordInfo record, OutputStream out) throws IOException {
+  private static void writeWarcRecordHeader(WARCRecordInfo record, OutputStream out) throws IOException {
     // Write the header
     out.write(createRecordHeader(record).getBytes(WARC_HEADER_ENCODING));
 
@@ -3222,7 +3205,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @param id
    * @return
    */
-  public static String formatWarcRecordId(String id) {
+  private static String formatWarcRecordId(String id) {
     return String.format("<%s:%s>", WARCID_SCHEME, id);
   }
 
@@ -3232,7 +3215,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @param record A WARCRecordInfo representing a WARC record.
    * @return The header for this WARCRecordInfo.
    */
-  public static String createRecordHeader(WARCRecordInfo record) {
+  private static String createRecordHeader(WARCRecordInfo record) {
     final StringBuilder sb = new StringBuilder();
 
     // WARC record identifier
@@ -3271,38 +3254,5 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
 
     return sb.toString();
-  }
-
-  /**
-   * Creates a warcinfo type WARC record with metadata common to all following WARC records.
-   * <p>
-   * Adapted from iipc/webarchive-commons.
-   *
-   * @param headers
-   * @param mimeType
-   * @param content
-   * @return
-   */
-  public static WARCRecordInfo createWarcInfoRecord(MultiValueMap<String, String> headers, MediaType mimeType,
-                                                    byte[] content) {
-    WARCRecordInfo record = new WARCRecordInfo();
-
-    record.setRecordId(URI.create(UUID.randomUUID().toString()));
-    record.setType(WARCRecordType.warcinfo);
-    record.setCreate14DigitDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now().atZone(ZoneOffset.UTC)));
-    record.setContentLength(content == null ? 0 : (long) content.length);
-    record.setMimetype(mimeType.toString());
-
-    // Set extra WARC record headers
-    if (headers != null) {
-      headers.forEach((k, vs) -> vs.forEach(v -> record.addExtraHeader(k, v)));
-    }
-
-    // Set content length and input stream
-    if (content != null) {
-      record.setContentStream(new ByteArrayInputStream(content));
-    }
-
-    return record;
   }
 }

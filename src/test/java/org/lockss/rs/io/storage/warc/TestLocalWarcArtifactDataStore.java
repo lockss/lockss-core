@@ -180,14 +180,11 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     ds.initWarc(mockedWarcPath);
     verify(ds, never()).initFile(mockedWarcFile);
     verify(ds, never()).getAppendableOutputStream(mockedWarcPath);
-    verify(ds, never()).writeWarcInfoRecord(ArgumentMatchers.any(OutputStream.class));
 
     // Assert a new WARC is initialized otherwise
     when(mockedWarcFile.exists()).thenReturn(false);
     ds.initWarc(mockedWarcPath);
     verify(ds, times(1)).initFile(mockedWarcFile);
-    verify(ds, times(1)).getAppendableOutputStream(mockedWarcPath);
-    verify(ds, times(1)).writeWarcInfoRecord(ArgumentMatchers.any(/* OutputStream.class */)); // FIXME
   }
 
   @Override

@@ -217,9 +217,6 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
     // Assert a ByteArrayOutputStream is in the map for this WARC path
     OutputStream output = ds.getAppendableOutputStream(warcPath);
     assertNotNull(output);
-
-    // Assert that a WARC info record was written
-    verify(ds).writeWarcInfoRecord(output);
   }
 
   /**

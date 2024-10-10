@@ -104,10 +104,6 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
   @Override
   public void initWarc(Path warcPath) throws IOException {
     initFile(warcPath);
-
-    try (OutputStream output = getAppendableOutputStream(warcPath)) {
-      writeWarcInfoRecord(output);
-    }
   }
 
   protected void initFile(Path filePath) {

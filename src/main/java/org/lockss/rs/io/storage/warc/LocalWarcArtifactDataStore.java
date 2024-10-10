@@ -330,10 +330,6 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
       mkdirs(warcPath.getParent());
 
       initFile(warcFile);
-
-      try (OutputStream output = getAppendableOutputStream(warcPath)) {
-        writeWarcInfoRecord(output);
-      }
     }
   }
 
