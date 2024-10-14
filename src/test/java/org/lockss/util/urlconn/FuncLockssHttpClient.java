@@ -583,12 +583,7 @@ public class FuncLockssHttpClient extends LockssTestCase {
 				  connectionPool);
     conn.setCredentials("userfoo", "passbar");
     aborter = abortIn(TIMEOUT_SHOULDNT, conn);
-    try {
-      conn.execute();
-    }
-    catch (java.net.BindException be) {
-      throw new java.net.BindException(String.format("%s: %s (%s)", be.getMessage(), local, lh));
-    }
+    conn.execute();
     aborter.cancel();
     // thirs request should also have Authorization: header
     String req3 = th.getRequest(2);
@@ -875,7 +870,12 @@ public class FuncLockssHttpClient extends LockssTestCase {
 //				  localurl(port), connectionPool);
 //    conn.setLocalAddress(IPAddr.getByName(local));
 //    aborter = abortIn(TIMEOUT_SHOULDNT, conn);
-//    conn.execute();
+//    try {
+//      conn.execute();
+//    }
+//    catch (java.net.BindException be) {
+//      throw new java.net.BindException(String.format("%s: %s (%s)", be.getMessage(), local, lh));
+//    }
 //    aborter.cancel();
 //    InetSocketAddress client = th.getClient(0);
 //    log.debug("Connection from client: " + client.getAddress());
