@@ -583,7 +583,12 @@ public class FuncLockssHttpClient extends LockssTestCase {
 				  connectionPool);
     conn.setCredentials("userfoo", "passbar");
     aborter = abortIn(TIMEOUT_SHOULDNT, conn);
-    conn.execute();
+    try {
+      conn.execute();
+    }
+    catch (java.net.BindException be) {
+      throw new java.net.BindException(String.format("%s: %s (%s)", be.getMessage(), local, lh));
+    }
     aborter.cancel();
     // thirs request should also have Authorization: header
     String req3 = th.getRequest(2);
