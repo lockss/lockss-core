@@ -49,11 +49,8 @@ import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.RestUtil;
-import org.lockss.util.rest.repo.LockssRepository;
-import org.lockss.util.rest.repo.RestLockssRepository;
-import org.lockss.util.rest.repo.model.Artifact;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
-import org.lockss.util.rest.repo.model.RepositoryInfo;
+import org.lockss.util.rest.repo.*;
+import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactCache;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
@@ -109,11 +106,23 @@ public class RepositoryManager
     PREFIX + "artifactCache.maxSize";
   public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
 
-  /** Initial progression of Artifact page sizes to request for an iterator */
+  /** Initial progression of Artifact iterator page sizes to request */
   public static final String PARAM_ARTIFACT_ITER_PAGE_SIZES =
     PREFIX + "artifactIterator.pageSizes";
   public static final List<Integer> DEFAULT_ARTIFACT_ITER_PAGE_SIZES =
     ListUtil.list(10,30,100,500,1000);
+
+  /** Length of Artifact iterator queue */
+  public static final String PARAM_ARTIFACT_ITER_QUEUE_LEN =
+    PREFIX + "artifactIterator.queueLen";
+  public static final int DEFAULT_ARTIFACT_ITER_QUEUE_LEN =
+    RestLockssRepositoryArtifactIterator.DEFAULT_QUEUE_LENGTH;
+
+  /** Artifact iterator queue GET timeout */
+  public static final String PARAM_ARTIFACT_ITER_QUEUE_GET_TIMEOUT =
+    PREFIX + "artifactIterator.queueGetTimeout";
+  public static final long DEFAULT_ARTIFACT_ITER_QUEUE_GET_TIMEOUT =
+    RestLockssRepositoryArtifactIterator.DEFAULT_QUEUE_GET_TIMEOUT;
 
   public static final String REPOSITORY_CLIENT_PREFIX = PREFIX + "client.";
 
@@ -406,8 +415,15 @@ public class RepositoryManager
             servicePassword);
 
         repo.setUseMultipartEndpoint(useMultipartEndpoint);
-        repo.setArtifactIteratorPageSizes(config.getList(PARAM_ARTIFACT_ITER_PAGE_SIZES,
-                                                         DEFAULT_ARTIFACT_ITER_PAGE_SIZES));
+        RestLockssRepositoryArtifactIterator.Params iterParams =
+          new RestLockssRepositoryArtifactIterator.Params()
+          .setPageSizes(config.getList(PARAM_ARTIFACT_ITER_PAGE_SIZES,
+                                       DEFAULT_ARTIFACT_ITER_PAGE_SIZES))
+          .setQueueLen(config.getInt(PARAM_ARTIFACT_ITER_QUEUE_LEN,
+                                     DEFAULT_ARTIFACT_ITER_QUEUE_LEN))
+          .setQueueGetTimeout(config.getTimeInterval(PARAM_ARTIFACT_ITER_QUEUE_GET_TIMEOUT,
+                                                     DEFAULT_ARTIFACT_ITER_QUEUE_GET_TIMEOUT));
+        repo.setArtifactIteratorParams(iterParams);
 	configureArtifactCache(repo, config);
 	return repo;
       } catch (MalformedURLException e) {
