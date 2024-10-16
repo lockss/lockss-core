@@ -90,4 +90,10 @@ public class LockssCoreTestCase5 extends LockssTestCase5 {
       throw new DbException("Can't start embedded PostgreSQL", e);
     }
   }
+
+  protected void stopEmbeddedPgDbManager() throws IOException {
+    if (embeddedPg != null) {
+      embeddedPg.close();
+    }
+  }
 }

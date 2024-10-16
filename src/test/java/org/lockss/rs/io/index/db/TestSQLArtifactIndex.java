@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.io.index.db;
 
+import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.AbstractArtifactIndexTest;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
@@ -40,6 +41,7 @@ import java.io.File;
 import java.io.IOException;
 
 public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactIndex> {
+  private static L4JLogger log = L4JLogger.getLogger();
 
   private SQLArtifactIndexDbManager idxDbManager;
   private MockLockssDaemon theDaemon;
@@ -57,7 +59,19 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
 //    initializeDerby();
     initializePostgreSQL();
 
-    return new SQLArtifactIndex();
+    return new EmbeddedSQLArtifactIndex();
+  }
+
+  class EmbeddedSQLArtifactIndex extends SQLArtifactIndex {
+    @Override
+    public void stop() {
+      try {
+        stopEmbeddedPgDbManager();
+      } catch (IOException e) {
+        log.warn("Failed to close embedded PostgreSQL");
+      }
+      super.stop();
+    }
   }
 
   protected void initializePostgreSQL() throws Exception {
