@@ -92,7 +92,7 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
     repositoryDbManager = new RepositoryDbManager();
     repositoryDbManager.initService(theDaemon);
 
-//    assertTrue(repositoryDbManager.setUpDatabase(initialVersion));
+    assertTrue(repositoryDbManager.setUpDatabase(initialVersion));
     repositoryDbManager.setTargetDatabaseVersion(targetVersion);
     repositoryDbManager.startService();
 
