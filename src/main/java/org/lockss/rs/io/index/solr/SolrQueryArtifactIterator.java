@@ -57,7 +57,7 @@ public class SolrQueryArtifactIterator implements Iterator<Artifact> {
   private final SolrClient solrClient;
 
   // Solr BasicAuth credentials to use with Solr requests
-  private List<String> solrCredentials;
+  private final List<String> solrCredentials;
 
   // The Solr query used to obtain artifacts from Solr.
   private final SolrQuery solrQuery;

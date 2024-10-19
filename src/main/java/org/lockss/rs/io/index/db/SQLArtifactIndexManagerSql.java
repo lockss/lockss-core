@@ -55,7 +55,7 @@ import static org.lockss.config.db.SqlConstants.*;
  * SQL queries and operations in support of {@link SQLArtifactIndex}.
  */
 public class SQLArtifactIndexManagerSql {
-  private static L4JLogger log = L4JLogger.getLogger();
+  private static final L4JLogger log = L4JLogger.getLogger();
 
   protected final SQLArtifactIndexDbManager idxDbManager;
 
@@ -1101,7 +1101,6 @@ public class SQLArtifactIndexManagerSql {
       boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
       String urlm = url;
 
-      // FIXME: If there was an exception inserting into either table, we need to rollback the changes
       if (isLongUrl) {
         urlm = url.substring(0, LONG_URL_THRESHOLD);
       }
@@ -1995,7 +1994,7 @@ public class SQLArtifactIndexManagerSql {
   }
 
   private static class ArtifactIteratorCleaner implements Runnable {
-    private Connection conn;
+    private final Connection conn;
 
     private ArtifactIteratorCleaner(Connection conn) {
       this.conn = conn;
@@ -2015,7 +2014,7 @@ public class SQLArtifactIndexManagerSql {
     // Infrastructure to invoke Cleaner
     private static final Cleaner cleaner = Cleaner.create();
     private Cleaner.Cleanable cleanable = null;
-    private ArtifactIteratorCleaner aic;
+    private final ArtifactIteratorCleaner aic;
 
     ArtifactResultSetIterator(Connection conn, ResultSet rs) {
       this.conn = conn;

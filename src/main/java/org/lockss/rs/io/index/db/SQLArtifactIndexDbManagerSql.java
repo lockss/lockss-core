@@ -43,7 +43,7 @@ import java.util.Map;
 import static org.lockss.config.db.SqlConstants.*;
 
 public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
-  private static L4JLogger log = L4JLogger.getLogger();
+  private static final L4JLogger log = L4JLogger.getLogger();
 
   private static final String
       CREATE_NAMESPACE_TABLE_QUERY = "CREATE TABLE "

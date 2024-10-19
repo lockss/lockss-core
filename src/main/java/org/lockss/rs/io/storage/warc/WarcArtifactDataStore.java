@@ -160,7 +160,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   protected final static long MAX_AUACTIVEWARCS_RELOADED = 10;
 
   protected static final String ENV_THRESHOLD_WARC_SIZE = "REPO_MAX_WARC_SIZE";
-  protected static final long DEFAULT_THRESHOLD_WARC_SIZE = 1L * FileUtils.ONE_GB;
+  protected static final long DEFAULT_THRESHOLD_WARC_SIZE = FileUtils.ONE_GB;
   protected long thresholdWarcSize;
 
   protected static final String ENV_THRESHOLD_ARTIFACTS = "REPO_MAX_ARTIFACTS";
@@ -180,7 +180,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   protected Map<NamespacedAuid, List<Path>> auActiveWarcsMap = new HashMap<>();
   protected Map<NamespacedAuid, List<Path>> auPathsMap = new HashMap<>();
 
-  private Map<ArtifactIdentifier, CopyArtifactTask> queuedCopyTasks = new ConcurrentHashMap<>();
+  private final Map<ArtifactIdentifier, CopyArtifactTask> queuedCopyTasks = new ConcurrentHashMap<>();
 
   private BaseLockssRepository repo;
 
@@ -239,6 +239,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   private void createWarcLocalJournals() throws IOException {
+    // This map could become quiet large, but we don't anticipate needing to
+    // perform this on any truly large corpus on beta or earlier machines:
     Map<String, Map<String, List<Path>>> result = new HashMap<>();
 
     // Build sets of AU directories (for each AU in a namespace)
@@ -1246,7 +1248,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Semaphore map keyed by {@link ArtifactIdentifier}. Used to synchronize operations on an artifact.
    */
-  private SemaphoreMap<ArtifactIdentifier> artifactLock = new SemaphoreMap<>();
+  private final SemaphoreMap<ArtifactIdentifier> artifactLock = new SemaphoreMap<>();
 
   /**
    * Returns the {@link WarcArtifactState} of an artifact in this data store. Not thread-safe!
@@ -1483,8 +1485,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     log.debug2("Adding artifact [artifactId: {}]", artifactId);
 
     try {
-      // TODO: Determine output WARC file from ad.isCommitted() to allow writing to temporary
-      //  files (as done currently) or writing directly into permanent files
+      // Q: We have discussed adding a feature that would allow us to write directly into a permanent
+      //  WARC. Do we still want that? We could support it with minimal changes to the REST and Java APIs
+      //  by calling ad.isCommitted() to determine whether to write to a temporary or permanent WARC.
 
       // ********************************
       // Write artifact to temporary WARC
@@ -2182,9 +2185,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   // TODO - Pull this out and along WarcFile?
   protected static class WarcRecordLocation {
-    private Path path;
-    private long offset;
-    private long length;
+    private final Path path;
+    private final long offset;
+    private final long length;
 
     public WarcRecordLocation(Path path, long offset, long length) {
       this.path = path;
@@ -2343,9 +2346,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
   }
 
-  private static String[] REINDEXED_WARCS_CSV_HEADER = {"start", "end", "num_indexed", "warc_file"};
-  private static int BATCH_SIZE = 1000;
-  private static String HEADER_KEY_JOURNAL_TYPE = "X-Lockss-Repository-Journal-Type";
+  private static final String[] REINDEXED_WARCS_CSV_HEADER = {"start", "end", "num_indexed", "warc_file"};
+  private static final int BATCH_SIZE = 1000;
+  private static final String HEADER_KEY_JOURNAL_TYPE = "X-Lockss-Repository-Journal-Type";
   private static final String DOT_METADATA_WARC_FILE_EXTENSION = ".metadata" + DOT_WARC_FILE_EXTENSION;
 
   /**
@@ -2561,7 +2564,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   // FIXME: This is used only to protect journal writes - make more granular?
-  private SemaphoreMap<ArchivalUnitStem> auLocks = new SemaphoreMap<>();
+  private final SemaphoreMap<ArchivalUnitStem> auLocks = new SemaphoreMap<>();
 
   // TODO: What is the difference between this and NamespacedAuid?
   private static class ArchivalUnitStem {
@@ -2683,7 +2686,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       if (!journalFile.delete()) {
         throw new IOException("Error deleting journal file: " + journalFile.getAbsolutePath());
-      };
+      }
 
       FileUtils.moveFile(tmpFile, journalFile);
     }
@@ -2741,7 +2744,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     // Read and merge journals of this AU into one large map
     for (Path auDir : auDirs) {
-      // FIXME: Compressed journal support
       Path auJournalFile = auDir.resolve("artifact_state" + DOT_WARC_FILE_EXTENSION);
 
       log.debug2("auJournalFile = {}", auJournalFile);
@@ -3061,7 +3063,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     public WARCRecord get(long offset) throws IOException {
       cleanupCurrentRecord();
       ((GZIPMembersInputStream) getIn()).compressedSeek(offset);
-      return (WARCRecord) createArchiveRecord(getIn(), offset);
+      return createArchiveRecord(getIn(), offset);
     }
 
     /**
@@ -3075,9 +3077,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
        * GzippedInputStream iterator.
        */
       return new ArchiveRecordIterator() {
-        private GZIPMembersInputStream gis = (GZIPMembersInputStream) getIn();
+        private final GZIPMembersInputStream gis = (GZIPMembersInputStream) getIn();
 
-        private Iterator<GZIPMembersInputStream> gzipIterator = this.gis.memberIterator();
+        private final Iterator<GZIPMembersInputStream> gzipIterator = this.gis.memberIterator();
 
         protected boolean innerHasNext() {
           return this.gzipIterator.hasNext();
@@ -3086,7 +3088,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         protected ArchiveRecord innerNext() throws IOException {
           // Get the position before gzipIterator.next moves
           // it on past the gzip header.
-          InputStream is = (InputStream) this.gzipIterator.next();
+          InputStream is = this.gzipIterator.next();
           return createArchiveRecord(is, Math.max(gis.getCurrentMemberStart(), gis.getCurrentMemberEnd()));
         }
       };
@@ -3105,7 +3107,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       if (skipped > 4) {
         System.err.println("unexpected extra data after record " + rec);
       }
-      return;
     }
   }
 

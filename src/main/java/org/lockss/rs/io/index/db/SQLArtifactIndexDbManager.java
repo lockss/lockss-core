@@ -44,7 +44,7 @@ import java.sql.SQLException;
 import static org.lockss.log.L4JLevel.DEBUG3;
 
 public class SQLArtifactIndexDbManager extends DbManager implements ConfigurableManager {
-  private static L4JLogger log = L4JLogger.getLogger();
+  private static final L4JLogger log = L4JLogger.getLogger();
 
   // Prefix for the database manager configuration entries.
   private static final String PREFIX = Configuration.PREFIX
@@ -161,7 +161,7 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
   public static final String PARAM_WAIT_FOR_EXTERNAL_SETUP = PREFIX
       + "waitForExternalSetup";
 
-  private SQLArtifactIndexDbManagerSql idxDbManagerSql =
+  private final SQLArtifactIndexDbManagerSql idxDbManagerSql =
     new SQLArtifactIndexDbManagerSql(this, null,
           DEFAULT_DATASOURCE_CLASSNAME, DEFAULT_DATASOURCE_USER,
           DEFAULT_MAX_RETRY_COUNT, DEFAULT_RETRY_DELAY, DEFAULT_FETCH_SIZE);

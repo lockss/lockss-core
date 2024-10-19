@@ -96,7 +96,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   protected ScheduledExecutorService scheduledExecutor =
       Executors.newSingleThreadScheduledExecutor();
 
-  private static BuildInfo BUILD_INFO = BuildInfo.getBuildInfoFor("lockss-core")
+  private static final BuildInfo BUILD_INFO = BuildInfo.getBuildInfoFor("lockss-core")
       .orElseThrow(() -> new IllegalStateException("Could not determine LOCKSS repository version"));
 
   public static String REPOSITORY_VERSION = BUILD_INFO.getBuildPropertyInst("build.version");

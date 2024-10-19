@@ -67,12 +67,12 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   private SQLArtifactIndexManagerSql idxdb = null;
 
-  private SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
+  private final SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
 
-  private Map<String, CompletableFuture<AuSize>> auSizeFutures =
+  private final Map<String, CompletableFuture<AuSize>> auSizeFutures =
       new ConcurrentHashMap<>();
 
-  private Map<String, Boolean> invalidatedAuSizes =
+  private final Map<String, Boolean> invalidatedAuSizes =
       Collections.synchronizedMap(new LRUMap<>(100));
 
   @Override
@@ -135,11 +135,13 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   @Override
   public void indexArtifacts(Iterable<Artifact> artifacts) throws IOException {
     try {
-//      idxdb.addArtifacts(artifacts);
+      // TODO: Implement idxdb.addArtifacts(artifacts)
 
       boolean isFirstArtifact = true;
 
       for (Artifact artifact : artifacts) {
+        // FIXME: The assumption that all the artifacts are in the same namespace and AUID
+        //  (as determined by the first artifact) is only true in "bulk-mode":
         if (isFirstArtifact) {
           try {
             invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
@@ -251,12 +253,8 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
         throw new IOException("Could not invalidate AU size", e);
       }
 
-      if (idxdb.deleteArtifact(uuid) == 0) {
-        return false;
-      }
-
       // Q: Remove boolean return from method signature?
-      return true;
+      return idxdb.deleteArtifact(uuid) != 0;
     } catch (DbException e) {
       throw new IOException("Could not remove artifact from database", e);
     }

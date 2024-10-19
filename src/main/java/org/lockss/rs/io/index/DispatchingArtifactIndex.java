@@ -53,8 +53,8 @@ import java.util.UUID;
 public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
 
-  private ArtifactIndex masterIndex;
-  private Map<String,ArtifactIndex> tempIndexMap = new CopyOnWriteMap<>();
+  private final ArtifactIndex masterIndex;
+  private final Map<String,ArtifactIndex> tempIndexMap = new CopyOnWriteMap<>();
 
   public DispatchingArtifactIndex(ArtifactIndex master) {
     this.masterIndex = master;
@@ -318,8 +318,7 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
     // permitted and likely won't work correctly while the Artifacts
     // are being copied into Solr
     ArtifactDataStore store = repository.getArtifactDataStore();
-    if (store instanceof WarcArtifactDataStore) {
-      WarcArtifactDataStore warcStore = (WarcArtifactDataStore)store;
+    if (store instanceof WarcArtifactDataStore warcStore) {
       if (!warcStore.waitForCommitTasks(namespace, auid)) {
         log.warn("waitForCommitTasks() was interrupted");
         throw new InterruptedIOException("finishBulk interrupted");

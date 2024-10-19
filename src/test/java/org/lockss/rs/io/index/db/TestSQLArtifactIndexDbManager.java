@@ -60,6 +60,8 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
   private SQLArtifactIndexDbManager idxDbManager;
   private String dbPort;
 
+  // FIXME: Refactor tests to use JUnit test lifecycle annotations
+
   @Override
   public void setUp() throws Exception {
     super.setUp();

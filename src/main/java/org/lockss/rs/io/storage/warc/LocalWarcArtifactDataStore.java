@@ -387,8 +387,8 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
       // Compute percent used as 1.0 - avail / size, as some FSs have a
       // "full" threshold that's lower than the total size
       sum.setPercentUsed(1.0d - (double)sum.getAvailKB() / (double)sum.getSizeKB());
-      sum.setPercentUsedString(String.valueOf(Math.round(100.0 *
-                                                         sum.getPercentUsed())) + "%");
+      sum.setPercentUsedString(Math.round(100.0 *
+          sum.getPercentUsed()) + "%");
     }
     if (basePathSis.size() > 1) {
       sum.setComponents(basePathSis);

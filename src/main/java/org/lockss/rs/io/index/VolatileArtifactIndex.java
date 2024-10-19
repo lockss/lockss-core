@@ -72,7 +72,7 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
     /**
      * Map from artifact stem to semaphore. Used for artifact version locking.
      */
-    private SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
+    private final SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
 
     @Override
     public void init() {

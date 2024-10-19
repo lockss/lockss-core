@@ -34,7 +34,7 @@ package org.lockss.rs.io.storage.warc;
 import java.util.HashMap;
 
 public class WarcJournal<T> extends HashMap<String, T> {
-  public static interface WarcJournalEntry<T> {
+  public interface WarcJournalEntry<T> {
       String getArtifactUuid();
       long getEntryDate();
       T getEntry();

@@ -231,7 +231,7 @@ public class ArtifactSolrDocument {
   }
 
   public boolean isCommitted() {
-    return getCommitted() == true;
+    return getCommitted();
   }
 
   public void setCommitted(Boolean committed) {
@@ -316,10 +316,9 @@ public class ArtifactSolrDocument {
   }
 
   public boolean equalsExceptStorageUrl(Object o) {
-    if (!(o instanceof Artifact)) {
+    if (!(o instanceof Artifact other)) {
       return false;
     }
-    Artifact other = (Artifact)o;
 
     return other != null
         && ((this.getIdentifier() == null && other.getIdentifier() == null)

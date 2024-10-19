@@ -73,6 +73,7 @@ public abstract class AbstractArtifactIndex implements ArtifactIndex {
           Path versionFilePath = stateDirPath.resolve(INDEX_VERSION_FILE);
           File versionFile = versionFilePath.toFile();
           recordArtifactIndexVersion(versionFile, lastRecordedVersion);
+
           log.debug("Index " + lastRecordedVersion.getIndexType()
               + " updated to version " + lastRecordedVersion.getIndexVersion());
         }

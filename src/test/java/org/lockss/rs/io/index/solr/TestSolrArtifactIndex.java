@@ -202,15 +202,18 @@ public class TestSolrArtifactIndex extends AbstractArtifactIndexTest<SolrArtifac
   @Disabled
   @Override
   public void testGetArtifactsWithPrefix() {
+    // Solr is not able to perform a prefix query with ultra long prefixes.
   }
 
   @Disabled
   @Override
   public void testGetArtifactsWithPrefixAllVersions() {
+    // Solr is not able to perform a prefix query with ultra long prefixes.
   }
 
   @Disabled
   @Override
   public void testGetArtifactsWithUrlPrefixFromAllAus() {
+    // Solr is not able to perform a prefix query with ultra long prefixes.
   }
 }

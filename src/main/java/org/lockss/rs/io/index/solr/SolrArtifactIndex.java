@@ -123,10 +123,10 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
   protected LockssApp theApp = null;
 
-  private Map<String, CompletableFuture<AuSize>> auSizeFutures =
+  private final Map<String, CompletableFuture<AuSize>> auSizeFutures =
       new ConcurrentHashMap<>();
 
-  private Map<String, Boolean> invalidatedAuSizes =
+  private final Map<String, Boolean> invalidatedAuSizes =
       Collections.synchronizedMap(new LRUMap<>(100));
 
   /**
@@ -154,7 +154,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   /**
    * Map from artifact stem to semaphore. Used for artifact version locking.
    */
-  private SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
+  private final SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
 
   /**
    * Handle to Solr soft commit journal writer.
@@ -461,7 +461,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * hardCommitInterval ms.
    */
   private void scheduleHardCommitter() {
-    ((BaseLockssRepository) repository).getScheduledExecutorService()
+    repository.getScheduledExecutorService()
       .schedule(new SolrHardCommitTask(), hardCommitInterval, TimeUnit.MILLISECONDS);
     log.debug2("Scheduled Solr hard commit in {}",
                TimeUtil.timeIntervalToString(hardCommitInterval));
