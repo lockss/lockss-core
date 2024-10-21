@@ -137,22 +137,25 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     try {
       // TODO: Implement idxdb.addArtifacts(artifacts)
 
-      boolean isFirstArtifact = true;
+      Artifact firstArtifact = null;
 
       for (Artifact artifact : artifacts) {
-        // FIXME: The assumption that all the artifacts are in the same namespace and AUID
-        //  (as determined by the first artifact) is only true in "bulk-mode":
-        if (isFirstArtifact) {
-          try {
-            invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
-          } catch (DbException e) {
-            log.warn("Could not invalidate AU size", e);
-            throw e;
-          }
-          isFirstArtifact = false;
+        if (firstArtifact == null) {
+          firstArtifact = artifact;
         }
 
         idxdb.addArtifact(artifact);
+      }
+
+      // FIXME: The assumption that all the artifacts are in the same namespace and AUID
+      //  (as determined by the first artifact) is only true in "bulk-mode":
+      if (firstArtifact != null) {
+        try {
+          invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
+        } catch (DbException e) {
+          log.warn("Could not invalidate AU size", e);
+          throw e;
+        }
       }
     } catch (DbException e) {
       throw new IOException("Could not add artifact to database", e);
