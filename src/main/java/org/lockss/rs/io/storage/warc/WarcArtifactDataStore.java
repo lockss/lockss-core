@@ -2384,6 +2384,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         long startOffset = reader.getStartOffset();
         WarcRecord record = recordIter.next();
 
+        // FIXME: May be truncated; detect here
         long recordLength = recordIter.hasNext() ?
             reader.getStartOffset() - startOffset :
             getWarcLength(warcFile) - startOffset; // FIXME: Probably not correct to assume this
