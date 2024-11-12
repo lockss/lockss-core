@@ -1564,7 +1564,7 @@ public class LockssApp {
     // Use a unique session cookie so that multiple instances running on
     // the same host don't overwrite each other's session id
     System.setProperty("org.mortbay.jetty.servlet.SessionCookie",
-		       "JSESSIONID_" + RandomStringUtils.randomAlphabetic(5));
+		       "JSESSIONID_" + RandomStringUtils.insecure().randomAlphabetic(5));
   }
 
 

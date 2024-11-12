@@ -71,9 +71,6 @@ public class TestAuthSSLProtocolSocketFactory extends LockssTestCase {
     keyStoreFileName = new File(keyStoreDir, "test.keystore").toString();
 
     daemon = getMockLockssDaemon();
-    rmgr = new TestingRandomManager();
-    rmgr.initService(daemon);
-    daemon.setRandomManager(rmgr);
   }
 
   void startKeyManager() {

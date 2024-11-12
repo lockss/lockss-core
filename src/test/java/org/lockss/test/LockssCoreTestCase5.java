@@ -3,11 +3,14 @@ package org.lockss.test;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.CurrentConfig;
+import org.lockss.daemon.*;
 import org.lockss.util.StringUtil;
 import org.lockss.util.test.LockssTestCase5;
 
 import java.io.File;
 import java.io.IOException;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.function.*;
 
 public class LockssCoreTestCase5 extends LockssTestCase5 {
   private MockLockssDaemon mockDaemon = null;
@@ -35,6 +38,17 @@ public class LockssCoreTestCase5 extends LockssTestCase5 {
     }
 
     return mockDaemon;
+  }
+
+  /** Always install RandomManager */
+  @BeforeEach
+  public void beforeEachRandom(TestInfo info) throws IOException {
+    MockLockssDaemon mockDaemon = getMockLockssDaemon();
+    if (mockDaemon != null) {
+      RandomManager rmgr = new LockssTestCase4.TestingRandomManager();
+      rmgr.initService(mockDaemon);
+      mockDaemon.setRandomManager(rmgr);
+    }
   }
 
   public String setUpDiskSpace() throws IOException {
