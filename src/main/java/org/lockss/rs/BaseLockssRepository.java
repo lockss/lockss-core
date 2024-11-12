@@ -63,7 +63,7 @@ import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ImportStatusIterable;
 import org.lockss.util.rest.repo.util.JmsFactorySource;
 import org.lockss.util.rest.repo.util.LockssRepositoryUtil;
-import org.lockss.util.storage.RepositoryStatistics;
+import org.lockss.util.rest.repo.model.RepositoryStatistics;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
@@ -361,8 +361,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       log.warn("Couldn't get store space", e);
     }
 
-    RepositoryStatistics repoStats = new RepositoryStatistics()
-        .setTimeSpentReiteratingIterators(timeSpentReiterating);
+    RepositoryStatistics repoStats = new RepositoryStatistics();
+    repoStats.setTimeSpentReiteratingIterators(timeSpentReiterating);
 
     return new RepositoryInfo(sto, ind)
         .setRepositoryStatistics(repoStats);
