@@ -129,7 +129,7 @@ public class TitleSetXpath extends BaseTitleSet {
   }
 
   /** Special case for xpath: <code>[pluginName='plugname']</code>,
-   * optimized to avoid evaluating zpath expression */
+   * optimized to avoid evaluating xpath expression */
   static class TSPlugin extends TitleSetXpath {
 
     private String pluginName;
@@ -167,7 +167,7 @@ public class TitleSetXpath extends BaseTitleSet {
 
   /** Special case for xpath:
    * <code>[attributes/publisher='pubname']</code>, optimized to avoid
-   * evaluating zpath expression */
+   * evaluating xpath expression */
   static class TSAttr extends TitleSetXpath {
 
     private String attr;
