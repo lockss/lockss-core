@@ -872,7 +872,7 @@ public abstract class LockssServlet extends HttpServlet
       inNavIterator = CollectionUtil.EMPTY_ITERATOR;
     } else {
       inNavIterator = new FilterIterator(
-        new ObjectArrayIterator(getServletDescrs()),
+        new ObjectArrayIterator((Object[])getServletDescrs()),
         new Predicate() {
           public boolean evaluate(Object obj) {
             return isServletInNav((ServletDescr)obj);
