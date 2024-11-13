@@ -64,7 +64,7 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
     // Internal map from artifact ID to Artifact
     protected Map<String, Artifact> indexedByUuid = new ConcurrentHashMap<>();
 
-    private MultiValuedMap<String, Artifact> indexedByUrlMap =
+    protected MultiValuedMap<String, Artifact> indexedByUrlMap =
         new ArrayListValuedHashMap<>(1);
 
     /**

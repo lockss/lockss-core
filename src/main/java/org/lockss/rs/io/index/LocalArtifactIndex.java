@@ -175,6 +175,9 @@ public class LocalArtifactIndex extends VolatileArtifactIndex {
             fis = new FileInputStream(persistedIndex);
             ois = new ObjectInputStream(fis);
             indexedByUuid = (ConcurrentHashMap<String, Artifact>)ois.readObject();
+            for (Artifact artifact : indexedByUuid.values()) {
+              indexedByUrlMap.put(artifact.getUri(), artifact);
+            }
             log.info("Index successfully deserialized from file " + persistedIndex);
         } catch(IOException ioe) {
             log.error("Exception caught deserializing index from " + persistedIndex, ioe);
