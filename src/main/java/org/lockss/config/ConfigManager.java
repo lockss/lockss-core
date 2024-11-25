@@ -754,7 +754,6 @@ public class ConfigManager implements LockssManager {
   protected boolean isInited = false;
   protected boolean isStarted = false;
   protected boolean inMigrationMode = DEFAULT_IN_MIGRATION_MODE;
-//   private int actualV3LcapPort = -1;
   private String transportPeerKey = null;
 
   private List configChangedCallbacks = new ArrayList();
@@ -2282,10 +2281,10 @@ public class ConfigManager implements LockssManager {
     org.lockss.poller.PollManager.processConfigMacros(config);
   }
   
-//   public int getV3LcapListenPort() {
-//     return actualV3LcapPort;
-//   }
-
+  /** Return an LCAP ID-formatted string describing our
+   * <b>transport</b> address.  Normally the same as our official LCAP
+   * IP, but during migration this is our end (IP and port) of the
+   * LCAP forwarding path between us and V1 */
   public String getTransportPeerKey() {
     return transportPeerKey;
   }
@@ -2301,15 +2300,21 @@ public class ConfigManager implements LockssManager {
     }
   }
 
-  // ID.  If in migration mode, the
-  // configured port must be the same as V1's port
-  // PARAM_LOCAL_V3_IDENTITY may get changed below; we're just
-  // getting the port here
-  void setUpNetworkForMigration(Configuration config) {
+  // In migration mode PARAM_LOCAL_V3_IDENTITY reflects the (external)
+  // IP and port confiured for this V2 instance (because that's what
+  // configure-lockss does).  We use that to find the configured LCAP
+  // port to find the port we should use to communicate with V1
+  // (though that may be overridden if PARAM_MIGRATION_LCAP_PORT is
+  // set), then we reset PARAM_LOCAL_V3_IDENTITY to match V1's LCAP
+  // ID, as during migration we adopt that identity.
+
+  // Separately, we configure BlockingStreamComm to communicate with
+  // V1 using our actual IP & port, and its IP that's routable from here.
+
+  private void setUpNetworkForMigration(Configuration config) {
     log.info("Setting up for migration from V1");
 
     // Extract the LCAP port from our LCAP ID.
-    // getting the port here
     String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
     int v1IdPort;
     String v1IdPortStr;
@@ -2322,20 +2327,19 @@ public class ConfigManager implements LockssManager {
     }
 
     String transportIp;
-    // In migration mode the transport mechanism is different for
-    // same-host and different-host
     if (config.getBoolean(PARAM_SAME_HOST_MIGRATION,
                           DEFAULT_SAME_HOST_MIGRATION)) {
-      // In same-host, the transpost mechanism must identify itself
-      // with the machine's actual IP addr, as localhost won't work
-      // with containers.
+      // For same-host migration the transport mechanism must identify
+      // itself with the machine's actual IP addr, as localhost won't
+      // work with containers.
       transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
     } else {
       // In different-host, we need to identify ourself as the IP that
       // V1 should use to talk to us.  If NATed, that might be the
-      // internal addr (if both machines behind the same NAT) or the
-      // external addr (if only one behind NAT, or behind different
-      // NATs).
+      // internal addr (if both machines are behind the same NAT) or
+      // the external addr (if only one behind NAT, or behind
+      // different NATs).  By default assume they're behind the same
+      // NAT, but allow the user to override that using Expert Config
       if (config.getBoolean(PARAM_MIGRATION_SAME_NAT,
                             DEFAULT_MIGRATION_SAME_NAT)) {
         transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
@@ -2355,32 +2359,30 @@ public class ConfigManager implements LockssManager {
         }
       }
     }
-    // find the actual listen port and copy to config as
-    // it's needed by both BlockingStreamComm and V1 migration
+    // Find the actual listen port, make available to BlockingStreamComm,
     int actualV3LcapPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, v1IdPort);
-    // Put in config for easy access by V1 MigrateSettings
-    config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(actualV3LcapPort));
-
     transportPeerKey = IDUtil.ipAddrToKey(transportIp, actualV3LcapPort);
 
-    // Set LcapRouter.PARAM_MIGRATE_FROM to
-    // an ID made from PARAM_V1_ROUTABLE_ADDR (the routable V1 IP)
-    // and the port from PARAM_LOCAL_V3_IDENTITY
+    // and put in the config for easy access by V1 MigrateSettings
+    config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(actualV3LcapPort));
+
+    // Tell LcapRouter where to forward outgoing messages (the
+    // routable V1 IP, and the port from PARAM_LOCAL_V3_IDENTITY)
     String sendToV1Id =
       IDUtil.ipAddrToKey(config.get(PARAM_V1_ROUTABLE_ADDR), v1IdPortStr);
     log.info("Configuring to forward LCAP to: " + sendToV1Id);
     config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
 
-    // Set IdentityManager.PARAM_LOCAL_V3_IDENTITY and
+    // Now (possibly) reset IdentityManager.PARAM_LOCAL_V3_IDENTITY and
     // PARAM_PLATFORM_LOCAL_V3_IDENTITY to the LCAP ID of the daemon
     // we're migrating from.
-
     String myLcapId =
       IDUtil.ipAddrToKey(config.get(PARAM_V1_IDENTITY_IP), v1IdPortStr);
     config.put(PARAM_PLATFORM_LOCAL_V3_IDENTITY, myLcapId);
     config.put(IdentityManager.PARAM_LOCAL_V3_IDENTITY, myLcapId);
   }
 
+  // Non transport-related migration config
   void setUpForMigration(Configuration config) {
     // Tell SubscriptionManager to defer instantiating subscriptions
     config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");
