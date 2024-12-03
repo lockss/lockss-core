@@ -239,8 +239,8 @@ public class RepositoryManager
       useMultipartEndpoint = config.getBoolean(PARAM_USE_MULTIPART_ENDPOINT,
           DEFAULT_USE_MULTIPART_ENDPOINT);
 
-      connectTimeout = config.getLong(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
-      readTimeout = config.getLong(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
+      connectTimeout = config.getTimeInterval(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
+      readTimeout = config.getTimeInterval(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
       sizeThreshold = config.getSize(PARAM_RESPONSE_SIZE_THRESHOLD, DEFAULT_RESPONSE_SIZE_THRESHOLD);
 
       tmpDir = (config.containsKey(PARAM_RESPONSE_TMP_DIR)) ?

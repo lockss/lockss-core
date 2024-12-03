@@ -771,7 +771,8 @@ public class HashCUS extends LockssServlet {
       double fbpms = ((double)bytesHashed) / ((double)elapsedTime);
       s = fmt_2dec.format(fbpms);
     }
-    return elapsedTime + " ms, " + s + " bytes/ms";
+    return StringUtil.timeIntervalToString(elapsedTime) + ", "
+      + s + " bytes/ms";
   }
 
   private Element makeForm(ResultType resType, HashType hashType,
@@ -1073,8 +1074,12 @@ public class HashCUS extends LockssServlet {
     }
     addResultRow(tbl, "CUSS", result.getCus().getSpec().toString());
     addResultRow(tbl, "Files", Integer.toString(result.getFilesHashed()));
+    String sizeStr = Long.toString(result.getBytesHashed());
+    if (result.getBytesHashed() >= 1000000) {
+      sizeStr += " (" + StringUtil.sizeToString(result.getBytesHashed()) + ")";
+    }
     addResultRow(tbl, (params.isFiltered() ? "Filtered size" : "Size"),
-		 Long.toString(result.getBytesHashed()));
+                 sizeStr);
     addResultRow(tbl, "Time",
 	getElapsedString(result.getBytesHashed(), result.getElapsedTime()));
 
