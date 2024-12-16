@@ -357,11 +357,11 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.dependency.jsoup}</version>
     </dependency>
     
-    <dependency>
-      <groupId>org.jboss.apiviz</groupId>
-      <artifactId>apiviz</artifactId>
-      <version>1.3.2.GA</version>
-    </dependency>
+<!--     <dependency> -->
+<!--       <groupId>org.jboss.apiviz</groupId> -->
+<!--       <artifactId>apiviz</artifactId> -->
+<!--       <version>1.3.2.GA</version> -->
+<!--     </dependency> -->
     
     <dependency>
       <groupId>org.lockss.legacy</groupId>
