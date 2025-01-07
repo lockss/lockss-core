@@ -61,10 +61,8 @@ public class TestServiceDescr extends LockssTestCase {
   public void testBuiltin() {
     assertEquals(new ServiceDescr("Config Service", "cfg"),
 		 ServiceDescr.SVC_CONFIG);
-    assertEquals(new ServiceDescr("Metadata Extraction Service", "mdx"),
-		 ServiceDescr.SVC_MDX);
-    assertEquals(new ServiceDescr("Metadata Query Service", "mdq"),
-		 ServiceDescr.SVC_MDQ);
+    assertEquals(new ServiceDescr("Metadata Service", "md"),
+		 ServiceDescr.SVC_MD);
     assertEquals(new ServiceDescr("Poller Service", "poller"),
 		 ServiceDescr.SVC_POLLER);
     assertEquals(new ServiceDescr("Crawler Service", "crawler"),
@@ -74,10 +72,8 @@ public class TestServiceDescr extends LockssTestCase {
 
     assertEquals(new ServiceDescr("Config Service", "cfg"),
 		 ServiceDescr.fromAbbrev("cfg"));
-    assertEquals(new ServiceDescr("Metadata Extraction Service", "mdx"),
-		 ServiceDescr.fromAbbrev("mdx"));
-    assertEquals(new ServiceDescr("Metadata Query Service", "mdq"),
-		 ServiceDescr.fromAbbrev("mdq"));
+    assertEquals(new ServiceDescr("Metadata Service", "md"),
+		 ServiceDescr.fromAbbrev("md"));
     assertEquals(new ServiceDescr("Poller Service", "poller"),
 		 ServiceDescr.fromAbbrev("poller"));
     assertEquals(new ServiceDescr("Crawler Service", "crawler"),

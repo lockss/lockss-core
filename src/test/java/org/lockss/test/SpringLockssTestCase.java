@@ -482,7 +482,7 @@ public abstract class SpringLockssTestCase extends LockssTestCase4 {
   }
 
   /** Intended for tests of code that normally runs in on-demand AU
-   * creation mode (e.g., mdq & mdx services), to make the tests work in
+   * creation mode (e.g., md service), to make the tests work in
    * startAllAus mode.  Creates an AU from config inferred from the AUID,
    * iff the AU doesn't already exist and the daemon is not running in
    * on-demand mode. */

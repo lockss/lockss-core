@@ -640,7 +640,7 @@ public class AdminServletManager extends BaseServletManager {
 	  	       "Metadata Monitor",
 	  	       ServletDescr.NEED_ROLE_DEBUG,
 	  	       "Metadata Monitor")
-    .setService(SVC_MDX);
+    .setService(SVC_MD);
 
   protected static final ServletDescr SERVLET_MD_CONTROL =
       new ServletDescr("MetadataControl",
@@ -648,7 +648,7 @@ public class AdminServletManager extends BaseServletManager {
 	  	       "Metadata Control",
 	  	       ServletDescr.NEED_ROLE_AU_ADMIN,
 	  	       "Metadata Control")
-    .setService(SVC_MDX);
+    .setService(SVC_MD);
 
   protected static final ServletDescr SERVLET_OIOSAML =
       new ServletDescr("SAMLDispatcherServlet",
