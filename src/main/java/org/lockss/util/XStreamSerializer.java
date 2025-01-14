@@ -223,8 +223,8 @@ public class XStreamSerializer extends ObjectSerializer {
 
       String result = super.decodeAttribute(PAT.matcher(attributeName).replaceAll(REPL_ATTRIBUTE));
 
-      logger.critical("attributeName = " + attributeName);
-      logger.critical("result = " + result);
+      logger.debug3("attributeName = " + attributeName);
+      logger.debug3("result = " + result);
 
       return result;
     }
