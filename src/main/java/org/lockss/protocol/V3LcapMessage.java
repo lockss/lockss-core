@@ -400,7 +400,7 @@ public class V3LcapMessage extends LcapMessage implements LockssSerializable {
   }
 
   /** Method suitable for unit tests. */
-  public int getSupportedProtocolRev() {
+  public static int getSupportedProtocolRev() {
     return V3_PROTOCOL_REV;
   }
 
