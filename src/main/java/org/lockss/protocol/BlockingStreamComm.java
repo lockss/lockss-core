@@ -358,6 +358,7 @@ public class BlockingStreamComm
 
   private ConfigManager cfgMgr;
   private IdentityManager idMgr;
+  private LcapRouter lcapRtr;
   protected LockssKeyStoreManager keystoreMgr;
 
   private OneShot configShot = new OneShot();
@@ -897,6 +898,7 @@ public class BlockingStreamComm
     LockssDaemon daemon = getDaemon();
     cfgMgr = daemon.getConfigManager();
     idMgr = daemon.getIdentityManager();
+    lcapRtr = daemon.getRouterManager();
     keystoreMgr = daemon.getKeystoreManager();
     resetConfig();
     anyRateLimited = false;
@@ -2142,6 +2144,11 @@ public class BlockingStreamComm
       res.add(new StatusTable.SummaryInfo("SSL",
 					  ColumnDescriptor.TYPE_STRING,
 					  sb.toString()));
+      if (lcapRtr != null && lcapRtr.getMigrateFrom() != null) {
+        res.add(new StatusTable.SummaryInfo("Forwarding LCAP traffic during migration through",
+                                            ColumnDescriptor.TYPE_STRING,
+                                            lcapRtr.getMigrateFrom().toString()));
+      }
       res.add(new StatusTable.SummaryInfo("Channels",
 					  ColumnDescriptor.TYPE_STRING,
 					  nPrimary + "/"
