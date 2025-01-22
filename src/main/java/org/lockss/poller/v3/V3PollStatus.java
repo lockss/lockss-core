@@ -296,7 +296,7 @@ public class V3PollStatus {
 //       }
         summary.add(new StatusTable.SummaryInfo("Protocol Version",
                                                 ColumnDescriptor.TYPE_STRING,
-                                                Poll.V3_POLL + "." + V3LcapMessage.getSupportedProtocolRev()));
+                                                Poll.V3_POLL + "." + new V3LcapMessage(null, null).getSupportedProtocolRev()));
       return summary;
     }
 
