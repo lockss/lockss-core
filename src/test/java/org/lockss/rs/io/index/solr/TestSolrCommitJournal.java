@@ -263,6 +263,17 @@ public class TestSolrCommitJournal extends LockssTestCase5 {
       testReplaySolrJournal_UPDATE_COMMITTED();
       testReplaySolrJournal_UPDATE_STORAGEURL();
       testReplaySolrJournal_DELETE();
+      testReplaySolrJournal_MALFORMED();
+    }
+
+    private void testReplaySolrJournal_MALFORMED() throws Exception {
+      Path MALFORMED_FILE = writeTmpFile(CSV_HEADERS +
+          "1636692345004,UPDATE_COMMITTED,test-artifact,\"\"\n" +
+          new byte[1024]);
+
+      runTestReplaySolrJournal(MALFORMED_FILE, solrIndex -> {
+        // Q: What do we want to assert?
+      });
     }
 
     private final String CSV_HEADERS = "time,op,artifactUuid,data\n";
