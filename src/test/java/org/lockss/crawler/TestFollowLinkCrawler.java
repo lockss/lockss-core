@@ -168,6 +168,9 @@ public class TestFollowLinkCrawler extends LockssTestCase {
 			     "http://www.example2.com/index2.html",
 			     "Start URL from CrawlSeed not within crawl rules"),
 		 cs.getUrlsWithErrors());
+
+    // Handy place to check CrawlerStatus.isRepairCrawl() predicate
+    assertFalse(crawler.getCrawlerStatus().isRepairCrawl());
   }
 
   public void testCrawlSeedReturnsDuplicates()
