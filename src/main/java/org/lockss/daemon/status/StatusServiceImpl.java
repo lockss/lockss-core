@@ -37,7 +37,6 @@ import org.lockss.app.*;
 import org.lockss.log.*;
 import org.lockss.jms.*;
 import org.lockss.util.*;
-import org.lockss.util.time.*;
 import org.lockss.util.time.TimeBase;
 import org.lockss.config.*;
 import org.lockss.daemon.status.StatusTable.ForeignTable;
@@ -214,7 +213,7 @@ public class StatusServiceImpl
     new GlobalTableAssociation(org.lockss.state.ArchivalUnitStatus.AUIDS_TABLE_NAME,
 			       ServiceDescr.SVC_POLLER),
     new GlobalTableAssociation(org.lockss.metadata.MetadataManager.METADATA_STATUS_TABLE_NAME,
-			       ServiceDescr.SVC_MDX).setGlobalOnly(),
+			       ServiceDescr.SVC_MD).setGlobalOnly(),
   };
 
 

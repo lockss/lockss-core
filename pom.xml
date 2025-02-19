@@ -667,7 +667,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>com.mysql</groupId>
       <artifactId>mysql-connector-j</artifactId>
-      <version>8.2.0</version>
+      <version>${version.dependency.mysql-connector-j}</version>
     </dependency>
 
     <dependency>
