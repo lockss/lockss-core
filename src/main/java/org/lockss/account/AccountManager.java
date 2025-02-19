@@ -58,7 +58,7 @@ public class AccountManager
 
   /** Enable account management */
   static final String PARAM_ENABLED = PREFIX + "enabled";
-  static final boolean DEFAULT_ENABLED = false;
+  static final boolean DEFAULT_ENABLED = true;
 
   /** Enable sending password change reminders */
   static final String PARAM_MAIL_ENABLED = PREFIX + "mailEnabled";

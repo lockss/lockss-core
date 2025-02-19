@@ -2248,8 +2248,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore<Artifac
           .parse(reader);
 
       // Add indexed WARC path to list
-      records.forEach(record ->
-          indexedWarcs.add(Paths.get(record.get("warc"))));
+      records.forEach(record -> {
+        try {
+          indexedWarcs.add(Paths.get(record.get("warc")));
+        } catch (IllegalArgumentException e) {
+          log.error("Malformed or corrupted CSV record", e);
+        }
+      });
     }
 
     // Search under data store base path for WARCs

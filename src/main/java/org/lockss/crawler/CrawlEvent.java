@@ -32,7 +32,8 @@ public class CrawlEvent {
   public static final String KEY_CRAWL_MESSAGE = "statusMsg";
   /** Num of Urls Fetched */
   public static final String KEY_CRAWL_FETCH_COUNT = "numFetched";
-  /** A list of URL strings fetched during the crawl. */
+  /** A list of URL strings fetched during the crawl, only present for
+   * repair crawls */
   public static final String KEY_CRAWL_FETCH_URLS = "urlsFetched";
   /** Any extra data related to the crawl request. */
   public static final String KEY_CRAWL_EXTRA_DATA = "extraData";
@@ -64,8 +65,10 @@ public class CrawlEvent {
       this.status = cs.getCrawlStatus();
       this.statusMsg = cs.getCrawlStatusMsg();
       if (successful) {
-        this.urlsFetched = cs.getUrlsFetched();
         this.numFetched = cs.getNumFetched();
+        if (cs.isRepairCrawl()) {
+          this.urlsFetched = cs.getUrlsFetched();
+        }
       }
     }
   }
@@ -101,6 +104,8 @@ public class CrawlEvent {
     return this;
   }
 
+  /** Return the list of URLs fetched during a repair crawl, or null
+   * for other types of crawls */
   public List<String> getUrlsFetched() {
     return urlsFetched;
   }

@@ -230,6 +230,8 @@ public class SolrCommitJournal {
                 log.error("Unknown Solr operation [op: {}, record: {}]", op, record);
                 break;
             }
+          } catch (IllegalArgumentException e) {
+            log.error("Malformed or corrupted CSV record", e);
           } catch (IOException e) {
             log.error("Could not replay journal entry", e);
           }

@@ -138,6 +138,10 @@ public class LcapRouter
     }
   }
 
+  public PeerIdentity getMigrateFrom() {
+    return migrateFrom;
+  }
+
   /** Send a message to a peer.
    * @param msg the message to send
    * @param id the identity of the peer to which to send the message
