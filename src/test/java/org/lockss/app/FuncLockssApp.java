@@ -109,7 +109,7 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppDefault("deftest3", "app3")
       .addBootDefault("o.l.plat.xxy", "zzz")
       .addAppConfig("org.lockss.app.serviceBindings",
-		    "cfg=:24620:24621;mdx=:1234")
+		    "cfg=:24620:24621;md=:1234")
       .addAppConfig("org.lockss.app.touchWhenStarted",
 		    touchFile.toString())
       ;

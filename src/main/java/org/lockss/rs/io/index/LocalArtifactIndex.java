@@ -181,7 +181,10 @@ public class LocalArtifactIndex extends VolatileArtifactIndex {
         try {
             fis = new FileInputStream(persistedIndex);
             ois = new ObjectInputStream(fis);
-            index = (ConcurrentHashMap<String, Artifact>)ois.readObject();
+            indexedByUuid = (ConcurrentHashMap<String, Artifact>)ois.readObject();
+            for (Artifact artifact : indexedByUuid.values()) {
+              indexedByUrlMap.put(artifact.getUri(), artifact);
+            }
             log.info("Index successfully deserialized from file " + persistedIndex);
         } catch(IOException ioe) {
             log.error("Exception caught deserializing index from " + persistedIndex, ioe);
@@ -223,7 +226,7 @@ public class LocalArtifactIndex extends VolatileArtifactIndex {
         try {
             fos = new FileOutputStream(persistedIndex);
             oos = new ObjectOutputStream(fos);
-            oos.writeObject(index);
+            oos.writeObject(indexedByUuid);
         } catch (IOException ioe) {
             log.error("Exception caught serializing index to " + persistedIndex, ioe);
         } finally {
@@ -250,6 +253,6 @@ public class LocalArtifactIndex extends VolatileArtifactIndex {
     @Override
     public String toString() {
         return "[LocalArtifactIndex persistedIndex=" + persistedIndex
-            + ",index=" + index + "]";
+            + ",index.size() = " + indexedByUuid.size() + "]";
     }
 }

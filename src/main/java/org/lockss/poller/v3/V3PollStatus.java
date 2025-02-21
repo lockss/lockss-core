@@ -67,12 +67,9 @@ import org.lockss.daemon.status.StatusTable;
 import org.lockss.daemon.status.StatusTable.SummaryInfo;
 import org.lockss.hasher.LocalHashResult;
 import org.lockss.plugin.ArchivalUnit;
-import org.lockss.poller.PollManager;
-import org.lockss.poller.PollManager.EventCtr;
-import org.lockss.poller.PollManager.V3PollStatusAccessor;
-import org.lockss.poller.PollUtil;
-import org.lockss.protocol.IdentityManager;
-import org.lockss.protocol.PeerIdentity;
+import org.lockss.poller.*;
+import org.lockss.poller.PollManager.*;
+import org.lockss.protocol.*;
 import org.lockss.protocol.V3LcapMessage.PollNak;
 import org.lockss.protocol.psm.PsmInterp;
 import org.lockss.protocol.psm.PsmState;
@@ -297,6 +294,9 @@ public class V3PollStatus {
 //                                     ColumnDescriptor.TYPE_STRING,
 // 				    au.getName()));
 //       }
+        summary.add(new StatusTable.SummaryInfo("Protocol Version",
+                                                ColumnDescriptor.TYPE_STRING,
+                                                Poll.V3_POLL + "." + new V3LcapMessage(null, null).getSupportedProtocolRev()));
       return summary;
     }
 

@@ -209,8 +209,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           recordArtifactDataStoreVersion(versionFile, lastRecordedVersion);
           log.debug("Datastore " + lastRecordedVersion.getDatastoreType()
               + " updated to version " + lastRecordedVersion.getDatastoreVersion());
-        }
-        else break;
+        } else break;
       }
     }
   }
@@ -526,7 +525,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Returns the base path of a namespace, given its name and a base path of this data store.
    *
-   * @param basePath     A {@link Path} containing a base path of this data store.
+   * @param basePath  A {@link Path} containing a base path of this data store.
    * @param namespace A {@link String} containing the name of the namespace.
    * @return A {@link Path} containing the base path of the namespace, under the given data store base path.
    */
@@ -551,9 +550,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Returns the base path of an AU, given its AUID, the namespace it belongs to, and a base path of the data store.
    *
-   * @param basePath     A {@link Path} containing a base path of this data store.
+   * @param basePath  A {@link Path} containing a base path of this data store.
    * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid         A {@link String} containing the AUID of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
    * @return A {@link Path} containing the base path of the AU, under the given data store base path.
    */
   public Path getAuPath(Path basePath, String namespace, String auid) {
@@ -565,7 +564,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Returns a list containing all the paths of this AU.
    *
    * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid         A {@link String} containing the AUID of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
    * @return A {@link List<Path>} containing all paths of this AU.
    */
   public List<Path> getAuPaths(String namespace, String auid) throws IOException {
@@ -584,7 +583,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Returns an active WARC of an AU or initializes a new one, on the base path having the most free space.
    *
-   * @param namespace   A {@link String} containing the name of the namespace the AU belongs to.
+   * @param namespace      A {@link String} containing the name of the namespace the AU belongs to.
    * @param auid           A {@link String} containing the AUID of the AU.
    * @param minSize        A {@code long} containing the minimum available space the underlying base path must have in bytes.
    * @param compressedWarc A {@code boolean} indicating a compressed active WARC is needed.
@@ -636,7 +635,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Returns an array containing all the active WARCs of this AU.
    *
    * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid         A {@link String} containing the AUID of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
    * @return A {@link List<Path>} containing all active WARCs of this AU.
    */
   public List<Path> getAuActiveWarcPaths(String namespace, String auid) throws IOException {
@@ -720,7 +719,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * eligible to be reloaded as active WARCs (to have new artifacts appended to the WARC).
    *
    * @param namespace A {@link String} containing the namespace.
-   * @param auid         A {@link String} containing the the AUID.
+   * @param auid      A {@link String} containing the the AUID.
    * @return A {@link List<Path>} containing paths to WARCs that are eligible to be reloaded as active WARCs.
    * @throws IOException
    */
@@ -737,7 +736,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Returns the paths to WARC files containing artifacts in an AU.
    *
    * @param namespace A {@link String} containing the namespace of the AU.
-   * @param auid         A {@link String} containing the AUID of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
    * @return A {@link List<Path>} containing the paths to the WARC files.
    * @throws IOException
    */
@@ -750,7 +749,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Returns the paths to WARC files containing artifacts in an AU.
    *
    * @param namespace A {@link String} containing the namespace of the AU.
-   * @param auid         A {@link String} containing the AUID of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
    * @return A {@link List<Path>} containing the paths to the WARC files.
    * @throws IOException
    */
@@ -888,7 +887,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Generates a file name for a new active WARC of an AU. Makes no guarantee about file name uniqueness.
    *
    * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid         A {@link String} containing the AUID of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
    * @return A {@link String} containing the generated active WARC file name.
    */
   protected static String generateActiveWarcName(String namespace, String auid) {
@@ -908,9 +907,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Initializes a new active WARC for an AU on the base path with the most free space.
    *
    * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid         A {@link String} containing the AUID of the AU.
-   * @param minSize      A {@code long} containing the minimum amount of available space the underlying filesystem must
-   *                     have available for the new active WARC, in bytes.
+   * @param auid      A {@link String} containing the AUID of the AU.
+   * @param minSize   A {@code long} containing the minimum amount of available space the underlying filesystem must
+   *                  have available for the new active WARC, in bytes.
    * @return The {@link Path} to the new active WARC for this AU.
    * @throws IOException
    */
@@ -963,7 +962,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * "Seals" the active WARC of an AU in permanent storage from further writes.
    *
    * @param namespace A {@link String} containing the namespace of the AU.
-   * @param auid         A {@link String} containing the AUID of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
    */
   public void sealActiveWarc(String namespace, String auid, Path warcPath) {
     validateNamespace(namespace);
@@ -1063,7 +1062,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Reloads artifacts from a temporary WARC file and resumes their lifecycle in this WARC artifact data store. If
    * the artifacts in this data store are no longer needed, the temporary WARC file is deleted.
    *
-   * @param index The {@link ArtifactIndex} used to determine artifact state.
+   * @param index   The {@link ArtifactIndex} used to determine artifact state.
    * @param tmpWarc A {@link Path} to the temporary WARC file to examine.
    * @throws IOException Thrown if there are any I/O errors.
    */
@@ -2034,7 +2033,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           log.trace("CopyArtifactTask done: " + getStripe());
 
-        // Thrown by updateStorageUrl call:
+          // Thrown by updateStorageUrl call:
         } catch (IOException e) {
           // Could not update storage URL so leave its state untouched and allow a re-copy
           if (!isDeleted()) {
@@ -2162,7 +2161,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * {@link WarcArtifactDataStore} implementations.
    *
    * @param namespace A {@link String} of the name of the namespace containing the AU.
-   * @param auid       A {@link String} of the AUID of the AU.
+   * @param auid      A {@link String} of the AUID of the AU.
    * @return A {@code long} With the size in bytes of storage space used by this AU.
    */
   @Override
@@ -2270,8 +2269,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           .parse(reader);
 
       // Add indexed WARC path to list
-      csvRecords.forEach(record ->
-          indexedWarcs.add(Paths.get(record.get("warc_file")))); // REINDEXED_WARCS_CSV_HEADER[3]
+      csvRecords.forEach(record -> {
+        try {
+          indexedWarcs.add(Paths.get(record.get("warc_file"))); // REINDEXED_WARCS_CSV_HEADER[3]
+        } catch (IllegalArgumentException e) {
+          log.error("Malformed or corrupted CSV record", e);
+        }
+      });
     } catch (FileNotFoundException e) {
       log.debug("Reindexed WARC files not found; starting new file");
       FileUtils.touch(reindexedWarcsFile);
@@ -2354,7 +2358,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Iterates over the WARC records in a WARC file and indexes the artifact that the record represents.
    *
-   * @param index {@link ArtifactIndex} to index the artifact into.
+   * @param index    {@link ArtifactIndex} to index the artifact into.
    * @param warcFile The {@link Path} to a WARC file containing artifacts to index.
    * @return A {@code long} containing the number of artifacts that were indexed. This may be less than the number of
    * artifacts contained in the file WARC file if artifacts were previously indexed or were marked as deleted.
@@ -2607,7 +2611,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   /**
    * Truncates a journal by replacing it with only its most recent entry per artifact ID.
-   *
+   * <p>
    * This is done by iterating over the artifacts in a WARC file and building a map from
    * an artifact's ID to that artifact's map of latest journal entries.
    *
@@ -2653,7 +2657,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       List<WarcRecordLocation> latestEntries = new ArrayList<>(journal.size());
 
       for (String artifactId : journal.keySet()) {
-          Map<String, URI> latestForType = journal.get(artifactId);
+        Map<String, URI> latestForType = journal.get(artifactId);
         for (String type : latestForType.keySet()) {
           WarcRecordLocation loc = WarcRecordLocation.fromStorageUrl(latestForType.get(type));
           latestEntries.add(loc);
@@ -2958,7 +2962,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
         artifactData.setComputeDigestOnRead(true);
 
-        InputStream content = artifactData.isHttpResponse()  ?
+        InputStream content = artifactData.isHttpResponse() ?
             ArtifactDataUtil.getHttpResponseStreamFromHttpResponse(
                 ArtifactDataUtil.getHttpResponseFromArtifactData(artifactData)) :
             artifactData.getInputStream();
@@ -3134,10 +3138,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Creates a WARCRecordInfo object representing a WARC metadata record with a JSON serialization of
    * an object as its payload.
    *
-   * @param refersTo The WARC-Record-Id of the WARC record this metadata is attached to (i.e., WARC-Refers-To).
+   * @param refersTo     The WARC-Record-Id of the WARC record this metadata is attached to (i.e., WARC-Refers-To).
    * @param journalEntry The JSON object to write into the metadata record.
-   * @return A {@link WARCRecordInfo} representing the metadata record.
    * @param <T>
+   * @return A {@link WARCRecordInfo} representing the metadata record.
    * @throws IOException
    */
   public static <T> WARCRecordInfo createJsonWarcMetadataRecord(String refersTo, T journalEntry) throws IOException {

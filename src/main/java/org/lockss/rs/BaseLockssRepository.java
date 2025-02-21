@@ -57,6 +57,7 @@ import org.lockss.util.StreamUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.jms.JmsFactory;
+import org.lockss.util.rest.repo.LockssArtifactAlreadyExistsException;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.model.*;
@@ -396,24 +397,45 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     index.acquireVersionLock(artifactId.getArtifactStem());
 
     try {
-      // Retrieve latest version in this URL lineage
-      Artifact latestVersion = index.getArtifact(
-          artifactId.getNamespace(),
-          artifactId.getAuid(),
-          artifactId.getUri(),
-          true
-      );
+      int nextVersion = 1;
+
+      boolean hasVersion =
+          artifactId.getVersion() != null && artifactId.getVersion() > 0;
+
+      if (hasVersion) {
+        // Check whether the repository already has this artifact
+        Artifact result = index.getArtifactVersion(
+            artifactId.getNamespace(),
+            artifactId.getAuid(),
+            artifactId.getUri(),
+            artifactId.getVersion(),
+            true);
+
+        if (result != null) {
+          throw new LockssArtifactAlreadyExistsException();
+        }
+
+        nextVersion = artifactId.getVersion();
+      } else {
+        // Retrieve latest version in this URL lineage
+        Artifact result = index.getArtifact(
+            artifactId.getNamespace(),
+            artifactId.getAuid(),
+            artifactId.getUri(),
+            true);
+
+        if (result != null) {
+          nextVersion = result.getVersion() + 1;
+        }
+      }
 
       // Create a new artifact identifier for this artifact
       ArtifactIdentifier newId = new ArtifactIdentifier(
-          // Assign a new artifact ID
           UUID.randomUUID().toString(), // FIXME: Artifact ID collision unlikely but possible
           artifactId.getNamespace(),
           artifactId.getAuid(),
           artifactId.getUri(),
-          // Set the next version
-          (latestVersion == null) ? 1 : latestVersion.getVersion() + 1
-      );
+          nextVersion);
 
       // Set the new artifact identifier
       artifactData.setIdentifier(newId);

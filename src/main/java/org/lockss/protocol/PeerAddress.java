@@ -127,7 +127,7 @@ public abstract class PeerAddress {
       this.addr = addr;
     }
 
-    protected IPAddr getIPAddr() {
+    public IPAddr getIPAddr() {
       return addr;
     }
 
