@@ -117,7 +117,7 @@ public class MockLockssDaemon extends LockssDaemon {
    * directly.  Some utilities (not descended from LockssTestCase) also
    * need one, so this constructor is protected to allow them to directly
    * create an instance (of their own subclass). */
-  protected MockLockssDaemon() {
+  public MockLockssDaemon() {
     this(null);
   }
 
