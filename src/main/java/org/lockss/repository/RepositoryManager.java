@@ -123,7 +123,7 @@ public class RepositoryManager
 
   public static final String PARAM_READ_TIMEOUT =
       REPOSITORY_CLIENT_PREFIX + "readTimeout";
-  public static final long DEFAULT_READ_TIMEOUT = 30 * Constants.SECOND;
+  public static final long DEFAULT_READ_TIMEOUT = 1 * Constants.HOUR;
 
   public static final String PARAM_RESPONSE_SIZE_THRESHOLD =
       REPOSITORY_CLIENT_PREFIX + "sizeThreshold";
