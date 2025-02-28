@@ -202,8 +202,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       index.init();
       store.init();
 
-      updateIndexIfNeeded();
       updateDatastoreIfNeeded();
+      updateIndexIfNeeded();
 
       // Start the components
       index.start();
