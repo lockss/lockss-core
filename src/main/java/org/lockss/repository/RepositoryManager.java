@@ -246,25 +246,32 @@ public class RepositoryManager
       tmpDir = (config.containsKey(PARAM_RESPONSE_TMP_DIR)) ?
           new File(config.get(PARAM_RESPONSE_TMP_DIR)) : DEFAULT_RESPONSE_TMP_DIR;
 
-      processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
-      reconfigureRepos(config);
+      if (!processV2RepoSpec(config.get(PARAM_V2_REPOSITORY,
+                                        DEFAULT_V2_REPOSITORY))) {
+        reconfigureRepos(config, changedKeys);
+      }
     }
   }
 
   static Pattern REPO_SPEC_PATTERN =
     Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
 
-  private void processV2RepoSpec(String spec) {
+  /** Parse the repo spec, create the repo if necessary and return
+   * true, else return false */
+  private boolean processV2RepoSpec(String spec) {
     if (!StringUtil.isNullString(System.getProperty("oldrepo"))) {
-      return;
+      return false;
     }
     if (!StringUtil.isNullString(spec)) {
-      // currently set this only once
-      if (!repoSpecMap.containsKey(spec)) {
+      if (repoSpecMap.containsKey(spec)) {
+        return false;
+      } else {
+        // Create repo only once
 	try {
-	  RepoSpec rs = RepoSpec.fromSpec(spec);
+          RepoSpec rs = RepoSpec.fromSpec(spec);
 	  rs.setRepository(createLockssRepository(rs));
 	  setV2Repo(rs);
+          return true;
 	} catch (Exception e) {
 	  log.fatal("Can't create V2 repo", e);
 	}
@@ -273,6 +280,7 @@ public class RepositoryManager
       repoSpecMap.remove(spec);
       v2Repo = null;
     }
+    return false;
   }
 
   private void setV2Repo(RepoSpec rs) {
@@ -394,6 +402,8 @@ public class RepositoryManager
 	  }
 	}
 
+        log.debug2("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}",
+                   connectTimeout, readTimeout);
         RestLockssRepository repo = new RestLockssRepository(url,
             RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir),
             serviceUser,
@@ -414,12 +424,20 @@ public class RepositoryManager
     }
   }
 
-  private void reconfigureRepos(Configuration config) {
+  private void reconfigureRepos(Configuration config,
+                                Configuration.Differences changedKeys) {
     for (RepoSpec rs : getV2RepositoryList()) {
       if (rs.getRepository() instanceof RestLockssRepository) {
         RestLockssRepository repoClient = (RestLockssRepository) rs.getRepository();
 	configureArtifactCache(repoClient, config);
         repoClient.setUseMultipartEndpoint(useMultipartEndpoint);
+        if (changedKeys.contains(PARAM_READ_TIMEOUT) ||
+            changedKeys.contains(PARAM_CONNECT_TIMEOUT) ||
+            changedKeys.contains(PARAM_RESPONSE_SIZE_THRESHOLD)) {
+          log.debug2("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, sizeThreshold: {}",
+                     connectTimeout, readTimeout, sizeThreshold);
+          repoClient.setRestTemplate(RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir));
+        }
       }
     }
   }
