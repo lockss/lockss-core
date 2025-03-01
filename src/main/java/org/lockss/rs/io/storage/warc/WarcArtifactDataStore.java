@@ -114,6 +114,8 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipException;
 
+import static org.lockss.util.Constants.WARC_READ_BUFFER_SIZE;
+
 /**
  * This abstract class aims to capture operations that are common to all {@link ArtifactDataStore} implementations that
  * serialize {@link ArtifactData} as WARC records in a WARC file.
@@ -2370,7 +2372,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     int artifactsIndexed = 0;
 
-    try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(warcFile, 0))) {
+    try (InputStream warcStream =
+             new BufferedInputStream(getInputStreamAndSeek(warcFile, 0), WARC_READ_BUFFER_SIZE)) {
+
       // Read WARC's metadata file
       Map<String, WarcArtifactStateEntry> journal =
           getJournalForWarc(warcFile, WarcArtifactStateEntry.class);
@@ -2715,7 +2719,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       for (Path warcPath : warcsContainingArtifacts) {
         log.debug("Reading: {}", warcPath);
         // Build list of journal entries referring to artifacts in this WARC file
-        try (InputStream fin = new BufferedInputStream(getInputStreamAndSeek(warcPath, 0))) {
+        try (InputStream fin =
+                 new BufferedInputStream(getInputStreamAndSeek(warcPath, 0), WARC_READ_BUFFER_SIZE)) {
+
           WarcReader reader = WarcReaderFactory.getReader(fin);
           Iterator<WarcRecord> recordIter = reader.iterator();
 
@@ -2758,7 +2764,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         // Note: We cannot use readJournalFromWarc(auJournalFile, WarcArtifactStateEntry.class)
         // here because that method expects the X-Lockss-Repository-Journal-Type header
         Map<String, WarcArtifactStateEntry> journalEntries = new HashMap<>();
-        try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(auJournalFile, 0))) {
+        try (InputStream warcStream = new BufferedInputStream(
+            getInputStreamAndSeek(auJournalFile, 0), WARC_READ_BUFFER_SIZE)) {
+
           WarcReader warcReader = WarcReaderFactory.getReaderUncompressed(warcStream);
           Iterator<WarcRecord> recordIterator = warcReader.iterator();
 
