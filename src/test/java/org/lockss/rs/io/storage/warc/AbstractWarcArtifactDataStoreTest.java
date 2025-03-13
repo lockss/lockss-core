@@ -38,7 +38,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.IterableUtils;
 import org.apache.commons.collections4.IteratorUtils;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.*;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.archive.format.warc.WARCConstants;
 import org.archive.io.ArchiveReader;
@@ -2928,6 +2928,70 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     assertFalse(stateFile1.toFile().exists());
     assertFalse(stateFile2.toFile().exists());
+  }
+
+  @Test
+  public void testIsWarcJournalPath() throws Exception {
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifact_state.warc")));
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifact_state.warc.gz")));
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifact_state.warc.old")));
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifacts_lockss-e62349b783a1d07484160fd654dc6560_20230125014738836.metadata.warc")));
+    assertFalse(store.isWarcJournalPath(Path.of("/a/b/artifacts_lockss-e62349b783a1d07484160fd654dc6560_20230125014738836.warc")));
+    assertFalse(store.isWarcJournalPath(Path.of("/a/b/artifacts_lockss-e62349b783a1d07484160fd654dc6560_20230125014738836.warc.gz")));
+  }
+
+  /**
+   * Test error handling in readV0StateFiles()
+   */
+  @Test
+  public void testCreateWarcLocalJournalsForAUErrorHandling() throws Exception {
+    String artId1 = "014f025c-3a3f-40d4-856f-911390590a31";
+    String artId2 = "3a24e0db-02fa-4ec5-9e68-a084ea4a4e5e";
+    String artId3 = "44f1fbc5-779f-440d-b7f7-963931369f84";
+    String artId4 = "a6069496-a6ee-4d5d-8552-92e2612d092a";
+    String artId5 = "742178bf-8532-47cc-80c3-2c7571772587";
+
+    Path auDir1 = getTempDir().toPath();
+    Path auDir2 = getTempDir().toPath();
+
+    // The third WARC record (2nd artifact) in this file is corrupted
+    Path artifactsWarc = auDir1.resolve("artifacts.warc");
+    Path stateFile1 = auDir1.resolve("artifact_state.warc");
+    Path stateFile2 = auDir2.resolve("artifact_state.warc");
+
+    IOUtils.copy(getResource("corrupt-v0-journal.warc"), stateFile1.toFile());
+
+    List<Path> auJournalFiles = new ArrayList<>();
+
+    Map<String, WarcArtifactStateEntry> auJournal = store.readV0StateFiles(ListUtil.list(auDir1), auJournalFiles);
+
+    assertEquals(5, auJournal.size());
+    log.debug2("auJournal: {}", auJournal);
+
+    WarcArtifactStateEntry wase = auJournal.get(artId1);
+    assertEquals(artId1, wase.getArtifactUuid());
+    assertEquals(WarcArtifactState.COPIED, wase.getEntry());
+    assertEquals(1703200751226L, wase.getEntryDate());
+
+    wase = auJournal.get(artId2);
+    assertEquals(artId2, wase.getArtifactUuid());
+    assertEquals(WarcArtifactState.UNKNOWN, wase.getEntry());
+    assertEquals(1703229571337L, wase.getEntryDate());
+
+    wase = auJournal.get(artId3);
+    assertEquals(artId3, wase.getArtifactUuid());
+    assertEquals(WarcArtifactState.DELETED, wase.getEntry());
+    assertEquals(1703201133195L, wase.getEntryDate());
+
+    wase = auJournal.get(artId4);
+    assertEquals(artId4, wase.getArtifactUuid());
+    assertEquals(WarcArtifactState.DELETED, wase.getEntry());
+    assertEquals(1703201142078L, wase.getEntryDate());
+
+    wase = auJournal.get(artId5);
+    assertEquals(artId5, wase.getArtifactUuid());
+    assertEquals(WarcArtifactState.COPIED, wase.getEntry());
+    assertEquals(1703201252235L, wase.getEntryDate());
   }
 
   // *******************************************************************************************************************
