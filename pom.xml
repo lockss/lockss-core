@@ -713,7 +713,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.jwat</groupId>
       <artifactId>jwat-warc</artifactId>
-      <version>1.0.0</version>
+      <version>1.2.0</version>
       <scope>compile</scope>
     </dependency>
 
