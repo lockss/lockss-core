@@ -351,6 +351,7 @@ public class BibliographicUtil {
    * @throws NumberFormatException if either of the strings does not parse as an integer
    * @deprecated no longer useful
    */
+  @Deprecated
   public static int compareStringYears(String year1, String year2)
       throws NumberFormatException {
     // Note that in practise if the strings do represent comparable publication years,

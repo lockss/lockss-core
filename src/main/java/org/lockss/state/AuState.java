@@ -82,6 +82,7 @@ public class AuState implements LockssSerializable {
 
   // deprecated, kept for compatibility with old state files
   /** @deprecated */
+  @Deprecated
   protected transient boolean hasV3Poll = false;
 
   // No longer set, never had a non-standard value
@@ -808,6 +809,7 @@ public class AuState implements LockssSerializable {
    * server restarts.  Consequently, it is non-persistent.
    * @deprecated
    */
+  @Deprecated
   void setLastTreeWalkTime() {
     lastTreeWalk = TimeBase.nowMs();
   }
@@ -817,6 +819,7 @@ public class AuState implements LockssSerializable {
    * @return a {@link Collection}
    * @deprecated
    */
+  @Deprecated
   public HashSet getCrawlUrls() {
     if (crawlUrls==null) {
       crawlUrls = new HashSet();

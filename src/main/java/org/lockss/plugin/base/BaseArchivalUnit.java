@@ -803,7 +803,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
    * @return the FilterRule
    * @deprecated
    */
-
+  @Deprecated
   public FilterRule getFilterRule(String contentType) {
     return plugin.getFilterRule(contentType);
   }

@@ -506,6 +506,7 @@ public final class BibliographicOrderScorer {
     /**
      * @deprecated only used by getConsistencyScoreOld
      */
+    @Deprecated
     public ConsistencyScoreWithRanges(float volScore, float yearScore,
                                       float volListScore, float yearListScore,
                                       List<TitleRange> ranges) {
@@ -1654,6 +1655,7 @@ public final class BibliographicOrderScorer {
   /**
    * @deprecated
    */
+  @Deprecated
   protected static final ConsistencyScoreWithRanges getConsistencyScoreOld(
       List<? extends BibliographicItem> aus,
       List<TitleRange> ranges) {

@@ -59,12 +59,14 @@ public class ProbePermissionChecker implements PermissionChecker {
   }
   
   /** @deprecated use the no arg version */
+  @Deprecated
   public ProbePermissionChecker(ArchivalUnit au) {
   }
 
   // For compatibility with plugins that supply a LoginPageChecker (which
   // is not used)
   /** @deprecated use the no arg version */
+  @Deprecated
   public ProbePermissionChecker(LoginPageChecker checker, ArchivalUnit au) {
   }
   

@@ -50,6 +50,7 @@ import org.lockss.util.*;
  * {@link org.lockss.config.TdbAu} which leverage the greater availability and
  * completeness of metadata.
  */
+@Deprecated
 public class KbartTdbAuUtil {
 
   private static final Logger log = Logger.getLogger();
@@ -112,6 +113,7 @@ public class KbartTdbAuUtil {
    * @return the value of an existing key, or an empty string
    * @deprecated
    */
+  @Deprecated
   static String findYear(TdbAu au) {
     String s = findAuInfo(au, DEFAULT_YEAR_ATTR, AuInfoType.ATTR);
     if (StringUtils.isEmpty(s))
