@@ -674,6 +674,7 @@ public class LockssApp {
    * @throws IllegalArgumentException if the manager is not available.
    * @deprecated use {@link #getManagerByKeyStatic(String)}
    */
+  @Deprecated
   public static LockssManager getManager(String managerKey) {
     return getLockssApp().getManagerByKey(managerKey);
   }

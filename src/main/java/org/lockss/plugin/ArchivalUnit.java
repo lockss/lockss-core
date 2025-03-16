@@ -218,6 +218,7 @@ public interface ArchivalUnit {
    * @return the RateLimiter
    * @deprecated in favor of RateLimiterInfo
    */
+  @Deprecated
   public RateLimiter findFetchRateLimiter();
 
   /**

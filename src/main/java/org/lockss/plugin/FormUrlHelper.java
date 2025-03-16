@@ -134,6 +134,7 @@ public class FormUrlHelper {
    * @param url the url to encode
    * @return true if the string is valid (encodable) url.
    */
+  @Deprecated
   public boolean convertFromEncodedString(String url) {
     convertFromString(url);
     return m_valid;

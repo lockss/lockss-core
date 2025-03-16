@@ -37,6 +37,7 @@ import org.lockss.daemon.*;
 /** Factory that creates a filtered Reader from a source Reader.
  * @deprecated Use FilterFactory instead.
  */
+@Deprecated
 public interface FilterRule {
   public Reader createFilteredReader(Reader reader)
       throws PluginException;

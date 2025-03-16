@@ -47,11 +47,11 @@ public class TestTransformEachPage extends LockssTestCase {
     };
     MockPdfDocument mockPdfDocument = new MockPdfDocument() {
       public PdfPage getPage(int index) { return pages[index]; }
-      public ListIterator getPageIterator() { return new ObjectArrayListIterator(pages); }
+      public ListIterator getPageIterator() { return new ObjectArrayListIterator((Object[])pages); }
     };
 
     TransformSelectedPages documentTransform = new TransformEachPage(new PageTransformUtil.IdentityPageTransform());
-    assertIsomorphic(new ObjectArrayIterator(pages),
+    assertIsomorphic(new ObjectArrayIterator((Object[])pages),
                      documentTransform.getSelectedPages(mockPdfDocument));
   }
 

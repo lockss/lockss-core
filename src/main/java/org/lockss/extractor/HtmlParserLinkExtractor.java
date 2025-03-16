@@ -77,6 +77,7 @@ import org.lockss.util.UrlUtil;
  * @author vibhor
  * @deprecated use JsoupHtmlLinkExtractor instead
  */
+@Deprecated
 public class HtmlParserLinkExtractor implements LinkExtractor {
   public static final String PREFIX = Configuration.PREFIX + "extractor" +
       ".htmlparser.";

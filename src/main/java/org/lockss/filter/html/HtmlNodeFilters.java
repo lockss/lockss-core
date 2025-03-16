@@ -933,6 +933,7 @@ public class HtmlNodeFilters {
    * taylorandfrancis.NodeFilterHtmlLinkRewriterFactory.  Should be removed
    * once no references.
    */
+  @Deprecated
   public static class StyleXformDispatch
     extends StyleTagXformDispatch {
 

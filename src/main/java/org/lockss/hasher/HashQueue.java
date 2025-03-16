@@ -628,14 +628,14 @@ public class HashQueue {
     private Map makeRow(Request req, boolean done, int qpos) {
       Map row = new HashMap();
       row.put("sort", Integer.valueOf(done ? -req.finish : qpos));
-      row.put(COL_SCHED, new Integer(req.sched));
+      row.put(COL_SCHED, Integer.valueOf(req.sched));
 //       row.put("finish", Integer.valueOf(req.finish));
       row.put(COL_STATE, getState(req, done));
       row.put(COL_AU, req.urlset.getArchivalUnit().getName());
       row.put(COL_CUS, req.urlset.getSpec());
       row.put(COL_TYPE, req.typeString());
       row.put(COL_DEADLINE, req.deadline.getExpiration());
-      row.put(COL_ESTIMATE, new Long(req.origEst));
+      row.put(COL_ESTIMATE, Long.valueOf(req.origEst));
       Object used = Long.valueOf(req.timeUsed);
       if (req.overrun()) {
 	StatusTable.DisplayedValue val = new StatusTable.DisplayedValue(used);
@@ -643,7 +643,7 @@ public class HashQueue {
 	used = val;
       }
       row.put(COL_TIME_USED, used);
-      row.put(COL_BYTES_HASHED, new Long(req.bytesHashed));
+      row.put(COL_BYTES_HASHED, Long.valueOf(req.bytesHashed));
       return row;
     }
 

@@ -96,14 +96,17 @@ public class PollerStateBean implements LockssSerializable {
   /** @deprecated
    * Left here only for deserialization compatibility.
    */
+  @Deprecated
   private transient int pollSize;
   /** @deprecated
    * Left here only for deserialization compatibility.
    */
+  @Deprecated
   private transient int hashBlockIndex;
   /** @deprecated
    * Left here only for deserialization compatibility.
    */
+  @Deprecated
   private transient ArrayList hashedBlocks;
 
   /**
@@ -393,6 +396,7 @@ public class PollerStateBean implements LockssSerializable {
    * Return the ordered list of hashed blocks.
    * @deprecated
    */
+  @Deprecated
   public ArrayList getHashedBlocks() {
     throw new UnsupportedOperationException("getHashedBlocks is no longer "
                                             + "implemented.");
@@ -401,6 +405,7 @@ public class PollerStateBean implements LockssSerializable {
   /**
    * @deprecated 
    */
+  @Deprecated
   public void addHashBlock(HashBlock hb) {
     throw new UnsupportedOperationException("addHashBlock is no longer "
                                             + "implemented.");
@@ -417,6 +422,7 @@ public class PollerStateBean implements LockssSerializable {
    * @deprecated Use getStatus instead.
    * @return The status of this poll, as a string.
    */
+  @Deprecated
   public String getStatusString() {
     return statusString;
   }
@@ -425,6 +431,7 @@ public class PollerStateBean implements LockssSerializable {
    * Set the status of this poll
    * @deprecated Use setStatus instead.
    */
+  @Deprecated
   public void setStatusString(String s) {
     this.statusString = s;
   }

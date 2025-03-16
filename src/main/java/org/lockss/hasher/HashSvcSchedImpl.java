@@ -467,13 +467,13 @@ public class HashSvcSchedImpl
 	      Long.valueOf((done ? -task.getFinishDate().getTime() :
 			task.getLatestFinish().getExpiration().getTime())));
       row.put("sort2", Long.valueOf(task.hashReqSeq));
-      row.put(COL_SCHED, new Integer(task.hashReqSeq));
+      row.put(COL_SCHED, Integer.valueOf(task.hashReqSeq));
       row.put(COL_STATE, task.getState(done));
       row.put(COL_AU, task.urlset.getArchivalUnit().getName());
       row.put(COL_CUS, task.urlset.getSpec());
       row.put(COL_TYPE, task.typeString());
       row.put(COL_DEADLINE, task.getLatestFinish());
-      row.put(COL_ESTIMATE, new Long(task.getOrigEst()));
+      row.put(COL_ESTIMATE, Long.valueOf(task.getOrigEst()));
       long timeUsed = task.getTimeUsed();
       Object used = Long.valueOf(timeUsed);
       if (task.hasOverrun()) {
@@ -482,7 +482,7 @@ public class HashSvcSchedImpl
 	used = val;
       }
       row.put(COL_TIME_USED, used);
-      row.put(COL_BYTES_HASHED, new Long(task.bytesHashed));
+      row.put(COL_BYTES_HASHED, Long.valueOf(task.bytesHashed));
       if (timeUsed > 0 && task.bytesHashed > 0) {
     row.put(COL_RATE, hashRate(BigInteger.valueOf(task.bytesHashed),
 				 timeUsed));

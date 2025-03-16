@@ -78,7 +78,7 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
    * Constructor. Rebuilds the index on start-up from a given repository base path, if using a volatile index.
    */
   public LocalWarcArtifactDataStore(Path[] basePaths) throws IOException {
-    log.debug2("Starting local WARC artifact data store [basePaths: {}]", basePaths);
+    log.debug2("Starting local WARC artifact data store [basePaths: {}]", (Object[])basePaths);
 
     // Set local base paths
     this.basePaths = basePaths;
