@@ -432,7 +432,7 @@ public class LockssTestCase extends TestCase {
    */
   public static Test variantSuites(Class thisClass, Class extendedClass) {
     ArrayList list = new ArrayList();
-    for (Iterator iter = new ObjectArrayIterator(thisClass.getDeclaredClasses()) ;
+    for (Iterator iter = new ObjectArrayIterator((Object[])thisClass.getDeclaredClasses()) ;
          iter.hasNext() ; ) {
       Class cla = (Class)iter.next();
       if (extendedClass.isAssignableFrom(cla)) {
