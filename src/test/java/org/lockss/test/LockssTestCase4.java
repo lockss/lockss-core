@@ -1550,7 +1550,7 @@ public class LockssTestCase4 extends Assert {
 
   public static void assertNotEquals(String message,
                                      short expected, short actual) {
-    assertNotEquals(message, new Short(expected), new Short(actual));
+    assertNotEquals(message, Short.valueOf(expected), Short.valueOf(actual));
   }
 
   public static void assertNotEquals(byte expected, byte actual) {
@@ -1559,7 +1559,7 @@ public class LockssTestCase4 extends Assert {
 
   public static void assertNotEquals(String message,
                                      byte expected, byte actual) {
-    assertNotEquals(message, new Byte(expected), new Byte(actual));
+    assertNotEquals(message, Byte.valueOf(expected), Byte.valueOf(actual));
   }
 
   public static void assertNotEquals(char expected, char actual) {
@@ -1568,7 +1568,7 @@ public class LockssTestCase4 extends Assert {
 
   public static void assertNotEquals(String message,
                                      char expected, char actual) {
-    assertNotEquals(message, new Character(expected), new Character(actual));
+    assertNotEquals(message, Character.valueOf(expected), Character.valueOf(actual));
   }
 
   public static void assertNotEquals(boolean expected, boolean actual) {

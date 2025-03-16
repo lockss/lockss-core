@@ -59,7 +59,7 @@ public class MockMessageDigest extends MessageDigest implements Cloneable {
    * @see MockMessageDigest#getUpdatedBytes(byte[])
    */
   public void update(byte input){
-    inputList.add(new Byte(input));
+    inputList.add(Byte.valueOf(input));
   }
 
   /**
@@ -71,7 +71,7 @@ public class MockMessageDigest extends MessageDigest implements Cloneable {
    */
   public void update(byte[] input){
     for (int i=0; i<input.length; i++){
-      inputList.add(new Byte(input[i]));
+      inputList.add(Byte.valueOf(input[i]));
     }
   }
 
@@ -86,7 +86,7 @@ public class MockMessageDigest extends MessageDigest implements Cloneable {
    */
   public void update(byte[] input, int offset, int len){
     for (int i=offset; i<offset+len; i++){
-      inputList.add(new Byte(input[i]));
+      inputList.add(Byte.valueOf(input[i]));
     }
   }
 

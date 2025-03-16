@@ -192,7 +192,7 @@ public class WarcFilePool {
     // Iterate over WarcFiles in this pool
     synchronized (this) {
       for (WarcFile warcFile : allWarcs) {
-        long blocks = (long) Math.ceil(new Float(warcFile.getLength()) / new Float(store.getBlockSize()));
+        long blocks = (long) Math.ceil(Float.valueOf(warcFile.getLength()) / Float.valueOf(store.getBlockSize()));
         totalBlocksAllocated += blocks;
         totalBytesUsed += warcFile.getLength();
 
