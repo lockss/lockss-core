@@ -110,6 +110,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -2391,7 +2392,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       // Read WARC's metadata file
       Map<String, WarcArtifactStateEntry> journal =
-        getJournalForWarc(warcFile, WarcArtifactStateEntry.class);
+        getJournalForWarc(warcFile, WarcArtifactStateEntry.class, (record) -> synthesizeStateEntry(record));
 
       WarcReader reader = isCompressed ?
         WarcReaderFactory.getReaderCompressed(warcStream) :
@@ -2510,6 +2511,31 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     return artifactsIndexed;
   }
 
+  /** Invoked when a WARC journal entry is corrupted, attempt to
+   * synthesize one with the available info */
+  private WarcArtifactStateEntry synthesizeStateEntry(WarcRecord record) {
+    if (record.getHeader(HEADER_KEY_REFERS_TO) == null) {
+      log.error("Corrupted record has no ArtifactID, skipping");
+      return null;
+    }
+    String artifactId = record.getHeader(HEADER_KEY_REFERS_TO).value;
+    WarcArtifactStateEntry synthEntry =
+      new WarcArtifactStateEntry(artifactId, WarcArtifactState.UNKNOWN);
+    HeaderLine dateHdr = record.getHeader(WarcConstants.FN_WARC_DATE);
+    if (dateHdr != null) {
+      try {
+        long hdrDate = WarcDate.getWarcDate(dateHdr.value).getDateUTC().getTime();
+        synthEntry.setEntryDate(hdrDate);
+      } catch (Exception dateEx) {
+        log.warn("Couldn't parse WARC record header {}: {}", WarcConstants.FN_WARC_DATE, dateHdr, dateEx);
+      }
+    }
+    return synthEntry;
+  }
+
+
+
+
   // *******************************************************************************************************************
   // * JOURNAL OPERATIONS
   // *******************************************************************************************************************
@@ -2540,34 +2566,64 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * in the journal.
    */
   @Deprecated
-  protected <T> Map<String, T> getJournalForWarc(Path warcFile, Class<T> journalEntryClass) throws IOException {
+  protected <T> Map<String, T> getJournalForWarc(Path warcFile, Class<T> journalEntryClass,
+                                                 Function<WarcRecord,T> journalEntrySynth) throws IOException {
     Path journalFile = getJournalPath(warcFile);
-    return readJournalFromWarc(journalFile, journalEntryClass);
+    return readJournalFromWarc(journalFile, journalEntryClass, journalEntrySynth);
   }
 
-  protected <T> Map<String, T> readJournalFromWarc(Path journalFile, Class<T> journalEntryClass) throws IOException {
+  protected <T> Map<String, T> readJournalFromWarc(Path journalFile, Class<T> journalEntryClass,
+                                                   Function<WarcRecord,T> journalEntrySynth) throws IOException {
     String journalType = journalEntryClass.getSimpleName();
     Map<String, T> result = new HashMap<>();
-
+    int rec = -1;                   // file not open yet
     try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(journalFile, 0))) {
       WarcReader warcReader = WarcReaderFactory.getReaderUncompressed(warcStream);
+      rec = 0;                      // file open, no records read
       Iterator<WarcRecord> recordIterator = warcReader.iterator();
 
       while (recordIterator.hasNext()) {
         WarcRecord record = recordIterator.next();
-        WARCRecordType recordType =
-          WARCRecordType.valueOf(record.getHeader(WARCConstants.HEADER_KEY_TYPE).value);
+        rec++;
+        log.trace("Processing rec: {}", rec);
+        WARCRecordType recordType;
+        try {
+          recordType =
+            WARCRecordType.valueOf(record.getHeader(WARCConstants.HEADER_KEY_TYPE).value);
 
-        switch (recordType) {
-        case metadata:
-          if (journalType.equals(record.getHeader(HEADER_KEY_JOURNAL_TYPE).value)) {
-            T journalEntry = mapper.readValue(record.getPayloadContent(), journalEntryClass);
+          switch (recordType) {
+          case metadata:
             String artifactId = record.getHeader(HEADER_KEY_REFERS_TO).value;
-            result.put(artifactId, journalEntry);
+            if (journalType.equals(record.getHeader(HEADER_KEY_JOURNAL_TYPE).value)) {
+              try {
+                T journalEntry = mapper.readValue(record.getPayloadContent(), journalEntryClass);
+                result.put(artifactId, journalEntry);
+                log.debug2("Put journal entry for artId: {}: {}", artifactId, journalEntry);
+              } catch (Exception e) {
+                if (journalEntrySynth == null) {
+                  log.error("Error reading journal entry for artifactId {} from {} at rec {}",
+                          artifactId, journalFile, rec, e);
+                } else {
+                  T synthEntry = journalEntrySynth.apply(record);
+                  if (synthEntry != null) {
+                    log.error("Error reading journal entry for artifactId {} from {} at rec {}, synthesizing one",
+                              artifactId, journalFile, rec, e);
+                    result.put(artifactId, synthEntry);
+                  } else {
+                    log.error("Error reading journal entry for artifactId {} from {} at rec {}, synthesizier returned null",
+                              artifactId, journalFile, rec, e);
+                  }
+                }
+              }
+            }
+            break;
+          default:
+            log.debug2("Skipped unexpected WARC record type: {}", recordType);
           }
-
-        default:
-          log.debug2("Skipped unexpected WARC record type: {}", recordType);
+        } catch (RuntimeException e) {
+          log.error("Error reading journal entry from {} at rec {}, continuing",
+                    journalFile, rec, e);
+          continue;
         }
       }
     }
@@ -2828,6 +2884,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
                 WarcArtifactStateEntry journalEntry =
                   mapper.readValue(record.getPayloadContent(), WarcArtifactStateEntry.class);
                 journalEntries.put(artifactId, journalEntry);
+                log.debug2("Put journal entry for artId: {}: {}", artifactId, journalEntry);
               } catch (Exception e) {
                 log.error("Error reading journal state entry for artifactId {} from {} at rec {}, synthesizing one",
                           artifactId, auJournalFile, rec, e);

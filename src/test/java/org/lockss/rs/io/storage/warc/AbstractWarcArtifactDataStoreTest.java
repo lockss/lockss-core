@@ -2364,7 +2364,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
       // Assert artifact marked deleted in AU artifact state journal
       Map<String, WarcArtifactStateEntry> journal =
-          store.getJournalForWarc(warcFile, WarcArtifactStateEntry.class);
+        store.getJournalForWarc(warcFile, WarcArtifactStateEntry.class, null);
       WarcArtifactStateEntry state = journal.get(spec.getArtifactUuid());
       assertTrue(state.isDeleted());
     }
@@ -2647,7 +2647,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     clearInvocations(index);
 
     Map<String, WarcArtifactStateEntry> journal = Map.of(spec.getArtifactUuid(), stateEntry);
-    when(ds.getJournalForWarc(warcFile, WarcArtifactStateEntry.class)).thenReturn(journal);
+    when(ds.getJournalForWarc(warcFile, WarcArtifactStateEntry.class, null)).thenReturn(journal);
 
     when(ds.makeWarcRecordStorageUrl(ArgumentMatchers.any(Path.class), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong()))
         .thenReturn(URI.create("test"));
@@ -2795,7 +2795,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
             .setArtifactState(WarcArtifactState.COPIED));
 
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class);
+        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, null);
 
     WarcArtifactStateEntry entry1 = journal.get(spec1.getArtifactUuid());
     WarcArtifactStateEntry entry2 = journal.get(spec2.getArtifactUuid());
@@ -2864,7 +2864,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
             .setArtifactState(WarcArtifactState.COPIED));
 
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class);
+        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, null);
 
     WarcArtifactStateEntry entry1 = journal.get(spec1.getArtifactUuid());
     WarcArtifactStateEntry entry2 = journal.get(spec2.getArtifactUuid());
@@ -2920,7 +2920,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     Path artifactsJournal = auDir1.resolve("artifacts.metadata.warc");
     log.info("artifactsJournal = {}", artifactsJournal);
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(artifactsJournal, WarcArtifactStateEntry.class);
+        store.readJournalFromWarc(artifactsJournal, WarcArtifactStateEntry.class, null);
 
     WarcArtifactStateEntry entry = journal.get(spec.getArtifactUuid());
     assertNotNull(entry);
