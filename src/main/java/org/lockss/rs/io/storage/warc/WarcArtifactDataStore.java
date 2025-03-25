@@ -2429,24 +2429,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           ArtifactIdentifier id = ad.getIdentifier();
           Artifact indexedArtifact = index.getArtifact(id.getUuid());
 
-          if (indexedArtifact != null) {
-            log.debug2("Artifact is already indexed [uuid: {}]", id.getUuid());
-
-            Path indexedStorageUrlPath =
-              getPathFromStorageUrl(URI.create(indexedArtifact.getStorageUrl()));
-
-            // If this WARC record is from temporary storage, and it's already indexed, we're either
-            // re-reindexing this record or it was indexed from a permanent WARC. In either case, no
-            // update is needed. However, if this WARC record is from a permanent WARC, and it's
-            // already indexed, we must update its storage URL if the storage URL in the index still
-            // references a WARC record in temporary storage:
-            if (!isWarcInTemp && isTmpStorage(indexedStorageUrlPath)) {
-              index.updateStorageUrl(id.getUuid(), storageUrl.toString());
-            }
-
-            continue;
-          }
-
           WarcArtifactStateEntry artifactState = journal.get(ad.getIdentifier().getUuid());
           boolean isCopied = artifactState != null && artifactState.isCopied();
           boolean isDeleted = artifactState != null && artifactState.isDeleted();
@@ -2469,17 +2451,36 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           Artifact artifact = WarcArtifactDataUtil.getArtifact(ad);
           artifact.setStorageUrl(storageUrl.toString());
 
-          // Set artifact committed state if known
-          if (artifactState != null) {
+          boolean shouldAddToBatch = true;
+          switch (artifactState != null ? artifactState.getEntry() : WarcArtifactState.UNKNOWN) {
+          case UNKNOWN:
+            // Lost or corrupted journal entry
+            if (isWarcInTemp) {
+              if (isExpired) {
+                log.warn("Expired temp artifact with unknown state, not indexing: {}",
+                         ad.getIdentifier().getUuid());
+                shouldAddToBatch = false;
+              } else {
+                log.warn("Setting temp artifact with unknown state to uncommitted: {}",
+                         ad.getIdentifier().getUuid());
+                artifact.setCommitted(false);
+              }
+            } else {
+              log.warn("Setting perm artifact with unknown state to committed: {}", ad.getIdentifier().getUuid());
+              artifact.setCommitted(true);
+            }
+            break;
+          case DELETED:
+            // don't index
+            shouldAddToBatch = false;
+            break;
+          default:
             artifact.setCommitted(artifactState.isCommitted());
-          } else if (!isWarcInTemp) {
-            // No journal entry for this perm artifact, assume lost or corrupted journal and commit it.
-            log.warn("Setting perm artifact with unknown state to Committed: {}", ad.getIdentifier().getUuid());
-            artifact.setCommitted(true);
           }
-
           // Add to batch of artifacts to index
-          batch.add(artifact);
+          if (shouldAddToBatch && !artifact.equals(indexedArtifact)) {
+              batch.add(artifact);
+          }
 
           // Index artifacts in batch if we've reached the batch size
           if (batch.size() == BATCH_SIZE) {

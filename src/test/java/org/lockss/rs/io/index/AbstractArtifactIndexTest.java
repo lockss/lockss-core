@@ -2152,6 +2152,53 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
     assertEquals("storage_url_2", post.getStorageUrl());
   }
 
+  @Test
+  public void testUpdateStorageUrlAndCommitted() throws Exception {
+    runTestUpdateStorageUrl(SHORT_URL_LENGTH);
+    runTestUpdateStorageUrl(EXACT_THRESHOLD_LENGTH);
+    runTestUpdateStorageUrl(REALLY_LONG_URL_LENGTH);
+  }
+
+  private void runTestUpdateStorageUrlAndCommitted(int len) throws Exception {
+    String ns1 = RandomStringUtils.randomAlphanumeric(16);
+    String ns2 = RandomStringUtils.randomAlphanumeric(16);
+    String ns = ns1;
+
+    String a1 = RandomStringUtils.randomAlphanumeric(16);
+    String a2 = RandomStringUtils.randomAlphanumeric(16);
+    String auid = a1;
+
+    String longUrl = BASE_URL + RandomStringUtils.randomAlphanumeric(len);
+
+    String url1 = longUrl + "/1";
+    String url2 = longUrl + "/2";
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl(url1)
+        .setStorageUrl(URI.create("storage_url_1"))
+        .setContentLength(1)
+        .setContentDigest("digest")
+        .setCollectionDate(2);
+
+    // Add artifact to database
+    index.indexArtifact(spec.getArtifact());
+
+    // Assert URL pre-update
+    Artifact pre = index.getArtifact(spec.getArtifactUuid());
+    assertEquals("storage_url_1", pre.getStorageUrl());
+
+    // Update URL
+    spec.setStorageUrl(URI.create("storage_url_2"));
+    spec.setCommitted(true);
+    index.reindexArtifact(spec.getArtifact());
+
+    // Assert URL pre-update
+    Artifact post = index.getArtifact(spec.getArtifactUuid());
+    assertEquals("storage_url_2", post.getStorageUrl());
+    assertTrue(post.isCommitted());
+  }
+
   // *******************************************************************************************************************
   // * STATIC UTILITY METHODS
   // *******************************************************************************************************************

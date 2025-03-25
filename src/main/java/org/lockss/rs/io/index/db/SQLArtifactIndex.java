@@ -163,6 +163,49 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
+  public void reindexArtifact(Artifact artifact) throws IOException {
+    if (artifact == null) {
+      throw new IllegalArgumentException("Null artifact");
+    }
+
+    try {
+      idxdb.upsertArtifactForReindex(artifact);
+    } catch (DbException e) {
+      throw new IOException("Could not add/update artifact to database", e);
+    }
+  }
+
+  @Override
+  public void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
+    try {
+      // TODO: Implement idxdb.upsertArtifactsForReindex(artifacts)
+
+      Artifact firstArtifact = null;
+
+      for (Artifact artifact : artifacts) {
+        if (firstArtifact == null) {
+          firstArtifact = artifact;
+        }
+
+        idxdb.upsertArtifactForReindex(artifact);
+      }
+
+      // FIXME: The assumption that all the artifacts are in the same namespace and AUID
+      //  (as determined by the first artifact) is only true in "bulk-mode":
+      if (firstArtifact != null) {
+        try {
+          invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
+        } catch (DbException e) {
+          log.warn("Could not invalidate AU size", e);
+          throw e;
+        }
+      }
+    } catch (DbException e) {
+      throw new IOException("Could not add/update artifact to database", e);
+    }
+  }
+
+  @Override
   public Artifact getArtifact(String uuid) throws IOException {
     if (StringUtils.isEmpty(uuid)) {
       throw new IllegalArgumentException("Null or empty artifact UUID");

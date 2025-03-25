@@ -161,6 +161,18 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
+  public void reindexArtifact(Artifact artifact) throws IOException {
+    findIndexHolding(artifact.getIdentifier()).reindexArtifact(artifact);
+  }
+
+  @Override
+  public void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
+    // FIXME: This is safe for reindex but once the Repository has started,
+    //  it is not going to direct index operations to the correct index.
+    masterIndex.reindexArtifacts(artifacts);
+  }
+
+  @Override
   public Artifact getArtifact(String artifactUuid) throws IOException {
     return findIndexHolding(artifactUuid).getArtifact(artifactUuid);
   }

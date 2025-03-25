@@ -448,7 +448,6 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
     Map<String, WarcArtifactStateEntry> auJournal = store.readV0StateFiles(ListUtil.list(auDir1), auJournalFiles);
 
-    log.fatal("auJournal.keySet: {}", auJournal.keySet());
     log.debug2("auJournal: {}", auJournal);
     assertEquals(5, auJournal.size(), "auJournal error: " + auJournal);
 

@@ -977,6 +977,10 @@ public class SQLArtifactIndexManagerSql {
       + "," + ARTIFACT_CRAWL_TIME_COLUMN
       + " ) VALUES (?,?,?,?,?,?,?,?,?,?)";
 
+  private static final String UPSERT_ARTIFACT_FOR_REINDEX_QUERY = INSERT_ARTIFACT_QUERY
+      + " ON CONFLICT (" + ARTIFACT_UUID_COLUMN + ") DO UPDATE SET "
+      + ARTIFACT_COMMITTED_COLUMN + " = ? , " + ARTIFACT_STORAGE_URL_COLUMN + " = ?";
+
   private static final String GET_SIZE_OF_ARTIFACTS_QUERY = "SELECT "
       + " SUM(" + ARTIFACT_LENGTH_COLUMN + ") total_size"
       + " FROM " + ARTIFACT_TABLE + " a"
@@ -2369,6 +2373,75 @@ public class SQLArtifactIndexManagerSql {
       ps.setLong(8, artifact.getContentLength());
       ps.setString(9, artifact.getContentDigest());
       ps.setLong(10, artifact.getCollectionDate());
+
+      idxDbManager.executeUpdate(ps);
+    } catch (SQLException e) {
+      log.error("Error preparing SQL statement", e);
+      throw new DbException("Error preparing SQL statement", e);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  public void upsertArtifactForReindex(Artifact artifact) throws DbException {
+    log.debug2("artifact = {}", artifact);
+
+    Connection conn = null;
+
+    try {
+      conn = getConnection();
+      upsertArtifactForReindex(conn, artifact);
+
+      // Commit the transaction.
+      DbManager.commitOrRollback(conn, log);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  public void upsertArtifactsForReindex(Iterable<Artifact> artifacts) throws DbException {
+    Connection conn = null;
+
+    try {
+      conn = getConnection();
+
+      for (Artifact artifact : artifacts) {
+        upsertArtifactForReindex(conn, artifact);
+      }
+
+      // Commit the transaction.
+      DbManager.commitOrRollback(conn, log);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private void upsertArtifactForReindex(Connection conn, Artifact artifact) throws DbException {
+    long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
+    long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
+    long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+    upsertArtifactForReindex(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+  }
+
+  private void upsertArtifactForReindex(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact)
+      throws DbException {
+
+    PreparedStatement ps = idxDbManager.prepareStatement(conn, UPSERT_ARTIFACT_FOR_REINDEX_QUERY);
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
+
+    try {
+      ps.setString(1, artifactId.getUuid());
+      ps.setLong(2, namespaceSeq);
+      ps.setLong(3, auidSeq);
+      ps.setLong(4, urlSeq);
+      ps.setInt(5, artifactId.getVersion());
+      ps.setBoolean(6, artifact.isCommitted());
+      ps.setString(7, artifact.getStorageUrl());
+      ps.setLong(8, artifact.getContentLength());
+      ps.setString(9, artifact.getContentDigest());
+      ps.setLong(10, artifact.getCollectionDate());
+      ps.setBoolean(11, artifact.isCommitted());
+      ps.setString(12, artifact.getStorageUrl());
 
       idxDbManager.executeUpdate(ps);
     } catch (SQLException e) {

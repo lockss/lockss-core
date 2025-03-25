@@ -2364,7 +2364,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
       // Assert artifact marked deleted in AU artifact state journal
       Map<String, WarcArtifactStateEntry> journal =
-        store.getJournalForWarc(warcFile, WarcArtifactStateEntry.class, null);
+        store.getJournalForWarc(warcFile, WarcArtifactStateEntry.class, (record) -> synthJournalEntry(record));
       WarcArtifactStateEntry state = journal.get(spec.getArtifactUuid());
       assertTrue(state.isDeleted());
     }
@@ -2795,7 +2795,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
             .setArtifactState(WarcArtifactState.COPIED));
 
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, null);
+      store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, record -> synthJournalEntry(record));
 
     WarcArtifactStateEntry entry1 = journal.get(spec1.getArtifactUuid());
     WarcArtifactStateEntry entry2 = journal.get(spec2.getArtifactUuid());
@@ -2864,7 +2864,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
             .setArtifactState(WarcArtifactState.COPIED));
 
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, null);
+      store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, record -> synthJournalEntry(record));
 
     WarcArtifactStateEntry entry1 = journal.get(spec1.getArtifactUuid());
     WarcArtifactStateEntry entry2 = journal.get(spec2.getArtifactUuid());
@@ -2920,7 +2920,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     Path artifactsJournal = auDir1.resolve("artifacts.metadata.warc");
     log.info("artifactsJournal = {}", artifactsJournal);
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(artifactsJournal, WarcArtifactStateEntry.class, null);
+      store.readJournalFromWarc(artifactsJournal, WarcArtifactStateEntry.class, record -> synthJournalEntry(record));
 
     WarcArtifactStateEntry entry = journal.get(spec.getArtifactUuid());
     assertNotNull(entry);
@@ -3213,4 +3213,10 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         .map(Path::toUri)
         .collect(Collectors.toList());
   }
+
+  private WarcArtifactStateEntry synthJournalEntry(WarcRecord record) {
+    return
+      new WarcArtifactStateEntry("anArtId", WarcArtifactState.UNKNOWN);
+  }
+
 }
