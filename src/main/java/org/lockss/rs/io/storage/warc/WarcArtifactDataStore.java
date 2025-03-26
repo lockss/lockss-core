@@ -2484,7 +2484,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           // Index artifacts in batch if we've reached the batch size
           if (batch.size() == BATCH_SIZE) {
-            index.indexArtifacts(batch);
+            index.reindexArtifacts(batch);
             artifactsIndexed += BATCH_SIZE;
             batch.clear();
           }
@@ -2499,7 +2499,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       // Index any remaining artifacts (is a no-op if empty)
       if (!batch.isEmpty()) {
-        index.indexArtifacts(batch);
+        index.reindexArtifacts(batch);
         artifactsIndexed += batch.size();
         batch.clear();
       }
