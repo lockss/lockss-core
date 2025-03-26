@@ -870,6 +870,25 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     log.debug("Total documents added = {}", docsAdded);
   }
 
+  /**
+   * Adds or updates an artifact to the artifactIndex.
+   *
+   * @param artifact The {@link Artifact} to be added to this index.
+   */
+  @Override
+  public void reindexArtifact(Artifact artifact) throws IOException {
+    indexArtifact(artifact);
+  }
+  /**
+   * Bulk index artifacts into Solr.
+   *
+   * @param artifacts An {@link Iterable<Artifact>} containing the {@link Artifact}s to index.
+   */
+  @Override
+  public void reindexArtifacts(Iterable<Artifact> artifacts) {
+    indexArtifacts(artifacts);
+  }
+
   private void logSolrUpdate(SolrCommitJournal.SolrOperation op, String artifactUuid, String data) {
     for (int i = 0; i < 3; i++) {
       try {

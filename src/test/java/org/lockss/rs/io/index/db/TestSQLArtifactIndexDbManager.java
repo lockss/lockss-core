@@ -152,6 +152,41 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testUpsertArtifactForReindex() throws Exception {
+    initializeDatabase();
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl("test")
+        .setStorageUrl(URI.create("test"))
+        .setContentLength(1024)
+        .setContentDigest("My Digest")
+        .setCollectionDate(1234L);
+
+    // Add artifact
+    idxdb.upsertArtifactForReindex(spec.getArtifact());
+
+    Artifact art = idxdb.getArtifact(spec.getArtifactUuid());
+    // Assert against artifact spec
+    spec.assertArtifactCommon(art);
+    assertFalse(art.isCommitted());
+
+    idxdb.upsertArtifactForReindex(spec.getArtifact());
+    art = idxdb.getArtifact(spec.getArtifactUuid());
+    spec.assertArtifactCommon(art);
+    assertFalse(art.isCommitted());
+
+    // Change storage URL & committed
+    spec.setStorageUrl(URI.create("updated"));
+    spec.setCommitted(true);
+    idxdb.upsertArtifactForReindex(spec.getArtifact());
+    art = idxdb.getArtifact(spec.getArtifactUuid());
+    spec.assertArtifactCommon(art);
+    assertTrue(art.isCommitted());
+  }
+
+  @Test
   public void testGetArtifact() throws Exception {
     initializeDatabase();
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);

@@ -38,7 +38,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.IterableUtils;
 import org.apache.commons.collections4.IteratorUtils;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.*;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.archive.format.warc.WARCConstants;
 import org.archive.io.ArchiveReader;
@@ -2364,7 +2364,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
       // Assert artifact marked deleted in AU artifact state journal
       Map<String, WarcArtifactStateEntry> journal =
-          store.getJournalForWarc(warcFile, WarcArtifactStateEntry.class);
+        store.getJournalForWarc(warcFile, WarcArtifactStateEntry.class, (record) -> synthJournalEntry(record));
       WarcArtifactStateEntry state = journal.get(spec.getArtifactUuid());
       assertTrue(state.isDeleted());
     }
@@ -2647,7 +2647,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     clearInvocations(index);
 
     Map<String, WarcArtifactStateEntry> journal = Map.of(spec.getArtifactUuid(), stateEntry);
-    when(ds.getJournalForWarc(warcFile, WarcArtifactStateEntry.class)).thenReturn(journal);
+    when(ds.getJournalForWarc(warcFile, WarcArtifactStateEntry.class, null)).thenReturn(journal);
 
     when(ds.makeWarcRecordStorageUrl(ArgumentMatchers.any(Path.class), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong()))
         .thenReturn(URI.create("test"));
@@ -2795,7 +2795,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
             .setArtifactState(WarcArtifactState.COPIED));
 
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class);
+      store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, record -> synthJournalEntry(record));
 
     WarcArtifactStateEntry entry1 = journal.get(spec1.getArtifactUuid());
     WarcArtifactStateEntry entry2 = journal.get(spec2.getArtifactUuid());
@@ -2864,7 +2864,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
             .setArtifactState(WarcArtifactState.COPIED));
 
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class);
+      store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, record -> synthJournalEntry(record));
 
     WarcArtifactStateEntry entry1 = journal.get(spec1.getArtifactUuid());
     WarcArtifactStateEntry entry2 = journal.get(spec2.getArtifactUuid());
@@ -2920,7 +2920,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     Path artifactsJournal = auDir1.resolve("artifacts.metadata.warc");
     log.info("artifactsJournal = {}", artifactsJournal);
     Map<String, WarcArtifactStateEntry> journal =
-        store.readJournalFromWarc(artifactsJournal, WarcArtifactStateEntry.class);
+      store.readJournalFromWarc(artifactsJournal, WarcArtifactStateEntry.class, record -> synthJournalEntry(record));
 
     WarcArtifactStateEntry entry = journal.get(spec.getArtifactUuid());
     assertNotNull(entry);
@@ -2928,6 +2928,16 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     assertFalse(stateFile1.toFile().exists());
     assertFalse(stateFile2.toFile().exists());
+  }
+
+  @Test
+  public void testIsWarcJournalPath() throws Exception {
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifact_state.warc")));
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifact_state.warc.gz")));
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifact_state.warc.old")));
+    assertTrue(store.isWarcJournalPath(Path.of("/a/b/artifacts_lockss-e62349b783a1d07484160fd654dc6560_20230125014738836.metadata.warc")));
+    assertFalse(store.isWarcJournalPath(Path.of("/a/b/artifacts_lockss-e62349b783a1d07484160fd654dc6560_20230125014738836.warc")));
+    assertFalse(store.isWarcJournalPath(Path.of("/a/b/artifacts_lockss-e62349b783a1d07484160fd654dc6560_20230125014738836.warc.gz")));
   }
 
   // *******************************************************************************************************************
@@ -3203,4 +3213,10 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         .map(Path::toUri)
         .collect(Collectors.toList());
   }
+
+  private WarcArtifactStateEntry synthJournalEntry(WarcRecord record) {
+    return
+      new WarcArtifactStateEntry("anArtId", WarcArtifactState.UNKNOWN);
+  }
+
 }
