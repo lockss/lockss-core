@@ -236,10 +236,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   private void updateDatastoreFrom0To1() {
     log.debug("Running upgrade from version 0 to 1");
+    long start = TimeBase.nowMs();
 
     try {
       createWarcLocalJournals();
+      log.info("Upgrade to version 1 finished in {}",
+               TimeUtil.timeIntervalToString(TimeBase.msSince(start)));
     } catch (IOException e) {
+      log.info("Upgrade to version 1 failed in {}",
+               TimeUtil.timeIntervalToString(TimeBase.msSince(start)));
       throw new IllegalStateException("Failed to upgrade data store from version 0 to 1", e);
     }
   }
@@ -2453,9 +2458,36 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           boolean shouldAddToBatch = true;
           switch (artifactState != null ? artifactState.getEntry() : WarcArtifactState.UNKNOWN) {
+          case DELETED:
+            // Artifact was deleted - don't add to index
+            shouldAddToBatch = false;
+            break;
           case UNKNOWN:
-            // Lost or corrupted journal entry
-            if (isWarcInTemp) {
+            // There is no metedata for this artifact (the journal is
+            // corrupted or missing) so we can't be certain whether it
+            // should be present in the index.
+
+            // If the artifact is in a permanent WARC it must have been
+            // committed, but might later have been deleted.  Deletion after
+            // commit is rare so add it as committed.  The downside to being
+            // wrong is that a deleted artifact comes back, which is
+            // preferable to a non-deleted artifact disappearing.
+
+            // If the artifact is in a temporary WARC its true state could be
+            // any of UNCOMMITTED, PENDING_COPY, COPIED, EXPIRED, or DELETED.
+            // We can tell if it's expired, but can't distinguish between the
+            // others.  Omitting it risks losing an artifact that had been
+            // added and committed shortly before a crash.  Adding it risks
+            // saving as artifact that should not be present, the two
+            // prevalent reasons for which are that it's a duplicate of the
+            // existing previous version, or that post-fetch validation
+            // failed.  Saving an artifact that failed validation seems worse
+            // than losing a very-recently collected one, so we skip it.
+
+            if (!isWarcInTemp) {
+              log.warn("Setting perm artifact with unknown state to committed: {}", ad.getIdentifier().getUuid());
+              artifact.setCommitted(true);
+            } else {
               if (isExpired) {
                 log.warn("Expired temp artifact with unknown state, not indexing: {}",
                          ad.getIdentifier().getUuid());
@@ -2465,14 +2497,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
                          ad.getIdentifier().getUuid());
                 artifact.setCommitted(false);
               }
-            } else {
-              log.warn("Setting perm artifact with unknown state to committed: {}", ad.getIdentifier().getUuid());
-              artifact.setCommitted(true);
             }
-            break;
-          case DELETED:
-            // don't index
-            shouldAddToBatch = false;
             break;
           default:
             artifact.setCommitted(artifactState.isCommitted());
