@@ -127,7 +127,7 @@ public class DebugPanel extends LockssServlet {
   private PollManager pollManager;
   private CrawlManager crawlMgr;
   private ConfigManager cfgMgr;
-  private ServiceBinding mdxServiceBinding = null;
+  private ServiceBinding mdServiceBinding = null;
   private RemoteApi rmtApi;
 
   boolean showResult;
@@ -180,11 +180,11 @@ public class DebugPanel extends LockssServlet {
       log.debug("No RemoteApi, some functions nonfunctional");
       rmtApi = null;
     }
-    mdxServiceBinding = daemon.getServiceBinding(ServiceDescr.SVC_MDX);
-    if (mdxServiceBinding == null ||
-        !svcsMgr.isServiceReady(mdxServiceBinding)) {
-      mdxServiceBinding = null;
-      log.debug("No MDX Service binding, some functions nonfunctional");
+    mdServiceBinding = daemon.getServiceBinding(ServiceDescr.SVC_MD);
+    if (mdServiceBinding == null ||
+        !svcsMgr.isServiceReady(mdServiceBinding)) {
+      mdServiceBinding = null;
+      log.debug("No MD Service binding, some functions nonfunctional");
     }
 
   }
@@ -506,8 +506,8 @@ public class DebugPanel extends LockssServlet {
   }
 
   private boolean startReindexingMetadata(ArchivalUnit au, boolean force) {
-    if (mdxServiceBinding == null) {
-      errMsg = "Metadata Extraction Service is not accessible.";
+    if (mdServiceBinding == null) {
+      errMsg = "Metadata Service is not accessible.";
       return false;
     }
 
@@ -534,7 +534,7 @@ public class DebugPanel extends LockssServlet {
       try {
 	// Schedule the metadata reindexing.
 	RestMetadataExtractorClient client =
-	    new RestMetadataExtractorClient(mdxServiceBinding.getRestStem());
+	    new RestMetadataExtractorClient(mdServiceBinding.getRestStem());
 	String result = client.scheduleMetadataExtraction(au.getAuId(), true);
 	log.debug2("result = " + result);
 	return true;
@@ -798,7 +798,7 @@ public class DebugPanel extends LockssServlet {
                               ( showForceReindexMetadata
                                 ? ACTION_FORCE_REINDEX_METADATA
                                 : ACTION_REINDEX_METADATA));
-    if (mdxServiceBinding == null) {
+    if (mdServiceBinding == null) {
       disableButton(reindex);
     }
     frm.add(" ");

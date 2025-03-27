@@ -357,11 +357,11 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.dependency.jsoup}</version>
     </dependency>
     
-    <dependency>
-      <groupId>org.jboss.apiviz</groupId>
-      <artifactId>apiviz</artifactId>
-      <version>1.3.2.GA</version>
-    </dependency>
+<!--     <dependency> -->
+<!--       <groupId>org.jboss.apiviz</groupId> -->
+<!--       <artifactId>apiviz</artifactId> -->
+<!--       <version>1.3.2.GA</version> -->
+<!--     </dependency> -->
     
     <dependency>
       <groupId>org.lockss.legacy</groupId>
@@ -378,7 +378,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>com.thoughtworks.xstream</groupId>
       <artifactId>xstream</artifactId>
-       <version>1.4.20</version>
+       <version>1.4.21</version>
     </dependency>
 
     <dependency>
@@ -667,7 +667,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>com.mysql</groupId>
       <artifactId>mysql-connector-j</artifactId>
-      <version>8.0.31</version>
+      <version>${version.dependency.mysql-connector-j}</version>
     </dependency>
 
     <dependency>
@@ -713,7 +713,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.jwat</groupId>
       <artifactId>jwat-warc</artifactId>
-      <version>1.0.0</version>
+      <version>1.2.0</version>
       <scope>compile</scope>
     </dependency>
 
@@ -774,12 +774,6 @@ POSSIBILITY OF SUCH DAMAGE.
           <artifactId>jetty-webapp</artifactId>
         </exclusion>
       </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>org.mapdb</groupId>
-      <artifactId>mapdb</artifactId>
-      <version>3.0.10</version>
     </dependency>
 
     <dependency>
@@ -845,7 +839,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>joda-time</groupId>
       <artifactId>joda-time</artifactId>
-      <version>2.9.9</version>
+      <version>2.13.0</version>
     </dependency>
     
     <dependency>
@@ -927,13 +921,6 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.lockss.legacy</groupId>
       <artifactId>org-netpreserve-commons-webarchive-commons</artifactId>
       <version>1.1.7-p2</version>
-    </dependency>
-
-    <!-- Because webarchive-commons 1.1.7-p1 doesn't bring in json; 1.1.8 (brought by the repo core) does but is preempted -->
-    <dependency>
-      <groupId>org.json</groupId>
-      <artifactId>json</artifactId>
-      <version>20140107</version>
     </dependency>
 
     <dependency>

@@ -283,6 +283,7 @@ public class CharsetUtil {
    * @throws IOException
    * @deprecated
    */
+  @Deprecated
   public static Pair<Reader, String> getCharsetReader(InputStream inStream) throws IOException {
     InputStreamAndCharset isc = getCharsetStream(inStream, UTF8);
     Reader charsetReader = new InputStreamReader(isc.getInStream(),isc.getCharset());
@@ -299,6 +300,7 @@ public class CharsetUtil {
    * @throws IOException
    * @deprecated
    */
+  @Deprecated
   public static Pair<java.io.Reader, String> getCharsetReader(InputStream inStream,
                                                               String expectedCharset)
     throws IOException {

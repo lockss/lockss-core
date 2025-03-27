@@ -503,6 +503,13 @@ public class CrawlerStatus {
   }
 
   /**
+   * Return true if a repair crawl
+   */
+  public boolean isRepairCrawl() {
+    return Crawler.Type.REPAIR.toString().equals(type);
+  }
+
+   /**
    * Return true if crawl hasn't started yet
    */
   public boolean isCrawlWaiting() {

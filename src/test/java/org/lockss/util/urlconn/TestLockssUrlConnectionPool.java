@@ -218,10 +218,12 @@ public class TestLockssUrlConnectionPool extends LockssTestCase {
     int dto = -1;
 
     /** @deprecated */
+    @Deprecated
     public void setConnectionTimeout(int n) {
       cto = n;
     }
     /** @deprecated */
+    @Deprecated
     public void setTimeout(int n) {
       dto = n;
     }

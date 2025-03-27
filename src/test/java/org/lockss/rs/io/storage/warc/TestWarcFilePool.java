@@ -346,7 +346,7 @@ class TestWarcFilePool extends LockssTestCase5 {
 
       // Assert artifact's status is (stuck at) PENDING_COPY
       Artifact indexed = index.getArtifact(spec.getArtifactIdentifier());
-      assertEquals(PENDING_COPY, ds.getArtifactState(indexed, false));
+      assertEquals(PENDING_COPY, ds.getWarcArtifactState(indexed, false));
 
       // Assert temporary WARC remains after running GC
       pool.runGC();

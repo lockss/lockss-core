@@ -57,6 +57,7 @@ import org.lockss.proxy.icp.IcpManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.repository.RepositoryDbManager;
 import org.lockss.repository.RepositoryManager;
+import org.lockss.rs.io.index.db.SQLArtifactIndexDbManager;
 import org.lockss.safenet.EntitlementRegistryClient;
 import org.lockss.scheduler.SchedService;
 import org.lockss.servlet.AdminServletManager;
@@ -116,7 +117,7 @@ public class MockLockssDaemon extends LockssDaemon {
    * directly.  Some utilities (not descended from LockssTestCase) also
    * need one, so this constructor is protected to allow them to directly
    * create an instance (of their own subclass). */
-  protected MockLockssDaemon() {
+  public MockLockssDaemon() {
     this(null);
   }
 
@@ -556,6 +557,14 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setRepositoryDbManager(RepositoryDbManager repositoryDbMan) {
     managerMap.put(LockssDaemon.REPOSITORY_DB_MANAGER, repositoryDbMan);
+  }
+
+  /**
+   * Set the SQLArtifactIndexDbManager
+   * @param idxDbManager the new manager
+   */
+  public void setSQLArtifactIndexDbManager(SQLArtifactIndexDbManager idxDbManager) {
+    managerMap.put(LockssDaemon.SQLARTIFACTINDEX_DB_MANAGER, idxDbManager);
   }
 
   /**

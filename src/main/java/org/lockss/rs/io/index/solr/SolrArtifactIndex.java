@@ -59,6 +59,7 @@ import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.rs.io.index.ArtifactIndexVersion;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
@@ -80,7 +81,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -92,6 +92,13 @@ import java.util.stream.StreamSupport;
  */
 public class SolrArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
+  public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+    return new ArtifactIndexVersion()
+        .setIndexType(SolrArtifactIndex.class.getSimpleName())
+        .setIndexVersion(1);
+  }
 
   private final static String DEFAULT_COLLECTION_NAME = "lockss-repo";
   public final static long DEFAULT_SOLR_HARDCOMMIT_INTERVAL = 15000;
@@ -116,10 +123,10 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
   protected LockssApp theApp = null;
 
-  private Map<String, CompletableFuture<AuSize>> auSizeFutures =
+  private final Map<String, CompletableFuture<AuSize>> auSizeFutures =
       new ConcurrentHashMap<>();
 
-  private Map<String, Boolean> invalidatedAuSizes =
+  private final Map<String, Boolean> invalidatedAuSizes =
       Collections.synchronizedMap(new LRUMap<>(100));
 
   /**
@@ -147,7 +154,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   /**
    * Map from artifact stem to semaphore. Used for artifact version locking.
    */
-  private SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
+  private final SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
 
   /**
    * Handle to Solr soft commit journal writer.
@@ -287,10 +294,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       }
 
       // Path to artifact index state directory
-      Path indexStateDir =
-          ((BaseLockssRepository)repository).getRepositoryStateDir()
-              .toPath()
-              .resolve("index"); // TODO: Parameterize
+      Path indexStateDir = repository.getRepositoryStateDirPath()
+          .resolve("index"); // TODO: Parameterize
 
       // Ensure index state directory exists
       FileUtil.ensureDirExists(indexStateDir.toFile());
@@ -400,9 +405,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * @return A {@link Path} containing the path of the journal.
    */
   private Path getSolrJournalDirectory() {
-    return ((BaseLockssRepository) repository)
-        .getRepositoryStateDir()
-        .toPath()
+    return repository.getRepositoryStateDirPath()
         .resolve("index/solr");
   }
 
@@ -458,7 +461,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * hardCommitInterval ms.
    */
   private void scheduleHardCommitter() {
-    ((BaseLockssRepository) repository).getScheduledExecutorService()
+    repository.getScheduledExecutorService()
       .schedule(new SolrHardCommitTask(), hardCommitInterval, TimeUnit.MILLISECONDS);
     log.debug2("Scheduled Solr hard commit in {}",
                TimeUtil.timeIntervalToString(hardCommitInterval));
@@ -865,6 +868,25 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     }
 
     log.debug("Total documents added = {}", docsAdded);
+  }
+
+  /**
+   * Adds or updates an artifact to the artifactIndex.
+   *
+   * @param artifact The {@link Artifact} to be added to this index.
+   */
+  @Override
+  public void reindexArtifact(Artifact artifact) throws IOException {
+    indexArtifact(artifact);
+  }
+  /**
+   * Bulk index artifacts into Solr.
+   *
+   * @param artifacts An {@link Iterable<Artifact>} containing the {@link Artifact}s to index.
+   */
+  @Override
+  public void reindexArtifacts(Iterable<Artifact> artifacts) {
+    indexArtifacts(artifacts);
   }
 
   private void logSolrUpdate(SolrCommitJournal.SolrOperation op, String artifactUuid, String data) {

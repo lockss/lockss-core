@@ -117,7 +117,7 @@ public class TestSolrCommitJournal extends LockssTestCase5 {
         assertEquals("ADD", record.get(JOURNAL_HEADER_SOLR_OP));
 
         String json = "{\"uuid\":\"test-artifact\",\"namespace\":\"test-namespace\",\"auid\":\"test-auid\"," +
-            "\"uri\":\"test-url\",\"sortUri\":\"test-url\",\"version\":1,\"committed\":false,\"storageUrl\":\"test-storage-url\",\"contentLength\":1234,\"contentDigest\":\"test-digest\",\"collectionDate\":1234}";
+            "\"uri\":\"test-url\",\"version\":1,\"committed\":false,\"storageUrl\":\"test-storage-url\",\"contentLength\":1234,\"contentDigest\":\"test-digest\",\"collectionDate\":1234}";
 
         assertEquals(json, record.get(JOURNAL_HEADER_DATA));
       }
@@ -263,6 +263,17 @@ public class TestSolrCommitJournal extends LockssTestCase5 {
       testReplaySolrJournal_UPDATE_COMMITTED();
       testReplaySolrJournal_UPDATE_STORAGEURL();
       testReplaySolrJournal_DELETE();
+      testReplaySolrJournal_MALFORMED();
+    }
+
+    private void testReplaySolrJournal_MALFORMED() throws Exception {
+      Path MALFORMED_FILE = writeTmpFile(CSV_HEADERS +
+          "1636692345004,UPDATE_COMMITTED,test-artifact,\"\"\n" +
+          new byte[1024]);
+
+      runTestReplaySolrJournal(MALFORMED_FILE, solrIndex -> {
+        // Q: What do we want to assert?
+      });
     }
 
     private final String CSV_HEADERS = "time,op,artifactUuid,data\n";
@@ -291,7 +302,6 @@ public class TestSolrCommitJournal extends LockssTestCase5 {
           "  \"\"namespace\"\":\"\"test-namespace\"\",\n" +
           "  \"\"auid\"\":\"\"test-auid\"\",\n" +
           "  \"\"uri\"\":\"\"test-url\"\",\n" +
-          "  \"\"sortUri\"\":\"\"test-url\"\",\n" +
           "  \"\"version\"\":1,\n" +
           "  \"\"committed\"\":false,\n" +
           "  \"\"storageUrl\"\":\"\"test-storage-url1\"\",\n" +

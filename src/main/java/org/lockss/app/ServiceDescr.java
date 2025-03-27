@@ -51,10 +51,8 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
 
   public static final ServiceDescr SVC_CONFIG =
     register(new ServiceDescr("Config Service", "cfg"));
-  public static final ServiceDescr SVC_MDX =
-    register(new ServiceDescr("Metadata Extraction Service", "mdx"));
-  public static final ServiceDescr SVC_MDQ =
-    register(new ServiceDescr("Metadata Query Service", "mdq"));
+  public static final ServiceDescr SVC_MD =
+    register(new ServiceDescr("Metadata Service", "md"));
   public static final ServiceDescr SVC_POLLER =
     register(new ServiceDescr("Poller Service", "poller"));
   public static final ServiceDescr SVC_CRAWLER =

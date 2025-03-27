@@ -202,6 +202,24 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertClass(RestLockssRepository.class, repo);
   }
 
+  // Would like to test that timeouts properly get set in the
+  // RestTemplate.  Unfortunately they're not't accessible in
+  // RestTemplate so this test currently serves only to log them (at
+  // debug2) as they're being set.  (Even that was helpful, so leaving
+  // it in place.)
+  @Test
+  public void testSetRestTimeout() throws Exception {
+    assertNull(mgr.getV2Repository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "rest:ns_1:http://foo.bar/endpoint");
+    ConfigurationUtil.addFromArgs("org.lockss.repository.client.readTimeout", "111",
+                                  "org.lockss.repository.client.connectTimeout", "222");
+    assertNotNull(mgr.getV2Repository());
+    assertEquals("ns_1", mgr.getV2Repository().getNamespace());
+    LockssRepository repo = mgr.getV2Repository().getRepository();
+    assertClass(RestLockssRepository.class, repo);
+  }
+
   @Test
   public void testFindArtifactsByUrl() throws Exception {
     ConfigurationUtil.addFromArgs(org.lockss.repository.RepositoryManager.PARAM_V2_REPOSITORY,

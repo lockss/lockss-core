@@ -38,8 +38,6 @@ import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
-import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.rs.io.storage.warc.WarcArtifactStateEntry;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.lang.Ready;
 import org.lockss.util.time.Deadline;
@@ -52,17 +50,13 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * ArtifactData storage interface.
- *
- * @param <ID> extends {@code ArtifactIdentifier}
- *            Implementation of ArtifactIdentifier to parameterize this interface with.
- * @param <AD> extends {@code ArtifactData}
- *            Implementation of ArtifactData to parameterize this interfac with.
- * @param <MD> extends {@code RepositoryArtifactMetadata}
- *            Implementation of RepositoryArtifactMetadata to parameterize this interface with.
  */
-// TODO Remove generics
-public interface ArtifactDataStore<ID extends ArtifactIdentifier, AD extends ArtifactData, MD extends WarcArtifactStateEntry>
+public interface ArtifactDataStore
     extends LockssRepositorySubsystem, StorageInfoSource, Ready {
+
+    default ArtifactDataStoreVersion getDataStoreTargetVersion() {
+        return ArtifactDataStoreVersion.UNKNOWN;
+    }
 
     /**
      * Initializes a namespace storage structure in an artifact data store implementation.
@@ -89,14 +83,14 @@ public interface ArtifactDataStore<ID extends ArtifactIdentifier, AD extends Art
      * Records an ArtifactData exactly as it has been received but does change its state. In particular, this method
      * will exhaust the ArtifactData's InputStream, computes the length, digest of its stream, and sets a storage URL.
      *
-     * @param artifactData
+     * @param ad
      *          An {@code ArtifactData} to add to this artifact store.
      * @return Returns the {@code ArtifactData} as it is now recorded in this artifact store.
      * @throws NullPointerException
      *          if the given {@link ArtifactData} instance is null
      * @throws IOException
      */
-    Artifact addArtifactData(AD artifactData) throws IOException;
+    Artifact addArtifactData(ArtifactData ad) throws IOException;
 
     /**
      * Retrieves an artifact from this artifact data store.
@@ -110,7 +104,7 @@ public interface ArtifactDataStore<ID extends ArtifactIdentifier, AD extends Art
      * @throws NullPointerException
      *          if the given {@link Artifact} instance is null
      */
-    AD getArtifactData(Artifact artifact) throws IOException;
+    ArtifactData getArtifactData(Artifact artifact) throws IOException;
 
     /**
      * Commits an artifact to this artifact store.

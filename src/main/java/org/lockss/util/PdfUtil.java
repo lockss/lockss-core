@@ -798,7 +798,7 @@ return success;
   }
 
   public static Iterator getPdf16Operators() {
-    return UnmodifiableIterator.unmodifiableIterator(new ObjectArrayIterator(PDF_1_6_OPERATORS));
+    return UnmodifiableIterator.unmodifiableIterator(new ObjectArrayIterator((Object[])PDF_1_6_OPERATORS));
   }
 
   /**

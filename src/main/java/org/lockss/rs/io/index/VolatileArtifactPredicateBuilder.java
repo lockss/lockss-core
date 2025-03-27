@@ -41,7 +41,7 @@ import java.util.function.Predicate;
  */
 public class VolatileArtifactPredicateBuilder {
     // The individual filtering predicates.
-    private Set<Predicate<Artifact>> predicates = new HashSet<>();
+    private final Set<Predicate<Artifact>> predicates = new HashSet<>();
 
     /**
      * Adds a filtering predicate by Archival Unit identifier.

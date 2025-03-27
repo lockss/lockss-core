@@ -682,6 +682,7 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
    * @deprecated After 1.67 is released, plugins should be converted to use
    * AuParamType.InvalidFormatException instead
    */
+  @Deprecated
   public static class InvalidFormatException extends Exception {
     private Throwable nestedException;
 

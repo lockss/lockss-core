@@ -44,34 +44,33 @@ import org.archive.io.ArchiveRecord;
 import org.archive.io.ArchiveRecordHeader;
 import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
+import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.rs.io.index.ArtifactIndexVersion;
 import org.lockss.rs.io.storage.ArtifactDataStore;
-import org.lockss.rs.io.storage.warc.WarcArtifactData;
+import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
-import org.lockss.rs.io.storage.warc.WarcArtifactStateEntry;
+import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
 import org.lockss.util.BuildInfo;
 import org.lockss.util.ByteArray;
 import org.lockss.util.StreamUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.jms.JmsFactory;
+import org.lockss.util.rest.repo.LockssArtifactAlreadyExistsException;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ImportStatusIterable;
 import org.lockss.util.rest.repo.util.JmsFactorySource;
 import org.lockss.util.rest.repo.util.LockssRepositoryUtil;
+import org.lockss.util.rest.repo.model.RepositoryStatistics;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -89,14 +88,16 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
   private File repoStateDir;
 
-  protected ArtifactDataStore<ArtifactIdentifier, ArtifactData, WarcArtifactStateEntry> store;
+  private long timeSpentReiterating = 0;
+
+  protected ArtifactDataStore store;
   protected ArtifactIndex index;
   protected JmsFactory jmsFact;
 
   protected ScheduledExecutorService scheduledExecutor =
       Executors.newSingleThreadScheduledExecutor();
 
-  private static BuildInfo BUILD_INFO = BuildInfo.getBuildInfoFor("lockss-core")
+  private static final BuildInfo BUILD_INFO = BuildInfo.getBuildInfoFor("lockss-core")
       .orElseThrow(() -> new IllegalStateException("Could not determine LOCKSS repository version"));
 
   public static String REPOSITORY_VERSION = BUILD_INFO.getBuildPropertyInst("build.version");
@@ -148,10 +149,10 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   /**
    * Getter for the repository state directory.
    *
-   * @return A {@link File} containing the path to the repository state directory.
+   * @return A {@link Path} containing the path to the repository state directory.
    */
-  public File getRepositoryStateDir() {
-    return repoStateDir;
+  public Path getRepositoryStateDirPath() {
+    return repoStateDir.toPath();
   }
 
   /**
@@ -163,46 +164,26 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     repoStateDir = dir;
   }
 
-  /**
-   * Triggers a re-index of all artifacts in the data store into the index if the
-   * reindex state file is present.
-   *
-   * @throws IOException
-   */
-  public void reindexArtifactsIfNeeded() throws IOException {
-    if (repoStateDir == null) {
-      log.warn("Repository state directory has not been set");
-      throw new IllegalStateException("Repository state directory has not been set");
-    }
+  public final static String REINDEXING_STATE_FILE = "index/reindexing";
 
-    // Path to reindex state file
-    Path reindexStatePath = repoStateDir.toPath().resolve("index/reindex");
-    File reindexStateFile = reindexStatePath.toFile();
+  public void reindexArtifacts() throws IOException {
+    log.info("Reindexing artifacts");
 
-    if (reindexStateFile.exists()) {
-      log.info("Reindexing artifacts");
+    // (Re)enter reindexing state
+    Path reindexingStateFilePath = getRepositoryStateDirPath()
+        .resolve(REINDEXING_STATE_FILE);
 
-      // Reindex artifacts in this data store to the index
-      long start = TimeBase.nowMs();
-      store.reindexArtifacts(index);
-      log.info("Finished reindex in {}",
-               TimeUtil.timeIntervalToString(TimeBase.msSince(start)));
+    File reindexingStateFile = reindexingStateFilePath.toFile();
+    FileUtils.touch(reindexingStateFile);
 
-      // Disable future reindexing by renaming reindex state file if there were no errors
-      // (i.e., successfully processed all WARCs under this base directory). Old reindex
-      // state files are kept to aid debugging / auditing.
-      DateTimeFormatter formatter = DateTimeFormatter.BASIC_ISO_DATE
-          .withZone(ZoneOffset.UTC);
+    // Reindex artifacts in the data store to index
+    long reindexStart = TimeBase.nowMs();
+    store.reindexArtifacts(index);
+    log.info("Finished reindex in {}",
+        TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
 
-      Path withSuffix = reindexStatePath
-          .resolveSibling(reindexStatePath.getFileName() + "." + formatter.format(Instant.now()));
-
-      // Remove by renaming with the suffix compute above
-      if (!reindexStateFile.renameTo(withSuffix.toFile())) {
-        log.error("Could not remove reindex state file");
-        throw new IllegalStateException("Could not remove reindex state file");
-      }
-    }
+    // Exit reindexing state
+    FileUtil.safeDeleteFile(reindexingStateFile);
   }
 
   public ScheduledExecutorService getScheduledExecutorService() {
@@ -212,24 +193,111 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   @Override
   public void initRepository() throws IOException {
     try {
-      log.info("Initializing repository");
+      log.debug("Waiting for LockssApp to become ready");
       LockssDaemon.getLockssDaemon().waitUntilAppRunning();
 
-      // Initialize and start the index
-      index.init();
-      index.start();
+      log.info("Initializing LOCKSS repository");
 
-      // Initialize the data store
+      // Initialize the components
+      index.init();
       store.init();
 
-      // Re-index artifacts in the data store if needed
-      reindexArtifactsIfNeeded();
+      updateDatastoreIfNeeded();
+      updateIndexIfNeeded();
 
-      // Start the data store
+      // Start the components
+      index.start();
       store.start();
     } catch (InterruptedException e) {
       throw new IllegalStateException("Interrupted while waiting for LOCKSS daemon", e);
     }
+  }
+
+  private void updateDatastoreIfNeeded() throws IOException {
+    ArtifactDataStoreVersion onDiskVersion = getLastRecordedArtifactDataStoreVersion();
+    ArtifactDataStoreVersion targetVersion = store.getDataStoreTargetVersion();
+
+    if (!onDiskVersion.equals(targetVersion)) {
+      if (onDiskVersion == ArtifactDataStoreVersion.UNKNOWN) {
+        log.debug("Initializing data store for the first time");
+        ((WarcArtifactDataStore)store).updateDatastoreToVersion(0, targetVersion.getDatastoreVersion());
+      } else if (!onDiskVersion.getDatastoreType().equals(targetVersion.getDatastoreType())) {
+        throw new UnsupportedOperationException("Switching data stores is not supported");
+      } else if (onDiskVersion.getDatastoreVersion() < targetVersion.getDatastoreVersion()) {
+        ((WarcArtifactDataStore) store).updateDatastoreToVersion(
+            onDiskVersion.getDatastoreVersion(),
+            targetVersion.getDatastoreVersion());
+      }
+    }
+  }
+
+  protected ArtifactDataStoreVersion getLastRecordedArtifactDataStoreVersion() {
+    return ArtifactDataStoreVersion.UNKNOWN;
+  }
+
+  private void updateIndexIfNeeded() throws IOException {
+    ArtifactIndexVersion onDiskVersion = getLastRecordedArtifactIndexVersion();
+    ArtifactIndexVersion targetVersion = index.getArtifactIndexTargetVersion();
+
+    if (log.isDebug2Enabled()) {
+      log.debug2("index = {}", index);
+      log.debug2("index.onDiskVersion = {}", onDiskVersion);
+      log.debug2("index.targetVersion = {}", targetVersion);
+    }
+
+    boolean indexChanged = false;
+
+    if (!onDiskVersion.equals(targetVersion)) {
+      // Either type changed, version changed, or both changed:
+      // (type changed, version changed)
+      // t t --- sync index
+      // t f --- sync index
+      // f t --- sync index if previousVersion < currentVersion
+      // f f --- nothing to do
+
+      if (onDiskVersion == ArtifactIndexVersion.UNKNOWN) {
+        log.debug("Initializing index for the first time");
+        ((AbstractArtifactIndex)index).updateIndexToVersion(0, targetVersion.getIndexVersion());
+        indexChanged = true;
+      } else if (!onDiskVersion.getIndexType().equals(targetVersion.getIndexType())) {
+        log.debug("Switching index: {} -> {}",
+            onDiskVersion.getIndexType(), targetVersion.getIndexType());
+        // Q: Is this right?
+        ((AbstractArtifactIndex)index).updateIndexToVersion(0, targetVersion.getIndexVersion());
+        indexChanged = true;
+      } else if (onDiskVersion.getIndexVersion() < targetVersion.getIndexVersion()) {
+        ((AbstractArtifactIndex) index).updateIndexToVersion(
+            onDiskVersion.getIndexVersion(),
+            targetVersion.getIndexVersion());
+        indexChanged = true;
+      }
+    }
+
+    if (indexChanged || shouldStartOrResumeReindex() || isReindexWanted()) {
+      reindexArtifacts();
+    }
+  }
+
+  protected boolean isReindexWanted() {
+    return false;
+  }
+
+  public boolean shouldStartOrResumeReindex() {
+    if (getRepositoryStateDirPath() == null) {
+      throw new IllegalStateException("Missing repository state directory");
+    }
+
+    // Path to reindex state file
+    Path reindexingStateFilePath = getRepositoryStateDirPath()
+        .resolve(REINDEXING_STATE_FILE);
+
+    File reindexingStateFile = reindexingStateFilePath.toFile();
+
+    return reindexingStateFile.exists();
+  }
+
+  protected ArtifactIndexVersion getLastRecordedArtifactIndexVersion() {
+    return ArtifactIndexVersion.UNKNOWN;
   }
 
   /**
@@ -293,7 +361,12 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     } catch (Exception e) {
       log.warn("Couldn't get store space", e);
     }
-    return new RepositoryInfo(sto, ind);
+
+    RepositoryStatistics repoStats = new RepositoryStatistics();
+    repoStats.setTimeSpentReiteratingIterators(timeSpentReiterating);
+
+    return new RepositoryInfo(sto, ind)
+        .setRepositoryStatistics(repoStats);
   }
 
   @Override
@@ -324,24 +397,45 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     index.acquireVersionLock(artifactId.getArtifactStem());
 
     try {
-      // Retrieve latest version in this URL lineage
-      Artifact latestVersion = index.getArtifact(
-          artifactId.getNamespace(),
-          artifactId.getAuid(),
-          artifactId.getUri(),
-          true
-      );
+      int nextVersion = 1;
+
+      boolean hasVersion =
+          artifactId.getVersion() != null && artifactId.getVersion() > 0;
+
+      if (hasVersion) {
+        // Check whether the repository already has this artifact
+        Artifact result = index.getArtifactVersion(
+            artifactId.getNamespace(),
+            artifactId.getAuid(),
+            artifactId.getUri(),
+            artifactId.getVersion(),
+            true);
+
+        if (result != null) {
+          throw new LockssArtifactAlreadyExistsException();
+        }
+
+        nextVersion = artifactId.getVersion();
+      } else {
+        // Retrieve latest version in this URL lineage
+        Artifact result = index.getArtifact(
+            artifactId.getNamespace(),
+            artifactId.getAuid(),
+            artifactId.getUri(),
+            true);
+
+        if (result != null) {
+          nextVersion = result.getVersion() + 1;
+        }
+      }
 
       // Create a new artifact identifier for this artifact
       ArtifactIdentifier newId = new ArtifactIdentifier(
-          // Assign a new artifact ID
           UUID.randomUUID().toString(), // FIXME: Artifact ID collision unlikely but possible
           artifactId.getNamespace(),
           artifactId.getAuid(),
           artifactId.getUri(),
-          // Set the next version
-          (latestVersion == null) ? 1 : latestVersion.getVersion() + 1
-      );
+          nextVersion);
 
       // Set the new artifact identifier
       artifactData.setIdentifier(newId);
@@ -434,7 +528,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             }
 
             // Transform WARC record to ArtifactData
-            ArtifactData ad = WarcArtifactData.fromArchiveRecord(record);
+            ArtifactData ad = WarcArtifactDataUtil.fromArchiveRecord(record);
             assert ad != null;
 
             if (excludePat != null && ad.getHttpStatus() != null)  {
@@ -884,5 +978,10 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
   public ArtifactDataStore getArtifactDataStore() {
     return store;
+  }
+
+
+  public synchronized void incTimeSpentReiterating(long msAmount) {
+    timeSpentReiterating += msAmount;
   }
 }

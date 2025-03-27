@@ -50,15 +50,19 @@ import java.util.UUID;
  * Artifacts in a VolatileArtifactIndex, then transferring them into
  * the SolrArtifactIndex in a batch.
  */
-public class DispatchingArtifactIndex implements ArtifactIndex {
+public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
 
-  private ArtifactIndex masterIndex;
-  private Map<String,ArtifactIndex> tempIndexMap = new CopyOnWriteMap<>();
-  private BaseLockssRepository repository;
+  private final ArtifactIndex masterIndex;
+  private final Map<String,ArtifactIndex> tempIndexMap = new CopyOnWriteMap<>();
 
   public DispatchingArtifactIndex(ArtifactIndex master) {
     this.masterIndex = master;
+  }
+
+  @Override
+  public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+    return masterIndex.getArtifactIndexTargetVersion();
   }
 
   /** Return true if this {namespace,auid} is currently in the temp index */
@@ -154,6 +158,18 @@ public class DispatchingArtifactIndex implements ArtifactIndex {
     // FIXME: This is safe for reindex but once the Repository has started,
     //  it is not going to direct index operations to the correct index.
     masterIndex.indexArtifacts(artifacts);
+  }
+
+  @Override
+  public void reindexArtifact(Artifact artifact) throws IOException {
+    findIndexHolding(artifact.getIdentifier()).reindexArtifact(artifact);
+  }
+
+  @Override
+  public void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
+    // FIXME: This is safe for reindex but once the Repository has started,
+    //  it is not going to direct index operations to the correct index.
+    masterIndex.reindexArtifacts(artifacts);
   }
 
   @Override
@@ -314,8 +330,7 @@ public class DispatchingArtifactIndex implements ArtifactIndex {
     // permitted and likely won't work correctly while the Artifacts
     // are being copied into Solr
     ArtifactDataStore store = repository.getArtifactDataStore();
-    if (store instanceof WarcArtifactDataStore) {
-      WarcArtifactDataStore warcStore = (WarcArtifactDataStore)store;
+    if (store instanceof WarcArtifactDataStore warcStore) {
       if (!warcStore.waitForCommitTasks(namespace, auid)) {
         log.warn("waitForCommitTasks() was interrupted");
         throw new InterruptedIOException("finishBulk interrupted");

@@ -51,6 +51,8 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static org.lockss.rs.io.storage.warc.WarcArtifactDataStore.getJournalPath;
+
 public class WarcFilePool {
   private static final L4JLogger log = L4JLogger.getLogger();
 
@@ -190,7 +192,7 @@ public class WarcFilePool {
     // Iterate over WarcFiles in this pool
     synchronized (this) {
       for (WarcFile warcFile : allWarcs) {
-        long blocks = (long) Math.ceil(new Float(warcFile.getLength()) / new Float(store.getBlockSize()));
+        long blocks = (long) Math.ceil(Float.valueOf(warcFile.getLength()) / Float.valueOf(store.getBlockSize()));
         totalBlocksAllocated += blocks;
         totalBytesUsed += warcFile.getLength();
 
@@ -281,8 +283,9 @@ public class WarcFilePool {
             }
           }
 
-          // Remove WARC file from the data store
+          // Remove WARC file and journal from the data store
           store.removeWarc(warc.getPath());
+          store.removeWarc(getJournalPath(warc.getPath()));
         } catch (IOException e) {
           // Log error and leave to reload
           log.error("Could not remove WARC file " + warc.getPath(), e);

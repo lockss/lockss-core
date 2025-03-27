@@ -68,6 +68,19 @@ public abstract class DbManager extends BaseLockssManager
   // Prefix for the database manager configuration entries.
   private static final String PREFIX = Configuration.PREFIX + "db.";
 
+  // See DBCP documentation here: https://commons.apache.org/proper/commons-dbcp/configuration.html
+  protected static final String PARAM_DBCP_INITIAL_SIZE = PREFIX + "dbcp.initialSize";
+  protected static final String PARAM_DBCP_MAX_TOTAL = PREFIX + "dbcp.maxTotal";
+  protected static final String PARAM_DBCP_MAX_IDLE = PREFIX + "dbcp.maxIdle";
+  protected static final String PARAM_DBCP_MIN_IDLE = PREFIX + "dbcp.minIdle";
+  protected static final String PARAM_DBCP_MAX_WAIT_TIME = PREFIX + "dbcp.maxWaitMs";
+
+  protected static final String DEFAULT_DBCP_INITIAL_SIZE = "0";
+  protected static final String DEFAULT_DBCP_MAX_TOTAL = "100";
+  protected static final String DEFAULT_DBCP_MAX_IDLE  = "8";
+  protected static final String DEFAULT_DBCP_MIN_IDLE = "0";
+  protected static final long DEFAULT_DBCP_MAX_WAIT_TIME = -1;
+
   /**
    * Derby log append option. Changes require daemon restart.
    */
@@ -993,6 +1006,16 @@ public abstract class DbManager extends BaseLockssManager
       // Set username and password
       dbcpProps.put("username", dataSourceConfig.get("user"));
       dbcpProps.put("password", dataSourceConfig.get("password"));
+
+      // Set initial pool size, max pool size, etc.
+      Configuration curCfg = ConfigManager.getCurrentConfig();
+
+      dbcpProps.put("initialSize", curCfg.get(PARAM_DBCP_INITIAL_SIZE ,DEFAULT_DBCP_INITIAL_SIZE));
+      dbcpProps.put("maxTotal", curCfg.get(PARAM_DBCP_MAX_TOTAL, DEFAULT_DBCP_MAX_TOTAL));
+      dbcpProps.put("maxIdle", curCfg.get(PARAM_DBCP_MAX_IDLE, DEFAULT_DBCP_MAX_IDLE));
+      dbcpProps.put("minIdle", curCfg.get(PARAM_DBCP_MIN_IDLE, DEFAULT_DBCP_MIN_IDLE));
+      dbcpProps.put("maxWaitMillis",
+          String.valueOf(curCfg.getTimeInterval(PARAM_DBCP_MAX_WAIT_TIME, DEFAULT_DBCP_MAX_WAIT_TIME)));
 
       // Determine JDBC URL from existing DataSource if not explicitly set
       if (StringUtil.isNullString(dbcpProps.get("url"))) {

@@ -635,7 +635,7 @@ public class ProxyAndContent extends LockssServlet {
 
 
   private Iterator getDescriptors_Content() {
-    return new ObjectArrayIterator(new LinkWithExplanation[] {
+    return new ObjectArrayIterator((Object[])new LinkWithExplanation[] {
         makeDescriptor("Edit Default Access Group",
                        BAD_ACTION,
                        "Edit the members of the default access group."),
