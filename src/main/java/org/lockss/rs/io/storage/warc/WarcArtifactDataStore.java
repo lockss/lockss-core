@@ -1041,7 +1041,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     log.info("Reloading temporary WARCs from {}", tmpWarcBasePath);
 
-    Collection<Path> tmpWarcs = findWarcs(tmpWarcBasePath);
+    Collection<Path> warcPaths = findWarcs(tmpWarcBasePath);
+    // Exclude journal files
+    List<Path> tmpWarcs = warcPaths
+      .stream()
+      .filter(path -> !isWarcJournalPath(path))
+      .toList();
 
     log.debug("Found {} temporary WARCs: {}", tmpWarcs.size(), tmpWarcs);
 
