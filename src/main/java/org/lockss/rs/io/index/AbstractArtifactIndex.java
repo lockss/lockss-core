@@ -65,9 +65,8 @@ public abstract class AbstractArtifactIndex implements ArtifactIndex {
         success = true;
       } finally {
         if (success) {
-          ArtifactIndexVersion lastRecordedVersion = new ArtifactIndexVersion()
-              .setIndexType(this.getClass().getSimpleName())
-              .setIndexVersion(from + 1);
+          ArtifactIndexVersion lastRecordedVersion = getArtifactIndexTargetVersion();
+          lastRecordedVersion.setIndexVersion(from + 1);
 
           Path stateDirPath = repository.getRepositoryStateDirPath();
           Path versionFilePath = stateDirPath.resolve(INDEX_VERSION_FILE);
