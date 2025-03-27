@@ -1175,6 +1175,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       try {
         log.debug("Removing temporary WARC file [tmpWarc: {}]", tmpWarc);
         removeWarc(tmpWarc);
+        removeWarc(getJournalPath(tmpWarc));
       } catch (IOException e) {
         log.warn("Could not remove a removable temporary WARC file", e);
         // Try again later - avoid reprocessing by marking as already processed and removable?

@@ -1527,17 +1527,18 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         log.debug("tmpWarcBasePath = {}", tmpWarcBasePath);
 
         assertTrue(WarcArtifactDataStore.getPathFromStorageUrl(new URI(indexedRef.getStorageUrl())).startsWith(tmpWarcBasePath));
-        assertEquals(1, tmpWarcs.size());
+        // 1 WARC, 1 journal
+        assertEquals(2, tmpWarcs.size(), "was: " + tmpWarcs);
         break;
 
       case EXPIRED:
         // The temporary WARC containing only this artifact should have been removed
-        assertEquals(0, tmpWarcs.size());
+        assertEquals(0, tmpWarcs.size(), "was: " + tmpWarcs);
         break;
 
       case COPIED:
         // The temporary WARC containing only this artifact should have been removed
-        assertEquals(0, tmpWarcs.size());
+        assertEquals(0, tmpWarcs.size(), tmpWarcs.toString());
 
         // Artifact's storage URL should point to a WARC in permanent storage
         Path artifactWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(new URI(indexedRef.getStorageUrl()));
@@ -1546,7 +1547,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
       case DELETED:
         // The temporary WARC containing only this artifact should have been removed
-        assertEquals(0, tmpWarcs.size());
+        assertEquals(0, tmpWarcs.size(), "was: " + tmpWarcs);
 
         assertTrue(reloadedStore.isArtifactDeleted(artifactId));
         assertFalse(index.artifactExists(artifactUuid));
