@@ -830,7 +830,7 @@ public class LockssDaemon extends LockssApp {
   public ApiStatus.StartupStatus getStartupStatus() {
     try {
       return getPluginManager().getStartupStatus();
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException | LockssAppException e) {
       // No PluginManager means no StartupStatus
       return ApiStatus.StartupStatus.NONE;
     }
