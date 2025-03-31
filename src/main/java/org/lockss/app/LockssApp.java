@@ -150,6 +150,9 @@ public class LockssApp {
   public static final String MANAGER_PREFIX =
     Configuration.PREFIX + "manager.";
 
+  public static final String MANAGER_INSTANCE_PREFIX =
+    Configuration.PREFIX + "managerInstance.";
+
   // Parameter keys for standard managers
   public static final String MISC_PARAMS =
     managerKey(MiscParams.class);
@@ -947,17 +950,19 @@ public class LockssApp {
    * manager class name */
   protected LockssManager instantiateManager(ManagerDesc desc)
       throws Exception {
-    String managerName = getManagerClassName(desc);
     LockssManager mgr;
-    try {
-      mgr = (LockssManager)makeInstance(managerName);
-    } catch (ClassNotFoundException e) {
-      log.warning("Couldn't load manager class " + managerName);
-      if (!managerName.equals(desc.getDefaultClass(this))) {
-	log.warning("Trying default manager class " + desc.getDefaultClass(this));
-	mgr = (LockssManager)makeInstance(desc.getDefaultClass(this));
-      } else {
-	throw e;
+    if ((mgr = System.getProperties.get(MANAGER_INSTANCE_PREFIX + desc.key)) == null) {
+      String managerName = getManagerClassName(desc);
+      try {
+        mgr = (LockssManager)makeInstance(managerName);
+      } catch (ClassNotFoundException e) {
+        log.warning("Couldn't load manager class " + managerName);
+        if (!managerName.equals(desc.getDefaultClass(this))) {
+          log.warning("Trying default manager class " + desc.getDefaultClass(this));
+          mgr = (LockssManager)makeInstance(desc.getDefaultClass(this));
+        } else {
+          throw e;
+        }
       }
     }
     return mgr;
@@ -1079,7 +1084,9 @@ public class LockssApp {
 
     // initialize our properties from the urls given
     initProperties();
+  }
 
+  protected void startManagers() throws Exception {
     log.info("Starting managers");
 
     // startup all services
@@ -1487,6 +1494,7 @@ public class LockssApp {
 
     try {
       startApp();
+      startManagers();
       // raise priority after starting other threads, so we won't get
       // locked out and fail to exit when told.
       Thread.currentThread().setPriority(Thread.NORM_PRIORITY + 2);
