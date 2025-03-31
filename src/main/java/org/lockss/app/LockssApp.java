@@ -1403,6 +1403,15 @@ public class LockssApp {
     LockssApp app;
     try {
       app = appClass.newInstance();
+    } catch (Exception e) {
+      throw new RuntimeException("Couldn't instantiate " + appClass, e);
+    }
+    return startStatic(app, spec);
+  }
+
+  /** Start the system using an already-created instance of (a subclass of) LockssApp
+   */
+  public static <T extends LockssApp> LockssApp startStatic(T app, AppSpec spec) {
 
 //       LockssApp oldApp = theApp.getValue();
 //       if (oldApp == null) {
@@ -1416,9 +1425,6 @@ public class LockssApp {
 //                   " (" + oldApp + "), aborting");
 //         throw new IllegalStateException("Can't create incompatible LockssApps");
 //       }
-    } catch (Exception e) {
-      throw new RuntimeException("Couldn't instantiate " + appClass, e);
-    }
     app.setAppSpec(spec);
     app.newStart();
     return app;
