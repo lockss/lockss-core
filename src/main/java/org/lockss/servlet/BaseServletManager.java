@@ -284,8 +284,10 @@ public abstract class BaseServletManager
    * manager */
   public abstract ServletDescr[] getServletDescrs();
 
-//   /** Install appropriate users for these servlets */
-//   protected abstract void installUsers();
+  // XXXXXXXXXXXXXXX
+  /** Install appropriate users for these servlets */
+  protected void installUsers() {
+  }
 
   /** Create and configure contexts for this server */
   protected abstract void configureContexts(HttpServer server);
@@ -581,7 +583,7 @@ public abstract class BaseServletManager
   void setupAuthRealm() {
     if (mi.doAuth) {
       realm = newUserRealm();
-//       installUsers();
+      installUsers();                   // only affects TinyUi
       if (acctMgr != null && acctMgr.getUsers().isEmpty()) {
 	log.warning("No users created, " + mi.authRealm +
 		    " is effectively disabled.");
@@ -593,14 +595,14 @@ public abstract class BaseServletManager
     return new LockssUserRealm(mi.authRealm, acctMgr);
   }
 
-//   protected void installDebugUser() {
+  protected void installDebugUser() {
 //     acctMgr.installDebugUser(mi.debugUserFile);
-//   }
+  }
 
-//   // Manually install password set by platform config.
-//   protected void installPlatformUser() {
+  // Manually install password set by platform config.
+  protected void installPlatformUser() {
 //     acctMgr.installPlatformUser();
-//   }
+  }
 
 //   protected void installGlobalUsers() {
 //     // Install globally configured users
